@@ -120,18 +120,8 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
         val result =
           createWasmModule(instance).computeStateHash(arr ⇒ EitherT.leftT(CryptoError("error!"))).value.left.get
 
-        result.message shouldBe "Getting internal state for module=test-module-name failed"
+        result.getMessage shouldBe "Computing wasm memory hash failed"
         result.getCause shouldBe a[CryptoError]
-        result shouldBe a[InternalVmError]
-      }
-
-      "working with memory is failed" in {
-        val memoryBuffer = ByteBuffer.wrap(Array[Byte](1, 2, 3))
-        memoryBuffer.position(1)
-        val instance = new { def getMemory: ByteBuffer = null }
-        val result = createWasmModule(instance).computeStateHash(arr ⇒ EitherT.rightT(arr)).value.left.get
-
-        result.message shouldBe "Copying memory to an array for module=test-module-name failed"
         result shouldBe a[InternalVmError]
       }
     }
@@ -139,6 +129,12 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
     "returns empty array of bytes" when {
       "memory isn't present in a module" in {
         val result = createWasmModule(new {}).computeStateHash(arr ⇒ EitherT.rightT(arr)).value.right.get
+        result shouldBe Array.emptyByteArray
+      }
+
+      "getMemory returns" in {
+        val instance = new { def getMemory: ByteBuffer = null }
+        val result = createWasmModule(instance).computeStateHash(arr ⇒ EitherT.rightT(arr)).value.right.get
         result shouldBe Array.emptyByteArray
       }
     }

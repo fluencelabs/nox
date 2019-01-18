@@ -18,7 +18,7 @@ package fluence.vm.wasm
 import java.nio.{ByteBuffer, ByteOrder}
 
 import fluence.vm.runThrowable
-import cats.{Functor, Monad}
+import cats.{Applicative, Functor, Monad}
 import cats.data.EitherT
 import fluence.crypto.CryptoError
 import fluence.vm.VmError.{InternalVmError, VmMemoryError}
@@ -29,11 +29,11 @@ import scala.language.higherKinds
 final case class WasmModuleMemory(memory: ByteBuffer) {
 
   /**
-   * Invokes invokeFunctionName which exported from Wasm module function with provided arguments.
+   * Reads .
    *
    * @param offset arguments for invokeFunction
    */
-  def readBytes[F[_]: Monad](
+  def readBytes[F[_]: Applicative](
     offset: Int,
     size: Int
   ): EitherT[F, VmMemoryError, Array[Byte]] =
@@ -50,7 +50,7 @@ final case class WasmModuleMemory(memory: ByteBuffer) {
       },
       e =>
         VmMemoryError(
-          s"Reading from offset $offset $size bytes failed",
+          s"Reading from offset=$offset $size bytes failed",
           Some(e)
       )
     )
@@ -80,7 +80,7 @@ final case class WasmModuleMemory(memory: ByteBuffer) {
     hashFn: Array[Byte] ⇒ EitherT[F, CryptoError, Array[Byte]]
   ): EitherT[F, GetVmStateError, Array[Byte]] =
     for {
-      memoryAsArray ← readBytes(0, memory.capacity())
+      memoryAsArray ← readBytes(0, memory.capacity()-1)
 
       vmStateAsHash ← hashFn(memoryAsArray).leftMap { e ⇒
         InternalVmError(s"Computing wasm memory hash failed", Some(e)): GetVmStateError

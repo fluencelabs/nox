@@ -31,8 +31,8 @@ import scala.language.{higherKinds, implicitConversions}
 class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
   /**
-    * By element comparision of arrays.
-    */
+   * By element comparision of arrays.
+   */
   private def compareArrays(first: Array[Byte], second: Array[Byte]): Assertion =
     first.deep shouldBe second.deep
 
@@ -81,8 +81,8 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
         val error = res.failed()
         error.getMessage should
-          startWith("Unable to find the function with name=writeMemory in module with name=<no-name>")
-        error shouldBe a[NoSuchFnError]
+          startWith("Module with name=<no-name> doesn't contain memory")
+        error shouldBe a[VmMemoryError]
       }
 
       "wasm code falls into the trap" in {
@@ -181,11 +181,11 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         get3 ← vm.invoke[IO]().toVmError // 0 -> 1
       } yield {
         compareArrays(get1, Array[Byte](1, 0, 0, 0))
-        compareArrays(get1, Array[Byte](2, 0, 0, 0))
-        compareArrays(get1, Array[Byte](3, 0, 0, 0))
+        compareArrays(get2, Array[Byte](2, 0, 0, 0))
+        compareArrays(get3, Array[Byte](3, 0, 0, 0))
       }
 
-      res.success()
+      val tt = res.success()
     }
 
     "run simple test with array passsing" in {
@@ -202,7 +202,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         compareArrays(value1, Array[Byte](90, 0, 0, 0))
         compareArrays(value2, Array[Byte](0, 0, 0, 0))
         compareArrays(value3, Array[Byte]('X'.toByte, 0, 0, 0))
-        compareArrays(value4, Array[Byte](0, 0, 0, 0)) // this Wasm example returns 0 on empty string
+        compareArrays(value4, Array[Byte](0, 0, 0, 0)) // this Wasm example returns 0 on empty strings
         compareArrays(value5, Array[Byte]('"'.toByte, 0, 0, 0))
       }
 
@@ -221,7 +221,8 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         stringValue shouldBe "Hello from Fluence Labs!"
       }
 
-      res.success()
+      val tt = res.failed()
+      val hh = 5
     }
 
     "run simple test with array mutation" in {

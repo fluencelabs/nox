@@ -183,10 +183,13 @@ object WasmModule {
       // for use, but it gives us the capability for getting memory for any module. And in the future, we
       // should move to it.
       memory ← Try {
-        val getMemoryMethod = Try(
+        val getMemoryMethod: Option[Method] = Try(
           moduleInstance.getClass.getMethod("getMemory")
         ).toOption
-        getMemoryMethod.map(_.invoke(moduleInstance).asInstanceOf[ByteBuffer])
+        getMemoryMethod
+          .flatMap(Option(_))
+          .map(_.invoke(moduleInstance).asInstanceOf[ByteBuffer])
+          .flatMap(Option(_))
       }.toEither.left.map { e ⇒
         InitializationError(
           s"Unable to getting memory from module=${moduleDescription.getName}",

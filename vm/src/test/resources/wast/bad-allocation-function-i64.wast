@@ -11,10 +11,8 @@
         (i64.const 9223372036854775807)
     )
 
-    (func (export "deallocate") (param $address i32) (param $size i32) (return i32)
+    (func (export "deallocate") (param $address i32) (param $size i32) (result i32)
         ;; in this simple deallocation function returns 0
-        (drop)
-        (drop)
         (i32.const 0)
     )
 
