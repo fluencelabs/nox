@@ -97,18 +97,18 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       client,
       session,
       0,
-      "inc()",
+      "()",
       "UY7z792BxI9os9ZjuErFyHZXONWZD1Uu1QRx9+6W40exjL+6USXFEt+3ayEEZCcu2Tv0ObJULxDhc9GQ4muuAQ"
     )
     val tx1 = tx(
       client,
       session,
       1,
-      "MulModule.mul(0A0000000E000000)",
+      "MulModule.(0A0000000E000000)",
       "YsykPCUaOpHjZ45CMOUBfaQjKLvMwaeac1OZxY9BqKE658qYuMx+Loe/iZMVc6IrXFSUffEIuLWXV6weOhHwAA"
     )
-    val tx2 = tx(client, session, 2, "inc()")
-    val tx3 = tx(client, session, 3, "get()")
+    val tx2 = tx(client, session, 2, "()")
+    val tx3 = tx(client, session, 3, "()")
     val tx0Failed = tx(client, session, 0, "wrong()")
     val tx0Result = s"@meta/${client.id}/$session/0/result"
     val tx1Result = s"@meta/${client.id}/$session/1/result"

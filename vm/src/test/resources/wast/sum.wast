@@ -8,7 +8,7 @@
 
     (func (export "allocate") (param $0 i32) (result i32)
         ;; just return constant offset in ByteBuffer
-        (i32.const 10000)
+        (i32.const 0)
     )
 
     (func (export "deallocate") (param $address i32) (param $size i32) (result i32)

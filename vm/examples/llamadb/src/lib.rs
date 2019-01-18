@@ -70,7 +70,7 @@ pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
 /// 3. Returns a pointer to the result as a string in the memory
 /// 4. Deallocates memory occupied by passed parameter
 #[no_mangle]
-pub unsafe fn do_query(ptr: *mut u8, len: usize) -> NonNull<u8> {
+pub unsafe fn invoke(ptr: *mut u8, len: usize) -> NonNull<u8> {
     info!("do_query starts with ptr={:?}, len={}", ptr, len);
     // memory for the parameter will be deallocated when sql_str was dropped
     let sql_str: String = fluence::memory::deref_str(ptr, len);
@@ -106,7 +106,7 @@ pub unsafe fn allocate(size: usize) -> NonNull<u8> {
 /// Used from the host environment for memory deallocation after reading results
 /// of function from Wasm memory.
 #[no_mangle]
-pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) {
+pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) -> u8 {
     info!("deallocate starts with ptr={:?}, size={}", ptr, size);
     let non_zero_size = NonZeroUsize::new(size).unwrap_or_else(|| {
         log_and_panic("[Error] Deallocation of zero bytes is not allowed.".into())
@@ -117,6 +117,7 @@ pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) {
             ptr, size
         ))
     });
+    0
 }
 
 fn log_and_panic(msg: String) -> ! {

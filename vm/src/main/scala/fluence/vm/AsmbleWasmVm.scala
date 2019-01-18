@@ -110,16 +110,8 @@ class AsmbleWasmVm(
       EitherT.rightT[F, InvokeError](0.asInstanceOf[AnyRef] :: 0.asInstanceOf[AnyRef] :: Nil)
     else
       for {
-        offset <- moduleInstance.allocate(fnArgument.length + WasmPointerSize)
-
-        // convert ArrayByte to Int
-        resultSize <- runThrowable(
-          ByteBuffer.allocate(WasmPointerSize).order(ByteOrder.LITTLE_ENDIAN).putInt(fnArgument.length).array(),
-          e => VmMemoryError(s"Trying to extract result from incorrect offset=$offset")
-        )
-
-        _ <- moduleInstance.writeMemory(offset, resultSize)
-        _ <- moduleInstance.writeMemory(offset + WasmPointerSize, fnArgument).leftMap(e => e: InvokeError)
+        offset <- moduleInstance.allocate(fnArgument.length)
+        _ <- moduleInstance.writeMemory(offset, fnArgument).leftMap(e => e: InvokeError)
 
       } yield offset.asInstanceOf[AnyRef] :: fnArgument.length.asInstanceOf[AnyRef] :: Nil
 

@@ -147,9 +147,9 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm <- WasmVm[IO](NonEmptyList.one(sumTestFile))
-        result ← vm.invoke[IO](Some("SumModule"), intsToBytes(100 :: 13 :: Nil).array()).toVmError
+        result ← vm.invoke[IO](Some("SumModule"), intsToBytes(100 :: 17 :: Nil).array()).toVmError
       } yield {
-        compareArrays(result, Array[Byte](113, 0, 0, 0))
+        compareArrays(result, Array[Byte](117, 0, 0, 0))
       }
 
       res.success()
@@ -176,9 +176,9 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
       val res = for {
         vm <- WasmVm[IO](NonEmptyList.one(counterTestFile))
-        get1 ← vm.invoke[IO]() // 0 -> 1
-        get2 ← vm.invoke[IO]() // 0 -> 1
-        get3 ← vm.invoke[IO]().toVmError // 0 -> 1
+        get1 ← vm.invoke[IO]() // 0 -> 1; read 1
+        get2 ← vm.invoke[IO]() // 1 -> 2; read 2
+        get3 ← vm.invoke[IO]().toVmError // 2 -> 3; read 3
       } yield {
         compareArrays(get1, Array[Byte](1, 0, 0, 0))
         compareArrays(get2, Array[Byte](2, 0, 0, 0))
@@ -314,8 +314,8 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
           vm <- WasmVm[IO](NonEmptyList.of(counterTestFile, counterCopyTestFile, mulTestFile))
 
           get1 ← vm.invoke[IO]() // 0 -> 1; read 1
-          getFromCopy1 ← vm.invoke[IO](Some("CounterCopyModule")) // read 1
-          mul ← vm.invoke[IO](Some("MulModule"), intsToBytes(100 :: 13 :: Nil).array())
+          getFromCopy1 ← vm.invoke[IO](Some("CounterCopyModule")) // 0 -> 1; read 1
+          mul ← vm.invoke[IO](Some("MulModule"), intsToBytes(100 :: 17 :: Nil).array())
 
           state1 ← vm.getVmState[IO]
 
@@ -327,7 +327,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         } yield {
           compareArrays(get1, Array[Byte](1, 0, 0, 0))
           compareArrays(getFromCopy1, Array[Byte](1, 0, 0, 0))
-          compareArrays(mul, Array[Byte](25, 5, 0, 0))
+          compareArrays(mul, Array[Byte](164.toByte, 6, 0, 0))
 
           state1.size shouldBe 32
           state2.size shouldBe 32
