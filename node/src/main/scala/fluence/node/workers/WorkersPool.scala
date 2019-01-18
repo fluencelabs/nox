@@ -102,7 +102,7 @@ class WorkersPool[F[_]: ContextShift: Timer](
    *
    * @param P [[Parallel]] instance is required as all workers are stopped concurrently
    */
-  def healths[G[_]](implicit P: Parallel[F, G]): F[Map[WorkerParams, WorkerInfo]] =
+  def healths[G[_]](implicit P: Parallel[F, G]): F[Map[WorkerParams, WorkerHealth]] =
     for {
       workersMap ← workers.get
       workersHealth ← Parallel.parTraverse(workersMap.values.toList)(s ⇒ s.healthReport.map(s.params → _))

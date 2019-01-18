@@ -109,9 +109,11 @@ object Configuration {
       }
 
       nodeId <- DockerIO.run[IO](tendermint("show_node_id", uid)).compile.lastOrError
+      _ = println(s"Node ID: $nodeId")
 
       validatorRaw <- DockerIO.run[IO](tendermint("show_validator", uid)).compile.lastOrError
       validator <- IO.fromEither(parse(validatorRaw).flatMap(_.as[ValidatorKey]))
+      _ = println(s"Validator PubKey: ${validator.value}")
     } yield (nodeId, validator)
   }
 }

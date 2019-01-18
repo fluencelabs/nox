@@ -16,13 +16,14 @@
 
 package fluence.node.workers
 import fluence.node.docker.DockerParams
-import fluence.node.tendermint.ClusterData
+import fluence.node.eth.WorkerNode
 
 /**
  * Worker container's params
  */
 case class WorkerParams(
-  clusterData: ClusterData,
+  appIdHex: String,
+  currentWorker: WorkerNode,
   workerPath: String,
   vmCodePath: String,
   masterNodeContainerId: Option[String],
@@ -30,28 +31,25 @@ case class WorkerParams(
 ) {
 
   override def toString =
-    s"(worker ${clusterData.nodeInfo.node_index} with port $rpcPort for ${clusterData.nodeInfo.clusterName})"
-
-  val rpcPort: Short = clusterData.rpcPort
+    s"(worker ${currentWorker.index} with RPC port ${currentWorker.rpcPort} for app $appIdHex)"
 
   /**
    * [[fluence.node.docker.DockerIO.run]]'s command for launching a configured worker
    */
-  val dockerCommand: DockerParams.Sealed =
-    masterNodeContainerId
-      .map(_ + ":ro")
-      .foldLeft(
-        DockerParams
-          .daemonRun()
-          .option("-e", s"""CODE_DIR=$vmCodePath""")
-          .option("-e", s"""WORKER_DIR=$workerPath""")
-          .port(clusterData.p2pPort, 26656)
-          .port(rpcPort, 26657)
-          .port(clusterData.tmPrometheusPort, 26660)
-          .port(clusterData.smPrometheusPort, 26661)
-      )(
-        _.option("--volumes-from", _)
-      )
-      .option("--name", clusterData.nodeInfo.nodeName)
-      .image(image.imageName)
+  val dockerCommand: DockerParams.Sealed = {
+    val params = DockerParams
+      .daemonRun()
+      .option("-e", s"""CODE_DIR=$vmCodePath""")
+      .option("-e", s"""WORKER_DIR=$workerPath""")
+      .option("--name", s"${appIdHex}_${currentWorker.index}")
+      .port(currentWorker.port, 26656)
+      .port(currentWorker.rpcPort, 26657)
+      .port(currentWorker.tmPrometheusPort, 26660)
+      .port(currentWorker.smPrometheusPort, 26661)
+
+    (masterNodeContainerId match {
+      case Some(id) => params.option("--volumes-from", s"$id:ro")
+      case None => params
+    }).image(image.imageName)
+  }
 }

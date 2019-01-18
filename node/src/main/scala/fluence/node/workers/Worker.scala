@@ -19,11 +19,11 @@ package fluence.node.workers
 import cats.Applicative
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
-import cats.syntax.functor._
-import cats.syntax.flatMap._
+import cats.syntax.applicativeError._
 import cats.syntax.apply._
 import cats.syntax.either._
-import cats.syntax.applicativeError._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.circe._
 import fluence.node.docker.DockerIO
@@ -43,12 +43,12 @@ import scala.language.higherKinds
 case class Worker[F[_]] private (
   params: WorkerParams,
   rpc: WorkerRpc[F],
-  private val healthReportRef: Ref[F, WorkerInfo],
+  private val healthReportRef: Ref[F, WorkerHealth],
   stop: F[Unit]
 ) {
 
   // Getter for the last healthcheck
-  val healthReport: F[WorkerInfo] = healthReportRef.get
+  val healthReport: F[WorkerHealth] = healthReportRef.get
 
 }
 
@@ -64,9 +64,9 @@ object Worker extends LazyLogging {
     params: WorkerParams,
     httpPath: String,
     uptime: Long
-  )(implicit sttpBackend: SttpBackend[F, Nothing]): F[WorkerInfo] = {
+  )(implicit sttpBackend: SttpBackend[F, Nothing]): F[WorkerHealth] = {
 
-    val url = uri"http://${params.clusterData.rpcHost}:${params.rpcPort}/$httpPath"
+    val url = uri"http://${params.currentWorker.ip.getHostAddress}:${params.currentWorker.port}/$httpPath"
 
     // As container is running, perform a custom healthcheck: request a HTTP endpoint inside the container
     logger.debug(
@@ -89,11 +89,11 @@ object Worker extends LazyLogging {
       .map {
         case Right(status) ⇒
           val tendermintInfo = status.result
-          val info = RunningWorkerInfo.fromParams(params, tendermintInfo)
+          val info = RunningWorkerInfo.fromParams(params.currentWorker, tendermintInfo)
           WorkerRunning(uptime, info)
         case Left(err) ⇒
           logger.error("Worker HTTP check failed: " + err.getLocalizedMessage, err)
-          WorkerHttpCheckFailed(StoppedWorkerInfo(params), err)
+          WorkerHttpCheckFailed(StoppedWorkerInfo(params.currentWorker), err)
       }
       .map { health ⇒
         logger.debug(s"HTTP health is: $health")
@@ -106,7 +106,7 @@ object Worker extends LazyLogging {
    */
   private def runHealthCheck[F[_]: Concurrent: ContextShift: Timer](
     params: WorkerParams,
-    healthReportRef: Ref[F, WorkerInfo],
+    healthReportRef: Ref[F, WorkerHealth],
     stop: Deferred[F, Either[Throwable, Unit]],
     healthcheck: HealthCheckConfig
   )(implicit sttpBackend: SttpBackend[F, Nothing]): F[Unit] =
@@ -116,12 +116,12 @@ object Worker extends LazyLogging {
         // Check that container is running every healthcheck.period
         DockerIO.check[F](healthcheck.period)
       )
-      .evalMap[F, WorkerInfo] {
+      .evalMap[F, WorkerHealth] {
         case (uptime, true) ⇒
           getHealthState(params, healthcheck.httpPath, uptime)
         case (_, false) ⇒
           logger.error(s"Healthcheck is failing for worker: $params")
-          Applicative[F].pure(WorkerContainerNotRunning(StoppedWorkerInfo(params)))
+          Applicative[F].pure(WorkerContainerNotRunning(StoppedWorkerInfo(params.currentWorker)))
       }
       .evalTap(healthReportRef.set)
       .interruptWhen(stop)
@@ -142,7 +142,7 @@ object Worker extends LazyLogging {
     implicit sttpBackend: SttpBackend[F, Nothing]
   ): F[Worker[F]] =
     for {
-      healthReportRef ← Ref.of[F, WorkerInfo](WorkerNotYetLaunched(StoppedWorkerInfo(params)))
+      healthReportRef ← Ref.of[F, WorkerHealth](WorkerNotYetLaunched(StoppedWorkerInfo(params.currentWorker)))
       stop ← Deferred[F, Either[Throwable, Unit]]
 
       fiber ← Concurrent[F].start(runHealthCheck(params, healthReportRef, stop, healthcheck))

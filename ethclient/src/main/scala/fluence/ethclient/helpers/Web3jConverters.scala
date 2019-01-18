@@ -57,6 +57,13 @@ object Web3jConverters {
   def base64ToBytes32(base64: String): Bytes32 = new Bytes32(Base64.getDecoder.decode(base64))
 
   /**
+   * Converts web3j's Bytes32 to base64 string
+   *
+   * @param bytes32 bytes32 value
+   */
+  def bytes32ToBase64(bytes32: Bytes32): String = Base64.getEncoder.encodeToString(bytes32.getValue)
+
+  /**
    * Interprets web3j's Bytes32 as Tendermint chain ID.
    * TODO: currently only the lowermost byte used
    *
@@ -70,6 +77,13 @@ object Web3jConverters {
    * @param bytes32 text in Bytes32 encoding
    */
   def bytes32ToString(bytes32: Bytes32): String = new String(bytes32.getValue.filter(_ != 0))
+
+  /**
+   * Converts bytes of web3j's Bytes32 to hex string.
+   *
+   * @param bytes32 bytes32 value
+   */
+  def bytes32ToHexString(bytes32: Bytes32): String = ByteVector(bytes32.getValue).toHex
 
   /**
    * Converts hex string to byte array.
