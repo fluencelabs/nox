@@ -74,7 +74,6 @@ object Cluster {
       .toList
 
     val currentWorker = workers.find(_.validatorKey == currentWorkerId)
-
     currentWorker.map(cw => Cluster(timestamp, workers, cw))
   }
 }

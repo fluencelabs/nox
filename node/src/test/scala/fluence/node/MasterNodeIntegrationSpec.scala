@@ -35,6 +35,7 @@ import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.circe.asJson
+import fluence.ethclient.helpers.Web3jConverters
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -84,12 +85,12 @@ class MasterNodeIntegrationSpec
   }
 
   override protected def afterAll(): Unit = {
-    logger.info("killing ganache")
-    run("pkill -f ganache")
+//    logger.info("killing ganache")
+//    run("pkill -f ganache")
 
-    logger.info("stopping containers")
+//    logger.info("stopping containers")
     // TODO: kill containers through Master's HTTP API
-    run("docker rm -f 01_node0 01_node1 master1 master2")
+//    run("docker rm -f 01_node0 01_node1 master1 master2")
   }
 
   "MasterNodes" should "sync their workers with contract clusters" in {
@@ -164,6 +165,14 @@ class MasterNodeIntegrationSpec
             contract = FluenceContract(ethClient, contractConfig)
             status1 <- getStatus(status1Port)
             status2 <- getStatus(status2Port)
+            _ = println(
+              s"master1 is ${status1.nodeConfig.validatorKey.value}" +
+                s" ${Web3jConverters.bytes32ToHexString(status1.nodeConfig.validatorKey.toBytes32)}"
+            )
+            _ = println(
+              s"master2 is ${status2.nodeConfig.validatorKey.value}" +
+                s" ${Web3jConverters.bytes32ToHexString(status2.nodeConfig.validatorKey.toBytes32)}"
+            )
             _ <- contract.addNode[IO](status1.nodeConfig).attempt
             _ <- contract.addNode[IO](status2.nodeConfig).attempt
             _ <- contract.addApp[IO]("llamadb", clusterSize = 2)

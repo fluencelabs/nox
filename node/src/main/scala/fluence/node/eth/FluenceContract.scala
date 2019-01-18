@@ -22,6 +22,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.ethclient.Network.{APPDEPLOYED_EVENT, AppDeployedEventResponse}
 import fluence.ethclient.helpers.RemoteCallOps._
+import fluence.ethclient.helpers.Web3jConverters
 import fluence.ethclient.helpers.Web3jConverters.stringToBytes32
 import fluence.ethclient.{EthClient, Network}
 import fluence.node.config.NodeConfig
@@ -85,7 +86,7 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
   /**
    * Returns a finite stream of ClusterData for the given node.
    *
-   * @param nodeConfig Node to pick validatorKey from to lookup the clusters for
+   * @param workerId Tendermint Validator key of current worker, used to filter out apps which aren't related to current node
    * @tparam F Effect
    */
   def getNodeApps[F[_]: Async](workerId: Bytes32): fs2.Stream[F, App] =
@@ -97,21 +98,18 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
             contract
               .getApp(appId)
               .call[F]
-              .map(
-                tuple ⇒
-                  (
-                    tuple.getValue1,
-                    tuple.getValue6,
-                    tuple.getValue7
-                )
-              ),
+              .map(tuple ⇒ (tuple.getValue1, tuple.getValue6, tuple.getValue7)),
             contract
               .getAppWorkers(appId)
               .call[F]
               .map(tuple ⇒ (tuple.getValue1, tuple.getValue2))
           ) {
             case ((storageHash, genesisTime, workerIds), (addrs, ports)) ⇒
+              println(
+                s"validatorKeys from getApp: ${workerIds.getValue.asScala.map(Web3jConverters.bytes32ToHexString)}"
+              )
               val cluster = Cluster.build(genesisTime, workerIds, addrs, ports, currentWorkerId = workerId)
+              println(s"getApp cluster is $cluster")
               cluster.map(App(appId, storageHash, _))
         }
       )
@@ -154,7 +152,7 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
    * @tparam F Effect
    * @return The block number where transaction has been mined
    */
-  def addNode[F[_]: Async](nodeConfig: NodeConfig): F[BigInt] =
+  def addNode[F[_]: Async](nodeConfig: NodeConfig): F[BigInt] = {
     contract
       .addNode(
         nodeConfig.validatorKey.toBytes32,
@@ -166,6 +164,7 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
       .call[F]
       .map(_.getBlockNumber)
       .map(BigInt(_))
+  }
 
   /**
    * Adds a new code to be launched with a new cluster
@@ -192,32 +191,19 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
 object FluenceContract {
 
   /**
-   * Tries to convert `ClusterFormedEvent` response to [[ClusterData]] with all information to launch cluster.
+   * Tries to convert `ClusterFormedEvent` response to [[App]] with all information to launch cluster.
    *
    * @param event event response
-   * @param nodeConfig information about current node
+   * @param workerId Tendermint Validator key of current worker, used to filter out events which aren't addressed to this node
    * @return true if provided node key belongs to the cluster from the event
    */
-//  def eventToClusterData(
-//    event: AppDeployedEventResponse,
-//    nodeConfig: NodeConfig
-//  ): Option[ClusterData] =
-//    ClusterData.build(
-//      event.appID,
-//      event.nodeIDs,
-//      event.genesisTime,
-//      event.storageHash,
-//      event.nodeAddresses,
-//      event.ports,
-//      nodeConfig
-//    )
-
   def eventToApp(
     event: AppDeployedEventResponse,
     workerId: Bytes32
   ): Option[App] = {
     val cluster =
       Cluster.build(event.genesisTime, event.nodeIDs, event.nodeAddresses, event.ports, currentWorkerId = workerId)
+    println(s"cluster is $cluster")
     cluster.map(App(event.appID, event.storageHash, _))
   }
 

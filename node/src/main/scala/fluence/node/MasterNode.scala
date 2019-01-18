@@ -18,6 +18,7 @@ package fluence.node
 import java.nio.file._
 
 import cats.effect.{ConcurrentEffect, ExitCode, IO}
+import fluence.ethclient.helpers.Web3jConverters
 import fluence.node.config.NodeConfig
 import fluence.node.eth.{App, FluenceContract}
 import fluence.node.tendermint.config.TendermintConfig
@@ -43,7 +44,7 @@ case class MasterNode(
 )(implicit ce: ConcurrentEffect[IO])
     extends slogging.LazyLogging {
 
-  private def prepareWorkerParams(): Pipe[IO, App, WorkerParams] = {
+  private val prepareWorkerParams: Pipe[IO, App, WorkerParams] = {
     TendermintConfig.prepareWorkerParams(
       nodeConfig.validatorKey.toBytes32,
       nodeConfig.workerImage,
@@ -60,7 +61,7 @@ case class MasterNode(
   val run: IO[ExitCode] =
     contract
       .getAllNodeApps(nodeConfig.validatorKey.toBytes32)
-      .through(prepareWorkerParams())
+      .through(prepareWorkerParams)
       .evalTap[IO] { params ⇒
         logger.info("Running worker `{}`", params)
 

@@ -57,6 +57,10 @@ object TendermintConfig extends slogging.LazyLogging {
   ): fs2.Pipe[IO, App, WorkerParams] =
     _.evalMap {
       case app @ App(appId, storageHash, _) =>
+        println(s"we're in prepareWorkerParams!")
+        println(
+          s"validatorKey: ${Web3jConverters.bytes32ToHexString(workerId)}"
+        )
         for {
           _ ← IO { logger.info("This node will host app '{}'", appId) }
 
