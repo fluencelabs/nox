@@ -80,7 +80,7 @@ final case class WasmModuleMemory(memory: ByteBuffer) {
     hashFn: Array[Byte] ⇒ EitherT[F, CryptoError, Array[Byte]]
   ): EitherT[F, GetVmStateError, Array[Byte]] =
     for {
-      memoryAsArray ← readBytes(0, memory.capacity()-1)
+      memoryAsArray ← readBytes(0, memory.limit())
 
       vmStateAsHash ← hashFn(memoryAsArray).leftMap { e ⇒
         InternalVmError(s"Computing wasm memory hash failed", Some(e)): GetVmStateError

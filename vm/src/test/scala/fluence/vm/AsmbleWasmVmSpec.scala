@@ -135,7 +135,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
         val error = res.failed()
         error shouldBe a[VmMemoryError]
-        error.getMessage shouldBe "Reading from offset 1048596 16777215 bytes failed"
+        error.getMessage shouldBe "Reading from offset=1048596 16777215 bytes failed"
       }
 
     }
@@ -221,8 +221,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         stringValue shouldBe "Hello from Fluence Labs!"
       }
 
-      val tt = res.failed()
-      val hh = 5
+      res.success()
     }
 
     "run simple test with array mutation" in {
@@ -256,7 +255,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         } yield state
 
         val error = res.failed()
-        error.getMessage shouldBe "Getting internal state for module=<no-name> failed"
+        error.getMessage shouldBe "Computing wasm memory hash failed"
         error.getCause shouldBe a[CryptoError]
         error shouldBe a[InternalVmError]
       }
