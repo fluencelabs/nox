@@ -22,22 +22,21 @@ import cats.effect._
 import cats.syntax.applicativeError._
 import cats.syntax.functor._
 import cats.syntax.monadError._
-import com.softwaremill.sttp.SttpBackend
+import com.softwaremill.sttp.{SttpBackend, _}
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
+import com.softwaremill.sttp.circe.asJson
 import fluence.ethclient.EthClient
+import fluence.ethclient.helpers.Web3jConverters
+import fluence.ethclient.helpers.Web3jConverters.hexToBytes32
 import fluence.node.docker.{DockerIO, DockerParams}
 import fluence.node.eth.{FluenceContract, FluenceContractConfig}
+import fluence.node.workers.WorkerRunning
 import org.scalactic.source.Position
 import org.scalatest.exceptions.{TestFailedDueToTimeoutException, TestFailedException}
 import org.scalatest.time.Span
 import org.scalatest.{Timer => _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
-import com.softwaremill.sttp._
-import com.softwaremill.sttp.circe.asJson
-import fluence.ethclient.helpers.Web3jConverters
-import fluence.node.workers.{WorkerHealth, WorkerRunning}
-import Web3jConverters.hexToBytes32
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -137,7 +136,7 @@ class MasterNodeIntegrationSpec
     def getStatus(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[MasterStatus] = {
       import MasterStatus._
       for {
-        resp <- sttp.response(asJson[MasterStatus]).get(uri"http://localhost:$statusPort/status").send()
+        resp <- sttp.response(asJson[MasterStatus]).get(uri"http://127.0.0.1:$statusPort/status").send()
       } yield resp.unsafeBody.right.get
     }
 
@@ -169,8 +168,9 @@ class MasterNodeIntegrationSpec
           _ <- eventually[IO](checkMasterRunning(master2), maxWait = 15.seconds)
         } yield Seq(master1, master2)
       } { masters =>
-        val containers = masters.mkString(" ")
-        IO { run(s"docker rm -f $containers") }
+        // TODO: uncomment container removal
+//        val containers = masters.mkString(" ")
+//        IO { run(s"docker rm -f $containers") }
       }
 
     def getRunningWorker(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]) =
