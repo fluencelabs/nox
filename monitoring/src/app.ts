@@ -41,7 +41,7 @@ export async function getApps(contract: Network, ids: string[]): Promise<App[]> 
 
     let appCalls: Promise<App>[] = ids.map((id) => {
         return contract.methods.getApp(id).call().then((unparsedApp) => {
-            let appAddress: string = unparsedApp["0"];
+            let storageHash: string = unparsedApp["0"];
             let storageReceipt: string = unparsedApp["1"];
             let clusterSize: number = parseInt(unparsedApp["2"]);
             let owner: string = unparsedApp["3"];
@@ -55,7 +55,7 @@ export async function getApps(contract: Network, ids: string[]): Promise<App[]> 
 
             return {
                 app_id: id,
-                storage_hash: appAddress,
+                storage_hash: storageHash,
                 storage_receipt: storageReceipt,
                 cluster_size: clusterSize,
                 owner: owner,
