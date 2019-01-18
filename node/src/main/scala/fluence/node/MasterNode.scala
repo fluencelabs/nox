@@ -17,7 +17,7 @@
 package fluence.node
 import java.nio.file._
 
-import cats.effect.{ConcurrentEffect, ExitCode, IO}
+import cats.effect.{Concurrent, ConcurrentEffect, ExitCode, IO}
 import fluence.ethclient.helpers.Web3jConverters
 import fluence.node.config.NodeConfig
 import fluence.node.eth.{App, FluenceContract}
@@ -58,11 +58,11 @@ case class MasterNode(
    * Runs MasterNode. Returns when contract.getAllNodeClusters is exhausted
    * TODO: add a way to cleanup, e.g. unsubscribe and stop
    */
-  val run: IO[ExitCode] =
+  private val masterNode: IO[ExitCode] =
     contract
       .getAllNodeApps(nodeConfig.validatorKey.toBytes32)
       .through(prepareWorkerParams)
-      .evalTap[IO] { params ⇒
+      .evalMap { params ⇒
         logger.info("Running worker `{}`", params)
 
         pool.run(params).map(newlyAdded ⇒ logger.info(s"worker run (newly=$newlyAdded) {}", params))
@@ -72,4 +72,26 @@ case class MasterNode(
       .compile // Compile to a runnable, in terms of effect IO
       .drain // Switch to IO[Unit]
       .map(_ ⇒ ExitCode.Success)
+
+  /**
+   * Starts listening for AppDeleted event and deletes a worker for that app if it exists. Does nothing otherwise.
+   */
+  private val listenForDeletion: IO[Unit] =
+    contract.getAppDeleted
+      .evalMap(pool.stopWorkerForApp)
+      .drain
+      .compile
+      .drain
+
+  /**
+   * Runs master node and starts listening for AppDeleted event in different threads,
+   * then joins the threads and returns back exit code from master node
+   */
+  val run: IO[ExitCode] = for {
+    node <- Concurrent[IO].start(masterNode)
+    appDelete <- Concurrent[IO].start(listenForDeletion)
+    exitCode <- node.join
+    wtf <- appDelete.join
+    _ <- IO { println(s"exitCode: $exitCode also $wtf") }
+  } yield exitCode
 }

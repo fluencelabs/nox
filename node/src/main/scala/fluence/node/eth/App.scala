@@ -29,9 +29,7 @@ case class App(
   appId: Bytes32,
   storageHash: Bytes32,
   cluster: Cluster //TODO: maybe make cluster an Option
-) {
-  def appIdHex: String = bytes32ToHexStringTrimZeros(appId)
-}
+)
 
 case class Cluster(genesisTime: FiniteDuration, workers: List[WorkerNode], currentWorker: WorkerNode)
 

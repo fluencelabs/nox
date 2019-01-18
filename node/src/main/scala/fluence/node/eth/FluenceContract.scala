@@ -20,17 +20,16 @@ import cats.Apply
 import cats.effect.{Async, ConcurrentEffect, Sync}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.ethclient.Network.{APPDEPLOYED_EVENT, AppDeployedEventResponse}
+import fluence.ethclient.Network.{APPDELETED_EVENT, APPDEPLOYED_EVENT, AppDeployedEventResponse}
 import fluence.ethclient.helpers.RemoteCallOps._
-import fluence.ethclient.helpers.Web3jConverters
 import fluence.ethclient.helpers.Web3jConverters.stringToBytes32
 import fluence.ethclient.{EthClient, Network}
 import fluence.node.config.NodeConfig
 import fs2.interop.reactivestreams._
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.generated.{Uint8, _}
-import org.web3j.abi.datatypes.{Bool, DynamicArray}
-import org.web3j.protocol.core.methods.request.{EthFilter, SingleAddressEthFilter}
+import org.web3j.abi.datatypes.{Bool, DynamicArray, Event}
+import org.web3j.protocol.core.methods.request.SingleAddressEthFilter
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
 
 import scala.collection.JavaConverters._
@@ -46,11 +45,11 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
   import FluenceContract.NodeConfigEthOps
 
   /**
-   * Builds an actual filter for APP_DEPLOYED event.
+   * Builds a filter for specified event. Filter is to be used in eth_newFilter
    *
    * @tparam F Effect, used to query Ethereum for the last block number
    */
-  private def appDeployedFilter[F[_]: Async]: F[EthFilter] =
+  private def eventFilter[F[_]: Async](event: Event) =
     ethClient
       .getBlockNumber[F]
       .map(
@@ -59,7 +58,7 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
             DefaultBlockParameter.valueOf(currentBlock.bigInteger),
             DefaultBlockParameterName.LATEST,
             contract.getContractAddress
-          ).addSingleTopic(EventEncoder.encode(APPDEPLOYED_EVENT))
+          ).addSingleTopic(EventEncoder.encode(event))
       )
 
   /**
@@ -120,7 +119,7 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
    */
   def getNodeAppDeployed[F[_]: ConcurrentEffect](workerId: Bytes32): fs2.Stream[F, App] =
     fs2.Stream
-      .eval(appDeployedFilter[F])
+      .eval(eventFilter[F](APPDEPLOYED_EVENT))
       .flatMap(filter ⇒ contract.appDeployedEventFlowable(filter).toStream[F]) // It's checked that current node participates in a cluster there
       .map(FluenceContract.eventToApp(_, workerId))
       .unNone
@@ -182,16 +181,30 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
       .call[F]
       .map(_.getBlockNumber)
       .map(BigInt(_))
+
+  // TODO: on reconnect, do getApps again and remove all apps that are running on this node but not in getApps list
+  // this may happen if we missed some events due to network outage or the like
+  /**
+   * Returns a stream derived from the new AppDeleted events, showing that an app should be removed.
+   *
+   * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
+   * @return Possibly infinite stream of AppDeleted events
+   */
+  def getAppDeleted[F[_]: ConcurrentEffect]: fs2.Stream[F, Bytes32] =
+    fs2.Stream
+      .eval(eventFilter[F](APPDELETED_EVENT))
+      .flatMap(filter ⇒ contract.appDeletedEventFlowable(filter).toStream[F])
+      .map(_.appID)
 }
 
 object FluenceContract {
 
   /**
-   * Tries to convert `ClusterFormedEvent` response to [[App]] with all information to launch cluster.
+   * Tries to convert `AppDeployedEvent` response to [[App]] with all information to launch cluster.
    *
    * @param event event response
    * @param workerId Tendermint Validator key of current worker, used to filter out events which aren't addressed to this node
-   * @return true if provided node key belongs to the cluster from the event
+   * @return Some(App) if current node should host this app, None otherwise
    */
   def eventToApp(
     event: AppDeployedEventResponse,
@@ -199,7 +212,6 @@ object FluenceContract {
   ): Option[App] = {
     val cluster =
       Cluster.build(event.genesisTime, event.nodeIDs, event.nodeAddresses, event.ports, currentWorkerId = workerId)
-    println(s"cluster is $cluster")
     cluster.map(App(event.appID, event.storageHash, _))
   }
 

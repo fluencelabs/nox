@@ -21,6 +21,7 @@ import java.util.TimeZone
 
 import cats.effect.IO
 import fluence.ethclient.helpers.Web3jConverters
+import fluence.ethclient.helpers.Web3jConverters.bytes32ToHexStringTrimZeros
 import fluence.node.Configuration
 import fluence.node.eth.App
 import fluence.node.workers.{CodeManager, CodePath, WorkerImage, WorkerParams}
@@ -56,11 +57,13 @@ object TendermintConfig extends slogging.LazyLogging {
     _.evalMap {
       case app @ App(appId, storageHash, _) =>
         for {
-          _ ← IO { logger.info("This node will host app '{}'", app.appIdHex) }
+          appIdHex <- IO.pure(bytes32ToHexStringTrimZeros(appId))
+
+          _ ← IO { logger.info("This node will host app '{}'", appIdHex) }
 
           tmDir ← IO(rootPath.resolve("tendermint"))
           templateConfigDir ← IO(tmDir.resolve("config"))
-          workerPath ← IO(tmDir.resolve(s"${app.appIdHex}_${app.cluster.currentWorker.index}"))
+          workerPath ← IO(tmDir.resolve(s"${appIdHex}_${app.cluster.currentWorker.index}"))
           workerConfigDir ← IO(workerPath.resolve("config"))
 
           _ ← IO { Files.createDirectories(workerConfigDir) }
@@ -77,7 +80,7 @@ object TendermintConfig extends slogging.LazyLogging {
           codePath ← codeManager.prepareCode(CodePath(storageHash), workerPath)
         } yield
           WorkerParams(
-            app.appIdHex,
+            app.appId,
             app.cluster.currentWorker,
             workerPath.toString,
             codePath,

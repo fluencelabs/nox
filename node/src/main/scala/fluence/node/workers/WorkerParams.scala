@@ -15,20 +15,24 @@
  */
 
 package fluence.node.workers
+import fluence.ethclient.helpers.Web3jConverters.bytes32ToHexStringTrimZeros
 import fluence.node.docker.DockerParams
 import fluence.node.eth.WorkerNode
+import org.web3j.abi.datatypes.generated.Bytes32
 
 /**
  * Worker container's params
  */
 case class WorkerParams(
-  appIdHex: String,
+  appId: Bytes32,
   currentWorker: WorkerNode,
   workerPath: String,
   vmCodePath: String,
   masterNodeContainerId: Option[String],
   image: WorkerImage
 ) {
+
+  private val appIdHex: String = bytes32ToHexStringTrimZeros(appId)
 
   override def toString =
     s"(worker ${currentWorker.index} with RPC port ${currentWorker.rpcPort} for app $appIdHex)"
