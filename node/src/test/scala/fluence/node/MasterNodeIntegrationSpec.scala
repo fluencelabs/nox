@@ -151,13 +151,15 @@ class MasterNodeIntegrationSpec
         line
       }.map(line => line should include("switching to the new clusters"))
 
-    // TODO: fix MasterNode so it deletes it's workers on stop, then delete basePort and make these IO's to be vals
-    def runTwoMasters(basePort: Short): Resource[IO, Seq[(Short, String)]] =
+    def getStatusPort(basePort: Short): Short = (basePort + 400).toShort
+
+    // TODO: fix MasterNode so it stops it's workers on stop, then delete basePort and make these IO's to be vals
+    def runTwoMasters(basePort: Short): Resource[IO, Seq[String]] =
       Resource.make {
         val master1Port: Short = basePort
         val master2Port: Short = (basePort + 1).toShort
-        val status1Port: Short = (master1Port + 400).toShort
-        val status2Port: Short = (master2Port + 400).toShort
+        val status1Port: Short = getStatusPort(master1Port)
+        val status2Port: Short = getStatusPort(master2Port)
 
         for {
           master1 <- runMaster(master1Port, master1Port, "master1", status1Port)
@@ -165,9 +167,9 @@ class MasterNodeIntegrationSpec
 
           _ <- eventually[IO](checkMasterRunning(master1), maxWait = 15.seconds)
           _ <- eventually[IO](checkMasterRunning(master2), maxWait = 15.seconds)
-        } yield Seq((status1Port, master1), (status2Port, master2))
+        } yield Seq(master1, master2)
       } { masters =>
-        val containers = masters.unzip._2.mkString(" ")
+        val containers = masters.mkString(" ")
         IO { run(s"docker rm -f $containers") }
       }
 
@@ -178,49 +180,53 @@ class MasterNodeIntegrationSpec
         })
       }
 
-    def runTwoWorkers(basePort: Short): IO[(IO[Option[WorkerRunning]], IO[Option[WorkerRunning]])] =
+    def runTwoWorkers(basePort: Short): IO[Unit] =
       EthClient
         .makeHttpResource[IO]()
         .use { ethClient ⇒
           sttpResource.use { implicit sttpBackend ⇒
-            runTwoMasters(basePort).use {
-              case Seq((status1Port, _), (status2Port, _)) =>
-                val contract = FluenceContract(ethClient, contractConfig)
-                for {
-                  status1 <- getStatus(status1Port)
-                  status2 <- getStatus(status2Port)
+            runTwoMasters(basePort).use { _ =>
+              val contract = FluenceContract(ethClient, contractConfig)
+              for {
+                status1 <- getStatus(getStatusPort(basePort))
+                status2 <- getStatus(getStatusPort((basePort + 1).toShort))
 
-                  _ <- contract.addNode[IO](status1.nodeConfig).attempt
-                  _ <- contract.addNode[IO](status2.nodeConfig).attempt
-                  _ <- contract.addApp[IO]("llamadb", clusterSize = 2)
+                _ <- contract.addNode[IO](status1.nodeConfig).attempt
+                _ <- contract.addNode[IO](status2.nodeConfig).attempt
+                _ <- contract.addApp[IO]("llamadb", clusterSize = 2)
 
-                  _ <- eventually[IO](
-                    for {
-                      c1s0 <- heightFromTendermintStatus(basePort)
-                      c1s1 <- heightFromTendermintStatus(basePort + 1)
-                      status1 <- getRunningWorker(status1Port)
-                      status2 <- getRunningWorker(status2Port)
-                    } yield {
-                      c1s0 shouldBe Some(2)
-                      c1s1 shouldBe Some(2)
-                      status1 shouldBe defined
-                      status2 shouldBe defined
-                    },
-                    maxWait = 90.seconds
-                  )
-                } yield {
-                  (getRunningWorker(status1Port), getRunningWorker(status2Port))
-                }
+                _ <- eventually[IO](
+                  for {
+                    c1s0 <- heightFromTendermintStatus(basePort)
+                    c1s1 <- heightFromTendermintStatus(basePort + 1)
+                    worker1 <- getRunningWorker(getStatusPort(basePort))
+                    worker2 <- getRunningWorker(getStatusPort((basePort + 1).toShort))
+                  } yield {
+                    c1s0 shouldBe Some(2)
+                    c1s1 shouldBe Some(2)
+                    worker1 shouldBe defined
+                    worker2 shouldBe defined
+                  },
+                  maxWait = 90.seconds
+                )
+              } yield {}
             }
           }
         }
 
-    def deleteApp(basePort: Short) =
+    def deleteApp(basePort: Short): IO[Unit] = sttpResource.use { implicit sttp =>
+      val getStatus1 = getRunningWorker(getStatusPort(basePort))
+      val getStatus2 = getRunningWorker(getStatusPort((basePort + 1).toShort))
       for {
-        workers <- runTwoWorkers(basePort)
-        (worker1Status, worker2Status) = workers
-        status <- worker1Status
-        appIdHex = status.value.info.appId
+        _ <- runTwoWorkers(basePort)
+
+        // Check that we have 2 running workers from runTwoWorkers
+        status1 <- getStatus1
+        _ = status1 shouldBe defined
+        status2 <- getStatus2
+        _ = status2 shouldBe defined
+
+        appIdHex = status1.value.info.appId
         _ <- EthClient
           .makeHttpResource[IO]()
           .use { ethClient ⇒
@@ -228,14 +234,19 @@ class MasterNodeIntegrationSpec
             val appId = hexToBytes32(appIdHex)
             contract.deleteApp[IO](appId)
           }
-        _ <- eventually[IO](for {
-          s1 <- worker1Status
-          s2 <- worker2Status
-        } yield {
-          s1 should not be defined
-          s2 should not be defined
-        }, 10.seconds)
+        _ <- eventually[IO](
+          for {
+            s1 <- getRunningWorker(getStatusPort(basePort))
+            s2 <- getRunningWorker(getStatusPort((basePort + 1).toShort))
+          } yield {
+            // Check that workers run no more
+            s1 should not be defined
+            s2 should not be defined
+          },
+          10.seconds
+        )
       } yield {}
+    }
 
     "sync their workers with contract clusters" in {
       runTwoWorkers(25000).unsafeRunSync()
