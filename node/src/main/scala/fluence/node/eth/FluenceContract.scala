@@ -195,6 +195,14 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
       .eval(eventFilter[F](APPDELETED_EVENT))
       .flatMap(filter ⇒ contract.appDeletedEventFlowable(filter).toStream[F])
       .map(_.appID)
+
+  /**
+   * Deletes deployed app from contract, triggering AppDeleted event on successful deletion
+   * @param appId 32-byte id of the app to be deleted
+   * @tparam F Effect
+   * @return
+   */
+  def deleteApp[F[_]: Async](appId: Bytes32): F[Unit] = contract.deleteApp(appId).call[F].void
 }
 
 object FluenceContract {

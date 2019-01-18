@@ -46,7 +46,7 @@ case class WorkerParams(
       .option("-e", s"""CODE_DIR=$vmCodePath""")
       .option("-e", s"""WORKER_DIR=$workerPath""")
       .option("--name", s"${appIdHex}_worker_${currentWorker.index}")
-      .port(currentWorker.port, 26656)
+      .port(currentWorker.p2pPort, 26656)
       .port(currentWorker.rpcPort, 26657)
       .port(currentWorker.tmPrometheusPort, 26660)
       .port(currentWorker.smPrometheusPort, 26661)

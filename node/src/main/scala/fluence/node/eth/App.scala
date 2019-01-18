@@ -73,17 +73,17 @@ object Cluster {
  * @param workerId 32-byte Tendermint Validator key, also represented by base64WorkerId
  * @param peerId hex-encoded 20-byte Tendermint peer ID which is calculated as `hex.EncodeToString(SHA256(peer.PubKey)[:20])`
  * and can be retrieved from Tendermint via command `show_node_id`
- * @param port p2p Tendermint port, used by Tendermint to connect p2p peers. Also used for rpcPort calculation
+ * @param p2pPort p2p Tendermint port, used by Tendermint to connect p2p peers. Also used for rpcPort calculation
  * @param index index of a worker in cluster workers array
  */
-case class WorkerNode(validatorKey: Bytes32, peerId: String, ip: InetAddress, port: Short, index: Int) {
+case class WorkerNode(validatorKey: Bytes32, peerId: String, ip: InetAddress, p2pPort: Short, index: Int) {
   val base64ValidatorKey: String = bytes32ToBase64(validatorKey)
-  val address: String = s"${ip.getHostAddress}:$port"
+  val address: String = s"${ip.getHostAddress}:$p2pPort"
   val peerAddress: String = s"$peerId@$address"
 
-  val rpcPort: Short = (port + 100).toShort //TODO: reserve service ports sequentially, right after p2p port
-  val tmPrometheusPort: Short = (port + 200).toShort //TODO: reserve service ports sequentially, right after p2p port
-  val smPrometheusPort: Short = (port + 300).toShort //TODO: reserve service ports sequentially, right after p2p port
+  val rpcPort: Short = (p2pPort + 100).toShort //TODO: reserve service ports sequentially, right after p2p port
+  val tmPrometheusPort: Short = (p2pPort + 200).toShort //TODO: reserve service ports sequentially, right after p2p port
+  val smPrometheusPort: Short = (p2pPort + 300).toShort //TODO: reserve service ports sequentially, right after p2p port
 }
 
 object WorkerNode {

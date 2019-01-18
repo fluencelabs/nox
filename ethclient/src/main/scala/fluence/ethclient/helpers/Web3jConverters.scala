@@ -86,6 +86,13 @@ object Web3jConverters {
   def bytes32ToHexStringTrimZeros(bytes32: Bytes32): String = ByteVector(bytes32.getValue.dropWhile(_ == 0)).toHex
 
   /**
+   * Converts bytes of web3j's Bytes32 to hex string
+   *
+   * @param bytes32 bytes32 value
+   */
+  def bytes32ToHexString(bytes32: Bytes32): String = ByteVector(bytes32.getValue).toHex
+
+  /**
    * Converts hex string to byte array.
    * TODO: add checks, now it's unsafe.
    *
@@ -93,6 +100,13 @@ object Web3jConverters {
    */
   def hexToBinary(hex: String): Array[Byte] =
     ByteVector.fromHex(hex, Bases.Alphabets.HexUppercase).map(_.toArray).getOrElse(new Array[Byte](hex.length / 2))
+
+  /**
+   * Converts hex string to Bytes32.
+   *
+   * @param hex hex string
+   */
+  def hexToBytes32(hex: String): Bytes32 = new Bytes32(hexToBinary(hex))
 
   /**
    * Encodes worker address information to web3j's Bytes32.

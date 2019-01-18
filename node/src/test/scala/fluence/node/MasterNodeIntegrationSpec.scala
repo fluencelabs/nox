@@ -30,12 +30,14 @@ import fluence.node.eth.{FluenceContract, FluenceContractConfig}
 import org.scalactic.source.Position
 import org.scalatest.exceptions.{TestFailedDueToTimeoutException, TestFailedException}
 import org.scalatest.time.Span
-import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers, OptionValues}
+import org.scalatest.{Timer => _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.circe.asJson
 import fluence.ethclient.helpers.Web3jConverters
+import fluence.node.workers.{WorkerHealth, WorkerRunning}
+import Web3jConverters.hexToBytes32
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -51,7 +53,7 @@ import scala.util.Try
  * - Successful cluster formation and starting blocks creation
  */
 class MasterNodeIntegrationSpec
-    extends FlatSpec with LazyLogging with Matchers with BeforeAndAfterAll with OptionValues {
+    extends WordSpec with LazyLogging with Matchers with BeforeAndAfterAll with OptionValues {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
@@ -85,15 +87,15 @@ class MasterNodeIntegrationSpec
   }
 
   override protected def afterAll(): Unit = {
-//    logger.info("killing ganache")
-//    run("pkill -f ganache")
+    logger.info("killing ganache")
+    run("pkill -f ganache")
 
-//    logger.info("stopping containers")
-    // TODO: kill containers through Master's HTTP API
-//    run("docker rm -f 01_node0 01_node1 master1 master2")
+    logger.info("stopping containers")
+    // TODO: kill containers through Master 's HTTP API
+    run("docker rm -f 01_worker_0 01_worker_1 02_worker_0 02_worker_1 master1 master2")
   }
 
-  "MasterNodes" should "sync their workers with contract clusters" in {
+  "MasterNodes" should {
     PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, false)
     LoggerConfig.factory = PrintLoggerFactory()
     LoggerConfig.level = LogLevel.INFO
@@ -149,40 +151,99 @@ class MasterNodeIntegrationSpec
         line
       }.map(line => line should include("switching to the new clusters"))
 
-    EthClient
-      .makeHttpResource[IO]()
-      .use { ethClient ⇒
-        sttpResource.use { implicit sttpBackend ⇒
-          val status1Port: Short = 25400
-          val status2Port: Short = 25403
-          for {
-            master1 <- runMaster(25000, 25002, "master1", status1Port)
-            master2 <- runMaster(25003, 25005, "master2", status2Port)
+    // TODO: fix MasterNode so it deletes it's workers on stop, then delete basePort and make these IO's to be vals
+    def runTwoMasters(basePort: Short): Resource[IO, Seq[(Short, String)]] =
+      Resource.make {
+        val master1Port: Short = basePort
+        val master2Port: Short = (basePort + 1).toShort
+        val status1Port: Short = (master1Port + 400).toShort
+        val status2Port: Short = (master2Port + 400).toShort
 
-            _ <- eventually[IO](checkMasterRunning(master1), maxWait = 10.seconds)
-            _ <- eventually[IO](checkMasterRunning(master2), maxWait = 10.seconds)
+        for {
+          master1 <- runMaster(master1Port, master1Port, "master1", status1Port)
+          master2 <- runMaster(master2Port, master2Port, "master2", status2Port)
 
-            contract = FluenceContract(ethClient, contractConfig)
-            status1 <- getStatus(status1Port)
-            status2 <- getStatus(status2Port)
-            _ <- contract.addNode[IO](status1.nodeConfig).attempt
-            _ <- contract.addNode[IO](status2.nodeConfig).attempt
-            _ <- contract.addApp[IO]("llamadb", clusterSize = 2)
-
-            _ <- eventually[IO](
-              for {
-                c1s0 <- heightFromTendermintStatus(25000)
-                c1s1 <- heightFromTendermintStatus(25003)
-              } yield {
-                c1s0 shouldBe Some(2)
-                c1s1 shouldBe Some(2)
-              },
-              maxWait = 90.seconds
-            )
-          } yield ()
-        }
+          _ <- eventually[IO](checkMasterRunning(master1), maxWait = 15.seconds)
+          _ <- eventually[IO](checkMasterRunning(master2), maxWait = 15.seconds)
+        } yield Seq((status1Port, master1), (status2Port, master2))
+      } { masters =>
+        val containers = masters.unzip._2.mkString(" ")
+        IO { run(s"docker rm -f $containers") }
       }
-      .unsafeRunSync()
+
+    def getRunningWorker(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]) =
+      IO.suspend {
+        getStatus(statusPort).map(_.workers.headOption.flatMap { w =>
+          Option(w.asInstanceOf[WorkerRunning])
+        })
+      }
+
+    def runTwoWorkers(basePort: Short): IO[(IO[Option[WorkerRunning]], IO[Option[WorkerRunning]])] =
+      EthClient
+        .makeHttpResource[IO]()
+        .use { ethClient ⇒
+          sttpResource.use { implicit sttpBackend ⇒
+            runTwoMasters(basePort).use {
+              case Seq((status1Port, _), (status2Port, _)) =>
+                val contract = FluenceContract(ethClient, contractConfig)
+                for {
+                  status1 <- getStatus(status1Port)
+                  status2 <- getStatus(status2Port)
+
+                  _ <- contract.addNode[IO](status1.nodeConfig).attempt
+                  _ <- contract.addNode[IO](status2.nodeConfig).attempt
+                  _ <- contract.addApp[IO]("llamadb", clusterSize = 2)
+
+                  _ <- eventually[IO](
+                    for {
+                      c1s0 <- heightFromTendermintStatus(basePort)
+                      c1s1 <- heightFromTendermintStatus(basePort + 1)
+                      status1 <- getRunningWorker(status1Port)
+                      status2 <- getRunningWorker(status2Port)
+                    } yield {
+                      c1s0 shouldBe Some(2)
+                      c1s1 shouldBe Some(2)
+                      status1 shouldBe defined
+                      status2 shouldBe defined
+                    },
+                    maxWait = 90.seconds
+                  )
+                } yield {
+                  (getRunningWorker(status1Port), getRunningWorker(status2Port))
+                }
+            }
+          }
+        }
+
+    def deleteApp(basePort: Short) =
+      for {
+        workers <- runTwoWorkers(basePort)
+        (worker1Status, worker2Status) = workers
+        status <- worker1Status
+        appIdHex = status.value.info.appId
+        _ <- EthClient
+          .makeHttpResource[IO]()
+          .use { ethClient ⇒
+            val contract = FluenceContract(ethClient, contractConfig)
+            val appId = hexToBytes32(appIdHex)
+            contract.deleteApp[IO](appId)
+          }
+        _ <- eventually[IO](for {
+          s1 <- worker1Status
+          s2 <- worker2Status
+        } yield {
+          s1 should not be defined
+          s2 should not be defined
+        }, 10.seconds)
+      } yield {}
+
+    "sync their workers with contract clusters" in {
+      runTwoWorkers(25000).unsafeRunSync()
+    }
+
+    "stop workers on AppDelete event" in {
+      deleteApp(26000).unsafeRunSync()
+    }
   }
 
   private def eventually[F[_]: Sync: Timer](

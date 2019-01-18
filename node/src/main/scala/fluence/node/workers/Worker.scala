@@ -62,11 +62,11 @@ object Worker extends LazyLogging {
    */
   private def getHealthState[F[_]: Concurrent: ContextShift: Timer](
     params: WorkerParams,
-    httpPath: String,
+    statusPath: String,
     uptime: Long
   )(implicit sttpBackend: SttpBackend[F, Nothing]): F[WorkerHealth] = {
 
-    val url = uri"http://${params.currentWorker.ip.getHostAddress}:${params.currentWorker.port}/$httpPath"
+    val url = uri"http://${params.currentWorker.ip.getHostAddress}:${params.currentWorker.rpcPort}/$statusPath"
 
     // As container is running, perform a custom healthcheck: request a HTTP endpoint inside the container
     logger.debug(
@@ -89,11 +89,11 @@ object Worker extends LazyLogging {
       .map {
         case Right(status) ⇒
           val tendermintInfo = status.result
-          val info = RunningWorkerInfo.fromParams(params.currentWorker, tendermintInfo)
+          val info = RunningWorkerInfo.fromParams(params, tendermintInfo)
           WorkerRunning(uptime, info)
         case Left(err) ⇒
           logger.error("Worker HTTP check failed: " + err.getLocalizedMessage, err)
-          WorkerHttpCheckFailed(StoppedWorkerInfo(params.currentWorker), err)
+          WorkerHttpCheckFailed(StoppedWorkerInfo.fromWorker(params.currentWorker), err)
       }
       .map { health ⇒
         logger.debug(s"HTTP health is: $health")
@@ -121,7 +121,7 @@ object Worker extends LazyLogging {
           getHealthState(params, healthcheck.httpPath, uptime)
         case (_, false) ⇒
           logger.error(s"Healthcheck is failing for worker: $params")
-          Applicative[F].pure(WorkerContainerNotRunning(StoppedWorkerInfo(params.currentWorker)))
+          Applicative[F].pure(WorkerContainerNotRunning(StoppedWorkerInfo.fromWorker(params.currentWorker)))
       }
       .evalTap(healthReportRef.set)
       .interruptWhen(stop)
@@ -142,7 +142,9 @@ object Worker extends LazyLogging {
     implicit sttpBackend: SttpBackend[F, Nothing]
   ): F[Worker[F]] =
     for {
-      healthReportRef ← Ref.of[F, WorkerHealth](WorkerNotYetLaunched(StoppedWorkerInfo(params.currentWorker)))
+      healthReportRef ← Ref.of[F, WorkerHealth](
+        WorkerNotYetLaunched(StoppedWorkerInfo.fromWorker(params.currentWorker))
+      )
       stop ← Deferred[F, Either[Throwable, Unit]]
 
       fiber ← Concurrent[F].start(runHealthCheck(params, healthReportRef, stop, healthcheck))

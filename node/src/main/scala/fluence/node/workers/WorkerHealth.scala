@@ -16,20 +16,22 @@
 
 package fluence.node.workers
 
+import fluence.ethclient.helpers.Web3jConverters.bytes32ToHexString
 import fluence.node.eth.WorkerNode
 import fluence.node.workers.WorkerResponse.WorkerTendermintInfo
-import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto._
+import io.circe.{Decoder, Encoder}
 
 /**
  * Collected information about running worker.
  */
 case class RunningWorkerInfo(
+  appId: String,
   rpcPort: Short,
   p2pPort: Short,
   stateMachinePrometheusPort: Short,
   tendermintPrometheusPort: Short,
-  clusterId: String,
+  tendermintNodeId: String,
   lastBlock: String,
   lastAppHash: String,
   lastBlockHeight: Int
@@ -37,12 +39,13 @@ case class RunningWorkerInfo(
 
 object RunningWorkerInfo {
 
-  def fromParams(worker: WorkerNode, tendermintInfo: WorkerTendermintInfo) =
+  def fromParams(params: WorkerParams, tendermintInfo: WorkerTendermintInfo) =
     RunningWorkerInfo(
-      worker.rpcPort,
-      worker.port,
-      worker.smPrometheusPort,
-      worker.tmPrometheusPort,
+      bytes32ToHexString(params.appId),
+      params.currentWorker.rpcPort,
+      params.currentWorker.p2pPort,
+      params.currentWorker.smPrometheusPort,
+      params.currentWorker.tmPrometheusPort,
       tendermintInfo.node_info.id,
       tendermintInfo.sync_info.latest_block_hash,
       tendermintInfo.sync_info.latest_app_hash,
@@ -65,12 +68,12 @@ case class StoppedWorkerInfo(
 
 object StoppedWorkerInfo {
 
-  def apply(
+  def fromWorker(
     worker: WorkerNode
   ): StoppedWorkerInfo =
     new StoppedWorkerInfo(
       worker.rpcPort,
-      worker.port,
+      worker.p2pPort,
       worker.smPrometheusPort,
       worker.tmPrometheusPort,
     )
