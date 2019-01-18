@@ -25,24 +25,29 @@ import cats.data.EitherT
 import cats.effect.LiftIO
 import cats.{Applicative, Functor, Monad}
 import fluence.crypto.CryptoError
-import fluence.vm.VmError.WasmVmError.{ApplyError, InvokeError}
+import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
 import fluence.vm.VmError.{InitializationError, InternalVmError, NoSuchFnError, VmMemoryError}
-import fluence.vm.runThrowable
 
 import scala.language.higherKinds
 import scala.util.Try
 
 /**
- * Wasm Module instance wrapper.
+ * Wrapper of Wasm Module instance compiled by Asmble to Java class. Provides all functionality of Wasm modules
+ * according to the Fluence protocol (invoke, parameter passing, hash computing). TODO: after removing alloc/
+ * dealloc should be refactored to two modules types (extends the same trait): "master" (that has invoke method
+ * and can routes call from user to "slaves") and "slave" (without invoke method that does only computation).
  *
- * @param name optional module name (can be empty)
- * @param wasmMemory memory of this module
- * @param instance wrapped instance of module
+ * @param name an optional module name (according to Wasm specification module name can be empty string or even absent)
+ * @param wasmMemory memory of this module (please see comment in apply method to undertend why it optional now)
+ * @param moduleInstance a reference to instance of Wasm Module compiled by Asmble
+ * @param allocateFunction a function used for allocation memory region for parameter passing
+ * @param deallocateFunction a function used for deallocation memory region previously allocated by allocateFunction
+ * @param invokeFunction a function represents main handler of Wasm module
  */
 class WasmModule(
   private val name: Option[String],
   private val wasmMemory: Option[WasmModuleMemory],
-  private val instance: Any,
+  private val moduleInstance: Any,
   private val allocateFunction: Option[WasmFunction],
   private val deallocateFunction: Option[WasmFunction],
   private val invokeFunction: Option[WasmFunction]
@@ -82,65 +87,47 @@ class WasmModule(
    *
    * @param args arguments for invokeFunction
    */
-  def readMemory[F[_]: Monad](offset: Int, size: Int): EitherT[F, InvokeError, Array[Byte]] =
+  def readMemory[F[_]: Monad](offset: Int, size: Int): EitherT[F, VmMemoryError, Array[Byte]] =
     wasmMemory.fold(
       EitherT.leftT[F, Array[Byte]](
-        VmMemoryError(s"Unable to find the function with name=readMemory in module with name=$this"): InvokeError
+        VmMemoryError(s"Module with name=$this doesn't contain memory")
       )
     )(_.readBytes(offset, size))
 
-  def writeMemory[F[_]: Monad](offset: Int, injectedArray: Array[Byte]): EitherT[F, InvokeError, Unit] =
+  def writeMemory[F[_]: Monad](offset: Int, injectedArray: Array[Byte]): EitherT[F, VmMemoryError, Unit] =
     wasmMemory.fold(
       EitherT.leftT[F, Unit](
-        VmMemoryError(s"Unable to find the function with name=readMemory in module with name=$this"): InvokeError
+        VmMemoryError(s"Module with name=$this doesn't contain memory")
       )
     )(_.writeBytes(offset, injectedArray))
 
   /**
-   * Returns hash of all significant inner state of this VM.
+   * Returns hash of all significant inner state of this VM. Now only memory is used for state and other fields
+   * (such as Shadow stack, executed instruction counter, ...) should also be included after their implementation.
    *
    * @param hashFn a hash function
    */
   def computeStateHash[F[_]: Monad](
     hashFn: Array[Byte] ⇒ EitherT[F, CryptoError, Array[Byte]]
-  ): EitherT[F, InternalVmError, Array[Byte]] =
+  ): EitherT[F, GetVmStateError, Array[Byte]] =
     wasmMemory.fold(
-      EitherT.rightT[F, InternalVmError](
+      EitherT.rightT[F, GetVmStateError](
         Array.emptyByteArray
       )
-    )(
-      wasmMemory =>
-        for {
-          memoryAsArray ← runThrowable(
-            {
-              // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
-              val wasmMemoryView = wasmMemory.memory.duplicate()
-              wasmMemoryView.clear()
-              val arr = new Array[Byte](wasmMemoryView.capacity())
-              wasmMemoryView.get(arr)
-              arr
-            },
-            e ⇒ InternalVmError(s"Copying memory to an array for module=$this failed", Some(e))
-          )
-
-          vmStateAsHash ← hashFn(memoryAsArray).leftMap { e ⇒
-            InternalVmError(s"Getting internal state for module=$this failed", Some(e))
-          }
-        } yield vmStateAsHash
-    )
+    )(_.computeMemoryHash(hashFn))
 
   private def invokeWasmFunction[F[_]: LiftIO: Monad](
-    wasmFunction: Option[WasmFunction],
+    wasmFn: Option[WasmFunction],
     args: List[AnyRef]
   ): EitherT[F, InvokeError, Int] =
-    wasmFunction.fold(
+    wasmFn.fold(
       EitherT.leftT[F, Int](
         NoSuchFnError(s"Unable to find a function in module with name=$this"): InvokeError
       )
     )(
       fn =>
         for {
-          rawResult <- fn(instance, args)
+          rawResult <- fn(moduleInstance, args)
 
           // Despite our way of thinking about wasm function return value type as one of (i32, i64, f32, f64) in
           // WasmModule context, there we can operate with Int (i32) values. It comes from our conventions about

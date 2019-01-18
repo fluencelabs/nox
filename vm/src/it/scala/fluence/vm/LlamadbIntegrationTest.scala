@@ -28,13 +28,13 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
   private val llamadbFilePath: String = getModuleDirPrefix() +
     "/examples/llamadb/target/wasm32-unknown-unknown/release/llama_db.wasm"
 
-  private def executeSql(implicit vm: WasmVm, sql: String): EitherT[IO, VmError, Option[Array[Byte]]] =
+  private def executeSql(implicit vm: WasmVm, sql: String): EitherT[IO, VmError, Array[Byte]] =
     for {
-      result <- vm.invoke[IO](fnArgument = sql.getBytes())
+      result <- vm.invoke[IO](None, sql.getBytes())
       _ <- vm.getVmState[IO].toVmError
     } yield result
 
-  private def createTestTable(vm: WasmVm): EitherT[IO, VmError, Option[Array[Byte]]] =
+  private def createTestTable(vm: WasmVm): EitherT[IO, VmError, Array[Byte]] =
     for {
       _ <- executeSql(vm, "CREATE TABLE Users(id INT, name TEXT, age INT)")
       insertResult <- executeSql(
@@ -47,7 +47,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
     } yield insertResult
 
   // inserts about (recordsCount KiB + const bytes)
-  private def executeInsert(vm: WasmVm, recordsCount: Int): EitherT[IO, VmError, Option[Array[Byte]]] =
+  private def executeInsert(vm: WasmVm, recordsCount: Int): EitherT[IO, VmError, Array[Byte]] =
     for {
       result <- executeSql(
         vm,

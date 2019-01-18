@@ -44,9 +44,6 @@ import scala.language.higherKinds
  */
 trait WasmVm {
 
-  // size in bytes of pointer type in Wasm VM (can be different after Wasm64 release)
-  val WasmPointerSize = 4
-
   /**
    * Invokes ''function'' from specified ''module'' with provided arguments.
    * Returns ''None'' if the function doesn't return the result, ''Some(Any)''

@@ -44,6 +44,9 @@ class AsmbleWasmVm(
   private val hasher: Hasher[Array[Byte], Array[Byte]]
 ) extends WasmVm {
 
+  // size in bytes of pointer type in Wasm VM (can be different after Wasm64 release)
+  val WasmPointerSize = 4
+
   override def invoke[F[_]: LiftIO: Monad](
     moduleName: Option[String],
     fnArgument: Array[Byte]
@@ -108,16 +111,16 @@ class AsmbleWasmVm(
     else
       for {
         offset <- moduleInstance.allocate(fnArgument.length + WasmPointerSize)
-        /*
+
         // convert ArrayByte to Int
-        resultSize <- EitherT.fromEither(
-          Try(
-            ByteBuffer.allocate(WasmPointerSize).order(ByteOrder.LITTLE_ENDIAN).putInt(WasmPointerSize).as
-          ).toEither).leftMap { e ⇒
-          VmMemoryError(s"Trying to extract result from incorrect offset=$resultSize", Some(e))
-        }
-         */
-        _ <- moduleInstance.writeMemory(offset, fnArgument)
+        resultSize <- runThrowable(
+          ByteBuffer.allocate(WasmPointerSize).order(ByteOrder.LITTLE_ENDIAN).putInt(fnArgument.length).array(),
+          e => VmMemoryError(s"Trying to extract result from incorrect offset=$offset")
+        )
+
+        _ <- moduleInstance.writeMemory(offset, resultSize)
+        _ <- moduleInstance.writeMemory(offset + WasmPointerSize, fnArgument).leftMap(e => e: InvokeError)
+
       } yield offset.asInstanceOf[AnyRef] :: fnArgument.length.asInstanceOf[AnyRef] :: Nil
 
   /**

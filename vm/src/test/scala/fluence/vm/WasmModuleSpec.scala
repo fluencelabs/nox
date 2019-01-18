@@ -19,7 +19,7 @@ import java.lang.reflect.InvocationTargetException
 import java.nio.ByteBuffer
 
 import asmble.run.jvm.Module.Compiled
-import asmble.run.jvm.{Module, ScriptContext}
+import asmble.run.jvm.ScriptContext
 import cats.data.EitherT
 import fluence.vm.TestUtils._
 import fluence.vm.VmError._
@@ -118,7 +118,7 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
       "hasher returns an error" in {
         val instance = new { def getMemory: ByteBuffer = ByteBuffer.wrap(Array[Byte](1, 2, 3)) }
         val result =
-          createWasmModule(instance).computeHash(arr ⇒ EitherT.leftT(CryptoError("error!"))).value.left.get
+          createWasmModule(instance).computeStateHash(arr ⇒ EitherT.leftT(CryptoError("error!"))).value.left.get
 
         result.message shouldBe "Getting internal state for module=test-module-name failed"
         result.getCause shouldBe a[CryptoError]
@@ -129,7 +129,7 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
         val memoryBuffer = ByteBuffer.wrap(Array[Byte](1, 2, 3))
         memoryBuffer.position(1)
         val instance = new { def getMemory: ByteBuffer = null }
-        val result = createWasmModule(instance).computeHash(arr ⇒ EitherT.rightT(arr)).value.left.get
+        val result = createWasmModule(instance).computeStateHash(arr ⇒ EitherT.rightT(arr)).value.left.get
 
         result.message shouldBe "Copying memory to an array for module=test-module-name failed"
         result shouldBe a[InternalVmError]
@@ -138,7 +138,7 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
 
     "returns empty array of bytes" when {
       "memory isn't present in a module" in {
-        val result = createWasmModule(new {}).computeHash(arr ⇒ EitherT.rightT(arr)).value.right.get
+        val result = createWasmModule(new {}).computeStateHash(arr ⇒ EitherT.rightT(arr)).value.right.get
         result shouldBe Array.emptyByteArray
       }
     }
@@ -146,7 +146,7 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
     "returns hash of VM's state" when {
       "memory is present in a module" in {
         val instance = new { def getMemory: ByteBuffer = ByteBuffer.wrap(Array[Byte](1, 2, 3)) }
-        val result = createWasmModule(instance).computeHash(arr ⇒ EitherT.rightT(arr)).value.right.get
+        val result = createWasmModule(instance).computeStateHash(arr ⇒ EitherT.rightT(arr)).value.right.get
         result should contain allOf (1, 2, 3)
       }
     }
@@ -168,7 +168,7 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
       memoryBuffer shouldBe expected
       // getting inner VM state
       val instance = new { def getMemory: ByteBuffer = memoryBuffer }
-      val result = createWasmModule(instance).computeHash(arr ⇒ EitherT.rightT(arr)).value.right.get
+      val result = createWasmModule(instance).computeStateHash(arr ⇒ EitherT.rightT(arr)).value.right.get
       // checks that result is correct
       result should contain allOf (1, 2, 3)
       // checks that 'memoryBuffer' wasn't change

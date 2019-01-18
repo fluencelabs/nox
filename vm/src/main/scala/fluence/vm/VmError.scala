@@ -94,7 +94,7 @@ object VmError {
   case class VmMemoryError(
     override val message: String,
     override val cause: Option[Throwable] = None
-  ) extends VmErrorProxy(message, cause) with WasmError with ApplyError with InvokeError
+  ) extends VmErrorProxy(message, cause) with ApplyError with InvokeError with GetVmStateError
 
   /**
    * Indicates that Wasm code execution was failed, some Wasm instruction was

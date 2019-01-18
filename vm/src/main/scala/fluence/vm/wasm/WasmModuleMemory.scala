@@ -20,12 +20,13 @@ import java.nio.{ByteBuffer, ByteOrder}
 import fluence.vm.runThrowable
 import cats.{Functor, Monad}
 import cats.data.EitherT
-import fluence.vm.VmError.VmMemoryError
-import fluence.vm.VmError.WasmVmError.InvokeError
+import fluence.crypto.CryptoError
+import fluence.vm.VmError.{InternalVmError, VmMemoryError}
+import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
 
 import scala.language.higherKinds
 
-case class WasmModuleMemory(memory: ByteBuffer) {
+final case class WasmModuleMemory(memory: ByteBuffer) {
 
   /**
    * Invokes invokeFunctionName which exported from Wasm module function with provided arguments.
@@ -35,7 +36,7 @@ case class WasmModuleMemory(memory: ByteBuffer) {
   def readBytes[F[_]: Monad](
     offset: Int,
     size: Int
-  ): EitherT[F, InvokeError, Array[Byte]] =
+  ): EitherT[F, VmMemoryError, Array[Byte]] =
     runThrowable(
       {
         // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
@@ -62,7 +63,7 @@ case class WasmModuleMemory(memory: ByteBuffer) {
   def writeBytes[F[_]: Monad](
     offset: Int,
     injectedArray: Array[Byte]
-  ): EitherT[F, InvokeError, Unit] =
+  ): EitherT[F, VmMemoryError, Unit] =
     runThrowable(
       {
         // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
@@ -74,4 +75,16 @@ case class WasmModuleMemory(memory: ByteBuffer) {
       },
       e ⇒ VmMemoryError(s"Writing to $offset failed", Some(e))
     )
+
+  def computeMemoryHash[F[_]: Monad](
+    hashFn: Array[Byte] ⇒ EitherT[F, CryptoError, Array[Byte]]
+  ): EitherT[F, GetVmStateError, Array[Byte]] =
+    for {
+      memoryAsArray ← readBytes(0, memory.capacity())
+
+      vmStateAsHash ← hashFn(memoryAsArray).leftMap { e ⇒
+        InternalVmError(s"Computing wasm memory hash failed", Some(e)): GetVmStateError
+      }
+    } yield vmStateAsHash
+
 }

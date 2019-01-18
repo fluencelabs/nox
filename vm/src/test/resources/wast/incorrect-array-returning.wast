@@ -12,10 +12,11 @@
         (i32.const 10000)
     )
 
-    (func (export "deallocate") (param $address i32) (param $size i32) (return)
-        ;; in this simple example deallocation function does nothing
+    (func (export "deallocate") (param $address i32) (param $size i32) (return i32)
+        ;; in this simple deallocation function returns 0
         (drop)
         (drop)
+        (i32.const 0)
     )
 
     ;; puts 0x00FFFFFF as result size in memory at offset 1048592 and returns pointer to it

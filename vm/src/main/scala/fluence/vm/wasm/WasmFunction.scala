@@ -39,10 +39,9 @@ case class WasmFunction(
   /**
    * Invokes the export from Wasm function with provided arguments.
    *
-   * @param module the object the underlying method is invoked from.
-   *               This is an instance for the current module, it contains
-   *               all inner state of the module, like memory.
-   * @param args arguments for calling this function.
+   * @param module a reference to instance of Wasm Module compiled by Asmble,
+   *              it is used as an object the underlying method is invoked from
+   * @param args arguments for calling this function
    * @tparam F a monad with an ability to absorb 'IO'
    */
   def apply[F[_]: Functor: LiftIO](
@@ -53,8 +52,9 @@ case class WasmFunction(
       IO(javaMethod.invoke(module, args: _*))
         .map(
           result =>
-            // by specification currently Wasm method can return one value of i32, i64, f32, f64 type
-            if (javaMethod.getReturnType == Void.TYPE) Option(result.asInstanceOf[Number]) else None
+            // according to the current version of specification a Wasm method can return value
+            // of only i32, i64, f32, f64 types or return nothing
+            if (javaMethod.getReturnType == Void.TYPE) None else Option(result.asInstanceOf[Number])
         )
         .attempt
         .to[F]

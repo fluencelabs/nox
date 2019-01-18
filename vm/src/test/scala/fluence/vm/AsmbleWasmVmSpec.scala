@@ -24,11 +24,17 @@ import cats.effect.IO
 import fluence.crypto.{Crypto, CryptoError, DumbCrypto}
 import fluence.vm.TestUtils._
 import fluence.vm.VmError._
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{Assertion, Matchers, WordSpec}
 
 import scala.language.{higherKinds, implicitConversions}
 
 class AsmbleWasmVmSpec extends WordSpec with Matchers {
+
+  /**
+    * By element comparision of arrays.
+    */
+  private def compareArrays(first: Array[Byte], second: Array[Byte]): Assertion =
+    first.deep shouldBe second.deep
 
   /**
    * Converts ints to byte array by supplied byte order.
@@ -143,8 +149,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         vm <- WasmVm[IO](NonEmptyList.one(sumTestFile))
         result ← vm.invoke[IO](Some("SumModule"), intsToBytes(100 :: 13 :: Nil).array()).toVmError
       } yield {
-        result should not be None
-        result.get.deep shouldBe Array[Byte](113, 0, 0, 0).deep
+        compareArrays(result, Array[Byte](113, 0, 0, 0))
       }
 
       res.success()
@@ -159,11 +164,8 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         mulResult ← vm.invoke[IO](Some("MulModule"), intsToBytes(100 :: 13 :: Nil).array())
         sumResult ← vm.invoke[IO](Some("SumModule"), intsToBytes(100 :: 13 :: Nil).array()).toVmError
       } yield {
-        mulResult should not be None
-        sumResult should not be None
-
-        mulResult.get.deep shouldBe Array[Byte](20, 5, 0, 0).deep
-        sumResult.get.deep shouldBe Array[Byte](113, 0, 0, 0).deep
+        compareArrays(mulResult, Array[Byte](20, 5, 0, 0))
+        compareArrays(sumResult, Array[Byte](113, 0, 0, 0))
       }
 
       res.success()
@@ -178,13 +180,9 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         get2 ← vm.invoke[IO]() // 0 -> 1
         get3 ← vm.invoke[IO]().toVmError // 0 -> 1
       } yield {
-        get1 should not be None
-        get2 should not be None
-        get3 should not be None
-
-        get1.get.deep shouldBe Array[Byte](1, 0, 0, 0).deep
-        get2.get.deep shouldBe Array[Byte](2, 0, 0, 0).deep
-        get3.get.deep shouldBe Array[Byte](3, 0, 0, 0).deep
+        compareArrays(get1, Array[Byte](1, 0, 0, 0))
+        compareArrays(get1, Array[Byte](2, 0, 0, 0))
+        compareArrays(get1, Array[Byte](3, 0, 0, 0))
       }
 
       res.success()
@@ -201,17 +199,11 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         value4 ← vm.invoke[IO](None, "".getBytes()) // empty string
         value5 ← vm.invoke[IO](None, "\"".getBytes()).toVmError // " string
       } yield {
-        value1 should not be None
-        value2 should not be None
-        value3 should not be None
-        value4 should not be None
-        value5 should not be None
-
-        value1.get.deep shouldBe Array[Int](90, 0, 0, 0).deep
-        value2.get.deep shouldBe Array[Int](0, 0, 0, 0).deep
-        value3.get.deep shouldBe Array[Int]('X'.toInt, 0, 0, 0).deep
-        value4.get.deep shouldBe Array[Int](0, 0, 0, 0).deep // this Wasm example returns 0 on empty string
-        value5.get.deep shouldBe Array[Int]('"'.toInt, 0, 0, 0).deep
+        compareArrays(value1, Array[Byte](90, 0, 0, 0))
+        compareArrays(value2, Array[Byte](0, 0, 0, 0))
+        compareArrays(value3, Array[Byte]('X'.toByte, 0, 0, 0))
+        compareArrays(value4, Array[Byte](0, 0, 0, 0)) // this Wasm example returns 0 on empty string
+        compareArrays(value5, Array[Byte]('"'.toByte, 0, 0, 0))
       }
 
       res.success()
@@ -225,9 +217,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         value1 ← vm.invoke[IO]()
         state ← vm.getVmState[IO].toVmError
       } yield {
-        value1 should not be None
-
-        val stringValue = new String(value1.get)
+        val stringValue = new String(value1)
         stringValue shouldBe "Hello from Fluence Labs!"
       }
 
@@ -242,9 +232,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         value1 ← vm.invoke[IO](None, "AAAAAAA".getBytes())
         state ← vm.getVmState[IO].toVmError
       } yield {
-        value1 should not be None
-
-        val stringValue = new String(value1.get)
+        val stringValue = new String(value1)
         stringValue shouldBe "BBBBBBB"
       }
 
@@ -304,15 +292,11 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
           state2 ← vm.getVmState[IO]
           get4 ← vm.invoke[IO]().toVmError // 3 -> 4; return 4
         } yield {
-          get1 should not be None
-          get2 should not be None
-          get3 should not be None
-          get4 should not be None
+          compareArrays(get1, Array[Byte](1, 0, 0, 0))
+          compareArrays(get2, Array[Byte](2, 0, 0, 0))
+          compareArrays(get3, Array[Byte](3, 0, 0, 0))
+          compareArrays(get4, Array[Byte](4, 0, 0, 0))
 
-          get1.get.deep shouldBe Array[Byte](1, 0, 0, 0).deep
-          get2.get.deep shouldBe Array[Byte](2, 0, 0, 0).deep
-          get3.get.deep shouldBe Array[Byte](3, 0, 0, 0).deep
-          get4.get.deep shouldBe Array[Byte](4, 0, 0, 0).deep
           state1.size shouldBe 32
           state2.size shouldBe 32
           state1 should not be state2
@@ -341,13 +325,10 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
           state2 ← vm.getVmState[IO].toVmError
 
         } yield {
-          get1 should not be None
-          getFromCopy1 should not be None
-          mul should not be None
+          compareArrays(get1, Array[Byte](1, 0, 0, 0))
+          compareArrays(getFromCopy1, Array[Byte](1, 0, 0, 0))
+          compareArrays(mul, Array[Byte](25, 5, 0, 0))
 
-          get1.get.deep shouldBe Array[Byte](1, 0, 0, 0).deep
-          getFromCopy1.get.deep shouldBe Array[Byte](1, 0, 0, 0).deep
-          mul.get.deep shouldBe Array[Byte](20, 5, 0, 0).deep
           state1.size shouldBe 32
           state2.size shouldBe 32
           state1 should not be state2

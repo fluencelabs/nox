@@ -18,7 +18,7 @@ package fluence.vm
 
 import cats.data.EitherT
 import cats.effect.IO
-import org.scalatest._
+import org.scalatest.{WordSpec, Matchers, OptionValues, EitherValues, Assertion}
 
 class AppIntegrationTest extends WordSpec with Matchers with OptionValues with EitherValues {
 
@@ -28,9 +28,8 @@ class AppIntegrationTest extends WordSpec with Matchers with OptionValues with E
     else
       System.getProperty("user.dir") + "/vm/"
 
-  protected def checkTestResult(result: Option[Array[Byte]], expectedString: String): Assertion = {
-    result shouldBe defined
-    val resultAsString = new String(result.value)
+  protected def checkTestResult(result: Array[Byte], expectedString: String): Assertion = {
+    val resultAsString = new String(result)
     resultAsString should startWith (expectedString)
   }
 
