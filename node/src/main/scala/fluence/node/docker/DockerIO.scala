@@ -57,7 +57,6 @@ object DockerIO extends LazyLogging {
           case 0 ⇒ logger.info(s"Container $dockerId successfully removed")
           case x ⇒ logger.warn(s"Stopping docker container $dockerId failed, exit code = $x")
         }
-        shiftDelay()
       case (Failure(err), _) ⇒
         logger.warn(s"Can't cleanup the docker container as it's failed to launch: $err", err)
         Applicative[F].unit

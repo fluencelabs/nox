@@ -15,7 +15,6 @@
  */
 
 package fluence.node.tendermint.config
-import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.nio.file.{Files, Path, StandardCopyOption}
 import java.text.SimpleDateFormat
 import java.util.TimeZone
@@ -23,7 +22,6 @@ import java.util.TimeZone
 import cats.effect.IO
 import fluence.ethclient.helpers.Web3jConverters
 import fluence.node.Configuration
-import fluence.node.config.NodeConfig
 import fluence.node.eth.App
 import fluence.node.workers.{CodeManager, CodePath, WorkerImage, WorkerParams}
 import org.web3j.abi.datatypes.generated.Bytes32
@@ -57,16 +55,12 @@ object TendermintConfig extends slogging.LazyLogging {
   ): fs2.Pipe[IO, App, WorkerParams] =
     _.evalMap {
       case app @ App(appId, storageHash, _) =>
-        println(s"we're in prepareWorkerParams!")
-        println(
-          s"validatorKey: ${Web3jConverters.bytes32ToHexString(workerId)}"
-        )
         for {
-          _ ← IO { logger.info("This node will host app '{}'", appId) }
+          _ ← IO { logger.info("This node will host app '{}'", app.appIdHex) }
 
           tmDir ← IO(rootPath.resolve("tendermint"))
           templateConfigDir ← IO(tmDir.resolve("config"))
-          workerPath ← IO(tmDir.resolve(s"${appId}_{$app.cluster.currentWorker.index}"))
+          workerPath ← IO(tmDir.resolve(s"${app.appIdHex}_${app.cluster.currentWorker.index}"))
           workerConfigDir ← IO(workerPath.resolve("config"))
 
           _ ← IO { Files.createDirectories(workerConfigDir) }
@@ -93,29 +87,13 @@ object TendermintConfig extends slogging.LazyLogging {
     }
 
   def writeGenesis(app: App, dest: Path) = IO {
-    import io.circe.syntax._
-
     val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
     df.setTimeZone(TimeZone.getTimeZone("UTC"))
 
-    val genesis = Map(
-      "genesis_time" -> df.format(app.cluster.genesisTime.toMillis),
-      "chain_id" -> Web3jConverters.bytes32AppIdToChainId(app.appId),
-      "app_hash" -> "",
-      "validators" -> app.cluster.workers.map { w =>
-        Map(
-          "pub_key" -> Map(
-            "type" -> "tendermint/PubKeyEd25519",
-            "value" -> w.base64ValidatorKey
-          ).asJson.spaces2,
-          "power" -> "1",
-          "name" -> s"${app.appId}_${w.index}"
-        )
-      }.asJson.spaces2
-    )
+    val genesis = GenesisConfig.buildFrom(app)
 
     logger.info("Writing {}/genesis.json", dest)
-    Files.write(dest.resolve("genesis.json"), genesis.asJson.spaces2.getBytes)
+    Files.write(dest.resolve("genesis.json"), genesis.getBytes)
   }
 
   def updateConfigTOML(app: App, workerId: Bytes32, configSrc: Path, configDest: Path) = IO {
@@ -123,12 +101,10 @@ object TendermintConfig extends slogging.LazyLogging {
     logger.info("Updating {} -> {}", configSrc, configDest)
 
     val currentWorker = app.cluster.currentWorker
-    val externalAddress = currentWorker.peerAddress
-
     val persistentPeers = app.cluster.workers.map(_.peerAddress).mkString(",")
 
     val lines = Source.fromFile(configSrc.toUri).getLines().map {
-      case s if s.contains("external_address") => s"""external_address = "$externalAddress""""
+      case s if s.contains("external_address") => s"""external_address = "${currentWorker.address}""""
       case s if s.contains("persistent_peers") => s"""persistent_peers = "$persistentPeers""""
       case s if s.contains("moniker") => s"""moniker = "${app.appId}_${currentWorker.index}""""
       case s => s

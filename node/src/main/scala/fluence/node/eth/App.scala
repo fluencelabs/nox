@@ -16,28 +16,21 @@
 
 package fluence.node.eth
 import java.net.InetAddress
-import java.text.SimpleDateFormat
-import java.util.{Calendar, TimeZone}
 
-import org.web3j.abi.datatypes.{Address, DynamicArray}
+import fluence.ethclient.helpers.Web3jConverters.{bytes32ToBase64, bytes32ToHexStringTrimZeros}
+import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated._
 import scodec.bits.ByteVector
 
-import scala.concurrent.duration.FiniteDuration
-import scala.concurrent.duration._
 import scala.collection.JavaConverters._
-import fluence.ethclient.helpers.Web3jConverters.{bytes32ToBase64, bytes32ToHexString}
+import scala.concurrent.duration.{FiniteDuration, _}
 
 case class App(
   appId: Bytes32,
   storageHash: Bytes32,
   cluster: Cluster //TODO: maybe make cluster an Option
 ) {
-  def appIdHex: String = bytes32ToHexString(appId)
-}
-
-object App {
-  def apply(appId: Bytes32, storageHash: Bytes32, cluster: Cluster): App = App(appId, storageHash, cluster)
+  def appIdHex: String = bytes32ToHexStringTrimZeros(appId)
 }
 
 case class Cluster(genesisTime: FiniteDuration, workers: List[WorkerNode], currentWorker: WorkerNode)
@@ -86,8 +79,9 @@ object Cluster {
  * @param index index of a worker in cluster workers array
  */
 case class WorkerNode(validatorKey: Bytes32, peerId: String, ip: InetAddress, port: Short, index: Int) {
-  def base64ValidatorKey: String = bytes32ToBase64(validatorKey)
-  def peerAddress: String = s"$peerId@${ip.getHostAddress}:$port"
+  val base64ValidatorKey: String = bytes32ToBase64(validatorKey)
+  val address: String = s"${ip.getHostAddress}:$port"
+  val peerAddress: String = s"$peerId@$address"
 
   val rpcPort: Short = (port + 100).toShort //TODO: reserve service ports sequentially, right after p2p port
   val tmPrometheusPort: Short = (port + 200).toShort //TODO: reserve service ports sequentially, right after p2p port

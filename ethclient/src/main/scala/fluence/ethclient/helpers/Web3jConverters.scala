@@ -79,11 +79,11 @@ object Web3jConverters {
   def bytes32ToString(bytes32: Bytes32): String = new String(bytes32.getValue.filter(_ != 0))
 
   /**
-   * Converts bytes of web3j's Bytes32 to hex string.
+   * Converts bytes of web3j's Bytes32 to hex string with leading zeros removed.
    *
    * @param bytes32 bytes32 value
    */
-  def bytes32ToHexString(bytes32: Bytes32): String = ByteVector(bytes32.getValue).toHex
+  def bytes32ToHexStringTrimZeros(bytes32: Bytes32): String = ByteVector(bytes32.getValue.dropWhile(_ == 0)).toHex
 
   /**
    * Converts hex string to byte array.

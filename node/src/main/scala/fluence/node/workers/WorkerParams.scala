@@ -41,7 +41,7 @@ case class WorkerParams(
       .daemonRun()
       .option("-e", s"""CODE_DIR=$vmCodePath""")
       .option("-e", s"""WORKER_DIR=$workerPath""")
-      .option("--name", s"${appIdHex}_${currentWorker.index}")
+      .option("--name", s"${appIdHex}_worker_${currentWorker.index}")
       .port(currentWorker.port, 26656)
       .port(currentWorker.rpcPort, 26657)
       .port(currentWorker.tmPrometheusPort, 26660)

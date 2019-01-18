@@ -105,11 +105,7 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
               .map(tuple ⇒ (tuple.getValue1, tuple.getValue2))
           ) {
             case ((storageHash, genesisTime, workerIds), (addrs, ports)) ⇒
-              println(
-                s"validatorKeys from getApp: ${workerIds.getValue.asScala.map(Web3jConverters.bytes32ToHexString)}"
-              )
               val cluster = Cluster.build(genesisTime, workerIds, addrs, ports, currentWorkerId = workerId)
-              println(s"getApp cluster is $cluster")
               cluster.map(App(appId, storageHash, _))
         }
       )

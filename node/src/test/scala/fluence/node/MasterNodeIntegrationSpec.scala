@@ -165,14 +165,6 @@ class MasterNodeIntegrationSpec
             contract = FluenceContract(ethClient, contractConfig)
             status1 <- getStatus(status1Port)
             status2 <- getStatus(status2Port)
-            _ = println(
-              s"master1 is ${status1.nodeConfig.validatorKey.value}" +
-                s" ${Web3jConverters.bytes32ToHexString(status1.nodeConfig.validatorKey.toBytes32)}"
-            )
-            _ = println(
-              s"master2 is ${status2.nodeConfig.validatorKey.value}" +
-                s" ${Web3jConverters.bytes32ToHexString(status2.nodeConfig.validatorKey.toBytes32)}"
-            )
             _ <- contract.addNode[IO](status1.nodeConfig).attempt
             _ <- contract.addNode[IO](status2.nodeConfig).attempt
             _ <- contract.addApp[IO]("llamadb", clusterSize = 2)
