@@ -22,8 +22,6 @@ import cats.effect._
 import cats.syntax.applicativeError._
 import cats.syntax.functor._
 import cats.syntax.monadError._
-import com.softwaremill.sttp.{sttp, SttpBackend}
-import fluence.node.MasterStatus
 import fluence.node.docker.{DockerIO, DockerParams}
 import org.scalactic.source.Position
 import org.scalatest.exceptions.{TestFailedDueToTimeoutException, TestFailedException}
@@ -42,14 +40,14 @@ package object util {
   def runCmd(cmd: String): Unit = Process(cmd, bootstrapDir).!(ProcessLogger(_ => ()))
   def runBackground(cmd: String): Unit = Process(cmd, bootstrapDir).run(ProcessLogger(_ => ()))
 
-  val dockerHost = getOS match {
+  val dockerHost: String = getOS match {
     case "linux" => ifaceIP("docker0")
     case "mac" => "host.docker.internal"
     case os => throw new RuntimeException(s"$os isn't supported")
   }
 
-  val ethereumHost = getOS match {
-    case "linux" => linuxHostIP
+  val ethereumHost: String = getOS match {
+    case "linux" => linuxHostIP.get
     case "mac" => "host.docker.internal"
     case os => throw new RuntimeException(s"$os isn't supported")
   }
@@ -112,8 +110,6 @@ package object util {
   }
 
   def heightFromTendermintStatus(startPort: Int): IO[Option[Long]] = IO {
-    import io.circe._
-    import io.circe.parser._
     val port = startPort + 100 // +100 corresponds to port mapping scheme from `ClusterData`
     val source = Source.fromURL(s"http://localhost:$port/status").mkString
     val height = parse(source)
