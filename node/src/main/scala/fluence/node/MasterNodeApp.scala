@@ -118,7 +118,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
       .attempt
       .flatMap {
         case Left(err) =>
-          logger.error("Error: {}", err)
+          logger.error(s"Error in MasterNodeApp: $err", err)
           IO.pure(ExitCode.Error)
         case Right(ec) => IO.pure(ec)
       }
