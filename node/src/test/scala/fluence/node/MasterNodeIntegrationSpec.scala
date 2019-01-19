@@ -186,7 +186,7 @@ class MasterNodeIntegrationSpec
               s1 should not be defined
               s2 should not be defined
             },
-            maxWait = 10.seconds
+            maxWait = 30.seconds
           )
         } yield {}
     }
