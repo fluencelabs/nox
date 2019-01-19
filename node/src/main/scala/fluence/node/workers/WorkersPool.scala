@@ -70,7 +70,7 @@ class WorkersPool[F[_]: ContextShift: Timer](
         for {
           // stop an old worker
           _ <- oldWorker.map(stop).getOrElse(F.unit)
-          worker <- Worker.run[F](params, healthCheckConfig, Sync[F].delay {
+          worker <- Worker.run[F](params, healthCheckConfig, Sync[F].suspend {
             logger.info(s"Removing worker from a pool: $params")
             workers.update(_ - params.appId)
           })
@@ -113,7 +113,14 @@ class WorkersPool[F[_]: ContextShift: Timer](
     for {
       map <- workers.get
       worker = map.get(appId)
-      _ <- worker.map(stop).getOrElse(F.unit)
+      _ <- worker
+        .map(
+          w =>
+            stop(w).attempt.map { stopped =>
+              logger.info(s"Stopped: ${w.params} => $stopped")
+          }
+        )
+        .getOrElse(F.unit)
     } yield {}
 }
 

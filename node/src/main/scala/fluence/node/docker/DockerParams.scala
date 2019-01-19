@@ -15,6 +15,8 @@
  */
 
 package fluence.node.docker
+import fluence.node.docker.DockerParams.WithImage
+
 import scala.collection.immutable.Queue
 import scala.sys.process._
 
@@ -22,9 +24,8 @@ import scala.sys.process._
  * Builder for basic `docker run` command parameters.
  *
  * @param params Current command' params
- * @param tailParams Params to be added after the image name
  */
-case class DockerParams private (params: Queue[String], tailParams: List[String] = Nil) {
+case class DockerParams private (params: Queue[String]) {
 
   /**
    * Adds a single param to command.
@@ -73,19 +74,35 @@ case class DockerParams private (params: Queue[String], tailParams: List[String]
    *
    * @param imageName name of image to run
    */
-  def image(imageName: String): DockerParams.Sealed =
-    DockerParams.Sealed(add(imageName).params.enqueue(tailParams))
+  def image(imageName: String): DockerParams.WithImage =
+    WithImage(params, imageName)
 }
 
 object DockerParams {
-  case class Sealed(command: Seq[String]) extends AnyVal {
+  sealed trait SealedParams {
+    def command: Seq[String]
     def process: ProcessBuilder = Process(command)
   }
+  case class DaemonParams(command: Seq[String]) extends SealedParams
+  case class ExecParams(command: Seq[String]) extends SealedParams
 
-  def daemonRun(): DockerParams =
-    DockerParams(Queue("docker", "run", "-d"))
+  private val daemonParams = Seq("docker", "run", "-d")
+  private val runParams = Seq("docker", "run", "--user", "", "--rm", "-i", "--entrypoint")
 
-  def run(executable: String, params: String*): DockerParams =
-    DockerParams(Queue("docker", "run", "--user", "", "--rm", "-i", "--entrypoint", executable), params.toList)
+  case class WithImage(params: Seq[String], imageName: String) {
 
+    def daemonRun(): DaemonParams =
+      DaemonParams(daemonParams ++ params :+ imageName)
+
+    def unmanagedDaemonRun(): ExecParams = {
+      ExecParams(daemonParams ++ params :+ imageName)
+    }
+
+    def run(executable: String, execParams: String*): ExecParams = {
+      val cmd = (runParams :+ executable) ++ params ++ (imageName +: execParams)
+      ExecParams(cmd)
+    }
+  }
+
+  def build(): DockerParams = DockerParams(Queue())
 }

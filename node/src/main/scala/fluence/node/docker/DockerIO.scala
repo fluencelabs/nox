@@ -39,17 +39,29 @@ object DockerIO extends LazyLogging {
     implicitly[ContextShift[F]].shift *> Sync[F].delay(fn)
 
   /**
-   * Runs a docker container, providing a single String with the container ID.
-   * Calls `rm -f` on that ID when stream is over.
+   * Runs a temporary docker container with custom executable. Returns stdout of execution as a string.
+   * Caller is responsible for container removal.
+   * @param params parameters for Docker container
+   * @return a stream with execution stdout
+   */
+  def run[F[_]: Sync: ContextShift](params: DockerParams.ExecParams): fs2.Stream[F, String] =
+    fs2.Stream.eval {
+      logger.info(s"Executing docker command: ${params.command.mkString(" ")}")
+      shiftDelay(params.process.!!.trim)
+    }
+
+  /**
+   * Runs a daemonized docker container, providing a single String with the container ID.
+   * Calls `docker rm -f` on that ID when stream is over.
    *
-   * @param params will be concatenated to `docker run -d`
+   * @param params parameters for Docker container, must start with `docker run -d`
    * @return a stream that produces a docker container ID
    */
-  def run[F[_]: Sync: ContextShift](params: DockerParams.Sealed): fs2.Stream[F, String] =
+  def run[F[_]: Sync: ContextShift](params: DockerParams.DaemonParams): fs2.Stream[F, String] =
     fs2.Stream.bracketCase {
       logger.info(s"Running docker: ${params.command.mkString(" ")}")
       // TODO: if we have another docker container with the same name, we should rm -f it
-      shiftDelay(Try(params.process.!!).map(_.trim()))
+      shiftDelay(Try(params.process.!!).map(_.trim))
     } {
       case (Success(dockerId), exitCase) ⇒
         shiftDelay({
@@ -59,7 +71,6 @@ object DockerIO extends LazyLogging {
           case 0 ⇒ logger.info(s"Container $dockerId successfully removed")
           case x ⇒ logger.warn(s"Stopping docker container $dockerId failed, exit code = $x")
         }
-        shiftDelay()
       case (Failure(err), _) ⇒
         logger.warn(s"Can't cleanup the docker container as it's failed to launch: $err", err)
         Applicative[F].unit

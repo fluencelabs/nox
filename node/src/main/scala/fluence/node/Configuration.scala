@@ -92,10 +92,11 @@ object Configuration {
       masterContainerId
         .foldLeft(
           DockerParams
-            .run("tendermint", cmd, s"--home=$tendermintDir")
+            .build()
             .user(uid)
         )(_.option("--volumes-from", _))
         .image(workerImage.imageName)
+        .run("tendermint", cmd, s"--home=$tendermintDir")
 
     for {
       uid <- IO(scala.sys.process.Process("id -u").!!.trim)

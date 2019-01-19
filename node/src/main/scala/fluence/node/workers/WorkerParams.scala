@@ -40,9 +40,9 @@ case class WorkerParams(
   /**
    * [[fluence.node.docker.DockerIO.run]]'s command for launching a configured worker
    */
-  val dockerCommand: DockerParams.Sealed = {
+  val dockerCommand: DockerParams.DaemonParams = {
     val params = DockerParams
-      .daemonRun()
+      .build()
       .option("-e", s"""CODE_DIR=$vmCodePath""")
       .option("-e", s"""WORKER_DIR=$workerPath""")
       .option("--name", s"${appIdHex}_worker_${currentWorker.index}")
@@ -54,6 +54,6 @@ case class WorkerParams(
     (masterNodeContainerId match {
       case Some(id) => params.option("--volumes-from", s"$id:ro")
       case None => params
-    }).image(image.imageName)
+    }).image(image.imageName).daemonRun()
   }
 }
