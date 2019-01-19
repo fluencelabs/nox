@@ -15,37 +15,24 @@
  */
 
 package fluence.node
-import java.io.File
-import java.net.InetAddress
-
 import cats.effect._
-import cats.syntax.applicativeError._
 import cats.syntax.functor._
-import cats.syntax.monadError._
-import com.softwaremill.sttp.{SttpBackend, _}
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
 import fluence.ethclient.EthClient
-import fluence.ethclient.helpers.Web3jConverters
 import fluence.ethclient.helpers.Web3jConverters.hexToBytes32
-import fluence.node.docker.{DockerIO, DockerParams}
 import fluence.node.eth.{FluenceContract, FluenceContractConfig}
 import fluence.node.workers.WorkerRunning
-import org.scalactic.source.Position
-import org.scalatest.exceptions.{TestFailedDueToTimeoutException, TestFailedException}
-import org.scalatest.time.Span
+import fluence.util.util._
 import org.scalatest.{Timer => _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.io.Source
 import scala.language.higherKinds
-import scala.sys.process.{Process, ProcessLogger}
-
-import fluence.util.util._
+import scala.sys.process.ProcessLogger
 
 /**
  * This test contains a single test method that checks:

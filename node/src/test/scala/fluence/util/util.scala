@@ -110,6 +110,8 @@ package object util {
   }
 
   def heightFromTendermintStatus(startPort: Int): IO[Option[Long]] = IO {
+    import io.circe.parser.parse
+    import io.circe.Json
     val port = startPort + 100 // +100 corresponds to port mapping scheme from `ClusterData`
     val source = Source.fromURL(s"http://localhost:$port/status").mkString
     val height = parse(source)
