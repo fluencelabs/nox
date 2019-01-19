@@ -24,7 +24,7 @@ import fluence.ethclient.EthClient
 import fluence.ethclient.helpers.Web3jConverters.hexToBytes32
 import fluence.node.eth.{FluenceContract, FluenceContractConfig}
 import fluence.node.workers.WorkerRunning
-import fluence.util.util._
+import fluence.util.util._ // TODO: why it's double util.util._? How to make it just fluence.util._ ?
 import org.scalatest.{Timer => _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
@@ -186,7 +186,7 @@ class MasterNodeIntegrationSpec
               s1 should not be defined
               s2 should not be defined
             },
-            30.seconds
+            maxWait = 10.seconds
           )
         } yield {}
     }
