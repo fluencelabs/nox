@@ -23,20 +23,32 @@ import fluence.statemachine.util.HexCodec.hexToArray
 
 import scala.language.higherKinds
 
+sealed trait FunctionCallDescription
+
 /**
- * Description of a function invocation with concrete arguments.
- *
- * @param module VM module containing the invoked function
- * @param arg argument for the invoked function
- */
-case class FunctionCallDescription(module: Option[String], arg: Array[Byte])
+  * Description of command to explicitly closes sessions by the client.
+  */
+case class SmCloseSessionDescription() extends FunctionCallDescription
 
-object FunctionCallDescription {
+/**
+  * Description of a Wasm function invocation with concrete arguments.
+  *
+  * @param module VM module containing the invoked function
+  * @param arg argument for the invoked function
+  */
+case class VmFunctionCallDescription(module: Option[String], arg: Array[Byte]) extends FunctionCallDescription
 
-  /**
-   * Description for reserved non-VM function call that explicitly closes sessions by the client.
-   */
+object PayloadParser {
   val CloseSession = "@closeSession"
+
+  def unapply[F[_]](arg: String): Option[FunctionCallDescription] = payload match {
+    case CloseSession => SmCloseSessionDescription
+    case payload => VmFunctionCallDescription(payload)
+  }
+
+}
+
+object VmFunctionCallDescription {
 
   // ^ start of the line, needed to capture whole string, not just substring
   // (\w+)* optional module name
@@ -49,21 +61,21 @@ object FunctionCallDescription {
    *
    * @param payload text representation of the function invocation
    */
-  def parse[F[_]](payload: String)(implicit F: Monad[F]): EitherT[F, StateMachineError, FunctionCallDescription] =
+  def apply[F[_]](payload: String)(implicit F: Monad[F]): EitherT[F, StateMachineError, FunctionCallDescription] =
     EitherT.fromEither(
       for {
         parsedPayload <- payload match {
           case payloadPattern(m, args) => Either.right((Option(m).map(_.filter(_ != '.')), args))
           case _ => Either.left(wrongPayloadFormatError(payload))
         }
-        (module, unparsedArg) = parsedPayload
+        (module, rawFnArg) = parsedPayload
 
         // each public Wasm function receives byte array - so returns an empty array in case of empty argument
-        parsedArg <- if (unparsedArg.isEmpty) Either.right(Array[Byte]())
+        fnArg <- if (rawFnArg.isEmpty) Either.right(Array[Byte]())
         else
-          hexToArray(unparsedArg).left.map(parseErrorMsg => wrongPayloadArgumentFormatError(unparsedArg, parseErrorMsg))
+          hexToArray(rawFnArg).left.map(parseErrorMsg => wrongPayloadArgumentFormatError(unparsedArg, parseErrorMsg))
 
-      } yield FunctionCallDescription(module, parsedArg)
+      } yield VmFunctionCallDescription(module, fnArg)
     )
 
   /**

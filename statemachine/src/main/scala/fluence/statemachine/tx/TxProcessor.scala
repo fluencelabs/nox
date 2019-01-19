@@ -128,10 +128,13 @@ class TxProcessor[F[_]](
    * @return [[TransactionStatus]] corresponding to the invocation result
    */
   private def invokeTx(tx: Transaction): F[TransactionStatus] =
+    PayloadParser(tx.payload)
+
     FunctionCallDescription
       .parse[F](tx.payload)
       .flatMap {
-        // TODO : in future there should be a handler responsible for returning result from VM
+        case FunctionCallDescription(None, FunctionCallDescription.CloseSession, arr) if arr.isEmpty =>
+          EitherT.right[StateMachineError](putResult(tx, TransactionStatus.SessionClosed, Empty))
         case callDescription =>
           vmInvoker
             .invoke(callDescription)
