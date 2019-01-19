@@ -15,8 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-import {Network} from "../types/web3-contracts/Network";
-import {App} from "./app";
+import {none, Option, some} from "ts-option";
 
 export interface ClusterMember {
     id: string,
@@ -24,54 +23,22 @@ export interface ClusterMember {
 }
 
 export interface Cluster {
-    id: string,
     genesis_time: number,
-    app: App,
     cluster_members: ClusterMember[]
 }
 
-/**
- * Gets list of formed clusters from Fluence contract
- */
-export async function getClusters(contract: Network, ids: string[]): Promise<Cluster[]> {
-
-    let clusterCalls: Promise<Cluster>[] = ids.map((id) => {
-        return contract.methods.getCluster(id).call().then((res) => {
-
-            let appAddress = res["0"];
-            let storageReceipt = res["1"];
-            let clusterSize = parseInt(res["2"]);
-            let developer = res["3"];
-            let pinToNodes = res["4"];
-
-            let app: App = {
-                app_address: appAddress,
-                storage_receipt: storageReceipt,
-                cluster_size: clusterSize,
-                developer: developer,
-                pinToNodes: pinToNodes
-            };
-
-            let memberIds = res["6"];
-            let memberPorts = res["7"];
-
-            let cluster_members: ClusterMember[] = memberIds.map((member_id, idx) => {
-                return {
-                    id: member_id,
-                    port: parseInt(memberPorts[idx])
-                }
-            });
-
-            let genesisTime = parseInt(res["5"]);
-
+export function parseCluster(genesisTime: number, nodeIds: string[], ports: number[]): Option<Cluster> {
+    if (genesisTime !== 0) {
+        let clusterMembers: ClusterMember[] = ports.map((port, idx) => {
             return {
-                id: id,
-                genesis_time: genesisTime,
-                app: app,
-                cluster_members: cluster_members
-            };
+                id: nodeIds[idx],
+                port: port
+            }
         });
-    });
 
-    return Promise.all(clusterCalls);
+        return some({
+            genesis_time: genesisTime,
+            cluster_members: clusterMembers
+        });
+    } else { return none }
 }
