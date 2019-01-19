@@ -23,6 +23,7 @@ import cats.syntax.applicativeError._
 import cats.syntax.functor._
 import cats.syntax.monadError._
 import fluence.node.docker.{DockerIO, DockerParams}
+import fluence.node.eth.WorkerNode
 import org.scalactic.source.Position
 import org.scalatest.exceptions.{TestFailedDueToTimeoutException, TestFailedException}
 import org.scalatest.time.Span
@@ -109,11 +110,11 @@ package object util {
       "linux"
   }
 
-  def heightFromTendermintStatus(startPort: Int): IO[Option[Long]] = IO {
+  def heightFromTendermintStatus(p2pPort: Short): IO[Option[Long]] = IO {
     import io.circe.parser.parse
     import io.circe.Json
-    val port = startPort + 100 // +100 corresponds to port mapping scheme from `ClusterData`
-    val source = Source.fromURL(s"http://localhost:$port/status").mkString
+    val rpcPort = WorkerNode.rpcPort(p2pPort)
+    val source = Source.fromURL(s"http://localhost:$rpcPort/status").mkString
     val height = parse(source)
       .getOrElse(Json.Null)
       .asObject

@@ -91,7 +91,6 @@ case class MasterNode(
     node <- Concurrent[IO].start(masterNode)
     appDelete <- Concurrent[IO].start(listenForDeletion)
     exitCode <- node.join
-    wtf <- appDelete.join
-    _ <- IO { println(s"exitCode: $exitCode also $wtf") }
+    _ <- appDelete.join
   } yield exitCode
 }

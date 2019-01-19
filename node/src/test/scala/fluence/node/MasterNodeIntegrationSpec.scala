@@ -64,7 +64,7 @@ class MasterNodeIntegrationSpec
 
     logger.info("stopping containers")
     // TODO: kill containers through Master's HTTP API
-    runCmd("docker rm -f 01_worker_0 01_worker_1")
+    runCmd("docker rm -f 01_worker_0 01_worker_1 02_worker_0 02_worker_1")
   }
 
   def getStatus(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[MasterStatus] = {
@@ -97,8 +97,8 @@ class MasterNodeIntegrationSpec
         master1 <- runMaster(master1Port, master1Port, "master1", status1Port)
         master2 <- runMaster(master2Port, master2Port, "master2", status2Port)
 
-        _ <- eventually[IO](checkMasterRunning(master1), maxWait = 15.seconds)
-        _ <- eventually[IO](checkMasterRunning(master2), maxWait = 15.seconds)
+        _ <- eventually[IO](checkMasterRunning(master1), maxWait = 30.seconds) // TODO: 30 seconds is a bit too much for startup
+        _ <- eventually[IO](checkMasterRunning(master2), maxWait = 30.seconds) // TODO: investigate and reduce timeout
       } yield Seq(master1, master2)
     } { masters =>
       val containers = masters.mkString(" ")
@@ -144,7 +144,7 @@ class MasterNodeIntegrationSpec
         _ <- eventually[IO](
           for {
             c1s0 <- heightFromTendermintStatus(basePort)
-            c1s1 <- heightFromTendermintStatus(basePort + 1)
+            c1s1 <- heightFromTendermintStatus((basePort + 1).toShort)
             worker1 <- getRunningWorker(getStatusPort(basePort))
             worker2 <- getRunningWorker(getStatusPort((basePort + 1).toShort))
           } yield {

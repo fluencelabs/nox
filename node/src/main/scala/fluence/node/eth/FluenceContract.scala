@@ -83,7 +83,7 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
       }
 
   /**
-   * Returns a finite stream of ClusterData for the given node.
+   * Returns a finite stream of [[App]] for the current node (specified by `workerId`).
    *
    * @param workerId Tendermint Validator key of current worker, used to filter out apps which aren't related to current node
    * @tparam F Effect
@@ -115,7 +115,7 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
    *
    * @param workerId Tendermint Validator key of current worker, used to filter out events which aren't addressed to this node
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
-   * @return Possibly infinite stream of ClusterData
+   * @return Possibly infinite stream of [[App]]s
    */
   def getNodeAppDeployed[F[_]: ConcurrentEffect](workerId: Bytes32): fs2.Stream[F, App] =
     fs2.Stream
@@ -125,12 +125,12 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
       .unNone
 
   /**
-   * Returns a combined stream of clusters where this node should already participate and the new ones coming from
-   * ClusterFormed events.
+   * Returns a stream of [[App]]s already assigned to that node combined with
+   * a stream of new [[App]]s coming from AppDeployed events emitted by Fluence Contract
    *
    * @param workerId Tendermint Validator key of current worker, used to filter out events which aren't addressed to this node
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
-   * @return Possibly infinite stream of ClusterData
+   * @return Possibly infinite stream of [[App]]s
    */
   def getAllNodeApps[F[_]: ConcurrentEffect](workerId: Bytes32): fs2.Stream[F, App] =
     getNodeApps[F](workerId)
@@ -162,18 +162,18 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
   }
 
   /**
-   * Adds a new code to be launched with a new cluster
+   * Publishes a new app to Fluence Network
    *
    * TODO should not be called from scala
-   * @param code Code app name
-   * @param clusterSize Cluster size
+   * @param storageHash Hash of the code in Swarm
+   * @param clusterSize Cluster size required to host this app
    * @tparam F Effect
    * @return The block number where transaction has been mined
    */
-  def addApp[F[_]: Async](code: String, clusterSize: Short = 1): F[BigInt] =
+  def addApp[F[_]: Async](storageHash: String, clusterSize: Short = 1): F[BigInt] =
     contract
       .addApp(
-        stringToBytes32(code),
+        stringToBytes32(storageHash),
         stringToBytes32("receipt_stub"),
         new Uint8(clusterSize),
         DynamicArray.empty("bytes32[]").asInstanceOf[DynamicArray[Bytes32]]

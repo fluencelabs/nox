@@ -17,7 +17,7 @@
 package fluence.node.eth
 import java.net.InetAddress
 
-import fluence.ethclient.helpers.Web3jConverters.{bytes32ToBase64, bytes32ToHexStringTrimZeros}
+import fluence.ethclient.helpers.Web3jConverters.bytes32ToBase64
 import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated._
 import scodec.bits.ByteVector
@@ -81,9 +81,9 @@ case class WorkerNode(validatorKey: Bytes32, peerId: String, ip: InetAddress, p2
   val address: String = s"${ip.getHostAddress}:$p2pPort"
   val peerAddress: String = s"$peerId@$address"
 
-  val rpcPort: Short = (p2pPort + 100).toShort //TODO: reserve service ports sequentially, right after p2p port
-  val tmPrometheusPort: Short = (p2pPort + 200).toShort //TODO: reserve service ports sequentially, right after p2p port
-  val smPrometheusPort: Short = (p2pPort + 300).toShort //TODO: reserve service ports sequentially, right after p2p port
+  val rpcPort: Short = WorkerNode.rpcPort(p2pPort)
+  val tmPrometheusPort: Short = WorkerNode.tmPrometheusPort(p2pPort)
+  val smPrometheusPort: Short = WorkerNode.smPrometheusPort(p2pPort)
 }
 
 object WorkerNode {
@@ -97,4 +97,9 @@ object WorkerNode {
 
     WorkerNode(key, peerId, inetAddress, portShort, index)
   }
+
+  //TODO: find a better way to calculate all these ports. Maybe Kademlia?
+  def rpcPort(p2pPort: Short): Short = (p2pPort + 100).toShort
+  def tmPrometheusPort(p2pPort: Short): Short = (p2pPort + 200).toShort
+  def smPrometheusPort(p2pPort: Short): Short = (p2pPort + 300).toShort
 }

@@ -125,7 +125,8 @@ object MasterNodeApp extends IOApp with LazyLogging {
   }
 
   private def configureLogging(): Unit = {
-    PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, true)
+    PrintLoggerFactory.formatter =
+      new DefaultPrefixFormatter(printLevel = false, printName = false, printTimestamp = true)
     LoggerConfig.factory = PrintLoggerFactory()
     LoggerConfig.level = LogLevel.DEBUG
   }
