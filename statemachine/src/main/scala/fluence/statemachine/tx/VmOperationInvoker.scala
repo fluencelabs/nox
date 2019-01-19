@@ -45,7 +45,7 @@ class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) extends
    * @param callDescription description of function call invocation including function name and arguments
    * @return either successful invocation's result or failed invocation's error
    */
-  def invoke(callDescription: FunctionCallDescription): EitherT[F, StateMachineError, String] = {
+  def invoke(callDescription: VmFunctionCallDescription): EitherT[F, StateMachineError, String] = {
     val invokeTimeMeter = TimeMeter()
 
     val result = for {
@@ -57,8 +57,8 @@ class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) extends
       invokeDuration = invokeTimeMeter.millisElapsed
       _ = logger.info("VmOperationInvoker duration={}", invokeDuration)
 
-      _ = vmInvokeCounter.labels(callDescription.module.getOrElse("<no name module>")).inc()
-      _ = vmInvokeTimeCounter.labels(callDescription.module.getOrElse("<no name module>")).inc(invokeDuration)
+      _ = vmInvokeCounter.labels(callDescription.module.getOrElse("<no-name-module>")).inc()
+      _ = vmInvokeTimeCounter.labels(callDescription.module.getOrElse("<no-name-module>")).inc(invokeDuration)
     } yield invocationValue
 
     EitherT(result)

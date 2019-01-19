@@ -104,12 +104,12 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       client,
       session,
       1,
-      "MulModule.(0A0000000E000000)",
+      "MulModule(0A0000000E000000)",
       "YsykPCUaOpHjZ45CMOUBfaQjKLvMwaeac1OZxY9BqKE658qYuMx+Loe/iZMVc6IrXFSUffEIuLWXV6weOhHwAA"
     )
     val tx2 = tx(client, session, 2, "()")
     val tx3 = tx(client, session, 3, "()")
-    val tx0Failed = tx(client, session, 0, "wrong()")
+    val tx0Failed = tx(client, session, 0, "WrongModuleName()")
     val tx0Result = s"@meta/${client.id}/$session/0/result"
     val tx1Result = s"@meta/${client.id}/$session/1/result"
     val tx2Result = s"@meta/${client.id}/$session/2/result"
@@ -228,7 +228,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendDeliverTx(tx1)
       sendDeliverTx(tx2)
       sendDeliverTx(tx3)
-      sendDeliverTx(tx(client, session, 4, "@closeSession()"))
+      sendDeliverTx(tx(client, session, 4, "@closeSession"))
       sendCommit()
       sendCommit()
 
@@ -264,7 +264,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendCommit()
 
       sendQuery(s"@meta/${client.id}/$session/0/result") shouldBe
-        Right(Error("NoSuchFnError", "Unable to find a function with the name='<no-name>.wrong'").toStoreValue)
+        Right(Error("NoSuchModuleError", "Unable to find a function with the name='<no-name>.wrong'").toStoreValue)
       sendQuery(s"@meta/${client.id}/$session/0/status") shouldBe Right("error")
       sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
       sendQuery(tx3Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
@@ -277,11 +277,11 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       val firstSession = "000001"
       val secondSession = "000002"
       val thirdSession = "000003"
-      sendDeliverTx(tx(client, firstSession, 0, "get()"))
-      sendDeliverTx(tx(client, secondSession, 0, "get()"))
+      sendDeliverTx(tx(client, firstSession, 0, "()"))
+      sendDeliverTx(tx(client, secondSession, 0, "()"))
       for (i <- 0 to 5)
-        sendDeliverTx(tx(client, thirdSession, i, "get()"))
-      sendDeliverTx(tx(client, thirdSession, 6, "@closeSession()"))
+        sendDeliverTx(tx(client, thirdSession, i, "()"))
+      sendDeliverTx(tx(client, thirdSession, 6, "@closeSession"))
       sendCommit()
       sendCommit()
 

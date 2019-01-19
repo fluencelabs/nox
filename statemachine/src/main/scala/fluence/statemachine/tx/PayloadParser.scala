@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Fluence Labs Limited
+ * Copyright 2019 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,6 @@
  */
 
 package fluence.statemachine.tx
-import cats.Monad
-import cats.data.EitherT
-import cats.syntax.either._
-import fluence.statemachine.error.{PayloadParseError, StateMachineError}
 import fluence.statemachine.util.HexCodec.hexToArray
 
 import scala.language.higherKinds
@@ -26,33 +22,33 @@ import scala.language.higherKinds
 sealed trait FunctionCallDescription
 
 /**
-  * Description of command to explicitly closes sessions by the client.
-  */
+ * Description of command to explicitly closes sessions by the client.
+ */
 case class SmCloseSessionDescription() extends FunctionCallDescription
 
 /**
-  * Description of a Wasm function invocation with concrete arguments.
-  *
-  * @param module VM module containing the invoked function
-  * @param arg argument for the invoked function
-  */
+ * Description of a Wasm function invocation with concrete arguments.
+ *
+ * @param module VM module containing the invoked function
+ * @param arg argument for the invoked function
+ */
 case class VmFunctionCallDescription(module: Option[String], arg: Array[Byte]) extends FunctionCallDescription
 
-object PayloadParser {
+object SmCloseSession {
   val CloseSession = "@closeSession"
 
-  def unapply[F[_]](arg: String): Option[FunctionCallDescription] = payload match {
-    case CloseSession => SmCloseSessionDescription
-    case payload => VmFunctionCallDescription(payload)
+  def unapply(payload: String): Option[SmCloseSessionDescription] = payload match {
+    case CloseSession => Some(SmCloseSessionDescription())
+    case _ => None
   }
 
 }
 
-object VmFunctionCallDescription {
+object VmFunctionCall {
 
   // ^ start of the line, needed to capture whole string, not just substring
   // (\w+)* optional module name
-  // \((.*?)\) anything inside parentheses, will be parsed later by argRx
+  // \((.*?)\) anything inside parentheses
   // $ end of the line, needed to capture whole string, not just substring
   private val payloadPattern = """^(\w+)*\((.*?)\)$""".r
 
@@ -61,37 +57,11 @@ object VmFunctionCallDescription {
    *
    * @param payload text representation of the function invocation
    */
-  def apply[F[_]](payload: String)(implicit F: Monad[F]): EitherT[F, StateMachineError, FunctionCallDescription] =
-    EitherT.fromEither(
-      for {
-        parsedPayload <- payload match {
-          case payloadPattern(m, args) => Either.right((Option(m).map(_.filter(_ != '.')), args))
-          case _ => Either.left(wrongPayloadFormatError(payload))
-        }
-        (module, rawFnArg) = parsedPayload
+  def unapply(payload: String): Option[VmFunctionCallDescription] = payload match {
+    case payloadPattern(moduleName, rawFnArgs) =>
+      hexToArray(rawFnArgs).toOption.map(arg => VmFunctionCallDescription(Option(moduleName), arg))
 
-        // each public Wasm function receives byte array - so returns an empty array in case of empty argument
-        fnArg <- if (rawFnArg.isEmpty) Either.right(Array[Byte]())
-        else
-          hexToArray(rawFnArg).left.map(parseErrorMsg => wrongPayloadArgumentFormatError(unparsedArg, parseErrorMsg))
+    case _ => None
+  }
 
-      } yield VmFunctionCallDescription(module, fnArg)
-    )
-
-  /**
-   * Produces [[StateMachineError]] corresponding to payload that cannot be parsed to a function call.
-   *
-   * @param payload wrong payload
-   */
-  private def wrongPayloadFormatError(payload: String): StateMachineError =
-    PayloadParseError("WrongPayloadFormat", s"Wrong payload format: $payload")
-
-  /**
-   * Produces [[StateMachineError]] corresponding to payload's argument list that cannot be parsed to
-   * correct function arguments.
-   *
-   * @param unparsedArg wrong payload argument
-   */
-  private def wrongPayloadArgumentFormatError(unparsedArg: String, parseErrorMsg: String = ""): StateMachineError =
-    PayloadParseError("WrongPayloadArgument", s"Wrong payload argument = $unparsedArg, parser error = $parseErrorMsg")
 }
