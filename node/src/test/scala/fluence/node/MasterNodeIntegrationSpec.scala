@@ -74,6 +74,10 @@ class MasterNodeIntegrationSpec
   override protected def afterAll(): Unit = {
     logger.info("killing ganache")
     runCmd("pkill -f ganache")
+
+    logger.info("stopping containers")
+    // TODO: kill containers through Master's HTTP API
+    runCmd("docker rm -f 01_worker_0 01_worker_1")
   }
 
   def getStatus(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[MasterStatus] = {
@@ -95,7 +99,6 @@ class MasterNodeIntegrationSpec
 
   def getStatusPort(basePort: Short): Short = (basePort + 400).toShort
 
-  // TODO: fix MasterNode so it stops it's workers on stop, then delete basePort and make these IO's to be vals
   def runTwoMasters(basePort: Short): Resource[IO, Seq[String]] =
     Resource.make {
       val master1Port: Short = basePort
@@ -111,9 +114,8 @@ class MasterNodeIntegrationSpec
         _ <- eventually[IO](checkMasterRunning(master2), maxWait = 15.seconds)
       } yield Seq(master1, master2)
     } { masters =>
-//      val containers = masters.mkString(" ")
-//      IO { runCmd(s"docker rm -f $containers") }
-      IO.unit
+      val containers = masters.mkString(" ")
+      IO { runCmd(s"docker rm -f $containers") }
     }
 
   def getRunningWorker(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]) =
@@ -123,7 +125,7 @@ class MasterNodeIntegrationSpec
       })
     }
 
-  def withEthSttp(basePort: Short): Resource[IO, (EthClient, SttpBackend[IO, Nothing])] =
+  def withEthSttpAndTwoMasters(basePort: Short): Resource[IO, (EthClient, SttpBackend[IO, Nothing])] =
     for {
       ethClient <- EthClient.makeHttpResource[IO]()
       sttp <- Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
@@ -169,7 +171,7 @@ class MasterNodeIntegrationSpec
       } yield {}
     }
 
-    def deleteApp(basePort: Short): IO[Unit] = withEthSttp(basePort).use {
+    def deleteApp(basePort: Short): IO[Unit] = withEthSttpAndTwoMasters(basePort).use {
       case (ethClient, s) =>
         implicit val sttp = s
         val getStatus1 = getRunningWorker(getStatusPort(basePort))
@@ -202,12 +204,12 @@ class MasterNodeIntegrationSpec
         } yield {}
     }
 
-//    "sync their workers with contract clusters" in {
-//      withEthSttp(25000).use {
-//        case (e, s) =>
-//          runTwoWorkers(25000)(e, s)
-//      }.unsafeRunSync()
-//    }
+    "sync their workers with contract clusters" in {
+      withEthSttpAndTwoMasters(25000).use {
+        case (e, s) =>
+          runTwoWorkers(25000)(e, s)
+      }.unsafeRunSync()
+    }
 
     "stop workers on AppDelete event" in {
       deleteApp(26000).unsafeRunSync()
