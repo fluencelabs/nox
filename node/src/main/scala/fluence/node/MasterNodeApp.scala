@@ -91,6 +91,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
             // Type annotations are here to make IDEA's type inference happy
             case (ethClient: EthClient, sttpBackend: SttpBackend[IO, Nothing]) ⇒
               implicit val backend: SttpBackend[IO, Nothing] = sttpBackend
+              logger.info(s"Ethereum RPC config: $ethereumRpcConfig")
               for {
                 version ← ethClient.clientVersion[IO]()
                 _ = logger.info("eth client version {}", version)
