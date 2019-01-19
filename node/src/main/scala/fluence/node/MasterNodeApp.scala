@@ -119,6 +119,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
       .flatMap {
         case Left(err) =>
           logger.error(s"Error in MasterNodeApp: $err", err)
+          err.printStackTrace(System.err)
           IO.pure(ExitCode.Error)
         case Right(ec) => IO.pure(ec)
       }
