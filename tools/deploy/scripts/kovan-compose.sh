@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# Uses to start Fluence node with Swarm and Ethereum node on Kovan chain.
+
 set -e
 
 USAGE="Usage: ./kovan-compose.sh <external-ip> <owner-address> <private-key>"
