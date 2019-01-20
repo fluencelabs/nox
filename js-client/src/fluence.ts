@@ -22,6 +22,7 @@ import { Session } from "./Session";
 import { SessionConfig } from "./SessionConfig";
 import {fromHex, toHex} from "./utils";
 import {Empty, Result, Value, isValue} from "./Result";
+import {getStatus} from "fluence-monitoring"
 
 export {
     TendermintClient as TendermintClient,
@@ -38,6 +39,17 @@ export {
     SessionConfig as SessionConfig
 }
 
+// default signing key for now
+let signingKey = "TVAD4tNeMH2yJfkDZBSjrMJRbavmdc3/fGU2N2VAnxT3hAtSkX+Lrl4lN5OEsXjD7GGG7iEewSod472HudrkrA==";
+let signer = new Signer(signingKey);
+
+// `client002` is a default client for now
+let client = new Client("client002", signer);
+
+export async function createSession(contract: string, appId: string) {
+    getStatus(contract)
+}
+
 /**
  * Creates default session with default credentials.
  */
@@ -45,13 +57,6 @@ export function createDefaultSession(host: string, port: number) {
     let tm = new TendermintClient(host, port);
 
     let engine = new Engine(tm);
-
-    // default signing key for now
-    let signingKey = "TVAD4tNeMH2yJfkDZBSjrMJRbavmdc3/fGU2N2VAnxT3hAtSkX+Lrl4lN5OEsXjD7GGG7iEewSod472HudrkrA==";
-    let signer = new Signer(signingKey);
-
-    // `client002` is a default client for now
-    let client = new Client("client002", signer);
 
     return engine.genSession(client);
 }

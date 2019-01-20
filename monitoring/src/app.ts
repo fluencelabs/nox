@@ -34,35 +34,39 @@ export interface App {
     cluster: Option<Cluster>
 }
 
+export function getApp(contract: Network, id: string): Promise<App> {
+    return contract.methods.getApp(id).call().then((unparsedApp) => {
+        let storageHash: string = unparsedApp["0"];
+        let storageReceipt: string = unparsedApp["1"];
+        let clusterSize: number = parseInt(unparsedApp["2"]);
+        let owner: string = unparsedApp["3"];
+        let pinToNodes: string[] = unparsedApp["4"];
+
+        let genesisTime: number = parseInt(unparsedApp["5"]);
+        let nodeIds: string[] = unparsedApp["6"];
+        let ports: number[] = unparsedApp["7"].map(parseInt);
+
+        let clusterOpt = parseCluster(genesisTime, nodeIds, ports);
+
+        return {
+            app_id: id,
+            storage_hash: storageHash,
+            storage_receipt: storageReceipt,
+            cluster_size: clusterSize,
+            owner: owner,
+            pinToNodes: pinToNodes,
+            cluster: clusterOpt
+        };
+    });
+}
+
 /**
  * Gets list of enqueued codes from Fluence contract
  */
 export async function getApps(contract: Network, ids: string[]): Promise<App[]> {
 
     let appCalls: Promise<App>[] = ids.map((id) => {
-        return contract.methods.getApp(id).call().then((unparsedApp) => {
-            let storageHash: string = unparsedApp["0"];
-            let storageReceipt: string = unparsedApp["1"];
-            let clusterSize: number = parseInt(unparsedApp["2"]);
-            let owner: string = unparsedApp["3"];
-            let pinToNodes: string[] = unparsedApp["4"];
-
-            let genesisTime: number = parseInt(unparsedApp["5"]);
-            let nodeIds: string[] = unparsedApp["6"];
-            let ports: number[] = unparsedApp["7"].map(parseInt);
-
-            let clusterOpt = parseCluster(genesisTime, nodeIds, ports);
-
-            return {
-                app_id: id,
-                storage_hash: storageHash,
-                storage_receipt: storageReceipt,
-                cluster_size: clusterSize,
-                owner: owner,
-                pinToNodes: pinToNodes,
-                cluster: clusterOpt
-            };
-        });
+        return getApp(contract, id)
     });
 
     return Promise.all(appCalls);

@@ -20,8 +20,11 @@ import axios from 'axios';
 import {Network} from "../types/web3-contracts/Network";
 import {NodeStatus, UnavailableNode} from "./nodeStatus";
 import JSONFormatter from 'json-formatter-js';
-import abi = require("./Network.json");
+import * as App from "./app"
+import {getNodes} from "./node";
 import Web3 = require('web3');
+import abi = require("./Network.json");
+import {Option} from "ts-option";
 
 (window as any).web3 = (window as any).web3 || {};
 let web3 = (window as any).web3;
@@ -34,12 +37,12 @@ export interface Status {
     node_statuses: (NodeStatus|UnavailableNode)[]
 }
 
-/**
- * Shows status of Fluence contract on the page.
- * @param contractAddress address from ganache by default. todo: use address from mainnet as default
- */
-export async function getStatus(contractAddress: string): Promise<Status> {
+export interface NodeAddress {
+    ip: string,
+    port: number
+}
 
+export function getContract(address: string): Network {
     let web3js;
     if (typeof web3 !== 'undefined') {
         // Use Mist/MetaMask's provider
@@ -49,7 +52,41 @@ export async function getStatus(contractAddress: string): Promise<Status> {
         web3js = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
     }
 
-    let contract: Network = new web3js.eth.Contract(abi, contractAddress) as Network;
+    return new web3js.eth.Contract(abi, address) as Network;
+}
+
+export async function getNodeAddresses(contractAddress: string, appId: string): Promise<NodeAddress[]> {
+
+    let contract = getContract(contractAddress);
+
+    let app = await App.getApp(contract, appId);
+
+    let cluster = app.cluster;
+
+    let result: Option<Promise<NodeAddress[]>> = cluster.map((c) => {
+
+        let ids: string[] = c.cluster_members.map((m) => m.id);
+
+        return getNodes(contract, ids).then((nodes) => {
+            return nodes.map((n, idx) => {
+                return {
+                    ip: n.ip_addr,
+                    port: c.cluster_members[idx].port
+                }
+            })
+        });
+    });
+
+    return result.getOrElse(Promise.resolve([]));
+}
+
+/**
+ * Shows status of Fluence contract on the page.
+ * @param contractAddress address from ganache by default. todo: use address from mainnet as default
+ */
+export async function getStatus(contractAddress: string): Promise<Status> {
+
+    let contract = getContract(contractAddress);
 
     let contractStatus = await getContractStatus(contract);
 

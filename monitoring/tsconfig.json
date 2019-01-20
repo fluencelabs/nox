@@ -14,12 +14,14 @@
     "baseUrl": "." // This must be specified if "paths" is.
   },
   "typeRoots": [
-    "./node_modules/@types"
+    "./node_modules/@types",
+    "types"
   ],
   "exclude": [
     "node_modules",
     "dist",
     "src/test",
     "bundle"
-  ]
+  ],
+  "include": ["types"]
 }

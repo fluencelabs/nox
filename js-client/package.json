@@ -60,6 +60,7 @@
     "minimalistic-crypto-utils": "^1.0.1",
     "randomstring": "^1.1.5",
     "tendermint": "^3.2.0",
-    "ts-option": "^1.1.5"
+    "ts-option": "^1.1.5",
+    "fluence-monitoring": "0.0.3"
   }
 }
