@@ -57,8 +57,8 @@ class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) extends
       invokeDuration = invokeTimeMeter.millisElapsed
       _ = logger.info("VmOperationInvoker duration={}", invokeDuration)
 
-      _ = vmInvokeCounter.labels(callDescription.module.getOrElse("<no-name-module>")).inc()
-      _ = vmInvokeTimeCounter.labels(callDescription.module.getOrElse("<no-name-module>")).inc(invokeDuration)
+      _ = vmInvokeCounter.labels(callDescription.module.getOrElse("<no-name>")).inc()
+      _ = vmInvokeTimeCounter.labels(callDescription.module.getOrElse("<no-name>")).inc(invokeDuration)
     } yield invocationValue
 
     EitherT(result)

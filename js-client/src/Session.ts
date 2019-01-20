@@ -140,11 +140,12 @@ export class Session {
     /**
      * Sends request with a payload and wait for a response.
      *
-     * @param arg arguments for command
+     * @param arg argument for command
+     * @param moduleName name of module that should be called
      */
-    invoke(arg: string = ""): ResultPromise {
+    invoke(arg: string = "", moduleName: string = ""): ResultPromise {
 
-        let payload: string = `(${toHex(arg)})`;
+        let payload: string = moduleName + `(${toHex(arg)})`;
 
         return this.invokeRaw(payload);
     }

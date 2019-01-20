@@ -22,7 +22,7 @@ import com.google.protobuf.ByteString
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.state.QueryCodeType
 import fluence.statemachine.tree.MerkleTreeNode
-import fluence.statemachine.tx.{Computed, Empty, Error}
+import fluence.statemachine.tx.{Computed, Error}
 import fluence.statemachine.util.{ClientInfoMessages, HexCodec}
 import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
 

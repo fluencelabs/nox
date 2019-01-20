@@ -50,12 +50,9 @@ class IncrementAndMultiply {
 
     // uses the session to submit commands you want to
     async incrementCounter() {
-        console.log("do increment");
-        return this.session.invoke("inc");
-    }
+        console.log("invoke counter");
 
-    async getCounter() {
-        let res = await this.session.invoke("get").result();
+        let res = await this.session.invoke().result();
         if (isValue(res)) {
             console.log(`get result is: ${JSON.stringify(res.asInt())}`);
         }
@@ -63,7 +60,7 @@ class IncrementAndMultiply {
     }
 
     async multiply(first: number, second: number) {
-        let res = await this.session.invoke("multiplier.mul", `[${first.toString()}, ${second.toString()}]`)
+        let res = await this.session.invoke(`[${first.toString()}, ${second.toString()}]`, "MulModule")
             .result();
         console.log(`multiply result is: ${JSON.stringify(res)}`);
         return res;

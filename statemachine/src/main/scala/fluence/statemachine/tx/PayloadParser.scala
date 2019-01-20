@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Fluence Labs Limited
+ * Copyright 2019 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,20 +22,20 @@ import scala.language.higherKinds
 sealed trait FunctionCallDescription
 
 /**
- * Description of command to explicitly closes sessions by the client.
+ * Description of command that explicitly closes session by client.
  */
 case class SmCloseSessionDescription() extends FunctionCallDescription
 
 /**
- * Description of a Wasm function invocation with concrete arguments.
+ * Description of a Wasm function invocation with some argument.
  *
- * @param module VM module containing the invoked function
- * @param arg argument for the invoked function
+ * @param module VM module containing an invoked function
+ * @param arg argument for an invoked function
  */
 case class VmFunctionCallDescription(module: Option[String], arg: Array[Byte]) extends FunctionCallDescription
 
 /**
- * Extractor of command that explicitly closes sessions.
+ * Extractor for command that explicitly closes session.
  */
 object SmCloseSession {
   val CloseSession = "@closeSession"
@@ -48,7 +48,7 @@ object SmCloseSession {
 }
 
 /**
- * Extractor of command that call .
+ * Extractor of command that calls Wasm function.
  */
 object VmFunctionCall {
 
