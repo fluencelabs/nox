@@ -22,6 +22,5 @@
     "dist",
     "src/test",
     "bundle"
-  ],
-  "include": ["types"]
+  ]
 }

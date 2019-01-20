@@ -22,7 +22,7 @@ import { Session } from "./Session";
 import { SessionConfig } from "./SessionConfig";
 import {fromHex, toHex} from "./utils";
 import {Empty, Result, Value, isValue} from "./Result";
-import {getStatus} from "fluence-monitoring"
+import {getNodeAddresses, NodeAddress} from "fluence-monitoring"
 
 export {
     TendermintClient as TendermintClient,
@@ -46,8 +46,9 @@ let signer = new Signer(signingKey);
 // `client002` is a default client for now
 let client = new Client("client002", signer);
 
-export async function createSession(contract: string, appId: string) {
-    getStatus(contract)
+export async function createAppSessions(contract: string, appId: string): Promise<Session[]> {
+    let addresses: NodeAddress[] = await getNodeAddresses(contract, appId);
+    return addresses.map(a => createDefaultSession(a.ip, a.port))
 }
 
 /**
