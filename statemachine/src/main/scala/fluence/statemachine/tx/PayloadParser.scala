@@ -34,6 +34,9 @@ case class SmCloseSessionDescription() extends FunctionCallDescription
  */
 case class VmFunctionCallDescription(module: Option[String], arg: Array[Byte]) extends FunctionCallDescription
 
+/**
+ * Extractor of command that explicitly closes sessions.
+ */
 object SmCloseSession {
   val CloseSession = "@closeSession"
 
@@ -44,6 +47,9 @@ object SmCloseSession {
 
 }
 
+/**
+ * Extractor of command that call .
+ */
 object VmFunctionCall {
 
   // ^ start of the line, needed to capture whole string, not just substring
