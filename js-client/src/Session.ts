@@ -93,7 +93,7 @@ export class Session {
      *
      * @param payload a command supported by the program in a virtual machine with arguments
      */
-    invoke(payload: string): ResultPromise {
+    invokeRaw(payload: string): ResultPromise {
         // throws an error immediately if the session is closed
         if (this.closed) {
             return new ResultError(`The session was closed. Cause: ${this.closedStatus}`)
