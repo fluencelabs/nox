@@ -55,7 +55,7 @@ class AsmbleWasmVm(
       wasmModule <- EitherT
         .fromOption(
           modules.get(moduleName),
-          NoSuchModuleError(s"Unable to find a module with the name=$moduleName")
+          NoSuchModuleError(s"Unable to find a module with the name=${moduleName.getOrElse("<no-name>")}")
         )
       preprocessedArgument <- preprocessFnArgument(fnArgument, wasmModule)
       invocationResult <- wasmModule.invoke(preprocessedArgument)
