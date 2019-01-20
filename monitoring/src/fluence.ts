@@ -55,7 +55,7 @@ export async function getStatus(contractAddress: string): Promise<Status> {
 
     let responses = contractStatus.nodes.map((node) => {
         // todo: `+400` is a temporary solution, fix it after implementing correct port management
-        let url = `http://${node.ip_addr}:${node.start_port + 400}/status`;
+        let url = `http://${node.ip_addr}:${node.last_port + 400}/status`;
         return axios.get(url).then((res) => {
             res.data.status = "ok";
             return <NodeStatus>res.data;
@@ -76,7 +76,7 @@ export async function getStatus(contractAddress: string): Promise<Status> {
 /**
  * Show rendered status of Fluence network.
  */
-export function showStatus(contractAddress: string = "0x9995882876ae612bfd829498ccd73dd962ec950a") {
+export function showStatus(contractAddress: string) {
     let status = getStatus(contractAddress);
     status.then((st) => {
         const formatter = new JSONFormatter(st);

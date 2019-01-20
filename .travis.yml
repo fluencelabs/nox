@@ -1,71 +1,61 @@
+_scala_fluence_template: &_scala_fluence_template
+  language: scala
+  scala: 2.12.7
+  jdk: oraclejdk8
+
+  services:
+    - docker
+
+  install:
+    - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-01-08
+    - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-01-08
+
+  # These directories are cached to S3 at the end of the build
+  cache:
+    npm: true
+    cargo: true
+    directories:
+      - $HOME/.ivy2/cache
+      - $HOME/.sbt/boot
+      - $HOME/.sbt/launchers
+      - bootstrap/node_modules
+
+  before_cache:
+    # Cleanup the cached directories to avoid unnecessary cache updates
+    - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
+    - find $HOME/.sbt        -name "*.lock"               -print -delete
+
+_rust_wasm_template: &_rust_wasm_template
+  language: rust
+  # todo enable 'stable' and 'beta' when `allocator_api` will become stable
+  rust: nightly-2019-01-08
+  cache:
+    - cargo
+
+  install:
+    - rustup component add rustfmt
+
+  script:
+    - cargo +$TRAVIS_RUST_VERSION fmt --all -- --check -v
+    - cargo +$TRAVIS_RUST_VERSION build -v --all-features
+    - cargo +$TRAVIS_RUST_VERSION doc -v --all-features
+    - cargo +$TRAVIS_RUST_VERSION test -v --all-features
+
 matrix:
   include:
-    - name: Fluence
-      language: scala
-      scala: 2.12.7
-      jdk: oraclejdk8
-
-      services:
-        - docker
-
-      before_install:
-        - curl https://sh.rustup.rs -sSf | sh -s -- -y
-        - ~/.cargo/bin/rustup toolchain install nightly
-        - ~/.cargo/bin/rustup update
-        - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly
-
+    - <<: *_scala_fluence_template
+      name: Fluence
       script:
         - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.compile compile
         - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.test test
 
-      # These directories are cached to S3 at the end of the build
-      cache:
-        npm: true
-        cargo: true
-        directories:
-          - $HOME/.ivy2/cache
-          - $HOME/.sbt/boot
-          - $HOME/.sbt/launchers
-          - bootstrap/node_modules
-
-      before_cache:
-        # Cleanup the cached directories to avoid unnecessary cache updates
-        - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
-        - find $HOME/.sbt        -name "*.lock"               -print -delete
-
-    # These tests takes a lot of time and runs only while PR
-    - name: Fluence integration tests
-      language: scala
-      scala: 2.12.7
-      jdk: oraclejdk8
-      sudo: false
-
-      services:
-        - docker
-
-      before_install:
-        - curl https://sh.rustup.rs -sSf | sh -s -- -y
-        - ~/.cargo/bin/rustup toolchain install nightly
-        - ~/.cargo/bin/rustup update
-        - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly
-
-      # LlamadbIntegrationTest requires 2 Gb RAM and should be run only in PR
+    # These tests take a lot of time and run only while PR
+    - <<: *_scala_fluence_template
+      name: Fluence integration tests
       script:
         - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile; fi'
+        # Some tests in LlamadbIntegrationTest require 2 Gb RAM
         - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test; fi'
-
-      cache:
-        npm: true
-        cargo: true
-        directories:
-          - $HOME/.ivy2/cache
-          - $HOME/.sbt/boot
-          - $HOME/.sbt/launchers
-          - bootstrap/node_modules
-
-      before_cache:
-        - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
-        - find $HOME/.sbt        -name "*.lock"               -print -delete
 
     - name: smart contract
       language: node_js
@@ -89,48 +79,26 @@ matrix:
       before_script: npm install
       script: npm test
 
-    - name: rust App SDK
-      language: rust
-      # todo enable 'stable' and 'beta' when `allocator_api` will become stable
-      rust: nightly
-      cache:
-        - cargo
-        - npm
-
-      before_install:
-        - rustup component add rustfmt --toolchain nightly
+    - <<: *_rust_wasm_template
+      name: rust App SDK
+      before_script:
         - cd sdk/rust
 
-      script:
-        - cargo fmt --all -- --check -v
-        - cargo build -v --all-features
-        - cargo doc -v --all-features
-        - cargo test -v --all-features
-
-    - name: llamaDb VM App
-      language: rust
-      rust: nightly
-      cache: cargo
-      sudo: false
-      before_install:
-        - rustup component add rustfmt-preview --toolchain nightly
+    - <<: *_rust_wasm_template
+      name: llamaDb VM App
+      before_script:
         - cd vm/examples/llamadb
-
-      script:
-        - cargo fmt --all -- --check -v
-        - cargo build -v
-        - cargo doc -v
-        - cargo test -v
 
     - name: Fluence CLI
       language: rust
-      rust: stable
       cache:
         - cargo
         - npm
 
-      before_install:
+      install:
         - rustup component add rustfmt-preview
+
+      before_script:
         - cd cli
 
       script:

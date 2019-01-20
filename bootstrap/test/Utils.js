@@ -20,7 +20,9 @@ const assert = require("chai").assert;
 
 exports.newNodeEvent = 'NewNode';
 exports.appEnqueuedEvent = 'AppEnqueued';
-exports.clusterFormedEvent = 'ClusterFormed';
+exports.appDeployedEvent = 'AppDeployed';
+exports.appDeletedEvent = 'AppDeleted';
+exports.appDequeuedEvent = 'AppDequeued';
 
 function string2Bytes32 (str) {
     // 64 is for 32 bytes, 2 chars each
@@ -87,7 +89,7 @@ async function addApp (contract, count, owner, pinToNodes = []) {
     let storageReceipt = string2Bytes32(crypto.randomBytes(16).hexSlice());
     let receipt = await contract.addApp(storageHash, storageReceipt, count, pinToNodes, {from: owner});
     return {
-        storageHash: storageHash, 
+        storageHash: storageHash,
         storageReceipt: storageReceipt,
         clusterSize: count,
         receipt: receipt

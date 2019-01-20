@@ -17,15 +17,13 @@
 
 import {Network} from "../types/web3-contracts/Network";
 import {getNodes, Node} from "./node";
-import {Code, getEnqueuedCodes} from "./code";
-import {Cluster, getClusters} from "./cluster";
+import {App, getApps} from "./app";
 
 /**
  * Status about Fluence network from ethereum contract.
  */
 export interface ContractStatus {
-    clusters: Cluster[],
-    enqueued_codes: Code[],
+    apps: App[],
     nodes: Node[]
 }
 
@@ -34,13 +32,16 @@ export interface ContractStatus {
  * @param contract Fluence contract API
  */
 export async function getContractStatus(contract: Network): Promise<ContractStatus> {
-    let codes = await getEnqueuedCodes(contract);
-    let nodes = await getNodes(contract);
-    let clusters = await getClusters(contract);
+
+    let nodesIds = await contract.methods.getNodesIds().call();
+
+    let appsIds = await contract.methods.getAppIDs().call();
+
+    let apps = await getApps(contract, appsIds);
+    let nodes = await getNodes(contract, nodesIds);
 
     return {
-        clusters: clusters,
-        enqueued_codes: codes,
+        apps: apps,
         nodes: nodes
     };
 }

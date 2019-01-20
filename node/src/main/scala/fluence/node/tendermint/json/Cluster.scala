@@ -14,23 +14,20 @@
  * limitations under the License.
  */
 
-package fluence.node.tendermint
+package fluence.node.tendermint.json
+
 import io.circe.Encoder
-import io.circe.generic.semiauto._
+import io.circe.generic.semiauto.deriveEncoder
 
 /**
- * Information about the cluster and current node. Compatible with `master-run-node.sh` script.
+ * Information about the cluster without node-specific data.
  *
- * TODO: there should be no `master-run-node.sh` script
- *
- * @param cluster cluster information
- * @param node_index node index
+ * @param genesis genesis in Tendermint format
+ * @param persistent_peers p2p peers in Tendermint format
+ * @param external_addrs external address used to initialize advertised address in launching scripts
  */
-case class NodeInfo(cluster: Cluster, node_index: String) {
-  def clusterName: String = cluster.genesis.chain_id
-  def nodeName = s"${clusterName}_node$node_index"
-}
+case class Cluster(genesis: Genesis, persistent_peers: String, external_addrs: Seq[String])
 
-object NodeInfo {
-  implicit def nodeInfoEncoder: Encoder[NodeInfo] = deriveEncoder[NodeInfo]
+object Cluster {
+  implicit val clusterEncoder: Encoder[Cluster] = deriveEncoder[Cluster]
 }

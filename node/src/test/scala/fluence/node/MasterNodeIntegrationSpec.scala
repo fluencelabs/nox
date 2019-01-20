@@ -139,7 +139,7 @@ class MasterNodeIntegrationSpec
     }
 
     //TODO: change check to Master's HTTP API
-    def checkMasterRunning(containerId: String): IO[Unit] = {
+    def checkMasterRunning(containerId: String): IO[Unit] =
       IO {
         var line = ""
         scala.sys.process
@@ -147,7 +147,6 @@ class MasterNodeIntegrationSpec
           .!!(ProcessLogger(_ => {}, o => line += o))
         line
       }.map(line => line should include("switching to the new clusters"))
-    }
 
     EthClient
       .makeHttpResource[IO]()
@@ -159,8 +158,8 @@ class MasterNodeIntegrationSpec
             master1 <- runMaster(25000, 25002, "master1", status1Port)
             master2 <- runMaster(25003, 25005, "master2", status2Port)
 
-            _ <- eventually[IO](checkMasterRunning(master1))
-            _ <- eventually[IO](checkMasterRunning(master2))
+            _ <- eventually[IO](checkMasterRunning(master1), maxWait = 10.seconds)
+            _ <- eventually[IO](checkMasterRunning(master2), maxWait = 10.seconds)
 
             contract = FluenceContract(ethClient, contractConfig)
             status1 <- getStatus(status1Port)
@@ -179,7 +178,7 @@ class MasterNodeIntegrationSpec
               },
               maxWait = 90.seconds
             )
-          } yield {}
+          } yield ()
         }
       }
       .unsafeRunSync()

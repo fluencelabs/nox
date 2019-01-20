@@ -14,8 +14,20 @@
  * limitations under the License.
  */
 
-package fluence.node.eth
+package fluence.node.tendermint.json
 
-case class EthereumRPCConfig(protocol: String, ip: String, port: Int) {
-  val uri = s"$protocol://$ip:$port"
+import io.circe.Encoder
+import io.circe.generic.semiauto.deriveEncoder
+
+/**
+ * Cluster's worker (tendermint's validator) information in Tendermint-compatible format.
+ *
+ * @param pub_key public key
+ * @param power initial voting power
+ * @param name validator name
+ */
+case class Validator(pub_key: ValidatorKey, power: String, name: String)
+
+object Validator {
+  implicit val validatorEncoder: Encoder[Validator] = deriveEncoder[Validator]
 }

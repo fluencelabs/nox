@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-package fluence.node.tendermint
+package fluence.node.tendermint.json
+
 import java.text.SimpleDateFormat
 import java.util.{Base64, Calendar, TimeZone}
 
-import fluence.ethclient.helpers.Web3jConverters.bytes32ClusterIdToChainId
+import fluence.ethclient.helpers.Web3jConverters.bytes32AppIdToChainId
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 import org.web3j.abi.datatypes.DynamicArray
@@ -47,12 +48,12 @@ object Genesis {
   /**
    * Constructs Tendermint genesis from data obtained from contract event.
    *
-   * @param clusterId encoded cluster ID
+   * @param appId encoded cluster ID
    * @param ids encoded Tendermint public key
    * @param genesisTimeUint256 encoded genesis time
    */
   def fromClusterData(
-    clusterId: Bytes32,
+    appId: Bytes32,
     ids: DynamicArray[Bytes32],
     genesisTimeUint256: Uint256
   ): Genesis = {
@@ -68,7 +69,7 @@ object Genesis {
         )
     }.toArray
 
-    val chainId = bytes32ClusterIdToChainId(clusterId)
+    val chainId = bytes32AppIdToChainId(appId)
 
     val calendar: Calendar = Calendar.getInstance
     calendar.setTimeInMillis(genesisTimeUint256.getValue.longValue() * 1000)

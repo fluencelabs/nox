@@ -20,8 +20,7 @@ import cats.Apply
 import cats.effect.{Async, ConcurrentEffect, Sync}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.ethclient.Network.{CLUSTERFORMED_EVENT, ClusterFormedEventResponse}
-import fluence.ethclient.helpers.JavaRxToFs2._
+import fluence.ethclient.Network.{APPDEPLOYED_EVENT, AppDeployedEventResponse}
 import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.helpers.Web3jConverters.stringToBytes32
 import fluence.ethclient.{EthClient, Network}
@@ -32,6 +31,7 @@ import org.web3j.abi.datatypes.generated.{Uint8, _}
 import org.web3j.abi.datatypes.{Bool, DynamicArray}
 import org.web3j.protocol.core.methods.request.{EthFilter, SingleAddressEthFilter}
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
+import fs2.interop.reactivestreams._
 
 import scala.collection.JavaConverters._
 import scala.language.higherKinds
@@ -46,11 +46,11 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
   import FluenceContract.NodeConfigEthOps
 
   /**
-   * Builds an actual filter for CLUSTERFORMED event.
+   * Builds an actual filter for APP_DEPLOYED event.
    *
    * @tparam F Effect, used to query Ethereum for the last block number
    */
-  private def clusterFormedFilter[F[_]: Async]: F[EthFilter] =
+  private def appDeployedFilter[F[_]: Async]: F[EthFilter] =
     ethClient
       .getBlockNumber[F]
       .map(
@@ -59,7 +59,7 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
             DefaultBlockParameter.valueOf(currentBlock.bigInteger),
             DefaultBlockParameterName.LATEST,
             contract.getContractAddress
-          ).addSingleTopic(EventEncoder.encode(CLUSTERFORMED_EVENT))
+          ).addSingleTopic(EventEncoder.encode(APPDEPLOYED_EVENT))
       )
 
   /**
@@ -68,9 +68,9 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
    * @param nodeConfig Node to pick validatorKey from to lookup the clusters for
    * @tparam F Effect
    */
-  def getNodeClusterIds[F[_]](nodeConfig: NodeConfig)(implicit F: Async[F]): F[List[Bytes32]] =
+  def getNodeAppIds[F[_]](nodeConfig: NodeConfig)(implicit F: Async[F]): F[List[Bytes32]] =
     contract
-      .getNodeClusters(nodeConfig.validatorKeyBytes32)
+      .getNodeApps(nodeConfig.validatorKeyBytes32)
       .call[F]
       .flatMap {
         case arr if arr != null && arr.getValue != null => F.point(arr.getValue.asScala.toList)
@@ -89,38 +89,38 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
    * @param nodeConfig Node to pick validatorKey from to lookup the clusters for
    * @tparam F Effect
    */
-  def getNodeClusters[F[_]: Async](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
+  def getNodeApps[F[_]: Async](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
     fs2.Stream
-      .evalUnChunk(getNodeClusterIds[F](nodeConfig).map(cs ⇒ fs2.Chunk(cs: _*)))
+      .evalUnChunk(getNodeAppIds[F](nodeConfig).map(cs ⇒ fs2.Chunk(cs: _*)))
       .evalMap(
-        clusterId ⇒
+        appId ⇒
           Apply[F].map2(
             contract
-              .getCluster(clusterId)
+              .getApp(appId)
               .call[F]
               .map(tuple ⇒ (tuple.getValue1, tuple.getValue6, tuple.getValue7)),
             contract
-              .getClusterWorkers(clusterId)
+              .getAppWorkers(appId)
               .call[F]
               .map(tuple ⇒ (tuple.getValue1, tuple.getValue2))
           ) {
             case ((storageHash, genesisTime, nodeIds), (addrs, ports)) ⇒
-              ClusterData.build(clusterId, nodeIds, genesisTime, storageHash, addrs, ports, nodeConfig)
+              ClusterData.build(appId, nodeIds, genesisTime, storageHash, addrs, ports, nodeConfig)
         }
       )
       .unNone
 
   /**
-   * Returns a stream derived from the new ClusterFormed events, showing that this node should join new clusters.
+   * Returns a stream derived from the new AppDeployed events, showing that this node should join new clusters.
    *
    * @param nodeConfig Node to pick validatorKey from to lookup the clusters for
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of ClusterData
    */
-  def getNodeClustersFormed[F[_]: ConcurrentEffect](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
+  def getNodeAppDeployed[F[_]: ConcurrentEffect](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
     fs2.Stream
-      .eval(clusterFormedFilter[F])
-      .flatMap(filter ⇒ contract.clusterFormedEventFlowable(filter).toFS2[F]) // TODO: we should filter by verifier id! Now node will join all the clusters
+      .eval(appDeployedFilter[F])
+      .flatMap(filter ⇒ contract.appDeployedEventFlowable(filter).toStream[F]) // It's checked that current node participates in a cluster there
       .map(FluenceContract.eventToClusterData(_, nodeConfig))
       .unNone
 
@@ -132,11 +132,11 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of ClusterData
    */
-  def getAllNodeClusters[F[_]: ConcurrentEffect](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
-    getNodeClusters[F](nodeConfig)
+  def getAllNodeApps[F[_]: ConcurrentEffect](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
+    getNodeApps[F](nodeConfig)
       .onFinalize(
         Sync[F].delay(logger.info("Got all the previously prepared clusters. Now switching to the new clusters"))
-      ) ++ getNodeClustersFormed(nodeConfig)
+      ) ++ getNodeAppDeployed(nodeConfig)
 
   /**
    * Register the node in the contract.
@@ -192,11 +192,11 @@ object FluenceContract {
    * @return true if provided node key belongs to the cluster from the event
    */
   def eventToClusterData(
-    event: ClusterFormedEventResponse,
+    event: AppDeployedEventResponse,
     nodeConfig: NodeConfig
   ): Option[ClusterData] =
     ClusterData.build(
-      event.clusterID,
+      event.appID,
       event.nodeIDs,
       event.genesisTime,
       event.storageHash,

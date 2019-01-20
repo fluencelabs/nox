@@ -13,56 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-extern crate clap;
-extern crate console;
-extern crate ethabi;
-extern crate ethkey;
-extern crate hex;
-extern crate indicatif;
-extern crate reqwest;
-extern crate web3;
-#[macro_use]
-extern crate fixed_hash;
-#[macro_use]
-extern crate error_chain;
-#[macro_use]
-extern crate derive_getters;
-
-extern crate base64;
-extern crate ethcore_transaction;
-extern crate rlp;
-
-extern crate ethereum_types_serialize;
-
-extern crate serde;
-extern crate serde_json;
-
-#[macro_use]
-extern crate serde_derive;
-
-extern crate core;
-extern crate parity_wasm;
-#[cfg(test)]
-extern crate rand;
-
-#[macro_use]
-extern crate ethabi_contract;
-
-#[macro_use]
-extern crate ethabi_derive;
-
-mod check;
-mod contract_func;
-mod contract_status;
-mod credentials;
-mod publisher;
-mod register;
-mod types;
-mod utils;
 
 use clap::App;
 use clap::AppSettings;
 use console::style;
+
+use fluence::{check, contract_status, delete_app, publisher, register};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -75,27 +31,26 @@ fn main() {
         .subcommand(publisher::subcommand())
         .subcommand(register::subcommand())
         .subcommand(contract_status::subcommand())
-        .subcommand(check::subcommand());
+        .subcommand(check::subcommand())
+        .subcommand(delete_app::subcommand());
 
     match app.get_matches().subcommand() {
         ("publish", Some(args)) => {
-            let publisher = publisher::parse(args).unwrap();
-
-            let transaction = publisher.publish(true);
+            let publisher = publisher::parse(args).expect("Error parsing arguments");
+            let transaction = publisher.publish(true).expect("Error sending transaction");
 
             let formatted_finish_msg = style("Code published. Submitted transaction").blue();
-            let formatted_tx = style(transaction.unwrap()).red().bold();
+            let formatted_tx = style(transaction).red().bold();
 
             println!("{}: {:?}", formatted_finish_msg, formatted_tx);
         }
 
         ("register", Some(args)) => {
-            let register = register::parse(args).unwrap();
-
-            let transaction = register.register(true);
+            let register = register::parse(args).expect("Error parsing arguments");
+            let transaction = register.register(true).expect("Error sending transaction");
 
             let formatted_finish_msg = style("Node registered. Submitted transaction").blue();
-            let formatted_tx = style(transaction.unwrap()).red().bold();
+            let formatted_tx = style(transaction).red().bold();
 
             println!("{}: {:?}", formatted_finish_msg, formatted_tx);
         }
@@ -110,6 +65,16 @@ fn main() {
 
         ("check", Some(args)) => {
             handle_error(check::process(args));
+        }
+
+        ("delete_app", Some(args)) => {
+            let delete_app = delete_app::parse(args).expect("Error parsing arguments");
+            let transaction = delete_app.delete_app(true);
+
+            let formatted_finish_msg = style("App deleted. Submitted transaction").blue();
+            let formatted_tx = style(transaction).red().bold();
+
+            println!("{}: {:?}", formatted_finish_msg, formatted_tx);
         }
 
         c => panic!("Unexpected command: {}", c.0),

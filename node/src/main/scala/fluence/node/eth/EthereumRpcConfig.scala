@@ -14,22 +14,8 @@
  * limitations under the License.
  */
 
-package fluence.node.tendermint
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
-import io.circe.{Decoder, Encoder}
+package fluence.node.eth
 
-/**
- * Validator's public key in Tendermint-compatible format.
- *
- * @param `type` key type
- * @param value 32-byte public key in base64 representation
- */
-case class ValidatorKey(`type`: String, value: String)
-
-object ValidatorKey {
-  implicit val validatorKeyDecoder: Decoder[ValidatorKey] =
-    deriveDecoder[ValidatorKey]
-
-  implicit val validatorKeyEncoder: Encoder[ValidatorKey] = deriveEncoder[ValidatorKey]
-
+case class EthereumRpcConfig(protocol: String, ip: String, port: Int) {
+  val uri = s"$protocol://$ip:$port"
 }

@@ -20,7 +20,7 @@ pragma solidity ^0.4.24;
 import "./Deployer.sol";
 
 /*
- * This contract allows to inspect Fluence network state by providing different getter methods.
+ * This contract provides different getter methods for inspection of the Fluence network state.
  *
  * All information is stored in the Deployer and this contract just transforms it into tool-readable form.
  * Main consumers of this contract are Fluence command line utilities and web interfaces. So while it can be used by
@@ -28,6 +28,10 @@ import "./Deployer.sol";
  *
  */
 contract Network is Deployer {
+    /** @dev Retrieves node's info
+     * @param nodeID ID of node (Tendermint consensus key)
+     * returns tuple representation of Node structure
+     */
     function getNode(bytes32 nodeID)
         external
         view
@@ -40,92 +44,86 @@ contract Network is Deployer {
             node.lastPort,
             node.owner,
             node.isPrivate,
-            node.clusters
+            node.appIDs
         );
     }
 
 
-    /** @dev Allows to track currently running clusters for specified node's workers
+    /** @dev Retrieves currently running apps for specified node's workers
      *  @param nodeID ID of node (Tendermint consensus key)
-     *  returns IDs of clusters where the node is a member.
+     *  returns IDs apps hosted by this node
      */
-    function getNodeClusters(bytes32 nodeID)
+    function getNodeApps(bytes32 nodeID)
         external
         view
     returns (bytes32[])
     {
-        return nodes[nodeID].clusters;
+        return nodes[nodeID].appIDs;
     }
 
-    /** @dev Allows anyone with clusterID to retrieve assigned App
-     * @param clusterID unique id of cluster
+    /** @dev Retrieves assigned App and other cluster info by clusterID
+     * @param appID unique id of cluster
      * returns tuple representation of a Cluster
      */
-    function getCluster(bytes32 clusterID)
+    function getApp(bytes32 appID)
         external
         view
     returns (bytes32, bytes32, uint8, address, bytes32[], uint, bytes32[], uint16[])
     {
-        Cluster memory cluster = clusters[clusterID];
-        require(cluster.clusterID > 0, "there is no such cluster");
+        App memory app = apps[appID];
+        require(app.appID > 0, "there is no such cluster");
 
         return (
-            cluster.app.storageHash,
-            cluster.app.storageReceipt,
-            cluster.app.clusterSize,
-            cluster.app.owner,
-            cluster.app.pinToNodes,
+            app.storageHash,
+            app.storageReceipt,
+            app.clusterSize,
+            app.owner,
+            app.pinToNodes,
 
-            cluster.genesisTime,
-            cluster.nodeIDs,
-            cluster.ports
+            app.cluster.genesisTime,
+            app.cluster.nodeIDs,
+            app.cluster.ports
         );
     }
 
-    function getClusterWorkers(bytes32 clusterID)
+    /** @dev Retrieves addresses and ports of cluster's workers
+     * @param appID unique id of app
+     */
+    function getAppWorkers(bytes32 appID)
         external
         view
     returns (bytes24[], uint16[])
     {
-        Cluster memory cluster = clusters[clusterID];
-        require(cluster.clusterID > 0, "there is no such cluster");
+        App memory app = apps[appID];
+        require(app.appID > 0, "there is no such cluster");
 
-        bytes24[] memory addresses = new bytes24[](cluster.nodeIDs.length);
-        for(uint8 i = 0; i < cluster.nodeIDs.length; i++) {
-            addresses[i] = nodes[cluster.nodeIDs[i]].nodeAddress;
+        bytes24[] memory addresses = new bytes24[](app.cluster.nodeIDs.length);
+        for(uint8 i = 0; i < app.cluster.nodeIDs.length; i++) {
+            addresses[i] = nodes[app.cluster.nodeIDs[i]].nodeAddress;
         }
 
         return (
             addresses,
-            cluster.ports
+            app.cluster.ports
         );
     }
 
-
-    /** @dev Gets codes which not yet deployed anywhere
-     * return (codes' Swarm hashes, receipts, clusters' sizes, developers' addresses)
-     * TODO as there's no app ids, we can't retrieve additional info about an app, like pin_to_nodes
+    /** @dev Gets nodes and clusters IDs
+     * return (node IDs, cluster IDs)
      */
-    function getEnqueuedApps()
+    function getNodesIds()
         external
         view
-    returns(bytes32[], bytes32[], uint8[], address[])
+    returns(bytes32[])
     {
-        bytes32[] memory storageHashes = new bytes32[](enqueuedApps.length);
-        bytes32[] memory storageReceipts = new bytes32[](enqueuedApps.length);
-        uint8[] memory clusterSizes = new uint8[](enqueuedApps.length);
-        address[] memory owners = new address[](enqueuedApps.length);
-
-        for (uint i = 0; i < enqueuedApps.length; i++) {
-            App memory app = enqueuedApps[i];
-
-            storageHashes[i] = app.storageHash;
-            storageReceipts[i] = app.storageReceipt;
-            clusterSizes[i] = app.clusterSize;
-            owners[i] = app.owner;
-        }
-
-        return (storageHashes, storageReceipts, clusterSizes, owners);
+        return nodesIds;
     }
 
+    function getAppIDs()
+    external
+    view
+    returns(bytes32[])
+    {
+        return appIDs;
+    }
 }

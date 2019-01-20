@@ -27,23 +27,29 @@ object EthClientApp extends IOApp {
   // EthClientApp is to play during development only
   override def run(args: List[String]): IO[ExitCode] =
     EthClient
-      .makeHttpResource[IO]()
+      .makeHttpResource[IO](includeRaw = true)
       .use { ethClient ⇒
         val par = Parallel[IO, IO.Par]
 
-        for {
+        (for {
           _ ← IO(println("Launching w3j"))
 
-          unsubscribe ← Deferred[IO, Either[Throwable, Unit]]
+          isSyncing ← ethClient.isSyncing[IO].map(_.isSyncing)
+          _ ← IO(println(s"isSyncing: $isSyncing"))
 
           version ← ethClient.clientVersion[IO]()
           _ = println(s"Client version: $version")
+
+          _ ← ethClient.blockStream[IO].map(println).compile.drain
+
+          unsubscribe ← Deferred[IO, Either[Throwable, Unit]]
+
           _ ← par sequential par.apply.product(
             // Subscription stream
             par parallel ethClient
               .subscribeToLogsTopic[IO](
                 "0x9995882876ae612bfd829498ccd73dd962ec950a",
-                EventEncoder.encode(Network.NEWNODE_EVENT)
+                Network.NEWNODE_EVENT
               )
               .map(log ⇒ println(s"Log message: $log"))
               .interruptWhen(unsubscribe)
@@ -58,11 +64,17 @@ object EthClientApp extends IOApp {
               _ ← unsubscribe.complete(Right(()))
             } yield ())
           )
-        } yield ()
+        } yield ()).attempt
       }
-      .map { _ ⇒
-        println("okay that's all")
-        ExitCode.Success
+      .map {
+        case Right(_) ⇒
+          println("okay that's all")
+          ExitCode.Success
+
+        case Left(err) ⇒
+          println("hell, doesn't work: " + err)
+          err.printStackTrace()
+          ExitCode.Error
       }
 
 }

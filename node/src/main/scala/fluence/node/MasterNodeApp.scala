@@ -83,7 +83,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
           import configuration._
           // Run master node and status server
           val resources = for {
-            ethClientResource <- EthClient.makeHttpResource[IO](Some(ethereumRPCConfig.uri))
+            ethClientResource <- EthClient.makeHttpResource[IO](Some(ethereumRpcConfig.uri))
             sttpBackend <- sttpResource
           } yield (ethClientResource, sttpBackend)
 

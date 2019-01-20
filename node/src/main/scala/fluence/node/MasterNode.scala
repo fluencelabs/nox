@@ -20,8 +20,9 @@ import java.nio.file._
 import cats.effect.{ConcurrentEffect, ExitCode, IO}
 import fluence.node.config.NodeConfig
 import fluence.node.eth.FluenceContract
+import fluence.node.tendermint.json.{Genesis, NodeInfo}
 import fluence.node.workers.{CodeManager, WorkerImage, WorkerParams, WorkersPool}
-import fluence.node.tendermint.{ClusterData, Genesis, NodeInfo}
+import fluence.node.tendermint.ClusterData
 
 import scala.io.Source
 
@@ -139,7 +140,7 @@ case class MasterNode(
    */
   val run: IO[ExitCode] =
     contract
-      .getAllNodeClusters(nodeConfig)
+      .getAllNodeApps(nodeConfig)
       .through(prepareWorkerParams)
       .evalTap[IO] { params ⇒
         logger.info("Running worker `{}`", params)

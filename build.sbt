@@ -63,7 +63,7 @@ lazy val statemachine = (project in file("statemachine"))
       prometheusClientJetty,
       prometheusClientServlet,
       // Despite tmVersion is updated to 0.25.0, jtendermint:0.24.0 is the latest available and compatible with it.
-      "com.github.jtendermint" % "jabci"          % "0.24.0",
+      "com.github.jtendermint" % "jabci"          % "0.26.0",
       "org.bouncycastle"       % "bcpkix-jdk15on" % "1.56",
       "net.i2p.crypto"         % "eddsa"          % "0.3.0",
       scalaTest
@@ -76,7 +76,7 @@ lazy val statemachine = (project in file("statemachine"))
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
     },
-    test in assembly := {},
+    test in assembly     := {},
     imageNames in docker := Seq(ImageName("fluencelabs/worker")),
     dockerfile in docker := {
       // Run `sbt docker` to create image
@@ -86,7 +86,7 @@ lazy val statemachine = (project in file("statemachine"))
       val artifactTargetPath = s"/${artifact.name}"
 
       // Tendermint constants
-      val tmVersion = "0.25.0"
+      val tmVersion = "0.27.4"
       val tmDataRoot = "/tendermint"
       val tmBinaryArchive = s"tendermint_${tmVersion}_linux_amd64.zip"
       val tmBinaryUrl = s"https://github.com/tendermint/tendermint/releases/download/v$tmVersion/$tmBinaryArchive"
@@ -160,6 +160,7 @@ lazy val ethclient = (project in file("ethclient"))
       cats,
       catsEffect,
       fs2,
+      fs2rx,
       scalaTest
     ),
   )
@@ -190,15 +191,14 @@ lazy val node = project
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
     },
-    test in Test := {
-      docker.value
-      (docker in statemachine).value
-      (test in Test).value
-    },
-    mainClass in assembly := Some("fluence.node.MasterNodeApp"),
+    test in Test := (test in Test)
+      .dependsOn(docker)
+      .dependsOn(docker in statemachine)
+      .value,
+    mainClass in assembly       := Some("fluence.node.MasterNodeApp"),
     assemblyJarName in assembly := "master-node.jar",
-    test in assembly := {},
-    imageNames in docker := Seq(ImageName("fluencelabs/node")),
+    test in assembly            := {},
+    imageNames in docker        := Seq(ImageName("fluencelabs/node")),
     dockerfile in docker := {
       // The assembly task generates a fat JAR file
       val artifact: File = assembly.value
@@ -213,11 +213,11 @@ lazy val node = project
         volume("/master") // anonymous volume to store all data
 
         /*
-        * The following directory structure is assumed in node/src/main/resources:
-        *    docker/
-        *      tendermint/config/default_config.toml
-        *      entrypoint.sh
-        */
+         * The following directory structure is assumed in node/src/main/resources:
+         *    docker/
+         *      tendermint/config/default_config.toml
+         *      entrypoint.sh
+         */
         copy((resourceDirectory in Compile).value / "docker", "/master/")
 
         copy(artifact, artifactTargetPath)

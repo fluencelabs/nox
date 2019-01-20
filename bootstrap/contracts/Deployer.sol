@@ -75,14 +75,16 @@ contract Deployer {
         // True if this node can be used only by `owner`
         bool isPrivate;
 
-        // Clusters where this node participate
-        bytes32[] clusters;
+        // Apps hosted by this node
+        bytes32[] appIDs;
     }
 
     // Represents deployed or enqueued (waiting to be deployed) code
     // code is stored in Swarm at storageHash, is deployed by developer
     // and requires to be hosted on cluster of clusterSize nodes
     struct App {
+        bytes32 appID;
+
         // WASM code address in Swarm; also SwarmHash of the code
         bytes32 storageHash;
 
@@ -95,15 +97,14 @@ contract Deployer {
         // ethereum address of the developer submitted that code
         address owner;
 
-        // list of owner's nodes where this code must be placed; length <= clusterSize
+        // list of owner's nodes where this code must be deployed; length <= clusterSize
+        // can contain both private & non-private nodes
         bytes32[] pinToNodes;
+
+        Cluster cluster;
     }
 
     struct Cluster {
-        bytes32 clusterID;
-
-        App app;
-
         // Cluster created at
         uint genesisTime;
 
@@ -114,10 +115,10 @@ contract Deployer {
         uint16[] ports;
     }
 
-    // Emitted when there is enough ready Nodes for some Code
+    // Emitted when there is enough Workers for some App
     // Nodes' workers should form a cluster in reaction to this event
-    event ClusterFormed(
-        bytes32 clusterID,
+    event AppDeployed(
+        bytes32 appID,
 
         bytes32 storageHash,
         uint genesisTime,
@@ -127,8 +128,9 @@ contract Deployer {
         uint16[] ports
     );
 
-    // Emitted when Code is enqueued, telling that there is not enough Workers yet
+    // Emitted when App is enqueued, telling that there is not enough Workers yet
     event AppEnqueued(
+        bytes32 appID,
         bytes32 storageHash,
         bytes32 storageReceipt,
         uint8 clusterSize,
@@ -139,6 +141,12 @@ contract Deployer {
     // Emitted on every new Node
     event NewNode(bytes32 id);
 
+    // Emitted when app is removed from enqueuedApps by owner
+    event AppDequeued(bytes32 appID);
+
+    // Emitted when running app was removed by app owner
+    event AppDeleted(bytes32 appID);
+
     // Nodes ready to join new clusters
     bytes32[] public readyNodes;
 
@@ -147,18 +155,16 @@ contract Deployer {
     // Store nodes indices to traverse nodes mapping
     bytes32[] public nodesIds;
 
-    // Cluster with assigned App
-    mapping(bytes32 => Cluster) internal clusters;
-    // Store cluster indices to traverse clusters mapping
-    bytes32[] public clustersIds;
-
-    // Number of existing clusters, used for clusterID generation
-    // TODO find a better way to generate cluster id
-    uint256 internal clusterCount = 1;
+    // mapping of appID to App
+    mapping(bytes32 => App) internal apps;
+    // Store app ids to traverse clusters mapping
+    bytes32[] public appIDs;
 
     // Apps waiting for nodes
-    // TODO: should they have IDs? so that app owner could cancel deployment of enqueued app, before cluster gets formed
-    App[] internal enqueuedApps;
+    bytes32[] public enqueuedApps;
+
+    // Number of all ever existed apps, used for appID generation
+    uint256 internal appsCount = 1;
 
     /** @dev Adds node with specified port range to the work-waiting queue
       * @param nodeID Tendermint's ValidatorKey
@@ -189,10 +195,11 @@ contract Deployer {
 
         // match apps to the node until no matches left, or until this node ports range is exhausted
         for(uint i = 0; i < enqueuedApps.length;) {
-            App memory app = enqueuedApps[i];
+            bytes32 appID = enqueuedApps[i];
+            App memory app = apps[appID];
             if(tryDeployApp(app)) {
                 // Once an app is deployed, we already have a new app on i-th position, so no need to increment i
-                removeApp(i);
+                removeEnqueuedApp(i);
 
                 // We should stop if there's no more ports in this node -- its addition has no more effect
                 node = nodes[nodeID];
@@ -219,54 +226,119 @@ contract Deployer {
 
         // Check that pinToNodes are distinct nodes owned by msg.sender
         for(uint8 i = 0; i < pinToNodes.length; i++) {
-            require(nodes[pinToNodes[i]].owner != 0, "Can pin only to registered nodes");
-            require(nodes[pinToNodes[i]].owner == msg.sender, "Can pin only to nodes you own");
-            
+            bytes32 nodeID_i = pinToNodes[i];
+            Node memory node = nodes[nodeID_i];
+            require(node.owner != 0, "Can pin only to registered nodes");
+            require(node.owner == msg.sender, "Can pin only to nodes you own");
+
             for(uint8 j = 0; j <= i; j++) {
                 if(i != j) {
-                    require(pinToNodes[i] != pinToNodes[j], "Node ids to pin to must be unique, otherwise the deployment result could be unpredictable and unexpected");
+                    require(nodeID_i != pinToNodes[j], "Node ids to pin to must be unique, otherwise the deployment result could be unpredictable and unexpected");
                 }
             }
         }
 
-        App memory app = App(storageHash, storageReceipt, clusterSize, msg.sender, pinToNodes);
+        App memory app = App(
+            bytes32(appsCount++),
+            storageHash,
+            storageReceipt,
+            clusterSize,
+            msg.sender,
+            pinToNodes,
+            Cluster(0, new bytes32[](0), new uint16[](0)) // TODO: this is awful
+        );
+        apps[app.appID] = app;
+        appIDs.push(app.appID);
 
         if(!tryDeployApp(app)) {
-            // App is not deployed -- enqueue it to have it deployed later
-            enqueuedApps.push(app);
-            emit AppEnqueued(app.storageHash, app.storageReceipt, app.clusterSize, app.owner, app.pinToNodes);
+            // App hasn't been deployed -- enqueue it to have it deployed later
+            enqueuedApps.push(app.appID);
+            emit AppEnqueued(app.appID, app.storageHash, app.storageReceipt, app.clusterSize, app.owner, app.pinToNodes);
         }
+    }
+
+    /** @dev Deletes app with appID from enqueued apps
+      * You must be app's owner to delete it. Currently, nodes' ports aren't freed.
+      * @param appID app to be deleted
+      * emits AppDequeued event on successful deletion
+      * reverts if you're not app owner
+      * reverts if app not found
+      */
+    function dequeueApp(bytes32 appID)
+        external
+    {
+        bytes32 enqueuedAppID;
+        uint8 i = 0;
+
+        for (;i < enqueuedApps.length; i++) {
+            enqueuedAppID = enqueuedApps[i];
+            if (enqueuedAppID == appID) {
+                break;
+            }
+        }
+
+        require(i < enqueuedApps.length, "error deleting app: app not found");
+
+        App memory app = apps[enqueuedAppID];
+        require(app.owner == msg.sender, "error deleting app: you must own the app to delete it");
+
+        removeEnqueuedApp(i);
+
+        emit AppDequeued(appID);
+    }
+
+    /** @dev Deletes cluster that hosts app appID
+      * You must be app's owner to delete it. Currently, nodes' ports aren't freed.
+      * @param appID app to be deleted
+      * emits AppRemoved event on successful deletion
+      * reverts if you're not app owner
+      * reverts if app or cluster aren't not found
+      * TODO: free nodes' ports after app deletion
+      */
+    function deleteApp(bytes32 appID)
+        external
+    {
+        App memory app = apps[appID];
+        require(app.appID != 0, "error deleting app: cluster not found");
+        require(app.appID == appID, "error deleting app: cluster hosts another app");
+        require(app.owner == msg.sender, "error deleting app: you must own app to delete it");
+        require(app.cluster.genesisTime != 0, "error deleting app: app must be deployed, use dequeueApp");
+
+        bool removed = removeApp(appID);
+        require(removed, "error deleting app: app not found in appIDs array");
+
+        emit AppDeleted(appID);
     }
 
     /** @dev Tries to deploy an app, using ready nodes and their ports
       * @param app Application to deploy
-      * emits ClusterFormed when App is deployed
+      * emits AppDeployed when App is deployed
       */
     function tryDeployApp(App memory app)
         internal
     returns(bool)
     {
-        // Number of already collected workers
+        // Number of collected workers
         uint8 workersCount = 0;
 
-        // Prepare an array of workers to collect
+        // Array of workers that will be used to form a cluster
         Node[] memory workers = new Node[](app.clusterSize);
 
         // There must be enough readyNodes to try to deploy the app
         if(readyNodes.length >= app.clusterSize - app.pinToNodes.length) {
-            // Index up to pinToNodes length
+            // Index used to iterate through pinToNodes and then workers
             uint8 i = 0;
 
             // Current node to check
             Node memory node;
 
             // Find all the nodes where code should be pinned
-            // We have already checked that all the nodes belong to app owner
-            // We have already deduplicated pinToNodes
+            // Nodes in pinToNodes are already checked to belong to app owner
+            // pinToNodes is already deduplicated in addApp
             for(; i < app.pinToNodes.length; i++) {
                 node = nodes[app.pinToNodes[i]];
 
-                // There's no capacity on pin-to node to deploy the app
+                // Return false if there's not enough capacity on pin-to node to deploy the app
                 if(node.nextPort > node.lastPort) {
                     return false;
                 }
@@ -279,15 +351,19 @@ contract Deployer {
             for(uint j = 0; j < readyNodes.length && workersCount < app.clusterSize; j++) {
                 node = nodes[readyNodes[j]];
 
-                // Deduplicate nodes in case a pinTo node is not private
+                // True if node is already in workers array. That could happen if
+                // app.owner pinned app to non-private node
+                // skip is used to avoid including such nodes twice
                 bool skip = false;
-                // It should work better then a custom data structure due to high storage costs & small workers size expectations
+
+                // That algorithm should work better than a custom data structure
+                // due to high storage costs & small workers size expectations
                 for(i = 0; i < workers.length && !skip; i++) {
                     if(workers[i].id == node.id) skip = true;
                 }
-                if(skip) {
-                    continue;
-                }
+
+                if(skip) continue;
+
                 workers[workersCount] = node;
                 workersCount++;
             }
@@ -302,15 +378,12 @@ contract Deployer {
     }
 
     /**
-     * @dev Forms a cluster, emits ClusterFormed event
+     * @dev Forms a cluster, emits ClusterFormed event, marks workers' ports as used
      */
     function formCluster(App memory app, Node[] memory workers)
         internal
     {
         require(app.clusterSize == workers.length, "There should be enough nodes to form a cluster");
-
-        // clusterID generation could be arbitrary, it doesn't depend on actual cluster count
-        bytes32 clusterID = bytes32(clusterCount++);
 
         // arrays containing nodes' data to be sent in a `ClusterFormed` event
         bytes32[] memory nodeIDs = new bytes32[](app.clusterSize);
@@ -327,18 +400,18 @@ contract Deployer {
             workerPorts[j] = node.nextPort;
 
             useNodePort(node.id);
-            nodes[node.id].clusters.push(clusterID);
+            nodes[node.id].appIDs.push(app.appID);
         }
 
         uint genesisTime = now;
 
-        // saving selected nodes as a cluster with assigned code
-        clusters[clusterID] = Cluster(clusterID, app, genesisTime, nodeIDs, workerPorts);
-        clustersIds.push(clusterID);
+        // saving selected nodes as a cluster with assigned app
+        app.cluster = Cluster(genesisTime, nodeIDs, workerPorts);
+        apps[app.appID] = app;
 
-        // notify Fluence node it's time to run real-time nodes and
-        // create a Tendermint cluster hosting selected code
-        emit ClusterFormed(clusterID, app.storageHash, genesisTime, nodeIDs, workerAddrs, workerPorts);
+        // notify Fluence node it's time to run real-time workers and
+        // create a Tendermint cluster hosting selected App (defined by storageHash)
+        emit AppDeployed(app.appID, app.storageHash, genesisTime, nodeIDs, workerAddrs, workerPorts);
     }
 
     /** @dev increments node's currentPort
@@ -391,16 +464,49 @@ contract Deployer {
     /** @dev Removes an element on specified position from 'enqueuedApps'
      * @param index position in 'enqueuedApps' to remove
      */
-    function removeApp(uint index)
+    function removeEnqueuedApp(uint index)
         internal
     {
         if (index != enqueuedApps.length - 1) {
-            // remove index-th code from enqueuedApps replacing it by the last code in the array
+            // remove index-th app from enqueuedApps replacing it by the last app in the array
             enqueuedApps[index] = enqueuedApps[enqueuedApps.length - 1];
         }
         // release the storage
         delete enqueuedApps[enqueuedApps.length - 1];
 
         enqueuedApps.length--;
+    }
+
+    /** @dev Removes cluster from clustersIds array and clusters mapping
+     *  @param appID ID of the app to be removed
+     *  returns true if cluster was deleted, false otherwise
+     */
+    function removeApp(bytes32 appID)
+        internal
+    returns (bool)
+    {
+        // look for appID in appIDs array
+        uint8 index = 0;
+        uint len = appIDs.length;
+        for (; index < len; index++) {
+            if (appIDs[index] == appID) {
+                break;
+            }
+        }
+
+        // flag we didn't find such appID
+        if (index >= len) return false;
+
+        if (index != len - 1) {
+            // remove index-th ID by replacing it with the last element in the array
+            appIDs[index] = appIDs[len - 1];
+        }
+        delete appIDs[len - 1];
+        appIDs.length--;
+
+        // also remove cluster from mapping
+        delete apps[appID];
+
+        return true;
     }
 }
