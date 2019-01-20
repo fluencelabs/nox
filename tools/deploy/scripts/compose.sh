@@ -17,11 +17,11 @@
 set -e
 
 # The script uses for deploying Parity, Swarm, and Fluence containers.
-# If `REMOTE_DEPLOY` is set in env, the script will also expect the following env variables: `NAME`, `PORTS`, `OWNER_ADDRESS`, `PRIVATE_KEY`
-# Without `REMOTE_DEPLOY` exported flag the script will use default arguments
+# If `PROD_DEPLOY` is set in env, the script will also expect the following env variables: `NAME`, `PORTS`, `OWNER_ADDRESS`, `PRIVATE_KEY`
+# Without `PROD_DEPLOY` exported flag the script will use default arguments
 # If first arg is `multiple`, script will start 4 fluence node along with Swarm & Parity nodes
 
-# `REMOTE_DEPLOY` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
+# `PROD_DEPLOY` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
 #  the network will be started in development mode locally
 if [ -z "$PROD_DEPLOY" ]; then
     export NAME='node1'
