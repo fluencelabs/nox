@@ -156,6 +156,63 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       latestAppHash shouldBe "358E3349C85783100B55DEFA5F3C2500A7D73180545A93A4768E66D339EB0B21"
     }
 
+    "incorrect hex string in Tx payload argument" in {
+      val txIncorrentArgument = tx(client, session, 0, "(asdsad)")
+
+      sendCommit()
+      sendCommit()
+
+      sendDeliverTx(txIncorrentArgument)
+      sendDeliverTx(tx1) shouldBe (CodeType.BAD, ClientInfoMessages.SessionAlreadyClosed)
+
+      sendCommit()
+      sendCommit()
+
+      sendQuery(s"@meta/${client.id}/$session/0/result") shouldBe
+        Right(Error("WrongPayloadArgument", "Wrong payload argument=(asdsad)").toStoreValue)
+    }
+
+    "parentheses is absent" in {
+      val txLeftBracketAbsent = tx(client, session, 0, "555)")
+      val txCorrectSession0 = tx(client, session, 0, "(555)")
+
+      val txRightBracketAbsent = tx(client, session+1, 0, "(555")
+      val txCorrectSession1 = tx(client, session+1, 0, "(555)")
+
+      val txNoBracket = tx(client, session+2, 0, "555")
+      val txCorrectSession2 = tx(client, session+2, 0, "(555)")
+
+      sendCommit()
+      sendCommit()
+
+      sendDeliverTx(txLeftBracketAbsent)
+      sendDeliverTx(txCorrectSession0) shouldBe (CodeType.BAD, ClientInfoMessages.SessionAlreadyClosed)
+
+      sendCommit()
+      sendCommit()
+
+      sendDeliverTx(txRightBracketAbsent)
+      sendDeliverTx(txCorrectSession1) shouldBe (CodeType.BAD, ClientInfoMessages.SessionAlreadyClosed)
+
+      sendCommit()
+      sendCommit()
+
+      sendDeliverTx(txNoBracket)
+      sendDeliverTx(txCorrectSession2) shouldBe (CodeType.BAD, ClientInfoMessages.SessionAlreadyClosed)
+
+      sendCommit()
+      sendCommit()
+
+      sendQuery(s"@meta/${client.id}/$session/0/result") shouldBe
+        Right(Error("WrongPayloadArgument", "Wrong payload argument=555)").toStoreValue)
+
+      sendQuery(s"@meta/${client.id}/${session+1}/0/result") shouldBe
+        Right(Error("WrongPayloadArgument", "Wrong payload argument=(555").toStoreValue)
+
+      sendQuery(s"@meta/${client.id}/${session+2}/0/result") shouldBe
+        Right(Error("WrongPayloadArgument", "Wrong payload argument=555").toStoreValue)
+    }
+
     "invoke session txs in session counter order" in {
       sendCommit()
       sendCommit()
