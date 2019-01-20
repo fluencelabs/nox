@@ -39,7 +39,7 @@ case class WasmFunction(
   /**
    * Invokes the export from Wasm function with provided arguments.
    *
-   * @param module a reference to instance of Wasm Module compiled by Asmble,
+   * @param module a instance of Wasm Module compiled by Asmble,
    *              it is used as an object the underlying method is invoked from
    * @param args arguments for calling this function
    * @tparam F a monad with an ability to absorb 'IO'
@@ -51,8 +51,8 @@ case class WasmFunction(
     EitherT(
       IO(javaMethod.invoke(module, args: _*))
         .map(
-          result =>
-            // according to the current version of specification a Wasm method can return value
+          result ⇒
+            // according to the current version of Wasm specification a Wasm method can return value
             // of only i32, i64, f32, f64 types or return nothing
             if (javaMethod.getReturnType == Void.TYPE) None else Option(result.asInstanceOf[Number])
         )

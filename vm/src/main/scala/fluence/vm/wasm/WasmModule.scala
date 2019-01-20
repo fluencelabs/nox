@@ -37,12 +37,13 @@ import scala.util.Try
  * dealloc should be refactored to two modules types (extends the same trait): "master" (that has invoke method
  * and can routes call from user to "slaves") and "slave" (without invoke method that does only computation).
  *
- * @param name an optional module name (according to Wasm specification module name can be empty string or even absent)
- * @param wasmMemory memory of this module (please see comment in apply method to undertend why it optional now)
- * @param moduleInstance a reference to instance of Wasm Module compiled by Asmble
+ * @param name an optional module name (according to Wasm specification module name can be empty string (that is also
+ *             "valid UTF-8") or even absent)
+ * @param wasmMemory the memory of this module (please see comment in apply method to understand why it optional now)
+ * @param moduleInstance a instance of Wasm Module compiled by Asmble
  * @param allocateFunction a function used for allocation memory region for parameter passing
  * @param deallocateFunction a function used for deallocation memory region previously allocated by allocateFunction
- * @param invokeFunction a function represents main handler of Wasm module
+ * @param invokeFunction a function that represents main handler of Wasm module
  */
 class WasmModule(
   private val name: Option[String],
@@ -58,21 +59,21 @@ class WasmModule(
   /**
    * Allocates a memory region in Wasm module of supplied size by allocateFunction.
    *
-   * @param size size of memory that need to be allocated
+   * @param size a size of memory that need to be allocated
    */
   def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, Int] =
     invokeWasmFunction(allocateFunction, size.asInstanceOf[AnyRef] :: Nil)
 
   /**
    * Deallocates a previously allocated memory region in Wasm module by deallocateFunction.
-   * This function is a temporary solution and should be removed in the nearest future (that why
-   * it returns Int not Unit).
+   * This function is a temporary solution and should be removed in the nearest future.
    *
-   * @param offset address of the memory region to deallocate
-   * @param size size of memory region to deallocate
+   * @param offset an address of the memory region to deallocate
+   * @param size a size of memory region to deallocate
    */
-  def deallocate[F[_]: LiftIO: Monad](offset: Int, size: Int): EitherT[F, InvokeError, Int] =
+  def deallocate[F[_]: LiftIO: Monad](offset: Int, size: Int): EitherT[F, InvokeError, Unit] =
     invokeWasmFunction(deallocateFunction, offset.asInstanceOf[AnyRef] :: size.asInstanceOf[AnyRef] :: Nil)
+      .map(_ ⇒ ())
 
   /**
    * Invokes invokeFunction which exported from Wasm module with provided arguments.
@@ -83,9 +84,10 @@ class WasmModule(
     invokeWasmFunction(invokeFunction, args)
 
   /**
-   * Invokes invokeFunction which exported from Wasm module with provided arguments.
+   * Reads [offset, offset+size) region from the module memory.
    *
-   * @param args arguments for invokeFunction
+   * @param offset an offset from which read should be started
+   *  @param size bytes count to read
    */
   def readMemory[F[_]: Monad](offset: Int, size: Int): EitherT[F, VmMemoryError, Array[Byte]] =
     wasmMemory.fold(
@@ -94,6 +96,12 @@ class WasmModule(
       )
     )(_.readBytes(offset, size))
 
+  /**
+   * Writes array of bytes to module memory.
+   *
+   * @param offset an offset from which write should be started
+   * @param injectedArray an array that should be written into the module memory
+   */
   def writeMemory[F[_]: Monad](offset: Int, injectedArray: Array[Byte]): EitherT[F, VmMemoryError, Unit] =
     wasmMemory.fold(
       EitherT.leftT[F, Unit](
@@ -102,8 +110,9 @@ class WasmModule(
     )(_.writeBytes(offset, injectedArray))
 
   /**
-   * Returns hash of all significant inner state of this VM. Now only memory is used for state and other fields
-   * (such as Shadow stack, executed instruction counter, ...) should also be included after their implementation.
+   * Computes hash of all significant inner state of this Module. Now only memory is used for state hash computing;
+   * other fields (such as Shadow stack, executed instruction counter, ...) should also be included after their
+   * implementation.
    *
    * @param hashFn a hash function
    */
@@ -125,22 +134,19 @@ class WasmModule(
         NoSuchFnError(s"Unable to find a function in module with name=$this"): InvokeError
       )
     )(
-      fn =>
+      fn ⇒
         for {
-          rawResult <- fn(moduleInstance, args)
+          rawResult ← fn(moduleInstance, args)
 
-          // Despite our way of thinking about wasm function return value type as one of (i32, i64, f32, f64) in
+          // Despite our way of thinking about Wasm function return value type as one of (i32, i64, f32, f64) in
           // WasmModule context, there we can operate with Int (i32) values. It comes from our conventions about
           // Wasm modules design: they have to has only one export function as a user interface and one for memory
           // allocation. The first one receives and returns byte array by a pointer and the second one used for
           // allocating memory for array passing. Since Webassembly is only 32-bit now, Int(i32) is used as a
           // return value type. And after Wasm64 release, there should be additional logic to operate both with
-          // 32 and 64-bit modules (TODO).
-          result <- EitherT.fromOption(
-            rawResult,
-            InternalVmError(s"Returned value of function=${fn.fnName} from module=$this is None"): InvokeError
-          )
-        } yield result.intValue
+          // 32 and 64-bit modules. TODO: fold with default value is just a temporary solution - after dealloc
+          // removing it should be refactored to Either.fromOption
+        } yield rawResult.fold(0)(_.intValue)
     )
 
   override def toString: String = name.getOrElse("<no-name>")
@@ -151,8 +157,11 @@ object WasmModule {
   /**
    * Creates instance for specified module.
    *
-   * @param moduleDescription a description of the module
-   * @param scriptContext a context for the module operation
+   * @param moduleDescription a Asmble description of the module
+   * @param scriptContext a Asmble context for the module operation
+   * @param allocationFunctionName a name of function that will be used for allocation
+   * @param deallocationFunctionName a name of function that will be used for deallocation
+   * @param invokeFunctionName a name of main module handler function
    */
   def apply(
     moduleDescription: Compiled,
@@ -163,7 +172,7 @@ object WasmModule {
   ): Either[ApplyError, WasmModule] =
     for {
 
-      moduleInstance <- Try(moduleDescription.instance(scriptContext)).toEither.left.map { e ⇒
+      moduleInstance ← Try(moduleDescription.instance(scriptContext)).toEither.left.map { e ⇒
         // TODO: method 'instance' can throw both an initialization error and a
         // Trap error, but now they can't be separated
         InitializationError(
@@ -172,7 +181,7 @@ object WasmModule {
         )
       }
 
-      // TODO: there are two ways of getting memory from Wasm module: by exported getMemory function or
+      // TODO: there are two ways of getting memory from a Wasm module: by exported getMemory function or
       // through moduleInstance.getMem interface. Based on Asmble source code It seems that the behavior
       // of getMemory is returning smth like 'export memory' in terms of Wasm specification. getMemory
       // is more suitable for the scenario when at first Wasm module translates to Java class and then
@@ -198,25 +207,25 @@ object WasmModule {
       }
 
       (allocMethod, deallocMethod, invokeMethod) = moduleDescription.getCls.getDeclaredMethods.toStream
-        .filter(method => Modifier.isPublic(method.getModifiers))
-        .map(method => WasmFunction(method.getName, method))
+        .filter(method ⇒ Modifier.isPublic(method.getModifiers))
+        .map(method ⇒ WasmFunction(method.getName, method))
         .foldLeft((Option.empty[WasmFunction], Option.empty[WasmFunction], Option.empty[WasmFunction])) {
-          case (acc @ (None, _, _), m @ WasmFunction(`allocationFunctionName`, _)) =>
+          case (acc @ (None, _, _), m @ WasmFunction(`allocationFunctionName`, _)) ⇒
             acc.copy(_1 = Some(m))
 
-          case (acc @ (_, None, _), m @ WasmFunction(`deallocationFunctionName`, _)) =>
+          case (acc @ (_, None, _), m @ WasmFunction(`deallocationFunctionName`, _)) ⇒
             acc.copy(_2 = Some(m))
 
-          case (acc @ (_, _, None), m @ WasmFunction(`invokeFunctionName`, _)) =>
+          case (acc @ (_, _, None), m @ WasmFunction(`invokeFunctionName`, _)) ⇒
             acc.copy(_3 = Some(m))
 
-          case (acc @ (_, _, _), _) => acc
+          case (acc @ (_, _, _), _) ⇒ acc
         }
 
     } yield
       new WasmModule(
         Option(moduleDescription.getName),
-        memory.map(memory => WasmModuleMemory(memory)),
+        memory.map(memory ⇒ WasmModuleMemory(memory)),
         moduleInstance,
         allocMethod,
         deallocMethod,

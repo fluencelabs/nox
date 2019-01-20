@@ -10,9 +10,10 @@
         (f64.const 200000000.12345)
     )
 
-    (func (export "deallocate") (param $address i32) (param $size i32) (result i32)
-        ;; in this simple deallocation function returns 0
-        (i32.const 0)
+    (func (export "deallocate") (param $address i32) (param $size i32) (return)
+        ;; in this simple example deallocation function does nothing
+        (drop)
+        (drop)
     )
 
     (func (export "invoke") (param $0 i32 ) (param $1 i32) (result i32)

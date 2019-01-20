@@ -29,9 +29,10 @@ import scala.language.higherKinds
 final case class WasmModuleMemory(memory: ByteBuffer) {
 
   /**
-   * Reads .
+   * Reads [offset, offset+size) region from the memory.
    *
-   * @param offset arguments for invokeFunction
+   * @param offset offset from which read should be started
+   * @param size bytes count to read
    */
   def readBytes[F[_]: Applicative](
     offset: Int,
@@ -48,7 +49,7 @@ final case class WasmModuleMemory(memory: ByteBuffer) {
         wasmMemoryView.get(resultBuffer)
         resultBuffer
       },
-      e =>
+      e ⇒
         VmMemoryError(
           s"Reading from offset=$offset $size bytes failed",
           Some(e)
@@ -56,9 +57,10 @@ final case class WasmModuleMemory(memory: ByteBuffer) {
     )
 
   /**
-   * Invokes invokeFunctionName which exported from Wasm module function with provided arguments.
+   * Writes array of bytes to memory.
    *
-   * @param args arguments for invokeFunction
+   * @param offset offset from which write should be started
+   * @param injectedArray array that should be injected into the module memory
    */
   def writeBytes[F[_]: Monad](
     offset: Int,
@@ -76,6 +78,11 @@ final case class WasmModuleMemory(memory: ByteBuffer) {
       e ⇒ VmMemoryError(s"Writing to $offset failed", Some(e))
     )
 
+  /**
+   * Computes and returns hash of memory.
+   *
+   * @param hashFn a hash function
+   */
   def computeMemoryHash[F[_]: Monad](
     hashFn: Array[Byte] ⇒ EitherT[F, CryptoError, Array[Byte]]
   ): EitherT[F, GetVmStateError, Array[Byte]] =

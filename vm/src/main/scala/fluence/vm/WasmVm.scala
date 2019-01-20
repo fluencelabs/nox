@@ -45,13 +45,11 @@ import scala.language.higherKinds
 trait WasmVm {
 
   /**
-   * Invokes ''function'' from specified ''module'' with provided arguments.
-   * Returns ''None'' if the function doesn't return the result, ''Some(Any)''
-   * if the function returns the result, ''VmError'' when something goes wrong.
+   * Invokes Wasm ''function'' from specified Wasm ''module''. Each function receives and returns array of bytes.
    *
-   * Note that, modules and functions should be registered when VM started!
+   * Note that, modules should be registered when VM started!
    *
-   * @param module a Module name, if absent the last from registered modules will be used
+   * @param module a name of Wasm module from where handle
    * @param fnArgument a Function arguments
    * @tparam F a monad with an ability to absorb 'IO'
    */
@@ -61,7 +59,7 @@ trait WasmVm {
   ): EitherT[F, InvokeError, Array[Byte]]
 
   /**
-   * Returns hash of significant inner state of this VM. This function calculates
+   * Returns hash of all significant inner state of this VM. This function calculates
    * hashes for the state of each module and then concatenates them together.
    * It's behaviour will change in future, till it looks like this:
    * {{{
@@ -79,11 +77,10 @@ object WasmVm {
 
   /**
    * Main method factory for building VM.
-   * Compiles all files immediately and returns VM implementation with eager
-   * module instantiation, also builds index for each wast function.
+   * Compiles all files immediately by Asmble and returns VM implementation with eager module instantiation.
    *
    * @param inFiles input files in wasm or wast format
-   * @param configNamespace a path of config in 'lightbend/config terms, see reference.conf
+   * @param configNamespace a path of config in 'lightbend/config terms, please see reference.conf
    * @param cryptoHasher a hash function provider
    */
   def apply[F[_]: Monad](
@@ -103,7 +100,7 @@ object WasmVm {
         }
 
       // Compiling Wasm modules to JVM bytecode and registering derived classes
-      // in the Asmble engine. Every Wasm module is compiles to exactly one JVM class
+      // in the Asmble engine. Every Wasm module is compiles to exactly one JVM class.
       scriptCxt ← runThrowable(
         prepareContext(inFiles, config),
         err ⇒
@@ -124,7 +121,7 @@ object WasmVm {
   /**
    * Returns [[ScriptContext]] - context for uploaded Wasm modules.
    * Compiles Wasm modules to JVM bytecode and registering derived classes
-   * in the Asmble engine. Every Wasm module is compiles to exactly one JVM class
+   * in the Asmble engine. Every Wasm module is compiles to exactly one JVM class.
    */
   private def prepareContext(
     inFiles: NonEmptyList[String],
@@ -147,12 +144,9 @@ object WasmVm {
   }
 
   /**
-   * This method initializes every module and builds a total index for each
-   * function of every module. The index is actually a map where the key is a
-   * string "Some(moduleName), fnName)" and value is a [[WasmFunction]] instance.
-   * Module name can be "None" if the module name wasn't specified. In this case,
-   * there aren't to be two modules without names that contain functions with the
-   * same names, otherwise, an error will be thrown.
+   * This method initializes every module and builds a module index. The index is actually a map where the key is a
+   * string "Some(moduleName)" and value is a [[WasmFunction]] instance. Module name can be "None" if the module
+   * name wasn't specified (note that it also can be ampty).
    */
   private def initializeModules[F[_]: Applicative](
     scriptCxt: ScriptContext,
@@ -162,12 +156,12 @@ object WasmVm {
 
     val moduleIndex = scriptCxt.getModules
       .foldLeft(emptyIndex) {
-        case (error @ Left(_), _) =>
+        case (error @ Left(_), _) ⇒
           error
 
-        case (Right(acc), moduleDescription) =>
+        case (Right(acc), moduleDescription) ⇒
           for {
-            wasmModule <- WasmModule(
+            wasmModule ← WasmModule(
               moduleDescription,
               scriptCxt,
               config.allocateFunctionName,
@@ -175,7 +169,7 @@ object WasmVm {
               config.invokeFunctionName
             )
 
-          } yield acc + (wasmModule.getName -> wasmModule)
+          } yield acc + (wasmModule.getName → wasmModule)
       }
 
     EitherT.fromEither[F](moduleIndex)
