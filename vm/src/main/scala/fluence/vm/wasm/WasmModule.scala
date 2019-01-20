@@ -23,10 +23,10 @@ import asmble.run.jvm.Module.Compiled
 import asmble.run.jvm.ScriptContext
 import cats.data.EitherT
 import cats.effect.LiftIO
-import cats.{Applicative, Functor, Monad}
+import cats.Monad
 import fluence.crypto.CryptoError
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
-import fluence.vm.VmError.{InitializationError, InternalVmError, NoSuchFnError, VmMemoryError}
+import fluence.vm.VmError.{InitializationError, NoSuchFnError, VmMemoryError}
 
 import scala.language.higherKinds
 import scala.util.Try

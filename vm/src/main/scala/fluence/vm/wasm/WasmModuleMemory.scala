@@ -18,11 +18,11 @@ package fluence.vm.wasm
 import java.nio.{ByteBuffer, ByteOrder}
 
 import fluence.vm.runThrowable
-import cats.{Applicative, Functor, Monad}
+import cats.{Applicative, Monad}
 import cats.data.EitherT
 import fluence.crypto.CryptoError
 import fluence.vm.VmError.{InternalVmError, VmMemoryError}
-import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
+import fluence.vm.VmError.WasmVmError.GetVmStateError
 
 import scala.language.higherKinds
 
@@ -62,7 +62,7 @@ final case class WasmModuleMemory(memory: ByteBuffer) {
    * @param offset offset from which write should be started
    * @param injectedArray array that should be injected into the module memory
    */
-  def writeBytes[F[_]: Monad](
+  def writeBytes[F[_]: Applicative](
     offset: Int,
     injectedArray: Array[Byte]
   ): EitherT[F, VmMemoryError, Unit] =
