@@ -93,7 +93,7 @@ export class Session {
      *
      * @param payload a command supported by the program in a virtual machine with arguments
      */
-    invokeRaw(payload: string): ResultPromise {
+    invoke(payload: string): ResultPromise {
         // throws an error immediately if the session is closed
         if (this.closed) {
             return new ResultError(`The session was closed. Cause: ${this.closedStatus}`)
@@ -140,12 +140,11 @@ export class Session {
     /**
      * Sends request with a payload and wait for a response.
      *
-     * @param command a command supported by the program in a virtual machine
      * @param arg arguments for command
      */
-    invoke(command: string, arg: string = ""): ResultPromise {
+    invoke(arg: string = ""): ResultPromise {
 
-        let payload: string = command + `(${toHex(arg)})`;
+        let payload: string = `(${toHex(arg)})`;
 
         return this.invokeRaw(payload);
     }
