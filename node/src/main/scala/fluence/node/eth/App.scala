@@ -54,19 +54,19 @@ case class Cluster(genesisTime: FiniteDuration, workers: List[WorkerNode], curre
 
 object Cluster {
 
-  /* Builds a Cluster structure, filters for clusters that include current node.
-   * i.e., return None if validatorKeys doesn't contain currentWorkerId
+  /** Builds a Cluster structure, filters for clusters that include current node.
+   * i.e., return None if validatorKeys doesn't contain currentValidatorKey
    * @param time Cluster genesis time
    * @param validatorKeys array of 32-byte Tendermint validator keys, used as workers' ids
    * @param ports array of ports for Tendermint p2p connection. For rpc and prometheus ports see [[WorkerNode]]
-   * @param currentWorkerId 32-byte Tendermint validator key corresponding to current node
+   * @param currentValidatorKey 32-byte Tendermint validator key corresponding to current node
    */
   def build(
     time: Uint256,
     validatorKeys: DynamicArray[Bytes32],
     nodeAddresses: DynamicArray[Bytes24],
     ports: DynamicArray[Uint16],
-    currentWorkerId: Bytes32,
+    currentValidatorKey: Bytes32,
   ): Option[Cluster] = {
     val timestamp = (time.getValue.longValue() * 1000).millis
     val keys = validatorKeys.getValue.asScala
@@ -83,14 +83,14 @@ object Cluster {
       }
       .toList
 
-    val currentWorkerIdBytes = bytes32ToBinary(currentWorkerId)
-    val currentWorker = workers.find(_.validatorKey === currentWorkerIdBytes)
+    val keyBytes = bytes32ToBinary(currentValidatorKey)
+    val currentWorker = workers.find(_.validatorKey === keyBytes)
     currentWorker.map(cw => Cluster(timestamp, workers, cw))
   }
 }
 
-/* WorkerNode contains information describing a Worker as a Tendermint node
- * @param workerId 32-byte Tendermint Validator key, also represented by base64WorkerId
+/** WorkerNode contains information describing a Worker as a Tendermint node
+ * @param validatorKey 32-byte Tendermint Validator key, also represented by base64ValidatorKey
  * @param peerId hex-encoded 20-byte Tendermint peer ID which is calculated as `hex.EncodeToString(SHA256(peer.PubKey)[:20])`
  * and can be retrieved from Tendermint via command `show_node_id`
  * @param p2pPort p2p Tendermint port, used by Tendermint to connect p2p peers. Also used for rpcPort calculation
@@ -108,13 +108,19 @@ case class WorkerNode(validatorKey: ByteVector, peerId: String, ip: InetAddress,
 
 object WorkerNode {
 
-  // @param nodeAddress is a concatenation of tendermint p2p node_id (20 bytes) and IPv4 address (4 bytes)
-  def apply(key: Bytes32, nodeAddress: Bytes24, port: Uint16, index: Int): WorkerNode = {
+  /** Build WorkerNode from web3 data structures
+   * @param validatorKey Tendermint validator key, determines the node that controls the worker
+   * @param nodeAddress is a concatenation of tendermint p2p node_id (20 bytes) and IPv4 address (4 bytes)
+   * @param p2pPort Tendermint p2p port of the worker
+   * @param index index of a worker in cluster workers array
+   * @return WorkerNode instance
+   */
+  def apply(validatorKey: Bytes32, nodeAddress: Bytes24, p2pPort: Uint16, index: Int): WorkerNode = {
     val peerId = ByteVector(nodeAddress.getValue, 0, 20).toHex
     val ipBytes: Array[Byte] = ByteVector(nodeAddress.getValue, 20, 4).toArray.map(x => (x & 0xFF).toByte)
     val inetAddress = InetAddress.getByAddress(ipBytes)
-    val portShort = port.getValue.shortValue()
-    val keyBytes = bytes32ToBinary(key)
+    val portShort = p2pPort.getValue.shortValue()
+    val keyBytes = bytes32ToBinary(validatorKey)
 
     WorkerNode(keyBytes, peerId, inetAddress, portShort, index)
   }
