@@ -24,7 +24,7 @@ import fluence.ethclient.EthClient
 import fluence.ethclient.helpers.Web3jConverters.hexToBytes32
 import fluence.node.eth.{FluenceContract, FluenceContractConfig}
 import fluence.node.workers.WorkerRunning
-import fluence.util.util._ // TODO: why it's double util.util._? How to make it just fluence.util._ ?
+import fluence.util.util._
 import org.scalatest.{Timer => _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
@@ -175,7 +175,7 @@ class MasterNodeIntegrationSpec
           _ = status2 shouldBe defined
 
           appIdHex = status1.value.info.appId
-          appId = hexToBytes32(appIdHex)
+          appId <- IO.fromEither(hexToBytes32(appIdHex))
           _ <- contract.deleteApp[IO](appId)
           _ <- eventually[IO](
             for {

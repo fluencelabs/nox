@@ -15,24 +15,25 @@
  */
 
 package fluence.node.tendermint.config
-import java.text.SimpleDateFormat
-import java.util.TimeZone
 
-import fluence.ethclient.helpers.Web3jConverters
-import fluence.node.eth.App
-import fluence.node.tendermint.json.ValidatorKey
-
-private[config] case class ValidatorConfig(pub_key: ValidatorKey, power: String, name: String)
-private[config] case class GenesisConfig(
-  genesis_time: String,
-  chain_id: String,
-  app_hash: String,
-  validators: List[ValidatorConfig]
-)
 private[config] object GenesisConfig {
+  import java.text.SimpleDateFormat
+  import java.util.TimeZone
+
+  import fluence.ethclient.helpers.Web3jConverters
+  import fluence.node.eth.App
+  import fluence.node.tendermint.json.ValidatorKey
   import io.circe.Encoder
   import io.circe.generic.semiauto.deriveEncoder
   import io.circe.syntax._
+
+  private case class ValidatorConfig(pub_key: ValidatorKey, power: String, name: String)
+  private case class GenesisConfig(
+    genesis_time: String,
+    chain_id: String,
+    app_hash: String,
+    validators: List[ValidatorConfig]
+  )
 
   def generateJson(app: App): String = {
     val dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
@@ -55,6 +56,6 @@ private[config] object GenesisConfig {
     ).asJson.spaces2
   }
 
-  implicit val configEncoder: Encoder[GenesisConfig] = deriveEncoder
-  implicit val validatorEncoder: Encoder[ValidatorConfig] = deriveEncoder
+  implicit private val configEncoder: Encoder[GenesisConfig] = deriveEncoder
+  implicit private val validatorEncoder: Encoder[ValidatorConfig] = deriveEncoder
 }

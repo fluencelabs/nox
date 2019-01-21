@@ -106,7 +106,14 @@ object Web3jConverters {
    *
    * @param hex hex string
    */
-  def hexToBytes32(hex: String): Bytes32 = new Bytes32(hexToBinary(hex))
+  def hexToBytes32(hex: String): Either[Throwable, Bytes32] = {
+    val binary = hexToBinary(hex)
+    if (binary.length == 32) {
+      Right(new Bytes32(hexToBinary(hex)))
+    } else {
+      Left(new Exception("Incorrect bytes length for 'hex': must be 32 bytes"))
+    }
+  }
 
   /**
    * Encodes worker address information to web3j's Bytes32.

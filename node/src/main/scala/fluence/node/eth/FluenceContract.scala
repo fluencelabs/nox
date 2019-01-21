@@ -141,7 +141,7 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
   /**
    * Register the node in the contract.
    * TODO check permissions, Ethereum public key should match
-   * TODO should not be called from scala, use CLI to register the node
+   * TODO should not be called anywhere except tests, use CLI to register the node
    *
    * @param nodeConfig Node to add
    * @tparam F Effect
@@ -164,7 +164,6 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
   /**
    * Publishes a new app to Fluence Network
    *
-   * TODO should not be called from scala
    * @param storageHash Hash of the code in Swarm
    * @param clusterSize Cluster size required to host this app
    * @tparam F Effect
@@ -200,7 +199,6 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
    * Deletes deployed app from contract, triggering AppDeleted event on successful deletion
    * @param appId 32-byte id of the app to be deleted
    * @tparam F Effect
-   * @return
    */
   def deleteApp[F[_]: Async](appId: Bytes32): F[Unit] = contract.deleteApp(appId).call[F].void
 }

@@ -21,7 +21,8 @@ import cats.effect.{Concurrent, ConcurrentEffect, ExitCode, IO}
 import fluence.ethclient.helpers.Web3jConverters
 import fluence.node.config.NodeConfig
 import fluence.node.eth.{App, FluenceContract}
-import fluence.node.tendermint.config.TendermintConfig
+import fluence.node.tendermint.config.WorkerConfigWriter
+import fluence.node.tendermint.config.WorkerConfigWriter.WorkerConfigPaths
 import fluence.node.workers._
 import fs2.Pipe
 
@@ -45,18 +46,41 @@ case class MasterNode(
     extends slogging.LazyLogging {
 
   /**
-   * Generate, copy and/or update different configs used by tendermint and download vm code
-   * see [[TendermintConfig.prepareWorkerParams]] for details
+   * Downloads code from Swarm
+   * @param codeManager Manager that downloads the code from Swarm
+   * @return original App and WorkerConfigPaths along with downloaded code Path
    */
-  private val prepareWorkerParams: Pipe[IO, App, WorkerParams] = {
-    TendermintConfig.prepareWorkerParams(
-      nodeConfig.validatorKey.toBytes32,
-      nodeConfig.workerImage,
-      rootPath,
-      masterNodeContainerId,
-      codeManager
-    )
-  }
+  private def downloadCode(
+    codeManager: CodeManager[IO]
+  ): fs2.Pipe[IO, (App, WorkerConfigPaths), (App, WorkerConfigPaths, Path)] =
+    _.evalMap {
+      case (app, paths) =>
+        codeManager.prepareCode(CodePath(app.storageHash), paths.workerPath).map { codePath =>
+          (app, paths, codePath)
+        }
+    }
+
+  /**
+   * Generates WorkerParams case class from app, config paths and downloaded code path
+   * @param workerImage Docker image to use to run a Worker
+   * @param masterNodeContainerId Docker container id of the current Fluence node, used to import volumes from it
+   * @return
+   */
+  def buildWorkerParams(
+    workerImage: WorkerImage,
+    masterNodeContainerId: Option[String]
+  ): fs2.Pipe[IO, (App, WorkerConfigPaths, Path), WorkerParams] =
+    _.map {
+      case (app, paths, codePath) =>
+        WorkerParams(
+          app.appId,
+          app.cluster.currentWorker,
+          paths.workerPath.toString,
+          codePath.toAbsolutePath.toString,
+          masterNodeContainerId,
+          workerImage
+        )
+    }
 
   /**
    * Runs MasterNode. Returns when contract.getAllNodeClusters is exhausted
@@ -65,7 +89,10 @@ case class MasterNode(
   private val runMasterNode: IO[ExitCode] =
     contract
       .getAllNodeApps(nodeConfig.validatorKey.toBytes32)
-      .through(prepareWorkerParams)
+      .through(WorkerConfigWriter.resolveWorkerConfigPaths(rootPath))
+      .through(downloadCode(codeManager))
+      .through(WorkerConfigWriter.writeConfigs(nodeConfig.validatorKey.toBytes32))
+      .through(buildWorkerParams(nodeConfig.workerImage, masterNodeContainerId))
       .evalMap { params ⇒
         logger.info("Running worker `{}`", params)
 
