@@ -17,6 +17,7 @@
 package fluence.node
 import java.nio.file._
 
+import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect._
 import fluence.ethclient.helpers.Web3jConverters
 import fluence.node.config.NodeConfig
@@ -24,7 +25,6 @@ import fluence.node.eth.{App, FluenceContract}
 import fluence.node.tendermint.config.WorkerConfigWriter
 import fluence.node.tendermint.config.WorkerConfigWriter.WorkerConfigPaths
 import fluence.node.workers._
-import fs2.Pipe
 
 /**
  * Represents a MasterNode process. Takes cluster forming events from Ethereum, and spawns new Workers to serve them.
@@ -91,7 +91,7 @@ case class MasterNode(
       .getAllNodeApps(nodeConfig.validatorKey.toBytes32)
       .through(WorkerConfigWriter.resolveWorkerConfigPaths(rootPath))
       .through(downloadCode(codeManager))
-      .through(WorkerConfigWriter.writeConfigs(nodeConfig.validatorKey.toBytes32))
+      .through(WorkerConfigWriter.writeConfigs())
       .through(buildWorkerParams(nodeConfig.workerImage, masterNodeContainerId))
       .evalMap[IO, Unit](
         params ⇒
@@ -106,6 +106,15 @@ case class MasterNode(
       .compile // Compile to a runnable, in terms of effect IO
       .drain // Switch to IO[Unit]
       .map(_ ⇒ ExitCode.Success)
+      .guaranteeCase {
+        case Error(e) =>
+          IO {
+            logger.error(s"runMasterNode error: $e")
+            e.printStackTrace(System.err)
+          }
+        case Canceled => IO(logger.error("runMasterNode was canceled"))
+        case Completed => IO(logger.info("runMasterNode finished gracefully"))
+      }
 
   /**
    * Starts listening for AppDeleted event and deletes a worker for that app if it exists. Does nothing otherwise.
@@ -126,7 +135,7 @@ case class MasterNode(
     for {
       node <- Concurrent[IO].start(runMasterNode)
       appDelete <- Concurrent[IO].start(listenForDeletion)
-      _ <- appDelete.join
       exitCode <- node.join
+      _ <- appDelete.cancel
     } yield exitCode
 }

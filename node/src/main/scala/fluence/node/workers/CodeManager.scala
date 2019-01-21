@@ -21,15 +21,13 @@ import java.nio.file.{Files, Path, Paths}
 import cats.effect.Sync
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.ethclient.helpers.Web3jConverters.{binaryToHex, bytes32ToString}
 import fluence.swarm.SwarmClient
-import org.web3j.abi.datatypes.generated.Bytes32
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
 case class CodePath(storageHash: ByteVector) {
-  lazy val asString: Either[CharacterCodingException, String] = storageHash.decodeUtf8
+  lazy val asString: Either[CharacterCodingException, String] = storageHash.decodeUtf8.map(_.trim)
   lazy val asHex: String = storageHash.toHex
 }
 

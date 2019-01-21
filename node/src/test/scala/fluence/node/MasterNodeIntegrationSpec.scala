@@ -40,30 +40,18 @@ import scala.sys.process.ProcessLogger
  * - Successful cluster formation and starting blocks creation
  */
 class MasterNodeIntegrationSpec
-    extends WordSpec with LazyLogging with Matchers with BeforeAndAfterAll with OptionValues with Integration {
+    extends WordSpec with LazyLogging with Matchers with BeforeAndAfterAll with OptionValues with Integration
+    with TendermintSetup with GanacheSetup with DockerSetup {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
   override protected def beforeAll(): Unit = {
-    // TODO: It is needed to build vm-llamadb project explicitly for launch this test from Idea
-    logger.info("bootstrapping npm")
-    runCmd("npm install")
-
-    logger.info("starting Ganache")
-    runBackground("npm run ganache")
-
-    logger.info("deploying contract to Ganache")
-    runCmd("npm run migrate")
+    wireupContract()
   }
 
   override protected def afterAll(): Unit = {
-    logger.info("killing ganache")
-    runCmd("pkill -f ganache")
-
-//    logger.info("stopping containers")
-//    // TODO: kill containers through Master's HTTP API
-//    runCmd("docker rm -f 01_worker_0 01_worker_1 02_worker_0 02_worker_1")
+    killGanache()
   }
 
   def getStatus(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[MasterStatus] = {
@@ -145,8 +133,8 @@ class MasterNodeIntegrationSpec
 
         _ <- eventually[IO](
           for {
-            c1s0 <- heightFromTendermintStatus(basePort)
-            c1s1 <- heightFromTendermintStatus((basePort + 1).toShort)
+            c1s0 <- heightFromTendermintStatus("localhost", basePort)
+            c1s1 <- heightFromTendermintStatus("localhost", (basePort + 1).toShort)
             worker1 <- getRunningWorker(getStatusPort(basePort))
             worker2 <- getRunningWorker(getStatusPort((basePort + 1).toShort))
           } yield {

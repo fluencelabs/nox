@@ -26,6 +26,7 @@ import fluence.node.Configuration
 import fluence.node.eth.App
 import fluence.node.workers.{CodeManager, CodePath, WorkerImage, WorkerParams}
 import org.web3j.abi.datatypes.generated.Bytes32
+import scodec.bits.ByteVector
 
 import scala.io.Source
 
@@ -65,9 +66,7 @@ object WorkerConfigWriter extends slogging.LazyLogging {
    *        - genesis.json, generated from [[App.cluster]] and [[App.appId]]
    *        - config.toml, copied from `templateConfigDir/default_config.toml` and updated
    */
-  def writeConfigs(
-    workerId: Bytes32
-  ): fs2.Pipe[IO, (App, WorkerConfigPaths, Path), (App, WorkerConfigPaths, Path)] =
+  def writeConfigs(): fs2.Pipe[IO, (App, WorkerConfigPaths, Path), (App, WorkerConfigPaths, Path)] =
     _.evalTap {
       case (app, paths, _) =>
         for {
@@ -79,7 +78,6 @@ object WorkerConfigWriter extends slogging.LazyLogging {
           _ ← WorkerConfigWriter.writeGenesis(app, paths.workerConfigDir)
           _ ← WorkerConfigWriter.updateConfigTOML(
             app,
-            workerId,
             configSrc = paths.templateConfigDir.resolve("default_config.toml"),
             configDest = paths.workerConfigDir.resolve("config.toml")
           )
@@ -94,7 +92,7 @@ object WorkerConfigWriter extends slogging.LazyLogging {
     Files.write(dest.resolve("genesis.json"), genesis.getBytes)
   }
 
-  private def updateConfigTOML(app: App, workerId: Bytes32, configSrc: Path, configDest: Path): IO[Unit] = IO {
+  private def updateConfigTOML(app: App, configSrc: Path, configDest: Path): IO[Unit] = IO {
     import scala.collection.JavaConverters._
     logger.info("Updating {} -> {}", configSrc, configDest)
 

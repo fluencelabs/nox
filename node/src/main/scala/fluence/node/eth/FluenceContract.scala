@@ -219,7 +219,9 @@ object FluenceContract {
   ): Option[App] = {
     val cluster =
       Cluster.build(event.genesisTime, event.nodeIDs, event.nodeAddresses, event.ports, currentWorkerId = workerId)
-    cluster.map(App(event.appID, event.storageHash, _))
+    val app = cluster.map(App(event.appID, event.storageHash, _))
+    println(s"app is $app")
+    app
   }
 
   /**

@@ -17,7 +17,7 @@
 package fluence.node.eth
 import java.net.InetAddress
 
-import fluence.ethclient.helpers.Web3jConverters.{binaryToHexTrimZeros, bytes32ToBase64, bytes32ToBinary}
+import fluence.ethclient.helpers.Web3jConverters.{binaryToHexTrimZeros, bytes32ToBinary}
 import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated._
 import scodec.bits.ByteVector
@@ -83,7 +83,8 @@ object Cluster {
       }
       .toList
 
-    val currentWorker = workers.find(_.validatorKey == currentWorkerId)
+    val currentWorkerIdBytes = bytes32ToBinary(currentWorkerId)
+    val currentWorker = workers.find(_.validatorKey === currentWorkerIdBytes)
     currentWorker.map(cw => Cluster(timestamp, workers, cw))
   }
 }
