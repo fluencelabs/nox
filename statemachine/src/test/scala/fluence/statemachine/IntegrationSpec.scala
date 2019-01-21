@@ -153,7 +153,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendQuery(tx3Result) shouldBe Right(Computed(littleEndian4ByteHex(3)).toStoreValue)
 
       latestCommittedHeight shouldBe 5
-      latestAppHash shouldBe "ED30D5F1CC61198C36C05147BA965A905BD229F2B4E63DF44EFA875224942C60"
+      latestAppHash shouldBe "9750399EECDCC779F3F3EAC4B04BC88385BC51643CB18CDC419D612B4A4197C7"
     }
 
     "incorrect hex string in Tx payload argument" in {
