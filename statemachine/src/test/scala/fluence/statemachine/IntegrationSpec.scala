@@ -80,7 +80,6 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
     val txHeaderJson = s"""{"client":"${client.id}","session":"$session","order":$order}"""
     val txJson = s"""{"header":$txHeaderJson,"payload":"$payload"}"""
     val signingData = s"${client.id}-$session-$order-$payload"
-    val tt = client.sign(signingData)
     val signedTxJson = s"""{"tx":$txJson,"signature":"${client.sign(signingData)}"}"""
     HexCodec.stringToHex(signedTxJson).toUpperCase
   }

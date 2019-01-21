@@ -132,10 +132,10 @@ class TxProcessor[F[_]](
       case SmCloseSession(_) =>
         EitherT.right[StateMachineError](putResult(tx, TransactionStatus.SessionClosed, Empty))
 
-      case VmFunctionCall(payload) =>
+      case VmFunctionCall(vmCallDescription) =>
         for {
           invokeResult <- vmInvoker
-            .invoke(payload)
+            .invoke(vmCallDescription)
             .flatMap(
               result => EitherT.right[StateMachineError](putResult(tx, TransactionStatus.Success, Computed(result)))
             )
