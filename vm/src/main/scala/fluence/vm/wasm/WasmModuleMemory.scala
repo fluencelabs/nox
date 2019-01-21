@@ -45,6 +45,8 @@ final case class WasmModuleMemory(memory: ByteBuffer) {
         wasmMemoryView.order(ByteOrder.LITTLE_ENDIAN)
 
         val resultBuffer = new Array[Byte](size)
+        // sets limit to capacity
+        wasmMemoryView.clear()
         wasmMemoryView.position(offset)
         wasmMemoryView.get(resultBuffer)
         resultBuffer
@@ -87,7 +89,7 @@ final case class WasmModuleMemory(memory: ByteBuffer) {
     hashFn: Array[Byte] ⇒ EitherT[F, CryptoError, Array[Byte]]
   ): EitherT[F, GetVmStateError, Array[Byte]] =
     for {
-      memoryAsArray ← readBytes(0, memory.limit())
+      memoryAsArray ← readBytes(0, memory.capacity())
 
       vmStateAsHash ← hashFn(memoryAsArray).leftMap { e ⇒
         InternalVmError(s"Computing wasm memory hash failed", Some(e)): GetVmStateError

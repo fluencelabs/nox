@@ -125,7 +125,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
 
       sendCommit()
       sendCommit()
-      latestAppHash shouldBe "2CA475E20CD8DE7612D3F2EE205AB3D8B2C4E541A0638591CDE5574524D6BFC3"
+      latestAppHash shouldBe "CED687708BB077AFFF670943B503E30035E1FA4B56535B77A204BF80F5E51C3B"
 
       sendCheckTx(tx0)
       sendCheckTx(tx1)
@@ -134,7 +134,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
       sendDeliverTx(tx0)
       sendCommit()
-      latestAppHash shouldBe "6E0B919DB0E8B2A7A877AA0DDF4D238379BC05906B36181B902417A006D1ABEE"
+      latestAppHash shouldBe "A8F13D6083ED43D9645A9B7A330F7081FC79E720F7E88274F4BED0B4AF4E0D24"
 
       sendCheckTx(tx1)
       sendCheckTx(tx2)
@@ -144,7 +144,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendDeliverTx(tx2)
       sendDeliverTx(tx3)
       sendCommit()
-      latestAppHash shouldBe "358E3349C85783100B55DEFA5F3C2500A7D73180545A93A4768E66D339EB0B21"
+      latestAppHash shouldBe "9750399EECDCC779F3F3EAC4B04BC88385BC51643CB18CDC419D612B4A4197C7"
 
       sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
       sendCommit()
@@ -153,7 +153,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendQuery(tx3Result) shouldBe Right(Computed(littleEndian4ByteHex(3)).toStoreValue)
 
       latestCommittedHeight shouldBe 5
-      latestAppHash shouldBe "358E3349C85783100B55DEFA5F3C2500A7D73180545A93A4768E66D339EB0B21"
+      latestAppHash shouldBe "ED30D5F1CC61198C36C05147BA965A905BD229F2B4E63DF44EFA875224942C60"
     }
 
     "incorrect hex string in Tx payload argument" in {
