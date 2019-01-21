@@ -61,10 +61,9 @@ pub unsafe fn allocate(size: usize) -> NonNull<u8> {
 /// Used from the host environment for memory deallocation after reading results
 /// of function from Wasm memory.
 #[no_mangle]
-pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) -> u8 {
+pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) {
     let non_zero_size = NonZeroUsize::new(size)
         .unwrap_or_else(|| panic!("[Error] Deallocation of zero bytes is not allowed."));
     fluence::memory::dealloc(ptr, non_zero_size)
         .unwrap_or_else(|_| panic!("[Error] Deallocate failed for ptr={:?} size={}.", ptr, size));
-    0
 }

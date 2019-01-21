@@ -106,7 +106,7 @@ pub unsafe fn allocate(size: usize) -> NonNull<u8> {
 /// Used from the host environment for memory deallocation after reading results
 /// of function from Wasm memory.
 #[no_mangle]
-pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) -> u8 {
+pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) {
     info!("deallocate starts with ptr={:?}, size={}", ptr, size);
     let non_zero_size = NonZeroUsize::new(size).unwrap_or_else(|| {
         log_and_panic("[Error] Deallocation of zero bytes is not allowed.".into())
@@ -117,7 +117,6 @@ pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) -> u8 {
             ptr, size
         ))
     });
-    0
 }
 
 fn log_and_panic(msg: String) -> ! {

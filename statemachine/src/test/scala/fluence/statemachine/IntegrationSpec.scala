@@ -175,11 +175,11 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       val txLeftBracketAbsent = tx(client, session, 0, "555)")
       val txCorrectSession0 = tx(client, session, 1, "(555)")
 
-      val txRightBracketAbsent = tx(client, session+1, 0, "(555")
-      val txCorrectSession1 = tx(client, session+1, 1, "(555)")
+      val txRightBracketAbsent = tx(client, session + 1, 0, "(555")
+      val txCorrectSession1 = tx(client, session + 1, 1, "(555)")
 
-      val txNoBracket = tx(client, session+2, 0, "555")
-      val txCorrectSession2 = tx(client, session+2, 1, "(555)")
+      val txNoBracket = tx(client, session + 2, 0, "555")
+      val txCorrectSession2 = tx(client, session + 2, 1, "(555)")
 
       sendCommit()
       sendCommit()
@@ -205,10 +205,10 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendQuery(s"@meta/${client.id}/$session/0/result") shouldBe
         Right(Error("WrongPayloadArgument", "Wrong payload argument=555)").toStoreValue)
 
-      sendQuery(s"@meta/${client.id}/${session+1}/0/result") shouldBe
+      sendQuery(s"@meta/${client.id}/${session + 1}/0/result") shouldBe
         Right(Error("WrongPayloadArgument", "Wrong payload argument=(555").toStoreValue)
 
-      sendQuery(s"@meta/${client.id}/${session+2}/0/result") shouldBe
+      sendQuery(s"@meta/${client.id}/${session + 2}/0/result") shouldBe
         Right(Error("WrongPayloadArgument", "Wrong payload argument=555").toStoreValue)
     }
 
