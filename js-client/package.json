@@ -1,7 +1,7 @@
 {
   "name": "js-fluence-client",
   "namespace": "fluence",
-  "version": "0.0.24",
+  "version": "0.0.25",
   "description": "Fluence Javascript Client allows you to interact with a Fluence real-time cluster for decentralized computations.",
   "main": "./dist/fluence.js",
   "typings": "./dist/fluence.d.ts",

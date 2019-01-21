@@ -53,22 +53,14 @@ class DbClient {
         return this.counter;
     }
 
-    constructor(addrs: Addr[]) {
-        this.size = addrs.length;
+    constructor(sessions: fluence.Session[]) {
+        this.size = sessions.length;
         this.counter = 0;
 
-        this.sessions = addrs.map((v) => {
-            // we can't use the same session with different nodes for now,
-            // because we need to handle counter between different nodes in one session
-            // it will be implemented in the client soon
-            return fluence.createDefaultSession(v.host, v.port);
-        });
+        this.sessions = sessions;
 
-        this.clients = addrs.map((v) => {
-            return {
-                addr: v.host + ":" + v.port,
-                client: new fluence.TendermintClient(v.host, v.port)
-            };
+        this.clients = sessions.map((s) => {
+            return s.tm;
         });
     }
 
@@ -111,30 +103,6 @@ let resultField: HTMLTextAreaElement = window.document.getElementById("result") 
 let inputField: HTMLInputElement = window.document.getElementById("query") as HTMLInputElement;
 let statusField: HTMLTextAreaElement = window.document.getElementById("status") as HTMLTextAreaElement;
 
-btn.addEventListener("click", () => {
-    if (inputField.value.length !== 0) {
-        submitQueries(inputField.value);
-        inputField.value = "";
-    }
-});
-
-//updates status of nodes every one second
-let timer = setInterval(updateStatus, 1000);
-
-//stops or starts the timer for status updates
-updateStatusBtn.addEventListener("click", () => {
-    let stop = "Stop update status";
-    let start = "Start update status";
-    if (updateStatusBtn.value === stop) {
-        clearInterval(timer);
-        updateStatusBtn.value = start;
-    } else {
-        timer = setInterval(updateStatus, 1000);
-        updateStatusBtn.value = stop;
-    }
-
-});
-
 function genStatus(status: Status) {
     return `<div class="m-2 rounded border list-group-item-info p-2">
                 <label class="text-dark ml-2 mb-0" style="font-size: 0.8rem">${status.addr}</label>
@@ -153,56 +121,76 @@ function shorten(str: string, size: number): string {
     return str.substring(0, size) + "..." + str.substring(str.length - size, str.length);
 }
 
-function updateStatus() {
-    client.status().then((r) => {
-        statusField.innerHTML = r.map((st) => {
-            let info: any = st.sync_info;
-            info.addr = st.node_info.listen_addr;
-
-            let status: Status = {
-                addr: st.node_info.listen_addr,
-                block_hash: shorten(info.latest_block_hash, 10),
-                app_hash: shorten(info.latest_app_hash, 10),
-                block_height: info.latest_block_height
-            };
-            return genStatus(status)
-        }).join("\n");
-    })
-}
-
 interface Config {
     addrs: Addr[]
 }
 
-/**
- * List of addresses of a real-time cluster. Change it in `config.json` if needed.
- */
-let config = require("./config.json") as Config;
-
-console.log("Config: " + JSON.stringify(config));
-
-let client = new DbClient(config.addrs);
-
 let newLine = String.fromCharCode(13, 10);
 let sep = "**************************";
 
-export function submitQueries(queries: string) {
-    resultField.value = "";
-    client.submitQuery(queries.split('\n')).then((results) => {
+fluence.createAppSessions("0x9Fe5366CDA5E43ce3865031484fbad5d2da54302", "0x0000000000000000000000000000000000000000000000000000000000000001").then((sessions) => {
+    let client = new DbClient(sessions);
 
-        results.forEach((pr) => {
-            pr.then((r) => {
-                if (fluence.isValue(r)) {
-                    let strRes = r.asString().replace('\\n', newLine);
-                    resultField.value += sep + newLine + strRes + newLine + sep;
-                }
+    function updateStatus() {
+        client.status().then((r) => {
+            statusField.innerHTML = r.map((st) => {
+                let info: any = st.sync_info;
+                info.addr = st.node_info.listen_addr;
+
+                let status: Status = {
+                    addr: st.node_info.listen_addr,
+                    block_hash: shorten(info.latest_block_hash, 10),
+                    app_hash: shorten(info.latest_app_hash, 10),
+                    block_height: info.latest_block_height
+                };
+                return genStatus(status)
+            }).join("\n");
+        })
+    }
+
+    function submitQueries(queries: string) {
+        resultField.value = "";
+        client.submitQuery(queries.split('\n')).then((results) => {
+
+            results.forEach((pr) => {
+                pr.then((r) => {
+                    if (fluence.isValue(r)) {
+                        let strRes = r.asString().replace('\\n', newLine);
+                        resultField.value += sep + newLine + strRes + newLine + sep;
+                    }
+                });
+
             });
 
-        });
+        })
+    }
 
-    })
-}
+    btn.addEventListener("click", () => {
+        if (inputField.value.length !== 0) {
+            submitQueries(inputField.value);
+            inputField.value = "";
+        }
+    });
 
-const _global = (window /* browser */ || global /* node */) as any;
-_global.client = client;
-_global.DbClient = DbClient;
+    //updates status of nodes every one second
+    let timer = setInterval(updateStatus, 1000);
+
+    //stops or starts the timer for status updates
+    updateStatusBtn.addEventListener("click", () => {
+        let stop = "Stop update status";
+        let start = "Start update status";
+        if (updateStatusBtn.value === stop) {
+            clearInterval(timer);
+            updateStatusBtn.value = start;
+        } else {
+            timer = setInterval(updateStatus, 1000);
+            updateStatusBtn.value = stop;
+        }
+
+    });
+
+    const _global = (window /* browser */ || global /* node */) as any;
+    _global.client = client;
+    _global.DbClient = DbClient;
+
+});

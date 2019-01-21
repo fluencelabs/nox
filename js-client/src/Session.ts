@@ -32,7 +32,7 @@ const txDebug = debug("broadcast-request");
  */
 export class Session {
     private readonly client: Client;
-    private readonly tm: TendermintClient;
+    readonly tm: TendermintClient;
     private readonly session: string;
     private readonly sessionSummaryKey: string;
     private readonly config: SessionConfig;
