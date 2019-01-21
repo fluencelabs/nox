@@ -23,6 +23,7 @@ info = {'<ip1>': {'owner': '<eth address1>', 'key': '<private key1>'},
 
 file = open("scripts/contract.txt", "r")
 contract=file.read()
+file.close()
 
 # Fluence will be deployed on all hosts from `info`
 env.hosts = info.keys()
