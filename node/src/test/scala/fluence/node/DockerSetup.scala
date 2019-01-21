@@ -19,11 +19,22 @@ package fluence.node
 import cats.effect._
 import cats.syntax.functor._
 import fluence.node.docker.{DockerIO, DockerParams}
-import org.scalatest.{Timer => _}
 
 import scala.language.higherKinds
 
 trait DockerSetup extends OsSetup {
+  protected val dockerHost: String = getOS match {
+    case "linux" => ifaceIP("docker0")
+    case "mac" => "host.docker.internal"
+    case os => throw new RuntimeException(s"$os isn't supported")
+  }
+
+  protected val ethereumHost: String = getOS match {
+    case "linux" => linuxHostIP.get
+    case "mac" => "host.docker.internal"
+    case os => throw new RuntimeException(s"$os isn't supported")
+  }
+
   protected def runMaster[F[_]: ContextShift: Async](
     portFrom: Short,
     portTo: Short,
@@ -31,7 +42,7 @@ trait DockerSetup extends OsSetup {
     statusPort: Short
   ): F[String] = {
     DockerIO
-      .run[F](
+      .exec[F](
         DockerParams
           .build()
           .option("-e", s"TENDERMINT_IP=$dockerHost")
@@ -50,7 +61,5 @@ trait DockerSetup extends OsSetup {
           .image("fluencelabs/node:latest")
           .unmanagedDaemonRun()
       )
-      .compile
-      .lastOrError
   }
 }

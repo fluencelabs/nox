@@ -36,20 +36,6 @@ object Web3jConverters {
   }
 
   /**
-   * Converts string to hex.
-   *
-   * @param s string
-   */
-  def stringToHex(s: String): String = binaryToHex(s.getBytes())
-
-  /**
-   * Converts byte array to hex.
-   *
-   * @param b byte array
-   */
-  def binaryToHex(b: Array[Byte]): String = ByteVector(b).toHex
-
-  /**
    * Converts byte vector to hex string trimming leading zeros.
    *
    * @param b byte vector
@@ -77,27 +63,6 @@ object Web3jConverters {
    * @param appId Bytes32 encoding
    */
   def appIdToChainId(appId: ByteVector): String = appId.reverse.take(1).toHex
-
-  /**
-   * Converts non-zero bytes of web3j's Bytes32 to string.
-   *
-   * @param bytes32 text in Bytes32 encoding
-   */
-  def bytes32ToString(bytes32: Bytes32): String = new String(bytes32.getValue.filter(_ != 0))
-
-  /**
-   * Converts bytes of web3j's Bytes32 to hex string with leading zeros removed.
-   *
-   * @param bytes32 bytes32 value
-   */
-  def bytes32ToHexStringTrimZeros(bytes32: Bytes32): String = ByteVector(bytes32.getValue.dropWhile(_ == 0)).toHex
-
-  /**
-   * Converts bytes of web3j's Bytes32 to hex string
-   *
-   * @param bytes32 bytes32 value
-   */
-  def bytes32ToHexString(bytes32: Bytes32): String = bytes32ToBinary(bytes32).toHex
 
   /**
    * Converts bytes of web3j's Bytes32 to ByteVector

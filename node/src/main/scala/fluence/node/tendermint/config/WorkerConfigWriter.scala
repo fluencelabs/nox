@@ -16,17 +16,10 @@
 
 package fluence.node.tendermint.config
 import java.nio.file.{Files, Path, StandardCopyOption}
-import java.text.SimpleDateFormat
-import java.util.TimeZone
 
 import cats.effect.IO
-import fluence.ethclient.helpers.Web3jConverters
-import fluence.ethclient.helpers.Web3jConverters.bytes32ToHexStringTrimZeros
 import fluence.node.Configuration
 import fluence.node.eth.App
-import fluence.node.workers.{CodeManager, CodePath, WorkerImage, WorkerParams}
-import org.web3j.abi.datatypes.generated.Bytes32
-import scodec.bits.ByteVector
 
 import scala.io.Source
 

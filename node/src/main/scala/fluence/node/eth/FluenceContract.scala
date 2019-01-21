@@ -22,7 +22,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.ethclient.Network.{APPDELETED_EVENT, APPDEPLOYED_EVENT, AppDeployedEventResponse}
 import fluence.ethclient.helpers.RemoteCallOps._
-import fluence.ethclient.helpers.Web3jConverters.{bytes32ToBinary, stringToBytes32}
+import fluence.ethclient.helpers.Web3jConverters.stringToBytes32
 import fluence.ethclient.{EthClient, Network}
 import fluence.node.config.NodeConfig
 import fs2.interop.reactivestreams._
@@ -31,7 +31,6 @@ import org.web3j.abi.datatypes.generated.{Uint8, _}
 import org.web3j.abi.datatypes.{Bool, DynamicArray, Event}
 import org.web3j.protocol.core.methods.request.SingleAddressEthFilter
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
-import scodec.bits.ByteVector
 
 import scala.collection.JavaConverters._
 import scala.language.higherKinds
@@ -148,7 +147,7 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
    * @tparam F Effect
    * @return The block number where transaction has been mined
    */
-  def addNode[F[_]: Async](nodeConfig: NodeConfig): F[BigInt] = {
+  def addNode[F[_]: Async](nodeConfig: NodeConfig): F[BigInt] =
     contract
       .addNode(
         nodeConfig.validatorKey.toBytes32,
@@ -160,7 +159,6 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
       .call[F]
       .map(_.getBlockNumber)
       .map(BigInt(_))
-  }
 
   /**
    * Publishes a new app to Fluence Network

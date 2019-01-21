@@ -39,7 +39,7 @@ case class WorkerParams(
     s"(worker ${currentWorker.index} with RPC port ${currentWorker.rpcPort} for app $appIdHex)"
 
   /**
-   * [[fluence.node.docker.DockerIO.run]]'s command for launching a configured worker
+   * [[fluence.node.docker.DockerIO.exec]]'s command for launching a configured worker
    */
   val dockerCommand: DockerParams.DaemonParams = {
     val params = DockerParams

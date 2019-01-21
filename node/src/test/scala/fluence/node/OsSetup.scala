@@ -19,7 +19,6 @@ import java.io.File
 import java.net.InetAddress
 
 import cats.syntax.functor._
-import org.scalatest.{Timer => _}
 
 import scala.language.higherKinds
 import scala.sys.process.{Process, ProcessLogger}
@@ -28,17 +27,6 @@ trait OsSetup {
   protected val bootstrapDir = new File("../bootstrap")
   protected def runCmd(cmd: String): Unit = Process(cmd, bootstrapDir).!(ProcessLogger(_ => ()))
   protected def runBackground(cmd: String): Unit = Process(cmd, bootstrapDir).run(ProcessLogger(_ => ()))
-  protected val dockerHost: String = getOS match {
-    case "linux" => ifaceIP("docker0")
-    case "mac" => "host.docker.internal"
-    case os => throw new RuntimeException(s"$os isn't supported")
-  }
-
-  protected val ethereumHost: String = getOS match {
-    case "linux" => linuxHostIP.get
-    case "mac" => "host.docker.internal"
-    case os => throw new RuntimeException(s"$os isn't supported")
-  }
 
   // return IP address of the `interface`
   protected def ifaceIP(interface: String): String = {
@@ -49,7 +37,7 @@ trait OsSetup {
     InetAddress.getByName((ifconfigCmd #| grepCmd #| awkCmd).!!.replaceAll("[^0-9\\.]", "")).getHostAddress
   }
 
-  protected def linuxHostIP = {
+  protected def linuxHostIP: Option[String] = {
     import sys.process._
     val ipR = "(?<=src )[0-9\\.]+".r
     ipR.findFirstIn("ip route get 8.8.8.8".!!.trim)

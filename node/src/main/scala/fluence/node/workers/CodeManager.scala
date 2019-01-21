@@ -15,7 +15,6 @@
  */
 
 package fluence.node.workers
-import java.nio.charset.CharacterCodingException
 import java.nio.file.{Files, Path, Paths}
 
 import cats.effect.Sync
@@ -27,7 +26,6 @@ import scodec.bits.ByteVector
 import scala.language.higherKinds
 
 case class CodePath(storageHash: ByteVector) {
-  lazy val asString: Either[CharacterCodingException, String] = storageHash.decodeUtf8.map(_.trim)
   lazy val asHex: String = storageHash.toHex
 }
 
@@ -58,7 +56,7 @@ class TestCodeManager[F[_]](implicit F: Sync[F]) extends CodeManager[F] {
     path: CodePath,
     workerPath: Path
   ): F[Path] =
-    F.fromEither(path.asString)
+    F.fromEither(path.storageHash.decodeUtf8.map(_.trim))
       .flatMap(p => F.pure(Paths.get("/master/vmcode/vmcode-" + p))) // preloaded code in master's docker container
 }
 

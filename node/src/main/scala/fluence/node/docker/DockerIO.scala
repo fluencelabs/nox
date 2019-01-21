@@ -17,16 +17,16 @@
 package fluence.node.docker
 
 import cats.Applicative
+import cats.effect.{ContextShift, Sync, Timer}
 import cats.syntax.apply._
 import cats.syntax.functor._
-import cats.effect.{ContextShift, Sync, Timer}
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat
 import slogging.LazyLogging
 
 import scala.concurrent.duration.FiniteDuration
-import scala.util.{Failure, Success, Try}
 import scala.language.higherKinds
 import scala.sys.process._
+import scala.util.{Failure, Success, Try}
 
 object DockerIO extends LazyLogging {
 
@@ -44,11 +44,14 @@ object DockerIO extends LazyLogging {
    * @param params parameters for Docker container
    * @return a stream with execution stdout
    */
-  def run[F[_]: Sync: ContextShift](params: DockerParams.ExecParams): fs2.Stream[F, String] =
-    fs2.Stream.eval {
+  def exec[F[_]: Sync: ContextShift](
+    params: DockerParams.ExecParams
+  ): F[String] = {
+    shiftDelay {
       logger.info(s"Executing docker command: ${params.command.mkString(" ")}")
-      shiftDelay(params.process.!!.trim)
+      params.process.!!.trim
     }
+  }
 
   /**
    * Runs a daemonized docker container, providing a single String with the container ID.
@@ -64,10 +67,10 @@ object DockerIO extends LazyLogging {
       shiftDelay(Try(params.process.!!).map(_.trim))
     } {
       case (Success(dockerId), exitCase) ⇒
-        shiftDelay({
+        shiftDelay {
           logger.info(s"Going to cleanup $dockerId, exit case: $exitCase")
           s"docker rm -f $dockerId".!
-        }).map {
+        }.map {
           case 0 ⇒ logger.info(s"Container $dockerId successfully removed")
           case x ⇒ logger.warn(s"Stopping docker container $dockerId failed, exit code = $x")
         }

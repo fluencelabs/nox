@@ -19,7 +19,6 @@ package fluence.node
 import cats.effect._
 import cats.syntax.functor._
 import fluence.node.eth.WorkerNode
-import org.scalatest.{Timer => _}
 
 import scala.io.Source
 import scala.language.higherKinds

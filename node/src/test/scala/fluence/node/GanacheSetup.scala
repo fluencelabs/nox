@@ -16,7 +16,6 @@
 
 package fluence.node
 import cats.syntax.functor._
-import org.scalatest.{Timer => _}
 
 import scala.language.higherKinds
 

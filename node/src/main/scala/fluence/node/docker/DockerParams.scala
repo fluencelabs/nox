@@ -98,7 +98,7 @@ object DockerParams {
   case class WithImage(params: Seq[String], imageName: String) {
 
     /** Builds a command starting with `docker run -d` wrapped in DaemonParams, so
-     * container will be deleted automatically by [[DockerIO.run]]
+     * container will be deleted automatically by [[DockerIO.exec]]
      */
     def daemonRun(): DaemonParams =
       DaemonParams(daemonParams ++ params :+ imageName)
@@ -109,7 +109,7 @@ object DockerParams {
       ExecParams(daemonParams ++ params :+ imageName)
     }
 
-    /* Builds a `docker run` command running custom executable.
+    /** Builds a `docker run` command running custom executable.
      * `--rm` flag is specified, so container will be removed automatically after executable exit
      * Resulting command will be like the following
      * `docker run --user "" --rm -i --entrypoint executable imageName execParams`
