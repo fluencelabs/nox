@@ -34,12 +34,12 @@ private[config] object GenesisConfig {
   import io.circe.generic.semiauto.deriveEncoder
   import io.circe.syntax._
 
-  def buildFrom(app: App): String = {
-    val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-    df.setTimeZone(TimeZone.getTimeZone("UTC"))
+  def generateJson(app: App): String = {
+    val dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+    dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"))
 
     GenesisConfig(
-      genesis_time = df.format(app.cluster.genesisTime.toMillis),
+      genesis_time = dateFormat.format(app.cluster.genesisTime.toMillis),
       chain_id = Web3jConverters.bytes32AppIdToChainId(app.appId),
       app_hash = "",
       validators = app.cluster.workers.map { w =>

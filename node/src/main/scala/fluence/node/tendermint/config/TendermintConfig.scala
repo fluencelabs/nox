@@ -89,17 +89,14 @@ object TendermintConfig extends slogging.LazyLogging {
           )
     }
 
-  def writeGenesis(app: App, dest: Path) = IO {
-    val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-    df.setTimeZone(TimeZone.getTimeZone("UTC"))
-
-    val genesis = GenesisConfig.buildFrom(app)
+  def writeGenesis(app: App, dest: Path): IO[Unit] = IO {
+    val genesis = GenesisConfig.generateJson(app)
 
     logger.info("Writing {}/genesis.json", dest)
     Files.write(dest.resolve("genesis.json"), genesis.getBytes)
   }
 
-  def updateConfigTOML(app: App, workerId: Bytes32, configSrc: Path, configDest: Path) = IO {
+  def updateConfigTOML(app: App, workerId: Bytes32, configSrc: Path, configDest: Path): IO[Unit] = IO {
     import scala.collection.JavaConverters._
     logger.info("Updating {} -> {}", configSrc, configDest)
 
@@ -116,7 +113,7 @@ object TendermintConfig extends slogging.LazyLogging {
     Files.write(configDest, lines.toIterable.asJava)
   }
 
-  def copyMasterKeys(from: Path, to: Path): IO[Path] = {
+  def copyMasterKeys(from: Path, to: Path): IO[Unit] = {
     import StandardCopyOption.REPLACE_EXISTING
 
     val nodeKey = "node_key.json"

@@ -44,6 +44,10 @@ case class MasterNode(
 )(implicit ce: ConcurrentEffect[IO])
     extends slogging.LazyLogging {
 
+  /**
+   * Generate, copy and/or update different configs used by tendermint and download vm code
+   * see [[TendermintConfig.prepareWorkerParams]] for details
+   */
   private val prepareWorkerParams: Pipe[IO, App, WorkerParams] = {
     TendermintConfig.prepareWorkerParams(
       nodeConfig.validatorKey.toBytes32,
@@ -58,7 +62,7 @@ case class MasterNode(
    * Runs MasterNode. Returns when contract.getAllNodeClusters is exhausted
    * TODO: add a way to cleanup, e.g. unsubscribe and stop
    */
-  private val masterNode: IO[ExitCode] =
+  private val runMasterNode: IO[ExitCode] =
     contract
       .getAllNodeApps(nodeConfig.validatorKey.toBytes32)
       .through(prepareWorkerParams)
@@ -88,7 +92,7 @@ case class MasterNode(
    * then joins the threads and returns back exit code from master node
    */
   val run: IO[ExitCode] = for {
-    node <- Concurrent[IO].start(masterNode)
+    node <- Concurrent[IO].start(runMasterNode)
     appDelete <- Concurrent[IO].start(listenForDeletion)
     exitCode <- node.join
     _ <- appDelete.join

@@ -25,12 +25,22 @@ import scodec.bits.ByteVector
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.{FiniteDuration, _}
 
+/* Represents an App deployed to some cluster
+ * @param appId Application ID as defined in Fluence contract
+ * @param storageHash Hash of the code in Swarm
+ * @param cluster A cluster that hosts this App
+ */
 case class App(
   appId: Bytes32,
   storageHash: Bytes32,
   cluster: Cluster //TODO: maybe make cluster an Option
 )
 
+/* Represents a Fluence cluster
+ * @param genesisTime Unix timestamp of cluster creation, used for Tendermint genesis.json config generation
+ * @param workers List of members of this cluster, also contain `currentWorker`
+ * @param currentWorker A worker belonging to current Fluence node
+ */
 case class Cluster(genesisTime: FiniteDuration, workers: List[WorkerNode], currentWorker: WorkerNode)
 
 object Cluster {
