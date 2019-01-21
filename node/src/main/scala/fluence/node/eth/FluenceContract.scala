@@ -161,7 +161,7 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
       .map(BigInt(_))
 
   /**
-   * Publishes a new app to Fluence Network
+   * Publishes a new app to the Fluence Network
    *
    * @param storageHash Hash of the code in Swarm
    * @param clusterSize Cluster size required to host this app
