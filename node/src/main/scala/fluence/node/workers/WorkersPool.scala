@@ -17,15 +17,15 @@
 package fluence.node.workers
 
 import cats.Parallel
-import cats.effect.concurrent.Ref
 import cats.effect._
+import cats.effect.concurrent.Ref
 import cats.instances.list._
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
-import org.web3j.abi.datatypes.generated.Bytes32
+import scodec.bits.ByteVector
 import slogging.LazyLogging
 
 import scala.language.higherKinds
@@ -37,7 +37,7 @@ import scala.language.higherKinds
  * @param healthCheckConfig see [[HealthCheckConfig]]
  */
 class WorkersPool[F[_]: ContextShift: Timer](
-  workers: Ref[F, Map[String, Worker[F]]],
+  workers: Ref[F, Map[ByteVector, Worker[F]]],
   healthCheckConfig: HealthCheckConfig
 )(
   implicit sttpBackend: SttpBackend[F, Nothing],
@@ -47,7 +47,7 @@ class WorkersPool[F[_]: ContextShift: Timer](
   /**
    * Returns true if the worker is in the pool and healthy, and false otherwise. Also returns worker instance.
    */
-  private def checkWorkerHealthy(appId: String): F[(Boolean, Option[Worker[F]])] = {
+  private def checkWorkerHealthy(appId: ByteVector): F[(Boolean, Option[Worker[F]])] = {
     for {
       map <- workers.get
       oldWorker = map.get(appId)
@@ -65,19 +65,19 @@ class WorkersPool[F[_]: ContextShift: Timer](
    * @return F that resolves with true when worker is registered; it might be not running yet. If it was registered before, F resolves with false
    */
   def run(params: WorkerParams): F[Boolean] =
-    checkWorkerHealthy(params.appIdHexFull).flatMap {
+    checkWorkerHealthy(params.appId).flatMap {
       case (false, oldWorker) ⇒
         for {
           // stop an old worker
           _ <- oldWorker.map(stop).getOrElse(F.unit)
           worker <- Worker.run[F](params, healthCheckConfig, Sync[F].suspend {
             logger.info(s"Removing worker from a pool: $params")
-            workers.update(_ - params.appIdHexFull)
+            workers.update(_ - params.appId)
           })
-          _ ← workers.update(_.updated(params.appIdHexFull, worker))
+          _ ← workers.update(_.updated(params.appId, worker))
         } yield true
       case (true, oldWorker) ⇒
-        logger.info(s"Worker for app ${params.appIdHexTrimmed} was already ran as $oldWorker")
+        logger.info(s"Worker for app ${params.appIdHex} was already ran as $oldWorker")
         false.pure[F]
     }
 
@@ -114,7 +114,7 @@ class WorkersPool[F[_]: ContextShift: Timer](
    * @param appId AppId of the worker
    * @return
    */
-  def stopWorkerForApp(appId: String): F[Unit] =
+  def stopWorkerForApp(appId: ByteVector): F[Unit] =
     for {
       map <- workers.get
       worker = map.get(appId)
@@ -142,7 +142,7 @@ object WorkersPool {
   ): Resource[F, WorkersPool[F]] =
     Resource.make {
       for {
-        workers ← Ref.of[F, Map[String, Worker[F]]](Map.empty)
+        workers ← Ref.of[F, Map[ByteVector, Worker[F]]](Map.empty)
       } yield new WorkersPool[F](workers, HealthCheckConfig())
     }(_.stopAll())
 }

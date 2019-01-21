@@ -40,7 +40,7 @@ import scala.sys.process.ProcessLogger
  * - Successful cluster formation and starting blocks creation
  */
 class MasterNodeIntegrationSpec
-    extends WordSpec with LazyLogging with Matchers with BeforeAndAfterAll with OptionValues with IntegrationTest {
+    extends WordSpec with LazyLogging with Matchers with BeforeAndAfterAll with OptionValues with Integration {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)

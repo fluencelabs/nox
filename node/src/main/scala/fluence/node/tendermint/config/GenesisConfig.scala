@@ -41,7 +41,7 @@ private[config] object GenesisConfig {
 
     GenesisConfig(
       genesis_time = dateFormat.format(app.cluster.genesisTime.toMillis),
-      chain_id = Web3jConverters.bytes32AppIdToChainId(app.appId),
+      chain_id = Web3jConverters.appIdToChainId(app.appId),
       app_hash = "",
       validators = app.cluster.workers.map { w =>
         ValidatorConfig(
@@ -50,7 +50,7 @@ private[config] object GenesisConfig {
             value = w.base64ValidatorKey
           ),
           power = "1",
-          name = s"${app.appId}_${w.index}"
+          name = s"${app.appIdHex}_${w.index}"
         )
       }
     ).asJson.spaces2

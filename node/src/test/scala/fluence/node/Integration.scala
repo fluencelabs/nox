@@ -1,3 +1,19 @@
+/*
+ * Copyright 2018 Fluence Labs Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package fluence.node
 import java.io.File
 import java.net.InetAddress
@@ -19,7 +35,7 @@ import scala.language.higherKinds
 import scala.sys.process.{Process, ProcessLogger}
 import scala.util.Try
 
-trait IntegrationTest {
+trait Integration {
   protected val bootstrapDir = new File("../bootstrap")
   protected def runCmd(cmd: String): Unit = Process(cmd, bootstrapDir).!(ProcessLogger(_ => ()))
   protected def runBackground(cmd: String): Unit = Process(cmd, bootstrapDir).run(ProcessLogger(_ => ()))
@@ -94,8 +110,8 @@ trait IntegrationTest {
   }
 
   protected def heightFromTendermintStatus(p2pPort: Short): IO[Option[Long]] = IO {
-    import io.circe.parser.parse
     import io.circe.Json
+    import io.circe.parser.parse
     val rpcPort = WorkerNode.rpcPort(p2pPort)
     val source = Source.fromURL(s"http://localhost:$rpcPort/status").mkString
     val height = parse(source)

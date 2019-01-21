@@ -17,7 +17,7 @@
 package fluence.node.eth
 import java.net.InetAddress
 
-import fluence.ethclient.helpers.Web3jConverters.bytes32ToBase64
+import fluence.ethclient.helpers.Web3jConverters.{binaryToHexTrimZeros, bytes32ToBase64, bytes32ToBinary}
 import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated._
 import scodec.bits.ByteVector
@@ -31,10 +31,19 @@ import scala.concurrent.duration.{FiniteDuration, _}
  * @param cluster A cluster that hosts this App
  */
 case class App(
-  appId: Bytes32,
-  storageHash: Bytes32,
+  appId: ByteVector,
+  storageHash: ByteVector,
   cluster: Cluster //TODO: maybe make cluster an Option
-)
+) {
+  val appIdHex: String = binaryToHexTrimZeros(appId)
+}
+
+object App {
+
+  def apply(appId: Bytes32, storageHash: Bytes32, cluster: Cluster): App = {
+    App(bytes32ToBinary(appId), bytes32ToBinary(storageHash), cluster)
+  }
+}
 
 /* Represents a Fluence cluster
  * @param genesisTime Unix timestamp of cluster creation, used for Tendermint genesis.json config generation
@@ -86,8 +95,8 @@ object Cluster {
  * @param p2pPort p2p Tendermint port, used by Tendermint to connect p2p peers. Also used for rpcPort calculation
  * @param index index of a worker in cluster workers array
  */
-case class WorkerNode(validatorKey: Bytes32, peerId: String, ip: InetAddress, p2pPort: Short, index: Int) {
-  val base64ValidatorKey: String = bytes32ToBase64(validatorKey)
+case class WorkerNode(validatorKey: ByteVector, peerId: String, ip: InetAddress, p2pPort: Short, index: Int) {
+  val base64ValidatorKey: String = validatorKey.toBase64
   val address: String = s"${ip.getHostAddress}:$p2pPort"
   val peerAddress: String = s"$peerId@$address"
 
@@ -104,8 +113,9 @@ object WorkerNode {
     val ipBytes: Array[Byte] = ByteVector(nodeAddress.getValue, 20, 4).toArray.map(x => (x & 0xFF).toByte)
     val inetAddress = InetAddress.getByAddress(ipBytes)
     val portShort = port.getValue.shortValue()
+    val keyBytes = bytes32ToBinary(key)
 
-    WorkerNode(key, peerId, inetAddress, portShort, index)
+    WorkerNode(keyBytes, peerId, inetAddress, portShort, index)
   }
 
   //TODO: find a better way to calculate all these ports. Maybe Kademlia?

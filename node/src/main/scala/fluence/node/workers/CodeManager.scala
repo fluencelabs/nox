@@ -15,6 +15,7 @@
  */
 
 package fluence.node.workers
+import java.nio.charset.CharacterCodingException
 import java.nio.file.{Files, Path, Paths}
 
 import cats.effect.Sync
@@ -23,12 +24,13 @@ import cats.syntax.functor._
 import fluence.ethclient.helpers.Web3jConverters.{binaryToHex, bytes32ToString}
 import fluence.swarm.SwarmClient
 import org.web3j.abi.datatypes.generated.Bytes32
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-case class CodePath(storageHash: Bytes32) {
-  lazy val asString: String = bytes32ToString(storageHash)
-  lazy val asHex: String = binaryToHex(storageHash.getValue)
+case class CodePath(storageHash: ByteVector) {
+  lazy val asString: Either[CharacterCodingException, String] = storageHash.decodeUtf8
+  lazy val asHex: String = storageHash.toHex
 }
 
 sealed trait CodeManager[F[_]] {
@@ -58,7 +60,8 @@ class TestCodeManager[F[_]](implicit F: Sync[F]) extends CodeManager[F] {
     path: CodePath,
     workerPath: Path
   ): F[Path] =
-    F.pure(Paths.get("/master/vmcode/vmcode-" + path.asString)) // preloaded code in master's docker container
+    F.fromEither(path.asString)
+      .flatMap(p => F.pure(Paths.get("/master/vmcode/vmcode-" + p))) // preloaded code in master's docker container
 }
 
 /**

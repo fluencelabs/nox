@@ -22,7 +22,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.ethclient.Network.{APPDELETED_EVENT, APPDEPLOYED_EVENT, AppDeployedEventResponse}
 import fluence.ethclient.helpers.RemoteCallOps._
-import fluence.ethclient.helpers.Web3jConverters.stringToBytes32
+import fluence.ethclient.helpers.Web3jConverters.{bytes32ToBinary, stringToBytes32}
 import fluence.ethclient.{EthClient, Network}
 import fluence.node.config.NodeConfig
 import fs2.interop.reactivestreams._
@@ -31,6 +31,7 @@ import org.web3j.abi.datatypes.generated.{Uint8, _}
 import org.web3j.abi.datatypes.{Bool, DynamicArray, Event}
 import org.web3j.protocol.core.methods.request.SingleAddressEthFilter
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
+import scodec.bits.ByteVector
 
 import scala.collection.JavaConverters._
 import scala.language.higherKinds

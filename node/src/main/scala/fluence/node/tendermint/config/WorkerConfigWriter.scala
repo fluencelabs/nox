@@ -41,10 +41,9 @@ object WorkerConfigWriter extends slogging.LazyLogging {
   def resolveWorkerConfigPaths(rootPath: Path): fs2.Pipe[IO, App, (App, WorkerConfigPaths)] =
     _.evalMap { app =>
       for {
-        appIdHex <- IO.pure(bytes32ToHexStringTrimZeros(app.appId))
         tmDir ← IO(rootPath.resolve("tendermint"))
         templateConfigDir ← IO(tmDir.resolve("config"))
-        workerPath ← IO(tmDir.resolve(s"${appIdHex}_${app.cluster.currentWorker.index}"))
+        workerPath ← IO(tmDir.resolve(s"${app.appIdHex}_${app.cluster.currentWorker.index}"))
         workerConfigDir ← IO(workerPath.resolve("config"))
       } yield {
         (app, WorkerConfigPaths(templateConfigDir, workerPath, workerConfigDir))
@@ -72,9 +71,7 @@ object WorkerConfigWriter extends slogging.LazyLogging {
     _.evalTap {
       case (app, paths, _) =>
         for {
-          appIdHex <- IO.pure(bytes32ToHexStringTrimZeros(app.appId))
-
-          _ ← IO { logger.info("This node will host app '{}'", appIdHex) }
+          _ ← IO { logger.info("This node will host app '{}'", app.appIdHex) }
 
           _ ← IO { Files.createDirectories(paths.workerConfigDir) }
 
@@ -107,7 +104,8 @@ object WorkerConfigWriter extends slogging.LazyLogging {
     val lines = Source.fromFile(configSrc.toUri).getLines().map {
       case s if s.contains("external_address") => s"""external_address = "${currentWorker.address}""""
       case s if s.contains("persistent_peers") => s"""persistent_peers = "$persistentPeers""""
-      case s if s.contains("moniker") => s"""moniker = "${app.appId}_${currentWorker.index}""""
+      case s if s.contains("moniker") =>
+        s"""moniker = "${app.appIdHex}_${currentWorker.index}""""
       case s => s
     }
 
