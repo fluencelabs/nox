@@ -310,6 +310,15 @@ contract Deployer {
         emit AppDeleted(appID);
     }
 
+    /** @dev Deletes node that hosts apps
+    *
+    */
+    function deleteNode(bytes32 nodeID, bytes32[] appIDs)
+        external
+    {
+
+    }
+
     /** @dev Tries to deploy an app, using ready nodes and their ports
       * @param app Application to deploy
       * emits AppDeployed when App is deployed
