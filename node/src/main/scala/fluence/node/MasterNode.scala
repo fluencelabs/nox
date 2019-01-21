@@ -112,6 +112,7 @@ case class MasterNode(
    */
   private val listenForDeletion: IO[Unit] =
     contract.getAppDeleted
+      .map(Web3jConverters.bytes32ToHexString)
       .evalMap(pool.stopWorkerForApp)
       .drain
       .compile

@@ -37,7 +37,7 @@ import scala.language.higherKinds
  * @param healthCheckConfig see [[HealthCheckConfig]]
  */
 class WorkersPool[F[_]: ContextShift: Timer](
-  workers: Ref[F, Map[Bytes32, Worker[F]]],
+  workers: Ref[F, Map[String, Worker[F]]],
   healthCheckConfig: HealthCheckConfig
 )(
   implicit sttpBackend: SttpBackend[F, Nothing],
@@ -47,7 +47,7 @@ class WorkersPool[F[_]: ContextShift: Timer](
   /**
    * Returns true if the worker is in the pool and healthy, and false otherwise. Also returns worker instance.
    */
-  private def checkWorkerHealthy(appId: Bytes32): F[(Boolean, Option[Worker[F]])] = {
+  private def checkWorkerHealthy(appId: String): F[(Boolean, Option[Worker[F]])] = {
     for {
       map <- workers.get
       oldWorker = map.get(appId)
@@ -65,19 +65,19 @@ class WorkersPool[F[_]: ContextShift: Timer](
    * @return F that resolves with true when worker is registered; it might be not running yet. If it was registered before, F resolves with false
    */
   def run(params: WorkerParams): F[Boolean] =
-    checkWorkerHealthy(params.appId).flatMap {
+    checkWorkerHealthy(params.appIdHexFull).flatMap {
       case (false, oldWorker) ⇒
         for {
           // stop an old worker
           _ <- oldWorker.map(stop).getOrElse(F.unit)
           worker <- Worker.run[F](params, healthCheckConfig, Sync[F].suspend {
             logger.info(s"Removing worker from a pool: $params")
-            workers.update(_ - params.appId)
+            workers.update(_ - params.appIdHexFull)
           })
-          _ ← workers.update(_.updated(params.appId, worker))
+          _ ← workers.update(_.updated(params.appIdHexFull, worker))
         } yield true
       case (true, oldWorker) ⇒
-        logger.info(s"Worker for app ${params.appId} was already ran as $oldWorker")
+        logger.info(s"Worker for app ${params.appIdHexTrimmed} was already ran as $oldWorker")
         false.pure[F]
     }
 
@@ -109,7 +109,12 @@ class WorkersPool[F[_]: ContextShift: Timer](
       workersHealth ← Parallel.parTraverse(workersMap.values.toList)(s ⇒ s.healthReport.map(s.params → _))
     } yield workersHealth.toMap
 
-  def stopWorkerForApp(appId: Bytes32): F[Unit] =
+  /**
+   * Stops a worker corresponding to `appId` it it exists. Does nothing if no worker is found.
+   * @param appId AppId of the worker
+   * @return
+   */
+  def stopWorkerForApp(appId: String): F[Unit] =
     for {
       map <- workers.get
       worker = map.get(appId)
@@ -121,7 +126,7 @@ class WorkersPool[F[_]: ContextShift: Timer](
           }
         )
         .getOrElse(F.unit)
-    } yield {}
+    } yield ()
 }
 
 object WorkersPool {
@@ -137,7 +142,7 @@ object WorkersPool {
   ): Resource[F, WorkersPool[F]] =
     Resource.make {
       for {
-        workers ← Ref.of[F, Map[Bytes32, Worker[F]]](Map.empty)
+        workers ← Ref.of[F, Map[String, Worker[F]]](Map.empty)
       } yield new WorkersPool[F](workers, HealthCheckConfig())
     }(_.stopAll())
 }
