@@ -39,7 +39,7 @@ case class RunningWorkerInfo(
 
 object RunningWorkerInfo {
 
-  def fromParams(params: WorkerParams, tendermintInfo: WorkerTendermintInfo) =
+  def apply(params: WorkerParams, tendermintInfo: WorkerTendermintInfo): RunningWorkerInfo =
     RunningWorkerInfo(
       bytes32ToHexString(params.appId),
       params.currentWorker.rpcPort,
@@ -68,7 +68,7 @@ case class StoppedWorkerInfo(
 
 object StoppedWorkerInfo {
 
-  def fromWorker(
+  def apply(
     worker: WorkerNode
   ): StoppedWorkerInfo =
     new StoppedWorkerInfo(

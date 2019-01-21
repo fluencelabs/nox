@@ -28,6 +28,7 @@ import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 import fluence.node.config.SwarmConfig
 import org.web3j.protocol.core.methods.response.EthSyncing.Syncing
+import cats.effect.ExitCase.{Canceled, Completed, Error}
 
 import scala.concurrent.duration._
 
@@ -85,11 +86,15 @@ object MasterNodeApp extends IOApp with LazyLogging {
           val resources = for {
             ethClientResource <- EthClient.makeHttpResource[IO](Some(ethereumRpcConfig.uri))
             sttpBackend <- sttpResource
-          } yield (ethClientResource, sttpBackend)
+            pool <- {
+              implicit val s: SttpBackend[IO, Nothing] = sttpBackend
+              WorkersPool.apply()
+            }
+          } yield (ethClientResource, sttpBackend, pool)
 
           resources.use {
             // Type annotations are here to make IDEA's type inference happy
-            case (ethClient: EthClient, sttpBackend: SttpBackend[IO, Nothing]) ⇒
+            case (ethClient: EthClient, sttpBackend: SttpBackend[IO, Nothing], pool: WorkersPool[IO]) ⇒
               implicit val backend: SttpBackend[IO, Nothing] = sttpBackend
               logger.info(s"Ethereum RPC config: $ethereumRpcConfig")
               for {
@@ -100,8 +105,6 @@ object MasterNodeApp extends IOApp with LazyLogging {
                 _ <- waitEthSyncing(ethClient)
 
                 contract = FluenceContract(ethClient, contractConfig)
-
-                pool ← WorkersPool[IO]()
 
                 codeManager <- getCodeManager(swarmConfig)
 
@@ -118,11 +121,16 @@ object MasterNodeApp extends IOApp with LazyLogging {
       }
       .attempt
       .flatMap {
-        case Left(err) =>
-          logger.error(s"Error in MasterNodeApp: $err", err)
-          err.printStackTrace(System.err)
-          IO.pure(ExitCode.Error)
+        case Left(_) => IO.pure(ExitCode.Error)
         case Right(ec) => IO.pure(ec)
+      }
+      .guaranteeCase {
+        case Canceled =>
+          IO(logger.error("MasterNodeApp was canceled"))
+        case Error(e) =>
+          IO(logger.error("MasterNodeApp stopped with error: {}", e)).map(_ => e.printStackTrace(System.err))
+        case Completed =>
+          IO(logger.info("MasterNodeApp exited gracefully"))
       }
   }
 

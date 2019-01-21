@@ -32,6 +32,8 @@ case class WorkerParams(
   image: WorkerImage
 ) {
 
+  // Convert bytes32 to hex for better human-readability. As of current appId generation in Fluence Contract,
+  // there's a lot of leading zeros in app IDs, so skip them to avoid visual clutter
   private val appIdHex: String = bytes32ToHexStringTrimZeros(appId)
 
   override def toString =

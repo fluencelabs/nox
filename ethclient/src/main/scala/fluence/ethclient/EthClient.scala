@@ -155,7 +155,7 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
 
 }
 
-object EthClient {
+object EthClient extends slogging.LazyLogging {
 
   /**
    * Make a cats-effect's [[Resource]] for an [[EthClient]], encapsulating its acquire and release lifecycle steps.

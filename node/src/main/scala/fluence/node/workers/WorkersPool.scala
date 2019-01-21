@@ -18,7 +18,7 @@ package fluence.node.workers
 
 import cats.Parallel
 import cats.effect.concurrent.Ref
-import cats.effect.{Concurrent, ContextShift, Sync, Timer}
+import cats.effect._
 import cats.instances.list._
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
@@ -90,7 +90,7 @@ class WorkersPool[F[_]: ContextShift: Timer](
    * @param P Parallel instance is required as all workers are stopped concurrently
    * @return F that resolves when all workers are stopped
    */
-  def stopAll[G[_]](implicit P: Parallel[F, G]): F[Unit] =
+  def stopAll[G[_]]()(implicit P: Parallel[F, G]): F[Unit] =
     for {
       workersMap ← workers.get
       workers = workersMap.values.toList
@@ -129,10 +129,15 @@ object WorkersPool {
   /**
    * Build a new [[WorkersPool]]
    */
-  def apply[F[_]: Concurrent: ContextShift: Timer](healthCheckConfig: HealthCheckConfig = HealthCheckConfig())(
-    implicit sttpBackend: SttpBackend[F, Nothing]
-  ): F[WorkersPool[F]] =
-    for {
-      workers ← Ref.of[F, Map[Bytes32, Worker[F]]](Map.empty)
-    } yield new WorkersPool[F](workers, HealthCheckConfig())
+  def apply[F[_]: ContextShift: Timer, G[_]](healthCheckConfig: HealthCheckConfig = HealthCheckConfig())(
+    implicit
+    sttpBackend: SttpBackend[F, Nothing],
+    F: Concurrent[F],
+    P: Parallel[F, G]
+  ): Resource[F, WorkersPool[F]] =
+    Resource.make {
+      for {
+        workers ← Ref.of[F, Map[Bytes32, Worker[F]]](Map.empty)
+      } yield new WorkersPool[F](workers, HealthCheckConfig())
+    }(_.stopAll())
 }

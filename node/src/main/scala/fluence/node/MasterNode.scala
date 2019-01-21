@@ -17,7 +17,7 @@
 package fluence.node
 import java.nio.file._
 
-import cats.effect.{Concurrent, ConcurrentEffect, ExitCode, IO}
+import cats.effect._
 import fluence.ethclient.helpers.Web3jConverters
 import fluence.node.config.NodeConfig
 import fluence.node.eth.{App, FluenceContract}
@@ -66,7 +66,7 @@ case class MasterNode(
    * @param masterNodeContainerId Docker container id of the current Fluence node, used to import volumes from it
    * @return
    */
-  def buildWorkerParams(
+  private def buildWorkerParams(
     workerImage: WorkerImage,
     masterNodeContainerId: Option[String]
   ): fs2.Pipe[IO, (App, WorkerConfigPaths, Path), WorkerParams] =
@@ -93,13 +93,16 @@ case class MasterNode(
       .through(downloadCode(codeManager))
       .through(WorkerConfigWriter.writeConfigs(nodeConfig.validatorKey.toBytes32))
       .through(buildWorkerParams(nodeConfig.workerImage, masterNodeContainerId))
-      .evalMap { params ⇒
-        logger.info("Running worker `{}`", params)
-
-        pool.run(params).map(newlyAdded ⇒ logger.info(s"worker run (newly=$newlyAdded) {}", params))
-      }
+      .evalMap[IO, Unit](
+        params ⇒
+          for {
+            _ <- IO(logger.info("Running worker `{}`", params))
+            newly <- pool.run(params)
+            _ <- IO(logger.info(s"Worker started (newly=$newly) {}", params))
+          } yield ()
+      )
       .drain // drop the results, so that demand on events is always provided
-      .onFinalize(IO(logger.info("subscription finalized")))
+      .onFinalize(IO(logger.info("runMasterNode finalized")))
       .compile // Compile to a runnable, in terms of effect IO
       .drain // Switch to IO[Unit]
       .map(_ ⇒ ExitCode.Success)
@@ -118,10 +121,11 @@ case class MasterNode(
    * Runs master node and starts listening for AppDeleted event in different threads,
    * then joins the threads and returns back exit code from master node
    */
-  val run: IO[ExitCode] = for {
-    node <- Concurrent[IO].start(runMasterNode)
-    appDelete <- Concurrent[IO].start(listenForDeletion)
-    exitCode <- node.join
-    _ <- appDelete.join
-  } yield exitCode
+  val run: IO[ExitCode] =
+    for {
+      node <- Concurrent[IO].start(runMasterNode)
+      appDelete <- Concurrent[IO].start(listenForDeletion)
+      _ <- appDelete.join
+      exitCode <- node.join
+    } yield exitCode
 }

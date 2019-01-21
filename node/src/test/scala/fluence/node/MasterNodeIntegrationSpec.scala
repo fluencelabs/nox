@@ -24,7 +24,6 @@ import fluence.ethclient.EthClient
 import fluence.ethclient.helpers.Web3jConverters.hexToBytes32
 import fluence.node.eth.{FluenceContract, FluenceContractConfig}
 import fluence.node.workers.WorkerRunning
-import fluence.util.util._
 import org.scalatest.{Timer => _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
@@ -41,7 +40,7 @@ import scala.sys.process.ProcessLogger
  * - Successful cluster formation and starting blocks creation
  */
 class MasterNodeIntegrationSpec
-    extends WordSpec with LazyLogging with Matchers with BeforeAndAfterAll with OptionValues {
+    extends WordSpec with LazyLogging with Matchers with BeforeAndAfterAll with OptionValues with IntegrationTest {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
@@ -62,9 +61,9 @@ class MasterNodeIntegrationSpec
     logger.info("killing ganache")
     runCmd("pkill -f ganache")
 
-    logger.info("stopping containers")
-    // TODO: kill containers through Master's HTTP API
-    runCmd("docker rm -f 01_worker_0 01_worker_1 02_worker_0 02_worker_1")
+//    logger.info("stopping containers")
+//    // TODO: kill containers through Master's HTTP API
+//    runCmd("docker rm -f 01_worker_0 01_worker_1 02_worker_0 02_worker_1")
   }
 
   def getStatus(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[MasterStatus] = {
@@ -87,7 +86,7 @@ class MasterNodeIntegrationSpec
   def getStatusPort(basePort: Short): Short = (basePort + 400).toShort
 
   def runTwoMasters(basePort: Short): Resource[IO, Seq[String]] =
-    Resource.make {
+    Resource.make[IO, Seq[String]] {
       val master1Port: Short = basePort
       val master2Port: Short = (basePort + 1).toShort
       val status1Port: Short = getStatusPort(master1Port)
@@ -102,10 +101,13 @@ class MasterNodeIntegrationSpec
       } yield Seq(master1, master2)
     } { masters =>
       val containers = masters.mkString(" ")
-      IO { runCmd(s"docker rm -f $containers") }
+      IO {
+        runCmd(s"docker stop $containers")
+        runCmd(s"docker rm $containers")
+      }
     }
 
-  def getRunningWorker(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]) =
+  def getRunningWorker(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[Option[WorkerRunning]] =
     IO.suspend {
       getStatus(statusPort).map(_.workers.headOption.flatMap { w =>
         Option(w.asInstanceOf[WorkerRunning])
