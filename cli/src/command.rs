@@ -1,17 +1,16 @@
 use std::boxed::Box;
 use std::error::Error;
 
-use clap::value_t;
 use clap::Arg;
 use clap::ArgMatches;
-use web3::types::Address;
-
+use clap::value_t;
 use failure::Error as FError;
+use failure::ResultExt;
+use web3::types::Address;
+use web3::types::H256;
 
 use crate::credentials::Credentials;
 use crate::utils;
-use web3::types::H256;
-use rustc_hex::FromHexError;
 
 const PASSWORD: &str = "password";
 const SECRET_KEY: &str = "secret_key";
@@ -93,14 +92,14 @@ pub fn ethereum_args<'a, 'b>() -> [Arg<'a, 'b>; 6] {
 }
 
 pub fn parse_contract_address(args: &ArgMatches) -> Result<Address, FError> {
-    utils::parse_hex_opt(args, CONTRACT_ADDRESS)?.parse::<Address>()
+    Ok(utils::parse_hex_opt(args, CONTRACT_ADDRESS)?.parse::<Address>()?)
 }
 
 pub fn parse_eth_url(args: &ArgMatches) -> Result<String, clap::Error> {
     value_t!(args, ETH_URL, String)
 }
 
-pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Box<Error>> {
+pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, FError> {
     let secret_key = utils::parse_secret_key(args, SECRET_KEY)?;
     let password = args.value_of(PASSWORD).map(|s| s.to_string());
 
@@ -122,7 +121,7 @@ pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Box<Error>
     });
 }
 
-pub fn parse_tendermint_key(args: &ArgMatches) -> Result<H256, Box<Error>> {
+pub fn parse_tendermint_key(args: &ArgMatches) -> Result<H256, FError> {
     let tendermint_key = utils::parse_hex_opt(args, TENDERMINT_KEY)?.to_owned();
     let tendermint_key = if args.is_present(BASE64_TENDERMINT_KEY) {
         let arr = base64::decode(&tendermint_key)?;
@@ -131,9 +130,7 @@ pub fn parse_tendermint_key(args: &ArgMatches) -> Result<H256, Box<Error>> {
         tendermint_key
     };
 
-    let tendermint_key: H256 = tendermint_key
-        .parse()
-        .map_err(|e| format!("error parsing tendermint key: {}", e))?;
+    let tendermint_key: H256 = tendermint_key.parse::<H256>().context("error parsing tendermint key")?;
 
     Ok(tendermint_key)
 }

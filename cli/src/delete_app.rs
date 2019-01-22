@@ -82,8 +82,8 @@ impl DeleteApp {
         }
     }
 
-    pub fn delete_app(self, show_progress: bool) -> Result<H256, Box<Error>> {
-        let delete_app_fn = || -> Result<H256, Box<Error>> {
+    pub fn delete_app(self, show_progress: bool) -> Result<H256, Error> {
+        let delete_app_fn = || -> Result<H256, Error> {
             let call_data = match self.deployed {
                 true => delete_app::call(self.app_id).0,
                 false => dequeue_app::call(self.app_id).0,

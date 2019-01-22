@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-use std::boxed::Box;
-use std::error::Error;
 use std::net::IpAddr;
 use std::{thread, time};
+
+use failure::Error;
+use failure::err_msg;
+use failure::SyncFailure;
 
 use clap::{value_t, App, Arg, ArgMatches, SubCommand};
 use derive_getters::Getters;
@@ -61,11 +63,9 @@ impl Register {
         wait_syncing: bool,
         private: bool,
         eth: EthereumArgs,
-    ) -> Result<Register, Box<Error>> {
+    ) -> Result<Register, Error> {
         if last_port < start_port {
-            let err: Box<Error> =
-                From::from("last_port should be bigger than start_port".to_string());
-            return Err(err);
+            return Err(err_msg("last_port should be bigger than start_port"));
         }
 
         Ok(Register {
@@ -80,7 +80,7 @@ impl Register {
     }
 
     /// Serializes a node IP address and a tendermint key into the hash of node's key address
-    fn serialize_node_address(&self) -> Result<NodeAddress, Box<Error>> {
+    fn serialize_node_address(&self) -> Result<NodeAddress, Error> {
         // serialize tendermint key
         let key_str = format!("{:?}", &self.tendermint_key);
         let key_str = key_str.as_str().trim_start_matches("0x");
@@ -108,9 +108,9 @@ impl Register {
     }
 
     /// Registers a node in Fluence smart contract
-    pub fn register(&self, show_progress: bool) -> Result<H256, Box<Error>> {
-        let wait_syncing_fn = || -> Result<(), Box<Error>> {
-            let (_eloop, transport) = Http::new(&self.eth.eth_url.as_str())?;
+    pub fn register(&self, show_progress: bool) -> Result<H256, Error> {
+        let wait_syncing_fn = || -> Result<(), Error> {
+            let (_eloop, transport) = Http::new(&self.eth.eth_url.as_str()).map_err(SyncFailure::new)?;
             let web3 = &web3::Web3::new(transport);
 
             let mut sync = utils::check_sync(web3)?;
@@ -126,7 +126,7 @@ impl Register {
             Ok(())
         };
 
-        let publish_to_contract_fn = || -> Result<H256, Box<Error>> {
+        let publish_to_contract_fn = || -> Result<H256, Error> {
             let hash_addr = self.serialize_node_address()?;
 
             let contract =
@@ -172,7 +172,7 @@ impl Register {
     }
 }
 
-pub fn parse(args: &ArgMatches) -> Result<Register, Box<Error>> {
+pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
     let node_address: IpAddr = value_t!(args, ADDRESS, IpAddr)?;
 
     let tendermint_key: H256 = parse_tendermint_key(args)?;
@@ -294,7 +294,7 @@ pub mod tests {
     }
 
     #[test]
-    fn register_success() -> Result<(), Box<Error>> {
+    fn register_success() -> Result<(), Error> {
         let register = generate_with_account(
             "fa0de43c68bea2167181cd8a83f990d02a049336".parse()?,
             Credentials::No,
@@ -306,7 +306,7 @@ pub mod tests {
     }
 
     #[test]
-    fn register_out_of_gas() -> Result<(), Box<Error>> {
+    fn register_out_of_gas() -> Result<(), Error> {
         let register = generate_with(
             |r| {
                 r.gas = 1;
@@ -322,7 +322,7 @@ pub mod tests {
     }
 
     #[test]
-    fn register_success_with_secret() -> Result<(), Box<Error>> {
+    fn register_success_with_secret() -> Result<(), Error> {
         let secret_arr: H256 =
             "a349fe22d5c6f8ad3a1ad91ddb65e8946435b52254ce8c330f7ed796e83bfd92".parse()?;
         let secret = Secret::from(secret_arr);

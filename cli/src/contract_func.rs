@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use std::error::Error;
-
 use ethabi_contract::use_contract;
 use ethcore_transaction::{Action, Transaction};
 use ethkey::Secret;
@@ -27,6 +25,9 @@ use web3::types::CallRequest;
 use web3::types::TransactionRequest;
 use web3::types::{Address, Bytes, H256};
 use web3::Web3;
+
+use failure::Error;
+use failure::SyncFailure;
 
 use crate::credentials::Credentials;
 use crate::utils;
@@ -40,7 +41,7 @@ pub struct ContractCaller {
 }
 
 impl ContractCaller {
-    pub fn new(contract_address: Address, eth_url: &str) -> Result<ContractCaller, Box<Error>> {
+    pub fn new(contract_address: Address, eth_url: &str) -> Result<ContractCaller, Error> {
         let eth_url = eth_url.to_owned();
         Ok(ContractCaller {
             eth_url,
@@ -55,8 +56,8 @@ impl ContractCaller {
         credentials: &Credentials,
         call_data: ethabi::Bytes,
         gas: u32,
-    ) -> Result<H256, Box<Error>> {
-        let (_eloop, transport) = Http::new(&self.eth_url)?;
+    ) -> Result<H256, Error> {
+        let (_eloop, transport) = Http::new(&self.eth_url.as_str()).map_err(SyncFailure::new)?;
         let web3 = web3::Web3::new(transport);
 
         match credentials {
@@ -70,7 +71,7 @@ impl ContractCaller {
             Credentials::Password(pass) => self.call_contract_trusted_node(
                 web3,
                 account,
-                Some(&pass),
+                Some(pass.as_str()),
                 utils::options_with_gas(gas),
                 call_data,
             ),
@@ -88,14 +89,15 @@ impl ContractCaller {
         secret: &Secret,
         call_data: ethabi::Bytes,
         gas: u32,
-    ) -> Result<H256, Box<Error>> {
-        let gas_price = web3.eth().gas_price().wait()?;
+    ) -> Result<H256, Error> {
+        let gas_price = web3.eth().gas_price().wait().map_err(SyncFailure::new)?;
 
         let tx = Transaction {
             nonce: web3
                 .eth()
                 .transaction_count(account, Some(BlockNumber::Pending))
-                .wait()?,
+                .wait()
+                .map_err(SyncFailure::new)?,
             value: "0".parse()?,
             action: Action::Call(self.contract_address.clone()),
             data: call_data,
@@ -108,7 +110,8 @@ impl ContractCaller {
         let resp = web3
             .eth()
             .send_raw_transaction(Bytes(rlp::encode(&tx_signed).to_vec()))
-            .wait()?;
+            .wait()
+            .map_err(SyncFailure::new)?;
 
         Ok(resp)
     }
@@ -121,7 +124,7 @@ impl ContractCaller {
         password: Option<&str>,
         options: Options,
         call_data: ethabi::Bytes,
-    ) -> Result<H256, Box<Error>> {
+    ) -> Result<H256, Error> {
         let tx_request = TransactionRequest {
             from: account,
             to: Some(self.contract_address.clone()),
@@ -138,7 +141,7 @@ impl ContractCaller {
             None => web3.eth().send_transaction(tx_request),
         };
 
-        Ok(result.wait()?)
+        Ok(result.wait().map_err(SyncFailure::new)?)
     }
 
     /// Calls contract method and returns some result
@@ -146,11 +149,11 @@ impl ContractCaller {
         &self,
         call_data: ethabi::Bytes,
         decoder: Box<R>,
-    ) -> Result<R::Output, Box<Error>>
+    ) -> Result<R::Output, Error>
     where
         R: ethabi::FunctionOutputDecoder,
     {
-        let (_eloop, transport) = web3::transports::Http::new(&self.eth_url)?;
+        let (_eloop, transport) = web3::transports::Http::new(&self.eth_url.as_str()).map_err(SyncFailure::new)?;
         let web3 = web3::Web3::new(transport);
         let call_request = CallRequest {
             to: self.contract_address.clone(),
@@ -160,10 +163,10 @@ impl ContractCaller {
             value: None,
             from: None,
         };
-        let result = web3.eth().call(call_request, None).wait()?;
-        let result: Result<<R as ethabi::FunctionOutputDecoder>::Output, Box<Error>> =
-            decoder.decode(result.0.as_slice()).map_err(|e| e.into());
+        let result = web3.eth().call(call_request, None).wait().map_err(SyncFailure::new)?;
+        let result: <R as ethabi::FunctionOutputDecoder>::Output =
+            decoder.decode(result.0.as_slice()).map_err(SyncFailure::new)?;
 
-        result
+        Ok(result)
     }
 }
