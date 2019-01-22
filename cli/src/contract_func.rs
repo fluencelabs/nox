@@ -90,12 +90,10 @@ impl ContractCaller {
         gas: u32,
     ) -> Result<H256, Box<Error>> {
         let gas_price = web3.eth().gas_price().wait()?;
+        let nonce = web3.eth().transaction_count(account, None).wait()?
 
         let tx = Transaction {
-            nonce: web3
-                .eth()
-                .transaction_count(account, Some(BlockNumber::Pending))
-                .wait()?,
+            nonce: nonce,
             value: "0".parse()?,
             action: Action::Call(self.contract_address.clone()),
             data: call_data,
