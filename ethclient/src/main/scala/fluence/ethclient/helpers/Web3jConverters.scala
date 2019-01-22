@@ -36,18 +36,11 @@ object Web3jConverters {
   }
 
   /**
-   * Converts string to hex.
+   * Converts byte vector to hex string trimming leading zeros.
    *
-   * @param s string
+   * @param b byte vector
    */
-  def stringToHex(s: String): String = binaryToHex(s.getBytes())
-
-  /**
-   * Converts byte array to hex.
-   *
-   * @param b byte array
-   */
-  def binaryToHex(b: Array[Byte]): String = ByteVector(b).toHex
+  def binaryToHexTrimZeros(b: ByteVector): String = b.dropWhile(_ == 0).toHex
 
   /**
    * Converts base64 string to web3j's Bytes32.
@@ -57,19 +50,26 @@ object Web3jConverters {
   def base64ToBytes32(base64: String): Bytes32 = new Bytes32(Base64.getDecoder.decode(base64))
 
   /**
+   * Converts web3j's Bytes32 to base64 string
+   *
+   * @param bytes32 bytes32 value
+   */
+  def bytes32ToBase64(bytes32: Bytes32): String = Base64.getEncoder.encodeToString(bytes32.getValue)
+
+  /**
    * Interprets web3j's Bytes32 as Tendermint chain ID.
    * TODO: currently only the lowermost byte used
    *
    * @param appId Bytes32 encoding
    */
-  def bytes32AppIdToChainId(appId: Bytes32): String = binaryToHex(appId.getValue.reverse.take(1))
+  def appIdToChainId(appId: ByteVector): String = appId.reverse.take(1).toHex
 
   /**
-   * Converts non-zero bytes of web3j's Bytes32 to string.
+   * Converts bytes of web3j's Bytes32 to ByteVector
    *
-   * @param bytes32 text in Bytes32 encoding
+   * @param bytes32 bytes32 value
    */
-  def bytes32ToString(bytes32: Bytes32): String = new String(bytes32.getValue.filter(_ != 0))
+  def bytes32ToBinary(bytes32: Bytes32): ByteVector = ByteVector(bytes32.getValue)
 
   /**
    * Converts hex string to byte array.
@@ -79,6 +79,20 @@ object Web3jConverters {
    */
   def hexToBinary(hex: String): Array[Byte] =
     ByteVector.fromHex(hex, Bases.Alphabets.HexUppercase).map(_.toArray).getOrElse(new Array[Byte](hex.length / 2))
+
+  /**
+   * Converts hex string to Bytes32.
+   *
+   * @param hex hex string
+   */
+  def hexToBytes32(hex: String): Either[Throwable, Bytes32] = {
+    val binary = hexToBinary(hex)
+    if (binary.length == 32) {
+      Right(new Bytes32(hexToBinary(hex)))
+    } else {
+      Left(new Exception("Incorrect bytes length for 'hex': must be 32 bytes"))
+    }
+  }
 
   /**
    * Encodes worker address information to web3j's Bytes32.

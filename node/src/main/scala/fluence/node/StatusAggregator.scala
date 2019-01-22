@@ -20,7 +20,7 @@ import cats.Parallel
 import cats.data.Kleisli
 import cats.effect.{ContextShift, IO, Resource, Timer}
 import fluence.node.config.{MasterConfig, NodeConfig, StatusServerConfig}
-import fluence.node.workers.WorkerInfo
+import fluence.node.workers.WorkerHealth
 import org.http4s._
 import org.http4s.implicits._
 import scala.concurrent.duration._
@@ -52,7 +52,7 @@ case class MasterStatus(
   uptime: Long,
   nodeConfig: NodeConfig,
   numberOfWorkers: Int,
-  workers: List[WorkerInfo],
+  workers: List[WorkerHealth],
   config: MasterConfig
 )
 

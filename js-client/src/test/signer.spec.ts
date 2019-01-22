@@ -34,7 +34,6 @@ describe('Signer', () => {
 
             // get hex of sign for verifier
             let signHex = Buffer.from(base64js.toByteArray(sign)).toString('hex');
-
             let res = ec.verify(utils.toHex(hashedMessage), signHex, publicKey);
             expect(res).to.be.equal(true);
 
