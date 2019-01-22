@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Fluence Labs Limited
+ * Copyright 2018 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,12 +19,7 @@ import fluence.statemachine.util.HexCodec.hexToArray
 
 import scala.language.higherKinds
 
-sealed trait FunctionCallDescription
-
-/**
- * Description of command that explicitly closes session by client.
- */
-case class SmCloseSessionDescription() extends FunctionCallDescription
+trait FunctionCallDescription
 
 /**
  * Description of a Wasm function invocation with some argument.
@@ -32,16 +27,16 @@ case class SmCloseSessionDescription() extends FunctionCallDescription
  * @param module VM module containing an invoked function
  * @param arg argument for an invoked function
  */
-case class VmFunctionCallDescription(module: Option[String], arg: Array[Byte]) extends FunctionCallDescription
+case class VmFunctionCallDescription(module: Option[String], arg: Array[Byte])
 
 /**
  * Extractor for command that explicitly closes session.
  */
-object SmCloseSession {
+case object SmCloseSession extends FunctionCallDescription {
   val CloseSession = "@closeSession"
 
-  def unapply(payload: String): Option[SmCloseSessionDescription] = payload match {
-    case CloseSession => Some(SmCloseSessionDescription())
+  def unapply(payload: String): Option[Unit] = payload match {
+    case CloseSession => Some()
     case _ => None
   }
 
