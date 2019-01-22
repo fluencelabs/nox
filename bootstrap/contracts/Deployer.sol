@@ -77,6 +77,8 @@ contract Deployer {
 
         // Apps hosted by this node
         bytes32[] appIDs;
+
+        uint256 index;
     }
 
     // Represents deployed or enqueued (waiting to be deployed) code
@@ -184,7 +186,7 @@ contract Deployer {
         require(startPort <= endPort, "Port range is empty or incorrect");
 
         // Save the node
-        Node memory node = Node(nodeID, nodeAddress, startPort, endPort, msg.sender, isPrivate, new bytes32[](0));
+        Node memory node = Node(nodeID, nodeAddress, startPort, endPort, msg.sender, isPrivate, new bytes32[](0), nodesIds.length);
         nodes[nodeID] = node;
         nodesIds.push(nodeID);
 
@@ -267,19 +269,17 @@ contract Deployer {
     function dequeueApp(bytes32 appID)
         external
     {
-        bytes32 enqueuedAppID;
         uint8 i = 0;
 
         for (;i < enqueuedApps.length; i++) {
-            enqueuedAppID = enqueuedApps[i];
-            if (enqueuedAppID == appID) {
+            if (enqueuedApps[i] == appID) {
                 break;
             }
         }
 
         require(i < enqueuedApps.length, "error deleting app: app not found");
 
-        App memory app = apps[enqueuedAppID];
+        App memory app = apps[appID];
         require(app.owner == msg.sender, "error deleting app: you must own the app to delete it");
 
         removeEnqueuedApp(i);
@@ -313,7 +313,7 @@ contract Deployer {
     /** @dev Deletes node that hosts apps
     *
     */
-    function deleteNode(bytes32 nodeID, bytes32[] appIDs)
+    function deleteNode(bytes32 nodeID)
         external
     {
 
