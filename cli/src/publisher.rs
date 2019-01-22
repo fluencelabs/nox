@@ -17,9 +17,9 @@
 use std::fs::File;
 use std::io::prelude::*;
 
+use failure::err_msg;
 use failure::Error;
 use failure::ResultExt;
-use failure::err_msg;
 
 use clap::ArgMatches;
 use clap::{value_t, App, Arg, SubCommand};
@@ -157,7 +157,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Error> {
     let pin_to_nodes = parse_pinned(matches)?;
     if pin_to_nodes.len() > 0 && pin_to_nodes.len() > (cluster_size as usize) {
         return Err(err_msg(
-            "number of pin_to nodes should be less or equal to the desired cluster_size"
+            "number of pin_to nodes should be less or equal to the desired cluster_size",
         ));
     }
 
@@ -237,6 +237,8 @@ mod tests {
     use web3::futures::Future;
     use web3::types::H256;
     use web3::types::*;
+
+    use failure::Error;
 
     use crate::command::EthereumArgs;
     use crate::credentials::Credentials;

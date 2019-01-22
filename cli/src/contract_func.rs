@@ -153,7 +153,8 @@ impl ContractCaller {
     where
         R: ethabi::FunctionOutputDecoder,
     {
-        let (_eloop, transport) = web3::transports::Http::new(&self.eth_url.as_str()).map_err(SyncFailure::new)?;
+        let (_eloop, transport) =
+            web3::transports::Http::new(&self.eth_url.as_str()).map_err(SyncFailure::new)?;
         let web3 = web3::Web3::new(transport);
         let call_request = CallRequest {
             to: self.contract_address.clone(),
@@ -163,9 +164,14 @@ impl ContractCaller {
             value: None,
             from: None,
         };
-        let result = web3.eth().call(call_request, None).wait().map_err(SyncFailure::new)?;
-        let result: <R as ethabi::FunctionOutputDecoder>::Output =
-            decoder.decode(result.0.as_slice()).map_err(SyncFailure::new)?;
+        let result = web3
+            .eth()
+            .call(call_request, None)
+            .wait()
+            .map_err(SyncFailure::new)?;
+        let result: <R as ethabi::FunctionOutputDecoder>::Output = decoder
+            .decode(result.0.as_slice())
+            .map_err(SyncFailure::new)?;
 
         Ok(result)
     }

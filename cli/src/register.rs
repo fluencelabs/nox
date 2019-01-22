@@ -17,8 +17,8 @@
 use std::net::IpAddr;
 use std::{thread, time};
 
-use failure::Error;
 use failure::err_msg;
+use failure::Error;
 use failure::SyncFailure;
 
 use clap::{value_t, App, Arg, ArgMatches, SubCommand};
@@ -110,7 +110,8 @@ impl Register {
     /// Registers a node in Fluence smart contract
     pub fn register(&self, show_progress: bool) -> Result<H256, Error> {
         let wait_syncing_fn = || -> Result<(), Error> {
-            let (_eloop, transport) = Http::new(&self.eth.eth_url.as_str()).map_err(SyncFailure::new)?;
+            let (_eloop, transport) =
+                Http::new(&self.eth.eth_url.as_str()).map_err(SyncFailure::new)?;
             let web3 = &web3::Web3::new(transport);
 
             let mut sync = utils::check_sync(web3)?;
@@ -236,7 +237,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 
 #[cfg(test)]
 pub mod tests {
-    use std::error::Error;
+    use failure::Error;
 
     use ethkey::Secret;
     use rand::prelude::*;

@@ -15,7 +15,7 @@
  */
 #![allow(dead_code)]
 
-use std::error::Error;
+use failure::Error;
 
 use derive_getters::Getters;
 use serde_derive::{Deserialize, Serialize};
@@ -48,7 +48,7 @@ impl Node {
         owner: Address,
         is_private: bool,
         clusters_ids: Option<Vec<H256>>,
-    ) -> Result<Node, Box<Error>> {
+    ) -> Result<Node, Error> {
         let (tendermint_key, ip_addr) = address.decode()?;
         Ok(Node {
             id,
@@ -65,7 +65,7 @@ impl Node {
 
 /// Gets list of nodes from Fluence contract
 // TODO: implement
-pub fn get_nodes(_contract: &ContractCaller) -> Result<Vec<Node>, Box<Error>> {
+pub fn get_nodes(_contract: &ContractCaller) -> Result<Vec<Node>, Error> {
     let nodes: Vec<Node> = Vec::new();
     Ok(nodes)
 }

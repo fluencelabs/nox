@@ -18,13 +18,12 @@ use clap::ArgMatches;
 use clap::{App, Arg, SubCommand};
 use web3::types::H256;
 
-use std::error::Error;
-
 use crate::command;
 use crate::contract_func::contract::functions::delete_app;
 use crate::contract_func::contract::functions::dequeue_app;
 use crate::contract_func::ContractCaller;
 use crate::utils;
+use failure::Error;
 
 const APP_ID: &str = "app_id";
 const DEPLOYED: &str = "deployed";
@@ -55,7 +54,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
         .args(command::with_ethereum_args(my_args).as_slice())
 }
 
-pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Box<Error>> {
+pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Error> {
     let app_id: H256 = utils::parse_hex_opt(args, APP_ID)?.parse()?;
     let deployed = args.is_present(DEPLOYED);
 

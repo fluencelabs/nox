@@ -21,8 +21,7 @@ pub mod status;
 
 use self::status::{get_status, Status};
 use clap::{App, ArgMatches, SubCommand};
-use std::boxed::Box;
-use std::error::Error;
+use failure::Error;
 use web3::types::Address;
 
 use crate::command::{contract_address, eth_url, parse_contract_address, parse_eth_url};
@@ -34,7 +33,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 }
 
 /// Gets status about Fluence contract from ethereum blockchain.
-pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Box<Error>> {
+pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Error> {
     let contract_address: Address = parse_contract_address(args)?;
     let eth_url = parse_eth_url(args)?;
 
@@ -49,7 +48,7 @@ mod tests {
     use crate::publisher::Publisher;
     use crate::register::Register;
     use rand::prelude::*;
-    use std::error::Error;
+    use failure::Error;
     use web3::types::*;
 
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
@@ -110,7 +109,7 @@ mod tests {
     }
 
     #[test]
-    fn status_correct() -> Result<(), Box<Error>> {
+    fn status_correct() -> Result<(), Error> {
         let reg1_ip = "156.56.34.67";
         let reg1_start_port = 2004;
         let reg1_end_port = 2016;

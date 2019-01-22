@@ -1,13 +1,11 @@
-use std::boxed::Box;
-use std::error::Error;
-
-use clap::Arg;
-use clap::ArgMatches;
-use web3::types::Address;
-use failure::Error;
-use failure::ResultExt;
 use crate::credentials::Credentials;
 use crate::utils;
+use clap::value_t;
+use clap::Arg;
+use clap::ArgMatches;
+use failure::Error;
+use failure::ResultExt;
+use web3::types::Address;
 use web3::types::H256;
 
 const PASSWORD: &str = "password";
@@ -111,7 +109,7 @@ pub fn parse_eth_url(args: &ArgMatches) -> Result<String, clap::Error> {
     value_t!(args, ETH_URL, String)
 }
 
-pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, FError> {
+pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Error> {
     let secret_key = utils::parse_secret_key(args, SECRET_KEY)?;
     let password = args.value_of(PASSWORD).map(|s| s.to_string());
 
@@ -133,7 +131,7 @@ pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, FError> {
     });
 }
 
-pub fn parse_tendermint_key(args: &ArgMatches) -> Result<H256, FError> {
+pub fn parse_tendermint_key(args: &ArgMatches) -> Result<H256, Error> {
     let tendermint_key = utils::parse_hex_opt(args, TENDERMINT_KEY)?.to_owned();
     let tendermint_key = if args.is_present(BASE64_TENDERMINT_KEY) {
         let arr = base64::decode(&tendermint_key)?;
@@ -142,7 +140,9 @@ pub fn parse_tendermint_key(args: &ArgMatches) -> Result<H256, FError> {
         tendermint_key
     };
 
-    let tendermint_key: H256 = tendermint_key.parse::<H256>().context("error parsing tendermint key")?;
+    let tendermint_key: H256 = tendermint_key
+        .parse::<H256>()
+        .context("error parsing tendermint key")?;
 
     Ok(tendermint_key)
 }
