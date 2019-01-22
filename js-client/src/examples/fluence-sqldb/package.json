@@ -28,7 +28,8 @@
     "@types/bootstrap": "^4.1.2",
     "bootstrap": "^4.1.3",
     "jquery": "^3.3.1",
-    "js-fluence-client": "0.0.25",
+    "js-fluence-client": "0.0.29",
+    "fluence-monitoring": "^0.0.14",
     "popper.js": "^1.14.4"
   },
   "devDependencies": {
@@ -41,6 +42,8 @@
     "typescript": "^3.1.1",
     "webpack": "^4.20.2",
     "webpack-cli": "^3.1.2",
-    "webpack-dev-server": "^3.1.9"
+    "webpack-dev-server": "^3.1.9",
+    "copy-webpack-plugin": "^4.6.0"
+
   }
 }

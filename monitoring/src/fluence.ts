@@ -21,13 +21,19 @@ import {Network} from "../types/web3-contracts/Network";
 import {NodeStatus, UnavailableNode} from "./nodeStatus";
 import JSONFormatter from 'json-formatter-js';
 import * as App from "./app"
-import {getNodes} from "./node";
+import {getNodes, Node} from "./node";
 import Web3 = require('web3');
 import abi = require("./Network.json");
 import {Option} from "ts-option";
 
 (window as any).web3 = (window as any).web3 || {};
 let web3 = (window as any).web3;
+
+export {
+    Node as Node,
+    NodeStatus as NodeStatus,
+    UnavailableNode as UnavailableNode
+}
 
 /**
  * Contract status and status of all nodes in the Fluence network.
@@ -37,9 +43,10 @@ export interface Status {
     node_statuses: (NodeStatus|UnavailableNode)[]
 }
 
-export interface NodeAddress {
-    ip: string,
-    port: number
+export interface AppNode {
+    node: Node,
+    port: number,
+    statusPort: number
 }
 
 export function getContract(address: string): Network {
@@ -55,7 +62,7 @@ export function getContract(address: string): Network {
     return new web3js.eth.Contract(abi, address) as Network;
 }
 
-export async function getNodeAddresses(contractAddress: string, appId: string): Promise<NodeAddress[]> {
+export async function getAppNodes(contractAddress: string, appId: string): Promise<AppNode[]> {
 
     let contract = getContract(contractAddress);
 
@@ -63,21 +70,34 @@ export async function getNodeAddresses(contractAddress: string, appId: string): 
 
     let cluster = app.cluster;
 
-    let result: Option<Promise<NodeAddress[]>> = cluster.map((c) => {
+    let result: Option<Promise<AppNode[]>> = cluster.map((c) => {
 
         let ids: string[] = c.cluster_members.map((m) => m.id);
 
         return getNodes(contract, ids).then((nodes) => {
             return nodes.map((n, idx) => {
                 return {
-                    ip: n.ip_addr,
-                    port: c.cluster_members[idx].port
+                    node: n,
+                    port: c.cluster_members[idx].port,
+                    statusPort: getStatusPort(n)
                 }
             })
         });
     });
 
     return result.getOrElse(Promise.resolve([]));
+}
+
+export function getStatusPort(node: Node) {
+    // todo: `+400` is a temporary solution, fix it after implementing correct port management
+    return node.last_port + 400
+}
+
+export function getNodeStatus(node: Node): Promise<NodeStatus> {
+    let url = `http://${node.ip_addr}:${getStatusPort(node)}/status`;
+    return axios.get(url).then((res) => {
+        return <NodeStatus>res.data;
+    });
 }
 
 /**
@@ -91,14 +111,7 @@ export async function getStatus(contractAddress: string): Promise<Status> {
     let contractStatus = await getContractStatus(contract);
 
     let responses = contractStatus.nodes.map((node) => {
-        // todo: `+400` is a temporary solution, fix it after implementing correct port management
-        let url = `http://${node.ip_addr}:${node.last_port + 400}/status`;
-        return axios.get(url).then((res) => {
-            res.data.status = "ok";
-            return <NodeStatus>res.data;
-        }).catch(() => {
-            return {nodeInfo: node, status: "unavailable"}
-        });
+       return getNodeStatus(node);
     });
 
     let nodeStatuses = await Promise.all(responses);

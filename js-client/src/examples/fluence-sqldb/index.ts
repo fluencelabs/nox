@@ -16,7 +16,8 @@
 
 import "bootstrap/dist/css/bootstrap.min.css";
 import * as fluence from "js-fluence-client";
-import {Result} from "js-fluence-client";
+import {NodeSession, Result} from "js-fluence-client";
+import {getNodeStatus, NodeStatus} from "fluence-monitoring";
 
 /**
  * The address of one node of a real-time cluster.
@@ -36,15 +37,9 @@ interface Status {
     block_height: number
 }
 
-interface PortWithClient {
-    addr: string,
-    client: fluence.TendermintClient
-}
-
 class DbClient {
 
-    private readonly sessions: fluence.Session[];
-    private readonly clients: PortWithClient[];
+    readonly sessions: NodeSession[];
     private readonly size: number;
     private counter: number;
 
@@ -53,15 +48,11 @@ class DbClient {
         return this.counter;
     }
 
-    constructor(sessions: fluence.Session[]) {
-        this.size = sessions.length;
+    constructor(session: fluence.AppSession) {
+        this.size = session.sessions.length;
         this.counter = 0;
 
-        this.sessions = sessions;
-
-        this.clients = sessions.map((s) => {
-            return s.tm;
-        });
+        this.sessions = session.sessions;
     }
 
     /**
@@ -69,13 +60,13 @@ class DbClient {
      * @param queries list of queries to invoke
      */
     async submitQuery(queries: string[]): Promise<Promise<Result>[]> {
-        let session = this.sessions[this.nodeNumber()];
+        let nodeSession = this.sessions[this.nodeNumber()];
         return queries.map((q) => {
             console.log("query: " + q);
-            let res = session.invoke("do_query", q).result();
+            let res = nodeSession.session.invoke("do_query", q).result();
             res.then((r: Result) => {
                 if (fluence.isValue(r)) {
-                    let strResult = fluence.fromHex(r.hex());
+                    let strResult = Buffer.from(r.hex(), 'hex').toString();
                     console.log(`the result is:\n ${strResult}`);
                 }
             });
@@ -86,13 +77,9 @@ class DbClient {
     /**
      * Gets status of all nodes.
      */
-    async status(): Promise<any[]> {
-        return Promise.all(this.clients.map((cl) => {
-            let status = cl.client.client.status() as Promise<any>;
-            return status.then((st) => {
-                st.node_info.listen_addr = cl.addr;
-                return st;
-            });
+    async status(): Promise<NodeStatus[]> {
+        return Promise.all(this.sessions.map((session) => {
+            return getNodeStatus(session.appNode.node);
         }));
     }
 }
@@ -114,6 +101,15 @@ function genStatus(status: Status) {
             </div>`
 }
 
+function genErrorStatus(addr: string, error: string) {
+    return `<div class="m-2 rounded border list-group-item-info p-2">
+                <label class="text-dark ml-2 mb-0" style="font-size: 0.8rem">${addr}</label>
+                <ul class="list-unstyled mb-0 ml-4" style="font-size: 0.7rem">
+                    <li>error: ${error}</li>
+                </ul>
+            </div>`
+}
+
 /**
  * Shortens string by getting only left and right part with given size.
  */
@@ -128,22 +124,38 @@ interface Config {
 let newLine = String.fromCharCode(13, 10);
 let sep = "**************************";
 
-fluence.createAppSessions("0x9Fe5366CDA5E43ce3865031484fbad5d2da54302", "0x0000000000000000000000000000000000000000000000000000000000000001").then((sessions) => {
+// todo: get actual contract address and app id from file
+let contractAddress = "0x9Fe5366CDA5E43ce3865031484fbad5d2da54302";
+let appId = "0x0000000000000000000000000000000000000000000000000000000000000001";
+
+async function preparePage() {
+    let sessions = await fluence.createAppSessions(contractAddress, appId);
+
     let client = new DbClient(sessions);
 
     function updateStatus() {
         client.status().then((r) => {
-            statusField.innerHTML = r.map((st) => {
-                let info: any = st.sync_info;
-                info.addr = st.node_info.listen_addr;
-
-                let status: Status = {
-                    addr: st.node_info.listen_addr,
-                    block_hash: shorten(info.latest_block_hash, 10),
-                    app_hash: shorten(info.latest_app_hash, 10),
-                    block_height: info.latest_block_height
-                };
-                return genStatus(status)
+            let addrs = client.sessions.map((s) => s.appNode.node.ip_addr);
+            statusField.innerHTML = r.map((st, idx) => {
+                console.log(st);
+                let info = st.workers[0];
+                let addr = addrs[idx];
+                if (info.WorkerRunning !== undefined) {
+                    let runningInfo = info.WorkerRunning.info;
+                    let status: Status = {
+                        addr: addr,
+                        block_hash: shorten(runningInfo.lastBlock as string, 10),
+                        app_hash: shorten(runningInfo.lastAppHash as string, 10),
+                        block_height: runningInfo.lastBlockHeight as number
+                    };
+                    return genStatus(status)
+                } else if (info.WorkerContainerNotRunning !== undefined) {
+                    return genErrorStatus(addr, "container not running")
+                } else if (info.WorkerHttpCheckFailed !== undefined) {
+                    return genErrorStatus(addr, info.WorkerHttpCheckFailed.causedBy.substring(0, 40))
+                } else if (info.WorkerNotYetLaunched !== undefined) {
+                    return genErrorStatus(addr, "worker not yet launched")
+                }
             }).join("\n");
         })
     }
@@ -151,7 +163,6 @@ fluence.createAppSessions("0x9Fe5366CDA5E43ce3865031484fbad5d2da54302", "0x00000
     function submitQueries(queries: string) {
         resultField.value = "";
         client.submitQuery(queries.split('\n')).then((results) => {
-
             results.forEach((pr) => {
                 pr.then((r) => {
                     if (fluence.isValue(r)) {
@@ -192,5 +203,8 @@ fluence.createAppSessions("0x9Fe5366CDA5E43ce3865031484fbad5d2da54302", "0x00000
     const _global = (window /* browser */ || global /* node */) as any;
     _global.client = client;
     _global.DbClient = DbClient;
+}
 
-});
+window.onload = function() {
+    preparePage()
+};

@@ -44,7 +44,7 @@ export function getApp(contract: Network, id: string): Promise<App> {
 
         let genesisTime: number = parseInt(unparsedApp["5"]);
         let nodeIds: string[] = unparsedApp["6"];
-        let ports: number[] = unparsedApp["7"].map(parseInt);
+        let ports: number[] = unparsedApp["7"].map((p) => parseInt(p));
 
         let clusterOpt = parseCluster(genesisTime, nodeIds, ports);
 
