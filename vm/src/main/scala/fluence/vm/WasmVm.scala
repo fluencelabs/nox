@@ -16,30 +16,29 @@
 
 package fluence.vm
 
-import java.lang.reflect.Modifier
-
 import asmble.cli.Invoke
 import asmble.cli.ScriptCommand.ScriptArgs
 import asmble.run.jvm.ScriptContext
 import asmble.util.Logger
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.LiftIO
-import cats.{Applicative, Id, Monad}
+import cats.{Applicative, Monad}
 import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.vm.VmError.{InitializationError, InternalVmError}
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
-import fluence.vm.AsmbleWasmVm._
+import fluence.vm.wasm.WasmFunction
 import fluence.vm.config.VmConfig
 import fluence.vm.config.VmConfig._
 import fluence.vm.config.VmConfig.ConfigError
+import fluence.vm.utils.safelyRunThrowable
+import fluence.vm.wasm.WasmModule
 import scodec.bits.ByteVector
 import pureconfig.generic.auto._
 
 import scala.collection.convert.ImplicitConversionsToJava.`seq AsJavaList`
 import scala.collection.convert.ImplicitConversionsToScala.`list asScalaBuffer`
 import scala.language.higherKinds
-import scala.util.Try
 
 /**
  * Virtual Machine api.
@@ -47,31 +46,27 @@ import scala.util.Try
 trait WasmVm {
 
   /**
-   * Invokes ''function'' from specified ''module'' with provided arguments.
-   * Returns ''None'' if the function doesn't return the result, ''Some(Any)''
-   * if the function returns the result, ''VmError'' when something goes wrong.
+   * Invokes Wasm ''function'' from specified Wasm ''module''. Each function receives and returns array of bytes.
    *
-   * Note that, modules and functions should be registered when VM started!
+   * Note that, modules should be registered when VM started!
    *
-   * @param module a Module name, if absent the last from registered modules will be used
-   * @param fnName a Function name to invocation
+   * @param module a name of Wasm module from where handle
    * @param fnArgument a Function arguments
    * @tparam F a monad with an ability to absorb 'IO'
    */
   def invoke[F[_]: LiftIO: Monad](
-    module: Option[String],
-    fnName: String,
+    module: Option[String] = None,
     fnArgument: Array[Byte] = Array.emptyByteArray
-  ): EitherT[F, InvokeError, Option[Array[Byte]]]
+  ): EitherT[F, InvokeError, Array[Byte]]
 
   /**
-   * Returns hash of significant inner state of this VM. This function calculates
+   * Returns hash of all significant inner state of this VM. This function calculates
    * hashes for the state of each module and then concatenates them together.
    * It's behaviour will change in future, till it looks like this:
    * {{{
    *   vmState = hash(hash(module1 state), hash(module2 state), ...))
    * }}}
-   * '''Note!''' It's very expensive operation try to avoid frequent use.
+   * '''Note!''' It's very expensive operation, try to avoid frequent use.
    */
   def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector]
 
@@ -79,32 +74,21 @@ trait WasmVm {
 
 object WasmVm {
 
-  /**
-   * Contains all initialized modules and index for fast function searching.
-   *
-   * @param modules loaded and initialized modules
-   * @param functions an index for fast searching public Wasm functions
-   */
-  private[vm] case class VmProps(
-    modules: List[ModuleInstance] = Nil,
-    functions: WasmFnIndex = Map()
-  )
+  type ModuleIndex = Map[Option[String], WasmModule]
 
   /**
    * Main method factory for building VM.
-   * Compiles all files immediately and returns VM implementation with eager
-   * module instantiation, also builds index for each wast function.
+   * Compiles all files immediately by Asmble and returns VM implementation with eager module instantiation.
    *
    * @param inFiles input files in wasm or wast format
-   * @param configNamespace a path of config in 'lightbend/config terms, see reference.conf
+   * @param configNamespace a path of config in 'lightbend/config terms, please see reference.conf
    * @param cryptoHasher a hash function provider
    */
   def apply[F[_]: Monad](
     inFiles: NonEmptyList[String],
     configNamespace: String = "fluence.vm.client",
     cryptoHasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256
-  ): EitherT[F, ApplyError, WasmVm] = {
-
+  ): EitherT[F, ApplyError, WasmVm] =
     for {
       // reading config
       config ← EitherT
@@ -117,8 +101,8 @@ object WasmVm {
         }
 
       // Compiling Wasm modules to JVM bytecode and registering derived classes
-      // in the Asmble engine. Every Wasm module compiles to exactly one JVM class
-      scriptCxt ← run(
+      // in the Asmble engine. Every Wasm module is compiled to exactly one JVM class.
+      scriptCxt ← safelyRunThrowable(
         prepareContext(inFiles, config),
         err ⇒
           InitializationError(
@@ -127,30 +111,25 @@ object WasmVm {
         )
       )
 
-      // initializing all modules, build index for all Wasm functions
-      vmProps ← initializeModules(scriptCxt)
+      modules ← initializeModules(scriptCxt, config)
 
     } yield
       new AsmbleWasmVm(
-        vmProps.functions,
-        vmProps.modules,
-        cryptoHasher,
-        config.allocateFunctionName,
-        config.deallocateFunctionName
+        modules,
+        cryptoHasher
       )
-  }
 
   /**
    * Returns [[ScriptContext]] - context for uploaded Wasm modules.
    * Compiles Wasm modules to JVM bytecode and registering derived classes
-   * in the Asmble engine. Every Wasm module is compiles to exactly one JVM class
+   * in the Asmble engine. Every Wasm module is compiled to exactly one JVM class.
    */
   private def prepareContext(
     inFiles: NonEmptyList[String],
     config: VmConfig
   ): ScriptContext = {
     val invoke = new Invoke()
-    // todo in future common logger for this project should be used
+    // TODO: in future common logger for this project should be used
     val logger = new Logger.Print(Logger.Level.WARN)
     invoke.setLogger(logger)
     invoke.prepareContext(
@@ -160,80 +139,41 @@ object WasmVm {
         false, // disableAutoRegister
         config.specTestRegister,
         config.defaultMaxMemPages,
-        config.loggerRegister,
+        config.loggerRegister
       )
     )
   }
 
   /**
-   * This method initializes every module and builds a total index for each
-   * function of every module. The index is actually a map where the key is a
-   * string "Some(moduleName), fnName)" and value is a [[WasmFunction]] instance.
-   * Module name can be "None" if the module name wasn't specified. In this case,
-   * there aren't to be two modules without names that contain functions with the
-   * same names, otherwise, an error will be thrown.
+   * This method initializes every module and builds a module index. The index is actually a map where the key is a
+   * string "Some(moduleName)" and value is a [[WasmFunction]] instance. Module name can be "None" if the module
+   * name wasn't specified (note that it also can be empty).
    */
   private def initializeModules[F[_]: Applicative](
-    scriptCxt: ScriptContext
-  ): EitherT[F, ApplyError, VmProps] = {
+    scriptCxt: ScriptContext,
+    config: VmConfig
+  ): EitherT[F, ApplyError, ModuleIndex] = {
+    val emptyIndex: Either[ApplyError, ModuleIndex] = Right(Map[Option[String], WasmModule]())
 
-    val emptyIndex: Either[ApplyError, VmProps] = Right(VmProps())
+    val moduleIndex = scriptCxt.getModules
+      .foldLeft(emptyIndex) {
+        case (error @ Left(_), _) ⇒
+          error
 
-    val filledIndex = scriptCxt.getModules.foldLeft(emptyIndex) {
+        case (Right(acc), moduleDescription) ⇒
+          for {
+            wasmModule ← WasmModule(
+              moduleDescription,
+              scriptCxt,
+              config.allocateFunctionName,
+              config.deallocateFunctionName,
+              config.invokeFunctionName
+            )
 
-      case (error @ Left(_), _) ⇒
-        // if error already occurs, skip next module and return the previous error.
-        error
+          } yield acc + (wasmModule.getName → wasmModule)
+      }
 
-      case (Right(vmProps), moduleDesc) ⇒
-        for {
-          // initialization of module instance
-          moduleInstance <- ModuleInstance(moduleDesc, scriptCxt)
-          // building module index for fast access to functions
-          methodsAsWasmFns = moduleDesc.getCls.getDeclaredMethods
-            .withFilter(m ⇒ Modifier.isPublic(m.getModifiers))
-            .map { method ⇒
-              val fnId = FunctionId(moduleInstance.name, method.getName)
-
-              vmProps.functions.get(fnId) match {
-
-                case None ⇒
-                  // it's ok, function with the specified name wasn't registered yet
-                  val fn = WasmFunction(
-                    fnId,
-                    method,
-                    moduleInstance
-                  )
-                  Right(fnId → fn)
-
-                case Some(fn) ⇒
-                  // module and function with the specified name were already registered
-                  // this situation is unacceptable, raise the error
-                  Left(InitializationError(s"The function $fn was already registered"))
-              }
-
-            }
-
-          moduleFunctions ← list2Either[Id, ApplyError, (FunctionId, WasmFunction)](methodsAsWasmFns.toList).value
-
-        } yield
-          VmProps(
-            vmProps.modules :+ moduleInstance,
-            vmProps.functions ++ moduleFunctions
-          )
-
-    }
-
-    EitherT.fromEither[F](filledIndex)
+    EitherT.fromEither[F](moduleIndex)
   }
-
-  /** Helper method. Run ''action'' inside Try block, convert to EitherT with specified effect F */
-  private def run[F[_]: Applicative, T, E <: VmError](
-    action: ⇒ T,
-    mapError: Throwable ⇒ E
-  ): EitherT[F, E, T] =
-    EitherT
-      .fromEither(Try(action).toEither)
-      .leftMap(mapError)
 
 }

@@ -152,9 +152,9 @@ fn execute_sql(sql: &str) -> String {
 
         let mut sql_str = sql.to_string();
         // executes query
-        let result_str_ptr = super::do_query(sql_str.as_bytes_mut().as_mut_ptr(), sql_str.len());
+        let result_str_ptr = super::invoke(sql_str.as_bytes_mut().as_mut_ptr(), sql_str.len());
         // ownership of memory of 'sql_str' will be taken through 'ptr' inside
-        // 'do_query' method, have to forget 'sql_str'  for prevent deallocation
+        // 'invoke' method, have to forget 'sql_str'  for prevent deallocation
         mem::forget(sql_str);
         // converts results
         fluence::memory::read_str_from_fat_ptr(result_str_ptr).unwrap()
