@@ -29,6 +29,7 @@ object WorkerConfigWriter extends slogging.LazyLogging {
 
   /**
    * Resolves source (template) and target (for specific worker) configuration paths
+   * Creates target configuration directory if it doesn't exists
    * @param rootPath Path to resolve against, usually /master inside Master container
    * @return original App and config paths wrapped in WorkerConfigPaths
    */
@@ -39,6 +40,7 @@ object WorkerConfigWriter extends slogging.LazyLogging {
         templateConfigDir ← IO(tmDir.resolve("config"))
         workerPath ← IO(tmDir.resolve(s"${app.appIdHex}_${app.cluster.currentWorker.index}"))
         workerConfigDir ← IO(workerPath.resolve("config"))
+        _ ← IO { Files.createDirectories(workerConfigDir) }
       } yield {
         (app, WorkerConfigPaths(templateConfigDir, workerPath, workerConfigDir))
       }
@@ -63,10 +65,6 @@ object WorkerConfigWriter extends slogging.LazyLogging {
     _.evalTap {
       case (app, paths, _) =>
         for {
-          _ ← IO { logger.info("This node will host app '{}'", app.appIdHex) }
-
-          _ ← IO { Files.createDirectories(paths.workerConfigDir) }
-
           _ ← WorkerConfigWriter.copyMasterKeys(paths.templateConfigDir, paths.workerConfigDir)
           _ ← WorkerConfigWriter.writeGenesis(app, paths.workerConfigDir)
           _ ← WorkerConfigWriter.updateConfigTOML(
