@@ -159,6 +159,8 @@ timeout_commit = "200ms"
 skip_timeout_commit = true
 
 cors_allowed_origins = '["*"]'
+cors_allowed_methods = '["*"]'
+cors_allowed_headers = '["*"]'
 
 # EmptyBlocks mode and possible interval between empty blocks in seconds
 create_empty_blocks = false
