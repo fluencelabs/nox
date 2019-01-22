@@ -1,4 +1,4 @@
-;; this example has some functions that recieve and put strings
+;; this example adds 1 to each byte in supplied string
 
 (module
     ;; force Asmble to use memory
@@ -16,14 +16,14 @@
         (drop)
     )
 
-    ;; char* mutateArray(const char *array, int arraySize) {
+    ;; char* invoke(const char *array, int arraySize) {
     ;;   for(int i = 0; i < stringSize; ++i) {
     ;;     ++array[i];
     ;;   }
     ;;
     ;;   return array;
     ;; }
-    (func (export "mutateArray") (param $array i32) (param $arraySize i32) (result i32)
+    (func (export "invoke") (param $array i32) (param $arraySize i32) (result i32)
         (local $arrayIdx i32)
         (loop $label$0
             (i32.store8
@@ -45,14 +45,14 @@
             )
         )
 
-        (call $putStringResult
+        (call $putArrayResult
             (get_local $array)
             (get_local $arraySize)
             (i32.const 1048592)
         )
     )
 
-    ;; int putStringResult(const char *string, int stringSize, int address) {
+    ;; int putArrayResult(const char *string, int stringSize, int address) {
     ;;
     ;;   globalBuffer[address] = (stringSize >> 24) & 0xFF;
     ;;   globalBuffer[address + 1] = (stringSize >> 16) & 0xFF;
@@ -63,7 +63,7 @@
     ;;     globalBuffer[address + 4 + i] = string[i];
     ;;   }
     ;; }
-    (func $putStringResult (param $string i32) (param $stringSize i32) (param $address i32) (result i32)
+    (func $putArrayResult (param $string i32) (param $stringSize i32) (param $address i32) (result i32)
         (local $3 i32)
         (local $4 i32)
 

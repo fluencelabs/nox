@@ -46,8 +46,7 @@ const fluenceSession = fluence.createDefaultSession("localhost", 29057);
 // it is a simplified query, there is more parameters, full query is in the repo
 const createTableQuery = "CREATE TABLE polution_uusimaa(id varchar(128), location varchar(128), parameter varchar(128), value double, unit varchar(128))";
 
-// `do_query`is a predefined function to call queries in LlamaDb
-fluenceSession.invoke("do_query", createTableQuery)
+fluenceSession.invoke(createTableQuery)
     .result() // to return promise and wait for result we need to call `result()` function
     .then((r) => console.log(r.asString())); // `asString()` decodes bytes format to string
 ```
@@ -68,7 +67,7 @@ streamrClient.subscribe(
         },
         (message, metadata) => {
             const query = insertQuery(message); // generates query
-            fluenceSession.invoke("do_query", query); // and inserts it in into LlamaDB
+            fluenceSession.invoke(query); // and inserts it in into LlamaDB
         }
     )
 ```
@@ -76,7 +75,7 @@ streamrClient.subscribe(
 ```javascript
 function getCount() {
     const query = "select count(*) from polution_uusimaa";
-    fluenceSession.invoke("do_query", query).result().then((r) => {
+    fluenceSession.invoke(query).result().then((r) => {
         console.log("Data count: " + r.asString().split("\n")[1])
     })
 }
@@ -88,7 +87,7 @@ function getCount() {
  */
 function getMax(parameter) {
     const query = `select max(value) from polution_uusimaa where parameter = '${parameter}'`;
-    fluenceSession.invoke("do_query", query).result().then((r) => {
+    fluenceSession.invoke(query).result().then((r) => {
         console.log(`Maximum of ${parameter}: ${r.asString().split("\n")[1]}`);
     })
 }
