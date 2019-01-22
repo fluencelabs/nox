@@ -16,23 +16,36 @@
 
 package fluence.node.tendermint.config
 import java.nio.file.{Files, Path, StandardCopyOption}
-import java.text.SimpleDateFormat
-import java.util.TimeZone
 
 import cats.effect.IO
-import fluence.ethclient.helpers.Web3jConverters
-import fluence.ethclient.helpers.Web3jConverters.bytes32ToHexStringTrimZeros
 import fluence.node.Configuration
 import fluence.node.eth.App
-import fluence.node.workers.{CodeManager, CodePath, WorkerImage, WorkerParams}
-import org.web3j.abi.datatypes.generated.Bytes32
 
 import scala.io.Source
 
-object TendermintConfig extends slogging.LazyLogging {
+object WorkerConfigWriter extends slogging.LazyLogging {
+
+  case class WorkerConfigPaths(templateConfigDir: Path, workerPath: Path, workerConfigDir: Path)
 
   /**
-   * Generate, copy and/or update different configs used by tendermint and download vm code.
+   * Resolves source (template) and target (for specific worker) configuration paths
+   * @param rootPath Path to resolve against, usually /master inside Master container
+   * @return original App and config paths wrapped in WorkerConfigPaths
+   */
+  def resolveWorkerConfigPaths(rootPath: Path): fs2.Pipe[IO, App, (App, WorkerConfigPaths)] =
+    _.evalMap { app =>
+      for {
+        tmDir ← IO(rootPath.resolve("tendermint"))
+        templateConfigDir ← IO(tmDir.resolve("config"))
+        workerPath ← IO(tmDir.resolve(s"${app.appIdHex}_${app.cluster.currentWorker.index}"))
+        workerConfigDir ← IO(workerPath.resolve("config"))
+      } yield {
+        (app, WorkerConfigPaths(templateConfigDir, workerPath, workerConfigDir))
+      }
+    }
+
+  /**
+   * Generate, copy and/or update different configs used by tendermint.
    *
    * `rootPath` is usually /master inside Master container
    * `templateConfigDir` contain:
@@ -40,66 +53,39 @@ object TendermintConfig extends slogging.LazyLogging {
    *    - config/default_config.toml, copied on container build (see node's dockerfile in build.sbt)
    *
    * At the end of execution `workerPath` will contain:
-   *    - vm code at `codePath`
    *    - tendermint configuration in `workerConfigDir`:
    *        - node_key.json, containing private P2P key
    *        - priv_validator.json, containing validator's private & public keys and it's address
    *        - genesis.json, generated from [[App.cluster]] and [[App.appId]]
    *        - config.toml, copied from `templateConfigDir/default_config.toml` and updated
    */
-  def prepareWorkerParams(
-    workerId: Bytes32,
-    workerImage: WorkerImage,
-    rootPath: Path,
-    masterNodeContainerId: Option[String],
-    codeManager: CodeManager[IO]
-  ): fs2.Pipe[IO, App, WorkerParams] =
-    _.evalMap {
-      case app @ App(appId, storageHash, _) =>
+  def writeConfigs(): fs2.Pipe[IO, (App, WorkerConfigPaths, Path), (App, WorkerConfigPaths, Path)] =
+    _.evalTap {
+      case (app, paths, _) =>
         for {
-          appIdHex <- IO.pure(bytes32ToHexStringTrimZeros(appId))
+          _ ← IO { logger.info("This node will host app '{}'", app.appIdHex) }
 
-          _ ← IO { logger.info("This node will host app '{}'", appIdHex) }
+          _ ← IO { Files.createDirectories(paths.workerConfigDir) }
 
-          tmDir ← IO(rootPath.resolve("tendermint"))
-          templateConfigDir ← IO(tmDir.resolve("config"))
-          workerPath ← IO(tmDir.resolve(s"${appIdHex}_${app.cluster.currentWorker.index}"))
-          workerConfigDir ← IO(workerPath.resolve("config"))
-
-          _ ← IO { Files.createDirectories(workerConfigDir) }
-
-          _ ← TendermintConfig.copyMasterKeys(templateConfigDir, workerConfigDir)
-          _ ← TendermintConfig.writeGenesis(app, workerConfigDir)
-          _ ← TendermintConfig.updateConfigTOML(
+          _ ← WorkerConfigWriter.copyMasterKeys(paths.templateConfigDir, paths.workerConfigDir)
+          _ ← WorkerConfigWriter.writeGenesis(app, paths.workerConfigDir)
+          _ ← WorkerConfigWriter.updateConfigTOML(
             app,
-            workerId,
-            configSrc = templateConfigDir.resolve("default_config.toml"),
-            configDest = workerConfigDir.resolve("config.toml")
+            configSrc = paths.templateConfigDir.resolve("default_config.toml"),
+            configDest = paths.workerConfigDir.resolve("config.toml")
           )
 
-          codePath ← codeManager.prepareCode(CodePath(storageHash), workerPath)
-        } yield
-          WorkerParams(
-            app.appId,
-            app.cluster.currentWorker,
-            workerPath.toString,
-            codePath,
-            masterNodeContainerId,
-            workerImage
-          )
+        } yield {}
     }
 
-  def writeGenesis(app: App, dest: Path) = IO {
-    val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-    df.setTimeZone(TimeZone.getTimeZone("UTC"))
-
-    val genesis = GenesisConfig.buildFrom(app)
+  private def writeGenesis(app: App, dest: Path): IO[Unit] = IO {
+    val genesis = GenesisConfig.generateJson(app)
 
     logger.info("Writing {}/genesis.json", dest)
     Files.write(dest.resolve("genesis.json"), genesis.getBytes)
   }
 
-  def updateConfigTOML(app: App, workerId: Bytes32, configSrc: Path, configDest: Path) = IO {
+  private def updateConfigTOML(app: App, configSrc: Path, configDest: Path): IO[Unit] = IO {
     import scala.collection.JavaConverters._
     logger.info("Updating {} -> {}", configSrc, configDest)
 
@@ -109,14 +95,15 @@ object TendermintConfig extends slogging.LazyLogging {
     val lines = Source.fromFile(configSrc.toUri).getLines().map {
       case s if s.contains("external_address") => s"""external_address = "${currentWorker.address}""""
       case s if s.contains("persistent_peers") => s"""persistent_peers = "$persistentPeers""""
-      case s if s.contains("moniker") => s"""moniker = "${app.appId}_${currentWorker.index}""""
+      case s if s.contains("moniker") =>
+        s"""moniker = "${app.appIdHex}_${currentWorker.index}""""
       case s => s
     }
 
     Files.write(configDest, lines.toIterable.asJava)
   }
 
-  def copyMasterKeys(from: Path, to: Path): IO[Path] = {
+  private def copyMasterKeys(from: Path, to: Path): IO[Unit] = {
     import StandardCopyOption.REPLACE_EXISTING
 
     val nodeKey = "node_key.json"

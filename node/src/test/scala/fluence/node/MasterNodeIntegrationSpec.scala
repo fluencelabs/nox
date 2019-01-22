@@ -24,7 +24,6 @@ import fluence.ethclient.EthClient
 import fluence.ethclient.helpers.Web3jConverters.hexToBytes32
 import fluence.node.eth.{FluenceContract, FluenceContractConfig}
 import fluence.node.workers.WorkerRunning
-import fluence.util.util._ // TODO: why it's double util.util._? How to make it just fluence.util._ ?
 import org.scalatest.{Timer => _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
@@ -41,30 +40,18 @@ import scala.sys.process.ProcessLogger
  * - Successful cluster formation and starting blocks creation
  */
 class MasterNodeIntegrationSpec
-    extends WordSpec with LazyLogging with Matchers with BeforeAndAfterAll with OptionValues {
+    extends WordSpec with LazyLogging with Matchers with BeforeAndAfterAll with OptionValues with Integration
+    with TendermintSetup with GanacheSetup with DockerSetup {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
   override protected def beforeAll(): Unit = {
-    // TODO: It is needed to build vm-llamadb project explicitly for launch this test from Idea
-    logger.info("bootstrapping npm")
-    runCmd("npm install")
-
-    logger.info("starting Ganache")
-    runBackground("npm run ganache")
-
-    logger.info("deploying contract to Ganache")
-    runCmd("npm run migrate")
+    wireupContract()
   }
 
   override protected def afterAll(): Unit = {
-    logger.info("killing ganache")
-    runCmd("pkill -f ganache")
-
-    logger.info("stopping containers")
-    // TODO: kill containers through Master's HTTP API
-    runCmd("docker rm -f 01_worker_0 01_worker_1 02_worker_0 02_worker_1")
+    killGanache()
   }
 
   def getStatus(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[MasterStatus] = {
@@ -87,7 +74,7 @@ class MasterNodeIntegrationSpec
   def getStatusPort(basePort: Short): Short = (basePort + 400).toShort
 
   def runTwoMasters(basePort: Short): Resource[IO, Seq[String]] =
-    Resource.make {
+    Resource.make[IO, Seq[String]] {
       val master1Port: Short = basePort
       val master2Port: Short = (basePort + 1).toShort
       val status1Port: Short = getStatusPort(master1Port)
@@ -102,10 +89,13 @@ class MasterNodeIntegrationSpec
       } yield Seq(master1, master2)
     } { masters =>
       val containers = masters.mkString(" ")
-      IO { runCmd(s"docker rm -f $containers") }
+      IO {
+        runCmd(s"docker stop $containers")
+        runCmd(s"docker rm $containers")
+      }
     }
 
-  def getRunningWorker(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]) =
+  def getRunningWorker(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[Option[WorkerRunning]] =
     IO.suspend {
       getStatus(statusPort).map(_.workers.headOption.flatMap { w =>
         Option(w.asInstanceOf[WorkerRunning])
@@ -143,8 +133,8 @@ class MasterNodeIntegrationSpec
 
         _ <- eventually[IO](
           for {
-            c1s0 <- heightFromTendermintStatus(basePort)
-            c1s1 <- heightFromTendermintStatus((basePort + 1).toShort)
+            c1s0 <- heightFromTendermintStatus("localhost", basePort)
+            c1s1 <- heightFromTendermintStatus("localhost", (basePort + 1).toShort)
             worker1 <- getRunningWorker(getStatusPort(basePort))
             worker2 <- getRunningWorker(getStatusPort((basePort + 1).toShort))
           } yield {
@@ -175,7 +165,7 @@ class MasterNodeIntegrationSpec
           _ = status2 shouldBe defined
 
           appIdHex = status1.value.info.appId
-          appId = hexToBytes32(appIdHex)
+          appId <- IO.fromEither(hexToBytes32(appIdHex))
           _ <- contract.deleteApp[IO](appId)
           _ <- eventually[IO](
             for {

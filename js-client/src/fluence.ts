@@ -20,7 +20,6 @@ import { Signer } from "./Signer";
 import { Client } from "./Client";
 import { Session } from "./Session";
 import { SessionConfig } from "./SessionConfig";
-import {fromHex, toHex} from "./utils";
 import {Empty, Result, Value, isValue} from "./Result";
 
 export {
@@ -32,8 +31,6 @@ export {
     Empty as Empty,
     Result as Result,
     Value as Value,
-    fromHex as fromHex,
-    toHex as toHex,
     isValue as isValue,
     SessionConfig as SessionConfig
 }

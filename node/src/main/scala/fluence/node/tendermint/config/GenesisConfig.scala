@@ -15,32 +15,33 @@
  */
 
 package fluence.node.tendermint.config
-import java.text.SimpleDateFormat
-import java.util.TimeZone
 
-import fluence.ethclient.helpers.Web3jConverters
-import fluence.node.eth.App
-import fluence.node.tendermint.json.ValidatorKey
-
-private[config] case class ValidatorConfig(pub_key: ValidatorKey, power: String, name: String)
-private[config] case class GenesisConfig(
-  genesis_time: String,
-  chain_id: String,
-  app_hash: String,
-  validators: List[ValidatorConfig]
-)
 private[config] object GenesisConfig {
+  import java.text.SimpleDateFormat
+  import java.util.TimeZone
+
+  import fluence.ethclient.helpers.Web3jConverters
+  import fluence.node.eth.App
+  import fluence.node.tendermint.json.ValidatorKey
   import io.circe.Encoder
   import io.circe.generic.semiauto.deriveEncoder
   import io.circe.syntax._
 
-  def buildFrom(app: App): String = {
-    val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
-    df.setTimeZone(TimeZone.getTimeZone("UTC"))
+  private case class ValidatorConfig(pub_key: ValidatorKey, power: String, name: String)
+  private case class GenesisConfig(
+    genesis_time: String,
+    chain_id: String,
+    app_hash: String,
+    validators: List[ValidatorConfig]
+  )
+
+  def generateJson(app: App): String = {
+    val dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
+    dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"))
 
     GenesisConfig(
-      genesis_time = df.format(app.cluster.genesisTime.toMillis),
-      chain_id = Web3jConverters.bytes32AppIdToChainId(app.appId),
+      genesis_time = dateFormat.format(app.cluster.genesisTime.toMillis),
+      chain_id = Web3jConverters.appIdToChainId(app.appId),
       app_hash = "",
       validators = app.cluster.workers.map { w =>
         ValidatorConfig(
@@ -49,12 +50,12 @@ private[config] object GenesisConfig {
             value = w.base64ValidatorKey
           ),
           power = "1",
-          name = s"${app.appId}_${w.index}"
+          name = s"${app.appIdHex}_${w.index}"
         )
       }
     ).asJson.spaces2
   }
 
-  implicit val configEncoder: Encoder[GenesisConfig] = deriveEncoder
-  implicit val validatorEncoder: Encoder[ValidatorConfig] = deriveEncoder
+  implicit private val configEncoder: Encoder[GenesisConfig] = deriveEncoder
+  implicit private val validatorEncoder: Encoder[ValidatorConfig] = deriveEncoder
 }

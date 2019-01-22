@@ -36,18 +36,11 @@ object Web3jConverters {
   }
 
   /**
-   * Converts string to hex.
+   * Converts byte vector to hex string trimming leading zeros.
    *
-   * @param s string
+   * @param b byte vector
    */
-  def stringToHex(s: String): String = binaryToHex(s.getBytes())
-
-  /**
-   * Converts byte array to hex.
-   *
-   * @param b byte array
-   */
-  def binaryToHex(b: Array[Byte]): String = ByteVector(b).toHex
+  def binaryToHexTrimZeros(b: ByteVector): String = b.dropWhile(_ == 0).toHex
 
   /**
    * Converts base64 string to web3j's Bytes32.
@@ -69,28 +62,14 @@ object Web3jConverters {
    *
    * @param appId Bytes32 encoding
    */
-  def bytes32AppIdToChainId(appId: Bytes32): String = binaryToHex(appId.getValue.reverse.take(1))
+  def appIdToChainId(appId: ByteVector): String = appId.reverse.take(1).toHex
 
   /**
-   * Converts non-zero bytes of web3j's Bytes32 to string.
-   *
-   * @param bytes32 text in Bytes32 encoding
-   */
-  def bytes32ToString(bytes32: Bytes32): String = new String(bytes32.getValue.filter(_ != 0))
-
-  /**
-   * Converts bytes of web3j's Bytes32 to hex string with leading zeros removed.
+   * Converts bytes of web3j's Bytes32 to ByteVector
    *
    * @param bytes32 bytes32 value
    */
-  def bytes32ToHexStringTrimZeros(bytes32: Bytes32): String = ByteVector(bytes32.getValue.dropWhile(_ == 0)).toHex
-
-  /**
-   * Converts bytes of web3j's Bytes32 to hex string
-   *
-   * @param bytes32 bytes32 value
-   */
-  def bytes32ToHexString(bytes32: Bytes32): String = ByteVector(bytes32.getValue).toHex
+  def bytes32ToBinary(bytes32: Bytes32): ByteVector = ByteVector(bytes32.getValue)
 
   /**
    * Converts hex string to byte array.
@@ -106,7 +85,14 @@ object Web3jConverters {
    *
    * @param hex hex string
    */
-  def hexToBytes32(hex: String): Bytes32 = new Bytes32(hexToBinary(hex))
+  def hexToBytes32(hex: String): Either[Throwable, Bytes32] = {
+    val binary = hexToBinary(hex)
+    if (binary.length == 32) {
+      Right(new Bytes32(hexToBinary(hex)))
+    } else {
+      Left(new Exception("Incorrect bytes length for 'hex': must be 32 bytes"))
+    }
+  }
 
   /**
    * Encodes worker address information to web3j's Bytes32.

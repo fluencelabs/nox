@@ -15,16 +15,15 @@
  */
 
 package fluence.node.workers
-import fluence.ethclient.helpers.Web3jConverters.bytes32ToHexStringTrimZeros
 import fluence.node.docker.DockerParams
 import fluence.node.eth.WorkerNode
-import org.web3j.abi.datatypes.generated.Bytes32
+import scodec.bits.ByteVector
 
 /**
  * Worker container's params
  */
 case class WorkerParams(
-  appId: Bytes32,
+  appId: ByteVector,
   currentWorker: WorkerNode,
   workerPath: String,
   vmCodePath: String,
@@ -32,13 +31,15 @@ case class WorkerParams(
   image: WorkerImage
 ) {
 
-  private val appIdHex: String = bytes32ToHexStringTrimZeros(appId)
+  // Convert bytes32 to hex for better human-readability. As of current appId generation in Fluence Contract,
+  // there's a lot of leading zeros in app IDs, so skip them to avoid visual clutter.
+  val appIdHex: String = appId.toHex
 
   override def toString =
     s"(worker ${currentWorker.index} with RPC port ${currentWorker.rpcPort} for app $appIdHex)"
 
   /**
-   * [[fluence.node.docker.DockerIO.run]]'s command for launching a configured worker
+   * [[fluence.node.docker.DockerIO.exec]]'s command for launching a configured worker
    */
   val dockerCommand: DockerParams.DaemonParams = {
     val params = DockerParams

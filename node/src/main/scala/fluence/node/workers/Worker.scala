@@ -89,11 +89,11 @@ object Worker extends LazyLogging {
       .map {
         case Right(status) ⇒
           val tendermintInfo = status.result
-          val info = RunningWorkerInfo.fromParams(params, tendermintInfo)
+          val info = RunningWorkerInfo(params, tendermintInfo)
           WorkerRunning(uptime, info)
         case Left(err) ⇒
           logger.error("Worker HTTP check failed: " + err.getLocalizedMessage, err)
-          WorkerHttpCheckFailed(StoppedWorkerInfo.fromWorker(params.currentWorker), err)
+          WorkerHttpCheckFailed(StoppedWorkerInfo(params.currentWorker), err)
       }
       .map { health ⇒
         logger.debug(s"HTTP health is: $health")
@@ -121,7 +121,7 @@ object Worker extends LazyLogging {
           getHealthState(params, healthcheck.httpPath, uptime)
         case (_, false) ⇒
           logger.error(s"Healthcheck is failing for worker: $params")
-          Applicative[F].pure(WorkerContainerNotRunning(StoppedWorkerInfo.fromWorker(params.currentWorker)))
+          Applicative[F].pure(WorkerContainerNotRunning(StoppedWorkerInfo(params.currentWorker)))
       }
       .evalTap(healthReportRef.set)
       .interruptWhen(stop)
@@ -143,7 +143,7 @@ object Worker extends LazyLogging {
   ): F[Worker[F]] =
     for {
       healthReportRef ← Ref.of[F, WorkerHealth](
-        WorkerNotYetLaunched(StoppedWorkerInfo.fromWorker(params.currentWorker))
+        WorkerNotYetLaunched(StoppedWorkerInfo(params.currentWorker))
       )
       stop ← Deferred[F, Either[Throwable, Unit]]
 

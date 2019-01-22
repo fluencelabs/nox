@@ -16,18 +16,19 @@
 
 package fluence.node
 
+import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect._
 import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
+import fluence.node.config.SwarmConfig
 import fluence.node.eth.FluenceContract
 import fluence.node.workers.{CodeManager, SwarmCodeManager, TestCodeManager, WorkersPool}
 import fluence.swarm.SwarmClient
+import org.web3j.protocol.core.methods.response.EthSyncing.Syncing
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
-import fluence.node.config.SwarmConfig
-import org.web3j.protocol.core.methods.response.EthSyncing.Syncing
 
 import scala.concurrent.duration._
 
@@ -85,13 +86,16 @@ object MasterNodeApp extends IOApp with LazyLogging {
           val resources = for {
             ethClientResource <- EthClient.makeHttpResource[IO](Some(ethereumRpcConfig.uri))
             sttpBackend <- sttpResource
-          } yield (ethClientResource, sttpBackend)
+            pool <- {
+              implicit val s: SttpBackend[IO, Nothing] = sttpBackend
+              WorkersPool.apply()
+            }
+          } yield (ethClientResource, sttpBackend, pool)
 
           resources.use {
             // Type annotations are here to make IDEA's type inference happy
-            case (ethClient: EthClient, sttpBackend: SttpBackend[IO, Nothing]) ⇒
+            case (ethClient: EthClient, sttpBackend: SttpBackend[IO, Nothing], pool: WorkersPool[IO]) ⇒
               implicit val backend: SttpBackend[IO, Nothing] = sttpBackend
-              logger.info(s"Ethereum RPC config: $ethereumRpcConfig")
               for {
                 version ← ethClient.clientVersion[IO]()
                 _ = logger.info("eth client version {}", version)
@@ -100,8 +104,6 @@ object MasterNodeApp extends IOApp with LazyLogging {
                 _ <- waitEthSyncing(ethClient)
 
                 contract = FluenceContract(ethClient, contractConfig)
-
-                pool ← WorkersPool[IO]()
 
                 codeManager <- getCodeManager(swarmConfig)
 
@@ -117,12 +119,14 @@ object MasterNodeApp extends IOApp with LazyLogging {
           }
       }
       .attempt
-      .flatMap {
-        case Left(err) =>
-          logger.error(s"Error in MasterNodeApp: $err", err)
-          err.printStackTrace(System.err)
-          IO.pure(ExitCode.Error)
-        case Right(ec) => IO.pure(ec)
+      .map(_.getOrElse(ExitCode.Error))
+      .guaranteeCase {
+        case Canceled =>
+          IO(logger.error("MasterNodeApp was canceled"))
+        case Error(e) =>
+          IO(logger.error("MasterNodeApp stopped with error: {}", e)).map(_ => e.printStackTrace(System.err))
+        case Completed =>
+          IO(logger.info("MasterNodeApp exited gracefully"))
       }
   }
 

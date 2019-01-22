@@ -16,7 +16,6 @@
 
 package fluence.node.workers
 
-import fluence.ethclient.helpers.Web3jConverters.bytes32ToHexString
 import fluence.node.eth.WorkerNode
 import fluence.node.workers.WorkerResponse.WorkerTendermintInfo
 import io.circe.generic.semiauto._
@@ -39,9 +38,9 @@ case class RunningWorkerInfo(
 
 object RunningWorkerInfo {
 
-  def fromParams(params: WorkerParams, tendermintInfo: WorkerTendermintInfo) =
+  def apply(params: WorkerParams, tendermintInfo: WorkerTendermintInfo): RunningWorkerInfo =
     RunningWorkerInfo(
-      bytes32ToHexString(params.appId),
+      params.appId.toHex,
       params.currentWorker.rpcPort,
       params.currentWorker.p2pPort,
       params.currentWorker.smPrometheusPort,
@@ -68,7 +67,7 @@ case class StoppedWorkerInfo(
 
 object StoppedWorkerInfo {
 
-  def fromWorker(
+  def apply(
     worker: WorkerNode
   ): StoppedWorkerInfo =
     new StoppedWorkerInfo(
