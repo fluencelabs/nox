@@ -6,8 +6,12 @@ use clap::Arg;
 use clap::ArgMatches;
 use web3::types::Address;
 
+use failure::Error as FError;
+
 use crate::credentials::Credentials;
 use crate::utils;
+use web3::types::H256;
+use rustc_hex::FromHexError;
 
 const PASSWORD: &str = "password";
 const SECRET_KEY: &str = "secret_key";
@@ -15,6 +19,8 @@ const GAS: &str = "gas";
 const ACCOUNT: &str = "account";
 const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
+const TENDERMINT_KEY: &str = "tendermint_key";
+const BASE64_TENDERMINT_KEY: &str = "base64_tendermint_key";
 
 #[derive(Debug)]
 pub struct EthereumArgs {
@@ -29,7 +35,6 @@ pub fn contract_address<'a, 'b>() -> Arg<'a, 'b> {
     Arg::with_name(CONTRACT_ADDRESS)
         .required(true)
         .takes_value(true)
-        .index(1)
         .help("fluence contract address")
 }
 
@@ -43,11 +48,22 @@ pub fn eth_url<'a, 'b>() -> Arg<'a, 'b> {
         .default_value("http://localhost:8545/")
 }
 
-//pub fn contract_address<'a, 'b>() -> Arg<'a, 'b>
+pub fn tendermint_key<'a, 'b>() -> Arg<'a, 'b> {
+    Arg::with_name(TENDERMINT_KEY)
+        .required(true)
+        .takes_value(true)
+        .help("public key of tendermint node")
+}
+
+pub fn base64_tendermint_key<'a, 'b>() -> Arg<'a, 'b> {
+    Arg::with_name(BASE64_TENDERMINT_KEY)
+        .long(BASE64_TENDERMINT_KEY)
+        .help("allows to use base64 tendermint key")
+}
 
 pub fn ethereum_args<'a, 'b>() -> [Arg<'a, 'b>; 6] {
     [
-        contract_address(),
+        contract_address().index(1),
         Arg::with_name(ACCOUNT)
             .required(true)
             .index(2)
@@ -76,15 +92,15 @@ pub fn ethereum_args<'a, 'b>() -> [Arg<'a, 'b>; 6] {
     ]
 }
 
-pub fn parse_contract_address(args: &ArgMatches) -> Result<Address, Box<Error>> {
-    utils::parse_hex_opt(args, CONTRACT_ADDRESS)?.parse()?
+pub fn parse_contract_address(args: &ArgMatches) -> Result<Address, FError> {
+    utils::parse_hex_opt(args, CONTRACT_ADDRESS)?.parse::<Address>()
 }
 
-pub fn parse_eth_url(args: &ArgMatches) -> Result<String, Box<Error>> {
-    value_t!(args, ETH_URL, String)?
+pub fn parse_eth_url(args: &ArgMatches) -> Result<String, clap::Error> {
+    value_t!(args, ETH_URL, String)
 }
 
-pub fn ethereum_parse(args: &ArgMatches) -> Result<EthereumArgs, Box<Error>> {
+pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Box<Error>> {
     let secret_key = utils::parse_secret_key(args, SECRET_KEY)?;
     let password = args.value_of(PASSWORD).map(|s| s.to_string());
 
@@ -104,4 +120,20 @@ pub fn ethereum_parse(args: &ArgMatches) -> Result<EthereumArgs, Box<Error>> {
         contract_address,
         eth_url,
     });
+}
+
+pub fn parse_tendermint_key(args: &ArgMatches) -> Result<H256, Box<Error>> {
+    let tendermint_key = utils::parse_hex_opt(args, TENDERMINT_KEY)?.to_owned();
+    let tendermint_key = if args.is_present(BASE64_TENDERMINT_KEY) {
+        let arr = base64::decode(&tendermint_key)?;
+        hex::encode(arr)
+    } else {
+        tendermint_key
+    };
+
+    let tendermint_key: H256 = tendermint_key
+        .parse()
+        .map_err(|e| format!("error parsing tendermint key: {}", e))?;
+
+    Ok(tendermint_key)
 }

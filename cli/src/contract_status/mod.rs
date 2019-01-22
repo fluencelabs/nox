@@ -20,15 +20,12 @@ mod node;
 pub mod status;
 
 use self::status::{get_status, Status};
-use clap::{App, Arg, ArgMatches, SubCommand};
+use clap::{App, ArgMatches, SubCommand};
 use std::boxed::Box;
 use std::error::Error;
 use web3::types::Address;
 
-use crate::ethereum_command::{contract_address, eth_url, parse_contract_address, parse_eth_url};
-
-const CONTRACT_ADDRESS: &str = "contract_address";
-const ETH_URL: &str = "eth_url";
+use crate::command::{contract_address, eth_url, parse_contract_address, parse_eth_url};
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("status")
@@ -38,10 +35,10 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 
 /// Gets status about Fluence contract from ethereum blockchain.
 pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Box<Error>> {
-    let contract_address: Address = parse_contract_address(args);
-    let eth_url: &str = parse_eth_url(args);
+    let contract_address: Address = parse_contract_address(args)?;
+    let eth_url = parse_eth_url(args)?;
 
-    get_status(contract_address, eth_url)
+    get_status(contract_address, eth_url.as_str())
 }
 
 #[cfg(test)]

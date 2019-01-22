@@ -4,12 +4,15 @@
 #[macro_use]
 pub extern crate ethabi_derive;
 
+#[macro_use]
+extern crate failure;
+
 pub mod check;
+pub mod command;
 pub mod contract_func;
 pub mod contract_status;
 pub mod credentials;
 pub mod delete_app;
-pub mod ethereum_command;
 pub mod publisher;
 pub mod register;
 pub mod types;

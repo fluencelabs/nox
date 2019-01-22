@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-use std::boxed::Box;
-use std::error::Error;
-
 use clap::ArgMatches;
 use clap::{App, Arg, SubCommand};
 use web3::types::H256;
 
+use failure::Error;
+use failure::err_msg;
+
+use crate::command;
 use crate::contract_func::contract::functions::delete_app;
 use crate::contract_func::contract::functions::dequeue_app;
 use crate::contract_func::ContractCaller;
-use crate::ethereum_command;
 use crate::utils;
 
 const APP_ID: &str = "app_id";
@@ -34,11 +34,11 @@ const DEPLOYED: &str = "deployed";
 pub struct DeleteApp {
     app_id: H256,
     deployed: bool,
-    eth: ethereum_command::EthereumArgs,
+    eth: command::EthereumArgs,
 }
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
-    let eth_args = ethereum_command::ethereum_args();
+    let eth_args = command::ethereum_args();
     let my_args = &[
         Arg::with_name(DEPLOYED)
             .long(DEPLOYED)
@@ -60,11 +60,11 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
         .args(args.as_slice())
 }
 
-pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Box<Error>> {
+pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Error> {
     let app_id: H256 = utils::parse_hex_opt(args, APP_ID)?.parse()?;
     let deployed = args.is_present(DEPLOYED);
 
-    let eth = ethereum_command::ethereum_parse(args)?;
+    let eth = command::parse_ethereum_args(args)?;
 
     return Ok(DeleteApp {
         app_id,
@@ -74,7 +74,7 @@ pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Box<Error>> {
 }
 
 impl DeleteApp {
-    pub fn new(app_id: H256, deployed: bool, eth: ethereum_command::EthereumArgs) -> DeleteApp {
+    pub fn new(app_id: H256, deployed: bool, eth: command::EthereumArgs) -> DeleteApp {
         DeleteApp {
             app_id,
             deployed,

@@ -25,9 +25,9 @@ use derive_getters::Getters;
 use reqwest::Client;
 use web3::types::H256;
 
+use crate::command::{ethereum_args, parse_ethereum_args, EthereumArgs};
 use crate::contract_func::contract::functions::add_app;
 use crate::contract_func::ContractCaller;
-use crate::ethereum_command::{ethereum_args, ethereum_parse, EthereumArgs};
 use crate::utils;
 
 const PATH: &str = "path";
@@ -152,7 +152,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
 
     let swarm_url = value_t!(matches, SWARM_URL, String)?;
     let cluster_size = value_t!(matches, CLUSTER_SIZE, u8)?;
-    let eth = ethereum_parse(matches)?;
+    let eth = parse_ethereum_args(matches)?;
 
     let pin_to_nodes = parse_pinned(matches)?;
     if pin_to_nodes.len() > 0 && pin_to_nodes.len() > (cluster_size as usize) {

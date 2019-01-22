@@ -25,18 +25,19 @@ use hex;
 use web3::transports::Http;
 use web3::types::H256;
 
+use crate::command::{
+    base64_tendermint_key, ethereum_args, parse_ethereum_args, parse_tendermint_key,
+    tendermint_key, EthereumArgs,
+};
 use crate::contract_func::contract::functions::add_node;
 use crate::contract_func::ContractCaller;
-use crate::ethereum_command::{ethereum_args, ethereum_parse, EthereumArgs};
 use crate::types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
 use crate::utils;
 
 const ADDRESS: &str = "address";
-const TENDERMINT_KEY: &str = "tendermint_key";
 const START_PORT: &str = "start_port";
 const LAST_PORT: &str = "last_port";
 const WAIT_SYNCING: &str = "wait_syncing";
-const BASE64_TENDERMINT_KEY: &str = "base64_tendermint_key";
 const PRIVATE: &str = "private";
 
 #[derive(Debug, Getters)]
@@ -174,17 +175,7 @@ impl Register {
 pub fn parse(args: &ArgMatches) -> Result<Register, Box<Error>> {
     let node_address: IpAddr = value_t!(args, ADDRESS, IpAddr)?;
 
-    let tendermint_key = utils::parse_hex_opt(args, TENDERMINT_KEY)?.to_owned();
-    let tendermint_key = if args.is_present(BASE64_TENDERMINT_KEY) {
-        let arr = base64::decode(&tendermint_key)?;
-        hex::encode(arr)
-    } else {
-        tendermint_key
-    };
-
-    let tendermint_key: H256 = tendermint_key
-        .parse()
-        .map_err(|e| format!("error parsing tendermint key: {}", e))?;
+    let tendermint_key: H256 = parse_tendermint_key(args)?;
 
     let start_port = value_t!(args, START_PORT, u16)?;
     let last_port = value_t!(args, LAST_PORT, u16)?;
@@ -193,7 +184,7 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Box<Error>> {
 
     let private: bool = args.is_present(PRIVATE);
 
-    let eth = ethereum_parse(args)?;
+    let eth = parse_ethereum_args(args)?;
 
     Register::new(
         node_address,
@@ -215,11 +206,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .index(1)
             .takes_value(true)
             .help("node's IP address"),
-        Arg::with_name(TENDERMINT_KEY)
-            .required(true)
-            .index(2)
-            .takes_value(true)
-            .help("public key of tendermint node"),
+        tendermint_key().index(2),
         Arg::with_name(START_PORT)
             .alias(START_PORT)
             .long(START_PORT)
@@ -235,9 +222,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
         Arg::with_name(WAIT_SYNCING)
             .long(WAIT_SYNCING)
             .help("waits until ethereum node will be synced, executes a command after this"),
-        Arg::with_name(BASE64_TENDERMINT_KEY)
-            .long(BASE64_TENDERMINT_KEY)
-            .help("allows to use base64 tendermint key"),
+        base64_tendermint_key(),
         Arg::with_name(PRIVATE)
             .long(PRIVATE)
             .short("P")
