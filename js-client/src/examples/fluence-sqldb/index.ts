@@ -17,7 +17,7 @@
 import "bootstrap/dist/css/bootstrap.min.css";
 import * as fluence from "js-fluence-client";
 import {NodeSession, Result} from "js-fluence-client";
-import {getNodeStatus, NodeStatus} from "fluence-monitoring";
+import {getNodeStatus, isAvailable, NodeStatus, UnavailableNode} from "fluence-monitoring";
 
 /**
  * The address of one node of a real-time cluster.
@@ -77,7 +77,7 @@ class DbClient {
     /**
      * Gets status of all nodes.
      */
-    async status(): Promise<NodeStatus[]> {
+    async status(): Promise<(NodeStatus|UnavailableNode)[]> {
         return Promise.all(this.sessions.map((session) => {
             return getNodeStatus(session.appNode.node);
         }));
@@ -135,26 +135,29 @@ async function preparePage() {
 
     function updateStatus() {
         client.status().then((r) => {
-            let addrs = client.sessions.map((s) => s.appNode.node.ip_addr);
-            statusField.innerHTML = r.map((st, idx) => {
-                console.log(st);
-                let info = st.workers[0];
+            let addrs = client.sessions.map((s) => s.session.tm.addr);
+            statusField.innerHTML = r.map((status, idx) => {
                 let addr = addrs[idx];
-                if (info.WorkerRunning !== undefined) {
-                    let runningInfo = info.WorkerRunning.info;
-                    let status: Status = {
-                        addr: addr,
-                        block_hash: shorten(runningInfo.lastBlock as string, 10),
-                        app_hash: shorten(runningInfo.lastAppHash as string, 10),
-                        block_height: runningInfo.lastBlockHeight as number
-                    };
-                    return genStatus(status)
-                } else if (info.WorkerContainerNotRunning !== undefined) {
-                    return genErrorStatus(addr, "container not running")
-                } else if (info.WorkerHttpCheckFailed !== undefined) {
-                    return genErrorStatus(addr, info.WorkerHttpCheckFailed.causedBy.substring(0, 40))
-                } else if (info.WorkerNotYetLaunched !== undefined) {
-                    return genErrorStatus(addr, "worker not yet launched")
+                if (isAvailable(status)) {
+                    let info = status.workers[0];
+                    if (info.WorkerRunning !== undefined) {
+                        let runningInfo = info.WorkerRunning.info;
+                        let status: Status = {
+                            addr: addr,
+                            block_hash: shorten(runningInfo.lastBlock as string, 10),
+                            app_hash: shorten(runningInfo.lastAppHash as string, 10),
+                            block_height: runningInfo.lastBlockHeight as number
+                        };
+                        return genStatus(status)
+                    } else if (info.WorkerContainerNotRunning !== undefined) {
+                        return genErrorStatus(addr, "container not running")
+                    } else if (info.WorkerHttpCheckFailed !== undefined) {
+                        return genErrorStatus(addr, info.WorkerHttpCheckFailed.causedBy.substring(0, 40))
+                    } else if (info.WorkerNotYetLaunched !== undefined) {
+                        return genErrorStatus(addr, "worker not yet launched")
+                    }
+                } else {
+                    return genErrorStatus(addr, status.causeBy)
                 }
             }).join("\n");
         })

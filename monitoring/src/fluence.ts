@@ -18,13 +18,13 @@
 import {ContractStatus, getContractStatus} from "./contractStatus";
 import axios from 'axios';
 import {Network} from "../types/web3-contracts/Network";
-import {NodeStatus, UnavailableNode} from "./nodeStatus";
+import {NodeStatus, UnavailableNode, isAvailable} from "./nodeStatus";
 import JSONFormatter from 'json-formatter-js';
 import * as App from "./app"
 import {getNodes, Node} from "./node";
+import {Option} from "ts-option";
 import Web3 = require('web3');
 import abi = require("./Network.json");
-import {Option} from "ts-option";
 
 (window as any).web3 = (window as any).web3 || {};
 let web3 = (window as any).web3;
@@ -32,7 +32,8 @@ let web3 = (window as any).web3;
 export {
     Node as Node,
     NodeStatus as NodeStatus,
-    UnavailableNode as UnavailableNode
+    UnavailableNode as UnavailableNode,
+    isAvailable as isAvailable
 }
 
 /**
@@ -93,10 +94,15 @@ export function getStatusPort(node: Node) {
     return node.last_port + 400
 }
 
-export function getNodeStatus(node: Node): Promise<NodeStatus> {
+export function getNodeStatus(node: Node): Promise<NodeStatus|UnavailableNode> {
     let url = `http://${node.ip_addr}:${getStatusPort(node)}/status`;
     return axios.get(url).then((res) => {
         return <NodeStatus>res.data;
+    }).catch((err) => {
+        return {
+            nodeInfo: node,
+            causeBy: err
+        };
     });
 }
 
