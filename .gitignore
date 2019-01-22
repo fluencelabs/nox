@@ -17,3 +17,6 @@ target/
 
 # Temp
 docs/checklist.md
+
+# Rust SDK Cargo.lock
+sdk/rust/Cargo.lock
