@@ -33,7 +33,8 @@ env.user = "root"
 
 def copy_resources():
 
-    run('rm -r scripts')
+    # cleans up old scripts
+    run('rm -rf scripts')
     run('mkdir scripts -p')
     # copy local directory `script` to remote machine
     put('scripts/compose.sh', 'scripts/')
