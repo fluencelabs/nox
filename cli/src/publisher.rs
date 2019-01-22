@@ -27,7 +27,7 @@ use derive_getters::Getters;
 use reqwest::Client;
 use web3::types::H256;
 
-use crate::command::{ethereum_args, parse_ethereum_args, EthereumArgs};
+use crate::command::{parse_ethereum_args, with_ethereum_args, EthereumArgs};
 use crate::contract_func::contract::functions::add_app;
 use crate::contract_func::ContractCaller;
 use crate::utils;
@@ -90,7 +90,7 @@ impl Publisher {
                 "0000000000000000000000000000000000000000000000000000000000000000".parse()?;
 
             let contract =
-                ContractCaller::new(self.eth.contract_address, &self.eth.eth_url.as_str())?;
+                ContractCaller::new(self.eth.contract_address, self.eth.eth_url.as_str())?;
 
             let (call_data, _) = add_app::call(
                 hash,
@@ -172,7 +172,6 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Error> {
 
 /// Parses arguments from console and initialize parameters for Publisher
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
-    let eth_args = ethereum_args();
     let my_args = &[
         Arg::with_name(PATH)
             .required(true)
@@ -210,12 +209,9 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .help("If specified, tendermint keys for pin_to flag treated as base64"),
     ];
 
-    let mut args = eth_args.to_vec();
-    args.extend_from_slice(my_args);
-
     SubCommand::with_name("publish")
         .about("Publish code to ethereum blockchain")
-        .args(args.as_slice())
+        .args(with_ethereum_args(my_args).as_slice())
 }
 
 /// Uploads bytes of code to the Swarm
@@ -242,6 +238,7 @@ mod tests {
     use web3::types::H256;
     use web3::types::*;
 
+    use crate::command::EthereumArgs;
     use crate::credentials::Credentials;
     use crate::publisher::Publisher;
 
@@ -252,16 +249,20 @@ mod tests {
 
         let bytes = vec![1, 2, 3];
 
+        let eth = EthereumArgs {
+            credentials: creds,
+            gas: 1000000,
+            account: account.parse().unwrap(),
+            contract_address,
+            eth_url: String::from("http://localhost:8545"),
+        };
+
         Publisher::new(
             bytes,
-            contract_address,
-            account.parse().unwrap(),
-            String::from("http://localhost:8500"),
-            String::from("http://localhost:8545/"),
-            creds,
+            String::from("http://localhost:8500/"),
             5,
-            1000000,
             vec![],
+            eth,
         )
     }
 
@@ -276,13 +277,13 @@ mod tests {
 
     pub fn generate_new_account(with_pass: bool) -> Publisher {
         generate_with(OWNER, |p| {
-            let (_eloop, transport) = web3::transports::Http::new(&p.eth_url).unwrap();
+            let (_eloop, transport) = web3::transports::Http::new(p.eth.eth_url.as_str()).unwrap();
             let web3 = web3::Web3::new(transport);
             let acc = web3.personal().new_account("123").wait().unwrap();
-            p.account = acc;
+            p.eth.account = acc;
 
             if with_pass {
-                p.credentials = Credentials::Password(String::from("123"));
+                p.eth.credentials = Credentials::Password(String::from("123"));
             }
         })
     }
@@ -325,7 +326,7 @@ mod tests {
     #[test]
     fn publish_wrong_eth_url() -> Result<(), Error> {
         let publisher = generate_with("fa0de43c68bea2167181cd8a83f990d02a049336", |p| {
-            p.eth_url = String::from("http://117.2.6.7:4476");
+            p.eth.eth_url = String::from("http://117.2.6.7:4476");
         });
 
         let result = publisher.publish(false);
@@ -338,7 +339,7 @@ mod tests {
     #[test]
     fn publish_out_of_gas() -> Result<(), Error> {
         let publisher = generate_with("fa0de43c68bea2167181cd8a83f990d02a049336", |p| {
-            p.gas = 1;
+            p.eth.gas = 1;
         });
 
         let result = publisher.publish(false);
