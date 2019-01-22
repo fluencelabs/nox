@@ -30,10 +30,11 @@ env.hosts = info.keys()
 
 # Set the username
 env.user = "root"
- 
+
 def copy_resources():
 
-    run('rm -r scripts')
+    # cleans up old scripts
+    run('rm -rf scripts')
     run('mkdir scripts -p')
     # copy local directory `script` to remote machine
     put('scripts/compose.sh', 'scripts/')
@@ -45,7 +46,7 @@ def copy_resources():
 # comment this annotation to deploy sequentially
 @parallel
 def deploy():
- 
+
     copy_resources()
 
     with cd("scripts"):

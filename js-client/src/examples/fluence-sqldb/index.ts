@@ -65,7 +65,7 @@ class DbClient {
         let nodeSession = this.appSession.workerSessions[this.nodeNumber()];
         return queries.map((q) => {
             console.log("query: " + q);
-            let res = nodeSession.session.invoke("do_query", q).result();
+            let res = nodeSession.session.invoke(q).result();
             res.then((r: Result) => {
                 if (fluence.isValue(r)) {
                     let strResult = Buffer.from(r.hex(), 'hex').toString();

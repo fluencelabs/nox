@@ -16,7 +16,7 @@
 
 //! Wrapper for Llamadb (a test for Fluence network).
 //!
-//! Provides the public method (`do_query`) for work with Llamadb and some public service
+//! Provides the public method (`invoke`) for work with Llamadb and some public service
 //! methods (`allocation`, `deallocation`, `init_logger`).
 
 #![feature(allocator_api)]
@@ -70,8 +70,8 @@ pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
 /// 3. Returns a pointer to the result as a string in the memory
 /// 4. Deallocates memory occupied by passed parameter
 #[no_mangle]
-pub unsafe fn do_query(ptr: *mut u8, len: usize) -> NonNull<u8> {
-    info!("do_query starts with ptr={:?}, len={}", ptr, len);
+pub unsafe fn invoke(ptr: *mut u8, len: usize) -> NonNull<u8> {
+    info!("invoke starts with ptr={:?}, len={}", ptr, len);
     // memory for the parameter will be deallocated when sql_str was dropped
     let sql_str: String = fluence::memory::deref_str(ptr, len);
 
@@ -80,7 +80,7 @@ pub unsafe fn do_query(ptr: *mut u8, len: usize) -> NonNull<u8> {
         Err(err_msg) => format!("[Error] {}", err_msg),
     };
 
-    info!("do_query ends with result={:?}", db_response);
+    info!("llamadb do_query ends with result={:?}", db_response);
     // return pointer to result in memory
     fluence::memory::write_str_to_mem(&db_response)
         .unwrap_or_else(|_| log_and_panic("Putting result string to the memory was failed.".into()))
