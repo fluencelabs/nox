@@ -141,11 +141,17 @@ contract Deployer {
     // Emitted on every new Node
     event NewNode(bytes32 id);
 
+    // Emitted when node was deleted from nodes mapping and from readyNodes if it was there
+    event NodeDeleted(bytes32 id);
+
     // Emitted when app is removed from enqueuedApps by owner
     event AppDequeued(bytes32 appID);
 
     // Emitted when running app was removed by app owner
     event AppDeleted(bytes32 appID);
+
+    // Address of the contract owner (the one who deployed this contract)
+    address private _contractOwner;
 
     // Nodes ready to join new clusters
     bytes32[] public readyNodes;
@@ -165,6 +171,18 @@ contract Deployer {
 
     // Number of all ever existed apps, used for appID generation
     uint256 internal appsCount = 1;
+
+    constructor () internal {
+        // Save contract's owner
+        _contractOwner = msg.sender;
+    }
+
+    /**
+     * @return true if `msg.sender` is the owner of the contract.
+     */
+    function isContractOwner() public view returns (bool) {
+        return msg.sender == _owner;
+    }
 
     /** @dev Adds node with specified port range to the work-waiting queue
       * @param nodeID Tendermint's ValidatorKey
@@ -278,7 +296,7 @@ contract Deployer {
         require(i < enqueuedApps.length, "error deleting app: app not found");
 
         App memory app = apps[appID];
-        require(app.owner == msg.sender, "error deleting app: you must own the app to delete it");
+        require(app.owner == msg.sender || isContractOwner(), "error deleting app: you must own the app to delete it");
 
         removeEnqueuedApp(i);
 
@@ -299,7 +317,7 @@ contract Deployer {
         App memory app = apps[appID];
         require(app.appID != 0, "error deleting app: cluster not found");
         require(app.appID == appID, "error deleting app: cluster hosts another app");
-        require(app.owner == msg.sender, "error deleting app: you must own app to delete it");
+        require(app.owner == msg.sender || isContractOwner(), "error deleting app: you must own app to delete it");
         require(app.cluster.genesisTime != 0, "error deleting app: app must be deployed, use dequeueApp");
 
         bool removed = removeApp(appID);
@@ -308,38 +326,47 @@ contract Deployer {
         emit AppDeleted(appID);
     }
 
-    /** @dev Deletes node that hosts apps
-    *
+    /** @dev Deletes node from nodes mapping, nodeIds and readyNodes arrays
+    * @param nodeID ID of the node to be deleted
     */
     function deleteNode(bytes32 nodeID)
         external
     {
         Node memory node = nodes[nodeID];
         require(node.id != 0, "error deleting node: node not found");
-        require(node.owner == msg.sender, "error deleting node: you must own node to delete it");
+        require(node.owner == msg.sender || isContractOwner(), "error deleting node: you must own node to delete it");
 
         uint i;
+
+        // Find the node in readyNodes
         for(; i < readyNodes.length; i++) {
             if (readyNodes[i] == nodeID) {
                 break;
             }
         }
 
+        // If node was in readyNodes, remove it
         if (i < readyNodes.length) {
             removeReadyNode(i);
         }
 
+        // Find the node in nodesIds
         for(i = 0; i < nodesIds.length; i++) {
             if (nodesIds[i] == nodeID) {
                 break;
             }
         }
 
+        // This should never happen if there's no bugs. But it's better to revert if there is some inconsistency.
         require(i < nodesIds.length, "error deleting node: node not found in nodesIds array");
 
+        // Remove node from nodesIds array
         removeFromNodeIds(i);
 
+        // Remove node from nodes mapping
         delete nodes[nodeID];
+
+        emit NodeDeleted(nodeID);
     }
 
     /** @dev Tries to deploy an app, using ready nodes and their ports
