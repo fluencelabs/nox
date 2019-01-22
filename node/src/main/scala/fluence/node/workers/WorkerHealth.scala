@@ -16,20 +16,21 @@
 
 package fluence.node.workers
 
+import fluence.node.eth.WorkerNode
 import fluence.node.workers.WorkerResponse.WorkerTendermintInfo
-import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto._
+import io.circe.{Decoder, Encoder}
 
 /**
  * Collected information about running worker.
  */
 case class RunningWorkerInfo(
+  appId: String,
   rpcPort: Short,
   p2pPort: Short,
   stateMachinePrometheusPort: Short,
   tendermintPrometheusPort: Short,
-  clusterId: String,
-  codeId: String,
+  tendermintNodeId: String,
   lastBlock: String,
   lastAppHash: String,
   lastBlockHeight: Int
@@ -37,14 +38,14 @@ case class RunningWorkerInfo(
 
 object RunningWorkerInfo {
 
-  def fromParams(params: WorkerParams, tendermintInfo: WorkerTendermintInfo) =
+  def apply(params: WorkerParams, tendermintInfo: WorkerTendermintInfo): RunningWorkerInfo =
     RunningWorkerInfo(
-      params.clusterData.rpcPort,
-      params.clusterData.p2pPort,
-      params.clusterData.smPrometheusPort,
-      params.clusterData.tmPrometheusPort,
+      params.appId.toHex,
+      params.currentWorker.rpcPort,
+      params.currentWorker.p2pPort,
+      params.currentWorker.smPrometheusPort,
+      params.currentWorker.tmPrometheusPort,
       tendermintInfo.node_info.id,
-      params.clusterData.code.asHex,
       tendermintInfo.sync_info.latest_block_hash,
       tendermintInfo.sync_info.latest_app_hash,
       tendermintInfo.sync_info.latest_block_height
@@ -62,44 +63,42 @@ case class StoppedWorkerInfo(
   p2pPort: Short,
   stateMachinePrometheusPort: Short,
   tendermintPrometheusPort: Short,
-  codeId: String
 )
 
 object StoppedWorkerInfo {
 
   def apply(
-    params: WorkerParams
+    worker: WorkerNode
   ): StoppedWorkerInfo =
     new StoppedWorkerInfo(
-      params.clusterData.rpcPort,
-      params.clusterData.p2pPort,
-      params.clusterData.smPrometheusPort,
-      params.clusterData.tmPrometheusPort,
-      params.clusterData.code.asHex
+      worker.rpcPort,
+      worker.p2pPort,
+      worker.smPrometheusPort,
+      worker.tmPrometheusPort,
     )
 
   implicit val encodeStoppedWorkerInfo: Encoder[StoppedWorkerInfo] = deriveEncoder
   implicit val decodeStoppedWorkerInfo: Decoder[StoppedWorkerInfo] = deriveDecoder
 }
 
-sealed trait WorkerInfo {
+sealed trait WorkerHealth {
   def isHealthy: Boolean
 }
 
-object WorkerInfo {
+object WorkerHealth {
   implicit val encodeThrowable: Encoder[Throwable] = Encoder[String].contramap(_.getLocalizedMessage)
 
   implicit val decodeThrowable: Decoder[Throwable] = Decoder[String].map(s => new Exception(s))
 
-  implicit val encoderWorkerInfo: Encoder[WorkerInfo] = deriveEncoder
-  implicit val decoderWorkerInfo: Decoder[WorkerInfo] = deriveDecoder
+  implicit val encoderWorkerInfo: Encoder[WorkerHealth] = deriveEncoder
+  implicit val decoderWorkerInfo: Decoder[WorkerHealth] = deriveDecoder
 }
 
-sealed trait WorkerHealthy extends WorkerInfo {
+sealed trait WorkerHealthy extends WorkerHealth {
   override def isHealthy: Boolean = true
 }
 
-sealed trait WorkerIll extends WorkerInfo {
+sealed trait WorkerIll extends WorkerHealth {
   override def isHealthy: Boolean = false
 }
 

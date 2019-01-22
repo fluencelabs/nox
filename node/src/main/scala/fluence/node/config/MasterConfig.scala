@@ -94,8 +94,8 @@ object EndpointsConfig {
  *
  * @param endpoints information about a node possible endpoints (IP and ports) that will be used as addresses
  *                 for requests after a cluster will be formed
- * @param validatorKey p2p port
- * @param nodeAddress p2p port
+ * @param validatorKey Tendermint validator public key, used by node for participation in Tendermint consensus
+ * @param nodeAddress p2p ID for this node. Basically first 20 bytes of p2p peer SHA256(PubKey)
  */
 case class NodeConfig(
   endpoints: EndpointsConfig,

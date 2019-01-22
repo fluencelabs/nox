@@ -199,6 +199,8 @@ lazy val node = project
     test in Test := (test in Test)
       .dependsOn(docker)
       .dependsOn(docker in statemachine)
+      .dependsOn(compile in `vm-llamadb`)
+      .dependsOn(compile in Test) // run compilation before building docker containers
       .value,
     mainClass in assembly       := Some("fluence.node.MasterNodeApp"),
     assemblyJarName in assembly := "master-node.jar",

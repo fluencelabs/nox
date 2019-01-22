@@ -28,9 +28,7 @@ export class Signer {
 
     constructor(signingKey: string) {
         let ec = new elliptic.eddsa('ed25519');
-
-        let keyS = base64js.toByteArray(signingKey);
-
+        let keyS = utils.toHex(base64js.toByteArray(signingKey));
         this.key = ec.keyFromSecret(keyS);
     }
 

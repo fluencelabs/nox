@@ -17,14 +17,15 @@
 package fluence.node.workers
 
 import cats.Parallel
+import cats.effect._
 import cats.effect.concurrent.Ref
-import cats.effect.{Concurrent, ContextShift, Sync, Timer}
 import cats.instances.list._
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
+import scodec.bits.ByteVector
 import slogging.LazyLogging
 
 import scala.language.higherKinds
@@ -32,11 +33,11 @@ import scala.language.higherKinds
 /**
  * Wraps several [[Worker]]s in a pool, providing running and monitoring functionality.
  *
- * @param workers a storage for running [[Worker]]s
+ * @param workers a storage for running [[Worker]]s, indexed by appIds
  * @param healthCheckConfig see [[HealthCheckConfig]]
  */
 class WorkersPool[F[_]: ContextShift: Timer](
-  workers: Ref[F, Map[WorkerParams, Worker[F]]],
+  workers: Ref[F, Map[ByteVector, Worker[F]]],
   healthCheckConfig: HealthCheckConfig
 )(
   implicit sttpBackend: SttpBackend[F, Nothing],
@@ -46,10 +47,10 @@ class WorkersPool[F[_]: ContextShift: Timer](
   /**
    * Returns true if the worker is in the pool and healthy, and false otherwise. Also returns worker instance.
    */
-  private def checkWorkerHealthy(params: WorkerParams): F[(Boolean, Option[Worker[F]])] = {
+  private def checkWorkerHealthy(appId: ByteVector): F[(Boolean, Option[Worker[F]])] = {
     for {
       map <- workers.get
-      oldWorker = map.get(params)
+      oldWorker = map.get(appId)
       healthy <- oldWorker match {
         case None => F.delay(false)
         case Some(worker) => worker.healthReport.map(_.isHealthy)
@@ -64,23 +65,23 @@ class WorkersPool[F[_]: ContextShift: Timer](
    * @return F that resolves with true when worker is registered; it might be not running yet. If it was registered before, F resolves with false
    */
   def run(params: WorkerParams): F[Boolean] =
-    checkWorkerHealthy(params).flatMap {
+    checkWorkerHealthy(params.appId).flatMap {
       case (false, oldWorker) ⇒
         for {
           // stop an old worker
           _ <- oldWorker.map(stop).getOrElse(F.unit)
-          worker <- Worker.run[F](params, healthCheckConfig, Sync[F].delay {
+          worker <- Worker.run[F](params, healthCheckConfig, Sync[F].suspend {
             logger.info(s"Removing worker from a pool: $params")
-            workers.update(_ - params)
+            workers.update(_ - params.appId)
           })
-          _ ← workers.update(_.updated(params, worker))
+          _ ← workers.update(_.updated(params.appId, worker))
         } yield true
-      case (true, _) ⇒
-        logger.info(s"Worker $params was already ran")
+      case (true, oldWorker) ⇒
+        logger.info(s"Worker for app ${params.appIdHex} was already ran as $oldWorker")
         false.pure[F]
     }
 
-  def stop(worker: Worker[F]): F[Unit] =
+  private def stop(worker: Worker[F]): F[Unit] =
     worker.stop.attempt.map(stopped ⇒ logger.info(s"Stopped: ${worker.params} => $stopped"))
 
   /**
@@ -89,7 +90,7 @@ class WorkersPool[F[_]: ContextShift: Timer](
    * @param P Parallel instance is required as all workers are stopped concurrently
    * @return F that resolves when all workers are stopped
    */
-  def stopAll[G[_]](implicit P: Parallel[F, G]): F[Unit] =
+  def stopAll[G[_]]()(implicit P: Parallel[F, G]): F[Unit] =
     for {
       workersMap ← workers.get
       workers = workersMap.values.toList
@@ -102,11 +103,30 @@ class WorkersPool[F[_]: ContextShift: Timer](
    *
    * @param P [[Parallel]] instance is required as all workers are stopped concurrently
    */
-  def healths[G[_]](implicit P: Parallel[F, G]): F[Map[WorkerParams, WorkerInfo]] =
+  def healths[G[_]](implicit P: Parallel[F, G]): F[Map[WorkerParams, WorkerHealth]] =
     for {
       workersMap ← workers.get
       workersHealth ← Parallel.parTraverse(workersMap.values.toList)(s ⇒ s.healthReport.map(s.params → _))
     } yield workersHealth.toMap
+
+  /**
+   * Stops a worker corresponding to `appId` it it exists. Does nothing if no worker is found.
+   * @param appId AppId of the worker
+   * @return
+   */
+  def stopWorkerForApp(appId: ByteVector): F[Unit] =
+    for {
+      map <- workers.get
+      worker = map.get(appId)
+      _ <- worker
+        .map(
+          w =>
+            stop(w).attempt.map { stopped =>
+              logger.info(s"Stopped: ${w.params} => $stopped")
+          }
+        )
+        .getOrElse(F.unit)
+    } yield ()
 }
 
 object WorkersPool {
@@ -114,10 +134,15 @@ object WorkersPool {
   /**
    * Build a new [[WorkersPool]]
    */
-  def apply[F[_]: Concurrent: ContextShift: Timer](healthCheckConfig: HealthCheckConfig = HealthCheckConfig())(
-    implicit sttpBackend: SttpBackend[F, Nothing]
-  ): F[WorkersPool[F]] =
-    for {
-      workers ← Ref.of[F, Map[WorkerParams, Worker[F]]](Map.empty)
-    } yield new WorkersPool[F](workers, HealthCheckConfig())
+  def apply[F[_]: ContextShift: Timer, G[_]](healthCheckConfig: HealthCheckConfig = HealthCheckConfig())(
+    implicit
+    sttpBackend: SttpBackend[F, Nothing],
+    F: Concurrent[F],
+    P: Parallel[F, G]
+  ): Resource[F, WorkersPool[F]] =
+    Resource.make {
+      for {
+        workers ← Ref.of[F, Map[ByteVector, Worker[F]]](Map.empty)
+      } yield new WorkersPool[F](workers, HealthCheckConfig())
+    }(_.stopAll())
 }
