@@ -18,8 +18,7 @@ use clap::ArgMatches;
 use clap::{App, Arg, SubCommand};
 use web3::types::H256;
 
-use failure::Error;
-use failure::err_msg;
+use std::error::Error;
 
 use crate::command;
 use crate::contract_func::contract::functions::delete_app;
@@ -38,7 +37,6 @@ pub struct DeleteApp {
 }
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
-    let eth_args = command::ethereum_args();
     let my_args = &[
         Arg::with_name(DEPLOYED)
             .long(DEPLOYED)
@@ -52,15 +50,12 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .help("app to be removed")
     ];
 
-    let mut args = eth_args.to_vec();
-    args.extend_from_slice(my_args);
-
     SubCommand::with_name("delete_app")
         .about("Delete app from smart-contract")
-        .args(args.as_slice())
+        .args(command::with_ethereum_args(my_args).as_slice())
 }
 
-pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Error> {
+pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Box<Error>> {
     let app_id: H256 = utils::parse_hex_opt(args, APP_ID)?.parse()?;
     let deployed = args.is_present(DEPLOYED);
 

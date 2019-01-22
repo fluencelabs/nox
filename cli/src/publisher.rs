@@ -25,7 +25,7 @@ use derive_getters::Getters;
 use reqwest::Client;
 use web3::types::H256;
 
-use crate::command::{ethereum_args, parse_ethereum_args, EthereumArgs};
+use crate::command::{with_ethereum_args, parse_ethereum_args, EthereumArgs};
 use crate::contract_func::contract::functions::add_app;
 use crate::contract_func::ContractCaller;
 use crate::utils;
@@ -173,7 +173,6 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
 
 /// Parses arguments from console and initialize parameters for Publisher
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
-    let eth_args = ethereum_args();
     let my_args = &[
         Arg::with_name(PATH)
             .required(true)
@@ -211,12 +210,10 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .help("If specified, tendermint keys for pin_to flag treated as base64"),
     ];
 
-    let mut args = eth_args.to_vec();
-    args.extend_from_slice(my_args);
 
     SubCommand::with_name("publish")
         .about("Publish code to ethereum blockchain")
-        .args(args.as_slice())
+        .args(with_ethereum_args(my_args).as_slice())
 }
 
 /// Uploads bytes of code to the Swarm

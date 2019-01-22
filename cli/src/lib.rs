@@ -4,9 +4,6 @@
 #[macro_use]
 pub extern crate ethabi_derive;
 
-#[macro_use]
-extern crate failure;
-
 pub mod check;
 pub mod command;
 pub mod contract_func;

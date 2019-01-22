@@ -26,7 +26,7 @@ use web3::transports::Http;
 use web3::types::H256;
 
 use crate::command::{
-    base64_tendermint_key, ethereum_args, parse_ethereum_args, parse_tendermint_key,
+    base64_tendermint_key, with_ethereum_args, parse_ethereum_args, parse_tendermint_key,
     tendermint_key, EthereumArgs,
 };
 use crate::contract_func::contract::functions::add_node;
@@ -199,7 +199,6 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Box<Error>> {
 
 /// Parses arguments from console and initialize parameters for Publisher
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
-    let eth_args = ethereum_args();
     let my_args = &[
         Arg::with_name(ADDRESS)
             .required(true)
@@ -230,12 +229,9 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .help("marks node as private, used for pinning apps to nodes"),
     ];
 
-    let mut args = eth_args.to_vec();
-    args.extend_from_slice(my_args);
-
     SubCommand::with_name("register")
         .about("Register a node in the smart contract")
-        .args(args.as_slice())
+        .args(with_ethereum_args(my_args).as_slice())
 }
 
 #[cfg(test)]

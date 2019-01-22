@@ -6,12 +6,9 @@ use clap::Arg;
 use clap::ArgMatches;
 use web3::types::Address;
 
-use failure::Error as FError;
-
 use crate::credentials::Credentials;
 use crate::utils;
 use web3::types::H256;
-use rustc_hex::FromHexError;
 
 const PASSWORD: &str = "password";
 const SECRET_KEY: &str = "secret_key";
@@ -61,12 +58,19 @@ pub fn base64_tendermint_key<'a, 'b>() -> Arg<'a, 'b> {
         .help("allows to use base64 tendermint key")
 }
 
-pub fn ethereum_args<'a, 'b>() -> [Arg<'a, 'b>; 6] {
-    [
-        contract_address().index(1),
+pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
+    // find last positional argument index, to add ethereum arguments after it
+    let last_index = args
+        .iter()
+        .filter_map(|a| a.index)
+        .max()
+        .unwrap_or(0);
+
+    let mut eth_args = vec![
+        contract_address().index(last_index + 1),
         Arg::with_name(ACCOUNT)
             .required(true)
-            .index(2)
+            .index(last_index + 2)
             .takes_value(true)
             .help("ethereum account"),
         eth_url(),
@@ -89,11 +93,22 @@ pub fn ethereum_args<'a, 'b>() -> [Arg<'a, 'b>; 6] {
             .takes_value(true)
             .default_value("1000000")
             .help("maximum gas to spend"),
-    ]
+    ];
+
+    // append args
+    eth_args.extend_from_slice(args);
+
+    // sort so positional arguments are always at the end, to reverse them later (clap nuance)
+    eth_args.sort_unstable_by_key(|a| a.index);
+
+    // reverse so positional arguments are always at the beginning (clap nuance)
+    eth_args.reverse();
+
+    eth_args
 }
 
-pub fn parse_contract_address(args: &ArgMatches) -> Result<Address, FError> {
-    utils::parse_hex_opt(args, CONTRACT_ADDRESS)?.parse::<Address>()
+pub fn parse_contract_address(args: &ArgMatches) -> Result<Address, Box<Error>> {
+    utils::parse_hex_opt(args, CONTRACT_ADDRESS)?.parse::<Address>().map_err(|e| e.into())
 }
 
 pub fn parse_eth_url(args: &ArgMatches) -> Result<String, clap::Error> {
