@@ -77,8 +77,6 @@ contract Deployer {
 
         // Apps hosted by this node
         bytes32[] appIDs;
-
-        uint256 index;
     }
 
     // Represents deployed or enqueued (waiting to be deployed) code
@@ -467,6 +465,19 @@ contract Deployer {
         delete readyNodes[readyNodes.length - 1];
 
         readyNodes.length--;
+    }
+
+    function removeNodeId(uint index)
+    internal
+    {
+        if (index != nodesIds.length - 1) {
+            // remove index-th node from nodesIds replacing it by the last node in the array
+            nodesIds[index] = nodesIds[nodesIds.length - 1];
+        }
+        // release the storage
+        delete nodesIds[nodesIds.length - 1];
+
+        nodesIds.length--;
     }
 
 
