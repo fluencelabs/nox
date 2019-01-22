@@ -47,6 +47,6 @@ request.post(
                     })
 
                 });
-            }).catch(console.log)
+            }).catch((e) => console.log("error in deploy-contract.js: " + e))
     }
 );
