@@ -1,4 +1,4 @@
-;; this example has some functions that recieve and put strings
+;; this example simply returns pointer to "Hello from Fluence Labs!\00" string
 
 (module
     ;; force Asmble to use memory
@@ -18,40 +18,16 @@
         (drop)
     )
 
-    (func (export "hello") (param $buffer i32) (param $bufferSize i32) (result i32)
-        (call $putStringResult
+    ;; returns pointer to const string from memory
+    (func (export "invoke") (param $buffer i32) (param $bufferSize i32) (result i32)
+        (call $putArrayResult
             (i32.const 128)
             (i32.const 24)
             (i32.const 1048592)
         )
     )
 
-    ;; puts 0x00FFFFFF as result size in memory at offset 1048592 and returns pointer to it
-    (func (export "incorrectLengthResult") (param $buffer i32) (param $size i32) (result i32)
-        (local $0 i32)
-        (set_local $0 (i32.const 1048592))
-
-        (i32.store8
-            (get_local $0)
-            (i32.const 255)
-        )
-        (i32.store8
-            (i32.add (get_local $0) (i32.const 1))
-            (i32.const 255)
-        )
-        (i32.store8
-            (i32.add (get_local $0) (i32.const 2))
-            (i32.const 255)
-        )
-        (i32.store8
-            (i32.add (get_local $0) (i32.const 3))
-            (i32.const 0)
-        )
-
-        (i32.const 1048592)
-    )
-
-    ;; int putStringResult(const char *string, int stringSize, int address) {
+    ;; int putArrayResult(const char *string, int stringSize, int address) {
     ;;
     ;;   globalBuffer[address] = (stringSize >> 24) & 0xFF;
     ;;   globalBuffer[address + 1] = (stringSize >> 16) & 0xFF;
@@ -62,7 +38,7 @@
     ;;     globalBuffer[address + 4 + i] = string[i];
     ;;   }
     ;; }
-    (func $putStringResult (param $string i32) (param $stringSize i32) (param $address i32) (result i32)
+    (func $putArrayResult (param $string i32) (param $stringSize i32) (param $address i32) (result i32)
         (local $3 i32)
         (local $4 i32)
 

@@ -22,7 +22,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.statemachine.StoreKey
 import fluence.statemachine.config.StateMachineConfig
-import fluence.statemachine.error.StateMachineError
+import fluence.statemachine.error.{PayloadParseError, StateMachineError}
 import fluence.statemachine.state.MutableStateTree
 import fluence.statemachine.tree.StoragePaths._
 import fluence.statemachine.tree.TreePath
@@ -127,22 +127,24 @@ class TxProcessor[F[_]](
    * @param tx transaction ready to be applied (by the invocation in VM)
    * @return [[TransactionStatus]] corresponding to the invocation result
    */
-  private def invokeTx(tx: Transaction): F[TransactionStatus] =
-    FunctionCallDescription
-      .parse[F](tx.payload)
-      .flatMap {
-        case FunctionCallDescription(None, FunctionCallDescription.CloseSession, arr) if arr.isEmpty =>
-          EitherT.right[StateMachineError](putResult(tx, TransactionStatus.SessionClosed, Empty))
-        case callDescription =>
-          vmInvoker
-            .invoke(callDescription)
-            .map {
-              case None => Empty
-              case Some(value) => Computed(value)
-            }
-            .flatMap(result => EitherT.right[StateMachineError](putResult(tx, TransactionStatus.Success, result)))
-      }
-      .valueOrF(error => putResult(tx, TransactionStatus.Error, Error(error.code, error.message)))
+  private def invokeTx(tx: Transaction): F[TransactionStatus] = {
+    tx.payload match {
+      case SmCloseSession(_) =>
+        EitherT.right[StateMachineError](putResult(tx, TransactionStatus.SessionClosed, Empty))
+
+      case VmFunctionCall(vmCallDescription) =>
+        vmInvoker
+          .invoke(vmCallDescription)
+          .flatMap(
+            result => EitherT.right[StateMachineError](putResult(tx, TransactionStatus.Success, Computed(result)))
+          )
+
+      case payload =>
+        EitherT.leftT[F, TransactionStatus](
+          PayloadParseError("WrongPayloadArgument", s"Wrong payload argument=$payload")
+        )
+    }
+  }.valueOrF(error => putResult(tx, TransactionStatus.Error, Error(error.code, error.message)))
 
   /**
    * Traverses all currently stored sessions and mark those of them which need to be expired,

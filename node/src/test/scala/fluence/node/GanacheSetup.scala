@@ -14,24 +14,26 @@
  * limitations under the License.
  */
 
-package fluence.node.tendermint.json
+package fluence.node
+import cats.syntax.functor._
 
-import io.circe.Encoder
-import io.circe.generic.semiauto._
+import scala.language.higherKinds
 
-/**
- * Information about the cluster and current node. Compatible with `master-run-node.sh` script.
- *
- * TODO: there should be no `master-run-node.sh` script
- *
- * @param cluster cluster information
- * @param node_index node index
- */
-case class NodeInfo(cluster: Cluster, node_index: String) {
-  def clusterName: String = cluster.genesis.chain_id
-  def nodeName = s"${clusterName}_node$node_index"
-}
+trait GanacheSetup extends OsSetup with slogging.LazyLogging {
 
-object NodeInfo {
-  implicit def nodeInfoEncoder: Encoder[NodeInfo] = deriveEncoder[NodeInfo]
+  def wireupContract(): Unit = {
+    logger.info("bootstrapping npm")
+    runCmd("npm install")
+
+    logger.info("starting Ganache")
+    runBackground("npm run ganache")
+
+    logger.info("deploying contract to Ganache")
+    runCmd("npm run migrate")
+  }
+
+  def killGanache(): Unit = {
+    logger.info("killing ganache")
+    runCmd("pkill -f ganache")
+  }
 }

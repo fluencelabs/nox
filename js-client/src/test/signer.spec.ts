@@ -29,13 +29,12 @@ describe('Signer', () => {
             let hashedMessage = sha256(messageBytes);
 
             // get only public key for verifying
-            let key = ec.keyFromSecret(base64js.toByteArray(signKey));
-            let publicKey = ec.keyFromPublic(key);
+            let key = ec.keyFromSecret(utils.toHex(base64js.toByteArray(signKey)));
+            let publicKey = ec.keyFromPublic(key.getPublic());
 
             // get hex of sign for verifier
             let signHex = Buffer.from(base64js.toByteArray(sign)).toString('hex');
-
-            let res = ec.verify(hashedMessage, signHex, publicKey);
+            let res = ec.verify(utils.toHex(hashedMessage), signHex, publicKey);
             expect(res).to.be.equal(true);
 
         });

@@ -98,22 +98,23 @@ impl Register {
 
     /// Serializes a node IP address and a tendermint key into the hash of node's key address
     fn serialize_node_address(&self) -> Result<NodeAddress, Box<Error>> {
-        let ip_str = self.node_ip.to_string();
-        let split = ip_str.split('.');
-
-        let mut addr_bytes: [u8; 4] = [0; IP_LEN];
-
-        for (i, part) in split.enumerate() {
-            addr_bytes[i] = part.parse()?;
-        }
-
-        let mut addr_vec = addr_bytes.to_vec();
-
+        // serialize tendermint key
         let key_str = format!("{:?}", &self.tendermint_key);
         let key_str = key_str.as_str().trim_start_matches("0x");
 
         let key_bytes = hex::decode(key_str.to_owned())?;
         let mut key_bytes = key_bytes.as_slice()[0..TENDERMINT_KEY_LEN].to_vec();
+
+        // serialize IP address
+        let ip_str = self.node_ip.to_string();
+        let split = ip_str.split('.');
+        let mut addr_bytes: [u8; IP_LEN] = [0; IP_LEN];
+        for (i, part) in split.enumerate() {
+            addr_bytes[i] = part.parse()?;
+        }
+        let mut addr_vec = addr_bytes.to_vec();
+
+        // concatenate tendermint key and IP address
         key_bytes.append(&mut addr_vec);
 
         let serialized = hex::encode(key_bytes);

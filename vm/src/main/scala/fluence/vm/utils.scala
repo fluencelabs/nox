@@ -14,20 +14,26 @@
  * limitations under the License.
  */
 
-package fluence.node.tendermint.json
+package fluence.vm
+import cats.Applicative
+import cats.data.EitherT
 
-import io.circe.Encoder
-import io.circe.generic.semiauto.deriveEncoder
+import scala.util.Try
+import scala.language.higherKinds
 
-/**
- * Information about the cluster without node-specific data.
- *
- * @param genesis genesis in Tendermint format
- * @param persistent_peers p2p peers in Tendermint format
- * @param external_addrs external address used to initialize advertised address in launching scripts
- */
-case class Cluster(genesis: Genesis, persistent_peers: String, external_addrs: Seq[String])
+object utils {
 
-object Cluster {
-  implicit val clusterEncoder: Encoder[Cluster] = deriveEncoder[Cluster]
+  /**
+   *  Runs action inside Try block, convert to EitherT with specified effect F.
+   */
+  def safelyRunThrowable[F[_]: Applicative, T, E <: VmError](
+    action: ⇒ T,
+    mapError: Throwable ⇒ E
+  ): EitherT[F, E, T] =
+    EitherT
+      .fromEither(
+        Try(action).toEither
+      )
+      .leftMap(mapError)
+
 }

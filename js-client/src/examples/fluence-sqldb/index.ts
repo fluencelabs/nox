@@ -80,7 +80,7 @@ class DbClient {
         let session = this.sessions[this.nodeNumber()];
         return queries.map((q) => {
             console.log("query: " + q);
-            let res = session.invoke("do_query", q).result();
+            let res = session.invoke(q).result();
             res.then((r: Result) => {
                 if (fluence.isValue(r)) {
                     let strResult = fluence.fromHex(r.hex());

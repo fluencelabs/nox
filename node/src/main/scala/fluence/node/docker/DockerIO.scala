@@ -17,16 +17,16 @@
 package fluence.node.docker
 
 import cats.Applicative
+import cats.effect.{ContextShift, Sync, Timer}
 import cats.syntax.apply._
 import cats.syntax.functor._
-import cats.effect.{ContextShift, Sync, Timer}
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat
 import slogging.LazyLogging
 
 import scala.concurrent.duration.FiniteDuration
-import scala.util.{Failure, Success, Try}
 import scala.language.higherKinds
 import scala.sys.process._
+import scala.util.{Failure, Success, Try}
 
 object DockerIO extends LazyLogging {
 
@@ -39,25 +39,41 @@ object DockerIO extends LazyLogging {
     implicitly[ContextShift[F]].shift *> Sync[F].delay(fn)
 
   /**
-   * Runs a docker container, providing a single String with the container ID.
-   * Calls `rm -f` on that ID when stream is over.
+   * Runs a temporary docker container with custom executable. Returns stdout of execution as a string.
+   * Caller is responsible for container removal.
+   * @param params parameters for Docker container
+   * @return a stream with execution stdout
+   */
+  def exec[F[_]: Sync: ContextShift](
+    params: DockerParams.ExecParams
+  ): F[String] = {
+    shiftDelay {
+      logger.info(s"Executing docker command: ${params.command.mkString(" ")}")
+      params.process.!!.trim
+    }
+  }
+
+  /**
+   * Runs a daemonized docker container, providing a single String with the container ID.
+   * Calls `docker rm -f` on that ID when stream is over.
    *
-   * @param params will be concatenated to `docker run -d`
+   * @param params parameters for Docker container, must start with `docker run -d`
    * @return a stream that produces a docker container ID
    */
-  def run[F[_]: Sync: ContextShift](params: DockerParams.Sealed): fs2.Stream[F, String] =
+  def run[F[_]: Sync: ContextShift](params: DockerParams.DaemonParams): fs2.Stream[F, String] =
     fs2.Stream.bracketCase {
       logger.info(s"Running docker: ${params.command.mkString(" ")}")
       // TODO: if we have another docker container with the same name, we should rm -f it
-      shiftDelay(Try(params.process.!!).map(_.trim()))
+      shiftDelay(Try(params.process.!!).map(_.trim))
     } {
       case (Success(dockerId), exitCase) ⇒
-        logger.info(s"Going to cleanup $dockerId, exit case: $exitCase")
-        shiftDelay(s"docker rm -f $dockerId".!).map {
+        shiftDelay {
+          logger.info(s"Going to cleanup $dockerId, exit case: $exitCase")
+          s"docker rm -f $dockerId".!
+        }.map {
           case 0 ⇒ logger.info(s"Container $dockerId successfully removed")
           case x ⇒ logger.warn(s"Stopping docker container $dockerId failed, exit code = $x")
         }
-        shiftDelay()
       case (Failure(err), _) ⇒
         logger.warn(s"Can't cleanup the docker container as it's failed to launch: $err", err)
         Applicative[F].unit

@@ -17,13 +17,13 @@
 set -e
 
 # The script uses for deploying Parity, Swarm, and Fluence containers.
-# If `REMOTE_DEPLOY` is set in env, the script will also expect the following env variables: `NAME`, `PORTS`, `OWNER_ADDRESS`, `PRIVATE_KEY`
-# Without `REMOTE_DEPLOY` exported flag the script will use default arguments
+# If `PROD_DEPLOY` is set in env, the script will also expect the following env variables: `NAME`, `PORTS`, `OWNER_ADDRESS`, `PRIVATE_KEY`
+# Without `PROD_DEPLOY` exported flag the script will use default arguments
 # If first arg is `multiple`, script will start 4 fluence node along with Swarm & Parity nodes
 
-# `REMOTE_DEPLOY` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
+# `PROD_DEPLOY` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
 #  the network will be started in development mode locally
-if [ -z "$REMOTE_DEPLOY" ]; then
+if [ -z "$PROD_DEPLOY" ]; then
     export NAME='node1'
     # open 10 ports, so it's possible to create 10 workers
     export PORTS='25000:25010'
@@ -32,7 +32,7 @@ if [ -z "$REMOTE_DEPLOY" ]; then
     export PRIVATE_KEY=4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
     export PARITY_ARGS='--config dev --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
 else
-    export PARITY_ARGS='--light --chain kovan --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
+    export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
 
 fi
 
@@ -49,7 +49,7 @@ esac
 
 # use exported external ip address or get it from OS
 # todo rewrite this
-if [ -z "$REMOTE_DEPLOY" ]; then
+if [ -z "$PROD_DEPLOY" ]; then
     EXTERNAL_HOST_IP="127.0.0.1"
     case "$(uname -s)" in
        Darwin)
@@ -75,8 +75,8 @@ echo 'Parity and Swarm containers are started.'
 sleep 10
 
 # deploy contract if there is new dev ethereum node
-if [ -z "$REMOTE_DEPLOY" ]; then
-    if [ ! -d "../node_modules" ]; then
+if [ -z "$PROD_DEPLOY" ]; then
+    if [ ! -d "node_modules" ]; then
         npm install
     fi
     RESULT=$(npm run deploy)
@@ -120,7 +120,8 @@ while [ $COUNTER -le $NUMBER_OF_NODES ]; do
         # get tendermint key from node logs
         # todo get this from `status` API by CLI
         while [ -z "$TENDERMINT_KEY" ]; do
-            TENDERMINT_KEY=$(docker logs node$COUNTER 2>&1 | grep PubKey | sed 's/.*value\":\"\([^ ]*\).*/\1/' | sed 's/\"},//g')
+            # TODO: parse for 'Node ID' instead of 'PubKey'
+            TENDERMINT_KEY=$(docker logs node$COUNTER 2>&1 | awk 'match($0, /PubKey: /) { print substr($0, RSTART + RLENGTH) }')
             sleep 3
         done
 
