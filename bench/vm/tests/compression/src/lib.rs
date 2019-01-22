@@ -47,8 +47,7 @@ fn compress_sequence(sequence: &Sequence) -> Sequence {
     snap::Encoder::new().compress_vec(&sequence).unwrap()
 }
 
-#[no_mangle]
-pub extern "C" fn main() -> u8 {
+fn bench() -> u8 {
     let seed: u64 = SEED.parse::<u64>().unwrap();
     let iterations_count: u64 = ITERATIONS_COUNT.parse::<u64>().unwrap();
     let sequence_size: usize = SEQUENCE_SIZE.parse::<usize>().unwrap();
@@ -63,4 +62,9 @@ pub extern "C" fn main() -> u8 {
     }
 
     compressed_sequence.iter().fold(0u8, |x1, x2| x1 ^ x2)
+}
+
+#[no_mangle]
+pub extern "C" fn main() -> u8 {
+    bench()
 }

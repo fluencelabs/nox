@@ -1,10 +1,17 @@
 [package]
 name = "compression"
-version = "0.1.0"
+version = "0.1.1"
+edition = "2018"
 authors = ["Fluence Labs"]
 
 [lib]
+name = "compression_wasm"
 crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[[bin]]
+name = "compression_native"
+path = "src/bin.rs"
 
 [dependencies]
 snap = "0.2"
