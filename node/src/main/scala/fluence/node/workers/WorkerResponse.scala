@@ -25,14 +25,8 @@ import io.circe.generic.semiauto._
  */
 object WorkerResponse {
 
-  case class OtherInfo(
-    amino_version: String,
-    p2p_version: String,
-    consensus_version: String,
-    rpc_version: String,
-    tx_index: String,
-    rpc_address: String
-  )
+  case class ProtocolVersion(p2p: String, block: String, app: String)
+  case class OtherInfo(tx_index: String, rpc_address: String)
 
   case class NodeInfo(
     id: String,
@@ -41,7 +35,8 @@ object WorkerResponse {
     version: String,
     channels: String,
     moniker: String,
-    other: OtherInfo
+    other: OtherInfo,
+    protocol_version: ProtocolVersion
   )
 
   case class SyncInfo(
@@ -63,6 +58,7 @@ object WorkerResponse {
   implicit val configuration: Configuration =
     Configuration.default.withSnakeCaseMemberNames.withSnakeCaseConstructorNames
 
+  implicit val decodeProtocolVersion: Decoder[ProtocolVersion] = deriveDecoder
   implicit val decodeOtherInfo: Decoder[OtherInfo] = deriveDecoder
   implicit val decodeNodeInfo: Decoder[NodeInfo] = deriveDecoder
   implicit val decodeSyncInfo: Decoder[SyncInfo] = deriveDecoder
@@ -71,6 +67,7 @@ object WorkerResponse {
   implicit val decodeCheck: Decoder[WorkerTendermintInfo] = deriveDecoder
   implicit val decodeResponse: Decoder[WorkerResponse] = deriveDecoder
 
+  implicit val encodeProtocolVersion: Encoder[ProtocolVersion] = deriveEncoder
   implicit val encodeOtherInfo: Encoder[OtherInfo] = deriveEncoder
   implicit val encodeNodeInfo: Encoder[NodeInfo] = deriveEncoder
   implicit val encodeSyncInfo: Encoder[SyncInfo] = deriveEncoder

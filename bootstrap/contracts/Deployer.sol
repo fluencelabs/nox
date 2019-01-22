@@ -168,7 +168,7 @@ contract Deployer {
 
     /** @dev Adds node with specified port range to the work-waiting queue
       * @param nodeID Tendermint's ValidatorKey
-      * @param nodeAddress currently Tendermint p2p key + IP address, subject to change
+      * @param nodeAddress currently Tendermint P2P node ID + IP address, subject to change
       * @param startPort starting port for node's port range
       * @param endPort ending port for node's port range
       * emits NewNode event about new node

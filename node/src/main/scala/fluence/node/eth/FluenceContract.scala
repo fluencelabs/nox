@@ -20,18 +20,17 @@ import cats.Apply
 import cats.effect.{Async, ConcurrentEffect, Sync}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.ethclient.Network.{APPDEPLOYED_EVENT, AppDeployedEventResponse}
+import fluence.ethclient.Network.{APPDELETED_EVENT, APPDEPLOYED_EVENT, AppDeployedEventResponse}
 import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.helpers.Web3jConverters.stringToBytes32
 import fluence.ethclient.{EthClient, Network}
 import fluence.node.config.NodeConfig
-import fluence.node.tendermint.ClusterData
+import fs2.interop.reactivestreams._
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.generated.{Uint8, _}
-import org.web3j.abi.datatypes.{Bool, DynamicArray}
-import org.web3j.protocol.core.methods.request.{EthFilter, SingleAddressEthFilter}
+import org.web3j.abi.datatypes.{Bool, DynamicArray, Event}
+import org.web3j.protocol.core.methods.request.SingleAddressEthFilter
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
-import fs2.interop.reactivestreams._
 
 import scala.collection.JavaConverters._
 import scala.language.higherKinds
@@ -46,11 +45,11 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
   import FluenceContract.NodeConfigEthOps
 
   /**
-   * Builds an actual filter for APP_DEPLOYED event.
+   * Builds a filter for specified event. Filter is to be used in eth_newFilter
    *
    * @tparam F Effect, used to query Ethereum for the last block number
    */
-  private def appDeployedFilter[F[_]: Async]: F[EthFilter] =
+  private def eventFilter[F[_]: Async](event: Event) =
     ethClient
       .getBlockNumber[F]
       .map(
@@ -59,39 +58,39 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
             DefaultBlockParameter.valueOf(currentBlock.bigInteger),
             DefaultBlockParameterName.LATEST,
             contract.getContractAddress
-          ).addSingleTopic(EventEncoder.encode(APPDEPLOYED_EVENT))
+          ).addSingleTopic(EventEncoder.encode(event))
       )
 
   /**
-   * Returns IDs of the clusters the given node participates in.
+   * Returns IDs of the apps hosted by this node's workers
    *
-   * @param nodeConfig Node to pick validatorKey from to lookup the clusters for
+   * @param validatorKey Tendermint validator key identifying this node
    * @tparam F Effect
    */
-  def getNodeAppIds[F[_]](nodeConfig: NodeConfig)(implicit F: Async[F]): F[List[Bytes32]] =
+  def getNodeAppIds[F[_]](validatorKey: Bytes32)(implicit F: Async[F]): F[List[Bytes32]] =
     contract
-      .getNodeApps(nodeConfig.validatorKeyBytes32)
+      .getNodeApps(validatorKey)
       .call[F]
       .flatMap {
         case arr if arr != null && arr.getValue != null => F.point(arr.getValue.asScala.toList)
         case r =>
           F.raiseError[List[Bytes32]](
             new RuntimeException(
-              s"Cannot get node clusters from the smart contract. Got result '$r'. " +
+              s"Cannot get node apps from the smart contract. Got result '$r'. " +
                 s"Are you sure the contract address is correct?"
             )
           )
       }
 
   /**
-   * Returns a finite stream of ClusterData for the given node.
+   * Returns a finite stream of [[App]] for the current node (determined by `validatorKey`).
    *
-   * @param nodeConfig Node to pick validatorKey from to lookup the clusters for
+   * @param validatorKey Tendermint Validator key of the current node, used to filter out apps which aren't related to current node
    * @tparam F Effect
    */
-  def getNodeApps[F[_]: Async](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
+  def getNodeApps[F[_]: Async](validatorKey: Bytes32): fs2.Stream[F, App] =
     fs2.Stream
-      .evalUnChunk(getNodeAppIds[F](nodeConfig).map(cs ⇒ fs2.Chunk(cs: _*)))
+      .evalUnChunk(getNodeAppIds[F](validatorKey).map(cs ⇒ fs2.Chunk(cs: _*)))
       .evalMap(
         appId ⇒
           Apply[F].map2(
@@ -104,8 +103,9 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
               .call[F]
               .map(tuple ⇒ (tuple.getValue1, tuple.getValue2))
           ) {
-            case ((storageHash, genesisTime, nodeIds), (addrs, ports)) ⇒
-              ClusterData.build(appId, nodeIds, genesisTime, storageHash, addrs, ports, nodeConfig)
+            case ((storageHash, genesisTime, validatorKeys), (addrs, ports)) ⇒
+              val cluster = Cluster.build(genesisTime, validatorKeys, addrs, ports, currentValidatorKey = validatorKey)
+              cluster.map(App(appId, storageHash, _))
         }
       )
       .unNone
@@ -113,35 +113,35 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
   /**
    * Returns a stream derived from the new AppDeployed events, showing that this node should join new clusters.
    *
-   * @param nodeConfig Node to pick validatorKey from to lookup the clusters for
+   * @param validatorKey Tendermint Validator key of the current node, used to filter out events which aren't addressed to this node
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
-   * @return Possibly infinite stream of ClusterData
+   * @return Possibly infinite stream of [[App]]s
    */
-  def getNodeAppDeployed[F[_]: ConcurrentEffect](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
+  def getNodeAppDeployed[F[_]: ConcurrentEffect](validatorKey: Bytes32): fs2.Stream[F, App] =
     fs2.Stream
-      .eval(appDeployedFilter[F])
+      .eval(eventFilter[F](APPDEPLOYED_EVENT))
       .flatMap(filter ⇒ contract.appDeployedEventFlowable(filter).toStream[F]) // It's checked that current node participates in a cluster there
-      .map(FluenceContract.eventToClusterData(_, nodeConfig))
+      .map(FluenceContract.eventToApp(_, validatorKey))
       .unNone
 
   /**
-   * Returns a combined stream of clusters where this node should already participate and the new ones coming from
-   * ClusterFormed events.
+   * Returns a stream of [[App]]s already assigned to that node combined with
+   * a stream of new [[App]]s coming from AppDeployed events emitted by Fluence Contract
    *
-   * @param nodeConfig Node to pick validatorKey from to lookup the clusters for
+   * @param validatorKey Tendermint Validator key of the current node, used to filter out events which aren't addressed to this node
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
-   * @return Possibly infinite stream of ClusterData
+   * @return Possibly infinite stream of [[App]]s
    */
-  def getAllNodeApps[F[_]: ConcurrentEffect](nodeConfig: NodeConfig): fs2.Stream[F, ClusterData] =
-    getNodeApps[F](nodeConfig)
+  def getAllNodeApps[F[_]: ConcurrentEffect](validatorKey: Bytes32): fs2.Stream[F, App] =
+    getNodeApps[F](validatorKey)
       .onFinalize(
         Sync[F].delay(logger.info("Got all the previously prepared clusters. Now switching to the new clusters"))
-      ) ++ getNodeAppDeployed(nodeConfig)
+      ) ++ getNodeAppDeployed(validatorKey)
 
   /**
    * Register the node in the contract.
    * TODO check permissions, Ethereum public key should match
-   * TODO should not be called from scala, use CLI to register the node
+   * TODO should not be called anywhere except tests, use CLI to register the node
    *
    * @param nodeConfig Node to add
    * @tparam F Effect
@@ -150,7 +150,7 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
   def addNode[F[_]: Async](nodeConfig: NodeConfig): F[BigInt] =
     contract
       .addNode(
-        nodeConfig.validatorKeyBytes32,
+        nodeConfig.validatorKey.toBytes32,
         nodeConfig.addressBytes24,
         nodeConfig.startPortUint16,
         nodeConfig.endPortUint16,
@@ -161,18 +161,17 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
       .map(BigInt(_))
 
   /**
-   * Adds a new code to be launched with a new cluster
+   * Publishes a new app to the Fluence Network
    *
-   * TODO should not be called from scala
-   * @param code Code app name
-   * @param clusterSize Cluster size
+   * @param storageHash Hash of the code in Swarm
+   * @param clusterSize Cluster size required to host this app
    * @tparam F Effect
    * @return The block number where transaction has been mined
    */
-  def addApp[F[_]: Async](code: String, clusterSize: Short = 1): F[BigInt] =
+  def addApp[F[_]: Async](storageHash: String, clusterSize: Short = 1): F[BigInt] =
     contract
       .addApp(
-        stringToBytes32(code),
+        stringToBytes32(storageHash),
         stringToBytes32("receipt_stub"),
         new Uint8(clusterSize),
         DynamicArray.empty("bytes32[]").asInstanceOf[DynamicArray[Bytes32]]
@@ -180,30 +179,47 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
       .call[F]
       .map(_.getBlockNumber)
       .map(BigInt(_))
+
+  // TODO: on reconnect, do getApps again and remove all apps that are running on this node but not in getApps list
+  // this may happen if we missed some events due to network outage or the like
+  /**
+   * Returns a stream derived from the new AppDeleted events, showing that an app should be removed.
+   *
+   * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
+   * @return Possibly infinite stream of AppDeleted events
+   */
+  def getAppDeleted[F[_]: ConcurrentEffect]: fs2.Stream[F, Bytes32] =
+    fs2.Stream
+      .eval(eventFilter[F](APPDELETED_EVENT))
+      .flatMap(filter ⇒ contract.appDeletedEventFlowable(filter).toStream[F])
+      .map(_.appID)
+
+  /**
+   * Deletes deployed app from contract, triggering AppDeleted event on successful deletion
+   * @param appId 32-byte id of the app to be deleted
+   * @tparam F Effect
+   */
+  def deleteApp[F[_]: Async](appId: Bytes32): F[Unit] = contract.deleteApp(appId).call[F].void
 }
 
 object FluenceContract {
 
   /**
-   * Tries to convert `ClusterFormedEvent` response to [[ClusterData]] with all information to launch cluster.
+   * Tries to convert `AppDeployedEvent` response to [[App]] with all information to launch cluster.
    *
    * @param event event response
-   * @param nodeConfig information about current node
-   * @return true if provided node key belongs to the cluster from the event
+   * @param validatorKey Tendermint Validator key of current node, used to filter out events which aren't addressed to this node
+   * @return Some(App) if current node should host this app, None otherwise
    */
-  def eventToClusterData(
+  def eventToApp(
     event: AppDeployedEventResponse,
-    nodeConfig: NodeConfig
-  ): Option[ClusterData] =
-    ClusterData.build(
-      event.appID,
-      event.nodeIDs,
-      event.genesisTime,
-      event.storageHash,
-      event.nodeAddresses,
-      event.ports,
-      nodeConfig
-    )
+    validatorKey: Bytes32
+  ): Option[App] = {
+    val cluster =
+      Cluster
+        .build(event.genesisTime, event.nodeIDs, event.nodeAddresses, event.ports, currentValidatorKey = validatorKey)
+    cluster.map(App(event.appID, event.storageHash, _))
+  }
 
   /**
    * Loads contract
@@ -223,13 +239,8 @@ object FluenceContract {
     )
 
   implicit class NodeConfigEthOps(nodeConfig: NodeConfig) {
-    import fluence.ethclient.helpers.Web3jConverters.{base64ToBytes32, nodeAddressToBytes24}
+    import fluence.ethclient.helpers.Web3jConverters.nodeAddressToBytes24
     import nodeConfig._
-
-    /**
-     * Returns node's public key in format ready to pass to the contract.
-     */
-    def validatorKeyBytes32: Bytes32 = base64ToBytes32(validatorKey.value)
 
     /**
      * Returns node's address information (host, Tendermint p2p key) in format ready to pass to the contract.
