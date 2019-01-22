@@ -16,12 +16,12 @@
 
 package fluence.node.workers
 import cats.effect.Concurrent
-import cats.syntax.functor._
-import cats.syntax.flatMap._
 import cats.syntax.apply._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import com.softwaremill.sttp._
-import io.circe.{Encoder, Json}
 import io.circe.generic.semiauto._
+import io.circe.{Encoder, Json}
 
 import scala.language.higherKinds
 
@@ -69,6 +69,8 @@ object WorkerRpc {
    *
    * @param tx Transaction body
    * @param id Tracking ID, you may omit it
+   * NOTE from Tendermint docs: it is not possible to send transactions to Tendermint during `Commit` - if your app tries to send a `/broadcast_tx` to Tendermint during Commit, it will deadlock.
+   * TODO: ensure the above deadlock doesn't happen
    */
   def broadcastTxCommit(tx: String, id: String = ""): Request =
     Request(method = "broadcast_tx_commit", params = Json.fromString(tx) :: Nil, id = id)
@@ -94,7 +96,7 @@ object WorkerRpc {
               sttpBackend
                 .send(
                   sttp
-                    .post(uri"http://${params.clusterData.rpcHost}:${params.rpcPort}/")
+                    .post(uri"http://${params.currentWorker.ip.getHostAddress}:${params.currentWorker.rpcPort}/")
                     .body(req.toJsonString)
                 )
                 .map(_.isSuccess)

@@ -20,15 +20,13 @@ import java.nio.file.{Files, Path, Paths}
 import cats.effect.Sync
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.ethclient.helpers.Web3jConverters.{binaryToHex, bytes32ToString}
 import fluence.swarm.SwarmClient
-import org.web3j.abi.datatypes.generated.Bytes32
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-case class CodePath(storageHash: Bytes32) {
-  lazy val asString: String = bytes32ToString(storageHash)
-  lazy val asHex: String = binaryToHex(storageHash.getValue)
+case class CodePath(storageHash: ByteVector) {
+  lazy val asHex: String = storageHash.toHex
 }
 
 sealed trait CodeManager[F[_]] {
@@ -39,7 +37,7 @@ sealed trait CodeManager[F[_]] {
    * @param storagePath a path to a worker's working directory
    * @return
    */
-  def prepareCode(path: CodePath, storagePath: Path): F[String]
+  def prepareCode(path: CodePath, storagePath: Path): F[Path]
 }
 
 /**
@@ -57,7 +55,9 @@ class TestCodeManager[F[_]](implicit F: Sync[F]) extends CodeManager[F] {
   override def prepareCode(
     path: CodePath,
     workerPath: Path
-  ): F[String] = F.pure("/master/vmcode/vmcode-" + path.asString) // preloaded code in master's docker container
+  ): F[Path] =
+    F.fromEither(path.storageHash.decodeUtf8.map(_.trim))
+      .flatMap(p => F.pure(Paths.get("/master/vmcode/vmcode-" + p))) // preloaded code in master's docker container
 }
 
 /**
@@ -88,7 +88,7 @@ class SwarmCodeManager[F[_]](swarmClient: SwarmClient[F])(implicit F: Sync[F]) e
   private def downloadAndWriteCodeToFile(
     workerPath: Path,
     swarmPath: String
-  ): F[String] =
+  ): F[Path] =
     for {
       dirPath <- F.delay(workerPath.resolve("vmcode"))
       _ <- if (dirPath.toFile.exists()) F.unit else F.delay(Files.createDirectory(dirPath))
@@ -99,7 +99,7 @@ class SwarmCodeManager[F[_]](swarmClient: SwarmClient[F])(implicit F: Sync[F]) e
       else
         F.delay(Files.createFile(filePath))
           .flatMap(_ => downloadFromSwarmToFile(swarmPath, filePath))
-    } yield dirPath.toAbsolutePath.toString
+    } yield dirPath
 
   /**
    * Downloads code from Swarm and manages paths to the code.
@@ -107,7 +107,7 @@ class SwarmCodeManager[F[_]](swarmClient: SwarmClient[F])(implicit F: Sync[F]) e
    * @param workerPath a path to a worker's working directory
    * @return
    */
-  override def prepareCode(path: CodePath, workerPath: Path): F[String] = {
+  override def prepareCode(path: CodePath, workerPath: Path): F[Path] = {
     downloadAndWriteCodeToFile(workerPath, path.asHex)
   }
 }

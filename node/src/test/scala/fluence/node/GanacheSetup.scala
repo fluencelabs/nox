@@ -14,20 +14,26 @@
  * limitations under the License.
  */
 
-package fluence.node.tendermint.json
+package fluence.node
+import cats.syntax.functor._
 
-import io.circe.Encoder
-import io.circe.generic.semiauto.deriveEncoder
+import scala.language.higherKinds
 
-/**
- * Information about the cluster without node-specific data.
- *
- * @param genesis genesis in Tendermint format
- * @param persistent_peers p2p peers in Tendermint format
- * @param external_addrs external address used to initialize advertised address in launching scripts
- */
-case class Cluster(genesis: Genesis, persistent_peers: String, external_addrs: Seq[String])
+trait GanacheSetup extends OsSetup with slogging.LazyLogging {
 
-object Cluster {
-  implicit val clusterEncoder: Encoder[Cluster] = deriveEncoder[Cluster]
+  def wireupContract(): Unit = {
+    logger.info("bootstrapping npm")
+    runCmd("npm install")
+
+    logger.info("starting Ganache")
+    runBackground("npm run ganache")
+
+    logger.info("deploying contract to Ganache")
+    runCmd("npm run migrate")
+  }
+
+  def killGanache(): Unit = {
+    logger.info("killing ganache")
+    runCmd("pkill -f ganache")
+  }
 }

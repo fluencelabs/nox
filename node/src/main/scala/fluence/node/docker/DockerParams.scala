@@ -15,6 +15,8 @@
  */
 
 package fluence.node.docker
+import fluence.node.docker.DockerParams.WithImage
+
 import scala.collection.immutable.Queue
 import scala.sys.process._
 
@@ -22,9 +24,8 @@ import scala.sys.process._
  * Builder for basic `docker run` command parameters.
  *
  * @param params Current command' params
- * @param tailParams Params to be added after the image name
  */
-case class DockerParams private (params: Queue[String], tailParams: List[String] = Nil) {
+case class DockerParams private (params: Queue[String]) {
 
   /**
    * Adds a single param to command.
@@ -73,19 +74,54 @@ case class DockerParams private (params: Queue[String], tailParams: List[String]
    *
    * @param imageName name of image to run
    */
-  def image(imageName: String): DockerParams.Sealed =
-    DockerParams.Sealed(add(imageName).params.enqueue(tailParams))
+  def image(imageName: String): DockerParams.WithImage =
+    WithImage(params, imageName)
 }
 
 object DockerParams {
-  case class Sealed(command: Seq[String]) extends AnyVal {
+  // Represents finalized docker command that's ready to be ran and can't be changed anymore
+  sealed trait SealedParams {
+    def command: Seq[String]
     def process: ProcessBuilder = Process(command)
   }
 
-  def daemonRun(): DockerParams =
-    DockerParams(Queue("docker", "run", "-d"))
+  // Represents a command for daemonized container run, i.e., anything with "docker run -d"
+  case class DaemonParams(command: Seq[String]) extends SealedParams
 
-  def run(executable: String, params: String*): DockerParams =
-    DockerParams(Queue("docker", "run", "--user", "", "--rm", "-i", "--entrypoint", executable), params.toList)
+  // Represents a command for a single command execution, presumably with `--rm` flag
+  case class ExecParams(command: Seq[String]) extends SealedParams
 
+  private val daemonParams = Seq("docker", "run", "-d")
+  private val runParams = Seq("docker", "run", "--user", "", "--rm", "-i", "--entrypoint")
+
+  // Represents a docker run command with specified image name, ready to be specialized to Daemon or Exec params
+  case class WithImage(params: Seq[String], imageName: String) {
+
+    /** Builds a command starting with `docker run -d` wrapped in DaemonParams, so
+     * container will be deleted automatically by [[DockerIO.exec]]
+     */
+    def daemonRun(): DaemonParams =
+      DaemonParams(daemonParams ++ params :+ imageName)
+
+    // Builds a command starting with `docker run -d` wrapped in ExecParams, so
+    // container should be deleted by caller
+    def unmanagedDaemonRun(): ExecParams = {
+      ExecParams(daemonParams ++ params :+ imageName)
+    }
+
+    /** Builds a `docker run` command running custom executable.
+     * `--rm` flag is specified, so container will be removed automatically after executable exit
+     * Resulting command will be like the following
+     * `docker run --user "" --rm -i --entrypoint executable imageName execParams`
+     * @param executable An executable to be run in container, must be callable by container (i.e. be in $PATH)
+     * @param execParams Parameters passed to `executable`
+     */
+    def run(executable: String, execParams: String*): ExecParams = {
+      val cmd = (runParams :+ executable) ++ params ++ (imageName +: execParams)
+      ExecParams(cmd)
+    }
+  }
+
+  // Builds an empty docker command, ready for adding options
+  def build(): DockerParams = DockerParams(Queue())
 }
