@@ -15,6 +15,7 @@
  */
 
 package fluence.node.workers
+import fluence.ethclient.helpers.Web3jConverters.binaryToHexTrimZeros
 import fluence.node.docker.DockerParams
 import fluence.node.eth.WorkerNode
 import scodec.bits.ByteVector
@@ -33,7 +34,7 @@ case class WorkerParams(
 
   // Convert bytes32 to hex for better human-readability. As of current appId generation in Fluence Contract,
   // there's a lot of leading zeros in app IDs, so skip them to avoid visual clutter.
-  val appIdHex: String = appId.toHex
+  val appIdHex: String = binaryToHexTrimZeros(appId)
 
   override def toString =
     s"(worker ${currentWorker.index} with RPC port ${currentWorker.rpcPort} for app $appIdHex)"

@@ -15,21 +15,21 @@
  */
 
 package fluence.vm
-import java.lang.reflect.Method
-import java.nio.ByteOrder
 
-import asmble.compile.jvm.AsmExtKt
+import java.nio.{ByteBuffer, ByteOrder}
+
 import cats.data.EitherT
-import cats.effect.{IO, LiftIO}
-import cats.{Functor, Monad}
+import cats.effect.LiftIO
+import cats.Monad
 import fluence.crypto.Crypto.Hasher
 import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
-import fluence.vm.VmError.{NoSuchFnError, _}
-import fluence.vm.AsmbleWasmVm._
+import fluence.vm.VmError.{NoSuchModuleError, _}
+import fluence.vm.wasm.WasmModule
+import fluence.vm.utils.safelyRunThrowable
 import scodec.bits.ByteVector
+import WasmVm._
 
 import scala.language.higherKinds
-import scala.util.Try
 
 /**
  * Base implementation of [[WasmVm]].
@@ -37,281 +37,113 @@ import scala.util.Try
  * '''Note!!! This implementation isn't thread-safe. The provision of calls
  * linearization is the task of the caller side.'''
  *
- * @param functionsIndex the index for fast function searching. Contains all the
- *                     information needed to execute any function.
- * @param modules list of Wasm modules
- * @param hasher a hash function provider
- * @param allocateFunctionName name of function that will be used for allocation
- *                             memory in the Wasm part
- * @param deallocateFunctionName name of a function that will be used for freeing memory
- *                               that was previously allocated by allocateFunction
+ * @param modules an index of Wasm modules
+ * @param hasher a hash function provider used for VM state hash computing
  */
 class AsmbleWasmVm(
-  private val functionsIndex: WasmFnIndex,
-  private val modules: WasmModules,
-  private val hasher: Hasher[Array[Byte], Array[Byte]],
-  private val allocateFunctionName: String,
-  private val deallocateFunctionName: String
+  private val modules: ModuleIndex,
+  private val hasher: Hasher[Array[Byte], Array[Byte]]
 ) extends WasmVm {
 
-  // TODO: now it is assumed that allocation/deallocation functions placed together in the first module.
-  // In the future it has to be refactored.
-  // TODO: add handling of empty modules list.
-  private val allocateFunction: Option[WasmFunction] =
-    functionsIndex.get(FunctionId(modules.head.name, AsmExtKt.getJavaIdent(allocateFunctionName)))
-
-  private val deallocateFunction: Option[WasmFunction] =
-    functionsIndex.get(FunctionId(modules.head.name, AsmExtKt.getJavaIdent(deallocateFunctionName)))
+  // size in bytes of pointer type in Wasm VM (can be different after Wasm64 release)
+  private val WasmPointerSize = 4
 
   override def invoke[F[_]: LiftIO: Monad](
     moduleName: Option[String],
-    fnName: String,
     fnArgument: Array[Byte]
-  ): EitherT[F, InvokeError, Option[Array[Byte]]] = {
-    val functionId = FunctionId(moduleName, AsmExtKt.getJavaIdent(fnName))
-
+  ): EitherT[F, InvokeError, Array[Byte]] =
     for {
-      // Finds java method(Wasm function) in the index by function id
-      wasmFn <- EitherT
+      wasmModule ← EitherT
         .fromOption(
-          functionsIndex.get(functionId),
-          NoSuchFnError(s"Unable to find a function with the name=$functionId")
+          modules.get(moduleName),
+          NoSuchModuleError(s"Unable to find a module with the name=${moduleName.getOrElse("<no-name>")}")
         )
 
-      preprocessedArguments <- preprocessFnArgument(fnArgument, wasmFn.module)
-
-      // invoke the function
-      invocationResult <- wasmFn[F](preprocessedArguments)
+      preprocessedArgument ← loadArgToMemory(fnArgument, wasmModule)
+      invocationResult ← wasmModule.invoke(preprocessedArgument)
 
       // It is expected that callee (Wasm module) has to clean memory by itself because of otherwise
       // there can be some non-determinism (deterministic execution is very important for verification game
       // and this kind of non-determinism can break all verification game).
-      extractedResult <- if (wasmFn.javaMethod.getReturnType == Void.TYPE) {
-        EitherT.rightT[F, InvokeError](None)
-      } else {
-        for {
-          offset <- EitherT.fromEither(Try(invocationResult.toString.toInt).toEither).leftMap { e ⇒
-            VmMemoryError(s"Trying to extract result from incorrect offset=$invocationResult", Some(e))
-          }
-          extractedResult <- extractResultFromWasmModule(offset, wasmFn.module).map(Option(_))
-        } yield extractedResult
-      }
-    } yield extractedResult
+      offset ← safelyRunThrowable(
+        invocationResult.toString.toInt,
+        e ⇒ VmMemoryError(s"Trying to extract result from incorrect offset=$invocationResult", Some(e))
+      )
+      extractedResult ← extractResultFromWasmModule(offset, wasmModule)
 
-  }
+    } yield extractedResult
 
   override def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector] =
     modules
       .foldLeft(EitherT.rightT[F, GetVmStateError](Array[Byte]())) {
-        case (acc, instance) ⇒
+        case (acc, (moduleName, module)) ⇒
           for {
-            moduleStateHash ← instance
-              .innerState(arr ⇒ hasher[F](arr))
+            moduleStateHash ← module
+              .computeStateHash(arr ⇒ hasher[F](arr))
 
             prevModulesHash ← acc
 
             concatHashes = Array.concat(moduleStateHash, prevModulesHash)
 
-            resultHash ← hasher(concatHashes)
-              .leftMap(e ⇒ InternalVmError(s"Getting VM state for module=$instance failed", Some(e)): GetVmStateError)
+            // TODO : There is known the 2nd preimage attack to such scheme with the same hash function
+            // for leaves and nodes.
+            resultHash ← hasher(concatHashes).leftMap { e ⇒
+              InternalVmError(s"Getting VM state for module=$moduleName failed", Some(e)): GetVmStateError
+            }
 
           } yield resultHash
       }
       .map(ByteVector(_))
 
-  // TODO : In the future, it should be rewritten with cats.effect.resource
   /**
-   * Allocates memory in Wasm module of supplied size by allocateFunction.
+   * Preprocesses Wasm function argument array by injecting it into Wasm module memory and replacing by pointer to
+   * it in the Wasm module and its size. This functions simply returns 0 :: 0 :: Nil if supplied fnArgument was empty
+   * without any allocations on the Wasm side.
    *
-   * @param size size of memory that need to be allocated
-   * @tparam F a monad with an ability to absorb 'IO'
+   * @param fnArgument an argument that should be preprocessed
+   * @param wasmModule a module instance used for injecting array to the Wasm memory
    */
-  private def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, AnyRef] = {
-    allocateFunction match {
-      case Some(fn) => fn(size.asInstanceOf[AnyRef] :: Nil)
-      case _ =>
-        EitherT.leftT(
-          NoSuchFnError(s"Unable to find the function for memory allocation with the name=$allocateFunctionName")
-        )
-    }
-  }
-
-  /**
-   * Deallocates previously allocated memory in Wasm module by deallocateFunction.
-   *
-   * @param offset address of memory to deallocate
-   * @tparam F a monad with an ability to absorb 'IO'
-   */
-  private def deallocate[F[_]: LiftIO: Monad](offset: Int, size: Int): EitherT[F, InvokeError, AnyRef] = {
-    deallocateFunction match {
-      case Some(fn) => fn(offset.asInstanceOf[AnyRef] :: size.asInstanceOf[AnyRef] :: Nil)
-      case _ =>
-        EitherT.leftT(
-          NoSuchFnError(s"Unable to find the function for memory deallocation with the name=$deallocateFunctionName")
-        )
-    }
-  }
-
-  /**
-   * Preprocesses a Wasm function argument: injects it into Wasm module memory (through injectArrayIntoWasmModule)
-   * and replaces with pointer to it in the Wasm module and size. This functions simply returns 0 :: 0 :: Nil
-   * if supplied fnArgument was empty without any allocations in the Wasm side.
-   *
-   * @param fnArgument argument for calling this function
-   * @param moduleInstance module instance used for injecting array to the Wasm memory
-   * @tparam F a monad with an ability to absorb 'IO'
-   */
-  private def preprocessFnArgument[F[_]: LiftIO: Monad](
+  private def loadArgToMemory[F[_]: LiftIO: Monad](
     fnArgument: Array[Byte],
-    moduleInstance: ModuleInstance
+    wasmModule: WasmModule
   ): EitherT[F, InvokeError, List[AnyRef]] =
     if (fnArgument.isEmpty)
-      EitherT.rightT[F, InvokeError](0.asInstanceOf[AnyRef] :: 0.asInstanceOf[AnyRef] :: Nil)
+      EitherT.rightT[F, InvokeError](
+        Int.box(0) :: Int.box(0) :: Nil
+      )
     else
       for {
-        offset <- injectArrayIntoWasmModule(fnArgument, moduleInstance)
-      } yield offset.asInstanceOf[AnyRef] :: fnArgument.length.asInstanceOf[AnyRef] :: Nil
+        offset ← wasmModule.allocate(fnArgument.length)
+        _ ← wasmModule.writeMemory(offset, fnArgument).leftMap(e ⇒ e: InvokeError)
 
-  /**
-   * Injects given string into Wasm module memory.
-   *
-   * @param injectedArray array that should be inserted into Wasm module memory
-   * @param moduleInstance module instance used as a provider for Wasm module memory access
-   * @tparam F a monad with an ability to absorb 'IO'
-   */
-  private def injectArrayIntoWasmModule[F[_]: LiftIO: Monad](
-    injectedArray: Array[Byte],
-    moduleInstance: ModuleInstance
-  ): EitherT[F, InvokeError, Int] =
-    for {
-      // In the current version, it is possible for Wasm module to have allocation/deallocation
-      // functions but doesn't have memory (ByteBuffer instance). Also since it is used getMemory
-      // Wasm function for getting ByteBuffer instance, it is also possible to don't have memory
-      // due to possible absence of this function in the Wasm module.
-      wasmMemory <- EitherT.fromOption(
-        moduleInstance.memory,
-        VmMemoryError(s"Trying to use absent Wasm memory while injecting array=$injectedArray")
-      )
-
-      offset <- allocate(injectedArray.length)
-
-      resultOffset <- EitherT
-        .fromEither(Try {
-          val convertedOffset = offset.toString.toInt
-          val wasmMemoryView = wasmMemory.duplicate()
-
-          wasmMemoryView.position(convertedOffset)
-          wasmMemoryView.put(injectedArray)
-
-          convertedOffset
-        }.toEither)
-        .leftMap { e ⇒
-          VmMemoryError(s"The Wasm allocation function returned incorrect offset=$offset", Some(e))
-        }: EitherT[F, InvokeError, Int]
-
-    } yield resultOffset
+      } yield Int.box(offset) :: Int.box(fnArgument.length) :: Nil
 
   /**
    * Extracts (reads and deletes) result from the given offset from Wasm module memory.
    *
-   * @param offset offset into Wasm module memory where a string is located
-   * @param moduleInstance module instance used as a provider for Wasm module memory access
-   * @tparam F a monad with an ability to absorb 'IO'
+   * @param offset offset into Wasm module memory where a result is located
+   * @param wasmModule a Wasm module in which memory a result is located
    */
   private def extractResultFromWasmModule[F[_]: LiftIO: Monad](
     offset: Int,
-    moduleInstance: ModuleInstance
+    wasmModule: WasmModule
   ): EitherT[F, InvokeError, Array[Byte]] =
     for {
-      extractedResult <- readResultFromWasmModule(offset, moduleInstance)
-      // TODO : string deallocation from scala-part should be additionally investigated - it seems
-      // that this version of deletion doesn't compatible with current idea of verification game
-      intBytesSize = 4
-      _ <- deallocate(offset, extractedResult.length + intBytesSize)
-    } yield extractedResult
+      // each result has the next structure in Wasm memory: | size (wasmPointerSize bytes) | result buffer (size bytes) |
+      rawResultSize ← wasmModule.readMemory(offset, WasmPointerSize)
 
-  /**
-   * Reads result from the given offset from Wasm module memory.
-   *
-   * @param offset offset into Wasm module memory where a string is located
-   * @param moduleInstance module instance used as a provider for Wasm module memory access
-   * @tparam F a monad with an ability to absorb 'IO'
-   */
-  private def readResultFromWasmModule[F[_]: LiftIO: Monad](
-    offset: Int,
-    moduleInstance: ModuleInstance
-  ): EitherT[F, InvokeError, Array[Byte]] =
-    for {
-      wasmMemory <- EitherT.fromOption(
-        moduleInstance.memory,
-        VmMemoryError(s"Trying to use absent Wasm memory while reading string from the offset=$offset")
+      // convert ArrayByte to Int
+      resultSize ← safelyRunThrowable(
+        ByteBuffer.wrap(rawResultSize).order(ByteOrder.LITTLE_ENDIAN).getInt(),
+        e ⇒ VmMemoryError(s"Trying to extract result from incorrect offset=$rawResultSize", Some(e))
       )
 
-      readResult <- EitherT
-        .fromEither(
-          Try {
-            val wasmMemoryView = wasmMemory.duplicate()
-            wasmMemoryView.order(ByteOrder.LITTLE_ENDIAN)
+      extractedResult ← wasmModule.readMemory(offset + WasmPointerSize, resultSize)
 
-            // each result has the next structure in Wasm memory: | size (4 bytes) | result buffer (size bytes) |
-            val resultSize = wasmMemoryView.getInt(offset)
-            // size of Int in bytes
-            val intBytesSize = 4
+      // TODO : string deallocation from scala-part should be additionally investigated - it seems
+      // that this version of deletion doesn't compatible with current idea of verification game
+      _ ← wasmModule.deallocate(offset, extractedResult.length + WasmPointerSize)
 
-            val resultBuffer = new Array[Byte](resultSize)
-            wasmMemoryView.position(offset + intBytesSize)
-            wasmMemoryView.get(resultBuffer)
-            resultBuffer
-          }.toEither
-        )
-        .leftMap { e =>
-          VmMemoryError(
-            s"String reading from offset=$offset failed",
-            Some(e)
-          )
-        }: EitherT[F, InvokeError, Array[Byte]]
-
-    } yield readResult
-
-}
-
-object AsmbleWasmVm {
-
-  type WasmModules = List[ModuleInstance]
-  type WasmFnIndex = Map[FunctionId, WasmFunction]
-
-  /** Function id contains two components: optional module name and function name. */
-  case class FunctionId(moduleName: Option[String], functionName: String) {
-    override def toString =
-      s"'${ModuleInstance.nameAsStr(moduleName)}.$functionName'"
-  }
-
-  /**
-   * Representation for each Wasm function. Contains reference to module instance
-   * and java method [[java.lang.reflect.Method]].
-   *
-   * @param javaMethod a java method [[java.lang.reflect.Method]] for calling function.
-   * @param module the object the underlying method is invoked from.
-   *               This is an instance for the current module, it contains
-   *               all inner state of the module, like memory.
-   */
-  case class WasmFunction(
-    fnId: FunctionId,
-    javaMethod: Method,
-    module: ModuleInstance
-  ) {
-
-    /**
-     * Invokes this function with arguments.
-     *
-     * @param args arguments for calling this function.
-     * @tparam F a monad with an ability to absorb 'IO'
-     */
-    def apply[F[_]: Functor: LiftIO](args: List[AnyRef]): EitherT[F, InvokeError, AnyRef] =
-      EitherT(IO(javaMethod.invoke(module.instance, args: _*)).attempt.to[F])
-        .leftMap(e ⇒ TrapError(s"Function $this with args: $args was failed", Some(e)))
-
-    override def toString: String = fnId.toString
-  }
+    } yield extractedResult
 
 }

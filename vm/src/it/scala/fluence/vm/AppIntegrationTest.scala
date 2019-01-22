@@ -18,19 +18,18 @@ package fluence.vm
 
 import cats.data.EitherT
 import cats.effect.IO
-import org.scalatest.{EitherValues, Matchers, OptionValues, WordSpec}
+import org.scalatest.{WordSpec, Matchers, OptionValues, EitherValues, Assertion}
 
 class AppIntegrationTest extends WordSpec with Matchers with OptionValues with EitherValues {
 
-  def getModuleDirPrefix() =
+  protected def getModuleDirPrefix(): String =
     if (System.getProperty("user.dir").endsWith("/vm"))
       System.getProperty("user.dir")
     else
       System.getProperty("user.dir") + "/vm/"
 
-  def checkTestResult(result: Option[Array[Byte]], expectedString: String) = {
-    result shouldBe defined
-    val resultAsString = new String(result.value)
+  protected def checkTestResult(result: Array[Byte], expectedString: String): Assertion = {
+    val resultAsString = new String(result)
     resultAsString should startWith (expectedString)
   }
 

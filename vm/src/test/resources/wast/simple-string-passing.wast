@@ -16,7 +16,7 @@
         (drop)
     )
 
-    ;; int circular_xor(const char *buffer, int size) {
+    ;; int invoke(const char *buffer, int size) {
     ;;   int value = 0;
     ;;
     ;;   for(int byteId = 0; byteId < size; ++byteId) {
@@ -25,7 +25,7 @@
     ;;
     ;;   return value;
     ;; }
-    (func (export "circular_xor") (param $buffer i32 ) (param $size i32) (result i32)
+    (func (export "invoke") (param $buffer i32 ) (param $size i32) (result i32)
         (local $value i32)
         (set_local $value (i32.const 0) )
         (block $label$0
