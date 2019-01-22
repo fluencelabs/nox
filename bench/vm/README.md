@@ -40,19 +40,19 @@ It should also be noted that in general, interpreter VMs took much longer time t
 ### Results
 
 <p align="center">
-  <img src="results/images/compressions.png" alt="Compression tests" width="1015px"/>
+  <img src="results/jit_vs_interpreters/images/compressions.png" alt="Compression tests" width="1015px"/>
 </p>
 
 It should be somewhat expected that “compilers” (WAVM, Asmble, wasmer) will beat “interpreters” (life, wasmi, wagon) without JIT by a large margin, and WAVM is a clear winner here. You might also note that `deflate` is one of two tests where Asmble loses to wasmer.
 
 <p align="center">
-  <img src="results/images/computations.png" alt="Computation tests" width="1001px"/>
+  <img src="results/jit_vs_interpreters/images/computations.png" alt="Computation tests" width="1001px"/>
 </p>
 
 `Factorization` is one of the tests where Asmble is almost on par with WAVM. That might be due to Java JIT compiler optimizing hot spots.
 
 <p align="center">
-  <img src="results/images/matrices.png" alt="Matrix tests" width="1015px"/>
+  <img src="results/jit_vs_interpreters/images/matrices.png" alt="Matrix tests" width="1015px"/>
 </p>
 
 Matrix tests are the ones where the floating-point arithmetic is used (except the `matrix_product` test). It’s unclear why Asmble performs so poorly in the SVD decomposition test but performs fine in the QR decomposition test — that’s a subject for further investigation.
