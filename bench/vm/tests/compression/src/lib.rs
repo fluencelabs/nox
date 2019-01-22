@@ -44,7 +44,7 @@ fn compress_sequence(sequence: &Sequence) -> Sequence {
         return deflate_bytes(&sequence);
     }
 
-    return snap::Encoder::new().compress_vec(&sequence).unwrap();
+    snap::Encoder::new().compress_vec(&sequence).unwrap()
 }
 
 #[no_mangle]
