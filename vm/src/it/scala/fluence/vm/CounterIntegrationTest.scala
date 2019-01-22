@@ -22,7 +22,7 @@ import org.scalatest.EitherValues
 
 import scala.language.{higherKinds, implicitConversions}
 
-// TODO: for a run this test from IDE It needs to build vm-counter project explicitly at first
+// TODO: to run this test from IDE It needs to build vm-counter project explicitly at first
 class CounterIntegrationTest extends AppIntegrationTest with EitherValues {
 
   private val counterFilePath =
@@ -32,8 +32,8 @@ class CounterIntegrationTest extends AppIntegrationTest with EitherValues {
 
     "be able to instantiate" in {
       (for {
-        vm <- WasmVm[IO](NonEmptyList.one(counterFilePath))
-        state <- vm.getVmState[IO].toVmError
+        vm ← WasmVm[IO](NonEmptyList.one(counterFilePath))
+        state ← vm.getVmState[IO].toVmError
 
       } yield {
         state should not be None
@@ -44,17 +44,16 @@ class CounterIntegrationTest extends AppIntegrationTest with EitherValues {
 
     "increment counter and returns its state" in {
       (for {
-        vm <- WasmVm[IO](NonEmptyList.one(counterFilePath))
-        _ <- vm.invoke[IO](None, "inc")
-        getResult1 <- vm.invoke[IO](None, "get")
-        _ <- vm.invoke[IO](None, "inc")
-        _ <- vm.invoke[IO](None, "inc")
-        getResult2 <- vm.invoke[IO](None, "get")
-        _ <- vm.getVmState[IO].toVmError
+        vm ← WasmVm[IO](NonEmptyList.one(counterFilePath))
+        _ ← vm.invoke[IO]()
+        getResult1 ← vm.invoke[IO]()
+        _ ← vm.invoke[IO]()
+        getResult2 ← vm.invoke[IO]()
+        _ ← vm.getVmState[IO].toVmError
 
       } yield {
-        checkTestResult(getResult1, "1")
-        checkTestResult(getResult2, "3")
+        checkTestResult(getResult1, "2")
+        checkTestResult(getResult2, "4")
       }).success()
 
     }

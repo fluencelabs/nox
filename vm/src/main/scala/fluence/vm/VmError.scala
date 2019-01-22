@@ -33,8 +33,7 @@ abstract class VmErrorProxy(
 object VmError {
 
   /**
-   * This type of error indicates some unexpected internal error has occurred in
-   * the Virtual Machine.
+   * Indicates some unexpected internal error has occurred in the VM.
    */
   case class InternalVmError(
     override val message: String,
@@ -77,6 +76,14 @@ object VmError {
   ) extends VmErrorProxy(message, cause) with InvocationError with ApplyError
 
   /**
+   * Indicates that module with specified name wasn't found in the instance of VM.
+   */
+  case class NoSuchModuleError(
+    override val message: String,
+    override val cause: Option[Throwable] = None
+  ) extends VmErrorProxy(message, cause) with InvocationError with ApplyError
+
+  /**
    * Indicates all possible errors with Wasm memory:
    *  - errors when accessing absent memory;
    *  - allocation function returns offset that doesn't correspond to the ByteBuffer
@@ -87,7 +94,7 @@ object VmError {
   case class VmMemoryError(
     override val message: String,
     override val cause: Option[Throwable] = None
-  ) extends VmErrorProxy(message, cause) with WasmError with ApplyError with InvokeError
+  ) extends VmErrorProxy(message, cause) with ApplyError with InvokeError with GetVmStateError
 
   /**
    * Indicates that Wasm code execution was failed, some Wasm instruction was

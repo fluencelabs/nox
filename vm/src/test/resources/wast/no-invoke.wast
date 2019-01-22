@@ -1,6 +1,7 @@
-;; this example simply returns
+;; this example has allocate/deallocate functions but doesn't have invoke function.
 
 (module
+
     ;; force Asmble to use memory
     (memory $0 20)
     (export "memory" (memory $0))
@@ -14,12 +15,5 @@
         ;; in this simple example deallocation function does nothing
         (drop)
         (drop)
-    )
-
-    ;; int sum(int a, int b) {
-    ;;  return a + b;
-    ;; }
-    (func (export "invoke") (param $0 i32) (param $1 i32) (result i32)
-        (unreachable) ;; unreachable: An instruction which always traps.
     )
 )

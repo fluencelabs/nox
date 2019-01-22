@@ -1,4 +1,4 @@
-;; this example compute sum of two given integers
+;; copy of sum module with the same module name
 
 (module $SumModule
 

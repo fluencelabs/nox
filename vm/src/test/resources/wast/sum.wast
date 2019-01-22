@@ -8,7 +8,7 @@
 
     (func (export "allocate") (param $0 i32) (result i32)
         ;; just return constant offset in ByteBuffer
-        (i32.const 10000)
+        (i32.const 0)
     )
 
     (func (export "deallocate") (param $address i32) (param $size i32) (return)
@@ -73,7 +73,7 @@
         (i32.const 0)
     )
 
-    ;; int sum(const char *buffer, int size) {
+    ;; int invoke(const char *buffer, int size) {
     ;;   if(size != 8) {
     ;;     return 0;
     ;;   }
@@ -83,7 +83,7 @@
     ;;
     ;;   return a + b;
     ;; }
-    (func (export "sum") (param $buffer i32) (param $size i32) (result i32)
+    (func (export "invoke") (param $buffer i32) (param $size i32) (result i32)
         (local $2 i32)
         (set_local $2 (i32.const 0))
 
