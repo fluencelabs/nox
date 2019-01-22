@@ -25,37 +25,21 @@ use std::boxed::Box;
 use std::error::Error;
 use web3::types::Address;
 
+use crate::ethereum_command::{contract_address, eth_url, parse_contract_address, parse_eth_url};
+
 const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("status")
         .about("Get status of the smart contract")
-        .args(&[
-            Arg::with_name(CONTRACT_ADDRESS)
-                .alias(CONTRACT_ADDRESS)
-                .required(true)
-                .takes_value(true)
-                .help("fluence contract address"),
-            Arg::with_name(ETH_URL)
-                .alias(ETH_URL)
-                .long("eth_url")
-                .short("e")
-                .required(false)
-                .takes_value(true)
-                .help("http address to ethereum node")
-                .default_value("http://localhost:8545/"),
-        ])
+        .args(&[eth_url(), contract_address()])
 }
 
 /// Gets status about Fluence contract from ethereum blockchain.
 pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Box<Error>> {
-    let contract_address: Address = args
-        .value_of(CONTRACT_ADDRESS)
-        .unwrap()
-        .trim_start_matches("0x")
-        .parse()?;
-    let eth_url: &str = args.value_of(ETH_URL).unwrap();
+    let contract_address: Address = parse_contract_address(args);
+    let eth_url: &str = parse_eth_url(args);
 
     get_status(contract_address, eth_url)
 }
