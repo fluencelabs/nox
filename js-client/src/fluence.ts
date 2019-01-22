@@ -55,7 +55,7 @@ export interface AppSession {
 export async function createAppSessions(contract: string, appId: string): Promise<AppSession> {
     let appNodes: AppNode[] = await getAppNodes(contract, appId);
     let sessions: NodeSession[] = appNodes.map(an => {
-        let session = createDefaultSession(an.node.ip_addr, an.port);
+        let session = createDefaultSession(an.node.ip_addr, an.port + 100);
         return {
             session: session,
             appNode: an
