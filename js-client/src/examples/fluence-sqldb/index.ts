@@ -16,7 +16,7 @@
 
 import "bootstrap/dist/css/bootstrap.min.css";
 import * as fluence from "js-fluence-client";
-import {NodeSession, Result} from "js-fluence-client";
+import {AppSession, Result} from "js-fluence-client";
 import {getNodeStatus, isAvailable, NodeStatus, UnavailableNode} from "fluence-monitoring";
 
 /**
@@ -39,20 +39,22 @@ interface Status {
 
 class DbClient {
 
-    readonly sessions: NodeSession[];
+    // sessions for every member of a cluster
+    readonly appSession: AppSession;
     private readonly size: number;
     private counter: number;
 
+    // round robin counter over app sessions
     private nodeNumber(): number {
         this.counter = (this.counter + 1) % this.size;
         return this.counter;
     }
 
     constructor(session: fluence.AppSession) {
-        this.size = session.sessions.length;
+        this.size = session.workerSessions.length;
         this.counter = 0;
 
-        this.sessions = session.sessions;
+        this.appSession = session;
     }
 
     /**
@@ -60,7 +62,7 @@ class DbClient {
      * @param queries list of queries to invoke
      */
     async submitQuery(queries: string[]): Promise<Promise<Result>[]> {
-        let nodeSession = this.sessions[this.nodeNumber()];
+        let nodeSession = this.appSession.workerSessions[this.nodeNumber()];
         return queries.map((q) => {
             console.log("query: " + q);
             let res = nodeSession.session.invoke("do_query", q).result();
@@ -78,8 +80,8 @@ class DbClient {
      * Gets status of all nodes.
      */
     async status(): Promise<(NodeStatus|UnavailableNode)[]> {
-        return Promise.all(this.sessions.map((session) => {
-            return getNodeStatus(session.appNode.node);
+        return Promise.all(this.appSession.workerSessions.map((session) => {
+            return getNodeStatus(session.worker.node);
         }));
     }
 }
@@ -129,15 +131,16 @@ let contractAddress = "0x45CC7B68406cCa5bc36B7b8cE6Ec537EDa67bC0B";
 let appId = "0x0000000000000000000000000000000000000000000000000000000000000001";
 
 async function preparePage() {
-    let sessions = await fluence.createAppSessions(contractAddress, appId);
+    let sessions = await fluence.createAppSession(contractAddress, appId);
 
     let client = new DbClient(sessions);
 
     function updateStatus() {
         client.status().then((r) => {
-            let addrs = client.sessions.map((s) => s.session.tm.addr);
+            let addrs = client.appSession.workerSessions.map((s) => s.session.tm.addr);
             statusField.innerHTML = r.map((status, idx) => {
                 let addr = addrs[idx];
+                // if there is a response from a node
                 if (isAvailable(status)) {
                     let info = status.workers[0];
                     if (info.WorkerRunning !== undefined) {
@@ -163,6 +166,7 @@ async function preparePage() {
         })
     }
 
+    // send request with query to a cluster
     function submitQueries(queries: string) {
         resultField.value = "";
         client.submitQuery(queries.split('\n')).then((results) => {

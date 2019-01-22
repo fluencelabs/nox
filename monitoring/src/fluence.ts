@@ -44,12 +44,18 @@ export interface Status {
     node_statuses: (NodeStatus|UnavailableNode)[]
 }
 
-export interface AppNode {
+/*
+ * Cluster member of a specific app.
+ */
+export interface Worker {
     node: Node,
     port: number,
     statusPort: number
 }
 
+/*
+ * Gets Fluence Contract
+ */
 export function getContract(address: string): Network {
     let web3js;
     if (typeof web3 !== 'undefined') {
@@ -63,19 +69,25 @@ export function getContract(address: string): Network {
     return new web3js.eth.Contract(abi, address) as Network;
 }
 
-export async function getAppNodes(contractAddress: string, appId: string): Promise<AppNode[]> {
+/*
+ * Gets workers that are members of a cluster with a specific app (by appId).
+ */
+export async function getAppWorkers(contractAddress: string, appId: string): Promise<Worker[]> {
 
     let contract = getContract(contractAddress);
 
+    // get app info from contract
     let app = await App.getApp(contract, appId);
 
     let cluster = app.cluster;
 
-    let result: Option<Promise<AppNode[]>> = cluster.map((c) => {
+    let result: Option<Promise<Worker[]>> = cluster.map((c) => {
 
         let ids: string[] = c.cluster_members.map((m) => m.id);
 
+        // get info about all node members of the app
         return getNodes(contract, ids).then((nodes) => {
+            // combine nodes with a specific port in the app
             return nodes.map((n, idx) => {
                 return {
                     node: n,
@@ -94,6 +106,7 @@ export function getStatusPort(node: Node) {
     return node.last_port + 400
 }
 
+// get node health status by HTTP
 export function getNodeStatus(node: Node): Promise<NodeStatus|UnavailableNode> {
     let url = `http://${node.ip_addr}:${getStatusPort(node)}/status`;
     return axios.get(url).then((res) => {

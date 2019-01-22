@@ -21,7 +21,7 @@ import { Client } from "./Client";
 import { Session } from "./Session";
 import { SessionConfig } from "./SessionConfig";
 import {Empty, Result, Value, isValue} from "./Result";
-import {getAppNodes, AppNode} from "fluence-monitoring"
+import {getAppWorkers, Worker} from "fluence-monitoring"
 
 export {
     TendermintClient as TendermintClient,
@@ -43,26 +43,31 @@ let signer = new Signer(signingKey);
 // `client002` is a default client for now
 let client = new Client("client002", signer);
 
-export interface NodeSession {
+// A session with a worker with info about a worker
+export interface WorkerSession {
     session: Session,
-    appNode: AppNode
+    worker: Worker
 }
 
+// All sessions with workers from an app
 export interface AppSession {
-    sessions: NodeSession[]
+    appId: string,
+    workerSessions: WorkerSession[]
 }
 
-export async function createAppSessions(contract: string, appId: string): Promise<AppSession> {
-    let appNodes: AppNode[] = await getAppNodes(contract, appId);
-    let sessions: NodeSession[] = appNodes.map(an => {
-        let session = createDefaultSession(an.node.ip_addr, an.port + 100);
+// Create session with an app
+export async function createAppSession(contract: string, appId: string): Promise<AppSession> {
+    let workers: Worker[] = await getAppWorkers(contract, appId);
+    let sessions: WorkerSession[] = workers.map(worker => {
+        let session = createDefaultSession(worker.node.ip_addr, worker.port + 100);
         return {
             session: session,
-            appNode: an
+            worker: worker
         }
     });
     return {
-        sessions: sessions
+        appId: appId,
+        workerSessions: sessions
     }
 }
 
