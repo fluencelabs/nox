@@ -16,7 +16,7 @@
 
 //! Wrapper for counter (a test for Fluence network).
 //!
-//! Provides the public method for increment a counter and get its current state and some
+//! Provides the public method `invoke` for increment a counter and get its current state and some
 //! public service methods (`allocation`, `deallocation`).
 
 #![feature(allocator_api)]
@@ -37,12 +37,9 @@ mod counter;
 static mut COUNTER: counter::Counter = counter::Counter { counter: 0 };
 
 #[no_mangle]
-pub unsafe fn inc(_ptr: *mut u8, _len: usize) {
-    COUNTER.inc()
-}
+pub unsafe fn invoke(_ptr: *mut u8, _len: usize) -> usize {
+    COUNTER.inc();
 
-#[no_mangle]
-pub unsafe fn get(_ptr: *mut u8, _len: usize) -> usize {
     fluence::memory::write_str_to_mem(&COUNTER.get().to_string())
         .unwrap_or_else(|_| {
             panic!("[Error] Putting the result string into a raw memory was failed")
