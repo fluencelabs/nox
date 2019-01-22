@@ -89,6 +89,7 @@ case class MasterNode(
   private val runMasterNode: IO[ExitCode] =
     contract
       .getAllNodeApps(nodeConfig.validatorKey.toBytes32)
+      .evalTap[IO](app => IO { logger.info("This node will host app '{}'", app.appIdHex) })
       .through(WorkerConfigWriter.resolveWorkerConfigPaths(rootPath))
       .through(downloadCode(codeManager))
       .through(WorkerConfigWriter.writeConfigs())
