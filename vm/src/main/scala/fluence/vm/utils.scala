@@ -14,21 +14,26 @@
  * limitations under the License.
  */
 
-package fluence
-import cats.Functor
+package fluence.vm
+import cats.Applicative
 import cats.data.EitherT
 
+import scala.util.Try
 import scala.language.higherKinds
 
-package object vm {
+object utils {
 
-  implicit class VmErrorMapper[F[_]: Functor, E <: VmError, T](eitherT: EitherT[F, E, T]) {
-
-    def toVmError: EitherT[F, VmError, T] = {
-      eitherT.leftMap { e: VmError ⇒
-        e
-      }
-    }
-  }
+  /**
+   *  Runs action inside Try block, convert to EitherT with specified effect F.
+   */
+  def safelyRunThrowable[F[_]: Applicative, T, E <: VmError](
+    action: ⇒ T,
+    mapError: Throwable ⇒ E
+  ): EitherT[F, E, T] =
+    EitherT
+      .fromEither(
+        Try(action).toEither
+      )
+      .leftMap(mapError)
 
 }

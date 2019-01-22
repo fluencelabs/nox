@@ -25,6 +25,7 @@ import fluence.crypto.Crypto.Hasher
 import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
 import fluence.vm.VmError.{NoSuchModuleError, _}
 import fluence.vm.wasm.WasmModule
+import fluence.vm.utils.safelyRunThrowable
 import scodec.bits.ByteVector
 import WasmVm._
 
@@ -37,7 +38,7 @@ import scala.language.higherKinds
  * linearization is the task of the caller side.'''
  *
  * @param modules an index of Wasm modules
- * @param hasher a hash function provider
+ * @param hasher a hash function provider used for VM state hash computing
  */
 class AsmbleWasmVm(
   private val modules: ModuleIndex,
@@ -45,7 +46,7 @@ class AsmbleWasmVm(
 ) extends WasmVm {
 
   // size in bytes of pointer type in Wasm VM (can be different after Wasm64 release)
-  val WasmPointerSize = 4
+  private val WasmPointerSize = 4
 
   override def invoke[F[_]: LiftIO: Monad](
     moduleName: Option[String],
@@ -57,13 +58,14 @@ class AsmbleWasmVm(
           modules.get(moduleName),
           NoSuchModuleError(s"Unable to find a module with the name=${moduleName.getOrElse("<no-name>")}")
         )
-      preprocessedArgument ← preprocessFnArgument(fnArgument, wasmModule)
+
+      preprocessedArgument ← loadArgToMemory(fnArgument, wasmModule)
       invocationResult ← wasmModule.invoke(preprocessedArgument)
 
       // It is expected that callee (Wasm module) has to clean memory by itself because of otherwise
       // there can be some non-determinism (deterministic execution is very important for verification game
       // and this kind of non-determinism can break all verification game).
-      offset ← runThrowable(
+      offset ← safelyRunThrowable(
         invocationResult.toString.toInt,
         e ⇒ VmMemoryError(s"Trying to extract result from incorrect offset=$invocationResult", Some(e))
       )
@@ -84,7 +86,7 @@ class AsmbleWasmVm(
             concatHashes = Array.concat(moduleStateHash, prevModulesHash)
 
             // TODO : There is known the 2nd preimage attack to such scheme with the same hash function
-            //  for leaves and nodes.
+            // for leaves and nodes.
             resultHash ← hasher(concatHashes).leftMap { e ⇒
               InternalVmError(s"Getting VM state for module=$moduleName failed", Some(e)): GetVmStateError
             }
@@ -94,25 +96,27 @@ class AsmbleWasmVm(
       .map(ByteVector(_))
 
   /**
-   * Preprocesses a supplied to Wasm function array: injects it into Wasm module memory and replaces with pointer to
-   * it in the Wasm module and size. This functions simply returns 0 :: 0 :: Nil if supplied fnArgument was empty
+   * Preprocesses Wasm function argument array by injecting it into Wasm module memory and replacing by pointer to
+   * it in the Wasm module and its size. This functions simply returns 0 :: 0 :: Nil if supplied fnArgument was empty
    * without any allocations on the Wasm side.
    *
    * @param fnArgument an argument that should be preprocessed
    * @param wasmModule a module instance used for injecting array to the Wasm memory
    */
-  private def preprocessFnArgument[F[_]: LiftIO: Monad](
+  private def loadArgToMemory[F[_]: LiftIO: Monad](
     fnArgument: Array[Byte],
     wasmModule: WasmModule
   ): EitherT[F, InvokeError, List[AnyRef]] =
     if (fnArgument.isEmpty)
-      EitherT.rightT[F, InvokeError](0.asInstanceOf[AnyRef] :: 0.asInstanceOf[AnyRef] :: Nil)
+      EitherT.rightT[F, InvokeError](
+        Int.box(0) :: Int.box(0) :: Nil
+      )
     else
       for {
         offset ← wasmModule.allocate(fnArgument.length)
         _ ← wasmModule.writeMemory(offset, fnArgument).leftMap(e ⇒ e: InvokeError)
 
-      } yield offset.asInstanceOf[AnyRef] :: fnArgument.length.asInstanceOf[AnyRef] :: Nil
+      } yield Int.box(offset) :: Int.box(fnArgument.length) :: Nil
 
   /**
    * Extracts (reads and deletes) result from the given offset from Wasm module memory.
@@ -129,7 +133,7 @@ class AsmbleWasmVm(
       rawResultSize ← wasmModule.readMemory(offset, WasmPointerSize)
 
       // convert ArrayByte to Int
-      resultSize ← runThrowable(
+      resultSize ← safelyRunThrowable(
         ByteBuffer.wrap(rawResultSize).order(ByteOrder.LITTLE_ENDIAN).getInt(),
         e ⇒ VmMemoryError(s"Trying to extract result from incorrect offset=$rawResultSize", Some(e))
       )
@@ -139,6 +143,7 @@ class AsmbleWasmVm(
       // TODO : string deallocation from scala-part should be additionally investigated - it seems
       // that this version of deletion doesn't compatible with current idea of verification game
       _ ← wasmModule.deallocate(offset, extractedResult.length + WasmPointerSize)
+
     } yield extractedResult
 
 }

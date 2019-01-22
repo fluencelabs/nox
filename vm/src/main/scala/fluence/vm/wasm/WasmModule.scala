@@ -39,10 +39,11 @@ import scala.util.Try
  *
  * @param name an optional module name (according to Wasm specification module name can be empty string (that is also
  *             "valid UTF-8") or even absent)
- * @param wasmMemory the memory of this module (please see comment in apply method to understand why it optional now)
+ * @param wasmMemory the memory of this module (please see comment in apply method to understand why it's optional now)
  * @param moduleInstance a instance of Wasm Module compiled by Asmble
- * @param allocateFunction a function used for allocation memory region for parameter passing
- * @param deallocateFunction a function used for deallocation memory region previously allocated by allocateFunction
+ * @param allocateFunction a function used for allocation of a memory region for parameter passing
+ * @param deallocateFunction a function used for deallocation of a memory region previously allocated
+ *                          by allocateFunction
  * @param invokeFunction a function that represents main handler of Wasm module
  */
 class WasmModule(
@@ -62,17 +63,16 @@ class WasmModule(
    * @param size a size of memory that need to be allocated
    */
   def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, Int] =
-    invokeWasmFunction(allocateFunction, size.asInstanceOf[AnyRef] :: Nil)
+    invokeWasmFunction(allocateFunction, Int.box(size) :: Nil)
 
   /**
    * Deallocates a previously allocated memory region in Wasm module by deallocateFunction.
-   * This function is a temporary solution and should be removed in the nearest future.
    *
    * @param offset an address of the memory region to deallocate
    * @param size a size of memory region to deallocate
    */
   def deallocate[F[_]: LiftIO: Monad](offset: Int, size: Int): EitherT[F, InvokeError, Unit] =
-    invokeWasmFunction(deallocateFunction, offset.asInstanceOf[AnyRef] :: size.asInstanceOf[AnyRef] :: Nil)
+    invokeWasmFunction(deallocateFunction, Int.box(offset) :: Int.box(size) :: Nil)
       .map(_ ⇒ ())
 
   /**
@@ -140,12 +140,12 @@ class WasmModule(
 
           // Despite our way of thinking about Wasm function return value type as one of (i32, i64, f32, f64) in
           // WasmModule context, there we can operate with Int (i32) values. It comes from our conventions about
-          // Wasm modules design: they have to has only one export function as a user interface and one for memory
-          // allocation. The first one receives and returns byte array by a pointer and the second one used for
-          // allocating memory for array passing. Since Webassembly is only 32-bit now, Int(i32) is used as a
-          // return value type. And after Wasm64 release, there should be additional logic to operate both with
-          // 32 and 64-bit modules. TODO: fold with default value is just a temporary solution - after dealloc
-          // removing it should be refactored to Either.fromOption
+          // Wasm modules design: they have to has only one export function as a user interface. It has to receive
+          // and return a byte array, but since array can't be directly returns from Wasm part, It returns pointer
+          // to in memory. And since Webassembly is only 32-bit now, Int(i32) is used as a pointer and return value
+          // type. And after Wasm64 release, there should be additional logic to operate both with 32 and 64-bit
+          // modules. TODO: fold with default value is just a temporary solution - after alloc/dealloc removal it
+          // should be refactored to Either.fromOption
         } yield rawResult.fold(0)(_.intValue)
     )
 
@@ -182,14 +182,14 @@ object WasmModule {
       }
 
       // TODO: there are two ways of getting memory from a Wasm module: by exported getMemory function or
-      // through moduleInstance.getMem interface. Based on Asmble source code It seems that the behavior
-      // of getMemory is returning smth like 'export memory' in terms of Wasm specification. getMemory
-      // is more suitable for the scenario when at first Wasm module translates to Java class and then
-      // compiled with the rest of Java code. In our approach, it needs to use reflection for invocation.
-      // Another issue lies in the fact that Asmble may not generate this function. But ByteBuffer presence
-      // in every translated module (it is created in ctors of generated Java class). The second approach
-      // of accessing is more complicated because Mem provides a more low level and nonsuitable interface
-      // for use, but it gives us the capability for getting memory for any module. And in the future, we
+      // through moduleInstance.getMem interface. Based on Asmble source code It seems that the getMemory
+      // returns smth like 'export memory' in terms of Wasm specification. Also getMemory is more suitable
+      // for the scenario when at first Wasm module translates to Java class and only then compiled with
+      // the rest of Java code. In our approach, it needs to use reflection for invocation. Another issue
+      // lies in the fact that Asmble may not generate this function. But ByteBuffer is present in every
+      // translated module (it is created in ctors of generated Java class). The second approach of
+      // accessing is more complicated because Mem provides a more low level and nonsuitable interface for
+      // use, but it gives us the capability for getting memory for any module. And in the future, we
       // should move to it.
       memory ← Try {
         val getMemoryMethod: Option[Method] = Try(
@@ -201,7 +201,7 @@ object WasmModule {
           .flatMap(Option(_))
       }.toEither.left.map { e ⇒
         InitializationError(
-          s"Unable to getting memory from module=${moduleDescription.getName}",
+          s"Unable to get memory from module=${moduleDescription.getName}",
           Some(e)
         ): ApplyError
       }
@@ -219,13 +219,13 @@ object WasmModule {
           case (acc @ (_, _, None), m @ WasmFunction(`invokeFunctionName`, _)) ⇒
             acc.copy(_3 = Some(m))
 
-          case (acc @ (_, _, _), _) ⇒ acc
+          case (acc, _) ⇒ acc
         }
 
     } yield
       new WasmModule(
         Option(moduleDescription.getName),
-        memory.map(memory ⇒ WasmModuleMemory(memory)),
+        memory.map(WasmModuleMemory),
         moduleInstance,
         allocMethod,
         deallocMethod,

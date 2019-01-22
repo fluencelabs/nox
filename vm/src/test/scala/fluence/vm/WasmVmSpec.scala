@@ -71,7 +71,7 @@ class WasmVmSpec extends WordSpec with Matchers {
       WasmVm[IO](NonEmptyList.of(mulFile, sumFile)).success()
     }
 
-    "2 module has function with equal name" in {
+    "two modules have function with the same names" in {
       // module without name and with some functions with the same name ("allocate", "deallocate", "invoke", ...)
       val sum1File = getClass.getResource("/wast/no-getMemory.wast").getPath
       // module without name and with some functions with the same name ("allocate", "deallocate", "invoke", ...)

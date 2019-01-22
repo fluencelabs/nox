@@ -64,7 +64,7 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
           case Right(_) ⇒
             fail("Should be error appeared")
           case Left(e) ⇒
-            e.getMessage shouldBe "Unable to getting memory from module=test-module-name"
+            e.getMessage shouldBe "Unable to get memory from module=test-module-name"
             e.getCause shouldBe a[InvocationTargetException]
             e shouldBe a[InitializationError]
         }

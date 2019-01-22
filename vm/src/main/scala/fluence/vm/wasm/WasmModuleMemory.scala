@@ -17,8 +17,8 @@
 package fluence.vm.wasm
 import java.nio.{ByteBuffer, ByteOrder}
 
-import fluence.vm.runThrowable
-import cats.{Applicative, Monad}
+import fluence.vm.utils.safelyRunThrowable
+import cats.Monad
 import cats.data.EitherT
 import fluence.crypto.CryptoError
 import fluence.vm.VmError.{InternalVmError, VmMemoryError}
@@ -34,11 +34,11 @@ final case class WasmModuleMemory(memory: ByteBuffer) {
    * @param offset offset from which read should be started
    * @param size bytes count to read
    */
-  def readBytes[F[_]: Applicative](
+  def readBytes[F[_]: Monad](
     offset: Int,
     size: Int
   ): EitherT[F, VmMemoryError, Array[Byte]] =
-    runThrowable(
+    safelyRunThrowable(
       {
         // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
         val wasmMemoryView = memory.duplicate()
@@ -64,11 +64,11 @@ final case class WasmModuleMemory(memory: ByteBuffer) {
    * @param offset offset from which write should be started
    * @param injectedArray array that should be injected into the module memory
    */
-  def writeBytes[F[_]: Applicative](
+  def writeBytes[F[_]: Monad](
     offset: Int,
     injectedArray: Array[Byte]
   ): EitherT[F, VmMemoryError, Unit] =
-    runThrowable(
+    safelyRunThrowable(
       {
         // need a shallow ByteBuffer copy to avoid modifying the original one used by Asmble
         val wasmMemoryView = memory.duplicate()

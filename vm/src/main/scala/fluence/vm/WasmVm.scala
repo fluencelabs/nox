@@ -31,6 +31,7 @@ import fluence.vm.wasm.WasmFunction
 import fluence.vm.config.VmConfig
 import fluence.vm.config.VmConfig._
 import fluence.vm.config.VmConfig.ConfigError
+import fluence.vm.utils.safelyRunThrowable
 import fluence.vm.wasm.WasmModule
 import scodec.bits.ByteVector
 import pureconfig.generic.auto._
@@ -100,8 +101,8 @@ object WasmVm {
         }
 
       // Compiling Wasm modules to JVM bytecode and registering derived classes
-      // in the Asmble engine. Every Wasm module is compiles to exactly one JVM class.
-      scriptCxt ← runThrowable(
+      // in the Asmble engine. Every Wasm module is compiled to exactly one JVM class.
+      scriptCxt ← safelyRunThrowable(
         prepareContext(inFiles, config),
         err ⇒
           InitializationError(
@@ -121,7 +122,7 @@ object WasmVm {
   /**
    * Returns [[ScriptContext]] - context for uploaded Wasm modules.
    * Compiles Wasm modules to JVM bytecode and registering derived classes
-   * in the Asmble engine. Every Wasm module is compiles to exactly one JVM class.
+   * in the Asmble engine. Every Wasm module is compiled to exactly one JVM class.
    */
   private def prepareContext(
     inFiles: NonEmptyList[String],
@@ -146,7 +147,7 @@ object WasmVm {
   /**
    * This method initializes every module and builds a module index. The index is actually a map where the key is a
    * string "Some(moduleName)" and value is a [[WasmFunction]] instance. Module name can be "None" if the module
-   * name wasn't specified (note that it also can be ampty).
+   * name wasn't specified (note that it also can be empty).
    */
   private def initializeModules[F[_]: Applicative](
     scriptCxt: ScriptContext,
