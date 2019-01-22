@@ -24,7 +24,8 @@ fn integration_publish_pinned() {
 
     assert_eq!(log.node_i_ds.len(), count as usize);
 
-    let status: Status = get_status(*opts.contract_address(), opts.eth_url()).unwrap();
+    let status: Status =
+        get_status(opts.eth().contract_address, opts.eth().eth_url.as_str()).unwrap();
 
     let target = status
         .apps()

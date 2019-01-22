@@ -44,6 +44,7 @@ pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Box<Error>> {
 #[cfg(test)]
 mod tests {
     use super::get_status;
+    use crate::command::EthereumArgs;
     use crate::credentials::Credentials;
     use crate::publisher::Publisher;
     use crate::register::Register;
@@ -60,17 +61,22 @@ mod tests {
         let contract_address: Address = CONTRACT_ADDR.parse().unwrap();
 
         let creds: Credentials = Credentials::No;
+        let account: Address = OWNER.parse().unwrap();
+
+        let eth = EthereumArgs {
+            credentials: creds,
+            gas: 1000000,
+            account,
+            contract_address,
+            eth_url: ETH_URL.to_string(),
+        };
 
         Publisher::new(
             bytes,
-            contract_address,
-            OWNER.parse().unwrap(),
-            String::from(SWARM_URL),
-            String::from(ETH_URL),
-            creds,
+            SWARM_URL.to_string(),
             cluster_size.to_owned(),
-            1_000_000,
             vec![],
+            eth,
         )
     }
 
@@ -83,18 +89,22 @@ mod tests {
         let tendermint_key: H256 = H256::from(rnd_num);
         let account: Address = "4180fc65d613ba7e1a385181a219f1dbfe7bf11d".parse().unwrap();
 
+        let eth = EthereumArgs {
+            credentials: Credentials::No,
+            gas: 1000000,
+            account,
+            contract_address,
+            eth_url: ETH_URL.to_string(),
+        };
+
         Register::new(
             address.parse().unwrap(),
             tendermint_key,
             start_port,
             last_port,
-            contract_address,
-            account,
-            String::from(ETH_URL),
-            Credentials::No,
             false,
-            1_000_000,
             false,
+            eth,
         )
         .unwrap()
     }

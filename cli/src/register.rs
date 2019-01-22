@@ -26,8 +26,8 @@ use web3::transports::Http;
 use web3::types::H256;
 
 use crate::command::{
-    base64_tendermint_key, with_ethereum_args, parse_ethereum_args, parse_tendermint_key,
-    tendermint_key, EthereumArgs,
+    base64_tendermint_key, parse_ethereum_args, parse_tendermint_key, tendermint_key,
+    with_ethereum_args, EthereumArgs,
 };
 use crate::contract_func::contract::functions::add_node;
 use crate::contract_func::ContractCaller;
@@ -242,9 +242,11 @@ pub mod tests {
     use rand::prelude::*;
     use web3::types::*;
 
+    use crate::command::EthereumArgs;
     use crate::credentials::Credentials;
 
     use super::Register;
+    use std::net::IpAddr;
 
     pub fn generate_register(credentials: Credentials) -> Register {
         let contract_address: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap();
@@ -255,18 +257,22 @@ pub mod tests {
         let tendermint_key: H256 = H256::from(rnd_num);
         let account: Address = "4180fc65d613ba7e1a385181a219f1dbfe7bf11d".parse().unwrap();
 
+        let eth = EthereumArgs {
+            credentials,
+            gas: 1000000,
+            account,
+            contract_address,
+            eth_url: String::from("http://localhost:8545"),
+        };
+
         Register::new(
-            "127.0.0.1".parse().unwrap(),
+            "127.0.0.1".parse::<IpAddr>().unwrap(),
             tendermint_key,
             25006,
             25100,
-            contract_address,
-            account,
-            String::from("http://localhost:8545/"),
-            credentials,
             false,
-            1_000_000,
             false,
+            eth,
         )
         .unwrap()
     }
@@ -281,12 +287,7 @@ pub mod tests {
     }
 
     pub fn generate_with_account(account: Address, credentials: Credentials) -> Register {
-        generate_with(
-            |r| {
-                r.account = account;
-            },
-            credentials,
-        )
+        generate_with(|r| r.eth.account = account, credentials)
     }
 
     #[test]
@@ -303,12 +304,7 @@ pub mod tests {
 
     #[test]
     fn register_out_of_gas() -> Result<(), Box<Error>> {
-        let register = generate_with(
-            |r| {
-                r.gas = 1;
-            },
-            Credentials::No,
-        );
+        let register = generate_with(|r| r.eth.gas = 1, Credentials::No);
 
         let result = register.register(false);
 

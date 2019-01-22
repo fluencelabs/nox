@@ -19,7 +19,7 @@ const ETH_URL: &str = "eth_url";
 const TENDERMINT_KEY: &str = "tendermint_key";
 const BASE64_TENDERMINT_KEY: &str = "base64_tendermint_key";
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EthereumArgs {
     pub credentials: Credentials,
     pub gas: u32,
@@ -60,11 +60,7 @@ pub fn base64_tendermint_key<'a, 'b>() -> Arg<'a, 'b> {
 
 pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
     // find last positional argument index, to add ethereum arguments after it
-    let last_index = args
-        .iter()
-        .filter_map(|a| a.index)
-        .max()
-        .unwrap_or(0);
+    let last_index = args.iter().filter_map(|a| a.index).max().unwrap_or(0);
 
     let mut eth_args = vec![
         contract_address().index(last_index + 1),
@@ -108,7 +104,9 @@ pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
 }
 
 pub fn parse_contract_address(args: &ArgMatches) -> Result<Address, Box<Error>> {
-    utils::parse_hex_opt(args, CONTRACT_ADDRESS)?.parse::<Address>().map_err(|e| e.into())
+    utils::parse_hex_opt(args, CONTRACT_ADDRESS)?
+        .parse::<Address>()
+        .map_err(|e| e.into())
 }
 
 pub fn parse_eth_url(args: &ArgMatches) -> Result<String, clap::Error> {
