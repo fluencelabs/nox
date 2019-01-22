@@ -314,7 +314,32 @@ contract Deployer {
     function deleteNode(bytes32 nodeID)
         external
     {
+        Node memory node = nodes[nodeID];
+        require(node.id != 0, "error deleting node: node not found");
+        require(node.owner == msg.sender, "error deleting node: you must own node to delete it");
 
+        uint i;
+        for(; i < readyNodes.length; i++) {
+            if (readyNodes[i] == nodeID) {
+                break;
+            }
+        }
+
+        if (i < readyNodes.length) {
+            removeReadyNode(i);
+        }
+
+        for(i = 0; i < nodesIds.length; i++) {
+            if (nodesIds[i] == nodeID) {
+                break;
+            }
+        }
+
+        require(i < nodesIds.length, "error deleting node: node not found in nodesIds array");
+
+        removeFromNodeIds(i);
+
+        delete nodes[nodeID];
     }
 
     /** @dev Tries to deploy an app, using ready nodes and their ports
