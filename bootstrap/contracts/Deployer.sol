@@ -467,11 +467,11 @@ contract Deployer {
         readyNodes.length--;
     }
 
-    function removeNodeId(uint index)
+    function removeFromNodeIds(uint index)
     internal
     {
         if (index != nodesIds.length - 1) {
-            // remove index-th node from nodesIds replacing it by the last node in the array
+            // remove index-th node id from nodesIds replacing it by the last node id in the array
             nodesIds[index] = nodesIds[nodesIds.length - 1];
         }
         // release the storage
