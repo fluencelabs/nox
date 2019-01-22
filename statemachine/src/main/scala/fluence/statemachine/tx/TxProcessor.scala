@@ -128,21 +128,19 @@ class TxProcessor[F[_]](
    * @return [[TransactionStatus]] corresponding to the invocation result
    */
   private def invokeTx(tx: Transaction): F[TransactionStatus] = {
+    val CloseSession = "@closeSession"
+
     tx.payload match {
-      case SmCloseSession(_) =>
+      case CloseSession =>
         EitherT.right[StateMachineError](putResult(tx, TransactionStatus.SessionClosed, Empty))
 
-      case VmFunctionCall(vmCallDescription) =>
+      case payload =>
         vmInvoker
-          .invoke(vmCallDescription)
+          .invoke(payload.toCharArray.map(_.toByte))
           .flatMap(
             result => EitherT.right[StateMachineError](putResult(tx, TransactionStatus.Success, Computed(result)))
           )
 
-      case payload =>
-        EitherT.leftT[F, TransactionStatus](
-          PayloadParseError("WrongPayloadArgument", s"Wrong payload argument=$payload")
-        )
     }
   }.valueOrF(error => putResult(tx, TransactionStatus.Error, Error(error.code, error.message)))
 
