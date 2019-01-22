@@ -122,7 +122,8 @@ while [ $COUNTER -le $NUMBER_OF_NODES ]; do
         # get tendermint key from node logs
         # todo get this from `status` API by CLI
         while [ -z "$TENDERMINT_KEY" ]; do
-            TENDERMINT_KEY=$(docker logs node$COUNTER 2>&1 | grep PubKey | sed 's/.*value\":\"\([^ ]*\).*/\1/' | sed 's/\"},//g')
+            # TODO: parse for 'Node ID' instead of 'PubKey'
+            TENDERMINT_KEY=$(docker logs node$COUNTER 2>&1 | awk 'match($0, /PubKey: /) { print substr($0, RSTART + RLENGTH) }')
             sleep 3
         done
 
