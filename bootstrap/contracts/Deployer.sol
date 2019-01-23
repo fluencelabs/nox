@@ -289,8 +289,7 @@ contract Deployer {
 
         require(i < enqueuedApps.length, "error deleting app: app not found");
 
-        App memory app = apps[appID];
-        require(app.owner == msg.sender || isContractOwner(), "error deleting app: you must own the app to delete it");
+        require(apps[appID].owner == msg.sender || isContractOwner(), "error deleting app: you must own the app to delete it");
 
         removeEnqueuedApp(i);
 
