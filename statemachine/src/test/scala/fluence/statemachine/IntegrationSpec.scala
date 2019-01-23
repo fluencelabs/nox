@@ -81,6 +81,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
     val txJson = s"""{"header":$txHeaderJson,"payload":"$payload"}"""
     val signingData = s"${client.id}-$session-$order-$payload"
     val signedTxJson = s"""{"tx":$txJson,"signature":"${client.sign(signingData)}"}"""
+    val tt = client.sign(signingData)
     HexCodec.stringToHex(signedTxJson).toUpperCase
   }
 
@@ -104,8 +105,8 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       client,
       session,
       1,
-      "MulModule(0A0000000E000000)",
-      "WYiFrfG2qOhLzrVYl2c6twsIXqr92wxggd8t3+xeJtbIwE4cldX9K070X8ztNT5cVVLZ+Qd/tYMhsMlv7yLzDQ=="
+      "()",
+      "GnGwQ/sKW2m8HqvigBRlmljOJhkAGbnslyQ4UYkWtnnvyzvveX9YTQUCZ4cFpL5ZsugaVHMqGBFn5ERN5UWzBA=="
     )
     val tx2 = tx(client, session, 2, "()")
     val tx3 = tx(client, session, 3, "()")
@@ -132,7 +133,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
       sendDeliverTx(tx0)
       sendCommit()
-      latestAppHash shouldBe "A8F13D6083ED43D9645A9B7A330F7081FC79E720F7E88274F4BED0B4AF4E0D24"
+      latestAppHash shouldBe "501B4A2372F91385D08BF276F16167D1A5BAF074C91B630C5E582E15D6F3F23E"
 
       sendCheckTx(tx1)
       sendCheckTx(tx2)
@@ -142,16 +143,16 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendDeliverTx(tx2)
       sendDeliverTx(tx3)
       sendCommit()
-      latestAppHash shouldBe "9750399EECDCC779F3F3EAC4B04BC88385BC51643CB18CDC419D612B4A4197C7"
+      latestAppHash shouldBe "D1FACD887C07449BC198538645D3AE86107746B9F887C402876FC50C26C2F3BD"
 
       sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
       sendCommit()
 
-      sendQuery(tx1Result) shouldBe Right(Computed(littleEndian4ByteHex(140)).toStoreValue)
-      sendQuery(tx3Result) shouldBe Right(Computed(littleEndian4ByteHex(3)).toStoreValue)
+      sendQuery(tx1Result) shouldBe Right(Computed(littleEndian4ByteHex(2)).toStoreValue)
+      sendQuery(tx3Result) shouldBe Right(Computed(littleEndian4ByteHex(4)).toStoreValue)
 
       latestCommittedHeight shouldBe 5
-      latestAppHash shouldBe "9750399EECDCC779F3F3EAC4B04BC88385BC51643CB18CDC419D612B4A4197C7"
+      latestAppHash shouldBe "D1FACD887C07449BC198538645D3AE86107746B9F887C402876FC50C26C2F3BD"
     }
 
     "invoke session txs in session counter order" in {
@@ -174,9 +175,9 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendCommit()
 
       sendQuery(tx0Result) shouldBe Right(Computed(littleEndian4ByteHex(1)).toStoreValue)
-      sendQuery(tx1Result) shouldBe Right(Computed(littleEndian4ByteHex(140)).toStoreValue)
-      sendQuery(tx2Result) shouldBe Right(Computed(littleEndian4ByteHex(2)).toStoreValue)
-      sendQuery(tx3Result) shouldBe Right(Computed(littleEndian4ByteHex(3)).toStoreValue)
+      sendQuery(tx1Result) shouldBe Right(Computed(littleEndian4ByteHex(2)).toStoreValue)
+      sendQuery(tx2Result) shouldBe Right(Computed(littleEndian4ByteHex(3)).toStoreValue)
+      sendQuery(tx3Result) shouldBe Right(Computed(littleEndian4ByteHex(4)).toStoreValue)
     }
 
     "ignore incorrectly signed tx" in {
@@ -234,39 +235,6 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
       sendQuery(s"@meta/${client.id}/$session/4/status") shouldBe Right("sessionClosed")
       sendQuery(s"@meta/${client.id}/$session/@sessionSummary") shouldBe
         Right("{\"status\":{\"ExplicitlyClosed\":{}},\"invokedTxsCount\":5,\"lastTxCounter\":5}")
-    }
-
-    "not accept new txs if session failed" in {
-      sendCommit()
-      sendCommit()
-
-      sendDeliverTx(tx0Failed)
-      sendDeliverTx(tx1) shouldBe (CodeType.BAD, ClientInfoMessages.SessionAlreadyClosed)
-
-      sendCommit()
-      sendCommit()
-
-      sendQuery(s"@meta/${client.id}/$session/0/result") shouldBe
-        Right(Error("NoSuchModuleError", "Unable to find a module with the name=WrongModuleName").toStoreValue)
-    }
-
-    "not invoke dependent txs if required failed when order in not correct" in {
-      sendCommit()
-      sendCommit()
-
-      sendDeliverTx(tx1)
-      sendDeliverTx(tx2)
-      sendDeliverTx(tx3)
-      sendDeliverTx(tx0Failed)
-
-      sendCommit()
-      sendCommit()
-
-      sendQuery(s"@meta/${client.id}/$session/0/result") shouldBe
-        Right(Error("NoSuchModuleError", "Unable to find a module with the name=WrongModuleName").toStoreValue)
-      sendQuery(s"@meta/${client.id}/$session/0/status") shouldBe Right("error")
-      sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
-      sendQuery(tx3Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
     }
 
     "expire session after expiration period elapsed" in {
