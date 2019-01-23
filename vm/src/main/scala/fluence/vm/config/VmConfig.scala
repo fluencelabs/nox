@@ -33,13 +33,15 @@ import scala.util.control.NoStackTrace
  *                             (used for passing complex data structures)
  * @param deallocateFunctionName name of a function that should be called for deallocation
  *                               of previously allocated memory
+ * @param invokeFunctionName name of main module handler function
  */
 case class VmConfig(
   defaultMaxMemPages: Int,
   specTestRegister: Boolean,
   loggerRegister: Int,
   allocateFunctionName: String,
-  deallocateFunctionName: String
+  deallocateFunctionName: String,
+  invokeFunctionName: String
 )
 
 object VmConfig {

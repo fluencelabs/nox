@@ -20,8 +20,8 @@ import { Signer } from "./Signer";
 import { Client } from "./Client";
 import { Session } from "./Session";
 import { SessionConfig } from "./SessionConfig";
-import {fromHex, toHex} from "./utils";
 import {Empty, Result, Value, isValue} from "./Result";
+import {getAppWorkers, Worker} from "fluence-monitoring"
 
 export {
     TendermintClient as TendermintClient,
@@ -32,10 +32,43 @@ export {
     Empty as Empty,
     Result as Result,
     Value as Value,
-    fromHex as fromHex,
-    toHex as toHex,
     isValue as isValue,
     SessionConfig as SessionConfig
+}
+
+// default signing key for now
+let signingKey = "TVAD4tNeMH2yJfkDZBSjrMJRbavmdc3/fGU2N2VAnxT3hAtSkX+Lrl4lN5OEsXjD7GGG7iEewSod472HudrkrA==";
+let signer = new Signer(signingKey);
+
+// `client002` is a default client for now
+let client = new Client("client002", signer);
+
+// A session with a worker with info about a worker
+export interface WorkerSession {
+    session: Session,
+    worker: Worker
+}
+
+// All sessions with workers from an app
+export interface AppSession {
+    appId: string,
+    workerSessions: WorkerSession[]
+}
+
+// Create session with an app
+export async function createAppSession(contract: string, appId: string): Promise<AppSession> {
+    let workers: Worker[] = await getAppWorkers(contract, appId);
+    let sessions: WorkerSession[] = workers.map(worker => {
+        let session = createDefaultSession(worker.node.ip_addr, worker.port + 100);
+        return {
+            session: session,
+            worker: worker
+        }
+    });
+    return {
+        appId: appId,
+        workerSessions: sessions
+    }
 }
 
 /**
@@ -45,13 +78,6 @@ export function createDefaultSession(host: string, port: number) {
     let tm = new TendermintClient(host, port);
 
     let engine = new Engine(tm);
-
-    // default signing key for now
-    let signingKey = "TVAD4tNeMH2yJfkDZBSjrMJRbavmdc3/fGU2N2VAnxT3hAtSkX+Lrl4lN5OEsXjD7GGG7iEewSod472HudrkrA==";
-    let signer = new Signer(signingKey);
-
-    // `client002` is a default client for now
-    let client = new Client("client002", signer);
 
     return engine.genSession(client);
 }

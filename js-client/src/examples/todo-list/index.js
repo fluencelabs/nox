@@ -31,7 +31,8 @@ window.onload = function () {
 
     // *****
     // *** define a function that will create tables in the llamadb running on the fluence cluster
-    // *** `do_query` is a command that accepts queries. It is implemented on top of llamadb in Rust.
+    // *** Each instance of Wasm module has one export function that accepts queries. For more details, please see
+    // *** vm/examples/llamadb - this Rust project built on top of llamadb and manages all requests to it.
     // *** If you wish, you can customize llamadb, compile it to WebAssembly and deploy your own version on Fluence. 
     // *** Toolset for that is still in development though. We will address that on future workshops.
     // *****
@@ -39,7 +40,7 @@ window.onload = function () {
     function createTables() {
         const createTodoQuery = `CREATE TABLE ${todoTable}(task varchar(128), done int)`;
 
-        session.invoke("do_query", createTodoQuery).result()
+        session.invoke(createTodoQuery).result()
             .then((r) => {console.log("todo table created")});
     }
 
@@ -51,7 +52,7 @@ window.onload = function () {
 
     function loadTasks() {
         const query = `SELECT * FROM ${todoTable}`;
-        return session.invoke("do_query", query).result().then((res) => {
+        return session.invoke(query).result().then((res) => {
             // encode result to string and split by `\n` for list of tasks
             let resultArr = res.asString().split('\n');
             // remove column names element
@@ -95,7 +96,7 @@ window.onload = function () {
             done = "0"
         }
         const query = `INSERT INTO ${todoTable} VALUES ('${task}', ${done})`;
-        session.invoke("do_query", query).result().then((r) => {
+        session.invoke(query).result().then((r) => {
             console.log("task inserted")
         })
     }
@@ -107,7 +108,7 @@ window.onload = function () {
             done = "0"
         }
         const query = `UPDATE ${todoTable} SET done = ${done} WHERE task = '${task}'`;
-        session.invoke("do_query", query).result().then((res) => {
+        session.invoke(query).result().then((res) => {
             console.log("task deleted: " + res.asString());
         })
     }
@@ -118,7 +119,7 @@ window.onload = function () {
 
     function deleteFromFluence(task) {
         const query = `DELETE FROM ${todoTable} WHERE task = '${task}'`;
-        session.invoke("do_query", query).result().then((res) => {
+        session.invoke(query).result().then((res) => {
             console.log("task deleted: " + res.asString());
         })
     }

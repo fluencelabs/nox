@@ -23,27 +23,30 @@ info = {'<ip1>': {'owner': '<eth address1>', 'key': '<private key1>'},
 
 file = open("scripts/contract.txt", "r")
 contract=file.read()
+file.close()
 
 # Fluence will be deployed on all hosts from `info`
 env.hosts = info.keys()
 
 # Set the username
 env.user = "root"
- 
+
 def copy_resources():
 
+    # cleans up old scripts
+    run('rm -rf scripts')
     run('mkdir scripts -p')
     # copy local directory `script` to remote machine
-    put('scripts/compose.sh', '.')
-    put('scripts/node.yml', '.')
-    put('scripts/parity.yml', '.')
-    put('scripts/swarm.yml', '.')
-    put('scripts/fluence', '.')
+    put('scripts/compose.sh', 'scripts/')
+    put('scripts/node.yml', 'scripts/')
+    put('scripts/parity.yml', 'scripts/')
+    put('scripts/swarm.yml', 'scripts/')
+    put('scripts/fluence', 'scripts/')
 
 # comment this annotation to deploy sequentially
 @parallel
 def deploy():
- 
+
     copy_resources()
 
     with cd("scripts"):
@@ -71,6 +74,8 @@ def deploy():
                        HOST_IP=current_host):
             run('chmod +x compose.sh')
             run('chmod +x fluence')
+            run('docker pull parity/parity:v2.3.0')
+            run('docker pull ethdevops/swarm')
             run('docker pull fluencelabs/node')
             run('docker pull fluencelabs/worker')
             # delete all workers

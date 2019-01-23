@@ -32,7 +32,12 @@ export interface NodeStatus {
  * If node is not available.
  */
 export interface UnavailableNode {
-    nodeInfo: Node
+    nodeInfo: Node,
+    causeBy: string
+}
+
+export function isAvailable(status: NodeStatus | UnavailableNode): status is NodeStatus {
+    return (<UnavailableNode>status).causeBy === undefined
 }
 
 /**

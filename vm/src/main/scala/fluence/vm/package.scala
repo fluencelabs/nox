@@ -15,25 +15,12 @@
  */
 
 package fluence
-import cats.{Applicative, Functor}
+import cats.Functor
 import cats.data.EitherT
-import cats.effect.IO
 
 import scala.language.higherKinds
 
 package object vm {
-
-  /** Helper method. Converts List of Either to Either of List. */
-  def list2Either[F[_]: Applicative, A, B](
-    list: List[Either[A, B]]
-  ): EitherT[F, A, List[B]] = {
-    import cats.instances.list._
-    import cats.syntax.traverse._
-    import cats.instances.either._
-    // unfortunately Idea don't understand this and show error in Editor
-    val either: Either[A, List[B]] = list.sequence
-    EitherT.fromEither[F](either)
-  }
 
   implicit class VmErrorMapper[F[_]: Functor, E <: VmError, T](eitherT: EitherT[F, E, T]) {
 

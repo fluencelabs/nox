@@ -1,7 +1,6 @@
-;; simple in-memory counter
+;; copy of simple counter module with different name
 
 (module $CounterCopyModule
-
     ;; force Asmble to use memory
     (memory $0 20)
     (export "memory" (memory $0))
@@ -23,9 +22,9 @@
     (data (i32.const 12) "\00\00\00\00")
 
     ;;
-    ;; Increments variable in memory by one.
+    ;; Increments variable in memory by one and returns it.
     ;;
-    (func (export "inc") (param $buffer i32) (param $size i32)
+    (func (export "invoke") (param $buffer i32) (param $size i32) (result i32)
         (i32.store offset=12
             (i32.const 0)
             (i32.add
@@ -33,12 +32,6 @@
                 (i32.const 1)
             )
         )
-    )
-
-    ;;
-    ;; Public fn for getting value of counter.
-    ;;
-    (func (export "get") (param $buffer i32) (param $size i32) (result i32)
         (call $putIntResult
             (i32.load offset=12 (i32.const 0))
         )

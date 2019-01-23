@@ -32,7 +32,7 @@ const txDebug = debug("broadcast-request");
  */
 export class Session {
     private readonly client: Client;
-    private readonly tm: TendermintClient;
+    readonly tm: TendermintClient;
     private readonly session: string;
     private readonly sessionSummaryKey: string;
     private readonly config: SessionConfig;
@@ -140,12 +140,12 @@ export class Session {
     /**
      * Sends request with a payload and wait for a response.
      *
-     * @param command a command supported by the program in a virtual machine
-     * @param arg arguments for command
+     * @param arg argument for command
+     * @param moduleName name of module that should be called
      */
-    invoke(command: string, arg: string = ""): ResultPromise {
+    invoke(arg: string = "", moduleName: string = ""): ResultPromise {
 
-        let payload: string = command + `(${toHex(arg)})`;
+        let payload: string = moduleName + `(${toHex(arg)})`;
 
         return this.invokeRaw(payload);
     }
