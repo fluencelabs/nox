@@ -34,8 +34,8 @@ The following command will register a node:
 ./fluence register \
             85.82.118.4 \
             1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
-            0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
             0x9995882876ae612bfd829498ccd73dd962ec950a \
+            0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
             --base64_tendermint_key \
             --secret_key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
             --wait_syncing \
@@ -49,8 +49,8 @@ Parameters are:
     - flag `--base64_tendermint_key` passed so tendermint key is treated as base64-encoded as opposed to hex-encoded
     - currently, Tendermint key can be found in logs of `fluencelabs/node` Docker container
     - note that key should be unique, i.e. you can't register several nodes with the same key
-- `0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d` will be used as Ethereum account for issuing transactions. _Use your Ethereum account here_
 - `0x9995882876ae612bfd829498ccd73dd962ec950a` is a contract address, register transaction will be sent there
+- `0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d` will be used as Ethereum account for issuing transactions. _Use your Ethereum account here_
 - `--secret_key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133` denotes an Ethereum private key, used for offline transaction signing. _Use your Ethereum private key here_
     - using `--password` is possible instead of private key, but private key is preferred
 - `--wait_syncing` so CLI waits until Ethereum node is fully synced
