@@ -119,6 +119,11 @@ You can use [Fluence CLI](../../cli/README.md) to query current state of network
 ```
 where `0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b` is the Fluence smart contract address. 
 
+**Note:** if your Ethereum node is remote, you can specify it's address via `--eth_url` option, like this:
+```
+./fluence status --eth_url https://53.42.31.20:8545 0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b
+```
+
 You should see your Ethereum address under `owner` in `nodes` list. Similar to this:
 ```json
 {
