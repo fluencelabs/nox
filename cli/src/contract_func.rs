@@ -90,7 +90,11 @@ impl ContractCaller {
         gas: u32,
     ) -> Result<H256, Error> {
         let gas_price = web3.eth().gas_price().wait().map_err(SyncFailure::new)?;
-        let nonce = web3.eth().transaction_count(account, None).wait().map_err(SyncFailure::new)?;
+        let nonce = web3
+            .eth()
+            .transaction_count(account, None)
+            .wait()
+            .map_err(SyncFailure::new)?;
 
         let tx = Transaction {
             nonce,
