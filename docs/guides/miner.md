@@ -117,7 +117,23 @@ You can use [Fluence CLI](../../cli/README.md) to query current state of network
 ```
 ./fluence status 0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b
 ```
-
 where `0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b` is the Fluence smart contract address. 
+
+You should see your Ethereum address under `owner` in `nodes` list. Similar to this:
+```json
+{
+  "apps": [],
+  "nodes": [
+    {
+      "id": "0x6006bac77e9a7135087a60287a3ca9966f9c50a7b9ae14c2d40acc3cb31fbc56",
+      "tendermint_key": "0x4b4432951f27c2e9a29017b3b6dee46a2e08c3a2",
+      "ip_addr": "53.42.31.20",
+      "next_port": 25001,
+      "last_port": 25099,
+      "owner": "0x00a329c0648769a73afac7f9381e08fb43dbea72",
+      "is_private": false,
+      "clusters_ids": []
+    },
+```
 
 Please refer to Fluence CLI [README](../../cli/README.md) for more info on installation and usage.
