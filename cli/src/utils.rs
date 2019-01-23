@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-use std::error::Error;
+use failure::Error;
+use failure::SyncFailure;
 
 use clap::{value_t, ArgMatches};
 use ethkey::Secret;
@@ -81,8 +82,8 @@ pub fn parse_url(url: &str) -> Result<Url, UrlError> {
     }
 }
 
-pub fn check_sync(web3: &Web3<Http>) -> Result<bool, Box<Error>> {
-    let sync_state = web3.eth().syncing().wait()?;
+pub fn check_sync(web3: &Web3<Http>) -> Result<bool, Error> {
+    let sync_state = web3.eth().syncing().wait().map_err(SyncFailure::new)?;
     match sync_state {
         SyncState::Syncing(_) => Ok(true),
         SyncState::NotSyncing => Ok(false),
@@ -102,16 +103,13 @@ pub fn options() -> Options {
 }
 
 // Gets the value of option `key` and removes '0x' prefix
-pub fn parse_hex_opt(matches: &ArgMatches, key: &str) -> Result<String, Box<Error>> {
-    value_t!(matches, key, String)
-        .map(|v| v.trim_start_matches("0x").to_string())
-        .map_err(|e| e.into())
+pub fn parse_hex_opt(matches: &ArgMatches, key: &str) -> Result<String, Error> {
+    Ok(value_t!(matches, key, String).map(|v| v.trim_start_matches("0x").to_string())?)
 }
 
-pub fn parse_secret_key(matches: &ArgMatches, key: &str) -> Result<Option<Secret>, Box<Error>> {
-    matches
+pub fn parse_secret_key(matches: &ArgMatches, key: &str) -> Result<Option<Secret>, Error> {
+    Ok(matches
         .value_of(key)
         .map(|s| s.trim_start_matches("0x").parse::<Secret>())
-        .map_or(Ok(None), |r| r.map(Some).into()) // Option<Result> -> Result<Option>
-        .map_err(|e| e.into())
+        .map_or(Ok(None), |r| r.map(Some).into())?) // Option<Result> -> Result<Option>
 }

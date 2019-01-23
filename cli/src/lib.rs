@@ -5,6 +5,7 @@
 pub extern crate ethabi_derive;
 
 pub mod check;
+pub mod command;
 pub mod contract_func;
 pub mod contract_status;
 pub mod credentials;

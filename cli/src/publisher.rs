@@ -14,77 +14,61 @@
  * limitations under the License.
  */
 
-use std::boxed::Box;
-use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
+
+use failure::err_msg;
+use failure::Error;
+use failure::ResultExt;
 
 use clap::ArgMatches;
 use clap::{value_t, App, Arg, SubCommand};
 use derive_getters::Getters;
 use reqwest::Client;
-use web3::types::{Address, H256};
+use web3::types::H256;
 
+use crate::command::{parse_ethereum_args, with_ethereum_args, EthereumArgs};
 use crate::contract_func::contract::functions::add_app;
 use crate::contract_func::ContractCaller;
-use crate::credentials::Credentials;
 use crate::utils;
 
 const PATH: &str = "path";
-const ACCOUNT: &str = "account";
-const CONTRACT_ADDRESS: &str = "contract_address";
-const ETH_URL: &str = "eth_url";
-const PASSWORD: &str = "password";
-const SECRET_KEY: &str = "secret_key";
 const CLUSTER_SIZE: &str = "cluster_size";
 const SWARM_URL: &str = "swarm_url";
-const GAS: &str = "gas";
 const PINNED: &str = "pin_to";
 const PIN_BASE64: &str = "base64";
 
 #[derive(Debug, Getters)]
 pub struct Publisher {
     bytes: Vec<u8>,
-    contract_address: Address,
-    account: Address,
     swarm_url: String,
-    eth_url: String,
-    credentials: Credentials,
     cluster_size: u8,
-    gas: u32,
     pin_to_nodes: Vec<H256>,
+    eth: EthereumArgs,
 }
 
 impl Publisher {
     /// Creates `Publisher` structure
     pub fn new(
         bytes: Vec<u8>,
-        contract_address: Address,
-        account: Address,
         swarm_url: String,
-        eth_url: String,
-        credentials: Credentials,
         cluster_size: u8,
-        gas: u32,
         pin_to_nodes: Vec<H256>,
+        eth: EthereumArgs,
     ) -> Publisher {
         Publisher {
             bytes,
-            contract_address,
-            account,
             swarm_url,
-            eth_url,
-            credentials,
             cluster_size,
-            gas,
             pin_to_nodes,
+            eth,
         }
     }
 
     /// Sends code to Swarm and publishes the hash of the file from Swarm to Fluence smart contract
-    pub fn publish(&self, show_progress: bool) -> Result<H256, Box<Error>> {
-        let upload_to_swarm_fn = || -> Result<H256, Box<Error>> {
-            let hash = upload_code_to_swarm(&self.swarm_url, &self.bytes)?;
+    pub fn publish(&self, show_progress: bool) -> Result<H256, Error> {
+        let upload_to_swarm_fn = || -> Result<H256, Error> {
+            let hash = upload_code_to_swarm(&self.swarm_url.as_str(), &self.bytes.as_slice())?;
             let hash = hash.parse()?;
             Ok(hash)
         };
@@ -100,12 +84,13 @@ impl Publisher {
             upload_to_swarm_fn()
         }?;
 
-        let publish_to_contract_fn = || -> Result<H256, Box<Error>> {
+        let publish_to_contract_fn = || -> Result<H256, Error> {
             //todo: add correct receipts
             let receipt: H256 =
                 "0000000000000000000000000000000000000000000000000000000000000000".parse()?;
 
-            let contract = ContractCaller::new(self.contract_address, &self.eth_url)?;
+            let contract =
+                ContractCaller::new(self.eth.contract_address, self.eth.eth_url.as_str())?;
 
             let (call_data, _) = add_app::call(
                 hash,
@@ -114,7 +99,12 @@ impl Publisher {
                 self.pin_to_nodes.clone(),
             );
 
-            contract.call_contract(self.account, &self.credentials, call_data, self.gas)
+            contract.call_contract(
+                self.eth.account,
+                &self.eth.credentials,
+                call_data,
+                self.eth.gas,
+            )
         };
 
         // sending transaction with the hash of file with code to ethereum
@@ -131,14 +121,14 @@ impl Publisher {
     }
 }
 
-fn parse_pinned(matches: &ArgMatches) -> Result<Vec<H256>, Box<Error>> {
-    let pin_to_nodes = matches.values_of(PINNED).unwrap_or_default();
+fn parse_pinned(args: &ArgMatches) -> Result<Vec<H256>, Error> {
+    let pin_to_nodes = args.values_of(PINNED).unwrap_or_default();
 
     let pin_to_nodes = pin_to_nodes.into_iter();
 
-    let pin_to_nodes: Result<Vec<H256>, Box<Error>> = pin_to_nodes
+    let pin_to_nodes: Result<Vec<H256>, Error> = pin_to_nodes
         .map(|node_id| {
-            let node_id = if matches.is_present(PIN_BASE64) {
+            let node_id = if args.is_present(PIN_BASE64) {
                 let arr = base64::decode(node_id)?;
                 hex::encode(arr)
             } else {
@@ -150,136 +140,82 @@ fn parse_pinned(matches: &ArgMatches) -> Result<Vec<H256>, Box<Error>> {
         })
         .collect();
 
-    let pin_to_nodes = pin_to_nodes.map_err(|e| format!("unable to parse {}: {}", PINNED, e))?;
-
-    Ok(pin_to_nodes)
+    Ok(pin_to_nodes.context(format!("unable to parse {}", PINNED))?)
 }
 
 /// Creates `Publisher` from arguments
-pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
+pub fn parse(matches: &ArgMatches) -> Result<Publisher, Error> {
     let path = value_t!(matches, PATH, String)?; //TODO use is_file from clap_validators
-    let mut file = File::open(path).map_err(|e| format!("can't open WASM file: {}", e))?;
+    let mut file = File::open(path).context("can't open WASM file")?;
     let mut buf = Vec::new();
     file.read_to_end(&mut buf)?;
 
-    let contract_address: Address = utils::parse_hex_opt(matches, CONTRACT_ADDRESS)?.parse()?;
-
-    let account: Address = utils::parse_hex_opt(matches, ACCOUNT)?.parse()?;
-
     let swarm_url = value_t!(matches, SWARM_URL, String)?;
-    let eth_url = value_t!(matches, ETH_URL, String)?;
-
-    let secret_key = utils::parse_secret_key(matches, SECRET_KEY)?;
-    let password = matches.value_of(PASSWORD).map(|s| s.to_string());
-
-    let credentials = Credentials::get(secret_key, password);
-
     let cluster_size = value_t!(matches, CLUSTER_SIZE, u8)?;
-
-    let gas = value_t!(matches, GAS, u32)?;
+    let eth = parse_ethereum_args(matches)?;
 
     let pin_to_nodes = parse_pinned(matches)?;
-
     if pin_to_nodes.len() > 0 && pin_to_nodes.len() > (cluster_size as usize) {
-        return Err(format!(
-            "number of pin_to nodes should be less or equal to the desired cluster_size"
-        )
-        .into());
+        return Err(err_msg(
+            "number of pin_to nodes should be less or equal to the desired cluster_size",
+        ));
     }
 
     Ok(Publisher::new(
         buf.to_owned(),
-        contract_address,
-        account,
         swarm_url,
-        eth_url,
-        credentials,
         cluster_size,
-        gas,
         pin_to_nodes,
+        eth,
     ))
 }
 
 /// Parses arguments from console and initialize parameters for Publisher
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
+    let my_args = &[
+        Arg::with_name(PATH)
+            .required(true)
+            .takes_value(true)
+            .index(1)
+            .help("path to compiled `wasm` code"),
+        Arg::with_name(SWARM_URL)
+            .long(SWARM_URL)
+            .short("w")
+            .required(false)
+            .takes_value(true)
+            .help("http address to swarm node")
+            .default_value("http://localhost:8500/"),
+        Arg::with_name(CLUSTER_SIZE)
+            .long(CLUSTER_SIZE)
+            .short("cs")
+            .required(false)
+            .takes_value(true)
+            .default_value("3")
+            .help("cluster's size that needed to deploy this code"),
+        Arg::with_name(PINNED)
+            .long(PINNED)
+            .short("P")
+            .required(false)
+            .takes_value(true)
+            .multiple(true)
+            .value_name("<key>")
+            .help(
+                "Tendermint public keys of pinned workers for application (space-separated list)",
+            ),
+        Arg::with_name(PIN_BASE64)
+            .long(PIN_BASE64)
+            .required(false)
+            .takes_value(false)
+            .help("If specified, tendermint keys for pin_to flag treated as base64"),
+    ];
+
     SubCommand::with_name("publish")
         .about("Publish code to ethereum blockchain")
-        .args(&[
-            Arg::with_name(PATH)
-                .required(true)
-                .takes_value(true)
-                .index(1)
-                .help("path to compiled `wasm` code"),
-            Arg::with_name(CONTRACT_ADDRESS)
-                .required(true)
-                .takes_value(true)
-                .index(2)
-                .help("fluence contract address"),
-            Arg::with_name(ACCOUNT)
-                .required(true)
-                .index(3)
-                .takes_value(true)
-                .help("ethereum account"),
-            Arg::with_name(SWARM_URL)
-                .long(SWARM_URL)
-                .short("w")
-                .required(false)
-                .takes_value(true)
-                .help("http address to swarm node")
-                .default_value("http://localhost:8500/"),
-            //todo: use public gateway
-            Arg::with_name(ETH_URL)
-                .long(ETH_URL)
-                .short("e")
-                .required(false)
-                .takes_value(true)
-                .help("http address to ethereum node")
-                .default_value("http://localhost:8545/"),
-            //todo: use public node or add light client
-            Arg::with_name(PASSWORD)
-                .long(PASSWORD)
-                .short("p")
-                .required(false)
-                .takes_value(true)
-                .help("password to unlock account in ethereum client"),
-            Arg::with_name(SECRET_KEY)
-                .long(SECRET_KEY)
-                .short("s")
-                .required(false)
-                .takes_value(true)
-                .help("the secret key to sign transactions"),
-            Arg::with_name(CLUSTER_SIZE)
-                .long(CLUSTER_SIZE)
-                .short("cs")
-                .required(false)
-                .takes_value(true)
-                .default_value("3")
-                .help("cluster's size that needed to deploy this code"),
-            Arg::with_name(GAS)
-                .long(GAS)
-                .short("g")
-                .required(false)
-                .takes_value(true)
-                .default_value("1000000")
-                .help("maximum gas to spend"),
-            Arg::with_name(PINNED)
-                .long(PINNED)
-                .short("P")
-                .required(false)
-                .takes_value(true)
-                .multiple(true)
-                .value_name("<key>")
-                .help("Tendermint public keys of pinned workers for application (space-separated list)"),
-            Arg::with_name(PIN_BASE64)
-                .long(PIN_BASE64)
-                .required(false)
-                .takes_value(false)
-                .help("If specified, tendermint keys for pin_to flag treated as base64"),
-        ])
+        .args(with_ethereum_args(my_args).as_slice())
 }
 
 /// Uploads bytes of code to the Swarm
-fn upload_code_to_swarm(url: &str, bytes: &[u8]) -> Result<String, Box<Error>> {
+fn upload_code_to_swarm(url: &str, bytes: &[u8]) -> Result<String, Error> {
     let mut url = utils::parse_url(url)?;
     url.set_path("/bzz:/");
 
@@ -296,14 +232,15 @@ fn upload_code_to_swarm(url: &str, bytes: &[u8]) -> Result<String, Box<Error>> {
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
-
     use ethkey::Secret;
     use web3;
     use web3::futures::Future;
     use web3::types::H256;
     use web3::types::*;
 
+    use failure::Error;
+
+    use crate::command::EthereumArgs;
     use crate::credentials::Credentials;
     use crate::publisher::Publisher;
 
@@ -314,16 +251,20 @@ mod tests {
 
         let bytes = vec![1, 2, 3];
 
+        let eth = EthereumArgs {
+            credentials: creds,
+            gas: 1000000,
+            account: account.parse().unwrap(),
+            contract_address,
+            eth_url: String::from("http://localhost:8545"),
+        };
+
         Publisher::new(
             bytes,
-            contract_address,
-            account.parse().unwrap(),
-            String::from("http://localhost:8500"),
-            String::from("http://localhost:8545/"),
-            creds,
+            String::from("http://localhost:8500/"),
             5,
-            1000000,
             vec![],
+            eth,
         )
     }
 
@@ -338,19 +279,19 @@ mod tests {
 
     pub fn generate_new_account(with_pass: bool) -> Publisher {
         generate_with(OWNER, |p| {
-            let (_eloop, transport) = web3::transports::Http::new(&p.eth_url).unwrap();
+            let (_eloop, transport) = web3::transports::Http::new(p.eth.eth_url.as_str()).unwrap();
             let web3 = web3::Web3::new(transport);
             let acc = web3.personal().new_account("123").wait().unwrap();
-            p.account = acc;
+            p.eth.account = acc;
 
             if with_pass {
-                p.credentials = Credentials::Password(String::from("123"));
+                p.eth.credentials = Credentials::Password(String::from("123"));
             }
         })
     }
 
     #[test]
-    fn publish_wrong_password() -> Result<(), Box<Error>> {
+    fn publish_wrong_password() -> Result<(), Error> {
         let publisher = generate_new_account(false);
 
         let result = publisher.publish(false);
@@ -361,7 +302,7 @@ mod tests {
     }
 
     #[test]
-    fn publish_no_eth() -> Result<(), Box<Error>> {
+    fn publish_no_eth() -> Result<(), Error> {
         let publisher = generate_new_account(true);
 
         let result = publisher.publish(false);
@@ -372,7 +313,7 @@ mod tests {
     }
 
     #[test]
-    fn publish_wrong_swarm_url() -> Result<(), Box<Error>> {
+    fn publish_wrong_swarm_url() -> Result<(), Error> {
         let publisher = generate_with("02f906f8b3b932fd282109a5b8dc732ba2329888", |p| {
             p.swarm_url = String::from("http://123.5.6.7:8385");
         });
@@ -385,9 +326,9 @@ mod tests {
     }
 
     #[test]
-    fn publish_wrong_eth_url() -> Result<(), Box<Error>> {
+    fn publish_wrong_eth_url() -> Result<(), Error> {
         let publisher = generate_with("fa0de43c68bea2167181cd8a83f990d02a049336", |p| {
-            p.eth_url = String::from("http://117.2.6.7:4476");
+            p.eth.eth_url = String::from("http://117.2.6.7:4476");
         });
 
         let result = publisher.publish(false);
@@ -398,9 +339,9 @@ mod tests {
     }
 
     #[test]
-    fn publish_out_of_gas() -> Result<(), Box<Error>> {
+    fn publish_out_of_gas() -> Result<(), Error> {
         let publisher = generate_with("fa0de43c68bea2167181cd8a83f990d02a049336", |p| {
-            p.gas = 1;
+            p.eth.gas = 1;
         });
 
         let result = publisher.publish(false);
@@ -411,7 +352,7 @@ mod tests {
     }
 
     #[test]
-    fn publish_to_contract_success() -> Result<(), Box<Error>> {
+    fn publish_to_contract_success() -> Result<(), Error> {
         let publisher =
             generate_publisher("64b8f12d14925394ae0119466dff6ff2b021a3e9", Credentials::No);
 
@@ -421,7 +362,7 @@ mod tests {
     }
 
     #[test]
-    fn publish_to_contract_with_secret_success() -> Result<(), Box<Error>> {
+    fn publish_to_contract_with_secret_success() -> Result<(), Error> {
         let secret_arr: H256 =
             "647334ad14cda7f79fecdf2b9e0bb2a0904856c36f175f97c83db181c1060414".parse()?;
         let secret = Secret::from(secret_arr);
@@ -455,6 +396,4 @@ mod tests {
             assert!(e.to_string().contains("Can pin only to registered nodes"))
         }
     }
-
-    // TODO: add tests on successful pinning
 }
