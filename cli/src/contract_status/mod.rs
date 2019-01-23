@@ -47,8 +47,8 @@ mod tests {
     use crate::credentials::Credentials;
     use crate::publisher::Publisher;
     use crate::register::Register;
-    use rand::prelude::*;
     use failure::Error;
+    use rand::prelude::*;
     use web3::types::*;
 
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
