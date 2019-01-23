@@ -141,11 +141,17 @@ contract Deployer {
     // Emitted on every new Node
     event NewNode(bytes32 id);
 
+    // Emitted when node was deleted from nodes mapping and from readyNodes if it was there
+    event NodeDeleted(bytes32 id);
+
     // Emitted when app is removed from enqueuedApps by owner
     event AppDequeued(bytes32 appID);
 
     // Emitted when running app was removed by app owner
     event AppDeleted(bytes32 appID);
+
+    // Address of the contract owner (the one who deployed this contract)
+    address private _contractOwner;
 
     // Nodes ready to join new clusters
     bytes32[] public readyNodes;
@@ -165,6 +171,18 @@ contract Deployer {
 
     // Number of all ever existed apps, used for appID generation
     uint256 internal appsCount = 1;
+
+    constructor () internal {
+        // Save contract's owner
+        _contractOwner = msg.sender;
+    }
+
+    /**
+     * @return true if `msg.sender` is the owner of the contract.
+     */
+    function isContractOwner() public view returns (bool) {
+        return msg.sender == _contractOwner;
+    }
 
     /** @dev Adds node with specified port range to the work-waiting queue
       * @param nodeID Tendermint's ValidatorKey
@@ -267,20 +285,11 @@ contract Deployer {
     function dequeueApp(bytes32 appID)
         external
     {
-        bytes32 enqueuedAppID;
-        uint8 i = 0;
-
-        for (;i < enqueuedApps.length; i++) {
-            enqueuedAppID = enqueuedApps[i];
-            if (enqueuedAppID == appID) {
-                break;
-            }
-        }
+        uint i = indexOf(appID, enqueuedApps);
 
         require(i < enqueuedApps.length, "error deleting app: app not found");
 
-        App memory app = apps[enqueuedAppID];
-        require(app.owner == msg.sender, "error deleting app: you must own the app to delete it");
+        require(apps[appID].owner == msg.sender || isContractOwner(), "error deleting app: you must own the app to delete it");
 
         removeEnqueuedApp(i);
 
@@ -301,13 +310,71 @@ contract Deployer {
         App memory app = apps[appID];
         require(app.appID != 0, "error deleting app: cluster not found");
         require(app.appID == appID, "error deleting app: cluster hosts another app");
-        require(app.owner == msg.sender, "error deleting app: you must own app to delete it");
+        require(app.owner == msg.sender || isContractOwner(), "error deleting app: you must own app to delete it");
         require(app.cluster.genesisTime != 0, "error deleting app: app must be deployed, use dequeueApp");
 
-        bool removed = removeApp(appID);
-        require(removed, "error deleting app: app not found in appIDs array");
+        // Remove app from clustersIds array and clusters mapping, and emit AppDeleted event of successful removal
+        removeApp(appID);
+    }
 
-        emit AppDeleted(appID);
+    /** @dev Deletes node from nodes mapping, nodeIds and readyNodes arrays
+    * @param nodeID ID of the node to be deleted
+    */
+    function deleteNode(bytes32 nodeID)
+        external
+    {
+        Node memory node = nodes[nodeID];
+        require(node.id != 0, "error deleting node: node not found");
+        require(node.owner == msg.sender || isContractOwner(), "error deleting node: you must own node to delete it");
+
+        // Remove nodeID from apps that hosted by this node. Also remove app if there's no more nodes left to host them.
+        removeNodeFromApps(nodeID, nodes[nodeID].appIDs);
+
+        // Find the node in readyNodes
+        uint i = indexOf(nodeID, readyNodes);
+
+        // If node was in readyNodes, remove it
+        if (i < readyNodes.length) {
+            removeReadyNode(i);
+        }
+
+        // Find the node in nodesIds
+        i = indexOf(nodeID, nodesIds);
+        // This should never happen if there's no bugs. But it's better to revert if there is some inconsistency.
+        require(i < nodesIds.length, "error deleting node: node not found in nodesIds array");
+        // Remove node from nodesIds array
+        removeFromNodeIds(i);
+
+        // Remove node from nodes mapping
+        delete nodes[nodeID];
+
+        emit NodeDeleted(nodeID);
+    }
+
+    /** @dev Remove nodeID from app.cluster.nodeIDs for apps hosted by this node.
+      * Also remove app if there's no more nodes left to host it, and emit AppDeleted event.
+      */
+    function removeNodeFromApps(bytes32 nodeID, bytes32[] storage appIDsArray)
+        internal
+    {
+        for (uint i = 0; i < appIDsArray.length; i++) {
+            bytes32 appID = appIDsArray[i];
+            bytes32[] storage appNodeIDs = apps[appID].cluster.nodeIDs;
+            uint appNodeIDsLength = appNodeIDs.length;
+
+            uint j = indexOf(nodeID, appNodeIDs);
+
+            // This should never happen if there's no bugs. But it's better to revert if there is some inconsistency.
+            require(j < appNodeIDsLength, "error deleting node: nodeID wasn't found in nodeIDs");
+
+            // Check if that node is the last one hosting that app
+            if (appNodeIDsLength == 1) {
+                // Remove app from clustersIds array and clusters mapping, and emit AppDeleted event of successful removal
+                removeApp(appID);
+            } else {
+                removeArrayElement(j, appNodeIDs);
+            }
+        }
     }
 
     /** @dev Tries to deploy an app, using ready nodes and their ports
@@ -429,12 +496,9 @@ contract Deployer {
 
         // check if node will be able to host a code next time; if no, remove it
         if (node.nextPort > node.lastPort) {
-            uint readyNodeIdx = 0;
-            for(; readyNodeIdx < readyNodes.length; readyNodeIdx++) {
-                if(readyNodes[readyNodeIdx] == node.id) {
-                    removeReadyNode(readyNodeIdx);
-                    break;
-                }
+            uint readyNodeIdx = indexOf(node.id, readyNodes);
+            if (readyNodeIdx < readyNodes.length) {
+                removeReadyNode(readyNodeIdx);
             }
 
             return true;
@@ -450,14 +514,13 @@ contract Deployer {
     function removeReadyNode(uint index)
         internal
     {
-        if (index != readyNodes.length - 1) {
-            // remove index-th node from readyNodes replacing it by the last node in the array
-            readyNodes[index] = readyNodes[readyNodes.length - 1];
-        }
-        // release the storage
-        delete readyNodes[readyNodes.length - 1];
+        removeArrayElement(index, readyNodes);
+    }
 
-        readyNodes.length--;
+    function removeFromNodeIds(uint index)
+    internal
+    {
+        removeArrayElement(index, nodesIds);
     }
 
 
@@ -467,46 +530,56 @@ contract Deployer {
     function removeEnqueuedApp(uint index)
         internal
     {
-        if (index != enqueuedApps.length - 1) {
-            // remove index-th app from enqueuedApps replacing it by the last app in the array
-            enqueuedApps[index] = enqueuedApps[enqueuedApps.length - 1];
-        }
-        // release the storage
-        delete enqueuedApps[enqueuedApps.length - 1];
-
-        enqueuedApps.length--;
+        removeArrayElement(index, enqueuedApps);
     }
 
-    /** @dev Removes cluster from clustersIds array and clusters mapping
+    /** @dev Removes cluster from clustersIds array and clusters mapping and emits an event on successful App removal
      *  @param appID ID of the app to be removed
      *  returns true if cluster was deleted, false otherwise
      */
     function removeApp(bytes32 appID)
         internal
-    returns (bool)
     {
         // look for appID in appIDs array
-        uint8 index = 0;
-        uint len = appIDs.length;
-        for (; index < len; index++) {
-            if (appIDs[index] == appID) {
-                break;
-            }
-        }
+        uint index = indexOf(appID, appIDs);
 
-        // flag we didn't find such appID
-        if (index >= len) return false;
+        // revert we didn't find such appID
+        require(index < appIDs.length, "error deleting app: app not found in appIDs array");
 
-        if (index != len - 1) {
-            // remove index-th ID by replacing it with the last element in the array
-            appIDs[index] = appIDs[len - 1];
-        }
-        delete appIDs[len - 1];
-        appIDs.length--;
+        removeArrayElement(index, appIDs);
 
         // also remove cluster from mapping
         delete apps[appID];
 
-        return true;
+        emit AppDeleted(appID);
+    }
+
+    function removeArrayElement(uint index, bytes32[] storage array)
+        internal
+    {
+        uint lenSubOne = array.length - 1;
+        if (index != lenSubOne) {
+            // remove index-th element from array replacing it by the last element in the array
+            array[index] = array[lenSubOne];
+        }
+        // release the storage
+        delete array[lenSubOne];
+
+        array.length--;
+    }
+
+    function indexOf(bytes32 id, bytes32[] storage array)
+        internal view
+    returns (uint)
+    {
+        uint i;
+        // Find index of id in the array
+        for(i = 0; i < array.length; i++) {
+            if (array[i] == id) {
+                break;
+            }
+        }
+
+        return i;
     }
 }
