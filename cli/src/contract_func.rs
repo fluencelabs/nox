@@ -89,11 +89,11 @@ impl ContractCaller {
         call_data: ethabi::Bytes,
         gas: u32,
     ) -> Result<H256, Error> {
-        let gas_price = web3.eth().gas_price().wait()?;
-        let nonce = web3.eth().transaction_count(account, None).wait()?;
+        let gas_price = web3.eth().gas_price().wait().map_err(SyncFailure::new)?;
+        let nonce = web3.eth().transaction_count(account, None).wait().map_err(SyncFailure::new)?;
 
         let tx = Transaction {
-            nonce: nonce,
+            nonce,
             value: "0".parse()?,
             action: Action::Call(self.contract_address.clone()),
             data: call_data,
