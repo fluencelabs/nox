@@ -128,7 +128,7 @@ let sep = "**************************";
 
 // todo: get actual contract address and app id from file
 let contractAddress = "0x45CC7B68406cCa5bc36B7b8cE6Ec537EDa67bC0B";
-let appId = "0x0000000000000000000000000000000000000000000000000000000000000001";
+let appId = "0x0000000000000000000000000000000000000000000000000000000000000002";
 
 async function preparePage() {
     let sessions = await fluence.createAppSession(contractAddress, appId);
