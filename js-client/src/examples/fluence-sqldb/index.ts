@@ -62,10 +62,10 @@ class DbClient {
      * @param queries list of queries to invoke
      */
     async submitQuery(queries: string[]): Promise<Promise<Result>[]> {
-        let nodeSession = this.appSession.workerSessions[this.nodeNumber()];
+        let workerSession = this.appSession.workerSessions[this.nodeNumber()];
         return queries.map((q) => {
             console.log("query: " + q);
-            let res = nodeSession.session.invoke(q).result();
+            let res = workerSession.session.invoke(q).result();
             res.then((r: Result) => {
                 if (fluence.isValue(r)) {
                     let strResult = Buffer.from(r.hex(), 'hex').toString();
