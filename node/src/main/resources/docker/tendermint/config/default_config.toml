@@ -158,6 +158,8 @@ timeout_commit = "200ms"
 # Make progress as soon as we have all the precommits (as if TimeoutCommit = 0)
 skip_timeout_commit = true
 
+cors_allowed_origins = ["*"]
+
 # EmptyBlocks mode and possible interval between empty blocks in seconds
 create_empty_blocks = false
 create_empty_blocks_interval = 0
