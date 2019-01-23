@@ -19,7 +19,6 @@ const crypto = require("crypto");
 const assert = require("chai").assert;
 
 exports.newNodeEvent = 'NewNode';
-exports.nodeDeletedEvent = 'NodeDeleted';
 exports.appEnqueuedEvent = 'AppEnqueued';
 exports.appDeployedEvent = 'AppDeployed';
 exports.appDeletedEvent = 'AppDeleted';

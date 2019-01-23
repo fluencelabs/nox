@@ -70,10 +70,9 @@ matrix:
     - name: js-client
       language: node_js
       node_js:
-        - "5"
-        - "6"
-        - "7"
         - "8"
+        - "9"
+        - "10"
       cache: npm
       before_install: cd js-client
       before_script: npm install
@@ -91,6 +90,7 @@ matrix:
 
     - name: Fluence CLI
       language: rust
+      node_js: 10
       cache:
         - cargo
         - npm
