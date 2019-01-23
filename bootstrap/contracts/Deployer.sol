@@ -285,13 +285,7 @@ contract Deployer {
     function dequeueApp(bytes32 appID)
         external
     {
-        uint8 i = 0;
-
-        for (;i < enqueuedApps.length; i++) {
-            if (enqueuedApps[i] == appID) {
-                break;
-            }
-        }
+        uint i = indexOf(appID, enqueuedApps);
 
         require(i < enqueuedApps.length, "error deleting app: app not found");
 
@@ -337,25 +331,16 @@ contract Deployer {
         // Remove nodeID from apps that hosted by this node. Also remove app if there's no more nodes left to host them.
         removeNodeFromApps(nodeID, nodes[nodeID].appIDs);
 
-        uint i;
-
         // Find the node in readyNodes
-        for(; i < readyNodes.length; i++) {
-            if (readyNodes[i] == nodeID) {
-                break;
-            }
-        }
+        uint i = indexOf(nodeID, readyNodes);
+
         // If node was in readyNodes, remove it
         if (i < readyNodes.length) {
             removeReadyNode(i);
         }
 
         // Find the node in nodesIds
-        for(i = 0; i < nodesIds.length; i++) {
-            if (nodesIds[i] == nodeID) {
-                break;
-            }
-        }
+        i = indexOf(nodeID, nodesIds);
         // This should never happen if there's no bugs. But it's better to revert if there is some inconsistency.
         require(i < nodesIds.length, "error deleting node: node not found in nodesIds array");
         // Remove node from nodesIds array
@@ -375,34 +360,20 @@ contract Deployer {
     {
         for (uint i = 0; i < appIDsArray.length; i++) {
             bytes32 appID = appIDsArray[i];
-            bytes32[] storage nodeIDs = apps[appID].cluster.nodeIDs;
-            uint nodeIDsLength = nodeIDs.length;
+            bytes32[] storage appNodeIDs = apps[appID].cluster.nodeIDs;
+            uint appNodeIDsLength = appNodeIDs.length;
 
-            uint8 j = 0;
-            for (; j < nodeIDsLength; j++) {
-                if (nodeIDs[j] == nodeID) {
-                    break;
-                }
-            }
+            uint j = indexOf(nodeID, appNodeIDs);
 
             // This should never happen if there's no bugs. But it's better to revert if there is some inconsistency.
-            require(j < nodeIDsLength, "error deleting node: nodeID wasn't found in nodeIDs");
+            require(j < appNodeIDsLength, "error deleting node: nodeID wasn't found in nodeIDs");
 
             // Check if that node is the last one hosting that app
-            if (nodeIDsLength == 1) {
+            if (appNodeIDsLength == 1) {
                 // Remove app from clustersIds array and clusters mapping, and emit AppDeleted event of successful removal
                 removeApp(appID);
             } else {
-                // Remove nodeID from nodeIDs array
-                if (j != nodeIDsLength - 1) {
-                    // Remove j-th node from nodeIDs replacing it by the last node in the array
-                    nodeIDs[j] = nodeIDs[nodeIDsLength - 1];
-                }
-                // Release the storage
-                delete nodeIDs[nodeIDsLength - 1];
-
-                // Decrease array length manually
-                nodeIDs.length--;
+                removeArrayElement(j, appNodeIDs);
             }
         }
     }
@@ -526,12 +497,9 @@ contract Deployer {
 
         // check if node will be able to host a code next time; if no, remove it
         if (node.nextPort > node.lastPort) {
-            uint readyNodeIdx = 0;
-            for(; readyNodeIdx < readyNodes.length; readyNodeIdx++) {
-                if(readyNodes[readyNodeIdx] == node.id) {
-                    removeReadyNode(readyNodeIdx);
-                    break;
-                }
+            uint readyNodeIdx = indexOf(node.id, readyNodes);
+            if (readyNodeIdx < readyNodes.length) {
+                removeReadyNode(readyNodeIdx);
             }
 
             return true;
@@ -547,27 +515,13 @@ contract Deployer {
     function removeReadyNode(uint index)
         internal
     {
-        if (index != readyNodes.length - 1) {
-            // remove index-th node from readyNodes replacing it by the last node in the array
-            readyNodes[index] = readyNodes[readyNodes.length - 1];
-        }
-        // release the storage
-        delete readyNodes[readyNodes.length - 1];
-
-        readyNodes.length--;
+        removeArrayElement(index, readyNodes);
     }
 
     function removeFromNodeIds(uint index)
     internal
     {
-        if (index != nodesIds.length - 1) {
-            // remove index-th node id from nodesIds replacing it by the last node id in the array
-            nodesIds[index] = nodesIds[nodesIds.length - 1];
-        }
-        // release the storage
-        delete nodesIds[nodesIds.length - 1];
-
-        nodesIds.length--;
+        removeArrayElement(index, nodesIds);
     }
 
 
@@ -577,14 +531,7 @@ contract Deployer {
     function removeEnqueuedApp(uint index)
         internal
     {
-        if (index != enqueuedApps.length - 1) {
-            // remove index-th app from enqueuedApps replacing it by the last app in the array
-            enqueuedApps[index] = enqueuedApps[enqueuedApps.length - 1];
-        }
-        // release the storage
-        delete enqueuedApps[enqueuedApps.length - 1];
-
-        enqueuedApps.length--;
+        removeArrayElement(index, enqueuedApps);
     }
 
     /** @dev Removes cluster from clustersIds array and clusters mapping and emits an event on successful App removal
@@ -595,27 +542,45 @@ contract Deployer {
         internal
     {
         // look for appID in appIDs array
-        uint8 index = 0;
-        uint len = appIDs.length;
-        for (; index < len; index++) {
-            if (appIDs[index] == appID) {
-                break;
-            }
-        }
+        uint index = indexOf(appID, appIDs);
 
         // revert we didn't find such appID
-        require(index < len, "error deleting app: app not found in appIDs array");
+        require(index < appIDs.length, "error deleting app: app not found in appIDs array");
 
-        if (index != len - 1) {
-            // remove index-th ID by replacing it with the last element in the array
-            appIDs[index] = appIDs[len - 1];
-        }
-        delete appIDs[len - 1];
-        appIDs.length--;
+        removeArrayElement(index, appIDs);
 
         // also remove cluster from mapping
         delete apps[appID];
 
         emit AppDeleted(appID);
+    }
+
+    function removeArrayElement(uint index, bytes32[] storage array)
+        internal
+    {
+        uint lenSubOne = array.length - 1;
+        if (index != lenSubOne) {
+            // remove index-th element from array replacing it by the last element in the array
+            array[index] = array[lenSubOne];
+        }
+        // release the storage
+        delete array[lenSubOne];
+
+        array.length--;
+    }
+
+    function indexOf(bytes32 id, bytes32[] storage array)
+        internal view
+    returns (uint)
+    {
+        uint i;
+        // Find index of id in the array
+        for(i = 0; i < array.length; i++) {
+            if (array[i] == id) {
+                break;
+            }
+        }
+
+        return i;
     }
 }
