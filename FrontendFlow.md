@@ -7,46 +7,20 @@
 - `npm`
 
 # FrontEnd Developer Flow
-- create directory `mkdir fluence-frontend`
-- `cd fluence-frontend`
-- `npm init -y` to silently init project
-- `npm install --save js-fluence-client`
-- to quick run in browser we can use webpack, so run `npm install --save-dev webpack-cli html-webpack-plugin` or if you expierenced in some other tools, feel free to use what is convenient for you
-- create file `webpack.config.js` 
-- add code in this file:
-```
-const path = require('path');
-const HtmlWebpackPlugin = require('html-webpack-plugin');
-
-module.exports = {
-    // use index.js as entrypoint
-    entry: {
-        app: ['./index.js']
-    },
-    mode: "development",
-    // build all code in `bundle.js` in `bundle` directory
-    output: {
-        filename: 'bundle.js',
-        path: path.resolve(__dirname, 'bundle')
-    },
-    plugins: [
-        // create `index.html` with imported `bundle.js`
-        new HtmlWebpackPlugin()
-    ]
-};
-```
-- add to `package.json` in the `scripts` part `"build": "webpack"` to build the project
-- create file `index.js` and open it in any editor or IDE
-- import fluence client `import * as fluence from "js-fluence-client"`
-- to create session to interact with fluence cluster
-- `const fluenceSession = fluence.createDefaultSession("<ip-to-node>", <port-to-node> todo: p2pPort+100, TODO add some tweaks in dashboard to find this info);`
+- for example we can use template repository to learn how to use Fluence SDK
+- `git clone git@github.com:fluencelabs/frontend-template.git`
+- Install fluence SDK: `npm install --save js-fluence-client@0.0.34`
+- import fluence client `import * as fluence from "js-fluence-client"` in `index.js`
+- to create session to interact with fluence cluster we have two ways:
+  - To create session to one node we can use IP and port from contract: `const fluenceSession = fluence.createDefaultSession("<ip>", <port>);`
+  - We can create multiple sessions to all cluster nodes if we know appId of application: `fluence.createAppSession(contractAddress, appId)`. Note that it will return promise and Metamask or local Ethereum node is needed.
 - ip and port get from dashboard for public nodes with Llamadb
 - let's try to use this session directly in browser
 - add this to `index.js`: `window.fluenceSession = fluenceSession;`
 - run `npm run build` in terminal
 - open `bundle/index.html` from browser
 - open console in browser (F12 in chrome on Ubuntu for example)
-- write `let invocation = fluenceSession.invoke("do_query", "create table <some-unique-name> (id varchar(128))")`
+- write `let invocation = fluenceSession.invoke("create table <some-unique-name> (id varchar(128))")`
 - here we send request to the Fluence cluster to create table with some unique name for your own with one field `id`
 - response from the cluster can be received eventually, so to get response we can call `result()` method that will return `Promise<String>` with array in hex representation
 - to log response, write `invocation.result().then((r) => console.log(r.asString()));`. `asString()` converts hex to string, because we know, that LlamaDB returns strings on request
