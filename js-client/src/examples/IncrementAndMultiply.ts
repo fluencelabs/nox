@@ -23,10 +23,10 @@ import {isValue} from "../Result";
 
 class IncrementAndMultiply {
 
-// a session is needed for ordered transactions, you can use multiple sessions if needed
-private session: Session;
+    // a session is needed for ordered transactions, you can use multiple sessions if needed
+    private session: Session;
 
-constructor(host: string, port: number) {
+    constructor(host: string, port: number) {
         // there is initializing RPC to tendermint cluster
         let tm = new TendermintClient(host, port);
 

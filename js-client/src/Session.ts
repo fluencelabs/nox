@@ -91,7 +91,7 @@ export class Session {
     /**
      * Sends request with payload and wait for a response.
      *
-     * @param payload a command supported by the program in a virtual machine with arguments
+     * @param payload either an argument for Wasm VM main handler or a command for the statemachine
      */
     invoke(payload: string): ResultPromise {
         // throws an error immediately if the session is closed
