@@ -60,7 +60,7 @@ class IncrementAndMultiply {
     }
 
     async multiply(first: number, second: number) {
-        let res = await this.session.invoke(`[${first.toString()}, ${second.toString()}]`, "MulModule")
+        let res = await this.session.invoke(`[${first.toString()}, ${second.toString()}]`)
             .result();
         console.log(`multiply result is: ${JSON.stringify(res)}`);
         return res;
