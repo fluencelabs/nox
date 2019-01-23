@@ -1,8 +1,8 @@
 ## How to use Fluence
 In Fluence, you can play one of three roles, you can be:
-1. Miner, providing your computation power to the Fluence Network
-2. Backend developer, deploying your Webassembly backend application to miners' nodes
-3. Frontend developer, using someone's backend to develop end-user application
+1. A miner, providing your computation power to the Fluence Network
+2. A backend developer, deploying your Webassembly backend application to miners' nodes
+3. A frontend developer, using someone's backend to develop end-user application
 
 ### How to become a miner
 To learn how to register your computer as a Fluence Node, please refer to [Miner Guide](miner.md)
