@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::error::Error;
+use failure::Error;
 
 use error_chain::bail;
 use ethabi::Token;
@@ -35,7 +35,7 @@ pub const NODE_ADDR_LEN: usize = IP_LEN + TENDERMINT_KEY_LEN;
 construct_fixed_hash! { pub struct NodeAddress(NODE_ADDR_LEN); }
 
 impl NodeAddress {
-    pub fn decode(&self) -> Result<(String, String), Box<Error>> {
+    pub fn decode(&self) -> Result<(String, String), Error> {
         let tendermint_key = &self.0[0..TENDERMINT_KEY_LEN];
         let tendermint_key = format!("{}{}", "0x", hex::encode(tendermint_key));
 
