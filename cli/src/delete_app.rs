@@ -37,7 +37,7 @@ pub struct DeleteApp {
 }
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
-    let my_args = &[
+    let args = &[
         Arg::with_name(DEPLOYED)
             .long(DEPLOYED)
             .short("D")
@@ -52,7 +52,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 
     SubCommand::with_name("delete_app")
         .about("Delete app from smart-contract")
-        .args(command::with_ethereum_args(my_args).as_slice())
+        .args(command::with_ethereum_args(args).as_slice())
 }
 
 pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Box<Error>> {
