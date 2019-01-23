@@ -19,7 +19,7 @@ let bytecode = '0x' + sourceBin;
 let NetworkContract = new web3.eth.Contract(abi);
 
 // Default account on parity node in dev mode with a huge amount of ethereum
-let acc = '0x00a329c0648769a73afac7f9381e08fb43dbea72';
+let acc = '0x5903730e872fb2b0cd4402c69d6d43c86e973db7';
 
 // Get encoded request for deploying contract
 let encodedAbi = NetworkContract.deploy({
@@ -37,7 +37,7 @@ request.post(
     { json: composeRequest },
     function (error, response, body) {
         // sign transaction with the private key of default parity account
-        web3.eth.accounts.signTransaction(body.result, '0x4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7')
+        web3.eth.accounts.signTransaction(body.result, '0x52c685b72c548da46ee7e595b4003635a1dab3f281dc26b9a13a5b0ea736d3b1')
             .then((resp) => {
                 // send sign transaction to the node
                 web3.eth.sendSignedTransaction(resp.rawTransaction, function (err, transactionHash) {
@@ -47,6 +47,6 @@ request.post(
                     })
 
                 });
-            })
+            }).catch((e) => console.log("error in deploy-contract.js: " + e))
     }
 );
