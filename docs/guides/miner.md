@@ -111,3 +111,13 @@ If you wish to use your local computer to host Fluence node, you can do that by 
 # ./kovan-compose.sh <external-ip> <owner-address> <private-key> <start-port:end-port>
 ./kovan-compose.sh 53.42.31.20 0x00a329c0648769a73afac7f9381e08fb43dbea72 4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 25000:25099
 ```
+
+## How to check if node is registered
+You can use [Fluence CLI](../../cli/README.md) to query current state of network in Fluence smart contract like this:
+```
+./fluence status 0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b
+```
+
+where `0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b` is the Fluence smart contract address. 
+
+Please refer to Fluence CLI [README](../../cli/README.md) for more info on installation and usage.
