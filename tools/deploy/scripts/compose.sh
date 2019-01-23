@@ -25,7 +25,7 @@ set -e
 #  the network will be started in development mode locally
 if [ -z "$PROD_DEPLOY" ]; then
     echo "Deploying locally with default arguments."
-    export NAME='node1'
+    export NAME='fluence-node-1'
     # open 10 ports, so it's possible to create 10 workers
     export PORTS='25000:25010'
     # eth address in `dev` mode Parity with eth
@@ -123,7 +123,7 @@ while [ $COUNTER -le $NUMBER_OF_NODES ]; do
         # todo get this from `status` API by CLI
         while [ -z "$TENDERMINT_KEY" ]; do
             # TODO: parse for 'Node ID' instead of 'PubKey'
-            TENDERMINT_KEY=$(docker logs node$COUNTER 2>&1 | awk 'match($0, /PubKey: /) { print substr($0, RSTART + RLENGTH) }')
+            TENDERMINT_KEY=$(docker logs fluence-node-$COUNTER 2>&1 | awk 'match($0, /PubKey: /) { print substr($0, RSTART + RLENGTH) }')
             sleep 3
         done
 

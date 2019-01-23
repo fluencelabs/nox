@@ -10,7 +10,7 @@ if [ ! $1 = '--help' -a ! $1 = '-h' ]; then
     if [ $# -eq 3 ]; then
         export PROD_DEPLOY='true'
         export CHAIN='kovan'
-        export NAME='node1'
+        export NAME='fluence-node'
         export PORTS='25000:25010'
         export CONTRACT_ADDRESS=$(cat contract.txt)
         export HOST_IP=$1

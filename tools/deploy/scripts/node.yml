@@ -1,7 +1,7 @@
 version: '3.4'
 
 services:
-  node1:
+  fluence-node-1:
     container_name: $NAME
     image: fluencelabs/node:latest
     environment:

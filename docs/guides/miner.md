@@ -35,14 +35,23 @@ It should install fabric 2.4 or later.
 
 Next, open [fluence/tools/deploy/fabfile.py](../../tools/deploy/fabfile.py) in your favorite text editor, and modify `info`:
 ```
-info = {'<ip1>': {'owner': '<eth address1>', 'key': '<private key1>'},
-        '<ip2>': {'owner': '<eth address2>', 'key': '<private key2>'}}
+info = {'<ip1>': {'owner': '<eth address1>', 'key': '<private key1>', 'ports': '<from>:<to>'},
+        '<ip2>': {'owner': '<eth address2>', 'key': '<private key2>', 'ports': '<from>:<to>'}}
 ```
 
-You can specify here several nodes, but for the sake of example, let's continue with a single node. After filling info, it should look alike to the following
+You can specify here several nodes, but for the sake of example, let's continue with a single node. After filling info in fabfile.py, it should look similar to this:
 
 ```
-info = {'53.42.31.20': {'owner': '<eth address1>', 'key': '<private key1>'}}
+info = {
+    '53.42.31.20':
+        {
+            'owner': '0x00a329c0648769a73afac7f9381e08fb43dbea72',
+            'key': '4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7',
+            'ports': '25000:25099'
+        }
+    }
 ```
+
+
 
 ### Deploy Fluence node locally
