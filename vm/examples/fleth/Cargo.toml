@@ -6,6 +6,8 @@ authors = ["Fluence Labs"]
 publish = false
 description = "Just takes TX from input of Fluence VM and prints them out"
 
+edition = "2018"
+
 [profile.release]
 
 debug = false

@@ -20,15 +20,15 @@
 #![allow(dead_code)]
 
 #[macro_use]
-extern crate log;
-extern crate fluence_sdk as fluence;
+use log::{info, warn, error};
+use fluence_sdk as fluence;
 
 use std::error::Error;
 use std::num::NonZeroUsize;
 use std::ptr::NonNull;
 
 /// Result for all possible Error types.
-type GenResult<T> = Result<T, Box<Error>>;
+pub type Result<T> = ::std::result::Result<T, Error>;
 
 /// Initializes `WasmLogger` instance and returns a pointer to error message as a string
 /// in the memory. Enabled only for a Wasm target.
@@ -43,7 +43,7 @@ pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
         log_and_panic("Putting result string to the memory failed.".into())
     });
 
-    warn!("{}\n", result);
+    warn!("Got result: {}\n", result);
     res_ptr
 }
 

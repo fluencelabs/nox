@@ -8,7 +8,7 @@ import sys.process._
 
 object SbtCommons {
 
-  val scalaV = scalaVersion := "2.12.7"
+  val scalaV = scalaVersion := "2.12.8"
 
   val commons = Seq(
     scalaV,
@@ -55,7 +55,7 @@ object SbtCommons {
 
   val slogging = "biz.enef"        %% "slogging"    % "0.6.1"
   val cats = "org.typelevel"       %% "cats-core"   % "1.5.0"
-  val catsEffect = "org.typelevel" %% "cats-effect" % "1.1.0"
+  val catsEffect = "org.typelevel" %% "cats-effect" % "1.2.0"
 
   val fs2Version = "1.0.2"
   val fs2 = "co.fs2"   %% "fs2-core"             % fs2Version
