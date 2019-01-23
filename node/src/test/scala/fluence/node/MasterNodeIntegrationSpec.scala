@@ -16,19 +16,19 @@
 
 package fluence.node
 import cats.effect._
-import cats.syntax.functor._
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
 import fluence.ethclient.EthClient
 import fluence.ethclient.helpers.Web3jConverters.hexToBytes32
-import fluence.node.eth.{FluenceContract, FluenceContractConfig}
+import fluence.node.eth.FluenceContract
 import fluence.node.status.MasterStatus
 import fluence.node.workers.health.WorkerRunning
 import org.scalatest.{Timer ⇒ _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 import eth.FluenceContractTestOps._
+import fluence.node.eth.conf.FluenceContractConfig
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -99,8 +99,11 @@ class MasterNodeIntegrationSpec
 
   def getRunningWorker(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[Option[WorkerRunning]] =
     IO.suspend {
-      getStatus(statusPort).map(_.workers.headOption.flatMap { w =>
-        Option(w.asInstanceOf[WorkerRunning])
+      getStatus(statusPort).map(_.workers.headOption.flatMap {
+        case w: WorkerRunning =>
+          Some(w)
+        case _ ⇒
+          None
       })
     }
 

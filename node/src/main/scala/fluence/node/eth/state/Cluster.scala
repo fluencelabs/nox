@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-package fluence.node.eth
+package fluence.node.eth.state
+
 import fluence.ethclient.helpers.Web3jConverters.bytes32ToBinary
 import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated._
@@ -29,7 +30,7 @@ import scala.concurrent.duration.{FiniteDuration, _}
  * @param workers List of members of this cluster, also contain `currentWorker`
  * @param currentWorker A worker belonging to current Fluence node
  */
-case class Cluster(genesisTime: FiniteDuration, workers: List[WorkerNode], currentWorker: WorkerNode)
+case class Cluster private[eth] (genesisTime: FiniteDuration, workers: Vector[WorkerPeer], currentWorker: WorkerPeer)
 
 object Cluster {
 
@@ -39,10 +40,10 @@ object Cluster {
    *
    * @param time Cluster genesis time
    * @param validatorKeys array of 32-byte Tendermint validator keys, used as workers' ids
-   * @param ports array of ports for Tendermint p2p connection. For rpc and prometheus ports see [[WorkerNode]]
+   * @param ports array of ports for Tendermint p2p connection. For rpc and prometheus ports see [[WorkerPeer]]
    * @param currentValidatorKey 32-byte Tendermint validator key corresponding to current node
    */
-  def build(
+  private[eth] def build(
     time: Uint256,
     validatorKeys: DynamicArray[Bytes32],
     nodeAddresses: DynamicArray[Bytes24],
@@ -60,9 +61,9 @@ object Cluster {
       .zipWithIndex
       .map {
         case (((validator, address), port), idx) =>
-          WorkerNode(validator, address, port, idx)
+          WorkerPeer(validator, address, port, idx)
       }
-      .toList
+      .toVector
 
     val keyBytes = bytes32ToBinary(currentValidatorKey)
     val currentWorker = workers.find(_.validatorKey === keyBytes)

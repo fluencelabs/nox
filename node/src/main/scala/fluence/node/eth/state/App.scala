@@ -14,29 +14,29 @@
  * limitations under the License.
  */
 
-package fluence.node.eth
-import fluence.ethclient.helpers.Web3jConverters.{binaryToHexTrimZeros, bytes32ToBinary}
+package fluence.node.eth.state
+
 import org.web3j.abi.datatypes.generated._
 import scodec.bits.ByteVector
 
 /**
  *  Represents an App deployed to some cluster
  *
- * @param appId Application ID as defined in Fluence contract
+ * @param id Application ID as defined in Fluence contract
  * @param storageHash Hash of the code in Swarm
  * @param cluster A cluster that hosts this App
  */
-case class App(
-  appId: ByteVector,
+case class App private[eth] (
+  id: ByteVector,
   storageHash: ByteVector,
   cluster: Cluster
 ) {
-  val appIdHex: String = binaryToHexTrimZeros(appId)
+  lazy val appIdHex: String = id.dropWhile(_ == 0).toHex
 }
 
 object App {
 
-  def apply(appId: Bytes32, storageHash: Bytes32, cluster: Cluster): App =
-    App(bytes32ToBinary(appId), bytes32ToBinary(storageHash), cluster)
+  private[eth] def apply(appId: Bytes32, storageHash: Bytes32, cluster: Cluster): App =
+    App(ByteVector(appId.getValue), ByteVector(storageHash.getValue), cluster)
 
 }

@@ -15,7 +15,7 @@
  */
 
 package fluence.node.workers.health
-import fluence.node.eth.WorkerNode
+import fluence.node.eth.state.WorkerPeer
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
@@ -32,7 +32,7 @@ case class StoppedWorkerInfo(
 object StoppedWorkerInfo {
 
   def apply(
-    worker: WorkerNode
+    worker: WorkerPeer
   ): StoppedWorkerInfo =
     new StoppedWorkerInfo(
       worker.rpcPort,

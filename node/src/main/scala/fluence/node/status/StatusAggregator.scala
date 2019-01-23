@@ -38,7 +38,7 @@ import scala.language.higherKinds
  * @param config config file about a master node
  * @param masterNode initialized master node
  */
-case class StatusAggregator(config: MasterConfig, masterNode: MasterNode, startTimeMillis: Long)(
+case class StatusAggregator(config: MasterConfig, masterNode: MasterNode[IO], startTimeMillis: Long)(
   implicit timer: Timer[IO]
 ) {
 
@@ -99,7 +99,7 @@ object StatusAggregator {
   def makeHttpResource(
     statServerConfig: StatusServerConfig,
     masterConfig: MasterConfig,
-    masterNode: MasterNode,
+    masterNode: MasterNode[IO],
     startTimeMillis: Long
   )(
     implicit cs: ContextShift[IO],

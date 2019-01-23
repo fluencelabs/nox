@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-package fluence.node.eth
+package fluence.node.eth.conf
 
 /**
  * Fluence contract settings.
+ * TODO generalize the eth-related configuration & its parsing somehow
  *
  * @param ownerAccount contract owner eth account
  * @param address address of the deployed contract

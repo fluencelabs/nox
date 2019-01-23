@@ -21,7 +21,7 @@ private[config] object GenesisConfig {
   import java.util.TimeZone
 
   import fluence.ethclient.helpers.Web3jConverters
-  import fluence.node.eth.App
+  import fluence.node.eth.state.App
   import fluence.node.workers.tendermint.ValidatorKey
   import io.circe.Encoder
   import io.circe.generic.semiauto.deriveEncoder
@@ -32,7 +32,7 @@ private[config] object GenesisConfig {
     genesis_time: String,
     chain_id: String,
     app_hash: String,
-    validators: List[ValidatorConfig]
+    validators: Seq[ValidatorConfig]
   )
 
   def generateJson(app: App): String = {
@@ -41,7 +41,7 @@ private[config] object GenesisConfig {
 
     GenesisConfig(
       genesis_time = dateFormat.format(app.cluster.genesisTime.toMillis),
-      chain_id = Web3jConverters.appIdToChainId(app.appId),
+      chain_id = Web3jConverters.appIdToChainId(app.id),
       app_hash = "",
       validators = app.cluster.workers.map { w =>
         ValidatorConfig(

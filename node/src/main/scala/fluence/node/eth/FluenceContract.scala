@@ -23,6 +23,8 @@ import cats.syntax.functor._
 import fluence.ethclient.Network.{APPDELETED_EVENT, APPDEPLOYED_EVENT, AppDeployedEventResponse}
 import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.{EthClient, Network}
+import fluence.node.eth.conf.FluenceContractConfig
+import fluence.node.eth.state.{App, Cluster}
 import fs2.interop.reactivestreams._
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.generated._
@@ -65,7 +67,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @param validatorKey Tendermint validator key identifying this node
    * @tparam F Effect
    */
-  def getNodeAppIds[F[_]](validatorKey: Bytes32)(implicit F: Async[F]): F[List[Bytes32]] =
+  private def getNodeAppIds[F[_]](validatorKey: Bytes32)(implicit F: Async[F]): F[List[Bytes32]] =
     contract
       .getNodeApps(validatorKey)
       .call[F]
@@ -86,7 +88,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @param validatorKey Tendermint Validator key of the current node, used to filter out apps which aren't related to current node
    * @tparam F Effect
    */
-  def getNodeApps[F[_]: Async](validatorKey: Bytes32): fs2.Stream[F, App] =
+  private def getNodeApps[F[_]: Async](validatorKey: Bytes32): fs2.Stream[F, state.App] =
     fs2.Stream
       .evalUnChunk(getNodeAppIds[F](validatorKey).map(cs ⇒ fs2.Chunk(cs: _*)))
       .evalMap(
@@ -115,7 +117,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of [[App]]s
    */
-  def getNodeAppDeployed[F[_]: ConcurrentEffect](validatorKey: Bytes32): fs2.Stream[F, App] =
+  private def getNodeAppDeployed[F[_]: ConcurrentEffect](validatorKey: Bytes32): fs2.Stream[F, state.App] =
     fs2.Stream
       .eval(eventFilter[F](APPDEPLOYED_EVENT))
       .flatMap(filter ⇒ contract.appDeployedEventFlowable(filter).toStream[F]) // It's checked that current node participates in a cluster there
@@ -130,7 +132,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of [[App]]s
    */
-  def getAllNodeApps[F[_]: ConcurrentEffect](validatorKey: Bytes32): fs2.Stream[F, App] =
+  private[eth] def getAllNodeApps[F[_]: ConcurrentEffect](validatorKey: Bytes32): fs2.Stream[F, state.App] =
     getNodeApps[F](validatorKey)
       .onFinalize(
         Sync[F].delay(logger.info("Got all the previously prepared clusters. Now switching to the new clusters"))
@@ -144,7 +146,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of AppDeleted events
    */
-  def getAppDeleted[F[_]: ConcurrentEffect]: fs2.Stream[F, Bytes32] =
+  private[eth] def getAppDeleted[F[_]: ConcurrentEffect]: fs2.Stream[F, Bytes32] =
     fs2.Stream
       .eval(eventFilter[F](APPDELETED_EVENT))
       .flatMap(filter ⇒ contract.appDeletedEventFlowable(filter).toStream[F])
@@ -161,10 +163,10 @@ object FluenceContract {
    * @param validatorKey Tendermint Validator key of current node, used to filter out events which aren't addressed to this node
    * @return Some(App) if current node should host this app, None otherwise
    */
-  def eventToApp(
+  private def eventToApp(
     event: AppDeployedEventResponse,
     validatorKey: Bytes32
-  ): Option[App] = {
+  ): Option[state.App] = {
     val cluster =
       Cluster
         .build(event.genesisTime, event.nodeIDs, event.nodeAddresses, event.ports, currentValidatorKey = validatorKey)
