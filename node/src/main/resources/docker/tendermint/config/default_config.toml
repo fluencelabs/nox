@@ -53,6 +53,8 @@ filter_peers = false
 # TCP or UNIX socket address for the RPC server to listen on
 laddr = "tcp://0.0.0.0:26657"
 
+cors_allowed_origins = ["*"]
+
 # TCP or UNIX socket address for the gRPC server to listen on
 # NOTE: This server only supports /broadcast_tx_commit
 grpc_laddr = ""
@@ -157,8 +159,6 @@ timeout_commit = "200ms"
 
 # Make progress as soon as we have all the precommits (as if TimeoutCommit = 0)
 skip_timeout_commit = true
-
-cors_allowed_origins = ["*"]
 
 # EmptyBlocks mode and possible interval between empty blocks in seconds
 create_empty_blocks = false
