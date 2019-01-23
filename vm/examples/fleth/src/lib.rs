@@ -19,7 +19,6 @@
 #![feature(allocator_api)]
 #![allow(dead_code)]
 
-#[macro_use]
 use log::{info, warn, error};
 use fluence_sdk as fluence;
 
