@@ -16,6 +16,7 @@ use fluence::delete_app::DeleteApp;
 use futures::future::Future;
 use web3::transports::Http;
 use web3::types::FilterBuilder;
+use fluence::delete_node::DeleteNode;
 
 pub type Result<T> = StdResult<T, Error>;
 
@@ -165,5 +166,11 @@ impl TestOpts {
         let delete = DeleteApp::new(app_id, deployed, self.eth.clone());
 
         delete.delete_app(false)
+    }
+
+    pub fn delete_node(&self, node_id: H256) -> Result<H256> {
+        let delete = DeleteNode::new(node_id, self.eth.clone());
+
+        delete.delete_node(false)
     }
 }

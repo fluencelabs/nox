@@ -14,3 +14,4 @@ pub mod publisher;
 pub mod register;
 pub mod types;
 pub mod utils;
+pub mod delete_node;
