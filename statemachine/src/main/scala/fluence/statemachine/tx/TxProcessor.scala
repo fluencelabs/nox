@@ -130,12 +130,14 @@ class TxProcessor[F[_]](
   private def invokeTx(tx: Transaction): F[TransactionStatus] = {
     val CloseSession = "@closeSession"
 
+    // This parsing is a temporary solution and should be moved to Wasm VM for verification game
     tx.payload match {
       case CloseSession =>
         EitherT.right[StateMachineError](putResult(tx, TransactionStatus.SessionClosed, Empty))
 
       case payload =>
         vmInvoker
+          //transform string to array of byte not taking into account its encoding
           .invoke(payload.toCharArray.map(_.toByte))
           .flatMap(
             result => EitherT.right[StateMachineError](putResult(tx, TransactionStatus.Success, Computed(result)))
