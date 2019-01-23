@@ -7,6 +7,9 @@
 ## Description
 `js-fluence-client` uses to interact with the Fluence cluster (it consists of `workers`) in the Fluence network. It is a frontend facade for an application deployed in Fluence. A developer can write a `web3` decentralized application using Metamask and Ethereum network as a point of trusted agreement between developers and computing power.
 
+## Common View
+<link to main guide README>
+
 ## Usage
 Import a dependency:
 ```
