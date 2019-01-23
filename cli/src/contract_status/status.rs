@@ -14,10 +14,8 @@
  * limitations under the License.
  */
 
-use std::boxed::Box;
-use std::error::Error;
-
 use derive_getters::Getters;
+use failure::Error;
 use serde_derive::{Deserialize, Serialize};
 use web3::types::Address;
 
@@ -38,7 +36,7 @@ impl Status {
 }
 
 /// Gets status about Fluence contract from ethereum blockchain.
-pub fn get_status(contract_address: Address, eth_url: &str) -> Result<Status, Box<Error>> {
+pub fn get_status(contract_address: Address, eth_url: &str) -> Result<Status, Error> {
     let contract = ContractCaller::new(contract_address, eth_url)?;
 
     // TODO get more data

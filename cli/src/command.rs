@@ -1,13 +1,11 @@
-use std::boxed::Box;
-use std::error::Error;
-
+use crate::credentials::Credentials;
+use crate::utils;
 use clap::value_t;
 use clap::Arg;
 use clap::ArgMatches;
+use failure::Error;
+use failure::ResultExt;
 use web3::types::Address;
-
-use crate::credentials::Credentials;
-use crate::utils;
 use web3::types::H256;
 
 const PASSWORD: &str = "password";
@@ -58,8 +56,6 @@ pub fn base64_tendermint_key<'a, 'b>() -> Arg<'a, 'b> {
         .help("allows to use base64 tendermint key")
 }
 
-// Takes `args` and concatenates them with predefined set of arguments needed for
-// interaction with Ethereum.
 pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
     // find last positional argument index, to add ethereum arguments after it
     let last_index = args.iter().filter_map(|a| a.index).max().unwrap_or(0);
@@ -105,17 +101,15 @@ pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
     eth_args
 }
 
-pub fn parse_contract_address(args: &ArgMatches) -> Result<Address, Box<Error>> {
-    utils::parse_hex_opt(args, CONTRACT_ADDRESS)?
-        .parse::<Address>()
-        .map_err(|e| e.into())
+pub fn parse_contract_address(args: &ArgMatches) -> Result<Address, Error> {
+    Ok(utils::parse_hex_opt(args, CONTRACT_ADDRESS)?.parse::<Address>()?)
 }
 
 pub fn parse_eth_url(args: &ArgMatches) -> Result<String, clap::Error> {
     value_t!(args, ETH_URL, String)
 }
 
-pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Box<Error>> {
+pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Error> {
     let secret_key = utils::parse_secret_key(args, SECRET_KEY)?;
     let password = args.value_of(PASSWORD).map(|s| s.to_string());
 
@@ -137,7 +131,7 @@ pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Box<Error>
     });
 }
 
-pub fn parse_tendermint_key(args: &ArgMatches) -> Result<H256, Box<Error>> {
+pub fn parse_tendermint_key(args: &ArgMatches) -> Result<H256, Error> {
     let tendermint_key = utils::parse_hex_opt(args, TENDERMINT_KEY)?.to_owned();
     let tendermint_key = if args.is_present(BASE64_TENDERMINT_KEY) {
         let arr = base64::decode(&tendermint_key)?;
@@ -147,8 +141,8 @@ pub fn parse_tendermint_key(args: &ArgMatches) -> Result<H256, Box<Error>> {
     };
 
     let tendermint_key: H256 = tendermint_key
-        .parse()
-        .map_err(|e| format!("error parsing tendermint key: {}", e))?;
+        .parse::<H256>()
+        .context("error parsing tendermint key")?;
 
     Ok(tendermint_key)
 }

@@ -18,13 +18,12 @@ use clap::ArgMatches;
 use clap::{App, Arg, SubCommand};
 use web3::types::H256;
 
-use std::error::Error;
-
 use crate::command;
 use crate::contract_func::contract::functions::delete_app;
 use crate::contract_func::contract::functions::dequeue_app;
 use crate::contract_func::ContractCaller;
 use crate::utils;
+use failure::Error;
 
 const APP_ID: &str = "app_id";
 const DEPLOYED: &str = "deployed";
@@ -37,7 +36,7 @@ pub struct DeleteApp {
 }
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
-    let args = &[
+    let my_args = &[
         Arg::with_name(DEPLOYED)
             .long(DEPLOYED)
             .short("D")
@@ -52,10 +51,10 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 
     SubCommand::with_name("delete_app")
         .about("Delete app from smart-contract")
-        .args(command::with_ethereum_args(args).as_slice())
+        .args(command::with_ethereum_args(my_args).as_slice())
 }
 
-pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Box<Error>> {
+pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Error> {
     let app_id: H256 = utils::parse_hex_opt(args, APP_ID)?.parse()?;
     let deployed = args.is_present(DEPLOYED);
 
@@ -77,8 +76,8 @@ impl DeleteApp {
         }
     }
 
-    pub fn delete_app(self, show_progress: bool) -> Result<H256, Box<Error>> {
-        let delete_app_fn = || -> Result<H256, Box<Error>> {
+    pub fn delete_app(self, show_progress: bool) -> Result<H256, Error> {
+        let delete_app_fn = || -> Result<H256, Error> {
             let call_data = match self.deployed {
                 true => delete_app::call(self.app_id).0,
                 false => dequeue_app::call(self.app_id).0,
