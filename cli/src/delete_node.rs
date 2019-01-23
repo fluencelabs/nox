@@ -1,16 +1,16 @@
 use clap::ArgMatches;
-use clap::{App, Arg, SubCommand};
+use clap::{App, SubCommand};
 use web3::types::H256;
 
-use crate::command::{EthereumArgs, parse_ethereum_args, with_ethereum_args, tendermint_key, base64_tendermint_key, parse_tendermint_key};
-use crate::contract_func::contract::functions::delete_app;
-use crate::contract_func::contract::functions::dequeue_app;
+use crate::command::{
+    base64_tendermint_key, parse_ethereum_args, parse_tendermint_key, tendermint_key,
+    with_ethereum_args, EthereumArgs,
+};
 use crate::contract_func::ContractCaller;
 use crate::utils;
 use failure::Error;
 
 use crate::contract_func::contract::functions::delete_node;
-
 
 pub struct DeleteNode {
     tendermint_key: H256,
@@ -30,14 +30,15 @@ pub fn parse(args: &ArgMatches) -> Result<DeleteNode, Error> {
 
     Ok(DeleteNode {
         tendermint_key,
-        eth
+        eth,
     })
 }
 
 impl DeleteNode {
     pub fn new(tendermint_key: H256, eth: EthereumArgs) -> DeleteNode {
         DeleteNode {
-            tendermint_key, eth
+            tendermint_key,
+            eth,
         }
     }
 

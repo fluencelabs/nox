@@ -18,7 +18,7 @@ use clap::App;
 use clap::AppSettings;
 use console::style;
 
-use fluence::{check, contract_status, delete_app, publisher, register, delete_node};
+use fluence::{check, contract_status, delete_app, delete_node, publisher, register};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -80,7 +80,7 @@ fn main() {
 
         ("delete_node", Some(args)) => {
             let delete_node = delete_node::parse(args).expect("Error parsing arguments");
-            let transaction = delete_node.delete_app(true);
+            let transaction = delete_node.delete_node(true);
 
             let formatted_finish_msg = style("Node deleted. Submitted transaction").blue();
             let formatted_tx = style(transaction).red().bold();
