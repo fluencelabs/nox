@@ -27,7 +27,7 @@ import scodec.bits.ByteVector
  *
  * @param validatorKey 32-byte Tendermint Validator key, also represented by base64ValidatorKey
  * @param peerId hex-encoded 20-byte Tendermint peer ID which is calculated as `hex.EncodeToString(SHA256(peer.PubKey)[:20])`
- * and can be retrieved from Tendermint via command `show_node_id`
+ *               and can be retrieved from Tendermint via command `show_node_id`
  * @param p2pPort p2p Tendermint port, used by Tendermint to connect p2p peers. Also used for rpcPort calculation
  * @param index index of a worker in cluster workers array
  */

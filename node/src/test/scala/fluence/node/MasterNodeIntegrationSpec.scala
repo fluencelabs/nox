@@ -28,6 +28,7 @@ import fluence.node.workers.health.WorkerRunning
 import org.scalatest.{Timer ⇒ _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
+import eth.FluenceContractTestOps._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._

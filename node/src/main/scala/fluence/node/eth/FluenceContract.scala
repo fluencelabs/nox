@@ -22,13 +22,11 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.ethclient.Network.{APPDELETED_EVENT, APPDEPLOYED_EVENT, AppDeployedEventResponse}
 import fluence.ethclient.helpers.RemoteCallOps._
-import fluence.ethclient.helpers.Web3jConverters.stringToBytes32
 import fluence.ethclient.{EthClient, Network}
-import fluence.node.config.NodeConfig
 import fs2.interop.reactivestreams._
 import org.web3j.abi.EventEncoder
-import org.web3j.abi.datatypes.generated.{Uint8, _}
-import org.web3j.abi.datatypes.{Bool, DynamicArray, Event}
+import org.web3j.abi.datatypes.generated._
+import org.web3j.abi.datatypes.Event
 import org.web3j.protocol.core.methods.request.SingleAddressEthFilter
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
 
@@ -41,8 +39,8 @@ import scala.language.higherKinds
  * @param ethClient Ethereum client
  * @param contract Contract ABI, received from Ethereum
  */
-class FluenceContract(private val ethClient: EthClient, private val contract: Network) extends slogging.LazyLogging {
-  import FluenceContract.NodeConfigEthOps
+class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val contract: Network)
+    extends slogging.LazyLogging {
 
   /**
    * Builds a filter for specified event. Filter is to be used in eth_newFilter
@@ -138,48 +136,6 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
         Sync[F].delay(logger.info("Got all the previously prepared clusters. Now switching to the new clusters"))
       ) ++ getNodeAppDeployed(validatorKey)
 
-  /**
-   * Register the node in the contract.
-   * TODO check permissions, Ethereum public key should match
-   * TODO should not be called anywhere except tests, use CLI to register the node
-   *
-   * @param nodeConfig Node to add
-   * @tparam F Effect
-   * @return The block number where transaction has been mined
-   */
-  def addNode[F[_]: Async](nodeConfig: NodeConfig): F[BigInt] =
-    contract
-      .addNode(
-        nodeConfig.validatorKey.toBytes32,
-        nodeConfig.addressBytes24,
-        nodeConfig.startPortUint16,
-        nodeConfig.endPortUint16,
-        nodeConfig.isPrivateBool
-      )
-      .call[F]
-      .map(_.getBlockNumber)
-      .map(BigInt(_))
-
-  /**
-   * Publishes a new app to the Fluence Network
-   *
-   * @param storageHash Hash of the code in Swarm
-   * @param clusterSize Cluster size required to host this app
-   * @tparam F Effect
-   * @return The block number where transaction has been mined
-   */
-  def addApp[F[_]: Async](storageHash: String, clusterSize: Short = 1): F[BigInt] =
-    contract
-      .addApp(
-        stringToBytes32(storageHash),
-        stringToBytes32("receipt_stub"),
-        new Uint8(clusterSize),
-        DynamicArray.empty("bytes32[]").asInstanceOf[DynamicArray[Bytes32]]
-      )
-      .call[F]
-      .map(_.getBlockNumber)
-      .map(BigInt(_))
-
   // TODO: on reconnect, do getApps again and remove all apps that are running on this node but not in getApps list
   // this may happen if we missed some events due to network outage or the like
   /**
@@ -194,12 +150,6 @@ class FluenceContract(private val ethClient: EthClient, private val contract: Ne
       .flatMap(filter ⇒ contract.appDeletedEventFlowable(filter).toStream[F])
       .map(_.appID)
 
-  /**
-   * Deletes deployed app from contract, triggering AppDeleted event on successful deletion
-   * @param appId 32-byte id of the app to be deleted
-   * @tparam F Effect
-   */
-  def deleteApp[F[_]: Async](appId: Bytes32): F[Unit] = contract.deleteApp(appId).call[F].void
 }
 
 object FluenceContract {
@@ -237,26 +187,4 @@ object FluenceContract {
         Network.load
       )
     )
-
-  implicit class NodeConfigEthOps(nodeConfig: NodeConfig) {
-    import fluence.ethclient.helpers.Web3jConverters.nodeAddressToBytes24
-    import nodeConfig._
-
-    /**
-     * Returns node's address information (host, Tendermint p2p key) in format ready to pass to the contract.
-     */
-    def addressBytes24: Bytes24 = nodeAddressToBytes24(endpoints.ip.getHostAddress, nodeAddress)
-
-    /**
-     * Returns starting port as uint16.
-     */
-    def startPortUint16: Uint16 = new Uint16(endpoints.minPort)
-
-    /**
-     * Returns ending port as uint16.
-     */
-    def endPortUint16: Uint16 = new Uint16(endpoints.maxPort)
-
-    def isPrivateBool: Bool = new Bool(isPrivate)
-  }
 }
