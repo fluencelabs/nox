@@ -4,7 +4,7 @@
     - [Deploy Fluence node to a cloud](#deploy-fluence-node-to-a-cloud)
     - [Deploy Fluence node locally](#deploy-fluence-node-locally)
 
-## Fluence miner guide
+# Fluence miner guide
 Being a miner in Fluence network means that you will provide you computation power to host decentralized backends. In order to do that, you will need just a few things:
 1. A computer to run a Fluence node and workers on it
 2. Installed and running Docker and `docker-compose`
@@ -12,7 +12,7 @@ Being a miner in Fluence network means that you will provide you computation pow
 4. An Ethereum light-client or full node connected to Kovan testnet
 5. A Kovan Ethereum wallet topped up with some ETH to submit transactions
 
-### How mining works
+## How mining works
 The process is as follows:
 You run a Docker image with Fluence node on your computer, then you register that node within Fluence smart contract by using Fluence CLI. On registration, you specify max number of backends you wish to host, so your node doesn't run out of resources.
 
@@ -20,13 +20,13 @@ After you registered your node within smart contract, it starts waiting to be in
 
 When node receives an event stating it's a part of an application cluster now, it will download application code from Swarm, and then run a Docker image with Fluence worker hosting that code.
 
-### How to become a Fluence miner
+## How to become a Fluence miner
 The first step is to deploy a Fluence node. Deploy is automated, you can get scripts by cloning [Fluence repo](https://github.com/fluencelabs/fluence):
 ```
 git clone https://github.com/fluencelabs/fluence
 ```
 
-#### Deploy Fluence node to a cloud
+### Deploy Fluence node to a cloud
 It's an automated task, you will only need to specify your cloud instance IP addresses and your Ethereum wallet, and then run a (Fabric)[https://github.com/fabric/fabric] script.
 
 First, let's install Fabric:
@@ -105,7 +105,7 @@ That's the result of script registering your node within Fluence smart contract.
 
 All environment variables used in the command are listed in the useful information above, so you can easily use them with Fluence CLI.
 
-#### Deploy Fluence node locally
+### Deploy Fluence node locally
 If you wish to use your local computer to host Fluence node, you can do that by running [kovan-compose.sh](../../tools/deploy/scripts/kovan-compose.sh) like this:
 ```
 # ./kovan-compose.sh <external-ip> <owner-address> <private-key> <start-port:end-port>
