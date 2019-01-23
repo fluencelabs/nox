@@ -334,6 +334,9 @@ contract Deployer {
         require(node.id != 0, "error deleting node: node not found");
         require(node.owner == msg.sender || isContractOwner(), "error deleting node: you must own node to delete it");
 
+        // Remove nodeID from apps that hosted by this node. Also remove app if there's no more nodes left to host them.
+        removeNodeFromApps(nodeID, nodes[nodeID].appIDs);
+
         uint i;
 
         // Find the node in readyNodes
@@ -361,51 +364,13 @@ contract Deployer {
         // Remove node from nodes mapping
         delete nodes[nodeID];
 
-        removeNodeFromApps(nodeID, node.appIDs);
-
         emit NodeDeleted(nodeID);
     }
 
-    function removeNodeFromApps(bytes32 nodeID, bytes32[] appIDsArray)
-        internal
-    {
-        for (uint i = 0; i < appIDsArray.length; i++) {
-            bytes32 appID = appIDsArray[i];
-            bytes32[] memory nodeIDs = apps[appID].cluster.nodeIDs;
-
-            uint8 j = 0;
-            for (; j < nodeIDs.length; j++) {
-                if (nodeIDs[j] == nodeID) {
-                    break;
-                }
-            }
-
-            // This should never happen if there's no bugs. But it's better to revert if there is some inconsistency.
-            require(j < nodeIDs.length, "error deleting node: nodeID wasn't found in nodeIDs");
-
-            // Check if that node is the last one hosting that app
-            if (nodeIDs.length == 1) {
-                // Remove app from clustersIds array and clusters mapping, and emit AppDeleted event of successful removal
-                removeApp(appID);
-            } else {
-                // Remove nodeID from nodeIDs array
-                if (j != nodeIDs.length - 1) {
-                    // Remove j-th node from nodeIDs replacing it by the last node in the array
-                    nodeIDs[j] = nodeIDs[nodeIDs.length - 1];
-                }
-                // Release the storage
-                delete nodeIDs[nodeIDs.length - 1];
-
-                // Decrease array length manually
-                assembly { mstore(nodeIDs, sub(mload(nodeIDs), 1)) }
-
-                // Save filtered nodeIDs to app in apps mapping
-                apps[appID].cluster.nodeIDs = nodeIDs;
-            }
-        }
-    }
-
-    function removeNodeFromAppsStorage(bytes32 nodeID, bytes32[] storage appIDsArray)
+    /** @dev Remove nodeID from app.cluster.nodeIDs for apps hosted by this node.
+      * Also remove app if there's no more nodes left to host it, and emit AppDeleted event.
+      */
+    function removeNodeFromApps(bytes32 nodeID, bytes32[] storage appIDsArray)
         internal
     {
         for (uint i = 0; i < appIDsArray.length; i++) {
