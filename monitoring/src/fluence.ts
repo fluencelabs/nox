@@ -18,13 +18,23 @@
 import {ContractStatus, getContractStatus} from "./contractStatus";
 import axios from 'axios';
 import {Network} from "../types/web3-contracts/Network";
-import {NodeStatus, UnavailableNode} from "./nodeStatus";
+import {NodeStatus, UnavailableNode, isAvailable} from "./nodeStatus";
 import JSONFormatter from 'json-formatter-js';
-import abi = require("./Network.json");
+import * as App from "./app"
+import {getNodes, Node} from "./node";
+import {Option} from "ts-option";
 import Web3 = require('web3');
+import abi = require("./Network.json");
 
 (window as any).web3 = (window as any).web3 || {};
 let web3 = (window as any).web3;
+
+export {
+    Node as Node,
+    NodeStatus as NodeStatus,
+    UnavailableNode as UnavailableNode,
+    isAvailable as isAvailable
+}
 
 /**
  * Contract status and status of all nodes in the Fluence network.
@@ -34,12 +44,19 @@ export interface Status {
     node_statuses: (NodeStatus|UnavailableNode)[]
 }
 
-/**
- * Shows status of Fluence contract on the page.
- * @param contractAddress address from ganache by default. todo: use address from mainnet as default
+/*
+ * Cluster member of a specific app.
  */
-export async function getStatus(contractAddress: string): Promise<Status> {
+export interface Worker {
+    node: Node,
+    port: number,
+    statusPort: number
+}
 
+/*
+ * Gets Fluence Contract
+ */
+export function getContract(address: string): Network {
     let web3js;
     if (typeof web3 !== 'undefined') {
         // Use Mist/MetaMask's provider
@@ -49,19 +66,71 @@ export async function getStatus(contractAddress: string): Promise<Status> {
         web3js = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
     }
 
-    let contract: Network = new web3js.eth.Contract(abi, contractAddress) as Network;
+    return new web3js.eth.Contract(abi, address) as Network;
+}
+
+/*
+ * Gets workers that are members of a cluster with a specific app (by appId).
+ */
+export async function getAppWorkers(contractAddress: string, appId: string): Promise<Worker[]> {
+
+    let contract = getContract(contractAddress);
+
+    // get app info from contract
+    let app = await App.getApp(contract, appId);
+
+    let cluster = app.cluster;
+
+    let result: Option<Promise<Worker[]>> = cluster.map((c) => {
+
+        let ids: string[] = c.cluster_members.map((m) => m.id);
+
+        // get info about all node members of the app
+        return getNodes(contract, ids).then((nodes) => {
+            // combine nodes with a specific port in the app
+            return nodes.map((n, idx) => {
+                return {
+                    node: n,
+                    port: c.cluster_members[idx].port,
+                    statusPort: getStatusPort(n)
+                }
+            })
+        });
+    });
+
+    return result.getOrElse(Promise.resolve([]));
+}
+
+export function getStatusPort(node: Node) {
+    // todo: `+400` is a temporary solution, fix it after implementing correct port management
+    return node.last_port + 400
+}
+
+// get node health status by HTTP
+export function getNodeStatus(node: Node): Promise<NodeStatus|UnavailableNode> {
+    let url = `http://${node.ip_addr}:${getStatusPort(node)}/status`;
+    return axios.get(url).then((res) => {
+        return <NodeStatus>res.data;
+    }).catch((err) => {
+        return {
+            nodeInfo: node,
+            causeBy: err
+        };
+    });
+}
+
+/**
+ * Shows status of Fluence contract on the page.
+ * @param contractAddress address from ganache by default. todo: use address from mainnet as default
+ */
+export async function getStatus(contractAddress: string): Promise<Status> {
+
+    let contract = getContract(contractAddress);
 
     let contractStatus = await getContractStatus(contract);
 
     let responses = contractStatus.nodes.map((node) => {
-        // todo: `+400` is a temporary solution, fix it after implementing correct port management
-        let url = `http://${node.ip_addr}:${node.last_port + 400}/status`;
-        return axios.get(url).then((res) => {
-            res.data.status = "ok";
-            return <NodeStatus>res.data;
-        }).catch(() => {
-            return {nodeInfo: node, status: "unavailable"}
-        });
+       return getNodeStatus(node);
     });
 
     let nodeStatuses = await Promise.all(responses);

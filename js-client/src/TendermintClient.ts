@@ -40,9 +40,11 @@ function parseResponse(res: any): BroadcastTxSyncResponse {
 
 export class TendermintClient {
     readonly client: RpcClient;
+    readonly addr: string;
 
     constructor(host: string, port: number, protocol: protocol = "http") {
-        this.client = new RpcClient(`${protocol}://${host}:${port}`);
+        this.addr = `${protocol}://${host}:${port}`;
+        this.client = new RpcClient(this.addr);
     }
 
     broadcastTxAsync(hex: string): Promise<any> {
