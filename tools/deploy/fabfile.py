@@ -18,8 +18,14 @@ from fabric.api import *
 # owners and private keys for specific ip addresses
 # todo get this info from some sources
 # TO USE: replace values inside <> with your actual values
-info = {'<ip1>': {'owner': '<eth address1>', 'key': '<private key1>', 'ports': '<from>:<to>'},
-        '<ip2>': {'owner': '<eth address2>', 'key': '<private key2>', 'ports': '<from>:<to>'}}
+info = {
+    '207.154.229.17':
+        {
+            'owner': '0x7DdAE2d6118562AaC405284bb297C9A53d975326',
+            'key': '2e021a6a4fbaba38065b2abc1e1047b7a7c26aaa23ae6ca6f0b1a6530fce8cfc',
+            'ports': '25555:26000'
+        }
+}
 
 file = open("scripts/contract.txt", "r")
 contract=file.read()
@@ -79,7 +85,4 @@ def deploy():
             run('docker pull ethdevops/swarm')
             run('docker pull fluencelabs/node')
             run('docker pull fluencelabs/worker')
-            # delete all workers
-            # TODO reuse old volumes if possible
-            run('docker ps -a | grep _node | awk \'{print $1}\' | xargs docker rm -f ; docker volume prune -f')
             run('./compose.sh')

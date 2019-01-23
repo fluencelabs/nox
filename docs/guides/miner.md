@@ -1,7 +1,7 @@
 ## Fluence miner guide
 Being a miner in Fluence network means that you will provide you computation power to host decentralized backends. In order to do that, you will need just a few things:
 1. A computer to run a Fluence node and workers on it
-2. Installed and running Docker
+2. Installed and running Docker and `docker-compose`
 3. Installed python2 pip
 4. An Ethereum light-client or full node connected to Kovan testnet
 5. A Kovan Ethereum wallet topped up with some ETH to submit transactions
@@ -28,10 +28,10 @@ First, let's install Fabric:
 # make use you're using python2
 $ pip --version
 pip 18.0 from <...> (python 2.7)
-$ pip install fabric
+$ pip install Fabric==1.14.1
 ```
 
-It should install fabric 2.4 or later.
+It should install fabric 1.14.1. **Be careful not to install Fabric 2 as it's not current supported.**
 
 Next, open [fluence/tools/deploy/fabfile.py](../../tools/deploy/fabfile.py) in your favorite text editor, and modify `info`:
 ```
