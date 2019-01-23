@@ -20,7 +20,6 @@ use ethkey::Secret;
 use web3::contract::Options;
 use web3::futures::Future;
 use web3::transports::Http;
-use web3::types::BlockNumber;
 use web3::types::CallRequest;
 use web3::types::TransactionRequest;
 use web3::types::{Address, Bytes, H256};
@@ -90,14 +89,11 @@ impl ContractCaller {
         call_data: ethabi::Bytes,
         gas: u32,
     ) -> Result<H256, Error> {
-        let gas_price = web3.eth().gas_price().wait().map_err(SyncFailure::new)?;
+        let gas_price = web3.eth().gas_price().wait()?;
+        let nonce = web3.eth().transaction_count(account, None).wait()?;
 
         let tx = Transaction {
-            nonce: web3
-                .eth()
-                .transaction_count(account, Some(BlockNumber::Pending))
-                .wait()
-                .map_err(SyncFailure::new)?,
+            nonce: nonce,
             value: "0".parse()?,
             action: Action::Call(self.contract_address.clone()),
             data: call_data,

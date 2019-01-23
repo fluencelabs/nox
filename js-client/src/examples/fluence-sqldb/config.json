@@ -1,8 +1,0 @@
-{
-  "addrs": [
-    {"host": "localhost", "port": 29057},
-    {"host": "localhost", "port": 29157},
-    {"host": "localhost", "port": 29257},
-    {"host": "localhost", "port": 29357}
-  ]
-}
