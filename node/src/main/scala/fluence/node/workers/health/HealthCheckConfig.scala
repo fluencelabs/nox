@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-package fluence.node.workers
+package fluence.node.workers.health
+
 import scala.concurrent.duration._
 
 /**

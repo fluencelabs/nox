@@ -22,7 +22,9 @@ import fluence.ethclient.helpers.Web3jConverters.bytes32ToBinary
 import org.web3j.abi.datatypes.generated._
 import scodec.bits.ByteVector
 
-/** WorkerNode contains information describing a Worker as a Tendermint node
+/**
+ * WorkerNode contains information describing a Worker as a Tendermint node
+ *
  * @param validatorKey 32-byte Tendermint Validator key, also represented by base64ValidatorKey
  * @param peerId hex-encoded 20-byte Tendermint peer ID which is calculated as `hex.EncodeToString(SHA256(peer.PubKey)[:20])`
  * and can be retrieved from Tendermint via command `show_node_id`
@@ -41,7 +43,9 @@ case class WorkerNode(validatorKey: ByteVector, peerId: String, ip: InetAddress,
 
 object WorkerNode {
 
-  /** Build WorkerNode from web3 data structures
+  /**
+   * Build WorkerNode from web3 data structures
+   *
    * @param validatorKey Tendermint validator key, determines the node that controls the worker
    * @param nodeAddress is a concatenation of tendermint p2p node_id (20 bytes) and IPv4 address (4 bytes)
    * @param p2pPort Tendermint p2p port of the worker

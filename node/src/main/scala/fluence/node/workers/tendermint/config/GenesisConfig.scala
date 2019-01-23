@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.node.tendermint.config
+package fluence.node.workers.tendermint.config
 
 private[config] object GenesisConfig {
   import java.text.SimpleDateFormat
@@ -22,7 +22,7 @@ private[config] object GenesisConfig {
 
   import fluence.ethclient.helpers.Web3jConverters
   import fluence.node.eth.App
-  import fluence.node.tendermint.json.ValidatorKey
+  import fluence.node.workers.tendermint.ValidatorKey
   import io.circe.Encoder
   import io.circe.generic.semiauto.deriveEncoder
   import io.circe.syntax._

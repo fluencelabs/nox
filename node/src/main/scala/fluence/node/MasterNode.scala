@@ -22,8 +22,8 @@ import cats.effect._
 import fluence.ethclient.helpers.Web3jConverters
 import fluence.node.config.NodeConfig
 import fluence.node.eth.{App, FluenceContract}
-import fluence.node.tendermint.config.WorkerConfigWriter
-import fluence.node.tendermint.config.WorkerConfigWriter.WorkerConfigPaths
+import fluence.node.workers.tendermint.config.WorkerConfigWriter
+import fluence.node.workers.tendermint.config.WorkerConfigWriter.WorkerConfigPaths
 import fluence.node.workers._
 
 /**
@@ -47,6 +47,7 @@ case class MasterNode(
 
   /**
    * Downloads code from Swarm
+   *
    * @param codeManager Manager that downloads the code from Swarm
    * @return original App and WorkerConfigPaths along with downloaded code Path
    */
@@ -62,6 +63,7 @@ case class MasterNode(
 
   /**
    * Generates WorkerParams case class from app, config paths and downloaded code path
+   *
    * @param workerImage Docker image to use to run a Worker
    * @param masterNodeContainerId Docker container id of the current Fluence node, used to import volumes from it
    * @return

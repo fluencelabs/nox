@@ -19,7 +19,9 @@ import fluence.ethclient.helpers.Web3jConverters.{binaryToHexTrimZeros, bytes32T
 import org.web3j.abi.datatypes.generated._
 import scodec.bits.ByteVector
 
-/* Represents an App deployed to some cluster
+/**
+ *  Represents an App deployed to some cluster
+ *
  * @param appId Application ID as defined in Fluence contract
  * @param storageHash Hash of the code in Swarm
  * @param cluster A cluster that hosts this App
@@ -34,7 +36,7 @@ case class App(
 
 object App {
 
-  def apply(appId: Bytes32, storageHash: Bytes32, cluster: Cluster): App = {
+  def apply(appId: Bytes32, storageHash: Bytes32, cluster: Cluster): App =
     App(bytes32ToBinary(appId), bytes32ToBinary(storageHash), cluster)
-  }
+
 }

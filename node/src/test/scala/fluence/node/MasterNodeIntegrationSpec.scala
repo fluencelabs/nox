@@ -23,8 +23,9 @@ import com.softwaremill.sttp.{SttpBackend, _}
 import fluence.ethclient.EthClient
 import fluence.ethclient.helpers.Web3jConverters.hexToBytes32
 import fluence.node.eth.{FluenceContract, FluenceContractConfig}
+import fluence.node.status.MasterStatus
 import fluence.node.workers.WorkerRunning
-import org.scalatest.{Timer => _, _}
+import org.scalatest.{Timer ⇒ _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 

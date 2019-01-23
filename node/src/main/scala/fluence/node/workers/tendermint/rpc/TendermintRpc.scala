@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-package fluence.node.workers
+package fluence.node.workers.tendermint.rpc
+
 import cats.effect.Concurrent
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.softwaremill.sttp._
+import fluence.node.workers.WorkerParams
 import io.circe.generic.semiauto._
 import io.circe.{Encoder, Json}
 
@@ -32,10 +34,13 @@ import scala.language.higherKinds
  * @param stop A callback that releases the acquired resources, namely it stops the RPC stream
  * @tparam F Concurrent effect
  */
-case class WorkerRpc[F[_]] private (
-  sinkRpc: fs2.Sink[F, WorkerRpc.Request],
+case class TendermintRpc[F[_]] private (
+  sinkRpc: fs2.Sink[F, TendermintRpc.Request],
   private[workers] val stop: F[Unit]
 ) {
+
+  val broadcastTxCommit: fs2.Sink[F, String] =
+    (s: fs2.Stream[F, String]) ⇒ s.map(TendermintRpc.broadcastTxCommit(_)) to sinkRpc
 
   /**
    * Make a single RPC call in a fire-and-forget manner.
@@ -44,12 +49,12 @@ case class WorkerRpc[F[_]] private (
    * @param req The Tendermint request
    * @param F Concurrent effect
    */
-  def callRpc(req: WorkerRpc.Request)(implicit F: Concurrent[F]): F[Unit] =
+  def callRpc(req: TendermintRpc.Request)(implicit F: Concurrent[F]): F[Unit] =
     fs2.Stream(req).to(sinkRpc).compile.drain
 
 }
 
-object WorkerRpc {
+object TendermintRpc {
   private val requestEncoder: Encoder[Request] = deriveEncoder[Request]
 
   /**
@@ -86,9 +91,11 @@ object WorkerRpc {
    * @tparam F Concurrent effect
    * @return Worker RPC instance. Note that it should be stopped at some point, and can't be used after it's stopped
    */
-  def apply[F[_]: Concurrent](params: WorkerParams)(implicit sttpBackend: SttpBackend[F, Nothing]): F[WorkerRpc[F]] =
+  def apply[F[_]: Concurrent](
+    params: WorkerParams
+  )(implicit sttpBackend: SttpBackend[F, Nothing]): F[TendermintRpc[F]] =
     for {
-      queue ← fs2.concurrent.Queue.noneTerminated[F, WorkerRpc.Request]
+      queue ← fs2.concurrent.Queue.noneTerminated[F, TendermintRpc.Request]
       fiber ← Concurrent[F].start(
         queue.dequeue
           .evalMap(
@@ -108,7 +115,7 @@ object WorkerRpc {
 
       enqueue = queue.enqueue
       stop = fs2.Stream(None).to(enqueue).compile.drain *> fiber.join
-      callRpc = toSomePipe[F, WorkerRpc.Request].andThen(_ to enqueue)
+      callRpc = toSomePipe[F, TendermintRpc.Request].andThen(_ to enqueue)
 
-    } yield new WorkerRpc[F](callRpc, stop)
+    } yield new TendermintRpc[F](callRpc, stop)
 }

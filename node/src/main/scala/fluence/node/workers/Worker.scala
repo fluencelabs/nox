@@ -27,6 +27,9 @@ import cats.syntax.functor._
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.circe._
 import fluence.node.docker.DockerIO
+import fluence.node.workers.health._
+import fluence.node.workers.tendermint.rpc.TendermintRpc
+import fluence.node.workers.tendermint.status.StatusResponse
 import slogging.LazyLogging
 
 import scala.language.higherKinds
@@ -42,7 +45,7 @@ import scala.language.higherKinds
  */
 case class Worker[F[_]] private (
   params: WorkerParams,
-  rpc: WorkerRpc[F],
+  rpc: TendermintRpc[F],
   private val healthReportRef: Ref[F, WorkerHealth],
   stop: F[Unit]
 ) {
@@ -53,8 +56,6 @@ case class Worker[F[_]] private (
 }
 
 object Worker extends LazyLogging {
-
-  import WorkerResponse._
 
   /**
    * Gets health state from a worker via HTTP.
@@ -74,7 +75,7 @@ object Worker extends LazyLogging {
     )
     sttp
       .get(url)
-      .response(asJson[WorkerResponse])
+      .response(asJson[StatusResponse])
       .send()
       .attempt
       // converting Either[Throwable, Response[Either[DeserializationError[circe.Error], WorkerResponse]]]
@@ -149,7 +150,7 @@ object Worker extends LazyLogging {
 
       fiber ← Concurrent[F].start(runHealthCheck(params, healthReportRef, stop, healthcheck))
 
-      rpc ← WorkerRpc[F](params)
+      rpc ← TendermintRpc[F](params)
 
     } yield new Worker[F](params, rpc, healthReportRef, stop.complete(Right(())) *> rpc.stop *> fiber.join *> onStop)
 

@@ -24,6 +24,7 @@ import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
 import fluence.node.config.SwarmConfig
 import fluence.node.eth.FluenceContract
+import fluence.node.status.StatusAggregator
 import fluence.node.workers.{CodeManager, SwarmCodeManager, TestCodeManager, WorkersPool}
 import fluence.swarm.SwarmClient
 import org.web3j.protocol.core.methods.response.EthSyncing.Syncing

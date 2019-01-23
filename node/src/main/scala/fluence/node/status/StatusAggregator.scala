@@ -14,52 +14,23 @@
  * limitations under the License.
  */
 
-package fluence.node
+package fluence.node.status
 
 import cats.Parallel
 import cats.data.Kleisli
 import cats.effect.{ContextShift, IO, Resource, Timer}
-import fluence.node.config.{MasterConfig, NodeConfig, StatusServerConfig}
-import fluence.node.workers.WorkerHealth
-import org.http4s._
-import org.http4s.implicits._
-import scala.concurrent.duration._
-import org.http4s.dsl.io._
+import fluence.node.MasterNode
+import fluence.node.config.{MasterConfig, StatusServerConfig}
 import io.circe.syntax._
-import io.circe.generic.semiauto._
-import io.circe.{Decoder, Encoder}
+import org.http4s._
+import org.http4s.dsl.io._
+import org.http4s.implicits._
 import org.http4s.server.Server
-
-import scala.concurrent.duration.MILLISECONDS
 import org.http4s.server.blaze._
 import org.http4s.server.middleware.{CORS, CORSConfig}
 
+import scala.concurrent.duration._
 import scala.language.higherKinds
-
-/**
- * Master node state.
- *
- * @param ip master node ip address
- * @param listOfPorts all available ports to use by code developers
- * @param uptime working time of master node
- * @param numberOfWorkers number of registered workers
- * @param workers info about workers
- * @param config config file
- */
-case class MasterStatus(
-  ip: String,
-  listOfPorts: String,
-  uptime: Long,
-  nodeConfig: NodeConfig,
-  numberOfWorkers: Int,
-  workers: List[WorkerHealth],
-  config: MasterConfig
-)
-
-object MasterStatus {
-  implicit val encodeMasterState: Encoder[MasterStatus] = deriveEncoder
-  implicit val decodeMasterState: Decoder[MasterStatus] = deriveDecoder
-}
 
 /**
  * The manager that able to get information about master node and all workers.

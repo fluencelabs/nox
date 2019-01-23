@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.node.tendermint.config
+package fluence.node.workers.tendermint.config
 import java.nio.file.{Files, Path, StandardCopyOption}
 
 import cats.effect.IO
