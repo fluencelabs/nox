@@ -74,7 +74,7 @@ echo 'Parity and Swarm containers are started.'
 
 # waiting that API of parity start working
 # todo get rid of all `sleep`
-sleep 10
+sleep 30
 
 # deploy contract if there is new dev ethereum node
 if [ -z "$PROD_DEPLOY" ]; then
