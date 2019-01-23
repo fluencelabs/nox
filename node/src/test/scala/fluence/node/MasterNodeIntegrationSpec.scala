@@ -24,7 +24,7 @@ import fluence.ethclient.EthClient
 import fluence.ethclient.helpers.Web3jConverters.hexToBytes32
 import fluence.node.eth.{FluenceContract, FluenceContractConfig}
 import fluence.node.status.MasterStatus
-import fluence.node.workers.WorkerRunning
+import fluence.node.workers.health.WorkerRunning
 import org.scalatest.{Timer ⇒ _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
