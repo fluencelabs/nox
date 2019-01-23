@@ -76,7 +76,7 @@ matrix:
         - "8"
       cache: npm
       before_install: cd js-client
-      before_script: npm ci
+      before_script: npm install
       script: npm test
 
     - <<: *_rust_wasm_template
@@ -103,7 +103,7 @@ matrix:
 
       script:
         - pushd ../bootstrap
-        - npm ci
+        - npm install
         - npm run swarm-simulation &
         - npm run ganache > /dev/null
         - sleep 1
