@@ -47,18 +47,16 @@ resultPromise.then((r) => console.log(r.asString()))
 ```
 Communication between the cluster and the client is the exchange of arrays of bytes. Result returning as `hex`, to transform it into a string, we can use `asString` method. To return raw bytes, we can simply call method `r.hex()`. 
  
-And to send raw bytes, instead of `invoke` possible to use `invokeRaw(raw-hex-request)`.  
+And to send raw bytes, instead of `invoke` possible to use `invokeRaw(raw-hex-request)`.
+
+Based on that several methods we can build decentralized web applications.
+
+In `Examples` can find simple decentralized applications.  
 
 # Examples
 
-Simple `todo-list` based on Fluence:
-https://github.com/fluencelabs/fluence/tree/master/js-client/src/examples/todo-list
-
-Naive integration with streamr:
-https://github.com/fluencelabs/fluence/tree/master/js-client/src/examples/fluence-streamr
+Simple app to start with. Interacts with predeployed Fluence cluster on Kovan chain:
+https://github.com/fluencelabs/frontend-example
 
 App to write SQL requests from a browser (also gets info about Fluence nodes) written on TypeScript:
 https://github.com/fluencelabs/fluence/tree/master/js-client/src/examples/fluence-sqldb
-
-A step-by-step guide to deploying nodes locally, publish a rust-based app to Fluence contract (to run cluster) and write a simple app on JavaScript: 
-https://github.com/fluencelabs/workshop-2018-dec
