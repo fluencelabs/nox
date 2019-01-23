@@ -45,7 +45,7 @@ class DbClient {
     private counter: number;
 
     // round robin counter over app sessions
-    private nodeNumber(): number {
+    private nextNodeIndex(): number {
         this.counter = (this.counter + 1) % this.size;
         return this.counter;
     }
@@ -62,7 +62,7 @@ class DbClient {
      * @param queries list of queries to invoke
      */
     async submitQuery(queries: string[]): Promise<Promise<Result>[]> {
-        let workerSession = this.appSession.workerSessions[this.nodeNumber()];
+        let workerSession = this.appSession.workerSessions[this.nextNodeIndex()];
         return queries.map((q) => {
             console.log("query: " + q);
             let res = workerSession.session.invoke(q).result();
