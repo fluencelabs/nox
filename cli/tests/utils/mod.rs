@@ -2,7 +2,7 @@ use fluence::credentials::Credentials;
 use fluence::publisher::Publisher;
 use fluence::register::Register;
 
-use std::error::Error;
+use failure::Error;
 use std::result::Result as StdResult;
 
 use rand::Rng;
@@ -17,7 +17,7 @@ use futures::future::Future;
 use web3::transports::Http;
 use web3::types::FilterBuilder;
 
-pub type Result<T> = StdResult<T, Box<Error>>;
+pub type Result<T> = StdResult<T, Error>;
 
 #[derive(Debug, Getters)]
 pub struct TestOpts {
