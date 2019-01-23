@@ -6,29 +6,52 @@
 ## User prerequisites
 - `npm`
 
-# FrontEnd Developer Flow
-- for example we can use template repository to learn how to use Fluence SDK
-- `git clone git@github.com:fluencelabs/frontend-template.git`
-- Install fluence SDK: `npm install --save js-fluence-client@0.0.34`
-- import fluence client `import * as fluence from "js-fluence-client"` in `index.js`
-- to create session to interact with fluence cluster we have two ways:
-  - To create session to one node we can use IP and port from contract: `const fluenceSession = fluence.createDefaultSession("<ip>", <port>);`
-  - We can create multiple sessions to all cluster nodes if we know appId of application: `fluence.createAppSession(contractAddress, appId)`. Note that it will return promise and Metamask or local Ethereum node is needed.
-- ip and port get from dashboard for public nodes with Llamadb
-- let's try to use this session directly in browser
-- add this to `index.js`: `window.fluenceSession = fluenceSession;`
-- run `npm run build` in terminal
-- open `bundle/index.html` from browser
-- open console in browser (F12 in chrome on Ubuntu for example)
-- write `let invocation = fluenceSession.invoke("create table <some-unique-name> (id varchar(128))")`
-- here we send request to the Fluence cluster to create table with some unique name for your own with one field `id`
-- response from the cluster can be received eventually, so to get response we can call `result()` method that will return `Promise<String>` with array in hex representation
-- to log response, write `invocation.result().then((r) => console.log(r.asString()));`. `asString()` converts hex to string, because we know, that LlamaDB returns strings on request
-- the result can be `table created` or `[Error] Table <some-unique-name> already exists` depends on table name
-- after this we can insert some values `fluenceSession.invoke("do_query", "insert into <some-unique-name> values ('123')").result().then((r) => console.log(r.asString()));`
-- and select them `fluenceSession.invoke("do_query", "select * from <some-unique-name>").result().then((r) => console.log(r.asString()));`
-- based on these requests we can write some simple app, storing values in LlamaDB
-- interact with results on web page, add some buttons and text fields
+## Installation
+- `npm install js-fluence-client`
+
+## Usage
+`js-fluence-client` uses to interact with Fluence cluster (it consists of workers) in Fluence network. It is a frontend facade for application deployed in Fluence. Developer can write web3 decentralized application using Ethereum network and MetaMask.
+
+At first, import dependency:
+```
+import * as fluence from "js-fluence-client";
+```
+
+To have a connection with Fluence cluster we need to create a session between browser and all nodes or one node in this cluster.
+There is two way to establish a connection:
+- Use host and port directly (for debug purposes) to connect with worker:
+```
+let workerSession = fluence.createDefaultSession("<host>", <port>);
+```
+- Use MetaMask or local Ethereum node:
+```
+let appSession = 
+let appSessionPromise = fluence.createAppSession("<contract-address>", "<app-id>").then((responseSession) => {
+    appSession = responseSession;
+});
+```
+Actual Fluence contract address on Kovan chain is: `0x45CC7B68406cCa5bc36B7b8cE6Ec537EDa67bC0B`.
+appId - is an ID of application registered in the contract. For example we can use appId of already deployed LlamaDB application: `0x0000000000000000000000000000000000000000000000000000000000000002`.
+
+`createAppSession` interact with Ethereum blockchain, so it will return Promise<AppSession>. Where AppSession is combining all sessions of nodes in cluster and additional info about this nodes.
+To get single session to one node:
+```
+let workerSession = appSession.workerSessions[<worker-idx>].session
+```
+
+Then we can `invoke` commands to workers and get responses.
+As it was earlier we will use LlamaDB application as an example. Invoke simple SQL commands to the cluster:
+```
+let response = workerSession.invoke("CREATE TABLE test_table (id INT, text VARCHAR(128))")
+```
+Invocation will send a request and return submitted transaction, that we can ignore or use to return a result:
+```
+let resultPromise = response.result();
+resultPromise.then((r) => console.log(r.asString()))
+```
+ Communication between the cluster and the client is the exchange of arrays of bytes. Result returning as `hex`, to transform it to a string, we can use `asString` method. To return raw bytes, we can simply call `hex()`. 
+ 
+ And to send raw bytes, instead of `invoke` possible to use `invokeRaw(some-hex)`.  
 
 # Examples
 
