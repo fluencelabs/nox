@@ -52,9 +52,9 @@ object SbtCommons {
         .value
     )
 
-  def buildContractBeforeCompile(): Seq[Def.Setting[_]] =
+  def buildContractBeforeDocker(): Seq[Def.Setting[_]] =
     Seq(
-      compile in Compile := (compile in Compile)
+      docker in docker := (docker in docker)
         .dependsOn(Def.task {
           val log = streams.value.log
           log.info(s"Generating java wrapper for smart contracct")
