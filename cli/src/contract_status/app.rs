@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::error::Error;
+use failure::Error;
 
 use derive_getters::Getters;
 use serde_derive::{Deserialize, Serialize};
@@ -77,11 +77,11 @@ impl Cluster {
     }
 }
 
-pub fn get_nodes(contract: &ContractCaller) -> Result<Vec<Node>, Box<Error>> {
+pub fn get_nodes(contract: &ContractCaller) -> Result<Vec<Node>, Error> {
     let (call_data, decoder) = get_nodes_ids::call();
     let node_ids: Vec<H256> = contract.query_contract(call_data, Box::new(decoder))?;
 
-    let nodes: Result<Vec<Node>, Box<Error>> = node_ids
+    let nodes: Result<Vec<Node>, Error> = node_ids
         .iter()
         .map(|id| {
             let (call_data, decoder) = get_node::call(*id);
@@ -103,11 +103,11 @@ pub fn get_nodes(contract: &ContractCaller) -> Result<Vec<Node>, Box<Error>> {
     Ok(nodes?)
 }
 
-pub fn get_apps(contract: &ContractCaller) -> Result<Vec<App>, Box<Error>> {
+pub fn get_apps(contract: &ContractCaller) -> Result<Vec<App>, Error> {
     let (call_data, decoder) = get_app_i_ds::call();
     let app_ids: Vec<H256> = contract.query_contract(call_data, Box::new(decoder))?;
 
-    let apps: Result<Vec<App>, Box<Error>> = app_ids
+    let apps: Result<Vec<App>, Error> = app_ids
         .iter()
         .map(|id| {
             let (call_data, decoder) = get_app::call(*id);

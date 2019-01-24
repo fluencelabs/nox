@@ -21,7 +21,7 @@ const truffleAssert = require('truffle-assertions');
 const assert = require("chai").assert;
 const { expectThrow } = require('openzeppelin-solidity/test/helpers/expectThrow');
 
-contract('Fluence (app deletion)', function ([_, owner, whitelisted, anyone]) {
+contract('Fluence (app deletion)', function ([_, owner, anyone, other]) {
     beforeEach(async function() {
         global.contract = await FluenceContract.new({ from: owner });
     });
@@ -31,7 +31,7 @@ contract('Fluence (app deletion)', function ([_, owner, whitelisted, anyone]) {
     }
 
     async function addApp(count, ids = []) {
-        return await utils.addApp(global.contract, count, owner, ids);
+        return await utils.addApp(global.contract, count, anyone, ids);
     }
 
     it("Remove enqueued app", async function() {
@@ -48,13 +48,11 @@ contract('Fluence (app deletion)', function ([_, owner, whitelisted, anyone]) {
         assert.equal(storageHash, add.storageHash);
 
         // only app owner can delete app
-        await expectThrow(global.contract.dequeueApp(appID, { from: anyone }));
+        await expectThrow(global.contract.dequeueApp(appID, { from: other }));
 
-        let dequeueApp = await global.contract.dequeueApp(appID, { from: owner });
+        let dequeueApp = await global.contract.dequeueApp(appID, { from: anyone });
         truffleAssert.eventEmitted(dequeueApp, utils.appDequeuedEvent, ev => {
-            assert.equal(ev.appID, appID);
-
-            return true;
+            return ev.appID == appID;
         });
     });
 
@@ -68,8 +66,7 @@ contract('Fluence (app deletion)', function ([_, owner, whitelisted, anyone]) {
 
         let nodesReceipts = await addNodes(5);
         truffleAssert.eventEmitted(nodesReceipts.pop(), utils.appDeployedEvent, ev => {
-            assert.equal(ev.appID, appID);
-            return true;
+            return ev.appID == appID;
         });
 
         let cluster = await global.contract.getApp(appID);
@@ -77,18 +74,47 @@ contract('Fluence (app deletion)', function ([_, owner, whitelisted, anyone]) {
         assert.equal(storageHash, add.storageHash);
 
         // only app owner can delete app
-        await expectThrow(global.contract.deleteApp(appID, { from: anyone }));
+        await expectThrow(global.contract.deleteApp(appID, { from: other }));
 
         // can't delete with wrong clusterID
-        await expectThrow(global.contract.deleteApp(0, { from: owner }));
+        await expectThrow(global.contract.deleteApp(0, { from: anyone }));
 
-        let deleteApp = await global.contract.deleteApp(appID, { from: owner });
+        let deleteApp = await global.contract.deleteApp(appID, { from: anyone });
         truffleAssert.eventEmitted(deleteApp, utils.appDeletedEvent, ev => {
-            assert.equal(ev.appID, appID);
-
-            return true;
+            return ev.appID == appID;
         });
 
         await expectThrow(global.contract.getApp(appID));
+    });
+
+    it("Contract owner should be able to dequeue app", async function() {
+        let add = await addApp(1);
+        var appID;
+        truffleAssert.eventEmitted(add.receipt, utils.appEnqueuedEvent, ev => {
+            appID = ev.appID;
+            return true;
+        });
+
+        let dequeueApp = await global.contract.dequeueApp(appID, { from: owner });
+        truffleAssert.eventEmitted(dequeueApp, utils.appDequeuedEvent, ev => {
+            return ev.appID == appID;
+        });
+    });
+
+    it("Contract owner should be able to delete app", async function() {
+        let add = await addApp(5);
+        var appID;
+        truffleAssert.eventEmitted(add.receipt, utils.appEnqueuedEvent, ev => {
+            appID = ev.appID;
+            return true;
+        });
+
+        await addNodes(5);
+
+        let deleteApp = await global.contract.deleteApp(appID, { from: owner });
+
+        truffleAssert.eventEmitted(deleteApp, utils.appDeletedEvent, ev => {
+            return ev.appID == appID;
+        });
     });
 });

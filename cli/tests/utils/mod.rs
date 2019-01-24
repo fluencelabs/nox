@@ -2,7 +2,7 @@ use fluence::credentials::Credentials;
 use fluence::publisher::Publisher;
 use fluence::register::Register;
 
-use std::error::Error;
+use failure::Error;
 use std::result::Result as StdResult;
 
 use rand::Rng;
@@ -11,38 +11,40 @@ use web3::types::{Address, H256};
 use derive_getters::Getters;
 use ethabi::RawLog;
 use ethabi::TopicFilter;
+use fluence::command::EthereumArgs;
 use fluence::delete_app::DeleteApp;
+use fluence::delete_node::DeleteNode;
 use futures::future::Future;
 use web3::transports::Http;
 use web3::types::FilterBuilder;
 
-pub type Result<T> = StdResult<T, Box<Error>>;
+pub type Result<T> = StdResult<T, Error>;
 
 #[derive(Debug, Getters)]
 pub struct TestOpts {
-    contract_address: Address,
-    account: Address,
     start_port: u16,
-    credentials: Credentials,
-    eth_url: String,
     last_used_port: Option<u16>,
-    gas: u32,
     code_bytes: Vec<u8>,
     swarm_url: String,
+    eth: EthereumArgs,
 }
 
 impl TestOpts {
     pub fn default() -> TestOpts {
-        TestOpts {
+        let eth = EthereumArgs {
             contract_address: "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap(),
             account: "4180fc65d613ba7e1a385181a219f1dbfe7bf11d".parse().unwrap(),
-            start_port: 25000,
             credentials: Credentials::No,
             eth_url: String::from("http://localhost:8545/"),
-            last_used_port: None,
             gas: 1_000_000,
+        };
+
+        TestOpts {
+            start_port: 25000,
+            last_used_port: None,
             code_bytes: vec![1, 2, 3],
             swarm_url: String::from("http://localhost:8500"),
+            eth,
         }
     }
 
@@ -57,16 +59,20 @@ impl TestOpts {
         code_bytes: Vec<u8>,
         swarm_url: String,
     ) -> TestOpts {
-        TestOpts {
+        let eth = EthereumArgs {
             contract_address,
             account,
-            start_port,
             credentials,
             eth_url,
-            last_used_port: None,
             gas,
+        };
+
+        TestOpts {
+            start_port,
+            last_used_port: None,
             code_bytes,
             swarm_url,
+            eth,
         }
     }
 
@@ -85,13 +91,9 @@ impl TestOpts {
             tendermint_key,
             start_port,
             end_port,
-            self.contract_address,
-            self.account,
-            self.eth_url.clone(),
-            self.credentials.clone(),
             false,
-            self.gas,
             private,
+            self.eth.clone(),
         )
         .unwrap();
 
@@ -103,14 +105,10 @@ impl TestOpts {
     pub fn publish_app(&self, cluster_size: u8, pin_to: Vec<H256>) -> Result<H256> {
         let publish = Publisher::new(
             self.code_bytes.clone(),
-            self.contract_address,
-            self.account,
             self.swarm_url.clone(),
-            self.eth_url.clone(),
-            self.credentials.clone(),
             cluster_size,
-            self.gas,
             pin_to,
+            self.eth.clone(),
         );
 
         publish.publish(false)
@@ -125,10 +123,10 @@ impl TestOpts {
     where
         F: Fn(RawLog) -> ethabi::Result<T>,
     {
-        let (_eloop, transport) = Http::new(&self.eth_url).unwrap();
+        let (_eloop, transport) = Http::new(&self.eth.eth_url.as_str()).unwrap();
         let web3 = web3::Web3::new(transport);
         let filter = FilterBuilder::default()
-            .address(vec![self.contract_address])
+            .address(vec![self.eth.contract_address])
             .topic_filter(filter)
             .build();
         let filter = web3.eth_filter().create_logs_filter(filter).wait().unwrap();
@@ -144,19 +142,24 @@ impl TestOpts {
         logs
     }
 
-    pub fn get_transaction_logs<T, F>(&self, tx: H256, parse_log: F) -> Vec<T>
+    pub fn get_transaction_logs<T, F>(&self, tx: &H256, parse_log: F) -> Vec<T>
     where
         F: Fn(RawLog) -> ethabi::Result<T>,
     {
-        let (_eloop, transport) = Http::new(&self.eth_url).unwrap();
+        let (_eloop, transport) = Http::new(&self.eth.eth_url.as_str()).unwrap();
         let web3 = web3::Web3::new(transport);
-        let receipt = web3.eth().transaction_receipt(tx).wait().unwrap().unwrap();
+        let receipt = web3
+            .eth()
+            .transaction_receipt(tx.clone())
+            .wait()
+            .unwrap()
+            .unwrap();
         let logs: Vec<T> = receipt
             .logs
             .into_iter()
-            .map(|l| {
+            .filter_map(|l| {
                 let raw = RawLog::from((l.topics, l.data.0));
-                parse_log(raw).unwrap()
+                parse_log(raw).ok()
             })
             .collect();
 
@@ -165,16 +168,15 @@ impl TestOpts {
 
     #[allow(dead_code)]
     pub fn delete_app(&self, app_id: H256, deployed: bool) -> Result<H256> {
-        let delete = DeleteApp::new(
-            app_id,
-            self.credentials.clone(),
-            self.gas,
-            self.account,
-            self.contract_address,
-            self.eth_url.clone(),
-            deployed,
-        );
+        let delete = DeleteApp::new(app_id, deployed, self.eth.clone());
 
         delete.delete_app(false)
+    }
+
+    #[allow(dead_code)]
+    pub fn delete_node(&self, node_id: H256) -> Result<H256> {
+        let delete = DeleteNode::new(node_id, self.eth.clone());
+
+        delete.delete_node(false)
     }
 }
