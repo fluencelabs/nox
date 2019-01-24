@@ -70,7 +70,9 @@ fn main() {
 
         ("delete_app", Some(args)) => {
             let delete_app = delete_app::parse(args).expect("Error parsing arguments");
-            let transaction = delete_app.delete_app(true).expect("Error sending transaction");
+            let transaction = delete_app
+                .delete_app(true)
+                .expect("Error sending transaction");
 
             let formatted_finish_msg = style("App deleted. Submitted transaction").blue();
             let formatted_tx = style(transaction).red().bold();
