@@ -28,8 +28,7 @@
     "@types/bootstrap": "^4.1.2",
     "bootstrap": "^4.1.3",
     "jquery": "^3.3.1",
-    "js-fluence-client": "0.0.34",
-    "fluence-monitoring": "^0.0.18",
+    "js-fluence-client": "0.0.35",
     "popper.js": "^1.14.4"
   },
   "devDependencies": {

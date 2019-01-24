@@ -2,7 +2,7 @@ use fluence::credentials::Credentials;
 use fluence::publisher::Publisher;
 use fluence::register::Register;
 
-use std::error::Error;
+use failure::Error;
 use std::result::Result as StdResult;
 
 use rand::Rng;
@@ -13,11 +13,12 @@ use ethabi::RawLog;
 use ethabi::TopicFilter;
 use fluence::command::EthereumArgs;
 use fluence::delete_app::DeleteApp;
+use fluence::delete_node::DeleteNode;
 use futures::future::Future;
 use web3::transports::Http;
 use web3::types::FilterBuilder;
 
-pub type Result<T> = StdResult<T, Box<Error>>;
+pub type Result<T> = StdResult<T, Error>;
 
 #[derive(Debug, Getters)]
 pub struct TestOpts {
@@ -141,19 +142,24 @@ impl TestOpts {
         logs
     }
 
-    pub fn get_transaction_logs<T, F>(&self, tx: H256, parse_log: F) -> Vec<T>
+    pub fn get_transaction_logs<T, F>(&self, tx: &H256, parse_log: F) -> Vec<T>
     where
         F: Fn(RawLog) -> ethabi::Result<T>,
     {
         let (_eloop, transport) = Http::new(&self.eth.eth_url.as_str()).unwrap();
         let web3 = web3::Web3::new(transport);
-        let receipt = web3.eth().transaction_receipt(tx).wait().unwrap().unwrap();
+        let receipt = web3
+            .eth()
+            .transaction_receipt(tx.clone())
+            .wait()
+            .unwrap()
+            .unwrap();
         let logs: Vec<T> = receipt
             .logs
             .into_iter()
-            .map(|l| {
+            .filter_map(|l| {
                 let raw = RawLog::from((l.topics, l.data.0));
-                parse_log(raw).unwrap()
+                parse_log(raw).ok()
             })
             .collect();
 
@@ -165,5 +171,12 @@ impl TestOpts {
         let delete = DeleteApp::new(app_id, deployed, self.eth.clone());
 
         delete.delete_app(false)
+    }
+
+    #[allow(dead_code)]
+    pub fn delete_node(&self, node_id: H256) -> Result<H256> {
+        let delete = DeleteNode::new(node_id, self.eth.clone());
+
+        delete.delete_node(false)
     }
 }

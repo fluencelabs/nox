@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-use std::boxed::Box;
-use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
+
+use failure::err_msg;
+use failure::Error;
+use failure::ResultExt;
 
 use clap::ArgMatches;
 use clap::{value_t, App, Arg, SubCommand};
@@ -64,8 +66,8 @@ impl Publisher {
     }
 
     /// Sends code to Swarm and publishes the hash of the file from Swarm to Fluence smart contract
-    pub fn publish(&self, show_progress: bool) -> Result<H256, Box<Error>> {
-        let upload_to_swarm_fn = || -> Result<H256, Box<Error>> {
+    pub fn publish(&self, show_progress: bool) -> Result<H256, Error> {
+        let upload_to_swarm_fn = || -> Result<H256, Error> {
             let hash = upload_code_to_swarm(&self.swarm_url.as_str(), &self.bytes.as_slice())?;
             let hash = hash.parse()?;
             Ok(hash)
@@ -82,7 +84,7 @@ impl Publisher {
             upload_to_swarm_fn()
         }?;
 
-        let publish_to_contract_fn = || -> Result<H256, Box<Error>> {
+        let publish_to_contract_fn = || -> Result<H256, Error> {
             //todo: add correct receipts
             let receipt: H256 =
                 "0000000000000000000000000000000000000000000000000000000000000000".parse()?;
@@ -119,12 +121,12 @@ impl Publisher {
     }
 }
 
-fn parse_pinned(args: &ArgMatches) -> Result<Vec<H256>, Box<Error>> {
+fn parse_pinned(args: &ArgMatches) -> Result<Vec<H256>, Error> {
     let pin_to_nodes = args.values_of(PINNED).unwrap_or_default();
 
     let pin_to_nodes = pin_to_nodes.into_iter();
 
-    let pin_to_nodes: Result<Vec<H256>, Box<Error>> = pin_to_nodes
+    let pin_to_nodes: Result<Vec<H256>, Error> = pin_to_nodes
         .map(|node_id| {
             let node_id = if args.is_present(PIN_BASE64) {
                 let arr = base64::decode(node_id)?;
@@ -138,15 +140,13 @@ fn parse_pinned(args: &ArgMatches) -> Result<Vec<H256>, Box<Error>> {
         })
         .collect();
 
-    let pin_to_nodes = pin_to_nodes.map_err(|e| format!("unable to parse {}: {}", PINNED, e))?;
-
-    Ok(pin_to_nodes)
+    Ok(pin_to_nodes.context(format!("unable to parse {}", PINNED))?)
 }
 
 /// Creates `Publisher` from arguments
-pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
+pub fn parse(matches: &ArgMatches) -> Result<Publisher, Error> {
     let path = value_t!(matches, PATH, String)?; //TODO use is_file from clap_validators
-    let mut file = File::open(path).map_err(|e| format!("can't open WASM file: {}", e))?;
+    let mut file = File::open(path).context("can't open WASM file")?;
     let mut buf = Vec::new();
     file.read_to_end(&mut buf)?;
 
@@ -156,10 +156,9 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Box<Error>> {
 
     let pin_to_nodes = parse_pinned(matches)?;
     if pin_to_nodes.len() > 0 && pin_to_nodes.len() > (cluster_size as usize) {
-        return Err(format!(
-            "number of pin_to nodes should be less or equal to the desired cluster_size"
-        )
-        .into());
+        return Err(err_msg(
+            "number of pin_to nodes should be less or equal to the desired cluster_size",
+        ));
     }
 
     Ok(Publisher::new(
@@ -216,7 +215,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 }
 
 /// Uploads bytes of code to the Swarm
-fn upload_code_to_swarm(url: &str, bytes: &[u8]) -> Result<String, Box<Error>> {
+fn upload_code_to_swarm(url: &str, bytes: &[u8]) -> Result<String, Error> {
     let mut url = utils::parse_url(url)?;
     url.set_path("/bzz:/");
 
@@ -233,13 +232,13 @@ fn upload_code_to_swarm(url: &str, bytes: &[u8]) -> Result<String, Box<Error>> {
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
-
     use ethkey::Secret;
     use web3;
     use web3::futures::Future;
     use web3::types::H256;
     use web3::types::*;
+
+    use failure::Error;
 
     use crate::command::EthereumArgs;
     use crate::credentials::Credentials;
@@ -292,7 +291,7 @@ mod tests {
     }
 
     #[test]
-    fn publish_wrong_password() -> Result<(), Box<Error>> {
+    fn publish_wrong_password() -> Result<(), Error> {
         let publisher = generate_new_account(false);
 
         let result = publisher.publish(false);
@@ -303,7 +302,7 @@ mod tests {
     }
 
     #[test]
-    fn publish_no_eth() -> Result<(), Box<Error>> {
+    fn publish_no_eth() -> Result<(), Error> {
         let publisher = generate_new_account(true);
 
         let result = publisher.publish(false);
@@ -314,7 +313,7 @@ mod tests {
     }
 
     #[test]
-    fn publish_wrong_swarm_url() -> Result<(), Box<Error>> {
+    fn publish_wrong_swarm_url() -> Result<(), Error> {
         let publisher = generate_with("02f906f8b3b932fd282109a5b8dc732ba2329888", |p| {
             p.swarm_url = String::from("http://123.5.6.7:8385");
         });
@@ -327,7 +326,7 @@ mod tests {
     }
 
     #[test]
-    fn publish_wrong_eth_url() -> Result<(), Box<Error>> {
+    fn publish_wrong_eth_url() -> Result<(), Error> {
         let publisher = generate_with("fa0de43c68bea2167181cd8a83f990d02a049336", |p| {
             p.eth.eth_url = String::from("http://117.2.6.7:4476");
         });
@@ -340,7 +339,7 @@ mod tests {
     }
 
     #[test]
-    fn publish_out_of_gas() -> Result<(), Box<Error>> {
+    fn publish_out_of_gas() -> Result<(), Error> {
         let publisher = generate_with("fa0de43c68bea2167181cd8a83f990d02a049336", |p| {
             p.eth.gas = 1;
         });
@@ -353,7 +352,9 @@ mod tests {
     }
 
     #[test]
-    fn publish_to_contract_success() -> Result<(), Box<Error>> {
+    #[ignore]
+    // TODO: unignore. Ignored due to 'out of gas' error when running all tests on Ganache
+    fn publish_to_contract_success() -> Result<(), Error> {
         let publisher =
             generate_publisher("64b8f12d14925394ae0119466dff6ff2b021a3e9", Credentials::No);
 
@@ -363,7 +364,7 @@ mod tests {
     }
 
     #[test]
-    fn publish_to_contract_with_secret_success() -> Result<(), Box<Error>> {
+    fn publish_to_contract_with_secret_success() -> Result<(), Error> {
         let secret_arr: H256 =
             "647334ad14cda7f79fecdf2b9e0bb2a0904856c36f175f97c83db181c1060414".parse()?;
         let secret = Secret::from(secret_arr);
@@ -397,6 +398,4 @@ mod tests {
             assert!(e.to_string().contains("Can pin only to registered nodes"))
         }
     }
-
-    // TODO: add tests on successful pinning
 }
