@@ -2,8 +2,8 @@ import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.headerLicense
 import de.heikoseeberger.sbtheader.License
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys._
-import sbt._
-
+import sbt.{Def, _}
+import sbtdocker.DockerPlugin.autoImport.docker
 import sys.process._
 
 object SbtCommons {
@@ -33,23 +33,45 @@ object SbtCommons {
     addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
   )
 
-  def rustVmExample(exampleName: String) = Seq(
-    publishArtifact := false,
-    test            := (test in Test).dependsOn(compile).value,
-    compile := (compile in Compile)
-      .dependsOn(Def.task {
-        val log = streams.value.log
-        log.info(s"Compiling $exampleName.rs to $exampleName.wasm")
+  def rustVmExample(exampleName: String): Seq[Def.Setting[_]] =
+    Seq(
+      publishArtifact := false,
+      test            := (test in Test).dependsOn(compile).value,
+      compile := (compile in Compile)
+        .dependsOn(Def.task {
+          val log = streams.value.log
+          log.info(s"Compiling $exampleName.rs to $exampleName.wasm")
 
-        val projectRoot = file("").getAbsolutePath
-        val exampleFolder = s"$projectRoot/vm/examples/$exampleName"
-        val compileCmd = s"cargo +nightly-2019-01-08 build --manifest-path $exampleFolder/Cargo.toml " +
-          s"--target wasm32-unknown-unknown --release"
+          val projectRoot = file("").getAbsolutePath
+          val exampleFolder = s"$projectRoot/vm/examples/$exampleName"
+          val compileCmd = s"cargo +nightly-2019-01-08 build --manifest-path $exampleFolder/Cargo.toml " +
+            s"--target wasm32-unknown-unknown --release"
 
-        assert((compileCmd !) == 0, "Rust to Wasm compilation failed")
-      })
-      .value
-  )
+          assert((compileCmd !) == 0, "Rust to Wasm compilation failed")
+        })
+        .value
+    )
+
+  def buildContractBeforeCompile(): Seq[Def.Setting[_]] =
+    Seq(
+      compile in Compile := (compile in Compile)
+        .dependsOn(Def.task {
+          val log = streams.value.log
+          log.info(s"Generating java wrapper for smart contracct")
+
+          val projectRoot = file("").getAbsolutePath
+          val bootstrapFolder = file(s"$projectRoot/bootstrap")
+          val generateCmd = "npm run generate-all"
+          log.info(s"running $generateCmd in $bootstrapFolder")
+
+          val exitCode = Process(generateCmd, cwd = bootstrapFolder).!
+          assert(
+            exitCode == 0,
+            "Generating java wrapper or contract compilation failed"
+          )
+        })
+        .value
+    )
 
   /* Common deps */
 

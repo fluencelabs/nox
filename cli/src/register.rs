@@ -36,7 +36,7 @@ use crate::contract_func::ContractCaller;
 use crate::types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
 use crate::utils;
 
-const ADDRESS: &str = "address";
+const NODE_IP: &str = "node_ip";
 const START_PORT: &str = "start_port";
 const LAST_PORT: &str = "last_port";
 const WAIT_SYNCING: &str = "wait_syncing";
@@ -174,7 +174,7 @@ impl Register {
 }
 
 pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
-    let node_address: IpAddr = value_t!(args, ADDRESS, IpAddr)?;
+    let node_address: IpAddr = value_t!(args, NODE_IP, IpAddr)?;
 
     let tendermint_key: H256 = parse_tendermint_key(args)?;
 
@@ -201,12 +201,13 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
 /// Parses arguments from console and initialize parameters for Publisher
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     let args = &[
-        Arg::with_name(ADDRESS)
+        Arg::with_name(NODE_IP)
+            .long(NODE_IP)
+            .short("ip")
             .required(true)
-            .index(1)
             .takes_value(true)
             .help("node's IP address"),
-        tendermint_key().index(2),
+        tendermint_key(),
         Arg::with_name(START_PORT)
             .alias(START_PORT)
             .long(START_PORT)
@@ -225,7 +226,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
         base64_tendermint_key(),
         Arg::with_name(PRIVATE)
             .long(PRIVATE)
-            .short("P")
+            .short("p")
             .takes_value(false)
             .help("marks node as private, used for pinning apps to nodes"),
     ];
