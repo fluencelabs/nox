@@ -18,8 +18,10 @@ from fabric.api import *
 # owners and private keys for specific ip addresses
 # todo get this info from some sources
 # TO USE: replace values inside <> with your actual values
-info = {'<ip1>': {'owner': '<eth address1>', 'key': '<private key1>'},
-        '<ip2>': {'owner': '<eth address2>', 'key': '<private key2>'}}
+info = {'<ip1>': {'owner': '<eth address1>', 'key': '<private key1>', 'ports': '<from>:<to>'},
+        '<ip2>': {'owner': '<eth address2>', 'key': '<private key2>', 'ports': '<from>:<to>'}}
+
+RELEASE="http://dump.bitcheese.net/files/vebibif/fluence-linux" #"https://github.com/fluencelabs/fluence/releases/download/untagged-3f7e10bd802b3149036d/fluence-linux-x64"
 
 file = open("scripts/contract.txt", "r")
 contract=file.read()
@@ -63,13 +65,14 @@ def deploy():
         current_host = env.host_string
         current_owner = info[current_host]['owner']
         current_key = info[current_host]['key']
+        current_ports = info[current_host]['ports']
 
         with shell_env(CHAIN=chain,
                        PROD_DEPLOY="true",
                        CONTRACT_ADDRESS=contract_address,
                        OWNER_ADDRESS=current_owner,
-                       PORTS="25000:25099",
-                       NAME="node1",
+                       PORTS=current_ports,
+                       NAME="fluence-node-1",
                        PRIVATE_KEY=current_key,
                        HOST_IP=current_host):
             run('chmod +x compose.sh')
@@ -78,7 +81,5 @@ def deploy():
             run('docker pull ethdevops/swarm')
             run('docker pull fluencelabs/node')
             run('docker pull fluencelabs/worker')
-            # delete all workers
-            # TODO reuse old volumes if possible
-            run('docker ps -a | grep _node | awk \'{print $1}\' | xargs docker rm -f ; docker volume prune -f')
+            run('curl ' + RELEASE + ' -o fluence')
             run('./compose.sh')
