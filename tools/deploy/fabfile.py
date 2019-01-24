@@ -75,7 +75,7 @@ def deploy():
                        PRIVATE_KEY=current_key,
                        HOST_IP=current_host):
             run('chmod +x compose.sh')
-            run('chmod +x fluence')
             # download fluence CLI
             run('curl ' + RELEASE + ' -o fluence')
+            run('chmod +x fluence')
             run('./compose.sh')
