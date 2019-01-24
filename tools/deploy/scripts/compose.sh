@@ -21,6 +21,12 @@ set -e
 # Without `PROD_DEPLOY` exported flag the script will use default arguments
 # If first arg is `multiple`, script will start 4 fluence node along with Swarm & Parity nodes
 
+# Update all containers
+docker pull parity/parity:v2.3.0
+docker pull ethdevops/swarm
+docker pull fluencelabs/node
+docker pull fluencelabs/worker
+
 # `PROD_DEPLOY` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
 #  the network will be started in development mode locally
 if [ -z "$PROD_DEPLOY" ]; then
@@ -35,7 +41,6 @@ if [ -z "$PROD_DEPLOY" ]; then
 else
     echo "Deploying for $CHAIN chain."
     export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
-
 fi
 
 # getting docker ip address
