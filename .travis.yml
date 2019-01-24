@@ -67,7 +67,7 @@ matrix:
         directories:
           - bootstrap/node_modules
 
-    - name: js-client
+    - name: fluence-js
       language: node_js
       node_js:
         - "5"
@@ -75,7 +75,7 @@ matrix:
         - "7"
         - "8"
       cache: npm
-      before_install: cd js-client
+      before_install: cd fluence-js
       before_script: npm install
       script: npm test
 
