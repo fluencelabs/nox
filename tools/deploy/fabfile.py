@@ -76,7 +76,6 @@ def deploy():
                        HOST_IP=current_host):
             run('chmod +x compose.sh')
             run('chmod +x fluence')
-            # delete all workers
-            # TODO reuse old volumes if possible
-            run('docker ps -a | grep _node | awk \'{print $1}\' | xargs docker rm -f ; docker volume prune -f')
+            # download fluence CLI
+            run('curl ' + RELEASE + ' -o fluence')
             run('./compose.sh')
