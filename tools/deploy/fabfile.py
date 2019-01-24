@@ -74,10 +74,6 @@ def deploy():
                        HOST_IP=current_host):
             run('chmod +x compose.sh')
             run('chmod +x fluence')
-            run('docker pull parity/parity:v2.3.0')
-            run('docker pull ethdevops/swarm')
-            run('docker pull fluencelabs/node')
-            run('docker pull fluencelabs/worker')
             # delete all workers
             # TODO reuse old volumes if possible
             run('docker ps -a | grep _node | awk \'{print $1}\' | xargs docker rm -f ; docker volume prune -f')
