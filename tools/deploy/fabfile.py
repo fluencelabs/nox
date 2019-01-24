@@ -43,7 +43,6 @@ def copy_resources():
     put('scripts/node.yml', 'scripts/')
     put('scripts/parity.yml', 'scripts/')
     put('scripts/swarm.yml', 'scripts/')
-    put('scripts/fluence', 'scripts/')
 
 # comment this annotation to deploy sequentially
 @parallel
@@ -76,10 +75,7 @@ def deploy():
                        PRIVATE_KEY=current_key,
                        HOST_IP=current_host):
             run('chmod +x compose.sh')
-            run('chmod +x fluence')
-            run('docker pull parity/parity:v2.3.0')
-            run('docker pull ethdevops/swarm')
-            run('docker pull fluencelabs/node')
-            run('docker pull fluencelabs/worker')
+            # download fluence CLI
             run('curl ' + RELEASE + ' -o fluence')
+            run('chmod +x fluence')
             run('./compose.sh')
