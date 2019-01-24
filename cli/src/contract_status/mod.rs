@@ -86,6 +86,7 @@ mod tests {
         let rnd_num: u64 = rng.gen();
 
         let tendermint_key: H256 = H256::from(rnd_num);
+        let tendermint_node_id: H160 = H160::from(rnd_num);
         let account: Address = "4180fc65d613ba7e1a385181a219f1dbfe7bf11d".parse().unwrap();
 
         let eth = EthereumArgs {
@@ -99,6 +100,7 @@ mod tests {
         Register::new(
             address.parse().unwrap(),
             tendermint_key,
+            tendermint_node_id,
             start_port,
             last_port,
             false,

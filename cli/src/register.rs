@@ -83,8 +83,9 @@ impl Register {
     /// Serializes a node IP address and a tendermint key into the hash of node's key address
     fn serialize_node_address(&self) -> Result<NodeAddress, Error> {
         // serialize tendermint key
-        let key_str = self.tendermint_node_id.to_string();
+        let key_str = format!("{:?}", self.tendermint_node_id);
         let key_str = key_str.as_str().trim_start_matches("0x");
+
 
         let key_bytes = hex::decode(key_str.to_owned())?;
         let mut key_bytes = key_bytes.as_slice()[0..TENDERMINT_NODE_ID_LEN].to_vec();
@@ -129,7 +130,7 @@ impl Register {
         };
 
         let publish_to_contract_fn = || -> Result<H256, Error> {
-            let hash_addr = self.serialize_node_address()?;
+            let hash_addr: NodeAddress = self.serialize_node_address()?;
 
             let contract =
                 ContractCaller::new(self.eth.contract_address, &self.eth.eth_url.as_str())?;
