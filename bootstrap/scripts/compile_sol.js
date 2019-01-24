@@ -17,11 +17,14 @@ var output = solc.compile({ sources: input }, 1)
 if (!output) {
     abort('No output from compiler');
 } else if (output.errors) {
+    let hasErrors = false;
     for (var error in output.errors) {
         var message = output.errors[error]
-        console.error(message)
+	if (!message.includes("Warning:")) {
+		hasErrors = true;
+	}
     }
-    abort('Errors occured.');
+    if (hasErrors) abort('Errors occured.');
 }
 
 function writeFile(file, content) {
