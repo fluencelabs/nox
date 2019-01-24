@@ -23,6 +23,7 @@ use failure::Error;
 use failure::ResultExt;
 use web3::types::Address;
 use web3::types::H256;
+use web3::types::H160;
 
 const PASSWORD: &str = "password";
 const SECRET_KEY: &str = "secret_key";
@@ -32,6 +33,7 @@ const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
 const TENDERMINT_KEY: &str = "tendermint_key";
 const BASE64_TENDERMINT_KEY: &str = "base64_tendermint_key";
+const TENDERMINT_NODE_ID: &str = "tendermint_node_id";
 
 #[derive(Debug, Clone)]
 pub struct EthereumArgs {
@@ -74,6 +76,15 @@ pub fn base64_tendermint_key<'a, 'b>() -> Arg<'a, 'b> {
     Arg::with_name(BASE64_TENDERMINT_KEY)
         .long(BASE64_TENDERMINT_KEY)
         .help("allows to use base64 tendermint key")
+}
+
+pub fn tendermint_node_id<'a, 'b>() -> Arg<'a, 'b> {
+    Arg::with_name(TENDERMINT_NODE_ID)
+        .long(TENDERMINT_NODE_ID)
+        .short("n")
+        .required(true)
+        .takes_value(true)
+        .help("Tendermint node ID (20-byte from SHA of p2p public key)")
 }
 
 // Takes `args` and concatenates them with predefined set of arguments needed for
@@ -165,4 +176,8 @@ pub fn parse_tendermint_key(args: &ArgMatches) -> Result<H256, Error> {
         .context("error parsing tendermint key")?;
 
     Ok(tendermint_key)
+}
+
+pub fn parse_tendermint_node_id(args: &ArgMatches) -> Result<H160, Error> {
+    Ok(value_t!(args, TENDERMINT_NODE_ID, H160)?)
 }
