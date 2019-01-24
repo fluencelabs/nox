@@ -58,7 +58,7 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
         let app = await addApp(cluster, pinnedNodes);
         let receipt = app.receipt;
         
-        var appID;
+        let appID;
         truffleAssert.eventEmitted(receipt, utils.appDeployedEvent, (ev) => {
             assert.deepEqual(ev.nodeIDs, pinnedNodes);
             appID = ev.appID;
@@ -89,11 +89,11 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
         let apps = await Promise.all(appIDs.map(async id => global.contract.getApp(id)));
         assert.equal(apps.length, 2);
 
-        let pinnedApp = apps.find(a => a[0] == appWithPins.storageHash);
+        let pinnedApp = apps.find(a => a[0] === appWithPins.storageHash);
         assert.notEqual(pinnedApp, undefined);
         assert.deepEqual(pinnedApp[4], pinnedNodeIDs);
 
-        let unpinnedApp = apps.find(a => a[0] == app.storageHash);
+        let unpinnedApp = apps.find(a => a[0] === app.storageHash);
         assert.notEqual(unpinnedApp, undefined);
         assert.equal(unpinnedApp[4].length, 0);
     });
@@ -107,13 +107,13 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
         let add = await addApp(count, pinnedNodeIDs);
 
         // Cluster isn't formed yet
-        truffleAssert.eventNotEmitted(add.receipt, utils.appDeployedEvent, _ => true);
+        truffleAssert.eventNotEmitted(add.receipt, utils.appDeployedEvent, () => true);
 
         // App is enqueued
         truffleAssert.eventEmitted(add.receipt, utils.appEnqueuedEvent, ev => {
             assert.equal(ev.storageHash, add.storageHash);
             return true
-        })
+        });
 
         // Add remaining public nodes
         let result = await addNodes(count - pinnedCount);
@@ -159,7 +159,7 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
             // should be deployed on all pinned nodes + one public node (not checked here)
             pinnedNodeIDs.forEach(id => 
                 assert.include(ev.nodeIDs, id)
-            )
+            );
             eventCount += 1;
             return true;
         });

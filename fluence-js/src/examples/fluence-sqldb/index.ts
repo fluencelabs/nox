@@ -16,7 +16,7 @@
 
 import "bootstrap/dist/css/bootstrap.min.css";
 import * as fluence from "fluence-js";
-import {AppSession, Result} from "js-fluence-client";
+import {AppSession, Result} from "fluence-js";
 import {getNodeStatus, isAvailable, NodeStatus, UnavailableNode} from "fluence-monitoring";
 
 /**
