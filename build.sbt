@@ -229,6 +229,6 @@ lazy val node = project
       }
     }
   )
-  .settings(buildContractBeforeCompile())
+  .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
   .dependsOn(ethclient, externalstorage)

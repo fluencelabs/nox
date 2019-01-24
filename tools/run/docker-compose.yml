@@ -10,8 +10,8 @@ services:
       - 8500:8500
     command: --httpaddr 0.0.0.0 --bzzport 8500
 
-  node1:
-    container_name: node1
+  fluence-node-1:
+    container_name: fluence-node-1
     image: fluencelabs/node:latest
     environment:
       - TENDERMINT_IP=$DOCKER_IP
