@@ -139,6 +139,9 @@ while [ $COUNTER -le $NUMBER_OF_NODES ]; do
     echo "START_PORT="$START_PORT
     echo "LAST_PORT="$LAST_PORT
 
+    echo "Registering node in smart contract:"
+
+    set -x
     # check if node is already registered
     # todo build fluence CLI in fly, use cargo from cli directory, or run from target cli directory?
     ./fluence register \
@@ -151,6 +154,7 @@ while [ $COUNTER -le $NUMBER_OF_NODES ]; do
         --last_port         $LAST_PORT \
         --wait_syncing \
         --base64_tendermint_key
+    set +x
 
     COUNTER=$[$COUNTER+1]
     TENDERMINT_KEY=""
