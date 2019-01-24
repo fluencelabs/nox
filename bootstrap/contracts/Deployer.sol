@@ -307,14 +307,33 @@ contract Deployer {
     function deleteApp(bytes32 appID)
         external
     {
-        App memory app = apps[appID];
+        App storage app = apps[appID];
         require(app.appID != 0, "error deleting app: cluster not found");
         require(app.appID == appID, "error deleting app: cluster hosts another app");
         require(app.owner == msg.sender || isContractOwner(), "error deleting app: you must own app to delete it");
         require(app.cluster.genesisTime != 0, "error deleting app: app must be deployed, use dequeueApp");
 
+        // Remove appID from node.appIDs for all nodes that host that app
+        removeAppFromNodes(appID, app.cluster.nodeIDs);
+
         // Remove app from clustersIds array and clusters mapping, and emit AppDeleted event of successful removal
         removeApp(appID);
+    }
+
+    /** @dev Removes appID from node.appIDs for nodes in nodeIDsArray.
+      * Reverts if any node in nodeIDsArray doesn't contain appID in node.appIDs
+      * @param appID appID to remove
+      * @param nodeIDsArray list of nodes to remove appID from. Every node.appIDs in that list must contain that appID.
+      */
+    function removeAppFromNodes(bytes32 appID, bytes32[] storage nodeIDsArray)
+        internal
+    {
+        for (uint i = 0; i < nodeIDsArray.length; i++) {
+            bytes32[] storage appIDsArray = nodes[nodeIDsArray[i]].appIDs;
+            uint idx = indexOf(appID, appIDsArray);
+            require(idx < nodeIDsArray.length, "error deleting app: app not found in node.appIDs");
+            removeArrayElement(idx, appIDsArray);
+        }
     }
 
     /** @dev Deletes node from nodes mapping, nodeIds and readyNodes arrays
@@ -323,12 +342,12 @@ contract Deployer {
     function deleteNode(bytes32 nodeID)
         external
     {
-        Node memory node = nodes[nodeID];
+        Node storage node = nodes[nodeID];
         require(node.id != 0, "error deleting node: node not found");
         require(node.owner == msg.sender || isContractOwner(), "error deleting node: you must own node to delete it");
 
         // Remove nodeID from apps that hosted by this node. Also remove app if there's no more nodes left to host them.
-        removeNodeFromApps(nodeID, nodes[nodeID].appIDs);
+        removeNodeFromApps(nodeID, node.appIDs);
 
         // Find the node in readyNodes
         uint i = indexOf(nodeID, readyNodes);
@@ -550,6 +569,7 @@ contract Deployer {
 
         // also remove cluster from mapping
         delete apps[appID];
+
 
         emit AppDeleted(appID);
     }
