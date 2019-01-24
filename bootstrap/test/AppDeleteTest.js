@@ -27,7 +27,7 @@ contract('Fluence (app deletion)', function ([_, owner, anyone, other]) {
     });
 
     async function addNodes(count, ports = 1) {
-        return utils.addNodes(global.contract, count, "127.0.0.1", anyone, ports);
+        return utils.addNodesFull(global.contract, count, "127.0.0.1", anyone, ports);
     }
 
     async function addApp(count, ids = []) {
@@ -64,7 +64,11 @@ contract('Fluence (app deletion)', function ([_, owner, anyone, other]) {
             return true;
         });
 
-        let nodesReceipts = await addNodes(5);
+        let nodesResponse = await addNodes(5);
+
+        let nodesReceipts = nodesResponse.map(r => r.receipt);
+        let nodeIds = nodesResponse.map(r => r.nodeID);
+
         truffleAssert.eventEmitted(nodesReceipts.pop(), utils.appDeployedEvent, ev => {
             return ev.appID === appID;
         });
@@ -85,6 +89,16 @@ contract('Fluence (app deletion)', function ([_, owner, anyone, other]) {
         });
 
         await expectThrow(global.contract.getApp(appID));
+
+        assert.equal(nodeIds.length, 5);
+
+        let nodes = await Promise.all(nodeIds.map((id) => {
+            return global.contract.getNode(id);
+        }));
+
+        nodes.forEach((n) => {
+            assert.equal(n[5].length, 0);
+        })
     });
 
     it("Contract owner should be able to dequeue app", async function() {
