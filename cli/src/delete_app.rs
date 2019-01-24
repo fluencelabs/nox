@@ -44,6 +44,8 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .takes_value(false)
             .help("if not specified, enqueued app will be dequeued, otherwise deployed app will be removed"),
         Arg::with_name(APP_ID)
+            .long(APP_ID)
+            .short("A")
             .required(true)
             .takes_value(true)
             .help("app to be removed")

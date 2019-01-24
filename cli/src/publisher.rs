@@ -199,7 +199,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .required(false)
             .takes_value(true)
             .multiple(true)
-            .value_name("<key>")
+            .value_name("key")
             .help(
                 "Tendermint public keys of pinned workers for application (space-separated list)",
             ),
