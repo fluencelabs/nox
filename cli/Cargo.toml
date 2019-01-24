@@ -1,6 +1,6 @@
 [package]
 name = "fluence"
-version = "0.1.0" # don't forget to change in README.md too
+version = "0.1.1" # don't forget to change in README.md too
 authors = ["Fluence Labs"]
 publish=false
 edition = "2018"
@@ -25,6 +25,7 @@ ethereum-types-serialize = "0.2.1"
 derive-getters = "0.0.7"
 ethcore-transaction = { git = "https://github.com/paritytech/parity.git", tag = "v2.2.7" }
 ethkey = { git = "https://github.com/paritytech/parity.git", tag = "v2.2.7" }
+ethstore = { git = "https://github.com/paritytech/parity.git", tag = "v2.2.7" }
 rlp = "0.3.0"
 base64 = "0.10.0"
 
