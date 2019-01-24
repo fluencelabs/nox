@@ -34,6 +34,7 @@ The following command will register a node:
 ./fluence register \
             --node_ip               85.82.118.4 \
             --tendermint_key        1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
+            --tendermint_node_id    5e4eedba85fda7451356a03caffb0716e599679b= \
             --contract_address      0x9995882876ae612bfd829498ccd73dd962ec950a \
             --account               0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
             --base64_tendermint_key \
@@ -49,6 +50,7 @@ Parameters are:
     - flag `--base64_tendermint_key` passed so tendermint key is treated as base64-encoded as opposed to hex-encoded
     - currently, Tendermint key can be found in logs of `fluencelabs/node` Docker container
     - note that key should be unique, i.e. you can't register several nodes with the same key
+- Tendermint p2p node ID `5e4eedba85fda7451356a03caffb0716e599679b` is needed to securely connect nodes in Tendermint cluster
 - `0x9995882876ae612bfd829498ccd73dd962ec950a` is a contract address, register transaction will be sent there
 - `0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d` will be used as Ethereum account for issuing transactions. _Use your Ethereum account here_
 - `--secret_key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133` denotes an Ethereum private key, used for offline transaction signing. _Use your Ethereum private key here_
