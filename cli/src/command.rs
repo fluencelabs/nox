@@ -1,3 +1,19 @@
+/*
+ * Copyright 2019 Fluence Labs Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 use crate::credentials::Credentials;
 use crate::utils;
 use clap::value_t;
@@ -28,6 +44,8 @@ pub struct EthereumArgs {
 
 pub fn contract_address<'a, 'b>() -> Arg<'a, 'b> {
     Arg::with_name(CONTRACT_ADDRESS)
+        .long(CONTRACT_ADDRESS)
+        .short("d")
         .required(true)
         .takes_value(true)
         .help("fluence contract address")
@@ -45,6 +63,8 @@ pub fn eth_url<'a, 'b>() -> Arg<'a, 'b> {
 
 pub fn tendermint_key<'a, 'b>() -> Arg<'a, 'b> {
     Arg::with_name(TENDERMINT_KEY)
+        .long(TENDERMINT_KEY)
+        .short("K")
         .required(true)
         .takes_value(true)
         .help("public key of tendermint node")
@@ -59,26 +79,24 @@ pub fn base64_tendermint_key<'a, 'b>() -> Arg<'a, 'b> {
 // Takes `args` and concatenates them with predefined set of arguments needed for
 // interaction with Ethereum.
 pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
-    // find last positional argument index, to add ethereum arguments after it
-    let last_index = args.iter().filter_map(|a| a.index).max().unwrap_or(0);
-
     let mut eth_args = vec![
-        contract_address().index(last_index + 1),
+        contract_address(),
         Arg::with_name(ACCOUNT)
+            .long(ACCOUNT)
+            .short("a")
             .required(true)
-            .index(last_index + 2)
             .takes_value(true)
             .help("ethereum account"),
         eth_url(),
         Arg::with_name(PASSWORD)
             .long(PASSWORD)
-            .short("p")
+            .short("P")
             .required(false)
             .takes_value(true)
             .help("password to unlock account in ethereum client"),
         Arg::with_name(SECRET_KEY)
             .long(SECRET_KEY)
-            .short("s")
+            .short("S")
             .required(false)
             .takes_value(true)
             .help("the secret key to sign transactions"),
