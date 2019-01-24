@@ -203,7 +203,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     let args = &[
         Arg::with_name(NODE_IP)
             .long(NODE_IP)
-            .short("ip")
+            .short("i")
             .required(true)
             .takes_value(true)
             .help("node's IP address"),
