@@ -33,6 +33,7 @@ use fluence::delete_node::DeleteNode;
 use futures::future::Future;
 use web3::transports::Http;
 use web3::types::FilterBuilder;
+use web3::types::H160;
 
 pub type Result<T> = StdResult<T, Error>;
 
@@ -96,6 +97,7 @@ impl TestOpts {
         let mut rng = rand::thread_rng();
         let rnd_num: u64 = rng.gen();
         let tendermint_key: H256 = H256::from(rnd_num);
+        let tendermint_node_id: H160 = H160::from(rnd_num);
 
         let start_port = self.last_used_port.unwrap_or(self.start_port);
         let end_port = start_port + ports;
@@ -105,6 +107,7 @@ impl TestOpts {
         let reg = Register::new(
             "127.0.0.1".parse().unwrap(),
             tendermint_key,
+            tendermint_node_id,
             start_port,
             end_port,
             false,

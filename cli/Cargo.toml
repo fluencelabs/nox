@@ -8,6 +8,7 @@ edition = "2018"
 [profile.release]
 debug = false
 lto = true
+panic = 'abort'
 
 [dependencies]
 clap = "2.32.0"
