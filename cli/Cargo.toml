@@ -23,7 +23,6 @@ serde_derive = "1.0"
 ethereum-types-serialize = "0.2.1"
 derive-getters = "0.0.7"
 ethcore-transaction = { git = "https://github.com/paritytech/parity.git", tag = "v2.2.7" }
-ethcore = { git = "https://github.com/paritytech/parity.git", tag = "v2.2.7" }
 ethkey = { git = "https://github.com/paritytech/parity.git", tag = "v2.2.7" }
 ethstore = { git = "https://github.com/paritytech/parity.git", tag = "v2.2.7" }
 rlp = "0.3.0"
