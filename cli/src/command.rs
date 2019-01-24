@@ -22,8 +22,8 @@ use clap::ArgMatches;
 use failure::Error;
 use failure::ResultExt;
 use web3::types::Address;
-use web3::types::H256;
 use web3::types::H160;
+use web3::types::H256;
 
 const PASSWORD: &str = "password";
 const SECRET_KEY: &str = "secret_key";
