@@ -200,7 +200,7 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
 
 /// Parses arguments from console and initialize parameters for Publisher
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
-    let my_args = &[
+    let args = &[
         Arg::with_name(ADDRESS)
             .required(true)
             .index(1)
@@ -232,7 +232,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 
     SubCommand::with_name("register")
         .about("Register a node in the smart contract")
-        .args(with_ethereum_args(my_args).as_slice())
+        .args(with_ethereum_args(args).as_slice())
 }
 
 #[cfg(test)]

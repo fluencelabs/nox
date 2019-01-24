@@ -56,6 +56,8 @@ pub fn base64_tendermint_key<'a, 'b>() -> Arg<'a, 'b> {
         .help("allows to use base64 tendermint key")
 }
 
+// Takes `args` and concatenates them with predefined set of arguments needed for
+// interaction with Ethereum.
 pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
     // find last positional argument index, to add ethereum arguments after it
     let last_index = args.iter().filter_map(|a| a.index).max().unwrap_or(0);

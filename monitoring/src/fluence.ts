@@ -26,7 +26,6 @@ import {Option} from "ts-option";
 import Web3 = require('web3');
 import abi = require("./Network.json");
 
-(window as any).web3 = (window as any).web3 || {};
 let web3 = (window as any).web3;
 
 export {

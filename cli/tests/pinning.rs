@@ -18,7 +18,7 @@ fn integration_publish_pinned() {
 
     let tx = opts.publish_app(count, node_ids).unwrap();
 
-    let logs = opts.get_transaction_logs(tx, app_deployed::parse_log);
+    let logs = opts.get_transaction_logs(&tx, app_deployed::parse_log);
     let log = logs.first().unwrap();
     let app_id = log.app_id;
 

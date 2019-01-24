@@ -7,8 +7,6 @@ use fluence::contract_func::contract::events::app_dequeued;
 use fluence::contract_func::contract::events::app_enqueued;
 
 #[test]
-#[ignore]
-// TODO: unignore. Ignored due to 'out of gas' error when running all tests on Ganache
 fn integration_delete_app() {
     let mut opts = TestOpts::default();
 
@@ -19,13 +17,13 @@ fn integration_delete_app() {
 
     let tx = opts.publish_app(count, vec![]).unwrap();
 
-    let logs = opts.get_transaction_logs(tx, app_deployed::parse_log);
+    let logs = opts.get_transaction_logs(&tx, app_deployed::parse_log);
     let log = logs.first().unwrap();
     let app_id = log.app_id;
 
     let tx = opts.delete_app(app_id, true).unwrap();
 
-    let logs = opts.get_transaction_logs(tx, app_deleted::parse_log);
+    let logs = opts.get_transaction_logs(&tx, app_deleted::parse_log);
     let log = logs.first().unwrap();
 
     assert_eq!(log.app_id, app_id);
@@ -37,13 +35,13 @@ fn integration_dequeue_app() {
 
     let tx = opts.publish_app(50, vec![]).unwrap();
 
-    let logs = opts.get_transaction_logs(tx, app_enqueued::parse_log);
+    let logs = opts.get_transaction_logs(&tx, app_enqueued::parse_log);
     let log = logs.first().unwrap();
     let app_id = log.app_id;
 
     let tx = opts.delete_app(app_id, false).unwrap();
 
-    let logs = opts.get_transaction_logs(tx, app_dequeued::parse_log);
+    let logs = opts.get_transaction_logs(&tx, app_dequeued::parse_log);
     let log = logs.first().unwrap();
 
     assert_eq!(log.app_id, app_id);
