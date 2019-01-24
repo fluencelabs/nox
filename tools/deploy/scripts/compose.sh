@@ -129,11 +129,13 @@ while [ $COUNTER -le $NUMBER_OF_NODES ]; do
         while [ -z "$TENDERMINT_KEY" ]; do
             # TODO: parse for 'Node ID' instead of 'PubKey'
             TENDERMINT_KEY=$(docker logs fluence-node-$COUNTER 2>&1 | awk 'match($0, /PubKey: /) { print substr($0, RSTART + RLENGTH) }')
+            TENDERMINT_NODE_ID=$(docker logs fluence-node-$COUNTER 2>&1 | awk 'match($0, /Node ID: /) { print substr($0, RSTART + RLENGTH) }')
             sleep 3
         done
 
     echo "CURRENT NODE = "$COUNTER
     echo "TENDERMINT_KEY="$TENDERMINT_KEY
+    echo "TENDERMINT_NODE_ID="$TENDERMINT_NODE_ID
 
     # use hardcoded ports for multiple nodes
     if [ "$1" = "multiple" ]; then
@@ -144,9 +146,23 @@ while [ $COUNTER -le $NUMBER_OF_NODES ]; do
     echo "START_PORT="$START_PORT
     echo "LAST_PORT="$LAST_PORT
 
+    echo "Registering node in smart contract:"
+
+    set -x
     # check if node is already registered
     # todo build fluence CLI in fly, use cargo from cli directory, or run from target cli directory?
-    ./fluence register $EXTERNAL_HOST_IP $TENDERMINT_KEY $CONTRACT_ADDRESS $OWNER_ADDRESS -s $PRIVATE_KEY --wait_syncing --start_port $START_PORT --last_port $LAST_PORT --base64_tendermint_key
+    ./fluence register \
+        --node_ip            $EXTERNAL_HOST_IP \
+        --tendermint_key     $TENDERMINT_KEY \
+        --tendermint_node_id $TENDERMINT_NODE_ID \
+        --contract_address   $CONTRACT_ADDRESS \
+        --account            $OWNER_ADDRESS \
+        --secret_key         $PRIVATE_KEY \
+        --start_port         $START_PORT \
+        --last_port          $LAST_PORT \
+        --wait_syncing \
+        --base64_tendermint_key
+    set +x
 
     COUNTER=$[$COUNTER+1]
     TENDERMINT_KEY=""

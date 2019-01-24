@@ -1,3 +1,19 @@
+/*
+ * Copyright 2019 Fluence Labs Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 use fluence::credentials::Credentials;
 use fluence::publisher::Publisher;
 use fluence::register::Register;
@@ -17,6 +33,7 @@ use fluence::delete_node::DeleteNode;
 use futures::future::Future;
 use web3::transports::Http;
 use web3::types::FilterBuilder;
+use web3::types::H160;
 
 pub type Result<T> = StdResult<T, Error>;
 
@@ -80,6 +97,7 @@ impl TestOpts {
         let mut rng = rand::thread_rng();
         let rnd_num: u64 = rng.gen();
         let tendermint_key: H256 = H256::from(rnd_num);
+        let tendermint_node_id: H160 = H160::from(rnd_num);
 
         let start_port = self.last_used_port.unwrap_or(self.start_port);
         let end_port = start_port + ports;
@@ -89,6 +107,7 @@ impl TestOpts {
         let reg = Register::new(
             "127.0.0.1".parse().unwrap(),
             tendermint_key,
+            tendermint_node_id,
             start_port,
             end_port,
             false,

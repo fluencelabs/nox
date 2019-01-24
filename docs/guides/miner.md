@@ -100,7 +100,16 @@ At the very end, you should see something like this:
 
 That's the result of script registering your node within Fluence smart contract. You can see it in [compose.sh](../../tools/deploy/scripts/compose.sh):
 ```
-./fluence register $EXTERNAL_HOST_IP $TENDERMINT_KEY $OWNER_ADDRESS $CONTRACT_ADDRESS -s $PRIVATE_KEY --wait_syncing --start_port $START_PORT --last_port $LAST_PORT --base64_tendermint_key
+./fluence register \
+        --node_ip           $EXTERNAL_HOST_IP \
+        --tendermint_key    $TENDERMINT_KEY \
+        --contract_address  $CONTRACT_ADDRESS \
+        --account           $OWNER_ADDRESS \
+        --secret_key        $PRIVATE_KEY \
+        --start_port        $START_PORT \
+        --last_port         $LAST_PORT \
+        --wait_syncing \
+        --base64_tendermint_key
 ```
 
 All environment variables used in the command are listed in the useful information above, so you can easily use them with Fluence CLI.
@@ -115,13 +124,13 @@ If you wish to use your local computer to host Fluence node, you can do that by 
 ## How to check if node is registered
 You can use [Fluence CLI](../../cli/README.md) to query current state of network in Fluence smart contract like this:
 ```
-./fluence status 0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b
+./fluence status --contract_address 0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b
 ```
 where `0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b` is the Fluence smart contract address. 
 
 **Note:** if your Ethereum node is remote, you can specify it's address via `--eth_url` option, like this:
 ```
-./fluence status --eth_url https://53.42.31.20:8545 0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b
+./fluence status --eth_url https://53.42.31.20:8545 --contract_address 0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b
 ```
 
 You should see your Ethereum address under `owner` in `nodes` list. Similar to this:

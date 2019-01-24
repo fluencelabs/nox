@@ -1,5 +1,5 @@
 /*
- * Copyright 2018 Fluence Labs Limited
+ * Copyright 2019 Fluence Labs Limited
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -44,6 +44,8 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .takes_value(false)
             .help("if not specified, enqueued app will be dequeued, otherwise deployed app will be removed"),
         Arg::with_name(APP_ID)
+            .long(APP_ID)
+            .short("A")
             .required(true)
             .takes_value(true)
             .help("app to be removed")
