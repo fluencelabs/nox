@@ -19,7 +19,6 @@ var FluenceContract = artifacts.require("./Network.sol");
 const utils = require('./Utils.js');
 const truffleAssert = require('truffle-assertions');
 const assert = require("chai").assert;
-const crypto = require("crypto");
 const { expectThrow } = require('openzeppelin-solidity/test/helpers/expectThrow');
 
 contract('Fluence', function ([_, owner, anyone]) {
@@ -28,7 +27,6 @@ contract('Fluence', function ([_, owner, anyone]) {
     });
 
     it("Should send event about new Node", async function() {
-        let id = utils.string2Bytes32("1");
         let result = (await utils.addNodesFull(this.contract, 1, "127.0.0.1", anyone, 1)).pop();
         truffleAssert.eventEmitted(result.receipt, utils.newNodeEvent, (ev) => {
             assert.equal(ev.id, result.nodeID);
@@ -54,11 +52,11 @@ contract('Fluence', function ([_, owner, anyone]) {
     it("Should deploy an app when there are enough nodes", async function() {
         let count = 5;
         let addApp = await utils.addApp(this.contract, count, anyone);
-        var appID;
+        let appID;
         truffleAssert.eventEmitted(addApp.receipt, utils.appEnqueuedEvent, ev => {
             appID = ev.appID;
             return true;
-        })
+        });
         assert.notEqual(appID, undefined);
 
         let addNodes = await utils.addNodesFull(this.contract, count, "127.0.0.1", anyone);
@@ -80,7 +78,7 @@ contract('Fluence', function ([_, owner, anyone]) {
     it("Should not form cluster from workers of same node", async function() {
         let count = 2;
         
-        await utils.addNodes(this.contract, 1, "127.0.0.1", anyone, count)
+        await utils.addNodes(this.contract, 1, "127.0.0.1", anyone, count);
 
         let addApp = await utils.addApp(this.contract, count, anyone);
 
@@ -98,7 +96,7 @@ contract('Fluence', function ([_, owner, anyone]) {
         for (let i = 0; i < ports; i++) {
             let addApp = await utils.addApp(this.contract, count, anyone);
 
-            var appID;
+            let appID;
 
             truffleAssert.eventNotEmitted(addApp.receipt, utils.appEnqueuedEvent);
             truffleAssert.eventEmitted(addApp.receipt, utils.appDeployedEvent, (ev) => {
@@ -128,7 +126,7 @@ contract('Fluence', function ([_, owner, anyone]) {
 
         // check app with that ID is in enqueued apps list
         let appIDs = await this.contract.getAppIDs();
-        let enqueuedApp = appIDs.find(app => app == appID);
+        let enqueuedApp = appIDs.find(app => app === appID);
         assert.notEqual(enqueuedApp, undefined);
         truffleAssert.eventNotEmitted(addApp.receipt, utils.appDeployedEvent);
     });
@@ -155,7 +153,7 @@ contract('Fluence', function ([_, owner, anyone]) {
             let owner = app[3];
             let pin_to = app[4];
 
-            let addApp = addApps.find(add => add.storageHash == storageHash);
+            let addApp = addApps.find(add => add.storageHash === storageHash);
             assert.notEqual(addApp, undefined);
 
             assert.equal(addApp.storageHash, storageHash);
@@ -189,7 +187,7 @@ contract('Fluence', function ([_, owner, anyone]) {
         let firstCluster = (await utils.addNodes(this.contract, count, "127.0.0.1", anyone, portCount = 1)).pop();
         let secondCluster = (await utils.addNodes(this.contract, count, "127.0.0.1", anyone, portCount = 1)).pop();
 
-        truffleAssert.eventEmitted(firstCluster, utils.appDeployedEvent, _ => true);
-        truffleAssert.eventEmitted(secondCluster, utils.appDeployedEvent, _ => true)
+        truffleAssert.eventEmitted(firstCluster, utils.appDeployedEvent, () => true);
+        truffleAssert.eventEmitted(secondCluster, utils.appDeployedEvent, () => true)
     });
 });

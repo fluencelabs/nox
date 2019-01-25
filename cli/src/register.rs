@@ -27,16 +27,14 @@ use hex;
 use web3::transports::Http;
 use web3::types::H256;
 
-use crate::command::{
-    base64_tendermint_key, parse_ethereum_args, parse_tendermint_key, tendermint_key,
-    with_ethereum_args, EthereumArgs,
-};
+use crate::command::*;
 use crate::contract_func::contract::functions::add_node;
 use crate::contract_func::ContractCaller;
-use crate::types::{NodeAddress, IP_LEN, TENDERMINT_KEY_LEN};
+use crate::types::{NodeAddress, IP_LEN, TENDERMINT_NODE_ID_LEN};
 use crate::utils;
+use web3::types::H160;
 
-const ADDRESS: &str = "address";
+const NODE_IP: &str = "node_ip";
 const START_PORT: &str = "start_port";
 const LAST_PORT: &str = "last_port";
 const WAIT_SYNCING: &str = "wait_syncing";
@@ -46,6 +44,7 @@ const PRIVATE: &str = "private";
 pub struct Register {
     node_ip: IpAddr,
     tendermint_key: H256,
+    tendermint_node_id: H160,
     start_port: u16,
     last_port: u16,
     wait_syncing: bool,
@@ -58,6 +57,7 @@ impl Register {
     pub fn new(
         node_address: IpAddr,
         tendermint_key: H256,
+        tendermint_node_id: H160,
         start_port: u16,
         last_port: u16,
         wait_syncing: bool,
@@ -71,6 +71,7 @@ impl Register {
         Ok(Register {
             node_ip: node_address,
             tendermint_key,
+            tendermint_node_id,
             start_port,
             last_port,
             wait_syncing,
@@ -82,11 +83,11 @@ impl Register {
     /// Serializes a node IP address and a tendermint key into the hash of node's key address
     fn serialize_node_address(&self) -> Result<NodeAddress, Error> {
         // serialize tendermint key
-        let key_str = format!("{:?}", &self.tendermint_key);
+        let key_str = format!("{:?}", self.tendermint_node_id);
         let key_str = key_str.as_str().trim_start_matches("0x");
 
         let key_bytes = hex::decode(key_str.to_owned())?;
-        let mut key_bytes = key_bytes.as_slice()[0..TENDERMINT_KEY_LEN].to_vec();
+        let mut key_bytes = key_bytes.as_slice()[0..TENDERMINT_NODE_ID_LEN].to_vec();
 
         // serialize IP address
         let ip_str = self.node_ip.to_string();
@@ -128,7 +129,7 @@ impl Register {
         };
 
         let publish_to_contract_fn = || -> Result<H256, Error> {
-            let hash_addr = self.serialize_node_address()?;
+            let hash_addr: NodeAddress = self.serialize_node_address()?;
 
             let contract =
                 ContractCaller::new(self.eth.contract_address, &self.eth.eth_url.as_str())?;
@@ -174,9 +175,11 @@ impl Register {
 }
 
 pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
-    let node_address: IpAddr = value_t!(args, ADDRESS, IpAddr)?;
+    let node_address: IpAddr = value_t!(args, NODE_IP, IpAddr)?;
 
     let tendermint_key: H256 = parse_tendermint_key(args)?;
+
+    let tendermint_node_id: H160 = parse_tendermint_node_id(args)?;
 
     let start_port = value_t!(args, START_PORT, u16)?;
     let last_port = value_t!(args, LAST_PORT, u16)?;
@@ -190,6 +193,7 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
     Register::new(
         node_address,
         tendermint_key,
+        tendermint_node_id,
         start_port,
         last_port,
         wait_syncing,
@@ -201,12 +205,14 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
 /// Parses arguments from console and initialize parameters for Publisher
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     let args = &[
-        Arg::with_name(ADDRESS)
+        Arg::with_name(NODE_IP)
+            .long(NODE_IP)
+            .short("i")
             .required(true)
-            .index(1)
             .takes_value(true)
             .help("node's IP address"),
-        tendermint_key().index(2),
+        tendermint_key(),
+        tendermint_node_id(),
         Arg::with_name(START_PORT)
             .alias(START_PORT)
             .long(START_PORT)
@@ -225,7 +231,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
         base64_tendermint_key(),
         Arg::with_name(PRIVATE)
             .long(PRIVATE)
-            .short("P")
+            .short("p")
             .takes_value(false)
             .help("marks node as private, used for pinning apps to nodes"),
     ];
@@ -256,6 +262,7 @@ pub mod tests {
         let rnd_num: u64 = rng.gen();
 
         let tendermint_key: H256 = H256::from(rnd_num);
+        let tendermint_node_id: H160 = H160::from(rnd_num);
         let account: Address = "4180fc65d613ba7e1a385181a219f1dbfe7bf11d".parse().unwrap();
 
         let eth = EthereumArgs {
@@ -267,8 +274,9 @@ pub mod tests {
         };
 
         Register::new(
-            "127.0.0.1".parse::<IpAddr>().unwrap(),
+            "127.0.0.1".parse().unwrap(),
             tendermint_key,
+            tendermint_node_id,
             25006,
             25100,
             false,

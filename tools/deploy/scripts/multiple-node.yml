@@ -1,8 +1,8 @@
 version: '3.4'
 
 services:
-  node1:
-    container_name: node1
+  fluence-node-1:
+    container_name: fluence-node-1
     image: fluencelabs/node:latest
     environment:
       - TENDERMINT_IP=$DOCKER_IP
@@ -16,8 +16,8 @@ services:
       - 25510:5678
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-  node2:
-    container_name: node2
+  fluence-node-2:
+    container_name: fluence-node-2
     image: fluencelabs/node:latest
     environment:
       - TENDERMINT_IP=$DOCKER_IP
@@ -31,8 +31,8 @@ services:
       - 25610:5678
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-  node3:
-    container_name: node3
+  fluence-node-3:
+    container_name: fluence-node-3
     image: fluencelabs/node:latest
     environment:
       - TENDERMINT_IP=$DOCKER_IP
@@ -46,8 +46,8 @@ services:
       - 25710:5678
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-  node4:
-    container_name: node4
+  fluence-node-4:
+    container_name: fluence-node-4
     image: fluencelabs/node:latest
     environment:
       - TENDERMINT_IP=$DOCKER_IP

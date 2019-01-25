@@ -9,6 +9,7 @@
     "build": "webpack",
     "package:build": "tsc",
     "start:dev": "webpack-dev-server",
+    "start:prod": "webpack-dev-server --host 0.0.0.0",
     "typechain:generate": "typechain --target=web3-1.0.0 '../bootstrap/contracts/compiled/*.abi'",
     "prepare": "npm run compile-sol --prefix ../bootstrap/ && npm run typechain:generate && cp ../bootstrap/contracts/compiled/Network.abi src/Network.json && tsc"
   },
