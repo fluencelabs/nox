@@ -1,41 +1,42 @@
 ### Introduction
 
-This guide describes how to create a simple application for the Fluence platform using the Rust programming language. The Fluence ecosystem is designed to run Webassembly (Wasm) program decentralized and in an untrusted environment. But it can't run an arbitrary Wasm code since it can uses some import to host-based functions that environment isn't provided for security reaseons or so on. And also each Wasm program has to some features to be able to run on Fluence. In details it will be describes later.  
+This guide describes how to create a simple application for the Fluence platform using Rust programming language. The Fluence ecosystem is designed to run Webassembly (Wasm) program in decentralized and untrusted environment. But it can't run an arbitrary Wasm code since it can uses some import to host-based functions that environment isn't provided for security reasons or so on. And also each Wasm program has to have some features to be able to run on Fluence. They will be described in this guide in detail.  
 
 ### Prerequisites
 
-At now Fluence supports only Rust as a frontend language for our ecosystem, so it needs to install it first with wasm32-unknown-unknown taget. Currently, our API requires nightly version of Rust because of it uses [Allocator api](https://doc.rust-lang.org/beta/std/alloc/trait.Alloc.html) that is experimental now. To install rust please use the following commands:
+First of all it needs to install Rust with wasm32-unknown-unknown target. Currently, our SDK requires nightly version of Rust because of using of [Allocator api](https://doc.rust-lang.org/beta/std/alloc/trait.Alloc.html) that currently is experimental. To install Rust you can use the following commands:
 
 ```bash
 curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-01-08
 
-echo $PATH=$PATH:~/.cargo/bin
+export $PATH=$PATH:~/.cargo/bin
 
 rustup target add wasm32-unknown-unknown --toolchain nightly-2019-01-08
 ```
 
-The first command install Rust complier and other tools to `~/.cargo/bin`. Note that since nightly Rust api is unstable it is used version of January 8, 2019. The second one uses to update `PATH` environment variable to easy Rust launch. And the last one installs `wasm32-unknown-unknown` target for Rust to be able to compile code to Webassembly.
+The first command installs Rust compiler and other tools to `~/.cargo/bin`. Note that since nightly Rust api is unstable it is used version of January 8, 2019. The second one is used to update `PATH` environment variable. And the last one installs `wasm32-unknown-unknown` target for Rust to be able to compile code to Wasm.
 
-Еo check that everything is set up correctly you can use this simple command:
+To check that everything is set up correctly you can use this simple command:
 
 ```bash
 echo "fn main(){1;}" > test.rs; rustc --target=wasm32-unknown-unknown test.rs
 ```
 
-It creates rust code file and then complies it to Webassembly. If it ended without errors and there is a `test.wasm` file in the same folder, set up is correct.
+It creates rust code file and then complies it to Webassembly. If it ends without errors and there is a `test.wasm` file in the same folder, set up is correct.
 
 ### Wasm program conventions
 
-Fluence used so-called `verification game` technique to prove a computation results correctness. To simplify this process and launches on Fluence exosystem each Wasm programm has some limitations:
+Fluence uses so-called `verification game` technique to prove a correctness of computation results. To simplify this process some limitations for Wasm program has been introduced:
 
-1. Wasm program can consist of several Wasm modules with different names but only one of them (`master`) can be called from user-side. This master module has to don't have a module name section. This requirements is based on the fact that according to Wasm specification module name is optional and there is no a possibility to add it by default `rust` compiler.
-2. Each master node has to have three export (in terms of Wasm specification) functions which exactly names are `invoke`, `allocate` and `deallocate`.
-3. `invoke` will be used as the main module handler function. It means that all user-side requests routes to it. The exactly signature of this function has to be `(func (export "invoke") (param $buffer i32) (param $size i32) (result i32))` in wast representation. It receives two i32 params - the first represents a pointer to supplied agrument and the second one its size. This function returns a so-called fat pointer to result. It has to have the next structure in memory: `| size (4 bytes; little endian) | result buffer (size bytes) |`.
+1. Wasm program can consist of several Wasm modules with different names but only one of them (`master`) can be called from user-side. This master module has to haven't got the module name section. This requirement is based on the fact that according to the Wasm specification module name is optional and there is no a possibility to add it to resulted Wasm binary by default `rust` compiler.
+2. Each `master` module has to have three export (in terms of Wasm specification) functions with names `invoke`, `allocate` and `deallocate`.
+3. `invoke` will be used as the main module handler function. It means that all client-side requests is routed to it. The exactly signature of this function has to be `(func (export "invoke") (param $buffer i32) (param $size i32) (result i32))` in wast representation. It receives two i32 params that represent a pointer to supplied argument and its size.  
+  This function has to return a pointer to result that has to have the next structure in memory: `| size (4 bytes; little endian) | result buffer (size bytes) |`. This convention is based on a fact that Wasm function can return only value of i32, i64, f32, f64, simd types.
 4. `allocate` function has to have the next signature `(func (export "allocate") (param $size i32) (result i32))` in wast representation. It has to return a pointer as i32 to a module memory region long enough to hold `size` bytes.
 5. `deallocate` function has to have the next signature `(func (export "deallocate") (param $address i32) (param $size i32) (return))`. It called with argument represents pointer to a memory region previously allocated through `allocate` function and its size. This function should free this memory region.
 
 A Wasm module usually uses by following scheme: 
-1. A user-side send a request to Wasm code as a byte array
+1. A client-side send a request to Wasm code as a byte array
 2. VM wrapper call `allocate` function of `master` Wasm module with size of the array
 3. VM wrapper writes the array to module memory
 4. VM wrapper call `invoke` function from `master` module with the address returned from `allocate` function and array size
@@ -60,10 +61,9 @@ pub unsafe fn allocate(size: usize) -> NonNull<u8> {
 #[no_mangle]
 pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) {
 }
-
 ```
 
-Fluence SDK proves capabilities to simplify these function:
+Fluence SDK provides capabilities to simplify these function:
 
 ```Rust
 #[no_mangle]
@@ -92,29 +92,21 @@ pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) {
     fluence::memory::dealloc(ptr, non_zero_size)
         .unwrap_or_else(|_| panic!("[Error] Deallocate failed for ptr={:?} size={}.", ptr, size));
 }
-
 ```
 
 ### Compilation and test launch
-
-TODO
-
-##### Детерминированность
-
-Программы исполнаемые в VM Fluence должны быть детерминированы, чтобы достичь это на текущей момент следующие операции запрещены:
-
-    1. вызов внешних функций не поддерживается (io операции, системные вызовы)
-    2. операции с плав. точкой не поддерживаются
-    3. многопоточность не поддерживается 
-    4. Генераторы случайных чисел
-
-Невозможно точно сказать при использовании сторонней библиотеки делает ли она что-нибудь из этого списка, поэтому мы сделали анализатор
-[fluence wasm analizer](todo link) для автоматической проверки wasm кода на наличие запрещенных операций.
-
-##### Best practices
-
-    1. Не стоит использовать panic!() и те методы которые приводят к панике потока исполнения (expect, unwrap) в коде приложения. При возникновении паники ВМ вернет управление с TrapError без объяснения причин. Все ошибки стоит поднимать на самый верх и отдавать их как строки наружу. ( todo написать пример)
-    2. Избегайте использовать unsafe операции, кроме тех что есть в Fluence SDK, компилятор Rust делает много проверок и дает гарантии типобезопастности для кода вне unsafe блоков, не стоит этим пренебрегать.
-    3. todo че нить еще
-
-Для лучшего понимания возможностей сети Fluence рекомендуем прочитать [протокол Fluence](todo link на готовый протокол).
+    TODO
+    
+### Determenism
+    Programs running on Fluence VM must be determenistic. To achieve that, the following operations are currently not supported:
+    
+    Calling external functions (IO, syscalls)
+    Floating point operations
+    Multithreading and concurrency
+    Random number generators
+    
+    We developed a simple wasm code sanitizer that can check if an external library uses some of unsupported operations automatically.
+    
+### Best practices
+    Don't use panic! and methods that lead to it (expect, unwrap) in your code.
+    Avoid using unsafe operations except these that already in Fluence SDK.
