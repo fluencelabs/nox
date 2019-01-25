@@ -2,7 +2,7 @@
 
 ## Roles
 
-Roles overview [readme](docs/guides/README.md). Tools to run Fluence locally [readme](tools/run/README.md).
+Roles overview [readme](docs/guides/README.md).
 
 - Miner ([guide](docs/guides/miner.md))
 - Backend Developer ([guide](docs/guides/backend.md))
@@ -16,7 +16,7 @@ Roles overview [readme](docs/guides/README.md). Tools to run Fluence locally [re
 - JS client ([readme](fluence-js/README.md), [npm](https://www.npmjs.com/package/fluence-js))
 - Node ([docker hub](https://hub.docker.com/r/fluencelabs/node/))
 - Worker ([readme](statemachine/README.md), [docker hub](https://hub.docker.com/r/fluencelabs/worker))
-- VM ([examples readme](vm/examples/README.md), [sdk readme](sdk/rust/README.md) _(put guide there)_)
+- VM ([examples readme](vm/examples/README.md), [sdk readme](sdk/rust/README.md), [backend guide](docs/guides/backend.md))
 - DevOps ([readme](tools/deploy/README.md))
 - Prometheus/Grafana monitoring ([readme](tools/monitoring/README.md)) _(obsolete)_
 - Dashboard ([readme](monitoring/README.md), [deployed](http://142.93.108.175:8080/))
@@ -34,6 +34,7 @@ Roles overview [readme](docs/guides/README.md). Tools to run Fluence locally [re
 
 ## Missing parts
 
+- Staging network
 - VM
     - Protocol is unstable: move ordering inside Rust SDK
     - Merkle state hash
@@ -43,3 +44,5 @@ Roles overview [readme](docs/guides/README.md). Tools to run Fluence locally [re
     - We need to have Receipts (Swarm Mainnet)
 - Smart Contract
     - Prove Tendermint Validator Key ownership (Constantinople)    
+- Dashboard
+    - UI    
