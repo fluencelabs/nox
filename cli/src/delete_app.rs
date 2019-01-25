@@ -20,9 +20,12 @@ use web3::types::H256;
 
 use crate::command;
 use crate::contract_func::call_contract;
+use crate::contract_func::contract::events::app_deleted;
 use crate::contract_func::contract::functions::delete_app;
 use crate::contract_func::contract::functions::dequeue_app;
+use crate::contract_func::get_transaction_logs;
 use crate::utils;
+use failure::err_msg;
 use failure::Error;
 
 const APP_ID: &str = "app_id";
@@ -88,15 +91,33 @@ impl DeleteApp {
             call_contract(&self.eth, call_data)
         };
 
+        let wait_event_fn = |tx: H256| -> Result<H256, Error> {
+            let logs =
+                get_transaction_logs(self.eth.eth_url.as_str(), &tx, app_deleted::parse_log)?;
+            logs.first().ok_or(err_msg(format!(
+                "No AppDeleted event is found in transaction logs. tx: {:#x}",
+                tx
+            )))?;
+
+            Ok(tx)
+        };
+
         if show_progress {
-            utils::with_progress(
+            let tx = utils::with_progress(
                 "Deleting app from smart contract...",
-                "1/1",
-                "App deleted.",
+                "1/2",
+                "App deletion transaction was sent.",
                 delete_app_fn,
+            )?;
+            utils::with_progress(
+                "Waiting for an app to be deleted...",
+                "2/2",
+                "App deleted.",
+                || wait_event_fn(tx),
             )
         } else {
-            delete_app_fn()
+            let tx = delete_app_fn()?;
+            wait_event_fn(tx)
         }
     }
 }

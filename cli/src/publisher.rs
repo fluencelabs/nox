@@ -131,9 +131,10 @@ impl Publisher {
                 })
                 .context("Error parsing transaction logs")?;
 
-            logs.into_iter().nth(0).ok_or(err_msg(
-                "No AppDeployed or AppEnqueued is found in transaction logs",
-            ))
+            logs.into_iter().nth(0).ok_or(err_msg(format!(
+                "No AppDeployed or AppEnqueued event is found in transaction logs. tx: {:#x}",
+                tx
+            )))
         };
 
         // sending transaction with the hash of file with code to ethereum
@@ -146,7 +147,7 @@ impl Publisher {
             )?;
 
             utils::with_progress(
-                "Waiting for app to be published or deployed...",
+                "Waiting for an app to be published or deployed...",
                 "3/3",
                 "App published.",
                 || wait_event_fn(tx),
