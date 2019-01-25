@@ -21,29 +21,40 @@
 
 #![feature(allocator_api)]
 #![feature(alloc)]
-extern crate alloc;
-extern crate core;
-extern crate fluence_sdk as fluence;
-use std::num::NonZeroUsize;
+use log::{info, warn, error};
+use fluence_sdk as fluence;
 
+use std::num::NonZeroUsize;
 use std::ptr::NonNull;
 
-mod counter;
+/// Initializes `WasmLogger` instance and returns a pointer to error message as a string
+/// in the memory. Enabled only for a Wasm target.
+#[no_mangle]
+#[cfg(target_arch = "wasm32")]
+pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
+    let result = fluence::logger::WasmLogger::init_with_level(log::Level::Info)
+        .map(|_| "WasmLogger was successfully initialized".to_string())
+        .unwrap_or_else(|err| format!("WasmLogger initialization was failed, cause: {:?}", err));
 
-//
-// FFI for interaction with counter module
-//
+    warn!("{}\n", result);
 
-static mut COUNTER: counter::Counter = counter::Counter { counter: 0 };
+    fluence::memory::write_str_to_mem(&result).unwrap_or_else(|_| {
+        log_and_panic("Putting result string to the memory was failed.".into())
+    })
+}
+
 
 #[no_mangle]
-pub unsafe fn invoke(_ptr: *mut u8, _len: usize) -> NonNull<u8> {
-    COUNTER.inc();
+pub unsafe fn invoke(ptr: *mut u8, len: usize) -> NonNull<u8> {
+    let user_name: String = fluence::memory::deref_str(ptr, len);
 
-    fluence::memory::write_str_to_mem(&COUNTER.get().to_string())
-        .unwrap_or_else(|_| {
-            panic!("[Error] Putting the result string into a raw memory was failed")
-        })
+    info!("Successfully greeted: {}", user_name);
+
+    // return pointer to result in memory
+    fluence::memory::write_str_to_mem(format!("Hello {} from Fluence", user_name).as_str())
+        .unwrap_or_else(
+            |_| log_and_panic("Putting result string to the memory was failed.".into())
+        )
 }
 
 /// Allocates memory area of specified size and returns its address.
@@ -65,4 +76,9 @@ pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) {
         .unwrap_or_else(|| panic!("[Error] Deallocation of zero bytes is not allowed."));
     fluence::memory::dealloc(ptr, non_zero_size)
         .unwrap_or_else(|_| panic!("[Error] Deallocate failed for ptr={:?} size={}.", ptr, size));
+}
+
+fn log_and_panic(msg: String) -> ! {
+    error!("{}", msg);
+    panic!(msg);
 }
