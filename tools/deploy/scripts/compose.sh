@@ -23,7 +23,7 @@ set -e
 
 # Update all containers
 docker pull parity/parity:v2.3.0
-docker pull ethdevops/swarm
+docker pull ethdevops/swarm:edge
 docker pull fluencelabs/node
 docker pull fluencelabs/worker
 
