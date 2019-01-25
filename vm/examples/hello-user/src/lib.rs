@@ -21,8 +21,8 @@
 
 #![feature(allocator_api)]
 #![feature(alloc)]
-use log::{info, warn, error};
 use fluence_sdk as fluence;
+use log::{error, info, warn};
 
 use std::num::NonZeroUsize;
 use std::ptr::NonNull;
@@ -38,11 +38,9 @@ pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
 
     warn!("{}\n", result);
 
-    fluence::memory::write_str_to_mem(&result).unwrap_or_else(|_| {
-        log_and_panic("Putting result string to the memory was failed.".into())
-    })
+    fluence::memory::write_str_to_mem(&result)
+        .unwrap_or_else(|_| log_and_panic("Putting result string to the memory was failed.".into()))
 }
-
 
 #[no_mangle]
 pub unsafe fn invoke(ptr: *mut u8, len: usize) -> NonNull<u8> {
@@ -52,9 +50,7 @@ pub unsafe fn invoke(ptr: *mut u8, len: usize) -> NonNull<u8> {
 
     // return pointer to result in memory
     fluence::memory::write_str_to_mem(format!("Hello {} from Fluence", user_name).as_str())
-        .unwrap_or_else(
-            |_| log_and_panic("Putting result string to the memory was failed.".into())
-        )
+        .unwrap_or_else(|_| log_and_panic("Putting result string to the memory was failed.".into()))
 }
 
 /// Allocates memory area of specified size and returns its address.

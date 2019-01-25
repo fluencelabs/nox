@@ -37,13 +37,14 @@ mod counter;
 static mut COUNTER: counter::Counter = counter::Counter { counter: 0 };
 
 #[no_mangle]
-pub unsafe fn invoke(_ptr: *mut u8, _len: usize) -> NonNull<u8> {
+pub unsafe fn invoke(_ptr: *mut u8, _len: usize) -> usize {
     COUNTER.inc();
 
     fluence::memory::write_str_to_mem(&COUNTER.get().to_string())
         .unwrap_or_else(|_| {
             panic!("[Error] Putting the result string into a raw memory was failed")
         })
+        .as_ptr() as usize
 }
 
 /// Allocates memory area of specified size and returns its address.
