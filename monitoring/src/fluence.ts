@@ -149,6 +149,7 @@ export function showStatus(contractAddress: string) {
     status.then((st) => {
         const formatter = new JSONFormatter(st);
         document.body.appendChild(formatter.render());
+        formatter.openAtDepth(3);
     });
 }
 
