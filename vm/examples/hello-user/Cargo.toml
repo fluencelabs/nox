@@ -4,7 +4,7 @@ name = "hello_user"
 version = "0.1.0"
 authors = ["Fluence Labs"]
 publish = false
-description = "It is a just demo application for Fluence"
+description = "It is just a demo application for Fluence"
 edition = "2018"
 
 [profile.release]
