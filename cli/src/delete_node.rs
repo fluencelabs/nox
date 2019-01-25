@@ -22,7 +22,7 @@ use crate::command::{
     base64_tendermint_key, parse_ethereum_args, parse_tendermint_key, tendermint_key,
     with_ethereum_args, EthereumArgs,
 };
-use crate::contract_func::ContractCaller;
+use crate::contract_func::call_contract;
 use crate::utils;
 use failure::Error;
 
@@ -61,15 +61,8 @@ impl DeleteNode {
     pub fn delete_node(self, show_progress: bool) -> Result<H256, Error> {
         let delete_node_fn = || -> Result<H256, Error> {
             let (call_data, _) = delete_node::call(self.tendermint_key);
-            let contract =
-                ContractCaller::new(self.eth.contract_address, &self.eth.eth_url.as_str())?;
 
-            contract.call_contract(
-                self.eth.account,
-                &self.eth.credentials,
-                call_data,
-                self.eth.gas,
-            )
+            call_contract(&self.eth, call_data)
         };
 
         if show_progress {

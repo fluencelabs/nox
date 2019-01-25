@@ -15,8 +15,6 @@
  */
 
 pub mod app;
-mod cluster;
-mod node;
 pub mod status;
 
 use self::status::{get_status, Status};
@@ -34,10 +32,10 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 
 /// Gets status about Fluence contract from ethereum blockchain.
 pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Error> {
-    let contract_address: Address = parse_contract_address(args)?;
     let eth_url = parse_eth_url(args)?;
+    let contract_address: Address = parse_contract_address(args)?;
 
-    get_status(contract_address, eth_url.as_str())
+    get_status(eth_url.as_str(), contract_address)
 }
 
 #[cfg(test)]

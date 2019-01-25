@@ -28,8 +28,8 @@ use web3::transports::Http;
 use web3::types::H256;
 
 use crate::command::*;
+use crate::contract_func::call_contract;
 use crate::contract_func::contract::functions::add_node;
-use crate::contract_func::ContractCaller;
 use crate::types::{NodeAddress, IP_LEN, TENDERMINT_NODE_ID_LEN};
 use crate::utils;
 use web3::types::H160;
@@ -131,9 +131,6 @@ impl Register {
         let publish_to_contract_fn = || -> Result<H256, Error> {
             let hash_addr: NodeAddress = self.serialize_node_address()?;
 
-            let contract =
-                ContractCaller::new(self.eth.contract_address, &self.eth.eth_url.as_str())?;
-
             let (call_data, _) = add_node::call(
                 self.tendermint_key,
                 hash_addr,
@@ -142,12 +139,7 @@ impl Register {
                 self.private,
             );
 
-            contract.call_contract(
-                self.eth.account,
-                &self.eth.credentials,
-                call_data,
-                self.eth.gas,
-            )
+            call_contract(&self.eth, call_data)
         };
 
         // sending transaction with the hash of file with code to ethereum

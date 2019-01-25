@@ -19,9 +19,9 @@ use clap::{App, Arg, SubCommand};
 use web3::types::H256;
 
 use crate::command;
+use crate::contract_func::call_contract;
 use crate::contract_func::contract::functions::delete_app;
 use crate::contract_func::contract::functions::dequeue_app;
-use crate::contract_func::ContractCaller;
 use crate::utils;
 use failure::Error;
 
@@ -85,15 +85,7 @@ impl DeleteApp {
                 false => dequeue_app::call(self.app_id).0,
             };
 
-            let contract =
-                ContractCaller::new(self.eth.contract_address, &self.eth.eth_url.as_str())?;
-
-            contract.call_contract(
-                self.eth.account,
-                &self.eth.credentials,
-                call_data,
-                self.eth.gas,
-            )
+            call_contract(&self.eth, call_data)
         };
 
         if show_progress {

@@ -28,8 +28,8 @@ use reqwest::Client;
 use web3::types::H256;
 
 use crate::command::{parse_ethereum_args, with_ethereum_args, EthereumArgs};
+use crate::contract_func::call_contract;
 use crate::contract_func::contract::functions::add_app;
-use crate::contract_func::ContractCaller;
 use crate::utils;
 
 const CODE_PATH: &str = "code_path";
@@ -89,9 +89,6 @@ impl Publisher {
             let receipt: H256 =
                 "0000000000000000000000000000000000000000000000000000000000000000".parse()?;
 
-            let contract =
-                ContractCaller::new(self.eth.contract_address, self.eth.eth_url.as_str())?;
-
             let (call_data, _) = add_app::call(
                 hash,
                 receipt,
@@ -99,12 +96,7 @@ impl Publisher {
                 self.pin_to_nodes.clone(),
             );
 
-            contract.call_contract(
-                self.eth.account,
-                &self.eth.credentials,
-                call_data,
-                self.eth.gas,
-            )
+            call_contract(&self.eth, call_data)
         };
 
         // sending transaction with the hash of file with code to ethereum
