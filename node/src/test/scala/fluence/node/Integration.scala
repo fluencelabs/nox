@@ -48,10 +48,12 @@ trait Integration {
       }
       .adaptError {
         case e: TestFailedException =>
-          e.modifyMessage(m => Some(s"eventually timed out after $maxWait" + m.map(": " + _).getOrElse("")))
+          e.printStackTrace(System.err)
+          e.modifyMessage(m => Some(s"eventually timed out after $maxWait" + m.fold("")(": " + _)))
         case e =>
+          e.printStackTrace(System.err)
           new TestFailedDueToTimeoutException(
-            _ => Some(s"eventually timed out after $maxWait" + Option(e.getMessage).map(": " + _).getOrElse("")),
+            _ => Some(s"eventually timed out after $maxWait" + Option(e.getMessage).fold("")(": " + _)),
             Some(e),
             pos,
             None,

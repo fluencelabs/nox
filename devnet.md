@@ -14,7 +14,7 @@ Roles overview [readme](docs/guides/README.md).
 - CLI tool ([readme](cli/README.md))
 - Swarm integration ([readme](externalstorage/README.md))
 - JS client ([readme](fluence-js/README.md), [npm](https://www.npmjs.com/package/fluence-js))
-- Node ([docker hub](https://hub.docker.com/r/fluencelabs/node/))
+- Node ([docker hub](https://hub.docker.com/r/fluencelabs/node/), [howto](node/HOWTO.md))
 - Worker ([readme](statemachine/README.md), [docker hub](https://hub.docker.com/r/fluencelabs/worker))
 - VM ([examples readme](vm/examples/README.md), [sdk readme](sdk/rust/README.md), [backend guide](docs/guides/backend.md))
 - DevOps ([readme](tools/deploy/README.md))

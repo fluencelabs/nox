@@ -134,7 +134,9 @@ class MasterNodeIntegrationSpec
 
         _ <- contract.addNode[IO](status1.nodeConfig).attempt
         _ <- contract.addNode[IO](status2.nodeConfig).attempt
-        _ <- contract.addApp[IO]("llamadb", clusterSize = 2)
+        i <- contract.addApp[IO]("llamadb", clusterSize = 2)
+
+        _ = logger.info("Added App at block: " + i)
 
         _ <- eventually[IO](
           for {
@@ -150,7 +152,7 @@ class MasterNodeIntegrationSpec
           },
           maxWait = 90.seconds
         )
-      } yield {}
+      } yield ()
     }
 
     def deleteApp(basePort: Short): IO[Unit] = withEthSttpAndTwoMasters(basePort).use {
@@ -183,7 +185,7 @@ class MasterNodeIntegrationSpec
             },
             maxWait = 30.seconds
           )
-        } yield {}
+        } yield ()
     }
 
     "sync their workers with contract clusters" in {

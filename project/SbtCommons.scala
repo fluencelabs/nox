@@ -85,9 +85,9 @@ object SbtCommons {
   val fs2io = "co.fs2" %% "fs2-io"               % fs2Version
   // functional wrapper around 'lightbend/config'
   val pureConfig = "com.github.pureconfig" %% "pureconfig"      % "0.10.1"
-  val cryptoHashing = "one.fluence"        %% "crypto-hashsign" % "0.0.2"
-  val cryptoCipher = "one.fluence"         %% "crypto-cipher"   % "0.0.2"
-  val cryptoKeyStore = "one.fluence"       %% "crypto-keystore" % "0.0.2"
+  val cryptoHashing = "one.fluence"        %% "crypto-hashsign" % "0.0.3"
+  val cryptoCipher = "one.fluence"         %% "crypto-cipher"   % "0.0.3"
+  val cryptoKeyStore = "one.fluence"       %% "crypto-keystore" % "0.0.3"
 
   val sttpVersion = "1.5.4"
   val sttp = "com.softwaremill.sttp"            %% "core"                           % sttpVersion

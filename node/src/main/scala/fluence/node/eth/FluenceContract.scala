@@ -20,7 +20,7 @@ import cats.Apply
 import cats.effect.{Async, ConcurrentEffect, Sync}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.ethclient.Network.{APPDELETED_EVENT, APPDEPLOYED_EVENT, AppDeployedEventResponse}
+import fluence.ethclient.Network.{APPDELETED_EVENT, APPDEPLOYED_EVENT, AppDeployedEventResponse, NODEDELETED_EVENT}
 import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.{EthClient, Network}
 import fluence.node.eth.conf.FluenceContractConfig
@@ -152,6 +152,18 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
       .flatMap(filter ⇒ contract.appDeletedEventFlowable(filter).toStream[F])
       .map(_.appID)
 
+  /**
+   * Stream of all the removed node IDs
+   *
+   * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
+   * @return Possibly infinite stream of NodeDeleted events
+   */
+  private[eth] def getNodeDeleted[F[_]: ConcurrentEffect]: fs2.Stream[F, Bytes32] =
+    fs2.Stream
+      .eval(eventFilter[F](NODEDELETED_EVENT))
+      .flatMap(filter ⇒ contract.nodeDeletedEventFlowable(filter).toStream[F]())
+      .map(_.id)
+
 }
 
 object FluenceContract {
@@ -166,12 +178,10 @@ object FluenceContract {
   private def eventToApp(
     event: AppDeployedEventResponse,
     validatorKey: Bytes32
-  ): Option[state.App] = {
-    val cluster =
-      Cluster
-        .build(event.genesisTime, event.nodeIDs, event.nodeAddresses, event.ports, currentValidatorKey = validatorKey)
-    cluster.map(App(event.appID, event.storageHash, _))
-  }
+  ): Option[state.App] =
+    Cluster
+      .build(event.genesisTime, event.nodeIDs, event.nodeAddresses, event.ports, currentValidatorKey = validatorKey)
+      .map(App(event.appID, event.storageHash, _))
 
   /**
    * Loads contract

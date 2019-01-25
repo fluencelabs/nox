@@ -61,7 +61,12 @@ object NodeEth {
             .map(ByteVector(_))
             .map(RemoveAppWorker)
 
-          val stream = runAppWorker interleave removeAppWorker
+          val removePeerWorker = contract.getNodeDeleted
+            .map(_.getValue)
+            .map(ByteVector(_))
+            .map(vk ⇒ DropPeerWorker(vk, vk)) // TODO we have to figure out the app ids here (there could be many)
+
+          val stream = runAppWorker merge removeAppWorker merge removePeerWorker
 
           stream.evalTap(ev ⇒ stateRef.update(_.advance(ev)))
         }
