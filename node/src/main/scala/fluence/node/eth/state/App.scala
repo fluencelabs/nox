@@ -20,7 +20,7 @@ import org.web3j.abi.datatypes.generated._
 import scodec.bits.ByteVector
 
 /**
- *  Represents an App deployed to some cluster
+ * Represents an App deployed to some cluster
  *
  * @param id Application ID as defined in Fluence contract
  * @param storageHash Hash of the code in Swarm

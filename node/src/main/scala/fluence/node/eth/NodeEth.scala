@@ -16,7 +16,10 @@
 
 package fluence.node.eth
 
+import cats.data.StateT
 import cats.effect.ConcurrentEffect
+import cats.syntax.apply._
+import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.effect.concurrent.Ref
 import fluence.ethclient.EthClient
@@ -26,13 +29,26 @@ import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
+/**
+ * NodeEth aims to be the sole interaction point with Ethereum for a particular Fluence Node
+ *
+ * @tparam F Effect
+ */
 trait NodeEth[F[_]] {
 
+  /**
+   * Control events from Ethereum Smart Contract
+   */
   def nodeEvents: fs2.Stream[F, NodeEthEvent]
 
+  /**
+   * Returns the expected node state, how it's built with received Ethereum data
+   */
   def expectedState: F[NodeEthState]
 
-  // Requires raw json to be kept by EthClient
+  /**
+   * Stream of raw block json, requires ethClient to be configured to keep raw responses!
+   */
   def blocksRaw: fs2.Stream[F, String]
 
   // TODO subscribe for events, unchunk them
@@ -44,40 +60,73 @@ trait NodeEth[F[_]] {
 
 object NodeEth {
 
+  /**
+   * Provides the default NodeEth instance
+   *
+   * @param validatorKey The ValidatorKey of current node (or any node we want to keep an eye on)
+   * @param contract FluenceContract
+   * @tparam F ConcurrentEffect, used to combine many streams of web3 events
+   */
   def apply[F[_]: ConcurrentEffect](validatorKey: ByteVector, contract: FluenceContract): F[NodeEth[F]] =
-    Ref.of(NodeEthState(validatorKey)).map { stateRef ⇒
-      // TODO: make singleton streams, do not send the same request to web3j twice
-      // TODO ensure resources are cleaned up properly
-
+    for {
+      stateRef ← Ref.of[F, NodeEthState](NodeEthState(validatorKey))
+      initialState ← stateRef.get
+    } yield
       new NodeEth[F] {
         override def nodeEvents: fs2.Stream[F, NodeEthEvent] = {
-          val runAppWorker = contract
-            .getAllNodeApps[F](new Bytes32(validatorKey.toArray))
-            .map(RunAppWorker)
+          // TODO: make one filter for all kinds of events, instead of making several separate requests
 
-          val removeAppWorker = contract
+          // State changes on a new recognized App that should be deployed on this Node
+          val onNodeAppS = contract
+            .getAllNodeApps[F](new Bytes32(validatorKey.toArray))
+            .map(NodeEthState.onNodeApp[F])
+
+          // State changes on App Deleted event
+          val onAppDeletedS = contract
             .getAppDeleted[F]
             .map(_.getValue)
             .map(ByteVector(_))
-            .map(RemoveAppWorker)
+            .map(NodeEthState.onAppDeleted[F])
 
-          val removePeerWorker = contract.getNodeDeleted
+          // State changes on Node Deleted event
+          val onNodeDeletedS = contract.getNodeDeleted
             .map(_.getValue)
             .map(ByteVector(_))
-            .map(vk ⇒ DropPeerWorker(vk, vk)) // TODO we have to figure out the app ids here (there could be many)
+            .map(NodeEthState.onNodeDeleted[F])
 
-          val stream = runAppWorker merge removeAppWorker merge removePeerWorker
+          // State changes for all kinds of Ethereum events regarding this node
+          val stream: fs2.Stream[F, StateT[F, NodeEthState, Seq[NodeEthEvent]]] =
+            onNodeAppS merge onAppDeletedS merge onNodeDeletedS
 
-          stream.evalTap(ev ⇒ stateRef.update(_.advance(ev)))
+          // Notice that state is never being read from the Ref,
+          // so no other channels of modifications are allowed
+          // TODO handle reorgs
+          stream
+            .evalMapAccumulate(initialState) {
+              case (state, mod) ⇒
+                // Get the new state and a sequence of events, put them to fs2 stream
+                mod.run(state)
+            }
+            .flatMap {
+              case (state, events) ⇒
+                // Save the state to the ref and flatten the events to match the response type
+                fs2.Stream.eval(stateRef.set(state)) *>
+                  fs2.Stream.chunk(fs2.Chunk.seq(events))
+            }
         }
 
+        /**
+         * Returns the expected node state, how it's built with received Ethereum data
+         */
         override def expectedState: F[NodeEthState] =
           stateRef.get
 
+        /**
+         * Stream of raw block json, requires ethClient to be configured to keep raw responses!
+         */
         override def blocksRaw: fs2.Stream[F, String] =
           contract.ethClient.blockStream[F].map(_._1).unNone
       }
-    }
 
   /**
    * Loads contract, wraps it with NodeEth

@@ -15,48 +15,133 @@
  */
 
 package fluence.node.eth
+
+import cats.{Applicative, Monad}
+import cats.data.StateT
 import scodec.bits.ByteVector
 import state.App
+
+import scala.language.higherKinds
 
 /**
  * State of the node, how it's expected to be from Ethereum point of view
  *
  * @param validatorKey Node's validator key
  * @param apps Map of applications to be hosted by the node
+ * @param nodesToApps Mapping from node keys to set of application ids, to enable efficient Worker Peers removal
  */
 case class NodeEthState(
   validatorKey: ByteVector,
-  apps: Map[ByteVector, App] = Map.empty
-) {
+  apps: Map[ByteVector, App] = Map.empty,
+  nodesToApps: Map[ByteVector, Set[ByteVector]] = Map.empty
+)
 
-  // TODO should we also use it as a filter for events which are not related to this node but couldn't be checked without the state?
-  def advance(event: NodeEthEvent): NodeEthState = event match {
-    case RunAppWorker(app) ⇒
-      copy(apps = apps + (app.id → app))
+object NodeEthState {
+  private type State[F[_]] =
+    StateT[F, NodeEthState, Seq[NodeEthEvent]]
 
-    case RemoveAppWorker(appId) ⇒
-      copy(apps = apps - appId)
+  private def get[F[_]: Applicative] =
+    StateT.get[F, NodeEthState]
 
-    case DropPeerWorker(appId, `validatorKey`) ⇒
-      copy(apps = apps - appId)
+  private def set[F[_]: Applicative](state: NodeEthState) =
+    StateT.set[F, NodeEthState](state)
 
-    case DropPeerWorker(appId, vk) ⇒
-      apps.get(appId).fold(this) { app ⇒
-        // Remove the peer the way we do it in smart contract
-        val workers = app.cluster.workers
-        val i = workers.indexWhere(_.validatorKey == vk)
+  private def pure[F[_]: Applicative](values: NodeEthEvent*): State[F] =
+    StateT.pure(values)
 
-        val cluster = app.cluster.copy(
-          workers = workers.lastOption
-          // If this worker is the last one, or if it's not in the list, just filter it out
-            .filterNot(_ ⇒ i < 0 || i >= workers.length)
-            // Otherwise replace it with the last one, and drop the last
-            .fold(workers.filterNot(_.validatorKey === vk))(last ⇒ workers.dropRight(1).updated(i, last))
-        )
+  private def modify[F[_]: Applicative](fn: NodeEthState ⇒ NodeEthState) =
+    StateT.modify(fn)
 
-        // This node still participates in the cluster, so we can safely retain it
-        copy(apps = apps.updated(appId, app.copy(cluster = cluster)))
-      }
+  // TODO check that it's not yet launched? Handle case if this event reflects chain reorg
+  /**
+   * Expresses the state change that should be applied on new App deployment event
+   */
+  def onNodeApp[F[_]: Monad](app: App): State[F] =
+    modify[F](
+      s ⇒
+        s.copy(
+          // Add an app
+          apps = s.apps.updated(app.id, app),
+          // Save the mapping
+          nodesToApps = app.cluster.workers.map(_.validatorKey).foldLeft(s.nodesToApps) {
+            case (acc, nodeId) ⇒ acc.updated(nodeId, acc.getOrElse(nodeId, Set.empty) + app.id)
+          }
+      )
+    ).map(_ ⇒ RunAppWorker(app) :: Nil)
 
-  }
+  /**
+   * Expresses the state change that should be applied when an App is deleted
+   */
+  def onAppDeleted[F[_]: Monad](appId: ByteVector): State[F] =
+    get[F].flatMap { s ⇒
+      s.apps
+        .get(appId)
+        .fold(pure()) { app ⇒
+          set(
+            s.copy(
+              // Remove an app
+              apps = s.apps - appId,
+              // Remove app id from nodesToApps mapping
+              nodesToApps = app.cluster.workers.map(_.validatorKey).foldLeft(s.nodesToApps) {
+                case (acc, nodeId) ⇒
+                  acc.get(nodeId).map(_ - appId).fold(acc) {
+                    case ids if ids.isEmpty ⇒
+                      // It was the last known app for the node
+                      acc - nodeId
+                    case ids ⇒
+                      acc.updated(nodeId, ids)
+                  }
+              }
+            )
+          ).map(_ ⇒ RemoveAppWorker(appId) :: Nil)
+        }
+    }
+
+  /**
+   * Expresses the state change that should be applied on Node Deleted event
+   * @param nodeId Removed Node's ValidatorKey
+   */
+  def onNodeDeleted[F[_]: Monad](nodeId: ByteVector): State[F] =
+    get[F].flatMap {
+      case s if s.validatorKey === nodeId ⇒
+        // Emptying the node itself
+        set(s.copy(apps = Map.empty, nodesToApps = Map.empty))
+          .map(_ ⇒ s.apps.keys.map(appId ⇒ RemoveAppWorker(appId)).toSeq)
+
+      case s ⇒
+        s.nodesToApps.get(nodeId).fold(pure()) { appIds ⇒
+          // Take all the appIds for removed node, and remove it from the workers list of that apps
+          val (state, events) =
+            appIds // We're collecting the events of removing an app by ourselves, or of dropping the peer of a cluster
+              .foldLeft[(NodeEthState, List[NodeEthEvent])]((s.copy(nodesToApps = s.nodesToApps - nodeId), Nil)) {
+                case (acc @ (st, evs), appId) ⇒
+                  st.apps
+                    .get(appId)
+                    .map(
+                      app ⇒
+                        app.copy(cluster = app.cluster.copy(workers = {
+                          // Remove the peer the way we do it in smart contract
+                          val workers = app.cluster.workers
+                          val i = workers.indexWhere(_.validatorKey === nodeId)
+                          workers.lastOption
+                          // If this worker is the last one, or if it's not in the list, just filter it out
+                            .filterNot(_ ⇒ i < 0 || i >= workers.length)
+                            // Otherwise replace it with the last one, and drop the last
+                            .fold(workers.filterNot(_.validatorKey === nodeId))(
+                              last ⇒ workers.dropRight(1).updated(i, last)
+                            )
+                        }))
+                    )
+                    .fold(acc) {
+                      case app if app.cluster.workers.isEmpty ⇒
+                        // No more workers, drop the app and forget about it
+                        (st.copy(apps = st.apps - appId), RemoveAppWorker(appId) :: evs)
+                      case app ⇒
+                        // Drop peer worker and update the app
+                        (st.copy(apps = st.apps.updated(appId, app)), DropPeerWorker(appId, nodeId) :: evs)
+                    }
+              }
+          set(state).map(_ ⇒ events)
+        }
+    }
 }

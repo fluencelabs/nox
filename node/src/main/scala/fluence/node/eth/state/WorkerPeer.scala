@@ -23,7 +23,7 @@ import org.web3j.abi.datatypes.generated._
 import scodec.bits.ByteVector
 
 /**
- * WorkerNode contains information describing a Worker as a Tendermint node
+ * WorkerPeer contains information describing a Worker as a Tendermint node
  *
  * @param validatorKey 32-byte Tendermint Validator key, also represented by base64ValidatorKey
  * @param peerId hex-encoded 20-byte Tendermint peer ID which is calculated as `hex.EncodeToString(SHA256(peer.PubKey)[:20])`
@@ -50,7 +50,7 @@ object WorkerPeer {
    * @param nodeAddress is a concatenation of tendermint p2p node_id (20 bytes) and IPv4 address (4 bytes)
    * @param p2pPort Tendermint p2p port of the worker
    * @param index index of a worker in cluster workers array
-   * @return WorkerNode instance
+   * @return WorkerPeer instance
    */
   def apply(validatorKey: Bytes32, nodeAddress: Bytes24, p2pPort: Uint16, index: Int): WorkerPeer = {
     val peerId = ByteVector(nodeAddress.getValue, 0, 20).toHex

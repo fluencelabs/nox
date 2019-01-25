@@ -33,7 +33,7 @@ trait Integration {
     p: => F[Unit],
     period: FiniteDuration = 1.second,
     maxWait: FiniteDuration = 10.seconds
-  )(implicit pos: Position): F[_] = {
+  )(implicit pos: Position): F[_] =
     fs2.Stream
       .awakeEvery[F](period)
       .take((maxWait / period).toLong)
@@ -60,5 +60,5 @@ trait Integration {
             Span.convertDurationToSpan(maxWait)
           )
       }
-  }
+
 }
