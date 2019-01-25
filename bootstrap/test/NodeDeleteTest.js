@@ -37,7 +37,7 @@ contract('Fluence (node deletion)', function ([_, owner, anyone, other]) {
 
     it("Remove enqueued node", async function() {
         let add = await addNodes(1);
-        var nodeID;
+        let nodeID;
         truffleAssert.eventEmitted(add.pop(), utils.newNodeEvent, ev => {
             nodeID = ev.id;
             return true;
@@ -45,13 +45,13 @@ contract('Fluence (node deletion)', function ([_, owner, anyone, other]) {
 
         let receipt = await global.contract.deleteNode(nodeID, { from: anyone });
         truffleAssert.eventEmitted(receipt, utils.nodeDeletedEvent, ev => {
-            return ev.id == nodeID;
+            return ev.id === nodeID;
         });
     });
 
     it("Contract owner should be able to remove node", async function() {
         let add = await addNodes(1);
-        var nodeID;
+        let nodeID;
         truffleAssert.eventEmitted(add.pop(), utils.newNodeEvent, ev => {
             nodeID = ev.id;
             return true;
@@ -69,7 +69,7 @@ contract('Fluence (node deletion)', function ([_, owner, anyone, other]) {
 
         let receipt = await global.contract.deleteNode(nodeID, { from: owner });
         truffleAssert.eventEmitted(receipt, utils.nodeDeletedEvent, ev => {
-            return ev.id == nodeID;
+            return ev.id === nodeID;
         });
     });
 
@@ -92,7 +92,7 @@ contract('Fluence (node deletion)', function ([_, owner, anyone, other]) {
         let receipts = await Promise.all(nodeIDs.map(async nodeID => {
             let receipt = await global.contract.deleteNode(nodeID, { from: anyone });
             truffleAssert.eventEmitted(receipt, utils.nodeDeletedEvent, ev => {
-                return ev.id == nodeID;
+                return ev.id === nodeID;
             });
             return receipt;
         }));

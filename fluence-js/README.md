@@ -18,7 +18,7 @@ It is written on TypeScript to reach more clean, understandable and typesafe cod
 ### Installation
 
 ```
-npm install js-fluence-client
+npm install fluence-js
 ``` 
 
 ### Before started 

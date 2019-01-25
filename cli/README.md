@@ -32,15 +32,16 @@ To provide your computation resources to Fluence network, you need to register y
 The following command will register a node:
 ```
 ./fluence register \
-            85.82.118.4 \
-            1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
-            0x9995882876ae612bfd829498ccd73dd962ec950a \
-            0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --node_ip               85.82.118.4 \
+            --tendermint_key        1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
+            --tendermint_node_id    5e4eedba85fda7451356a03caffb0716e599679b= \
+            --contract_address      0x9995882876ae612bfd829498ccd73dd962ec950a \
+            --account               0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
             --base64_tendermint_key \
-            --secret_key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
+            --secret_key            0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
             --wait_syncing \
-            --start_port 25000 \
-            --last_port 25010
+            --start_port            25000 \
+            --last_port             25010
 ```
 
 Parameters are:
@@ -49,6 +50,7 @@ Parameters are:
     - flag `--base64_tendermint_key` passed so tendermint key is treated as base64-encoded as opposed to hex-encoded
     - currently, Tendermint key can be found in logs of `fluencelabs/node` Docker container
     - note that key should be unique, i.e. you can't register several nodes with the same key
+- Tendermint p2p node ID `5e4eedba85fda7451356a03caffb0716e599679b` is needed to securely connect nodes in Tendermint cluster
 - `0x9995882876ae612bfd829498ccd73dd962ec950a` is a contract address, register transaction will be sent there
 - `0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d` will be used as Ethereum account for issuing transactions. _Use your Ethereum account here_
 - `--secret_key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133` denotes an Ethereum private key, used for offline transaction signing. _Use your Ethereum private key here_
@@ -63,12 +65,12 @@ To deploy your app on Fluence network, you must upload it to Swarm and publish h
 The following command will publish app `counter.wasm`.
 ```
 ./fluence publish \
-            fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm \
-            0x9995882876ae612bfd829498ccd73dd962ec950a \
-            0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
-            --cluster_size 4 \
-            --secret_key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
-            --pin_to 1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
+            --code_path        fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm \
+            --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
+            --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --cluster_size     4 \
+            --secret_key       0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
+            --pin_to           1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
             --base64
 ```
 
@@ -88,21 +90,21 @@ The following will delete app with id `0x000000000000000000000000000000000000000
 
 ```
 ./fluence delete_app \
-            0x9995882876ae612bfd829498ccd73dd962ec950a \
-            0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
-            0x0000000000000000000000000000000000000000000000000000000000000002 \
-            --secret_key 4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 \
-            -D
+            --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
+            --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --app_id           0x0000000000000000000000000000000000000000000000000000000000000002 \
+            --secret_key       4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 \
+            --deployed
 ```
 
-Note `-D` at the end. It means that app is deployed and cluster hosting it should be deleted as well. Without that flag, app would be removed only if there is no assigned cluster (i.e., app is not yet deployed).
+Note `--deployed` at the end. It means that app is deployed and cluster hosting it should be deleted as well. Without that flag, app would be removed only if there is no assigned cluster (i.e., app is not yet deployed).
 
 See below on how to know if your app is deployed.
 
 ### Retrieve Fluence network state as JSON
 To inspect what apps are in queue, what clusters are working out there and what nodes are participating in them, you can use `status` command as follows:
 ```
-./fluence status 0x9995882876ae612bfd829498ccd73dd962ec950a
+./fluence status --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a
 ```
 
 The results will be in JSON and should resemble the following

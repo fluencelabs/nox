@@ -21,7 +21,7 @@ from fabric.api import *
 info = {'<ip1>': {'owner': '<eth address1>', 'key': '<private key1>', 'ports': '<from>:<to>'},
         '<ip2>': {'owner': '<eth address2>', 'key': '<private key2>', 'ports': '<from>:<to>'}}
 
-RELEASE="http://dump.bitcheese.net/files/vebibif/fluence-linux" #"https://github.com/fluencelabs/fluence/releases/download/untagged-3f7e10bd802b3149036d/fluence-linux-x64"
+RELEASE="http://dump.bitcheese.net/files/fedinid/fluence" #"https://github.com/fluencelabs/fluence/releases/download/untagged-3f7e10bd802b3149036d/fluence-linux-x64"
 
 file = open("scripts/contract.txt", "r")
 contract=file.read()
@@ -43,7 +43,6 @@ def copy_resources():
     put('scripts/node.yml', 'scripts/')
     put('scripts/parity.yml', 'scripts/')
     put('scripts/swarm.yml', 'scripts/')
-    put('scripts/fluence', 'scripts/')
 
 # comment this annotation to deploy sequentially
 @parallel
@@ -76,10 +75,7 @@ def deploy():
                        PRIVATE_KEY=current_key,
                        HOST_IP=current_host):
             run('chmod +x compose.sh')
-            run('chmod +x fluence')
-            run('docker pull parity/parity:v2.3.0')
-            run('docker pull ethdevops/swarm')
-            run('docker pull fluencelabs/node')
-            run('docker pull fluencelabs/worker')
+            # download fluence CLI
             run('curl ' + RELEASE + ' -o fluence')
+            run('chmod +x fluence')
             run('./compose.sh')
