@@ -49,7 +49,7 @@ class HelloUserIntegrationTest extends AppIntegrationTest with EitherValues {
         state ← vm.getVmState[IO].toVmError
 
       } yield {
-        checkTestResult(greetingResult, "Hello John from Fluence")
+        checkTestResult(greetingResult, "Hello from Fluence to John")
       }).success()
 
     }

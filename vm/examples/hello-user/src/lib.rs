@@ -46,10 +46,10 @@ pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
 pub unsafe fn invoke(ptr: *mut u8, len: usize) -> NonNull<u8> {
     let user_name: String = fluence::memory::deref_str(ptr, len);
 
-    info!("Successfully greeted: {}", user_name);
+    info!("{} have been successfully greeted", user_name);
 
-    // return pointer to result in memory
-    fluence::memory::write_str_to_mem(format!("Hello {} from Fluence", user_name).as_str())
+    // return a pointer to the result in memory
+    fluence::memory::write_str_to_mem(format!("Hello from Fluence to {}", user_name).as_str())
         .unwrap_or_else(|_| log_and_panic("Putting result string to the memory was failed.".into()))
 }
 
