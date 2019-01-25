@@ -148,6 +148,7 @@ export function showStatus(contractAddress: string) {
     let status = getStatus(contractAddress);
     status.then((st) => {
         const formatter = new JSONFormatter(st);
+        document.body.innerHTML = '';
         document.body.appendChild(formatter.render());
         formatter.openAtDepth(3);
     });
