@@ -14,10 +14,7 @@
  * limitations under the License.
  */
 
-//! Wrapper for counter (a test for Fluence network).
-//!
-//! Provides the public method `invoke` for increment a counter and get its current state and some
-//! public service methods (`allocation`, `deallocation`).
+//! A simple demo application for Fluence.
 
 #![feature(allocator_api)]
 #![feature(alloc)]
