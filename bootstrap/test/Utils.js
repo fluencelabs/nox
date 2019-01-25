@@ -40,7 +40,7 @@ function bytes32ToString (hex) {
 exports.bytes32ToString = bytes32ToString;
 
 function generateNodeIDs(count) {
-    return Array(count).fill(0).map(_ => string2Bytes32(crypto.randomBytes(16).hexSlice()));
+    return Array(count).fill(0).map(() => string2Bytes32(crypto.randomBytes(16).hexSlice()));
 }
 
 exports.generateNodeIDs = generateNodeIDs;
@@ -51,7 +51,7 @@ exports.generateNodeIDs = generateNodeIDs;
 // ownerAddress - node owner Ethereum account
 // portCount - number of open ports, starting from 1000. i.e. [1000, 1000 + portCount - 1]
 // private -- true if node is private; false if public
-async function addNodes (contract, count, nodeIP, ownerAddress, portCount = 2, private = false) {
+async function addNodes (contract, count, nodeIP, ownerAddress, portCount = 2, isPrivate = false) {
     assert(portCount > 0, "node should have at least single open port");
     
     return Promise.all(generateNodeIDs(count).map(
@@ -61,7 +61,7 @@ async function addNodes (contract, count, nodeIP, ownerAddress, portCount = 2, p
                 nodeIP,
                 1000,
                 1000 + portCount - 1,
-                private,
+                isPrivate,
                 { from: ownerAddress }
             );
             
@@ -73,17 +73,17 @@ async function addNodes (contract, count, nodeIP, ownerAddress, portCount = 2, p
     ))
 }
 
-exports.addNodesFull = addNodes
+exports.addNodesFull = addNodes;
 
 exports.addPinnedNodes = async function(contract, count, nodeIP, ownerAddress, portCount = 2, nodeIDs = []) {
-    return addNodes(contract, count, nodeIP, ownerAddress, portCount, private = true, nodeIDs);
-}
+    return addNodes(contract, count, nodeIP, ownerAddress, portCount, isPrivate = true, nodeIDs);
+};
 
 exports.addNodes = async function(contract, count, nodeIP, ownerAddress, portCount = 2) {
-    return addNodes(contract, count, nodeIP, ownerAddress, portCount, private = false).then (result =>
+    return addNodes(contract, count, nodeIP, ownerAddress, portCount, isPrivate = false).then (result =>
         result.map(r => r.receipt)
     )
-}
+};
 
 async function addApp (contract, count, owner, pinToNodes = []) {
     let storageHash = string2Bytes32(crypto.randomBytes(16).hexSlice());

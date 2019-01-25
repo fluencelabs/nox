@@ -32,7 +32,7 @@ use crate::contract_func::contract::functions::add_app;
 use crate::contract_func::ContractCaller;
 use crate::utils;
 
-const PATH: &str = "path";
+const CODE_PATH: &str = "code_path";
 const CLUSTER_SIZE: &str = "cluster_size";
 const SWARM_URL: &str = "swarm_url";
 const PINNED: &str = "pin_to";
@@ -145,7 +145,7 @@ fn parse_pinned(args: &ArgMatches) -> Result<Vec<H256>, Error> {
 
 /// Creates `Publisher` from arguments
 pub fn parse(matches: &ArgMatches) -> Result<Publisher, Error> {
-    let path = value_t!(matches, PATH, String)?; //TODO use is_file from clap_validators
+    let path = value_t!(matches, CODE_PATH, String)?; //TODO use is_file from clap_validators
     let mut file = File::open(path).context("can't open WASM file")?;
     let mut buf = Vec::new();
     file.read_to_end(&mut buf)?;
@@ -173,10 +173,11 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Error> {
 /// Parses arguments from console and initialize parameters for Publisher
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     let args = &[
-        Arg::with_name(PATH)
+        Arg::with_name(CODE_PATH)
+            .long(CODE_PATH)
+            .short("c")
             .required(true)
             .takes_value(true)
-            .index(1)
             .help("path to compiled `wasm` code"),
         Arg::with_name(SWARM_URL)
             .long(SWARM_URL)
@@ -187,18 +188,18 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .default_value("http://localhost:8500/"),
         Arg::with_name(CLUSTER_SIZE)
             .long(CLUSTER_SIZE)
-            .short("cs")
+            .short("s")
             .required(false)
             .takes_value(true)
             .default_value("3")
             .help("cluster's size that needed to deploy this code"),
         Arg::with_name(PINNED)
             .long(PINNED)
-            .short("P")
+            .short("p")
             .required(false)
             .takes_value(true)
             .multiple(true)
-            .value_name("<key>")
+            .value_name("key")
             .help(
                 "Tendermint public keys of pinned workers for application (space-separated list)",
             ),
