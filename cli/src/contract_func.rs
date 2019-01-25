@@ -25,11 +25,15 @@ use web3::types::TransactionRequest;
 use web3::types::{Address, Bytes, H256};
 use web3::Web3;
 
+use failure::err_msg;
 use failure::Error;
+use failure::ResultExt;
 use failure::SyncFailure;
 
 use crate::credentials::Credentials;
 use crate::utils;
+use ethabi::RawLog;
+use web3::types::Log;
 
 use_contract!(contract, "../bootstrap/contracts/compiled/Network.abi");
 
@@ -138,4 +142,38 @@ where
         .map_err(SyncFailure::new)?;
 
     Ok(result)
+}
+
+pub fn get_transaction_logs_raw<T, F>(
+    eth_url: &str,
+    tx: &H256,
+    parse_log: F,
+) -> Result<Vec<T>, Error>
+where
+    F: Fn(Log) -> Option<T>,
+{
+    let (_eloop, transport) = Http::new(eth_url).map_err(SyncFailure::new)?;
+    let web3 = web3::Web3::new(transport);
+    let receipt = web3
+        .eth()
+        .transaction_receipt(tx.clone())
+        .wait()
+        .map_err(SyncFailure::new)
+        .context(format!(
+            "Error retrieving transaction receipt for tx {:#x}",
+            tx
+        ))?
+        .ok_or(err_msg(format!("No receipt for tx {:#x}", tx)))?;
+
+    Ok(receipt.logs.into_iter().filter_map(parse_log).collect())
+}
+
+pub fn get_transaction_logs<T, F>(eth_url: &str, tx: &H256, parse_log: F) -> Result<Vec<T>, Error>
+where
+    F: Fn(RawLog) -> ethabi::Result<T>,
+{
+    get_transaction_logs_raw(eth_url, tx, |l| {
+        let raw = RawLog::from((l.topics, l.data.0));
+        parse_log(raw).ok()
+    })
 }

@@ -161,30 +161,6 @@ impl TestOpts {
         logs
     }
 
-    pub fn get_transaction_logs<T, F>(&self, tx: &H256, parse_log: F) -> Vec<T>
-    where
-        F: Fn(RawLog) -> ethabi::Result<T>,
-    {
-        let (_eloop, transport) = Http::new(&self.eth.eth_url.as_str()).unwrap();
-        let web3 = web3::Web3::new(transport);
-        let receipt = web3
-            .eth()
-            .transaction_receipt(tx.clone())
-            .wait()
-            .unwrap()
-            .unwrap();
-        let logs: Vec<T> = receipt
-            .logs
-            .into_iter()
-            .filter_map(|l| {
-                let raw = RawLog::from((l.topics, l.data.0));
-                parse_log(raw).ok()
-            })
-            .collect();
-
-        logs
-    }
-
     #[allow(dead_code)]
     pub fn delete_app(&self, app_id: H256, deployed: bool) -> Result<H256> {
         let delete = DeleteApp::new(app_id, deployed, self.eth.clone());

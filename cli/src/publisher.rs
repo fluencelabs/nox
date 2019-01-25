@@ -24,12 +24,15 @@ use failure::ResultExt;
 use clap::ArgMatches;
 use clap::{value_t, App, Arg, SubCommand};
 use derive_getters::Getters;
+use ethabi::RawLog;
 use reqwest::Client;
 use web3::types::H256;
 
 use crate::command::{parse_ethereum_args, with_ethereum_args, EthereumArgs};
-use crate::contract_func::call_contract;
+use crate::contract_func::contract::events::app_deployed::parse_log as parse_deployed;
+use crate::contract_func::contract::events::app_enqueued::parse_log as parse_enqueued;
 use crate::contract_func::contract::functions::add_app;
+use crate::contract_func::{call_contract, get_transaction_logs_raw};
 use crate::utils;
 
 const CODE_PATH: &str = "code_path";
@@ -45,6 +48,22 @@ pub struct Publisher {
     cluster_size: u8,
     pin_to_nodes: Vec<H256>,
     eth: EthereumArgs,
+}
+
+#[derive(Debug)]
+pub enum Published {
+    Deployed { app_id: H256, tx: H256 },
+    Enqueued { app_id: H256, tx: H256 },
+}
+
+impl Published {
+    pub fn deployed(app_id: H256, tx: H256) -> Published {
+        Published::Deployed { app_id, tx }
+    }
+
+    pub fn enqueued(app_id: H256, tx: H256) -> Published {
+        Published::Enqueued { app_id, tx }
+    }
 }
 
 impl Publisher {
@@ -66,7 +85,7 @@ impl Publisher {
     }
 
     /// Sends code to Swarm and publishes the hash of the file from Swarm to Fluence smart contract
-    pub fn publish(&self, show_progress: bool) -> Result<H256, Error> {
+    pub fn publish(&self, show_progress: bool) -> Result<Published, Error> {
         let upload_to_swarm_fn = || -> Result<H256, Error> {
             let hash = upload_code_to_swarm(&self.swarm_url.as_str(), &self.bytes.as_slice())?;
             let hash = hash.parse()?;
@@ -75,8 +94,8 @@ impl Publisher {
 
         let hash: H256 = if show_progress {
             utils::with_progress(
-                "Code uploading...",
-                "1/2",
+                "Code uploading to Swarm...",
+                "1/3",
                 "Code uploaded.",
                 upload_to_swarm_fn,
             )
@@ -99,16 +118,42 @@ impl Publisher {
             call_contract(&self.eth, call_data)
         };
 
+        let wait_event_fn = |tx: H256| -> Result<Published, Error> {
+            let logs: Vec<Published> =
+                get_transaction_logs_raw(self.eth.eth_url.as_str(), &tx, |log| {
+                    let raw = || RawLog::from((log.topics.clone(), log.data.0.clone()));
+
+                    let app_id = parse_deployed(raw()).map(|e| Published::deployed(e.app_id, tx));
+                    let app_id =
+                        app_id.or(parse_enqueued(raw()).map(|e| Published::enqueued(e.app_id, tx)));
+
+                    app_id.ok()
+                })
+                .context("Error parsing transaction logs")?;
+
+            logs.into_iter().nth(0).ok_or(err_msg(
+                "No AppDeployed or AppEnqueued is found in transaction logs",
+            ))
+        };
+
         // sending transaction with the hash of file with code to ethereum
         if show_progress {
-            utils::with_progress(
-                "Submitting the code to the smart contract...",
-                "2/2",
-                "Code submitted.",
+            let tx = utils::with_progress(
+                "Publishing the app to the smart contract...",
+                "2/3",
+                "App publish tx was sent.",
                 publish_to_contract_fn,
+            )?;
+
+            utils::with_progress(
+                "Waiting for app to be published or deployed...",
+                "3/3",
+                "App published.",
+                || wait_event_fn(tx),
             )
         } else {
-            publish_to_contract_fn()
+            let tx = publish_to_contract_fn()?;
+            wait_event_fn(tx)
         }
     }
 }
@@ -203,7 +248,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     ];
 
     SubCommand::with_name("publish")
-        .about("Publish code to ethereum blockchain")
+        .about("Upload code to Swarm and publish app to Ethereum blockchain")
         .args(with_ethereum_args(args).as_slice())
 }
 

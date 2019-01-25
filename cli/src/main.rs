@@ -18,7 +18,9 @@ use clap::App;
 use clap::AppSettings;
 use console::style;
 
+use fluence::publisher::Published;
 use fluence::{check, contract_status, delete_app, delete_node, publisher, register};
+use web3::types::H256;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -38,12 +40,26 @@ fn main() {
     match app.get_matches().subcommand() {
         ("publish", Some(args)) => {
             let publisher = publisher::parse(args).expect("Error parsing arguments");
-            let transaction = publisher.publish(true).expect("Error sending transaction");
+            let published = publisher.publish(true).expect("Error sending transaction");
 
-            let formatted_finish_msg = style("Code published. Submitted transaction").blue();
-            let formatted_tx = style(transaction).red().bold();
+            let print_status = |app_id: H256, tx: H256, status: &str| {
+                println!("{}", style(format!("App {}.", status)).blue());
+                println!(
+                    "{0: >10} {1:#x}",
+                    style("app id:").blue(),
+                    style(app_id).red().bold()
+                );
+                println!(
+                    "{0: >10} {1:#x}",
+                    style("tx hash:").blue(),
+                    style(tx).red().bold()
+                );
+            };
 
-            println!("{}: {:?}", formatted_finish_msg, formatted_tx);
+            match published {
+                Published::Deployed { app_id, tx } => print_status(app_id, tx, "deployed"),
+                Published::Enqueued { app_id, tx } => print_status(app_id, tx, "enqueued"),
+            }
         }
 
         ("register", Some(args)) => {
