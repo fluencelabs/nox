@@ -10,7 +10,7 @@ Roles overview [readme](docs/guides/README.md).
 
 ## Moving Parts
 
-- Smart Contract ([readme](bootstrap/README.md), [private ethereum](bootstrap/private_ethereum.md))
+- Smart Contract ([readme](bootstrap/README.md))
 - CLI tool ([readme](cli/README.md))
 - Swarm integration ([readme](externalstorage/README.md))
 - JS client ([readme](fluence-js/README.md), [npm](https://www.npmjs.com/package/fluence-js))
