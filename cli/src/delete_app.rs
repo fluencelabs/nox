@@ -103,11 +103,11 @@ impl DeleteApp {
         };
 
         if show_progress {
-            let sync_inc = self.eth.wait_syncing as u32;
-            let steps = 1 + (self.eth.wait as u32) + sync_inc;
+            let sync_inc = self.eth.wait_eth_sync as u32;
+            let steps = 1 + (self.eth.wait_tx_include as u32) + sync_inc;
             let step = |s| format!("{}/{}", s + sync_inc, steps);
 
-            if self.eth.wait_syncing {
+            if self.eth.wait_eth_sync {
                 utils::with_progress(
                     "Waiting while Ethereum node is syncing...",
                     step(0).as_str(),
@@ -123,7 +123,7 @@ impl DeleteApp {
                 delete_app_fn,
             )?;
 
-            if self.eth.wait {
+            if self.eth.wait_tx_include {
                 utils::print_tx_hash(tx);
                 utils::with_progress(
                     "Waiting for a transaction to be included in a block...",
@@ -139,12 +139,12 @@ impl DeleteApp {
                 Ok(tx)
             }
         } else {
-            if self.eth.wait_syncing {
+            if self.eth.wait_eth_sync {
                 wait_sync(self.eth.eth_url.clone())?;
             }
             let tx = delete_app_fn()?;
 
-            if self.eth.wait {
+            if self.eth.wait_tx_include {
                 wait_event_fn(&tx)?;
             }
 

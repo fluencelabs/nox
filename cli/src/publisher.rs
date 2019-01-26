@@ -128,7 +128,7 @@ impl Publisher {
 
         // sending transaction with the hash of file with code to ethereum
         if show_progress {
-            let steps = if self.eth.wait { 3 } else { 2 };
+            let steps = if self.eth.wait_tx_include { 3 } else { 2 };
             let step = |s| format!("{}/{}", s, steps);
 
             let hash: H256 = utils::with_progress(
@@ -146,7 +146,7 @@ impl Publisher {
                 || publish_to_contract_fn(hash),
             )?;
 
-            if self.eth.wait {
+            if self.eth.wait_tx_include {
                 utils::print_tx_hash(tx);
                 utils::with_progress(
                     "Waiting for a transaction to be included in a block...",
@@ -164,7 +164,7 @@ impl Publisher {
             let hash = upload_to_swarm_fn()?;
             let tx = publish_to_contract_fn(hash)?;
 
-            if self.eth.wait {
+            if self.eth.wait_tx_include {
                 wait_tx_included(self.eth.eth_url.clone(), &tx)?;
                 wait_event_fn(&tx)
             } else {

@@ -51,8 +51,8 @@ pub struct EthereumArgs {
     pub account: Address,
     pub contract_address: Address,
     pub eth_url: String,
-    pub wait: bool,
-    pub wait_syncing: bool,
+    pub wait_tx_include: bool,
+    pub wait_eth_sync: bool,
 }
 
 pub fn contract_address<'a, 'b>() -> Arg<'a, 'b> {
@@ -220,8 +220,8 @@ pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Error> {
         account,
         contract_address,
         eth_url,
-        wait,
-        wait_syncing,
+        wait_tx_include: wait,
+        wait_eth_sync: wait_syncing,
     });
 }
 
@@ -261,8 +261,8 @@ impl Default for EthereumArgs {
             account: "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d".parse().unwrap(),
             contract_address: "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap(),
             eth_url: String::from("http://localhost:8545"),
-            wait: false,
-            wait_syncing: false,
+            wait_tx_include: false,
+            wait_eth_sync: false,
         }
     }
 }

@@ -78,8 +78,8 @@ impl TestOpts {
             credentials,
             eth_url,
             gas,
-            wait: false,
-            wait_syncing: false,
+            wait_tx_include: false,
+            wait_eth_sync: false,
         };
 
         TestOpts {

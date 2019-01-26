@@ -80,11 +80,11 @@ impl DeleteNode {
         };
 
         if show_progress {
-            let sync_inc = self.eth.wait_syncing as u32;
-            let steps = 1 + (self.eth.wait as u32) + sync_inc;
+            let sync_inc = self.eth.wait_eth_sync as u32;
+            let steps = 1 + (self.eth.wait_tx_include as u32) + sync_inc;
             let step = |s| format!("{}/{}", s + sync_inc, steps);
 
-            if self.eth.wait_syncing {
+            if self.eth.wait_eth_sync {
                 utils::with_progress(
                     "Waiting while Ethereum node is syncing...",
                     step(0).as_str(),
@@ -100,7 +100,7 @@ impl DeleteNode {
                 delete_node_fn,
             )?;
 
-            if self.eth.wait {
+            if self.eth.wait_tx_include {
                 utils::print_tx_hash(tx);
                 utils::with_progress(
                     "Waiting for a transaction to be included in a block...",
@@ -116,12 +116,12 @@ impl DeleteNode {
                 Ok(tx)
             }
         } else {
-            if self.eth.wait_syncing {
+            if self.eth.wait_eth_sync {
                 wait_sync(self.eth.eth_url.clone())?;
             }
             let tx = delete_node_fn()?;
 
-            if self.eth.wait {
+            if self.eth.wait_tx_include {
                 wait_tx_included(self.eth.eth_url.clone(), &tx)?;
                 wait_event_fn(&tx)?;
             }
