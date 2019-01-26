@@ -32,7 +32,7 @@ use crate::command::{parse_ethereum_args, with_ethereum_args, EthereumArgs};
 use crate::contract_func::contract::events::app_deployed::parse_log as parse_deployed;
 use crate::contract_func::contract::events::app_enqueued::parse_log as parse_enqueued;
 use crate::contract_func::contract::functions::add_app;
-use crate::contract_func::{call_contract, get_transaction_logs_raw};
+use crate::contract_func::{call_contract, get_transaction_logs_raw, wait_tx_included};
 use crate::utils;
 
 const CODE_PATH: &str = "code_path";
@@ -118,14 +118,14 @@ impl Publisher {
             call_contract(&self.eth, call_data)
         };
 
-        let wait_event_fn = |tx: H256| -> Result<Published, Error> {
+        let wait_event_fn = |tx: &H256| -> Result<Published, Error> {
             let logs: Vec<Published> =
                 get_transaction_logs_raw(self.eth.eth_url.as_str(), &tx, |log| {
                     let raw = || RawLog::from((log.topics.clone(), log.data.0.clone()));
 
-                    let app_id = parse_deployed(raw()).map(|e| Published::deployed(e.app_id, tx));
-                    let app_id =
-                        app_id.or(parse_enqueued(raw()).map(|e| Published::enqueued(e.app_id, tx)));
+                    let app_id = parse_deployed(raw()).map(|e| Published::deployed(e.app_id, *tx));
+                    let app_id = app_id
+                        .or(parse_enqueued(raw()).map(|e| Published::enqueued(e.app_id, *tx)));
 
                     app_id.ok()
                 })
@@ -145,16 +145,19 @@ impl Publisher {
                 "App publish tx was sent.",
                 publish_to_contract_fn,
             )?;
-
+            utils::print_info_msg("Transaction was submitted, tx hash:", format!("{:#x}", tx));
             utils::with_progress(
                 "Waiting for an app to be published or deployed...",
                 "3/3",
                 "App published.",
-                || wait_event_fn(tx),
+                || {
+                    wait_tx_included(self.eth.eth_url.clone(), &tx)?;
+                    wait_event_fn(&tx)
+                },
             )
         } else {
             let tx = publish_to_contract_fn()?;
-            wait_event_fn(tx)
+            wait_event_fn(&tx)
         }
     }
 }

@@ -18,6 +18,7 @@ use failure::Error;
 use failure::SyncFailure;
 
 use clap::{value_t, ArgMatches};
+use console::style;
 use ethkey::Secret;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::{Url, UrlError};
@@ -71,6 +72,10 @@ fn create_progress_bar(prefix: &str, msg: &str) -> ProgressBar {
     bar.set_style(ProgressStyle::default_spinner().template(TEMPLATE));
 
     bar
+}
+
+pub fn print_info_msg(msg: &str, important: String) {
+    println!("{} {}", style(msg).blue(), style(important).red().bold())
 }
 
 // Parses URL from the string

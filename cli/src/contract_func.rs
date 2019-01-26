@@ -168,6 +168,14 @@ where
         ))?
         .ok_or(err_msg(format!("No receipt for tx {:#x}", tx)))?;
 
+    receipt
+        .status
+        .filter(|s| !s.is_zero())
+        .ok_or(err_msg(format!(
+            "Transaction {:#x} has status of 0, meaning it was reverted",
+            tx
+        )))?;
+
     Ok(receipt.logs.into_iter().filter_map(parse_log).collect())
 }
 
@@ -198,7 +206,7 @@ impl From<web3::Error> for TxError {
     }
 }
 
-pub fn wait_tx_included(eth_url: &str, tx: &H256) -> Result<Web3Transaction, Error> {
+pub fn wait_tx_included(eth_url: String, tx: &H256) -> Result<Web3Transaction, Error> {
     use futures::future;
     use futures_retry::{FutureRetry, RetryPolicy};
     use tokio::runtime::Runtime;
@@ -206,7 +214,6 @@ pub fn wait_tx_included(eth_url: &str, tx: &H256) -> Result<Web3Transaction, Err
     let mut rt = Runtime::new()?;
 
     let tx = tx.clone();
-    let eth_url = eth_url.to_string();
     let fut = FutureRetry::new(
         move || {
             let http_f = future::result(Http::new(eth_url.as_str()).map_err(|e| e.into()));
@@ -224,7 +231,7 @@ pub fn wait_tx_included(eth_url: &str, tx: &H256) -> Result<Web3Transaction, Err
         |e| match e {
             TxError::NoTx(_) => RetryPolicy::ForwardError(e),
             TxError::NoBlock | TxError::Web3Error(_) => {
-                RetryPolicy::WaitRetry(Duration::from_millis(1000))
+                RetryPolicy::WaitRetry(Duration::from_secs(10))
             }
         },
     );
