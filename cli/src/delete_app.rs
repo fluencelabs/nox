@@ -23,7 +23,7 @@ use crate::contract_func::call_contract;
 use crate::contract_func::contract::events::app_deleted;
 use crate::contract_func::contract::functions::delete_app;
 use crate::contract_func::contract::functions::dequeue_app;
-use crate::contract_func::get_transaction_logs;
+use crate::contract_func::{get_transaction_logs, poll_get_transaction};
 use crate::utils;
 use failure::err_msg;
 use failure::Error;
@@ -113,7 +113,10 @@ impl DeleteApp {
                 "Waiting for an app to be deleted...",
                 "2/2",
                 "App deleted.",
-                || wait_event_fn(tx),
+                || {
+                    let res_tx = poll_get_transaction(self.eth.eth_url.as_str(), &tx)?;
+                    wait_event_fn(tx)
+                },
             )
         } else {
             let tx = delete_app_fn()?;

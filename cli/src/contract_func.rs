@@ -22,18 +22,21 @@ use web3::futures::Future;
 use web3::transports::Http;
 use web3::types::CallRequest;
 use web3::types::TransactionRequest;
-use web3::types::{Address, Bytes, H256};
+use web3::types::{Address, Bytes, Transaction as Web3Transaction, H256};
 use web3::Web3;
 
 use failure::err_msg;
 use failure::Error;
+use failure::Fail;
 use failure::ResultExt;
 use failure::SyncFailure;
 
 use crate::credentials::Credentials;
 use crate::utils;
 use ethabi::RawLog;
+use std::time::Duration;
 use web3::types::Log;
+use web3::types::TransactionId;
 
 use_contract!(contract, "../bootstrap/contracts/compiled/Network.abi");
 
@@ -176,4 +179,60 @@ where
         let raw = RawLog::from((l.topics, l.data.0));
         parse_log(raw).ok()
     })
+}
+
+#[derive(Fail, Debug)]
+#[fail(display = "TxError")]
+pub enum TxError {
+    #[fail(display = "No such transaction {:#x}", _0)]
+    NoTx(H256),
+    #[fail(display = "Undefined block number in transaction")]
+    NoBlock,
+    #[fail(display = "Web3 error {:?}", _0)]
+    Web3Error(Error),
+}
+
+impl From<web3::Error> for TxError {
+    fn from(e: web3::Error) -> TxError {
+        TxError::Web3Error(SyncFailure::new(e).into())
+    }
+}
+
+pub fn poll_get_transaction(eth_url: &str, tx: &H256) -> Result<Web3Transaction, Error> {
+    use futures::future;
+    use futures_retry::{FutureRetry, RetryPolicy};
+    use tokio::runtime::Runtime;
+
+    let mut rt = Runtime::new()?;
+
+    let tx_cl = tx.clone();
+    let eth_rul_cl = eth_url.to_string();
+    let fut = FutureRetry::new(
+        move || {
+            let http_f = future::result(Http::new(eth_rul_cl.as_str()).map_err(|e| e.into()));
+            http_f.and_then(|(_eloop, transport)| {
+                let web3 = web3::Web3::new(transport);
+                web3.eth()
+                    .transaction(TransactionId::Hash(tx_cl))
+                    .map_err(|e| e.into())
+                    .and_then(|tx_res| tx_res.ok_or(TxError::NoTx(tx_cl)))
+                    .and_then(|tx_res| tx_res.block_number.ok_or(TxError::NoBlock).and(Ok(tx_res)))
+            })
+        },
+        |e| match e {
+            TxError::NoTx(_) => RetryPolicy::ForwardError(e),
+            TxError::NoBlock => {
+                println!("No block");
+                RetryPolicy::WaitRetry(Duration::from_millis(1000))
+            }
+            TxError::Web3Error(we) => {
+                println!("Got web3 error {:?}", we);
+                RetryPolicy::WaitRetry(Duration::from_millis(1000))
+            }
+        },
+    );
+    //    .wait()
+    //    .map_err(|e| e.into())
+
+    rt.block_on(fut).map_err(|e| e.into())
 }
