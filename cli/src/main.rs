@@ -19,6 +19,8 @@ use clap::AppSettings;
 use console::style;
 
 use fluence::publisher::Published;
+use fluence::register::Registered;
+use fluence::utils;
 use fluence::{check, contract_status, delete_app, delete_node, publisher, register};
 use web3::types::H256;
 
@@ -59,17 +61,50 @@ fn main() {
             match published {
                 Published::Deployed { app_id, tx } => print_status(app_id, tx, "deployed"),
                 Published::Enqueued { app_id, tx } => print_status(app_id, tx, "enqueued"),
+                Published::TransactionSent(tx) => {
+                    utils::print_info_msg("tx hash:", format!("{:#x}", tx))
+                }
             }
         }
 
         ("register", Some(args)) => {
             let register = register::parse(args).expect("Error parsing arguments");
-            let transaction = register.register(true).expect("Error sending transaction");
+            let registered = register.register(true).expect("Error sending transaction");
 
-            let formatted_finish_msg = style("Node registered. Submitted transaction").blue();
-            let formatted_tx = style(transaction).red().bold();
-
-            println!("{}: {:?}", formatted_finish_msg, formatted_tx);
+            match registered {
+                Registered::Deployed { app_ids, ports, tx } => {
+                    println!("{}", style(format!("Node deployed.")).blue());
+                    for (app_id, port) in app_ids.iter().zip(ports.iter()) {
+                        println!(
+                            "{0: >10} {1: ^10} {2: >10} {3:#x}",
+                            style("port:").blue(),
+                            style(port).red().bold(),
+                            style("app id:").blue(),
+                            style(app_id).red().bold()
+                        );
+                    }
+                    println!(
+                        "{0: >10} {1:#x}",
+                        style("tx hash:").blue(),
+                        style(tx).red().bold()
+                    );
+                }
+                Registered::Enqueued(tx) => {
+                    println!("{}", style(format!("Node registered.")).blue());
+                    println!(
+                        "{0: >10} {1:#x}",
+                        style("tx hash:").blue(),
+                        style(tx).red().bold()
+                    );
+                }
+                Registered::TransactionSent(tx) => {
+                    println!(
+                        "{0: >10} {1:#x}",
+                        style("tx hash:").blue(),
+                        style(tx).red().bold()
+                    );
+                }
+            }
         }
 
         ("status", Some(args)) => {
@@ -86,24 +121,20 @@ fn main() {
 
         ("delete_app", Some(args)) => {
             let delete_app = delete_app::parse(args).expect("Error parsing arguments");
-            let transaction = delete_app
+            let tx: H256 = delete_app
                 .delete_app(true)
                 .expect("Error sending transaction");
 
-            let formatted_finish_msg = style("App deleted. Submitted transaction").blue();
-            let formatted_tx = style(transaction).red().bold();
-
-            println!("{}: {:?}", formatted_finish_msg, formatted_tx);
+            utils::print_info_msg("App deleted. Submitted transaction", format!("{:#x}", tx));
         }
 
         ("delete_node", Some(args)) => {
             let delete_node = delete_node::parse(args).expect("Error parsing arguments");
-            let transaction = delete_node.delete_node(true);
+            let tx = delete_node
+                .delete_node(true)
+                .expect("Error sending transaction");
 
-            let formatted_finish_msg = style("Node deleted. Submitted transaction").blue();
-            let formatted_tx = style(transaction).red().bold();
-
-            println!("{}: {:?}", formatted_finish_msg, formatted_tx);
+            utils::print_info_msg("Node deleted. Submitted transaction", format!("{:#x}", tx));
         }
 
         c => panic!("Unexpected command: {}", c.0),

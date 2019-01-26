@@ -41,6 +41,7 @@ const ETH_URL: &str = "eth_url";
 const TENDERMINT_KEY: &str = "tendermint_key";
 const BASE64_TENDERMINT_KEY: &str = "base64_tendermint_key";
 const TENDERMINT_NODE_ID: &str = "tendermint_node_id";
+const WAIT: &str = "wait";
 
 #[derive(Debug, Clone)]
 pub struct EthereumArgs {
@@ -49,6 +50,7 @@ pub struct EthereumArgs {
     pub account: Address,
     pub contract_address: Address,
     pub eth_url: String,
+    pub wait: bool,
 }
 
 pub fn contract_address<'a, 'b>() -> Arg<'a, 'b> {
@@ -131,6 +133,12 @@ pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
             .required(false)
             .takes_value(true)
             .help("Path to keystore JSON file with Ethereum private key inside"),
+        Arg::with_name(WAIT)
+            .long(WAIT)
+            .short("W")
+            .required(false)
+            .takes_value(false)
+            .help("If supplied, wait for the transaction to be included in a block"),
     ];
 
     // append args
@@ -198,12 +206,15 @@ pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Error> {
 
     let eth_url = parse_eth_url(args)?;
 
+    let wait = args.is_present(WAIT);
+
     return Ok(EthereumArgs {
         credentials,
         gas,
         account,
         contract_address,
         eth_url,
+        wait,
     });
 }
 

@@ -238,3 +238,22 @@ pub fn wait_tx_included(eth_url: String, tx: &H256) -> Result<Web3Transaction, E
 
     rt.block_on(fut).map_err(|e| e.into())
 }
+
+pub fn wait_sync(eth_url: String) -> Result<(), Error> {
+    use std::thread;
+
+    let (_eloop, transport) = Http::new(eth_url.as_str()).map_err(SyncFailure::new)?;
+    let web3 = &web3::Web3::new(transport);
+
+    let mut sync = utils::check_sync(web3)?;
+
+    let ten_seconds = Duration::from_secs(10);
+
+    while sync {
+        thread::sleep(ten_seconds);
+
+        sync = utils::check_sync(web3)?;
+    }
+
+    Ok(())
+}

@@ -66,6 +66,7 @@ mod tests {
             account,
             contract_address,
             eth_url: ETH_URL.to_string(),
+            wait: false,
         };
 
         Publisher::new(
@@ -93,6 +94,7 @@ mod tests {
             account,
             contract_address,
             eth_url: ETH_URL.to_string(),
+            wait: false,
         };
 
         Register::new(

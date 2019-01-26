@@ -52,6 +52,7 @@ pub struct Publisher {
 
 #[derive(Debug)]
 pub enum Published {
+    TransactionSent(H256),
     Deployed { app_id: H256, tx: H256 },
     Enqueued { app_id: H256, tx: H256 },
 }
@@ -60,7 +61,6 @@ impl Published {
     pub fn deployed(app_id: H256, tx: H256) -> Published {
         Published::Deployed { app_id, tx }
     }
-
     pub fn enqueued(app_id: H256, tx: H256) -> Published {
         Published::Enqueued { app_id, tx }
     }
@@ -92,18 +92,7 @@ impl Publisher {
             Ok(hash)
         };
 
-        let hash: H256 = if show_progress {
-            utils::with_progress(
-                "Code uploading to Swarm...",
-                "1/3",
-                "Code uploaded.",
-                upload_to_swarm_fn,
-            )
-        } else {
-            upload_to_swarm_fn()
-        }?;
-
-        let publish_to_contract_fn = || -> Result<H256, Error> {
+        let publish_to_contract_fn = |hash: H256| -> Result<H256, Error> {
             //todo: add correct receipts
             let receipt: H256 =
                 "0000000000000000000000000000000000000000000000000000000000000000".parse()?;
@@ -139,25 +128,48 @@ impl Publisher {
 
         // sending transaction with the hash of file with code to ethereum
         if show_progress {
+            let steps = if self.eth.wait { 3 } else { 2 };
+            let step = |s| format!("{}/{}", s, steps);
+
+            let hash: H256 = utils::with_progress(
+                "Code uploading to Swarm...",
+                step(1).as_str(),
+                "Code uploaded.",
+                upload_to_swarm_fn,
+            )?;
+            utils::print_info_msg("swarm hash:", format!("{:#x}", hash));
+
             let tx = utils::with_progress(
                 "Publishing the app to the smart contract...",
-                "2/3",
+                step(2).as_str(),
                 "App publish tx was sent.",
-                publish_to_contract_fn,
+                || publish_to_contract_fn(hash),
             )?;
-            utils::print_info_msg("Transaction was submitted, tx hash:", format!("{:#x}", tx));
-            utils::with_progress(
-                "Waiting for an app to be published or deployed...",
-                "3/3",
-                "App published.",
-                || {
-                    wait_tx_included(self.eth.eth_url.clone(), &tx)?;
-                    wait_event_fn(&tx)
-                },
-            )
+
+            if self.eth.wait {
+                utils::print_info_msg("tx hash:", format!("{:#x}", tx));
+                utils::with_progress(
+                    "Waiting for an app to be published or deployed...",
+                    step(3).as_str(),
+                    "App published.",
+                    || {
+                        wait_tx_included(self.eth.eth_url.clone(), &tx)?;
+                        wait_event_fn(&tx)
+                    },
+                )
+            } else {
+                Ok(Published::TransactionSent(tx))
+            }
         } else {
-            let tx = publish_to_contract_fn()?;
-            wait_event_fn(&tx)
+            let hash = upload_to_swarm_fn()?;
+            let tx = publish_to_contract_fn(hash)?;
+
+            if self.eth.wait {
+                wait_tx_included(self.eth.eth_url.clone(), &tx)?;
+                wait_event_fn(&tx)
+            } else {
+                Ok(Published::TransactionSent(tx))
+            }
         }
     }
 }
@@ -299,6 +311,7 @@ mod tests {
             account: account.parse().unwrap(),
             contract_address,
             eth_url: String::from("http://localhost:8545"),
+            wait: false,
         };
 
         Publisher::new(

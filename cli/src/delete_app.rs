@@ -91,36 +91,46 @@ impl DeleteApp {
             call_contract(&self.eth, call_data)
         };
 
-        let wait_event_fn = |tx: &H256| -> Result<H256, Error> {
+        let wait_event_fn = |tx: &H256| -> Result<(), Error> {
             let logs = get_transaction_logs(self.eth.eth_url.as_str(), tx, app_deleted::parse_log)?;
             logs.first().ok_or(err_msg(format!(
                 "No AppDeleted event is found in transaction logs. tx: {:#x}",
                 tx
             )))?;
 
-            Ok(*tx)
+            Ok(())
         };
 
         if show_progress {
+            let steps = if self.eth.wait { 2 } else { 1 };
+            let step = |s| format!("{}/{}", s, steps);
+
             let tx = utils::with_progress(
                 "Deleting app from smart contract...",
-                "1/2",
+                step(1).as_str(),
                 "App deletion transaction was sent.",
                 delete_app_fn,
             )?;
-            utils::print_info_msg("Transaction was submitted, tx hash:", format!("{:#x}", tx));
-            utils::with_progress(
-                "Waiting for an app to be deleted...",
-                "2/2",
-                "App deleted.",
-                || {
-                    wait_tx_included(self.eth.eth_url.clone(), &tx)?;
-                    wait_event_fn(&tx)
-                },
-            )
+
+            if self.eth.wait {
+                utils::print_info_msg("Transaction was submitted, tx hash:", format!("{:#x}", tx));
+                utils::with_progress(
+                    "Waiting for an app to be deleted...",
+                    step(2).as_str(),
+                    "App deleted.",
+                    || {
+                        wait_tx_included(self.eth.eth_url.clone(), &tx)?;
+                        wait_event_fn(&tx)?;
+                        Ok(tx)
+                    },
+                )
+            } else {
+                Ok(tx)
+            }
         } else {
             let tx = delete_app_fn()?;
-            wait_event_fn(&tx)
+            wait_event_fn(&tx)?;
+            Ok(tx)
         }
     }
 }

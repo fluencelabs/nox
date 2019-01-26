@@ -54,6 +54,7 @@ impl TestOpts {
             credentials: Credentials::No,
             eth_url: String::from("http://localhost:8545/"),
             gas: 1_000_000,
+            wait: false,
         };
 
         TestOpts {
@@ -82,6 +83,7 @@ impl TestOpts {
             credentials,
             eth_url,
             gas,
+            wait: false,
         };
 
         TestOpts {

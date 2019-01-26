@@ -15,21 +15,19 @@
  */
 
 use std::net::IpAddr;
-use std::{thread, time};
 
 use failure::err_msg;
 use failure::Error;
-use failure::SyncFailure;
 
 use clap::{value_t, App, Arg, ArgMatches, SubCommand};
 use derive_getters::Getters;
 use hex;
-use web3::transports::Http;
 use web3::types::H256;
 
 use crate::command::*;
-use crate::contract_func::call_contract;
+use crate::contract_func::contract::events::app_deployed::parse_log as parse_deployed;
 use crate::contract_func::contract::functions::add_node;
+use crate::contract_func::{call_contract, get_transaction_logs, wait_sync, wait_tx_included};
 use crate::types::{NodeAddress, IP_LEN, TENDERMINT_NODE_ID_LEN};
 use crate::utils;
 use web3::types::H160;
@@ -50,6 +48,16 @@ pub struct Register {
     wait_syncing: bool,
     private: bool,
     eth: EthereumArgs,
+}
+
+pub enum Registered {
+    TransactionSent(H256),
+    Deployed {
+        app_ids: Vec<H256>,
+        ports: Vec<u16>,
+        tx: H256,
+    },
+    Enqueued(H256),
 }
 
 impl Register {
@@ -109,25 +117,7 @@ impl Register {
     }
 
     /// Registers a node in Fluence smart contract
-    pub fn register(&self, show_progress: bool) -> Result<H256, Error> {
-        let wait_syncing_fn = || -> Result<(), Error> {
-            let (_eloop, transport) =
-                Http::new(&self.eth.eth_url.as_str()).map_err(SyncFailure::new)?;
-            let web3 = &web3::Web3::new(transport);
-
-            let mut sync = utils::check_sync(web3)?;
-
-            let ten_seconds = time::Duration::from_secs(10);
-
-            while sync {
-                thread::sleep(ten_seconds);
-
-                sync = utils::check_sync(web3)?;
-            }
-
-            Ok(())
-        };
-
+    pub fn register(&self, show_progress: bool) -> Result<Registered, Error> {
         let publish_to_contract_fn = || -> Result<H256, Error> {
             let hash_addr: NodeAddress = self.serialize_node_address()?;
 
@@ -142,26 +132,79 @@ impl Register {
             call_contract(&self.eth, call_data)
         };
 
+        let wait_event_fn = |tx: &H256| -> Result<Registered, Error> {
+            let logs = get_transaction_logs(self.eth.eth_url.as_str(), tx, parse_deployed)?;
+
+            let status = if logs.is_empty() {
+                Registered::Enqueued(*tx)
+            } else {
+                let (app_ids, ports) = logs
+                    .iter()
+                    .filter_map(|e| {
+                        let idx = e.node_i_ds.iter().position(|id| *id == self.tendermint_key);
+                        idx.and_then(|i| e.ports.get(i)).map(|port| {
+                            let port = Into::<u64>::into(*port) as u16;
+                            (e.app_id, port)
+                        })
+                    })
+                    .unzip();
+                Registered::Deployed {
+                    app_ids,
+                    ports,
+                    tx: *tx,
+                }
+            };
+
+            Ok(status)
+        };
+
         // sending transaction with the hash of file with code to ethereum
         if show_progress {
+            let sync_inc = self.wait_syncing as u32;
+            let steps = 1 + (self.eth.wait as u32) + sync_inc;
+            let step = |s| format!("{}/{}", s + sync_inc, steps);
+
             if self.wait_syncing {
                 utils::with_progress(
-                    "Waiting for the node is syncing",
-                    "1/2",
+                    "Waiting for the node is syncing...",
+                    step(0).as_str(),
                     "Node synced.",
-                    wait_syncing_fn,
+                    || wait_sync(self.eth.eth_url.clone()),
                 )?;
             };
 
-            let prefix = if self.wait_syncing { "2/2" } else { "1/1" };
-            utils::with_progress(
+            let tx = utils::with_progress(
                 "Adding the node to the smart contract...",
-                prefix,
+                step(1).as_str(),
                 "Node added.",
                 publish_to_contract_fn,
-            )
+            )?;
+
+            if self.eth.wait {
+                utils::with_progress(
+                    "Waiting for the transaction to be included in a block...",
+                    step(2).as_str(),
+                    "Transaction included.",
+                    || {
+                        wait_tx_included(self.eth.eth_url.clone(), &tx)?;
+                        wait_event_fn(&tx)
+                    },
+                )
+            } else {
+                Ok(Registered::TransactionSent(tx))
+            }
         } else {
-            publish_to_contract_fn()
+            if self.wait_syncing {
+                wait_sync(self.eth.eth_url.clone())?;
+            }
+
+            let tx = publish_to_contract_fn()?;
+
+            if self.eth.wait {
+                wait_event_fn(&tx)
+            } else {
+                Ok(Registered::TransactionSent(tx))
+            }
         }
     }
 }
@@ -246,6 +289,7 @@ pub mod tests {
 
     use super::Register;
     use std::net::IpAddr;
+    use std::thread;
 
     pub fn generate_register(credentials: Credentials) -> Register {
         let contract_address: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap();
@@ -263,6 +307,7 @@ pub mod tests {
             account,
             contract_address,
             eth_url: String::from("http://localhost:8545"),
+            wait: false,
         };
 
         Register::new(
