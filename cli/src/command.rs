@@ -253,18 +253,25 @@ pub fn parse_tendermint_node_id(args: &ArgMatches) -> Result<H160, Error> {
     Ok(value_t!(args, TENDERMINT_NODE_ID, H160)?)
 }
 
-#[cfg(test)]
 impl Default for EthereumArgs {
-    #[cfg(test)]
     fn default() -> EthereumArgs {
         EthereumArgs {
-            credentials,
+            credentials: Credentials::No,
             gas: 1000000,
-            account,
-            contract_address,
+            account: "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d".parse().unwrap(),
+            contract_address: "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap(),
             eth_url: String::from("http://localhost:8545"),
             wait: false,
             wait_syncing: false,
         }
+    }
+}
+
+impl EthereumArgs {
+    pub fn with_acc_creds(account: Address, credentials: Credentials) -> EthereumArgs {
+        let mut args = EthereumArgs::default();
+        args.credentials = credentials;
+        args.account = account;
+        args
     }
 }

@@ -28,6 +28,7 @@ use derive_getters::Getters;
 use ethabi::RawLog;
 use ethabi::TopicFilter;
 use fluence::command::EthereumArgs;
+use fluence::contract_func::get_transaction_logs;
 use fluence::delete_app::DeleteApp;
 use fluence::delete_node::DeleteNode;
 use fluence::publisher::Published;
@@ -114,7 +115,11 @@ impl TestOpts {
 
         let tx = match reg.register(false)? {
             Registered::TransactionSent(tx) => tx,
-            Registered::Deployed { app_ids: _, tx } => tx,
+            Registered::Deployed {
+                app_ids: _,
+                ports: _,
+                tx,
+            } => tx,
             Registered::Enqueued(tx) => tx,
         };
 
@@ -133,7 +138,7 @@ impl TestOpts {
         let tx = match publish.publish(false)? {
             Published::TransactionSent(tx) => tx,
             Published::Deployed { app_id: _, tx } => tx,
-            Published::Enqueued(tx) => tx,
+            Published::Enqueued { app_id: _, tx } => tx,
         };
 
         Ok(tx)
@@ -179,5 +184,12 @@ impl TestOpts {
         let delete = DeleteNode::new(node_id, self.eth.clone());
 
         delete.delete_node(false)
+    }
+
+    pub fn get_transaction_logs<T, F>(&self, tx: &H256, parse_log: F) -> Vec<T>
+    where
+        F: Fn(RawLog) -> ethabi::Result<T>,
+    {
+        get_transaction_logs(self.eth.eth_url.as_str(), tx, parse_log).unwrap()
     }
 }

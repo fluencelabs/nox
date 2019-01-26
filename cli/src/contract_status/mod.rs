@@ -42,24 +42,16 @@ pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Error> {
 mod tests {
     use super::get_status;
     use crate::command::EthereumArgs;
-    use crate::credentials::Credentials;
     use crate::publisher::Publisher;
     use crate::register::Register;
     use failure::Error;
     use rand::prelude::*;
     use web3::types::*;
 
-    const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
     const CONTRACT_ADDR: &str = "9995882876ae612bfd829498ccd73dd962ec950a";
-    const ETH_URL: &str = "http://localhost:8545/";
     const SWARM_URL: &str = "http://localhost:8500";
 
     fn generate_publisher(bytes: Vec<u8>, cluster_size: &u8) -> Publisher {
-        let contract_address: Address = CONTRACT_ADDR.parse().unwrap();
-
-        let creds: Credentials = Credentials::No;
-        let account: Address = OWNER.parse().unwrap();
-
         let eth = EthereumArgs::default();
 
         Publisher::new(
@@ -72,14 +64,11 @@ mod tests {
     }
 
     fn generate_register(address: &str, start_port: u16, last_port: u16) -> Register {
-        let contract_address: Address = CONTRACT_ADDR.parse().unwrap();
-
         let mut rng = rand::thread_rng();
         let rnd_num: u64 = rng.gen();
 
         let tendermint_key: H256 = H256::from(rnd_num);
         let tendermint_node_id: H160 = H160::from(rnd_num);
-        let account: Address = "4180fc65d613ba7e1a385181a219f1dbfe7bf11d".parse().unwrap();
 
         let eth = EthereumArgs::default();
 
@@ -121,7 +110,10 @@ mod tests {
         publisher1.publish(false)?;
         publisher2.publish(false)?;
 
-        let _status = get_status(eth.eth_url.as_str(), CONTRACT_ADDR.parse().unwrap())?;
+        let _status = get_status(
+            register1.eth().eth_url.as_str(),
+            CONTRACT_ADDR.parse().unwrap(),
+        )?;
 
         //let clusters = status.clusters();
         //let apps = status.enqueued_apps();

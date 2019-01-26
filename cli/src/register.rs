@@ -279,12 +279,8 @@ pub mod tests {
     use crate::credentials::Credentials;
 
     use super::Register;
-    use std::net::IpAddr;
-    use std::thread;
 
     pub fn generate_register(credentials: Credentials) -> Register {
-        let contract_address: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap();
-
         let mut rng = rand::thread_rng();
         let rnd_num: u64 = rng.gen();
 
@@ -292,7 +288,7 @@ pub mod tests {
         let tendermint_node_id: H160 = H160::from(rnd_num);
         let account: Address = "4180fc65d613ba7e1a385181a219f1dbfe7bf11d".parse().unwrap();
 
-        let eth = EthereumArgs::default();
+        let eth = EthereumArgs::with_acc_creds(account, credentials);
 
         Register::new(
             "127.0.0.1".parse().unwrap(),
@@ -300,7 +296,6 @@ pub mod tests {
             tendermint_node_id,
             25006,
             25100,
-            false,
             false,
             eth,
         )

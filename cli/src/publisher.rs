@@ -290,7 +290,6 @@ mod tests {
     use web3;
     use web3::futures::Future;
     use web3::types::H256;
-    use web3::types::*;
 
     use failure::Error;
 
@@ -301,11 +300,9 @@ mod tests {
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
 
     fn generate_publisher(account: &str, creds: Credentials) -> Publisher {
-        let contract_address: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap();
-
         let bytes = vec![1, 2, 3];
 
-        let eth = EthereumArgs::default();
+        let eth = EthereumArgs::with_acc_creds(account.parse().unwrap(), creds);
 
         Publisher::new(
             bytes,
