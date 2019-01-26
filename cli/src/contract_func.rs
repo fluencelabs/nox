@@ -198,41 +198,36 @@ impl From<web3::Error> for TxError {
     }
 }
 
-pub fn poll_get_transaction(eth_url: &str, tx: &H256) -> Result<Web3Transaction, Error> {
+pub fn wait_tx_included(eth_url: &str, tx: &H256) -> Result<Web3Transaction, Error> {
     use futures::future;
     use futures_retry::{FutureRetry, RetryPolicy};
     use tokio::runtime::Runtime;
 
     let mut rt = Runtime::new()?;
 
-    let tx_cl = tx.clone();
-    let eth_rul_cl = eth_url.to_string();
+    let tx = tx.clone();
+    let eth_url = eth_url.to_string();
     let fut = FutureRetry::new(
         move || {
-            let http_f = future::result(Http::new(eth_rul_cl.as_str()).map_err(|e| e.into()));
-            http_f.and_then(|(_eloop, transport)| {
+            let http_f = future::result(Http::new(eth_url.as_str()).map_err(|e| e.into()));
+            http_f.and_then(move |(_eloop, transport)| {
                 let web3 = web3::Web3::new(transport);
                 web3.eth()
-                    .transaction(TransactionId::Hash(tx_cl))
+                    .transaction(TransactionId::Hash(tx))
                     .map_err(|e| e.into())
-                    .and_then(|tx_res| tx_res.ok_or(TxError::NoTx(tx_cl)))
-                    .and_then(|tx_res| tx_res.block_number.ok_or(TxError::NoBlock).and(Ok(tx_res)))
+                    .and_then(move |tx_res| tx_res.ok_or(TxError::NoTx(tx)))
+                    .and_then(move |tx_res| {
+                        tx_res.block_number.ok_or(TxError::NoBlock).and(Ok(tx_res))
+                    })
             })
         },
         |e| match e {
             TxError::NoTx(_) => RetryPolicy::ForwardError(e),
-            TxError::NoBlock => {
-                println!("No block");
-                RetryPolicy::WaitRetry(Duration::from_millis(1000))
-            }
-            TxError::Web3Error(we) => {
-                println!("Got web3 error {:?}", we);
+            TxError::NoBlock | TxError::Web3Error(_) => {
                 RetryPolicy::WaitRetry(Duration::from_millis(1000))
             }
         },
     );
-    //    .wait()
-    //    .map_err(|e| e.into())
 
     rt.block_on(fut).map_err(|e| e.into())
 }

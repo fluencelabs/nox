@@ -49,7 +49,10 @@ use web3::Web3;
 // [1/2]   Code uploaded. ---> [00:00:10]
 // ```
 //
-pub fn with_progress<U, F: FnOnce() -> U>(msg: &str, prefix: &str, finish: &str, work: F) -> U {
+pub fn with_progress<U, F>(msg: &str, prefix: &str, finish: &str, work: F) -> U
+where
+    F: FnOnce() -> U,
+{
     let bar = create_progress_bar(prefix, msg);
     let result = work();
     bar.finish_with_message(finish);
