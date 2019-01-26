@@ -113,11 +113,11 @@ impl DeleteApp {
             )?;
 
             if self.eth.wait {
-                utils::print_info_msg("Transaction was submitted, tx hash:", format!("{:#x}", tx));
+                utils::print_tx_hash(tx);
                 utils::with_progress(
-                    "Waiting for an app to be deleted...",
+                    "Waiting for a transaction to be included in a block...",
                     step(2).as_str(),
-                    "App deleted.",
+                    "Transaction included. App deleted.",
                     || {
                         wait_tx_included(self.eth.eth_url.clone(), &tx)?;
                         wait_event_fn(&tx)?;

@@ -46,24 +46,14 @@ fn main() {
 
             let print_status = |app_id: H256, tx: H256, status: &str| {
                 println!("{}", style(format!("App {}.", status)).blue());
-                println!(
-                    "{0: >10} {1:#x}",
-                    style("app id:").blue(),
-                    style(app_id).red().bold()
-                );
-                println!(
-                    "{0: >10} {1:#x}",
-                    style("tx hash:").blue(),
-                    style(tx).red().bold()
-                );
+                utils::print_info_id_short("app id:", app_id);
+                utils::print_tx_hash(tx);
             };
 
             match published {
                 Published::Deployed { app_id, tx } => print_status(app_id, tx, "deployed"),
                 Published::Enqueued { app_id, tx } => print_status(app_id, tx, "enqueued"),
-                Published::TransactionSent(tx) => {
-                    utils::print_info_msg("tx hash:", format!("{:#x}", tx))
-                }
+                Published::TransactionSent(tx) => utils::print_tx_hash(tx),
             }
         }
 
@@ -74,6 +64,7 @@ fn main() {
             match registered {
                 Registered::Deployed { app_ids, ports, tx } => {
                     println!("{}", style(format!("Node deployed.")).blue());
+
                     for (app_id, port) in app_ids.iter().zip(ports.iter()) {
                         println!(
                             "{0: >10} {1: ^10} {2: >10} {3:#x}",
@@ -83,27 +74,13 @@ fn main() {
                             style(app_id).red().bold()
                         );
                     }
-                    println!(
-                        "{0: >10} {1:#x}",
-                        style("tx hash:").blue(),
-                        style(tx).red().bold()
-                    );
+                    utils::print_tx_hash(tx);
                 }
                 Registered::Enqueued(tx) => {
                     println!("{}", style(format!("Node registered.")).blue());
-                    println!(
-                        "{0: >10} {1:#x}",
-                        style("tx hash:").blue(),
-                        style(tx).red().bold()
-                    );
+                    utils::print_tx_hash(tx);
                 }
-                Registered::TransactionSent(tx) => {
-                    println!(
-                        "{0: >10} {1:#x}",
-                        style("tx hash:").blue(),
-                        style(tx).red().bold()
-                    );
-                }
+                Registered::TransactionSent(tx) => utils::print_tx_hash(tx),
             }
         }
 
@@ -125,7 +102,7 @@ fn main() {
                 .delete_app(true)
                 .expect("Error sending transaction");
 
-            utils::print_info_msg("App deleted. Submitted transaction", format!("{:#x}", tx));
+            utils::print_info_id("App deleted. Submitted transaction", tx);
         }
 
         ("delete_node", Some(args)) => {
@@ -134,7 +111,7 @@ fn main() {
                 .delete_node(true)
                 .expect("Error sending transaction");
 
-            utils::print_info_msg("Node deleted. Submitted transaction", format!("{:#x}", tx));
+            utils::print_info_id("Node deleted. Submitted transaction", tx);
         }
 
         c => panic!("Unexpected command: {}", c.0),

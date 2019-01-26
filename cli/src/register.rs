@@ -166,25 +166,26 @@ impl Register {
 
             if self.wait_syncing {
                 utils::with_progress(
-                    "Waiting for the node is syncing...",
+                    "Waiting while Ethereum node is syncing...",
                     step(0).as_str(),
-                    "Node synced.",
+                    "Ethereum node synced.",
                     || wait_sync(self.eth.eth_url.clone()),
                 )?;
             };
 
             let tx = utils::with_progress(
-                "Adding the node to the smart contract...",
+                "Registering the node in the smart contract...",
                 step(1).as_str(),
-                "Node added.",
+                "Transaction with node registration was sent.",
                 publish_to_contract_fn,
             )?;
 
             if self.eth.wait {
+                utils::print_tx_hash(tx);
                 utils::with_progress(
                     "Waiting for the transaction to be included in a block...",
                     step(2).as_str(),
-                    "Transaction included.",
+                    "Transaction was included.",
                     || {
                         wait_tx_included(self.eth.eth_url.clone(), &tx)?;
                         wait_event_fn(&tx)

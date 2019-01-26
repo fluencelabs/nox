@@ -132,26 +132,26 @@ impl Publisher {
             let step = |s| format!("{}/{}", s, steps);
 
             let hash: H256 = utils::with_progress(
-                "Code uploading to Swarm...",
+                "Uploading application code to Swarm...",
                 step(1).as_str(),
-                "Code uploaded.",
+                "Application code uploaded.",
                 upload_to_swarm_fn,
             )?;
-            utils::print_info_msg("swarm hash:", format!("{:#x}", hash));
+            utils::print_info_id("swarm hash:", hash);
 
             let tx = utils::with_progress(
                 "Publishing the app to the smart contract...",
                 step(2).as_str(),
-                "App publish tx was sent.",
+                "Transaction publishing app was sent.",
                 || publish_to_contract_fn(hash),
             )?;
 
             if self.eth.wait {
-                utils::print_info_msg("tx hash:", format!("{:#x}", tx));
+                utils::print_tx_hash(tx);
                 utils::with_progress(
-                    "Waiting for an app to be published or deployed...",
+                    "Waiting for a transaction to be included in a block...",
                     step(3).as_str(),
-                    "App published.",
+                    "Transaction was included.",
                     || {
                         wait_tx_included(self.eth.eth_url.clone(), &tx)?;
                         wait_event_fn(&tx)
