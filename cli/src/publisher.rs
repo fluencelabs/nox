@@ -231,13 +231,13 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .short("c")
             .required(true)
             .takes_value(true)
-            .help("path to compiled `wasm` code"),
+            .help("Path to compiled `wasm` code"),
         Arg::with_name(SWARM_URL)
             .long(SWARM_URL)
             .short("w")
             .required(false)
             .takes_value(true)
-            .help("http address to swarm node")
+            .help("Http address to swarm node")
             .default_value("http://localhost:8500/"),
         Arg::with_name(CLUSTER_SIZE)
             .long(CLUSTER_SIZE)
@@ -245,7 +245,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .required(false)
             .takes_value(true)
             .default_value("3")
-            .help("cluster's size that needed to deploy this code"),
+            .help("Cluster's size that needed to deploy this code"),
         Arg::with_name(PINNED)
             .long(PINNED)
             .short("p")
@@ -305,14 +305,7 @@ mod tests {
 
         let bytes = vec![1, 2, 3];
 
-        let eth = EthereumArgs {
-            credentials: creds,
-            gas: 1000000,
-            account: account.parse().unwrap(),
-            contract_address,
-            eth_url: String::from("http://localhost:8545"),
-            wait: false,
-        };
+        let eth = EthereumArgs::default();
 
         Publisher::new(
             bytes,

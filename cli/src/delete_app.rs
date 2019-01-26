@@ -23,6 +23,7 @@ use crate::contract_func::call_contract;
 use crate::contract_func::contract::events::app_deleted;
 use crate::contract_func::contract::functions::delete_app;
 use crate::contract_func::contract::functions::dequeue_app;
+use crate::contract_func::wait_sync;
 use crate::contract_func::{get_transaction_logs, wait_tx_included};
 use crate::utils;
 use failure::err_msg;
@@ -45,13 +46,13 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .short("D")
             .required(false)
             .takes_value(false)
-            .help("if not specified, enqueued app will be dequeued, otherwise deployed app will be removed"),
+            .help("If not specified, enqueued app will be dequeued, otherwise deployed app will be removed"),
         Arg::with_name(APP_ID)
             .long(APP_ID)
             .short("A")
             .required(true)
             .takes_value(true)
-            .help("app to be removed")
+            .help("App to be removed")
     ];
 
     SubCommand::with_name("delete_app")
@@ -102,8 +103,18 @@ impl DeleteApp {
         };
 
         if show_progress {
-            let steps = if self.eth.wait { 2 } else { 1 };
-            let step = |s| format!("{}/{}", s, steps);
+            let sync_inc = self.eth.wait_syncing as u32;
+            let steps = 1 + (self.eth.wait as u32) + sync_inc;
+            let step = |s| format!("{}/{}", s + sync_inc, steps);
+
+            if self.eth.wait_syncing {
+                utils::with_progress(
+                    "Waiting while Ethereum node is syncing...",
+                    step(0).as_str(),
+                    "Ethereum node synced.",
+                    || wait_sync(self.eth.eth_url.clone()),
+                )?;
+            }
 
             let tx = utils::with_progress(
                 "Deleting app from smart contract...",
@@ -128,8 +139,15 @@ impl DeleteApp {
                 Ok(tx)
             }
         } else {
+            if self.eth.wait_syncing {
+                wait_sync(self.eth.eth_url.clone())?;
+            }
             let tx = delete_app_fn()?;
-            wait_event_fn(&tx)?;
+
+            if self.eth.wait {
+                wait_event_fn(&tx)?;
+            }
+
             Ok(tx)
         }
     }

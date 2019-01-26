@@ -35,7 +35,6 @@ use web3::types::H160;
 const NODE_IP: &str = "node_ip";
 const START_PORT: &str = "start_port";
 const LAST_PORT: &str = "last_port";
-const WAIT_SYNCING: &str = "wait_syncing";
 const PRIVATE: &str = "private";
 
 #[derive(Debug, Getters)]
@@ -45,7 +44,6 @@ pub struct Register {
     tendermint_node_id: H160,
     start_port: u16,
     last_port: u16,
-    wait_syncing: bool,
     private: bool,
     eth: EthereumArgs,
 }
@@ -68,7 +66,6 @@ impl Register {
         tendermint_node_id: H160,
         start_port: u16,
         last_port: u16,
-        wait_syncing: bool,
         private: bool,
         eth: EthereumArgs,
     ) -> Result<Register, Error> {
@@ -82,7 +79,6 @@ impl Register {
             tendermint_node_id,
             start_port,
             last_port,
-            wait_syncing,
             private,
             eth,
         })
@@ -160,11 +156,11 @@ impl Register {
 
         // sending transaction with the hash of file with code to ethereum
         if show_progress {
-            let sync_inc = self.wait_syncing as u32;
+            let sync_inc = self.eth.wait_syncing as u32;
             let steps = 1 + (self.eth.wait as u32) + sync_inc;
             let step = |s| format!("{}/{}", s + sync_inc, steps);
 
-            if self.wait_syncing {
+            if self.eth.wait_syncing {
                 utils::with_progress(
                     "Waiting while Ethereum node is syncing...",
                     step(0).as_str(),
@@ -195,7 +191,7 @@ impl Register {
                 Ok(Registered::TransactionSent(tx))
             }
         } else {
-            if self.wait_syncing {
+            if self.eth.wait_syncing {
                 wait_sync(self.eth.eth_url.clone())?;
             }
 
@@ -220,8 +216,6 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
     let start_port = value_t!(args, START_PORT, u16)?;
     let last_port = value_t!(args, LAST_PORT, u16)?;
 
-    let wait_syncing = args.is_present(WAIT_SYNCING);
-
     let private: bool = args.is_present(PRIVATE);
 
     let eth = parse_ethereum_args(args)?;
@@ -232,7 +226,6 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
         tendermint_node_id,
         start_port,
         last_port,
-        wait_syncing,
         private,
         eth,
     )
@@ -246,7 +239,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .short("i")
             .required(true)
             .takes_value(true)
-            .help("node's IP address"),
+            .help("Node's IP address"),
         tendermint_key(),
         tendermint_node_id(),
         Arg::with_name(START_PORT)
@@ -254,22 +247,19 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .long(START_PORT)
             .default_value("20096")
             .takes_value(true)
-            .help("minimum port in the port range"),
+            .help("Minimum port in the port range"),
         Arg::with_name(LAST_PORT)
             .alias(LAST_PORT)
             .default_value("20196")
             .long(LAST_PORT)
             .takes_value(true)
-            .help("maximum port in the port range"),
-        Arg::with_name(WAIT_SYNCING)
-            .long(WAIT_SYNCING)
-            .help("waits until ethereum node will be synced, executes a command after this"),
+            .help("Maximum port in the port range"),
         base64_tendermint_key(),
         Arg::with_name(PRIVATE)
             .long(PRIVATE)
             .short("p")
             .takes_value(false)
-            .help("marks node as private, used for pinning apps to nodes"),
+            .help("Marks node as private, used for pinning apps to nodes"),
     ];
 
     SubCommand::with_name("register")
@@ -302,14 +292,7 @@ pub mod tests {
         let tendermint_node_id: H160 = H160::from(rnd_num);
         let account: Address = "4180fc65d613ba7e1a385181a219f1dbfe7bf11d".parse().unwrap();
 
-        let eth = EthereumArgs {
-            credentials,
-            gas: 1000000,
-            account,
-            contract_address,
-            eth_url: String::from("http://localhost:8545"),
-            wait: false,
-        };
+        let eth = EthereumArgs::default();
 
         Register::new(
             "127.0.0.1".parse().unwrap(),

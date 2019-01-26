@@ -18,15 +18,18 @@ use clap::ArgMatches;
 use clap::{App, SubCommand};
 use web3::types::H256;
 
-use crate::command::{
-    base64_tendermint_key, parse_ethereum_args, parse_tendermint_key, tendermint_key,
-    with_ethereum_args, EthereumArgs,
-};
+use crate::contract_func::contract::events::node_deleted;
+
+use crate::command::*;
 use crate::contract_func::call_contract;
 use crate::utils;
+use failure::err_msg;
 use failure::Error;
 
 use crate::contract_func::contract::functions::delete_node;
+use crate::contract_func::get_transaction_logs;
+use crate::contract_func::wait_sync;
+use crate::contract_func::wait_tx_included;
 
 pub struct DeleteNode {
     tendermint_key: H256,
@@ -65,15 +68,65 @@ impl DeleteNode {
             call_contract(&self.eth, call_data)
         };
 
+        let wait_event_fn = |tx: &H256| -> Result<(), Error> {
+            let logs =
+                get_transaction_logs(self.eth.eth_url.as_str(), tx, node_deleted::parse_log)?;
+            logs.first().ok_or(err_msg(format!(
+                "No NodeDeleted event is found in transaction logs. tx: {:#x}",
+                tx
+            )))?;
+
+            Ok(())
+        };
+
         if show_progress {
-            utils::with_progress(
+            let sync_inc = self.eth.wait_syncing as u32;
+            let steps = 1 + (self.eth.wait as u32) + sync_inc;
+            let step = |s| format!("{}/{}", s + sync_inc, steps);
+
+            if self.eth.wait_syncing {
+                utils::with_progress(
+                    "Waiting while Ethereum node is syncing...",
+                    step(0).as_str(),
+                    "Ethereum node synced.",
+                    || wait_sync(self.eth.eth_url.clone()),
+                )?;
+            }
+
+            let tx = utils::with_progress(
                 "Deleting node from smart contract...",
-                "1/1",
+                step(1).as_str(),
                 "Node deleted.",
                 delete_node_fn,
-            )
+            )?;
+
+            if self.eth.wait {
+                utils::print_tx_hash(tx);
+                utils::with_progress(
+                    "Waiting for a transaction to be included in a block...",
+                    step(2).as_str(),
+                    "Transaction included. App deleted.",
+                    || {
+                        wait_tx_included(self.eth.eth_url.clone(), &tx)?;
+                        wait_event_fn(&tx)?;
+                        Ok(tx)
+                    },
+                )
+            } else {
+                Ok(tx)
+            }
         } else {
-            delete_node_fn()
+            if self.eth.wait_syncing {
+                wait_sync(self.eth.eth_url.clone())?;
+            }
+            let tx = delete_node_fn()?;
+
+            if self.eth.wait {
+                wait_tx_included(self.eth.eth_url.clone(), &tx)?;
+                wait_event_fn(&tx)?;
+            }
+
+            Ok(tx)
         }
     }
 }

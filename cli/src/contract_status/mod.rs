@@ -60,14 +60,7 @@ mod tests {
         let creds: Credentials = Credentials::No;
         let account: Address = OWNER.parse().unwrap();
 
-        let eth = EthereumArgs {
-            credentials: creds,
-            gas: 1000000,
-            account,
-            contract_address,
-            eth_url: ETH_URL.to_string(),
-            wait: false,
-        };
+        let eth = EthereumArgs::default();
 
         Publisher::new(
             bytes,
@@ -88,14 +81,7 @@ mod tests {
         let tendermint_node_id: H160 = H160::from(rnd_num);
         let account: Address = "4180fc65d613ba7e1a385181a219f1dbfe7bf11d".parse().unwrap();
 
-        let eth = EthereumArgs {
-            credentials: Credentials::No,
-            gas: 1000000,
-            account,
-            contract_address,
-            eth_url: ETH_URL.to_string(),
-            wait: false,
-        };
+        let eth = EthereumArgs::default();
 
         Register::new(
             address.parse().unwrap(),
@@ -103,7 +89,6 @@ mod tests {
             tendermint_node_id,
             start_port,
             last_port,
-            false,
             false,
             eth,
         )
@@ -136,7 +121,7 @@ mod tests {
         publisher1.publish(false)?;
         publisher2.publish(false)?;
 
-        let _status = get_status(CONTRACT_ADDR.parse().unwrap(), ETH_URL)?;
+        let _status = get_status(eth.eth_url.as_str(), CONTRACT_ADDR.parse().unwrap())?;
 
         //let clusters = status.clusters();
         //let apps = status.enqueued_apps();

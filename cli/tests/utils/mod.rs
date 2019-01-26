@@ -30,6 +30,8 @@ use ethabi::TopicFilter;
 use fluence::command::EthereumArgs;
 use fluence::delete_app::DeleteApp;
 use fluence::delete_node::DeleteNode;
+use fluence::publisher::Published;
+use fluence::register::Registered;
 use futures::future::Future;
 use web3::transports::Http;
 use web3::types::FilterBuilder;
@@ -48,15 +50,7 @@ pub struct TestOpts {
 
 impl TestOpts {
     pub fn default() -> TestOpts {
-        let eth = EthereumArgs {
-            contract_address: "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap(),
-            account: "4180fc65d613ba7e1a385181a219f1dbfe7bf11d".parse().unwrap(),
-            credentials: Credentials::No,
-            eth_url: String::from("http://localhost:8545/"),
-            gas: 1_000_000,
-            wait: false,
-        };
-
+        let eth = EthereumArgs::default();
         TestOpts {
             start_port: 25000,
             last_used_port: None,
@@ -84,6 +78,7 @@ impl TestOpts {
             eth_url,
             gas,
             wait: false,
+            wait_syncing: false,
         };
 
         TestOpts {
@@ -112,13 +107,16 @@ impl TestOpts {
             tendermint_node_id,
             start_port,
             end_port,
-            false,
             private,
             self.eth.clone(),
         )
         .unwrap();
 
-        let tx = reg.register(false)?;
+        let tx = match reg.register(false)? {
+            Registered::TransactionSent(tx) => tx,
+            Registered::Deployed { app_ids: _, tx } => tx,
+            Registered::Enqueued(tx) => tx,
+        };
 
         Ok((tx, reg))
     }
@@ -132,7 +130,13 @@ impl TestOpts {
             self.eth.clone(),
         );
 
-        publish.publish(false)
+        let tx = match publish.publish(false)? {
+            Published::TransactionSent(tx) => tx,
+            Published::Deployed { app_id: _, tx } => tx,
+            Published::Enqueued(tx) => tx,
+        };
+
+        Ok(tx)
     }
 
     // retrieves all events matching `filter`, parsing them through `parse_log`
