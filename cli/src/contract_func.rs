@@ -216,15 +216,15 @@ pub fn wait_tx_included(eth_url: String, tx: &H256) -> Result<Web3Transaction, E
     let tx = tx.clone();
     let fut = FutureRetry::new(
         move || {
-            let http_f = future::result(Http::new(eth_url.as_str()).map_err(|e| e.into()));
+            let http_f = future::result(Http::new(eth_url.as_str()).map_err(Into::into));
             http_f.and_then(move |(_eloop, transport)| {
                 let web3 = web3::Web3::new(transport);
                 web3.eth()
                     .transaction(TransactionId::Hash(tx))
-                    .map_err(|e| e.into())
+                    .map_err(Into::into)
                     .and_then(move |tx_res| tx_res.ok_or(TxError::NoTx(tx)))
                     .and_then(move |tx_res| {
-                        tx_res.block_number.ok_or(TxError::NoBlock).and(Ok(tx_res))
+                        tx_res.block_number.ok_or(TxError::NoBlock).map(|_| tx_res)
                     })
             })
         },
@@ -236,7 +236,7 @@ pub fn wait_tx_included(eth_url: String, tx: &H256) -> Result<Web3Transaction, E
         },
     );
 
-    rt.block_on(fut).map_err(|e| e.into())
+    rt.block_on(fut).map_err(Into::into)
 }
 
 pub fn wait_sync(eth_url: String) -> Result<(), Error> {

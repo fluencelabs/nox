@@ -180,7 +180,7 @@ fn load_keystore(path: String, password: String) -> Result<Secret, Error> {
         .secret(&password)
         .map_err(|e| err_msg(e.to_string()))
         .context("can't parse secret from keystore file")
-        .map_err(|e| e.into())
+        .map_err(Into::into)
 }
 
 fn load_credentials(
