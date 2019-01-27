@@ -31,8 +31,7 @@ fn generate_random_matrix(rows_number: usize, columns_count: usize, seed: u64) -
     })
 }
 
-#[no_mangle]
-pub extern "C" fn main() -> u64 {
+fn bench() -> u64 {
     let matrix_size: usize = MATRIX_SIZE.parse::<usize>().unwrap();
     let seed: u64 = SEED.parse::<u64>().unwrap();
     let iterations_count: u64 = ITERATIONS_COUNT.parse::<u64>().unwrap();
@@ -48,4 +47,9 @@ pub extern "C" fn main() -> u64 {
     }
 
     matrix_hash
+}
+
+#[no_mangle]
+pub extern "C" fn main() -> u64 {
+    bench()
 }

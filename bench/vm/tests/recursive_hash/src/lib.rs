@@ -20,8 +20,7 @@ use settings::{INITIAL_VALUE, ITERATIONS_COUNT};
 use sha3::{Digest, Sha3_256};
 use std::mem;
 
-#[no_mangle]
-pub extern "C" fn main() -> u8 {
+fn bench() -> u8 {
     let iterations_count: i64 = ITERATIONS_COUNT.parse::<i64>().unwrap();
     let initial_value: i64 = INITIAL_VALUE.parse::<i64>().unwrap();
 
@@ -34,4 +33,9 @@ pub extern "C" fn main() -> u8 {
     }
 
     hash_result.iter().fold(0, |x1, x2| x1 ^ x2)
+}
+
+#[no_mangle]
+pub extern "C" fn main() -> u8 {
+    bench()
 }

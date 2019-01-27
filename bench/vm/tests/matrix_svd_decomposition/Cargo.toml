@@ -4,7 +4,13 @@ version = "0.1.0"
 authors = ["Fluence Labs"]
 
 [lib]
+name = "matrix_svd_decomposition_wasm"
 crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[[bin]]
+name = "matrix_svd_decomposition_native"
+path = "src/bin.rs"
 
 [dependencies]
 nalgebra = { version = "0.16", features = [ "alloc" ] }

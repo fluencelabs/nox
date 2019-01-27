@@ -3,6 +3,7 @@ name = "compression"
 version = "0.1.1"
 edition = "2018"
 authors = ["Fluence Labs"]
+publish = "false"
 
 [lib]
 name = "compression_wasm"
@@ -12,6 +13,14 @@ path = "src/lib.rs"
 [[bin]]
 name = "compression_native"
 path = "src/bin.rs"
+
+[profile.release]
+opt-level = 3
+debug = false
+lto = true
+debug-assertions = false
+overflow-checks = false
+panic = "abort"
 
 [dependencies]
 snap = "0.2"

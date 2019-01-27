@@ -4,7 +4,21 @@ version = "0.1.0"
 authors = ["Fluence Labs"]
 
 [lib]
+name = "fibonacci_bigint_wasm"
 crate-type = ["cdylib"]
+path = "src/lib.rs"
+
+[[bin]]
+name = "fibonacci_bigint_native"
+path = "src/bin.rs"
+
+[profile.release]
+opt-level = 3
+debug = false
+lto = true
+debug-assertions = false
+overflow-checks = false
+panic = "abort"
 
 [dependencies]
 num-bigint = "0.2"
