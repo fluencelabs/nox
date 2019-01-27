@@ -145,6 +145,8 @@ pub fn draw(status: &Status) -> Result<(), Error> {
             };
         })?;
 
+        // Change current tab and table on right/left arrow key
+        // Change selected row on up/down arrow key
         let exit = handle_input(&mut state, &events, &status)?;
         if exit {
             break;
