@@ -20,7 +20,7 @@ class VMDescriptor:
 
     Attributes
     ----------
-    relative_vm_binary_path : str
+    vm_relative_binary_path : str
         A relative path to VM binary in its main folder.
     vm_launch_cmd : str
         An format string with command for launch this vm with provided test.

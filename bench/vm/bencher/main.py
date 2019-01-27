@@ -15,9 +15,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from BenchTestGenerator import BenchTestGenerator
-from WasmVMBencher import WasmVMBencher
-from settings import vm_descriptors, test_descriptors
+from project.BenchTestGenerator import BenchTestGenerator
+from project.WasmVMBencher import WasmVMBencher
+from project.settings import vm_descriptors, test_descriptors
 import click
 import csv
 import logging
