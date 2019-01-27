@@ -1,5 +1,5 @@
-use crate::bench;
+pub mod bench;
 
 pub fn main() {
-    std::process::exit(bench() as i32)
+    std::process::exit(bench::bench() as i32)
 }

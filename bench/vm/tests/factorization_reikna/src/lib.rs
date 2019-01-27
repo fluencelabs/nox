@@ -15,11 +15,9 @@
  */
 
 pub mod bench;
-mod settings;
-
-use bench::bench;
+//use crate::bench;
 
 #[no_mangle]
 pub extern "C" fn main() -> u64 {
-    bench()
+    bench::bench()
 }

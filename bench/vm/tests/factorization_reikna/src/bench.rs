@@ -15,10 +15,14 @@
  */
 
 use reikna::prime;
-use settings::FACTORIZED_NUMBER;
+
+mod settings {
+    /// A requested number that should be factorized by this test.
+    pub const FACTORIZED_NUMBER: &str = env!("FACTORIZED_NUMBER");
+}
 
 pub fn bench() -> u64 {
-    let factorized_number: u64 = FACTORIZED_NUMBER.parse::<u64>().unwrap();
+    let factorized_number: u64 = settings::FACTORIZED_NUMBER.parse::<u64>().unwrap();
     // reikna uses Atkin or Eratosthenes seive to factorize given number
     let factors = prime::factorize(factorized_number);
 
