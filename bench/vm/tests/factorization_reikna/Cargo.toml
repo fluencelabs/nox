@@ -1,8 +1,8 @@
 [package]
 name = "factorization_reikna"
 version = "0.1.1"
-authors = ["Fluence Labs"]
 edition = "2018"
+authors = ["Fluence Labs"]
 publish = false
 
 [lib]

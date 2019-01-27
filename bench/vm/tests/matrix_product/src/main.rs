@@ -13,5 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/// A requested fibonacci number that would be computed.
-pub const FIB_NUMBER: &str = env!("FIB_NUMBER");
+
+mod bench;
+
+pub fn main() {
+    std::process::exit(bench::bench() as i32)
+}

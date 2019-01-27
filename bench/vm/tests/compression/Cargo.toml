@@ -12,12 +12,12 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "compression_native"
-path = "src/bin.rs"
+path = "src/main.rs"
 
 [profile.release]
 opt-level = 3
 debug = false
-lto = false
+lto = true
 debug-assertions = false
 overflow-checks = false
 panic = "abort"

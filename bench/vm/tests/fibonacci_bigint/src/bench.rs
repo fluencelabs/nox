@@ -15,16 +15,28 @@
  */
 
 mod settings {
-    /// A requested number that should be factorized by this test.
-    pub const FACTORIZED_NUMBER: &str = env!("FACTORIZED_NUMBER");
+    /// A requested fibonacci number that would be computed.
+    pub const FIB_NUMBER: &str = env!("FIB_NUMBER");
 }
 
-use reikna::prime;
+use num_bigint::BigUint;
+use num_traits::One;
+use std::ops::Sub;
 
-pub fn bench() -> u64 {
-    let factorized_number: u64 = settings::FACTORIZED_NUMBER.parse::<u64>().unwrap();
-    // reikna uses Atkin or Eratosthenes seive to factorize given number
-    let factors = prime::factorize(factorized_number);
+/// Recursively computes a fibonacci number F_num for the given num.
+fn fib(num: &BigUint) -> BigUint {
+    if num.le(&BigUint::from(2u32)) {
+        return One::one();
+    }
 
-    factors[0]
+    fib(&num.sub(1u32)) + fib(&num.sub(2u32))
+}
+
+pub fn bench() -> u8 {
+    let fib_number: BigUint = BigUint::from(settings::FIB_NUMBER.parse::<u64>().unwrap());
+
+    fib(&fib_number)
+        .to_bytes_le()
+        .iter()
+        .fold(0u8, |x1, x2| x1 ^ x2)
 }

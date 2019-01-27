@@ -69,7 +69,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "matrix_qr_decomposition"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "nalgebra 0.16.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.6.4 (registry+https://github.com/rust-lang/crates.io-index)",

@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-pub mod bench;
-//use crate::bench;
+mod bench;
 
 #[no_mangle]
 pub extern "C" fn main() -> u64 {

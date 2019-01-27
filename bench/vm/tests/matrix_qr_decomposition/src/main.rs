@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/// count of recursive sha3 that would be computed
-pub const ITERATIONS_COUNT: &str = env!("ITERATIONS_COUNT");
 
-/// an initial value for computed hash chain
-pub const INITIAL_VALUE: &str = env!("INITIAL_VALUE");
+mod bench;
+
+pub fn main() {
+    std::process::exit(bench::bench() as i32)
+}
