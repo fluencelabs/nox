@@ -2,6 +2,7 @@
 name = "matrix_svd_decomposition"
 version = "0.1.0"
 authors = ["Fluence Labs"]
+publish = false
 
 [lib]
 name = "matrix_svd_decomposition_wasm"

@@ -2,6 +2,7 @@
 name = "fibonacci_bigint"
 version = "0.1.0"
 authors = ["Fluence Labs"]
+publish = false
 
 [lib]
 name = "fibonacci_bigint_wasm"

@@ -2,6 +2,7 @@
 name = "matrix_product"
 version = "0.1.0"
 authors = ["Fluence Labs"]
+publish = false
 
 [lib]
 name = "matrix_product_wasm"

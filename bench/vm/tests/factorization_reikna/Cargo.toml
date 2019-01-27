@@ -2,6 +2,8 @@
 name = "factorization_reikna"
 version = "0.1.1"
 authors = ["Fluence Labs"]
+edition = "2018"
+publish = false
 
 [lib]
 name = "factorization_reikna_wasm"
@@ -10,7 +12,7 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "factorization_reikna_native"
-path = "src/bin.rs"
+path = "src/main.rs"
 
 [profile.release]
 opt-level = 3

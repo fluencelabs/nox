@@ -3,7 +3,7 @@ name = "compression"
 version = "0.1.1"
 edition = "2018"
 authors = ["Fluence Labs"]
-publish = "false"
+publish = false
 
 [lib]
 name = "compression_wasm"
@@ -17,7 +17,7 @@ path = "src/bin.rs"
 [profile.release]
 opt-level = 3
 debug = false
-lto = true
+lto = false
 debug-assertions = false
 overflow-checks = false
 panic = "abort"

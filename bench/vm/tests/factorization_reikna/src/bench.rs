@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-pub mod bench;
-mod settings;
+use reikna::prime;
+use settings::FACTORIZED_NUMBER;
 
-use bench::bench;
+pub fn bench() -> u64 {
+    let factorized_number: u64 = FACTORIZED_NUMBER.parse::<u64>().unwrap();
+    // reikna uses Atkin or Eratosthenes seive to factorize given number
+    let factors = prime::factorize(factorized_number);
 
-#[no_mangle]
-pub extern "C" fn main() -> u64 {
-    bench()
+    factors[0]
 }

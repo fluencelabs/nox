@@ -2,6 +2,7 @@
 name = "recursive_hash"
 version = "0.1.0"
 authors = ["Fluence Labs"]
+publish = false
 
 [lib]
 name = "recursive_hash_wasm"
