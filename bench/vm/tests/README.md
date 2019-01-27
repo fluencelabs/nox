@@ -4,7 +4,7 @@ This microbenchmark consists of a few tests which can be used to measure perform
 
 However, each test was crafted in a way that would prevent the virtual machine from optimizing them using the dead code elimination. Most tests also prevent intermediate results memoization (with `fibonacci_bigint` and `factorization_reikna` being exceptions) and allow to specify an RNG seed to obtain repeatable benchmark results.
 
-Each test can be compile either as a Webassembly project or a native runnable binary. Each test being compiled in the first variant exports the `main` function which is called by the benchmark runner. There are also few compile-time parameters in each test that can be adjusted using the corresponding environment variables. The benchmark has been successfully tested on Mac and should run smoothly on Linux as well.
+Each test can compile either as a Webassembly project or a native runnable binary. Each test being compiled in the first variant exports the `main` function which is called by the benchmark runner. There are also few compile-time parameters in each test that can be adjusted using the corresponding environment variables. The benchmark has been successfully tested on Mac and should run smoothly on Linux as well.
 
 To run tests Rust Cargo package manager should be installed – the easiest way would be to follow these instructions:
 
