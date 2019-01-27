@@ -41,7 +41,11 @@ futures = "0.1.25"
 futures-retry = "0.3.0"
 tokio = "0.1.15"
 
-tui-rs = "0.3.0"
+tui = {git = "https://github.com/fdehau/tui-rs.git", rev = "52a40ec99"}
+termion = "1.5"
 
 [dev-dependencies]
 rand = "0.6.0"
+
+[patch.crates-io]
+web3 = { path = "/Users/folex/Development/rust-web3"}

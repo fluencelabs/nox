@@ -16,6 +16,7 @@
 
 pub mod app;
 pub mod status;
+pub mod ui;
 
 use self::status::{get_status, Status};
 use clap::{App, ArgMatches, SubCommand};
@@ -23,6 +24,7 @@ use failure::Error;
 use web3::types::Address;
 
 use crate::command::{contract_address, eth_url, parse_contract_address, parse_eth_url};
+use crate::contract_status::ui::rich_status;
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("status")
@@ -35,7 +37,11 @@ pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Error> {
     let eth_url = parse_eth_url(args)?;
     let contract_address: Address = parse_contract_address(args)?;
 
-    get_status(eth_url.as_str(), contract_address)
+    let status = get_status(eth_url.as_str(), contract_address)?;
+
+    rich_status::draw(&status).expect_err("ERROR WHILE DRAWING");
+
+    Ok(status)
 }
 
 #[cfg(test)]

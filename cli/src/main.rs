@@ -18,6 +18,7 @@ use clap::App;
 use clap::AppSettings;
 use console::style;
 
+use fluence::contract_status::ui::rich_status;
 use fluence::publisher::Published;
 use fluence::register::Registered;
 use fluence::utils;
