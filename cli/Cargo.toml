@@ -47,5 +47,3 @@ termion = "1.5"
 [dev-dependencies]
 rand = "0.6.0"
 
-[patch.crates-io]
-web3 = { path = "/Users/folex/Development/rust-web3"}
