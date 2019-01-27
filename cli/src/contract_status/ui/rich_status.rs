@@ -138,7 +138,7 @@ pub fn draw(status: &Status) -> Result<(), Error> {
             draw_main_box(&mut f);
             draw_tabs(&mut f, &state, rects[0]);
 
-            match &state.tabs.index {
+            match state.tabs.index {
                 0 => draw_nodes_table(&mut f, &state, status, rects[1]),
                 1 => draw_apps_table(&mut f, &state, status, rects[1]),
                 _ => (),
