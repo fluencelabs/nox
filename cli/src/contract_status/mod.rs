@@ -25,23 +25,38 @@ use web3::types::Address;
 
 use crate::command::{contract_address, eth_url, parse_contract_address, parse_eth_url};
 use crate::contract_status::ui::rich_status;
+use clap::Arg;
+
+const INTERACTIVE: &str = "interactive";
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("status")
         .about("Get status of the smart contract")
-        .args(&[eth_url(), contract_address()])
+        .args(&[
+            eth_url(),
+            contract_address(),
+            Arg::with_name(INTERACTIVE)
+                .long(INTERACTIVE)
+                .short("I")
+                .required(false)
+                .takes_value(false)
+                .help("If supplied, status is showed as an interactive table"),
+        ])
 }
 
 /// Gets status about Fluence contract from ethereum blockchain.
-pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Error> {
+pub fn get_status_by_args(args: &ArgMatches) -> Result<Option<Status>, Error> {
     let eth_url = parse_eth_url(args)?;
     let contract_address: Address = parse_contract_address(args)?;
 
     let status = get_status(eth_url.as_str(), contract_address)?;
 
-    rich_status::draw(&status).expect_err("ERROR WHILE DRAWING");
-
-    Ok(status)
+    if args.is_present(INTERACTIVE) {
+        rich_status::draw(&status)?;
+        Ok(None)
+    } else {
+        Ok(Some(status))
+    }
 }
 
 #[cfg(test)]

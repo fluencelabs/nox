@@ -22,6 +22,27 @@ use tui::widgets::Tabs;
 use tui::widgets::{Block, Borders, Row, Table, Widget};
 use tui::Terminal;
 
+// row selection
+enum MoveSelection {
+    Up,
+    Down,
+}
+// tab selection
+enum SwitchTab {
+    Next,
+    Previous,
+}
+// render loop action, depends on user input. see `handle_input`
+enum LoopAction {
+    Exit,
+    Continue,
+}
+// what tab is currently displayed. calculated from tab index, see `State::current_tab`
+enum CurrentTab {
+    Nodes,
+    Apps,
+}
+
 struct Config {
     selected_style: Style,
     normal_style: Style,
@@ -43,7 +64,55 @@ struct State<'a> {
     pub config: Config,
 }
 
-struct TabTable<'a, T: Clone + Sized> {
+impl<'a> State<'a> {
+    fn current_tab(&self) -> CurrentTab {
+        match self.tabs.index {
+            0 => CurrentTab::Nodes,
+            _ => CurrentTab::Apps,
+        }
+    }
+
+    // change selected row
+    fn move_selection(&mut self, mv: MoveSelection) {
+        let tab = self.current_tab();
+
+        // take number of rows in current table
+        let items = match tab {
+            CurrentTab::Nodes => self.nodes.elements.len(),
+            CurrentTab::Apps => self.apps.elements.len(),
+        };
+
+        // if table is empty -- nothing to move
+        if items == 0 {
+            return;
+        }
+
+        // mutable reference to selected position
+        let selected = match tab {
+            CurrentTab::Nodes => &mut self.nodes.selected,
+            CurrentTab::Apps => &mut self.apps.selected,
+        };
+
+        match mv {
+            // 1 step down, with wrap to top
+            MoveSelection::Down => *selected = (*selected + 1) % items,
+            // 1 step up if not at the top
+            MoveSelection::Up if *selected > 0 => *selected = *selected - 1,
+            // jump from top to bottom
+            MoveSelection::Up => *selected = items - 1,
+        };
+    }
+
+    fn switch_tab(&mut self, sw: SwitchTab) {
+        match sw {
+            SwitchTab::Next => self.tabs.next(),
+            SwitchTab::Previous => self.tabs.previous(),
+        }
+    }
+}
+
+// represents the main table
+struct TabTable<'a, T: ToColumns> {
     pub header: Vec<&'a str>,
     pub widths: Vec<u16>,
     pub selected: usize,
@@ -53,6 +122,7 @@ struct TabTable<'a, T: Clone + Sized> {
 impl<'a> TabTable<'a, Node> {
     pub fn nodes(nodes: Vec<Node>) -> TabTable<'a, Node> {
         let header = vec![
+            // 2 spaces needed to provide left margin
             "  Tendermint Key",
             "NodeID",
             "IP",
@@ -73,6 +143,7 @@ impl<'a> TabTable<'a, Node> {
 
 impl<'a> TabTable<'a, App> {
     pub fn apps(apps: Vec<App>) -> TabTable<'a, App> {
+        // 2 spaces needed to provide left margin
         let header = vec!["  App ID", "Size", "Owner"];
         let widths = vec![25, 5, 25];
         TabTable {
@@ -84,12 +155,14 @@ impl<'a> TabTable<'a, App> {
     }
 }
 
+// represents row data convertible to table column
 trait ToColumns: Sized + Clone {
     fn columns(self) -> Vec<String>;
 }
 
 impl ToColumns for Node {
     fn columns(self) -> Vec<String> {
+        // 2 spaces needed to provide left margin
         let tendermint_key = format!("  {}", self.tendermint_key);
         let node_id = format!("{:#x}", self.id);
         let next_port = self.next_port.to_string();
@@ -109,6 +182,7 @@ impl ToColumns for Node {
 
 impl ToColumns for App {
     fn columns(self) -> Vec<String> {
+        // 2 spaces needed to provide left margin
         let app_id = format!("  {:#x}", self.app_id);
         let cluster_size = self.cluster_size.to_string();
         let owner = format!("{:#x}", self.owner);
@@ -118,7 +192,7 @@ impl ToColumns for App {
 }
 
 pub fn draw(status: &Status) -> Result<(), Error> {
-    // Terminal initialization
+    // terminal initialization
     let stdout = io::stdout().into_raw_mode()?;
     let stdout = MouseTerminal::from(stdout);
     let stdout = AlternateScreen::from(stdout);
@@ -126,15 +200,15 @@ pub fn draw(status: &Status) -> Result<(), Error> {
     let mut terminal = Terminal::new(backend)?;
     terminal.hide_cursor()?;
 
-    let events = Events::new();
-
-    let nodes = status.nodes.clone();
+    // fill initial state
     let mut state = State {
         tabs: TabsState::new(vec!["Nodes", "Apps"]),
-        nodes: TabTable::nodes(nodes),
+        nodes: TabTable::nodes(status.nodes.clone()),
         apps: TabTable::apps(status.apps.clone()),
         config: Config::default(),
     };
+
+    let events = Events::new();
 
     loop {
         terminal.draw(|mut f| {
@@ -142,7 +216,6 @@ pub fn draw(status: &Status) -> Result<(), Error> {
             let rects = get_layout(size);
 
             draw_main_box(&mut f);
-
             draw_tabs(&mut f, &state, rects[0]);
 
             match state.tabs.index {
@@ -151,15 +224,16 @@ pub fn draw(status: &Status) -> Result<(), Error> {
             };
         })?;
 
-        let exit = handle_input(&mut state, &events, &status)?;
-        if exit {
-            break;
+        match handle_input(&mut state, &events)? {
+            LoopAction::Exit => break,
+            LoopAction::Continue => (),
         }
     }
 
     Ok(())
 }
 
+// Builds layout and splits it in 2 rectangles: 1 for tabs, 1 for table
 fn get_layout(terminal_size: Rect) -> Vec<Rect> {
     Layout::default()
         .direction(Direction::Vertical)
@@ -168,13 +242,22 @@ fn get_layout(terminal_size: Rect) -> Vec<Rect> {
         .split(terminal_size)
 }
 
+// Draw big rectangular frame
 fn draw_main_box<'a, B: Backend + 'a>(f: &mut Frame<B>) {
-    Block::default().style(Style::default()).render(f, f.size());
+    Block::default()
+        .title("press 'q' for exit")
+        .title_style(
+            Style::default()
+                .fg(Color::LightBlue)
+                .modifier(Modifier::Bold),
+        )
+        .render(f, f.size());
 }
 
+// Draw tab selector
 fn draw_tabs<'a, B: Backend + 'a>(f: &mut Frame<B>, state: &State, area: Rect) {
     Tabs::default()
-        .block(Block::default().borders(Borders::ALL).title("Tabs"))
+        .block(Block::default().borders(Borders::ALL))
         .titles(&state.tabs.titles)
         .select(state.tabs.index)
         .style(Style::default().fg(Color::Cyan))
@@ -182,6 +265,7 @@ fn draw_tabs<'a, B: Backend + 'a>(f: &mut Frame<B>, state: &State, area: Rect) {
         .render(f, area);
 }
 
+// Draw specified table and fill it with rows
 fn draw_table<'a, B, T>(f: &mut Frame<B>, table: &TabTable<'a, T>, config: &Config, area: Rect)
 where
     B: Backend + 'a,
@@ -208,35 +292,19 @@ where
         .render(f, area);
 }
 
-fn handle_input<'a>(
-    state: &mut State<'a>,
-    events: &Events,
-    status: &Status,
-) -> Result<bool, Error> {
+// Handle user input. Arrow keys switch row or tabs, 'q' exits.
+fn handle_input<'a>(state: &mut State<'a>, events: &Events) -> Result<LoopAction, Error> {
     match events.next()? {
         Event::Input(key) => match key {
-            Key::Char('q') => {
-                return Ok(true);
-            }
-            Key::Down => {
-                state.nodes.selected += 1;
-                if state.nodes.selected > status.nodes().len() - 1 {
-                    state.nodes.selected = 0;
-                }
-            }
-            Key::Up => {
-                if state.nodes.selected > 0 {
-                    state.nodes.selected -= 1;
-                } else {
-                    state.nodes.selected = status.nodes().len() - 1;
-                }
-            }
-            Key::Right => state.tabs.next(),
-            Key::Left => state.tabs.previous(),
+            Key::Char('q') => return Ok(LoopAction::Exit),
+            Key::Down => state.move_selection(MoveSelection::Down),
+            Key::Up => state.move_selection(MoveSelection::Up),
+            Key::Right => state.switch_tab(SwitchTab::Next),
+            Key::Left => state.switch_tab(SwitchTab::Previous),
             _ => {}
         },
         _ => {}
     };
 
-    Ok(false)
+    Ok(LoopAction::Continue)
 }

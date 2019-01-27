@@ -18,7 +18,6 @@ use clap::App;
 use clap::AppSettings;
 use console::style;
 
-use fluence::contract_status::ui::rich_status;
 use fluence::publisher::Published;
 use fluence::register::Registered;
 use fluence::utils;
@@ -88,9 +87,11 @@ fn main() {
         ("status", Some(args)) => {
             let status = contract_status::get_status_by_args(args).unwrap();
 
-            let json = serde_json::to_string_pretty(&status).unwrap();
+            if let Some(status) = status {
+                let json = serde_json::to_string_pretty(&status).unwrap();
 
-            println!("{}", json);
+                println!("{}", json);
+            }
         }
 
         ("check", Some(args)) => {
