@@ -24,13 +24,13 @@ class TestDescriptor:
         A name of folder where test is located.
     test_compilation_cmd : str
         A compilation string that has to be used to build the test.
-    test_compilation_parameters : {parameter : parameter_value}
+    test_compilation_parameters : str
         Parameters that used in test compilation.
     generated_test_full_path : str
         A full path of finally compiled test.
 
     """
-    def __init__(self, test_folder_name="", test_generator_cmd="", test_generator_parameters={}):
+    def __init__(self, test_folder_name="", test_generator_cmd="", test_generator_parameters=""):
         self.test_folder_name = test_folder_name
         self.test_compilation_cmd = test_generator_cmd
         self.test_compilation_parameters = test_generator_parameters
