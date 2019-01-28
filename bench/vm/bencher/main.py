@@ -78,7 +78,7 @@ def load_test_descriptors(test_settings_dir):
 @click.command()
 @click.option("--vm_dir", help="a directory with Webassembly virtual machines")
 @click.option("--tests_dir", help="a directory with benchmark tests")
-@click.option("--test_settings_dir", help="a directory with settings for tests")
+@click.option("--test_settings_dir", help="a full path to file with tests settings")
 @click.option("--out_dir", help="a directory where results will be saved")
 def main(vm_dir, tests_dir, test_settings_dir, out_dir):
     logging.basicConfig(filename="wasm_bencher_log", level=logging.INFO, format='%(asctime)s %(message)s',
