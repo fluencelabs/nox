@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-mod utils;
+pub mod utils;
 
 use crate::utils::*;
 use fluence::contract_func::contract::events::app_deleted;
@@ -22,6 +22,7 @@ use fluence::contract_func::contract::events::app_deployed;
 use fluence::contract_func::contract::events::app_dequeued;
 use fluence::contract_func::contract::events::app_enqueued;
 
+#[cfg(test)]
 fn delete_app(wait_eth_sync: bool, wait_tx_include: bool) {
     let mut opts = TestOpts::default()
         .with_eth_sync(wait_eth_sync)
@@ -46,6 +47,27 @@ fn delete_app(wait_eth_sync: bool, wait_tx_include: bool) {
     assert_eq!(log.app_id, app_id);
 }
 
+#[cfg(test)]
+fn dequeue_app(wait_eth_sync: bool, wait_tx_include: bool) {
+    let opts = TestOpts::default()
+        .with_eth_sync(wait_eth_sync)
+        .with_tx_include(wait_tx_include);
+
+    let tx = opts.publish_app(50, vec![]).unwrap();
+
+    let logs = opts.get_transaction_logs(&tx, app_enqueued::parse_log);
+    let log = logs.first().unwrap();
+    let app_id = log.app_id;
+
+    let tx = opts.delete_app(app_id, false).unwrap();
+
+    let logs = opts.get_transaction_logs(&tx, app_dequeued::parse_log);
+    let log = logs.first().unwrap();
+
+    assert_eq!(log.app_id, app_id);
+}
+
+// TODO: use macros to generate tests
 #[test]
 fn integration_delete_app() {
     delete_app(false, false)
@@ -66,19 +88,22 @@ fn integration_delete_app_wait_eth_sync_and_tx_include() {
     delete_app(true, true)
 }
 
-fn dequeue_app() {
-    let opts = TestOpts::default();
+#[test]
+fn integration_dequeue_app() {
+    dequeue_app(false, false)
+}
 
-    let tx = opts.publish_app(50, vec![]).unwrap();
+#[test]
+fn integration_dequeue_app_wait_eth_sync() {
+    dequeue_app(true, false)
+}
 
-    let logs = opts.get_transaction_logs(&tx, app_enqueued::parse_log);
-    let log = logs.first().unwrap();
-    let app_id = log.app_id;
+#[test]
+fn integration_dequeue_app_wait_tx_include() {
+    dequeue_app(false, true)
+}
 
-    let tx = opts.delete_app(app_id, false).unwrap();
-
-    let logs = opts.get_transaction_logs(&tx, app_dequeued::parse_log);
-    let log = logs.first().unwrap();
-
-    assert_eq!(log.app_id, app_id);
+#[test]
+fn integration_dequeue_app_wait_eth_sync_and_tx_include() {
+    dequeue_app(true, true)
 }
