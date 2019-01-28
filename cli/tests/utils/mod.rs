@@ -61,34 +61,14 @@ impl TestOpts {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn new(
-        contract_address: Address,
-        account: Address,
-        start_port: u16,
-        credentials: Credentials,
-        eth_url: String,
-        gas: u32,
-        code_bytes: Vec<u8>,
-        swarm_url: String,
-    ) -> TestOpts {
-        let eth = EthereumArgs {
-            contract_address,
-            account,
-            credentials,
-            eth_url,
-            gas,
-            wait_tx_include: false,
-            wait_eth_sync: false,
-        };
+    pub fn with_eth_sync(mut self, wait: bool) -> Self {
+        self.eth.wait_eth_sync = wait;
+        self
+    }
 
-        TestOpts {
-            start_port,
-            last_used_port: None,
-            code_bytes,
-            swarm_url,
-            eth,
-        }
+    pub fn with_tx_include(mut self, wait: bool) -> Self {
+        self.eth.wait_tx_include = wait;
+        self
     }
 
     pub fn register_node(&mut self, ports: u16, private: bool) -> Result<(H256, Register)> {

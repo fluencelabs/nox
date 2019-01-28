@@ -22,9 +22,10 @@ use fluence::contract_func::contract::events::app_deployed;
 use fluence::contract_func::contract::events::app_dequeued;
 use fluence::contract_func::contract::events::app_enqueued;
 
-#[test]
-fn integration_delete_app() {
-    let mut opts = TestOpts::default();
+fn delete_app(wait_eth_sync: bool, wait_tx_include: bool) {
+    let mut opts = TestOpts::default()
+        .with_eth_sync(wait_eth_sync)
+        .with_tx_include(wait_tx_include);
 
     let count = 5;
     for _ in 0..count {
@@ -46,7 +47,26 @@ fn integration_delete_app() {
 }
 
 #[test]
-fn integration_dequeue_app() {
+fn integration_delete_app() {
+    delete_app(false, false)
+}
+
+#[test]
+fn integration_delete_app_wait_eth_sync() {
+    delete_app(true, false)
+}
+
+#[test]
+fn integration_delete_app_wait_tx_include() {
+    delete_app(false, true)
+}
+
+#[test]
+fn integration_delete_app_wait_eth_sync_and_tx_include() {
+    delete_app(true, true)
+}
+
+fn dequeue_app() {
     let opts = TestOpts::default();
 
     let tx = opts.publish_app(50, vec![]).unwrap();
