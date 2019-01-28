@@ -44,6 +44,16 @@ def copy_resources():
     put('scripts/parity.yml', 'scripts/')
     put('scripts/swarm.yml', 'scripts/')
 
+@parallel
+def test():
+    with cd("scripts"):
+        output = run('./fluence -h')
+        run('export TEST_VAR="TEST_AAAAAAA"')
+        print 'command output: {}'.format(output.stdout, capture=True)
+        testvar = os.getenv('TEST_VAR')
+        print "azazaz === ", testvar
+
+
 # comment this annotation to deploy sequentially
 @parallel
 def deploy():
@@ -76,6 +86,8 @@ def deploy():
                        HOST_IP=current_host):
             run('chmod +x compose.sh')
             # download fluence CLI
-            run('curl ' + RELEASE + ' -o fluence')
-            run('chmod +x fluence')
-            run('./compose.sh')
+            output = run('./compose.sh')
+            # the script will return command with arguments that will register node in Fluence contract
+            # TODO return all arguments instead of the command itself or make a file or an output with all common commands
+            register_command = output.stdout.splitlines()[-1]
+            local(register_command)
