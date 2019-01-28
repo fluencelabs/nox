@@ -15,8 +15,8 @@
  */
 
 import "bootstrap/dist/css/bootstrap.min.css";
-import * as fluence from "fluence-js";
-import {AppSession, Result} from "fluence-js";
+import * as fluence from "fluence";
+import {AppSession, Result} from "fluence";
 import {getNodeStatus, isAvailable, NodeStatus, UnavailableNode} from "fluence-monitoring";
 
 /**
@@ -131,7 +131,7 @@ let contractAddress = "0x5b317f280d4Bf958117eF4fEd9F229D815C52b74";
 let appId = "0x0000000000000000000000000000000000000000000000000000000000000004";
 
 async function preparePage() {
-    let sessions = await fluence.createAppSession(contractAddress, appId);
+    let sessions = await fluence.connect(contractAddress, appId);
 
     let client = new DbClient(sessions);
 

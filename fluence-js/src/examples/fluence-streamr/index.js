@@ -1,8 +1,8 @@
 import StreamrClient from 'streamr-client'
-import * as fluence from "js-fluence-client"
+import * as fluence from "fluence"
 
 const streamrClient = new StreamrClient();
-const fluenceSession = fluence.createDefaultSession("localhost", 29057);
+const fluenceSession = fluence.directConnect("localhost", 29057);
 
 const createTableQuery = "CREATE TABLE polution_uusimaa(id varchar(128), location varchar(128), parameter varchar(128), " +
     "value double, unit varchar(128), country varchar(128), city varchar(128), latitude double, " +
