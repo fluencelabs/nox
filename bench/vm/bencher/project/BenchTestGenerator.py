@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 from os.path import join
-from settings import *
 from subprocess import call
 
 
@@ -46,25 +45,24 @@ class BenchTestGenerator:
         """
         call("mkdir -p {}".format(join(out_dir,self.generated_tests_dir)), shell=True)
 
-        # collect garbage to clean possible previous unsuccessfully build results that prevent cargo to build new tests
-        self.__collect_garbage(out_dir)
-
         generated_tests_dir_full_path = join(out_dir, self.generated_tests_dir)
-        test_mv_cmd = "mv " + join(out_dir, "wasm32-unknown-unknown", "release", "{}.wasm") + " " \
-                            + join(generated_tests_dir_full_path, "{}.wasm")
+        test_mv_cmd = "mv {} {}".format(
+            join(out_dir, "wasm32-unknown-unknown", "release", "{}.wasm"),
+            join(generated_tests_dir_full_path, "{}.wasm")
+        )
 
         for test_name, test_descriptor in test_descriptors.items():
             test_full_path = join(self.tests_dir, test_descriptor.test_folder_name)
-            test_compilation_cmd = test_descriptor.test_compilation_cmd.format(test_full_path, out_dir)
-
-            for key, value in test_descriptor.test_compilation_parameters.items():
-                test_compilation_cmd = "{}={} {}".format(key, value, test_compilation_cmd)
-
-            call(test_compilation_cmd, shell=True)
-            call(test_mv_cmd.format(test_descriptor.test_folder_name, test_name), shell=True)
+            test_compilation_cmd = "{} {}".format(
+                test_descriptor.test_compilation_parameters,
+                test_descriptor.test_compilation_cmd.format(test_full_path, out_dir)
+            )
 
             # collect garbage to force cargo build the same test with different env params again
             self.__collect_garbage(out_dir)
+
+            call(test_compilation_cmd, shell=True)
+            call(test_mv_cmd.format(test_descriptor.test_folder_name, test_name), shell=True)
 
             test_descriptors[test_name].generated_test_full_path = \
                 join(generated_tests_dir_full_path, "{}.wasm").format(test_name)
@@ -73,13 +71,13 @@ class BenchTestGenerator:
 
     def __collect_garbage(self, out_dir):
         """Removes rust cargo target directories.
-
         Attributes
         ----------
         out_dir : str
             A directory where build results are placed.
 
         """
-        # TODO : clean by cargo clean
-        call(("rm -rf " + join("{}", "wasm32-unknown-unknown")).format(out_dir), shell=True)
-        call(("rm -rf " + join("{}", "release")).format(out_dir), shell=True)
+        # Suddenly cargo clean deletes all content of directory given to it as a target-dir
+        # so it is necessary to clean garbage "by hands"
+        call(("rm -rf {}".format(join("{}", "wasm32-unknown-unknown")).format(out_dir)), shell=True)
+        call(("rm -rf {}".format(join("{}", "release")).format(out_dir)), shell=True)
