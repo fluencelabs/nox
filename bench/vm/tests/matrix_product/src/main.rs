@@ -13,19 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/// this seed is used for deterministic operation count on different launches
-pub const SEED: &str = env!("SEED");
 
-/// a matrix size
-pub const MATRIX_SIZE: &str = env!("MATRIX_SIZE");
+mod bench;
 
-/// count of test iterations
-pub const ITERATIONS_COUNT: &str = env!("ITERATIONS_COUNT");
-
-/// 1117 due to prevent overflow in matrix multiplication
-pub const GENERATION_INTERVAL: f64 = 1117.0;
-
-pub extern crate nalgebra;
-use nalgebra::DMatrix;
-/// exactly matrix type
-pub type Matrix = DMatrix<f64>;
+pub fn main() {
+    std::process::exit(bench::bench() as i32)
+}

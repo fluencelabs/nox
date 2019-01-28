@@ -13,5 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/// A requested number that should be factorized by this test.
-pub const FACTORIZED_NUMBER: &str = env!("FACTORIZED_NUMBER");
+
+mod bench;
+
+pub fn main() {
+    std::process::exit(bench::bench() as i32)
+

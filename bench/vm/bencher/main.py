@@ -15,9 +15,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 """
-from BenchTestGenerator import BenchTestGenerator
-from WasmVMBencher import WasmVMBencher
-from settings import vm_descriptors, test_descriptors
+from project.BenchTestGenerator import BenchTestGenerator
+from project.WasmVMBencher import WasmVMBencher
+from project.settings import vm_descriptors
+from project.TestDescriptor import TestDescriptor
+
 import click
 import csv
 import logging
@@ -25,7 +27,7 @@ from os.path import join
 
 
 def save_test_results(out_dir, results):
-    """Saves provided results to <vm_name>.csv files in given out_dir.
+    """Saves provided results to <vm_name>.csv files in a given directory.
 
     Parameters
     ----------
@@ -33,6 +35,7 @@ def save_test_results(out_dir, results):
         A directory where the result will be saved.
     results : {vm_name : {test_name : [Record]}}
         Results that should be saved.
+
     """
     for vm in results:
         with open(join(out_dir, vm + ".csv"), 'w', newline='') as bench_result_file:
@@ -45,16 +48,46 @@ def save_test_results(out_dir, results):
                     writer.writerow({"test_name" : test_name, "elapsed_time" : record.time})
 
 
+def load_test_descriptors(test_settings_dir):
+    """Loads tests settings from a given csv file.
+
+    Parameters
+    ----------
+    test_settings_dir : str
+        A full path to file with settings.
+
+    Returns
+    -------
+    results : {test_name : TestDescriptor}
+        Resulted dictionary with test descriptors.
+
+    """
+    results = {}
+    with open(test_settings_dir, 'r', newline='') as test_settings_file:
+        reader = csv.DictReader(test_settings_file)
+        for rows in reader:
+            results[rows["test_name"]] = TestDescriptor(
+                rows["test_folder_name"],
+                rows["test_compilation_cmd"],
+                rows["test_compilation_parameters"]
+            )
+
+    return results
+
+
 @click.command()
-@click.option("--vm_dir", help="directory with Webassembly virtual machines")
-@click.option("--tests_dir", help="directory with benchmark tests")
-@click.option("--out_dir", help="directory where results will be saved")
-def main(vm_dir, tests_dir, out_dir):
+@click.option("--vm_dir", help="a directory with Webassembly virtual machines")
+@click.option("--tests_dir", help="a directory with benchmark tests")
+@click.option("--test_settings_dir", help="a full path to file with tests settings")
+@click.option("--out_dir", help="a directory where results will be saved")
+def main(vm_dir, tests_dir, test_settings_dir, out_dir):
     logging.basicConfig(filename="wasm_bencher_log", level=logging.INFO, format='%(asctime)s %(message)s',
                         datefmt='%m/%d/%Y %I:%M:%S %p')
 
     logger = logging.getLogger("wasm_bench_logger")
+
     logger.info("<wasm_bencher>: starting tests generation")
+    test_descriptors = load_test_descriptors(test_settings_dir)
     test_generator = BenchTestGenerator(tests_dir)
     filled_tests_descriptors = test_generator.generate_tests(out_dir, test_descriptors)
 
