@@ -21,11 +21,13 @@ use web3::types::H256;
 use crate::command;
 use crate::contract_func::call_contract;
 use crate::contract_func::contract::events::app_deleted;
+use crate::contract_func::contract::events::app_dequeued;
 use crate::contract_func::contract::functions::delete_app;
 use crate::contract_func::contract::functions::dequeue_app;
 use crate::contract_func::wait_sync;
 use crate::contract_func::{get_transaction_logs, wait_tx_included};
 use crate::utils;
+use ethabi::RawLog;
 use failure::err_msg;
 use failure::Error;
 
@@ -82,24 +84,36 @@ impl DeleteApp {
         }
     }
 
+    fn wait_event<T, F>(&self, tx: &H256, f: F, event_name: &str) -> Result<(), Error>
+    where
+        F: Fn(RawLog) -> ethabi::Result<T>,
+    {
+        let logs = get_transaction_logs(self.eth.eth_url.as_str(), tx, f)?;
+        logs.first()
+            .ok_or(err_msg(format!(
+                "No {} event is found in transaction logs. tx: {:#x}",
+                event_name, tx
+            )))
+            .map(|_| ())
+    }
+
     pub fn delete_app(self, show_progress: bool) -> Result<H256, Error> {
         let delete_app_fn = || -> Result<H256, Error> {
-            let call_data = match self.deployed {
-                true => delete_app::call(self.app_id).0,
-                false => dequeue_app::call(self.app_id).0,
+            let call_data = if self.deployed {
+                delete_app::call(self.app_id).0
+            } else {
+                dequeue_app::call(self.app_id).0
             };
 
             call_contract(&self.eth, call_data)
         };
 
         let wait_event_fn = |tx: &H256| -> Result<(), Error> {
-            let logs = get_transaction_logs(self.eth.eth_url.as_str(), tx, app_deleted::parse_log)?;
-            logs.first().ok_or(err_msg(format!(
-                "No AppDeleted event is found in transaction logs. tx: {:#x}",
-                tx
-            )))?;
-
-            Ok(())
+            if self.deployed {
+                self.wait_event(tx, app_deleted::parse_log, "AppDeleted")
+            } else {
+                self.wait_event(tx, app_dequeued::parse_log, "AppDequeued")
+            }
         };
 
         if show_progress {

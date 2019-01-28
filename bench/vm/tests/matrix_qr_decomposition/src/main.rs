@@ -13,11 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/// This value is used as the first seed of pseudo-random generator for sequence generation.
-pub const SEED: &str = env!("SEED");
 
-/// Count of compression iterations.
-pub const ITERATIONS_COUNT: &str = env!("ITERATIONS_COUNT");
+mod bench;
 
-/// Size of sequence that should be compressed on each iteration.
-pub const SEQUENCE_SIZE: &str = env!("SEQUENCE_SIZE");
+pub fn main() {
+    std::process::exit(bench::bench() as i32)
+}

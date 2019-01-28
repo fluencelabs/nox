@@ -20,23 +20,16 @@ use ethcore_transaction::{Action, Transaction};
 use ethkey::Secret;
 use web3::futures::Future;
 use web3::transports::Http;
-use web3::types::CallRequest;
-use web3::types::TransactionRequest;
 use web3::types::{Address, Bytes, Transaction as Web3Transaction, H256};
+use web3::types::{CallRequest, Log, TransactionId, TransactionRequest};
 use web3::Web3;
 
-use failure::err_msg;
-use failure::Error;
-use failure::Fail;
-use failure::ResultExt;
-use failure::SyncFailure;
+use failure::{err_msg, Error, ResultExt, SyncFailure};
 
 use crate::credentials::Credentials;
 use crate::utils;
 use ethabi::RawLog;
 use std::time::Duration;
-use web3::types::Log;
-use web3::types::TransactionId;
 
 use_contract!(contract, "../bootstrap/contracts/compiled/Network.abi");
 
@@ -189,54 +182,62 @@ where
     })
 }
 
-#[derive(Fail, Debug)]
-#[fail(display = "TxError")]
-pub enum TxError {
-    #[fail(display = "No such transaction {:#x}", _0)]
-    NoTx(H256),
-    #[fail(display = "Undefined block number in transaction")]
-    NoBlock,
-    #[fail(display = "Web3 error {:?}", _0)]
-    Web3Error(Error),
-}
-
-impl From<web3::Error> for TxError {
-    fn from(e: web3::Error) -> TxError {
-        TxError::Web3Error(SyncFailure::new(e).into())
-    }
-}
-
 pub fn wait_tx_included(eth_url: String, tx: &H256) -> Result<Web3Transaction, Error> {
-    use futures::future;
-    use futures_retry::{FutureRetry, RetryPolicy};
-    use tokio::runtime::Runtime;
+    use std::thread;
 
-    let mut rt = Runtime::new()?;
+    let (_eloop, transport) = Http::new(eth_url.as_str()).map_err(SyncFailure::new)?;
+    let web3 = &web3::Web3::new(transport);
+
+    // TODO: move to config or to options
+    let max_attempts = 10;
+    let mut attempt = 0;
 
     let tx = tx.clone();
-    let fut = FutureRetry::new(
-        move || {
-            let http_f = future::result(Http::new(eth_url.as_str()).map_err(Into::into));
-            http_f.and_then(move |(_eloop, transport)| {
-                let web3 = web3::Web3::new(transport);
-                web3.eth()
-                    .transaction(TransactionId::Hash(tx))
-                    .map_err(Into::into)
-                    .and_then(move |tx_res| tx_res.ok_or(TxError::NoTx(tx)))
-                    .and_then(move |tx_res| {
-                        tx_res.block_number.ok_or(TxError::NoBlock).map(|_| tx_res)
-                    })
-            })
-        },
-        |e| match e {
-            TxError::NoTx(_) => RetryPolicy::ForwardError(e),
-            TxError::NoBlock | TxError::Web3Error(_) => {
-                RetryPolicy::WaitRetry(Duration::from_secs(10))
-            }
-        },
-    );
 
-    rt.block_on(fut).map_err(Into::into)
+    fn as_string(r: Result<Option<Web3Transaction>, Error>) -> String {
+        match r {
+            Err(e) => e.to_string(),
+            _ => String::from("No transaction"),
+        }
+    }
+
+    loop {
+        let tx_opt: Result<Option<Web3Transaction>, Error> = web3
+            .eth()
+            .transaction(TransactionId::Hash(tx))
+            .map_err(SyncFailure::new)
+            .map_err(Into::into)
+            .wait();
+
+        attempt += 1;
+
+        match tx_opt {
+            Ok(Some(web3tx)) => {
+                if web3tx.block_number.is_some() {
+                    return Ok(web3tx);
+                }
+            }
+            r => {
+                if attempt == max_attempts {
+                    return Err(err_msg(format!(
+                        "[{:?}] All attempts ({}) have been used",
+                        as_string(r),
+                        max_attempts
+                    )));
+                } else {
+                    eprintln!(
+                        "[{:?}] Attempt {}/{} has failed",
+                        as_string(r),
+                        attempt,
+                        max_attempts
+                    )
+                }
+            }
+        }
+
+        // TODO: move to config or to options
+        thread::sleep(Duration::from_secs(5));
+    }
 }
 
 pub fn wait_sync(eth_url: String) -> Result<(), Error> {
@@ -245,14 +246,15 @@ pub fn wait_sync(eth_url: String) -> Result<(), Error> {
     let (_eloop, transport) = Http::new(eth_url.as_str()).map_err(SyncFailure::new)?;
     let web3 = &web3::Web3::new(transport);
 
-    let mut sync = utils::check_sync(web3)?;
-
+    // TODO: move to config or to options
     let ten_seconds = Duration::from_secs(10);
 
-    while sync {
-        thread::sleep(ten_seconds);
+    loop {
+        if !utils::check_sync(web3)? {
+            break;
+        }
 
-        sync = utils::check_sync(web3)?;
+        thread::sleep(ten_seconds);
     }
 
     Ok(())

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-mod utils;
+pub mod utils;
 
 use crate::utils::*;
 use fluence::contract_func::contract::events::app_deployed;
@@ -22,9 +22,11 @@ use fluence::contract_status::status::{get_status, Status};
 use fluence::register::Register;
 use web3::types::H256;
 
-#[test]
-fn integration_publish_pinned() {
-    let mut opts = TestOpts::default();
+#[cfg(test)]
+fn publish_pinned(wait_eth_sync: bool, wait_tx_include: bool) {
+    let mut opts = TestOpts::default()
+        .with_eth_sync(wait_eth_sync)
+        .with_tx_include(wait_tx_include);
 
     let count = 5;
     let nodes: Result<Vec<(H256, Register)>> =
@@ -50,4 +52,24 @@ fn integration_publish_pinned() {
         .unwrap();
     let pins = target.pin_to_nodes().as_ref().unwrap();
     assert_eq!(pins.len(), count as usize);
+}
+
+#[test]
+fn integration_publish_pinned() {
+    publish_pinned(false, false)
+}
+
+#[test]
+fn integration_publish_pinned_wait_eth_sync() {
+    publish_pinned(true, false)
+}
+
+#[test]
+fn integration_publish_pinned_wait_tx_include() {
+    publish_pinned(false, true)
+}
+
+#[test]
+fn integration_publish_pinned_wait_eth_sync_and_tx_include() {
+    publish_pinned(true, true)
 }

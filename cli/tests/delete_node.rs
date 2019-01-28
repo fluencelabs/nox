@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-mod utils;
+pub mod utils;
 
 use crate::utils::*;
 use fluence::contract_func::contract::events::app_deleted;
@@ -22,9 +22,11 @@ use fluence::contract_func::contract::events::app_deployed;
 use fluence::contract_func::contract::events::new_node;
 use fluence::contract_func::contract::events::node_deleted;
 
-#[test]
-fn integration_delete_enqueued_node() {
-    let mut opts = TestOpts::default();
+#[cfg(test)]
+fn delete_enqueued_node(wait_eth_sync: bool, wait_tx_include: bool) {
+    let mut opts = TestOpts::default()
+        .with_eth_sync(wait_eth_sync)
+        .with_tx_include(wait_tx_include);
 
     let (tx, _) = opts.register_node(1, false).unwrap();
 
@@ -38,9 +40,11 @@ fn integration_delete_enqueued_node() {
     assert_eq!(node_id, log.id);
 }
 
-#[test]
-fn integration_deleted_deployed_node() {
-    let mut opts = TestOpts::default();
+#[cfg(test)]
+fn deleted_deployed_node(wait_eth_sync: bool, wait_tx_include: bool) {
+    let mut opts = TestOpts::default()
+        .with_eth_sync(wait_eth_sync)
+        .with_tx_include(wait_tx_include);
 
     let (tx, _) = opts.register_node(1, false).unwrap();
     let logs = opts.get_transaction_logs(&tx, new_node::parse_log);
@@ -59,4 +63,45 @@ fn integration_deleted_deployed_node() {
     let logs = opts.get_transaction_logs(&tx, app_deleted::parse_log);
     let log = logs.first().unwrap();
     assert_eq!(app_id, log.app_id);
+}
+
+// TODO: use macros to generate tests
+#[test]
+fn integration_delete_enqueued_node() {
+    delete_enqueued_node(false, false)
+}
+
+#[test]
+fn integration_delete_enqueued_node_wait_eth_sync() {
+    delete_enqueued_node(true, false)
+}
+
+#[test]
+fn integration_delete_enqueued_node_wait_tx_include() {
+    delete_enqueued_node(false, true)
+}
+
+#[test]
+fn integration_delete_enqueued_node_wait_eth_sync_and_tx_include() {
+    delete_enqueued_node(true, true)
+}
+
+#[test]
+fn integration_deleted_deployed_node() {
+    deleted_deployed_node(false, false)
+}
+
+#[test]
+fn integration_deleted_deployed_node_wait_eth_sync() {
+    deleted_deployed_node(true, false)
+}
+
+#[test]
+fn integration_deleted_deployed_node_wait_tx_include() {
+    deleted_deployed_node(false, true)
+}
+
+#[test]
+fn integration_deleted_deployed_node_wait_eth_sync_and_tx_include() {
+    deleted_deployed_node(true, true)
 }

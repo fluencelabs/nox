@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use fluence::credentials::Credentials;
 use fluence::publisher::Publisher;
 use fluence::register::Register;
 
@@ -22,7 +21,7 @@ use failure::Error;
 use std::result::Result as StdResult;
 
 use rand::Rng;
-use web3::types::{Address, H256};
+use web3::types::H256;
 
 use derive_getters::Getters;
 use ethabi::RawLog;
@@ -61,34 +60,14 @@ impl TestOpts {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn new(
-        contract_address: Address,
-        account: Address,
-        start_port: u16,
-        credentials: Credentials,
-        eth_url: String,
-        gas: u32,
-        code_bytes: Vec<u8>,
-        swarm_url: String,
-    ) -> TestOpts {
-        let eth = EthereumArgs {
-            contract_address,
-            account,
-            credentials,
-            eth_url,
-            gas,
-            wait_tx_include: false,
-            wait_eth_sync: false,
-        };
+    pub fn with_eth_sync(mut self, wait: bool) -> Self {
+        self.eth.wait_eth_sync = wait;
+        self
+    }
 
-        TestOpts {
-            start_port,
-            last_used_port: None,
-            code_bytes,
-            swarm_url,
-            eth,
-        }
+    pub fn with_tx_include(mut self, wait: bool) -> Self {
+        self.eth.wait_tx_include = wait;
+        self
     }
 
     pub fn register_node(&mut self, ports: u16, private: bool) -> Result<(H256, Register)> {
@@ -148,7 +127,7 @@ impl TestOpts {
     // Example usage:
     // use fluence::contract_func::contract::events::app_deployed;
     // get_logs(app_deployed::filter(), app_deployed::parse_log);
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn get_logs<T, F>(&self, filter: TopicFilter, parse_log: F) -> Vec<T>
     where
         F: Fn(RawLog) -> ethabi::Result<T>,
@@ -172,14 +151,14 @@ impl TestOpts {
         logs
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn delete_app(&self, app_id: H256, deployed: bool) -> Result<H256> {
         let delete = DeleteApp::new(app_id, deployed, self.eth.clone());
 
         delete.delete_app(false)
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn delete_node(&self, node_id: H256) -> Result<H256> {
         let delete = DeleteNode::new(node_id, self.eth.clone());
 

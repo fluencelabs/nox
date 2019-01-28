@@ -16,7 +16,6 @@
 
 mod bench;
 
-#[no_mangle]
-pub extern "C" fn main() -> u8 {
-    bench::bench()
+pub fn main() {
+    std::process::exit(bench::bench() as i32)
 }
