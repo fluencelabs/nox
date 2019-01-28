@@ -1,6 +1,6 @@
 //! Basic functions for dealing with Wasm memory.
 //!
-//! This module contains functions for initializing and manipulating memory.
+//! This module contains functions for memory initializing and manipulating.
 
 pub mod errors;
 
@@ -14,7 +14,7 @@ use std::ptr::NonNull;
 /// Result type for this module.
 pub type MemResult<T> = Result<T, MemError>;
 
-/// Allocates memory area of specified size and returns its address. Actually is
+/// Allocates a memory region of given size and returns its address. Actually is
 /// just a wrapper for [`GlobalAlloc::alloc`].
 ///
 /// # Safety
@@ -28,7 +28,7 @@ pub unsafe fn alloc(size: NonZeroUsize) -> MemResult<NonNull<u8>> {
     Global.alloc(layout).map_err(Into::into)
 }
 
-/// Deallocates memory area for current memory pointer and size. Actually is
+/// Deallocates a memory region for current pointer and size. Actually is
 /// just a wrapper for [`GlobalAlloc::dealloc`].
 ///
 /// # Safety
@@ -43,41 +43,49 @@ pub unsafe fn dealloc(ptr: NonNull<u8>, size: NonZeroUsize) -> MemResult<()> {
     Ok(())
 }
 
-/// Count of bytes that a string length representation in memory occupy.
-/// See [write_str_to_mem] method.
-pub const STR_LEN_BYTES: usize = 4;
+/// Count of bytes that length of returning array occupies.
+/// For more information please see [write_array_to_mem] method implementation.
+pub const RESULT_SIZE_BYTES: usize = 4;
 
-/// Writes Rust string to the memory directly as string length and byte array.
-/// This method allocates new 'STR_LEN_BYTES + str.len()' bytes and writes the
-/// length of the string as first [STR_LEN_BYTES] bytes and then writes copy of
-/// 'str' after 'length' as a rest of the bytes.
+/// Writes Rust string to memory directly as an array length and a byte array.
+/// This method allocates 'RESULT_SIZE_BYTES + result.len()' bytes and writes the
+/// length of the array as first [RESULT_SIZE_BYTES] bytes and then writes content of
+/// 'result' after 'length'.
 ///
-/// Written memory structure is:
+/// The final result layout in memory is following:
 /// `
-///     | str_length: $STR_LEN_BYTES BYTES (little-endian) | string_payload: $str_length BYTES |
+///     | array_length: RESULT_SIZE_BYTES bytes (little-endian) | array: $array_length bytes |
 /// `
-pub unsafe fn write_str_to_mem(str: &str) -> MemResult<NonNull<u8>> {
-    let str_len = str.len();
-    let total_len = STR_LEN_BYTES
-        .checked_add(str_len)
+pub unsafe fn write_array_to_mem(result: &[u8]) -> MemResult<NonNull<u8>> {
+    let result_len = result.len();
+    let total_len = result_len
+        .checked_add(RESULT_SIZE_BYTES)
         .ok_or_else(|| MemError::new("usize overflow occurred"))?;
 
-    // converting string size to bytes in little-endian order
-    let len_as_bytes: [u8; STR_LEN_BYTES] = mem::transmute((str_len as u32).to_le());
-    // allocate new memory for result
+    // converts array size to bytes in little-endian
+    let len_as_bytes: [u8; RESULT_SIZE_BYTES] = mem::transmute((result_len as u32).to_le());
+
+    // allocates a new memory region for result
     let result_ptr = alloc(NonZeroUsize::new_unchecked(total_len))?;
-    // copy length of string to result memory
-    ptr::copy_nonoverlapping(len_as_bytes.as_ptr(), result_ptr.as_ptr(), STR_LEN_BYTES);
-    // copy string to memory
+
+    // copies length of array to memory
+    ptr::copy_nonoverlapping(len_as_bytes.as_ptr(),result_ptr.as_ptr(), STR_LEN_BYTES);
+
+    // copies array to memory
     ptr::copy_nonoverlapping(
-        str.as_ptr(),
-        result_ptr.as_ptr().add(STR_LEN_BYTES),
-        str_len,
+        result.as_ptr(),
+        result_ptr.as_ptr().add(RESULT_SIZE_BYTES),
+        result_len,
     );
+
     Ok(result_ptr)
 }
 
-/// Builds Rust string from the pointer and the length. Bytes copying doesn't
+pub unsafe fn write_str_to_mem(result: &str) -> MemResult<NonNull<u8>> {
+
+}
+
+/// Builds Rust string from given pointer and length. Bytes copying doesn't
 /// occur, new String just wraps bytes around. Memory will be deallocated when
 /// the String will be dropped.
 ///
@@ -94,8 +102,8 @@ pub unsafe fn deref_str(ptr: *mut u8, len: usize) -> String {
 
 /// Reads Rust String from the raw memory. This operation is opposite of
 /// [write_str_to_mem]. Reads from the raw memory a string length as first
-/// [STR_LEN_BYTES] bytes and then reads string for this length. Deallocates
-/// first [STR_LEN_BYTES] bytes that corresponded string length and wraps the
+/// [RESULT_SIZE_BYTES] bytes and then reads string for this length. Deallocates
+/// first [RESULT_SIZE_BYTES] bytes that corresponded string length and wraps the
 /// rest bytes into a Rust string.
 ///
 /// # Safety
@@ -110,7 +118,7 @@ pub unsafe fn read_str_from_fat_ptr(ptr: NonNull<u8>) -> MemResult<String> {
     // read string length from current pointer
     let str_len = read_len(ptr.as_ptr()) as usize;
 
-    let total_len = STR_LEN_BYTES
+    let total_len = RESULT_SIZE_BYTES
         .checked_add(str_len)
         .ok_or_else(|| MemError::new("usize overflow occurred"))?;
 
@@ -120,7 +128,7 @@ pub unsafe fn read_str_from_fat_ptr(ptr: NonNull<u8>) -> MemResult<String> {
     // remove size from the beginning of created string, it allows freeing
     // only memory used for keeping string length
     {
-        str.drain(0..STR_LEN_BYTES);
+        str.drain(0..RESULT_SIZE_BYTES);
     }
     // return string without length at the beginning
     Ok(str)
@@ -130,8 +138,8 @@ pub unsafe fn read_str_from_fat_ptr(ptr: NonNull<u8>) -> MemResult<String> {
 /// You can use the pointer after calling this method as you wish. Don't forget
 /// to deallocate memory for this pointer when it's don't need anymore.
 unsafe fn read_len(ptr: *mut u8) -> u32 {
-    let mut str_len_as_bytes: [u8; STR_LEN_BYTES] = [0; STR_LEN_BYTES];
-    ptr::copy_nonoverlapping(ptr, str_len_as_bytes.as_mut_ptr(), STR_LEN_BYTES);
+    let mut str_len_as_bytes: [u8; RESULT_SIZE_BYTES] = [0; RESULT_SIZE_BYTES];
+    ptr::copy_nonoverlapping(ptr, str_len_as_bytes.as_mut_ptr(), RESULT_SIZE_BYTES);
     mem::transmute(str_len_as_bytes)
 }
 
