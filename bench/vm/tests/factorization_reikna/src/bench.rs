@@ -13,19 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/// This seed is used for deterministic operation count on different launches.
-pub const SEED: &str = env!("SEED");
 
-/// Matrix size.
-pub const MATRIX_SIZE: &str = env!("MATRIX_SIZE");
+mod settings {
+    /// A requested number that should be factorized by this test.
+    pub const FACTORIZED_NUMBER: &str = env!("FACTORIZED_NUMBER");
+}
 
-// count of test iterations
-pub const ITERATIONS_COUNT: &str = env!("ITERATIONS_COUNT");
+use reikna::prime;
 
-// 1117 due to prevent overflow in matrix multiplication
-pub const GENERATION_INTERVAL: u64 = 1117;
+pub fn bench() -> u64 {
+    let factorized_number: u64 = settings::FACTORIZED_NUMBER.parse::<u64>().unwrap();
+    // reikna uses Atkin or Eratosthenes seive to factorize given number
+    let factors = prime::factorize(factorized_number);
 
-pub extern crate nalgebra;
-use nalgebra::DMatrix;
-// exactly matrix type
-pub type Matrix = DMatrix<u64>;
+    factors[0]
+}
