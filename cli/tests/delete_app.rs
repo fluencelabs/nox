@@ -1,3 +1,19 @@
+/*
+ * Copyright 2019 Fluence Labs Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 mod utils;
 
 use crate::utils::*;
@@ -7,8 +23,6 @@ use fluence::contract_func::contract::events::app_dequeued;
 use fluence::contract_func::contract::events::app_enqueued;
 
 #[test]
-#[ignore]
-// TODO: unignore. Ignored due to 'out of gas' error when running all tests on Ganache
 fn integration_delete_app() {
     let mut opts = TestOpts::default();
 
@@ -19,13 +33,13 @@ fn integration_delete_app() {
 
     let tx = opts.publish_app(count, vec![]).unwrap();
 
-    let logs = opts.get_transaction_logs(tx, app_deployed::parse_log);
+    let logs = opts.get_transaction_logs(&tx, app_deployed::parse_log);
     let log = logs.first().unwrap();
     let app_id = log.app_id;
 
     let tx = opts.delete_app(app_id, true).unwrap();
 
-    let logs = opts.get_transaction_logs(tx, app_deleted::parse_log);
+    let logs = opts.get_transaction_logs(&tx, app_deleted::parse_log);
     let log = logs.first().unwrap();
 
     assert_eq!(log.app_id, app_id);
@@ -37,13 +51,13 @@ fn integration_dequeue_app() {
 
     let tx = opts.publish_app(50, vec![]).unwrap();
 
-    let logs = opts.get_transaction_logs(tx, app_enqueued::parse_log);
+    let logs = opts.get_transaction_logs(&tx, app_enqueued::parse_log);
     let log = logs.first().unwrap();
     let app_id = log.app_id;
 
     let tx = opts.delete_app(app_id, false).unwrap();
 
-    let logs = opts.get_transaction_logs(tx, app_dequeued::parse_log);
+    let logs = opts.get_transaction_logs(&tx, app_dequeued::parse_log);
     let log = logs.first().unwrap();
 
     assert_eq!(log.app_id, app_id);

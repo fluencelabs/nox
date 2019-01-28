@@ -3,7 +3,7 @@ version: '3.4'
 services:
   swarm:
     container_name: swarm
-    image: ethdevops/swarm:latest
+    image: ethdevops/swarm:edge
     environment:
       - PASSWORD=password123
     ports:

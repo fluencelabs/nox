@@ -42,23 +42,24 @@ class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) extends
   /**
    * Invokes the provided invocation description using the underlying VM.
    *
-   * @param callDescription description of function call invocation including function name and arguments
+   * @param arg an argument for Wasm VM module main handler
    * @return either successful invocation's result or failed invocation's error
    */
-  def invoke(callDescription: VmFunctionCallDescription): EitherT[F, StateMachineError, String] = {
+  def invoke(arg: Array[Byte]): EitherT[F, StateMachineError, String] = {
     val invokeTimeMeter = TimeMeter()
 
     val result = for {
       invocationValue <- vm
-        .invoke(callDescription.module, callDescription.arg)
+      // by our name conventional a master Wasm module in VM doesn't have name
+        .invoke(None, arg)
         .bimap(VmOperationInvoker.convertToStateMachineError, ByteVector(_).toHex(HexUppercase))
         .value
 
       invokeDuration = invokeTimeMeter.millisElapsed
       _ = logger.info("VmOperationInvoker duration={}", invokeDuration)
 
-      _ = vmInvokeCounter.labels(callDescription.module.getOrElse("<no-name>")).inc()
-      _ = vmInvokeTimeCounter.labels(callDescription.module.getOrElse("<no-name>")).inc(invokeDuration)
+      _ = vmInvokeCounter.labels("<no-name>").inc()
+      _ = vmInvokeTimeCounter.labels("<no-name>").inc(invokeDuration)
     } yield invocationValue
 
     EitherT(result)

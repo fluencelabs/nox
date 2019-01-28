@@ -85,7 +85,7 @@ class AsmbleWasmVm(
 
             concatHashes = Array.concat(moduleStateHash, prevModulesHash)
 
-            // TODO : There is known the 2nd preimage attack to such scheme with the same hash function
+            // TODO : It is known the 2nd preimage attack to such scheme with the same hash function
             // for leaves and nodes.
             resultHash ← hasher(concatHashes).leftMap { e ⇒
               InternalVmError(s"Getting VM state for module=$moduleName failed", Some(e)): GetVmStateError

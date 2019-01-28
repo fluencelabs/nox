@@ -15,7 +15,7 @@
  */
 #![allow(dead_code)]
 
-use std::error::Error;
+use failure::Error;
 
 use derive_getters::Getters;
 use serde_derive::{Deserialize, Serialize};
@@ -31,7 +31,7 @@ pub struct Worker {
 }
 
 impl Worker {
-    pub fn new(node_id: H256, port: u16) -> Result<Worker, Box<Error>> {
+    pub fn new(node_id: H256, port: u16) -> Result<Worker, Error> {
         Ok(Worker { node_id, port })
     }
 }
@@ -57,7 +57,7 @@ impl Cluster {
 
 /// Gets list of formed clusters from Fluence contract
 // TODO: implement
-pub fn get_clusters(_contract: &ContractCaller) -> Result<Vec<Cluster>, Box<Error>> {
+pub fn get_clusters(_contract: &ContractCaller) -> Result<Vec<Cluster>, Error> {
     let clusters: Vec<Cluster> = Vec::new();
     Ok(clusters)
 }

@@ -2,6 +2,7 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const webpack = require('webpack');
 const CleanWebpackPlugin = require('clean-webpack-plugin');
+const CopyWebpackPlugin = require('copy-webpack-plugin')
 const { CheckerPlugin } = require('awesome-typescript-loader');
 
 module.exports = {
@@ -31,7 +32,7 @@ module.exports = {
     },
     output: {
         filename: 'bundle.js',
-        path: __dirname
+        path: path.resolve(__dirname, 'bundle')
     },
     node: {
         fs: 'empty'
@@ -39,6 +40,9 @@ module.exports = {
     plugins: [
         new CleanWebpackPlugin(['bundle']),
         new CheckerPlugin(),
+        new CopyWebpackPlugin([{
+            from: './*.html'
+        }]),
         new webpack.HotModuleReplacementPlugin()
     ]
 };

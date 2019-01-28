@@ -18,7 +18,7 @@ use clap::App;
 use clap::AppSettings;
 use console::style;
 
-use fluence::{check, contract_status, delete_app, publisher, register};
+use fluence::{check, contract_status, delete_app, delete_node, publisher, register};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -32,7 +32,8 @@ fn main() {
         .subcommand(register::subcommand())
         .subcommand(contract_status::subcommand())
         .subcommand(check::subcommand())
-        .subcommand(delete_app::subcommand());
+        .subcommand(delete_app::subcommand())
+        .subcommand(delete_node::subcommand());
 
     match app.get_matches().subcommand() {
         ("publish", Some(args)) => {
@@ -69,9 +70,21 @@ fn main() {
 
         ("delete_app", Some(args)) => {
             let delete_app = delete_app::parse(args).expect("Error parsing arguments");
-            let transaction = delete_app.delete_app(true);
+            let transaction = delete_app
+                .delete_app(true)
+                .expect("Error sending transaction");
 
             let formatted_finish_msg = style("App deleted. Submitted transaction").blue();
+            let formatted_tx = style(transaction).red().bold();
+
+            println!("{}: {:?}", formatted_finish_msg, formatted_tx);
+        }
+
+        ("delete_node", Some(args)) => {
+            let delete_node = delete_node::parse(args).expect("Error parsing arguments");
+            let transaction = delete_node.delete_node(true);
+
+            let formatted_finish_msg = style("Node deleted. Submitted transaction").blue();
             let formatted_tx = style(transaction).red().bold();
 
             println!("{}: {:?}", formatted_finish_msg, formatted_tx);

@@ -1,6 +1,6 @@
 [package]
 name = "fluence"
-version = "0.1.0" # don't forget to change in README.md too
+version = "0.1.1" # don't forget to change in README.md too
 authors = ["Fluence Labs"]
 publish=false
 edition = "2018"
@@ -8,9 +8,11 @@ edition = "2018"
 [profile.release]
 debug = false
 lto = true
+panic = 'abort'
 
 [dependencies]
 clap = "2.32.0"
+failure = "0.1.5"
 indicatif = "0.9.0"
 console = "0.6.2"
 reqwest = "0.9.3"
@@ -21,8 +23,9 @@ serde_json = "1.0"
 serde_derive = "1.0"
 ethereum-types-serialize = "0.2.1"
 derive-getters = "0.0.7"
-ethcore-transaction = { git = "https://github.com/paritytech/parity.git", tag = "v2.1.10" }
-ethkey = { git = "https://github.com/paritytech/parity.git", tag = "v2.1.10" }
+ethcore-transaction = { git = "https://github.com/paritytech/parity.git", tag = "v2.2.7" }
+ethkey = { git = "https://github.com/paritytech/parity.git", tag = "v2.2.7" }
+ethstore = { git = "https://github.com/paritytech/parity.git", tag = "v2.2.7" }
 rlp = "0.3.0"
 base64 = "0.10.0"
 

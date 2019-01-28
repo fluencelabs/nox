@@ -20,54 +20,35 @@ mod node;
 pub mod status;
 
 use self::status::{get_status, Status};
-use clap::{App, Arg, ArgMatches, SubCommand};
-use std::boxed::Box;
-use std::error::Error;
+use clap::{App, ArgMatches, SubCommand};
+use failure::Error;
 use web3::types::Address;
 
-const CONTRACT_ADDRESS: &str = "contract_address";
-const ETH_URL: &str = "eth_url";
+use crate::command::{contract_address, eth_url, parse_contract_address, parse_eth_url};
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("status")
         .about("Get status of the smart contract")
-        .args(&[
-            Arg::with_name(CONTRACT_ADDRESS)
-                .alias(CONTRACT_ADDRESS)
-                .required(true)
-                .takes_value(true)
-                .help("fluence contract address"),
-            Arg::with_name(ETH_URL)
-                .alias(ETH_URL)
-                .long("eth_url")
-                .short("e")
-                .required(false)
-                .takes_value(true)
-                .help("http address to ethereum node")
-                .default_value("http://localhost:8545/"),
-        ])
+        .args(&[eth_url(), contract_address()])
 }
 
 /// Gets status about Fluence contract from ethereum blockchain.
-pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Box<Error>> {
-    let contract_address: Address = args
-        .value_of(CONTRACT_ADDRESS)
-        .unwrap()
-        .trim_start_matches("0x")
-        .parse()?;
-    let eth_url: &str = args.value_of(ETH_URL).unwrap();
+pub fn get_status_by_args(args: &ArgMatches) -> Result<Status, Error> {
+    let contract_address: Address = parse_contract_address(args)?;
+    let eth_url = parse_eth_url(args)?;
 
-    get_status(contract_address, eth_url)
+    get_status(contract_address, eth_url.as_str())
 }
 
 #[cfg(test)]
 mod tests {
     use super::get_status;
+    use crate::command::EthereumArgs;
     use crate::credentials::Credentials;
     use crate::publisher::Publisher;
     use crate::register::Register;
+    use failure::Error;
     use rand::prelude::*;
-    use std::error::Error;
     use web3::types::*;
 
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
@@ -79,17 +60,22 @@ mod tests {
         let contract_address: Address = CONTRACT_ADDR.parse().unwrap();
 
         let creds: Credentials = Credentials::No;
+        let account: Address = OWNER.parse().unwrap();
+
+        let eth = EthereumArgs {
+            credentials: creds,
+            gas: 1000000,
+            account,
+            contract_address,
+            eth_url: ETH_URL.to_string(),
+        };
 
         Publisher::new(
             bytes,
-            contract_address,
-            OWNER.parse().unwrap(),
-            String::from(SWARM_URL),
-            String::from(ETH_URL),
-            creds,
+            SWARM_URL.to_string(),
             cluster_size.to_owned(),
-            1_000_000,
             vec![],
+            eth,
         )
     }
 
@@ -100,26 +86,32 @@ mod tests {
         let rnd_num: u64 = rng.gen();
 
         let tendermint_key: H256 = H256::from(rnd_num);
+        let tendermint_node_id: H160 = H160::from(rnd_num);
         let account: Address = "4180fc65d613ba7e1a385181a219f1dbfe7bf11d".parse().unwrap();
+
+        let eth = EthereumArgs {
+            credentials: Credentials::No,
+            gas: 1000000,
+            account,
+            contract_address,
+            eth_url: ETH_URL.to_string(),
+        };
 
         Register::new(
             address.parse().unwrap(),
             tendermint_key,
+            tendermint_node_id,
             start_port,
             last_port,
-            contract_address,
-            account,
-            String::from(ETH_URL),
-            Credentials::No,
             false,
-            1_000_000,
             false,
+            eth,
         )
         .unwrap()
     }
 
     #[test]
-    fn status_correct() -> Result<(), Box<Error>> {
+    fn status_correct() -> Result<(), Error> {
         let reg1_ip = "156.56.34.67";
         let reg1_start_port = 2004;
         let reg1_end_port = 2016;

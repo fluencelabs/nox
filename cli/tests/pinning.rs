@@ -1,3 +1,19 @@
+/*
+ * Copyright 2019 Fluence Labs Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 mod utils;
 
 use crate::utils::*;
@@ -18,13 +34,14 @@ fn integration_publish_pinned() {
 
     let tx = opts.publish_app(count, node_ids).unwrap();
 
-    let logs = opts.get_transaction_logs(tx, app_deployed::parse_log);
+    let logs = opts.get_transaction_logs(&tx, app_deployed::parse_log);
     let log = logs.first().unwrap();
     let app_id = log.app_id;
 
     assert_eq!(log.node_i_ds.len(), count as usize);
 
-    let status: Status = get_status(*opts.contract_address(), opts.eth_url()).unwrap();
+    let status: Status =
+        get_status(opts.eth().contract_address, opts.eth().eth_url.as_str()).unwrap();
 
     let target = status
         .apps()

@@ -37,6 +37,11 @@ lazy val vm = (project in file("vm"))
   )
   .enablePlugins(AutomateHeaderPlugin)
 
+lazy val `vm-hello-user` = (project in file("vm/examples/hello-user"))
+  .settings(
+    rustVmExample("hello-user")
+  )
+
 lazy val `vm-counter` = (project in file("vm/examples/counter"))
   .settings(
     rustVmExample("counter")
@@ -229,5 +234,6 @@ lazy val node = project
       }
     }
   )
+  .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
   .dependsOn(ethclient, externalstorage)

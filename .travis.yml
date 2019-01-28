@@ -3,9 +3,6 @@ _scala_fluence_template: &_scala_fluence_template
   scala: 2.12.7
   jdk: oraclejdk8
 
-  services:
-    - docker
-
   install:
     - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-01-08
     - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-01-08
@@ -67,7 +64,7 @@ matrix:
         directories:
           - bootstrap/node_modules
 
-    - name: js-client
+    - name: fluence-js
       language: node_js
       node_js:
         - "5"
@@ -75,7 +72,7 @@ matrix:
         - "7"
         - "8"
       cache: npm
-      before_install: cd js-client
+      before_install: cd fluence-js
       before_script: npm install
       script: npm test
 

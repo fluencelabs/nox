@@ -4,18 +4,18 @@
 
 set -e
 
-USAGE="Usage: ./kovan-compose.sh <external-ip> <owner-address> <private-key>"
+USAGE="Usage: ./kovan-compose.sh <external-ip> <owner-address> <private-key> <start-port:end-port>"
 
 if [ ! $1 = '--help' -a ! $1 = '-h' ]; then
-    if [ $# -eq 3 ]; then
+    if [ $# -eq 4 ]; then
         export PROD_DEPLOY='true'
         export CHAIN='kovan'
-        export NAME='node1'
-        export PORTS='25000:25010'
+        export NAME='fluence-node-1'
         export CONTRACT_ADDRESS=$(cat contract.txt)
-        export HOST_IP=$1
-        export OWNER_ADDRESS=$2
-        export PRIVATE_KEY=$3
+        export HOST_IP="$1"
+        export OWNER_ADDRESS="$2"
+        export PRIVATE_KEY="$3"
+        export PORTS="$4"
 
         ./compose.sh
     else

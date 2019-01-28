@@ -1,7 +1,7 @@
 {
   "name": "fluence-monitoring",
   "namespace": "fluence",
-  "version": "0.0.2",
+  "version": "0.0.19",
   "description": "Fluence Monitoring that allows to monitor the state of Fluence network from a browser.",
   "main": "./dist/fluence.js",
   "typings": "./dist/fluence.d.ts",
@@ -9,8 +9,9 @@
     "build": "webpack",
     "package:build": "tsc",
     "start:dev": "webpack-dev-server",
+    "start:prod": "webpack-dev-server --host 0.0.0.0",
     "typechain:generate": "typechain --target=web3-1.0.0 '../bootstrap/contracts/compiled/*.abi'",
-    "postinstall": "npm run compile-sol --prefix ../bootstrap/ && npm run typechain:generate && rm -f node_modules/web3/index.d.ts && cp ../bootstrap/contracts/compiled/Network.abi src/Network.json"
+    "prepare": "npm run compile-sol --prefix ../bootstrap/ && npm run typechain:generate && cp ../bootstrap/contracts/compiled/Network.abi src/Network.json && tsc"
   },
   "repository": {
     "type": "git",
@@ -45,7 +46,6 @@
     "webpack-cli": "^3.1.1",
     "webpack-dev-server": "^3.1.9",
     "@types/node": "^10.12.15",
-    "@types/web3": "^1.0.14",
     "web3-typescript-typings": "^0.10.2"
   },
   "dependencies": {
@@ -55,6 +55,7 @@
     "json-formatter-js": "2.2.0",
     "ts-option": "^1.1.5",
     "typechain": "^0.3.9",
+    "@types/web3": "^1.0.14",
     "web3": "^1.0.0-beta.37"
   }
 }

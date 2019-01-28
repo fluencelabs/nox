@@ -32,7 +32,7 @@ const txDebug = debug("broadcast-request");
  */
 export class Session {
     private readonly client: Client;
-    private readonly tm: TendermintClient;
+    readonly tm: TendermintClient;
     private readonly session: string;
     private readonly sessionSummaryKey: string;
     private readonly config: SessionConfig;
@@ -91,9 +91,9 @@ export class Session {
     /**
      * Sends request with payload and wait for a response.
      *
-     * @param payload a command supported by the program in a virtual machine with arguments
+     * @param payload either an argument for Wasm VM main handler or a command for the statemachine
      */
-    invokeRaw(payload: string): ResultPromise {
+    invoke(payload: string): ResultPromise {
         // throws an error immediately if the session is closed
         if (this.closed) {
             return new ResultError(`The session was closed. Cause: ${this.closedStatus}`)
@@ -135,19 +135,6 @@ export class Session {
         this.lastResult = resultAwait;
 
         return resultAwait;
-    }
-
-    /**
-     * Sends request with a payload and wait for a response.
-     *
-     * @param arg argument for command
-     * @param moduleName name of module that should be called
-     */
-    invoke(arg: string = "", moduleName: string = ""): ResultPromise {
-
-        let payload: string = moduleName + `(${toHex(arg)})`;
-
-        return this.invokeRaw(payload);
     }
 
     /**
