@@ -17,7 +17,6 @@
 package fluence.node
 import java.nio.file._
 
-import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
@@ -130,21 +129,12 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
    */
   val run: IO[ExitCode] =
     nodeEth.nodeEvents
-      .evalTap(ev ⇒ Sync[F].delay(logger.debug("Got nodeEth event: " + ev)))
+      .evalTap(ev ⇒ Sync[F].delay(logger.debug("Got NodeEth event: " + ev)))
       .through(handleEthEvent)
       .drain
       .compile
       .drain
       .toIO
-      .guaranteeCase {
-        case Error(e) =>
-          IO {
-            logger.error(s"runMasterNode error: $e")
-            e.printStackTrace(System.err)
-          }
-        case Canceled => IO(logger.error("runMasterNode was canceled"))
-        case Completed => IO(logger.info("runMasterNode finished gracefully"))
-      }
       .attempt
       .map {
         case Left(err) ⇒

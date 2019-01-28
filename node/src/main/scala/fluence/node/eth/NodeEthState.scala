@@ -85,11 +85,11 @@ object NodeEthState {
               nodesToApps = app.cluster.workers.map(_.validatorKey).foldLeft(s.nodesToApps) {
                 case (acc, nodeId) ⇒
                   acc.get(nodeId).map(_ - appId).fold(acc) {
-                    case ids if ids.isEmpty ⇒
+                    case appIds if appIds.isEmpty ⇒
                       // It was the last known app for the node
                       acc - nodeId
-                    case ids ⇒
-                      acc.updated(nodeId, ids)
+                    case appIds ⇒
+                      acc.updated(nodeId, appIds)
                   }
               }
             )
@@ -115,23 +115,28 @@ object NodeEthState {
             appIds // We're collecting the events of removing an app by ourselves, or of dropping the peer of a cluster
               .foldLeft[(NodeEthState, List[NodeEthEvent])]((s.copy(nodesToApps = s.nodesToApps - nodeId), Nil)) {
                 case (acc @ (st, evs), appId) ⇒
+                  def removeNodeFromApp(app: App): App = {
+                    val workers = app.cluster.workers
+                    lazy val i = workers.indexWhere(_.validatorKey === nodeId)
+
+                    // Remove the peer the way we do it in smart contract
+                    val newWorkers = workers.lastOption match {
+                      case Some(last) if last.validatorKey === nodeId =>
+                        workers.dropRight(1)
+
+                      case Some(last) if i > 0 =>
+                        workers.dropRight(1).updated(i, last)
+
+                      case _ =>
+                        workers.filterNot(_.validatorKey === nodeId)
+                    }
+
+                    app.copy(cluster = app.cluster.copy(workers = newWorkers))
+                  }
+
                   st.apps
                     .get(appId)
-                    .map(
-                      app ⇒
-                        app.copy(cluster = app.cluster.copy(workers = {
-                          // Remove the peer the way we do it in smart contract
-                          val workers = app.cluster.workers
-                          val i = workers.indexWhere(_.validatorKey === nodeId)
-                          workers.lastOption
-                          // If this worker is the last one, or if it's not in the list, just filter it out
-                            .filterNot(_ ⇒ i < 0 || i >= workers.length)
-                            // Otherwise replace it with the last one, and drop the last
-                            .fold(workers.filterNot(_.validatorKey === nodeId))(
-                              last ⇒ workers.dropRight(1).updated(i, last)
-                            )
-                        }))
-                    )
+                    .map(removeNodeFromApp)
                     .fold(acc) {
                       case app if app.cluster.workers.isEmpty ⇒
                         // No more workers, drop the app and forget about it

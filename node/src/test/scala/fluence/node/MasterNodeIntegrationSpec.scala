@@ -134,9 +134,9 @@ class MasterNodeIntegrationSpec
 
         _ <- contract.addNode[IO](status1.nodeConfig).attempt
         _ <- contract.addNode[IO](status2.nodeConfig).attempt
-        i <- contract.addApp[IO]("llamadb", clusterSize = 2)
+        blockNumber <- contract.addApp[IO]("llamadb", clusterSize = 2)
 
-        _ = logger.info("Added App at block: " + i)
+        _ = logger.info("Added App at block: " + blockNumber)
 
         _ <- eventually[IO](
           for {

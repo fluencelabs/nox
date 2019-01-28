@@ -98,7 +98,7 @@ object NodeEth {
           val stream: fs2.Stream[F, StateT[F, NodeEthState, Seq[NodeEthEvent]]] =
             onNodeAppS merge onAppDeletedS merge onNodeDeletedS
 
-          // Notice that state is never being read from the Ref,
+          // Note: state is never being read from the Ref,
           // so no other channels of modifications are allowed
           // TODO handle reorgs
           stream
