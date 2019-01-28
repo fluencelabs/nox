@@ -36,22 +36,22 @@ object DockerIO extends LazyLogging {
    * @param fn the function to run
    */
   private def shiftDelay[F[_]: Sync: ContextShift, A](fn: ⇒ A): F[A] =
-    implicitly[ContextShift[F]].shift *> Sync[F].delay(fn)
+    implicitly[ContextShift[F]].shift *> Sync[F].defer(Sync[F].catchNonFatal(fn))
 
   /**
    * Runs a temporary docker container with custom executable. Returns stdout of execution as a string.
    * Caller is responsible for container removal.
+   *
    * @param params parameters for Docker container
    * @return a stream with execution stdout
    */
   def exec[F[_]: Sync: ContextShift](
     params: DockerParams.ExecParams
-  ): F[String] = {
+  ): F[String] =
     shiftDelay {
       logger.info(s"Executing docker command: ${params.command.mkString(" ")}")
       params.process.!!.trim
     }
-  }
 
   /**
    * Runs a daemonized docker container, providing a single String with the container ID.

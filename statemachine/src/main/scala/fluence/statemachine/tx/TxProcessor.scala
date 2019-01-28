@@ -137,7 +137,7 @@ class TxProcessor[F[_]](
 
       case payload =>
         vmInvoker
-          //transform string to array of byte not taking into account its encoding
+        //transform string to array of byte not taking into account its encoding
           .invoke(payload.toCharArray.map(_.toByte))
           .flatMap(
             result => EitherT.right[StateMachineError](putResult(tx, TransactionStatus.Success, Computed(result)))
