@@ -17,7 +17,7 @@
 package fluence.node.workers
 import fluence.ethclient.helpers.Web3jConverters.binaryToHexTrimZeros
 import fluence.node.docker.DockerParams
-import fluence.node.eth.WorkerNode
+import fluence.node.eth.state.WorkerPeer
 import scodec.bits.ByteVector
 
 /**
@@ -25,7 +25,7 @@ import scodec.bits.ByteVector
  */
 case class WorkerParams(
   appId: ByteVector,
-  currentWorker: WorkerNode,
+  currentWorker: WorkerPeer,
   workerPath: String,
   vmCodePath: String,
   masterNodeContainerId: Option[String],
