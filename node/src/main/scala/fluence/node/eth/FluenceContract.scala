@@ -125,7 +125,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
     fs2.Stream
       .eval(eventFilter[F](APPDEPLOYED_EVENT))
       .flatMap(filter ⇒ contract.appDeployedEventFlowable(filter).toStream[F]) // It's checked that current node participates in a cluster there
-      .map(FluenceContract.eventToApp(_, validatorKey))
+      .evalMap(FluenceContract.eventToApp(_, validatorKey))
       .unNone
 
   /**
@@ -184,10 +184,11 @@ object FluenceContract {
     validatorKey: Bytes32
   )(
     implicit F: cats.ApplicativeError[F, Throwable]
-  ): Option[state.App] =
-    Cluster
-      .build(event.genesisTime, event.nodeIDs, event.nodeAddresses, event.ports, currentValidatorKey = validatorKey)
-      .map(App(event.appID, event.storageHash, _))
+  ): F[Option[state.App]] =
+    Traverse[Option].traverse(
+      Cluster
+        .build(event.genesisTime, event.nodeIDs, event.nodeAddresses, event.ports, currentValidatorKey = validatorKey)
+    )(c => App(event.appID, event.storageHash, c))
 
   /**
    * Loads contract
