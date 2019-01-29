@@ -5,7 +5,6 @@
 pub mod errors;
 
 use self::errors::MemError;
-use std::alloc::{Alloc, Global, Layout};
 use std::mem;
 use std::num::NonZeroUsize;
 use std::ptr;
@@ -13,35 +12,6 @@ use std::ptr::NonNull;
 
 /// Result type for this module.
 pub type MemResult<T> = Result<T, MemError>;
-
-/// Allocates a memory region of given size and returns its address. Actually is
-/// just a wrapper for [`GlobalAlloc::alloc`].
-///
-/// # Safety
-///
-/// See [`GlobalAlloc::alloc`].
-///
-/// [`GlobalAlloc::alloc`]: https://doc.rust-lang.org/core/alloc/trait.GlobalAlloc.html#tymethod.alloc
-///
-pub unsafe fn alloc(size: NonZeroUsize) -> MemResult<NonNull<u8>> {
-    let layout: Layout = Layout::from_size_align(size.get(), mem::align_of::<u8>())?;
-    Global.alloc(layout).map_err(Into::into)
-}
-
-/// Deallocates a memory region for current pointer and size. Actually is
-/// just a wrapper for [`GlobalAlloc::dealloc`].
-///
-/// # Safety
-///
-/// See [`GlobalAlloc::dealloc`].
-///
-/// [`GlobalAlloc::dealloc`]: https://doc.rust-lang.org/core/alloc/trait.GlobalAlloc.html#tymethod.dealloc
-///
-pub unsafe fn dealloc(ptr: NonNull<u8>, size: NonZeroUsize) -> MemResult<()> {
-    let layout = Layout::from_size_align(size.get(), mem::align_of::<u8>())?;
-    Global.dealloc(ptr, layout);
-    Ok(())
-}
 
 /// Count of bytes that length of returning array occupies.
 /// For more information please see [write_array_to_mem] method implementation.
@@ -69,7 +39,11 @@ pub unsafe fn write_array_to_mem(result: &[u8]) -> MemResult<NonNull<u8>> {
     let result_ptr = alloc(NonZeroUsize::new_unchecked(total_len))?;
 
     // copies length of array to memory
-    ptr::copy_nonoverlapping(len_as_bytes.as_ptr(),result_ptr.as_ptr(), STR_LEN_BYTES);
+    ptr::copy_nonoverlapping(
+        len_as_bytes.as_ptr(),
+        result_ptr.as_ptr(),
+        RESULT_SIZE_BYTES,
+    );
 
     // copies array to memory
     ptr::copy_nonoverlapping(
@@ -82,7 +56,7 @@ pub unsafe fn write_array_to_mem(result: &[u8]) -> MemResult<NonNull<u8>> {
 }
 
 pub unsafe fn write_str_to_mem(result: &str) -> MemResult<NonNull<u8>> {
-
+    write_array_to_mem(result.as_bytes())
 }
 
 /// Builds Rust string from given pointer and length. Bytes copying doesn't
@@ -114,9 +88,9 @@ pub unsafe fn deref_str(ptr: *mut u8, len: usize) -> String {
 /// that nothing else uses the pointer after calling this
 /// function.**
 ///
-pub unsafe fn read_str_from_fat_ptr(ptr: NonNull<u8>) -> MemResult<String> {
+pub unsafe fn read_input(ptr: NonNull<u8>) -> MemResult<Vec<u8>> {
     // read string length from current pointer
-    let str_len = read_len(ptr.as_ptr()) as usize;
+    let input_len = read_len(ptr.as_ptr()) as usize;
 
     let total_len = RESULT_SIZE_BYTES
         .checked_add(str_len)
@@ -138,9 +112,9 @@ pub unsafe fn read_str_from_fat_ptr(ptr: NonNull<u8>) -> MemResult<String> {
 /// You can use the pointer after calling this method as you wish. Don't forget
 /// to deallocate memory for this pointer when it's don't need anymore.
 unsafe fn read_len(ptr: *mut u8) -> u32 {
-    let mut str_len_as_bytes: [u8; RESULT_SIZE_BYTES] = [0; RESULT_SIZE_BYTES];
-    ptr::copy_nonoverlapping(ptr, str_len_as_bytes.as_mut_ptr(), RESULT_SIZE_BYTES);
-    mem::transmute(str_len_as_bytes)
+    let mut len_as_bytes: [u8; RESULT_SIZE_BYTES] = [0; RESULT_SIZE_BYTES];
+    ptr::copy_nonoverlapping(ptr, len_as_bytes.as_mut_ptr(), RESULT_SIZE_BYTES);
+    mem::transmute(len_as_bytes)
 }
 
 #[cfg(test)]
