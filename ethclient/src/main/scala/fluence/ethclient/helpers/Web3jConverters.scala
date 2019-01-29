@@ -61,7 +61,7 @@ object Web3jConverters {
    *
    * @param appId app id from Fluence smart contract
    */
-  def appIdToChainId(appId: Long): String = ByteVector(appId).toHex
+  def appIdToChainId(appId: Long): String = appId.toString
 
   /**
    * Converts bytes of web3j's Bytes32 to ByteVector
