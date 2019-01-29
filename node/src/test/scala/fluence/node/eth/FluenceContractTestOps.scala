@@ -101,6 +101,6 @@ object FluenceContractTestOps {
      * @tparam F Effect
      */
     def deleteApp[F[_]: Async](appId: Long): F[Unit] =
-      contract.deleteApp(new Uint64(appId)).call[F].void
+      contract.deleteApp(new Uint256(appId)).call[F].void
   }
 }

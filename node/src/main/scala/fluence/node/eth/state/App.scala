@@ -34,7 +34,7 @@ case class App private[eth] (
 
 object App {
 
-  private[eth] def apply(appId: Uint64, storageHash: Bytes32, cluster: Cluster): App =
+  private[eth] def apply(appId: Uint256, storageHash: Bytes32, cluster: Cluster): App =
     App(appId.getValue.longValue(), ByteVector(storageHash.getValue), cluster)
 
 }

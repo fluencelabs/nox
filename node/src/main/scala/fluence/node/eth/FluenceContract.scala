@@ -67,14 +67,14 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @param validatorKey Tendermint validator key identifying this node
    * @tparam F Effect
    */
-  private def getNodeAppIds[F[_]](validatorKey: Bytes32)(implicit F: Async[F]): F[List[Uint64]] =
+  private def getNodeAppIds[F[_]](validatorKey: Bytes32)(implicit F: Async[F]): F[List[Uint256]] =
     contract
       .getNodeApps(validatorKey)
       .call[F]
       .flatMap {
         case arr if arr != null && arr.getValue != null => F.point(arr.getValue.asScala.toList)
         case r =>
-          F.raiseError[List[Uint64]](
+          F.raiseError[List[Uint256]](
             new RuntimeException(
               s"Cannot get node apps from the smart contract. Got result '$r'. " +
                 s"Are you sure the contract address is correct?"
@@ -146,7 +146,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of AppDeleted events
    */
-  private[eth] def getAppDeleted[F[_]: ConcurrentEffect]: fs2.Stream[F, Uint64] =
+  private[eth] def getAppDeleted[F[_]: ConcurrentEffect]: fs2.Stream[F, Uint256] =
     fs2.Stream
       .eval(eventFilter[F](APPDELETED_EVENT))
       .flatMap(filter ⇒ contract.appDeletedEventFlowable(filter).toStream[F])
