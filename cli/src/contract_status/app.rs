@@ -29,7 +29,7 @@ use crate::contract_status::node::Node;
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct App {
-    app_id: H256,
+    app_id: u64,
     storage_hash: H256,
     storage_receipt: H256,
     cluster_size: u8,
@@ -40,7 +40,7 @@ pub struct App {
 
 impl App {
     pub fn new(
-        app_id: H256,
+        app_id: u64,
         storage_hash: H256,
         storage_receipt: H256,
         cluster_size: u8,
@@ -95,7 +95,7 @@ pub fn get_nodes(contract: &ContractCaller) -> Result<Vec<Node>, Error> {
                 Into::<u64>::into(last_port) as u16,
                 owner,
                 is_private,
-                Some(app_ids),
+                Some(app_ids.into_iter().map(Into::into).collect()),
             )
         })
         .collect();
@@ -105,7 +105,11 @@ pub fn get_nodes(contract: &ContractCaller) -> Result<Vec<Node>, Error> {
 
 pub fn get_apps(contract: &ContractCaller) -> Result<Vec<App>, Error> {
     let (call_data, decoder) = get_app_i_ds::call();
-    let app_ids: Vec<H256> = contract.query_contract(call_data, Box::new(decoder))?;
+    let app_ids: Vec<u64> = contract
+        .query_contract(call_data, Box::new(decoder))?
+        .into_iter()
+        .map(Into::into)
+        .collect();
 
     let apps: Result<Vec<App>, Error> = app_ids
         .iter()

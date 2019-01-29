@@ -36,7 +36,7 @@ pub struct Node {
     last_port: u16,
     owner: Address,
     is_private: bool,
-    clusters_ids: Option<Vec<H256>>, // Defined if loaded
+    app_ids: Option<Vec<u64>>, // Defined if loaded
 }
 
 impl Node {
@@ -47,7 +47,7 @@ impl Node {
         last_port: u16,
         owner: Address,
         is_private: bool,
-        app_ids: Option<u32>,
+        app_ids: Option<Vec<u64>>,
     ) -> Result<Node, Error> {
         let (tendermint_key, ip_addr) = address.decode()?;
         Ok(Node {
@@ -58,7 +58,7 @@ impl Node {
             last_port,
             owner,
             is_private,
-            clusters_ids,
+            app_ids,
         })
     }
 }
