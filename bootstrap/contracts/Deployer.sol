@@ -76,14 +76,14 @@ contract Deployer {
         bool isPrivate;
 
         // Apps hosted by this node
-        uint256[] appIDs;
+        uint64[] appIDs;
     }
 
     // Represents deployed or enqueued (waiting to be deployed) code
     // code is stored in Swarm at storageHash, is deployed by developer
     // and requires to be hosted on cluster of clusterSize nodes
     struct App {
-        uint256 appID;
+        uint64 appID;
 
         // WASM code address in Swarm; also SwarmHash of the code
         bytes32 storageHash;
@@ -118,7 +118,7 @@ contract Deployer {
     // Emitted when there is enough Workers for some App
     // Nodes' workers should form a cluster in reaction to this event
     event AppDeployed(
-        uint256 appID,
+        uint64 appID,
 
         bytes32 storageHash,
         uint genesisTime,
@@ -130,7 +130,7 @@ contract Deployer {
 
     // Emitted when App is enqueued, telling that there is not enough Workers yet
     event AppEnqueued(
-        uint256 appID,
+        uint64 appID,
         bytes32 storageHash,
         bytes32 storageReceipt,
         uint8 clusterSize,
@@ -145,10 +145,10 @@ contract Deployer {
     event NodeDeleted(bytes32 id);
 
     // Emitted when app is removed from enqueuedApps by owner
-    event AppDequeued(uint256 appID);
+    event AppDequeued(uint64 appID);
 
     // Emitted when running app was removed by app owner
-    event AppDeleted(uint256 appID);
+    event AppDeleted(uint64 appID);
 
     // Address of the contract owner (the one who deployed this contract)
     address private _contractOwner;
@@ -162,15 +162,15 @@ contract Deployer {
     bytes32[] public nodesIds;
 
     // mapping of appID to App
-    mapping(uint256 => App) internal apps;
+    mapping(uint64 => App) internal apps;
     // Store app ids to traverse clusters mapping
-    uint256[] public appIDs;
+    uint64[] public appIDs;
 
     // Apps waiting for nodes
-    uint256[] public enqueuedApps;
+    uint64[] public enqueuedApps;
 
     // Number of all ever existed apps, used for appID generation
-    uint256 internal appsCount = 1;
+    uint64 internal appsCount = 1;
 
     constructor () internal {
         // Save contract's owner
@@ -202,7 +202,7 @@ contract Deployer {
         require(startPort <= endPort, "Port range is empty or incorrect");
 
         // Save the node
-        Node memory node = Node(nodeID, nodeAddress, startPort, endPort, msg.sender, isPrivate, new uint256[](0));
+        Node memory node = Node(nodeID, nodeAddress, startPort, endPort, msg.sender, isPrivate, new uint64[](0));
         nodes[nodeID] = node;
         nodesIds.push(nodeID);
 
@@ -213,7 +213,7 @@ contract Deployer {
 
         // match apps to the node until no matches left, or until this node ports range is exhausted
         for(uint i = 0; i < enqueuedApps.length;) {
-            uint256 appID = enqueuedApps[i];
+            uint64 appID = enqueuedApps[i];
             App storage app = apps[appID];
             if(tryDeployApp(app)) {
                 // Once an app is deployed, we already have a new app on i-th position, so no need to increment i
@@ -282,7 +282,7 @@ contract Deployer {
       * reverts if you're not app owner
       * reverts if app not found
       */
-    function dequeueApp(uint256 appID)
+    function dequeueApp(uint64 appID)
         external
     {
         uint i = indexOf(appID, enqueuedApps);
@@ -304,7 +304,7 @@ contract Deployer {
       * reverts if app or cluster aren't not found
       * TODO: free nodes' ports after app deletion
       */
-    function deleteApp(uint256 appID)
+    function deleteApp(uint64 appID)
         external
     {
         App storage app = apps[appID];
@@ -325,11 +325,11 @@ contract Deployer {
       * @param appID appID to remove
       * @param nodeIDsArray list of nodes to remove appID from. Every node.appIDs in that list must contain that appID.
       */
-    function removeAppFromNodes(uint256 appID, bytes32[] storage nodeIDsArray)
+    function removeAppFromNodes(uint64 appID, bytes32[] storage nodeIDsArray)
         internal
     {
         for (uint i = 0; i < nodeIDsArray.length; i++) {
-            uint256[] storage appIDsArray = nodes[nodeIDsArray[i]].appIDs;
+            uint64[] storage appIDsArray = nodes[nodeIDsArray[i]].appIDs;
             uint idx = indexOf(appID, appIDsArray);
             require(idx < nodeIDsArray.length, "error deleting app: app not found in node.appIDs");
             removeArrayElement(idx, appIDsArray);
@@ -373,11 +373,11 @@ contract Deployer {
     /** @dev Remove nodeID from app.cluster.nodeIDs for apps hosted by this node.
       * Also remove app if there's no more nodes left to host it, and emit AppDeleted event.
       */
-    function removeNodeFromApps(bytes32 nodeID, uint256[] storage appIDsArray)
+    function removeNodeFromApps(bytes32 nodeID, uint64[] storage appIDsArray)
         internal
     {
         for (uint i = 0; i < appIDsArray.length; i++) {
-            uint256 appID = appIDsArray[i];
+            uint64 appID = appIDsArray[i];
             bytes32[] storage appNodeIDs = apps[appID].cluster.nodeIDs;
             uint appNodeIDsLength = appNodeIDs.length;
 
@@ -556,7 +556,7 @@ contract Deployer {
      *  @param appID ID of the app to be removed
      *  returns true if cluster was deleted, false otherwise
      */
-    function removeApp(uint256 appID)
+    function removeApp(uint64 appID)
         internal
     {
         // look for appID in appIDs array
@@ -588,7 +588,7 @@ contract Deployer {
         array.length--;
     }
 
-    function removeArrayElement(uint index, uint256[] storage array)
+    function removeArrayElement(uint index, uint64[] storage array)
     internal
     {
         uint lenSubOne = array.length - 1;
@@ -602,7 +602,7 @@ contract Deployer {
         array.length--;
     }
 
-    function indexOf(uint256 id, uint256[] storage array)
+    function indexOf(uint64 id, uint64[] storage array)
         internal view
     returns (uint)
     {

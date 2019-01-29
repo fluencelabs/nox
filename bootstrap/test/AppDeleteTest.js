@@ -42,8 +42,6 @@ contract('Fluence (app deletion)', function ([_, owner, anyone, other]) {
             return true;
         });
 
-        console.log("appID is " + appID);
-
         let app = await global.contract.getApp(appID);
         assert.notEqual(app, undefined);
         let storageHash = app[0];

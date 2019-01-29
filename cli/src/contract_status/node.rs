@@ -47,7 +47,7 @@ impl Node {
         last_port: u16,
         owner: Address,
         is_private: bool,
-        clusters_ids: Option<Vec<H256>>,
+        app_ids: Option<u32>,
     ) -> Result<Node, Error> {
         let (tendermint_key, ip_addr) = address.decode()?;
         Ok(Node {
