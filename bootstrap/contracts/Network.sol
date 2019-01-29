@@ -35,7 +35,7 @@ contract Network is Deployer {
     function getNode(bytes32 nodeID)
         external
         view
-    returns (bytes24, uint16, uint16, address, bool, uint64[])
+    returns (bytes24, uint16, uint16, address, bool, uint256[])
     {
         Node memory node = nodes[nodeID];
         return (
@@ -56,7 +56,7 @@ contract Network is Deployer {
     function getNodeApps(bytes32 nodeID)
         external
         view
-    returns (uint64[])
+    returns (uint256[])
     {
         return nodes[nodeID].appIDs;
     }
@@ -65,7 +65,7 @@ contract Network is Deployer {
      * @param appID unique id of cluster
      * returns tuple representation of a Cluster
      */
-    function getApp(uint64 appID)
+    function getApp(uint256 appID)
         external
         view
     returns (bytes32, bytes32, uint8, address, bytes32[], uint, bytes32[], uint16[])
@@ -89,7 +89,7 @@ contract Network is Deployer {
     /** @dev Retrieves addresses and ports of cluster's workers
      * @param appID unique id of app
      */
-    function getAppWorkers(uint64 appID)
+    function getAppWorkers(uint256 appID)
         external
         view
     returns (bytes24[], uint16[])
@@ -122,7 +122,7 @@ contract Network is Deployer {
     function getAppIDs()
     external
     view
-    returns(uint64[])
+    returns(uint256[])
     {
         return appIDs;
     }
