@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use clap::value_t;
 use clap::ArgMatches;
 use clap::{App, Arg, SubCommand};
 use web3::types::H256;
@@ -30,7 +31,7 @@ const DEPLOYED: &str = "deployed";
 
 #[derive(Debug)]
 pub struct DeleteApp {
-    app_id: H256,
+    app_id: u64,
     deployed: bool,
     eth: command::EthereumArgs,
 }
@@ -57,7 +58,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 }
 
 pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Error> {
-    let app_id: H256 = utils::parse_hex_opt(args, APP_ID)?.parse()?;
+    let app_id: u64 = value_t!(args, APP_ID, u64)?;
     let deployed = args.is_present(DEPLOYED);
 
     let eth = command::parse_ethereum_args(args)?;
@@ -70,7 +71,7 @@ pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Error> {
 }
 
 impl DeleteApp {
-    pub fn new(app_id: H256, deployed: bool, eth: command::EthereumArgs) -> DeleteApp {
+    pub fn new(app_id: u64, deployed: bool, eth: command::EthereumArgs) -> DeleteApp {
         DeleteApp {
             app_id,
             deployed,
