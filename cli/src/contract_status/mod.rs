@@ -57,7 +57,6 @@ pub fn get_status_by_args(args: &ArgMatches) -> Result<Option<Status>, Error> {
     } else {
         Ok(Some(status))
     }
-}
 
 #[cfg(test)]
 mod tests {
