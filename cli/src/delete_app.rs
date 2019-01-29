@@ -19,10 +19,16 @@ use clap::{App, Arg, SubCommand};
 use web3::types::H256;
 
 use crate::command;
+use crate::contract_func::call_contract;
+use crate::contract_func::contract::events::app_deleted;
+use crate::contract_func::contract::events::app_dequeued;
 use crate::contract_func::contract::functions::delete_app;
 use crate::contract_func::contract::functions::dequeue_app;
-use crate::contract_func::ContractCaller;
+use crate::contract_func::wait_sync;
+use crate::contract_func::{get_transaction_logs, wait_tx_included};
 use crate::utils;
+use ethabi::RawLog;
+use failure::err_msg;
 use failure::Error;
 
 const APP_ID: &str = "app_id";
@@ -42,13 +48,13 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .short("D")
             .required(false)
             .takes_value(false)
-            .help("if not specified, enqueued app will be dequeued, otherwise deployed app will be removed"),
+            .help("If not specified, enqueued app will be dequeued, otherwise deployed app will be removed"),
         Arg::with_name(APP_ID)
             .long(APP_ID)
             .short("A")
             .required(true)
             .takes_value(true)
-            .help("app to be removed")
+            .help("App to be removed")
     ];
 
     SubCommand::with_name("delete_app")
@@ -78,33 +84,85 @@ impl DeleteApp {
         }
     }
 
+    fn check_event<T, F>(&self, tx: &H256, f: F, event_name: &str) -> Result<(), Error>
+    where
+        F: Fn(RawLog) -> ethabi::Result<T>,
+    {
+        let logs = get_transaction_logs(self.eth.eth_url.as_str(), tx, f)?;
+        logs.first()
+            .ok_or(err_msg(format!(
+                "No {} event is found in transaction logs. tx: {:#x}",
+                event_name, tx
+            )))
+            .map(|_| ())
+    }
+
     pub fn delete_app(self, show_progress: bool) -> Result<H256, Error> {
         let delete_app_fn = || -> Result<H256, Error> {
-            let call_data = match self.deployed {
-                true => delete_app::call(self.app_id).0,
-                false => dequeue_app::call(self.app_id).0,
+            let call_data = if self.deployed {
+                delete_app::call(self.app_id).0
+            } else {
+                dequeue_app::call(self.app_id).0
             };
 
-            let contract =
-                ContractCaller::new(self.eth.contract_address, &self.eth.eth_url.as_str())?;
+            call_contract(&self.eth, call_data)
+        };
 
-            contract.call_contract(
-                self.eth.account,
-                &self.eth.credentials,
-                call_data,
-                self.eth.gas,
-            )
+        let check_event_fn = |tx: &H256| -> Result<(), Error> {
+            if self.deployed {
+                self.check_event(tx, app_deleted::parse_log, "AppDeleted")
+            } else {
+                self.check_event(tx, app_dequeued::parse_log, "AppDequeued")
+            }
         };
 
         if show_progress {
-            utils::with_progress(
+            let sync_inc = self.eth.wait_eth_sync as u32;
+            let steps = 1 + (self.eth.wait_tx_include as u32) + sync_inc;
+            let step = |s| format!("{}/{}", s + sync_inc, steps);
+
+            if self.eth.wait_eth_sync {
+                utils::with_progress(
+                    "Waiting while Ethereum node is syncing...",
+                    step(0).as_str(),
+                    "Ethereum node synced.",
+                    || wait_sync(self.eth.eth_url.clone()),
+                )?;
+            }
+
+            let tx = utils::with_progress(
                 "Deleting app from smart contract...",
-                "1/1",
-                "App deleted.",
+                step(1).as_str(),
+                "App deletion transaction was sent.",
                 delete_app_fn,
-            )
+            )?;
+
+            if self.eth.wait_tx_include {
+                utils::print_tx_hash(tx);
+                utils::with_progress(
+                    "Waiting for a transaction to be included in a block...",
+                    step(2).as_str(),
+                    "Transaction included. App deleted.",
+                    || {
+                        wait_tx_included(self.eth.eth_url.clone(), &tx)?;
+                        check_event_fn(&tx)?;
+                        Ok(tx)
+                    },
+                )
+            } else {
+                Ok(tx)
+            }
         } else {
-            delete_app_fn()
+            if self.eth.wait_eth_sync {
+                wait_sync(self.eth.eth_url.clone())?;
+            }
+            let tx = delete_app_fn()?;
+
+            if self.eth.wait_tx_include {
+                check_event_fn(&tx)?;
+            }
+
+            Ok(tx)
         }
     }
 }

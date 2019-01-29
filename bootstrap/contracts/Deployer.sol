@@ -202,8 +202,7 @@ contract Deployer {
         require(startPort <= endPort, "Port range is empty or incorrect");
 
         // Save the node
-        Node memory node = Node(nodeID, nodeAddress, startPort, endPort, msg.sender, isPrivate, new bytes32[](0));
-        nodes[nodeID] = node;
+        nodes[nodeID] = Node(nodeID, nodeAddress, startPort, endPort, msg.sender, isPrivate, new bytes32[](0));
         nodesIds.push(nodeID);
 
         // No need to add private nodes to readyNodes, as they could only used with by-id pinning
@@ -220,7 +219,7 @@ contract Deployer {
                 removeEnqueuedApp(i);
 
                 // We should stop if there's no more ports in this node -- its addition has no more effect
-                node = nodes[nodeID];
+                Node storage node = nodes[nodeID];
                 if(node.nextPort > node.lastPort) break;
             } else i++;
         }

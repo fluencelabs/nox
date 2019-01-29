@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use fluence::credentials::Credentials;
 use fluence::publisher::Publisher;
 use fluence::register::Register;
 
@@ -22,14 +21,17 @@ use failure::Error;
 use std::result::Result as StdResult;
 
 use rand::Rng;
-use web3::types::{Address, H256};
+use web3::types::H256;
 
 use derive_getters::Getters;
 use ethabi::RawLog;
 use ethabi::TopicFilter;
 use fluence::command::EthereumArgs;
+use fluence::contract_func::get_transaction_logs;
 use fluence::delete_app::DeleteApp;
 use fluence::delete_node::DeleteNode;
+use fluence::publisher::Published;
+use fluence::register::Registered;
 use futures::future::Future;
 use web3::transports::Http;
 use web3::types::FilterBuilder;
@@ -48,14 +50,7 @@ pub struct TestOpts {
 
 impl TestOpts {
     pub fn default() -> TestOpts {
-        let eth = EthereumArgs {
-            contract_address: "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap(),
-            account: "4180fc65d613ba7e1a385181a219f1dbfe7bf11d".parse().unwrap(),
-            credentials: Credentials::No,
-            eth_url: String::from("http://localhost:8545/"),
-            gas: 1_000_000,
-        };
-
+        let eth = EthereumArgs::default();
         TestOpts {
             start_port: 25000,
             last_used_port: None,
@@ -65,32 +60,14 @@ impl TestOpts {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn new(
-        contract_address: Address,
-        account: Address,
-        start_port: u16,
-        credentials: Credentials,
-        eth_url: String,
-        gas: u32,
-        code_bytes: Vec<u8>,
-        swarm_url: String,
-    ) -> TestOpts {
-        let eth = EthereumArgs {
-            contract_address,
-            account,
-            credentials,
-            eth_url,
-            gas,
-        };
+    pub fn with_eth_sync(mut self, wait: bool) -> Self {
+        self.eth.wait_eth_sync = wait;
+        self
+    }
 
-        TestOpts {
-            start_port,
-            last_used_port: None,
-            code_bytes,
-            swarm_url,
-            eth,
-        }
+    pub fn with_tx_include(mut self, wait: bool) -> Self {
+        self.eth.wait_tx_include = wait;
+        self
     }
 
     pub fn register_node(&mut self, ports: u16, private: bool) -> Result<(H256, Register)> {
@@ -110,13 +87,20 @@ impl TestOpts {
             tendermint_node_id,
             start_port,
             end_port,
-            false,
             private,
             self.eth.clone(),
         )
         .unwrap();
 
-        let tx = reg.register(false)?;
+        let tx = match reg.register(false)? {
+            Registered::TransactionSent(tx) => tx,
+            Registered::Deployed {
+                app_ids: _,
+                ports: _,
+                tx,
+            } => tx,
+            Registered::Enqueued(tx) => tx,
+        };
 
         Ok((tx, reg))
     }
@@ -130,14 +114,20 @@ impl TestOpts {
             self.eth.clone(),
         );
 
-        publish.publish(false)
+        let tx = match publish.publish(false)? {
+            Published::TransactionSent(tx) => tx,
+            Published::Deployed { app_id: _, tx } => tx,
+            Published::Enqueued { app_id: _, tx } => tx,
+        };
+
+        Ok(tx)
     }
 
     // retrieves all events matching `filter`, parsing them through `parse_log`
     // Example usage:
     // use fluence::contract_func::contract::events::app_deployed;
     // get_logs(app_deployed::filter(), app_deployed::parse_log);
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn get_logs<T, F>(&self, filter: TopicFilter, parse_log: F) -> Vec<T>
     where
         F: Fn(RawLog) -> ethabi::Result<T>,
@@ -161,41 +151,24 @@ impl TestOpts {
         logs
     }
 
-    pub fn get_transaction_logs<T, F>(&self, tx: &H256, parse_log: F) -> Vec<T>
-    where
-        F: Fn(RawLog) -> ethabi::Result<T>,
-    {
-        let (_eloop, transport) = Http::new(&self.eth.eth_url.as_str()).unwrap();
-        let web3 = web3::Web3::new(transport);
-        let receipt = web3
-            .eth()
-            .transaction_receipt(tx.clone())
-            .wait()
-            .unwrap()
-            .unwrap();
-        let logs: Vec<T> = receipt
-            .logs
-            .into_iter()
-            .filter_map(|l| {
-                let raw = RawLog::from((l.topics, l.data.0));
-                parse_log(raw).ok()
-            })
-            .collect();
-
-        logs
-    }
-
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn delete_app(&self, app_id: H256, deployed: bool) -> Result<H256> {
         let delete = DeleteApp::new(app_id, deployed, self.eth.clone());
 
         delete.delete_app(false)
     }
 
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub fn delete_node(&self, node_id: H256) -> Result<H256> {
         let delete = DeleteNode::new(node_id, self.eth.clone());
 
         delete.delete_node(false)
+    }
+
+    pub fn get_transaction_logs<T, F>(&self, tx: &H256, parse_log: F) -> Vec<T>
+    where
+        F: Fn(RawLog) -> ethabi::Result<T>,
+    {
+        get_transaction_logs(self.eth.eth_url.as_str(), tx, parse_log).unwrap()
     }
 }

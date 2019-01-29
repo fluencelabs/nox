@@ -24,12 +24,15 @@ use failure::ResultExt;
 use clap::ArgMatches;
 use clap::{value_t, App, Arg, SubCommand};
 use derive_getters::Getters;
+use ethabi::RawLog;
 use reqwest::Client;
 use web3::types::H256;
 
 use crate::command::{parse_ethereum_args, with_ethereum_args, EthereumArgs};
+use crate::contract_func::contract::events::app_deployed::parse_log as parse_deployed;
+use crate::contract_func::contract::events::app_enqueued::parse_log as parse_enqueued;
 use crate::contract_func::contract::functions::add_app;
-use crate::contract_func::ContractCaller;
+use crate::contract_func::{call_contract, get_transaction_logs_raw, wait_tx_included};
 use crate::utils;
 
 const CODE_PATH: &str = "code_path";
@@ -45,6 +48,22 @@ pub struct Publisher {
     cluster_size: u8,
     pin_to_nodes: Vec<H256>,
     eth: EthereumArgs,
+}
+
+#[derive(Debug)]
+pub enum Published {
+    TransactionSent(H256),
+    Deployed { app_id: H256, tx: H256 },
+    Enqueued { app_id: H256, tx: H256 },
+}
+
+impl Published {
+    pub fn deployed(app_id: H256, tx: H256) -> Published {
+        Published::Deployed { app_id, tx }
+    }
+    pub fn enqueued(app_id: H256, tx: H256) -> Published {
+        Published::Enqueued { app_id, tx }
+    }
 }
 
 impl Publisher {
@@ -66,31 +85,17 @@ impl Publisher {
     }
 
     /// Sends code to Swarm and publishes the hash of the file from Swarm to Fluence smart contract
-    pub fn publish(&self, show_progress: bool) -> Result<H256, Error> {
+    pub fn publish(&self, show_progress: bool) -> Result<Published, Error> {
         let upload_to_swarm_fn = || -> Result<H256, Error> {
             let hash = upload_code_to_swarm(&self.swarm_url.as_str(), &self.bytes.as_slice())?;
             let hash = hash.parse()?;
             Ok(hash)
         };
 
-        let hash: H256 = if show_progress {
-            utils::with_progress(
-                "Code uploading...",
-                "1/2",
-                "Code uploaded.",
-                upload_to_swarm_fn,
-            )
-        } else {
-            upload_to_swarm_fn()
-        }?;
-
-        let publish_to_contract_fn = || -> Result<H256, Error> {
+        let publish_to_contract_fn = |hash: H256| -> Result<H256, Error> {
             //todo: add correct receipts
             let receipt: H256 =
                 "0000000000000000000000000000000000000000000000000000000000000000".parse()?;
-
-            let contract =
-                ContractCaller::new(self.eth.contract_address, self.eth.eth_url.as_str())?;
 
             let (call_data, _) = add_app::call(
                 hash,
@@ -99,24 +104,72 @@ impl Publisher {
                 self.pin_to_nodes.clone(),
             );
 
-            contract.call_contract(
-                self.eth.account,
-                &self.eth.credentials,
-                call_data,
-                self.eth.gas,
-            )
+            call_contract(&self.eth, call_data)
+        };
+
+        let wait_event_fn = |tx: &H256| -> Result<Published, Error> {
+            let logs: Vec<Published> =
+                get_transaction_logs_raw(self.eth.eth_url.as_str(), &tx, |log| {
+                    let raw = || RawLog::from((log.topics.clone(), log.data.0.clone()));
+
+                    let app_id = parse_deployed(raw()).map(|e| Published::deployed(e.app_id, *tx));
+                    let app_id = app_id
+                        .or(parse_enqueued(raw()).map(|e| Published::enqueued(e.app_id, *tx)));
+
+                    app_id.ok()
+                })
+                .context("Error parsing transaction logs")?;
+
+            logs.into_iter().nth(0).ok_or(err_msg(format!(
+                "No AppDeployed or AppEnqueued event is found in transaction logs. tx: {:#x}",
+                tx
+            )))
         };
 
         // sending transaction with the hash of file with code to ethereum
         if show_progress {
-            utils::with_progress(
-                "Submitting the code to the smart contract...",
-                "2/2",
-                "Code submitted.",
-                publish_to_contract_fn,
-            )
+            let steps = if self.eth.wait_tx_include { 3 } else { 2 };
+            let step = |s| format!("{}/{}", s, steps);
+
+            let hash: H256 = utils::with_progress(
+                "Uploading application code to Swarm...",
+                step(1).as_str(),
+                "Application code uploaded.",
+                upload_to_swarm_fn,
+            )?;
+            utils::print_info_id("swarm hash:", hash);
+
+            let tx = utils::with_progress(
+                "Publishing the app to the smart contract...",
+                step(2).as_str(),
+                "Transaction publishing app was sent.",
+                || publish_to_contract_fn(hash),
+            )?;
+
+            if self.eth.wait_tx_include {
+                utils::print_tx_hash(tx);
+                utils::with_progress(
+                    "Waiting for a transaction to be included in a block...",
+                    step(3).as_str(),
+                    "Transaction was included.",
+                    || {
+                        wait_tx_included(self.eth.eth_url.clone(), &tx)?;
+                        wait_event_fn(&tx)
+                    },
+                )
+            } else {
+                Ok(Published::TransactionSent(tx))
+            }
         } else {
-            publish_to_contract_fn()
+            let hash = upload_to_swarm_fn()?;
+            let tx = publish_to_contract_fn(hash)?;
+
+            if self.eth.wait_tx_include {
+                wait_tx_included(self.eth.eth_url.clone(), &tx)?;
+                wait_event_fn(&tx)
+            } else {
+                Ok(Published::TransactionSent(tx))
+            }
         }
     }
 }
@@ -178,13 +231,13 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .short("c")
             .required(true)
             .takes_value(true)
-            .help("path to compiled `wasm` code"),
+            .help("Path to compiled `wasm` code"),
         Arg::with_name(SWARM_URL)
             .long(SWARM_URL)
             .short("w")
             .required(false)
             .takes_value(true)
-            .help("http address to swarm node")
+            .help("Http address to swarm node")
             .default_value("http://localhost:8500/"),
         Arg::with_name(CLUSTER_SIZE)
             .long(CLUSTER_SIZE)
@@ -192,7 +245,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .required(false)
             .takes_value(true)
             .default_value("3")
-            .help("cluster's size that needed to deploy this code"),
+            .help("Cluster's size that needed to deploy this code"),
         Arg::with_name(PINNED)
             .long(PINNED)
             .short("p")
@@ -211,7 +264,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     ];
 
     SubCommand::with_name("publish")
-        .about("Publish code to ethereum blockchain")
+        .about("Upload code to Swarm and publish app to Ethereum blockchain")
         .args(with_ethereum_args(args).as_slice())
 }
 
@@ -237,7 +290,6 @@ mod tests {
     use web3;
     use web3::futures::Future;
     use web3::types::H256;
-    use web3::types::*;
 
     use failure::Error;
 
@@ -248,17 +300,9 @@ mod tests {
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
 
     fn generate_publisher(account: &str, creds: Credentials) -> Publisher {
-        let contract_address: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap();
-
         let bytes = vec![1, 2, 3];
 
-        let eth = EthereumArgs {
-            credentials: creds,
-            gas: 1000000,
-            account: account.parse().unwrap(),
-            contract_address,
-            eth_url: String::from("http://localhost:8545"),
-        };
+        let eth = EthereumArgs::with_acc_creds(account.parse().unwrap(), creds);
 
         Publisher::new(
             bytes,
