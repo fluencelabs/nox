@@ -53,15 +53,15 @@ pub struct Publisher {
 #[derive(Debug)]
 pub enum Published {
     TransactionSent(H256),
-    Deployed { app_id: H256, tx: H256 },
-    Enqueued { app_id: H256, tx: H256 },
+    Deployed { app_id: u64, tx: H256 },
+    Enqueued { app_id: u64, tx: H256 },
 }
 
 impl Published {
-    pub fn deployed(app_id: H256, tx: H256) -> Published {
+    pub fn deployed(app_id: u64, tx: H256) -> Published {
         Published::Deployed { app_id, tx }
     }
-    pub fn enqueued(app_id: H256, tx: H256) -> Published {
+    pub fn enqueued(app_id: u64, tx: H256) -> Published {
         Published::Enqueued { app_id, tx }
     }
 }
@@ -112,9 +112,11 @@ impl Publisher {
                 get_transaction_logs_raw(self.eth.eth_url.as_str(), &tx, |log| {
                     let raw = || RawLog::from((log.topics.clone(), log.data.0.clone()));
 
-                    let app_id = parse_deployed(raw()).map(|e| Published::deployed(e.app_id, *tx));
+                    let app_id =
+                        parse_deployed(raw()).map(|e| Published::deployed(e.app_id.into(), *tx));
                     let app_id = app_id
-                        .or(parse_enqueued(raw()).map(|e| Published::enqueued(e.app_id, *tx)));
+                        .or(parse_enqueued(raw())
+                            .map(|e| Published::enqueued(e.app_id.into(), *tx)));
 
                     app_id.ok()
                 })

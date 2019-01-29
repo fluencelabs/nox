@@ -44,9 +44,9 @@ fn main() {
             let publisher = publisher::parse(args).expect("Error parsing arguments");
             let published = publisher.publish(true).expect("Error sending transaction");
 
-            let print_status = |app_id: H256, tx: H256, status: &str| {
+            let print_status = |app_id: u64, tx: H256, status: &str| {
                 println!("{}", style(format!("App {}.", status)).blue());
-                utils::print_info_id_short("app id:", app_id);
+                utils::print_info_msg("app id:", app_id.to_string());
                 utils::print_tx_hash(tx);
             };
 
