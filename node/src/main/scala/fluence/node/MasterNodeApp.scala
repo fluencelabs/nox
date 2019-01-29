@@ -18,12 +18,12 @@ package fluence.node
 
 import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect._
-import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.ethclient.EthClient
 import fluence.node.config.SwarmConfig
-import fluence.node.eth.FluenceContract
+import fluence.node.eth.NodeEth
+import fluence.node.status.StatusAggregator
 import fluence.node.workers.{CodeManager, SwarmCodeManager, TestCodeManager, WorkersPool}
 import fluence.swarm.SwarmClient
 import org.web3j.protocol.core.methods.response.EthSyncing.Syncing
@@ -103,11 +103,11 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
                 _ <- waitEthSyncing(ethClient)
 
-                contract = FluenceContract(ethClient, contractConfig)
+                nodeEth ← NodeEth[IO](nodeConfig.validatorKey.toByteVector, ethClient, contractConfig)
 
                 codeManager <- getCodeManager(swarmConfig)
 
-                node = MasterNode(nodeConfig, contract, pool, codeManager, rootPath, masterContainerId)
+                node = MasterNode[IO](nodeConfig, nodeEth, pool, codeManager, rootPath, masterContainerId)
 
                 currentTime <- timer.clock.monotonic(MILLISECONDS)
                 result <- StatusAggregator.makeHttpResource(statsServerConfig, rawConfig, node, currentTime).use {

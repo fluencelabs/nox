@@ -14,9 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.node.tendermint.json
-
-import java.util.Base64
+package fluence.node.workers.tendermint
 
 import fluence.ethclient.helpers.Web3jConverters.base64ToBytes32
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
@@ -35,7 +33,9 @@ case class ValidatorKey(`type`: String, value: String) {
   /**
    * Returns node's public key in format ready to pass to the contract.
    */
-  def toBytes32: Bytes32 = base64ToBytes32(value)
+  lazy val toBytes32: Bytes32 = base64ToBytes32(value)
+
+  lazy val toByteVector: ByteVector = ByteVector(toBytes32.getValue)
 }
 
 object ValidatorKey {

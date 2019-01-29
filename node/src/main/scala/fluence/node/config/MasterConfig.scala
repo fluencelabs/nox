@@ -18,8 +18,8 @@ package fluence.node.config
 
 import java.net.InetAddress
 
-import fluence.node.eth.{EthereumRpcConfig, FluenceContractConfig}
-import fluence.node.tendermint.json.ValidatorKey
+import fluence.node.eth.conf.{EthereumRpcConfig, FluenceContractConfig}
+import fluence.node.workers.tendermint.ValidatorKey
 import fluence.node.workers.WorkerImage
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}

@@ -1,15 +1,15 @@
 // *****
-// *** import `js-fluence-client` to start work with real-time cluster
+// *** import `fluence` to start work with real-time cluster
 // *****
 
-import * as fluence from "js-fluence-client"
+import * as fluence from "fluence"
 
 // *****
 // *** create default session with credentials for interaction with the cluster,
 // *** you can change the port if you want to interact with another node or your cluster have other ports
 // *****
 
-const session = fluence.createDefaultSession("localhost", 25057);
+const session = fluence.directConnect("localhost", 25057);
 
 window.onload = function () {
 
