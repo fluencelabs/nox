@@ -36,7 +36,7 @@ fn integration_publish_pinned() {
 
     let logs = opts.get_transaction_logs(&tx, app_deployed::parse_log);
     let log = logs.first().unwrap();
-    let app_id = log.app_id;
+    let app_id: u64 = log.app_id.into();
 
     assert_eq!(log.node_i_ds.len(), count as usize);
 

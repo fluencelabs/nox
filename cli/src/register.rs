@@ -253,7 +253,6 @@ pub mod tests {
     use crate::credentials::Credentials;
 
     use super::Register;
-    use std::net::IpAddr;
 
     pub fn generate_register(credentials: Credentials) -> Register {
         let contract_address: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap();
