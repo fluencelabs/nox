@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
-package fluence.node.tendermint.config
+package fluence.node.workers.tendermint.config
 import java.nio.file.{Files, Path, StandardCopyOption}
 
-import cats.effect.IO
+import cats.Functor
+import cats.effect.{IO, LiftIO}
 import fluence.node.Configuration
-import fluence.node.eth.App
+import fluence.node.eth.state.App
 
 import scala.io.Source
+import scala.language.higherKinds
 
 object WorkerConfigWriter extends slogging.LazyLogging {
 
@@ -33,17 +35,15 @@ object WorkerConfigWriter extends slogging.LazyLogging {
    * @param rootPath Path to resolve against, usually /master inside Master container
    * @return original App and config paths wrapped in WorkerConfigPaths
    */
-  def resolveWorkerConfigPaths(rootPath: Path): fs2.Pipe[IO, App, (App, WorkerConfigPaths)] =
+  def resolveWorkerConfigPaths[F[_]: LiftIO](rootPath: Path): fs2.Pipe[F, App, (App, WorkerConfigPaths)] =
     _.evalMap { app =>
-      for {
+      (for {
         tmDir ← IO(rootPath.resolve("tendermint"))
         templateConfigDir ← IO(tmDir.resolve("config"))
         workerPath ← IO(tmDir.resolve(s"${app.appIdHex}_${app.cluster.currentWorker.index}"))
         workerConfigDir ← IO(workerPath.resolve("config"))
         _ ← IO { Files.createDirectories(workerConfigDir) }
-      } yield {
-        (app, WorkerConfigPaths(templateConfigDir, workerPath, workerConfigDir))
-      }
+      } yield (app, WorkerConfigPaths(templateConfigDir, workerPath, workerConfigDir))).to[F]
     }
 
   /**
@@ -58,22 +58,24 @@ object WorkerConfigWriter extends slogging.LazyLogging {
    *    - tendermint configuration in `workerConfigDir`:
    *        - node_key.json, containing private P2P key
    *        - priv_validator.json, containing validator's private & public keys and it's address
-   *        - genesis.json, generated from [[App.cluster]] and [[App.appId]]
+   *        - genesis.json, generated from [[App.cluster]] and [[App.id]]
    *        - config.toml, copied from `templateConfigDir/default_config.toml` and updated
    */
-  def writeConfigs(): fs2.Pipe[IO, (App, WorkerConfigPaths, Path), (App, WorkerConfigPaths, Path)] =
+  def writeConfigs[F[_]: LiftIO: Functor]: fs2.Pipe[F, (App, WorkerConfigPaths, Path), (App, WorkerConfigPaths, Path)] =
     _.evalTap {
       case (app, paths, _) =>
-        for {
-          _ ← WorkerConfigWriter.copyMasterKeys(paths.templateConfigDir, paths.workerConfigDir)
-          _ ← WorkerConfigWriter.writeGenesis(app, paths.workerConfigDir)
-          _ ← WorkerConfigWriter.updateConfigTOML(
-            app,
-            configSrc = paths.templateConfigDir.resolve("default_config.toml"),
-            configDest = paths.workerConfigDir.resolve("config.toml")
-          )
+        (
+          for {
+            _ ← WorkerConfigWriter.copyMasterKeys(paths.templateConfigDir, paths.workerConfigDir)
+            _ ← WorkerConfigWriter.writeGenesis(app, paths.workerConfigDir)
+            _ ← WorkerConfigWriter.updateConfigTOML(
+              app,
+              configSrc = paths.templateConfigDir.resolve("default_config.toml"),
+              configDest = paths.workerConfigDir.resolve("config.toml")
+            )
 
-        } yield {}
+          } yield ()
+        ).to[F]
     }
 
   private def writeGenesis(app: App, dest: Path): IO[Unit] = IO {

@@ -1,7 +1,7 @@
 {
   "name": "fluence-monitoring",
   "namespace": "fluence",
-  "version": "0.0.19",
+  "version": "0.0.21",
   "description": "Fluence Monitoring that allows to monitor the state of Fluence network from a browser.",
   "main": "./dist/fluence.js",
   "typings": "./dist/fluence.d.ts",
@@ -49,13 +49,13 @@
     "web3-typescript-typings": "^0.10.2"
   },
   "dependencies": {
-    "array-buffer-to-hex": "^1.0.0",
-    "axios": "^0.18.0",
-    "hex-to-array-buffer": "^1.1.0",
+    "array-buffer-to-hex": "1.0.0",
+    "axios": "0.18.0",
+    "hex-to-array-buffer": "1.1.0",
     "json-formatter-js": "2.2.0",
-    "ts-option": "^1.1.5",
-    "typechain": "^0.3.9",
-    "@types/web3": "^1.0.14",
-    "web3": "^1.0.0-beta.37"
+    "ts-option": "1.1.5",
+    "typechain": "0.3.9",
+    "@types/web3": "1.0.14",
+    "web3": "1.0.0-beta.37"
   }
 }

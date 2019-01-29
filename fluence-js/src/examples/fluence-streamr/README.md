@@ -28,18 +28,18 @@ To run code from this repo:
 To write code from scratch: 
 
 1. Initialize project with `npm init`
-2. Install `fluence` and `streamr` clients with `npm install --save js-fluence-client streamr-client`
+2. Install `fluence` and `streamr` clients with `npm install --save fluence streamr-client`
 3. Create `index.js` file and open it with any editor
 4. Import clients and initialize them
 ```javascript
 import StreamrClient from 'streamr-client'
-import * as fluence from "js-fluence-client"
+import * as fluence from "fluence"
 
 // with default options it will be connected to `wss://www.streamr.com/api/v1/ws`
 const streamrClient = new StreamrClient();
 
 // creates session with predefined credentials, cluster should be started already
-const fluenceSession = fluence.createDefaultSession("localhost", 29057);
+const fluenceSession = fluence.directConnect("localhost", 29057);
 ```
 5. Create table in LlamaDB in the `fluence` cluster
 ```javascript

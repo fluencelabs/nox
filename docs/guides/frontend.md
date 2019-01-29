@@ -2,7 +2,7 @@
 - `npm`
 
 ## Installation
-- `npm install js-fluence-client`
+- `npm install fluence`
 
 ## Description
 `js-fluence-client` is a library written in TypeScript that allows you to interact with an app (usually a backend) deployed to a Fluence cluster in the Fluence network, from a web browser. Using this library together with Metamask and Ethereum network, you can develop a `web3` decentralized application.
@@ -10,7 +10,7 @@
 ## Usage
 Import a dependency:
 ```
-import * as fluence from "js-fluence-client";
+import * as fluence from "fluence";
 ```
 
 To connect to the Fluence cluster we need to create a session between the browser and all nodes or one node in this cluster.

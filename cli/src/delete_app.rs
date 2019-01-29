@@ -84,7 +84,7 @@ impl DeleteApp {
         }
     }
 
-    fn wait_event<T, F>(&self, tx: &H256, f: F, event_name: &str) -> Result<(), Error>
+    fn check_event<T, F>(&self, tx: &H256, f: F, event_name: &str) -> Result<(), Error>
     where
         F: Fn(RawLog) -> ethabi::Result<T>,
     {
@@ -108,11 +108,11 @@ impl DeleteApp {
             call_contract(&self.eth, call_data)
         };
 
-        let wait_event_fn = |tx: &H256| -> Result<(), Error> {
+        let check_event_fn = |tx: &H256| -> Result<(), Error> {
             if self.deployed {
-                self.wait_event(tx, app_deleted::parse_log, "AppDeleted")
+                self.check_event(tx, app_deleted::parse_log, "AppDeleted")
             } else {
-                self.wait_event(tx, app_dequeued::parse_log, "AppDequeued")
+                self.check_event(tx, app_dequeued::parse_log, "AppDequeued")
             }
         };
 
@@ -145,7 +145,7 @@ impl DeleteApp {
                     "Transaction included. App deleted.",
                     || {
                         wait_tx_included(self.eth.eth_url.clone(), &tx)?;
-                        wait_event_fn(&tx)?;
+                        check_event_fn(&tx)?;
                         Ok(tx)
                     },
                 )
@@ -159,7 +159,7 @@ impl DeleteApp {
             let tx = delete_app_fn()?;
 
             if self.eth.wait_tx_include {
-                wait_event_fn(&tx)?;
+                check_event_fn(&tx)?;
             }
 
             Ok(tx)

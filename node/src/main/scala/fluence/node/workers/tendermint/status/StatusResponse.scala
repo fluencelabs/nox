@@ -14,16 +14,18 @@
  * limitations under the License.
  */
 
-package fluence.node.workers
-import io.circe.{Decoder, Encoder}
+package fluence.node.workers.tendermint.status
+
 import io.circe.generic.extras.Configuration
-import io.circe.generic.semiauto._
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.{Decoder, Encoder}
 
 /**
  * Status information from a tendermint node.
- * TODO consider moving it to [[fluence.node.tendermint]] package
  */
-object WorkerResponse {
+case class StatusResponse(result: StatusResponse.WorkerTendermintInfo)
+
+object StatusResponse {
 
   case class ProtocolVersion(p2p: String, block: String, app: String)
   case class OtherInfo(tx_index: String, rpc_address: String)
@@ -53,8 +55,6 @@ object WorkerResponse {
 
   case class WorkerTendermintInfo(node_info: NodeInfo, sync_info: SyncInfo, validator_info: ValidatorInfo)
 
-  case class WorkerResponse(result: WorkerTendermintInfo)
-
   implicit val configuration: Configuration =
     Configuration.default.withSnakeCaseMemberNames.withSnakeCaseConstructorNames
 
@@ -65,7 +65,7 @@ object WorkerResponse {
   implicit val decodePubKey: Decoder[PubKey] = deriveDecoder
   implicit val decodeValidatorInfo: Decoder[ValidatorInfo] = deriveDecoder
   implicit val decodeCheck: Decoder[WorkerTendermintInfo] = deriveDecoder
-  implicit val decodeResponse: Decoder[WorkerResponse] = deriveDecoder
+  implicit val decodeResponse: Decoder[StatusResponse] = deriveDecoder
 
   implicit val encodeProtocolVersion: Encoder[ProtocolVersion] = deriveEncoder
   implicit val encodeOtherInfo: Encoder[OtherInfo] = deriveEncoder
@@ -74,5 +74,5 @@ object WorkerResponse {
   implicit val encodePubKey: Encoder[PubKey] = deriveEncoder
   implicit val encodeValidatorInfo: Encoder[ValidatorInfo] = deriveEncoder
   implicit val encodeCheck: Encoder[WorkerTendermintInfo] = deriveEncoder
-  implicit val encodeResponse: Encoder[WorkerResponse] = deriveEncoder
+  implicit val encodeResponse: Encoder[StatusResponse] = deriveEncoder
 }

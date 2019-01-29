@@ -140,6 +140,7 @@ where
     Ok(result)
 }
 
+// Load transaction receipt, read events (logs) from it, and parse them via `parse_log` closure
 pub fn get_transaction_logs_raw<T, F>(
     eth_url: &str,
     tx: &H256,
@@ -172,6 +173,7 @@ where
     Ok(receipt.logs.into_iter().filter_map(parse_log).collect())
 }
 
+// Load transaction receipt, read events (logs) from it, and parse them via `parse_log` closure
 pub fn get_transaction_logs<T, F>(eth_url: &str, tx: &H256, parse_log: F) -> Result<Vec<T>, Error>
 where
     F: Fn(RawLog) -> ethabi::Result<T>,
@@ -182,6 +184,7 @@ where
     })
 }
 
+// Block current thread and query `eth_getTransactionByHash` in loop, until transaction hash becomes non-null
 pub fn wait_tx_included(eth_url: String, tx: &H256) -> Result<Web3Transaction, Error> {
     use std::thread;
 
@@ -240,6 +243,7 @@ pub fn wait_tx_included(eth_url: String, tx: &H256) -> Result<Web3Transaction, E
     }
 }
 
+// Block current thread and query Ethereum node with eth_syncing until it finishes syncing blocks
 pub fn wait_sync(eth_url: String) -> Result<(), Error> {
     use std::thread;
 
