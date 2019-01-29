@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-mod utils;
+pub mod utils;
 
 use crate::utils::*;
 use fluence::contract_func::contract::events::app_deleted;
@@ -22,9 +22,11 @@ use fluence::contract_func::contract::events::app_deployed;
 use fluence::contract_func::contract::events::app_dequeued;
 use fluence::contract_func::contract::events::app_enqueued;
 
-#[test]
-fn integration_delete_app() {
-    let mut opts = TestOpts::default();
+#[cfg(test)]
+fn delete_app(wait_eth_sync: bool, wait_tx_include: bool) {
+    let mut opts = TestOpts::default()
+        .with_eth_sync(wait_eth_sync)
+        .with_tx_include(wait_tx_include);
 
     let count = 5;
     for _ in 0..count {
@@ -45,9 +47,11 @@ fn integration_delete_app() {
     assert_eq!(log.app_id, app_id);
 }
 
-#[test]
-fn integration_dequeue_app() {
-    let opts = TestOpts::default();
+#[cfg(test)]
+fn dequeue_app(wait_eth_sync: bool, wait_tx_include: bool) {
+    let opts = TestOpts::default()
+        .with_eth_sync(wait_eth_sync)
+        .with_tx_include(wait_tx_include);
 
     let tx = opts.publish_app(50, vec![]).unwrap();
 
@@ -61,4 +65,45 @@ fn integration_dequeue_app() {
     let log = logs.first().unwrap();
 
     assert_eq!(log.app_id, app_id);
+}
+
+// TODO: use macros to generate tests
+#[test]
+fn integration_delete_app() {
+    delete_app(false, false)
+}
+
+#[test]
+fn integration_delete_app_wait_eth_sync() {
+    delete_app(true, false)
+}
+
+#[test]
+fn integration_delete_app_wait_tx_include() {
+    delete_app(false, true)
+}
+
+#[test]
+fn integration_delete_app_wait_eth_sync_and_tx_include() {
+    delete_app(true, true)
+}
+
+#[test]
+fn integration_dequeue_app() {
+    dequeue_app(false, false)
+}
+
+#[test]
+fn integration_dequeue_app_wait_eth_sync() {
+    dequeue_app(true, false)
+}
+
+#[test]
+fn integration_dequeue_app_wait_tx_include() {
+    dequeue_app(false, true)
+}
+
+#[test]
+fn integration_dequeue_app_wait_eth_sync_and_tx_include() {
+    dequeue_app(true, true)
 }

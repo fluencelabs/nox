@@ -15,21 +15,19 @@
  */
 
 use std::net::IpAddr;
-use std::{thread, time};
 
 use failure::err_msg;
 use failure::Error;
-use failure::SyncFailure;
 
 use clap::{value_t, App, Arg, ArgMatches, SubCommand};
 use derive_getters::Getters;
 use hex;
-use web3::transports::Http;
 use web3::types::H256;
 
 use crate::command::*;
+use crate::contract_func::contract::events::app_deployed::parse_log as parse_deployed;
 use crate::contract_func::contract::functions::add_node;
-use crate::contract_func::ContractCaller;
+use crate::contract_func::{call_contract, get_transaction_logs, wait_sync, wait_tx_included};
 use crate::types::{NodeAddress, IP_LEN, TENDERMINT_NODE_ID_LEN};
 use crate::utils;
 use web3::types::H160;
@@ -37,7 +35,6 @@ use web3::types::H160;
 const NODE_IP: &str = "node_ip";
 const START_PORT: &str = "start_port";
 const LAST_PORT: &str = "last_port";
-const WAIT_SYNCING: &str = "wait_syncing";
 const PRIVATE: &str = "private";
 
 #[derive(Debug, Getters)]
@@ -47,9 +44,18 @@ pub struct Register {
     tendermint_node_id: H160,
     start_port: u16,
     last_port: u16,
-    wait_syncing: bool,
     private: bool,
     eth: EthereumArgs,
+}
+
+pub enum Registered {
+    TransactionSent(H256),
+    Deployed {
+        app_ids: Vec<H256>,
+        ports: Vec<u16>,
+        tx: H256,
+    },
+    Enqueued(H256),
 }
 
 impl Register {
@@ -60,7 +66,6 @@ impl Register {
         tendermint_node_id: H160,
         start_port: u16,
         last_port: u16,
-        wait_syncing: bool,
         private: bool,
         eth: EthereumArgs,
     ) -> Result<Register, Error> {
@@ -74,7 +79,6 @@ impl Register {
             tendermint_node_id,
             start_port,
             last_port,
-            wait_syncing,
             private,
             eth,
         })
@@ -109,30 +113,9 @@ impl Register {
     }
 
     /// Registers a node in Fluence smart contract
-    pub fn register(&self, show_progress: bool) -> Result<H256, Error> {
-        let wait_syncing_fn = || -> Result<(), Error> {
-            let (_eloop, transport) =
-                Http::new(&self.eth.eth_url.as_str()).map_err(SyncFailure::new)?;
-            let web3 = &web3::Web3::new(transport);
-
-            let mut sync = utils::check_sync(web3)?;
-
-            let ten_seconds = time::Duration::from_secs(10);
-
-            while sync {
-                thread::sleep(ten_seconds);
-
-                sync = utils::check_sync(web3)?;
-            }
-
-            Ok(())
-        };
-
+    pub fn register(&self, show_progress: bool) -> Result<Registered, Error> {
         let publish_to_contract_fn = || -> Result<H256, Error> {
             let hash_addr: NodeAddress = self.serialize_node_address()?;
-
-            let contract =
-                ContractCaller::new(self.eth.contract_address, &self.eth.eth_url.as_str())?;
 
             let (call_data, _) = add_node::call(
                 self.tendermint_key,
@@ -142,34 +125,83 @@ impl Register {
                 self.private,
             );
 
-            contract.call_contract(
-                self.eth.account,
-                &self.eth.credentials,
-                call_data,
-                self.eth.gas,
-            )
+            call_contract(&self.eth, call_data)
+        };
+
+        let wait_event_fn = |tx: &H256| -> Result<Registered, Error> {
+            let logs = get_transaction_logs(self.eth.eth_url.as_str(), tx, parse_deployed)?;
+
+            let status = if logs.is_empty() {
+                Registered::Enqueued(*tx)
+            } else {
+                let (app_ids, ports) = logs
+                    .iter()
+                    .filter_map(|e| {
+                        let idx = e.node_i_ds.iter().position(|id| *id == self.tendermint_key);
+                        idx.and_then(|i| e.ports.get(i)).map(|port| {
+                            let port = Into::<u64>::into(*port) as u16;
+                            (e.app_id, port)
+                        })
+                    })
+                    .unzip();
+                Registered::Deployed {
+                    app_ids,
+                    ports,
+                    tx: *tx,
+                }
+            };
+
+            Ok(status)
         };
 
         // sending transaction with the hash of file with code to ethereum
         if show_progress {
-            if self.wait_syncing {
+            let sync_inc = self.eth.wait_eth_sync as u32;
+            let steps = 1 + (self.eth.wait_tx_include as u32) + sync_inc;
+            let step = |s| format!("{}/{}", s + sync_inc, steps);
+
+            if self.eth.wait_eth_sync {
                 utils::with_progress(
-                    "Waiting for the node is syncing",
-                    "1/2",
-                    "Node synced.",
-                    wait_syncing_fn,
+                    "Waiting while Ethereum node is syncing...",
+                    step(0).as_str(),
+                    "Ethereum node synced.",
+                    || wait_sync(self.eth.eth_url.clone()),
                 )?;
             };
 
-            let prefix = if self.wait_syncing { "2/2" } else { "1/1" };
-            utils::with_progress(
-                "Adding the node to the smart contract...",
-                prefix,
-                "Node added.",
+            let tx = utils::with_progress(
+                "Registering the node in the smart contract...",
+                step(1).as_str(),
+                "Transaction with node registration was sent.",
                 publish_to_contract_fn,
-            )
+            )?;
+
+            if self.eth.wait_tx_include {
+                utils::print_tx_hash(tx);
+                utils::with_progress(
+                    "Waiting for the transaction to be included in a block...",
+                    step(2).as_str(),
+                    "Transaction was included.",
+                    || {
+                        wait_tx_included(self.eth.eth_url.clone(), &tx)?;
+                        wait_event_fn(&tx)
+                    },
+                )
+            } else {
+                Ok(Registered::TransactionSent(tx))
+            }
         } else {
-            publish_to_contract_fn()
+            if self.eth.wait_eth_sync {
+                wait_sync(self.eth.eth_url.clone())?;
+            }
+
+            let tx = publish_to_contract_fn()?;
+
+            if self.eth.wait_tx_include {
+                wait_event_fn(&tx)
+            } else {
+                Ok(Registered::TransactionSent(tx))
+            }
         }
     }
 }
@@ -184,8 +216,6 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
     let start_port = value_t!(args, START_PORT, u16)?;
     let last_port = value_t!(args, LAST_PORT, u16)?;
 
-    let wait_syncing = args.is_present(WAIT_SYNCING);
-
     let private: bool = args.is_present(PRIVATE);
 
     let eth = parse_ethereum_args(args)?;
@@ -196,7 +226,6 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
         tendermint_node_id,
         start_port,
         last_port,
-        wait_syncing,
         private,
         eth,
     )
@@ -210,7 +239,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .short("i")
             .required(true)
             .takes_value(true)
-            .help("node's IP address"),
+            .help("Node's IP address"),
         tendermint_key(),
         tendermint_node_id(),
         Arg::with_name(START_PORT)
@@ -218,22 +247,19 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .long(START_PORT)
             .default_value("20096")
             .takes_value(true)
-            .help("minimum port in the port range"),
+            .help("Minimum port in the port range"),
         Arg::with_name(LAST_PORT)
             .alias(LAST_PORT)
             .default_value("20196")
             .long(LAST_PORT)
             .takes_value(true)
-            .help("maximum port in the port range"),
-        Arg::with_name(WAIT_SYNCING)
-            .long(WAIT_SYNCING)
-            .help("waits until ethereum node will be synced, executes a command after this"),
+            .help("Maximum port in the port range"),
         base64_tendermint_key(),
         Arg::with_name(PRIVATE)
             .long(PRIVATE)
             .short("p")
             .takes_value(false)
-            .help("marks node as private, used for pinning apps to nodes"),
+            .help("Marks node as private, used for pinning apps to nodes"),
     ];
 
     SubCommand::with_name("register")
@@ -255,8 +281,6 @@ pub mod tests {
     use super::Register;
 
     pub fn generate_register(credentials: Credentials) -> Register {
-        let contract_address: Address = "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap();
-
         let mut rng = rand::thread_rng();
         let rnd_num: u64 = rng.gen();
 
@@ -264,13 +288,7 @@ pub mod tests {
         let tendermint_node_id: H160 = H160::from(rnd_num);
         let account: Address = "4180fc65d613ba7e1a385181a219f1dbfe7bf11d".parse().unwrap();
 
-        let eth = EthereumArgs {
-            credentials,
-            gas: 1000000,
-            account,
-            contract_address,
-            eth_url: String::from("http://localhost:8545"),
-        };
+        let eth = EthereumArgs::with_acc_creds(account, credentials);
 
         Register::new(
             "127.0.0.1".parse().unwrap(),
@@ -278,7 +296,6 @@ pub mod tests {
             tendermint_node_id,
             25006,
             25100,
-            false,
             false,
             eth,
         )

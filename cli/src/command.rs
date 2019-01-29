@@ -41,6 +41,8 @@ const ETH_URL: &str = "eth_url";
 const TENDERMINT_KEY: &str = "tendermint_key";
 const BASE64_TENDERMINT_KEY: &str = "base64_tendermint_key";
 const TENDERMINT_NODE_ID: &str = "tendermint_node_id";
+const WAIT: &str = "wait";
+const WAIT_SYNCING: &str = "wait_syncing";
 
 #[derive(Debug, Clone)]
 pub struct EthereumArgs {
@@ -49,6 +51,8 @@ pub struct EthereumArgs {
     pub account: Address,
     pub contract_address: Address,
     pub eth_url: String,
+    pub wait_tx_include: bool,
+    pub wait_eth_sync: bool,
 }
 
 pub fn contract_address<'a, 'b>() -> Arg<'a, 'b> {
@@ -57,7 +61,7 @@ pub fn contract_address<'a, 'b>() -> Arg<'a, 'b> {
         .short("d")
         .required(true)
         .takes_value(true)
-        .help("fluence contract address")
+        .help("Fluence contract address")
 }
 
 pub fn eth_url<'a, 'b>() -> Arg<'a, 'b> {
@@ -66,7 +70,7 @@ pub fn eth_url<'a, 'b>() -> Arg<'a, 'b> {
         .short("e")
         .required(false)
         .takes_value(true)
-        .help("http address to ethereum node")
+        .help("Http address to ethereum node")
         .default_value("http://localhost:8545/")
 }
 
@@ -76,13 +80,13 @@ pub fn tendermint_key<'a, 'b>() -> Arg<'a, 'b> {
         .short("K")
         .required(true)
         .takes_value(true)
-        .help("public key of tendermint node")
+        .help("Public key of tendermint node")
 }
 
 pub fn base64_tendermint_key<'a, 'b>() -> Arg<'a, 'b> {
     Arg::with_name(BASE64_TENDERMINT_KEY)
         .long(BASE64_TENDERMINT_KEY)
-        .help("allows to use base64 tendermint key")
+        .help("Allows to use base64 tendermint key")
 }
 
 pub fn tendermint_node_id<'a, 'b>() -> Arg<'a, 'b> {
@@ -104,33 +108,42 @@ pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
             .short("a")
             .required(true)
             .takes_value(true)
-            .help("ethereum account"),
+            .help("Ethereum account"),
         eth_url(),
         Arg::with_name(PASSWORD)
             .long(PASSWORD)
             .short("P")
             .required(false)
             .takes_value(true)
-            .help("password to unlock account in ethereum client"),
+            .help("Password to unlock account in ethereum client"),
         Arg::with_name(SECRET_KEY)
             .long(SECRET_KEY)
             .short("S")
             .required(false)
             .takes_value(true)
-            .help("the secret key to sign transactions"),
+            .help("The secret key to sign transactions"),
         Arg::with_name(GAS)
             .long(GAS)
             .short("g")
             .required(false)
             .takes_value(true)
             .default_value("1000000")
-            .help("maximum gas to spend"),
+            .help("Maximum gas to spend"),
         Arg::with_name(KEYSTORE)
             .long(KEYSTORE)
             .short("T")
             .required(false)
             .takes_value(true)
             .help("Path to keystore JSON file with Ethereum private key inside"),
+        Arg::with_name(WAIT)
+            .long(WAIT)
+            .short("W")
+            .required(false)
+            .takes_value(false)
+            .help("If supplied, wait for the transaction to be included in a block"),
+        Arg::with_name(WAIT_SYNCING)
+            .long(WAIT_SYNCING)
+            .help("If supplied, wait until Ethereum is synced with blockchain"),
     ];
 
     // append args
@@ -167,7 +180,7 @@ fn load_keystore(path: String, password: String) -> Result<Secret, Error> {
         .secret(&password)
         .map_err(|e| err_msg(e.to_string()))
         .context("can't parse secret from keystore file")
-        .map_err(|e| e.into())
+        .map_err(Into::into)
 }
 
 fn load_credentials(
@@ -198,12 +211,17 @@ pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Error> {
 
     let eth_url = parse_eth_url(args)?;
 
+    let wait = args.is_present(WAIT);
+    let wait_syncing = args.is_present(WAIT_SYNCING);
+
     return Ok(EthereumArgs {
         credentials,
         gas,
         account,
         contract_address,
         eth_url,
+        wait_tx_include: wait,
+        wait_eth_sync: wait_syncing,
     });
 }
 
@@ -233,4 +251,27 @@ pub fn parse_tendermint_key(args: &ArgMatches) -> Result<H256, Error> {
 
 pub fn parse_tendermint_node_id(args: &ArgMatches) -> Result<H160, Error> {
     Ok(value_t!(args, TENDERMINT_NODE_ID, H160)?)
+}
+
+impl Default for EthereumArgs {
+    fn default() -> EthereumArgs {
+        EthereumArgs {
+            credentials: Credentials::No,
+            gas: 1000000,
+            account: "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d".parse().unwrap(),
+            contract_address: "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap(),
+            eth_url: String::from("http://localhost:8545"),
+            wait_tx_include: false,
+            wait_eth_sync: false,
+        }
+    }
+}
+
+impl EthereumArgs {
+    pub fn with_acc_creds(account: Address, credentials: Credentials) -> EthereumArgs {
+        let mut args = EthereumArgs::default();
+        args.credentials = credentials;
+        args.account = account;
+        args
+    }
 }
