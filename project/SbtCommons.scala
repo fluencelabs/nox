@@ -8,7 +8,7 @@ import sys.process._
 
 object SbtCommons {
 
-  val scalaV = scalaVersion := "2.12.7"
+  val scalaV = scalaVersion := "2.12.8"
 
   val commons = Seq(
     scalaV,
@@ -77,7 +77,7 @@ object SbtCommons {
 
   val slogging = "biz.enef"        %% "slogging"    % "0.6.1"
   val cats = "org.typelevel"       %% "cats-core"   % "1.5.0"
-  val catsEffect = "org.typelevel" %% "cats-effect" % "1.1.0"
+  val catsEffect = "org.typelevel" %% "cats-effect" % "1.2.0"
 
   val fs2Version = "1.0.2"
   val fs2 = "co.fs2"   %% "fs2-core"             % fs2Version
@@ -85,9 +85,9 @@ object SbtCommons {
   val fs2io = "co.fs2" %% "fs2-io"               % fs2Version
   // functional wrapper around 'lightbend/config'
   val pureConfig = "com.github.pureconfig" %% "pureconfig"      % "0.10.1"
-  val cryptoHashing = "one.fluence"        %% "crypto-hashsign" % "0.0.2"
-  val cryptoCipher = "one.fluence"         %% "crypto-cipher"   % "0.0.2"
-  val cryptoKeyStore = "one.fluence"       %% "crypto-keystore" % "0.0.2"
+  val cryptoHashing = "one.fluence"        %% "crypto-hashsign" % "0.0.3"
+  val cryptoCipher = "one.fluence"         %% "crypto-cipher"   % "0.0.3"
+  val cryptoKeyStore = "one.fluence"       %% "crypto-keystore" % "0.0.3"
 
   val sttpVersion = "1.5.4"
   val sttp = "com.softwaremill.sttp"            %% "core"                           % sttpVersion

@@ -18,7 +18,7 @@ package fluence.node
 
 import cats.effect._
 import cats.syntax.functor._
-import fluence.node.eth.WorkerNode
+import fluence.node.eth.state.WorkerPeer
 
 import scala.io.Source
 import scala.language.higherKinds
@@ -28,7 +28,7 @@ trait TendermintSetup {
   protected def heightFromTendermintStatus(host: String, p2pPort: Short): IO[Option[Long]] = IO {
     import io.circe.Json
     import io.circe.parser.parse
-    val rpcPort = WorkerNode.rpcPort(p2pPort)
+    val rpcPort = WorkerPeer.rpcPort(p2pPort)
     val source = Source.fromURL(s"http://$host:$rpcPort/status").mkString
     val height = parse(source)
       .getOrElse(Json.Null)

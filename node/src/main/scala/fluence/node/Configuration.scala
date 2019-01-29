@@ -19,11 +19,11 @@ import java.nio.file.{Path, Paths}
 
 import cats.effect.{ContextShift, IO}
 import fluence.node.config.{MasterConfig, NodeConfig, StatusServerConfig, SwarmConfig}
-import fluence.node.eth.{EthereumRpcConfig, FluenceContractConfig}
 import ConfigOps._
 import com.typesafe.config.Config
 import fluence.node.docker.{DockerIO, DockerParams}
-import fluence.node.tendermint.json.ValidatorKey
+import fluence.node.eth.conf.{EthereumRpcConfig, FluenceContractConfig}
+import fluence.node.workers.tendermint.ValidatorKey
 import fluence.node.workers.WorkerImage
 import io.circe.parser._
 import pureconfig.generic.auto._

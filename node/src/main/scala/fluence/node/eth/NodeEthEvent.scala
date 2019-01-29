@@ -15,7 +15,13 @@
  */
 
 package fluence.node.eth
+import scodec.bits.ByteVector
+import state.App
 
-case class EthereumRpcConfig(protocol: String, ip: String, port: Int) {
-  val uri = s"$protocol://$ip:$port"
-}
+sealed trait NodeEthEvent
+
+case class RunAppWorker(app: App) extends NodeEthEvent
+
+case class RemoveAppWorker(appId: ByteVector) extends NodeEthEvent
+
+case class DropPeerWorker(appId: ByteVector, validatorKey: ByteVector) extends NodeEthEvent

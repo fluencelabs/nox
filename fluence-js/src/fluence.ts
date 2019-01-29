@@ -55,11 +55,13 @@ export interface AppSession {
     workerSessions: WorkerSession[]
 }
 
-// Create session with an app
-export async function createAppSession(contract: string, appId: string): Promise<AppSession> {
+/*
+ * Creates connection with an app (all nodes related to an app in Fluence contract)
+ */
+export async function connect(contract: string, appId: string): Promise<AppSession> {
     let workers: Worker[] = await getAppWorkers(contract, appId);
     let sessions: WorkerSession[] = workers.map(worker => {
-        let session = createDefaultSession(worker.node.ip_addr, worker.port + 100);
+        let session = directConnect(worker.node.ip_addr, worker.port + 100);
         return {
             session: session,
             worker: worker
@@ -72,9 +74,9 @@ export async function createAppSession(contract: string, appId: string): Promise
 }
 
 /**
- * Creates default session with default credentials.
+ * Creates direct connection to one node.
  */
-export function createDefaultSession(host: string, port: number) {
+export function directConnect(host: string, port: number) {
     let tm = new TendermintClient(host, port);
 
     let engine = new Engine(tm);

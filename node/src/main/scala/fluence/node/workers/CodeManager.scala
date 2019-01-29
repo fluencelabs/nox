@@ -15,6 +15,7 @@
  */
 
 package fluence.node.workers
+
 import java.nio.file.{Files, Path, Paths}
 
 import cats.effect.Sync
