@@ -27,16 +27,14 @@ import scodec.bits.ByteVector
  * @param cluster A cluster that hosts this App
  */
 case class App private[eth] (
-  id: ByteVector,
+  id: Long,
   storageHash: ByteVector,
   cluster: Cluster
-) {
-  lazy val appIdHex: String = id.dropWhile(_ == 0).toHex
-}
+)
 
 object App {
 
-  private[eth] def apply(appId: Bytes32, storageHash: Bytes32, cluster: Cluster): App =
-    App(ByteVector(appId.getValue), ByteVector(storageHash.getValue), cluster)
+  private[eth] def apply(appId: Uint64, storageHash: Bytes32, cluster: Cluster): App =
+    App(appId.getValue.longValue(), ByteVector(storageHash.getValue), cluster)
 
 }

@@ -84,8 +84,7 @@ object NodeEth {
           // State changes on App Deleted event
           val onAppDeletedS = contract
             .getAppDeleted[F]
-            .map(_.getValue)
-            .map(ByteVector(_))
+            .map(_.getValue.longValue())
             .map(NodeEthState.onAppDeleted[F])
 
           // State changes on Node Deleted event

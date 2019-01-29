@@ -21,7 +21,7 @@ import cats.syntax.functor._
 import fluence.ethclient.helpers.Web3jConverters.stringToBytes32
 import fluence.node.config.NodeConfig
 import org.web3j.abi.datatypes.{Bool, DynamicArray}
-import org.web3j.abi.datatypes.generated.{Bytes24, Bytes32, Uint16, Uint8}
+import org.web3j.abi.datatypes.generated._
 
 import scala.language.higherKinds
 
@@ -100,7 +100,7 @@ object FluenceContractTestOps {
      * @param appId 32-byte id of the app to be deleted
      * @tparam F Effect
      */
-    def deleteApp[F[_]: Async](appId: Bytes32): F[Unit] =
-      contract.deleteApp(appId).call[F].void
+    def deleteApp[F[_]: Async](appId: Long): F[Unit] =
+      contract.deleteApp(new Uint64(appId)).call[F].void
   }
 }
