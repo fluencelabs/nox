@@ -16,10 +16,11 @@
 
 package fluence.node.eth
 
-import cats.Apply
+import cats.{ApplicativeError, Apply, MonadError, Traverse}
 import cats.effect.{Async, ConcurrentEffect, Sync}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.instances.option._
 import fluence.ethclient.Network.{APPDELETED_EVENT, APPDEPLOYED_EVENT, AppDeployedEventResponse, NODEDELETED_EVENT}
 import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.{EthClient, Network}
@@ -88,25 +89,28 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @param validatorKey Tendermint Validator key of the current node, used to filter out apps which aren't related to current node
    * @tparam F Effect
    */
-  private def getNodeApps[F[_]: Async](validatorKey: Bytes32): fs2.Stream[F, state.App] =
+  private def getNodeApps[F[_]](validatorKey: Bytes32)(implicit F: Async[F]): fs2.Stream[F, state.App] =
     fs2.Stream
       .evalUnChunk(getNodeAppIds[F](validatorKey).map(cs ⇒ fs2.Chunk(cs: _*)))
       .evalMap(
         appId ⇒
-          Apply[F].map2(
-            contract
-              .getApp(appId)
-              .call[F]
-              .map(tuple ⇒ (tuple.getValue1, tuple.getValue6, tuple.getValue7)),
-            contract
-              .getAppWorkers(appId)
-              .call[F]
-              .map(tuple ⇒ (tuple.getValue1, tuple.getValue2))
-          ) {
-            case ((storageHash, genesisTime, validatorKeys), (addrs, ports)) ⇒
-              val cluster = Cluster.build(genesisTime, validatorKeys, addrs, ports, currentValidatorKey = validatorKey)
-              cluster.map(App(appId, storageHash, _))
-        }
+          Apply[F]
+            .map2(
+              contract
+                .getApp(appId)
+                .call[F]
+                .map(tuple ⇒ (tuple.getValue1, tuple.getValue6, tuple.getValue7)),
+              contract
+                .getAppWorkers(appId)
+                .call[F]
+                .map(tuple ⇒ (tuple.getValue1, tuple.getValue2))
+            ) {
+              case ((storageHash, genesisTime, validatorKeys), (addrs, ports)) ⇒
+                val cluster =
+                  Cluster.build(genesisTime, validatorKeys, addrs, ports, currentValidatorKey = validatorKey)
+                Traverse[Option].traverse(cluster)(c => App(appId, storageHash, c))
+            }
+            .flatten
       )
       .unNone
 
@@ -175,9 +179,11 @@ object FluenceContract {
    * @param validatorKey Tendermint Validator key of current node, used to filter out events which aren't addressed to this node
    * @return Some(App) if current node should host this app, None otherwise
    */
-  private def eventToApp(
+  private def eventToApp[F[_]](
     event: AppDeployedEventResponse,
     validatorKey: Bytes32
+  )(
+    implicit F: cats.ApplicativeError[F, Throwable]
   ): Option[state.App] =
     Cluster
       .build(event.genesisTime, event.nodeIDs, event.nodeAddresses, event.ports, currentValidatorKey = validatorKey)

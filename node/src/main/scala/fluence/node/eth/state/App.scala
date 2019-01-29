@@ -34,7 +34,9 @@ case class App private[eth] (
 
 object App {
 
-  private[eth] def apply(appId: Uint256, storageHash: Bytes32, cluster: Cluster): App =
-    App(appId.getValue.longValue(), ByteVector(storageHash.getValue), cluster)
+  private[eth] def apply[F[_]](appId: Uint256, storageHash: Bytes32, cluster: Cluster)(
+    implicit F: cats.ApplicativeError[F, Throwable]
+  ): F[App] =
+    F.catchNonFatal(App(appId.getValue.longValueExact(), ByteVector(storageHash.getValue), cluster))
 
 }
