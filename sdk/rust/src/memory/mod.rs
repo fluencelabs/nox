@@ -23,7 +23,6 @@ pub mod errors;
 use self::errors::MemError;
 use std::alloc::{Alloc, Global, Layout};
 use std::mem;
-use std::slice;
 use std::num::NonZeroUsize;
 use std::ptr::{self, NonNull};
 
@@ -100,58 +99,20 @@ pub unsafe fn write_result_to_mem(result: &[u8]) -> MemResult<NonNull<u8>> {
     Ok(result_ptr)
 }
 
-/// Builds Rust string from given pointer and length. Bytes copying doesn't
-/// occur, new String just wraps bytes around. Memory will be deallocated when
-/// the String will be dropped.
+/// Reads array of bytes from a given `ptr` that has to have `len` bytes size.
 ///
 /// # Safety
 ///
-/// The ownership of `ptr` is effectively transferred to the
-/// `String` which may then deallocate, reallocate or change the
-/// contents of memory pointed to by the pointer at will. **Ensure
-/// that nothing else uses the pointer after calling this
-/// function.**
-pub unsafe fn deref_str(ptr: *mut u8, len: usize) -> String {
-    String::from_raw_parts(ptr, len, len)
+/// The ownership of `ptr` is effectively (without additional allocation) transferred to the
+/// resulted `Vec` which can be then safely deallocated, reallocated or so on.
+/// **There have to the only one instance of `Vec` constructed from one such pointer since
+/// there aren't any memory copying.**
+///
+pub unsafe fn read_input_from_mem(ptr: *mut u8, len: usize) -> Vec<u8> {
+    Vec::from_raw_parts(ptr, len, len)
 }
 
-/// Reads object from memory. This operation is opposite to
-/// [write_str_to_mem]. Reads from the raw memory a string length as first
-/// [RESULT_SIZE_BYTES] bytes and then reads string for this length. Deallocates
-/// first [RESULT_SIZE_BYTES] bytes that corresponded string length and wraps the
-/// rest bytes into a Rust string.
-///
-/// # Safety
-///
-/// The ownership of `ptr` is effectively transferred to the
-/// `String` which may then deallocate, reallocate or change the
-/// contents of memory pointed to by the pointer at will. **Ensure
-/// that nothing else uses the pointer after calling this
-/// function.**
-///
-pub unsafe fn read_input_from_memory<T>(ptr: NonNull<u8>) -> MemResult<T> {
-    // read string length from current pointer
-    let input_len = read_len(ptr.as_ptr()) as usize;
-
-    let total_len = RESULT_SIZE_BYTES
-        .checked_add(input_len)
-        .ok_or_else(|| MemError::new("usize overflow occurred"))?;
-
-    // creates object from raw bytes
-    let mut object: T = slice::from_raw_parts(ptr.as_ptr(), total_len);
-
-    // removes size from the beginning of created object, it allows freeing
-    // only memory used for keeping object
-    {
-        object.drain(0..RESULT_SIZE_BYTES);
-    }
-    // return string without length at the beginning
-    Ok(object)
-}
-
-/// Reads `u32` in little endian from given pointer. Doesn't affect the specified pointer.
-/// You can use the pointer after calling this method as you wish. Don't forget
-/// to deallocate memory for this pointer when it's don't need anymore.
+/// Reads `u32` (assuming that it is given in little endianness order) from a specified pointer.
 pub unsafe fn read_len(ptr: *mut u8) -> u32 {
     let mut len_as_bytes: [u8; RESULT_SIZE_BYTES] = [0; RESULT_SIZE_BYTES];
     ptr::copy_nonoverlapping(ptr, len_as_bytes.as_mut_ptr(), RESULT_SIZE_BYTES);
@@ -162,6 +123,26 @@ pub unsafe fn read_len(ptr: *mut u8) -> u32 {
 mod test {
     use super::*;
     use std::num::NonZeroUsize;
+
+    unsafe fn read_result_from_memory(ptr: NonNull<u8>) -> MemResult<Vec<u8>> {
+        // read string length from current pointer
+        let input_len = super::read_len(ptr.as_ptr()) as usize;
+
+        let total_len = RESULT_SIZE_BYTES
+            .checked_add(input_len)
+            .ok_or_else(|| MemError::new("usize overflow occurred"))?;
+
+        // creates object from raw bytes
+        let mut input = Vec::from_raw_parts(ptr.as_ptr(), total_len, total_len);
+
+        // drains RESULT_SIZE_BYTES from the beginning of created vector, it allows to effectively
+        // skips (without additional allocations) length of the result.
+        {
+            input.drain(0..RESULT_SIZE_BYTES);
+        }
+
+        Ok(input)
+    }
 
     #[test]
     fn alloc_dealloc_test() {
@@ -178,7 +159,8 @@ mod test {
             let src_str = "some string Ω";
 
             let ptr = write_result_to_mem(src_str.as_bytes()).unwrap();
-            let result_str: String = read_input_from_memory(ptr).unwrap();
+            let result_array = read_result_from_memory(ptr).unwrap();
+            let result_str = String::from_utf8(result_array).unwrap();
             assert_eq!(src_str, result_str);
         }
     }
@@ -196,7 +178,8 @@ mod test {
             // writes and read 1mb string (takes several seconds)
             for _ in 1..10_000 {
                 let ptr = write_result_to_mem(mb_str.as_bytes()).unwrap();
-                let result_str: String = read_input_from_memory(ptr).unwrap();
+                let result_array = read_result_from_memory(ptr).unwrap();
+                let result_str = String::from_utf8(result_array).unwrap();
                 assert_eq!(mb_str, result_str);
             }
         }

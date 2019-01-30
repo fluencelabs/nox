@@ -30,4 +30,4 @@ fluence = { version = "0.0.6", features = ["wasm_logger", "export_allocator"]}
 simple_logger = "1.0.1"
 
 [replace]
-"fluence:0.0.6" = {path = "../../sdk/rust"}
+"fluence:0.0.6" = {path = "../../../sdk/rust"}

@@ -42,7 +42,7 @@ class HelloUserIntegrationTest extends AppIntegrationTest with EitherValues {
 
     }
 
-    "greeting correctly" in {
+    "greets John correctly" in {
       (for {
         vm ← WasmVm[IO](NonEmptyList.one(helloUserFilePath))
         greetingResult ← vm.invoke[IO](None, "John".getBytes())
@@ -50,6 +50,18 @@ class HelloUserIntegrationTest extends AppIntegrationTest with EitherValues {
 
       } yield {
         checkTestResult(greetingResult, "Hello from Fluence to John")
+      }).success()
+
+    }
+
+    "operates correctly with empty input" in {
+      (for {
+        vm ← WasmVm[IO](NonEmptyList.one(helloUserFilePath))
+        greetingResult ← vm.invoke[IO](None)
+        state ← vm.getVmState[IO].toVmError
+
+      } yield {
+        checkTestResult(greetingResult, "Hello from Fluence to")
       }).success()
 
     }

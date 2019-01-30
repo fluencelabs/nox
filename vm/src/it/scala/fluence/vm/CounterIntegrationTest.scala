@@ -52,8 +52,8 @@ class CounterIntegrationTest extends AppIntegrationTest with EitherValues {
         _ ← vm.getVmState[IO].toVmError
 
       } yield {
-        checkTestResult(getResult1, "2")
-        checkTestResult(getResult2, "4")
+        compareArrays(getResult1, Array[Byte](2, 0, 0, 0, 0, 0, 0, 0))
+        compareArrays(getResult2, Array[Byte](4, 0, 0, 0, 0, 0, 0, 0))
       }).success()
 
     }

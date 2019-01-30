@@ -25,7 +25,7 @@ use log::{error, info, warn};
 use std::ptr::NonNull;
 
 /// Initializes `WasmLogger` instance and returns a pointer to error message as a string
-/// in the memory. Enabled only for a Wasm target.
+/// in memory. Enabled only for a Wasm targets.
 #[no_mangle]
 #[cfg(target_arch = "wasm32")]
 pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
@@ -35,18 +35,19 @@ pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
 
     warn!("{}\n", result);
 
-    fluence::memory::write_str_to_mem(&result)
+    fluence::memory::write_result_to_mem(&result.as_bytes())
         .unwrap_or_else(|_| log_and_panic("Putting result string to the memory was failed.".into()))
 }
 
 #[no_mangle]
 pub unsafe fn invoke(ptr: *mut u8, len: usize) -> NonNull<u8> {
-    let user_name: String = fluence::memory::deref_str(ptr, len);
+    let user_name = fluence::memory::read_input_from_mem(ptr, len);
+    let user_name: String = String::from_utf8(user_name).unwrap();
 
     info!("{} have been successfully greeted", user_name);
 
     // return a pointer to the result in memory
-    fluence::memory::write_str_to_mem(format!("Hello from Fluence to {}", user_name).as_str())
+    fluence::memory::write_result_to_mem(format!("Hello from Fluence to {}", user_name).as_bytes())
         .unwrap_or_else(|_| log_and_panic("Putting result string to the memory was failed.".into()))
 }
 

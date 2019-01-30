@@ -16,9 +16,10 @@
 
 //! Wrapper for counter (a test for Fluence network).
 //!
-//! Provides the public method `invoke` for increment a counter and get its current state.
+//! Provides the public method `invoke` that increments a counter and returns its updated state.
 
 mod counter;
+use byteorder::{LittleEndian, WriteBytesExt};
 
 //
 // FFI for interaction with counter module
@@ -30,9 +31,11 @@ static mut COUNTER: counter::Counter = counter::Counter { counter: 0 };
 pub unsafe fn invoke(_ptr: *mut u8, _len: usize) -> usize {
     COUNTER.inc();
 
-    fluence::memory::write_str_to_mem(&COUNTER.get().to_string())
-        .unwrap_or_else(|_| {
-            panic!("[Error] Putting the result string into a raw memory was failed")
-        })
+    let mut counter_value = vec![];
+    counter_value.write_i64::<LittleEndian>(COUNTER.get()).unwrap();
+
+    fluence::memory::write_result_to_mem(&counter_value)
+        // returns error string instead of counter value in case of any error
+        .expect("[Error] Writing counter value to memory was failed")
         .as_ptr() as usize
 }

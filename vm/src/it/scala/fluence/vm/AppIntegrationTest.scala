@@ -33,6 +33,9 @@ class AppIntegrationTest extends WordSpec with Matchers with OptionValues with E
     resultAsString should startWith (expectedString)
   }
 
+  protected def compareArrays(first: Array[Byte], second: Array[Byte]): Assertion =
+    first.deep shouldBe second.deep
+
   implicit class EitherTValueReader[E, V](origin: EitherT[IO, E, V]) {
 
     def success(): V =

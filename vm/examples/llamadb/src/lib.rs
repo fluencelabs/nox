@@ -50,7 +50,7 @@ pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
         .map(|_| "WasmLogger was successfully initialized".to_string())
         .unwrap_or_else(|err| format!("WasmLogger initialization was failed, cause: {:?}", err));
 
-    let res_ptr = fluence::memory::write_str_to_mem(&result).unwrap_or_else(|_| {
+    let res_ptr = fluence::memory::write_result_to_mem(result.as_bytes()).unwrap_or_else(|_| {
         log_and_panic("Putting result string to the memory was failed.".into())
     });
 
@@ -67,8 +67,10 @@ pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
 #[no_mangle]
 pub unsafe fn invoke(ptr: *mut u8, len: usize) -> NonNull<u8> {
     info!("invoke starts with ptr={:?}, len={}", ptr, len);
+
     // memory for the parameter will be deallocated when sql_str was dropped
-    let sql_str: String = fluence::memory::deref_str(ptr, len);
+    let sql_str = fluence::memory::read_input_from_mem(ptr, len);
+    let sql_str = String::from_utf8(sql_str).unwrap();
 
     let db_response = match run_query(&sql_str) {
         Ok(response) => response,
@@ -77,7 +79,7 @@ pub unsafe fn invoke(ptr: *mut u8, len: usize) -> NonNull<u8> {
 
     info!("llamadb do_query ends with result={:?}", db_response);
     // return pointer to result in memory
-    fluence::memory::write_str_to_mem(&db_response)
+    fluence::memory::write_result_to_mem(db_response.as_bytes())
         .unwrap_or_else(|_| log_and_panic("Putting result string to the memory was failed.".into()))
 }
 
