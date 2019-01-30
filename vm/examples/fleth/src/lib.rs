@@ -19,31 +19,13 @@
 #![feature(allocator_api)]
 #![allow(dead_code)]
 
-use log::{info, warn, error};
+use log::{error, info};
 
 use std::error::Error;
 use std::ptr::NonNull;
 
 /// Result for all possible Error types.
 pub type Result<T> = ::std::result::Result<T, Error>;
-
-/// Initializes `WasmLogger` instance and returns a pointer to error message as a string
-/// in the memory. Enabled only for a Wasm target.
-#[no_mangle]
-#[cfg(target_arch = "wasm32")]
-pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
-    let result = fluence::logger::WasmLogger::init_with_level(log::Level::Info)
-        .map(|_| "WasmLogger successfully initialized".to_string())
-        .unwrap_or_else(|err| format!("WasmLogger initialization failed, cause: {:?}", err));
-
-    let res_ptr = fluence::memory::write_result_to_mem(&result.as_bytes())
-        .unwrap_or_else(|_| {
-        log_and_panic("Putting result string to the memory failed.".into())
-    });
-
-    warn!("Got result: {}\n", result);
-    res_ptr
-}
 
 /// Takes the input, prints it out
 #[no_mangle]

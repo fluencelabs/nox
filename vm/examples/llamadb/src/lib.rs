@@ -28,8 +28,8 @@ mod tests;
 #[macro_use]
 extern crate lazy_static;
 
-use log::{error, info, warn};
 use llamadb::tempdb::{ExecuteStatementResponse, TempDb};
+use log::{error, info};
 use std::error::Error;
 use std::ptr::NonNull;
 use std::sync::Mutex;
@@ -40,23 +40,6 @@ type GenResult<T> = ::std::result::Result<T, Box<Error>>;
 //
 // FFI for interaction with Llamadb module.
 //
-
-/// Initializes `WasmLogger` instance and returns a pointer to error message as a string
-/// in the memory. Enabled only for a Wasm target.
-#[no_mangle]
-#[cfg(target_arch = "wasm32")]
-pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
-    let result = fluence::logger::WasmLogger::init_with_level(log::Level::Info)
-        .map(|_| "WasmLogger was successfully initialized".to_string())
-        .unwrap_or_else(|err| format!("WasmLogger initialization was failed, cause: {:?}", err));
-
-    let res_ptr = fluence::memory::write_result_to_mem(result.as_bytes()).unwrap_or_else(|_| {
-        log_and_panic("Putting result string to the memory was failed.".into())
-    });
-
-    warn!("{}\n", result);
-    res_ptr
-}
 
 /// Executes SQL and returns a pointer to result as a string in the memory.
 ///
@@ -91,11 +74,9 @@ fn log_and_panic(msg: String) -> ! {
 /// Acquires lock, does query, releases lock, returns query result.
 fn run_query(sql_query: &str) -> GenResult<String> {
     let mut db = DATABASE.lock()?;
-    let result = db
-        .do_query(sql_query)
+    db.do_query(sql_query)
         .map(statement_to_string)
-        .map_err(Into::into);
-    result
+        .map_err(Into::into)
 }
 
 /// Converts query result to CSV String.

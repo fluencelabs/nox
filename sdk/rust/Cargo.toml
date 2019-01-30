@@ -33,7 +33,10 @@ lazy_static = "1.2.0" # used in doc test
 
 [features]
 
-# Turn on a compilation for module 'logger' from Fluence SDK.
-# This module allows logging from Wasm code.
-wasm_logger = []
+# Turn on a compilation for module 'logger' from Fluence SDK. A string suffixes indicate log level.
+wasm_logger_info = []
+wasm_logger_warn = []
+wasm_logger_error = []
+
+# Turn on a compilation for module standart implementation of allocate/deallocate functions.
 export_allocator = []
