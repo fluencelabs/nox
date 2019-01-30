@@ -1,11 +1,15 @@
 use std::io;
 
-use crate::contract_status::app::App;
-use crate::contract_status::app::Node;
 use crate::contract_status::status::Status;
-use crate::contract_status::ui::events::Event;
-use crate::contract_status::ui::events::Events;
-use crate::contract_status::ui::TabsState;
+use crate::contract_status::ui::async_keys::{AsyncKey, AsyncKeys};
+use crate::contract_status::ui::Config;
+use crate::contract_status::ui::CurrentTab;
+use crate::contract_status::ui::LoopAction;
+use crate::contract_status::ui::MoveSelection;
+use crate::contract_status::ui::State;
+use crate::contract_status::ui::SwitchTab;
+use crate::contract_status::ui::TabTable;
+use crate::contract_status::ui::ToColumns;
 use failure::Error;
 use termion::event::Key;
 use termion::input::MouseTerminal;
@@ -22,175 +26,6 @@ use tui::widgets::Tabs;
 use tui::widgets::{Block, Borders, Row, Table, Widget};
 use tui::Terminal;
 
-// row selection
-enum MoveSelection {
-    Up,
-    Down,
-}
-// tab selection
-enum SwitchTab {
-    Next,
-    Previous,
-}
-// render loop action, depends on user input. see `handle_input`
-enum LoopAction {
-    Exit,
-    Continue,
-}
-// what tab is currently displayed. calculated from tab index, see `State::current_tab`
-enum CurrentTab {
-    Nodes,
-    Apps,
-}
-
-struct Config {
-    selected_style: Style,
-    normal_style: Style,
-}
-
-impl Config {
-    fn default() -> Config {
-        Config {
-            selected_style: Style::default().fg(Color::Yellow).modifier(Modifier::Bold),
-            normal_style: Style::default().fg(Color::White),
-        }
-    }
-}
-
-struct State<'a> {
-    pub tabs: TabsState<'a>,
-    pub nodes: TabTable<'a, Node>,
-    pub apps: TabTable<'a, App>,
-    pub config: Config,
-}
-
-impl<'a> State<'a> {
-    fn current_tab(&self) -> CurrentTab {
-        match self.tabs.index {
-            0 => CurrentTab::Nodes,
-            _ => CurrentTab::Apps,
-        }
-    }
-
-    // change selected row
-    fn move_selection(&mut self, mv: MoveSelection) {
-        let tab = self.current_tab();
-
-        // take number of rows in current table
-        let items = match tab {
-            CurrentTab::Nodes => self.nodes.elements.len(),
-            CurrentTab::Apps => self.apps.elements.len(),
-        };
-
-        // if table is empty -- nothing to move
-        if items == 0 {
-            return;
-        }
-
-        // mutable reference to selected position
-        let selected = match tab {
-            CurrentTab::Nodes => &mut self.nodes.selected,
-            CurrentTab::Apps => &mut self.apps.selected,
-        };
-
-        match mv {
-            // 1 step down, with wrap to top
-            MoveSelection::Down => *selected = (*selected + 1) % items,
-            // 1 step up if not at the top
-            MoveSelection::Up if *selected > 0 => *selected = *selected - 1,
-            // jump from top to bottom
-            MoveSelection::Up => *selected = items - 1,
-        };
-    }
-
-    fn switch_tab(&mut self, sw: SwitchTab) {
-        match sw {
-            SwitchTab::Next => self.tabs.next(),
-            SwitchTab::Previous => self.tabs.previous(),
-        }
-    }
-}
-
-// represents the main table
-struct TabTable<'a, T: ToColumns> {
-    pub header: Vec<&'a str>,
-    pub widths: Vec<u16>,
-    pub selected: usize,
-    pub elements: Vec<T>,
-}
-
-impl<'a> TabTable<'a, Node> {
-    pub fn nodes(nodes: Vec<Node>) -> TabTable<'a, Node> {
-        let header = vec![
-            // 2 spaces needed to provide left margin
-            "  Tendermint Key",
-            "NodeID",
-            "IP",
-            "Next port",
-            "Owner",
-            "Private",
-        ];
-        let widths = vec![30, 25, 20, 10, 25, 5];
-
-        TabTable {
-            header,
-            widths,
-            selected: 0,
-            elements: nodes,
-        }
-    }
-}
-
-impl<'a> TabTable<'a, App> {
-    pub fn apps(apps: Vec<App>) -> TabTable<'a, App> {
-        // 2 spaces needed to provide left margin
-        let header = vec!["  App ID", "Size", "Owner"];
-        let widths = vec![25, 5, 25];
-        TabTable {
-            header,
-            widths,
-            selected: 0,
-            elements: apps,
-        }
-    }
-}
-
-// represents row data convertible to table column
-trait ToColumns: Sized + Clone {
-    fn columns(self) -> Vec<String>;
-}
-
-impl ToColumns for Node {
-    fn columns(self) -> Vec<String> {
-        // 2 spaces needed to provide left margin
-        let tendermint_key = format!("  {}", self.tendermint_key);
-        let node_id = format!("{:#x}", self.id);
-        let next_port = self.next_port.to_string();
-        let ip_addr = self.ip_addr;
-        let owner = format!("{:#x}", self.owner);
-        let is_private = if self.is_private { "yes" } else { "no" };
-        vec![
-            tendermint_key,
-            node_id,
-            ip_addr,
-            next_port,
-            owner,
-            is_private.to_string(),
-        ]
-    }
-}
-
-impl ToColumns for App {
-    fn columns(self) -> Vec<String> {
-        // 2 spaces needed to provide left margin
-        let app_id = format!("  {:#x}", self.app_id);
-        let cluster_size = self.cluster_size.to_string();
-        let owner = format!("{:#x}", self.owner);
-
-        vec![app_id, cluster_size, owner]
-    }
-}
-
 pub fn draw(status: &Status) -> Result<(), Error> {
     // terminal initialization
     let stdout = io::stdout().into_raw_mode()?;
@@ -202,13 +37,13 @@ pub fn draw(status: &Status) -> Result<(), Error> {
 
     // fill initial state
     let mut state = State {
-        tabs: TabsState::new(vec!["Nodes", "Apps"]),
+        tab: CurrentTab::Nodes,
         nodes: TabTable::nodes(status.nodes.clone()),
         apps: TabTable::apps(status.apps.clone()),
         config: Config::default(),
     };
 
-    let events = Events::new();
+    let keys = AsyncKeys::new();
 
     loop {
         terminal.draw(|mut f| {
@@ -218,13 +53,13 @@ pub fn draw(status: &Status) -> Result<(), Error> {
             draw_main_box(&mut f);
             draw_tabs(&mut f, &state, rects[0]);
 
-            match state.tabs.index {
-                0 => draw_table(&mut f, &state.nodes, &state.config, rects[1]),
-                _ => draw_table(&mut f, &state.apps, &state.config, rects[1]),
+            match state.tab {
+                CurrentTab::Nodes => draw_table(&mut f, &state.nodes, &state.config, rects[1]),
+                CurrentTab::Apps => draw_table(&mut f, &state.apps, &state.config, rects[1]),
             };
         })?;
 
-        match handle_input(&mut state, &events)? {
+        match handle_input(&keys, &mut state)? {
             LoopAction::Exit => break,
             LoopAction::Continue => (),
         }
@@ -258,8 +93,8 @@ fn draw_main_box<'a, B: Backend + 'a>(f: &mut Frame<B>) {
 fn draw_tabs<'a, B: Backend + 'a>(f: &mut Frame<B>, state: &State, area: Rect) {
     Tabs::default()
         .block(Block::default().borders(Borders::ALL))
-        .titles(&state.tabs.titles)
-        .select(state.tabs.index)
+        .titles(&CurrentTab::names())
+        .select(state.selected_tab())
         .style(Style::default().fg(Color::Cyan))
         .highlight_style(Style::default().fg(Color::Yellow))
         .render(f, area);
@@ -293,17 +128,17 @@ where
 }
 
 // Handle user input. Arrow keys switch row or tabs, 'q' exits.
-fn handle_input<'a>(state: &mut State<'a>, events: &Events) -> Result<LoopAction, Error> {
-    match events.next()? {
-        Event::Input(key) => match key {
+fn handle_input(keys: &AsyncKeys, state: &mut State) -> Result<LoopAction, Error> {
+    match keys.next() {
+        Ok(AsyncKey::Input(key)) => match key {
             Key::Char('q') => return Ok(LoopAction::Exit),
             Key::Down => state.move_selection(MoveSelection::Down),
             Key::Up => state.move_selection(MoveSelection::Up),
             Key::Right => state.switch_tab(SwitchTab::Next),
             Key::Left => state.switch_tab(SwitchTab::Previous),
-            _ => {}
+            _ => (),
         },
-        _ => {}
+        _ => (),
     };
 
     Ok(LoopAction::Continue)
