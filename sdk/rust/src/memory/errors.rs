@@ -19,8 +19,7 @@
 use core::alloc::LayoutErr;
 use std::alloc::AllocErr;
 use std::error::Error;
-use std::fmt;
-use std::fmt::Display;
+use std::fmt::{self, Display};
 use std::io;
 
 #[derive(Debug, Clone)]
@@ -44,7 +43,7 @@ impl MemError {
     }
 }
 
-/// Creates From instance for MemError for each specified error types.
+/// Creates `From` instance for MemError for each specified error types.
 ///
 /// Example:
 ///
@@ -62,7 +61,7 @@ impl MemError {
 /// }
 ///
 /// ```
-// todo move this macro to utils or use 'quick-error' or 'error-chain' crates
+// TODO: move this macro to utils or use 'quick-error' or 'error-chain' crates
 macro_rules! mem_error_from {
     ( $( $x:ty );* ) => {
         $(

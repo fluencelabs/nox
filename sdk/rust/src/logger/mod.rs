@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//! This module enables log messages writes from the WASM code.
+//! This module enables log messages that could be printed from Wasm side.
 //!
 //! This is a client for the Logger Wasm Module in Fluence WasmVm. Together they
 //! allow to write messages from Wasm code to log. The logging is basically a

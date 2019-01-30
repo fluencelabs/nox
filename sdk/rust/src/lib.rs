@@ -26,4 +26,4 @@ pub mod memory;
 pub mod logger;
 
 #[cfg(feature = "export_allocator")]
-pub mod allocator;
+pub mod export_allocator;

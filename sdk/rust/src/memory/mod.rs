@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//! Basic functions for dealing with Wasm memory.
+//! Raw API for dealing with Wasm memory.
 //!
 //! This module contains functions for memory initializing and manipulating.
 
@@ -23,19 +23,18 @@ pub mod errors;
 use self::errors::MemError;
 use std::alloc::{Alloc, Global, Layout};
 use std::mem;
+use std::slice;
 use std::num::NonZeroUsize;
-use std::ptr;
-use std::ptr::NonNull;
+use std::ptr::{self, NonNull};
 
 /// Result type for this module.
 pub type MemResult<T> = ::std::result::Result<T, MemError>;
 
-/// Count of bytes that length of returning array occupies.
-/// For more information please see [write_array_to_mem] method implementation.
+/// Count of bytes that length of resulted array occupies.
 pub const RESULT_SIZE_BYTES: usize = 4;
 
-/// Allocates memory area of specified size and returns its address. Actually is
-/// just a wrapper for [`GlobalAlloc::alloc`].
+/// Allocates memory area of specified size and returns its address. Actually is just a wrapper for
+/// [`GlobalAlloc::alloc`].
 ///
 /// # Safety
 ///
@@ -48,8 +47,8 @@ pub unsafe fn alloc(size: NonZeroUsize) -> MemResult<NonNull<u8>> {
     Global.alloc(layout).map_err(Into::into)
 }
 
-/// Deallocates memory area for current memory pointer and size. Actually is
-/// just a wrapper for [`GlobalAlloc::dealloc`].
+/// Deallocates memory area for current memory pointer and size. Actually is just a wrapper for
+/// [`GlobalAlloc::dealloc`].
 ///
 /// # Safety
 ///
@@ -63,16 +62,16 @@ pub unsafe fn dealloc(ptr: NonNull<u8>, size: NonZeroUsize) -> MemResult<()> {
     Ok(())
 }
 
-/// Writes Rust string to memory directly as an array length and a byte array.
-/// This method allocates 'RESULT_SIZE_BYTES + result.len()' bytes and writes the
-/// length of the array as first [RESULT_SIZE_BYTES] bytes and then writes content of
-/// 'result' after 'length'.
-///
-/// The final result layout in memory is following:
+/// Allocates 'RESULT_SIZE_BYTES + result.len()' bytes and writes length of the result as little
+/// endianes [RESULT_SIZE_BYTES] bytes and then writes content of 'result'. So the final layout of
+/// the result in memory is following:
 /// `
 ///     | array_length: RESULT_SIZE_BYTES bytes (little-endian) | array: $array_length bytes |
 /// `
-pub unsafe fn write_array_to_mem(result: &[u8]) -> MemResult<NonNull<u8>> {
+/// This function should normally be used for returning result of `invoke` function. Vm wrapper
+/// expects result in this format.
+///
+pub unsafe fn write_result_to_mem(result: &[u8]) -> MemResult<NonNull<u8>> {
     let result_len = result.len();
     let total_len = result_len
         .checked_add(RESULT_SIZE_BYTES)
@@ -81,7 +80,7 @@ pub unsafe fn write_array_to_mem(result: &[u8]) -> MemResult<NonNull<u8>> {
     // converts array size to bytes in little-endian
     let len_as_bytes: [u8; RESULT_SIZE_BYTES] = mem::transmute((result_len as u32).to_le());
 
-    // allocates a new memory region for result
+    // allocates a new memory region for the result
     let result_ptr = alloc(NonZeroUsize::new_unchecked(total_len))?;
 
     // copies length of array to memory
@@ -101,10 +100,6 @@ pub unsafe fn write_array_to_mem(result: &[u8]) -> MemResult<NonNull<u8>> {
     Ok(result_ptr)
 }
 
-pub unsafe fn write_str_to_mem(result: &str) -> MemResult<NonNull<u8>> {
-    write_array_to_mem(result.as_bytes())
-}
-
 /// Builds Rust string from given pointer and length. Bytes copying doesn't
 /// occur, new String just wraps bytes around. Memory will be deallocated when
 /// the String will be dropped.
@@ -120,7 +115,7 @@ pub unsafe fn deref_str(ptr: *mut u8, len: usize) -> String {
     String::from_raw_parts(ptr, len, len)
 }
 
-/// Reads Rust String from the raw memory. This operation is opposite of
+/// Reads object from memory. This operation is opposite to
 /// [write_str_to_mem]. Reads from the raw memory a string length as first
 /// [RESULT_SIZE_BYTES] bytes and then reads string for this length. Deallocates
 /// first [RESULT_SIZE_BYTES] bytes that corresponded string length and wraps the
@@ -134,7 +129,7 @@ pub unsafe fn deref_str(ptr: *mut u8, len: usize) -> String {
 /// that nothing else uses the pointer after calling this
 /// function.**
 ///
-pub unsafe fn read_input_as_string(ptr: NonNull<u8>) -> MemResult<String> {
+pub unsafe fn read_input_from_memory<T>(ptr: NonNull<u8>) -> MemResult<T> {
     // read string length from current pointer
     let input_len = read_len(ptr.as_ptr()) as usize;
 
@@ -142,22 +137,22 @@ pub unsafe fn read_input_as_string(ptr: NonNull<u8>) -> MemResult<String> {
         .checked_add(input_len)
         .ok_or_else(|| MemError::new("usize overflow occurred"))?;
 
-    // create string for size and string
-    let mut str = deref_str(ptr.as_ptr(), total_len);
+    // creates object from raw bytes
+    let mut object: T = slice::from_raw_parts(ptr.as_ptr(), total_len);
 
-    // remove size from the beginning of created string, it allows freeing
-    // only memory used for keeping string length
+    // removes size from the beginning of created object, it allows freeing
+    // only memory used for keeping object
     {
-        str.drain(0..RESULT_SIZE_BYTES);
+        object.drain(0..RESULT_SIZE_BYTES);
     }
     // return string without length at the beginning
-    Ok(str)
+    Ok(object)
 }
 
-/// Reads `u32` from current pointer. Doesn't affect the specified pointer.
+/// Reads `u32` in little endian from given pointer. Doesn't affect the specified pointer.
 /// You can use the pointer after calling this method as you wish. Don't forget
 /// to deallocate memory for this pointer when it's don't need anymore.
-unsafe fn read_len(ptr: *mut u8) -> u32 {
+pub unsafe fn read_len(ptr: *mut u8) -> u32 {
     let mut len_as_bytes: [u8; RESULT_SIZE_BYTES] = [0; RESULT_SIZE_BYTES];
     ptr::copy_nonoverlapping(ptr, len_as_bytes.as_mut_ptr(), RESULT_SIZE_BYTES);
     mem::transmute(len_as_bytes)
@@ -182,8 +177,8 @@ mod test {
         unsafe {
             let src_str = "some string Ω";
 
-            let ptr = write_str_to_mem(src_str).unwrap();
-            let result_str = read_str_from_fat_ptr(ptr).unwrap();
+            let ptr = write_result_to_mem(src_str.as_bytes()).unwrap();
+            let result_str: String = read_input_from_memory(ptr).unwrap();
             assert_eq!(src_str, result_str);
         }
     }
@@ -200,8 +195,8 @@ mod test {
 
             // writes and read 1mb string (takes several seconds)
             for _ in 1..10_000 {
-                let ptr = write_str_to_mem(&mb_str).unwrap();
-                let result_str = read_str_from_fat_ptr(ptr).unwrap();
+                let ptr = write_result_to_mem(mb_str.as_bytes()).unwrap();
+                let result_str: String = read_input_from_memory(ptr).unwrap();
                 assert_eq!(mb_str, result_str);
             }
         }

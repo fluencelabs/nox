@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+use crate::memory::{alloc, dealloc};
 use std::num::NonZeroUsize;
 use std::ptr::NonNull;
-use crate::memory::{alloc, dealloc};
 
 /// Allocates memory area of specified size and returns its address.
 /// Used from the host environment for memory allocation while parameters passing.
@@ -24,8 +24,7 @@ use crate::memory::{alloc, dealloc};
 pub unsafe fn allocate(size: usize) -> NonNull<u8> {
     let non_zero_size = NonZeroUsize::new(size)
         .unwrap_or_else(|| panic!("[Error] Allocation of zero bytes is not allowed."));
-    alloc(non_zero_size)
-        .unwrap_or_else(|_| panic!("[Error] Allocation of {} bytes failed.", size))
+    alloc(non_zero_size).unwrap_or_else(|_| panic!("[Error] Allocation of {} bytes failed.", size))
 }
 
 /// Deallocates memory area for provided memory pointer and size.
