@@ -25,4 +25,4 @@ panic = "abort"
 fluence = { version = "0.0.6", features = ["export_allocator"]}
 
 [replace]
-"fluence:0.0.6" = {path = "/Users/trofim/Desktop/work/fluence/fluence/sdk/rust"}
+"fluence:0.0.6" = {path = "../../sdk/rust"}

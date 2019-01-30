@@ -32,4 +32,4 @@ llamadb = { git = "https://github.com/fluencelabs/llamadb.git", branch = "master
 simple_logger = "1.0.1"
 
 [replace]
-"fluence:0.0.6" = { path = "/Users/trofim/Desktop/work/fluence/fluence/sdk/rust" }
+"fluence:0.0.6" = {path = "../../sdk/rust"}
