@@ -32,8 +32,8 @@ import scala.language.higherKinds
  */
 case class NodeEthState(
   validatorKey: ByteVector,
-  apps: Map[ByteVector, App] = Map.empty,
-  nodesToApps: Map[ByteVector, Set[ByteVector]] = Map.empty
+  apps: Map[Long, App] = Map.empty,
+  nodesToApps: Map[ByteVector, Set[Long]] = Map.empty
 )
 
 object NodeEthState {
@@ -72,7 +72,7 @@ object NodeEthState {
   /**
    * Expresses the state change that should be applied when an App is deleted
    */
-  def onAppDeleted[F[_]: Monad](appId: ByteVector): State[F] =
+  def onAppDeleted[F[_]: Monad](appId: Long): State[F] =
     get[F].flatMap { s ⇒
       s.apps
         .get(appId)

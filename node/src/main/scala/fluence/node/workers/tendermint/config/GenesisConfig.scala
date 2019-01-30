@@ -50,7 +50,7 @@ private[config] object GenesisConfig {
             value = w.base64ValidatorKey
           ),
           power = "1",
-          name = s"${app.appIdHex}_${w.index}"
+          name = s"${app.id}_${w.index}"
         )
       }
     ).asJson.spaces2
