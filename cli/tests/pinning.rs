@@ -38,7 +38,7 @@ fn publish_pinned(wait_eth_sync: bool, wait_tx_include: bool) {
 
     let logs = opts.get_transaction_logs(&tx, app_deployed::parse_log);
     let log = logs.first().unwrap();
-    let app_id = log.app_id;
+    let app_id: u64 = log.app_id.into();
 
     assert_eq!(log.node_i_ds.len(), count as usize);
 
@@ -46,11 +46,11 @@ fn publish_pinned(wait_eth_sync: bool, wait_tx_include: bool) {
         get_status(opts.eth().eth_url.as_str(), opts.eth().contract_address).unwrap();
 
     let target = status
-        .apps()
+        .apps
         .into_iter()
-        .find(|a| *a.app_id() == app_id)
+        .find(|a| a.app_id == app_id)
         .unwrap();
-    let pins = target.pin_to_nodes().as_ref().unwrap();
+    let pins = target.pin_to_nodes.unwrap();
     assert_eq!(pins.len(), count as usize);
 }
 

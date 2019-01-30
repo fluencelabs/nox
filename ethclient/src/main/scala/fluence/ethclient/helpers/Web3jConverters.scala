@@ -57,12 +57,11 @@ object Web3jConverters {
   def bytes32ToBase64(bytes32: Bytes32): String = Base64.getEncoder.encodeToString(bytes32.getValue)
 
   /**
-   * Interprets web3j's Bytes32 as Tendermint chain ID.
-   * TODO: currently only the lowermost byte used
+   * Interprets Long as Tendermint chain ID.
    *
-   * @param appId Bytes32 encoding
+   * @param appId app id from Fluence smart contract
    */
-  def appIdToChainId(appId: ByteVector): String = appId.reverse.take(1).toHex
+  def appIdToChainId(appId: Long): String = appId.toString
 
   /**
    * Converts bytes of web3j's Bytes32 to ByteVector

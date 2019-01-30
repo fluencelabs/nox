@@ -44,9 +44,9 @@ fn main() {
             let publisher = publisher::parse(args).expect("Error parsing arguments");
             let published = publisher.publish(true).expect("Error sending transaction");
 
-            let print_status = |app_id: H256, tx: H256, status: &str| {
+            let print_status = |app_id: u64, tx: H256, status: &str| {
                 println!("{}", style(format!("App {}.", status)).blue());
-                utils::print_info_id_short("app id:", app_id);
+                utils::print_info_msg("app id:", app_id.to_string());
                 utils::print_tx_hash(tx);
             };
 
@@ -87,9 +87,11 @@ fn main() {
         ("status", Some(args)) => {
             let status = contract_status::get_status_by_args(args).unwrap();
 
-            let json = serde_json::to_string_pretty(&status).unwrap();
+            if let Some(status) = status {
+                let json = serde_json::to_string_pretty(&status).unwrap();
 
-            println!("{}", json);
+                println!("{}", json);
+            }
         }
 
         ("check", Some(args)) => {
