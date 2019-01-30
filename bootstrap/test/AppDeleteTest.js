@@ -52,7 +52,7 @@ contract('Fluence (app deletion)', function ([_, owner, anyone, other]) {
 
         let dequeueApp = await global.contract.dequeueApp(appID, { from: anyone });
         truffleAssert.eventEmitted(dequeueApp, utils.appDequeuedEvent, ev => {
-            return ev.appID === appID;
+            return ev.appID.valueOf() === appID.valueOf();
         });
     });
 
@@ -70,7 +70,7 @@ contract('Fluence (app deletion)', function ([_, owner, anyone, other]) {
         let nodeIds = nodesResponse.map(r => r.nodeID);
 
         truffleAssert.eventEmitted(nodesReceipts.pop(), utils.appDeployedEvent, ev => {
-            return ev.appID === appID;
+            return ev.appID.valueOf() === appID.valueOf();
         });
 
         let cluster = await global.contract.getApp(appID);
@@ -85,7 +85,7 @@ contract('Fluence (app deletion)', function ([_, owner, anyone, other]) {
 
         let deleteApp = await global.contract.deleteApp(appID, { from: anyone });
         truffleAssert.eventEmitted(deleteApp, utils.appDeletedEvent, ev => {
-            return ev.appID === appID;
+            return ev.appID.valueOf() === appID.valueOf();
         });
 
         await expectThrow(global.contract.getApp(appID));
@@ -111,7 +111,7 @@ contract('Fluence (app deletion)', function ([_, owner, anyone, other]) {
 
         let dequeueApp = await global.contract.dequeueApp(appID, { from: owner });
         truffleAssert.eventEmitted(dequeueApp, utils.appDequeuedEvent, ev => {
-            return ev.appID === appID;
+            return ev.appID.valueOf() === appID.valueOf();
         });
     });
 
@@ -128,7 +128,7 @@ contract('Fluence (app deletion)', function ([_, owner, anyone, other]) {
         let deleteApp = await global.contract.deleteApp(appID, { from: owner });
 
         truffleAssert.eventEmitted(deleteApp, utils.appDeletedEvent, ev => {
-            return ev.appID === appID;
+            return ev.appID.valueOf() === appID.valueOf();
         });
     });
 });

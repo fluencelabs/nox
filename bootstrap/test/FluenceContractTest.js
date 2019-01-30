@@ -45,7 +45,7 @@ contract('Fluence', function ([_, owner, anyone]) {
 
     it("Should throw an error if asking about non-existent cluster", async function() {
         await expectThrow(
-            this.contract.getApp("abc")
+            this.contract.getApp(777)
         )
     });
 
@@ -66,7 +66,7 @@ contract('Fluence', function ([_, owner, anyone]) {
         truffleAssert.eventEmitted(receipt, utils.appDeployedEvent, (ev) => {
             assert.equal(ev.nodeAddresses.length, count);
             assert.deepEqual(ev.nodeIDs, nodeIDs);
-            assert.equal(ev.appID, appID);
+            assert.equal(ev.appID.valueOf(), appID.valueOf());
             return true;
         });
 
@@ -113,7 +113,7 @@ contract('Fluence', function ([_, owner, anyone]) {
             nodeIDs.forEach(async id => {
                 let nodeApps = await this.contract.getNodeApps(id);
                 assert.equal(nodeApps.length, i + 1);
-                assert.equal(nodeApps[i], appID);
+                assert.equal(nodeApps[i].valueOf(), appID.valueOf());
             });
         }
 
@@ -126,7 +126,7 @@ contract('Fluence', function ([_, owner, anyone]) {
 
         // check app with that ID is in enqueued apps list
         let appIDs = await this.contract.getAppIDs();
-        let enqueuedApp = appIDs.find(app => app === appID);
+        let enqueuedApp = appIDs.find(app => app.valueOf() === appID.valueOf());
         assert.notEqual(enqueuedApp, undefined);
         truffleAssert.eventNotEmitted(addApp.receipt, utils.appDeployedEvent);
     });

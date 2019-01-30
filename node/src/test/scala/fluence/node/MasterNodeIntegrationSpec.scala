@@ -171,8 +171,7 @@ class MasterNodeIntegrationSpec
           status2 <- getStatus2
           _ = status2 shouldBe defined
 
-          appIdHex = status1.value.info.appId
-          appId <- IO.fromEither(hexToBytes32(appIdHex))
+          appId = status1.value.info.appId
           _ <- contract.deleteApp[IO](appId)
           _ <- eventually[IO](
             for {

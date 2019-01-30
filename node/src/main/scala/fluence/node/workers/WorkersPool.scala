@@ -38,7 +38,7 @@ import scala.language.higherKinds
  * @param healthCheckConfig see [[HealthCheckConfig]]
  */
 class WorkersPool[F[_]: ContextShift: Timer](
-  workers: Ref[F, Map[ByteVector, Worker[F]]],
+  workers: Ref[F, Map[Long, Worker[F]]],
   healthCheckConfig: HealthCheckConfig
 )(
   implicit sttpBackend: SttpBackend[F, Nothing],
@@ -48,7 +48,7 @@ class WorkersPool[F[_]: ContextShift: Timer](
   /**
    * Returns true if the worker is in the pool and healthy, and false otherwise. Also returns worker instance.
    */
-  private def checkWorkerHealthy(appId: ByteVector): F[(Boolean, Option[Worker[F]])] = {
+  private def checkWorkerHealthy(appId: Long): F[(Boolean, Option[Worker[F]])] = {
     for {
       map <- workers.get
       oldWorker = map.get(appId)
@@ -78,7 +78,7 @@ class WorkersPool[F[_]: ContextShift: Timer](
           _ ← workers.update(_.updated(params.appId, worker))
         } yield true
       case (true, oldWorker) ⇒
-        logger.info(s"Worker for app ${params.appIdHex} was already ran as $oldWorker")
+        logger.info(s"Worker for app ${params.appId} was already ran as $oldWorker")
         false.pure[F]
     }
 
@@ -115,7 +115,7 @@ class WorkersPool[F[_]: ContextShift: Timer](
    * @param appId AppId of the worker
    * @return
    */
-  def stopWorkerForApp(appId: ByteVector): F[Unit] =
+  def stopWorkerForApp(appId: Long): F[Unit] =
     for {
       map <- workers.get
       worker = map.get(appId)
@@ -143,7 +143,7 @@ object WorkersPool {
   ): Resource[F, WorkersPool[F]] =
     Resource.make {
       for {
-        workers ← Ref.of[F, Map[ByteVector, Worker[F]]](Map.empty)
+        workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
       } yield new WorkersPool[F](workers, HealthCheckConfig())
     }(_.stopAll())
 }
