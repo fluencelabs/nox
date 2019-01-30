@@ -19,9 +19,7 @@ use failure::Error;
 use serde_derive::{Deserialize, Serialize};
 use web3::types::Address;
 
-use crate::contract_func::ContractCaller;
-use crate::contract_status::app::{get_apps, get_nodes, App};
-use crate::contract_status::node::Node;
+use crate::contract_status::app::{get_apps, get_nodes, App, Node};
 
 #[derive(Serialize, Deserialize, Debug, Getters)]
 pub struct Status {
@@ -36,14 +34,12 @@ impl Status {
 }
 
 /// Gets status about Fluence contract from ethereum blockchain.
-pub fn get_status(contract_address: Address, eth_url: &str) -> Result<Status, Error> {
-    let contract = ContractCaller::new(contract_address, eth_url)?;
-
+pub fn get_status(eth_url: &str, contract_address: Address) -> Result<Status, Error> {
     // TODO get more data
 
-    let apps = get_apps(&contract)?;
+    let apps = get_apps(eth_url, contract_address)?;
 
-    let nodes = get_nodes(&contract)?;
+    let nodes = get_nodes(eth_url, contract_address)?;
 
     Ok(Status::new(apps, nodes))
 }

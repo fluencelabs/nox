@@ -20,11 +20,16 @@ if (!output) {
     let hasErrors = false;
     for (var error in output.errors) {
         var message = output.errors[error]
-	if (!message.includes("Warning:")) {
-		hasErrors = true;
-	}
+        console.log(message);
+        var message = output.errors[error]
+        if (!message.includes("Warning:")) {
+            hasErrors = true;
+        }
     }
-    if (hasErrors) abort('Errors occured.');
+    if (hasErrors) {
+        console.error("Aborting compilation due to errors.")
+        abort('Errors occured.');
+    }
 }
 
 function writeFile(file, content) {
