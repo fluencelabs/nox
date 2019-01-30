@@ -310,24 +310,9 @@ If you shut down your node, it's not available anymore for any reason, or you ju
 ```
 
 ## Tips and tricks
-### Waiting for Ethereum node to sync
-There is a flag `--wait_syncing` that, when supplied, will make CLI to wait until your Ethereum node is fully synced. It works by querying `eth_syncing` until it returns `false`. 
+CLI has some neat features not described in that guide:
+- Wait until your Ethereum is fully synced
+- Wait until the transaction is included in a block, printing additional info from contract
+- Look at smart-contract `status` via interactive command-line table viewer
 
-This is handy when you don't want to manually check if Ethereum node is synced.
-
-### Waiting for a transaction to be included in a block
-There is a flag `--wait` than, when supplied, will make CLI to wait until the sent transaction is included in a block. It also parses Ethereum events (logs) related to issued command, and will print out some useful information on finish. 
-
-For example, when you `publish` your app, it will tell you the `appID` and if it's been deployed immediatly or enqueued to wait for enough available nodes. 
-
-This is easier that manually checking `status` after every command.
-
-Note, however, that if you're using Ethereum node in a **light mode**, it can take a while until light node realizes transaction was included in a block. It can take up to several minutes (sometimes up to 10-15 minutes), so it requires some patience.
-
-### Interactive status
-If reading raw JSON in `status` isn't the best option for you, you can use interactive status:
-```bash
-./fluence status --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a --interactive
-```
-
-It's just a status viewer, but it will gain more functionality in the future.
+All these features are described in [CLI's readme](../../cli/README.md#tips-and-tricks), so take a look!

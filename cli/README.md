@@ -157,3 +157,25 @@ The results will be in JSON and should resemble the following
 
 Here you can see two apps, the first one is enqueued (cluster is `null`) and waiting for enough nodes to host it, and the second one is already hosted on top of 5 nodes. Second app also specifies all 5 nodes in `pin_to_nodes`, and you can see the same nodes in `cluster.node_ids`.
 
+## Tips and tricks
+### Waiting for an Ethereum node to sync
+There is a flag `--wait_syncing` that, when supplied, will make CLI to wait until your Ethereum node is fully synced. It works by querying `eth_syncing` until it returns `false`. 
+
+This is handy when you don't want to manually check if Ethereum node is synced.
+
+### Waiting for a transaction to be included in a block
+There is a flag `--wait` than, when supplied, will make CLI to wait until the sent transaction is included in a block. It also parses Ethereum events (logs) related to issued command, and will print out some useful information on finish. 
+
+For example, when you `publish` your app, it will tell you the `appID` and if it's been deployed immediatly or enqueued to wait for enough available nodes. 
+
+This is easier that manually checking `status` after every command.
+
+Note, however, that if you're using Ethereum node in a **light mode**, it can take a while until light node realizes transaction was included in a block. It can take up to several minutes (sometimes up to 10-15 minutes), so it requires some patience.
+
+### Interactive status
+If reading raw JSON in `status` isn't the best option for you, you can use interactive status:
+```bash
+./fluence status --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a --interactive
+```
+
+It's just a status viewer, but it will gain more functionality in the future.
