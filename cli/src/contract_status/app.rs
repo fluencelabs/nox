@@ -16,7 +16,6 @@
 
 use failure::Error;
 
-use derive_getters::Getters;
 use serde_derive::{Deserialize, Serialize};
 use web3::types::{Address, H256};
 
@@ -27,7 +26,7 @@ use crate::contract_func::contract::functions::get_nodes_ids;
 use crate::contract_func::query_contract;
 use crate::types::NodeAddress;
 
-#[derive(Serialize, Deserialize, Debug, Getters, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct App {
     pub app_id: u64,
     pub storage_hash: H256,
@@ -60,7 +59,7 @@ impl App {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Getters, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Cluster {
     pub genesis_time: u32,
     pub node_ids: Vec<H256>,
@@ -80,7 +79,7 @@ impl Cluster {
 /// Represents Fluence node registered in ethereum contract.
 /// The node listens to contract events and runs real-time nodes.
 /// The purpose of real-time nodes is to host developer's [`App`], e.g., backend code.
-#[derive(Serialize, Deserialize, Debug, Getters, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Node {
     pub id: H256,
     pub tendermint_key: String,

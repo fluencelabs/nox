@@ -1,7 +1,6 @@
 use std::io;
 use std::sync::mpsc;
 use std::thread;
-use std::time::Duration;
 use termion::event::Key;
 use termion::input::TermRead;
 

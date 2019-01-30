@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-use derive_getters::Getters;
 use failure::Error;
 use serde_derive::{Deserialize, Serialize};
 use web3::types::Address;
 
 use crate::contract_status::app::{get_apps, get_nodes, App, Node};
 
-#[derive(Serialize, Deserialize, Debug, Getters)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Status {
     pub apps: Vec<App>,
     pub nodes: Vec<Node>,
