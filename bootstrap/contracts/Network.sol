@@ -35,7 +35,7 @@ contract Network is Deployer {
     function getNode(bytes32 nodeID)
         external
         view
-    returns (bytes24, uint16, uint16, address, bool, bytes32[])
+    returns (bytes24, uint16, uint16, address, bool, uint256[])
     {
         Node memory node = nodes[nodeID];
         return (
@@ -56,7 +56,7 @@ contract Network is Deployer {
     function getNodeApps(bytes32 nodeID)
         external
         view
-    returns (bytes32[])
+    returns (uint256[])
     {
         return nodes[nodeID].appIDs;
     }
@@ -65,13 +65,13 @@ contract Network is Deployer {
      * @param appID unique id of cluster
      * returns tuple representation of a Cluster
      */
-    function getApp(bytes32 appID)
+    function getApp(uint256 appID)
         external
         view
     returns (bytes32, bytes32, uint8, address, bytes32[], uint, bytes32[], uint16[])
     {
         App memory app = apps[appID];
-        require(app.appID > 0, "there is no such cluster");
+        require(app.appID > 0, "there is no such app");
 
         return (
             app.storageHash,
@@ -89,13 +89,13 @@ contract Network is Deployer {
     /** @dev Retrieves addresses and ports of cluster's workers
      * @param appID unique id of app
      */
-    function getAppWorkers(bytes32 appID)
+    function getAppWorkers(uint256 appID)
         external
         view
     returns (bytes24[], uint16[])
     {
         App memory app = apps[appID];
-        require(app.appID > 0, "there is no such cluster");
+        require(app.appID > 0, "there is no such app");
 
         bytes24[] memory addresses = new bytes24[](app.cluster.nodeIDs.length);
         for(uint8 i = 0; i < app.cluster.nodeIDs.length; i++) {
@@ -122,7 +122,7 @@ contract Network is Deployer {
     function getAppIDs()
     external
     view
-    returns(bytes32[])
+    returns(uint256[])
     {
         return appIDs;
     }

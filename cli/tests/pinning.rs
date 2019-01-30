@@ -38,7 +38,7 @@ fn publish_pinned(wait_eth_sync: bool, wait_tx_include: bool) {
 
     let logs = opts.get_transaction_logs(&tx, app_deployed::parse_log);
     let log = logs.first().unwrap();
-    let app_id = log.app_id;
+    let app_id: u64 = log.app_id.into();
 
     assert_eq!(log.node_i_ds.len(), count as usize);
 

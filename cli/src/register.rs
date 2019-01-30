@@ -51,7 +51,7 @@ pub struct Register {
 pub enum Registered {
     TransactionSent(H256),
     Deployed {
-        app_ids: Vec<H256>,
+        app_ids: Vec<u64>,
         ports: Vec<u16>,
         tx: H256,
     },
@@ -140,7 +140,8 @@ impl Register {
                         let idx = e.node_i_ds.iter().position(|id| *id == self.tendermint_key);
                         idx.and_then(|i| e.ports.get(i)).map(|port| {
                             let port = Into::<u64>::into(*port) as u16;
-                            (e.app_id, port)
+                            let app_id = Into::<u64>::into(e.app_id);
+                            (app_id, port)
                         })
                     })
                     .unzip();

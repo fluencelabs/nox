@@ -22,6 +22,6 @@ sealed trait NodeEthEvent
 
 case class RunAppWorker(app: App) extends NodeEthEvent
 
-case class RemoveAppWorker(appId: ByteVector) extends NodeEthEvent
+case class RemoveAppWorker(appId: Long) extends NodeEthEvent
 
-case class DropPeerWorker(appId: ByteVector, validatorKey: ByteVector) extends NodeEthEvent
+case class DropPeerWorker(appId: Long, validatorKey: ByteVector) extends NodeEthEvent

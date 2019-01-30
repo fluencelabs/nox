@@ -39,7 +39,7 @@ fn delete_app(wait_eth_sync: bool, wait_tx_include: bool) {
     let log = logs.first().unwrap();
     let app_id = log.app_id;
 
-    let tx = opts.delete_app(app_id, true).unwrap();
+    let tx = opts.delete_app(app_id.into(), true).unwrap();
 
     let logs = opts.get_transaction_logs(&tx, app_deleted::parse_log);
     let log = logs.first().unwrap();
@@ -59,7 +59,7 @@ fn dequeue_app(wait_eth_sync: bool, wait_tx_include: bool) {
     let log = logs.first().unwrap();
     let app_id = log.app_id;
 
-    let tx = opts.delete_app(app_id, false).unwrap();
+    let tx = opts.delete_app(app_id.into(), false).unwrap();
 
     let logs = opts.get_transaction_logs(&tx, app_dequeued::parse_log);
     let log = logs.first().unwrap();
