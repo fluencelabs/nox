@@ -8,6 +8,11 @@
     - [Private nodes](#private-nodes)
     - [Application pinning](#application-pinning)
       - [Mixing pinning and matching](#mixing-pinning-and-matching)
+  - [How to remove a node from the Fluence smart-contract](#how-to-remove-a-node-from-the-fluence-smart-contract)
+  - [Tips and tricks](#tips-and-tricks)
+    - [Waiting for Ethereum node to sync](#waiting-for-ethereum-node-to-sync)
+    - [Waiting for a transaction to be included in a block](#waiting-for-a-transaction-to-be-included-in-a-block)
+    - [Interactive status](#interactive-status)
 
 # Fluence miner guide
 Being a miner in Fluence network means that you will provide you computation power to host decentralized backends. In order to do that, you will need just a few things:
@@ -170,7 +175,7 @@ The following command will register a private node:
 ./fluence register \
             --private \
             --node_ip               85.82.118.4 \
-            --tendermint_key        xkaW9SpCJjfzLABM+1B6PTh54qIwvgsHCkOe3VULYbE= \
+            --tendermint_key        1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
             --tendermint_node_id    5e4eedba85fda7451356a03caffb0716e599679b \
             --contract_address      0x9995882876ae612bfd829498ccd73dd962ec950a \
             --account               0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
@@ -283,7 +288,7 @@ So, assuming contract has just four registered nodes and one app, the `./fluence
       "ip_addr": "85.82.118.4",
       "next_port": 25000,
       "last_port": 25010,
-      "owner": "0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d",
+      "owner": "0x4180rfc65d613ba7e1a385181a219f1dbfe7bf11d",
       "is_private": true,
       "clusters_ids": []
     }
@@ -292,3 +297,37 @@ So, assuming contract has just four registered nodes and one app, the `./fluence
 ```
 
 You see app's `cluster` is `null`, that means it's not deployed yet, waiting for enough nodes to be available.
+
+## How to remove a node from the Fluence smart-contract
+If you shut down your node, it's not available anymore for any reason, or you just want to stop it hosting apps, you can remove the node from the Fluence smart-contract like this:
+```bash
+./fluence delete_node \
+            --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
+            --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --secret_key       0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
+            --tendermint_key   1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
+            --base64_tendermint_key
+```
+
+## Tips and tricks
+### Waiting for Ethereum node to sync
+There is a flag `--wait_syncing` that, when supplied, will make CLI to wait until your Ethereum node is fully synced. It works by querying `eth_syncing` until it returns `false`. 
+
+This is handy when you don't want to manually check if Ethereum node is synced.
+
+### Waiting for a transaction to be included in a block
+There is a flag `--wait` than, when supplied, will make CLI to wait until the sent transaction is included in a block. It also parses Ethereum events (logs) related to issued command, and will print out some useful information on finish. 
+
+For example, when you `publish` your app, it will tell you the `appID` and if it's been deployed immediatly or enqueued to wait for enough available nodes. 
+
+This is easier that manually checking `status` after every command.
+
+Note, however, that if you're using Ethereum node in a **light mode**, it can take a while until light node realizes transaction was included in a block. It can take up to several minutes (sometimes up to 10-15 minutes), so it requires some patience.
+
+### Interactive status
+If reading raw JSON in `status` isn't the best option for you, you can use interactive status:
+```bash
+./fluence status --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a --interactive
+```
+
+It's just a status viewer, but it will gain more functionality in the future.
