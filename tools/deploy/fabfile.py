@@ -19,7 +19,8 @@ import json
 # owners and private keys for specific ip addresses
 # todo get this info from some sources
 # TO USE: replace values inside <> with your actual values
-info = {'46.101.213.180': {'owner': '0x6f0773cd2965c014d8a9d6ddd8e739568edeb7f5', 'key': '906ccd15743cf56dfe1d08c7ca5333560ecc88675da514a517ddeed2dc2cb820', "ports": "25000:25099"}}
+info = {'<ip1>': {'owner': '<eth address1>', 'key': '<private key1>', 'ports': '<from>:<to>'},
+        '<ip2>': {'owner': '<eth address2>', 'key': '<private key2>', 'ports': '<from>:<to>'}}
 
 RELEASE="http://dump.bitcheese.net/files/fedinid/fluence" #"https://github.com/fluencelabs/fluence/releases/download/untagged-3f7e10bd802b3149036d/fluence-linux-x64"
 
@@ -44,19 +45,23 @@ def copy_resources():
     put('scripts/parity.yml', 'scripts/')
     put('scripts/swarm.yml', 'scripts/')
 
-def register(data):
+def register(data, secret_key):
+    eth_url = "http://" + data['node_ip'] + ":8545"
     command = "./fluence register \
-        --node_ip            $EXTERNAL_HOST_IP \
-        --tendermint_key     $TENDERMINT_KEY \
-        --tendermint_node_id $TENDERMINT_NODE_ID \
-        --contract_address   $CONTRACT_ADDRESS \
-        --account            $OWNER_ADDRESS \
-        --secret_key         $PRIVATE_KEY \
-        --start_port         $START_PORT \
-        --last_port          $LAST_PORT \
-        --eth_url            http://$EXTERNAL_HOST_IP:8545 \
+        --node_ip            %s \
+        --tendermint_key     %s \
+        --tendermint_node_id %s \
+        --contract_address   %s \
+        --account            %s \
+        --secret_key         %s \
+        --start_port         %s \
+        --last_port          %s \
+        --eth_url            %s \
         --wait_syncing \
-        --base64_tendermint_key"
+        --base64_tendermint_key" % (data['node_ip'], data['tendermint_key'], data['tendermint_node_id'], data['contract_address'],
+                                    data['account'], secret_key, data['start_port'], data['last_port'], eth_url)
+
+    local(command)
 
 
 # comment this annotation to deploy sequentially
@@ -94,7 +99,6 @@ def deploy():
                            OWNER_ADDRESS=current_owner,
                            PORTS=current_ports,
                            NAME="fluence-node-1",
-                           PRIVATE_KEY=current_key,
                            HOST_IP=current_host):
                 run('chmod +x compose.sh')
                 # download fluence CLI
@@ -103,4 +107,5 @@ def deploy():
                 # TODO return all arguments instead of the command itself or make a file or an output with all common commands
                 meta_data = output.stdout.splitlines()[-1]
                 json_data = json.loads(meta_data)
+                register(json_data, current_key)
 
