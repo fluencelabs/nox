@@ -29,7 +29,7 @@ use crate::types::NodeAddress;
 
 #[derive(Serialize, Deserialize, Debug, Getters, Clone)]
 pub struct App {
-    pub app_id: H256,
+    pub app_id: u64,
     pub storage_hash: H256,
     pub storage_receipt: H256,
     pub cluster_size: u8,
@@ -40,7 +40,7 @@ pub struct App {
 
 impl App {
     pub fn new(
-        app_id: H256,
+        app_id: u64,
         storage_hash: H256,
         storage_receipt: H256,
         cluster_size: u8,
@@ -135,7 +135,7 @@ pub fn get_nodes(eth_url: &str, contract_address: Address) -> Result<Vec<Node>, 
                 Into::<u64>::into(last_port) as u16,
                 owner,
                 is_private,
-                Some(app_ids),
+                Some(app_ids.into_iter().map(Into::into).collect()),
             )
         })
         .collect();
@@ -145,8 +145,11 @@ pub fn get_nodes(eth_url: &str, contract_address: Address) -> Result<Vec<Node>, 
 
 pub fn get_apps(eth_url: &str, contract_address: Address) -> Result<Vec<App>, Error> {
     let (call_data, decoder) = get_app_i_ds::call();
-    let app_ids: Vec<H256> =
-        query_contract(call_data, Box::new(decoder), eth_url, contract_address)?;
+    let app_ids: Vec<u64> =
+        query_contract(call_data, Box::new(decoder), eth_url, contract_address)?
+            .into_iter()
+            .map(Into::into)
+            .collect();
 
     let apps: Result<Vec<App>, Error> = app_ids
         .iter()

@@ -152,7 +152,7 @@ impl TestOpts {
     }
 
     #[cfg(test)]
-    pub fn delete_app(&self, app_id: H256, deployed: bool) -> Result<H256> {
+    pub fn delete_app(&self, app_id: u64, deployed: bool) -> Result<H256> {
         let delete = DeleteApp::new(app_id, deployed, self.eth.clone());
 
         delete.delete_app(false)

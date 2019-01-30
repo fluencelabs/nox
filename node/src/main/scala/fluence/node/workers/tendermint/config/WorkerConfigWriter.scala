@@ -40,7 +40,7 @@ object WorkerConfigWriter extends slogging.LazyLogging {
       (for {
         tmDir ← IO(rootPath.resolve("tendermint"))
         templateConfigDir ← IO(tmDir.resolve("config"))
-        workerPath ← IO(tmDir.resolve(s"${app.appIdHex}_${app.cluster.currentWorker.index}"))
+        workerPath ← IO(tmDir.resolve(s"${app.id}_${app.cluster.currentWorker.index}"))
         workerConfigDir ← IO(workerPath.resolve("config"))
         _ ← IO { Files.createDirectories(workerConfigDir) }
       } yield (app, WorkerConfigPaths(templateConfigDir, workerPath, workerConfigDir))).to[F]
@@ -96,7 +96,7 @@ object WorkerConfigWriter extends slogging.LazyLogging {
       case s if s.contains("external_address") => s"""external_address = "${currentWorker.address}""""
       case s if s.contains("persistent_peers") => s"""persistent_peers = "$persistentPeers""""
       case s if s.contains("moniker") =>
-        s"""moniker = "${app.appIdHex}_${currentWorker.index}""""
+        s"""moniker = "${app.id}_${currentWorker.index}""""
       case s => s
     }
 

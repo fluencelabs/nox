@@ -24,7 +24,7 @@ import scodec.bits.ByteVector
  * Worker container's params
  */
 case class WorkerParams(
-  appId: ByteVector,
+  appId: Long,
   currentWorker: WorkerPeer,
   workerPath: String,
   vmCodePath: String,
@@ -32,12 +32,8 @@ case class WorkerParams(
   image: WorkerImage
 ) {
 
-  // Convert bytes32 to hex for better human-readability. As of current appId generation in Fluence Contract,
-  // there's a lot of leading zeros in app IDs, so skip them to avoid visual clutter.
-  val appIdHex: String = binaryToHexTrimZeros(appId)
-
   override def toString =
-    s"(worker ${currentWorker.index} with RPC port ${currentWorker.rpcPort} for app $appIdHex)"
+    s"(worker ${currentWorker.index} with RPC port ${currentWorker.rpcPort} for app $appId)"
 
   /**
    * [[fluence.node.docker.DockerIO.exec]]'s command for launching a configured worker
@@ -47,7 +43,7 @@ case class WorkerParams(
       .build()
       .option("-e", s"""CODE_DIR=$vmCodePath""")
       .option("-e", s"""WORKER_DIR=$workerPath""")
-      .option("--name", s"${appIdHex}_worker_${currentWorker.index}")
+      .option("--name", s"${appId}_worker_${currentWorker.index}")
       .port(currentWorker.p2pPort, 26656)
       .port(currentWorker.rpcPort, 26657)
       .port(currentWorker.tmPrometheusPort, 26660)
