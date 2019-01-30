@@ -1,5 +1,3 @@
-package fluence.vm
-
 /*
  * Copyright 2018 Fluence Labs Limited
  *
@@ -15,6 +13,8 @@ package fluence.vm
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+package fluence.vm
 
 import cats.data.NonEmptyList
 import cats.effect.IO
