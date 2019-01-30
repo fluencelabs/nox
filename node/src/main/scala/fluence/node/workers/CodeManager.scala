@@ -97,9 +97,13 @@ class SwarmCodeManager[F[_]](swarmClient: SwarmClient[F])(implicit F: Sync[F]) e
       filePath <- F.delay(dirPath.resolve(swarmPath + ".wasm"))
       exists <- F.delay(filePath.toFile.exists())
       _ <- if (exists) F.unit
-      else
-        F.delay(Files.createFile(filePath))
-          .flatMap(_ => downloadFromSwarmToFile(swarmPath, filePath))
+      else {
+        for {
+          tmpFile <- F.delay(Files.createTempFile("code_", "_wasm"))
+          _ <- downloadFromSwarmToFile(swarmPath, tmpFile)
+          _ <- F.delay(Files.move(tmpFile, filePath))
+        } yield {}
+      }
     } yield dirPath
 
   /**
