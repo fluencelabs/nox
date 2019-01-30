@@ -5,17 +5,47 @@
 pub mod errors;
 
 use self::errors::MemError;
+use std::alloc::{Alloc, Global, Layout};
 use std::mem;
 use std::num::NonZeroUsize;
 use std::ptr;
 use std::ptr::NonNull;
 
 /// Result type for this module.
-pub type MemResult<T> = Result<T, MemError>;
+pub type MemResult<T> = ::std::result::Result<T, MemError>;
 
 /// Count of bytes that length of returning array occupies.
 /// For more information please see [write_array_to_mem] method implementation.
 pub const RESULT_SIZE_BYTES: usize = 4;
+
+/// Allocates memory area of specified size and returns its address. Actually is
+/// just a wrapper for [`GlobalAlloc::alloc`].
+///
+/// # Safety
+///
+/// See [`GlobalAlloc::alloc`].
+///
+/// [`GlobalAlloc::alloc`]: https://doc.rust-lang.org/core/alloc/trait.GlobalAlloc.html#tymethod.alloc
+///
+pub unsafe fn alloc(size: NonZeroUsize) -> MemResult<NonNull<u8>> {
+    let layout: Layout = Layout::from_size_align(size.get(), mem::align_of::<u8>())?;
+    Global.alloc(layout).map_err(Into::into)
+}
+
+/// Deallocates memory area for current memory pointer and size. Actually is
+/// just a wrapper for [`GlobalAlloc::dealloc`].
+///
+/// # Safety
+///
+/// See [`GlobalAlloc::dealloc`].
+///
+/// [`GlobalAlloc::dealloc`]: https://doc.rust-lang.org/core/alloc/trait.GlobalAlloc.html#tymethod.dealloc
+///
+pub unsafe fn dealloc(ptr: NonNull<u8>, size: NonZeroUsize) -> MemResult<()> {
+    let layout = Layout::from_size_align(size.get(), mem::align_of::<u8>())?;
+    Global.dealloc(ptr, layout);
+    Ok(())
+}
 
 /// Writes Rust string to memory directly as an array length and a byte array.
 /// This method allocates 'RESULT_SIZE_BYTES + result.len()' bytes and writes the
@@ -88,12 +118,12 @@ pub unsafe fn deref_str(ptr: *mut u8, len: usize) -> String {
 /// that nothing else uses the pointer after calling this
 /// function.**
 ///
-pub unsafe fn read_input(ptr: NonNull<u8>) -> MemResult<Vec<u8>> {
+pub unsafe fn read_input_as_string(ptr: NonNull<u8>) -> MemResult<String> {
     // read string length from current pointer
     let input_len = read_len(ptr.as_ptr()) as usize;
 
     let total_len = RESULT_SIZE_BYTES
-        .checked_add(str_len)
+        .checked_add(input_len)
         .ok_or_else(|| MemError::new("usize overflow occurred"))?;
 
     // create string for size and string

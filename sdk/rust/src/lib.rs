@@ -8,3 +8,6 @@ pub mod memory;
 
 #[cfg(feature = "wasm_logger")]
 pub mod logger;
+
+#[cfg(feature = "export_allocator")]
+pub mod allocator;

@@ -25,8 +25,11 @@ crate-type = ["cdylib"]
 
 lazy_static = "1.1.0"
 log = "0.4"
-fluence_sdk = { version = "0.0.6", features = ["wasm_logger"] }
+fluence = { version = "0.0.6", features = ["wasm_logger", "export_allocator"] }
 
 [dev-dependencies]
 
 simple_logger = "1.0.1"
+
+[replace]
+"fluence:0.0.6" = {path = "/Users/trofim/Desktop/work/fluence/fluence/sdk/rust"}

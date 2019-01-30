@@ -37,6 +37,7 @@ _rust_wasm_template: &_rust_wasm_template
     - cargo +$TRAVIS_RUST_VERSION build -v --all-features
     - cargo +$TRAVIS_RUST_VERSION doc -v --all-features
     - cargo +$TRAVIS_RUST_VERSION test -v --all-features
+    - cargo +$TRAVIS_RUST_VERSION clippy -v --all-features
 
 matrix:
   include:

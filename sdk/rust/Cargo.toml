@@ -18,7 +18,7 @@ all-features = true
 
 [lib]
 
-name = "fluence_sdk"
+name = "fluence"
 path = "src/lib.rs"
 crate-type = ["rlib"]
 
@@ -36,3 +36,4 @@ lazy_static = "1.2.0" # used in doc test
 # Turn on a compilation for module 'logger' from Fluence SDK.
 # This module allows logging from Wasm code.
 wasm_logger = []
+export_allocator = []

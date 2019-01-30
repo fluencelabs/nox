@@ -1,14 +1,37 @@
 [[package]]
+name = "cfg-if"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "counter"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
- "fluence_sdk 0.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fluence 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
-name = "fluence_sdk"
-version = "0.0.4"
+name = "fluence"
+version = "0.0.6"
+dependencies = [
+ "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "fluence"
+version = "0.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+replace = "fluence 0.0.6"
+
+[[package]]
+name = "log"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "cfg-if 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [metadata]
-"checksum fluence_sdk 0.0.4 (registry+https://github.com/rust-lang/crates.io-index)" = "38d0387a42e8876fe352beaf5a01d15f73370c6adc637a298077d8fb8a5ac957"
+"checksum cfg-if 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "082bb9b28e00d3c9d39cc03e64ce4cea0f1bb9b3fde493f0cbc008472d22bdf4"
+"checksum fluence 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "cf0fe5dd937464abc80eca7bcef5ae162b73fb771a7b60d0b9e39f2b852117ef"
+"checksum log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)" = "c84ec4b527950aa83a329754b01dbe3f58361d1c5efacd1f6d68c494d08a17c6"
