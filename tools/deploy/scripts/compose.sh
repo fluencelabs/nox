@@ -72,14 +72,14 @@ else
 fi
 
 # running parity and swarm containers
-docker-compose -f parity.yml up -d
-docker-compose -f swarm.yml up -d
+# docker-compose -f parity.yml up -d
+# docker-compose -f swarm.yml up -d
 
 echo 'Parity and Swarm containers are started.'
 
 # waiting that API of parity start working
 # todo get rid of all `sleep`
-sleep 30
+# sleep 30
 
 # deploy contract if there is new dev ethereum node
 if [ -z "$PROD_DEPLOY" ]; then
@@ -117,7 +117,7 @@ if [ "$1" = "multiple" ]; then
     docker-compose -f multiple-node.yml up -d --force-recreate
     NUMBER_OF_NODES=4
 else
-    docker-compose -f node.yml up -d --force-recreate
+#     docker-compose -f node.yml up -d --force-recreate
     NUMBER_OF_NODES=1
 fi
 
@@ -169,7 +169,14 @@ while [ $COUNTER -le $NUMBER_OF_NODES ]; do
         set +x
     else
         # printing the command in the last line to parse it from a control script
-        echo $REGISTER_COMMAND
+        DATA="{\"node_ip\": \"$EXTERNAL_HOST_IP\",
+               \"tendermint_key\": \"$TENDERMINT_KEY\",
+               \"tendermint_node_id\": \"$TENDERMINT_NODE_ID\",
+               \"contract_address\": \"$CONTRACT_ADDRESS\",
+               \"account\": \"$OWNER_ADDRESS\",
+               \"start_port\": $START_PORT,
+               \"last_port\": $LAST_PORT}"
+        echo $DATA | paste -sd "" - | awk 'NF'
     fi
 
     COUNTER=$[$COUNTER+1]

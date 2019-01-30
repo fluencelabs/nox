@@ -14,12 +14,12 @@
 
 # Import Fabric's API module
 from fabric.api import *
+import json
 
 # owners and private keys for specific ip addresses
 # todo get this info from some sources
 # TO USE: replace values inside <> with your actual values
-info = {'<ip1>': {'owner': '<eth address1>', 'key': '<private key1>', 'ports': '<from>:<to>'},
-        '<ip2>': {'owner': '<eth address2>', 'key': '<private key2>', 'ports': '<from>:<to>'}}
+info = {'46.101.213.180': {'owner': '0x6f0773cd2965c014d8a9d6ddd8e739568edeb7f5', 'key': '906ccd15743cf56dfe1d08c7ca5333560ecc88675da514a517ddeed2dc2cb820', "ports": "25000:25099"}}
 
 RELEASE="http://dump.bitcheese.net/files/fedinid/fluence" #"https://github.com/fluencelabs/fluence/releases/download/untagged-3f7e10bd802b3149036d/fluence-linux-x64"
 
@@ -44,50 +44,63 @@ def copy_resources():
     put('scripts/parity.yml', 'scripts/')
     put('scripts/swarm.yml', 'scripts/')
 
-@parallel
-def test():
-    with cd("scripts"):
-        output = run('./fluence -h')
-        run('export TEST_VAR="TEST_AAAAAAA"')
-        print 'command output: {}'.format(output.stdout, capture=True)
-        testvar = os.getenv('TEST_VAR')
-        print "azazaz === ", testvar
+def register(data):
+    command = "./fluence register \
+        --node_ip            $EXTERNAL_HOST_IP \
+        --tendermint_key     $TENDERMINT_KEY \
+        --tendermint_node_id $TENDERMINT_NODE_ID \
+        --contract_address   $CONTRACT_ADDRESS \
+        --account            $OWNER_ADDRESS \
+        --secret_key         $PRIVATE_KEY \
+        --start_port         $START_PORT \
+        --last_port          $LAST_PORT \
+        --eth_url            http://$EXTERNAL_HOST_IP:8545 \
+        --wait_syncing \
+        --base64_tendermint_key"
 
 
 # comment this annotation to deploy sequentially
 @parallel
 def deploy():
 
-    copy_resources()
+    result = local("[ -s fluence ] && echo 1 || echo 0", capture=True)
+    if (result == '0'):
+        print
+        # todo: add correct link to CLI
+        print '`fluence` CLI file does not exist. Download it from here https://github.com/fluencelabs/fluence/tree/master/cli'
+    else:
+        print result.stdout
+        copy_resources()
 
-    with cd("scripts"):
+        with cd("scripts"):
 
-        # change for another chain
-        # todo changing this variable should recreate parity container
-        # todo support contract deployment on 'dev' chain
-        chain='kovan'
+            # change for another chain
+            # todo changing this variable should recreate parity container
+            # todo support contract deployment on 'dev' chain
+            chain='kovan'
 
-        # actual fluence contract address
-        contract_address=contract
+            # actual fluence contract address
+            contract_address=contract
 
-        # getting owner and private key from `info` dictionary
-        current_host = env.host_string
-        current_owner = info[current_host]['owner']
-        current_key = info[current_host]['key']
-        current_ports = info[current_host]['ports']
+            # getting owner and private key from `info` dictionary
+            current_host = env.host_string
+            current_owner = info[current_host]['owner']
+            current_key = info[current_host]['key']
+            current_ports = info[current_host]['ports']
 
-        with shell_env(CHAIN=chain,
-                       PROD_DEPLOY="true",
-                       CONTRACT_ADDRESS=contract_address,
-                       OWNER_ADDRESS=current_owner,
-                       PORTS=current_ports,
-                       NAME="fluence-node-1",
-                       PRIVATE_KEY=current_key,
-                       HOST_IP=current_host):
-            run('chmod +x compose.sh')
-            # download fluence CLI
-            output = run('./compose.sh')
-            # the script will return command with arguments that will register node in Fluence contract
-            # TODO return all arguments instead of the command itself or make a file or an output with all common commands
-            register_command = output.stdout.splitlines()[-1]
-            local(register_command)
+            with shell_env(CHAIN=chain,
+                           PROD_DEPLOY="true",
+                           CONTRACT_ADDRESS=contract_address,
+                           OWNER_ADDRESS=current_owner,
+                           PORTS=current_ports,
+                           NAME="fluence-node-1",
+                           PRIVATE_KEY=current_key,
+                           HOST_IP=current_host):
+                run('chmod +x compose.sh')
+                # download fluence CLI
+                output = run('./compose.sh')
+                # the script will return command with arguments that will register node in Fluence contract
+                # TODO return all arguments instead of the command itself or make a file or an output with all common commands
+                meta_data = output.stdout.splitlines()[-1]
+                json_data = json.loads(meta_data)
+
