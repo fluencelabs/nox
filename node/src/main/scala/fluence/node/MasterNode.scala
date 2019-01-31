@@ -21,6 +21,7 @@ import cats.effect._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
+import cats.syntax.applicativeError._
 import cats.effect.syntax.effect._
 import fluence.node.config.NodeConfig
 import fluence.node.docker.DockerImage
@@ -117,7 +118,13 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
         runAppWorker(app)
 
       case RemoveAppWorker(appId) ⇒
-        pool.stopWorkerForApp(appId)
+        pool.get(appId).flatMap {
+          case Some(w) ⇒
+            w.stop.attempt.map { stopped =>
+              logger.info(s"Stopped: ${w.params} => $stopped")
+            }
+          case _ ⇒ ().pure[F]
+        }
 
       case DropPeerWorker(appId, vk) ⇒
         // TODO implement dropping peer worker

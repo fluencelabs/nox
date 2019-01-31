@@ -72,7 +72,7 @@ object NodeEth {
           stateRef ← Ref.of[F, NodeEthState](NodeEthState(validatorKey))
           initialState ← stateRef.get
 
-          blockQueue ← fs2.concurrent.Queue.unbounded[F, (Option[String], F[Block])]
+          blockQueue ← fs2.concurrent.Queue.circularBuffer[F, (Option[String], F[Block])](8)
           stop ← Deferred[F, Either[Throwable, Unit]]
 
           fiber ← Concurrent[F]
@@ -92,7 +92,7 @@ object NodeEth {
       .map {
         case (stateRef, initialState, blockQueue, _, _) ⇒
           new NodeEth[F] {
-            override def nodeEvents: fs2.Stream[F, NodeEthEvent] = {
+            override val nodeEvents: fs2.Stream[F, NodeEthEvent] = {
               // TODO: make one filter for all kinds of events, instead of making several separate requests
 
               // State changes on a new recognized App that should be deployed on this Node
@@ -141,13 +141,13 @@ object NodeEth {
             /**
              * Returns the expected node state, how it's built with received Ethereum data
              */
-            override def expectedState: F[NodeEthState] =
+            override val expectedState: F[NodeEthState] =
               stateRef.get
 
             /**
              * Stream of raw block json, requires ethClient to be configured to keep raw responses!
              */
-            override def blocksRaw: fs2.Stream[F, String] =
+            override val blocksRaw: fs2.Stream[F, String] =
               blockQueue.dequeue.map(_._1).unNone
           }
       }

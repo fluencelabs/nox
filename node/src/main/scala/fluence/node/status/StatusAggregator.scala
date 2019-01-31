@@ -50,8 +50,7 @@ case class StatusAggregator(config: MasterConfig, masterNode: MasterNode[IO], st
     val ports = s"${endpoints.minPort}:${endpoints.maxPort}"
     for {
       currentTime <- timer.clock.monotonic(MILLISECONDS)
-      workersStatus <- masterNode.pool.healths
-      workerInfos = workersStatus.values.toList
+      workerInfos <- masterNode.pool.getAll.evalMap(_.healthReport).compile.toList
       ethState ← masterNode.nodeEth.expectedState
     } yield
       MasterStatus(
@@ -59,7 +58,7 @@ case class StatusAggregator(config: MasterConfig, masterNode: MasterNode[IO], st
         ports,
         currentTime - startTimeMillis,
         masterNode.nodeConfig,
-        workersStatus.size,
+        workerInfos.size,
         workerInfos,
         config,
         ethState
