@@ -99,8 +99,8 @@
 //! [`lazy_static::initialize()`]: https://docs.rs/lazy_static/1.2.0/lazy_static/fn.initialize.html
 
 extern crate log;
-use std::ptr::NonNull;
 use self::log::{error, warn};
+use std::ptr::NonNull;
 
 /// The Wasm Logger.
 ///
@@ -181,13 +181,11 @@ pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
 
     warn!("{}\n", result);
 
-    crate::memory::write_result_to_mem(&result.as_bytes())
-        .unwrap_or_else(|_|  {
-            let error_msg = "Putting result string to the memory was failed.";
-            error!("{}", error_msg);
-            panic!(error_msg);
-        }
-    )
+    crate::memory::write_result_to_mem(&result.as_bytes()).unwrap_or_else(|_| {
+        let error_msg = "Putting result string to the memory was failed.";
+        error!("{}", error_msg);
+        panic!(error_msg);
+    })
 }
 
 impl log::Log for WasmLogger {
