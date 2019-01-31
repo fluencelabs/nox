@@ -60,6 +60,12 @@ function parse_tendermint_params()
     # get tendermint key from node logs
     # todo get this from `status` API by CLI
     while [ -z "$TENDERMINT_KEY" -o -z "$TENDERMINT_NODE_ID" ]; do
+        local DOCKER_STATUS=$(docker ps -a --filter "name=fluence-node-$COUNTER" --format '{{.Status}}' | grep -o Exited)
+        if [ -z "$DOCKER_STATUS" ]
+        then
+            echo -e "\e[91m'fluence-node-'$COUNTER container cannot be run\e[0m"
+            exit 127
+        fi
         # TODO: parse for 'Node ID' instead of 'PubKey'
         TENDERMINT_KEY=$(docker logs fluence-node-$COUNTER 2>&1 | awk 'match($0, /PubKey: /) { print substr($0, RSTART + RLENGTH) }')
         TENDERMINT_NODE_ID=$(docker logs fluence-node-$COUNTER 2>&1 | awk 'match($0, /Node ID: /) { print substr($0, RSTART + RLENGTH) }')
@@ -119,7 +125,7 @@ function export_arguments()
         export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
     else
         echo "Deploying for $CHAIN chain."
-        export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
+        export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*"'
     fi
 }
 
