@@ -61,7 +61,7 @@ function parse_tendermint_params()
     # todo get this from `status` API by CLI
     while [ -z "$TENDERMINT_KEY" -o -z "$TENDERMINT_NODE_ID" ]; do
         local DOCKER_STATUS=$(docker ps -a --filter "name=fluence-node-$COUNTER" --format '{{.Status}}' | grep -o Exited)
-        if [ -z "$DOCKER_STATUS" ]
+        if [ -n "$DOCKER_STATUS" ]
         then
             echo -e "\e[91m'fluence-node-'$COUNTER container cannot be run\e[0m"
             exit 127
