@@ -120,11 +120,11 @@ pub unsafe fn read_len(ptr: *mut u8) -> u32 {
 }
 
 #[cfg(test)]
-mod test {
+pub mod test {
     use super::*;
     use std::num::NonZeroUsize;
 
-    unsafe fn read_result_from_memory(ptr: NonNull<u8>) -> MemResult<Vec<u8>> {
+    pub unsafe fn read_result_from_memory(ptr: NonNull<u8>) -> MemResult<Vec<u8>> {
         // read string length from current pointer
         let input_len = super::read_len(ptr.as_ptr()) as usize;
 

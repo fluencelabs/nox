@@ -35,12 +35,12 @@
 //!
 //! ```
 //!     #[macro_use] extern crate log;
-//!     extern crate fluence_sdk;
+//!     extern crate fluence;
 //!     extern crate simple_logger;
 //!
 //!     fn main() {
 //!         if cfg!(target_arch = "wasm32") {
-//!             fluence_sdk::logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
+//!             fluence::logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
 //!         } else {
 //!             simple_logger::init_with_level(log::Level::Info).unwrap();
 //!         }
@@ -56,13 +56,13 @@
 //!
 //! ```
 //!     #[macro_use] extern crate log;
-//!     extern crate fluence_sdk;
+//!     extern crate fluence;
 //!
 //!     /// This method initialize WasmLogger and should be called at the start of application
 //!     #[no_mangle]
 //!     #[cfg(target_arch = "wasm32")]
 //!     fn init_logger() {
-//!         fluence_sdk::logger::WasmLogger::init().unwrap();
+//!         fluence::logger::WasmLogger::init().unwrap();
 //!         info!("If you can see this message that logger was successfully initialized.");
 //!     }
 //!
@@ -74,18 +74,18 @@
 //! ```
 //!     #[macro_use] extern crate log;
 //!     #[macro_use] extern crate lazy_static;
-//!     extern crate fluence_sdk;
+//!     extern crate fluence;
 //!
 //!     lazy_static! {
 //!         static ref _LOGGER: () = {
-//!             fluence_sdk::logger::WasmLogger::init_with_level(log::Level::Info);
+//!             fluence::logger::WasmLogger::init_with_level(log::Level::Info);
 //!         };
 //!     }
 //!
 //!     fn main() {
 //!         if cfg!(target_arch = "wasm32") {
 //!             // There is required to call init in a method or in another `lazy_static!` block
-//!             fluence_sdk::logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
+//!             fluence::logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
 //!         }
 //!
 //!         // ...
@@ -123,11 +123,11 @@ impl WasmLogger {
     ///
     /// ```
     /// # #[macro_use] extern crate log;
-    /// # extern crate fluence_sdk;
+    /// # extern crate fluence;
     /// #
     /// # fn main() {
     /// if cfg!(target_arch = "wasm32") {
-    ///     fluence_sdk::logger::WasmLogger::init_with_level(log::Level::Error).unwrap();
+    ///     fluence::logger::WasmLogger::init_with_level(log::Level::Error).unwrap();
     /// }
     /// error!("This message will be logged.");
     /// info!("This message will not be logged.");
@@ -145,11 +145,11 @@ impl WasmLogger {
     ///
     /// ```
     /// # #[macro_use] extern crate log;
-    /// # extern crate fluence_sdk;
+    /// # extern crate fluence;
     /// #
     /// # fn main() {
     /// if cfg!(target_arch = "wasm32") {
-    ///     fluence_sdk::logger::WasmLogger::init().unwrap();
+    ///     fluence::logger::WasmLogger::init().unwrap();
     /// }
     ///
     /// error!("This message will be logged.");
