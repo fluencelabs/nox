@@ -23,7 +23,7 @@ crate-type = ["cdylib"]
 [dependencies]
 
 log = "0.4"
-fluence = { version = "0.0.6", features = ["wasm_logger_info", "export_allocator"]}
+fluence = { version = "0.0.6", features = ["wasm_logger_warn", "export_allocator"]}
 
 [dev-dependencies]
 
