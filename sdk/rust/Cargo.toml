@@ -1,13 +1,13 @@
 [package]
 
-name = "fluence_sdk"
-version = "0.0.6"  # remember to update html_root_url
+name = "fluence"
+version = "0.0.7"  # remember to update html_root_url
 description="Rust SDK for writing applications for Fluence"
-documentation="https://docs.rs/fluence_sdk/"
+documentation="https://docs.rs/fluence/"
 repository="https://github.com/fluencelabs/fluence/tree/master/sdk/rust"
 authors = ["Fluence Labs"]
 readme = "readme.md"
-keywords = ["fluence", "sdk"]
+keywords = ["fluence", "sdk", "webassembly"]
 categories = ["api-bindings", "wasm"]
 license = "Apache-2.0"
 maintenance = { status = "actively-developed" }
@@ -18,7 +18,7 @@ all-features = true
 
 [lib]
 
-name = "fluence_sdk"
+name = "fluence"
 path = "src/lib.rs"
 crate-type = ["rlib"]
 
@@ -33,6 +33,10 @@ lazy_static = "1.2.0" # used in doc test
 
 [features]
 
-# Turn on a compilation for module 'logger' from Fluence SDK.
-# This module allows logging from Wasm code.
-wasm_logger = []
+# Turn on a compilation for module 'logger' from Fluence SDK. A string suffixes indicate log level.
+wasm_logger_info = []
+wasm_logger_warn = []
+wasm_logger_error = []
+
+# Turn on a compilation for module contains standart implementation of allocate/deallocate functions.
+export_allocator = []
