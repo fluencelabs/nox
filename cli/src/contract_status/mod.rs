@@ -42,6 +42,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .required(false)
                 .takes_value(false)
                 .help("If supplied, status is showed as an interactive table"),
+            Arg::with_name(OWNER).long(OWNER),
         ])
 }
 

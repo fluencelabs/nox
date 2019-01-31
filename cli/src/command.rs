@@ -27,6 +27,7 @@ use failure::err_msg;
 use failure::Error;
 use failure::ResultExt;
 use std::fs::File;
+use std::net::IpAddr;
 use web3::types::Address;
 use web3::types::H160;
 use web3::types::H256;
@@ -97,6 +98,15 @@ pub fn tendermint_node_id<'a, 'b>() -> Arg<'a, 'b> {
         .required(true)
         .takes_value(true)
         .help("Tendermint node ID (20-byte from SHA of p2p public key)")
+}
+
+pub fn node_ip<'a, 'b>() -> Arg<'a, 'b> {
+    Arg::with_name(NODE_IP)
+        .long(NODE_IP)
+        .short("i")
+        .required(true)
+        .takes_value(true)
+        .help("Node's IP address")
 }
 
 // Takes `args` and concatenates them with predefined set of arguments needed for
@@ -255,7 +265,7 @@ pub fn parse_tendermint_node_id(args: &ArgMatches) -> Result<H160, Error> {
 }
 
 pub fn parse_node_ip(args: &ArgMatches) -> Result<IpAddr, Error> {
-    let node_address: IpAddr = value_t!(args, NODE_IP, IpAddr)?;
+    value_t!(args, NODE_IP, IpAddr)
 }
 
 impl Default for EthereumArgs {

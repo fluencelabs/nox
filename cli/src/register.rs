@@ -232,12 +232,7 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
 /// Parses arguments from console and initialize parameters for Publisher
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     let args = &[
-        Arg::with_name(NODE_IP)
-            .long(NODE_IP)
-            .short("i")
-            .required(true)
-            .takes_value(true)
-            .help("Node's IP address"),
+        node_ip(),
         tendermint_key(),
         tendermint_node_id(),
         Arg::with_name(START_PORT)
