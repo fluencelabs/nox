@@ -564,7 +564,7 @@ dependencies = [
 
 [[package]]
 name = "fluence"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "base64 0.10.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.32.0 (registry+https://github.com/rust-lang/crates.io-index)",
