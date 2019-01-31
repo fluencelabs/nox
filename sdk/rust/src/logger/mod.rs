@@ -166,7 +166,7 @@ impl WasmLogger {
 #[no_mangle]
 #[cfg(target_arch = "wasm32")]
 pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
-    // if there are several wasm logger features specified chose the narrow one
+    // if there are several wasm logger features specified choose the narrow one
     let log_level = if cfg!(feature = "wasm_logger_error") {
         log::Level::Error
     } else if cfg!(feature = "wasm_logger_warn") {
