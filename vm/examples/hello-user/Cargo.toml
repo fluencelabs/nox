@@ -1,10 +1,10 @@
 [package]
 
 name = "hello_user"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Fluence Labs"]
 publish = false
-description = "It is just a demo application for Fluence"
+description = "Just a demo application for Fluence"
 edition = "2018"
 
 [profile.release]
@@ -23,7 +23,7 @@ crate-type = ["cdylib"]
 [dependencies]
 
 log = "0.4"
-fluence_sdk = { version = "0.0.6", features = ["wasm_logger"] }
+fluence = { version = "0.0.7", features = ["wasm_logger_warn", "export_allocator"]}
 
 [dev-dependencies]
 

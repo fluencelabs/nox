@@ -1,10 +1,11 @@
 [package]
 
 name = "llama_db"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Fluence Labs"]
 publish = false
 description = "LlamaDb wrapper for running into Fluence WasmVm"
+edition = "2018"
 
 [profile.release]
 
@@ -23,8 +24,8 @@ crate-type = ["cdylib"]
 
 lazy_static = "1.1.0"
 log = "0.4"
-fluence_sdk = { version = "0.0.6", features = ["wasm_logger"] }
-llamadb = { git="https://github.com/fluencelabs/llamadb.git", branch = "master" }
+fluence = { version = "0.0.7", features = ["wasm_logger_info", "export_allocator"] }
+llamadb = { git = "https://github.com/fluencelabs/llamadb.git", branch = "master" }
 
 [dev-dependencies]
 

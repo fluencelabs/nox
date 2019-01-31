@@ -1,21 +1,26 @@
 [package]
 
 name = "counter"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Fluence Labs"]
 publish = false
+description = "Simple counter for Fluence"
+edition = "2018"
 
 [profile.release]
 
 opt-level = 3
 lto = true
+panic = "abort"
 
 [lib]
 
 name = "counter"
 path = "src/lib.rs"
 crate-type = ["cdylib"]
+panic = "abort"
 
 [dependencies]
 
-fluence_sdk = "0.0.4"
+fluence = { version = "0.0.7", features = ["export_allocator"]}
+byteorder = { version = "1" }

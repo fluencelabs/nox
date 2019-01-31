@@ -1,3 +1,22 @@
+- [Fluence CLI](#fluence-cli)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Usage](#usage)
+- [Usage examples](#usage-examples)
+  - [Register a node](#register-a-node)
+  - [Publish app](#publish-app)
+  - [Delete app](#delete-app)
+  - [Retrieve Fluence network state as JSON](#retrieve-fluence-network-state-as-json)
+- [Tips and tricks](#tips-and-tricks)
+  - [Waiting for an Ethereum node to sync](#waiting-for-an-ethereum-node-to-sync)
+  - [Waiting for a transaction to be included in a block](#waiting-for-a-transaction-to-be-included-in-a-block)
+  - [Interactive status](#interactive-status)
+  - [Authorization and private keys](#authorization-and-private-keys)
+    - [Keystore JSON file](#keystore-json-file)
+    - [Private key](#private-key)
+    - [Password](#password)
+    - [No authorization](#no-authorization)
+
 ## Fluence CLI
 
 Fluence CLI is an automation tool for tasks of app management (deployment and deletion), computation resource sharing (node registration), and monitoring Fluence network state (status). See usage for more info.
@@ -34,7 +53,7 @@ The following command will register a node:
 ./fluence register \
             --node_ip               85.82.118.4 \
             --tendermint_key        1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
-            --tendermint_node_id    5e4eedba85fda7451356a03caffb0716e599679b= \
+            --tendermint_node_id    5e4eedba85fda7451356a03caffb0716e599679b \
             --contract_address      0x9995882876ae612bfd829498ccd73dd962ec950a \
             --account               0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
             --base64_tendermint_key \
@@ -59,7 +78,7 @@ Parameters are:
 - `--start_port 25000` and `--last_port 25010` denote ports where apps (workers) will be hosted. 25000:25010 is inclusive, so 10 workers could be started on such a node
 
 
-### Publish app
+### Publish an app
 To deploy your app on Fluence network, you must upload it to Swarm and publish hash to smart-contract. The simplest way to achieve that is to use CLI command `publish`.
 
 The following command will publish app `counter.wasm`.
@@ -83,7 +102,33 @@ Interesting bits:
 
 Please refer to [Fluence Rust SDK](../sdk/rust/README.md) to get information about developing apps with Fluence.
 
-### Delete app
+#### Waiting for an app to be deployed or enqueued
+You can pass `--wait` option to `publish` command, and CLI will wait until transaction is included in a block, and then provide you with information about app deployment status and app id.
+Deployed application:
+```bash
+[1/3]   Application code uploaded. ---> [00:00:00]
+swarm hash: 0x585114171e6b1639af3e9a4f237d8da6d1c5624b235cb45c062ca5d89a151cc2
+[2/3]   Transaction publishing app was sent. ---> [00:00:00]
+  tx hash: 0xf62a8823e95804bf1f8d3832c0c49d44c7c138c1a541f9f5c0dbe7cd34056f40
+[3/3]   Transaction was included. ---> [00:00:00]
+App deployed.
+   app id: 1
+  tx hash: 0xf62a8823e95804bf1f8d3832c0c49d44c7c138c1a541f9f5c0dbe7cd34056f40
+```
+
+Enqueued:
+```bash
+[1/3]   Application code uploaded. ---> [00:00:00]
+swarm hash: 0x585114171e6b1639af3e9a4f237d8da6d1c5624b235cb45c062ca5d89a151cc2
+[2/3]   Transaction publishing app was sent. ---> [00:00:00]
+  tx hash: 0x4e87150da0e273fc7d44324e6843ba9abb91413f6fb6fdce67b7f7d4a1dd320a
+[3/3]   Transaction was included. ---> [00:00:00]
+App enqueued.
+   app id: 2
+  tx hash: 0x4e87150da0e273fc7d44324e6843ba9abb91413f6fb6fdce67b7f7d4a1dd320a
+```
+
+### Delete an app
 If you want to delete your app from smart contract, you can use `delete_app` command.
 
 The following will delete app with id `0x0000000000000000000000000000000000000000000000000000000000000002`. App id could be retrieved either from status (see below) or from smart-contract.
@@ -157,3 +202,114 @@ The results will be in JSON and should resemble the following
 
 Here you can see two apps, the first one is enqueued (cluster is `null`) and waiting for enough nodes to host it, and the second one is already hosted on top of 5 nodes. Second app also specifies all 5 nodes in `pin_to_nodes`, and you can see the same nodes in `cluster.node_ids`.
 
+## Tips and tricks
+### Waiting for an Ethereum node to sync
+There is a flag `--wait_syncing` that, when supplied, will make CLI to wait until your Ethereum node is fully synced. It works by querying `eth_syncing` until it returns `false`. 
+
+This is handy when you don't want to manually check if Ethereum node is synced.
+
+### Waiting for a transaction to be included in a block
+There is a flag `--wait` than, when supplied, will make CLI to wait until the sent transaction is included in a block. It also parses Ethereum events (logs) related to issued command, and will print out some useful information on finish. 
+
+For example, when you `publish` your app, it will tell you the `appID` and if it's been deployed immediatly or enqueued to wait for enough available nodes. 
+
+This is easier that manually checking `status` after every command.
+
+Note, however, that if you're using Ethereum node in a **light mode**, it can take a while until light node realizes transaction was included in a block. It can take up to several minutes (sometimes up to 10-15 minutes), so it requires some patience.
+
+### Interactive status
+If reading raw JSON in `status` isn't the best option for you, you can use interactive status:
+```bash
+./fluence status --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a --interactive
+```
+
+It's just a status viewer, but it will gain more functionality in the future.
+
+### Authorization and private keys
+There are several ways to provide authorization details for your Ethereum account to Fluence CLI: via keystore JSON file, private key or password for your wallet in Ethereum node.
+
+#### Keystore JSON file
+***This is the most secure way to provide your credentials, so it's preffered over other options***
+
+That's how Geth and a few other tools export private keys. The file looks like this:
+```json
+{"address":"c2d7cf95645d33006175b78989035c7c9061d3f9",
+  "crypto":{
+    "cipher":"aes-128-ctr",
+    "ciphertext":"0f6d343b2a34fe571639235fc16250823c6fe3bc30525d98c41dfdf21a97aedb",
+    "cipherparams":{
+      "iv":"cabce7fb34e4881870a2419b93f6c796"
+    },
+    "kdf":"scrypt",
+    "kdfparams": {
+      "dklen":32,
+      "n":262144,
+      "p":1,
+      "r":8,
+      "salt":"1af9c4a44cf45fe6fb03dcc126fa56cb0f9e81463683dd6493fb4dc76edddd51"
+    },
+    "mac":"5cf4012fffd1fbe41b122386122350c3825a709619224961a16e908c2a366aa6"
+  },
+  "id":"eddd71dd-7ad6-4cd3-bc1a-11022f7db76c",
+  "version":3
+}
+```
+
+It's a private key encrypted with user password. You can use it with Fluence CLI like this: 
+```bash
+./fluence SUBCOMMAND
+          ...
+          --account            0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+          --keystore           ~/Library/Ethereum/keystore/UTC--2017-03-03T13-24-07.826187674Z--4e6cf0ed2d8bbf1fbbc9f2a100602ceba4bf1319 \
+          --passowrd           my_secure_passw0rd
+```
+
+For example, with `delete_app`
+
+```bash
+./fluence delete_app \
+            --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
+            --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --app_id           0x0000000000000000000000000000000000000000000000000000000000000002 \
+            --keystore         ~/Library/Ethereum/keystore/UTC--2017-03-03T13-24-07.826187674Z--4e6cf0ed2d8bbf1fbbc9f2a100602ceba4bf1319 \
+            --password         my_secure_passw0rd \
+            --deployed
+```
+
+Decrypted private key will be used to sign transaction in offline mode, so **your key is never sent through network.**
+
+#### Private key
+Other option is to provide unencrypted private key, like in most examples above:
+```bash
+./fluence SUBCOMMAND
+          ...
+          --account            0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+          --secret_key         4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 
+```
+
+Since private key isn't encrypted, no password is required.
+
+Private key will be used to sign transaction in offline mode, so **your key is never sent through network.**
+
+#### Password
+In case you have a **trusted** Ethereum node with an imported wallet, Fluence CLI can delegate signing a transaction to the Ethereum node. This can be done like this:
+```bash
+./fluence SUBCOMMAND
+          ...
+          --account            0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+          --password           my_secure_passw0rd
+```
+
+`personal_sendTransaction` will be used to send transaction. It means **your password will be sent over network** to the Ethereum node, and the node will sign and send transaction all by itself. It's preffered to use keystore or private key options instead of providing just a password.
+
+Note, that **your account is not unlocked before, in, or after that operation.**
+
+#### No authorization
+It's also possible to avoid providing any credentials:
+```bash
+./fluence SUBCOMMAND
+          ...
+          --account            0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d
+```
+
+In that case, transaction is sent to Ethereum node via `eth_sendTransaction` unsigned, so it's expected that there is no authorization enabled on your node. **This option isn't secure and was meant to be used for testing purposes.**
