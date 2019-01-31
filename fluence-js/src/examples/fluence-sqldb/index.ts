@@ -127,8 +127,8 @@ let newLine = String.fromCharCode(13, 10);
 let sep = "**************************";
 
 // todo: get actual contract address and app id from file
-let contractAddress = "0x5b317f280d4Bf958117eF4fEd9F229D815C52b74";
-let appId = "0x0000000000000000000000000000000000000000000000000000000000000004";
+let contractAddress = "0xd62ab1bd71068a252bb20fa94b2f536d7525cfeb";
+let appId = "1";
 
 async function preparePage() {
     let sessions = await fluence.connect(contractAddress, appId);
