@@ -16,11 +16,7 @@
 
 //! Wrapper for Llamadb (a test for Fluence network).
 //!
-//! Provides the public method (`invoke`) for work with Llamadb and some public service
-//! methods (`allocation`, `deallocation`, `init_logger`).
-
-#![feature(allocator_api)]
-#![allow(dead_code)]
+//! Provides the public method (`invoke`) for work with Llamadb.
 
 #[cfg(test)]
 mod tests;

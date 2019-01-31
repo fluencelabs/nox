@@ -22,8 +22,5 @@ panic = "abort"
 
 [dependencies]
 
-fluence = { version = "0.0.6", features = ["export_allocator"]}
+fluence = { version = "0.0.7", features = ["export_allocator"]}
 byteorder = { version = "1" }
-
-[replace]
-"fluence:0.0.6" = {path = "../../../sdk/rust"}
