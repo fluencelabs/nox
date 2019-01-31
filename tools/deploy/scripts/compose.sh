@@ -59,7 +59,7 @@ function parse_tendermint_params()
 
     # get tendermint key from node logs
     # todo get this from `status` API by CLI
-    while [ -z "$TENDERMINT_KEY" -a -z "$TENDERMINT_NODE_ID" ]; do
+    while [ -z "$TENDERMINT_KEY" -o -z "$TENDERMINT_NODE_ID" ]; do
         # TODO: parse for 'Node ID' instead of 'PubKey'
         TENDERMINT_KEY=$(docker logs fluence-node-$COUNTER 2>&1 | awk 'match($0, /PubKey: /) { print substr($0, RSTART + RLENGTH) }')
         TENDERMINT_NODE_ID=$(docker logs fluence-node-$COUNTER 2>&1 | awk 'match($0, /Node ID: /) { print substr($0, RSTART + RLENGTH) }')
@@ -88,8 +88,8 @@ function container_update()
 {
     docker pull parity/parity:v2.3.0
     docker pull ethdevops/swarm:edge
-    docker pull fluencelabs/node
-    docker pull fluencelabs/worker
+    docker pull fluencelabs/node:latest
+    docker pull fluencelabs/worker:latest
 }
 
 function get_docker_ip_address()
@@ -204,7 +204,7 @@ if [ "$1" = "multiple" ]; then
     docker-compose -f multiple-node.yml up -d --force-recreate
     NUMBER_OF_NODES=4
 else
-#     docker-compose -f node.yml up -d --force-recreate
+    docker-compose -f node.yml up -d --force-recreate
     NUMBER_OF_NODES=1
 fi
 
@@ -228,6 +228,7 @@ while [ $COUNTER -le $NUMBER_OF_NODES ]; do
 
     echo "Registering node in smart contract:"
 
+    # registers node in Fluence contract, for local usage
     if [ -z "$PROD_DEPLOY" ]; then
         set -x
         REGISTER_COMMAND=$(generate_command)
@@ -235,9 +236,10 @@ while [ $COUNTER -le $NUMBER_OF_NODES ]; do
         set +x
     fi
 
+    # generates JSON with all arguments for node registration
+    JSON=$(generate_json)
+    echo $JSON
+
     COUNTER=$[$COUNTER+1]
     TENDERMINT_KEY=""
 done
-
-JSON=$(generate_json)
-echo $JSON
