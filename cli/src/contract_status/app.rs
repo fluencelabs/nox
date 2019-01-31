@@ -81,8 +81,8 @@ impl Cluster {
 /// The purpose of real-time nodes is to host developer's [`App`], e.g., backend code.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Node {
-    pub id: H256,
-    pub tendermint_key: String,
+    pub validator_key: H256,
+    pub tendermint_p2p_id: String,
     pub ip_addr: String,
     pub next_port: u16,
     pub last_port: u16,
@@ -103,8 +103,8 @@ impl Node {
     ) -> Result<Node, Error> {
         let (tendermint_key, ip_addr) = address.decode()?;
         Ok(Node {
-            id,
-            tendermint_key,
+            validator_key: id,
+            tendermint_p2p_id: tendermint_key,
             ip_addr,
             next_port,
             last_port,

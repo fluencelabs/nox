@@ -218,6 +218,8 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
 
     let eth = parse_ethereum_args(args)?;
 
+    let node_address = parse_node_ip(&args)?;
+
     Register::new(
         node_address,
         tendermint_key,

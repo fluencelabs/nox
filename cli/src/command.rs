@@ -265,7 +265,7 @@ pub fn parse_tendermint_node_id(args: &ArgMatches) -> Result<H160, Error> {
 }
 
 pub fn parse_node_ip(args: &ArgMatches) -> Result<IpAddr, Error> {
-    value_t!(args, NODE_IP, IpAddr)
+    Ok(value_t!(args, NODE_IP, IpAddr)?)
 }
 
 impl Default for EthereumArgs {
