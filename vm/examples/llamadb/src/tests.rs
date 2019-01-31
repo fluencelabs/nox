@@ -16,9 +16,8 @@
 
 //! Module with tests.
 
-use fluence;
-use simple_logger;
 use log::info;
+use simple_logger;
 
 #[test]
 fn integration_sql_test() {
@@ -143,9 +142,31 @@ fn integration_sql_test() {
 }
 
 //
-// Private helper function.
+// Private helper functions.
 //
-//use fluence::;
+use std::mem;
+use std::ptr;
+
+pub unsafe fn read_result_from_mem(ptr: *mut u8) -> Vec<u8> {
+    const RESULT_SIZE_BYTES: usize = 4;
+
+    // read string length from current pointer
+    let mut len_as_bytes: [u8; RESULT_SIZE_BYTES] = [0; RESULT_SIZE_BYTES];
+    ptr::copy_nonoverlapping(ptr, len_as_bytes.as_mut_ptr(), RESULT_SIZE_BYTES);
+
+    let input_len: u32 = mem::transmute(len_as_bytes);
+    let total_len = input_len as usize + RESULT_SIZE_BYTES;
+
+    // creates object from raw bytes
+    let mut input = Vec::from_raw_parts(ptr, total_len, total_len);
+
+    // drains RESULT_SIZE_BYTES from the beginning of created vector, it allows to effectively
+    // skips (without additional allocations) length of the result.
+    {
+        input.drain(0..4);
+    }
+    input
+}
 
 /// Executes sql and returns result as a String.
 fn execute_sql(sql: &str) -> String {
@@ -159,7 +180,7 @@ fn execute_sql(sql: &str) -> String {
         // 'invoke' method, have to forget 'sql_str'  for prevent deallocation
         mem::forget(sql_str);
         // converts results
-        let result_str = fluence::memory::test::read_result_from_mem(result_str_ptr).unwrap();
+        let result_str = read_result_from_mem(result_str_ptr.as_ptr());
         String::from_utf8(result_str).unwrap()
     }
 }

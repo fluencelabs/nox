@@ -119,7 +119,7 @@ pub unsafe fn read_len(ptr: *mut u8) -> u32 {
     mem::transmute(len_as_bytes)
 }
 
-//#[cfg(test)]
+#[cfg(test)]
 pub mod test {
     use super::*;
     use std::num::NonZeroUsize;
@@ -159,7 +159,7 @@ pub mod test {
             let src_str = "some string Ω";
 
             let ptr = write_result_to_mem(src_str.as_bytes()).unwrap();
-            let result_array = read_result_from_memory(ptr).unwrap();
+            let result_array = read_result_from_mem(ptr).unwrap();
             let result_str = String::from_utf8(result_array).unwrap();
             assert_eq!(src_str, result_str);
         }
