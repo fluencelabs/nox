@@ -9,18 +9,18 @@
 
 ## Usage
 Import a dependency:
-```
+```js
 import * as fluence from "fluence";
 ```
 
 To connect to the Fluence cluster we need to create a session between the browser and all nodes or one node in this cluster.
 There is two ways of establishing a connection:
 1. Using host and port directly (for debug purposes) to connect with a single node of the cluster, or simply `worker`:
-```
+```js
 let workerSession = fluence.createDefaultSession("<host>", <port>);
 ```
 2. Using installed MetaMask or a deployed local Ethereum node:
-```
+```js
 let appSession;
 let appSessionPromise = fluence.createAppSession("<contract-address>", "<app-id>").then((responseSession) => {
     appSession = responseSession;
@@ -31,17 +31,17 @@ The second argument, `appId` - is an ID of application registered in the contrac
 
 `createAppSession` asynchronously interacts with an Ethereum blockchain, so it will return a `Promise<AppSession>`. `AppSession` is a structure that combines all sessions to nodes in a cluster and keeps some metadata of these nodes.
 To get a session with a single worker you can use `workerSessions` as follows:
-```
+```js
 let workerSession = appSession.workerSessions[<worker-idx>].session
 ```
 
 Then we can use `invoke` to send commands to workers and get responses.
 We'll go with [LlamaDB](https://github.com/fluencelabs/llamadb) application as an example. Send simple SQL commands to the cluster:
-```
+```js
 let response = workerSession.invoke("CREATE TABLE test_table (id INT, text VARCHAR(128))")
 ```
 It will send a request and return the submitted transaction. Retrieving result requires calling `result()` method, that's because sending a transaction via `invoke` doesn't return result back, it just changes cluster state. `result()` method explicitly reads result of the transaction from the cluster state, and returns it as a `Promise<Result>`:
-```
+```js
 let resultPromise = response.result();
 resultPromise.then((r) => console.log(r.asString()))
 ```
