@@ -16,12 +16,17 @@
 
 package fluence.node.workers.tendermint.rpc
 
-import cats.effect.Concurrent
+import cats.data.EitherT
+import cats.effect.{Concurrent, Sync}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
+import cats.syntax.either._
 import cats.syntax.functor._
 import com.softwaremill.sttp._
+import com.softwaremill.sttp.circe.asJson
 import fluence.node.workers.WorkerParams
+import cats.syntax.applicativeError._
+import fluence.node.workers.tendermint.status.StatusResponse
 import io.circe.generic.semiauto._
 import io.circe.{Encoder, Json}
 
@@ -31,11 +36,13 @@ import scala.language.higherKinds
  * Provides a single concurrent endpoint to run RPC requests on Worker
  *
  * @param sinkRpc Tendermint's RPC requests endpoint
+ * @param status Tendermint's status
  * @param stop A callback that releases the acquired resources, namely it stops the RPC stream
  * @tparam F Concurrent effect
  */
 case class TendermintRpc[F[_]] private (
   sinkRpc: fs2.Sink[F, TendermintRpc.Request],
+  status: EitherT[F, Throwable, StatusResponse.WorkerTendermintInfo],
   private[workers] val stop: F[Unit]
 ) {
 
@@ -83,6 +90,28 @@ object TendermintRpc {
   private def toSomePipe[F[_], T]: fs2.Pipe[F, T, Option[T]] =
     _.map(Some(_))
 
+  private def status[F[_]: Sync](
+    params: WorkerParams
+  )(implicit sttpBackend: SttpBackend[F, Nothing]): EitherT[F, Throwable, StatusResponse.WorkerTendermintInfo] =
+    EitherT {
+      val url = uri"http://${params.currentWorker.ip.getHostAddress}:${params.currentWorker.rpcPort}/status"
+
+      sttp
+        .get(url)
+        .response(asJson[StatusResponse])
+        .send()
+        .attempt
+        // converting Either[Throwable, Response[Either[DeserializationError[circe.Error], WorkerResponse]]]
+        // to Either[Throwable, WorkerResponse]
+        .map(
+          _.flatMap(
+            _.body
+              .leftMap(new Exception(_))
+              .flatMap(_.leftMap(_.error))
+          )
+        )
+    }.map(_.result)
+
   /**
    * Runs a WorkerRpc with F effect, acquiring some resources for it
    *
@@ -117,5 +146,10 @@ object TendermintRpc {
       stop = fs2.Stream(None).to(enqueue).compile.drain *> fiber.join
       callRpc = toSomePipe[F, TendermintRpc.Request].andThen(_ to enqueue)
 
-    } yield new TendermintRpc[F](callRpc, stop)
+    } yield
+      new TendermintRpc[F](
+        callRpc,
+        status[F](params),
+        stop
+      )
 }

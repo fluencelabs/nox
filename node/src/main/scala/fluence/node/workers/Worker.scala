@@ -19,17 +19,13 @@ package fluence.node.workers
 import cats.Applicative
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
-import cats.syntax.applicativeError._
 import cats.syntax.apply._
-import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.softwaremill.sttp._
-import com.softwaremill.sttp.circe._
 import fluence.node.docker.DockerIO
 import fluence.node.workers.health._
 import fluence.node.workers.tendermint.rpc.TendermintRpc
-import fluence.node.workers.tendermint.status.StatusResponse
 import slogging.LazyLogging
 
 import scala.language.higherKinds
@@ -58,58 +54,14 @@ case class Worker[F[_]] private (
 object Worker extends LazyLogging {
 
   /**
-   * Gets health state from a worker via HTTP.
-   *
-   */
-  private def getHealthState[F[_]: Concurrent: ContextShift: Timer](
-    params: WorkerParams,
-    statusPath: String,
-    uptime: Long
-  )(implicit sttpBackend: SttpBackend[F, Nothing]): F[WorkerHealth] = {
-
-    val url = uri"http://${params.currentWorker.ip.getHostAddress}:${params.currentWorker.rpcPort}/$statusPath"
-
-    // As container is running, perform a custom healthcheck: request a HTTP endpoint inside the container
-    logger.debug(
-      s"Running HTTP healthcheck $params: $url"
-    )
-    sttp
-      .get(url)
-      .response(asJson[StatusResponse])
-      .send()
-      .attempt
-      // converting Either[Throwable, Response[Either[DeserializationError[circe.Error], WorkerResponse]]]
-      // to Either[Throwable, WorkerResponse]
-      .map(
-        _.flatMap(
-          _.body
-            .leftMap(new Exception(_))
-            .flatMap(_.leftMap(_.error))
-        )
-      )
-      .map {
-        case Right(status) ⇒
-          val tendermintInfo = status.result
-          val info = RunningWorkerInfo(params, tendermintInfo)
-          WorkerRunning(uptime, info)
-        case Left(err) ⇒
-          logger.error("Worker HTTP check failed: " + err.getLocalizedMessage, err)
-          WorkerHttpCheckFailed(StoppedWorkerInfo(params.currentWorker), err)
-      }
-      .map { health ⇒
-        logger.debug(s"HTTP health is: $health")
-        health
-      }
-  }
-
-  /**
    * Runs health checker.
    */
-  private def runHealthCheck[F[_]: Concurrent: ContextShift: Timer](
+  private def runDockerWithHealthCheck[F[_]: Concurrent: ContextShift: Timer](
     params: WorkerParams,
     healthReportRef: Ref[F, WorkerHealth],
     stop: Deferred[F, Either[Throwable, Unit]],
-    healthcheck: HealthCheckConfig
+    healthcheck: HealthCheckConfig,
+    rpc: TendermintRpc[F]
   )(implicit sttpBackend: SttpBackend[F, Nothing]): F[Unit] =
     DockerIO
       .run[F](params.dockerCommand)
@@ -119,7 +71,19 @@ object Worker extends LazyLogging {
       )
       .evalMap[F, WorkerHealth] {
         case (uptime, true) ⇒
-          getHealthState(params, healthcheck.httpPath, uptime)
+          rpc.status.value.map {
+            case Left(err) ⇒
+              logger.error("Worker HTTP check failed: " + err.getLocalizedMessage, err)
+              WorkerHttpCheckFailed(StoppedWorkerInfo(params.currentWorker), err)
+
+            case Right(tendermintInfo) ⇒
+              val info = RunningWorkerInfo(params, tendermintInfo)
+              WorkerRunning(uptime, info)
+          }.map { health ⇒
+            logger.debug(s"HTTP health is: $health")
+            health
+          }
+
         case (_, false) ⇒
           logger.error(s"Healthcheck is failing for worker: $params")
           Applicative[F].pure(WorkerContainerNotRunning(StoppedWorkerInfo(params.currentWorker)))
@@ -148,9 +112,9 @@ object Worker extends LazyLogging {
       )
       stop ← Deferred[F, Either[Throwable, Unit]]
 
-      fiber ← Concurrent[F].start(runHealthCheck(params, healthReportRef, stop, healthcheck))
-
       rpc ← TendermintRpc[F](params)
+
+      fiber ← Concurrent[F].start(runDockerWithHealthCheck(params, healthReportRef, stop, healthcheck, rpc))
 
     } yield new Worker[F](params, rpc, healthReportRef, stop.complete(Right(())) *> rpc.stop *> fiber.join *> onStop)
 

@@ -24,11 +24,9 @@ import scala.concurrent.duration._
  * @param period How often to check worker's health
  * @param slide How many checks to slide over
  * @param failOn Worker will be considered dead if ''failOn'' checks within the last ''slide'' ones are failures
- * @param httpPath What to call to check for health, should not contain leading slash /
  */
 case class HealthCheckConfig(
   period: FiniteDuration = 10.seconds,
   slide: Int = 10,
-  failOn: Int = 8,
-  httpPath: String = "status"
+  failOn: Int = 8
 )
