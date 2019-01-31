@@ -16,11 +16,9 @@
 
 package fluence.node.config
 
-import java.net.InetAddress
-
+import cats.effect.IO
+import Configuration.loadConfig
 import fluence.node.docker.DockerImage
-import fluence.node.eth.conf.{EthereumRpcConfig, FluenceContractConfig}
-import fluence.node.workers.tendermint.ValidatorKey
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
@@ -45,67 +43,16 @@ case class MasterConfig(
   ethereum: EthereumRpcConfig
 )
 
-/**
- * @param host address to Swarm node
- */
-case class SwarmConfig(host: String)
-
-/**
- * @param port endpoint to master node status server
- */
-case class StatusServerConfig(port: Int)
-
 object MasterConfig {
-  implicit val encodeEthereumConfig: Encoder[EthereumRpcConfig] = deriveEncoder
-  implicit val decodeEthereumConfig: Decoder[EthereumRpcConfig] = deriveDecoder
-  implicit val encodeContractConfig: Encoder[FluenceContractConfig] = deriveEncoder
-  implicit val decodeContractConfig: Decoder[FluenceContractConfig] = deriveDecoder
-  implicit val encodeSwarmConfig: Encoder[SwarmConfig] = deriveEncoder
-  implicit val decodeSwarmConfig: Decoder[SwarmConfig] = deriveDecoder
-  implicit val encodeStatConfig: Encoder[StatusServerConfig] = deriveEncoder
-  implicit val decodeStatConfig: Decoder[StatusServerConfig] = deriveDecoder
   implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder
   implicit val decodeMasterConfig: Decoder[MasterConfig] = deriveDecoder
-}
 
-/**
- * Information about a node possible endpoints (IP and ports) that will be used as addresses
- * for requests after a cluster will be formed
- *
- * @param ip p2p host IP
- * @param minPort starting port for p2p port range
- * @param maxPort ending port for p2p port range
-  **/
-case class EndpointsConfig(
-  ip: InetAddress,
-  minPort: Short,
-  maxPort: Short
-)
+  import pureconfig.generic.auto._
+  import ConfigOps._
 
-object EndpointsConfig {
-  implicit val encodeInetAddress: Encoder[InetAddress] = Encoder[String].contramap(_.getHostAddress)
-  implicit val decodeInetAddress: Decoder[InetAddress] = Decoder[String].map(InetAddress.getByName)
-  implicit val encodeEndpointConfig: Encoder[EndpointsConfig] = deriveEncoder
-  implicit val decodeEndpointConfig: Decoder[EndpointsConfig] = deriveDecoder
-}
-
-/**
- * Information about a node willing to run workers to join Fluence clusters.
- *
- * @param endpoints information about a node possible endpoints (IP and ports) that will be used as addresses
- *                 for requests after a cluster will be formed
- * @param validatorKey Tendermint validator public key, used by node for participation in Tendermint consensus
- * @param nodeAddress p2p ID for this node. Basically first 20 bytes of p2p peer SHA256(PubKey)
- */
-case class NodeConfig(
-  endpoints: EndpointsConfig,
-  validatorKey: ValidatorKey,
-  nodeAddress: String,
-  workerImage: DockerImage,
-  isPrivate: Boolean = false
-)
-
-object NodeConfig {
-  implicit val encodeNodeConfig: Encoder[NodeConfig] = deriveEncoder
-  implicit val decodeNodeConfig: Decoder[NodeConfig] = deriveDecoder
+  def load(): IO[MasterConfig] =
+    for {
+      config <- loadConfig()
+      masterConfig <- pureconfig.loadConfig[MasterConfig](config).toIO
+    } yield masterConfig
 }

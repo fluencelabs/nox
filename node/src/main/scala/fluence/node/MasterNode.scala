@@ -17,18 +17,23 @@
 package fluence.node
 import java.nio.file._
 
+import cats.Parallel
 import cats.effect._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
 import cats.effect.syntax.effect._
-import fluence.node.config.NodeConfig
+import com.softwaremill.sttp.SttpBackend
+import fluence.ethclient.EthClient
+import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.docker.DockerImage
 import fluence.node.eth._
 import fluence.node.workers.tendermint.config.WorkerConfigWriter
 import fluence.node.workers.tendermint.config.WorkerConfigWriter.WorkerConfigPaths
 import fluence.node.workers._
+import scodec.bits.ByteVector
+import slogging.LazyLogging
 
 import scala.language.higherKinds
 
@@ -127,8 +132,11 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
         }
 
       case DropPeerWorker(appId, vk) ⇒
-        // TODO implement dropping peer worker
-        ().pure[F]
+        pool.get(appId).flatMap {
+          case Some(w) ⇒
+            w.control.dropPeer(vk)
+          case None ⇒ ().pure[F]
+        }
 
       case NewBlockReceived(block) ⇒
         ().pure[F]
@@ -157,4 +165,31 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
           logger.info("Execution finished")
           ExitCode.Success
       }
+}
+
+object MasterNode extends LazyLogging {
+
+  def resource[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer, G[_]](
+    masterConfig: MasterConfig,
+    nodeConfig: NodeConfig,
+    rootPath: Path
+  )(implicit sttpBackend: SttpBackend[F, Nothing], P: Parallel[F, G]): Resource[F, MasterNode[F]] =
+    for {
+      ethClient <- EthClient.makeHttpResource[F](Some(masterConfig.ethereum.uri))
+      pool <- WorkersPool.apply()
+      nodeEth ← NodeEth[F](nodeConfig.validatorKey.toByteVector, ethClient, masterConfig.contract)
+
+      _ ← Resource.liftF(ethClient.waitEthSyncing[F]())
+
+      codeManager <- Resource.liftF(CodeManager[F](masterConfig.swarm))
+
+    } yield
+      MasterNode[F](
+        nodeConfig,
+        nodeEth,
+        pool,
+        codeManager,
+        rootPath,
+        masterConfig.masterContainerId
+      )
 }

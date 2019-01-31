@@ -22,11 +22,11 @@ import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.eth.NodeEthState
 import fluence.node.eth.state.{Cluster, WorkerPeer}
 import fluence.node.workers.health.WorkerHealth
-import io.circe.{Encoder, KeyEncoder}
+import io.circe.{Decoder, Encoder, KeyDecoder, KeyEncoder}
 import io.circe.generic.semiauto._
 import scodec.bits.ByteVector
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 
 /**
  * Master node status.
@@ -56,10 +56,26 @@ object MasterStatus {
   private implicit val encodeByteVector: Encoder[ByteVector] = Encoder.encodeString.contramap(_.toHex)
   private implicit val encodeInetAddress: Encoder[InetAddress] = Encoder.encodeString.contramap(_.toString)
   private implicit val encodeWorkerPeer: Encoder[WorkerPeer] = deriveEncoder
-  private implicit val encodeFiniteDuration: Encoder[FiniteDuration] = Encoder.encodeString.contramap(_.toString())
+  private implicit val encodeFiniteDuration: Encoder[FiniteDuration] = Encoder.encodeLong.contramap(_.toSeconds)
   private implicit val encodeCluster: Encoder[Cluster] = deriveEncoder
   private implicit val encodeApp: Encoder[fluence.node.eth.state.App] = deriveEncoder
   private implicit val keyEncoderByteVector: KeyEncoder[ByteVector] = KeyEncoder.instance(_.toHex)
   private implicit val encodeNodeEthState: Encoder[NodeEthState] = deriveEncoder
   implicit val encodeMasterState: Encoder[MasterStatus] = deriveEncoder
+
+// Used for tests
+  private implicit val decodeEthTx: Decoder[Transaction] = deriveDecoder
+  private implicit val decodeEthBlock: Decoder[Block] = deriveDecoder
+  private implicit val decodeByteVector: Decoder[ByteVector] =
+    Decoder.decodeString.flatMap(
+      ByteVector.fromHex(_).fold(Decoder.failedWithMessage[ByteVector]("Not a hex"))(Decoder.const)
+    )
+  private implicit val decodeInetAddress: Decoder[InetAddress] = Decoder.decodeString.map(InetAddress.getByName)
+  private implicit val decodeWorkerPeer: Decoder[WorkerPeer] = deriveDecoder
+  private implicit val decodeFiniteDuration: Decoder[FiniteDuration] = Decoder.decodeLong.map(_ seconds)
+  private implicit val decodeCluster: Decoder[Cluster] = deriveDecoder
+  private implicit val decodeApp: Decoder[fluence.node.eth.state.App] = deriveDecoder
+  private implicit val keyDecoderByteVector: KeyDecoder[ByteVector] = KeyDecoder.instance(ByteVector.fromHex(_))
+  private implicit val decodeNodeEthState: Decoder[NodeEthState] = deriveDecoder
+  implicit val decodeMasterState: Decoder[MasterStatus] = deriveDecoder
 }

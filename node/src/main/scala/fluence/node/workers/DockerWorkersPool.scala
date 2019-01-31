@@ -16,8 +16,11 @@
 
 package fluence.node.workers
 import cats.{Applicative, Parallel}
-import cats.effect.{Concurrent, ContextShift, Sync, Timer}
-import cats.effect.concurrent.Ref
+import cats.syntax.functor._
+import cats.syntax.flatMap._
+import cats.syntax.applicative._
+import cats.effect.{Concurrent, ContextShift, Timer}
+import cats.effect.concurrent.{Deferred, Ref}
 import com.softwaremill.sttp.SttpBackend
 import fluence.node.workers.health.HealthCheckConfig
 import slogging.LazyLogging
@@ -56,6 +59,25 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
     } yield (healthy, oldWorker)
   }
 
+  private def runWorker(params: WorkerParams): F[Unit] =
+    for {
+      deferred ← Deferred[F, Unit]
+      _ <- Concurrent[F].start(
+        Worker
+          .run[F](params, healthCheckConfig, deferred.complete(()))
+          .use(
+            worker ⇒
+              for {
+                _ ← workers.update(_.updated(params.appId, worker))
+                _ ← deferred.get
+                _ = logger.info(s"Removing worker from a pool: $params")
+                _ ← workers.update(_ - params.appId)
+              } yield ()
+          )
+      )
+
+    } yield ()
+
   /**
    * Runs a new [[Worker]] in the pool.
    *
@@ -64,25 +86,14 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
    */
   override def run(params: WorkerParams): F[WorkersPool.RunResult] =
     checkWorkerHealthy(params.appId).flatMap {
-      case (false, Some(oldWorker)) ⇒
+      case (false, oldWorker) ⇒
         for {
           // stop an old worker
-          _ <- stop(oldWorker)
-          worker <- Worker.run[F](params, healthCheckConfig, Sync[F].suspend {
-            logger.info(s"Removing worker from a pool: $params")
-            workers.update(_ - params.appId)
-          })
-          _ ← workers.update(_.updated(params.appId, worker))
-        } yield WorkersPool.Restarted
-
-      case (false, None) ⇒
-        for {
-          worker <- Worker.run[F](params, healthCheckConfig, Sync[F].suspend {
-            logger.info(s"Removing worker from a pool: $params")
-            workers.update(_ - params.appId)
-          })
-          _ ← workers.update(_.updated(params.appId, worker))
-        } yield WorkersPool.Ran
+          _ <- oldWorker.fold(().pure[F])(stop)
+          _ ← runWorker(params)
+        } yield
+          if (oldWorker.isDefined) WorkersPool.Restarted
+          else WorkersPool.Ran
 
       case (true, oldWorker) ⇒
         logger.info(s"Worker for app ${params.appId} was already ran as $oldWorker")

@@ -24,7 +24,7 @@ import cats.syntax.functor._
 import cats.effect.concurrent.{Deferred, Ref}
 import fluence.ethclient.EthClient
 import fluence.ethclient.data.Block
-import fluence.node.eth.conf.FluenceContractConfig
+import fluence.node.config.FluenceContractConfig
 import org.web3j.abi.datatypes.generated.Bytes32
 import scodec.bits.ByteVector
 

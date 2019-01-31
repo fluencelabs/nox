@@ -17,7 +17,7 @@
 package fluence.node.workers.tendermint.rpc
 
 import cats.data.EitherT
-import cats.effect.{Concurrent, Sync}
+import cats.effect.{Concurrent, Resource, Sync}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.either._
@@ -37,13 +37,11 @@ import scala.language.higherKinds
  *
  * @param sinkRpc Tendermint's RPC requests endpoint
  * @param status Tendermint's status
- * @param stop A callback that releases the acquired resources, namely it stops the RPC stream
  * @tparam F Concurrent effect
  */
 case class TendermintRpc[F[_]] private (
   sinkRpc: fs2.Sink[F, TendermintRpc.Request],
-  status: EitherT[F, Throwable, StatusResponse.WorkerTendermintInfo],
-  private[workers] val stop: F[Unit]
+  status: EitherT[F, Throwable, StatusResponse.WorkerTendermintInfo]
 ) {
 
   val broadcastTxCommit: fs2.Sink[F, String] =
@@ -122,34 +120,39 @@ object TendermintRpc {
    */
   def apply[F[_]: Concurrent](
     params: WorkerParams
-  )(implicit sttpBackend: SttpBackend[F, Nothing]): F[TendermintRpc[F]] =
-    for {
-      queue ← fs2.concurrent.Queue.noneTerminated[F, TendermintRpc.Request]
-      fiber ← Concurrent[F].start(
-        queue.dequeue
-          .evalMap(
-            req ⇒
-              sttpBackend
-                .send(
-                  sttp
-                    .post(uri"http://${params.currentWorker.ip.getHostAddress}:${params.currentWorker.rpcPort}/")
-                    .body(req.toJsonString)
-                )
-                .map(_.isSuccess)
+  )(implicit sttpBackend: SttpBackend[F, Nothing]): Resource[F, TendermintRpc[F]] =
+    Resource
+      .make(
+        for {
+          queue ← fs2.concurrent.Queue.noneTerminated[F, TendermintRpc.Request]
+          fiber ← Concurrent[F].start(
+            queue.dequeue
+              .evalMap(
+                req ⇒
+                  sttpBackend
+                    .send(
+                      sttp
+                        .post(uri"http://${params.currentWorker.ip.getHostAddress}:${params.currentWorker.rpcPort}/")
+                        .body(req.toJsonString)
+                    )
+                    .map(_.isSuccess)
+              )
+              .drain
+              .compile
+              .drain
           )
-          .drain
-          .compile
-          .drain
-      )
 
-      enqueue = queue.enqueue
-      stop = fs2.Stream(None).to(enqueue).compile.drain *> fiber.join
-      callRpc = toSomePipe[F, TendermintRpc.Request].andThen(_ to enqueue)
+          enqueue = queue.enqueue
+          stop = fs2.Stream(None).to(enqueue).compile.drain *> fiber.join
+          callRpc = toSomePipe[F, TendermintRpc.Request].andThen(_ to enqueue)
 
-    } yield
-      new TendermintRpc[F](
-        callRpc,
-        status[F](params),
-        stop
-      )
+        } yield
+          new TendermintRpc[F](
+            callRpc,
+            status[F](params)
+          ) → stop
+      ) {
+        case (_, stop) ⇒ stop
+      }
+      .map(_._1)
 }

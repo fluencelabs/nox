@@ -18,9 +18,12 @@ package fluence.node.workers
 
 import java.nio.file.{Files, Path, Paths}
 
+import cats.Applicative
 import cats.effect.Sync
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import com.softwaremill.sttp.SttpBackend
+import fluence.node.config.SwarmConfig
 import fluence.swarm.SwarmClient
 import scodec.bits.ByteVector
 
@@ -115,4 +118,16 @@ class SwarmCodeManager[F[_]](swarmClient: SwarmClient[F])(implicit F: Sync[F]) e
   override def prepareCode(path: CodePath, workerPath: Path): F[Path] = {
     downloadAndWriteCodeToFile(workerPath, path.asHex)
   }
+}
+
+object CodeManager {
+
+  def apply[F[_]: Sync](config: Option[SwarmConfig])(implicit sttpBackend: SttpBackend[F, Nothing]): F[CodeManager[F]] =
+    config match {
+      case Some(c) =>
+        SwarmClient(c.host)
+          .map(client => new SwarmCodeManager[F](client))
+      case None =>
+        Applicative[F].pure(new TestCodeManager[F]())
+    }
 }

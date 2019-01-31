@@ -28,7 +28,7 @@ import org.scalatest.{Timer ⇒ _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 import eth.FluenceContractTestOps._
-import fluence.node.eth.conf.FluenceContractConfig
+import fluence.node.config.FluenceContractConfig
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -60,7 +60,9 @@ class MasterNodeIntegrationSpec
     import MasterStatus._
     for {
       resp <- sttp.response(asJson[MasterStatus]).get(uri"http://127.0.0.1:$statusPort/status").send()
-    } yield resp.unsafeBody.right.get
+    } yield {
+      resp.unsafeBody.right.get
+    }
   }
 
   //TODO: change check to Master's HTTP API

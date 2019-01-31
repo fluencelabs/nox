@@ -14,8 +14,21 @@
  * limitations under the License.
  */
 
-package fluence.node.eth.conf
+package fluence.node.workers.control
+import scodec.bits.ByteVector
 
-case class EthereumRpcConfig(protocol: String, ip: String, port: Int) {
-  val uri = s"$protocol://$ip:$port"
+import scala.language.higherKinds
+
+abstract class ControlRpc[F[_]] {
+
+  def dropPeer(key: ByteVector): F[Unit]
+
+}
+
+object ControlRpc {
+
+  def apply[F[_]](): ControlRpc[F] = new ControlRpc[F] {
+    override def dropPeer(key: ByteVector): F[Unit] = ???
+  }
+
 }

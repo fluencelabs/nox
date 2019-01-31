@@ -14,30 +14,23 @@
  * limitations under the License.
  */
 
-package fluence.node
+package fluence.node.config
+
 import java.nio.file.{Path, Paths}
 
 import cats.effect.{ContextShift, IO, Sync}
-import fluence.node.config.{MasterConfig, NodeConfig, StatusServerConfig, SwarmConfig}
-import ConfigOps._
 import com.typesafe.config.Config
+import fluence.node.config.ConfigOps._
 import fluence.node.docker.{DockerIO, DockerImage, DockerParams}
-import fluence.node.eth.conf.{EthereumRpcConfig, FluenceContractConfig}
 import fluence.node.workers.tendermint.ValidatorKey
 import io.circe.parser._
-import pureconfig.generic.auto._
 
 import scala.language.higherKinds
 
 // TODO this is the configuration for what? why so many fields are taken from MasterConfig? could we simplify?
 case class Configuration(
   rootPath: Path,
-  nodeConfig: NodeConfig,
-  contractConfig: FluenceContractConfig,
-  swarmConfig: Option[SwarmConfig],
-  statsServerConfig: StatusServerConfig,
-  ethereumRpcConfig: EthereumRpcConfig,
-  masterContainerId: Option[String]
+  nodeConfig: NodeConfig
 )
 
 object Configuration extends slogging.LazyLogging {
@@ -55,26 +48,17 @@ object Configuration extends slogging.LazyLogging {
     }).toIO
   }
 
-  def create()(implicit ec: ContextShift[IO]): IO[(MasterConfig, Configuration)] =
+  // TODO avoid this! it's not configuration, and what is being done there is very obscure!
+  def init(masterConfig: MasterConfig)(implicit ec: ContextShift[IO]): IO[Configuration] =
     for {
-      config <- loadConfig()
-      masterConfig <- pureconfig.loadConfig[MasterConfig](config).toIO
       rootPath <- IO(Paths.get(masterConfig.tendermintPath).toAbsolutePath)
       t <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.worker)
       (nodeId, validatorKey) = t
       nodeConfig = NodeConfig(masterConfig.endpoints, validatorKey, nodeId, masterConfig.worker)
     } yield
-      (
-        masterConfig,
-        Configuration(
-          rootPath,
-          nodeConfig,
-          masterConfig.contract,
-          masterConfig.swarm,
-          masterConfig.statusServer,
-          masterConfig.ethereum,
-          masterConfig.masterContainerId
-        )
+      Configuration(
+        rootPath,
+        nodeConfig
       )
 
   /**
@@ -84,22 +68,33 @@ object Configuration extends slogging.LazyLogging {
    * @param masterContainerId id of master docker container (container running this code), if it's run inside Docker
    * @return nodeId and validator key
    */
-  def tendermintInit(masterContainerId: Option[String], rootPath: Path, workerImage: DockerImage)(
+  private def tendermintInit(masterContainerId: Option[String], rootPath: Path, workerImage: DockerImage)(
     implicit c: ContextShift[IO]
   ): IO[(String, ValidatorKey)] = {
 
     val tendermintDir = rootPath.resolve("tendermint") // /master/tendermint
     def tendermint[F[_]: Sync: ContextShift](cmd: String, uid: String): F[String] =
-      DockerIO.exec[F](
-        masterContainerId
-          .foldLeft(
-            DockerParams
-              .build()
-              .user(uid)
-          )(_.option("--volumes-from", _))
-          .image(workerImage)
-          .run("tendermint", cmd, s"--home=$tendermintDir")
-      )
+      DockerIO.exec[F] {
+        val params = DockerParams
+          .build()
+          .user(uid)
+
+        masterContainerId match {
+          case Some(cId) ⇒
+            params
+              .option("--volumes-from", cId)
+              .image(workerImage)
+              .run("tendermint", cmd, s"--home=$tendermintDir")
+
+          case None ⇒
+            params
+              .volume(tendermintDir.toString, "/shared")
+              .image(workerImage)
+              .run("tendermint", cmd, s"--home=/shared")
+
+        }
+
+      }
 
     for {
       uid <- IO(scala.sys.process.Process("id -u").!!.trim)

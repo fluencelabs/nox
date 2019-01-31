@@ -16,8 +16,8 @@
 
 package fluence.node.docker
 
-import cats.{Applicative, Apply}
-import cats.effect.{ContextShift, Sync, Timer}
+import cats.Applicative
+import cats.effect.{ContextShift, Resource, Sync, Timer}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -28,6 +28,17 @@ import scala.concurrent.duration._
 import scala.language.higherKinds
 import scala.sys.process._
 import scala.util.{Failure, Success, Try}
+
+case class DockerIO(containerId: String) {
+
+  def check[F[_]: Sync: ContextShift]: F[DockerRunStatus] =
+    DockerIO.checkContainer(containerId)
+
+  def checkPeriodically[F[_]: Timer: Sync: ContextShift](
+    period: FiniteDuration
+  ): fs2.Stream[F, DockerRunStatus] =
+    fs2.Stream.emit(containerId) through DockerIO.checkPeriodically(period)
+}
 
 object DockerIO extends LazyLogging {
 
@@ -61,8 +72,8 @@ object DockerIO extends LazyLogging {
    * @param params parameters for Docker container, must start with `docker run -d`
    * @return a stream that produces a docker container ID
    */
-  def run[F[_]: Sync: ContextShift](params: DockerParams.DaemonParams): fs2.Stream[F, String] =
-    fs2.Stream.bracketCase {
+  def run[F[_]: Sync: ContextShift](params: DockerParams.DaemonParams): Resource[F, DockerIO] =
+    Resource.makeCase {
       logger.info(s"Running docker: ${params.command.mkString(" ")}")
       // TODO: if we have another docker container with the same name, we should rm -f it
       shiftDelay(Try(params.process.!!).map(_.trim))
@@ -79,8 +90,8 @@ object DockerIO extends LazyLogging {
         logger.warn(s"Can't cleanup the docker container as it's failed to launch: $err", err)
         Applicative[F].unit
     }.flatMap {
-      case Success(dockerId) ⇒ fs2.Stream.emit(dockerId)
-      case Failure(err) ⇒ fs2.Stream.raiseError(err)
+      case Success(dockerId) ⇒ Resource.pure(DockerIO(dockerId))
+      case Failure(err) ⇒ Resource.liftF(Sync[F].raiseError(err))
     }
 
   /**
@@ -91,17 +102,13 @@ object DockerIO extends LazyLogging {
    */
   def checkPeriodically[F[_]: Timer: Sync: ContextShift](
     period: FiniteDuration
-  ): fs2.Pipe[F, String, (Long, Boolean)] =
+  ): fs2.Pipe[F, String, DockerRunStatus] =
     _.flatMap(
       dockerId ⇒
         fs2.Stream
           .awakeEvery[F](period)
           .evalMap(
-            _ ⇒
-              Apply[F].map2(checkContainer(dockerId), Timer[F].clock.realTime(MILLISECONDS)) {
-                case (DockerRunStatus(time, isRunning), now) ⇒
-                  (now - time) -> isRunning
-            }
+            _ ⇒ checkContainer(dockerId)
         )
     )
 

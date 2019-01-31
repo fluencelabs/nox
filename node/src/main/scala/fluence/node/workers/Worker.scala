@@ -19,29 +19,31 @@ package fluence.node.workers
 import cats.Applicative
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
-import cats.syntax.apply._
-import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.softwaremill.sttp._
 import fluence.node.docker.DockerIO
+import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.health._
 import fluence.node.workers.tendermint.rpc.TendermintRpc
 import slogging.LazyLogging
 
 import scala.language.higherKinds
+import scala.concurrent.duration.MILLISECONDS
 
 /**
  * Single running worker's datatype
  *
  * @param params this worker's description
- * @param rpc RPC endpoints for the worker
+ * @param tendermint Tendermint RPC endpoints for the worker
+ * @param control Control RPC endpoints for the worker
  * @param healthReportRef a reference to the last healthcheck, updated every time a new healthcheck is being made
  * @param stop stops the worker, should be launched only once
  * @tparam F the effect
  */
 case class Worker[F[_]] private (
   params: WorkerParams,
-  rpc: TendermintRpc[F],
+  tendermint: TendermintRpc[F],
+  control: ControlRpc[F],
   private val healthReportRef: Ref[F, WorkerHealth],
   stop: F[Unit]
 ) {
@@ -59,40 +61,48 @@ object Worker extends LazyLogging {
   private def runDockerWithHealthCheck[F[_]: Concurrent: ContextShift: Timer](
     params: WorkerParams,
     healthReportRef: Ref[F, WorkerHealth],
-    stop: Deferred[F, Either[Throwable, Unit]],
     healthcheck: HealthCheckConfig,
     rpc: TendermintRpc[F]
-  )(implicit sttpBackend: SttpBackend[F, Nothing]): F[Unit] =
-    DockerIO
-      .run[F](params.dockerCommand)
-      .through(
-        // Check that container is running every healthcheck.period
-        DockerIO.checkPeriodically[F](healthcheck.period)
-      )
-      .evalMap[F, WorkerHealth] {
-        case (uptime, true) ⇒
-          rpc.status.value.map {
-            case Left(err) ⇒
-              logger.error("Worker HTTP check failed: " + err.getLocalizedMessage, err)
-              WorkerHttpCheckFailed(StoppedWorkerInfo(params.currentWorker), err)
+  )(implicit sttpBackend: SttpBackend[F, Nothing]): Resource[F, DockerIO] =
+    for {
+      stop ← deferredStop[F]
+      container ← DockerIO.run[F](params.dockerCommand)
+      _ ← runBackground(
+        container
+          .checkPeriodically[F](healthcheck.period)
+          .evalMap(st ⇒ Timer[F].clock.realTime(MILLISECONDS).map(now ⇒ (now - st.startedAt) → st.isRunning))
+          .evalMap[F, WorkerHealth] {
+            case (uptime, true) ⇒
+              rpc.status.value.map {
+                case Left(err) ⇒
+                  logger.error("Worker HTTP check failed: " + err.getLocalizedMessage, err)
+                  WorkerHttpCheckFailed(StoppedWorkerInfo(params.currentWorker), err)
 
-            case Right(tendermintInfo) ⇒
-              val info = RunningWorkerInfo(params, tendermintInfo)
-              WorkerRunning(uptime, info)
-          }.map { health ⇒
-            logger.debug(s"HTTP health is: $health")
-            health
+                case Right(tendermintInfo) ⇒
+                  val info = RunningWorkerInfo(params, tendermintInfo)
+                  WorkerRunning(uptime, info)
+              }.map { health ⇒
+                logger.debug(s"HTTP health is: $health")
+                health
+              }
+
+            case (_, false) ⇒
+              logger.error(s"Healthcheck is failing for worker: $params")
+              Applicative[F].pure(WorkerContainerNotRunning(StoppedWorkerInfo(params.currentWorker)))
           }
+          .evalTap(healthReportRef.set)
+          .interruptWhen(stop)
+          .sliding(healthcheck.slide)
+          .compile
+          .drain
+      )
+    } yield container
 
-        case (_, false) ⇒
-          logger.error(s"Healthcheck is failing for worker: $params")
-          Applicative[F].pure(WorkerContainerNotRunning(StoppedWorkerInfo(params.currentWorker)))
-      }
-      .evalTap(healthReportRef.set)
-      .interruptWhen(stop)
-      .sliding(healthcheck.slide)
-      .compile
-      .drain
+  private def runBackground[F[_]: Concurrent, T](fn: F[T]): Resource[F, Unit] =
+    Resource.make(Concurrent[F].start(fn))(_.join.map(_ ⇒ ())).map(_ ⇒ ())
+
+  private def deferredStop[F[_]: Concurrent]: Resource[F, Deferred[F, Either[Throwable, Unit]]] =
+    Resource.make(Deferred[F, Either[Throwable, Unit]])(_.complete(Right(())))
 
   /**
    * Runs a single worker
@@ -105,17 +115,20 @@ object Worker extends LazyLogging {
    */
   def run[F[_]: Concurrent: ContextShift: Timer](params: WorkerParams, healthcheck: HealthCheckConfig, onStop: F[Unit])(
     implicit sttpBackend: SttpBackend[F, Nothing]
-  ): F[Worker[F]] =
+  ): Resource[F, Worker[F]] =
     for {
-      healthReportRef ← Ref.of[F, WorkerHealth](
-        WorkerNotYetLaunched(StoppedWorkerInfo(params.currentWorker))
+      healthReportRef ← Resource.liftF(
+        Ref.of[F, WorkerHealth](
+          WorkerNotYetLaunched(StoppedWorkerInfo(params.currentWorker))
+        )
       )
-      stop ← Deferred[F, Either[Throwable, Unit]]
 
       rpc ← TendermintRpc[F](params)
 
-      fiber ← Concurrent[F].start(runDockerWithHealthCheck(params, healthReportRef, stop, healthcheck, rpc))
+      _ ← runDockerWithHealthCheck(params, healthReportRef, healthcheck, rpc)
 
-    } yield new Worker[F](params, rpc, healthReportRef, stop.complete(Right(())) *> rpc.stop *> fiber.join *> onStop)
+      control = ControlRpc[F]()
+
+    } yield new Worker[F](params, rpc, control, healthReportRef, onStop)
 
 }

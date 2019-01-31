@@ -19,7 +19,7 @@ package fluence.node.status
 import cats.data.Kleisli
 import cats.effect._
 import fluence.node.MasterNode
-import fluence.node.config.{MasterConfig, StatusServerConfig}
+import fluence.node.config.MasterConfig
 import io.circe.syntax._
 import org.http4s._
 import org.http4s.dsl.io._
@@ -27,6 +27,7 @@ import org.http4s.implicits._
 import org.http4s.server.Server
 import org.http4s.server.blaze._
 import org.http4s.server.middleware.{CORS, CORSConfig}
+import slogging.LazyLogging
 
 import scala.concurrent.duration._
 import scala.language.higherKinds
@@ -66,7 +67,7 @@ case class StatusAggregator(config: MasterConfig, masterNode: MasterNode[IO], st
   }
 }
 
-object StatusAggregator {
+object StatusAggregator extends LazyLogging {
 
   val corsConfig = CORSConfig(
     anyOrigin = true,
@@ -83,6 +84,7 @@ object StatusAggregator {
       HttpRoutes
         .of[IO] {
           case GET -> Root / "status" =>
+            logger.info(Console.BLUE + "we got STATUS request" + Console.RESET)
             sm.getStatus.flatMap(state => Ok(state.asJson.spaces2))
         }
         .orNotFound,
@@ -92,22 +94,24 @@ object StatusAggregator {
   /**
    * Makes the server that gives gathered information about a master node and workers.
    *
-   * @param statServerConfig server's parameters
    * @param masterConfig parameters about a master node
    * @param masterNode initialized master node
    */
   def makeHttpResource(
-    statServerConfig: StatusServerConfig,
     masterConfig: MasterConfig,
-    masterNode: MasterNode[IO],
-    startTimeMillis: Long
+    masterNode: MasterNode[IO]
   )(
     implicit cs: ContextShift[IO],
     timer: Timer[IO]
   ): Resource[IO, Server[IO]] =
-    BlazeServerBuilder[IO]
-      .bindHttp(statServerConfig.port, "0.0.0.0")
-      .withHttpApp(statusService(StatusAggregator(masterConfig, masterNode, startTimeMillis)))
-      .resource
+    Resource
+      .liftF(timer.clock.realTime(MILLISECONDS))
+      .flatMap(
+        startTimeMillis ⇒
+          BlazeServerBuilder[IO]
+            .bindHttp(masterConfig.statusServer.port, "0.0.0.0")
+            .withHttpApp(statusService(StatusAggregator(masterConfig, masterNode, startTimeMillis)))
+            .resource
+      )
 
 }
