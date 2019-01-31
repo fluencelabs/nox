@@ -45,7 +45,7 @@ def copy_resources():
     put('scripts/parity.yml', 'scripts/')
     put('scripts/swarm.yml', 'scripts/')
 
-def register(data, secret_key):
+def register_command(data, secret_key):
     eth_url = "http://" + data['node_ip'] + ":8545"
     command = "./fluence register \
         --node_ip            %s \
@@ -61,7 +61,7 @@ def register(data, secret_key):
         --base64_tendermint_key" % (data['node_ip'], data['tendermint_key'], data['tendermint_node_id'], data['contract_address'],
                                     data['account'], secret_key, data['start_port'], data['last_port'], eth_url)
 
-    local(command)
+    return command
 
 
 # comment this annotation to deploy sequentially
@@ -107,5 +107,6 @@ def deploy():
                 # TODO return all arguments instead of the command itself or make a file or an output with all common commands
                 meta_data = output.stdout.splitlines()[-1]
                 json_data = json.loads(meta_data)
-                register(json_data, current_key)
+                command = register_command(json_data, current_key)
+                local(command)
 
