@@ -92,6 +92,12 @@
 //!     }
 //!
 //! ```
+//!
+//! There is an other possibility to initialize logger from `VM wrapper` by exported function
+//! `init_logger`. To specify logging level please include sdk with one of these features:
+//! `wasm_logger_info`, `wasm_logger_warn`, `wasm_logger_error`. If you specified some of them
+//! the most common level will be used.
+//!
 //! [`WasmLogger`]: struct.WasmLogger.html
 //! [`log`]: https://docs.rs/log
 //! [`simple_logger`]: https://docs.rs/simple_logger
@@ -153,7 +159,7 @@ impl WasmLogger {
     /// }
     ///
     /// error!("This message will be logged.");
-    /// trace!("This message will not be logged too.");
+    /// trace!("This message will not be logged.");
     /// # }
     /// ```
     pub fn init() -> Result<(), log::SetLoggerError> {
@@ -165,14 +171,14 @@ impl WasmLogger {
 /// in memory. Enabled only for a Wasm targets.
 #[no_mangle]
 #[cfg(target_arch = "wasm32")]
-pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
-    // if there are several wasm logger features specified choose the narrow one
-    let log_level = if cfg!(feature = "wasm_logger_error") {
-        log::Level::Error
+pub unsafe fn init_logger() -> NonNull<u8> {
+    // if there are several wasm logger features specified choose the most general one
+    let log_level = if cfg!(feature = "wasm_logger_info") {
+        log::Level::Info
     } else if cfg!(feature = "wasm_logger_warn") {
         log::Level::Warn
     } else {
-        log::Level::Info
+        log::Level::Error
     };
 
     let result = WasmLogger::init_with_level(log_level)
@@ -181,8 +187,9 @@ pub unsafe fn init_logger(_: *mut u8, _: usize) -> NonNull<u8> {
 
     warn!("{}\n", result);
 
+    // returns logger initialization result as a string
     crate::memory::write_result_to_mem(&result.as_bytes()).unwrap_or_else(|_| {
-        let error_msg = "Putting result string to the memory was failed.";
+        let error_msg = "Writing result string to memory was failed.";
         error!("{}", error_msg);
         panic!(error_msg);
     })
