@@ -78,7 +78,7 @@ Parameters are:
 - `--start_port 25000` and `--last_port 25010` denote ports where apps (workers) will be hosted. 25000:25010 is inclusive, so 10 workers could be started on such a node
 
 
-### Publish app
+### Publish an app
 To deploy your app on Fluence network, you must upload it to Swarm and publish hash to smart-contract. The simplest way to achieve that is to use CLI command `publish`.
 
 The following command will publish app `counter.wasm`.
@@ -102,7 +102,33 @@ Interesting bits:
 
 Please refer to [Fluence Rust SDK](../sdk/rust/README.md) to get information about developing apps with Fluence.
 
-### Delete app
+#### Waiting for an app to be deployed or enqueued
+You can pass `--wait` option to `publish` command, and CLI will wait until transaction is included in a block, and then provide you with information about app deployment status and app id.
+Deployed application:
+```bash
+[1/3]   Application code uploaded. ---> [00:00:00]
+swarm hash: 0x585114171e6b1639af3e9a4f237d8da6d1c5624b235cb45c062ca5d89a151cc2
+[2/3]   Transaction publishing app was sent. ---> [00:00:00]
+  tx hash: 0xf62a8823e95804bf1f8d3832c0c49d44c7c138c1a541f9f5c0dbe7cd34056f40
+[3/3]   Transaction was included. ---> [00:00:00]
+App deployed.
+   app id: 1
+  tx hash: 0xf62a8823e95804bf1f8d3832c0c49d44c7c138c1a541f9f5c0dbe7cd34056f40
+```
+
+Enqueued:
+```bash
+[1/3]   Application code uploaded. ---> [00:00:00]
+swarm hash: 0x585114171e6b1639af3e9a4f237d8da6d1c5624b235cb45c062ca5d89a151cc2
+[2/3]   Transaction publishing app was sent. ---> [00:00:00]
+  tx hash: 0x4e87150da0e273fc7d44324e6843ba9abb91413f6fb6fdce67b7f7d4a1dd320a
+[3/3]   Transaction was included. ---> [00:00:00]
+App enqueued.
+   app id: 2
+  tx hash: 0x4e87150da0e273fc7d44324e6843ba9abb91413f6fb6fdce67b7f7d4a1dd320a
+```
+
+### Delete an app
 If you want to delete your app from smart contract, you can use `delete_app` command.
 
 The following will delete app with id `0x0000000000000000000000000000000000000000000000000000000000000002`. App id could be retrieved either from status (see below) or from smart-contract.
