@@ -1,6 +1,6 @@
 [package]
 name = "fluence"
-version = "0.1.1" # don't forget to change in README.md too
+version = "0.1.2" # don't forget to change in README.md too
 authors = ["Fluence Labs"]
 publish=false
 edition = "2018"
@@ -13,11 +13,11 @@ panic = 'abort'
 [dependencies]
 clap = "2.32.0"
 failure = "0.1.5"
-indicatif = "0.9.0"
+indicatif = "0.11.0"
 console = "0.6.2"
 reqwest = "0.9.3"
 hex = "0.3.2"
-web3 = { git = "https://github.com/tomusdrw/rust-web3", tag = "v0.5.1" }
+web3 = { git = "https://github.com/fluencelabs/rust-web3", branch = "master" }
 serde = "1.0"
 serde_json = "1.0"
 serde_derive = "1.0"
@@ -37,6 +37,10 @@ error-chain = "0.12.0"
 
 parity-wasm = "0.35"
 
+tui = {git = "https://github.com/fdehau/tui-rs.git", rev = "52a40ec99"}
+termion = "1.5"
+
 [dev-dependencies]
-futures = "0.1"
+futures = "0.1.25"
 rand = "0.6.0"
+

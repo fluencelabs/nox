@@ -14,165 +14,252 @@
  * limitations under the License.
  */
 
+use crate::command::EthereumArgs;
 use ethabi_contract::use_contract;
 use ethcore_transaction::{Action, Transaction};
 use ethkey::Secret;
-use web3::contract::Options;
 use web3::futures::Future;
 use web3::transports::Http;
-use web3::types::CallRequest;
-use web3::types::TransactionRequest;
-use web3::types::{Address, Bytes, H256};
+use web3::types::{Address, Bytes, Transaction as Web3Transaction, H256};
+use web3::types::{CallRequest, Log, TransactionId, TransactionRequest};
 use web3::Web3;
 
-use failure::Error;
-use failure::SyncFailure;
+use failure::{err_msg, Error, ResultExt, SyncFailure};
 
 use crate::credentials::Credentials;
 use crate::utils;
+use ethabi::RawLog;
+use std::time::Duration;
 
 use_contract!(contract, "../bootstrap/contracts/compiled/Network.abi");
 
-/// Interacts with contract
-pub struct ContractCaller {
-    eth_url: String,
-    contract_address: Address,
+/// Calls contract method and returns hash of the transaction
+pub fn call_contract(eth: &EthereumArgs, call_data: ethabi::Bytes) -> Result<H256, Error> {
+    let (_eloop, transport) = Http::new(&eth.eth_url.as_str()).map_err(SyncFailure::new)?;
+    let web3 = web3::Web3::new(transport);
+
+    match &eth.credentials {
+        Credentials::No => call_contract_trusted_node(web3, None, call_data, &eth),
+        Credentials::Password(pass) => {
+            call_contract_trusted_node(web3, Some(pass.as_str()), call_data, &eth)
+        }
+        Credentials::Secret(secret) => call_contract_local_sign(web3, &secret, call_data, &eth),
+    }
 }
 
-impl ContractCaller {
-    pub fn new(contract_address: Address, eth_url: &str) -> Result<ContractCaller, Error> {
-        let eth_url = eth_url.to_owned();
-        Ok(ContractCaller {
-            eth_url,
-            contract_address,
-        })
-    }
+/// Signs transaction with a secret key and sends a raw transaction to Ethereum node
+fn call_contract_local_sign(
+    web3: Web3<Http>,
+    secret: &Secret,
+    call_data: ethabi::Bytes,
+    eth: &EthereumArgs,
+) -> Result<H256, Error> {
+    let gas_price = web3.eth().gas_price().wait().map_err(SyncFailure::new)?;
+    let nonce = web3
+        .eth()
+        .transaction_count(eth.account, None)
+        .wait()
+        .map_err(SyncFailure::new)?;
 
-    /// Calls contract method and returns hash of the transaction
-    pub fn call_contract(
-        &self,
-        account: Address,
-        credentials: &Credentials,
-        call_data: ethabi::Bytes,
-        gas: u32,
-    ) -> Result<H256, Error> {
-        let (_eloop, transport) = Http::new(&self.eth_url.as_str()).map_err(SyncFailure::new)?;
-        let web3 = web3::Web3::new(transport);
+    let tx = Transaction {
+        nonce,
+        value: "0".parse()?,
+        action: Action::Call(eth.contract_address),
+        data: call_data,
+        gas: eth.gas.into(),
+        gas_price,
+    };
 
-        match credentials {
-            Credentials::No => self.call_contract_trusted_node(
-                web3,
-                account,
-                None,
-                utils::options_with_gas(gas),
-                call_data,
-            ),
-            Credentials::Password(pass) => self.call_contract_trusted_node(
-                web3,
-                account,
-                Some(pass.as_str()),
-                utils::options_with_gas(gas),
-                call_data,
-            ),
-            Credentials::Secret(secret) => {
-                self.call_contract_local_sign(web3, account, &secret, call_data, gas)
-            }
+    let tx_signed = tx.sign(secret, None);
+
+    let resp = web3
+        .eth()
+        .send_raw_transaction(Bytes(rlp::encode(&tx_signed).to_vec()))
+        .wait()
+        .map_err(SyncFailure::new)?;
+
+    Ok(resp)
+}
+
+/// Sends a transaction to a trusted node with an unlocked account (or, firstly, unlocks account with password)
+fn call_contract_trusted_node(
+    web3: Web3<Http>,
+    password: Option<&str>,
+    call_data: ethabi::Bytes,
+    eth: &EthereumArgs,
+) -> Result<H256, Error> {
+    let options = utils::options_with_gas(eth.gas);
+    let tx_request = TransactionRequest {
+        from: eth.account,
+        to: Some(eth.contract_address),
+        data: Some(Bytes(call_data)),
+        gas: options.gas,
+        gas_price: options.gas_price,
+        value: options.value,
+        nonce: options.nonce,
+        condition: options.condition,
+    };
+
+    let result = match password {
+        Some(p) => web3.personal().send_transaction(tx_request, p),
+        None => web3.eth().send_transaction(tx_request),
+    };
+
+    Ok(result.wait().map_err(SyncFailure::new)?)
+}
+
+/// Calls contract method and returns some result
+pub fn query_contract<R>(
+    call_data: ethabi::Bytes,
+    decoder: Box<R>,
+    eth_url: &str,
+    contract_address: Address,
+) -> Result<R::Output, Error>
+where
+    R: ethabi::FunctionOutputDecoder,
+{
+    let (_eloop, transport) = web3::transports::Http::new(eth_url).map_err(SyncFailure::new)?;
+    let web3 = web3::Web3::new(transport);
+    let call_request = CallRequest {
+        to: contract_address,
+        data: Some(Bytes(call_data)),
+        gas: None,
+        gas_price: None,
+        value: None,
+        from: None,
+    };
+    let result = web3
+        .eth()
+        .call(call_request, None)
+        .wait()
+        .map_err(SyncFailure::new)?;
+    let result: <R as ethabi::FunctionOutputDecoder>::Output = decoder
+        .decode(result.0.as_slice())
+        .map_err(SyncFailure::new)?;
+
+    Ok(result)
+}
+
+// Load transaction receipt, read events (logs) from it, and parse them via `parse_log` closure
+pub fn get_transaction_logs_raw<T, F>(
+    eth_url: &str,
+    tx: &H256,
+    parse_log: F,
+) -> Result<Vec<T>, Error>
+where
+    F: Fn(Log) -> Option<T>,
+{
+    let (_eloop, transport) = Http::new(eth_url).map_err(SyncFailure::new)?;
+    let web3 = web3::Web3::new(transport);
+    let receipt = web3
+        .eth()
+        .transaction_receipt(tx.clone())
+        .wait()
+        .map_err(SyncFailure::new)
+        .context(format!(
+            "Error retrieving transaction receipt for tx {:#x}",
+            tx
+        ))?
+        .ok_or(err_msg(format!("No receipt for tx {:#x}", tx)))?;
+
+    receipt
+        .status
+        .filter(|s| !s.is_zero())
+        .ok_or(err_msg(format!(
+            "Transaction {:#x} has status of 0, meaning it was reverted",
+            tx
+        )))?;
+
+    Ok(receipt.logs.into_iter().filter_map(parse_log).collect())
+}
+
+// Load transaction receipt, read events (logs) from it, and parse them via `parse_log` closure
+pub fn get_transaction_logs<T, F>(eth_url: &str, tx: &H256, parse_log: F) -> Result<Vec<T>, Error>
+where
+    F: Fn(RawLog) -> ethabi::Result<T>,
+{
+    get_transaction_logs_raw(eth_url, tx, |l| {
+        let raw = RawLog::from((l.topics, l.data.0));
+        parse_log(raw).ok()
+    })
+}
+
+// Block current thread and query `eth_getTransactionByHash` in loop, until transaction hash becomes non-null
+pub fn wait_tx_included(eth_url: String, tx: &H256) -> Result<Web3Transaction, Error> {
+    use std::thread;
+
+    let (_eloop, transport) = Http::new(eth_url.as_str()).map_err(SyncFailure::new)?;
+    let web3 = &web3::Web3::new(transport);
+
+    // TODO: move to config or to options
+    let max_attempts = 10;
+    let mut attempt = 0;
+
+    let tx = tx.clone();
+
+    fn as_string(r: Result<Option<Web3Transaction>, Error>) -> String {
+        match r {
+            Err(e) => e.to_string(),
+            _ => String::from("No transaction"),
         }
     }
 
-    /// Signs transaction with a secret key and sends a raw transaction to Ethereum node
-    fn call_contract_local_sign(
-        &self,
-        web3: Web3<Http>,
-        account: Address,
-        secret: &Secret,
-        call_data: ethabi::Bytes,
-        gas: u32,
-    ) -> Result<H256, Error> {
-        let gas_price = web3.eth().gas_price().wait().map_err(SyncFailure::new)?;
-        let nonce = web3
+    loop {
+        let tx_opt: Result<Option<Web3Transaction>, Error> = web3
             .eth()
-            .transaction_count(account, None)
-            .wait()
-            .map_err(SyncFailure::new)?;
+            .transaction(TransactionId::Hash(tx))
+            .map_err(SyncFailure::new)
+            .map_err(Into::into)
+            .wait();
 
-        let tx = Transaction {
-            nonce,
-            value: "0".parse()?,
-            action: Action::Call(self.contract_address.clone()),
-            data: call_data,
-            gas: gas.into(),
-            gas_price,
-        };
+        attempt += 1;
 
-        let tx_signed = tx.sign(secret, None);
+        match tx_opt {
+            Ok(Some(web3tx)) => {
+                if web3tx.block_number.is_some() {
+                    return Ok(web3tx);
+                }
+            }
+            r => {
+                if attempt == max_attempts {
+                    return Err(err_msg(format!(
+                        "[{:?}] All attempts ({}) have been used",
+                        as_string(r),
+                        max_attempts
+                    )));
+                } else {
+                    eprintln!(
+                        "[{:?}] Attempt {}/{} has failed",
+                        as_string(r),
+                        attempt,
+                        max_attempts
+                    )
+                }
+            }
+        }
 
-        let resp = web3
-            .eth()
-            .send_raw_transaction(Bytes(rlp::encode(&tx_signed).to_vec()))
-            .wait()
-            .map_err(SyncFailure::new)?;
+        // TODO: move to config or to options
+        thread::sleep(Duration::from_secs(5));
+    }
+}
 
-        Ok(resp)
+// Block current thread and query Ethereum node with eth_syncing until it finishes syncing blocks
+pub fn wait_sync(eth_url: String) -> Result<(), Error> {
+    use std::thread;
+
+    let (_eloop, transport) = Http::new(eth_url.as_str()).map_err(SyncFailure::new)?;
+    let web3 = &web3::Web3::new(transport);
+
+    // TODO: move to config or to options
+    let ten_seconds = Duration::from_secs(10);
+
+    loop {
+        if !utils::check_sync(web3)? {
+            break;
+        }
+
+        thread::sleep(ten_seconds);
     }
 
-    /// Sends a transaction to a trusted node with an unlocked account (or, firstly, unlocks account with password)
-    fn call_contract_trusted_node(
-        &self,
-        web3: Web3<Http>,
-        account: Address,
-        password: Option<&str>,
-        options: Options,
-        call_data: ethabi::Bytes,
-    ) -> Result<H256, Error> {
-        let tx_request = TransactionRequest {
-            from: account,
-            to: Some(self.contract_address.clone()),
-            data: Some(Bytes(call_data)),
-            gas: options.gas,
-            gas_price: options.gas_price,
-            value: options.value,
-            nonce: options.nonce,
-            condition: options.condition,
-        };
-
-        let result = match password {
-            Some(p) => web3.personal().send_transaction(tx_request, p),
-            None => web3.eth().send_transaction(tx_request),
-        };
-
-        Ok(result.wait().map_err(SyncFailure::new)?)
-    }
-
-    /// Calls contract method and returns some result
-    pub fn query_contract<R>(
-        &self,
-        call_data: ethabi::Bytes,
-        decoder: Box<R>,
-    ) -> Result<R::Output, Error>
-    where
-        R: ethabi::FunctionOutputDecoder,
-    {
-        let (_eloop, transport) =
-            web3::transports::Http::new(&self.eth_url.as_str()).map_err(SyncFailure::new)?;
-        let web3 = web3::Web3::new(transport);
-        let call_request = CallRequest {
-            to: self.contract_address.clone(),
-            data: Some(Bytes(call_data)),
-            gas: None,
-            gas_price: None,
-            value: None,
-            from: None,
-        };
-        let result = web3
-            .eth()
-            .call(call_request, None)
-            .wait()
-            .map_err(SyncFailure::new)?;
-        let result: <R as ethabi::FunctionOutputDecoder>::Output = decoder
-            .decode(result.0.as_slice())
-            .map_err(SyncFailure::new)?;
-
-        Ok(result)
-    }
+    Ok(())
 }

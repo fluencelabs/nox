@@ -18,13 +18,16 @@ use failure::Error;
 use failure::SyncFailure;
 
 use clap::{value_t, ArgMatches};
+use console::style;
 use ethkey::Secret;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::{Url, UrlError};
+use std::fmt::LowerHex;
 use web3::contract::Options;
 use web3::futures::Future;
 use web3::transports::Http;
 use web3::types::SyncState;
+use web3::types::H256;
 use web3::Web3;
 
 // Creates progress bar in the console until the work is over
@@ -49,7 +52,10 @@ use web3::Web3;
 // [1/2]   Code uploaded. ---> [00:00:10]
 // ```
 //
-pub fn with_progress<U, F: FnOnce() -> U>(msg: &str, prefix: &str, finish: &str, work: F) -> U {
+pub fn with_progress<U, F>(msg: &str, prefix: &str, finish: &str, work: F) -> U
+where
+    F: FnOnce() -> U,
+{
     let bar = create_progress_bar(prefix, msg);
     let result = work();
     bar.finish_with_message(finish);
@@ -68,6 +74,26 @@ fn create_progress_bar(prefix: &str, msg: &str) -> ProgressBar {
     bar.set_style(ProgressStyle::default_spinner().template(TEMPLATE));
 
     bar
+}
+
+// print info msg in 'blue: red bold' style
+pub fn print_info_msg(msg: &str, important: String) {
+    println!("{} {}", style(msg).blue(), style(important).red().bold())
+}
+
+// println info msg, hexifying the `id` argument
+pub fn print_info_id<T: LowerHex>(msg: &str, id: T) {
+    print_info_msg(msg, format!("{:#x}", id));
+}
+
+// println info msg, hexifying the `id` argument and right-aligning msg with 10-column width
+pub fn print_info_id_short<T: LowerHex>(msg: &str, id: T) {
+    println!("{0: >10} {1:#x}", style(msg).blue(), style(id).red().bold())
+}
+
+// println tx hash in `blue: red bold` style
+pub fn print_tx_hash(tx: H256) {
+    print_info_id_short("tx hash:", tx)
 }
 
 // Parses URL from the string

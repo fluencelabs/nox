@@ -24,7 +24,7 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
  * Collected information about running worker.
  */
 case class RunningWorkerInfo(
-  appId: String,
+  appId: Long,
   rpcPort: Short,
   p2pPort: Short,
   stateMachinePrometheusPort: Short,
@@ -39,7 +39,7 @@ object RunningWorkerInfo {
 
   def apply(params: WorkerParams, tendermintInfo: WorkerTendermintInfo): RunningWorkerInfo =
     RunningWorkerInfo(
-      params.appId.toHex,
+      params.appId,
       params.currentWorker.rpcPort,
       params.currentWorker.p2pPort,
       params.currentWorker.smPrometheusPort,
