@@ -145,6 +145,7 @@ fn integration_sql_test() {
 //
 // Private helper function.
 //
+//use fluence::;
 
 /// Executes sql and returns result as a String.
 fn execute_sql(sql: &str) -> String {
@@ -158,6 +159,7 @@ fn execute_sql(sql: &str) -> String {
         // 'invoke' method, have to forget 'sql_str'  for prevent deallocation
         mem::forget(sql_str);
         // converts results
-        fluence::memory::test::read_result_from_mem(result_str_ptr).unwrap()
+        let result_str = fluence::memory::test::read_result_from_mem(result_str_ptr).unwrap();
+        String::from_utf8(result_str).unwrap()
     }
 }

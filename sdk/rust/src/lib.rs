@@ -25,5 +25,8 @@ pub mod memory;
 #[cfg(any(wasm_logger_info, wasm_logger_warn, wasm_logger_error))]
 pub mod logger;
 
+//#[cfg(test)]
+pub use memory::test::read_result_from_mem;
+
 #[cfg(feature = "export_allocator")]
 pub mod export_allocator;

@@ -119,12 +119,12 @@ pub unsafe fn read_len(ptr: *mut u8) -> u32 {
     mem::transmute(len_as_bytes)
 }
 
-#[cfg(test)]
+//#[cfg(test)]
 pub mod test {
     use super::*;
     use std::num::NonZeroUsize;
 
-    pub unsafe fn read_result_from_memory(ptr: NonNull<u8>) -> MemResult<Vec<u8>> {
+    pub unsafe fn read_result_from_mem(ptr: NonNull<u8>) -> MemResult<Vec<u8>> {
         // read string length from current pointer
         let input_len = super::read_len(ptr.as_ptr()) as usize;
 
@@ -178,7 +178,7 @@ pub mod test {
             // writes and read 1mb string (takes several seconds)
             for _ in 1..10_000 {
                 let ptr = write_result_to_mem(mb_str.as_bytes()).unwrap();
-                let result_array = read_result_from_memory(ptr).unwrap();
+                let result_array = read_result_from_mem(ptr).unwrap();
                 let result_str = String::from_utf8(result_array).unwrap();
                 assert_eq!(mb_str, result_str);
             }
