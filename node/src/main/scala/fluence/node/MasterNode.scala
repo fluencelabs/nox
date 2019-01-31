@@ -122,6 +122,9 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
       case DropPeerWorker(appId, vk) ⇒
         // TODO implement dropping peer worker
         ().pure[F]
+
+      case NewBlockReceived(block) ⇒
+        ().pure[F]
     }
 
   /**

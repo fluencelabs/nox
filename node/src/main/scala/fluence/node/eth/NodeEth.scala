@@ -17,12 +17,13 @@
 package fluence.node.eth
 
 import cats.data.StateT
-import cats.effect.ConcurrentEffect
+import cats.effect.{Concurrent, ConcurrentEffect, ExitCase, Resource}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.effect.concurrent.Ref
+import cats.effect.concurrent.{Deferred, Ref}
 import fluence.ethclient.EthClient
+import fluence.ethclient.data.Block
 import fluence.node.eth.conf.FluenceContractConfig
 import org.web3j.abi.datatypes.generated.Bytes32
 import scodec.bits.ByteVector
@@ -51,9 +52,6 @@ trait NodeEth[F[_]] {
    */
   def blocksRaw: fs2.Stream[F, String]
 
-  // TODO subscribe for events, unchunk them
-  def subscribeRaw(): fs2.Stream[F, String] = ???
-
   // TODO add a sink for the feedback, so that NodeEth in general could be thought of as a pipe
 
 }
@@ -67,64 +65,91 @@ object NodeEth {
    * @param contract FluenceContract
    * @tparam F ConcurrentEffect, used to combine many streams of web3 events
    */
-  def apply[F[_]: ConcurrentEffect](validatorKey: ByteVector, contract: FluenceContract): F[NodeEth[F]] =
-    for {
-      stateRef ← Ref.of[F, NodeEthState](NodeEthState(validatorKey))
-      initialState ← stateRef.get
-    } yield
-      new NodeEth[F] {
-        override def nodeEvents: fs2.Stream[F, NodeEthEvent] = {
-          // TODO: make one filter for all kinds of events, instead of making several separate requests
+  def apply[F[_]: ConcurrentEffect](validatorKey: ByteVector, contract: FluenceContract): Resource[F, NodeEth[F]] =
+    Resource
+      .makeCase(
+        for {
+          stateRef ← Ref.of[F, NodeEthState](NodeEthState(validatorKey))
+          initialState ← stateRef.get
 
-          // State changes on a new recognized App that should be deployed on this Node
-          val onNodeAppS = contract
-            .getAllNodeApps[F](new Bytes32(validatorKey.toArray))
-            .map(NodeEthState.onNodeApp[F])
+          blockQueue ← fs2.concurrent.Queue.unbounded[F, (Option[String], F[Block])]
+          stop ← Deferred[F, Either[Throwable, Unit]]
 
-          // State changes on App Deleted event
-          val onAppDeletedS = contract
-            .getAppDeleted[F]
-            .map(_.getValue.longValue())
-            .map(NodeEthState.onAppDeleted[F])
+          fiber ← Concurrent[F]
+            .start((contract.ethClient.blockStream[F].interruptWhen(stop) to blockQueue.enqueue).compile.drain)
+        } yield (stateRef, initialState, blockQueue, stop, fiber)
+      ) {
+        case ((_, _, _, stop, fiber), exitCase) ⇒
+          exitCase match {
+            case ExitCase.Error(e) ⇒
+              stop.complete(Left(e)) *> fiber.join
+            case ExitCase.Canceled ⇒
+              stop.complete(Right(())) *> fiber.cancel
+            case _ ⇒
+              stop.complete(Right(()))
+          }
+      }
+      .map {
+        case (stateRef, initialState, blockQueue, _, _) ⇒
+          new NodeEth[F] {
+            override def nodeEvents: fs2.Stream[F, NodeEthEvent] = {
+              // TODO: make one filter for all kinds of events, instead of making several separate requests
 
-          // State changes on Node Deleted event
-          val onNodeDeletedS = contract.getNodeDeleted
-            .map(_.getValue)
-            .map(ByteVector(_))
-            .map(NodeEthState.onNodeDeleted[F])
+              // State changes on a new recognized App that should be deployed on this Node
+              val onNodeAppS = contract
+                .getAllNodeApps[F](new Bytes32(validatorKey.toArray))
+                .map(NodeEthState.onNodeApp[F])
 
-          // State changes for all kinds of Ethereum events regarding this node
-          val stream: fs2.Stream[F, StateT[F, NodeEthState, Seq[NodeEthEvent]]] =
-            onNodeAppS merge onAppDeletedS merge onNodeDeletedS
+              // State changes on App Deleted event
+              val onAppDeletedS = contract
+                .getAppDeleted[F]
+                .map(_.getValue.longValue())
+                .map(NodeEthState.onAppDeleted[F])
 
-          // Note: state is never being read from the Ref,
-          // so no other channels of modifications are allowed
-          // TODO handle reorgs
-          stream
-            .evalMapAccumulate(initialState) {
-              case (state, mod) ⇒
-                // Get the new state and a sequence of events, put them to fs2 stream
-                mod.run(state)
+              // State changes on Node Deleted event
+              val onNodeDeletedS = contract.getNodeDeleted
+                .map(_.getValue)
+                .map(ByteVector(_))
+                .map(NodeEthState.onNodeDeleted[F])
+
+              // State changes on New Block
+              val onNewBlockS = blockQueue.dequeue
+                .evalMap(_._2)
+                .map(NodeEthState.onNewBlock[F])
+
+              // State changes for all kinds of Ethereum events regarding this node
+              val stream: fs2.Stream[F, StateT[F, NodeEthState, Seq[NodeEthEvent]]] =
+                onNodeAppS merge onAppDeletedS merge onNodeDeletedS merge onNewBlockS
+
+              // Note: state is never being read from the Ref,
+              // so no other channels of modifications are allowed
+              // TODO handle reorgs
+              stream
+                .evalMapAccumulate(initialState) {
+                  case (state, mod) ⇒
+                    // Get the new state and a sequence of events, put them to fs2 stream
+                    mod.run(state)
+                }
+                .flatMap {
+                  case (state, events) ⇒
+                    // Save the state to the ref and flatten the events to match the response type
+                    fs2.Stream.eval(stateRef.set(state)) *>
+                      fs2.Stream.chunk(fs2.Chunk.seq(events))
+                }
             }
-            .flatMap {
-              case (state, events) ⇒
-                // Save the state to the ref and flatten the events to match the response type
-                fs2.Stream.eval(stateRef.set(state)) *>
-                  fs2.Stream.chunk(fs2.Chunk.seq(events))
-            }
-        }
 
-        /**
-         * Returns the expected node state, how it's built with received Ethereum data
-         */
-        override def expectedState: F[NodeEthState] =
-          stateRef.get
+            /**
+             * Returns the expected node state, how it's built with received Ethereum data
+             */
+            override def expectedState: F[NodeEthState] =
+              stateRef.get
 
-        /**
-         * Stream of raw block json, requires ethClient to be configured to keep raw responses!
-         */
-        override def blocksRaw: fs2.Stream[F, String] =
-          contract.ethClient.blockStream[F].map(_._1).unNone
+            /**
+             * Stream of raw block json, requires ethClient to be configured to keep raw responses!
+             */
+            override def blocksRaw: fs2.Stream[F, String] =
+              blockQueue.dequeue.map(_._1).unNone
+          }
       }
 
   /**
@@ -139,6 +164,6 @@ object NodeEth {
     validatorKey: ByteVector,
     ethClient: EthClient,
     config: FluenceContractConfig
-  ): F[NodeEth[F]] =
+  ): Resource[F, NodeEth[F]] =
     apply[F](validatorKey, FluenceContract(ethClient, config))
 }

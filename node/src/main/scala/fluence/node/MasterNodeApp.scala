@@ -84,26 +84,22 @@ object MasterNodeApp extends IOApp with LazyLogging {
           import configuration._
           // Run master node and status server
           val resources = for {
-            ethClientResource <- EthClient.makeHttpResource[IO](Some(ethereumRpcConfig.uri))
+            ethClient <- EthClient.makeHttpResource[IO](Some(ethereumRpcConfig.uri))
             sttpBackend <- sttpResource
             pool <- {
               implicit val s: SttpBackend[IO, Nothing] = sttpBackend
               WorkersPool.apply()
             }
-          } yield (ethClientResource, sttpBackend, pool)
+            nodeEth ← NodeEth[IO](nodeConfig.validatorKey.toByteVector, ethClient, contractConfig)
+          } yield (ethClient, nodeEth, sttpBackend, pool)
 
           resources.use {
             // Type annotations are here to make IDEA's type inference happy
-            case (ethClient: EthClient, sttpBackend: SttpBackend[IO, Nothing], pool: WorkersPool[IO]) ⇒
+            case (ethClient, nodeEth: NodeEth[IO], sttpBackend: SttpBackend[IO, Nothing], pool: WorkersPool[IO]) ⇒
               implicit val backend: SttpBackend[IO, Nothing] = sttpBackend
+              logger.debug("eth config {}", contractConfig)
               for {
-                version ← ethClient.clientVersion[IO]()
-                _ = logger.info("eth client version {}", version)
-                _ = logger.debug("eth config {}", contractConfig)
-
                 _ <- waitEthSyncing(ethClient)
-
-                nodeEth ← NodeEth[IO](nodeConfig.validatorKey.toByteVector, ethClient, contractConfig)
 
                 codeManager <- getCodeManager(swarmConfig)
 
