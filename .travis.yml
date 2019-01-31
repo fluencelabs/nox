@@ -31,11 +31,12 @@ _rust_wasm_template: &_rust_wasm_template
 
   install:
     - rustup component add rustfmt
+    - rustup target add wasm32-unknown-unknown
     - rustup component add clippy
 
   script:
     - cargo +$TRAVIS_RUST_VERSION fmt --all -- --check -v
-    - cargo +$TRAVIS_RUST_VERSION build -v --all-features
+    - cargo +$TRAVIS_RUST_VERSION build -v --target wasm32-unknown-unknown --all-features
     - cargo +$TRAVIS_RUST_VERSION doc -v --all-features
     - cargo +$TRAVIS_RUST_VERSION test -v --all-features
     - cargo +$TRAVIS_RUST_VERSION clippy -v --target wasm32-unknown-unknown
