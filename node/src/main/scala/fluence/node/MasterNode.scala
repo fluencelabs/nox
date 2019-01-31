@@ -23,6 +23,7 @@ import cats.syntax.flatMap._
 import cats.syntax.applicative._
 import cats.effect.syntax.effect._
 import fluence.node.config.NodeConfig
+import fluence.node.docker.DockerImage
 import fluence.node.eth._
 import fluence.node.workers.tendermint.config.WorkerConfigWriter
 import fluence.node.workers.tendermint.config.WorkerConfigWriter.WorkerConfigPaths
@@ -71,7 +72,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
    * @return
    */
   private def buildWorkerParams(
-    workerImage: WorkerImage,
+    workerImage: DockerImage,
     masterNodeContainerId: Option[String]
   ): fs2.Pipe[F, (state.App, WorkerConfigPaths, Path), WorkerParams] =
     _.map {

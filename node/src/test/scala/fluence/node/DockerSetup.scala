@@ -17,8 +17,7 @@
 package fluence.node
 
 import cats.effect._
-import cats.syntax.functor._
-import fluence.node.docker.{DockerIO, DockerParams}
+import fluence.node.docker.{DockerIO, DockerImage, DockerParams}
 
 import scala.language.higherKinds
 
@@ -58,7 +57,7 @@ trait DockerSetup extends OsSetup {
               + "/../vm/examples/llamadb/target/wasm32-unknown-unknown/release",
             "/master/vmcode/vmcode-llamadb"
           )
-          .image("fluencelabs/node:latest")
+          .image(DockerImage("fluencelabs/node", "latest"))
           .unmanagedDaemonRun()
       )
   }

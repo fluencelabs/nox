@@ -72,10 +72,10 @@ case class DockerParams private (params: Queue[String]) {
   /**
    * Builds the current command to a representation ready to pass in [[scala.sys.process.Process]].
    *
-   * @param imageName name of image to run
+   * @param dockerImage name of image to run
    */
-  def image(imageName: String): DockerParams.WithImage =
-    WithImage(params, imageName)
+  def image(dockerImage: DockerImage): DockerParams.WithImage =
+    WithImage(params, dockerImage)
 }
 
 object DockerParams {
@@ -95,18 +95,18 @@ object DockerParams {
   private val runParams = Seq("docker", "run", "--user", "", "--rm", "-i", "--entrypoint")
 
   // Represents a docker run command with specified image name, ready to be specialized to Daemon or Exec params
-  case class WithImage(params: Seq[String], imageName: String) {
+  case class WithImage(params: Seq[String], image: DockerImage) {
 
     /** Builds a command starting with `docker run -d` wrapped in DaemonParams, so
      * container will be deleted automatically by [[DockerIO.exec]]
      */
     def daemonRun(): DaemonParams =
-      DaemonParams(daemonParams ++ params :+ imageName)
+      DaemonParams(daemonParams ++ params :+ image.imageName)
 
     // Builds a command starting with `docker run -d` wrapped in ExecParams, so
     // container should be deleted by caller
     def unmanagedDaemonRun(): ExecParams = {
-      ExecParams(daemonParams ++ params :+ imageName)
+      ExecParams(daemonParams ++ params :+ image.imageName)
     }
 
     /** Builds a `docker run` command running custom executable.
@@ -117,7 +117,7 @@ object DockerParams {
      * @param execParams Parameters passed to `executable`
      */
     def run(executable: String, execParams: String*): ExecParams = {
-      val cmd = (runParams :+ executable) ++ params ++ (imageName +: execParams)
+      val cmd = (runParams :+ executable) ++ params ++ (image.imageName +: execParams)
       ExecParams(cmd)
     }
   }

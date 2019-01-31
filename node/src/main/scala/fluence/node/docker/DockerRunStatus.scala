@@ -14,15 +14,6 @@
  * limitations under the License.
  */
 
-package fluence.node.workers
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+package fluence.node.docker
 
-case class WorkerImage(image: String, tag: String) {
-  val imageName = s"$image:$tag"
-}
-
-object WorkerImage {
-  implicit val encodeWorkerImage: Encoder[WorkerImage] = deriveEncoder
-  implicit val decodeWorkerImage: Decoder[WorkerImage] = deriveDecoder
-}
+case class DockerRunStatus(startedAt: Long, isRunning: Boolean)

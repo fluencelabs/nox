@@ -115,7 +115,7 @@ object Worker extends LazyLogging {
       .run[F](params.dockerCommand)
       .through(
         // Check that container is running every healthcheck.period
-        DockerIO.check[F](healthcheck.period)
+        DockerIO.checkPeriodically[F](healthcheck.period)
       )
       .evalMap[F, WorkerHealth] {
         case (uptime, true) ⇒

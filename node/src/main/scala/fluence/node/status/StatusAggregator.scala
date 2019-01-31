@@ -16,9 +16,8 @@
 
 package fluence.node.status
 
-import cats.Parallel
 import cats.data.Kleisli
-import cats.effect.{ContextShift, IO, Resource, Timer}
+import cats.effect._
 import fluence.node.MasterNode
 import fluence.node.config.{MasterConfig, StatusServerConfig}
 import io.circe.syntax._
@@ -46,7 +45,7 @@ case class StatusAggregator(config: MasterConfig, masterNode: MasterNode[IO], st
    * Gets all state information about master node and workers.
    * @return gathered information
    */
-  def getStatus[G[_]](implicit P: Parallel[IO, G]): IO[MasterStatus] = {
+  val getStatus: IO[MasterStatus] = {
     val endpoints = config.endpoints
     val ports = s"${endpoints.minPort}:${endpoints.maxPort}"
     for {

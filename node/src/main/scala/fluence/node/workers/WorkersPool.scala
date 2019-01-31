@@ -16,7 +16,7 @@
 
 package fluence.node.workers
 
-import cats.Parallel
+import cats.{Parallel, Traverse}
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.instances.list._
@@ -26,7 +26,6 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
 import fluence.node.workers.health.{HealthCheckConfig, WorkerHealth}
-import scodec.bits.ByteVector
 import slogging.LazyLogging
 
 import scala.language.higherKinds
@@ -53,7 +52,7 @@ class WorkersPool[F[_]: ContextShift: Timer](
       map <- workers.get
       oldWorker = map.get(appId)
       healthy <- oldWorker match {
-        case None => F.delay(false)
+        case None => F.pure(false)
         case Some(worker) => worker.healthReport.map(_.isHealthy)
       }
     } yield (healthy, oldWorker)
@@ -101,17 +100,17 @@ class WorkersPool[F[_]: ContextShift: Timer](
 
   /**
    * Returns a map of all currently registered workers, along with theirs health
-   *
-   * @param P [[Parallel]] instance is required as all workers are stopped concurrently
+   * No need to make concurrent reads here, as all we do is reading from the memory
    */
-  def healths[G[_]](implicit P: Parallel[F, G]): F[Map[WorkerParams, WorkerHealth]] =
+  val healths: F[Map[WorkerParams, WorkerHealth]] =
     for {
       workersMap ← workers.get
-      workersHealth ← Parallel.parTraverse(workersMap.values.toList)(s ⇒ s.healthReport.map(s.params → _))
+      workersHealth ← Traverse[List].traverse(workersMap.values.toList)(s ⇒ s.healthReport.map(s.params → _))
     } yield workersHealth.toMap
 
   /**
    * Stops a worker corresponding to `appId` it it exists. Does nothing if no worker is found.
+   *
    * @param appId AppId of the worker
    * @return
    */

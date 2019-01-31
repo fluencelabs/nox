@@ -18,9 +18,9 @@ package fluence.node.config
 
 import java.net.InetAddress
 
+import fluence.node.docker.DockerImage
 import fluence.node.eth.conf.{EthereumRpcConfig, FluenceContractConfig}
 import fluence.node.workers.tendermint.ValidatorKey
-import fluence.node.workers.WorkerImage
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
@@ -41,7 +41,7 @@ case class MasterConfig(
   swarm: Option[SwarmConfig],
   statusServer: StatusServerConfig,
   masterContainerId: Option[String],
-  worker: WorkerImage,
+  worker: DockerImage,
   ethereum: EthereumRpcConfig
 )
 
@@ -101,7 +101,7 @@ case class NodeConfig(
   endpoints: EndpointsConfig,
   validatorKey: ValidatorKey,
   nodeAddress: String,
-  workerImage: WorkerImage,
+  workerImage: DockerImage,
   isPrivate: Boolean = false
 )
 

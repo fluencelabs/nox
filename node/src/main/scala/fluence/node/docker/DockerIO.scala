@@ -16,14 +16,15 @@
 
 package fluence.node.docker
 
-import cats.Applicative
+import cats.{Applicative, Apply}
 import cats.effect.{ContextShift, Sync, Timer}
 import cats.syntax.apply._
+import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat
 import slogging.LazyLogging
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 import scala.language.higherKinds
 import scala.sys.process._
 import scala.util.{Failure, Success, Try}
@@ -82,15 +83,13 @@ object DockerIO extends LazyLogging {
       case Failure(err) ⇒ fs2.Stream.raiseError(err)
     }
 
-  private val format = new ISO8601DateFormat()
-
   /**
    * Checks that container is alive every tick.
    *
    * @param period Container will be checked every ''period''
    * @return The pipe that takes a container's ID and returns (timeSinceStart, isAlive) for every ''period'' of time
    */
-  def check[F[_]: Timer: Sync: ContextShift](
+  def checkPeriodically[F[_]: Timer: Sync: ContextShift](
     period: FiniteDuration
   ): fs2.Pipe[F, String, (Long, Boolean)] =
     _.flatMap(
@@ -98,15 +97,33 @@ object DockerIO extends LazyLogging {
         fs2.Stream
           .awakeEvery[F](period)
           .evalMap(
-            d ⇒
-              shiftDelay(s"docker inspect -f {{.State.Running}},{{.State.StartedAt}} $dockerId".!!).map { status ⇒
-                val running :: started :: Nil = status.trim.split(',').toList
-
-                logger.debug(s"Docker container $dockerId  status = [$running], startedAt = [$started]")
-                val now = System.currentTimeMillis()
-                val time = format.parse(started).getTime
-                (now - time) → running.contains("true")
+            _ ⇒
+              Apply[F].map2(checkContainer(dockerId), Timer[F].clock.realTime(MILLISECONDS)) {
+                case (DockerRunStatus(time, isRunning), now) ⇒
+                  (now - time) -> isRunning
             }
         )
     )
+
+  /**
+   * Inspect the docker container to find out its running status
+   *
+   * @param dockerId Container ID
+   * @tparam F Effect, monadic error is possible
+   * @return DockerRunStatus
+   */
+  def checkContainer[F[_]: Sync: ContextShift](dockerId: String): F[DockerRunStatus] = {
+    val format = new ISO8601DateFormat()
+    for {
+      status ← shiftDelay(s"docker inspect -f {{.State.Running}},{{.State.StartedAt}} $dockerId".!!)
+      timeIsRunning ← Sync[F].catchNonFatal {
+        val running :: started :: Nil = status.trim.split(',').toList
+
+        logger.debug(s"Docker container $dockerId  status = [$running], startedAt = [$started]")
+
+        format.parse(started).getTime → running.contains("true")
+      }
+      (time, isRunning) = timeIsRunning
+    } yield DockerRunStatus(time, isRunning)
+  }
 }

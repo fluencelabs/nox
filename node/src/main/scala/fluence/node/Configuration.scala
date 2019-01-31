@@ -17,16 +17,17 @@
 package fluence.node
 import java.nio.file.{Path, Paths}
 
-import cats.effect.{ContextShift, IO}
+import cats.effect.{ContextShift, IO, Sync}
 import fluence.node.config.{MasterConfig, NodeConfig, StatusServerConfig, SwarmConfig}
 import ConfigOps._
 import com.typesafe.config.Config
-import fluence.node.docker.{DockerIO, DockerParams}
+import fluence.node.docker.{DockerIO, DockerImage, DockerParams}
 import fluence.node.eth.conf.{EthereumRpcConfig, FluenceContractConfig}
 import fluence.node.workers.tendermint.ValidatorKey
-import fluence.node.workers.WorkerImage
 import io.circe.parser._
 import pureconfig.generic.auto._
+
+import scala.language.higherKinds
 
 // TODO this is the configuration for what? why so many fields are taken from MasterConfig? could we simplify?
 case class Configuration(
@@ -54,7 +55,7 @@ object Configuration extends slogging.LazyLogging {
     }).toIO
   }
 
-  def create()(implicit ec: ContextShift[IO]): IO[(MasterConfig, Configuration)] = {
+  def create()(implicit ec: ContextShift[IO]): IO[(MasterConfig, Configuration)] =
     for {
       config <- loadConfig()
       masterConfig <- pureconfig.loadConfig[MasterConfig](config).toIO
@@ -75,33 +76,35 @@ object Configuration extends slogging.LazyLogging {
           masterConfig.masterContainerId
         )
       )
-  }
 
   /**
    * Run `tendermint --init` in container to initialize /master/tendermint/config with configuration files.
    * Later, files /master/tendermint/config are used to run and configure workers
+   *
    * @param masterContainerId id of master docker container (container running this code), if it's run inside Docker
    * @return nodeId and validator key
    */
-  def tendermintInit(masterContainerId: Option[String], rootPath: Path, workerImage: WorkerImage)(
+  def tendermintInit(masterContainerId: Option[String], rootPath: Path, workerImage: DockerImage)(
     implicit c: ContextShift[IO]
   ): IO[(String, ValidatorKey)] = {
 
     val tendermintDir = rootPath.resolve("tendermint") // /master/tendermint
-    def tendermint(cmd: String, uid: String) =
-      masterContainerId
-        .foldLeft(
-          DockerParams
-            .build()
-            .user(uid)
-        )(_.option("--volumes-from", _))
-        .image(workerImage.imageName)
-        .run("tendermint", cmd, s"--home=$tendermintDir")
+    def tendermint[F[_]: Sync: ContextShift](cmd: String, uid: String): F[String] =
+      DockerIO.exec[F](
+        masterContainerId
+          .foldLeft(
+            DockerParams
+              .build()
+              .user(uid)
+          )(_.option("--volumes-from", _))
+          .image(workerImage)
+          .run("tendermint", cmd, s"--home=$tendermintDir")
+      )
 
     for {
       uid <- IO(scala.sys.process.Process("id -u").!!.trim)
       //TODO: don't do tendermint init if keys already exist
-      _ <- DockerIO.exec[IO](tendermint("init", uid))
+      _ <- tendermint[IO]("init", uid)
 
       _ <- IO {
         tendermintDir.resolve("config").resolve("config.toml").toFile.delete()
@@ -109,10 +112,10 @@ object Configuration extends slogging.LazyLogging {
         tendermintDir.resolve("data").toFile.delete()
       }
 
-      nodeId <- DockerIO.exec[IO](tendermint("show_node_id", uid))
+      nodeId <- tendermint[IO]("show_node_id", uid)
       _ <- IO { logger.info(s"Node ID: $nodeId") }
 
-      validatorRaw <- DockerIO.exec[IO](tendermint("show_validator", uid))
+      validatorRaw <- tendermint[IO]("show_validator", uid)
       validator <- IO.fromEither(parse(validatorRaw).flatMap(_.as[ValidatorKey]))
       _ <- IO { logger.info(s"Validator PubKey: ${validator.value}") }
     } yield (nodeId, validator)
