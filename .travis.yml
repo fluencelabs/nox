@@ -31,6 +31,7 @@ _rust_wasm_template: &_rust_wasm_template
 
   install:
     - rustup component add rustfmt
+    - rustup component add clippy
 
   script:
     - cargo +$TRAVIS_RUST_VERSION fmt --all -- --check -v
