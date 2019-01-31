@@ -63,7 +63,7 @@ impl<'a> TabTable<'a, Node> {
             "Owner",
             "Private",
         ];
-        let widths = vec![50, 25, 20, 10, 25, 5];
+        let widths = vec![70, 25, 20, 10, 25, 5];
 
         TabTable {
             header,
@@ -99,12 +99,12 @@ impl ToColumns for Node {
         let node_id = format!("  {:#x}", self.validator_key);
         let tendermint_p2p_id = format!("{}", self.tendermint_p2p_id);
         let next_port = self.next_port.to_string();
-        let ip_addr = self.ip_addr;
+        let ip_addr = format!("{}", self.ip_addr);
         let owner = format!("{:#x}", self.owner);
         let is_private = if self.is_private { "yes" } else { "no" };
         vec![
-            tendermint_p2p_id,
             node_id,
+            tendermint_p2p_id,
             ip_addr,
             next_port,
             owner,

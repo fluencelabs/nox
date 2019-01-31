@@ -39,12 +39,12 @@ const GAS: &str = "gas";
 const ACCOUNT: &str = "account";
 const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
-const TENDERMINT_KEY: &str = "tendermint_key";
 const BASE64_TENDERMINT_KEY: &str = "base64_tendermint_key";
 const TENDERMINT_NODE_ID: &str = "tendermint_node_id";
 const WAIT: &str = "wait";
 const WAIT_SYNCING: &str = "wait_syncing";
-const NODE_IP: &str = "node_ip";
+pub const NODE_IP: &str = "node_ip";
+pub const TENDERMINT_KEY: &str = "tendermint_key";
 
 #[derive(Debug, Clone)]
 pub struct EthereumArgs {
@@ -103,6 +103,7 @@ pub fn tendermint_node_id<'a, 'b>() -> Arg<'a, 'b> {
 pub fn node_ip<'a, 'b>() -> Arg<'a, 'b> {
     Arg::with_name(NODE_IP)
         .long(NODE_IP)
+        .value_name("ip address")
         .short("i")
         .required(true)
         .takes_value(true)

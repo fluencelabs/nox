@@ -25,6 +25,7 @@ use crate::contract_func::contract::functions::get_node;
 use crate::contract_func::contract::functions::get_nodes_ids;
 use crate::contract_func::query_contract;
 use crate::types::NodeAddress;
+use std::net::IpAddr;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct App {
@@ -83,12 +84,12 @@ impl Cluster {
 pub struct Node {
     pub validator_key: H256,
     pub tendermint_p2p_id: String,
-    pub ip_addr: String,
+    pub ip_addr: IpAddr,
     pub next_port: u16,
     pub last_port: u16,
     pub owner: Address,
     pub is_private: bool,
-    pub clusters_ids: Option<Vec<H256>>, // Defined if loaded
+    pub app_ids: Option<Vec<u64>>, // Defined if loaded
 }
 
 impl Node {
@@ -99,7 +100,7 @@ impl Node {
         last_port: u16,
         owner: Address,
         is_private: bool,
-        clusters_ids: Option<Vec<H256>>,
+        app_ids: Option<Vec<u64>>,
     ) -> Result<Node, Error> {
         let (tendermint_key, ip_addr) = address.decode()?;
         Ok(Node {
@@ -110,7 +111,7 @@ impl Node {
             last_port,
             owner,
             is_private,
-            clusters_ids,
+            app_ids,
         })
     }
 }

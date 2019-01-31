@@ -19,16 +19,107 @@ pub mod status;
 pub mod ui;
 
 use self::status::{get_status, Status};
-use clap::{App, ArgMatches, SubCommand};
+use clap::{App, ArgMatches, SubCommand, _clap_count_exprs, arg_enum, value_t};
+use failure::err_msg;
 use failure::Error;
 use web3::types::Address;
 
-use crate::command::{contract_address, eth_url, parse_contract_address, parse_eth_url};
+use crate::command::*;
 use crate::contract_status::ui::rich_status;
+use crate::utils;
 use clap::Arg;
+use std::net::IpAddr;
+use web3::types::H256;
 
 const INTERACTIVE: &str = "interactive";
 const OWNER: &str = "owner";
+const APP_ID: &str = "app_id";
+const FILTER_MODE: &str = "filter_mode";
+
+arg_enum! {
+    #[derive(Debug)]
+    enum FilterMode {
+        And, Or
+    }
+}
+
+struct StatusFilter {
+    mode: FilterMode,
+    owner: Option<Address>,
+    app_id: Option<u64>,
+    node_ip: Option<IpAddr>,
+    tendermint_key: Option<H256>,
+}
+
+macro_rules! opt_and {
+    ($head:ident, $($tail:ident),*) => {{
+        {
+            $head.unwrap_or(true) && opt_and! { $($tail),* }
+        }
+    }};
+
+    ($last:ident) => {{
+        $last.unwrap_or(true)
+    }};
+}
+
+macro_rules! opt_or {
+    ($head:ident, $($tail:ident),*) =>  {{
+        {
+            $head.unwrap_or(false) || opt_or! { $($tail),* }
+        }
+    }};
+
+    ($last:ident) => {{
+        $last.unwrap_or(false)
+    }};
+}
+
+impl StatusFilter {
+    fn from_args(args: &ArgMatches) -> Result<StatusFilter, Error> {
+        let mode: FilterMode = utils::get_opt(args, FILTER_MODE)
+            .map_err(err_msg)?
+            .unwrap_or(FilterMode::And);
+        let owner: Option<Address> = utils::get_opt(args, OWNER)?;
+        let app_id: Option<u64> = utils::get_opt(args, APP_ID)?;
+        let node_ip: Option<IpAddr> = utils::get_opt(args, NODE_IP)?;
+        let tendermint_key: Option<H256> = if args.is_present(TENDERMINT_KEY) {
+            Some(parse_tendermint_key(args)?)
+        } else {
+            None
+        };
+
+        Ok(StatusFilter {
+            mode,
+            owner,
+            app_id,
+            node_ip,
+            tendermint_key,
+        })
+    }
+
+    fn filter(&self, status: &Status) -> Status {
+        let nodes = status.nodes.iter().filter(|node| {
+            let by_app_id = self.app_id.map(|f| {
+                node.app_ids
+                    .as_ref()
+                    .map(|ids| ids.contains(&f))
+                    .unwrap_or(false)
+            });
+            let by_owner = self.owner.map(|f| f == node.owner);
+            let by_node_ip = self.node_ip.map(|f| f == node.ip_addr);
+            let by_t_key = self.tendermint_key.map(|f| f == node.validator_key);
+            match self.mode {
+                FilterMode::And => opt_and!(by_owner, by_app_id, by_node_ip, by_t_key),
+                FilterMode::Or => opt_or!(by_owner, by_app_id, by_node_ip, by_t_key),
+            }
+        });
+        //        let apps = status.apps.iter().filter(|node| {
+        //           let by_app_id = self.app_id.map()
+        //        });
+        unimplemented!()
+    }
+}
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("status")
@@ -42,7 +133,25 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .required(false)
                 .takes_value(false)
                 .help("If supplied, status is showed as an interactive table"),
-            Arg::with_name(OWNER).long(OWNER),
+            Arg::with_name(FILTER_MODE)
+                .long(FILTER_MODE)
+                .required(false)
+                .takes_value(true)
+                .value_name("and|or")
+                .help("Logical mode of the filter: 'and' will filter by conjunction of all filters, 'or' by disjunction"),
+            Arg::with_name(OWNER)
+                .long(OWNER)
+                .required(false)
+                .takes_value(true)
+                .value_name("eth address")
+                .help("Filter nodes and apps owned by this Ethereum address"),
+            Arg::with_name(APP_ID)
+                .long(APP_ID)
+                .required(false)
+                .takes_value(true)
+                .help("Filter nodes and apps by app id"),
+            node_ip().help("Filter nodes by IP address"),
+            tendermint_key().help("Filter nodes and apps by Tendermint validator key (node id)"),
         ])
 }
 
