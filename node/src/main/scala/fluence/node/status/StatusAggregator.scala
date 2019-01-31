@@ -52,6 +52,7 @@ case class StatusAggregator(config: MasterConfig, masterNode: MasterNode[IO], st
       currentTime <- timer.clock.monotonic(MILLISECONDS)
       workersStatus <- masterNode.pool.healths
       workerInfos = workersStatus.values.toList
+      ethState ← masterNode.nodeEth.expectedState
     } yield
       MasterStatus(
         config.endpoints.ip.getHostName,
@@ -60,7 +61,8 @@ case class StatusAggregator(config: MasterConfig, masterNode: MasterNode[IO], st
         masterNode.nodeConfig,
         workersStatus.size,
         workerInfos,
-        config
+        config,
+        ethState
       )
   }
 }

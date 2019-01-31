@@ -15,10 +15,18 @@
  */
 
 package fluence.node.status
+import java.net.InetAddress
+
+import fluence.ethclient.data.{Block, Transaction}
 import fluence.node.config.{MasterConfig, NodeConfig}
+import fluence.node.eth.NodeEthState
+import fluence.node.eth.state.{Cluster, WorkerPeer}
 import fluence.node.workers.health.WorkerHealth
-import io.circe.{Decoder, Encoder}
+import io.circe.{Encoder, KeyEncoder}
 import io.circe.generic.semiauto._
+import scodec.bits.ByteVector
+
+import scala.concurrent.duration.FiniteDuration
 
 /**
  * Master node status.
@@ -29,6 +37,7 @@ import io.circe.generic.semiauto._
  * @param numberOfWorkers number of registered workers
  * @param workers info about workers
  * @param config config file
+ * @param ethState current NodeEthState
  */
 case class MasterStatus(
   ip: String,
@@ -37,10 +46,20 @@ case class MasterStatus(
   nodeConfig: NodeConfig,
   numberOfWorkers: Int,
   workers: List[WorkerHealth],
-  config: MasterConfig
+  config: MasterConfig,
+  ethState: NodeEthState
 )
 
 object MasterStatus {
+  private implicit val encodeEthTx: Encoder[Transaction] = deriveEncoder
+  private implicit val encodeEthBlock: Encoder[Block] = deriveEncoder
+  private implicit val encodeByteVector: Encoder[ByteVector] = Encoder.encodeString.contramap(_.toHex)
+  private implicit val encodeInetAddress: Encoder[InetAddress] = Encoder.encodeString.contramap(_.toString)
+  private implicit val encodeWorkerPeer: Encoder[WorkerPeer] = deriveEncoder
+  private implicit val encodeFiniteDuration: Encoder[FiniteDuration] = Encoder.encodeString.contramap(_.toString())
+  private implicit val encodeCluster: Encoder[Cluster] = deriveEncoder
+  private implicit val encodeApp: Encoder[fluence.node.eth.state.App] = deriveEncoder
+  private implicit val keyEncoderByteVector: KeyEncoder[ByteVector] = KeyEncoder.instance(_.toHex)
+  private implicit val encodeNodeEthState: Encoder[NodeEthState] = deriveEncoder
   implicit val encodeMasterState: Encoder[MasterStatus] = deriveEncoder
-  implicit val decodeMasterState: Decoder[MasterStatus] = deriveDecoder
 }
