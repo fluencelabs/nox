@@ -29,6 +29,7 @@ use failure::{err_msg, Error, ResultExt, SyncFailure};
 use crate::credentials::Credentials;
 use crate::utils;
 use ethabi::RawLog;
+use std::ops::Mul;
 use std::time::Duration;
 
 use_contract!(contract, "../bootstrap/contracts/compiled/Network.abi");
@@ -54,7 +55,12 @@ fn call_contract_local_sign(
     call_data: ethabi::Bytes,
     eth: &EthereumArgs,
 ) -> Result<H256, Error> {
-    let gas_price = web3.eth().gas_price().wait().map_err(SyncFailure::new)?;
+    let gas_price = web3
+        .eth()
+        .gas_price()
+        .wait()
+        .map_err(SyncFailure::new)?
+        .mul(5u32); // Multiply gas by 5, so tx is included faster. TODO: it could panic here on overflow
     let nonce = web3
         .eth()
         .transaction_count(eth.account, None)
