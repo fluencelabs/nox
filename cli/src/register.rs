@@ -32,7 +32,6 @@ use crate::types::{NodeAddress, IP_LEN, TENDERMINT_NODE_ID_LEN};
 use crate::utils;
 use web3::types::H160;
 
-const NODE_IP: &str = "node_ip";
 const START_PORT: &str = "start_port";
 const LAST_PORT: &str = "last_port";
 const PRIVATE: &str = "private";
@@ -208,8 +207,6 @@ impl Register {
 }
 
 pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
-    let node_address: IpAddr = value_t!(args, NODE_IP, IpAddr)?;
-
     let tendermint_key: H256 = parse_tendermint_key(args)?;
 
     let tendermint_node_id: H160 = parse_tendermint_node_id(args)?;

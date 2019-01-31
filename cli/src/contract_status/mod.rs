@@ -28,6 +28,7 @@ use crate::contract_status::ui::rich_status;
 use clap::Arg;
 
 const INTERACTIVE: &str = "interactive";
+const OWNER: &str = "owner";
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("status")

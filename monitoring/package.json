@@ -37,16 +37,16 @@
   ],
   "license": "Apache-2.0",
   "devDependencies": {
-    "awesome-typescript-loader": "^5.2.1",
-    "clean-webpack-plugin": "^0.1.19",
-    "html-webpack-plugin": "^3.2.0",
-    "ts-node": "^7.0.1",
-    "typescript": "^3.0.3",
-    "webpack": "^4.20.0",
-    "webpack-cli": "^3.1.1",
-    "webpack-dev-server": "^3.1.9",
-    "@types/node": "^10.12.15",
-    "web3-typescript-typings": "^0.10.2"
+    "awesome-typescript-loader": "5.2.1",
+    "clean-webpack-plugin": "0.1.19",
+    "html-webpack-plugin": "3.2.0",
+    "ts-node": "7.0.1",
+    "typescript": "3.0.3",
+    "webpack": "4.20.0",
+    "webpack-cli": "3.1.1",
+    "webpack-dev-server": "3.1.9",
+    "@types/node": "10.12.15",
+    "web3-typescript-typings": "0.10.2"
   },
   "dependencies": {
     "array-buffer-to-hex": "1.0.0",
@@ -57,5 +57,8 @@
     "typechain": "0.3.9",
     "@types/web3": "1.0.14",
     "web3": "1.0.0-beta.37"
+  },
+"resolutions": {
+    "**/nan": "2.11.1"
   }
 }

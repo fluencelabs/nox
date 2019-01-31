@@ -43,6 +43,7 @@ const BASE64_TENDERMINT_KEY: &str = "base64_tendermint_key";
 const TENDERMINT_NODE_ID: &str = "tendermint_node_id";
 const WAIT: &str = "wait";
 const WAIT_SYNCING: &str = "wait_syncing";
+const NODE_IP: &str = "node_ip";
 
 #[derive(Debug, Clone)]
 pub struct EthereumArgs {
@@ -251,6 +252,10 @@ pub fn parse_tendermint_key(args: &ArgMatches) -> Result<H256, Error> {
 
 pub fn parse_tendermint_node_id(args: &ArgMatches) -> Result<H160, Error> {
     Ok(value_t!(args, TENDERMINT_NODE_ID, H160)?)
+}
+
+pub fn parse_node_ip(args: &ArgMatches) -> Result<IpAddr, Error> {
+    let node_address: IpAddr = value_t!(args, NODE_IP, IpAddr)?;
 }
 
 impl Default for EthereumArgs {

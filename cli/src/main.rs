@@ -109,7 +109,7 @@ fn main() {
 
         ("delete_node", Some(args)) => {
             let delete_node = delete_node::parse(args).expect("Error parsing arguments");
-            let tx = delete_node
+            let tx: H256 = delete_node
                 .delete_node(true)
                 .expect("Error sending transaction");
 
