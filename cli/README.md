@@ -11,6 +11,11 @@
   - [Waiting for an Ethereum node to sync](#waiting-for-an-ethereum-node-to-sync)
   - [Waiting for a transaction to be included in a block](#waiting-for-a-transaction-to-be-included-in-a-block)
   - [Interactive status](#interactive-status)
+  - [Authorization and private keys](#authorization-and-private-keys)
+    - [Keystore JSON file](#keystore-json-file)
+    - [Private key](#private-key)
+    - [Password](#password)
+    - [No authorization](#no-authorization)
 
 ## Fluence CLI
 
@@ -193,3 +198,92 @@ If reading raw JSON in `status` isn't the best option for you, you can use inter
 ```
 
 It's just a status viewer, but it will gain more functionality in the future.
+
+### Authorization and private keys
+There are several ways to provide authorization details for your Ethereum account to Fluence CLI: via keystore JSON file, private key or password for your wallet in Ethereum node.
+
+#### Keystore JSON file
+***This is the most secure way to provide your credentials, so it's preffered over other options***
+
+That's how Geth and a few other tools export private keys. The file looks like this:
+```json
+{"address":"c2d7cf95645d33006175b78989035c7c9061d3f9",
+  "crypto":{
+    "cipher":"aes-128-ctr",
+    "ciphertext":"0f6d343b2a34fe571639235fc16250823c6fe3bc30525d98c41dfdf21a97aedb",
+    "cipherparams":{
+      "iv":"cabce7fb34e4881870a2419b93f6c796"
+    },
+    "kdf":"scrypt",
+    "kdfparams": {
+      "dklen":32,
+      "n":262144,
+      "p":1,
+      "r":8,
+      "salt":"1af9c4a44cf45fe6fb03dcc126fa56cb0f9e81463683dd6493fb4dc76edddd51"
+    },
+    "mac":"5cf4012fffd1fbe41b122386122350c3825a709619224961a16e908c2a366aa6"
+  },
+  "id":"eddd71dd-7ad6-4cd3-bc1a-11022f7db76c",
+  "version":3
+}
+```
+
+It's a private key encrypted with user password. You can use it with Fluence CLI like this: 
+```bash
+./fluence SUBCOMMAND
+          ...
+          --account            0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+          --keystore           ~/Library/Ethereum/keystore/UTC--2017-03-03T13-24-07.826187674Z--4e6cf0ed2d8bbf1fbbc9f2a100602ceba4bf1319 \
+          --passowrd           my_secure_passw0rd
+```
+
+For example, with `delete_app`
+
+```bash
+./fluence delete_app \
+            --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
+            --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --app_id           0x0000000000000000000000000000000000000000000000000000000000000002 \
+            --keystore         ~/Library/Ethereum/keystore/UTC--2017-03-03T13-24-07.826187674Z--4e6cf0ed2d8bbf1fbbc9f2a100602ceba4bf1319 \
+            --password         my_secure_passw0rd \
+            --deployed
+```
+
+Decrypted private key will be used to sign transaction in offline mode, so **your key is never sent through network.**
+
+#### Private key
+Other option is to provide unencrypted private key, like in most examples above:
+```bash
+./fluence SUBCOMMAND
+          ...
+          --account            0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+          --secret_key         4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 
+```
+
+Since private key isn't encrypted, no password is required.
+
+Private key will be used to sign transaction in offline mode, so **your key is never sent through network.**
+
+#### Password
+In case you have a **trusted** Ethereum node with an imported wallet, Fluence CLI can delegate signing a transaction to the Ethereum node. This can be done like this:
+```bash
+./fluence SUBCOMMAND
+          ...
+          --account            0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+          --password           my_secure_passw0rd
+```
+
+`personal_sendTransaction` will be used to send transaction. It means **your password will be sent over network** to the Ethereum node, and the node will sign and send transaction all by itself. It's preffered to use keystore or private key options instead of providing just a password.
+
+Note, that **your account is not unlocked before, in, or after that operation.**
+
+#### No authorization
+It's also possible to avoid providing any credentials:
+```bash
+./fluence SUBCOMMAND
+          ...
+          --account            0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d
+```
+
+In that case, transaction is sent to Ethereum node via `eth_sendTransaction` unsigned, so it's expected that there is no authorization enabled on your node. **This option isn't secure and was meant to be used for testing purposes.**
