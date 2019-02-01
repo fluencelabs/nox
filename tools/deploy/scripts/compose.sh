@@ -154,7 +154,7 @@ function export_arguments()
         export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
     else
         echo "Deploying for $CHAIN chain."
-        export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*"'
+        export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
     fi
 }
 
@@ -175,86 +175,104 @@ function start_parity_swarm()
 # ====================== SCRIPT STARTS HERE ======================
 # ================================================================
 
-container_update
+function deploy()
+{
+    container_update
 
-# exports initial arguments to global scope for `docker-compose` files
-export_arguments
+    # exports initial arguments to global scope for `docker-compose` files
+    export_arguments
 
-get_docker_ip_address
+    get_docker_ip_address
 
-get_external_ip
+    get_external_ip
 
-start_parity_swarm
+    start_parity_swarm
 
-# deploy contract if there is new dev ethereum node
-if [ -z "$PROD_DEPLOY" ]; then
-    export CONTRACT_ADDRESS=$(deploy_contract_locally)
-fi
-
-# parse start and last port from format `111:222`
-START_PORT=${PORTS%:*}
-LAST_PORT=${PORTS#*:}
-# status port is hardcoded with `+400` thing
-export STATUS_PORT=$((LAST_PORT+400))
-
-# check all variables exists
-echo "CONTRACT_ADDRESS="$CONTRACT_ADDRESS
-echo "NAME="$NAME
-echo "PORTS="$PORTS
-echo "HOST_IP="$HOST_IP
-echo "EXTERNAL_HOST_IP="$EXTERNAL_HOST_IP
-echo "OWNER_ADDRESS="$OWNER_ADDRESS
-echo "CONTRACT_ADDRESS="$CONTRACT_ADDRESS
-echo "PRIVATE_KEY="$PRIVATE_KEY
-
-# port for status API
-echo "STATUS_PORT="$STATUS_PORT
-
-# uses for multiple deploys if needed
-COUNTER=1
-
-# starting node container
-# if there was `multiple` flag on the running script, will be created 4 nodes, otherwise one node
-if [ "$1" = "multiple" ]; then
-    docker-compose -f multiple-node.yml up -d --force-recreate
-    NUMBER_OF_NODES=4
-else
-    docker-compose -f node.yml up -d --force-recreate
-    NUMBER_OF_NODES=1
-fi
-
-echo 'Node container is started.'
-
-while [ $COUNTER -le $NUMBER_OF_NODES ]; do
-    parse_tendermint_params TENDERMINT_KEY TENDERMINT_NODE_ID
-
-    echo "CURRENT NODE = "$COUNTER
-    echo "TENDERMINT_KEY="$TENDERMINT_KEY
-    echo "TENDERMINT_NODE_ID="$TENDERMINT_NODE_ID
-
-    # use hardcoded ports for multiple nodes
-    if [ "$1" = "multiple" ]; then
-        START_PORT="25"$COUNTER"00"
-        LAST_PORT="25"$COUNTER"10"
-    fi
-
-    echo "START_PORT="$START_PORT
-    echo "LAST_PORT="$LAST_PORT
-
-    echo "Registering node in smart contract:"
-
-    # registers node in Fluence contract, for local usage
+    # deploy contract if there is new dev ethereum node
     if [ -z "$PROD_DEPLOY" ]; then
-        set -x
-        REGISTER_COMMAND=$(generate_command)
-        eval $REGISTER_COMMAND
-        set +x
+        export CONTRACT_ADDRESS=$(deploy_contract_locally)
     fi
 
-    # generates JSON with all arguments for node registration
-    JSON=$(generate_json)
-    echo $JSON
+    # parse start and last port from format `111:222`
+    START_PORT=${PORTS%:*}
+    LAST_PORT=${PORTS#*:}
+    # status port is hardcoded with `+400` thing
+    export STATUS_PORT=$((LAST_PORT+400))
 
-    COUNTER=$[$COUNTER+1]
-    TENDERMINT_KEY=""
-done
+    # check all variables exists
+    echo "CONTRACT_ADDRESS="$CONTRACT_ADDRESS
+    echo "NAME="$NAME
+    echo "PORTS="$PORTS
+    echo "HOST_IP="$HOST_IP
+    echo "EXTERNAL_HOST_IP="$EXTERNAL_HOST_IP
+    echo "OWNER_ADDRESS="$OWNER_ADDRESS
+    echo "CONTRACT_ADDRESS="$CONTRACT_ADDRESS
+    echo "PRIVATE_KEY="$PRIVATE_KEY
+
+    # port for status API
+    echo "STATUS_PORT="$STATUS_PORT
+
+    # uses for multiple deploys if needed
+    COUNTER=1
+
+    # starting node container
+    # if there was `multiple` flag on the running script, will be created 4 nodes, otherwise one node
+    if [ "$1" = "multiple" ]; then
+        docker-compose -f multiple-node.yml up -d --force-recreate
+        NUMBER_OF_NODES=4
+    else
+        docker-compose -f node.yml up -d --force-recreate
+        NUMBER_OF_NODES=1
+    fi
+
+    echo 'Node container is started.'
+
+    while [ $COUNTER -le $NUMBER_OF_NODES ]; do
+        parse_tendermint_params TENDERMINT_KEY TENDERMINT_NODE_ID
+
+        echo "CURRENT NODE = "$COUNTER
+        echo "TENDERMINT_KEY="$TENDERMINT_KEY
+        echo "TENDERMINT_NODE_ID="$TENDERMINT_NODE_ID
+
+        # use hardcoded ports for multiple nodes
+        if [ "$1" = "multiple" ]; then
+            START_PORT="25"$COUNTER"00"
+            LAST_PORT="25"$COUNTER"10"
+        fi
+
+        echo "START_PORT="$START_PORT
+        echo "LAST_PORT="$LAST_PORT
+
+        echo "Registering node in smart contract:"
+
+        # registers node in Fluence contract, for local usage
+        if [ -z "$PROD_DEPLOY" ]; then
+            set -x
+            REGISTER_COMMAND=$(generate_command)
+            eval $REGISTER_COMMAND
+            set +x
+        fi
+
+        # generates JSON with all arguments for node registration
+        JSON=$(generate_json)
+        echo $JSON
+
+        COUNTER=$[$COUNTER+1]
+        TENDERMINT_KEY=""
+    done
+}
+
+if [ -z "$1" ]; then
+    echo "Arguments are empty. Use function name for calling."
+else
+    # Check if the function exists (bash specific)
+    if declare -f "$1" > /dev/null; then
+      # call arguments verbatim
+      "$@"
+    else
+      # Show a helpful error
+      echo "'$1' is not a known function name" >&2
+      exit 1
+    fi
+fi
+

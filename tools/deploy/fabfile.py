@@ -19,8 +19,7 @@ import json
 # owners and private keys for specific ip addresses
 # todo get this info from some sources
 # TO USE: replace values inside <> with your actual values
-info = {'<ip1>': {'owner': '<eth address1>', 'key': '<private key1>', 'ports': '<from>:<to>'},
-        '<ip2>': {'owner': '<eth address2>', 'key': '<private key2>', 'ports': '<from>:<to>'}}
+info = {'159.89.17.35': {'owner': '0x5903730e872fb2b0cd4402c69d6d43c86e973db7', 'key': '0x52c685b72c548da46ee7e595b4003635a1dab3f281dc26b9a13a5b0ea736d3b1', "ports": "25000:25099"}}
 
 RELEASE="http://dump.bitcheese.net/files/refamix/fluence" #"https://github.com/fluencelabs/fluence/releases/download/untagged-3f7e10bd802b3149036d/fluence-linux-x64"
 
@@ -108,7 +107,7 @@ def deploy():
                            HOST_IP=current_host):
                 run('chmod +x compose.sh')
                 # the script will return command with arguments that will register node in Fluence contract
-                output = run('./compose.sh')
+                output = run('./compose.sh deploy')
                 meta_data = output.stdout.splitlines()[-1]
                 # parses output as arguments in JSON
                 json_data = json.loads(meta_data)
