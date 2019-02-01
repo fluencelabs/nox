@@ -21,6 +21,9 @@ set -e
 # Without `PROD_DEPLOY` exported flag the script will use default arguments
 # If first arg is `multiple`, script will start 4 fluence node along with Swarm & Parity nodes
 
+# `PROD_DEPLOY` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
+#  the network will be started in development mode locally
+
 # generates json with all arguments required for registration a node
 function generate_json()
 {
@@ -36,6 +39,7 @@ function generate_json()
     echo $JSON
 }
 
+# generates command for registering node with CLI
 function generate_command()
 {
     echo "./fluence register \
@@ -52,6 +56,7 @@ function generate_command()
             --base64_tendermint_key"
 }
 
+# parses tendermint node id and key from logs
 function parse_tendermint_params()
 {
     local __TENDERMINT_KEY=$1
@@ -60,13 +65,14 @@ function parse_tendermint_params()
     # get tendermint key from node logs
     # todo get this from `status` API by CLI
     while [ -z "$TENDERMINT_KEY" -o -z "$TENDERMINT_NODE_ID" ]; do
+        # check if docker container isn't in `exited` status
         local DOCKER_STATUS=$(docker ps -a --filter "name=fluence-node-$COUNTER" --format '{{.Status}}' | grep -o Exited)
         if [ -n "$DOCKER_STATUS" ]
         then
             echo -e "\e[91m'fluence-node-'$COUNTER container cannot be run\e[0m"
             exit 127
         fi
-        # TODO: parse for 'Node ID' instead of 'PubKey'
+
         TENDERMINT_KEY=$(docker logs fluence-node-$COUNTER 2>&1 | awk 'match($0, /PubKey: /) { print substr($0, RSTART + RLENGTH) }')
         TENDERMINT_NODE_ID=$(docker logs fluence-node-$COUNTER 2>&1 | awk 'match($0, /Node ID: /) { print substr($0, RSTART + RLENGTH) }')
         sleep 3
@@ -76,6 +82,7 @@ function parse_tendermint_params()
     eval $__TENDERMINT_NODE_ID="'$TENDERMINT_NODE_ID'"
 }
 
+# deploys contract to local ethereum node for test usage
 function deploy_contract_locally()
 {
     if [ ! -d "node_modules" ]; then
@@ -89,7 +96,7 @@ function deploy_contract_locally()
     echo $CONTRACT_ADDRESS
 }
 
-# Updates all needed containers
+# updates all needed containers
 function container_update()
 {
     docker pull parity/parity:v2.3.0
@@ -98,9 +105,9 @@ function container_update()
     docker pull fluencelabs/worker:latest
 }
 
+# getting node's docker IP address
 function get_docker_ip_address()
 {
-    # getting docker ip address
     case "$(uname -s)" in
        Darwin)
          export DOCKER_IP=host.docker.internal
@@ -112,24 +119,8 @@ function get_docker_ip_address()
     esac
 }
 
-function export_arguments()
-{
-    if [ -z "$PROD_DEPLOY" ]; then
-        echo "Deploying locally with default arguments."
-        export NAME='fluence-node-1'
-        # open 10 ports, so it's possible to create 10 workers
-        export PORTS='25000:25010'
-        # eth address in `dev` mode Parity with eth
-        export OWNER_ADDRESS=0x00a329c0648769a73afac7f9381e08fb43dbea72
-        export PRIVATE_KEY=4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
-        export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
-    else
-        echo "Deploying for $CHAIN chain."
-        export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*"'
-    fi
-}
-
-function get_external_ips()
+# get IP used for external calls
+function get_external_ip()
 {
     # use exported external ip address or get it from OS
     # todo rewrite this
@@ -146,6 +137,24 @@ function get_external_ips()
         esac
     else
         EXTERNAL_HOST_IP=$HOST_IP
+    fi
+}
+
+# gets default arguments for test usage or use exported arguments from calling script
+function export_arguments()
+{
+    if [ -z "$PROD_DEPLOY" ]; then
+        echo "Deploying locally with default arguments."
+        export NAME='fluence-node-1'
+        # open 10 ports, so it's possible to create 10 workers
+        export PORTS='25000:25010'
+        # eth address in `dev` mode Parity with eth
+        export OWNER_ADDRESS=0x00a329c0648769a73afac7f9381e08fb43dbea72
+        export PRIVATE_KEY=4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
+        export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
+    else
+        echo "Deploying for $CHAIN chain."
+        export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*"'
     fi
 }
 
@@ -168,15 +177,12 @@ function start_parity_swarm()
 
 container_update
 
-# `PROD_DEPLOY` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
-#  the network will be started in development mode locally
-
 # exports initial arguments to global scope for `docker-compose` files
 export_arguments
 
 get_docker_ip_address
 
-get_external_ips
+get_external_ip
 
 start_parity_swarm
 
@@ -185,8 +191,10 @@ if [ -z "$PROD_DEPLOY" ]; then
     export CONTRACT_ADDRESS=$(deploy_contract_locally)
 fi
 
+# parse start and last port from format `111:222`
 START_PORT=${PORTS%:*}
 LAST_PORT=${PORTS#*:}
+# status port is hardcoded with `+400` thing
 export STATUS_PORT=$((LAST_PORT+400))
 
 # check all variables exists
@@ -202,6 +210,7 @@ echo "PRIVATE_KEY="$PRIVATE_KEY
 # port for status API
 echo "STATUS_PORT="$STATUS_PORT
 
+# uses for multiple deploys if needed
 COUNTER=1
 
 # starting node container

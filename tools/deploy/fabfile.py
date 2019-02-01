@@ -25,6 +25,8 @@ info = {'<ip1>': {'owner': '<eth address1>', 'key': '<private key1>', 'ports': '
 RELEASE="http://dump.bitcheese.net/files/refamix/fluence" #"https://github.com/fluencelabs/fluence/releases/download/untagged-3f7e10bd802b3149036d/fluence-linux-x64"
 
 file = open("scripts/contract.txt", "r")
+
+# gets deployed contract address from a file
 contract=file.read().rstrip()
 file.close()
 
@@ -34,8 +36,8 @@ env.hosts = info.keys()
 # Set the username
 env.user = "root"
 
+# copies all necessary files for deploying
 def copy_resources():
-
     # cleans up old scripts
     run('rm -rf scripts')
     run('mkdir scripts -p')
@@ -45,6 +47,7 @@ def copy_resources():
     put('scripts/parity.yml', 'scripts/')
     put('scripts/swarm.yml', 'scripts/')
 
+# creates register command to register deployed node
 def register_command(data, secret_key):
     eth_url = "http://" + data['node_ip'] + ":8545"
     command = "./fluence register \
@@ -68,6 +71,7 @@ def register_command(data, secret_key):
 @parallel
 def deploy():
 
+    # check if `fluence` file is exists
     result = local("[ -s fluence ] && echo 1 || echo 0", capture=True)
     if (result == '0'):
         print
@@ -94,19 +98,22 @@ def deploy():
             current_ports = info[current_host]['ports']
 
             with shell_env(CHAIN=chain,
+                           # flag that show to script, that it will deploy all with non-default arguments
                            PROD_DEPLOY="true",
                            CONTRACT_ADDRESS=contract_address,
                            OWNER_ADDRESS=current_owner,
                            PORTS=current_ports,
+                           # container name
                            NAME="fluence-node-1",
                            HOST_IP=current_host):
                 run('chmod +x compose.sh')
-                # download fluence CLI
-                output = run('./compose.sh')
                 # the script will return command with arguments that will register node in Fluence contract
-                # TODO return all arguments instead of the command itself or make a file or an output with all common commands
+                output = run('./compose.sh')
                 meta_data = output.stdout.splitlines()[-1]
+                # parses output as arguments in JSON
                 json_data = json.loads(meta_data)
+                # creates command for registering node
                 command = register_command(json_data, current_key)
+                # run `fluence` command
                 local(command)
 
