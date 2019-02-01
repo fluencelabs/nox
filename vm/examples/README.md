@@ -1,6 +1,6 @@
 ### Fluence Rust examples
 
-Rust examples that can be compiled to Webassembly and run in Fluence.  
+Rust examples that can be compiled to Webassembly and run on Fluence.  
 
 #### Prerequisites
 

@@ -1,5 +1,3 @@
-package fluence.vm
-
 /*
  * Copyright 2018 Fluence Labs Limited
  *
@@ -15,6 +13,8 @@ package fluence.vm
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+package fluence.vm
 
 import cats.data.EitherT
 import cats.effect.IO
@@ -32,6 +32,9 @@ class AppIntegrationTest extends WordSpec with Matchers with OptionValues with E
     val resultAsString = new String(result)
     resultAsString should startWith (expectedString)
   }
+
+  protected def compareArrays(first: Array[Byte], second: Array[Byte]): Assertion =
+    first.deep shouldBe second.deep
 
   implicit class EitherTValueReader[E, V](origin: EitherT[IO, E, V]) {
 
