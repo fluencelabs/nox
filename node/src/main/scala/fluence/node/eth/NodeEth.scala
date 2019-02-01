@@ -27,6 +27,7 @@ import fluence.ethclient.data.Block
 import fluence.node.config.FluenceContractConfig
 import org.web3j.abi.datatypes.generated.Bytes32
 import scodec.bits.ByteVector
+import slogging.LazyLogging
 
 import scala.language.higherKinds
 
@@ -56,7 +57,7 @@ trait NodeEth[F[_]] {
 
 }
 
-object NodeEth {
+object NodeEth extends LazyLogging {
 
   /**
    * Provides the default NodeEth instance
@@ -82,10 +83,13 @@ object NodeEth {
         case ((_, _, _, stop, fiber), exitCase) ⇒
           exitCase match {
             case ExitCase.Error(e) ⇒
+              logger.error("NodeEth resource is closed with error", e)
               stop.complete(Left(e)) *> fiber.join
             case ExitCase.Canceled ⇒
+              logger.warn("NodeEth resource is closed due to Cancel")
               stop.complete(Right(())) *> fiber.cancel
             case _ ⇒
+              logger.info("NodeEth resource is closed as it's not used any more")
               stop.complete(Right(()))
           }
       }

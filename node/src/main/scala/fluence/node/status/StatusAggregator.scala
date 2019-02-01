@@ -84,8 +84,12 @@ object StatusAggregator extends LazyLogging {
       HttpRoutes
         .of[IO] {
           case GET -> Root / "status" =>
-            logger.info(Console.BLUE + "we got STATUS request" + Console.RESET)
-            sm.getStatus.flatMap(state => Ok(state.asJson.spaces2))
+            sm.getStatus
+              .flatMap(state => Ok(state.asJson.spaces2))
+              .guaranteeCase {
+                case ExitCase.Error(err) ⇒ IO(logger.warn("Cannot produce MasterStatus response", err))
+                case _ ⇒ IO(logger.debug("MasterStatus responded successfully"))
+              }
         }
         .orNotFound,
       corsConfig

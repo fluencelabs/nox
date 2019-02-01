@@ -41,7 +41,7 @@ case class Block(
   transactions: Seq[Transaction],
   uncles: Seq[String],
   sealFields: Seq[String]
-) {}
+)
 
 object Block {
 
@@ -54,13 +54,13 @@ object Block {
       getNumber,
       getHash,
       getParentHash,
-      getNonceRaw, // null for kovan
+      Option(getNonceRaw).getOrElse(""), // null for kovan
       getSha3Uncles,
       getLogsBloom,
       getTransactionsRoot,
       getStateRoot,
       getReceiptsRoot,
-      getAuthor,
+      Option(getAuthor).getOrElse(""), // empty for ganache
       getMiner,
       getMixHash,
       getDifficulty,
@@ -72,7 +72,7 @@ object Block {
       getTimestamp,
       getTransactions.toSeq.map(Transaction.apply),
       getUncles,
-      getSealFields
+      Option[Seq[String]](getSealFields).getOrElse(Nil) // null on ganache
     )
   }
 }

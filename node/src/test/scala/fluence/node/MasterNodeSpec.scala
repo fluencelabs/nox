@@ -17,13 +17,15 @@
 package fluence.node
 
 import java.nio.file.Files
+import java.util.Base64
 
 import cats.effect._
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
-import fluence.node.config.{Configuration, MasterConfig}
+import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.status.{MasterStatus, StatusAggregator}
+import fluence.node.workers.tendermint.ValidatorKey
 import org.scalatest.{Timer ⇒ _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
@@ -32,12 +34,6 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-/**
- * This test contains a single test method that checks:
- * - MasterNode connectivity with ganache-hosted Fluence smart contract
- * - MasterNode ability to load previous node clusters and subscribe to new clusters
- * - Successful cluster formation and starting blocks creation
- */
 class MasterNodeSpec
     extends WordSpec with LazyLogging with Matchers with BeforeAndAfterAll with OptionValues with Integration
     with GanacheSetup {
@@ -73,14 +69,20 @@ class MasterNodeSpec
     "provide status" in {
       val masterConf =
         MasterConfig.load().unsafeRunSync().copy(tendermintPath = Files.createTempDirectory("masternodespec").toString)
-      val Configuration(rootPath, nodeConf) = Configuration.init(masterConf).unsafeRunSync()
+
+      val nodeConf = NodeConfig(
+        masterConf.endpoints,
+        ValidatorKey("", Base64.getEncoder.encodeToString(Array.fill(32)(5))),
+        "127.0.0.1",
+        masterConf.worker
+      )
 
       val resource = for {
         sttpB ← sttpResource
         node ← {
           implicit val s = sttpB
           MasterNode
-            .resource[IO, IO.Par](masterConf, nodeConf, rootPath)
+            .resource[IO, IO.Par](masterConf, nodeConf, Files.createTempDirectory("masternodespec"))
         }
         _ ← StatusAggregator.makeHttpResource(masterConf, node)
       } yield (sttpB, node)
@@ -92,8 +94,8 @@ class MasterNodeSpec
             fiber <- Concurrent[IO].start(node.run)
             _ = println("Node Run")
             _ ← eventually[IO](getStatus(5678).map(println), 1.second, 15.seconds)
-            _ ← fiber.join
-          } yield ()
+            _ = println("eventually ok")
+          } yield println("done")
 
       }.unsafeRunSync()
 
