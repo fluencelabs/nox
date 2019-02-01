@@ -93,12 +93,16 @@ class MasterNodeIntegrationSpec
 
   def getRunningWorker(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[Option[WorkerRunning]] =
     IO.suspend {
-      getStatus(statusPort).map(_.workers.headOption.flatMap {
-        case w: WorkerRunning =>
-          Some(w)
-        case _ ⇒
-          None
-      })
+      getStatus(statusPort).map(
+        st ⇒
+          st.workers.headOption.flatMap {
+            case w: WorkerRunning =>
+              Some(w)
+            case _ ⇒
+              logger.debug("Trying to get running worker, but it doesn't exist in status: " + st)
+              None
+        }
+      )
     }
 
   def withEthSttpAndTwoMasters(basePort: Short): Resource[IO, (EthClient, SttpBackend[IO, Nothing])] =
@@ -128,19 +132,30 @@ class MasterNodeIntegrationSpec
 
         _ <- contract.addNode[IO](status1.nodeConfig).attempt
         _ <- contract.addNode[IO](status2.nodeConfig).attempt
-        blockNumber <- contract.addApp[IO]("llamadb", clusterSize = 2)
+        blockNumber <- contract.addApp[IO]("hello-user", clusterSize = 2)
 
-        _ = logger.info("Added App at block: " + blockNumber)
+        _ = logger.info("Added App at block: " + blockNumber + ", now going to wait for two workers")
 
         _ <- eventually[IO](
           for {
             c1s0 <- heightFromTendermintStatus("localhost", basePort)
+            _ = logger.info(s"c1s0 === " + c1s0)
             c1s1 <- heightFromTendermintStatus("localhost", (basePort + 1).toShort)
-            worker1 <- getRunningWorker(getStatusPort(basePort))
-            worker2 <- getRunningWorker(getStatusPort((basePort + 1).toShort))
+            _ = logger.info(s"c1s1 === " + c1s1)
           } yield {
             c1s0 shouldBe Some(2)
             c1s1 shouldBe Some(2)
+          },
+          maxWait = 90.seconds
+        )
+
+        _ = logger.info("Height equals two for workers, going to get WorkerRunning from Master status")
+
+        _ <- eventually[IO](
+          for {
+            worker1 <- getRunningWorker(getStatusPort(basePort))
+            worker2 <- getRunningWorker(getStatusPort((basePort + 1).toShort))
+          } yield {
             worker1 shouldBe defined
             worker2 shouldBe defined
           },
@@ -149,37 +164,46 @@ class MasterNodeIntegrationSpec
       } yield ()
     }
 
-    def deleteApp(basePort: Short): IO[Unit] = withEthSttpAndTwoMasters(basePort).use {
-      case (ethClient, s) =>
-        implicit val sttp = s
-        val getStatus1 = getRunningWorker(getStatusPort(basePort))
-        val getStatus2 = getRunningWorker(getStatusPort((basePort + 1).toShort))
-        val contract = FluenceContract(ethClient, contractConfig)
+    def deleteApp(basePort: Short): IO[Unit] =
+      withEthSttpAndTwoMasters(basePort).use {
+        case (ethClient, s) =>
+          logger.debug("Prepared two masters for Delete App test")
+          implicit val sttp = s
+          val getStatus1 = getRunningWorker(getStatusPort(basePort))
+          val getStatus2 = getRunningWorker(getStatusPort((basePort + 1).toShort))
+          val contract = FluenceContract(ethClient, contractConfig)
 
-        for {
-          _ <- runTwoWorkers(basePort)(ethClient, s)
+          for {
+            _ <- runTwoWorkers(basePort)(ethClient, s)
 
-          // Check that we have 2 running workers from runTwoWorkers
-          status1 <- getStatus1
-          _ = status1 shouldBe defined
-          status2 <- getStatus2
-          _ = status2 shouldBe defined
+            _ = logger.debug("Two workers should be running")
 
-          appId = status1.value.info.appId
-          _ <- contract.deleteApp[IO](appId)
-          _ <- eventually[IO](
-            for {
-              s1 <- getRunningWorker(getStatusPort(basePort))
-              s2 <- getRunningWorker(getStatusPort((basePort + 1).toShort))
-            } yield {
-              // Check that workers run no more
-              s1 should not be defined
-              s2 should not be defined
-            },
-            maxWait = 30.seconds
-          )
-        } yield ()
-    }
+            // Check that we have 2 running workers from runTwoWorkers
+            status1 <- getStatus1
+            _ = status1 shouldBe defined
+            _ = logger.debug("Worker1 running: "+status1)
+
+            status2 <- getStatus2
+            _ = status2 shouldBe defined
+            _ = logger.debug("Worker2 running: "+status2)
+
+            appId = status1.value.info.appId
+            _ <- contract.deleteApp[IO](appId)
+            _ = logger.debug("App deleted from contract")
+
+            _ <- eventually[IO](
+              for {
+                s1 <- getRunningWorker(getStatusPort(basePort))
+                s2 <- getRunningWorker(getStatusPort((basePort + 1).toShort))
+              } yield {
+                // Check that workers run no more
+                s1 should not be defined
+                s2 should not be defined
+              },
+              maxWait = 30.seconds
+            )
+          } yield ()
+      }
 
     "sync their workers with contract clusters" in {
       withEthSttpAndTwoMasters(25000).use {
