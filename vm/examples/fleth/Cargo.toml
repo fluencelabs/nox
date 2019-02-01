@@ -1,7 +1,7 @@
 [package]
 
 name = "fluence_ethereum"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Fluence Labs"]
 publish = false
 description = "Just takes TX from input of Fluence VM and prints them out"
@@ -25,7 +25,7 @@ crate-type = ["cdylib"]
 
 lazy_static = "1.1.0"
 log = "0.4"
-fluence_sdk = { version = "0.0.6", features = ["wasm_logger"] }
+fluence = { version = "0.0.7", features = ["wasm_logger_info", "export_allocator"] }
 
 [dev-dependencies]
 

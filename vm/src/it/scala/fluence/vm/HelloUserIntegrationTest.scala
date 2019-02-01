@@ -1,5 +1,3 @@
-package fluence.vm
-
 /*
  * Copyright 2018 Fluence Labs Limited
  *
@@ -15,6 +13,8 @@ package fluence.vm
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+package fluence.vm
 
 import cats.data.NonEmptyList
 import cats.effect.IO
@@ -42,7 +42,7 @@ class HelloUserIntegrationTest extends AppIntegrationTest with EitherValues {
 
     }
 
-    "greeting correctly" in {
+    "greets John correctly" in {
       (for {
         vm ← WasmVm[IO](NonEmptyList.one(helloUserFilePath))
         greetingResult ← vm.invoke[IO](None, "John".getBytes())
@@ -50,6 +50,18 @@ class HelloUserIntegrationTest extends AppIntegrationTest with EitherValues {
 
       } yield {
         checkTestResult(greetingResult, "Hello from Fluence to John")
+      }).success()
+
+    }
+
+    "operates correctly with empty input" in {
+      (for {
+        vm ← WasmVm[IO](NonEmptyList.one(helloUserFilePath))
+        greetingResult ← vm.invoke[IO](None)
+        state ← vm.getVmState[IO].toVmError
+
+      } yield {
+        checkTestResult(greetingResult, "Hello from Fluence to")
       }).success()
 
     }
