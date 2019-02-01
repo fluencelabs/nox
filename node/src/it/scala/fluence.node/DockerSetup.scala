@@ -36,31 +36,30 @@ trait DockerSetup extends OsSetup {
   }
 
   protected def runMaster[F[_]: ContextShift: Async](
-                                                      portFrom: Short,
-
-                                                      portTo: Short,
-                                                      name: String,
-                                                      statusPort: Short
-                                                    ): F[String] = {
+    portFrom: Short,
+    portTo: Short,
+    name: String,
+    statusPort: Short
+  ): F[String] = {
     DockerIO
       .exec[F](
-      DockerParams
-        .build()
-        .option("-e", s"TENDERMINT_IP=$dockerHost")
-        .option("-e", s"ETHEREUM_IP=$ethereumHost")
-        .option("-e", s"PORTS=$portFrom:$portTo")
-        .port(statusPort, 5678)
-        .option("--name", name)
-        .volume("/var/run/docker.sock", "/var/run/docker.sock")
-        // statemachine expects wasm binaries in /vmcode folder
-        .volume(
-        // TODO: by defaults, user.dir in sbt points to a submodule directory while in Idea to the project root
-        System.getProperty("user.dir")
-          + "/../vm/examples/llamadb/target/wasm32-unknown-unknown/release",
-        "/master/vmcode/vmcode-llamadb"
-      )
-        .image("fluencelabs/node:latest")
-        .unmanagedDaemonRun()
+        DockerParams
+          .build()
+          .option("-e", s"TENDERMINT_IP=$dockerHost")
+          .option("-e", s"ETHEREUM_IP=$ethereumHost")
+          .option("-e", s"PORTS=$portFrom:$portTo")
+          .port(statusPort, 5678)
+          .option("--name", name)
+          .volume("/var/run/docker.sock", "/var/run/docker.sock")
+          // statemachine expects wasm binaries in /vmcode folder
+          .volume(
+            // TODO: by defaults, user.dir in sbt points to a submodule directory while in Idea to the project root
+            System.getProperty("user.dir")
+              + "/../vm/examples/llamadb/target/wasm32-unknown-unknown/release",
+            "/master/vmcode/vmcode-llamadb"
+        )
+          .image("fluencelabs/node:latest")
+          .unmanagedDaemonRun()
     )
   }
 }
