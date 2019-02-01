@@ -118,14 +118,14 @@ pub fn node_ip<'a, 'b>() -> Arg<'a, 'b> {
 pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
     let eth_args = vec![
         contract_address(),
+        eth_url(),
         Arg::with_name(ACCOUNT)
             .long(ACCOUNT)
             .short("a")
             .value_name("eth address")
             .required(true)
             .takes_value(true)
-            .help("Ethereum account")
-            .eth_url(),
+            .help("Ethereum account"),
         Arg::with_name(PASSWORD)
             .long(PASSWORD)
             .short("P")
