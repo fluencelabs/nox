@@ -1,4 +1,20 @@
-//! This module enables log messages writes from the WASM code.
+/*
+ * Copyright 2018 Fluence Labs Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+//! This module enables log messages that could be printed from Wasm side.
 //!
 //! This is a client for the Logger Wasm Module in Fluence WasmVm. Together they
 //! allow to write messages from Wasm code to log. The logging is basically a
@@ -19,12 +35,12 @@
 //!
 //! ```
 //!     #[macro_use] extern crate log;
-//!     extern crate fluence_sdk;
+//!     extern crate fluence;
 //!     extern crate simple_logger;
 //!
 //!     fn main() {
 //!         if cfg!(target_arch = "wasm32") {
-//!             fluence_sdk::logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
+//!             fluence::logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
 //!         } else {
 //!             simple_logger::init_with_level(log::Level::Info).unwrap();
 //!         }
@@ -40,13 +56,13 @@
 //!
 //! ```
 //!     #[macro_use] extern crate log;
-//!     extern crate fluence_sdk;
+//!     extern crate fluence;
 //!
 //!     /// This method initialize WasmLogger and should be called at the start of application
 //!     #[no_mangle]
 //!     #[cfg(target_arch = "wasm32")]
 //!     fn init_logger() {
-//!         fluence_sdk::logger::WasmLogger::init().unwrap();
+//!         fluence::logger::WasmLogger::init().unwrap();
 //!         info!("If you can see this message that logger was successfully initialized.");
 //!     }
 //!
@@ -58,24 +74,30 @@
 //! ```
 //!     #[macro_use] extern crate log;
 //!     #[macro_use] extern crate lazy_static;
-//!     extern crate fluence_sdk;
+//!     extern crate fluence;
 //!
 //!     lazy_static! {
 //!         static ref _LOGGER: () = {
-//!             fluence_sdk::logger::WasmLogger::init_with_level(log::Level::Info);
+//!             fluence::logger::WasmLogger::init_with_level(log::Level::Info);
 //!         };
 //!     }
 //!
 //!     fn main() {
 //!         if cfg!(target_arch = "wasm32") {
 //!             // There is required to call init in a method or in another `lazy_static!` block
-//!             fluence_sdk::logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
+//!             fluence::logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
 //!         }
 //!
 //!         // ...
 //!     }
 //!
 //! ```
+//!
+//! There is an other possibility to initialize logger from `VM wrapper` by exported function
+//! `init_logger`. To specify logging level please include sdk with one of these features:
+//! `wasm_logger_info`, `wasm_logger_warn`, `wasm_logger_error`. If you specified some of them
+//! the most common level will be used.
+//!
 //! [`WasmLogger`]: struct.WasmLogger.html
 //! [`log`]: https://docs.rs/log
 //! [`simple_logger`]: https://docs.rs/simple_logger
@@ -83,6 +105,8 @@
 //! [`lazy_static::initialize()`]: https://docs.rs/lazy_static/1.2.0/lazy_static/fn.initialize.html
 
 extern crate log;
+use self::log::{error, warn};
+use std::ptr::NonNull;
 
 /// The Wasm Logger.
 ///
@@ -105,11 +129,11 @@ impl WasmLogger {
     ///
     /// ```
     /// # #[macro_use] extern crate log;
-    /// # extern crate fluence_sdk;
+    /// # extern crate fluence;
     /// #
     /// # fn main() {
     /// if cfg!(target_arch = "wasm32") {
-    ///     fluence_sdk::logger::WasmLogger::init_with_level(log::Level::Error).unwrap();
+    ///     fluence::logger::WasmLogger::init_with_level(log::Level::Error).unwrap();
     /// }
     /// error!("This message will be logged.");
     /// info!("This message will not be logged.");
@@ -127,20 +151,48 @@ impl WasmLogger {
     ///
     /// ```
     /// # #[macro_use] extern crate log;
-    /// # extern crate fluence_sdk;
+    /// # extern crate fluence;
     /// #
     /// # fn main() {
     /// if cfg!(target_arch = "wasm32") {
-    ///     fluence_sdk::logger::WasmLogger::init().unwrap();
+    ///     fluence::logger::WasmLogger::init().unwrap();
     /// }
     ///
     /// error!("This message will be logged.");
-    /// trace!("This message will not be logged too.");
+    /// trace!("This message will not be logged.");
     /// # }
     /// ```
     pub fn init() -> Result<(), log::SetLoggerError> {
         WasmLogger::init_with_level(log::Level::Info)
     }
+}
+
+/// Initializes `WasmLogger` instance and returns a pointer to error message as a string
+/// in memory. Enabled only for a Wasm targets.
+#[no_mangle]
+#[cfg(target_arch = "wasm32")]
+pub unsafe fn init_logger() -> NonNull<u8> {
+    // if there are several wasm logger features specified choose the most general one
+    let log_level = if cfg!(feature = "wasm_logger_info") {
+        log::Level::Info
+    } else if cfg!(feature = "wasm_logger_warn") {
+        log::Level::Warn
+    } else {
+        log::Level::Error
+    };
+
+    let result = WasmLogger::init_with_level(log_level)
+        .map(|_| "WasmLogger was successfully initialized".to_string())
+        .unwrap_or_else(|err| format!("WasmLogger initialization was failed, cause: {:?}", err));
+
+    warn!("{}\n", result);
+
+    // returns logger initialization result as a string
+    crate::memory::write_result_to_mem(&result.as_bytes()).unwrap_or_else(|_| {
+        let error_msg = "Writing result string to memory was failed.";
+        error!("{}", error_msg);
+        panic!(error_msg);
+    })
 }
 
 impl log::Log for WasmLogger {

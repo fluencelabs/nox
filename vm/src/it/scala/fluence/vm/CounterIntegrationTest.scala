@@ -1,5 +1,3 @@
-package fluence.vm
-
 /*
  * Copyright 2018 Fluence Labs Limited
  *
@@ -15,6 +13,8 @@ package fluence.vm
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+package fluence.vm
 
 import cats.data.NonEmptyList
 import cats.effect.IO
@@ -52,8 +52,8 @@ class CounterIntegrationTest extends AppIntegrationTest with EitherValues {
         _ ← vm.getVmState[IO].toVmError
 
       } yield {
-        checkTestResult(getResult1, "2")
-        checkTestResult(getResult2, "4")
+        compareArrays(getResult1, Array[Byte](2, 0, 0, 0, 0, 0, 0, 0))
+        compareArrays(getResult2, Array[Byte](4, 0, 0, 0, 0, 0, 0, 0))
       }).success()
 
     }
