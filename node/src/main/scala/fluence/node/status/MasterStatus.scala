@@ -54,7 +54,7 @@ object MasterStatus {
   private implicit val encodeEthTx: Encoder[Transaction] = deriveEncoder
   private implicit val encodeEthBlock: Encoder[Block] = deriveEncoder
   private implicit val encodeByteVector: Encoder[ByteVector] = Encoder.encodeString.contramap(_.toHex)
-  private implicit val encodeInetAddress: Encoder[InetAddress] = Encoder.encodeString.contramap(_.toString)
+  private implicit val encodeInetAddress: Encoder[InetAddress] = Encoder.encodeString.contramap(_.getHostName)
   private implicit val encodeWorkerPeer: Encoder[WorkerPeer] = deriveEncoder
   private implicit val encodeFiniteDuration: Encoder[FiniteDuration] = Encoder.encodeLong.contramap(_.toSeconds)
   private implicit val encodeCluster: Encoder[Cluster] = deriveEncoder
