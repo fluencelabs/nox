@@ -447,7 +447,10 @@ mod tests {
         assert!(result.is_err());
 
         if let Result::Err(e) = result {
-            assert!(e.to_string().contains("Can pin only to registered nodes"))
+            assert!(e
+                .find_root_cause()
+                .to_string()
+                .contains("Can pin only to registered nodes"))
         }
     }
 }
