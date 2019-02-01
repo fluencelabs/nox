@@ -26,11 +26,15 @@ It creates file with Rust code and then complies it to Webassembly. If it ends w
 
 ### Quick start
 
-At first you need to create an empty Rust lib project f.e. by the following command:
+At first lets create a new empty Rust lib package f.e. by the following command:
 
 ```bash
 cargo new hello-user --lib
+
+cd hello-user
 ```
+
+These commands create a empty stub for our project (more detailed info about package creating can be found [here](https://doc.rust-lang.org/cargo/guide/creating-a-new-project.html)) and change directory to it.
 
 As it already been said to interact with `VM wrapper` a module has to follow several rules. In particular, it has to export three functions:
 
@@ -53,18 +57,20 @@ pub unsafe fn deallocate(ptr: *mut u8, size: usize) {
 
 The first of them is the main module handler, it is invoked by `VM wrapper` with argument from `client-side` as byte buffer. The second and the third are utility methods used by `VM wrapper` for parameter passing. They has to allocate and free memory. This knowledge is enough for developing simple applications for Fluence. The more detailed description of these conventions and some internals could be found in `Wasm program conventions` section of this guide.
 
- Fluence Rust [SDK](https://docs.rs/fluence_sdk) designed to simplify implementations of these functions. This SDK has functions for allocating and deallocating memory regions, to read/write byte array to/from memory and also to print logs from Wasm module.
+ Fluence Rust [SDK](https://docs.rs/fluence_sdk) designed to simplify implementations of these functions. This SDK has functions for allocating and deallocating memory regions, to read/write byte array to/from memory and also to print logs from Wasm module. To use it add it to package dependencies and add use declaration in `src/lib.rs` (it is assumed that 2018 edition Rust is using):
+ 
+ ```Rust
+use fluence;
+```  
 
-Let's show all of them on an example of a simple Rust program that receives a `user name` and returns "Hello from Fluence to `user name`". Fluence SDK consists of three modules: `export_allocator`, `memory`, `logger`. The first of them provides default implementation of `allocate` and `deallocate` functions which became export during compilation to Webassembly. So you can delegate implementation of these functions by specifying feature `export_allocator` of SDK in dependencies:
+Let's show all of them on an example of a simple Rust program that receives a `user name` and returns "Hello from Fluence to `user name`". Fluence SDK consists of three modules: `export_allocator`, `memory`, `logger`. The first of them provides default implementation of `allocate` and `deallocate` functions which became export during compilation to Webassembly. So you can delegate implementation of these functions by specifying feature `export_allocator` of SDK in dependencies.
 
-```Toml
-[dependencies]
-fluence = { version = "0.0.7", features = ["export_allocator"]}
-```
-
-But `invoke` function is specific for every module and should manages all logic of receiving input and returning computation result. This function expects pointer to byte array and its size from `VM wrapper`. It can be used a `fluence::memory::read_input_from_mem` function to construct `Vec<u8>` from raw input. Then it should be transformed to `String`, concatenated with string "Hello from Fluence to " and finally returned to `VM wrapper`. To do the final step `fluence::memory::write_result_to_mem` can be used. It writes a byte array to memory in acceptable by `VM wrapper` format and returns pointer to it. So our current `invoke` can looks like this:
+But `invoke` function is specific for every module and should manages all logic of receiving input and returning computation result. This function expects pointer to byte array and its size from `VM wrapper`. It can be used a `fluence::memory::read_input_from_mem` function to construct `Vec<u8>` from raw input. Then it should be transformed to `String`, concatenated with string "Hello from Fluence to " and finally returned to `VM wrapper`. To do the final step `fluence::memory::write_result_to_mem` can be used. It writes a byte array to memory in acceptable by `VM wrapper` format and returns pointer to it. So our `src/lib.rs` file should looks like this:
 
 ```Rust
+use fluence;
+use std::ptr::NonNull;
+
 #[no_mangle]
 pub unsafe fn invoke(ptr: *mut u8, len: usize) -> NonNull<u8> {
     let user_name = fluence::memory::read_input_from_mem(ptr, len);
@@ -76,9 +82,11 @@ pub unsafe fn invoke(ptr: *mut u8, len: usize) -> NonNull<u8> {
 }
 ```
 
-Please also pay attention to modifier of this function - all of them needed to make it public (more information can be found [here](https://internals.rust-lang.org/t/precise-semantics-of-no-mangle/4098)).
+Please also pay attention to modifiers of this function - all of them needed to make it public (more information can be found [here](https://internals.rust-lang.org/t/precise-semantics-of-no-mangle/4098)).
 
-The worked example of `hello-user` program can be found [here](https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-user). Yeah, now we have a simple program that can be run on Fluence, lets compile it!
+The worked example of `hello-user` program can be found [here](https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-user). 
+
+Yeah, now we have a simple program that can be run on Fluence, lets compile it!
 
 ### Compilation and test launch
 
