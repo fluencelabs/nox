@@ -132,7 +132,7 @@ class MasterNodeIntegrationSpec
 
         _ <- contract.addNode[IO](status1.nodeConfig).attempt
         _ <- contract.addNode[IO](status2.nodeConfig).attempt
-        blockNumber <- contract.addApp[IO]("hello-user", clusterSize = 2)
+        blockNumber <- contract.addApp[IO]("llamadb", clusterSize = 2)
 
         _ = logger.info("Added App at block: " + blockNumber + ", now going to wait for two workers")
 
@@ -181,11 +181,11 @@ class MasterNodeIntegrationSpec
             // Check that we have 2 running workers from runTwoWorkers
             status1 <- getStatus1
             _ = status1 shouldBe defined
-            _ = logger.debug("Worker1 running: "+status1)
+            _ = logger.debug("Worker1 running: " + status1)
 
             status2 <- getStatus2
             _ = status2 shouldBe defined
-            _ = logger.debug("Worker2 running: "+status2)
+            _ = logger.debug("Worker2 running: " + status2)
 
             appId = status1.value.info.appId
             _ <- contract.deleteApp[IO](appId)
