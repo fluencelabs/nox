@@ -24,8 +24,7 @@
     "ganache-cli": "6.1.8",
     "openzeppelin-solidity": "1.12.0",
     "truffle": "4.1.14",
-    "truffle-assertions": "^0.3.1",
-    "truffle-flattener": "^1.2.11"
+    "truffle-assertions": "^0.3.1"
   },
   "dependencies": {
     "keythereum": "^1.0.4"
