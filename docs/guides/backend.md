@@ -24,9 +24,15 @@ echo "fn main(){1;}" > test.rs; rustc --target=wasm32-unknown-unknown test.rs
 
 It creates file with Rust code and then complies it to Webassembly. If it ends without errors and there is a `test.wasm` file in the same folder, set up is correct.
 
-### A quick start
+### Quick start
 
-As it already been said to interact with `VM wrapper` a module has to follow several guidelines. In particular, it has to export three functions:
+At first you need to create an empty Rust lib project f.e. by the following command:
+
+```bash
+cargo new hello-user --lib
+```
+
+As it already been said to interact with `VM wrapper` a module has to follow several rules. In particular, it has to export three functions:
 
 ```Rust
 #[no_mangle]
@@ -94,7 +100,7 @@ crate-type = ["cdylib"]
 fluence = { version = "0.0.7", features = ["export_allocator"]}
 ```
 
-Currently, the last version of `fluence_sdk` is `0.0.7` but now it under construction and will change in future, stay tuned.
+Currently, the last version of `fluence_sdk` is `0.0.7` but now it under construction and will change in future, stay tuned. Also note, that it is better for crate to have type `cdylib`, more information about that can found [here](https://rustwasm.github.io/wasm-pack/book/tutorial/template-deep-dive/cargo-toml.html#1-crate-type).
 
 And finally to compile this example the following command could be used:
 
@@ -102,7 +108,7 @@ And finally to compile this example the following command could be used:
 cargo +nightly-2019-01-08 build --target wasm32-unknown-unknown --release
 ```
 
-### Publish Wasm program
+### Wasm program publishing
 
 To publish resulted program `fluence/cli` can be used. This utility has a rich help that can be viewed by
 ```bash
@@ -124,7 +130,7 @@ fluence publish \
             --secret_key       0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133
 ```
 
-publishes `hello-user.wasm` to contract identified by `0x9995882876ae612bfd829498ccd73dd962ec950a`, account `0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d` to cluster of four nodes authenticated by secret key `0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133`.
+publishes `hello-user.wasm` to contract identified by `0x9995882876ae612bfd829498ccd73dd962ec950a`, account `0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d` to cluster of four nodes authenticated by secret key `0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133`. To find more information about cli interface please look at [miner guide](https://github.com/fluencelabs/fluence/blob/master/docs/guides/miner.md).
 
 
 ### Wasm program conventions

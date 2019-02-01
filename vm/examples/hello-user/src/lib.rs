@@ -16,15 +16,12 @@
 
 //! A simple demo application for Fluence.
 use fluence;
-use log::info;
 use std::ptr::NonNull;
 
 #[no_mangle]
 pub unsafe fn invoke(ptr: *mut u8, len: usize) -> NonNull<u8> {
     let user_name = fluence::memory::read_input_from_mem(ptr, len);
     let user_name: String = String::from_utf8(user_name).unwrap();
-
-    info!("{} have been successfully greeted", user_name);
 
     // return a pointer to the result in memory
     fluence::memory::write_result_to_mem(format!("Hello from Fluence to {}", user_name).as_bytes())
