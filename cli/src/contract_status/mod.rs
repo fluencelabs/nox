@@ -19,9 +19,10 @@ pub mod status;
 pub mod ui;
 
 use self::status::{get_status, Status};
-use clap::{App, ArgMatches, SubCommand, _clap_count_exprs, arg_enum, value_t};
+use clap::{App, ArgMatches, SubCommand, _clap_count_exprs, arg_enum};
 use failure::err_msg;
 use failure::Error;
+use failure::ResultExt;
 use web3::types::Address;
 
 use crate::command::*;
@@ -78,11 +79,18 @@ macro_rules! opt_or {
 impl StatusFilter {
     fn from_args(args: &ArgMatches) -> Result<StatusFilter, Error> {
         let mode: FilterMode = utils::get_opt(args, FILTER_MODE)
-            .map_err(err_msg)?
+            .map_err(err_msg)
+            .context("error parsing filter mode")?
             .unwrap_or(FilterMode::And);
-        let owner: Option<Address> = utils::get_opt(args, OWNER)?;
-        let app_id: Option<u64> = utils::get_opt(args, APP_ID)?;
-        let node_ip: Option<IpAddr> = utils::get_opt(args, NODE_IP)?;
+        let owner: Option<Address> = utils::get_opt_hex(args, OWNER)
+            .map_err(err_msg)
+            .context("error parsing owner")?;
+        let app_id: Option<u64> = utils::get_opt(args, APP_ID)
+            .map_err(err_msg)
+            .context("error parsing app_id")?;
+        let node_ip: Option<IpAddr> = utils::get_opt(args, NODE_IP)
+            .map_err(err_msg)
+            .context("error parsing node_ip")?;
         let tendermint_key: Option<H256> = if args.is_present(TENDERMINT_KEY) {
             Some(parse_tendermint_key(args)?)
         } else {
@@ -99,25 +107,44 @@ impl StatusFilter {
     }
 
     fn filter(&self, status: &Status) -> Status {
-        let nodes = status.nodes.iter().filter(|node| {
-            let by_app_id = self.app_id.map(|f| {
-                node.app_ids
-                    .as_ref()
-                    .map(|ids| ids.contains(&f))
-                    .unwrap_or(false)
-            });
-            let by_owner = self.owner.map(|f| f == node.owner);
-            let by_node_ip = self.node_ip.map(|f| f == node.ip_addr);
-            let by_t_key = self.tendermint_key.map(|f| f == node.validator_key);
-            match self.mode {
-                FilterMode::And => opt_and!(by_owner, by_app_id, by_node_ip, by_t_key),
-                FilterMode::Or => opt_or!(by_owner, by_app_id, by_node_ip, by_t_key),
-            }
-        });
-        //        let apps = status.apps.iter().filter(|node| {
-        //           let by_app_id = self.app_id.map()
-        //        });
-        unimplemented!()
+        let nodes = status
+            .nodes
+            .iter()
+            .filter(|node| {
+                let by_app_id = self.app_id.map(|f| {
+                    node.app_ids
+                        .as_ref()
+                        .map(|ids| ids.contains(&f))
+                        .unwrap_or(false)
+                });
+                let by_owner = self.owner.map(|f| f == node.owner);
+                let by_node_ip = self.node_ip.map(|f| f == node.ip_addr);
+                let by_t_key = self.tendermint_key.map(|f| f == node.validator_key);
+                match self.mode {
+                    FilterMode::And => opt_and!(by_owner, by_app_id, by_node_ip, by_t_key),
+                    FilterMode::Or => opt_or!(by_owner, by_app_id, by_node_ip, by_t_key),
+                }
+            })
+            .cloned()
+            .collect();
+        let apps = status
+            .apps
+            .iter()
+            .filter(|app| {
+                let by_app_id = self.app_id.map(|f| f == app.app_id);
+                let by_owner = self.owner.map(|f| f == app.owner);
+                let by_t_key = self
+                    .tendermint_key
+                    .and_then(|f| app.cluster.as_ref().map(|c| c.node_ids.contains(&f)));
+                match self.mode {
+                    FilterMode::And => opt_and!(by_owner, by_app_id, by_t_key),
+                    FilterMode::Or => opt_or!(by_owner, by_app_id, by_t_key),
+                }
+            })
+            .cloned()
+            .collect();
+
+        Status { nodes, apps }
     }
 }
 
@@ -150,8 +177,8 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
                 .required(false)
                 .takes_value(true)
                 .help("Filter nodes and apps by app id"),
-            node_ip().help("Filter nodes by IP address"),
-            tendermint_key().help("Filter nodes and apps by Tendermint validator key (node id)"),
+            node_ip().required(false).help("Filter nodes by IP address"),
+            tendermint_key().required(false).help("Filter nodes and apps by Tendermint validator key (node id)"),
         ])
 }
 
@@ -160,7 +187,11 @@ pub fn get_status_by_args(args: &ArgMatches) -> Result<Option<Status>, Error> {
     let eth_url = parse_eth_url(args)?;
     let contract_address: Address = parse_contract_address(args)?;
 
+    let filter = StatusFilter::from_args(args)?;
+
     let status = get_status(eth_url.as_str(), contract_address)?;
+
+    let status = filter.filter(&status);
 
     if args.is_present(INTERACTIVE) {
         rich_status::draw(&status)?;

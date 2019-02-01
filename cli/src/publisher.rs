@@ -104,7 +104,8 @@ impl Publisher {
                 self.pin_to_nodes.clone(),
             );
 
-            call_contract(&self.eth, call_data)
+            Ok(call_contract(&self.eth, call_data)
+                .context("error calling addApp in smart contract")?)
         };
 
         let wait_event_fn = |tx: &H256| -> Result<Published, Error> {
@@ -281,7 +282,8 @@ fn upload_code_to_swarm(url: &str, bytes: &[u8]) -> Result<String, Error> {
         .body(bytes.to_vec())
         .header("Content-Type", "application/octet-stream")
         .send()
-        .and_then(|mut r| r.text())?;
+        .and_then(|mut r| r.text())
+        .context("error uploading code to swarm")?;
 
     Ok(res)
 }

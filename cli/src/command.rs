@@ -238,10 +238,13 @@ pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Error> {
 }
 
 pub fn parse_tendermint_key(args: &ArgMatches) -> Result<H256, Error> {
-    let tendermint_key = utils::parse_hex_opt(args, TENDERMINT_KEY)?.to_owned();
+    let tendermint_key = utils::parse_hex_opt(args, TENDERMINT_KEY)
+        .context("error parsing tendermint key")?
+        .to_owned();
     let base64 = args.is_present(BASE64_TENDERMINT_KEY);
     let tendermint_key = if base64 {
-        let arr = base64::decode(&tendermint_key)?;
+        let arr =
+            base64::decode(&tendermint_key).context("error parsing tendermint key as base64")?;
         hex::encode(arr)
     } else {
         tendermint_key

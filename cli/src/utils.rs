@@ -149,3 +149,12 @@ where
     let opt: Option<Result<T, _>> = opt.map(|v| v.parse::<T>());
     opt.map_or(Ok(None), |v| v.map(Some))
 }
+
+pub fn get_opt_hex<E, T>(args: &ArgMatches, key: &str) -> Result<Option<T>, E>
+where
+    T: FromStr<Err = E>,
+{
+    let opt: Option<&str> = args.value_of(key);
+    let opt: Option<Result<T, _>> = opt.map(|v| v.trim_start_matches("0x").parse::<T>());
+    opt.map_or(Ok(None), |v| v.map(Some))
+}

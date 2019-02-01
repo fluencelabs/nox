@@ -15,6 +15,7 @@
  */
 
 use failure::Error;
+use failure::ResultExt;
 
 use serde_derive::{Deserialize, Serialize};
 use web3::types::{Address, H256};
@@ -145,11 +146,11 @@ pub fn get_nodes(eth_url: &str, contract_address: Address) -> Result<Vec<Node>, 
 
 pub fn get_apps(eth_url: &str, contract_address: Address) -> Result<Vec<App>, Error> {
     let (call_data, decoder) = get_app_i_ds::call();
-    let app_ids: Vec<u64> =
-        query_contract(call_data, Box::new(decoder), eth_url, contract_address)?
-            .into_iter()
-            .map(Into::into)
-            .collect();
+    let app_ids: Vec<u64> = query_contract(call_data, Box::new(decoder), eth_url, contract_address)
+        .context("reading app ids from contract failed")?
+        .into_iter()
+        .map(Into::into)
+        .collect();
 
     let apps: Result<Vec<App>, Error> = app_ids
         .iter()
@@ -164,7 +165,8 @@ pub fn get_apps(eth_url: &str, contract_address: Address) -> Result<Vec<App>, Er
                 genesis,
                 node_ids,
                 ports,
-            ) = query_contract(call_data, Box::new(decoder), eth_url, contract_address)?;
+            ) = query_contract(call_data, Box::new(decoder), eth_url, contract_address)
+                .context("reading app ids from contract failed")?;
 
             let cluster = if !genesis.is_zero() {
                 let genesis: u64 = genesis.into();
