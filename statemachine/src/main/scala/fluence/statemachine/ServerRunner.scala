@@ -24,7 +24,7 @@ import com.github.jtendermint.jabci.socket.TSocket
 import com.github.jtendermint.jabci.types.Request.ValueCase.{CHECK_TX, DELIVER_TX}
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.contract.ClientRegistry
-import fluence.statemachine.control.ControlServer
+import fluence.statemachine.control.{ControlServer, ControlSignals}
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state._
 import fluence.statemachine.tx.{TxParser, TxProcessor, TxStateDependentChecker, VmOperationInvoker}
@@ -79,7 +79,7 @@ object ServerRunner extends IOApp with LazyLogging {
   ): Resource[IO, Unit] =
     Resource
       .make(
-        buildAbciHandler(config, controlServer).value.flatMap {
+        buildAbciHandler(config, controlServer.signals).value.flatMap {
           case Right(handler) ⇒ IO.pure(handler)
           case Left(err) ⇒ IO.raiseError(new RuntimeException("Building ABCI handler failed: " + err))
         }.flatMap { handler ⇒
@@ -124,7 +124,7 @@ object ServerRunner extends IOApp with LazyLogging {
    */
   private[statemachine] def buildAbciHandler(
     config: StateMachineConfig,
-    controlServer: ControlServer[IO]
+    controlSignals: ControlSignals[IO]
   ): EitherT[IO, StateMachineError, AbciHandler] =
     for {
       moduleFilenames <- config.collectModuleFiles[IO]
@@ -156,7 +156,7 @@ object ServerRunner extends IOApp with LazyLogging {
         checkTxStateChecker,
         deliverTxStateChecker,
         txProcessor,
-        controlServer.signals
+        controlSignals
       )
     } yield abciHandler
 
