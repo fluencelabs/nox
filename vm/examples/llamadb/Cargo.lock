@@ -14,12 +14,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "fluence_sdk"
+name = "fluence"
 version = "0.0.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
+
+[[package]]
+name = "fluence"
+version = "0.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+replace = "fluence 0.0.6"
 
 [[package]]
 name = "lazy_static"
@@ -33,9 +38,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "llama_db"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
- "fluence_sdk 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fluence 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "llamadb 0.1.0 (git+https://github.com/fluencelabs/llamadb.git)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -125,7 +130,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [metadata]
 "checksum cfg-if 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "082bb9b28e00d3c9d39cc03e64ce4cea0f1bb9b3fde493f0cbc008472d22bdf4"
 "checksum chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)" = "45912881121cb26fad7c38c17ba7daa18764771836b34fab7d3fbd93ed633878"
-"checksum fluence_sdk 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "e4af7a0c28409af17473b10a15c1c01b3ebf0ae6687e3b23467c64eaed1f8117"
+"checksum fluence 0.0.6 (registry+https://github.com/rust-lang/crates.io-index)" = "cf0fe5dd937464abc80eca7bcef5ae162b73fb771a7b60d0b9e39f2b852117ef"
 "checksum lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a374c89b9db55895453a74c1e38861d9deec0b01b405a82516e9d5de4820dea1"
 "checksum libc 0.2.46 (registry+https://github.com/rust-lang/crates.io-index)" = "023a4cd09b2ff695f9734c1934145a315594b7986398496841c7031a5a1bbdbd"
 "checksum llamadb 0.1.0 (git+https://github.com/fluencelabs/llamadb.git)" = "<none>"
