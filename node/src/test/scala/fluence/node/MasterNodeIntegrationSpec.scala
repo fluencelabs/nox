@@ -77,27 +77,20 @@ class MasterNodeIntegrationSpec
 
   def getStatusPort(basePort: Short): Short = (basePort + 400).toShort
 
-  def runTwoMasters(basePort: Short): Resource[IO, Seq[String]] =
-    Resource.make[IO, Seq[String]] {
-      val master1Port: Short = basePort
-      val master2Port: Short = (basePort + 1).toShort
-      val status1Port: Short = getStatusPort(master1Port)
-      val status2Port: Short = getStatusPort(master2Port)
+  def runTwoMasters(basePort: Short): Resource[IO, Seq[String]] = {
+    val master1Port: Short = basePort
+    val master2Port: Short = (basePort + 1).toShort
+    val status1Port: Short = getStatusPort(master1Port)
+    val status2Port: Short = getStatusPort(master2Port)
+    for {
+      master1 <- runMaster(master1Port, master1Port, "master1", status1Port)
+      master2 <- runMaster(master2Port, master2Port, "master2", status2Port)
 
-      for {
-        master1 <- runMaster(master1Port, master1Port, "master1", status1Port)
-        master2 <- runMaster(master2Port, master2Port, "master2", status2Port)
+      _ <- Resource liftF eventually[IO](checkMasterRunning(master1), maxWait = 30.seconds) // TODO: 30 seconds is a bit too much for startup
+      _ <- Resource liftF eventually[IO](checkMasterRunning(master2), maxWait = 30.seconds) // TODO: investigate and reduce timeout
 
-        _ <- eventually[IO](checkMasterRunning(master1), maxWait = 30.seconds) // TODO: 30 seconds is a bit too much for startup
-        _ <- eventually[IO](checkMasterRunning(master2), maxWait = 30.seconds) // TODO: investigate and reduce timeout
-      } yield Seq(master1, master2)
-    } { masters =>
-      val containers = masters.mkString(" ")
-      IO {
-        runCmd(s"docker stop $containers")
-        runCmd(s"docker rm $containers")
-      }
-    }
+    } yield Seq(master1, master2)
+  }
 
   def getRunningWorker(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[Option[WorkerRunning]] =
     IO.suspend {

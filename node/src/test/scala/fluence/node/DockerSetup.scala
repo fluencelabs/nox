@@ -39,9 +39,9 @@ trait DockerSetup extends OsSetup {
     portTo: Short,
     name: String,
     statusPort: Short
-  ): F[String] = {
+  ): Resource[F, String] =
     DockerIO
-      .exec[F](
+      .run[F](
         DockerParams
           .build()
           .option("-e", s"TENDERMINT_IP=$dockerHost")
@@ -58,7 +58,7 @@ trait DockerSetup extends OsSetup {
             "/master/vmcode/vmcode-llamadb"
           )
           .image(DockerImage("fluencelabs/node", "latest"))
-          .unmanagedDaemonRun()
+          .daemonRun()
       )
-  }
+      .map(_.containerId)
 }
