@@ -20,7 +20,6 @@ import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
 import fluence.ethclient.EthClient
-import fluence.ethclient.helpers.Web3jConverters.hexToBytes32
 import fluence.node.eth.FluenceContract
 import fluence.node.status.MasterStatus
 import fluence.node.workers.health.WorkerRunning
@@ -71,7 +70,7 @@ class MasterNodeIntegrationSpec
       var line = ""
       scala.sys.process
         .Process(s"docker logs $containerId")
-        .!!(ProcessLogger(_ => {}, o => line += o))
+        .!!(ProcessLogger(_ => {}, o => line += s"$o\n"))
       line
     }.map(line => line should include("switching to the new clusters"))
 

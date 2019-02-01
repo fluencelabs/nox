@@ -20,17 +20,10 @@ import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect._
 import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
-import fluence.ethclient.EthClient
-import fluence.node.config.{Configuration, MasterConfig, SwarmConfig}
-import fluence.node.eth.NodeEth
+import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
-import fluence.node.workers.{CodeManager, SwarmCodeManager, TestCodeManager, WorkersPool}
-import fluence.swarm.SwarmClient
-import org.web3j.protocol.core.methods.response.EthSyncing.Syncing
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
-
-import scala.concurrent.duration._
 
 object MasterNodeApp extends IOApp with LazyLogging {
 

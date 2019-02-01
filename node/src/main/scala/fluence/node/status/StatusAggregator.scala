@@ -108,14 +108,12 @@ object StatusAggregator extends LazyLogging {
     implicit cs: ContextShift[IO],
     timer: Timer[IO]
   ): Resource[IO, Server[IO]] =
-    Resource
-      .liftF(timer.clock.realTime(MILLISECONDS))
-      .flatMap(
-        startTimeMillis ⇒
-          BlazeServerBuilder[IO]
-            .bindHttp(masterConfig.statusServer.port, "0.0.0.0")
-            .withHttpApp(statusService(StatusAggregator(masterConfig, masterNode, startTimeMillis)))
-            .resource
-      )
-
+    for {
+      startTimeMillis ← Resource.liftF(timer.clock.realTime(MILLISECONDS))
+      _ = logger.debug("Start time millis: " + startTimeMillis)
+      server ← BlazeServerBuilder[IO]
+        .bindHttp(masterConfig.statusServer.port, "0.0.0.0")
+        .withHttpApp(statusService(StatusAggregator(masterConfig, masterNode, startTimeMillis)))
+        .resource
+    } yield server
 }
