@@ -61,7 +61,6 @@ def deploy():
         local("wget " + RELEASE)
         local("chmod +x fluence")
 
-    print result.stdout
     copy_resources()
 
     with cd("scripts"):

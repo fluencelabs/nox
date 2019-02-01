@@ -171,10 +171,7 @@ function start_parity_swarm()
     echo 'Parity and Swarm containers are started.'
 }
 
-# ================================================================
-# ====================== SCRIPT STARTS HERE ======================
-# ================================================================
-
+# main function to deploy Fluence
 function deploy()
 {
     container_update
