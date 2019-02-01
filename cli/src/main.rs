@@ -28,7 +28,8 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() {
     let app = App::new("Fluence CLI")
-        .setting(AppSettings::ArgRequiredElseHelp)
+        .global_setting(AppSettings::ArgRequiredElseHelp)
+        .global_setting(AppSettings::UnifiedHelpMessage)
         .version(VERSION)
         .author("Fluence Labs")
         .about("Console utility for deploying code to fluence cluster")

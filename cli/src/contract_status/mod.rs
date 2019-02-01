@@ -19,17 +19,18 @@ pub mod status;
 pub mod ui;
 
 use self::status::{get_status, Status};
-use clap::{App, ArgMatches, SubCommand, _clap_count_exprs, arg_enum};
-use failure::err_msg;
-use failure::Error;
-use failure::ResultExt;
-use web3::types::Address;
-
 use crate::command::*;
+use crate::contract_status::app::{App, Node};
 use crate::contract_status::ui::rich_status;
 use crate::utils;
 use clap::Arg;
+use clap::{App as ClapApp, ArgMatches, SubCommand, _clap_count_exprs, arg_enum};
+use failure::err_msg;
+use failure::Error;
+use failure::ResultExt;
+use std::collections::HashSet;
 use std::net::IpAddr;
+use web3::types::Address;
 use web3::types::H256;
 
 const INTERACTIVE: &str = "interactive";
@@ -123,7 +124,7 @@ impl StatusFilter {
 
     // filters existing status to a new one by filtering and cloning all elements
     fn filter(&self, status: &Status) -> Status {
-        let nodes = status
+        let nodes: Vec<Node> = status
             .nodes
             .iter()
             .filter(|node| {
@@ -143,15 +144,21 @@ impl StatusFilter {
             })
             .cloned()
             .collect();
-        let apps = status
+
+        // used to also display apps for these nodes
+        let node_ids: HashSet<H256> = nodes.iter().map(|n| n.validator_key).collect();
+
+        let apps: Vec<App> = status
             .apps
             .iter()
             .filter(|app| {
                 let by_app_id = self.app_id.map(|f| f == app.app_id);
                 let by_owner = self.owner.map(|f| f == app.owner);
-                let by_t_key = self
-                    .tendermint_key
-                    .and_then(|f| app.cluster.as_ref().map(|c| c.node_ids.contains(&f)));
+                let by_t_key = self.tendermint_key.and_then(|f| {
+                    app.cluster
+                        .as_ref()
+                        .map(|c| c.node_ids.contains(&f) || node_ids.contains(&f))
+                });
                 match self.mode {
                     FilterMode::And => opt_and!(by_owner, by_app_id, by_t_key),
                     FilterMode::Or => opt_or!(by_owner, by_app_id, by_t_key),
@@ -164,37 +171,52 @@ impl StatusFilter {
     }
 }
 
-pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
+pub fn subcommand<'a, 'b>() -> ClapApp<'a, 'b> {
     SubCommand::with_name("status")
         .about("Get status of the smart contract")
+        .after_help("NOTE: apps hosted by any of the displayed nodes will be also displayed")
         .args(&[
-            eth_url(),
-            contract_address(),
+            contract_address().display_order(0),
+            eth_url().display_order(1),
             Arg::with_name(INTERACTIVE)
                 .long(INTERACTIVE)
                 .short("I")
                 .required(false)
                 .takes_value(false)
-                .help("If supplied, status is showed as an interactive table"),
-            Arg::with_name(FILTER_MODE)
-                .long(FILTER_MODE)
-                .required(false)
-                .takes_value(true)
-                .value_name("and|or")
-                .help("Logical mode of the filter: 'and' will filter by conjunction of all filters, 'or' by disjunction"),
+                .help("Show status as an interactive table")
+                .display_order(2),
             Arg::with_name(OWNER)
                 .long(OWNER)
+                .short(OWNER)
                 .required(false)
                 .takes_value(true)
                 .value_name("eth address")
-                .help("Filter nodes and apps owned by this Ethereum address"),
+                .help("Filter nodes and apps owned by this Ethereum address")
+                .display_order(3),
             Arg::with_name(APP_ID)
                 .long(APP_ID)
+                .short(APP_ID)
                 .required(false)
                 .takes_value(true)
-                .help("Filter nodes and apps by app id"),
-            node_ip().required(false).help("Filter nodes by IP address"),
-            tendermint_key().required(false).help("Filter nodes and apps by Tendermint validator key (node id)"),
+                .help("Filter nodes and apps by app id")
+                .display_order(3),
+            node_ip()
+                .required(false)
+                .help("Filter nodes by IP address")
+                .display_order(3),
+            tendermint_key()
+                .required(false)
+                .help("Filter nodes and apps by Tendermint validator key (node id)")
+                .display_order(3),
+            Arg::with_name(FILTER_MODE)
+                .long(FILTER_MODE)
+                .short(FILTER_MODE)
+                .required(false)
+                .takes_value(true)
+                .value_name("and|or")
+                .default_value("and")
+                .help("Logical mode of the filter")
+                .display_order(4),
         ])
 }
 

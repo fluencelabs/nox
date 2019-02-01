@@ -61,6 +61,7 @@ pub fn contract_address<'a, 'b>() -> Arg<'a, 'b> {
     Arg::with_name(CONTRACT_ADDRESS)
         .long(CONTRACT_ADDRESS)
         .short("d")
+        .value_name("eth address")
         .required(true)
         .takes_value(true)
         .help("Fluence contract address")
@@ -70,6 +71,7 @@ pub fn eth_url<'a, 'b>() -> Arg<'a, 'b> {
     Arg::with_name(ETH_URL)
         .long(ETH_URL)
         .short("e")
+        .value_name("url")
         .required(false)
         .takes_value(true)
         .help("Http address to ethereum node")
@@ -80,6 +82,7 @@ pub fn tendermint_key<'a, 'b>() -> Arg<'a, 'b> {
     Arg::with_name(TENDERMINT_KEY)
         .long(TENDERMINT_KEY)
         .short("K")
+        .value_name("key")
         .required(true)
         .takes_value(true)
         .help("Public key of tendermint node")
@@ -113,15 +116,16 @@ pub fn node_ip<'a, 'b>() -> Arg<'a, 'b> {
 // Takes `args` and concatenates them with predefined set of arguments needed for
 // interaction with Ethereum.
 pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
-    let mut eth_args = vec![
+    let eth_args = vec![
         contract_address(),
         Arg::with_name(ACCOUNT)
             .long(ACCOUNT)
             .short("a")
+            .value_name("eth address")
             .required(true)
             .takes_value(true)
-            .help("Ethereum account"),
-        eth_url(),
+            .help("Ethereum account")
+            .eth_url(),
         Arg::with_name(PASSWORD)
             .long(PASSWORD)
             .short("P")
@@ -144,6 +148,7 @@ pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
         Arg::with_name(KEYSTORE)
             .long(KEYSTORE)
             .short("T")
+            .value_name("path")
             .required(false)
             .takes_value(true)
             .help("Path to keystore JSON file with Ethereum private key inside"),
@@ -157,6 +162,9 @@ pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
             .long(WAIT_SYNCING)
             .help("If supplied, wait until Ethereum is synced with blockchain"),
     ];
+
+    // display subcommand-specific options on top of ethereum options
+    let mut eth_args: Vec<Arg> = eth_args.into_iter().map(|a| a.display_order(10)).collect();
 
     // append args
     eth_args.extend_from_slice(args);

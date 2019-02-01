@@ -234,27 +234,30 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
 /// Parses arguments from console and initialize parameters for Publisher
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     let args = &[
-        node_ip(),
-        tendermint_key(),
-        tendermint_node_id(),
+        node_ip().display_order(1),
+        tendermint_key().display_order(2),
+        base64_tendermint_key().display_order(3),
+        tendermint_node_id().display_order(4),
         Arg::with_name(START_PORT)
             .alias(START_PORT)
             .long(START_PORT)
             .default_value("20096")
             .takes_value(true)
-            .help("Minimum port in the port range"),
+            .help("Minimum port in the port range")
+            .display_order(5),
         Arg::with_name(LAST_PORT)
             .alias(LAST_PORT)
             .default_value("20196")
             .long(LAST_PORT)
             .takes_value(true)
-            .help("Maximum port in the port range"),
-        base64_tendermint_key(),
+            .help("Maximum port in the port range")
+            .display_order(5),
         Arg::with_name(PRIVATE)
             .long(PRIVATE)
             .short("p")
             .takes_value(false)
-            .help("Marks node as private, used for pinning apps to nodes"),
+            .help("Marks node as private, used for pinning apps to nodes")
+            .display_order(6),
     ];
 
     SubCommand::with_name("register")

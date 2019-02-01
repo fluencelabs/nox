@@ -234,21 +234,16 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .short("c")
             .required(true)
             .takes_value(true)
-            .help("Path to compiled `wasm` code"),
-        Arg::with_name(SWARM_URL)
-            .long(SWARM_URL)
-            .short("w")
-            .required(false)
-            .takes_value(true)
-            .help("Http address to swarm node")
-            .default_value("http://localhost:8500/"),
+            .help("Path to compiled `wasm` code")
+            .display_order(0),
         Arg::with_name(CLUSTER_SIZE)
             .long(CLUSTER_SIZE)
             .short("s")
             .required(false)
             .takes_value(true)
             .default_value("3")
-            .help("Cluster's size that needed to deploy this code"),
+            .help("Cluster's size that needed to deploy this code")
+            .display_order(1),
         Arg::with_name(PINNED)
             .long(PINNED)
             .short("p")
@@ -256,14 +251,22 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .takes_value(true)
             .multiple(true)
             .value_name("key")
-            .help(
-                "Tendermint public keys of pinned workers for application (space-separated list)",
-            ),
+            .help("Tendermint public keys of pinned workers for application (space-separated list)")
+            .display_order(2),
         Arg::with_name(PIN_BASE64)
             .long(PIN_BASE64)
             .required(false)
             .takes_value(false)
-            .help("If specified, tendermint keys for pin_to flag treated as base64"),
+            .help("If specified, tendermint keys for pin_to flag treated as base64")
+            .display_order(2),
+        Arg::with_name(SWARM_URL)
+            .long(SWARM_URL)
+            .short("w")
+            .required(false)
+            .takes_value(true)
+            .help("Http address to swarm node")
+            .default_value("http://localhost:8500/")
+            .display_order(3),
     ];
 
     SubCommand::with_name("publish")
