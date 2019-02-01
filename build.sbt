@@ -30,7 +30,7 @@ lazy val vm = (project in file("vm"))
       scalaIntegrationTest,
       mockito
     ),
-    (test in IntegrationTest) := (test in IntegrationTest)
+    test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(compile in `vm-counter`)
       .dependsOn(compile in `vm-hello-user`)
       .dependsOn(compile in `vm-llamadb`)
@@ -193,7 +193,7 @@ lazy val node = project
       circeParser,
       http4sDsl,
       http4sServer,
-      scalaTest
+      scalaIntegrationTest
     ),
     assemblyMergeStrategy in assembly := {
       // a module definition fails compilation for java 8, just skip it
@@ -204,7 +204,7 @@ lazy val node = project
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
     },
-    (test in IntegrationTest) := (test in IntegrationTest)
+    test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(docker)
       .dependsOn(docker in statemachine)
       .dependsOn(compile in `vm-llamadb`)
