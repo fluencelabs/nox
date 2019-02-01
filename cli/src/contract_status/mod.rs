@@ -37,21 +37,7 @@ const OWNER: &str = "owner";
 const APP_ID: &str = "app_id";
 const FILTER_MODE: &str = "filter_mode";
 
-arg_enum! {
-    #[derive(Debug)]
-    enum FilterMode {
-        And, Or
-    }
-}
-
-struct StatusFilter {
-    mode: FilterMode,
-    owner: Option<Address>,
-    app_id: Option<u64>,
-    node_ip: Option<IpAddr>,
-    tendermint_key: Option<H256>,
-}
-
+// Implements logical 'and' for variadic number of Option<bool>
 macro_rules! opt_and {
     ($head:ident, $($tail:ident),*) => {{
         {
@@ -64,6 +50,7 @@ macro_rules! opt_and {
     }};
 }
 
+// Implements logical 'or' for variadic number of Option<bool>
 macro_rules! opt_or {
     ($head:ident, $($tail:ident),*) =>  {{
         {
@@ -76,7 +63,35 @@ macro_rules! opt_or {
     }};
 }
 
+// arg_enum generates FromStr for FilterMode enum
+arg_enum! {
+    #[derive(Debug)]
+    // Logical mode for filtering
+    enum FilterMode {
+        // Element is displayed if it matches all passed filters. Conjunction mode.
+        And,
+        // Element is displayed if it matches any of the passed filters. Disjunction mode.
+        Or
+    }
+}
+
+// Data to be used for filtering
+struct StatusFilter {
+    // logical mode
+    mode: FilterMode,
+    // filter node or app by owner
+    owner: Option<Address>,
+    // filter app by app_id, nodes by apps they're hosting
+    app_id: Option<u64>,
+    // filter nodes by IP address, doesn't filter apps
+    node_ip: Option<IpAddr>,
+    // filter nodes by tendermint validator key (used as node id), apps by nodes in cluster
+    tendermint_key: Option<H256>,
+}
+
 impl StatusFilter {
+    // Parse filters from command line options
+    // TODO: remove 'map_err(err_msg).context(...)` boilerplate
     fn from_args(args: &ArgMatches) -> Result<StatusFilter, Error> {
         let mode: FilterMode = utils::get_opt(args, FILTER_MODE)
             .map_err(err_msg)
@@ -106,6 +121,7 @@ impl StatusFilter {
         })
     }
 
+    // filters existing status to a new one by filtering and cloning all elements
     fn filter(&self, status: &Status) -> Status {
         let nodes = status
             .nodes
