@@ -57,9 +57,9 @@ trait DockerSetup extends OsSetup {
             System.getProperty("user.dir")
               + "/../vm/examples/llamadb/target/wasm32-unknown-unknown/release",
             "/master/vmcode/vmcode-llamadb"
-        )
+          )
           .image("fluencelabs/node:latest")
           .unmanagedDaemonRun()
-    )
+      )
   }
 }
