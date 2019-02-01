@@ -75,44 +75,45 @@ def deploy():
     if (result == '0'):
         print
         # todo: add correct link to CLI
-        print '`fluence` CLI file does not exist. Download it from here https://github.com/fluencelabs/fluence/tree/master/cli'
-    else:
-        print result.stdout
-        copy_resources()
+        print '`fluence` CLI file does not exist. Downloading it from ' + RELEASE
+        local("wget " + RELEASE)
 
-        with cd("scripts"):
+    print result.stdout
+    copy_resources()
 
-            # change for another chain
-            # todo changing this variable should recreate parity container
-            # todo support contract deployment on 'dev' chain
-            chain='kovan'
+    with cd("scripts"):
 
-            # actual fluence contract address
-            contract_address=contract
+        # change for another chain
+        # todo changing this variable should recreate parity container
+        # todo support contract deployment on 'dev' chain
+        chain='kovan'
 
-            # getting owner and private key from `info` dictionary
-            current_host = env.host_string
-            current_owner = info[current_host]['owner']
-            current_key = info[current_host]['key']
-            current_ports = info[current_host]['ports']
+        # actual fluence contract address
+        contract_address=contract
 
-            with shell_env(CHAIN=chain,
-                           # flag that show to script, that it will deploy all with non-default arguments
-                           PROD_DEPLOY="true",
-                           CONTRACT_ADDRESS=contract_address,
-                           OWNER_ADDRESS=current_owner,
-                           PORTS=current_ports,
-                           # container name
-                           NAME="fluence-node-1",
-                           HOST_IP=current_host):
-                run('chmod +x compose.sh')
-                # the script will return command with arguments that will register node in Fluence contract
-                output = run('./compose.sh deploy')
-                meta_data = output.stdout.splitlines()[-1]
-                # parses output as arguments in JSON
-                json_data = json.loads(meta_data)
-                # creates command for registering node
-                command = register_command(json_data, current_key)
-                # run `fluence` command
-                local(command)
+        # getting owner and private key from `info` dictionary
+        current_host = env.host_string
+        current_owner = info[current_host]['owner']
+        current_key = info[current_host]['key']
+        current_ports = info[current_host]['ports']
+
+        with shell_env(CHAIN=chain,
+                       # flag that show to script, that it will deploy all with non-default arguments
+                       PROD_DEPLOY="true",
+                       CONTRACT_ADDRESS=contract_address,
+                       OWNER_ADDRESS=current_owner,
+                       PORTS=current_ports,
+                       # container name
+                       NAME="fluence-node-1",
+                       HOST_IP=current_host):
+            run('chmod +x compose.sh')
+            # the script will return command with arguments that will register node in Fluence contract
+            output = run('./compose.sh deploy')
+            meta_data = output.stdout.splitlines()[-1]
+            # parses output as arguments in JSON
+            json_data = json.loads(meta_data)
+            # creates command for registering node
+            command = register_command(json_data, current_key)
+            # run `fluence` command
+            local(command)
 
