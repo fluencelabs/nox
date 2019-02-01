@@ -30,10 +30,10 @@ import scala.language.higherKinds
 trait Integration {
 
   protected def eventually[F[_]: Sync: Timer](
-    p: => F[Unit],
-    period: FiniteDuration = 1.second,
-    maxWait: FiniteDuration = 10.seconds
-  )(implicit pos: Position): F[_] =
+                                               p: => F[Unit],
+                                               period: FiniteDuration = 1.second,
+                                               maxWait: FiniteDuration = 10.seconds
+                                             )(implicit pos: Position): F[_] =
     fs2.Stream
       .awakeEvery[F](period)
       .take((maxWait / period).toLong)

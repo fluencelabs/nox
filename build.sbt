@@ -32,6 +32,7 @@ lazy val vm = (project in file("vm"))
     ),
     (test in IntegrationTest) := (test in IntegrationTest)
       .dependsOn(compile in `vm-counter`)
+      .dependsOn(compile in `vm-hello-user`)
       .dependsOn(compile in `vm-llamadb`)
       .value
   )
@@ -177,6 +178,8 @@ lazy val ethclient = (project in file("ethclient"))
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val node = project
+  .configs(IntegrationTest)
+  .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
   .settings(
     commons,
     kindProjector,
@@ -201,7 +204,7 @@ lazy val node = project
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
     },
-    test in Test := (test in Test)
+    (test in IntegrationTest) := (test in IntegrationTest)
       .dependsOn(docker)
       .dependsOn(docker in statemachine)
       .dependsOn(compile in `vm-llamadb`)

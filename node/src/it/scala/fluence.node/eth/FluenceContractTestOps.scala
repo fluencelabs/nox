@@ -31,18 +31,18 @@ object FluenceContractTestOps {
     import nodeConfig._
 
     /**
-     * Returns node's address information (host, Tendermint p2p key) in format ready to pass to the contract.
-     */
+      * Returns node's address information (host, Tendermint p2p key) in format ready to pass to the contract.
+      */
     def addressBytes24: Bytes24 = nodeAddressToBytes24(endpoints.ip.getHostAddress, nodeAddress)
 
     /**
-     * Returns starting port as uint16.
-     */
+      * Returns starting port as uint16.
+      */
     def startPortUint16: Uint16 = new Uint16(endpoints.minPort)
 
     /**
-     * Returns ending port as uint16.
-     */
+      * Returns ending port as uint16.
+      */
     def endPortUint16: Uint16 = new Uint16(endpoints.maxPort)
 
     def isPrivateBool: Bool = new Bool(isPrivate)
@@ -54,13 +54,13 @@ object FluenceContractTestOps {
     import fc.contract
 
     /**
-     * Register the node in the contract.
-     * TODO check permissions, Ethereum public key should match
-     *
-     * @param nodeConfig Node to add
-     * @tparam F Effect
-     * @return The block number where transaction has been mined
-     */
+      * Register the node in the contract.
+      * TODO check permissions, Ethereum public key should match
+      *
+      * @param nodeConfig Node to add
+      * @tparam F Effect
+      * @return The block number where transaction has been mined
+      */
     def addNode[F[_]: Async](nodeConfig: NodeConfig): F[BigInt] =
       contract
         .addNode(
@@ -75,13 +75,13 @@ object FluenceContractTestOps {
         .map(BigInt(_))
 
     /**
-     * Publishes a new app to the Fluence Network
-     *
-     * @param storageHash Hash of the code in Swarm
-     * @param clusterSize Cluster size required to host this app
-     * @tparam F Effect
-     * @return The block number where transaction has been mined
-     */
+      * Publishes a new app to the Fluence Network
+      *
+      * @param storageHash Hash of the code in Swarm
+      * @param clusterSize Cluster size required to host this app
+      * @tparam F Effect
+      * @return The block number where transaction has been mined
+      */
     def addApp[F[_]: Async](storageHash: String, clusterSize: Short = 1): F[BigInt] =
       contract
         .addApp(
@@ -95,11 +95,11 @@ object FluenceContractTestOps {
         .map(BigInt(_))
 
     /**
-     * Deletes deployed app from contract, triggering AppDeleted event on successful deletion
-     *
-     * @param appId 32-byte id of the app to be deleted
-     * @tparam F Effect
-     */
+      * Deletes deployed app from contract, triggering AppDeleted event on successful deletion
+      *
+      * @param appId 32-byte id of the app to be deleted
+      * @tparam F Effect
+      */
     def deleteApp[F[_]: Async](appId: Long): F[Unit] =
       contract.deleteApp(new Uint256(appId)).call[F].void
   }
