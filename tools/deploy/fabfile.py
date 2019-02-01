@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Import Fabric's API module
 from fabric.api import *
 import json
+import utils
 
 # owners and private keys for specific ip addresses
 # todo get this info from some sources
@@ -46,25 +46,6 @@ def copy_resources():
     put('scripts/parity.yml', 'scripts/')
     put('scripts/swarm.yml', 'scripts/')
 
-# creates register command to register deployed node
-def register_command(data, secret_key):
-    eth_url = "http://" + data['node_ip'] + ":8545"
-    command = "./fluence register \
-        --node_ip            %s \
-        --tendermint_key     %s \
-        --tendermint_node_id %s \
-        --contract_address   %s \
-        --account            %s \
-        --secret_key         %s \
-        --start_port         %s \
-        --last_port          %s \
-        --eth_url            %s \
-        --wait_syncing \
-        --base64_tendermint_key" % (data['node_ip'], data['tendermint_key'], data['tendermint_node_id'], data['contract_address'],
-                                    data['account'], secret_key, data['start_port'], data['last_port'], eth_url)
-
-    return command
-
 
 # comment this annotation to deploy sequentially
 @parallel
@@ -77,6 +58,7 @@ def deploy():
         # todo: add correct link to CLI
         print '`fluence` CLI file does not exist. Downloading it from ' + RELEASE
         local("wget " + RELEASE)
+        local("chmod +x fluence")
 
     print result.stdout
     copy_resources()
@@ -113,7 +95,7 @@ def deploy():
             # parses output as arguments in JSON
             json_data = json.loads(meta_data)
             # creates command for registering node
-            command = register_command(json_data, current_key)
+            command = utils.register_command(json_data, current_key)
             # run `fluence` command
             local(command)
 
