@@ -72,7 +72,6 @@ pub fn draw(status: &Status) -> Result<(), Error> {
 fn get_layout(terminal_size: Rect) -> Vec<Rect> {
     Layout::default()
         .direction(Direction::Vertical)
-        .margin(5)
         .constraints([Constraint::Length(3), Constraint::Min(0)].as_ref())
         .split(terminal_size)
 }
@@ -131,7 +130,7 @@ where
 fn handle_input(keys: &AsyncKeys, state: &mut State) -> Result<LoopAction, Error> {
     match keys.next() {
         Ok(AsyncKey::Input(key)) => match key {
-            Key::Char('q') => return Ok(LoopAction::Exit),
+            Key::Char('q') | Key::Char('й') => return Ok(LoopAction::Exit),
             Key::Down => state.move_selection(MoveSelection::Down),
             Key::Up => state.move_selection(MoveSelection::Up),
             Key::Right => state.switch_tab(SwitchTab::Next),

@@ -37,7 +37,10 @@ pub struct DeleteNode {
 }
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
-    let args = &[tendermint_key(), base64_tendermint_key()];
+    let args = &[
+        tendermint_key().display_order(0),
+        base64_tendermint_key().display_order(1),
+    ];
     SubCommand::with_name("delete_node")
         .about("Delete node from smart-contract")
         .args(with_ethereum_args(args).as_slice())

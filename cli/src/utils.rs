@@ -23,6 +23,7 @@ use ethkey::Secret;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::{Url, UrlError};
 use std::fmt::LowerHex;
+use std::str::FromStr;
 use web3::contract::Options;
 use web3::futures::Future;
 use web3::transports::Http;
@@ -129,13 +130,31 @@ pub fn options() -> Options {
 }
 
 // Gets the value of option `key` and removes '0x' prefix
-pub fn parse_hex_opt(matches: &ArgMatches, key: &str) -> Result<String, Error> {
-    Ok(value_t!(matches, key, String).map(|v| v.trim_start_matches("0x").to_string())?)
+pub fn parse_hex_opt(args: &ArgMatches, key: &str) -> Result<String, Error> {
+    Ok(value_t!(args, key, String).map(|v| v.trim_start_matches("0x").to_string())?)
 }
 
-pub fn parse_secret_key(matches: &ArgMatches, key: &str) -> Result<Option<Secret>, Error> {
-    Ok(matches
+pub fn parse_secret_key(args: &ArgMatches, key: &str) -> Result<Option<Secret>, Error> {
+    Ok(args
         .value_of(key)
         .map(|s| s.trim_start_matches("0x").parse::<Secret>())
         .map_or(Ok(None), |r| r.map(Some).into())?) // Option<Result> -> Result<Option>
+}
+
+pub fn get_opt<E, T>(args: &ArgMatches, key: &str) -> Result<Option<T>, E>
+where
+    T: FromStr<Err = E>,
+{
+    let opt: Option<&str> = args.value_of(key);
+    let opt: Option<Result<T, _>> = opt.map(|v| v.parse::<T>());
+    opt.map_or(Ok(None), |v| v.map(Some))
+}
+
+pub fn get_opt_hex<E, T>(args: &ArgMatches, key: &str) -> Result<Option<T>, E>
+where
+    T: FromStr<Err = E>,
+{
+    let opt: Option<&str> = args.value_of(key);
+    let opt: Option<Result<T, _>> = opt.map(|v| v.trim_start_matches("0x").parse::<T>());
+    opt.map_or(Ok(None), |v| v.map(Some))
 }
