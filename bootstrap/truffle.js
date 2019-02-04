@@ -13,5 +13,16 @@ module.exports = {
     reporterOptions : {
       currency: 'USD',
     }
+  },
+  compilers: {
+    solc: {
+      // version: "native",
+      settings: {
+        optimizer: {
+          enabled: true,
+          runs: 200,   // Optimize for how many times you intend to run the code
+        }
+      }
+    }
   }
 };

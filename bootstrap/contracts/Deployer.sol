@@ -172,7 +172,7 @@ contract Deployer {
     // Number of all ever existed apps, used for appID generation
     uint256 internal appsCount = 1;
 
-    constructor () internal {
+    constructor () public {
         // Save contract's owner
         _contractOwner = msg.sender;
     }
@@ -245,7 +245,7 @@ contract Deployer {
         for(uint8 i = 0; i < pinToNodes.length; i++) {
             bytes32 nodeID_i = pinToNodes[i];
             Node storage node = nodes[nodeID_i];
-            require(node.owner != 0, "Can pin only to registered nodes");
+            require(node.id != 0, "Can pin only to registered nodes");
             require(node.owner == msg.sender, "Can pin only to nodes you own");
 
             for(uint8 j = 0; j <= i; j++) {
@@ -255,8 +255,9 @@ contract Deployer {
             }
         }
 
-        App memory app = App(
-            appsCount++,
+        uint appID = appsCount++;
+        apps[appID] = App(
+            appID,
             storageHash,
             storageReceipt,
             clusterSize,
@@ -264,13 +265,12 @@ contract Deployer {
             pinToNodes,
             Cluster(0, new bytes32[](0), new uint16[](0)) // TODO: this is awful
         );
-        apps[app.appID] = app;
-        appIDs.push(app.appID);
+        appIDs.push(appID);
 
-        if(!tryDeployApp(apps[app.appID])) {
+        if(!tryDeployApp(apps[appID])) {
             // App hasn't been deployed -- enqueue it to have it deployed later
-            enqueuedApps.push(app.appID);
-            emit AppEnqueued(app.appID, app.storageHash, app.storageReceipt, app.clusterSize, app.owner, app.pinToNodes);
+            enqueuedApps.push(appID);
+            emit AppEnqueued(appID, storageHash, storageReceipt, clusterSize, msg.sender, pinToNodes);
         }
     }
 
@@ -414,14 +414,11 @@ contract Deployer {
             // Index used to iterate through pinToNodes and then workers
             uint8 i = 0;
 
-            // Current node to check
-            Node storage node;
-
             // Find all the nodes where code should be pinned
             // Nodes in pinToNodes are already checked to belong to app owner
             // pinToNodes is already deduplicated in addApp
             for(; i < app.pinToNodes.length; i++) {
-                node = nodes[app.pinToNodes[i]];
+                Node storage node = nodes[app.pinToNodes[i]];
 
                 // Return false if there's not enough capacity on pin-to node to deploy the app
                 if(node.nextPort > node.lastPort) {
@@ -484,8 +481,8 @@ contract Deployer {
             workerAddrs[j] = node.nodeAddress;
             workerPorts[j] = node.nextPort;
 
-            useNodePort(node.id);
-            nodes[node.id].appIDs.push(app.appID);
+            useNodePort(node);
+            node.appIDs.push(app.appID);
         }
 
         uint genesisTime = now;
@@ -502,13 +499,9 @@ contract Deployer {
      * and removes it from readyNodes if there are no more ports left
      * returns true if node was deleted from readyNodes
      */
-    function useNodePort(bytes32 nodeID)
+    function useNodePort(Node storage node)
         internal
-    returns (bool)
     {
-
-        Node storage node = nodes[nodeID];
-
         // increment port, it will be used for the next code
         node.nextPort++;
 
@@ -518,10 +511,6 @@ contract Deployer {
             if (readyNodeIdx < readyNodes.length) {
                 removeReadyNode(readyNodeIdx);
             }
-
-            return true;
-        } else {
-            return false;
         }
     }
 

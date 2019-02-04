@@ -16,10 +16,8 @@
 
 package fluence.node.workers
 import cats.{Applicative, Parallel}
-import cats.syntax.functor._
-import cats.syntax.flatMap._
 import cats.syntax.applicative._
-import cats.effect.{Concurrent, ContextShift, Timer}
+import cats.effect.{Concurrent, ContextShift, Fiber, Timer}
 import cats.effect.concurrent.{Deferred, Ref}
 import com.softwaremill.sttp.SttpBackend
 import fluence.node.workers.health.HealthCheckConfig
@@ -59,12 +57,27 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
     } yield (healthy, oldWorker)
   }
 
+  /**
+   * Runs a worker concurrently, registers it in `workers` map
+   *
+   * @param params Worker's description
+   * @return Unit; no failures are expected
+   */
   private def runWorker(params: WorkerParams): F[Unit] =
     for {
       deferred ← Deferred[F, Unit]
-      _ <- Concurrent[F].start(
+      fiberDef ← Deferred[F, Fiber[F, Unit]]
+      fiber ← Concurrent[F].start(
         Worker
-          .run[F](params, healthCheckConfig, deferred.complete(()))
+          .make[F](
+            params,
+            healthCheckConfig,
+            for {
+              _ ← deferred.complete(())
+              fiber ← fiberDef.get
+              _ ← fiber.join
+            } yield logger.info(s"Worker's Fiber joined: $params")
+          )
           .use(
             worker ⇒
               for {
@@ -75,6 +88,7 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
               } yield ()
           )
       )
+      _ ← fiberDef.complete(fiber)
 
     } yield ()
 
@@ -85,21 +99,29 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
    * @return F that resolves with true when worker is registered; it might be not running yet. If it was registered before, F resolves with false
    */
   override def run(params: WorkerParams): F[WorkersPool.RunResult] =
-    checkWorkerHealthy(params.appId).flatMap {
-      case (false, oldWorker) ⇒
-        for {
-          // stop an old worker
-          _ <- oldWorker.fold(().pure[F])(stop)
-          _ ← runWorker(params)
-        } yield
-          if (oldWorker.isDefined) WorkersPool.Restarted
-          else WorkersPool.Ran
+    checkWorkerHealthy(params.appId)
+      .flatMap[WorkersPool.RunResult] {
+        case (false, oldWorker) ⇒
+          for {
+            // stop the old worker
+            _ ← oldWorker.fold(().pure[F])(stop)
+            _ ← runWorker(params)
+          } yield
+            if (oldWorker.isDefined) WorkersPool.Restarted
+            else WorkersPool.Ran
 
-      case (true, oldWorker) ⇒
-        logger.info(s"Worker for app ${params.appId} was already ran as $oldWorker")
-        Applicative[F].pure(WorkersPool.AlreadyRunning)
-    }
+        case (true, oldWorker) ⇒
+          logger.info(s"Worker for app ${params.appId} was already ran as $oldWorker")
+          Applicative[F].pure(WorkersPool.AlreadyRunning)
+      }
+      .handleError(err ⇒ WorkersPool.RunFailed(Option(err)))
 
+  /**
+   * Try to stop a worker, tolerating possible failures
+   *
+   * @param worker Worker to stop
+   * @return Unit, no failures are possible
+   */
   private def stop(worker: Worker[F]): F[Unit] =
     worker.stop.attempt.map(stopped ⇒ logger.info(s"Stopped: ${worker.params} => $stopped"))
 
@@ -111,16 +133,26 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
    */
   def stopAll[G[_]]()(implicit P: Parallel[F, G]): F[Unit] =
     for {
-      workersMap ← workers.get
-      workers = workersMap.values.toList
+      workers ← getAll
 
       stops ← Parallel.parTraverse(workers)(_.stop.attempt)
     } yield logger.info(s"Stopped: ${workers.map(_.params) zip stops}")
 
+  /**
+   * Get a Worker by its appId, if it's present
+   *
+   * @param appId Application id
+   * @return Worker
+   */
   override def get(appId: Long): F[Option[Worker[F]]] =
     workers.get.map(_.get(appId))
 
-  override val getAll: fs2.Stream[F, Worker[F]] =
-    fs2.Stream.eval(workers.get).map(_.values).flatMap(ws ⇒ fs2.Stream(ws.toSeq: _*))
+  /**
+   * Get all known workers
+   *
+   * @return Up-to-date list of workers
+   */
+  override val getAll: F[List[Worker[F]]] =
+    workers.get.map(_.values.toList)
 
 }

@@ -20,6 +20,7 @@ import java.nio.file.Files
 import java.util.Base64
 
 import cats.effect._
+import cats.syntax.functor._
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
@@ -82,7 +83,7 @@ class MasterNodeSpec
         node ← {
           implicit val s = sttpB
           MasterNode
-            .resource[IO, IO.Par](masterConf, nodeConf, Files.createTempDirectory("masternodespec"))
+            .make[IO, IO.Par](masterConf, nodeConf, Files.createTempDirectory("masternodespec"))
         }
         _ ← StatusAggregator.makeHttpResource(masterConf, node)
       } yield (sttpB, node)
@@ -92,10 +93,9 @@ class MasterNodeSpec
           implicit val s = sttpB
           for {
             fiber <- Concurrent[IO].start(node.run)
-            _ = println("Node Run")
-            _ ← eventually[IO](getStatus(5678).map(println), 1.second, 15.seconds)
-            _ = println("eventually ok")
-          } yield println("done")
+            _ ← eventually[IO](getStatus(5678).void, 1.second, 15.seconds)
+            _ ← fiber.join
+          } yield ()
 
       }.unsafeRunSync()
 

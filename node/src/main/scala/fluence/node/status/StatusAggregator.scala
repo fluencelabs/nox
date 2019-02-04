@@ -16,8 +16,10 @@
 
 package fluence.node.status
 
+import cats.Traverse
 import cats.data.Kleisli
 import cats.effect._
+import cats.instances.list._
 import fluence.node.MasterNode
 import fluence.node.config.MasterConfig
 import io.circe.syntax._
@@ -50,8 +52,9 @@ case class StatusAggregator(config: MasterConfig, masterNode: MasterNode[IO], st
     val endpoints = config.endpoints
     val ports = s"${endpoints.minPort}:${endpoints.maxPort}"
     for {
-      currentTime <- timer.clock.monotonic(MILLISECONDS)
-      workerInfos <- masterNode.pool.getAll.evalMap(_.healthReport).compile.toList
+      currentTime ← timer.clock.monotonic(MILLISECONDS)
+      workers ← masterNode.pool.getAll
+      workerInfos ← Traverse[List].traverse(workers)(_.healthReport)
       ethState ← masterNode.nodeEth.expectedState
     } yield
       MasterStatus(
@@ -88,7 +91,7 @@ object StatusAggregator extends LazyLogging {
               .flatMap(state => Ok(state.asJson.spaces2))
               .guaranteeCase {
                 case ExitCase.Error(err) ⇒ IO(logger.warn("Cannot produce MasterStatus response", err))
-                case _ ⇒ IO(logger.debug("MasterStatus responded successfully"))
+                case _ ⇒ IO(logger.trace("MasterStatus responded successfully"))
               }
         }
         .orNotFound,

@@ -32,24 +32,42 @@ import scala.language.higherKinds
  * @tparam F Effect
  */
 trait WorkersPool[F[_]] {
+
+  /**
+   * Run or restart a worker
+   *
+   * @param params Worker's description
+   * @return Whether worker run or not
+   */
   def run(params: WorkerParams): F[WorkersPool.RunResult]
 
+  /**
+   * Get a Worker by its appId, if it's present
+   *
+   * @param appId Application id
+   * @return Worker
+   */
   def get(appId: Long): F[Option[Worker[F]]]
 
-  def getAll: fs2.Stream[F, Worker[F]]
+  /**
+   * Get all known workers
+   *
+   * @return Up-to-date list of workers
+   */
+  def getAll: F[List[Worker[F]]]
 }
 
 object WorkersPool {
   sealed trait RunResult
   case object Restarted extends RunResult
-  //TODO case object RunFailed extends RunResult
+  case class RunFailed(reason: Option[Throwable] = None) extends RunResult
   case object AlreadyRunning extends RunResult
   case object Ran extends RunResult
 
   /**
-   * Build a new [[WorkersPool]]
+   * Build a new [[WorkersPool]]. All workers will be stopped when the pool is released
    */
-  def apply[F[_]: ContextShift: Timer, G[_]](healthCheckConfig: HealthCheckConfig = HealthCheckConfig())(
+  def make[F[_]: ContextShift: Timer, G[_]](healthCheckConfig: HealthCheckConfig = HealthCheckConfig())(
     implicit
     sttpBackend: SttpBackend[F, Nothing],
     F: Concurrent[F],
