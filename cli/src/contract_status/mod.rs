@@ -188,30 +188,26 @@ lazy_static! {
         r#"
 FILTERING EXAMPLES:
     Show nodes that have specified id or specified IP address:
-{}
+       ./fluence status \
+            --contract_address {0} \
+            --tendermint_key {2} \
+            --node_ip {1} \
+            --filter_mode or"
 
     Show nodes that both have specified owner and specified IP address:
-{}
+       ./fluence status \
+            --contract_address {0} \
+            --node_ip {1} \
+            --owner {3} \
+            --filter_mode and
 
 NOTE:
     Apps hosted by any of the displayed nodes will also be displayed
             "#,
-        style(
-            r#"       ./fluence status \
-            --contract_address <contract address> \
-            --tendermint_key <tendermint key> \
-            --node_ip <ip address> \
-            --filter_mode or"#
-        )
-        .cyan(),
-        style(
-            r#"       ./fluence status \
-            --contract_address <contract address> \
-            --node_ip <ip address> \
-            --owner <ethereum address> \
-            --filter_mode and"#
-        )
-        .cyan()
+        style("<contract address>").bold(),
+        style("<ip address>").bold(),
+        style("<tendermint key>").bold(),
+        style("<ethereum address>").bold(),
     );
 }
 
