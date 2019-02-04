@@ -53,15 +53,15 @@ if [ -z "$ETHEREUM_IP" ]; then
     ETHEREUM_IP=$TENDERMINT_IP
 fi
 
-if [ ! -z "$SWARM_HOST" ]; then
+if [ -n "$SWARM_HOST" ]; then
     SWARM_HOST="swarm.host = \"$SWARM_HOST\""
 fi
 
-if [ ! -z "$CONTRACT_ADDRESS" ]; then
+if [ -n "$CONTRACT_ADDRESS" ]; then
     CONTRACT_ADDRESS="contract.address = \"$CONTRACT_ADDRESS\""
 fi
 
-if [ ! -z "$OWNER_ADDRESS" ]; then
+if [ -n "$OWNER_ADDRESS" ]; then
     OWNER_ADDRESS="contract.owner-account = \"$OWNER_ADDRESS\""
 fi
 

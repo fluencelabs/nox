@@ -21,149 +21,260 @@ set -e
 # Without `PROD_DEPLOY` exported flag the script will use default arguments
 # If first arg is `multiple`, script will start 4 fluence node along with Swarm & Parity nodes
 
-# Update all containers
-docker pull parity/parity:v2.3.0
-docker pull ethdevops/swarm:edge
-docker pull fluencelabs/node
-docker pull fluencelabs/worker
-
 # `PROD_DEPLOY` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
 #  the network will be started in development mode locally
-if [ -z "$PROD_DEPLOY" ]; then
-    echo "Deploying locally with default arguments."
-    export NAME='fluence-node-1'
-    # open 10 ports, so it's possible to create 10 workers
-    export PORTS='25000:25010'
-    # eth address in `dev` mode Parity with eth
-    export OWNER_ADDRESS=0x00a329c0648769a73afac7f9381e08fb43dbea72
-    export PRIVATE_KEY=4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
-    export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
-else
-    echo "Deploying for $CHAIN chain."
-    export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
-fi
 
-# getting docker ip address
-case "$(uname -s)" in
-   Darwin)
-     export DOCKER_IP=host.docker.internal
-     ;;
+# generates json with all arguments required for registration a node
+function generate_json()
+{
+    # printing the command in the last line to parse it from a control script
+    DATA=$(cat <<EOF
+{
+    "node_ip": "$EXTERNAL_HOST_IP",
+    "tendermint_key": "$TENDERMINT_KEY",
+    "tendermint_node_id": "$TENDERMINT_NODE_ID",
+    "contract_address": "$CONTRACT_ADDRESS",
+    "account": "$OWNER_ADDRESS",
+    "start_port": $START_PORT,
+    "last_port": $LAST_PORT
+}
+EOF
+)
+    JSON=$(echo $DATA | paste -sd "\0" -)
+    echo "$JSON"
+}
 
-   Linux)
-     export DOCKER_IP=$(ifconfig docker0 | grep 'inet ' | awk '{print $2}' | grep -Po "[0-9\.]+")
-     ;;
-esac
+# generates command for registering node with CLI
+function generate_command()
+{
+    echo "./fluence register \
+            --node_ip            $EXTERNAL_HOST_IP \
+            --tendermint_key     $TENDERMINT_KEY \
+            --tendermint_node_id $TENDERMINT_NODE_ID \
+            --contract_address   $CONTRACT_ADDRESS \
+            --account            $OWNER_ADDRESS \
+            --secret_key         $PRIVATE_KEY \
+            --start_port         $START_PORT \
+            --last_port          $LAST_PORT \
+            --eth_url            http://$EXTERNAL_HOST_IP:8545 \
+            --wait_syncing \
+            --base64_tendermint_key"
+}
 
-# use exported external ip address or get it from OS
-# todo rewrite this
-if [ -z "$PROD_DEPLOY" ]; then
-    EXTERNAL_HOST_IP="127.0.0.1"
-    case "$(uname -s)" in
-       Darwin)
-         export HOST_IP=host.docker.internal
-         ;;
+# parses tendermint node id and key from logs
+function parse_tendermint_params()
+{
+    local __TENDERMINT_KEY=$1
+    local __TENDERMINT_NODE_ID=$2
 
-       Linux)
-         export HOST_IP=$(ip route get 8.8.8.8 | grep -Po "(?<=src )[0-9\.]+")
-         ;;
-    esac
-else
-    EXTERNAL_HOST_IP=$HOST_IP
-fi
+    # get tendermint key from node logs
+    # todo get this from `status` API by CLI
+    while [ -z "$TENDERMINT_KEY" -o -z "$TENDERMINT_NODE_ID" ]; do
+        # check if docker container isn't in `exited` status
+        local DOCKER_STATUS=$(docker ps -a --filter "name=fluence-node-$COUNTER" --format '{{.Status}}' | grep -o Exited)
+        if [ -n "$DOCKER_STATUS" ]
+        then
+            echo -e "\e[91m'fluence-node-'$COUNTER container cannot be run\e[0m"
+            exit 127
+        fi
 
-# running parity and swarm containers
-docker-compose -f parity.yml up -d
-docker-compose -f swarm.yml up -d
+        TENDERMINT_KEY=$(docker logs fluence-node-$COUNTER 2>&1 | awk 'match($0, /PubKey: /) { print substr($0, RSTART + RLENGTH) }')
+        TENDERMINT_NODE_ID=$(docker logs fluence-node-$COUNTER 2>&1 | awk 'match($0, /Node ID: /) { print substr($0, RSTART + RLENGTH) }')
+        sleep 3
+    done
 
-echo 'Parity and Swarm containers are started.'
+    eval $__TENDERMINT_KEY="'$TENDERMINT_KEY'"
+    eval $__TENDERMINT_NODE_ID="'$TENDERMINT_NODE_ID'"
+}
 
-# waiting that API of parity start working
-# todo get rid of all `sleep`
-sleep 30
-
-# deploy contract if there is new dev ethereum node
-if [ -z "$PROD_DEPLOY" ]; then
+# deploys contract to local ethereum node for test usage
+function deploy_contract_locally()
+{
     if [ ! -d "node_modules" ]; then
         npm install
     fi
     RESULT=$(npm run deploy)
     # get last word from script output
-    export CONTRACT_ADDRESS=`echo ${RESULT} | awk '{print $NF}'`
+    local CONTRACT_ADDRESS=`echo ${RESULT} | awk '{print $NF}'`
     sleep 1
-fi
 
-# check all variables exists
-echo "CONTRACT_ADDRESS="$CONTRACT_ADDRESS
-echo "NAME="$NAME
-echo "PORTS="$PORTS
-echo "HOST_IP="$HOST_IP
-echo "EXTERNAL_HOST_IP="$EXTERNAL_HOST_IP
-echo "OWNER_ADDRESS="$OWNER_ADDRESS
-echo "CONTRACT_ADDRESS="$CONTRACT_ADDRESS
-echo "PRIVATE_KEY="$PRIVATE_KEY
+    echo $CONTRACT_ADDRESS
+}
 
-START_PORT=${PORTS%:*}
-LAST_PORT=${PORTS#*:}
-export STATUS_PORT=$((LAST_PORT+400))
+# updates all needed containers
+function container_update()
+{
+    docker pull parity/parity:v2.3.0
+    docker pull ethdevops/swarm:edge
+    docker pull fluencelabs/node:latest
+    docker pull fluencelabs/worker:latest
+}
 
-# port for status API
-echo "STATUS_PORT="$STATUS_PORT
+# getting node's docker IP address
+function get_docker_ip_address()
+{
+    case "$(uname -s)" in
+       Darwin)
+         export DOCKER_IP=host.docker.internal
+         ;;
 
-COUNTER=1
+       Linux)
+         export DOCKER_IP=$(ifconfig docker0 | grep 'inet ' | awk '{print $2}' | grep -Po "[0-9\.]+")
+         ;;
+    esac
+}
 
-# starting node container
-# if there was `multiple` flag on the running script, will be created 4 nodes, otherwise one node
-if [ "$1" = "multiple" ]; then
-    docker-compose -f multiple-node.yml up -d --force-recreate
-    NUMBER_OF_NODES=4
-else
-    docker-compose -f node.yml up -d --force-recreate
-    NUMBER_OF_NODES=1
-fi
+# get IP used for external calls
+function get_external_ip()
+{
+    # use exported external ip address or get it from OS
+    # todo rewrite this
+    if [ -z "$PROD_DEPLOY" ]; then
+        EXTERNAL_HOST_IP="127.0.0.1"
+        case "$(uname -s)" in
+           Darwin)
+             export HOST_IP=host.docker.internal
+             ;;
 
-echo 'Node container is started.'
+           Linux)
+             export HOST_IP=$(ip route get 8.8.8.8 | grep -Po "(?<=src )[0-9\.]+")
+             ;;
+        esac
+    else
+        EXTERNAL_HOST_IP=$HOST_IP
+    fi
+}
 
-while [ $COUNTER -le $NUMBER_OF_NODES ]; do
-        # get tendermint key from node logs
-        # todo get this from `status` API by CLI
-        while [ -z "$TENDERMINT_KEY" ]; do
-            # TODO: parse for 'Node ID' instead of 'PubKey'
-            TENDERMINT_KEY=$(docker logs fluence-node-$COUNTER 2>&1 | awk 'match($0, /PubKey: /) { print substr($0, RSTART + RLENGTH) }')
-            TENDERMINT_NODE_ID=$(docker logs fluence-node-$COUNTER 2>&1 | awk 'match($0, /Node ID: /) { print substr($0, RSTART + RLENGTH) }')
-            sleep 3
-        done
+# gets default arguments for test usage or use exported arguments from calling script
+function export_arguments()
+{
+    if [ -z "$PROD_DEPLOY" ]; then
+        echo "Deploying locally with default arguments."
+        export NAME='fluence-node-1'
+        # open 10 ports, so it's possible to create 10 workers
+        export PORTS='25000:25010'
+        # eth address in `dev` mode Parity with eth
+        export OWNER_ADDRESS=0x00a329c0648769a73afac7f9381e08fb43dbea72
+        export PRIVATE_KEY=4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
+        export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
+    else
+        echo "Deploying for $CHAIN chain."
+        export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
+    fi
+}
 
-    echo "CURRENT NODE = "$COUNTER
-    echo "TENDERMINT_KEY="$TENDERMINT_KEY
-    echo "TENDERMINT_NODE_ID="$TENDERMINT_NODE_ID
+function start_parity_swarm()
+{
+    # running parity and swarm containers
+    docker-compose -f parity.yml up -d
+    docker-compose -f swarm.yml up -d
 
-    # use hardcoded ports for multiple nodes
-    if [ "$1" = "multiple" ]; then
-        START_PORT="25"$COUNTER"00"
-        LAST_PORT="25"$COUNTER"10"
+    # waiting that API of parity start working
+    # todo get rid of all `sleep`
+    sleep 30
+
+    echo 'Parity and Swarm containers are started.'
+}
+
+# main function to deploy Fluence
+function deploy()
+{
+    container_update
+
+    # exports initial arguments to global scope for `docker-compose` files
+    export_arguments
+
+    get_docker_ip_address
+
+    get_external_ip
+
+    start_parity_swarm
+
+    # deploy contract if there is new dev ethereum node
+    if [ -z "$PROD_DEPLOY" ]; then
+        export CONTRACT_ADDRESS=$(deploy_contract_locally)
     fi
 
-    echo "START_PORT="$START_PORT
-    echo "LAST_PORT="$LAST_PORT
+    # parse start and last port from format `111:222`
+    START_PORT=${PORTS%:*}
+    LAST_PORT=${PORTS#*:}
+    # status port is hardcoded with `+400` thing
+    export STATUS_PORT=$((LAST_PORT+400))
 
-    echo "Registering node in smart contract:"
+    # check all variables exists
+    echo "CONTRACT_ADDRESS="$CONTRACT_ADDRESS
+    echo "NAME="$NAME
+    echo "PORTS="$PORTS
+    echo "HOST_IP="$HOST_IP
+    echo "EXTERNAL_HOST_IP="$EXTERNAL_HOST_IP
+    echo "OWNER_ADDRESS="$OWNER_ADDRESS
+    echo "CONTRACT_ADDRESS="$CONTRACT_ADDRESS
+    echo "PRIVATE_KEY="$PRIVATE_KEY
 
-    set -x
-    # check if node is already registered
-    # todo build fluence CLI in fly, use cargo from cli directory, or run from target cli directory?
-    ./fluence register \
-        --node_ip            $EXTERNAL_HOST_IP \
-        --tendermint_key     $TENDERMINT_KEY \
-        --tendermint_node_id $TENDERMINT_NODE_ID \
-        --contract_address   $CONTRACT_ADDRESS \
-        --account            $OWNER_ADDRESS \
-        --secret_key         $PRIVATE_KEY \
-        --start_port         $START_PORT \
-        --last_port          $LAST_PORT \
-        --wait_syncing \
-        --base64_tendermint_key
-    set +x
+    # port for status API
+    echo "STATUS_PORT="$STATUS_PORT
 
-    COUNTER=$[$COUNTER+1]
-    TENDERMINT_KEY=""
-done
+    # uses for multiple deploys if needed
+    COUNTER=1
+
+    # starting node container
+    # if there was `multiple` flag on the running script, will be created 4 nodes, otherwise one node
+    if [ "$1" = "multiple" ]; then
+        docker-compose -f multiple-node.yml up -d --force-recreate
+        NUMBER_OF_NODES=4
+    else
+        docker-compose -f node.yml up -d --force-recreate
+        NUMBER_OF_NODES=1
+    fi
+
+    echo 'Node container is started.'
+
+    while [ $COUNTER -le $NUMBER_OF_NODES ]; do
+        parse_tendermint_params TENDERMINT_KEY TENDERMINT_NODE_ID
+
+        echo "CURRENT NODE = "$COUNTER
+        echo "TENDERMINT_KEY="$TENDERMINT_KEY
+        echo "TENDERMINT_NODE_ID="$TENDERMINT_NODE_ID
+
+        # use hardcoded ports for multiple nodes
+        if [ "$1" = "multiple" ]; then
+            START_PORT="25"$COUNTER"00"
+            LAST_PORT="25"$COUNTER"10"
+        fi
+
+        echo "START_PORT="$START_PORT
+        echo "LAST_PORT="$LAST_PORT
+
+        echo "Registering node in smart contract:"
+
+        # registers node in Fluence contract, for local usage
+        if [ -z "$PROD_DEPLOY" ]; then
+            set -x
+            REGISTER_COMMAND=$(generate_command)
+            eval $REGISTER_COMMAND
+            set +x
+        fi
+
+        # generates JSON with all arguments for node registration
+        JSON=$(generate_json)
+        echo $JSON
+
+        COUNTER=$[$COUNTER+1]
+        TENDERMINT_KEY=""
+    done
+}
+
+if [ -z "$1" ]; then
+    echo "Arguments are empty. Use a name of the function from this file to call. For example, `./compose.sh deploy`"
+else
+    # Check if the function exists (bash specific)
+    if declare -f "$1" > /dev/null; then
+      # call arguments verbatim
+      "$@"
+    else
+      # Show a helpful error
+      echo "'$1' is not a known function name" >&2
+      exit 1
+    fi
+fi
+
