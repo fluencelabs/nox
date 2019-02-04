@@ -71,7 +71,11 @@ lazy val `statemachine-control` = (project in file("statemachine-control"))
       http4sServer,
       http4sCirce,
       fs2,
-      fs2io
+      fs2io,
+      scalaTest,
+      sttp,
+      sttpCirce,
+      sttpCatsBackend
     )
   )
 

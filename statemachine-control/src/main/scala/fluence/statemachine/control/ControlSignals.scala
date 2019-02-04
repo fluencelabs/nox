@@ -22,22 +22,18 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fs2.Sink
 import fs2.concurrent.Queue
-import io.circe.Decoder
-import io.circe.generic.semiauto.deriveDecoder
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
 class ControlSignals[F[_]: FlatMap] private (
   changePeersRef: MVar[F, List[ChangePeer]],
-  incomingSignals: Queue[F, ControlSignal],
   stopRef: MVar[F, Unit]
 ) {
 
-  incomingSignals.dequeue.evalMap {
-    case c: ChangePeer => changePeer(c)
-  }
-
-  private def changePeer(change: ChangePeer): F[Unit] =
+  def changePeer(change: ChangePeer): F[Unit] =
     for {
       changes <- changePeersRef.take
       _ <- changePeersRef.put(changes :+ change)
@@ -48,18 +44,23 @@ class ControlSignals[F[_]: FlatMap] private (
 
   val stop: F[Unit] =
     stopRef.take
-
-  val signal: Sink[F, ControlSignal] = incomingSignals.enqueue
 }
 
 sealed trait ControlSignal
 // A signal to change a voting power of the specified Tendermint validator. Voting power zero votes to remove.
 // Represents a Tendermint's ValidatorUpdate command
 // see https://github.com/tendermint/tendermint/blob/master/docs/spec/abci/abci.md#validatorupdate
-case class ChangePeer(keyType: String, validatorKey: Array[Byte], votePower: Long) extends ControlSignal
+case class ChangePeer(keyType: String, validatorKey: ByteVector, votePower: Long) extends ControlSignal
 
 object ChangePeer {
   implicit val dec: Decoder[ChangePeer] = deriveDecoder[ChangePeer]
+  private implicit val decbc: Decoder[ByteVector] =
+    Decoder.decodeString.flatMap(
+      ByteVector.fromHex(_).fold(Decoder.failedWithMessage[ByteVector]("Not a hex"))(Decoder.const)
+    )
+
+  implicit val enc: Encoder[ChangePeer] = deriveEncoder[ChangePeer]
+  private implicit val encbc: Encoder[ByteVector] = Encoder.encodeString.contramap(_.toHex)
 }
 
 object ControlSignals {
@@ -67,7 +68,7 @@ object ControlSignals {
   def apply[F[_]: Concurrent]: F[ControlSignals[F]] =
     for {
       changePeersRef ← MVar[F].of[List[ChangePeer]](Nil)
-      incomingSignals <- Queue.unbounded[F, ControlSignal]
       stopRef ← MVar.empty[F, Unit]
-    } yield new ControlSignals[F](changePeersRef, incomingSignals, stopRef)
+      instance = new ControlSignals[F](changePeersRef, stopRef)
+    } yield instance
 }

@@ -41,7 +41,9 @@ case class StateMachineConfig(
   sessionExpirationPeriod: Long,
   moduleFiles: List[String],
   logLevel: String,
-  controlConfig: ControlServerConfig
+  metricsPort: Short,
+  abciPort: Short,
+  control: ControlServerConfig,
 ) {
 
   /**

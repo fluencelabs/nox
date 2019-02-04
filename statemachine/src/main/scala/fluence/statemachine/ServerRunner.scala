@@ -46,13 +46,7 @@ import scala.language.higherKinds
  * according to Tendermint specification) and sends ABCI requests to `ABCIHandler`.
  */
 object ServerRunner extends IOApp with LazyLogging {
-  val DefaultABCIPort: Int = 26658 // default Tendermint ABCI port
-  val DefaultMetricsPort: Int = 26661 // default Prometheus metrics port
-
   override def run(args: List[String]): IO[ExitCode] = {
-    val abciPort = if (args.nonEmpty) args.head.toInt else DefaultABCIPort
-    val metricsPort = if (args.length > 1) args(1).toInt else DefaultMetricsPort
-
     configureLogging()
 
     for {
@@ -60,13 +54,13 @@ object ServerRunner extends IOApp with LazyLogging {
       _ = configureLogLevel(config.logLevel)
 
       _ = logger.info("Starting Metrics servlet")
-      _ = startMetricsServer(metricsPort)
+      _ = startMetricsServer(config.metricsPort)
 
       _ = logger.info("Building State Machine ABCI handler")
       _ <- (
         for {
-          control ← ControlServer.make[IO](config.controlConfig)
-          _ ← abciHandlerResource(abciPort, config, control)
+          control ← ControlServer.make[IO](config.control)
+          _ ← abciHandlerResource(config.abciPort, config, control)
         } yield control.signals.stop
       ).use(identity)
     } yield ExitCode.Success

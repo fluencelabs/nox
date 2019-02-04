@@ -21,6 +21,7 @@ import com.github.jtendermint.jabci.api.CodeType
 import com.github.jtendermint.jabci.types.{RequestCheckTx, RequestCommit, RequestDeliverTx, RequestQuery}
 import com.google.protobuf.ByteString
 import fluence.statemachine.config.StateMachineConfig
+import fluence.statemachine.control.ControlServer.ControlServerConfig
 import fluence.statemachine.control.ControlSignals
 import fluence.statemachine.state.QueryCodeType
 import fluence.statemachine.tree.MerkleTreeNode
@@ -30,7 +31,7 @@ import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
+class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
@@ -39,7 +40,7 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
   // while Idea defaults to project root
   private val moduleDirPrefix = if (System.getProperty("user.dir").endsWith("/statemachine")) "../" else "./"
   private val moduleFiles = List("mul.wast", "counter.wast").map(moduleDirPrefix + "vm/src/test/resources/wast/" + _)
-  private val config = StateMachineConfig(8, moduleFiles, "OFF")
+  private val config = StateMachineConfig(8, moduleFiles, "OFF", 26661, 26658, ControlServerConfig("localhost", 26662))
 
   private val signals = ControlSignals[IO].unsafeRunSync()
 

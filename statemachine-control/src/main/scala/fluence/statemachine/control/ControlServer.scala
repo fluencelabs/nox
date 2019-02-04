@@ -40,7 +40,7 @@ object ControlServer {
   case class ControlServerConfig(host: String, port: Short)
 
   private def controlService[F[_]: Concurrent](
-    signals: Sink[F, ControlSignal]
+    signals: ControlSignals[F]
   )(implicit dsl: Http4sDsl[F]): Kleisli[F, Request[F], Response[F]] = {
     import dsl._
 
@@ -51,7 +51,7 @@ object ControlServer {
         case req @ POST -> Root / "control" / "changePeer" =>
           for {
             change <- req.as[ChangePeer]
-            _ <- Stream.emit(change).to[F](signals).compile.drain
+            _ <- signals.changePeer(change)
             ok <- Ok()
           } yield ok
       }
@@ -65,7 +65,7 @@ object ControlServer {
       signals <- Resource.liftF(ControlSignals[F])
       server ← BlazeServerBuilder[F]
         .bindHttp(config.port, config.host)
-        .withHttpApp(controlService(signals.signal))
+        .withHttpApp(controlService(signals))
         .resource
     } yield ControlServer(signals, server)
   }
