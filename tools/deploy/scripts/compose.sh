@@ -28,15 +28,20 @@ set -e
 function generate_json()
 {
     # printing the command in the last line to parse it from a control script
-    DATA="{\"node_ip\": \"$EXTERNAL_HOST_IP\",
-           \"tendermint_key\": \"$TENDERMINT_KEY\",
-           \"tendermint_node_id\": \"$TENDERMINT_NODE_ID\",
-           \"contract_address\": \"$CONTRACT_ADDRESS\",
-           \"account\": \"$OWNER_ADDRESS\",
-           \"start_port\": $START_PORT,
-           \"last_port\": $LAST_PORT}"
-    JSON=$(echo $DATA | paste -sd "" - | awk 'NF')
-    echo $JSON
+    DATA=$(cat <<EOF
+{
+    "node_ip": "$EXTERNAL_HOST_IP",
+    "tendermint_key": "$TENDERMINT_KEY",
+    "tendermint_node_id": "$TENDERMINT_NODE_ID",
+    "contract_address": "$CONTRACT_ADDRESS",
+    "account": "$OWNER_ADDRESS",
+    "start_port": $START_PORT,
+    "last_port": $LAST_PORT
+}
+EOF
+)
+    JSON=$(echo $DATA | paste -sd "\0" -)
+    echo "$JSON"
 }
 
 # generates command for registering node with CLI
@@ -260,7 +265,7 @@ function deploy()
 }
 
 if [ -z "$1" ]; then
-    echo "Arguments are empty. Use function name for calling."
+    echo "Arguments are empty. Use the name of the function from this file to call. For example, `./compose.sh deploy`"
 else
     # Check if the function exists (bash specific)
     if declare -f "$1" > /dev/null; then

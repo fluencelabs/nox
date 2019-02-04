@@ -111,3 +111,11 @@ matrix:
         - popd
         - cargo fmt --all -- --check -v
         - cargo test
+
+    - name: Deploy Scripts
+      language: python
+      python: "2.7"
+      before_script:
+        - cd tools/deploy
+      script:
+        - pytest
