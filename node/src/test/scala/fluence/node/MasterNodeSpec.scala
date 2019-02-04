@@ -94,7 +94,7 @@ class MasterNodeSpec
           for {
             fiber <- Concurrent[IO].start(node.run)
             _ ← eventually[IO](getStatus(5678).void, 1.second, 15.seconds)
-          _ ← fiber.join
+            _ ← fiber.join
           } yield ()
 
       }.unsafeRunSync()
