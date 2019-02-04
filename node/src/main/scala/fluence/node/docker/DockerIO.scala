@@ -29,11 +29,24 @@ import scala.language.higherKinds
 import scala.sys.process._
 import scala.util.{Failure, Success, Try}
 
+/**
+ * Docker container IO wrapper
+ *
+ * @param containerId Running Container ID
+ */
 case class DockerIO(containerId: String) {
 
+  /**
+   * Performs a `docker inspect` command for this container
+   */
   def check[F[_]: Sync: ContextShift]: F[DockerRunStatus] =
     DockerIO.checkContainer(containerId)
 
+  /**
+   * Performs `docker inspect`, fetching container's status, periodically
+   *
+   * @param period Period to check
+   */
   def checkPeriodically[F[_]: Timer: Sync: ContextShift](
     period: FiniteDuration
   ): fs2.Stream[F, DockerRunStatus] =

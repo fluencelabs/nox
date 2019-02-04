@@ -48,7 +48,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
         case (conf, masterConf) =>
           // Run master node and status server
           sttpResource
-            .flatMap(implicit sttpBackend ⇒ MasterNode.resource[IO, IO.Par](masterConf, conf.nodeConfig, conf.rootPath))
+            .flatMap(implicit sttpBackend ⇒ MasterNode.make[IO, IO.Par](masterConf, conf.nodeConfig, conf.rootPath))
             .use { node ⇒
               logger.debug("eth config {}", masterConf.contract)
 

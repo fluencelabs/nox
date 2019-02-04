@@ -101,7 +101,7 @@ class MasterNodeIntegrationSpec
             case w: WorkerRunning =>
               Some(w)
             case _ ⇒
-              logger.debug("Trying to get running worker, but it doesn't exist in status: " + st)
+              logger.debug("Trying to get WorkerRunning, but it is not present in status: " + st)
               None
         }
       )
@@ -109,7 +109,7 @@ class MasterNodeIntegrationSpec
 
   def withEthSttpAndTwoMasters(basePort: Short): Resource[IO, (EthClient, SttpBackend[IO, Nothing])] =
     for {
-      ethClient <- EthClient.makeHttpResource[IO]()
+      ethClient <- EthClient.make[IO]()
       sttp <- sttpResource
       _ <- runTwoMasters(basePort)
     } yield (ethClient, sttp)
@@ -214,9 +214,9 @@ class MasterNodeIntegrationSpec
         case (e, s) =>
           runTwoWorkers(basePort)(e, s).flatMap(_ ⇒ IO("docker ps".!!))
       }.flatMap { psOutput ⇒
-        psOutput.contains("worker") should be(true)
+        psOutput should include("worker")
         // Check that once masters are stopped, workers do not exist
-        eventually(IO("docker ps".!!.contains("worker") should not be true))
+        eventually(IO("docker ps".!!.contains("worker") should not include "worker"))
 
       }.unsafeRunSync()
     }

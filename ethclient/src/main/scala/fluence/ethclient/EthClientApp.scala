@@ -27,7 +27,7 @@ object EthClientApp extends IOApp {
   // EthClientApp is to play during development only
   override def run(args: List[String]): IO[ExitCode] =
     EthClient
-      .makeHttpResource[IO](includeRaw = true)
+      .make[IO](includeRaw = true)
       .use { ethClient ⇒
         val par = Parallel[IO, IO.Par]
 

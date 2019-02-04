@@ -22,6 +22,7 @@ import cats.effect.concurrent.{Deferred, Ref}
 import cats.syntax.functor._
 import cats.syntax.apply._
 import cats.syntax.applicativeError._
+import cats.syntax.flatMap._
 import com.softwaremill.sttp._
 import fluence.node.docker.DockerIO
 import fluence.node.workers.control.ControlRpc
@@ -58,77 +59,97 @@ case class Worker[F[_]] private (
 object Worker extends LazyLogging {
 
   /**
-   * Runs health checker.
+   * For each successful container's status check, runs HTTP request for Tendermint status, and provides a WorkerHealth report
+   *
+   * @param container Running Worker container
+   * @param params Worker params to include into WorkerHealth object
+   * @param healthCheckConfig See [[HealthCheckConfig]]
+   * @param rpc Tendermint RPC
+   * @tparam F Effect
+   * @return Stream of periodical health reports
    */
-  private def runDockerWithHealthCheck[F[_]: Concurrent: ContextShift: Timer](
+  private def healthCheckStream[F[_]: Timer: Sync: ContextShift](
+    container: DockerIO,
     params: WorkerParams,
-    healthReportRef: Ref[F, WorkerHealth],
-    healthcheck: HealthCheckConfig,
+    healthCheckConfig: HealthCheckConfig,
     rpc: TendermintRpc[F]
-  )(implicit sttpBackend: SttpBackend[F, Nothing]): Resource[F, DockerIO] =
-    for {
-      stop ← deferredStop[F]
-      container ← DockerIO.run[F](params.dockerCommand)
-      _ ← runBackground(
-        container
-          .checkPeriodically[F](healthcheck.period)
-          .evalMap(st ⇒ Timer[F].clock.realTime(MILLISECONDS).map(now ⇒ (now - st.startedAt) → st.isRunning))
-          .evalMap[F, WorkerHealth] {
-            case (uptime, true) ⇒
-              rpc.status.value.map {
-                case Left(err) ⇒
-                  logger.error("Worker HTTP check failed: " + err.getLocalizedMessage, err)
-                  WorkerHttpCheckFailed(StoppedWorkerInfo(params.currentWorker), err)
+  ): fs2.Stream[F, WorkerHealth] =
+    container
+      .checkPeriodically[F](healthCheckConfig.period)
+      .evalMap(st ⇒ Timer[F].clock.realTime(MILLISECONDS).map(now ⇒ (now - st.startedAt) → st.isRunning))
+      .evalMap[F, WorkerHealth] {
+        case (uptime, true) ⇒
+          rpc.status.value.map {
+            case Left(err) ⇒
+              logger.error("Worker HTTP check failed: " + err.getLocalizedMessage, err)
+              WorkerHttpCheckFailed(StoppedWorkerInfo(params.currentWorker), err)
 
-                case Right(tendermintInfo) ⇒
-                  val info = RunningWorkerInfo(params, tendermintInfo)
-                  WorkerRunning(uptime, info)
-              }.map { health ⇒
-                logger.debug(s"HTTP health is: $health")
-                health
-              }
-
-            case (_, false) ⇒
-              logger.error(s"Healthcheck is failing for worker: $params")
-              Applicative[F].pure(WorkerContainerNotRunning(StoppedWorkerInfo(params.currentWorker)))
+            case Right(tendermintInfo) ⇒
+              val info = RunningWorkerInfo(params, tendermintInfo)
+              WorkerRunning(uptime, info)
+          }.map { health ⇒
+            logger.debug(s"HTTP health is: $health")
+            health
           }
-          .evalTap(healthReportRef.set)
-          .interruptWhen(stop)
-          // TODO .sliding(healthcheck.slide) -- currently we have no behavior definition for failed healthcheck
-          .compile
-          .drain,
-        stop.complete(Right(()))
-      )
-    } yield container
 
-  private def runBackground[F[_]: Concurrent, T](fn: F[T], stop: F[Unit]): Resource[F, Unit] =
-    Resource
-      .make(Concurrent[F].start(fn)) { fiber ⇒
-        logger.debug("Trying to stop background process...")
-        stop *> fiber.join.attempt.map {
-          case Right(_) ⇒
-            logger.debug("Background process stopped")
-          case Left(err) ⇒
-            logger.warn(s"Failed to stop background process: $err", err)
-        }
+        case (_, false) ⇒
+          logger.error(s"Healthcheck is failing for worker: $params")
+          Applicative[F].pure(WorkerContainerNotRunning(StoppedWorkerInfo(params.currentWorker)))
       }
-      .map(_ ⇒ ())
 
-  private def deferredStop[F[_]: Concurrent]: Resource[F, Deferred[F, Either[Throwable, Unit]]] =
-    Resource.make(Deferred[F, Either[Throwable, Unit]])(_.complete(Right(())))
+  /**
+   * Runs health checker, wrapped with resource:
+   * health check will be stopped when the resource is released.
+   *
+   * @param healthReportRef Ref for the last [[WorkerHealth]], updated periodically
+   * @param healthCheck Stream of [[WorkerHealth]]'s, updates the given ref
+   * @return Resource that will stop healthchecks stram once released
+   */
+  private def runHealthCheck[F[_]: Concurrent: ContextShift: Timer](
+    healthReportRef: Ref[F, WorkerHealth],
+    healthCheck: fs2.Stream[F, WorkerHealth],
+  ): Resource[F, Unit] =
+    Resource
+      .make(
+        // We use Deferred to stop the stream when resource is released
+        Deferred[F, Either[Throwable, Unit]].flatMap(
+          stop ⇒
+            // Run possibly infinite stream concurrently, get the fiber to join later
+            Concurrent[F]
+              .start(
+                healthCheck
+                  .evalTap(healthReportRef.set)
+                  .interruptWhen(stop)
+                  // TODO .sliding(healthcheck.slide) -- currently we have no behavior definition for failed healthcheck
+                  .compile
+                  .drain
+              )
+              .map(stop → _)
+        )
+      ) {
+        case (stop, fiber) ⇒
+          logger.debug("Trying to stop Worker's healthcheck stream...")
+          stop.complete(Right(())) *> fiber.join.attempt.map {
+            case Right(_) ⇒
+              logger.debug("Worker's healthcheck stream stopped")
+            case Left(err) ⇒
+              logger.warn(s"Failed to stop Worker's healthcheck stream: $err", err)
+          }
+      }
+      .void
 
   /**
    * Runs a single worker
    *
    * @param params Worker's running params
-   * @param healthcheck see [[HealthCheckConfig]]
+   * @param healthCheckConfig see [[HealthCheckConfig]]
    * @param onStop A callback to launch when this worker is stopped
    * @param sttpBackend Sttp Backend to launch HTTP healthchecks and RPC endpoints
    * @return the [[Worker]] instance
    */
   def make[F[_]: Concurrent: ContextShift: Timer](
     params: WorkerParams,
-    healthcheck: HealthCheckConfig,
+    healthCheckConfig: HealthCheckConfig,
     onStop: F[Unit]
   )(
     implicit sttpBackend: SttpBackend[F, Nothing]
@@ -142,7 +163,11 @@ object Worker extends LazyLogging {
 
       rpc ← TendermintRpc[F](params)
 
-      _ ← runDockerWithHealthCheck(params, healthReportRef, healthcheck, rpc)
+      container ← DockerIO.run[F](params.dockerCommand)
+
+      healthChecks = healthCheckStream(container, params, healthCheckConfig, rpc)
+
+      _ ← runHealthCheck(healthReportRef, healthChecks)
 
       control = ControlRpc[F]()
 

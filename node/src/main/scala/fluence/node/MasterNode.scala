@@ -32,7 +32,6 @@ import fluence.node.eth._
 import fluence.node.workers.tendermint.config.WorkerConfigWriter
 import fluence.node.workers.tendermint.config.WorkerConfigWriter.WorkerConfigPaths
 import fluence.node.workers._
-import scodec.bits.ByteVector
 import slogging.LazyLogging
 
 import scala.language.higherKinds
@@ -118,6 +117,9 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
       .compile
       .drain
 
+  /**
+   * Runs the appropriate effect for each incoming NodeEthEvent, keeping it untouched
+   */
   val handleEthEvent: fs2.Pipe[F, NodeEthEvent, NodeEthEvent] =
     _.evalTap {
       case RunAppWorker(app) ⇒
@@ -170,20 +172,29 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
 
 object MasterNode extends LazyLogging {
 
-  def resource[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer, G[_]](
+  /**
+   * Makes the MasterNode resource for the given config
+   *
+   * @param masterConfig MasterConfig
+   * @param nodeConfig NodeConfig
+   * @param rootPath Master's root path
+   * @param sttpBackend HTTP client implementation
+   * @param P Parallel instance, used for Workers
+   * @return Prepared [[MasterNode]], then see [[MasterNode.run]]
+   */
+  def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer, G[_]](
     masterConfig: MasterConfig,
     nodeConfig: NodeConfig,
     rootPath: Path
   )(implicit sttpBackend: SttpBackend[F, Nothing], P: Parallel[F, G]): Resource[F, MasterNode[F]] =
     for {
-      ethClient <- EthClient.makeHttpResource[F](Some(masterConfig.ethereum.uri))
-      pool <- WorkersPool.apply()
+      ethClient ← EthClient.make[F](Some(masterConfig.ethereum.uri))
+
+      pool ← WorkersPool.make()
+
       nodeEth ← NodeEth[F](nodeConfig.validatorKey.toByteVector, ethClient, masterConfig.contract)
 
-      _ ← Resource.liftF(ethClient.waitEthSyncing[F]())
-
-      codeManager <- Resource.liftF(CodeManager[F](masterConfig.swarm))
-
+      codeManager ← Resource.liftF(CodeManager[F](masterConfig.swarm))
     } yield
       MasterNode[F](
         nodeConfig,
