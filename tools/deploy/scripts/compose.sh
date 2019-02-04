@@ -265,7 +265,7 @@ function deploy()
 }
 
 if [ -z "$1" ]; then
-    echo "Arguments are empty. Use the name of the function from this file to call. For example, `./compose.sh deploy`"
+    echo "Arguments are empty. Use a name of the function from this file to call. For example, `./compose.sh deploy`"
 else
     # Check if the function exists (bash specific)
     if declare -f "$1" > /dev/null; then
