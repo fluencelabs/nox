@@ -44,18 +44,20 @@ pub struct DeleteApp {
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     let args = &[
-        Arg::with_name(DEPLOYED)
-            .long(DEPLOYED)
-            .short("D")
-            .required(false)
-            .takes_value(false)
-            .help("If not specified, enqueued app will be dequeued, otherwise deployed app will be removed"),
         Arg::with_name(APP_ID)
             .long(APP_ID)
             .short("A")
             .required(true)
             .takes_value(true)
             .help("App to be removed")
+            .display_order(0),
+        Arg::with_name(DEPLOYED)
+            .long(DEPLOYED)
+            .short("D")
+            .required(false)
+            .takes_value(false)
+            .help("If not specified, enqueued app will be dequeued, otherwise deployed app will be removed")
+            .display_order(1),
     ];
 
     SubCommand::with_name("delete_app")

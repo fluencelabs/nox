@@ -104,7 +104,8 @@ impl Publisher {
                 self.pin_to_nodes.clone(),
             );
 
-            call_contract(&self.eth, call_data)
+            Ok(call_contract(&self.eth, call_data)
+                .context("error calling addApp in smart contract")?)
         };
 
         let wait_event_fn = |tx: &H256| -> Result<Published, Error> {
@@ -233,21 +234,16 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .short("c")
             .required(true)
             .takes_value(true)
-            .help("Path to compiled `wasm` code"),
-        Arg::with_name(SWARM_URL)
-            .long(SWARM_URL)
-            .short("w")
-            .required(false)
-            .takes_value(true)
-            .help("Http address to swarm node")
-            .default_value("http://localhost:8500/"),
+            .help("Path to compiled `wasm` code")
+            .display_order(0),
         Arg::with_name(CLUSTER_SIZE)
             .long(CLUSTER_SIZE)
             .short("s")
             .required(false)
             .takes_value(true)
             .default_value("3")
-            .help("Cluster's size that needed to deploy this code"),
+            .help("Cluster's size that needed to deploy this code")
+            .display_order(1),
         Arg::with_name(PINNED)
             .long(PINNED)
             .short("p")
@@ -255,14 +251,22 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .takes_value(true)
             .multiple(true)
             .value_name("key")
-            .help(
-                "Tendermint public keys of pinned workers for application (space-separated list)",
-            ),
+            .help("Tendermint public keys of pinned workers for application (space-separated list)")
+            .display_order(2),
         Arg::with_name(PIN_BASE64)
             .long(PIN_BASE64)
             .required(false)
             .takes_value(false)
-            .help("If specified, tendermint keys for pin_to flag treated as base64"),
+            .help("If specified, tendermint keys for pin_to flag treated as base64")
+            .display_order(2),
+        Arg::with_name(SWARM_URL)
+            .long(SWARM_URL)
+            .short("w")
+            .required(false)
+            .takes_value(true)
+            .help("Http address to swarm node")
+            .default_value("http://localhost:8500/")
+            .display_order(3),
     ];
 
     SubCommand::with_name("publish")
@@ -281,7 +285,8 @@ fn upload_code_to_swarm(url: &str, bytes: &[u8]) -> Result<String, Error> {
         .body(bytes.to_vec())
         .header("Content-Type", "application/octet-stream")
         .send()
-        .and_then(|mut r| r.text())?;
+        .and_then(|mut r| r.text())
+        .context("error uploading code to swarm")?;
 
     Ok(res)
 }
@@ -442,7 +447,10 @@ mod tests {
         assert!(result.is_err());
 
         if let Result::Err(e) = result {
-            assert!(e.to_string().contains("Can pin only to registered nodes"))
+            assert!(e
+                .find_root_cause()
+                .to_string()
+                .contains("Can pin only to registered nodes"))
         }
     }
 }

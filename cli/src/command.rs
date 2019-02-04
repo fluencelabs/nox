@@ -27,6 +27,7 @@ use failure::err_msg;
 use failure::Error;
 use failure::ResultExt;
 use std::fs::File;
+use std::net::IpAddr;
 use web3::types::Address;
 use web3::types::H160;
 use web3::types::H256;
@@ -38,11 +39,12 @@ const GAS: &str = "gas";
 const ACCOUNT: &str = "account";
 const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
-const TENDERMINT_KEY: &str = "tendermint_key";
 const BASE64_TENDERMINT_KEY: &str = "base64_tendermint_key";
 const TENDERMINT_NODE_ID: &str = "tendermint_node_id";
 const WAIT: &str = "wait";
 const WAIT_SYNCING: &str = "wait_syncing";
+pub const NODE_IP: &str = "node_ip";
+pub const TENDERMINT_KEY: &str = "tendermint_key";
 
 #[derive(Debug, Clone)]
 pub struct EthereumArgs {
@@ -59,6 +61,7 @@ pub fn contract_address<'a, 'b>() -> Arg<'a, 'b> {
     Arg::with_name(CONTRACT_ADDRESS)
         .long(CONTRACT_ADDRESS)
         .short("d")
+        .value_name("eth address")
         .required(true)
         .takes_value(true)
         .help("Fluence contract address")
@@ -68,6 +71,7 @@ pub fn eth_url<'a, 'b>() -> Arg<'a, 'b> {
     Arg::with_name(ETH_URL)
         .long(ETH_URL)
         .short("e")
+        .value_name("url")
         .required(false)
         .takes_value(true)
         .help("Http address to ethereum node")
@@ -78,6 +82,7 @@ pub fn tendermint_key<'a, 'b>() -> Arg<'a, 'b> {
     Arg::with_name(TENDERMINT_KEY)
         .long(TENDERMINT_KEY)
         .short("K")
+        .value_name("key")
         .required(true)
         .takes_value(true)
         .help("Public key of tendermint node")
@@ -98,18 +103,29 @@ pub fn tendermint_node_id<'a, 'b>() -> Arg<'a, 'b> {
         .help("Tendermint node ID (20-byte from SHA of p2p public key)")
 }
 
+pub fn node_ip<'a, 'b>() -> Arg<'a, 'b> {
+    Arg::with_name(NODE_IP)
+        .long(NODE_IP)
+        .value_name("ip address")
+        .short("i")
+        .required(true)
+        .takes_value(true)
+        .help("Node's IP address")
+}
+
 // Takes `args` and concatenates them with predefined set of arguments needed for
 // interaction with Ethereum.
 pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
-    let mut eth_args = vec![
+    let eth_args = vec![
         contract_address(),
+        eth_url(),
         Arg::with_name(ACCOUNT)
             .long(ACCOUNT)
             .short("a")
+            .value_name("eth address")
             .required(true)
             .takes_value(true)
             .help("Ethereum account"),
-        eth_url(),
         Arg::with_name(PASSWORD)
             .long(PASSWORD)
             .short("P")
@@ -132,6 +148,7 @@ pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
         Arg::with_name(KEYSTORE)
             .long(KEYSTORE)
             .short("T")
+            .value_name("path")
             .required(false)
             .takes_value(true)
             .help("Path to keystore JSON file with Ethereum private key inside"),
@@ -145,6 +162,9 @@ pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
             .long(WAIT_SYNCING)
             .help("If supplied, wait until Ethereum is synced with blockchain"),
     ];
+
+    // display subcommand-specific options on top of ethereum options
+    let mut eth_args: Vec<Arg> = eth_args.into_iter().map(|a| a.display_order(10)).collect();
 
     // append args
     eth_args.extend_from_slice(args);
@@ -226,10 +246,13 @@ pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Error> {
 }
 
 pub fn parse_tendermint_key(args: &ArgMatches) -> Result<H256, Error> {
-    let tendermint_key = utils::parse_hex_opt(args, TENDERMINT_KEY)?.to_owned();
+    let tendermint_key = utils::parse_hex_opt(args, TENDERMINT_KEY)
+        .context("error parsing tendermint key")?
+        .to_owned();
     let base64 = args.is_present(BASE64_TENDERMINT_KEY);
     let tendermint_key = if base64 {
-        let arr = base64::decode(&tendermint_key)?;
+        let arr =
+            base64::decode(&tendermint_key).context("error parsing tendermint key as base64")?;
         hex::encode(arr)
     } else {
         tendermint_key
@@ -251,6 +274,10 @@ pub fn parse_tendermint_key(args: &ArgMatches) -> Result<H256, Error> {
 
 pub fn parse_tendermint_node_id(args: &ArgMatches) -> Result<H160, Error> {
     Ok(value_t!(args, TENDERMINT_NODE_ID, H160)?)
+}
+
+pub fn parse_node_ip(args: &ArgMatches) -> Result<IpAddr, Error> {
+    Ok(value_t!(args, NODE_IP, IpAddr)?)
 }
 
 impl Default for EthereumArgs {
