@@ -18,8 +18,9 @@ package fluence.node.workers
 import cats.{Applicative, Parallel}
 import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.apply._
 import cats.syntax.applicative._
-import cats.effect.{Concurrent, ContextShift, Timer}
+import cats.effect.{Concurrent, ContextShift, Fiber, Timer}
 import cats.effect.concurrent.{Deferred, Ref}
 import com.softwaremill.sttp.SttpBackend
 import fluence.node.workers.health.HealthCheckConfig
@@ -62,9 +63,18 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
   private def runWorker(params: WorkerParams): F[Unit] =
     for {
       deferred ← Deferred[F, Unit]
-      _ <- Concurrent[F].start(
+      fiberDef ← Deferred[F, Fiber[F, Unit]]
+      fiber <- Concurrent[F].start(
         Worker
-          .run[F](params, healthCheckConfig, deferred.complete(()))
+          .make[F](
+            params,
+            healthCheckConfig,
+            for {
+              _ ← deferred.complete(())
+              fiber ← fiberDef.get
+              _ ← fiber.join
+            } yield logger.info(s"Worker's Fiber joined: $params")
+          )
           .use(
             worker ⇒
               for {
@@ -75,6 +85,7 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
               } yield ()
           )
       )
+      _ ← fiberDef.complete(fiber)
 
     } yield ()
 

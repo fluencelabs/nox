@@ -48,7 +48,7 @@ object DockerIO extends LazyLogging {
    * @param fn the function to run
    */
   private def shiftDelay[F[_]: Sync: ContextShift, A](fn: ⇒ A): F[A] =
-    implicitly[ContextShift[F]].shift *> Sync[F].defer(Sync[F].catchNonFatal(fn))
+    ContextShift[F].shift *> Sync[F].defer(Sync[F].catchNonFatal(fn))
 
   /**
    * Runs a temporary docker container with custom executable. Returns stdout of execution as a string.
@@ -76,18 +76,32 @@ object DockerIO extends LazyLogging {
     Resource.makeCase {
       logger.info(s"Running docker: ${params.command.mkString(" ")}")
       // TODO: if we have another docker container with the same name, we should rm -f it
-      shiftDelay(Try(params.process.!!).map(_.trim))
+      shiftDelay(Try(params.process.!!).map(_.trim)).map {
+        case f @ Failure(err) ⇒
+          logger.warn("Cannot run docker container: " + err, err)
+          f
+        case s ⇒ s
+      }
     } {
       case (Success(dockerId), exitCase) ⇒
         shiftDelay {
           logger.info(s"Going to cleanup $dockerId, exit case: $exitCase")
-          s"docker rm -f $dockerId".!
-        }.map {
-          case 0 ⇒ logger.info(s"Container $dockerId successfully removed")
-          case x ⇒ logger.warn(s"Stopping docker container $dockerId failed, exit code = $x")
+          s"docker stop $dockerId".!
+        }.flatMap {
+          case 0 ⇒
+            shiftDelay {
+              logger.info(s"Container $dockerId stopped gracefully, going to rm -v it")
+              logger.info(Console.CYAN + s"docker logs $dockerId".!! + Console.RESET)
+              s"docker rm -v $dockerId".!
+            }
+          case x ⇒
+            shiftDelay {
+              logger.warn(s"Stopping docker container $dockerId failed, exit code = $x, going to rm -v -f it")
+              s"docker rm -v -f $dockerId".!
+            }
         }
       case (Failure(err), _) ⇒
-        logger.warn(s"Can't cleanup the docker container as it's failed to launch: $err", err)
+        logger.warn(s"Cannot cleanup the docker container as it's failed to launch: $err", err)
         Applicative[F].unit
     }.flatMap {
       case Success(dockerId) ⇒ Resource.pure(DockerIO(dockerId))

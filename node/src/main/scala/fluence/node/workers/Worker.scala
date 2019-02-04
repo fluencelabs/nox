@@ -20,6 +20,8 @@ import cats.Applicative
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.syntax.functor._
+import cats.syntax.apply._
+import cats.syntax.applicativeError._
 import com.softwaremill.sttp._
 import fluence.node.docker.DockerIO
 import fluence.node.workers.control.ControlRpc
@@ -92,14 +94,25 @@ object Worker extends LazyLogging {
           }
           .evalTap(healthReportRef.set)
           .interruptWhen(stop)
-          .sliding(healthcheck.slide)
+          // TODO .sliding(healthcheck.slide) -- currently we have no behavior definition for failed healthcheck
           .compile
-          .drain
+          .drain,
+        stop.complete(Right(()))
       )
     } yield container
 
-  private def runBackground[F[_]: Concurrent, T](fn: F[T]): Resource[F, Unit] =
-    Resource.make(Concurrent[F].start(fn))(_.join.map(_ ⇒ ())).map(_ ⇒ ())
+  private def runBackground[F[_]: Concurrent, T](fn: F[T], stop: F[Unit]): Resource[F, Unit] =
+    Resource
+      .make(Concurrent[F].start(fn)) { fiber ⇒
+        logger.debug("Trying to stop background process...")
+        stop *> fiber.join.attempt.map {
+          case Right(_) ⇒
+            logger.debug("Background process stopped")
+          case Left(err) ⇒
+            logger.warn(s"Failed to stop background process: $err", err)
+        }
+      }
+      .map(_ ⇒ ())
 
   private def deferredStop[F[_]: Concurrent]: Resource[F, Deferred[F, Either[Throwable, Unit]]] =
     Resource.make(Deferred[F, Either[Throwable, Unit]])(_.complete(Right(())))
@@ -113,7 +126,11 @@ object Worker extends LazyLogging {
    * @param sttpBackend Sttp Backend to launch HTTP healthchecks and RPC endpoints
    * @return the [[Worker]] instance
    */
-  def run[F[_]: Concurrent: ContextShift: Timer](params: WorkerParams, healthcheck: HealthCheckConfig, onStop: F[Unit])(
+  def make[F[_]: Concurrent: ContextShift: Timer](
+    params: WorkerParams,
+    healthcheck: HealthCheckConfig,
+    onStop: F[Unit]
+  )(
     implicit sttpBackend: SttpBackend[F, Nothing]
   ): Resource[F, Worker[F]] =
     for {

@@ -32,7 +32,7 @@ import fluence.node.config.FluenceContractConfig
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.higherKinds
-import scala.sys.process.ProcessLogger
+import scala.sys.process._
 
 /**
  * This test contains a single test method that checks:
@@ -46,6 +46,8 @@ class MasterNodeIntegrationSpec
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
+
+  private val sttpResource = Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
   override protected def beforeAll(): Unit = {
     wireupContract()
@@ -108,7 +110,7 @@ class MasterNodeIntegrationSpec
   def withEthSttpAndTwoMasters(basePort: Short): Resource[IO, (EthClient, SttpBackend[IO, Nothing])] =
     for {
       ethClient <- EthClient.makeHttpResource[IO]()
-      sttp <- Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
+      sttp <- sttpResource
       _ <- runTwoMasters(basePort)
     } yield (ethClient, sttp)
 
@@ -206,9 +208,16 @@ class MasterNodeIntegrationSpec
       }
 
     "sync their workers with contract clusters" in {
-      withEthSttpAndTwoMasters(25000).use {
+      val basePort: Short = 25000
+
+      withEthSttpAndTwoMasters(basePort).use {
         case (e, s) =>
-          runTwoWorkers(25000)(e, s)
+          runTwoWorkers(basePort)(e, s).flatMap(_ ⇒ IO("docker ps".!!))
+      }.flatMap { psOutput ⇒
+        psOutput.contains("worker") should be(true)
+        // Check that once masters are stopped, workers do not exist
+        eventually(IO("docker ps".!!.contains("worker") should not be true))
+
       }.unsafeRunSync()
     }
 

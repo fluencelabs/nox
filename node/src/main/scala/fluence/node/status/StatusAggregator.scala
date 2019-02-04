@@ -88,7 +88,7 @@ object StatusAggregator extends LazyLogging {
               .flatMap(state => Ok(state.asJson.spaces2))
               .guaranteeCase {
                 case ExitCase.Error(err) ⇒ IO(logger.warn("Cannot produce MasterStatus response", err))
-                case _ ⇒ IO(logger.debug("MasterStatus responded successfully"))
+                case _ ⇒ IO(logger.trace("MasterStatus responded successfully"))
               }
         }
         .orNotFound,

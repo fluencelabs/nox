@@ -96,6 +96,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
   /**
    * Runs app worker on a pool
    * TODO check that the worker is not yet running
+   * TODO streaming there is meaningless
    *
    * @param app App description
    */
