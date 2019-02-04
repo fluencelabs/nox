@@ -19,28 +19,244 @@ pub mod status;
 pub mod ui;
 
 use self::status::{get_status, Status};
-use clap::{App, ArgMatches, SubCommand};
-use failure::Error;
-use web3::types::Address;
-
-use crate::command::{contract_address, eth_url, parse_contract_address, parse_eth_url};
+use crate::command::*;
+use crate::contract_status::app::{App, Node};
 use crate::contract_status::ui::rich_status;
+use crate::utils;
 use clap::Arg;
+use clap::{App as ClapApp, ArgMatches, SubCommand, _clap_count_exprs, arg_enum};
+use console::style;
+use failure::err_msg;
+use failure::Error;
+use failure::ResultExt;
+use lazy_static::lazy_static;
+use std::collections::HashSet;
+use std::net::IpAddr;
+use web3::types::Address;
+use web3::types::H256;
 
 const INTERACTIVE: &str = "interactive";
+const OWNER: &str = "owner";
+const APP_ID: &str = "app_id";
+const FILTER_MODE: &str = "filter_mode";
 
-pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
+// Implements logical 'and' for variadic number of Option<bool>
+// Example of generated code:
+//    opt_and!(Some(true), Some(false), None) will generate:
+//
+//    Some(true).unwrap_or(true) && Some(false).unwrap_or(true) && None.unwrap_or(true)
+//
+macro_rules! opt_and {
+    ($head:ident, $($tail:ident),*) => {{
+        {
+            $head.unwrap_or(true) && opt_and! { $($tail),* }
+        }
+    }};
+
+    ($last:ident) => {{
+        $last.unwrap_or(true)
+    }};
+}
+
+// Implements logical 'or' for variadic number of Option<bool>
+// Example of generated code:
+//    opt_and!(Some(false), None, Some(true)) will generate:
+//
+//    Some(false).unwrap_or(false) || None.unwrap_or(false) || Some(true).unwrap_or(false)
+//
+macro_rules! opt_or {
+    ($head:ident, $($tail:ident),*) =>  {{
+        {
+            $head.unwrap_or(false) || opt_or! { $($tail),* }
+        }
+    }};
+
+    ($last:ident) => {{
+        $last.unwrap_or(false)
+    }};
+}
+
+// arg_enum generates FromStr for FilterMode enum
+arg_enum! {
+    #[derive(Debug)]
+    // Logical mode for filtering
+    enum FilterMode {
+        // Element is displayed if it matches all passed filters. Conjunction mode.
+        And,
+        // Element is displayed if it matches any of the passed filters. Disjunction mode.
+        Or
+    }
+}
+
+// Data to be used for filtering
+struct StatusFilter {
+    // logical mode
+    mode: FilterMode,
+    // filter node or app by owner
+    owner: Option<Address>,
+    // filter app by app_id, nodes by apps they're hosting
+    app_id: Option<u64>,
+    // filter nodes by IP address, doesn't filter apps
+    node_ip: Option<IpAddr>,
+    // filter nodes by tendermint validator key (used as node id), apps by nodes in cluster
+    tendermint_key: Option<H256>,
+}
+
+impl StatusFilter {
+    // Parse filters from command line options
+    // TODO: remove 'map_err(err_msg).context(...)` boilerplate
+    fn from_args(args: &ArgMatches) -> Result<StatusFilter, Error> {
+        let mode: FilterMode = utils::get_opt(args, FILTER_MODE)
+            .map_err(err_msg)
+            .context("error parsing filter mode")?
+            .unwrap_or(FilterMode::And);
+        let owner: Option<Address> = utils::get_opt_hex(args, OWNER)
+            .map_err(err_msg)
+            .context("error parsing owner")?;
+        let app_id: Option<u64> = utils::get_opt(args, APP_ID)
+            .map_err(err_msg)
+            .context("error parsing app_id")?;
+        let node_ip: Option<IpAddr> = utils::get_opt(args, NODE_IP)
+            .map_err(err_msg)
+            .context("error parsing node_ip")?;
+        let tendermint_key: Option<H256> = if args.is_present(TENDERMINT_KEY) {
+            Some(parse_tendermint_key(args)?)
+        } else {
+            None
+        };
+
+        Ok(StatusFilter {
+            mode,
+            owner,
+            app_id,
+            node_ip,
+            tendermint_key,
+        })
+    }
+
+    // filters existing status to a new one by filtering and cloning all elements
+    fn filter(&self, status: &Status) -> Status {
+        let nodes: Vec<Node> = status
+            .nodes
+            .iter()
+            .filter(|node| {
+                let by_app_id = self.app_id.map(|f| {
+                    node.app_ids
+                        .as_ref()
+                        .map(|ids| ids.contains(&f))
+                        .unwrap_or(false)
+                });
+                let by_owner = self.owner.map(|f| f == node.owner);
+                let by_node_ip = self.node_ip.map(|f| f == node.ip_addr);
+                let by_t_key = self.tendermint_key.map(|f| f == node.validator_key);
+                match self.mode {
+                    FilterMode::And => opt_and!(by_owner, by_app_id, by_node_ip, by_t_key),
+                    FilterMode::Or => opt_or!(by_owner, by_app_id, by_node_ip, by_t_key),
+                }
+            })
+            .cloned()
+            .collect();
+
+        // used to also display apps for these nodes
+        let node_ids: HashSet<H256> = nodes.iter().map(|n| n.validator_key).collect();
+
+        let apps: Vec<App> = status
+            .apps
+            .iter()
+            .filter(|app| {
+                let by_app_id = self.app_id.map(|f| f == app.app_id);
+                let by_owner = self.owner.map(|f| f == app.owner);
+                let by_t_key = self.tendermint_key.and_then(|f| {
+                    app.cluster
+                        .as_ref()
+                        .map(|c| c.node_ids.contains(&f) || node_ids.contains(&f))
+                });
+                match self.mode {
+                    FilterMode::And => opt_and!(by_owner, by_app_id, by_t_key),
+                    FilterMode::Or => opt_or!(by_owner, by_app_id, by_t_key),
+                }
+            })
+            .cloned()
+            .collect();
+
+        Status { nodes, apps }
+    }
+}
+
+lazy_static! {
+    static ref AFTER_HELP: String = format!(
+        r#"
+FILTERING EXAMPLES:
+    Show nodes that have specified id or specified IP address:
+       ./fluence status \
+            --contract_address {0} \
+            --tendermint_key {2} \
+            --node_ip {1} \
+            --filter_mode or"
+
+    Show nodes that both have specified owner and specified IP address:
+       ./fluence status \
+            --contract_address {0} \
+            --node_ip {1} \
+            --owner {3} \
+            --filter_mode and
+
+NOTE:
+    Apps hosted by any of the displayed nodes will also be displayed
+            "#,
+        style("<contract address>").bold(),
+        style("<ip address>").bold(),
+        style("<tendermint key>").bold(),
+        style("<ethereum address>").bold(),
+    );
+}
+
+pub fn subcommand<'a, 'b>() -> ClapApp<'a, 'b> {
     SubCommand::with_name("status")
-        .about("Get status of the smart contract")
+        .about("Show state of the Fluence network as seen by the smart-contract")
+        .after_help(AFTER_HELP.as_str())
         .args(&[
-            eth_url(),
-            contract_address(),
+            contract_address().display_order(0),
+            eth_url().display_order(1),
             Arg::with_name(INTERACTIVE)
                 .long(INTERACTIVE)
                 .short("I")
                 .required(false)
                 .takes_value(false)
-                .help("If supplied, status is showed as an interactive table"),
+                .help("Show status as an interactive table")
+                .display_order(2),
+            Arg::with_name(OWNER)
+                .long(OWNER)
+                .short(OWNER)
+                .required(false)
+                .takes_value(true)
+                .value_name("eth address")
+                .help("Filter nodes and apps owned by this Ethereum address")
+                .display_order(3),
+            Arg::with_name(APP_ID)
+                .long(APP_ID)
+                .short(APP_ID)
+                .required(false)
+                .takes_value(true)
+                .help("Filter nodes and apps by app id")
+                .display_order(3),
+            node_ip()
+                .required(false)
+                .help("Filter nodes by IP address")
+                .display_order(3),
+            tendermint_key()
+                .required(false)
+                .help("Filter nodes and apps by Tendermint validator key (node id)")
+                .display_order(3),
+            Arg::with_name(FILTER_MODE)
+                .long(FILTER_MODE)
+                .short(FILTER_MODE)
+                .required(false)
+                .takes_value(true)
+                .value_name("and|or")
+                .default_value("and")
+                .help("Logical mode of the filter")
+                .display_order(4),
         ])
 }
 
@@ -49,7 +265,11 @@ pub fn get_status_by_args(args: &ArgMatches) -> Result<Option<Status>, Error> {
     let eth_url = parse_eth_url(args)?;
     let contract_address: Address = parse_contract_address(args)?;
 
+    let filter = StatusFilter::from_args(args)?;
+
     let status = get_status(eth_url.as_str(), contract_address)?;
+
+    let status = filter.filter(&status);
 
     if args.is_present(INTERACTIVE) {
         rich_status::draw(&status)?;
