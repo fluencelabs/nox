@@ -70,8 +70,6 @@ lazy val `statemachine-control` = (project in file("statemachine-control"))
       http4sDsl,
       http4sServer,
       http4sCirce,
-      fs2,
-      fs2io,
       scalaTest,
       sttp,
       sttpCirce,

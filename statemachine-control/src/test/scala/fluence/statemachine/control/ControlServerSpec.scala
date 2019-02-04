@@ -2,9 +2,10 @@ package fluence.statemachine.control
 import cats.effect.{ContextShift, IO, Resource, Timer}
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.statemachine.control.ControlServer.ControlServerConfig
-import io.circe.{Decoder, Encoder}
+import io.circe.Encoder
 import org.scalatest.{EitherValues, Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
+import cats.implicits._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -61,6 +62,26 @@ class ControlServerSpec extends WordSpec with Matchers with ControlServerOps {
 
             received.length shouldBe 1
             received.head shouldBe cp
+          }
+      }.unsafeRunSync()
+    }
+
+    "receive several ChangePeer events" in {
+      val count = 3
+      resources.use {
+        case (server, sttp) =>
+          implicit val sttpBackend = sttp
+          for {
+            cp <- IO.pure(ChangePeer("ecc", ByteVector(Array.fill[Byte](32)(1)), 17))
+            cps = Array.fill(count)(cp).toList
+            _ <- cps.map(send(_, "changePeer")).sequence
+            received <- server.signals.changePeers.use(IO.pure)
+          } yield {
+
+            received.length shouldBe 3
+            received.foreach { r =>
+              r shouldBe cp
+            }
           }
       }.unsafeRunSync()
     }

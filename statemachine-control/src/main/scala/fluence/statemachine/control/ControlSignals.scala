@@ -20,10 +20,8 @@ import cats.effect.concurrent.MVar
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fs2.Sink
-import fs2.concurrent.Queue
-import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.{Decoder, Encoder}
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds

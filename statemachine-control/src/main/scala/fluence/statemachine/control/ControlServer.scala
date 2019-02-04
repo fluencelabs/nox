@@ -19,7 +19,6 @@ import cats.data.Kleisli
 import cats.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fs2.{Sink, Stream}
 import org.http4s._
 import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
