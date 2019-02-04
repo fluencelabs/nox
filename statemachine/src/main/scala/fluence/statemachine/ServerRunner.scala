@@ -65,7 +65,7 @@ object ServerRunner extends IOApp with LazyLogging {
       _ = logger.info("Building State Machine ABCI handler")
       _ <- (
         for {
-          control ← ControlServer.make[IO]
+          control ← ControlServer.make[IO](config.controlConfig)
           _ ← abciHandlerResource(abciPort, config, control)
         } yield control.signals.stop
       ).use(identity)

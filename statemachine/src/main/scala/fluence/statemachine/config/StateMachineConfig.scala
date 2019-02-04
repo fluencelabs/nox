@@ -23,6 +23,7 @@ import cats.effect.{IO, LiftIO, Sync}
 import cats.syntax.list._
 import cats.syntax.flatMap._
 import cats.instances.list._
+import fluence.statemachine.control.ControlServer.ControlServerConfig
 import fluence.statemachine.error.{StateMachineError, VmModuleLocationError}
 
 import scala.language.higherKinds
@@ -36,7 +37,12 @@ import scala.language.higherKinds
  * @param moduleFiles sequence of files with WASM module code
  * @param logLevel level of logging ( OFF / ERROR / WARN / INFO / DEBUG / TRACE )
  */
-case class StateMachineConfig(sessionExpirationPeriod: Long, moduleFiles: List[String], logLevel: String) {
+case class StateMachineConfig(
+  sessionExpirationPeriod: Long,
+  moduleFiles: List[String],
+  logLevel: String,
+  controlConfig: ControlServerConfig
+) {
 
   /**
    * Extracts module filenames that have wast or wasm extensions from the module-files section of a given config.
