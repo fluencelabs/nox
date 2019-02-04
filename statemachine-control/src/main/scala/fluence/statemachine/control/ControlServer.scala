@@ -17,17 +17,15 @@
 package fluence.statemachine.control
 import cats.data.Kleisli
 import cats.effect._
-import fluence.statemachine.control.ControlSignals.{ChangePeer, ControlSignal}
-import fs2.Sink
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import fs2.{Sink, Stream}
 import org.http4s._
-import org.http4s.dsl.io._
+import org.http4s.circe._
+import org.http4s.dsl.Http4sDsl
 import org.http4s.implicits._
 import org.http4s.server.Server
 import org.http4s.server.blaze._
-import io.circe.syntax._
-import org.http4s.circe._
-import fs2.concurrent.Queue
-import fs2.Stream
 
 import scala.language.higherKinds
 
@@ -42,8 +40,10 @@ object ControlServer {
   case class ControlServerConfig(host: String, port: Short)
 
   private def controlService[F[_]: Concurrent](
-    signals: Sink[F, ControlSignals.ControlSignal]
-  ): Kleisli[F, Request[F], Response[F]] = {
+    signals: Sink[F, ControlSignal]
+  )(implicit dsl: Http4sDsl[F]): Kleisli[F, Request[F], Response[F]] = {
+    import dsl._
+
     implicit val decoder: EntityDecoder[F, ChangePeer] = jsonOf[F, ChangePeer]
 
     HttpRoutes
@@ -51,15 +51,16 @@ object ControlServer {
         case req @ POST -> Root / "control" / "changePeer" =>
           for {
             change <- req.as[ChangePeer]
-            _ <- Stream.emit(change).to[F](signals)
-          } yield {
-            Ok
-          }
+            _ <- Stream.emit(change).to[F](signals).compile.drain
+            ok <- Ok()
+          } yield ok
       }
       .orNotFound
   }
 
-  def make[F[_]: ConcurrentEffect: Timer](config: ControlServerConfig): Resource[F, ControlServer[F]] =
+  def make[F[_]: ConcurrentEffect: Timer](config: ControlServerConfig): Resource[F, ControlServer[F]] = {
+    implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
+
     for {
       signals <- Resource.liftF(ControlSignals[F])
       server ← BlazeServerBuilder[F]
@@ -67,5 +68,6 @@ object ControlServer {
         .withHttpApp(controlService(signals.signal))
         .resource
     } yield ControlServer(signals, server)
+  }
 
 }

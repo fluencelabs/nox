@@ -15,24 +15,21 @@
  */
 
 package fluence.statemachine.control
-import cats.syntax.functor._
-import cats.syntax.flatMap._
-import cats.Functor
-import cats.effect.{Concurrent, Resource}
+import cats.FlatMap
 import cats.effect.concurrent.MVar
-import fluence.statemachine.control.ControlSignals.ChangePeer
+import cats.effect.{Concurrent, Resource}
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fs2.Sink
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
-import scodec.bits.ByteVector
 import fs2.concurrent.Queue
-import fs2.Stream
+import io.circe.Decoder
+import io.circe.generic.semiauto.deriveDecoder
 
 import scala.language.higherKinds
 
-class ControlSignals[F[_]: Functor] private (
-  changePeersRef: MVar[F, List[ControlSignals.ChangePeer]],
-  incomingSignals: Queue[F, ControlSignals.ControlSignal],
+class ControlSignals[F[_]: FlatMap] private (
+  changePeersRef: MVar[F, List[ChangePeer]],
+  incomingSignals: Queue[F, ControlSignal],
   stopRef: MVar[F, Unit]
 ) {
 
@@ -46,25 +43,26 @@ class ControlSignals[F[_]: Functor] private (
       _ <- changePeersRef.put(changes :+ change)
     } yield ()
 
-  val changePeers: Resource[F, List[ControlSignals.ChangePeer]] =
+  val changePeers: Resource[F, List[ChangePeer]] =
     Resource.make(changePeersRef.tryTake.map(_.toList.flatten))(_ => changePeersRef.tryPut(Nil).void)
 
   val stop: F[Unit] =
     stopRef.take
 
-  val signal: Sink[F, ControlSignals.ControlSignal] = incomingSignals.enqueue
+  val signal: Sink[F, ControlSignal] = incomingSignals.enqueue
+}
+
+sealed trait ControlSignal
+// A signal to change a voting power of the specified Tendermint validator. Voting power zero votes to remove.
+// Represents a Tendermint's ValidatorUpdate command
+// see https://github.com/tendermint/tendermint/blob/master/docs/spec/abci/abci.md#validatorupdate
+case class ChangePeer(keyType: String, validatorKey: Array[Byte], votePower: Long) extends ControlSignal
+
+object ChangePeer {
+  implicit val dec: Decoder[ChangePeer] = deriveDecoder[ChangePeer]
 }
 
 object ControlSignals {
-  sealed trait ControlSignal
-  // A signal to change a voting power of the specified Tendermint validator. Voting power zero votes to remove.
-  // Represents a Tendermint's ValidatorUpdate command
-  // see https://github.com/tendermint/tendermint/blob/master/docs/spec/abci/abci.md#validatorupdate
-  case class ChangePeer(keyType: String, validatorKey: ByteVector, votePower: Long) extends ControlSignal
-
-  object ChangePeer {
-    implicit val dec: Decoder[ChangePeer] = deriveDecoder[ChangePeer]
-  }
 
   def apply[F[_]: Concurrent]: F[ControlSignals[F]] =
     for {
