@@ -39,6 +39,11 @@ const APP_ID: &str = "app_id";
 const FILTER_MODE: &str = "filter_mode";
 
 // Implements logical 'and' for variadic number of Option<bool>
+// Example of generated code:
+//    opt_and!(Some(true), Some(false), None) will generate:
+//
+//    Some(true).unwrap_or(true) && Some(false).unwrap_or(true) && None.unwrap_or(true)
+//
 macro_rules! opt_and {
     ($head:ident, $($tail:ident),*) => {{
         {
@@ -52,6 +57,11 @@ macro_rules! opt_and {
 }
 
 // Implements logical 'or' for variadic number of Option<bool>
+// Example of generated code:
+//    opt_and!(Some(false), None, Some(true)) will generate:
+//
+//    Some(false).unwrap_or(false) || None.unwrap_or(false) || Some(true).unwrap_or(false)
+//
 macro_rules! opt_or {
     ($head:ident, $($tail:ident),*) =>  {{
         {
@@ -173,8 +183,28 @@ impl StatusFilter {
 
 pub fn subcommand<'a, 'b>() -> ClapApp<'a, 'b> {
     SubCommand::with_name("status")
-        .about("Get status of the smart contract")
-        .after_help("NOTE: apps hosted by any of the displayed nodes will be also displayed")
+        .about("Show state of the Fluence network as seen by the smart-contract")
+        .after_help(
+            r#"
+FILTERING EXAMPLES:
+    Show nodes that have specified id or specified IP address:
+        ./fluence status \
+            --contract_address <contract address> \
+            --tendermint_key <tendermint key> \
+            --node_ip <ip address> \
+            --filter_mode or
+
+    Show nodes that both have specified owner and specified IP address:
+        ./fluence status \
+            --contract_address <contract address> \
+            --node_ip <ip address> \
+            --owner <ethereum address> \
+            --filter_mode and
+
+NOTE:
+    Apps hosted by any of the displayed nodes will also be displayed
+        "#,
+        )
         .args(&[
             contract_address().display_order(0),
             eth_url().display_order(1),
