@@ -25,9 +25,11 @@ use crate::contract_status::ui::rich_status;
 use crate::utils;
 use clap::Arg;
 use clap::{App as ClapApp, ArgMatches, SubCommand, _clap_count_exprs, arg_enum};
+use console::style;
 use failure::err_msg;
 use failure::Error;
 use failure::ResultExt;
+use lazy_static::lazy_static;
 use std::collections::HashSet;
 use std::net::IpAddr;
 use web3::types::Address;
@@ -181,30 +183,42 @@ impl StatusFilter {
     }
 }
 
-pub fn subcommand<'a, 'b>() -> ClapApp<'a, 'b> {
-    SubCommand::with_name("status")
-        .about("Show state of the Fluence network as seen by the smart-contract")
-        .after_help(
-            r#"
+lazy_static! {
+    static ref AFTER_HELP: String = format!(
+        r#"
 FILTERING EXAMPLES:
     Show nodes that have specified id or specified IP address:
-        ./fluence status \
-            --contract_address <contract address> \
-            --tendermint_key <tendermint key> \
-            --node_ip <ip address> \
-            --filter_mode or
+{}
 
     Show nodes that both have specified owner and specified IP address:
-        ./fluence status \
-            --contract_address <contract address> \
-            --node_ip <ip address> \
-            --owner <ethereum address> \
-            --filter_mode and
+{}
 
 NOTE:
     Apps hosted by any of the displayed nodes will also be displayed
-        "#,
+            "#,
+        style(
+            r#"       ./fluence status \
+            --contract_address <contract address> \
+            --tendermint_key <tendermint key> \
+            --node_ip <ip address> \
+            --filter_mode or"#
         )
+        .cyan(),
+        style(
+            r#"       ./fluence status \
+            --contract_address <contract address> \
+            --node_ip <ip address> \
+            --owner <ethereum address> \
+            --filter_mode and"#
+        )
+        .cyan()
+    );
+}
+
+pub fn subcommand<'a, 'b>() -> ClapApp<'a, 'b> {
+    SubCommand::with_name("status")
+        .about("Show state of the Fluence network as seen by the smart-contract")
+        .after_help(AFTER_HELP.as_str())
         .args(&[
             contract_address().display_order(0),
             eth_url().display_order(1),
