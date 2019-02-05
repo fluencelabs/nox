@@ -29,16 +29,12 @@ use failure::{err_msg, Error, ResultExt, SyncFailure};
 use crate::credentials::Credentials;
 use crate::utils;
 use ethabi::RawLog;
-use std::ops::Mul;
 use std::time::Duration;
 
 use_contract!(contract, "../bootstrap/contracts/compiled/Network.abi");
 
 /// Calls contract method and returns hash of the transaction
-pub fn call_contract(eth: &EthereumArgs, call_data: ethabi::Bytes) -> Result<H256, Error> {
-    let (_eloop, transport) = Http::new(&eth.eth_url.as_str()).map_err(SyncFailure::new)?;
-    let web3 = web3::Web3::new(transport);
-
+pub fn call_contract(web3: &Web3<Http>, eth: &EthereumArgs, call_data: ethabi::Bytes) -> Result<H256, Error> {
     match &eth.credentials {
         Credentials::No => call_contract_trusted_node(web3, None, call_data, &eth),
         Credentials::Password(pass) => {
@@ -50,18 +46,15 @@ pub fn call_contract(eth: &EthereumArgs, call_data: ethabi::Bytes) -> Result<H25
 
 /// Signs transaction with a secret key and sends a raw transaction to Ethereum node
 fn call_contract_local_sign(
-    web3: Web3<Http>,
+    web3: &Web3<Http>,
     secret: &Secret,
     call_data: ethabi::Bytes,
     eth: &EthereumArgs,
 ) -> Result<H256, Error> {
-
-    let gas_price = eth.gas_price.map(|gp| gp.into())
-        .unwrap_or(web3
-        .eth()
-        .gas_price()
-        .wait()
-        .map_err(SyncFailure::new)?);
+    let gas_price = eth
+        .gas_price
+        .map(|gp| gp.into())
+        .unwrap_or(web3.eth().gas_price().wait().map_err(SyncFailure::new)?);
 
     let nonce = web3
         .eth()
@@ -91,7 +84,7 @@ fn call_contract_local_sign(
 
 /// Sends a transaction to a trusted node with an unlocked account (or, firstly, unlocks account with password)
 fn call_contract_trusted_node(
-    web3: Web3<Http>,
+    web3: &Web3<Http>,
     password: Option<&str>,
     call_data: ethabi::Bytes,
     eth: &EthereumArgs,
@@ -193,11 +186,8 @@ where
 }
 
 // Block current thread and query `eth_getTransactionByHash` in loop, until transaction hash becomes non-null
-pub fn wait_tx_included(eth_url: String, tx: &H256) -> Result<Web3Transaction, Error> {
+pub fn wait_tx_included(tx: &H256, web3: &Web3<Http>) -> Result<Web3Transaction, Error> {
     use std::thread;
-
-    let (_eloop, transport) = Http::new(eth_url.as_str()).map_err(SyncFailure::new)?;
-    let web3 = &web3::Web3::new(transport);
 
     // TODO: move to config or to options
     let max_attempts = 10;
@@ -252,11 +242,8 @@ pub fn wait_tx_included(eth_url: String, tx: &H256) -> Result<Web3Transaction, E
 }
 
 // Block current thread and query Ethereum node with eth_syncing until it finishes syncing blocks
-pub fn wait_sync(eth_url: String) -> Result<(), Error> {
+pub fn wait_sync(web3: &Web3<Http>) -> Result<(), Error> {
     use std::thread;
-
-    let (_eloop, transport) = Http::new(eth_url.as_str()).map_err(SyncFailure::new)?;
-    let web3 = &web3::Web3::new(transport);
 
     // TODO: move to config or to options
     let ten_seconds = Duration::from_secs(10);

@@ -16,8 +16,7 @@
 
 use std::net::IpAddr;
 
-use failure::err_msg;
-use failure::Error;
+use failure::{err_msg, Error, SyncFailure};
 
 use clap::{value_t, App, Arg, ArgMatches, SubCommand};
 use derive_getters::Getters;
@@ -30,6 +29,7 @@ use crate::contract_func::contract::functions::add_node;
 use crate::contract_func::{call_contract, get_transaction_logs, wait_sync, wait_tx_included};
 use crate::types::{NodeAddress, IP_LEN, TENDERMINT_NODE_ID_LEN};
 use crate::utils;
+use web3::transports::Http;
 use web3::types::H160;
 
 const START_PORT: &str = "start_port";
@@ -113,6 +113,10 @@ impl Register {
 
     /// Registers a node in Fluence smart contract
     pub fn register(&self, show_progress: bool) -> Result<Registered, Error> {
+
+        let (_eloop, transport) = Http::new(self.eth.eth_url.as_str()).map_err(SyncFailure::new)?;
+        let web3 = &web3::Web3::new(transport);
+
         let publish_to_contract_fn = || -> Result<H256, Error> {
             let hash_addr: NodeAddress = self.serialize_node_address()?;
 
@@ -124,7 +128,7 @@ impl Register {
                 self.private,
             );
 
-            call_contract(&self.eth, call_data)
+            call_contract(web3, &self.eth, call_data)
         };
 
         let wait_event_fn = |tx: &H256| -> Result<Registered, Error> {
@@ -165,7 +169,7 @@ impl Register {
                     "Waiting while Ethereum node is syncing...",
                     step(0).as_str(),
                     "Ethereum node synced.",
-                    || wait_sync(self.eth.eth_url.clone()),
+                    || wait_sync(web3),
                 )?;
             };
 
@@ -183,7 +187,7 @@ impl Register {
                     step(2).as_str(),
                     "Transaction was included.",
                     || {
-                        wait_tx_included(self.eth.eth_url.clone(), &tx)?;
+                        wait_tx_included(&tx, web3)?;
                         wait_event_fn(&tx)
                     },
                 )
@@ -192,7 +196,7 @@ impl Register {
             }
         } else {
             if self.eth.wait_eth_sync {
-                wait_sync(self.eth.eth_url.clone())?;
+                wait_sync(web3)?;
             }
 
             let tx = publish_to_contract_fn()?;
