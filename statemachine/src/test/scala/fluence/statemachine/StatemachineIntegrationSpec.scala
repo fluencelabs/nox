@@ -21,6 +21,7 @@ import com.github.jtendermint.jabci.api.CodeType
 import com.github.jtendermint.jabci.types.{RequestCheckTx, RequestCommit, RequestDeliverTx, RequestQuery}
 import com.google.protobuf.ByteString
 import fluence.statemachine.config.StateMachineConfig
+import fluence.statemachine.control.ControlServer.ControlServerConfig
 import fluence.statemachine.control.ControlSignals
 import fluence.statemachine.state.QueryCodeType
 import fluence.statemachine.tree.MerkleTreeNode
