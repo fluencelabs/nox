@@ -138,7 +138,7 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
    * @return Unit, no failures are possible
    */
   private def stop(worker: Worker[F]): F[Unit] =
-    worker.stop.attempt.map(stopped ⇒ logger.info(s"Stopped: ${worker.params} => $stopped"))
+    worker.stop.attempt.map(stopped ⇒ logger.info(s"Stopped: ${worker.description} => $stopped"))
 
   /**
    * Stops all the registered workers. They should unregister themselves.
@@ -151,7 +151,7 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
       workers ← getAll
 
       stops ← Parallel.parTraverse(workers)(_.stop.attempt)
-    } yield logger.info(s"Stopped: ${workers.map(_.params) zip stops}")
+    } yield logger.info(s"Stopped: ${workers.map(_.description) zip stops}")
 
   /**
    * Get a Worker by its appId, if it's present

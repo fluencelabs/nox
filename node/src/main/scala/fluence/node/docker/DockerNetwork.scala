@@ -26,7 +26,7 @@ import scala.sys.process._
 
 case class DockerNetwork(name: String) extends AnyVal
 
-object DockerNetwork {
+object DockerNetwork extends slogging.LazyLogging {
 
   private def run[F[_]: ContextShift](cmd: String)(implicit F: Sync[F]): F[Unit] = {
     shiftDelay(cmd.!).flatMap {
@@ -36,12 +36,20 @@ object DockerNetwork {
     }
   }
 
-  def make[F[_]: ContextShift: Sync](name: String): Resource[F, DockerNetwork] =
+  def make[F[_]: ContextShift](name: String)(implicit F: Sync[F]): Resource[F, DockerNetwork] =
     Resource.make(run(s"docker network create $name").as(DockerNetwork(name))) {
-      case DockerNetwork(n) => run(s"docker network rm $n")
+      case DockerNetwork(n) =>
+        F.pure(logger.info(s"removing network $n"))
+          .as(run(s"docker network rm $n"))
     }
 
-  def join[F[_]: ContextShift: Sync](container: String, network: DockerNetwork): F[Unit] =
-    run(s"docker network connect ${network.name} $container")
+  def join[F[_]: ContextShift](container: String, network: DockerNetwork)(
+    implicit F: Sync[F]
+  ): Resource[F, Unit] =
+    Resource.make(run(s"docker network connect ${network.name} $container"))(
+      _ =>
+        F.pure(logger.info(s"disconnecting network ${network.name} from $container"))
+          .as(run(s"docker network disconnect ${network.name} container"))
+    )
 
 }

@@ -23,11 +23,12 @@ import fluence.node.workers.tendermint.rpc.TendermintRpc
 import scala.language.higherKinds
 
 trait Worker[F[_]] {
-  def params: WorkerParams
   def tendermint: TendermintRpc[F]
   def control: ControlRpc[F]
 
   def stop: F[Unit]
 
   def healthReport: F[WorkerHealth]
+
+  def description: String
 }

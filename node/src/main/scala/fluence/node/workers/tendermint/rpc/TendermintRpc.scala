@@ -107,19 +107,16 @@ object TendermintRpc {
   /**
    * Runs a WorkerRpc with F effect, acquiring some resources for it
    *
-   * @param params Worker params to get Worker URI from
    * @param sttpBackend Sttp Backend to be used to make RPC calls
    * @tparam F Concurrent effect
    * @return Worker RPC instance. Note that it should be stopped at some point, and can't be used after it's stopped
    */
   def make[F[_]: Concurrent](
-    // TODO we don't need params here
-    params: WorkerParams,
-    hostName: String
+    hostName: String,
+    port: Short
   )(implicit sttpBackend: SttpBackend[F, Nothing]): Resource[F, TendermintRpc[F]] = {
     def rpcUri(hostName: String, path: String = ""): Uri =
-      // TODO: use internal rpc port
-      uri"http://$hostName:${params.currentWorker.rpcPort}/$path"
+      uri"http://$hostName:$port/$path"
 
     for {
       queue ← Resource.liftF(fs2.concurrent.Queue.unbounded[F, TendermintRpc.Request])

@@ -123,7 +123,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
         pool.get(appId).flatMap {
           case Some(w) ⇒
             w.stop.attempt.map { stopped =>
-              logger.info(s"Stopped: ${w.params} => $stopped")
+              logger.info(s"Stopped: ${w.description} => $stopped")
             }
           case _ ⇒ ().pure[F]
         }

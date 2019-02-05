@@ -101,17 +101,17 @@ object StateMachineConfig {
   }
 
   /**
-  * List files in the given folder, keep only .wasm and .wast ones
-    *
-    * @param path Folder to walk through
-    * @return List of found files, possibly empty
-    */
+   * List files in the given folder, keep only .wasm and .wast ones
+   *
+   * @param path Folder to walk through
+   * @return List of found files, possibly empty
+   */
   private def listWasmFiles(path: String): IO[List[String]] =
     listFiles(path)
       .map(
         // converts File objects to their path
         _.map(_.getPath)
-          // filters out non-Wasm files
+        // filters out non-Wasm files
           .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
       )
 }
