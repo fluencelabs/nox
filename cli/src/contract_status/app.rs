@@ -15,6 +15,7 @@
  */
 
 use failure::Error;
+use failure::ResultExt;
 
 use serde_derive::{Deserialize, Serialize};
 use web3::types::{Address, H256};
@@ -25,6 +26,7 @@ use crate::contract_func::contract::functions::get_node;
 use crate::contract_func::contract::functions::get_nodes_ids;
 use crate::contract_func::query_contract;
 use crate::types::NodeAddress;
+use std::net::IpAddr;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct App {
@@ -81,14 +83,14 @@ impl Cluster {
 /// The purpose of real-time nodes is to host developer's [`App`], e.g., backend code.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Node {
-    pub id: H256,
-    pub tendermint_key: String,
-    pub ip_addr: String,
+    pub validator_key: H256,
+    pub tendermint_p2p_id: String,
+    pub ip_addr: IpAddr,
     pub next_port: u16,
     pub last_port: u16,
     pub owner: Address,
     pub is_private: bool,
-    pub clusters_ids: Option<Vec<H256>>, // Defined if loaded
+    pub app_ids: Option<Vec<u64>>, // Defined if loaded
 }
 
 impl Node {
@@ -99,18 +101,18 @@ impl Node {
         last_port: u16,
         owner: Address,
         is_private: bool,
-        clusters_ids: Option<Vec<H256>>,
+        app_ids: Option<Vec<u64>>,
     ) -> Result<Node, Error> {
         let (tendermint_key, ip_addr) = address.decode()?;
         Ok(Node {
-            id,
-            tendermint_key,
+            validator_key: id,
+            tendermint_p2p_id: tendermint_key,
             ip_addr,
             next_port,
             last_port,
             owner,
             is_private,
-            clusters_ids,
+            app_ids,
         })
     }
 }
@@ -144,11 +146,11 @@ pub fn get_nodes(eth_url: &str, contract_address: Address) -> Result<Vec<Node>, 
 
 pub fn get_apps(eth_url: &str, contract_address: Address) -> Result<Vec<App>, Error> {
     let (call_data, decoder) = get_app_i_ds::call();
-    let app_ids: Vec<u64> =
-        query_contract(call_data, Box::new(decoder), eth_url, contract_address)?
-            .into_iter()
-            .map(Into::into)
-            .collect();
+    let app_ids: Vec<u64> = query_contract(call_data, Box::new(decoder), eth_url, contract_address)
+        .context("reading app ids from contract failed")?
+        .into_iter()
+        .map(Into::into)
+        .collect();
 
     let apps: Result<Vec<App>, Error> = app_ids
         .iter()
@@ -163,7 +165,8 @@ pub fn get_apps(eth_url: &str, contract_address: Address) -> Result<Vec<App>, Er
                 genesis,
                 node_ids,
                 ports,
-            ) = query_contract(call_data, Box::new(decoder), eth_url, contract_address)?;
+            ) = query_contract(call_data, Box::new(decoder), eth_url, contract_address)
+                .context("reading app ids from contract failed")?;
 
             let cluster = if !genesis.is_zero() {
                 let genesis: u64 = genesis.into();
