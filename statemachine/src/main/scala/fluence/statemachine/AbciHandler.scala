@@ -23,7 +23,7 @@ import com.github.jtendermint.jabci.api._
 import com.github.jtendermint.jabci.types.Request.ValueCase.DELIVER_TX
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
-import fluence.statemachine.control.ControlSignals
+import fluence.statemachine.control.{ChangePeer, ControlSignals}
 import fluence.statemachine.state.{Committer, QueryProcessor}
 import fluence.statemachine.tx._
 import fluence.statemachine.util.{ClientInfoMessages, Metrics, TimeLogger, TimeMeter}
@@ -183,22 +183,25 @@ class AbciHandler(
     req: RequestEndBlock
   ): ResponseEndBlock =
     controlSignals.changePeers
-      .map(_.foldLeft(ResponseEndBlock.newBuilder()) {
-        case (resp, ChangePeer(keyType, validatorKey, votePower)) ⇒
-          resp
-            .addValidatorUpdates(
-              ValidatorUpdate
-                .newBuilder()
-                .setPubKey(
-                  PubKey
+      .use(
+        IO.pure(_)
+          .map(_.foldLeft(ResponseEndBlock.newBuilder()) {
+            case (resp, ChangePeer(keyType, validatorKey, votePower)) ⇒
+              resp
+                .addValidatorUpdates(
+                  ValidatorUpdate
                     .newBuilder()
-                    .setType(keyType)
-                    .setData(ByteString.copyFrom(validatorKey.toArray))
+                    .setPubKey(
+                      PubKey
+                        .newBuilder()
+                        .setType(keyType)
+                        .setData(ByteString.copyFrom(validatorKey.toArray))
+                    )
+                    .setPower(votePower)
                 )
-                .setPower(votePower)
-            )
-      })
-      .map(_.build())
+          })
+          .map(_.build())
+      )
       .unsafeRunSync()
 
 }

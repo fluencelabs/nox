@@ -15,33 +15,38 @@
  */
 
 package fluence.statemachine.control
-import cats.Functor
-import cats.effect.Concurrent
+import cats.FlatMap
 import cats.effect.concurrent.MVar
+import cats.effect.{Concurrent, Resource}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-class ControlSignals[F[_]: Functor] private (
+class ControlSignals[F[_]: FlatMap] private (
   changePeersRef: MVar[F, List[ChangePeer]],
   stopRef: MVar[F, Unit]
 ) {
 
-  val changePeers: F[List[ChangePeer]] =
-    changePeersRef.tryTake.map(_.toList.flatten)
+  def changePeer(change: ChangePeer): F[Unit] =
+    for {
+      changes <- changePeersRef.take
+      _ <- changePeersRef.put(changes :+ change)
+    } yield ()
+
+  val changePeers: Resource[F, List[ChangePeer]] =
+    Resource.make(changePeersRef.tryTake.map(_.toList.flatten))(_ => changePeersRef.tryPut(Nil).void)
 
   val stop: F[Unit] =
     stopRef.take
 }
 
 object ControlSignals {
-  case class ChangePeer(`type`: String, data: ByteVector, power: Long)
 
   def apply[F[_]: Concurrent]: F[ControlSignals[F]] =
     for {
-      changePeersRef ← MVar.empty[F, List[ChangePeer]]
+      changePeersRef ← MVar[F].of[List[ChangePeer]](Nil)
       stopRef ← MVar.empty[F, Unit]
-    } yield new ControlSignals[F](changePeersRef, stopRef)
+      instance = new ControlSignals[F](changePeersRef, stopRef)
+    } yield instance
 }
