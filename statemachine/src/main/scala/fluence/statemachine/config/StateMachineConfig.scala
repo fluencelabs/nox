@@ -15,6 +15,17 @@
  */
 
 package fluence.statemachine.config
+import java.io.File
+
+import cats.{Monad, Traverse}
+import cats.data.{EitherT, NonEmptyList}
+import cats.effect.{IO, LiftIO, Sync}
+import cats.syntax.list._
+import cats.syntax.flatMap._
+import cats.instances.list._
+import fluence.statemachine.error.{StateMachineError, VmModuleLocationError}
+
+import scala.language.higherKinds
 
 /**
  * State machine settings.
@@ -25,4 +36,82 @@ package fluence.statemachine.config
  * @param moduleFiles sequence of files with WASM module code
  * @param logLevel level of logging ( OFF / ERROR / WARN / INFO / DEBUG / TRACE )
  */
-case class StateMachineConfig(sessionExpirationPeriod: Long, moduleFiles: List[String], logLevel: String)
+case class StateMachineConfig(sessionExpirationPeriod: Long, moduleFiles: List[String], logLevel: String) {
+
+  /**
+   * Extracts module filenames that have wast or wasm extensions from the module-files section of a given config.
+   *
+   * @return either a sequence of filenames found in directories and among files provided in config
+   *         or error denoting a specific problem with locating one of directories and files from config
+   */
+  def collectModuleFiles[F[_]: LiftIO: Monad]: EitherT[F, StateMachineError, NonEmptyList[String]] =
+    EitherT(
+      Traverse[List]
+        .flatTraverse(moduleFiles)(
+          StateMachineConfig.listWasmFiles
+        )
+        // convert flattened list of file paths to nel (IO[List[String]] => IO[Option[NonEmptyList[String]]])
+        .map(_.toNel)
+        .attempt
+        .to[F]
+    ).leftMap { e =>
+      VmModuleLocationError("Error during locating VM module files and directories", Some(e))
+    }.subflatMap(
+      // EitherT[F, E, Option[NonEmptyList[String]]]] => EitherT[F, E, NonEmptyList[String]]]
+      _.toRight[StateMachineError](
+        VmModuleLocationError("Provided directories don't contain any wasm or wast files")
+      )
+    )
+
+}
+
+object StateMachineConfig {
+
+  /**
+   * Loads State machine config using `pureconfig` Scala config loading mechanism.
+   */
+  def load[F[_]: Sync](): F[StateMachineConfig] = {
+    import pureconfig.generic.auto._
+
+    Sync[F]
+      .delay(
+        pureconfig.loadConfig[StateMachineConfig]
+      )
+      .flatMap {
+        case Left(err) ⇒
+          Sync[F].raiseError(new RuntimeException("Unable to parse StateMachineConfig: " + err))
+
+        case Right(conf) ⇒
+          Sync[F].pure(conf)
+      }
+  }
+
+  /**
+   * Collects and returns all files in given folder
+   *
+   * @param path a path to a folder where files should be listed
+   * @return a list of files in given directory or provided file if the path to a file has has been given
+   */
+  private def listFiles(path: String): IO[List[File]] = IO {
+    val pathName = new File(path)
+    pathName match {
+      case file if pathName.isFile => file :: Nil
+      case dir if pathName.isDirectory => Option(dir.listFiles).fold(List.empty[File])(_.toList)
+    }
+  }
+
+  /**
+  * List files in the given folder, keep only .wasm and .wast ones
+    *
+    * @param path Folder to walk through
+    * @return List of found files, possibly empty
+    */
+  private def listWasmFiles(path: String): IO[List[String]] =
+    listFiles(path)
+      .map(
+        // converts File objects to their path
+        _.map(_.getPath)
+          // filters out non-Wasm files
+          .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
+      )
+}

@@ -17,15 +17,15 @@
 package fluence.node.eth
 
 import cats.data.StateT
-import cats.effect.ConcurrentEffect
+import cats.effect.{ConcurrentEffect, Resource}
 import cats.syntax.apply._
-import cats.syntax.flatMap._
-import cats.syntax.functor._
-import cats.effect.concurrent.Ref
 import fluence.ethclient.EthClient
-import fluence.node.eth.conf.FluenceContractConfig
+import fluence.ethclient.data.Block
+import fluence.node.MakeResource
+import fluence.node.config.FluenceContractConfig
 import org.web3j.abi.datatypes.generated.Bytes32
 import scodec.bits.ByteVector
+import slogging.LazyLogging
 
 import scala.language.higherKinds
 
@@ -51,14 +51,11 @@ trait NodeEth[F[_]] {
    */
   def blocksRaw: fs2.Stream[F, String]
 
-  // TODO subscribe for events, unchunk them
-  def subscribeRaw(): fs2.Stream[F, String] = ???
-
   // TODO add a sink for the feedback, so that NodeEth in general could be thought of as a pipe
 
 }
 
-object NodeEth {
+object NodeEth extends LazyLogging {
 
   /**
    * Provides the default NodeEth instance
@@ -67,13 +64,16 @@ object NodeEth {
    * @param contract FluenceContract
    * @tparam F ConcurrentEffect, used to combine many streams of web3 events
    */
-  def apply[F[_]: ConcurrentEffect](validatorKey: ByteVector, contract: FluenceContract): F[NodeEth[F]] =
+  def apply[F[_]: ConcurrentEffect](validatorKey: ByteVector, contract: FluenceContract): Resource[F, NodeEth[F]] = {
+    val initialState = NodeEthState(validatorKey)
+
     for {
-      stateRef ← Ref.of[F, NodeEthState](NodeEthState(validatorKey))
-      initialState ← stateRef.get
+      stateRef <- MakeResource.refOf[F, NodeEthState](initialState)
+      blockQueue ← Resource.liftF(fs2.concurrent.Queue.circularBuffer[F, (Option[String], F[Block])](8))
+      _ ← MakeResource.concurrentStream(contract.ethClient.blockStream[F] to blockQueue.enqueue)
     } yield
       new NodeEth[F] {
-        override def nodeEvents: fs2.Stream[F, NodeEthEvent] = {
+        override val nodeEvents: fs2.Stream[F, NodeEthEvent] = {
           // TODO: make one filter for all kinds of events, instead of making several separate requests
 
           // State changes on a new recognized App that should be deployed on this Node
@@ -93,9 +93,14 @@ object NodeEth {
             .map(ByteVector(_))
             .map(NodeEthState.onNodeDeleted[F])
 
+          // State changes on New Block
+          val onNewBlockS = blockQueue.dequeue
+            .evalMap(_._2)
+            .map(NodeEthState.onNewBlock[F])
+
           // State changes for all kinds of Ethereum events regarding this node
           val stream: fs2.Stream[F, StateT[F, NodeEthState, Seq[NodeEthEvent]]] =
-            onNodeAppS merge onAppDeletedS merge onNodeDeletedS
+            onNodeAppS merge onAppDeletedS merge onNodeDeletedS merge onNewBlockS
 
           // Note: state is never being read from the Ref,
           // so no other channels of modifications are allowed
@@ -117,15 +122,16 @@ object NodeEth {
         /**
          * Returns the expected node state, how it's built with received Ethereum data
          */
-        override def expectedState: F[NodeEthState] =
+        override val expectedState: F[NodeEthState] =
           stateRef.get
 
         /**
          * Stream of raw block json, requires ethClient to be configured to keep raw responses!
          */
-        override def blocksRaw: fs2.Stream[F, String] =
-          contract.ethClient.blockStream[F].map(_._1).unNone
+        override val blocksRaw: fs2.Stream[F, String] =
+          blockQueue.dequeue.map(_._1).unNone
       }
+  }
 
   /**
    * Loads contract, wraps it with NodeEth
@@ -139,6 +145,6 @@ object NodeEth {
     validatorKey: ByteVector,
     ethClient: EthClient,
     config: FluenceContractConfig
-  ): F[NodeEth[F]] =
+  ): Resource[F, NodeEth[F]] =
     apply[F](validatorKey, FluenceContract(ethClient, config))
 }

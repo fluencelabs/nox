@@ -16,6 +16,7 @@
 
 package fluence.node.workers
 import fluence.node.docker.{DockerNetwork, DockerParams}
+import fluence.node.docker.{DockerImage, DockerParams}
 import fluence.node.eth.state.WorkerPeer
 
 /**
@@ -27,7 +28,7 @@ case class WorkerParams(
   workerPath: String,
   vmCodePath: String,
   masterNodeContainerId: Option[String],
-  image: WorkerImage,
+  image: DockerImage,
   network: DockerNetwork
 ) {
 
@@ -54,6 +55,6 @@ case class WorkerParams(
     (masterNodeContainerId match {
       case Some(id) => params.option("--volumes-from", s"$id:ro")
       case None => params
-    }).image(image.imageName).daemonRun()
+    }).image(image).daemonRun()
   }
 }

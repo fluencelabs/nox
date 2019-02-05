@@ -19,6 +19,8 @@ package fluence.node.eth.state
 import org.web3j.abi.datatypes.generated._
 import scodec.bits.ByteVector
 
+import scala.language.higherKinds
+
 /**
  * Represents an App deployed to some cluster
  *

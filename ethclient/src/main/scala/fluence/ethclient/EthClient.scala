@@ -34,6 +34,7 @@ import slogging._
 import fs2.interop.reactivestreams._
 import org.web3j.abi.datatypes.Event
 
+import scala.concurrent.duration._
 import scala.language.higherKinds
 
 /**
@@ -69,6 +70,31 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
    */
   def isSyncing[F[_]: Async]: F[EthSyncing.Result] =
     request(_.ethSyncing()).map(_.getResult)
+
+  /**
+   * Checks node for syncing status every `checkPeriod` until node is synchronized.
+   */
+  private def waitEthSyncing[F[_]: Async: Timer](checkPeriod: FiniteDuration): F[Unit] =
+    fs2.Stream
+      .awakeEvery[F](checkPeriod)
+      .evalMap { _ ⇒
+        logger.info("Checking if ethereum node is synced...")
+
+        isSyncing[F].map[Option[Unit]] {
+          case resp: EthSyncing.Syncing if resp.isSyncing =>
+            logger.info(
+              s"Ethereum node is syncing. Current block: ${resp.getCurrentBlock}, highest block: ${resp.getHighestBlock}"
+            )
+            logger.info("Waiting 10 seconds for next attempt.")
+            Some(())
+          case _ ⇒
+            logger.info(s"Ethereum node is synced up, stop waiting")
+            None
+        }
+      }
+      .unNoneTerminate
+      .compile
+      .drain
 
   /**
    * Subscribe to logs topic, calling back each time the log message matches.
@@ -159,14 +185,20 @@ object EthClient {
 
   /**
    * Make a cats-effect's [[Resource]] for an [[EthClient]], encapsulating its acquire and release lifecycle steps.
+   * Waits for syncinc before giving the client to use.
+   *
    * @param url optional url, http://localhost:8545/ is used by default
    * @param includeRaw Whether to include unparsed JSON strings in the web3j's response objects
+   * @param checkSyncPeriod Period of querying the Ethereum node to check if it's in sync
    */
-  def makeHttpResource[F[_]](
+  def make[F[_]: Timer: Async](
     url: Option[String] = None,
-    includeRaw: Boolean = false
-  )(implicit F: Sync[F]): Resource[F, EthClient] =
-    makeResource(new HttpService(url.getOrElse(HttpService.DEFAULT_URL), includeRaw))
+    includeRaw: Boolean = false,
+    checkSyncPeriod: FiniteDuration = 3.seconds
+  ): Resource[F, EthClient] =
+    makeResource(new HttpService(url.getOrElse(HttpService.DEFAULT_URL), includeRaw)).evalMap { client ⇒
+      client.waitEthSyncing(checkSyncPeriod).map(_ ⇒ client)
+    }
 
   /**
    * Make a cats-effect's [[Resource]] for an [[EthClient]], encapsulating its acquire and release lifecycle steps.

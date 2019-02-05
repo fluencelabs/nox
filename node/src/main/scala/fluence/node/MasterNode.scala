@@ -17,17 +17,24 @@
 package fluence.node
 import java.nio.file._
 
+import cats.Parallel
 import cats.effect._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
+import cats.syntax.applicativeError._
 import cats.effect.syntax.effect._
+import com.softwaremill.sttp.SttpBackend
+import fluence.ethclient.EthClient
+import fluence.node.config.{MasterConfig, NodeConfig}
+import fluence.node.docker.DockerImage
 import fluence.node.config.NodeConfig
 import fluence.node.docker.{DockerIO, DockerNetwork}
 import fluence.node.eth._
 import fluence.node.workers.tendermint.config.WorkerConfigWriter
 import fluence.node.workers.tendermint.config.WorkerConfigWriter.WorkerConfigPaths
 import fluence.node.workers._
+import slogging.LazyLogging
 
 import scala.language.higherKinds
 
@@ -68,7 +75,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
    * @return
    */
   private def buildWorkerParams(
-    workerImage: WorkerImage,
+    workerImage: DockerImage,
     masterNodeContainerId: Option[String],
     app: state.App,
     paths: WorkerConfigPaths,
@@ -98,6 +105,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
   /**
    * Runs app worker on a pool
    * TODO check that the worker is not yet running
+   * TODO streaming there is meaningless
    *
    * @param app App description
    */
@@ -112,16 +120,31 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
     } yield ()
   }
 
+  /**
+   * Runs the appropriate effect for each incoming NodeEthEvent, keeping it untouched
+   */
   val handleEthEvent: fs2.Pipe[F, NodeEthEvent, NodeEthEvent] =
     _.evalTap {
       case RunAppWorker(app) ⇒
         runAppWorker(app)
 
       case RemoveAppWorker(appId) ⇒
-        pool.stopWorkerForApp(appId)
+        pool.get(appId).flatMap {
+          case Some(w) ⇒
+            w.stop.attempt.map { stopped =>
+              logger.info(s"Stopped: ${w.params} => $stopped")
+            }
+          case _ ⇒ ().pure[F]
+        }
 
       case DropPeerWorker(appId, vk) ⇒
-        // TODO implement dropping peer worker
+        pool.get(appId).flatMap {
+          case Some(w) ⇒
+            w.control.dropPeer(vk)
+          case None ⇒ ().pure[F]
+        }
+
+      case NewBlockReceived(block) ⇒
         ().pure[F]
     }
 
@@ -148,4 +171,40 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
           logger.info("Execution finished")
           ExitCode.Success
       }
+}
+
+object MasterNode extends LazyLogging {
+
+  /**
+   * Makes the MasterNode resource for the given config
+   *
+   * @param masterConfig MasterConfig
+   * @param nodeConfig NodeConfig
+   * @param rootPath Master's root path
+   * @param sttpBackend HTTP client implementation
+   * @param P Parallel instance, used for Workers
+   * @return Prepared [[MasterNode]], then see [[MasterNode.run]]
+   */
+  def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer, G[_]](
+    masterConfig: MasterConfig,
+    nodeConfig: NodeConfig,
+    rootPath: Path
+  )(implicit sttpBackend: SttpBackend[F, Nothing], P: Parallel[F, G]): Resource[F, MasterNode[F]] =
+    for {
+      ethClient ← EthClient.make[F](Some(masterConfig.ethereum.uri))
+
+      pool ← WorkersPool.make()
+
+      nodeEth ← NodeEth[F](nodeConfig.validatorKey.toByteVector, ethClient, masterConfig.contract)
+
+      codeManager ← Resource.liftF(CodeManager[F](masterConfig.swarm))
+    } yield
+      MasterNode[F](
+        nodeConfig,
+        nodeEth,
+        pool,
+        codeManager,
+        rootPath,
+        masterConfig.masterContainerId
+      )
 }

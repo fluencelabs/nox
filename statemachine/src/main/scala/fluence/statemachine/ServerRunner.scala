@@ -16,19 +16,16 @@
 
 package fluence.statemachine
 
-import java.io.File
-
-import cats.{Monad, Traverse}
-import cats.instances.list._
-import cats.syntax.list._
+import cats.Monad
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.concurrent.MVar
-import cats.effect.{ExitCode, IO, IOApp, LiftIO}
+import cats.effect.{ExitCode, IO, IOApp, Resource}
 import com.github.jtendermint.jabci.socket.TSocket
 import com.github.jtendermint.jabci.types.Request.ValueCase.{CHECK_TX, DELIVER_TX}
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.contract.ClientRegistry
-import fluence.statemachine.error.{ConfigLoadingError, StateMachineError, VmModuleLocationError}
+import fluence.statemachine.control.{ControlServer, ControlSignals}
+import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state._
 import fluence.statemachine.tx.{TxParser, TxProcessor, TxStateDependentChecker, VmOperationInvoker}
 import fluence.statemachine.util.Metrics
@@ -36,7 +33,6 @@ import fluence.vm.WasmVm
 import io.prometheus.client.exporter.MetricsServlet
 import org.eclipse.jetty.server.Server
 import org.eclipse.jetty.servlet.{ServletContextHandler, ServletHolder}
-import pureconfig.generic.auto._
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging._
 
@@ -56,77 +52,82 @@ object ServerRunner extends IOApp with LazyLogging {
   override def run(args: List[String]): IO[ExitCode] = {
     val abciPort = if (args.nonEmpty) args.head.toInt else DefaultABCIPort
     val metricsPort = if (args.length > 1) args(1).toInt else DefaultMetricsPort
-    ServerRunner
-      .start(abciPort, metricsPort)
-      .map(_ => ExitCode.Success)
-      .valueOr(error => {
-        logger.error("Error during State machine run: " + error + " caused by: " + error.causedBy)
-        ExitCode.Error
-      })
-  }
 
-  /**
-   * Starts the State machine.
-   *
-   * @param abciPort port used to listen to Tendermint requests
-   * @param metricsPort port used to provide Prometheus metrics
-   */
-  private def start(abciPort: Int, metricsPort: Int): EitherT[IO, StateMachineError, Unit] =
+    configureLogging()
+
     for {
-      _ <- EitherT.right(IO { configureLogging() })
-
-      config <- loadConfig()
+      config <- StateMachineConfig.load[IO]()
       _ = configureLogLevel(config.logLevel)
 
       _ = logger.info("Starting Metrics servlet")
       _ = startMetricsServer(metricsPort)
 
       _ = logger.info("Building State Machine ABCI handler")
-      abciHandler <- buildAbciHandler(config)
+      _ <- (
+        for {
+          control ← ControlServer.make[IO]
+          _ ← abciHandlerResource(abciPort, config, control)
+        } yield control.signals.stop
+      ).use(identity)
+    } yield ExitCode.Success
+  }
 
-      _ = logger.info("Starting State Machine ABCI handler")
-      socket = new TSocket
-      _ = socket.registerListener(abciHandler)
+  private def abciHandlerResource(
+    abciPort: Int,
+    config: StateMachineConfig,
+    controlServer: ControlServer[IO]
+  ): Resource[IO, Unit] =
+    Resource
+      .make(
+        buildAbciHandler(config, controlServer.signals).value.flatMap {
+          case Right(handler) ⇒ IO.pure(handler)
+          case Left(err) ⇒ IO.raiseError(new RuntimeException("Building ABCI handler failed: " + err))
+        }.flatMap { handler ⇒
+          IO {
+            logger.info("Starting State Machine ABCI handler")
+            val socket = new TSocket
+            socket.registerListener(handler)
 
-      socketThread = new Thread(() => socket.start(abciPort))
-      _ = socketThread.setName("Socket")
-      _ = socketThread.start()
-      _ = socketThread.join()
-    } yield ()
+            val socketThread = new Thread(() => socket.start(abciPort))
+            socketThread.setName("AbciSocket")
+            socketThread.start()
+            socketThread
+          }
+        }
+      )(socketThread ⇒ IO(if (socketThread.isAlive) socketThread.interrupt()))
+      .map(_ ⇒ ())
 
   /**
    * Starts metrics servlet on provided port
    *
    * @param metricsPort port to expose Prometheus metrics
    */
-  private def startMetricsServer(metricsPort: Int): Unit = {
-    val server = new Server(metricsPort)
-    val context = new ServletContextHandler
-    context.setContextPath("/")
-    server.setHandler(context)
+  private def startMetricsServer(metricsPort: Int): Resource[IO, Unit] =
+    Resource
+      .make(IO {
+        val server = new Server(metricsPort)
+        val context = new ServletContextHandler
+        context.setContextPath("/")
+        server.setHandler(context)
 
-    context.addServlet(new ServletHolder(new MetricsServlet()), "/")
-    server.start()
-  }
+        context.addServlet(new ServletHolder(new MetricsServlet()), "/")
+        server.start()
 
-  /**
-   * Loads State machine config using `pureconfig` Scala config loading mechanism.
-   */
-  private def loadConfig(): EitherT[IO, StateMachineError, StateMachineConfig] =
-    EitherT
-      .fromEither[IO](pureconfig.loadConfig[StateMachineConfig])
-      .leftMap(
-        e => ConfigLoadingError("Unable to read StateMachineConfig: " + e.toList)
-      )
+        server
+      })(server ⇒ IO(server.stop()))
+      .map(_ ⇒ ())
 
   /**
    * Builds [[AbciHandler]], used to serve all Tendermint requests.
    *
    * @param config config object to load various settings
    */
-  private[statemachine] def buildAbciHandler(config: StateMachineConfig): EitherT[IO, StateMachineError, AbciHandler] =
+  private[statemachine] def buildAbciHandler(
+    config: StateMachineConfig,
+    controlSignals: ControlSignals[IO]
+  ): EitherT[IO, StateMachineError, AbciHandler] =
     for {
-      moduleFilenames <- moduleFilesFromConfig[IO](config)
+      moduleFilenames <- config.collectModuleFiles[IO]
       _ = logger.info("Loading VM modules from " + moduleFilenames)
       vm <- buildVm[IO](moduleFilenames)
 
@@ -154,7 +155,8 @@ object ServerRunner extends IOApp with LazyLogging {
         txParser,
         checkTxStateChecker,
         deliverTxStateChecker,
-        txProcessor
+        txProcessor,
+        controlSignals
       )
     } yield abciHandler
 
@@ -165,54 +167,6 @@ object ServerRunner extends IOApp with LazyLogging {
    */
   private def buildVm[F[_]: Monad](moduleFiles: NonEmptyList[String]): EitherT[F, StateMachineError, WasmVm] =
     WasmVm[F](moduleFiles).leftMap(VmOperationInvoker.convertToStateMachineError)
-
-  /**
-   * Collects and returns all files in given folder.
-   *
-   * @param path a path to a folder where files should be listed
-   * @return a list of files in given directory or provided file if the path to a file has has been given
-   */
-  private def listFiles(path: String): IO[List[File]] = IO {
-    val pathName = new File(path)
-    pathName match {
-      case file if pathName.isFile => file :: Nil
-      case dir if pathName.isDirectory => Option(dir.listFiles).fold(List.empty[File])(_.toList)
-    }
-  }
-
-  /**
-   * Extracts module filenames that have wast or wasm extensions from the module-files section of a given config.
-   *
-   * @param config config object to load VM setting
-   * @return either a sequence of filenames found in directories and among files provided in config
-   *         or error denoting a specific problem with locating one of directories and files from config
-   */
-  private def moduleFilesFromConfig[F[_]: LiftIO: Monad](
-    config: StateMachineConfig
-  ): EitherT[F, StateMachineError, NonEmptyList[String]] =
-    EitherT(
-      Traverse[List]
-        .flatTraverse(config.moduleFiles)(
-          listFiles(_)
-            .map(
-              // converts File objects to their path
-              _.map(_.getPath)
-              // filters out non-Wasm files
-                .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
-            )
-        )
-        // convert flattened list of file paths to nel (IO[List[String]] => IO[Option[NonEmptyList[String]]])
-        .map(_.toNel)
-        .attempt
-        .to[F]
-    ).leftMap { e =>
-      VmModuleLocationError("Error during locating VM module files and directories", Some(e))
-    }.subflatMap(
-      // EitherT[F, E, Option[NonEmptyList[String]]]] => EitherT[F, E, NonEmptyList[String]]]
-      _.toRight[StateMachineError](
-        VmModuleLocationError("Provided directories don't contain any wasm or wast files")
-      )
-    )
 
   /**
    * Configures `slogging` logger.

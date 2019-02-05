@@ -19,7 +19,7 @@ import java.nio.file.{Files, Path, StandardCopyOption}
 
 import cats.Functor
 import cats.effect.{IO, LiftIO}
-import fluence.node.Configuration
+import fluence.node.config.Configuration
 import fluence.node.eth.state.App
 
 import scala.io.Source
