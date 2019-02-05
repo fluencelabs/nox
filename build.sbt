@@ -57,7 +57,7 @@ lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
     rustVmExample("llamadb")
   )
 
-lazy val `statemachine-control` = (project in file("statemachine-control"))
+lazy val `statemachine-control` = (project in file("statemachine/control"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
