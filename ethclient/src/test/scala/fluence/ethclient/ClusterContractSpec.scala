@@ -40,7 +40,7 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
   private val url = sys.props.get("ethereum.url")
-  private val client = EthClient.makeHttpResource[IO](url)
+  private val client = EthClient.make[IO](url)
 
   val dir = new File("../bootstrap")
   def run(cmd: String): Unit = Process(cmd, dir).!(ProcessLogger(_ => ()))

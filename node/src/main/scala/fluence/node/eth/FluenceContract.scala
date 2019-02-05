@@ -24,7 +24,7 @@ import cats.instances.option._
 import fluence.ethclient.Network.{APPDELETED_EVENT, APPDEPLOYED_EVENT, AppDeployedEventResponse, NODEDELETED_EVENT}
 import fluence.ethclient.helpers.RemoteCallOps._
 import fluence.ethclient.{EthClient, Network}
-import fluence.node.eth.conf.FluenceContractConfig
+import fluence.node.config.FluenceContractConfig
 import fluence.node.eth.state.{App, Cluster}
 import fs2.interop.reactivestreams._
 import org.web3j.abi.EventEncoder

@@ -15,6 +15,7 @@
  */
 
 package fluence.node.eth
+import fluence.ethclient.data.Block
 import scodec.bits.ByteVector
 import state.App
 
@@ -25,3 +26,5 @@ case class RunAppWorker(app: App) extends NodeEthEvent
 case class RemoveAppWorker(appId: Long) extends NodeEthEvent
 
 case class DropPeerWorker(appId: Long, validatorKey: ByteVector) extends NodeEthEvent
+
+case class NewBlockReceived(block: Block) extends NodeEthEvent

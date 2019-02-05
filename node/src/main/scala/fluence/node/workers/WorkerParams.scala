@@ -15,10 +15,8 @@
  */
 
 package fluence.node.workers
-import fluence.ethclient.helpers.Web3jConverters.binaryToHexTrimZeros
-import fluence.node.docker.DockerParams
+import fluence.node.docker.{DockerImage, DockerParams}
 import fluence.node.eth.state.WorkerPeer
-import scodec.bits.ByteVector
 
 /**
  * Worker container's params
@@ -29,7 +27,7 @@ case class WorkerParams(
   workerPath: String,
   vmCodePath: String,
   masterNodeContainerId: Option[String],
-  image: WorkerImage
+  image: DockerImage
 ) {
 
   override def toString =
@@ -52,6 +50,6 @@ case class WorkerParams(
     (masterNodeContainerId match {
       case Some(id) => params.option("--volumes-from", s"$id:ro")
       case None => params
-    }).image(image.imageName).daemonRun()
+    }).image(image).daemonRun()
   }
 }
