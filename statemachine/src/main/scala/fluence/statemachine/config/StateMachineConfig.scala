@@ -48,14 +48,7 @@ case class StateMachineConfig(sessionExpirationPeriod: Long, moduleFiles: List[S
     EitherT(
       Traverse[List]
         .flatTraverse(moduleFiles)(
-          StateMachineConfig
-            .listFiles(_)
-            .map(
-              // converts File objects to their path
-              _.map(_.getPath)
-              // filters out non-Wasm files
-                .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
-            )
+          StateMachineConfig.listWasmFiles
         )
         // convert flattened list of file paths to nel (IO[List[String]] => IO[Option[NonEmptyList[String]]])
         .map(_.toNel)
@@ -81,8 +74,8 @@ object StateMachineConfig {
     import pureconfig.generic.auto._
 
     Sync[F]
-      .defer(
-        Sync[F].catchNonFatal(pureconfig.loadConfig[StateMachineConfig])
+      .delay(
+        pureconfig.loadConfig[StateMachineConfig]
       )
       .flatMap {
         case Left(err) ⇒
@@ -94,7 +87,7 @@ object StateMachineConfig {
   }
 
   /**
-   * Collects and returns all files in given folder.
+   * Collects and returns all files in given folder
    *
    * @param path a path to a folder where files should be listed
    * @return a list of files in given directory or provided file if the path to a file has has been given
@@ -106,4 +99,19 @@ object StateMachineConfig {
       case dir if pathName.isDirectory => Option(dir.listFiles).fold(List.empty[File])(_.toList)
     }
   }
+
+  /**
+  * List files in the given folder, keep only .wasm and .wast ones
+    *
+    * @param path Folder to walk through
+    * @return List of found files, possibly empty
+    */
+  private def listWasmFiles(path: String): IO[List[String]] =
+    listFiles(path)
+      .map(
+        // converts File objects to their path
+        _.map(_.getPath)
+          // filters out non-Wasm files
+          .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
+      )
 }

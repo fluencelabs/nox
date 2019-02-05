@@ -65,30 +65,45 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
    */
   private def runWorker(params: WorkerParams): F[Unit] =
     for {
-      deferred ← Deferred[F, Unit]
-      fiberDef ← Deferred[F, Fiber[F, Unit]]
-      fiber ← Concurrent[F].start(
+      // Remember that Deferred is like a non-blocking promise, but generalized for F[_]
+      // When completed, releases the used worker
+      stopWorkerDef ← Deferred[F, Unit]
+
+      // Used to pass the worker's fiber inside worker's callbacks, which are defined before we have the fiber
+      runningWorkerFiberDef ← Deferred[F, Fiber[F, Unit]]
+
+      // Fiber for the worker, needs to be joined to ensure worker cleanup process is completed
+      runningWorkerFiber ← Concurrent[F].start(
         Worker
           .make[F](
             params,
             healthCheckConfig,
-            for {
-              _ ← deferred.complete(())
-              fiber ← fiberDef.get
+            // onStop is called externally, when one wants to stop the worker
+            onStop = for {
+              // Release the worker resource, triggering resource cleanup
+              _ ← stopWorkerDef.complete(())
+              // Get the worker's fiber
+              fiber ← runningWorkerFiberDef.get
+              // Wait for the worker resource to be released and cleaned up
               _ ← fiber.join
             } yield logger.info(s"Worker's Fiber joined: $params")
           )
           .use(
             worker ⇒
               for {
+                // Register worker in the pool
                 _ ← workers.update(_.updated(params.appId, worker))
-                _ ← deferred.get
+                // Wait for the deferred to be completed -- that's asynchronous blocking
+                _ ← stopWorkerDef.get
                 _ = logger.info(s"Removing worker from a pool: $params")
+                // Remove worker from the pool and release the resource to enable its cleaning up
                 _ ← workers.update(_ - params.appId)
               } yield ()
           )
       )
-      _ ← fiberDef.complete(fiber)
+
+      // Pass the worker fiber to the Deferred
+      _ ← runningWorkerFiberDef.complete(runningWorkerFiber)
 
     } yield ()
 

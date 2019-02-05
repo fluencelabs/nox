@@ -91,10 +91,11 @@ class MasterNodeSpec
       resource.use {
         case (sttpB, node) ⇒
           implicit val s = sttpB
+          logger.debug("Going to run the node")
           for {
-            fiber <- Concurrent[IO].start(node.run)
+            _ ← Concurrent[IO].start(node.run)
+            _ = logger.debug("Node is running")
             _ ← eventually[IO](getStatus(5678).void, 1.second, 15.seconds)
-            _ ← fiber.join
           } yield ()
 
       }.unsafeRunSync()
