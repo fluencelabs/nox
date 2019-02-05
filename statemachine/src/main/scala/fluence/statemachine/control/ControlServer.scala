@@ -14,8 +14,19 @@
  * limitations under the License.
  */
 
-package fluence.node.eth.conf
+package fluence.statemachine.control
+import cats.effect.{Concurrent, Resource}
 
-case class EthereumRpcConfig(protocol: String, ip: String, port: Int) {
-  val uri = s"$protocol://$ip:$port"
+import scala.language.higherKinds
+
+case class ControlServer[F[_]](signals: ControlSignals[F])
+
+object ControlServer {
+
+  // TODO: http resource
+  def make[F[_]: Concurrent]: Resource[F, ControlServer[F]] =
+    for {
+      signals <- Resource.liftF(ControlSignals[F])
+    } yield ControlServer(signals)
+
 }

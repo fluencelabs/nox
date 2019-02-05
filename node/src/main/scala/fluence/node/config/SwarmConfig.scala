@@ -14,19 +14,16 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.health
-
-import scala.concurrent.duration._
+package fluence.node.config
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
 /**
- * Configures the healthcheck process
- *
- * @param period How often to check worker's health
- * @param slide How many checks to slide over
- * @param failOn Worker will be considered dead if ''failOn'' checks within the last ''slide'' ones are failures
+ * @param host address to Swarm node
  */
-case class HealthCheckConfig(
-  period: FiniteDuration = 10.seconds,
-  slide: Int = 10,
-  failOn: Int = 8
-)
+case class SwarmConfig(host: String)
+
+object SwarmConfig {
+  implicit val encodeSwarmConfig: Encoder[SwarmConfig] = deriveEncoder
+  implicit val decodeSwarmConfig: Decoder[SwarmConfig] = deriveDecoder
+}

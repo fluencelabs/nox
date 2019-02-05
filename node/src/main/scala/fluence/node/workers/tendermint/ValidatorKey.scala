@@ -39,9 +39,7 @@ case class ValidatorKey(`type`: String, value: String) {
 }
 
 object ValidatorKey {
-  implicit val validatorKeyDecoder: Decoder[ValidatorKey] =
-    deriveDecoder[ValidatorKey]
+  implicit val validatorKeyDecoder: Decoder[ValidatorKey] = deriveDecoder[ValidatorKey]
 
   implicit val validatorKeyEncoder: Encoder[ValidatorKey] = deriveEncoder[ValidatorKey]
-
 }

@@ -17,8 +17,7 @@
 package fluence.node
 
 import cats.effect._
-import cats.syntax.functor._
-import fluence.node.docker.{DockerIO, DockerParams}
+import fluence.node.docker.{DockerIO, DockerImage, DockerParams}
 
 import scala.language.higherKinds
 
@@ -40,9 +39,9 @@ trait DockerSetup extends OsSetup {
     portTo: Short,
     name: String,
     statusPort: Short
-  ): F[String] = {
+  ): Resource[F, String] =
     DockerIO
-      .exec[F](
+      .run[F](
         DockerParams
           .build()
           .option("-e", s"TENDERMINT_IP=$dockerHost")
@@ -58,8 +57,8 @@ trait DockerSetup extends OsSetup {
               + "/../vm/examples/llamadb/target/wasm32-unknown-unknown/release",
             "/master/vmcode/vmcode-llamadb"
           )
-          .image("fluencelabs/node:latest")
-          .unmanagedDaemonRun()
+          .image(DockerImage("fluencelabs/node", "latest"))
+          .daemonRun()
       )
-  }
+      .map(_.containerId)
 }
