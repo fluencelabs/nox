@@ -15,8 +15,7 @@
  */
 
 package fluence.node.workers
-import fluence.node.docker.DockerIO.DockerNetwork
-import fluence.node.docker.DockerParams
+import fluence.node.docker.{DockerNetwork, DockerParams}
 import fluence.node.eth.state.WorkerPeer
 
 /**
