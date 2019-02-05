@@ -18,14 +18,13 @@ package fluence.node.workers.tendermint.rpc
 
 import cats.data.EitherT
 import cats.effect.{Concurrent, Resource, Sync}
-import cats.syntax.apply._
-import cats.syntax.flatMap._
 import cats.syntax.either._
 import cats.syntax.functor._
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.circe.asJson
 import fluence.node.workers.WorkerParams
 import cats.syntax.applicativeError._
+import fluence.node.MakeResource
 import fluence.node.workers.tendermint.status.StatusResponse
 import io.circe.generic.semiauto._
 import io.circe.{Encoder, Json}
@@ -63,6 +62,16 @@ object TendermintRpc {
   private val requestEncoder: Encoder[Request] = deriveEncoder[Request]
 
   /**
+   * Builds a Tendermint-related URI for the given path
+   *
+   * @param params Worker params
+   * @param path Path to substitute
+   * @return URI
+   */
+  private def rpcUri(params: WorkerParams, path: String = ""): Uri =
+    uri"http://${params.currentWorker.ip.getHostAddress}:${params.currentWorker.rpcPort}/$path"
+
+  /**
    * Wrapper for Tendermint's RPC request
    *
    * @param method Method name
@@ -92,7 +101,7 @@ object TendermintRpc {
     params: WorkerParams
   )(implicit sttpBackend: SttpBackend[F, Nothing]): EitherT[F, Throwable, StatusResponse.WorkerTendermintInfo] =
     EitherT {
-      val url = uri"http://${params.currentWorker.ip.getHostAddress}:${params.currentWorker.rpcPort}/status"
+      val url = rpcUri(params, "status")
 
       sttp
         .get(url)
@@ -121,38 +130,23 @@ object TendermintRpc {
   def apply[F[_]: Concurrent](
     params: WorkerParams
   )(implicit sttpBackend: SttpBackend[F, Nothing]): Resource[F, TendermintRpc[F]] =
-    Resource
-      .make(
-        for {
-          queue ← fs2.concurrent.Queue.noneTerminated[F, TendermintRpc.Request]
-          fiber ← Concurrent[F].start(
-            queue.dequeue
-              .evalMap(
-                req ⇒
-                  sttpBackend
-                    .send(
-                      sttp
-                        .post(uri"http://${params.currentWorker.ip.getHostAddress}:${params.currentWorker.rpcPort}/")
-                        .body(req.toJsonString)
-                    )
-                    .map(_.isSuccess)
+    for {
+      queue ← Resource.liftF(fs2.concurrent.Queue.unbounded[F, TendermintRpc.Request])
+      _ ← MakeResource.concurrentStream(
+        queue.dequeue.evalMap(
+          req ⇒
+            sttpBackend
+              .send(
+                sttp
+                  .post(rpcUri(params))
+                  .body(req.toJsonString)
               )
-              .drain
-              .compile
-              .drain
-          )
-
-          enqueue = queue.enqueue
-          stop = fs2.Stream(None).to(enqueue).compile.drain *> fiber.join
-          callRpc = toSomePipe[F, TendermintRpc.Request].andThen(_ to enqueue)
-
-        } yield
-          new TendermintRpc[F](
-            callRpc,
-            status[F](params)
-          ) → stop
-      ) {
-        case (_, stop) ⇒ stop
-      }
-      .map(_._1)
+              .map(_.isSuccess)
+        )
+      )
+    } yield
+      new TendermintRpc[F](
+        queue.enqueue,
+        status[F](params)
+      )
 }

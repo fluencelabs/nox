@@ -18,12 +18,10 @@ package fluence.node.workers
 
 import cats.Applicative
 import cats.effect._
-import cats.effect.concurrent.{Deferred, Ref}
+import cats.effect.concurrent.Ref
 import cats.syntax.functor._
-import cats.syntax.apply._
-import cats.syntax.applicativeError._
-import cats.syntax.flatMap._
 import com.softwaremill.sttp._
+import fluence.node.MakeResource
 import fluence.node.docker.DockerIO
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.health._
@@ -60,6 +58,8 @@ object Worker extends LazyLogging {
 
   /**
    * For each successful container's status check, runs HTTP request for Tendermint status, and provides a WorkerHealth report
+   * TODO: we have [[HealthCheckConfig.slide]] to act only when a defined fraction of last healthchecks failed. However, we don't use it
+   * as we currently have no behavior definition for worker's failure: we don't try to restart it, nor we stop it.
    *
    * @param container Running Worker container
    * @param params Worker params to include into WorkerHealth object
@@ -76,7 +76,13 @@ object Worker extends LazyLogging {
   ): fs2.Stream[F, WorkerHealth] =
     container
       .checkPeriodically[F](healthCheckConfig.period)
-      .evalMap(st ⇒ Timer[F].clock.realTime(MILLISECONDS).map(now ⇒ (now - st.startedAt) → st.isRunning))
+      .evalMap(
+        st ⇒
+          // Calculate the uptime
+          Timer[F].clock
+            .realTime(MILLISECONDS)
+            .map(now ⇒ (now - st.startedAt) → st.isRunning)
+      )
       .evalMap[F, WorkerHealth] {
         case (uptime, true) ⇒
           rpc.status.value.map {
@@ -98,48 +104,7 @@ object Worker extends LazyLogging {
       }
 
   /**
-   * Runs health checker, wrapped with resource:
-   * health check will be stopped when the resource is released.
-   *
-   * @param healthReportRef Ref for the last [[WorkerHealth]], updated periodically
-   * @param healthCheck Stream of [[WorkerHealth]]'s, updates the given ref
-   * @return Resource that will stop healthchecks stram once released
-   */
-  private def runHealthCheck[F[_]: Concurrent: ContextShift: Timer](
-    healthReportRef: Ref[F, WorkerHealth],
-    healthCheck: fs2.Stream[F, WorkerHealth],
-  ): Resource[F, Unit] =
-    Resource
-      .make(
-        // We use Deferred to stop the stream when resource is released
-        Deferred[F, Either[Throwable, Unit]].flatMap(
-          stop ⇒
-            // Run possibly infinite stream concurrently, get the fiber to join later
-            Concurrent[F]
-              .start(
-                healthCheck
-                  .evalTap(healthReportRef.set)
-                  .interruptWhen(stop)
-                  // TODO .sliding(healthcheck.slide) -- currently we have no behavior definition for failed healthcheck
-                  .compile
-                  .drain
-              )
-              .map(stop → _)
-        )
-      ) {
-        case (stop, fiber) ⇒
-          logger.debug("Trying to stop Worker's healthcheck stream...")
-          stop.complete(Right(())) *> fiber.join.attempt.map {
-            case Right(_) ⇒
-              logger.debug("Worker's healthcheck stream stopped")
-            case Left(err) ⇒
-              logger.warn(s"Failed to stop Worker's healthcheck stream: $err", err)
-          }
-      }
-      .void
-
-  /**
-   * Runs a single worker
+   * Makes a single worker that runs once resource is in use
    *
    * @param params Worker's running params
    * @param healthCheckConfig see [[HealthCheckConfig]]
@@ -155,10 +120,8 @@ object Worker extends LazyLogging {
     implicit sttpBackend: SttpBackend[F, Nothing]
   ): Resource[F, Worker[F]] =
     for {
-      healthReportRef ← Resource.liftF(
-        Ref.of[F, WorkerHealth](
-          WorkerNotYetLaunched(StoppedWorkerInfo(params.currentWorker))
-        )
+      healthReportRef ← MakeResource.refOf[F, WorkerHealth](
+        WorkerNotYetLaunched(StoppedWorkerInfo(params.currentWorker))
       )
 
       rpc ← TendermintRpc[F](params)
@@ -167,7 +130,9 @@ object Worker extends LazyLogging {
 
       healthChecks = healthCheckStream(container, params, healthCheckConfig, rpc)
 
-      _ ← runHealthCheck(healthReportRef, healthChecks)
+      // Runs health checker, wrapped with resource:
+      // health check will be stopped when the resource is released.
+      _ ← MakeResource.concurrentStream[F](healthChecks.evalTap(healthReportRef.set))
 
       control = ControlRpc[F]()
 

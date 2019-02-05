@@ -66,6 +66,8 @@ object Configuration extends slogging.LazyLogging {
    * Later, files /master/tendermint/config are used to run and configure workers
    *
    * @param masterContainerId id of master docker container (container running this code), if it's run inside Docker
+   * @param rootPath MasterNode's root path
+   * @param workerImage Docker image for Worker, used to run Tendermint that is bundled inside
    * @return nodeId and validator key
    */
   private def tendermintInit(masterContainerId: Option[String], rootPath: Path, workerImage: DockerImage)(
@@ -73,7 +75,7 @@ object Configuration extends slogging.LazyLogging {
   ): IO[(String, ValidatorKey)] = {
 
     val tendermintDir = rootPath.resolve("tendermint") // /master/tendermint
-    def tendermint[F[_]: Sync: ContextShift](cmd: String, uid: String): F[String] =
+    def execTendermintCmd[F[_]: Sync: ContextShift](cmd: String, uid: String): F[String] =
       DockerIO.exec[F] {
         val params = DockerParams
           .build()
@@ -99,7 +101,7 @@ object Configuration extends slogging.LazyLogging {
     for {
       uid <- IO(scala.sys.process.Process("id -u").!!.trim)
       //TODO: don't do tendermint init if keys already exist
-      _ <- tendermint[IO]("init", uid)
+      _ <- execTendermintCmd[IO]("init", uid)
 
       _ <- IO {
         tendermintDir.resolve("config").resolve("config.toml").toFile.delete()
@@ -107,10 +109,10 @@ object Configuration extends slogging.LazyLogging {
         tendermintDir.resolve("data").toFile.delete()
       }
 
-      nodeId <- tendermint[IO]("show_node_id", uid)
+      nodeId <- execTendermintCmd[IO]("show_node_id", uid)
       _ <- IO { logger.info(s"Node ID: $nodeId") }
 
-      validatorRaw <- tendermint[IO]("show_validator", uid)
+      validatorRaw <- execTendermintCmd[IO]("show_validator", uid)
       validator <- IO.fromEither(parse(validatorRaw).flatMap(_.as[ValidatorKey]))
       _ <- IO { logger.info(s"Validator PubKey: ${validator.value}") }
     } yield (nodeId, validator)

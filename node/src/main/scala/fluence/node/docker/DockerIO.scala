@@ -61,7 +61,7 @@ object DockerIO extends LazyLogging {
    * @param fn the function to run
    */
   private def shiftDelay[F[_]: Sync: ContextShift, A](fn: ⇒ A): F[A] =
-    ContextShift[F].shift *> Sync[F].defer(Sync[F].catchNonFatal(fn))
+    ContextShift[F].shift *> Sync[F].delay(fn)
 
   /**
    * Runs a temporary docker container with custom executable. Returns stdout of execution as a string.

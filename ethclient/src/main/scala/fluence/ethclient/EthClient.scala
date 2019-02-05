@@ -81,13 +81,14 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
         logger.info("Checking if ethereum node is synced...")
 
         isSyncing[F].map[Option[Unit]] {
-          case resp: EthSyncing.Syncing =>
+          case resp: EthSyncing.Syncing if resp.isSyncing =>
             logger.info(
               s"Ethereum node is syncing. Current block: ${resp.getCurrentBlock}, highest block: ${resp.getHighestBlock}"
             )
             logger.info("Waiting 10 seconds for next attempt.")
             Some(())
           case _ ⇒
+            logger.info(s"Ethereum node is synced up, stop waiting")
             None
         }
       }
