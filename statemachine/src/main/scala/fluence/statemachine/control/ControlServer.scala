@@ -15,18 +15,52 @@
  */
 
 package fluence.statemachine.control
-import cats.effect.{Concurrent, Resource}
+import cats.data.Kleisli
+import cats.effect._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import org.http4s._
+import org.http4s.circe._
+import org.http4s.dsl.Http4sDsl
+import org.http4s.implicits._
+import org.http4s.server.Server
+import org.http4s.server.blaze._
 
 import scala.language.higherKinds
 
-case class ControlServer[F[_]](signals: ControlSignals[F])
+case class ControlServer[F[_]](signals: ControlSignals[F], http: Server[F])
 
 object ControlServer {
 
-  // TODO: http resource
-  def make[F[_]: Concurrent]: Resource[F, ControlServer[F]] =
+  private def controlService[F[_]: Concurrent](
+    signals: ControlSignals[F]
+  )(implicit dsl: Http4sDsl[F]): Kleisli[F, Request[F], Response[F]] = {
+    import dsl._
+
+    implicit val decoder: EntityDecoder[F, ChangePeer] = jsonOf[F, ChangePeer]
+
+    HttpRoutes
+      .of[F] {
+        case req @ POST -> Root / "control" / "changePeer" =>
+          for {
+            change <- req.as[ChangePeer]
+            _ <- signals.changePeer(change)
+            ok <- Ok()
+          } yield ok
+      }
+      .orNotFound
+  }
+
+  def make[F[_]: ConcurrentEffect: Timer](config: ControlServerConfig): Resource[F, ControlServer[F]] = {
+    implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
+
     for {
       signals <- Resource.liftF(ControlSignals[F])
-    } yield ControlServer(signals)
+      server ← BlazeServerBuilder[F]
+        .bindHttp(config.port, config.host)
+        .withHttpApp(controlService(signals))
+        .resource
+    } yield ControlServer(signals, server)
+  }
 
 }

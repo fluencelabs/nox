@@ -15,21 +15,21 @@
  */
 
 package fluence.statemachine.control
-import cats.syntax.functor._
-import cats.syntax.flatMap._
 import cats.Functor
 import cats.effect.Concurrent
 import cats.effect.concurrent.MVar
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
 class ControlSignals[F[_]: Functor] private (
-  changePeersRef: MVar[F, List[ControlSignals.ChangePeer]],
+  changePeersRef: MVar[F, List[ChangePeer]],
   stopRef: MVar[F, Unit]
 ) {
 
-  val changePeers: F[List[ControlSignals.ChangePeer]] =
+  val changePeers: F[List[ChangePeer]] =
     changePeersRef.tryTake.map(_.toList.flatten)
 
   val stop: F[Unit] =

@@ -17,13 +17,13 @@
 package fluence.statemachine.config
 import java.io.File
 
-import cats.{Monad, Traverse}
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.{IO, LiftIO, Sync}
-import cats.syntax.list._
-import cats.syntax.flatMap._
 import cats.instances.list._
-import fluence.statemachine.control.ControlServer.ControlServerConfig
+import cats.syntax.flatMap._
+import cats.syntax.list._
+import cats.{Monad, Traverse}
+import fluence.statemachine.control.ControlServerConfig
 import fluence.statemachine.error.{StateMachineError, VmModuleLocationError}
 
 import scala.language.higherKinds
@@ -109,17 +109,17 @@ object StateMachineConfig {
   }
 
   /**
-  * List files in the given folder, keep only .wasm and .wast ones
-    *
-    * @param path Folder to walk through
-    * @return List of found files, possibly empty
-    */
+   * List files in the given folder, keep only .wasm and .wast ones
+   *
+   * @param path Folder to walk through
+   * @return List of found files, possibly empty
+   */
   private def listWasmFiles(path: String): IO[List[String]] =
     listFiles(path)
       .map(
         // converts File objects to their path
         _.map(_.getPath)
-          // filters out non-Wasm files
+        // filters out non-Wasm files
           .filter(filePath => filePath.endsWith(".wasm") || filePath.endsWith(".wast"))
       )
 }
