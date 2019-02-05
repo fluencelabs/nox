@@ -15,10 +15,9 @@
  */
 
 package fluence.node.workers
-import fluence.ethclient.helpers.Web3jConverters.binaryToHexTrimZeros
+import fluence.node.docker.DockerIO.DockerNetwork
 import fluence.node.docker.DockerParams
 import fluence.node.eth.state.WorkerPeer
-import scodec.bits.ByteVector
 
 /**
  * Worker container's params
@@ -29,11 +28,14 @@ case class WorkerParams(
   workerPath: String,
   vmCodePath: String,
   masterNodeContainerId: Option[String],
-  image: WorkerImage
+  image: WorkerImage,
+  network: DockerNetwork
 ) {
 
   override def toString =
     s"(worker ${currentWorker.index} with RPC port ${currentWorker.rpcPort} for app $appId)"
+
+  val containerName = s"${appId}_worker_${currentWorker.index}"
 
   /**
    * [[fluence.node.docker.DockerIO.exec]]'s command for launching a configured worker
@@ -43,7 +45,8 @@ case class WorkerParams(
       .build()
       .option("-e", s"""CODE_DIR=$vmCodePath""")
       .option("-e", s"""WORKER_DIR=$workerPath""")
-      .option("--name", s"${appId}_worker_${currentWorker.index}")
+      .option("--name", containerName)
+      .option("--network", network.name)
       .port(currentWorker.p2pPort, 26656)
       .port(currentWorker.rpcPort, 26657)
       .port(currentWorker.tmPrometheusPort, 26660)

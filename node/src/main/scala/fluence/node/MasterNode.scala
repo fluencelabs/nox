@@ -23,6 +23,7 @@ import cats.syntax.flatMap._
 import cats.syntax.applicative._
 import cats.effect.syntax.effect._
 import fluence.node.config.NodeConfig
+import fluence.node.docker.{DockerIO, DockerNetwork}
 import fluence.node.eth._
 import fluence.node.workers.tendermint.config.WorkerConfigWriter
 import fluence.node.workers.tendermint.config.WorkerConfigWriter.WorkerConfigPaths
@@ -54,14 +55,10 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
    * @return original App and WorkerConfigPaths along with downloaded code Path
    */
   private def downloadCode(
-    codeManager: CodeManager[F]
-  ): fs2.Pipe[F, (state.App, WorkerConfigPaths), (state.App, WorkerConfigPaths, Path)] =
-    _.evalMap {
-      case (app, paths) =>
-        codeManager.prepareCode(CodePath(app.storageHash), paths.workerPath).map { codePath =>
-          (app, paths, codePath)
-        }
-    }
+    codeManager: CodeManager[F],
+    app: state.App,
+    paths: WorkerConfigPaths
+  ): F[Path] = codeManager.prepareCode(CodePath(app.storageHash), paths.workerPath)
 
   /**
    * Generates WorkerParams case class from app, config paths and downloaded code path
@@ -72,19 +69,31 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
    */
   private def buildWorkerParams(
     workerImage: WorkerImage,
-    masterNodeContainerId: Option[String]
-  ): fs2.Pipe[F, (state.App, WorkerConfigPaths, Path), WorkerParams] =
-    _.map {
-      case (app, paths, codePath) =>
-        WorkerParams(
-          app.id,
-          app.cluster.currentWorker,
-          paths.workerPath.toString,
-          codePath.toAbsolutePath.toString,
-          masterNodeContainerId,
-          workerImage
-        )
-    }
+    masterNodeContainerId: Option[String],
+    app: state.App,
+    paths: WorkerConfigPaths,
+    codePath: Path,
+    network: DockerNetwork
+  ) = WorkerParams(
+    app.id,
+    app.cluster.currentWorker,
+    paths.workerPath.toString,
+    codePath.toAbsolutePath.toString,
+    masterNodeContainerId,
+    workerImage,
+    network
+  )
+
+  private def createNetwork(app: state.App) = {
+    DockerIO.createNetwork(DockerNetwork.name(app.id, app.cluster.currentWorker.index))
+  }
+
+  private def runWorker(params: WorkerParams) =
+    for {
+      _ <- IO(logger.info("Running worker `{}`", params)).to[F]
+      newly <- pool.run(params)
+      _ <- IO(logger.info(s"Worker started (newly=$newly) {}", params)).to[F]
+    } yield ()
 
   /**
    * Runs app worker on a pool
@@ -92,23 +101,16 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
    *
    * @param app App description
    */
-  def runAppWorker(app: eth.state.App): F[Unit] =
-    fs2
-      .Stream[F, eth.state.App](app)
-      .through(WorkerConfigWriter.resolveWorkerConfigPaths(rootPath))
-      .through(downloadCode(codeManager))
-      .through(WorkerConfigWriter.writeConfigs)
-      .through(buildWorkerParams(nodeConfig.workerImage, masterNodeContainerId))
-      .evalMap[F, Unit](
-        params ⇒
-          for {
-            _ <- IO(logger.info("Running worker `{}`", params)).to[F]
-            newly <- pool.run(params)
-            _ <- IO(logger.info(s"Worker started (newly=$newly) {}", params)).to[F]
-          } yield ()
-      )
-      .compile
-      .drain
+  def runAppWorker(app: eth.state.App): F[Unit] = {
+    for {
+      paths <- WorkerConfigWriter.resolveWorkerConfigPaths(app, rootPath)
+      code <- downloadCode(codeManager, app, paths)
+      _ <- WorkerConfigWriter.writeConfigs(app, paths)
+      network <- createNetwork(app)
+      params <- buildWorkerParams(nodeConfig.workerImage, masterNodeContainerId, app, paths, code, network)
+      _ <- runWorker(params)
+    } yield ()
+  }
 
   val handleEthEvent: fs2.Pipe[F, NodeEthEvent, NodeEthEvent] =
     _.evalTap {
