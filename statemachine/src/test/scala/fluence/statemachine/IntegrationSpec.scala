@@ -16,17 +16,24 @@
 
 package fluence.statemachine
 
+import cats.effect.{ContextShift, IO, Timer}
 import com.github.jtendermint.jabci.api.CodeType
 import com.github.jtendermint.jabci.types.{RequestCheckTx, RequestCommit, RequestDeliverTx, RequestQuery}
 import com.google.protobuf.ByteString
 import fluence.statemachine.config.StateMachineConfig
+import fluence.statemachine.control.ControlSignals
 import fluence.statemachine.state.QueryCodeType
 import fluence.statemachine.tree.MerkleTreeNode
-import fluence.statemachine.tx.{Computed, Error}
+import fluence.statemachine.tx.Computed
 import fluence.statemachine.util.{ClientInfoMessages, HexCodec}
 import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
 
+import scala.concurrent.ExecutionContext.Implicits.global
+
 class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
+
+  implicit private val ioTimer: Timer[IO] = IO.timer(global)
+  implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
   // sbt defaults user directory to submodule directory
   // while Idea defaults to project root
@@ -34,8 +41,10 @@ class IntegrationSpec extends WordSpec with Matchers with OneInstancePerTest {
   private val moduleFiles = List("mul.wast", "counter.wast").map(moduleDirPrefix + "vm/src/test/resources/wast/" + _)
   private val config = StateMachineConfig(8, moduleFiles, "OFF")
 
+  private val signals = ControlSignals[IO].unsafeRunSync()
+
   val abciHandler: AbciHandler = ServerRunner
-    .buildAbciHandler(config)
+    .buildAbciHandler(config, signals)
     .valueOr(e => throw new RuntimeException(e.message))
     .unsafeRunSync()
 

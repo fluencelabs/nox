@@ -14,18 +14,17 @@
  * limitations under the License.
  */
 
-package fluence.node
-
+package fluence.node.config
 import java.net.InetAddress
 
 import cats.effect.IO
 import pureconfig.ConfigConvert
-import pureconfig.error.ConfigReaderFailures
 import pureconfig.ConfigConvert.viaStringTry
+import pureconfig.error.ConfigReaderFailures
 
 import scala.util.Try
 
-object ConfigOps {
+private[config] object ConfigOps {
   implicit class ConfigLoaderToIO[T](loadedConfig: Either[ConfigReaderFailures, T]) {
 
     def toIO: IO[T] = {

@@ -16,12 +16,16 @@
 
 package fluence.node.workers.tendermint.rpc
 
-import cats.effect.Concurrent
-import cats.syntax.apply._
-import cats.syntax.flatMap._
+import cats.data.EitherT
+import cats.effect.{Concurrent, Resource, Sync}
+import cats.syntax.either._
 import cats.syntax.functor._
 import com.softwaremill.sttp._
+import com.softwaremill.sttp.circe.asJson
 import fluence.node.workers.WorkerParams
+import cats.syntax.applicativeError._
+import fluence.node.MakeResource
+import fluence.node.workers.tendermint.status.StatusResponse
 import io.circe.generic.semiauto._
 import io.circe.{Encoder, Json}
 
@@ -31,12 +35,12 @@ import scala.language.higherKinds
  * Provides a single concurrent endpoint to run RPC requests on Worker
  *
  * @param sinkRpc Tendermint's RPC requests endpoint
- * @param stop A callback that releases the acquired resources, namely it stops the RPC stream
+ * @param status Tendermint's status
  * @tparam F Concurrent effect
  */
 case class TendermintRpc[F[_]] private (
   sinkRpc: fs2.Sink[F, TendermintRpc.Request],
-  private[workers] val stop: F[Unit]
+  status: EitherT[F, Throwable, StatusResponse.WorkerTendermintInfo]
 ) {
 
   val broadcastTxCommit: fs2.Sink[F, String] =
@@ -56,6 +60,16 @@ case class TendermintRpc[F[_]] private (
 
 object TendermintRpc {
   private val requestEncoder: Encoder[Request] = deriveEncoder[Request]
+
+  /**
+   * Builds a Tendermint-related URI for the given path
+   *
+   * @param params Worker params
+   * @param path Path to substitute
+   * @return URI
+   */
+  private def rpcUri(params: WorkerParams, path: String = ""): Uri =
+    uri"http://${params.currentWorker.ip.getHostAddress}:${params.currentWorker.rpcPort}/$path"
 
   /**
    * Wrapper for Tendermint's RPC request
@@ -83,6 +97,28 @@ object TendermintRpc {
   private def toSomePipe[F[_], T]: fs2.Pipe[F, T, Option[T]] =
     _.map(Some(_))
 
+  private def status[F[_]: Sync](
+    params: WorkerParams
+  )(implicit sttpBackend: SttpBackend[F, Nothing]): EitherT[F, Throwable, StatusResponse.WorkerTendermintInfo] =
+    EitherT {
+      val url = rpcUri(params, "status")
+
+      sttp
+        .get(url)
+        .response(asJson[StatusResponse])
+        .send()
+        .attempt
+        // converting Either[Throwable, Response[Either[DeserializationError[circe.Error], WorkerResponse]]]
+        // to Either[Throwable, WorkerResponse]
+        .map(
+          _.flatMap(
+            _.body
+              .leftMap(new Exception(_))
+              .flatMap(_.leftMap(_.error))
+          )
+        )
+    }.map(_.result)
+
   /**
    * Runs a WorkerRpc with F effect, acquiring some resources for it
    *
@@ -93,29 +129,24 @@ object TendermintRpc {
    */
   def apply[F[_]: Concurrent](
     params: WorkerParams
-  )(implicit sttpBackend: SttpBackend[F, Nothing]): F[TendermintRpc[F]] =
+  )(implicit sttpBackend: SttpBackend[F, Nothing]): Resource[F, TendermintRpc[F]] =
     for {
-      queue ← fs2.concurrent.Queue.noneTerminated[F, TendermintRpc.Request]
-      fiber ← Concurrent[F].start(
-        queue.dequeue
-          .evalMap(
-            req ⇒
-              sttpBackend
-                .send(
-                  sttp
-                    .post(uri"http://${params.currentWorker.ip.getHostAddress}:${params.currentWorker.rpcPort}/")
-                    .body(req.toJsonString)
-                )
-                .map(_.isSuccess)
-          )
-          .drain
-          .compile
-          .drain
+      queue ← Resource.liftF(fs2.concurrent.Queue.unbounded[F, TendermintRpc.Request])
+      _ ← MakeResource.concurrentStream(
+        queue.dequeue.evalMap(
+          req ⇒
+            sttpBackend
+              .send(
+                sttp
+                  .post(rpcUri(params))
+                  .body(req.toJsonString)
+              )
+              .map(_.isSuccess)
+        )
       )
-
-      enqueue = queue.enqueue
-      stop = fs2.Stream(None).to(enqueue).compile.drain *> fiber.join
-      callRpc = toSomePipe[F, TendermintRpc.Request].andThen(_ to enqueue)
-
-    } yield new TendermintRpc[F](callRpc, stop)
+    } yield
+      new TendermintRpc[F](
+        queue.enqueue,
+        status[F](params)
+      )
 }

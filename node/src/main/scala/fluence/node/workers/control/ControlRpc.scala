@@ -14,15 +14,21 @@
  * limitations under the License.
  */
 
-package fluence.node.workers
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+package fluence.node.workers.control
+import scodec.bits.ByteVector
 
-case class WorkerImage(image: String, tag: String) {
-  val imageName = s"$image:$tag"
+import scala.language.higherKinds
+
+abstract class ControlRpc[F[_]] {
+
+  def dropPeer(key: ByteVector): F[Unit]
+
 }
 
-object WorkerImage {
-  implicit val encodeWorkerImage: Encoder[WorkerImage] = deriveEncoder
-  implicit val decodeWorkerImage: Decoder[WorkerImage] = deriveDecoder
+object ControlRpc {
+
+  def apply[F[_]](): ControlRpc[F] = new ControlRpc[F] {
+    override def dropPeer(key: ByteVector): F[Unit] = ???
+  }
+
 }

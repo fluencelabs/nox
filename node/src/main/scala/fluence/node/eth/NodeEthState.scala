@@ -18,6 +18,7 @@ package fluence.node.eth
 
 import cats.{Applicative, Monad}
 import cats.data.StateT
+import fluence.ethclient.data.Block
 import scodec.bits.ByteVector
 import state.App
 
@@ -29,11 +30,13 @@ import scala.language.higherKinds
  * @param validatorKey Node's validator key
  * @param apps Map of applications to be hosted by the node
  * @param nodesToApps Mapping from node keys to set of application ids, to enable efficient Worker Peers removal
+ * @param lastBlock Last block that was seen by node
  */
 case class NodeEthState(
   validatorKey: ByteVector,
   apps: Map[Long, App] = Map.empty,
-  nodesToApps: Map[ByteVector, Set[Long]] = Map.empty
+  nodesToApps: Map[ByteVector, Set[Long]] = Map.empty,
+  lastBlock: Option[Block] = None
 )
 
 object NodeEthState {
@@ -51,6 +54,12 @@ object NodeEthState {
 
   private def modify[F[_]: Applicative](fn: NodeEthState ⇒ NodeEthState) =
     StateT.modify(fn)
+
+  /**
+   * Expresses the state change on new block received from the Ethereum network
+   */
+  def onNewBlock[F[_]: Monad](block: Block): State[F] =
+    modify[F](_.copy(lastBlock = Some(block))).map(_ ⇒ Nil)
 
   // TODO check that it's not yet launched? Handle case if this event reflects chain reorg
   /**

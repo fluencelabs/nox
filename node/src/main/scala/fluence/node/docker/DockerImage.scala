@@ -14,19 +14,16 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.health
+package fluence.node.docker
 
-import scala.concurrent.duration._
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.{Decoder, Encoder}
 
-/**
- * Configures the healthcheck process
- *
- * @param period How often to check worker's health
- * @param slide How many checks to slide over
- * @param failOn Worker will be considered dead if ''failOn'' checks within the last ''slide'' ones are failures
- */
-case class HealthCheckConfig(
-  period: FiniteDuration = 10.seconds,
-  slide: Int = 10,
-  failOn: Int = 8
-)
+case class DockerImage(image: String, tag: String) {
+  val imageName = s"$image:$tag"
+}
+
+object DockerImage {
+  implicit val encodeDockerImage: Encoder[DockerImage] = deriveEncoder
+  implicit val decodeDockerImage: Decoder[DockerImage] = deriveDecoder
+}
