@@ -19,21 +19,19 @@ import java.nio.file._
 
 import cats.Parallel
 import cats.effect._
-import cats.syntax.functor._
-import cats.syntax.flatMap._
+import cats.effect.syntax.effect._
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
-import cats.effect.syntax.effect._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
 import fluence.ethclient.EthClient
 import fluence.node.config.{MasterConfig, NodeConfig}
-import fluence.node.docker.DockerImage
-import fluence.node.config.NodeConfig
-import fluence.node.docker.{DockerIO, DockerNetwork}
+import fluence.node.docker.{DockerIO, DockerImage, DockerNetwork}
 import fluence.node.eth._
+import fluence.node.workers._
 import fluence.node.workers.tendermint.config.WorkerConfigWriter
 import fluence.node.workers.tendermint.config.WorkerConfigWriter.WorkerConfigPaths
-import fluence.node.workers._
 import slogging.LazyLogging
 
 import scala.language.higherKinds

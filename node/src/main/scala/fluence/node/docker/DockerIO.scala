@@ -16,12 +16,11 @@
 
 package fluence.node.docker
 
-import cats.{Applicative, ApplicativeError}
+import cats.Applicative
 import cats.effect.{ContextShift, Resource, Sync, Timer}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.syntax.flatMap._
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat
 import slogging.LazyLogging
 
@@ -160,6 +159,14 @@ object DockerIO extends LazyLogging {
       }
       (time, isRunning) = timeIsRunning
     } yield DockerRunStatus(time, isRunning)
+  }
+
+  private def run[F[_]: ContextShift](cmd: String)(implicit F: Sync[F]): F[Unit] = {
+    shiftDelay(cmd.!).flatMap {
+      case exit if exit != 0 =>
+        F.raiseError[Unit](new Exception(s"`$cmd` exited with code: $exit"))
+      case _ => F.pure(())
+    }
   }
 
   def createNetwork[F[_]: ContextShift: Sync](name: String): Resource[F, DockerNetwork] = {
