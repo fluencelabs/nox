@@ -60,7 +60,7 @@ object DockerIO extends LazyLogging {
    *
    * @param fn the function to run
    */
-  private def shiftDelay[F[_]: Sync: ContextShift, A](fn: ⇒ A): F[A] =
+  private[docker] def shiftDelay[F[_]: Sync: ContextShift, A](fn: ⇒ A): F[A] =
     ContextShift[F].shift *> Sync[F].delay(fn)
 
   /**
@@ -159,24 +159,6 @@ object DockerIO extends LazyLogging {
       }
       (time, isRunning) = timeIsRunning
     } yield DockerRunStatus(time, isRunning)
-  }
-
-  private def run[F[_]: ContextShift](cmd: String)(implicit F: Sync[F]): F[Unit] = {
-    shiftDelay(cmd.!).flatMap {
-      case exit if exit != 0 =>
-        F.raiseError[Unit](new Exception(s"`$cmd` exited with code: $exit"))
-      case _ => F.pure(())
-    }
-  }
-
-  def createNetwork[F[_]: ContextShift: Sync](name: String): Resource[F, DockerNetwork] = {
-    Resource.make(run(s"docker network create $name").as(DockerNetwork(name))) {
-      case DockerNetwork(n) => run(s"docker network rm $n")
-    }
-  }
-
-  def joinNetwork[F[_]: ContextShift: Sync](container: String, network: DockerNetwork): F[Unit] = {
-    run(s"docker network connect ${network.name} $container")
   }
 
 }

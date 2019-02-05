@@ -74,7 +74,7 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
 
       // Fiber for the worker, needs to be joined to ensure worker cleanup process is completed
       runningWorkerFiber ← Concurrent[F].start(
-        Worker
+        DockerWorker
           .make[F](
             params,
             healthCheckConfig,

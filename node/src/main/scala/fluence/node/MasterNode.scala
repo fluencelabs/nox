@@ -77,21 +77,15 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
     masterNodeContainerId: Option[String],
     app: state.App,
     paths: WorkerConfigPaths,
-    codePath: Path,
-    network: DockerNetwork
+    codePath: Path
   ) = WorkerParams(
     app.id,
     app.cluster.currentWorker,
     paths.workerPath.toString,
     codePath.toAbsolutePath.toString,
     masterNodeContainerId,
-    workerImage,
-    network
+    workerImage
   )
-
-  private def createNetwork(app: state.App) = {
-    DockerIO.createNetwork(DockerNetwork.name(app.id, app.cluster.currentWorker.index))
-  }
 
   private def runWorker(params: WorkerParams) =
     for {
@@ -103,20 +97,19 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
   /**
    * Runs app worker on a pool
    * TODO check that the worker is not yet running
-   * TODO streaming there is meaningless
    *
    * @param app App description
    */
-  def runAppWorker(app: eth.state.App): F[Unit] = {
+  def runAppWorker(app: eth.state.App): F[Unit] =
     for {
       paths <- WorkerConfigWriter.resolveWorkerConfigPaths(app, rootPath)
       code <- downloadCode(codeManager, app, paths)
       _ <- WorkerConfigWriter.writeConfigs(app, paths)
-      network <- createNetwork(app)
-      params <- buildWorkerParams(nodeConfig.workerImage, masterNodeContainerId, app, paths, code, network)
+
+      params = buildWorkerParams(nodeConfig.workerImage, masterNodeContainerId, app, paths, code)
+
       _ <- runWorker(params)
     } yield ()
-  }
 
   /**
    * Runs the appropriate effect for each incoming NodeEthEvent, keeping it untouched

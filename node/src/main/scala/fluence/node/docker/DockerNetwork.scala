@@ -15,9 +15,33 @@
  */
 
 package fluence.node.docker
+import cats.effect.{ContextShift, Resource, Sync}
+
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import fluence.node.docker.DockerIO.shiftDelay
+
+import scala.language.higherKinds
+import scala.sys.process._
 
 case class DockerNetwork(name: String) extends AnyVal
 
 object DockerNetwork {
-  def name(appId: Long, workerIdx: Int) = s"network_${appId}_$workerIdx"
+
+  private def run[F[_]: ContextShift](cmd: String)(implicit F: Sync[F]): F[Unit] = {
+    shiftDelay(cmd.!).flatMap {
+      case exit if exit != 0 =>
+        F.raiseError[Unit](new Exception(s"`$cmd` exited with code: $exit"))
+      case _ => F.pure(())
+    }
+  }
+
+  def make[F[_]: ContextShift: Sync](name: String): Resource[F, DockerNetwork] =
+    Resource.make(run(s"docker network create $name").as(DockerNetwork(name))) {
+      case DockerNetwork(n) => run(s"docker network rm $n")
+    }
+
+  def join[F[_]: ContextShift: Sync](container: String, network: DockerNetwork): F[Unit] =
+    run(s"docker network connect ${network.name} $container")
+
 }
