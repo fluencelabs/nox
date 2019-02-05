@@ -136,7 +136,8 @@ object DockerWorker extends LazyLogging {
     logger.debug(s"Creating docker network ${dockerNetworkName(params)} for $params")
     for {
       network <- DockerNetwork.make(dockerNetworkName(params))
-      _ <- params.masterNodeContainerId.fold(Resource.pure(()))(DockerNetwork.join(_, network))
+//      _ <- params.masterNodeContainerId.fold(Resource.pure(()))(DockerNetwork.join(_, network))
+      _ <- DockerNetwork.join(params.masterNodeContainerId.get, network)
     } yield network
   }
 

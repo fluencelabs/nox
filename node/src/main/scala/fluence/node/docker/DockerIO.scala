@@ -98,7 +98,7 @@ object DockerIO extends LazyLogging {
     } {
       case (Success(dockerId), exitCase) ⇒
         shiftDelay {
-          logger.info(s"Going to cleanup $dockerId, exit case: $exitCase")
+          logger.info(s"Going to stop container $dockerId, exit case: $exitCase")
           s"docker stop $dockerId".!
         }.flatMap {
           case 0 ⇒
