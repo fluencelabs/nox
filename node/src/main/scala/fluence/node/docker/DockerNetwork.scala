@@ -40,9 +40,8 @@ object DockerNetwork extends slogging.LazyLogging {
   def make[F[_]: ContextShift](name: String)(implicit F: Sync[F]): Resource[F, DockerNetwork] =
     Resource.make(run(s"docker network create $name").as(DockerNetwork(name))) {
       case DockerNetwork(n) =>
-//        F.pure(logger.info(s"removing network $n"))
-//          .as(
-        run(s"docker network rm $n")
+        F.delay(logger.info(s"removing network $n"))
+          .flatMap(_ => run(s"docker network rm $n"))
     }
 
   def join[F[_]: ContextShift](container: String, network: DockerNetwork)(
@@ -50,8 +49,7 @@ object DockerNetwork extends slogging.LazyLogging {
   ): Resource[F, Unit] =
     Resource.make(run(s"docker network connect ${network.name} $container"))(
       _ =>
-//        F.pure(logger.info(s"disconnecting container  $container from network  ${network.name} "))
-//          .as(
-        run(s"docker network disconnect ${network.name} container")
+        F.delay(logger.info(s"disconnecting container $container from network ${network.name} "))
+          .flatMap(_ => run(s"docker network disconnect ${network.name} $container"))
     )
 }

@@ -136,8 +136,7 @@ object DockerWorker extends LazyLogging {
     logger.debug(s"Creating docker network ${dockerNetworkName(params)} for $params")
     for {
       network <- DockerNetwork.make(dockerNetworkName(params))
-//      _ <- params.masterNodeContainerId.fold(Resource.pure(()))(DockerNetwork.join(_, network))
-      _ <- DockerNetwork.join(params.masterNodeContainerId.get, network)
+      _ <- params.masterNodeContainerId.fold(Resource.pure(()))(DockerNetwork.join(_, network))
     } yield network
   }
 
@@ -159,21 +158,35 @@ object DockerWorker extends LazyLogging {
     F: Concurrent[F]
   ): Resource[F, Worker[F]] =
     for {
+      _ <- Resource.make(F.delay(println("delayed test acquire 0")))(_ => F.delay(println("delayed test release 0")))
+
       healthReportRef ← MakeResource.refOf[F, WorkerHealth](
         WorkerNotYetLaunched(StoppedWorkerInfo(params.currentWorker))
       )
 
+      _ <- Resource.make(F.delay(println("delayed test acquire 2")))(_ => F.delay(println("delayed test release 2")))
+
       network ← makeNetwork(params)
+      _ <- Resource.make(F.delay(println("delayed test acquire 3")))(_ => F.delay(println("delayed test release 3")))
+
       container ← DockerIO.run[F](dockerCommand(params, network))
+      _ <- Resource.make(F.delay(println("delayed test acquire 4")))(_ => F.delay(println("delayed test release 4")))
+
       rpc ← TendermintRpc.make[F](containerName(params), RPC_PORT)
 
+      _ <- Resource.make(F.delay(println("delayed test acquire 5")))(_ => F.delay(println("delayed test release 5")))
+
       healthChecks = healthCheckStream(container, params, healthCheckConfig, rpc)
+
+      _ <- Resource.make(F.delay(println("delayed test acquire 6")))(_ => F.delay(println("delayed test release 6")))
 
       // Runs health checker, wrapped with resource:
       // health check will be stopped when the resource is released.
       _ ← MakeResource.concurrentStream[F](healthChecks.evalTap(healthReportRef.set))
 
       control = ControlRpc[F]()
+
+      _ <- Resource.make(F.delay(println("delayed test acquire 7")))(_ => F.delay(println("delayed test release 7")))
 
     } yield new DockerWorker[F](rpc, control, healthReportRef, onStop, params.toString)
 
