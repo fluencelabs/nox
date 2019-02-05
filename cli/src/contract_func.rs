@@ -55,12 +55,14 @@ fn call_contract_local_sign(
     call_data: ethabi::Bytes,
     eth: &EthereumArgs,
 ) -> Result<H256, Error> {
-    let gas_price = web3
+
+    let gas_price = eth.gas_price.map(|gp| gp.into())
+        .unwrap_or(web3
         .eth()
         .gas_price()
         .wait()
-        .map_err(SyncFailure::new)?
-        .mul(5u32); // Multiply gas by 5, so tx is included faster. TODO: it could panic here on overflow
+        .map_err(SyncFailure::new)?);
+
     let nonce = web3
         .eth()
         .transaction_count(eth.account, None)
@@ -68,12 +70,12 @@ fn call_contract_local_sign(
         .map_err(SyncFailure::new)?;
 
     let tx = Transaction {
-        nonce,
+        nonce: nonce,
         value: "0".parse()?,
         action: Action::Call(eth.contract_address),
         data: call_data,
         gas: eth.gas.into(),
-        gas_price,
+        gas_price: gas_price,
     };
 
     let tx_signed = tx.sign(secret, None);
@@ -100,7 +102,7 @@ fn call_contract_trusted_node(
         to: Some(eth.contract_address),
         data: Some(Bytes(call_data)),
         gas: options.gas,
-        gas_price: options.gas_price,
+        gas_price: eth.gas_price.map(|gp| gp.into()).or(options.gas_price),
         value: options.value,
         nonce: options.nonce,
         condition: options.condition,
