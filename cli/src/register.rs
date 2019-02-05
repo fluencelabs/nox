@@ -32,7 +32,6 @@ use crate::types::{NodeAddress, IP_LEN, TENDERMINT_NODE_ID_LEN};
 use crate::utils;
 use web3::types::H160;
 
-const NODE_IP: &str = "node_ip";
 const START_PORT: &str = "start_port";
 const LAST_PORT: &str = "last_port";
 const PRIVATE: &str = "private";
@@ -208,8 +207,6 @@ impl Register {
 }
 
 pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
-    let node_address: IpAddr = value_t!(args, NODE_IP, IpAddr)?;
-
     let tendermint_key: H256 = parse_tendermint_key(args)?;
 
     let tendermint_node_id: H160 = parse_tendermint_node_id(args)?;
@@ -220,6 +217,8 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
     let private: bool = args.is_present(PRIVATE);
 
     let eth = parse_ethereum_args(args)?;
+
+    let node_address = parse_node_ip(&args)?;
 
     Register::new(
         node_address,
@@ -235,32 +234,30 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
 /// Parses arguments from console and initialize parameters for Publisher
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     let args = &[
-        Arg::with_name(NODE_IP)
-            .long(NODE_IP)
-            .short("i")
-            .required(true)
-            .takes_value(true)
-            .help("Node's IP address"),
-        tendermint_key(),
-        tendermint_node_id(),
+        node_ip().display_order(1),
+        tendermint_key().display_order(2),
+        base64_tendermint_key().display_order(3),
+        tendermint_node_id().display_order(4),
         Arg::with_name(START_PORT)
             .alias(START_PORT)
             .long(START_PORT)
             .default_value("20096")
             .takes_value(true)
-            .help("Minimum port in the port range"),
+            .help("Minimum port in the port range")
+            .display_order(5),
         Arg::with_name(LAST_PORT)
             .alias(LAST_PORT)
             .default_value("20196")
             .long(LAST_PORT)
             .takes_value(true)
-            .help("Maximum port in the port range"),
-        base64_tendermint_key(),
+            .help("Maximum port in the port range")
+            .display_order(5),
         Arg::with_name(PRIVATE)
             .long(PRIVATE)
             .short("p")
             .takes_value(false)
-            .help("Marks node as private, used for pinning apps to nodes"),
+            .help("Marks node as private, used for pinning apps to nodes")
+            .display_order(6),
     ];
 
     SubCommand::with_name("register")

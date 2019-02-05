@@ -10,9 +10,6 @@
       - [Mixing pinning and matching](#mixing-pinning-and-matching)
   - [How to remove a node from the Fluence smart-contract](#how-to-remove-a-node-from-the-fluence-smart-contract)
   - [Tips and tricks](#tips-and-tricks)
-    - [Waiting for Ethereum node to sync](#waiting-for-ethereum-node-to-sync)
-    - [Waiting for a transaction to be included in a block](#waiting-for-a-transaction-to-be-included-in-a-block)
-    - [Interactive status](#interactive-status)
 
 # Fluence miner guide
 Being a miner in Fluence network means that you will provide you computation power to host decentralized backends. In order to do that, you will need just a few things:

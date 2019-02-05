@@ -4,8 +4,9 @@
 - [Usage](#usage)
 - [Usage examples](#usage-examples)
   - [Register a node](#register-a-node)
-  - [Publish app](#publish-app)
-  - [Delete app](#delete-app)
+  - [Publish an app](#publish-an-app)
+    - [Waiting for an app to be deployed or enqueued](#waiting-for-an-app-to-be-deployed-or-enqueued)
+  - [Delete an app](#delete-an-app)
   - [Retrieve Fluence network state as JSON](#retrieve-fluence-network-state-as-json)
 - [Tips and tricks](#tips-and-tricks)
   - [Waiting for an Ethereum node to sync](#waiting-for-an-ethereum-node-to-sync)
@@ -201,6 +202,40 @@ The results will be in JSON and should resemble the following
 ```
 
 Here you can see two apps, the first one is enqueued (cluster is `null`) and waiting for enough nodes to host it, and the second one is already hosted on top of 5 nodes. Second app also specifies all 5 nodes in `pin_to_nodes`, and you can see the same nodes in `cluster.node_ids`.
+
+#### Filtering status
+If you need to select specific information from status, you can use different filters:
+```bash
+OPTIONS:
+    ...
+    -a, --app_id <app_id>                   Filter nodes and apps by app id
+    -i, --node_ip <ip address>              Filter nodes by IP address
+    -o, --owner <eth address>               Filter nodes and apps owned by this Ethereum address
+    -K, --tendermint_key <key>              Filter nodes and apps by Tendermint validator key (node id)
+    -f, --filter_mode <and|or>              Logical mode of the filter [default: and]
+```
+
+Filters work in both JSON and interactive modes. Here's an example of how they can be used:
+```bash
+./fluence status \
+            --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
+            --tendermint_key 0xb5575140febb7484393c1c99263b763d1caf6b6c83bc0a9fd6c084d2982af763 \
+            --node_ip 43.32.21.10 \
+            --filter_mode or
+```
+
+This will display all nodes with id `0xb5575140febb7484393c1c99263b763d1caf6b6c83bc0a9fd6c084d2982af763`, all nodes with ip `43.32.21.10` and all apps hosted by these nodes.
+
+Note `--filter_mode or`, it directs CLI to match all nodes and apps that satisfy any of specified filters. You can also pass `--filter_mode and`:
+```bash
+./fluence status \
+            --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
+            --tendermint_key 0xb5575140febb7484393c1c99263b763d1caf6b6c83bc0a9fd6c084d2982af763 \
+            --node_ip 43.32.21.10 \
+            --filter_mode and
+```
+
+And you will get only node with id `0xb5575140febb7484393c1c99263b763d1caf6b6c83bc0a9fd6c084d2982af763` **and** IP `43.32.21.10`, if there is one, and all apps hosted by that node.
 
 ## Tips and tricks
 ### Waiting for an Ethereum node to sync

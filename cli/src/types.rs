@@ -21,6 +21,7 @@ use ethabi::Token;
 use ethereum_types_serialize::{deserialize_check_len, serialize};
 use fixed_hash::construct_fixed_hash;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::net::IpAddr;
 use web3::contract::tokens::Tokenizable;
 use web3::contract::{Error as ContractError, ErrorKind};
 
@@ -35,7 +36,7 @@ pub const NODE_ADDR_LEN: usize = IP_LEN + TENDERMINT_NODE_ID_LEN;
 construct_fixed_hash! { pub struct NodeAddress(NODE_ADDR_LEN); }
 
 impl NodeAddress {
-    pub fn decode(&self) -> Result<(String, String), Error> {
+    pub fn decode(&self) -> Result<(String, IpAddr), Error> {
         let tendermint_key = &self.0[0..TENDERMINT_NODE_ID_LEN];
         let tendermint_key = format!("{}{}", "0x", hex::encode(tendermint_key));
 
@@ -44,6 +45,7 @@ impl NodeAddress {
             "{}.{}.{}.{}",
             ip_addr[0], ip_addr[1], ip_addr[2], ip_addr[3]
         );
+        let ip_addr: IpAddr = ip_addr.parse()?;
 
         Ok((tendermint_key, ip_addr))
     }
