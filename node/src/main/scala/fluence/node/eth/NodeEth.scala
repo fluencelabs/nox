@@ -42,7 +42,7 @@ trait NodeEth[F[_]] {
   def nodeEvents: fs2.Stream[F, NodeEthEvent]
 
   /**
-   * Returns the expected node state, how it's builbuilt with received Ethereum data
+   * Returns the expected node state, how it's built with received Ethereum data
    */
   def expectedState: F[NodeEthState]
 
