@@ -23,7 +23,7 @@ import cats.instances.list._
 import cats.syntax.flatMap._
 import cats.syntax.list._
 import cats.{Monad, Traverse}
-import fluence.statemachine.control.ControlServerConfig
+import fluence.statemachine.control.ControlServer.ControlServerConfig
 import fluence.statemachine.error.{StateMachineError, VmModuleLocationError}
 
 import scala.language.higherKinds
