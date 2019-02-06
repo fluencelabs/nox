@@ -6,3 +6,4 @@ edition = "2018"
 
 [dependencies]
 proc_test = { path = "../proc_test" }
+fluence = "0.0.7"

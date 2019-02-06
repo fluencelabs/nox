@@ -1,13 +1,14 @@
-#![feature(trace_macros)]
-
+extern crate std as std;
 use proc_test::invoke_handler;
+use fluence;
+use std::str::FromStr;
 
 #[invoke_handler]
-fn invoke(arg: ::std::string::String) -> ::std::string::String {
-
+fn tt(arg: Vec<u8>) -> String {
+    String::from("hello world")
 }
 
 
 fn main() {
-    tt();
+    tt( vec![1, 2]);
 }
