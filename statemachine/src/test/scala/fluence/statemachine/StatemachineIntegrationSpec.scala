@@ -16,6 +16,7 @@
 
 package fluence.statemachine
 
+import cats.effect.concurrent.Deferred
 import cats.effect.{ContextShift, IO, Timer}
 import com.github.jtendermint.jabci.api.CodeType
 import com.github.jtendermint.jabci.types.{RequestCheckTx, RequestCommit, RequestDeliverTx, RequestQuery}
@@ -28,6 +29,7 @@ import fluence.statemachine.tree.MerkleTreeNode
 import fluence.statemachine.tx.Computed
 import fluence.statemachine.util.{ClientInfoMessages, HexCodec}
 import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
+import cats.syntax.flatMap._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -42,7 +44,21 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
   private val moduleFiles = List("mul.wast", "counter.wast").map(moduleDirPrefix + "vm/src/test/resources/wast/" + _)
   private val config = StateMachineConfig(8, moduleFiles, "OFF", 26661, 26658, ControlServerConfig("localhost", 26662))
 
-  private val signals = ControlSignals[IO].unsafeRunSync()
+  private val signals: ControlSignals[IO] = {
+    // TODO: this is awful, someone please remove this
+    val deferred1 = Deferred[IO, Unit]
+    val deferred2 = Deferred[IO, ControlSignals[IO]]
+    ControlSignals[IO]().use { signals =>
+      for {
+        d2 <- deferred2
+        _ <- d2.complete(signals)
+        d1 <- deferred1
+        _ <- d1.get
+      } yield ()
+    }.unsafeRunSync()
+
+    deferred2.unsafeRunSync().get.unsafeRunSync()
+  }
 
   val abciHandler: AbciHandler = ServerRunner
     .buildAbciHandler(config, signals)
