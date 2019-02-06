@@ -16,10 +16,11 @@
 
 package fluence.statemachine.control
 import cats.FlatMap
-import cats.effect.concurrent.MVar
-import cats.effect.{Concurrent, Resource}
+import cats.effect.concurrent.{Deferred, MVar}
+import cats.effect.{Concurrent, Resource, Sync}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.applicativeError._
 
 import scala.language.higherKinds
 
@@ -67,5 +68,10 @@ object ControlSignals {
         stopRef ← MVar.empty[F, Unit]
         instance = new ControlSignals[F](changePeersRef, stopRef)
       } yield instance
-    )(_.stopRef.put(()))
+    ) { s =>
+      Sync[F].suspend(
+        // Tell worker to stop if ControlSignals is dropped
+        s.stopRef.complete(()).attempt.void
+      )
+    }
 }

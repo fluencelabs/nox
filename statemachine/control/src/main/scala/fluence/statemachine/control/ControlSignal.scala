@@ -4,14 +4,29 @@ import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import scodec.bits.ByteVector
 
-// Common trait for all control signals from node to worker
+/**
+ * Common trait for all control signals from node to worker
+ */
 sealed trait ControlSignal
 
+/**
+ * Asks worker for it's status
+ */
 case class GetStatus() extends ControlSignal
 
 object GetStatus {
   implicit val dec: Decoder[GetStatus] = deriveDecoder[GetStatus]
   implicit val enc: Encoder[GetStatus] = deriveEncoder[GetStatus]
+}
+
+/**
+ * Tells worker to stop
+ */
+case class Stop() extends ControlSignal
+
+object Stop {
+  implicit val dec: Decoder[Stop] = deriveDecoder[Stop]
+  implicit val enc: Encoder[Stop] = deriveEncoder[Stop]
 }
 
 /**

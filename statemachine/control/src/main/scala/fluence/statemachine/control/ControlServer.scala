@@ -66,6 +66,9 @@ object ControlServer {
             ok <- Ok()
           } yield ok
 
+        case POST -> Root / "control" / "stop" =>
+          signals.stopWorker().flatMap(_ => Ok())
+
         case (GET | POST) -> Root / "control" / "status" => Ok()
       }
       .orNotFound

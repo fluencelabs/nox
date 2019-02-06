@@ -39,6 +39,7 @@ import fluence.statemachine.control.{ControlServer, DropPeer}
 import fluence.statemachine.control.ControlServer.ControlServerConfig
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
+import scala.concurrent.duration._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -58,6 +59,7 @@ class ControlRpcSpec extends WordSpec with Matchers {
         implicit val b = s
         ControlRpc[IO](config.host, config.port)
       }
+//      _ <- Resource.make()
     } yield (server, rpc)
 
     "return OK on status" in {
@@ -74,6 +76,20 @@ class ControlRpcSpec extends WordSpec with Matchers {
           } yield {
             received.length shouldBe 1
             received.head shouldBe DropPeer(key)
+          }
+      }.unsafeRunSync()
+    }
+
+    "send stop" in {
+      resources.use {
+        case (server, rpc) =>
+          for {
+            before <- IO.pure(server.signals.stop.unsafeRunTimed(0.seconds))
+            _ <- rpc.stop()
+            after <- IO.pure(server.signals.stop.unsafeRunTimed(0.seconds))
+          } yield {
+            before should not be defined
+            after shouldBe defined
           }
       }.unsafeRunSync()
     }
