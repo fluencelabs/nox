@@ -22,13 +22,20 @@ import fluence.node.workers.tendermint.rpc.TendermintRpc
 
 import scala.language.higherKinds
 
+// Algebra for DockerWorker
 trait Worker[F[_]] {
+  // RPC connection to tendermint
   def tendermint: TendermintRpc[F]
+
+  // RPC connection to worker
   def control: ControlRpc[F]
 
+  // Stops worker when F is evaluated
   def stop: F[Unit]
 
+  // Retrieves worker's health
   def healthReport: F[WorkerHealth]
 
+  // Human readable description of the worker
   def description: String
 }

@@ -35,11 +35,11 @@ import scala.concurrent.duration.MILLISECONDS
 /**
  * Single running worker's datatype
  *
- * @param params this worker's description
  * @param tendermint Tendermint RPC endpoints for the worker
  * @param control Control RPC endpoints for the worker
  * @param healthReportRef a reference to the last healthcheck, updated every time a new healthcheck is being made
  * @param stop stops the worker, should be launched only once
+ * @param description human readable description of the Docker Worker
  * @tparam F the effect
  */
 case class DockerWorker[F[_]] private (
@@ -132,6 +132,14 @@ object DockerWorker extends LazyLogging {
           Applicative[F].pure(WorkerContainerNotRunning(StoppedWorkerInfo(params.currentWorker)))
       }
 
+  /**
+  * Creates new docker network and connects node to that network
+    *
+    * @param params used for docker network name generation
+    * @tparam F Effect
+    * @return Resource of docker network and node connection.
+    *         On release node will be disconnected, network will be removed.
+    */
   private def makeNetwork[F[_]: ContextShift: Sync](params: WorkerParams): Resource[F, DockerNetwork] = {
     logger.debug(s"Creating docker network ${dockerNetworkName(params)} for $params")
     for {
@@ -158,35 +166,21 @@ object DockerWorker extends LazyLogging {
     F: Concurrent[F]
   ): Resource[F, Worker[F]] =
     for {
-      _ <- Resource.make(F.delay(println("delayed test acquire 0")))(_ => F.delay(println("delayed test release 0")))
-
       healthReportRef ← MakeResource.refOf[F, WorkerHealth](
         WorkerNotYetLaunched(StoppedWorkerInfo(params.currentWorker))
       )
 
-      _ <- Resource.make(F.delay(println("delayed test acquire 2")))(_ => F.delay(println("delayed test release 2")))
-
       network ← makeNetwork(params)
-      _ <- Resource.make(F.delay(println("delayed test acquire 3")))(_ => F.delay(println("delayed test release 3")))
-
       container ← DockerIO.run[F](dockerCommand(params, network))
-      _ <- Resource.make(F.delay(println("delayed test acquire 4")))(_ => F.delay(println("delayed test release 4")))
-
       rpc ← TendermintRpc.make[F](containerName(params), RPC_PORT)
 
-      _ <- Resource.make(F.delay(println("delayed test acquire 5")))(_ => F.delay(println("delayed test release 5")))
-
       healthChecks = healthCheckStream(container, params, healthCheckConfig, rpc)
-
-      _ <- Resource.make(F.delay(println("delayed test acquire 6")))(_ => F.delay(println("delayed test release 6")))
 
       // Runs health checker, wrapped with resource:
       // health check will be stopped when the resource is released.
       _ ← MakeResource.concurrentStream[F](healthChecks.evalTap(healthReportRef.set))
 
       control = ControlRpc[F]()
-
-      _ <- Resource.make(F.delay(println("delayed test acquire 7")))(_ => F.delay(println("delayed test release 7")))
 
     } yield new DockerWorker[F](rpc, control, healthReportRef, onStop, params.toString)
 
