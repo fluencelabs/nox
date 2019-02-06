@@ -15,12 +15,24 @@
  */
 
 package fluence.node.workers.control
+import cats.effect.Sync
+import com.softwaremill.sttp._
+import com.softwaremill.sttp.circe._
+import fluence.statemachine.control.DropPeer
+import io.circe.Encoder
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
+/**
+ * RPC channel from node to worker
+ */
 abstract class ControlRpc[F[_]] {
 
+  /**
+   * Request worker to send a vote to Tendermint for removal of a validator
+   * @param key Public key of the Tendermint validator
+   */
   def dropPeer(key: ByteVector): F[Unit]
 
 }
