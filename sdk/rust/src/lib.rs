@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+//! Rust SDK for writing applications for Fluence.
+#![doc(html_root_url = "https://docs.rs/fluence/0.0.8")]
+#![feature(allocator_api)]
+
 extern crate fluence_sdk_macro;
 extern crate fluence_sdk_main;
 
