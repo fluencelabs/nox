@@ -58,6 +58,26 @@ lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
     rustVmExample("llamadb")
   )
 
+lazy val `statemachine-control` = (project in file("statemachine/control"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      cats,
+      catsEffect,
+      circeGeneric,
+      circeParser,
+      slogging,
+      scodecBits,
+      http4sDsl,
+      http4sServer,
+      http4sCirce,
+      scalaTest,
+      sttp,
+      sttpCirce,
+      sttpCatsBackend
+    )
+  )
+
 lazy val statemachine = (project in file("statemachine"))
   .settings(
     commons,
@@ -73,7 +93,6 @@ lazy val statemachine = (project in file("statemachine"))
       prometheusClient,
       prometheusClientJetty,
       prometheusClientServlet,
-      // Despite tmVersion is updated to 0.25.0, jtendermint:0.24.0 is the latest available and compatible with it.
       "com.github.jtendermint" % "jabci"          % "0.26.0",
       "org.bouncycastle"       % "bcpkix-jdk15on" % "1.56",
       "net.i2p.crypto"         % "eddsa"          % "0.3.0",
@@ -83,6 +102,8 @@ lazy val statemachine = (project in file("statemachine"))
     assemblyMergeStrategy in assembly := {
       // a module definition fails compilation for java 8, just skip it
       case PathList("module-info.class", xs @ _*) => MergeStrategy.first
+      case "META-INF/io.netty.versions.properties" =>
+        MergeStrategy.first
       case x =>
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
@@ -136,7 +157,7 @@ lazy val statemachine = (project in file("statemachine"))
     }
   )
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(vm)
+  .dependsOn(vm, `statemachine-control`)
 
 lazy val externalstorage = (project in file("externalstorage"))
   .settings(
@@ -244,4 +265,4 @@ lazy val node = project
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(ethclient, externalstorage)
+  .dependsOn(ethclient, externalstorage, `statemachine-control`)

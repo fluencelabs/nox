@@ -23,7 +23,7 @@ import com.github.jtendermint.jabci.api._
 import com.github.jtendermint.jabci.types.Request.ValueCase.DELIVER_TX
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
-import fluence.statemachine.control.ControlSignals
+import fluence.statemachine.control.{ChangePeer, ControlSignals}
 import fluence.statemachine.state.{Committer, QueryProcessor}
 import fluence.statemachine.tx._
 import fluence.statemachine.util.{ClientInfoMessages, Metrics, TimeLogger, TimeMeter}
@@ -177,27 +177,35 @@ class AbciHandler(
     } yield validated
   }
 
-  // On block end, we can propose validator updates
+  // At the end of block H, we can propose validator updates, they will be applied at block H+2
+  // see https://github.com/tendermint/tendermint/blob/master/docs/spec/abci/abci.md#endblock
   override def requestEndBlock(
     req: RequestEndBlock
-  ): ResponseEndBlock =
+  ): ResponseEndBlock = {
+    def validatorUpdate(change: ChangePeer) = {
+      ValidatorUpdate
+        .newBuilder()
+        .setPubKey(
+          PubKey
+            .newBuilder()
+            .setType(change.keyType)
+            .setData(ByteString.copyFrom(change.validatorKey.toArray))
+        )
+        .setPower(change.votePower)
+    }
     controlSignals.changePeers
-      .map(_.foldLeft(ResponseEndBlock.newBuilder()) {
-        case (resp, ControlSignals.ChangePeer(ttype, data, power)) ⇒
-          resp.addValidatorUpdates(
-            ValidatorUpdate
-              .newBuilder()
-              .setPubKey(
-                PubKey
-                  .newBuilder()
-                  .setType(ttype)
-                  .setData(ByteString.copyFrom(data.toArray))
-              )
-              .setPower(power)
-          )
-      })
-      .map(_.build())
+      .use(
+        changes =>
+          IO.pure {
+            changes
+              .foldLeft(ResponseEndBlock.newBuilder()) {
+                case (resp, change) ⇒ resp.addValidatorUpdates(validatorUpdate(change))
+              }
+              .build()
+        }
+      )
       .unsafeRunSync()
+  }
 
 }
 
