@@ -113,7 +113,6 @@ impl Register {
 
     /// Registers a node in Fluence smart contract
     pub fn register(&self, show_progress: bool) -> Result<Registered, Error> {
-
         let (_eloop, transport) = Http::new(self.eth.eth_url.as_str()).map_err(SyncFailure::new)?;
         let web3 = &web3::Web3::new(transport);
 

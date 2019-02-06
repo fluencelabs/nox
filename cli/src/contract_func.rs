@@ -34,7 +34,11 @@ use std::time::Duration;
 use_contract!(contract, "../bootstrap/contracts/compiled/Network.abi");
 
 /// Calls contract method and returns hash of the transaction
-pub fn call_contract(web3: &Web3<Http>, eth: &EthereumArgs, call_data: ethabi::Bytes) -> Result<H256, Error> {
+pub fn call_contract(
+    web3: &Web3<Http>,
+    eth: &EthereumArgs,
+    call_data: ethabi::Bytes,
+) -> Result<H256, Error> {
     match &eth.credentials {
         Credentials::No => call_contract_trusted_node(web3, None, call_data, &eth),
         Credentials::Password(pass) => {
@@ -51,7 +55,6 @@ fn call_contract_local_sign(
     call_data: ethabi::Bytes,
     eth: &EthereumArgs,
 ) -> Result<H256, Error> {
-
     let nonce = web3
         .eth()
         .transaction_count(eth.account, None)

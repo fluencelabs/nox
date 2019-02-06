@@ -65,7 +65,6 @@ impl DeleteNode {
     }
 
     pub fn delete_node(self, show_progress: bool) -> Result<H256, Error> {
-
         let (_eloop, transport) = Http::new(self.eth.eth_url.as_str()).map_err(SyncFailure::new)?;
         let web3 = &web3::Web3::new(transport);
 

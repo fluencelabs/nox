@@ -85,7 +85,6 @@ impl Publisher {
 
     /// Sends code to Swarm and publishes the hash of the file from Swarm to Fluence smart contract
     pub fn publish(&self, show_progress: bool) -> Result<Published, Error> {
-
         let (_eloop, transport) = Http::new(self.eth.eth_url.as_str()).map_err(SyncFailure::new)?;
         let web3 = &web3::Web3::new(transport);
 
