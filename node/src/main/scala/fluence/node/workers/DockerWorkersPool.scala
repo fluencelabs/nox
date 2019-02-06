@@ -95,11 +95,12 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
                 _ ← workers.update(_.updated(params.appId, worker))
                 // Wait for the deferred to be completed -- that's asynchronous blocking
                 _ ← stopWorkerDef.get
-                _ = logger.info(s"Removing worker from a pool: $params")
+                _ = logger.info(s"Removing worker from the pool: $params")
                 // Remove worker from the pool and release the resource to enable its cleaning up
                 _ ← workers.update(_ - params.appId)
               } yield ()
           )
+          .map(_ ⇒ logger.debug(s"Worker removed from pool: $params"))
       )
 
       // Pass the worker fiber to the Deferred

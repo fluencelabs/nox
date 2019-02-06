@@ -21,6 +21,7 @@ import cats.effect.{ContextShift, Resource, Sync, Timer}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.applicativeError._
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat
 import slogging.LazyLogging
 
@@ -98,27 +99,40 @@ object DockerIO extends LazyLogging {
     } {
       case (Success(dockerId), exitCase) ⇒
         shiftDelay {
-          logger.info(s"Going to cleanup $dockerId, exit case: $exitCase")
-          s"docker stop $dockerId".!
+          logger.info(s"Going to cleanup $dockerId, exit case: $exitCase !")
+          val t = Try(s"docker stop $dockerId".!)
+          logger.debug(s"Stop result: $t")
+          t
         }.flatMap {
-          case 0 ⇒
+          case Success(0) ⇒
             shiftDelay {
               logger.info(s"Container $dockerId stopped gracefully, going to rm -v it")
-              logger.info(Console.CYAN + s"docker logs $dockerId".!! + Console.RESET)
+              logger.info(Console.CYAN + s"docker logs $dockerId".!!.replaceAll("^", "  ") + Console.RESET)
               s"docker rm -v $dockerId".!
-            }
-          case x ⇒
+            }.void
+          case Failure(err) ⇒
+            shiftDelay {
+              logger.warn(s"Stopping docker container $dockerId errored due to $err, going to rm -v -f it", err)
+              s"docker rm -v -f $dockerId".!
+            }.void
+          case Success(x) ⇒
             shiftDelay {
               logger.warn(s"Stopping docker container $dockerId failed, exit code = $x, going to rm -v -f it")
               s"docker rm -v -f $dockerId".!
-            }
+            }.void
+        }.handleError { err ⇒
+          logger.error(s"Error cleaning up container $dockerId: $err", err)
+          ()
         }
       case (Failure(err), _) ⇒
         logger.warn(s"Cannot cleanup the docker container as it's failed to launch: $err", err)
         Applicative[F].unit
     }.flatMap {
-      case Success(dockerId) ⇒ Resource.pure(DockerIO(dockerId))
-      case Failure(err) ⇒ Resource.liftF(Sync[F].raiseError(err))
+      case Success(dockerId) ⇒
+        Resource.pure(DockerIO(dockerId))
+      case Failure(err) ⇒
+        logger.warn(s"Resource cannot be acquired, error raised $err", err)
+        Resource.liftF(Sync[F].raiseError(err))
     }
 
   /**

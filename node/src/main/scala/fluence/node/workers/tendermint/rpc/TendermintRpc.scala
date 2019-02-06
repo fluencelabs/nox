@@ -142,7 +142,8 @@ object TendermintRpc {
                   .body(req.toJsonString)
               )
               .map(_.isSuccess)
-        )
+        ),
+        name = s"tendermintRpc-${params.appId}"
       )
     } yield
       new TendermintRpc[F](

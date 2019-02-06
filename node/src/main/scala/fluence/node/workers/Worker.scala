@@ -132,7 +132,8 @@ object Worker extends LazyLogging {
 
       // Runs health checker, wrapped with resource:
       // health check will be stopped when the resource is released.
-      _ ← MakeResource.concurrentStream[F](healthChecks.evalTap(healthReportRef.set))
+      _ ← MakeResource
+        .concurrentStream[F](healthChecks.evalTap(healthReportRef.set), name = s"healthChecks-${params.appId}")
 
       control = ControlRpc[F]()
 
