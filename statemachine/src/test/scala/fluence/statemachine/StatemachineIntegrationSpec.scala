@@ -57,7 +57,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
           _ <- d1.get
         } yield ()
       })
-      .unsafeRunSync()
+      .unsafeRunAsyncAndForget()
 
     deferred2.unsafeRunSync().get.unsafeRunSync()
   }
