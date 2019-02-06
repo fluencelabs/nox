@@ -62,4 +62,3 @@ trait DockerSetup extends OsSetup {
       )
       .map(_.containerId)
 }
->>>>>>> master:node/src/test/scala/fluence/node/DockerSetup.scala

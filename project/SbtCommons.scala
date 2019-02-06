@@ -97,6 +97,7 @@ object SbtCommons {
   val http4sVersion = "0.20.0-M5"
   val http4sDsl = "org.http4s"    %% "http4s-dsl"          % http4sVersion
   val http4sServer = "org.http4s" %% "http4s-blaze-server" % http4sVersion
+  val http4sCirce = "org.http4s"  %% "http4s-circe"        % http4sVersion
 
   val circeVersion = "0.10.0"
   val circeCore = "io.circe"          %% "circe-core"           % circeVersion

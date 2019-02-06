@@ -35,13 +35,13 @@ import scala.language.higherKinds
 import scala.sys.process._
 
 /**
-  * This test contains a single test method that checks:
-  * - MasterNode connectivity with ganache-hosted Fluence smart contract
-  * - MasterNode ability to load previous node clusters and subscribe to new clusters
-  * - Successful cluster formation and starting blocks creation
-  */
+ * This test contains a single test method that checks:
+ * - MasterNode connectivity with ganache-hosted Fluence smart contract
+ * - MasterNode ability to load previous node clusters and subscribe to new clusters
+ * - Successful cluster formation and starting blocks creation
+ */
 class MasterNodeIntegrationSpec
-  extends WordSpec with LazyLogging with Matchers with BeforeAndAfterAll with OptionValues with Integration
+    extends WordSpec with LazyLogging with Matchers with BeforeAndAfterAll with OptionValues with Integration
     with TendermintSetup with GanacheSetup with DockerSetup {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
@@ -54,6 +54,7 @@ class MasterNodeIntegrationSpec
   }
 
   override protected def afterAll(): Unit = {
+    "docker network rm fluence_1_0 fluence_1_1 fluence_2_0 fluence_2_1".! // TODO: remove it after DockerIO.run's resource if fixed
     killGanache()
   }
 
