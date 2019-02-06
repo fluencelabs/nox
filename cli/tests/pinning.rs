@@ -30,8 +30,9 @@ fn publish_pinned(wait_eth_sync: bool, wait_tx_include: bool) {
         .with_tx_include(wait_tx_include);
 
     let count = 5;
-    let nodes: Result<Vec<(Option<H256>, Register)>> =
-        (0..count).map(|_| opts.register_node(1, true)).collect();
+    let nodes: Result<Vec<(Option<H256>, Register)>> = (0..count)
+        .map(|_| opts.register_random_node(1, true))
+        .collect();
     let nodes: Vec<(Option<H256>, Register)> = nodes.unwrap();
     let nodes: Vec<(H256, Register)> = nodes
         .into_iter()

@@ -51,6 +51,7 @@ pub struct Register {
     eth: EthereumArgs,
 }
 
+#[derive(PartialEq, Debug)]
 pub enum Registered {
     TransactionSent(H256),
     Deployed {

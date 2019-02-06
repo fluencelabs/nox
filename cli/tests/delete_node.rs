@@ -28,7 +28,7 @@ fn delete_enqueued_node(wait_eth_sync: bool, wait_tx_include: bool) {
         .with_eth_sync(wait_eth_sync)
         .with_tx_include(wait_tx_include);
 
-    let (tx, _) = opts.register_node(1, false).unwrap();
+    let (tx, _) = opts.register_random_node(1, false).unwrap();
 
     let logs = opts.get_transaction_logs(&tx.unwrap(), new_node::parse_log);
     let log = logs.first().unwrap();
@@ -46,7 +46,7 @@ fn deleted_deployed_node(wait_eth_sync: bool, wait_tx_include: bool) {
         .with_eth_sync(wait_eth_sync)
         .with_tx_include(wait_tx_include);
 
-    let (tx, _) = opts.register_node(1, false).unwrap();
+    let (tx, _) = opts.register_random_node(1, false).unwrap();
     let logs = opts.get_transaction_logs(&tx.unwrap(), new_node::parse_log);
     let log = logs.first().unwrap();
     let node_id = log.id;
