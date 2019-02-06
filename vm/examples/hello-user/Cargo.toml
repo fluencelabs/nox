@@ -1,5 +1,4 @@
 [package]
-
 name = "hello_user"
 version = "0.1.1"
 authors = ["Fluence Labs"]
@@ -8,23 +7,21 @@ description = "Just a demo application for Fluence"
 edition = "2018"
 
 [profile.release]
-
 debug = false
 lto = true
 opt-level = "z"
 panic = "abort"
 
 [lib]
-
 name = "hello_user"
 path = "src/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-
-log = "0.4"
 fluence = { version = "0.0.7", features = ["wasm_logger_warn", "export_allocator"]}
 
 [dev-dependencies]
-
 simple_logger = "1.0.1"
+
+[replace]
+"fluence:0.0.7" = {path = "../../../sdk/rust"}

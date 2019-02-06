@@ -15,15 +15,9 @@
  */
 
 //! A simple demo application for Fluence.
-use fluence;
-use std::ptr::NonNull;
+use fluence::sdk::*;
 
-#[no_mangle]
-pub unsafe fn invoke(ptr: *mut u8, len: usize) -> NonNull<u8> {
-    let user_name = fluence::memory::read_input_from_mem(ptr, len);
-    let user_name: String = String::from_utf8(user_name).unwrap();
-
-    // return a pointer to the result in memory
-    fluence::memory::write_result_to_mem(format!("Hello from Fluence to {}", user_name).as_bytes())
-        .expect("Putting result string to the memory was failed.")
+#[invocation_handler]
+fn main(arg: String) -> String {
+    format!("Hello from Fluence to {}", arg)
 }
