@@ -33,9 +33,11 @@ fn publish_pinned(wait_eth_sync: bool, wait_tx_include: bool) {
     let nodes: Result<Vec<(Option<H256>, Register)>> =
         (0..count).map(|_| opts.register_node(1, true)).collect();
     let nodes: Vec<(Option<H256>, Register)> = nodes.unwrap();
-    let nodes: Vec<(H256, Register)> = nodes.into_iter()
+    let nodes: Vec<(H256, Register)> = nodes
+        .into_iter()
         .filter(|r| r.0.is_some())
-        .map(|r| (r.0.unwrap(), r.1)).collect();
+        .map(|r| (r.0.unwrap(), r.1))
+        .collect();
     let node_ids: Vec<H256> = nodes.iter().map(|(_, n)| *n.tendermint_key()).collect();
 
     let tx = opts.publish_app(count, node_ids).unwrap();
