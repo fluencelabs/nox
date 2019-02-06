@@ -17,12 +17,13 @@
 package fluence.statemachine.config
 import java.io.File
 
-import cats.{Monad, Traverse}
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.{IO, LiftIO, Sync}
-import cats.syntax.list._
-import cats.syntax.flatMap._
 import cats.instances.list._
+import cats.syntax.flatMap._
+import cats.syntax.list._
+import cats.{Monad, Traverse}
+import fluence.statemachine.control.ControlServer.ControlServerConfig
 import fluence.statemachine.error.{StateMachineError, VmModuleLocationError}
 
 import scala.language.higherKinds
@@ -30,13 +31,23 @@ import scala.language.higherKinds
 /**
  * State machine settings.
  *
- * @param sessionExpirationPeriod period after which the session becomes expired,
+ * @param sessionExpirationPeriod Period after which the session becomes expired,
  *                                measured as difference between the current `txCounter` value and
  *                                its value at the last activity in the session.
- * @param moduleFiles sequence of files with WASM module code
- * @param logLevel level of logging ( OFF / ERROR / WARN / INFO / DEBUG / TRACE )
+ * @param moduleFiles Sequence of files with WASM module code
+ * @param logLevel Level of logging ( OFF / ERROR / WARN / INFO / DEBUG / TRACE )
+ * @param metricsPort Port to serve metrics on
+ * @param abciPort Port to listen for ABCI events
+ * @param control Configuration for ControlRPC server
  */
-case class StateMachineConfig(sessionExpirationPeriod: Long, moduleFiles: List[String], logLevel: String) {
+case class StateMachineConfig(
+  sessionExpirationPeriod: Long,
+  moduleFiles: List[String],
+  logLevel: String,
+  metricsPort: Short,
+  abciPort: Short,
+  control: ControlServerConfig,
+) {
 
   /**
    * Extracts module filenames that have wast or wasm extensions from the module-files section of a given config.
