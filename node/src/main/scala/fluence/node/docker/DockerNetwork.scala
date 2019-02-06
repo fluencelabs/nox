@@ -24,12 +24,16 @@ import fluence.node.docker.DockerIO.shiftDelay
 import scala.language.higherKinds
 import scala.sys.process._
 
-/** Represents docker network, defined by it's name */
+/**
+ * Represents docker network, defined by it's name
+ * */
 case class DockerNetwork(name: String) extends AnyVal
 
 object DockerNetwork extends slogging.LazyLogging {
 
-  /** Run shell command and raise error on non-zero exit code */
+  /**
+   *  Run shell command and raise error on non-zero exit code
+   *  */
   private def run[F[_]: ContextShift](cmd: String)(implicit F: Sync[F]): F[Unit] = {
     shiftDelay(cmd.!).flatMap {
       case exit if exit != 0 =>
@@ -39,7 +43,9 @@ object DockerNetwork extends slogging.LazyLogging {
     }
   }
 
-  /** Create docker network as a resource. Network is deleted after resource is used. */
+  /**
+   *  Create docker network as a resource. Network is deleted after resource is used.
+   *  */
   def make[F[_]: ContextShift](name: String)(implicit F: Sync[F]): Resource[F, DockerNetwork] =
     Resource.make(run(s"docker network create $name").as(DockerNetwork(name))) {
       case DockerNetwork(n) =>
@@ -47,7 +53,9 @@ object DockerNetwork extends slogging.LazyLogging {
           .flatMap(_ => run(s"docker network rm $n"))
     }
 
-  /** Join (connect to) docker network as a resource. Container will be disconnected from network after resource is used. */
+  /**
+   * Join (connect to) docker network as a resource. Container will be disconnected from network after resource is used.
+   * */
   def join[F[_]: ContextShift](container: String, network: DockerNetwork)(
     implicit F: Sync[F]
   ): Resource[F, Unit] =
