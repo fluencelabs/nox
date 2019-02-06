@@ -407,6 +407,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore]
     fn publish_to_contract_success() -> Result<(), Error> {
         let publisher =
             generate_publisher("64b8f12d14925394ae0119466dff6ff2b021a3e9", Credentials::No);
