@@ -26,32 +26,39 @@ import scala.language.higherKinds
 
 /**
  * Sink and source for control events
- * @param changePeersRef Holds a list of ChangePeer events
- * @param stopRef MVar holding stop signal
+ * @param dropPeersRef Holds a list of DropPeer events
+ * @param stopRef Deferred holding stop signal, completed when the worker should stop
  * @tparam F Effect
  */
 class ControlSignals[F[_]: FlatMap] private (
-  private val changePeersRef: MVar[F, List[ChangePeer]],
-  private val stopRef: MVar[F, Unit]
+  private val dropPeersRef: MVar[F, List[DropPeer]],
+  private val stopRef: Deferred[F, Unit]
 ) {
 
   /**
-   * Add a new ChangePeer event
-   * @param change ChangePeer event
+   * Add a new DropPeer event
    */
-  def changePeer(change: ChangePeer): F[Unit] =
+  private[control] def dropPeer(drop: DropPeer): F[Unit] =
     for {
-      changes <- changePeersRef.take
-      _ <- changePeersRef.put(changes :+ change)
+      changes <- dropPeersRef.take
+      _ <- dropPeersRef.put(changes :+ drop)
     } yield ()
 
-  // Retrieve list of current ChangePeer events
-  val changePeers: Resource[F, List[ChangePeer]] =
-    Resource.make(changePeersRef.tryTake.map(_.toList.flatten))(_ => changePeersRef.tryPut(Nil).void)
+  /**
+   * Retrieve list of current DropPeer events
+   */
+  val dropPeers: Resource[F, List[DropPeer]] =
+    Resource.make(dropPeersRef.tryTake.map(_.toList.flatten))(_ => dropPeersRef.tryPut(Nil).void)
 
-  // Will evaluate once ControlSignals is stopped
-  val stop: F[Unit] =
-    stopRef.take
+  /**
+   * Orders the worker to stop
+   */
+  private[control] def stopWorker(): F[Unit] = stopRef.complete(())
+
+  /**
+   * Will evaluate once the worker should stop
+   */
+  val stop: F[Unit] = stopRef.get
 }
 
 object ControlSignals {
@@ -64,9 +71,9 @@ object ControlSignals {
   def apply[F[_]: Concurrent](): Resource[F, ControlSignals[F]] =
     Resource.make(
       for {
-        changePeersRef ← MVar[F].of[List[ChangePeer]](Nil)
-        stopRef ← MVar.empty[F, Unit]
-        instance = new ControlSignals[F](changePeersRef, stopRef)
+        dropPeersRef ← MVar[F].of[List[DropPeer]](Nil)
+        stopRef ← Deferred[F, Unit]
+        instance = new ControlSignals[F](dropPeersRef, stopRef)
       } yield instance
     ) { s =>
       Sync[F].suspend(

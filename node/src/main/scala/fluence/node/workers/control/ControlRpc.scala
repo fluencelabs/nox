@@ -35,12 +35,49 @@ abstract class ControlRpc[F[_]] {
    */
   def dropPeer(key: ByteVector): F[Unit]
 
+  /**
+   * Request current worker status
+   * @return Currently if method returned without an error, worker is considered to be healthy
+   */
+  def status(): F[Unit]
+
+  def stop(): F[Unit]
+}
+
+class HttpControlRpc[F[_]: Sync](hostname: String, port: Short)(implicit s: SttpBackend[F, Nothing])
+    extends ControlRpc[F] {
+
+  /**
+   * Send a serializable request to the worker's control endpoint
+   * @param request Control RPC request
+   * @param path Control RPC path
+   */
+  private def send[Req: Encoder](request: Req, path: String): F[Unit] = {
+    import cats.syntax.apply._
+    import cats.syntax.functor._
+    import cats.syntax.flatMap._
+    import cats.syntax.either._
+
+    sttp
+      .body(request)
+      .post(uri"http://$hostname:$port/control/$path")
+      .send()
+      .map(_.body.leftMap(msg => new Exception(s"Error sending $request: $msg"): Throwable))
+      .flatMap(Sync[F].fromEither)
+      .void
+  }
+
+  def dropPeer(key: ByteVector): F[Unit] = send(DropPeer(key), "dropPeer")
+
+  def status(): F[Unit] = send(GetStatus(), "status")
+
+  def stop(): F[Unit] = send(Stop(), "stop")
 }
 
 object ControlRpc {
 
-  def apply[F[_]](): ControlRpc[F] = new ControlRpc[F] {
-    override def dropPeer(key: ByteVector): F[Unit] = ???
-  }
-
+  def apply[F[_]: Sync](hostname: String, port: Short)(
+    implicit s: SttpBackend[F, Nothing]
+  ): ControlRpc[F] =
+    new HttpControlRpc[F](hostname, port)
 }

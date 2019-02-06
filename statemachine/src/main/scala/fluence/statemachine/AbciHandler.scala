@@ -23,7 +23,7 @@ import com.github.jtendermint.jabci.api._
 import com.github.jtendermint.jabci.types.Request.ValueCase.DELIVER_TX
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
-import fluence.statemachine.control.{ChangePeer, ControlSignals}
+import fluence.statemachine.control.{ControlSignals, DropPeer}
 import fluence.statemachine.state.{Committer, QueryProcessor}
 import fluence.statemachine.tx._
 import fluence.statemachine.util.{ClientInfoMessages, Metrics, TimeLogger, TimeMeter}
@@ -182,24 +182,24 @@ class AbciHandler(
   override def requestEndBlock(
     req: RequestEndBlock
   ): ResponseEndBlock = {
-    def validatorUpdate(change: ChangePeer) = {
+    def dropValidator(drop: DropPeer) = {
       ValidatorUpdate
         .newBuilder()
         .setPubKey(
           PubKey
             .newBuilder()
-            .setType(change.keyType)
-            .setData(ByteString.copyFrom(change.validatorKey.toArray))
+            .setType(DropPeer.KEY_TYPE)
+            .setData(ByteString.copyFrom(drop.validatorKey.toArray))
         )
-        .setPower(change.votePower)
+        .setPower(0) // settings power to zero votes to remove the validator
     }
-    controlSignals.changePeers
+    controlSignals.dropPeers
       .use(
         drops =>
           IO.pure {
             drops
               .foldLeft(ResponseEndBlock.newBuilder()) {
-                case (resp, change) ⇒ resp.addValidatorUpdates(validatorUpdate(change))
+                case (resp, drop) ⇒ resp.addValidatorUpdates(dropValidator(drop))
               }
               .build()
         }
