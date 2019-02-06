@@ -23,8 +23,8 @@ use crate::contract_func::contract::events::node_deleted;
 use crate::command::*;
 use crate::contract_func::call_contract;
 use crate::utils;
-use failure::err_msg;
-use failure::Error;
+use failure::{err_msg, Error, SyncFailure};
+use web3::transports::Http;
 
 use crate::contract_func::contract::functions::delete_node;
 use crate::contract_func::get_transaction_logs;
@@ -65,10 +65,13 @@ impl DeleteNode {
     }
 
     pub fn delete_node(self, show_progress: bool) -> Result<H256, Error> {
+        let (_eloop, transport) = Http::new(self.eth.eth_url.as_str()).map_err(SyncFailure::new)?;
+        let web3 = &web3::Web3::new(transport);
+
         let delete_node_fn = || -> Result<H256, Error> {
             let (call_data, _) = delete_node::call(self.tendermint_key);
 
-            call_contract(&self.eth, call_data)
+            call_contract(web3, &self.eth, call_data)
         };
 
         let wait_event_fn = |tx: &H256| -> Result<(), Error> {
@@ -92,7 +95,7 @@ impl DeleteNode {
                     "Waiting while Ethereum node is syncing...",
                     step(0).as_str(),
                     "Ethereum node synced.",
-                    || wait_sync(self.eth.eth_url.clone()),
+                    || wait_sync(web3),
                 )?;
             }
 
@@ -110,7 +113,7 @@ impl DeleteNode {
                     step(2).as_str(),
                     "Transaction included. App deleted.",
                     || {
-                        wait_tx_included(self.eth.eth_url.clone(), &tx)?;
+                        wait_tx_included(&tx, web3)?;
                         wait_event_fn(&tx)?;
                         Ok(tx)
                     },
@@ -120,12 +123,12 @@ impl DeleteNode {
             }
         } else {
             if self.eth.wait_eth_sync {
-                wait_sync(self.eth.eth_url.clone())?;
+                wait_sync(web3)?;
             }
             let tx = delete_node_fn()?;
 
             if self.eth.wait_tx_include {
-                wait_tx_included(self.eth.eth_url.clone(), &tx)?;
+                wait_tx_included(&tx, web3)?;
                 wait_event_fn(&tx)?;
             }
 

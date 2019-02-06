@@ -29,16 +29,16 @@ use failure::{err_msg, Error, ResultExt, SyncFailure};
 use crate::credentials::Credentials;
 use crate::utils;
 use ethabi::RawLog;
-use std::ops::Mul;
 use std::time::Duration;
 
 use_contract!(contract, "../bootstrap/contracts/compiled/Network.abi");
 
 /// Calls contract method and returns hash of the transaction
-pub fn call_contract(eth: &EthereumArgs, call_data: ethabi::Bytes) -> Result<H256, Error> {
-    let (_eloop, transport) = Http::new(&eth.eth_url.as_str()).map_err(SyncFailure::new)?;
-    let web3 = web3::Web3::new(transport);
-
+pub fn call_contract(
+    web3: &Web3<Http>,
+    eth: &EthereumArgs,
+    call_data: ethabi::Bytes,
+) -> Result<H256, Error> {
     match &eth.credentials {
         Credentials::No => call_contract_trusted_node(web3, None, call_data, &eth),
         Credentials::Password(pass) => {
@@ -50,17 +50,11 @@ pub fn call_contract(eth: &EthereumArgs, call_data: ethabi::Bytes) -> Result<H25
 
 /// Signs transaction with a secret key and sends a raw transaction to Ethereum node
 fn call_contract_local_sign(
-    web3: Web3<Http>,
+    web3: &Web3<Http>,
     secret: &Secret,
     call_data: ethabi::Bytes,
     eth: &EthereumArgs,
 ) -> Result<H256, Error> {
-    let gas_price = web3
-        .eth()
-        .gas_price()
-        .wait()
-        .map_err(SyncFailure::new)?
-        .mul(5u32); // Multiply gas by 5, so tx is included faster. TODO: it could panic here on overflow
     let nonce = web3
         .eth()
         .transaction_count(eth.account, None)
@@ -68,12 +62,12 @@ fn call_contract_local_sign(
         .map_err(SyncFailure::new)?;
 
     let tx = Transaction {
-        nonce,
+        nonce: nonce,
         value: "0".parse()?,
         action: Action::Call(eth.contract_address),
         data: call_data,
         gas: eth.gas.into(),
-        gas_price,
+        gas_price: eth.gas_price.into(),
     };
 
     let tx_signed = tx.sign(secret, None);
@@ -89,18 +83,18 @@ fn call_contract_local_sign(
 
 /// Sends a transaction to a trusted node with an unlocked account (or, firstly, unlocks account with password)
 fn call_contract_trusted_node(
-    web3: Web3<Http>,
+    web3: &Web3<Http>,
     password: Option<&str>,
     call_data: ethabi::Bytes,
     eth: &EthereumArgs,
 ) -> Result<H256, Error> {
-    let options = utils::options_with_gas(eth.gas);
+    let options = utils::options();
     let tx_request = TransactionRequest {
         from: eth.account,
         to: Some(eth.contract_address),
         data: Some(Bytes(call_data)),
-        gas: options.gas,
-        gas_price: options.gas_price,
+        gas: Some(eth.gas.into()),
+        gas_price: Some(eth.gas_price.into()),
         value: options.value,
         nonce: options.nonce,
         condition: options.condition,
@@ -191,11 +185,8 @@ where
 }
 
 // Block current thread and query `eth_getTransactionByHash` in loop, until transaction hash becomes non-null
-pub fn wait_tx_included(eth_url: String, tx: &H256) -> Result<Web3Transaction, Error> {
+pub fn wait_tx_included(tx: &H256, web3: &Web3<Http>) -> Result<Web3Transaction, Error> {
     use std::thread;
-
-    let (_eloop, transport) = Http::new(eth_url.as_str()).map_err(SyncFailure::new)?;
-    let web3 = &web3::Web3::new(transport);
 
     // TODO: move to config or to options
     let max_attempts = 10;
@@ -250,11 +241,8 @@ pub fn wait_tx_included(eth_url: String, tx: &H256) -> Result<Web3Transaction, E
 }
 
 // Block current thread and query Ethereum node with eth_syncing until it finishes syncing blocks
-pub fn wait_sync(eth_url: String) -> Result<(), Error> {
+pub fn wait_sync(web3: &Web3<Http>) -> Result<(), Error> {
     use std::thread;
-
-    let (_eloop, transport) = Http::new(eth_url.as_str()).map_err(SyncFailure::new)?;
-    let web3 = &web3::Web3::new(transport);
 
     // TODO: move to config or to options
     let ten_seconds = Duration::from_secs(10);

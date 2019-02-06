@@ -17,15 +17,14 @@
 use std::fs::File;
 use std::io::prelude::*;
 
-use failure::err_msg;
-use failure::Error;
-use failure::ResultExt;
+use failure::{err_msg, Error, ResultExt, SyncFailure};
 
 use clap::ArgMatches;
 use clap::{value_t, App, Arg, SubCommand};
 use derive_getters::Getters;
 use ethabi::RawLog;
 use reqwest::Client;
+use web3::transports::Http;
 use web3::types::H256;
 
 use crate::command::{parse_ethereum_args, with_ethereum_args, EthereumArgs};
@@ -86,6 +85,9 @@ impl Publisher {
 
     /// Sends code to Swarm and publishes the hash of the file from Swarm to Fluence smart contract
     pub fn publish(&self, show_progress: bool) -> Result<Published, Error> {
+        let (_eloop, transport) = Http::new(self.eth.eth_url.as_str()).map_err(SyncFailure::new)?;
+        let web3 = &web3::Web3::new(transport);
+
         let upload_to_swarm_fn = || -> Result<H256, Error> {
             let hash = upload_code_to_swarm(&self.swarm_url.as_str(), &self.bytes.as_slice())?;
             let hash = hash.parse()?;
@@ -104,7 +106,7 @@ impl Publisher {
                 self.pin_to_nodes.clone(),
             );
 
-            Ok(call_contract(&self.eth, call_data)
+            Ok(call_contract(web3, &self.eth, call_data)
                 .context("error calling addApp in smart contract")?)
         };
 
@@ -156,7 +158,7 @@ impl Publisher {
                     step(3).as_str(),
                     "Transaction was included.",
                     || {
-                        wait_tx_included(self.eth.eth_url.clone(), &tx)?;
+                        wait_tx_included(&tx, web3)?;
                         wait_event_fn(&tx)
                     },
                 )
@@ -168,7 +170,7 @@ impl Publisher {
             let tx = publish_to_contract_fn(hash)?;
 
             if self.eth.wait_tx_include {
-                wait_tx_included(self.eth.eth_url.clone(), &tx)?;
+                wait_tx_included(&tx, web3)?;
                 wait_event_fn(&tx)
             } else {
                 Ok(Published::TransactionSent(tx))
@@ -405,7 +407,6 @@ mod tests {
 
     #[test]
     #[ignore]
-    // TODO: unignore. Ignored due to 'out of gas' error when running all tests on Ganache
     fn publish_to_contract_success() -> Result<(), Error> {
         let publisher =
             generate_publisher("64b8f12d14925394ae0119466dff6ff2b021a3e9", Credentials::No);
