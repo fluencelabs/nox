@@ -31,11 +31,14 @@ import scala.language.higherKinds
 /**
  * State machine settings.
  *
- * @param sessionExpirationPeriod period after which the session becomes expired,
+ * @param sessionExpirationPeriod Period after which the session becomes expired,
  *                                measured as difference between the current `txCounter` value and
  *                                its value at the last activity in the session.
- * @param moduleFiles sequence of files with WASM module code
- * @param logLevel level of logging ( OFF / ERROR / WARN / INFO / DEBUG / TRACE )
+ * @param moduleFiles Sequence of files with WASM module code
+ * @param logLevel Level of logging ( OFF / ERROR / WARN / INFO / DEBUG / TRACE )
+ * @param metricsPort Port to serve metrics on
+ * @param abciPort Port to listen for ABCI events
+ * @param control Configuration for ControlRPC server
  */
 case class StateMachineConfig(
   sessionExpirationPeriod: Long,

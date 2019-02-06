@@ -181,28 +181,31 @@ class AbciHandler(
   // see https://github.com/tendermint/tendermint/blob/master/docs/spec/abci/abci.md#endblock
   override def requestEndBlock(
     req: RequestEndBlock
-  ): ResponseEndBlock =
+  ): ResponseEndBlock = {
+    def validatorUpdate(change: ChangePeer) = {
+      ValidatorUpdate
+        .newBuilder()
+        .setPubKey(
+          PubKey
+            .newBuilder()
+            .setType(change.keyType)
+            .setData(ByteString.copyFrom(change.validatorKey.toArray))
+        )
+        .setPower(change.votePower)
+    }
     controlSignals.changePeers
       .use(
-        IO.pure(_)
-          .map(_.foldLeft(ResponseEndBlock.newBuilder()) {
-            case (resp, ChangePeer(keyType, validatorKey, votePower)) ⇒
-              resp
-                .addValidatorUpdates(
-                  ValidatorUpdate
-                    .newBuilder()
-                    .setPubKey(
-                      PubKey
-                        .newBuilder()
-                        .setType(keyType)
-                        .setData(ByteString.copyFrom(validatorKey.toArray))
-                    )
-                    .setPower(votePower)
-                )
-          })
-          .map(_.build())
+        changes =>
+          IO.pure {
+            changes
+              .foldLeft(ResponseEndBlock.newBuilder()) {
+                case (resp, change) ⇒ resp.addValidatorUpdates(validatorUpdate(change))
+              }
+              .build()
+        }
       )
       .unsafeRunSync()
+  }
 
 }
 
