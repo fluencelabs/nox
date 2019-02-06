@@ -108,6 +108,8 @@ object TendermintRpc {
    * Runs a WorkerRpc with F effect, acquiring some resources for it
    *
    * @param sttpBackend Sttp Backend to be used to make RPC calls
+   * @param hostName Hostname to query status from
+   * @param port Port to query status from
    * @tparam F Concurrent effect
    * @return Worker RPC instance. Note that it should be stopped at some point, and can't be used after it's stopped
    */
