@@ -30,8 +30,9 @@ lazy val vm = (project in file("vm"))
       scalaIntegrationTest,
       mockito
     ),
-    (test in IntegrationTest) := (test in IntegrationTest)
+    test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(compile in `vm-counter`)
+      .dependsOn(compile in `vm-hello-user`)
       .dependsOn(compile in `vm-llamadb`)
       .value
   )
@@ -177,6 +178,8 @@ lazy val ethclient = (project in file("ethclient"))
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val node = project
+  .configs(IntegrationTest)
+  .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
   .settings(
     commons,
     kindProjector,
@@ -190,7 +193,7 @@ lazy val node = project
       circeParser,
       http4sDsl,
       http4sServer,
-      scalaTest
+      scalaIntegrationTest
     ),
     assemblyMergeStrategy in assembly := {
       // a module definition fails compilation for java 8, just skip it
@@ -201,11 +204,11 @@ lazy val node = project
         val oldStrategy = (assemblyMergeStrategy in assembly).value
         oldStrategy(x)
     },
-    test in Test := (test in Test)
+    test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(docker)
       .dependsOn(docker in statemachine)
       .dependsOn(compile in `vm-llamadb`)
-      .dependsOn(compile in Test) // run compilation before building docker containers
+      .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
       .value,
     mainClass in assembly       := Some("fluence.node.MasterNodeApp"),
     assemblyJarName in assembly := "master-node.jar",
