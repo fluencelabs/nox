@@ -70,7 +70,7 @@ impl TestOpts {
         self
     }
 
-    pub fn register_node(&mut self, ports: u16, private: bool) -> Result<(H256, Register)> {
+    pub fn register_node(&mut self, ports: u16, private: bool) -> Result<(Option<H256>, Register)> {
         let mut rng = rand::thread_rng();
         let rnd_num: u64 = rng.gen();
         let tendermint_key: H256 = H256::from(rnd_num);
@@ -94,13 +94,14 @@ impl TestOpts {
         .unwrap();
 
         let tx = match reg.register(false)? {
-            Registered::TransactionSent(tx) => tx,
+            Registered::TransactionSent(tx) => Some(tx),
             Registered::Deployed {
                 app_ids: _,
                 ports: _,
                 tx,
-            } => tx,
-            Registered::Enqueued(tx) => tx,
+            } => Some(tx),
+            Registered::Enqueued(tx) => Some(tx),
+            Registered::AlreadyRegistered => None,
         };
 
         Ok((tx, reg))

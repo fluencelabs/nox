@@ -59,6 +59,7 @@ pub enum Registered {
         tx: H256,
     },
     Enqueued(H256),
+    AlreadyRegistered,
 }
 
 impl Register {
@@ -181,56 +182,72 @@ impl Register {
                 step_counter.register()
             };
 
-            if !self.no_status_check {
+            let is_registered = if !self.no_status_check {
                 utils::with_progress(
                     "Check if node in smart contract is already registered...",
                     step_counter.format_next_step().as_str(),
                     "Smart contract checked.",
                     || check_node_registered_fn(),
-                )?;
-            }
-
-            if self.eth.wait_eth_sync {
-                utils::with_progress(
-                    "Waiting while Ethereum node is syncing...",
-                    step_counter.format_next_step().as_str(),
-                    "Ethereum node synced.",
-                    || wait_sync(web3),
-                )?;
+                )?
+            } else {
+                false
             };
 
-            let tx = utils::with_progress(
-                "Registering the node in the smart contract...",
-                step_counter.format_next_step().as_str(),
-                "Transaction with node registration was sent.",
-                publish_to_contract_fn,
-            )?;
-
-            if self.eth.wait_tx_include {
-                utils::print_tx_hash(tx);
-                utils::with_progress(
-                    "Waiting for the transaction to be included in a block...",
-                    step_counter.format_next_step().as_str(),
-                    "Transaction was included.",
-                    || {
-                        wait_tx_included(&tx, web3)?;
-                        wait_event_fn(&tx)
-                    },
-                )
+            if is_registered {
+                Ok(Registered::AlreadyRegistered)
             } else {
-                Ok(Registered::TransactionSent(tx))
+                if self.eth.wait_eth_sync {
+                    utils::with_progress(
+                        "Waiting while Ethereum node is syncing...",
+                        step_counter.format_next_step().as_str(),
+                        "Ethereum node synced.",
+                        || wait_sync(web3),
+                    )?;
+                };
+
+                let tx = utils::with_progress(
+                    "Registering the node in the smart contract...",
+                    step_counter.format_next_step().as_str(),
+                    "Transaction with node registration was sent.",
+                    publish_to_contract_fn,
+                )?;
+
+                if self.eth.wait_tx_include {
+                    utils::print_tx_hash(tx);
+                    utils::with_progress(
+                        "Waiting for the transaction to be included in a block...",
+                        step_counter.format_next_step().as_str(),
+                        "Transaction was included.",
+                        || {
+                            wait_tx_included(&tx, web3)?;
+                            wait_event_fn(&tx)
+                        },
+                    )
+                } else {
+                    Ok(Registered::TransactionSent(tx))
+                }
             }
         } else {
-            if self.eth.wait_eth_sync {
-                wait_sync(web3)?;
-            }
-
-            let tx = publish_to_contract_fn()?;
-
-            if self.eth.wait_tx_include {
-                wait_event_fn(&tx)
+            let is_registered = if !self.no_status_check {
+                check_node_registered_fn()?
             } else {
-                Ok(Registered::TransactionSent(tx))
+                false
+            };
+
+            if is_registered {
+                Ok(Registered::AlreadyRegistered)
+            } else {
+                if self.eth.wait_eth_sync {
+                    wait_sync(web3)?;
+                }
+
+                let tx = publish_to_contract_fn()?;
+
+                if self.eth.wait_tx_include {
+                    wait_event_fn(&tx)
+                } else {
+                    Ok(Registered::TransactionSent(tx))
+                }
             }
         }
     }
