@@ -60,7 +60,7 @@ object DockerIO extends LazyLogging {
    *
    * @param fn the function to run
    */
-  private def shiftDelay[F[_]: Sync: ContextShift, A](fn: ⇒ A): F[A] =
+  private[docker] def shiftDelay[F[_]: Sync: ContextShift, A](fn: ⇒ A): F[A] =
     ContextShift[F].shift *> Sync[F].delay(fn)
 
   /**
@@ -98,7 +98,7 @@ object DockerIO extends LazyLogging {
     } {
       case (Success(dockerId), exitCase) ⇒
         shiftDelay {
-          logger.info(s"Going to cleanup $dockerId, exit case: $exitCase")
+          logger.info(s"Going to stop container $dockerId, exit case: $exitCase")
           s"docker stop $dockerId".!
         }.flatMap {
           case 0 ⇒
@@ -160,4 +160,5 @@ object DockerIO extends LazyLogging {
       (time, isRunning) = timeIsRunning
     } yield DockerRunStatus(time, isRunning)
   }
+
 }

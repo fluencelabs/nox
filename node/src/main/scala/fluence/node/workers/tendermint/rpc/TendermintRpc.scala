@@ -62,16 +62,6 @@ object TendermintRpc {
   private val requestEncoder: Encoder[Request] = deriveEncoder[Request]
 
   /**
-   * Builds a Tendermint-related URI for the given path
-   *
-   * @param params Worker params
-   * @param path Path to substitute
-   * @return URI
-   */
-  private def rpcUri(params: WorkerParams, path: String = ""): Uri =
-    uri"http://${params.currentWorker.ip.getHostAddress}:${params.currentWorker.rpcPort}/$path"
-
-  /**
    * Wrapper for Tendermint's RPC request
    *
    * @param method Method name
@@ -94,17 +84,12 @@ object TendermintRpc {
   def broadcastTxCommit(tx: String, id: String = ""): Request =
     Request(method = "broadcast_tx_commit", params = Json.fromString(tx) :: Nil, id = id)
 
-  private def toSomePipe[F[_], T]: fs2.Pipe[F, T, Option[T]] =
-    _.map(Some(_))
-
   private def status[F[_]: Sync](
-    params: WorkerParams
+    uri: Uri
   )(implicit sttpBackend: SttpBackend[F, Nothing]): EitherT[F, Throwable, StatusResponse.WorkerTendermintInfo] =
     EitherT {
-      val url = rpcUri(params, "status")
-
       sttp
-        .get(url)
+        .get(uri)
         .response(asJson[StatusResponse])
         .send()
         .attempt
@@ -122,23 +107,29 @@ object TendermintRpc {
   /**
    * Runs a WorkerRpc with F effect, acquiring some resources for it
    *
-   * @param params Worker params to get Worker URI from
    * @param sttpBackend Sttp Backend to be used to make RPC calls
+   * @param hostName Hostname to query status from
+   * @param port Port to query status from
    * @tparam F Concurrent effect
    * @return Worker RPC instance. Note that it should be stopped at some point, and can't be used after it's stopped
    */
-  def apply[F[_]: Concurrent](
-    params: WorkerParams
-  )(implicit sttpBackend: SttpBackend[F, Nothing]): Resource[F, TendermintRpc[F]] =
+  def make[F[_]: Concurrent](
+    hostName: String,
+    port: Short
+  )(implicit sttpBackend: SttpBackend[F, Nothing]): Resource[F, TendermintRpc[F]] = {
+    def rpcUri(hostName: String, path: String = ""): Uri =
+      uri"http://$hostName:$port/$path"
+
     for {
       queue ← Resource.liftF(fs2.concurrent.Queue.unbounded[F, TendermintRpc.Request])
+
       _ ← MakeResource.concurrentStream(
         queue.dequeue.evalMap(
           req ⇒
             sttpBackend
               .send(
                 sttp
-                  .post(rpcUri(params))
+                  .post(rpcUri(hostName))
                   .body(req.toJsonString)
               )
               .map(_.isSuccess)
@@ -147,6 +138,7 @@ object TendermintRpc {
     } yield
       new TendermintRpc[F](
         queue.enqueue,
-        status[F](params)
+        status[F](rpcUri(hostName, "status"))
       )
+  }
 }
