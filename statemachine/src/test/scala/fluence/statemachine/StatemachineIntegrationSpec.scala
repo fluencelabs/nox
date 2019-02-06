@@ -17,7 +17,7 @@
 package fluence.statemachine
 
 import cats.effect.concurrent.Deferred
-import cats.effect.{ContextShift, IO, Timer}
+import cats.effect.{Concurrent, ContextShift, IO, Timer}
 import com.github.jtendermint.jabci.api.CodeType
 import com.github.jtendermint.jabci.types.{RequestCheckTx, RequestCommit, RequestDeliverTx, RequestQuery}
 import com.google.protobuf.ByteString
@@ -48,14 +48,16 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
     // TODO: this is awful, someone please remove this
     val deferred1 = Deferred[IO, Unit]
     val deferred2 = Deferred[IO, ControlSignals[IO]]
-    ControlSignals[IO]().use { signals =>
-      for {
-        d2 <- deferred2
-        _ <- d2.complete(signals)
-        d1 <- deferred1
-        _ <- d1.get
-      } yield ()
-    }.unsafeRunSync()
+    Concurrent[IO]
+      .start(ControlSignals[IO]().use { signals =>
+        for {
+          d2 <- deferred2
+          _ <- d2.complete(signals)
+          d1 <- deferred1
+          _ <- d1.get
+        } yield ()
+      })
+      .unsafeRunSync()
 
     deferred2.unsafeRunSync().get.unsafeRunSync()
   }
