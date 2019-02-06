@@ -28,6 +28,12 @@ import org.http4s.server.blaze._
 
 import scala.language.higherKinds
 
+/**
+ * Represents HTTP JSON RPC server sending requests to ControlSignals for later consumption by state machine
+ * @param signals Control events sink
+ * @param http Http json rpc server
+ * @tparam F Effect
+ */
 case class ControlServer[F[_]](signals: ControlSignals[F], http: Server[F])
 
 object ControlServer {
@@ -38,6 +44,12 @@ object ControlServer {
    */
   case class ControlServerConfig(host: String, port: Short)
 
+  /**
+   * Run http json rpc server
+   * @param signals Control events sink
+   * @tparam F Effect
+   * @return
+   */
   private def controlService[F[_]: Concurrent](
     signals: ControlSignals[F]
   )(implicit dsl: Http4sDsl[F]): Kleisli[F, Request[F], Response[F]] = {
@@ -57,11 +69,17 @@ object ControlServer {
       .orNotFound
   }
 
+  /**
+   * Create a resource with ControlServer, will close http server after use
+   * @param config Configuration, e.g., host and port to listen on
+   * @tparam F Effect
+   * @return
+   */
   def make[F[_]: ConcurrentEffect: Timer](config: ControlServerConfig): Resource[F, ControlServer[F]] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
     for {
-      signals <- Resource.liftF(ControlSignals[F])
+      signals <- ControlSignals[F]()
       server ← BlazeServerBuilder[F]
         .bindHttp(config.port, config.host)
         .withHttpApp(controlService(signals))
