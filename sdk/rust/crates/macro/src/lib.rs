@@ -23,7 +23,7 @@ use quote::quote;
 use syn::{parse::Error, parse_macro_input, ItemFn};
 
 #[warn(clippy::redundant_closure_call)]
-fn invoke_handler_impl(fn_item: &syn::ItemFn) -> proc_macro2::TokenStream {
+fn invoke_handler_impl(fn_item: &syn::ItemFn) -> syn::Result<proc_macro2::TokenStream> {
     let ItemFn {
         constness,
         unsafety,
@@ -72,11 +72,17 @@ fn invoke_handler_impl(fn_item: &syn::ItemFn) -> proc_macro2::TokenStream {
         }
         Ok(())
     })() {
-        return e.to_compile_error();
+        return Err(e);
     }
 
-    let input_type = ParsedType::from_fn_arg(decl.inputs.first().unwrap().into_value()).unwrap();
-    let output_type = ParsedType::from_return_type(&decl.output).unwrap();
+    let input_type = ParsedType::from_fn_arg(
+        decl.inputs
+            .first()
+            // it is already checked that there is only one input arg
+            .unwrap()
+            .into_value(),
+    )?;
+    let output_type = ParsedType::from_return_type(&decl.output)?;
 
     let prolog = input_type.generate_fn_prolog();
     let epilog = output_type.generate_fn_epilog();
@@ -94,11 +100,17 @@ fn invoke_handler_impl(fn_item: &syn::ItemFn) -> proc_macro2::TokenStream {
         }
     };
 
-    resulted_invoke
+    Ok(resulted_invoke)
 }
 
 #[proc_macro_attribute]
 pub fn invocation_handler(_attr: TokenStream, input: TokenStream) -> TokenStream {
     let fn_item = parse_macro_input!(input as ItemFn);
-    invoke_handler_impl(&fn_item).into()
+    match invoke_handler_impl(&fn_item) {
+        Ok(v) => v,
+        // converts syn:error to proc_macro2::TokenStream
+        Err(e) => e.to_compile_error(),
+    }
+    // converts proc_macro2::TokenStream to proc_macro::TokenStream
+    .into()
 }

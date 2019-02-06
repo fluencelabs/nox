@@ -16,7 +16,7 @@
 
 extern crate proc_macro;
 
-use proc_macro2::Span;
+//use proc_macro2::Span;
 use quote::quote;
 use syn::{parse::Error, spanned::Spanned};
 
@@ -28,74 +28,78 @@ pub enum ParsedType {
 impl ParsedType {
     pub fn from_type(input_type: &syn::Type) -> syn::Result<ParsedType> {
         // parses generic param T in Vec<T> to string representation
-        fn parse_vec_bracket(args: &syn::PathArguments, span: Span) -> syn::Result<String> {
+        fn parse_vec_bracket(args: &syn::PathArguments) -> syn::Result<String> {
             // checks that T is angle bracketed
             let generic_arg = match args {
-                syn::PathArguments::AngleBracketed(args) => Some(args),
-                _ => {
-                    return Err(Error::new(span, "It has to be a bracketed value after Vec"));
-                },
-            }
-            .unwrap();
+                syn::PathArguments::AngleBracketed(args) => Ok(args),
+                _ => Err(Error::new(
+                    args.span(),
+                    "It has to be a bracketed value after Vec",
+                )),
+            }?;
 
-            let arg = generic_arg.args.first().unwrap();
+            let arg = generic_arg.args.first().ok_or_else(|| {
+                Error::new(
+                    generic_arg.span(),
+                    "It has to be a valid generic value in Vec brackets",
+                )
+            })?;
             let arg_val = arg.value();
 
             // converts T to syn::Type
             let arg_type = match arg_val {
-                syn::GenericArgument::Type(ty) => Some(ty),
-                _ => return Err(Error::new(span, "Incorrect type in Vec brackets")),
-            }
-            .unwrap();
+                syn::GenericArgument::Type(ty) => Ok(ty),
+                _ => Err(Error::new(arg_val.span(), "Incorrect type in Vec brackets")),
+            }?;
 
             // converts T to syn::path
             let arg_path = match arg_type {
-                syn::Type::Path(path) => Some(&path.path),
-                _ => {
-                    return Err(Error::new(
-                        span,
-                        "Unsuitable type in Vec brackets - only Vec<u8 is supported>",
-                    ));
-                },
-            }
-            .unwrap();
+                syn::Type::Path(path) => Ok(&path.path),
+                _ => Err(Error::new(
+                    arg_type.span(),
+                    "Unsuitable type in Vec brackets - only Vec<u8> is supported>",
+                )),
+            }?;
 
             // converts T to String
-            let arg_segment = arg_path.segments.first().unwrap();
+            let arg_segment = arg_path.segments.first().ok_or_else(|| {
+                Error::new(
+                    arg_path.span(),
+                    "It has to be a valid generic value in Vec brackets",
+                )
+            })?;
             let arg_segment = arg_segment.value();
+
             Ok(arg_segment.ident.to_string())
         }
 
         let path = match input_type {
-            syn::Type::Path(path) => Some(&path.path),
-            _ => {
-                return Err(Error::new(
-                    input_type.span(),
-                    "Incorrect argument type - only Vec<u8> and String are supported",
-                ));
-            },
-        }
-        .unwrap();
+            syn::Type::Path(path) => Ok(&path.path),
+            _ => Err(Error::new(
+                input_type.span(),
+                "Incorrect argument type - only Vec<u8> and String are supported",
+            )),
+        }?;
 
         // argument can be given in full path form: ::std::string::String
         // that why the last one used
-        let type_segment = path.segments.last().unwrap();
+        let type_segment = path
+            .segments
+            .last()
+            .ok_or_else(|| Error::new(path.span(), "It has to be a valid input value"))?;
         let type_segment = type_segment.value();
 
         match type_segment.ident.to_string().as_str() {
             "String" => Ok(ParsedType::Utf8String),
-            "Vec" => match parse_vec_bracket(&type_segment.arguments, type_segment.span()) {
+            "Vec" => match parse_vec_bracket(&type_segment.arguments) {
                 Ok(value) => match value.as_str() {
-                    "u8" => Some(Ok(ParsedType::ByteVector)),
-                    _ => {
-                        return Err(Error::new(
-                            value.span(),
-                            "Unsuitable type in Vec brackets - only Vec<u8 is supported>",
-                        ));
-                    },
-                }
-                .unwrap(),
-                Err(err) => Err(err),
+                    "u8" => Ok(ParsedType::ByteVector),
+                    _ => Err(Error::new(
+                        value.span(),
+                        "Unsuitable type in Vec brackets - only Vec<u8> is supported",
+                    )),
+                },
+                Err(e) => Err(e),
             },
             _ => Err(Error::new(
                 type_segment.span(),
@@ -106,20 +110,18 @@ impl ParsedType {
 
     pub fn from_fn_arg(fn_arg: &syn::FnArg) -> syn::Result<ParsedType> {
         let fn_arg = match fn_arg {
-            syn::FnArg::Captured(arg) => Some(&arg.ty),
-            _ => return Err(Error::new(fn_arg.span(), "Unknown argument")),
-        }
-        .unwrap();
+            syn::FnArg::Captured(arg) => Ok(&arg.ty),
+            _ => Err(Error::new(fn_arg.span(), "Unknown argument")),
+        }?;
 
         ParsedType::from_type(fn_arg)
     }
 
     pub fn from_return_type(ret_type: &syn::ReturnType) -> syn::Result<ParsedType> {
         let ret_type = match ret_type {
-            syn::ReturnType::Type(_, t) => Some(t),
-            _ => return Err(Error::new(ret_type.span(), "Unknown argument")),
-        }
-        .unwrap();
+            syn::ReturnType::Type(_, t) => Ok(t),
+            _ => Err(Error::new(ret_type.span(), "Unknown argument")),
+        }?;
 
         ParsedType::from_type(ret_type.as_ref())
     }
