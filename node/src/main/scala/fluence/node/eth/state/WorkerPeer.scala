@@ -36,9 +36,8 @@ case class WorkerPeer(validatorKey: ByteVector, peerId: String, ip: InetAddress,
   val address: String = s"${ip.getHostAddress}:$p2pPort"
   val peerAddress: String = s"$peerId@$address"
 
+  // TODO: remove it after adding Worker's tendermint status to node
   val rpcPort: Short = WorkerPeer.rpcPort(p2pPort)
-  val tmPrometheusPort: Short = WorkerPeer.tmPrometheusPort(p2pPort)
-  val smPrometheusPort: Short = WorkerPeer.smPrometheusPort(p2pPort)
 }
 
 object WorkerPeer {

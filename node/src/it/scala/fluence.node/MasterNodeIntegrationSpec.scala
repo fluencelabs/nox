@@ -54,6 +54,7 @@ class MasterNodeIntegrationSpec
   }
 
   override protected def afterAll(): Unit = {
+    "docker network rm fluence_1_0 fluence_1_1 fluence_2_0 fluence_2_1".! // TODO: remove it after DockerIO.run's resource if fixed
     killGanache()
   }
 
