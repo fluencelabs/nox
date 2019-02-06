@@ -56,10 +56,10 @@ case class DockerWorker[F[_]] private (
 
 object DockerWorker extends LazyLogging {
   // Internal ports
-  val P2P_PORT: Short = 26656
-  val RPC_PORT: Short = 26657
-  val TM_PROMETHEUS_PORT: Short = 26660
-  val SM_PROMETHEUS_PORT: Short = 26661
+  val P2pPort: Short = 26656
+  val RpcPort: Short = 26657
+  val TmPrometheusPort: Short = 26660
+  val SmPrometheusPort: Short = 26661
 
   private def dockerCommand(params: WorkerParams, network: DockerNetwork): DockerParams.DaemonParams = {
     import params._
@@ -70,8 +70,8 @@ object DockerWorker extends LazyLogging {
       .option("-e", s"""WORKER_DIR=$workerPath""")
       .option("--name", containerName(params))
       .option("--network", network.name)
-      .port(currentWorker.p2pPort, P2P_PORT)
-      .port(currentWorker.rpcPort, RPC_PORT)
+      .port(currentWorker.p2pPort, P2pPort)
+      .port(currentWorker.rpcPort, RpcPort)
 
     (masterNodeContainerId match {
       case Some(id) => dockerParams.option("--volumes-from", s"$id:ro")
@@ -133,13 +133,13 @@ object DockerWorker extends LazyLogging {
       }
 
   /**
-  * Creates new docker network and connects node to that network
-    *
-    * @param params used for docker network name generation
-    * @tparam F Effect
-    * @return Resource of docker network and node connection.
-    *         On release node will be disconnected, network will be removed.
-    */
+   * Creates new docker network and connects node to that network
+   *
+   * @param params used for docker network name generation
+   * @tparam F Effect
+   * @return Resource of docker network and node connection.
+   *         On release node will be disconnected, network will be removed.
+   */
   private def makeNetwork[F[_]: ContextShift: Sync](params: WorkerParams): Resource[F, DockerNetwork] = {
     logger.debug(s"Creating docker network ${dockerNetworkName(params)} for $params")
     for {
@@ -172,13 +172,14 @@ object DockerWorker extends LazyLogging {
 
       network ← makeNetwork(params)
       container ← DockerIO.run[F](dockerCommand(params, network))
-      rpc ← TendermintRpc.make[F](containerName(params), RPC_PORT)
+      rpc ← TendermintRpc.make[F](containerName(params), RpcPort)
 
       healthChecks = healthCheckStream(container, params, healthCheckConfig, rpc)
 
       // Runs health checker, wrapped with resource:
       // health check will be stopped when the resource is released.
-      _ ← MakeResource.concurrentStream[F](healthChecks.evalTap(healthReportRef.set))
+      _ ← MakeResource
+        .concurrentStream[F](healthChecks.evalTap(healthReportRef.set), s"healthChecks stream ${params.appId}")
 
       control = ControlRpc[F]()
 

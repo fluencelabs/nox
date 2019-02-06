@@ -22,7 +22,6 @@ import cats.syntax.either._
 import cats.syntax.functor._
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.circe.asJson
-import fluence.node.workers.WorkerParams
 import cats.syntax.applicativeError._
 import fluence.node.MakeResource
 import fluence.node.workers.tendermint.status.StatusResponse
@@ -134,7 +133,7 @@ object TendermintRpc {
               )
               .map(_.isSuccess)
         ),
-        name = s"tendermintRpc-${params.appId}"
+        name = s"tendermintRpc-$hostName"
       )
     } yield
       new TendermintRpc[F](
