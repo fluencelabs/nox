@@ -59,7 +59,6 @@ class ControlRpcSpec extends WordSpec with Matchers {
         implicit val b = s
         ControlRpc[IO](config.host, config.port)
       }
-//      _ <- Resource.make()
     } yield (server, rpc)
 
     "return OK on status" in {
