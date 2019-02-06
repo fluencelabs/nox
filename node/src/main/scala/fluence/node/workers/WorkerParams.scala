@@ -15,7 +15,7 @@
  */
 
 package fluence.node.workers
-import fluence.node.docker.{DockerImage, DockerParams}
+import fluence.node.docker.DockerImage
 import fluence.node.eth.state.WorkerPeer
 
 /**
@@ -33,23 +33,4 @@ case class WorkerParams(
   override def toString =
     s"(worker ${currentWorker.index} with RPC port ${currentWorker.rpcPort} for app $appId)"
 
-  /**
-   * [[fluence.node.docker.DockerIO.exec]]'s command for launching a configured worker
-   */
-  val dockerCommand: DockerParams.DaemonParams = {
-    val params = DockerParams
-      .build()
-      .option("-e", s"""CODE_DIR=$vmCodePath""")
-      .option("-e", s"""WORKER_DIR=$workerPath""")
-      .option("--name", s"${appId}_worker_${currentWorker.index}")
-      .port(currentWorker.p2pPort, 26656)
-      .port(currentWorker.rpcPort, 26657)
-      .port(currentWorker.tmPrometheusPort, 26660)
-      .port(currentWorker.smPrometheusPort, 26661)
-
-    (masterNodeContainerId match {
-      case Some(id) => params.option("--volumes-from", s"$id:ro")
-      case None => params
-    }).image(image).daemonRun()
-  }
 }

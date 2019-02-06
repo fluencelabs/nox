@@ -35,16 +35,14 @@ object WorkerConfigWriter extends slogging.LazyLogging {
    * @param rootPath Path to resolve against, usually /master inside Master container
    * @return original App and config paths wrapped in WorkerConfigPaths
    */
-  def resolveWorkerConfigPaths[F[_]: LiftIO](rootPath: Path): fs2.Pipe[F, App, (App, WorkerConfigPaths)] =
-    _.evalMap { app =>
-      (for {
-        tmDir ← IO(rootPath.resolve("tendermint"))
-        templateConfigDir ← IO(tmDir.resolve("config"))
-        workerPath ← IO(tmDir.resolve(s"${app.id}_${app.cluster.currentWorker.index}"))
-        workerConfigDir ← IO(workerPath.resolve("config"))
-        _ ← IO { Files.createDirectories(workerConfigDir) }
-      } yield (app, WorkerConfigPaths(templateConfigDir, workerPath, workerConfigDir))).to[F]
-    }
+  def resolveWorkerConfigPaths[F[_]: LiftIO](app: App, rootPath: Path) =
+    (for {
+      tmDir ← IO(rootPath.resolve("tendermint"))
+      templateConfigDir ← IO(tmDir.resolve("config"))
+      workerPath ← IO(tmDir.resolve(s"${app.id}_${app.cluster.currentWorker.index}"))
+      workerConfigDir ← IO(workerPath.resolve("config"))
+      _ ← IO { Files.createDirectories(workerConfigDir) }
+    } yield WorkerConfigPaths(templateConfigDir, workerPath, workerConfigDir)).to[F]
 
   /**
    * Generate, copy and/or update different configs used by tendermint.
@@ -61,22 +59,19 @@ object WorkerConfigWriter extends slogging.LazyLogging {
    *        - genesis.json, generated from [[App.cluster]] and [[App.id]]
    *        - config.toml, copied from `templateConfigDir/default_config.toml` and updated
    */
-  def writeConfigs[F[_]: LiftIO: Functor]: fs2.Pipe[F, (App, WorkerConfigPaths, Path), (App, WorkerConfigPaths, Path)] =
-    _.evalTap {
-      case (app, paths, _) =>
-        (
-          for {
-            _ ← WorkerConfigWriter.copyMasterKeys(paths.templateConfigDir, paths.workerConfigDir)
-            _ ← WorkerConfigWriter.writeGenesis(app, paths.workerConfigDir)
-            _ ← WorkerConfigWriter.updateConfigTOML(
-              app,
-              configSrc = paths.templateConfigDir.resolve("default_config.toml"),
-              configDest = paths.workerConfigDir.resolve("config.toml")
-            )
+  def writeConfigs[F[_]: LiftIO: Functor](app: App, paths: WorkerConfigPaths): F[Unit] =
+    (
+      for {
+        _ ← WorkerConfigWriter.copyMasterKeys(paths.templateConfigDir, paths.workerConfigDir)
+        _ ← WorkerConfigWriter.writeGenesis(app, paths.workerConfigDir)
+        _ ← WorkerConfigWriter.updateConfigTOML(
+          app,
+          configSrc = paths.templateConfigDir.resolve("default_config.toml"),
+          configDest = paths.workerConfigDir.resolve("config.toml")
+        )
 
-          } yield ()
-        ).to[F]
-    }
+      } yield ()
+    ).to[F]
 
   private def writeGenesis(app: App, dest: Path): IO[Unit] = IO {
     val genesis = GenesisConfig.generateJson(app)
