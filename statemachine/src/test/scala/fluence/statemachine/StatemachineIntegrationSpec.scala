@@ -44,23 +44,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
   private val moduleFiles = List("mul.wast", "counter.wast").map(moduleDirPrefix + "vm/src/test/resources/wast/" + _)
   private val config = StateMachineConfig(8, moduleFiles, "OFF", 26661, 26658, ControlServerConfig("localhost", 26662))
 
-  private val signals: ControlSignals[IO] = {
-    // TODO: this is awful, someone please remove this
-    val deferred1 = Deferred[IO, Unit]
-    val deferred2 = Deferred[IO, ControlSignals[IO]]
-    Concurrent[IO]
-      .start(ControlSignals[IO]().use { signals =>
-        for {
-          d2 <- deferred2
-          _ <- d2.complete(signals)
-          d1 <- deferred1
-          _ <- d1.get
-        } yield ()
-      })
-      .unsafeRunAsyncAndForget()
-
-    deferred2.unsafeRunSync().get.unsafeRunSync()
-  }
+  private val signals: ControlSignals[IO] = ControlSignals[IO]().allocated.unsafeRunSync()._1
 
   val abciHandler: AbciHandler = ServerRunner
     .buildAbciHandler(config, signals)
