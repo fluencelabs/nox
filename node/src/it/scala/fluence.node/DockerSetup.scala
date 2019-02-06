@@ -17,8 +17,7 @@
 package fluence.node
 
 import cats.effect._
-import cats.syntax.functor._
-import fluence.node.docker.{DockerIO, DockerParams}
+import fluence.node.docker.{DockerIO, DockerImage, DockerParams}
 
 import scala.language.higherKinds
 
@@ -36,31 +35,31 @@ trait DockerSetup extends OsSetup {
   }
 
   protected def runMaster[F[_]: ContextShift: Async](
-                                                      portFrom: Short,
-
-                                                      portTo: Short,
-                                                      name: String,
-                                                      statusPort: Short
-                                                    ): F[String] = {
+    portFrom: Short,
+    portTo: Short,
+    name: String,
+    statusPort: Short
+  ): Resource[F, String] =
     DockerIO
-      .exec[F](
-      DockerParams
-        .build()
-        .option("-e", s"TENDERMINT_IP=$dockerHost")
-        .option("-e", s"ETHEREUM_IP=$ethereumHost")
-        .option("-e", s"PORTS=$portFrom:$portTo")
-        .port(statusPort, 5678)
-        .option("--name", name)
-        .volume("/var/run/docker.sock", "/var/run/docker.sock")
-        // statemachine expects wasm binaries in /vmcode folder
-        .volume(
-        // TODO: by defaults, user.dir in sbt points to a submodule directory while in Idea to the project root
-        System.getProperty("user.dir")
-          + "/../vm/examples/llamadb/target/wasm32-unknown-unknown/release",
-        "/master/vmcode/vmcode-llamadb"
+      .run[F](
+        DockerParams
+          .build()
+          .option("-e", s"TENDERMINT_IP=$dockerHost")
+          .option("-e", s"ETHEREUM_IP=$ethereumHost")
+          .option("-e", s"PORTS=$portFrom:$portTo")
+          .port(statusPort, 5678)
+          .option("--name", name)
+          .volume("/var/run/docker.sock", "/var/run/docker.sock")
+          // statemachine expects wasm binaries in /vmcode folder
+          .volume(
+            // TODO: by defaults, user.dir in sbt points to a submodule directory while in Idea to the project root
+            System.getProperty("user.dir")
+              + "/../vm/examples/llamadb/target/wasm32-unknown-unknown/release",
+            "/master/vmcode/vmcode-llamadb"
+          )
+          .image(DockerImage("fluencelabs/node", "latest"))
+          .daemonRun()
       )
-        .image("fluencelabs/node:latest")
-        .unmanagedDaemonRun()
-    )
-  }
+      .map(_.containerId)
 }
+>>>>>>> master:node/src/test/scala/fluence/node/DockerSetup.scala

@@ -23,6 +23,7 @@ import com.github.jtendermint.jabci.api._
 import com.github.jtendermint.jabci.types.Request.ValueCase.DELIVER_TX
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
+import fluence.statemachine.control.ControlSignals
 import fluence.statemachine.state.{Committer, QueryProcessor}
 import fluence.statemachine.tx._
 import fluence.statemachine.util.{ClientInfoMessages, Metrics, TimeLogger, TimeMeter}
@@ -42,8 +43,9 @@ class AbciHandler(
   private val txParser: TxParser[IO],
   private val checkTxStateChecker: TxStateDependentChecker[IO],
   private val deliverTxStateChecker: TxStateDependentChecker[IO],
-  private val txProcessor: TxProcessor[IO]
-) extends LazyLogging with ICheckTx with IDeliverTx with ICommit with IQuery {
+  private val txProcessor: TxProcessor[IO],
+  private val controlSignals: ControlSignals[IO]
+) extends LazyLogging with ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock {
 
   private val queryCounter: Counter = Metrics.registerCounter("worker_query_count")
   private val queryProcessTimeCounter: Counter = Metrics.registerCounter("worker_query_process_time_sum")
@@ -174,6 +176,29 @@ class AbciHandler(
       _ = if (verboseInfoLogNeeded) logger.info(logMessage()) else logger.debug(logMessage())
     } yield validated
   }
+
+  // On block end, we can propose validator updates
+  override def requestEndBlock(
+    req: RequestEndBlock
+  ): ResponseEndBlock =
+    controlSignals.changePeers
+      .map(_.foldLeft(ResponseEndBlock.newBuilder()) {
+        case (resp, ControlSignals.ChangePeer(ttype, data, power)) ⇒
+          resp.addValidatorUpdates(
+            ValidatorUpdate
+              .newBuilder()
+              .setPubKey(
+                PubKey
+                  .newBuilder()
+                  .setType(ttype)
+                  .setData(ByteString.copyFrom(data.toArray))
+              )
+              .setPower(power)
+          )
+      })
+      .map(_.build())
+      .unsafeRunSync()
+
 }
 
 /**
