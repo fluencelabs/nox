@@ -20,6 +20,7 @@ use crate::utils::*;
 use fluence::contract_func::contract::events::app_deployed;
 use fluence::contract_status::status::{get_status, Status};
 use fluence::register::Register;
+use web3::transports::Http;
 use web3::types::H256;
 
 #[cfg(test)]
@@ -42,8 +43,10 @@ fn publish_pinned(wait_eth_sync: bool, wait_tx_include: bool) {
 
     assert_eq!(log.node_i_ds.len(), count as usize);
 
-    let status: Status =
-        get_status(opts.eth().eth_url.as_str(), opts.eth().contract_address).unwrap();
+    let (_eloop, transport) = Http::new(opts.eth().eth_url.as_str()).unwrap();
+    let web3 = &web3::Web3::new(transport);
+
+    let status: Status = get_status(web3, opts.eth().contract_address).unwrap();
 
     let target = status
         .apps

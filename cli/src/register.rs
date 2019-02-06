@@ -27,6 +27,8 @@ use crate::command::*;
 use crate::contract_func::contract::events::app_deployed::parse_log as parse_deployed;
 use crate::contract_func::contract::functions::add_node;
 use crate::contract_func::{call_contract, get_transaction_logs, wait_sync, wait_tx_included};
+use crate::contract_status::{find_by_tendermint_key, status};
+use crate::step_counter::StepCounter;
 use crate::types::{NodeAddress, IP_LEN, TENDERMINT_NODE_ID_LEN};
 use crate::utils;
 use web3::transports::Http;
@@ -35,6 +37,7 @@ use web3::types::H160;
 const START_PORT: &str = "start_port";
 const LAST_PORT: &str = "last_port";
 const PRIVATE: &str = "private";
+const NO_STATUS_CHECK: &str = "no_status_check";
 
 #[derive(Debug, Getters)]
 pub struct Register {
@@ -44,6 +47,7 @@ pub struct Register {
     start_port: u16,
     last_port: u16,
     private: bool,
+    no_status_check: bool,
     eth: EthereumArgs,
 }
 
@@ -66,6 +70,7 @@ impl Register {
         start_port: u16,
         last_port: u16,
         private: bool,
+        no_status_check: bool,
         eth: EthereumArgs,
     ) -> Result<Register, Error> {
         if last_port < start_port {
@@ -79,6 +84,7 @@ impl Register {
             start_port,
             last_port,
             private,
+            no_status_check,
             eth,
         })
     }
@@ -130,6 +136,11 @@ impl Register {
             call_contract(web3, &self.eth, call_data)
         };
 
+        let check_node_registered_fn = || -> Result<bool, Error> {
+            let contract_status = status::get_status(web3, self.eth.contract_address)?;
+            Ok(find_by_tendermint_key(&contract_status, self.tendermint_key).is_some())
+        };
+
         let wait_event_fn = |tx: &H256| -> Result<Registered, Error> {
             let logs = get_transaction_logs(self.eth.eth_url.as_str(), tx, parse_deployed)?;
 
@@ -159,14 +170,30 @@ impl Register {
 
         // sending transaction with the hash of file with code to ethereum
         if show_progress {
-            let sync_inc = self.eth.wait_eth_sync as u32;
-            let steps = 1 + (self.eth.wait_tx_include as u32) + sync_inc;
-            let step = |s| format!("{}/{}", s + sync_inc, steps);
+            let mut step_counter = StepCounter::new();
+            if !self.no_status_check {
+                step_counter.register()
+            };
+            if self.eth.wait_eth_sync {
+                step_counter.register()
+            };
+            if self.eth.wait_tx_include {
+                step_counter.register()
+            };
+
+            if !self.no_status_check {
+                utils::with_progress(
+                    "Check if node in smart contract is already registered...",
+                    step_counter.format_next_step().as_str(),
+                    "Smart contract checked.",
+                    || check_node_registered_fn(),
+                )?;
+            }
 
             if self.eth.wait_eth_sync {
                 utils::with_progress(
                     "Waiting while Ethereum node is syncing...",
-                    step(0).as_str(),
+                    step_counter.format_next_step().as_str(),
                     "Ethereum node synced.",
                     || wait_sync(web3),
                 )?;
@@ -174,7 +201,7 @@ impl Register {
 
             let tx = utils::with_progress(
                 "Registering the node in the smart contract...",
-                step(1).as_str(),
+                step_counter.format_next_step().as_str(),
                 "Transaction with node registration was sent.",
                 publish_to_contract_fn,
             )?;
@@ -183,7 +210,7 @@ impl Register {
                 utils::print_tx_hash(tx);
                 utils::with_progress(
                     "Waiting for the transaction to be included in a block...",
-                    step(2).as_str(),
+                    step_counter.format_next_step().as_str(),
                     "Transaction was included.",
                     || {
                         wait_tx_included(&tx, web3)?;
@@ -218,6 +245,7 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
     let last_port = value_t!(args, LAST_PORT, u16)?;
 
     let private: bool = args.is_present(PRIVATE);
+    let no_status_check: bool = args.is_present(NO_STATUS_CHECK);
 
     let eth = parse_ethereum_args(args)?;
 
@@ -230,6 +258,7 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
         start_port,
         last_port,
         private,
+        no_status_check,
         eth,
     )
 }
@@ -261,6 +290,12 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .takes_value(false)
             .help("Marks node as private, used for pinning apps to nodes")
             .display_order(6),
+        Arg::with_name(NO_STATUS_CHECK)
+            .long(NO_STATUS_CHECK)
+            .short("n")
+            .takes_value(false)
+            .help("Disable checking if a node is already registered. Registration can be faster but will spend some gas if the node is registered.")
+            .display_order(7),
     ];
 
     SubCommand::with_name("register")
@@ -297,6 +332,7 @@ pub mod tests {
             tendermint_node_id,
             25006,
             25100,
+            false,
             false,
             eth,
         )

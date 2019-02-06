@@ -88,6 +88,7 @@ impl TestOpts {
             start_port,
             end_port,
             private,
+            false,
             self.eth.clone(),
         )
         .unwrap();
