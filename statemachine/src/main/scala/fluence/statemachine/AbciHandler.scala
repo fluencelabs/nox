@@ -195,9 +195,9 @@ class AbciHandler(
     }
     controlSignals.changePeers
       .use(
-        changes =>
+        drops =>
           IO.pure {
-            changes
+            drops
               .foldLeft(ResponseEndBlock.newBuilder()) {
                 case (resp, change) ⇒ resp.addValidatorUpdates(validatorUpdate(change))
               }

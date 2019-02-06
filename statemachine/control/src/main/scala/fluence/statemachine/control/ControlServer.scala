@@ -36,7 +36,7 @@ import scala.language.higherKinds
  */
 case class ControlServer[F[_]](signals: ControlSignals[F], http: Server[F])
 
-object ControlServer {
+object ControlServer extends slogging.LazyLogging {
 
   /** Settings for [[ControlServer]]
    * @param host host to listen on
