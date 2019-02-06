@@ -53,7 +53,7 @@ pub const TO_GWEI_MUL: u64 = 1_000_000_000;
 pub struct EthereumArgs {
     pub credentials: Credentials,
     pub gas: u32,
-    pub gas_price: Option<u64>,
+    pub gas_price: u64,
     pub account: Address,
     pub contract_address: Address,
     pub eth_url: String,
@@ -154,6 +154,7 @@ pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
             .short("G")
             .required(false)
             .takes_value(true)
+            .default_value("1")
             .help("Gas price in Gwei"),
         Arg::with_name(KEYSTORE)
             .long(KEYSTORE)
@@ -235,9 +236,9 @@ pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Error> {
     let credentials = load_credentials(keystore, password, secret_key)?;
 
     let gas = value_t!(args, GAS, u32)?;
-    let gas_price: Option<u64> = utils::get_opt(args, GAS_PRICE)?;
+    let gas_price = value_t!(args, GAS, u64)?;
     // TODO: it could panic here on overflow
-    let gas_price = gas_price.map(|gp| gp * TO_GWEI_MUL);
+    let gas_price = gas_price * TO_GWEI_MUL;
     let account: Address = utils::parse_hex_opt(args, ACCOUNT)?.parse()?;
 
     let contract_address: Address = parse_contract_address(args)?;
@@ -298,8 +299,8 @@ impl Default for EthereumArgs {
     fn default() -> EthereumArgs {
         EthereumArgs {
             credentials: Credentials::No,
-            gas: 1000000,
-            gas_price: None,
+            gas: 1_000_000,
+            gas_price: 1_000_000_000,
             account: "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d".parse().unwrap(),
             contract_address: "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap(),
             eth_url: String::from("http://localhost:8545"),

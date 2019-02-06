@@ -51,10 +51,6 @@ fn call_contract_local_sign(
     call_data: ethabi::Bytes,
     eth: &EthereumArgs,
 ) -> Result<H256, Error> {
-    let gas_price = eth
-        .gas_price
-        .map(|gp| gp.into())
-        .unwrap_or(web3.eth().gas_price().wait().map_err(SyncFailure::new)?);
 
     let nonce = web3
         .eth()
@@ -68,7 +64,7 @@ fn call_contract_local_sign(
         action: Action::Call(eth.contract_address),
         data: call_data,
         gas: eth.gas.into(),
-        gas_price: gas_price,
+        gas_price: eth.gas_price.into(),
     };
 
     let tx_signed = tx.sign(secret, None);
@@ -89,13 +85,13 @@ fn call_contract_trusted_node(
     call_data: ethabi::Bytes,
     eth: &EthereumArgs,
 ) -> Result<H256, Error> {
-    let options = utils::options_with_gas(eth.gas);
+    let options = utils::options();
     let tx_request = TransactionRequest {
         from: eth.account,
         to: Some(eth.contract_address),
         data: Some(Bytes(call_data)),
-        gas: options.gas,
-        gas_price: eth.gas_price.map(|gp| gp.into()).or(options.gas_price),
+        gas: Some(eth.gas.into()),
+        gas_price: Some(eth.gas_price.into()),
         value: options.value,
         nonce: options.nonce,
         condition: options.condition,
