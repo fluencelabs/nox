@@ -20,6 +20,8 @@ dependencies = [
 name = "fluence"
 version = "0.0.7"
 dependencies = [
+ "fluence-sdk-macro 0.0.8",
+ "fluence-sdk-main 0.0.8",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "proc-macro2 0.4.27 (registry+https://github.com/rust-lang/crates.io-index)",
  "quote 0.6.11 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -31,6 +33,23 @@ name = "fluence"
 version = "0.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 replace = "fluence 0.0.7"
+
+[[package]]
+name = "fluence-sdk-macro"
+version = "0.0.8"
+dependencies = [
+ "proc-macro2 0.4.27 (registry+https://github.com/rust-lang/crates.io-index)",
+ "quote 0.6.11 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syn 0.15.26 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "fluence-sdk-main"
+version = "0.0.8"
+dependencies = [
+ "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "syn 0.15.26 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "log"

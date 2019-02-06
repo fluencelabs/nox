@@ -21,6 +21,8 @@
 mod counter;
 use byteorder::{LittleEndian, WriteBytesExt};
 
+use fluence::sdk::*;
+
 //
 // FFI for interaction with counter module
 //
@@ -28,9 +30,12 @@ use byteorder::{LittleEndian, WriteBytesExt};
 static mut COUNTER: counter::Counter = counter::Counter { counter: 0 };
 
 #[invocation_handler]
-pub unsafe fn invoke(_arg: Vec<u8>) -> Vec<u8> {
-    COUNTER.inc();
+pub fn main(_arg: Vec<u8>) -> Vec<u8> {
+    unsafe { COUNTER.inc() };
 
     let mut counter_value = vec![];
-    counter_value.write_i64::<LittleEndian>(COUNTER.get()).unwrap()
+    counter_value
+        .write_i64::<LittleEndian>(unsafe { COUNTER.get() })
+        .unwrap();
+    counter_value
 }

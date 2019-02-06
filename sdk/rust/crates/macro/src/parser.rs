@@ -137,11 +137,11 @@ impl InputTypeGenerator for ParsedType {
     fn generate_fn_prolog(&self) -> proc_macro2::TokenStream {
         match self {
             ParsedType::Utf8String => quote! {
-                let arg = fluence::memory::read_input_from_mem(ptr, len);
+                let arg = memory::read_input_from_mem(ptr, len);
                 let arg = String::from_utf8(arg).unwrap();
             },
             ParsedType::ByteVector => quote! {
-                    let arg = fluence::memory::read_input_from_mem(ptr, len);
+                let arg = memory::read_input_from_mem(ptr, len);
             },
         }
     }
@@ -151,13 +151,13 @@ impl ReturnTypeGenerator for ParsedType {
     fn generate_fn_epilog(&self) -> proc_macro2::TokenStream {
         match self {
             ParsedType::Utf8String => quote! {
-            fluence::memory::write_result_to_mem(
+                memory::write_result_to_mem(
                     result.as_bytes()
                 )
                 .expect("Putting result string to memory was failed.")
             },
             ParsedType::ByteVector => quote! {
-                fluence::memory::write_result_to_mem(&result[..])
+                memory::write_result_to_mem(&result[..])
                     .expect("Putting result vector to memory was failed.")
             },
         }
