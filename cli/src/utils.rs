@@ -117,13 +117,6 @@ pub fn check_sync(web3: &Web3<Http>) -> Result<bool, Error> {
     }
 }
 
-// Creates options for transaction to ethereum
-pub fn options_with_gas(gas_limit: u32) -> Options {
-    Options::with(|default| {
-        default.gas = Some(gas_limit.into());
-    })
-}
-
 #[allow(unused)]
 pub fn options() -> Options {
     Options::default()
