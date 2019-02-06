@@ -27,15 +27,10 @@ use byteorder::{LittleEndian, WriteBytesExt};
 
 static mut COUNTER: counter::Counter = counter::Counter { counter: 0 };
 
-#[no_mangle]
-pub unsafe fn invoke(_ptr: *mut u8, _len: usize) -> usize {
+#[invocation_handler]
+pub unsafe fn invoke(_arg: Vec<u8>) -> Vec<u8> {
     COUNTER.inc();
 
     let mut counter_value = vec![];
-    counter_value.write_i64::<LittleEndian>(COUNTER.get()).unwrap();
-
-    fluence::memory::write_result_to_mem(&counter_value)
-        // returns error string instead of counter value in case of any error
-        .expect("[Error] Writing counter value to memory was failed")
-        .as_ptr() as usize
+    counter_value.write_i64::<LittleEndian>(COUNTER.get()).unwrap()
 }
