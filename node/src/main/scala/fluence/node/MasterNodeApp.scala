@@ -20,51 +20,15 @@ import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect._
 import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
-import fluence.ethclient.EthClient
-import fluence.node.config.SwarmConfig
-import fluence.node.eth.NodeEth
+import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
-import fluence.node.workers.{CodeManager, SwarmCodeManager, TestCodeManager, WorkersPool}
-import fluence.swarm.SwarmClient
-import org.web3j.protocol.core.methods.response.EthSyncing.Syncing
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
-
-import scala.concurrent.duration._
 
 object MasterNodeApp extends IOApp with LazyLogging {
 
   private val sttpResource: Resource[IO, SttpBackend[IO, Nothing]] =
     Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
-
-  private def getCodeManager(
-    config: Option[SwarmConfig]
-  )(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[CodeManager[IO]] =
-    config match {
-      case Some(c) =>
-        SwarmClient(c.host)
-          .map(client => new SwarmCodeManager[IO](client))
-      case None =>
-        IO(new TestCodeManager[IO]())
-    }
-
-  /**
-   * Checks node for syncing status every 10 seconds until node will be synchronized.
-   */
-  private def waitEthSyncing(ethClient: EthClient): IO[Unit] = {
-    logger.info("Checking if ethereum node is synced.")
-    ethClient.isSyncing[IO].flatMap {
-      case resp: Syncing =>
-        logger.info(
-          s"Ethereum node is syncing. Current block: ${resp.getCurrentBlock}, highest block: ${resp.getHighestBlock}"
-        )
-        logger.info("Waiting 10 seconds for next attempt.")
-        IO.sleep(10.seconds).flatMap(_ => waitEthSyncing(ethClient))
-      case _ =>
-        logger.info("Ethereum node is synchronized.")
-        IO.unit
-    }
-  }
 
   /**
    * Launches a Master Node instance
@@ -77,46 +41,24 @@ object MasterNodeApp extends IOApp with LazyLogging {
    */
   override def run(args: List[String]): IO[ExitCode] = {
     configureLogging()
-    Configuration
-      .create()
+    MasterConfig
+      .load()
+      .flatMap(mc ⇒ Configuration.init(mc).map(_ → mc))
       .flatMap {
-        case (rawConfig, configuration) =>
-          import configuration._
+        case (conf, masterConf) =>
           // Run master node and status server
-          val resources = for {
-            ethClientResource <- EthClient.makeHttpResource[IO](Some(ethereumRpcConfig.uri))
-            sttpBackend <- sttpResource
-            pool <- {
-              implicit val s: SttpBackend[IO, Nothing] = sttpBackend
-              WorkersPool.apply()
-            }
-          } yield (ethClientResource, sttpBackend, pool)
+          sttpResource
+            .flatMap(implicit sttpBackend ⇒ MasterNode.make[IO, IO.Par](masterConf, conf.nodeConfig, conf.rootPath))
+            .use { node ⇒
+              logger.debug("eth config {}", masterConf.contract)
 
-          resources.use {
-            // Type annotations are here to make IDEA's type inference happy
-            case (ethClient: EthClient, sttpBackend: SttpBackend[IO, Nothing], pool: WorkersPool[IO]) ⇒
-              implicit val backend: SttpBackend[IO, Nothing] = sttpBackend
-              for {
-                version ← ethClient.clientVersion[IO]()
-                _ = logger.info("eth client version {}", version)
-                _ = logger.debug("eth config {}", contractConfig)
-
-                _ <- waitEthSyncing(ethClient)
-
-                nodeEth ← NodeEth[IO](nodeConfig.validatorKey.toByteVector, ethClient, contractConfig)
-
-                codeManager <- getCodeManager(swarmConfig)
-
-                node = MasterNode[IO](nodeConfig, nodeEth, pool, codeManager, rootPath, masterContainerId)
-
-                currentTime <- timer.clock.monotonic(MILLISECONDS)
-                result <- StatusAggregator.makeHttpResource(statsServerConfig, rawConfig, node, currentTime).use {
-                  status =>
-                    logger.info("Status server has started on: " + status.address)
-                    node.run
+              StatusAggregator
+                .makeHttpResource(masterConf, node)
+                .use { status =>
+                  logger.info("Status server has started on: " + status.address)
+                  node.run
                 }
-              } yield result
-          }
+            }
       }
       .attempt
       .map(_.getOrElse(ExitCode.Error))
@@ -132,7 +74,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
   private def configureLogging(): Unit = {
     PrintLoggerFactory.formatter =
-      new DefaultPrefixFormatter(printLevel = false, printName = false, printTimestamp = true)
+      new DefaultPrefixFormatter(printLevel = false, printName = true, printTimestamp = false)
     LoggerConfig.factory = PrintLoggerFactory()
     LoggerConfig.level = LogLevel.DEBUG
   }

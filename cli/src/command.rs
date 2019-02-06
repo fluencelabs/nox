@@ -36,6 +36,7 @@ const PASSWORD: &str = "password";
 const SECRET_KEY: &str = "secret_key";
 const KEYSTORE: &str = "keystore";
 const GAS: &str = "gas";
+const GAS_PRICE: &str = "gas_price";
 const ACCOUNT: &str = "account";
 const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
@@ -46,10 +47,13 @@ const WAIT_SYNCING: &str = "wait_syncing";
 pub const NODE_IP: &str = "node_ip";
 pub const TENDERMINT_KEY: &str = "tendermint_key";
 
+pub const TO_GWEI_MUL: u64 = 1_000_000_000;
+
 #[derive(Debug, Clone)]
 pub struct EthereumArgs {
     pub credentials: Credentials,
     pub gas: u32,
+    pub gas_price: u64,
     pub account: Address,
     pub contract_address: Address,
     pub eth_url: String,
@@ -145,6 +149,13 @@ pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
             .takes_value(true)
             .default_value("1000000")
             .help("Maximum gas to spend"),
+        Arg::with_name(GAS_PRICE)
+            .long(GAS_PRICE)
+            .short("G")
+            .required(false)
+            .takes_value(true)
+            .default_value("1")
+            .help("Gas price in Gwei"),
         Arg::with_name(KEYSTORE)
             .long(KEYSTORE)
             .short("T")
@@ -225,6 +236,9 @@ pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Error> {
     let credentials = load_credentials(keystore, password, secret_key)?;
 
     let gas = value_t!(args, GAS, u32)?;
+    let gas_price = value_t!(args, GAS, u64)?;
+    // TODO: it could panic here on overflow
+    let gas_price = gas_price * TO_GWEI_MUL;
     let account: Address = utils::parse_hex_opt(args, ACCOUNT)?.parse()?;
 
     let contract_address: Address = parse_contract_address(args)?;
@@ -237,6 +251,7 @@ pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Error> {
     return Ok(EthereumArgs {
         credentials,
         gas,
+        gas_price,
         account,
         contract_address,
         eth_url,
@@ -284,7 +299,8 @@ impl Default for EthereumArgs {
     fn default() -> EthereumArgs {
         EthereumArgs {
             credentials: Credentials::No,
-            gas: 1000000,
+            gas: 1_000_000,
+            gas_price: 1_000_000_000,
             account: "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d".parse().unwrap(),
             contract_address: "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap(),
             eth_url: String::from("http://localhost:8545"),

@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-package fluence.node.workers
+package fluence.node.config
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
-case class WorkerImage(image: String, tag: String) {
-  val imageName = s"$image:$tag"
-}
+/**
+ * @param host address to Swarm node
+ */
+case class SwarmConfig(host: String)
 
-object WorkerImage {
-  implicit val encodeWorkerImage: Encoder[WorkerImage] = deriveEncoder
-  implicit val decodeWorkerImage: Decoder[WorkerImage] = deriveDecoder
+object SwarmConfig {
+  implicit val encodeSwarmConfig: Encoder[SwarmConfig] = deriveEncoder
+  implicit val decodeSwarmConfig: Decoder[SwarmConfig] = deriveDecoder
 }
