@@ -65,6 +65,8 @@ object ControlServer {
             _ <- signals.changePeer(change)
             ok <- Ok()
           } yield ok
+
+        case (GET | POST) -> Root / "control" / "status" => Ok()
       }
       .orNotFound
   }

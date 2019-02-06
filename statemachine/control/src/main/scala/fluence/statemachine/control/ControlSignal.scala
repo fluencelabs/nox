@@ -1,10 +1,18 @@
 package fluence.statemachine.control
+import io.circe.generic.JsonCodec
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import scodec.bits.ByteVector
 
 // Common trait for all control signals from node to worker
 sealed trait ControlSignal
+
+case class GetStatus() extends ControlSignal
+
+object GetStatus {
+  implicit val dec: Decoder[GetStatus] = deriveDecoder[GetStatus]
+  implicit val enc: Encoder[GetStatus] = deriveEncoder[GetStatus]
+}
 
 /**
  * A signal to change a voting power of the specified Tendermint validator. Voting power zero votes to remove.

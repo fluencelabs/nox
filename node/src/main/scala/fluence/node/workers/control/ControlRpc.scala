@@ -18,7 +18,7 @@ package fluence.node.workers.control
 import cats.effect.Sync
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.circe._
-import fluence.statemachine.control.DropPeer
+import fluence.statemachine.control.{DropPeer, GetStatus}
 import io.circe.Encoder
 import scodec.bits.ByteVector
 
