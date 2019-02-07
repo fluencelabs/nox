@@ -18,6 +18,6 @@
 use fluence::sdk::*;
 
 #[invocation_handler]
-fn main(name: String) -> String {
-    format!("Hello from Fluence to {}", name)
+fn main(name: Vec<std::u8>) -> String {
+    format!("Hello from Fluence to {}", "aaaa")
 }

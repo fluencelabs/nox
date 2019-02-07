@@ -44,20 +44,16 @@
 //! To use this macro with some function `f` some conditions have to be met:
 //! 1. `f` has to have one input argument.
 //! 2. `f` has to don't be `unsafe`, `const`, generic or have custom abi linkage or variadic param.
-//! 3. The input and output types of `f` has to be in {String, Vec<u8>} set.
-//! 4. `f` has to don't have name `invoke`.
+//! 3. The input and output types of `f` have to be in {String, Vec<u8>} set.
+//! 4. `f` has to don't have the name `invoke`.
 //!
-//! For trubleshooting and macros debugging [carga expand](https://github.com/dtolnay/cargo-expand)
+//! For troubleshooting and macros debugging [cargo expand](https://github.com/dtolnay/cargo-expand)
 //! can be used.
 //!
 //! Internally this macros creates a new function `invoke` that converts a raw argument to
-//! appropriate format, call `f` and then converts its result by `memory::write_result_to_mem` from
-//! `fluence_sdk_main`. So to use this crate apart from `fluence` at first `fluence_sdk_main` has
+//! appropriate format, calls `f` and then converts its result via `memory::write_result_to_mem` from
+//! `fluence_sdk_main`. So to use this crate apart from `fluence` `fluence_sdk_main` has
 //! to be imported.
-//!
-//! # Safety
-//!
-//! Nothing special: `f` recevies an argument and returns a result by value.
 //!
 //! # Examples
 //!
