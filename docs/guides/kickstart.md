@@ -1,17 +1,22 @@
 # Faktorovich zaveschal
 1. Business goal
+   
    We need this document to make user onboarding possible and easy. Without that document users would have to find a way of using by themselves. That's bad because people rarely would learn something complex without obvious profits.
 
 2. Customer of that document
+   
    Alex Demidko and business team are customers for that document. They suffer without it as they can't onboard users or promote Devnet.
 
 3. Target audience
+   
    Fellow developers interested in decentralized tech. They don't know how to write Rust or Scala code. They maybe know how to write Javascript code. They maybe know something about decentralized world. They can be brilliant tech geniuses checking out new cool tech or a complete newbie looking for a way of developing her first gambling dApp.
 
 4. What problems target audience have in mind? Why would they read it?
+   
    To learn how to use Fluence (description of Fluence is outside of this guide), and what could be solved by Fluence, i.e., what are the profits of Fluence.
 
 5. Reading scenarios
+   
    They could follow from top to down, jump around by ToC or scroll everywhere feeding their madness by fast and seemingly uncontrollable screen seziures. It's not a handbook or a reference.
 
 # Off and go!
