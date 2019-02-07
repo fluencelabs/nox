@@ -145,13 +145,12 @@ Hello, world! From user myName
 
 _**WARNING:** If you see the following error, you must install `gcc` and try `cargo run` again:_
 ```bash
-   Compiling hello-world v0.1.0 (/root/hello-world)
+Compiling hello-world v0.1.0 (/root/hello-world)
 error: linker cc not found
   |
   = note: No such file or directory (os error 2)
 
 error: aborting due to previous error
-
 error: Could not compile hello-world.
 ```
 
@@ -247,7 +246,7 @@ Run the following code to build a `.wasm` file from your Rust code.
 _NOTE: Downloading and compiling dependencies might take a few minutes._
 
 ```bash
-~/hello-world $ cargo build --lib --target wasm32-unknown-unknown --release
+~/hello-world $ cargo +nightly build --lib --target wasm32-unknown-unknown --release
     Updating crates.io index
     ...
     Finished release [optimized] target(s) in 1m 16s
