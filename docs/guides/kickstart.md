@@ -14,7 +14,7 @@
   - [Publishing your app](#publishing-your-app)
     - [Connect to Swarm and Ethereum Kovan](#connect-to-swarm-and-ethereum-kovan)
     - [TODO: Registering an Ethereum Kovan account](#todo-registering-an-ethereum-kovan-account)
-    - [TODO: Installing Fluence CLI](#todo-installing-fluence-cli)
+    - [Installing Fluence CLI](#installing-fluence-cli)
     - [Publishing via Fluence CLI](#publishing-via-fluence-cli)
     - [Check app status](#check-app-status)
   - [Frontend](#frontend)
@@ -277,7 +277,7 @@ So, to upload anything to Swarm, you need to have an access to one of it's nodes
 ### TODO: Registering an Ethereum Kovan account
 TODO
 
-### TODO: Installing Fluence CLI
+### Installing Fluence CLI
 You can download Fluence CLI from here https://github.com/fluencelabs/fluence/releases/tag/cli-0.1.2
 
 Or in terminal:
