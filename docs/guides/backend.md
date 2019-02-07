@@ -2,9 +2,12 @@
 
 This guide goes through the basics of application creation for the Fluence Network using simple Rust application as an example. 
 
-The Fluence ecosystem is designed to run Webassembly (Wasm) program in decentralized trustless environments. Generally it can be considered as several logical parts: a `client-side` (a frontend used for sending requests to Wasm program; developed by user), the `VM wrapper` (an intermediate layer that receives queries from `client side` and routes it to a `Wasm program`) and a `Wasm program` (also developed by user).
+The Fluence ecosystem is designed to run Webassembly (Wasm) program in decentralized trustless environments. Generally it can be considered as several logical parts:
+- a `client-side` (a frontend used for sending requests to Wasm program; developed by user),
+- the `VM wrapper` (an intermediate layer that receives queries from `client side` and routes it to a `Wasm program`) and 
+- a `Wasm program` (also developed by user).
 
-But an arbitrary Wasm code can't be run on Fluence - for example, it can use some imports of host-based functions that environment isn't provided for security reasons. And also each Wasm program has to follow some conventions to be able to interact with `VM wrapper`. They are described in details in `Wasm program conventions` section of this guide.  
+But an arbitrary Wasm code can't be run on Fluence - for example, it can use some imports of host-based functions that environment isn't provided for security reasons. And also each Wasm program has to follow some conventions to be able to interact with `VM wrapper`. These are described in details in `Wasm program conventions` section of this guide.  
 
 ### Prerequisites
 
