@@ -16,7 +16,6 @@
 
 extern crate proc_macro;
 
-//use proc_macro2::Span;
 use quote::quote;
 use syn::{parse::Error, spanned::Spanned};
 
@@ -81,10 +80,10 @@ impl ParsedType {
             )),
         }?;
 
-        // argument can be given in full path form: ::std::string::String
-        // that why the last one used
         let type_segment = path
             .segments
+            // argument can be given in full path form: ::std::string::String
+            // that why the last one used
             .last()
             .ok_or_else(|| Error::new(path.span(), "It has to be a valid input value"))?;
         let type_segment = type_segment.value();
