@@ -22,16 +22,16 @@
     - [Running and using](#running-and-using)
 
 # Off and go!
-This guide is aimed for first-time users of Fluence. Following it from top to bottom will leave you with your own decentralized backend that you developed using Rust and Webassembly, and a frontend app that's able to communicate with that backend. It's not gonna be hard!
+This guide aims first-time users of Fluence. Following it from top to bottom will leave you with your own decentralized backend that you developed using Rust and Webassembly, and a frontend app that's able to communicate with that backend. It's not going to be hard!
 
 ## The Plan
 The plan is as follows.
 
-First, you'll set up Rust and develop a simple backend with it. Then, you will adapt that backend to be ran on Fluence, and compile it to Webassembly.
+First, you'll set up Rust and develop a simple backend with it. Then, you will change a few lines so backend can be deployed on Fluence, and compile it to Webassembly.
 
-After that, you'll upload WASM code to Swarm, and publish it to Fluence Devnet smart-contract. For that you will need a connection to any Ethereum node on Kovan testnet. Publishing your app will bring a new Fluence cluster up to life with your backend on top. You will learn how to check it's status or shut it down. 
+Then, you'll upload WASM code to Swarm, and publish it to Fluence Devnet smart-contract. For that, you will need a connection to any Ethereum node on Kovan testnet. Publishing your app will bring a new Fluence cluster up to life with your backend on top. You will learn how to check it's status or shut it down. 
 
-Finally, there will be some cozy frontend time. Using `fluence-js` library you will connect to a running Tendermint cluster, and send commands to your backend, and see how all nodes in cluster executing the same code in sync.
+Finally, there will be some cozy frontend time. Using `fluence` Javascript library, you will connect to a running Tendermint cluster, and send commands to your backend, and see how all nodes in the cluster are executing the same code in sync.
 
 ## Developing the backend app
 Now you're Rust Backend Developer. Put up your best nerdy t-shirt, take a deep breath, and go!
@@ -88,7 +88,7 @@ First, let's create a new empty Rust package:
 ~ $ cargo new hello-world --edition 2018
 Created binary (application) `hello-world` package
 
-# go to package directory
+# go to the package directory
 ~ $ cd hello-world
 ~/hello-world $
 ```
@@ -100,19 +100,19 @@ _If you're familiar with Rust, feel free to skip that section_
 
 Let's code! We want our `hello-world` to receive a username from, well, user, and greet the world on user's behalf.
 
-Open `src/main.rs` in your favourite editor:
+Open `src/main.rs` in your favorite editor:
 ```bash
 ~/hello-world $ edit src/main.rs
 ```
 
-You will see the following code, it's there by default:
+You will see the following code. It's there by default:
 ```rust
 fn main() {
     println!("Hello, world!");
 }
 ```
 
-It almost does what we need! But we need more, we need to read and print the user name along these lines. So, delete all the code in `main.rs`, and paste the following:
+It almost does what we need! But we need more. We need to read and print the user name along these lines. So, delete all the code in `main.rs`, and paste the following:
 ```rust
 use std::env;
 
@@ -158,7 +158,7 @@ Now that we have a working hello-world, it's time to adapt it to be used with Fl
 
 ### Making it fluency!
 #### Adding fluence as a dependency 
-To use fluence Rust sdk, you need to add it to `Cargo.toml` as a dependency.
+To use the fluence Rust SDK, you need to add it to `Cargo.toml` as a dependency.
 
 Open `Cargo.toml` in your editor:
 ```
@@ -209,13 +209,13 @@ fn greeting(name: String) -> String {
 ```
 
 What this code does, line-by-line:
-1. Imports fluence sdk
+1. Imports fluence SDK
 2. Marks our `greeting` function as `#[invocation_handler]`, so Fluence SDK knows it should call it
 3. Defines `greeting` function, the same as it was before
 4. Creates and returns a greeting message, the same as it was before
 
 #### Making it a cdylib
-Uh oh, scary words! Don't be scared, though, it's just another copy-paste excercise. 
+Uh oh, scary words! Don't be scared, though. It's just another copy-paste exercise. 
 
 Open `Cargo.toml`:
 ```bash
@@ -256,21 +256,21 @@ If everything goes well, you should have a `.wasm` file deep in `target`. Let's 
 ```bash
 ~/hello-world $ stat target/wasm32-unknown-unknown/release/hello_world.wasm
   File: target/wasm32-unknown-unknown/release/hello_world.wasm
-  Size: 838385    	Blocks: 1640       IO Block: 4096   regular file
+  Size: 838385        Blocks: 1640       IO Block: 4096   regular file
   ...
 ```
 
 ## Publishing your app
 ### Connect to Swarm and Ethereum Kovan
-To publish a backend app to Fluence network, you need to upload it to Swarm, and then send it's location in Swarm to a Fluence smart contract on Ethereum Kovan testnet. 
+To publish a backend app to Fluence network, you need to upload it to Swarm, and then send its location in Swarm to a Fluence smart contract on Ethereum Kovan testnet. 
 
 Now that's a lot of tech-name-throwing! Let me explain a bit.
 
 - Swarm is a decentralized file storage, so it's like the Dropbox, but more nerdy. 
 - Ethereum Kovan testnet is one of the many Ethereum networks, but there's no real money in there, so it's safe and handy for trying out something new.
-- Fluence smart contract is what rules the Fluence network and allows different user to access it.
+- Fluence smart contract is what rules the Fluence network and allows users to use it.
 
-So, to upload anything to Swarm, you need to have an access to one of it's nodes. The same with Ethereum, you will need connection to any Ethereum node on Kovan testnet.
+So, to upload anything to Swarm, you need to have access to one of its nodes. The same with Ethereum, you will need a connection to any Ethereum node on Kovan testnet.
 
 **We will use existing Ethereum & Swarm nodes, but if you wish, you can [use your own nodes](miner.md) or any other.**
 
@@ -298,14 +298,14 @@ And finally don't forget to add executable permission:
 Fluence CLI 0.1.2
 ```
 
-If you're seeing cli's version, proceed to the next step.
+If you see cli's version, proceed to the next step.
 
 ### Publishing via Fluence CLI
 First, you will need some info prepared:
 - Ethereum Kovan account with some money on it
   - You can [get money from faucet](https://github.com/kovan-testnet/faucet)
 - A private key for your Ethereum Kovan account. It could be either in hex or as a keystore JSON file.
-  - For keystore file you will also need a password. For more info on keystore file, please read [cli README](../cli/README.md#keystore-json-file).
+  - For the keystore file you will also need a password. For more info on keystore file, please read [cli README](../cli/README.md#keystore-json-file).
 
 
 Now you're ready to publish your app. _Examples below will specify a cluster size of 4 nodes for your app. Adjust it to your needs._
@@ -324,7 +324,7 @@ If you have your private key **in hex**, run the following in your terminal, rep
             --wait
 ```
 
-If you have a JSON **keystore file**, run the following in your terminal, replacing `<>` by actual values.
+If you have a JSON **keystore file**, run the following in your terminal, replacing `<>` by actual values:
 
 ```bash
 ~ $ ./fluence publish \
@@ -409,7 +409,7 @@ The output will be in JSON, and look similar to the following:
 }
 ```
 
-You can also use interactive mode insted of default by supplying `--interactive` flag:
+You can also use interactive mode instead of default by supplying `--interactive` flag:
 ```bash
 ./fluence status \
             --eth_url          http://207.154.240.52:8545 \
@@ -420,10 +420,10 @@ You can also use interactive mode insted of default by supplying `--interactive`
 
 You can press `q` to exit it.
 
-Your backend now is successfuly deployed! You can proceed to accessing your code from a web browser.
+Your backend now is successfully deployed! You can proceed to access your code from a web browser.
 
 ## Frontend
-For this part you will need installed `npm`. Please refer to [npm docs](https://www.npmjs.com/get-npm) for installation instructions.
+For this part, you will need installed `npm`. Please refer to [npm docs](https://www.npmjs.com/get-npm) for installation instructions.
 
 ### Preparing web app
 Let's clone a simple web app template:
@@ -433,7 +433,7 @@ Let's clone a simple web app template:
 ~/frontend-template $ 
 ```
 
-There's just three files (except for README, LICENSE and .gitignore):
+There are just three files (except for README, LICENSE and .gitignore):
 - `package.json` that declares needed dependencies
 - `webpack.config.js` needed for the webpack to work
 - `index.js` that imports `fluence` js library and shows how to connect to a cluster
@@ -450,26 +450,26 @@ let appId = "<put your app id here>";
 
 // creates a session between client and backend application
 fluence.createAppSession(contractAddress, appId).then((s) => {
-		console.log("Session created");
-		window.fluenceSession = s;
+        console.log("Session created");
+        window.fluenceSession = s;
 });
 
 // gets a result and logs it
 window.logResultAsString = function (request) {
-	request.result().then((r) => console.log(r.asString()))
+    request.result().then((r) => console.log(r.asString()))
 };
 ```
 
 What this code does, line-by-line:
 1. Imports `fluence` js library to be able to use it
 2. Sets `contractAddress` variable to the address of Fluence contract
-3. Sets `appId` to desired appId. Put yours here.
+3. Sets `appId` to the desired appId. Put yours here.
 4. Calls `createAppSession` with `contractAddress` and `appId`, that creates a connection to the Fluence cluster hosting your backend
 5. Saves session to `window.fluenceSession`, so it can be accessed later
 6. And final three lines define a helper function `logResultAsString` that's useful for printing out results
 
 ### Running and using
-To install all dependencies, compile and run application, run in the terminal:
+To install all dependencies, compile and run the application, run in the terminal:
 ```bash
 ~/frontend-template $ npm install
 ```
