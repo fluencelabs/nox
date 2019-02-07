@@ -183,6 +183,15 @@ impl Register {
                 step_counter.register()
             };
 
+            if self.eth.wait_eth_sync {
+                utils::with_progress(
+                    "Waiting while Ethereum node is syncing...",
+                    step_counter.format_next_step().as_str(),
+                    "Ethereum node synced.",
+                    || wait_sync(web3),
+                )?;
+            };
+
             let is_registered = if !self.no_status_check {
                 utils::with_progress(
                     "Check if node in smart contract is already registered...",
@@ -197,14 +206,6 @@ impl Register {
             if is_registered {
                 Ok(Registered::AlreadyRegistered)
             } else {
-                if self.eth.wait_eth_sync {
-                    utils::with_progress(
-                        "Waiting while Ethereum node is syncing...",
-                        step_counter.format_next_step().as_str(),
-                        "Ethereum node synced.",
-                        || wait_sync(web3),
-                    )?;
-                };
 
                 let tx = utils::with_progress(
                     "Registering the node in the smart contract...",
@@ -229,6 +230,10 @@ impl Register {
                 }
             }
         } else {
+            if self.eth.wait_eth_sync {
+                wait_sync(web3)?;
+            }
+
             let is_registered = if !self.no_status_check {
                 check_node_registered_fn()?
             } else {
@@ -238,10 +243,6 @@ impl Register {
             if is_registered {
                 Ok(Registered::AlreadyRegistered)
             } else {
-                if self.eth.wait_eth_sync {
-                    wait_sync(web3)?;
-                }
-
                 let tx = publish_to_contract_fn()?;
 
                 if self.eth.wait_tx_include {
@@ -310,7 +311,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .display_order(6),
         Arg::with_name(NO_STATUS_CHECK)
             .long(NO_STATUS_CHECK)
-            .short("n")
+            .short("N")
             .takes_value(false)
             .help("Disable checking if a node is already registered. Registration can be faster but will spend some gas if the node is registered.")
             .display_order(7),

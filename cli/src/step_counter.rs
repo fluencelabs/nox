@@ -35,8 +35,8 @@ impl StepCounter {
 
     // gets formatted next step
     pub fn format_next_step(&mut self) -> String {
-        let step = format!("{}/{}", self.current_step, self.steps);
         self.current_step = self.current_step + 1;
+        let step = format!("{}/{}", self.current_step, self.steps);
         step
     }
 }
