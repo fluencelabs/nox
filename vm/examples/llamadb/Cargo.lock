@@ -15,7 +15,7 @@ dependencies = [
 
 [[package]]
 name = "fluence"
-version = "0.0.7"
+version = "0.0.8"
 dependencies = [
  "fluence-sdk-macro 0.0.8",
  "fluence-sdk-main 0.0.8",
@@ -27,9 +27,9 @@ dependencies = [
 
 [[package]]
 name = "fluence"
-version = "0.0.7"
+version = "0.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-replace = "fluence 0.0.7"
+replace = "fluence 0.0.8"
 
 [[package]]
 name = "fluence-sdk-macro"
@@ -62,7 +62,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "llama_db"
 version = "0.1.1"
 dependencies = [
- "fluence 0.0.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "fluence 0.0.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "llamadb 0.1.0 (git+https://github.com/fluencelabs/llamadb.git)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -183,7 +183,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [metadata]
 "checksum cfg-if 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)" = "082bb9b28e00d3c9d39cc03e64ce4cea0f1bb9b3fde493f0cbc008472d22bdf4"
 "checksum chrono 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)" = "45912881121cb26fad7c38c17ba7daa18764771836b34fab7d3fbd93ed633878"
-"checksum fluence 0.0.7 (registry+https://github.com/rust-lang/crates.io-index)" = "9d6a31e708833a276a8e5454d0b41e3974b344ec48bcdff60a9e96a7ae5524ea"
+"checksum fluence 0.0.8 (registry+https://github.com/rust-lang/crates.io-index)" = "7198a4cb0a4102eb3870f8ea2530a0936f51bf6dcf98a89f5b3fef7e0639b942"
 "checksum lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a374c89b9db55895453a74c1e38861d9deec0b01b405a82516e9d5de4820dea1"
 "checksum libc 0.2.48 (registry+https://github.com/rust-lang/crates.io-index)" = "e962c7641008ac010fa60a7dfdc1712449f29c44ef2d4702394aea943ee75047"
 "checksum llamadb 0.1.0 (git+https://github.com/fluencelabs/llamadb.git)" = "<none>"

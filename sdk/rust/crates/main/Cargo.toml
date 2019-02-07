@@ -2,11 +2,10 @@
 name = "fluence-sdk-main"
 version = "0.0.8"  # remember to update html_root_url
 edition = "2018"
-description="Rust SDK for writing applications for Fluence"
-documentation="https://docs.rs/fluence/fluence-sdk-macro"
-repository="https://github.com/fluencelabs/fluence/tree/master/sdk/rust"
+description = "Rust SDK for writing applications for Fluence"
+documentation = "https://docs.rs/fluence/fluence-sdk-macro"
+repository = "https://github.com/fluencelabs/fluence/tree/master/sdk/rust/crates/main"
 authors = ["Fluence Labs"]
-readme = "readme.md"
 keywords = ["fluence", "sdk", "webassembly"]
 categories = ["api-bindings", "wasm"]
 license = "Apache-2.0"

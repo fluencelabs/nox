@@ -1,9 +1,9 @@
 [package]
 name = "fluence"
-version = "0.0.7"  # remember to update html_root_url
-description="Rust SDK for writing applications for Fluence"
-documentation="https://docs.rs/fluence/"
-repository="https://github.com/fluencelabs/fluence/tree/master/sdk/rust"
+version = "0.0.8"  # remember to update html_root_url
+description = "Rust SDK for writing applications for Fluence"
+documentation = "https://docs.rs/fluence/"
+repository = "https://github.com/fluencelabs/fluence/tree/master/sdk/rust"
 authors = ["Fluence Labs"]
 readme = "readme.md"
 keywords = ["fluence", "sdk", "webassembly"]
