@@ -138,16 +138,17 @@ Let's now compile and run our example:
 Hello, world! From user myName
 ```
 
-<aside class="notice">
+<hr>
 **WARNING:** If you see the following error, you must install `gcc` and try `cargo run` again:
 ```
    Compiling hello-world v0.1.0 (/root/hello-world)
-error: linker `cc` not found
+error: linker cc not found
   |
   = note: No such file or directory (os error 2)
 
 error: aborting due to previous error
 
-error: Could not compile `hello-world`.
+error: Could not compile hello-world.
 ```
-</aside>
+
+<hr>
