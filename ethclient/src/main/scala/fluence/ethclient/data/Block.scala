@@ -53,7 +53,7 @@ object Block {
     import scala.collection.convert.ImplicitConversionsToScala._
 
     new Block(
-      Option(getNumber).getOrElse(BigInteger.ZERO), // null on Kovan with lightclient
+      Option(getNumber).map(BigInt(_)).getOrElse(BigInt(0)), // null on Kovan with lightclient
       getHash,
       getParentHash,
       Option(getNonceRaw).getOrElse(""), // null for kovan
