@@ -1,23 +1,29 @@
-# Faktorovich zaveschal
-1. Business goal
-   
-   We need this document to make user onboarding possible and easy. Without that document users would have to find a way of using by themselves. That's bad because people rarely would learn something complex without obvious profits.
-
-2. Customer of that document
-   
-   Alex Demidko and business team are customers for that document. They suffer without it as they can't onboard users or promote Devnet.
-
-3. Target audience
-   
-   Fellow developers interested in decentralized tech. They don't know how to write Rust or Scala code. They maybe know how to write Javascript code. They maybe know something about decentralized world. They can be brilliant tech geniuses checking out new cool tech or a complete newbie looking for a way of developing her first gambling dApp.
-
-4. What problems target audience have in mind? Why would they read it?
-   
-   To learn how to use Fluence (description of Fluence is outside of this guide), and what could be solved by Fluence, i.e., what are the profits of Fluence.
-
-5. Reading scenarios
-   
-   They could follow from top to down, jump around by ToC or scroll everywhere feeding their madness by fast and seemingly uncontrollable screen seziures. It's not a handbook or a reference.
+- [Document goals](#document-goals)
+- [Off and go!](#off-and-go)
+  - [The Plan](#the-plan)
+  - [Developing the backend app](#developing-the-backend-app)
+    - [Setting up Rust](#setting-up-rust)
+      - [Install rust compiler and it's tools](#install-rust-compiler-and-its-tools)
+    - [Creating a hello-world in Rust](#creating-a-hello-world-in-rust)
+      - [Creating an empty Rust package](#creating-an-empty-rust-package)
+      - [Implementing the hello-world](#implementing-the-hello-world)
+    - [Making it fluency!](#making-it-fluency)
+      - [Adding fluence as a dependency](#adding-fluence-as-a-dependency)
+      - [Making it a library](#making-it-a-library)
+      - [Making it a cdylib](#making-it-a-cdylib)
+      - [Compiling to Webassembly](#compiling-to-webassembly)
+  - [Publishing your app](#publishing-your-app)
+    - [Connect to Swarm and Ethereum Kovan](#connect-to-swarm-and-ethereum-kovan)
+    - [Registering an Ethereum Kovan account](#registering-an-ethereum-kovan-account)
+    - [TODO: Installing Fluence CLI](#todo-installing-fluence-cli)
+      - [cargo install](#cargo-install)
+      - [From Fluence release](#from-fluence-release)
+      - [From sources](#from-sources)
+    - [Publishing via Fluence CLI](#publishing-via-fluence-cli)
+    - [Check app status](#check-app-status)
+  - [Frontend](#frontend)
+    - [Preparing web app](#preparing-web-app)
+    - [Running and using](#running-and-using)
 
 # Off and go!
 This guide is aimed for first-time users of Fluence. Following it from top to bottom will leave you with your own decentralized backend that you developed using Rust and Webassembly, and a frontend app that's able to communicate with that backend. It's not gonna be hard!
@@ -27,11 +33,11 @@ The plan is as follows.
 
 First, you'll set up Rust and develop a simple backend with it. Then, you will adapt that backend to be ran on Fluence, and compile it to Webassembly.
 
-After that, you'll set up your own Ethereum blockchain and Ethereum Swarm. Then goes bringing a Fluence cluster up to life, and deploying your freshly-developed backend on top of it. You'll learn how to use Fluence CLI to control Fluence network through smart-contract, starting and shutting down Tendermint clusters, uploading WASM code to Swarm and running it in virtual machine. 
+After that, you'll upload WASM code to Swarm, and publish it to Fluence Devnet smart-contract. For that you will need a connection to any Ethereum node on Kovan testnet. Publishing your app will bring a new Fluence cluster up to life with your backend on top. You will learn how to check it's status or shut it down. 
 
-Finally, there will be some frontend time. Using `fluence-js` library you will connect to a running Tendermint cluster, and send commands to your backend, and see how all nodes in cluster executing the same code in sync.
+Finally, there will be some cozy frontend time. Using `fluence-js` library you will connect to a running Tendermint cluster, and send commands to your backend, and see how all nodes in cluster executing the same code in sync.
 
-## Backend
+## Developing the backend app
 Now you're Rust Backend Developer. Put up your best nerdy t-shirt, take a deep breath, and go!
 
 ### Setting up Rust
@@ -156,11 +162,39 @@ error: Could not compile hello-world.
 Now that we have a working hello-world, it's time to adapt it to be used with Fluence.
 
 ### Making it fluency!
-#### Adding fluence as a dependency
+#### Adding fluence as a dependency 
+To use fluence Rust sdk, you need to add it to `Cargo.toml` as a dependency.
 
+Open `Cargo.toml` in your editor:
+```
+~/hello-world $ edit Cargo.toml
+```
 
-#### Making library
-!!! TODO: explain why lib.rs is needed
+You should see the following
+```toml
+[package]
+name = "hello-world"
+version = "0.1.0"
+authors = ["root"]
+edition = "2018"
+
+[dependencies]
+```
+
+Now, add fluence to `dependencies`:
+```toml
+[package]
+name = "hello-world"
+version = "0.1.0"
+authors = ["root"]
+edition = "2018"
+
+[dependencies]
+fluence = { version = "0.0.8", features = ["export_allocator"]}
+```
+
+#### Making it a library
+!!! TODO: explain why it should be a library
 
 You were running your program by executing code in `src/main.rs`, but now we need to convert it to a library. Let's do that by moving `greeting` function to `src/lib.rs`.
 
@@ -177,4 +211,250 @@ use fluence::sdk::*;
 fn greeting(name: String) -> String {
     format!("Hello, world! From user {}", name)
 }
+```
+
+What this code does, line-by-line:
+1. Imports fluence sdk
+2. Marks our `greeting` function as `#[invocation_handler]`, so Fluence SDK knows it should call it
+3. Defines `greeting` function, the same as it was before
+4. Creates and returns a greeting message, the same as it was before
+
+#### Making it a cdylib
+Uh oh, scary words! Don't be scared, though, it's just another copy-paste excercise. 
+
+Open `Cargo.toml`:
+```bash
+~/hello-world $ edit Cargo.toml
+```
+
+And paste the following there:
+```toml
+[package]
+name = "hello-world"
+version = "0.1.0"
+authors = ["root"]
+edition = "2018"
+
+[lib]
+name = "hello_world"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+fluence = { version = "0.0.8", features = ["export_allocator"]}
+```
+
+The only thing changed is the new `[lib]` section. Let's not worry about that now, and try compiling the project instead.
+
+#### Compiling to Webassembly
+Run the following code to build a `.wasm` file from your Rust code.
+_NOTE: Downloading and compiling dependencies might take a few minutes._
+
+```bash
+~/hello-world $ cargo build --lib --target wasm32-unknown-unknown --release
+    Updating crates.io index
+    ...
+    Finished release [optimized] target(s) in 1m 16s
+```
+
+If everything goes well, you should have a `.wasm` file deep in `target`. Let's check it:
+```bash
+~/hello-world $ stat target/wasm32-unknown-unknown/release/hello_world.wasm
+  File: target/wasm32-unknown-unknown/release/hello_world.wasm
+  Size: 838385    	Blocks: 1640       IO Block: 4096   regular file
+  ...
+```
+
+## Publishing your app
+### Connect to Swarm and Ethereum Kovan
+To publish a backend app to Fluence network, you need to upload it to Swarm, and then send it's location in Swarm to a Fluence smart contract on Ethereum Kovan testnet. 
+
+Now that's a lot of tech-name-throwing! Let me explain a bit.
+
+- Swarm is a decentralized file storage, so it's like the Dropbox, but more nerdy. 
+- Ethereum Kovan testnet is one of the many Ethereum networks, but there's no real money in there, so it's safe and handy for trying out something new.
+- Fluence smart contract is what rules the Fluence network and allows different user to access it.
+
+So, to upload anything to Swarm, you need to have an access to one of it's nodes. The same with Ethereum, you will need connection to any Ethereum node on Kovan testnet.
+
+**We will use existing Ethereum & Swarm nodes, but if you wish, you can [use your own nodes](miner.md) or any other.**
+
+### TODO: Registering an Ethereum Kovan account
+TODO
+
+### TODO: Installing Fluence CLI
+TODO
+
+### Publishing via Fluence CLI
+First, you will need some info prepared:
+- Ethereum Kovan account with some money on it
+  - You can [get money from faucet](https://github.com/kovan-testnet/faucet)
+- A private key for your Ethereum Kovan account. It could be either in hex or as a keystore JSON file.
+  - For keystore file you will also need a password. For more info on keystore file, please read [cli README](../cli/README.md#keystore-json-file).
+
+
+Now you're ready to publish your app. _Examples below will specify a cluster size of 4 nodes for your app. Adjust it to your needs._
+
+If you have your private key **in hex**, run the following in your terminal, replacing `<>` by actual values:
+```bash
+~ $ ./fluence publish \
+            --eth_url          http://207.154.240.52:8545 \
+            --swarm_url        http://207.154.240.52:8500 \
+            --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \
+            --contract_address 0x99d3a4e348eb218cfa3edc654f518e030629d30c \
+            --account          <your ethereum address> \
+            --secret_key       <your ethereum private key> \
+            --cluster_size     4 \
+            --wait_sync \
+            --wait
+```
+
+If you have a JSON **keystore file**, run the following in your terminal, replacing `<>` by actual values.
+
+```bash
+~ $ ./fluence publish \
+            --eth_url          http://207.154.240.52:8545 \
+            --swarm_url        http://207.154.240.52:8500 \
+            --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \
+            --contract_address 0x99d3a4e348eb218cfa3edc654f518e030629d30c \
+            --account          <your ethereum address> \
+            --keystore         <path to keystore> \
+            --password         <password for keystore> \
+            --cluster_size     4 \
+            --wait_sync \
+            --wait
+```
+_There is more info on using keystore files with Fluence CLI in it's [README](../cli/README.md#keystore-json-file)._
+
+
+After running the command, you will see an output similar to the following:
+```bash
+[1/3]   Application code uploaded. ---> [00:00:00]
+swarm hash: 0xf5c604478031e9a658551220da3af1f086965b257e7375bbb005e0458c805874
+[2/3]   Transaction publishing app was sent. ---> [00:00:03]
+  tx hash: 0x5552ee8f136bce0b020950676d84af00e4016490b8ee8b1c51780546ad6016b7
+[3/3]   Transaction was included. ---> [00:02:38]
+App deployed.
+  app id: 2
+  tx hash: 0x5552ee8f136bce0b020950676d84af00e4016490b8ee8b1c51780546ad6016b7
+```
+
+
+### Check app status
+Now, let's check your app state in the contract
+```bash
+~ $ ./fluence status \
+            --eth_url          http://207.154.240.52:8545 \
+            --contract_address 0x99d3a4e348eb218cfa3edc654f518e030629d30c \
+            --app_id           <your app id here>
+```
+
+The output will be in JSON, and look similar to the following:
+```json
+{
+  "apps": [
+    {
+      "app_id": "<your app id here>",
+      "storage_hash": "<swarm hash>",
+      "storage_receipt": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "cluster_size": 4,
+      "owner": "<your ethereum address>",
+      "pin_to_nodes": [],
+      "cluster": {
+        "genesis_time": 1549353504,
+        "node_ids": [
+          "0x5ed7aaada4bd800cd4f5b440f36ccece9c9e4542f9808ea6bfa45f84b8198185",
+          "0xb557bb40febb7484393c1c99263b763d1caf6b6c83bc0a9fd6c084d2982af763",
+          "0xac72ccc7886457c3f7da048e184b8b8a43f99c77950e7bb635b6cb3aeb3869fe",
+          "0x9251dd451f4bd9f412173cc21279afc8d885312eb1c21828134ba9095da8306b",
+        ],
+        "ports": [
+          25001
+        ]
+      }
+    }
+  ],
+  "nodes": [
+    {
+      "validator_key": "0x5ed7a87da4bd800cd4f5b440f36ccece9c9e4542f9808ea6bfa45f84b8198185",
+      "tendermint_p2p_id": "0x6c03a3fe792314f100ac8088a161f70bd7d257b1",
+      "ip_addr": "43.32.21.10",
+      "next_port": 25003,
+      "last_port": 25099,
+      "owner": "0x5902720e872fb2b0cd4402c69d6d43c86e973db7",
+      "is_private": false,
+      "app_ids": [
+        1,
+        2,
+        6
+      ]
+    },
+    "<3 more nodes here>"
+  ]
+}
+```
+
+You can also use interactive mode insted of default by supplying `--interactive` flag:
+```bash
+./fluence status \
+            --eth_url          http://207.154.240.52:8545 \
+            --contract_address 0x99d3a4e348eb218cfa3edc654f518e030629d30c \
+            --app_id           <your app id here> \
+            --interactive
+```
+
+You can press `q` to exit it.
+
+Your backend now is successfuly deployed! You can proceed to accessing your code from a web browser.
+
+## Frontend
+For this part you will need installed `npm`. Please refer to [npm docs](https://www.npmjs.com/get-npm) for installation instructions.
+
+### Preparing web app
+Let's clone a simple web app template:
+```bash
+~ $ git clone https://github.com/fluencelabs/frontend-template
+~ $ cd frontend-template
+~/frontend-template $ 
+```
+
+There's just three files (except for README, LICENSE and .gitignore):
+- `package.json` that declares needed dependencies
+- `webpack.config.js` needed for the webpack to work
+- `index.js` that imports `fluence` js library and shows how to connect to a cluster
+
+Let's take a look at `index.js`:
+```javascript
+import * as fluence from "fluence";
+
+// address to Fluence contract in Ethereum blockchain. Interaction with blockchain created by MetaMask or with local Ethereum node
+let contractAddress = "0x99d3a4e348eb218cfa3edc654f518e030629d30c";
+
+// application to interact with that stored in Fluence contract
+let appId = "<put your app id here>";
+
+// creates a session between client and backend application
+fluence.createAppSession(contractAddress, appId).then((s) => {
+		console.log("Session created");
+		window.fluenceSession = s;
+});
+
+// gets a result and logs it
+window.logResultAsString = function (request) {
+	request.result().then((r) => console.log(r.asString()))
+};
+```
+
+What this code does, line-by-line:
+1. Imports `fluence` js library to be able to use it
+2. Sets `contractAddress` variable to the address of Fluence contract
+3. Sets `appId` to desired appId. Put yours here.
+4. Calls `createAppSession` with `contractAddress` and `appId`, that creates a connection to the Fluence cluster hosting your backend
+5. Saves session to `window.fluenceSession`, so it can be accessed later
+6. And final three lines define a helper function `logResultAsString` that's useful for printing out results
+
+### Running and using
+To install all dependencies, compile and run application, run in the terminal:
+```bash
+~/frontend-template $ npm install
 ```
