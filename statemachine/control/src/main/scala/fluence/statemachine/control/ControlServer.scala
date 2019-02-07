@@ -69,6 +69,8 @@ object ControlServer extends slogging.LazyLogging {
         signals.stopWorker().flatMap(_ => Ok())
 
       case (GET | POST) -> Root / "control" / "status" => Ok()
+
+      case _ => Sync[F].pure(Response.notFound)
     }
 
     val log: PartialFunction[Request[F], Request[F]] = {
