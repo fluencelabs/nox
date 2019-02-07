@@ -109,13 +109,12 @@ It almost does what we need! But we need more, we need to read and print the use
 ```rust
 use std::env;
 
-fn greeting(name: &String) -> String {
+fn greeting(name: String) -> String {
     format!("Hello, world! From user {}", name)
 }
 
 fn main() {
-    let args: Vec<String> = env::args().collect();
-    let name = &args[1];
+    let name = env::args().nth(1).unwrap();
     println!("{}", greeting(name));
 }
 ```
@@ -125,9 +124,8 @@ What this code does, line-by-line:
 2. Defines a `greeting` function that takes a name, and returns a greeting message
 3. Puts `name` inside a greeting message, and returns it
 4. Defines a `main` function
-5. Reads all program arguments into `args` variable
-6. Puts first argument to the `name` variable
-7. Calls `greeting` with the `name` passed in, and prints the result
+5. Reads first program argument to the `name` variable
+6. Calls `greeting` with the `name` passed in, and prints the result
 
 Let's now compile and run our example:
 ```bash
@@ -138,8 +136,8 @@ Let's now compile and run our example:
 Hello, world! From user myName
 ```
 
-**WARNING:** If you see the following error, you must install `gcc` and try `cargo run` again:
-```
+_**WARNING:** If you see the following error, you must install `gcc` and try `cargo run` again:_
+```bash
    Compiling hello-world v0.1.0 (/root/hello-world)
 error: linker cc not found
   |
@@ -148,4 +146,30 @@ error: linker cc not found
 error: aborting due to previous error
 
 error: Could not compile hello-world.
+```
+
+Now that we have a working hello-world, it's time to adapt it to be used with Fluence.
+
+### Making it fluency!
+#### Adding fluence as a dependency
+
+
+#### Making library
+!!! TODO: explain why lib.rs is needed
+
+You were running your program by executing code in `src/main.rs`, but now we need to convert it to a library. Let's do that by moving `greeting` function to `src/lib.rs`.
+
+Create & open `src/lib.rs` in your editor:
+```bash
+~/hello-world $ edit src/lib.rs
+```
+
+Then paste the following code there:
+```rust
+use fluence::sdk::*;
+
+#[invocation_handler]
+fn greeting(name: String) -> String {
+    format!("Hello, world! From user {}", name)
+}
 ```
