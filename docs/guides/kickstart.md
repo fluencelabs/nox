@@ -468,8 +468,19 @@ What this code does, line-by-line:
 5. Saves session to `window.fluenceSession`, so it can be accessed later
 6. And final three lines define a helper function `logResultAsString` that's useful for printing out results
 
+**Make sure you have changed `appId` to your actuall appId.**
+
 ### Running and using
 To install all dependencies, compile and run the application, run in the terminal:
 ```bash
 ~/frontend-template $ npm install
+~/frontend-template $ npm run build
 ```
+
+Now you can open `index.html` in your browser. Then open Developer Console, and enter:
+```javascript
+let result = fluenceSession.workerSessions[0].session.invoke("myName").result();
+logResultAsString(result);
+```
+
+And you should see `"Hello, world! From user myName"`
