@@ -133,13 +133,13 @@ object DockerWorker extends LazyLogging {
       }
 
   /**
-  * Creates new docker network and connects node to that network
-    *
-    * @param params used for docker network name generation
-    * @tparam F Effect
-    * @return Resource of docker network and node connection.
-    *         On release node will be disconnected, network will be removed.
-    */
+   * Creates new docker network and connects node to that network
+   *
+   * @param params used for docker network name generation
+   * @tparam F Effect
+   * @return Resource of docker network and node connection.
+   *         On release node will be disconnected, network will be removed.
+   */
   private def makeNetwork[F[_]: ContextShift: Sync](params: WorkerParams): Resource[F, DockerNetwork] = {
     logger.debug(s"Creating docker network ${dockerNetworkName(params)} for $params")
     for {
