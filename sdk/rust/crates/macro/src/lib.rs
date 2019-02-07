@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-//! This module defines invocation_handler attribute procedural macro. It allows simplifiing
+//! This module defines invocation_handler attribute procedural macro. It allows simplifiing of
 //! principal module invocation handler signature. According to `Fluence Wasm backend convensions`
-//! is can look like this
+//! is can look like this:
 //!
 //! ```
 //! #[no_mangle]
@@ -30,7 +30,7 @@
 //! }
 //! ```
 //!
-//! Instead of this you can write more pretty one
+//! Instead of this you can write more pretty one using #[invocation_handler]:
 //!
 //! ```
 //! use fluence::sdk::*;
