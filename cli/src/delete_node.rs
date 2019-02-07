@@ -22,10 +22,10 @@ use crate::contract_func::contract::events::node_deleted;
 
 use crate::command::*;
 use crate::contract_func::call_contract;
+use crate::step_counter::StepCounter;
 use crate::utils;
 use failure::{err_msg, Error, SyncFailure};
 use web3::transports::Http;
-use crate::step_counter::StepCounter;
 
 use crate::contract_func::contract::functions::delete_node;
 use crate::contract_func::get_transaction_logs;
@@ -88,8 +88,12 @@ impl DeleteNode {
 
         if show_progress {
             let mut step_counter = StepCounter::new(1);
-            if self.eth.wait_eth_sync { step_counter.register() };
-            if self.eth.wait_tx_include { step_counter.register() };
+            if self.eth.wait_eth_sync {
+                step_counter.register()
+            };
+            if self.eth.wait_tx_include {
+                step_counter.register()
+            };
 
             if self.eth.wait_eth_sync {
                 utils::with_progress(

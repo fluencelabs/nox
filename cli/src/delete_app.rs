@@ -28,10 +28,10 @@ use crate::contract_func::contract::functions::delete_app;
 use crate::contract_func::contract::functions::dequeue_app;
 use crate::contract_func::wait_sync;
 use crate::contract_func::{get_transaction_logs, wait_tx_included};
+use crate::step_counter::StepCounter;
 use crate::utils;
 use ethabi::RawLog;
 use failure::{err_msg, Error, SyncFailure};
-use crate::step_counter::StepCounter;
 
 const APP_ID: &str = "app_id";
 const DEPLOYED: &str = "deployed";
@@ -125,8 +125,12 @@ impl DeleteApp {
 
         if show_progress {
             let mut step_counter = StepCounter::new(1);
-            if self.eth.wait_eth_sync { step_counter.register() };
-            if self.eth.wait_tx_include { step_counter.register() };
+            if self.eth.wait_eth_sync {
+                step_counter.register()
+            };
+            if self.eth.wait_tx_include {
+                step_counter.register()
+            };
 
             if self.eth.wait_eth_sync {
                 utils::with_progress(

@@ -173,9 +173,15 @@ impl Register {
         // sending transaction with the hash of file with code to ethereum
         if show_progress {
             let mut step_counter = StepCounter::new(1);
-            if !self.no_status_check { step_counter.register() };
-            if self.eth.wait_eth_sync { step_counter.register() };
-            if self.eth.wait_tx_include { step_counter.register() };
+            if !self.no_status_check {
+                step_counter.register()
+            };
+            if self.eth.wait_eth_sync {
+                step_counter.register()
+            };
+            if self.eth.wait_tx_include {
+                step_counter.register()
+            };
 
             if self.eth.wait_eth_sync {
                 utils::with_progress(
@@ -200,7 +206,6 @@ impl Register {
             if is_registered {
                 Ok(Registered::AlreadyRegistered)
             } else {
-
                 let tx = utils::with_progress(
                     "Registering the node in the smart contract...",
                     step_counter.format_next_step().as_str(),

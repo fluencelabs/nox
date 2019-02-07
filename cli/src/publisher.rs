@@ -32,8 +32,8 @@ use crate::contract_func::contract::events::app_deployed::parse_log as parse_dep
 use crate::contract_func::contract::events::app_enqueued::parse_log as parse_enqueued;
 use crate::contract_func::contract::functions::add_app;
 use crate::contract_func::{call_contract, get_transaction_logs_raw, wait_tx_included};
-use crate::utils;
 use crate::step_counter::StepCounter;
+use crate::utils;
 
 const CODE_PATH: &str = "code_path";
 const CLUSTER_SIZE: &str = "cluster_size";
@@ -136,7 +136,9 @@ impl Publisher {
         if show_progress {
             // upload to swarm and publish to smart contract
             let mut step_counter = StepCounter::new(2);
-            if self.eth.wait_tx_include { step_counter.register() };
+            if self.eth.wait_tx_include {
+                step_counter.register()
+            };
 
             let hash: H256 = utils::with_progress(
                 "Uploading application code to Swarm...",
