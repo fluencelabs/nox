@@ -316,7 +316,7 @@ If you have your private key **in hex**, run the following in your terminal, rep
             --eth_url          http://207.154.240.52:8545 \
             --swarm_url        http://207.154.240.52:8500 \
             --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \
-            --contract_address 0x99d3a4e348eb218cfa3edc654f518e030629d30c \
+            --contract_address 0xe9bbe60d525c7c5d4f3d85036f3ea23003879106 \
             --account          <your ethereum address> \
             --secret_key       <your ethereum private key> \
             --cluster_size     4 \
@@ -331,7 +331,7 @@ If you have a JSON **keystore file**, run the following in your terminal, replac
             --eth_url          http://207.154.240.52:8545 \
             --swarm_url        http://207.154.240.52:8500 \
             --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \
-            --contract_address 0x99d3a4e348eb218cfa3edc654f518e030629d30c \
+            --contract_address 0xe9bbe60d525c7c5d4f3d85036f3ea23003879106 \
             --account          <your ethereum address> \
             --keystore         <path to keystore> \
             --password         <password for keystore> \
@@ -360,7 +360,7 @@ Now, let's check your app state in the contract
 ```bash
 ~ $ ./fluence status \
             --eth_url          http://207.154.240.52:8545 \
-            --contract_address 0x99d3a4e348eb218cfa3edc654f518e030629d30c \
+            --contract_address 0xe9bbe60d525c7c5d4f3d85036f3ea23003879106 \
             --app_id           <your app id here>
 ```
 
@@ -413,7 +413,7 @@ You can also use interactive mode instead of default by supplying `--interactive
 ```bash
 ./fluence status \
             --eth_url          http://207.154.240.52:8545 \
-            --contract_address 0x99d3a4e348eb218cfa3edc654f518e030629d30c \
+            --contract_address 0xe9bbe60d525c7c5d4f3d85036f3ea23003879106 \
             --app_id           <your app id here> \
             --interactive
 ```
@@ -443,7 +443,7 @@ Let's take a look at `index.js`:
 import * as fluence from "fluence";
 
 // address to Fluence contract in Ethereum blockchain. Interaction with blockchain created by MetaMask or with local Ethereum node
-let contractAddress = "0x99d3a4e348eb218cfa3edc654f518e030629d30c";
+let contractAddress = "0xe9bbe60d525c7c5d4f3d85036f3ea23003879106";
 
 // application to interact with that stored in Fluence contract
 let appId = "<put your app id here>";
