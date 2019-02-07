@@ -279,7 +279,27 @@ So, to upload anything to Swarm, you need to have an access to one of it's nodes
 TODO
 
 ### TODO: Installing Fluence CLI
-TODO
+You can download Fluence CLI from here https://github.com/fluencelabs/fluence/releases/tag/cli-0.1.2
+
+Or in terminal:
+**Linux**
+```bash
+~ $ wget https://github.com/fluencelabs/fluence/releases/download/cli-0.1.2/fluence-cli-0.1.2-linux-x64 -O fluence
+```
+
+**macOS**
+```bash
+~ $ curl -L https://github.com/fluencelabs/fluence/releases/download/cli-0.1.2/fluence-cli-0.1.2-mac-x64 -o fluence
+```
+
+And finally don't forget to add executable permission:
+```bash
+~ $ chmod +x ./fluence
+~ $ ./fluence --version
+Fluence CLI 0.1.2
+```
+
+If you're seeing cli's version, proceed to the next step.
 
 ### Publishing via Fluence CLI
 First, you will need some info prepared:
