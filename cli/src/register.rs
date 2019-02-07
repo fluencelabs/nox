@@ -172,16 +172,10 @@ impl Register {
 
         // sending transaction with the hash of file with code to ethereum
         if show_progress {
-            let mut step_counter = StepCounter::new();
-            if !self.no_status_check {
-                step_counter.register()
-            };
-            if self.eth.wait_eth_sync {
-                step_counter.register()
-            };
-            if self.eth.wait_tx_include {
-                step_counter.register()
-            };
+            let mut step_counter = StepCounter::new(1);
+            if !self.no_status_check { step_counter.register() };
+            if self.eth.wait_eth_sync { step_counter.register() };
+            if self.eth.wait_tx_include { step_counter.register() };
 
             if self.eth.wait_eth_sync {
                 utils::with_progress(

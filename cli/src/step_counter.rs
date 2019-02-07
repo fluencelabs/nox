@@ -21,9 +21,10 @@ pub struct StepCounter {
 }
 
 impl StepCounter {
-    pub fn new() -> StepCounter {
+    // create counter with initial number of steps
+    pub fn new(initial_steps: u8) -> StepCounter {
         StepCounter {
-            steps: 0,
+            steps: initial_steps,
             current_step: 0,
         }
     }
