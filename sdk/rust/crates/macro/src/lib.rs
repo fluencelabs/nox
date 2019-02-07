@@ -30,7 +30,7 @@
 //! }
 //! ```
 //!
-//! Instead of this you can write more pretty one using #[invocation_handler]:
+//! Instead of this you can write more pretty one using `#[invocation_handler]`:
 //!
 //! ```
 //! use fluence::sdk::*;

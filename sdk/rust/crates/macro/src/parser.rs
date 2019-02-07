@@ -48,7 +48,7 @@ impl ParsedType {
             // converts T to syn::Type
             let arg_type = match arg_val {
                 syn::GenericArgument::Type(ty) => Ok(ty),
-                _ => Err(Error::new(arg_val.span(), "Incorrect type in Vec brackets"))
+                _ => Err(Error::new(arg_val.span(), "Incorrect type in Vec brackets")),
             }?;
 
             // converts T to syn::path
@@ -56,26 +56,24 @@ impl ParsedType {
                 syn::Type::Path(path) => Ok(&path.path),
                 _ => Err(Error::new(
                     arg_type.span(),
-                    "Unsuitable type in Vec brackets - only Vec<u8> is supported"
+                    "Unsuitable type in Vec brackets - only Vec<u8> is supported",
                 )),
             }?;
 
             // There could be situations like Vec<some_crate::some_module::u8>
             // that why we check segments count
             if arg_path.segments.len() != 1 {
-                Error::new(
+                return Err(Error::new(
                     arg_path.span(),
-                    "Unsuitable type in Vec brackets - only Vec<u8> is supported"
-                )
+                    "Unsuitable type in Vec brackets - only Vec<u8> is supported",
+                ));
             }
 
             // converts T to String
-            let arg_segment = arg_path.segments
-                .first()
-                .ok_or_else(|| {
-                    Error::new(
+            let arg_segment = arg_path.segments.first().ok_or_else(|| {
+                Error::new(
                     arg_path.span(),
-                    "It has to be a valid generic value in Vec brackets"
+                    "It has to be a valid generic value in Vec brackets",
                 )
             })?;
             let arg_segment = arg_segment.value();
@@ -96,7 +94,12 @@ impl ParsedType {
             // argument can be given in full path form: ::std::string::String
             // that why the last one used
             .last()
-            .ok_or_else(|| Error::new(path.span(), "It has to have a non-empty input argument type"))?;
+            .ok_or_else(|| {
+                Error::new(
+                    path.span(),
+                    "It has to have a non-empty input argument type",
+                )
+            })?;
         let type_segment = type_segment.value();
 
         match type_segment.ident.to_string().as_str() {
