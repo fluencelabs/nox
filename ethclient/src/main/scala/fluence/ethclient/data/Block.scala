@@ -16,6 +16,8 @@
 
 package fluence.ethclient.data
 
+import java.math.BigInteger
+
 import org.web3j.protocol.core.methods.response.EthBlock
 
 case class Block(
@@ -51,7 +53,7 @@ object Block {
     import scala.collection.convert.ImplicitConversionsToScala._
 
     new Block(
-      getNumber,
+      Option(getNumber).getOrElse(BigInteger.ZERO), // null on Kovan with lightclient
       getHash,
       getParentHash,
       Option(getNonceRaw).getOrElse(""), // null for kovan
