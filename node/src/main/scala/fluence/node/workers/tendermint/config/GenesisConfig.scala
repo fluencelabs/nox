@@ -38,10 +38,11 @@ case class GenesisConfig private (
 
   def toJsonString: String = configEncoder(this).spaces2
 
-  def writeTo(destPath: Path): IO[Unit] = {
-    logger.info("Writing {}/genesis.json", destPath)
-    IO(Files.write(destPath.resolve("genesis.json"), toJsonString.getBytes))
-  }
+  def writeTo(destPath: Path): IO[Unit] =
+    IO {
+      logger.info("Writing {}/genesis.json", destPath)
+      Files.write(destPath.resolve("genesis.json"), toJsonString.getBytes)
+    }
 }
 
 private object GenesisConfig {

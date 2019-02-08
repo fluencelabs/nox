@@ -91,9 +91,9 @@ object DockerTendermint {
     network: DockerNetwork
   ): Resource[F, DockerIO] =
     for {
-      _ ← Resource.liftF(IO {
+      _ ← Resource.liftF(
         ConfigTemplate.writeConfigs(params.configTemplate, params.app, params.dataPath, worker.containerId)
-      }.to[F])
+      )
       container ← DockerIO.run[F](dockerCommand(params, worker, network))
     } yield container
 
