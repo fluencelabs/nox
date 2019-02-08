@@ -236,7 +236,7 @@ pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Error> {
     let credentials = load_credentials(keystore, password, secret_key)?;
 
     let gas = value_t!(args, GAS, u32)?;
-    let gas_price = value_t!(args, GAS, u64)?;
+    let gas_price = value_t!(args, GAS_PRICE, u64)?;
     // TODO: it could panic here on overflow
     let gas_price = gas_price * TO_GWEI_MUL;
     let account: Address = utils::parse_hex_opt(args, ACCOUNT)?.parse()?;
