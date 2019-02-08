@@ -38,8 +38,8 @@ object StoppedWorkerInfo {
     new StoppedWorkerInfo(
       worker.rpcPort,
       worker.p2pPort,
-      DockerWorker.SM_PROMETHEUS_PORT,
-      DockerWorker.TM_PROMETHEUS_PORT
+      DockerWorker.SmPrometheusPort,
+      DockerWorker.TmPrometheusPort
     )
 
   implicit val encodeStoppedWorkerInfo: Encoder[StoppedWorkerInfo] = deriveEncoder
