@@ -16,26 +16,39 @@
 
 package fluence.node.workers.tendermint.config
 
-private[config] object GenesisConfig {
-  import java.text.SimpleDateFormat
-  import java.util.TimeZone
+import java.nio.file.{Files, Path}
+import java.text.SimpleDateFormat
+import java.util.TimeZone
 
-  import fluence.ethclient.helpers.Web3jConverters
-  import fluence.node.eth.state.App
-  import fluence.node.workers.tendermint.ValidatorKey
-  import io.circe.Encoder
-  import io.circe.generic.semiauto.deriveEncoder
-  import io.circe.syntax._
+import cats.effect.IO
+import fluence.ethclient.helpers.Web3jConverters
+import fluence.node.eth.state.App
+import fluence.node.workers.tendermint.ValidatorKey
+import io.circe.Encoder
+import io.circe.generic.semiauto.deriveEncoder
+import slogging.LazyLogging
 
-  private case class ValidatorConfig(pub_key: ValidatorKey, power: String, name: String)
-  private case class GenesisConfig(
-    genesis_time: String,
-    chain_id: String,
-    app_hash: String,
-    validators: Seq[ValidatorConfig]
-  )
+case class GenesisConfig private (
+  genesis_time: String,
+  chain_id: String,
+  app_hash: String,
+  validators: Seq[ValidatorConfig]
+) extends LazyLogging {
+  import GenesisConfig.configEncoder
 
-  def generateJson(app: App): String = {
+  def toJsonString: String = configEncoder(this).spaces2
+
+  def writeTo(destPath: Path): IO[Unit] = {
+    logger.info("Writing {}/genesis.json", destPath)
+    IO(Files.write(destPath.resolve("genesis.json"), toJsonString.getBytes))
+  }
+}
+
+private object GenesisConfig {
+
+  implicit val configEncoder: Encoder[GenesisConfig] = deriveEncoder
+
+  def apply(app: App): GenesisConfig = {
     val dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
     dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"))
 
@@ -53,9 +66,10 @@ private[config] object GenesisConfig {
           name = s"${app.id}_${w.index}"
         )
       }
-    ).asJson.spaces2
+    )
   }
 
-  implicit private val configEncoder: Encoder[GenesisConfig] = deriveEncoder
-  implicit private val validatorEncoder: Encoder[ValidatorConfig] = deriveEncoder
+  def generateJson(app: App): String =
+    apply(app).toJsonString
+
 }

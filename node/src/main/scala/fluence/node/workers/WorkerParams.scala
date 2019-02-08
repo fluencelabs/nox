@@ -15,20 +15,27 @@
  */
 
 package fluence.node.workers
+import java.nio.file.Path
+
 import fluence.node.docker.DockerImage
 import fluence.node.eth.state.WorkerPeer
+import fluence.node.eth.state.App
+import fluence.node.workers.tendermint.config.ConfigTemplate
 
 /**
  * Worker container's params
  */
 case class WorkerParams(
-  appId: Long,
-  currentWorker: WorkerPeer,
-  workerPath: String,
-  vmCodePath: String,
+  app: App,
+  dataPath: Path,
+  vmCodePath: Path,
   masterNodeContainerId: Option[String],
-  image: DockerImage
+  image: DockerImage,
+  configTemplate: ConfigTemplate
 ) {
+  def appId: Long = app.id
+
+  def currentWorker: WorkerPeer = app.cluster.currentWorker
 
   override def toString =
     s"(worker ${currentWorker.index} with RPC port ${currentWorker.rpcPort} for app $appId)"

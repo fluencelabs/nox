@@ -23,9 +23,9 @@ import cats.syntax.functor._
 import com.softwaremill.sttp._
 import fluence.node.MakeResource
 import fluence.node.docker.{DockerIO, DockerNetwork, DockerParams}
-import fluence.node.eth.state.WorkerPeer
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.health._
+import fluence.node.workers.tendermint.DockerTendermint
 import fluence.node.workers.tendermint.rpc.TendermintRpc
 import slogging.LazyLogging
 
@@ -55,10 +55,6 @@ case class DockerWorker[F[_]] private (
 }
 
 object DockerWorker extends LazyLogging {
-  // Internal ports
-  val P2pPort: Short = 26656
-  val RpcPort: Short = 26657
-  val TmPrometheusPort: Short = 26660
   val SmPrometheusPort: Short = 26661
 
   private def dockerCommand(params: WorkerParams, network: DockerNetwork): DockerParams.DaemonParams = {
@@ -67,15 +63,14 @@ object DockerWorker extends LazyLogging {
     val dockerParams = DockerParams
       .build()
       .option("-e", s"""CODE_DIR=$vmCodePath""")
-      .option("-e", s"""WORKER_DIR=$workerPath""")
       .option("--name", containerName(params))
       .option("--network", network.name)
-      .port(currentWorker.p2pPort, P2pPort)
-      .port(currentWorker.rpcPort, RpcPort)
 
     (masterNodeContainerId match {
-      case Some(id) => dockerParams.option("--volumes-from", s"$id:ro")
-      case None => dockerParams
+      case Some(id) =>
+        dockerParams.option("--volumes-from", s"$id:ro")
+      case None =>
+        dockerParams
     }).image(image).daemonRun()
   }
 
@@ -171,10 +166,14 @@ object DockerWorker extends LazyLogging {
       )
 
       network ← makeNetwork(params)
-      container ← DockerIO.run[F](dockerCommand(params, network))
-      rpc ← TendermintRpc.make[F](containerName(params), RpcPort)
 
-      healthChecks = healthCheckStream(container, params, healthCheckConfig, rpc)
+      worker ← DockerIO.run[F](dockerCommand(params, network))
+
+      tendermint ← DockerTendermint.make[F](params, worker, network)
+
+      rpc ← TendermintRpc.make[F](DockerTendermint.containerName(params), DockerTendermint.RpcPort)
+
+      healthChecks = healthCheckStream(tendermint, params, healthCheckConfig, rpc)
 
       // Runs health checker, wrapped with resource:
       // health check will be stopped when the resource is released.

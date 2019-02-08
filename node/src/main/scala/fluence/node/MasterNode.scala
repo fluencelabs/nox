@@ -27,11 +27,9 @@ import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
 import fluence.ethclient.EthClient
 import fluence.node.config.{MasterConfig, NodeConfig}
-import fluence.node.docker.{DockerIO, DockerImage, DockerNetwork}
 import fluence.node.eth._
 import fluence.node.workers._
-import fluence.node.workers.tendermint.config.WorkerConfigWriter
-import fluence.node.workers.tendermint.config.WorkerConfigWriter.WorkerConfigPaths
+import fluence.node.workers.tendermint.config.ConfigTemplate
 import slogging.LazyLogging
 
 import scala.language.higherKinds
@@ -46,6 +44,7 @@ import scala.language.higherKinds
  */
 case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
   nodeConfig: NodeConfig,
+  configTemplate: ConfigTemplate,
   nodeEth: NodeEth[F],
   pool: WorkersPool[F],
   codeManager: CodeManager[F],
@@ -53,46 +52,24 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
   masterNodeContainerId: Option[String]
 ) extends slogging.LazyLogging {
 
-  /**
-   * Downloads code from Swarm
-   *
-   * @param codeManager Manager that downloads the code from Swarm
-   * @return original App and WorkerConfigPaths along with downloaded code Path
-   */
-  private def downloadCode(
-    codeManager: CodeManager[F],
-    app: state.App,
-    paths: WorkerConfigPaths
-  ): F[Path] = codeManager.prepareCode(CodePath(app.storageHash), paths.workerPath)
-
-  /**
-   * Generates WorkerParams case class from app, config paths and downloaded code path
-   *
-   * @param workerImage Docker image to use to run a Worker
-   * @param masterNodeContainerId Docker container id of the current Fluence node, used to import volumes from it
-   * @return
-   */
-  private def buildWorkerParams(
-    workerImage: DockerImage,
-    masterNodeContainerId: Option[String],
-    app: state.App,
-    paths: WorkerConfigPaths,
-    codePath: Path
-  ) = WorkerParams(
-    app.id,
-    app.cluster.currentWorker,
-    paths.workerPath.toString,
-    codePath.toAbsolutePath.toString,
-    masterNodeContainerId,
-    workerImage
-  )
-
   private def runWorker(params: WorkerParams) =
     for {
       _ <- IO(logger.info("Running worker `{}`", params)).to[F]
       newly <- pool.run(params)
       _ <- IO(logger.info(s"Worker started (newly=$newly) {}", params)).to[F]
     } yield ()
+
+  private def makeDataPath(app: eth.state.App): F[Path] =
+    for {
+      dataPath ← IO(rootPath.resolve("app-" + app.id).resolve("data")).to[F]
+      _ ← IO(Files.createDirectories(dataPath)).to[F]
+    } yield dataPath
+
+  private def makeVmCodePath(app: eth.state.App): F[Path] =
+    for {
+      vmCodePath ← IO(rootPath.resolve("app-" + app.id).resolve("vmcode")).to[F]
+      _ ← IO(Files.createDirectories(vmCodePath)).to[F]
+    } yield vmCodePath
 
   /**
    * Runs app worker on a pool
@@ -102,13 +79,22 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
    */
   def runAppWorker(app: eth.state.App): F[Unit] =
     for {
-      paths <- WorkerConfigWriter.resolveWorkerConfigPaths(app, rootPath)
-      code <- downloadCode(codeManager, app, paths)
-      _ <- WorkerConfigWriter.writeConfigs(app, paths)
+      dataPath ← makeDataPath(app)
+      vmCodePath ← makeVmCodePath(app)
 
-      params = buildWorkerParams(nodeConfig.workerImage, masterNodeContainerId, app, paths, code)
+      // TODO: in general, worker/vm is responsible about downloading the code during resource creation, isn't it?
+      _ <- codeManager.prepareCode(CodePath(app.storageHash), vmCodePath)
 
-      _ <- runWorker(params)
+      _ <- runWorker(
+        WorkerParams(
+          app,
+          dataPath,
+          vmCodePath,
+          masterNodeContainerId,
+          nodeConfig.workerImage,
+          configTemplate
+        )
+      )
     } yield ()
 
   /**
@@ -189,9 +175,11 @@ object MasterNode extends LazyLogging {
       nodeEth ← NodeEth[F](nodeConfig.validatorKey.toByteVector, ethClient, masterConfig.contract)
 
       codeManager ← Resource.liftF(CodeManager[F](masterConfig.swarm))
+      configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath))
     } yield
       MasterNode[F](
         nodeConfig,
+        configTemplate,
         nodeEth,
         pool,
         codeManager,
