@@ -83,13 +83,14 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
       vmCodePath ← makeVmCodePath(app)
 
       // TODO: in general, worker/vm is responsible about downloading the code during resource creation, isn't it?
-      _ <- codeManager.prepareCode(CodePath(app.storageHash), vmCodePath)
+      // we take output to substitute test folder in tests
+      code <- codeManager.prepareCode(CodePath(app.storageHash), vmCodePath)
 
       _ <- runWorker(
         WorkerParams(
           app,
           dataPath,
-          vmCodePath,
+          code,
           masterNodeContainerId,
           nodeConfig.workerImage,
           nodeConfig.tmImage,

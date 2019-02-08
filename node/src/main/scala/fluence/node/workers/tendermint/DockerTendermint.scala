@@ -15,6 +15,8 @@
  */
 
 package fluence.node.workers.tendermint
+import java.nio.file.Path
+
 import cats.effect._
 import fluence.node.docker.{DockerIO, DockerImage, DockerNetwork, DockerParams}
 import fluence.node.workers.{DockerWorker, WorkerParams}
@@ -27,6 +29,33 @@ object DockerTendermint {
   val P2pPort: Short = 26656
   val RpcPort: Short = 26657
   val TmPrometheusPort: Short = 26660
+
+  def execCmd[F[_]: Sync: ContextShift](
+                                         tmImage: DockerImage,
+                                         tendermintDir: Path,
+                                         masterContainerId: Option[String],
+                                         cmd: String,
+                                         uid: String): F[String] =
+    DockerIO.exec[F] {
+      val params = DockerParams
+        .build()
+        .user(uid)
+
+      masterContainerId match {
+        case Some(cId) ⇒
+          params
+            .option("--volumes-from", cId)
+            .option("-e", s"TMHOME=$tendermintDir")
+            .image(tmImage)
+            .runExec(cmd)
+
+        case None ⇒
+          params
+            .volume(tendermintDir.toString, "/tendermint")
+            .image(tmImage)
+            .runExec(cmd)
+      }
+    }
 
   private def dockerCommand(
     params: WorkerParams,

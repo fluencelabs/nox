@@ -93,7 +93,7 @@ object DockerParams {
   case class ExecParams(command: Seq[String]) extends SealedParams
 
   private val daemonParams = Seq("docker", "run", "-d")
-  private val runParams = Seq("docker", "run", "--user", "", "--rm", "-i", "--entrypoint")
+  private val runParams = Seq("docker", "run", "--user", "", "--rm", "-i")
 
   // Represents a docker run command with specified image name, ready to be specialized to Daemon or Exec params
   case class WithImage(params: Seq[String], image: DockerImage) {
@@ -120,12 +120,26 @@ object DockerParams {
      * Resulting command will be like the following
      * `docker run --user "" --rm -i --entrypoint executable imageName execParams`
      *
-     * @param executable An executable to be run in container, must be callable by container (i.e. be in $PATH)
+     * @param entrypoint An executable to be run in container, must be callable by container (i.e. be in $PATH)
      * @param execParams Parameters passed to `executable`
      */
-    def run(executable: String, execParams: String*): ExecParams =
+    def run(entrypoint: String, execParams: String*): ExecParams =
       ExecParams(
-        (runParams :+ executable) ++ params ++ (image.imageName +: execParams)
+        (runParams :+ "--entrypoint" :+ entrypoint) ++ params ++ (image.imageName +: execParams)
+      )
+
+    /**
+     * Builds a `docker run` command running custom executable.
+     *
+     * `--rm` flag is specified, so container will be removed automatically after executable exit
+     * Resulting command will be like the following
+     * `docker run --user "" --rm -i imageName execParams`
+     *
+     * @param execParams Parameters passed to `executable`
+     */
+    def runExec(execParams: String*): ExecParams =
+      ExecParams(
+        runParams ++ params ++ (image.imageName +: execParams)
       )
   }
 

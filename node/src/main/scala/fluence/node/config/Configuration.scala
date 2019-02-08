@@ -21,7 +21,7 @@ import java.nio.file.{Path, Paths}
 import cats.effect.{ContextShift, IO, Sync}
 import com.typesafe.config.Config
 import fluence.node.config.ConfigOps._
-import fluence.node.docker.{DockerIO, DockerImage, DockerParams}
+import fluence.node.docker.DockerImage
 import fluence.node.workers.tendermint.{DockerTendermint, ValidatorKey}
 import io.circe.parser._
 
@@ -70,6 +70,7 @@ object Configuration extends slogging.LazyLogging {
   /**
    * Run `tendermint --init` in container to initialize /master/tendermint/config with configuration files.
    * Later, files /master/tendermint/config are used to run and configure workers
+   * TODO move it to DockerTendermint?
    *
    * @param masterContainerId id of master docker container (container running this code), if it's run inside Docker
    * @param rootPath MasterNode's root path
@@ -82,27 +83,7 @@ object Configuration extends slogging.LazyLogging {
 
     val tendermintDir = rootPath.resolve("tendermint") // /master/tendermint
     def execTendermintCmd[F[_]: Sync: ContextShift](cmd: String, uid: String): F[String] =
-      DockerIO.exec[F] {
-        val params = DockerParams
-          .build()
-          .user(uid)
-
-        masterContainerId match {
-          case Some(cId) ⇒
-            params
-              .option("--volumes-from", cId)
-              .image(tmImage)
-              .run("tendermint", cmd, s"--home=$tendermintDir")
-
-          case None ⇒
-            params
-              .volume(tendermintDir.toString, "/shared")
-              .image(tmImage)
-              .run("tendermint", cmd, s"--home=/shared")
-
-        }
-
-      }
+      DockerTendermint.execCmd[F](tmImage, tendermintDir, masterContainerId, cmd, uid)
 
     for {
       uid <- IO(scala.sys.process.Process("id -u").!!.trim)
