@@ -76,7 +76,7 @@ object DockerTendermint {
 
     (masterNodeContainerId match {
       case Some(id) =>
-        dockerParams.option("--volumes-from", s"$id:ro")
+        dockerParams.option("--volumes-from", id)
       case None =>
         dockerParams
     }).image(tmImage).daemonRun("node")
