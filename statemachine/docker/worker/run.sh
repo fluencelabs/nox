@@ -45,6 +45,7 @@ java -jar "$JAR" &
 
 STATEMACHINE_PID=$!
 
+# TODO: remove all that trapping logic after tendermint and statemachine are separated into independent containers
 # Set trap for docker stop
 trap 'kill -s INT %1; kill -s INT %2; echo "KILLING %1 %2 with SIGINT"' INT
 # Set trap for Ctrl-C, just in case
