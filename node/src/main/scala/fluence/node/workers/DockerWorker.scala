@@ -169,7 +169,7 @@ object DockerWorker extends LazyLogging {
 
       worker ← DockerIO.run[F](dockerCommand(params, network))
 
-      tendermint ← DockerTendermint.make[F](params, worker, network)
+      tendermint ← DockerTendermint.make[F](params, containerName(params), network)
 
       rpc ← TendermintRpc.make[F](DockerTendermint.containerName(params), DockerTendermint.RpcPort)
 

@@ -60,7 +60,6 @@ object DockerTendermint {
 
   private def dockerCommand(
     params: WorkerParams,
-    worker: DockerIO,
     network: DockerNetwork
   ): DockerParams.DaemonParams = {
     import params._
@@ -87,14 +86,14 @@ object DockerTendermint {
 
   def make[F[_]: Sync: ContextShift: LiftIO](
     params: WorkerParams,
-    worker: DockerIO,
+    workerName: String,
     network: DockerNetwork
   ): Resource[F, DockerIO] =
     for {
       _ ← Resource.liftF(
-        ConfigTemplate.writeConfigs(params.configTemplate, params.app, params.dataPath, worker.containerId)
+        ConfigTemplate.writeConfigs(params.configTemplate, params.app, params.dataPath, workerName)
       )
-      container ← DockerIO.run[F](dockerCommand(params, worker, network))
+      container ← DockerIO.run[F](dockerCommand(params, network))
     } yield container
 
 }
