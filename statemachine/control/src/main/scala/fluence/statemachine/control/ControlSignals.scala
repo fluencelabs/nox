@@ -18,9 +18,9 @@ package fluence.statemachine.control
 import cats.FlatMap
 import cats.effect.concurrent.{Deferred, MVar}
 import cats.effect.{Concurrent, Resource, Sync}
+import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.syntax.applicativeError._
 
 import scala.language.higherKinds
 
@@ -41,11 +41,14 @@ class ControlSignals[F[_]: FlatMap] private (
   private[control] def dropPeer(drop: DropPeer): F[Unit] =
     for {
       changes <- dropPeersRef.take
-      _ <- dropPeersRef.put(changes :+ drop)
+      _ <- dropPeersRef.put(drop +: changes)
     } yield ()
 
   /**
-   * Retrieve list of current DropPeer events
+   * Move list of current DropPeer events from ControlSignals to call-site
+   * dropPeersRef is emptied on resource's acquisition, and filled with Nil after resource is used
+   * Using Resource this way guarantees exclusive access to data
+   * @return Resource with List of DropPeer signals
    */
   val dropPeers: Resource[F, List[DropPeer]] =
     Resource.make(dropPeersRef.tryTake.map(_.toList.flatten))(_ => dropPeersRef.tryPut(Nil).void)

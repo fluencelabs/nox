@@ -17,9 +17,6 @@
 package fluence.node.workers.control
 import cats.effect.Sync
 import com.softwaremill.sttp._
-import com.softwaremill.sttp.circe._
-import fluence.statemachine.control.{DropPeer, GetStatus, Stop}
-import io.circe.Encoder
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -41,41 +38,20 @@ abstract class ControlRpc[F[_]] {
    */
   def status(): F[Unit]
 
-  def stop(): F[Unit]
-}
-
-class HttpControlRpc[F[_]: Sync](hostname: String, port: Short)(implicit s: SttpBackend[F, Nothing])
-    extends ControlRpc[F] {
-
   /**
-   * Send a serializable request to the worker's control endpoint
-   * @param request Control RPC request
-   * @param path Control RPC path
+   * Requests worker to stop
    */
-  private def send[Req: Encoder](request: Req, path: String): F[Unit] = {
-    import cats.syntax.apply._
-    import cats.syntax.functor._
-    import cats.syntax.flatMap._
-    import cats.syntax.either._
-
-    sttp
-      .body(request)
-      .post(uri"http://$hostname:$port/control/$path")
-      .send()
-      .map(_.body.leftMap(msg => new Exception(s"Error sending $request: $msg"): Throwable))
-      .flatMap(Sync[F].fromEither)
-      .void
-  }
-
-  def dropPeer(key: ByteVector): F[Unit] = send(DropPeer(key), "dropPeer")
-
-  def status(): F[Unit] = send(GetStatus(), "status")
-
-  def stop(): F[Unit] = send(Stop(), "stop")
+  def stop(): F[Unit]
 }
 
 object ControlRpc {
 
+  /**
+   * Creates a ControlRPC instance. Currently [[HttpControlRpc]] is used.
+   * @param hostname Hostname to send control requests
+   * @param port Port to send control requests
+   * @return Instance implementing ControlRPC interface
+   */
   def apply[F[_]: Sync](hostname: String, port: Short)(
     implicit s: SttpBackend[F, Nothing]
   ): ControlRpc[F] =
