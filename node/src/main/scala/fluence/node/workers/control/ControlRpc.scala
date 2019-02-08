@@ -15,20 +15,45 @@
  */
 
 package fluence.node.workers.control
+import cats.effect.Sync
+import com.softwaremill.sttp._
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
+/**
+ * RPC channel from node to worker
+ */
 abstract class ControlRpc[F[_]] {
 
+  /**
+   * Request worker to send a vote to Tendermint for removal of a validator
+   * @param key Public key of the Tendermint validator
+   */
   def dropPeer(key: ByteVector): F[Unit]
 
+  /**
+   * Request current worker status
+   * @return Currently if method returned without an error, worker is considered to be healthy
+   */
+  def status(): F[Unit]
+
+  /**
+   * Requests worker to stop
+   */
+  def stop(): F[Unit]
 }
 
 object ControlRpc {
 
-  def apply[F[_]](): ControlRpc[F] = new ControlRpc[F] {
-    override def dropPeer(key: ByteVector): F[Unit] = ???
-  }
-
+  /**
+   * Creates a ControlRPC instance. Currently [[HttpControlRpc]] is used.
+   * @param hostname Hostname to send control requests
+   * @param port Port to send control requests
+   * @return Instance implementing ControlRPC interface
+   */
+  def apply[F[_]: Sync](hostname: String, port: Short)(
+    implicit s: SttpBackend[F, Nothing]
+  ): ControlRpc[F] =
+    new HttpControlRpc[F](hostname, port)
 }
