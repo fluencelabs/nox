@@ -40,6 +40,7 @@ case class MasterConfig(
   statusServer: StatusServerConfig,
   masterContainerId: Option[String],
   worker: DockerImage,
+  tendermint: DockerImage,
   ethereum: EthereumRpcConfig
 )
 

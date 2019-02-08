@@ -92,6 +92,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
           vmCodePath,
           masterNodeContainerId,
           nodeConfig.workerImage,
+          nodeConfig.tmImage,
           configTemplate
         )
       )

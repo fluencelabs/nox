@@ -22,7 +22,7 @@ import cats.effect.{ContextShift, IO, Sync}
 import com.typesafe.config.Config
 import fluence.node.config.ConfigOps._
 import fluence.node.docker.{DockerIO, DockerImage, DockerParams}
-import fluence.node.workers.tendermint.ValidatorKey
+import fluence.node.workers.tendermint.{DockerTendermint, ValidatorKey}
 import io.circe.parser._
 
 import scala.language.higherKinds
@@ -52,9 +52,15 @@ object Configuration extends slogging.LazyLogging {
   def init(masterConfig: MasterConfig)(implicit ec: ContextShift[IO]): IO[Configuration] =
     for {
       rootPath <- IO(Paths.get(masterConfig.tendermintPath).toAbsolutePath)
-      t <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.worker)
+      t <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.tendermint)
       (nodeId, validatorKey) = t
-      nodeConfig = NodeConfig(masterConfig.endpoints, validatorKey, nodeId, masterConfig.worker)
+      nodeConfig = NodeConfig(
+        masterConfig.endpoints,
+        validatorKey,
+        nodeId,
+        masterConfig.worker,
+        masterConfig.tendermint
+      )
     } yield
       Configuration(
         rootPath,
@@ -67,10 +73,10 @@ object Configuration extends slogging.LazyLogging {
    *
    * @param masterContainerId id of master docker container (container running this code), if it's run inside Docker
    * @param rootPath MasterNode's root path
-   * @param workerImage Docker image for Worker, used to run Tendermint that is bundled inside
+   * @param tmImage Docker image for Tendermint, used to run Tendermint that is bundled inside
    * @return nodeId and validator key
    */
-  private def tendermintInit(masterContainerId: Option[String], rootPath: Path, workerImage: DockerImage)(
+  private def tendermintInit(masterContainerId: Option[String], rootPath: Path, tmImage: DockerImage)(
     implicit c: ContextShift[IO]
   ): IO[(String, ValidatorKey)] = {
 
@@ -85,13 +91,13 @@ object Configuration extends slogging.LazyLogging {
           case Some(cId) ⇒
             params
               .option("--volumes-from", cId)
-              .image(workerImage)
+              .image(tmImage)
               .run("tendermint", cmd, s"--home=$tendermintDir")
 
           case None ⇒
             params
               .volume(tendermintDir.toString, "/shared")
-              .image(workerImage)
+              .image(tmImage)
               .run("tendermint", cmd, s"--home=/shared")
 
         }

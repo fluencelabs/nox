@@ -31,6 +31,7 @@ case class WorkerParams(
   vmCodePath: Path,
   masterNodeContainerId: Option[String],
   image: DockerImage,
+  tmImage: DockerImage,
   configTemplate: ConfigTemplate
 ) {
   def appId: Long = app.id

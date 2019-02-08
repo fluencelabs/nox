@@ -35,9 +35,6 @@ object DockerTendermint {
   ): DockerParams.DaemonParams = {
     import params._
 
-    // TODO make configurable
-    val image = DockerImage("tendermint/tendermint", "0.27.4")
-
     val dockerParams = DockerParams
       .build()
       .option("-e", s"""TMHOME=$dataPath""")
@@ -51,7 +48,7 @@ object DockerTendermint {
         dockerParams.option("--volumes-from", s"$id:ro")
       case None =>
         dockerParams
-    }).image(image).daemonRun()
+    }).image(tmImage).daemonRun()
   }
 
   private[workers] def containerName(params: WorkerParams) =
