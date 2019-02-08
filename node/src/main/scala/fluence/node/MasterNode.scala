@@ -59,15 +59,20 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
       _ <- IO(logger.info(s"Worker started (newly=$newly) {}", params)).to[F]
     } yield ()
 
+  private def resolveAppPath(app: eth.state.App): F[Path] =
+    IO(rootPath.resolve("app-" + app.id + "-" + app.cluster.currentWorker.index)).to[F]
+
   private def makeDataPath(app: eth.state.App): F[Path] =
     for {
-      dataPath ← IO(rootPath.resolve("app-" + app.id).resolve("data")).to[F]
+      appPath ← resolveAppPath(app)
+      dataPath ← IO(appPath.resolve("data")).to[F]
       _ ← IO(Files.createDirectories(dataPath)).to[F]
     } yield dataPath
 
   private def makeVmCodePath(app: eth.state.App): F[Path] =
     for {
-      vmCodePath ← IO(rootPath.resolve("app-" + app.id).resolve("vmcode")).to[F]
+      appPath ← resolveAppPath(app)
+      vmCodePath ← IO(appPath.resolve("vmcode")).to[F]
       _ ← IO(Files.createDirectories(vmCodePath)).to[F]
     } yield vmCodePath
 

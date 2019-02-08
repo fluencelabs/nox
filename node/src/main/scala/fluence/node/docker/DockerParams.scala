@@ -15,6 +15,7 @@
  */
 
 package fluence.node.docker
+
 import fluence.node.docker.DockerParams.WithImage
 
 import scala.collection.immutable.Queue
@@ -102,16 +103,8 @@ object DockerParams {
      * Builds a command starting with `docker run -d` wrapped in DaemonParams, so
      * container will be deleted automatically by [[DockerIO.run]]
      */
-    def daemonRun(): DaemonParams =
-      DaemonParams(daemonParams ++ params :+ image.imageName)
-
-    /**
-     * Builds a command starting with `docker run -d` wrapped in ExecParams, so
-     * container should be deleted by caller
-     */
-    @deprecated("Use of unmanaged daemons often leads to leaking resources", "01.02.2019")
-    def unmanagedDaemonRun(): ExecParams =
-      ExecParams(daemonParams ++ params :+ image.imageName)
+    def daemonRun(cmd: String = null): DaemonParams =
+      DaemonParams(Option(cmd).foldLeft(daemonParams ++ params :+ image.imageName)(_ :+ _))
 
     /**
      * Builds a `docker run` command running custom executable.

@@ -19,7 +19,7 @@ import java.nio.file.Path
 
 import cats.effect._
 import fluence.node.docker.{DockerIO, DockerImage, DockerNetwork, DockerParams}
-import fluence.node.workers.{DockerWorker, WorkerParams}
+import fluence.node.workers.WorkerParams
 import fluence.node.workers.tendermint.config.ConfigTemplate
 
 import scala.language.higherKinds
@@ -31,11 +31,12 @@ object DockerTendermint {
   val TmPrometheusPort: Short = 26660
 
   def execCmd[F[_]: Sync: ContextShift](
-                                         tmImage: DockerImage,
-                                         tendermintDir: Path,
-                                         masterContainerId: Option[String],
-                                         cmd: String,
-                                         uid: String): F[String] =
+    tmImage: DockerImage,
+    tendermintDir: Path,
+    masterContainerId: Option[String],
+    cmd: String,
+    uid: String
+  ): F[String] =
     DockerIO.exec[F] {
       val params = DockerParams
         .build()
@@ -66,6 +67,7 @@ object DockerTendermint {
 
     val dockerParams = DockerParams
       .build()
+      .user("0") // TODO should only work when running from docker?
       .option("-e", s"""TMHOME=$dataPath""")
       .option("--name", containerName(params))
       .option("--network", network.name)
@@ -77,7 +79,7 @@ object DockerTendermint {
         dockerParams.option("--volumes-from", s"$id:ro")
       case None =>
         dockerParams
-    }).image(tmImage).daemonRun()
+    }).image(tmImage).daemonRun("node")
   }
 
   private[workers] def containerName(params: WorkerParams) =
