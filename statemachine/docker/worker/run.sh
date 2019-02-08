@@ -38,5 +38,17 @@ cp -rf "$CODE_DIR/." "/vmcode/"
 # run Tendermint with disabled output
 tendermint node "--home=/tendermint" &
 
+TENDERMINT_PID=$!
+
 # run State machine
-java -jar "$JAR"
+java -jar "$JAR" &
+
+STATEMACHINE_PID=$!
+
+trap 'kill -s INT %1; kill -s INT %2; echo "KILLING %1 %2 with SIGINT"' INT
+trap 'kill -s TERM %1; kill -s TERM %2; echo "KILLING %1 %2 with SIGTERM"' TERM
+
+wait $TENDERMINT_PID
+wait $TENDERMINT_PID
+wait $STATEMACHINE_PID
+wait $STATEMACHINE_PID
