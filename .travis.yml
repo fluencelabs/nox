@@ -37,8 +37,6 @@ _rust_wasm_template: &_rust_wasm_template
   script:
     - cargo +$TRAVIS_RUST_VERSION fmt --all -- --check -v
     - cargo +$TRAVIS_RUST_VERSION build -v --target wasm32-unknown-unknown --all-features
-    # cargo doc fails on building docs for fluence-sdk-macro
-    #- cargo +$TRAVIS_RUST_VERSION doc -v --all-features
     - cargo +$TRAVIS_RUST_VERSION test -v --all-features
     - cargo +$TRAVIS_RUST_VERSION clippy -v --target wasm32-unknown-unknown
 
