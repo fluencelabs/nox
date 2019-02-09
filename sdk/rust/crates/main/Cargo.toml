@@ -1,11 +1,11 @@
 [package]
-name = "fluence"
+name = "fluence-sdk-main"
 version = "0.0.8"  # remember to update html_root_url
+edition = "2018"
 description = "Rust SDK for writing applications for Fluence"
-documentation = "https://docs.rs/fluence/"
-repository = "https://github.com/fluencelabs/fluence/tree/master/sdk/rust"
+documentation = "https://docs.rs/fluence/fluence-sdk-macro"
+repository = "https://github.com/fluencelabs/fluence/tree/master/sdk/rust/crates/main"
 authors = ["Fluence Labs"]
-readme = "readme.md"
 keywords = ["fluence", "sdk", "webassembly"]
 categories = ["api-bindings", "wasm"]
 license = "Apache-2.0"
@@ -16,14 +16,11 @@ all-features = true
 
 [lib]
 path = "src/lib.rs"
+crate-type = ["rlib"]
 
 [dependencies]
 log = { version = "0.4", features = ["std"] }
 syn = { version = '0.15.0', features = ['full'] }
-quote = "0.6.3"
-proc-macro2 = "0.4"
-fluence-sdk-macro = { path = "crates/macro", version = "=0.0.8" }
-fluence-sdk-main = { path = "crates/main", version = "=0.0.8" }
 
 [dev-dependencies]
 simple_logger = "1.0" # used in doc test
@@ -31,15 +28,9 @@ lazy_static = "1.2.0" # used in doc test
 
 [features]
 # Turn on a compilation for module 'logger' from Fluence SDK. A string suffixes indicate log level.
-wasm_logger_info = ["fluence-sdk-main/wasm_logger_info"]
-wasm_logger_warn = ["fluence-sdk-main/wasm_logger_warn"]
-wasm_logger_error = ["fluence-sdk-main/wasm_logger_error"]
+wasm_logger_info = []
+wasm_logger_warn = []
+wasm_logger_error = []
 
 # Turn on a compilation for module contains standart implementation of allocate/deallocate functions.
-export_allocator = ["fluence-sdk-main/export_allocator"]
-
-[workspace]
-members = [
-  "crates/main",
-  "crates/macro",
-  ]
+export_allocator = []
