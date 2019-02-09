@@ -36,7 +36,7 @@ import scala.language.higherKinds
  */
 case class ControlServer[F[_]](signals: ControlSignals[F], http: Server[F])
 
-object ControlServer {
+object ControlServer extends slogging.LazyLogging {
 
   /** Settings for [[ControlServer]]
    * @param host host to listen on
@@ -55,17 +55,32 @@ object ControlServer {
   )(implicit dsl: Http4sDsl[F]): Kleisli[F, Request[F], Response[F]] = {
     import dsl._
 
-    implicit val decoder: EntityDecoder[F, ChangePeer] = jsonOf[F, ChangePeer]
+    implicit val decoder: EntityDecoder[F, DropPeer] = jsonOf[F, DropPeer]
+
+    val route: PartialFunction[Request[F], F[Response[F]]] = {
+      case req @ POST -> Root / "control" / "dropPeer" =>
+        for {
+          drop <- req.as[DropPeer]
+          _ <- signals.dropPeer(drop)
+          ok <- Ok()
+        } yield ok
+
+      case POST -> Root / "control" / "stop" =>
+        signals.stopWorker().flatMap(_ => Ok())
+
+      case (GET | POST) -> Root / "control" / "status" => Ok()
+
+      case _ => Sync[F].pure(Response.notFound)
+    }
+
+    val log: PartialFunction[Request[F], Request[F]] = {
+      case req =>
+        logger.info(s"RPC REQ: [${req.pathInfo}] $req")
+        req
+    }
 
     HttpRoutes
-      .of[F] {
-        case req @ POST -> Root / "control" / "changePeer" =>
-          for {
-            change <- req.as[ChangePeer]
-            _ <- signals.changePeer(change)
-            ok <- Ok()
-          } yield ok
-      }
+      .of[F] { log.andThen(route) }
       .orNotFound
   }
 
