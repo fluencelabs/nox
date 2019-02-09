@@ -14,10 +14,20 @@
  * limitations under the License.
  */
 
-//! A simple demo application for Fluence.
-use fluence::sdk::*;
+//! Rust SDK for writing applications for Fluence.
+#![doc(html_root_url = "https://docs.rs/fluence/0.0.8")]
+#![feature(allocator_api)]
 
-#[invocation_handler]
-fn main(name: String) -> String {
-    format!("Hello from Fluence to {}", name)
-}
+extern crate core;
+
+pub mod memory;
+
+#[cfg(any(
+    feature = "wasm_logger_info",
+    feature = "wasm_logger_warn",
+    feature = "wasm_logger_error"
+))]
+pub mod logger;
+
+#[cfg(feature = "export_allocator")]
+pub mod export_allocator;
