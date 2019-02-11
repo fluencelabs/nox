@@ -2,7 +2,7 @@
 name = "fluence"
 version = "0.1.2" # don't forget to change in README.md too
 authors = ["Fluence Labs"]
-publish = true
+publish=false
 edition = "2018"
 
 [profile.release]
