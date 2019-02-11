@@ -16,8 +16,9 @@
 
 package fluence.statemachine.control
 import cats.FlatMap
-import cats.effect.concurrent.MVar
-import cats.effect.{Concurrent, Resource}
+import cats.effect.concurrent.{Deferred, MVar}
+import cats.effect.{Concurrent, Resource, Sync}
+import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 
@@ -25,32 +26,42 @@ import scala.language.higherKinds
 
 /**
  * Sink and source for control events
- * @param changePeersRef Holds a list of ChangePeer events
- * @param stopRef MVar holding stop signal
+ * @param dropPeersRef Holds a list of DropPeer events
+ * @param stopRef Deferred holding stop signal, completed when the worker should stop
  * @tparam F Effect
  */
 class ControlSignals[F[_]: FlatMap] private (
-  private val changePeersRef: MVar[F, List[ChangePeer]],
-  private val stopRef: MVar[F, Unit]
+  private val dropPeersRef: MVar[F, List[DropPeer]],
+  private val stopRef: Deferred[F, Unit]
 ) {
 
   /**
-   * Add a new ChangePeer event
-   * @param change ChangePeer event
+   * Add a new DropPeer event
    */
-  def changePeer(change: ChangePeer): F[Unit] =
+  private[control] def dropPeer(drop: DropPeer): F[Unit] =
     for {
-      changes <- changePeersRef.take
-      _ <- changePeersRef.put(changes :+ change)
+      changes <- dropPeersRef.take
+      _ <- dropPeersRef.put(drop +: changes)
     } yield ()
 
-  // Retrieve list of current ChangePeer events
-  val changePeers: Resource[F, List[ChangePeer]] =
-    Resource.make(changePeersRef.tryTake.map(_.toList.flatten))(_ => changePeersRef.tryPut(Nil).void)
+  /**
+   * Move list of current DropPeer events from ControlSignals to call-site
+   * dropPeersRef is emptied on resource's acquisition, and filled with Nil after resource is used
+   * Using Resource this way guarantees exclusive access to data
+   * @return Resource with List of DropPeer signals
+   */
+  val dropPeers: Resource[F, List[DropPeer]] =
+    Resource.make(dropPeersRef.tryTake.map(_.toList.flatten))(_ => dropPeersRef.tryPut(Nil).void)
 
-  // Will evaluate once ControlSignals is stopped
-  val stop: F[Unit] =
-    stopRef.take
+  /**
+   * Orders the worker to stop
+   */
+  private[control] def stopWorker(): F[Unit] = stopRef.complete(())
+
+  /**
+   * Will evaluate once the worker should stop
+   */
+  val stop: F[Unit] = stopRef.get
 }
 
 object ControlSignals {
@@ -63,9 +74,14 @@ object ControlSignals {
   def apply[F[_]: Concurrent](): Resource[F, ControlSignals[F]] =
     Resource.make(
       for {
-        changePeersRef ← MVar[F].of[List[ChangePeer]](Nil)
-        stopRef ← MVar.empty[F, Unit]
-        instance = new ControlSignals[F](changePeersRef, stopRef)
+        dropPeersRef ← MVar[F].of[List[DropPeer]](Nil)
+        stopRef ← Deferred[F, Unit]
+        instance = new ControlSignals[F](dropPeersRef, stopRef)
       } yield instance
-    )(_.stopRef.put(()))
+    ) { s =>
+      Sync[F].suspend(
+        // Tell worker to stop if ControlSignals is dropped
+        s.stopRef.complete(()).attempt.void
+      )
+    }
 }

@@ -18,6 +18,8 @@
 //!
 //! Provides the public method (`invoke`) for work with Llamadb.
 
+use fluence::sdk::*;
+
 #[cfg(test)]
 mod tests;
 
@@ -25,9 +27,8 @@ mod tests;
 extern crate lazy_static;
 
 use llamadb::tempdb::{ExecuteStatementResponse, TempDb};
-use log::{error, info};
+use log::info;
 use std::error::Error;
-use std::ptr::NonNull;
 use std::sync::Mutex;
 
 /// Result for all possible Error types.
@@ -43,14 +44,8 @@ type GenResult<T> = ::std::result::Result<T, Box<Error>>;
 /// 2. Processes the resulted string as a SQL query
 /// 3. Returns a pointer to the result as a string in the memory
 /// 4. Deallocates memory occupied by passed parameter
-#[no_mangle]
-pub unsafe fn invoke(ptr: *mut u8, len: usize) -> NonNull<u8> {
-    info!("invoke starts with ptr={:?}, len={}", ptr, len);
-
-    // memory for the parameter will be deallocated when sql_str was dropped
-    let sql_str = fluence::memory::read_input_from_mem(ptr, len);
-    let sql_str = String::from_utf8(sql_str).unwrap();
-
+#[invocation_handler]
+fn main(sql_str: String) -> String {
     let db_response = match run_query(&sql_str) {
         Ok(response) => response,
         Err(err_msg) => format!("[Error] {}", err_msg),
@@ -58,13 +53,7 @@ pub unsafe fn invoke(ptr: *mut u8, len: usize) -> NonNull<u8> {
 
     info!("llamadb do_query ends with result={:?}", db_response);
     // return pointer to result in memory
-    fluence::memory::write_result_to_mem(db_response.as_bytes())
-        .unwrap_or_else(|_| log_and_panic("Putting result string to the memory was failed.".into()))
-}
-
-fn log_and_panic(msg: String) -> ! {
-    error!("{}", msg);
-    panic!(msg);
+    db_response
 }
 
 /// Acquires lock, does query, releases lock, returns query result.

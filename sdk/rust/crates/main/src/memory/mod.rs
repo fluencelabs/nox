@@ -62,7 +62,7 @@ pub unsafe fn dealloc(ptr: NonNull<u8>, size: NonZeroUsize) -> MemResult<()> {
 }
 
 /// Allocates 'RESULT_SIZE_BYTES + result.len()' bytes and writes length of the result as little
-/// endianes [RESULT_SIZE_BYTES] bytes and then writes content of 'result'. So the final layout of
+/// endianes RESULT_SIZE_BYTES bytes and then writes content of 'result'. So the final layout of
 /// the result in memory is following:
 /// `
 ///     | array_length: RESULT_SIZE_BYTES bytes (little-endian) | array: $array_length bytes |
