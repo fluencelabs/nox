@@ -200,7 +200,8 @@ lazy val node = project
       circeParser,
       http4sDsl,
       http4sServer,
-      scalaIntegrationTest
+      scalaIntegrationTest,
+      scalaTest
     ),
     assemblyMergeStrategy in assembly := {
       // a module definition fails compilation for java 8, just skip it

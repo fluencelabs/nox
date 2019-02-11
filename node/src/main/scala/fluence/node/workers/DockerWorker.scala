@@ -183,7 +183,7 @@ object DockerWorker extends LazyLogging {
       _ ← MakeResource
         .concurrentStream[F](healthChecks.evalTap(healthReportRef.set), s"healthChecks stream ${params.appId}")
 
-      control = ControlRpc[F]()
+      control = ControlRpc[F](containerName(params), ControlRpcPort)
 
     } yield new DockerWorker[F](rpc, control, healthReportRef, onStop, params.toString)
 

@@ -82,6 +82,10 @@ fn main() {
                     utils::print_tx_hash(tx);
                 }
                 Registered::TransactionSent(tx) => utils::print_tx_hash(tx),
+                Registered::AlreadyRegistered => println!(
+                    "{}",
+                    style(format!("The node has already been registered.")).blue()
+                ),
             }
         }
 

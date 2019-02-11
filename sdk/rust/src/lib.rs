@@ -15,19 +15,30 @@
  */
 
 //! Rust SDK for writing applications for Fluence.
-#![doc(html_root_url = "https://docs.rs/fluence/0.0.7")]
+//#![doc(html_root_url = "https://docs.rs/fluence/0.0.8")]
 #![feature(allocator_api)]
 
-extern crate core;
+extern crate fluence_sdk_macro;
+extern crate fluence_sdk_main;
 
-pub mod memory;
+/// A module which should be typically globally imported:
+///
+/// ```
+/// use fluence::sdk::*;
+/// ```
+pub mod sdk {
+    // TODO: need to introduce macros to avoid code duplication with crates/main/lib.rs
+    pub use fluence_sdk_main::memory;
 
-#[cfg(any(
-    feature = "wasm_logger_info",
-    feature = "wasm_logger_warn",
-    feature = "wasm_logger_error"
-))]
-pub mod logger;
+    #[cfg(any(
+        feature = "wasm_logger_info",
+        feature = "wasm_logger_warn",
+        feature = "wasm_logger_error"
+    ))]
+    pub use fluence_sdk_main::logger;
 
-#[cfg(feature = "export_allocator")]
-pub mod export_allocator;
+    #[cfg(feature = "export_allocator")]
+    pub use fluence_sdk_main::export_allocator;
+
+    pub use fluence_sdk_macro::invocation_handler;
+}

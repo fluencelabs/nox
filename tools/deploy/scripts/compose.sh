@@ -19,7 +19,7 @@ set -e
 # The script uses for deploying Parity, Swarm, and Fluence containers.
 # If `PROD_DEPLOY` is set in env, the script will also expect the following env variables: `NAME`, `PORTS`, `OWNER_ADDRESS`, `PRIVATE_KEY`
 # Without `PROD_DEPLOY` exported flag the script will use default arguments
-# If first arg is `multiple`, script will start 4 fluence node along with Swarm & Parity nodes
+# If first args are `deploy multiple`, script will start 4 fluence node along with Swarm & Parity nodes
 
 # `PROD_DEPLOY` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
 #  the network will be started in development mode locally
@@ -265,7 +265,7 @@ function deploy()
 }
 
 if [ -z "$1" ]; then
-    echo "Arguments are empty. Use a name of the function from this file to call. For example, `./compose.sh deploy`"
+    echo "Arguments are empty. Use a name of the function from this file to call. For example, './compose.sh deploy'"
 else
     # Check if the function exists (bash specific)
     if declare -f "$1" > /dev/null; then

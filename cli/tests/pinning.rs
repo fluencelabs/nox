@@ -20,6 +20,7 @@ use crate::utils::*;
 use fluence::contract_func::contract::events::app_deployed;
 use fluence::contract_status::status::{get_status, Status};
 use fluence::register::Register;
+use web3::transports::Http;
 use web3::types::H256;
 
 #[cfg(test)]
@@ -29,9 +30,15 @@ fn publish_pinned(wait_eth_sync: bool, wait_tx_include: bool) {
         .with_tx_include(wait_tx_include);
 
     let count = 5;
-    let nodes: Result<Vec<(H256, Register)>> =
-        (0..count).map(|_| opts.register_node(1, true)).collect();
-    let nodes = nodes.unwrap();
+    let nodes: Result<Vec<(Option<H256>, Register)>> = (0..count)
+        .map(|_| opts.register_random_node(1, true))
+        .collect();
+    let nodes: Vec<(Option<H256>, Register)> = nodes.unwrap();
+    let nodes: Vec<(H256, Register)> = nodes
+        .into_iter()
+        .filter(|r| r.0.is_some())
+        .map(|r| (r.0.unwrap(), r.1))
+        .collect();
     let node_ids: Vec<H256> = nodes.iter().map(|(_, n)| *n.tendermint_key()).collect();
 
     let tx = opts.publish_app(count, node_ids).unwrap();
@@ -42,8 +49,10 @@ fn publish_pinned(wait_eth_sync: bool, wait_tx_include: bool) {
 
     assert_eq!(log.node_i_ds.len(), count as usize);
 
-    let status: Status =
-        get_status(opts.eth().eth_url.as_str(), opts.eth().contract_address).unwrap();
+    let (_eloop, transport) = Http::new(opts.eth().eth_url.as_str()).unwrap();
+    let web3 = &web3::Web3::new(transport);
+
+    let status: Status = get_status(web3, opts.eth().contract_address).unwrap();
 
     let target = status
         .apps

@@ -32,6 +32,7 @@ use crate::contract_func::contract::events::app_deployed::parse_log as parse_dep
 use crate::contract_func::contract::events::app_enqueued::parse_log as parse_enqueued;
 use crate::contract_func::contract::functions::add_app;
 use crate::contract_func::{call_contract, get_transaction_logs_raw, wait_tx_included};
+use crate::step_counter::StepCounter;
 use crate::utils;
 
 const CODE_PATH: &str = "code_path";
@@ -133,12 +134,15 @@ impl Publisher {
 
         // sending transaction with the hash of file with code to ethereum
         if show_progress {
-            let steps = if self.eth.wait_tx_include { 3 } else { 2 };
-            let step = |s| format!("{}/{}", s, steps);
+            // upload to swarm and publish to smart contract
+            let mut step_counter = StepCounter::new(2);
+            if self.eth.wait_tx_include {
+                step_counter.register()
+            };
 
             let hash: H256 = utils::with_progress(
                 "Uploading application code to Swarm...",
-                step(1).as_str(),
+                step_counter.format_next_step().as_str(),
                 "Application code uploaded.",
                 upload_to_swarm_fn,
             )?;
@@ -146,7 +150,7 @@ impl Publisher {
 
             let tx = utils::with_progress(
                 "Publishing the app to the smart contract...",
-                step(2).as_str(),
+                step_counter.format_next_step().as_str(),
                 "Transaction publishing app was sent.",
                 || publish_to_contract_fn(hash),
             )?;
@@ -155,7 +159,7 @@ impl Publisher {
                 utils::print_tx_hash(tx);
                 utils::with_progress(
                     "Waiting for a transaction to be included in a block...",
-                    step(3).as_str(),
+                    step_counter.format_next_step().as_str(),
                     "Transaction was included.",
                     || {
                         wait_tx_included(&tx, web3)?;
