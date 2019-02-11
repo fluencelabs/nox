@@ -155,7 +155,8 @@ object DockerWorker extends LazyLogging {
   def make[F[_]: ContextShift: Timer](
     params: WorkerParams,
     healthCheckConfig: HealthCheckConfig,
-    onStop: F[Unit]
+    onStop: F[Unit],
+    stopTimeout: Int
   )(
     implicit sttpBackend: SttpBackend[F, Nothing],
     F: Concurrent[F]
@@ -167,9 +168,9 @@ object DockerWorker extends LazyLogging {
 
       network ← makeNetwork(params)
 
-      worker ← DockerIO.run[F](dockerCommand(params, network))
+      worker ← DockerIO.run[F](dockerCommand(params, network), stopTimeout)
 
-      tendermint ← DockerTendermint.make[F](params, containerName(params), network)
+      tendermint ← DockerTendermint.make[F](params, containerName(params), network, stopTimeout)
 
       rpc ← TendermintRpc.make[F](DockerTendermint.containerName(params), DockerTendermint.RpcPort)
 

@@ -25,18 +25,7 @@ EOF
   exit 1
 fi
 
-#if [ -z "$WORKER_DIR" ]; then
-#  cat >&2 <<EOF
-#error: \`-e "WORKER_DIR=path_to_worker_config"\` was not specified.
-#EOF
-#  exit 1
-#fi
-
-#cp -rf "$WORKER_DIR/." "/tendermint/"
 cp -rf "$CODE_DIR/." "/vmcode/"
-
-# run Tendermint with disabled output
-#tendermint node "--home=/tendermint" &
 
 # run State machine
 exec java -jar "$JAR"

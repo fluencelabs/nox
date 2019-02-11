@@ -63,7 +63,7 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
    * @param params Worker's description
    * @return Unit; no failures are expected
    */
-  private def runWorker(params: WorkerParams): F[Unit] =
+  private def runWorker(params: WorkerParams, stopTimeout: Int = 5): F[Unit] =
     for {
       // Remember that Deferred is like a non-blocking promise, but generalized for F[_]
       // When completed, releases the used worker
@@ -86,7 +86,8 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
               fiber ← runningWorkerFiberDef.get
               // Wait for the worker resource to be released and cleaned up
               _ ← fiber.join
-            } yield logger.info(s"Worker's Fiber joined: $params")
+            } yield logger.info(s"Worker's Fiber joined: $params"),
+            stopTimeout
           )
           .use(
             worker ⇒

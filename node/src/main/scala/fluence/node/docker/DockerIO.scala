@@ -84,9 +84,10 @@ object DockerIO extends LazyLogging {
    * Calls `docker rm -f` on that ID when stream is over.
    *
    * @param params parameters for Docker container, must start with `docker run -d`
+   * @param stopTimeout Container clean up timeout: SIGTERM is sent, and if container is still alive after timeout, SIGKILL produced
    * @return a stream that produces a docker container ID
    */
-  def run[F[_]: Sync: ContextShift](params: DockerParams.DaemonParams): Resource[F, DockerIO] =
+  def run[F[_]: Sync: ContextShift](params: DockerParams.DaemonParams, stopTimeout: Int = 10): Resource[F, DockerIO] =
     Resource.makeCase {
       logger.info(s"Running docker: ${params.command.mkString(" ")}")
       // TODO: if we have another docker container with the same name, we should rm -f it
@@ -100,7 +101,7 @@ object DockerIO extends LazyLogging {
       case (Success(dockerId), exitCase) ⇒
         shiftDelay {
           logger.info(s"Going to stop container $dockerId, exit case: $exitCase")
-          val t = Try(s"docker stop $dockerId".!)
+          val t = Try(s"docker stop -t $stopTimeout $dockerId".!)
           logger.debug(s"Stop result: $t")
           t
         }.flatMap {
