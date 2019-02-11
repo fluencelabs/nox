@@ -492,7 +492,7 @@ To install all dependencies, compile and run the application, run in the termina
 Now you can open http://localhost:8080/ in your browser. Then open Developer Console, and wait for the following messages:
 ```
 ...
-Connecting web3 to http://46.101.213.180:8545
+Connecting web3 to http://207.154.240.52:8545
 ...
 Session created
 ```
