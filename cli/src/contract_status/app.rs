@@ -27,6 +27,8 @@ use crate::contract_func::contract::functions::get_nodes_ids;
 use crate::contract_func::query_contract;
 use crate::types::NodeAddress;
 use std::net::IpAddr;
+use web3::transports::Http;
+use web3::Web3;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct App {
@@ -117,17 +119,16 @@ impl Node {
     }
 }
 
-pub fn get_nodes(eth_url: &str, contract_address: Address) -> Result<Vec<Node>, Error> {
+pub fn get_nodes(web3: &Web3<Http>, contract_address: Address) -> Result<Vec<Node>, Error> {
     let (call_data, decoder) = get_nodes_ids::call();
-    let node_ids: Vec<H256> =
-        query_contract(call_data, Box::new(decoder), eth_url, contract_address)?;
+    let node_ids: Vec<H256> = query_contract(call_data, Box::new(decoder), web3, contract_address)?;
 
     let nodes: Result<Vec<Node>, Error> = node_ids
         .iter()
         .map(|id| {
             let (call_data, decoder) = get_node::call(*id);
             let (ip_addr, next_port, last_port, owner, is_private, app_ids) =
-                query_contract(call_data, Box::new(decoder), eth_url, contract_address)?;
+                query_contract(call_data, Box::new(decoder), web3, contract_address)?;
 
             Node::new(
                 *id,
@@ -144,9 +145,9 @@ pub fn get_nodes(eth_url: &str, contract_address: Address) -> Result<Vec<Node>, 
     Ok(nodes?)
 }
 
-pub fn get_apps(eth_url: &str, contract_address: Address) -> Result<Vec<App>, Error> {
+pub fn get_apps(web3: &Web3<Http>, contract_address: Address) -> Result<Vec<App>, Error> {
     let (call_data, decoder) = get_app_i_ds::call();
-    let app_ids: Vec<u64> = query_contract(call_data, Box::new(decoder), eth_url, contract_address)
+    let app_ids: Vec<u64> = query_contract(call_data, Box::new(decoder), web3, contract_address)
         .context("reading app ids from contract failed")?
         .into_iter()
         .map(Into::into)
@@ -165,7 +166,7 @@ pub fn get_apps(eth_url: &str, contract_address: Address) -> Result<Vec<App>, Er
                 genesis,
                 node_ids,
                 ports,
-            ) = query_contract(call_data, Box::new(decoder), eth_url, contract_address)
+            ) = query_contract(call_data, Box::new(decoder), web3, contract_address)
                 .context("reading app ids from contract failed")?;
 
             let cluster = if !genesis.is_zero() {

@@ -28,6 +28,7 @@ use crate::contract_func::contract::functions::delete_app;
 use crate::contract_func::contract::functions::dequeue_app;
 use crate::contract_func::wait_sync;
 use crate::contract_func::{get_transaction_logs, wait_tx_included};
+use crate::step_counter::StepCounter;
 use crate::utils;
 use ethabi::RawLog;
 use failure::{err_msg, Error, SyncFailure};
@@ -123,14 +124,18 @@ impl DeleteApp {
         };
 
         if show_progress {
-            let sync_inc = self.eth.wait_eth_sync as u32;
-            let steps = 1 + (self.eth.wait_tx_include as u32) + sync_inc;
-            let step = |s| format!("{}/{}", s + sync_inc, steps);
+            let mut step_counter = StepCounter::new(1);
+            if self.eth.wait_eth_sync {
+                step_counter.register()
+            };
+            if self.eth.wait_tx_include {
+                step_counter.register()
+            };
 
             if self.eth.wait_eth_sync {
                 utils::with_progress(
                     "Waiting while Ethereum node is syncing...",
-                    step(0).as_str(),
+                    step_counter.format_next_step().as_str(),
                     "Ethereum node synced.",
                     || wait_sync(web3),
                 )?;
@@ -138,7 +143,7 @@ impl DeleteApp {
 
             let tx = utils::with_progress(
                 "Deleting app from smart contract...",
-                step(1).as_str(),
+                step_counter.format_next_step().as_str(),
                 "App deletion transaction was sent.",
                 delete_app_fn,
             )?;
@@ -147,7 +152,7 @@ impl DeleteApp {
                 utils::print_tx_hash(tx);
                 utils::with_progress(
                     "Waiting for a transaction to be included in a block...",
-                    step(2).as_str(),
+                    step_counter.format_next_step().as_str(),
                     "Transaction included. App deleted.",
                     || {
                         wait_tx_included(&tx, web3)?;

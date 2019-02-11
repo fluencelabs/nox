@@ -13,5 +13,6 @@ pub mod delete_app;
 pub mod delete_node;
 pub mod publisher;
 pub mod register;
+pub mod step_counter;
 pub mod types;
 pub mod utils;
