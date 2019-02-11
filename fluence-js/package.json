@@ -58,10 +58,10 @@
     "debug": "4.1.1",
     "elliptic": "6.4.1",
     "fast-sha256": "1.1.0",
+    "fluence-monitoring": "0.0.22",
     "minimalistic-crypto-utils": "1.0.1",
     "randomstring": "1.1.5",
     "tendermint": "3.4.0",
-    "ts-option": "1.1.5",
-    "fluence-monitoring": "0.0.22"
+    "ts-option": "1.1.5"
   }
 }

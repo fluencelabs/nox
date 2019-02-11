@@ -58,8 +58,8 @@ export interface AppSession {
 /*
  * Creates connection with an app (all nodes related to an app in Fluence contract)
  */
-export async function connect(contract: string, appId: string): Promise<AppSession> {
-    let workers: Worker[] = await getAppWorkers(contract, appId);
+export async function connect(ethereumUrl: string, contract: string, appId: string): Promise<AppSession> {
+    let workers: Worker[] = await getAppWorkers(ethereumUrl, contract, appId);
     let sessions: WorkerSession[] = workers.map(worker => {
         let session = directConnect(worker.node.ip_addr, worker.port + 100);
         return {
