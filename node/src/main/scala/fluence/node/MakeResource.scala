@@ -21,6 +21,7 @@ import slogging.LazyLogging
 import cats.syntax.apply._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.applicativeError._
 
 import scala.language.higherKinds
 
@@ -30,10 +31,14 @@ object MakeResource extends LazyLogging {
    * Drains a stream concurrently while the resource is in use, interrupts it when it's released
    *
    * @param stream The stream to drain
+   * @param name Stream's name, used for logging
    * @tparam F Effect
    * @return Resource that acts as a "stream is running" effect
    */
-  def concurrentStream[F[_]: Concurrent](stream: fs2.Stream[F, _]): Resource[F, Unit] =
+  def concurrentStream[F[_]: Concurrent](
+    stream: fs2.Stream[F, _],
+    name: String = "concurrentStream"
+  ): Resource[F, Unit] =
     Resource
       .makeCase[F, (Deferred[F, Either[Throwable, Unit]], Fiber[F, Unit])](
         for {
@@ -44,19 +49,25 @@ object MakeResource extends LazyLogging {
         } yield stopDef → streamFiber
       ) {
         case ((stopDef, streamFiber), exitCase) ⇒
-          exitCase match {
+          (exitCase match {
             case ExitCase.Error(e) ⇒
-              logger.error("concurrentStream resource is closed with error", e)
+              logger.error(s"Stopping $name resource with error", e)
               stopDef.complete(Left(e)) *> streamFiber.join
 
             case ExitCase.Canceled ⇒
-              logger.warn("concurrentStream resource is closed due to Cancel")
-              stopDef.complete(Right(())) *> streamFiber.cancel
+              logger.warn(s"Stopping $name resource due to Cancel")
+              // Notice that we still .join the fiber
+              stopDef.complete(Right(())) *> streamFiber.join
 
             case _ ⇒
-              logger.debug("concurrentStream resource is closed as it's not used any more")
+              logger.debug(s"Stopping $name resource as it's not used anymore")
               stopDef.complete(Right(())) *> streamFiber.join
-          }
+          }).map(_ ⇒ logger.debug(s"$name stopped, fiber joined"))
+            .handleError(
+              t ⇒
+                // Do not raise errors during cleanup, catch them here to let other resources to clean them up
+                logger.error(s"$name resource errored during stop: $t", t)
+            )
       }
       .void
 

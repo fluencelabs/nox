@@ -217,7 +217,7 @@ class MasterNodeIntegrationSpec
       }.flatMap { psOutput ⇒
         psOutput should include("worker")
         // Check that once masters are stopped, workers do not exist
-        eventually(IO("docker ps".!! should not include "worker"))
+        eventually(IO("docker ps -a".!! should not include "worker"))
 
       }.unsafeRunSync()
     }

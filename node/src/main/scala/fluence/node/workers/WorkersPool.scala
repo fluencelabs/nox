@@ -18,8 +18,6 @@ package fluence.node.workers
 
 import cats.Parallel
 import cats.effect._
-import cats.effect.concurrent.Ref
-import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
 import fluence.node.workers.health.HealthCheckConfig
 
@@ -73,9 +71,5 @@ object WorkersPool {
     F: Concurrent[F],
     P: Parallel[F, G]
   ): Resource[F, WorkersPool[F]] =
-    Resource.make {
-      for {
-        workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
-      } yield new DockerWorkersPool[F](workers, HealthCheckConfig())
-    }(_.stopAll()).map(p ⇒ p: WorkersPool[F])
+    DockerWorkersPool.make(healthCheckConfig).map(p ⇒ p: WorkersPool[F])
 }

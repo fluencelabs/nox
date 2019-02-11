@@ -51,6 +51,8 @@ matrix:
     # These tests take a lot of time and run only while PR
     - <<: *_scala_fluence_template
       name: Fluence integration tests
+      before_script:
+        - docker pull tendermint/tendermint:0.27.4
       script:
         - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile; fi'
         # Some tests in LlamadbIntegrationTest require 2 Gb RAM

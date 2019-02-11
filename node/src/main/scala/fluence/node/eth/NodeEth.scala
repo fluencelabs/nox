@@ -70,7 +70,8 @@ object NodeEth extends LazyLogging {
     for {
       stateRef <- MakeResource.refOf[F, NodeEthState](initialState)
       blockQueue ← Resource.liftF(fs2.concurrent.Queue.circularBuffer[F, (Option[String], F[Block])](8))
-      _ ← MakeResource.concurrentStream(contract.ethClient.blockStream[F] to blockQueue.enqueue)
+      _ ← MakeResource
+        .concurrentStream(contract.ethClient.blockStream[F] to blockQueue.enqueue, name = "ethClient.blockStream")
     } yield
       new NodeEth[F] {
         override val nodeEvents: fs2.Stream[F, NodeEthEvent] = {
