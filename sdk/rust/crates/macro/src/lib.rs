@@ -61,14 +61,13 @@
 //!
 
 extern crate proc_macro;
-mod parser;
+mod macro_input_parser;
 
-use crate::parser::{InputTypeGenerator, ParsedType, ReturnTypeGenerator};
+use crate::macro_input_parser::{InputTypeGenerator, ParsedType, ReturnTypeGenerator};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse::Error, parse_macro_input, ItemFn};
 
-#[warn(clippy::redundant_closure_call)]
 fn invoke_handler_impl(fn_item: &syn::ItemFn) -> syn::Result<proc_macro2::TokenStream> {
     let ItemFn {
         constness,
