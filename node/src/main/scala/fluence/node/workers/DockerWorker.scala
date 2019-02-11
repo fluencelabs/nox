@@ -23,9 +23,9 @@ import cats.syntax.functor._
 import com.softwaremill.sttp._
 import fluence.node.MakeResource
 import fluence.node.docker.{DockerIO, DockerNetwork, DockerParams}
-import fluence.node.eth.state.WorkerPeer
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.health._
+import fluence.node.workers.tendermint.DockerTendermint
 import fluence.node.workers.tendermint.rpc.TendermintRpc
 import slogging.LazyLogging
 
@@ -55,10 +55,6 @@ case class DockerWorker[F[_]] private (
 }
 
 object DockerWorker extends LazyLogging {
-  // Internal ports
-  val P2pPort: Short = 26656
-  val RpcPort: Short = 26657
-  val TmPrometheusPort: Short = 26660
   val SmPrometheusPort: Short = 26661
   val ControlRpcPort: Short = 26662
 
@@ -68,15 +64,14 @@ object DockerWorker extends LazyLogging {
     val dockerParams = DockerParams
       .build()
       .option("-e", s"""CODE_DIR=$vmCodePath""")
-      .option("-e", s"""WORKER_DIR=$workerPath""")
       .option("--name", containerName(params))
       .option("--network", network.name)
-      .port(currentWorker.p2pPort, P2pPort)
-      .port(currentWorker.rpcPort, RpcPort)
 
     (masterNodeContainerId match {
-      case Some(id) => dockerParams.option("--volumes-from", s"$id:ro")
-      case None => dockerParams
+      case Some(id) =>
+        dockerParams.option("--volumes-from", s"$id:ro")
+      case None =>
+        dockerParams
     }).image(image).daemonRun()
   }
 
@@ -155,13 +150,16 @@ object DockerWorker extends LazyLogging {
    * @param params Worker's running params
    * @param healthCheckConfig see [[HealthCheckConfig]]
    * @param onStop A callback to launch when this worker is stopped
+   * @param stopTimeout Timeout in seconds to allow graceful stopping of running containers.
+   *                    It might take up to 2*`stopTimeout` seconds to gracefully stop the worker, as 2 containers involved.
    * @param sttpBackend Sttp Backend to launch HTTP healthchecks and RPC endpoints
    * @return the [[Worker]] instance
    */
   def make[F[_]: ContextShift: Timer](
     params: WorkerParams,
     healthCheckConfig: HealthCheckConfig,
-    onStop: F[Unit]
+    onStop: F[Unit],
+    stopTimeout: Int
   )(
     implicit sttpBackend: SttpBackend[F, Nothing],
     F: Concurrent[F]
@@ -172,14 +170,19 @@ object DockerWorker extends LazyLogging {
       )
 
       network ← makeNetwork(params)
-      container ← DockerIO.run[F](dockerCommand(params, network))
-      rpc ← TendermintRpc.make[F](containerName(params), RpcPort)
 
-      healthChecks = healthCheckStream(container, params, healthCheckConfig, rpc)
+      worker ← DockerIO.run[F](dockerCommand(params, network), stopTimeout)
+
+      tendermint ← DockerTendermint.make[F](params, containerName(params), network, stopTimeout)
+
+      rpc ← TendermintRpc.make[F](DockerTendermint.containerName(params), DockerTendermint.RpcPort)
+
+      healthChecks = healthCheckStream(tendermint, params, healthCheckConfig, rpc)
 
       // Runs health checker, wrapped with resource:
       // health check will be stopped when the resource is released.
-      _ ← MakeResource.concurrentStream[F](healthChecks.evalTap(healthReportRef.set))
+      _ ← MakeResource
+        .concurrentStream[F](healthChecks.evalTap(healthReportRef.set), s"healthChecks stream ${params.appId}")
 
       control = ControlRpc[F](containerName(params), ControlRpcPort)
 

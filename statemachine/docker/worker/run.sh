@@ -25,38 +25,7 @@ EOF
   exit 1
 fi
 
-if [ -z "$WORKER_DIR" ]; then
-  cat >&2 <<EOF
-error: \`-e "WORKER_DIR=path_to_worker_config"\` was not specified.
-EOF
-  exit 1
-fi
-
-cp -rf "$WORKER_DIR/." "/tendermint/"
 cp -rf "$CODE_DIR/." "/vmcode/"
 
-# run Tendermint with disabled output
-tendermint node "--home=/tendermint" &
-
-TENDERMINT_PID=$!
-
 # run State machine
-java -jar "$JAR" &
-
-STATEMACHINE_PID=$!
-
-# TODO: remove all that trapping logic after tendermint and statemachine are separated into independent containers
-# Set trap for docker stop
-trap 'kill -s INT %1; kill -s INT %2; echo "KILLING %1 %2 with SIGINT"' INT
-# Set trap for Ctrl-C, just in case
-trap 'kill -s TERM %1; kill -s TERM %2; echo "KILLING %1 %2 with SIGTERM"' TERM
-
-# first `wait` will exit after receiving a SIG
-wait $TENDERMINT_PID
-# waiting second time to wait until tendermint is really exited
-wait $TENDERMINT_PID
-
-# first `wait` will exit after receiving a SIG (not sure if it's needed, but no harm here for sure)
-wait $STATEMACHINE_PID
-# waiting second time to wait until statemachine (java) is really exited
-wait $STATEMACHINE_PID
+exec java -jar "$JAR"

@@ -17,6 +17,7 @@
 package fluence.node.workers.health
 import fluence.node.eth.state.WorkerPeer
 import fluence.node.workers.DockerWorker
+import fluence.node.workers.tendermint.DockerTendermint
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
@@ -39,7 +40,7 @@ object StoppedWorkerInfo {
       worker.rpcPort,
       worker.p2pPort,
       DockerWorker.SmPrometheusPort,
-      DockerWorker.TmPrometheusPort
+      DockerTendermint.TmPrometheusPort
     )
 
   implicit val encodeStoppedWorkerInfo: Encoder[StoppedWorkerInfo] = deriveEncoder

@@ -135,7 +135,7 @@ class SwarmClientIntegrationSpec extends FlatSpec with Matchers with EitherValue
       _ = new String(meta.toArray) should (include(time.toSeconds.toString) and include(frequency.toSeconds.toString) and include(
         name.get
       ))
-    } yield {}
+    } yield ()
 
     val res = process.value.unsafeRunSync()
 

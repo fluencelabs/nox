@@ -18,6 +18,7 @@ package fluence.statemachine
 
 import cats.Monad
 import cats.data.{EitherT, NonEmptyList}
+import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect.concurrent.MVar
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import com.github.jtendermint.jabci.socket.TSocket
@@ -64,6 +65,13 @@ object ServerRunner extends IOApp with LazyLogging {
         } yield control.signals.stop
       ).use(identity)
     } yield ExitCode.Success
+  }.guaranteeCase {
+    case Canceled =>
+      IO(logger.error("StateMachine was canceled"))
+    case Error(e) =>
+      IO(logger.error("StateMachine stopped with error: {}", e)).map(_ => e.printStackTrace(System.err))
+    case Completed =>
+      IO(logger.info("StateMachine exited gracefully"))
   }
 
   private def abciHandlerResource(

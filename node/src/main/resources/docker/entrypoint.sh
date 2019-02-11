@@ -78,7 +78,7 @@ ethereum {
   ip = "$ETHEREUM_IP"
 }
 $SWARM_HOST
-tendermint-path = "/master"
+root-path = "/master"
 master-container-id = "${CONTAINER_ID#"/docker/"}"
 $CONTRACT_ADDRESS
 $OWNER_ADDRESS
