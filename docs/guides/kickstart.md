@@ -320,7 +320,7 @@ If you have your private key **in hex**, run the following in your terminal, rep
             --account          <your ethereum address> \
             --secret_key       <your ethereum private key> \
             --cluster_size     4 \
-            --wait_sync \
+            --wait_syncing \
             --wait
 ```
 
@@ -336,7 +336,7 @@ If you have a JSON **keystore file**, run the following in your terminal, replac
             --keystore         <path to keystore> \
             --password         <password for keystore> \
             --cluster_size     4 \
-            --wait_sync \
+            --wait_syncing \
             --wait
 ```
 _There is more info on using keystore files with Fluence CLI in it's [README](../cli/README.md#keystore-json-file)._
