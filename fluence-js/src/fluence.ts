@@ -22,7 +22,7 @@ import { Session } from "./Session";
 import { SessionConfig } from "./SessionConfig";
 import {Empty, Result, Value, isValue} from "./Result";
 import {getAppWorkers, Worker} from "fluence-monitoring"
-import {Option} from "ts-option";
+import {option, Option} from "ts-option";
 import {ResultPromise} from "./ResultAwait";
 
 export {
@@ -61,8 +61,8 @@ export interface AppSession {
 /*
  * Creates connection with an app (all nodes related to an app in Fluence contract)
  */
-export async function connect(contract: string, appId: string, ethereumUrl: Option<string>): Promise<AppSession> {
-    let workers: Worker[] = await getAppWorkers(contract, appId, ethereumUrl);
+export async function connect(contract: string, appId: string, ethereumUrl?: string): Promise<AppSession> {
+    let workers: Worker[] = await getAppWorkers(contract, appId, option(ethereumUrl));
     let sessions: WorkerSession[] = workers.map(worker => {
         let session = directConnect(worker.node.ip_addr, worker.port + 100);
         return {
