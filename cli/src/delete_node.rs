@@ -22,6 +22,7 @@ use crate::contract_func::contract::events::node_deleted;
 
 use crate::command::*;
 use crate::contract_func::call_contract;
+use crate::step_counter::StepCounter;
 use crate::utils;
 use failure::{err_msg, Error, SyncFailure};
 use web3::transports::Http;
@@ -86,14 +87,18 @@ impl DeleteNode {
         };
 
         if show_progress {
-            let sync_inc = self.eth.wait_eth_sync as u32;
-            let steps = 1 + (self.eth.wait_tx_include as u32) + sync_inc;
-            let step = |s| format!("{}/{}", s + sync_inc, steps);
+            let mut step_counter = StepCounter::new(1);
+            if self.eth.wait_eth_sync {
+                step_counter.register()
+            };
+            if self.eth.wait_tx_include {
+                step_counter.register()
+            };
 
             if self.eth.wait_eth_sync {
                 utils::with_progress(
                     "Waiting while Ethereum node is syncing...",
-                    step(0).as_str(),
+                    step_counter.format_next_step().as_str(),
                     "Ethereum node synced.",
                     || wait_sync(web3),
                 )?;
@@ -101,7 +106,7 @@ impl DeleteNode {
 
             let tx = utils::with_progress(
                 "Deleting node from smart contract...",
-                step(1).as_str(),
+                step_counter.format_next_step().as_str(),
                 "Node deleted.",
                 delete_node_fn,
             )?;
@@ -110,7 +115,7 @@ impl DeleteNode {
                 utils::print_tx_hash(tx);
                 utils::with_progress(
                     "Waiting for a transaction to be included in a block...",
-                    step(2).as_str(),
+                    step_counter.format_next_step().as_str(),
                     "Transaction included. App deleted.",
                     || {
                         wait_tx_included(&tx, web3)?;

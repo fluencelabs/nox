@@ -56,9 +56,18 @@ impl ParsedType {
                 syn::Type::Path(path) => Ok(&path.path),
                 _ => Err(Error::new(
                     arg_type.span(),
-                    "Unsuitable type in Vec brackets - only Vec<u8> is supported>",
+                    "Unsuitable type in Vec brackets - only Vec<u8> is supported",
                 )),
             }?;
+
+            // There could be situations like Vec<some_crate::some_module::u8>
+            // that why we check segments count
+            if arg_path.segments.len() != 1 {
+                return Err(Error::new(
+                    arg_path.span(),
+                    "Unsuitable type in Vec brackets - only Vec<u8> is supported",
+                ));
+            }
 
             // converts T to String
             let arg_segment = arg_path.segments.first().ok_or_else(|| {
@@ -85,7 +94,12 @@ impl ParsedType {
             // argument can be given in full path form: ::std::string::String
             // that why the last one used
             .last()
-            .ok_or_else(|| Error::new(path.span(), "It has to be a valid input value"))?;
+            .ok_or_else(|| {
+                Error::new(
+                    path.span(),
+                    "It has to have a non-empty input argument type",
+                )
+            })?;
         let type_segment = type_segment.value();
 
         match type_segment.ident.to_string().as_str() {
@@ -155,11 +169,11 @@ impl ReturnTypeGenerator for ParsedType {
                 memory::write_result_to_mem(
                     result.as_bytes()
                 )
-                .expect("Putting result string to memory was failed.")
+                .expect("Putting result string to memory has failed")
             },
             ParsedType::ByteVector => quote! {
                 memory::write_result_to_mem(&result[..])
-                    .expect("Putting result vector to memory was failed.")
+                    .expect("Putting result vector to memory has failed")
             },
         }
     }

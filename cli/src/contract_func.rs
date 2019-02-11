@@ -112,14 +112,12 @@ fn call_contract_trusted_node(
 pub fn query_contract<R>(
     call_data: ethabi::Bytes,
     decoder: Box<R>,
-    eth_url: &str,
+    web3: &Web3<Http>,
     contract_address: Address,
 ) -> Result<R::Output, Error>
 where
     R: ethabi::FunctionOutputDecoder,
 {
-    let (_eloop, transport) = web3::transports::Http::new(eth_url).map_err(SyncFailure::new)?;
-    let web3 = web3::Web3::new(transport);
     let call_request = CallRequest {
         to: contract_address,
         data: Some(Bytes(call_data)),

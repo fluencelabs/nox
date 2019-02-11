@@ -56,10 +56,11 @@ case class DockerWorker[F[_]] private (
 
 object DockerWorker extends LazyLogging {
   // Internal ports
-  val P2P_PORT: Short = 26656
-  val RPC_PORT: Short = 26657
-  val TM_PROMETHEUS_PORT: Short = 26660
-  val SM_PROMETHEUS_PORT: Short = 26661
+  val P2pPort: Short = 26656
+  val RpcPort: Short = 26657
+  val TmPrometheusPort: Short = 26660
+  val SmPrometheusPort: Short = 26661
+  val ControlRpcPort: Short = 26662
 
   private def dockerCommand(params: WorkerParams, network: DockerNetwork): DockerParams.DaemonParams = {
     import params._
@@ -70,8 +71,8 @@ object DockerWorker extends LazyLogging {
       .option("-e", s"""WORKER_DIR=$workerPath""")
       .option("--name", containerName(params))
       .option("--network", network.name)
-      .port(currentWorker.p2pPort, P2P_PORT)
-      .port(currentWorker.rpcPort, RPC_PORT)
+      .port(currentWorker.p2pPort, P2pPort)
+      .port(currentWorker.rpcPort, RpcPort)
 
     (masterNodeContainerId match {
       case Some(id) => dockerParams.option("--volumes-from", s"$id:ro")
@@ -172,7 +173,7 @@ object DockerWorker extends LazyLogging {
 
       network ← makeNetwork(params)
       container ← DockerIO.run[F](dockerCommand(params, network))
-      rpc ← TendermintRpc.make[F](containerName(params), RPC_PORT)
+      rpc ← TendermintRpc.make[F](containerName(params), RpcPort)
 
       healthChecks = healthCheckStream(container, params, healthCheckConfig, rpc)
 
@@ -180,7 +181,7 @@ object DockerWorker extends LazyLogging {
       // health check will be stopped when the resource is released.
       _ ← MakeResource.concurrentStream[F](healthChecks.evalTap(healthReportRef.set))
 
-      control = ControlRpc[F]()
+      control = ControlRpc[F](containerName(params), ControlRpcPort)
 
     } yield new DockerWorker[F](rpc, control, healthReportRef, onStop, params.toString)
 

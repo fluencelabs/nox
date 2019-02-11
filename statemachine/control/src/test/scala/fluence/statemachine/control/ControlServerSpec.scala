@@ -1,11 +1,12 @@
 package fluence.statemachine.control
 import cats.effect.{ContextShift, IO, Resource, Timer}
+import cats.implicits._
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.statemachine.control.ControlServer.ControlServerConfig
 import io.circe.Encoder
 import org.scalatest.{EitherValues, Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
-import cats.implicits._
+import cats.syntax.either._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -48,14 +49,14 @@ class ControlServerSpec extends WordSpec with Matchers with ControlServerOps {
       }.unsafeRunSync()
     }
 
-    "receive ChangePeer event" in {
+    "receive DropPeer event" in {
       resources.use {
         case (server, sttp) =>
           implicit val sttpBackend = sttp
           for {
-            cp <- IO.pure(ChangePeer("ecc", ByteVector(Array.fill[Byte](32)(1)), 17))
-            response <- send[ChangePeer](cp, "changePeer")
-            received <- server.signals.changePeers.use(IO.pure)
+            cp <- IO.pure(DropPeer(ByteVector.fill(32)(1)))
+            response <- send[DropPeer](cp, "dropPeer")
+            received <- server.signals.dropPeers.use(IO.pure)
           } yield {
             response.code shouldBe 200
             response.body.right.value shouldBe ""
@@ -72,15 +73,15 @@ class ControlServerSpec extends WordSpec with Matchers with ControlServerOps {
         case (server, sttp) =>
           implicit val sttpBackend = sttp
           for {
-            cp <- IO.pure(ChangePeer("ecc", ByteVector(Array.fill[Byte](32)(1)), 17))
-            cps = Array.fill(count)(cp).toList
-            _ <- cps.map(send(_, "changePeer")).sequence
-            received <- server.signals.changePeers.use(IO.pure)
+            dp <- IO.pure(DropPeer(ByteVector.fill(32)(1)))
+            dps = Array.fill(count)(dp).toList
+            _ <- dps.map(send(_, "dropPeer")).sequence
+            received <- server.signals.dropPeers.use(IO.pure)
           } yield {
 
             received.length shouldBe 3
             received.foreach { r =>
-              r shouldBe cp
+              r shouldBe dp
             }
           }
       }.unsafeRunSync()
