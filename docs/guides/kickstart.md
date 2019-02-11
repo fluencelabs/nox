@@ -443,30 +443,37 @@ Let's take a look at `index.js`:
 import * as fluence from "fluence";
 
 // address to Fluence contract in Ethereum blockchain. Interaction with blockchain created by MetaMask or with local Ethereum node
-let contractAddress = "0xe9bbe60d525c7c5d4f3d85036f3ea23003879106";
+let contractAddress = "0x5faa7b8d290407460e0ec8585b2712acf27290f9";
+
+// url of Ethereum node
+let ethUrl = "http://207.154.240.52:8545"
 
 // application to interact with that stored in Fluence contract
-let appId = "<put your app id here>";
+let appId = "1"; // <<--- PUT YOUR APP ID HERE
+
+window.fluence = fluence;
 
 // creates a session between client and backend application
-fluence.createAppSession(contractAddress, appId).then((s) => {
-        console.log("Session created");
-        window.fluenceSession = s;
+fluence.connect(contractAddress, appId, ethUrl).then((s) => {
+		console.log("Session created");
+		window.session = s;
 });
 
 // gets a result and logs it
 window.logResultAsString = function (request) {
-    request.result().then((r) => console.log(r.asString()))
+	request.result().then((r) => console.log(r.asString()))
 };
 ```
 
 What this code does, line-by-line:
 1. Imports `fluence` js library to be able to use it
 2. Sets `contractAddress` variable to the address of Fluence contract
-3. Sets `appId` to the desired appId. Put yours here.
-4. Calls `createAppSession` with `contractAddress` and `appId`, that creates a connection to the Fluence cluster hosting your backend
-5. Saves session to `window.fluenceSession`, so it can be accessed later
-6. And final three lines define a helper function `logResultAsString` that's useful for printing out results
+3. Sets `ethUrl` to the url of Ethereum node.
+4. Sets `appId` to the desired appId. Put yours here.
+5. Saves `fluence` to `window` property, so you can access it in Developer Console and experiment.
+6. Calls the `connect` function, creating a connection to the Fluence cluster hosting your backend.
+7. Saves session to `window.fluenceSession`, so it can be accessed later.
+8. And final three lines define a helper function `logResultAsString` that's useful for printing out results.
 
 **Make sure you have changed `appId` to your actuall appId.**
 
@@ -474,13 +481,29 @@ What this code does, line-by-line:
 To install all dependencies, compile and run the application, run in the terminal:
 ```bash
 ~/frontend-template $ npm install
-~/frontend-template $ npm run build
+~/frontend-template $ npm run start
+> frontend-template@1.0.0 start /private/tmp/frontend-template
+> webpack-dev-server
+
+ℹ ｢wds｣: Project is running at http://localhost:8080/
+...
 ```
 
-Now you can open `index.html` in your browser. Then open Developer Console, and enter:
+Now you can open http://localhost:8080/ in your browser. Then open Developer Console, and wait for the following messages:
+```
+...
+Connecting web3 to http://46.101.213.180:8545
+...
+Session created
+```
+
+Now let's send a request and see if we get our greeting!
 ```javascript
-let result = fluenceSession.workerSessions[0].session.invoke("myName").result();
+let result = session.invoke("myName");
+<undefined>
 logResultAsString(result);
+<undefined>
+Hello, world! From user myName
 ```
 
-And you should see `"Hello, world! From user myName"`
+Yaaay! Everything works.
