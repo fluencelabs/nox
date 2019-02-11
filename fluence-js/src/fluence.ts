@@ -23,6 +23,7 @@ import { SessionConfig } from "./SessionConfig";
 import {Empty, Result, Value, isValue} from "./Result";
 import {getAppWorkers, Worker} from "fluence-monitoring"
 import {Option} from "ts-option";
+import {ResultPromise} from "./ResultAwait";
 
 export {
     TendermintClient as TendermintClient,
@@ -53,7 +54,8 @@ export interface WorkerSession {
 // All sessions with workers from an app
 export interface AppSession {
     appId: string,
-    workerSessions: WorkerSession[]
+    workerSessions: WorkerSession[],
+    invoke(payload: string): ResultPromise
 }
 
 /*
@@ -68,9 +70,22 @@ export async function connect(contract: string, appId: string, ethereumUrl: Opti
             worker: worker
         }
     });
+
+    // randomly selects worker and calls `invoke` on that worker
+    function invoke(payload: string): ResultPromise {
+        function getRandom(floor:number, ceiling:number) {
+            return Math.floor(Math.random() * (ceiling - floor + 1)) + floor;
+        }
+
+        const randomChoiceIndex = getRandom(0, sessions.length - 1);
+        let session = sessions[randomChoiceIndex].session;
+        return session.invoke(payload);
+    }
+
     return {
         appId: appId,
-        workerSessions: sessions
+        workerSessions: sessions,
+        invoke: invoke
     }
 }
 
