@@ -22,6 +22,7 @@ import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.applicativeError._
+import cats.effect.syntax.bracket._
 import com.fasterxml.jackson.databind.util.ISO8601DateFormat
 import slogging.LazyLogging
 
@@ -102,29 +103,31 @@ object DockerIO extends LazyLogging {
         shiftDelay {
           logger.info(s"Going to stop container $dockerId, exit case: $exitCase")
           val t = Try(s"docker stop -t $stopTimeout $dockerId".!)
+          // TODO should we `docker kill` if Cancel is triggered while stopping?
           logger.debug(s"Stop result: $t")
           t
         }.flatMap {
-          case Success(0) ⇒
-            shiftDelay {
-              logger.info(s"Container $dockerId stopped gracefully, going to rm -v it")
-              logger.info(Console.CYAN + s"docker logs $dockerId".!!.replaceAll("^", "  ") + Console.RESET)
-              s"docker rm -v $dockerId".!
-            }.void
-          case Failure(err) ⇒
-            shiftDelay {
-              logger.warn(s"Stopping docker container $dockerId errored due to $err, going to rm -v -f it", err)
-              s"docker rm -v -f $dockerId".!
-            }.void
-          case Success(x) ⇒
-            shiftDelay {
-              logger.warn(s"Stopping docker container $dockerId failed, exit code = $x, going to rm -v -f it")
-              s"docker rm -v -f $dockerId".!
-            }.void
-        }.handleError { err ⇒
-          logger.error(s"Error cleaning up container $dockerId: $err", err)
-          ()
-        }
+            case Success(0) ⇒
+              shiftDelay {
+                logger.info(s"Container $dockerId stopped gracefully, going to rm -v it")
+                logger.info(Console.CYAN + s"docker logs $dockerId".!!.replaceAll("^", "  ") + Console.RESET)
+                s"docker rm -v $dockerId".!
+              }.void
+            case Failure(err) ⇒
+              shiftDelay {
+                logger.warn(s"Stopping docker container $dockerId errored due to $err, going to rm -v -f it", err)
+                s"docker rm -v -f $dockerId".!
+              }.void
+            case Success(x) ⇒
+              shiftDelay {
+                logger.warn(s"Stopping docker container $dockerId failed, exit code = $x, going to rm -v -f it")
+                s"docker rm -v -f $dockerId".!
+              }.void
+          }
+          .handleError { err ⇒
+            logger.error(s"Error cleaning up container $dockerId: $err", err)
+            ()
+          }
       case (Failure(err), _) ⇒
         logger.warn(s"Cannot cleanup the docker container as it's failed to launch: $err", err)
         Applicative[F].unit

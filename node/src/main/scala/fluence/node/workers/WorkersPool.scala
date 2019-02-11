@@ -73,9 +73,5 @@ object WorkersPool {
     F: Concurrent[F],
     P: Parallel[F, G]
   ): Resource[F, WorkersPool[F]] =
-    Resource.make {
-      for {
-        workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
-      } yield new DockerWorkersPool[F](workers, HealthCheckConfig())
-    }(_.stopAll()).map(p ⇒ p: WorkersPool[F])
+    DockerWorkersPool.make(healthCheckConfig).map(p ⇒ p: WorkersPool[F])
 }

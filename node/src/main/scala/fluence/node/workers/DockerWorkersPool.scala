@@ -17,7 +17,7 @@
 package fluence.node.workers
 import cats.{Applicative, Parallel}
 import cats.syntax.applicative._
-import cats.effect.{Concurrent, ContextShift, Fiber, Timer}
+import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import com.softwaremill.sttp.SttpBackend
 import fluence.node.workers.health.HealthCheckConfig
@@ -25,6 +25,7 @@ import slogging.LazyLogging
 import cats.instances.list._
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
+import cats.syntax.apply._
 import cats.syntax.functor._
 
 import scala.language.higherKinds
@@ -37,6 +38,7 @@ import scala.language.higherKinds
  */
 class DockerWorkersPool[F[_]: ContextShift: Timer](
   workers: Ref[F, Map[Long, Worker[F]]],
+  waitStopped: Ref[F, Map[Long, F[Unit]]],
   healthCheckConfig: HealthCheckConfig
 )(
   implicit sttpBackend: SttpBackend[F, Nothing],
@@ -65,6 +67,10 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
    */
   private def runWorker(params: WorkerParams, stopTimeout: Int = 5): F[Unit] =
     for {
+      // Fix for the almost impossible case when a command to run a new worker for an app id is received when
+      // another worker with the same app id is being stopped
+      _ ← waitStopped.get.flatMap(_.getOrElse(params.appId, F.unit))
+
       // Remember that Deferred is like a non-blocking promise, but generalized for F[_]
       // When completed, releases the used worker
       stopWorkerDef ← Deferred[F, Unit]
@@ -86,6 +92,9 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
               fiber ← runningWorkerFiberDef.get
               // Wait for the worker resource to be released and cleaned up
               _ ← fiber.join
+
+              // Remove stopper, so that we don't need to wait for this worker to stop on stopAll
+              _ ← waitStopped.update(_ - params.appId)
             } yield logger.info(s"Worker's Fiber joined: $params"),
             stopTimeout
           )
@@ -93,13 +102,16 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
             worker ⇒
               for {
                 // Register worker in the pool
-                _ ← workers.update(_.updated(params.appId, worker))
-                // Wait for the deferred to be completed -- that's asynchronous blocking
+                _ ← workers.update(_.updated(params.appId, worker)) *>
+                  waitStopped.update(_.updated(params.appId, runningWorkerFiberDef.get.flatMap(_.join)))
+
+                // Worker is being used as a resource until this Deferred is resolved
                 _ ← stopWorkerDef.get
+
                 _ = logger.info(s"Removing worker from the pool: $params")
-                // Remove worker from the pool and release the resource to enable its cleaning up
+                // Remove worker from the pool, so that worker's services cannot be used
                 _ ← workers.update(_ - params.appId)
-              } yield ()
+              } yield logger.info(s"Releasing the worker resource: $params")
           )
           .map(_ ⇒ logger.debug(s"Worker removed from pool: $params"))
       )
@@ -153,6 +165,12 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
       workers ← getAll
 
       stops ← Parallel.parTraverse(workers)(_.stop.attempt)
+
+      // Wait for workers which are being stopped separately
+      notStopped ← waitStopped.get
+      _ = logger.debug(s"Having to wait for ${notStopped.size} workers to stop themselves...")
+
+      _ ← Parallel.parTraverse_(notStopped.values.toList)(identity)
     } yield logger.info(s"Stopped: ${workers.map(_.description) zip stops}")
 
   /**
@@ -172,4 +190,20 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
   override val getAll: F[List[Worker[F]]] =
     workers.get.map(_.values.toList)
 
+}
+
+object DockerWorkersPool {
+
+  def make[F[_]: ContextShift: Timer, G[_]](healthCheckConfig: HealthCheckConfig)(
+    implicit
+    sttpBackend: SttpBackend[F, Nothing],
+    F: Concurrent[F],
+    P: Parallel[F, G]
+  ): Resource[F, DockerWorkersPool[F]] =
+    Resource.make {
+      for {
+        workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
+        stoppers ← Ref.of[F, Map[Long, F[Unit]]](Map.empty)
+      } yield new DockerWorkersPool[F](workers, stoppers, HealthCheckConfig())
+    }(_.stopAll())
 }
