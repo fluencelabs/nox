@@ -25,7 +25,7 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 /**
  * Main config class for master node.
  *
- * @param tendermintPath a path to all system files
+ * @param rootPath a path to all node's files, including its Tendermint keys and all the Apps with codes and Tendermint data
  * @param endpoints information about a node possible endpoints (IP and ports) that will be used as addresses
  *                  for requests after a cluster will be formed
  * @param contract information about Fluence smart contract
@@ -33,7 +33,7 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
  * @param statusServer information about master node status server
  */
 case class MasterConfig(
-  tendermintPath: String,
+  rootPath: String,
   endpoints: EndpointsConfig,
   contract: FluenceContractConfig,
   swarm: Option[SwarmConfig],

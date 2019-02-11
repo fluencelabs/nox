@@ -51,7 +51,7 @@ object Configuration extends slogging.LazyLogging {
   // TODO avoid this! it's not configuration, and what is being done there is very obscure!
   def init(masterConfig: MasterConfig)(implicit ec: ContextShift[IO]): IO[Configuration] =
     for {
-      rootPath <- IO(Paths.get(masterConfig.tendermintPath).toAbsolutePath)
+      rootPath <- IO(Paths.get(masterConfig.rootPath).toAbsolutePath)
       t <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.tendermint)
       (nodeId, validatorKey) = t
       nodeConfig = NodeConfig(

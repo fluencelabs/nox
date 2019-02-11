@@ -23,7 +23,8 @@ import fluence.node.eth.state.App
 import fluence.node.workers.tendermint.config.ConfigTemplate
 
 /**
- * Worker container's params
+ * Single Worker's creation params
+ * TODO: we have environment, configuration, and data here; consider reorganize or divide
  */
 case class WorkerParams(
   app: App,

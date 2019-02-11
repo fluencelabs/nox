@@ -102,6 +102,8 @@ object DockerParams {
     /**
      * Builds a command starting with `docker run -d` wrapped in DaemonParams, so
      * container will be deleted automatically by [[DockerIO.run]]
+     *
+     * @param cmd Command to run inside the container. If not present, the default command will be executed
      */
     def daemonRun(cmd: String = null): DaemonParams =
       DaemonParams(Option(cmd).foldLeft(daemonParams ++ params :+ image.imageName)(_ :+ _))

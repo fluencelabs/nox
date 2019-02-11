@@ -18,8 +18,6 @@ package fluence.node.workers
 
 import cats.Parallel
 import cats.effect._
-import cats.effect.concurrent.Ref
-import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
 import fluence.node.workers.health.HealthCheckConfig
 

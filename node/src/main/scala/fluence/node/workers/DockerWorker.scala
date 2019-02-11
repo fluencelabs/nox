@@ -149,6 +149,8 @@ object DockerWorker extends LazyLogging {
    * @param params Worker's running params
    * @param healthCheckConfig see [[HealthCheckConfig]]
    * @param onStop A callback to launch when this worker is stopped
+   * @param stopTimeout Timeout in seconds to allow graceful stopping of running containers.
+   *                    It might take up to 2*`stopTimeout` seconds to gracefully stop the worker, as 2 containers involved.
    * @param sttpBackend Sttp Backend to launch HTTP healthchecks and RPC endpoints
    * @return the [[Worker]] instance
    */

@@ -30,6 +30,17 @@ object DockerTendermint {
   val RpcPort: Short = 26657
   val TmPrometheusPort: Short = 26660
 
+  /**
+   * Execute tendermint-specific command inside a temporary container, return the results
+   *
+   * @param tmImage Tendermint image to use
+   * @param tendermintDir Tendermint's home directory in current filesystem
+   * @param masterContainerId Master process' Docker ID, used to pass volumes from
+   * @param cmd Command to run
+   * @param uid User ID to run Tendermint with; must have access to `tendermintDir`
+   * @tparam F Effect
+   * @return String output of the command execution
+   */
   def execCmd[F[_]: Sync: ContextShift](
     tmImage: DockerImage,
     tendermintDir: Path,
@@ -58,6 +69,9 @@ object DockerTendermint {
       }
     }
 
+  /**
+   * Prepare a docker command for a particular Worker's Tendermint container
+   */
   private def dockerCommand(
     params: WorkerParams,
     network: DockerNetwork
@@ -81,9 +95,21 @@ object DockerTendermint {
     }).image(tmImage).daemonRun("node")
   }
 
+  /**
+   * Worker's Tendermint container's name
+   */
   private[workers] def containerName(params: WorkerParams) =
     s"${params.appId}_tendermint_${params.currentWorker.index}"
 
+  /**
+   * Prepare and launch Tendermint container for the given Worker
+   *
+   * @param params Worker Params
+   * @param workerName Docker name for the launched Worker (statemachine) container
+   * @param network Worker's network
+   * @param stopTimeout Seconds to wait for graceful stop of the Tendermint container before killing it
+   * @return Running container
+   */
   def make[F[_]: Sync: ContextShift: LiftIO](
     params: WorkerParams,
     workerName: String,

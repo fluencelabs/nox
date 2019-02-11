@@ -63,6 +63,8 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
    * Runs a worker concurrently, registers it in `workers` map
    *
    * @param params Worker's description
+   * @param stopTimeout Timeout in seconds to allow graceful stopping of running containers.
+   *                    It might take up to 2*`stopTimeout` seconds to gracefully stop the worker, as 2 containers involved.
    * @return Unit; no failures are expected
    */
   private def runWorker(params: WorkerParams, stopTimeout: Int = 5): F[Unit] =
@@ -194,6 +196,9 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
 
 object DockerWorkersPool {
 
+  /**
+   * Build a new [[DockerWorkersPool]]. All workers will be stopped when the pool is released
+   */
   def make[F[_]: ContextShift: Timer, G[_]](healthCheckConfig: HealthCheckConfig)(
     implicit
     sttpBackend: SttpBackend[F, Nothing],

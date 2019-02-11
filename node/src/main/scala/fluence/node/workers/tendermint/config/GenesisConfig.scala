@@ -21,13 +21,15 @@ import java.text.SimpleDateFormat
 import java.util.TimeZone
 
 import cats.effect.IO
-import fluence.ethclient.helpers.Web3jConverters
 import fluence.node.eth.state.App
 import fluence.node.workers.tendermint.ValidatorKey
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 import slogging.LazyLogging
 
+/**
+ * Tendermint's genesis.json representation
+ */
 case class GenesisConfig private (
   genesis_time: String,
   chain_id: String,
@@ -36,8 +38,16 @@ case class GenesisConfig private (
 ) extends LazyLogging {
   import GenesisConfig.configEncoder
 
+  /**
+   * Convert to canonical string representation
+   */
   def toJsonString: String = configEncoder(this).spaces2
 
+  /**
+   * Write genesis.json inside `destPath`
+   *
+   * @param destPath Tendermint config directory to write genesis.json to
+   */
   def writeTo(destPath: Path): IO[Unit] =
     IO {
       logger.info("Writing {}/genesis.json", destPath)
@@ -49,13 +59,16 @@ private object GenesisConfig {
 
   implicit val configEncoder: Encoder[GenesisConfig] = deriveEncoder
 
+  /**
+   * Prepare GenesisConfig for the given App
+   */
   def apply(app: App): GenesisConfig = {
     val dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
     dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"))
 
     GenesisConfig(
       genesis_time = dateFormat.format(app.cluster.genesisTime.toMillis),
-      chain_id = Web3jConverters.appIdToChainId(app.id),
+      chain_id = app.id.toString,
       app_hash = "",
       validators = app.cluster.workers.map { w =>
         ValidatorConfig(
@@ -69,8 +82,5 @@ private object GenesisConfig {
       }
     )
   }
-
-  def generateJson(app: App): String =
-    apply(app).toJsonString
 
 }

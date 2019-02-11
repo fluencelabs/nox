@@ -69,7 +69,7 @@ class MasterNodeSpec
 
     "provide status" in {
       val masterConf =
-        MasterConfig.load().unsafeRunSync().copy(tendermintPath = Files.createTempDirectory("masternodespec").toString)
+        MasterConfig.load().unsafeRunSync().copy(rootPath = Files.createTempDirectory("masternodespec").toString)
 
       val nodeConf = NodeConfig(
         masterConf.endpoints,

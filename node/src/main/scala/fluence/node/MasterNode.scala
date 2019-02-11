@@ -38,9 +38,12 @@ import scala.language.higherKinds
  * Represents a MasterNode process. Takes cluster forming events from Ethereum, and spawns new Workers to serve them.
  *
  * @param nodeConfig Tendermint/Fluence master node config
+ * @param configTemplate Template for worker's configuration
  * @param nodeEth Ethereum adapter
  * @param pool Workers pool to launch workers in
+ * @param codeManager To load the code from, usually backed with Swarm
  * @param rootPath MasterNode's working directory, usually /master
+ * @param masterNodeContainerId Docker Container ID for this process, to import Docker volumes from
  */
 case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
   nodeConfig: NodeConfig,
@@ -59,6 +62,9 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
       _ <- IO(logger.info(s"Worker started (newly=$newly) {}", params)).to[F]
     } yield ()
 
+  /**
+   * All app worker's data is stored here. Currently the folder is never purged
+   */
   private def resolveAppPath(app: eth.state.App): F[Path] =
     IO(rootPath.resolve("app-" + app.id + "-" + app.cluster.currentWorker.index)).to[F]
 
