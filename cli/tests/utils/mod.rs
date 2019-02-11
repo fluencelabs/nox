@@ -70,12 +70,13 @@ impl TestOpts {
         self
     }
 
-    pub fn register_node(&mut self, ports: u16, private: bool) -> Result<(H256, Register)> {
-        let mut rng = rand::thread_rng();
-        let rnd_num: u64 = rng.gen();
-        let tendermint_key: H256 = H256::from(rnd_num);
-        let tendermint_node_id: H160 = H160::from(rnd_num);
-
+    pub fn register_node(
+        &mut self,
+        ports: u16,
+        private: bool,
+        tendermint_key: H256,
+        tendermint_node_id: H160,
+    ) -> Result<(Registered, Register)> {
         let start_port = self.last_used_port.unwrap_or(self.start_port);
         let end_port = start_port + ports;
 
@@ -88,18 +89,38 @@ impl TestOpts {
             start_port,
             end_port,
             private,
+            false,
             self.eth.clone(),
         )
         .unwrap();
 
-        let tx = match reg.register(false)? {
-            Registered::TransactionSent(tx) => tx,
+        let reg_result = reg.register(false)?;
+
+        Ok((reg_result, reg))
+    }
+
+    pub fn register_random_node(
+        &mut self,
+        ports: u16,
+        private: bool,
+    ) -> Result<(Option<H256>, Register)> {
+        let mut rng = rand::thread_rng();
+        let rnd_num: u64 = rng.gen();
+        let tendermint_key: H256 = H256::from(rnd_num);
+        let tendermint_node_id: H160 = H160::from(rnd_num);
+
+        let (register_result, reg) =
+            self.register_node(ports, private, tendermint_key, tendermint_node_id)?;
+
+        let tx = match register_result {
+            Registered::TransactionSent(tx) => Some(tx),
             Registered::Deployed {
                 app_ids: _,
                 ports: _,
                 tx,
-            } => tx,
-            Registered::Enqueued(tx) => tx,
+            } => Some(tx),
+            Registered::Enqueued(tx) => Some(tx),
+            Registered::AlreadyRegistered => None,
         };
 
         Ok((tx, reg))
