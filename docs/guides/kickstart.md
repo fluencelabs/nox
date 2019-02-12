@@ -18,27 +18,25 @@
   - [Preparing web app](#preparing-web-app)
   - [Running and using](#running-and-using)
 
-This guide aims first-time users of Fluence. Following it from top to bottom will leave you with your own decentralized backend that you developed using Rust and WebAssembly, and a frontend app that's able to communicate with that backend. It's not going to be hard!
+This guide aims first-time users of Fluence. At the end, you will develop a dApp consisting of a decentralized backend running on top of Fluence network, and a web frontend application that's able to communicate with that backend. 
 
 # The Plan
-The plan is as follows.
+This document is structured as follows.
 
-First, you'll set up Rust and develop a simple backend with it. Then, you will change a few lines so backend can be deployed on Fluence, and compile it to WebAssembly.
+First, you will use Fluence Rust SDK to develop a Rust backend, and compile it to WebAssembly. 
 
-Then, you'll upload Wasm code to Swarm, and publish it to Fluence Devnet smart contract. For that, you will need a connection to any Ethereum node on Kovan testnet. Publishing your app will bring a new Fluence cluster up to life with your backend on top. You will learn how to check it's status or shut it down. 
+Then, you will publish compiled backend to the Fluence network.
 
-Finally, there will be some cozy frontend time. Using `fluence` Javascript library, you will connect to a running Tendermint cluster, and send commands to your backend, and see how all nodes in the cluster are executing the same code in sync.
+And finally, you will build a web application integrated with your decentralized backend.
 
 # Developing the backend app
-Now you're Rust Backend Developer. Put up your best nerdy t-shirt, take a deep breath, and go!
-
 ## Setting up Rust
 Let's get some Rust. 
 
 Install rust compiler and it's tools:
 ```bash
 # install Rust compiler and other tools to `~/.cargo/bin`
-~ $ curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
+~ $ curl https://sh.rustup.rs -sSf | sh -s -- -y
 info: downloading installer
 ...
     nightly installed
@@ -52,20 +50,20 @@ Let's listen to the installer and configure your current shell:
 <no output>
 ```
 
-To check `nightly` toolchain was installed succesfully:
-```bash
-~ $ rustup toolchain list | grep nightly
-# output should contain nighly toolchain
-...
-nightly-<arch>
-```
-
-If there's no nightly toolchain, then install it:
+Fluence Rust SDK [uses custom allocator](???) for more fine-grained control over virtual machine internal memory, and that requires nightly toolchain. To install nightly toolchain, run:
 ```bash
 ~ $ rustup toolchain install nightly
 info: syncing channel updates ...
 ...
   nightly-x86_64-apple-darwin installed - rustc 1.34.0-nightly (57d7cfc3c 2019-02-11)
+```
+
+To check nightly toolchain was installed succesfully:
+```bash
+~ $ rustup toolchain list | grep nightly
+# output should contain nighly toolchain
+...
+nightly-<arch>
 ```
 
 Also, to be able to compile Rust to WebAssembly, we need to add wasm32 compilation target. Just run the following:
@@ -82,8 +80,8 @@ To check that everything is set up correctly, let's compile some Rust code:
 # create test.rs with a simple program that returns number 1
 ~ $ echo "fn main(){1;}" > test.rs
 
-# compile it to wasm
-~ $ rustc --target=wasm32-unknown-unknown test.rs
+# compile it to wasm using rustc from nightly toolchain
+~ $ rustup run nightly rustc --target=wasm32-unknown-unknown test.rs
 <no output>
 
 # check test.wasm was created
@@ -109,9 +107,9 @@ Created binary (application) `hello-world` package
 More info on creating a new Rust project can be found in [Rust docs](https://doc.rust-lang.org/cargo/guide/creating-a-new-project.html).
 
 ## Optional: Creating a hello world Rust application
-_If you are familiar with Rust, feel free to skip that section_
+If you are familiar with Rust, feel free to [skip](#creating-a-fluence-hello-world-backend) that section.
 
-Let's code! We want our `hello-world` to receive a username from, well, user, and greet the world on user's behalf.
+Let's write some code. Our backend should be able to receive a username from program arguments, and print greeting with the username in it.
 
 Take a look at `src/main.rs`:
 ```bash
@@ -125,7 +123,7 @@ fn main() {
 }
 ```
 
-It almost does what we need! But we need more. We need to read and print the user name along these lines. So, open `src/main.rs` in your editor, delete all the code in there, and paste the following:
+It almost does what we need, except for reading a username. So, open `src/main.rs` in your editor, delete all the code in there, and paste the following:
 ```rust
 use std::env;
 
@@ -152,7 +150,7 @@ Let's now compile and run our example:
 Hello, world! From user myName
 ```
 
-_**WARNING:** If you see the following error, you must install `gcc` and try `cargo run` again:_
+**WARNING:** If you see the following error, you should install `gcc` and try `cargo run` again:
 ```bash
 Compiling hello-world v0.1.0 (/root/hello-world)
 error: linker cc not found
@@ -259,20 +257,19 @@ If everything goes well, you should have a `.wasm` file deep in `target`. Let's 
 ## Connect to Swarm and Ethereum Kovan
 To publish a backend app to Fluence network, you need to upload it to Swarm, and then send its location in Swarm to a Fluence smart contract on Ethereum Kovan testnet. 
 
-Now that's a lot of tech-name-throwing! Let me explain a bit.
-
-- Swarm is a decentralized file storage, so it's like the Dropbox, but more nerdy. 
-- Ethereum Kovan testnet is one of the many Ethereum networks, but there's no real money in there, so it's safe and handy for trying out something new.
+To make sure we're on the same page:
+- Swarm is a decentralized file storage. 
+- Ethereum Kovan testnet is one of the many Ethereum networks, but there's no real money in there, so it's safe and can be used for trying out something new.
 - Fluence smart contract is what rules the Fluence network and allows users to use it.
 
-So, to upload anything to Swarm, you need to have access to one of its nodes. The same with Ethereum, you will need a connection to any Ethereum node on Kovan testnet.
+To upload your code to Swarm, you need to have access to one of its nodes. The same with Ethereum, you will need a connection to any Ethereum node on Kovan testnet.
 
 **We will use existing Ethereum & Swarm nodes, but if you wish, you can [use your own nodes](miner.md) or any other.**
 
 ## TODO: Registering an Ethereum Kovan account
 TODO
 
-### Installing Fluence CLI
+## Installing Fluence CLI
 You can download Fluence CLI from here https://github.com/fluencelabs/fluence/releases/tag/cli-0.1.2
 
 Or in terminal:
@@ -287,7 +284,7 @@ Or in terminal:
 ~ $ curl -L https://github.com/fluencelabs/fluence/releases/download/cli-0.1.2/fluence-cli-0.1.2-mac-x64 -o fluence
 ```
 
-And finally don't forget to add executable permission:
+And finally don't forget to add permission to execute it:
 ```bash
 ~ $ chmod +x ./fluence
 
@@ -298,7 +295,7 @@ Fluence CLI 0.1.2
 
 If you see cli's version, proceed to the next step.
 
-### Publishing via Fluence CLI
+## Publishing via Fluence CLI
 As was mentioned before, you will need a connection to Ethereum Kovan network, and a connection to Swarm network. 
 
 For your convenience, and to make this guide simple, we use addresses of existing Ethereum Kovan and Swarm nodes running in a cloud on Fluence nodes. **However, this is a centralized way to connect to Ethereum Kovan and Swarm networks, and shouldn't be used in production or in a security-sensitive context.** You may use **any** Kovan and Swarm nodes by providing their URIs within `--eth_url` and `--swarm_url` options (see below).
@@ -354,7 +351,7 @@ App deployed.
 ```
 
 
-### Check app status
+## Check app status
 Now, let's check your app state in the contract
 ```bash
 ~ $ ./fluence status \
@@ -421,10 +418,10 @@ You can press `q` to exit it.
 
 Your backend now is successfully deployed! You can proceed to access your code from a web browser.
 
-## Frontend
+# Frontend
 For this part, you will need installed `npm`. Please refer to [npm docs](https://www.npmjs.com/get-npm) for installation instructions.
 
-### Preparing web app
+## Preparing web app
 Let's clone a simple web app template:
 ```bash
 ~ $ git clone https://github.com/fluencelabs/frontend-template
@@ -476,7 +473,7 @@ What this code does, line-by-line:
 
 **Make sure you have changed `appId` to your actuall appId.**
 
-### Running and using
+## Running and using
 To install all dependencies, compile and run the application, run in the terminal:
 ```bash
 ~/frontend-template $ npm install
