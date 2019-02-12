@@ -488,6 +488,7 @@ Session created
 <kbd>
 <img src="images/helloworld.png" width="538px"/>
 </kbd>
+<br><br><br>
 </div>
 
 You can also use Fluence from within Developer console as follows:
