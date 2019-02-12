@@ -410,9 +410,7 @@ You can also use interactive mode instead of default by supplying `--interactive
 ```
 
 <div style="text-align:center">
-<kbd>
 <img src="images/interactive.png" width="776px"/>
-</kbd>
 <br><br><br>
 </div>
 
