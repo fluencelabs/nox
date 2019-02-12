@@ -299,7 +299,9 @@ Fluence CLI 0.1.2
 If you see cli's version, proceed to the next step.
 
 ### Publishing via Fluence CLI
-As was mentioned before, you will need a connection to Ethereum Kovan network, and a connection to Swarm network. For your convenience, and to make this guide simple, we use addresses of existing Ethereum Kovan and Swarm nodes running in a cloud on Fluence nodes. **However, this is a centralized way to connecti with to Ethereum Kovan and Swarm networks, and shouldn't be used in production or in a security-sensitive context.** You may use **any** Kovan and Swarm nodes by providing their URIs within `--eth_url` and `--swarm_url` options (see below).
+As was mentioned before, you will need a connection to Ethereum Kovan network, and a connection to Swarm network. 
+
+For your convenience, and to make this guide simple, we use addresses of existing Ethereum Kovan and Swarm nodes running in a cloud on Fluence nodes. **However, this is a centralized way to connect to Ethereum Kovan and Swarm networks, and shouldn't be used in production or in a security-sensitive context.** You may use **any** Kovan and Swarm nodes by providing their URIs within `--eth_url` and `--swarm_url` options (see below).
 
 Also you will need a Kovan account with some money on it (you can [get money from faucet](https://github.com/kovan-testnet/faucet)) and it's private key. Private key can be either a hex string or a [JSON keystore file](../cli/README.md#keystore-json-file).
 
