@@ -196,12 +196,7 @@ fluence = { version = "0.0.8", features = ["export_allocator"]}
 ```
 
 ### Implementing backend greeting logic
-Create & open `src/lib.rs` in your editor:
-```bash
-~/hello-world $ edit src/lib.rs
-```
-
-Then paste the following code there:
+Create & open `~/hello-world/src/lib.rs` in your editor and paste the following code there:
 ```rust
 use fluence::sdk::*;
 
@@ -310,7 +305,7 @@ If you have your private key **in hex**, run the following in your terminal, rep
             --eth_url          http://207.154.240.52:8545 \
             --swarm_url        http://207.154.240.52:8500 \
             --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \
-            --contract_address 0xe9bbe60d525c7c5d4f3d85036f3ea23003879106 \
+            --contract_address 0xd62ab1bd71068a252bb20fa94b2f536d7525cfeb \
             --gas_price        10 \
             --account          <your ethereum address> \
             --secret_key       <your ethereum private key> \
@@ -326,7 +321,7 @@ If you have a JSON **keystore file**, run the following in your terminal, replac
             --eth_url          http://207.154.240.52:8545 \
             --swarm_url        http://207.154.240.52:8500 \
             --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \
-            --contract_address 0xe9bbe60d525c7c5d4f3d85036f3ea23003879106 \
+            --contract_address 0xd62ab1bd71068a252bb20fa94b2f536d7525cfeb \
             --gas_price        10 \
             --account          <your ethereum address> \
             --keystore         <path to keystore> \
@@ -356,7 +351,7 @@ To see how smart contract sees your app, and what nodes it was deployed onto, yo
 ```bash
 ~ $ ./fluence status \
             --eth_url          http://207.154.240.52:8545 \
-            --contract_address 0xe9bbe60d525c7c5d4f3d85036f3ea23003879106 \
+            --contract_address 0xd62ab1bd71068a252bb20fa94b2f536d7525cfeb \
             --app_id           <your app id here>
 ```
 
@@ -409,10 +404,17 @@ You can also use interactive mode instead of default by supplying `--interactive
 ```bash
 ./fluence status \
             --eth_url          http://207.154.240.52:8545 \
-            --contract_address 0xe9bbe60d525c7c5d4f3d85036f3ea23003879106 \
+            --contract_address 0xd62ab1bd71068a252bb20fa94b2f536d7525cfeb \
             --app_id           <your app id here> \
             --interactive
 ```
+
+<div style="text-align:center">
+<kbd>
+<img src="images/interactive.png" width="776px"/>
+</kbd>
+<br><br><br>
+</div>
 
 You can press `q` to exit it.
 
@@ -487,7 +489,7 @@ Session created
 
 <div style="text-align:center">
 <kbd>
-<img src="images/helloworld.png" width="538px"/>
+<img src="images/helloworld.png" width="529px"/>
 </kbd>
 <br><br><br>
 </div>
