@@ -18,11 +18,11 @@ use syn::parse::{Parse, ParseStream};
 
 pub struct HandlerAttrs {
     // There could be some other attributes in future
-    handler_attrs: Vec<HandlerAttr>
+    handler_attrs: Vec<HandlerAttr>,
 }
 
 pub enum HandlerAttr {
-    InitFnName(String)
+    InitFnName(String),
 }
 
 impl HandlerAttrs {
@@ -30,9 +30,7 @@ impl HandlerAttrs {
         self.handler_attrs
             .iter()
             .filter_map(|attr| match attr {
-                HandlerAttr::InitFnName(name) => {
-                    Some(&name[..])
-                }
+                HandlerAttr::InitFnName(name) => Some(&name[..]),
             })
             .next()
     }
@@ -40,7 +38,9 @@ impl HandlerAttrs {
 
 impl Default for HandlerAttrs {
     fn default() -> Self {
-        HandlerAttrs { handler_attrs: Vec::new() }
+        HandlerAttrs {
+            handler_attrs: Vec::new(),
+        }
     }
 }
 
@@ -59,18 +59,21 @@ impl Parse for HandlerAttrs {
 
         let init_fn_name = match attr.to_string().as_str() {
             "init_fn" => {
-                    input.parse::<::syn::token::Eq>()?;
-                    match input.parse::<syn::Ident>() {
-                        Ok(init_fn_name) => Ok(init_fn_name.to_string()),
-                        Err(_) => {
-                            Err(syn::Error::new(attr.span(), "expected function name"))
-                        }
+                input.parse::<::syn::token::Eq>()?;
+                match input.parse::<syn::Ident>() {
+                    Ok(init_fn_name) => Ok(init_fn_name.to_string()),
+                    Err(_) => Err(syn::Error::new(attr.span(), "expected function name")),
                 }
             },
-            _ => Err(syn::Error::new(attr.span(), "expected a `init_fn` token in invocation_handler macros attributes"))
+            _ => Err(syn::Error::new(
+                attr.span(),
+                "expected a `init_fn` token in invocation_handler macros attributes",
+            )),
         }?;
 
-        attrs.handler_attrs.push(HandlerAttr::InitFnName(init_fn_name));
+        attrs
+            .handler_attrs
+            .push(HandlerAttr::InitFnName(init_fn_name));
         Ok(attrs)
     }
 }

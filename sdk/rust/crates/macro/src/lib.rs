@@ -61,8 +61,8 @@
 //!
 
 extern crate proc_macro;
-mod macro_input_parser;
 mod macro_attr_parser;
+mod macro_input_parser;
 
 use crate::macro_attr_parser::HandlerAttrs;
 use crate::macro_input_parser::{InputTypeGenerator, ParsedType, ReturnTypeGenerator};
@@ -70,7 +70,10 @@ use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse::Error, parse_macro_input, ItemFn};
 
-fn invoke_handler_impl(attr: proc_macro2::TokenStream, fn_item: syn::ItemFn) -> syn::Result<proc_macro2::TokenStream> {
+fn invoke_handler_impl(
+    attr: proc_macro2::TokenStream,
+    fn_item: syn::ItemFn,
+) -> syn::Result<proc_macro2::TokenStream> {
     let ItemFn {
         constness,
         unsafety,
@@ -141,40 +144,39 @@ fn invoke_handler_impl(attr: proc_macro2::TokenStream, fn_item: syn::ItemFn) -> 
         Some(init_fn_name) => {
             let init_fn_name = syn::parse_str::<syn::Ident>(init_fn_name)?;
             quote! {
-                #fn_item
+            #fn_item
 
-                static mut IS_INITED: Option<bool> = None;
+            static mut IS_INITED: Option<bool> = None;
 
-                #[no_mangle]
-                pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
-                    unsafe {
-                        if IS_INITED == None {
-                            IS_INITED.replace(#init_fn_name());
-                        }
+            #[no_mangle]
+            pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
+                unsafe {
+                    if IS_INITED == None {
+                        IS_INITED.replace(#init_fn_name());
                     }
-
-                    #prolog
-
-                    let result = #ident(arg);
-
-                    #epilog
                 }
-                }
-            },
-        None =>
-            quote! {
-                #fn_item
 
-                #[no_mangle]
-                pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
-                    if()
-                    #prolog
+                #prolog
 
-                    let result = #ident(arg);
+                let result = #ident(arg);
 
-                    #epilog
-                }
+                #epilog
             }
+            }
+        },
+        None => quote! {
+            #fn_item
+
+            #[no_mangle]
+            pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
+                if()
+                #prolog
+
+                let result = #ident(arg);
+
+                #epilog
+            }
+        },
     };
     Ok(resulted_invoke)
 }

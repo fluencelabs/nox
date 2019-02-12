@@ -20,8 +20,8 @@
 
 extern crate core;
 
-pub mod memory;
 pub mod logger;
+pub mod memory;
 
 #[cfg(feature = "export_allocator")]
 pub mod export_allocator;
