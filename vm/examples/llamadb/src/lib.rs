@@ -39,10 +39,7 @@ type GenResult<T> = ::std::result::Result<T, Box<Error>>;
 //
 
 fn init() -> bool {
-    match logger::WasmLogger::init_with_level(log::Level::Info) {
-        Ok(_) => true,
-        Err(_) => false
-    }
+    logger::WasmLogger::init_with_level(log::Level::Info).is_ok()
 }
 
 /// Executes SQL and returns a pointer to result as a string in the memory.
