@@ -105,8 +105,6 @@
 //! [`lazy_static::initialize()`]: https://docs.rs/lazy_static/1.2.0/lazy_static/fn.initialize.html
 
 extern crate log;
-use self::log::{error, warn};
-use std::ptr::NonNull;
 
 /// The Wasm Logger.
 ///
@@ -165,34 +163,6 @@ impl WasmLogger {
     pub fn init() -> Result<(), log::SetLoggerError> {
         WasmLogger::init_with_level(log::Level::Info)
     }
-}
-
-/// Initializes `WasmLogger` instance and returns a pointer to error message as a string
-/// in memory. Enabled only for a Wasm targets.
-#[no_mangle]
-#[cfg(target_arch = "wasm32")]
-pub unsafe fn init_logger() -> NonNull<u8> {
-    // if there are several wasm logger features specified choose the most general one
-    let log_level = if cfg!(feature = "wasm_logger_info") {
-        log::Level::Info
-    } else if cfg!(feature = "wasm_logger_warn") {
-        log::Level::Warn
-    } else {
-        log::Level::Error
-    };
-
-    let result = WasmLogger::init_with_level(log_level)
-        .map(|_| "WasmLogger was successfully initialized".to_string())
-        .unwrap_or_else(|err| format!("WasmLogger initialization was failed, cause: {:?}", err));
-
-    warn!("{}\n", result);
-
-    // returns logger initialization result as a string
-    crate::memory::write_result_to_mem(&result.as_bytes()).unwrap_or_else(|_| {
-        let error_msg = "Writing result string to memory was failed.";
-        error!("{}", error_msg);
-        panic!(error_msg);
-    })
 }
 
 impl log::Log for WasmLogger {

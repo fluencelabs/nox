@@ -21,12 +21,6 @@
 extern crate core;
 
 pub mod memory;
-
-#[cfg(any(
-    feature = "wasm_logger_info",
-    feature = "wasm_logger_warn",
-    feature = "wasm_logger_error"
-))]
 pub mod logger;
 
 #[cfg(feature = "export_allocator")]

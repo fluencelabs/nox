@@ -20,6 +20,7 @@ use fluence::sdk::*;
 use log::info;
 
 fn init() -> bool {
+    logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
     true
 }
 

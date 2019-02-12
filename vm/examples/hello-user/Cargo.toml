@@ -18,7 +18,7 @@ path = "src/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-fluence = { version = "0.0.8", features = ["wasm_logger_warn", "export_allocator"]}
+fluence = { version = "0.0.8", features = ["export_allocator"] }
 
 [dev-dependencies]
 simple_logger = "1.0.1"
