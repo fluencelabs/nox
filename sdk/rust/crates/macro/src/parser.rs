@@ -19,6 +19,7 @@ extern crate proc_macro;
 use quote::quote;
 use syn::{parse::Error, spanned::Spanned};
 
+#[derive(PartialEq)]
 pub enum ParsedType {
     Utf8String,
     ByteVector,
@@ -125,14 +126,14 @@ impl ParsedType {
     pub fn from_fn_arg(fn_arg: &syn::FnArg) -> syn::Result<Self> {
         match fn_arg {
             syn::FnArg::Captured(arg) => ParsedType::from_type(&arg.ty),
-            _ => Err(Error::new(fn_arg.span(), "Unknown argument"))
+            _ => Err(Error::new(fn_arg.span(), "Unknown argument")),
         }
     }
 
     pub fn from_return_type(ret_type: &syn::ReturnType) -> syn::Result<Self> {
         match ret_type {
             syn::ReturnType::Type(_, t) => ParsedType::from_type(t.as_ref()),
-            syn::ReturnType::Default => Ok(ParsedType::Empty)
+            syn::ReturnType::Default => Ok(ParsedType::Empty),
         }
     }
 }

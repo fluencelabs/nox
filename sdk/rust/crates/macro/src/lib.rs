@@ -67,6 +67,7 @@ use crate::parser::{InputTypeGenerator, ParsedType, ReturnTypeGenerator};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse::Error, parse_macro_input, ItemFn};
+use syn::spanned::Spanned;
 
 #[warn(clippy::redundant_closure_call)]
 fn invoke_handler_impl(fn_item: &syn::ItemFn) -> syn::Result<proc_macro2::TokenStream> {
@@ -121,16 +122,36 @@ fn invoke_handler_impl(fn_item: &syn::ItemFn) -> syn::Result<proc_macro2::TokenS
         return Err(e);
     }
 
-    let input_type = ParsedType::from_fn_arg(
-        decl.inputs
-            .first()
-            // it is already checked that there is only one input arg
-            .unwrap()
-            .into_value(),
-    )?;
+    let input_type =
+        match decl.inputs.len() {
+            0 => ParsedType::Empty,
+            1 => ParsedType::from_fn_arg(decl.inputs.first().unwrap().into_value())?,
+            _ => return Err(Error::new(
+                decl.paren_token.span,
+                "The main module invocation handler has to don't have more then one input param",
+            )),
+        };
     let output_type = ParsedType::from_return_type(&decl.output)?;
+    if output_type == ParsedType::Empty {
+        return Err(Error::new(
+            decl.output.span(),
+            "The main module invocation handler has to have return type",
+        ));
+    }
 
     let prolog = input_type.generate_fn_prolog();
+    let prolog = match input_type {
+        ParsedType::Empty => quote! {
+            #prolog
+
+            let result = #ident();
+        },
+        _ => quote! {
+            #prolog
+
+            let result = #ident(arg);
+        }
+    };
     let epilog = output_type.generate_fn_epilog();
 
     let resulted_invoke = quote! {
@@ -139,8 +160,6 @@ fn invoke_handler_impl(fn_item: &syn::ItemFn) -> syn::Result<proc_macro2::TokenS
         #[no_mangle]
         pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
             #prolog
-
-            let result = #ident(arg);
 
             #epilog
         }
