@@ -436,38 +436,34 @@ There are just three files (except for README, LICENSE and .gitignore):
 
 Let's take a look at `index.js`:
 ```javascript
-import * as fluence from "fluence";
-
-// address to Fluence contract in Ethereum blockchain. Interaction with blockchain created by MetaMask or with local Ethereum node
-let contractAddress = "0x5faa7b8d290407460e0ec8585b2712acf27290f9";
-
-// url of Ethereum node
-let ethUrl = "http://207.154.240.52:8545"
-
-// application to interact with that stored in Fluence contract
-let appId = "1"; // <<--- PUT YOUR APP ID HERE
-
-window.fluence = fluence;
-
-// creates a session between client and backend application
-fluence.connect(contractAddress, appId, ethUrl).then((s) => {
+...
+// create a session between client and backend application
+	fluence.connect(contractAddress, appId, ethUrl).then((s) => {
 		console.log("Session created");
 		window.session = s;
-});
+		helloBtn.disabled = false;
+	});
+...
+// set callback on button click
+helloBtn.addEventListener("click", send)
 
-// gets a result and logs it
-window.logResultAsString = function (request) {
-	request.result().then((r) => console.log(r.asString()))
-};
+// send username as a transaction and display results in grettingLbl
+function send() {
+  const username = usernameInput.value.trim();
+  let result = session.invoke(username);
+  getResultString(result).then(function (str) {
+    greetingLbl.innerHTML = str;
+  });
+}
 ```
 
-This code queries the Fluence smart contract for IP addresses of Tendermint nodes hosting the app with specified `appId`, creates an `AppSession` from these connections, and saves it to `window.session`, so it can be used later. All this is done via `connect` method. `AppSession` provides an `invoke` method that takes a `String` and sends it to backend as a transaction. 
+This code queries the Fluence smart contract for IP addresses of Tendermint nodes hosting the app with specified `appId`, creates an `AppSession` from these connections, and saves it to `window.session`, so it can be used later. All this is done via `connect` method. 
 
-Also a helper function `logResultAsString` is defined. It is useful for printing out results.
-
-Please make sure you have changed `appId` to your actuall appId.
+Then, it assigns `send()` function as a callback for clicking the button, which will call an `invoke` method provided by `AppSession`. `invoke` takes a `String`, and sends it to the backend as a transaction. Result will be displayed in `greeting` label.
 
 ## Running and using
+Please make sure you have changed `appId` to your actuall appId.
+
 To install all dependencies, compile and run the application, run in the terminal:
 ```bash
 ~/frontend-template $ npm install
@@ -479,7 +475,9 @@ To install all dependencies, compile and run the application, run in the termina
 ...
 ```
 
-Now you can open http://localhost:8080/ in your browser. Then open Developer Console, and wait for the following messages:
+Now you can open http://localhost:8080/ in your browser. You will see an input text box and a disabled button. Button will become enabled once AppSession is created. You can enter your name, and press `Say hello!` button, and greeting will be displayed next to `Result:`.
+
+You can also open Developer Console, and you'll see a log about session creation:
 ```
 ...
 Connecting web3 to http://207.154.240.52:8545
@@ -487,7 +485,11 @@ Connecting web3 to http://207.154.240.52:8545
 Session created
 ```
 
-Now let's send a request and see if we get our greeting!
+<div style="text-align:center">
+<img src="images/helloworld.png" width="538px"/>
+</div>
+
+You can also use Fluence from within Developer console as follows:
 ```javascript
 let result = session.invoke("myName");
 <undefined>
@@ -495,5 +497,3 @@ logResultAsString(result);
 <undefined>
 Hello, world! From user myName
 ```
-
-Yaaay! Everything works.
