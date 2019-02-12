@@ -411,7 +411,7 @@ You can also use interactive mode instead of default by supplying `--interactive
 
 <div style="text-align:center">
 <img src="images/interactive.png" width="776px"/>
-<br><br><br>
+<br>
 </div>
 
 You can press `q` to exit it.
