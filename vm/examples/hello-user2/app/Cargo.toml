@@ -8,7 +8,7 @@ edition = "2018"
 
 [lib]
 name = "hello_user"
-path = "src/lib.rs"
+path = "src/rust/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
