@@ -1,9 +1,9 @@
-- [The Plan](#the-plan)
+- [The plan](#the-plan)
 - [Developing the backend app](#developing-the-backend-app)
   - [Setting up Rust](#setting-up-rust)
   - [Creating an empty Rust package](#creating-an-empty-rust-package)
-  - [Optional: Creating a hello world Rust application](#optional-creating-a-hello-world-rust-application)
-  - [Creating a Fluence hello world backend](#creating-a-fluence-hello-world-backend)
+  - [Optional: Creating a Hello World Rust application](#optional-creating-a-hello-world-rust-application)
+  - [Creating a Fluence Hello World backend](#creating-a-fluence-hello-world-backend)
     - [Adding Fluence as a dependency](#adding-fluence-as-a-dependency)
     - [Implementing backend greeting logic](#implementing-backend-greeting-logic)
     - [Making it a library](#making-it-a-library)
@@ -20,7 +20,7 @@
 
 This guide aims first-time users of Fluence. At the end, you will develop a dApp consisting of a decentralized backend running on top of Fluence network, and a web frontend application that's able to communicate with that backend. 
 
-# The Plan
+# The plan
 This document is structured as follows.
 
 First, you will use Fluence Rust SDK to develop a Rust backend, and compile it to WebAssembly. 
@@ -39,7 +39,6 @@ Install rust compiler and it's tools:
 ~ $ curl https://sh.rustup.rs -sSf | sh -s -- -y
 info: downloading installer
 ...
-    nightly installed
 Rust is installed now. Great!
 To configure your current shell run source $HOME/.cargo/env
 ```
@@ -55,7 +54,7 @@ Fluence Rust SDK [uses custom allocator](???) for more fine-grained control over
 ~ $ rustup toolchain install nightly
 info: syncing channel updates ...
 ...
-  nightly-x86_64-apple-darwin installed - rustc 1.34.0-nightly (57d7cfc3c 2019-02-11)
+  nightly-<arch> installed - rustc 1.34.0-nightly (57d7cfc3c 2019-02-11)
 ```
 
 To check nightly toolchain was installed succesfully:
@@ -96,7 +95,7 @@ First, let's create a new empty Rust package:
 
 ```bash
 # create empty Rust package
-~ $ cargo new hello-world --edition 2018
+~ $ cargo +nightly new hello-world --edition 2018
 Created binary (application) `hello-world` package
 
 # go to the package directory
@@ -106,7 +105,7 @@ Created binary (application) `hello-world` package
 
 More info on creating a new Rust project can be found in [Rust docs](https://doc.rust-lang.org/cargo/guide/creating-a-new-project.html).
 
-## Optional: Creating a hello world Rust application
+## Optional: Creating a Hello World Rust application
 If you are familiar with Rust, feel free to [skip](#creating-a-fluence-hello-world-backend) that section.
 
 Let's write some code. Our backend should be able to receive a username from program arguments, and print greeting with the username in it.
@@ -143,14 +142,14 @@ What this code does:
 
 Let's now compile and run our example:
 ```bash
-~/hello-world $ cargo run myName
+~/hello-world $ cargo +nightly run myName
    Compiling hello-world v0.1.0 (/root/hello-world)
     Finished dev [unoptimized + debuginfo] target(s) in 0.70s
      Running `target/debug/hello-world myName`
 Hello, world! From user myName
 ```
 
-**WARNING:** If you see the following error, you should install `gcc` and try `cargo run` again:
+**WARNING:** If you see the following error, you should install `gcc` and try `cargo +nightly run` again:
 ```bash
 Compiling hello-world v0.1.0 (/root/hello-world)
 error: linker cc not found
@@ -163,7 +162,7 @@ error: Could not compile hello-world.
 
 Now that we have a working hello world, it's time to adapt it to be used with Fluence.
 
-## Creating a Fluence hello world backend
+## Creating a Fluence Hello World backend
 For a backend to be compatible with Fluence network, it should [follow a few conventions](miner.md#wasm-program-conventions), so Fluence knows how to call your code correctly. To reduce boilerplate and make it easier, we developed a Fluence Rust SDK. Let's see how to use it.
 
 ### Adding Fluence as a dependency
@@ -438,11 +437,11 @@ Let's take a look at `index.js`:
 ```javascript
 ...
 // create a session between client and backend application
-	fluence.connect(contractAddress, appId, ethUrl).then((s) => {
-		console.log("Session created");
-		window.session = s;
-		helloBtn.disabled = false;
-	});
+fluence.connect(contractAddress, appId, ethUrl).then((s) => {
+  console.log("Session created");
+  window.session = s;
+  helloBtn.disabled = false;
+});
 ...
 // set callback on button click
 helloBtn.addEventListener("click", send)
