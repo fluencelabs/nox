@@ -96,9 +96,10 @@ object StatusAggregator extends LazyLogging {
               _ <- IO(logger.trace("MasterStatus responded successfully"))
             } yield response
             response.handleErrorWith { e =>
-              logger.warn(s"Cannot produce MasterStatus response $e")
+              val errorMessage = s"Cannot produce MasterStatus response: $e"
+              logger.warn(errorMessage)
               e.printStackTrace()
-              InternalServerError(e.getLocalizedMessage)
+              InternalServerError(errorMessage)
             }
         }
         .orNotFound,
