@@ -19,8 +19,12 @@
 use fluence::sdk::*;
 use log::info;
 
+fn init() -> bool {
+    true
+}
+
 /// Takes the input, prints it out
-#[invocation_handler]
+#[invocation_handler(init_fn = init)]
 fn main(arg: String) -> String {
     info!("invoke input: {}", arg);
     arg

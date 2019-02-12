@@ -133,25 +133,49 @@ fn invoke_handler_impl(attr: proc_macro2::TokenStream, fn_item: syn::ItemFn) -> 
 
     let prolog = input_type.generate_fn_prolog();
     let epilog = output_type.generate_fn_epilog();
+
     let attrs = syn::parse2::<HandlerAttrs>(attr)?;
-    let init_fn_name = match attrs.iter() {
+    let raw_init_fn_name = attrs.init_fn_name();
 
-    }
+    let resulted_invoke = match raw_init_fn_name {
+        Some(init_fn_name) => {
+            let init_fn_name = syn::parse_str::<syn::Ident>(init_fn_name)?;
+            quote! {
+                #fn_item
 
-    let resulted_invoke = quote! {
-        #fn_item
+                static mut IS_INITED: Option<bool> = None;
 
-        #[no_mangle]
-        pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
-            if()
-            #prolog
+                #[no_mangle]
+                pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
+                    unsafe {
+                        if IS_INITED == None {
+                            IS_INITED.replace(#init_fn_name());
+                        }
+                    }
 
-            let result = #ident(arg);
+                    #prolog
 
-            #epilog
-        }
+                    let result = #ident(arg);
+
+                    #epilog
+                }
+                }
+            },
+        None =>
+            quote! {
+                #fn_item
+
+                #[no_mangle]
+                pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
+                    if()
+                    #prolog
+
+                    let result = #ident(arg);
+
+                    #epilog
+                }
+            }
     };
-
     Ok(resulted_invoke)
 }
 

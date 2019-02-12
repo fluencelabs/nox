@@ -38,13 +38,17 @@ type GenResult<T> = ::std::result::Result<T, Box<Error>>;
 // FFI for interaction with Llamadb module.
 //
 
+fn init() -> bool {
+    true
+}
+
 /// Executes SQL and returns a pointer to result as a string in the memory.
 ///
 /// 1. Makes rust String from given pointer and length
 /// 2. Processes the resulted string as a SQL query
 /// 3. Returns a pointer to the result as a string in the memory
 /// 4. Deallocates memory occupied by passed parameter
-#[invocation_handler]
+#[invocation_handler(init_fn = init)]
 fn main(sql_str: String) -> String {
     let db_response = match run_query(&sql_str) {
         Ok(response) => response,

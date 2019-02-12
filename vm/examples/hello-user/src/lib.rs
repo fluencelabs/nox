@@ -17,7 +17,11 @@
 //! A simple demo application for Fluence.
 use fluence::sdk::*;
 
-#[invocation_handler]
+fn init() -> bool {
+    true
+}
+
+#[invocation_handler(init_fn = init)]
 fn main(name: String) -> String {
     format!("Hello from Fluence to {}", name)
 }

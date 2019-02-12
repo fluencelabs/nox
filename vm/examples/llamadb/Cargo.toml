@@ -25,3 +25,6 @@ llamadb = { git = "https://github.com/fluencelabs/llamadb.git", branch = "master
 
 [dev-dependencies]
 simple_logger = "1.0.1"
+
+[replace]
+"fluence:0.0.8" = {path = "../../../sdk/rust"}
