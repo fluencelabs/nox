@@ -22,8 +22,6 @@ lazy_static = "1.1.0"
 log = "0.4"
 fluence = { version = "0.0.8", features = ["export_allocator"] }
 llamadb = { git = "https://github.com/fluencelabs/llamadb.git", branch = "master" }
-
-[dev-dependencies]
 simple_logger = "1.0.1"
 
 [replace]

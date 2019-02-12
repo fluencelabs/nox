@@ -30,6 +30,7 @@ use llamadb::tempdb::{ExecuteStatementResponse, TempDb};
 use log::info;
 use std::error::Error;
 use std::sync::Mutex;
+use simple_logger;
 
 /// Result for all possible Error types.
 type GenResult<T> = ::std::result::Result<T, Box<Error>>;
@@ -39,7 +40,11 @@ type GenResult<T> = ::std::result::Result<T, Box<Error>>;
 //
 
 fn init() -> bool {
-    logger::WasmLogger::init_with_level(log::Level::Info).is_ok()
+    if cfg!(target_arch = "wasm32") {
+        logger::WasmLogger::init_with_level(log::Level::Info).is_ok()
+    } else {
+        simple_logger::init_with_level(log::Level::Info).is_ok()
+    }
 }
 
 /// Executes SQL and returns a pointer to result as a string in the memory.
