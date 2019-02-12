@@ -3,7 +3,7 @@ name = "hello_user"
 version = "0.1.1"
 authors = ["Fluence Labs"]
 publish = false
-description = "Just a demo application for Fluence"
+description = "Just a demo application for Fluence with logging ability"
 edition = "2018"
 
 [lib]
@@ -12,4 +12,8 @@ path = "src/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
+log = "0.4"
 fluence = { version = "0.0.8", features = ["export_allocator"] }
+
+[replace]
+"fluence:0.0.8" = {path = "../../../sdk/rust"}
