@@ -215,7 +215,7 @@ This code imports Fluence SDK, and marks `greeting` function with `#[invocation_
 Function marked with `#[invocation_handler]` is called a _gateway function_. It is an entrypoint to your application, all transactions sent by users will be passed to that function, and it's result will be available to users. Gateway function can receive and return either `String` or `Vec<u8>`. 
 
 ### Making it a library
-For a gateway to be exported and available for Fluence to call, backend should be compiled to WebAssembly as a library.
+For a gateway function to be exported and available for Fluence to call, backend should be compiled to WebAssembly as a library.
 
 To make your backend a library, open `Cargo.toml` in your editor, and paste the following there:
 ```toml
