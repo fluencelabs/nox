@@ -47,33 +47,35 @@ case class Block(
 
 object Block {
 
+  private def convertBigInteger(bi: BigInteger) = Option(bi).map(BigInt(_)).getOrElse(BigInt(0))
+
   def apply(block: EthBlock.Block): Block = {
     import block._
 
     import scala.collection.convert.ImplicitConversionsToScala._
 
     new Block(
-      Option(getNumber).map(BigInt(_)).getOrElse(BigInt(0)), // null on Kovan with lightclient
-      getHash,
-      getParentHash,
+      convertBigInteger(getNumber),
+      Option(getHash).getOrElse(""),
+      Option(getParentHash).getOrElse(""),
       Option(getNonceRaw).getOrElse(""), // null for kovan
-      getSha3Uncles,
-      getLogsBloom,
-      getTransactionsRoot,
-      getStateRoot,
-      getReceiptsRoot,
+      Option(getSha3Uncles).getOrElse(""),
+      Option(getLogsBloom).getOrElse(""),
+      Option(getTransactionsRoot).getOrElse(""),
+      Option(getStateRoot).getOrElse(""),
+      Option(getReceiptsRoot).getOrElse(""),
       Option(getAuthor).getOrElse(""), // empty for ganache
-      getMiner,
-      getMixHash,
-      getDifficulty,
-      getTotalDifficulty,
-      getExtraData,
-      getSize,
-      getGasLimit,
-      getGasUsed,
-      getTimestamp,
+      Option(getMiner).getOrElse(""),
+      Option(getMixHash).getOrElse(""),
+      convertBigInteger(getDifficulty),
+      convertBigInteger(getTotalDifficulty),
+      Option(getExtraData).getOrElse(""),
+      convertBigInteger(getSize),
+      convertBigInteger(getGasLimit),
+      convertBigInteger(getGasUsed),
+      convertBigInteger(getTimestamp),
       getTransactions.toSeq.map(Transaction.apply),
-      getUncles,
+      getUncles.map(Option(_).getOrElse("")),
       Option[Seq[String]](getSealFields).getOrElse(Nil) // null on ganache
     )
   }

@@ -209,7 +209,6 @@ function deploy()
     echo "EXTERNAL_HOST_IP="$EXTERNAL_HOST_IP
     echo "OWNER_ADDRESS="$OWNER_ADDRESS
     echo "CONTRACT_ADDRESS="$CONTRACT_ADDRESS
-    echo "PRIVATE_KEY="$PRIVATE_KEY
 
     # port for status API
     echo "STATUS_PORT="$STATUS_PORT
