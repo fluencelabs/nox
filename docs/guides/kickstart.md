@@ -149,7 +149,6 @@ Let's now compile and run our example:
 Hello, world! From user myName
 ```
 
-<kbd>
 **WARNING:** If you see the following error, you should install `gcc` and try `cargo +nightly run` again:
 ```bash
 Compiling hello-world v0.1.0 (/root/hello-world)
@@ -160,7 +159,6 @@ error: linker cc not found
 error: aborting due to previous error
 error: Could not compile hello-world.
 ```
-</kbd>
 
 Now that we have a working hello world, it's time to adapt it to be used with Fluence.
 
