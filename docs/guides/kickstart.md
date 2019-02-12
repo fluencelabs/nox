@@ -10,7 +10,7 @@
       - [Adding fluence as a dependency](#adding-fluence-as-a-dependency)
       - [Making it a library](#making-it-a-library)
       - [Making it a cdylib](#making-it-a-cdylib)
-      - [Compiling to Webassembly](#compiling-to-webassembly)
+      - [Compiling to WebAssembly](#compiling-to-webassembly)
   - [Publishing your app](#publishing-your-app)
     - [Connect to Swarm and Ethereum Kovan](#connect-to-swarm-and-ethereum-kovan)
     - [TODO: Registering an Ethereum Kovan account](#todo-registering-an-ethereum-kovan-account)
@@ -22,14 +22,14 @@
     - [Running and using](#running-and-using)
 
 # Off and go!
-This guide aims first-time users of Fluence. Following it from top to bottom will leave you with your own decentralized backend that you developed using Rust and Webassembly, and a frontend app that's able to communicate with that backend. It's not going to be hard!
+This guide aims first-time users of Fluence. Following it from top to bottom will leave you with your own decentralized backend that you developed using Rust and WebAssembly, and a frontend app that's able to communicate with that backend. It's not going to be hard!
 
 ## The Plan
 The plan is as follows.
 
-First, you'll set up Rust and develop a simple backend with it. Then, you will change a few lines so backend can be deployed on Fluence, and compile it to Webassembly.
+First, you'll set up Rust and develop a simple backend with it. Then, you will change a few lines so backend can be deployed on Fluence, and compile it to WebAssembly.
 
-Then, you'll upload WASM code to Swarm, and publish it to Fluence Devnet smart-contract. For that, you will need a connection to any Ethereum node on Kovan testnet. Publishing your app will bring a new Fluence cluster up to life with your backend on top. You will learn how to check it's status or shut it down. 
+Then, you'll upload Wasm code to Swarm, and publish it to Fluence Devnet smart contract. For that, you will need a connection to any Ethereum node on Kovan testnet. Publishing your app will bring a new Fluence cluster up to life with your backend on top. You will learn how to check it's status or shut it down. 
 
 Finally, there will be some cozy frontend time. Using `fluence` Javascript library, you will connect to a running Tendermint cluster, and send commands to your backend, and see how all nodes in the cluster are executing the same code in sync.
 
@@ -39,7 +39,7 @@ Now you're Rust Backend Developer. Put up your best nerdy t-shirt, take a deep b
 ### Setting up Rust
 Let's get some Rust. 
 
-#### Install rust compiler and it's tools
+Install rust compiler and it's tools:
 ```bash
 # install Rust compiler and other tools to `~/.cargo/bin`
 ~ $ curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
@@ -50,15 +50,31 @@ Rust is installed now. Great!
 To configure your current shell run source $HOME/.cargo/env
 ```
 
-Let's listen to the installer and _configure your current shell_:
+Let's listen to the installer and configure your current shell:
 ```bash
 ~ $ source $HOME/.cargo/env
 <no output>
 ```
 
-Also, to compile Rust to Webassembly, let's add wasm32 compilation target. Just run the following:
+To check `nightly` toolchain was installed succesfully:
 ```bash
-# install target for Webassembly
+~ $ rustup toolchain list | grep nightly
+# output should contain nighly toolchain
+...
+nightly-<arch>
+```
+
+If there's no nightly toolchain, then install it:
+```bash
+~ $ rustup toolchain install nightly
+info: syncing channel updates ...
+...
+  nightly-x86_64-apple-darwin installed - rustc 1.34.0-nightly (57d7cfc3c 2019-02-11)
+```
+
+Also, to be able to compile Rust to WebAssembly, we need to add wasm32 compilation target. Just run the following:
+```bash
+# install target for WebAssembly
 ~ $ rustup target add wasm32-unknown-unknown --toolchain nightly
 info: downloading component 'rust-std' for 'wasm32-unknown-unknown'
 info: installing component 'rust-std' for 'wasm32-unknown-unknown'
@@ -69,9 +85,11 @@ To check that everything is set up correctly, let's compile some Rust code:
 ```bash
 # create test.rs with a simple program that returns number 1
 ~ $ echo "fn main(){1;}" > test.rs
+
 # compile it to wasm
 ~ $ rustc --target=wasm32-unknown-unknown test.rs
 <no output>
+
 # check test.wasm was created
 ~ $ ls -la test.wasm
 -rwxr-xr-x 1 user user 834475 Feb  7 08:12 test.wasm
@@ -79,8 +97,7 @@ To check that everything is set up correctly, let's compile some Rust code:
 
 If everything looks similar, then it's time to create a Rust hello-world project!
 
-### Creating a hello-world in Rust
-#### Creating an empty Rust package
+### Creating an empty Rust package
 First, let's create a new empty Rust package:
 
 ```bash
@@ -95,14 +112,14 @@ Created binary (application) `hello-world` package
 
 More info on creating a new Rust project can be found in [Rust docs](https://doc.rust-lang.org/cargo/guide/creating-a-new-project.html).
 
-#### Implementing the hello-world
-_If you're familiar with Rust, feel free to skip that section_
+### Optional: Creating a hello world Rust application
+_If you are familiar with Rust, feel free to skip that section_
 
 Let's code! We want our `hello-world` to receive a username from, well, user, and greet the world on user's behalf.
 
-Open `src/main.rs` in your favorite editor:
+Take a look at `src/main.rs`:
 ```bash
-~/hello-world $ edit src/main.rs
+~/hello-world $ cat src/main.rs
 ```
 
 You will see the following code. It's there by default:
@@ -112,7 +129,7 @@ fn main() {
 }
 ```
 
-It almost does what we need! But we need more. We need to read and print the user name along these lines. So, delete all the code in `main.rs`, and paste the following:
+It almost does what we need! But we need more. We need to read and print the user name along these lines. So, open `src/main.rs` in your editor, delete all the code in there, and paste the following:
 ```rust
 use std::env;
 
@@ -126,13 +143,9 @@ fn main() {
 }
 ```
 
-What this code does, line-by-line:
-1. Brings `std::env` to scope, to use it later
-2. Defines a `greeting` function that takes a name, and returns a greeting message
-3. Puts `name` inside a greeting message, and returns it
-4. Defines a `main` function
-5. Reads first program argument to the `name` variable
-6. Calls `greeting` with the `name` passed in, and prints the result
+What this code does:
+1. Defines a `greeting` function that takes a name, and returns a greeting message
+2. Defines a `main` function that reads first program argument, passes it to `greeting`, and prints the result
 
 Let's now compile and run our example:
 ```bash
@@ -154,18 +167,18 @@ error: aborting due to previous error
 error: Could not compile hello-world.
 ```
 
-Now that we have a working hello-world, it's time to adapt it to be used with Fluence.
+Now that we have a working hello world, it's time to adapt it to be used with Fluence.
 
-### Making it fluency!
-#### Adding fluence as a dependency 
-To use the fluence Rust SDK, you need to add it to `Cargo.toml` as a dependency.
+### Creating a Fluence hello world backend
+For a backend to be compatible with Fluence network, it should [follow a few conventions](miner.md#wasm-program-conventions), so Fluence knows how to call your code correctly. To reduce boilerplate and make it easier, we developed a Fluence Rust SDK. Let's see how to use it.
 
-Open `Cargo.toml` in your editor:
+#### Adding Fluence as a dependency
+First you need to add it to `Cargo.toml` as a dependency. Let's take a look at `Cargo.toml`:
+```bash
+~/hello-world $ cat Cargo.toml
 ```
-~/hello-world $ edit Cargo.toml
-```
 
-You should see the following
+It should look like this:
 ```toml
 [package]
 name = "hello-world"
@@ -176,7 +189,7 @@ edition = "2018"
 [dependencies]
 ```
 
-Now, add fluence to `dependencies`:
+Now, open `Cargo.toml` in your editor, and add `fluence` to `dependencies`:
 ```toml
 [package]
 name = "hello-world"
@@ -188,11 +201,7 @@ edition = "2018"
 fluence = { version = "0.0.8", features = ["export_allocator"]}
 ```
 
-#### Making it a library
-!!! TODO: explain why it should be a library
-
-You were running your program by executing code in `src/main.rs`, but now we need to convert it to a library. Let's do that by moving `greeting` function to `src/lib.rs`.
-
+#### Implementing backend greeting logic
 Create & open `src/lib.rs` in your editor:
 ```bash
 ~/hello-world $ edit src/lib.rs
@@ -208,21 +217,14 @@ fn greeting(name: String) -> String {
 }
 ```
 
-What this code does, line-by-line:
-1. Imports fluence SDK
-2. Marks our `greeting` function as `#[invocation_handler]`, so Fluence SDK knows it should call it
-3. Defines `greeting` function, the same as it was before
-4. Creates and returns a greeting message, the same as it was before
+This code imports Fluence SDK, and marks `greeting` function with `#[invocation_handler]`, so Fluence knows how to call it.
 
-#### Making it a cdylib
-Uh oh, scary words! Don't be scared, though. It's just another copy-paste exercise. 
+Function marked with `#[invocation_handler]` is called a _gateway function_. It is an entrypoint to your application, all transactions sent by users will be passed to that function, and it's result will be available to users. Gateway function can receive and return either `String` or `Vec<u8>`. 
 
-Open `Cargo.toml`:
-```bash
-~/hello-world $ edit Cargo.toml
-```
+#### Making it a library
+To be used with Fluence, backend should be compiled to WebAssembly as a library. !TODO: why?
 
-And paste the following there:
+To make your backend a library, open `Cargo.toml` in your editor, and paste the following there:
 ```toml
 [package]
 name = "hello-world"
@@ -239,11 +241,10 @@ crate-type = ["cdylib"]
 fluence = { version = "0.0.8", features = ["export_allocator"]}
 ```
 
-The only thing changed is the new `[lib]` section. Let's not worry about that now, and try compiling the project instead.
-
-#### Compiling to Webassembly
+#### Compiling to WebAssembly
 Run the following code to build a `.wasm` file from your Rust code.
-_NOTE: Downloading and compiling dependencies might take a few minutes._
+
+NOTE: Downloading and compiling dependencies might take a few minutes.
 
 ```bash
 ~/hello-world $ cargo +nightly build --lib --target wasm32-unknown-unknown --release
@@ -254,10 +255,8 @@ _NOTE: Downloading and compiling dependencies might take a few minutes._
 
 If everything goes well, you should have a `.wasm` file deep in `target`. Let's check it:
 ```bash
-~/hello-world $ stat target/wasm32-unknown-unknown/release/hello_world.wasm
-  File: target/wasm32-unknown-unknown/release/hello_world.wasm
-  Size: 838385        Blocks: 1640       IO Block: 4096   regular file
-  ...
+~/hello-world $ ls -lh target/wasm32-unknown-unknown/release/hello_world.wasm
+-rwxr-xr-x  2 user  user  1.4M Feb 11 11:59 target/wasm32-unknown-unknown/release/hello_world.wasm
 ```
 
 ## Publishing your app
@@ -281,9 +280,10 @@ TODO
 You can download Fluence CLI from here https://github.com/fluencelabs/fluence/releases/tag/cli-0.1.2
 
 Or in terminal:
+
 **Linux**
 ```bash
-~ $ wget https://github.com/fluencelabs/fluence/releases/download/cli-0.1.2/fluence-cli-0.1.2-linux-x64 -O fluence
+~ $ curl -L https://github.com/fluencelabs/fluence/releases/download/cli-0.1.2/fluence-cli-0.1.2-linux-x64 -o fluence
 ```
 
 **macOS**
@@ -294,6 +294,8 @@ Or in terminal:
 And finally don't forget to add executable permission:
 ```bash
 ~ $ chmod +x ./fluence
+
+# check CLI is working
 ~ $ ./fluence --version
 Fluence CLI 0.1.2
 ```
@@ -301,22 +303,20 @@ Fluence CLI 0.1.2
 If you see cli's version, proceed to the next step.
 
 ### Publishing via Fluence CLI
-First, you will need some info prepared:
-- Ethereum Kovan account with some money on it
-  - You can [get money from faucet](https://github.com/kovan-testnet/faucet)
-- A private key for your Ethereum Kovan account. It could be either in hex or as a keystore JSON file.
-  - For the keystore file you will also need a password. For more info on keystore file, please read [cli README](../cli/README.md#keystore-json-file).
+As was mentioned before, you will need a connection to Ethereum Kovan network, and a connection to Swarm network. For your convenience, and to make this guide simple, we use addresses of existing Ethereum Kovan and Swarm nodes running in a cloud on Fluence nodes. **However, this is a centralized way to connecti with to Ethereum Kovan and Swarm networks, and shouldn't be used in production or in a security-sensitive context.** You may use **any** Kovan and Swarm nodes by providing their URIs within `--eth_url` and `--swarm_url` options (see below).
 
+Also you will need a Kovan account with some money on it (you can [get money from faucet](https://github.com/kovan-testnet/faucet)) and it's private key. Private key can be either a hex string or a [JSON keystore file](../cli/README.md#keystore-json-file).
 
-Now you're ready to publish your app. _Examples below will specify a cluster size of 4 nodes for your app. Adjust it to your needs._
+Having all that, you're now ready to publish your app. Examples below will specify a cluster size of 4 nodes for your app. Adjust it to your needs.
 
-If you have your private key **in hex**, run the following in your terminal, replacing `<>` by actual values:
+If you have your private key **in hex**, run the following in your terminal, replacing `<>` with actual values:
 ```bash
 ~ $ ./fluence publish \
             --eth_url          http://207.154.240.52:8545 \
             --swarm_url        http://207.154.240.52:8500 \
             --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \
             --contract_address 0xe9bbe60d525c7c5d4f3d85036f3ea23003879106 \
+            --gas_price        10 \
             --account          <your ethereum address> \
             --secret_key       <your ethereum private key> \
             --cluster_size     4 \
@@ -324,7 +324,7 @@ If you have your private key **in hex**, run the following in your terminal, rep
             --wait
 ```
 
-If you have a JSON **keystore file**, run the following in your terminal, replacing `<>` by actual values:
+If you have a JSON **keystore file**, run the following in your terminal, replacing `<>` with actual values:
 
 ```bash
 ~ $ ./fluence publish \
@@ -332,6 +332,7 @@ If you have a JSON **keystore file**, run the following in your terminal, replac
             --swarm_url        http://207.154.240.52:8500 \
             --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \
             --contract_address 0xe9bbe60d525c7c5d4f3d85036f3ea23003879106 \
+            --gas_price        10 \
             --account          <your ethereum address> \
             --keystore         <path to keystore> \
             --password         <password for keystore> \
@@ -339,7 +340,7 @@ If you have a JSON **keystore file**, run the following in your terminal, replac
             --wait_syncing \
             --wait
 ```
-_There is more info on using keystore files with Fluence CLI in it's [README](../cli/README.md#keystore-json-file)._
+There is more info on using keystore files with Fluence CLI in it's [README](../cli/README.md#keystore-json-file).
 
 
 After running the command, you will see an output similar to the following:

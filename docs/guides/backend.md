@@ -1,3 +1,11 @@
+- [Introduction](#introduction)
+- [Prerequisites](#prerequisites)
+- [Quick start](#quick-start)
+- [Compilation and test launch](#compilation-and-test-launch)
+- [Wasm program publishing](#wasm-program-publishing)
+- [Wasm program conventions](#wasm-program-conventions)
+- [Best practices](#best-practices)
+
 ### Introduction
 
 This guide goes through the basics of application creation for the Fluence Network using simple Rust application as an example. 
