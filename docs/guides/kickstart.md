@@ -293,7 +293,7 @@ And finally don't forget to add permission to execute it:
 Fluence CLI 0.1.2
 ```
 
-If you see cli's version, proceed to the next step.
+If you see CLI version, proceed to the next step.
 
 ## Publishing via Fluence CLI
 As was mentioned before, you will need a connection to Ethereum Kovan network, and a connection to Swarm network. 
@@ -352,7 +352,7 @@ App deployed.
 
 
 ## Check app status
-Now, let's check your app state in the contract
+To see how smart contract sees your app, and what nodes it was deployed onto, you can use `status` like this:
 ```bash
 ~ $ ./fluence status \
             --eth_url          http://207.154.240.52:8545 \
