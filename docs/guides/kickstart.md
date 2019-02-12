@@ -485,7 +485,7 @@ Session created
 ```
 
 <div style="text-align:center">
-<img src="images/helloworld.png" width="538px"/>
+<img src="images/helloworld.png" width="538px" border="3"/>
 </div>
 
 You can also use Fluence from within Developer console as follows:
