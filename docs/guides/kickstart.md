@@ -163,7 +163,7 @@ error: Could not compile hello-world.
 Now that we have a working hello world, it's time to adapt it to be used with Fluence.
 
 ## Creating a Fluence Hello World backend
-For a backend to be compatible with Fluence network, it should [follow a few conventions](miner.md#wasm-program-conventions), so Fluence knows how to call your code correctly. To reduce boilerplate and make it easier, we developed a Fluence Rust SDK. Let's see how to use it.
+For a backend to be compatible with Fluence network, it should [follow a few conventions](backend.md#wasm-program-conventions), so Fluence knows how to call your code correctly. To reduce boilerplate and make it easier, we developed a Fluence Rust SDK. Let's see how to use it.
 
 ### Adding Fluence as a dependency
 First you need to add it to `Cargo.toml` as a dependency. Let's take a look at `Cargo.toml`:
