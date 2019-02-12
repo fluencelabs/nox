@@ -93,6 +93,7 @@ object StatusAggregator extends LazyLogging {
               json <- IO(status.asJson.spaces2)
                 .onError({ case e => IO(logger.error(s"Status cannot be generated to JSON. Status: $status", e)) })
               response <- Ok(json)
+              _ <- IO(logger.trace("MasterStatus responded successfully"))
             } yield response
             response.handleErrorWith { e =>
               logger.warn(s"Cannot produce MasterStatus response $e")
