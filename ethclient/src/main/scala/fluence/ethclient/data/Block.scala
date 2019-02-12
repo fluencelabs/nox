@@ -77,8 +77,8 @@ object Block {
       convertBigInteger(getGasUsed),
       convertBigInteger(getTimestamp),
       Option(getTransactions).map(_.toSeq.map(Transaction.apply)).getOrElse(Nil),
-      Option(getUncles.toSeq).getOrElse(Nil),
-      Option(getSealFields.toSeq).getOrElse(Nil) // null on ganache
+      Option(getUncles).map(_.toSeq).getOrElse(Nil),
+      Option(getSealFields).map(_.toSeq).getOrElse(Nil) // null on ganache
     )
   }
 }
