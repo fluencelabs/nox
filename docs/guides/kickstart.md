@@ -1,30 +1,26 @@
-- [Off and go!](#off-and-go)
-  - [The Plan](#the-plan)
-  - [Developing the backend app](#developing-the-backend-app)
-    - [Setting up Rust](#setting-up-rust)
-      - [Install rust compiler and it's tools](#install-rust-compiler-and-its-tools)
-    - [Creating a hello-world in Rust](#creating-a-hello-world-in-rust)
-      - [Creating an empty Rust package](#creating-an-empty-rust-package)
-      - [Implementing the hello-world](#implementing-the-hello-world)
-    - [Making it fluency!](#making-it-fluency)
-      - [Adding fluence as a dependency](#adding-fluence-as-a-dependency)
-      - [Making it a library](#making-it-a-library)
-      - [Making it a cdylib](#making-it-a-cdylib)
-      - [Compiling to WebAssembly](#compiling-to-webassembly)
-  - [Publishing your app](#publishing-your-app)
-    - [Connect to Swarm and Ethereum Kovan](#connect-to-swarm-and-ethereum-kovan)
-    - [TODO: Registering an Ethereum Kovan account](#todo-registering-an-ethereum-kovan-account)
-    - [Installing Fluence CLI](#installing-fluence-cli)
-    - [Publishing via Fluence CLI](#publishing-via-fluence-cli)
-    - [Check app status](#check-app-status)
-  - [Frontend](#frontend)
-    - [Preparing web app](#preparing-web-app)
-    - [Running and using](#running-and-using)
+- [The Plan](#the-plan)
+- [Developing the backend app](#developing-the-backend-app)
+  - [Setting up Rust](#setting-up-rust)
+  - [Creating an empty Rust package](#creating-an-empty-rust-package)
+  - [Optional: Creating a hello world Rust application](#optional-creating-a-hello-world-rust-application)
+  - [Creating a Fluence hello world backend](#creating-a-fluence-hello-world-backend)
+    - [Adding Fluence as a dependency](#adding-fluence-as-a-dependency)
+    - [Implementing backend greeting logic](#implementing-backend-greeting-logic)
+    - [Making it a library](#making-it-a-library)
+    - [Compiling to WebAssembly](#compiling-to-webassembly)
+- [Publishing your app](#publishing-your-app)
+  - [Connect to Swarm and Ethereum Kovan](#connect-to-swarm-and-ethereum-kovan)
+  - [TODO: Registering an Ethereum Kovan account](#todo-registering-an-ethereum-kovan-account)
+  - [Installing Fluence CLI](#installing-fluence-cli)
+  - [Publishing via Fluence CLI](#publishing-via-fluence-cli)
+  - [Check app status](#check-app-status)
+- [Frontend](#frontend)
+  - [Preparing web app](#preparing-web-app)
+  - [Running and using](#running-and-using)
 
-# Off and go!
 This guide aims first-time users of Fluence. Following it from top to bottom will leave you with your own decentralized backend that you developed using Rust and WebAssembly, and a frontend app that's able to communicate with that backend. It's not going to be hard!
 
-## The Plan
+# The Plan
 The plan is as follows.
 
 First, you'll set up Rust and develop a simple backend with it. Then, you will change a few lines so backend can be deployed on Fluence, and compile it to WebAssembly.
@@ -33,10 +29,10 @@ Then, you'll upload Wasm code to Swarm, and publish it to Fluence Devnet smart c
 
 Finally, there will be some cozy frontend time. Using `fluence` Javascript library, you will connect to a running Tendermint cluster, and send commands to your backend, and see how all nodes in the cluster are executing the same code in sync.
 
-## Developing the backend app
+# Developing the backend app
 Now you're Rust Backend Developer. Put up your best nerdy t-shirt, take a deep breath, and go!
 
-### Setting up Rust
+## Setting up Rust
 Let's get some Rust. 
 
 Install rust compiler and it's tools:
@@ -97,7 +93,7 @@ To check that everything is set up correctly, let's compile some Rust code:
 
 If everything looks similar, then it's time to create a Rust hello-world project!
 
-### Creating an empty Rust package
+## Creating an empty Rust package
 First, let's create a new empty Rust package:
 
 ```bash
@@ -112,7 +108,7 @@ Created binary (application) `hello-world` package
 
 More info on creating a new Rust project can be found in [Rust docs](https://doc.rust-lang.org/cargo/guide/creating-a-new-project.html).
 
-### Optional: Creating a hello world Rust application
+## Optional: Creating a hello world Rust application
 _If you are familiar with Rust, feel free to skip that section_
 
 Let's code! We want our `hello-world` to receive a username from, well, user, and greet the world on user's behalf.
@@ -169,10 +165,10 @@ error: Could not compile hello-world.
 
 Now that we have a working hello world, it's time to adapt it to be used with Fluence.
 
-### Creating a Fluence hello world backend
+## Creating a Fluence hello world backend
 For a backend to be compatible with Fluence network, it should [follow a few conventions](miner.md#wasm-program-conventions), so Fluence knows how to call your code correctly. To reduce boilerplate and make it easier, we developed a Fluence Rust SDK. Let's see how to use it.
 
-#### Adding Fluence as a dependency
+### Adding Fluence as a dependency
 First you need to add it to `Cargo.toml` as a dependency. Let's take a look at `Cargo.toml`:
 ```bash
 ~/hello-world $ cat Cargo.toml
@@ -201,7 +197,7 @@ edition = "2018"
 fluence = { version = "0.0.8", features = ["export_allocator"]}
 ```
 
-#### Implementing backend greeting logic
+### Implementing backend greeting logic
 Create & open `src/lib.rs` in your editor:
 ```bash
 ~/hello-world $ edit src/lib.rs
@@ -221,7 +217,7 @@ This code imports Fluence SDK, and marks `greeting` function with `#[invocation_
 
 Function marked with `#[invocation_handler]` is called a _gateway function_. It is an entrypoint to your application, all transactions sent by users will be passed to that function, and it's result will be available to users. Gateway function can receive and return either `String` or `Vec<u8>`. 
 
-#### Making it a library
+### Making it a library
 To be used with Fluence, backend should be compiled to WebAssembly as a library. !TODO: why?
 
 To make your backend a library, open `Cargo.toml` in your editor, and paste the following there:
@@ -241,7 +237,7 @@ crate-type = ["cdylib"]
 fluence = { version = "0.0.8", features = ["export_allocator"]}
 ```
 
-#### Compiling to WebAssembly
+### Compiling to WebAssembly
 Run the following code to build a `.wasm` file from your Rust code.
 
 NOTE: Downloading and compiling dependencies might take a few minutes.
@@ -259,8 +255,8 @@ If everything goes well, you should have a `.wasm` file deep in `target`. Let's 
 -rwxr-xr-x  2 user  user  1.4M Feb 11 11:59 target/wasm32-unknown-unknown/release/hello_world.wasm
 ```
 
-## Publishing your app
-### Connect to Swarm and Ethereum Kovan
+# Publishing your app
+## Connect to Swarm and Ethereum Kovan
 To publish a backend app to Fluence network, you need to upload it to Swarm, and then send its location in Swarm to a Fluence smart contract on Ethereum Kovan testnet. 
 
 Now that's a lot of tech-name-throwing! Let me explain a bit.
@@ -273,7 +269,7 @@ So, to upload anything to Swarm, you need to have access to one of its nodes. Th
 
 **We will use existing Ethereum & Swarm nodes, but if you wish, you can [use your own nodes](miner.md) or any other.**
 
-### TODO: Registering an Ethereum Kovan account
+## TODO: Registering an Ethereum Kovan account
 TODO
 
 ### Installing Fluence CLI
