@@ -17,7 +17,6 @@
 package fluence.ethclient.data
 
 import java.math.BigInteger
-import scala.collection.JavaConverters._
 
 import org.web3j.protocol.core.methods.response.EthBlock
 
@@ -48,36 +47,38 @@ case class Block(
 
 object Block {
 
+  // converts field that can be possibly `null`
   private def convertBigInteger(bi: BigInteger) = Option(bi).map(BigInt(_)).getOrElse(BigInt(0))
+  private def convertString(s: String) = Option(s).getOrElse("")
 
   def apply(block: EthBlock.Block): Block = {
     import block._
 
     import scala.collection.convert.ImplicitConversionsToScala._
-
+    // every field in EthBlock.Block could be `null`
     new Block(
       convertBigInteger(getNumber),
-      Option(getHash).getOrElse(""),
-      Option(getParentHash).getOrElse(""),
-      Option(getNonceRaw).getOrElse(""), // null for kovan
-      Option(getSha3Uncles).getOrElse(""),
-      Option(getLogsBloom).getOrElse(""),
-      Option(getTransactionsRoot).getOrElse(""),
-      Option(getStateRoot).getOrElse(""),
-      Option(getReceiptsRoot).getOrElse(""),
-      Option(getAuthor).getOrElse(""), // empty for ganache
-      Option(getMiner).getOrElse(""),
-      Option(getMixHash).getOrElse(""),
+      convertString(getHash),
+      convertString(getParentHash),
+      convertString(getNonceRaw), // null for kovan
+      convertString(getSha3Uncles),
+      convertString(getLogsBloom),
+      convertString(getTransactionsRoot),
+      convertString(getStateRoot),
+      convertString(getReceiptsRoot),
+      convertString(getAuthor), // empty for ganache
+      convertString(getMiner),
+      convertString(getMixHash),
       convertBigInteger(getDifficulty),
       convertBigInteger(getTotalDifficulty),
-      Option(getExtraData).getOrElse(""),
+      convertString(getExtraData),
       convertBigInteger(getSize),
       convertBigInteger(getGasLimit),
       convertBigInteger(getGasUsed),
       convertBigInteger(getTimestamp),
-      getTransactions.toSeq.map(Transaction.apply),
-      Option(getUncles.asScala).getOrElse(Seq.empty),
-      Option[Seq[String]](getSealFields).getOrElse(Nil) // null on ganache
+      Option(getTransactions).map(_.toSeq.map(Transaction.apply)).getOrElse(Nil),
+      Option(getUncles.toSeq).getOrElse(Nil),
+      Option(getSealFields.toSeq).getOrElse(Nil) // null on ganache
     )
   }
 }
