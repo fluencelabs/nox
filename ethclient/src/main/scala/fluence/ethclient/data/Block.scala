@@ -17,6 +17,7 @@
 package fluence.ethclient.data
 
 import java.math.BigInteger
+import scala.collection.JavaConverters._
 
 import org.web3j.protocol.core.methods.response.EthBlock
 
@@ -75,7 +76,7 @@ object Block {
       convertBigInteger(getGasUsed),
       convertBigInteger(getTimestamp),
       getTransactions.toSeq.map(Transaction.apply),
-      getUncles.map(Option(_).getOrElse("")),
+      Option(getUncles.asScala).getOrElse(Seq.empty),
       Option[Seq[String]](getSealFields).getOrElse(Nil) // null on ganache
     )
   }
