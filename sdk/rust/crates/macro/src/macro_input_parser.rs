@@ -23,7 +23,7 @@ pub enum ParsedType {
 }
 
 impl ParsedType {
-    pub fn from_type(input_type: &syn::Type) -> syn::Result<ParsedType> {
+    pub fn from_type(input_type: &syn::Type) -> syn::Result<Self> {
         // parses generic param T in Vec<T> to string representation
         fn parse_vec_bracket(args: &syn::PathArguments) -> syn::Result<String> {
             // checks that T is angle bracketed

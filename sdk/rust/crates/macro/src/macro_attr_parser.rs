@@ -14,22 +14,48 @@
  * limitations under the License.
  */
 
+use syn::parse::{Parse, ParseStream};
+
 pub struct HandlerAttrs {
-    attr: Vec<ConvertToAst>
+    handler_attrs: Vec<HandlerAttr>
 }
 
-impl HandlerAttrs {
-    pub fn new() -> HandlerAttrs {
+pub enum HandlerAttr {
+    InitName(String)
+}
 
+impl Default for HandlerAttrs {
+    fn default() -> Self {
+        HandlerAttrs { handler_attrs: Vec::new() }
     }
-
 }
 
-pub struct InitFunctionName {
-    name: String
+impl Parse for HandlerAttrs {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        let mut attrs = HandlerAttrs::default();
+        if input.is_empty() {
+            return Ok(attrs);
+        }
+
+        let attr = input.step(|cursor| match cursor.ident() {
+            Some((ident, rem)) => Ok((ident, rem)),
+            None => Err(cursor.error("expected a `init_fn` token in invocation_handler macros attributes")),
+        })?;
+
+        let init_fn_name = match attr.to_string().as_str() {
+            "init_fn" => {
+                    input.parse::<::syn::token::Eq>()?;
+                    match input.parse::<syn::LitStr>() {
+                        Ok(init_fn_name) => Ok(init_fn_name.value()),
+                        Err(_) => {
+                            Err(syn::Error::new(attr.span(), ""))
+                        }
+                }
+            },
+            _ => Err(syn::Error::new(attr.span(), "expected a valid identifier"))
+        }?;
+
+        attrs.handler_attrs.push(HandlerAttr::InitName(init_fn_name));
+        Ok(attrs)
+    }
 }
-
-trait ConvertToAst {
-
-}
-

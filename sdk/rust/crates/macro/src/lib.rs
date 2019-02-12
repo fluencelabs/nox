@@ -62,13 +62,15 @@
 
 extern crate proc_macro;
 mod macro_input_parser;
+mod macro_attr_parser;
 
+use crate::macro_attr_parser::HandlerAttrs;
 use crate::macro_input_parser::{InputTypeGenerator, ParsedType, ReturnTypeGenerator};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse::Error, parse_macro_input, ItemFn};
 
-fn invoke_handler_impl(fn_item: &syn::ItemFn) -> syn::Result<proc_macro2::TokenStream> {
+fn invoke_handler_impl(attr: proc_macro2::TokenStream, fn_item: syn::ItemFn) -> syn::Result<proc_macro2::TokenStream> {
     let ItemFn {
         constness,
         unsafety,
@@ -76,7 +78,7 @@ fn invoke_handler_impl(fn_item: &syn::ItemFn) -> syn::Result<proc_macro2::TokenS
         ident,
         decl,
         ..
-    } = fn_item;
+    } = &fn_item;
 
     if let Err(e) = (|| {
         if decl.inputs.len() != 1 {
@@ -131,12 +133,17 @@ fn invoke_handler_impl(fn_item: &syn::ItemFn) -> syn::Result<proc_macro2::TokenS
 
     let prolog = input_type.generate_fn_prolog();
     let epilog = output_type.generate_fn_epilog();
+    let attrs = syn::parse2::<HandlerAttrs>(attr)?;
+    let init_fn_name = match attrs.iter() {
+
+    }
 
     let resulted_invoke = quote! {
         #fn_item
 
         #[no_mangle]
         pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
+            if()
             #prolog
 
             let result = #ident(arg);
@@ -149,9 +156,9 @@ fn invoke_handler_impl(fn_item: &syn::ItemFn) -> syn::Result<proc_macro2::TokenS
 }
 
 #[proc_macro_attribute]
-pub fn invocation_handler(_attr: TokenStream, input: TokenStream) -> TokenStream {
+pub fn invocation_handler(attr: TokenStream, input: TokenStream) -> TokenStream {
     let fn_item = parse_macro_input!(input as ItemFn);
-    match invoke_handler_impl(&fn_item) {
+    match invoke_handler_impl(attr.into(), fn_item) {
         Ok(v) => v,
         // converts syn:error to proc_macro2::TokenStream
         Err(e) => e.to_compile_error(),
