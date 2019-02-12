@@ -25,23 +25,23 @@
   },
   "homepage": "https://github.com/fluencelabs/fluence#readme",
   "dependencies": {
-    "@types/bootstrap": "4.1.2",
+    "@types/bootstrap": "4.2.1",
     "bootstrap": "4.1.3",
     "jquery": "3.3.1",
-    "fluence": "0.1.4",
+    "fluence": "0.1.6",
     "popper.js": "1.14.4"
   },
   "devDependencies": {
-    "clean-webpack-plugin": "^0.1.19",
-    "awesome-typescript-loader": "^5.2.1",
-    "css-loader": "^1.0.0",
-    "html-webpack-plugin": "^3.2.0",
-    "style-loader": "^0.23.1",
-    "ts-node": "^7.0.1",
-    "typescript": "^3.1.1",
-    "webpack": "^4.20.2",
-    "webpack-cli": "^3.1.2",
-    "webpack-dev-server": "^3.1.9",
-    "copy-webpack-plugin": "^4.6.0"
+    "awesome-typescript-loader": "5.2.1",
+    "clean-webpack-plugin": "0.1.19",
+    "copy-webpack-plugin": "4.6.0",
+    "css-loader": "1.0.0",
+    "html-webpack-plugin": "3.2.0",
+    "style-loader": "0.23.1",
+    "ts-node": "7.0.1",
+    "typescript": "3.1.1",
+    "webpack": "4.20.2",
+    "webpack-cli": "3.1.2",
+    "webpack-dev-server": "3.1.14"
   }
 }
