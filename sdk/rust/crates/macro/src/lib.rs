@@ -80,40 +80,40 @@ fn invoke_handler_impl(fn_item: &syn::ItemFn) -> syn::Result<proc_macro2::TokenS
     } = fn_item;
 
     if let Err(e) = (|| {
-        if decl.inputs.len() != 1 {
+        if decl.inputs.len() > 1 {
             return Err(Error::new(
                 decl.paren_token.span,
-                "The principal module invocation handler has to have one input param",
+                "The main module invocation handler has to don't have more then one input param",
             ));
         }
         if let Some(constness) = constness {
             return Err(Error::new(
                 constness.span,
-                "The principal module invocation handler has to don't be const",
+                "The main module invocation handler has to don't be const",
             ));
         }
         if let Some(unsafety) = unsafety {
             return Err(Error::new(
                 unsafety.span,
-                "The principal module invocation handler has to don't be unsafe",
+                "The main module invocation handler has to don't be unsafe",
             ));
         }
         if let Some(abi) = abi {
             return Err(Error::new(
                 abi.extern_token.span,
-                "The principal module invocation handler has to don't have custom linkage",
+                "The main module invocation handler has to don't have custom linkage",
             ));
         }
         if !decl.generics.params.is_empty() || decl.generics.where_clause.is_some() {
             return Err(Error::new(
                 decl.fn_token.span,
-                "The principal module invocation handler has to don't have generic params",
+                "The main module invocation handler has to don't have generic params",
             ));
         }
         if let Some(variadic) = decl.variadic {
             return Err(Error::new(
                 variadic.spans[0],
-                "The principal module invocation handler has to don't be variadic",
+                "The main module invocation handler has to don't be variadic",
             ));
         }
         Ok(())
