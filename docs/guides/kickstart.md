@@ -461,17 +461,11 @@ window.logResultAsString = function (request) {
 };
 ```
 
-What this code does, line-by-line:
-1. Imports `fluence` js library to be able to use it
-2. Sets `contractAddress` variable to the address of Fluence contract
-3. Sets `ethUrl` to the url of Ethereum node.
-4. Sets `appId` to the desired appId. Put yours here.
-5. Saves `fluence` to `window` property, so you can access it in Developer Console and experiment.
-6. Calls the `connect` function, creating a connection to the Fluence cluster hosting your backend.
-7. Saves session to `window.fluenceSession`, so it can be accessed later.
-8. And final three lines define a helper function `logResultAsString` that's useful for printing out results.
+This code queries the Fluence smart contract for IP addresses of Tendermint nodes hosting the app with specified `appId`, creates an `AppSession` from these connections, and saves it to `window.session`, so it can be used later. All this is done via `connect` method. `AppSession` provides an `invoke` method that takes a `String` and sends it to backend as a transaction. 
 
-**Make sure you have changed `appId` to your actuall appId.**
+Also a helper function `logResultAsString` is defined. It is useful for printing out results.
+
+Please make sure you have changed `appId` to your actuall appId.
 
 ## Running and using
 To install all dependencies, compile and run the application, run in the terminal:
