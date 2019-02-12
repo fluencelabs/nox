@@ -66,8 +66,8 @@ mod parser;
 use crate::parser::{InputTypeGenerator, ParsedType, ReturnTypeGenerator};
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse::Error, parse_macro_input, ItemFn};
 use syn::spanned::Spanned;
+use syn::{parse::Error, parse_macro_input, ItemFn};
 
 #[warn(clippy::redundant_closure_call)]
 fn invoke_handler_impl(fn_item: &syn::ItemFn) -> syn::Result<proc_macro2::TokenStream> {
@@ -150,7 +150,7 @@ fn invoke_handler_impl(fn_item: &syn::ItemFn) -> syn::Result<proc_macro2::TokenS
             #prolog
 
             let result = #ident(arg);
-        }
+        },
     };
     let epilog = output_type.generate_fn_epilog();
 
