@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-package fluence.vm.runner
-
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.{ExitCode, IO, IOApp}
 import fluence.vm.VmError.InternalVmError
@@ -39,11 +37,26 @@ object HelloUserRunner extends IOApp {
 
       finishState <- vm.getVmState[IO].toVmError
     } yield {
+
+      /*
+        In correct execution the console output should be like this:
+
+        INFO  [hello_user2] John has been successfully greeted
+        INFO  [hello_user2]  has been successfully greeted
+        INFO  [hello_user2] Peter has been successfully greeted
+        [SUCCESS] Execution Results.
+        initState=ByteVector(32 bytes, 0x6f3ebb11cb3266aaf12c1eea3f6892c78f563dccb43d6c4b4b153ea10be3decf)
+        result1=Hello from Fluence to John
+        result2=Hello from Fluence to
+        result3=Hello from Fluence to Peter
+        finishState=ByteVector(32 bytes, 0x21985fc581505837bc44c21aef9d0ca2538f43064a4475218e374ce8e4ecc329)
+      */
+
       s"[SUCCESS] Execution Results.\n" +
         s"initState=$initState \n" +
-        s"result1=$result1 \n" +
-        s"result2=$result2 \n" +
-        s"result3=$result3 \n" +
+        s"result1=${new String(result1)} \n" +
+        s"result2=${new String(result2)} \n" +
+        s"result3=${new String(result3)} \n" +
         s"finishState=$finishState"
     }
 
