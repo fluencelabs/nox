@@ -21,7 +21,7 @@ use console::style;
 use fluence::publisher::Published;
 use fluence::register::Registered;
 use fluence::utils;
-use fluence::{check, contract_status, delete_app, delete_node, publisher, register, delete_all};
+use fluence::{check, contract_status, delete_all, delete_app, delete_node, publisher, register};
 use web3::types::H256;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -124,8 +124,7 @@ fn main() {
 
         ("delete_all", Some(args)) => {
             let delete_all = delete_all::parse(args).expect("Error parsing arguments");
-            delete_all.delete_all()
-                .expect("Error sending transaction");
+            delete_all.delete_all().expect("Error sending transaction");
 
             println!("All nodes and apps have been deleted.");
         }

@@ -45,7 +45,9 @@ pub fn call_contract(
         Credentials::Password(pass) => {
             call_contract_trusted_node(web3, Some(pass.as_str()), call_data, &eth, nonce)
         }
-        Credentials::Secret(secret) => call_contract_local_sign(web3, &secret, call_data, &eth, nonce),
+        Credentials::Secret(secret) => {
+            call_contract_local_sign(web3, &secret, call_data, &eth, nonce)
+        }
     }
 }
 
@@ -57,11 +59,12 @@ fn call_contract_local_sign(
     eth: &EthereumArgs,
     nonce: Option<U256>,
 ) -> Result<H256, Error> {
-    let nonce = nonce.unwrap_or(web3
-        .eth()
-        .transaction_count(eth.account, None)
-        .wait()
-        .map_err(SyncFailure::new)?);
+    let nonce = nonce.unwrap_or(
+        web3.eth()
+            .transaction_count(eth.account, None)
+            .wait()
+            .map_err(SyncFailure::new)?,
+    );
 
     let tx = Transaction {
         nonce: nonce,

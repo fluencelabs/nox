@@ -15,15 +15,15 @@
  */
 
 use clap::ArgMatches;
-use clap::{App, SubCommand, AppSettings};
+use clap::{App, AppSettings, SubCommand};
 use web3::transports::Http;
 
 use crate::command;
-use crate::contract_status::status;
 use crate::contract_func::call_contract;
 use crate::contract_func::contract::functions::delete_app;
-use crate::contract_func::contract::functions::dequeue_app;
 use crate::contract_func::contract::functions::delete_node;
+use crate::contract_func::contract::functions::dequeue_app;
+use crate::contract_status::status;
 use failure::{Error, SyncFailure};
 use web3::futures::Future;
 
@@ -35,22 +35,19 @@ pub struct DeleteAll {
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("delete_all")
         .about("Delete all apps and nodes from contract. For the test net for contract owner only.")
-        .args(command::with_ethereum_args(&[]).as_slice()).setting(AppSettings::Hidden)
+        .args(command::with_ethereum_args(&[]).as_slice())
+        .setting(AppSettings::Hidden)
 }
 
 pub fn parse(args: &ArgMatches) -> Result<DeleteAll, Error> {
     let eth = command::parse_ethereum_args(args)?;
 
-    return Ok(DeleteAll {
-        eth,
-    });
+    return Ok(DeleteAll { eth });
 }
 
 impl DeleteAll {
     pub fn new(eth: command::EthereumArgs) -> DeleteAll {
-        DeleteAll {
-            eth,
-        }
+        DeleteAll { eth }
     }
 
     /// Deletes all nodes and apps from contract.
@@ -65,7 +62,11 @@ impl DeleteAll {
         let apps = status.apps;
         let nodes = status.nodes;
 
-        println!("Status received, going to delete {} nodes and {} apps", nodes.len(), apps.len());
+        println!(
+            "Status received, going to delete {} nodes and {} apps",
+            nodes.len(),
+            apps.len()
+        );
 
         let nonce = web3
             .eth()
@@ -92,11 +93,10 @@ impl DeleteAll {
             let call_data = delete_node::call(node.validator_key).0;
             nonce = nonce + 1;
             call_contract(web3, &self.eth, call_data, Some(nonce))?;
-        };
+        }
 
         println!("All apps have been deleted.");
 
         Ok(())
     }
 }
-
