@@ -6,12 +6,14 @@ name := "fluence"
 
 commons
 
-initialize := {
-  val required = "1.8" // Asmble works only on Java 8.
-  val current = sys.props("java.specification.version")
-  assert(current == required, s"Unsupported $current JDK version, please use $required JDK version instead.")
-  initialize
-}.value
+onLoad in Global := (onLoad in Global).value.andThen { state ⇒
+  val requiredVersion = "1.8" // Asmble works only on Java 8.
+  val currentVersion = sys.props("java.specification.version")
+  assert(currentVersion == requiredVersion,
+    s"Unsupported $currentVersion JDK version, please use $requiredVersion JDK version instead.")
+
+  state
+}
 
 /* Projects */
 
