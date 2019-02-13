@@ -28,8 +28,10 @@ extern crate fluence_sdk_main;
 /// ```
 pub mod sdk {
     // TODO: need to introduce macros to avoid code duplication with crates/main/lib.rs
-    pub use fluence_sdk_main::logger;
     pub use fluence_sdk_main::memory;
+
+    #[cfg(feature = "wasm_logger")]
+    pub use fluence_sdk_main::logger;
 
     #[cfg(feature = "export_allocator")]
     pub use fluence_sdk_main::export_allocator;
