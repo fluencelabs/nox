@@ -33,9 +33,9 @@ object HelloUserRunner extends IOApp {
       vm ← WasmVm[IO](NonEmptyList.one(inputFile))
       initState ← vm.getVmState[IO]
 
-      result1 ← vm.invoke(None, "John".getBytes())
-      result2 ← vm.invoke(None, "".getBytes())
-      result3 ← vm.invoke(None, "Peter".getBytes())
+      result1 ← vm.invoke[IO](None, "John".getBytes())
+      result2 ← vm.invoke[IO](None, "".getBytes())
+      result3 ← vm.invoke[IO](None, "Peter".getBytes())
 
       finishState <- vm.getVmState[IO].toVmError
     } yield {
