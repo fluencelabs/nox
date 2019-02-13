@@ -51,9 +51,27 @@
 //! can be used.
 //!
 //! Internally this macros creates a new function `invoke` that converts a raw argument to
-//! appropriate format, calls `f` and then converts its result via `memory::write_result_to_mem` from
-//! `fluence_sdk_main`. So to use this crate apart from `fluence` `fluence_sdk_main` has
+//! appropriate format, calls `f` and then converts its result via `memory::write_result_to_mem`
+//! from `fluence_sdk_main`. So to use this crate apart from `fluence` `fluence_sdk_main` has
 //! to be imported.
+//!
+//! The macro also has an `init_fn` attribute that can be used for specifying initialization
+//! function name. This function will be called only at the first invoke function call. It can look
+//! like this:
+//!
+//! ```
+//! use fluence::sdk::*;
+//!
+//! fn init() -> bool {
+//!     logger::WasmLogger::init_with_level(log::Level::Info).is_ok()
+//! }
+//!
+//! #[invocation_handler(init_fn = init)]
+//! fn main(name: String) -> String {
+//!     info!("{} has been successfully greeted", name);
+//!     format!("Hello from Fluence to {}", name)
+//! }
+//! ```
 //!
 //! # Examples
 //!
@@ -146,15 +164,14 @@ fn invoke_handler_impl(
             quote! {
             #fn_item
 
-            static mut IS_INITED: Option<bool> = None;
+            static mut IS_INITED: bool = false;
 
             #[no_mangle]
             pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
-                unsafe {
-                    if IS_INITED == None {
-                        IS_INITED.replace(#init_fn_name());
+                    if IS_INITED {
+                        #init_fn_name();
+                        unsafe { IS_INITED = true; }
                     }
-                }
 
                 #prolog
 
@@ -169,7 +186,6 @@ fn invoke_handler_impl(
 
             #[no_mangle]
             pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
-                if()
                 #prolog
 
                 let result = #ident(arg);
