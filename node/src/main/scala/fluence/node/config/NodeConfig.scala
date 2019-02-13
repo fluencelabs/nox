@@ -33,6 +33,7 @@ case class NodeConfig(
   validatorKey: ValidatorKey,
   nodeAddress: String,
   workerImage: DockerImage,
+  tmImage: DockerImage,
   isPrivate: Boolean = false
 )
 

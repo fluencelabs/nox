@@ -27,11 +27,9 @@ import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
 import fluence.ethclient.EthClient
 import fluence.node.config.{MasterConfig, NodeConfig}
-import fluence.node.docker.{DockerIO, DockerImage, DockerNetwork}
 import fluence.node.eth._
 import fluence.node.workers._
-import fluence.node.workers.tendermint.config.WorkerConfigWriter
-import fluence.node.workers.tendermint.config.WorkerConfigWriter.WorkerConfigPaths
+import fluence.node.workers.tendermint.config.ConfigTemplate
 import slogging.LazyLogging
 
 import scala.language.higherKinds
@@ -40,52 +38,22 @@ import scala.language.higherKinds
  * Represents a MasterNode process. Takes cluster forming events from Ethereum, and spawns new Workers to serve them.
  *
  * @param nodeConfig Tendermint/Fluence master node config
+ * @param configTemplate Template for worker's configuration
  * @param nodeEth Ethereum adapter
  * @param pool Workers pool to launch workers in
+ * @param codeManager To load the code from, usually backed with Swarm
  * @param rootPath MasterNode's working directory, usually /master
+ * @param masterNodeContainerId Docker Container ID for this process, to import Docker volumes from
  */
 case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
   nodeConfig: NodeConfig,
+  configTemplate: ConfigTemplate,
   nodeEth: NodeEth[F],
   pool: WorkersPool[F],
   codeManager: CodeManager[F],
   rootPath: Path,
   masterNodeContainerId: Option[String]
 ) extends slogging.LazyLogging {
-
-  /**
-   * Downloads code from Swarm
-   *
-   * @param codeManager Manager that downloads the code from Swarm
-   * @return original App and WorkerConfigPaths along with downloaded code Path
-   */
-  private def downloadCode(
-    codeManager: CodeManager[F],
-    app: state.App,
-    paths: WorkerConfigPaths
-  ): F[Path] = codeManager.prepareCode(CodePath(app.storageHash), paths.workerPath)
-
-  /**
-   * Generates WorkerParams case class from app, config paths and downloaded code path
-   *
-   * @param workerImage Docker image to use to run a Worker
-   * @param masterNodeContainerId Docker container id of the current Fluence node, used to import volumes from it
-   * @return
-   */
-  private def buildWorkerParams(
-    workerImage: DockerImage,
-    masterNodeContainerId: Option[String],
-    app: state.App,
-    paths: WorkerConfigPaths,
-    codePath: Path
-  ) = WorkerParams(
-    app.id,
-    app.cluster.currentWorker,
-    paths.workerPath.toString,
-    codePath.toAbsolutePath.toString,
-    masterNodeContainerId,
-    workerImage
-  )
 
   private def runWorker(params: WorkerParams) =
     for {
@@ -95,6 +63,26 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
     } yield ()
 
   /**
+   * All app worker's data is stored here. Currently the folder is never purged
+   */
+  private def resolveAppPath(app: eth.state.App): F[Path] =
+    IO(rootPath.resolve("app-" + app.id + "-" + app.cluster.currentWorker.index)).to[F]
+
+  private def makeDataPath(app: eth.state.App): F[Path] =
+    for {
+      appPath ← resolveAppPath(app)
+      dataPath ← IO(appPath.resolve("data")).to[F]
+      _ ← IO(Files.createDirectories(dataPath)).to[F]
+    } yield dataPath
+
+  private def makeVmCodePath(app: eth.state.App): F[Path] =
+    for {
+      appPath ← resolveAppPath(app)
+      vmCodePath ← IO(appPath.resolve("vmcode")).to[F]
+      _ ← IO(Files.createDirectories(vmCodePath)).to[F]
+    } yield vmCodePath
+
+  /**
    * Runs app worker on a pool
    * TODO check that the worker is not yet running
    *
@@ -102,13 +90,24 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
    */
   def runAppWorker(app: eth.state.App): F[Unit] =
     for {
-      paths <- WorkerConfigWriter.resolveWorkerConfigPaths(app, rootPath)
-      code <- downloadCode(codeManager, app, paths)
-      _ <- WorkerConfigWriter.writeConfigs(app, paths)
+      dataPath ← makeDataPath(app)
+      vmCodePath ← makeVmCodePath(app)
 
-      params = buildWorkerParams(nodeConfig.workerImage, masterNodeContainerId, app, paths, code)
+      // TODO: in general, worker/vm is responsible about downloading the code during resource creation, isn't it?
+      // we take output to substitute test folder in tests
+      code <- codeManager.prepareCode(CodePath(app.storageHash), vmCodePath)
 
-      _ <- runWorker(params)
+      _ <- runWorker(
+        WorkerParams(
+          app,
+          dataPath,
+          code,
+          masterNodeContainerId,
+          nodeConfig.workerImage,
+          nodeConfig.tmImage,
+          configTemplate
+        )
+      )
     } yield ()
 
   /**
@@ -189,9 +188,11 @@ object MasterNode extends LazyLogging {
       nodeEth ← NodeEth[F](nodeConfig.validatorKey.toByteVector, ethClient, masterConfig.contract)
 
       codeManager ← Resource.liftF(CodeManager[F](masterConfig.swarm))
+      configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath))
     } yield
       MasterNode[F](
         nodeConfig,
+        configTemplate,
         nodeEth,
         pool,
         codeManager,

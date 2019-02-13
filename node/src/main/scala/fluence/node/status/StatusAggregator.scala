@@ -20,6 +20,7 @@ import cats.Traverse
 import cats.data.Kleisli
 import cats.effect._
 import cats.instances.list._
+import cats.syntax.applicativeError._
 import fluence.node.MasterNode
 import fluence.node.config.MasterConfig
 import io.circe.syntax._
@@ -87,16 +88,22 @@ object StatusAggregator extends LazyLogging {
       HttpRoutes
         .of[IO] {
           case GET -> Root / "status" =>
-            sm.getStatus
-              .flatMap(state => Ok(state.asJson.spaces2))
-              .guaranteeCase {
-                case ExitCase.Error(err) ⇒
-                  IO {
-                    logger.warn(s"Cannot produce MasterStatus response $err")
-                    err.printStackTrace(System.err)
-                  }
-                case _ ⇒ IO(logger.trace("MasterStatus responded successfully"))
-              }
+            val response = for {
+              status <- sm.getStatus
+              json <- IO(status.asJson.spaces2)
+                .onError({ case e =>
+                  IO(e.printStackTrace())
+                    .map(_ => logger.error(s"Status cannot be generated to JSON. Status: $status"))
+                })
+              response <- Ok(json)
+              _ <- IO(logger.trace("MasterStatus responded successfully"))
+            } yield response
+            response.handleErrorWith { e =>
+              val errorMessage = s"Cannot produce MasterStatus response: $e"
+              logger.warn(errorMessage)
+              e.printStackTrace()
+              InternalServerError(errorMessage)
+            }
         }
         .orNotFound,
       corsConfig

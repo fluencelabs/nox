@@ -94,8 +94,10 @@ class SwarmCodeManager[F[_]](swarmClient: SwarmClient[F])(implicit F: Sync[F]) e
     swarmPath: String
   ): F[Path] =
     for {
+      // TODO why to hardcode the directory and its creation?
       dirPath <- F.delay(workerPath.resolve("vmcode"))
       _ <- if (dirPath.toFile.exists()) F.unit else F.delay(Files.createDirectory(dirPath))
+
       //TODO check if file's Swarm hash corresponds to the address
       filePath <- F.delay(dirPath.resolve(swarmPath + ".wasm"))
       exists <- F.delay(filePath.toFile.exists())
@@ -105,7 +107,7 @@ class SwarmCodeManager[F[_]](swarmClient: SwarmClient[F])(implicit F: Sync[F]) e
           tmpFile <- F.delay(Files.createTempFile("code_", "_wasm"))
           _ <- downloadFromSwarmToFile(swarmPath, tmpFile)
           _ <- F.delay(Files.move(tmpFile, filePath))
-        } yield {}
+        } yield ()
       }
     } yield dirPath
 
