@@ -22,7 +22,7 @@ import {NodeStatus, UnavailableNode, isAvailable} from "./nodeStatus";
 import JSONFormatter from 'json-formatter-js';
 import * as App from "./app"
 import {getNodes, Node} from "./node";
-import {Option} from "ts-option";
+import {none, Option} from "ts-option";
 import Web3 = require('web3');
 import abi = require("./Network.json");
 
@@ -55,14 +55,16 @@ export interface Worker {
 /*
  * Gets Fluence Contract
  */
-export function getContract(address: string): Network {
+export function getContract(address: string, ethereumUrl: Option<string>): Network {
     let web3js;
-    if (typeof web3 !== 'undefined') {
-        // Use Mist/MetaMask's provider
-        web3js = new Web3(web3.currentProvider);
+    if (ethereumUrl.isDefined || (typeof web3 === 'undefined')) {
+        let url = ethereumUrl.getOrElse("http://localhost:8545");
+        console.log('Connecting web3 to ' + url);
+        web3js = new Web3(new Web3.providers.HttpProvider(url));
     } else {
-        console.log('No web3? Trying to connect to the local node!');
-        web3js = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
+        // Use Mist/MetaMask's provider
+        console.log("Using provided web3 (Mist/Metamask/etc)");
+        web3js = new Web3(web3.currentProvider);
     }
 
     return new web3js.eth.Contract(abi, address) as Network;
@@ -71,9 +73,9 @@ export function getContract(address: string): Network {
 /*
  * Gets workers that are members of a cluster with a specific app (by appId).
  */
-export async function getAppWorkers(contractAddress: string, appId: string): Promise<Worker[]> {
+export async function getAppWorkers(contractAddress: string, appId: string, ethereumUrl: Option<string>): Promise<Worker[]> {
 
-    let contract = getContract(contractAddress);
+    let contract = getContract(contractAddress, ethereumUrl);
 
     // get app info from contract
     let app = await App.getApp(contract, appId);
@@ -120,11 +122,12 @@ export function getNodeStatus(node: Node): Promise<NodeStatus|UnavailableNode> {
 
 /**
  * Shows status of Fluence contract on the page.
- * @param contractAddress address from ganache by default. todo: use address from mainnet as default
+ * @param ethereumUrl Url of an Ethereum node
+ * @param contractAddress Address from ganache by default. todo: use address from mainnet as default
  */
-export async function getStatus(contractAddress: string): Promise<Status> {
+export async function getStatus(contractAddress: string, ethereumUrl: Option<string>): Promise<Status> {
 
-    let contract = getContract(contractAddress);
+    let contract = getContract(contractAddress, ethereumUrl, );
 
     let contractStatus = await getContractStatus(contract);
 
@@ -145,7 +148,7 @@ export async function getStatus(contractAddress: string): Promise<Status> {
  * Show rendered status of Fluence network.
  */
 export function showStatus(contractAddress: string) {
-    let status = getStatus(contractAddress);
+    let status = getStatus(contractAddress, none);
     status.then((st) => {
         const formatter = new JSONFormatter(st);
         document.body.innerHTML = '';

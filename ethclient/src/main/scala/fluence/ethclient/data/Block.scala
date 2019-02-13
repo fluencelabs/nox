@@ -47,34 +47,38 @@ case class Block(
 
 object Block {
 
+  // converts field that can be possibly `null`
+  private def convertBigInteger(bi: BigInteger) = Option(bi).map(BigInt(_)).getOrElse(BigInt(0))
+  private def convertString(s: String) = Option(s).getOrElse("")
+
   def apply(block: EthBlock.Block): Block = {
     import block._
 
     import scala.collection.convert.ImplicitConversionsToScala._
-
+    // every field in EthBlock.Block could be `null`
     new Block(
-      Option(getNumber).map(BigInt(_)).getOrElse(BigInt(0)), // null on Kovan with lightclient
-      getHash,
-      getParentHash,
-      Option(getNonceRaw).getOrElse(""), // null for kovan
-      getSha3Uncles,
-      getLogsBloom,
-      getTransactionsRoot,
-      getStateRoot,
-      getReceiptsRoot,
-      Option(getAuthor).getOrElse(""), // empty for ganache
-      getMiner,
-      getMixHash,
-      getDifficulty,
-      getTotalDifficulty,
-      getExtraData,
-      getSize,
-      getGasLimit,
-      getGasUsed,
-      getTimestamp,
-      getTransactions.toSeq.map(Transaction.apply),
-      getUncles,
-      Option[Seq[String]](getSealFields).getOrElse(Nil) // null on ganache
+      convertBigInteger(getNumber),
+      convertString(getHash),
+      convertString(getParentHash),
+      convertString(getNonceRaw), // null for kovan
+      convertString(getSha3Uncles),
+      convertString(getLogsBloom),
+      convertString(getTransactionsRoot),
+      convertString(getStateRoot),
+      convertString(getReceiptsRoot),
+      convertString(getAuthor), // empty for ganache
+      convertString(getMiner),
+      convertString(getMixHash),
+      convertBigInteger(getDifficulty),
+      convertBigInteger(getTotalDifficulty),
+      convertString(getExtraData),
+      convertBigInteger(getSize),
+      convertBigInteger(getGasLimit),
+      convertBigInteger(getGasUsed),
+      convertBigInteger(getTimestamp),
+      Option(getTransactions).map(_.toSeq.map(Transaction.apply)).getOrElse(Nil),
+      Option(getUncles).map(_.toSeq).getOrElse(Nil),
+      Option(getSealFields).map(_.toSeq).getOrElse(Nil) // null on ganache
     )
   }
 }

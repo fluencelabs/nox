@@ -69,13 +69,14 @@ class MasterNodeSpec
 
     "provide status" in {
       val masterConf =
-        MasterConfig.load().unsafeRunSync().copy(tendermintPath = Files.createTempDirectory("masternodespec").toString)
+        MasterConfig.load().unsafeRunSync().copy(rootPath = Files.createTempDirectory("masternodespec").toString)
 
       val nodeConf = NodeConfig(
         masterConf.endpoints,
         ValidatorKey("", Base64.getEncoder.encodeToString(Array.fill(32)(5))),
         "127.0.0.1",
-        masterConf.worker
+        masterConf.worker,
+        masterConf.tendermint
       )
 
       val resource = for {

@@ -12,6 +12,7 @@ def register_command(data, secret_key):
         --last_port          %s \
         --eth_url            %s \
         --wait_syncing \
+        --gas_price 10 \
         --base64_tendermint_key" % (data['node_ip'], data['tendermint_key'], data['tendermint_node_id'], data['contract_address'],
                                     data['account'], secret_key, data['start_port'], data['last_port'], eth_url)
 

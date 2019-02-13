@@ -16,32 +16,59 @@
 
 package fluence.node.workers.tendermint.config
 
-private[config] object GenesisConfig {
-  import java.text.SimpleDateFormat
-  import java.util.TimeZone
+import java.nio.file.{Files, Path}
+import java.text.SimpleDateFormat
+import java.util.TimeZone
 
-  import fluence.ethclient.helpers.Web3jConverters
-  import fluence.node.eth.state.App
-  import fluence.node.workers.tendermint.ValidatorKey
-  import io.circe.Encoder
-  import io.circe.generic.semiauto.deriveEncoder
-  import io.circe.syntax._
+import cats.effect.IO
+import fluence.node.eth.state.App
+import fluence.node.workers.tendermint.ValidatorKey
+import io.circe.Encoder
+import io.circe.generic.semiauto.deriveEncoder
+import slogging.LazyLogging
 
-  private case class ValidatorConfig(pub_key: ValidatorKey, power: String, name: String)
-  private case class GenesisConfig(
-    genesis_time: String,
-    chain_id: String,
-    app_hash: String,
-    validators: Seq[ValidatorConfig]
-  )
+/**
+ * Tendermint's genesis.json representation
+ */
+case class GenesisConfig private (
+  genesis_time: String,
+  chain_id: String,
+  app_hash: String,
+  validators: Seq[ValidatorConfig]
+) extends LazyLogging {
+  import GenesisConfig.configEncoder
 
-  def generateJson(app: App): String = {
+  /**
+   * Convert to canonical string representation
+   */
+  def toJsonString: String = configEncoder(this).spaces2
+
+  /**
+   * Write genesis.json inside `destPath`
+   *
+   * @param destPath Tendermint config directory to write genesis.json to
+   */
+  def writeTo(destPath: Path): IO[Unit] =
+    IO {
+      logger.info("Writing {}/genesis.json", destPath)
+      Files.write(destPath.resolve("genesis.json"), toJsonString.getBytes)
+    }
+}
+
+private object GenesisConfig {
+
+  implicit val configEncoder: Encoder[GenesisConfig] = deriveEncoder
+
+  /**
+   * Prepare GenesisConfig for the given App
+   */
+  def apply(app: App): GenesisConfig = {
     val dateFormat = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'")
     dateFormat.setTimeZone(TimeZone.getTimeZone("UTC"))
 
     GenesisConfig(
       genesis_time = dateFormat.format(app.cluster.genesisTime.toMillis),
-      chain_id = Web3jConverters.appIdToChainId(app.id),
+      chain_id = app.id.toString,
       app_hash = "",
       validators = app.cluster.workers.map { w =>
         ValidatorConfig(
@@ -53,9 +80,7 @@ private[config] object GenesisConfig {
           name = s"${app.id}_${w.index}"
         )
       }
-    ).asJson.spaces2
+    )
   }
 
-  implicit private val configEncoder: Encoder[GenesisConfig] = deriveEncoder
-  implicit private val validatorEncoder: Encoder[ValidatorConfig] = deriveEncoder
 }

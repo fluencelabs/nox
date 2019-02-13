@@ -15,6 +15,7 @@
  */
 
 package fluence.node.workers.health
+import fluence.node.workers.tendermint.DockerTendermint
 import fluence.node.workers.{DockerWorker, WorkerParams}
 import fluence.node.workers.tendermint.status.StatusResponse.WorkerTendermintInfo
 import io.circe.{Decoder, Encoder}
@@ -43,7 +44,7 @@ object RunningWorkerInfo {
       params.currentWorker.rpcPort,
       params.currentWorker.p2pPort,
       DockerWorker.SmPrometheusPort,
-      DockerWorker.TmPrometheusPort,
+      DockerTendermint.TmPrometheusPort,
       tendermintInfo.node_info.id,
       tendermintInfo.sync_info.latest_block_hash,
       tendermintInfo.sync_info.latest_app_hash,
