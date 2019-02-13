@@ -15,7 +15,7 @@
  */
 
 use clap::ArgMatches;
-use clap::{App, SubCommand};
+use clap::{App, SubCommand, AppSettings};
 use web3::transports::Http;
 
 use crate::command;
@@ -34,8 +34,8 @@ pub struct DeleteAll {
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("delete_all")
-        .about("Delete all apps and nodes from contract")
-        .args(command::with_ethereum_args(&[]).as_slice())
+        .about("Delete all apps and nodes from contract. For the test net for contract owner only.")
+        .args(command::with_ethereum_args(&[]).as_slice()).setting(AppSettings::Hidden)
 }
 
 pub fn parse(args: &ArgMatches) -> Result<DeleteAll, Error> {
@@ -53,11 +53,12 @@ impl DeleteAll {
         }
     }
 
+    /// Deletes all nodes and apps from contract.
     pub fn delete_all(self) -> Result<(), Error> {
         let (_eloop, transport) = Http::new(self.eth.eth_url.as_str()).map_err(SyncFailure::new)?;
         let web3 = &web3::Web3::new(transport);
 
-        println!("Getting status");
+        println!("Getting status...");
 
         let status = status::get_status(web3, self.eth.contract_address)?;
 
@@ -82,20 +83,18 @@ impl DeleteAll {
                 dequeue_app::call(app.app_id).0
             };
             nonce = nonce + 1;
-            let tx = call_contract(web3, &self.eth, call_data, Some(nonce))?;
-            println!("Deleted app tx: {:?}", tx);
+            call_contract(web3, &self.eth, call_data, Some(nonce))?;
         }
 
-        println!("All nodes deleted.");
+        println!("All nodes have been deleted.");
 
         for node in nodes {
             let call_data = delete_node::call(node.validator_key).0;
             nonce = nonce + 1;
-            let tx = call_contract(web3, &self.eth, call_data, Some(nonce))?;
-            println!("Deleted node tx: {:?}", tx);
+            call_contract(web3, &self.eth, call_data, Some(nonce))?;
         };
 
-        println!("All apps deleted.");
+        println!("All apps have been deleted.");
 
         Ok(())
     }

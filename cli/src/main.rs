@@ -127,7 +127,7 @@ fn main() {
             delete_all.delete_all()
                 .expect("Error sending transaction");
 
-            println!("Nodes and apps deleted.");
+            println!("All nodes and apps have been deleted.");
         }
 
         c => panic!("Unexpected command: {}", c.0),
