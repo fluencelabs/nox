@@ -16,7 +16,7 @@
 
 package fluence.vm.runner
 
-import cats.data.EitherT
+import cats.data.{EitherT, NonEmptyList}
 import cats.effect.{ExitCode, IO, IOApp}
 import fluence.vm.VmError.InternalVmError
 import fluence.vm.{VmError, WasmVm}
@@ -30,110 +30,40 @@ object HelloUserRunner extends IOApp {
     val program: EitherT[IO, VmError, String] = for {
       inputFile <- EitherT(getInputFile(args).attempt)
         .leftMap(e => InternalVmError(e.getMessage, Some(e)))
-      vm <- WasmVm[IO](Seq(inputFile))
-      initState <- vm.getVmState[IO]
+      vm ← WasmVm[IO](NonEmptyList.one(inputFile))
+      initState ← vm.getVmState[IO]
 
-      createTable <- executeSql(vm, "CREATE TABLE Users(id INT, name TEXT, age INT)")
-
-      insertOne <- executeSql(vm, "INSERT INTO Users VALUES(1, 'Sara', 23)")
-
-      bulkInsert <- executeSql(vm, "INSERT INTO Users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 25)")
-
-      emptySelect <- executeSql(vm, "SELECT * FROM Users WHERE name = 'unknown'")
-
-      selectAll <- executeSql(vm, "SELECT min(id), max(id), count(age), sum(age), avg(age) FROM Users")
-
-      explain <- executeSql(vm, "EXPLAIN SELECT id, name FROM Users")
-
-      createTableRole <- executeSql(vm, "CREATE TABLE Roles(user_id INT, role VARCHAR(128))")
-
-      roleTableBulkInsert <- executeSql(
-        vm,
-        "INSERT INTO Roles VALUES(1, 'Teacher'), (2, 'Student'), (3, 'Scientist'), (4, 'Writer')"
-      )
-
-      selectWithJoin = executeSql(
-        vm,
-        "SELECT u.name AS Name, r.role AS Role FROM Users u JOIN Roles r ON u.id = r.user_id WHERE r.role = 'Writer'"
-      )
-
-      invalidQuery <- executeSql(vm, "SELECT salary FROM Users")
-
-      parserError <- executeSql(vm, "123")
-
-      incompatibleType <- executeSql(vm, "SELECT * FROM Users WHERE age = 'Bob'")
-
-      delete <- executeSql(vm, "DELETE FROM Users WHERE id = (SELECT user_id FROM Roles WHERE role = 'Student')")
-
-      update <- executeSql(
-        vm,
-        "UPDATE Roles r SET r.role = 'Professor' WHERE r.user_id = " +
-          "(SELECT id FROM Users WHERE name = 'Sara')"
-      )
-
-      truncate <- executeSql(vm, "TRUNCATE TABLE Users")
-
-      dropTable <- executeSql(vm, "DROP TABLE Users")
-
-      selectByDroppedTable <- executeSql(vm, "SELECT * FROM Users")
+      result1 ← vm.invoke(None, "John".getBytes())
+      result2 ← vm.invoke(None, "".getBytes())
+      result3 ← vm.invoke(None, "Peter".getBytes())
 
       finishState <- vm.getVmState[IO].toVmError
     } yield {
-      s"${initLogRes.toStr}\n" +
-        s"$createTable\n" +
-        s"$insertOne\n" +
-        s"$bulkInsert\n" +
-        s"$emptySelect\n" +
-        s"$selectAll\n" +
-        s"$explain\n" +
-        s"$createTableRole\n" +
-        s"$roleTableBulkInsert\n" +
-        s"$selectWithJoin\n" +
-        s"$invalidQuery\n" +
-        s"$parserError\n" +
-        s"$incompatibleType\n" +
-        s"$delete\n" +
-        s"$update\n" +
-        s"$truncate\n" +
-        s"$dropTable\n" +
-        s"$selectByDroppedTable\n" +
-        s"[SUCCESS] Execution Results.\n" +
+      s"[SUCCESS] Execution Results.\n" +
         s"initState=$initState \n" +
+        s"result1=$result1 \n" +
+        s"result2=$result2 \n" +
+        s"result3=$result3 \n" +
         s"finishState=$finishState"
     }
 
     program.value.map {
-      case Left(err) =>
+      case Left(err) ⇒
         println(s"[Error]: $err cause=${err.getCause}")
         ExitCode.Error
-      case Right(value) =>
+      case Right(value) ⇒
         println(value)
         ExitCode.Success
     }
   }
 
-  private def executeSql(vm: WasmVm, sql: String): EitherT[IO, VmError, String] =
-    for {
-      result <- vm.invoke[IO](None, "do_query", sql.getBytes())
-      state <- vm.getVmState[IO].toVmError
-    } yield {
-      s"$sql >> \n${result.toStr} \nvmState=$state\n"
-    }
-
   private def getInputFile(args: List[String]): IO[String] = IO {
     args.headOption match {
-      case Some(value) =>
+      case Some(value) ⇒
         println(s"Starts for input file $value")
         value
-      case None =>
-        throw new IllegalArgumentException("Full path for counter.wasm is required!")
-    }
-  }
-
-  implicit class ToStr(bytes: Option[Array[Byte]]) {
-
-    def toStr: String = {
-      bytes.map(bytes => new String(bytes)).getOrElse("None")
+      case None ⇒
+        throw new IllegalArgumentException("Full path for wasm file is required!")
     }
   }
 

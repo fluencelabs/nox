@@ -66,6 +66,7 @@ lazy val `vm-hello-user2-runner` = (project in file("vm/examples/hello-user2/run
       cryptoHashing,
     )
   )
+  .dependsOn(vm, `vm-hello-user2`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))

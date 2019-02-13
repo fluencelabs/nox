@@ -28,9 +28,9 @@ extern crate lazy_static;
 
 use llamadb::tempdb::{ExecuteStatementResponse, TempDb};
 use log::info;
+use simple_logger;
 use std::error::Error;
 use std::sync::Mutex;
-use simple_logger;
 
 /// Result for all possible Error types.
 type GenResult<T> = ::std::result::Result<T, Box<Error>>;
