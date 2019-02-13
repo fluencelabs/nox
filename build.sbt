@@ -7,11 +7,11 @@ name := "fluence"
 commons
 
 initialize := {
-  val _ = initialize.value // run the previous initialization
   val required = "1.8" // Asmble works only on Java 8.
   val current = sys.props("java.specification.version")
-  assert(current == required, s"Unsupported JDK: java.specification.version $current != $required")
-}
+  assert(current == required, s"Unsupported $current JDK version, please use $required JDK version instead.")
+  initialize
+}.value
 
 /* Projects */
 
