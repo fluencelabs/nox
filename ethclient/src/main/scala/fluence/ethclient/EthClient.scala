@@ -188,9 +188,9 @@ object EthClient {
 
   private def createOkHttpClient = {
     val builder = new OkHttpClient.Builder()
-    builder.connectTimeout(30, TimeUnit.SECONDS)
-    builder.readTimeout(30, TimeUnit.SECONDS)
-    builder.writeTimeout(30, TimeUnit.SECONDS)
+    builder.connectTimeout(90, TimeUnit.SECONDS)
+    builder.readTimeout(90, TimeUnit.SECONDS)
+    builder.writeTimeout(90, TimeUnit.SECONDS)
     builder.build
   }
 
@@ -207,8 +207,9 @@ object EthClient {
     includeRaw: Boolean = false,
     checkSyncPeriod: FiniteDuration = 3.seconds
   ): Resource[F, EthClient] =
-    makeResource(new HttpService(url.getOrElse(HttpService.DEFAULT_URL), createOkHttpClient, includeRaw)).evalMap { client ⇒
-      client.waitEthSyncing(checkSyncPeriod).map(_ ⇒ client)
+    makeResource(new HttpService(url.getOrElse(HttpService.DEFAULT_URL), createOkHttpClient, includeRaw)).evalMap {
+      client ⇒
+        client.waitEthSyncing(checkSyncPeriod).map(_ ⇒ client)
     }
 
   /**
