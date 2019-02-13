@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-//! This module enables log messages from the Wasm side. Internally this module can be represented
-//! as a client for the `Logger` Module of Asmble. `Logger` module provides methods that can print
-//! out logs to stdout (destination can differ and really depends only on WasmVm implementation).
+//! This module enables log messages from the Wasm side. Internally this module can be viewed as a
+//! client for the `Logger` Module of Asmble. `Logger` module provides methods that can print out
+//! logs to stdout (destination can differ and really depends only on WasmVm implementation).
 //!
 //! This module is implemented as a logging facade for crate [`log`]. To enable this module in
 //! your project please specify `wasm_logger` feature of `fluence_sdk`.
