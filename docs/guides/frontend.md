@@ -17,28 +17,24 @@ To connect to the Fluence cluster we need to create a session between the browse
 There is two ways of establishing a connection:
 1. Using host and port directly (for debug purposes) to connect with a single node of the cluster, or simply `worker`:
 ```js
-let workerSession = fluence.createDefaultSession("<host>", <port>);
+let workerSession = fluence.directConnect("<host>", <port>);
 ```
 2. Using installed MetaMask or a deployed local Ethereum node:
 ```js
 let appSession;
-let appSessionPromise = fluence.createAppSession("<contract-address>", "<app-id>").then((responseSession) => {
+let appSessionPromise = fluence.connect("<contract-address>", "<app-id>", "<ethereum-url-optional>").then((responseSession) => {
     appSession = responseSession;
 });
 ```
 You can find Fluence contract on Kovan chain deployed at address: `0x45CC7B68406cCa5bc36B7b8cE6Ec537EDa67bC0B`.
 The second argument, `appId` - is an ID of application registered in the contract. For example, there is an existing [LlamaDB](https://github.com/fluencelabs/llamadb) application with `appId`: `0x0000000000000000000000000000000000000000000000000000000000000002`.
 
-`createAppSession` asynchronously interacts with an Ethereum blockchain, so it will return a `Promise<AppSession>`. `AppSession` is a structure that combines all sessions to nodes in a cluster and keeps some metadata of these nodes.
-To get a session with a single worker you can use `workerSessions` as follows:
-```js
-let workerSession = appSession.workerSessions[<worker-idx>].session
-```
+`connect` asynchronously interacts with an Ethereum blockchain, so it will return a `Promise<AppSession>`. `AppSession` is a structure that combines all sessions to nodes in a cluster and keeps some metadata of these nodes.
 
 Then we can use `invoke` to send commands to workers and get responses.
 We'll go with [LlamaDB](https://github.com/fluencelabs/llamadb) application as an example. Send simple SQL commands to the cluster:
 ```js
-let response = workerSession.invoke("CREATE TABLE test_table (id INT, text VARCHAR(128))")
+let response = appSession.invoke("CREATE TABLE test_table (id INT, text VARCHAR(128))")
 ```
 It will send a request and return the submitted transaction. Retrieving result requires calling `result()` method, that's because sending a transaction via `invoke` doesn't return result back, it just changes cluster state. `result()` method explicitly reads result of the transaction from the cluster state, and returns it as a `Promise<Result>`:
 ```js
@@ -47,7 +43,15 @@ resultPromise.then((r) => console.log(r.asString()))
 ```
 Client and cluster are communicating by exchanging raw bytes. You can use `asString()` to convert bytes to UTF-8 string or `hex()` to get hex representation of the data.
 
-`invoke` let's you send a transaction built from string, but if you want to send raw bytes, you can use `invokeRaw(raw-bytes-in-hex)`.
+In case you need fine-grained control, you can use `workerSession` directly:
+```js
+let workerSession = appSession.workerSessions[<worker-idx>].session
+// send tx from string
+let resultPromise = workerSession.invoke("SELECT ...");
+
+// send tx from raw bytes
+let resultPromise = workerSession.invokeRaw(<raw-bytes-in-hex>);
+```
 
 Given these simple methods, you can build a working decentralized web application!
 

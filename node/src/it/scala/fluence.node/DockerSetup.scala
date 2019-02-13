@@ -58,7 +58,8 @@ trait DockerSetup extends OsSetup {
             "/master/vmcode/vmcode-llamadb"
           )
           .image(DockerImage("fluencelabs/node", "latest"))
-          .daemonRun()
+          .daemonRun(),
+        20
       )
       .map(_.containerId)
 }

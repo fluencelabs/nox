@@ -19,7 +19,7 @@ set -e
 # The script uses for deploying Parity, Swarm, and Fluence containers.
 # If `PROD_DEPLOY` is set in env, the script will also expect the following env variables: `NAME`, `PORTS`, `OWNER_ADDRESS`, `PRIVATE_KEY`
 # Without `PROD_DEPLOY` exported flag the script will use default arguments
-# If first arg is `multiple`, script will start 4 fluence node along with Swarm & Parity nodes
+# If first args are `deploy multiple`, script will start 4 fluence node along with Swarm & Parity nodes
 
 # `PROD_DEPLOY` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
 #  the network will be started in development mode locally
@@ -58,7 +58,8 @@ function generate_command()
             --last_port          $LAST_PORT \
             --eth_url            http://$EXTERNAL_HOST_IP:8545 \
             --wait_syncing \
-            --base64_tendermint_key"
+            --base64_tendermint_key \
+            --gas_price 10"
 }
 
 # parses tendermint node id and key from logs
@@ -91,9 +92,9 @@ function parse_tendermint_params()
 function deploy_contract_locally()
 {
     if [ ! -d "node_modules" ]; then
-        npm install
+        npm install >/dev/null
     fi
-    RESULT=$(npm run deploy)
+    RESULT=$(npm run deploy >/dev/null)
     # get last word from script output
     local CONTRACT_ADDRESS=`echo ${RESULT} | awk '{print $NF}'`
     sleep 1
@@ -104,10 +105,10 @@ function deploy_contract_locally()
 # updates all needed containers
 function container_update()
 {
-    docker pull parity/parity:v2.3.0
-    docker pull ethdevops/swarm:edge
-    docker pull fluencelabs/node:latest
-    docker pull fluencelabs/worker:latest
+    docker pull parity/parity:v2.3.0 >/dev/null
+    docker pull ethdevops/swarm:edge >/dev/null
+    docker pull fluencelabs/node:latest >/dev/null
+    docker pull fluencelabs/worker:latest >/dev/null
 }
 
 # getting node's docker IP address
@@ -166,8 +167,8 @@ function export_arguments()
 function start_parity_swarm()
 {
     # running parity and swarm containers
-    docker-compose -f parity.yml up -d
-    docker-compose -f swarm.yml up -d
+    docker-compose --log-level CRITICAL -f parity.yml up -d >/dev/null
+    docker-compose --log-level CRITICAL -f swarm.yml up -d >/dev/null
 
     # waiting that API of parity start working
     # todo get rid of all `sleep`
@@ -209,7 +210,6 @@ function deploy()
     echo "EXTERNAL_HOST_IP="$EXTERNAL_HOST_IP
     echo "OWNER_ADDRESS="$OWNER_ADDRESS
     echo "CONTRACT_ADDRESS="$CONTRACT_ADDRESS
-    echo "PRIVATE_KEY="$PRIVATE_KEY
 
     # port for status API
     echo "STATUS_PORT="$STATUS_PORT
@@ -220,10 +220,10 @@ function deploy()
     # starting node container
     # if there was `multiple` flag on the running script, will be created 4 nodes, otherwise one node
     if [ "$1" = "multiple" ]; then
-        docker-compose -f multiple-node.yml up -d --force-recreate
+        docker-compose --log-level CRITICAL -f multiple-node.yml up -d --force-recreate >/dev/null
         NUMBER_OF_NODES=4
     else
-        docker-compose -f node.yml up -d --force-recreate
+        docker-compose --log-level CRITICAL -f node.yml up -d --force-recreate >/dev/null
         NUMBER_OF_NODES=1
     fi
 
@@ -238,8 +238,8 @@ function deploy()
 
         # use hardcoded ports for multiple nodes
         if [ "$1" = "multiple" ]; then
-            START_PORT="25"$COUNTER"00"
-            LAST_PORT="25"$COUNTER"10"
+            START_PORT="2"$COUNTER"000"
+            LAST_PORT="2"$COUNTER"010"
         fi
 
         echo "START_PORT="$START_PORT
@@ -249,10 +249,8 @@ function deploy()
 
         # registers node in Fluence contract, for local usage
         if [ -z "$PROD_DEPLOY" ]; then
-            set -x
-            REGISTER_COMMAND=$(generate_command)
-            eval $REGISTER_COMMAND
-            set +x
+            REGISTER_COMMAND=$(generate_command)            
+            (set -x; eval $REGISTER_COMMAND)
         fi
 
         # generates JSON with all arguments for node registration
@@ -265,7 +263,7 @@ function deploy()
 }
 
 if [ -z "$1" ]; then
-    echo "Arguments are empty. Use a name of the function from this file to call. For example, `./compose.sh deploy`"
+    echo "Arguments are empty. Use a name of the function from this file to call. For example, './compose.sh deploy'"
 else
     # Check if the function exists (bash specific)
     if declare -f "$1" > /dev/null; then

@@ -30,7 +30,7 @@ fn delete_app(wait_eth_sync: bool, wait_tx_include: bool) {
 
     let count = 5;
     for _ in 0..count {
-        opts.register_node(1, false).unwrap();
+        opts.register_random_node(1, false).unwrap();
     }
 
     let tx = opts.publish_app(count, vec![]).unwrap();

@@ -133,34 +133,20 @@ lazy val statemachine = (project in file("statemachine"))
       val artifact = assembly.value
       val artifactTargetPath = s"/${artifact.name}"
 
-      // Tendermint constants
-      val tmVersion = "0.27.4"
-      val tmDataRoot = "/tendermint"
-      val tmBinaryArchive = s"tendermint_${tmVersion}_linux_amd64.zip"
-      val tmBinaryUrl = s"https://github.com/tendermint/tendermint/releases/download/v$tmVersion/$tmBinaryArchive"
-      val tmP2pPort = 26656
-      val tmRpcPort = 26657
-      val tmPrometheusPort = 26660
-
       // State machine constants
       val workerDataRoot = "/worker"
       val workerRunScript = s"$workerDataRoot/run.sh"
       val stateMachinePrometheusPort = 26661
+      val abciHandlerPort = 26658
 
       val vmDataRoot = "/vmcode"
 
       new Dockerfile {
         from("openjdk:8-jre-alpine")
-        // TODO: merge all these `run`s into a single run
-        runRaw(s"wget $tmBinaryUrl && unzip -d /bin $tmBinaryArchive && rm $tmBinaryArchive")
 
-        expose(tmP2pPort)
-        expose(tmRpcPort)
-        expose(tmPrometheusPort)
+        expose(abciHandlerPort)
         expose(stateMachinePrometheusPort)
 
-        volume(tmDataRoot)
-        volume(workerDataRoot)
         volume(vmDataRoot)
 
         // includes worker run script and default configs in the image

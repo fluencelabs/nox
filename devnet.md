@@ -26,7 +26,7 @@ Roles overview [readme](docs/guides/README.md).
 |                         | Smart Contract |      CLI      | Swarm Interop |   JS client   |     Node      |    Worker     |      VM       |    DevOps     |   Dashboard   |
 | :---                    |     :---:      |     :---:     |     :---:     |     :---:     |     :---:     |     :---:     |     :---:     |     :---:     |     :---:     |
 | Miner: addNode          |     **Y**      |     **Y**     |       -       |       -       |     **Y**     |       -       |       -       |     **Y**     |     **Y**     |
-| Miner: removeNode       |     **Y**      |     **Y**     |       -       |       -       |      _N_      |      _N_      |       -       |       -       |     **Y**     |
+| Miner: removeNode       |     **Y**      |     **Y**     |       -       |       -       |     **Y**     |     **Y**     |       -       |       -       |     **Y**     |
 | Back: addApp            |     **Y**      |     **Y**     |     **Y**     |       -       |     **Y**     |     **Y**     |       -       |       -       |     **Y**     |
 | Back: removeApp         |     **Y**      |     **Y**     |       -       |       -       |     **Y**     |     **Y**     |       -       |       -       |     **Y**     |
 | Back: develop App       |       -        |       ?       |       -       |       -       |       -       |       -       |     **Y**     |       -       |       -       |
