@@ -16,27 +16,26 @@
 
 //! This module enables log messages that could be printed from Wasm side.
 //!
-//! This is a client for the Logger Wasm Module in Fluence WasmVm. Together they
-//! allow to write messages from Wasm code to log. The logging is basically a
-//! 'stdout' and depends on Vm implementation. By default this module is disabled
-//! in WasmVm.
+//! This is a client for the Logger Wasm Module of Fluence WasmVm. Together they allow to write
+//! messages from Wasm code to log. The logging is basically a 'stdout' and depends on Vm
+//! implementation. By default this module is disabled in WasmVm and should be used for debugging
+//! purposes only.
 //!
-//! Note that this module works only for the Wasm environment and Fluence WasmVm.
-//! Don't use it for other targets and Vms.
+//! This module is implemented as a logging facade for crate [`log`]. To enable this module in
+//! your project please specify `wasm_logger` feature of `fluence_sdk`.
 //!
-//! This module provides implementation for logging facade in crate [`log`].
-//! See examples below:
+//! Note that this module works only for the Wasm environment and Fluence WasmVm. Don't use it for
+//! other targets and Vms.
 //!
 //! # Examples
 //!
-//! This example initializes [`WasmLogger`] only for Wasm target, for another
-//! targets initializes [`simple_logger`]. Macroses from crate [`log`] used as
-//! logging facade.
+//! This example initializes [`WasmLogger`] for Wasm target and [`simple_logger`] for other.
+//! Macroses from crate [`log`] used as a logging facade.
 //!
 //! ```
-//!     #[macro_use] extern crate log;
-//!     extern crate fluence;
-//!     extern crate simple_logger;
+//!     use fluence::sdk::*;
+//!     use log::{error, trace};
+//!     use simple_logger;
 //!
 //!     fn main() {
 //!         if cfg!(target_arch = "wasm32") {
@@ -51,7 +50,7 @@
 //!
 //! ```
 //! This example provides method for initialization [`WasmLogger`] only for Wasm
-//! target without specifying logger level. Macroses from crate [`log`] used as
+//! target without specifying logger level. Macroses from crate [`log`] used as a
 //! logging facade.
 //!
 //! ```
@@ -67,36 +66,6 @@
 //!     }
 //!
 //! ```
-//! You can also use [`static_lazy`] for [`WasmLogger`] initialization but laziness
-//! has some caveats. You need to call [`lazy_static::initialize()`] for
-//! eager initialization before first logger macros usage.
-//!
-//! ```
-//!     #[macro_use] extern crate log;
-//!     #[macro_use] extern crate lazy_static;
-//!     extern crate fluence;
-//!
-//!     lazy_static! {
-//!         static ref _LOGGER: () = {
-//!             fluence::logger::WasmLogger::init_with_level(log::Level::Info);
-//!         };
-//!     }
-//!
-//!     fn main() {
-//!         if cfg!(target_arch = "wasm32") {
-//!             // There is required to call init in a method or in another `lazy_static!` block
-//!             fluence::logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
-//!         }
-//!
-//!         // ...
-//!     }
-//!
-//! ```
-//!
-//! There is an other possibility to initialize logger from `VM wrapper` by exported function
-//! `init_logger`. To specify logging level please include sdk with one of these features:
-//! `wasm_logger_info`, `wasm_logger_warn`, `wasm_logger_error`. If you specified some of them
-//! the most common level will be used.
 //!
 //! [`WasmLogger`]: struct.WasmLogger.html
 //! [`log`]: https://docs.rs/log

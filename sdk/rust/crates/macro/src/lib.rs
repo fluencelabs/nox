@@ -56,8 +56,8 @@
 //! to be imported.
 //!
 //! The macro also has an `init_fn` attribute that can be used for specifying initialization
-//! function name. This function will be called only at the first invoke function call. It can look
-//! like this:
+//! function name. This function will be called only at the first invoke function call. It can be
+//! used like this:
 //!
 //! ```
 //! use fluence::sdk::*;
