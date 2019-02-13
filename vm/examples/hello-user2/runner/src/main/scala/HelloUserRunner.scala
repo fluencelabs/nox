@@ -21,6 +21,11 @@ import fluence.vm.{VmError, WasmVm}
 
 import scala.language.higherKinds
 
+/**
+  * A hello-user2 example runner that is an example of possible debugger of `hello-user2` backend application.
+  * Internally it creates WasmVm and invokes the application with some parameters. Also can be used as a template for
+  * debugging other backend applications.
+  */
 object HelloUserRunner extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] = {
@@ -28,7 +33,7 @@ object HelloUserRunner extends IOApp {
     val program: EitherT[IO, VmError, String] = for {
       inputFile <- EitherT(getInputFile(args).attempt)
         .leftMap(e => InternalVmError(e.getMessage, Some(e)))
-      vm ← WasmVm[IO](NonEmptyList.one(inputFile))
+      vm ← WasmVm[IO](NonEmptyList.one(inputFile), "fluence.vm.debugger")
       initState ← vm.getVmState[IO]
 
       result1 ← vm.invoke[IO](None, "John".getBytes())

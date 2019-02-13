@@ -20,8 +20,12 @@
 
 extern crate core;
 
-pub mod logger;
 pub mod memory;
+
+// Wasm logger feature should be used for debugging purposes only since the Fluence network doesn't
+// support writing messages to the stdout.
+#[cfg(feature = "wasm_logger")]
+pub mod logger;
 
 #[cfg(feature = "export_allocator")]
 pub mod export_allocator;

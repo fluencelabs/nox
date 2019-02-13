@@ -31,6 +31,9 @@ lazy_static = "1.2.0" # used in doc test
 
 [features]
 # Turn on a compilation for module contains standart implementation of allocate/deallocate functions.
+wasm_logger = ["fluence-sdk-main/wasm_logger"]
+
+# Turn on a compilation for module contains standart implementation of allocate/deallocate functions.
 export_allocator = ["fluence-sdk-main/export_allocator"]
 
 [workspace]

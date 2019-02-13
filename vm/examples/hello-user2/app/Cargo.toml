@@ -11,9 +11,15 @@ name = "hello_user2"
 path = "src/lib.rs"
 crate-type = ["cdylib"]
 
+[profile.release]
+debug = false
+lto = true
+opt-level = "z"
+panic = "abort"
+
 [dependencies]
 log = "0.4"
-fluence = { version = "0.0.8", features = ["export_allocator"] }
+fluence = { version = "0.0.8", features = ["export_allocator", "wasm_logger"] }
 
 [replace]
 "fluence:0.0.8" = {path = "../../../../sdk/rust"}

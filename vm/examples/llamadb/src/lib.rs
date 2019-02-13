@@ -41,9 +41,9 @@ type GenResult<T> = ::std::result::Result<T, Box<Error>>;
 
 fn init() {
     if cfg!(target_arch = "wasm32") {
-        logger::WasmLogger::init_with_level(log::Level::Info);
+        logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
     } else {
-        simple_logger::init_with_level(log::Level::Info);
+        simple_logger::init_with_level(log::Level::Info).unwrap();
     }
 }
 

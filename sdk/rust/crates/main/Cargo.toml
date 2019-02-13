@@ -27,5 +27,8 @@ simple_logger = "1.0" # used in doc test
 lazy_static = "1.2.0" # used in doc test
 
 [features]
+# Turn on a compilation for module contains Wasm logger realization.
+wasm_logger = []
+
 # Turn on a compilation for module contains standart implementation of allocate/deallocate functions.
 export_allocator = []
