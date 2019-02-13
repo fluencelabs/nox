@@ -162,23 +162,23 @@ fn invoke_handler_impl(
         Some(init_fn_name) => {
             let init_fn_name = syn::parse_str::<syn::Ident>(init_fn_name)?;
             quote! {
-            #fn_item
+                #fn_item
 
-            static mut IS_INITED: bool = false;
+                static mut IS_INITED: bool = false;
 
-            #[no_mangle]
-            pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
-                    if IS_INITED {
-                        #init_fn_name();
-                        unsafe { IS_INITED = true; }
-                    }
+                #[no_mangle]
+                pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
+                        if !IS_INITED {
+                            #init_fn_name();
+                            unsafe { IS_INITED = true; }
+                        }
 
-                #prolog
+                    #prolog
 
-                let result = #ident(arg);
+                    let result = #ident(arg);
 
-                #epilog
-            }
+                    #epilog
+                }
             }
         },
         None => quote! {

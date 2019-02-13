@@ -18,8 +18,8 @@
 use fluence::sdk::*;
 use log::info;
 
-fn init() -> bool {
-    logger::WasmLogger::init_with_level(log::Level::Info).is_ok()
+fn init() {
+    logger::WasmLogger::init_with_level(log::Level::Info);
 }
 
 #[invocation_handler(init_fn = init)]

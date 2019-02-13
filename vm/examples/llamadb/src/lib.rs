@@ -39,11 +39,11 @@ type GenResult<T> = ::std::result::Result<T, Box<Error>>;
 // FFI for interaction with Llamadb module.
 //
 
-fn init() -> bool {
+fn init() {
     if cfg!(target_arch = "wasm32") {
-        logger::WasmLogger::init_with_level(log::Level::Info).is_ok()
+        logger::WasmLogger::init_with_level(log::Level::Info);
     } else {
-        simple_logger::init_with_level(log::Level::Info).is_ok()
+        simple_logger::init_with_level(log::Level::Info);
     }
 }
 
