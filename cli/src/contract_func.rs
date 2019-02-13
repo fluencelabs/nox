@@ -20,7 +20,7 @@ use ethcore_transaction::{Action, Transaction};
 use ethkey::Secret;
 use web3::futures::Future;
 use web3::transports::Http;
-use web3::types::{Address, Bytes, Transaction as Web3Transaction, H256};
+use web3::types::{Address, Bytes, Transaction as Web3Transaction, H256, U256};
 use web3::types::{CallRequest, Log, TransactionId, TransactionRequest};
 use web3::Web3;
 
@@ -38,13 +38,14 @@ pub fn call_contract(
     web3: &Web3<Http>,
     eth: &EthereumArgs,
     call_data: ethabi::Bytes,
+    nonce: Option<U256>,
 ) -> Result<H256, Error> {
     match &eth.credentials {
-        Credentials::No => call_contract_trusted_node(web3, None, call_data, &eth),
+        Credentials::No => call_contract_trusted_node(web3, None, call_data, &eth, nonce),
         Credentials::Password(pass) => {
-            call_contract_trusted_node(web3, Some(pass.as_str()), call_data, &eth)
+            call_contract_trusted_node(web3, Some(pass.as_str()), call_data, &eth, nonce)
         }
-        Credentials::Secret(secret) => call_contract_local_sign(web3, &secret, call_data, &eth),
+        Credentials::Secret(secret) => call_contract_local_sign(web3, &secret, call_data, &eth, nonce),
     }
 }
 
@@ -54,12 +55,13 @@ fn call_contract_local_sign(
     secret: &Secret,
     call_data: ethabi::Bytes,
     eth: &EthereumArgs,
+    nonce: Option<U256>,
 ) -> Result<H256, Error> {
-    let nonce = web3
+    let nonce = nonce.unwrap_or(web3
         .eth()
         .transaction_count(eth.account, None)
         .wait()
-        .map_err(SyncFailure::new)?;
+        .map_err(SyncFailure::new)?);
 
     let tx = Transaction {
         nonce: nonce,
@@ -87,6 +89,7 @@ fn call_contract_trusted_node(
     password: Option<&str>,
     call_data: ethabi::Bytes,
     eth: &EthereumArgs,
+    nonce: Option<U256>,
 ) -> Result<H256, Error> {
     let options = utils::options();
     let tx_request = TransactionRequest {
@@ -96,7 +99,7 @@ fn call_contract_trusted_node(
         gas: Some(eth.gas.into()),
         gas_price: Some(eth.gas_price.into()),
         value: options.value,
-        nonce: options.nonce,
+        nonce: nonce.or(options.nonce),
         condition: options.condition,
     };
 

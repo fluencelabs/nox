@@ -72,7 +72,7 @@ impl DeleteNode {
         let delete_node_fn = || -> Result<H256, Error> {
             let (call_data, _) = delete_node::call(self.tendermint_key);
 
-            call_contract(web3, &self.eth, call_data)
+            call_contract(web3, &self.eth, call_data, None)
         };
 
         let wait_event_fn = |tx: &H256| -> Result<(), Error> {

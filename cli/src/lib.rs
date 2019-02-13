@@ -11,6 +11,7 @@ pub mod contract_status;
 pub mod credentials;
 pub mod delete_app;
 pub mod delete_node;
+pub mod delete_all;
 pub mod publisher;
 pub mod register;
 pub mod step_counter;

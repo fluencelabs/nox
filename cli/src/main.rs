@@ -21,7 +21,7 @@ use console::style;
 use fluence::publisher::Published;
 use fluence::register::Registered;
 use fluence::utils;
-use fluence::{check, contract_status, delete_app, delete_node, publisher, register};
+use fluence::{check, contract_status, delete_app, delete_node, publisher, register, delete_all};
 use web3::types::H256;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -38,7 +38,8 @@ fn main() {
         .subcommand(contract_status::subcommand())
         .subcommand(check::subcommand())
         .subcommand(delete_app::subcommand())
-        .subcommand(delete_node::subcommand());
+        .subcommand(delete_node::subcommand())
+        .subcommand(delete_all::subcommand());
 
     match app.get_matches().subcommand() {
         ("publish", Some(args)) => {
@@ -119,6 +120,14 @@ fn main() {
                 .expect("Error sending transaction");
 
             utils::print_info_id("Node deleted. Submitted transaction", tx);
+        }
+
+        ("delete_all", Some(args)) => {
+            let delete_all = delete_all::parse(args).expect("Error parsing arguments");
+            delete_all.delete_all()
+                .expect("Error sending transaction");
+
+            println!("Nodes and apps deleted.");
         }
 
         c => panic!("Unexpected command: {}", c.0),
