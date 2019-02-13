@@ -23,7 +23,7 @@ import fluence.vm.{VmError, WasmVm}
 
 import scala.language.higherKinds
 
-object LlamaDbRunner extends IOApp {
+object HelloUserRunner extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] = {
 
@@ -32,8 +32,6 @@ object LlamaDbRunner extends IOApp {
         .leftMap(e => InternalVmError(e.getMessage, Some(e)))
       vm <- WasmVm[IO](Seq(inputFile))
       initState <- vm.getVmState[IO]
-
-      initLogRes <- vm.invoke[IO](None, "init_logger")
 
       createTable <- executeSql(vm, "CREATE TABLE Users(id INT, name TEXT, age INT)")
 

@@ -8,7 +8,7 @@ edition = "2018"
 
 [lib]
 name = "hello_user"
-path = "src/rust/lib.rs"
+path = "src/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
@@ -16,4 +16,4 @@ log = "0.4"
 fluence = { version = "0.0.8", features = ["export_allocator"] }
 
 [replace]
-"fluence:0.0.8" = {path = "../../../sdk/rust"}
+"fluence:0.0.8" = {path = "../../../../sdk/rust"}
