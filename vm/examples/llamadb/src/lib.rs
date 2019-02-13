@@ -43,6 +43,7 @@ fn init() {
     if cfg!(target_arch = "wasm32") {
         logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
     } else {
+        // use 'Info' log lvl and `cargo test -- --nocapture` for seeing logger output
         simple_logger::init_with_level(log::Level::Info).unwrap();
     }
 }
