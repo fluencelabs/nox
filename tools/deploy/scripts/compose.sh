@@ -170,16 +170,18 @@ function start_parity_swarm()
     # waiting that API of parity start working
     # todo get rid of all `sleep`
     if [ ! "$(docker ps -q -f name=parity)" ]; then
+        echo "Starting Parity container"
         docker-compose --log-level CRITICAL -f parity.yml up -d >/dev/null
         sleep 15
+        echo "Parity container is started"
     fi
 
     if [ ! "$(docker ps -q -f name=swarm)" ]; then
+        echo "Starting Swarm container"
         docker-compose --log-level CRITICAL -f swarm.yml up -d >/dev/null
         sleep 15
+        echo "Swarm container is started"
     fi
-
-    echo 'Parity and Swarm containers are started.'
 }
 
 # main function to deploy Fluence
