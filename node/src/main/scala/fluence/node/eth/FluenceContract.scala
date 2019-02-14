@@ -16,8 +16,8 @@
 
 package fluence.node.eth
 
-import cats.{ApplicativeError, Apply, MonadError, Traverse}
-import cats.effect.{Async, ConcurrentEffect, Sync}
+import cats.{Apply, Traverse}
+import cats.effect.{Async, ConcurrentEffect, ExitCase, Sync}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.instances.option._
@@ -137,10 +137,16 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @return Possibly infinite stream of [[App]]s
    */
   private[eth] def getAllNodeApps[F[_]: ConcurrentEffect](validatorKey: Bytes32): fs2.Stream[F, state.App] =
-    getNodeApps[F](validatorKey)
-      .onFinalize(
-        Sync[F].delay(logger.info("Got all the previously prepared clusters. Now switching to the new clusters"))
-      ) ++ getNodeAppDeployed(validatorKey)
+    getNodeApps[F](validatorKey).onFinalizeCase {
+      case ExitCase.Canceled =>
+        Sync[F].delay(logger.info("Getting all previously prepared clusters canceled."))
+      case ExitCase.Completed =>
+        Sync[F].delay(logger.info("Got all the previously prepared clusters. Now switching to the new clusters."))
+      case ExitCase.Error(err) =>
+        Sync[F]
+          .delay(logger.info(s"Error on getting all previously clusters: $err."))
+          .map(_ => err.printStackTrace())
+    } ++ getNodeAppDeployed(validatorKey)
 
   // TODO: on reconnect, do getApps again and remove all apps that are running on this node but not in getApps list
   // this may happen if we missed some events due to network outage or the like

@@ -107,7 +107,7 @@ impl Publisher {
                 self.pin_to_nodes.clone(),
             );
 
-            Ok(call_contract(web3, &self.eth, call_data)
+            Ok(call_contract(web3, &self.eth, call_data, None)
                 .context("error calling addApp in smart contract")?)
         };
 
