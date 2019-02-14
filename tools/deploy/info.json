@@ -1,0 +1,27 @@
+{
+  "devnet": {
+    "contract": "0xaa6329b04577faf07672f099fa0ea12e7dd32fa1",
+    "nodes": {
+      "<ip1>": {
+        "owner": "<owner-account1>",
+        "key": "<secret-key1>",
+        "ports": "<start-port1:end-port1>"
+      },
+      "<ip2>": {
+        "owner": "<owner-account2>",
+        "key": "<secret-key2>",
+        "ports": "<start-port2:end-port2>"
+      }
+    }
+  },
+  "stage": {
+    "contract": "0x5faa7b8d290407460e0ec8585b2712acf27290f9",
+    "nodes": {
+      "<ip>": {
+        "owner": "<owner-account>",
+        "key": "<secret-key>",
+        "ports": "<start-port:end-port>"
+      }
+    }
+  }
+}

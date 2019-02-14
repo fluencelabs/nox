@@ -15,8 +15,6 @@
 from fabric.api import *
 import json
 import utils
-import info
-import ConfigParser
 
 # owners and private keys for specific ip addresses
 # todo get this info from some sources
@@ -24,18 +22,18 @@ import ConfigParser
 
 environment = env.environment
 
-# gets deployed contract address for environment from a file
-configParser = ConfigParser.RawConfigParser()
-configFilePath = r'deploy.config'
-configParser.read(configFilePath)
-contract=configParser.get('contracts', environment)
+file = open("info.json", "r")
+
+# gets deployed contract address from a file
+info_json=file.read().rstrip()
+file.close()
+
+info=json.loads(info_json)[environment]
+
+contract=info['contract']
 
 # Fluence will be deployed on all hosts from `info`
-environment_info = info.info[environment]
-env.hosts = environment_info.keys()
-
-print contract
-print environment_info
+env.hosts = info['nodes'].keys()
 
 # Set the username
 env.user = "root"
@@ -56,6 +54,10 @@ def copy_resources():
     put('scripts/swarm.yml', 'scripts/')
     put('config/reserved_peers.txt', 'config/')
 
+# tests connection to all nodes
+@parallel
+def test():
+    run("uname -a")
 
 # comment this annotation to deploy sequentially
 @parallel
