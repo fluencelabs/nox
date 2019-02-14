@@ -25,15 +25,16 @@ environment = env.environment
 file = open("info.json", "r")
 
 # gets deployed contract address from a file
-info_json=file.read().rstrip()
+info_json = file.read().rstrip()
 file.close()
 
-info=json.loads(info_json)[environment]
+info = json.loads(info_json)[environment]
 
 contract=info['contract']
 
-# Fluence will be deployed on all hosts from `info`
-env.hosts = info['nodes'].keys()
+# Fluence will be deployed on all hosts from `info.json`
+nodes = info['nodes']
+env.hosts = nodes.keys()
 
 # Set the username
 env.user = "root"
@@ -86,9 +87,9 @@ def deploy():
 
         # getting owner and private key from `info` dictionary
         current_host = env.host_string
-        current_owner = environment_info[current_host]['owner']
-        current_key = environment_info[current_host]['key']
-        current_ports = environment_info[current_host]['ports']
+        current_owner = nodes[current_host]['owner']
+        current_key = nodes[current_host]['key']
+        current_ports = nodes[current_host]['ports']
 
         with shell_env(CHAIN=chain,
                        # flag that show to script, that it will deploy all with non-default arguments

@@ -166,13 +166,18 @@ function export_arguments()
 
 function start_parity_swarm()
 {
-    # running parity and swarm containers
-    docker-compose --log-level CRITICAL -f parity.yml up -d >/dev/null
-    docker-compose --log-level CRITICAL -f swarm.yml up -d >/dev/null
-
+    # running parity and swarm containers if they are not running
     # waiting that API of parity start working
     # todo get rid of all `sleep`
-    sleep 30
+    if [ ! "$(docker ps -q -f name=parity)" ]; then
+        docker-compose --log-level CRITICAL -f parity.yml up -d >/dev/null
+        sleep 15
+    fi
+
+    if [ ! "$(docker ps -q -f name=swarm)" ]; then
+        docker-compose --log-level CRITICAL -f swarm.yml up -d >/dev/null
+        sleep 15
+    fi
 
     echo 'Parity and Swarm containers are started.'
 }
