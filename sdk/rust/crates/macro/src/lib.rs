@@ -105,12 +105,6 @@ fn invoke_handler_impl(
     } = &fn_item;
 
     if let Err(e) = (|| {
-        if decl.inputs.len() > 1 {
-            return Err(Error::new(
-                decl.paren_token.span,
-                "The main module invocation handler has to don't have more then one input param",
-            ));
-        }
         if let Some(constness) = constness {
             return Err(Error::new(
                 constness.span,
@@ -151,8 +145,8 @@ fn invoke_handler_impl(
             0 => ParsedType::Empty,
             1 => ParsedType::from_fn_arg(decl.inputs.first().unwrap().into_value())?,
             _ => return Err(Error::new(
-                decl.paren_token.span,
-                "The main module invocation handler has to don't have more then one input param",
+                decl.inputs.span(),
+                "The main module invocation handler has to don't have more than one input param",
             )),
         };
     let output_type = ParsedType::from_return_type(&decl.output)?;

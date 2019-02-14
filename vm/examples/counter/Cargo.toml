@@ -22,4 +22,4 @@ fluence = { version = "0.0.9", features = ["export_allocator"] }
 byteorder = { version = "1" }
 
 [replace]
-"fluence:0.0.8" = {path = "../../../sdk/rust"}
+"fluence:0.0.9" = {path = "../../../sdk/rust"}
