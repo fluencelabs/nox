@@ -20,8 +20,6 @@ crate-type = ["cdylib"]
 [dependencies]
 lazy_static = "1.1.0"
 log = "0.4"
-fluence = { version = "0.0.8", features = ["wasm_logger_info", "export_allocator"] }
+fluence = { version = "0.0.9", features = ["export_allocator", "wasm_logger"] }
 llamadb = { git = "https://github.com/fluencelabs/llamadb.git", branch = "master" }
-
-[dev-dependencies]
 simple_logger = "1.0.1"

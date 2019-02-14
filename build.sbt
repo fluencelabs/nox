@@ -23,7 +23,7 @@ lazy val vm = (project in file("vm"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      "com.github.cretz.asmble" % "asmble-compiler" % "0.4.2-fl",
+      asmble,
       cats,
       catsEffect,
       pureConfig,
@@ -40,20 +40,36 @@ lazy val vm = (project in file("vm"))
   )
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `vm-hello-user` = (project in file("vm/examples/hello-user"))
-  .settings(
-    rustVmExample("hello-user")
-  )
-
 lazy val `vm-counter` = (project in file("vm/examples/counter"))
   .settings(
     rustVmExample("counter")
   )
 
-lazy val `vm-fleth` = (project in file("vm/examples/fleth"))
+lazy val `vm-hello-user` = (project in file("vm/examples/hello-user"))
   .settings(
-    rustVmExample("fleth")
+    rustVmExample("hello-user")
   )
+
+lazy val `vm-hello-user2` = (project in file("vm/examples/hello-user2/app"))
+  .settings(
+    rustVmExample("hello-user2/app")
+  )
+
+lazy val `vm-hello-user2-runner` = (project in file("vm/examples/hello-user2/runner"))
+  .configs(IntegrationTest)
+  .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      asmble,
+      cats,
+      catsEffect,
+      pureConfig,
+      cryptoHashing,
+    )
+  )
+  .dependsOn(vm, `vm-hello-user2`)
+  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
   .settings(

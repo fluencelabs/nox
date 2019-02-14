@@ -74,7 +74,9 @@ object SbtCommons {
     )
 
   /* Common deps */
-
+  
+  val asmble = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.2-fl"
+  
   val slogging = "biz.enef"        %% "slogging"    % "0.6.1"
   val cats = "org.typelevel"       %% "cats-core"   % "1.5.0"
   val catsEffect = "org.typelevel" %% "cats-effect" % "1.2.0"
