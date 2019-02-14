@@ -16,6 +16,8 @@
 
 package fluence.ethclient
 
+import java.util.concurrent.TimeUnit
+
 import cats.ApplicativeError
 import cats.effect._
 import cats.syntax.flatMap._
@@ -32,6 +34,7 @@ import org.web3j.tx.{ClientTransactionManager, TransactionManager}
 import org.web3j.tx.gas.{ContractGasProvider, DefaultGasProvider}
 import slogging._
 import fs2.interop.reactivestreams._
+import okhttp3.OkHttpClient
 import org.web3j.abi.datatypes.Event
 
 import scala.concurrent.duration._
@@ -184,6 +187,18 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
 object EthClient {
 
   /**
+    * Set timeouts to 90 seconds because a light node can respond slowly.
+    *
+    */
+  private def createOkHttpClient = {
+    val builder = new OkHttpClient.Builder()
+    builder.connectTimeout(90, TimeUnit.SECONDS)
+    builder.readTimeout(90, TimeUnit.SECONDS)
+    builder.writeTimeout(90, TimeUnit.SECONDS)
+    builder.build
+  }
+
+  /**
    * Make a cats-effect's [[Resource]] for an [[EthClient]], encapsulating its acquire and release lifecycle steps.
    * Waits for syncinc before giving the client to use.
    *
@@ -196,8 +211,9 @@ object EthClient {
     includeRaw: Boolean = false,
     checkSyncPeriod: FiniteDuration = 3.seconds
   ): Resource[F, EthClient] =
-    makeResource(new HttpService(url.getOrElse(HttpService.DEFAULT_URL), includeRaw)).evalMap { client ⇒
-      client.waitEthSyncing(checkSyncPeriod).map(_ ⇒ client)
+    makeResource(new HttpService(url.getOrElse(HttpService.DEFAULT_URL), createOkHttpClient, includeRaw)).evalMap {
+      client ⇒
+        client.waitEthSyncing(checkSyncPeriod).map(_ ⇒ client)
     }
 
   /**

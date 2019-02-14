@@ -112,7 +112,7 @@ impl DeleteApp {
                 dequeue_app::call(self.app_id).0
             };
 
-            call_contract(web3, &self.eth, call_data)
+            call_contract(web3, &self.eth, call_data, None)
         };
 
         let check_event_fn = |tx: &H256| -> Result<(), Error> {

@@ -40,12 +40,15 @@ env.user = "root"
 def copy_resources():
     # cleans up old scripts
     run('rm -rf scripts')
+    run('rm -rf config')
     run('mkdir scripts -p')
+    run('mkdir config -p')
     # copy local directory `script` to remote machine
     put('scripts/compose.sh', 'scripts/')
     put('scripts/node.yml', 'scripts/')
     put('scripts/parity.yml', 'scripts/')
     put('scripts/swarm.yml', 'scripts/')
+    put('config/reserved_peers.txt', 'config/')
 
 
 # comment this annotation to deploy sequentially
