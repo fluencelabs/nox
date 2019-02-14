@@ -16,15 +16,10 @@ from fabric.api import *
 import json
 import utils
 
-# owners and private keys for specific ip addresses
-# todo get this info from some sources
-# TO USE: replace values inside <> with your actual values
-
 environment = env.environment
 
-
 # gets deployed contract address from a file
-file = open("info.json", "r")
+file = open("deploy_config.json", "r")
 info_json = file.read().rstrip()
 file.close()
 
@@ -39,7 +34,7 @@ env.hosts = nodes.keys()
 # Set the username
 env.user = "root"
 
-RELEASE="http://dump.bitcheese.net/files/refamix/fluence" #"https://github.com/fluencelabs/fluence/releases/download/untagged-3f7e10bd802b3149036d/fluence-linux-x64"
+RELEASE="https://github.com/fluencelabs/fluence/releases/download/cli-0.1.2/fluence-cli-0.1.2-linux-x64"
 
 # copies all necessary files for deploying
 def copy_resources():
@@ -57,7 +52,7 @@ def copy_resources():
 
 # tests connection to all nodes
 @parallel
-def test():
+def test_connections():
     run("uname -a")
 
 # comment this annotation to deploy sequentially
