@@ -85,15 +85,22 @@ object Configuration extends slogging.LazyLogging {
     def execTendermintCmd[F[_]: Sync: ContextShift](cmd: String, uid: String): F[String] =
       DockerTendermint.execCmd[F](tmImage, tendermintDir, masterContainerId, cmd, uid)
 
+    def init(uid: String): IO[Unit] =
+      for {
+        _ <- execTendermintCmd[IO]("init", uid)
+        _ <- IO {
+          tendermintDir.resolve("config").resolve("genesis.json").toFile.delete()
+          tendermintDir.resolve("data").toFile.delete()
+        }
+      } yield ()
+
     for {
       uid <- IO(scala.sys.process.Process("id -u").!!.trim)
-      //TODO: don't do tendermint init if keys already exist
-      _ <- execTendermintCmd[IO]("init", uid)
 
-      _ <- IO {
-        tendermintDir.resolve("config").resolve("genesis.json").toFile.delete()
-        tendermintDir.resolve("data").toFile.delete()
-      }
+      initialized <- initialized(tendermintDir)
+      _ <- if (initialized) {
+        IO(logger.info("Node is already initialized"))
+      } else init(uid)
 
       nodeId <- execTendermintCmd[IO]("show_node_id", uid)
       _ <- IO { logger.info(s"Node ID: $nodeId") }
@@ -103,4 +110,33 @@ object Configuration extends slogging.LazyLogging {
       _ <- IO { logger.info(s"Validator PubKey: ${validator.value}") }
     } yield (nodeId, validator)
   }
+
+  /**
+   * Checks that all or none of config.toml, node_key.json, priv_validator.json exist
+   * @return true if all files exist, false if none exist, raiseError otherwise
+   */
+  private def initialized(tendermintDir: Path): IO[Boolean] =
+    for {
+      files <- IO.pure(List("config.toml", "node_key.json", "priv_validator.json"))
+      configDir <- IO(tendermintDir.resolve("config"))
+      r <- IO {
+        files.foldLeft((true, false, Iterable.empty[String])) {
+          case ((all, any, notFound), f) =>
+            val exists = configDir.resolve(f).toFile.exists()
+            val nf = Some(f).filterNot(_ => exists) ++ notFound
+            (all && exists, any || exists, nf)
+        }
+      }
+      // All - all files exist, any - any of the files exist, notFound - list of missing files
+      (all, any, notFound) = r
+
+      // No files should exist or all files
+      _ <- if (any && !all) {
+        logger.error(
+          s"Unable to execute tendermint init: $configDir is in inconsistent state. " +
+            s"Missing files: ${notFound.mkString(", ")}"
+        )
+        IO.raiseError(new Exception(s"Unable to execute tendermint init: $configDir is in inconsistent state. "))
+      } else IO.unit
+    } yield any && all
 }
