@@ -4,7 +4,7 @@
 
 set -e
 
-USAGE="Usage: ./kovan-compose.sh <contract> <external-ip> <owner-address> <private-key> <start-port:end-port>"
+USAGE="Usage: ./kovan-compose.sh <external-ip> <owner-address> <private-key> <start-port:end-port>"
 
 if [ ! $1 = '--help' -a ! $1 = '-h' ]; then
 
@@ -12,11 +12,11 @@ if [ ! $1 = '--help' -a ! $1 = '-h' ]; then
         export PROD_DEPLOY='true'
         export CHAIN='kovan'
         export NAME='fluence-node-1'
-        export CONTRACT_ADDRESS=$1
-        export HOST_IP="$2"
-        export OWNER_ADDRESS="$3"
-        export PRIVATE_KEY="$4"
-        export PORTS="$5"
+        export CONTRACT_ADDRESS=$(cat contract.txt)
+        export HOST_IP="$1"
+        export OWNER_ADDRESS="$2"
+        export PRIVATE_KEY="$3"
+        export PORTS="$4"
         ./compose.sh
     else
         echo "Error: Not enough arguments."

@@ -46,27 +46,19 @@ $ pip install Fabric==1.14.1
 
 It should install fabric 1.14.1. **Be careful not to install Fabric 2 as it's not current supported.**
 
-Next, open [fluence/tools/deploy/deploy_config.json](../../tools/deploy/deploy_config.json) in your favorite text editor, and modify `config`:
+Next, open [fluence/tools/deploy/instances.json](../../tools/deploy/instances.json) in your favorite text editor, and modify `config`:
 ```json
 {
-  "<your-env1>": {
-    "contract": "0xaa6329b04577faf07672f099fa0ea12e7dd32fa1",
-    "nodes": {
-      "<ip1>": {
+    "<ip1>": {
         "owner": "<owner-account1>",
         "key": "<secret-key1>",
         "ports": "<start-port1:end-port1>"
-      },
-      "<ip2>": {
+    },
+    "<ip2>": {
         "owner": "<owner-account2>",
         "key": "<secret-key2>",
         "ports": "<start-port2:end-port2>"
-      }
     }
-  },
-  "your-env2": {
-    "...": "..."
-  }
 }
 ```
 
@@ -74,20 +66,13 @@ You can specify here several nodes, but for the sake of example, let's continue 
 
 ```json
 {
-  "myenv": {
-    "contract": "0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b",
-    "nodes": {
-      "53.42.31.20": {
+    "53.42.31.20": {
         "owner": "0x00a329c0648769a73afac7f9381e08fb43dbea72",
         "key": "4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7",
         "ports": "25000:25099"
-      }
     }
-  }
 }
 ```
-
-It can be other `envs`, so you could deploy different nodes for different environments.
 
 You can also change user running setup commands on cloud instance by `env.user` to desired username.
 ```python
@@ -98,7 +83,7 @@ env.user = "root"
 Now, let's deploy Fluence node along with Parity and Swarm containers:
 
 ```bash
-$ fab --set environment=myenv deploy
+$ fab deploy
 ```
 
 At the end of the successful deployment you should see something like the following:
@@ -147,8 +132,8 @@ All environment variables used in the command are listed in the useful informati
 ### Deploy Fluence node locally
 If you wish to use your local computer to host Fluence node, you can do that by running [kovan-compose.sh](../../tools/deploy/scripts/kovan-compose.sh) like this:
 ```
-# ./kovan-compose.sh <contract-address> <external-ip> <owner-address> <private-key> <start-port:end-port>
-./kovan-compose.sh 0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b 53.42.31.20 0x00a329c0648769a73afac7f9381e08fb43dbea72 4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 25000:25099
+# ./kovan-compose.sh <external-ip> <owner-address> <private-key> <start-port:end-port>
+./kovan-compose.sh 53.42.31.20 0x00a329c0648769a73afac7f9381e08fb43dbea72 4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 25000:25099
 ```
 
 ## How to check if node is registered

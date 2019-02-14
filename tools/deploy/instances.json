@@ -1,0 +1,12 @@
+{
+  "<ip1>": {
+    "owner": "<owner-account1>",
+    "key": "<secret-key1>",
+    "ports": "<start-port1:end-port1>"
+  },
+  "<ip2>": {
+    "owner": "<owner-account2>",
+    "key": "<secret-key2>",
+    "ports": "<start-port2:end-port2>"
+  }
+}

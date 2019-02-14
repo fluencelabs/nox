@@ -16,19 +16,32 @@ from fabric.api import *
 import json
 import utils
 
-environment = env.environment
+if hasattr(env, 'attr_name'):
+    environment = env.environment
 
-# gets deployed contract address from a file
-file = open("deploy_config.json", "r")
-info_json = file.read().rstrip()
-file.close()
+    # gets deployed contract address from a file
+    file = open("deploy_config.json", "r")
+    info_json = file.read().rstrip()
+    file.close()
 
-info = json.loads(info_json)[environment]
+    info = json.loads(info_json)[environment]
 
-contract = info['contract']
+    contract = info['contract']
 
-# Fluence will be deployed on all hosts in an environment from `info.json`
-nodes = info['nodes']
+    # Fluence will be deployed on all hosts in an environment from `info.json`
+    nodes = info['nodes']
+else:
+    # gets deployed contract address from a file
+    file = open("instances.json", "r")
+    nodes_json = file.read().rstrip()
+    file.close()
+
+    file = open("scripts/contract.txt", "r")
+    contract=file.read().rstrip()
+    file.close()
+
+    nodes = json.loads(nodes_json)
+
 env.hosts = nodes.keys()
 
 # Set the username
