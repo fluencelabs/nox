@@ -1,6 +1,6 @@
 [package]
 name = "fluence-sdk-main"
-version = "0.0.8"  # remember to update html_root_url
+version = "0.0.9"  # remember to update html_root_url
 edition = "2018"
 description = "Rust SDK for writing applications for Fluence"
 documentation = "https://docs.rs/fluence/fluence-sdk-macro"

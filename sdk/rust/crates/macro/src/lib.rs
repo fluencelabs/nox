@@ -78,6 +78,8 @@
 //! Please find more examples in `https://github.com/fluencelabs/fluence/tree/master/vm/examples`.
 //!
 
+#![doc(html_root_url = "https://docs.rs/fluence-sdk-macro/0.0.9")]
+
 extern crate proc_macro;
 mod macro_attr_parser;
 mod macro_input_parser;

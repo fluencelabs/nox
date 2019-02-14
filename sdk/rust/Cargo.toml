@@ -1,6 +1,6 @@
 [package]
 name = "fluence"
-version = "0.0.8"  # remember to update html_root_url
+version = "0.0.9"  # remember to update html_root_url
 description = "Rust SDK for writing applications for Fluence"
 documentation = "https://docs.rs/fluence/"
 repository = "https://github.com/fluencelabs/fluence/tree/master/sdk/rust"
@@ -22,8 +22,8 @@ log = { version = "0.4", features = ["std"] }
 syn = { version = '0.15.0', features = ['full'] }
 quote = "0.6.3"
 proc-macro2 = "0.4"
-fluence-sdk-macro = { path = "crates/macro", version = "=0.0.8" }
-fluence-sdk-main = { path = "crates/main", version = "=0.0.8" }
+fluence-sdk-macro = { path = "crates/macro", version = "=0.0.9" }
+fluence-sdk-main = { path = "crates/main", version = "=0.0.9" }
 
 [dev-dependencies]
 simple_logger = "1.0" # used in doc test

@@ -19,7 +19,4 @@ panic = "abort"
 
 [dependencies]
 log = "0.4"
-fluence = { version = "0.0.8", features = ["export_allocator", "wasm_logger"] }
-
-[replace]
-"fluence:0.0.8" = {path = "../../../../sdk/rust"}
+fluence = { version = "0.0.9", features = ["export_allocator", "wasm_logger"] }
