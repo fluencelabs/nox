@@ -15,26 +15,32 @@
 from fabric.api import *
 import json
 import utils
+import info
+import ConfigParser
 
 # owners and private keys for specific ip addresses
 # todo get this info from some sources
 # TO USE: replace values inside <> with your actual values
-info = {'<ip1>': {'owner': '<eth address1>', 'key': '<private key1>', 'ports': '<from>:<to>'},
-        '<ip2>': {'owner': '<eth address2>', 'key': '<private key2>', 'ports': '<from>:<to>'}}
 
-RELEASE="http://dump.bitcheese.net/files/refamix/fluence" #"https://github.com/fluencelabs/fluence/releases/download/untagged-3f7e10bd802b3149036d/fluence-linux-x64"
+environment = env.environment
 
-file = open("scripts/contract.txt", "r")
-
-# gets deployed contract address from a file
-contract=file.read().rstrip()
-file.close()
+# gets deployed contract address for environment from a file
+configParser = ConfigParser.RawConfigParser()
+configFilePath = r'deploy.config'
+configParser.read(configFilePath)
+contract=configParser.get('contracts', environment)
 
 # Fluence will be deployed on all hosts from `info`
-env.hosts = info.keys()
+environment_info = info.info[environment]
+env.hosts = environment_info.keys()
+
+print contract
+print environment_info
 
 # Set the username
 env.user = "root"
+
+RELEASE="http://dump.bitcheese.net/files/refamix/fluence" #"https://github.com/fluencelabs/fluence/releases/download/untagged-3f7e10bd802b3149036d/fluence-linux-x64"
 
 # copies all necessary files for deploying
 def copy_resources():
@@ -78,9 +84,9 @@ def deploy():
 
         # getting owner and private key from `info` dictionary
         current_host = env.host_string
-        current_owner = info[current_host]['owner']
-        current_key = info[current_host]['key']
-        current_ports = info[current_host]['ports']
+        current_owner = environment_info[current_host]['owner']
+        current_key = environment_info[current_host]['key']
+        current_ports = environment_info[current_host]['ports']
 
         with shell_env(CHAIN=chain,
                        # flag that show to script, that it will deploy all with non-default arguments
@@ -101,4 +107,3 @@ def deploy():
             command = utils.register_command(json_data, current_key)
             # run `fluence` command
             local(command)
-
