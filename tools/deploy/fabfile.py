@@ -22,17 +22,17 @@ import utils
 
 environment = env.environment
 
-file = open("info.json", "r")
 
 # gets deployed contract address from a file
+file = open("info.json", "r")
 info_json = file.read().rstrip()
 file.close()
 
 info = json.loads(info_json)[environment]
 
-contract=info['contract']
+contract = info['contract']
 
-# Fluence will be deployed on all hosts from `info.json`
+# Fluence will be deployed on all hosts in an environment from `info.json`
 nodes = info['nodes']
 env.hosts = nodes.keys()
 
