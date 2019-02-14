@@ -52,14 +52,14 @@ object Configuration extends slogging.LazyLogging {
   def init(masterConfig: MasterConfig)(implicit ec: ContextShift[IO]): IO[Configuration] =
     for {
       rootPath <- IO(Paths.get(masterConfig.rootPath).toAbsolutePath)
-      t <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.tendermint)
+      t <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.tendermintImage)
       (nodeId, validatorKey) = t
       nodeConfig = NodeConfig(
         masterConfig.endpoints,
         validatorKey,
         nodeId,
-        masterConfig.worker,
-        masterConfig.tendermint
+        masterConfig.workerImage,
+        masterConfig.tendermintImage
       )
     } yield
       Configuration(
@@ -91,7 +91,6 @@ object Configuration extends slogging.LazyLogging {
       _ <- execTendermintCmd[IO]("init", uid)
 
       _ <- IO {
-        tendermintDir.resolve("config").resolve("config.toml").toFile.delete()
         tendermintDir.resolve("config").resolve("genesis.json").toFile.delete()
         tendermintDir.resolve("data").toFile.delete()
       }

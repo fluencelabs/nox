@@ -171,7 +171,8 @@ object DockerWorker extends LazyLogging {
 
       network ← makeNetwork(params)
 
-      worker ← DockerIO.run[F](dockerCommand(params, network), stopTimeout)
+      // run worker
+      _ ← DockerIO.run[F](dockerCommand(params, network), stopTimeout)
 
       tendermint ← DockerTendermint.make[F](params, containerName(params), network, stopTimeout)
 

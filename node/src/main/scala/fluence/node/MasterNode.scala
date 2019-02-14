@@ -188,7 +188,7 @@ object MasterNode extends LazyLogging {
       nodeEth ← NodeEth[F](nodeConfig.validatorKey.toByteVector, ethClient, masterConfig.contract)
 
       codeManager ← Resource.liftF(CodeManager[F](masterConfig.swarm))
-      configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath))
+      configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath, masterConfig.tendermintConfig))
     } yield
       MasterNode[F](
         nodeConfig,

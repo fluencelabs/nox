@@ -133,7 +133,7 @@ lazy val statemachine = (project in file("statemachine"))
 
         volume(vmDataRoot)
 
-        // includes worker run script and default configs in the image
+        // includes worker run script
         copy(baseDirectory.value / "docker" / "worker", workerDataRoot)
 
         copy(artifact, artifactTargetPath)
@@ -238,10 +238,9 @@ lazy val node = project
         /*
          * The following directory structure is assumed in node/src/main/resources:
          *    docker/
-         *      tendermint/config/default_config.toml
          *      entrypoint.sh
          */
-        copy((resourceDirectory in Compile).value / "docker", "/master/")
+        copy((resourceDirectory in Compile).value / "docker" / "entrypoint.sh", "/master/")
 
         copy(artifact, artifactTargetPath)
 
