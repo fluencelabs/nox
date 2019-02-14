@@ -17,13 +17,9 @@
 //! Module with tests.
 
 use log::info;
-use simple_logger;
 
 #[test]
 fn integration_sql_test() {
-    // use 'Info' log lvl and `cargo test -- --nocapture` for seeing logger output
-    simple_logger::init_with_level(log::Level::Info).expect("Logger can't be initialized");
-
     //
     // Success cases.
     //

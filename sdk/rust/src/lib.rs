@@ -15,7 +15,7 @@
  */
 
 //! Rust SDK for writing applications for Fluence.
-//#![doc(html_root_url = "https://docs.rs/fluence/0.0.8")]
+#![doc(html_root_url = "https://docs.rs/fluence/0.0.10")]
 #![feature(allocator_api)]
 
 extern crate fluence_sdk_macro;
@@ -30,11 +30,7 @@ pub mod sdk {
     // TODO: need to introduce macros to avoid code duplication with crates/main/lib.rs
     pub use fluence_sdk_main::memory;
 
-    #[cfg(any(
-        feature = "wasm_logger_info",
-        feature = "wasm_logger_warn",
-        feature = "wasm_logger_error"
-    ))]
+    #[cfg(feature = "wasm_logger")]
     pub use fluence_sdk_main::logger;
 
     #[cfg(feature = "export_allocator")]
