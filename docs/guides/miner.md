@@ -46,24 +46,48 @@ $ pip install Fabric==1.14.1
 
 It should install fabric 1.14.1. **Be careful not to install Fabric 2 as it's not current supported.**
 
-Next, open [fluence/tools/deploy/fabfile.py](../../tools/deploy/fabfile.py) in your favorite text editor, and modify `info`:
-```python
-info = {'<ip1>': {'owner': '<eth address1>', 'key': '<private key1>', 'ports': '<from>:<to>'},
-        '<ip2>': {'owner': '<eth address2>', 'key': '<private key2>', 'ports': '<from>:<to>'}}
-```
-
-You can specify here several nodes, but for the sake of example, let's continue with a single node. After filling info in fabfile.py, it should look similar to this:
-
-```python
-info = {
-    '53.42.31.20':
-        {
-            'owner': '0x00a329c0648769a73afac7f9381e08fb43dbea72',
-            'key': '4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7',
-            'ports': '25000:25099'
-        }
+Next, open [fluence/tools/deploy/deploy_config.json](../../tools/deploy/deploy_config.json) in your favorite text editor, and modify `config`:
+```json
+{
+  "<your-env1>": {
+    "contract": "0xaa6329b04577faf07672f099fa0ea12e7dd32fa1",
+    "nodes": {
+      "<ip1>": {
+        "owner": "<owner-account1>",
+        "key": "<secret-key1>",
+        "ports": "<start-port1:end-port1>"
+      },
+      "<ip2>": {
+        "owner": "<owner-account2>",
+        "key": "<secret-key2>",
+        "ports": "<start-port2:end-port2>"
+      }
     }
+  },
+  "your-env2": {
+    "...": "..."
+  }
+}
 ```
+
+You can specify here several nodes, but for the sake of example, let's continue with a single node. After filling info in deploy_config.json, it should look similar to this:
+
+```json
+{
+  "myenv": {
+    "contract": "0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b",
+    "nodes": {
+      "53.42.31.20": {
+        "owner": "0x00a329c0648769a73afac7f9381e08fb43dbea72",
+        "key": "4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7",
+        "ports": "25000:25099"
+      }
+    }
+  }
+}
+```
+
+It can be other `envs`, so you could deploy different nodes for different environments.
 
 You can also change user running setup commands on cloud instance by `env.user` to desired username.
 ```python
@@ -74,7 +98,7 @@ env.user = "root"
 Now, let's deploy Fluence node along with Parity and Swarm containers:
 
 ```bash
-$ fab deploy
+$ fab --set environment=myenv deploy
 ```
 
 At the end of the successful deployment you should see something like the following:
@@ -86,7 +110,6 @@ At the end of the successful deployment you should see something like the follow
 [53.42.31.20] out: EXTERNAL_HOST_IP=53.42.31.20
 [53.42.31.20] out: OWNER_ADDRESS=0x00a329c0648769a73afac7f9381e08fb43dbea72
 [53.42.31.20] out: CONTRACT_ADDRESS=0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b
-[53.42.31.20] out: PRIVATE_KEY=4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
 [53.42.31.20] out: STATUS_PORT=25400
 ...
 [53.42.31.20] out: Node container is started.
@@ -124,8 +147,8 @@ All environment variables used in the command are listed in the useful informati
 ### Deploy Fluence node locally
 If you wish to use your local computer to host Fluence node, you can do that by running [kovan-compose.sh](../../tools/deploy/scripts/kovan-compose.sh) like this:
 ```
-# ./kovan-compose.sh <external-ip> <owner-address> <private-key> <start-port:end-port>
-./kovan-compose.sh 53.42.31.20 0x00a329c0648769a73afac7f9381e08fb43dbea72 4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 25000:25099
+# ./kovan-compose.sh <contract-address> <external-ip> <owner-address> <private-key> <start-port:end-port>
+./kovan-compose.sh 0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b 53.42.31.20 0x00a329c0648769a73afac7f9381e08fb43dbea72 4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 25000:25099
 ```
 
 ## How to check if node is registered
@@ -154,7 +177,9 @@ You should see your Ethereum address under `owner` in `nodes` list. Similar to t
       "owner": "0x00a329c0648769a73afac7f9381e08fb43dbea72",
       "is_private": false,
       "clusters_ids": []
-    },
+    }
+  ]
+}
 ```
 
 Please refer to Fluence CLI [README](../../cli/README.md) for more info on installation and usage.

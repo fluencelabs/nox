@@ -51,6 +51,7 @@ def copy_resources():
     put('config/reserved_peers.txt', 'config/')
 
 # tests connection to all nodes
+# usage as follows: fab test_connections
 @parallel
 def test_connections():
     run("uname -a")

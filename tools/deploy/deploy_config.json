@@ -1,5 +1,5 @@
 {
-  "devnet": {
+  "<your-env1>": {
     "contract": "0xaa6329b04577faf07672f099fa0ea12e7dd32fa1",
     "nodes": {
       "<ip1>": {
@@ -14,7 +14,7 @@
       }
     }
   },
-  "stage": {
+  "<your-env2>": {
     "contract": "0x5faa7b8d290407460e0ec8585b2712acf27290f9",
     "nodes": {
       "<ip>": {
