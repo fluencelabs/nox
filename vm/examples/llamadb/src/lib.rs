@@ -28,6 +28,7 @@ extern crate lazy_static;
 
 use llamadb::tempdb::{ExecuteStatementResponse, TempDb};
 use log::info;
+use simple_logger;
 use std::error::Error;
 use std::sync::Mutex;
 
@@ -38,13 +39,22 @@ type GenResult<T> = ::std::result::Result<T, Box<Error>>;
 // FFI for interaction with Llamadb module.
 //
 
+fn init() {
+    if cfg!(target_arch = "wasm32") {
+        logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
+    } else {
+        // use 'Info' log lvl and `cargo test -- --nocapture` for seeing logger output
+        simple_logger::init_with_level(log::Level::Info).unwrap();
+    }
+}
+
 /// Executes SQL and returns a pointer to result as a string in the memory.
 ///
 /// 1. Makes rust String from given pointer and length
 /// 2. Processes the resulted string as a SQL query
 /// 3. Returns a pointer to the result as a string in the memory
 /// 4. Deallocates memory occupied by passed parameter
-#[invocation_handler]
+#[invocation_handler(init_fn = init)]
 fn main(sql_str: String) -> String {
     let db_response = match run_query(&sql_str) {
         Ok(response) => response,

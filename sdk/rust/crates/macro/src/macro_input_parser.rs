@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-extern crate proc_macro;
-
 use quote::quote;
 use syn::{parse::Error, spanned::Spanned};
 

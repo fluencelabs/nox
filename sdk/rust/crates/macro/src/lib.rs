@@ -51,26 +51,50 @@
 //! can be used.
 //!
 //! Internally this macros creates a new function `invoke` that converts a raw argument to
-//! appropriate format, calls `f` and then converts its result via `memory::write_result_to_mem` from
-//! `fluence_sdk_main`. So to use this crate apart from `fluence` `fluence_sdk_main` has
+//! appropriate format, calls `f` and then converts its result via `memory::write_result_to_mem`
+//! from `fluence_sdk_main`. So to use this crate apart from `fluence` `fluence_sdk_main` has
 //! to be imported.
+//!
+//! The macro also has an `init_fn` attribute that can be used for specifying initialization
+//! function name. This function will be called only at the first invoke function call. It can be
+//! used like this:
+//!
+//! ```
+//! use fluence::sdk::*;
+//!
+//! fn init() -> bool {
+//!     logger::WasmLogger::init_with_level(log::Level::Info).is_ok()
+//! }
+//!
+//! #[invocation_handler(init_fn = init)]
+//! fn main(name: String) -> String {
+//!     info!("{} has been successfully greeted", name);
+//!     format!("Hello from Fluence to {}", name)
+//! }
+//! ```
 //!
 //! # Examples
 //!
 //! Please find more examples in `https://github.com/fluencelabs/fluence/tree/master/vm/examples`.
 //!
 
-extern crate proc_macro;
-mod parser;
+#![doc(html_root_url = "https://docs.rs/fluence-sdk-macro/0.0.9")]
 
-use crate::parser::{InputTypeGenerator, ParsedType, ReturnTypeGenerator};
+extern crate proc_macro;
+mod macro_attr_parser;
+mod macro_input_parser;
+
+use crate::macro_attr_parser::HandlerAttrs;
+use crate::macro_input_parser::{InputTypeGenerator, ParsedType, ReturnTypeGenerator};
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::spanned::Spanned;
 use syn::{parse::Error, parse_macro_input, ItemFn};
 
-#[warn(clippy::redundant_closure_call)]
-fn invoke_handler_impl(fn_item: &syn::ItemFn) -> syn::Result<proc_macro2::TokenStream> {
+fn invoke_handler_impl(
+    attr: proc_macro2::TokenStream,
+    fn_item: syn::ItemFn,
+) -> syn::Result<proc_macro2::TokenStream> {
     let ItemFn {
         constness,
         unsafety,
@@ -78,7 +102,7 @@ fn invoke_handler_impl(fn_item: &syn::ItemFn) -> syn::Result<proc_macro2::TokenS
         ident,
         decl,
         ..
-    } = fn_item;
+    } = &fn_item;
 
     if let Err(e) = (|| {
         if decl.inputs.len() > 1 {
@@ -154,24 +178,48 @@ fn invoke_handler_impl(fn_item: &syn::ItemFn) -> syn::Result<proc_macro2::TokenS
     };
     let epilog = output_type.generate_fn_epilog();
 
-    let resulted_invoke = quote! {
-        #fn_item
+    let attrs = syn::parse2::<HandlerAttrs>(attr)?;
+    let raw_init_fn_name = attrs.init_fn_name();
 
-        #[no_mangle]
-        pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
-            #prolog
+    let resulted_invoke = match raw_init_fn_name {
+        Some(init_fn_name) => {
+            let init_fn_name = syn::parse_str::<syn::Ident>(init_fn_name)?;
+            quote! {
+                #fn_item
 
-            #epilog
-        }
+                static mut IS_INITED: bool = false;
+
+                #[no_mangle]
+                pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
+                        if !IS_INITED {
+                            #init_fn_name();
+                            unsafe { IS_INITED = true; }
+                        }
+
+                    #prolog
+
+                    #epilog
+                }
+            }
+        },
+        None => quote! {
+            #fn_item
+
+            #[no_mangle]
+            pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
+                #prolog
+
+                #epilog
+            }
+        },
     };
-
     Ok(resulted_invoke)
 }
 
 #[proc_macro_attribute]
-pub fn invocation_handler(_attr: TokenStream, input: TokenStream) -> TokenStream {
+pub fn invocation_handler(attr: TokenStream, input: TokenStream) -> TokenStream {
     let fn_item = parse_macro_input!(input as ItemFn);
-    match invoke_handler_impl(&fn_item) {
+    match invoke_handler_impl(attr.into(), fn_item) {
         Ok(v) => v,
         // converts syn:error to proc_macro2::TokenStream
         Err(e) => e.to_compile_error(),
