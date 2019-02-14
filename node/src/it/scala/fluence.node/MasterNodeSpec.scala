@@ -75,8 +75,8 @@ class MasterNodeSpec
         masterConf.endpoints,
         ValidatorKey("", Base64.getEncoder.encodeToString(Array.fill(32)(5))),
         "127.0.0.1",
-        masterConf.workerImage,
-        masterConf.tendermintImage
+        masterConf.worker,
+        masterConf.tendermint
       )
 
       val resource = for {

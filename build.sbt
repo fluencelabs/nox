@@ -200,6 +200,7 @@ lazy val node = project
       circeParser,
       http4sDsl,
       http4sServer,
+      toml,
       scalaIntegrationTest,
       scalaTest
     ),

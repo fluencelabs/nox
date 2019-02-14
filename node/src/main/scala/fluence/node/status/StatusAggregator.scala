@@ -91,9 +91,10 @@ object StatusAggregator extends LazyLogging {
             val response = for {
               status <- sm.getStatus
               json <- IO(status.asJson.spaces2)
-                .onError({ case e =>
-                  IO(e.printStackTrace())
-                    .map(_ => logger.error(s"Status cannot be generated to JSON. Status: $status"))
+                .onError({
+                  case e =>
+                    IO(e.printStackTrace())
+                      .map(_ => logger.error(s"Status cannot be generated to JSON. Status: $status"))
                 })
               response <- Ok(json)
               _ <- IO(logger.trace("MasterStatus responded successfully"))

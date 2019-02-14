@@ -40,8 +40,8 @@ case class MasterConfig(
   swarm: Option[SwarmConfig],
   statusServer: StatusServerConfig,
   masterContainerId: Option[String],
-  workerImage: DockerImage,
-  tendermintImage: DockerImage,
+  worker: DockerImage,
+  tendermint: DockerImage,
   ethereum: EthereumRpcConfig,
   tendermintConfig: TendermintConfig
 )

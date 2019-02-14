@@ -52,14 +52,14 @@ object Configuration extends slogging.LazyLogging {
   def init(masterConfig: MasterConfig)(implicit ec: ContextShift[IO]): IO[Configuration] =
     for {
       rootPath <- IO(Paths.get(masterConfig.rootPath).toAbsolutePath)
-      t <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.tendermintImage)
+      t <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.tendermint)
       (nodeId, validatorKey) = t
       nodeConfig = NodeConfig(
         masterConfig.endpoints,
         validatorKey,
         nodeId,
-        masterConfig.workerImage,
-        masterConfig.tendermintImage
+        masterConfig.worker,
+        masterConfig.tendermint
       )
     } yield
       Configuration(

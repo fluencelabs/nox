@@ -15,8 +15,8 @@
  */
 
 package fluence.node.workers.tendermint.config
+import java.nio.file.StandardCopyOption.REPLACE_EXISTING
 import java.nio.file.{Files, Path, StandardCopyOption}
-import StandardCopyOption.REPLACE_EXISTING
 
 import cats.Functor
 import cats.effect.{IO, LiftIO}
@@ -24,7 +24,6 @@ import fluence.node.config.Configuration
 import fluence.node.eth.state.App
 import slogging.LazyLogging
 
-import scala.io.Source
 import scala.language.higherKinds
 
 /**
@@ -85,29 +84,27 @@ class ConfigTemplate(srcPath: Path, tendermintConfig: TendermintConfig) extends 
    * @param app Application to prepare
    * @param abciHost Usually Worker's name
    */
-  def updateConfigTOML(destPath: Path, app: App, abciHost: String): IO[Unit] = IO {
-    val configSrc = srcPath.resolve("config.toml")
-    val configDest = destPath.resolve("config.toml")
+  def updateConfigTOML(destPath: Path, app: App, abciHost: String): IO[Unit] =
+    for {
+      configSrc <- IO(srcPath.resolve("config.toml"))
+      configDest <- IO(destPath.resolve("config.toml"))
 
-    import scala.collection.JavaConverters._
-    logger.info("Updating {} -> {}", configSrc, configDest)
+      _ <- IO(logger.info("Updating {} -> {}", configSrc, configDest))
 
-    val currentWorker = app.cluster.currentWorker
-    val persistentPeers = app.cluster.workers.map(_.peerAddress)
+      currentWorker = app.cluster.currentWorker
+      persistentPeers = app.cluster.workers.map(_.peerAddress)
 
-    val srcConfig = Source.fromFile(configSrc.toUri).getLines()
-
-    // Remove values that will be overridden
-    val filtered = tendermintConfig.filter(srcConfig)
-    // Generate overridden values
-    val changed =
-      tendermintConfig.generate(currentWorker.address, currentWorker.index, abciHost, persistentPeers, app.id)
-
-    logger.debug(s"Changed config:\n${changed.mkString("\n")}\n")
-
-    Files.write(configDest, (changed ++ filtered).asJava)
-  }
-
+      _ <- tendermintConfig
+        .generate[IO](
+          configSrc,
+          configDest,
+          currentWorker.address,
+          currentWorker.index,
+          abciHost,
+          persistentPeers,
+          app.id
+        )
+    } yield ()
 }
 
 object ConfigTemplate {
