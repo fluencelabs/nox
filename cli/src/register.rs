@@ -135,7 +135,7 @@ impl Register {
                 self.private,
             );
 
-            call_contract(web3, &self.eth, call_data)
+            call_contract(web3, &self.eth, call_data, None)
         };
 
         let check_node_registered_fn = || -> Result<bool, Error> {
