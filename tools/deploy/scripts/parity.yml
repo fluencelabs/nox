@@ -10,3 +10,5 @@ services:
       - 8080:8080
       - 8546:8546
     command: $PARITY_ARGS
+    volumes:
+      - /root/config/reserved_peers.txt:/reserved_peers.txt
