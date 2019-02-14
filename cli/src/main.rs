@@ -126,7 +126,7 @@ fn main() {
             let delete_all = delete_all::parse(args).expect("Error parsing arguments");
             delete_all.delete_all().expect("Error sending transaction");
 
-            println!("All nodes and apps have been deleted.");
+            println!("All nodes and apps should be deleted. Check contract with `status` command.");
         }
 
         c => panic!("Unexpected command: {}", c.0),
