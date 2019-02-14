@@ -8,6 +8,7 @@
     - [Waiting for an app to be deployed or enqueued](#waiting-for-an-app-to-be-deployed-or-enqueued)
   - [Delete an app](#delete-an-app)
   - [Retrieve Fluence network state as JSON](#retrieve-fluence-network-state-as-json)
+    - [Filtering status](#filtering-status)
 - [Tips and tricks](#tips-and-tricks)
   - [Waiting for an Ethereum node to sync](#waiting-for-an-ethereum-node-to-sync)
   - [Waiting for a transaction to be included in a block](#waiting-for-a-transaction-to-be-included-in-a-block)

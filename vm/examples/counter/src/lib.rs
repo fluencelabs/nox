@@ -30,7 +30,7 @@ use fluence::sdk::*;
 static mut COUNTER: counter::Counter = counter::Counter { counter: 0 };
 
 #[invocation_handler]
-pub fn main(_arg: Vec<u8>) -> Vec<u8> {
+pub fn main() -> Vec<u8> {
     unsafe { COUNTER.inc() };
 
     let mut counter_value = vec![];
