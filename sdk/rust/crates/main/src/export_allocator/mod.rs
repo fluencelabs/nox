@@ -14,6 +14,14 @@
  * limitations under the License.
  */
 
+//! This module provides default implementations of [`allocate`] and [`deallocate`] functions that
+//! can be used for array passing and returning.
+//!
+//! To enable it please specify `export_allocator` feature of `fluence` or `fluence-sdk-main`.
+//!
+//! [`allocate`]: fn.allocate.html
+//! [`deallocate`]: fn.deallocate.html
+
 use crate::memory::{alloc, dealloc};
 use std::num::NonZeroUsize;
 use std::ptr::NonNull;

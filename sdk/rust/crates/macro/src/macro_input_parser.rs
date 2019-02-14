@@ -17,9 +17,11 @@
 use quote::quote;
 use syn::{parse::Error, spanned::Spanned};
 
+#[derive(PartialEq)]
 pub enum ParsedType {
     Utf8String,
     ByteVector,
+    Empty,
 }
 
 impl ParsedType {
@@ -119,22 +121,18 @@ impl ParsedType {
         }
     }
 
-    pub fn from_fn_arg(fn_arg: &syn::FnArg) -> syn::Result<ParsedType> {
-        let fn_arg = match fn_arg {
-            syn::FnArg::Captured(arg) => Ok(&arg.ty),
+    pub fn from_fn_arg(fn_arg: &syn::FnArg) -> syn::Result<Self> {
+        match fn_arg {
+            syn::FnArg::Captured(arg) => ParsedType::from_type(&arg.ty),
             _ => Err(Error::new(fn_arg.span(), "Unknown argument")),
-        }?;
-
-        ParsedType::from_type(fn_arg)
+        }
     }
 
-    pub fn from_return_type(ret_type: &syn::ReturnType) -> syn::Result<ParsedType> {
-        let ret_type = match ret_type {
-            syn::ReturnType::Type(_, t) => Ok(t),
-            _ => Err(Error::new(ret_type.span(), "Unknown argument")),
-        }?;
-
-        ParsedType::from_type(ret_type.as_ref())
+    pub fn from_return_type(ret_type: &syn::ReturnType) -> syn::Result<Self> {
+        match ret_type {
+            syn::ReturnType::Type(_, t) => ParsedType::from_type(t.as_ref()),
+            syn::ReturnType::Default => Ok(ParsedType::Empty),
+        }
     }
 }
 
@@ -156,6 +154,7 @@ impl InputTypeGenerator for ParsedType {
             ParsedType::ByteVector => quote! {
                 let arg = memory::read_input_from_mem(ptr, len);
             },
+            ParsedType::Empty => quote! {},
         }
     }
 }
@@ -173,6 +172,7 @@ impl ReturnTypeGenerator for ParsedType {
                 memory::write_result_to_mem(&result[..])
                     .expect("Putting result vector to memory has failed")
             },
+            ParsedType::Empty => quote! {},
         }
     }
 }

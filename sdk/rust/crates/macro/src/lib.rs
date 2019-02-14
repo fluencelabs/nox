@@ -78,7 +78,7 @@
 //! Please find more examples in `https://github.com/fluencelabs/fluence/tree/master/vm/examples`.
 //!
 
-#![doc(html_root_url = "https://docs.rs/fluence-sdk-macro/0.0.9")]
+#![doc(html_root_url = "https://docs.rs/fluence-sdk-macro/0.0.10")]
 
 extern crate proc_macro;
 mod macro_attr_parser;
@@ -88,6 +88,7 @@ use crate::macro_attr_parser::HandlerAttrs;
 use crate::macro_input_parser::{InputTypeGenerator, ParsedType, ReturnTypeGenerator};
 use proc_macro::TokenStream;
 use quote::quote;
+use syn::spanned::Spanned;
 use syn::{parse::Error, parse_macro_input, ItemFn};
 
 fn invoke_handler_impl(
@@ -104,40 +105,34 @@ fn invoke_handler_impl(
     } = &fn_item;
 
     if let Err(e) = (|| {
-        if decl.inputs.len() != 1 {
-            return Err(Error::new(
-                decl.paren_token.span,
-                "The principal module invocation handler has to have one input param",
-            ));
-        }
         if let Some(constness) = constness {
             return Err(Error::new(
                 constness.span,
-                "The principal module invocation handler has to don't be const",
+                "The main module invocation handler has to don't be const",
             ));
         }
         if let Some(unsafety) = unsafety {
             return Err(Error::new(
                 unsafety.span,
-                "The principal module invocation handler has to don't be unsafe",
+                "The main module invocation handler has to don't be unsafe",
             ));
         }
         if let Some(abi) = abi {
             return Err(Error::new(
                 abi.extern_token.span,
-                "The principal module invocation handler has to don't have custom linkage",
+                "The main module invocation handler has to don't have custom linkage",
             ));
         }
         if !decl.generics.params.is_empty() || decl.generics.where_clause.is_some() {
             return Err(Error::new(
                 decl.fn_token.span,
-                "The principal module invocation handler has to don't have generic params",
+                "The main module invocation handler has to don't have generic params",
             ));
         }
         if let Some(variadic) = decl.variadic {
             return Err(Error::new(
                 variadic.spans[0],
-                "The principal module invocation handler has to don't be variadic",
+                "The main module invocation handler has to don't be variadic",
             ));
         }
         Ok(())
@@ -145,16 +140,36 @@ fn invoke_handler_impl(
         return Err(e);
     }
 
-    let input_type = ParsedType::from_fn_arg(
-        decl.inputs
-            .first()
-            // it is already checked that there is only one input arg
-            .unwrap()
-            .into_value(),
-    )?;
+    let input_type =
+        match decl.inputs.len() {
+            0 => ParsedType::Empty,
+            1 => ParsedType::from_fn_arg(decl.inputs.first().unwrap().into_value())?,
+            _ => return Err(Error::new(
+                decl.inputs.span(),
+                "The main module invocation handler has to don't have more than one input param",
+            )),
+        };
     let output_type = ParsedType::from_return_type(&decl.output)?;
+    if output_type == ParsedType::Empty {
+        return Err(Error::new(
+            decl.output.span(),
+            "The main module invocation handler has to have return type",
+        ));
+    }
 
     let prolog = input_type.generate_fn_prolog();
+    let prolog = match input_type {
+        ParsedType::Empty => quote! {
+            #prolog
+
+            let result = #ident();
+        },
+        _ => quote! {
+            #prolog
+
+            let result = #ident(arg);
+        },
+    };
     let epilog = output_type.generate_fn_epilog();
 
     let attrs = syn::parse2::<HandlerAttrs>(attr)?;
@@ -177,8 +192,6 @@ fn invoke_handler_impl(
 
                     #prolog
 
-                    let result = #ident(arg);
-
                     #epilog
                 }
             }
@@ -189,8 +202,6 @@ fn invoke_handler_impl(
             #[no_mangle]
             pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
                 #prolog
-
-                let result = #ident(arg);
 
                 #epilog
             }
