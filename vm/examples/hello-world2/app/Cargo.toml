@@ -1,13 +1,12 @@
 [package]
-name = "hello_user2"
-version = "0.1.1"
-authors = ["Fluence Labs"]
+name = "hello_world2"
+version = "0.1.0"
 publish = false
 description = "Just a demo application for Fluence with logging ability"
 edition = "2018"
 
 [lib]
-name = "hello_user2"
+name = "hello_world2"
 path = "src/lib.rs"
 crate-type = ["cdylib"]
 

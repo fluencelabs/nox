@@ -34,7 +34,7 @@ lazy val vm = (project in file("vm"))
     ),
     test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(compile in `vm-counter`)
-      .dependsOn(compile in `vm-hello-user`)
+      .dependsOn(compile in `vm-hello-world`)
       .dependsOn(compile in `vm-llamadb`)
       .value
   )
@@ -45,17 +45,17 @@ lazy val `vm-counter` = (project in file("vm/examples/counter"))
     rustVmExample("counter")
   )
 
-lazy val `vm-hello-user` = (project in file("vm/examples/hello-user"))
+lazy val `vm-hello-world` = (project in file("vm/examples/hello-world"))
   .settings(
     rustVmExample("hello-user")
   )
 
-lazy val `vm-hello-user2` = (project in file("vm/examples/hello-user2/app"))
+lazy val `vm-hello-world2` = (project in file("vm/examples/hello-world2/app"))
   .settings(
-    rustVmExample("hello-user2/app")
+    rustVmExample("hello-world2/app")
   )
 
-lazy val `vm-hello-user2-runner` = (project in file("vm/examples/hello-user2/runner"))
+lazy val `vm-hello-user2-runner` = (project in file("vm/examples/hello-world2/runner"))
   .configs(IntegrationTest)
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
   .settings(
@@ -68,7 +68,7 @@ lazy val `vm-hello-user2-runner` = (project in file("vm/examples/hello-user2/run
       cryptoHashing,
     )
   )
-  .dependsOn(vm, `vm-hello-user2`)
+  .dependsOn(vm, `vm-hello-world2`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))

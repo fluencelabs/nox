@@ -25,14 +25,14 @@ import scala.language.{higherKinds, implicitConversions}
 // TODO: to run this test from IDE It needs to build vm-hello-user project explicitly at first
 class HelloUserIntegrationTest extends AppIntegrationTest with EitherValues {
 
-  private val helloUserFilePath =
-    getModuleDirPrefix() + "/examples/hello-user/target/wasm32-unknown-unknown/release/hello_user.wasm"
+  private val helloWorldFilePath =
+    getModuleDirPrefix() + "/examples/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm"
 
   "hello user app" should {
 
     "be able to instantiate" in {
       (for {
-        vm ← WasmVm[IO](NonEmptyList.one(helloUserFilePath))
+        vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath))
         state ← vm.getVmState[IO].toVmError
 
       } yield {
@@ -44,24 +44,24 @@ class HelloUserIntegrationTest extends AppIntegrationTest with EitherValues {
 
     "greets John correctly" in {
       (for {
-        vm ← WasmVm[IO](NonEmptyList.one(helloUserFilePath))
+        vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath))
         greetingResult ← vm.invoke[IO](None, "John".getBytes())
         state ← vm.getVmState[IO].toVmError
 
       } yield {
-        checkTestResult(greetingResult, "Hello from Fluence to John")
+        checkTestResult(greetingResult, "Hello, world! From user John")
       }).success()
 
     }
 
     "operates correctly with empty input" in {
       (for {
-        vm ← WasmVm[IO](NonEmptyList.one(helloUserFilePath))
+        vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath))
         greetingResult ← vm.invoke[IO](None)
         state ← vm.getVmState[IO].toVmError
 
       } yield {
-        checkTestResult(greetingResult, "Hello from Fluence to")
+        checkTestResult(greetingResult, "Hello, world! From user")
       }).success()
 
     }

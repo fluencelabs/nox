@@ -36,8 +36,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "hello_user2"
-version = "0.1.1"
+name = "hello_world2"
+version = "0.1.0"
 dependencies = [
  "fluence 0.0.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
