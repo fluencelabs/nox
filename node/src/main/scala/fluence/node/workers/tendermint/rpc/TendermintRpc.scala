@@ -16,6 +16,7 @@
 
 package fluence.node.workers.tendermint.rpc
 
+import cats.Functor
 import cats.data.EitherT
 import cats.effect.{Concurrent, Resource, Sync}
 import cats.syntax.either._
@@ -24,7 +25,8 @@ import com.softwaremill.sttp._
 import com.softwaremill.sttp.circe.asJson
 import cats.syntax.applicativeError._
 import fluence.node.MakeResource
-import fluence.node.workers.tendermint.status.StatusResponse
+import fluence.node.workers.status.{HttpCheckFailed, HttpCheckStatus, HttpStatus}
+import fluence.node.workers.tendermint.status.{StatusResponse, TendermintStatus}
 import io.circe.generic.semiauto._
 import io.circe.{Encoder, Json}
 
@@ -39,7 +41,7 @@ import scala.language.higherKinds
  */
 case class TendermintRpc[F[_]] private (
   sinkRpc: fs2.Sink[F, TendermintRpc.Request],
-  status: EitherT[F, Throwable, StatusResponse.WorkerTendermintInfo]
+  status: EitherT[F, Throwable, TendermintStatus]
 ) {
 
   val broadcastTxCommit: fs2.Sink[F, String] =
@@ -55,6 +57,15 @@ case class TendermintRpc[F[_]] private (
   def callRpc(req: TendermintRpc.Request)(implicit F: Concurrent[F]): F[Unit] =
     fs2.Stream(req).to(sinkRpc).compile.drain
 
+  /**
+   * Performs http status check, lifting result to [[HttpStatus]] data type
+   *
+   */
+  def httpStatus(implicit F: Functor[F]): F[HttpStatus[TendermintStatus]] =
+    status.value.map {
+      case Right(info) ⇒ HttpCheckStatus(info)
+      case Left(err) ⇒ HttpCheckFailed(err)
+    }
 }
 
 object TendermintRpc {
@@ -85,7 +96,7 @@ object TendermintRpc {
 
   private def status[F[_]: Sync](
     uri: Uri
-  )(implicit sttpBackend: SttpBackend[F, Nothing]): EitherT[F, Throwable, StatusResponse.WorkerTendermintInfo] =
+  )(implicit sttpBackend: SttpBackend[F, Nothing]): EitherT[F, Throwable, TendermintStatus] =
     EitherT {
       sttp
         .get(uri)

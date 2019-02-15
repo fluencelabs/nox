@@ -17,7 +17,7 @@
 package fluence.node.workers
 
 import fluence.node.workers.control.ControlRpc
-import fluence.node.workers.health.WorkerHealth
+import fluence.node.workers.status.WorkerStatus
 import fluence.node.workers.tendermint.rpc.TendermintRpc
 
 import scala.language.higherKinds
@@ -34,7 +34,7 @@ trait Worker[F[_]] {
   def stop: F[Unit]
 
   // Retrieves worker's health
-  def healthReport: F[WorkerHealth]
+  def status: F[WorkerStatus]
 
   // Human readable description of the worker
   def description: String

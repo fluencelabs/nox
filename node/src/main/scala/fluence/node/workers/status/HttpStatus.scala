@@ -14,39 +14,31 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.health
-
-import io.circe.generic.semiauto._
+package fluence.node.workers.status
 import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
 import scala.util.control.NoStackTrace
 
-sealed trait WorkerHealth {
-  def isHealthy: Boolean
-}
+/**
+ * Result of Http check: not performed, check failed, or status of type T is fetched
+ *
+ * @tparam T Success check's data type
+ */
+sealed trait HttpStatus[+T]
 
-object WorkerHealth {
+case class HttpCheckNotPerformed() extends HttpStatus[Nothing]
+
+case class HttpCheckFailed(cause: Throwable) extends HttpStatus[Nothing]
+
+case class HttpCheckStatus[+T](data: T) extends HttpStatus[T]
+
+object HttpStatus {
   private implicit val encodeThrowable: Encoder[Throwable] = Encoder[String].contramap(_.getLocalizedMessage)
 
   private implicit val decodeThrowable: Decoder[Throwable] =
     Decoder[String].map(s => new Exception(s) with NoStackTrace)
 
-  implicit val encoderWorkerInfo: Encoder[WorkerHealth] = deriveEncoder
-  implicit val decoderWorkerInfo: Decoder[WorkerHealth] = deriveDecoder
+  implicit def httpStatusEncoder[T: Encoder]: Encoder[HttpStatus[T]] = deriveEncoder
+  implicit def httpStatusDecoder[T: Decoder]: Decoder[HttpStatus[T]] = deriveDecoder
 }
-
-sealed trait WorkerHealthy extends WorkerHealth {
-  override def isHealthy: Boolean = true
-}
-
-sealed trait WorkerIll extends WorkerHealth {
-  override def isHealthy: Boolean = false
-}
-
-case class WorkerRunning(uptime: Long, info: RunningWorkerInfo) extends WorkerHealthy
-
-case class WorkerNotYetLaunched(info: StoppedWorkerInfo) extends WorkerIll
-
-case class WorkerContainerNotRunning(info: StoppedWorkerInfo) extends WorkerIll
-
-case class WorkerHttpCheckFailed(info: StoppedWorkerInfo, causedBy: Throwable) extends WorkerIll
