@@ -27,8 +27,8 @@ set -eo pipefail
 
 function check_fluence_installed()
 {
-    command -v ./fluence >/dev/null 2>&1 || { 
-        echo >&2 "Can't find ./fluence" 
+    command -v $PWD/fluence >/dev/null 2>&1 || command -v fluence >/dev/null 2>&1 || {
+        echo >&2 "Can't find fluence in PATH or in $PWD"
         exit 1 
     }
 }
@@ -174,6 +174,7 @@ function export_arguments()
         # eth address in `dev` mode Parity with eth
         export OWNER_ADDRESS=0x00a329c0648769a73afac7f9381e08fb43dbea72
         export PRIVATE_KEY=4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
+
         export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
         export PARITY_RESERVED_PEERS='../config/reserved_peers.txt'
         export PARITY_STORAGE='~/.parity/'
@@ -182,6 +183,8 @@ function export_arguments()
         echo "Deploying for $CHAIN chain."
         export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose --reserved-peers=/reserved_peers.txt'
     fi
+
+    export FLUENCE_STORAGE='~/.fluence/'
 }
 
 function start_parity_swarm()
@@ -191,14 +194,14 @@ function start_parity_swarm()
     # todo get rid of all `sleep`
     if [ ! "$(docker ps -q -f name=parity)" ]; then
         echo "Starting Parity container"
-        docker-compose -f parity.yml up -d >/dev/null
+        docker-compose -f parity.yml up -d &>/dev/null
         sleep 15
         echo "Parity container is started"
     fi
 
     if [ ! "$(docker ps -q -f name=swarm)" ]; then
         echo "Starting Swarm container"
-        docker-compose -f swarm.yml up -d >/dev/null
+        docker-compose -f swarm.yml up -d &>/dev/null
         sleep 15
         echo "Swarm container is started"
     fi
@@ -207,7 +210,12 @@ function start_parity_swarm()
 # main function to deploy Fluence
 function deploy()
 {
-    check_fluence_installed
+    # disables docker-compose warnings about orphan services
+    export COMPOSE_IGNORE_ORPHANS=True
+
+    if [ -z "$PROD_DEPLOY" ]; then
+        check_fluence_installed
+    fi
 
     container_update
 
@@ -231,16 +239,15 @@ function deploy()
     # status port is hardcoded with `+400` thing
     export STATUS_PORT=$((LAST_PORT+400))
 
-    # check all variables exists
-    echo "CONTRACT_ADDRESS="$CONTRACT_ADDRESS
-    echo "NAME="$NAME
-    echo "PORTS="$PORTS
-    echo "HOST_IP="$HOST_IP
-    echo "EXTERNAL_HOST_IP="$EXTERNAL_HOST_IP
-    echo "OWNER_ADDRESS="$OWNER_ADDRESS
-
-    # port for status API
-    echo "STATUS_PORT="$STATUS_PORT
+    echo "
+    CONTRACT_ADDRESS=$CONTRACT_ADDRESS
+    NAME=$NAME
+    PORTS=$PORTS
+    HOST_IP=$HOST_IP
+    EXTERNAL_HOST_IP=$EXTERNAL_HOST_IP
+    OWNER_ADDRESS=$OWNER_ADDRESS
+    STATUS_PORT=$STATUS_PORT
+    "
 
     # uses for multiple deploys if needed
     COUNTER=1
@@ -248,10 +255,10 @@ function deploy()
     # starting node container
     # if there was `multiple` flag on the running script, will be created 4 nodes, otherwise one node
     if [ "$1" = "multiple" ]; then
-        docker-compose -f multiple-node.yml up -d --force-recreate >/dev/null
+        docker-compose -f multiple-node.yml up -d --force-recreate &>/dev/null
         NUMBER_OF_NODES=4
     else
-        docker-compose -f node.yml up -d --force-recreate >/dev/null
+        docker-compose -f node.yml up -d --force-recreate &>/dev/null
         NUMBER_OF_NODES=1
     fi
 
@@ -260,20 +267,24 @@ function deploy()
     while [ $COUNTER -le $NUMBER_OF_NODES ]; do
         parse_tendermint_params TENDERMINT_KEY TENDERMINT_NODE_ID
 
-        echo "CURRENT NODE = "$COUNTER
-        echo "TENDERMINT_KEY="$TENDERMINT_KEY
-        echo "TENDERMINT_NODE_ID="$TENDERMINT_NODE_ID
-
         # use hardcoded ports for multiple nodes
         if [ "$1" = "multiple" ]; then
             START_PORT="2"$COUNTER"000"
             LAST_PORT="2"$COUNTER"010"
         fi
 
-        echo "START_PORT="$START_PORT
-        echo "LAST_PORT="$LAST_PORT
+        if [ $NUMBER_OF_NODES -gt 1 ]; then
+            CURRENT_NODE_MSG="CURRENT NODE = $COUNTER"
+        fi
 
-        echo "Registering node in smart contract:"
+        echo "    $CURRENT_NODE_MSG
+    TENDERMINT_KEY=$TENDERMINT_KEY
+    TENDERMINT_NODE_ID=$TENDERMINT_NODE_ID
+    START_PORT=$START_PORT
+    LAST_PORT=$LAST_PORT
+
+    Registering node in smart contract...
+        "
 
         # registers node in Fluence contract, for local usage
         if [ -z "$PROD_DEPLOY" ]; then
