@@ -91,7 +91,6 @@ object Configuration extends slogging.LazyLogging {
       _ <- execTendermintCmd[IO]("init", uid)
 
       _ <- IO {
-        tendermintDir.resolve("config").resolve("config.toml").toFile.delete()
         tendermintDir.resolve("config").resolve("genesis.json").toFile.delete()
         tendermintDir.resolve("data").toFile.delete()
       }

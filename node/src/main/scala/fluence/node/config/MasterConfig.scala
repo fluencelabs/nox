@@ -19,6 +19,7 @@ package fluence.node.config
 import cats.effect.IO
 import Configuration.loadConfig
 import fluence.node.docker.DockerImage
+import fluence.node.workers.tendermint.config.TendermintConfig
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
@@ -41,7 +42,8 @@ case class MasterConfig(
   masterContainerId: Option[String],
   worker: DockerImage,
   tendermint: DockerImage,
-  ethereum: EthereumRpcConfig
+  ethereum: EthereumRpcConfig,
+  tendermintConfig: TendermintConfig
 )
 
 object MasterConfig {
