@@ -119,15 +119,17 @@ object Configuration extends slogging.LazyLogging {
     for {
       files <- IO.pure(List("config.toml", "node_key.json", "priv_validator.json"))
       configDir <- IO(tendermintDir.resolve("config"))
+
       r <- IO {
         files.foldLeft((true, false, Iterable.empty[String])) {
+          // All - all files exist, any - any of the files exist, notFound - list of missing files
           case ((all, any, notFound), f) =>
             val exists = configDir.resolve(f).toFile.exists()
             val nf = Some(f).filterNot(_ => exists) ++ notFound
+
             (all && exists, any || exists, nf)
         }
       }
-      // All - all files exist, any - any of the files exist, notFound - list of missing files
       (all, any, notFound) = r
 
       // No files should exist or all files

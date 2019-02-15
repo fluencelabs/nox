@@ -14,7 +14,7 @@
 
 #!/bin/bash
 
-set -e
+set -eo pipefail
 
 # The script uses for deploying Parity, Swarm, and Fluence containers.
 # If `PROD_DEPLOY` is set in env, the script will also expect the following env variables: `NAME`, `PORTS`, `OWNER_ADDRESS`, `PRIVATE_KEY`
@@ -23,6 +23,15 @@ set -e
 
 # `PROD_DEPLOY` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
 #  the network will be started in development mode locally
+
+
+function check_fluence_installed()
+{
+    command -v ./fluence >/dev/null 2>&1 || { 
+        echo >&2 "Can't find ./fluence" 
+        exit 1 
+    }
+}
 
 # generates json with all arguments required for registration a node
 function generate_json()
@@ -98,6 +107,12 @@ function deploy_contract_locally()
     # get last word from script output
     local CONTRACT_ADDRESS=`echo ${RESULT} | awk '{print $NF}'`
     sleep 1
+
+    if [ -n $CONTRACT_ADDRESS ]; then
+        echo >&2 "Contract deployment failed"
+        echo -n >&2 "$RESULT" 
+        exit 1 
+    fi
 
     echo $CONTRACT_ADDRESS
 }
@@ -180,6 +195,8 @@ function start_parity_swarm()
 # main function to deploy Fluence
 function deploy()
 {
+    check_fluence_installed
+
     container_update
 
     # exports initial arguments to global scope for `docker-compose` files
