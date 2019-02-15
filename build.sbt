@@ -47,7 +47,7 @@ lazy val `vm-counter` = (project in file("vm/examples/counter"))
 
 lazy val `vm-hello-world` = (project in file("vm/examples/hello-world"))
   .settings(
-    rustVmExample("hello-user")
+    rustVmExample("hello-world")
   )
 
 lazy val `vm-hello-world2` = (project in file("vm/examples/hello-world2/app"))
@@ -55,7 +55,7 @@ lazy val `vm-hello-world2` = (project in file("vm/examples/hello-world2/app"))
     rustVmExample("hello-world2/app")
   )
 
-lazy val `vm-hello-user2-runner` = (project in file("vm/examples/hello-world2/runner"))
+lazy val `vm-hello-world2-runner` = (project in file("vm/examples/hello-world2/runner"))
   .configs(IntegrationTest)
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
   .settings(
