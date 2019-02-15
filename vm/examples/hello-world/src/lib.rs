@@ -18,6 +18,6 @@
 use fluence::sdk::*;
 
 #[invocation_handler]
-fn main(name: String) -> String {
-    format!("Hello from Fluence to {}", name)
+fn greeting(name: String) -> String {
+    format!("Hello, world! From user {}", name)
 }

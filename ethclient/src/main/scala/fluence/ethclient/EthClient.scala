@@ -187,9 +187,9 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
 object EthClient {
 
   /**
-    * Set timeouts to 90 seconds because a light node can respond slowly.
-    *
-    */
+   * Set timeouts to 90 seconds because a light node can respond slowly.
+   *
+   */
   private def createOkHttpClient = {
     val builder = new OkHttpClient.Builder()
     builder.connectTimeout(90, TimeUnit.SECONDS)
