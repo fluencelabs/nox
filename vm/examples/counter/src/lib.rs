@@ -16,7 +16,7 @@
 
 //! Wrapper for counter (a test for Fluence network).
 //!
-//! Provides the public method `invoke` that increments a counter and returns its updated state.
+//! Provides the FFI (`main`) that can increment a counter and return its updated state.
 
 mod counter;
 use byteorder::{LittleEndian, WriteBytesExt};

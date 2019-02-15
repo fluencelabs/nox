@@ -16,7 +16,7 @@
 
 //! Wrapper for Llamadb (a test for Fluence network).
 //!
-//! Provides the FFI (`invoke`) for work with Llamadb.
+//! Provides the FFI (`main`) for interact with Llamadb.
 
 use fluence::sdk::*;
 
