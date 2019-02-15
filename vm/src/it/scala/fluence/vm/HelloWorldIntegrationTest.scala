@@ -22,8 +22,8 @@ import org.scalatest.EitherValues
 
 import scala.language.{higherKinds, implicitConversions}
 
-// TODO: to run this test from IDE It needs to build vm-hello-user project explicitly at first
-class HelloUserIntegrationTest extends AppIntegrationTest with EitherValues {
+// TODO: to run this test from IDE It needs to build vm-hello-world project explicitly at first
+class HelloWorldIntegrationTest extends AppIntegrationTest with EitherValues {
 
   private val helloWorldFilePath =
     getModuleDirPrefix() + "/examples/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm"

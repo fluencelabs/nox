@@ -22,7 +22,7 @@ import fluence.vm.{VmError, WasmVm}
 import scala.language.higherKinds
 
 /**
-  * A hello-user2 example runner that is an example of possible debugger of `hello_world2` backend application.
+  * A hello-world2 example runner that is an example of possible debugger of `hello_world2` backend application.
   * Internally it creates WasmVm and invokes the application with some parameters. Also can be used as a template for
   * debugging other backend applications.
   */
