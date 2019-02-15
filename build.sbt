@@ -259,12 +259,12 @@ lazy val node = project
          *    docker/
          *      entrypoint.sh
          */
-        copy((resourceDirectory in Compile).value / "docker" / "entrypoint.sh", "/master/")
+        copy((resourceDirectory in Compile).value / "docker" / "entrypoint.sh", "/")
 
         copy(artifact, artifactTargetPath)
 
         cmd("java", "-jar", artifactTargetPath)
-        entryPoint("sh", "/master/entrypoint.sh")
+        entryPoint("sh", "/entrypoint.sh")
       }
     }
   )
