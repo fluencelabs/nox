@@ -112,8 +112,7 @@ object DockerWorker extends LazyLogging {
     for {
       network ← makeNetwork(params)
 
-      // run worker
-      _ ← DockerIO.run[F](dockerCommand(params, network), stopTimeout)
+      worker ← DockerIO.run[F](dockerCommand(params, network), stopTimeout)
 
       tendermint ← DockerTendermint.make[F](params, containerName(params), network, stopTimeout)
 
@@ -121,10 +120,12 @@ object DockerWorker extends LazyLogging {
 
       control = ControlRpc[F](containerName(params), ControlRpcPort)
 
-      workerStatus = worker.check[F].flatMap[ServiceStatus[Unit]] {
-        case d if d.isRunning ⇒ control.status.map(s ⇒ ServiceStatus(d, s))
-        case d ⇒ Applicative[F].pure(ServiceStatus(d, HttpCheckNotPerformed()))
-      }
+      workerStatus = worker
+        .check[F]
+        .flatMap[ServiceStatus[Unit]] {
+          case d if d.isRunning ⇒ control.status.map(s ⇒ ServiceStatus(d, s))
+          case d ⇒ Applicative[F].pure(ServiceStatus(d, HttpCheckNotPerformed()))
+        }
 
       status = Apply[F].map2(tendermint.status(rpc), workerStatus) { (ts, ws) ⇒
         WorkerStatus(
