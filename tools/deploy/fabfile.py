@@ -119,6 +119,8 @@ def deploy():
                 # the script will return command with arguments that will register node in Fluence contract
                 output = run('./compose.sh deploy')
                 meta_data = output.stdout.splitlines()[-1]
+                # JSON line could be marked as hidden by escape-sequence \e[8m, so remove it
+                meta_data = meta_data.replace("\x1b[8m", "").replace("\x1b[0m", "")
                 # parses output as arguments in JSON
                 json_data = json.loads(meta_data)
                 # creates command for registering node

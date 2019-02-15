@@ -194,14 +194,14 @@ function start_parity_swarm()
     # todo get rid of all `sleep`
     if [ ! "$(docker ps -q -f name=parity)" ]; then
         echo "Starting Parity container"
-        docker-compose -f parity.yml up -d &>/dev/null
+        docker-compose -f parity.yml up -d >/dev/null
         sleep 15
         echo "Parity container is started"
     fi
 
     if [ ! "$(docker ps -q -f name=swarm)" ]; then
         echo "Starting Swarm container"
-        docker-compose -f swarm.yml up -d &>/dev/null
+        docker-compose -f swarm.yml up -d >/dev/null
         sleep 15
         echo "Swarm container is started"
     fi
@@ -255,10 +255,10 @@ function deploy()
     # starting node container
     # if there was `multiple` flag on the running script, will be created 4 nodes, otherwise one node
     if [ "$1" = "multiple" ]; then
-        docker-compose -f multiple-node.yml up -d --force-recreate &>/dev/null
+        docker-compose -f multiple-node.yml up -d --force-recreate >/dev/null
         NUMBER_OF_NODES=4
     else
-        docker-compose -f node.yml up -d --force-recreate &>/dev/null
+        docker-compose -f node.yml up -d --force-recreate >/dev/null
         NUMBER_OF_NODES=1
     fi
 
@@ -282,19 +282,18 @@ function deploy()
     TENDERMINT_NODE_ID=$TENDERMINT_NODE_ID
     START_PORT=$START_PORT
     LAST_PORT=$LAST_PORT
-
-    Registering node in smart contract...
         "
 
         # registers node in Fluence contract, for local usage
         if [ -z "$PROD_DEPLOY" ]; then
+            echo "    Registering node in smart contract..."
             REGISTER_COMMAND=$(generate_command)            
             (set -x; eval $REGISTER_COMMAND)
         fi
 
         # generates JSON with all arguments for node registration
         JSON=$(generate_json)
-        echo $JSON
+        echo -e "\e[8m$JSON\e[0m"
 
         COUNTER=$[$COUNTER+1]
         TENDERMINT_KEY=""
