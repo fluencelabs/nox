@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
-//! Debugger for Fluence VM
-
+//! A simple demo application for Fluence.
 use fluence::sdk::*;
 use log::info;
 
-/// Takes the input, prints it out
-#[invocation_handler]
-fn main(arg: String) -> String {
-    info!("invoke input: {}", arg);
-    arg
+fn init() {
+    logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
+}
+
+#[invocation_handler(init_fn = init)]
+fn main(name: String) -> String {
+    info!("{} has been successfully greeted", name);
+    format!("Hello from Fluence to {}", name)
 }

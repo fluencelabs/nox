@@ -51,25 +51,50 @@
 //! can be used.
 //!
 //! Internally this macros creates a new function `invoke` that converts a raw argument to
-//! appropriate format, calls `f` and then converts its result via `memory::write_result_to_mem` from
-//! `fluence_sdk_main`. So to use this crate apart from `fluence` `fluence_sdk_main` has
+//! appropriate format, calls `f` and then converts its result via `memory::write_result_to_mem`
+//! from `fluence_sdk_main`. So to use this crate apart from `fluence` `fluence_sdk_main` has
 //! to be imported.
+//!
+//! The macro also has an `init_fn` attribute that can be used for specifying initialization
+//! function name. This function will be called only at the first invoke function call. It can be
+//! used like this:
+//!
+//! ```
+//! use fluence::sdk::*;
+//!
+//! fn init() -> bool {
+//!     logger::WasmLogger::init_with_level(log::Level::Info).is_ok()
+//! }
+//!
+//! #[invocation_handler(init_fn = init)]
+//! fn main(name: String) -> String {
+//!     info!("{} has been successfully greeted", name);
+//!     format!("Hello from Fluence to {}", name)
+//! }
+//! ```
 //!
 //! # Examples
 //!
 //! Please find more examples in `https://github.com/fluencelabs/fluence/tree/master/vm/examples`.
 //!
 
-extern crate proc_macro;
-mod parser;
+#![doc(html_root_url = "https://docs.rs/fluence-sdk-macro/0.0.10")]
 
-use crate::parser::{InputTypeGenerator, ParsedType, ReturnTypeGenerator};
+extern crate proc_macro;
+mod macro_attr_parser;
+mod macro_input_parser;
+
+use crate::macro_attr_parser::HandlerAttrs;
+use crate::macro_input_parser::{InputTypeGenerator, ParsedType, ReturnTypeGenerator};
 use proc_macro::TokenStream;
 use quote::quote;
+use syn::spanned::Spanned;
 use syn::{parse::Error, parse_macro_input, ItemFn};
 
-#[warn(clippy::redundant_closure_call)]
-fn invoke_handler_impl(fn_item: &syn::ItemFn) -> syn::Result<proc_macro2::TokenStream> {
+fn invoke_handler_impl(
+    attr: proc_macro2::TokenStream,
+    fn_item: syn::ItemFn,
+) -> syn::Result<proc_macro2::TokenStream> {
     let ItemFn {
         constness,
         unsafety,
@@ -77,43 +102,37 @@ fn invoke_handler_impl(fn_item: &syn::ItemFn) -> syn::Result<proc_macro2::TokenS
         ident,
         decl,
         ..
-    } = fn_item;
+    } = &fn_item;
 
     if let Err(e) = (|| {
-        if decl.inputs.len() != 1 {
-            return Err(Error::new(
-                decl.paren_token.span,
-                "The principal module invocation handler has to have one input param",
-            ));
-        }
         if let Some(constness) = constness {
             return Err(Error::new(
                 constness.span,
-                "The principal module invocation handler has to don't be const",
+                "The main module invocation handler has to don't be const",
             ));
         }
         if let Some(unsafety) = unsafety {
             return Err(Error::new(
                 unsafety.span,
-                "The principal module invocation handler has to don't be unsafe",
+                "The main module invocation handler has to don't be unsafe",
             ));
         }
         if let Some(abi) = abi {
             return Err(Error::new(
                 abi.extern_token.span,
-                "The principal module invocation handler has to don't have custom linkage",
+                "The main module invocation handler has to don't have custom linkage",
             ));
         }
         if !decl.generics.params.is_empty() || decl.generics.where_clause.is_some() {
             return Err(Error::new(
                 decl.fn_token.span,
-                "The principal module invocation handler has to don't have generic params",
+                "The main module invocation handler has to don't have generic params",
             ));
         }
         if let Some(variadic) = decl.variadic {
             return Err(Error::new(
                 variadic.spans[0],
-                "The principal module invocation handler has to don't be variadic",
+                "The main module invocation handler has to don't be variadic",
             ));
         }
         Ok(())
@@ -121,38 +140,80 @@ fn invoke_handler_impl(fn_item: &syn::ItemFn) -> syn::Result<proc_macro2::TokenS
         return Err(e);
     }
 
-    let input_type = ParsedType::from_fn_arg(
-        decl.inputs
-            .first()
-            // it is already checked that there is only one input arg
-            .unwrap()
-            .into_value(),
-    )?;
+    let input_type =
+        match decl.inputs.len() {
+            0 => ParsedType::Empty,
+            1 => ParsedType::from_fn_arg(decl.inputs.first().unwrap().into_value())?,
+            _ => return Err(Error::new(
+                decl.inputs.span(),
+                "The main module invocation handler has to don't have more than one input param",
+            )),
+        };
     let output_type = ParsedType::from_return_type(&decl.output)?;
+    if output_type == ParsedType::Empty {
+        return Err(Error::new(
+            decl.output.span(),
+            "The main module invocation handler has to have return type",
+        ));
+    }
 
     let prolog = input_type.generate_fn_prolog();
-    let epilog = output_type.generate_fn_epilog();
+    let prolog = match input_type {
+        ParsedType::Empty => quote! {
+            #prolog
 
-    let resulted_invoke = quote! {
-        #fn_item
-
-        #[no_mangle]
-        pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
+            let result = #ident();
+        },
+        _ => quote! {
             #prolog
 
             let result = #ident(arg);
-
-            #epilog
-        }
+        },
     };
+    let epilog = output_type.generate_fn_epilog();
 
+    let attrs = syn::parse2::<HandlerAttrs>(attr)?;
+    let raw_init_fn_name = attrs.init_fn_name();
+
+    let resulted_invoke = match raw_init_fn_name {
+        Some(init_fn_name) => {
+            let init_fn_name = syn::parse_str::<syn::Ident>(init_fn_name)?;
+            quote! {
+                #fn_item
+
+                static mut IS_INITED: bool = false;
+
+                #[no_mangle]
+                pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
+                        if !IS_INITED {
+                            #init_fn_name();
+                            unsafe { IS_INITED = true; }
+                        }
+
+                    #prolog
+
+                    #epilog
+                }
+            }
+        },
+        None => quote! {
+            #fn_item
+
+            #[no_mangle]
+            pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
+                #prolog
+
+                #epilog
+            }
+        },
+    };
     Ok(resulted_invoke)
 }
 
 #[proc_macro_attribute]
-pub fn invocation_handler(_attr: TokenStream, input: TokenStream) -> TokenStream {
+pub fn invocation_handler(attr: TokenStream, input: TokenStream) -> TokenStream {
     let fn_item = parse_macro_input!(input as ItemFn);
-    match invoke_handler_impl(&fn_item) {
+    match invoke_handler_impl(attr.into(), fn_item) {
         Ok(v) => v,
         // converts syn:error to proc_macro2::TokenStream
         Err(e) => e.to_compile_error(),

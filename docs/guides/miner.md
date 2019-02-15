@@ -8,7 +8,7 @@
     - [Private nodes](#private-nodes)
     - [Application pinning](#application-pinning)
       - [Mixing pinning and matching](#mixing-pinning-and-matching)
-  - [How to remove a node from the Fluence smart-contract](#how-to-remove-a-node-from-the-fluence-smart-contract)
+  - [How to remove a node from the Fluence smart contract](#how-to-remove-a-node-from-the-fluence-smart-contract)
   - [Tips and tricks](#tips-and-tricks)
 
 # Fluence miner guide
@@ -161,7 +161,7 @@ Please refer to Fluence CLI [README](../../cli/README.md) for more info on insta
 
 ## Private nodes and application pinning
 ### Private nodes
-By default, after you register a node in the Fluence smart-contract, any matching code could be deployed on it. So the node is publici by default.
+By default, after you register a node in the Fluence smart contract, any matching code could be deployed on it. So the node is publici by default.
 
 But if you want to host only your app, there is a way to mark node **private**. That could be to be sure about what apps you're hosting, what's their workload or just to be sure _your_ app gets enough resources to be ran. 
 
@@ -185,7 +185,7 @@ The following command will register a private node:
 
 As suggested by it's name, it's the `--private` flag what's making the registered node a private one.
 
-Now, only apps [published](backend.md) to Fluence smart-contract from your Ethereum address can get deployed on your nodes. **But these apps need to specify nodes they should be hosted on**, that's called **application pinning**.
+Now, only apps [published](backend.md) to Fluence smart contract from your Ethereum address can get deployed on your nodes. **But these apps need to specify nodes they should be hosted on**, that's called **application pinning**.
 
 ### Application pinning
 So, since your nodes are [private](#private-nodes), the application publishing process changes a little: you need to specify IDs of the nodes where you want the application to be hosted. With CLI, that's pretty easy. Assuming you have registered 4 private nodes, and their IDs are:
@@ -214,7 +214,7 @@ _Note that you can pin your app to your both **private** and **public** nodes._ 
 #### Mixing pinning and matching
 The command above is a perfect match, it's pinning the app to four nodes, and also specifies a cluster size of four, so every node hosting the app is directly pinned to it. 
 
-But what if your app requires more nodes than you wish to register? In that case, you can pin your app to any number of nodes, be it just one or a few, and specify a cluster size that you need. Fluence smart-contract will then match your app both against your pinned nodes and available public nodes. The command is almost the same, except the `--cluster_size` requires eight nodes.
+But what if your app requires more nodes than you wish to register? In that case, you can pin your app to any number of nodes, be it just one or a few, and specify a cluster size that you need. Fluence smart contract will then match your app both against your pinned nodes and available public nodes. The command is almost the same, except the `--cluster_size` requires eight nodes.
 ```bash
 ./fluence publish \
             --code_path        /Users/folex/Development/fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm \
@@ -295,8 +295,8 @@ So, assuming contract has just four registered nodes and one app, the `./fluence
 
 You see app's `cluster` is `null`, that means it's not deployed yet, waiting for enough nodes to be available.
 
-## How to remove a node from the Fluence smart-contract
-If you shut down your node, it's not available anymore for any reason, or you just want to stop it hosting apps, you can remove the node from the Fluence smart-contract like this:
+## How to remove a node from the Fluence smart contract
+If you shut down your node, it's not available anymore for any reason, or you just want to stop it hosting apps, you can remove the node from the Fluence smart contract like this:
 ```bash
 ./fluence delete_node \
             --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
@@ -310,6 +310,6 @@ If you shut down your node, it's not available anymore for any reason, or you ju
 CLI has some neat features not described in that guide:
 - Wait until your Ethereum is fully synced
 - Wait until the transaction is included in a block, printing additional info from contract
-- Look at smart-contract `status` via interactive command-line table viewer
+- Look at smart contract `status` via interactive command-line table viewer
 
 All these features are described in [CLI's readme](../../cli/README.md#tips-and-tricks), so take a look!
