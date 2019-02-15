@@ -15,17 +15,22 @@
  */
 
 package fluence.node.workers.control
+import cats.data.EitherT
 import cats.effect.Sync
 import com.softwaremill.sttp.circe._
 import com.softwaremill.sttp.{SttpBackend, sttp, _}
+import fluence.node.workers.status.{HttpCheckFailed, HttpCheckStatus, HttpStatus}
 import fluence.statemachine.control.{DropPeer, GetStatus, Stop}
 import io.circe.Encoder
 import scodec.bits.ByteVector
+import cats.syntax.functor._
+import cats.syntax.flatMap._
 
 import scala.language.higherKinds
 
 /**
  * Implements ControlRPC using JSON over HTTP
+ *
  * @param hostname Hostname to send requests
  * @param port Port to send requests
  */
@@ -34,27 +39,30 @@ class HttpControlRpc[F[_]: Sync](hostname: String, port: Short)(implicit s: Sttp
 
   /**
    * Send a serializable request to the worker's control endpoint
+   *
    * @param request Control RPC request
    * @param path Control RPC path
    */
-  private def send[Req: Encoder](request: Req, path: String): F[Unit] = {
-    import cats.syntax.apply._
-    import cats.syntax.either._
-    import cats.syntax.flatMap._
-    import cats.syntax.functor._
+  private def send[Req: Encoder](request: Req, path: String): EitherT[F, Throwable, String] =
+    EitherT(
+      sttp
+        .body(request)
+        .post(uri"http://$hostname:$port/control/$path")
+        .send()
+        .map(_.body)
+    ).leftMap(msg => new Exception(s"Error sending $request: $msg"): Throwable)
 
-    sttp
-      .body(request)
-      .post(uri"http://$hostname:$port/control/$path")
-      .send()
-      .map(_.body.leftMap(msg => new Exception(s"Error sending $request: $msg"): Throwable))
-      .flatMap(Sync[F].fromEither)
-      .void
-  }
+  override def dropPeer(key: ByteVector): F[Unit] =
+    // TODO handle errors properly
+    send(DropPeer(key), "dropPeer").void.value.flatMap(Sync[F].fromEither)
 
-  override def dropPeer(key: ByteVector): F[Unit] = send(DropPeer(key), "dropPeer")
+  override def status: F[HttpStatus[Unit]] =
+    send(GetStatus(), "status").value.map {
+      case Right(_) ⇒ HttpCheckStatus(())
+      case Left(err) ⇒ HttpCheckFailed(err)
+    }
 
-  override def status(): F[Unit] = send(GetStatus(), "status")
-
-  override def stop(): F[Unit] = send(Stop(), "stop")
+  override def stop: F[Unit] =
+    // TODO handle errors properly
+    send(Stop(), "stop").void.value.flatMap(Sync[F].fromEither)
 }

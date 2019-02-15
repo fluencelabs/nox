@@ -19,7 +19,6 @@ package fluence.node.workers
 import cats.Parallel
 import cats.effect._
 import com.softwaremill.sttp.SttpBackend
-import fluence.node.workers.health.HealthCheckConfig
 
 import scala.language.higherKinds
 
@@ -65,11 +64,11 @@ object WorkersPool {
   /**
    * Build a new [[WorkersPool]]. All workers will be stopped when the pool is released
    */
-  def make[F[_]: ContextShift: Timer, G[_]](healthCheckConfig: HealthCheckConfig = HealthCheckConfig())(
+  def make[F[_]: ContextShift, G[_]]()(
     implicit
     sttpBackend: SttpBackend[F, Nothing],
     F: Concurrent[F],
     P: Parallel[F, G]
   ): Resource[F, WorkersPool[F]] =
-    DockerWorkersPool.make(healthCheckConfig).map(p ⇒ p: WorkersPool[F])
+    DockerWorkersPool.make().map(p ⇒ p: WorkersPool[F])
 }
