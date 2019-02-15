@@ -22,7 +22,7 @@ import com.softwaremill.sttp.{SttpBackend, _}
 import fluence.ethclient.EthClient
 import fluence.node.eth.FluenceContract
 import fluence.node.status.MasterStatus
-import fluence.node.workers.health.WorkerRunning
+import fluence.node.workers.status.WorkerStatus
 import org.scalatest.{Timer ⇒ _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
@@ -54,7 +54,6 @@ class MasterNodeIntegrationSpec
   }
 
   override protected def afterAll(): Unit = {
-    "docker network rm fluence_1_0 fluence_1_1 fluence_2_0 fluence_2_1".! // TODO: remove it after DockerIO.run's resource if fixed
     killGanache()
   }
 
@@ -94,15 +93,15 @@ class MasterNodeIntegrationSpec
     } yield Seq(master1, master2)
   }
 
-  def getRunningWorker(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[Option[WorkerRunning]] =
+  def getRunningWorker(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[Option[WorkerStatus]] =
     IO.suspend {
       getStatus(statusPort).map(
         st ⇒
           st.workers.headOption.flatMap {
-            case w: WorkerRunning =>
+            case w: WorkerStatus if w.isHealthy =>
               Some(w)
             case _ ⇒
-              logger.debug("Trying to get WorkerRunning, but it is not present in status: " + st)
+              logger.debug("Trying to get WorkerRunning, but it is not healthy in status: " + st)
               None
         }
       )
@@ -190,7 +189,7 @@ class MasterNodeIntegrationSpec
             _ = status2 shouldBe defined
             _ = logger.debug("Worker2 running: " + status2)
 
-            appId = status1.value.info.appId
+            appId = status1.value.appId
             _ <- contract.deleteApp[IO](appId)
             _ = logger.debug("App deleted from contract")
 

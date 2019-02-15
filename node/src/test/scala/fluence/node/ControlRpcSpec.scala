@@ -62,7 +62,7 @@ class ControlRpcSpec extends WordSpec with Matchers {
     } yield (server, rpc)
 
     "return OK on status" in {
-      resources.use { case (_, rpc) => rpc.status() }.unsafeRunSync()
+      resources.use { case (_, rpc) => rpc.status }.unsafeRunSync()
     }
 
     "send drop peer" in {
@@ -84,7 +84,7 @@ class ControlRpcSpec extends WordSpec with Matchers {
         case (server, rpc) =>
           for {
             before <- IO.pure(server.signals.stop.unsafeRunTimed(0.seconds))
-            _ <- rpc.stop()
+            _ <- rpc.stop
             after <- IO.pure(server.signals.stop.unsafeRunTimed(0.seconds))
           } yield {
             before should not be defined

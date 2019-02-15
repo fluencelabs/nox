@@ -21,7 +21,7 @@ import fluence.ethclient.data.{Block, Transaction}
 import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.eth.NodeEthState
 import fluence.node.eth.state.{Cluster, WorkerPeer}
-import fluence.node.workers.health.WorkerHealth
+import fluence.node.workers.status.WorkerStatus
 import io.circe.{Decoder, Encoder, KeyDecoder, KeyEncoder}
 import io.circe.generic.semiauto._
 import scodec.bits.ByteVector
@@ -45,7 +45,7 @@ case class MasterStatus(
   uptime: Long,
   nodeConfig: NodeConfig,
   numberOfWorkers: Int,
-  workers: List[WorkerHealth],
+  workers: List[WorkerStatus],
   config: MasterConfig,
   ethState: NodeEthState
 )
