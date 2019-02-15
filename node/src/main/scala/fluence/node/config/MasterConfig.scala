@@ -17,11 +17,13 @@
 package fluence.node.config
 
 import cats.effect.IO
-import Configuration.loadConfig
+import com.typesafe.config.ConfigObject
+import fluence.node.config.Configuration.loadConfig
 import fluence.node.docker.DockerImage
 import fluence.node.workers.tendermint.config.TendermintConfig
-import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.{Decoder, Encoder}
+import pureconfig.ConfigReader
 
 /**
  * Main config class for master node.
@@ -47,10 +49,18 @@ case class MasterConfig(
 )
 
 object MasterConfig {
+  import pureconfig.generic.auto._
+
   implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder
   implicit val decodeMasterConfig: Decoder[MasterConfig] = deriveDecoder
 
-  import pureconfig.generic.auto._
+  implicit def reader[T: ConfigReader]: ConfigReader[Option[T]] = ConfigReader.fromCursor[Option[T]] { cv =>
+    cv.value match {
+      case co: ConfigObject if co.isEmpty => Right(None)
+      case _ => ConfigReader[T].from(cv).map(Some(_))
+    }
+  }
+
   import ConfigOps._
 
   def load(): IO[MasterConfig] =

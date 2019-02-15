@@ -23,7 +23,7 @@
 ###
 
 # set to fail fast
-set -e
+set -eo pipefail
 
 if [ -z "$TENDERMINT_IP" ]; then
   cat >&2 <<EOF
@@ -36,7 +36,6 @@ fi
 if [ -z "$PORTS" ]; then
   cat >&2 <<EOF
 error: \`-e "PORTS=start:stop"\` was not specified.
-TODO: add more helpful explanation
 EOF
   exit 1
 fi
@@ -49,42 +48,15 @@ EOF
 exit 1
 fi
 
-if [ -z "$ETHEREUM_IP" ]; then
-    ETHEREUM_IP=$TENDERMINT_IP
-fi
+MIN_PORT=${PORTS%:*}
+MAX_PORT=${PORTS#*:}
 
-if [ -n "$SWARM_HOST" ]; then
-    SWARM_HOST="swarm.host = \"$SWARM_HOST\""
-fi
-
-if [ -n "$CONTRACT_ADDRESS" ]; then
-    CONTRACT_ADDRESS="contract.address = \"$CONTRACT_ADDRESS\""
-fi
-
-if [ -n "$OWNER_ADDRESS" ]; then
-    OWNER_ADDRESS="contract.owner-account = \"$OWNER_ADDRESS\""
-fi
-
-# Running master-node.jar, that means running default CMD
 if [ "$3" = "/master-node.jar" ]; then
     CONTAINER_ID=$(cat /proc/1/cpuset)
-    cat > "/master/application.conf" <<EOF
-endpoints {
-  ip = "$TENDERMINT_IP"
-  min-port = ${PORTS%:*}
-  max-port = ${PORTS#*:}
-}
-ethereum {
-  ip = "$ETHEREUM_IP"
-}
-$SWARM_HOST
-root-path = "/master"
-master-container-id = "${CONTAINER_ID#"/docker/"}"
-$CONTRACT_ADDRESS
-$OWNER_ADDRESS
-
-EOF
+    CONTAINER_ID="${CONTAINER_ID#"/docker/"}"
 fi
 
+ln -s /application.conf /master/application.conf
+
 # Execute whatever command is passed as arguments. Usually it's CMD from Dockerfile.
-exec "$@"
+MIN_PORT=$MIN_PORT MAX_PORT=$MAX_PORT CONTAINER_ID=$CONTAINER_ID exec "$@"

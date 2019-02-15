@@ -32,7 +32,10 @@ private[config] object ConfigOps {
         loadedConfig.left.map(
           fs =>
             new IllegalArgumentException(
-              "Can't load or parse configs:\n" + fs.toList.map(f => f.location + " - " + f.description).mkString("\n")
+              "Can't load or parse configs:\n" +
+                fs.toList
+                  .map(f => f.location.map(_.description).getOrElse("<NO LOCATION>") + " - " + f.description)
+                  .mkString("\n")
           )
         )
       )
