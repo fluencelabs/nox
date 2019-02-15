@@ -9,6 +9,12 @@ USAGE="Usage: ./kovan-compose.sh <external-ip> <owner-address> <private-key> <st
 if [ ! $1 = '--help' -a ! $1 = '-h' ]; then
 
     if [ $# -eq 4 ]; then
+
+        if [ ! -f contract.txt ]; then
+            echo "File contract.txt not found!"
+            exit 125
+        fi
+
         export PROD_DEPLOY='true'
         export CHAIN='kovan'
         export NAME='fluence-node-1'
