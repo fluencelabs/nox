@@ -16,4 +16,27 @@
 
 package fluence.node.docker
 
-case class DockerRunStatus(startedAt: Long, isRunning: Boolean)
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+
+import scala.language.higherKinds
+
+sealed trait DockerStatus {
+  def startedAt: Long
+
+  def isRunning: Boolean
+}
+
+case class DockerRunning(startedAt: Long) extends DockerStatus {
+  override def isRunning: Boolean = true
+}
+
+case class DockerStopped(startedAt: Long) extends DockerStatus {
+  override def isRunning: Boolean = false
+}
+
+object DockerStatus {
+
+  implicit val dockerStatusEncoder: Encoder[DockerStatus] = deriveEncoder
+  implicit val dockerStatusDecoder: Decoder[DockerStatus] = deriveDecoder
+}

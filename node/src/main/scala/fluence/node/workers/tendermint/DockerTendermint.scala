@@ -17,12 +17,60 @@
 package fluence.node.workers.tendermint
 import java.nio.file.Path
 
+import cats.Applicative
 import cats.effect._
-import fluence.node.docker.{DockerIO, DockerImage, DockerNetwork, DockerParams}
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import fluence.node.docker._
 import fluence.node.workers.WorkerParams
+import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus}
 import fluence.node.workers.tendermint.config.ConfigTemplate
+import fluence.node.workers.tendermint.rpc.TendermintRpc
+import fluence.node.workers.tendermint.status.TendermintStatus
 
+import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
+
+/**
+ * Tendermint, running within Docker
+ *
+ * @param container Docker container
+ * @param name Docker container's name, to connect to Tendermint via local network
+ */
+case class DockerTendermint(
+  container: DockerIO,
+  name: String
+) {
+
+  private def checkIfDockerRunning[F[_]: Sync: ContextShift](
+    rpc: TendermintRpc[F],
+    dockerStatus: DockerStatus
+  ): F[ServiceStatus[TendermintStatus]] =
+    dockerStatus match {
+      case d if d.isRunning ⇒ rpc.httpStatus.map(s ⇒ ServiceStatus(d, s))
+      case d ⇒ Applicative[F].pure(ServiceStatus(d, HttpCheckNotPerformed()))
+    }
+
+  /**
+   * Service status for this docker + wrapped Tendermint Http service
+   *
+   */
+  def status[F[_]: Sync: ContextShift](rpc: TendermintRpc[F]): F[ServiceStatus[TendermintStatus]] =
+    container.check[F].flatMap(checkIfDockerRunning(rpc, _))
+
+  /**
+   * Launch service status check periodically: first Docker container is examined, then HTTP check is running
+   *
+   * @param rpc Inner Tendermint RPC
+   * @param period Period to check
+   */
+  def periodicalStatus[F[_]: Timer: Sync: ContextShift](
+    rpc: TendermintRpc[F],
+    period: FiniteDuration
+  ): fs2.Stream[F, ServiceStatus[TendermintStatus]] =
+    container.checkPeriodically[F](period).evalMap(checkIfDockerRunning(rpc, _))
+
+}
 
 object DockerTendermint {
   // Internal ports
@@ -89,7 +137,8 @@ object DockerTendermint {
 
     (masterNodeContainerId match {
       case Some(id) =>
-        dockerParams.option("--volumes-from", id)
+        dockerParams
+          .option("--volumes-from", id)
       case None =>
         dockerParams
     }).image(tmImage).daemonRun("node")
@@ -98,7 +147,7 @@ object DockerTendermint {
   /**
    * Worker's Tendermint container's name
    */
-  private[workers] def containerName(params: WorkerParams) =
+  private def containerName(params: WorkerParams) =
     s"${params.appId}_tendermint_${params.currentWorker.index}"
 
   /**
@@ -115,12 +164,12 @@ object DockerTendermint {
     workerName: String,
     network: DockerNetwork,
     stopTimeout: Int
-  ): Resource[F, DockerIO] =
+  ): Resource[F, DockerTendermint] =
     for {
       _ ← Resource.liftF(
         ConfigTemplate.writeConfigs(params.configTemplate, params.app, params.dataPath, workerName)
       )
       container ← DockerIO.run[F](dockerCommand(params, network), stopTimeout)
-    } yield container
+    } yield DockerTendermint(container, containerName(params))
 
 }

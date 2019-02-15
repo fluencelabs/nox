@@ -14,19 +14,16 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.health
+//! A simple demo application for Fluence.
+use fluence::sdk::*;
+use log::info;
 
-import scala.concurrent.duration._
+fn init() {
+    logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
+}
 
-/**
- * Configures the healthcheck process
- *
- * @param period How often to check worker's health
- * @param slide How many checks to slide over
- * @param failOn Worker will be considered dead if ''failOn'' checks within the last ''slide'' ones are failures
- */
-case class HealthCheckConfig(
-  period: FiniteDuration = 10.seconds,
-  slide: Int = 10,
-  failOn: Int = 8
-)
+#[invocation_handler(init_fn = init)]
+fn greeting(name: String) -> String {
+    info!("{} has been successfully greeted", name);
+    format!("Hello, world! From user {}", name)
+}

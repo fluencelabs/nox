@@ -16,14 +16,8 @@
 
 //! A simple demo application for Fluence.
 use fluence::sdk::*;
-use log::info;
 
-fn init() {
-    logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
-}
-
-#[invocation_handler(init_fn = init)]
-fn main(name: String) -> String {
-    info!("{} has been successfully greeted", name);
-    format!("Hello from Fluence to {}", name)
+#[invocation_handler]
+fn greeting(name: String) -> String {
+    format!("Hello, world! From user {}", name)
 }
