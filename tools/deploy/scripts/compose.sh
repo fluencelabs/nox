@@ -177,14 +177,14 @@ function export_arguments()
 
         export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
         export PARITY_RESERVED_PEERS='../config/reserved_peers.txt'
-        export PARITY_STORAGE='~/.parity/'
+        export PARITY_STORAGE="$HOME/.parity/"
         export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
     else
         echo "Deploying for $CHAIN chain."
         export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose --reserved-peers=/reserved_peers.txt'
     fi
 
-    export FLUENCE_STORAGE='~/.fluence/'
+    export FLUENCE_STORAGE="$HOME/.fluence/"
 }
 
 function start_parity_swarm()
