@@ -84,8 +84,8 @@ To check that everything is set up correctly, let's compile some Rust code:
 <no output>
 
 # check test.wasm was created
-~ $ ls -la test.wasm
--rwxr-xr-x 1 user user 834475 Feb  7 08:12 test.wasm
+~ $ ls -lh test.wasm
+-rwxr-xr-x  1 user  user   1.4M Feb 11 11:59 test.wasm
 ```
 
 If everything looks similar, then it's time to create a Rust hello-world project!
