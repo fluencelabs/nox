@@ -20,7 +20,7 @@ if hasattr(env, 'environment'):
     environment = env.environment
 
     # gets deployed contract address from a file
-    file = open("deploy_config.json", "r")
+    file = open("deployment_config.json", "r")
     info_json = file.read().rstrip()
     file.close()
 
