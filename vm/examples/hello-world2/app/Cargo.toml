@@ -1,6 +1,7 @@
 [package]
 name = "hello_world2"
 version = "0.1.0"
+authors = ["Fluence Labs"]
 publish = false
 description = "Just a demo application for Fluence with logging ability"
 edition = "2018"
