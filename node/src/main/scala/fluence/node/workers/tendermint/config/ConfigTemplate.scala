@@ -44,8 +44,8 @@ class ConfigTemplate(srcPath: Path, tendermintConfig: TendermintConfig) extends 
    *    - tendermint configuration in config:
    *        - node_key.json, containing private P2P key
    *        - priv_validator.json, containing validator's private & public keys and it's address
-   *        - genesis.json, generated from [[App.cluster]] and [[App.id]]
-   *        - config.toml, copied from `tpl.srcPath/config.toml` and updated
+   *        - genesis.json, config of the Tendermint blockchain, generated from [[App.cluster]] and [[App.id]]
+   *        - config.toml, main Tendermint config, copied from `srcPath/config.toml` and updated
    */
   def writeConfigs[F[_]: LiftIO: Functor](app: App, dataPath: Path, abciHost: String): F[Unit] =
     (

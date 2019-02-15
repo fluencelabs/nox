@@ -52,10 +52,11 @@ case class StatusAggregator(config: MasterConfig, masterNode: MasterNode[IO], st
   val getStatus: IO[MasterStatus] = {
     val endpoints = config.endpoints
     val ports = s"${endpoints.minPort}:${endpoints.maxPort}"
+
     for {
       currentTime ← timer.clock.monotonic(MILLISECONDS)
       workers ← masterNode.pool.getAll
-      workerInfos ← Traverse[List].traverse(workers)(_.healthReport)
+      workerInfos ← Traverse[List].traverse(workers)(_.status)
       ethState ← masterNode.nodeEth.expectedState
     } yield
       MasterStatus(
@@ -90,15 +91,15 @@ object StatusAggregator extends LazyLogging {
           case GET -> Root / "status" =>
             val response = for {
               status <- sm.getStatus
-              json <- IO(status.asJson.spaces2)
-                .onError({
-                  case e =>
-                    IO(e.printStackTrace())
-                      .map(_ => logger.error(s"Status cannot be generated to JSON. Status: $status"))
-                })
+              json <- IO(status.asJson.spaces2).onError {
+                case e =>
+                  IO(e.printStackTrace())
+                    .map(_ => logger.error(s"Status cannot be serialized to JSON. Status: $status", e))
+              }
               response <- Ok(json)
               _ <- IO(logger.trace("MasterStatus responded successfully"))
             } yield response
+
             response.handleErrorWith { e =>
               val errorMessage = s"Cannot produce MasterStatus response: $e"
               logger.warn(errorMessage)

@@ -20,7 +20,6 @@ import cats.syntax.applicative._
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import com.softwaremill.sttp.SttpBackend
-import fluence.node.workers.health.HealthCheckConfig
 import slogging.LazyLogging
 import cats.instances.list._
 import cats.syntax.applicativeError._
@@ -34,12 +33,10 @@ import scala.language.higherKinds
  * Wraps several [[Worker]]s in a pool, providing running and monitoring functionality.
  *
  * @param workers a storage for running [[Worker]]s, indexed by appIds
- * @param healthCheckConfig see [[HealthCheckConfig]]
  */
-class DockerWorkersPool[F[_]: ContextShift: Timer](
+class DockerWorkersPool[F[_]: ContextShift](
   workers: Ref[F, Map[Long, Worker[F]]],
-  waitStopped: Ref[F, Map[Long, F[Unit]]],
-  healthCheckConfig: HealthCheckConfig
+  waitStopped: Ref[F, Map[Long, F[Unit]]]
 )(
   implicit sttpBackend: SttpBackend[F, Nothing],
   F: Concurrent[F]
@@ -54,7 +51,7 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
       oldWorker = map.get(appId)
       healthy <- oldWorker match {
         case None => F.pure(false)
-        case Some(worker) => worker.healthReport.map(_.isHealthy)
+        case Some(worker) => worker.status.map(_.isHealthy)
       }
     } yield (healthy, oldWorker)
   }
@@ -85,7 +82,6 @@ class DockerWorkersPool[F[_]: ContextShift: Timer](
         DockerWorker
           .make[F](
             params,
-            healthCheckConfig,
             // onStop is called externally, when one wants to stop the worker
             onStop = for {
               // Release the worker resource, triggering resource cleanup
@@ -199,7 +195,7 @@ object DockerWorkersPool {
   /**
    * Build a new [[DockerWorkersPool]]. All workers will be stopped when the pool is released
    */
-  def make[F[_]: ContextShift: Timer, G[_]](healthCheckConfig: HealthCheckConfig)(
+  def make[F[_]: ContextShift, G[_]]()(
     implicit
     sttpBackend: SttpBackend[F, Nothing],
     F: Concurrent[F],
@@ -209,6 +205,6 @@ object DockerWorkersPool {
       for {
         workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
         stoppers ← Ref.of[F, Map[Long, F[Unit]]](Map.empty)
-      } yield new DockerWorkersPool[F](workers, stoppers, HealthCheckConfig())
+      } yield new DockerWorkersPool[F](workers, stoppers)
     }(_.stopAll())
 }

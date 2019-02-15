@@ -16,25 +16,38 @@ from fabric.api import *
 import json
 import utils
 
-# owners and private keys for specific ip addresses
-# todo get this info from some sources
-# TO USE: replace values inside <> with your actual values
-info = {'<ip1>': {'owner': '<eth address1>', 'key': '<private key1>', 'ports': '<from>:<to>'},
-        '<ip2>': {'owner': '<eth address2>', 'key': '<private key2>', 'ports': '<from>:<to>'}}
+if hasattr(env, 'environment'):
+    environment = env.environment
 
-RELEASE="http://dump.bitcheese.net/files/refamix/fluence" #"https://github.com/fluencelabs/fluence/releases/download/untagged-3f7e10bd802b3149036d/fluence-linux-x64"
+    # gets deployed contract address from a file
+    file = open("deployment_config.json", "r")
+    info_json = file.read().rstrip()
+    file.close()
 
-file = open("scripts/contract.txt", "r")
+    info = json.loads(info_json)[environment]
 
-# gets deployed contract address from a file
-contract=file.read().rstrip()
-file.close()
+    contract = info['contract']
 
-# Fluence will be deployed on all hosts from `info`
-env.hosts = info.keys()
+    # Fluence will be deployed on all hosts in an environment from `info.json`
+    nodes = info['nodes']
+else:
+    # gets deployed contract address from a file
+    file = open("instances.json", "r")
+    nodes_json = file.read().rstrip()
+    file.close()
+
+    file = open("scripts/contract.txt", "r")
+    contract=file.read().rstrip()
+    file.close()
+
+    nodes = json.loads(nodes_json)
+
+env.hosts = nodes.keys()
 
 # Set the username
 env.user = "root"
+
+RELEASE="https://github.com/fluencelabs/fluence/releases/download/cli-0.1.2/fluence-cli-0.1.2-linux-x64"
 
 # copies all necessary files for deploying
 def copy_resources():
@@ -50,6 +63,11 @@ def copy_resources():
     put('scripts/swarm.yml', 'scripts/')
     put('config/reserved_peers.txt', 'config/')
 
+# tests connection to all nodes
+# usage as follows: fab test_connections
+@parallel
+def test_connections():
+    run("uname -a")
 
 # comment this annotation to deploy sequentially
 @parallel
@@ -78,9 +96,9 @@ def deploy():
 
         # getting owner and private key from `info` dictionary
         current_host = env.host_string
-        current_owner = info[current_host]['owner']
-        current_key = info[current_host]['key']
-        current_ports = info[current_host]['ports']
+        current_owner = nodes[current_host]['owner']
+        current_key = nodes[current_host]['key']
+        current_ports = nodes[current_host]['ports']
 
         with shell_env(CHAIN=chain,
                        # flag that show to script, that it will deploy all with non-default arguments
@@ -88,6 +106,8 @@ def deploy():
                        CONTRACT_ADDRESS=contract_address,
                        OWNER_ADDRESS=current_owner,
                        PORTS=current_ports,
+                       PARITY_RESERVED_PEERS="../config/reserved_peers.txt",
+                       PARITY_STORAGE="~/.parity",
                        # container name
                        NAME="fluence-node-1",
                        HOST_IP=current_host):
@@ -101,4 +121,3 @@ def deploy():
             command = utils.register_command(json_data, current_key)
             # run `fluence` command
             local(command)
-

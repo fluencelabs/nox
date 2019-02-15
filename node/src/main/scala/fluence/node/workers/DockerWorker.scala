@@ -16,28 +16,26 @@
 
 package fluence.node.workers
 
-import cats.Applicative
+import cats.{Applicative, Apply}
 import cats.effect._
-import cats.effect.concurrent.Ref
 import cats.syntax.functor._
+import cats.syntax.flatMap._
 import com.softwaremill.sttp._
-import fluence.node.MakeResource
-import fluence.node.docker.{DockerIO, DockerNetwork, DockerParams}
+import fluence.node.docker._
 import fluence.node.workers.control.ControlRpc
-import fluence.node.workers.health._
+import fluence.node.workers.status._
 import fluence.node.workers.tendermint.DockerTendermint
 import fluence.node.workers.tendermint.rpc.TendermintRpc
 import slogging.LazyLogging
 
 import scala.language.higherKinds
-import scala.concurrent.duration.MILLISECONDS
 
 /**
  * Single running worker's datatype
  *
  * @param tendermint Tendermint RPC endpoints for the worker
  * @param control Control RPC endpoints for the worker
- * @param healthReportRef a reference to the last healthcheck, updated every time a new healthcheck is being made
+ * @param status Getter for actual Worker's status
  * @param stop stops the worker, should be launched only once
  * @param description human readable description of the Docker Worker
  * @tparam F the effect
@@ -45,14 +43,10 @@ import scala.concurrent.duration.MILLISECONDS
 case class DockerWorker[F[_]] private (
   tendermint: TendermintRpc[F],
   control: ControlRpc[F],
-  private val healthReportRef: Ref[F, WorkerHealth],
+  status: F[WorkerStatus],
   stop: F[Unit],
   description: String
-) extends Worker[F] {
-
-  // Getter for the last healthcheck
-  val healthReport: F[WorkerHealth] = healthReportRef.get
-}
+) extends Worker[F]
 
 object DockerWorker extends LazyLogging {
   val SmPrometheusPort: Short = 26661
@@ -82,53 +76,6 @@ object DockerWorker extends LazyLogging {
     s"${params.appId}_worker_${params.currentWorker.index}"
 
   /**
-   * For each successful container's status check, runs HTTP request for Tendermint status, and provides a WorkerHealth report
-   * TODO: we have [[HealthCheckConfig.slide]] to act only when a defined fraction of last healthchecks failed. However, we don't use it
-   * as we currently have no behavior definition for worker's failure: we don't try to restart it, nor we stop it.
-   *
-   * @param container Running Worker container
-   * @param params Worker params to include into WorkerHealth object
-   * @param healthCheckConfig See [[HealthCheckConfig]]
-   * @param rpc Tendermint RPC
-   * @tparam F Effect
-   * @return Stream of periodical health reports
-   */
-  private def healthCheckStream[F[_]: Timer: Sync: ContextShift](
-    container: DockerIO,
-    params: WorkerParams,
-    healthCheckConfig: HealthCheckConfig,
-    rpc: TendermintRpc[F]
-  ): fs2.Stream[F, WorkerHealth] =
-    container
-      .checkPeriodically[F](healthCheckConfig.period)
-      .evalMap(
-        st ⇒
-          // Calculate the uptime
-          Timer[F].clock
-            .realTime(MILLISECONDS)
-            .map(now ⇒ (now - st.startedAt) → st.isRunning)
-      )
-      .evalMap[F, WorkerHealth] {
-        case (uptime, true) ⇒
-          rpc.status.value.map {
-            case Left(err) ⇒
-              logger.error("Worker HTTP check failed: " + err.getLocalizedMessage, err)
-              WorkerHttpCheckFailed(StoppedWorkerInfo(params.currentWorker), err)
-
-            case Right(tendermintInfo) ⇒
-              val info = RunningWorkerInfo(params, tendermintInfo)
-              WorkerRunning(uptime, info)
-          }.map { health ⇒
-            logger.debug(s"HTTP health is: $health")
-            health
-          }
-
-        case (_, false) ⇒
-          logger.error(s"Healthcheck is failing for worker: $params")
-          Applicative[F].pure(WorkerContainerNotRunning(StoppedWorkerInfo(params.currentWorker)))
-      }
-
-  /**
    * Creates new docker network and connects node to that network
    *
    * @param params used for docker network name generation
@@ -148,16 +95,14 @@ object DockerWorker extends LazyLogging {
    * Makes a single worker that runs once resource is in use
    *
    * @param params Worker's running params
-   * @param healthCheckConfig see [[HealthCheckConfig]]
    * @param onStop A callback to launch when this worker is stopped
    * @param stopTimeout Timeout in seconds to allow graceful stopping of running containers.
    *                    It might take up to 2*`stopTimeout` seconds to gracefully stop the worker, as 2 containers involved.
    * @param sttpBackend Sttp Backend to launch HTTP healthchecks and RPC endpoints
    * @return the [[Worker]] instance
    */
-  def make[F[_]: ContextShift: Timer](
+  def make[F[_]: ContextShift](
     params: WorkerParams,
-    healthCheckConfig: HealthCheckConfig,
     onStop: F[Unit],
     stopTimeout: Int
   )(
@@ -165,10 +110,6 @@ object DockerWorker extends LazyLogging {
     F: Concurrent[F]
   ): Resource[F, Worker[F]] =
     for {
-      healthReportRef ← MakeResource.refOf[F, WorkerHealth](
-        WorkerNotYetLaunched(StoppedWorkerInfo(params.currentWorker))
-      )
-
       network ← makeNetwork(params)
 
       // run worker
@@ -176,17 +117,25 @@ object DockerWorker extends LazyLogging {
 
       tendermint ← DockerTendermint.make[F](params, containerName(params), network, stopTimeout)
 
-      rpc ← TendermintRpc.make[F](DockerTendermint.containerName(params), DockerTendermint.RpcPort)
-
-      healthChecks = healthCheckStream(tendermint, params, healthCheckConfig, rpc)
-
-      // Runs health checker, wrapped with resource:
-      // health check will be stopped when the resource is released.
-      _ ← MakeResource
-        .concurrentStream[F](healthChecks.evalTap(healthReportRef.set), s"healthChecks stream ${params.appId}")
+      rpc ← TendermintRpc.make[F](tendermint.name, DockerTendermint.RpcPort)
 
       control = ControlRpc[F](containerName(params), ControlRpcPort)
 
-    } yield new DockerWorker[F](rpc, control, healthReportRef, onStop, params.toString)
+      workerStatus = worker.check[F].flatMap[ServiceStatus[Unit]] {
+        case d if d.isRunning ⇒ control.status.map(s ⇒ ServiceStatus(d, s))
+        case d ⇒ Applicative[F].pure(ServiceStatus(d, HttpCheckNotPerformed()))
+      }
+
+      status = Apply[F].map2(tendermint.status(rpc), workerStatus) { (ts, ws) ⇒
+        WorkerStatus(
+          isHealthy = ts.isOk(_.sync_info.latest_block_height > 1) && ws.isOk(),
+          params.appId,
+          params.currentWorker.rpcPort,
+          ts,
+          ws
+        )
+      }
+
+    } yield new DockerWorker[F](rpc, control, status, onStop, params.toString)
 
 }

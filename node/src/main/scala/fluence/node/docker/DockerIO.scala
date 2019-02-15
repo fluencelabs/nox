@@ -40,7 +40,7 @@ case class DockerIO(containerId: String) {
   /**
    * Performs a `docker inspect` command for this container
    */
-  def check[F[_]: Sync: ContextShift]: F[DockerRunStatus] =
+  def check[F[_]: Sync: ContextShift]: F[DockerStatus] =
     DockerIO.checkContainer(containerId)
 
   /**
@@ -50,7 +50,7 @@ case class DockerIO(containerId: String) {
    */
   def checkPeriodically[F[_]: Timer: Sync: ContextShift](
     period: FiniteDuration
-  ): fs2.Stream[F, DockerRunStatus] =
+  ): fs2.Stream[F, DockerStatus] =
     fs2.Stream.emit(containerId) through DockerIO.checkPeriodically(period)
 }
 
@@ -145,7 +145,7 @@ object DockerIO extends LazyLogging {
    */
   def checkPeriodically[F[_]: Timer: Sync: ContextShift](
     period: FiniteDuration
-  ): fs2.Pipe[F, String, DockerRunStatus] =
+  ): fs2.Pipe[F, String, DockerStatus] =
     _.flatMap(
       dockerId ⇒
         fs2.Stream
@@ -162,18 +162,22 @@ object DockerIO extends LazyLogging {
    * @tparam F Effect, monadic error is possible
    * @return DockerRunStatus
    */
-  def checkContainer[F[_]: Sync: ContextShift](dockerId: String): F[DockerRunStatus] = {
+  def checkContainer[F[_]: Sync: ContextShift](dockerId: String): F[DockerStatus] = {
     val format = new ISO8601DateFormat()
     for {
+      // TODO move all the errors to value space. Now if $dockerId is unknown, F will be failed
       status ← shiftDelay(s"docker inspect -f {{.State.Running}},{{.State.StartedAt}} $dockerId".!!)
       timeIsRunning ← Sync[F].catchNonFatal {
         val running :: started :: Nil = status.trim.split(',').toList
 
+        // TODO get any reason of why container is stopped
         logger.debug(s"Docker container $dockerId  status = [$running], startedAt = [$started]")
 
         format.parse(started).getTime → running.contains("true")
       }
       (time, isRunning) = timeIsRunning
-    } yield DockerRunStatus(time, isRunning)
+    } yield
+      if (isRunning) DockerRunning(time)
+      else DockerStopped(time)
   }
 }

@@ -17,6 +17,7 @@
 package fluence.node.workers.control
 import cats.effect.Sync
 import com.softwaremill.sttp._
+import fluence.node.workers.status.HttpStatus
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -28,20 +29,22 @@ abstract class ControlRpc[F[_]] {
 
   /**
    * Request worker to send a vote to Tendermint for removal of a validator
+   *
    * @param key Public key of the Tendermint validator
    */
   def dropPeer(key: ByteVector): F[Unit]
 
   /**
    * Request current worker status
+   *
    * @return Currently if method returned without an error, worker is considered to be healthy
    */
-  def status(): F[Unit]
+  def status: F[HttpStatus[Unit]]
 
   /**
    * Requests worker to stop
    */
-  def stop(): F[Unit]
+  def stop: F[Unit]
 }
 
 object ControlRpc {

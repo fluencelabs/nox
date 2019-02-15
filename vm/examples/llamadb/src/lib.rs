@@ -16,7 +16,7 @@
 
 //! Wrapper for Llamadb (a test for Fluence network).
 //!
-//! Provides the public method (`invoke`) for work with Llamadb.
+//! Provides the FFI (`main`) for interact with Llamadb.
 
 use fluence::sdk::*;
 
@@ -27,43 +27,23 @@ mod tests;
 extern crate lazy_static;
 
 use llamadb::tempdb::{ExecuteStatementResponse, TempDb};
-use log::info;
-use simple_logger;
 use std::error::Error;
 use std::sync::Mutex;
 
 /// Result for all possible Error types.
 type GenResult<T> = ::std::result::Result<T, Box<Error>>;
 
-//
-// FFI for interaction with Llamadb module.
-//
-
-fn init() {
-    if cfg!(target_arch = "wasm32") {
-        logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
-    } else {
-        // use 'Info' log lvl and `cargo test -- --nocapture` for seeing logger output
-        simple_logger::init_with_level(log::Level::Info).unwrap();
-    }
+lazy_static! {
+    static ref DATABASE: Mutex<TempDb> = Mutex::new(TempDb::new());
 }
 
-/// Executes SQL and returns a pointer to result as a string in the memory.
-///
-/// 1. Makes rust String from given pointer and length
-/// 2. Processes the resulted string as a SQL query
-/// 3. Returns a pointer to the result as a string in the memory
-/// 4. Deallocates memory occupied by passed parameter
-#[invocation_handler(init_fn = init)]
+/// Executes SQL and converts llamadb error to string.
+#[invocation_handler]
 fn main(sql_str: String) -> String {
-    let db_response = match run_query(&sql_str) {
+    match run_query(&sql_str) {
         Ok(response) => response,
         Err(err_msg) => format!("[Error] {}", err_msg),
-    };
-
-    info!("llamadb do_query ends with result={:?}", db_response);
-    // return pointer to result in memory
-    db_response
+    }
 }
 
 /// Acquires lock, does query, releases lock, returns query result.
@@ -98,8 +78,4 @@ fn statement_to_string(statement: ExecuteStatementResponse) -> String {
         ExecuteStatementResponse::Explain(result) => result,
         ExecuteStatementResponse::Updated(number) => format!("rows updated: {}", number),
     }
-}
-
-lazy_static! {
-    static ref DATABASE: Mutex<TempDb> = Mutex::new(TempDb::new());
 }
