@@ -46,7 +46,7 @@ $ pip install Fabric==1.14.1
 
 It should install fabric 1.14.1. **Be careful not to install Fabric 2 as it's not current supported.**
 
-Next, open [fluence/tools/deploy/instances.json](../../tools/deploy/instances.json) in your favorite text editor, and modify `config`:
+Next, open [fluence/tools/deploy/instances.json](../../tools/deploy/instances.json) in your favorite text editor, and modify config:
 ```json
 {
     "<ip1>": {

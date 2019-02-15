@@ -94,7 +94,7 @@ function deploy_contract_locally()
     if [ ! -d "node_modules" ]; then
         npm install >/dev/null
     fi
-    RESULT=$(npm run deploy >/dev/null)
+    RESULT=$(npm run deploy)
     # get last word from script output
     local CONTRACT_ADDRESS=`echo ${RESULT} | awk '{print $NF}'`
     sleep 1
@@ -105,10 +105,12 @@ function deploy_contract_locally()
 # updates all needed containers
 function container_update()
 {
+    echo 'Updating all containers.'
     docker pull parity/parity:v2.3.0 >/dev/null
     docker pull ethdevops/swarm:edge >/dev/null
     docker pull fluencelabs/node:latest >/dev/null
     docker pull fluencelabs/worker:latest >/dev/null
+    echo 'Containers are updated.'
 }
 
 # getting node's docker IP address
@@ -158,6 +160,9 @@ function export_arguments()
         export OWNER_ADDRESS=0x00a329c0648769a73afac7f9381e08fb43dbea72
         export PRIVATE_KEY=4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
         export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
+        export PARITY_RESERVED_PEERS='../config/reserved_peers.txt'
+        export PARITY_STORAGE='~/.parity/'
+        export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
     else
         echo "Deploying for $CHAIN chain."
         export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose --reserved-peers=/reserved_peers.txt'
@@ -171,14 +176,14 @@ function start_parity_swarm()
     # todo get rid of all `sleep`
     if [ ! "$(docker ps -q -f name=parity)" ]; then
         echo "Starting Parity container"
-        docker-compose --log-level CRITICAL -f parity.yml up -d >/dev/null
+        docker-compose -f parity.yml up -d >/dev/null
         sleep 15
         echo "Parity container is started"
     fi
 
     if [ ! "$(docker ps -q -f name=swarm)" ]; then
         echo "Starting Swarm container"
-        docker-compose --log-level CRITICAL -f swarm.yml up -d >/dev/null
+        docker-compose -f swarm.yml up -d >/dev/null
         sleep 15
         echo "Swarm container is started"
     fi
@@ -226,10 +231,10 @@ function deploy()
     # starting node container
     # if there was `multiple` flag on the running script, will be created 4 nodes, otherwise one node
     if [ "$1" = "multiple" ]; then
-        docker-compose --log-level CRITICAL -f multiple-node.yml up -d --force-recreate >/dev/null
+        docker-compose -f multiple-node.yml up -d --force-recreate >/dev/null
         NUMBER_OF_NODES=4
     else
-        docker-compose --log-level CRITICAL -f node.yml up -d --force-recreate >/dev/null
+        docker-compose -f node.yml up -d --force-recreate >/dev/null
         NUMBER_OF_NODES=1
     fi
 

@@ -16,7 +16,7 @@ from fabric.api import *
 import json
 import utils
 
-if hasattr(env, 'attr_name'):
+if hasattr(env, 'environment'):
     environment = env.environment
 
     # gets deployed contract address from a file
