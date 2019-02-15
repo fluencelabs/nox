@@ -63,6 +63,7 @@ case class TendermintConfig(
 
   /**
    * Takes Tendermint config in TOML at `src` and writes updated config to `dst`
+   *
    * @param src Path to Tendermint TOML config
    * @param dst Path to save updated Tendermint TOML config
    * @param workerPeerAddress Tendermint p2p peer address, i.e., [[fluence.node.eth.state.WorkerPeer.peerAddress]]
