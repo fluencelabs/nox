@@ -106,6 +106,8 @@ def deploy():
                        CONTRACT_ADDRESS=contract_address,
                        OWNER_ADDRESS=current_owner,
                        PORTS=current_ports,
+                       PARITY_RESERVED_PEERS="../config/reserved_peers.txt",
+                       PARITY_STORAGE="~/.parity",
                        # container name
                        NAME="fluence-node-1",
                        HOST_IP=current_host):

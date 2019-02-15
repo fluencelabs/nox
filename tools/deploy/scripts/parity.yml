@@ -9,7 +9,8 @@ services:
       - 8180:8180
       - 8080:8080
       - 8546:8546
-    command: $PARITY_ARGS
+    command: $PARITY_ARGS --base-path=/home/parity/.local
     volumes:
       - $PARITY_RESERVED_PEERS:/reserved_peers.txt
       - $PARITY_STORAGE:/home/parity/.local/
+    user: root
