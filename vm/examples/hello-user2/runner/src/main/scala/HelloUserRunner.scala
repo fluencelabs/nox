@@ -22,10 +22,10 @@ import fluence.vm.{VmError, WasmVm}
 import scala.language.higherKinds
 
 /**
-  * A hello-user2 example runner that is an example of possible debugger of `hello-user2` backend application.
-  * Internally it creates WasmVm and invokes the application with some parameters. Also can be used as a template for
-  * debugging other backend applications.
-  */
+ * A hello-user2 example runner that is an example of possible debugger of `hello-user2` backend application.
+ * Internally it creates WasmVm and invokes the application with some parameters. Also can be used as a template for
+ * debugging other backend applications.
+ */
 object HelloUserRunner extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] = {
@@ -55,7 +55,7 @@ object HelloUserRunner extends IOApp {
         result2=Hello from Fluence to
         result3=Hello from Fluence to Peter
         finishState=ByteVector(32 bytes, 0x21985fc581505837bc44c21aef9d0ca2538f43064a4475218e374ce8e4ecc329)
-      */
+       */
 
       s"[SUCCESS] Execution Results.\n" +
         s"initState=$initState \n" +
