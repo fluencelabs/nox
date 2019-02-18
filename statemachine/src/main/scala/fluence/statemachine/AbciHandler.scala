@@ -192,7 +192,7 @@ class AbciHandler(
             .setType(DropPeer.KEY_TYPE)
             .setData(ByteString.copyFrom(drop.validatorKey.toArray))
         )
-        .setPower(0) // settings power to zero votes to remove the validator.
+        .setPower(0) // settings power to zero votes to remove the validator
     }
     controlSignals.dropPeers
       .use(
