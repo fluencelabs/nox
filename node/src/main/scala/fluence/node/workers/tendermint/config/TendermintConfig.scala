@@ -21,6 +21,7 @@ import cats.effect.Sync
 import com.electronwill.nightconfig.core.file.FileConfig
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
+import collection.JavaConverters._
 
 import scala.language.higherKinds
 
@@ -48,7 +49,8 @@ case class TendermintConfig(
   skipCommitTimeout: Boolean,
   createEmptyBlocks: Boolean,
   prometheus: Boolean,
-  abciPort: Short
+  abciPort: Short,
+  corsAllowedOrigins: List[String]
 ) {
   private val mapping: Map[String, String] = Map(
     "log_level" -> logLevel,
@@ -59,7 +61,6 @@ case class TendermintConfig(
     "consensus.skip_timeout_commit" -> s"$skipCommitTimeout",
     "consensus.create_empty_blocks" -> s"$createEmptyBlocks",
     "instrumentation.prometheus" -> s"$prometheus",
-    "rpc.cors_allowed_origins" -> "[\"*\"]"
   )
 
   /**
@@ -96,6 +97,9 @@ case class TendermintConfig(
     val updated = properties.foldLeft[FileConfig](config) {
       case (c, (k, v)) => c.set(k, v); c
     }
+
+    updated.set("rpc.cors_allowed_origins", corsAllowedOrigins.asJava)
+
     updated.save()
     updated.close()
 
