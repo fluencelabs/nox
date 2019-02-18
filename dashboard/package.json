@@ -69,6 +69,7 @@
     "tslint": "^5.11.0",
     "tslint-config-unional": "^0.9.6",
     "tslint-react": "3.6.0",
+    "typechain": "0.3.10",
     "typescript": "^3.1.1",
     "web3-typescript-typings": "0.10.2",
     "webpack": "4.16.1",
