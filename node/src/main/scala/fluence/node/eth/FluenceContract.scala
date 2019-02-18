@@ -34,7 +34,6 @@ import org.web3j.protocol.core.methods.request.{EthFilter, SingleAddressEthFilte
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
 
 import scala.collection.JavaConverters._
-import scala.concurrent.duration._
 import scala.language.higherKinds
 
 /**
@@ -164,7 +163,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
   private[eth] def getAppDeleted[F[_]: ConcurrentEffect: Timer]: fs2.Stream[F, Uint256] =
     fs2.Stream
       .eval(eventFilter[F](APPDELETED_EVENT))
-      .flatMap(filter ⇒ contract.appDeletedEventFlowable(filter).toStreamRetrying[F](1.second))
+      .flatMap(filter ⇒ contract.appDeletedEventFlowable(filter).toStreamRetrying[F]())
       .map(_.appID)
 
   /**
@@ -176,7 +175,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
   private[eth] def getNodeDeleted[F[_]: ConcurrentEffect: Timer]: fs2.Stream[F, Bytes32] =
     fs2.Stream
       .eval(eventFilter[F](NODEDELETED_EVENT))
-      .flatMap(filter ⇒ contract.nodeDeletedEventFlowable(filter).toStreamRetrying[F](1.second))
+      .flatMap(filter ⇒ contract.nodeDeletedEventFlowable(filter).toStreamRetrying[F]())
       .map(_.id)
 
 }

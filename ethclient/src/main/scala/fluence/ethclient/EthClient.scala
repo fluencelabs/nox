@@ -123,6 +123,9 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
   /**
    * Provides a stream of newly received blocks, with no transaction objects included
    *
+   * @param onErrorRetryAfter In case the web3 stream is terminated, restart it after this timeout
+   * @param fullTransactionObjects if true, provides transactions embedded in blocks, otherwise
+   *                                    transaction hashes
    * @tparam F Effect
    * @return Stream of Raw Responses (if provided) and delayed Block data class (to avoid parsing it if it's not necessary)
    */

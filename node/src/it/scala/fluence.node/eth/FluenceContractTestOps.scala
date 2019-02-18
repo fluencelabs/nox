@@ -60,7 +60,7 @@ object FluenceContractTestOps {
           new Uint16(endPort),
           nodeConfig.isPrivateBool
         )
-        .call[F]
+        .callUntilSuccess[F]
         .map(_.getBlockNumber)
         .map(BigInt(_))
 
