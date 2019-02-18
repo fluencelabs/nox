@@ -111,8 +111,7 @@ By example for some setup the following command:
 
 ```bash
 $ fluence publish \
-            --code_path        fluence/vm/examples/hello-user/target/wasm32-unknown-unknown/release/hello-user.wasm \
-            --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
+            --code_path        fluence/vm/examples/hello-user/target/wasm32-unknown-unknown/release/hello-user.wasm \            
             --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
             --cluster_size     4 \
             --secret_key       0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133

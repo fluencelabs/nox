@@ -123,8 +123,8 @@ function container_update()
     echo 'Updating all containers.'
     docker pull parity/parity:v2.3.0 >/dev/null
     docker pull ethdevops/swarm:edge >/dev/null
-    docker pull fluencelabs/node:latest >/dev/null
-    docker pull fluencelabs/worker:latest >/dev/null
+    docker pull fluencelabs/node:v0.1.3 >/dev/null
+    docker pull fluencelabs/worker:v0.1.3 >/dev/null
     echo 'Containers are updated.'
 }
 

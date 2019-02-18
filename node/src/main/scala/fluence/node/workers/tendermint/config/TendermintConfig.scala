@@ -48,7 +48,8 @@ case class TendermintConfig(
   skipCommitTimeout: Boolean,
   createEmptyBlocks: Boolean,
   prometheus: Boolean,
-  abciPort: Short
+  abciPort: Short,
+  corsAllowedOrigins: Seq[String]
 ) {
   private val mapping: Map[String, String] = Map(
     "log_level" -> logLevel,
@@ -95,6 +96,10 @@ case class TendermintConfig(
     val updated = properties.foldLeft[FileConfig](config) {
       case (c, (k, v)) => c.set(k, v); c
     }
+
+    import collection.JavaConverters._
+    updated.set("rpc.cors_allowed_origins", corsAllowedOrigins.asJava)
+
     updated.save()
     updated.close()
 
