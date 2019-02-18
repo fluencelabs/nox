@@ -265,7 +265,7 @@ lazy val node = project
         copy(artifact, artifactTargetPath)
 
         cmd("java", "-jar", artifactTargetPath)
-        entryPoint("sh", "/entrypoint.sh")
+        entryPoint("sh", "/master/entrypoint.sh")
       }
     }
   )
