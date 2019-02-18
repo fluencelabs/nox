@@ -102,6 +102,9 @@ matrix:
       before_script:
         - cd cli
 
+      env:
+        - RUST_TEST_THREADS=1
+
       script:
         - pushd ../bootstrap
         - npm install
