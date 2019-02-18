@@ -26,12 +26,12 @@ import scala.language.higherKinds
 
 /**
  * Sink and source for control events
- * @param dropPeersRef Holds a list of DropPeer events
+ * @param dropPeersRef Holds a set of DropPeer events. NOTE: since Tendermint 0.30.0 Validator set updates must be unique by pub key.
  * @param stopRef Deferred holding stop signal, completed when the worker should stop
  * @tparam F Effect
  */
 class ControlSignals[F[_]: FlatMap] private (
-  private val dropPeersRef: MVar[F, List[DropPeer]],
+  private val dropPeersRef: MVar[F, Set[DropPeer]],
   private val stopRef: Deferred[F, Unit]
 ) {
 
@@ -41,7 +41,7 @@ class ControlSignals[F[_]: FlatMap] private (
   private[control] def dropPeer(drop: DropPeer): F[Unit] =
     for {
       changes <- dropPeersRef.take
-      _ <- dropPeersRef.put(drop +: changes)
+      _ <- dropPeersRef.put(changes + drop)
     } yield ()
 
   /**
@@ -50,8 +50,8 @@ class ControlSignals[F[_]: FlatMap] private (
    * Using Resource this way guarantees exclusive access to data
    * @return Resource with List of DropPeer signals
    */
-  val dropPeers: Resource[F, List[DropPeer]] =
-    Resource.make(dropPeersRef.tryTake.map(_.toList.flatten))(_ => dropPeersRef.tryPut(Nil).void)
+  val dropPeers: Resource[F, Set[DropPeer]] =
+    Resource.make(dropPeersRef.tryTake.map(_.getOrElse(Set.empty)))(_ => dropPeersRef.tryPut(Set.empty).void)
 
   /**
    * Orders the worker to stop
@@ -74,7 +74,7 @@ object ControlSignals {
   def apply[F[_]: Concurrent](): Resource[F, ControlSignals[F]] =
     Resource.make(
       for {
-        dropPeersRef ← MVar[F].of[List[DropPeer]](Nil)
+        dropPeersRef ← MVar[F].of[Set[DropPeer]](Set.empty)
         stopRef ← Deferred[F, Unit]
         instance = new ControlSignals[F](dropPeersRef, stopRef)
       } yield instance

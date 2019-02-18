@@ -128,7 +128,7 @@ object DockerTendermint {
     val dockerParams = DockerParams
       .build()
       .user("0") // TODO should only work when running from docker?
-      .option("-e", s"""TMHOME=$dataPath""")
+      .option("-e", s"""TMHOME=$tendermintPath""")
       .option("--name", containerName(params))
       .option("--network", network.name)
       .port(currentWorker.p2pPort, P2pPort)
@@ -166,7 +166,7 @@ object DockerTendermint {
   ): Resource[F, DockerTendermint] =
     for {
       _ ← Resource.liftF(
-        params.configTemplate.writeConfigs(params.app, params.dataPath, workerName)
+        params.configTemplate.writeConfigs(params.app, params.tendermintPath, workerName)
       )
       container ← DockerIO.run[F](dockerCommand(params, network), stopTimeout)
     } yield DockerTendermint(container, containerName(params))
