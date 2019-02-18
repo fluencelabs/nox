@@ -71,12 +71,12 @@ object Configuration extends slogging.LazyLogging {
   /**
    * Run `tendermint --init` in container to initialize /master/tendermint with the following configuration files:
    * - config/
-   * -- config.toml - main Tendermint config. Will be updated for each app via [[fluence.node.workers.tendermint.config.TendermintConfig]].
-   * -- genesis.json - Tendermint blockchain config. Will be deleted and generated for each app via [[fluence.node.workers.tendermint.config.GenesisConfig]].
-   * -- node_key.json - p2p key. Copied to app dir as is.
-   * -- priv_validator_key.json - validator key. Copied to app dir as is.
+   *    -- config.toml - main Tendermint config. Will be updated for each app via [[fluence.node.workers.tendermint.config.TendermintConfig]].
+   *    -- genesis.json - Tendermint blockchain config. Will be deleted and generated for each app via [[fluence.node.workers.tendermint.config.GenesisConfig]].
+   *    -- node_key.json - p2p key. Copied to app dir as is.
+   *    -- priv_validator_key.json - validator key. Copied to app dir as is.
    * - data/
-   * -- priv_validator_state.json - empty validator state. Copied to app dir as is.
+   *    -- priv_validator_state.json - empty validator state. Copied to app dir as is.
    *
    * Later, files /master/tendermint are used to run and configure workers
    * TODO move it to DockerTendermint?
@@ -102,7 +102,7 @@ object Configuration extends slogging.LazyLogging {
 
     for {
       // Check that old `priv_validator.json` was migrated to `priv_validator_key.json` or raise an exception
-      _ <- checkUpdatedPrivValOrRaise(tendermintDir)
+      _ <- checkMigratedPrivValOrRaise(tendermintDir)
 
       uid <- IO(scala.sys.process.Process("id -u").!!.trim)
 
@@ -155,7 +155,7 @@ object Configuration extends slogging.LazyLogging {
    * Check that old `priv_validator.json` was migrated to `priv_validator_key.json`
    * See for more details https://github.com/tendermint/tendermint/blob/master/UPGRADING.md#v0280
    */
-  private def checkUpdatedPrivValOrRaise(tendermintDir: Path): IO[Unit] =
+  private def checkMigratedPrivValOrRaise(tendermintDir: Path): IO[Unit] =
     for {
       configDir <- IO(tendermintDir.resolve("config"))
       old <- IO(configDir.resolve("priv_validator.json").toFile.exists())
