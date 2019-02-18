@@ -25,14 +25,8 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
  * for requests after a cluster will be formed
  *
  * @param ip p2p host IP
- * @param minPort starting port for p2p port range
- * @param maxPort ending port for p2p port range
   **/
-case class EndpointsConfig(
-  ip: InetAddress,
-  minPort: Short,
-  maxPort: Short
-)
+case class EndpointsConfig(ip: InetAddress)
 
 object EndpointsConfig {
   private implicit val encodeInetAddress: Encoder[InetAddress] = Encoder[String].contramap(_.getHostAddress)

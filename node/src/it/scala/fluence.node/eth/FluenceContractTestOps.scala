@@ -35,16 +35,6 @@ object FluenceContractTestOps {
      */
     def addressBytes24: Bytes24 = nodeAddressToBytes24(endpoints.ip.getHostAddress, nodeAddress)
 
-    /**
-     * Returns starting port as uint16.
-     */
-    def startPortUint16: Uint16 = new Uint16(endpoints.minPort)
-
-    /**
-     * Returns ending port as uint16.
-     */
-    def endPortUint16: Uint16 = new Uint16(endpoints.maxPort)
-
     def isPrivateBool: Bool = new Bool(isPrivate)
   }
 
@@ -61,13 +51,13 @@ object FluenceContractTestOps {
      * @tparam F Effect
      * @return The block number where transaction has been mined
      */
-    def addNode[F[_]: Async](nodeConfig: NodeConfig): F[BigInt] =
+    def addNode[F[_]: Async](nodeConfig: NodeConfig, startPort: Short, endPort: Short): F[BigInt] =
       contract
         .addNode(
           nodeConfig.validatorKey.toBytes32,
           nodeConfig.addressBytes24,
-          nodeConfig.startPortUint16,
-          nodeConfig.endPortUint16,
+          new Uint16(startPort),
+          new Uint16(endPort),
           nodeConfig.isPrivateBool
         )
         .call[F]

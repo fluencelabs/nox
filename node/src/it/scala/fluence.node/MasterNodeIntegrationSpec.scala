@@ -128,12 +128,13 @@ class MasterNodeIntegrationSpec
 
     def runTwoWorkers(basePort: Short)(implicit ethClient: EthClient, sttp: SttpBackend[IO, Nothing]): IO[Unit] = {
       val contract = FluenceContract(ethClient, contractConfig)
+      val master2Port = (basePort + 1).toShort
       for {
         status1 <- getStatus(getStatusPort(basePort))
-        status2 <- getStatus(getStatusPort((basePort + 1).toShort))
+        status2 <- getStatus(getStatusPort(master2Port))
 
-        _ <- contract.addNode[IO](status1.nodeConfig).attempt
-        _ <- contract.addNode[IO](status2.nodeConfig).attempt
+        _ <- contract.addNode[IO](status1.nodeConfig, basePort, basePort).attempt
+        _ <- contract.addNode[IO](status2.nodeConfig, master2Port, master2Port).attempt
         blockNumber <- contract.addApp[IO]("llamadb", clusterSize = 2)
 
         _ = logger.info("Added App at block: " + blockNumber + ", now going to wait for two workers")

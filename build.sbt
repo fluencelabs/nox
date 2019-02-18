@@ -258,8 +258,9 @@ lazy val node = project
          * The following directory structure is assumed in node/src/main/resources:
          *    docker/
          *      entrypoint.sh
+         *      application.conf
          */
-        copy((resourceDirectory in Compile).value / "docker" / "entrypoint.sh", "/")
+        copy((resourceDirectory in Compile).value / "docker", "/")
 
         copy(artifact, artifactTargetPath)
 
