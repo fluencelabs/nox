@@ -61,7 +61,7 @@ class ControlServerSpec extends WordSpec with Matchers with ControlServerOps {
             response.code shouldBe 200
             response.body.right.value shouldBe ""
 
-            received.length shouldBe 1
+            received.size shouldBe 1
             received.head shouldBe cp
           }
       }.unsafeRunSync()
@@ -79,7 +79,7 @@ class ControlServerSpec extends WordSpec with Matchers with ControlServerOps {
             received <- server.signals.dropPeers.use(IO.pure)
           } yield {
 
-            received.length shouldBe 3
+            received.size shouldBe 3
             received.foreach { r =>
               r shouldBe dp
             }
