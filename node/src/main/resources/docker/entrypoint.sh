@@ -53,7 +53,7 @@ if [ "$3" = "/master-node.jar" ]; then
     CONTAINER_ID="${CONTAINER_ID#"/docker/"}"
 fi
 
-ln -s /application.conf /master/application.conf
+ln -sf /application.conf /master/application.conf
 
 # Execute whatever command is passed as arguments. Usually it's CMD from Dockerfile.
 CONTAINER_ID=$CONTAINER_ID exec "$@"
