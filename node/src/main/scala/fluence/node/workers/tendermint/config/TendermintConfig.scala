@@ -59,6 +59,7 @@ case class TendermintConfig(
     "consensus.skip_timeout_commit" -> s"$skipCommitTimeout",
     "consensus.create_empty_blocks" -> s"$createEmptyBlocks",
     "instrumentation.prometheus" -> s"$prometheus",
+    "rpc.cors_allowed_origins" -> "[\"*\"]"
   )
 
   /**
@@ -98,7 +99,7 @@ case class TendermintConfig(
     updated.save()
     updated.close()
 
-    Files.move(tmp, dst)
+    Files.move(tmp, dst, StandardCopyOption.REPLACE_EXISTING)
   }
 }
 
