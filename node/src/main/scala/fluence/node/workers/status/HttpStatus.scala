@@ -27,10 +27,24 @@ import scala.util.control.NoStackTrace
  */
 sealed trait HttpStatus[+T]
 
-case class HttpCheckNotPerformed() extends HttpStatus[Nothing]
+/**
+ * Request hasn't been made for some external reason, e.g. service is known to be not launched
+ */
+case class HttpCheckNotPerformed(reason: String) extends HttpStatus[Nothing]
 
+/**
+ * Request has been made, but response contains failure
+ *
+ * @param cause Cause of failure
+ */
 case class HttpCheckFailed(cause: Throwable) extends HttpStatus[Nothing]
 
+/**
+ * Request has been made, response received
+ *
+ * @param data Response value
+ * @tparam T Success check's data type
+ */
 case class HttpCheckStatus[+T](data: T) extends HttpStatus[T]
 
 object HttpStatus {

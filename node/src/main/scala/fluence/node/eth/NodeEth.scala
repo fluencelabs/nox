@@ -17,7 +17,7 @@
 package fluence.node.eth
 
 import cats.data.StateT
-import cats.effect.{ConcurrentEffect, Resource}
+import cats.effect.{ConcurrentEffect, Resource, Timer}
 import cats.syntax.apply._
 import fluence.ethclient.EthClient
 import fluence.ethclient.data.Block
@@ -64,18 +64,21 @@ object NodeEth extends LazyLogging {
    * @param contract FluenceContract
    * @tparam F ConcurrentEffect, used to combine many streams of web3 events
    */
-  def apply[F[_]: ConcurrentEffect](validatorKey: ByteVector, contract: FluenceContract): Resource[F, NodeEth[F]] = {
+  def apply[F[_]: ConcurrentEffect: Timer](
+    validatorKey: ByteVector,
+    contract: FluenceContract
+  ): Resource[F, NodeEth[F]] = {
     val initialState = NodeEthState(validatorKey)
 
     for {
       stateRef <- MakeResource.refOf[F, NodeEthState](initialState)
       blockQueue ← Resource.liftF(fs2.concurrent.Queue.circularBuffer[F, (Option[String], F[Block])](8))
       _ ← MakeResource
-        .concurrentStream(contract.ethClient.blockStream[F] to blockQueue.enqueue, name = "ethClient.blockStream")
+        .concurrentStream(contract.ethClient.blockStream[F]() to blockQueue.enqueue, name = "ethClient.blockStream")
     } yield
       new NodeEth[F] {
         override val nodeEvents: fs2.Stream[F, NodeEthEvent] = {
-          // TODO: make one filter for all kinds of events, instead of making several separate requests
+          // TODO: make one filter for all kinds of events, instead of making several separate requests https://github.com/fluencelabs/fluence/issues/463
 
           // State changes on a new recognized App that should be deployed on this Node
           val onNodeAppS = contract
@@ -142,7 +145,7 @@ object NodeEth extends LazyLogging {
    * @param config To lookup addresses
    * @return FluenceContract instance with web3j contract inside
    */
-  def apply[F[_]: ConcurrentEffect](
+  def apply[F[_]: ConcurrentEffect: Timer](
     validatorKey: ByteVector,
     ethClient: EthClient,
     config: FluenceContractConfig
