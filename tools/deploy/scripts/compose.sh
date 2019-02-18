@@ -14,7 +14,7 @@
 
 #!/bin/bash
 
-set -e
+set -eo pipefail
 
 # The script uses for deploying Parity, Swarm, and Fluence containers.
 # If `PROD_DEPLOY` is set in env, the script will also expect the following env variables: `NAME`, `PORTS`, `OWNER_ADDRESS`, `PRIVATE_KEY`
@@ -23,6 +23,15 @@ set -e
 
 # `PROD_DEPLOY` variable is assigned in `fabfile.py`, so if run `compose.sh` directly,
 #  the network will be started in development mode locally
+
+
+function check_fluence_installed()
+{
+    command -v $PWD/fluence >/dev/null 2>&1 || command -v fluence >/dev/null 2>&1 || {
+        echo >&2 "Can't find fluence in PATH or in $PWD"
+        exit 1 
+    }
+}
 
 # generates json with all arguments required for registration a node
 function generate_json()
@@ -99,6 +108,12 @@ function deploy_contract_locally()
     local CONTRACT_ADDRESS=`echo ${RESULT} | awk '{print $NF}'`
     sleep 1
 
+    if [ -n $CONTRACT_ADDRESS ]; then
+        echo >&2 "Contract deployment failed"
+        echo -n >&2 "$RESULT" 
+        exit 1 
+    fi
+
     echo $CONTRACT_ADDRESS
 }
 
@@ -159,14 +174,17 @@ function export_arguments()
         # eth address in `dev` mode Parity with eth
         export OWNER_ADDRESS=0x00a329c0648769a73afac7f9381e08fb43dbea72
         export PRIVATE_KEY=4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
+
         export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
         export PARITY_RESERVED_PEERS='../config/reserved_peers.txt'
-        export PARITY_STORAGE='~/.parity/'
+        export PARITY_STORAGE="$HOME/.parity/"
         export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
     else
         echo "Deploying for $CHAIN chain."
         export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose --reserved-peers=/reserved_peers.txt'
     fi
+
+    export FLUENCE_STORAGE="$HOME/.fluence/"
 }
 
 function start_parity_swarm()
@@ -192,6 +210,13 @@ function start_parity_swarm()
 # main function to deploy Fluence
 function deploy()
 {
+    # disables docker-compose warnings about orphan services
+    export COMPOSE_IGNORE_ORPHANS=True
+
+    if [ -z "$PROD_DEPLOY" ]; then
+        check_fluence_installed
+    fi
+
     container_update
 
     # exports initial arguments to global scope for `docker-compose` files
@@ -214,16 +239,15 @@ function deploy()
     # status port is hardcoded with `+400` thing
     export STATUS_PORT=$((LAST_PORT+400))
 
-    # check all variables exists
-    echo "CONTRACT_ADDRESS="$CONTRACT_ADDRESS
-    echo "NAME="$NAME
-    echo "PORTS="$PORTS
-    echo "HOST_IP="$HOST_IP
-    echo "EXTERNAL_HOST_IP="$EXTERNAL_HOST_IP
-    echo "OWNER_ADDRESS="$OWNER_ADDRESS
-
-    # port for status API
-    echo "STATUS_PORT="$STATUS_PORT
+    echo "
+    CONTRACT_ADDRESS=$CONTRACT_ADDRESS
+    NAME=$NAME
+    PORTS=$PORTS
+    HOST_IP=$HOST_IP
+    EXTERNAL_HOST_IP=$EXTERNAL_HOST_IP
+    OWNER_ADDRESS=$OWNER_ADDRESS
+    STATUS_PORT=$STATUS_PORT
+    "
 
     # uses for multiple deploys if needed
     COUNTER=1
@@ -243,30 +267,33 @@ function deploy()
     while [ $COUNTER -le $NUMBER_OF_NODES ]; do
         parse_tendermint_params TENDERMINT_KEY TENDERMINT_NODE_ID
 
-        echo "CURRENT NODE = "$COUNTER
-        echo "TENDERMINT_KEY="$TENDERMINT_KEY
-        echo "TENDERMINT_NODE_ID="$TENDERMINT_NODE_ID
-
         # use hardcoded ports for multiple nodes
         if [ "$1" = "multiple" ]; then
             START_PORT="2"$COUNTER"000"
             LAST_PORT="2"$COUNTER"010"
         fi
 
-        echo "START_PORT="$START_PORT
-        echo "LAST_PORT="$LAST_PORT
+        if [ $NUMBER_OF_NODES -gt 1 ]; then
+            CURRENT_NODE_MSG="CURRENT NODE = $COUNTER"
+        fi
 
-        echo "Registering node in smart contract:"
+        echo "    $CURRENT_NODE_MSG
+    TENDERMINT_KEY=$TENDERMINT_KEY
+    TENDERMINT_NODE_ID=$TENDERMINT_NODE_ID
+    START_PORT=$START_PORT
+    LAST_PORT=$LAST_PORT
+        "
 
         # registers node in Fluence contract, for local usage
         if [ -z "$PROD_DEPLOY" ]; then
+            echo "    Registering node in smart contract..."
             REGISTER_COMMAND=$(generate_command)            
             (set -x; eval $REGISTER_COMMAND)
         fi
 
         # generates JSON with all arguments for node registration
         JSON=$(generate_json)
-        echo $JSON
+        echo -e "\e[8m$JSON\e[0m"
 
         COUNTER=$[$COUNTER+1]
         TENDERMINT_KEY=""
