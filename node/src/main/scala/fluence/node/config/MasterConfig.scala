@@ -54,6 +54,11 @@ object MasterConfig {
   implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder
   implicit val decodeMasterConfig: Decoder[MasterConfig] = deriveDecoder
 
+  /**
+   * When parsing any section as Option[T], treat empty HOCON section as None.
+   * E.g., by default `swarm {}` would be parsed as `Some[SwarmConfig]`,
+   * and fail (because of non-optional fields like [[SwarmConfig.host]]). This reader parses `swarm {}` as a None.
+   */
   implicit def reader[T: ConfigReader]: ConfigReader[Option[T]] = ConfigReader.fromCursor[Option[T]] { cv =>
     cv.value match {
       case co: ConfigObject if co.isEmpty => Right(None)

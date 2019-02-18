@@ -48,9 +48,6 @@ EOF
 exit 1
 fi
 
-MIN_PORT=${PORTS%:*}
-MAX_PORT=${PORTS#*:}
-
 if [ "$3" = "/master-node.jar" ]; then
     CONTAINER_ID=$(cat /proc/1/cpuset)
     CONTAINER_ID="${CONTAINER_ID#"/docker/"}"
@@ -59,4 +56,4 @@ fi
 ln -s /application.conf /master/application.conf
 
 # Execute whatever command is passed as arguments. Usually it's CMD from Dockerfile.
-MIN_PORT=$MIN_PORT MAX_PORT=$MAX_PORT CONTAINER_ID=$CONTAINER_ID exec "$@"
+CONTAINER_ID=$CONTAINER_ID exec "$@"
