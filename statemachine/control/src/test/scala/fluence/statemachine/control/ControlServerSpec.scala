@@ -74,16 +74,13 @@ class ControlServerSpec extends WordSpec with Matchers with ControlServerOps {
         case (server, sttp) =>
           implicit val sttpBackend = sttp
           for {
-            dp <- IO.pure(DropPeer(ByteVector.fill(32)(Random.nextInt())))
-            dps = Array.fill(count)(dp).toList
+            dps <- IO(Array.fill(count)(DropPeer(ByteVector.fill(32)(Random.nextInt()))).toList)
             _ <- dps.map(send(_, "dropPeer")).sequence
             received <- server.signals.dropPeers.use(IO.pure)
           } yield {
 
             received.size shouldBe 3
-            received.foreach { r =>
-              r shouldBe dp
-            }
+            received should contain theSameElementsAs dps
           }
       }.unsafeRunSync()
     }
