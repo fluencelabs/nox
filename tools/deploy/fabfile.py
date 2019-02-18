@@ -51,10 +51,11 @@ env.user = "root"
 # Set to False to disable `[ip.ad.dre.ss] out:` prefix
 env.output_prefix = True
 
-RELEASE="https://github.com/fluencelabs/fluence/releases/download/cli-0.1.2/fluence-cli-0.1.2-linux-x64"
+RELEASE="https://github.com/fluencelabs/fluence/releases/download/cli-0.1.3/fluence-cli-0.1.3-linux-x64"
 
 # copies all necessary files for deploying
 def copy_resources():
+    print "Copying deployment files to node"
     # cleans up old scripts
     run('rm -rf scripts')
     run('rm -rf config')
@@ -80,7 +81,6 @@ def deploy():
         # check if `fluence` file is exists
         result = local("[ -s fluence ] && echo 1 || echo 0", capture=True)
         if (result == '0'):
-            print
             # todo: add correct link to CLI
             print '`fluence` CLI file does not exist. Downloading it from ' + RELEASE
             local("wget " + RELEASE)
