@@ -69,6 +69,7 @@ object Configuration extends slogging.LazyLogging {
       )
 
   /**
+   * <pre>
    * Run `tendermint --init` in container to initialize /master/tendermint with the following configuration files:
    * - config/
    *    -- config.toml - main Tendermint config. Will be updated for each app via [[fluence.node.workers.tendermint.config.TendermintConfig]].
@@ -80,6 +81,7 @@ object Configuration extends slogging.LazyLogging {
    *
    * Later, files /master/tendermint are used to run and configure workers
    * TODO move it to DockerTendermint?
+   * </pre>
    *
    * @param masterContainerId id of master docker container (container running this code), if it's run inside Docker
    * @param rootPath MasterNode's root path
@@ -153,7 +155,7 @@ object Configuration extends slogging.LazyLogging {
 
   /**
    * Check that old `priv_validator.json` was migrated to `priv_validator_key.json`
-   * See for more details https://github.com/tendermint/tendermint/blob/master/UPGRADING.md#v0280
+   * @see https://github.com/tendermint/tendermint/blob/master/UPGRADING.md#v0280
    */
   private def checkMigratedPrivValOrRaise(tendermintDir: Path): IO[Unit] =
     for {

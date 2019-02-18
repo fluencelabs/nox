@@ -28,7 +28,7 @@ import fluence.node.workers.tendermint.config.ConfigTemplate
  */
 case class WorkerParams(
   app: App,
-  dataPath: Path,
+  tendermintPath: Path,
   vmCodePath: Path,
   masterNodeContainerId: Option[String],
   image: DockerImage,
