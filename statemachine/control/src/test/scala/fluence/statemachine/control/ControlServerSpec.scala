@@ -9,6 +9,7 @@ import scodec.bits.ByteVector
 import cats.syntax.either._
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.util.Random
 
 trait ControlServerOps extends EitherValues with OptionValues {
   import com.softwaremill.sttp.circe._
@@ -73,7 +74,7 @@ class ControlServerSpec extends WordSpec with Matchers with ControlServerOps {
         case (server, sttp) =>
           implicit val sttpBackend = sttp
           for {
-            dp <- IO.pure(DropPeer(ByteVector.fill(32)(1)))
+            dp <- IO.pure(DropPeer(ByteVector.fill(32)(Random.nextInt())))
             dps = Array.fill(count)(dp).toList
             _ <- dps.map(send(_, "dropPeer")).sequence
             received <- server.signals.dropPeers.use(IO.pure)
