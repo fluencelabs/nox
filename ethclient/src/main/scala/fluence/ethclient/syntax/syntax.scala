@@ -67,15 +67,12 @@ package object syntax {
 
     def toStreamRetrying[F[_]: ConcurrentEffect: Timer](
       onErrorRetryAfter: FiniteDuration = EthRetryPolicy.Default.delayPeriod
-    ): fs2.Stream[F, T] = {
-      val stream = flowable.toStream[F]()
-
-      stream.handleErrorWith {
+    ): fs2.Stream[F, T] =
+      flowable.toStream[F]().handleErrorWith {
         case NonFatal(err) ⇒
           logger.error(s"Flowable.toStreamRetrying errored with $err", err)
-          stream.delayBy(onErrorRetryAfter)
+          toStreamRetrying(onErrorRetryAfter).delayBy(onErrorRetryAfter)
       }
-    }
   }
 
   implicit class RichRemoteCall[T](remoteCall: RemoteCall[T]) {

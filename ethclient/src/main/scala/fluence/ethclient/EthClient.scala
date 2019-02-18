@@ -83,24 +83,17 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
    * Checks node for syncing status every `checkPeriod` until node is synchronized.
    */
   private def waitEthSyncing[F[_]: LiftIO: Monad: Timer](checkPeriod: FiniteDuration): F[Unit] =
-    isSyncing[F].value
-      .map[Option[Unit]] {
-        case Right(resp: EthSyncing.Syncing) if resp.isSyncing =>
-          logger.info(
-            s"Ethereum node is syncing. Current block: ${resp.getCurrentBlock}, highest block: ${resp.getHighestBlock}"
-          )
-          logger.info(s"Waiting ${checkPeriod.toSeconds} seconds for next attempt.")
-          Some(())
-        case _ ⇒
-          logger.info(s"Ethereum node is synced up, stop waiting")
-          None
-      }
-      .flatMap {
-        case Some(_) ⇒
-          Applicative[F].unit
-        case None ⇒
-          Timer[F].sleep(checkPeriod) *> waitEthSyncing(checkPeriod)
-      }
+    isSyncing[F].value.flatMap {
+      case Right(resp: EthSyncing.Syncing) if resp.isSyncing =>
+        logger.info(
+          s"Ethereum node is syncing. Current block: ${resp.getCurrentBlock}, highest block: ${resp.getHighestBlock}"
+        )
+        logger.info(s"Waiting ${checkPeriod.toSeconds} seconds for next attempt.")
+        Timer[F].sleep(checkPeriod) *> waitEthSyncing(checkPeriod)
+      case _ ⇒
+        logger.info(s"Ethereum node is synced up, stop waiting")
+        Applicative[F].unit
+    }
 
   /**
    * Subscribe to logs topic, calling back each time the log message matches.
