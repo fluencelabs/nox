@@ -179,6 +179,7 @@ class AbciHandler(
 
   // At the end of block H, we can propose validator updates, they will be applied at block H+2
   // see https://github.com/tendermint/tendermint/blob/master/docs/spec/abci/abci.md#endblock
+  // Since Tendermint 0.30.0 all updates are processed as a set, not one by one. See https://github.com/tendermint/tendermint/issues/3222
   override def requestEndBlock(
     req: RequestEndBlock
   ): ResponseEndBlock = {
@@ -191,7 +192,7 @@ class AbciHandler(
             .setType(DropPeer.KEY_TYPE)
             .setData(ByteString.copyFrom(drop.validatorKey.toArray))
         )
-        .setPower(0) // settings power to zero votes to remove the validator
+        .setPower(0) // settings power to zero votes to remove the validator.
     }
     controlSignals.dropPeers
       .use(

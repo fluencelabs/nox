@@ -43,7 +43,7 @@ class ConfigTemplate(srcPath: Path, tendermintConfig: TendermintConfig) extends 
    * At the end of execution `dataPath` will contain:
    *    - tendermint configuration in config:
    *        - node_key.json, containing private P2P key
-   *        - priv_validator.json, containing validator's private & public keys and it's address
+   *        - priv_validator_key.json, containing validator's private & public keys and it's address
    *        - genesis.json, config of the Tendermint blockchain, generated from [[App.cluster]] and [[App.id]]
    *        - config.toml, main Tendermint config, copied from `srcPath/config.toml` and updated
    */
@@ -66,13 +66,13 @@ class ConfigTemplate(srcPath: Path, tendermintConfig: TendermintConfig) extends 
   def copyMasterKeys(destPath: Path): IO[Unit] = {
 
     val nodeKey = "node_key.json"
-    val validator = "priv_validator.json"
+    val validator = "priv_validator_key.json"
 
     IO {
-      logger.info(s"Copying keys to worker: ${srcPath.resolve(nodeKey)} -> ${destPath.resolve(nodeKey)}")
+      logger.info(s"Copying node key to worker: ${srcPath.resolve(nodeKey)} -> ${destPath.resolve(nodeKey)}")
       Files.copy(srcPath.resolve(nodeKey), destPath.resolve(nodeKey), REPLACE_EXISTING)
 
-      logger.info(s"Copying priv_validator to worker: ${srcPath.resolve(validator)} -> ${destPath.resolve(validator)}")
+      logger.info(s"Copying validator key to worker: ${srcPath.resolve(validator)} -> ${destPath.resolve(validator)}")
       Files.copy(srcPath.resolve(validator), destPath.resolve(validator), REPLACE_EXISTING)
     }
   }
@@ -105,6 +105,11 @@ class ConfigTemplate(srcPath: Path, tendermintConfig: TendermintConfig) extends 
           app.id
         )
     } yield ()
+
+//  def copyValidatorState(destPath: Path) =
+//    for {
+//      stateSr <- IO(srcPath.)
+//    }
 }
 
 object ConfigTemplate {

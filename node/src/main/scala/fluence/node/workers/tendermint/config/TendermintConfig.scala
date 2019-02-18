@@ -98,7 +98,7 @@ case class TendermintConfig(
     updated.save()
     updated.close()
 
-    Files.move(tmp, dst)
+    Files.move(tmp, dst, StandardCopyOption.REPLACE_EXISTING)
   }
 }
 
