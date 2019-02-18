@@ -119,6 +119,8 @@ object SbtCommons {
   val prometheusClientJetty = "io.prometheus"   % "simpleclient_jetty"   % prometheusClientVersion
   val prometheusClientServlet = "io.prometheus" % "simpleclient_servlet" % prometheusClientVersion
 
+  val toml = "com.electronwill.night-config" % "toml" % "3.4.2"
+
   /* Test deps*/
 
   val scalaTest = "org.scalatest"            %% "scalatest"   % "3.0.5"  % Test
