@@ -18,12 +18,16 @@ package fluence.ethclient
 
 import java.util.concurrent.TimeUnit
 
-import cats.ApplicativeError
+import cats.data.EitherT
 import cats.effect._
-import cats.syntax.flatMap._
+import cats.syntax.apply._
 import cats.syntax.functor._
+import cats.syntax.flatMap._
+import cats.syntax.applicativeError._
+import cats.{~>, Applicative, Functor, Monad}
 import fluence.ethclient.data.{Block, Log}
 import fluence.ethclient.helpers.JavaFutureConversion._
+import fluence.ethclient.syntax._
 import org.web3j.abi.EventEncoder
 import org.web3j.protocol.core._
 import org.web3j.protocol.core.methods.request.SingleAddressEthFilter
@@ -33,12 +37,11 @@ import org.web3j.protocol.{Web3j, Web3jService}
 import org.web3j.tx.{ClientTransactionManager, TransactionManager}
 import org.web3j.tx.gas.{ContractGasProvider, DefaultGasProvider}
 import slogging._
-import fs2.interop.reactivestreams._
 import okhttp3.OkHttpClient
 import org.web3j.abi.datatypes.Event
 
 import scala.concurrent.duration._
-import scala.language.higherKinds
+import scala.language.{existentials, higherKinds}
 
 /**
  * EthClient provides a functional end-user API for Ethereum (Light) Client, currently by calling Web3j methods.
@@ -53,51 +56,44 @@ import scala.language.higherKinds
 class EthClient private (private val web3: Web3j) extends LazyLogging {
   type ContractLoader[T] = (String, Web3j, TransactionManager, ContractGasProvider) => T
 
+  import EthClient.ioToF
+
   /**
    * Returns the current client version.
    *
    * Method: """web3_clientVersion"""
    */
-  def clientVersion[F[_]: Async](): F[String] =
+  def clientVersion[F[_]: LiftIO: Functor]: EitherT[F, EthRequestError, String] =
     request(_.web3ClientVersion()).map(_.getWeb3ClientVersion)
 
   /**
    * Returns the last block number
    * @tparam F Effect
    */
-  def getBlockNumber[F[_]: Async]: F[BigInt] =
+  def getBlockNumber[F[_]: LiftIO: Functor]: EitherT[F, EthRequestError, BigInt] =
     request(_.ethBlockNumber()).map(_.getBlockNumber).map(BigInt(_))
 
   /**
    * Checking if ethereum node is syncing or not.
    */
-  def isSyncing[F[_]: Async]: F[EthSyncing.Result] =
+  def isSyncing[F[_]: LiftIO: Functor]: EitherT[F, EthRequestError, EthSyncing.Result] =
     request(_.ethSyncing()).map(_.getResult)
 
   /**
    * Checks node for syncing status every `checkPeriod` until node is synchronized.
    */
-  private def waitEthSyncing[F[_]: Async: Timer](checkPeriod: FiniteDuration): F[Unit] =
-    fs2.Stream
-      .awakeEvery[F](checkPeriod)
-      .evalMap { _ ⇒
-        logger.info("Checking if ethereum node is synced...")
-
-        isSyncing[F].map[Option[Unit]] {
-          case resp: EthSyncing.Syncing if resp.isSyncing =>
-            logger.info(
-              s"Ethereum node is syncing. Current block: ${resp.getCurrentBlock}, highest block: ${resp.getHighestBlock}"
-            )
-            logger.info("Waiting 10 seconds for next attempt.")
-            Some(())
-          case _ ⇒
-            logger.info(s"Ethereum node is synced up, stop waiting")
-            None
-        }
-      }
-      .unNoneTerminate
-      .compile
-      .drain
+  private def waitEthSyncing[F[_]: LiftIO: Monad: Timer](checkPeriod: FiniteDuration): F[Unit] =
+    isSyncing[F].value.flatMap {
+      case Right(resp: EthSyncing.Syncing) if resp.isSyncing =>
+        logger.info(
+          s"Ethereum node is syncing. Current block: ${resp.getCurrentBlock}, highest block: ${resp.getHighestBlock}"
+        )
+        logger.info(s"Waiting ${checkPeriod.toSeconds} seconds for next attempt.")
+        Timer[F].sleep(checkPeriod) *> waitEthSyncing(checkPeriod)
+      case _ ⇒
+        logger.info(s"Ethereum node is synced up, stop waiting")
+        Applicative[F].unit
+    }
 
   /**
    * Subscribe to logs topic, calling back each time the log message matches.
@@ -108,9 +104,10 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
    * @tparam F Effect
    * @return Unsubscribe callback
    */
-  def subscribeToLogsTopic[F[_]: ConcurrentEffect](
+  def subscribeToLogsTopic[F[_]: ConcurrentEffect: Timer](
     contractAddress: String,
-    topic: Event
+    topic: Event,
+    onErrorRetryAfter: FiniteDuration = 1.second
   ): fs2.Stream[F, Log] =
     web3
       .ethLogFlowable(
@@ -120,25 +117,29 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
           contractAddress
         ).addSingleTopic(EventEncoder.encode(topic))
       )
-      .toStream[F]
+      .toStreamRetrying(onErrorRetryAfter)
       .map(Log.apply)
 
   /**
    * Provides a stream of newly received blocks, with no transaction objects included
    *
+   * @param onErrorRetryAfter In case the web3 stream is terminated, restart it after this timeout
+   * @param fullTransactionObjects if true, provides transactions embedded in blocks, otherwise
+   *                                    transaction hashes
    * @tparam F Effect
    * @return Stream of Raw Responses (if provided) and delayed Block data class (to avoid parsing it if it's not necessary)
    */
-  def blockStream[F[_]: ConcurrentEffect]: fs2.Stream[F, (Option[String], F[Block])] =
+  def blockStream[F[_]: ConcurrentEffect: Timer](
+    onErrorRetryAfter: FiniteDuration = EthRetryPolicy.Default.delayPeriod,
+    fullTransactionObjects: Boolean = false
+  ): fs2.Stream[F, (Option[String], F[Block])] =
     web3
-      .blockFlowable(false)
-      .toStream[F]
+      .blockFlowable(fullTransactionObjects)
+      .toStreamRetrying(onErrorRetryAfter)
       .map(
         ethBlock ⇒
-          (
-            Option(ethBlock.getRawResponse),
+          Option(ethBlock.getRawResponse) →
             Sync[F].delay(Block(ethBlock.getBlock))
-        )
       )
 
   /**
@@ -167,24 +168,30 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
    * Make an async request to Ethereum, lifting its response to an async F type.
    *
    * @param req Request on Ethereum API to be called
-   * @tparam F Async effect type
+   * @tparam F Effect type
    * @tparam T Response type
    */
-  private def request[F[_]: Async, T <: Response[_]](req: Ethereum ⇒ Request[_, T]): F[T] =
-    Sync[F]
-      .delay(req(web3).sendAsync()) // sendAsync eagerly launches the call on some thread pool, so we delay it to make it referentially transparent
-      .flatMap(_.asAsync[F])
+  private def request[F[_]: LiftIO, T <: Response[_]](req: Ethereum ⇒ Request[_, T]): EitherT[F, EthRequestError, T] =
+    IO(req(web3).sendAsync()) // sendAsync eagerly launches the call on web3's internal thread pool, so we delay it to make it referentially transparent
+      .flatMap(_.asAsync[IO])
+      .attemptT
+      .leftMap(EthRequestError)
+      .mapK(ioToF[F])
 
   /**
    * Eagerly shuts down web3, so that no further calls are possible.
    * Intended to be used only by Resource's deallocation.
    */
-  private def shutdown[F[_]]()(implicit F: ApplicativeError[F, Throwable]): F[Unit] =
-    F.catchNonFatal(web3.shutdown())
+  private def shutdown[F[_]: LiftIO](): EitherT[F, EthShutdownError, Unit] =
+    IO(web3.shutdown()).attemptT.leftMap(EthShutdownError).mapK(ioToF[F])
 
 }
 
-object EthClient {
+object EthClient extends LazyLogging {
+
+  private[ethclient] implicit def ioToF[F[_]: LiftIO]: IO ~> F = new (IO ~> F) {
+    override def apply[A](fa: IO[A]): F[A] = fa.to[F]
+  }
 
   /**
    * Set timeouts to 90 seconds because a light node can respond slowly.
@@ -222,13 +229,11 @@ object EthClient {
    *
    * @param service [[Web3j]]'s connection description
    */
-  private def makeResource[F[_]](
+  private def makeResource[F[_]: LiftIO: Functor](
     service: Web3jService
-  )(implicit F: Sync[F]): Resource[F, EthClient] =
+  ): Resource[F, EthClient] =
     Resource
       .make(
-        F.catchNonFatal(
-          new EthClient(Web3j.build(service))
-        )
-      )(web3j => F.delay(web3j.shutdown()))
+        IO(new EthClient(Web3j.build(service))).to[F]
+      )(web3j => web3j.shutdown[F]().value.void)
 }

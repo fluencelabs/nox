@@ -19,8 +19,6 @@ package fluence.node.docker
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
-import scala.language.higherKinds
-
 sealed trait DockerStatus {
   def startedAt: Long
 
@@ -28,11 +26,11 @@ sealed trait DockerStatus {
 }
 
 case class DockerRunning(startedAt: Long) extends DockerStatus {
-  override def isRunning: Boolean = true
+  override val isRunning: Boolean = true
 }
 
 case class DockerStopped(startedAt: Long) extends DockerStatus {
-  override def isRunning: Boolean = false
+  override val isRunning: Boolean = false
 }
 
 object DockerStatus {

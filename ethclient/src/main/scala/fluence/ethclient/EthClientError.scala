@@ -14,27 +14,13 @@
  * limitations under the License.
  */
 
-package fluence.ethclient.helpers
-import cats.effect.Async
-import cats.syntax.flatMap._
-import fluence.ethclient.helpers.JavaFutureConversion._
-import org.web3j.protocol.core.RemoteCall
-import scala.language.higherKinds
+package fluence.ethclient
 
-object RemoteCallOps {
-  implicit class RichRemoteCall[T](call: RemoteCall[T]) {
+/**
+ * Error type to cover all possible Ethereum client errors
+ */
+sealed trait EthClientError
 
-    /**
-     * Call sendAsync on RemoteCall and delay it's side effects
-     *
-     * @tparam F effect
-     * @return Result of the call
-     */
-    def call[F[_]: Async]: F[T] =
-      Async[F]
-        .delay(call)
-        .flatMap(_.sendAsync().asAsync[F])
+case class EthRequestError private[ethclient] (cause: Throwable) extends EthClientError
 
-  }
-
-}
+case class EthShutdownError private[ethclient] (cause: Throwable) extends EthClientError

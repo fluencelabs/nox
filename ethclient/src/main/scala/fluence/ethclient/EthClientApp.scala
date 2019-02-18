@@ -19,7 +19,7 @@ package fluence.ethclient
 import cats.Parallel
 import cats.effect.concurrent.Deferred
 import cats.effect.{ExitCode, IO, IOApp}
-import org.web3j.abi.EventEncoder
+import fluence.ethclient.syntax._
 
 import scala.concurrent.duration._
 
@@ -34,13 +34,19 @@ object EthClientApp extends IOApp {
         (for {
           _ ← IO(println("Launching w3j"))
 
-          isSyncing ← ethClient.isSyncing[IO].map(_.isSyncing)
+          isSyncing ← ethClient
+            .isSyncing[IO]
+            .map(_.isSyncing)
+            .retryUntilSuccess
           _ ← IO(println(s"isSyncing: $isSyncing"))
 
-          version ← ethClient.clientVersion[IO]()
+          version ← ethClient
+            .clientVersion[IO]
+            .retryUntilSuccess
+
           _ = println(s"Client version: $version")
 
-          _ ← ethClient.blockStream[IO].map(println).compile.drain
+          _ ← ethClient.blockStream[IO]().map(println).compile.drain
 
           unsubscribe ← Deferred[IO, Either[Throwable, Unit]]
 
