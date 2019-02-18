@@ -42,7 +42,7 @@ import scala.language.higherKinds
  * @param masterNode initialized master node
  */
 case class StatusAggregator(config: MasterConfig, masterNode: MasterNode[IO], startTimeMillis: Long)(
-  implicit timer: Timer[IO]
+  implicit clock: Clock[IO]
 ) {
 
   /**
@@ -54,7 +54,7 @@ case class StatusAggregator(config: MasterConfig, masterNode: MasterNode[IO], st
     val ports = s"${endpoints.minPort}:${endpoints.maxPort}"
 
     for {
-      currentTime ← timer.clock.monotonic(MILLISECONDS)
+      currentTime ← clock.monotonic(MILLISECONDS)
       workers ← masterNode.pool.getAll
       workerInfos ← Traverse[List].traverse(workers)(_.status)
       ethState ← masterNode.nodeEth.expectedState

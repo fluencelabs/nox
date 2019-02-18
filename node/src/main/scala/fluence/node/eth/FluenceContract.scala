@@ -16,24 +16,25 @@
 
 package fluence.node.eth
 
-import cats.{Apply, Traverse}
-import cats.effect.{Async, ConcurrentEffect, ExitCase, Sync}
+import cats.{Applicative, Apply, Functor, Monad, Traverse}
+import cats.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.apply._
 import cats.instances.option._
 import fluence.ethclient.Network.{APPDELETED_EVENT, APPDEPLOYED_EVENT, AppDeployedEventResponse, NODEDELETED_EVENT}
-import fluence.ethclient.helpers.RemoteCallOps._
-import fluence.ethclient.{EthClient, Network}
+import fluence.ethclient.{EthClient, EthRetryPolicy, Network}
+import fluence.ethclient.syntax._
 import fluence.node.config.FluenceContractConfig
 import fluence.node.eth.state.{App, Cluster}
-import fs2.interop.reactivestreams._
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.generated._
 import org.web3j.abi.datatypes.Event
-import org.web3j.protocol.core.methods.request.SingleAddressEthFilter
+import org.web3j.protocol.core.methods.request.{EthFilter, SingleAddressEthFilter}
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
 
 import scala.collection.JavaConverters._
+import scala.concurrent.duration._
 import scala.language.higherKinds
 
 /**
@@ -50,9 +51,12 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    *
    * @tparam F Effect, used to query Ethereum for the last block number
    */
-  private def eventFilter[F[_]: Async](event: Event) =
+  private def eventFilter[F[_]: LiftIO: Monad: Timer](
+    event: Event
+  ): F[EthFilter] =
     ethClient
       .getBlockNumber[F]
+      .retryUntilSuccess
       .map(
         currentBlock ⇒
           new SingleAddressEthFilter(
@@ -68,19 +72,18 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @param validatorKey Tendermint validator key identifying this node
    * @tparam F Effect
    */
-  private def getNodeAppIds[F[_]](validatorKey: Bytes32)(implicit F: Async[F]): F[List[Uint256]] =
+  private def getNodeAppIds[F[_]: LiftIO: Timer: Monad](validatorKey: Bytes32): F[List[Uint256]] =
     contract
       .getNodeApps(validatorKey)
-      .call[F]
+      .callUntilSuccess[F]
       .flatMap {
-        case arr if arr != null && arr.getValue != null => F.point(arr.getValue.asScala.toList)
+        case arr if arr != null && arr.getValue != null => Applicative[F].point(arr.getValue.asScala.toList)
         case r =>
-          F.raiseError[List[Uint256]](
-            new RuntimeException(
-              s"Cannot get node apps from the smart contract. Got result '$r'. " +
-                s"Are you sure the contract address is correct?"
-            )
+          logger.error(
+            s"Cannot get node apps from the smart contract. Got result '$r'. " +
+              s"Are you sure the contract address is correct?"
           )
+          Timer[F].sleep(EthRetryPolicy.Default.maxDelay) *> getNodeAppIds(validatorKey)
       }
 
   /**
@@ -89,7 +92,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @param validatorKey Tendermint Validator key of the current node, used to filter out apps which aren't related to current node
    * @tparam F Effect
    */
-  private def getNodeApps[F[_]](validatorKey: Bytes32)(implicit F: Async[F]): fs2.Stream[F, state.App] =
+  private def getNodeApps[F[_]: LiftIO: Timer: Monad](validatorKey: Bytes32): fs2.Stream[F, state.App] =
     fs2.Stream
       .evalUnChunk(getNodeAppIds[F](validatorKey).map(cs ⇒ fs2.Chunk(cs: _*)))
       .evalMap(
@@ -98,17 +101,19 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
             .map2(
               contract
                 .getApp(appId)
-                .call[F]
+                .callUntilSuccess[F]
                 .map(tuple ⇒ (tuple.getValue1, tuple.getValue6, tuple.getValue7)),
               contract
                 .getAppWorkers(appId)
-                .call[F]
+                .callUntilSuccess[F]
                 .map(tuple ⇒ (tuple.getValue1, tuple.getValue2))
             ) {
               case ((storageHash, genesisTime, validatorKeys), (addrs, ports)) ⇒
                 val cluster =
                   Cluster.build(genesisTime, validatorKeys, addrs, ports, currentValidatorKey = validatorKey)
-                Traverse[Option].traverse(cluster)(c => App(appId, storageHash, c))
+                Traverse[Option]
+                  .traverse(cluster)(c => App[F](appId, storageHash, c).value.map(_.toOption))
+                  .map(_.flatten)
             }
             .flatten
       )
@@ -121,11 +126,11 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of [[App]]s
    */
-  private def getNodeAppDeployed[F[_]: ConcurrentEffect](validatorKey: Bytes32): fs2.Stream[F, state.App] =
+  private def getNodeAppDeployed[F[_]: ConcurrentEffect: Timer](validatorKey: Bytes32): fs2.Stream[F, state.App] =
     fs2.Stream
       .eval(eventFilter[F](APPDEPLOYED_EVENT))
-      .flatMap(filter ⇒ contract.appDeployedEventFlowable(filter).toStream[F]) // It's checked that current node participates in a cluster there
-      .evalMap(FluenceContract.eventToApp(_, validatorKey))
+      .flatMap(filter ⇒ contract.appDeployedEventFlowable(filter).toStreamRetrying[F]()) // It's checked that current node participates in a cluster there
+      .evalMap(FluenceContract.eventToApp[F](_, validatorKey))
       .unNone
 
   /**
@@ -136,7 +141,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of [[App]]s
    */
-  private[eth] def getAllNodeApps[F[_]: ConcurrentEffect](validatorKey: Bytes32): fs2.Stream[F, state.App] =
+  private[eth] def getAllNodeApps[F[_]: ConcurrentEffect: Timer](validatorKey: Bytes32): fs2.Stream[F, state.App] =
     getNodeApps[F](validatorKey).onFinalizeCase {
       case ExitCase.Canceled =>
         Sync[F].delay(logger.info("Getting all previously prepared clusters canceled."))
@@ -156,10 +161,10 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of AppDeleted events
    */
-  private[eth] def getAppDeleted[F[_]: ConcurrentEffect]: fs2.Stream[F, Uint256] =
+  private[eth] def getAppDeleted[F[_]: ConcurrentEffect: Timer]: fs2.Stream[F, Uint256] =
     fs2.Stream
       .eval(eventFilter[F](APPDELETED_EVENT))
-      .flatMap(filter ⇒ contract.appDeletedEventFlowable(filter).toStream[F])
+      .flatMap(filter ⇒ contract.appDeletedEventFlowable(filter).toStreamRetrying[F](1.second))
       .map(_.appID)
 
   /**
@@ -168,10 +173,10 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of NodeDeleted events
    */
-  private[eth] def getNodeDeleted[F[_]: ConcurrentEffect]: fs2.Stream[F, Bytes32] =
+  private[eth] def getNodeDeleted[F[_]: ConcurrentEffect: Timer]: fs2.Stream[F, Bytes32] =
     fs2.Stream
       .eval(eventFilter[F](NODEDELETED_EVENT))
-      .flatMap(filter ⇒ contract.nodeDeletedEventFlowable(filter).toStream[F]())
+      .flatMap(filter ⇒ contract.nodeDeletedEventFlowable(filter).toStreamRetrying[F](1.second))
       .map(_.id)
 
 }
@@ -185,16 +190,16 @@ object FluenceContract {
    * @param validatorKey Tendermint Validator key of current node, used to filter out events which aren't addressed to this node
    * @return Some(App) if current node should host this app, None otherwise
    */
-  private def eventToApp[F[_]](
+  private def eventToApp[F[_]: Functor: Applicative](
     event: AppDeployedEventResponse,
     validatorKey: Bytes32
-  )(
-    implicit F: cats.ApplicativeError[F, Throwable]
   ): F[Option[state.App]] =
-    Traverse[Option].traverse(
-      Cluster
-        .build(event.genesisTime, event.nodeIDs, event.nodeAddresses, event.ports, currentValidatorKey = validatorKey)
-    )(c => App(event.appID, event.storageHash, c))
+    Traverse[Option]
+      .traverse(
+        Cluster
+          .build(event.genesisTime, event.nodeIDs, event.nodeAddresses, event.ports, currentValidatorKey = validatorKey)
+      )(c => App[F](event.appID, event.storageHash, c).value.map(_.toOption))
+      .map(_.flatten)
 
   /**
    * Loads contract

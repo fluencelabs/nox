@@ -16,12 +16,14 @@
 
 package fluence.node.eth
 
-import cats.effect.Async
+import cats.Monad
+import cats.effect.{LiftIO, Timer}
 import cats.syntax.functor._
 import fluence.ethclient.helpers.Web3jConverters.stringToBytes32
 import fluence.node.config.NodeConfig
 import org.web3j.abi.datatypes.{Bool, DynamicArray}
 import org.web3j.abi.datatypes.generated._
+import fluence.ethclient.syntax._
 
 import scala.language.higherKinds
 
@@ -48,8 +50,6 @@ object FluenceContractTestOps {
     def isPrivateBool: Bool = new Bool(isPrivate)
   }
 
-  import fluence.ethclient.helpers.RemoteCallOps._
-
   implicit class RichFluenceContract(fc: FluenceContract) {
     import fc.contract
 
@@ -61,7 +61,7 @@ object FluenceContractTestOps {
      * @tparam F Effect
      * @return The block number where transaction has been mined
      */
-    def addNode[F[_]: Async](nodeConfig: NodeConfig): F[BigInt] =
+    def addNode[F[_]: LiftIO: Timer: Monad](nodeConfig: NodeConfig): F[BigInt] =
       contract
         .addNode(
           nodeConfig.validatorKey.toBytes32,
@@ -70,7 +70,7 @@ object FluenceContractTestOps {
           nodeConfig.endPortUint16,
           nodeConfig.isPrivateBool
         )
-        .call[F]
+        .callUntilSuccess[F]
         .map(_.getBlockNumber)
         .map(BigInt(_))
 
@@ -82,7 +82,7 @@ object FluenceContractTestOps {
      * @tparam F Effect
      * @return The block number where transaction has been mined
      */
-    def addApp[F[_]: Async](storageHash: String, clusterSize: Short = 1): F[BigInt] =
+    def addApp[F[_]: LiftIO: Timer: Monad](storageHash: String, clusterSize: Short = 1): F[BigInt] =
       contract
         .addApp(
           stringToBytes32(storageHash),
@@ -90,7 +90,7 @@ object FluenceContractTestOps {
           new Uint8(clusterSize),
           DynamicArray.empty("bytes32[]").asInstanceOf[DynamicArray[Bytes32]]
         )
-        .call[F]
+        .callUntilSuccess[F]
         .map(_.getBlockNumber)
         .map(BigInt(_))
 
@@ -100,7 +100,7 @@ object FluenceContractTestOps {
      * @param appId 32-byte id of the app to be deleted
      * @tparam F Effect
      */
-    def deleteApp[F[_]: Async](appId: Long): F[Unit] =
-      contract.deleteApp(new Uint256(appId)).call[F].void
+    def deleteApp[F[_]: LiftIO: Timer: Monad](appId: Long): F[Unit] =
+      contract.deleteApp(new Uint256(appId)).callUntilSuccess[F].void
   }
 }
