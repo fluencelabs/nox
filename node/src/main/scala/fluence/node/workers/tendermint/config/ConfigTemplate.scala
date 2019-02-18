@@ -47,6 +47,9 @@ class ConfigTemplate private (tendermintDir: Path, tendermintConfig: TendermintC
    *        - genesis.json, config of the Tendermint blockchain, generated from [[App.cluster]] and [[App.id]]
    *        - config.toml, main Tendermint config, copied from `srcPath/config.toml` and updated
    * </pre>
+   *
+   * @param app App description, used to generate config.toml and genesis.conf
+   * @param appTendermintDir Directory to hold app-specific Tendermint configs & data
    */
   def writeConfigs[F[_]: LiftIO: Functor](app: App, appTendermintDir: Path, abciHost: String): F[Unit] =
     (
@@ -146,6 +149,7 @@ class ConfigTemplate private (tendermintDir: Path, tendermintConfig: TendermintC
 object ConfigTemplate {
 
   /**
+   *
    * Prepares the ConfigTemplate, looking for templates in `rootPath/tendermint/config`
    * Doesn't check the source templates anyhow!
    * TODO we could move `tendermint init` logic there
