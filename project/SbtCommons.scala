@@ -12,7 +12,7 @@ object SbtCommons {
 
   val commons = Seq(
     scalaV,
-    version                              := "0.1",
+    version                              := "0.1.3",
     fork in Test                         := true,
     parallelExecution in Test            := false,
     fork in IntegrationTest              := true,
@@ -74,9 +74,9 @@ object SbtCommons {
     )
 
   /* Common deps */
-  
+
   val asmble = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.2-fl"
-  
+
   val slogging = "biz.enef"        %% "slogging"    % "0.6.1"
   val cats = "org.typelevel"       %% "cats-core"   % "1.5.0"
   val catsEffect = "org.typelevel" %% "cats-effect" % "1.2.0"
@@ -86,7 +86,7 @@ object SbtCommons {
   val fs2rx = "co.fs2" %% "fs2-reactive-streams" % fs2Version
   val fs2io = "co.fs2" %% "fs2-io"               % fs2Version
   // functional wrapper around 'lightbend/config'
-  val pureConfig = "com.github.pureconfig" %% "pureconfig"      % "0.10.1"
+  val pureConfig = "com.github.pureconfig" %% "pureconfig"      % "0.10.2"
   val cryptoHashing = "one.fluence"        %% "crypto-hashsign" % "0.0.3"
   val cryptoCipher = "one.fluence"         %% "crypto-cipher"   % "0.0.3"
   val cryptoKeyStore = "one.fluence"       %% "crypto-keystore" % "0.0.3"

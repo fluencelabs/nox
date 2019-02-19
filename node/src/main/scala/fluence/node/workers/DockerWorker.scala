@@ -124,7 +124,8 @@ object DockerWorker extends LazyLogging {
         .check[F]
         .flatMap[ServiceStatus[Unit]] {
           case d if d.isRunning ⇒ control.status.map(s ⇒ ServiceStatus(d, s))
-          case d ⇒ Applicative[F].pure(ServiceStatus(d, HttpCheckNotPerformed()))
+          case d ⇒
+            Applicative[F].pure(ServiceStatus(d, HttpCheckNotPerformed("Worker's Docker container is not launched")))
         }
 
       status = Apply[F].map2(tendermint.status(rpc), workerStatus) { (ts, ws) ⇒

@@ -73,7 +73,7 @@ class ControlRpcSpec extends WordSpec with Matchers {
             _ <- rpc.dropPeer(key)
             received <- server.signals.dropPeers.use(IO.pure)
           } yield {
-            received.length shouldBe 1
+            received.size shouldBe 1
             received.head shouldBe DropPeer(key)
           }
       }.unsafeRunSync()

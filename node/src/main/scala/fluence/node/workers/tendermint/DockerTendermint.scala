@@ -24,7 +24,6 @@ import cats.syntax.functor._
 import fluence.node.docker._
 import fluence.node.workers.WorkerParams
 import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus}
-import fluence.node.workers.tendermint.config.ConfigTemplate
 import fluence.node.workers.tendermint.rpc.TendermintRpc
 import fluence.node.workers.tendermint.status.TendermintStatus
 
@@ -42,33 +41,33 @@ case class DockerTendermint(
   name: String
 ) {
 
-  private def checkIfDockerRunning[F[_]: Sync: ContextShift](
+  private def ifDockerOkRunHttpCheck[F[_]: Sync: ContextShift](
     rpc: TendermintRpc[F],
     dockerStatus: DockerStatus
   ): F[ServiceStatus[TendermintStatus]] =
     dockerStatus match {
       case d if d.isRunning ⇒ rpc.httpStatus.map(s ⇒ ServiceStatus(d, s))
-      case d ⇒ Applicative[F].pure(ServiceStatus(d, HttpCheckNotPerformed()))
+      case d ⇒
+        Applicative[F].pure(ServiceStatus(d, HttpCheckNotPerformed("Tendermint Docker container is not launched")))
     }
 
   /**
    * Service status for this docker + wrapped Tendermint Http service
-   *
    */
   def status[F[_]: Sync: ContextShift](rpc: TendermintRpc[F]): F[ServiceStatus[TendermintStatus]] =
-    container.check[F].flatMap(checkIfDockerRunning(rpc, _))
+    container.check[F].flatMap(ifDockerOkRunHttpCheck(rpc, _))
 
   /**
-   * Launch service status check periodically: first Docker container is examined, then HTTP check is running
+   * Launch service status check periodically. Resulting status is calculated from Docker container status and HTTP check.
    *
    * @param rpc Inner Tendermint RPC
-   * @param period Period to check
+   * @param period Perform check once in the specified period
    */
   def periodicalStatus[F[_]: Timer: Sync: ContextShift](
     rpc: TendermintRpc[F],
     period: FiniteDuration
   ): fs2.Stream[F, ServiceStatus[TendermintStatus]] =
-    container.checkPeriodically[F](period).evalMap(checkIfDockerRunning(rpc, _))
+    container.checkPeriodically[F](period).evalMap(ifDockerOkRunHttpCheck(rpc, _))
 
 }
 
@@ -129,7 +128,7 @@ object DockerTendermint {
     val dockerParams = DockerParams
       .build()
       .user("0") // TODO should only work when running from docker?
-      .option("-e", s"""TMHOME=$dataPath""")
+      .option("-e", s"""TMHOME=$tendermintPath""")
       .option("--name", containerName(params))
       .option("--network", network.name)
       .port(currentWorker.p2pPort, P2pPort)
@@ -167,7 +166,7 @@ object DockerTendermint {
   ): Resource[F, DockerTendermint] =
     for {
       _ ← Resource.liftF(
-        params.configTemplate.writeConfigs(params.app, params.dataPath, workerName)
+        params.configTemplate.writeConfigs(params.app, params.tendermintPath, workerName)
       )
       container ← DockerIO.run[F](dockerCommand(params, network), stopTimeout)
     } yield DockerTendermint(container, containerName(params))

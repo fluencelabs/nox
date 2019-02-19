@@ -48,11 +48,7 @@ trait DockerSetup extends OsSetup {
       Sync[F]
         .delay(macOsHack(Files.createTempDirectory("testvolume").toString))
     )(
-      f =>
-        Sync[F].delay {
-          println(s"removing temp file $f")
-          Paths.get(f).toFile.delete()
-      }
+      tempPath => Sync[F].delay(Paths.get(tempPath).toFile.delete())
     )
   }
 

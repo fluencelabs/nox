@@ -68,16 +68,24 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
   private def resolveAppPath(app: eth.state.App): F[Path] =
     IO(rootPath.resolve("app-" + app.id + "-" + app.cluster.currentWorker.index)).to[F]
 
-  private def makeDataPath(app: eth.state.App): F[Path] =
+  /**
+   * Create directory to hold Tendermint config & data for a specific app (worker)
+   * @param appPath Path containing all configs & data for a specific app
+   * @return Path to Tendermint home ($TMHOME) directory
+   */
+  private def makeTendermintPath(appPath: Path): F[Path] =
     for {
-      appPath ← resolveAppPath(app)
-      dataPath ← IO(appPath.resolve("data")).to[F]
-      _ ← IO(Files.createDirectories(dataPath)).to[F]
-    } yield dataPath
+      tendermintPath ← IO(appPath.resolve("tendermint")).to[F]
+      _ ← IO(Files.createDirectories(tendermintPath)).to[F]
+    } yield tendermintPath
 
-  private def makeVmCodePath(app: eth.state.App): F[Path] =
+  /**
+   * Create directory to hold app code downloaded from Swarm
+   * @param appPath Path containing all configs & data for a specific app
+   * @return Path to `vmcode` directory
+   */
+  private def makeVmCodePath(appPath: Path): F[Path] =
     for {
-      appPath ← resolveAppPath(app)
       vmCodePath ← IO(appPath.resolve("vmcode")).to[F]
       _ ← IO(Files.createDirectories(vmCodePath)).to[F]
     } yield vmCodePath
@@ -90,8 +98,9 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
    */
   def runAppWorker(app: eth.state.App): F[Unit] =
     for {
-      dataPath ← makeDataPath(app)
-      vmCodePath ← makeVmCodePath(app)
+      appPath ← resolveAppPath(app)
+      tendermintPath ← makeTendermintPath(appPath)
+      vmCodePath ← makeVmCodePath(appPath)
 
       // TODO: in general, worker/vm is responsible about downloading the code during resource creation, isn't it?
       // we take output to substitute test folder in tests
@@ -100,7 +109,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
       _ <- runWorker(
         WorkerParams(
           app,
-          dataPath,
+          tendermintPath,
           code,
           masterNodeContainerId,
           nodeConfig.workerImage,

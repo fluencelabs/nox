@@ -139,13 +139,12 @@ If you wish to use your local computer to host Fluence node, you can do that by 
 ## How to check if node is registered
 You can use [Fluence CLI](../../cli/README.md) to query current state of network in Fluence smart contract like this:
 ```bash
-./fluence status --contract_address 0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b
-```
-where `0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b` is the Fluence smart contract address. 
+./fluence status
+``` 
 
 **Note:** if your Ethereum node is remote, you can specify it's address via `--eth_url` option, like this:
 ```bash
-./fluence status --eth_url https://53.42.31.20:8545 --contract_address 0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b
+./fluence status --eth_url https://53.42.31.20:8545
 ```
 
 You should see your Ethereum address under `owner` in `nodes` list. Similar to this:
@@ -227,8 +226,7 @@ The command above is a perfect match, it's pinning the app to four nodes, and al
 But what if your app requires more nodes than you wish to register? In that case, you can pin your app to any number of nodes, be it just one or a few, and specify a cluster size that you need. Fluence smart contract will then match your app both against your pinned nodes and available public nodes. The command is almost the same, except the `--cluster_size` requires eight nodes.
 ```bash
 ./fluence publish \
-            --code_path        /Users/folex/Development/fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm \
-            --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
+            --code_path        /Users/folex/Development/fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm \            
             --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
             --cluster_size     8 \
             --secret_key       0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
@@ -308,8 +306,7 @@ You see app's `cluster` is `null`, that means it's not deployed yet, waiting for
 ## How to remove a node from the Fluence smart contract
 If you shut down your node, it's not available anymore for any reason, or you just want to stop it hosting apps, you can remove the node from the Fluence smart contract like this:
 ```bash
-./fluence delete_node \
-            --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
+./fluence delete_node \            
             --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
             --secret_key       0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
             --tendermint_key   1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
