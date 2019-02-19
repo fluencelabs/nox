@@ -21,25 +21,25 @@ import java.math.BigInteger
 import org.web3j.protocol.core.methods.response.EthBlock
 
 case class Block(
-  number: BigInt,
-  hash: String,
-  parentHash: String,
-  nonce: String,
-  sha3Uncles: String,
-  logsBloom: String,
-  transactionsRoot: String,
-  stateRoot: String,
-  receiptsRoot: String,
-  author: String,
-  miner: String,
-  mixHash: String,
-  difficulty: BigInt,
-  totalDifficulty: BigInt,
-  extraData: String,
-  size: BigInt,
-  gasLimit: BigInt,
-  gasUsed: BigInt,
-  timestamp: BigInt,
+  number: Option[BigInt],
+  hash: Option[String],
+  parentHash: Option[String],
+  nonce: Option[String],
+  sha3Uncles: Option[String],
+  logsBloom: Option[String],
+  transactionsRoot: Option[String],
+  stateRoot: Option[String],
+  receiptsRoot: Option[String],
+  author: Option[String],
+  miner: Option[String],
+  mixHash: Option[String],
+  difficulty: Option[BigInt],
+  totalDifficulty: Option[BigInt],
+  extraData: Option[String],
+  size: Option[BigInt],
+  gasLimit: Option[BigInt],
+  gasUsed: Option[BigInt],
+  timestamp: Option[BigInt],
   transactions: Seq[Transaction],
   uncles: Seq[String],
   sealFields: Seq[String]
@@ -47,35 +47,31 @@ case class Block(
 
 object Block {
 
-  // converts field that can be possibly `null`
-  private def convertBigInteger(bi: BigInteger) = Option(bi).map(BigInt(_)).getOrElse(BigInt(0))
-  private def convertString(s: String) = Option(s).getOrElse("")
-
   def apply(block: EthBlock.Block): Block = {
     import block._
 
     import scala.collection.convert.ImplicitConversionsToScala._
     // every field in EthBlock.Block could be `null`
     new Block(
-      convertBigInteger(getNumber),
-      convertString(getHash),
-      convertString(getParentHash),
-      convertString(getNonceRaw),
-      convertString(getSha3Uncles),
-      convertString(getLogsBloom),
-      convertString(getTransactionsRoot),
-      convertString(getStateRoot),
-      convertString(getReceiptsRoot),
-      convertString(getAuthor),
-      convertString(getMiner),
-      convertString(getMixHash),
-      convertBigInteger(getDifficulty),
-      convertBigInteger(getTotalDifficulty),
-      convertString(getExtraData),
-      convertBigInteger(getSize),
-      convertBigInteger(getGasLimit),
-      convertBigInteger(getGasUsed),
-      convertBigInteger(getTimestamp),
+      Option(getNumber),
+      Option(getHash),
+      Option(getParentHash),
+      Option(getNonceRaw),
+      Option(getSha3Uncles),
+      Option(getLogsBloom),
+      Option(getTransactionsRoot),
+      Option(getStateRoot),
+      Option(getReceiptsRoot),
+      Option(getAuthor),
+      Option(getMiner),
+      Option(getMixHash),
+      Option(getDifficulty),
+      Option(getTotalDifficulty),
+      Option(getExtraData),
+      Option(getSize),
+      Option(getGasLimit),
+      Option(getGasUsed),
+      Option(getTimestamp),
       Option(getTransactions).map(_.toSeq.map(Transaction.apply)).getOrElse(Nil),
       Option(getUncles).map(_.toSeq).getOrElse(Nil),
       Option(getSealFields).map(_.toSeq).getOrElse(Nil)
