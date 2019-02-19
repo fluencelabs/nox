@@ -32,7 +32,6 @@ import scala.concurrent.duration._
  * Master node status.
  *
  * @param ip master node ip address
- * @param listOfPorts all available ports to use by code developers
  * @param uptime working time of master node
  * @param numberOfWorkers number of registered workers
  * @param workers info about workers
@@ -41,7 +40,6 @@ import scala.concurrent.duration._
  */
 case class MasterStatus(
   ip: String,
-  listOfPorts: String,
   uptime: Long,
   nodeConfig: NodeConfig,
   numberOfWorkers: Int,

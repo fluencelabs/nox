@@ -16,6 +16,7 @@ services:
       - 25510:5678
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ${FLUENCE_STORAGE}/1:/master
   fluence-node-2:
     container_name: fluence-node-2
     image: fluencelabs/node:latest
@@ -31,6 +32,7 @@ services:
       - 25610:5678
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ${FLUENCE_STORAGE}/2:/master
   fluence-node-3:
     container_name: fluence-node-3
     image: fluencelabs/node:latest
@@ -46,6 +48,7 @@ services:
       - 25710:5678
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ${FLUENCE_STORAGE}/3:/master
   fluence-node-4:
     container_name: fluence-node-4
     image: fluencelabs/node:latest
@@ -61,3 +64,4 @@ services:
       - 25810:5678
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
+      - ${FLUENCE_STORAGE}/4:/master

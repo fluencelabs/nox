@@ -66,7 +66,7 @@ pub fn contract_address<'a, 'b>() -> Arg<'a, 'b> {
         .long(CONTRACT_ADDRESS)
         .short("d")
         .value_name("eth address")
-        .required(true)
+        .default_value(include_str!("../../tools/deploy/scripts/contract.txt").trim())
         .takes_value(true)
         .help("Fluence contract address")
 }

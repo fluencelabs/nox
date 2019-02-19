@@ -42,34 +42,28 @@ import scala.language.higherKinds
  * @param masterNode initialized master node
  */
 case class StatusAggregator(config: MasterConfig, masterNode: MasterNode[IO], startTimeMillis: Long)(
-  implicit timer: Timer[IO]
+  implicit clock: Clock[IO]
 ) {
 
   /**
    * Gets all state information about master node and workers.
    * @return gathered information
    */
-  val getStatus: IO[MasterStatus] = {
-    val endpoints = config.endpoints
-    val ports = s"${endpoints.minPort}:${endpoints.maxPort}"
-
-    for {
-      currentTime ← timer.clock.monotonic(MILLISECONDS)
-      workers ← masterNode.pool.getAll
-      workerInfos ← Traverse[List].traverse(workers)(_.status)
-      ethState ← masterNode.nodeEth.expectedState
-    } yield
-      MasterStatus(
-        config.endpoints.ip.getHostName,
-        ports,
-        currentTime - startTimeMillis,
-        masterNode.nodeConfig,
-        workerInfos.size,
-        workerInfos,
-        config,
-        ethState
-      )
-  }
+  val getStatus: IO[MasterStatus] = for {
+    currentTime ← clock.monotonic(MILLISECONDS)
+    workers ← masterNode.pool.getAll
+    workerInfos ← Traverse[List].traverse(workers)(_.status)
+    ethState ← masterNode.nodeEth.expectedState
+  } yield
+    MasterStatus(
+      config.endpoints.ip.getHostName,
+      currentTime - startTimeMillis,
+      masterNode.nodeConfig,
+      workerInfos.size,
+      workerInfos,
+      config,
+      ethState
+    )
 }
 
 object StatusAggregator extends LazyLogging {

@@ -280,13 +280,14 @@ lazy val node = project
          * The following directory structure is assumed in node/src/main/resources:
          *    docker/
          *      entrypoint.sh
+         *      application.conf
          */
-        copy((resourceDirectory in Compile).value / "docker" / "entrypoint.sh", "/master/")
+        copy((resourceDirectory in Compile).value / "docker", "/")
 
         copy(artifact, artifactTargetPath)
 
         cmd("java", "-jar", artifactTargetPath)
-        entryPoint("sh", "/master/entrypoint.sh")
+        entryPoint("sh", "/entrypoint.sh")
       }
     }
   )

@@ -59,11 +59,10 @@ case class TendermintRpc[F[_]] private (
 
   /**
    * Performs http status check, lifting result to [[HttpStatus]] data type
-   *
    */
   def httpStatus(implicit F: Functor[F]): F[HttpStatus[TendermintStatus]] =
     status.value.map {
-      case Right(info) ⇒ HttpCheckStatus(info)
+      case Right(resp) ⇒ HttpCheckStatus(resp)
       case Left(err) ⇒ HttpCheckFailed(err)
     }
 }

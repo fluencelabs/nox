@@ -61,7 +61,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
             }
       }
       .attempt
-      .map(_.getOrElse(ExitCode.Error))
+      .flatMap(IO.fromEither)
       .guaranteeCase {
         case Canceled =>
           IO(logger.error("MasterNodeApp was canceled"))
