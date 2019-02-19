@@ -1,0 +1,41 @@
+version: '3'
+
+services:
+  caddy:
+    image: abiosoft/caddy
+    container_name: caddy
+    ports:
+      - %(caddy_port)s:80
+    volumes:
+      - %(home_dir)s/config/Caddyfile:/etc/Caddyfile
+      - %(home_dir)s/.local/caddy:/root/.caddy
+    environment:
+      ACME_AGREE: 'true'
+    deploy:
+        resources:
+          limits:
+            cpus: '0.05'
+            memory: 20M
+
+  netdata:
+    container_name: netdata
+    restart: always
+    hostname: $HOSTNAME
+    image: netdata/netdata
+    cap_add:
+      - SYS_PTRACE
+    environment:
+      - "PGID=$PGID"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - %(home_dir)s/.local/netdata_cache:/var/cache/netdata
+      - %(home_dir)s/config/netdata.conf:/netdata.conf
+    command:
+      -c /netdata.conf
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 100M
