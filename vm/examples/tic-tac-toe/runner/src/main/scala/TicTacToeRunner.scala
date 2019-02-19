@@ -18,8 +18,6 @@ import cats.data.{EitherT, NonEmptyList}
 import cats.effect.{ExitCode, IO, IOApp}
 import fluence.vm.VmError.InternalVmError
 import fluence.vm.{VmError, WasmVm}
-import org.json4s._
-import org.json4s.jackson.JsonMethods._
 
 import scala.language.higherKinds
 
@@ -39,19 +37,24 @@ object TicTacToeRunner extends IOApp {
       vm ← WasmVm[IO](NonEmptyList.one(inputFile), "fluence.vm.debugger")
       initState ← vm.getVmState[IO]
 
-      createPlayer = generateCreatePlayerJson("John", "secret_key")
-      createGame = generateCreateGameJson("John", "secret_key", 'X')
-      createGame2 = generateCreateGameJson("John2", "secret_key", 'X')
-      createPlayer2 = generateCreatePlayerJson("John2", "secret_key")
-      getGameState = generateGetStateJson("John2", "secret_key")
-      makeMove = generateMoveJson("John", "secret_key", 0, 0)
+      createPlayer = createPlayerJson("John", "secret_key")
+      createGame = createGameJson("John", "secret_key", 'X')
+      createGame2 = createGameJson("John2", "secret_key", 'X')
+      createPlayer2 = createPlayerJson("John2", "secret_key")
+      getGameState = getStateJson("John2", "secret_key")
+      makeMove = moveJson("John", "secret_key", 0, 0)
+      makeMove2 = moveJson("John", "secret_key", 0, 1)
+      makeMove3 = moveJson("John", "secret_key", 0, 2)
 
       result1 ← vm.invoke[IO](None, createPlayer.getBytes())
       result2 ← vm.invoke[IO](None, createPlayer2.getBytes())
       result3 ← vm.invoke[IO](None, createGame.getBytes())
       result4 ← vm.invoke[IO](None, createGame2.getBytes())
-      result5 ← vm.invoke[IO](None, getGameState.getBytes())
-      result6 ← vm.invoke[IO](None, makeMove.getBytes())
+      result5 ← vm.invoke[IO](None, makeMove.getBytes())
+      result6 ← vm.invoke[IO](None, getGameState.getBytes())
+      result7 ← vm.invoke[IO](None, makeMove.getBytes())
+      result8 ← vm.invoke[IO](None, makeMove2.getBytes())
+      result9 ← vm.invoke[IO](None, makeMove3.getBytes())
 
       finishState <- vm.getVmState[IO].toVmError
     } yield {
@@ -78,6 +81,9 @@ object TicTacToeRunner extends IOApp {
         s"result4=${new String(result4)} \n" +
         s"result5=${new String(result5)} \n" +
         s"result6=${new String(result6)} \n" +
+        s"result7=${new String(result7)} \n" +
+        s"result8=${new String(result8)} \n" +
+        s"result9=${new String(result9)} \n" +
         s"finishState=$finishState"
     }
 
@@ -91,16 +97,16 @@ object TicTacToeRunner extends IOApp {
     }
   }
 
-  private def generateMoveJson(playerName: String, playerSign: String, x: Int, y: Int): String =
-    generateJson("move", playerName, playerSign, ", \"coords\": " + s"($x, $y)")
+  private def moveJson(playerName: String, playerSign: String, x: Int, y: Int): String =
+    generateJson("move", playerName, playerSign, ", \"coords\": " + s"[$x, $y]")
 
-  private def generateCreatePlayerJson(playerName: String, playerSign: String): String =
+  private def createPlayerJson(playerName: String, playerSign: String): String =
     generateJson("create_player", playerName, playerSign)
 
-  private def generateCreateGameJson(playerName: String, playerSign: String, tile: Char): String =
+  private def createGameJson(playerName: String, playerSign: String, tile: Char): String =
     generateJson("create_game", playerName, playerSign, ", \"tile\": \""  + tile + "\"")
 
-  private def generateGetStateJson(playerName: String, playerSign: String): String =
+  private def getStateJson(playerName: String, playerSign: String): String =
     generateJson("get_game_state", playerName, playerSign)
 
   private def generateJson(action: String, playerName: String, playerSign: String, additionalFields: String="") =

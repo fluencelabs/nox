@@ -92,7 +92,6 @@ lazy val `tic-tac-toe-runner` = (project in file("vm/examples/tic-tac-toe/runner
       catsEffect,
       pureConfig,
       cryptoHashing,
-      json,
     )
   )
   .dependsOn(vm, `vm-hello-world2`)

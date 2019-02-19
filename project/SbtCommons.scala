@@ -121,8 +121,6 @@ object SbtCommons {
 
   val toml = "com.electronwill.night-config" % "toml" % "3.4.2"
 
-  val json = "org.json4s" %% "json4s-jackson" % "3.6.4"
-
   /* Test deps*/
 
   val scalaTest = "org.scalatest"            %% "scalatest"   % "3.0.5"  % Test

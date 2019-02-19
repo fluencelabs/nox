@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#[cfg(test)]
+mod tests;
+
 mod error_type;
 mod game;
 mod game_manager;
@@ -23,10 +26,11 @@ mod player;
 use crate::error_type::AppResult;
 use crate::game_manager::GameManager;
 use crate::json_parser::*;
+
 use fluence::sdk::*;
 use log::{error, info};
-use serde_json::json;
-use serde_json::Value;
+use serde_json::{json, Value};
+use simple_logger;
 use std::cell::RefCell;
 
 thread_local! {
@@ -35,7 +39,11 @@ thread_local! {
 
 // initializes logger
 fn init() {
-    logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
+    if cfg!(target_arch = "wasm32") {
+        logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
+    } else {
+        simple_logger::init_with_level(log::Level::Info).unwrap();
+    }
 }
 
 fn do_request(req: String) -> AppResult<Value> {

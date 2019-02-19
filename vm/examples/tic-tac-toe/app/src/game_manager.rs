@@ -112,12 +112,12 @@ impl GameManager {
 
     pub fn get_game_state(&self, player_name: String, player_sign: String) -> AppResult<Value> {
         let game = self.get_player_game(player_name.clone(), player_sign)?;
-        let (chosen_tile, board1) = game.borrow().get_state();
+        let (chosen_tile, board) = game.borrow().get_state();
 
         let response = GetGameStateResponse {
             player_name,
             player_tile: chosen_tile.to_char(),
-            board: board1,
+            board,
         };
         serde_json::to_value(response).map_err(Into::into)
     }
