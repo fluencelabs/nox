@@ -136,7 +136,6 @@ def deploy():
 def deploy_netdata():
     from fabric.contrib.files import upload_template
     from utils import ensure_docker_group, chown_docker_sock, get_docker_pgid
-    from os.path import expanduser
 
     assert hasattr(env, 'caddy_port'), "please specify caddy_port via --set"
     assert hasattr(env, 'caddy_login'), "please specify caddy_login via --set"
@@ -146,7 +145,7 @@ def deploy_netdata():
         run("mkdir -p ~/scripts")
         run("mkdir -p ~/config")
         env.home_dir = run("pwd").stdout
-        upload_template("scripts/netdata.yml", "~/scripts/netdata.yml", context=env)
+        upload_template("scripts/netdata.yml.template", "~/scripts/netdata.yml", context=env)
         upload_template("config/Caddyfile.template", "~/config/Caddyfile", context=env)
         put("config/netdata.conf", "~/config/")
 

@@ -18,9 +18,11 @@ def register_command(data, secret_key):
             data['tendermint_key'],
             data['tendermint_node_id'],
             data['contract_address'],
-            data['account'], secret_key,
+            data['account'],
+            secret_key,
             data['start_port'],
-            data['last_port'], eth_url
+            data['last_port'],
+            eth_url
         )
 
     return ' '.join(command.split())
