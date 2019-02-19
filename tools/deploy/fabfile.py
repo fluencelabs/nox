@@ -132,14 +132,18 @@ def deploy():
                     local(command)
 
 
+# usage: fab --set environment=stage,caddy_login=LOGIN,caddy_password=PASSWORD deploy_netdata
 @parallel
 def deploy_netdata():
     from fabric.contrib.files import upload_template
     from utils import ensure_docker_group, chown_docker_sock, get_docker_pgid
 
-    assert hasattr(env, 'caddy_port'), "please specify caddy_port via --set"
-    assert hasattr(env, 'caddy_login'), "please specify caddy_login via --set"
-    assert hasattr(env, 'caddy_password'), "please specify caddy_password via --set"
+    if not hasattr(env, 'caddy_port'):
+        env.caddy_port = 1337  # set default port
+
+    usage = "usage: fab --set caddy_login=LOGIN,caddy_password=PASSWORD,caddy_port=1337 deploy_netdata"
+    assert hasattr(env, 'caddy_login'), usage
+    assert hasattr(env, 'caddy_password'), usage
 
     with hide('running', 'output'):
         run("mkdir -p ~/scripts")
