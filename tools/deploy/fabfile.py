@@ -38,7 +38,7 @@ else:
     file.close()
 
     file = open("scripts/contract.txt", "r")
-    contract=file.read().rstrip()
+    contract = file.read().rstrip()
     file.close()
 
     nodes = json.loads(nodes_json)
@@ -51,7 +51,8 @@ env.user = "root"
 # Set to False to disable `[ip.ad.dre.ss] out:` prefix
 env.output_prefix = True
 
-RELEASE="https://github.com/fluencelabs/fluence/releases/download/cli-0.1.3/fluence-cli-0.1.3-linux-x64"
+RELEASE = "https://github.com/fluencelabs/fluence/releases/download/cli-0.1.3/fluence-cli-0.1.3-linux-x64"
+
 
 # copies all necessary files for deploying
 def copy_resources():
@@ -68,11 +69,13 @@ def copy_resources():
     put('scripts/swarm.yml', 'scripts/')
     put('config/reserved_peers.txt', 'config/')
 
+
 # tests connection to all nodes
 # usage as follows: fab test_connections
 @parallel
 def test_connections():
     run("uname -a")
+
 
 # comment this annotation to deploy sequentially
 @parallel
@@ -89,14 +92,13 @@ def deploy():
         copy_resources()
 
         with cd("scripts"):
-
             # change for another chain
             # todo changing this variable should recreate parity container
             # todo support contract deployment on 'dev' chain
-            chain='kovan'
+            chain = 'kovan'
 
             # actual fluence contract address
-            contract_address=contract
+            contract_address = contract
 
             # getting owner and private key from `info` dictionary
             current_host = env.host_string
@@ -129,18 +131,23 @@ def deploy():
                     # run `fluence` command
                     local(command)
 
+
 @parallel
 def deploy_netdata():
     from fabric.contrib.files import upload_template
     from utils import ensure_docker_group, chown_docker_sock, get_docker_pgid
+    from os.path import expanduser
 
     assert hasattr(env, 'caddy_login'), "please specify caddy_login via --set"
     assert hasattr(env, 'caddy_password'), "please specify caddy_password via --set"
 
     with show('running'):
         run("mkdir -p ~/scripts")
-        upload_template("config/Caddyfile.template", "~/scripts/Caddyfile", context=env)
+        run("mkdir -p ~/config")
+        env.home_dir = run("pwd").stdout
         upload_template("scripts/netdata.yml", "~/scripts/netdata.yml", context=env)
+        upload_template("config/Caddyfile.template", "~/config/Caddyfile", context=env)
+        put("config/netdata.conf", "~/config/")
 
         ensure_docker_group(env.user)
         chown_docker_sock(env.user)

@@ -3,14 +3,16 @@ version: '3'
 services:
   caddy:
     image: abiosoft/caddy
+    container_name: caddy
     ports:
       - %(caddy_port)s:80
     volumes:
-      - ./Caddyfile:/etc/Caddyfile
-      - ~/.local/caddy:/root/.caddy
+      - %(home_dir)s/config/Caddyfile:/etc/Caddyfile
+      - %(home_dir)s/.local/caddy:/root/.caddy
     environment:
       ACME_AGREE: 'true'
   netdata:
+    container_name: netdata
     restart: always
     hostname: $HOSTNAME
     image: netdata/netdata
@@ -22,4 +24,7 @@ services:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - ~/.local/netdata_cache:/var/cache/netdata
+      - %(home_dir)s/.local/netdata_cache:/var/cache/netdata
+      - %(home_dir)s/config/netdata.conf:/netdata.conf
+    command:
+      -c /netdata.conf
