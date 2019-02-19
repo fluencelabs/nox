@@ -14,21 +14,30 @@
  * limitations under the License.
  */
 
-use crate::game::Game;
-use std::{cell::RefCell, rc::Weak};
+use serde::{Deserialize, Serialize};
+use serde_json::Serializer;
 
-pub struct Player {
-    pub name: String,
-    pub game: Weak<RefCell<Game>>,
-    pub sign: String,
+#[derive(Serialize, Deserialize)]
+pub struct Request {
+    pub action: String,
+    pub player_name: String,
+    pub player_sign: String,
 }
 
-impl Player {
-    pub fn new(name: String, sign: String) -> Self {
-        Player {
-            name,
-            game: Weak::new(),
-            sign,
-        }
-    }
+#[derive(Serialize, Deserialize)]
+pub struct PlayerTile {
+    pub tile: char,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct PlayerMove {
+    pub coords: (i32, i32),
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct Response {
+    error_code: i32,
+    player_name: String,
+    player_sign: String,
+    params: serde_json::Value,
 }

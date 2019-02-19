@@ -32,7 +32,7 @@ object TicTacToeRunner extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] = {
 
-    val inputFile = "D:\\fluence\\fluence\\vm\\examples\\tic-tac-toe\\app\\target\\wasm32-unknown-unknown\\release\\tic_tac_toe.wasm"
+    val inputFile = "/Users/trofim/Desktop/work/fluence/fluence/vm/examples/tic-tac-toe/app/target/wasm32-unknown-unknown/release/tic_tac_toe.wasm"
     val program: EitherT[IO, VmError, String] = for {
 //      inputFile <- EitherT(getInputFile(args).attempt)
 //        .leftMap(e => InternalVmError(e.getMessage, Some(e)))
@@ -89,7 +89,7 @@ object TicTacToeRunner extends IOApp {
   }
 
   private def generateMoveJson(playerName: String, playerSign: String, x: Int, y: Int): String =
-    generateJson("move", playerName, playerSign, ", \"tile\": \""  + s"[$x, $y]" + "\"")
+    generateJson("move", playerName, playerSign, ", \"coords\": \""  + s"($x, $y)" + "\"")
 
   private def generateCreatePlayerJson(playerName: String, playerSign: String): String =
     generateJson("create_player", playerName, playerSign)

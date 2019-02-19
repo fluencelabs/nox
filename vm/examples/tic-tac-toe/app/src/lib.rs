@@ -14,77 +14,79 @@
  * limitations under the License.
  */
 
-mod player;
 mod game;
 mod game_manager;
+mod json_parser;
+mod player;
 
 use crate::game_manager::GameManager;
+use crate::json_parser::*;
 use fluence::sdk::*;
-use log::{info, error};
-use serde_json::{Result, Value};
-use std::cell::Cell;
-use std::cell::RefCell;
-use std::thread;
+use log::{error, info};
+use serde_json::Value;
+use std::{cell::RefCell, error::Error};
+use serde_json::json;
 
 thread_local! {
     static GAME_MANAGER: RefCell<GameManager> = RefCell::new(GameManager::new());
 }
 
+type RequestResult<T> = ::std::result::Result<T, Box<Error>>;
+
 // initializes logger
 fn init() {
     logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
-    info!("initialize");
 }
 
-fn do_request(req: String) -> String {
-    let json: Value = match serde_json::from_str(&req[..]) {
-        Ok(res) => res,
-        Err(err) => {
-            let err_message = format!("error while parsing {} json", err);
-            error!("{}", err_message);
-            return err_message;
-        }
-    };
+fn do_request(req: String) -> RequestResult<String> {
+    let raw_request: Value = serde_json::from_str(req.as_str())?;
+    let request: Request = serde_json::from_value(raw_request.clone())?;
 
-    let action = json["action"].as_str();
-    match action {
-        None => {
-            let err_message = format!("There is no action key in json");
+    match request.action.as_str() {
+        "move" => GAME_MANAGER.with(|gm| {
+            let player_move: PlayerMove = serde_json::from_value(raw_request)?;
+            gm.borrow()
+                .make_move(request.player_name, request.player_sign, player_move.coords)
+        }),
+
+        "create_player" => GAME_MANAGER.with(|gm| {
+            gm.borrow_mut()
+                .create_player(request.player_name, request.player_sign)
+        }),
+
+        "create_game" => GAME_MANAGER.with(|gm| {
+            let player_tile: PlayerTile = serde_json::from_value(raw_request)?;
+            let player_tile = game::Tile::from_char(player_tile.tile)
+                .ok_or_else(|| "tile has to be one of {'X', 'O'}".to_owned())
+                .map_err(Into::into)?;
+
+            gm.borrow_mut()
+                .create_game(request.player_name, request.player_sign, player_tile)
+        }),
+
+        "get_game_state" => GAME_MANAGER.with(|gm| {
+            gm.borrow()
+                .get_game_state(request.player_name, request.player_sign)
+        }),
+
+        _ => {
+            let err_message = format!("{} action key is unsupported", request.action);
             error!("{}", err_message);
-            err_message
-        },
-        Some(s) => {
-            let player_name = json["player_name"].as_str().unwrap();
-            let player_sign = json["player_sign"].as_str().unwrap();
-            match s {
-                "move" =>
-                    GAME_MANAGER.with(|gm|
-                        gm.borrow().make_move(player_name.to_owned(), player_sign.to_owned())
-                    ),
-                "create_player" =>
-                    GAME_MANAGER.with(|gm|
-                        gm.borrow_mut().create_player(player_name.to_owned(), player_sign.to_owned())
-                    ),
-                "create_game" =>
-                    GAME_MANAGER.with(|gm|
-                        gm.borrow_mut().create_game(player_name.to_owned(), player_sign.to_owned())
-                    ),
-                "get_game_state" =>
-                    GAME_MANAGER.with(|gm|
-                        gm.borrow().get_game_state(player_name.to_owned(), player_sign.to_owned())
-                    ),
-                _ => {
-                    let err_message = format!("{} action key is unsupported", s);
-                    error!("{}", err_message);
-                    err_message
-                },
-            }
+            Err(err_message).map_err(Into::into)
         }
     }
 }
 
 #[invocation_handler(init_fn = init)]
-fn greeting(req: String) -> String {
-//    info!("the new request {}", req);
-    do_request(req)
+fn main(req: String) -> String {
+    info!("the new request {}", req);
+    match do_request(req) {
+        Ok(req) => req,
+        Err(err) => {
+            error!("an error occured: {}", err);
+            json!({
+                "error": err
+            }).to_string()
+        }
+    }
 }

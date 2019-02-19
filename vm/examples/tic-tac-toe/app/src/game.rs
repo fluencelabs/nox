@@ -14,23 +14,28 @@
  * limitations under the License.
  */
 
-use crate::player::Player;
-use std::rc::{Rc, Weak};
 use boolinator::Boolinator;
-use std::result::Result;
-use std::cell::Cell;
-use log::{info, error};
 use serde_json::json;
-use std::fmt;
 use std::convert::From;
+use std::fmt;
+use std::result::Result;
 
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum Tile {
     X,
-    O
+    O,
 }
 
 impl Tile {
+    pub fn from_char(ch: char) -> Option<Self> {
+        match ch {
+            'X' => Some(Tile::X),
+            'O' => Some(Tile::O),
+            _ => None,
+        }
+    }
+
+    // returns tile type of opposite player
     pub fn other(self) -> Self {
         match self {
             Tile::X => Tile::O,
@@ -54,7 +59,7 @@ impl fmt::Display for Tile {
 pub enum Winner {
     X,
     O,
-    Draw
+    Draw,
 }
 
 impl fmt::Display for Winner {
@@ -87,43 +92,61 @@ impl Game {
     pub fn new(player_tile: Tile) -> Self {
         Game {
             board: [[None; 3]; 3],
-            chosen_tile: player_tile
+            chosen_tile: player_tile,
         }
     }
 
     pub fn get_winner(&self) -> Option<Winner> {
+        // check columns
         for col in 0..2 {
-            if self.board[0][col].is_some() && (self.board[0][col] == self.board[1][col]) && (self.board[1][col] == self.board[2][col]) {
-                return self.board[0][col].map(|tile| tile.into())
+            if self.board[0][col].is_some()
+                && (self.board[0][col] == self.board[1][col])
+                && (self.board[1][col] == self.board[2][col])
+            {
+                return self.board[0][col].map(|tile| tile.into());
             }
         }
 
+        // check rows
         for row in 0..2 {
-            if self.board[row][0].is_some() && (self.board[row][0] == self.board[row][0]) && (self.board[row][0] == self.board[row][0]) {
-                return self.board[row][0].map(|tile| tile.into())
+            if self.board[row][0].is_some()
+                && (self.board[row][0] == self.board[row][0])
+                && (self.board[row][1] == self.board[row][2])
+            {
+                return self.board[row][0].map(|tile| tile.into());
             }
         }
 
-        if self.board[0][0].is_some() && (self.board[0][0] == self.board[1][1]) && (self.board[1][1] == self.board[2][2]) {
-            return self.board[0][0].map(|tile| tile.into())
+        // check the left-right diagonal
+        if self.board[0][0].is_some()
+            && (self.board[0][0] == self.board[1][1])
+            && (self.board[1][1] == self.board[2][2])
+        {
+            return self.board[0][0].map(|tile| tile.into());
         }
 
-        if self.board[2][0].is_some() && (self.board[2][0] == self.board[1][1]) && (self.board[1][1] == self.board[0][2]) {
-            return self.board[2][0].map(|tile| tile.into())
+        // check the right-left diagonal
+        if self.board[2][0].is_some()
+            && (self.board[2][0] == self.board[1][1])
+            && (self.board[1][1] == self.board[0][2])
+        {
+            return self.board[2][0].map(|tile| tile.into());
         }
 
-        self.board.iter().all(|row| {
-            row.iter().all(|cell| cell.is_some())
-        }).as_some(Winner::Draw)
+        // check that all tiles are not empty (a draw condition)
+        self.board
+            .iter()
+            .all(|row| row.iter().all(|cell| cell.is_some()))
+            .as_some(Winner::Draw)
     }
 
     pub fn player_move(&mut self, coord: (i32, i32)) -> Result<Option<Winner>, String> {
         if let Some(player) = self.get_winner() {
-            return Ok(Some(player))
+            return Ok(Some(player));
         }
 
         if coord.0 < 0 || coord.0 > 2 || coord.1 < 0 || coord.1 > 2 {
-            return Err("Invalid coordinates".to_owned())
+            return Err("Invalid coordinates".to_owned());
         }
 
         self.board[coord.0 as usize][coord.1 as usize]
@@ -138,10 +161,10 @@ impl Game {
 
     pub fn get_state(&self) -> String {
         json!({
-            "chosen_tile": format!("{}", self.chosen_tile),
-            "board": ""
-            }).to_string()
-
+        "chosen_tile": format!("{}", self.chosen_tile),
+        "board": ""
+        })
+        .to_string()
     }
 
     fn app_move(&mut self) {
@@ -154,7 +177,7 @@ impl Game {
         }
 
         if possible_actions.is_empty() {
-           return;
+            return;
         }
 
         // TODO: use more complicated strategy
@@ -176,7 +199,8 @@ impl fmt::Display for Game {
         let str = json!({
             "chosen_tile": format!("\"{}\"", self.chosen_tile),
             "board": board_str
-            }).to_string();
+        })
+        .to_string();
 
         fmt.write_str(str.as_str())?;
         Ok(())

@@ -20,6 +20,7 @@ panic = "abort"
 [dependencies]
 log = "0.4"
 arraydeque = "0.4.3"
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.38"
 boolinator = "2.4.0"
 fluence = { version = "0.0.10", features = ["export_allocator", "wasm_logger"] }
