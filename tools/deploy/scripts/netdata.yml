@@ -11,6 +11,12 @@ services:
       - %(home_dir)s/.local/caddy:/root/.caddy
     environment:
       ACME_AGREE: 'true'
+    deploy:
+        resources:
+          limits:
+            cpus: '0.22'
+            memory: 20M
+
   netdata:
     container_name: netdata
     restart: always
@@ -28,3 +34,8 @@ services:
       - %(home_dir)s/config/netdata.conf:/netdata.conf
     command:
       -c /netdata.conf
+    deploy:
+      resources:
+        limits:
+          cpus: '0.22'
+          memory: 100M

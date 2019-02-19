@@ -141,12 +141,12 @@ def deploy_netdata():
     assert hasattr(env, 'caddy_login'), "please specify caddy_login via --set"
     assert hasattr(env, 'caddy_password'), "please specify caddy_password via --set"
 
-    with hide('running'):
+    with hide('running', 'output'):
         run("mkdir -p ~/scripts")
         run("mkdir -p ~/config")
         env.home_dir = run("pwd").stdout
-        upload_template("scripts/netdata.yml.template", "~/scripts/netdata.yml", context=env)
-        upload_template("config/Caddyfile.template", "~/config/Caddyfile", context=env)
+        upload_template("scripts/netdata.yml", "~/scripts/netdata.yml", context=env)
+        upload_template("config/Caddyfile", "~/config/Caddyfile", context=env)
         put("config/netdata.conf", "~/config/")
 
         ensure_docker_group(env.user)
@@ -155,4 +155,4 @@ def deploy_netdata():
 
         with shell_env(COMPOSE_IGNORE_ORPHANS="true"):
             with show('running'):
-                run("PGID=%s HOSTNAME=$HOSTNAME docker-compose -f ~/scripts/netdata.yml up -d" % pgid)
+                run("PGID=%s HOSTNAME=$HOSTNAME docker-compose --compatibility -f ~/scripts/netdata.yml up -d" % pgid)
