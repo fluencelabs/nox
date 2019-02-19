@@ -1,0 +1,4 @@
+:80 {
+    proxy / netdata:19999
+    basicauth / %(caddy_login)s %(caddy_password)s
+}

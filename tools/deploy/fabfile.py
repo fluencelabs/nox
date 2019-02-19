@@ -38,7 +38,7 @@ else:
     file.close()
 
     file = open("scripts/contract.txt", "r")
-    contract=file.read().rstrip()
+    contract = file.read().rstrip()
     file.close()
 
     nodes = json.loads(nodes_json)
@@ -51,7 +51,8 @@ env.user = "root"
 # Set to False to disable `[ip.ad.dre.ss] out:` prefix
 env.output_prefix = True
 
-RELEASE="https://github.com/fluencelabs/fluence/releases/download/cli-0.1.3/fluence-cli-0.1.3-linux-x64"
+RELEASE = "https://github.com/fluencelabs/fluence/releases/download/cli-0.1.3/fluence-cli-0.1.3-linux-x64"
+
 
 # copies all necessary files for deploying
 def copy_resources():
@@ -68,11 +69,13 @@ def copy_resources():
     put('scripts/swarm.yml', 'scripts/')
     put('config/reserved_peers.txt', 'config/')
 
+
 # tests connection to all nodes
 # usage as follows: fab test_connections
 @parallel
 def test_connections():
     run("uname -a")
+
 
 # comment this annotation to deploy sequentially
 @parallel
@@ -89,14 +92,13 @@ def deploy():
         copy_resources()
 
         with cd("scripts"):
-
             # change for another chain
             # todo changing this variable should recreate parity container
             # todo support contract deployment on 'dev' chain
-            chain='kovan'
+            chain = 'kovan'
 
             # actual fluence contract address
-            contract_address=contract
+            contract_address = contract
 
             # getting owner and private key from `info` dictionary
             current_host = env.host_string
@@ -128,3 +130,33 @@ def deploy():
                 with show('running'):
                     # run `fluence` command
                     local(command)
+
+
+# usage: fab --set environment=stage,caddy_login=LOGIN,caddy_password=PASSWORD deploy_netdata
+@parallel
+def deploy_netdata():
+    from fabric.contrib.files import upload_template
+    from utils import ensure_docker_group, chown_docker_sock, get_docker_pgid
+
+    if not hasattr(env, 'caddy_port'):
+        env.caddy_port = 1337  # set default port
+
+    usage = "usage: fab --set caddy_login=LOGIN,caddy_password=PASSWORD,caddy_port=1337 deploy_netdata"
+    assert hasattr(env, 'caddy_login'), usage
+    assert hasattr(env, 'caddy_password'), usage
+
+    with hide('running', 'output'):
+        run("mkdir -p ~/scripts")
+        run("mkdir -p ~/config")
+        env.home_dir = run("pwd").stdout
+        upload_template("scripts/netdata.yml", "~/scripts/netdata.yml", context=env)
+        upload_template("config/Caddyfile", "~/config/Caddyfile", context=env)
+        put("config/netdata.conf", "~/config/")
+
+        ensure_docker_group(env.user)
+        chown_docker_sock(env.user)
+        pgid = get_docker_pgid()
+
+        with shell_env(COMPOSE_IGNORE_ORPHANS="true"):
+            with show('running'):
+                run("PGID=%s HOSTNAME=$HOSTNAME docker-compose --compatibility -f ~/scripts/netdata.yml up -d" % pgid)
