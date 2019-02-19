@@ -15,7 +15,6 @@
  */
 
 use serde::{Deserialize, Serialize};
-use serde_json::Serializer;
 
 #[derive(Serialize, Deserialize)]
 pub struct Request {
@@ -31,13 +30,37 @@ pub struct PlayerTile {
 
 #[derive(Serialize, Deserialize)]
 pub struct PlayerMove {
-    pub coords: (i32, i32),
+    pub coords: (usize, usize),
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Response {
-    error_code: i32,
-    player_name: String,
-    player_sign: String,
-    params: serde_json::Value,
+pub struct ErrorResponse {
+    pub player_name: String,
+    pub error: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct MoveResponse {
+    pub player_name: String,
+    pub winner: String,
+    pub coords: (usize, usize),
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CreatePlayerResponse {
+    pub player_name: String,
+    pub result: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CreateGameResponse {
+    pub player_name: String,
+    pub result: String,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GetGameStateResponse {
+    pub player_name: String,
+    pub player_tile: char,
+    pub board: Vec<char>,
 }

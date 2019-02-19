@@ -14,15 +14,18 @@
  * limitations under the License.
  */
 
-use crate::game::{Game, Tile};
+use crate::error_type::AppResult;
+use crate::game::{Game, GameMove, Tile};
+use crate::json_parser::{
+    CreateGameResponse, CreatePlayerResponse, GetGameStateResponse, MoveResponse,
+};
 use crate::player::Player;
+
 use arraydeque::{ArrayDeque, Wrapping};
-use log::info;
-use serde_json::json;
+use serde_json::Value;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
-use std::result::Result;
 
 mod settings {
     pub const PLAYERS_MAX_COUNT: usize = 1024;
@@ -32,7 +35,7 @@ mod settings {
 pub struct GameManager {
     players: ArrayDeque<[Rc<RefCell<Player>>; settings::PLAYERS_MAX_COUNT], Wrapping>,
     games: ArrayDeque<[Rc<RefCell<Game>>; settings::GAMES_MAX_COUNT], Wrapping>,
-    names_to_players: HashMap<String, Weak<RefCell<Player>>>,
+    players_by_name: HashMap<String, Weak<RefCell<Player>>>,
 }
 
 impl GameManager {
@@ -40,7 +43,7 @@ impl GameManager {
         GameManager {
             players: ArrayDeque::new(),
             games: ArrayDeque::new(),
-            names_to_players: HashMap::new(),
+            players_by_name: HashMap::new(),
         }
     }
 
@@ -48,37 +51,44 @@ impl GameManager {
         &self,
         player_name: String,
         player_sign: String,
-        coords: (i32, i32),
-    ) -> String {
-        let player = match self.get_player(player_name, player_sign) {
-            Ok(player) => player,
-            Err(err) => return json!({ "result": err }).to_string(),
+        coords: (usize, usize),
+    ) -> AppResult<Value> {
+        let game = self.get_player_game(player_name.clone(), player_sign)?;
+        let game_move = GameMove::new(coords.0, coords.1)
+            .ok_or_else(|| format!("Invalid coordinates: x = {} y = {}", coords.0, coords.1))?;
+
+        let response = match game.borrow_mut().player_move(game_move)? {
+            Some(app_move) => MoveResponse {
+                player_name,
+                winner: "None".to_owned(),
+                coords: (app_move.x, app_move.y),
+            },
+            None => MoveResponse {
+                player_name,
+                winner: game.borrow_mut().get_winner().unwrap().to_string(),
+                coords: (std::usize::MAX, std::usize::MAX),
+            },
         };
 
-        let game = player.borrow_mut().game.upgrade().unwrap();
-        let result = game.borrow_mut().player_move(coords);
-
-        json!({
-        "result": "moved successfully"
-        })
-        .to_string()
+        serde_json::to_value(response).map_err(Into::into)
     }
 
-    pub fn create_player(&mut self, player_name: String, player_sign: String) -> String {
-        let new_player = Rc::new(RefCell::new(Player::new(player_name, player_sign)));
-
-        self.names_to_players
+    pub fn create_player(&mut self, player_name: String, player_sign: String) -> AppResult<Value> {
+        let new_player = Rc::new(RefCell::new(Player::new(player_name.clone(), player_sign)));
+        self.players_by_name
             .insert(new_player.borrow().name.clone(), Rc::downgrade(&new_player));
 
         if let Some(prev) = self.players.push_back(new_player) {
-            // if some elements poped from of deque, delete a link for it from names_to_players
-            self.names_to_players.remove(&prev.borrow().name);
+            // if some elements poped from the deque, delete a corresponding weak link from
+            // names_to_players
+            self.players_by_name.remove(&prev.borrow().name);
         }
 
-        json!({
-        "result": "new player has been successfully created"
-        })
-        .to_string()
+        let response = CreatePlayerResponse {
+            player_name,
+            result: "A new player has been successfully created".to_owned(),
+        };
+        serde_json::to_value(response).map_err(Into::into)
     }
 
     pub fn create_game(
@@ -86,60 +96,73 @@ impl GameManager {
         player_name: String,
         player_sign: String,
         player_tile: Tile,
-    ) -> String {
-        let player = match self.get_player(player_name, player_sign) {
-            Ok(player) => player,
-            Err(err) => return json!({ "result": err }).to_string(),
-        };
+    ) -> AppResult<Value> {
+        let player = self.get_player(player_name.clone(), player_sign)?;
 
         let game_state = Rc::new(RefCell::new(Game::new(player_tile)));
         player.borrow_mut().game = Rc::downgrade(&game_state);
         self.games.push_back(game_state);
 
-        json!({
-            "result": "new game has been successfully created"
-        })
-        .to_string()
+        let response = CreateGameResponse {
+            player_name,
+            result: "A new game has been successfully created".to_owned(),
+        };
+        serde_json::to_value(response).map_err(Into::into)
     }
 
-    pub fn get_game_state(&self, player_name: String, player_sign: String) -> String {
-        json!({
-        "result": "game state is"
-        })
-        .to_string()
+    pub fn get_game_state(&self, player_name: String, player_sign: String) -> AppResult<Value> {
+        let game = self.get_player_game(player_name.clone(), player_sign)?;
+        let (chosen_tile, board1) = game.borrow().get_state();
+
+        let response = GetGameStateResponse {
+            player_name,
+            player_tile: chosen_tile.to_char(),
+            board: board1,
+        };
+        serde_json::to_value(response).map_err(Into::into)
     }
 
-    fn get_player(&self, name: String, sign: String) -> Result<Rc<RefCell<Player>>, String> {
-        info!(
-            "get_player {} {}",
-            self.names_to_players.len(),
-            self.players.len()
-        );
-
-        for (name, _) in &self.names_to_players {
-            info!("self.names_to_players content is {}", name);
-        }
-
+    fn get_player(
+        &self,
+        player_name: String,
+        player_sign: String,
+    ) -> AppResult<Rc<RefCell<Player>>> {
         // try to find player by name in names_to_players and then convert Weak<Player> to Rc<Player>
-        let player = match self.names_to_players.get(&name) {
+        let player = match self.players_by_name.get(&player_name) {
             Some(player) => player.upgrade().ok_or_else(|| {
                 "Internal error occurred - player has been already removed".to_owned()
             }),
             None => Err(format!(
                 "Player with name {} and sign {} wasn't found",
-                name, sign
+                player_name, player_sign
             )),
         }?;
 
         // checks player signature
-        if player.borrow().sign == sign {
+        if player.borrow().sign == player_sign {
             return Ok(player);
         }
 
         // errors are not distinguishable to not to give out the names of players
         Err(format!(
             "Player with name {} and sign {} wasn't found",
-            name, sign
+            player_name, player_sign
         ))
+        .map_err(Into::into)
+    }
+
+    fn get_player_game(
+        &self,
+        player_name: String,
+        player_sign: String,
+    ) -> AppResult<Rc<RefCell<Game>>> {
+        self.get_player(player_name, player_sign)?
+            .borrow_mut()
+            .game
+            .upgrade()
+            .ok_or_else(|| {
+                "Sorry! Your game has been deleted, but you can start a new one".to_owned()
+            })
+            .map_err(Into::into)
     }
 }

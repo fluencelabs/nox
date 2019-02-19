@@ -43,13 +43,15 @@ object TicTacToeRunner extends IOApp {
       createGame = generateCreateGameJson("John", "secret_key", 'X')
       createGame2 = generateCreateGameJson("John2", "secret_key", 'X')
       createPlayer2 = generateCreatePlayerJson("John2", "secret_key")
+      getGameState = generateGetStateJson("John2", "secret_key")
       makeMove = generateMoveJson("John", "secret_key", 0, 0)
 
       result1 ← vm.invoke[IO](None, createPlayer.getBytes())
       result2 ← vm.invoke[IO](None, createPlayer2.getBytes())
       result3 ← vm.invoke[IO](None, createGame.getBytes())
       result4 ← vm.invoke[IO](None, createGame2.getBytes())
-      result5 ← vm.invoke[IO](None, makeMove.getBytes())
+      result5 ← vm.invoke[IO](None, getGameState.getBytes())
+      result6 ← vm.invoke[IO](None, makeMove.getBytes())
 
       finishState <- vm.getVmState[IO].toVmError
     } yield {
@@ -75,6 +77,7 @@ object TicTacToeRunner extends IOApp {
         s"result3=${new String(result3)} \n" +
         s"result4=${new String(result4)} \n" +
         s"result5=${new String(result5)} \n" +
+        s"result6=${new String(result6)} \n" +
         s"finishState=$finishState"
     }
 
@@ -89,7 +92,7 @@ object TicTacToeRunner extends IOApp {
   }
 
   private def generateMoveJson(playerName: String, playerSign: String, x: Int, y: Int): String =
-    generateJson("move", playerName, playerSign, ", \"coords\": \""  + s"($x, $y)" + "\"")
+    generateJson("move", playerName, playerSign, ", \"coords\": " + s"($x, $y)")
 
   private def generateCreatePlayerJson(playerName: String, playerSign: String): String =
     generateJson("create_player", playerName, playerSign)

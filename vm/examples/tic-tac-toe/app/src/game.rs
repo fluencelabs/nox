@@ -35,6 +35,13 @@ impl Tile {
         }
     }
 
+    pub fn to_char(&self) -> char {
+        match self {
+            Tile::X => 'X',
+            Tile::O => 'O',
+        }
+    }
+
     // returns tile type of opposite player
     pub fn other(self) -> Self {
         match self {
@@ -83,6 +90,21 @@ impl From<Tile> for Winner {
     }
 }
 
+pub struct GameMove {
+    pub x: usize,
+    pub y: usize,
+}
+
+impl GameMove {
+    pub fn new(x: usize, y: usize) -> Option<Self> {
+        fn is_valid(x: usize, y: usize) -> bool {
+            x <= 2 || y <= 2
+        }
+
+        is_valid(x, y).as_some(GameMove { x, y })
+    }
+}
+
 pub struct Game {
     board: [[Option<Tile>; 3]; 3],
     chosen_tile: Tile,
@@ -97,91 +119,104 @@ impl Game {
     }
 
     pub fn get_winner(&self) -> Option<Winner> {
-        // check columns
-        for col in 0..2 {
-            if self.board[0][col].is_some()
-                && (self.board[0][col] == self.board[1][col])
-                && (self.board[1][col] == self.board[2][col])
-            {
-                return self.board[0][col].map(|tile| tile.into());
+        fn same_row(game: &Game) -> Option<Winner> {
+            for col in 0..2 {
+                if game.board[0][col].is_some()
+                    && (game.board[0][col] == game.board[1][col])
+                    && (game.board[1][col] == game.board[2][col])
+                {
+                    return game.board[0][col].map(|tile| tile.into());
+                }
             }
+            return None;
         }
 
-        // check rows
-        for row in 0..2 {
-            if self.board[row][0].is_some()
-                && (self.board[row][0] == self.board[row][0])
-                && (self.board[row][1] == self.board[row][2])
-            {
-                return self.board[row][0].map(|tile| tile.into());
+        fn same_col(game: &Game) -> Option<Winner> {
+            for row in 0..2 {
+                if game.board[row][0].is_some()
+                    && (game.board[row][0] == game.board[row][1])
+                    && (game.board[row][1] == game.board[row][2])
+                {
+                    return game.board[row][0].map(|tile| tile.into());
+                }
             }
+            return None;
         }
 
-        // check the left-right diagonal
-        if self.board[0][0].is_some()
-            && (self.board[0][0] == self.board[1][1])
-            && (self.board[1][1] == self.board[2][2])
-        {
-            return self.board[0][0].map(|tile| tile.into());
+        // checks the left-right diagonal
+        fn same_main_diag(game: &Game) -> Option<Winner> {
+            (game.board[0][0].is_some()
+                && (game.board[0][0] == game.board[1][1])
+                && (game.board[1][1] == game.board[2][2]))
+                .and_option(game.board[0][0].map(|tile| tile.into()))
         }
 
-        // check the right-left diagonal
-        if self.board[2][0].is_some()
-            && (self.board[2][0] == self.board[1][1])
-            && (self.board[1][1] == self.board[0][2])
-        {
-            return self.board[2][0].map(|tile| tile.into());
+        // checks the right-left diagonal
+        fn same_anti_diag(game: &Game) -> Option<Winner> {
+            (game.board[0][2].is_some()
+                && (game.board[0][2] == game.board[1][1])
+                && (game.board[1][1] == game.board[2][0]))
+                .and_option(game.board[0][2].map(|tile| tile.into()))
         }
 
-        // check that all tiles are not empty (a draw condition)
-        self.board
-            .iter()
-            .all(|row| row.iter().all(|cell| cell.is_some()))
-            .as_some(Winner::Draw)
+        // checks that all tiles are empty (a draw condition)
+        fn no_empty(game: &Game) -> Option<Winner> {
+            game.board
+                .iter()
+                .all(|row| row.iter().all(|cell| cell.is_some()))
+                .as_some(Winner::Draw)
+        }
+
+        same_row(self)
+            .or_else(|| same_col(self))
+            .or_else(|| same_main_diag(self))
+            .or_else(|| same_anti_diag(self))
+            .or_else(|| no_empty(self))
     }
 
-    pub fn player_move(&mut self, coord: (i32, i32)) -> Result<Option<Winner>, String> {
+    pub fn player_move(&mut self, game_move: GameMove) -> Result<Option<GameMove>, String> {
         if let Some(player) = self.get_winner() {
-            return Ok(Some(player));
+            return Err(format!("Player {} has already won this game", player));
         }
 
-        if coord.0 < 0 || coord.0 > 2 || coord.1 < 0 || coord.1 > 2 {
-            return Err("Invalid coordinates".to_owned());
-        }
-
-        self.board[coord.0 as usize][coord.1 as usize]
+        self.board[game_move.x][game_move.y]
             .is_none()
             .ok_or_else(|| "Please choose a free position".to_owned())?;
 
-        self.board[coord.0 as usize][coord.1 as usize] = Some(self.chosen_tile);
-        self.app_move();
+        self.board[game_move.x][game_move.y] = Some(self.chosen_tile);
+        if let Some(_) = self.get_winner() {
+            return Ok(None);
+        }
 
-        Ok(self.get_winner())
+        Ok(self.app_move())
     }
 
-    pub fn get_state(&self) -> String {
-        json!({
-        "chosen_tile": format!("{}", self.chosen_tile),
-        "board": ""
-        })
-        .to_string()
-    }
-
-    fn app_move(&mut self) {
-        let mut possible_actions = Vec::new();
+    pub fn get_state(&self) -> (Tile, Vec<char>) {
+        let mut board: Vec<char> = Vec::new();
 
         for tile in self.board.iter().flat_map(|r| r.iter()) {
-            if let None = tile {
-                possible_actions.push(tile);
+            match tile {
+                Some(tile) => board.push(tile.to_char()),
+                None => board.push('_'),
             }
         }
 
-        if possible_actions.is_empty() {
-            return;
+        (self.chosen_tile, board)
+    }
+
+    fn app_move(&mut self) -> Option<GameMove> {
+        // TODO: use more complicated strategy
+        for (x, row) in self.board.iter().enumerate() {
+            for (y, tile) in row.iter().enumerate() {
+                if let Some(_) = tile {
+                    continue;
+                }
+                tile.map(|_f| self.chosen_tile.other());
+                return Some(GameMove::new(x, y).unwrap());
+            }
         }
 
-        // TODO: use more complicated strategy
-        possible_actions[0].map(|f| self.chosen_tile.other());
+        None
     }
 }
 

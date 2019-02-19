@@ -14,66 +14,65 @@
  * limitations under the License.
  */
 
+mod error_type;
 mod game;
 mod game_manager;
 mod json_parser;
 mod player;
 
+use crate::error_type::AppResult;
 use crate::game_manager::GameManager;
 use crate::json_parser::*;
 use fluence::sdk::*;
 use log::{error, info};
-use serde_json::Value;
-use std::{cell::RefCell, error::Error};
 use serde_json::json;
+use serde_json::Value;
+use std::cell::RefCell;
 
 thread_local! {
     static GAME_MANAGER: RefCell<GameManager> = RefCell::new(GameManager::new());
 }
-
-type RequestResult<T> = ::std::result::Result<T, Box<Error>>;
 
 // initializes logger
 fn init() {
     logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
 }
 
-fn do_request(req: String) -> RequestResult<String> {
+fn do_request(req: String) -> AppResult<Value> {
     let raw_request: Value = serde_json::from_str(req.as_str())?;
     let request: Request = serde_json::from_value(raw_request.clone())?;
 
     match request.action.as_str() {
-        "move" => GAME_MANAGER.with(|gm| {
+        "move" => {
             let player_move: PlayerMove = serde_json::from_value(raw_request)?;
-            gm.borrow()
-                .make_move(request.player_name, request.player_sign, player_move.coords)
-        }),
+            GAME_MANAGER.with(|gm| {
+                gm.borrow()
+                    .make_move(request.player_name, request.player_sign, player_move.coords)
+            })
+        }
 
         "create_player" => GAME_MANAGER.with(|gm| {
             gm.borrow_mut()
                 .create_player(request.player_name, request.player_sign)
         }),
 
-        "create_game" => GAME_MANAGER.with(|gm| {
+        "create_game" => {
             let player_tile: PlayerTile = serde_json::from_value(raw_request)?;
             let player_tile = game::Tile::from_char(player_tile.tile)
-                .ok_or_else(|| "tile has to be one of {'X', 'O'}".to_owned())
-                .map_err(Into::into)?;
+                .ok_or_else(|| "tile has to be one of {'X', 'O'}".to_owned())?;
 
-            gm.borrow_mut()
-                .create_game(request.player_name, request.player_sign, player_tile)
-        }),
+            GAME_MANAGER.with(|gm| {
+                gm.borrow_mut()
+                    .create_game(request.player_name, request.player_sign, player_tile)
+            })
+        }
 
         "get_game_state" => GAME_MANAGER.with(|gm| {
             gm.borrow()
                 .get_game_state(request.player_name, request.player_sign)
         }),
 
-        _ => {
-            let err_message = format!("{} action key is unsupported", request.action);
-            error!("{}", err_message);
-            Err(err_message).map_err(Into::into)
-        }
+        _ => Err(format!("{} action key is unsupported", request.action)).map_err(Into::into),
     }
 }
 
@@ -81,12 +80,13 @@ fn do_request(req: String) -> RequestResult<String> {
 fn main(req: String) -> String {
     info!("the new request {}", req);
     match do_request(req) {
-        Ok(req) => req,
+        Ok(req) => req.to_string(),
         Err(err) => {
             error!("an error occured: {}", err);
             json!({
-                "error": err
-            }).to_string()
+                "error": err.to_string()
+            })
+            .to_string()
         }
     }
 }
