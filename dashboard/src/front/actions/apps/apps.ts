@@ -1,15 +1,15 @@
-import {getApps, AppId} from '../../../fluence';
+import {getApp, AppId} from '../../../fluence';
 import contract from '../../../fluence/contract';
 import { Dispatch, Action } from 'redux';
 
-export const GET_APPS_RECEIVE = 'GET_APPS_RECEIVE';
+export const GET_APP_RECEIVE = 'GET_APP_RECEIVE';
 
-export const retrieveApps = (appIds: AppId[]) => {
+export const retrieveApp = (appId: AppId) => {
     return async (dispatch: Dispatch): Promise<Action> => {
-        const apps = await getApps(contract, appIds);
+        const app = await getApp(contract, appId);
         return dispatch({
-            type: GET_APPS_RECEIVE,
-            apps,
+            type: GET_APP_RECEIVE,
+            app,
         });
     };
 };
@@ -17,10 +17,13 @@ export const retrieveApps = (appIds: AppId[]) => {
 /*
  * Reducer
  */
-export default (state = [], action: any) => {
+export default (state = {}, action: any) => {
     switch (action.type) {
-        case GET_APPS_RECEIVE: {
-            return action.apps;
+        case GET_APP_RECEIVE: {
+            return {
+                ...state,
+                [action.app.app_id]: action.app
+            };
         }
         default: {
             return state;
