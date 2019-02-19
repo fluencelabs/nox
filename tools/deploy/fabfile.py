@@ -128,3 +128,23 @@ def deploy():
                 with show('running'):
                     # run `fluence` command
                     local(command)
+
+@parallel
+def deploy_netdata():
+    from fabric.contrib.files import upload_template
+    from utils import ensure_docker_group, chown_docker_sock, get_docker_pgid
+
+    assert hasattr(env, 'caddy_login'), "please specify caddy_login via --set"
+    assert hasattr(env, 'caddy_password'), "please specify caddy_password via --set"
+
+    with show('running'):
+        run("mkdir -p ~/scripts")
+        upload_template("config/Caddyfile.template", "~/scripts/Caddyfile", context=env)
+        upload_template("scripts/netdata.yml", "~/scripts/netdata.yml", context=env)
+
+        ensure_docker_group(env.user)
+        chown_docker_sock(env.user)
+        pgid = get_docker_pgid()
+
+        with show('running'):
+            run("PGID=%s HOSTNAME=$HOSTNAME docker-compose -f ~/scripts/netdata.yml up -d" % pgid)

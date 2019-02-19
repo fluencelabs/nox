@@ -1,0 +1,25 @@
+version: '3'
+
+services:
+  caddy:
+    image: abiosoft/caddy
+    ports:
+      - %(caddy_port)s:80
+    volumes:
+      - ./Caddyfile:/etc/Caddyfile
+      - ~/.local/caddy:/root/.caddy
+    environment:
+      ACME_AGREE: 'true'
+  netdata:
+    restart: always
+    hostname: $HOSTNAME
+    image: netdata/netdata
+    cap_add:
+      - SYS_PTRACE
+    environment:
+      - "PGID=$PGID"
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ~/.local/netdata_cache:/var/cache/netdata
