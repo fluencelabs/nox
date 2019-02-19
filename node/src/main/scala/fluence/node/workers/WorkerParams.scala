@@ -40,6 +40,6 @@ case class WorkerParams(
   def currentWorker: WorkerPeer = app.cluster.currentWorker
 
   override def toString =
-    s"(worker ${currentWorker.index} with RPC port ${currentWorker.rpcPort} for app $appId)"
+    s"(worker ${currentWorker.index} for app $appId)"
 
 }
