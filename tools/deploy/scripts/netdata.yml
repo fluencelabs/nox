@@ -14,7 +14,7 @@ services:
     deploy:
         resources:
           limits:
-            cpus: '0.22'
+            cpus: '0.05'
             memory: 20M
 
   netdata:
@@ -37,5 +37,5 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.22'
+          cpus: '0.1'
           memory: 100M
