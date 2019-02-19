@@ -16,10 +16,13 @@
 
 package fluence.node.eth.state
 
+import cats.Applicative
+import cats.data.EitherT
 import org.web3j.abi.datatypes.generated._
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
+import scala.util.Try
 
 /**
  * Represents an App deployed to some cluster
@@ -36,9 +39,17 @@ case class App private[eth] (
 
 object App {
 
-  private[eth] def apply[F[_]](appId: Uint256, storageHash: Bytes32, cluster: Cluster)(
-    implicit F: cats.ApplicativeError[F, Throwable]
-  ): F[App] =
-    F.catchNonFatal(App(appId.getValue.longValueExact(), ByteVector(storageHash.getValue), cluster))
+  case class AppMalformedError(cause: Throwable)
+
+  private[eth] def apply[F[_]: Applicative](
+    appId: Uint256,
+    storageHash: Bytes32,
+    cluster: Cluster
+  ): EitherT[F, AppMalformedError, App] =
+    EitherT.fromEither(
+      Try(
+        App(appId.getValue.longValueExact(), ByteVector(storageHash.getValue), cluster)
+      ).toEither.left.map(AppMalformedError)
+    )
 
 }

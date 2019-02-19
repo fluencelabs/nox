@@ -22,7 +22,7 @@ import cats.Parallel
 import cats.effect.concurrent.{Deferred, MVar}
 import cats.effect.{ContextShift, IO, Timer}
 import fluence.ethclient.data.Log
-import fluence.ethclient.helpers.RemoteCallOps._
+import fluence.ethclient.syntax._
 import fluence.ethclient.helpers.Web3jConverters._
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import org.web3j.abi.datatypes.generated.{Bytes32, Uint16, Uint8}
@@ -96,7 +96,7 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
             for {
               _ <- contract
                 .addApp(bytes, bytes, new Uint8(2), DynamicArray.empty("bytes32[]").asInstanceOf[DynamicArray[Bytes32]])
-                .call[IO]
+                .callUntilSuccess[IO]
 
               _ <- contract
                 .addNode(
@@ -106,7 +106,7 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
                   new Uint16(26057),
                   new Bool(false)
                 )
-                .call[IO]
+                .callUntilSuccess[IO]
 
               txReceipt <- contract
                 .addNode(
@@ -116,7 +116,7 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
                   new Uint16(26157),
                   new Bool(false)
                 )
-                .call[IO]
+                .callUntilSuccess[IO]
 
               _ = assert(txReceipt.isStatusOK)
 

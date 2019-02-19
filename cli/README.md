@@ -55,8 +55,7 @@ The following command will register a node:
 ./fluence register \
             --node_ip               85.82.118.4 \
             --tendermint_key        1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
-            --tendermint_node_id    5e4eedba85fda7451356a03caffb0716e599679b \
-            --contract_address      0x9995882876ae612bfd829498ccd73dd962ec950a \
+            --tendermint_node_id    5e4eedba85fda7451356a03caffb0716e599679b \            
             --account               0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
             --base64_tendermint_key \
             --secret_key            0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
@@ -86,8 +85,7 @@ To deploy your app on Fluence network, you must upload it to Swarm and publish h
 The following command will publish app `counter.wasm`.
 ```
 ./fluence publish \
-            --code_path        fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm \
-            --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
+            --code_path        fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm \            
             --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
             --cluster_size     4 \
             --secret_key       0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
@@ -136,8 +134,7 @@ If you want to delete your app from smart contract, you can use `delete_app` com
 The following will delete app with id `0x0000000000000000000000000000000000000000000000000000000000000002`. App id could be retrieved either from status (see below) or from smart-contract.
 
 ```
-./fluence delete_app \
-            --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
+./fluence delete_app \            
             --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
             --app_id           0x0000000000000000000000000000000000000000000000000000000000000002 \
             --secret_key       4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 \
@@ -151,7 +148,7 @@ See below on how to know if your app is deployed.
 ### Retrieve Fluence network state as JSON
 To inspect what apps are in queue, what clusters are working out there and what nodes are participating in them, you can use `status` command as follows:
 ```
-./fluence status --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a
+./fluence status
 ```
 
 The results will be in JSON and should resemble the following
@@ -218,8 +215,7 @@ OPTIONS:
 
 Filters work in both JSON and interactive modes. Here's an example of how they can be used:
 ```bash
-./fluence status \
-            --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
+./fluence status \            
             --tendermint_key 0xb5575140febb7484393c1c99263b763d1caf6b6c83bc0a9fd6c084d2982af763 \
             --node_ip 43.32.21.10 \
             --filter_mode or
@@ -229,8 +225,7 @@ This will display all nodes with id `0xb5575140febb7484393c1c99263b763d1caf6b6c8
 
 Note `--filter_mode or`, it directs CLI to match all nodes and apps that satisfy any of specified filters. You can also pass `--filter_mode and`:
 ```bash
-./fluence status \
-            --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
+./fluence status \            
             --tendermint_key 0xb5575140febb7484393c1c99263b763d1caf6b6c83bc0a9fd6c084d2982af763 \
             --node_ip 43.32.21.10 \
             --filter_mode and
@@ -253,10 +248,19 @@ This is easier that manually checking `status` after every command.
 
 Note, however, that if you're using Ethereum node in a **light mode**, it can take a while until light node realizes transaction was included in a block. It can take up to several minutes (sometimes up to 10-15 minutes), so it requires some patience.
 
+### Specify contract address
+There is a flag `--contract_address` to use all commands to interact with non-default Fluence smart contract. You can deploy [Fluence contract](../bootstrap/contracts/Network.sol) on your own and use CLI like this:
+```bash
+./fluence <command>
+            ...
+            --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
+            ...
+``` 
+
 ### Interactive status
 If reading raw JSON in `status` isn't the best option for you, you can use interactive status:
 ```bash
-./fluence status --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a --interactive
+./fluence status --interactive
 ```
 
 It's just a status viewer, but it will gain more functionality in the future.
@@ -303,8 +307,7 @@ It's a private key encrypted with user password. You can use it with Fluence CLI
 For example, with `delete_app`
 
 ```bash
-./fluence delete_app \
-            --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
+./fluence delete_app \            
             --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
             --app_id           0x0000000000000000000000000000000000000000000000000000000000000002 \
             --keystore         ~/Library/Ethereum/keystore/UTC--2017-03-03T13-24-07.826187674Z--4e6cf0ed2d8bbf1fbbc9f2a100602ceba4bf1319 \
