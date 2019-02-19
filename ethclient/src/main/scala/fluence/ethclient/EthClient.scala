@@ -132,14 +132,19 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
   def blockStream[F[_]: ConcurrentEffect: Timer](
     onErrorRetryAfter: FiniteDuration = EthRetryPolicy.Default.delayPeriod,
     fullTransactionObjects: Boolean = false
-  ): fs2.Stream[F, (Option[String], F[Block])] =
+  ): fs2.Stream[F, (Option[String], F[Option[Block]])] =
     web3
       .blockFlowable(fullTransactionObjects)
       .toStreamRetrying(onErrorRetryAfter)
       .map(
         ethBlock ⇒
           Option(ethBlock.getRawResponse) →
-            Sync[F].delay(Block(ethBlock.getBlock))
+            Sync[F].delay[Option[Block]](Some(Block(ethBlock.getBlock))).handleError {
+              e: Throwable =>
+                logger.error(s"Cannot encode block from ethereum: ${ethBlock.getBlock}")
+                e.printStackTrace()
+                None
+            }
       )
 
   /**

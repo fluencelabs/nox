@@ -58,8 +58,8 @@ object NodeEthState {
   /**
    * Expresses the state change on new block received from the Ethereum network
    */
-  def onNewBlock[F[_]: Monad](block: Block): State[F] =
-    modify[F](_.copy(lastBlock = Some(block))).map(_ ⇒ Nil)
+  def onNewBlock[F[_]: Monad](block: Option[Block]): State[F] =
+    modify[F](_.copy(lastBlock = block)).map(_ ⇒ Nil)
 
   // TODO check that it's not yet launched? Handle case if this event reflects chain reorg
   /**

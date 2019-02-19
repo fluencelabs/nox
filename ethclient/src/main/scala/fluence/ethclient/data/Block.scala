@@ -60,13 +60,13 @@ object Block {
       convertBigInteger(getNumber),
       convertString(getHash),
       convertString(getParentHash),
-      convertString(getNonceRaw), // null for kovan
+      convertString(getNonceRaw),
       convertString(getSha3Uncles),
       convertString(getLogsBloom),
       convertString(getTransactionsRoot),
       convertString(getStateRoot),
       convertString(getReceiptsRoot),
-      convertString(getAuthor), // empty for ganache
+      convertString(getAuthor),
       convertString(getMiner),
       convertString(getMixHash),
       convertBigInteger(getDifficulty),
@@ -78,7 +78,7 @@ object Block {
       convertBigInteger(getTimestamp),
       Option(getTransactions).map(_.toSeq.map(Transaction.apply)).getOrElse(Nil),
       Option(getUncles).map(_.toSeq).getOrElse(Nil),
-      Option(getSealFields).map(_.toSeq).getOrElse(Nil) // null on ganache
+      Option(getSealFields).map(_.toSeq).getOrElse(Nil)
     )
   }
 }
