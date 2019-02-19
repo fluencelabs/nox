@@ -138,10 +138,11 @@ def deploy_netdata():
     from utils import ensure_docker_group, chown_docker_sock, get_docker_pgid
     from os.path import expanduser
 
+    assert hasattr(env, 'caddy_port'), "please specify caddy_port via --set"
     assert hasattr(env, 'caddy_login'), "please specify caddy_login via --set"
     assert hasattr(env, 'caddy_password'), "please specify caddy_password via --set"
 
-    with show('running'):
+    with hide('running'):
         run("mkdir -p ~/scripts")
         run("mkdir -p ~/config")
         env.home_dir = run("pwd").stdout
@@ -153,5 +154,6 @@ def deploy_netdata():
         chown_docker_sock(env.user)
         pgid = get_docker_pgid()
 
-        with show('running'):
-            run("PGID=%s HOSTNAME=$HOSTNAME docker-compose -f ~/scripts/netdata.yml up -d" % pgid)
+        with shell_env(COMPOSE_IGNORE_ORPHANS="true"):
+            with show('running'):
+                run("PGID=%s HOSTNAME=$HOSTNAME docker-compose -f ~/scripts/netdata.yml up -d" % pgid)
