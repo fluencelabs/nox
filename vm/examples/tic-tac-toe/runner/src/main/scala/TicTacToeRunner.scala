@@ -30,10 +30,9 @@ object TicTacToeRunner extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] = {
 
-    val inputFile = "/Users/trofim/Desktop/work/fluence/fluence/vm/examples/tic-tac-toe/app/target/wasm32-unknown-unknown/release/tic_tac_toe.wasm"
     val program: EitherT[IO, VmError, String] = for {
-//      inputFile <- EitherT(getInputFile(args).attempt)
-//        .leftMap(e => InternalVmError(e.getMessage, Some(e)))
+      inputFile <- EitherT(getInputFile(args).attempt)
+        .leftMap(e => InternalVmError(e.getMessage, Some(e)))
       vm ← WasmVm[IO](NonEmptyList.one(inputFile), "fluence.vm.debugger")
       initState ← vm.getVmState[IO]
 

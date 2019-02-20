@@ -56,8 +56,6 @@ lazy val `vm-hello-world2` = (project in file("vm/examples/hello-world2/app"))
   )
 
 lazy val `vm-hello-world2-runner` = (project in file("vm/examples/hello-world2/runner"))
-  .configs(IntegrationTest)
-  .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
   .settings(
     commons,
     libraryDependencies ++= Seq(
@@ -82,8 +80,6 @@ lazy val `tic-tac-toe` = (project in file("vm/examples/tic-tac-toe/app"))
   )
 
 lazy val `tic-tac-toe-runner` = (project in file("vm/examples/tic-tac-toe/runner"))
-  .configs(IntegrationTest)
-  .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
   .settings(
     commons,
     libraryDependencies ++= Seq(
@@ -94,7 +90,7 @@ lazy val `tic-tac-toe-runner` = (project in file("vm/examples/tic-tac-toe/runner
       cryptoHashing,
     )
   )
-  .dependsOn(vm, `vm-hello-world2`)
+  .dependsOn(vm, `tic-tac-toe`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `statemachine-control` = (project in file("statemachine/control"))
