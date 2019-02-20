@@ -50,7 +50,7 @@ case class StatusAggregator(config: MasterConfig, masterNode: MasterNode[IO], st
    * @return gathered information
    */
   val getStatus: IO[MasterStatus] = for {
-    currentTime ← clock.monotonic(MILLISECONDS)
+    currentTime ← clock.realTime(MILLISECONDS)
     workers ← masterNode.pool.getAll
     workerInfos ← Traverse[List].traverse(workers)(_.status)
     ethState ← masterNode.nodeEth.expectedState
