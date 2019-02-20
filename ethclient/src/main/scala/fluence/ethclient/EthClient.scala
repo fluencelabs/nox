@@ -23,6 +23,7 @@ import cats.effect._
 import cats.syntax.apply._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.either._
 import cats.syntax.applicativeError._
 import cats.{~>, Applicative, Functor, Monad}
 import fluence.ethclient.data.{Block, Log}
@@ -42,6 +43,7 @@ import org.web3j.abi.datatypes.Event
 
 import scala.concurrent.duration._
 import scala.language.{existentials, higherKinds}
+import scala.util.Try
 
 /**
  * EthClient provides a functional end-user API for Ethereum (Light) Client, currently by calling Web3j methods.
@@ -68,6 +70,7 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
 
   /**
    * Returns the last block number
+   *
    * @tparam F Effect
    */
   def getBlockNumber[F[_]: LiftIO: Functor]: EitherT[F, EthRequestError, BigInt] =
@@ -132,15 +135,24 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
   def blockStream[F[_]: ConcurrentEffect: Timer](
     onErrorRetryAfter: FiniteDuration = EthRetryPolicy.Default.delayPeriod,
     fullTransactionObjects: Boolean = false
-  ): fs2.Stream[F, (Option[String], F[Block])] =
+  ): fs2.Stream[F, (Option[String], Block)] =
     web3
       .blockFlowable(fullTransactionObjects)
       .toStreamRetrying(onErrorRetryAfter)
-      .map(
-        ethBlock ⇒
-          Option(ethBlock.getRawResponse) →
-            Sync[F].delay(Block(ethBlock.getBlock))
+      // `null` returned if no new blocks, filter it
+      .filter(_.getBlock != null)
+      .map(ethBlock ⇒ Try(Option(ethBlock.getRawResponse) → Block(ethBlock.getBlock)).toEither)
+      .evalTap[F](
+        either =>
+          // log error
+          Sync[F].delay(either.leftMap { e =>
+            logger.error(s"Cannot encode block from ethereum: $e")
+            e.printStackTrace()
+          })
       )
+      .collect {
+        case Right(v) => v
+      }
 
   /**
    * Helper for retrieving a web3j-prepared contract
