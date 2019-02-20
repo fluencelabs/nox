@@ -25,7 +25,7 @@ import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.either._
 import cats.syntax.applicativeError._
-import cats.{~>, Applicative, Functor, Monad}
+import cats.{Applicative, Functor, Monad, ~>}
 import fluence.ethclient.data.{Block, Log}
 import fluence.ethclient.helpers.JavaFutureConversion._
 import fluence.ethclient.syntax._
@@ -43,6 +43,7 @@ import org.web3j.abi.datatypes.Event
 
 import scala.concurrent.duration._
 import scala.language.{existentials, higherKinds}
+import scala.util.Try
 
 /**
  * EthClient provides a functional end-user API for Ethereum (Light) Client, currently by calling Web3j methods.
@@ -140,7 +141,7 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
       .toStreamRetrying(onErrorRetryAfter)
       // `null` returned if no new blocks, filter it
       .filter(_.getBlock != null)
-      .evalMap(ethBlock ⇒ Sync[F].delay(Option(ethBlock.getRawResponse) → Block(ethBlock.getBlock)).attempt)
+      .map(ethBlock ⇒ Try(Option(ethBlock.getRawResponse) → Block(ethBlock.getBlock)).toEither)
       .evalTap(
         either =>
           // log error
