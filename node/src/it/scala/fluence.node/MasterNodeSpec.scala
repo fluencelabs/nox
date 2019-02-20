@@ -57,9 +57,7 @@ class MasterNodeSpec
     import MasterStatus._
     for {
       resp <- sttp.response(asJson[MasterStatus]).get(uri"http://127.0.0.1:$statusPort/status").send()
-    } yield {
-      resp.unsafeBody.right.get
-    }
+    } yield resp.unsafeBody.right.get
   }
 
   "MasterNode" should {
@@ -86,7 +84,8 @@ class MasterNodeSpec
           MasterNode
             .make[IO, IO.Par](masterConf, nodeConf, Files.createTempDirectory("masternodespec"))
         }
-        _ ← StatusAggregator.makeHttpResource(masterConf, node)
+        agg ← StatusAggregator.make(masterConf, node)
+      _ ← MasterHttp.make(5678, agg, node.pool)
       } yield (sttpB, node)
 
       resource.use {
