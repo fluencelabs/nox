@@ -25,7 +25,9 @@ pub struct Player {
 
 impl Player {
     pub fn new<S>(name: S, sign: S) -> Self
-    where S: Into<String> {
+    where
+        S: Into<String>,
+    {
         Player {
             name: name.into(),
             game: Weak::new(),

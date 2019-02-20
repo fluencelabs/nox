@@ -74,7 +74,7 @@ impl GameManager {
                     winner,
                     coords: (app_move.x, app_move.y),
                 }
-            },
+            }
             None => MoveResponse {
                 player_name,
                 winner: game.get_winner().unwrap().to_string(),
@@ -155,11 +155,7 @@ impl GameManager {
         serde_json::to_value(response).map_err(Into::into)
     }
 
-    fn get_player(
-        &self,
-        player_name: &str,
-        player_sign: &str,
-    ) -> AppResult<Rc<RefCell<Player>>> {
+    fn get_player(&self, player_name: &str, player_sign: &str) -> AppResult<Rc<RefCell<Player>>> {
         // try to find player by name in players_by_name and then convert Weak<Player> to Rc<Player>
         let player = match self.players_by_name.get(&player_name.to_owned()) {
             Some(player) => player.upgrade().ok_or_else(|| {
