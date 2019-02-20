@@ -71,8 +71,8 @@ object NodeEth extends LazyLogging {
     val initialState = NodeEthState(validatorKey)
 
     for {
-      stateRef <- MakeResource.refOf[F, NodeEthState](initialState)
-      blockQueue ← Resource.liftF(fs2.concurrent.Queue.circularBuffer[F, (Option[String], F[Block])](8))
+      stateRef ← MakeResource.refOf[F, NodeEthState](initialState)
+      blockQueue ← Resource.liftF(fs2.concurrent.Queue.circularBuffer[F, (Option[String], Block)](8))
       _ ← MakeResource
         .concurrentStream(contract.ethClient.blockStream[F]() to blockQueue.enqueue, name = "ethClient.blockStream")
     } yield
@@ -98,8 +98,7 @@ object NodeEth extends LazyLogging {
             .map(NodeEthState.onNodeDeleted[F])
 
           // State changes on New Block
-          val onNewBlockS = blockQueue.dequeue
-            .evalMap(_._2)
+          val onNewBlockS = blockQueue.dequeue.map { case (_, block) => block }
             .map(NodeEthState.onNewBlock[F])
 
           // State changes for all kinds of Ethereum events regarding this node

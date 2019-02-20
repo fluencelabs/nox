@@ -23,23 +23,23 @@ sealed trait Transaction
 case class TransactionHash(hash: String) extends Transaction
 
 case class TransactionObject(
-  hash: String,
-  nonce: String,
-  blockHash: String,
-  blockNumber: BigInt,
-  transactionIndex: BigInt,
-  from: String,
-  to: String,
-  value: BigInt,
-  gasPrice: BigInt,
-  gas: BigInt,
-  input: String,
-  creates: String,
-  publicKey: String,
-  raw: String,
-  r: String,
-  s: String,
-  v: Long
+  hash: Option[String],
+  nonce: Option[String],
+  blockHash: Option[String],
+  blockNumber: Option[BigInt],
+  transactionIndex: Option[BigInt],
+  from: Option[String],
+  to: Option[String],
+  value: Option[BigInt],
+  gasPrice: Option[BigInt],
+  gas: Option[BigInt],
+  input: Option[String],
+  creates: Option[String],
+  publicKey: Option[String],
+  raw: Option[String],
+  r: Option[String],
+  s: Option[String],
+  v: Option[Long]
 ) extends Transaction
 
 object Transaction {
@@ -51,23 +51,23 @@ object Transaction {
 
       case t: EthBlock.TransactionObject ⇒
         TransactionObject(
-          t.getHash,
-          t.getNonceRaw,
-          t.getBlockHash,
-          t.getBlockNumber,
-          t.getTransactionIndex,
-          t.getFrom,
-          t.getTo,
-          t.getValue,
-          t.getGasPrice,
-          t.getGas,
-          t.getInput,
-          t.getCreates,
-          t.getPublicKey,
-          t.getRaw,
-          t.getR,
-          t.getS,
-          t.getV
+          Option(t.getHash),
+          Option(t.getNonceRaw),
+          Option(t.getBlockHash),
+          Option(t.getBlockNumber),
+          Option(t.getTransactionIndex),
+          Option(t.getFrom),
+          Option(t.getTo),
+          Option(t.getValue),
+          Option(t.getGasPrice),
+          Option(t.getGas),
+          Option(t.getInput),
+          Option(t.getCreates),
+          Option(t.getPublicKey),
+          Option(t.getRaw),
+          Option(t.getR),
+          Option(t.getS),
+          Option(t.getV)
         )
 
     }
