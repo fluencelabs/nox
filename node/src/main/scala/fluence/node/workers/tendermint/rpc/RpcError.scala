@@ -18,12 +18,16 @@ package fluence.node.workers.tendermint.rpc
 
 import scala.util.control.NoStackTrace
 
+/** TendermintRpc errors */
 sealed trait RpcError extends Throwable with NoStackTrace
 
+/** Request finished with exception */
 case class RpcRequestFailed(cause: Throwable) extends Exception("Tendermint RPC request failed", cause) with RpcError
 
+/** Request was successfully made, but response status is not ok */
 case class RpcRequestErrored(statusCode: Int, error: String)
     extends Exception(s"Tendermint RPC request returned error, status=$statusCode, body=$error") with RpcError
 
+/** Response was received, but it's not possible to parse the response to the desired type */
 case class RpcBodyMalformed(error: Throwable)
     extends Exception("Tendermint RPC body cannot be parsed", error) with RpcError

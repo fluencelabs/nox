@@ -19,10 +19,10 @@ package fluence.node
 import fluence.node.status.{StatusAggregator, StatusHttp}
 import cats.effect._
 import fluence.node.workers.{WorkersHttp, WorkersPool}
+import org.http4s.dsl.Http4sDsl
 import org.http4s.{HttpApp, HttpRoutes}
-import org.http4s.server.Router
 import org.http4s.implicits._
-import org.http4s.server.Server
+import org.http4s.server.{Router, Server}
 import org.http4s.server.blaze._
 import org.http4s.server.middleware.{CORS, CORSConfig}
 
@@ -30,6 +30,7 @@ import scala.concurrent.duration._
 import scala.language.higherKinds
 
 object MasterHttp {
+
   private val corsConfig = CORSConfig(
     anyOrigin = true,
     anyMethod = true,
@@ -38,19 +39,30 @@ object MasterHttp {
     maxAge = 1.day.toSeconds
   )
 
-  def make[F[_]: Effect](port: Short, agg: StatusAggregator, pool: WorkersPool[F])(
-    implicit F: ConcurrentEffect[IO],
-    timer: Timer[IO]
-  ): Resource[IO, Server[IO]] = {
-    val routes: HttpRoutes[IO] = Router[IO](
+  /**
+   * Makes a HTTP server with all the expected routes.
+   *
+   * @param port Port to bind to
+   * @param agg Status Aggregator
+   * @param pool Workers Pool
+   */
+  def make[F[_]: Timer: ConcurrentEffect](
+    host: String,
+    port: Short,
+    agg: StatusAggregator[F],
+    pool: WorkersPool[F]
+  ): Resource[F, Server[F]] = {
+    implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
+
+    val routes: HttpRoutes[F] = Router[F](
       "/status" -> StatusHttp.routes[F](agg),
       "/apps" -> WorkersHttp.routes[F](pool)
     )
 
-    val app: HttpApp[IO] = CORS[IO, IO](routes.orNotFound, corsConfig)
+    val app: HttpApp[F] = CORS[F, F](routes.orNotFound, corsConfig)
 
-    BlazeServerBuilder[IO]
-      .bindHttp(port, "0.0.0.0")
+    BlazeServerBuilder[F]
+      .bindHttp(port, host)
       .withHttpApp(app)
       .resource
   }

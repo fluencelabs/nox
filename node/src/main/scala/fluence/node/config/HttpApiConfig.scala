@@ -21,9 +21,9 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 /**
  * @param port endpoint to master node status server
  */
-case class StatusServerConfig(port: Int)
+case class HttpApiConfig(port: Int)
 
-object StatusServerConfig {
-  implicit val encodeStatConfig: Encoder[StatusServerConfig] = deriveEncoder
-  implicit val decodeStatConfig: Decoder[StatusServerConfig] = deriveDecoder
+object HttpApiConfig {
+  implicit val encodeStatConfig: Encoder[HttpApiConfig] = deriveEncoder
+  implicit val decodeStatConfig: Decoder[HttpApiConfig] = deriveDecoder
 }

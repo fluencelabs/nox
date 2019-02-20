@@ -17,13 +17,11 @@
 package fluence.node.config
 
 import cats.effect.IO
-import com.typesafe.config.ConfigObject
 import fluence.node.config.Configuration.loadConfig
 import fluence.node.docker.DockerImage
 import fluence.node.workers.tendermint.config.TendermintConfig
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
-import pureconfig.ConfigReader
 
 import ConfigOps._
 import pureconfig.generic.auto.exportReader
@@ -36,14 +34,14 @@ import pureconfig.generic.auto.exportReader
  *                  for requests after a cluster will be formed
  * @param contract information about Fluence smart contract
  * @param swarm information about Swarm node
- * @param statusServer information about master node status server
+ * @param httpApi information about master node status server
  */
 case class MasterConfig(
   rootPath: String,
   endpoints: EndpointsConfig,
   contract: FluenceContractConfig,
   swarm: Option[SwarmConfig],
-  statusServer: StatusServerConfig,
+  httpApi: HttpApiConfig,
   masterContainerId: Option[String],
   worker: DockerImage,
   tendermint: DockerImage,
@@ -56,18 +54,7 @@ object MasterConfig {
   implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder
   implicit val decodeMasterConfig: Decoder[MasterConfig] = deriveDecoder
 
-  /**
-   * Parse `swarm {}` as None.
-   * WARNING: Config should always contain a `swarm` section, be it empty or with values inside.
-   * TODO: Fix reader to treat absence of `swarm` section as None
-   */
-  implicit val reader: ConfigReader[Option[SwarmConfig]] =
-    ConfigReader.fromCursor[Option[SwarmConfig]] { cv =>
-      cv.value match {
-        case co: ConfigObject if co.isEmpty => Right(None)
-        case _ => ConfigReader[SwarmConfig].from(cv).map(Some(_))
-      }
-    }
+  import SwarmConfig.swarmOptionalConfigReader
 
   def load(): IO[MasterConfig] =
     for {

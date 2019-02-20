@@ -85,7 +85,7 @@ class MasterNodeSpec
             .make[IO, IO.Par](masterConf, nodeConf, Files.createTempDirectory("masternodespec"))
         }
         agg ← StatusAggregator.make(masterConf, node)
-      _ ← MasterHttp.make(5678, agg, node.pool)
+      _ ← MasterHttp.make("127.0.0.1", 5678, agg, node.pool)
       } yield (sttpB, node)
 
       resource.use {

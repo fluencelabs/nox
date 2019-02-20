@@ -54,7 +54,12 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
               (for {
                 st ← StatusAggregator.make(masterConf, node)
-                server ← MasterHttp.make[IO](masterConf.statusServer.port.toShort, st, node.pool)
+                server ← MasterHttp.make[IO](
+                  "0.0.0.0",
+                  masterConf.httpApi.port.toShort,
+                  st,
+                  node.pool
+                )
               } yield server).use { server =>
                 logger.info("Http api server has started on: " + server.address)
                 node.run

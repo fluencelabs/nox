@@ -32,16 +32,20 @@ import scala.language.higherKinds
 /**
  * Provides a single concurrent endpoint to run RPC requests on Worker
  *
- * @tparam F Sync effect
+ * @param get Perform a Get request for the given path
+ * @param post Perform a Post request, sending the given [[RpcRequest]]
+ * @tparam F Http requests effect
  */
 case class TendermintRpc[F[_]](
   get: String ⇒ EitherT[F, RpcError, String],
   post: RpcRequest ⇒ EitherT[F, RpcError, String]
 ) {
 
+  /** Get status as string */
   val status: EitherT[F, RpcError, String] =
     get("status")
 
+  /** Get status, parse it to [[TendermintStatus]] */
   def statusParsed(implicit F: Functor[F]): EitherT[F, RpcError, TendermintStatus] =
     status
       .map(decode[StatusResponse])
@@ -61,6 +65,7 @@ case class TendermintRpc[F[_]](
   def broadcastTxSync(tx: String, id: String = ""): EitherT[F, RpcError, String] =
     post(RpcRequest(method = "broadcast_tx_sync", params = Json.fromString(tx) :: Nil, id = id))
 
+  /** Post a `query` request, wait for response, return it unparsed */
   def query(
     path: Option[String] = None,
     data: String,
@@ -90,6 +95,7 @@ case class TendermintRpc[F[_]](
 
 object TendermintRpc {
 
+  /** Perform the request, and lift the errors to EitherT */
   private def sendHandlingErrors[F[_]: Sync](
     reqT: RequestT[Id, String, Nothing]
   )(implicit sttpBackend: SttpBackend[F, Nothing]): EitherT[F, RpcError, String] =
@@ -102,20 +108,6 @@ object TendermintRpc {
           resp.body
             .leftMap[RpcError](RpcRequestErrored(resp.code, _))
       )
-
-  private def get[F[_]: Sync](uri: Uri)(implicit sttpBackend: SttpBackend[F, Nothing]): EitherT[F, RpcError, String] =
-    sendHandlingErrors(
-      sttp.get(uri)
-    )
-
-  private def post[F[_]: Sync](uri: Uri, req: RpcRequest)(
-    implicit sttpBackend: SttpBackend[F, Nothing]
-  ): EitherT[F, RpcError, String] =
-    sendHandlingErrors(
-      sttp
-        .post(uri)
-        .body(req.toJsonString)
-    )
 
   /**
    * Runs a WorkerRpc with F effect, acquiring some resources for it
@@ -135,8 +127,16 @@ object TendermintRpc {
 
     Resource.pure(
       new TendermintRpc[F](
-        path ⇒ get[F](rpcUri(hostName, path)),
-        req ⇒ post[F](rpcUri(hostName), req)
+        path ⇒
+          sendHandlingErrors(
+            sttp.get(rpcUri(hostName, path))
+        ),
+        req ⇒
+          sendHandlingErrors(
+            sttp
+              .post(rpcUri(hostName))
+              .body(req.toJsonString)
+        )
       )
     )
   }

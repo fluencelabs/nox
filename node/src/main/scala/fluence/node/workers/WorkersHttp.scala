@@ -17,24 +17,33 @@
 package fluence.node.workers
 
 import cats.data.EitherT
-import cats.effect.{Effect, IO}
-import cats.effect.syntax.effect._
+import cats.syntax.flatMap._
+import cats.effect.Sync
 import fluence.node.workers.tendermint.rpc._
+import org.http4s.dsl.Http4sDsl
 import org.http4s.{HttpRoutes, Response}
-import org.http4s.dsl.io._
 
 import scala.language.higherKinds
 
 object WorkersHttp {
 
-  object QueryPath extends OptionalQueryParamDecoderMatcher[String]("path")
-  object QueryData extends QueryParamDecoderMatcher[String]("data")
+  /**
+   * Routes for Workers API.
+   *
+   * @param pool Workers pool to get workers from
+   * @param dsl Http4s DSL to build routes with
+   */
+  def routes[F[_]: Sync](pool: WorkersPool[F])(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
+    import dsl._
 
-  def routes[F[_]: Effect](pool: WorkersPool[F]): HttpRoutes[IO] = {
-    def withTendermint(appId: Long)(fn: TendermintRpc[F] ⇒ EitherT[F, RpcError, String]): IO[Response[IO]] =
-      pool.get(appId).toIO.flatMap {
+    object QueryPath extends OptionalQueryParamDecoderMatcher[String]("path")
+    object QueryData extends QueryParamDecoderMatcher[String]("data")
+
+    /** Helper: runs a function iff a worker is in a pool, unwraps EitherT into different response types, renders errors */
+    def withTendermint(appId: Long)(fn: TendermintRpc[F] ⇒ EitherT[F, RpcError, String]): F[Response[F]] =
+      pool.get(appId).flatMap {
         case Some(worker) ⇒
-          fn(worker.tendermint).value.toIO.flatMap {
+          fn(worker.tendermint).value.flatMap {
             case Right(result) ⇒
               Ok(result)
 
@@ -51,6 +60,7 @@ object WorkersHttp {
           NotFound("App not found on the node")
       }
 
+    // Routes comes there
     HttpRoutes.of {
       case GET -> Root / LongVar(appId) / "query" :? QueryPath(path) +& QueryData(data) ⇒
         withTendermint(appId)(_.query(path, data))

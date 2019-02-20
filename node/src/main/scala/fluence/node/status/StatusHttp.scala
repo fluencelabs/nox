@@ -16,37 +16,42 @@
 
 package fluence.node.status
 
-import cats.effect.{Effect, IO}
+import cats.effect.Sync
+import cats.syntax.functor._
+import cats.syntax.flatMap._
 import org.http4s.HttpRoutes
 import cats.syntax.applicativeError._
 import io.circe.syntax._
-import org.http4s.dsl.io._
+import org.http4s.dsl._
 import slogging.LazyLogging
 
 import scala.language.higherKinds
+import scala.util.control.NonFatal
 
 object StatusHttp extends LazyLogging {
 
-  def routes[F[_]: Effect](sm: StatusAggregator): HttpRoutes[IO] =
+  /**
+   * Master status' routes.
+   *
+   * @param sm Status aggregator
+   * @param dsl Http4s DSL to build routes with
+   */
+  def routes[F[_]: Sync](sm: StatusAggregator[F])(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
+    import dsl._
     HttpRoutes
-      .of[IO] {
+      .of[F] {
         case GET -> Root =>
-          val response = for {
+          for {
             status <- sm.getStatus
-            json <- IO(status.asJson.spaces2).onError {
-              case e =>
-                IO(e.printStackTrace())
-                  .map(_ => logger.error(s"Status cannot be serialized to JSON. Status: $status", e))
+            json <- Sync[F].delay(status.asJson.spaces2).handleError {
+              case NonFatal(e) =>
+                e.printStackTrace()
+                logger.error(s"Status cannot be serialized to JSON. Status: $status", e)
+                "\"JSON generation errored, please try again\""
             }
             response <- Ok(json)
-            _ <- IO(logger.trace("MasterStatus responded successfully"))
+            _ <- Sync[F].delay(logger.trace("MasterStatus responded successfully"))
           } yield response
-
-          response.handleErrorWith { e =>
-            val errorMessage = s"Cannot produce MasterStatus response: $e"
-            logger.warn(errorMessage)
-            e.printStackTrace()
-            InternalServerError(errorMessage)
-          }
       }
+  }
 }
