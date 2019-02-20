@@ -22,10 +22,11 @@ import cats.effect.Sync
 import fluence.node.workers.tendermint.rpc._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{HttpRoutes, Response}
+import slogging.LazyLogging
 
 import scala.language.higherKinds
 
-object WorkersHttp {
+object WorkersHttp extends LazyLogging {
 
   /**
    * Routes for Workers API.
@@ -45,18 +46,23 @@ object WorkersHttp {
         case Some(worker) ⇒
           fn(worker.tendermint).value.flatMap {
             case Right(result) ⇒
+              logger.debug(s"Responding with OK: $result")
               Ok(result)
 
             case Left(RpcRequestFailed(err)) ⇒
+              logger.warn(s"RPC request failed: $err", err)
               InternalServerError(err.getMessage)
 
             case Left(err: RpcRequestErrored) ⇒
+              logger.warn(s"RPC request errored: $err", err)
               InternalServerError(err.error)
 
             case Left(RpcBodyMalformed(err)) ⇒
+              logger.debug(s"RPC body malformed: $err", err)
               BadRequest(err.getMessage)
           }
         case None ⇒
+          logger.debug(s"Requested app $appId, but there's no such worker in the pool")
           NotFound("App not found on the node")
       }
 
