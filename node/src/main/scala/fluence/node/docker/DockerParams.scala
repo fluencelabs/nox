@@ -100,9 +100,13 @@ case class DockerParams private (params: Queue[String]) {
    * Sets CPU and memory limits on a docker container
    */
   def limits(limits: DockerLimits): DockerParams = {
-    val withCpus = limits.cpus.map(limit => (_: DockerParams).cpus(limit))
-    val withMemory = limits.memoryMb.map(limit => (_: DockerParams).memory(limit))
-    val withMemoryReservation = limits.memoryMb.map(limit => (_: DockerParams).memoryReservation(limit))
+    // TODO: rewrite this with State monad
+    type Mut = DockerParams => DockerParams
+    type MutOpt = Option[Mut]
+
+    val withCpus: MutOpt = limits.cpus.map(limit => _.cpus(limit))
+    val withMemory: MutOpt = limits.memoryMb.map(limit => _.memory(limit))
+    val withMemoryReservation: MutOpt = limits.memoryMb.map(limit => _.memoryReservation(limit))
     Seq(withCpus, withMemory, withMemoryReservation).flatten.foldLeft(this) { case (dp, f) => f(dp) }
   }
 
