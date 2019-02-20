@@ -25,6 +25,9 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import pureconfig.ConfigReader
 
+import ConfigOps._
+import pureconfig.generic.auto.exportReader
+
 /**
  * Main config class for master node.
  *
@@ -49,7 +52,6 @@ case class MasterConfig(
 )
 
 object MasterConfig {
-  import pureconfig.generic.auto._
 
   implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder
   implicit val decodeMasterConfig: Decoder[MasterConfig] = deriveDecoder
@@ -59,14 +61,13 @@ object MasterConfig {
    * WARNING: Config should always contain a `swarm` section, be it empty or with values inside.
    * TODO: Fix reader to treat absence of `swarm` section as None
    */
-  implicit def reader: ConfigReader[Option[SwarmConfig]] = ConfigReader.fromCursor[Option[SwarmConfig]] { cv =>
-    cv.value match {
-      case co: ConfigObject if co.isEmpty => Right(None)
-      case _ => ConfigReader[SwarmConfig].from(cv).map(Some(_))
+  implicit val reader: ConfigReader[Option[SwarmConfig]] =
+    ConfigReader.fromCursor[Option[SwarmConfig]] { cv =>
+      cv.value match {
+        case co: ConfigObject if co.isEmpty => Right(None)
+        case _ => ConfigReader[SwarmConfig].from(cv).map(Some(_))
+      }
     }
-  }
-
-  import ConfigOps._
 
   def load(): IO[MasterConfig] =
     for {

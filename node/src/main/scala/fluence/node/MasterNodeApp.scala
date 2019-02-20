@@ -52,12 +52,13 @@ object MasterNodeApp extends IOApp with LazyLogging {
             .use { node ⇒
               logger.debug("eth config {}", masterConf.contract)
 
-              StatusAggregator
-                .makeHttpResource(masterConf, node)
-                .use { status =>
-                  logger.info("Status server has started on: " + status.address)
-                  node.run
-                }
+              (for {
+                st ← StatusAggregator.make(masterConf, node)
+                server ← MasterHttp.make[IO](masterConf.statusServer.port.toShort, st, node.pool)
+              } yield server).use { server =>
+                logger.info("Http api server has started on: " + server.address)
+                node.run
+              }
             }
       }
       .attempt

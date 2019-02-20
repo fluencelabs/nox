@@ -16,6 +16,7 @@
 
 package fluence.node.workers.tendermint.rpc
 
+import cats.Functor
 import cats.data.EitherT
 import cats.effect.{Resource, Sync}
 import cats.syntax.either._
@@ -31,15 +32,18 @@ import scala.language.higherKinds
 /**
  * Provides a single concurrent endpoint to run RPC requests on Worker
  *
- * @tparam F Concurrent effect
+ * @tparam F Sync effect
  */
-case class TendermintRpc[F[_]: Sync](
+case class TendermintRpc[F[_]](
   get: String ⇒ EitherT[F, RpcError, String],
   post: RpcRequest ⇒ EitherT[F, RpcError, String]
 ) {
 
-  val status: EitherT[F, RpcError, TendermintStatus] =
+  val status: EitherT[F, RpcError, String] =
     get("status")
+
+  def statusParsed(implicit F: Functor[F]): EitherT[F, RpcError, TendermintStatus] =
+    status
       .map(decode[StatusResponse])
       .subflatMap[RpcError, TendermintStatus](
         _.map(_.result).leftMap(RpcBodyMalformed)
@@ -54,14 +58,31 @@ case class TendermintRpc[F[_]: Sync](
    * @param tx Transaction body
    * @param id Tracking ID, you may omit it
    */
-  def broadcastTxCommit(tx: String, id: String = ""): EitherT[F, RpcError, String] =
-    post(RpcRequest(method = "broadcast_tx_commit", params = Json.fromString(tx) :: Nil, id = id))
+  def broadcastTxSync(tx: String, id: String = ""): EitherT[F, RpcError, String] =
+    post(RpcRequest(method = "broadcast_tx_sync", params = Json.fromString(tx) :: Nil, id = id))
+
+  def query(
+    path: Option[String] = None,
+    data: String,
+    height: Long = 0,
+    prove: Boolean = false,
+    id: String = ""
+  ): EitherT[F, RpcError, String] =
+    post(
+      RpcRequest(
+        method = "query",
+        params = Json
+          .fromString(path.getOrElse("")) :: Json
+          .fromString(data) :: Json.fromLong(height) :: Json.fromBoolean(prove) :: Nil,
+        id = id
+      )
+    )
 
   /**
    * Performs http status check, lifting result to [[HttpStatus]] data type
    */
-  def httpStatus: F[HttpStatus[TendermintStatus]] =
-    status.value.map {
+  def httpStatus(implicit F: Functor[F]): F[HttpStatus[TendermintStatus]] =
+    statusParsed.value.map {
       case Right(resp) ⇒ HttpCheckStatus(resp)
       case Left(err) ⇒ HttpCheckFailed(err)
     }
