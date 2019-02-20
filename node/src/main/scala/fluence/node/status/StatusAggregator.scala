@@ -50,7 +50,7 @@ case class StatusAggregator(config: MasterConfig, masterNode: MasterNode[IO], st
    * @return gathered information
    */
   val getStatus: IO[MasterStatus] = for {
-    currentTime ← clock.realTime(MILLISECONDS)
+    currentTime ← clock.monotonic(MILLISECONDS)
     workers ← masterNode.pool.getAll
     workerInfos ← Traverse[List].traverse(workers)(_.status)
     ethState ← masterNode.nodeEth.expectedState
@@ -119,7 +119,7 @@ object StatusAggregator extends LazyLogging {
     timer: Timer[IO]
   ): Resource[IO, Server[IO]] =
     for {
-      startTimeMillis ← Resource.liftF(timer.clock.realTime(MILLISECONDS))
+      startTimeMillis ← Resource.liftF(timer.clock.monotonic(MILLISECONDS))
       _ = logger.debug("Start time millis: " + startTimeMillis)
       server ← BlazeServerBuilder[IO]
         .bindHttp(masterConfig.statusServer.port, "0.0.0.0")
