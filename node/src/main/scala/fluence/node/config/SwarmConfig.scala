@@ -21,7 +21,7 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 /**
  * @param host address to Swarm node
  */
-case class SwarmConfig(host: String)
+case class SwarmConfig(enabled: Boolean, host: String)
 
 object SwarmConfig {
   implicit val encodeSwarmConfig: Encoder[SwarmConfig] = deriveEncoder

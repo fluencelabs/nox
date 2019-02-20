@@ -39,7 +39,7 @@ case class MasterConfig(
   rootPath: String,
   endpoints: EndpointsConfig,
   contract: FluenceContractConfig,
-  swarm: Option[SwarmConfig],
+  swarm: SwarmConfig,
   statusServer: StatusServerConfig,
   masterContainerId: Option[String],
   worker: DockerImage,
@@ -50,23 +50,10 @@ case class MasterConfig(
 
 object MasterConfig {
   import pureconfig.generic.auto._
+  import ConfigOps._
 
   implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder
   implicit val decodeMasterConfig: Decoder[MasterConfig] = deriveDecoder
-
-  /**
-   * Parse `swarm {}` as None.
-   * WARNING: Config should always contain a `swarm` section, be it empty or with values inside.
-   * TODO: Fix reader to treat absence of `swarm` section as None
-   */
-  implicit def reader: ConfigReader[Option[SwarmConfig]] = ConfigReader.fromCursor[Option[SwarmConfig]] { cv =>
-    cv.value match {
-      case co: ConfigObject if co.isEmpty => Right(None)
-      case _ => ConfigReader[SwarmConfig].from(cv).map(Some(_))
-    }
-  }
-
-  import ConfigOps._
 
   def load(): IO[MasterConfig] =
     for {
