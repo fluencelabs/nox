@@ -165,7 +165,7 @@ impl Game {
             .or_else(|| no_empty(self))
     }
 
-    /// Make player and application moves successively. Returns Some() of with coords of app move
+    /// Makes player and application moves successively. Returns Some() of with coords of app move
     /// if it was successfull and None otherwise. None result means a draw or win of the player.
     pub fn player_move(&mut self, game_move: GameMove) -> Result<Option<GameMove>, String> {
         if let Some(player) = self.get_winner() {
@@ -195,7 +195,7 @@ impl Game {
         (self.chosen_tile, board)
     }
 
-    /// Make application move. Returns Some() of with coords of app move if it was successfull and
+    /// Makes application move. Returns Some() of with coords of app move if it was successfull and
     /// None otherwise. None result means a draw or win of the app.
     pub fn app_move(&mut self) -> Option<GameMove> {
         if let Some(_) = self.get_winner() {
