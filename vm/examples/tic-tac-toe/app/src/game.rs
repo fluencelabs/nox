@@ -15,12 +15,11 @@
  */
 
 use boolinator::Boolinator;
-use serde_json::json;
 use std::convert::From;
 use std::fmt;
 use std::result::Result;
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Tile {
     X,
     O,
@@ -62,7 +61,7 @@ impl fmt::Display for Tile {
     }
 }
 
-#[derive(Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Winner {
     X,
     O,
@@ -90,6 +89,7 @@ impl From<Tile> for Winner {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct GameMove {
     pub x: usize,
     pub y: usize,
@@ -105,6 +105,7 @@ impl GameMove {
     }
 }
 
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Game {
     board: [[Option<Tile>; 3]; 3],
     chosen_tile: Tile,
@@ -183,10 +184,7 @@ impl Game {
             .is_none()
             .ok_or_else(|| "Please choose a free position".to_owned())?;
 
-        self.board[game_move.x][game_move.y] = Some(self.chosen_tile);
-        if let Some(_) = self.get_winner() {
-            return Ok(None);
-        }
+        self.board[game_move.x][game_move.y].replace(self.chosen_tile);
 
         Ok(self.app_move())
     }
@@ -204,40 +202,22 @@ impl Game {
         (self.chosen_tile, board)
     }
 
-    fn app_move(&mut self) -> Option<GameMove> {
+    pub fn app_move(&mut self) -> Option<GameMove> {
+        if let Some(_) = self.get_winner() {
+            return None;
+        }
+
         // TODO: use more complicated strategy
-        for (x, row) in self.board.iter().enumerate() {
-            for (y, tile) in row.iter().enumerate() {
+        for (x, row) in self.board.iter_mut().enumerate() {
+            for (y, tile) in row.iter_mut().enumerate() {
                 if let Some(_) = tile {
                     continue;
                 }
-                tile.map(|_f| self.chosen_tile.other());
+                tile.replace(self.chosen_tile.other());
                 return Some(GameMove::new(x, y).unwrap());
             }
         }
 
         None
-    }
-}
-
-impl fmt::Display for Game {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        let mut board_str = String::new();
-
-        for tile in self.board.iter().flat_map(|r| r.iter()) {
-            match tile {
-                Some(tile) => board_str.push_str((tile.to_string() + ", ").as_str()),
-                None => board_str.push_str("_, "),
-            }
-        }
-
-        let str = json!({
-            "chosen_tile": format!("\"{}\"", self.chosen_tile),
-            "board": board_str
-        })
-        .to_string();
-
-        fmt.write_str(str.as_str())?;
-        Ok(())
     }
 }

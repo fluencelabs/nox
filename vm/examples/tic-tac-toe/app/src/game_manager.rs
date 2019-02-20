@@ -54,10 +54,11 @@ impl GameManager {
         coords: (usize, usize),
     ) -> AppResult<Value> {
         let game = self.get_player_game(player_name.clone(), player_sign)?;
+        let mut game = game.borrow_mut();
         let game_move = GameMove::new(coords.0, coords.1)
             .ok_or_else(|| format!("Invalid coordinates: x = {} y = {}", coords.0, coords.1))?;
 
-        let response = match game.borrow_mut().player_move(game_move)? {
+        let response = match game.player_move(game_move)? {
             Some(app_move) => MoveResponse {
                 player_name,
                 winner: "None".to_owned(),
@@ -65,7 +66,7 @@ impl GameManager {
             },
             None => MoveResponse {
                 player_name,
-                winner: game.borrow_mut().get_winner().unwrap().to_string(),
+                winner: game.get_winner().unwrap().to_string(),
                 coords: (std::usize::MAX, std::usize::MAX),
             },
         };
@@ -101,13 +102,28 @@ impl GameManager {
 
         let game_state = Rc::new(RefCell::new(Game::new(player_tile)));
         player.borrow_mut().game = Rc::downgrade(&game_state);
-        self.games.push_back(game_state);
 
-        let response = CreateGameResponse {
-            player_name,
-            result: "A new game has been successfully created".to_owned(),
+        let response = match player_tile {
+            Tile::X => {
+                let response = CreateGameResponse {
+                    player_name,
+                    result: "A new game has been successfully created".to_owned(),
+                };
+                serde_json::to_value(response)
+            }
+            Tile::O => {
+                let app_move = game_state.borrow_mut().app_move().unwrap();
+                let response = MoveResponse {
+                    player_name,
+                    winner: "None".to_owned(),
+                    coords: (app_move.x, app_move.y),
+                };
+                serde_json::to_value(response)
+            }
         };
-        serde_json::to_value(response).map_err(Into::into)
+
+        self.games.push_back(game_state);
+        response.map_err(Into::into)
     }
 
     pub fn get_game_state(&self, player_name: String, player_sign: String) -> AppResult<Value> {
@@ -160,9 +176,7 @@ impl GameManager {
             .borrow_mut()
             .game
             .upgrade()
-            .ok_or_else(|| {
-                "Sorry! Your game has been deleted, but you can start a new one".to_owned()
-            })
+            .ok_or_else(|| "Sorry! Your game was deleted, but you can start a new one".to_owned())
             .map_err(Into::into)
     }
 }
