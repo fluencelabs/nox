@@ -50,17 +50,6 @@ impl Tile {
     }
 }
 
-impl fmt::Display for Tile {
-    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        let tile_as_str = match self {
-            Tile::X => "X",
-            Tile::O => "O",
-        };
-        fmt.write_str(tile_as_str)?;
-        Ok(())
-    }
-}
-
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Winner {
     X,
@@ -119,6 +108,7 @@ impl Game {
         }
     }
 
+    /// Returns Some(Winner) if there is some and None otherwise.
     pub fn get_winner(&self) -> Option<Winner> {
         fn same_row(game: &Game) -> Option<Winner> {
             for col in 0..2 {
@@ -175,6 +165,8 @@ impl Game {
             .or_else(|| no_empty(self))
     }
 
+    /// Make player and application moves successively. Returns Some() of with coords of app move
+    /// if it was successfull and None otherwise. None result means a draw or win of the player.
     pub fn player_move(&mut self, game_move: GameMove) -> Result<Option<GameMove>, String> {
         if let Some(player) = self.get_winner() {
             return Err(format!("Player {} has already won this game", player));
@@ -189,6 +181,7 @@ impl Game {
         Ok(self.app_move())
     }
 
+    /// Returns current game state as a tuple with players tile and board.
     pub fn get_state(&self) -> (Tile, Vec<char>) {
         let mut board: Vec<char> = Vec::new();
 
@@ -202,6 +195,8 @@ impl Game {
         (self.chosen_tile, board)
     }
 
+    /// Make application move. Returns Some() of with coords of app move if it was successfull and
+    /// None otherwise. None result means a draw or win of the app.
     pub fn app_move(&mut self) -> Option<GameMove> {
         if let Some(_) = self.get_winner() {
             return None;

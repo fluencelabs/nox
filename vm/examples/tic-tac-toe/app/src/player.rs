@@ -24,11 +24,12 @@ pub struct Player {
 }
 
 impl Player {
-    pub fn new(name: String, sign: String) -> Self {
+    pub fn new<S>(name: S, sign: S) -> Self
+    where S: Into<String> {
         Player {
-            name,
+            name: name.into(),
             game: Weak::new(),
-            sign,
+            sign: sign.into(),
         }
     }
 }
