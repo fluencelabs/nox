@@ -140,8 +140,7 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
       .toStreamRetrying(onErrorRetryAfter)
       // `null` returned if no new blocks, filter it
       .filter(_.getBlock != null)
-      .map(ethBlock ⇒ Option(ethBlock.getRawResponse) → Block(ethBlock.getBlock))
-      .attempt
+      .evalMap(ethBlock ⇒ Sync[F].delay(Option(ethBlock.getRawResponse) → Block(ethBlock.getBlock)).attempt)
       .evalTap(
         either =>
           // log error
