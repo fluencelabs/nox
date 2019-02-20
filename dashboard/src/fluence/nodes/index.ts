@@ -40,6 +40,12 @@ export interface NodeStatus {
     workers: WorkerStatus[]
 }
 
+export interface NodeInfo {
+    status: NodeStatus|null,
+    nodeInfo: Node,
+    causeBy: string|null
+}
+
 /**
  * If node is not available.
  */
@@ -92,31 +98,33 @@ export async function getNodeIds(contract: Network): Promise<NodeId[]> {
     return contract.methods.getNodesIds().call();
 }
 
+export async function getNode(contract: Network, id: NodeId): Promise<Node> {
+    return contract.methods.getNode(id).call().then((res) => {
+        let addr = decodeNodeAddress(res["0"]);
+        let nextPort = parseInt(res["1"]);
+        let lastPort = parseInt(res["2"]);
+        let owner = res["3"];
+        let isPrivate = res["4"];
+        let clusterIds = res["5"];
+
+        return {
+            id: id,
+            tendermint_key: addr.tendermint_key,
+            ip_addr: addr.ip_addr,
+            next_port: nextPort,
+            last_port: lastPort,
+            owner: owner,
+            is_private: isPrivate,
+            clusters_ids: clusterIds
+        };
+    });
+}
+
 /**
  * Gets list of ready-to-work nodes from Fluence contract
  */
 export async function getNodes(contract: Network, ids: NodeId[]): Promise<Node[]> {
-    let nodeCalls: Promise<Node>[] = ids.map((id) => {
-        return contract.methods.getNode(id).call().then((res) => {
-            let addr = decodeNodeAddress(res["0"]);
-            let nextPort = parseInt(res["1"]);
-            let lastPort = parseInt(res["2"]);
-            let owner = res["3"];
-            let isPrivate = res["4"];
-            let clusterIds = res["5"];
-
-            return {
-                id: id,
-                tendermint_key: addr.tendermint_key,
-                ip_addr: addr.ip_addr,
-                next_port: nextPort,
-                last_port: lastPort,
-                owner: owner,
-                is_private: isPrivate,
-                clusters_ids: clusterIds
-            };
-        });
-    });
+    let nodeCalls: Promise<Node>[] = ids.map(id => getNode(contract, id));
 
     return Promise.all(nodeCalls);
 }
@@ -147,12 +155,17 @@ export function getStatusPort(node: Node) {
     return node.last_port + 400;
 }
 
-export function getNodeStatus(node: Node): Promise<NodeStatus|UnavailableNode> {
+export function getNodeStatus(node: Node): Promise<NodeInfo> {
     let url = `http://${node.ip_addr}:${getStatusPort(node)}/status`;
     return axios.get(url).then((res) => {
-        return <NodeStatus>res.data;
+        return <NodeInfo>{
+            status: <NodeStatus>res.data,
+            nodeInfo: node,
+            causeBy: null
+        };
     }).catch((err) => {
         return {
+            status: null,
             nodeInfo: node,
             causeBy: err
         };
