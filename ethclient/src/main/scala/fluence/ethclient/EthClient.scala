@@ -23,6 +23,7 @@ import cats.effect._
 import cats.syntax.apply._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.either._
 import cats.syntax.applicativeError._
 import cats.{~>, Applicative, Functor, Monad}
 import fluence.ethclient.data.{Block, Log}
@@ -68,6 +69,7 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
 
   /**
    * Returns the last block number
+   *
    * @tparam F Effect
    */
   def getBlockNumber[F[_]: LiftIO: Functor]: EitherT[F, EthRequestError, BigInt] =
@@ -136,18 +138,21 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
     web3
       .blockFlowable(fullTransactionObjects)
       .toStreamRetrying(onErrorRetryAfter)
+      // `null` returned if no new blocks, filter it
       .filter(_.getBlock != null)
-      .evalMap[F, Either[Throwable, (Option[String], Block)]](
-        ethBlock ⇒ Sync[F].delay(Option(ethBlock.getRawResponse) → Block(ethBlock.getBlock)).attempt
+      .map(ethBlock ⇒ Option(ethBlock.getRawResponse) → Block(ethBlock.getBlock))
+      .attempt
+      .evalTap(
+        either =>
+          // log error
+          Sync[F].delay(either.leftMap { e =>
+            logger.error(s"Cannot encode block from ethereum.")
+            e.printStackTrace()
+          })
       )
-      .filter {
-        case Left(e) =>
-          logger.error(s"Cannot encode block from ethereum.")
-          e.printStackTrace()
-          false
-        case Right(v) => true
+      .collect {
+        case Right(v) => v
       }
-      .map(_.right.get)
 
   /**
    * Helper for retrieving a web3j-prepared contract
