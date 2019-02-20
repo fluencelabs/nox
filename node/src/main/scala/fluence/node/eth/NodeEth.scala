@@ -98,8 +98,7 @@ object NodeEth extends LazyLogging {
             .map(NodeEthState.onNodeDeleted[F])
 
           // State changes on New Block
-          val onNewBlockS = blockQueue.dequeue
-            .map{ case (_, block) => block }
+          val onNewBlockS = blockQueue.dequeue.map { case (_, block) => block }
             .map(NodeEthState.onNewBlock[F])
 
           // State changes for all kinds of Ethereum events regarding this node

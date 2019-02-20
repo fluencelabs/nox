@@ -25,7 +25,7 @@ import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.either._
 import cats.syntax.applicativeError._
-import cats.{Applicative, Functor, Monad, ~>}
+import cats.{~>, Applicative, Functor, Monad}
 import fluence.ethclient.data.{Block, Log}
 import fluence.ethclient.helpers.JavaFutureConversion._
 import fluence.ethclient.syntax._
@@ -142,7 +142,7 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
       // `null` returned if no new blocks, filter it
       .filter(_.getBlock != null)
       .map(ethBlock ⇒ Try(Option(ethBlock.getRawResponse) → Block(ethBlock.getBlock)).toEither)
-      .evalTap(
+      .evalTap[F](
         either =>
           // log error
           Sync[F].delay(either.leftMap { e =>
