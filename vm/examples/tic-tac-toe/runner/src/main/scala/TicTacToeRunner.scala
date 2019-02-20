@@ -37,9 +37,9 @@ object TicTacToeRunner extends IOApp {
       initState ← vm.getVmState[IO]
 
       createPlayer = createPlayerJson("John", "secret_key")
+      createPlayer2 = createPlayerJson("John2", "secret_key")
       createGame = createGameJson("John", "secret_key", 'X')
       createGame2 = createGameJson("John2", "secret_key", 'X')
-      createPlayer2 = createPlayerJson("John2", "secret_key")
       getGameState = getStateJson("John", "secret_key")
       makeMove = moveJson("John", "secret_key", 0, 0)
       makeMove2 = moveJson("John", "secret_key", 1, 0)
