@@ -34,7 +34,7 @@ impl Tile {
         }
     }
 
-    pub fn to_char(&self) -> char {
+    pub fn to_char(self) -> char {
         match self {
             Tile::X => 'X',
             Tile::O => 'O',
@@ -119,7 +119,7 @@ impl Game {
                     return game.board[0][col].map(|tile| tile.into());
                 }
             }
-            return None;
+            None
         }
 
         fn same_col(game: &Game) -> Option<Winner> {
@@ -131,7 +131,7 @@ impl Game {
                     return game.board[row][0].map(|tile| tile.into());
                 }
             }
-            return None;
+            None
         }
 
         // checks the left-right diagonal
@@ -198,14 +198,14 @@ impl Game {
     /// Makes application move. Returns Some() of with coords of app move if it was successfull and
     /// None otherwise. None result means a draw or win of the app.
     pub fn app_move(&mut self) -> Option<GameMove> {
-        if let Some(_) = self.get_winner() {
+        if self.get_winner().is_some() {
             return None;
         }
 
         // TODO: use more complicated strategy
         for (x, row) in self.board.iter_mut().enumerate() {
             for (y, tile) in row.iter_mut().enumerate() {
-                if let Some(_) = tile {
+                if tile.is_some() {
                     continue;
                 }
                 tile.replace(self.chosen_tile.other());
