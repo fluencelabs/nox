@@ -119,7 +119,7 @@ object StatusAggregator extends LazyLogging {
     timer: Timer[IO]
   ): Resource[IO, Server[IO]] =
     for {
-      startTimeMillis ← Resource.liftF(timer.clock.realTime(MILLISECONDS))
+      startTimeMillis ← Resource.liftF(timer.clock.monotonic(MILLISECONDS))
       _ = logger.debug("Start time millis: " + startTimeMillis)
       server ← BlazeServerBuilder[IO]
         .bindHttp(masterConfig.statusServer.port, "0.0.0.0")

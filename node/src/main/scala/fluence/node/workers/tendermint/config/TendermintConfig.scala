@@ -81,7 +81,7 @@ case class TendermintConfig(
     abciHost: String,
     persistentPeers: Vector[String],
     appId: Long,
-  ): F[Unit] = Sync[F].catchNonFatal {
+  ): F[Unit] = Sync[F].delay {
     val properties = List(
       "proxy_app" -> s"tcp://$abciHost:$abciPort",
       "moniker" -> s"${appId}_$workerIndex",
