@@ -139,7 +139,7 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
       .map(
         ethBlock ⇒
           Option(ethBlock.getRawResponse) →
-            Sync[F].delay[Option[Block]](Some(Block(ethBlock.getBlock))).handleError { e: Throwable =>
+            Sync[F].delay(Option(ethBlock.getBlock)).map(_.map(Block.apply)).handleError { e: Throwable =>
               logger.error(s"Cannot encode block from ethereum: ${ethBlock.getBlock}")
               e.printStackTrace()
               None
