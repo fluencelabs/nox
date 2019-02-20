@@ -16,8 +16,7 @@
 
 use boolinator::Boolinator;
 use std::convert::From;
-use std::fmt;
-use std::result::Result;
+use std::{fmt, result::Result};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Tile {

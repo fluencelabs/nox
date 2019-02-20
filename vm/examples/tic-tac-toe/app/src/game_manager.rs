@@ -23,9 +23,7 @@ use crate::player::Player;
 
 use arraydeque::{ArrayDeque, Wrapping};
 use serde_json::Value;
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::rc::{Rc, Weak};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, rc::Weak};
 
 mod settings {
     pub const PLAYERS_MAX_COUNT: usize = 1024;
