@@ -72,12 +72,47 @@ case class DockerParams private (params: Queue[String]) {
     option("--user", user)
 
   /**
+   * Specifies a hard limit on maximum amount of cpu that can be utilized by a container
+   *
+   * @param limit Fraction specifying number of cores. E.g., 0.5 to limit usage to a half of a core.
+   */
+  def cpus(limit: Double): DockerParams =
+    option("--cpus", limit.toString)
+
+  /**
+   * Specifies a hard limit on maximum amount of memory available to a container
+   *
+   * @param limitMb Amount of memory in megabytes
+   */
+  def memory(limitMb: Int): DockerParams =
+    option("--memory", s"${limitMb}M")
+
+  /**
+   * Guarantees to allocate at lest this much memory to a container
+   *
+   * @param megabytes Amount of memory in megabytes
+   * @return
+   */
+  def memoryReservation(megabytes: Int): DockerParams =
+    option("--memory-reservation", s"${megabytes}M")
+
+  /**
+   * Sets CPU and memory limits on a docker container
+   */
+  def limits(limits: DockerLimits): DockerParams = {
+    val withCpus = limits.cpus.map(limit => (_: DockerParams).cpus(limit))
+    val withMemory = limits.memoryMb.map(limit => (_: DockerParams).memory(limit))
+    val withMemoryReservation = limits.memoryMb.map(limit => (_: DockerParams).memoryReservation(limit))
+    Seq(withCpus, withMemory, withMemoryReservation).flatten.foldLeft(this) { case (dp, f) => f(dp) }
+  }
+
+  /**
    * Builds the current command to a representation ready to pass in [[scala.sys.process.Process]].
    *
    * @param dockerImage name of image to run
    */
   def image(dockerImage: DockerImage): DockerParams.WithImage =
-    WithImage(params, dockerImage)
+    WithImage(limits(dockerImage.limits).params, dockerImage)
 }
 
 object DockerParams {

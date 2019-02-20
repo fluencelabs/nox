@@ -19,7 +19,13 @@ package fluence.node.docker
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 
-case class DockerImage(image: String, tag: String) {
+/**
+ * Representation of a docker image
+ * @param image Fully qualified name of an image, including a repository and a name. E.g., fluencelabs/worker
+ * @param tag Tag of the image, will be appended to [[image]] after a colon
+ * @param limits Container cpu and memory limits
+ */
+case class DockerImage(image: String, tag: String, limits: DockerLimits) {
   val imageName = s"$image:$tag"
 }
 
