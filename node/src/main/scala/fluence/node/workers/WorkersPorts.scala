@@ -65,28 +65,38 @@ class WorkersPorts[F[_]: Monad] private (
    * @return Left in case of error, or the port
    */
   def allocate(appId: Long): EitherT[F, WorkersPorts.Error, Short] =
-    EitherT.right(cache.take).flatMap { m ⇒
-      m.get(appId) match {
-        case Some(v) ⇒
-          EitherT.right(
-            cache.put(m).map(_ ⇒ v)
-          )
-        case None ⇒
-          EitherT.right(available.take).flatMap {
-            case av if av.isEmpty ⇒
-              EitherT
-                .right(available.put(av) *> cache.put(m))
-                .subflatMap(_ ⇒ Left(WorkersPorts.Exhausted))
-            case av ⇒
-              val port = av.head
-              store
-                .put(appId, port)
-                .leftMap(WorkersPorts.StoreError)
-                .leftFlatMap(err ⇒ EitherT.right(available.put(av) *> cache.put(m)).subflatMap(_ ⇒ Left(err)))
-                .flatMapF(_ ⇒ (available.put(av.tail) *> cache.put(m + (appId -> port))).map(_ ⇒ Right(port)))
-          }
-      }
-    }
+    EitherT(
+      cache.take.flatMap(
+        m ⇒
+          m.get(appId) match {
+            case Some(v) ⇒
+              cache.put(m).map(_ ⇒ Right(v))
+            case None ⇒
+              available.take.flatMap {
+                case av if av.isEmpty ⇒
+                  (available.put(av) *> cache.put(m))
+                    .map(_ ⇒ Left(WorkersPorts.Exhausted))
+                case av ⇒
+                  val port = av.head
+                  store
+                    .put(appId, port)
+                    .bimap(
+                      WorkersPorts.StoreError,
+                      _ ⇒ port
+                    )
+                    .value
+                    .flatMap[Either[WorkersPorts.Error, Short]] {
+                      case Left(err) ⇒
+                        (available.put(av) *> cache.put(m))
+                          .map(_ ⇒ Left(err))
+                      case Right(_) ⇒
+                        (available.put(av.tail) *> cache.put(m + (appId -> port)))
+                          .map(_ ⇒ Right(port))
+                    }
+              }
+        }
+      )
+    )
 
   /**
    * Releases a port for an app, if it was previously allocated.
