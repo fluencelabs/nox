@@ -202,6 +202,21 @@ lazy val ethclient = (project in file("ethclient"))
   )
   .enablePlugins(AutomateHeaderPlugin)
 
+lazy val `kvstore` = (project in file("effects/kvstore"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      slogging,
+      codecCore,
+      cats,
+      catsEffect,
+      fs2,
+      rocksDb,
+      scalaTest
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+
 lazy val node = project
   .configs(IntegrationTest)
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
