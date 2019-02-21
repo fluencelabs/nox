@@ -108,7 +108,7 @@ object TendermintRpc extends slogging.LazyLogging {
         val eitherResp = resp.body
           .leftMap[RpcError](RpcRequestErrored(resp.code, _))
 
-        logger.debug(s"TendermintRpc response: $eitherResp")
+        logger.debug(s"TendermintRpc response(${resp.code}): $eitherResp")
         eitherResp
       }
 
