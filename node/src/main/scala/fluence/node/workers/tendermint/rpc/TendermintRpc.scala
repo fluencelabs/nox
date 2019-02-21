@@ -67,8 +67,8 @@ case class TendermintRpc[F[_]](
 
   /** Post a `query` request, wait for response, return it unparsed */
   def query(
-    path: Option[String] = None,
-    data: String,
+    path: String,
+    data: String = "",
     height: Long = 0,
     prove: Boolean = false,
     id: String = ""
@@ -76,9 +76,10 @@ case class TendermintRpc[F[_]](
     post(
       RpcRequest(
         method = "query",
-        params = Json
-          .fromString(path.getOrElse("")) :: Json
-          .fromString(data) :: Json.fromLong(height) :: Json.fromBoolean(prove) :: Nil,
+        params = Json.fromString(path) ::
+          Json.fromString(data) ::
+          Json.fromLong(height) ::
+          Json.fromBoolean(prove) :: Nil,
         id = id
       )
     )

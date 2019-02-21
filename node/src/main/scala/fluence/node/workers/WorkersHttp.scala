@@ -37,8 +37,8 @@ object WorkersHttp extends LazyLogging {
   def routes[F[_]: Sync](pool: WorkersPool[F])(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
     import dsl._
 
-    object QueryPath extends OptionalQueryParamDecoderMatcher[String]("path")
-    object QueryData extends QueryParamDecoderMatcher[String]("data")
+    object QueryPath extends QueryParamDecoderMatcher[String]("path")
+    object QueryData extends OptionalQueryParamDecoderMatcher[String]("data")
 
     /** Helper: runs a function iff a worker is in a pool, unwraps EitherT into different response types, renders errors */
     def withTendermint(appId: Long)(fn: TendermintRpc[F] ⇒ EitherT[F, RpcError, String]): F[Response[F]] =
@@ -69,7 +69,7 @@ object WorkersHttp extends LazyLogging {
     // Routes comes there
     HttpRoutes.of {
       case GET -> Root / LongVar(appId) / "query" :? QueryPath(path) +& QueryData(data) ⇒
-        withTendermint(appId)(_.query(path, data))
+        withTendermint(appId)(_.query(path, data.getOrElse("")))
 
       case GET -> Root / LongVar(appId) / "status" ⇒
         withTendermint(appId)(_.status)
