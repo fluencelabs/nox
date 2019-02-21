@@ -261,8 +261,12 @@ To upload your code to Swarm, you need to have access to one of its nodes. The s
 
 **We will use existing Ethereum & Swarm nodes, but if you wish, you can [use your own nodes](miner.md) or any other.**
 
-## TODO: Registering an Ethereum Kovan account
-TODO
+## Registering an Ethereum Kovan account
+### Via myetherwallet.com
+Go to https://vintage.myetherwallet.com/, then select Kovan in the upper right, enter any password, and download the Keystore file.
+
+### Top up account with funds
+Follow instructions for [Kovan faucet](https://github.com/kovan-testnet/faucet)
 
 ## Installing Fluence CLI
 You can download Fluence CLI from here https://github.com/fluencelabs/fluence/releases/tag/cli-0.1.2
