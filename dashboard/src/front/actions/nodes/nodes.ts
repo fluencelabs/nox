@@ -1,16 +1,16 @@
-import {getNodes, NodeId} from '../../../fluence';
+import {getNode, NodeId} from '../../../fluence';
 import contract from '../../../fluence/contract';
 import { Dispatch, Action } from 'redux';
 
-export const GET_NODES_RECEIVE = 'GET_NODES_RECEIVE';
+export const GET_NODE_RECEIVE = 'GET_NODE_RECEIVE';
 
-export const retrieveNodes = (nodeIds: NodeId[]) => {
+export const retrieveNode = (nodeId: NodeId) => {
     return async (dispatch: Dispatch): Promise<Action> => {
-        const nodes = await getNodes(contract, nodeIds);
+        const node = await getNode(contract, nodeId);
 
         return dispatch({
-            type: GET_NODES_RECEIVE,
-            nodes,
+            type: GET_NODE_RECEIVE,
+            node,
         });
     };
 };
@@ -18,10 +18,13 @@ export const retrieveNodes = (nodeIds: NodeId[]) => {
 /*
  * Reducer
  */
-export default (state = [], action: any) => {
+export default (state = {}, action: any) => {
     switch (action.type) {
-        case GET_NODES_RECEIVE: {
-            return action.nodes;
+        case GET_NODE_RECEIVE: {
+            return {
+                ...state,
+                [action.node.id]: action.node
+            };
         }
         default: {
             return state;
