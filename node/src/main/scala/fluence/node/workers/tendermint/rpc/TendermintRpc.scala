@@ -93,7 +93,7 @@ case class TendermintRpc[F[_]](
     }
 }
 
-object TendermintRpc {
+object TendermintRpc extends slogging.LazyLogging {
 
   /** Perform the request, and lift the errors to EitherT */
   private def sendHandlingErrors[F[_]: Sync](
@@ -104,9 +104,13 @@ object TendermintRpc {
       .attemptT
       .leftMap[RpcError](RpcRequestFailed)
       .subflatMap[RpcError, String](
-        resp ⇒
-          resp.body
+        resp ⇒ {
+
+          val eitherResp = resp.body
             .leftMap[RpcError](RpcRequestErrored(resp.code, _))
+          logger.debug(s"TendermintRpc response: $eitherResp")
+          eitherResp
+        }
       )
 
   /**
