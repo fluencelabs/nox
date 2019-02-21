@@ -4,10 +4,12 @@ import { displayLoading,
     hideLoading,
     retrieveNodeIds,
     retrieveAppIds,
-    retrieveNodes,
-    retrieveApps,
 } from '../../actions';
+import { contractAddress } from '../../../fluence/contract';
 import {App, Node, NodeId, AppId} from '../../../fluence';
+import FluenceApp from '../fluence-app';
+import FluenceNode from '../fluence-node';
+import FluenceNodeStatus from '../fluence-node-status';
 import {Action} from "redux";
 
 interface State {}
@@ -17,13 +19,15 @@ interface Props {
     hideLoading: typeof hideLoading,
     retrieveNodeIds: () => Promise<Action>,
     retrieveAppIds: () => Promise<Action>,
-    retrieveNodes: (nodeIds: NodeId[]) => Promise<Action>,
-    retrieveApps: (appsIds: AppId[]) => Promise<Action>,
     loading: boolean,
     nodeIds: NodeId[],
     appIds: AppId[],
-    apps: App[];
-    nodes: Node[];
+    apps: {
+        [key: string]: App
+    };
+    nodes: {
+        [key: string]: Node
+    };
 }
 
 class DashboardApp extends React.Component<Props, State>{
@@ -31,77 +35,38 @@ class DashboardApp extends React.Component<Props, State>{
 
     componentDidMount(): void {
 
-        /*
-         * Warning! This is example code and it should be rewritten!
-         */
-
         this.props.displayLoading();
 
         Promise.all([
             this.props.retrieveNodeIds(),
             this.props.retrieveAppIds(),
         ]).then(() => {
-            return Promise.all([
-                this.props.retrieveNodes(this.props.nodeIds),
-                this.props.retrieveApps(this.props.nodeIds),
-            ]);
-
-        }).then(() => {
             this.props.hideLoading();
-        }).catch(() => {
+        }).catch((e) => {
+            window.console.log(e);
             this.props.hideLoading();
         });
     }
 
     render(): React.ReactNode {
-        /*
-         * Warning! This is example code and it should be rewritten!
-         */
         return (
             <div>
+                <h2>Fluence network status from contract {contractAddress}</h2>
                 <img style={{ display: this.props.loading ? 'block' : 'none' }} src="/static/assets/loader.gif"/>
-                <p>Apps ID's</p>
-                <ul>
-                    {this.props.appIds.map(item => (
-                        <li>{item}</li>
-                    ))}
-                </ul>
-                <p>Nodes ID's</p>
-                <ul>
-                    {this.props.nodeIds.map(item => (
-                        <li>{item}</li>
-                    ))}
-                </ul>
 
-                <p>Apps</p>
-                <ul>
-                    {this.props.apps.map(item => (
-                        <li>
-                            ID: {item.app_id}<br/>
-                            CluserSize: {item.cluster_size}<br/>
-                            Owner: {item.owner}
-                        </li>
-                    ))}
-                </ul>
+                <p>Apps ID's: {this.props.appIds.join(', ')}</p>
+                <p>Nodes ID's: {this.props.nodeIds.join(', ')}</p>
 
-                <p>Nodes</p>
-                <ul>
-                    {this.props.nodes.map(item => (
-                        <li>
-                            ID: {item.id}<br/>
-                            lastport: {item.last_port}<br/>
-                            nextport: {item.next_port}<br/>
-                            Owner: {item.owner}
-                        </li>
-                    ))}
-                </ul>
+                {this.props.appIds.map(appId => <FluenceApp appId={appId} />)}
+                {this.props.nodeIds.map(nodeId => <FluenceNode nodeId={nodeId} />)}
+                {this.props.nodeIds.map(nodeId => this.props.nodes[nodeId] && <FluenceNodeStatus node={this.props.nodes[nodeId]} />)}
             </div>
         );
     }
 }
 
 const mapStateToProps = (state: any) => ({
-    loading: state.loading,
+    loading: state.loading.isLoading,
     nodeIds: state.nodeIds,
     appIds: state.appIds,
     nodes: state.nodes,
@@ -113,8 +78,6 @@ const mapDispatchToProps = {
     hideLoading,
     retrieveNodeIds,
     retrieveAppIds,
-    retrieveNodes,
-    retrieveApps,
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(DashboardApp);
