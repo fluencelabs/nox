@@ -52,12 +52,12 @@ lazy val `vm-hello-world` = (project in file("vm/examples/hello-world"))
 
 lazy val `vm-hello-world2-2015` = (project in file("vm/examples/hello-world2/app-2015"))
   .settings(
-    rustVmExample("hello-world2/app_2015")
+    rustVmExample("hello-world2/app-2015")
   )
 
 lazy val `vm-hello-world2-2018` = (project in file("vm/examples/hello-world2/app-2018"))
   .settings(
-    rustVmExample("hello-world2/app_2018")
+    rustVmExample("hello-world2/app-2018")
   )
 
 lazy val `vm-hello-world2-runner` = (project in file("vm/examples/hello-world2/runner"))
