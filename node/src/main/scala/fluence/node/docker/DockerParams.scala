@@ -16,7 +16,7 @@
 
 package fluence.node.docker
 
-import fluence.node.docker.DockerParams.WithImage
+import fluence.node.docker.DockerParams.Prepared
 
 import scala.collection.immutable.Queue
 import scala.sys.process._
@@ -113,10 +113,10 @@ case class DockerParams private (params: Queue[String]) {
   /**
    * Builds the current command to a representation ready to pass in [[scala.sys.process.Process]].
    *
-   * @param dockerImage name of image to run
+   * @param config Container image and limits
    */
-  def image(dockerImage: DockerImage): DockerParams.WithImage =
-    WithImage(limits(dockerImage.limits).params, dockerImage)
+  def prepared(config: DockerConfig): DockerParams.Prepared =
+    Prepared(limits(config.limits).params, config.image)
 }
 
 object DockerParams {
@@ -136,7 +136,7 @@ object DockerParams {
   private val runParams = Seq("docker", "run", "--user", "", "--rm", "-i")
 
   // Represents a docker run command with specified image name, ready to be specialized to Daemon or Exec params
-  case class WithImage(params: Seq[String], image: DockerImage) {
+  case class Prepared(params: Seq[String], image: DockerImage) {
 
     /**
      * Builds a command starting with `docker run -d` wrapped in DaemonParams, so

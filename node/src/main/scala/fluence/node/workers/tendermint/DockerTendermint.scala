@@ -105,13 +105,13 @@ object DockerTendermint {
           params
             .option("--volumes-from", cId)
             .option("-e", s"TMHOME=$tendermintDir")
-            .image(tmImage)
+            .prepared(tmImage)
             .runExec(cmd)
 
         case None ⇒
           params
             .volume(tendermintDir.toString, "/tendermint")
-            .image(tmImage)
+            .prepared(tmImage)
             .runExec(cmd)
       }
     }
@@ -140,7 +140,7 @@ object DockerTendermint {
           .option("--volumes-from", id)
       case None =>
         dockerParams
-    }).image(tmImage).daemonRun("node")
+    }).prepared(tmImage).daemonRun("node")
   }
 
   /**

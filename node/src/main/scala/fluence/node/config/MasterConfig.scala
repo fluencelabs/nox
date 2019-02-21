@@ -19,7 +19,7 @@ package fluence.node.config
 import cats.effect.IO
 import com.typesafe.config.ConfigObject
 import fluence.node.config.Configuration.loadConfig
-import fluence.node.docker.DockerImage
+import fluence.node.docker.{DockerConfig, DockerImage}
 import fluence.node.workers.tendermint.config.TendermintConfig
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
@@ -42,8 +42,8 @@ case class MasterConfig(
   swarm: SwarmConfig,
   statusServer: StatusServerConfig,
   masterContainerId: Option[String],
-  worker: DockerImage,
-  tendermint: DockerImage,
+  worker: DockerConfig,
+  tendermint: DockerConfig,
   ethereum: EthereumRpcConfig,
   tendermintConfig: TendermintConfig
 )
