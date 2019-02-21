@@ -75,7 +75,7 @@ case class TendermintRpc[F[_]](
   ): EitherT[F, RpcError, String] =
     post(
       RpcRequest(
-        method = "query",
+        method = "abci_query",
         params = Json.fromString(path) ::
           Json.fromString(data) ::
           Json.fromLong(height) ::
@@ -104,15 +104,13 @@ object TendermintRpc extends slogging.LazyLogging {
       .send()
       .attemptT
       .leftMap[RpcError](RpcRequestFailed)
-      .subflatMap[RpcError, String](
-        resp ⇒ {
+      .subflatMap[RpcError, String] { resp ⇒
+        val eitherResp = resp.body
+          .leftMap[RpcError](RpcRequestErrored(resp.code, _))
 
-          val eitherResp = resp.body
-            .leftMap[RpcError](RpcRequestErrored(resp.code, _))
-          logger.debug(s"TendermintRpc response: $eitherResp")
-          eitherResp
-        }
-      )
+        logger.debug(s"TendermintRpc response: $eitherResp")
+        eitherResp
+      }
 
   /**
    * Runs a WorkerRpc with F effect, acquiring some resources for it
