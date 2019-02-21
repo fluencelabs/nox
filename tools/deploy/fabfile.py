@@ -148,6 +148,8 @@ def deploy_netdata():
     with hide('running', 'output'):
         run("mkdir -p ~/scripts")
         run("mkdir -p ~/config")
+        run("mkdir -p ~/.local/netdata_cache")
+        run("chmod o+rw ~/.local/netdata_cache")
         env.home_dir = run("pwd").stdout
         upload_template("scripts/netdata.yml", "~/scripts/netdata.yml", context=env)
         upload_template("config/Caddyfile", "~/config/Caddyfile", context=env)
