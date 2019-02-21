@@ -39,6 +39,7 @@ object WorkersHttp extends LazyLogging {
 
     object QueryPath extends QueryParamDecoderMatcher[String]("path")
     object QueryData extends OptionalQueryParamDecoderMatcher[String]("data")
+    object QueryId extends OptionalQueryParamDecoderMatcher[String]("id")
 
     /** Helper: runs a function iff a worker is in a pool, unwraps EitherT into different response types, renders errors */
     def withTendermint(appId: Long)(fn: TendermintRpc[F] ⇒ EitherT[F, RpcError, String]): F[Response[F]] =
@@ -68,14 +69,14 @@ object WorkersHttp extends LazyLogging {
 
     // Routes comes there
     HttpRoutes.of {
-      case GET -> Root / LongVar(appId) / "query" :? QueryPath(path) +& QueryData(data) ⇒
-        withTendermint(appId)(_.query(path, data.getOrElse("")))
+      case GET -> Root / LongVar(appId) / "query" :? QueryPath(path) +& QueryData(data) +& QueryId(id) ⇒
+        withTendermint(appId)(_.query(path, data.getOrElse(""), id = id.getOrElse("dontcare")))
 
       case GET -> Root / LongVar(appId) / "status" ⇒
         withTendermint(appId)(_.status)
 
-      case req @ POST -> Root / LongVar(appId) / "tx" ⇒
-        req.decode[String](tx ⇒ withTendermint(appId)(_.broadcastTxSync(tx)))
+      case req @ POST -> Root / LongVar(appId) / "tx" :? QueryId(id) ⇒
+        req.decode[String](tx ⇒ withTendermint(appId)(_.broadcastTxSync(tx, id.getOrElse("dontcare"))))
     }
   }
 }
