@@ -96,14 +96,14 @@ impl GameMove {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Game {
     board: [[Option<Tile>; 3]; 3],
-    chosen_tile: Tile,
+    player_tile: Tile,
 }
 
 impl Game {
     pub fn new(player_tile: Tile) -> Self {
         Game {
             board: [[None; 3]; 3],
-            chosen_tile: player_tile,
+            player_tile,
         }
     }
 
@@ -175,7 +175,7 @@ impl Game {
             .is_none()
             .ok_or_else(|| "Please choose a free position".to_owned())?;
 
-        self.board[game_move.x][game_move.y].replace(self.chosen_tile);
+        self.board[game_move.x][game_move.y].replace(self.player_tile);
 
         Ok(self.app_move())
     }
@@ -191,7 +191,7 @@ impl Game {
             }
         }
 
-        (self.chosen_tile, board)
+        (self.player_tile, board)
     }
 
     /// Makes application move. Returns Some() of with coords of app move if it was successfull and
@@ -207,7 +207,7 @@ impl Game {
                 if tile.is_some() {
                     continue;
                 }
-                tile.replace(self.chosen_tile.other());
+                tile.replace(self.player_tile.other());
                 return Some(GameMove::new(x, y).unwrap());
             }
         }

@@ -66,8 +66,9 @@ fn do_request(req: String) -> AppResult<Value> {
 
         "create_game" => {
             let player_tile: PlayerTile = serde_json::from_value(raw_request)?;
-            let player_tile = game::Tile::from_char(player_tile.tile)
-                .ok_or_else(|| "tile has to be one of {'X', 'O'}".to_owned())?;
+            let player_tile = game::Tile::from_char(player_tile.tile).ok_or_else(|| {
+                "incorrect tile type, please choose it from {'X', 'O'} set".to_owned()
+            })?;
 
             GAME_MANAGER.with(|gm| {
                 gm.borrow_mut()
@@ -86,11 +87,11 @@ fn do_request(req: String) -> AppResult<Value> {
 
 #[invocation_handler(init_fn = init)]
 fn main(req: String) -> String {
-    info!("the new request {}", req);
+    info!("a new request received: {}", req);
     match do_request(req) {
         Ok(req) => req.to_string(),
         Err(err) => {
-            error!("an error occured: {}", err);
+            error!("an error occurred: {}", err);
             json!({
                 "error": err.to_string()
             })
