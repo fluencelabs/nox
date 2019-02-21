@@ -41,17 +41,18 @@ object StatusHttp extends LazyLogging {
     HttpRoutes
       .of[F] {
         case GET -> Root =>
-          for {
+          (for {
             status <- sm.getStatus
-            json <- Sync[F].delay(status.asJson.spaces2).handleError {
-              case NonFatal(e) =>
-                e.printStackTrace()
-                logger.error(s"Status cannot be serialized to JSON. Status: $status", e)
-                "\"JSON generation errored, please try again\""
-            }
-            response <- Ok(json)
-            _ <- Sync[F].delay(logger.trace("MasterStatus responded successfully"))
-          } yield response
+            maybeJson <- Sync[F].delay(status.asJson.spaces2).attempt
+          } yield (status, maybeJson)).flatMap {
+            case (status, Left(e)) ⇒
+              logger.error(s"Status cannot be serialized to JSON. Status: $status", e)
+              e.printStackTrace()
+              InternalServerError("JSON generation errored, please try again")
+
+            case (_, Right(json)) ⇒
+              Ok(json)
+          }
       }
   }
 }
