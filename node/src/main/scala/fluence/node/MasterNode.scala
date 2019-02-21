@@ -112,8 +112,8 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
           tendermintPath,
           code,
           masterNodeContainerId,
-          nodeConfig.workerImage,
-          nodeConfig.tmImage,
+          nodeConfig.workerDockerConfig,
+          nodeConfig.tmDockerConfig,
           configTemplate
         )
       )

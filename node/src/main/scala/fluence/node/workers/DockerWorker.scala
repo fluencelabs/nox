@@ -66,7 +66,7 @@ object DockerWorker extends LazyLogging {
         dockerParams.option("--volumes-from", s"$id:ro")
       case None =>
         dockerParams
-    }).prepared(image).daemonRun()
+    }).prepared(dockerConfig).daemonRun()
   }
 
   private def dockerNetworkName(params: WorkerParams): String =

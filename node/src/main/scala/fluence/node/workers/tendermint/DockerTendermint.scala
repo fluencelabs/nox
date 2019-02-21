@@ -80,7 +80,7 @@ object DockerTendermint {
   /**
    * Execute tendermint-specific command inside a temporary container, return the results
    *
-   * @param tmImage Tendermint image to use
+   * @param tmDockerConfig Tendermint image to use, with cpu and memory limits
    * @param tendermintDir Tendermint's home directory in current filesystem
    * @param masterContainerId Master process' Docker ID, used to pass volumes from
    * @param cmd Command to run
@@ -89,7 +89,7 @@ object DockerTendermint {
    * @return String output of the command execution
    */
   def execCmd[F[_]: Sync: ContextShift](
-    tmImage: DockerImage,
+    tmDockerConfig: DockerConfig,
     tendermintDir: Path,
     masterContainerId: Option[String],
     cmd: String,
@@ -105,13 +105,13 @@ object DockerTendermint {
           params
             .option("--volumes-from", cId)
             .option("-e", s"TMHOME=$tendermintDir")
-            .prepared(tmImage)
+            .prepared(tmDockerConfig)
             .runExec(cmd)
 
         case None ⇒
           params
             .volume(tendermintDir.toString, "/tendermint")
-            .prepared(tmImage)
+            .prepared(tmDockerConfig)
             .runExec(cmd)
       }
     }
@@ -140,7 +140,7 @@ object DockerTendermint {
           .option("--volumes-from", id)
       case None =>
         dockerParams
-    }).prepared(tmImage).daemonRun("node")
+    }).prepared(tmDockerConfig).daemonRun("node")
   }
 
   /**
