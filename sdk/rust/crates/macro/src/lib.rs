@@ -42,10 +42,11 @@
 //! ```
 //!
 //! To use this macro with some function `f` some conditions have to be met:
-//! 1. `f` has to have one input argument.
-//! 2. `f` has to don't be `unsafe`, `const`, generic or have custom abi linkage or variadic param.
-//! 3. The input and output types of `f` have to be in {String, Vec<u8>} set.
-//! 4. `f` has to don't have the name `invoke`.
+//! 1. `f` mustn't have more than one input argument.
+//! 2. `f` mustn't be `unsafe`, `const`, generic, have custom abi linkage or variadic param.
+//! 3. The type of `f` input (if it present) and output parameters have to be one of
+//!    {String, Vec<u8>} set.
+//! 4. `f` mustn't have the name `invoke`.
 //!
 //! For troubleshooting and macros debugging [cargo expand](https://github.com/dtolnay/cargo-expand)
 //! can be used.
@@ -108,31 +109,31 @@ fn invoke_handler_impl(
         if let Some(constness) = constness {
             return Err(Error::new(
                 constness.span,
-                "The main module invocation handler has to don't be const",
+                "The main module invocation handler mustn't be const",
             ));
         }
         if let Some(unsafety) = unsafety {
             return Err(Error::new(
                 unsafety.span,
-                "The main module invocation handler has to don't be unsafe",
+                "The main module invocation handler mustn't be unsafe",
             ));
         }
         if let Some(abi) = abi {
             return Err(Error::new(
                 abi.extern_token.span,
-                "The main module invocation handler has to don't have custom linkage",
+                "The main module invocation handler mustn't have custom linkage",
             ));
         }
         if !decl.generics.params.is_empty() || decl.generics.where_clause.is_some() {
             return Err(Error::new(
                 decl.fn_token.span,
-                "The main module invocation handler has to don't have generic params",
+                "The main module invocation handler mustn't have generic params",
             ));
         }
         if let Some(variadic) = decl.variadic {
             return Err(Error::new(
                 variadic.spans[0],
-                "The main module invocation handler has to don't be variadic",
+                "The main module invocation handler mustn't be variadic",
             ));
         }
         Ok(())
@@ -146,7 +147,7 @@ fn invoke_handler_impl(
             1 => ParsedType::from_fn_arg(decl.inputs.first().unwrap().into_value())?,
             _ => return Err(Error::new(
                 decl.inputs.span(),
-                "The main module invocation handler has to don't have more than one input param",
+                "The main module invocation handler mustn't have more than one input param",
             )),
         };
     let output_type = ParsedType::from_return_type(&decl.output)?;
