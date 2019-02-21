@@ -66,30 +66,38 @@ class WorkersPorts[F[_]: Monad] private (
    */
   def allocate(appId: Long): EitherT[F, WorkersPorts.Error, Short] =
     EitherT(
+      // Read the cache, block on it
       cache.take.flatMap(
         m ⇒
+          // Should we allocate a new port or is it already allocated
           m.get(appId) match {
             case Some(v) ⇒
+              // Allocated -- release the cache by putting it back, and return the port
               cache.put(m).map(_ ⇒ Right(v))
             case None ⇒
+              // Not allocated -- get available ports, block on them
               available.take.flatMap {
+                // No more ports available!
                 case av if av.isEmpty ⇒
+                  // Release cache and available ports by putting the values back, intact
                   (available.put(av) *> cache.put(m))
+                  // And return error
                     .map(_ ⇒ Left(WorkersPorts.Exhausted))
                 case av ⇒
+                  // Get the new port
                   val port = av.head
+                  // Try to put the port to the persistent storage
                   store
                     .put(appId, port)
-                    .bimap(
-                      WorkersPorts.StoreError,
-                      _ ⇒ port
-                    )
+                    .leftMap(WorkersPorts.StoreError)
                     .value
                     .flatMap[Either[WorkersPorts.Error, Short]] {
                       case Left(err) ⇒
+                        // Storage error: release available ports and cache
                         (available.put(av) *> cache.put(m))
                           .map(_ ⇒ Left(err))
                       case Right(_) ⇒
+                        // Port stored: update availables and cache
                         (available.put(av.tail) *> cache.put(m + (appId -> port)))
                           .map(_ ⇒ Right(port))
                     }
@@ -112,9 +120,11 @@ class WorkersPorts[F[_]: Monad] private (
           .flatMapF(
             _ ⇒
               for {
+                // Remove from cache
                 mapping ← cache.take
                 _ ← cache.put(mapping - appId)
 
+                // Add to available ports
                 ports ← available.take
                 _ ← available.put(ports + port)
               } yield Right(Some(port))
