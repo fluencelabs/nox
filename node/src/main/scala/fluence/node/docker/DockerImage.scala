@@ -21,6 +21,7 @@ import io.circe.{Decoder, Encoder}
 
 /**
  * Representation of a docker image
+ *
  * @param image Fully qualified name of an image, including a repository and a name. E.g., fluencelabs/worker
  * @param tag Tag of the image, will be appended to [[image]] after a colon
  * @param limits Container cpu and memory limits
