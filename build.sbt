@@ -286,4 +286,4 @@ lazy val node = project
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(ethclient, externalstorage, `statemachine-control`)
+  .dependsOn(ethclient, externalstorage, `statemachine-control`, `kvstore`)
