@@ -78,7 +78,7 @@ case class TendermintRpc[F[_]](
         method = "abci_query",
         params = Json.fromString(path) ::
           Json.fromString(data) ::
-          Json.fromLong(height) ::
+          Json.fromString(height.toString) ::
           Json.fromBoolean(prove) :: Nil,
         id = id
       )
