@@ -14,16 +14,28 @@
  * limitations under the License.
  */
 
-package fluence.node.config
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import axios, {AxiosPromise} from 'axios';
 
-/**
- * @param port endpoint to master node status server
- */
-case class StatusServerConfig(port: Int)
+// Client to interaction with tendermint client through master node proxy
+export class RpcClient {
 
-object StatusServerConfig {
-  implicit val encodeStatConfig: Encoder[StatusServerConfig] = deriveEncoder
-  implicit val decodeStatConfig: Decoder[StatusServerConfig] = deriveDecoder
+    url: string;
+
+    constructor(addr: string, appId: string) {
+        this.url = `${addr}/apps/${appId}`;
+    }
+
+    broadcastTxSync(tx: string): AxiosPromise<any> {
+        let url = `${this.url}/tx`;
+        return axios.post(url, tx)
+    }
+
+    abciQuery(path: string): AxiosPromise<any> {
+        return axios.get(`${this.url}/query`, {
+            params: {
+                path: path,
+                data: ""
+            }
+        })
+    }
 }

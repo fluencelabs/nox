@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.tendermint.status
-import fluence.node.workers.tendermint.status.TendermintStatus.{NodeInfo, SyncInfo, ValidatorInfo}
-import io.circe.{Decoder, Encoder}
+package fluence.node.workers.tendermint.rpc
+
+import fluence.node.workers.tendermint.rpc.TendermintStatus.{NodeInfo, SyncInfo, ValidatorInfo}
 import io.circe.generic.extras.Configuration
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.{Decoder, Encoder}
 
 case class TendermintStatus(node_info: NodeInfo, sync_info: SyncInfo, validator_info: ValidatorInfo)
 
