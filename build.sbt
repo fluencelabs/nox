@@ -283,7 +283,7 @@ lazy val node = project
 
         copy(artifact, artifactTargetPath)
 
-        cmd("java", "-jar", artifactTargetPath, "-Dconfig.file=/master/application.conf")
+        cmd("java", "-jar", "-Dconfig.file=/master/application.conf", artifactTargetPath)
         entryPoint("sh", "/entrypoint.sh")
       }
     }

@@ -41,10 +41,8 @@ EOF
 exit 1
 fi
 
-if [ "$3" = "/master-node.jar" ]; then
-    CONTAINER_ID=$(cat /proc/1/cpuset)
-    CONTAINER_ID="${CONTAINER_ID#"/docker/"}"
-fi
+CONTAINER_ID=$(cat /proc/1/cpuset)
+CONTAINER_ID="${CONTAINER_ID#"/docker/"}"
 
 ln -sf /application.conf /master/application.conf
 

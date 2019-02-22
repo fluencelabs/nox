@@ -53,12 +53,12 @@ object MasterConfig {
   implicit val decodeMasterConfig: Decoder[MasterConfig] = deriveDecoder
 
   import ConfigOps.inetAddressValueReader
+  import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
   import net.ceedubs.ficus.readers.ArbitraryTypeReader._
   import net.ceedubs.ficus.Ficus._
 
   implicit val shortReader: ValueReader[Short] = ValueReader[Int].map(_.toShort)
 
-  // TODO it could be easily done with more stable ConfigFactory.load, having application.conf in ENV
   def load(): IO[MasterConfig] =
     ConfigOps.loadConfigAs[MasterConfig]()
 }

@@ -18,14 +18,16 @@ package fluence.node.config
 import java.net.InetAddress
 
 import cats.effect.IO
+import cats.syntax.apply._
 import com.typesafe.config.{Config, ConfigFactory}
 import net.ceedubs.ficus.readers.ValueReader
 import net.ceedubs.ficus.Ficus._
+import slogging.LazyLogging
 
-private[config] object ConfigOps {
+private[config] object ConfigOps extends LazyLogging {
 
   def loadConfigAs[T: ValueReader](conf: ⇒ Config = ConfigFactory.load()): IO[T] =
-    IO(conf.as[T])
+    IO(logger.trace(conf.toString)) *> IO(conf.as[T])
 
   implicit val inetAddressValueReader: ValueReader[InetAddress] =
     ValueReader[String].map(InetAddress.getByName)
