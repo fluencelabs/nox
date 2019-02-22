@@ -48,16 +48,16 @@ export interface Worker {
     rpcPort: number
 }
 
-function isExists(str: string | undefined): str is string {
+function isDefined(str?: string): str is string {
     return str !== undefined;
 }
 
 /*
  * Gets Fluence Contract
  */
-export function getContract(address: string, ethereumUrl: string | undefined): Network {
+export function getContract(address: string, ethereumUrl?: string): Network {
     let web3js;
-    if (isExists(ethereumUrl)) {
+    if (isDefined(ethereumUrl)) {
         console.log('Connecting web3 to ' + ethereumUrl);
         web3js = new Web3(new Web3.providers.HttpProvider(ethereumUrl));
     } else if (typeof web3 === 'undefined') {
@@ -75,7 +75,7 @@ export function getContract(address: string, ethereumUrl: string | undefined): N
 /*
  * Gets workers that are members of a cluster with a specific app (by appId).
  */
-export async function getAppWorkers(contractAddress: string, appId: string, ethereumUrl: string | undefined): Promise<Worker[]> {
+export async function getAppWorkers(contractAddress: string, appId: string, ethereumUrl?: string): Promise<Worker[]> {
 
     let contract = getContract(contractAddress, ethereumUrl);
 
@@ -127,7 +127,7 @@ export function getNodeStatus(node: Node): Promise<any> {
  * @param ethereumUrl Url of an Ethereum node
  * @param contractAddress Address from ganache by default. todo: use address from mainnet as default
  */
-export async function getStatus(contractAddress: string, ethereumUrl: string | undefined): Promise<Status> {
+export async function getStatus(contractAddress: string, ethereumUrl?: string): Promise<Status> {
 
     let contract = getContract(contractAddress, ethereumUrl, );
 

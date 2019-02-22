@@ -54,7 +54,7 @@ export function getApp(contract: Network, id: string): Promise<App> {
             try {
                  clusterOpt = parseCluster(genesisTime, nodeIds, ports);
             } catch (e) {
-                console.log("Error occured on cluster parsing.");
+                console.error("Error occured on cluster parsing.");
                 throw e;
             }
 
