@@ -28,22 +28,11 @@ use crate::game_manager::GameManager;
 use crate::json_parser::*;
 
 use fluence::sdk::*;
-use log::{error, info};
 use serde_json::{json, Value};
-use simple_logger;
 use std::cell::RefCell;
 
 thread_local! {
     static GAME_MANAGER: RefCell<GameManager> = RefCell::new(GameManager::new());
-}
-
-// initializes logger
-fn init() {
-    if cfg!(target_arch = "wasm32") {
-        logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
-    } else {
-        simple_logger::init_with_level(log::Level::Info).unwrap();
-    }
 }
 
 fn do_request(req: String) -> AppResult<Value> {
@@ -85,17 +74,16 @@ fn do_request(req: String) -> AppResult<Value> {
     }
 }
 
-#[invocation_handler(init_fn = init)]
+#[invocation_handler]
 fn main(req: String) -> String {
-    info!("a new request received: {}", req);
     match do_request(req) {
         Ok(req) => req.to_string(),
         Err(err) => {
-            error!("an error occurred: {}", err);
             json!({
                 "error": err.to_string()
             })
             .to_string()
         }
+        Some(5)
     }
 }

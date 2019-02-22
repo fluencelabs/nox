@@ -185,9 +185,12 @@ impl GameManager {
         player_name: &str,
         player_sign: &str,
     ) -> AppResult<Rc<RefCell<Game>>> {
-        self.get_player(player_name, player_sign)?
-            // borrow a mutable link to Weak<RefCell<Game>>
+        self
+            // returns Rc<RefCell<Player>> if success
+            .get_player(player_name, player_sign)?
+            // borrows a mutable link to Player from RefCell
             .borrow_mut()
+            // gets Weak<RefCell<Game>> from Player
             .game
             // tries to upgrade Weak<RefCell<Game>> to Rc<RefCell<Game>>
             .upgrade()
