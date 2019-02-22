@@ -22,8 +22,7 @@ import { Session } from "./Session";
 import { SessionConfig } from "./SessionConfig";
 import {Empty, Result, Value, isValue} from "./Result";
 import {getAppWorkers, Worker} from "fluence-monitoring"
-import {option, Option} from "ts-option";
-import {ResultPromise} from "./ResultAwait";
+import { ResultPromise } from "./ResultAwait";
 
 export {
     TendermintClient as TendermintClient,
@@ -62,9 +61,9 @@ export interface AppSession {
  * Creates connection with an app (all nodes related to an app in Fluence contract)
  */
 export async function connect(contract: string, appId: string, ethereumUrl?: string): Promise<AppSession> {
-    let workers: Worker[] = await getAppWorkers(contract, appId, option(ethereumUrl));
+    let workers: Worker[] = await getAppWorkers(contract, appId, ethereumUrl);
     let sessions: WorkerSession[] = workers.map(worker => {
-        let session = directConnect(worker.node.ip_addr, worker.port + 100);
+        let session = directConnect(worker.node.ip_addr, worker.rpcPort, appId);
         return {
             session: session,
             worker: worker
@@ -92,8 +91,8 @@ export async function connect(contract: string, appId: string, ethereumUrl?: str
 /**
  * Creates direct connection to one node.
  */
-export function directConnect(host: string, port: number) {
-    let tm = new TendermintClient(host, port);
+export function directConnect(host: string, port: number, appId: string) {
+    let tm = new TendermintClient(host, port, appId);
 
     let engine = new Engine(tm);
 

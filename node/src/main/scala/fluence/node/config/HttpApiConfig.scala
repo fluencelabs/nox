@@ -14,28 +14,16 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.status
-import fluence.node.workers.tendermint.rpc.TendermintStatus
-import io.circe.generic.semiauto._
+package fluence.node.config
 import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
 /**
- * Worker status representation
- *
- * @param isHealthy True iff both Tendermint and Statemachine operate correctly
- * @param appId App id
- * @param tendermint Tendermint status
- * @param worker Worker status
+ * @param port endpoint to master node status server
  */
-case class WorkerStatus(
-  isHealthy: Boolean,
-  appId: Long,
-  tendermint: ServiceStatus[TendermintStatus],
-  worker: ServiceStatus[Unit],
-)
+case class HttpApiConfig(port: Int)
 
-object WorkerStatus {
-  implicit val encoderWorkerInfo: Encoder[WorkerStatus] = deriveEncoder
-  implicit val decoderWorkerInfo: Decoder[WorkerStatus] = deriveDecoder
-
+object HttpApiConfig {
+  implicit val encodeStatConfig: Encoder[HttpApiConfig] = deriveEncoder
+  implicit val decodeStatConfig: Decoder[HttpApiConfig] = deriveDecoder
 }

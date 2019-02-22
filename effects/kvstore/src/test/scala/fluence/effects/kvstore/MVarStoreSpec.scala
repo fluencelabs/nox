@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-package fluence.node.config
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+package fluence.effects.kvstore
 
-/**
- * @param port endpoint to master node status server
- */
-case class StatusServerConfig(port: Int)
+import cats.effect.{ContextShift, IO, Resource}
 
-object StatusServerConfig {
-  implicit val encodeStatConfig: Encoder[StatusServerConfig] = deriveEncoder
-  implicit val decodeStatConfig: Decoder[StatusServerConfig] = deriveDecoder
+import scala.concurrent.ExecutionContext.Implicits.global
+
+class MVarStoreSpec extends KVStoreTestKit {
+  implicit val shift: ContextShift[IO] = IO.contextShift(global)
+
+  override def storeMaker: Resource[IO, KVStore[IO, Long, String]] =
+    MVarKVStore.make[IO, Long, String]()
 }

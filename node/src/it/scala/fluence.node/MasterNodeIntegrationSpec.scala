@@ -49,6 +49,9 @@ class MasterNodeIntegrationSpec
 
   private val sttpResource = Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
+  // TODO integrate with CLI, get app id from tx
+  @volatile private var lastAppId = 1l
+
   override protected def beforeAll(): Unit = {
     wireupContract()
   }
@@ -141,9 +144,9 @@ class MasterNodeIntegrationSpec
 
         _ <- eventually[IO](
           for {
-            c1s0 <- heightFromTendermintStatus("localhost", basePort)
+            c1s0 <- heightFromTendermintStatus("localhost", getStatusPort(basePort), lastAppId)
             _ = logger.info(s"c1s0 === " + c1s0)
-            c1s1 <- heightFromTendermintStatus("localhost", (basePort + 1).toShort)
+            c1s1 <- heightFromTendermintStatus("localhost", getStatusPort(master2Port), lastAppId)
             _ = logger.info(s"c1s1 === " + c1s1)
           } yield {
             c1s0 shouldBe Some(2)
@@ -151,6 +154,8 @@ class MasterNodeIntegrationSpec
           },
           maxWait = 90.seconds
         )
+
+        _ = lastAppId += 1
 
         _ = logger.info("Height equals two for workers, going to get WorkerRunning from Master status")
 

@@ -24,8 +24,7 @@ import cats.syntax.functor._
 import fluence.node.docker._
 import fluence.node.workers.WorkerParams
 import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus}
-import fluence.node.workers.tendermint.rpc.TendermintRpc
-import fluence.node.workers.tendermint.status.TendermintStatus
+import fluence.node.workers.tendermint.rpc.{TendermintRpc, TendermintStatus}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -132,7 +131,6 @@ object DockerTendermint {
       .option("--name", containerName(params))
       .option("--network", network.name)
       .port(currentWorker.p2pPort, P2pPort)
-      .port(currentWorker.rpcPort, RpcPort)
 
     (masterNodeContainerId match {
       case Some(id) =>

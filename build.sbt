@@ -169,7 +169,7 @@ lazy val statemachine = (project in file("statemachine"))
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
   .dependsOn(vm, `statemachine-control`)
 
-lazy val externalstorage = (project in file("externalstorage"))
+lazy val swarm = (project in file("effects/swarm"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
@@ -205,6 +205,21 @@ lazy val ethclient = (project in file("ethclient"))
       fs2rx,
       scalaTest
     ),
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `kvstore` = (project in file("effects/kvstore"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      slogging,
+      codecCore,
+      cats,
+      catsEffect,
+      fs2,
+      rocksDb,
+      scalaTest
+    )
   )
   .enablePlugins(AutomateHeaderPlugin)
 
@@ -277,4 +292,4 @@ lazy val node = project
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(ethclient, externalstorage, `statemachine-control`)
+  .dependsOn(ethclient, swarm, `statemachine-control`)
