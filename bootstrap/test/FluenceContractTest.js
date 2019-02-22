@@ -164,9 +164,8 @@ contract('Fluence', function ([_, owner, anyone]) {
 
             let genesis = app[5];
             let nodeIDs = app[6];
-            let ports = app[7];
 
-            return genesis > 0 && nodeIDs.length > 0 && ports.length > 0;
+            return genesis > 0 && nodeIDs.length > 0;
         });
 
         assert(deployedApps.length, 2);
