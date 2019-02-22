@@ -17,14 +17,11 @@
 package fluence.node.config
 
 import cats.effect.IO
-import fluence.node.config.Configuration.loadConfig
 import fluence.node.docker.DockerImage
 import fluence.node.workers.tendermint.config.TendermintConfig
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
-
-import ConfigOps._
-import pureconfig.generic.auto.exportReader
+import net.ceedubs.ficus.readers.ValueReader
 
 /**
  * Main config class for master node.
@@ -41,7 +38,7 @@ case class MasterConfig(
   ports: PortsConfig,
   endpoints: EndpointsConfig,
   contract: FluenceContractConfig,
-  swarm: Option[SwarmConfig],
+  swarm: SwarmConfig,
   httpApi: HttpApiConfig,
   masterContainerId: Option[String],
   worker: DockerImage,
@@ -55,11 +52,13 @@ object MasterConfig {
   implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder
   implicit val decodeMasterConfig: Decoder[MasterConfig] = deriveDecoder
 
-  import SwarmConfig.swarmOptionalConfigReader
+  import ConfigOps.inetAddressValueReader
+  import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+  import net.ceedubs.ficus.Ficus._
 
+  implicit val shortReader: ValueReader[Short] = ValueReader[Int].map(_.toShort)
+
+  // TODO it could be easily done with more stable ConfigFactory.load, having application.conf in ENV
   def load(): IO[MasterConfig] =
-    for {
-      config <- loadConfig()
-      masterConfig <- pureconfig.loadConfig[MasterConfig](config).toIO
-    } yield masterConfig
+    ConfigOps.loadConfigAs[MasterConfig]()
 }

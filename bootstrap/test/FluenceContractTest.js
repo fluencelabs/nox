@@ -86,7 +86,7 @@ contract('Fluence', function ([_, owner, anyone]) {
         truffleAssert.eventNotEmitted(addApp.receipt, utils.appDeployedEvent)
     });
 
-    it("Should reuse node until the port range is exhausted", async function() {
+    it("Should reuse node until the capacity is exhausted", async function() {
         let count = 1;
         let ports = 2;
 

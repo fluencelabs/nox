@@ -124,12 +124,11 @@ class SwarmCodeManager[F[_]](swarmClient: SwarmClient[F])(implicit F: Sync[F]) e
 
 object CodeManager {
 
-  def apply[F[_]: Sync](config: Option[SwarmConfig])(implicit sttpBackend: SttpBackend[F, Nothing]): F[CodeManager[F]] =
-    config match {
-      case Some(c) =>
-        SwarmClient(c.host)
-          .map(client => new SwarmCodeManager[F](client))
-      case None =>
-        Applicative[F].pure(new TestCodeManager[F]())
+  def apply[F[_]: Sync](config: SwarmConfig)(implicit sttpBackend: SttpBackend[F, Nothing]): F[CodeManager[F]] =
+    if (config.enabled) {
+      SwarmClient(config.host)
+        .map(client => new SwarmCodeManager[F](client))
+    } else {
+      Applicative[F].pure(new TestCodeManager[F]())
     }
 }

@@ -228,7 +228,7 @@ lazy val node = project
       sttp,
       sttpCatsBackend,
       fs2io,
-      pureConfig,
+      ficus,
       circeGeneric,
       circeParser,
       http4sDsl,
@@ -283,7 +283,7 @@ lazy val node = project
 
         copy(artifact, artifactTargetPath)
 
-        cmd("java", "-jar", artifactTargetPath)
+        cmd("java", "-jar", artifactTargetPath, "-Dconfig.file=/master/application.conf")
         entryPoint("sh", "/entrypoint.sh")
       }
     }
