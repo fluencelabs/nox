@@ -12,7 +12,7 @@ services:
       - OWNER_ADDRESS=$OWNER_ADDRESS
       - CAPACITY=$CAPACITY
     ports:
-      # port for status API
+      # API port
       - $API_PORT:5678
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
