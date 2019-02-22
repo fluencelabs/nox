@@ -67,15 +67,13 @@ impl App {
 pub struct Cluster {
     pub genesis_time: u32,
     pub node_ids: Vec<H256>,
-    pub ports: Vec<u16>,
 }
 
 impl Cluster {
-    pub fn new(genesis_time: u32, node_ids: Vec<H256>, ports: Vec<u16>) -> Cluster {
+    pub fn new(genesis_time: u32, node_ids: Vec<H256>) -> Cluster {
         Cluster {
             genesis_time,
             node_ids,
-            ports,
         }
     }
 }
@@ -165,18 +163,13 @@ pub fn get_apps(web3: &Web3<Http>, contract_address: Address) -> Result<Vec<App>
                 pin_to,
                 genesis,
                 node_ids,
-                ports,
             ) = query_contract(call_data, Box::new(decoder), web3, contract_address)
                 .context("reading app ids from contract failed")?;
 
             let cluster = if !genesis.is_zero() {
                 let genesis: u64 = genesis.into();
-                let ports = ports
-                    .iter()
-                    .map(|p| (Into::<u64>::into(*p) as u16))
-                    .collect();
 
-                Some(Cluster::new(genesis as u32, node_ids, ports))
+                Some(Cluster::new(genesis as u32, node_ids))
             } else {
                 None
             };

@@ -34,8 +34,8 @@ use crate::utils;
 use web3::transports::Http;
 use web3::types::H160;
 
-const START_PORT: &str = "start_port";
-const LAST_PORT: &str = "last_port";
+const API_PORT: &str = "api_port";
+const CAPACITY: &str = "capacity";
 const PRIVATE: &str = "private";
 const NO_STATUS_CHECK: &str = "no_status_check";
 
@@ -44,8 +44,8 @@ pub struct Register {
     node_ip: IpAddr,
     tendermint_key: H256,
     tendermint_node_id: H160,
-    start_port: u16,
-    last_port: u16,
+    api_port: u16,
+    capacity: u16,
     private: bool,
     no_status_check: bool,
     eth: EthereumArgs,
@@ -69,22 +69,18 @@ impl Register {
         node_address: IpAddr,
         tendermint_key: H256,
         tendermint_node_id: H160,
-        start_port: u16,
-        last_port: u16,
+        api_port: u16,
+        capacity: u16,
         private: bool,
         no_status_check: bool,
         eth: EthereumArgs,
     ) -> Result<Register, Error> {
-        if last_port < start_port {
-            return Err(err_msg("last_port should be bigger than start_port"));
-        }
-
         Ok(Register {
             node_ip: node_address,
             tendermint_key,
             tendermint_node_id,
-            start_port,
-            last_port,
+            api_port,
+            capacity,
             private,
             no_status_check,
             eth,
@@ -130,8 +126,8 @@ impl Register {
             let (call_data, _) = add_node::call(
                 self.tendermint_key,
                 hash_addr,
-                u64::from(self.start_port),
-                u64::from(self.last_port),
+                u64::from(self.api_port),
+                u64::from(self.capacity),
                 self.private,
             );
 
@@ -288,19 +284,19 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
         tendermint_key().display_order(2),
         base64_tendermint_key().display_order(3),
         tendermint_node_id().display_order(4),
-        Arg::with_name(START_PORT)
-            .alias(START_PORT)
-            .long(START_PORT)
+        Arg::with_name(API_PORT)
+            .alias(API_PORT)
+            .long(API_PORT)
             .default_value("20096")
             .takes_value(true)
-            .help("Minimum port in the port range")
+            .help("Node API port")
             .display_order(5),
-        Arg::with_name(LAST_PORT)
-            .alias(LAST_PORT)
+        Arg::with_name(CAPACITY)
+            .alias(CAPACITY)
             .default_value("20196")
-            .long(LAST_PORT)
+            .long(CAPACITY)
             .takes_value(true)
-            .help("Maximum port in the port range")
+            .help("Maximum number of apps to be run on the node")
             .display_order(5),
         Arg::with_name(PRIVATE)
             .long(PRIVATE)
