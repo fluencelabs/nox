@@ -82,7 +82,7 @@ object HelloWorldRunner extends IOApp {
         println(s"Starts for input file $value")
         value
       case None ⇒
-        throw new IllegalArgumentException("Full path for wasm file is required!")
+        throw new IllegalArgumentException("Please provide a full path for wasm file as the first CLI argument!")
     }
   }
 
