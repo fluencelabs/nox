@@ -163,7 +163,7 @@ lazy val statemachine = (project in file("statemachine"))
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
   .dependsOn(vm, `statemachine-control`)
 
-lazy val externalstorage = (project in file("externalstorage"))
+lazy val swarm = (project in file("effects/swarm"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
@@ -286,4 +286,4 @@ lazy val node = project
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(ethclient, externalstorage, `statemachine-control`, `kvstore`)
+  .dependsOn(ethclient, swarm, `statemachine-control`, `kvstore`)

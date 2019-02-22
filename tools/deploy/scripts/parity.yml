@@ -3,7 +3,7 @@ version: '3.4'
 services:
   parity:
     container_name: parity
-    image: parity/parity:v2.3.0
+    image: parity/parity:stable
     ports:
       - 8545:8545
       - 8180:8180

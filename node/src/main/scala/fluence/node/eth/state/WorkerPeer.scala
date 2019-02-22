@@ -35,9 +35,6 @@ case class WorkerPeer(validatorKey: ByteVector, peerId: String, ip: InetAddress,
   val base64ValidatorKey: String = validatorKey.toBase64
   val address: String = s"${ip.getHostAddress}:$p2pPort"
   val peerAddress: String = s"$peerId@$address"
-
-  // TODO: remove it after adding Worker's tendermint status to node
-  val rpcPort: Short = WorkerPeer.rpcPort(p2pPort)
 }
 
 object WorkerPeer {
@@ -60,9 +57,4 @@ object WorkerPeer {
 
     WorkerPeer(keyBytes, peerId, inetAddress, portShort, index)
   }
-
-  //TODO: find a better way to calculate all these ports. Maybe Kademlia?
-  def rpcPort(p2pPort: Short): Short = (p2pPort + 100).toShort
-  def tmPrometheusPort(p2pPort: Short): Short = (p2pPort + 200).toShort
-  def smPrometheusPort(p2pPort: Short): Short = (p2pPort + 300).toShort
 }
