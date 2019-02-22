@@ -105,6 +105,7 @@ def deploy():
             current_owner = nodes[current_host]['owner']
             current_key = nodes[current_host]['key']
             api_port = nodes[current_host]['api_port']
+            capacity = nodes[current_host]['capacity']
 
             with shell_env(CHAIN=chain,
                            # flag that show to script, that it will deploy all with non-default arguments
@@ -112,6 +113,7 @@ def deploy():
                            CONTRACT_ADDRESS=contract_address,
                            OWNER_ADDRESS=current_owner,
                            API_PORT=api_port,
+                           CAPACITY=capacity,
                            PARITY_RESERVED_PEERS="../config/reserved_peers.txt",
                            PARITY_STORAGE="~/.parity",
                            # container name

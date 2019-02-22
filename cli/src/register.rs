@@ -16,7 +16,7 @@
 
 use std::net::IpAddr;
 
-use failure::{err_msg, Error, SyncFailure};
+use failure::{Error, SyncFailure};
 
 use clap::{value_t, App, Arg, ArgMatches, SubCommand};
 use derive_getters::Getters;

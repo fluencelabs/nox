@@ -169,7 +169,6 @@ function export_arguments()
     if [ -z "$PROD_DEPLOY" ]; then
         echo "Deploying locally with default arguments."
         export NAME='fluence-node-1'
-        # open 10 ports, so it's possible to create 10 workers
         export API_PORT=25000
         export CAPACITY=10
         # eth address in `dev` mode Parity with eth
@@ -186,7 +185,6 @@ function export_arguments()
     fi
 
     export FLUENCE_STORAGE="$HOME/.fluence/"
-    export API_PORT
     export CAPACITY
 }
 
@@ -265,6 +263,7 @@ function deploy()
 
         # use hardcoded ports for multiple nodes
         if [ "$1" = "multiple" ]; then
+            # TODO: pass this port to multiple-node.yml explicitly (via export); currently hardcoded to match COUNTER
             API_PORT="2"$COUNTER"000"
         fi
 
@@ -288,6 +287,7 @@ function deploy()
 
         # generates JSON with all arguments for node registration
         JSON=$(generate_json)
+        # \e[8m marks text as 'hidden', so user don't see JSON in their log; doesn't work on macOS's iTerm2 though
         echo -e "\e[8m$JSON\e[0m"
 
         COUNTER=$[$COUNTER+1]
