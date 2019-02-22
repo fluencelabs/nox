@@ -19,21 +19,19 @@ import axios, {AxiosPromise} from 'axios';
 // Client to interaction with tendermint client through master node proxy
 export class RpcClient {
 
-    addr: string;
-    appId: string;
+    url: string;
 
     constructor(addr: string, appId: string) {
-        this.addr = addr;
-        this.appId = appId;
+        this.url = `${addr}/apps/${appId}`;
     }
 
     broadcastTxSync(tx: string): AxiosPromise<any> {
-        let url = `${this.addr}/apps/${this.appId}/tx`;
+        let url = `${this.url}/tx`;
         return axios.post(url, tx)
     }
 
     abciQuery(path: string): AxiosPromise<any> {
-        return axios.get(`${this.addr}/apps/${this.appId}/query`, {
+        return axios.get(`${this.url}/query`, {
             params: {
                 path: path,
                 data: ""

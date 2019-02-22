@@ -51,11 +51,11 @@ export class TendermintClient {
 
     /**
      * Sends broadcast_tx_sync operation.
-     * @param hex transaction payload
+     * @param payload transaction payload
      */
-    broadcastTxSync(hex: string): Promise<BroadcastTxSyncResponse> {
+    broadcastTxSync(payload: string): Promise<BroadcastTxSyncResponse> {
         d("broadCastTxSync request");
-        return this.client.broadcastTxSync(hex)
+        return this.client.broadcastTxSync(payload)
             .then((res: any) => {
                 return parseResponse(res);
             }).catch((err: any) => {
