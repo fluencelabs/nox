@@ -104,14 +104,14 @@ def deploy():
             current_host = env.host_string
             current_owner = nodes[current_host]['owner']
             current_key = nodes[current_host]['key']
-            current_ports = nodes[current_host]['ports']
+            api_port = nodes[current_host]['api_port']
 
             with shell_env(CHAIN=chain,
                            # flag that show to script, that it will deploy all with non-default arguments
                            PROD_DEPLOY="true",
                            CONTRACT_ADDRESS=contract_address,
                            OWNER_ADDRESS=current_owner,
-                           PORTS=current_ports,
+                           API_PORT=api_port,
                            PARITY_RESERVED_PEERS="../config/reserved_peers.txt",
                            PARITY_STORAGE="~/.parity",
                            # container name

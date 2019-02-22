@@ -41,8 +41,7 @@ pub type Result<T> = StdResult<T, Error>;
 
 #[derive(Debug, Getters)]
 pub struct TestOpts {
-    start_port: u16,
-    last_used_port: Option<u16>,
+    api_port: u16,
     code_bytes: Vec<u8>,
     swarm_url: String,
     eth: EthereumArgs,
@@ -52,8 +51,7 @@ impl TestOpts {
     pub fn default() -> TestOpts {
         let eth = EthereumArgs::default();
         TestOpts {
-            start_port: 25000,
-            last_used_port: None,
+            api_port: 25000,
             code_bytes: vec![1, 2, 3],
             swarm_url: String::from("http://localhost:8500"),
             eth,
@@ -77,17 +75,13 @@ impl TestOpts {
         tendermint_key: H256,
         tendermint_node_id: H160,
     ) -> Result<(Registered, Register)> {
-        let start_port = self.last_used_port.unwrap_or(self.start_port);
-        let end_port = start_port + ports;
-
-        self.last_used_port = Some(end_port + 1);
 
         let reg = Register::new(
             "127.0.0.1".parse().unwrap(),
             tendermint_key,
             tendermint_node_id,
-            start_port,
-            end_port,
+            self.api_port,
+            ports,
             private,
             false,
             self.eth.clone(),

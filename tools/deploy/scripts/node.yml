@@ -10,10 +10,10 @@ services:
       - SWARM_HOST=http://$HOST_IP:8500
       - CONTRACT_ADDRESS=$CONTRACT_ADDRESS
       - OWNER_ADDRESS=$OWNER_ADDRESS
-      - PORTS=$PORTS
+      - CAPACITY=$CAPACITY
     ports:
       # port for status API
-      - $STATUS_PORT:5678
+      - $API_PORT:5678
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - $FLUENCE_STORAGE:/master

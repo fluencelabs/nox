@@ -255,8 +255,8 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
 
     let tendermint_node_id: H160 = parse_tendermint_node_id(args)?;
 
-    let start_port = value_t!(args, START_PORT, u16)?;
-    let last_port = value_t!(args, LAST_PORT, u16)?;
+    let api_port = value_t!(args, API_PORT, u16)?;
+    let capacity = value_t!(args, CAPACITY, u16)?;
 
     let private: bool = args.is_present(PRIVATE);
     let no_status_check: bool = args.is_present(NO_STATUS_CHECK);
@@ -269,8 +269,8 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
         node_address,
         tendermint_key,
         tendermint_node_id,
-        start_port,
-        last_port,
+        api_port,
+        capacity,
         private,
         no_status_check,
         eth,
