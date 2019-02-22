@@ -36,7 +36,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "hello_world2"
+name = "hello_world2_2018"
 version = "0.1.0"
 dependencies = [
  "fluence 0.0.10 (registry+https://github.com/rust-lang/crates.io-index)",
