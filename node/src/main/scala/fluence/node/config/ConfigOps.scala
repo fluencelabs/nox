@@ -27,7 +27,7 @@ import scala.util.Try
 private[config] object ConfigOps {
   implicit class ConfigLoaderToIO[T](loadedConfig: Either[ConfigReaderFailures, T]) {
 
-    def toIO: IO[T] = {
+    def toIO: IO[T] =
       IO.fromEither(
         loadedConfig.left.map(
           fs =>
@@ -39,7 +39,7 @@ private[config] object ConfigOps {
           )
         )
       )
-    }
+
   }
 
   implicit val inetAddressConvert: ConfigConvert[InetAddress] =
