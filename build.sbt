@@ -266,6 +266,7 @@ lazy val node = project
         val dockerBinary = "https://download.docker.com/linux/static/stable/x86_64/docker-18.06.1-ce.tgz"
         from("openjdk:8-jre-alpine")
         runRaw(s"wget -q $dockerBinary -O- | tar -C /usr/bin/ -zxv docker/docker --strip-components=1")
+        runRaw("apk add --no-cache libc6-compat")
 
         volume("/master") // anonymous volume to store all data
 

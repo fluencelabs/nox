@@ -17,6 +17,7 @@
 package fluence.effects.kvstore
 
 import java.io.File
+import java.util.concurrent.{ExecutorService, Executors}
 
 import cats.{~>, Defer, Monad}
 import cats.data.EitherT
@@ -26,13 +27,11 @@ import cats.syntax.applicativeError._
 import fluence.codec.PureCodec
 import slogging.LazyLogging
 
+import scala.concurrent.ExecutionContext
 import scala.language.higherKinds
 import scala.util.control.NonFatal
 
 object RocksDBStore extends LazyLogging {
-  private def ioToF[F[_]: LiftIO]: IO ~> F = new (IO ~> F) {
-    override def apply[A](fa: IO[A]): F[A] = fa.to[F]
-  }
 
   /**
    * Makes RocksDB KVStore with user-friendly key and value types, taking codecs into account.
@@ -64,19 +63,30 @@ object RocksDBStore extends LazyLogging {
    */
   def makeRaw[F[_]: Monad: Defer: LiftIO](
     folder: String,
-    createIfMissing: Boolean = true
+    createIfMissing: Boolean = true,
+    ex: ⇒ ExecutorService = Executors.newFixedThreadPool(1)
   ): Resource[F, KVStore[F, Array[Byte], Array[Byte]]] =
     // We want to prepare all the C++ objects of RocksDB, and have all of them closed even in case of error
     (for {
+      ctx ← Resource.make(IO(ExecutionContext.fromExecutorService(ex)))(
+        ctx ⇒ IO(ctx.shutdown())
+      )
+
+      cs = IO.contextShift(ctx)
+
+      ioToF = new (IO ~> F) {
+        override def apply[A](fa: IO[A]): F[A] = cs.evalOn(ctx)(fa).to[F]
+      }
+
       // Database options
-      opts ← Resource.make(IO {
-        logger.trace(s"Creating options")
+      opts ← Resource.make(cs.evalOn(ctx)(IO {
+        logger.debug(s"Creating options")
         val options = new Options()
-        logger.trace(s"Here we have options: " + options)
+        logger.debug(s"Here we have options: " + options)
         options.setCreateIfMissing(createIfMissing)
         logger.trace(s"With a flag: " + options)
         options
-      })(
+      }))(
         opts ⇒
           IO(opts.close()).handleError {
             case NonFatal(err) ⇒
@@ -88,12 +98,12 @@ object RocksDBStore extends LazyLogging {
       _ = logger.trace("Created opts...")
 
       // Database itself
-      data ← Resource.make(IO {
+      data ← Resource.make(cs.evalOn(ctx)(IO {
         RocksDB.loadLibrary()
         val dataDir = new File(folder)
         if (!dataDir.exists()) dataDir.mkdirs()
         RocksDB.open(opts, folder)
-      })(
+      }))(
         data ⇒
           IO(data.close()).handleError {
             case NonFatal(err) ⇒
@@ -105,7 +115,7 @@ object RocksDBStore extends LazyLogging {
       _ = logger.trace("Created rocksdb...")
 
       // Read options -- could be used for optimizations later, e.g. snapshots
-      readOptions ← Resource.make(IO(new ReadOptions()))(
+      readOptions ← Resource.make(cs.evalOn(ctx)(IO(new ReadOptions())))(
         rOpts ⇒
           IO(rOpts.close()).handleError {
             case NonFatal(err) ⇒
@@ -118,6 +128,7 @@ object RocksDBStore extends LazyLogging {
 
     } yield
       new KVStore[F, Array[Byte], Array[Byte]] {
+
         override def get(key: Array[Byte]): EitherT[F, KVReadError, Option[Array[Byte]]] =
           IO(Option(data.get(readOptions, key))).attemptT
             .mapK(ioToF)
@@ -164,5 +175,7 @@ object RocksDBStore extends LazyLogging {
                   else None
               )
             }
-      }).mapK(ioToF)
+      }).mapK(new (IO ~> F) {
+      override def apply[A](fa: IO[A]): F[A] = fa.to[F]
+    })
 }
