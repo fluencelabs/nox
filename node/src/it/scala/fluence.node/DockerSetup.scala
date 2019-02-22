@@ -56,7 +56,7 @@ trait DockerSetup extends OsSetup {
     portFrom: Short,
     portTo: Short,
     name: String,
-    statusPort: Short
+    apiPort: Short
   ): Resource[F, String] =
     tempDirectory.flatMap { masterDir =>
       DockerIO
@@ -65,8 +65,9 @@ trait DockerSetup extends OsSetup {
             .build()
             .option("-e", s"TENDERMINT_IP=$dockerHost")
             .option("-e", s"ETHEREUM_IP=$ethereumHost")
-            .option("-e", s"PORTS=$portFrom:$portTo")
-            .port(statusPort, 5678)
+            .option("-e", s"MIN_PORT=$portFrom")
+            .option("-e", s"MAX_PORT=$portTo")
+            .port(apiPort, 5678)
             .option("--name", name)
             .volume(masterDir, "/master")
             .volume("/var/run/docker.sock", "/var/run/docker.sock")

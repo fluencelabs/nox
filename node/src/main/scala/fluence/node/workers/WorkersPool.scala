@@ -16,10 +16,6 @@
 
 package fluence.node.workers
 
-import cats.Parallel
-import cats.effect._
-import com.softwaremill.sttp.SttpBackend
-
 import scala.language.higherKinds
 
 /**
@@ -60,15 +56,4 @@ object WorkersPool {
   case class RunFailed(reason: Option[Throwable] = None) extends RunResult
   case object AlreadyRunning extends RunResult
   case object Ran extends RunResult
-
-  /**
-   * Build a new [[WorkersPool]]. All workers will be stopped when the pool is released
-   */
-  def make[F[_]: ContextShift, G[_]]()(
-    implicit
-    sttpBackend: SttpBackend[F, Nothing],
-    F: Concurrent[F],
-    P: Parallel[F, G]
-  ): Resource[F, WorkersPool[F]] =
-    DockerWorkersPool.make().map(p ⇒ p: WorkersPool[F])
 }

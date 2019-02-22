@@ -38,6 +38,7 @@ import pureconfig.generic.auto.exportReader
  */
 case class MasterConfig(
   rootPath: String,
+  ports: PortsConfig,
   endpoints: EndpointsConfig,
   contract: FluenceContractConfig,
   swarm: Option[SwarmConfig],

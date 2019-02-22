@@ -27,6 +27,7 @@ import fluence.effects.kvstore.{KVStore, KVStoreError}
 
 import scala.collection.immutable.SortedSet
 import scala.language.higherKinds
+import scala.util.control.NoStackTrace
 
 /**
  * Dispatcher for Worker Ports (local Tendermint p2p ports).
@@ -137,7 +138,7 @@ class WorkersPorts[F[_]: Monad] private (
 
 object WorkersPorts {
 
-  sealed trait Error
+  sealed trait Error extends Throwable with NoStackTrace
 
   /** Error on KVStore layer */
   case class StoreError(cause: KVStoreError) extends Error

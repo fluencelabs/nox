@@ -65,6 +65,16 @@ case class TendermintRpc[F[_]](
   def broadcastTxSync(tx: String, id: String): EitherT[F, RpcError, String] =
     post(RpcRequest(method = "broadcast_tx_sync", params = Json.fromString(tx) :: Nil, id = id))
 
+  def unsafeDialPeers(peers: Seq[String], persistent: Boolean, id: String = "dontcare"): EitherT[F, RpcError, String] =
+    post(
+      RpcRequest(
+        method = "unsafe_dial_peers",
+        params =
+          Json.fromString(peers.mkString(",")) :: Json.fromBoolean(persistent) :: Nil,
+        id = id
+      )
+    )
+
   /** Post a `query` request, wait for response, return it unparsed */
   def query(
     path: String,

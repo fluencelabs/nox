@@ -130,8 +130,8 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
       case RemoveAppWorker(appId) ⇒
         pool.get(appId).flatMap {
           case Some(w) ⇒
-            w.stop.attempt.map { stopped =>
-              logger.info(s"Stopped: ${w.description} => $stopped")
+            w.remove.attempt.map { removed =>
+              logger.info(s"Removed: ${w.description} => $removed")
             }
           case _ ⇒ ().pure[F]
         }
@@ -192,7 +192,9 @@ object MasterNode extends LazyLogging {
     for {
       ethClient ← EthClient.make[F](Some(masterConfig.ethereum.uri))
 
-      pool ← WorkersPool.make()
+      // TODO wrap Paths.get somehow?
+      pool ← DockerWorkersPool
+        .make(masterConfig.ports.minPort, masterConfig.ports.maxPort, Paths.get(masterConfig.rootPath))
 
       nodeEth ← NodeEth[F](nodeConfig.validatorKey.toByteVector, ethClient, masterConfig.contract)
 

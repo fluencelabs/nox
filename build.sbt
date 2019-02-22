@@ -269,6 +269,10 @@ lazy val node = project
 
         volume("/master") // anonymous volume to store all data
 
+        // p2p ports range
+        env("MIN_PORT", "10000")
+        env("MAX_PORT", "11000")
+
         /*
          * The following directory structure is assumed in node/src/main/resources:
          *    docker/

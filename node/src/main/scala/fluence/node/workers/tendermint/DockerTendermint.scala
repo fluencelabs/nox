@@ -120,9 +120,10 @@ object DockerTendermint {
    */
   private def dockerCommand(
     params: WorkerParams,
-    network: DockerNetwork
+    network: DockerNetwork,
+    p2pPort: Short
   ): DockerParams.DaemonParams = {
-    import params._
+    import params.{masterNodeContainerId, tendermintPath, tmImage}
 
     val dockerParams = DockerParams
       .build()
@@ -130,7 +131,7 @@ object DockerTendermint {
       .option("-e", s"""TMHOME=$tendermintPath""")
       .option("--name", containerName(params))
       .option("--network", network.name)
-      .port(currentWorker.p2pPort, P2pPort)
+      .port(p2pPort, P2pPort)
 
     (masterNodeContainerId match {
       case Some(id) =>
@@ -158,15 +159,16 @@ object DockerTendermint {
    */
   def make[F[_]: Sync: ContextShift: LiftIO](
     params: WorkerParams,
+    p2pPort: Short,
     workerName: String,
     network: DockerNetwork,
     stopTimeout: Int
   ): Resource[F, DockerTendermint] =
     for {
       _ ← Resource.liftF(
-        params.configTemplate.writeConfigs(params.app, params.tendermintPath, workerName)
+        params.configTemplate.writeConfigs(params.app, params.tendermintPath, p2pPort, workerName)
       )
-      container ← DockerIO.run[F](dockerCommand(params, network), stopTimeout)
+      container ← DockerIO.run[F](dockerCommand(params, network, p2pPort), stopTimeout)
     } yield DockerTendermint(container, containerName(params))
 
 }

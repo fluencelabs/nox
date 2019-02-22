@@ -77,8 +77,20 @@ object WorkersHttp extends LazyLogging {
         logger.debug(s"TendermintRpc status. appId: $appId")
         withTendermint(appId)(_.status)
 
+      case GET -> Root / LongVar(appId) / "p2pPort" ⇒
+        logger.debug(s"Worker p2pPort. appId: $appId")
+        pool.get(appId).flatMap {
+          case Some(worker) ⇒
+            logger.debug(s"Worker p2pPort = ${worker.p2pPort}. appId: $appId")
+            Ok(worker.p2pPort.toString)
+
+          case None ⇒
+            logger.debug(s"Requested app $appId, but there's no such worker in the pool")
+            NotFound("App not found on the node")
+        }
+
       case req @ POST -> Root / LongVar(appId) / "tx" :? QueryId(id) ⇒
-        req.decode[String]{tx ⇒
+        req.decode[String] { tx ⇒
           logger.debug(s"TendermintRpc broadcastTxSync request: \ntx: $tx,\n id: $id")
           withTendermint(appId)(_.broadcastTxSync(tx, id.getOrElse("dontcare")))
         }

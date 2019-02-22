@@ -33,13 +33,6 @@ EOF
   exit 1
 fi
 
-if [ -z "$PORTS" ]; then
-  cat >&2 <<EOF
-error: \`-e "PORTS=start:stop"\` was not specified.
-EOF
-  exit 1
-fi
-
 if [ ! -S /var/run/docker.sock ]; then
     cat >&2 <<EOF
 error: '/var/run/docker.sock' not found in container or is not a socket.

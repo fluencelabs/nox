@@ -79,16 +79,16 @@ class MasterNodeIntegrationSpec
       line
     }.map(line => line should include("switching to the new clusters"))
 
-  def getStatusPort(basePort: Short): Short = (basePort + 400).toShort
+  def getApiPort(basePort: Short): Short = (basePort + 400).toShort
 
   def runTwoMasters(basePort: Short): Resource[IO, Seq[String]] = {
     val master1Port: Short = basePort
     val master2Port: Short = (basePort + 1).toShort
-    val status1Port: Short = getStatusPort(master1Port)
-    val status2Port: Short = getStatusPort(master2Port)
+    val api1Port: Short = getApiPort(master1Port)
+    val api2Port: Short = getApiPort(master2Port)
     for {
-      master1 <- runMaster(master1Port, master1Port, "master1", status1Port)
-      master2 <- runMaster(master2Port, master2Port, "master2", status2Port)
+      master1 <- runMaster(master1Port, master1Port, "master1", api1Port)
+      master2 <- runMaster(master2Port, master2Port, "master2", api2Port)
 
       _ <- Resource liftF eventually[IO](checkMasterRunning(master1), maxWait = 30.seconds) // TODO: 30 seconds is a bit too much for startup
       _ <- Resource liftF eventually[IO](checkMasterRunning(master2), maxWait = 30.seconds) // TODO: investigate and reduce timeout
@@ -133,8 +133,8 @@ class MasterNodeIntegrationSpec
       val contract = FluenceContract(ethClient, contractConfig)
       val master2Port = (basePort + 1).toShort
       for {
-        status1 <- getStatus(getStatusPort(basePort))
-        status2 <- getStatus(getStatusPort(master2Port))
+        status1 <- getStatus(getApiPort(basePort))
+        status2 <- getStatus(getApiPort(master2Port))
 
         _ <- contract.addNode[IO](status1.nodeConfig, basePort, basePort).attempt
         _ <- contract.addNode[IO](status2.nodeConfig, master2Port, master2Port).attempt
@@ -144,9 +144,9 @@ class MasterNodeIntegrationSpec
 
         _ <- eventually[IO](
           for {
-            c1s0 <- heightFromTendermintStatus("localhost", getStatusPort(basePort), lastAppId)
+            c1s0 <- heightFromTendermintStatus("localhost", getApiPort(basePort), lastAppId)
             _ = logger.info(s"c1s0 === " + c1s0)
-            c1s1 <- heightFromTendermintStatus("localhost", getStatusPort(master2Port), lastAppId)
+            c1s1 <- heightFromTendermintStatus("localhost", getApiPort(master2Port), lastAppId)
             _ = logger.info(s"c1s1 === " + c1s1)
           } yield {
             c1s0 shouldBe Some(2)
@@ -161,8 +161,8 @@ class MasterNodeIntegrationSpec
 
         _ <- eventually[IO](
           for {
-            worker1 <- getRunningWorker(getStatusPort(basePort))
-            worker2 <- getRunningWorker(getStatusPort((basePort + 1).toShort))
+            worker1 <- getRunningWorker(getApiPort(basePort))
+            worker2 <- getRunningWorker(getApiPort((basePort + 1).toShort))
           } yield {
             worker1 shouldBe defined
             worker2 shouldBe defined
@@ -177,8 +177,8 @@ class MasterNodeIntegrationSpec
         case (ethClient, s) =>
           logger.debug("Prepared two masters for Delete App test")
           implicit val sttp = s
-          val getStatus1 = getRunningWorker(getStatusPort(basePort))
-          val getStatus2 = getRunningWorker(getStatusPort((basePort + 1).toShort))
+          val getStatus1 = getRunningWorker(getApiPort(basePort))
+          val getStatus2 = getRunningWorker(getApiPort((basePort + 1).toShort))
           val contract = FluenceContract(ethClient, contractConfig)
 
           for {
@@ -201,8 +201,8 @@ class MasterNodeIntegrationSpec
 
             _ <- eventually[IO](
               for {
-                s1 <- getRunningWorker(getStatusPort(basePort))
-                s2 <- getRunningWorker(getStatusPort((basePort + 1).toShort))
+                s1 <- getRunningWorker(getApiPort(basePort))
+                s2 <- getRunningWorker(getApiPort((basePort + 1).toShort))
               } yield {
                 // Check that workers run no more
                 s1 should not be defined

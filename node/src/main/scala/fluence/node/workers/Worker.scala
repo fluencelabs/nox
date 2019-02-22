@@ -24,14 +24,24 @@ import scala.language.higherKinds
 
 // Algebra for DockerWorker
 trait Worker[F[_]] {
+  // Tendermint p2p port
+  def p2pPort: Short
+
+  // App ID worker handles
+  def appId: Long
+
   // RPC connection to tendermint
   def tendermint: TendermintRpc[F]
 
   // RPC connection to worker
   def control: ControlRpc[F]
 
-  // Stops worker when F is evaluated
+  // Stops the worker when F is evaluated
+  // Worker could be restarted afterwards
   def stop: F[Unit]
+
+  // Stops the worker and deallocates all resources used by it
+  def remove: F[Unit]
 
   // Retrieves worker's health
   def status: F[WorkerStatus]

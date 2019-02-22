@@ -17,8 +17,6 @@
 package fluence.node
 
 import cats.effect._
-import cats.syntax.functor._
-import fluence.node.eth.state.WorkerPeer
 
 import scala.io.Source
 import scala.language.higherKinds
