@@ -52,7 +52,8 @@ object RocksDBStore extends LazyLogging {
     implicit keysCodec: PureCodec[K, Array[Byte]],
     valuesCodec: PureCodec[Array[Byte], V]
   ): Resource[F, KVStore[F, K, V]] =
-    makeRaw[F](folder, createIfMissing).map(_.transform[K, V])
+    makeRaw[F](folder, createIfMissing)
+      .map(_.transform[K, V])
 
   /**
    * RocksDB inner type for keys and values is Array[Byte], so implement [[KVStore]] over it.
@@ -69,8 +70,11 @@ object RocksDBStore extends LazyLogging {
     (for {
       // Database options
       opts ← Resource.make(IO {
+        logger.trace(s"Creating options")
         val options = new Options()
+        logger.trace(s"Here we have options: " + options)
         options.setCreateIfMissing(createIfMissing)
+        logger.trace(s"With a flag: " + options)
         options
       })(
         opts ⇒
@@ -80,6 +84,8 @@ object RocksDBStore extends LazyLogging {
               logger.error(s"Cannot close Options object during cleanup: $err", err)
         }
       )
+
+      _ = logger.trace("Created opts...")
 
       // Database itself
       data ← Resource.make(IO {
@@ -96,6 +102,8 @@ object RocksDBStore extends LazyLogging {
         }
       )
 
+      _ = logger.trace("Created rocksdb...")
+
       // Read options -- could be used for optimizations later, e.g. snapshots
       readOptions ← Resource.make(IO(new ReadOptions()))(
         rOpts ⇒
@@ -105,6 +113,8 @@ object RocksDBStore extends LazyLogging {
               logger.error(s"Cannot close RocksDB object during cleanup: $err", err)
         }
       )
+
+      _ = logger.debug("Created readOpts...")
 
     } yield
       new KVStore[F, Array[Byte], Array[Byte]] {
