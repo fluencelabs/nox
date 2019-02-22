@@ -28,15 +28,15 @@ import {toHex} from "./utils";
  */
 export function genTxHex(client: Client, session: string, counter: number, payload: string): string {
     let tx = new TxEncoder(client.id, session, counter, payload).createJson(client.signer);
-    return jsonToHex(tx)
+    return jsonToBase64(tx)
 }
 
 /**
  * Makes hex string from json object that will be correct to the real-time cluster.
  * @param json transaction with command, metainformation and signature
  */
-function jsonToHex(json: TxJson): string {
-    return toHex(JSON.stringify(json));
+function jsonToBase64(json: TxJson): string {
+    return btoa(JSON.stringify(json));
 }
 
 /**

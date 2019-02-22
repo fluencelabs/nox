@@ -17,7 +17,7 @@
 import {none, Option, Some} from "ts-option";
 import {fromHex} from "./utils";
 import  * as debug from "debug";
-import {RpcClient} from "../tendermint";
+import {RpcClient} from "./RpcClient";
 
 const d = debug("tendermintClient");
 
@@ -30,7 +30,7 @@ interface BroadcastTxSyncResponse {
 
 function parseResponse(res: any): BroadcastTxSyncResponse {
      try {
-         let bResponse = <BroadcastTxSyncResponse> res;
+         let bResponse = <BroadcastTxSyncResponse> res.data.result;
          bResponse.data = fromHex(bResponse.data);
          return bResponse;
      } catch (e) {
@@ -41,16 +41,12 @@ function parseResponse(res: any): BroadcastTxSyncResponse {
 export class TendermintClient {
     readonly client: RpcClient;
     readonly addr: string;
+    readonly appId: string;
 
-    constructor(host: string, port: number, protocol: protocol = "http") {
+    constructor(host: string, port: number, appId: string, protocol: protocol = "http") {
         this.addr = `${protocol}://${host}:${port}`;
-        this.client = new RpcClient(this.addr);
-    }
-
-    broadcastTxAsync(hex: string): Promise<any> {
-        let params = {tx: JSON.stringify(hex)};
-        d("broadCastTxAsync request");
-        return this.client.broadcastTxAsync(params);
+        this.appId = appId;
+        this.client = new RpcClient(this.addr, appId);
     }
 
     /**
@@ -58,9 +54,8 @@ export class TendermintClient {
      * @param hex transaction payload
      */
     broadcastTxSync(hex: string): Promise<BroadcastTxSyncResponse> {
-        let params = {tx: JSON.stringify(hex)};
         d("broadCastTxSync request");
-        return this.client.broadcastTxSync(params)
+        return this.client.broadcastTxSync(hex)
             .then((res: any) => {
                 return parseResponse(res);
             }).catch((err: any) => {
@@ -75,10 +70,9 @@ export class TendermintClient {
      * @returns `none` if there is no value, and `some` with parsed from hex value otherwise.
      */
     async abciQuery(path: string): Promise<Option<any>> {
-        let escaped = JSON.stringify(path);
-
         d("abciQuery request");
-        let response = (await this.client.abciQuery({path: escaped})).response;
+
+        let response: any = (await this.client.abciQuery(path)).data.result.response;
 
         if (response.value) {
             let resultRaw = atob(response.value);

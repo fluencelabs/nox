@@ -70,13 +70,18 @@ object WorkersHttp extends LazyLogging {
     // Routes comes there
     HttpRoutes.of {
       case GET -> Root / LongVar(appId) / "query" :? QueryPath(path) +& QueryData(data) +& QueryId(id) ⇒
+        logger.debug(s"TendermintRpc query request. appId: $appId, path: $path, data: $data")
         withTendermint(appId)(_.query(path, data.getOrElse(""), id = id.getOrElse("dontcare")))
 
       case GET -> Root / LongVar(appId) / "status" ⇒
+        logger.debug(s"TendermintRpc status. appId: $appId")
         withTendermint(appId)(_.status)
 
       case req @ POST -> Root / LongVar(appId) / "tx" :? QueryId(id) ⇒
-        req.decode[String](tx ⇒ withTendermint(appId)(_.broadcastTxSync(tx, id.getOrElse("dontcare"))))
+        req.decode[String]{tx ⇒
+          logger.debug(s"TendermintRpc broadcastTxSync request: \ntx: $tx,\n id: $id")
+          withTendermint(appId)(_.broadcastTxSync(tx, id.getOrElse("dontcare")))
+        }
     }
   }
 }

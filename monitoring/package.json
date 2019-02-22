@@ -1,7 +1,7 @@
 {
   "name": "fluence-monitoring",
   "namespace": "fluence",
-  "version": "0.0.23",
+  "version": "0.0.27",
   "description": "Fluence Monitoring that allows to monitor the state of Fluence network from a browser.",
   "main": "./dist/fluence.js",
   "typings": "./dist/fluence.d.ts",
