@@ -26,7 +26,7 @@ import io.circe.{Encoder, Json}
  * @param params Sequence of arguments for the method
  * @param id Nonce to track the results of the request with some other method
  */
-case class RpcRequest(method: String, jsonrpc: String = "2.0", params: Seq[Json], id: String = "") {
+case class RpcRequest(method: String, jsonrpc: String = "2.0", params: Seq[Json], id: String) {
   def toJsonString: String = RpcRequest.requestEncoder(this).noSpaces
 }
 

@@ -44,8 +44,7 @@ class TxParser[F[_]: Applicative](clientRegistry: ClientRegistry) {
    */
   def parseTx(rawTx: ByteString): EitherT[F, String, Transaction] =
     EitherT.fromEither[F](for {
-      txText <- HexCodec.hexToString(rawTx.toStringUtf8)
-      parsedJson <- parseJson(txText).left.map(_.message)
+      parsedJson <- parseJson(rawTx.toStringUtf8).left.map(_.message)
       signedTx <- parsedJson.as[SignedTransaction].left.map(_.message)
       publicKey <- clientRegistry.getPublicKey(signedTx.tx.header.client)
       checkedTx <- Either.cond(
@@ -54,5 +53,4 @@ class TxParser[F[_]: Applicative](clientRegistry: ClientRegistry) {
         ClientInfoMessages.InvalidSignature
       )
     } yield checkedTx)
-
 }

@@ -39,7 +39,7 @@ import scala.language.higherKinds
 case class TendermintRpc[F[_]](
   get: String ⇒ EitherT[F, RpcError, String],
   post: RpcRequest ⇒ EitherT[F, RpcError, String]
-) {
+) extends slogging.LazyLogging {
 
   /** Get status as string */
   val status: EitherT[F, RpcError, String] =
@@ -62,7 +62,7 @@ case class TendermintRpc[F[_]](
    * @param tx Transaction body
    * @param id Tracking ID, you may omit it
    */
-  def broadcastTxSync(tx: String, id: String = ""): EitherT[F, RpcError, String] =
+  def broadcastTxSync(tx: String, id: String): EitherT[F, RpcError, String] =
     post(RpcRequest(method = "broadcast_tx_sync", params = Json.fromString(tx) :: Nil, id = id))
 
   /** Post a `query` request, wait for response, return it unparsed */
@@ -71,7 +71,7 @@ case class TendermintRpc[F[_]](
     data: String = "",
     height: Long = 0,
     prove: Boolean = false,
-    id: String = ""
+    id: String
   ): EitherT[F, RpcError, String] =
     post(
       RpcRequest(
