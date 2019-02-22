@@ -108,9 +108,9 @@ function deploy_contract_locally()
     local CONTRACT_ADDRESS=`echo ${RESULT} | awk '{print $NF}'`
     sleep 1
 
-    if [ -n $CONTRACT_ADDRESS ]; then
+    if [ -z "$CONTRACT_ADDRESS" ]; then
         echo >&2 "Contract deployment failed"
-        echo -n >&2 "$RESULT" 
+        echo -n >&2 "$RESULT"
         exit 1 
     fi
 
@@ -121,7 +121,7 @@ function deploy_contract_locally()
 function container_update()
 {
     echo 'Updating all containers.'
-    docker pull parity/parity:v2.3.0 >/dev/null
+    docker pull parity/parity:stable >/dev/null
     docker pull ethdevops/swarm:edge >/dev/null
     docker pull fluencelabs/node:v0.1.3 >/dev/null
     docker pull fluencelabs/worker:v0.1.3 >/dev/null

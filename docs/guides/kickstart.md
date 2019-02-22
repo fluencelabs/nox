@@ -10,7 +10,9 @@
     - [Compiling to WebAssembly](#compiling-to-webassembly)
 - [Publishing your app](#publishing-your-app)
   - [Connect to Swarm and Ethereum Kovan](#connect-to-swarm-and-ethereum-kovan)
-  - [TODO: Registering an Ethereum Kovan account](#todo-registering-an-ethereum-kovan-account)
+  - [Registering an Ethereum Kovan account](#registering-an-ethereum-kovan-account)
+    - [Via myetherwallet.com](#via-myetherwalletcom)
+    - [Top up account with funds](#top-up-account-with-funds)
   - [Installing Fluence CLI](#installing-fluence-cli)
   - [Publishing via Fluence CLI](#publishing-via-fluence-cli)
   - [Check app status](#check-app-status)
@@ -261,8 +263,12 @@ To upload your code to Swarm, you need to have access to one of its nodes. The s
 
 **We will use existing Ethereum & Swarm nodes, but if you wish, you can [use your own nodes](miner.md) or any other.**
 
-## TODO: Registering an Ethereum Kovan account
-TODO
+## Registering an Ethereum Kovan account
+### Via myetherwallet.com
+Go to https://vintage.myetherwallet.com/, then select Kovan in the upper right, enter any password, and download the Keystore file.
+
+### Top up account with funds
+Follow instructions for [Kovan faucet](https://github.com/kovan-testnet/faucet)
 
 ## Installing Fluence CLI
 You can download Fluence CLI from here https://github.com/fluencelabs/fluence/releases/tag/cli-0.1.2

@@ -16,20 +16,13 @@
 
 package fluence.node.status
 
-import cats.Traverse
-import cats.data.Kleisli
+import cats.{Monad, Traverse}
 import cats.effect._
+import cats.syntax.functor._
+import cats.syntax.flatMap._
 import cats.instances.list._
-import cats.syntax.applicativeError._
 import fluence.node.MasterNode
 import fluence.node.config.MasterConfig
-import io.circe.syntax._
-import org.http4s._
-import org.http4s.dsl.io._
-import org.http4s.implicits._
-import org.http4s.server.Server
-import org.http4s.server.blaze._
-import org.http4s.server.middleware.{CORS, CORSConfig}
 import slogging.LazyLogging
 
 import scala.concurrent.duration._
@@ -41,16 +34,18 @@ import scala.language.higherKinds
  * @param config config file about a master node
  * @param masterNode initialized master node
  */
-case class StatusAggregator(config: MasterConfig, masterNode: MasterNode[IO], startTimeMillis: Long)(
-  implicit clock: Clock[IO]
+case class StatusAggregator[F[_]: Monad: Clock](
+  config: MasterConfig,
+  masterNode: MasterNode[F],
+  startTimeMillis: Long
 ) {
 
   /**
    * Gets all state information about master node and workers.
    * @return gathered information
    */
-  val getStatus: IO[MasterStatus] = for {
-    currentTime ← clock.monotonic(MILLISECONDS)
+  val getStatus: F[MasterStatus] = for {
+    currentTime ← Clock[F].monotonic(MILLISECONDS)
     workers ← masterNode.pool.getAll
     workerInfos ← Traverse[List].traverse(workers)(_.status)
     ethState ← masterNode.nodeEth.expectedState
@@ -68,62 +63,21 @@ case class StatusAggregator(config: MasterConfig, masterNode: MasterNode[IO], st
 
 object StatusAggregator extends LazyLogging {
 
-  val corsConfig = CORSConfig(
-    anyOrigin = true,
-    anyMethod = true,
-    allowedMethods = Some(Set("GET", "POST")),
-    allowCredentials = true,
-    maxAge = 1.day.toSeconds
-  )
-
-  private def statusService(
-    sm: StatusAggregator
-  )(implicit cs: ContextShift[IO]): Kleisli[IO, Request[IO], Response[IO]] =
-    CORS(
-      HttpRoutes
-        .of[IO] {
-          case GET -> Root / "status" =>
-            val response = for {
-              status <- sm.getStatus
-              json <- IO(status.asJson.spaces2).onError {
-                case e =>
-                  IO(e.printStackTrace())
-                    .map(_ => logger.error(s"Status cannot be serialized to JSON. Status: $status", e))
-              }
-              response <- Ok(json)
-              _ <- IO(logger.trace("MasterStatus responded successfully"))
-            } yield response
-
-            response.handleErrorWith { e =>
-              val errorMessage = s"Cannot produce MasterStatus response: $e"
-              logger.warn(errorMessage)
-              e.printStackTrace()
-              InternalServerError(errorMessage)
-            }
-        }
-        .orNotFound,
-      corsConfig
+  /**
+   * Makes a StatusAggregato9r, lifted into Resource.
+   *
+   * @param masterConfig Master config
+   * @param masterNode Master node to fetch status from
+   */
+  def make[F[_]: Timer: ContextShift: Monad](
+    masterConfig: MasterConfig,
+    masterNode: MasterNode[F]
+  ): Resource[F, StatusAggregator[F]] =
+    Resource.liftF(
+      for {
+        startTimeMillis ← Clock[F].realTime(MILLISECONDS)
+        _ = logger.debug("Start time millis: " + startTimeMillis)
+      } yield StatusAggregator(masterConfig, masterNode, startTimeMillis)
     )
 
-  /**
-   * Makes the server that gives gathered information about a master node and workers.
-   *
-   * @param masterConfig parameters about a master node
-   * @param masterNode initialized master node
-   */
-  def makeHttpResource(
-    masterConfig: MasterConfig,
-    masterNode: MasterNode[IO]
-  )(
-    implicit cs: ContextShift[IO],
-    timer: Timer[IO]
-  ): Resource[IO, Server[IO]] =
-    for {
-      startTimeMillis ← Resource.liftF(timer.clock.monotonic(MILLISECONDS))
-      _ = logger.debug("Start time millis: " + startTimeMillis)
-      server ← BlazeServerBuilder[IO]
-        .bindHttp(masterConfig.statusServer.port, "0.0.0.0")
-        .withHttpApp(statusService(StatusAggregator(masterConfig, masterNode, startTimeMillis)))
-        .resource
-    } yield server
 }

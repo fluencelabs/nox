@@ -15,8 +15,10 @@
  */
 
 package fluence.node.config
+import com.typesafe.config.ConfigObject
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import pureconfig.ConfigReader
 
 /**
  * @param host address to Swarm node
@@ -24,6 +26,22 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 case class SwarmConfig(host: String)
 
 object SwarmConfig {
+  import pureconfig.generic.auto.exportReader
+
+  // TODO remove this, use a simple boolean flag to enable/disable swarm, as this kills pureconfig compilation
+  /**
+   * Parse `swarm {}` as None.
+   * WARNING: Config should always contain a `swarm` section, be it empty or with values inside.
+   * TODO: Fix reader to treat absence of `swarm` section as None
+   */
+  implicit val swarmOptionalConfigReader: ConfigReader[Option[SwarmConfig]] =
+    ConfigReader.fromCursor[Option[SwarmConfig]] { cv =>
+      cv.value match {
+        case co: ConfigObject if co.isEmpty => Right(None)
+        case _ => ConfigReader[SwarmConfig].from(cv).map(Some(_))
+      }
+    }
+
   implicit val encodeSwarmConfig: Encoder[SwarmConfig] = deriveEncoder
   implicit val decodeSwarmConfig: Decoder[SwarmConfig] = deriveDecoder
 }
