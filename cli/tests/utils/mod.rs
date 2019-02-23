@@ -75,7 +75,6 @@ impl TestOpts {
         tendermint_key: H256,
         tendermint_node_id: H160,
     ) -> Result<(Registered, Register)> {
-
         let reg = Register::new(
             "127.0.0.1".parse().unwrap(),
             tendermint_key,
