@@ -10,7 +10,6 @@ services:
       - SWARM_HOST=http://$HOST_IP:8500
       - CONTRACT_ADDRESS=$CONTRACT_ADDRESS
       - OWNER_ADDRESS=$OWNER_ADDRESS
-      - CAPACITY=$CAPACITY
     ports:
       # API port
       - $API_PORT:5678

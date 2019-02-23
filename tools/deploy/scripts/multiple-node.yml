@@ -10,7 +10,6 @@ services:
       - SWARM_HOST=http://$HOST_IP:8500
       - CONTRACT_ADDRESS=$CONTRACT_ADDRESS
       - OWNER_ADDRESS=$OWNER_ADDRESS
-      - CAPACITY=$CAPACITY
     ports:
       # API port
       - 25100:5678
@@ -26,7 +25,6 @@ services:
       - SWARM_HOST=http://$HOST_IP:8500
       - CONTRACT_ADDRESS=$CONTRACT_ADDRESS
       - OWNER_ADDRESS=$OWNER_ADDRESS
-      - CAPACITY=$CAPACITY
     ports:
       # API port
       - 25200:5678
@@ -42,7 +40,6 @@ services:
       - SWARM_HOST=http://$HOST_IP:8500
       - CONTRACT_ADDRESS=$CONTRACT_ADDRESS
       - OWNER_ADDRESS=$OWNER_ADDRESS
-      - CAPACITY=$CAPACITY
     ports:
       # API port
       - 25300:5678
@@ -58,7 +55,6 @@ services:
       - SWARM_HOST=http://$HOST_IP:8500
       - CONTRACT_ADDRESS=$CONTRACT_ADDRESS
       - OWNER_ADDRESS=$OWNER_ADDRESS
-      - CAPACITY=$CAPACITY
     ports:
       # API port
       - 25400:5678
