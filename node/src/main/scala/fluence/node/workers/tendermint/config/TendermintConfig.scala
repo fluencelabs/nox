@@ -83,7 +83,6 @@ case class TendermintConfig(
     val properties = List(
       "proxy_app" -> s"tcp://$abciHost:$abciPort",
       "moniker" -> s"${appId}_$workerIndex",
-      "unsafe" -> "true",
       "p2p.external_address" -> workerPeerAddress
     ) ++ mapping
 
@@ -97,6 +96,9 @@ case class TendermintConfig(
 
     import collection.JavaConverters._
     updated.set("rpc.cors_allowed_origins", corsAllowedOrigins.asJava)
+
+    // used for dial_peers
+    updated.set("rpc.unsafe", true)
 
     updated.save()
     updated.close()
