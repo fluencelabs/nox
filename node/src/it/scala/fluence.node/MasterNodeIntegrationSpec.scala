@@ -136,8 +136,8 @@ class MasterNodeIntegrationSpec
         status1 <- getStatus(getApiPort(basePort))
         status2 <- getStatus(getApiPort(master2Port))
 
-        _ <- contract.addNode[IO](status1.nodeConfig, basePort, basePort).attempt
-        _ <- contract.addNode[IO](status2.nodeConfig, master2Port, master2Port).attempt
+        _ <- contract.addNode[IO](status1.nodeConfig, 5678, 1).attempt
+        _ <- contract.addNode[IO](status2.nodeConfig, 5678, 1).attempt
         blockNumber <- contract.addApp[IO]("llamadb", clusterSize = 2)
 
         _ = logger.info("Added App at block: " + blockNumber + ", now going to wait for two workers")

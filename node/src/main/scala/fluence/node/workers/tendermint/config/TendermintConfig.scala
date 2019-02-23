@@ -83,6 +83,7 @@ case class TendermintConfig(
     val properties = List(
       "proxy_app" -> s"tcp://$abciHost:$abciPort",
       "moniker" -> s"${appId}_$workerIndex",
+      "unsafe" -> "true",
       "p2p.external_address" -> workerPeerAddress
     ) ++ mapping
 

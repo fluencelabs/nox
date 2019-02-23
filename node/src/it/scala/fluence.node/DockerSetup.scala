@@ -67,6 +67,7 @@ trait DockerSetup extends OsSetup {
             .option("-e", s"ETHEREUM_IP=$ethereumHost")
             .option("-e", s"MIN_PORT=$portFrom")
             .option("-e", s"MAX_PORT=$portTo")
+            .option("-e", s"SWARM_ENABLED=false")
             .port(apiPort, 5678)
             .option("--name", name)
             .volume(masterDir, "/master")
