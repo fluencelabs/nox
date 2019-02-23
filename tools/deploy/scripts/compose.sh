@@ -177,13 +177,16 @@ function export_arguments()
 
         export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
         export PARITY_RESERVED_PEERS='../config/reserved_peers.txt'
-        export PARITY_STORAGE="$HOME/.parity/"
         export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
     else
         echo "Deploying for $CHAIN chain."
-        export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose --reserved-peers=/reserved_peers.txt'
+        if [ "$CHAIN" = "kovan" ]; then
+            NO_WARP="--no-warp "
+        fi
+        export PARITY_ARGS=$NO_WARP'--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose --reserved-peers=/reserved_peers.txt'
     fi
 
+    export PARITY_STORAGE="$HOME/.local/.parity/"
     export FLUENCE_STORAGE="$HOME/.fluence/"
 }
 
@@ -194,14 +197,14 @@ function start_parity_swarm()
     # todo get rid of all `sleep`
     if [ ! "$(docker ps -q -f name=parity)" ]; then
         echo "Starting Parity container"
-        docker-compose -f parity.yml up -d >/dev/null
+        docker-compose --compatibility -f parity.yml up -d >/dev/null
         sleep 15
         echo "Parity container is started"
     fi
 
     if [ ! "$(docker ps -q -f name=swarm)" ]; then
         echo "Starting Swarm container"
-        docker-compose -f swarm.yml up -d >/dev/null
+        docker-compose --compatibility -f swarm.yml up -d >/dev/null
         sleep 15
         echo "Swarm container is started"
     fi
@@ -255,10 +258,10 @@ function deploy()
     # starting node container
     # if there was `multiple` flag on the running script, will be created 4 nodes, otherwise one node
     if [ "$1" = "multiple" ]; then
-        docker-compose -f multiple-node.yml up -d --force-recreate >/dev/null
+        docker-compose --compatibility -f multiple-node.yml up -d --force-recreate >/dev/null
         NUMBER_OF_NODES=4
     else
-        docker-compose -f node.yml up -d --force-recreate >/dev/null
+        docker-compose --compatibility -f node.yml up -d --force-recreate >/dev/null
         NUMBER_OF_NODES=1
     fi
 
