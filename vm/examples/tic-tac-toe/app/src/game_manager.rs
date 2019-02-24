@@ -17,19 +17,28 @@
 use crate::error_type::AppResult;
 use crate::game::{Game, GameMove, Tile};
 use crate::json_parser::{
-    CreateGameResponse, CreatePlayerResponse, GetGameStateResponse, MoveResponse,
+    CreateGameResponse, CreatePlayerResponse, GetGameStateResponse, MoveResponse, GetStatisticsResponse,
 };
 use crate::player::Player;
 
 use arraydeque::{ArrayDeque, Wrapping};
 use serde_json::Value;
-use std::cell::RefCell;
-use std::collections::HashMap;
+use std::ops::AddAssign;
+use std::{collections::HashMap, cell::RefCell};
 use std::rc::{Rc, Weak};
 
 mod settings {
     pub const PLAYERS_MAX_COUNT: usize = 1024;
     pub const GAMES_MAX_COUNT: usize = 1024;
+}
+
+pub struct GameStatistics {
+    // overall players count that has been registered
+    pub players_created: u64,
+    // overall players count that has been created
+    pub games_created: u64,
+    // overall move count that has been made
+    pub moves_count: i64,
 }
 
 pub struct GameManager {
@@ -38,6 +47,7 @@ pub struct GameManager {
     // TODO: String key should be replaced with Cow<'a, str>. After that signatures of all public
     // functions also should be changed similar to https://jwilm.io/blog/from-str-to-cow/.
     players_by_name: HashMap<String, Weak<RefCell<Player>>>,
+    game_statistics: RefCell<GameStatistics>,
 }
 
 impl GameManager {
@@ -46,18 +56,21 @@ impl GameManager {
             players: ArrayDeque::new(),
             games: ArrayDeque::new(),
             players_by_name: HashMap::new(),
+            game_statistics: RefCell::new(GameStatistics {
+                players_created: 0,
+                games_created: 0,
+                moves_count: 0,
+            }),
         }
     }
 
     /// Marks an empty position on the board by user's tile type. Returns MoveResponse structure
     /// as a serde_json Value.
-    pub fn make_move(
-        &self,
+    pub fn make_move(&self,
         player_name: String,
-        player_sign: String,
         coords: (usize, usize),
     ) -> AppResult<Value> {
-        let game = self.get_player_game(&player_name, &player_sign)?;
+        let game = self.get_player_game(&player_name)?;
         let mut game = game.borrow_mut();
         let game_move = GameMove::new(coords.0, coords.1)
             .ok_or_else(|| format!("Invalid coordinates: x = {} y = {}", coords.0, coords.1))?;
@@ -82,12 +95,18 @@ impl GameManager {
             },
         };
 
+        self.game_statistics.borrow_mut().moves_count.add_assign(1);
+
         serde_json::to_value(response).map_err(Into::into)
     }
 
-    /// Creates a new player with given player name and player signature.
-    pub fn create_player(&mut self, player_name: String, player_sign: String) -> AppResult<Value> {
-        let new_player = Rc::new(RefCell::new(Player::new(player_name.clone(), player_sign)));
+    /// Creates a new player with given player name.
+    pub fn create_player(&mut self, player_name: String) -> AppResult<Value> {
+        let new_player = Rc::new(RefCell::new(Player::new(player_name.clone())));
+        if let Some(_) = self.players_by_name.get(&player_name) {
+           return Err("User with this name is already registered, please choose another one".to_owned()).map_err(Into::into);
+        }
+
         self.players_by_name
             .insert(new_player.borrow().name.clone(), Rc::downgrade(&new_player));
 
@@ -101,6 +120,9 @@ impl GameManager {
             player_name,
             result: "A new player has been successfully created".to_owned(),
         };
+
+        self.game_statistics.borrow_mut().players_created.add_assign(1);
+
         serde_json::to_value(response).map_err(Into::into)
     }
 
@@ -110,10 +132,9 @@ impl GameManager {
     pub fn create_game(
         &mut self,
         player_name: String,
-        player_sign: String,
         player_tile: Tile,
     ) -> AppResult<Value> {
-        let player = self.get_player(&player_name, &player_sign)?;
+        let player = self.get_player(&player_name)?;
 
         let game_state = Rc::new(RefCell::new(Game::new(player_tile)));
         player.borrow_mut().game = Rc::downgrade(&game_state);
@@ -138,13 +159,15 @@ impl GameManager {
             }
         };
 
+        self.game_statistics.borrow_mut().games_created.add_assign(1);
         self.games.push_back(game_state);
+
         response.map_err(Into::into)
     }
 
     /// Returns current game state for provided user as a GetGameStateResponse serde_json Value.
-    pub fn get_game_state(&self, player_name: String, player_sign: String) -> AppResult<Value> {
-        let game = self.get_player_game(&player_name, &player_sign)?;
+    pub fn get_game_state(&self, player_name: String) -> AppResult<Value> {
+        let game = self.get_player_game(&player_name)?;
         let (chosen_tile, board) = game.borrow().get_state();
 
         let response = GetGameStateResponse {
@@ -155,38 +178,34 @@ impl GameManager {
         serde_json::to_value(response).map_err(Into::into)
     }
 
-    fn get_player(&self, player_name: &str, player_sign: &str) -> AppResult<Rc<RefCell<Player>>> {
+    /// Returns statistics of application usage.
+    pub fn get_statistics(&self) -> AppResult<Value> {
+        let response = GetStatisticsResponse {
+            players_created: self.game_statistics.borrow().players_created,
+            games_created: self.game_statistics.borrow().games_created,
+            moves_count: self.game_statistics.borrow().moves_count,
+        };
+        serde_json::to_value(response).map_err(Into::into)
+    }
+
+    fn get_player(&self, player_name: &str) -> AppResult<Rc<RefCell<Player>>> {
         // try to find player by name in players_by_name and then convert Weak<Player> to Rc<Player>
-        let player = match self.players_by_name.get(&player_name.to_owned()) {
+        match self.players_by_name.get(&player_name.to_owned()) {
             Some(player) => player.upgrade().ok_or_else(|| {
                 "Internal error occurred - player has been already removed".to_owned()
             }),
             None => Err(format!(
-                "Player with name {} and sign {} wasn't found",
-                player_name, player_sign
+                "Player with name {} wasn't found",
+                player_name
             )),
-        }?;
-
-        // checks player signature
-        if player.borrow().sign == player_sign {
-            return Ok(player);
-        }
-
-        // `auth` error and `player not found` error shouldn't be distinguishable to not give a
-        // possibility to brute force player name (like in a real app)
-        Err(format!(
-            "Player with name {} and sign {} wasn't found",
-            player_name, player_sign
-        ))
-        .map_err(Into::into)
+        }.map_err(Into::into)
     }
 
     fn get_player_game(
         &self,
         player_name: &str,
-        player_sign: &str,
     ) -> AppResult<Rc<RefCell<Game>>> {
-        self.get_player(player_name, player_sign)?
+        self.get_player(player_name)?
             .borrow_mut()
             .game
             .upgrade()

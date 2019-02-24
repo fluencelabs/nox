@@ -20,18 +20,16 @@ use std::{cell::RefCell, rc::Weak};
 pub struct Player {
     pub name: String,
     pub game: Weak<RefCell<Game>>,
-    pub sign: String,
 }
 
 impl Player {
-    pub fn new<S>(name: S, sign: S) -> Self
+    pub fn new<S>(name: S) -> Self
     where
         S: Into<String>,
     {
         Player {
             name: name.into(),
             game: Weak::new(),
-            sign: sign.into(),
         }
     }
 }
