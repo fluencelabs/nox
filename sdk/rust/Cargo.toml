@@ -18,16 +18,8 @@ all-features = true
 path = "src/lib.rs"
 
 [dependencies]
-log = { version = "0.4", features = ["std"] }
-syn = { version = '0.15.0', features = ['full'] }
-quote = "0.6.3"
-proc-macro2 = "0.4"
 fluence-sdk-macro = { path = "crates/macro", version = "=0.0.10" }
 fluence-sdk-main = { path = "crates/main", version = "=0.0.10" }
-
-[dev-dependencies]
-simple_logger = "1.0" # used in doc test
-lazy_static = "1.2.0" # used in doc test
 
 [features]
 # Turn on a compilation for module contains Wasm logger realization.
