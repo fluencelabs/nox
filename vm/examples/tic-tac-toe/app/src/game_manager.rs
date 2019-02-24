@@ -23,9 +23,7 @@ use crate::player::Player;
 
 use arraydeque::{ArrayDeque, Wrapping};
 use serde_json::Value;
-use std::ops::AddAssign;
-use std::{collections::HashMap, cell::RefCell};
-use std::rc::{Rc, Weak};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, rc::Weak, ops::AddAssign};
 
 mod settings {
     pub const PLAYERS_MAX_COUNT: usize = 1024;
@@ -77,8 +75,8 @@ impl GameManager {
 
         let response = match game.player_move(game_move)? {
             Some(app_move) => {
+                // checks did the app win in this turn?
                 let winner = match game.get_winner() {
-                    // checks the app win
                     Some(winner) => winner.to_string(),
                     None => "None".to_owned(),
                 };
@@ -88,6 +86,7 @@ impl GameManager {
                     coords: (app_move.x, app_move.y),
                 }
             }
+            // none means a win of the player or a draw
             None => MoveResponse {
                 player_name,
                 winner: game.get_winner().unwrap().to_string(),
@@ -147,8 +146,8 @@ impl GameManager {
                 };
                 serde_json::to_value(response)
             }
+            // if the user chose 'O' tile the app should move first
             Tile::O => {
-                // if the user chose 'O' tile the app should move first
                 let app_move = game_state.borrow_mut().app_move().unwrap();
                 let response = MoveResponse {
                     player_name,
@@ -208,6 +207,7 @@ impl GameManager {
         self.get_player(player_name)?
             .borrow_mut()
             .game
+            // tries to upgrade Weak<RefCell<Game>> to Rc<RefCell<Game>>
             .upgrade()
             .ok_or_else(|| "Sorry! Your game was deleted, but you can start a new one".to_owned())
             .map_err(Into::into)

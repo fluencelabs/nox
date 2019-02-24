@@ -45,7 +45,7 @@ object Configuration extends slogging.LazyLogging {
 
     (loadFile(Paths.get(containerConfig)) match {
       case Left(_) => load() // exception will be printed out later, see ConfigOps
-      case Right(config) => load.map(config.withFallback)
+      case Right(config) => load().map(config.withFallback)
     }).toIO
   }
 

@@ -16,8 +16,7 @@
 
 use boolinator::Boolinator;
 use std::convert::From;
-use std::fmt;
-use std::result::Result;
+use std::{fmt, result::Result};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum Tile {
@@ -34,7 +33,7 @@ impl Tile {
         }
     }
 
-    pub fn to_char(&self) -> char {
+    pub fn to_char(self) -> char {
         match self {
             Tile::X => 'X',
             Tile::O => 'O',
@@ -97,14 +96,14 @@ impl GameMove {
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Game {
     board: [[Option<Tile>; 3]; 3],
-    chosen_tile: Tile,
+    player_tile: Tile,
 }
 
 impl Game {
     pub fn new(player_tile: Tile) -> Self {
         Game {
             board: [[None; 3]; 3],
-            chosen_tile: player_tile,
+            player_tile,
         }
     }
 
@@ -119,7 +118,7 @@ impl Game {
                     return game.board[0][col].map(|tile| tile.into());
                 }
             }
-            return None;
+            None
         }
 
         fn same_col(game: &Game) -> Option<Winner> {
@@ -131,7 +130,7 @@ impl Game {
                     return game.board[row][0].map(|tile| tile.into());
                 }
             }
-            return None;
+            None
         }
 
         // checks the left-right diagonal
@@ -176,7 +175,7 @@ impl Game {
             .is_none()
             .ok_or_else(|| "Please choose a free position".to_owned())?;
 
-        self.board[game_move.x][game_move.y].replace(self.chosen_tile);
+        self.board[game_move.x][game_move.y].replace(self.player_tile);
 
         Ok(self.app_move())
     }
@@ -192,23 +191,23 @@ impl Game {
             }
         }
 
-        (self.chosen_tile, board)
+        (self.player_tile, board)
     }
 
     /// Makes application move. Returns Some() of with coords of app move if it was successfull and
     /// None otherwise. None result means a draw or win of the app.
     pub fn app_move(&mut self) -> Option<GameMove> {
-        if let Some(_) = self.get_winner() {
+        if self.get_winner().is_some() {
             return None;
         }
 
         // TODO: use more complicated strategy
         for (x, row) in self.board.iter_mut().enumerate() {
             for (y, tile) in row.iter_mut().enumerate() {
-                if let Some(_) = tile {
+                if tile.is_some() {
                     continue;
                 }
-                tile.replace(self.chosen_tile.other());
+                tile.replace(self.player_tile.other());
                 return Some(GameMove::new(x, y).unwrap());
             }
         }
