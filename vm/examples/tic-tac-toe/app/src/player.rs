@@ -17,6 +17,7 @@
 use crate::game::Game;
 use std::{cell::RefCell, rc::Weak};
 
+/// Represents player with name and a link to Game.
 pub struct Player {
     pub name: String,
     pub game: Weak<RefCell<Game>>,

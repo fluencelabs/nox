@@ -22,32 +22,32 @@ fn x_tile_win() {
     let create_player = create_player_json("John".to_owned(), "so_secret_key".to_owned());
     assert_eq!(
         main(create_player),
-        "{\"player_name\":\"John\",\"result\":\"A new player has been successfully created\"}"
+        r#"{"player_name":"John","result":"A new player has been successfully created"}"#
     );
 
     let create_game = create_game_json("John".to_owned(), "so_secret_key".to_owned(), 'X');
     assert_eq!(
         main(create_game),
-        "{\"player_name\":\"John\",\"result\":\"A new game has been successfully created\"}"
+        r#"{"player_name":"John","result":"A new game has been successfully created"}"#
     );
 
     let player_move = create_move_json("John".to_owned(), "so_secret_key".to_owned(), 0, 0);
     assert_eq!(
         main(player_move),
-        "{\"coords\":[0,1],\"player_name\":\"John\",\"winner\":\"None\"}"
+        r#"{"coords":[0,1],"player_name":"John","winner":"None"}"#
     );
 
     let player_move = create_move_json("John".to_owned(), "so_secret_key".to_owned(), 1, 0);
     assert_eq!(
         main(player_move),
-        "{\"coords\":[0,2],\"player_name\":\"John\",\"winner\":\"None\"}"
+        r#"{"coords":[0,2],"player_name":"John","winner":"None"}"#
     );
 
     let player_move = create_move_json("John".to_owned(), "so_secret_key".to_owned(), 2, 0);
-    assert_eq!(main(player_move), "{\"coords\":[18446744073709551615,18446744073709551615],\"player_name\":\"John\",\"winner\":\"X\"}");
+    assert_eq!(main(player_move), r#"{"coords":[18446744073709551615,18446744073709551615],"player_name":"John","winner":"X"}"#);
 
     let get_state = get_state_json("John".to_owned(), "so_secret_key".to_owned());
-    assert_eq!(main(get_state), "{\"board\":[\"X\",\"O\",\"O\",\"X\",\"_\",\"_\",\"X\",\"_\",\"_\"],\"player_name\":\"John\",\"player_tile\":\"X\"}");
+    assert_eq!(main(get_state), r#"{"board":["X","O","O","X","_","_","X","_","_"],"player_name":"John","player_tile":"X"}"#);
 }
 
 #[test]
@@ -55,35 +55,35 @@ fn o_tile_win() {
     let create_player = create_player_json("John2".to_owned(), "so_secret_key2".to_owned());
     assert_eq!(
         main(create_player),
-        "{\"player_name\":\"John2\",\"result\":\"A new player has been successfully created\"}"
+        r#"{"player_name":"John2","result":"A new player has been successfully created"}"#
     );
 
     let create_game = create_game_json("John2".to_owned(), "so_secret_key2".to_owned(), 'O');
     assert_eq!(
         main(create_game),
-        "{\"coords\":[0,0],\"player_name\":\"John2\",\"winner\":\"None\"}"
+        r#"{"coords":[0,0],"player_name":"John2","winner":"None"}"#
     );
 
     let player_move = create_move_json("John2".to_owned(), "so_secret_key2".to_owned(), 0, 2);
     assert_eq!(
         main(player_move),
-        "{\"coords\":[0,1],\"player_name\":\"John2\",\"winner\":\"None\"}"
+        r#"{"coords":[0,1],"player_name":"John2","winner":"None"}"#
     );
 
     let player_move = create_move_json("John2".to_owned(), "so_secret_key2".to_owned(), 1, 2);
     assert_eq!(
         main(player_move),
-        "{\"coords\":[1,0],\"player_name\":\"John2\",\"winner\":\"None\"}"
+        r#"{"coords":[1,0],"player_name":"John2","winner":"None"}"#
     );
 
     let player_move = create_move_json("John2".to_owned(), "so_secret_key2".to_owned(), 2, 2);
     assert_eq!(
         main(player_move),
-        "{\"coords\":[1,1],\"player_name\":\"John2\",\"winner\":\"None\"}"
+        r#"{"coords":[1,1],"player_name":"John2","winner":"None"}"#
     );
 
     let get_state = get_state_json("John2".to_owned(), "so_secret_key2".to_owned());
-    assert_eq!(main(get_state), "{\"board\":[\"X\",\"X\",\"O\",\"X\",\"X\",\"O\",\"_\",\"_\",\"O\"],\"player_name\":\"John2\",\"player_tile\":\"O\"}");
+    assert_eq!(main(get_state), r#"{"board":["X","X","O","X","X","O","_","_","O"],"player_name":"John2","player_tile":"O"}"#);
 }
 
 #[test]
@@ -91,35 +91,35 @@ fn app_win() {
     let create_player = create_player_json("John3".to_owned(), "so_secret_key3".to_owned());
     assert_eq!(
         main(create_player),
-        "{\"player_name\":\"John3\",\"result\":\"A new player has been successfully created\"}"
+        r#"{"player_name":"John3","result":"A new player has been successfully created"}"#
     );
 
     let create_game = create_game_json("John3".to_owned(), "so_secret_key3".to_owned(), 'O');
     assert_eq!(
         main(create_game),
-        "{\"coords\":[0,0],\"player_name\":\"John3\",\"winner\":\"None\"}"
+        r#"{"coords":[0,0],"player_name":"John3","winner":"None"}"#
     );
 
     let player_move = create_move_json("John3".to_owned(), "so_secret_key3".to_owned(), 2, 0);
     assert_eq!(
         main(player_move),
-        "{\"coords\":[0,1],\"player_name\":\"John3\",\"winner\":\"None\"}"
+        r#"{"coords":[0,1],"player_name":"John3","winner":"None"}"#
     );
 
     let player_move = create_move_json("John3".to_owned(), "so_secret_key3".to_owned(), 2, 1);
     assert_eq!(
         main(player_move),
-        "{\"coords\":[0,2],\"player_name\":\"John3\",\"winner\":\"X\"}"
+        r#"{"coords":[0,2],"player_name":"John3","winner":"X"}"#
     );
 
     let player_move = create_move_json("John3".to_owned(), "so_secret_key3".to_owned(), 2, 2);
     assert_eq!(
         main(player_move),
-        "{\"error\":\"Player X has already won this game\"}"
+        r#"{"error":"Player X has already won this game"}"#
     );
 
     let get_state = get_state_json("John3".to_owned(), "so_secret_key3".to_owned());
-    assert_eq!(main(get_state), "{\"board\":[\"X\",\"X\",\"X\",\"_\",\"_\",\"_\",\"O\",\"O\",\"_\"],\"player_name\":\"John3\",\"player_tile\":\"O\"}");
+    assert_eq!(main(get_state), r#"{"board":["X","X","X","_","_","_","O","O","_"],"player_name":"John3","player_tile":"O"}"#);
 }
 
 fn create_move_json(player_name: String, player_sign: String, x: usize, y: usize) -> String {
@@ -127,7 +127,7 @@ fn create_move_json(player_name: String, player_sign: String, x: usize, y: usize
         "move".to_owned(),
         player_name,
         player_sign,
-        format!(", \"coords\": [{}, {}]", x, y),
+        format!(r#", "coords": [{}, {}]"#, x, y),
     )
 }
 
@@ -145,7 +145,7 @@ fn create_game_json(player_name: String, player_sign: String, tile: char) -> Str
         "create_game".to_owned(),
         player_name,
         player_sign,
-        format!(", \"tile\": \"{}\"", tile),
+        format!(r#", "tile": "{}""#, tile),
     )
 }
 
@@ -166,7 +166,7 @@ fn generate_json(
 ) -> String {
     // TODO: move to json! macro
     format!(
-        "{{ \"action\": \"{}\", \"player_name\": \"{}\", \"player_sign\": \"{}\" {} }}",
+        r#"{{ "action": "{}", "player_name": "{}", "player_sign": "{}" {} }}"#,
         action, player_name, player_sign, additional_fields
     )
 }

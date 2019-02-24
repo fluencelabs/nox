@@ -24,11 +24,7 @@ use crate::player::Player;
 use arraydeque::{ArrayDeque, Wrapping};
 use serde_json::Value;
 use std::{cell::RefCell, collections::HashMap, rc::Rc, rc::Weak, ops::AddAssign};
-
-mod settings {
-    pub const PLAYERS_MAX_COUNT: usize = 1024;
-    pub const GAMES_MAX_COUNT: usize = 1024;
-}
+use crate::settings::{PLAYERS_MAX_COUNT, GAMES_MAX_COUNT};
 
 pub struct GameStatistics {
     // overall players count that has been registered
@@ -40,8 +36,8 @@ pub struct GameStatistics {
 }
 
 pub struct GameManager {
-    players: ArrayDeque<[Rc<RefCell<Player>>; settings::PLAYERS_MAX_COUNT], Wrapping>,
-    games: ArrayDeque<[Rc<RefCell<Game>>; settings::GAMES_MAX_COUNT], Wrapping>,
+    players: ArrayDeque<[Rc<RefCell<Player>>; PLAYERS_MAX_COUNT], Wrapping>,
+    games: ArrayDeque<[Rc<RefCell<Game>>; GAMES_MAX_COUNT], Wrapping>,
     // TODO: String key should be replaced with Cow<'a, str>. After that signatures of all public
     // functions also should be changed similar to https://jwilm.io/blog/from-str-to-cow/.
     players_by_name: HashMap<String, Weak<RefCell<Player>>>,
