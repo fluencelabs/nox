@@ -47,7 +47,10 @@ fn x_tile_win() {
     assert_eq!(main(player_move), r#"{"coords":[18446744073709551615,18446744073709551615],"player_name":"John","winner":"X"}"#);
 
     let get_state = get_state_json("John".to_owned(), "so_secret_key".to_owned());
-    assert_eq!(main(get_state), r#"{"board":["X","O","O","X","_","_","X","_","_"],"player_name":"John","player_tile":"X"}"#);
+    assert_eq!(
+        main(get_state),
+        r#"{"board":["X","O","O","X","_","_","X","_","_"],"player_name":"John","player_tile":"X"}"#
+    );
 }
 
 #[test]

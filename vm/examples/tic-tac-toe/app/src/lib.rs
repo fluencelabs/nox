@@ -32,8 +32,8 @@ use serde_json::{json, Value};
 use std::cell::RefCell;
 
 mod settings {
-    pub const PLAYERS_MAX_COUNT: usize = 1;
-    pub const GAMES_MAX_COUNT: usize = 1;
+    pub const PLAYERS_MAX_COUNT: usize = 1024;
+    pub const GAMES_MAX_COUNT: usize = 1024;
 }
 
 thread_local! {
@@ -53,10 +53,9 @@ fn do_request(req: String) -> AppResult<Value> {
             })
         }
 
-        "create_player" => GAME_MANAGER.with(|gm| {
-            gm.borrow_mut()
-                .create_player(request.player_name)
-        }),
+        "create_player" => {
+            GAME_MANAGER.with(|gm| gm.borrow_mut().create_player(request.player_name))
+        }
 
         "create_game" => {
             let player_tile: PlayerTile = serde_json::from_value(raw_request)?;
@@ -70,15 +69,9 @@ fn do_request(req: String) -> AppResult<Value> {
             })
         }
 
-        "get_game_state" => GAME_MANAGER.with(|gm| {
-            gm.borrow()
-                .get_game_state(request.player_name)
-        }),
+        "get_game_state" => GAME_MANAGER.with(|gm| gm.borrow().get_game_state(request.player_name)),
 
-        "get_statistics" => GAME_MANAGER.with(|gm| {
-            gm.borrow()
-                .get_statistics()
-        }),
+        "get_statistics" => GAME_MANAGER.with(|gm| gm.borrow().get_statistics()),
 
         _ => Err(format!("{} action key is unsupported", request.action)).map_err(Into::into),
     }
@@ -88,11 +81,9 @@ fn do_request(req: String) -> AppResult<Value> {
 fn main(req: String) -> String {
     match do_request(req) {
         Ok(req) => req.to_string(),
-        Err(err) => {
-            json!({
-                "error": err.to_string()
-            })
-            .to_string()
-        }
+        Err(err) => json!({
+            "error": err.to_string()
+        })
+        .to_string(),
     }
 }

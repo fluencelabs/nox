@@ -17,14 +17,15 @@
 use crate::error_type::AppResult;
 use crate::game::{Game, GameMove, Tile};
 use crate::json_parser::{
-    CreateGameResponse, CreatePlayerResponse, GetGameStateResponse, MoveResponse, GetStatisticsResponse,
+    CreateGameResponse, CreatePlayerResponse, GetGameStateResponse, GetStatisticsResponse,
+    MoveResponse,
 };
 use crate::player::Player;
 
+use crate::settings::{GAMES_MAX_COUNT, PLAYERS_MAX_COUNT};
 use arraydeque::{ArrayDeque, Wrapping};
 use serde_json::Value;
-use std::{cell::RefCell, collections::HashMap, rc::Rc, rc::Weak, ops::AddAssign};
-use crate::settings::{PLAYERS_MAX_COUNT, GAMES_MAX_COUNT};
+use std::{cell::RefCell, collections::HashMap, ops::AddAssign, rc::Rc, rc::Weak};
 
 pub struct GameStatistics {
     // overall players count that has been registered
@@ -60,10 +61,7 @@ impl GameManager {
 
     /// Marks an empty position on the board by user's tile type. Returns MoveResponse structure
     /// as a serde_json Value.
-    pub fn make_move(&self,
-        player_name: String,
-        coords: (usize, usize),
-    ) -> AppResult<Value> {
+    pub fn make_move(&self, player_name: String, coords: (usize, usize)) -> AppResult<Value> {
         let game = self.get_player_game(&player_name)?;
         let mut game = game.borrow_mut();
         let game_move = GameMove::new(coords.0, coords.1)
@@ -99,7 +97,10 @@ impl GameManager {
     pub fn create_player(&mut self, player_name: String) -> AppResult<Value> {
         let new_player = Rc::new(RefCell::new(Player::new(player_name.clone())));
         if let Some(_) = self.players_by_name.get(&player_name) {
-           return Err("User with this name is already registered, please choose another one".to_owned()).map_err(Into::into);
+            return Err(
+                "User with this name is already registered, please choose another one".to_owned(),
+            )
+            .map_err(Into::into);
         }
 
         self.players_by_name
@@ -116,7 +117,10 @@ impl GameManager {
             result: "A new player has been successfully created".to_owned(),
         };
 
-        self.game_statistics.borrow_mut().players_created.add_assign(1);
+        self.game_statistics
+            .borrow_mut()
+            .players_created
+            .add_assign(1);
 
         serde_json::to_value(response).map_err(Into::into)
     }
@@ -124,11 +128,7 @@ impl GameManager {
     /// Creates a new game for provided player. Note that the previous one is deleted (if it
     /// present) and won't be accessed anymore. Returns CreateGameResponse as a serde_json Value if
     /// 'X' tile type has been chosen and MoveResponse otherwise.
-    pub fn create_game(
-        &mut self,
-        player_name: String,
-        player_tile: Tile,
-    ) -> AppResult<Value> {
+    pub fn create_game(&mut self, player_name: String, player_tile: Tile) -> AppResult<Value> {
         let player = self.get_player(&player_name)?;
 
         let game_state = Rc::new(RefCell::new(Game::new(player_tile)));
@@ -154,7 +154,10 @@ impl GameManager {
             }
         };
 
-        self.game_statistics.borrow_mut().games_created.add_assign(1);
+        self.game_statistics
+            .borrow_mut()
+            .games_created
+            .add_assign(1);
         self.games.push_back(game_state);
 
         response.map_err(Into::into)
@@ -189,17 +192,12 @@ impl GameManager {
             Some(player) => player.upgrade().ok_or_else(|| {
                 "Internal error occurred - player has been already removed".to_owned()
             }),
-            None => Err(format!(
-                "Player with name {} wasn't found",
-                player_name
-            )),
-        }.map_err(Into::into)
+            None => Err(format!("Player with name {} wasn't found", player_name)),
+        }
+        .map_err(Into::into)
     }
 
-    fn get_player_game(
-        &self,
-        player_name: &str,
-    ) -> AppResult<Rc<RefCell<Game>>> {
+    fn get_player_game(&self, player_name: &str) -> AppResult<Rc<RefCell<Game>>> {
         self
             // returns Rc<RefCell<Player>> if success
             .get_player(player_name)?
