@@ -61,8 +61,6 @@ lazy val `vm-hello-world2-2018` = (project in file("vm/examples/hello-world2/app
   )
 
 lazy val `vm-hello-world2-runner` = (project in file("vm/examples/hello-world2/runner"))
-  .configs(IntegrationTest)
-  .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
   .settings(
     commons,
     libraryDependencies ++= Seq(
@@ -81,6 +79,25 @@ lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
   .settings(
     rustVmExample("llamadb")
   )
+
+lazy val `tic-tac-toe` = (project in file("vm/examples/tic-tac-toe/app"))
+  .settings(
+    rustVmExample("tic-tac-toe/app")
+  )
+
+lazy val `tic-tac-toe-runner` = (project in file("vm/examples/tic-tac-toe/runner"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      asmble,
+      cats,
+      catsEffect,
+      pureConfig,
+      cryptoHashing,
+    )
+  )
+  .dependsOn(vm, `tic-tac-toe`)
+  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `statemachine-control` = (project in file("statemachine/control"))
   .settings(
