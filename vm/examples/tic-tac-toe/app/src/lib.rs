@@ -31,6 +31,11 @@ use fluence::sdk::*;
 use serde_json::{json, Value};
 use std::cell::RefCell;
 
+mod settings {
+    pub const PLAYERS_MAX_COUNT: usize = 1;
+    pub const GAMES_MAX_COUNT: usize = 1;
+}
+
 thread_local! {
     static GAME_MANAGER: RefCell<GameManager> = RefCell::new(GameManager::new());
 }
@@ -44,13 +49,13 @@ fn do_request(req: String) -> AppResult<Value> {
             let player_move: PlayerMove = serde_json::from_value(raw_request)?;
             GAME_MANAGER.with(|gm| {
                 gm.borrow()
-                    .make_move(request.player_name, request.player_sign, player_move.coords)
+                    .make_move(request.player_name, player_move.coords)
             })
         }
 
         "create_player" => GAME_MANAGER.with(|gm| {
             gm.borrow_mut()
-                .create_player(request.player_name, request.player_sign)
+                .create_player(request.player_name)
         }),
 
         "create_game" => {
@@ -61,13 +66,18 @@ fn do_request(req: String) -> AppResult<Value> {
 
             GAME_MANAGER.with(|gm| {
                 gm.borrow_mut()
-                    .create_game(request.player_name, request.player_sign, player_tile)
+                    .create_game(request.player_name, player_tile)
             })
         }
 
         "get_game_state" => GAME_MANAGER.with(|gm| {
             gm.borrow()
-                .get_game_state(request.player_name, request.player_sign)
+                .get_game_state(request.player_name)
+        }),
+
+        "get_statistics" => GAME_MANAGER.with(|gm| {
+            gm.borrow()
+                .get_statistics()
         }),
 
         _ => Err(format!("{} action key is unsupported", request.action)).map_err(Into::into),
@@ -84,6 +94,5 @@ fn main(req: String) -> String {
             })
             .to_string()
         }
-        Some(5)
     }
 }

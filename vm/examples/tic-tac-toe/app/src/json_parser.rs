@@ -20,7 +20,6 @@ use serde::{Deserialize, Serialize};
 pub struct Request {
     pub action: String,
     pub player_name: String,
-    pub player_sign: String,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -63,4 +62,11 @@ pub struct GetGameStateResponse {
     pub player_name: String,
     pub player_tile: char,
     pub board: Vec<char>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GetStatisticsResponse {
+    pub players_created: u64,
+    pub games_created: u64,
+    pub moves_count: i64,
 }

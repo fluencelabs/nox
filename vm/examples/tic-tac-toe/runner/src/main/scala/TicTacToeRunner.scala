@@ -31,7 +31,7 @@ object TicTacToeRunner extends IOApp {
   override def run(args: List[String]): IO[ExitCode] = {
 
     val program: EitherT[IO, VmError, String] = for {
-      inputFile <- EitherT(getInputFile(args).attempt)
+      inputFile <- EitherT(getWasmFilePath(args).attempt)
         .leftMap(e => InternalVmError(e.getMessage, Some(e)))
       vm ← WasmVm[IO](NonEmptyList.one(inputFile), "fluence.vm.debugger")
       initState ← vm.getVmState[IO]
@@ -119,13 +119,13 @@ object TicTacToeRunner extends IOApp {
        "action": "$action", "player_name": "$playerName", "player_sign": "$playerSign" $additionalFields
     }""".stripMargin
 
-  private def getInputFile(args: List[String]): IO[String] = IO {
+  private def getWasmFilePath(args: List[String]): IO[String] = IO {
     args.headOption match {
       case Some(value) ⇒
         println(s"Starts for input file $value")
         value
       case None ⇒
-        throw new IllegalArgumentException("Full path for wasm file is required!")
+        throw new IllegalArgumentException("Please provide a full path for wasm file as the first CLI argument.")
     }
   }
 
