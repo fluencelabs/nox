@@ -20,6 +20,7 @@ use failure::SyncFailure;
 use clap::{value_t, ArgMatches};
 use console::style;
 use ethkey::Secret;
+use failure::ResultExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::{Url, UrlError};
 use std::fmt::LowerHex;
@@ -30,7 +31,6 @@ use web3::transports::Http;
 use web3::types::SyncState;
 use web3::types::H256;
 use web3::Web3;
-use failure::ResultExt;
 
 // Creates progress bar in the console until the work is over
 //
