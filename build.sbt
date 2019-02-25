@@ -50,14 +50,17 @@ lazy val `vm-hello-world` = (project in file("vm/examples/hello-world"))
     rustVmExample("hello-world")
   )
 
-lazy val `vm-hello-world2` = (project in file("vm/examples/hello-world2/app"))
+lazy val `vm-hello-world2-2015` = (project in file("vm/examples/hello-world2/app-2015"))
   .settings(
-    rustVmExample("hello-world2/app")
+    rustVmExample("hello-world2/app-2015")
+  )
+
+lazy val `vm-hello-world2-2018` = (project in file("vm/examples/hello-world2/app-2018"))
+  .settings(
+    rustVmExample("hello-world2/app-2018")
   )
 
 lazy val `vm-hello-world2-runner` = (project in file("vm/examples/hello-world2/runner"))
-  .configs(IntegrationTest)
-  .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
   .settings(
     commons,
     libraryDependencies ++= Seq(
@@ -68,13 +71,33 @@ lazy val `vm-hello-world2-runner` = (project in file("vm/examples/hello-world2/r
       cryptoHashing,
     )
   )
-  .dependsOn(vm, `vm-hello-world2`)
+  .dependsOn(vm, `vm-hello-world2-2015`)
+  .dependsOn(vm, `vm-hello-world2-2018`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
   .settings(
     rustVmExample("llamadb")
   )
+
+lazy val `tic-tac-toe` = (project in file("vm/examples/tic-tac-toe/app"))
+  .settings(
+    rustVmExample("tic-tac-toe/app")
+  )
+
+lazy val `tic-tac-toe-runner` = (project in file("vm/examples/tic-tac-toe/runner"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      asmble,
+      cats,
+      catsEffect,
+      pureConfig,
+      cryptoHashing,
+    )
+  )
+  .dependsOn(vm, `tic-tac-toe`)
+  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `statemachine-control` = (project in file("statemachine/control"))
   .settings(
@@ -163,7 +186,7 @@ lazy val statemachine = (project in file("statemachine"))
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
   .dependsOn(vm, `statemachine-control`)
 
-lazy val externalstorage = (project in file("externalstorage"))
+lazy val swarm = (project in file("effects/swarm"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
@@ -202,6 +225,21 @@ lazy val ethclient = (project in file("ethclient"))
   )
   .enablePlugins(AutomateHeaderPlugin)
 
+lazy val `kvstore` = (project in file("effects/kvstore"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      slogging,
+      codecCore,
+      cats,
+      catsEffect,
+      fs2,
+      rocksDb,
+      scalaTest
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+
 lazy val node = project
   .configs(IntegrationTest)
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
@@ -213,7 +251,7 @@ lazy val node = project
       sttp,
       sttpCatsBackend,
       fs2io,
-      pureConfig,
+      ficus,
       circeGeneric,
       circeParser,
       http4sDsl,
@@ -252,7 +290,15 @@ lazy val node = project
         from("openjdk:8-jre-alpine")
         runRaw(s"wget -q $dockerBinary -O- | tar -C /usr/bin/ -zxv docker/docker --strip-components=1")
 
+        // this is needed for some binaries (e.g. rocksdb) to run properly on alpine linux since they need libc and
+        // alpine use musl
+        runRaw("ln -sf /lib/libc.musl-x86_64.so.1 /usr/lib/ld-linux-x86-64.so.2")
+
         volume("/master") // anonymous volume to store all data
+
+        // p2p ports range
+        env("MIN_PORT", "10000")
+        env("MAX_PORT", "11000")
 
         /*
          * The following directory structure is assumed in node/src/main/resources:
@@ -264,11 +310,11 @@ lazy val node = project
 
         copy(artifact, artifactTargetPath)
 
-        cmd("java", "-jar", artifactTargetPath)
+        cmd("java", "-jar", "-Dconfig.file=/master/application.conf", artifactTargetPath)
         entryPoint("sh", "/entrypoint.sh")
       }
     }
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(ethclient, externalstorage, `statemachine-control`)
+  .dependsOn(ethclient, swarm, `statemachine-control`, `kvstore`)

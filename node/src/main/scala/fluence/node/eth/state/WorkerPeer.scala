@@ -28,16 +28,15 @@ import scodec.bits.ByteVector
  * @param validatorKey 32-byte Tendermint Validator key, also represented by base64ValidatorKey
  * @param peerId hex-encoded 20-byte Tendermint peer ID which is calculated as `hex.EncodeToString(SHA256(peer.PubKey)[:20])`
  *               and can be retrieved from Tendermint via command `show_node_id`
- * @param p2pPort p2p Tendermint port, used by Tendermint to connect p2p peers. Also used for rpcPort calculation
+ * @param apiPort Remote peer's API port
  * @param index index of a worker in cluster workers array
  */
-case class WorkerPeer(validatorKey: ByteVector, peerId: String, ip: InetAddress, p2pPort: Short, index: Int) {
+case class WorkerPeer(validatorKey: ByteVector, peerId: String, apiPort: Short, ip: InetAddress, index: Int) {
   val base64ValidatorKey: String = validatorKey.toBase64
-  val address: String = s"${ip.getHostAddress}:$p2pPort"
-  val peerAddress: String = s"$peerId@$address"
 
-  // TODO: remove it after adding Worker's tendermint status to node
-  val rpcPort: Short = WorkerPeer.rpcPort(p2pPort)
+  def address(p2pPort: Short): String = s"${ip.getHostAddress}:$p2pPort"
+
+  def peerAddress(p2pPort: Short): String = s"$peerId@${address(p2pPort)}"
 }
 
 object WorkerPeer {
@@ -47,22 +46,15 @@ object WorkerPeer {
    *
    * @param validatorKey Tendermint validator key, determines the node that controls the worker
    * @param nodeAddress is a concatenation of tendermint p2p node_id (20 bytes) and IPv4 address (4 bytes)
-   * @param p2pPort Tendermint p2p port of the worker
    * @param index index of a worker in cluster workers array
    * @return WorkerPeer instance
    */
-  def apply(validatorKey: Bytes32, nodeAddress: Bytes24, p2pPort: Uint16, index: Int): WorkerPeer = {
+  def apply(validatorKey: Bytes32, nodeAddress: Bytes24, apiPort: Short, index: Int): WorkerPeer = {
     val peerId = ByteVector(nodeAddress.getValue, 0, 20).toHex
     val ipBytes: Array[Byte] = ByteVector(nodeAddress.getValue, 20, 4).toArray.map(x => (x & 0xFF).toByte)
     val inetAddress = InetAddress.getByAddress(ipBytes)
-    val portShort = p2pPort.getValue.shortValue()
     val keyBytes = bytes32ToBinary(validatorKey)
 
-    WorkerPeer(keyBytes, peerId, inetAddress, portShort, index)
+    WorkerPeer(keyBytes, peerId, apiPort, inetAddress, index)
   }
-
-  //TODO: find a better way to calculate all these ports. Maybe Kademlia?
-  def rpcPort(p2pPort: Short): Short = (p2pPort + 100).toShort
-  def tmPrometheusPort(p2pPort: Short): Short = (p2pPort + 200).toShort
-  def smPrometheusPort(p2pPort: Short): Short = (p2pPort + 300).toShort
 }

@@ -14,23 +14,14 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.tendermint.status
-
-import io.circe.generic.extras.Configuration
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+package fluence.node.config
 import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
-/**
- * Status information from a tendermint node.
- */
-private[tendermint] case class StatusResponse(result: TendermintStatus)
+case class PortsConfig(minPort: Short, maxPort: Short)
 
-private[tendermint] object StatusResponse {
+object PortsConfig {
 
-  implicit val configuration: Configuration =
-    Configuration.default.withSnakeCaseMemberNames.withSnakeCaseConstructorNames
-
-  implicit val decodeResponse: Decoder[StatusResponse] = deriveDecoder
-
-  implicit val encodeResponse: Encoder[StatusResponse] = deriveEncoder
+  implicit val encodePortsConfig: Encoder[PortsConfig] = deriveEncoder
+  implicit val decodePortsConfig: Decoder[PortsConfig] = deriveDecoder
 }

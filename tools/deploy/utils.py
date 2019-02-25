@@ -8,8 +8,8 @@ def register_command(data, secret_key):
         --contract_address   %s \
         --account            %s \
         --secret_key         %s \
-        --start_port         %s \
-        --last_port          %s \
+        --api_port           %s \
+        --capacity           %s \
         --eth_url            %s \
         --wait_syncing \
         --gas_price 10 \
@@ -20,8 +20,8 @@ def register_command(data, secret_key):
             data['contract_address'],
             data['account'],
             secret_key,
-            data['start_port'],
-            data['last_port'],
+            data['api_port'],
+            data['capacity'],
             eth_url
         )
 

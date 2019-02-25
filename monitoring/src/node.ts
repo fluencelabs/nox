@@ -27,8 +27,8 @@ export interface Node {
     id: string,
     tendermint_key: string,
     ip_addr: string,
-    next_port: number,
-    last_port: number,
+    api_port: number,
+    capacity: number,
     owner: string,
     is_private: boolean,
     clusters_ids: string[]
@@ -39,25 +39,30 @@ export interface Node {
  */
 export async function getNodes(contract: Network, ids: string[]): Promise<Node[]> {
     let nodeCalls: Promise<Node>[] = ids.map((id) => {
-        return contract.methods.getNode(id).call().then((res) => {
-            let addr = decodeNodeAddress(res["0"]);
-            let nextPort = parseInt(res["1"]);
-            let lastPort = parseInt(res["2"]);
-            let owner = res["3"];
-            let isPrivate = res["4"];
-            let clusterIds = res["5"];
+        return contract.methods.getNode(id).call()
+            .catch((e) => {
+                console.log(`Cannot get node ${id}. Cause: ${e}`);
+                throw e;
+            })
+            .then((res) => {
+                let addr = decodeNodeAddress(res["0"]);
+                let apiPort = parseInt(res["1"]);
+                let capacity = parseInt(res["2"]);
+                let owner = res["3"];
+                let isPrivate = res["4"];
+                let clusterIds = res["5"];
 
-            return {
-                id: id,
-                tendermint_key: addr.tendermint_key,
-                ip_addr: addr.ip_addr,
-                next_port: nextPort,
-                last_port: lastPort,
-                owner: owner,
-                is_private: isPrivate,
-                clusters_ids: clusterIds
-            };
-        });
+                return {
+                    id: id,
+                    tendermint_key: addr.tendermint_key,
+                    ip_addr: addr.ip_addr,
+                    api_port: apiPort,
+                    capacity: capacity,
+                    owner: owner,
+                    is_private: isPrivate,
+                    clusters_ids: clusterIds
+                };
+            });
     });
 
     return Promise.all(nodeCalls);

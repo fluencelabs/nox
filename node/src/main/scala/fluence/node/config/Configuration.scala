@@ -36,19 +36,6 @@ case class Configuration(
 
 object Configuration extends slogging.LazyLogging {
 
-  /**
-   * Load config at /master/application.conf with fallback on config from class loader
-   */
-  def loadConfig(): IO[Config] = {
-    import pureconfig.backend.ConfigFactoryWrapper._
-    val containerConfig = "/master/application.conf"
-
-    (loadFile(Paths.get(containerConfig)) match {
-      case Left(_) => load() // exception will be printed out later, see ConfigOps
-      case Right(config) => load.map(config.withFallback)
-    }).toIO
-  }
-
   // TODO avoid this! it's not configuration, and what is being done there is very obscure!
   def init(masterConfig: MasterConfig)(implicit ec: ContextShift[IO]): IO[Configuration] =
     for {
@@ -175,5 +162,5 @@ object Configuration extends slogging.LazyLogging {
           )
         )
       } else IO.unit
-    } yield {}
+    } yield ()
 }

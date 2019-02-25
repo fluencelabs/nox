@@ -17,13 +17,11 @@
 package fluence.node.config
 
 import cats.effect.IO
-import com.typesafe.config.ConfigObject
-import fluence.node.config.Configuration.loadConfig
 import fluence.node.docker.{DockerConfig, DockerImage}
 import fluence.node.workers.tendermint.config.TendermintConfig
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
-import pureconfig.ConfigReader
+import net.ceedubs.ficus.readers.ValueReader
 
 /**
  * Main config class for master node.
@@ -33,14 +31,15 @@ import pureconfig.ConfigReader
  *                  for requests after a cluster will be formed
  * @param contract information about Fluence smart contract
  * @param swarm information about Swarm node
- * @param statusServer information about master node status server
+ * @param httpApi information about master node status server
  */
 case class MasterConfig(
   rootPath: String,
+  ports: PortsConfig,
   endpoints: EndpointsConfig,
   contract: FluenceContractConfig,
   swarm: SwarmConfig,
-  statusServer: StatusServerConfig,
+  httpApi: HttpApiConfig,
   masterContainerId: Option[String],
   worker: DockerConfig,
   tendermint: DockerConfig,
@@ -49,15 +48,18 @@ case class MasterConfig(
 )
 
 object MasterConfig {
-  import pureconfig.generic.auto._
   import ConfigOps._
 
   implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder
   implicit val decodeMasterConfig: Decoder[MasterConfig] = deriveDecoder
 
+  import ConfigOps.inetAddressValueReader
+  import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
+  import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+  import net.ceedubs.ficus.Ficus._
+
+  implicit val shortReader: ValueReader[Short] = ValueReader[Int].map(_.toShort)
+
   def load(): IO[MasterConfig] =
-    for {
-      config <- loadConfig()
-      masterConfig <- pureconfig.loadConfig[MasterConfig](config).toIO
-    } yield masterConfig
+    ConfigOps.loadConfigAs[MasterConfig]()
 }

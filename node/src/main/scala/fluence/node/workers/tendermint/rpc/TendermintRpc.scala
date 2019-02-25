@@ -18,100 +18,109 @@ package fluence.node.workers.tendermint.rpc
 
 import cats.Functor
 import cats.data.EitherT
-import cats.effect.{Concurrent, Resource, Sync}
+import cats.effect.{Resource, Sync}
 import cats.syntax.either._
 import cats.syntax.functor._
 import com.softwaremill.sttp._
-import com.softwaremill.sttp.circe.asJson
 import cats.syntax.applicativeError._
-import fluence.node.MakeResource
 import fluence.node.workers.status.{HttpCheckFailed, HttpCheckStatus, HttpStatus}
-import fluence.node.workers.tendermint.status.{StatusResponse, TendermintStatus}
-import io.circe.generic.semiauto._
-import io.circe.{Encoder, Json}
+import io.circe.parser.decode
+import io.circe.Json
 
 import scala.language.higherKinds
 
 /**
  * Provides a single concurrent endpoint to run RPC requests on Worker
  *
- * @param sinkRpc Tendermint's RPC requests endpoint
- * @param status Tendermint's status
- * @tparam F Concurrent effect
+ * @param get Perform a Get request for the given path
+ * @param post Perform a Post request, sending the given [[RpcRequest]]
+ * @tparam F Http requests effect
  */
-case class TendermintRpc[F[_]] private (
-  sinkRpc: fs2.Sink[F, TendermintRpc.Request],
-  status: EitherT[F, Throwable, TendermintStatus]
-) {
+case class TendermintRpc[F[_]](
+  get: String ⇒ EitherT[F, RpcError, String],
+  post: RpcRequest ⇒ EitherT[F, RpcError, String]
+) extends slogging.LazyLogging {
 
-  val broadcastTxCommit: fs2.Sink[F, String] =
-    (s: fs2.Stream[F, String]) ⇒ s.map(TendermintRpc.broadcastTxCommit(_)) to sinkRpc
+  /** Get status as string */
+  val status: EitherT[F, RpcError, String] =
+    get("status")
+
+  /** Get status, parse it to [[TendermintStatus]] */
+  def statusParsed(implicit F: Functor[F]): EitherT[F, RpcError, TendermintStatus] =
+    status
+      .map(decode[StatusResponse])
+      .subflatMap[RpcError, TendermintStatus](
+        _.map(_.result).leftMap(RpcBodyMalformed)
+      )
 
   /**
-   * Make a single RPC call in a fire-and-forget manner.
-   * Response is to be dropped, so you should take care of `id` in the request if you need to get it
+   * Builds a broadcast_tx_commit RPC request
    *
-   * @param req The Tendermint request
-   * @param F Concurrent effect
+   * NOTE from Tendermint docs: it is not possible to send transactions to Tendermint during `Commit` - if your app tries to send a `/broadcast_tx` to Tendermint during Commit, it will deadlock.
+   * TODO: ensure the above deadlock doesn't happen
+   *
+   * @param tx Transaction body
+   * @param id Tracking ID, you may omit it
    */
-  def callRpc(req: TendermintRpc.Request)(implicit F: Concurrent[F]): F[Unit] =
-    fs2.Stream(req).to(sinkRpc).compile.drain
+  def broadcastTxSync(tx: String, id: String): EitherT[F, RpcError, String] =
+    post(RpcRequest(method = "broadcast_tx_sync", params = Json.fromString(tx) :: Nil, id = id))
+
+  def unsafeDialPeers(peers: Seq[String], persistent: Boolean, id: String = "dontcare"): EitherT[F, RpcError, String] =
+    post(
+      RpcRequest(
+        method = "dial_peers",
+        params =
+          Json.arr(peers.map(Json.fromString): _*) :: Json.fromBoolean(persistent) :: Nil,
+        id = id
+      )
+    )
+
+  /** Post a `query` request, wait for response, return it unparsed */
+  def query(
+    path: String,
+    data: String = "",
+    height: Long = 0,
+    prove: Boolean = false,
+    id: String
+  ): EitherT[F, RpcError, String] =
+    post(
+      RpcRequest(
+        method = "abci_query",
+        params = Json.fromString(path) ::
+          Json.fromString(data) ::
+          Json.fromString(height.toString) ::
+          Json.fromBoolean(prove) :: Nil,
+        id = id
+      )
+    )
 
   /**
    * Performs http status check, lifting result to [[HttpStatus]] data type
    */
   def httpStatus(implicit F: Functor[F]): F[HttpStatus[TendermintStatus]] =
-    status.value.map {
+    statusParsed.value.map {
       case Right(resp) ⇒ HttpCheckStatus(resp)
       case Left(err) ⇒ HttpCheckFailed(err)
     }
 }
 
-object TendermintRpc {
-  private val requestEncoder: Encoder[Request] = deriveEncoder[Request]
+object TendermintRpc extends slogging.LazyLogging {
 
-  /**
-   * Wrapper for Tendermint's RPC request
-   *
-   * @param method Method name
-   * @param jsonrpc Version of the JSON RPC protocol
-   * @param params Sequence of arguments for the method
-   * @param id Nonce to track the results of the request with some other method
-   */
-  case class Request(method: String, jsonrpc: String = "2.0", params: Seq[Json], id: String = "") {
-    def toJsonString: String = requestEncoder(this).noSpaces
-  }
+  /** Perform the request, and lift the errors to EitherT */
+  private def sendHandlingErrors[F[_]: Sync](
+    reqT: RequestT[Id, String, Nothing]
+  )(implicit sttpBackend: SttpBackend[F, Nothing]): EitherT[F, RpcError, String] =
+    reqT
+      .send()
+      .attemptT
+      .leftMap[RpcError](RpcRequestFailed)
+      .subflatMap[RpcError, String] { resp ⇒
+        val eitherResp = resp.body
+          .leftMap[RpcError](RpcRequestErrored(resp.code, _))
 
-  /**
-   * Builds a broadcast_tx_commit RPC request
-   *
-   * @param tx Transaction body
-   * @param id Tracking ID, you may omit it
-   * NOTE from Tendermint docs: it is not possible to send transactions to Tendermint during `Commit` - if your app tries to send a `/broadcast_tx` to Tendermint during Commit, it will deadlock.
-   * TODO: ensure the above deadlock doesn't happen
-   */
-  def broadcastTxCommit(tx: String, id: String = ""): Request =
-    Request(method = "broadcast_tx_commit", params = Json.fromString(tx) :: Nil, id = id)
-
-  private def status[F[_]: Sync](
-    uri: Uri
-  )(implicit sttpBackend: SttpBackend[F, Nothing]): EitherT[F, Throwable, TendermintStatus] =
-    EitherT {
-      sttp
-        .get(uri)
-        .response(asJson[StatusResponse])
-        .send()
-        .attempt
-        // converting Either[Throwable, Response[Either[DeserializationError[circe.Error], WorkerResponse]]]
-        // to Either[Throwable, WorkerResponse]
-        .map(
-          _.flatMap(
-            _.body
-              .leftMap(new Exception(_))
-              .flatMap(_.leftMap(_.error))
-          )
-        )
-    }.map(_.result)
+        logger.trace(s"TendermintRpc response(${resp.code}): $eitherResp")
+        eitherResp
+      }
 
   /**
    * Runs a WorkerRpc with F effect, acquiring some resources for it
@@ -122,33 +131,26 @@ object TendermintRpc {
    * @tparam F Concurrent effect
    * @return Worker RPC instance. Note that it should be stopped at some point, and can't be used after it's stopped
    */
-  def make[F[_]: Concurrent](
+  def make[F[_]: Sync](
     hostName: String,
     port: Short
   )(implicit sttpBackend: SttpBackend[F, Nothing]): Resource[F, TendermintRpc[F]] = {
     def rpcUri(hostName: String, path: String = ""): Uri =
       uri"http://$hostName:$port/$path"
 
-    for {
-      queue ← Resource.liftF(fs2.concurrent.Queue.unbounded[F, TendermintRpc.Request])
-
-      _ ← MakeResource.concurrentStream(
-        queue.dequeue.evalMap(
-          req ⇒
-            sttpBackend
-              .send(
-                sttp
-                  .post(rpcUri(hostName))
-                  .body(req.toJsonString)
-              )
-              .map(_.isSuccess)
-        ),
-        name = s"tendermintRpc-$hostName"
-      )
-    } yield
+    Resource.pure(
       new TendermintRpc[F](
-        queue.enqueue,
-        status[F](rpcUri(hostName, "status"))
+        path ⇒
+          sendHandlingErrors(
+            sttp.get(rpcUri(hostName, path))
+        ),
+        req ⇒
+          sendHandlingErrors(
+            sttp
+              .post(rpcUri(hostName))
+              .body(req.toJsonString)
+        )
       )
+    )
   }
 }

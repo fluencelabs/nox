@@ -67,15 +67,13 @@ impl App {
 pub struct Cluster {
     pub genesis_time: u32,
     pub node_ids: Vec<H256>,
-    pub ports: Vec<u16>,
 }
 
 impl Cluster {
-    pub fn new(genesis_time: u32, node_ids: Vec<H256>, ports: Vec<u16>) -> Cluster {
+    pub fn new(genesis_time: u32, node_ids: Vec<H256>) -> Cluster {
         Cluster {
             genesis_time,
             node_ids,
-            ports,
         }
     }
 }
@@ -88,8 +86,8 @@ pub struct Node {
     pub validator_key: H256,
     pub tendermint_p2p_id: String,
     pub ip_addr: IpAddr,
-    pub next_port: u16,
-    pub last_port: u16,
+    pub api_port: u16,
+    pub capacity: u16,
     pub owner: Address,
     pub is_private: bool,
     pub app_ids: Option<Vec<u64>>, // Defined if loaded
@@ -99,8 +97,8 @@ impl Node {
     pub fn new(
         id: H256,
         address: NodeAddress,
-        next_port: u16,
-        last_port: u16,
+        api_port: u16,
+        capacity: u16,
         owner: Address,
         is_private: bool,
         app_ids: Option<Vec<u64>>,
@@ -110,8 +108,8 @@ impl Node {
             validator_key: id,
             tendermint_p2p_id: tendermint_key,
             ip_addr,
-            next_port,
-            last_port,
+            api_port,
+            capacity,
             owner,
             is_private,
             app_ids,
@@ -127,14 +125,14 @@ pub fn get_nodes(web3: &Web3<Http>, contract_address: Address) -> Result<Vec<Nod
         .iter()
         .map(|id| {
             let (call_data, decoder) = get_node::call(*id);
-            let (ip_addr, next_port, last_port, owner, is_private, app_ids) =
+            let (ip_addr, api_port, capacity, owner, is_private, app_ids) =
                 query_contract(call_data, Box::new(decoder), web3, contract_address)?;
 
             Node::new(
                 *id,
                 ip_addr.into(),
-                Into::<u64>::into(next_port) as u16,
-                Into::<u64>::into(last_port) as u16,
+                Into::<u64>::into(api_port) as u16,
+                Into::<u64>::into(capacity) as u16,
                 owner,
                 is_private,
                 Some(app_ids.into_iter().map(Into::into).collect()),
@@ -157,26 +155,14 @@ pub fn get_apps(web3: &Web3<Http>, contract_address: Address) -> Result<Vec<App>
         .iter()
         .map(|id| {
             let (call_data, decoder) = get_app::call(*id);
-            let (
-                storage_hash,
-                storage_receipt,
-                cluster_size,
-                owner,
-                pin_to,
-                genesis,
-                node_ids,
-                ports,
-            ) = query_contract(call_data, Box::new(decoder), web3, contract_address)
-                .context("reading app ids from contract failed")?;
+            let (storage_hash, storage_receipt, cluster_size, owner, pin_to, genesis, node_ids) =
+                query_contract(call_data, Box::new(decoder), web3, contract_address)
+                    .context("reading app ids from contract failed")?;
 
             let cluster = if !genesis.is_zero() {
                 let genesis: u64 = genesis.into();
-                let ports = ports
-                    .iter()
-                    .map(|p| (Into::<u64>::into(*p) as u16))
-                    .collect();
 
-                Some(Cluster::new(genesis as u32, node_ids, ports))
+                Some(Cluster::new(genesis as u32, node_ids))
             } else {
                 None
             };

@@ -35,29 +35,38 @@ export interface App {
 }
 
 export function getApp(contract: Network, id: string): Promise<App> {
-    return contract.methods.getApp(id).call().then((unparsedApp) => {
-        let storageHash: string = unparsedApp["0"];
-        let storageReceipt: string = unparsedApp["1"];
-        let clusterSize: number = parseInt(unparsedApp["2"]);
-        let owner: string = unparsedApp["3"];
-        let pinToNodes: string[] = unparsedApp["4"];
+    return contract.methods.getApp(id).call()
+        .catch((e) => {
+            console.error(`Error ocurred on \`getApp\` method. Check if contract address ${contract._address} or id ${id} is correct. Cause: ${e}`);
+            throw e;
+        }).then((unparsedApp) => {
+            let storageHash: string = unparsedApp["0"];
+            let storageReceipt: string = unparsedApp["1"];
+            let clusterSize: number = parseInt(unparsedApp["2"]);
+            let owner: string = unparsedApp["3"];
+            let pinToNodes: string[] = unparsedApp["4"];
 
-        let genesisTime: number = parseInt(unparsedApp["5"]);
-        let nodeIds: string[] = unparsedApp["6"];
-        let ports: number[] = unparsedApp["7"].map((p) => parseInt(p));
+            let genesisTime: number = parseInt(unparsedApp["5"]);
+            let nodeIds: string[] = unparsedApp["6"];
 
-        let clusterOpt = parseCluster(genesisTime, nodeIds, ports);
+            let clusterOpt;
+            try {
+                 clusterOpt = parseCluster(genesisTime, nodeIds);
+            } catch (e) {
+                console.error("Error occured on cluster parsing.");
+                throw e;
+            }
 
-        return {
-            app_id: id,
-            storage_hash: storageHash,
-            storage_receipt: storageReceipt,
-            cluster_size: clusterSize,
-            owner: owner,
-            pinToNodes: pinToNodes,
-            cluster: clusterOpt
-        };
-    });
+            return {
+                app_id: id,
+                storage_hash: storageHash,
+                storage_receipt: storageReceipt,
+                cluster_size: clusterSize,
+                owner: owner,
+                pinToNodes: pinToNodes,
+                cluster: clusterOpt
+            };
+        });
 }
 
 /**

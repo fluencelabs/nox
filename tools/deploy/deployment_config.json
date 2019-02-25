@@ -5,12 +5,14 @@
       "<ip1>": {
         "owner": "<owner-account1>",
         "key": "<secret-key1>",
-        "ports": "<start-port1:end-port1>"
+        "api_port": "<port>",
+        "capacity": "<max-num-of-apps>"
       },
       "<ip2>": {
         "owner": "<owner-account2>",
         "key": "<secret-key2>",
-        "ports": "<start-port2:end-port2>"
+        "api_port": "<port>",
+        "capacity": "<max-num-of-apps>"
       }
     }
   },
@@ -20,7 +22,8 @@
       "<ip>": {
         "owner": "<owner-account>",
         "key": "<secret-key>",
-        "ports": "<start-port:end-port>"
+        "api_port": "<port>",
+        "capacity": "<max-num-of-apps>"
       }
     }
   }

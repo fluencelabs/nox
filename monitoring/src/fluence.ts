@@ -18,21 +18,17 @@
 import {ContractStatus, getContractStatus} from "./contractStatus";
 import axios from 'axios';
 import {Network} from "../types/web3-contracts/Network";
-import {NodeStatus, UnavailableNode, isAvailable} from "./nodeStatus";
 import JSONFormatter from 'json-formatter-js';
 import * as App from "./app"
 import {getNodes, Node} from "./node";
-import {none, Option} from "ts-option";
+import {Option} from "ts-option";
 import Web3 = require('web3');
 import abi = require("./Network.json");
 
 let web3 = (window as any).web3;
 
 export {
-    Node as Node,
-    NodeStatus as NodeStatus,
-    UnavailableNode as UnavailableNode,
-    isAvailable as isAvailable
+    Node as Node
 }
 
 /**
@@ -40,27 +36,24 @@ export {
  */
 export interface Status {
     contract_status: ContractStatus,
-    node_statuses: (NodeStatus|UnavailableNode)[]
+    node_statuses: any[]
 }
 
-/*
- * Cluster member of a specific app.
- */
-export interface Worker {
-    node: Node,
-    port: number,
-    statusPort: number
+function isDefined(str?: string): str is string {
+    return str !== undefined;
 }
 
 /*
  * Gets Fluence Contract
  */
-export function getContract(address: string, ethereumUrl: Option<string>): Network {
+export function getContract(address: string, ethereumUrl?: string): Network {
     let web3js;
-    if (ethereumUrl.isDefined || (typeof web3 === 'undefined')) {
-        let url = ethereumUrl.getOrElse("http://localhost:8545");
-        console.log('Connecting web3 to ' + url);
-        web3js = new Web3(new Web3.providers.HttpProvider(url));
+    if (isDefined(ethereumUrl)) {
+        console.log('Connecting web3 to ' + ethereumUrl);
+        web3js = new Web3(new Web3.providers.HttpProvider(ethereumUrl));
+    } else if (typeof web3 === 'undefined') {
+        console.log('Connecting web3 to default local node: http://localhost8545/');
+        web3js = new Web3(new Web3.providers.HttpProvider("http://localhost8545/"));
     } else {
         // Use Mist/MetaMask's provider
         console.log("Using provided web3 (Mist/Metamask/etc)");
@@ -71,9 +64,9 @@ export function getContract(address: string, ethereumUrl: Option<string>): Netwo
 }
 
 /*
- * Gets workers that are members of a cluster with a specific app (by appId).
+ * Gets nodes that are members of a cluster with a specific app (by appId).
  */
-export async function getAppWorkers(contractAddress: string, appId: string, ethereumUrl: Option<string>): Promise<Worker[]> {
+export async function getAppNodes(contractAddress: string, appId: string, ethereumUrl?: string): Promise<Node[]> {
 
     let contract = getContract(contractAddress, ethereumUrl);
 
@@ -82,36 +75,23 @@ export async function getAppWorkers(contractAddress: string, appId: string, ethe
 
     let cluster = app.cluster;
 
-    let result: Option<Promise<Worker[]>> = cluster.map((c) => {
-
-        let ids: string[] = c.cluster_members.map((m) => m.id);
+    let result: Option<Promise<Node[]>> = cluster.map((c) => {
 
         // get info about all node members of the app
-        return getNodes(contract, ids).then((nodes) => {
+        return getNodes(contract, c.node_ids).then((nodes) => {
             // combine nodes with a specific port in the app
-            return nodes.map((n, idx) => {
-                return {
-                    node: n,
-                    port: c.cluster_members[idx].port,
-                    statusPort: getStatusPort(n)
-                }
-            })
+            return nodes;
         });
     });
 
     return result.getOrElse(Promise.resolve([]));
 }
 
-export function getStatusPort(node: Node) {
-    // todo: `+400` is a temporary solution, fix it after implementing correct port management
-    return node.last_port + 400
-}
-
 // get node health status by HTTP
-export function getNodeStatus(node: Node): Promise<NodeStatus|UnavailableNode> {
-    let url = `http://${node.ip_addr}:${getStatusPort(node)}/status`;
+export function getNodeStatus(node: Node): Promise<any> {
+    let url = `http://${node.ip_addr}:${node.api_port}/status`;
     return axios.get(url).then((res) => {
-        return <NodeStatus>res.data;
+        return res.data;
     }).catch((err) => {
         return {
             nodeInfo: node,
@@ -125,7 +105,7 @@ export function getNodeStatus(node: Node): Promise<NodeStatus|UnavailableNode> {
  * @param ethereumUrl Url of an Ethereum node
  * @param contractAddress Address from ganache by default. todo: use address from mainnet as default
  */
-export async function getStatus(contractAddress: string, ethereumUrl: Option<string>): Promise<Status> {
+export async function getStatus(contractAddress: string, ethereumUrl?: string): Promise<Status> {
 
     let contract = getContract(contractAddress, ethereumUrl, );
 
@@ -148,7 +128,7 @@ export async function getStatus(contractAddress: string, ethereumUrl: Option<str
  * Show rendered status of Fluence network.
  */
 export function showStatus(contractAddress: string) {
-    let status = getStatus(contractAddress, none);
+    let status = getStatus(contractAddress, undefined);
     status.then((st) => {
         const formatter = new JSONFormatter(st);
         document.body.innerHTML = '';

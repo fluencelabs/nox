@@ -40,8 +40,8 @@ contract Network is Deployer {
         Node memory node = nodes[nodeID];
         return (
             node.nodeAddress,
-            node.nextPort,
-            node.lastPort,
+            node.apiPort,
+            node.capacity,
             node.owner,
             node.isPrivate,
             node.appIDs
@@ -68,7 +68,7 @@ contract Network is Deployer {
     function getApp(uint256 appID)
         external
         view
-    returns (bytes32, bytes32, uint8, address, bytes32[], uint, bytes32[], uint16[])
+    returns (bytes32, bytes32, uint8, address, bytes32[], uint, bytes32[])
     {
         App memory app = apps[appID];
         require(app.appID > 0, "there is no such app");
@@ -81,8 +81,7 @@ contract Network is Deployer {
             app.pinToNodes,
 
             app.cluster.genesisTime,
-            app.cluster.nodeIDs,
-            app.cluster.ports
+            app.cluster.nodeIDs
         );
     }
 
@@ -98,13 +97,16 @@ contract Network is Deployer {
         require(app.appID > 0, "there is no such app");
 
         bytes24[] memory addresses = new bytes24[](app.cluster.nodeIDs.length);
+        uint16[] memory ports = new uint16[](app.cluster.nodeIDs.length);
+
         for(uint8 i = 0; i < app.cluster.nodeIDs.length; i++) {
             addresses[i] = nodes[app.cluster.nodeIDs[i]].nodeAddress;
+            ports[i] = nodes[app.cluster.nodeIDs[i]].apiPort;
         }
 
         return (
             addresses,
-            app.cluster.ports
+            ports
         );
     }
 
