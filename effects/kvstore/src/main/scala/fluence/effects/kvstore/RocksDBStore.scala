@@ -83,12 +83,6 @@ object RocksDBStore extends LazyLogging {
       // Database options
       opts ← Resource.make(cs.evalOn(ctx)(IO {
         logger.debug(s"Creating options")
-        val result1 = "ls -la /tmp"
-        println(result1 !)
-
-        val result2 = "ls -la /lib64"
-        println(result2 !)
-
         val options = new Options()
         logger.debug(s"Here we have options: " + options)
         options.setCreateIfMissing(createIfMissing)

@@ -233,7 +233,10 @@ lazy val node = project
         val dockerBinary = "https://download.docker.com/linux/static/stable/x86_64/docker-18.06.1-ce.tgz"
         from("openjdk:8-jre-alpine")
         runRaw(s"wget -q $dockerBinary -O- | tar -C /usr/bin/ -zxv docker/docker --strip-components=1")
-        runRaw("apk add --no-cache libc6-compat")
+
+        // This is needed for go binaries to run properly on alpine linux since the binary needs libc and alpine use musl.
+        runRaw("mkdir /lib64 && ln -sf /lib/libc.musl-x86_64.so.1 /lib64/ld-linux-x86-64.so.2")
+        //runRaw("apk add --no-cache libc6-compat")
 
         volume("/master") // anonymous volume to store all data
 
@@ -252,10 +255,6 @@ lazy val node = project
         copy(artifact, artifactTargetPath)
 
         cmd("java", "-jar", "-Dconfig.file=/master/application.conf", artifactTargetPath)
-        runRaw("ls -la /tmp/")
-        runRaw("ls -la /usr/local/lib")
-        runRaw("ls -la /usr/lib/")
-        runRaw("ls -la /lib64")
         entryPoint("sh", "/entrypoint.sh")
       }
     }
