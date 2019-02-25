@@ -28,12 +28,20 @@ fn delete_app(wait_eth_sync: bool, wait_tx_include: bool) {
         .with_eth_sync(wait_eth_sync)
         .with_tx_include(wait_tx_include);
 
-    let count = 5;
+    let count = 7;
     for _ in 0..count {
         opts.register_random_node(1, false).unwrap();
     }
 
     let tx = opts.publish_app(count, vec![]).unwrap();
+
+    // print out status in case test is failed
+    let status = opts.get_status();
+    if let Ok(status) = status {
+        let json = serde_json::to_string_pretty(&status).unwrap();
+
+        println!("{}", json);
+    }
 
     let logs = opts.get_transaction_logs(&tx, app_deployed::parse_log);
     let log = logs.first().unwrap();

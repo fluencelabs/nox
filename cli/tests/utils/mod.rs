@@ -14,28 +14,30 @@
  * limitations under the License.
  */
 
-use fluence::publisher::Publisher;
-use fluence::register::Register;
-
-use failure::Error;
 use std::result::Result as StdResult;
-
-use rand::Rng;
-use web3::types::H256;
 
 use derive_getters::Getters;
 use ethabi::RawLog;
 use ethabi::TopicFilter;
-use fluence::command::EthereumArgs;
-use fluence::contract_func::get_transaction_logs;
-use fluence::delete_app::DeleteApp;
-use fluence::delete_node::DeleteNode;
-use fluence::publisher::Published;
-use fluence::register::Registered;
+use failure::Error;
 use futures::future::Future;
+use rand::Rng;
 use web3::transports::Http;
 use web3::types::FilterBuilder;
 use web3::types::H160;
+use web3::types::H256;
+
+use fluence::command::EthereumArgs;
+use fluence::contract_func::get_transaction_logs;
+use fluence::contract_status::get_status;
+use fluence::delete_all::DeleteAll;
+use fluence::delete_app::DeleteApp;
+use fluence::delete_node::DeleteNode;
+use fluence::publisher::Published;
+use fluence::publisher::Publisher;
+use fluence::register::Register;
+use fluence::register::Registered;
+use fluence::contract_status::status::Status;
 
 pub type Result<T> = StdResult<T, Error>;
 
@@ -184,5 +186,15 @@ impl TestOpts {
         F: Fn(RawLog) -> ethabi::Result<T>,
     {
         get_transaction_logs(self.eth.eth_url.as_str(), tx, parse_log).unwrap()
+    }
+
+    #[cfg(test)]
+    pub fn delete_all(&self) {
+        let delete = DeleteAll::new(self.eth.clone());
+        delete.delete_all().expect("failed on calling delete_all (in tests)");
+    }
+
+    pub fn get_status(&self) -> Result<Status>  {
+        get_status(self.eth.eth_url.as_str(), self.eth.contract_address)
     }
 }

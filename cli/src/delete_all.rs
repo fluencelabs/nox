@@ -68,14 +68,11 @@ impl DeleteAll {
             apps.len()
         );
 
-        let nonce = web3
+        let mut nonce = web3
             .eth()
             .transaction_count(self.eth.account, None)
             .wait()
             .map_err(SyncFailure::new)?;
-
-        // to start loop with correct +1 nonce
-        let mut nonce = nonce - 1;
 
         for app in apps {
             let call_data = if app.cluster.is_some() {
@@ -83,16 +80,16 @@ impl DeleteAll {
             } else {
                 dequeue_app::call(app.app_id).0
             };
-            nonce = nonce + 1;
             call_contract(web3, &self.eth, call_data, Some(nonce))?;
+            nonce = nonce + 1;
         }
 
         println!("All nodes have been deleted.");
 
         for node in nodes {
             let call_data = delete_node::call(node.validator_key).0;
-            nonce = nonce + 1;
             call_contract(web3, &self.eth, call_data, Some(nonce))?;
+            nonce = nonce + 1;
         }
 
         println!("All apps have been deleted.");
