@@ -87,7 +87,7 @@ object Web3jConverters {
   }
 
   /**
-   * Encodes worker address information to web3j's Bytes32.
+   * Encodes worker address information to web3j's Bytes24.
    *
    * @param ip worker host IP
    * @param nodeAddressHex Tendermint p2p public key

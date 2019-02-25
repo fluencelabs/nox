@@ -53,10 +53,10 @@ trait DockerSetup extends OsSetup {
   }
 
   protected def runMaster[F[_]: ContextShift: Async](
-    portFrom: Short,
-    portTo: Short,
+    apiPort: Short,
     name: String,
-    apiPort: Short
+    n: Int,
+    capacity: Short = 1
   ): Resource[F, String] =
     tempDirectory.flatMap { masterDir =>
       DockerIO
@@ -65,8 +65,9 @@ trait DockerSetup extends OsSetup {
             .build()
             .option("-e", s"TENDERMINT_IP=$dockerHost")
             .option("-e", s"ETHEREUM_IP=$ethereumHost")
-            .option("-e", s"MIN_PORT=$portFrom")
-            .option("-e", s"MAX_PORT=$portTo")
+            .option("-e", s"MIN_PORT=${apiPort+n*1000}")
+            .option("-e", s"MAX_PORT=${apiPort+n*1000+capacity-1}")
+            .option("-e", s"SWARM_ENABLED=false")
             .port(apiPort, 5678)
             .option("--name", name)
             .volume(masterDir, "/master")

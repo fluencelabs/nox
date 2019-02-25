@@ -97,6 +97,9 @@ case class TendermintConfig(
     import collection.JavaConverters._
     updated.set("rpc.cors_allowed_origins", corsAllowedOrigins.asJava)
 
+    // used for dial_peers
+    updated.set("rpc.unsafe", true)
+
     updated.save()
     updated.close()
 

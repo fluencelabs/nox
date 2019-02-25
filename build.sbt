@@ -50,9 +50,14 @@ lazy val `vm-hello-world` = (project in file("vm/examples/hello-world"))
     rustVmExample("hello-world")
   )
 
-lazy val `vm-hello-world2` = (project in file("vm/examples/hello-world2/app"))
+lazy val `vm-hello-world2-2015` = (project in file("vm/examples/hello-world2/app-2015"))
   .settings(
-    rustVmExample("hello-world2/app")
+    rustVmExample("hello-world2/app-2015")
+  )
+
+lazy val `vm-hello-world2-2018` = (project in file("vm/examples/hello-world2/app-2018"))
+  .settings(
+    rustVmExample("hello-world2/app-2018")
   )
 
 lazy val `vm-hello-world2-runner` = (project in file("vm/examples/hello-world2/runner"))
@@ -68,7 +73,8 @@ lazy val `vm-hello-world2-runner` = (project in file("vm/examples/hello-world2/r
       cryptoHashing,
     )
   )
-  .dependsOn(vm, `vm-hello-world2`)
+  .dependsOn(vm, `vm-hello-world2-2015`)
+  .dependsOn(vm, `vm-hello-world2-2018`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
@@ -266,6 +272,7 @@ lazy val node = project
         val dockerBinary = "https://download.docker.com/linux/static/stable/x86_64/docker-18.06.1-ce.tgz"
         from("openjdk:8-jre-alpine")
         runRaw(s"wget -q $dockerBinary -O- | tar -C /usr/bin/ -zxv docker/docker --strip-components=1")
+        runRaw("apk add --no-cache libc6-compat")
 
         volume("/master") // anonymous volume to store all data
 

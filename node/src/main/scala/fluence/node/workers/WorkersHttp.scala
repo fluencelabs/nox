@@ -47,7 +47,7 @@ object WorkersHttp extends LazyLogging {
         case Some(worker) ⇒
           fn(worker.tendermint).value.flatMap {
             case Right(result) ⇒
-              logger.debug(s"Responding with OK: $result")
+              logger.trace(s"Responding with OK: $result")
               Ok(result)
 
             case Left(RpcRequestFailed(err)) ⇒
@@ -74,7 +74,7 @@ object WorkersHttp extends LazyLogging {
         withTendermint(appId)(_.query(path, data.getOrElse(""), id = id.getOrElse("dontcare")))
 
       case GET -> Root / LongVar(appId) / "status" ⇒
-        logger.debug(s"TendermintRpc status. appId: $appId")
+        logger.trace(s"TendermintRpc status. appId: $appId")
         withTendermint(appId)(_.status)
 
       case GET -> Root / LongVar(appId) / "p2pPort" ⇒

@@ -68,9 +68,9 @@ case class TendermintRpc[F[_]](
   def unsafeDialPeers(peers: Seq[String], persistent: Boolean, id: String = "dontcare"): EitherT[F, RpcError, String] =
     post(
       RpcRequest(
-        method = "unsafe_dial_peers",
+        method = "dial_peers",
         params =
-          Json.fromString(peers.mkString(",")) :: Json.fromBoolean(persistent) :: Nil,
+          Json.arr(peers.map(Json.fromString): _*) :: Json.fromBoolean(persistent) :: Nil,
         id = id
       )
     )
@@ -118,7 +118,7 @@ object TendermintRpc extends slogging.LazyLogging {
         val eitherResp = resp.body
           .leftMap[RpcError](RpcRequestErrored(resp.code, _))
 
-        logger.debug(s"TendermintRpc response(${resp.code}): $eitherResp")
+        logger.trace(s"TendermintRpc response(${resp.code}): $eitherResp")
         eitherResp
       }
 

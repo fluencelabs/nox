@@ -28,6 +28,7 @@ import fluence.node.eth.state.WorkerPeer
 import slogging.LazyLogging
 
 import scala.language.higherKinds
+import scala.concurrent.duration._
 import scala.util.Try
 
 object WorkerP2pConnectivity extends LazyLogging {
@@ -37,6 +38,7 @@ object WorkerP2pConnectivity extends LazyLogging {
     fn.attempt.flatMap {
       case Right(v) ⇒ Applicative[F].pure(v)
       case Left(err) ⇒
+        err.printStackTrace()
         logger.debug(s"Got error $err, retrying")
         Timer[F].sleep(retryPolicy.delayPeriod) *> retryUntilSuccess(fn, retryPolicy.next)
     }
@@ -44,13 +46,15 @@ object WorkerP2pConnectivity extends LazyLogging {
   def join[F[_]: Concurrent: Timer, G[_]](
     worker: Worker[F],
     peers: Vector[WorkerPeer],
-    retryPolicy: EthRetryPolicy = EthRetryPolicy.Default
+    retryPolicy: EthRetryPolicy = EthRetryPolicy(1.second, 10.seconds)
   )(
     implicit P: Parallel[F, G],
     sttpBackend: SttpBackend[F, Nothing]
   ): F[Fiber[F, Unit]] =
     Concurrent[F].start(
       Parallel.parTraverse_(peers) { p ⇒
+        logger.debug(Console.RED + s"Peer address: ${p.ip.getHostAddress}:${p.apiPort}" + Console.RESET)
+
         val getPort: F[Short] = sttp
           .get(uri"http://${p.ip.getHostAddress}:${p.apiPort}/apps/${worker.appId}/p2pPort")
           .send()
@@ -62,16 +66,19 @@ object WorkerP2pConnectivity extends LazyLogging {
             )
           }
 
-        retryUntilSuccess(getPort, retryPolicy).flatMap(
-          p2pPort ⇒
-            retryUntilSuccess(
-              worker.tendermint
-                .unsafeDialPeers(p.peerAddress(p2pPort) :: Nil, persistent = true)
-                .value
-                .flatMap(Sync[F].fromEither),
-              retryPolicy
+        retryUntilSuccess(getPort, retryPolicy).flatMap { p2pPort ⇒
+          logger.info(Console.BLUE + s"GOT PEER p2p PORT: ${p.peerAddress(p2pPort)}" + Console.RESET)
+          retryUntilSuccess(
+            worker.tendermint
+              .unsafeDialPeers(p.peerAddress(p2pPort) :: Nil, persistent = true)
+              .value
+              .flatMap { res ⇒
+                logger.info(Console.YELLOW + s"UNSAFE DIAL PEERS REPLIED $res" + Console.RESET)
+                Sync[F].fromEither(res)
+              },
+            retryPolicy
           )
-        )
+        }
       }
     )
 

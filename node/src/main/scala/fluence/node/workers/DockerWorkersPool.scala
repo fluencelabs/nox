@@ -30,7 +30,6 @@ import cats.syntax.apply._
 import cats.syntax.functor._
 import fluence.codec.PureCodec
 import fluence.effects.kvstore.RocksDBStore
-import fluence.node.eth.state.WorkerPeer
 
 import scala.language.higherKinds
 
@@ -214,7 +213,7 @@ class DockerWorkersPool[F[_]: ContextShift: Timer, G[_]](
 
 }
 
-object DockerWorkersPool {
+object DockerWorkersPool extends LazyLogging {
 
   private val P2pPortsDbFolder: String = "p2p-ports-db"
 
@@ -244,6 +243,8 @@ object DockerWorkersPool {
   ): Resource[F, WorkersPorts[F]] = {
     import cats.syntax.compose._
 
+    logger.debug("Making ports for a WorkersPool, first prepare RocksDBStore")
+
     // TODO use better serialization, check for errors
     implicit val stringCodec: PureCodec[String, Array[Byte]] =
       PureCodec.liftB(_.getBytes(), bs ⇒ new String(bs))
@@ -256,6 +257,10 @@ object DockerWorkersPool {
       PureCodec[Array[Byte], String] andThen PureCodec
         .liftB[String, Short](_.toShort, _.toString)
 
-    RocksDBStore.make[F, Long, Short](rootPath.resolve(P2pPortsDbFolder).toString)
+    val path = rootPath.resolve(P2pPortsDbFolder)
+
+    logger.debug(s"Ports db: $path")
+
+    RocksDBStore.make[F, Long, Short](path.toString)
   }.flatMap(WorkersPorts.make(minPort, maxPort, _))
 }

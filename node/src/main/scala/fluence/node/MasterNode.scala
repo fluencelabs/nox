@@ -192,9 +192,13 @@ object MasterNode extends LazyLogging {
     for {
       ethClient ← EthClient.make[F](Some(masterConfig.ethereum.uri))
 
+      _ = logger.debug("-> going to create a pool")
+
       // TODO wrap Paths.get somehow?
       pool ← DockerWorkersPool
         .make(masterConfig.ports.minPort, masterConfig.ports.maxPort, Paths.get(masterConfig.rootPath))
+
+      _ = logger.debug("-> going to create nodeEth")
 
       nodeEth ← NodeEth[F](nodeConfig.validatorKey.toByteVector, ethClient, masterConfig.contract)
 
