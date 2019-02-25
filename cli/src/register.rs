@@ -409,10 +409,4 @@ pub mod tests {
 
         Ok(())
     }
-
-    #[test]
-    fn clean_up() {
-        let eth = generate_eth_args(Credentials::No);
-        DeleteAll::new(eth).delete_all().expect("failed to clean_up on delete_all");
-    }
 }
