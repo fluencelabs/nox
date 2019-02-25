@@ -33,71 +33,15 @@ lazy val vm = (project in file("vm"))
       mockito
     ),
     test in IntegrationTest := (test in IntegrationTest)
-      .dependsOn(compile in `vm-counter`)
-      .dependsOn(compile in `vm-hello-world`)
       .dependsOn(compile in `vm-llamadb`)
       .value
   )
-  .enablePlugins(AutomateHeaderPlugin)
-
-lazy val `vm-counter` = (project in file("vm/examples/counter"))
-  .settings(
-    rustVmExample("counter")
-  )
-
-lazy val `vm-hello-world` = (project in file("vm/examples/hello-world"))
-  .settings(
-    rustVmExample("hello-world")
-  )
-
-lazy val `vm-hello-world2-2015` = (project in file("vm/examples/hello-world2/app-2015"))
-  .settings(
-    rustVmExample("hello-world2/app-2015")
-  )
-
-lazy val `vm-hello-world2-2018` = (project in file("vm/examples/hello-world2/app-2018"))
-  .settings(
-    rustVmExample("hello-world2/app-2018")
-  )
-
-lazy val `vm-hello-world2-runner` = (project in file("vm/examples/hello-world2/runner"))
-  .settings(
-    commons,
-    libraryDependencies ++= Seq(
-      asmble,
-      cats,
-      catsEffect,
-      pureConfig,
-      cryptoHashing,
-    )
-  )
-  .dependsOn(vm, `vm-hello-world2-2015`)
-  .dependsOn(vm, `vm-hello-world2-2018`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
   .settings(
     rustVmExample("llamadb")
   )
-
-lazy val `tic-tac-toe` = (project in file("vm/examples/tic-tac-toe/app"))
-  .settings(
-    rustVmExample("tic-tac-toe/app")
-  )
-
-lazy val `tic-tac-toe-runner` = (project in file("vm/examples/tic-tac-toe/runner"))
-  .settings(
-    commons,
-    libraryDependencies ++= Seq(
-      asmble,
-      cats,
-      catsEffect,
-      pureConfig,
-      cryptoHashing,
-    )
-  )
-  .dependsOn(vm, `tic-tac-toe`)
-  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `statemachine-control` = (project in file("statemachine/control"))
   .settings(
@@ -308,7 +252,7 @@ lazy val node = project
         copy(artifact, artifactTargetPath)
 
         cmd("java", "-jar", "-Dconfig.file=/master/application.conf", artifactTargetPath)
-        runRaw("ldd /tmp/librocksdbjni9113873941508700129.so")
+        runRaw("ls -la /tmp/")
         entryPoint("sh", "/entrypoint.sh")
       }
     }
