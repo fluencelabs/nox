@@ -30,6 +30,7 @@ use web3::types::H256;
 use fluence::command::EthereumArgs;
 use fluence::contract_func::get_transaction_logs;
 use fluence::contract_status::get_status;
+use fluence::contract_status::status::Status;
 use fluence::delete_all::DeleteAll;
 use fluence::delete_app::DeleteApp;
 use fluence::delete_node::DeleteNode;
@@ -37,7 +38,6 @@ use fluence::publisher::Published;
 use fluence::publisher::Publisher;
 use fluence::register::Register;
 use fluence::register::Registered;
-use fluence::contract_status::status::Status;
 
 pub type Result<T> = StdResult<T, Error>;
 
@@ -191,10 +191,12 @@ impl TestOpts {
     #[cfg(test)]
     pub fn delete_all(&self) {
         let delete = DeleteAll::new(self.eth.clone());
-        delete.delete_all().expect("failed on calling delete_all (in tests)");
+        delete
+            .delete_all()
+            .expect("failed on calling delete_all (in tests)");
     }
 
-    pub fn get_status(&self) -> Result<Status>  {
+    pub fn get_status(&self) -> Result<Status> {
         get_status(self.eth.eth_url.as_str(), self.eth.contract_address)
     }
 }

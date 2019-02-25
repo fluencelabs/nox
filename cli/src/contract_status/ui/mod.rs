@@ -56,11 +56,7 @@ impl<'a> TabTable<'a, Node> {
     pub fn nodes(nodes: Vec<Node>) -> TabTable<'a, Node> {
         let header = vec![
             // 2 spaces needed to provide left margin
-            "  NodeID",
-            "IP",
-            "Api port",
-            "Owner",
-            "Private",
+            "  NodeID", "IP", "Api port", "Owner", "Private",
         ];
         let widths = vec![70, 15, 10, 45, 5];
 
