@@ -66,6 +66,7 @@ def copy_resources():
     put('scripts/compose.sh', 'scripts/')
     put('scripts/node.yml', 'scripts/')
     put('scripts/parity.yml', 'scripts/')
+    put('scripts/geth.yml', 'scripts/')
     put('scripts/swarm.yml', 'scripts/')
     put('config/reserved_peers.txt', 'config/')
 
@@ -95,7 +96,7 @@ def deploy():
             # change for another chain
             # todo changing this variable should recreate parity container
             # todo support contract deployment on 'dev' chain
-            chain = 'kovan'
+            chain = 'rinkeby'
 
             # actual fluence contract address
             contract_address = contract
@@ -104,19 +105,21 @@ def deploy():
             current_host = env.host_string
             current_owner = nodes[current_host]['owner']
             current_key = nodes[current_host]['key']
-            current_ports = nodes[current_host]['ports']
+            api_port = nodes[current_host]['api_port']
+            capacity = nodes[current_host]['capacity']
 
             with shell_env(CHAIN=chain,
                            # flag that show to script, that it will deploy all with non-default arguments
                            PROD_DEPLOY="true",
                            CONTRACT_ADDRESS=contract_address,
                            OWNER_ADDRESS=current_owner,
-                           PORTS=current_ports,
+                           API_PORT=api_port,
+                           CAPACITY=capacity,
                            PARITY_RESERVED_PEERS="../config/reserved_peers.txt",
-                           PARITY_STORAGE="~/.parity",
                            # container name
                            NAME="fluence-node-1",
-                           HOST_IP=current_host):
+                           HOST_IP=current_host,
+                           ETHEREUM_SERVICE="geth"):
                 run('chmod +x compose.sh')
                 # the script will return command with arguments that will register node in Fluence contract
                 output = run('./compose.sh deploy')

@@ -33,13 +33,6 @@ EOF
   exit 1
 fi
 
-if [ -z "$PORTS" ]; then
-  cat >&2 <<EOF
-error: \`-e "PORTS=start:stop"\` was not specified.
-EOF
-  exit 1
-fi
-
 if [ ! -S /var/run/docker.sock ]; then
     cat >&2 <<EOF
 error: '/var/run/docker.sock' not found in container or is not a socket.
@@ -48,10 +41,8 @@ EOF
 exit 1
 fi
 
-if [ "$3" = "/master-node.jar" ]; then
-    CONTAINER_ID=$(cat /proc/1/cpuset)
-    CONTAINER_ID="${CONTAINER_ID#"/docker/"}"
-fi
+CONTAINER_ID=$(cat /proc/1/cpuset)
+CONTAINER_ID="${CONTAINER_ID#"/docker/"}"
 
 ln -sf /application.conf /master/application.conf
 

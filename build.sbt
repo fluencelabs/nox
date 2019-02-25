@@ -251,7 +251,7 @@ lazy val node = project
       sttp,
       sttpCatsBackend,
       fs2io,
-      pureConfig,
+      ficus,
       circeGeneric,
       circeParser,
       http4sDsl,
@@ -290,7 +290,15 @@ lazy val node = project
         from("openjdk:8-jre-alpine")
         runRaw(s"wget -q $dockerBinary -O- | tar -C /usr/bin/ -zxv docker/docker --strip-components=1")
 
+        // this is needed for some binaries (e.g. rocksdb) to run properly on alpine linux since they need libc and
+        // alpine use musl
+        runRaw("ln -sf /lib/libc.musl-x86_64.so.1 /usr/lib/ld-linux-x86-64.so.2")
+
         volume("/master") // anonymous volume to store all data
+
+        // p2p ports range
+        env("MIN_PORT", "10000")
+        env("MAX_PORT", "11000")
 
         /*
          * The following directory structure is assumed in node/src/main/resources:
@@ -302,11 +310,11 @@ lazy val node = project
 
         copy(artifact, artifactTargetPath)
 
-        cmd("java", "-jar", artifactTargetPath)
+        cmd("java", "-jar", "-Dconfig.file=/master/application.conf", artifactTargetPath)
         entryPoint("sh", "/entrypoint.sh")
       }
     }
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(ethclient, swarm, `statemachine-control`)
+  .dependsOn(ethclient, swarm, `statemachine-control`, `kvstore`)

@@ -60,7 +60,7 @@ async function addNodes (contract, count, nodeIP, ownerAddress, portCount = 2, i
                 nodeID,
                 nodeIP,
                 1000,
-                1000 + portCount - 1,
+                portCount,
                 isPrivate,
                 { from: ownerAddress }
             );

@@ -11,6 +11,7 @@
   "dependencies": {
     "@parity/api": "3.0.31",
     "web3": "1.0.0-beta.37",
-    "request": "2.88.0"
+    "request": "2.88.0",
+    "ethereumjs-tx": "1.3.7"
   }
 }

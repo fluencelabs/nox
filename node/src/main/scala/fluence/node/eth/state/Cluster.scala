@@ -40,7 +40,7 @@ object Cluster {
    *
    * @param time Cluster genesis time
    * @param validatorKeys array of 32-byte Tendermint validator keys, used as workers' ids
-   * @param ports array of ports for Tendermint p2p connection. For rpc and prometheus ports see [[WorkerPeer]]
+   * @param ports array of ports for Node's API connection
    * @param currentValidatorKey 32-byte Tendermint validator key corresponding to current node
    */
   private[eth] def build(
@@ -61,7 +61,8 @@ object Cluster {
       .zipWithIndex
       .map {
         case (((validator, address), port), idx) =>
-          WorkerPeer(validator, address, port, idx)
+          // TODO check that port is correct Short
+          WorkerPeer(validator, address, port.getValue.shortValueExact(), idx)
       }
       .toVector
 

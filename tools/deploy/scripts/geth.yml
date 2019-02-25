@@ -1,0 +1,16 @@
+version: '3.4'
+services:
+  geth:
+    image: "ethereum/client-go:stable"
+    restart: always
+    container_name: "geth-rinkeby"
+    command: "--rinkeby --rpc --rpcaddr '0.0.0.0' --rpcport 8545 --ws --wsaddr '0.0.0.0' --wsport 8546 --syncmode light --verbosity 2 --datadir /root/.ethereum"
+    volumes:
+      - $GETH_STORAGE:/root/.ethereum
+
+    ports:
+      # - 8180:8180
+      - 8545:8545
+      - 8546:8546
+      # - 30303:30303
+      # - 30303:30303/udp

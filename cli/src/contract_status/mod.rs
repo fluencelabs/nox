@@ -18,7 +18,7 @@ pub mod app;
 pub mod status;
 pub mod ui;
 
-use self::status::{get_status, Status};
+use self::status::Status;
 use crate::command::*;
 use crate::contract_status::app::{App, Node};
 use crate::contract_status::ui::rich_status;
@@ -276,14 +276,11 @@ pub fn subcommand<'a, 'b>() -> ClapApp<'a, 'b> {
 pub fn get_status_by_args(args: &ArgMatches) -> Result<Option<Status>, Error> {
     let eth_url = parse_eth_url(args)?;
 
-    let (_eloop, transport) = Http::new(eth_url.as_str()).map_err(SyncFailure::new)?;
-    let web3 = &web3::Web3::new(transport);
-
     let contract_address: Address = parse_contract_address(args)?;
 
     let filter = StatusFilter::from_args(args)?;
 
-    let status = get_status(web3, contract_address)?;
+    let status = get_status(eth_url.as_str(), contract_address)?;
 
     let status = filter.filter(&status);
 
@@ -293,6 +290,13 @@ pub fn get_status_by_args(args: &ArgMatches) -> Result<Option<Status>, Error> {
     } else {
         Ok(Some(status))
     }
+}
+
+pub fn get_status(eth_url: &str, contract_address: Address) -> Result<Status, Error> {
+    let (_eloop, transport) = Http::new(eth_url).map_err(SyncFailure::new)?;
+    let web3 = &web3::Web3::new(transport);
+
+    status::get_status(web3, contract_address)
 }
 
 /// Gets node from status by tendermint key

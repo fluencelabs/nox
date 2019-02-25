@@ -48,11 +48,10 @@ export function getApp(contract: Network, id: string): Promise<App> {
 
             let genesisTime: number = parseInt(unparsedApp["5"]);
             let nodeIds: string[] = unparsedApp["6"];
-            let ports: number[] = unparsedApp["7"].map((p) => parseInt(p));
 
             let clusterOpt;
             try {
-                 clusterOpt = parseCluster(genesisTime, nodeIds, ports);
+                 clusterOpt = parseCluster(genesisTime, nodeIds);
             } catch (e) {
                 console.error("Error occured on cluster parsing.");
                 throw e;

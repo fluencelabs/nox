@@ -18,30 +18,17 @@ package fluence.node.config
 import java.net.InetAddress
 
 import cats.effect.IO
-import pureconfig.ConfigConvert
-import pureconfig.ConfigConvert.viaStringTry
-import pureconfig.error.ConfigReaderFailures
+import cats.syntax.apply._
+import com.typesafe.config.{Config, ConfigFactory}
+import net.ceedubs.ficus.readers.ValueReader
+import net.ceedubs.ficus.Ficus._
+import slogging.LazyLogging
 
-import scala.util.Try
+private[config] object ConfigOps extends LazyLogging {
 
-private[config] object ConfigOps {
-  implicit class ConfigLoaderToIO[T](loadedConfig: Either[ConfigReaderFailures, T]) {
+  def loadConfigAs[T: ValueReader](conf: ⇒ Config = ConfigFactory.load()): IO[T] =
+    IO(logger.trace(conf.toString)) *> IO(conf.as[T])
 
-    def toIO: IO[T] =
-      IO.fromEither(
-        loadedConfig.left.map(
-          fs =>
-            new IllegalArgumentException(
-              "Can't load or parse configs:\n" +
-                fs.toList
-                  .map(f => f.location.map(_.description).getOrElse("<NO LOCATION>") + " - " + f.description)
-                  .mkString("\n")
-          )
-        )
-      )
-
-  }
-
-  implicit val inetAddressConvert: ConfigConvert[InetAddress] =
-    viaStringTry[InetAddress](str => Try(InetAddress.getByName(str)), _.toString)
+  implicit val inetAddressValueReader: ValueReader[InetAddress] =
+    ValueReader[String].map(InetAddress.getByName)
 }
