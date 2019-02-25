@@ -236,6 +236,7 @@ lazy val node = project
 
         // This is needed for go binaries to run properly on alpine linux since the binary needs libc and alpine use musl.
         runRaw("mkdir /lib64 && ln -sf /lib/libc.musl-x86_64.so.1 /lib64/ld-linux-x86-64.so.2")
+        runRaw("ln -sf /lib/libc.musl-x86_64.so.1 /usr/lib/ld-linux-x86-64.so.2")
         //runRaw("apk add --no-cache libc6-compat")
 
         volume("/master") // anonymous volume to store all data
