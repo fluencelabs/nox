@@ -126,9 +126,9 @@ function container_update()
     printf '.'
     docker pull ethdevops/swarm:edge >/dev/null
     printf '.'
-#    docker pull fluencelabs/node:v0.1.3 >/dev/null
+    docker pull fluencelabs/node:v0.1.4 >/dev/null
     printf '.\n'
-#    docker pull fluencelabs/worker:v0.1.3 >/dev/null
+    docker pull fluencelabs/worker:v0.1.4 >/dev/null
     echo 'Containers are updated.'
 }
 
@@ -183,7 +183,11 @@ function export_arguments()
         export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
     else
         echo "Deploying for $CHAIN chain."
-        export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose --reserved-peers=/reserved_peers.txt'
+        if [ "$ETHEREUM_SERVICE" == "geth" ]; then
+            export GETH_ARGS="--$CHAIN --rpc --rpcaddr '0.0.0.0' --rpcport 8545 --ws --wsaddr '0.0.0.0' --wsport 8546 --syncmode light --verbosity 2"
+        else
+            export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose --reserved-peers=/reserved_peers.txt'
+        fi
     fi
 
     export FLUENCE_STORAGE="$HOME/.fluence/"
@@ -273,7 +277,6 @@ function deploy()
     echo "
     CONTRACT_ADDRESS=$CONTRACT_ADDRESS
     NAME=$NAME
-    PORTS=$PORTS
     HOST_IP=$HOST_IP
     EXTERNAL_HOST_IP=$EXTERNAL_HOST_IP
     OWNER_ADDRESS=$OWNER_ADDRESS
