@@ -44,8 +44,8 @@ function generate_json()
     "tendermint_node_id": "$TENDERMINT_NODE_ID",
     "contract_address": "$CONTRACT_ADDRESS",
     "account": "$OWNER_ADDRESS",
-    "start_port": $START_PORT,
-    "last_port": $LAST_PORT
+    "api_port": $API_PORT,
+    "capacity": $CAPACITY
 }
 EOF
 )
@@ -63,8 +63,8 @@ function generate_command()
             --contract_address   $CONTRACT_ADDRESS \
             --account            $OWNER_ADDRESS \
             --secret_key         $PRIVATE_KEY \
-            --start_port         $START_PORT \
-            --last_port          $LAST_PORT \
+            --api_port           $API_PORT \
+            --capacity           $CAPACITY \
             --eth_url            http://$EXTERNAL_HOST_IP:8545 \
             --wait_syncing \
             --base64_tendermint_key \
@@ -169,8 +169,7 @@ function export_arguments()
     if [ -z "$PROD_DEPLOY" ]; then
         echo "Deploying locally with default arguments."
         export NAME='fluence-node-1'
-        # open 10 ports, so it's possible to create 10 workers
-        export PORTS='25000:25010'
+        export API_PORT=25000
         # eth address in `dev` mode Parity with eth
         export OWNER_ADDRESS=0x00a329c0648769a73afac7f9381e08fb43dbea72
         export PRIVATE_KEY=4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
@@ -217,6 +216,13 @@ function deploy()
         check_fluence_installed
     fi
 
+    if [ -z "$CAPACITY" ]; then
+        CAPACITY=10 # default value
+        if [ -z "$PROD_DEPLOY" ]; then
+            echo "Using default capacity of $CAPACITY"
+        fi
+    fi
+
     container_update
 
     # exports initial arguments to global scope for `docker-compose` files
@@ -233,12 +239,6 @@ function deploy()
         export CONTRACT_ADDRESS=$(deploy_contract_locally)
     fi
 
-    # parse start and last port from format `111:222`
-    START_PORT=${PORTS%:*}
-    LAST_PORT=${PORTS#*:}
-    # status port is hardcoded with `+400` thing
-    export STATUS_PORT=$((LAST_PORT+400))
-
     echo "
     CONTRACT_ADDRESS=$CONTRACT_ADDRESS
     NAME=$NAME
@@ -246,7 +246,6 @@ function deploy()
     HOST_IP=$HOST_IP
     EXTERNAL_HOST_IP=$EXTERNAL_HOST_IP
     OWNER_ADDRESS=$OWNER_ADDRESS
-    STATUS_PORT=$STATUS_PORT
     "
 
     # uses for multiple deploys if needed
@@ -269,8 +268,8 @@ function deploy()
 
         # use hardcoded ports for multiple nodes
         if [ "$1" = "multiple" ]; then
-            START_PORT="2"$COUNTER"000"
-            LAST_PORT="2"$COUNTER"010"
+            # TODO: pass this port to multiple-node.yml explicitly (via export); currently hardcoded to match COUNTER
+            API_PORT="2"$COUNTER"000"
         fi
 
         if [ $NUMBER_OF_NODES -gt 1 ]; then
@@ -280,8 +279,8 @@ function deploy()
         echo "    $CURRENT_NODE_MSG
     TENDERMINT_KEY=$TENDERMINT_KEY
     TENDERMINT_NODE_ID=$TENDERMINT_NODE_ID
-    START_PORT=$START_PORT
-    LAST_PORT=$LAST_PORT
+    API_PORT=$API_PORT
+    CAPACITY=$CAPACITY
         "
 
         # registers node in Fluence contract, for local usage
@@ -293,6 +292,7 @@ function deploy()
 
         # generates JSON with all arguments for node registration
         JSON=$(generate_json)
+        # \e[8m marks text as 'hidden', so user don't see JSON in their log; doesn't work on macOS's iTerm2 though
         echo -e "\e[8m$JSON\e[0m"
 
         COUNTER=$[$COUNTER+1]

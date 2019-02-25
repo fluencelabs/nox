@@ -60,8 +60,8 @@ The following command will register a node:
             --base64_tendermint_key \
             --secret_key            0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
             --wait_syncing \
-            --start_port            25000 \
-            --last_port             25010
+            --api_port              25000 \
+            --capacity              10
 ```
 
 Parameters are:
@@ -76,7 +76,8 @@ Parameters are:
 - `--secret_key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133` denotes an Ethereum private key, used for offline transaction signing. _Use your Ethereum private key here_
     - using `--password` is possible instead of private key, but private key is preferred
 - `--wait_syncing` so CLI waits until Ethereum node is fully synced
-- `--start_port 25000` and `--last_port 25010` denote ports where apps (workers) will be hosted. 25000:25010 is inclusive, so 10 workers could be started on such a node
+- `--api_port 25000` specifies the main port of the Fluence node, so other nodes and users know where to connect 
+- `--capacity 10` limits number of apps that could be run on the node by 10 
 
 
 ### Publish an app

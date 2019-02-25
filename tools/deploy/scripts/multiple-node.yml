@@ -10,10 +10,9 @@ services:
       - SWARM_HOST=http://$HOST_IP:8500
       - CONTRACT_ADDRESS=$CONTRACT_ADDRESS
       - OWNER_ADDRESS=$OWNER_ADDRESS
-      - PORTS=25100:25110
     ports:
-      # port for status API
-      - 25510:5678
+      # API port
+      - 25100:5678
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${FLUENCE_STORAGE}/1:/master
@@ -26,10 +25,9 @@ services:
       - SWARM_HOST=http://$HOST_IP:8500
       - CONTRACT_ADDRESS=$CONTRACT_ADDRESS
       - OWNER_ADDRESS=$OWNER_ADDRESS
-      - PORTS=25200:25210
     ports:
-      # port for status API
-      - 25610:5678
+      # API port
+      - 25200:5678
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${FLUENCE_STORAGE}/2:/master
@@ -42,10 +40,9 @@ services:
       - SWARM_HOST=http://$HOST_IP:8500
       - CONTRACT_ADDRESS=$CONTRACT_ADDRESS
       - OWNER_ADDRESS=$OWNER_ADDRESS
-      - PORTS=25300:25310
     ports:
-      # port for status API
-      - 25710:5678
+      # API port
+      - 25300:5678
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${FLUENCE_STORAGE}/3:/master
@@ -58,10 +55,9 @@ services:
       - SWARM_HOST=http://$HOST_IP:8500
       - CONTRACT_ADDRESS=$CONTRACT_ADDRESS
       - OWNER_ADDRESS=$OWNER_ADDRESS
-      - PORTS=25400:25410
     ports:
-      # port for status API
-      - 25810:5678
+      # API port
+      - 25400:5678
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ${FLUENCE_STORAGE}/4:/master

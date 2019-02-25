@@ -4,7 +4,7 @@
 
 set -e
 
-USAGE="Usage: ./kovan-compose.sh <external-ip> <owner-address> <private-key> <start-port:end-port>"
+USAGE="Usage: ./kovan-compose.sh <external-ip> <owner-address> <private-key> <api-port> <capacity>"
 
 if [ ! $1 = '--help' -a ! $1 = '-h' ]; then
 
@@ -22,7 +22,8 @@ if [ ! $1 = '--help' -a ! $1 = '-h' ]; then
         export HOST_IP="$1"
         export OWNER_ADDRESS="$2"
         export PRIVATE_KEY="$3"
-        export PORTS="$4"
+        export API_PORT="$4"
+        export CAPACITY="$5"
         ./compose.sh deploy
     else
         echo "Error: Not enough arguments."

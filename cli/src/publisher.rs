@@ -421,6 +421,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // ignored because doesn't clean up published app, thus breaking next integration tests
     fn publish_to_contract_with_secret_success() -> Result<(), Error> {
         let secret_arr: H256 =
             "647334ad14cda7f79fecdf2b9e0bb2a0904856c36f175f97c83db181c1060414".parse()?;
