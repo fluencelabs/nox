@@ -255,7 +255,7 @@ lazy val node = project
         runRaw("ls -la /tmp/")
         runRaw("ls -la /usr/local/lib")
         runRaw("ls -la /usr/lib/")
-        runRaw("ls -la /usr/share/lib")
+        runRaw("ls -la /lib64")
         entryPoint("sh", "/entrypoint.sh")
       }
     }

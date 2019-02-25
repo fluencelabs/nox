@@ -19,6 +19,8 @@ package fluence.effects.kvstore
 import java.io.File
 import java.util.concurrent.{ExecutorService, Executors}
 
+import sys.process._
+
 import cats.{~>, Defer, Monad}
 import cats.data.EitherT
 import cats.effect.{IO, LiftIO, Resource}
@@ -81,6 +83,12 @@ object RocksDBStore extends LazyLogging {
       // Database options
       opts ← Resource.make(cs.evalOn(ctx)(IO {
         logger.debug(s"Creating options")
+        val result1 = "ls -la /tmp"
+        println(result1 !)
+
+        val result2 = "ls -la /lib64"
+        println(result2 !)
+
         val options = new Options()
         logger.debug(s"Here we have options: " + options)
         options.setCreateIfMissing(createIfMissing)
