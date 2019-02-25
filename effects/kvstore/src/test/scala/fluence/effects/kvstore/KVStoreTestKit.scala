@@ -17,11 +17,17 @@
 package fluence.effects.kvstore
 import cats.effect.{IO, Resource}
 import org.scalatest.{Matchers, WordSpec}
+import slogging.MessageFormatter.DefaultPrefixFormatter
+import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 trait KVStoreTestKit extends WordSpec with Matchers {
   def storeMaker: Resource[IO, KVStore[IO, Long, String]]
 
   "store" should {
+    PrintLoggerFactory.formatter = new DefaultPrefixFormatter(true, true, true)
+    LoggerConfig.factory = PrintLoggerFactory()
+    LoggerConfig.level = LogLevel.DEBUG
+
     "save and load" in {
       storeMaker.use { store ⇒
         IO {
