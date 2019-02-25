@@ -16,7 +16,6 @@
 
 import {Signer} from "./Signer";
 import {Client} from "./Client";
-import {toHex} from "./utils";
 
 /**
  * Generates execution command's transaction in hex representation for the real-time cluster.
@@ -26,17 +25,17 @@ import {toHex} from "./utils";
  * @param counter transaction counter for ordering
  * @param payload command with arguments
  */
-export function genTxHex(client: Client, session: string, counter: number, payload: string): string {
+export function genTxBase64(client: Client, session: string, counter: number, payload: string): string {
     let tx = new TxEncoder(client.id, session, counter, payload).createJson(client.signer);
-    return jsonToHex(tx)
+    return jsonToBase64(tx)
 }
 
 /**
  * Makes hex string from json object that will be correct to the real-time cluster.
  * @param json transaction with command, metainformation and signature
  */
-function jsonToHex(json: TxJson): string {
-    return toHex(JSON.stringify(json));
+function jsonToBase64(json: TxJson): string {
+    return btoa(JSON.stringify(json));
 }
 
 /**

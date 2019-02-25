@@ -14,16 +14,21 @@
  * limitations under the License.
  */
 
-package fluence.node.config
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+//! A simple demo application for Fluence.
+#![feature(custom_attribute)]
+extern crate fluence;
 
-/**
- * @param port endpoint to master node status server
- */
-case class StatusServerConfig(port: Int)
+extern crate log;
 
-object StatusServerConfig {
-  implicit val encodeStatConfig: Encoder[StatusServerConfig] = deriveEncoder
-  implicit val decodeStatConfig: Decoder[StatusServerConfig] = deriveDecoder
+use fluence::sdk::*;
+use log::info;
+
+fn init() {
+    logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
+}
+
+#[invocation_handler(init_fn = init)]
+fn greeting(name: String) -> String {
+    info!("{} has been successfully greeted", name);
+    format!("Hello, world! From user {}", name)
 }

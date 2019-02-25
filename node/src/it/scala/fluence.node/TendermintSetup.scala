@@ -25,11 +25,10 @@ import scala.language.higherKinds
 import scala.util.Try
 
 trait TendermintSetup {
-  protected def heightFromTendermintStatus(host: String, p2pPort: Short): IO[Option[Long]] = IO {
+  protected def heightFromTendermintStatus(host: String, port: Short, appId: Long): IO[Option[Long]] = IO {
     import io.circe.Json
     import io.circe.parser.parse
-    val rpcPort = WorkerPeer.rpcPort(p2pPort)
-    val source = Source.fromURL(s"http://$host:$rpcPort/status").mkString
+    val source = Source.fromURL(s"http://$host:$port/apps/$appId/status").mkString
     val height = parse(source)
       .getOrElse(Json.Null)
       .asObject
