@@ -16,7 +16,7 @@
 
 import {ResultAwait, ResultError, ResultPromise} from "./ResultAwait";
 import {error, ErrorResult, Result} from "./Result";
-import {genTxHex} from "./tx";
+import {genTxBase64} from "./tx";
 import {TendermintClient} from "./TendermintClient";
 import {Client} from "./Client";
 import {SessionConfig} from "./SessionConfig";
@@ -108,11 +108,11 @@ export class Session {
         // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
         let currentCounter = this.getCounterAndIncrement();
 
-        let txHex = genTxHex(this.client, this.session, currentCounter, payload);
+        let txBase64 = genTxBase64(this.client, this.session, currentCounter, payload);
 
         // send transaction
         txDebug("send broadcastTxSync");
-        let broadcastRequestPromise: Promise<void> = this.tm.broadcastTxSync(txHex).then((resp: any) => {
+        let broadcastRequestPromise: Promise<void> = this.tm.broadcastTxSync(txBase64).then((resp: any) => {
             detailedDebug("broadCastTxSync response received");
             txDebug("broadCastTxSync response received");
             // close session if some error on sending transaction occurred

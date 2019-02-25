@@ -15,8 +15,7 @@
  */
 
 package fluence.node.workers.status
-
-import fluence.node.workers.tendermint.status.TendermintStatus
+import fluence.node.workers.tendermint.rpc.TendermintStatus
 import io.circe.generic.semiauto._
 import io.circe.{Decoder, Encoder}
 
@@ -25,14 +24,12 @@ import io.circe.{Decoder, Encoder}
  *
  * @param isHealthy True iff both Tendermint and Statemachine operate correctly
  * @param appId App id
- * @param rpcPort Tendermint's public RPC port; TODO remove it once we have a proxy for Tendermint
  * @param tendermint Tendermint status
  * @param worker Worker status
  */
 case class WorkerStatus(
   isHealthy: Boolean,
   appId: Long,
-  rpcPort: Short,
   tendermint: ServiceStatus[TendermintStatus],
   worker: ServiceStatus[Unit],
 )

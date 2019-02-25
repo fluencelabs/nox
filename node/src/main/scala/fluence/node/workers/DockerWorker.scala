@@ -132,7 +132,6 @@ object DockerWorker extends LazyLogging {
         WorkerStatus(
           isHealthy = ts.isOk(_.sync_info.latest_block_height > 1) && ws.isOk(),
           params.appId,
-          params.currentWorker.rpcPort,
           ts,
           ws
         )

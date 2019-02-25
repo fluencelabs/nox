@@ -84,16 +84,14 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
   def tx(client: SigningClient, session: String, order: Long, payload: String, signature: String): String = {
     val txHeaderJson = s"""{"client":"${client.id}","session":"$session","order":$order}"""
     val txJson = s"""{"header":$txHeaderJson,"payload":"$payload","timestamp":"0"}"""
-    val signedTxJson = s"""{"tx":$txJson,"signature":"$signature"}"""
-    HexCodec.stringToHex(signedTxJson).toUpperCase
+    s"""{"tx":$txJson,"signature":"$signature"}"""
   }
 
   def tx(client: SigningClient, session: String, order: Long, payload: String): String = {
     val txHeaderJson = s"""{"client":"${client.id}","session":"$session","order":$order}"""
     val txJson = s"""{"header":$txHeaderJson,"payload":"$payload"}"""
     val signingData = s"${client.id}-$session-$order-$payload"
-    val signedTxJson = s"""{"tx":$txJson,"signature":"${client.sign(signingData)}"}"""
-    HexCodec.stringToHex(signedTxJson).toUpperCase
+    s"""{"tx":$txJson,"signature":"${client.sign(signingData)}"}"""
   }
 
   def littleEndian4ByteHex(number: Int): String =
