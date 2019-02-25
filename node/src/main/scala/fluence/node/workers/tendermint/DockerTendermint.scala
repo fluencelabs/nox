@@ -123,7 +123,7 @@ object DockerTendermint {
     network: DockerNetwork,
     p2pPort: Short
   ): DockerParams.DaemonParams = {
-    import params.{masterNodeContainerId, tendermintPath, tmImage}
+    import params.{masterNodeContainerId, tendermintPath, tmDockerConfig}
 
     val dockerParams = DockerParams
       .build()
