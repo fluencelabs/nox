@@ -21,8 +21,8 @@ let bytecode = '0x' + sourceBin;
 let NetworkContract = new web3.eth.Contract(abi);
 
 // Default account on parity node in dev mode with a huge amount of ethereum
-let acc = '0x7DdAE2d6118562AaC405284bb297C9A53d975326';
-let privateKey = '0x3639CC2D3D27ABF76509077EFC0BE6093290F0F8739C00BDDA6504B9D9FC66C2';
+let acc = '5903730e872fb2b0cd4402c69d6d43c86e973db7';
+let privateKey = '52c685b72c548da46ee7e595b4003635a1dab3f281dc26b9a13a5b0ea736d3b1';
 let privateKeyBuf = Buffer.from(privateKey.replace(/^0x/, ""), 'hex');
 
 if (!acc.startsWith("0x")) {
