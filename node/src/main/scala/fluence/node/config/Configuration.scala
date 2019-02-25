@@ -22,7 +22,7 @@ import cats.effect.{ContextShift, IO, Sync}
 import cats.syntax.apply._
 import com.typesafe.config.Config
 import fluence.node.config.ConfigOps._
-import fluence.node.docker.DockerImage
+import fluence.node.docker.{DockerConfig, DockerImage}
 import fluence.node.workers.tendermint.{DockerTendermint, ValidatorKey}
 import io.circe.parser._
 
@@ -72,16 +72,16 @@ object Configuration extends slogging.LazyLogging {
    *
    * @param masterContainerId id of master docker container (container running this code), if it's run inside Docker
    * @param rootPath MasterNode's root path
-   * @param tmImage Docker image for Tendermint, used to run Tendermint that is bundled inside
+   * @param tmDockerConfig Docker image for Tendermint, used to run Tendermint that is bundled inside
    * @return nodeId and validator key
    */
-  private def tendermintInit(masterContainerId: Option[String], rootPath: Path, tmImage: DockerImage)(
+  private def tendermintInit(masterContainerId: Option[String], rootPath: Path, tmDockerConfig: DockerConfig)(
     implicit c: ContextShift[IO]
   ): IO[(String, ValidatorKey)] = {
 
     val tendermintDir = rootPath.resolve("tendermint") // /master/tendermint
     def execTendermintCmd[F[_]: Sync: ContextShift](cmd: String, uid: String): F[String] =
-      DockerTendermint.execCmd[F](tmImage, tendermintDir, masterContainerId, cmd, uid)
+      DockerTendermint.execCmd[F](tmDockerConfig, tendermintDir, masterContainerId, cmd, uid)
 
     def init(uid: String): IO[Unit] =
       for {

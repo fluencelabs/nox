@@ -149,8 +149,12 @@ def deploy_netdata():
     assert hasattr(env, 'caddy_password'), usage
 
     with hide('running', 'output'):
+        run("docker pull netdata/netdata")
+        run("docker pull abiosoft/caddy")
         run("mkdir -p ~/scripts")
         run("mkdir -p ~/config")
+        run("mkdir -p ~/.local/netdata_cache")
+        run("chmod o+rw ~/.local/netdata_cache")
         env.home_dir = run("pwd").stdout
         upload_template("scripts/netdata.yml", "~/scripts/netdata.yml", context=env)
         upload_template("config/Caddyfile", "~/config/Caddyfile", context=env)

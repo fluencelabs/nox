@@ -15,21 +15,18 @@
  */
 
 package fluence.node.docker
-
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
 /**
- * Representation of a docker image
+ * Docker config
  *
- * @param name Fully qualified name of an image, including a repository and a name. E.g., fluencelabs/worker
- * @param tag Tag of the image, will be appended to [[name]] after a colon
+ * @param image Docker image
+ * @param limits CPU & memory limits for a container
  */
-case class DockerImage(name: String, tag: String) {
-  val imageName = s"$name:$tag"
-}
+case class DockerConfig(image: DockerImage, limits: DockerLimits)
 
-object DockerImage {
-  implicit val encodeDockerImage: Encoder[DockerImage] = deriveEncoder
-  implicit val decodeDockerImage: Decoder[DockerImage] = deriveDecoder
+object DockerConfig {
+  implicit val enc: Encoder[DockerConfig] = deriveEncoder
+  implicit val dec: Decoder[DockerConfig] = deriveDecoder
 }

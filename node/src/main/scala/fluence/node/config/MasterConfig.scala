@@ -17,7 +17,7 @@
 package fluence.node.config
 
 import cats.effect.IO
-import fluence.node.docker.DockerImage
+import fluence.node.docker.{DockerConfig, DockerImage}
 import fluence.node.workers.tendermint.config.TendermintConfig
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
@@ -41,13 +41,14 @@ case class MasterConfig(
   swarm: SwarmConfig,
   httpApi: HttpApiConfig,
   masterContainerId: Option[String],
-  worker: DockerImage,
-  tendermint: DockerImage,
+  worker: DockerConfig,
+  tendermint: DockerConfig,
   ethereum: EthereumRpcConfig,
   tendermintConfig: TendermintConfig
 )
 
 object MasterConfig {
+  import ConfigOps._
 
   implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder
   implicit val decodeMasterConfig: Decoder[MasterConfig] = deriveDecoder

@@ -186,10 +186,14 @@ function export_arguments()
         if [ "$ETHEREUM_SERVICE" == "geth" ]; then
             export GETH_ARGS="--$CHAIN --rpc --rpcaddr '0.0.0.0' --rpcport 8545 --ws --wsaddr '0.0.0.0' --wsport 8546 --syncmode light --verbosity 2"
         else
-            export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose --reserved-peers=/reserved_peers.txt'
+            if [ "$CHAIN" = "kovan" ]; then
+                NO_WARP="--no-warp "
+            fi
+            export PARITY_ARGS=$NO_WARP'--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose --reserved-peers=/reserved_peers.txt'
         fi
     fi
 
+    export PARITY_STORAGE="$HOME/.local/.parity/"
     export FLUENCE_STORAGE="$HOME/.fluence/"
     export PARITY_STORAGE="$HOME/.parity/"
     export GETH_STORAGE="$HOME/.geth"
@@ -212,7 +216,7 @@ function start_parity()
 {
     if [ ! "$(docker ps -q -f name=parity)" ]; then
         echo "Starting Parity container"
-        docker-compose -f parity.yml up -d >/dev/null
+        docker-compose --compatibility -f parity.yml up -d >/dev/null
         # todo get rid of `sleep`
         sleep 15
         echo "Parity container is started"
@@ -223,7 +227,7 @@ function start_geth()
 {
     if [ ! "$(docker ps -q -f name=geth-rinkeby)" ]; then
         echo "Starting Geth container"
-        docker-compose -f geth.yml up -d >/dev/null
+        docker-compose --compatibility -f geth.yml up -d >/dev/null
         # todo get rid of `sleep`
         sleep 15
         echo "Geth container is started"
@@ -288,10 +292,10 @@ function deploy()
     # starting node container
     # if there was `multiple` flag on the running script, will be created 4 nodes, otherwise one node
     if [ "$1" = "multiple" ]; then
-        docker-compose -f multiple-node.yml up -d --force-recreate >/dev/null
+        docker-compose --compatibility -f multiple-node.yml up -d --force-recreate >/dev/null
         NUMBER_OF_NODES=4
     else
-        docker-compose -f node.yml up -d --force-recreate >/dev/null
+        docker-compose --compatibility -f node.yml up -d --force-recreate >/dev/null
         NUMBER_OF_NODES=1
     fi
 
