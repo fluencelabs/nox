@@ -30,7 +30,7 @@ class CounterIntegrationTest extends AppIntegrationTest with EitherValues {
 
   "counter app" should {
 
-    "be able to instantiate" in {
+    "be able to instantiate" ignore  {
       (for {
         vm ← WasmVm[IO](NonEmptyList.one(counterFilePath))
         state ← vm.getVmState[IO].toVmError
@@ -42,7 +42,7 @@ class CounterIntegrationTest extends AppIntegrationTest with EitherValues {
 
     }
 
-    "increment counter and returns its state" in {
+    "increment counter and returns its state" ignore {
       (for {
         vm ← WasmVm[IO](NonEmptyList.one(counterFilePath))
         _ ← vm.invoke[IO]()

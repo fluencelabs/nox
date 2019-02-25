@@ -308,6 +308,7 @@ lazy val node = project
         copy(artifact, artifactTargetPath)
 
         cmd("java", "-jar", "-Dconfig.file=/master/application.conf", artifactTargetPath)
+        runRaw("ldd /tmp/librocksdbjni9113873941508700129.so")
         entryPoint("sh", "/entrypoint.sh")
       }
     }

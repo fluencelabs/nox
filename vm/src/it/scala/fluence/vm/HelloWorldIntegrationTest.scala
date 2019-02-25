@@ -30,7 +30,7 @@ class HelloWorldIntegrationTest extends AppIntegrationTest with EitherValues {
 
   "hello user app" should {
 
-    "be able to instantiate" in {
+    "be able to instantiate" ignore {
       (for {
         vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath))
         state ← vm.getVmState[IO].toVmError
@@ -42,7 +42,7 @@ class HelloWorldIntegrationTest extends AppIntegrationTest with EitherValues {
 
     }
 
-    "greets John correctly" in {
+    "greets John correctly" ignore {
       (for {
         vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath))
         greetingResult ← vm.invoke[IO](None, "John".getBytes())
@@ -54,7 +54,7 @@ class HelloWorldIntegrationTest extends AppIntegrationTest with EitherValues {
 
     }
 
-    "operates correctly with empty input" in {
+    "operates correctly with empty input" ignore {
       (for {
         vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath))
         greetingResult ← vm.invoke[IO](None)

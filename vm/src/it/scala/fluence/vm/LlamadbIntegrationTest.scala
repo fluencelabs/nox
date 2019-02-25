@@ -57,7 +57,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
   "llamadb app" should {
 
-      "be able to instantiate" in {
+      "be able to instantiate" ignore {
         (for {
           vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
           state ← vm.getVmState[IO].toVmError
@@ -68,7 +68,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
       }
 
-      "be able to create table and insert to it" in {
+      "be able to create table and insert to it" ignore {
         (for {
           vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
           createResult ← createTestTable(vm)
@@ -80,7 +80,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
       }
 
-      "be able to select records" in {
+      "be able to select records" ignore {
         (for {
           vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
           createResult ← createTestTable(vm)
@@ -110,7 +110,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
       }
 
-      "be able to delete records and drop table" in {
+      "be able to delete records and drop table" ignore {
         (for {
           vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
           createResult1 ← createTestTable(vm)
@@ -138,7 +138,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
       }
 
-      "be able to manipulate with 2 tables and selects records with join" in {
+      "be able to manipulate with 2 tables and selects records with join" ignore {
         (for {
           vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
           createResult ← createTestTable(vm)
@@ -177,7 +177,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
       }
 
-      "be able to operate with empty strings" in {
+      "be able to operate with empty strings" ignore {
         (for {
           vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
           _ ← executeSql(vm, "")
@@ -193,7 +193,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
         }).success()
       }
 
-      "doesn't fail with incorrect queries" in {
+      "doesn't fail with incorrect queries" ignore {
         (for {
           vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
           _ ← createTestTable(vm)
@@ -212,7 +212,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
         }).success()
       }
 
-    "be able to launch VM with 4 MiB memory and to insert a lot of data" in {
+    "be able to launch VM with 4 MiB memory and to insert a lot of data" ignore {
       (for {
         vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
         _ ← createTestTable(vm)
@@ -229,7 +229,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
     }
 
-    "be able to launch VM with 4 MiB memory and a lot of data inserts" in {
+    "be able to launch VM with 4 MiB memory and a lot of data inserts" ignore {
       (for {
         vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
         _ ← createTestTable(vm)
@@ -245,7 +245,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
     }
 
-    "be able to launch VM with 100 MiB memory and to insert a lot of data" in {
+    "be able to launch VM with 100 MiB memory and to insert a lot of data" ignore {
       (for {
         vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.100Mb")
         _ ← createTestTable(vm)
@@ -261,7 +261,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
       }).success()
     }
 
-    "be able to launch VM with 100 MiB memory and a lot of data inserts" in {
+    "be able to launch VM with 100 MiB memory and a lot of data inserts" ignore {
       (for {
         vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.100Mb")
         _ ← createTestTable(vm)
@@ -277,7 +277,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
     }
 
-    "be able to launch VM with 2 GiB memory and to allocate 256 MiB of continuously memory" in {
+    "be able to launch VM with 2 GiB memory and to allocate 256 MiB of continuously memory" ignore {
       (for {
         vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.2Gb")
         _ ← executeSql(vm, "create table USERS(name varchar(" + 256*1024*1024 + "))")
@@ -293,7 +293,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
       }).success()
     }
 
-    "be able to launch VM with 2 GiB memory and a lot of data inserts" in {
+    "be able to launch VM with 2 GiB memory and a lot of data inserts" ignore {
       (for {
         vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.2Gb")
         _ ← createTestTable(vm)
