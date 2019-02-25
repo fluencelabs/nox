@@ -203,7 +203,7 @@ function start_swarm()
 {
     if [ ! "$(docker ps -q -f name=swarm)" ]; then
         echo "Starting Swarm container"
-        docker-compose -f swarm.yml up -d >/dev/null
+        docker-compose --compatibility -f swarm.yml up -d >/dev/null
         # todo get rid of `sleep`
         sleep 15
         echo "Swarm container is started"
