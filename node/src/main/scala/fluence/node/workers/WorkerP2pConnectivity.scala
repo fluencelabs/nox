@@ -42,7 +42,7 @@ object WorkerP2pConnectivity extends LazyLogging {
     fn.value.flatMap {
       case Right(v) ⇒ Applicative[F].pure(v)
       case Left(err) ⇒
-        logger.debug(s"Got error $err, retrying")
+        logger.trace(s"Got error $err, retrying")
         Timer[F].sleep(retryPolicy.delayPeriod) *> retryUntilSuccess(fn, retryPolicy.next)
     }
 
@@ -86,13 +86,13 @@ object WorkerP2pConnectivity extends LazyLogging {
 
         // Get p2p port, pass it to worker's tendermint
         retryUntilSuccess(getPort, retryPolicy).flatMap { p2pPort ⇒
-          logger.info(s"Got Peer p2p port: ${p.peerAddress(p2pPort)}")
+          logger.debug(s"Got Peer p2p port: ${p.peerAddress(p2pPort)}")
 
           retryUntilSuccess(
             worker.tendermint
               .unsafeDialPeers(p.peerAddress(p2pPort) :: Nil, persistent = true)
               .map { res ⇒
-                logger.info(s"dial_peers replied: $res")
+                logger.debug(s"dial_peers replied: $res")
                 res
               },
             retryPolicy
