@@ -253,6 +253,9 @@ lazy val node = project
 
         cmd("java", "-jar", "-Dconfig.file=/master/application.conf", artifactTargetPath)
         runRaw("ls -la /tmp/")
+        runRaw("ls -la /usr/local/lib")
+        runRaw("ls -la /usr/lib/")
+        runRaw("ls -la /usr/share/lib")
         entryPoint("sh", "/entrypoint.sh")
       }
     }
