@@ -30,6 +30,7 @@ use web3::transports::Http;
 use web3::types::SyncState;
 use web3::types::H256;
 use web3::Web3;
+use failure::ResultExt;
 
 // Creates progress bar in the console until the work is over
 //
@@ -131,7 +132,8 @@ pub fn parse_secret_key(args: &ArgMatches, key: &str) -> Result<Option<Secret>, 
     Ok(args
         .value_of(key)
         .map(|s| s.trim_start_matches("0x").parse::<Secret>())
-        .map_or(Ok(None), |r| r.map(Some).into())?) // Option<Result> -> Result<Option>
+        .map_or(Ok(None), |r| r.map(Some).into()) // Option<Result> -> Result<Option>
+        .context("Error parsing secret key")?)
 }
 
 pub fn get_opt<E, T>(args: &ArgMatches, key: &str) -> Result<Option<T>, E>

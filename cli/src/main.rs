@@ -18,6 +18,8 @@ use clap::App;
 use clap::AppSettings;
 use console::style;
 
+use exitfailure::ExitFailure;
+use failure::{err_msg, ResultExt};
 use fluence::publisher::Published;
 use fluence::register::Registered;
 use fluence::utils;
@@ -26,7 +28,7 @@ use web3::types::H256;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-fn main() {
+fn main() -> Result<(), ExitFailure> {
     let app = App::new("Fluence CLI")
         .global_setting(AppSettings::ArgRequiredElseHelp)
         .global_setting(AppSettings::UnifiedHelpMessage)
@@ -43,8 +45,10 @@ fn main() {
 
     match app.get_matches().subcommand() {
         ("publish", Some(args)) => {
-            let publisher = publisher::parse(args).expect("Error parsing arguments");
-            let published = publisher.publish(true).expect("Error sending transaction");
+            let publisher = publisher::parse(args).context("Error parsing arguments")?;
+            let published = publisher
+                .publish(true)
+                .context("Error sending transaction")?;
 
             let print_status = |app_id: u64, tx: H256, status: &str| {
                 println!("{}", style(format!("App {}.", status)).blue());
@@ -60,8 +64,10 @@ fn main() {
         }
 
         ("register", Some(args)) => {
-            let register = register::parse(args).expect("Error parsing arguments");
-            let registered = register.register(true).expect("Error sending transaction");
+            let register = register::parse(args).context("Error parsing arguments")?;
+            let registered = register
+                .register(true)
+                .context("Error sending transaction")?;
 
             match registered {
                 Registered::Deployed { app_ids, ports, tx } => {
@@ -91,57 +97,48 @@ fn main() {
         }
 
         ("status", Some(args)) => {
-            let status = contract_status::get_status_by_args(args).unwrap();
+            let status =
+                contract_status::get_status_by_args(args).context("Error retrieving status")?;
 
             if let Some(status) = status {
-                let json = serde_json::to_string_pretty(&status).unwrap();
+                let json = serde_json::to_string_pretty(&status)
+                    .context("Error serializing status to pretty JSON")?;
 
                 println!("{}", json);
             }
         }
 
-        ("check", Some(args)) => {
-            handle_error(check::process(args));
-        }
+        ("check", Some(args)) => check::process(args)?,
 
         ("delete_app", Some(args)) => {
-            let delete_app = delete_app::parse(args).expect("Error parsing arguments");
+            let delete_app = delete_app::parse(args).context("Error parsing arguments")?;
             let tx: H256 = delete_app
                 .delete_app(true)
-                .expect("Error sending transaction");
+                .context("Error sending transaction")?;
 
             utils::print_info_id("App deleted. Submitted transaction", tx);
         }
 
         ("delete_node", Some(args)) => {
-            let delete_node = delete_node::parse(args).expect("Error parsing arguments");
+            let delete_node = delete_node::parse(args).context("Error parsing arguments")?;
             let tx: H256 = delete_node
                 .delete_node(true)
-                .expect("Error sending transaction");
+                .context("Error sending transaction")?;
 
             utils::print_info_id("Node deleted. Submitted transaction", tx);
         }
 
         ("delete_all", Some(args)) => {
-            let delete_all = delete_all::parse(args).expect("Error parsing arguments");
-            delete_all.delete_all().expect("Error sending transaction");
+            let delete_all = delete_all::parse(args).context("Error parsing arguments")?;
+            delete_all
+                .delete_all()
+                .context("Error sending transaction")?;
 
             println!("All nodes and apps should be deleted. Check contract with `status` command.");
         }
 
-        c => panic!("Unexpected command: {}", c.0),
+        c => Err(err_msg(format!("Unexpected command: {}", c.0)))?,
     }
-}
 
-fn handle_error<T, E>(result: Result<T, E>)
-where
-    E: error_chain::ChainedError,
-{
-    if let Err(err) = result {
-        use std::io::Write;
-
-        let stderr = &mut ::std::io::stderr();
-        writeln!(stderr, "{}", err.display_chain()).expect("Error writing to stderr");
-        ::std::process::exit(1);
-    }
+    Ok(())
 }
