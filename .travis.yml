@@ -80,6 +80,15 @@ matrix:
       before_script: npm install
       script: npm test
 
+    # checks that monitoring could be compiled
+    - name: monitoring
+      language: node_js
+      node_js:
+        - "8"
+      cache: npm
+      before_install: cd monitoring
+      script: npm install
+
     - <<: *_rust_wasm_template
       name: rust App SDK
       before_script:
@@ -104,6 +113,7 @@ matrix:
 
       env:
         - RUST_TEST_THREADS=1
+        - RUST_BACKTRACE=1
 
       script:
         - pushd ../bootstrap
