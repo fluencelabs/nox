@@ -292,7 +292,7 @@ lazy val node = project
 
         // this is needed for some binaries (e.g. rocksdb) to run properly on alpine linux since they need libc and
         // alpine use musl
-        runRaw("mkdir /lib64 && ln -sf /lib/libc.musl-x86_64.so.1 /lib64/ld-linux-x86-64.so.2")
+        runRaw("mkdir /lib64 && ln -sf /lib/libc.musl-x86_64.so.1 /usr/lib/ld-linux-x86-64.so.2")
 
         volume("/master") // anonymous volume to store all data
 
