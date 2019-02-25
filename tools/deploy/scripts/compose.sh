@@ -82,9 +82,8 @@ function parse_tendermint_params()
     while [ -z "$TENDERMINT_KEY" -o -z "$TENDERMINT_NODE_ID" ]; do
         # check if docker container isn't in `exited` status
         local DOCKER_STATUS=$(docker ps -a --filter "name=fluence-node-$COUNTER" --format '{{.Status}}' | grep -o Exited)
-        if [ -n "$DOCKER_STATUS" ]
-        then
-            echo -e "\e[91m'fluence-node-'$COUNTER container cannot be run\e[0m"
+        if [ -n "$DOCKER_STATUS" ]; then
+            echo -e >&2 "\e[91m'fluence-node-'$COUNTER container cannot be run\e[0m"
             exit 127
         fi
 
@@ -120,11 +119,16 @@ function deploy_contract_locally()
 # updates all needed containers
 function container_update()
 {
-    echo 'Updating all containers.'
+    printf 'Updating all containers.'
+    docker pull ethereum/client-go:stable >/dev/null
+    printf '.'
     docker pull parity/parity:stable >/dev/null
+    printf '.'
     docker pull ethdevops/swarm:edge >/dev/null
-    docker pull fluencelabs/node:v0.1.3 >/dev/null
-    docker pull fluencelabs/worker:v0.1.3 >/dev/null
+    printf '.'
+    docker pull fluencelabs/node:v0.1.4 >/dev/null
+    printf '.\n'
+    docker pull fluencelabs/worker:v0.1.4 >/dev/null
     echo 'Containers are updated.'
 }
 
@@ -176,33 +180,62 @@ function export_arguments()
 
         export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
         export PARITY_RESERVED_PEERS='../config/reserved_peers.txt'
-        export PARITY_STORAGE="$HOME/.parity/"
         export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
     else
         echo "Deploying for $CHAIN chain."
-        export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose --reserved-peers=/reserved_peers.txt'
+        if [ "$ETHEREUM_SERVICE" == "geth" ]; then
+            export GETH_ARGS="--$CHAIN --rpc --rpcaddr '0.0.0.0' --rpcport 8545 --ws --wsaddr '0.0.0.0' --wsport 8546 --syncmode light --verbosity 2"
+        else
+            export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose --reserved-peers=/reserved_peers.txt'
+        fi
     fi
 
     export FLUENCE_STORAGE="$HOME/.fluence/"
+    export PARITY_STORAGE="$HOME/.parity/"
+    export GETH_STORAGE="$HOME/.geth"
 }
 
-function start_parity_swarm()
+# run Swarm (if it's not running) and sleep to give it time to launch
+function start_swarm()
 {
-    # running parity and swarm containers if they are not running
-    # waiting that API of parity start working
-    # todo get rid of all `sleep`
-    if [ ! "$(docker ps -q -f name=parity)" ]; then
-        echo "Starting Parity container"
-        docker-compose -f parity.yml up -d >/dev/null
-        sleep 15
-        echo "Parity container is started"
-    fi
-
     if [ ! "$(docker ps -q -f name=swarm)" ]; then
         echo "Starting Swarm container"
         docker-compose -f swarm.yml up -d >/dev/null
+        # todo get rid of `sleep`
         sleep 15
         echo "Swarm container is started"
+    fi
+}
+
+# run Parity (if it's not running) and sleep to give it time to launch
+function start_parity()
+{
+    if [ ! "$(docker ps -q -f name=parity)" ]; then
+        echo "Starting Parity container"
+        docker-compose -f parity.yml up -d >/dev/null
+        # todo get rid of `sleep`
+        sleep 15
+        echo "Parity container is started"
+    fi
+}
+
+function start_geth()
+{
+    if [ ! "$(docker ps -q -f name=geth-rinkeby)" ]; then
+        echo "Starting Geth container"
+        docker-compose -f geth.yml up -d >/dev/null
+        # todo get rid of `sleep`
+        sleep 15
+        echo "Geth container is started"
+    fi
+}
+
+function start_ethereum()
+{
+    if [ "$ETHEREUM_SERVICE" == "geth" ]; then
+        start_geth
+    else
+        start_parity
     fi
 }
 
@@ -218,7 +251,7 @@ function deploy()
 
     if [ -z "$CAPACITY" ]; then
         CAPACITY=10 # default value
-        if [ -z "$PROD_DEPLOY" ]; then
+        if [ ! -z "$PROD_DEPLOY" ]; then
             echo "Using default capacity of $CAPACITY"
         fi
     fi
@@ -232,7 +265,9 @@ function deploy()
 
     get_external_ip
 
-    start_parity_swarm
+    start_swarm
+
+    start_ethereum
 
     # deploy contract if there is new dev ethereum node
     if [ -z "$PROD_DEPLOY" ]; then
@@ -242,7 +277,6 @@ function deploy()
     echo "
     CONTRACT_ADDRESS=$CONTRACT_ADDRESS
     NAME=$NAME
-    PORTS=$PORTS
     HOST_IP=$HOST_IP
     EXTERNAL_HOST_IP=$EXTERNAL_HOST_IP
     OWNER_ADDRESS=$OWNER_ADDRESS
