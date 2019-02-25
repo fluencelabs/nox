@@ -329,6 +329,13 @@ pub mod tests {
     use crate::credentials::Credentials;
 
     use super::Register;
+    use crate::delete_all::DeleteAll;
+
+    pub fn generate_eth_args(credentials: Credentials) -> EthereumArgs {
+        let account: Address = "4180fc65d613ba7e1a385181a219f1dbfe7bf11d".parse().unwrap();
+
+        EthereumArgs::with_acc_creds(account, credentials)
+    }
 
     pub fn generate_register(credentials: Credentials) -> Register {
         let mut rng = rand::thread_rng();
@@ -336,9 +343,8 @@ pub mod tests {
 
         let tendermint_key: H256 = H256::from(rnd_num);
         let tendermint_node_id: H160 = H160::from(rnd_num);
-        let account: Address = "4180fc65d613ba7e1a385181a219f1dbfe7bf11d".parse().unwrap();
 
-        let eth = EthereumArgs::with_acc_creds(account, credentials);
+        let eth = generate_eth_args(credentials);
 
         Register::new(
             "127.0.0.1".parse().unwrap(),
@@ -402,5 +408,11 @@ pub mod tests {
         register.register(false)?;
 
         Ok(())
+    }
+
+    #[test]
+    fn clean_up() {
+        let eth = generate_eth_args(Credentials::No);
+        DeleteAll::new(eth).delete_all().expect("failed to clean_up on delete_all");
     }
 }

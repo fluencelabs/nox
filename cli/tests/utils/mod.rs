@@ -36,6 +36,7 @@ use futures::future::Future;
 use web3::transports::Http;
 use web3::types::FilterBuilder;
 use web3::types::H160;
+use fluence::delete_all::DeleteAll;
 
 pub type Result<T> = StdResult<T, Error>;
 
@@ -184,5 +185,11 @@ impl TestOpts {
         F: Fn(RawLog) -> ethabi::Result<T>,
     {
         get_transaction_logs(self.eth.eth_url.as_str(), tx, parse_log).unwrap()
+    }
+
+    #[cfg(test)]
+    pub fn delete_all(&self) {
+        let delete = DeleteAll::new(self.eth.clone());
+        delete.delete_all().expect("failed on calling delete_all (in tests)");
     }
 }
