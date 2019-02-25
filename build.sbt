@@ -289,7 +289,10 @@ lazy val node = project
         val dockerBinary = "https://download.docker.com/linux/static/stable/x86_64/docker-18.06.1-ce.tgz"
         from("openjdk:8-jre-alpine")
         runRaw(s"wget -q $dockerBinary -O- | tar -C /usr/bin/ -zxv docker/docker --strip-components=1")
-        runRaw("apk add --no-cache libc6-compat")
+
+        // this is needed for some binaries (e.g. rocksdb) to run properly on alpine linux since they need libc and
+        // alpine use musl
+        runRaw("mkdir /lib64 && ln -sf /lib/libc.musl-x86_64.so.1 /lib64/ld-linux-x86-64.so.2")
 
         volume("/master") // anonymous volume to store all data
 
