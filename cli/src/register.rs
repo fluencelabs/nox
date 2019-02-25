@@ -329,7 +329,6 @@ pub mod tests {
     use crate::credentials::Credentials;
 
     use super::Register;
-    use crate::delete_all::DeleteAll;
 
     pub fn generate_eth_args(credentials: Credentials) -> EthereumArgs {
         let account: Address = "4180fc65d613ba7e1a385181a219f1dbfe7bf11d".parse().unwrap();
