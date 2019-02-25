@@ -1,7 +1,7 @@
 {
   "name": "fluence",
   "namespace": "fluence",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Fluence Javascript Client allows you to interact with a Fluence real-time cluster for decentralized computations.",
   "main": "./dist/fluence.js",
   "typings": "./dist/fluence.d.ts",
@@ -59,7 +59,7 @@
     "debug": "4.1.1",
     "elliptic": "6.4.1",
     "fast-sha256": "1.1.0",
-    "fluence-monitoring": "0.0.28",
+    "fluence-monitoring": "0.0.29",
     "minimalistic-crypto-utils": "1.0.1",
     "randomstring": "1.1.5",
     "ts-option": "1.1.5"

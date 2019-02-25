@@ -21,7 +21,7 @@ import {Network} from "../types/web3-contracts/Network";
 import JSONFormatter from 'json-formatter-js';
 import * as App from "./app"
 import {getNodes, Node} from "./node";
-import {none, Option} from "ts-option";
+import {Option} from "ts-option";
 import Web3 = require('web3');
 import abi = require("./Network.json");
 
@@ -37,15 +37,6 @@ export {
 export interface Status {
     contract_status: ContractStatus,
     node_statuses: any[]
-}
-
-/*
- * Cluster member of a specific app.
- */
-export interface Worker {
-    node: Node,
-    port: number,
-    rpcPort: number
 }
 
 function isDefined(str?: string): str is string {
@@ -73,9 +64,9 @@ export function getContract(address: string, ethereumUrl?: string): Network {
 }
 
 /*
- * Gets workers that are members of a cluster with a specific app (by appId).
+ * Gets nodes that are members of a cluster with a specific app (by appId).
  */
-export async function getAppWorkers(contractAddress: string, appId: string, ethereumUrl?: string): Promise<Worker[]> {
+export async function getAppNodes(contractAddress: string, appId: string, ethereumUrl?: string): Promise<Node[]> {
 
     let contract = getContract(contractAddress, ethereumUrl);
 
@@ -84,34 +75,21 @@ export async function getAppWorkers(contractAddress: string, appId: string, ethe
 
     let cluster = app.cluster;
 
-    let result: Option<Promise<Worker[]>> = cluster.map((c) => {
-
-        let ids: string[] = c.cluster_members.map((m) => m.id);
+    let result: Option<Promise<Node[]>> = cluster.map((c) => {
 
         // get info about all node members of the app
-        return getNodes(contract, ids).then((nodes) => {
+        return getNodes(contract, c.node_ids).then((nodes) => {
             // combine nodes with a specific port in the app
-            return nodes.map((n, idx) => {
-                return {
-                    node: n,
-                    port: c.cluster_members[idx].port,
-                    rpcPort: getStatusPort(n)
-                }
-            })
+            return nodes;
         });
     });
 
     return result.getOrElse(Promise.resolve([]));
 }
 
-export function getStatusPort(node: Node) {
-    // todo: `+400` is a temporary solution, fix it after implementing correct port management
-    return node.last_port + 400
-}
-
 // get node health status by HTTP
 export function getNodeStatus(node: Node): Promise<any> {
-    let url = `http://${node.ip_addr}:${getStatusPort(node)}/status`;
+    let url = `http://${node.ip_addr}:${node.api_port}/status`;
     return axios.get(url).then((res) => {
         return res.data;
     }).catch((err) => {
