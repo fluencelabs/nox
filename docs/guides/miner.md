@@ -52,14 +52,17 @@ Next, open [fluence/tools/deploy/instances.json](../../tools/deploy/instances.js
     "<ip1>": {
         "owner": "<owner-account1>",
         "key": "<secret-key1>",
-        "ports": "<start-port1:end-port1>"
+        "api_port": "<port>",
+        "capacity": "<max-num-of-apps>"
     },
     "<ip2>": {
         "owner": "<owner-account2>",
         "key": "<secret-key2>",
-        "ports": "<start-port2:end-port2>"
+        "api_port": "<port>",
+        "capacity": "<max-num-of-apps>"
     }
 }
+
 ```
 
 You can specify here several nodes, but for the sake of example, let's continue with a single node. After filling info in deploy_config.json, it should look similar to this:
@@ -69,7 +72,8 @@ You can specify here several nodes, but for the sake of example, let's continue 
     "53.42.31.20": {
         "owner": "0x00a329c0648769a73afac7f9381e08fb43dbea72",
         "key": "4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7",
-        "ports": "25000:25099"
+        "api_port": "25000",
+        "capacity": 10
     }
 }
 ```
@@ -90,18 +94,16 @@ At the end of the successful deployment you should see something like the follow
 ```
 [53.42.31.20] out: CONTRACT_ADDRESS=0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b
 [53.42.31.20] out: NAME=fluence-node-1
-[53.42.31.20] out: PORTS=25000:25099
 [53.42.31.20] out: HOST_IP=53.42.31.20
 [53.42.31.20] out: EXTERNAL_HOST_IP=53.42.31.20
 [53.42.31.20] out: OWNER_ADDRESS=0x00a329c0648769a73afac7f9381e08fb43dbea72
 [53.42.31.20] out: CONTRACT_ADDRESS=0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b
-[53.42.31.20] out: STATUS_PORT=25400
 ...
 [53.42.31.20] out: Node container is started.
 [53.42.31.20] out: CURRENT NODE = 1
 [53.42.31.20] out: TENDERMINT_KEY=YAa6x36acTUIemAoejyplm+cUKe5rhTC1ArMPLMfvFY=
-[53.42.31.20] out: START_PORT=25000
-[53.42.31.20] out: LAST_PORT=25099
+[53.42.31.20] out: API_PORT=25000
+[53.42.31.20] out: CAPACITY=10
 ```
 
 Here you have some useful information that you can use with Fluence CLI.
@@ -121,8 +123,8 @@ That's the result of script registering your node within Fluence smart contract.
         --contract_address  $CONTRACT_ADDRESS \
         --account           $OWNER_ADDRESS \
         --secret_key        $PRIVATE_KEY \
-        --start_port        $START_PORT \
-        --last_port         $LAST_PORT \
+        --api_port          $API_PORT \
+        --capacity          $CAPACITY \
         --wait_syncing \
         --base64_tendermint_key
 ```
@@ -132,8 +134,8 @@ All environment variables used in the command are listed in the useful informati
 ### Deploy Fluence node locally
 If you wish to use your local computer to host Fluence node, you can do that by running [kovan-compose.sh](../../tools/deploy/scripts/kovan-compose.sh) like this:
 ```
-# ./kovan-compose.sh <external-ip> <owner-address> <private-key> <start-port:end-port>
-./kovan-compose.sh 53.42.31.20 0x00a329c0648769a73afac7f9381e08fb43dbea72 4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 25000:25099
+# ./kovan-compose.sh <external-ip> <owner-address> <private-key> <api-port> <capacity>
+./kovan-compose.sh 53.42.31.20 0x00a329c0648769a73afac7f9381e08fb43dbea72 4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 25000 10
 ```
 
 ## How to check if node is registered
@@ -156,8 +158,8 @@ You should see your Ethereum address under `owner` in `nodes` list. Similar to t
       "id": "0x6006bac77e9a7135087a60287a3ca9966f9c50a7b9ae14c2d40acc3cb31fbc56",
       "tendermint_key": "0x4b4432951f27c2e9a29017b3b6dee46a2e08c3a2",
       "ip_addr": "53.42.31.20",
-      "next_port": 25001,
-      "last_port": 25099,
+      "api_port": 25001,
+      "capacity": 10,
       "owner": "0x00a329c0648769a73afac7f9381e08fb43dbea72",
       "is_private": false,
       "clusters_ids": []
@@ -188,8 +190,8 @@ The following command will register a private node:
             --base64_tendermint_key \
             --secret_key            0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
             --wait_syncing \
-            --start_port            25000 \
-            --last_port             25010
+            --api_port              25000 \
+            --capacity              10
 ```
 
 As suggested by it's name, it's the `--private` flag what's making the registered node a private one.
@@ -261,8 +263,8 @@ So, assuming contract has just four registered nodes and one app, the `./fluence
       "id": "0xd46543202ce0af0d6a6a13df49bc027d8c34cebc3dd4e319e3a4282af24c8e33",
       "tendermint_key": "0x5e4eedba85fda7451356a03caffb0716e599679b",
       "ip_addr": "85.82.118.4",
-      "next_port": 25000,
-      "last_port": 25010,
+      "api_port": 25000,
+      "capacity": 10,
       "owner": "0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d",
       "is_private": true,
       "clusters_ids": []
@@ -271,8 +273,8 @@ So, assuming contract has just four registered nodes and one app, the `./fluence
       "id": "0x4182dc4c8f6e0a1b4455d5da47df9680c97127501556eae87b92726b2f9ea5b2",
       "tendermint_key": "0x5e4eedba85fda7451356a03caffb0716e599679b",
       "ip_addr": "85.82.118.4",
-      "next_port": 25000,
-      "last_port": 25010,
+      "api_port": 25000,
+      "capacity": 10,
       "owner": "0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d",
       "is_private": true,
       "clusters_ids": []
@@ -281,8 +283,8 @@ So, assuming contract has just four registered nodes and one app, the `./fluence
       "id": "0xfa5df42ec08c3c678bebf608c0a83c4563a14b9e4f2c80194f4e43d751890316",
       "tendermint_key": "0x5e4eedba85fda7451356a03caffb0716e599679b",
       "ip_addr": "85.82.118.4",
-      "next_port": 25000,
-      "last_port": 25010,
+      "api_port": 25000,
+      "capacity": 10,
       "owner": "0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d",
       "is_private": true,
       "clusters_ids": []
@@ -291,8 +293,8 @@ So, assuming contract has just four registered nodes and one app, the `./fluence
       "id": "0xc64696f52a422637f32c004cfb507a3d3879e2a230be0b070a439edd550b61b1",
       "tendermint_key": "0x5e4eedba85fda7451356a03caffb0716e599679b",
       "ip_addr": "85.82.118.4",
-      "next_port": 25000,
-      "last_port": 25010,
+      "api_port": 25000,
+      "capacity": 10,
       "owner": "0x4180rfc65d613ba7e1a385181a219f1dbfe7bf11d",
       "is_private": true,
       "clusters_ids": []

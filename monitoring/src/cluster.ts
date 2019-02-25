@@ -17,28 +17,16 @@
 
 import {none, Option, some} from "ts-option";
 
-export interface ClusterMember {
-    id: string,
-    port: number
-}
-
 export interface Cluster {
     genesis_time: number,
-    cluster_members: ClusterMember[]
+    node_ids: string[]
 }
 
-export function parseCluster(genesisTime: number, nodeIds: string[], ports: number[]): Option<Cluster> {
+export function parseCluster(genesisTime: number, nodeIds: string[]): Option<Cluster> {
     if (genesisTime !== 0) {
-        let clusterMembers: ClusterMember[] = ports.map((port, idx) => {
-            return {
-                id: nodeIds[idx],
-                port: port
-            }
-        });
-
         return some({
             genesis_time: genesisTime,
-            cluster_members: clusterMembers
+            node_ids: nodeIds
         });
     } else { return none }
 }

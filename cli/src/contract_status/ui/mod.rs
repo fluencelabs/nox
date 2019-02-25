@@ -56,11 +56,7 @@ impl<'a> TabTable<'a, Node> {
     pub fn nodes(nodes: Vec<Node>) -> TabTable<'a, Node> {
         let header = vec![
             // 2 spaces needed to provide left margin
-            "  NodeID",
-            "IP",
-            "Next port",
-            "Owner",
-            "Private",
+            "  NodeID", "IP", "Api port", "Owner", "Private",
         ];
         let widths = vec![70, 15, 10, 45, 5];
 
@@ -96,11 +92,11 @@ impl ToColumns for Node {
     fn columns(self) -> Vec<String> {
         // 2 spaces needed to provide left margin
         let node_id = format!("  {:#x}", self.validator_key);
-        let next_port = self.next_port.to_string();
+        let api_port = self.api_port.to_string();
         let ip_addr = format!("{}", self.ip_addr);
         let owner = format!("{:#x}", self.owner);
         let is_private = if self.is_private { "yes" } else { "no" };
-        vec![node_id, ip_addr, next_port, owner, is_private.to_string()]
+        vec![node_id, ip_addr, api_port, owner, is_private.to_string()]
     }
 }
 

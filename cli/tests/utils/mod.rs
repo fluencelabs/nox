@@ -14,35 +14,36 @@
  * limitations under the License.
  */
 
-use fluence::publisher::Publisher;
-use fluence::register::Register;
-
-use failure::Error;
 use std::result::Result as StdResult;
-
-use rand::Rng;
-use web3::types::H256;
 
 use derive_getters::Getters;
 use ethabi::RawLog;
 use ethabi::TopicFilter;
-use fluence::command::EthereumArgs;
-use fluence::contract_func::get_transaction_logs;
-use fluence::delete_app::DeleteApp;
-use fluence::delete_node::DeleteNode;
-use fluence::publisher::Published;
-use fluence::register::Registered;
+use failure::Error;
 use futures::future::Future;
+use rand::Rng;
 use web3::transports::Http;
 use web3::types::FilterBuilder;
 use web3::types::H160;
+use web3::types::H256;
+
+use fluence::command::EthereumArgs;
+use fluence::contract_func::get_transaction_logs;
+use fluence::contract_status::get_status;
+use fluence::contract_status::status::Status;
+use fluence::delete_all::DeleteAll;
+use fluence::delete_app::DeleteApp;
+use fluence::delete_node::DeleteNode;
+use fluence::publisher::Published;
+use fluence::publisher::Publisher;
+use fluence::register::Register;
+use fluence::register::Registered;
 
 pub type Result<T> = StdResult<T, Error>;
 
 #[derive(Debug, Getters)]
 pub struct TestOpts {
-    start_port: u16,
-    last_used_port: Option<u16>,
+    api_port: u16,
     code_bytes: Vec<u8>,
     swarm_url: String,
     eth: EthereumArgs,
@@ -52,8 +53,7 @@ impl TestOpts {
     pub fn default() -> TestOpts {
         let eth = EthereumArgs::default();
         TestOpts {
-            start_port: 25000,
-            last_used_port: None,
+            api_port: 25000,
             code_bytes: vec![1, 2, 3],
             swarm_url: String::from("http://localhost:8500"),
             eth,
@@ -77,17 +77,12 @@ impl TestOpts {
         tendermint_key: H256,
         tendermint_node_id: H160,
     ) -> Result<(Registered, Register)> {
-        let start_port = self.last_used_port.unwrap_or(self.start_port);
-        let end_port = start_port + ports;
-
-        self.last_used_port = Some(end_port + 1);
-
         let reg = Register::new(
             "127.0.0.1".parse().unwrap(),
             tendermint_key,
             tendermint_node_id,
-            start_port,
-            end_port,
+            self.api_port,
+            ports,
             private,
             false,
             self.eth.clone(),
@@ -191,5 +186,17 @@ impl TestOpts {
         F: Fn(RawLog) -> ethabi::Result<T>,
     {
         get_transaction_logs(self.eth.eth_url.as_str(), tx, parse_log).unwrap()
+    }
+
+    #[cfg(test)]
+    pub fn delete_all(&self) {
+        let delete = DeleteAll::new(self.eth.clone());
+        delete
+            .delete_all()
+            .expect("failed on calling delete_all (in tests)");
+    }
+
+    pub fn get_status(&self) -> Result<Status> {
+        get_status(self.eth.eth_url.as_str(), self.eth.contract_address)
     }
 }

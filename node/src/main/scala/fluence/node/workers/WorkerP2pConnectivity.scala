@@ -16,6 +16,7 @@
 
 package fluence.node.workers
 
+import cats.data.EitherT
 import cats.{Applicative, Parallel}
 import cats.syntax.applicativeError._
 import cats.syntax.apply._
@@ -31,18 +32,32 @@ import scala.language.higherKinds
 import scala.concurrent.duration._
 import scala.util.Try
 
+/**
+ * Connects a worker to other peers of the cluster
+ */
 object WorkerP2pConnectivity extends LazyLogging {
 
   // TODO don't use Eth retry policy; add jitter
-  private def retryUntilSuccess[F[_]: Timer: Sync, T](fn: F[T], retryPolicy: EthRetryPolicy): F[T] =
-    fn.attempt.flatMap {
+  private def retryUntilSuccess[F[_]: Timer: Sync, T](fn: EitherT[F, _, T], retryPolicy: EthRetryPolicy): F[T] =
+    fn.value.flatMap {
       case Right(v) ⇒ Applicative[F].pure(v)
       case Left(err) ⇒
-        err.printStackTrace()
         logger.debug(s"Got error $err, retrying")
         Timer[F].sleep(retryPolicy.delayPeriod) *> retryUntilSuccess(fn, retryPolicy.next)
     }
 
+  /**
+   * Ping peers to get theirs p2p port for the app, then pass that port to Worker's TendermintRPC to dial.
+   *
+   * @param worker Local worker, App cluster participant
+   * @param peers All the other peers to form the cluster
+   * @param retryPolicy Retry policy for exponential backoff in reties
+   * @param P Parallelize request to pings
+   * @param sttpBackend Used to perform http requests
+   * @tparam F Concurrent to make a fiber so that you can cancel the joining job, Timer to make retries
+   * @tparam G F.Par
+   * @return Fiber for concurrent job of inquiring peers and putting their addresses to Tendermint
+   */
   def join[F[_]: Concurrent: Timer, G[_]](
     worker: Worker[F],
     peers: Vector[WorkerPeer],
@@ -53,28 +68,32 @@ object WorkerP2pConnectivity extends LazyLogging {
   ): F[Fiber[F, Unit]] =
     Concurrent[F].start(
       Parallel.parTraverse_(peers) { p ⇒
-        logger.debug(Console.RED + s"Peer address: ${p.ip.getHostAddress}:${p.apiPort}" + Console.RESET)
+        logger.debug(s"Peer API address: ${p.ip.getHostAddress}:${p.apiPort}")
 
-        val getPort: F[Short] = sttp
+        // Get p2p port for an app
+        val getPort: EitherT[F, Throwable, Short] = sttp
           .get(uri"http://${p.ip.getHostAddress}:${p.apiPort}/apps/${worker.appId}/p2pPort")
           .send()
+          .attemptT
           .flatMap { resp ⇒
-            Sync[F].fromEither(
+            EitherT.fromEither(
+              // Awful
               resp.body.left
                 .map(new RuntimeException(_))
                 .flatMap(v ⇒ Try(v.toShort).toEither)
             )
           }
 
+        // Get p2p port, pass it to worker's tendermint
         retryUntilSuccess(getPort, retryPolicy).flatMap { p2pPort ⇒
-          logger.info(Console.BLUE + s"GOT PEER p2p PORT: ${p.peerAddress(p2pPort)}" + Console.RESET)
+          logger.info(s"Got Peer p2p port: ${p.peerAddress(p2pPort)}")
+
           retryUntilSuccess(
             worker.tendermint
               .unsafeDialPeers(p.peerAddress(p2pPort) :: Nil, persistent = true)
-              .value
-              .flatMap { res ⇒
-                logger.info(Console.YELLOW + s"UNSAFE DIAL PEERS REPLIED $res" + Console.RESET)
-                Sync[F].fromEither(res)
+              .map { res ⇒
+                logger.info(s"dial_peers replied: $res")
+                res
               },
             retryPolicy
           )

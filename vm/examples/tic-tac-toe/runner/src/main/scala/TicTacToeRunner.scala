@@ -109,12 +109,12 @@ object TicTacToeRunner extends IOApp {
     generateJson("create_player", playerName, playerSign)
 
   private def createGameJson(playerName: String, playerSign: String, tile: Char): String =
-    generateJson("create_game", playerName, playerSign, ", \"tile\": \""  + tile + "\"")
+    generateJson("create_game", playerName, playerSign, ", \"tile\": \"" + tile + "\"")
 
   private def getStateJson(playerName: String, playerSign: String): String =
     generateJson("get_game_state", playerName, playerSign)
 
-  private def generateJson(action: String, playerName: String, playerSign: String, additionalFields: String="") =
+  private def generateJson(action: String, playerName: String, playerSign: String, additionalFields: String = "") =
     s"""{
        "action": "$action", "player_name": "$playerName", "player_sign": "$playerSign" $additionalFields
     }""".stripMargin

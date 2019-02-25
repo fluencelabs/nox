@@ -21,7 +21,7 @@ import { Client } from "./Client";
 import { Session } from "./Session";
 import { SessionConfig } from "./SessionConfig";
 import {Empty, Result, Value, isValue} from "./Result";
-import {getAppWorkers, Worker} from "fluence-monitoring"
+import {getAppNodes, Node} from "fluence-monitoring"
 import { ResultPromise } from "./ResultAwait";
 
 export {
@@ -47,7 +47,7 @@ let client = new Client("client002", signer);
 // A session with a worker with info about a worker
 export interface WorkerSession {
     session: Session,
-    worker: Worker
+    node: Node
 }
 
 // All sessions with workers from an app
@@ -61,12 +61,12 @@ export interface AppSession {
  * Creates connection with an app (all nodes related to an app in Fluence contract)
  */
 export async function connect(contract: string, appId: string, ethereumUrl?: string): Promise<AppSession> {
-    let workers: Worker[] = await getAppWorkers(contract, appId, ethereumUrl);
-    let sessions: WorkerSession[] = workers.map(worker => {
-        let session = directConnect(worker.node.ip_addr, worker.rpcPort, appId);
+    let nodes: Node[] = await getAppNodes(contract, appId, ethereumUrl);
+    let sessions: WorkerSession[] = nodes.map(node => {
+        let session = directConnect(node.ip_addr, node.api_port, appId);
         return {
             session: session,
-            worker: worker
+            node: node
         }
     });
 

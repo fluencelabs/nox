@@ -226,17 +226,17 @@ object DockerWorkersPool extends LazyLogging {
     F: Concurrent[F],
     P: Parallel[F, G]
   ): Resource[F, WorkersPool[F]] =
-    makePorts(minPort, maxPort, rootPath).flatMap(
-      ports ⇒
-        Resource.make {
-          for {
-            workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
-            stoppers ← Ref.of[F, Map[Long, F[Unit]]](Map.empty)
-          } yield new DockerWorkersPool[F, G](ports, workers, stoppers)
-        }(_.stopAll()).map(pool ⇒ pool: WorkersPool[F])
-    )
+    for {
+      ports ← makePorts(minPort, maxPort, rootPath)
+      pool ← Resource.make {
+        for {
+          workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
+          stoppers ← Ref.of[F, Map[Long, F[Unit]]](Map.empty)
+        } yield new DockerWorkersPool[F, G](ports, workers, stoppers)
+      }(_.stopAll())
+    } yield pool: WorkersPool[F]
 
-  private def makePorts[F[_]: Concurrent: LiftIO](
+  private def makePorts[F[_]: Concurrent: LiftIO: ContextShift](
     minPort: Short,
     maxPort: Short,
     rootPath: Path
