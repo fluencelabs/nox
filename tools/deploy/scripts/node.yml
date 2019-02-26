@@ -16,3 +16,10 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - $FLUENCE_STORAGE:/master
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 300M
+        reservations:
+          memory: 200M

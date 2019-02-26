@@ -29,28 +29,48 @@ class FluenceApp extends React.Component<Props, State> {
         this.props.retrieveApp(this.props.appId).then(this.props.hideLoading).catch(this.props.hideLoading);
     }
 
+    renderAppInfo(app: App): React.ReactNode {
+        return (
+            <div className="box-footer no-padding">
+                <div className="box-body">
+                    <strong><i className="fa fa-bullseye margin-r-5"></i>Storage Hash</strong>
+                    <p className="text-muted">{app.storage_hash}</p>
+                    <hr/>
+
+                    <strong><i className="fa fa-bullseye margin-r-5"></i>Storage Receipt</strong>
+                    <p className="text-muted">{app.storage_receipt}</p>
+                    <hr/>
+
+                    <strong><i className="fa fa-bullseye margin-r-5"></i>Cluster Size</strong>
+                    <p className="text-muted">{app.cluster_size}</p>
+                    <hr/>
+
+                    <strong><i className="fa fa-bullseye margin-r-5"></i>Owner</strong>
+                    <p className="text-muted">{app.owner}</p>
+                    <hr/>
+
+                    <strong><i className="fa fa-bullseye margin-r-5"></i>Cluster</strong>
+                    <p className="text-muted">{<FluenceCluster cluster={app.cluster}/>}</p>
+                </div>
+            </div>
+        );
+    }
+
     render(): React.ReactNode {
         const app = this.props.apps[this.props.appId];
 
-        let appInfo = null;
-        if (app) {
-            appInfo = (
-                <ul>
-                    <li>app_id: {app.app_id}</li>
-                    <li>storage_hash: {app.storage_hash}</li>
-                    <li>storage_receipt: {app.storage_receipt}</li>
-                    <li>cluster_size: {app.cluster_size}</li>
-                    <li>owner: {app.owner}</li>
-                    <li>cluster: {<FluenceCluster cluster={app.cluster}/>}</li>
-                </ul>
-            );
-        } else {
-            appInfo = (<span>Loading...</span>);
-        }
         return (
-            <div>
-                <h3>App {this.props.appId}</h3>
-                {appInfo}
+            <div className="col-md-4">
+                <div className="box box-widget widget-user-2">
+                    <div className="widget-user-header bg-yellow">
+                        <div className="widget-user-image">
+                            <span className="entity-info-box-icon"><i className={app ? 'ion ion-ios-gear-outline' : 'fa fa-refresh fa-spin'}></i></span>
+                        </div>
+                        <h3 className="widget-user-username">App</h3>
+                        <h5 className="widget-user-desc">ID:&nbsp;{this.props.appId}</h5>
+                    </div>
+                    { app && this.renderAppInfo(app) }
+                </div>
             </div>
         );
     }

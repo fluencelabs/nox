@@ -9,8 +9,8 @@
     - [Making it a library](#making-it-a-library)
     - [Compiling to WebAssembly](#compiling-to-webassembly)
 - [Publishing your app](#publishing-your-app)
-  - [Connect to Swarm and Ethereum Kovan](#connect-to-swarm-and-ethereum-kovan)
-  - [Registering an Ethereum Kovan account](#registering-an-ethereum-kovan-account)
+  - [Connect to Swarm and Ethereum Rinkeby](#connect-to-swarm-and-ethereum-rinkeby)
+  - [Registering an Ethereum Rinkeby account](#registering-an-ethereum-rinkeby-account)
     - [Via myetherwallet.com](#via-myetherwalletcom)
     - [Top up account with funds](#top-up-account-with-funds)
   - [Installing Fluence CLI](#installing-fluence-cli)
@@ -251,24 +251,24 @@ If everything goes well, you should have a `.wasm` file deep in `target`. Let's 
 ```
 
 # Publishing your app
-## Connect to Swarm and Ethereum Kovan
-To publish a backend app to Fluence network, you need to upload it to Swarm, and then send its location in Swarm to a Fluence smart contract on Ethereum Kovan testnet. 
+## Connect to Swarm and Ethereum Rinkeby
+To publish a backend app to Fluence network, you need to upload it to Swarm, and then send its location in Swarm to a Fluence smart contract on Ethereum Rinkeby testnet. 
 
 To make sure we're on the same page:
 - Swarm is a decentralized file storage. 
-- Ethereum Kovan testnet is one of the many Ethereum networks, but there's no real money in there, so it's safe and can be used for trying out something new.
+- Ethereum Rinkeby testnet is one of the many Ethereum networks, but there's no real money in there, so it's safe and can be used for trying out something new.
 - Fluence smart contract is what rules the Fluence network and allows users to use it.
 
-To upload your code to Swarm, you need to have access to one of its nodes. The same with Ethereum, you will need a connection to any Ethereum node on Kovan testnet.
+To upload your code to Swarm, you need to have access to one of its nodes. The same with Ethereum, you will need a connection to any Ethereum node on Rinkeby testnet.
 
 **We will use existing Ethereum & Swarm nodes, but if you wish, you can [use your own nodes](miner.md) or any other.**
 
-## Registering an Ethereum Kovan account
+## Registering an Ethereum Rinkeby account
 ### Via myetherwallet.com
-Go to https://vintage.myetherwallet.com/, then select Kovan in the upper right, enter any password, and download the Keystore file.
+Go to https://vintage.myetherwallet.com/, then select Rinkeby in the upper right, enter any password, and download the Keystore file.
 
 ### Top up account with funds
-Follow instructions for [Kovan faucet](https://github.com/kovan-testnet/faucet)
+Follow instructions for [Rinkeby faucet](https://faucet.rinkeby.io/)
 
 ## Installing Fluence CLI
 You can download Fluence CLI from here https://github.com/fluencelabs/fluence/releases/tag/cli-0.1.2
@@ -297,11 +297,11 @@ Fluence CLI 0.1.2
 If you see CLI version, proceed to the next step.
 
 ## Publishing via Fluence CLI
-As was mentioned before, you will need a connection to Ethereum Kovan network, and a connection to Swarm network. 
+As was mentioned before, you will need a connection to Ethereum Rinkeby network, and a connection to Swarm network. 
 
-For your convenience, and to make this guide simple, we use addresses of existing Ethereum Kovan and Swarm nodes running in a cloud on Fluence nodes. **However, this is a centralized way to connect to Ethereum Kovan and Swarm networks, and shouldn't be used in production or in a security-sensitive context.** You may use **any** Kovan and Swarm nodes by providing their URIs within `--eth_url` and `--swarm_url` options (see below).
+For your convenience, and to make this guide simple, we use addresses of existing Ethereum Rinkeby and Swarm nodes running in a cloud on Fluence nodes. **However, this is a centralized way to connect to Ethereum Rinkeby and Swarm networks, and shouldn't be used in production or in a security-sensitive context.** You may use **any** Rinkeby and Swarm nodes by providing their URIs within `--eth_url` and `--swarm_url` options (see below).
 
-Also you will need a Kovan account with some money on it (you can [get money from faucet](https://github.com/kovan-testnet/faucet)) and it's private key. Private key can be either a hex string or a [JSON keystore file](../cli/README.md#keystore-json-file).
+Also you will need a Rinkeby account with some money on it (you can [get money from faucet](https://faucet.rinkeby.io/)) and it's private key. Private key can be either a hex string or a [JSON keystore file](../cli/README.md#keystore-json-file).
 
 Having all that, you're now ready to publish your app. Examples below will specify a cluster size of 4 nodes for your app. Adjust it to your needs.
 

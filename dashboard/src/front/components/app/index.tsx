@@ -12,6 +12,14 @@ import FluenceNode from '../fluence-node';
 import FluenceNodeStatus from '../fluence-node-status';
 import {Action} from "redux";
 
+import 'bootstrap/dist/css/bootstrap.css';
+import 'font-awesome/css/font-awesome.css';
+//import 'ionicons/dist/css/ionicons.css'; /* different version, lack of icons */
+import 'admin-lte/bower_components/Ionicons/css/ionicons.min.css';
+import 'admin-lte/dist/css/AdminLTE.css';
+import 'admin-lte/dist/css/skins/skin-blue.css';
+import './style.css';
+
 interface State {}
 
 interface Props {
@@ -48,18 +56,85 @@ class DashboardApp extends React.Component<Props, State>{
         });
     }
 
-    render(): React.ReactNode {
+    renderApps(): React.ReactNode {
+        const nodes = this.props.appIds.map(appId => <FluenceApp appId={appId} />);
         return (
             <div>
-                <h2>Fluence network status from contract {contractAddress}</h2>
-                <img style={{ display: this.props.loading ? 'block' : 'none' }} src="/static/assets/loader.gif"/>
+                <h3 className="page-header">Apps</h3>
+                {this.perRow(nodes)}
+            </div>
+        );
+    }
 
-                <p>Apps ID's: {this.props.appIds.join(', ')}</p>
-                <p>Nodes ID's: {this.props.nodeIds.join(', ')}</p>
+    renderNodes(): React.ReactNode {
+        const nodes = this.props.nodeIds.map(nodeId => <FluenceNode nodeId={nodeId} />);
+        return (
+            <div>
+                <h3 className="page-header">Nodes</h3>
+                {this.perRow(nodes)}
+            </div>
+        );
+    }
 
-                {this.props.appIds.map(appId => <FluenceApp appId={appId} />)}
-                {this.props.nodeIds.map(nodeId => <FluenceNode nodeId={nodeId} />)}
-                {this.props.nodeIds.map(nodeId => this.props.nodes[nodeId] && <FluenceNodeStatus node={this.props.nodes[nodeId]} />)}
+    renderNodesStatus(): React.ReactNode {
+        const nodes = this.props.nodeIds.map(nodeId => this.props.nodes[nodeId] && <FluenceNodeStatus node={this.props.nodes[nodeId]} />);
+        return (
+            <div>
+                <h3 className="page-header">Nodes Status</h3>
+                {this.perRow(nodes)}
+            </div>
+        );
+    }
+
+    perRow(items: React.ReactNode[]) {
+        const perRow = 3;
+        const groups = items.map((item, index) => {
+            return index % perRow === 0 ? items.slice(index, index + perRow) : null;
+        }).filter(item => item);
+
+        return groups.map(
+            (groupedItems: React.ReactNode[]) => (
+                <div className="row">
+                    {groupedItems}
+                </div>
+            )
+        );
+    }
+
+    render(): React.ReactNode {
+        return (
+            <div className="wrapper">
+                <header className="main-header">
+                    <nav className="navbar navbar-static-top">
+
+                        <div className="navbar-custom-menu">
+                            <ul className="nav navbar-nav">
+                                <li style={{ display: this.props.loading ? 'block' : 'none' }}>
+                                    <a href="#"><i className="fa fa-refresh fa-spin"></i></a>
+                                </li>
+                            </ul>
+                        </div>
+                    </nav>
+                </header>
+
+                <div className="content-wrapper">
+                    <section className="content-header">
+                        <h1>
+                            Fluence network status
+                            <small>contract: {contractAddress}</small>
+                        </h1>
+                    </section>
+
+                    <section className="content">
+                        { this.renderApps() }
+                        { this.renderNodes() }
+                        { this.renderNodesStatus() }
+                    </section>
+                </div>
+
+                <footer className="main-footer">
+                    <strong><a href="https://fluence.one">Fluence Labs</a></strong>
+                </footer>
             </div>
         );
     }

@@ -19,7 +19,7 @@ package fluence.node
 import java.nio.file.{Files, Path, Paths}
 
 import cats.effect._
-import fluence.node.docker.{DockerIO, DockerImage, DockerParams}
+import fluence.node.docker._
 
 import scala.language.higherKinds
 
@@ -79,7 +79,7 @@ trait DockerSetup extends OsSetup {
                 + "/../vm/examples/llamadb/target/wasm32-unknown-unknown/release",
               "/master/vmcode/vmcode-llamadb"
             )
-            .image(DockerImage("fluencelabs/node", "latest"))
+            .prepared(DockerConfig(DockerImage("fluencelabs/node", "latest"), DockerLimits(None, None, None)))
             .daemonRun(),
           20
         )

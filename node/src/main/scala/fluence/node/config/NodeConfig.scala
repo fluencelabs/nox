@@ -15,7 +15,7 @@
  */
 
 package fluence.node.config
-import fluence.node.docker.DockerImage
+import fluence.node.docker.{DockerConfig, DockerImage}
 import fluence.node.workers.tendermint.ValidatorKey
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
@@ -32,8 +32,8 @@ case class NodeConfig(
   endpoints: EndpointsConfig,
   validatorKey: ValidatorKey,
   nodeAddress: String,
-  workerImage: DockerImage,
-  tmImage: DockerImage,
+  workerDockerConfig: DockerConfig,
+  tmDockerConfig: DockerConfig,
   isPrivate: Boolean = false
 )
 

@@ -9,3 +9,8 @@ services:
     ports:
       - 8500:8500
     command: --httpaddr 0.0.0.0 --bzzport 8500
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 450M
