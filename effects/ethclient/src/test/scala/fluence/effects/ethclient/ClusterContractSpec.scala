@@ -21,10 +21,9 @@ import java.io.File
 import cats.Parallel
 import cats.effect.concurrent.{Deferred, MVar}
 import cats.effect.{ContextShift, IO, Timer}
-import fluence.ethclient.EthClient
-import fluence.ethclient.data.Log
-import fluence.ethclient.syntax._
-import fluence.ethclient.helpers.Web3jConverters._
+import fluence.effects.ethclient.data.Log
+import fluence.effects.ethclient.syntax._
+import fluence.effects.ethclient.helpers.Web3jConverters._
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import org.web3j.abi.datatypes.generated.{Bytes32, Uint16, Uint8}
 import org.web3j.abi.datatypes.{Bool, DynamicArray}
