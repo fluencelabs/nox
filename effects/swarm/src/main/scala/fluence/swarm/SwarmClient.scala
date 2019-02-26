@@ -16,10 +16,9 @@
 
 package fluence.swarm
 
-import cats.Monad
 import cats.data.EitherT
 import cats.effect.IO
-import cats.syntax.functor._
+import cats.syntax.applicativeError._
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.circe._
 import fluence.crypto.Crypto.Hasher
@@ -30,10 +29,8 @@ import fluence.swarm.responses.Manifest
 import io.circe.syntax._
 import io.circe.{Json, Printer}
 import scodec.bits.ByteVector
-import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.language.higherKinds
-import scala.util.Try
 
 // TODO use pureConfig for parameters
 // TODO implement extended swarm functions https://github.com/fluencelabs/dataengine/issues/52
@@ -49,8 +46,9 @@ import scala.util.Try
  * @param sttpBackend way to represent the backend implementation.
  *                    Can be sync or async, with effects or not depending on the `F`
  */
-class SwarmClient[F[_]: Monad](swarmUri: Uri)(
+class SwarmClient[F[_]](swarmUri: Uri)(
   implicit sttpBackend: SttpBackend[F, Nothing],
+  F: cats.MonadError[F, Throwable],
   hasher: Hasher[ByteVector, ByteVector]
 ) extends slogging.LazyLogging {
 
@@ -297,14 +295,15 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri)(
       json = req.asJson
       _ = logger.debug(s"UpdateMutableResourceRequest: $json")
       updateURI = uri(BzzResource)
-      response <- EitherT(
-        sttp
-          .response(ignore)
-          .post(updateURI)
-          .body(jsonToBytes(json))
-          .send()
-          .map(_.body)
-      ).leftMap(er => SwarmError(s"Error on sending request to $updateURI. $er"))
+      response <- sttp
+        .response(ignore)
+        .post(updateURI)
+        .body(jsonToBytes(json))
+        .send()
+        .attemptT
+        .leftMap(_.getMessage)
+        .subflatMap(_.body)
+        .leftMap(er => SwarmError(s"Error on sending request to $updateURI. $er"))
       _ = logger.info("A mutable resource has been updated.")
     } yield response
 
@@ -319,6 +318,7 @@ object SwarmClient {
 
     implicit val hasher: Hasher[ByteVector, ByteVector] = Keccak256Hasher.hasher
 
+    // TODO return EitherT instead
     F.catchNonFatal {
       val swarmUri = uri"$address"
       new SwarmClient[F](swarmUri)
