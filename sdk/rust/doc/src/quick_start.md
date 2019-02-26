@@ -4,7 +4,7 @@ This part goes through the basics of application creation for the Fluence Networ
 
 ### Prerequisites
 
-First of all, you need to install Rust with Webassembly target. Currently, our SDK requires a nightly version of Rust since it uses some features that presently experimental (e.g. [allocator api](https://docs.rs/allocator_api)). To install Rust, you can use the following commands:
+First of all, you need to install Rust with Webassembly target. Currently, our SDK requires a nightly version of Rust since it uses some features that presently experimental (e.g., [allocator api](https://docs.rs/allocator_api)). To install Rust, you can use the following commands:
 
 ```bash
 # installs Rust compiler and other tools to `~/.cargo/bin`

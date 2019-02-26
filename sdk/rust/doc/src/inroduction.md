@@ -2,7 +2,7 @@
 
 This book describes the `Fluence backend SDK` and its possible usages for development of backend application for the Fluence network.
 
-The Fluence network is designed to run Webassembly (Wasm) program in decentralized trustless environments. Generally it can be considered as several logical parts: a `client-side` (a frontend part used for sending requests to Wasm program), the `VM wrapper` (an intermediate layer that receives queries from client side and routes it to a Wasm program) and a `backend app` written on Wasm:
+The Fluence network is designed to run Webassembly (Wasm) program in decentralized trustless environments. Generally, it can be considered as several logical parts: a `client-side` (a frontend part used for sending requests to Wasm program), the `VM wrapper` (an intermediate layer that receives queries from client side and routes it to a Wasm program) and a `backend app` written on Wasm:
 
 <p align="center">
   <img src="images/arch_overview.png" alt="Fluence arch overview" width="606px"/>
