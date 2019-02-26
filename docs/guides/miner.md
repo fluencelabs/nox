@@ -16,8 +16,8 @@ Being a miner in Fluence network means that you will provide you computation pow
 1. A computer to run a Fluence node and workers on it
 2. Installed and running Docker and `docker-compose`
 3. Installed python2 pip
-4. An Ethereum light-client or full node connected to Kovan testnet
-5. A Kovan Ethereum wallet topped up with some ETH to submit transactions
+4. An Ethereum light-client or full node connected to Rinkeby testnet
+5. A Rinkeby Ethereum wallet topped up with some ETH to submit transactions
 
 ## How mining works
 The process is as follows:
@@ -84,7 +84,7 @@ You can also change user running setup commands on cloud instance by `env.user` 
 env.user = "root"
 ```
 
-Now, let's deploy Fluence node along with Parity and Swarm containers:
+Now, let's deploy Fluence node along with Geth and Swarm containers:
 
 ```bash
 $ fab deploy
@@ -92,12 +92,12 @@ $ fab deploy
 
 At the end of the successful deployment you should see something like the following:
 ```
-[53.42.31.20] out: CONTRACT_ADDRESS=0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b
+[53.42.31.20] out: CONTRACT_ADDRESS=0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7
 [53.42.31.20] out: NAME=fluence-node-1
 [53.42.31.20] out: HOST_IP=53.42.31.20
 [53.42.31.20] out: EXTERNAL_HOST_IP=53.42.31.20
 [53.42.31.20] out: OWNER_ADDRESS=0x00a329c0648769a73afac7f9381e08fb43dbea72
-[53.42.31.20] out: CONTRACT_ADDRESS=0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b
+[53.42.31.20] out: CONTRACT_ADDRESS=0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7
 ...
 [53.42.31.20] out: Node container is started.
 [53.42.31.20] out: CURRENT NODE = 1
@@ -132,10 +132,10 @@ That's the result of script registering your node within Fluence smart contract.
 All environment variables used in the command are listed in the useful information above, so you can easily use them with Fluence CLI.
 
 ### Deploy Fluence node locally
-If you wish to use your local computer to host Fluence node, you can do that by running [kovan-compose.sh](../../tools/deploy/scripts/kovan-compose.sh) like this:
+If you wish to use your local computer to host Fluence node, you can do that by running [rinkeby-compose.sh](../../tools/deploy/scripts/rinkeby-compose.sh) like this:
 ```
-# ./kovan-compose.sh <external-ip> <owner-address> <private-key> <api-port> <capacity>
-./kovan-compose.sh 53.42.31.20 0x00a329c0648769a73afac7f9381e08fb43dbea72 4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 25000 10
+# ./rinkeby-compose.sh <external-ip> <owner-address> <private-key> <api-port> <capacity>
+./rinkeby-compose.sh 53.42.31.20 0x00a329c0648769a73afac7f9381e08fb43dbea72 4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 25000 10
 ```
 
 ## How to check if node is registered

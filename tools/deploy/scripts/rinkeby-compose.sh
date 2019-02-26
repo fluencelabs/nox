@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Uses to start Fluence node with Swarm and Ethereum node on Kovan chain.
+# Uses to start Fluence node with Swarm and Ethereum node on Rinkeby chain.
 
 set -e
 
-USAGE="Usage: ./kovan-compose.sh <external-ip> <owner-address> <private-key> <api-port> <capacity>"
+USAGE="Usage: ./rinkeby-compose.sh <external-ip> <owner-address> <private-key> <api-port> <capacity>"
 
 if [ ! $1 = '--help' -a ! $1 = '-h' ]; then
 
@@ -16,7 +16,8 @@ if [ ! $1 = '--help' -a ! $1 = '-h' ]; then
         fi
 
         export PROD_DEPLOY='true'
-        export CHAIN='kovan'
+        export CHAIN='rinkeby'
+        export ETHEREUM_SERVICE='geth'
         export NAME='fluence-node-1'
         export CONTRACT_ADDRESS=$(cat contract.txt)
         export HOST_IP="$1"
