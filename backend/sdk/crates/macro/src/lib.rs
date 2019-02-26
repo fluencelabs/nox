@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-//! This module defines invocation_handler attribute procedural macro. It allows simplifiing of
-//! principal module invocation handler signature. According to `Fluence Wasm backend convensions`
-//! is can look like this:
+//! This module defines `invocation_handler` attribute procedural macro. It can simplify main module
+//! invocation handler signature. According to Fluence backend convensions this handler can look
+//! like this:
 //!
 //! ```
 //! #[no_mangle]
@@ -30,7 +30,7 @@
 //! }
 //! ```
 //!
-//! Instead of this you can write more pretty one using `#[invocation_handler]`:
+//! Instead of this way you can write more pretty one using `#[invocation_handler]`:
 //!
 //! ```
 //! use fluence::sdk::*;
@@ -41,10 +41,10 @@
 //! }
 //! ```
 //!
-//! To use this macro with some function `f` some conditions have to be met:
+//! To use this macro with a function `f` some conditions must be met:
 //! 1. `f` mustn't have more than one input argument.
 //! 2. `f` mustn't be `unsafe`, `const`, generic, have custom abi linkage or variadic param.
-//! 3. The type of `f` input (if it present) and output parameters have to be one of
+//! 3. The type of `f` input (if it present) and output parameters must be one from
 //!    {String, Vec<u8>} set.
 //! 4. `f` mustn't have the name `invoke`.
 //!
@@ -52,12 +52,11 @@
 //! can be used.
 //!
 //! Internally this macros creates a new function `invoke` that converts a raw argument to
-//! appropriate format, calls `f` and then converts its result via `memory::write_result_to_mem`
-//! from `fluence_sdk_main`. So to use this crate apart from `fluence` `fluence_sdk_main` has
-//! to be imported.
+//! a appropriate format, calls `f` and then write `f` result via `memory::write_result_to_mem` to
+//! module memory. So to use this crate apart from `fluence` `fluence_sdk_main` has to be imported.
 //!
 //! The macro also has an `init_fn` attribute that can be used for specifying initialization
-//! function name. This function will be called only at the first invoke function call. It can be
+//! function name. This function will be called only in the first invoke function call. It can be
 //! used like this:
 //!
 //! ```
@@ -109,31 +108,31 @@ fn invoke_handler_impl(
         if let Some(constness) = constness {
             return Err(Error::new(
                 constness.span,
-                "The main module invocation handler mustn't be const",
+                "Please do not make the main module invocation handler constant",
             ));
         }
         if let Some(unsafety) = unsafety {
             return Err(Error::new(
                 unsafety.span,
-                "The main module invocation handler mustn't be unsafe",
+                "Please do not make the main module invocation handler unsafe",
             ));
         }
         if let Some(abi) = abi {
             return Err(Error::new(
                 abi.extern_token.span,
-                "The main module invocation handler mustn't have custom linkage",
+                "Please do not use any custom linkage with the main module invocation handler",
             ));
         }
         if !decl.generics.params.is_empty() || decl.generics.where_clause.is_some() {
             return Err(Error::new(
                 decl.fn_token.span,
-                "The main module invocation handler mustn't have generic params",
+                "Please do not use template parameters with the main module invocation handler",
             ));
         }
         if let Some(variadic) = decl.variadic {
             return Err(Error::new(
                 variadic.spans[0],
-                "The main module invocation handler mustn't be variadic",
+                "Please do not use variadic interface with the main module invocation handler",
             ));
         }
         Ok(())
@@ -147,14 +146,14 @@ fn invoke_handler_impl(
             1 => ParsedType::from_fn_arg(decl.inputs.first().unwrap().into_value())?,
             _ => return Err(Error::new(
                 decl.inputs.span(),
-                "The main module invocation handler mustn't have more than one input param",
+                "Please do not use more than one argument in the main module invocation handler",
             )),
         };
     let output_type = ParsedType::from_return_type(&decl.output)?;
     if output_type == ParsedType::Empty {
         return Err(Error::new(
             decl.output.span(),
-            "The main module invocation handler has to have return type",
+            "The main module invocation handler has to has a return value",
         ));
     }
 

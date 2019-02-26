@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-//! The main part of Fluence backend SDK. Contains `export_allocator` (enabled by `export_allocator`
-//! feature), `logger` (enabled by `wasm_logger`), `memory` modules.
+//! The main part of Fluence backend SDK. Contains `export_allocator` (that can be disabled by
+//! using `no_export_allocator` feature), `logger` (enabled by `wasm_logger`) and `memory` modules.
 
 #![doc(html_root_url = "https://docs.rs/fluence-sdk-main/0.0.10")]
 #![feature(allocator_api)]

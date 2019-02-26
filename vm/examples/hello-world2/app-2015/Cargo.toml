@@ -18,4 +18,4 @@ panic = "abort"
 
 [dependencies]
 log = "0.4"
-fluence = { version = "0.0.10", features = ["export_allocator", "wasm_logger"] }
+fluence = { version = "0.0.11", features = ["wasm_logger"] }

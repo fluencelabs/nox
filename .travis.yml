@@ -4,123 +4,124 @@ _scala_fluence_template: &_scala_fluence_template
   jdk: oraclejdk8
 
   install:
-  - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-01-08
-  - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-01-08
+    - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-01-08
+    - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-01-08
 
   # These directories are cached to S3 at the end of the build
   cache:
     npm: true
     cargo: true
     directories:
-    - $HOME/.ivy2/cache
-    - $HOME/.sbt/boot
-    - $HOME/.sbt/launchers
-    - bootstrap/node_modules
+      - $HOME/.ivy2/cache
+      - $HOME/.sbt/boot
+      - $HOME/.sbt/launchers
+      - bootstrap/node_modules
 
   before_cache:
-  # Cleanup the cached directories to avoid unnecessary cache updates
-  - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
-  - find $HOME/.sbt        -name "*.lock"               -print -delete
+    # Cleanup the cached directories to avoid unnecessary cache updates
+    - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
+    - find $HOME/.sbt        -name "*.lock"               -print -delete
 
 _rust_wasm_template: &_rust_wasm_template
   language: rust
   # todo enable 'stable' and 'beta' when `allocator_api` will become stable
   rust: nightly-2019-01-08
   cache:
-  - cargo
+    - cargo
 
   install:
-  - rustup target add wasm32-unknown-unknown
-  - rustup component add rustfmt
-  - rustup component add clippy
+    - rustup target add wasm32-unknown-unknown
+    - rustup component add rustfmt
+    - rustup component add clippy
 
   script:
-  - cargo +$TRAVIS_RUST_VERSION fmt --all -- --check -v
-  - cargo +$TRAVIS_RUST_VERSION build -v --target wasm32-unknown-unknown --all-features
-  - cargo +$TRAVIS_RUST_VERSION test -v --all-features
-  - cargo +$TRAVIS_RUST_VERSION clippy -v --target wasm32-unknown-unknown
+    - cargo +$TRAVIS_RUST_VERSION fmt --all -- --check -v
+    - cargo +$TRAVIS_RUST_VERSION build -v --target wasm32-unknown-unknown --all-features
+    - cargo +$TRAVIS_RUST_VERSION test -v --all-features
+    - cargo +$TRAVIS_RUST_VERSION clippy -v --target wasm32-unknown-unknown
 
 matrix:
   include:
-  - <<: *_scala_fluence_template
-    name: Fluence
-    script:
-    - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.compile compile
-    - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.test test
+    - <<: *_scala_fluence_template
+      name: Fluence
+      script:
+        - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.compile compile
+        - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.test test
 
-  # These tests take a lot of time and run only while PR
-  - <<: *_scala_fluence_template
-    name: Fluence integration tests
-    before_script:
-    - docker pull tendermint/tendermint:0.30.1
-    script:
-    - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile; fi'
-    # Some tests in LlamadbIntegrationTest require 2 Gb RAM
-    - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test; fi'
+    # These tests take a lot of time and run only while PR
+    - <<: *_scala_fluence_template
+      name: Fluence integration tests
+      before_script:
+        - docker pull tendermint/tendermint:0.30.1
+      script:
+        - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile; fi'
+        # Some tests in LlamadbIntegrationTest require 2 Gb RAM
+        - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test; fi'
+      if: type = pull_request
 
-  - name: smart contract
-    language: node_js
-    node_js: v10.9.0
-    before_install: cd bootstrap
-    before_script: npm run ganache
-    cache:
-      npm: true
-      directories:
-      - bootstrap/node_modules
+    - name: smart contract
+      language: node_js
+      node_js: v10.9.0
+      before_install: cd bootstrap
+      before_script: npm run ganache
+      cache:
+        npm: true
+        directories:
+          - bootstrap/node_modules
 
-  - name: fluence-js
-    language: node_js
-    node_js:
-    - "5"
-    - "6"
-    - "7"
-    - "8"
-    cache: npm
-    before_install: cd fluence-js
-    before_script: npm install
-    script: npm test
+    - name: fluence-js
+      language: node_js
+      node_js:
+        - "5"
+        - "6"
+        - "7"
+        - "8"
+      cache: npm
+      before_install: cd fluence-js
+      before_script: npm install
+      script: npm test
 
-  - <<: *_rust_wasm_template
-    name: backend App SDK
-    before_script:
-    - cd sdk/rust
+    - <<: *_rust_wasm_template
+      name: rust App SDK
+      before_script:
+        - cd sdk/rust
 
-  - <<: *_rust_wasm_template
-    name: llamaDb VM App
-    before_script:
-    - cd vm/examples/llamadb
+    - <<: *_rust_wasm_template
+      name: llamaDb VM App
+      before_script:
+        - cd vm/examples/llamadb
 
-  - name: Fluence CLI
-    language: rust
-    cache:
-    - cargo
-    - npm
+    - name: Fluence CLI
+      language: rust
+      cache:
+        - cargo
+        - npm
 
-    install:
-    - rustup component add rustfmt-preview
+      install:
+        - rustup component add rustfmt-preview
 
-    before_script:
-    - cd cli
+      before_script:
+        - cd cli
 
-    env:
-    - RUST_TEST_THREADS=1
-    - RUST_BACKTRACE=1
+      env:
+        - RUST_TEST_THREADS=1
+        - RUST_BACKTRACE=1
 
-    script:
-    - pushd ../bootstrap
-    - npm install
-    - npm run swarm-simulation &
-    - npm run ganache > /dev/null
-    - sleep 1
-    - npm run migrate
-    - popd
-    - cargo fmt --all -- --check -v
-    - cargo test
+      script:
+        - pushd ../bootstrap
+        - npm install
+        - npm run swarm-simulation &
+        - npm run ganache > /dev/null
+        - sleep 1
+        - npm run migrate
+        - popd
+        - cargo fmt --all -- --check -v
+        - cargo test
 
-  - name: Deploy Scripts
-    language: python
-    python: "2.7"
-    before_script:
-    - cd tools/deploy
-    script:
-    - pytest
+    - name: Deploy Scripts
+      language: python
+      python: "2.7"
+      before_script:
+        - cd tools/deploy
+      script:
+        - pytest

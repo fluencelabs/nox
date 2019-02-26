@@ -17,7 +17,8 @@
 //! This module provides default implementations of [`allocate`] and [`deallocate`] functions that
 //! can be used for array passing and returning.
 //!
-//! To enable it please specify `export_allocator` feature of `fluence` or `fluence-sdk-main`.
+//! This module is enabled by default, to disable it please use `no_export_allocator` feature of
+//! `fluence` or `fluence-sdk-main` crates.
 //!
 //! [`allocate`]: fn.allocate.html
 //! [`deallocate`]: fn.deallocate.html
@@ -36,8 +37,8 @@ pub unsafe fn allocate(size: usize) -> NonNull<u8> {
 }
 
 /// Deallocates memory area for provided memory pointer and size.
-/// Used from the host environment for memory deallocation after reading results
-/// of function from Wasm memory.
+/// Used from the host environment for memory deallocation after reading results of function from
+/// Wasm memory.
 #[no_mangle]
 pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) {
     let non_zero_size = NonZeroUsize::new(size)
