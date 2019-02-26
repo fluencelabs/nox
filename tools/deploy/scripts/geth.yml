@@ -4,7 +4,7 @@ services:
     image: "ethereum/client-go:stable"
     restart: always
     container_name: "geth-rinkeby"
-    command: "--rinkeby --rpc --rpcaddr '0.0.0.0' --rpcport 8545 --ws --wsaddr '0.0.0.0' --wsport 8546 --syncmode light --verbosity 2 --datadir /root/.ethereum"
+    command: $GETH_ARGS
     volumes:
       - $GETH_STORAGE:/root/.ethereum
 
@@ -14,3 +14,10 @@ services:
       - 8546:8546
       # - 30303:30303
       # - 30303:30303/udp
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 500M
+        reservations:
+          memory: 300M

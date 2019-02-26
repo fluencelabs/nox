@@ -20,6 +20,7 @@ use failure::SyncFailure;
 use clap::{value_t, ArgMatches};
 use console::style;
 use ethkey::Secret;
+use failure::ResultExt;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::{Url, UrlError};
 use std::fmt::LowerHex;
@@ -131,7 +132,8 @@ pub fn parse_secret_key(args: &ArgMatches, key: &str) -> Result<Option<Secret>, 
     Ok(args
         .value_of(key)
         .map(|s| s.trim_start_matches("0x").parse::<Secret>())
-        .map_or(Ok(None), |r| r.map(Some).into())?) // Option<Result> -> Result<Option>
+        .map_or(Ok(None), |r| r.map(Some).into()) // Option<Result> -> Result<Option>
+        .context("Error parsing secret key")?)
 }
 
 pub fn get_opt<E, T>(args: &ArgMatches, key: &str) -> Result<Option<T>, E>
