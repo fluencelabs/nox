@@ -24,7 +24,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
 import fluence.node.config.SwarmConfig
-import fluence.swarm.SwarmClient
+import fluence.effects.swarm.SwarmClient
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds

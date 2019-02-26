@@ -16,7 +16,7 @@
 
 package fluence.node.workers.tendermint
 
-import fluence.ethclient.helpers.Web3jConverters.base64ToBytes32
+import fluence.effects.ethclient.helpers.Web3jConverters.base64ToBytes32
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import org.web3j.abi.datatypes.generated.Bytes32
