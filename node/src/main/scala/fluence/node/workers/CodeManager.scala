@@ -19,12 +19,14 @@ package fluence.node.workers
 import java.nio.file.{Files, Path, Paths}
 
 import cats.Applicative
-import cats.effect.Sync
+import cats.effect.{Sync, Timer}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
+import fluence.effects.Backoff
 import fluence.node.config.SwarmConfig
-import fluence.swarm.SwarmClient
+import fluence.effects.swarm.{SwarmClient, SwarmError}
+import fluence.effects.syntax.backoff._
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -68,20 +70,19 @@ class TestCodeManager[F[_]](implicit F: Sync[F]) extends CodeManager[F] {
  * Uses the Swarm network to download a code.
  *
  */
-class SwarmCodeManager[F[_]](swarmClient: SwarmClient[F])(implicit F: Sync[F]) extends CodeManager[F] {
+class SwarmCodeManager[F[_]: Timer](swarmClient: SwarmClient[F])(implicit F: Sync[F], backoff: Backoff[SwarmError])
+    extends CodeManager[F] {
 
   /**
    * Downloads file from the Swarm and store it on a disk.
    * @param swarmPath a code address and a Swarm URL address
    * @param filePath a path to code to store
    */
-  private def downloadFromSwarmToFile(swarmPath: String, filePath: Path): F[Unit] = {
+  private def downloadFromSwarmToFile(swarmPath: String, filePath: Path): F[Unit] =
     //TODO change this to return stream from `download` method
-    swarmClient.download(swarmPath).value.flatMap {
-      case Left(err) => F.raiseError(err)
-      case Right(codeBytes) => F.delay(Files.write(filePath, codeBytes))
+    swarmClient.download(swarmPath).backoff.flatMap { codeBytes =>
+      F.delay(Files.write(filePath, codeBytes))
     }
-  }
 
   /**
    * Checks if there is no code already then download a file from the Swarm and store it to a disk.
@@ -93,6 +94,7 @@ class SwarmCodeManager[F[_]](swarmClient: SwarmClient[F])(implicit F: Sync[F]) e
     workerPath: Path,
     swarmPath: String
   ): F[Path] =
+    // TODO handle fail system errors properly?
     for {
       // TODO why to hardcode the directory and its creation?
       dirPath <- F.delay(workerPath.resolve("vmcode"))
@@ -124,7 +126,9 @@ class SwarmCodeManager[F[_]](swarmClient: SwarmClient[F])(implicit F: Sync[F]) e
 
 object CodeManager {
 
-  def apply[F[_]: Sync](config: SwarmConfig)(implicit sttpBackend: SttpBackend[F, Nothing]): F[CodeManager[F]] =
+  def apply[F[_]: Sync: Timer](
+    config: SwarmConfig
+  )(implicit sttpBackend: SttpBackend[F, Nothing], backoff: Backoff[SwarmError] = Backoff.default): F[CodeManager[F]] =
     if (config.enabled) {
       SwarmClient(config.host)
         .map(client => new SwarmCodeManager[F](client))
