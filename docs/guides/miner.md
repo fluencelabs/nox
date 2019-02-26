@@ -97,7 +97,6 @@ At the end of the successful deployment you should see something like the follow
 [53.42.31.20] out: HOST_IP=53.42.31.20
 [53.42.31.20] out: EXTERNAL_HOST_IP=53.42.31.20
 [53.42.31.20] out: OWNER_ADDRESS=0x00a329c0648769a73afac7f9381e08fb43dbea72
-[53.42.31.20] out: CONTRACT_ADDRESS=0x45cc7b68406cca5bc36b7b8ce6ec537eda67bc0b
 ...
 [53.42.31.20] out: Node container is started.
 [53.42.31.20] out: CURRENT NODE = 1
