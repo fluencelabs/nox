@@ -25,8 +25,8 @@ fluence-sdk-main = { path = "crates/main", version = "=0.0.11" }
 # Turn on a compilation for module contains Wasm logger realization.
 wasm_logger = ["fluence-sdk-main/wasm_logger"]
 
-# Turn on a compilation for module contains standart implementation of allocate/deallocate functions.
-export_allocator = ["fluence-sdk-main/export_allocator"]
+# Turn off a compilation for module contains standart implementation of allocate/deallocate functions.
+no_export_allocator = ["fluence-sdk-main/no_export_allocator"]
 
 [workspace]
 members = [

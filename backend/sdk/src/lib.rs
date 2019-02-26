@@ -33,7 +33,7 @@ pub mod sdk {
     #[cfg(feature = "wasm_logger")]
     pub use fluence_sdk_main::logger;
 
-    #[cfg(feature = "export_allocator")]
+    #[cfg(not(feature = "no_export_allocator"))]
     pub use fluence_sdk_main::export_allocator;
 
     pub use fluence_sdk_macro::invocation_handler;
