@@ -16,10 +16,14 @@ services:
           limits:
             cpus: '0.05'
             memory: 20M
+    restart_policy:
+      condition: any
+      delay: 5s
+      max_attempts: 10
+      window: 120s
 
   netdata:
     container_name: netdata
-    restart: always
     hostname: $HOSTNAME
     image: netdata/netdata
     cap_add:
@@ -39,3 +43,8 @@ services:
         limits:
           cpus: '0.2'
           memory: 500M
+    restart_policy:
+      condition: any
+      delay: 5s
+      max_attempts: 10
+      window: 120s
