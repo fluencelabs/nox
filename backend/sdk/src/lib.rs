@@ -15,7 +15,7 @@
  */
 
 //! Rust SDK for writing applications for Fluence.
-#![doc(html_root_url = "https://docs.rs/fluence/0.0.10")]
+#![doc(html_root_url = "https://docs.rs/fluence/0.0.11")]
 #![feature(allocator_api)]
 
 extern crate fluence_sdk_macro;
