@@ -28,29 +28,56 @@ class FluenceNode extends React.Component<Props, State> {
         this.props.retrieveNode(this.props.nodeId).then(this.props.hideLoading).catch(this.props.hideLoading);
     }
 
+    renderNodeInfo(node: Node): React.ReactNode {
+        return (
+            <div className="box-footer no-padding">
+                <div className="box-body">
+                    <strong><i className="fa fa-bullseye margin-r-5"></i>Tendermint Key</strong>
+                    <p className="text-muted">{node.tendermint_key}</p>
+                    <hr/>
+
+                    <strong><i className="fa fa-bullseye margin-r-5"></i>Ip Address</strong>
+                    <p className="text-muted">{node.ip_addr}</p>
+                    <hr/>
+
+                    <strong><i className="fa fa-bullseye margin-r-5"></i>Next Port</strong>
+                    <p className="text-muted">{node.next_port}</p>
+                    <hr/>
+
+                    <strong><i className="fa fa-bullseye margin-r-5"></i>Last Port</strong>
+                    <p className="text-muted">{node.last_port}</p>
+                    <hr/>
+
+                    <strong><i className="fa fa-bullseye margin-r-5"></i>Owner</strong>
+                    <p className="text-muted">{node.owner}</p>
+                    <hr/>
+
+                    <strong><i className="fa fa-bullseye margin-r-5"></i>Is Private</strong>
+                    <p className="text-muted">{node.is_private.toString()}</p>
+                    <hr/>
+
+                    <strong><i className="fa fa-bullseye margin-r-5"></i>Cluster</strong>
+                    <p className="text-muted">{node.clusters_ids.join(', ')}</p>
+                </div>
+            </div>
+        );
+    }
+
     render(): React.ReactNode {
         const node = this.props.nodes[this.props.nodeId];
-        let nodeInfo = null;
-        if (node) {
-            nodeInfo = (
-                <ul>
-                    <li>id: {node.id}</li>
-                    <li>tendermint_key: {node.tendermint_key}</li>
-                    <li>ip_addr: {node.ip_addr}</li>
-                    <li>next_port: {node.next_port}</li>
-                    <li>last_port: {node.last_port}</li>
-                    <li>owner: {node.owner}</li>
-                    <li>is_private: {node.is_private.toString()}</li>
-                    <li>clusters_ids: {node.clusters_ids.join(', ')}</li>
-                </ul>
-            );
-        } else {
-            nodeInfo = (<span>Loading...</span>);
-        }
+
         return (
-            <div>
-                <h3>Node {this.props.nodeId}</h3>
-                {nodeInfo}
+            <div className="col-md-4">
+                <div className="box box-widget widget-user-2">
+                    <div className="widget-user-header bg-aqua">
+                        <div className="widget-user-image">
+                            <span className="entity-info-box-icon"><i className={node ? 'ion ion-android-laptop' : 'fa fa-refresh fa-spin'}></i></span>
+                        </div>
+                        <h3 className="widget-user-username">Node</h3>
+                        <h5 className="widget-user-desc">ID:&nbsp;{this.props.nodeId}</h5>
+                    </div>
+                    { node && this.renderNodeInfo(node) }
+                </div>
             </div>
         );
     }
