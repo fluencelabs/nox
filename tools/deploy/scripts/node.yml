@@ -23,8 +23,3 @@ services:
           memory: 200M
         reservations:
           memory: 150M
-      restart_policy:
-        condition: any
-        delay: 5s
-        max_attempts: 10
-        window: 120s
