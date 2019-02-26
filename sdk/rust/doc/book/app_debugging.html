@@ -75,7 +75,7 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <ol class="chapter"><li><a href="inroduction.html"><strong aria-hidden="true">1.</strong> Inroduction</a></li><li><a href="quick_start.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><a href="app_convention.html"><strong aria-hidden="true">3.</strong> App conventions</a></li><li><a href="sdk_overview.html"><strong aria-hidden="true">4.</strong> Fluence SDK overview</a></li><li><a href="app_debugging.html" class="active"><strong aria-hidden="true">5.</strong> App debugging</a></li><li><a href="best_practices.html"><strong aria-hidden="true">6.</strong> Best practices</a></li><li><a href="examples.html"><strong aria-hidden="true">7.</strong> Examples</a></li></ol>
+            <ol class="chapter"><li><a href="inroduction.html"><strong aria-hidden="true">1.</strong> Inroduction</a></li><li><a href="quick_start.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><a href="app_convention.html"><strong aria-hidden="true">3.</strong> App conventions</a></li><li><a href="sdk_overview.html"><strong aria-hidden="true">4.</strong> Fluence SDK overview</a></li><li><a href="app_debugging.html" class="active"><strong aria-hidden="true">5.</strong> App debugging</a></li><li><a href="examples.html"><strong aria-hidden="true">6.</strong> Examples</a></li><li><a href="best_practices.html"><strong aria-hidden="true">7.</strong> Best practices</a></li></ol>
         </nav>
 
         <div id="page-wrapper" class="page-wrapper">
@@ -141,6 +141,35 @@
                 <div id="content" class="content">
                     <main>
                         <a class="header" href="#fluence-app-debugging" id="fluence-app-debugging"><h1>Fluence app debugging</h1></a>
+<a class="header" href="#wasm-logger-usage" id="wasm-logger-usage"><h2>Wasm logger usage</h2></a>
+<p>There is a few debugging capabilities for Wasm program. The Fluence network provides a possibility to so-called print-debugging. It can be included by specifying <code>wasm_logger</code> feature of the sdk.</p>
+<p>The logger is implemented as a logging facade for crate [<code>log</code>]. It means that all <code>log</code> crate can be used as usual. Let's review it by example of <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2018">hello-world2</a> application with simple logging:</p>
+<pre><code class="language-Rust">use fluence::sdk::*;
+use log::info;
+
+fn init() {
+    logger::WasmLogger::init_with_level(log::Level::Info).is_ok()
+}
+
+#[invocation_handler(init_fn = init)]
+fn main(name: String) -&gt; String {
+    info!(&quot;{} has been successfully greeted&quot;, name);
+    format!(&quot;Hello from Fluence to {}&quot;, name)
+}
+</code></pre>
+<p>Generally it is better to initialize logger in the <code>init</code> function. And also note that <code>logger</code> designed only for Wasm environment and Fluence WasmVm. Don't use it for other targets and virtual machines. But if is is needed to create a project with <code>logger</code> either for Wasm target or other architectures conditional compilation can be used:</p>
+<pre><code class="language-Rust">fn init() {
+    if cfg!(target_arch = &quot;wasm32&quot;) {
+        logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
+    } else {
+        simple_logger::init_with_level(log::Level::Info).unwrap();
+    }
+}
+</code></pre>
+<p>It is important to note that by default debugging capabilities is disabled on the Fluence network because of verification game process (you can find more information about it in <a href="tbd">our paper</a>).</p>
+<a class="header" href="#usage-of-scala-runner" id="usage-of-scala-runner"><h2>Usage of Scala runner</h2></a>
+<p>Sometimes it needs not only debug output but a possibility to run resulted Wasm app with some different inputs. It can be done by using so-called runner written on Scala (because it uses a <code>WasmVm</code> implementation that written on Scala).</p>
+<p>An example of runner for <code>hello-world2</code> can be found <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/runner">here</a>. It can be used a template for other runner realizations. These runners also support logging unless <code>loggerRegister</code> key in settings equals to 0 (for <code>hello-world2</code> app settings can be found <a href="https://github.com/fluencelabs/fluence/blob/master/vm/examples/hello-world2/runner/src/main/resources/reference.conf">here</a>).</p>
 
                     </main>
 
@@ -153,7 +182,7 @@
                         
 
                         
-                            <a rel="next" href="best_practices.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="examples.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -171,7 +200,7 @@
                 
 
                 
-                    <a href="best_practices.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a href="examples.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 

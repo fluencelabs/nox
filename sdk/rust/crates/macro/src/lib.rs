@@ -36,7 +36,7 @@
 //! use fluence::sdk::*;
 //!
 //! #[invocation_handler]
-//! fn main(name: String) -> String {
+//! fn greeting(name: String) -> String {
 //!    format!("Hello from Fluence to {}", name)
 //! }
 //! ```
@@ -63,12 +63,12 @@
 //! ```
 //! use fluence::sdk::*;
 //!
-//! fn init() -> bool {
+//! fn init() {
 //!     logger::WasmLogger::init_with_level(log::Level::Info).is_ok()
 //! }
 //!
 //! #[invocation_handler(init_fn = init)]
-//! fn main(name: String) -> String {
+//! fn greeting(name: String) -> String {
 //!     info!("{} has been successfully greeted", name);
 //!     format!("Hello from Fluence to {}", name)
 //! }

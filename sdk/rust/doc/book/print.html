@@ -75,7 +75,7 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <ol class="chapter"><li><a href="inroduction.html"><strong aria-hidden="true">1.</strong> Inroduction</a></li><li><a href="quick_start.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><a href="app_convention.html"><strong aria-hidden="true">3.</strong> App conventions</a></li><li><a href="sdk_overview.html"><strong aria-hidden="true">4.</strong> Fluence SDK overview</a></li><li><a href="app_debugging.html"><strong aria-hidden="true">5.</strong> App debugging</a></li><li><a href="best_practices.html"><strong aria-hidden="true">6.</strong> Best practices</a></li><li><a href="examples.html"><strong aria-hidden="true">7.</strong> Examples</a></li></ol>
+            <ol class="chapter"><li><a href="inroduction.html"><strong aria-hidden="true">1.</strong> Inroduction</a></li><li><a href="quick_start.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><a href="app_convention.html"><strong aria-hidden="true">3.</strong> App conventions</a></li><li><a href="sdk_overview.html"><strong aria-hidden="true">4.</strong> Fluence SDK overview</a></li><li><a href="app_debugging.html"><strong aria-hidden="true">5.</strong> App debugging</a></li><li><a href="examples.html"><strong aria-hidden="true">6.</strong> Examples</a></li><li><a href="best_practices.html"><strong aria-hidden="true">7.</strong> Best practices</a></li></ol>
         </nav>
 
         <div id="page-wrapper" class="page-wrapper">
@@ -256,7 +256,7 @@ fluence = { version = &quot;0.0.11&quot;, features = [&quot;export_allocator&quo
 </li>
 </ol>
 <a class="header" href="#fluence-sdk-overview" id="fluence-sdk-overview"><h1>Fluence SDK overview</h1></a>
-<p>Fluence SDK consists of two crates: <code>main</code> and <code>macro</code>. The first one is used for all memory relative operations and logging (please see <a href="./app_debugging.html">App debugging</a> section for more information). The second one contains a procedural macro to simplifying the entry function signature.</p>
+<p>Fluence SDK consists of two crates: <code>main</code> and <code>macro</code>. The first one is used for all memory relative operations and logging (please see <a href="./app_debugging.html">App debugging</a> section for more information). The second one contains a procedural macro to simplifying the entry function signature. These crates can be used separately of each other but the more preferred way is using of global <code>fluence</code> crate that reexport all other. In <code>edition 2018</code> rust it can be done by add <code>use fluence::sdk::*</code> to the source.</p>
 <a class="header" href="#app-without-sdk" id="app-without-sdk"><h2>App without SDK</h2></a>
 <p>First of all lets review how a simple <code>hello-world</code> app can be written without Fluence SDK on Rust. From <a href="./app_convention.html">backend app conventions</a> it follows that the app must has a <code>main</code> module with three export functions. According to restriction to their signature so a basic structure of <code>main</code> module can look like that:</p>
 <pre><code class="language-Rust">#[no_mangle]
@@ -325,7 +325,7 @@ pub unsafe fn deallocate(ptr: NonNull&lt;u8&gt;, size: usize) {
     Global.dealloc(ptr, layout);
 }
 </code></pre>
-<a class="header" href="#using-fluence-sdk" id="using-fluence-sdk"><h2>Using Fluence SDK</h2></a>
+<a class="header" href="#fluence-sdk-usage" id="fluence-sdk-usage"><h2>Fluence SDK usage</h2></a>
 <p>From the example above it can be seen that <code>allocate</code> and <code>deallocate</code> functions have only a utility purpose and normally used only by VM wrapper. These functions aren't any that most of developers want to realize in their app. Fluence SDK provides <code>fluence::memory::alloc</code> and <code>fluence::memory::dealloc</code> functions also based on <a href="https://doc.rust-lang.org/beta/std/alloc/trait.GlobalAlloc.html">GlobalAlloc</a>. They can be used by specifying the <code>export_allocator</code> feature of SDK.</p>
 <p>The <code>invoke</code> function can be also simplified by using the Fluence SDK that provides <code>fluence::memory::write_result_to_mem</code> and <code>fluence::memory::read_input_from_mem_</code>:</p>
 <pre><code class="language-Rust">#[no_mangle]
@@ -378,9 +378,100 @@ pub unsafe fn invoke(ptr: *mut u8, len: usize) -&gt; std::ptr::NonNull&lt;u8&gt;
 </li>
 </ol>
 <p>For troubleshooting and macros debugging <a href="https://github.com/dtolnay/cargo-expand">cargo expand</a> can be used.</p>
+<p>The macro also has an <code>init_fn</code> attribute that can be used for specifying initialization function name. This function will be called only in the first invoke function call. It can be used like this:</p>
+<pre><code class="language-Rust">use fluence::sdk::*;
+
+fn init() {
+    ...
+}
+
+#[invocation_handler(init_fn = init)]
+fn greeting(name: String) -&gt; String {
+    format!(&quot;Hello from Fluence to {}&quot;, name)
+}
+</code></pre>
+<p>This is expanded to</p>
+<pre><code class="language-Rust">use fluence::sdk::*;
+
+fn init() { 
+    ...
+}
+
+fn greeting(name: String) -&gt; String {
+    format!(&quot;Hello from Fluence to {}&quot;, name)
+}
+
+static mut IS_INITED: bool = false;
+
+#[no_mangle]
+pub unsafe fn invoke(ptr: *mut u8, len: usize) -&gt; std::ptr::NonNull&lt;u8&gt; {
+    if !IS_INITED { 
+        init();
+        unsafe { IS_INITED = true; }
+    }
+    let arg = memory::read_input_from_mem(ptr, len);
+    let arg = String::from_utf8(arg).unwrap();
+    let result = greeting(arg);
+    memory::write_result_to_mem(result.as_bytes()).expect(&quot;Putting result string to memory has failed&quot;)
+}
+</code></pre>
+<p>This example can be found <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2018">here</a>.</p>
+<a class="header" href="#rust-edition-2015" id="rust-edition-2015"><h2>Rust edition 2015</h2></a>
+<p>To use Fluence SDK with rust <code>edition 2015</code> please import it like this:</p>
+<pre><code class="language-Rust">#![feature(custom_attribute)]
+extern crate fluence;
+
+use fluence::sdk::*;
+</code></pre>
+<p>Example of <code>hello-world2</code> app on rust <code>edition 2015</code> can be found <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2015">here</a>.</p>
 <a class="header" href="#fluence-app-debugging" id="fluence-app-debugging"><h1>Fluence app debugging</h1></a>
-<a class="header" href="#introduction-1" id="introduction-1"><h1>Introduction</h1></a>
-<a class="header" href="#introduction-2" id="introduction-2"><h1>Introduction</h1></a>
+<a class="header" href="#wasm-logger-usage" id="wasm-logger-usage"><h2>Wasm logger usage</h2></a>
+<p>There is a few debugging capabilities for Wasm program. The Fluence network provides a possibility to so-called print-debugging. It can be included by specifying <code>wasm_logger</code> feature of the sdk.</p>
+<p>The logger is implemented as a logging facade for crate [<code>log</code>]. It means that all <code>log</code> crate can be used as usual. Let's review it by example of <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2018">hello-world2</a> application with simple logging:</p>
+<pre><code class="language-Rust">use fluence::sdk::*;
+use log::info;
+
+fn init() {
+    logger::WasmLogger::init_with_level(log::Level::Info).is_ok()
+}
+
+#[invocation_handler(init_fn = init)]
+fn main(name: String) -&gt; String {
+    info!(&quot;{} has been successfully greeted&quot;, name);
+    format!(&quot;Hello from Fluence to {}&quot;, name)
+}
+</code></pre>
+<p>Generally it is better to initialize logger in the <code>init</code> function. And also note that <code>logger</code> designed only for Wasm environment and Fluence WasmVm. Don't use it for other targets and virtual machines. But if is is needed to create a project with <code>logger</code> either for Wasm target or other architectures conditional compilation can be used:</p>
+<pre><code class="language-Rust">fn init() {
+    if cfg!(target_arch = &quot;wasm32&quot;) {
+        logger::WasmLogger::init_with_level(log::Level::Info).unwrap();
+    } else {
+        simple_logger::init_with_level(log::Level::Info).unwrap();
+    }
+}
+</code></pre>
+<p>It is important to note that by default debugging capabilities is disabled on the Fluence network because of verification game process (you can find more information about it in <a href="tbd">our paper</a>).</p>
+<a class="header" href="#usage-of-scala-runner" id="usage-of-scala-runner"><h2>Usage of Scala runner</h2></a>
+<p>Sometimes it needs not only debug output but a possibility to run resulted Wasm app with some different inputs. It can be done by using so-called runner written on Scala (because it uses a <code>WasmVm</code> implementation that written on Scala).</p>
+<p>An example of runner for <code>hello-world2</code> can be found <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/runner">here</a>. It can be used a template for other runner realizations. These runners also support logging unless <code>loggerRegister</code> key in settings equals to 0 (for <code>hello-world2</code> app settings can be found <a href="https://github.com/fluencelabs/fluence/blob/master/vm/examples/hello-world2/runner/src/main/resources/reference.conf">here</a>).</p>
+<a class="header" href="#examples" id="examples"><h1>Examples</h1></a>
+<a class="header" href="#llamadb" id="llamadb"><h2>Llamadb</h2></a>
+<a class="header" href="#tic-tac-toe" id="tic-tac-toe"><h2>Tic-tac-toe</h2></a>
+<a class="header" href="#best-practices" id="best-practices"><h1>Best practices</h1></a>
+<a class="header" href="#module-memory-consumption" id="module-memory-consumption"><h2>Module memory consumption</h2></a>
+<p>Please pay attention to module memory usage - each app can have maximum 4Gb of heap. But in many situations app can have public API that explicitly or indirectly consume module memory (e.g. by saving some user data). So users can make a DoS attack to such app. Usually proper work with memory can be reach by using fix-size collection like <a href="https://github.com/andylokandy/arraydeque">ArrayDeque</a>. In future Fluence SDK will provide some other collections for that.</p>
+<p>One example of proper work with memory can be found in <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/tic-tac-toe">tic-tac-toe</a> example app.</p>
+<a class="header" href="#reduce-size-of-app" id="reduce-size-of-app"><h2>Reduce size of app</h2></a>
+<p>There are some techniques that can reduce size of generated app. Most of them can be found in this nice <a href="https://rustwasm.github.io/book/reference/code-size.html">chapter</a> of <code>Rust and WebAssembly</code> book. But as for the Fluence network to reduce the size of binary as much is possible <code>no_std</code> crate without SDK can be used. The example of <code>hello-world</code> implemented without the sdk can be found in <a href="./sdk_overview.html">Fluence SDK overview</a>.</p>
+<a class="header" href="#other" id="other"><h2>Other</h2></a>
+<ul>
+<li>
+<p>don't use panic! and methods that lead to it (expect, unwrap) in your code.</p>
+</li>
+<li>
+<p>avoid using unsafe operations except these that already in Fluence SDK.</p>
+</li>
+</ul>
 
                     </main>
 

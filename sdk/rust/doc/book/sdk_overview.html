@@ -75,7 +75,7 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <ol class="chapter"><li><a href="inroduction.html"><strong aria-hidden="true">1.</strong> Inroduction</a></li><li><a href="quick_start.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><a href="app_convention.html"><strong aria-hidden="true">3.</strong> App conventions</a></li><li><a href="sdk_overview.html" class="active"><strong aria-hidden="true">4.</strong> Fluence SDK overview</a></li><li><a href="app_debugging.html"><strong aria-hidden="true">5.</strong> App debugging</a></li><li><a href="best_practices.html"><strong aria-hidden="true">6.</strong> Best practices</a></li><li><a href="examples.html"><strong aria-hidden="true">7.</strong> Examples</a></li></ol>
+            <ol class="chapter"><li><a href="inroduction.html"><strong aria-hidden="true">1.</strong> Inroduction</a></li><li><a href="quick_start.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><a href="app_convention.html"><strong aria-hidden="true">3.</strong> App conventions</a></li><li><a href="sdk_overview.html" class="active"><strong aria-hidden="true">4.</strong> Fluence SDK overview</a></li><li><a href="app_debugging.html"><strong aria-hidden="true">5.</strong> App debugging</a></li><li><a href="examples.html"><strong aria-hidden="true">6.</strong> Examples</a></li><li><a href="best_practices.html"><strong aria-hidden="true">7.</strong> Best practices</a></li></ol>
         </nav>
 
         <div id="page-wrapper" class="page-wrapper">
@@ -141,7 +141,7 @@
                 <div id="content" class="content">
                     <main>
                         <a class="header" href="#fluence-sdk-overview" id="fluence-sdk-overview"><h1>Fluence SDK overview</h1></a>
-<p>Fluence SDK consists of two crates: <code>main</code> and <code>macro</code>. The first one is used for all memory relative operations and logging (please see <a href="./app_debugging.html">App debugging</a> section for more information). The second one contains a procedural macro to simplifying the entry function signature.</p>
+<p>Fluence SDK consists of two crates: <code>main</code> and <code>macro</code>. The first one is used for all memory relative operations and logging (please see <a href="./app_debugging.html">App debugging</a> section for more information). The second one contains a procedural macro to simplifying the entry function signature. These crates can be used separately of each other but the more preferred way is using of global <code>fluence</code> crate that reexport all other. In <code>edition 2018</code> rust it can be done by add <code>use fluence::sdk::*</code> to the source.</p>
 <a class="header" href="#app-without-sdk" id="app-without-sdk"><h2>App without SDK</h2></a>
 <p>First of all lets review how a simple <code>hello-world</code> app can be written without Fluence SDK on Rust. From <a href="./app_convention.html">backend app conventions</a> it follows that the app must has a <code>main</code> module with three export functions. According to restriction to their signature so a basic structure of <code>main</code> module can look like that:</p>
 <pre><code class="language-Rust">#[no_mangle]
@@ -210,7 +210,7 @@ pub unsafe fn deallocate(ptr: NonNull&lt;u8&gt;, size: usize) {
     Global.dealloc(ptr, layout);
 }
 </code></pre>
-<a class="header" href="#using-fluence-sdk" id="using-fluence-sdk"><h2>Using Fluence SDK</h2></a>
+<a class="header" href="#fluence-sdk-usage" id="fluence-sdk-usage"><h2>Fluence SDK usage</h2></a>
 <p>From the example above it can be seen that <code>allocate</code> and <code>deallocate</code> functions have only a utility purpose and normally used only by VM wrapper. These functions aren't any that most of developers want to realize in their app. Fluence SDK provides <code>fluence::memory::alloc</code> and <code>fluence::memory::dealloc</code> functions also based on <a href="https://doc.rust-lang.org/beta/std/alloc/trait.GlobalAlloc.html">GlobalAlloc</a>. They can be used by specifying the <code>export_allocator</code> feature of SDK.</p>
 <p>The <code>invoke</code> function can be also simplified by using the Fluence SDK that provides <code>fluence::memory::write_result_to_mem</code> and <code>fluence::memory::read_input_from_mem_</code>:</p>
 <pre><code class="language-Rust">#[no_mangle]
@@ -263,6 +263,52 @@ pub unsafe fn invoke(ptr: *mut u8, len: usize) -&gt; std::ptr::NonNull&lt;u8&gt;
 </li>
 </ol>
 <p>For troubleshooting and macros debugging <a href="https://github.com/dtolnay/cargo-expand">cargo expand</a> can be used.</p>
+<p>The macro also has an <code>init_fn</code> attribute that can be used for specifying initialization function name. This function will be called only in the first invoke function call. It can be used like this:</p>
+<pre><code class="language-Rust">use fluence::sdk::*;
+
+fn init() {
+    ...
+}
+
+#[invocation_handler(init_fn = init)]
+fn greeting(name: String) -&gt; String {
+    format!(&quot;Hello from Fluence to {}&quot;, name)
+}
+</code></pre>
+<p>This is expanded to</p>
+<pre><code class="language-Rust">use fluence::sdk::*;
+
+fn init() { 
+    ...
+}
+
+fn greeting(name: String) -&gt; String {
+    format!(&quot;Hello from Fluence to {}&quot;, name)
+}
+
+static mut IS_INITED: bool = false;
+
+#[no_mangle]
+pub unsafe fn invoke(ptr: *mut u8, len: usize) -&gt; std::ptr::NonNull&lt;u8&gt; {
+    if !IS_INITED { 
+        init();
+        unsafe { IS_INITED = true; }
+    }
+    let arg = memory::read_input_from_mem(ptr, len);
+    let arg = String::from_utf8(arg).unwrap();
+    let result = greeting(arg);
+    memory::write_result_to_mem(result.as_bytes()).expect(&quot;Putting result string to memory has failed&quot;)
+}
+</code></pre>
+<p>This example can be found <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2018">here</a>.</p>
+<a class="header" href="#rust-edition-2015" id="rust-edition-2015"><h2>Rust edition 2015</h2></a>
+<p>To use Fluence SDK with rust <code>edition 2015</code> please import it like this:</p>
+<pre><code class="language-Rust">#![feature(custom_attribute)]
+extern crate fluence;
+
+use fluence::sdk::*;
+</code></pre>
+<p>Example of <code>hello-world2</code> app on rust <code>edition 2015</code> can be found <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2015">here</a>.</p>
 
                     </main>
 

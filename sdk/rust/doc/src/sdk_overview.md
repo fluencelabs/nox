@@ -1,6 +1,6 @@
 # Fluence SDK overview
 
-Fluence SDK consists of two crates: `main` and `macro`. The first one is used for all memory relative operations and logging (please see [App debugging](./app_debugging.md) section for more information). The second one contains a procedural macro to simplifying the entry function signature. 
+Fluence SDK consists of two crates: `main` and `macro`. The first one is used for all memory relative operations and logging (please see [App debugging](./app_debugging.md) section for more information). The second one contains a procedural macro to simplifying the entry function signature. These crates can be used separately of each other but the more preferred way is using of global `fluence` crate that reexport all other. In `edition 2018` rust it can be done by add `use fluence::sdk::*` to the source.
 
 ## App without SDK
 
@@ -77,7 +77,7 @@ pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) {
 }
 ``` 
 
-## Using Fluence SDK
+## Fluence SDK usage
 
 From the example above it can be seen that `allocate` and `deallocate` functions have only a utility purpose and normally used only by VM wrapper. These functions aren't any that most of developers want to realize in their app. Fluence SDK provides `fluence::memory::alloc` and `fluence::memory::dealloc` functions also based on [GlobalAlloc](https://doc.rust-lang.org/beta/std/alloc/trait.GlobalAlloc.html). They can be used by specifying the `export_allocator` feature of SDK.
 
@@ -137,3 +137,61 @@ To use this macro with some function `f` some conditions have to be met:
 4. `f` mustn't have the name `invoke`.
 
 For troubleshooting and macros debugging [cargo expand](https://github.com/dtolnay/cargo-expand) can be used. 
+
+The macro also has an `init_fn` attribute that can be used for specifying initialization function name. This function will be called only in the first invoke function call. It can be used like this:
+
+```Rust
+use fluence::sdk::*;
+
+fn init() {
+    ...
+}
+
+#[invocation_handler(init_fn = init)]
+fn greeting(name: String) -> String {
+    format!("Hello from Fluence to {}", name)
+}
+```
+
+This is expanded to
+
+```Rust
+use fluence::sdk::*;
+
+fn init() { 
+    ...
+}
+
+fn greeting(name: String) -> String {
+    format!("Hello from Fluence to {}", name)
+}
+
+static mut IS_INITED: bool = false;
+
+#[no_mangle]
+pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
+    if !IS_INITED { 
+        init();
+        unsafe { IS_INITED = true; }
+    }
+    let arg = memory::read_input_from_mem(ptr, len);
+    let arg = String::from_utf8(arg).unwrap();
+    let result = greeting(arg);
+    memory::write_result_to_mem(result.as_bytes()).expect("Putting result string to memory has failed")
+}
+```
+
+This example can be found [here](https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2018).
+
+## Rust edition 2015
+
+To use Fluence SDK with rust `edition 2015` please import it like this: 
+
+```Rust
+#![feature(custom_attribute)]
+extern crate fluence;
+
+use fluence::sdk::*;
+```
+
+Example of `hello-world2` app on rust `edition 2015` can be found [here](https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2015).

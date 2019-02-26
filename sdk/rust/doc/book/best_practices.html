@@ -75,7 +75,7 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <ol class="chapter"><li><a href="inroduction.html"><strong aria-hidden="true">1.</strong> Inroduction</a></li><li><a href="quick_start.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><a href="app_convention.html"><strong aria-hidden="true">3.</strong> App conventions</a></li><li><a href="sdk_overview.html"><strong aria-hidden="true">4.</strong> Fluence SDK overview</a></li><li><a href="app_debugging.html"><strong aria-hidden="true">5.</strong> App debugging</a></li><li><a href="best_practices.html" class="active"><strong aria-hidden="true">6.</strong> Best practices</a></li><li><a href="examples.html"><strong aria-hidden="true">7.</strong> Examples</a></li></ol>
+            <ol class="chapter"><li><a href="inroduction.html"><strong aria-hidden="true">1.</strong> Inroduction</a></li><li><a href="quick_start.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><a href="app_convention.html"><strong aria-hidden="true">3.</strong> App conventions</a></li><li><a href="sdk_overview.html"><strong aria-hidden="true">4.</strong> Fluence SDK overview</a></li><li><a href="app_debugging.html"><strong aria-hidden="true">5.</strong> App debugging</a></li><li><a href="examples.html"><strong aria-hidden="true">6.</strong> Examples</a></li><li><a href="best_practices.html" class="active"><strong aria-hidden="true">7.</strong> Best practices</a></li></ol>
         </nav>
 
         <div id="page-wrapper" class="page-wrapper">
@@ -140,22 +140,32 @@
 
                 <div id="content" class="content">
                     <main>
-                        <a class="header" href="#introduction" id="introduction"><h1>Introduction</h1></a>
+                        <a class="header" href="#best-practices" id="best-practices"><h1>Best practices</h1></a>
+<a class="header" href="#module-memory-consumption" id="module-memory-consumption"><h2>Module memory consumption</h2></a>
+<p>Please pay attention to module memory usage - each app can have maximum 4Gb of heap. But in many situations app can have public API that explicitly or indirectly consume module memory (e.g. by saving some user data). So users can make a DoS attack to such app. Usually proper work with memory can be reach by using fix-size collection like <a href="https://github.com/andylokandy/arraydeque">ArrayDeque</a>. In future Fluence SDK will provide some other collections for that.</p>
+<p>One example of proper work with memory can be found in <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/tic-tac-toe">tic-tac-toe</a> example app.</p>
+<a class="header" href="#reduce-size-of-app" id="reduce-size-of-app"><h2>Reduce size of app</h2></a>
+<p>There are some techniques that can reduce size of generated app. Most of them can be found in this nice <a href="https://rustwasm.github.io/book/reference/code-size.html">chapter</a> of <code>Rust and WebAssembly</code> book. But as for the Fluence network to reduce the size of binary as much is possible <code>no_std</code> crate without SDK can be used. The example of <code>hello-world</code> implemented without the sdk can be found in <a href="./sdk_overview.html">Fluence SDK overview</a>.</p>
+<a class="header" href="#other" id="other"><h2>Other</h2></a>
+<ul>
+<li>
+<p>don't use panic! and methods that lead to it (expect, unwrap) in your code.</p>
+</li>
+<li>
+<p>avoid using unsafe operations except these that already in Fluence SDK.</p>
+</li>
+</ul>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="app_debugging.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="examples.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
-                        
-                            <a rel="next" href="examples.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
-                            </a>
                         
 
                         <div style="clear: both"></div>
@@ -165,15 +175,11 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a href="app_debugging.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a href="examples.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
-                
-                    <a href="examples.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
-                    </a>
                 
             </nav>
 
