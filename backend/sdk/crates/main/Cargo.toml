@@ -31,4 +31,4 @@ lazy_static = "1.2.0" # used in doc test
 wasm_logger = []
 
 # Turn on a compilation for module contains standart implementation of allocate/deallocate functions.
-export_allocator = []
+no_export_allocator = []

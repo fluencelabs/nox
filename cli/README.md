@@ -101,7 +101,7 @@ Interesting bits:
 - `fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm` is just an example path and doesn't exist in project
     - however, you can build it by issuing `sbt vm-counter/compile` in project root
 
-Please refer to [Fluence Rust SDK](../sdk/rust/README.md) to get information about developing apps with Fluence.
+Please refer to [Fluence Rust SDK](../backend/sdk/README.md) to get information about developing apps with Fluence.
 
 #### Waiting for an app to be deployed or enqueued
 You can pass `--wait` option to `publish` command, and CLI will wait until transaction is included in a block, and then provide you with information about app deployment status and app id.
