@@ -144,7 +144,9 @@ class TxProcessor[F[_]](
           )
 
     }
-  }.valueOrF(error => putResult(tx, TransactionStatus.Error, Error(error.code, error.message)))
+  }.valueOrF(
+    error => putResult(tx, TransactionStatus.Error, Error(error.code, error.message, error.causedBy.map(_.getMessage)))
+  )
 
   /**
    * Traverses all currently stored sessions and mark those of them which need to be expired,
