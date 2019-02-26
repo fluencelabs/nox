@@ -1,0 +1,5 @@
+[book]
+authors = ["Fluence Labs"]
+multilingual = false
+src = "src"
+title = "The Fluence SDK book"
