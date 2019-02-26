@@ -19,7 +19,7 @@ package fluence.node
 import java.nio.file.{Files, Path, Paths}
 
 import cats.effect._
-import fluence.node.docker.{DockerIO, DockerImage, DockerParams}
+import fluence.node.docker._
 
 import scala.language.higherKinds
 
@@ -53,10 +53,10 @@ trait DockerSetup extends OsSetup {
   }
 
   protected def runMaster[F[_]: ContextShift: Async](
-    portFrom: Short,
-    portTo: Short,
+    apiPort: Short,
     name: String,
-    statusPort: Short
+    n: Int,
+    capacity: Short = 1
   ): Resource[F, String] =
     tempDirectory.flatMap { masterDir =>
       DockerIO
@@ -65,8 +65,10 @@ trait DockerSetup extends OsSetup {
             .build()
             .option("-e", s"TENDERMINT_IP=$dockerHost")
             .option("-e", s"ETHEREUM_IP=$ethereumHost")
-            .option("-e", s"PORTS=$portFrom:$portTo")
-            .port(statusPort, 5678)
+            .option("-e", s"MIN_PORT=${apiPort+n*1000}")
+            .option("-e", s"MAX_PORT=${apiPort+n*1000+capacity-1}")
+            .option("-e", s"SWARM_ENABLED=false")
+            .port(apiPort, 5678)
             .option("--name", name)
             .volume(masterDir, "/master")
             .volume("/var/run/docker.sock", "/var/run/docker.sock")
@@ -77,7 +79,7 @@ trait DockerSetup extends OsSetup {
                 + "/../vm/examples/llamadb/target/wasm32-unknown-unknown/release",
               "/master/vmcode/vmcode-llamadb"
             )
-            .image(DockerImage("fluencelabs/node", "latest"))
+            .prepared(DockerConfig(DockerImage("fluencelabs/node", "latest"), DockerLimits(None, None, None)))
             .daemonRun(),
           20
         )

@@ -79,7 +79,7 @@ object DockerTendermint {
   /**
    * Execute tendermint-specific command inside a temporary container, return the results
    *
-   * @param tmImage Tendermint image to use
+   * @param tmDockerConfig Tendermint image to use, with cpu and memory limits
    * @param tendermintDir Tendermint's home directory in current filesystem
    * @param masterContainerId Master process' Docker ID, used to pass volumes from
    * @param cmd Command to run
@@ -88,7 +88,7 @@ object DockerTendermint {
    * @return String output of the command execution
    */
   def execCmd[F[_]: Sync: ContextShift](
-    tmImage: DockerImage,
+    tmDockerConfig: DockerConfig,
     tendermintDir: Path,
     masterContainerId: Option[String],
     cmd: String,
@@ -104,13 +104,13 @@ object DockerTendermint {
           params
             .option("--volumes-from", cId)
             .option("-e", s"TMHOME=$tendermintDir")
-            .image(tmImage)
+            .prepared(tmDockerConfig)
             .runExec(cmd)
 
         case None ⇒
           params
             .volume(tendermintDir.toString, "/tendermint")
-            .image(tmImage)
+            .prepared(tmDockerConfig)
             .runExec(cmd)
       }
     }
@@ -120,9 +120,10 @@ object DockerTendermint {
    */
   private def dockerCommand(
     params: WorkerParams,
-    network: DockerNetwork
+    network: DockerNetwork,
+    p2pPort: Short
   ): DockerParams.DaemonParams = {
-    import params._
+    import params.{masterNodeContainerId, tendermintPath, tmDockerConfig}
 
     val dockerParams = DockerParams
       .build()
@@ -130,7 +131,7 @@ object DockerTendermint {
       .option("-e", s"""TMHOME=$tendermintPath""")
       .option("--name", containerName(params))
       .option("--network", network.name)
-      .port(currentWorker.p2pPort, P2pPort)
+      .port(p2pPort, P2pPort)
 
     (masterNodeContainerId match {
       case Some(id) =>
@@ -138,7 +139,7 @@ object DockerTendermint {
           .option("--volumes-from", id)
       case None =>
         dockerParams
-    }).image(tmImage).daemonRun("node")
+    }).prepared(tmDockerConfig).daemonRun("node")
   }
 
   /**
@@ -158,15 +159,16 @@ object DockerTendermint {
    */
   def make[F[_]: Sync: ContextShift: LiftIO](
     params: WorkerParams,
+    p2pPort: Short,
     workerName: String,
     network: DockerNetwork,
     stopTimeout: Int
   ): Resource[F, DockerTendermint] =
     for {
       _ ← Resource.liftF(
-        params.configTemplate.writeConfigs(params.app, params.tendermintPath, workerName)
+        params.configTemplate.writeConfigs(params.app, params.tendermintPath, p2pPort, workerName)
       )
-      container ← DockerIO.run[F](dockerCommand(params, network), stopTimeout)
+      container ← DockerIO.run[F](dockerCommand(params, network, p2pPort), stopTimeout)
     } yield DockerTendermint(container, containerName(params))
 
 }

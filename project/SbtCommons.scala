@@ -12,7 +12,7 @@ object SbtCommons {
 
   val commons = Seq(
     scalaV,
-    version                              := "0.1.3",
+    version                              := "0.1.4",
     fork in Test                         := true,
     parallelExecution in Test            := false,
     fork in IntegrationTest              := true,
@@ -85,14 +85,15 @@ object SbtCommons {
   val fs2 = "co.fs2"   %% "fs2-core"             % fs2Version
   val fs2rx = "co.fs2" %% "fs2-reactive-streams" % fs2Version
   val fs2io = "co.fs2" %% "fs2-io"               % fs2Version
-  
+
   // functional wrapper around 'lightbend/config'
-  val pureConfig = "com.github.pureconfig" %% "pureconfig"      % "0.10.2"
-  
-  val cryptoHashing = "one.fluence"        %% "crypto-hashsign" % "0.0.3"
-  val cryptoCipher = "one.fluence"         %% "crypto-cipher"   % "0.0.3"
-  val cryptoKeyStore = "one.fluence"       %% "crypto-keystore" % "0.0.3"
-  val codecCore = "one.fluence"            %% "codec-core"      % "0.0.4"
+  val pureConfig = "com.github.pureconfig" %% "pureconfig" % "0.10.2"
+  val ficus = "com.iheart"                 %% "ficus"      % "1.4.3"
+
+  val cryptoHashing = "one.fluence"  %% "crypto-hashsign" % "0.0.3"
+  val cryptoCipher = "one.fluence"   %% "crypto-cipher"   % "0.0.3"
+  val cryptoKeyStore = "one.fluence" %% "crypto-keystore" % "0.0.3"
+  val codecCore = "one.fluence"      %% "codec-core"      % "0.0.4"
 
   val sttpVersion = "1.5.4"
   val sttp = "com.softwaremill.sttp"            %% "core"                           % sttpVersion
@@ -124,8 +125,8 @@ object SbtCommons {
 
   val toml = "com.electronwill.night-config" % "toml" % "3.4.2"
 
-  val rocksDb = "org.rocksdb"         % "rocksdbjni" % "5.17.2"
-  
+  val rocksDb = "org.rocksdb" % "rocksdbjni" % "5.17.2"
+
   /* Test deps*/
 
   val scalaTest = "org.scalatest"            %% "scalatest"   % "3.0.5"  % Test

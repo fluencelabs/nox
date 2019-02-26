@@ -51,13 +51,13 @@ object FluenceContractTestOps {
      * @tparam F Effect
      * @return The block number where transaction has been mined
      */
-    def addNode[F[_]: LiftIO: Timer: Monad](nodeConfig: NodeConfig, startPort: Short, endPort: Short): F[BigInt] =
+    def addNode[F[_]: LiftIO: Timer: Monad](nodeConfig: NodeConfig, apiPort: Short, capacity: Short): F[BigInt] =
       contract
         .addNode(
           nodeConfig.validatorKey.toBytes32,
           nodeConfig.addressBytes24,
-          new Uint16(startPort),
-          new Uint16(endPort),
+          new Uint16(apiPort),
+          new Uint16(capacity),
           nodeConfig.isPrivateBool
         )
         .callUntilSuccess[F]

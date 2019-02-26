@@ -64,10 +64,10 @@ contract Deployer {
         // Publicly reachable & verifiable node address; has `node` prefix as `address` is a reserved word
         bytes24 nodeAddress;
 
-        // Next port that could be used for running worker
-        uint16 nextPort;
-        // The last port of Node's dedicated range
-        uint16 lastPort;
+        // Api port of the node
+        uint16 apiPort;
+        // Node's capacity
+        uint16 capacity;
 
         // ethereum address of the miner which runs this node
         address owner;
@@ -110,9 +110,6 @@ contract Deployer {
 
         // IDs of participating nodes
         bytes32[] nodeIDs;
-
-        // Worker's ports for each node
-        uint16[] ports;
     }
 
     // Emitted when there is enough Workers for some App
@@ -187,22 +184,18 @@ contract Deployer {
     /** @dev Adds node with specified port range to the work-waiting queue
       * @param nodeID Tendermint's ValidatorKey
       * @param nodeAddress currently Tendermint P2P node ID + IP address, subject to change
-      * @param startPort starting port for node's port range
-      * @param endPort ending port for node's port range
+      * @param apiPort node's api port
+      * @param capacity node's capacity
       * emits NewNode event about new node
       * emits ClusterFormed event when there is enough nodes for some Code
       */
-    function addNode(bytes32 nodeID, bytes24 nodeAddress, uint16 startPort, uint16 endPort, bool isPrivate)
+    function addNode(bytes32 nodeID, bytes24 nodeAddress, uint16 apiPort, uint16 capacity, bool isPrivate)
         external
     {
         require(nodes[nodeID].id == 0, "This node is already registered");
 
-        // port range is inclusive
-        // if startPort == endPort, then node can host just a single code
-        require(startPort <= endPort, "Port range is empty or incorrect");
-
         // Save the node
-        nodes[nodeID] = Node(nodeID, nodeAddress, startPort, endPort, msg.sender, isPrivate, new uint256[](0));
+        nodes[nodeID] = Node(nodeID, nodeAddress, apiPort, capacity, msg.sender, isPrivate, new uint256[](0));
         nodesIds.push(nodeID);
 
         // No need to add private nodes to readyNodes, as they could only used with by-id pinning
@@ -220,7 +213,7 @@ contract Deployer {
 
                 // We should stop if there's no more ports in this node -- its addition has no more effect
                 Node storage node = nodes[nodeID];
-                if(node.nextPort > node.lastPort) break;
+                if(node.capacity == 0) break;
             } else i++;
         }
     }
@@ -263,7 +256,7 @@ contract Deployer {
             clusterSize,
             msg.sender,
             pinToNodes,
-            Cluster(0, new bytes32[](0), new uint16[](0)) // TODO: this is awful
+            Cluster(0, new bytes32[](0)) // TODO: this is awful
         );
         appIDs.push(appID);
 
@@ -301,7 +294,6 @@ contract Deployer {
       * emits AppRemoved event on successful deletion
       * reverts if you're not app owner
       * reverts if app or cluster aren't not found
-      * TODO: free nodes' ports after app deletion
       */
     function deleteApp(uint256 appID)
         external
@@ -328,7 +320,12 @@ contract Deployer {
         internal
     {
         for (uint i = 0; i < nodeIDsArray.length; i++) {
-            uint256[] storage appIDsArray = nodes[nodeIDsArray[i]].appIDs;
+            bytes32 nodeID = nodeIDsArray[i];
+            Node storage node = nodes[nodeID];
+
+            incrementCapacity(node);
+
+            uint256[] storage appIDsArray = node.appIDs;
             uint idx = indexOf(appID, appIDsArray);
             require(idx < nodeIDsArray.length, "error deleting app: app not found in node.appIDs");
             removeArrayElement(idx, appIDsArray);
@@ -421,7 +418,7 @@ contract Deployer {
                 Node storage node = nodes[app.pinToNodes[i]];
 
                 // Return false if there's not enough capacity on pin-to node to deploy the app
-                if(node.nextPort > node.lastPort) {
+                if(node.capacity == 0) {
                     return false;
                 }
 
@@ -470,7 +467,7 @@ contract Deployer {
         // arrays containing nodes' data to be sent in a `ClusterFormed` event
         bytes32[] memory nodeIDs = new bytes32[](app.clusterSize);
         bytes24[] memory workerAddrs = new bytes24[](app.clusterSize);
-        uint16[] memory workerPorts = new uint16[](app.clusterSize);
+        uint16[] memory apiPorts = new uint16[](app.clusterSize);
 
         // j holds the number of currently collected nodes and a position in event data arrays
         for (uint8 j = 0; j < app.clusterSize; j++) {
@@ -479,38 +476,51 @@ contract Deployer {
             // copy node's data to arrays so it can be sent in event
             nodeIDs[j] = node.id;
             workerAddrs[j] = node.nodeAddress;
-            workerPorts[j] = node.nextPort;
+            apiPorts[j] = node.apiPort;
 
-            useNodePort(node);
+            decrementCapacity(node);
             node.appIDs.push(app.appID);
         }
 
         uint genesisTime = now;
 
         // saving selected nodes as a cluster with assigned app
-        app.cluster = Cluster(genesisTime, nodeIDs, workerPorts);
+        app.cluster = Cluster(genesisTime, nodeIDs);
 
         // notify Fluence node it's time to run real-time workers and
         // create a Tendermint cluster hosting selected App (defined by storageHash)
-        emit AppDeployed(app.appID, app.storageHash, genesisTime, nodeIDs, workerAddrs, workerPorts);
+        emit AppDeployed(app.appID, app.storageHash, genesisTime, nodeIDs, workerAddrs, apiPorts);
     }
 
-    /** @dev increments node's currentPort
-     * and removes it from readyNodes if there are no more ports left
+    /** @dev decrement node's capacity
+     * and removes it from readyNodes if there is no more capacity left
      * returns true if node was deleted from readyNodes
      */
-    function useNodePort(Node storage node)
+    function decrementCapacity(Node storage node)
         internal
     {
-        // increment port, it will be used for the next code
-        node.nextPort++;
+        // decrement capacity
+        node.capacity--;
 
         // check if node will be able to host a code next time; if no, remove it
-        if (node.nextPort > node.lastPort) {
+        if (node.capacity == 0) {
             uint readyNodeIdx = indexOf(node.id, readyNodes);
             if (readyNodeIdx < readyNodes.length) {
                 removeReadyNode(readyNodeIdx);
             }
+        }
+    }
+
+    /** @dev increment node's capacity
+     * and add it to readyNodes if there was no capacity left
+     */
+    function incrementCapacity(Node storage node)
+        internal
+    {
+        node.capacity++;
+
+        if(node.capacity == 1) {
+            readyNodes.push(node.id);
         }
     }
 

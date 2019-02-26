@@ -15,7 +15,9 @@
  */
 
 package fluence.node.workers
-import cats.{Applicative, Parallel}
+import java.nio.file.Path
+
+import cats.{Applicative, Apply, Parallel}
 import cats.syntax.applicative._
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
@@ -26,6 +28,8 @@ import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.apply._
 import cats.syntax.functor._
+import fluence.codec.PureCodec
+import fluence.effects.kvstore.RocksDBStore
 
 import scala.language.higherKinds
 
@@ -34,12 +38,14 @@ import scala.language.higherKinds
  *
  * @param workers a storage for running [[Worker]]s, indexed by appIds
  */
-class DockerWorkersPool[F[_]: ContextShift](
+class DockerWorkersPool[F[_]: ContextShift: Timer, G[_]](
+  ports: WorkersPorts[F],
   workers: Ref[F, Map[Long, Worker[F]]],
   waitStopped: Ref[F, Map[Long, F[Unit]]]
 )(
   implicit sttpBackend: SttpBackend[F, Nothing],
-  F: Concurrent[F]
+  F: Concurrent[F],
+  P: Parallel[F, G]
 ) extends WorkersPool[F] with LazyLogging {
 
   /**
@@ -60,11 +66,12 @@ class DockerWorkersPool[F[_]: ContextShift](
    * Runs a worker concurrently, registers it in `workers` map
    *
    * @param params Worker's description
+   * @param p2pPort Tendermint p2p port
    * @param stopTimeout Timeout in seconds to allow graceful stopping of running containers.
    *                    It might take up to 2*`stopTimeout` seconds to gracefully stop the worker, as 2 containers involved.
    * @return Unit; no failures are expected
    */
-  private def runWorker(params: WorkerParams, stopTimeout: Int = 5): F[Unit] =
+  private def runWorker(params: WorkerParams, p2pPort: Short, stopTimeout: Int = 5): F[Unit] =
     for {
       // Fix for the almost impossible case when a command to run a new worker for an app id is received when
       // another worker with the same app id is being stopped
@@ -82,6 +89,7 @@ class DockerWorkersPool[F[_]: ContextShift](
         DockerWorker
           .make[F](
             params,
+            p2pPort,
             // onStop is called externally, when one wants to stop the worker
             onStop = for {
               // Release the worker resource, triggering resource cleanup
@@ -94,6 +102,8 @@ class DockerWorkersPool[F[_]: ContextShift](
               // Remove stopper, so that we don't need to wait for this worker to stop on stopAll
               _ ← waitStopped.update(_ - params.appId)
             } yield logger.info(s"Worker's Fiber joined: $params"),
+            // TODO clean worker volumes
+            onRemove = ports.free(params.appId).value.void,
             stopTimeout
           )
           .use(
@@ -103,8 +113,16 @@ class DockerWorkersPool[F[_]: ContextShift](
                 _ ← workers.update(_.updated(params.appId, worker)) *>
                   waitStopped.update(_.updated(params.appId, runningWorkerFiberDef.get.flatMap(_.join)))
 
+                // Launch a concurrent process of fetching p2p ports from other nodes
+                // Once a port is received, register it in tendermint
+                p2pPortsFiber ← WorkerP2pConnectivity
+                  .join(worker, params.app.cluster.workers.filterNot(_.index == params.currentWorker.index))
+
                 // Worker is being used as a resource until this Deferred is resolved
                 _ ← stopWorkerDef.get
+
+                // If we haven't connected to some p2p host yet, stop trying
+                _ ← p2pPortsFiber.cancel
 
                 _ = logger.info(s"Removing worker from the pool: $params")
                 // Remove worker from the pool, so that worker's services cannot be used
@@ -126,20 +144,25 @@ class DockerWorkersPool[F[_]: ContextShift](
    * @return F that resolves with true when worker is registered; it might be not running yet. If it was registered before, F resolves with false
    */
   override def run(params: WorkerParams): F[WorkersPool.RunResult] =
-    checkWorkerHealthy(params.appId)
+    Apply[F]
+      .product(checkWorkerHealthy(params.appId), ports.allocate(params.appId).value)
       .flatMap[WorkersPool.RunResult] {
-        case (false, oldWorker) ⇒
+        case ((false, oldWorker), Right(p2pPort)) ⇒
           for {
             // stop the old worker
             _ ← oldWorker.fold(().pure[F])(stop)
-            _ ← runWorker(params)
+            _ ← runWorker(params, p2pPort)
           } yield
             if (oldWorker.isDefined) WorkersPool.Restarted
             else WorkersPool.Ran
 
-        case (true, oldWorker) ⇒
+        case ((true, oldWorker), _) ⇒
           logger.info(s"Worker for app ${params.appId} was already ran as $oldWorker")
           Applicative[F].pure(WorkersPool.AlreadyRunning)
+
+        // Cannot allocate port
+        case (_, Left(err)) ⇒
+          Applicative[F].pure(WorkersPool.RunFailed(Some(err)))
       }
       .handleError(err ⇒ WorkersPool.RunFailed(Option(err)))
 
@@ -158,7 +181,7 @@ class DockerWorkersPool[F[_]: ContextShift](
    * @param P Parallel instance is required as all workers are stopped concurrently
    * @return F that resolves when all workers are stopped
    */
-  def stopAll[G[_]]()(implicit P: Parallel[F, G]): F[Unit] =
+  def stopAll(): F[Unit] =
     for {
       workers ← getAll
 
@@ -190,21 +213,54 @@ class DockerWorkersPool[F[_]: ContextShift](
 
 }
 
-object DockerWorkersPool {
+object DockerWorkersPool extends LazyLogging {
+
+  private val P2pPortsDbFolder: String = "p2p-ports-db"
 
   /**
    * Build a new [[DockerWorkersPool]]. All workers will be stopped when the pool is released
    */
-  def make[F[_]: ContextShift, G[_]]()(
+  def make[F[_]: ContextShift: Timer, G[_]](minPort: Short, maxPort: Short, rootPath: Path)(
     implicit
     sttpBackend: SttpBackend[F, Nothing],
     F: Concurrent[F],
     P: Parallel[F, G]
-  ): Resource[F, DockerWorkersPool[F]] =
-    Resource.make {
-      for {
-        workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
-        stoppers ← Ref.of[F, Map[Long, F[Unit]]](Map.empty)
-      } yield new DockerWorkersPool[F](workers, stoppers)
-    }(_.stopAll())
+  ): Resource[F, WorkersPool[F]] =
+    for {
+      ports ← makePorts(minPort, maxPort, rootPath)
+      pool ← Resource.make {
+        for {
+          workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
+          stoppers ← Ref.of[F, Map[Long, F[Unit]]](Map.empty)
+        } yield new DockerWorkersPool[F, G](ports, workers, stoppers)
+      }(_.stopAll())
+    } yield pool: WorkersPool[F]
+
+  private def makePorts[F[_]: Concurrent: LiftIO: ContextShift](
+    minPort: Short,
+    maxPort: Short,
+    rootPath: Path
+  ): Resource[F, WorkersPorts[F]] = {
+    import cats.syntax.compose._
+
+    logger.debug("Making ports for a WorkersPool, first prepare RocksDBStore")
+
+    // TODO use better serialization, check for errors
+    implicit val stringCodec: PureCodec[String, Array[Byte]] =
+      PureCodec.liftB(_.getBytes(), bs ⇒ new String(bs))
+
+    implicit val longCodec: PureCodec[Array[Byte], Long] =
+      PureCodec[Array[Byte], String] andThen PureCodec
+        .liftB[String, Long](_.toLong, _.toString)
+
+    implicit val shortCodec: PureCodec[Array[Byte], Short] =
+      PureCodec[Array[Byte], String] andThen PureCodec
+        .liftB[String, Short](_.toShort, _.toString)
+
+    val path = rootPath.resolve(P2pPortsDbFolder)
+
+    logger.debug(s"Ports db: $path")
+
+    RocksDBStore.make[F, Long, Short](path.toString)
+  }.flatMap(WorkersPorts.make(minPort, maxPort, _))
 }

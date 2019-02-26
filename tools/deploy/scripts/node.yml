@@ -3,17 +3,23 @@ version: '3.4'
 services:
   fluence-node-1:
     container_name: $NAME
-    image: fluencelabs/node:v0.1.3
+    image: fluencelabs/node:v0.1.4
     environment:
       - TENDERMINT_IP=$DOCKER_IP
       - ETHEREUM_IP=$HOST_IP
       - SWARM_HOST=http://$HOST_IP:8500
       - CONTRACT_ADDRESS=$CONTRACT_ADDRESS
       - OWNER_ADDRESS=$OWNER_ADDRESS
-      - PORTS=$PORTS
     ports:
-      # port for status API
-      - $STATUS_PORT:5678
+      # API port
+      - $API_PORT:5678
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - $FLUENCE_STORAGE:/master
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 300M
+        reservations:
+          memory: 200M

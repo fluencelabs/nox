@@ -18,12 +18,10 @@ package fluence.node.config
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
-/**
- * @param host address to Swarm node
- */
-case class SwarmConfig(enabled: Boolean, host: String)
+case class PortsConfig(minPort: Short, maxPort: Short)
 
-object SwarmConfig {
-  implicit val encodeSwarmConfig: Encoder[SwarmConfig] = deriveEncoder
-  implicit val decodeSwarmConfig: Decoder[SwarmConfig] = deriveDecoder
+object PortsConfig {
+
+  implicit val encodePortsConfig: Encoder[PortsConfig] = deriveEncoder
+  implicit val decodePortsConfig: Decoder[PortsConfig] = deriveDecoder
 }

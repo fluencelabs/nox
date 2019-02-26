@@ -17,7 +17,7 @@
 package fluence.node.workers
 import java.nio.file.Path
 
-import fluence.node.docker.DockerImage
+import fluence.node.docker.{DockerConfig, DockerImage}
 import fluence.node.eth.state.WorkerPeer
 import fluence.node.eth.state.App
 import fluence.node.workers.tendermint.config.ConfigTemplate
@@ -31,8 +31,8 @@ case class WorkerParams(
   tendermintPath: Path,
   vmCodePath: Path,
   masterNodeContainerId: Option[String],
-  image: DockerImage,
-  tmImage: DockerImage,
+  dockerConfig: DockerConfig,
+  tmDockerConfig: DockerConfig,
   configTemplate: ConfigTemplate
 ) {
   def appId: Long = app.id

@@ -19,6 +19,7 @@ package fluence.node.workers
 import cats.{Applicative, Apply}
 import cats.effect._
 import cats.syntax.functor._
+import cats.syntax.apply._
 import cats.syntax.flatMap._
 import com.softwaremill.sttp._
 import fluence.node.docker._
@@ -33,6 +34,8 @@ import scala.language.higherKinds
 /**
  * Single running worker's datatype
  *
+ * @param p2pPort Tendermint p2p port
+ * @param appId Worker's app ID
  * @param tendermint Tendermint RPC endpoints for the worker
  * @param control Control RPC endpoints for the worker
  * @param status Getter for actual Worker's status
@@ -41,10 +44,13 @@ import scala.language.higherKinds
  * @tparam F the effect
  */
 case class DockerWorker[F[_]] private (
+  p2pPort: Short,
+  appId: Long,
   tendermint: TendermintRpc[F],
   control: ControlRpc[F],
   status: F[WorkerStatus],
   stop: F[Unit],
+  remove: F[Unit],
   description: String
 ) extends Worker[F]
 
@@ -66,7 +72,7 @@ object DockerWorker extends LazyLogging {
         dockerParams.option("--volumes-from", s"$id:ro")
       case None =>
         dockerParams
-    }).image(image).daemonRun()
+    }).prepared(dockerConfig).daemonRun()
   }
 
   private def dockerNetworkName(params: WorkerParams): String =
@@ -95,7 +101,9 @@ object DockerWorker extends LazyLogging {
    * Makes a single worker that runs once resource is in use
    *
    * @param params Worker's running params
+   * @param p2pPort Tendermint p2p port
    * @param onStop A callback to launch when this worker is stopped
+   * @param onRemove A callback to clean all the resources used by worker
    * @param stopTimeout Timeout in seconds to allow graceful stopping of running containers.
    *                    It might take up to 2*`stopTimeout` seconds to gracefully stop the worker, as 2 containers involved.
    * @param sttpBackend Sttp Backend to launch HTTP healthchecks and RPC endpoints
@@ -103,7 +111,9 @@ object DockerWorker extends LazyLogging {
    */
   def make[F[_]: ContextShift](
     params: WorkerParams,
+    p2pPort: Short,
     onStop: F[Unit],
+    onRemove: F[Unit],
     stopTimeout: Int
   )(
     implicit sttpBackend: SttpBackend[F, Nothing],
@@ -114,7 +124,7 @@ object DockerWorker extends LazyLogging {
 
       worker ← DockerIO.run[F](dockerCommand(params, network), stopTimeout)
 
-      tendermint ← DockerTendermint.make[F](params, containerName(params), network, stopTimeout)
+      tendermint ← DockerTendermint.make[F](params, p2pPort, containerName(params), network, stopTimeout)
 
       rpc ← TendermintRpc.make[F](tendermint.name, DockerTendermint.RpcPort)
 
@@ -137,6 +147,7 @@ object DockerWorker extends LazyLogging {
         )
       }
 
-    } yield new DockerWorker[F](rpc, control, status, onStop, params.toString)
+    } yield
+      new DockerWorker[F](p2pPort, params.appId, rpc, control, status, onStop, onStop *> onRemove, params.toString)
 
 }

@@ -14,16 +14,19 @@
  * limitations under the License.
  */
 
-package fluence.node.config
+package fluence.node.docker
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
 /**
- * @param host address to Swarm node
+ * Docker config
+ *
+ * @param image Docker image
+ * @param limits CPU & memory limits for a container
  */
-case class SwarmConfig(enabled: Boolean, host: String)
+case class DockerConfig(image: DockerImage, limits: DockerLimits)
 
-object SwarmConfig {
-  implicit val encodeSwarmConfig: Encoder[SwarmConfig] = deriveEncoder
-  implicit val decodeSwarmConfig: Decoder[SwarmConfig] = deriveDecoder
+object DockerConfig {
+  implicit val enc: Encoder[DockerConfig] = deriveEncoder
+  implicit val dec: Decoder[DockerConfig] = deriveDecoder
 }

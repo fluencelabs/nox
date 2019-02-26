@@ -26,7 +26,7 @@ import scala.language.higherKinds
 
 /**
  * Representation of Tendermint config.toml
- * NOTE: external_address, proxy_app, persistent_peers and moniker are
+ * NOTE: external_address, proxy_app, and moniker are
  * missing here because they are generated in [[ConfigTemplate.updateConfigTOML]]
  *
  * @param logLevel Logging level, could be something like "main:info,p2p:error"
@@ -70,7 +70,6 @@ case class TendermintConfig(
    * @param workerPeerAddress Tendermint p2p peer address, i.e., [[fluence.node.eth.state.WorkerPeer.peerAddress]]
    * @param workerIndex Index of current peer among all cluster peers, i.e., [[fluence.node.eth.state.WorkerPeer.index]]
    * @param abciHost Host to connect ABCI to
-   * @param persistentPeers Tendermint cluster peers, as defined by smart contract
    * @param appId App id, as defined by smart contract
    */
   def generate[F[_]: Sync](
@@ -79,14 +78,12 @@ case class TendermintConfig(
     workerPeerAddress: String,
     workerIndex: Int,
     abciHost: String,
-    persistentPeers: Vector[String],
     appId: Long,
   ): F[Unit] = Sync[F].delay {
     val properties = List(
       "proxy_app" -> s"tcp://$abciHost:$abciPort",
       "moniker" -> s"${appId}_$workerIndex",
-      "p2p.external_address" -> workerPeerAddress,
-      "p2p.persistent_peers" -> persistentPeers.mkString(","),
+      "p2p.external_address" -> workerPeerAddress
     ) ++ mapping
 
     val tmp = Files.copy(src, Files.createTempFile("config", ".toml"), StandardCopyOption.REPLACE_EXISTING)
@@ -99,6 +96,9 @@ case class TendermintConfig(
 
     import collection.JavaConverters._
     updated.set("rpc.cors_allowed_origins", corsAllowedOrigins.asJava)
+
+    // used for dial_peers
+    updated.set("rpc.unsafe", true)
 
     updated.save()
     updated.close()
