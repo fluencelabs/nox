@@ -142,7 +142,9 @@
                     <main>
                         <a class="header" href="#examples" id="examples"><h1>Examples</h1></a>
 <a class="header" href="#llamadb" id="llamadb"><h2>Llamadb</h2></a>
+<p><a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/llamadb">Llamadb</a> app is an example of adopting existing project in-memory SQL database to the Fluence network. This app is based on the original <a href="https://github.com/fluencelabs/llamadb">llamadb</a> database. Since it is in-memory database and doesn't has multithreading, disk storage or other OS features it can be easily ported to the Fluence. All that</p>
 <a class="header" href="#tic-tac-toe" id="tic-tac-toe"><h2>Tic-tac-toe</h2></a>
+<p><a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/tic-tac-toe">tic-tac-toe</a></p>
 
                     </main>
 
@@ -181,6 +183,21 @@
 
         </div>
 
+        
+        <!-- Livereload script (if served using the cli tool) -->
+        <script type="text/javascript">
+            var socket = new WebSocket("ws://localhost:3001");
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload(true); // force reload from server (not from cache)
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
         
 
         

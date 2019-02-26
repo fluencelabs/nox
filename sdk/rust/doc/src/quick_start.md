@@ -90,4 +90,4 @@ $ cargo +nightly-2019-01-08 build --target wasm32-unknown-unknown --release
     Finished release [optimized] target(s) in 21.97s
 ```
 
-The worked example of `hello-user` program can be found [here](https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-user).
+The worked example of `hello-user` program can be found [here](https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world).

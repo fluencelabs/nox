@@ -203,7 +203,7 @@ fluence = { version = &quot;0.0.11&quot;, features = [&quot;export_allocator&quo
    ...
     Finished release [optimized] target(s) in 21.97s
 </code></pre>
-<p>The worked example of <code>hello-user</code> program can be found <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-user">here</a>.</p>
+<p>The worked example of <code>hello-user</code> program can be found <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world">here</a>.</p>
 
                     </main>
 
@@ -242,6 +242,21 @@ fluence = { version = &quot;0.0.11&quot;, features = [&quot;export_allocator&quo
 
         </div>
 
+        
+        <!-- Livereload script (if served using the cli tool) -->
+        <script type="text/javascript">
+            var socket = new WebSocket("ws://localhost:3001");
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload(true); // force reload from server (not from cache)
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
         
 
         
