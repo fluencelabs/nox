@@ -26,7 +26,7 @@ let appSessionPromise = fluence.connect("<contract-address>", "<app-id>", "<ethe
     appSession = responseSession;
 });
 ```
-You can find Fluence contract on Kovan chain deployed at address: `0x45CC7B68406cCa5bc36B7b8cE6Ec537EDa67bC0B`.
+You can find Fluence contract on Rinkeby testnet deployed at address: `0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7`.
 The second argument, `appId` - is an ID of application registered in the contract. For example, there is an existing [LlamaDB](https://github.com/fluencelabs/llamadb) application with `appId`: `0x0000000000000000000000000000000000000000000000000000000000000002`.
 
 `connect` asynchronously interacts with an Ethereum blockchain, so it will return a `Promise<AppSession>`. `AppSession` is a structure that combines all sessions to nodes in a cluster and keeps some metadata of these nodes.
