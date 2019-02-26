@@ -179,16 +179,19 @@ function export_arguments()
         export PRIVATE_KEY=4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
 
         export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
-        export PARITY_RESERVED_PEERS='../config/reserved_peers.txt'
-        export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
     else
         echo "Deploying for $CHAIN chain."
         if [ "$ETHEREUM_SERVICE" == "geth" ]; then
-            export GETH_ARGS="--$CHAIN --rpc --rpcaddr '0.0.0.0' --rpcport 8545 --ws --wsaddr '0.0.0.0' --wsport 8546 --syncmode light --verbosity 2"
+            export GETH_ARGS="--$CHAIN --rpc --rpcaddr '0.0.0.0' --rpcport 8545 --ws --wsaddr '0.0.0.0' --wsport 8546 --syncmode light --verbosity 3 --datadir /root/.ethereum"
         else
-            export PARITY_ARGS='--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose --reserved-peers=/reserved_peers.txt'
+            if [ "$CHAIN" = "kovan" ]; then
+                NO_WARP="--no-warp "
+            fi
+            export PARITY_ARGS=$NO_WARP'--light --chain '$CHAIN' --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose --reserved-peers=/reserved_peers.txt'
         fi
     fi
+
+    export PARITY_RESERVED_PEERS='../config/reserved_peers.txt'
 
     export FLUENCE_STORAGE="$HOME/.fluence/"
     export PARITY_STORAGE="$HOME/.parity/"
@@ -200,7 +203,7 @@ function start_swarm()
 {
     if [ ! "$(docker ps -q -f name=swarm)" ]; then
         echo "Starting Swarm container"
-        docker-compose -f swarm.yml up -d >/dev/null
+        docker-compose --compatibility -f swarm.yml up -d >/dev/null
         # todo get rid of `sleep`
         sleep 15
         echo "Swarm container is started"
@@ -212,7 +215,7 @@ function start_parity()
 {
     if [ ! "$(docker ps -q -f name=parity)" ]; then
         echo "Starting Parity container"
-        docker-compose -f parity.yml up -d >/dev/null
+        docker-compose --compatibility -f parity.yml up -d >/dev/null
         # todo get rid of `sleep`
         sleep 15
         echo "Parity container is started"
@@ -223,7 +226,7 @@ function start_geth()
 {
     if [ ! "$(docker ps -q -f name=geth-rinkeby)" ]; then
         echo "Starting Geth container"
-        docker-compose -f geth.yml up -d >/dev/null
+        docker-compose --compatibility -f geth.yml up -d >/dev/null
         # todo get rid of `sleep`
         sleep 15
         echo "Geth container is started"
@@ -288,10 +291,10 @@ function deploy()
     # starting node container
     # if there was `multiple` flag on the running script, will be created 4 nodes, otherwise one node
     if [ "$1" = "multiple" ]; then
-        docker-compose -f multiple-node.yml up -d --force-recreate >/dev/null
+        docker-compose --compatibility -f multiple-node.yml up -d --force-recreate >/dev/null
         NUMBER_OF_NODES=4
     else
-        docker-compose -f node.yml up -d --force-recreate >/dev/null
+        docker-compose --compatibility -f node.yml up -d --force-recreate >/dev/null
         NUMBER_OF_NODES=1
     fi
 

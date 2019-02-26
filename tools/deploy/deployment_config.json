@@ -1,6 +1,6 @@
 {
   "<your-env1>": {
-    "contract": "0xaa6329b04577faf07672f099fa0ea12e7dd32fa1",
+    "contract": "0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7",
     "nodes": {
       "<ip1>": {
         "owner": "<owner-account1>",

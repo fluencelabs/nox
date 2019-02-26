@@ -86,7 +86,7 @@ pub struct GameMove {
 impl GameMove {
     pub fn new(x: usize, y: usize) -> Option<Self> {
         fn is_valid(x: usize, y: usize) -> bool {
-            x <= 2 || y <= 2
+            x <= 2 && y <= 2
         }
 
         is_valid(x, y).as_some(GameMove { x, y })
