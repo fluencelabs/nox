@@ -511,6 +511,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "exitfailure"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
 name = "failure"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -578,6 +586,7 @@ dependencies = [
  "ethereum-types-serialize 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "ethkey 0.3.0 (git+https://github.com/paritytech/parity.git?tag=v2.2.7)",
  "ethstore 0.2.0 (git+https://github.com/paritytech/parity.git?tag=v2.2.7)",
+ "exitfailure 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "fixed-hash 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.25 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -2415,6 +2424,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum ethkey 0.3.0 (git+https://github.com/paritytech/parity.git?tag=v2.2.7)" = "<none>"
 "checksum ethstore 0.2.0 (git+https://github.com/paritytech/parity.git?tag=v2.2.7)" = "<none>"
 "checksum evm 0.1.0 (git+https://github.com/paritytech/parity.git?tag=v2.2.7)" = "<none>"
+"checksum exitfailure 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)" = "2ff5bd832af37f366c6c194d813a11cd90ac484f124f079294f28e357ae40515"
 "checksum failure 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "795bd83d3abeb9220f257e597aa0080a508b27533824adf336529648f6abf7e2"
 "checksum failure_derive 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "ea1063915fd7ef4309e222a5a07cf9c319fb9c7836b1f89b85458672dbb127e1"
 "checksum fastmap 0.1.0 (git+https://github.com/paritytech/parity.git?tag=v2.2.7)" = "<none>"

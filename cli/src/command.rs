@@ -190,7 +190,9 @@ pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
 }
 
 pub fn parse_contract_address(args: &ArgMatches) -> Result<Address, Error> {
-    Ok(utils::parse_hex_opt(args, CONTRACT_ADDRESS)?.parse::<Address>()?)
+    Ok(utils::parse_hex_opt(args, CONTRACT_ADDRESS)?
+        .parse::<Address>()
+        .context("Error parsing contract address")?)
 }
 
 pub fn parse_eth_url(args: &ArgMatches) -> Result<String, clap::Error> {
@@ -239,7 +241,9 @@ pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Error> {
     let gas_price = value_t!(args, GAS_PRICE, u64)?;
     // TODO: it could panic here on overflow
     let gas_price = gas_price * TO_GWEI_MUL;
-    let account: Address = utils::parse_hex_opt(args, ACCOUNT)?.parse()?;
+    let account: Address = utils::parse_hex_opt(args, ACCOUNT)?
+        .parse::<Address>()
+        .context("Error parsing account address")?;
 
     let contract_address: Address = parse_contract_address(args)?;
 

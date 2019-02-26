@@ -21,7 +21,7 @@ use console::style;
 use parity_wasm::elements::Error as ParityError;
 use parity_wasm::elements::Module;
 
-use self::errors::*;
+use failure::{err_msg, Error};
 
 const INPUT_ARG: &str = "input";
 
@@ -29,7 +29,7 @@ const INPUT_ARG: &str = "input";
 /// to 'stdout' until some error occurred.
 ///
 /// For now, is only implemented searching for using functions from banned modules.
-pub fn process(args: &ArgMatches) -> Result<()> {
+pub fn process(args: &ArgMatches) -> Result<(), Error> {
     // defines banned modules (todo add more)
     let banned_modules = vec![
         "std::sys::wasm::thread::",
@@ -83,7 +83,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 //
 
 /// Reads specified file, parses and returns module representation.
-fn read_wasm_file(file: &str) -> Result<Module> {
+fn read_wasm_file(file: &str) -> Result<Module, Error> {
     parity_wasm::deserialize_file(file)
         .and_then(|module| module.parse_names().map_err(|errors| get_first(&errors)))
         .map_err(Into::into)
@@ -99,13 +99,13 @@ fn get_first(errors: &(Vec<(usize, ParityError)>, Module)) -> ParityError {
 fn find_banned_fns_idxs<'a>(
     module: &'a Module,
     banned_modules: &[&str],
-) -> Result<HashMap<u32, &'a str>> {
+) -> Result<HashMap<u32, &'a str>, Error> {
     use parity_wasm::elements::NameSection;
 
     // name section is actually Map<fn_idx, fn_name> for each function in a module
     module
         .names_section()
-        .ok_or_else(|| Error::from("Name section is absent, verification is aborted."))
+        .ok_or_else(|| err_msg("Name section is absent, verification is aborted."))
         .and_then(|name_sec| {
             if let NameSection::Function(fn_name_sec) = name_sec {
                 let banned_fns: HashMap<u32, &'a str> = fn_name_sec
@@ -120,17 +120,9 @@ fn find_banned_fns_idxs<'a>(
                     .collect();
                 Ok(banned_fns)
             } else {
-                Err("Name section for functions is absent, verification is aborted.".into())
+                Err(err_msg(
+                    "Name section for functions is absent, verification is aborted.",
+                ))
             }
         })
-}
-
-mod errors {
-    use error_chain::*;
-
-    error_chain! {
-         foreign_links {
-            ParityErr(parity_wasm::elements::Error);
-        }
-    }
 }
