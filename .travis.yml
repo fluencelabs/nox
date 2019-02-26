@@ -124,3 +124,21 @@ matrix:
         - cd tools/deploy
       script:
         - pytest
+
+    - name: the Fluence book tests
+      language: rust
+      sudo: false
+      cache:
+      - cargo
+      rust:
+      - stable
+
+      before_script:
+      - (test -x $HOME/.cargo/bin/cargo-install-update || cargo install cargo-update)
+      - (test -x $HOME/.cargo/bin/mdbook || cargo install --vers "^0.1" mdbook)
+      - cargo install-update -a
+
+      script:
+      - cd docs/ && mdbook build && mdbook test
+
+      if: type = pull_request
