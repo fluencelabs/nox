@@ -125,7 +125,7 @@ matrix:
       script:
         - pytest
 
-    - name: the Fluence book tests
+    - name: Fluence book
       language: rust
       sudo: false
       cache:
