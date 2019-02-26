@@ -127,7 +127,7 @@ let newLine = String.fromCharCode(13, 10);
 let sep = "**************************";
 
 // todo: get actual contract address and app id from file
-let contractAddress = "0xaa6329b04577faf07672f099fa0ea12e7dd32fa1";
+let contractAddress = "0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7";
 let appId = "6";
 
 async function preparePage() {

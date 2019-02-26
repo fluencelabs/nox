@@ -1,3 +1,3 @@
 
-export const defaultContractAddress: string = '0xaa6329b04577faf07672f099fa0ea12e7dd32fa1';
+export const defaultContractAddress: string = '0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7';
 export const rootTagId: string = 'root';

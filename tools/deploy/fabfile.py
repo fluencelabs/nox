@@ -151,14 +151,14 @@ def deploy_netdata():
     with hide('running', 'output'):
         run("docker pull netdata/netdata")
         run("docker pull abiosoft/caddy")
-        run("mkdir -p ~/scripts")
-        run("mkdir -p ~/config")
+        run("mkdir -p ~/netdata/scripts")
+        run("mkdir -p ~/netdata/config")
         run("mkdir -p ~/.local/netdata_cache")
         run("chmod o+rw ~/.local/netdata_cache")
         env.home_dir = run("pwd").stdout
-        upload_template("scripts/netdata.yml", "~/scripts/netdata.yml", context=env)
-        upload_template("config/Caddyfile", "~/config/Caddyfile", context=env)
-        put("config/netdata.conf", "~/config/")
+        upload_template("scripts/netdata.yml", "~/netdata/scripts/netdata.yml", context=env)
+        upload_template("config/Caddyfile", "~/netdata/config/Caddyfile", context=env)
+        put("config/netdata.conf", "~/netdata/config/")
 
         ensure_docker_group(env.user)
         chown_docker_sock(env.user)
@@ -166,4 +166,4 @@ def deploy_netdata():
 
         with shell_env(COMPOSE_IGNORE_ORPHANS="true"):
             with show('running'):
-                run("PGID=%s HOSTNAME=$HOSTNAME docker-compose --compatibility -f ~/scripts/netdata.yml up -d" % pgid)
+                run("PGID=%s HOSTNAME=$HOSTNAME docker-compose --compatibility -f ~/netdata/scripts/netdata.yml up -d" % pgid)

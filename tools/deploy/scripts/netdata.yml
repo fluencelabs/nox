@@ -7,7 +7,7 @@ services:
     ports:
       - %(caddy_port)s:80
     volumes:
-      - %(home_dir)s/config/Caddyfile:/etc/Caddyfile
+      - %(home_dir)s/netdata/config/Caddyfile:/etc/Caddyfile
       - %(home_dir)s/.local/caddy:/root/.caddy
     environment:
       ACME_AGREE: 'true'
@@ -31,7 +31,7 @@ services:
       - /sys:/host/sys:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - %(home_dir)s/.local/netdata_cache:/var/cache/netdata
-      - %(home_dir)s/config/netdata.conf:/netdata.conf
+      - %(home_dir)s/netdata/config/netdata.conf:/netdata.conf
     command:
       -c /netdata.conf
     deploy:
