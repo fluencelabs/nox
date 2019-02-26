@@ -24,6 +24,4 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.38"
 boolinator = "2.4.0"
 fluence = { version = "0.0.11", features = ["wasm_logger"] }
-
-#[dev-dependencies]
 simple_logger = "1.0.1"

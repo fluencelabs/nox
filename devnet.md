@@ -16,7 +16,7 @@ Roles overview [readme](docs/guides/README.md).
 - JS client ([readme](fluence-js/README.md), [npm](https://www.npmjs.com/package/fluence-js))
 - Node ([docker hub](https://hub.docker.com/r/fluencelabs/node/))
 - Worker ([readme](statemachine/README.md), [docker hub](https://hub.docker.com/r/fluencelabs/worker))
-- VM ([examples readme](vm/examples/README.md), [sdk readme](backend/sdk/README.md), [backend guide](docs/guides/backend.md))
+- VM ([examples readme](vm/examples/README.md), [sdk readme](backend-sdk/README.md), [backend guide](docs/guides/backend.md))
 - DevOps ([readme](tools/deploy/README.md))
 - Prometheus/Grafana monitoring ([readme](tools/monitoring/README.md)) _(obsolete)_
 - Dashboard ([readme](monitoring/README.md), [deployed](http://142.93.108.175:8080/))
