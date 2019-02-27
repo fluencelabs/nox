@@ -1,4 +1,8 @@
 # Developing the backend app
+Fluence runs Webassembly programs, so it's possible to build a Fluence backend in any program language that targets Wasm. In this guide, we will use Rust as a language of choice. 
+
+First you will build a simple hello-world backend in Rust, adapt it to be used with Fluence, and compile to Webassembly.
+
 ## Setting up Rust
 Let's get some Rust. 
 
