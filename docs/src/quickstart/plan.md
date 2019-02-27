@@ -1,4 +1,6 @@
-# The plan
+# Quickstart
+
+This document will guide you through three main steps of development with Fluence.
 
 First, you will use Fluence Rust SDK to develop a Rust backend, and compile it to WebAssembly. 
 
