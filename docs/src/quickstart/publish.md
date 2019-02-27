@@ -9,28 +9,29 @@ To make sure we're on the same page:
 
 To upload your code to Swarm, you need to have access to one of its nodes. The same with Ethereum, you will need a connection to any Ethereum node on Rinkeby testnet.
 
-**We will use existing Ethereum & Swarm nodes, but if you wish, you can [use your own nodes](miner.md) or any other.**
+**We will use existing Ethereum & Swarm nodes, but if you wish, you can [use your own nodes](../roles/miner.md) or any other.**
 
 ## Registering an Ethereum Rinkeby account
 ### Via myetherwallet.com
-Go to https://vintage.myetherwallet.com/, then select Rinkeby in the upper right, enter any password, and download the Keystore file.
+Go to [MyEtherWallet.com](https://vintage.myetherwallet.com/), then select Rinkeby in the upper right, enter any password, and download the Keystore file.
 
 ### Top up account with funds
 Follow instructions for [Rinkeby faucet](https://faucet.rinkeby.io/)
 
 ## Installing Fluence CLI
-You can download Fluence CLI from here https://github.com/fluencelabs/fluence/releases/tag/cli-0.1.2
+You can download Fluence CLI from the [latest release](https://github.com/fluencelabs/fluence/releases/)
 
 Or in terminal:
 
 **Linux**
 ```bash
-~ $ curl -L https://github.com/fluencelabs/fluence/releases/download/cli-0.1.2/fluence-cli-0.1.2-linux-x64 -o fluence
+~ $ curl -L https://github.com/fluencelabs/fluence/releases/download/v0.1.4/fluence-cli-0.1.4-linux-x64 -o fluence
 ```
 
 **macOS**
 ```bash
-~ $ curl -L https://github.com/fluencelabs/fluence/releases/download/cli-0.1.2/fluence-cli-0.1.2-mac-x64 -o fluence
+~ $ curl -L https://github.com/fluencelabs/fluence/releases/download/v0.1.4/fluence-cli-0.1.4-mac-x64 -o fluence
+
 ```
 
 And finally don't forget to add permission to execute it:
@@ -39,7 +40,7 @@ And finally don't forget to add permission to execute it:
 
 # check CLI is working
 ~ $ ./fluence --version
-Fluence CLI 0.1.2
+Fluence CLI 0.1.4
 ```
 
 If you see CLI version, proceed to the next step.
@@ -82,7 +83,7 @@ If you have a JSON **keystore file**, run the following in your terminal, replac
             --wait_syncing \
             --wait
 ```
-There is more info on using keystore files with Fluence CLI in it's [README](../cli/README.md#keystore-json-file).
+There is more info on using keystore files with Fluence CLI in its [README](../cli/README.md#keystore-json-file).
 
 
 After running the command, you will see an output similar to the following:
