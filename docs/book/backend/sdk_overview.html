@@ -144,9 +144,9 @@
                 <div id="content" class="content">
                     <main>
                         <a class="header" href="#fluence-backend-sdk-overview" id="fluence-backend-sdk-overview"><h1>Fluence backend SDK overview</h1></a>
-<p>Fluence SDK consists of two crates: <code>main</code> and <code>macro</code>. The first one is used for all memory relative operations and logging (please see <a href="./app_debugging.html">App debugging</a> section for more information). The second one contains a procedural macro that simplifies the entry function signature. These crates can be used separately of each other but the more preferred way is using the global <code>fluence</code> crate that reexport all other. In <code>edition 2018</code> rust it can be done by add <code>use fluence::sdk::*</code> to the source.</p>
+<p>Fluence SDK consists of two crates: <code>main</code> and <code>macro</code>. The first one is used for all memory relative operations and logging (please see <a href="./app_debugging.html">app debugging</a> section for more information). The second one contains a procedural macro to simplify the entry function's signature. These crates can be used separately but the more preferred way is using the global <code>fluence</code> crate that reexport all others. In <code>Rust 2018 edition</code> it can be done by simply adding <code>use fluence::sdk::*</code> to the source.</p>
 <a class="header" href="#writing-app-without-sdk" id="writing-app-without-sdk"><h2>Writing app without SDK</h2></a>
-<p>First of all let's review how a simple <code>hello-world</code> <code>app</code> can be written without Fluence SDK on Rust. From <a href="app_conventions.html">Fluence backend conventions</a> it follows that each <code>app</code> must have a <code>main</code> module with three export functions. According to the restrictions of their signatures a basic structure of <code>main</code> module can look like that:</p>
+<p>For a start, lets review how a simple <code>hello-world</code> <code>app</code> is made without Fluence SDK on pure Rust. From <a href="app_conventions.html">fluence backend conventions</a> it follows that each <code>app</code> must have a <code>main</code> module with three export functions. Keeping in mind restrictions to their signatures, a basic structure of <code>main</code> module can look like that:</p>
 <pre><code class="language-Rust">#[no_mangle]
 pub unsafe fn invoke(ptr: *mut u8, len: usize) -&gt; usize {
     ...
@@ -215,8 +215,8 @@ pub unsafe fn deallocate(ptr: NonNull&lt;u8&gt;, size: usize) {
 }
 </code></pre>
 <a class="header" href="#fluence-sdk-usage" id="fluence-sdk-usage"><h2>Fluence SDK usage</h2></a>
-<p>From the example above it can be seen that <code>allocate</code> and <code>deallocate</code> functions have only a utility purpose and normally used only by VM wrapper. These functions aren't any that most of developers want to realize in their <code>apps</code>. Fluence SDK provides <code>fluence::memory::alloc</code> and <code>fluence::memory::dealloc</code> functions also based on <a href="https://doc.rust-lang.org/beta/std/alloc/trait.GlobalAlloc.html">GlobalAlloc</a>. They exported by default after including the sdk and can be disabled by specifying the <code>no_export_allocator</code> feature.</p>
-<p>The <code>invoke</code> function can be also simplified by using the Fluence SDK that provides <code>fluence::memory::write_result_to_mem</code> and <code>fluence::memory::read_input_from_mem_</code> in this way:</p>
+<p>From the example above it can be seen that <code>allocate</code> and <code>deallocate</code> functions serve only utility purpose and are normally used only by VM wrapper. These functions aren't any that most of developers would want to implement in their <code>app</code>. Fluence backend SDK provides <code>fluence::memory::alloc</code> and <code>fluence::memory::dealloc</code> functions also based on <a href="https://doc.rust-lang.org/beta/std/alloc/trait.GlobalAlloc.html">GlobalAlloc</a>. They exported by default after including the sdk and can be disabled by specifying the <code>no_export_allocator</code> feature of the sdk.</p>
+<p>The <code>invoke</code> function can be also simplified by using the Fluence backend SDK that provides <code>fluence::memory::write_result_to_mem</code> and <code>fluence::memory::read_input_from_mem_</code> in this way:</p>
 <pre><code class="language-Rust">#[no_mangle]
 pub unsafe fn invoke(_ptr: *mut u8, _len: usize) -&gt; usize {
     let test_str = &quot;Hello, world!&quot;;
@@ -306,13 +306,13 @@ pub unsafe fn invoke(ptr: *mut u8, len: usize) -&gt; std::ptr::NonNull&lt;u8&gt;
 </code></pre>
 <p>Example of usage <code>invocation_handler</code> with <code>init_fn</code> attribure can be found <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2018">here</a>.</p>
 <a class="header" href="#rust-edition-2015" id="rust-edition-2015"><h2>Rust edition 2015</h2></a>
-<p>To use Fluence SDK with rust <code>edition 2015</code> please import it like this:</p>
+<p>To use Fluence SDK with <code>Rust 2015 edition</code> please import it like this:</p>
 <pre><code class="language-Rust">#![feature(custom_attribute)]
 extern crate fluence;
 
 use fluence::sdk::*;
 </code></pre>
-<p>Example of <code>hello-world2</code> <code>app</code> on rust <code>edition 2015</code> can be found <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2015">here</a>.</p>
+<p>Example of <code>hello-world2</code> <code>app</code> on <code>Rust edition 2015</code> can be found <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2015">here</a>.</p>
 
                     </main>
 

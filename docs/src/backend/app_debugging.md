@@ -1,4 +1,4 @@
-# Fluence app debugging
+# Backend app debugging
 
 ## Wasm logger usage
 
@@ -21,7 +21,9 @@ fn main(name: String) -> String {
 }
 ```
  
-Generally it is better to initialize logger in the `init` function. And also note that `logger` designed only for Wasm environment and Fluence `WasmVm`. Don't use it for other targets and virtual machines. But if it needs to create a project with `logger` either for Wasm target and other architectures conditional compilation can be used: 
+The easiest way to initialize logger is using the `init_fn` attribute of `invocation_handler` like in the example above.
+
+Please also note that this `logger` designed only for Wasm environment and Fluence `WasmVm`. Don't use it for other targets and virtual machines. But if it needs to create a project with `logger` either for Wasm target and other architectures, a conditional compilation can be used: 
 
 ```Rust
 fn init() {
@@ -33,11 +35,11 @@ fn init() {
 }
 ```
 
-It is important to note that by default debugging capabilities is disabled on the Fluence network because of verification game process (you can find more information about it in [our paper](TODO)).
+It is important to note that by default debugging capabilities is disabled in the Fluence network because of verification game process (you can find more information about it in [our paper](TODO)).
 
 ## Usage of Scala runner
 
-Sometimes it needs not only debug output but a possibility to run resulted Wasm `app` with some different inputs. It can be done by using so-called runner written on Scala (because of it uses a `WasmVm` implementation that also written on Scala).
+Sometimes it needs not only a debug output but a possibility to run resulted Wasm `app` with some different inputs. It can be done by using so-called runner written on Scala (because of it uses a `WasmVm` implementation that also written on Scala).
 
 Let's a dig a little bit into `hello-world2` [runner]((https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/runner)). It receives a path to a Wasm binary as the first CLI argument, then creates `vm` object that extends `WasmVm` trait. During this creation Wasm code is compiled by Asmble to JVM and loaded into VM. This trait has two public methods: `invoke` that manages requests to `app` and `getVmState` that computes a hash of significant inner state. In the following code snippet
 
