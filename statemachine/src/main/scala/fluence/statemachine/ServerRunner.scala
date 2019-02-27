@@ -171,10 +171,10 @@ object ServerRunner extends IOApp with LazyLogging {
   /**
    * Configures `slogging` logger.
    */
-  private def configureLogging(): Unit = {
+  private def configureLogging(level: LogLevel): Unit = {
     PrintLoggerFactory.formatter = new DefaultPrefixFormatter(true, true, true)
     LoggerConfig.factory = PrintLoggerFactory()
-    LoggerConfig.level = LogLevel.INFO
+    LoggerConfig.level = level
   }
 
   /**
