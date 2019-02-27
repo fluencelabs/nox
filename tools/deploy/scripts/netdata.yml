@@ -12,14 +12,13 @@ services:
     environment:
       ACME_AGREE: 'true'
     deploy:
-        resources:
-          limits:
-            cpus: '0.05'
-            memory: 20M
+      resources:
+        limits:
+          cpus: '0.05'
+          memory: 20M
 
   netdata:
     container_name: netdata
-    restart: always
     hostname: $HOSTNAME
     image: netdata/netdata
     cap_add:

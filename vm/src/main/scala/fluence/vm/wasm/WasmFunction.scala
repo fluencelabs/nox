@@ -58,7 +58,7 @@ case class WasmFunction(
         )
         .attempt
         .to[F]
-    ).leftMap(e ⇒ TrapError(s"Function $this with args: $args was failed", Some(e)))
+    ).leftMap(e ⇒ TrapError(s"Function $this with args: $args was failed. Cause: ${e.getMessage}", Some(e)))
 
   override def toString: String = fnName
 }

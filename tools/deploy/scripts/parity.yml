@@ -19,3 +19,8 @@ services:
         limits:
           cpus: '0.50'
           memory: 300M
+    restart_policy:
+      condition: any
+      delay: 5s
+      max_attempts: 10
+      window: 120s
