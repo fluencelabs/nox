@@ -1,6 +1,11 @@
 # Summary
 
 - [Introduction](introduction.md)
+    - [Overview](overview/overview.md)
+    - [Components](overview/components.md)
+    - [Motivation](overview/motivation.md)
+- [How to use Fluence](roles.md)
+- [Current state of development](whatworks.md)
 - [Quick start](quickstart/plan.md)
     - [Developing the backend app](quickstart/rust.md)
     - [Publishing your app](quickstart/publish.md)

@@ -29,6 +29,9 @@
         
 
         
+        <!-- MathJax -->
+        <script async type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        
     </head>
     <body class="light">
         <!-- Provide site root to javascript -->
@@ -75,7 +78,7 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <ol class="chapter"><li><a href="introduction.html" class="active"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><a href="quickstart/plan.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><ol class="section"><li><a href="quickstart/rust.html"><strong aria-hidden="true">2.1.</strong> Developing the backend app</a></li><li><a href="quickstart/publish.html"><strong aria-hidden="true">2.2.</strong> Publishing your app</a></li><li><a href="quickstart/web.html"><strong aria-hidden="true">2.3.</strong> Developing the web app</a></li><li><a href="quickstart/wrappingup.html"><strong aria-hidden="true">2.4.</strong> Wrapping up</a></li></ol></li><li><a href="backend.html"><strong aria-hidden="true">3.</strong> Backend guide</a></li><li><a href="frontend.html"><strong aria-hidden="true">4.</strong> Frontend guide</a></li><li><a href="miner.html"><strong aria-hidden="true">5.</strong> Miner guide</a></li></ol>
+            <ol class="chapter"><li><a href="introduction.html" class="active"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li><a href="overview/overview.html"><strong aria-hidden="true">1.1.</strong> Overview</a></li><li><a href="overview/components.html"><strong aria-hidden="true">1.2.</strong> Components</a></li><li><a href="overview/motivation.html"><strong aria-hidden="true">1.3.</strong> Motivation</a></li></ol></li><li><a href="roles.html"><strong aria-hidden="true">2.</strong> How to use Fluence</a></li><li><a href="whatworks.html"><strong aria-hidden="true">3.</strong> Current state of development</a></li><li><a href="quickstart/plan.html"><strong aria-hidden="true">4.</strong> Quick start</a></li><li><ol class="section"><li><a href="quickstart/rust.html"><strong aria-hidden="true">4.1.</strong> Developing the backend app</a></li><li><a href="quickstart/publish.html"><strong aria-hidden="true">4.2.</strong> Publishing your app</a></li><li><a href="quickstart/web.html"><strong aria-hidden="true">4.3.</strong> Developing the web app</a></li><li><a href="quickstart/wrappingup.html"><strong aria-hidden="true">4.4.</strong> Wrapping up</a></li></ol></li><li><a href="backend.html"><strong aria-hidden="true">5.</strong> Backend guide</a></li><li><a href="frontend.html"><strong aria-hidden="true">6.</strong> Frontend guide</a></li><li><a href="miner.html"><strong aria-hidden="true">7.</strong> Miner guide</a></li></ol>
         </nav>
 
         <div id="page-wrapper" class="page-wrapper">
@@ -140,19 +143,11 @@
 
                 <div id="content" class="content">
                     <main>
-                        <a class="header" href="#how-to-use-fluence" id="how-to-use-fluence"><h1>How to use Fluence</h1></a>
-<p>In Fluence, you can play one of three roles, you can be:</p>
-<ol>
-<li>A miner, providing your computation power to the Fluence Network</li>
-<li>A backend developer, deploying your Webassembly backend application to miners' nodes</li>
-<li>A frontend developer, using someone's backend to develop end-user application</li>
-</ol>
-<a class="header" href="#how-to-become-a-miner" id="how-to-become-a-miner"><h2>How to become a miner</h2></a>
-<p>To learn how to register your computer as a Fluence Node, please refer to <a href="miner.html">Miner Guide</a></p>
-<a class="header" href="#how-to-build-backend-app-with-fluence" id="how-to-build-backend-app-with-fluence"><h2>How to build backend app with Fluence</h2></a>
-<p>To learn how to build you backend with the help of <a href="../../sdk/rust/README.html">Fluence SDK</a>, compile it to <a href="https://webassembly.org">Webassembly</a>, and publish to Fluence smart contract, please read <a href="backend.html">Backend Developer Guide</a></p>
-<a class="header" href="#how-to-develop-web-apps-using-fluences-backends" id="how-to-develop-web-apps-using-fluences-backends"><h2>How to develop web apps using Fluence's backends</h2></a>
-<p>If you already have a backend you want to use, and it's deployed to Fluence network, you can use it to build a web app with decentralized backend with ease. To do that, you'd need knowledge from <a href="frontend.html">Fronend Developer Guide</a></p>
+                        <a class="header" href="#introduction" id="introduction"><h1>Introduction</h1></a>
+<a class="header" href="#what-is-fluence" id="what-is-fluence"><h2>What is Fluence?</h2></a>
+<p>Fluence is a decentralized data processing platform that allows to achieve latency of few seconds for request processing and computational redundancy similar to traditional cloud computing.</p>
+<p>In order to achieve low latency and high throughput, Fluence trades security. Fluence provides moderate guarantees that results delivered to the client are correct, but warrants that served results will eventually be additionally verified. If during the additional verification it is found that results were produced incorrectly, offending network nodes lose their deposits.</p>
+<p>In the next section we will provide a brief Fluence overview.</p>
 
                     </main>
 
@@ -161,7 +156,7 @@
                         
 
                         
-                            <a rel="next" href="quickstart/plan.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="overview/overview.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -175,7 +170,7 @@
                 
 
                 
-                    <a href="quickstart/plan.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a href="overview/overview.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 

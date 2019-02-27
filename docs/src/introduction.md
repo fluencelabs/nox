@@ -1,14 +1,7 @@
-# How to use Fluence
-In Fluence, you can play one of three roles, you can be:
-1. A miner, providing your computation power to the Fluence Network
-2. A backend developer, deploying your Webassembly backend application to miners' nodes
-3. A frontend developer, using someone's backend to develop end-user application
+# Introduction
+## What is Fluence?
+Fluence is a decentralized data processing platform that allows to achieve latency of few seconds for request processing and computational redundancy similar to traditional cloud computing.
 
-## How to become a miner
-To learn how to register your computer as a Fluence Node, please refer to [Miner Guide](miner.md)
+In order to achieve low latency and high throughput, Fluence trades security. Fluence provides moderate guarantees that results delivered to the client are correct, but warrants that served results will eventually be additionally verified. If during the additional verification it is found that results were produced incorrectly, offending network nodes lose their deposits.
 
-## How to build backend app with Fluence
-To learn how to build you backend with the help of [Fluence SDK](../../sdk/rust/README.md), compile it to [Webassembly](https://webassembly.org), and publish to Fluence smart contract, please read [Backend Developer Guide](backend.md)
-
-## How to develop web apps using Fluence's backends
-If you already have a backend you want to use, and it's deployed to Fluence network, you can use it to build a web app with decentralized backend with ease. To do that, you'd need knowledge from [Fronend Developer Guide](frontend.md)
+In the next section we will provide a brief Fluence overview.

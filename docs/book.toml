@@ -4,6 +4,12 @@ multilingual = false
 src = "src"
 title = "The Fluence book"
 
+[build]
+create-missing = false
+
+[output.html]
+mathjax-support = true
+
 [output.html.playpen]
 editable = true
 
