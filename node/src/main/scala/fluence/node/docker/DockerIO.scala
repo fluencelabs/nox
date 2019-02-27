@@ -109,7 +109,7 @@ object DockerIO extends LazyLogging {
           case Success(0) ⇒
             shiftDelay {
               logger.info(s"Container $dockerId stopped gracefully, going to rm -v it")
-              logger.info(Console.CYAN + s"docker logs $dockerId".!!.replaceAll("^", "  ") + Console.RESET)
+              logger.info(Console.CYAN + s"docker logs --tail 100 $dockerId".!!.replaceAll("^", "  ") + Console.RESET)
               s"docker rm -v $dockerId".!
             }.void
           case Failure(err) ⇒

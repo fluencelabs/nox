@@ -17,7 +17,7 @@
 package fluence.node.status
 import java.net.InetAddress
 
-import fluence.ethclient.data.{Block, Transaction}
+import fluence.effects.ethclient.data.{Block, Transaction}
 import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.eth.NodeEthState
 import fluence.node.eth.state.{Cluster, WorkerPeer}

@@ -94,7 +94,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         val error = res.failed()
         error shouldBe a[TrapError]
         error.getMessage should startWith("Function invoke with args:")
-        error.getMessage should endWith("was failed")
+        error.getMessage should include("was failed")
       }
 
       "Wasm allocate function returns an incorrect i64 value" in {

@@ -17,19 +17,17 @@
 package fluence.node.workers
 
 import cats.data.EitherT
-import cats.{Applicative, Parallel}
+import cats.Parallel
 import cats.syntax.applicativeError._
-import cats.syntax.apply._
 import cats.syntax.flatMap._
-import cats.effect.{Concurrent, Fiber, Sync, Timer}
+import cats.effect.{Concurrent, Fiber, Timer}
 import cats.instances.vector._
 import com.softwaremill.sttp.{SttpBackend, sttp, _}
-import fluence.ethclient.EthRetryPolicy
+import fluence.effects.{Backoff, EffectError}
 import fluence.node.eth.state.WorkerPeer
 import slogging.LazyLogging
 
 import scala.language.higherKinds
-import scala.concurrent.duration._
 import scala.util.Try
 
 /**
@@ -37,21 +35,12 @@ import scala.util.Try
  */
 object WorkerP2pConnectivity extends LazyLogging {
 
-  // TODO don't use Eth retry policy; add jitter
-  private def retryUntilSuccess[F[_]: Timer: Sync, T](fn: EitherT[F, _, T], retryPolicy: EthRetryPolicy): F[T] =
-    fn.value.flatMap {
-      case Right(v) ⇒ Applicative[F].pure(v)
-      case Left(err) ⇒
-        logger.trace(s"Got error $err, retrying")
-        Timer[F].sleep(retryPolicy.delayPeriod) *> retryUntilSuccess(fn, retryPolicy.next)
-    }
-
   /**
    * Ping peers to get theirs p2p port for the app, then pass that port to Worker's TendermintRPC to dial.
    *
    * @param worker Local worker, App cluster participant
    * @param peers All the other peers to form the cluster
-   * @param retryPolicy Retry policy for exponential backoff in reties
+   * @param backoff Retry policy for exponential backoff in reties
    * @param P Parallelize request to pings
    * @param sttpBackend Used to perform http requests
    * @tparam F Concurrent to make a fiber so that you can cancel the joining job, Timer to make retries
@@ -61,7 +50,7 @@ object WorkerP2pConnectivity extends LazyLogging {
   def join[F[_]: Concurrent: Timer, G[_]](
     worker: Worker[F],
     peers: Vector[WorkerPeer],
-    retryPolicy: EthRetryPolicy = EthRetryPolicy(1.second, 10.seconds)
+    backoff: Backoff[EffectError] = Backoff.default
   )(
     implicit P: Parallel[F, G],
     sttpBackend: SttpBackend[F, Nothing]
@@ -71,31 +60,31 @@ object WorkerP2pConnectivity extends LazyLogging {
         logger.debug(s"Peer API address: ${p.ip.getHostAddress}:${p.apiPort}")
 
         // Get p2p port for an app
-        val getPort: EitherT[F, Throwable, Short] = sttp
+        val getPort: EitherT[F, EffectError, Short] = sttp
           .get(uri"http://${p.ip.getHostAddress}:${p.apiPort}/apps/${worker.appId}/p2pPort")
           .send()
           .attemptT
+          .leftMap(new RuntimeException(_) with EffectError)
           .flatMap { resp ⇒
             EitherT.fromEither(
               // Awful
               resp.body.left
-                .map(new RuntimeException(_))
-                .flatMap(v ⇒ Try(v.toShort).toEither)
+                .map(new RuntimeException(_) with EffectError)
+                .flatMap(v ⇒ Try(v.toShort).toEither.left.map(new RuntimeException(_) with EffectError))
             )
           }
 
         // Get p2p port, pass it to worker's tendermint
-        retryUntilSuccess(getPort, retryPolicy).flatMap { p2pPort ⇒
+        backoff(getPort).flatMap { p2pPort ⇒
           logger.debug(s"Got Peer p2p port: ${p.peerAddress(p2pPort)}")
 
-          retryUntilSuccess(
+          backoff(
             worker.tendermint
               .unsafeDialPeers(p.peerAddress(p2pPort) :: Nil, persistent = true)
               .map { res ⇒
                 logger.debug(s"dial_peers replied: $res")
                 res
-              },
-            retryPolicy
+              }
           )
         }
       }
