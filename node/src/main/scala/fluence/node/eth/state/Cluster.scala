@@ -16,7 +16,7 @@
 
 package fluence.node.eth.state
 
-import fluence.ethclient.helpers.Web3jConverters.bytes32ToBinary
+import fluence.effects.ethclient.helpers.Web3jConverters.bytes32ToBinary
 import org.web3j.abi.datatypes.DynamicArray
 import org.web3j.abi.datatypes.generated._
 

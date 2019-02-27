@@ -25,7 +25,7 @@ import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
-import fluence.ethclient.EthClient
+import fluence.effects.ethclient.EthClient
 import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.eth._
 import fluence.node.workers._

@@ -21,7 +21,7 @@ import cats.effect._
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
-import fluence.ethclient.EthClient
+import fluence.effects.ethclient.EthClient
 import fluence.node.eth.FluenceContract
 import fluence.node.status.MasterStatus
 import fluence.node.workers.status.WorkerStatus

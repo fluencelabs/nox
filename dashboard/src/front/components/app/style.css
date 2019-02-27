@@ -1,0 +1,16 @@
+.entity-info-box-icon {
+    border-top-left-radius: 2px;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom-left-radius: 2px;
+    float: left;
+    text-align: center;
+    font-size: 45px;
+}
+
+.content-wrapper, .main-footer, .main-header .navbar {
+    margin-left: 0;
+}
+.text-muted, .widget-user-desc {
+    word-break: break-word;
+}
