@@ -122,7 +122,7 @@ Let's now compile and run our example:
 Hello, world! From user myName
 ```
 ***
-**WARNING:** If you see the following error, you should install `gcc` and try `cargo +nightly run` again:
+**WARNING:** If you see the following error, you should install [gcc](https://gcc.gnu.org/install/) and try `cargo +nightly run` again:
 ```bash
 Compiling hello-world v0.1.0 (/root/hello-world)
 error: linker cc not found
