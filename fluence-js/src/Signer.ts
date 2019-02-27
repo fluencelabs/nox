@@ -38,7 +38,7 @@ export class Signer {
      */
     sign(str: string): string {
 
-        let signBytes = utils.toArray(str);
+        let signBytes = Buffer.from(str);
 
         let hashed = sha256(signBytes);
 

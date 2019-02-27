@@ -16,6 +16,7 @@
 
 import {Signer} from "./Signer";
 import {Client} from "./Client";
+import * as base64js from "base64-js";
 
 /**
  * Generates execution command's transaction in hex representation for the real-time cluster.
@@ -35,7 +36,7 @@ export function genTxBase64(client: Client, session: string, counter: number, pa
  * @param json transaction with command, metainformation and signature
  */
 function jsonToBase64(json: TxJson): string {
-    return btoa(JSON.stringify(json));
+    return base64js.fromByteArray(Buffer.from(JSON.stringify(json)));
 }
 
 /**
