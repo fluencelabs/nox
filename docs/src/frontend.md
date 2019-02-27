@@ -66,4 +66,4 @@ App that allows you to send SQL requests from a browser and shows status of the 
 https://github.com/fluencelabs/fluence/tree/master/js-client/src/examples/fluence-sqldb
 
 # Acknowledgments
-Thanks to @nukep for his Llamadb (https://github.com/nukep/llamadb) that we used in this example!
+Thanks to @nukep for the Llamadb database (https://github.com/nukep/llamadb) that we used in this example!
