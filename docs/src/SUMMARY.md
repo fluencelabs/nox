@@ -18,3 +18,8 @@
     - [CLI](tools/cli_README.md)
     - [Rust SDK](tools/rust_README.md)
     - [JS SDK](tools/js_README.md)
+- [Open problems](unsolved.md)
+- [Examples](examples/examples.md)
+    - [Backend](examples/backend.md)
+    - [Web apps](examples/frontend.md)
+- [Benchmarks](benchmarks.md)

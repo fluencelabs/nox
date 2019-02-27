@@ -78,7 +78,7 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <ol class="chapter"><li><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li><a href="overview/overview.html"><strong aria-hidden="true">1.1.</strong> Overview</a></li><li><a href="overview/components.html"><strong aria-hidden="true">1.2.</strong> Components</a></li><li><a href="overview/motivation.html"><strong aria-hidden="true">1.3.</strong> Motivation</a></li></ol></li><li><a href="whatworks.html"><strong aria-hidden="true">2.</strong> Current state of development</a></li><li><a href="quickstart/plan.html"><strong aria-hidden="true">3.</strong> Quick start</a></li><li><ol class="section"><li><a href="quickstart/rust.html"><strong aria-hidden="true">3.1.</strong> Developing the backend app</a></li><li><a href="quickstart/publish.html"><strong aria-hidden="true">3.2.</strong> Publishing your app</a></li><li><a href="quickstart/web.html"><strong aria-hidden="true">3.3.</strong> Developing the web app</a></li><li><a href="quickstart/wrappingup.html"><strong aria-hidden="true">3.4.</strong> Wrapping up</a></li></ol></li><li><a href="roles.html"><strong aria-hidden="true">4.</strong> How to use Fluence</a></li><li><ol class="section"><li><a href="backend.html"><strong aria-hidden="true">4.1.</strong> Backend guide</a></li><li><a href="frontend.html"><strong aria-hidden="true">4.2.</strong> Frontend guide</a></li><li><a href="miner.html"><strong aria-hidden="true">4.3.</strong> Miner guide</a></li></ol></li><li><a href="tools/tools.html"><strong aria-hidden="true">5.</strong> Fluence tools and SDKs</a></li><li><ol class="section"><li><a href="tools/cli_README.html"><strong aria-hidden="true">5.1.</strong> CLI</a></li><li><a href="tools/rust_README.html"><strong aria-hidden="true">5.2.</strong> Rust SDK</a></li><li><a href="tools/js_README.html"><strong aria-hidden="true">5.3.</strong> JS SDK</a></li></ol></li></ol>
+            <ol class="chapter"><li><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li><a href="overview/overview.html"><strong aria-hidden="true">1.1.</strong> Overview</a></li><li><a href="overview/components.html"><strong aria-hidden="true">1.2.</strong> Components</a></li><li><a href="overview/motivation.html"><strong aria-hidden="true">1.3.</strong> Motivation</a></li></ol></li><li><a href="whatworks.html"><strong aria-hidden="true">2.</strong> Current state of development</a></li><li><a href="quickstart/plan.html"><strong aria-hidden="true">3.</strong> Quick start</a></li><li><ol class="section"><li><a href="quickstart/rust.html"><strong aria-hidden="true">3.1.</strong> Developing the backend app</a></li><li><a href="quickstart/publish.html"><strong aria-hidden="true">3.2.</strong> Publishing your app</a></li><li><a href="quickstart/web.html"><strong aria-hidden="true">3.3.</strong> Developing the web app</a></li><li><a href="quickstart/wrappingup.html"><strong aria-hidden="true">3.4.</strong> Wrapping up</a></li></ol></li><li><a href="roles.html"><strong aria-hidden="true">4.</strong> How to use Fluence</a></li><li><ol class="section"><li><a href="backend.html"><strong aria-hidden="true">4.1.</strong> Backend guide</a></li><li><a href="frontend.html"><strong aria-hidden="true">4.2.</strong> Frontend guide</a></li><li><a href="miner.html"><strong aria-hidden="true">4.3.</strong> Miner guide</a></li></ol></li><li><a href="tools/tools.html"><strong aria-hidden="true">5.</strong> Fluence tools and SDKs</a></li><li><ol class="section"><li><a href="tools/cli_README.html"><strong aria-hidden="true">5.1.</strong> CLI</a></li><li><a href="tools/rust_README.html"><strong aria-hidden="true">5.2.</strong> Rust SDK</a></li><li><a href="tools/js_README.html"><strong aria-hidden="true">5.3.</strong> JS SDK</a></li></ol></li><li><a href="unsolved.html"><strong aria-hidden="true">6.</strong> Open problems</a></li><li><a href="examples/examples.html"><strong aria-hidden="true">7.</strong> Examples</a></li><li><ol class="section"><li><a href="examples/backend.html"><strong aria-hidden="true">7.1.</strong> Backend</a></li><li><a href="examples/frontend.html"><strong aria-hidden="true">7.2.</strong> Web apps</a></li></ol></li><li><a href="benchmarks.html"><strong aria-hidden="true">8.</strong> Benchmarks</a></li></ol>
         </nav>
 
         <div id="page-wrapper" class="page-wrapper">
@@ -592,8 +592,17 @@ logResultAsString(result);
 Hello, world! From user myName
 </code></pre>
 <a class="header" href="#wrapping-up" id="wrapping-up"><h1>Wrapping up</h1></a>
-<p>This was fun!</p>
-<p>TODO</p>
+<p>Thanks for finishing quick start guide!</p>
+<p>A short recap of what you have developed and learned:</p>
+<ul>
+<li>Set up a Rust and Node.js environments from zero to compiling Webassembly backend and a working web application.</li>
+<li>Start with Rust basics, and end up using complex procedural macros and processing user input.</li>
+<li>Interact with Ethereum and alter Fluence network state.</li>
+<li>Spin up real decentralized backend on top of miners' machines, and integrate JavaScript web app with that backend.</li>
+</ul>
+<p>Hope this was fun. If you experienced any problems with this guide or Fluence, or just want to chat with the team, feel free to join our <a href="TODO">Discord</a>!</p>
+<p>If you want to do more with Fluence, you can help us out by looking at <a href="quickstart/../unsolved.html">open problems</a> or <a href="https://github.com/fluencelabs/fluence/issues">open issues</a>, and give us some feedback.</p>
+<p>Also, there are more examples of <a href="">backends</a> and <a href="">web apps</a>, take a look.</p>
 <a class="header" href="#how-to-use-fluence" id="how-to-use-fluence"><h1>How to use Fluence</h1></a>
 <p>In Fluence, you can play one of three roles, you can be:</p>
 <ol>
@@ -1400,6 +1409,31 @@ It is written on TypeScript to reach more clean, understandable and typesafe cod
 <a class="header" href="#documentation" id="documentation"><h2>Documentation</h2></a>
 <p><a href="https://github.com/fluencelabs/fluence/blob/master/docs/guides/frontend.md">Guide</a></p>
 <p>TODO</p>
+<a class="header" href="#open-problems" id="open-problems"><h1>Open problems</h1></a>
+<a class="header" href="#support-other-languages-for-backend" id="support-other-languages-for-backend"><h2>Support other languages for backend</h2></a>
+<a class="header" href="#c" id="c"><h3>C++</h3></a>
+<p>TODO</p>
+<a class="header" href="#javascript" id="javascript"><h3>JavaScript</h3></a>
+<p>There is a <a href="https://github.com/NectarJS/nectarjs">NectarJS</a> that allows to compile JS to Wasm. Looks like it could work with Fluence.</p>
+<a class="header" href="#todo-more-problems" id="todo-more-problems"><h3>TODO: more problems</h3></a>
+<a class="header" href="#web-app-examples" id="web-app-examples"><h1>Web app examples</h1></a>
+<a class="header" href="#guessing-game" id="guessing-game"><h2>Guessing game</h2></a>
+<p>TODO: TBD</p>
+<a class="header" href="#chess" id="chess"><h2>Chess</h2></a>
+<p>TODO</p>
+<a class="header" href="#rest" id="rest"><h2>REST</h2></a>
+<p>TODO</p>
+<a class="header" href="#backend-examples" id="backend-examples"><h1>Backend examples</h1></a>
+<a class="header" href="#tic-tac-toe" id="tic-tac-toe"><h2>Tic-tac-toe</h2></a>
+<p>TODO</p>
+<a class="header" href="#llamadb" id="llamadb"><h2>Llamadb</h2></a>
+<p>TODO</p>
+<a class="header" href="#benchmarks" id="benchmarks"><h1>Benchmarks</h1></a>
+<a class="header" href="#vm-benchmark" id="vm-benchmark"><h2>VM benchmark</h2></a>
+<p>TODO: add a link to benchmarking post and code</p>
+<a class="header" href="#tendermint-benchmark" id="tendermint-benchmark"><h2>Tendermint benchmark</h2></a>
+<p>TODO: add a link to tendermint benchmark</p>
+<a class="header" href="#tbd-fluence-benchmark" id="tbd-fluence-benchmark"><h2>TBD: Fluence benchmark</h2></a>
 
                     </main>
 
