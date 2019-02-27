@@ -1,0 +1,1082 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>The Fluence book</title>
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
+        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+    </head>
+    <body class="light">
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { } 
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            document.body.className = theme;
+            document.querySelector('html').className = theme + ' js';
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <ol class="chapter"><li><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><a href="kickstart.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><a href="backend.html"><strong aria-hidden="true">3.</strong> Backend guide</a></li><li><a href="frontend.html"><strong aria-hidden="true">4.</strong> Frontend guide</a></li><li><a href="miner.html"><strong aria-hidden="true">5.</strong> Miner guide</a></li></ol>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar" class="menu-bar">
+                    <div id="menu-bar-sticky-container">
+                        <div class="left-buttons">
+                            <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                                <i class="fa fa-bars"></i>
+                            </button>
+                            <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                                <i class="fa fa-paint-brush"></i>
+                            </button>
+                            <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                                <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                            </ul>
+                            
+                            <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                                <i class="fa fa-search"></i>
+                            </button>
+                            
+                        </div>
+
+                        <h1 class="menu-title">The Fluence book</h1> 
+
+                        <div class="right-buttons">
+                            <a href="print.html" title="Print this book" aria-label="Print this book">
+                                <i id="print-button" class="fa fa-print"></i>
+                            </a>
+                            
+                        </div>
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <a class="header" href="#how-to-use-fluence" id="how-to-use-fluence"><h1>How to use Fluence</h1></a>
+<p>In Fluence, you can play one of three roles, you can be:</p>
+<ol>
+<li>A miner, providing your computation power to the Fluence Network</li>
+<li>A backend developer, deploying your Webassembly backend application to miners' nodes</li>
+<li>A frontend developer, using someone's backend to develop end-user application</li>
+</ol>
+<a class="header" href="#how-to-become-a-miner" id="how-to-become-a-miner"><h2>How to become a miner</h2></a>
+<p>To learn how to register your computer as a Fluence Node, please refer to <a href="miner.html">Miner Guide</a></p>
+<a class="header" href="#how-to-build-backend-app-with-fluence" id="how-to-build-backend-app-with-fluence"><h2>How to build backend app with Fluence</h2></a>
+<p>To learn how to build you backend with the help of <a href="../../sdk/rust/README.html">Fluence SDK</a>, compile it to <a href="https://webassembly.org">Webassembly</a>, and publish to Fluence smart contract, please read <a href="backend.html">Backend Developer Guide</a></p>
+<a class="header" href="#how-to-develop-web-apps-using-fluences-backends" id="how-to-develop-web-apps-using-fluences-backends"><h2>How to develop web apps using Fluence's backends</h2></a>
+<p>If you already have a backend you want to use, and it's deployed to Fluence network, you can use it to build a web app with decentralized backend with ease. To do that, you'd need knowledge from <a href="frontend.html">Fronend Developer Guide</a></p>
+<ul>
+<li><a href="#the-plan">The plan</a></li>
+<li><a href="#developing-the-backend-app">Developing the backend app</a>
+<ul>
+<li><a href="#setting-up-rust">Setting up Rust</a></li>
+<li><a href="#creating-an-empty-rust-package">Creating an empty Rust package</a></li>
+<li><a href="#optional-creating-a-hello-world-rust-application">Optional: Creating a Hello World Rust application</a></li>
+<li><a href="#creating-a-fluence-hello-world-backend">Creating a Fluence Hello World backend</a>
+<ul>
+<li><a href="#adding-fluence-as-a-dependency">Adding Fluence as a dependency</a></li>
+<li><a href="#implementing-backend-greeting-logic">Implementing backend greeting logic</a></li>
+<li><a href="#making-it-a-library">Making it a library</a></li>
+<li><a href="#compiling-to-webassembly">Compiling to WebAssembly</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#publishing-your-app">Publishing your app</a>
+<ul>
+<li><a href="#connect-to-swarm-and-ethereum-rinkeby">Connect to Swarm and Ethereum Rinkeby</a></li>
+<li><a href="#registering-an-ethereum-rinkeby-account">Registering an Ethereum Rinkeby account</a>
+<ul>
+<li><a href="#via-myetherwalletcom">Via myetherwallet.com</a></li>
+<li><a href="#top-up-account-with-funds">Top up account with funds</a></li>
+</ul>
+</li>
+<li><a href="#installing-fluence-cli">Installing Fluence CLI</a></li>
+<li><a href="#publishing-via-fluence-cli">Publishing via Fluence CLI</a></li>
+<li><a href="#check-app-status">Check app status</a></li>
+</ul>
+</li>
+<li><a href="#frontend">Frontend</a>
+<ul>
+<li><a href="#preparing-web-app">Preparing web app</a></li>
+<li><a href="#running-and-using">Running and using</a></li>
+</ul>
+</li>
+</ul>
+<p>This guide aims first-time users of Fluence. At the end, you will develop a dApp consisting of a decentralized backend running on top of Fluence network, and a web frontend application that's able to communicate with that backend.</p>
+<a class="header" href="#the-plan" id="the-plan"><h1>The plan</h1></a>
+<p>This document is structured as follows.</p>
+<p>First, you will use Fluence Rust SDK to develop a Rust backend, and compile it to WebAssembly.</p>
+<p>Then, you will publish compiled backend to the Fluence network.</p>
+<p>And finally, you will build a web application integrated with your decentralized backend.</p>
+<a class="header" href="#developing-the-backend-app" id="developing-the-backend-app"><h1>Developing the backend app</h1></a>
+<a class="header" href="#setting-up-rust" id="setting-up-rust"><h2>Setting up Rust</h2></a>
+<p>Let's get some Rust.</p>
+<p>Install rust compiler and it's tools:</p>
+<pre><code class="language-bash"># install Rust compiler and other tools to `~/.cargo/bin`
+~ $ curl https://sh.rustup.rs -sSf | sh -s -- -y
+info: downloading installer
+...
+Rust is installed now. Great!
+To configure your current shell run source $HOME/.cargo/env
+</code></pre>
+<p>Let's listen to the installer and configure your current shell:</p>
+<pre><code class="language-bash">~ $ source $HOME/.cargo/env
+&lt;no output&gt;
+</code></pre>
+<p>Fluence Rust SDK <a href="???">uses custom allocator (TODO: link)</a> for more fine-grained control over virtual machine internal memory, and that requires nightly toolchain. To install nightly toolchain, run:</p>
+<pre><code class="language-bash">~ $ rustup toolchain install nightly
+info: syncing channel updates ...
+...
+  nightly-&lt;arch&gt; installed - rustc 1.34.0-nightly (57d7cfc3c 2019-02-11)
+</code></pre>
+<p>To check nightly toolchain was installed succesfully:</p>
+<pre><code class="language-bash">~ $ rustup toolchain list | grep nightly
+# output should contain nighly toolchain
+...
+nightly-&lt;arch&gt;
+</code></pre>
+<p>Also, to be able to compile Rust to WebAssembly, we need to add wasm32 compilation target. Just run the following:</p>
+<pre><code class="language-bash"># install target for WebAssembly
+~ $ rustup target add wasm32-unknown-unknown --toolchain nightly
+info: downloading component 'rust-std' for 'wasm32-unknown-unknown'
+info: installing component 'rust-std' for 'wasm32-unknown-unknown'
+</code></pre>
+<p>To check that everything is set up correctly, let's compile some Rust code:</p>
+<pre><code class="language-bash"># create test.rs with a simple program that returns number 1
+~ $ echo &quot;fn main(){1;}&quot; &gt; test.rs
+
+# compile it to wasm using rustc from nightly toolchain
+~ $ rustup run nightly rustc --target=wasm32-unknown-unknown test.rs
+&lt;no output&gt;
+
+# check test.wasm was created
+~ $ ls -lh test.wasm
+-rwxr-xr-x  1 user  user   1.4M Feb 11 11:59 test.wasm
+</code></pre>
+<p>If everything looks similar, then it's time to create a Rust hello-world project!</p>
+<a class="header" href="#creating-an-empty-rust-package" id="creating-an-empty-rust-package"><h2>Creating an empty Rust package</h2></a>
+<p>First, let's create a new empty Rust package:</p>
+<pre><code class="language-bash"># create empty Rust package
+~ $ cargo +nightly new hello-world --edition 2018
+Created binary (application) `hello-world` package
+
+# go to the package directory
+~ $ cd hello-world
+~/hello-world $
+</code></pre>
+<p>More info on creating a new Rust project can be found in <a href="https://doc.rust-lang.org/cargo/guide/creating-a-new-project.html">Rust docs</a>.</p>
+<a class="header" href="#optional-creating-a-hello-world-rust-application" id="optional-creating-a-hello-world-rust-application"><h2>Optional: Creating a Hello World Rust application</h2></a>
+<p>If you are familiar with Rust, feel free to <a href="#creating-a-fluence-hello-world-backend">skip</a> that section.</p>
+<p>Let's write some code. Our backend should be able to receive a username from program arguments, and print greeting with the username in it.</p>
+<p>Take a look at <code>src/main.rs</code>:</p>
+<pre><code class="language-bash">~/hello-world $ cat src/main.rs
+</code></pre>
+<p>You will see the following code. It's there by default:</p>
+<pre><pre class="playpen"><code class="language-rust">fn main() {
+    println!(&quot;Hello, world!&quot;);
+}
+</code></pre></pre>
+<p>It almost does what we need, except for reading a username. So, open <code>src/main.rs</code> in your editor, delete all the code in there, and paste the following:</p>
+<pre><pre class="playpen"><code class="language-rust">use std::env;
+
+fn greeting(name: String) -&gt; String {
+    format!(&quot;Hello, world! From user {}&quot;, name)
+}
+
+fn main() {
+    let name = env::args().nth(1).unwrap();
+    println!(&quot;{}&quot;, greeting(name));
+}
+</code></pre></pre>
+<p>What this code does:</p>
+<ol>
+<li>Defines a <code>greeting</code> function that takes a name, and returns a greeting message</li>
+<li>Defines a <code>main</code> function that reads first program argument, passes it to <code>greeting</code>, and prints the result</li>
+</ol>
+<p>Let's now compile and run our example:</p>
+<pre><code class="language-bash">~/hello-world $ cargo +nightly run myName
+   Compiling hello-world v0.1.0 (/root/hello-world)
+    Finished dev [unoptimized + debuginfo] target(s) in 0.70s
+     Running `target/debug/hello-world myName`
+Hello, world! From user myName
+</code></pre>
+<hr />
+<p><strong>WARNING:</strong> If you see the following error, you should install <code>gcc</code> and try <code>cargo +nightly run</code> again:</p>
+<pre><code class="language-bash">Compiling hello-world v0.1.0 (/root/hello-world)
+error: linker cc not found
+  |
+  = note: No such file or directory (os error 2)
+
+error: aborting due to previous error
+error: Could not compile hello-world.
+</code></pre>
+<hr />
+<p>Now that we have a working hello world, it's time to adapt it to be used with Fluence.</p>
+<a class="header" href="#creating-a-fluence-hello-world-backend" id="creating-a-fluence-hello-world-backend"><h2>Creating a Fluence Hello World backend</h2></a>
+<p>For a backend to be compatible with Fluence network, it should <a href="backend.html#wasm-program-conventions">follow a few conventions</a>, so Fluence knows how to call your code correctly. To reduce boilerplate and make it easier, we developed a Fluence Rust SDK. Let's see how to use it.</p>
+<a class="header" href="#adding-fluence-as-a-dependency" id="adding-fluence-as-a-dependency"><h3>Adding Fluence as a dependency</h3></a>
+<p>First you need to add it to <code>Cargo.toml</code> as a dependency. Let's take a look at <code>Cargo.toml</code>:</p>
+<pre><code class="language-bash">~/hello-world $ cat Cargo.toml
+</code></pre>
+<p>It should look like this:</p>
+<pre><code class="language-toml">[package]
+name = &quot;hello-world&quot;
+version = &quot;0.1.0&quot;
+authors = [&quot;root&quot;]
+edition = &quot;2018&quot;
+
+[dependencies]
+</code></pre>
+<p>Now, open <code>Cargo.toml</code> in your editor, and add <code>fluence</code> to <code>dependencies</code>:</p>
+<pre><code class="language-toml">[package]
+name = &quot;hello-world&quot;
+version = &quot;0.1.0&quot;
+authors = [&quot;root&quot;]
+edition = &quot;2018&quot;
+
+[dependencies]
+fluence = { version = &quot;0.0.8&quot;, features = [&quot;export_allocator&quot;]}
+</code></pre>
+<a class="header" href="#implementing-backend-greeting-logic" id="implementing-backend-greeting-logic"><h3>Implementing backend greeting logic</h3></a>
+<p>Create &amp; open <code>~/hello-world/src/lib.rs</code> in your editor and paste the following code there:</p>
+<pre><pre class="playpen"><code class="language-rust">
+# #![allow(unused_variables)]
+#fn main() {
+use fluence::sdk::*;
+
+#[invocation_handler]
+fn greeting(name: String) -&gt; String {
+    format!(&quot;Hello, world! From user {}&quot;, name)
+}
+#}</code></pre></pre>
+<p>This code imports Fluence SDK, and marks <code>greeting</code> function with <code>#[invocation_handler]</code>, so Fluence knows how to call it.</p>
+<p>Function marked with <code>#[invocation_handler]</code> is called a <em>gateway function</em>. It is an entrypoint to your application, all transactions sent by users will be passed to that function, and it's result will be available to users. Gateway function can receive and return either <code>String</code> or <code>Vec&lt;u8&gt;</code>.</p>
+<a class="header" href="#making-it-a-library" id="making-it-a-library"><h3>Making it a library</h3></a>
+<p>For a gateway function to be exported and available for Fluence to call, backend should be compiled to WebAssembly as a library.</p>
+<p>To make your backend a library, open <code>Cargo.toml</code> in your editor, and paste the following there:</p>
+<pre><code class="language-toml">[package]
+name = &quot;hello-world&quot;
+version = &quot;0.1.0&quot;
+authors = [&quot;root&quot;]
+edition = &quot;2018&quot;
+
+[lib]
+name = &quot;hello_world&quot;
+path = &quot;src/lib.rs&quot;
+crate-type = [&quot;cdylib&quot;]
+
+[dependencies]
+fluence = { version = &quot;0.0.8&quot;, features = [&quot;export_allocator&quot;]}
+</code></pre>
+<a class="header" href="#compiling-to-webassembly" id="compiling-to-webassembly"><h3>Compiling to WebAssembly</h3></a>
+<p>Run the following code to build a <code>.wasm</code> file from your Rust code.</p>
+<p>NOTE: Downloading and compiling dependencies might take a few minutes.</p>
+<pre><code class="language-bash">~/hello-world $ cargo +nightly build --lib --target wasm32-unknown-unknown --release
+    Updating crates.io index
+    ...
+    Finished release [optimized] target(s) in 1m 16s
+</code></pre>
+<p>If everything goes well, you should have a <code>.wasm</code> file deep in <code>target</code>. Let's check it:</p>
+<pre><code class="language-bash">~/hello-world $ ls -lh target/wasm32-unknown-unknown/release/hello_world.wasm
+-rwxr-xr-x  2 user  user  1.4M Feb 11 11:59 target/wasm32-unknown-unknown/release/hello_world.wasm
+</code></pre>
+<a class="header" href="#publishing-your-app" id="publishing-your-app"><h1>Publishing your app</h1></a>
+<a class="header" href="#connect-to-swarm-and-ethereum-rinkeby" id="connect-to-swarm-and-ethereum-rinkeby"><h2>Connect to Swarm and Ethereum Rinkeby</h2></a>
+<p>To publish a backend app to Fluence network, you need to upload it to Swarm, and then send its location in Swarm to a Fluence smart contract on Ethereum Rinkeby testnet.</p>
+<p>To make sure we're on the same page:</p>
+<ul>
+<li>Swarm is a decentralized file storage.</li>
+<li>Ethereum Rinkeby testnet is one of the many Ethereum networks, but there's no real money in there, so it's safe and can be used for trying out something new.</li>
+<li>Fluence smart contract is what rules the Fluence network and allows users to use it.</li>
+</ul>
+<p>To upload your code to Swarm, you need to have access to one of its nodes. The same with Ethereum, you will need a connection to any Ethereum node on Rinkeby testnet.</p>
+<p><strong>We will use existing Ethereum &amp; Swarm nodes, but if you wish, you can <a href="miner.html">use your own nodes</a> or any other.</strong></p>
+<a class="header" href="#registering-an-ethereum-rinkeby-account" id="registering-an-ethereum-rinkeby-account"><h2>Registering an Ethereum Rinkeby account</h2></a>
+<a class="header" href="#via-myetherwalletcom" id="via-myetherwalletcom"><h3>Via myetherwallet.com</h3></a>
+<p>Go to https://vintage.myetherwallet.com/, then select Rinkeby in the upper right, enter any password, and download the Keystore file.</p>
+<a class="header" href="#top-up-account-with-funds" id="top-up-account-with-funds"><h3>Top up account with funds</h3></a>
+<p>Follow instructions for <a href="https://faucet.rinkeby.io/">Rinkeby faucet</a></p>
+<a class="header" href="#installing-fluence-cli" id="installing-fluence-cli"><h2>Installing Fluence CLI</h2></a>
+<p>You can download Fluence CLI from here https://github.com/fluencelabs/fluence/releases/tag/cli-0.1.2</p>
+<p>Or in terminal:</p>
+<p><strong>Linux</strong></p>
+<pre><code class="language-bash">~ $ curl -L https://github.com/fluencelabs/fluence/releases/download/cli-0.1.2/fluence-cli-0.1.2-linux-x64 -o fluence
+</code></pre>
+<p><strong>macOS</strong></p>
+<pre><code class="language-bash">~ $ curl -L https://github.com/fluencelabs/fluence/releases/download/cli-0.1.2/fluence-cli-0.1.2-mac-x64 -o fluence
+</code></pre>
+<p>And finally don't forget to add permission to execute it:</p>
+<pre><code class="language-bash">~ $ chmod +x ./fluence
+
+# check CLI is working
+~ $ ./fluence --version
+Fluence CLI 0.1.2
+</code></pre>
+<p>If you see CLI version, proceed to the next step.</p>
+<a class="header" href="#publishing-via-fluence-cli" id="publishing-via-fluence-cli"><h2>Publishing via Fluence CLI</h2></a>
+<p>As was mentioned before, you will need a connection to Ethereum Rinkeby network, and a connection to Swarm network.</p>
+<p>For your convenience, and to make this guide simple, we use addresses of existing Ethereum Rinkeby and Swarm nodes running in a cloud on Fluence nodes. <strong>However, this is a centralized way to connect to Ethereum Rinkeby and Swarm networks, and shouldn't be used in production or in a security-sensitive context.</strong> You may use <strong>any</strong> Rinkeby and Swarm nodes by providing their URIs within <code>--eth_url</code> and <code>--swarm_url</code> options (see below).</p>
+<p>Also you will need a Rinkeby account with some money on it (you can <a href="https://faucet.rinkeby.io/">get money from faucet</a>) and it's private key. Private key can be either a hex string or a <a href="../cli/README.html#keystore-json-file">JSON keystore file</a>.</p>
+<p>Having all that, you're now ready to publish your app. Examples below will specify a cluster size of 4 nodes for your app. Adjust it to your needs.</p>
+<p>If you have your private key <strong>in hex</strong>, run the following in your terminal, replacing <code>&lt;&gt;</code> with actual values:</p>
+<pre><code class="language-bash">~ $ ./fluence publish \
+            --eth_url          http://207.154.232.92:8545 \
+            --swarm_url        http://207.154.232.92:8500 \
+            --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \
+            --gas_price        10 \
+            --account          &lt;your ethereum address&gt; \
+            --secret_key       &lt;your ethereum private key&gt; \
+            --cluster_size     4 \
+            --wait_syncing \
+            --wait
+</code></pre>
+<p>If you have a JSON <strong>keystore file</strong>, run the following in your terminal, replacing <code>&lt;&gt;</code> with actual values:</p>
+<pre><code class="language-bash">~ $ ./fluence publish \
+            --eth_url          http://207.154.232.92:8545 \
+            --swarm_url        http://207.154.232.92:8500 \
+            --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \
+            --gas_price        10 \
+            --account          &lt;your ethereum address&gt; \
+            --keystore         &lt;path to keystore&gt; \
+            --password         &lt;password for keystore&gt; \
+            --cluster_size     4 \
+            --wait_syncing \
+            --wait
+</code></pre>
+<p>There is more info on using keystore files with Fluence CLI in it's <a href="../cli/README.html#keystore-json-file">README</a>.</p>
+<p>After running the command, you will see an output similar to the following:</p>
+<pre><code class="language-bash">[1/3]   Application code uploaded. ---&gt; [00:00:00]
+swarm hash: 0xf5c604478031e9a658551220da3af1f086965b257e7375bbb005e0458c805874
+[2/3]   Transaction publishing app was sent. ---&gt; [00:00:03]
+  tx hash: 0x5552ee8f136bce0b020950676d84af00e4016490b8ee8b1c51780546ad6016b7
+[3/3]   Transaction was included. ---&gt; [00:02:38]
+App deployed.
+  app id: 2
+  tx hash: 0x5552ee8f136bce0b020950676d84af00e4016490b8ee8b1c51780546ad6016b7
+</code></pre>
+<a class="header" href="#check-app-status" id="check-app-status"><h2>Check app status</h2></a>
+<p>To see how smart contract sees your app, and what nodes it was deployed onto, you can use <code>status</code> like this:</p>
+<pre><code class="language-bash">~ $ ./fluence status \
+            --eth_url          http://207.154.232.92:8545 \
+            --app_id           &lt;your app id here&gt;
+</code></pre>
+<p>The output will be in JSON, and look similar to the following:</p>
+<pre><code class="language-json">{
+  &quot;apps&quot;: [
+    {
+      &quot;app_id&quot;: &quot;&lt;your app id here&gt;&quot;,
+      &quot;storage_hash&quot;: &quot;&lt;swarm hash&gt;&quot;,
+      &quot;storage_receipt&quot;: &quot;0x0000000000000000000000000000000000000000000000000000000000000000&quot;,
+      &quot;cluster_size&quot;: 4,
+      &quot;owner&quot;: &quot;&lt;your ethereum address&gt;&quot;,
+      &quot;pin_to_nodes&quot;: [],
+      &quot;cluster&quot;: {
+        &quot;genesis_time&quot;: 1549353504,
+        &quot;node_ids&quot;: [
+          &quot;0x5ed7aaada4bd800cd4f5b440f36ccece9c9e4542f9808ea6bfa45f84b8198185&quot;,
+          &quot;0xb557bb40febb7484393c1c99263b763d1caf6b6c83bc0a9fd6c084d2982af763&quot;,
+          &quot;0xac72ccc7886457c3f7da048e184b8b8a43f99c77950e7bb635b6cb3aeb3869fe&quot;,
+          &quot;0x9251dd451f4bd9f412173cc21279afc8d885312eb1c21828134ba9095da8306b&quot;,
+        ],
+        &quot;ports&quot;: [
+          25001
+        ]
+      }
+    }
+  ],
+  &quot;nodes&quot;: [
+    {
+      &quot;validator_key&quot;: &quot;0x5ed7a87da4bd800cd4f5b440f36ccece9c9e4542f9808ea6bfa45f84b8198185&quot;,
+      &quot;tendermint_p2p_id&quot;: &quot;0x6c03a3fe792314f100ac8088a161f70bd7d257b1&quot;,
+      &quot;ip_addr&quot;: &quot;43.32.21.10&quot;,
+      &quot;next_port&quot;: 25003,
+      &quot;last_port&quot;: 25099,
+      &quot;owner&quot;: &quot;0x5902720e872fb2b0cd4402c69d6d43c86e973db7&quot;,
+      &quot;is_private&quot;: false,
+      &quot;app_ids&quot;: [
+        1,
+        2,
+        6
+      ]
+    },
+    &quot;&lt;3 more nodes here&gt;&quot;
+  ]
+}
+</code></pre>
+<p>You can also use interactive mode instead of default by supplying <code>--interactive</code> flag:</p>
+<pre><code class="language-bash">./fluence status \
+            --eth_url          http://207.154.232.92:8545 \
+            --app_id           &lt;your app id here&gt; \
+            --interactive
+</code></pre>
+<div style="text-align:center">
+<img src="images/interactive.png" width="776px"/>
+<br>
+</div>
+<p>You can press <code>q</code> to exit it.</p>
+<p>Your backend now is successfully deployed! You can proceed to access your code from a web browser.</p>
+<a class="header" href="#frontend" id="frontend"><h1>Frontend</h1></a>
+<p>For this part, you will need installed <code>npm</code>. Please refer to <a href="https://www.npmjs.com/get-npm">npm docs</a> for installation instructions.</p>
+<a class="header" href="#preparing-web-app" id="preparing-web-app"><h2>Preparing web app</h2></a>
+<p>Let's clone a simple web app template:</p>
+<pre><code class="language-bash">~ $ git clone https://github.com/fluencelabs/frontend-template
+~ $ cd frontend-template
+~/frontend-template $ 
+</code></pre>
+<p>There are just three files (except for README, LICENSE and .gitignore):</p>
+<ul>
+<li><code>package.json</code> that declares needed dependencies</li>
+<li><code>webpack.config.js</code> needed for the webpack to work</li>
+<li><code>index.js</code> that imports <code>fluence</code> js library and shows how to connect to a cluster</li>
+</ul>
+<p>Let's take a look at <code>index.js</code>:</p>
+<pre><code class="language-javascript">...
+// create a session between client and backend application
+fluence.connect(contractAddress, appId, ethUrl).then((s) =&gt; {
+  console.log(&quot;Session created&quot;);
+  window.session = s;
+  helloBtn.disabled = false;
+});
+...
+// set callback on button click
+helloBtn.addEventListener(&quot;click&quot;, send)
+
+// send username as a transaction and display results in grettingLbl
+function send() {
+  const username = usernameInput.value.trim();
+  let result = session.invoke(username);
+  getResultString(result).then(function (str) {
+    greetingLbl.innerHTML = str;
+  });
+}
+</code></pre>
+<p>This code queries the Fluence smart contract for IP addresses of Tendermint nodes hosting the app with specified <code>appId</code>, creates an <code>AppSession</code> from these connections, and saves it to <code>window.session</code>, so it can be used later. All this is done via <code>connect</code> method.</p>
+<p>Then, it assigns <code>send()</code> function as a callback for clicking the button, which will call an <code>invoke</code> method provided by <code>AppSession</code>. <code>invoke</code> takes a <code>String</code>, and sends it to the backend as a transaction. Result will be displayed in <code>greeting</code> label.</p>
+<a class="header" href="#running-and-using" id="running-and-using"><h2>Running and using</h2></a>
+<p>Please make sure you have changed <code>appId</code> to your actuall appId.</p>
+<p>To install all dependencies, compile and run the application, run in the terminal:</p>
+<pre><code class="language-bash">~/frontend-template $ npm install
+~/frontend-template $ npm run start
+&gt; frontend-template@1.0.0 start /private/tmp/frontend-template
+&gt; webpack-dev-server
+
+ℹ ｢wds｣: Project is running at http://localhost:8080/
+...
+</code></pre>
+<p>Now you can open http://localhost:8080/ in your browser. You will see an input text box and a disabled button. Button will become enabled once AppSession is created. You can enter your name, and press <code>Say hello!</code> button, and greeting will be displayed next to <code>Result:</code>.</p>
+<p>You can also open Developer Console, and you'll see a log about session creation:</p>
+<pre><code>...
+Connecting web3 to http://207.154.232.92:8545
+...
+Session created
+</code></pre>
+<div style="text-align:center">
+<kbd>
+<img src="images/helloworld.png" width="529px"/>
+</kbd>
+<br><br><br>
+</div>
+<p>You can also use Fluence from within Developer console as follows:</p>
+<pre><code class="language-javascript">let result = session.invoke(&quot;myName&quot;);
+&lt;undefined&gt;
+logResultAsString(result);
+&lt;undefined&gt;
+Hello, world! From user myName
+</code></pre>
+<a class="header" href="#introduction" id="introduction"><h3>Introduction</h3></a>
+<p>This guide goes through the basics of application creation for the Fluence Network using simple Rust application as an example.</p>
+<p>The Fluence ecosystem is designed to run Webassembly (Wasm) program in decentralized trustless environments. Generally it can be considered as several logical parts: a <code>client-side</code> (a frontend used for sending requests to Wasm program; developed by user), the <code>VM wrapper</code> (an intermediate layer that receives queries from <code>client side</code> and routes it to a <code>Wasm program</code>) and a <code>Wasm program</code> (also developed by user).</p>
+<p>But an arbitrary Wasm code can't be run on Fluence - for example, it can use some imports of host-based functions that environment isn't provided for security reasons. And also each Wasm program has to follow some conventions to be able to interact with <code>VM wrapper</code>. These are described in details in <code>Wasm program conventions</code> section of this guide.</p>
+<a class="header" href="#prerequisites" id="prerequisites"><h3>Prerequisites</h3></a>
+<p>First of all, it needs to install Rust with Webassembly target. Currently, our SDK requires a nightly version of Rust since it uses some features that presently experimental. To install Rust, you can use the following commands:</p>
+<pre><code class="language-bash"># installs Rust compiler and other tools to `~/.cargo/bin`
+$ curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-01-08
+
+# updates `PATH` environment variable
+$ source $HOME/.cargo/env
+
+# installs target for Webassembly
+$ rustup target add wasm32-unknown-unknown --toolchain nightly-2019-01-08
+</code></pre>
+<p>To check that everything is set up correctly you can use this simple command:</p>
+<pre><code class="language-bash">$ echo &quot;fn main(){1;}&quot; &gt; test.rs; rustc --target=wasm32-unknown-unknown test.rs
+
+$ ls -la test.wasm
+-rwxr-xr-x  1 user  user   1.9M Feb  7 02:09 test.wasm*
+
+</code></pre>
+<p>It creates file with Rust code and then complies it to Webassembly. If it ends without errors and there is a <code>test.wasm</code> file in the same folder, set up is correct.</p>
+<a class="header" href="#quick-start" id="quick-start"><h3>Quick start</h3></a>
+<p>At first lets create a new empty Rust lib package f.e. by the following command:</p>
+<pre><code class="language-bash">$ cargo new hello-user --lib --edition 2018
+Created library `hello-user` package
+
+$ cd hello-user
+</code></pre>
+<p>These commands create a stub for our project (more detailed info about package creating can be found <a href="https://doc.rust-lang.org/cargo/guide/creating-a-new-project.html">here</a>) and change current directory to it.</p>
+<p>Let's show how to write a simple application by an example of a Rust program that receives a <code>user name</code> and returns &quot;Hello from Fluence to <code>user name</code>&quot;.</p>
+<p>We'll write out code in src/lib.rs:</p>
+<pre><code class="language-Rust">use fluence::sdk::*;
+
+#[invocation_handler]
+fn main(name: String) -&gt; String {
+    format!(&quot;Hello from Fluence to {}&quot;, name)
+}
+</code></pre>
+<p>And that's it! Pretty simple, isn't it?</p>
+<p>Yeah, now we have a simple program that can be run on Fluence, lets compile it!</p>
+<a class="header" href="#compilation-and-test-launch" id="compilation-and-test-launch"><h3>Compilation and test launch</h3></a>
+<p><code>fluence</code> crate has to be specified in dependencies in <code>Cargo.toml</code> to compile this example. A minimal example <code>Cargo.toml</code> could look like this:</p>
+<pre><code class="language-Toml">[package]
+name = &quot;hello_user&quot;
+version = &quot;0.1.1&quot;
+edition = &quot;2018&quot;
+
+
+[lib]
+name = &quot;hello_user&quot;
+path = &quot;src/lib.rs&quot;
+crate-type = [&quot;cdylib&quot;]
+
+[dependencies]
+fluence = { version = &quot;0.0.8&quot;, features = [&quot;export_allocator&quot;]}
+</code></pre>
+<p>Currently, the last version of <code>fluence_sdk</code> is <code>0.0.8</code> but now it under construction and will change in future, stay tuned.</p>
+<p>And finally to compile this example the following command could be used:</p>
+<pre><code class="language-bash">$ cargo +nightly-2019-01-08 build --target wasm32-unknown-unknown --release
+   Compiling proc-macro2 v0.4.27
+   ...
+    Finished release [optimized] target(s) in 21.97s
+</code></pre>
+<p>The worked example of <code>hello-user</code> program can be found <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-user">here</a>.</p>
+<a class="header" href="#wasm-program-publishing" id="wasm-program-publishing"><h3>Wasm program publishing</h3></a>
+<p>To publish resulted program <code>fluence/cli</code> can be used. This utility has a rich help that can be viewed by</p>
+<pre><code class="language-bash">$ fluence help publish
+...
+USAGE:
+    fluence publish [FLAGS] [OPTIONS] &lt;path&gt; &lt;contract_address&gt; &lt;account&gt;
+    ...
+</code></pre>
+<p>By example for some setup the following command:</p>
+<pre><code class="language-bash">$ fluence publish \
+            --code_path        fluence/vm/examples/hello-user/target/wasm32-unknown-unknown/release/hello-user.wasm \            
+            --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --cluster_size     4 \
+            --secret_key       0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133
+</code></pre>
+<p>publishes <code>hello-user.wasm</code> to contract identified by <code>0x9995882876ae612bfd829498ccd73dd962ec950a</code>, account <code>0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d</code> to cluster of four nodes authenticated by secret key <code>0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133</code>. To find more information about cli interface please look at <a href="https://github.com/fluencelabs/fluence/blob/master/docs/guides/miner.md">miner guide</a>.</p>
+<a class="header" href="#wasm-program-conventions" id="wasm-program-conventions"><h3>Wasm program conventions</h3></a>
+<p>Fluence uses so-called <code>verification game</code> technique to prove the correctness of computation results. Since that some limitations for Wasm program have been introduced:</p>
+<ol>
+<li>Wasm program can consist of several Wasm modules with different names, but only one of them (let's call it <code>main</code>) can be called from user-side. This master module HAS TO don't have the module name section. This requirement is based on the fact that according to the Wasm specification module name is optional, and there is no a possibility to add it to a generated Wasm binary by default <code>rust</code> compiler.</li>
+<li>Each <code>main</code> module HAS TO have three export (regarding Wasm specification) functions with names <code>invoke</code>, <code>allocate</code> and <code>deallocate</code>.</li>
+<li><code>invoke</code> will be used as the main module handler function. It means that all client-side requests are routed to it. The exactly signature of this function HAS TO be <code>(func (export &quot;invoke&quot;) (param $buffer i32) (param $size i32) (result i32))</code> in wast representation. It receives two i32 params that represent a pointer to supplied argument and its size. If <code>client-side</code> send an empty byte buffer <code>invoke</code> SHOULD be called with two nulls. This function has to return a pointer to result that has to have the next structure in memory: <code>| size (4 bytes; little endian) | result buffer (size bytes) |</code>. This convention is based on the fact that Wasm function can return value of i32, i64, f32, f64, i128 types.</li>
+<li><code>allocate</code> function HAS TO have the next signature <code>(func (export &quot;allocate&quot;) (param $size i32) (result i32))</code> in wast representation. It HAS TO return a pointer as i32 to a module memory region long enough to hold <code>size</code> bytes.</li>
+<li><code>deallocate</code> function HAS TO have the next signature <code>(func (export &quot;deallocate&quot;) (param $address i32) (param $size i32) (return))</code>. It is called by VM wrapper with a pointer to a memory region previously allocated through <code>allocate</code> function and its size. This function SHOULD free this memory region.</li>
+</ol>
+<p>A Wasm module usually is invoked by the following scheme:</p>
+<ol>
+<li>A <code>client-side</code> send a request to Wasm code as a byte array.</li>
+<li><code>VM wrapper</code> call <code>allocate</code> function of <code>master</code> Wasm module with a size of the array.</li>
+<li><code>VM wrapper</code> writes the array to the module memory.</li>
+<li><code>VM wrapper</code> call <code>invoke</code> function from <code>master</code> module with the address returned from <code>allocate</code> function and the array size.</li>
+<li><code>VM wrapper</code> synchronously waits of <code>invoke</code> result. After receiving a <code>pointer</code> from it, reads 4 bytes(that represents <code>size</code> of a byte array) and then reads <code>size</code> bytes from <code>pointer + 4</code> offset (<code>result</code>).</li>
+<li><code>Result</code> as a byte array is sent to a client.</li>
+</ol>
+<a class="header" href="#best-practices" id="best-practices"><h3>Best practices</h3></a>
+<ul>
+<li>
+<p>don't use panic! and methods that lead to it (expect, unwrap) in your code.</p>
+</li>
+<li>
+<p>avoid using unsafe operations except these that already in Fluence SDK.</p>
+</li>
+<li>
+<p>please pay attention to module memory usage - in many situations module can have public API that explicitly or indirectly consume module memory. So user can make a DoS attack to such programs.</p>
+</li>
+</ul>
+<a class="header" href="#requirements" id="requirements"><h2>Requirements</h2></a>
+<ul>
+<li><code>npm</code></li>
+</ul>
+<a class="header" href="#installation" id="installation"><h2>Installation</h2></a>
+<ul>
+<li><code>npm install fluence</code></li>
+</ul>
+<a class="header" href="#description" id="description"><h2>Description</h2></a>
+<p><code>js-fluence-client</code> is a library written in TypeScript that allows you to interact with an app (usually a backend) deployed to a Fluence cluster in the Fluence network, from a web browser. Using this library together with Metamask and Ethereum network, you can develop a <code>web3</code> decentralized application.</p>
+<a class="header" href="#usage" id="usage"><h2>Usage</h2></a>
+<p>Import a dependency:</p>
+<pre><code class="language-js">import * as fluence from &quot;fluence&quot;;
+</code></pre>
+<p>To connect to the Fluence cluster we need to create a session between the browser and all nodes or one node in this cluster.
+There is two ways of establishing a connection:</p>
+<ol>
+<li>Using host and port directly (for debug purposes) to connect with a single node of the cluster, or simply <code>worker</code>:</li>
+</ol>
+<pre><code class="language-js">let workerSession = fluence.directConnect(&quot;&lt;host&gt;&quot;, &lt;port&gt;);
+</code></pre>
+<ol start="2">
+<li>Using installed MetaMask or a deployed local Ethereum node:</li>
+</ol>
+<pre><code class="language-js">let appSession;
+let appSessionPromise = fluence.connect(&quot;&lt;contract-address&gt;&quot;, &quot;&lt;app-id&gt;&quot;, &quot;&lt;ethereum-url-optional&gt;&quot;).then((responseSession) =&gt; {
+    appSession = responseSession;
+});
+</code></pre>
+<p>You can find Fluence contract on Rinkeby testnet deployed at address: <code>0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7</code>.
+The second argument, <code>appId</code> - is an ID of application registered in the contract. For example, there is an existing <a href="https://github.com/fluencelabs/llamadb">LlamaDB</a> application with <code>appId</code>: <code>0x0000000000000000000000000000000000000000000000000000000000000002</code>.</p>
+<p><code>connect</code> asynchronously interacts with an Ethereum blockchain, so it will return a <code>Promise&lt;AppSession&gt;</code>. <code>AppSession</code> is a structure that combines all sessions to nodes in a cluster and keeps some metadata of these nodes.</p>
+<p>Then we can use <code>invoke</code> to send commands to workers and get responses.
+We'll go with <a href="https://github.com/fluencelabs/llamadb">LlamaDB</a> application as an example. Send simple SQL commands to the cluster:</p>
+<pre><code class="language-js">let response = appSession.invoke(&quot;CREATE TABLE test_table (id INT, text VARCHAR(128))&quot;)
+</code></pre>
+<p>It will send a request and return the submitted transaction. Retrieving result requires calling <code>result()</code> method, that's because sending a transaction via <code>invoke</code> doesn't return result back, it just changes cluster state. <code>result()</code> method explicitly reads result of the transaction from the cluster state, and returns it as a <code>Promise&lt;Result&gt;</code>:</p>
+<pre><code class="language-js">let resultPromise = response.result();
+resultPromise.then((r) =&gt; console.log(r.asString()))
+</code></pre>
+<p>Client and cluster are communicating by exchanging raw bytes. You can use <code>asString()</code> to convert bytes to UTF-8 string or <code>hex()</code> to get hex representation of the data.</p>
+<p>In case you need fine-grained control, you can use <code>workerSession</code> directly:</p>
+<pre><code class="language-js">let workerSession = appSession.workerSessions[&lt;worker-idx&gt;].session
+// send tx from string
+let resultPromise = workerSession.invoke(&quot;SELECT ...&quot;);
+
+// send tx from raw bytes
+let resultPromise = workerSession.invokeRaw(&lt;raw-bytes-in-hex&gt;);
+</code></pre>
+<p>Given these simple methods, you can build a working decentralized web application!</p>
+<p>You can find examples of such applications below.</p>
+<a class="header" href="#example-apps" id="example-apps"><h2>Example apps</h2></a>
+<p>Simple app to start with or use as a template for your app. Interacts with predeployed Llamadb on top of Fluence cluster connected to Kovan testnet:
+https://github.com/fluencelabs/frontend-example</p>
+<p>App that allows you to send SQL requests from a browser and shows status of the cluster's workers. Written in TypeScript:
+https://github.com/fluencelabs/fluence/tree/master/js-client/src/examples/fluence-sqldb</p>
+<a class="header" href="#acknowledgments" id="acknowledgments"><h2>Acknowledgments</h2></a>
+<p>Thanks to @nukep for the Llamadb database (https://github.com/nukep/llamadb) that we used in this example!</p>
+<ul>
+<li><a href="#fluence-miner-guide">Fluence miner guide</a>
+<ul>
+<li><a href="#how-mining-works">How mining works</a></li>
+<li><a href="#how-to-become-a-fluence-miner">How to become a Fluence miner</a>
+<ul>
+<li><a href="#deploy-fluence-node-to-a-cloud">Deploy Fluence node to a cloud</a></li>
+<li><a href="#deploy-fluence-node-locally">Deploy Fluence node locally</a></li>
+</ul>
+</li>
+<li><a href="#how-to-check-if-node-is-registered">How to check if node is registered</a></li>
+<li><a href="#private-nodes-and-application-pinning">Private nodes and application pinning</a>
+<ul>
+<li><a href="#private-nodes">Private nodes</a></li>
+<li><a href="#application-pinning">Application pinning</a>
+<ul>
+<li><a href="#mixing-pinning-and-matching">Mixing pinning and matching</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#how-to-remove-a-node-from-the-fluence-smart-contract">How to remove a node from the Fluence smart contract</a></li>
+<li><a href="#tips-and-tricks">Tips and tricks</a></li>
+</ul>
+</li>
+</ul>
+<a class="header" href="#fluence-miner-guide" id="fluence-miner-guide"><h1>Fluence miner guide</h1></a>
+<p>Being a miner in Fluence network means that you will provide you computation power to host decentralized backends. In order to do that, you will need just a few things:</p>
+<ol>
+<li>A computer to run a Fluence node and workers on it</li>
+<li>Installed and running Docker and <code>docker-compose</code></li>
+<li>Installed python2 pip</li>
+<li>An Ethereum light-client or full node connected to Rinkeby testnet</li>
+<li>A Rinkeby Ethereum wallet topped up with some ETH to submit transactions</li>
+</ol>
+<a class="header" href="#how-mining-works" id="how-mining-works"><h2>How mining works</h2></a>
+<p>The process is as follows:
+You run a Docker image with Fluence node on your computer, then you register that node within Fluence smart contract by using Fluence CLI. On registration, you specify max number of backends you wish to host, so your node doesn't run out of resources.</p>
+<p>After you registered your node within smart contract, it starts waiting to be included in an application cluster. That will happen when someone publishes an app and the Fluence smart contract will match that app to your node, and then send an Ethereum event that your node is listening to.</p>
+<p>When node receives an event stating it's a part of an application cluster now, it will download application code from Swarm, and then run a Docker image with Fluence worker hosting that code.</p>
+<a class="header" href="#how-to-become-a-fluence-miner" id="how-to-become-a-fluence-miner"><h2>How to become a Fluence miner</h2></a>
+<p>The first step is to deploy a Fluence node. Deploy is automated, you can get scripts by cloning <a href="https://github.com/fluencelabs/fluence">Fluence repo</a>:</p>
+<pre><code>git clone https://github.com/fluencelabs/fluence
+</code></pre>
+<a class="header" href="#deploy-fluence-node-to-a-cloud" id="deploy-fluence-node-to-a-cloud"><h3>Deploy Fluence node to a cloud</h3></a>
+<p>It's an automated task, you will only need to specify your cloud instance IP addresses and your Ethereum wallet, and then run a (Fabric)[https://github.com/fabric/fabric] script.</p>
+<p>First, let's install Fabric:</p>
+<pre><code class="language-bash"># make use you're using python2
+$ pip --version
+pip 18.0 from &lt;...&gt; (python 2.7)
+$ pip install Fabric==1.14.1
+</code></pre>
+<p>It should install fabric 1.14.1. <strong>Be careful not to install Fabric 2 as it's not current supported.</strong></p>
+<p>Next, open <a href="../../tools/deploy/instances.json">fluence/tools/deploy/instances.json</a> in your favorite text editor, and modify config:</p>
+<pre><code class="language-json">{
+    &quot;&lt;ip1&gt;&quot;: {
+        &quot;owner&quot;: &quot;&lt;owner-account1&gt;&quot;,
+        &quot;key&quot;: &quot;&lt;secret-key1&gt;&quot;,
+        &quot;api_port&quot;: &quot;&lt;port&gt;&quot;,
+        &quot;capacity&quot;: &quot;&lt;max-num-of-apps&gt;&quot;
+    },
+    &quot;&lt;ip2&gt;&quot;: {
+        &quot;owner&quot;: &quot;&lt;owner-account2&gt;&quot;,
+        &quot;key&quot;: &quot;&lt;secret-key2&gt;&quot;,
+        &quot;api_port&quot;: &quot;&lt;port&gt;&quot;,
+        &quot;capacity&quot;: &quot;&lt;max-num-of-apps&gt;&quot;
+    }
+}
+
+</code></pre>
+<p>You can specify here several nodes, but for the sake of example, let's continue with a single node. After filling info in deploy_config.json, it should look similar to this:</p>
+<pre><code class="language-json">{
+    &quot;53.42.31.20&quot;: {
+        &quot;owner&quot;: &quot;0x00a329c0648769a73afac7f9381e08fb43dbea72&quot;,
+        &quot;key&quot;: &quot;4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7&quot;,
+        &quot;api_port&quot;: &quot;25000&quot;,
+        &quot;capacity&quot;: 10
+    }
+}
+</code></pre>
+<p>You can also change user running setup commands on cloud instance by <code>env.user</code> to desired username.</p>
+<pre><code class="language-python"># Set the username
+env.user = &quot;root&quot;
+</code></pre>
+<p>Now, let's deploy Fluence node along with Geth and Swarm containers:</p>
+<pre><code class="language-bash">$ fab deploy
+</code></pre>
+<p>At the end of the successful deployment you should see something like the following:</p>
+<pre><code>[53.42.31.20] out: CONTRACT_ADDRESS=0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7
+[53.42.31.20] out: NAME=fluence-node-1
+[53.42.31.20] out: HOST_IP=53.42.31.20
+[53.42.31.20] out: EXTERNAL_HOST_IP=53.42.31.20
+[53.42.31.20] out: OWNER_ADDRESS=0x00a329c0648769a73afac7f9381e08fb43dbea72
+...
+[53.42.31.20] out: Node container is started.
+[53.42.31.20] out: CURRENT NODE = 1
+[53.42.31.20] out: TENDERMINT_KEY=YAa6x36acTUIemAoejyplm+cUKe5rhTC1ArMPLMfvFY=
+[53.42.31.20] out: API_PORT=25000
+[53.42.31.20] out: CAPACITY=10
+</code></pre>
+<p>Here you have some useful information that you can use with Fluence CLI.</p>
+<p>At the very end, you should see something like this:</p>
+<pre><code>[53.42.31.20] out: [1/2]   Node synced. ---&gt; [00:00:00]
+[53.42.31.20] out: [2/2]   Node added. ---&gt; [00:00:00]
+[53.42.31.20] out: Node registered. Submitted transaction: 0x51e1dcf1cf20e136ce66d240e9897c329894c1084e55b13a4fab751fbaced981
+</code></pre>
+<p>That's the result of script registering your node within Fluence smart contract. You can see it in <a href="../../tools/deploy/scripts/compose.sh">compose.sh</a>:</p>
+<pre><code class="language-bash">./fluence register \
+        --node_ip           $EXTERNAL_HOST_IP \
+        --tendermint_key    $TENDERMINT_KEY \
+        --contract_address  $CONTRACT_ADDRESS \
+        --account           $OWNER_ADDRESS \
+        --secret_key        $PRIVATE_KEY \
+        --api_port          $API_PORT \
+        --capacity          $CAPACITY \
+        --wait_syncing \
+        --base64_tendermint_key
+</code></pre>
+<p>All environment variables used in the command are listed in the useful information above, so you can easily use them with Fluence CLI.</p>
+<a class="header" href="#deploy-fluence-node-locally" id="deploy-fluence-node-locally"><h3>Deploy Fluence node locally</h3></a>
+<p>If you wish to use your local computer to host Fluence node, you can do that by running <a href="../../tools/deploy/scripts/rinkeby-compose.sh">rinkeby-compose.sh</a> like this:</p>
+<pre><code># ./rinkeby-compose.sh &lt;external-ip&gt; &lt;owner-address&gt; &lt;private-key&gt; &lt;api-port&gt; &lt;capacity&gt;
+./rinkeby-compose.sh 53.42.31.20 0x00a329c0648769a73afac7f9381e08fb43dbea72 4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 25000 10
+</code></pre>
+<a class="header" href="#how-to-check-if-node-is-registered" id="how-to-check-if-node-is-registered"><h2>How to check if node is registered</h2></a>
+<p>You can use <a href="../../cli/README.html">Fluence CLI</a> to query current state of network in Fluence smart contract like this:</p>
+<pre><code class="language-bash">./fluence status
+</code></pre>
+<p><strong>Note:</strong> if your Ethereum node is remote, you can specify it's address via <code>--eth_url</code> option, like this:</p>
+<pre><code class="language-bash">./fluence status --eth_url https://53.42.31.20:8545
+</code></pre>
+<p>You should see your Ethereum address under <code>owner</code> in <code>nodes</code> list. Similar to this:</p>
+<pre><code class="language-json">{
+  &quot;apps&quot;: [],
+  &quot;nodes&quot;: [
+    {
+      &quot;id&quot;: &quot;0x6006bac77e9a7135087a60287a3ca9966f9c50a7b9ae14c2d40acc3cb31fbc56&quot;,
+      &quot;tendermint_key&quot;: &quot;0x4b4432951f27c2e9a29017b3b6dee46a2e08c3a2&quot;,
+      &quot;ip_addr&quot;: &quot;53.42.31.20&quot;,
+      &quot;api_port&quot;: 25001,
+      &quot;capacity&quot;: 10,
+      &quot;owner&quot;: &quot;0x00a329c0648769a73afac7f9381e08fb43dbea72&quot;,
+      &quot;is_private&quot;: false,
+      &quot;clusters_ids&quot;: []
+    }
+  ]
+}
+</code></pre>
+<p>Please refer to Fluence CLI <a href="../../cli/README.html">README</a> for more info on installation and usage.</p>
+<a class="header" href="#private-nodes-and-application-pinning" id="private-nodes-and-application-pinning"><h2>Private nodes and application pinning</h2></a>
+<a class="header" href="#private-nodes" id="private-nodes"><h3>Private nodes</h3></a>
+<p>By default, after you register a node in the Fluence smart contract, any matching code could be deployed on it. So the node is publici by default.</p>
+<p>But if you want to host only your app, there is a way to mark node <strong>private</strong>. That could be to be sure about what apps you're hosting, what's their workload or just to be sure <em>your</em> app gets enough resources to be ran.</p>
+<p>When a node is marked as <strong>private</strong>, only your apps can be deployed on that node. This is determined by the Ethereum address that sent the transaction for node registration and for application deployment.</p>
+<p>The following command will register a private node:</p>
+<pre><code class="language-bash">./fluence register \
+            --private \
+            --node_ip               85.82.118.4 \
+            --tendermint_key        1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
+            --tendermint_node_id    5e4eedba85fda7451356a03caffb0716e599679b \
+            --contract_address      0x9995882876ae612bfd829498ccd73dd962ec950a \
+            --account               0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --base64_tendermint_key \
+            --secret_key            0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
+            --wait_syncing \
+            --api_port              25000 \
+            --capacity              10
+</code></pre>
+<p>As suggested by it's name, it's the <code>--private</code> flag what's making the registered node a private one.</p>
+<p>Now, only apps <a href="backend.html">published</a> to Fluence smart contract from your Ethereum address can get deployed on your nodes. <strong>But these apps need to specify nodes they should be hosted on</strong>, that's called <strong>application pinning</strong>.</p>
+<a class="header" href="#application-pinning" id="application-pinning"><h3>Application pinning</h3></a>
+<p>So, since your nodes are <a href="#private-nodes">private</a>, the application publishing process changes a little: you need to specify IDs of the nodes where you want the application to be hosted. With CLI, that's pretty easy. Assuming you have registered 4 private nodes, and their IDs are:</p>
+<ul>
+<li><code>1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM=</code></li>
+<li><code>QYLcTI9uChtEVdXaR9+WgMlxJ1AVVuroe5Jyay+epbI=</code></li>
+<li><code>+l30LsCMPGeL6/YIwKg8RWOhS55PLIAZT05D11GJAxY=</code></li>
+<li><code>xkaW9SpCJjfzLABM+1B6PTh54qIwvgsHCkOe3VULYbE=</code></li>
+</ul>
+<p>All you have to do is to provide these node ids to <code>--pin_to</code> flag as a space-separated list:</p>
+<pre><code class="language-bash">./fluence publish \
+            --code_path        fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm \
+            --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
+            --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --cluster_size     4 \
+            --secret_key       0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
+            --pin_to           1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
+                               QYLcTI9uChtEVdXaR9+WgMlxJ1AVVuroe5Jyay+epbI= \
+                               +l30LsCMPGeL6/YIwKg8RWOhS55PLIAZT05D11GJAxY= \
+                               xkaW9SpCJjfzLABM+1B6PTh54qIwvgsHCkOe3VULYbE= \
+            --base64
+</code></pre>
+<p><em>Note that you can pin your app to your both <strong>private</strong> and <strong>public</strong> nodes.</em> Marking node as private just prevents random apps to be deployed on that node.</p>
+<a class="header" href="#mixing-pinning-and-matching" id="mixing-pinning-and-matching"><h4>Mixing pinning and matching</h4></a>
+<p>The command above is a perfect match, it's pinning the app to four nodes, and also specifies a cluster size of four, so every node hosting the app is directly pinned to it.</p>
+<p>But what if your app requires more nodes than you wish to register? In that case, you can pin your app to any number of nodes, be it just one or a few, and specify a cluster size that you need. Fluence smart contract will then match your app both against your pinned nodes and available public nodes. The command is almost the same, except the <code>--cluster_size</code> requires eight nodes.</p>
+<pre><code class="language-bash">./fluence publish \
+            --code_path        /Users/folex/Development/fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm \            
+            --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --cluster_size     8 \
+            --secret_key       0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
+            --pin_to           1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
+                               QYLcTI9uChtEVdXaR9+WgMlxJ1AVVuroe5Jyay+epbI= \
+                               +l30LsCMPGeL6/YIwKg8RWOhS55PLIAZT05D11GJAxY= \
+                               xkaW9SpCJjfzLABM+1B6PTh54qIwvgsHCkOe3VULYbE= \
+            --base64
+</code></pre>
+<p>So, assuming contract has just four registered nodes and one app, the <code>./fluence status --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a</code> will look like this:</p>
+<pre><code class="language-json">{
+  &quot;apps&quot;: [
+    {
+      &quot;app_id&quot;: &quot;0x0000000000000000000000000000000000000000000000000000000000000001&quot;,
+      &quot;storage_hash&quot;: &quot;0x585114171e6b1639af3e9a4f237d8da6d1c5624b235cb45c062ca5d89a151cc2&quot;,
+      &quot;storage_receipt&quot;: &quot;0x0000000000000000000000000000000000000000000000000000000000000000&quot;,
+      &quot;cluster_size&quot;: 8,
+      &quot;owner&quot;: &quot;0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d&quot;,
+      &quot;pin_to_nodes&quot;: [
+        &quot;0xd46543202ce0af0d6a6a13df49bc027d8c34cebc3dd4e319e3a4282af24c8e33&quot;,
+        &quot;0x4182dc4c8f6e0a1b4455d5da47df9680c97127501556eae87b92726b2f9ea5b2&quot;,
+        &quot;0xfa5df42ec08c3c678bebf608c0a83c4563a14b9e4f2c80194f4e43d751890316&quot;,
+        &quot;0xc64696f52a422637f32c004cfb507a3d3879e2a230be0b070a439edd550b61b1&quot;
+      ],
+      &quot;cluster&quot;: null
+    }
+  ],
+  &quot;nodes&quot;: [
+    {
+      &quot;id&quot;: &quot;0xd46543202ce0af0d6a6a13df49bc027d8c34cebc3dd4e319e3a4282af24c8e33&quot;,
+      &quot;tendermint_key&quot;: &quot;0x5e4eedba85fda7451356a03caffb0716e599679b&quot;,
+      &quot;ip_addr&quot;: &quot;85.82.118.4&quot;,
+      &quot;api_port&quot;: 25000,
+      &quot;capacity&quot;: 10,
+      &quot;owner&quot;: &quot;0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d&quot;,
+      &quot;is_private&quot;: true,
+      &quot;clusters_ids&quot;: []
+    },
+    {
+      &quot;id&quot;: &quot;0x4182dc4c8f6e0a1b4455d5da47df9680c97127501556eae87b92726b2f9ea5b2&quot;,
+      &quot;tendermint_key&quot;: &quot;0x5e4eedba85fda7451356a03caffb0716e599679b&quot;,
+      &quot;ip_addr&quot;: &quot;85.82.118.4&quot;,
+      &quot;api_port&quot;: 25000,
+      &quot;capacity&quot;: 10,
+      &quot;owner&quot;: &quot;0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d&quot;,
+      &quot;is_private&quot;: true,
+      &quot;clusters_ids&quot;: []
+    },
+    {
+      &quot;id&quot;: &quot;0xfa5df42ec08c3c678bebf608c0a83c4563a14b9e4f2c80194f4e43d751890316&quot;,
+      &quot;tendermint_key&quot;: &quot;0x5e4eedba85fda7451356a03caffb0716e599679b&quot;,
+      &quot;ip_addr&quot;: &quot;85.82.118.4&quot;,
+      &quot;api_port&quot;: 25000,
+      &quot;capacity&quot;: 10,
+      &quot;owner&quot;: &quot;0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d&quot;,
+      &quot;is_private&quot;: true,
+      &quot;clusters_ids&quot;: []
+    },
+    {
+      &quot;id&quot;: &quot;0xc64696f52a422637f32c004cfb507a3d3879e2a230be0b070a439edd550b61b1&quot;,
+      &quot;tendermint_key&quot;: &quot;0x5e4eedba85fda7451356a03caffb0716e599679b&quot;,
+      &quot;ip_addr&quot;: &quot;85.82.118.4&quot;,
+      &quot;api_port&quot;: 25000,
+      &quot;capacity&quot;: 10,
+      &quot;owner&quot;: &quot;0x4180rfc65d613ba7e1a385181a219f1dbfe7bf11d&quot;,
+      &quot;is_private&quot;: true,
+      &quot;clusters_ids&quot;: []
+    }
+  ]
+}
+</code></pre>
+<p>You see app's <code>cluster</code> is <code>null</code>, that means it's not deployed yet, waiting for enough nodes to be available.</p>
+<a class="header" href="#how-to-remove-a-node-from-the-fluence-smart-contract" id="how-to-remove-a-node-from-the-fluence-smart-contract"><h2>How to remove a node from the Fluence smart contract</h2></a>
+<p>If you shut down your node, it's not available anymore for any reason, or you just want to stop it hosting apps, you can remove the node from the Fluence smart contract like this:</p>
+<pre><code class="language-bash">./fluence delete_node \            
+            --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --secret_key       0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
+            --tendermint_key   1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
+            --base64_tendermint_key
+</code></pre>
+<a class="header" href="#tips-and-tricks" id="tips-and-tricks"><h2>Tips and tricks</h2></a>
+<p>CLI has some neat features not described in that guide:</p>
+<ul>
+<li>Wait until your Ethereum is fully synced</li>
+<li>Wait until the transaction is included in a block, printing additional info from contract</li>
+<li>Look at smart contract <code>status</code> via interactive command-line table viewer</li>
+</ul>
+<p>All these features are described in <a href="../../cli/README.html#tips-and-tricks">CLI's readme</a>, so take a look!</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+        
+        <script type="text/javascript">
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+        
+        
+
+    </body>
+</html>
