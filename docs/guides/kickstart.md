@@ -310,7 +310,7 @@ If you have your private key **in hex**, run the following in your terminal, rep
 ~ $ ./fluence publish \
             --eth_url          http://207.154.240.52:8545 \
             --swarm_url        http://207.154.240.52:8500 \
-            --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \            
+            --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \
             --gas_price        10 \
             --account          <your ethereum address> \
             --secret_key       <your ethereum private key> \
@@ -325,7 +325,7 @@ If you have a JSON **keystore file**, run the following in your terminal, replac
 ~ $ ./fluence publish \
             --eth_url          http://207.154.240.52:8545 \
             --swarm_url        http://207.154.240.52:8500 \
-            --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \            
+            --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \
             --gas_price        10 \
             --account          <your ethereum address> \
             --keystore         <path to keystore> \
@@ -354,7 +354,7 @@ App deployed.
 To see how smart contract sees your app, and what nodes it was deployed onto, you can use `status` like this:
 ```bash
 ~ $ ./fluence status \
-            --eth_url          http://207.154.240.52:8545 \            
+            --eth_url          http://207.154.240.52:8545 \
             --app_id           <your app id here>
 ```
 
@@ -406,7 +406,7 @@ The output will be in JSON, and look similar to the following:
 You can also use interactive mode instead of default by supplying `--interactive` flag:
 ```bash
 ./fluence status \
-            --eth_url          http://207.154.240.52:8545 \            
+            --eth_url          http://207.154.240.52:8545 \
             --app_id           <your app id here> \
             --interactive
 ```
