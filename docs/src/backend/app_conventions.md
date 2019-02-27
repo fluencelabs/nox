@@ -1,8 +1,8 @@
-# Fluence backend conventions
+# Backend app conventions
 
 ## App lifecycle
 
-The Fluence network backend infrastructure is based on Scala and Rust. Each computation unit node in the network has a `VM wrapper` written on Scala that interacts with a backend `App` written on Wasm and published to the network by developers. To be able to run supplied Wasm code [Asmble](https://github.com/fluencelabs/asmble) is used. It compiles supplied Wasm cdoe to a JVM class that then loaded by `VM wrapper`. All other interactions between `App` and `VM wrapper` occurs in `VM wrapper` process address space without any inter-process communications.
+The Fluence network backend infrastructure is based on Scala and Rust. Each computation node in the network has a `VM wrapper` written on Scala that interacts with a backend `app` written on Wasm and published to the network by developers. To be able to run supplied Wasm code [Asmble](https://github.com/fluencelabs/asmble) is used. It compiles supplied Wasm code to a JVM class that then loaded by `VM wrapper`. All other interactions between `app` and `VM wrapper` occurs in `VM wrapper` process address space without any inter-process communications.
 
 A `main` module is invoked by `VM wrapper` according to the following scheme:
 
@@ -22,7 +22,7 @@ A `main` module is invoked by `VM wrapper` according to the following scheme:
 
 ## Fluence App conventions
 
-There are several restriction and conventions that each supplied `App` has to be met:
+There are several restriction and conventions that each supplied `app` has to be met:
 
 1. `App` can consist of several Wasm modules with different names, but only one of them (let's call it `main` and all other as `sidemodules` according to [emcscripten](https://github.com/emscripten-core/emscripten/wiki/Linking#overview-of-dynamic-linking)) can be called from `user-side`. This `main` module MUST don't have the module name section. This requirement is based on the fact that according to the Wasm specification module name is optional, and now there is no a possibility to add it to a generated Wasm binary by default `rust` compiler.
 

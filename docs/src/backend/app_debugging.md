@@ -37,9 +37,9 @@ It is important to note that by default debugging capabilities is disabled on th
 
 ## Usage of Scala runner
 
-Sometimes it needs not only debug output but a possibility to run resulted Wasm App with some different inputs. It can be done by using so-called runner written on Scala (because of it uses a `WasmVm` implementation that also written on Scala).
+Sometimes it needs not only debug output but a possibility to run resulted Wasm `app` with some different inputs. It can be done by using so-called runner written on Scala (because of it uses a `WasmVm` implementation that also written on Scala).
 
-Let's a dig a little bit into `hello-world2` [runner]((https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/runner)). It receives a path to a Wasm binary as the first CLI argument, then creates `vm` object that extends `WasmVm` trait. During this creation Wasm code is compiled by Asmble to JVM and loaded into VM. This trait has two public methods: `invoke` that manages requests to app and `getVmState` that computes a hash of significant inner state. In the following code snippet
+Let's a dig a little bit into `hello-world2` [runner]((https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/runner)). It receives a path to a Wasm binary as the first CLI argument, then creates `vm` object that extends `WasmVm` trait. During this creation Wasm code is compiled by Asmble to JVM and loaded into VM. This trait has two public methods: `invoke` that manages requests to `app` and `getVmState` that computes a hash of significant inner state. In the following code snippet
 
 ```Scala
       inputFile <- EitherT(getWasmFilePath(args).attempt)
@@ -52,7 +52,7 @@ Let's a dig a little bit into `hello-world2` [runner]((https://github.com/fluenc
       result1 ← vm.invoke[IO](None, "John".getBytes())
 ```
 
-`inputFile` points to supplied path to wasm file. Then WasmVm instance is created with path and `fluence.vm.debugger` config. This config (for `hello-world2` app it can be found [here](https://github.com/fluencelabs/fluence/blob/master/vm/examples/hello-world2/runner/src/main/resources/reference.conf)) contains some useful settings that control some inner VM creation process a little bit:
+`inputFile` points to supplied path to wasm file. Then WasmVm instance is created with path and `fluence.vm.debugger` config. This config (for `hello-world2` `app` it can be found [here](https://github.com/fluencelabs/fluence/blob/master/vm/examples/hello-world2/runner/src/main/resources/reference.conf)) contains some useful settings that control some inner VM creation process a little bit:
 
   - `defaultMaxMemPages` - the maximum number of memory pages when a module doesn't specify it, each Wasm page according to the specification contains 65536 bytes (64 by default, 65536*64 = 4MB)
 
@@ -64,4 +64,4 @@ Let's a dig a little bit into `hello-world2` [runner]((https://github.com/fluenc
 
   - `invokeFunctionName` - the name of the main module handler function (`invoke` by default)
 
-Then the hash of internal state is computed by `vm.getVmState` and App `invoke` is called by `vm.invoke`.
+Then the hash of internal state is computed by `vm.getVmState` and `invoke` from `app` is called by `vm.invoke`.

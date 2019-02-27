@@ -4,7 +4,7 @@ In this sections some examples of backend applications are described.
 
 ## Hello-world
 
-[Hello-world](https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world) is a simple demo app for the Fluence network that shows a basic usage of the Fluence SDK.
+[Hello-world](https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world) is a simple demo `app` for the Fluence network that shows a basic usage of the Fluence SDK.
 
 ## Hello-world2 with logging
 
@@ -12,17 +12,17 @@ In this sections some examples of backend applications are described.
 
 ## Llamadb
 
-[Llamadb](https://github.com/fluencelabs/fluence/tree/master/vm/examples/llamadb) app is an example of adopting of existing in-memory SQL database to the Fluence network. This app is based on the original [llamadb](https://github.com/fluencelabs/llamadb) database. Since it is in-memory database and doesn't use multithreading, disk storage or other OS features it can be easily ported to the Fluence. All that need to do it is a simple [wrapper](https://github.com/fluencelabs/fluence/blob/master/vm/examples/llamadb/src/lib.rs) that receives requests from `client-side`, manages it to the original `llamadb` and returns results back.
+[Llamadb](https://github.com/fluencelabs/fluence/tree/master/vm/examples/llamadb) `app` is an example of adopting of existing in-memory SQL database to the Fluence network. This `app` is based on the original [llamadb](https://github.com/fluencelabs/llamadb) database. Since it is in-memory database and doesn't use multithreading, disk storage or other OS features it can be easily ported to the Fluence. All that need to do it is a simple [wrapper](https://github.com/fluencelabs/fluence/blob/master/vm/examples/llamadb/src/lib.rs) that receives requests from `client-side`, manages it to the original `llamadb` and returns results back.
 
 ## Tic-tac-toe
 
-[tic-tac-toe](https://github.com/fluencelabs/fluence/tree/master/vm/examples/tic-tac-toe) app is an example of proper memory management and function routing scheme through json. This app provides us with a bunch of public methods:
+[tic-tac-toe](https://github.com/fluencelabs/fluence/tree/master/vm/examples/tic-tac-toe) `app` is an example of proper memory management and function routing scheme through json. This `app` provides us with a bunch of public methods:
 
 - `create_payer` - creates a new player with a given player name
     
 - `create_game` - creates a new game for a provided player
     
-- `move` - makes user and app moves sequentially, returns app move coordinates 
+- `move` - makes user and `app` moves sequentially, returns `app` move coordinates 
     
 - `get_game_state` - returns state of game for given user (includes board state and user tile)
     
@@ -71,7 +71,7 @@ It can be viewed that at first `req` is parsed to `serde_json::Value` (and this 
 
 Proper memory management is a corner stone of application that provides capabilities to store some user-supplied data. In tic-tac-toe it is solved by using a fixed-size collection for all internal objects that can be of two types: `Player` and `Game`. `Player` contains a string that represents its name and `Game` contains board state and a tile chosen by user.
 
-Since `create_player` allows to create an infinite count of `Player`, they could exhaust all app memory. [ArrayDeque](https://github.com/andylokandy/arraydeque) manages to solve this problem by providing a fixed size queue that can pop up object from the front while exceeding the limit.
+Since `create_player` allows to create an infinite count of `Player`, they could exhaust all `app` memory. [ArrayDeque](https://github.com/andylokandy/arraydeque) manages to solve this problem by providing a fixed size queue that can pop up object from the front while exceeding the limit.
 
 Then consider a situation when each user can have play to several games or the size of `Game` is too big compare to the size of `Player` to give example that is more close to real applications. In this situation one of the approaches is use a separate queue for `Game` objects (of cause `Game` can be saved into a `Player` even in vector or map but consider a more complex design that give a more control of memory management). To implement it each `Player` should has a smth like id of a proper `Game` object. Since all of them are placed in queue that can change it position in some time, the only way is using a smart pointers. It this example there are two queues that own `Player` and `Game` objects (it means that they store a strong Rc ptr to them) and `Player` has a weak ptr to a proper `Game` object.
 

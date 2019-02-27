@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Best practices - The Fluence book</title>
+        <title>Wrapping up - The Fluence book</title>
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -78,7 +78,7 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <ol class="chapter"><li><a href="../introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li><a href="../overview/overview.html"><strong aria-hidden="true">1.1.</strong> Overview</a></li><li><a href="../overview/motivation.html"><strong aria-hidden="true">1.2.</strong> Motivation</a></li></ol></li><li><a href="../whatworks.html"><strong aria-hidden="true">2.</strong> Current state of development</a></li><li><a href="../quickstart/plan.html"><strong aria-hidden="true">3.</strong> Quick start</a></li><li><ol class="section"><li><a href="../quickstart/rust.html"><strong aria-hidden="true">3.1.</strong> Developing the backend app</a></li><li><a href="../quickstart/publish.html"><strong aria-hidden="true">3.2.</strong> Publishing your app</a></li><li><a href="../quickstart/web.html"><strong aria-hidden="true">3.3.</strong> Developing the web app</a></li><li><a href="../quickstart/wrappingup.html"><strong aria-hidden="true">3.4.</strong> Wrapping up</a></li></ol></li><li><a href="../backend/index.html"><strong aria-hidden="true">4.</strong> Backend guide</a></li><li><ol class="section"><li><a href="../backend/app_conventions.html"><strong aria-hidden="true">4.1.</strong> Backend app conventions</a></li><li><a href="../backend/sdk_overview.html"><strong aria-hidden="true">4.2.</strong> Fluence backend SDK overview</a></li><li><a href="../backend/app_debugging.html"><strong aria-hidden="true">4.3.</strong> Backend app debugging</a></li><li><a href="../backend/examples.html"><strong aria-hidden="true">4.4.</strong> Examples</a></li><li><a href="../backend/best_practices.html" class="active"><strong aria-hidden="true">4.5.</strong> Best practices</a></li></ol></li><li><a href="../roles/miner.html"><strong aria-hidden="true">5.</strong> Miner guide</a></li><li><a href="../tools/tools.html"><strong aria-hidden="true">6.</strong> Tools and SDKs</a></li><li><ol class="section"><li><a href="../tools/cli_README.html"><strong aria-hidden="true">6.1.</strong> CLI</a></li><li><a href="../tools/rust_README.html"><strong aria-hidden="true">6.2.</strong> Rust SDK</a></li><li><a href="../tools/js_README.html"><strong aria-hidden="true">6.3.</strong> JS SDK</a></li></ol></li><li><a href="../unsolved.html"><strong aria-hidden="true">7.</strong> Open problems</a></li><li><a href="../examples/examples.html"><strong aria-hidden="true">8.</strong> Examples</a></li><li><ol class="section"><li><a href="../examples/backend.html"><strong aria-hidden="true">8.1.</strong> Backend</a></li><li><a href="../examples/frontend.html"><strong aria-hidden="true">8.2.</strong> Web apps</a></li></ol></li><li><a href="../benchmarks.html"><strong aria-hidden="true">9.</strong> Benchmarks</a></li></ol>
+            <ol class="chapter"><li><a href="../introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li><a href="../overview/overview.html"><strong aria-hidden="true">1.1.</strong> Overview</a></li><li><a href="../overview/motivation.html"><strong aria-hidden="true">1.2.</strong> Motivation</a></li></ol></li><li><a href="../whatworks.html"><strong aria-hidden="true">2.</strong> Current state of development</a></li><li><a href="../quickstart/plan.html"><strong aria-hidden="true">3.</strong> Quick start</a></li><li><ol class="section"><li><a href="../quickstart/rust.html"><strong aria-hidden="true">3.1.</strong> Developing the backend app</a></li><li><a href="../quickstart/publish.html"><strong aria-hidden="true">3.2.</strong> Publishing your app</a></li><li><a href="../quickstart/web.html"><strong aria-hidden="true">3.3.</strong> Developing the web app</a></li><li><a href="../quickstart/wrappingup.html" class="active"><strong aria-hidden="true">3.4.</strong> Wrapping up</a></li></ol></li><li><a href="../backend/index.html"><strong aria-hidden="true">4.</strong> Backend guide</a></li><li><ol class="section"><li><a href="../backend/app_conventions.html"><strong aria-hidden="true">4.1.</strong> Backend app conventions</a></li><li><a href="../backend/sdk_overview.html"><strong aria-hidden="true">4.2.</strong> Fluence backend SDK overview</a></li><li><a href="../backend/app_debugging.html"><strong aria-hidden="true">4.3.</strong> Backend app debugging</a></li><li><a href="../backend/examples.html"><strong aria-hidden="true">4.4.</strong> Examples</a></li><li><a href="../backend/best_practices.html"><strong aria-hidden="true">4.5.</strong> Best practices</a></li></ol></li><li><a href="../roles/miner.html"><strong aria-hidden="true">5.</strong> Miner guide</a></li><li><a href="../tools/tools.html"><strong aria-hidden="true">6.</strong> Tools and SDKs</a></li><li><ol class="section"><li><a href="../tools/cli_README.html"><strong aria-hidden="true">6.1.</strong> CLI</a></li><li><a href="../tools/rust_README.html"><strong aria-hidden="true">6.2.</strong> Rust SDK</a></li><li><a href="../tools/js_README.html"><strong aria-hidden="true">6.3.</strong> JS SDK</a></li></ol></li><li><a href="../unsolved.html"><strong aria-hidden="true">7.</strong> Open problems</a></li><li><a href="../examples/examples.html"><strong aria-hidden="true">8.</strong> Examples</a></li><li><ol class="section"><li><a href="../examples/backend.html"><strong aria-hidden="true">8.1.</strong> Backend</a></li><li><a href="../examples/frontend.html"><strong aria-hidden="true">8.2.</strong> Web apps</a></li></ol></li><li><a href="../benchmarks.html"><strong aria-hidden="true">9.</strong> Benchmarks</a></li></ol>
         </nav>
 
         <div id="page-wrapper" class="page-wrapper">
@@ -143,34 +143,31 @@
 
                 <div id="content" class="content">
                     <main>
-                        <a class="header" href="#best-practices" id="best-practices"><h1>Best practices</h1></a>
-<a class="header" href="#memory-management-in-app" id="memory-management-in-app"><h2>Memory management in app</h2></a>
-<p>Please pay attention to module memory usage - each <code>app</code> can have maximum 4Gb of heap. But in many situations <code>app</code> can have public API that explicitly or indirectly consume module memory (e.g. by saving some user data). So users can make a DoS attack to such app. Usually proper work with memory can be reach by using fix-size collections like <a href="https://github.com/andylokandy/arraydeque">ArrayDeque</a>. In future Fluence SDK will provide some other collections for that.</p>
-<p>One example of careful memory management can be found in <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/tic-tac-toe">tic-tac-toe</a> example <code>app</code>.</p>
-<a class="header" href="#shrinking-app-code-size" id="shrinking-app-code-size"><h2>Shrinking app code size</h2></a>
-<p>There are some techniques that can reduce size of generated <code>app</code>. Most of them can be found in this nice <a href="https://rustwasm.github.io/book/reference/code-size.html">chapter</a> of <code>Rust and WebAssembly</code> book. But as for the Fluence network to reduce the size of binary as much is possible <code>no_std</code> crate without SDK can be used. The example of <code>hello-world</code> implemented without the sdk can be found in <a href="sdk_overview.html">Fluence SDK overview</a>.</p>
-<a class="header" href="#other" id="other"><h2>Other</h2></a>
+                        <a class="header" href="#wrapping-up" id="wrapping-up"><h1>Wrapping up</h1></a>
+<p>Thanks for finishing quick start guide!</p>
+<p>A short recap of what you have developed and learned:</p>
 <ul>
-<li>
-<p>don't use panic! and methods that lead to it (expect, unwrap) in your code.</p>
-</li>
-<li>
-<p>avoid using unsafe operations except these that already in Fluence SDK.</p>
-</li>
+<li>Set up a Rust and Node.js environments from zero to compiling Webassembly backend and a working web application.</li>
+<li>Start with Rust basics, and end up using complex procedural macros and processing user input.</li>
+<li>Interact with Ethereum and alter Fluence network state.</li>
+<li>Spin up real decentralized backend on top of miners' machines, and integrate JavaScript web app with that backend.</li>
 </ul>
+<p>Hope this was fun. If you experienced any problems with this guide or Fluence, or just want to chat with the team, feel free to join our <a href="TODO">Discord</a>!</p>
+<p>If you want to do more with Fluence, you can help us out by looking at <a href="../unsolved.html">open problems</a> or <a href="https://github.com/fluencelabs/fluence/issues">open issues</a>, and give us some feedback.</p>
+<p>Also, there are more examples of <a href="">backends</a> and <a href="">web apps</a>, take a look.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="../backend/examples.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../quickstart/web.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
                         
-                            <a rel="next" href="../roles/miner.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="../backend/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -182,13 +179,13 @@
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a href="../backend/examples.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a href="../quickstart/web.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
                 
-                    <a href="../roles/miner.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a href="../backend/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
