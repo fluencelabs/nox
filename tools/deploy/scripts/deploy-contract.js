@@ -21,16 +21,14 @@ let bytecode = '0x' + sourceBin;
 let NetworkContract = new web3.eth.Contract(abi);
 
 // Default account on parity node in dev mode with a huge amount of ethereum
-let acc = '5903730e872fb2b0cd4402c69d6d43c86e973db7';
-let privateKey = '52c685b72c548da46ee7e595b4003635a1dab3f281dc26b9a13a5b0ea736d3b1';
-let privateKeyBuf = Buffer.from(privateKey.replace(/^0x/, ""), 'hex');
+let acc = '0x00a329c0648769a73afac7f9381e08fb43dbea72';
+let privateKey = '0x4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7';
 
 if (!acc.startsWith("0x")) {
     acc = "0x" + acc;
 }
-if (!privateKey.startsWith("0x")) {
-    privateKey = "0x" + privateKey;
-}
+
+let privateKeyBuf = Buffer.from(privateKey.replace(/^0x/, ""), 'hex');
 
 // Get encoded request for deploying contract
 let encodedAbi = NetworkContract.deploy({

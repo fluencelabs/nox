@@ -61,7 +61,7 @@ class MasterNodeSpec
   }
 
   "MasterNode" should {
-    PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, false)
+    PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, true)
     LoggerConfig.factory = PrintLoggerFactory()
     LoggerConfig.level = LogLevel.DEBUG
 

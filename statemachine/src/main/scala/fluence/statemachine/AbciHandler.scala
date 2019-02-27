@@ -169,8 +169,7 @@ class AbciHandler(
       _ = txStateChecker.collect(latency, duration)
 
       method = txStateChecker.method
-      logMessage = () =>
-        s"${TimeLogger.currentTime()} ${method.name()} latency=$latency validationTime=$duration $validated"
+      logMessage = () => s"ValidateTx from ${method.name()} latency=$latency validationTime=$duration $validated"
 
       verboseInfoLogNeeded = method == DELIVER_TX || validated.code != CodeType.OK
       _ = if (verboseInfoLogNeeded) logger.info(logMessage()) else logger.debug(logMessage())
@@ -219,7 +218,7 @@ class AbciHandler(
  */
 private case class TxResponseData(validatedTx: Option[Transaction], code: Int, info: String) {
   override def toString: String = validatedTx match {
-    case Some(tx) => s"Accepted ${tx.header}"
-    case _ => s"Rejected $info"
+    case Some(tx) => s"Tx accepted ${tx.header}"
+    case _ => s"Tx rejected $code $info"
   }
 }
