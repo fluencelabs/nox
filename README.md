@@ -25,7 +25,7 @@ The project is undergoing a heavy development at the moment.
 Check out the [issue tracker](https://github.com/fluencelabs/fluence/issues) to learn more about the current progress.
 
 ## Internal details
-The protocol draft can be found [here](docs/protocol.md), and the future whitepaper outline – [here](internals.md).
+The future whitepaper outline can be found [here](internals.md).
 
 Stay tuned, more details are coming :)
 

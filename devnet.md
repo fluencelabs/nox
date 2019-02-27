@@ -1,12 +1,8 @@
 # Devnet Overview
 
-## Roles
+## Documentation
 
-Roles overview [readme](docs/guides/README.md).
-
-- Miner ([guide](docs/guides/miner.md))
-- Backend Developer ([guide](docs/guides/backend.md))
-- Frontend Developer ([guide](docs/guides/frontend.md))
+The book with detailed description of how to use Flunece can be found [here](docs/book/index.html)
 
 ## Moving Parts
 
@@ -16,7 +12,7 @@ Roles overview [readme](docs/guides/README.md).
 - JS client ([readme](fluence-js/README.md), [npm](https://www.npmjs.com/package/fluence-js))
 - Node ([docker hub](https://hub.docker.com/r/fluencelabs/node/))
 - Worker ([readme](statemachine/README.md), [docker hub](https://hub.docker.com/r/fluencelabs/worker))
-- VM ([examples readme](vm/examples/README.md), [sdk readme](sdk/rust/README.md), [backend guide](docs/guides/backend.md))
+- VM ([examples readme](vm/examples/README.md), [sdk readme](sdk/rust/README.md), [backend guide](docs/src/backend.md))
 - DevOps ([readme](tools/deploy/README.md))
 - Prometheus/Grafana monitoring ([readme](tools/monitoring/README.md)) _(obsolete)_
 - Dashboard ([readme](monitoring/README.md), [deployed](http://142.93.108.175:8080/))
