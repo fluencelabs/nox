@@ -1,10 +1,10 @@
 # Fluence backend SDK overview
 
-Fluence SDK consists of two crates: `main` and `macro`. The first one is used for all memory relative operations and logging (please see [App debugging](./app_debugging.md) section for more information). The second one contains a procedural macro that simplifies the entry function signature. These crates can be used separately of each other but the more preferred way is using the global `fluence` crate that reexport all other. In `edition 2018` rust it can be done by add `use fluence::sdk::*` to the source.
+Fluence SDK consists of two crates: `main` and `macro`. The first one is used for all memory relative operations and logging (please see [app debugging](./app_debugging.md) section for more information). The second one contains a procedural macro to simplify the entry function's signature. These crates can be used separately but the more preferred way is using the global `fluence` crate that reexport all others. In `Rust 2018 edition` it can be done by simply adding `use fluence::sdk::*` to the source.
 
 ## Writing app without SDK
 
-First of all let's review how a simple `hello-world` `app` can be written without Fluence SDK on Rust. From [Fluence backend conventions](app_conventions.md) it follows that each `app` must have a `main` module with three export functions. According to the restrictions of their signatures a basic structure of `main` module can look like that:
+For a start, lets review how a simple `hello-world` `app` is made without Fluence SDK on pure Rust. From [fluence backend conventions](app_conventions.md) it follows that each `app` must have a `main` module with three export functions. Keeping in mind restrictions to their signatures, a basic structure of `main` module can look like that:
 
  ```Rust
  #[no_mangle]
@@ -81,9 +81,9 @@ pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) {
 
 ## Fluence SDK usage
 
-From the example above it can be seen that `allocate` and `deallocate` functions have only a utility purpose and normally used only by VM wrapper. These functions aren't any that most of developers want to realize in their `apps`. Fluence SDK provides `fluence::memory::alloc` and `fluence::memory::dealloc` functions also based on [GlobalAlloc](https://doc.rust-lang.org/beta/std/alloc/trait.GlobalAlloc.html). They exported by default after including the sdk and can be disabled by specifying the `no_export_allocator` feature.
+From the example above it can be seen that `allocate` and `deallocate` functions serve only utility purpose and are normally used only by VM wrapper. These functions aren't any that most of developers would want to implement in their `app`. Fluence backend SDK provides `fluence::memory::alloc` and `fluence::memory::dealloc` functions also based on [GlobalAlloc](https://doc.rust-lang.org/beta/std/alloc/trait.GlobalAlloc.html). They exported by default after including the sdk and can be disabled by specifying the `no_export_allocator` feature of the sdk.
 
-The `invoke` function can be also simplified by using the Fluence SDK that provides `fluence::memory::write_result_to_mem` and `fluence::memory::read_input_from_mem_` in this way:
+The `invoke` function can be also simplified by using the Fluence backend SDK that provides `fluence::memory::write_result_to_mem` and `fluence::memory::read_input_from_mem_` in this way:
 
 ```Rust
 #[no_mangle]
@@ -187,7 +187,7 @@ Example of usage `invocation_handler` with `init_fn` attribure can be found [her
 
 ## Rust edition 2015
 
-To use Fluence SDK with rust `edition 2015` please import it like this: 
+To use Fluence SDK with `Rust 2015 edition` please import it like this: 
 
 ```Rust
 #![feature(custom_attribute)]
@@ -196,4 +196,4 @@ extern crate fluence;
 use fluence::sdk::*;
 ```
 
-Example of `hello-world2` `app` on rust `edition 2015` can be found [here](https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2015).
+Example of `hello-world2` `app` on `Rust edition 2015` can be found [here](https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2015).
