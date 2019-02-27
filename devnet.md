@@ -1,12 +1,8 @@
 # Devnet Overview
 
-## Roles
+## Documentation
 
-Roles overview [readme](docs/src/introduction.md).
-
-- Miner ([guide](docs/src/miner.md))
-- Backend Developer ([guide](docs/src/backend.md))
-- Frontend Developer ([guide](docs/src/frontend.md))
+The book with detailed description how to use Flunece can be found [here](docs/book/index.html)
 
 ## Moving Parts
 
