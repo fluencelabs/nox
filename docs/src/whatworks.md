@@ -8,9 +8,6 @@ TODO
 ## VM
 TODO
 
-## E t h e r e u m    i n d e x
-TODO: isn't it too sensitive to write here about?
-
 ## Validators
 TODO
 
