@@ -1,1 +1,1 @@
-../../../sdk/rust/README.md
+../../../backend-sdk/README.md
