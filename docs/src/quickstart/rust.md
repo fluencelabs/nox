@@ -18,7 +18,7 @@ Let's listen to the installer and configure your current shell:
 <no output>
 ```
 
-Fluence Rust SDK [uses custom allocator (TODO: link)](???) for more fine-grained control over virtual machine internal memory, and that requires nightly toolchain. To install nightly toolchain, run:
+Fluence Rust SDK [uses custom allocator (TODO: link)](???) for copying bytes to and from virtual machine internal memory, and that requires nightly toolchain. To install nightly toolchain, run:
 ```bash
 ~ $ rustup toolchain install nightly
 info: syncing channel updates ...
