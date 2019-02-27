@@ -75,7 +75,7 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <ol class="chapter"><li><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><a href="quickstart/plan.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><ol class="section"><li><a href="quickstart/plan.html"><strong aria-hidden="true">2.1.</strong> Plan</a></li><li><a href="quickstart/rust.html"><strong aria-hidden="true">2.2.</strong> Developing the backend app</a></li><li><a href="quickstart/publish.html"><strong aria-hidden="true">2.3.</strong> Publishing your app</a></li><li><a href="quickstart/web.html"><strong aria-hidden="true">2.4.</strong> Developing the web app</a></li></ol></li><li><a href="backend.html" class="active"><strong aria-hidden="true">3.</strong> Backend guide</a></li><li><a href="frontend.html"><strong aria-hidden="true">4.</strong> Frontend guide</a></li><li><a href="miner.html"><strong aria-hidden="true">5.</strong> Miner guide</a></li></ol>
+            <ol class="chapter"><li><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><a href="quickstart/plan.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><ol class="section"><li><a href="quickstart/rust.html"><strong aria-hidden="true">2.1.</strong> Developing the backend app</a></li><li><a href="quickstart/publish.html"><strong aria-hidden="true">2.2.</strong> Publishing your app</a></li><li><a href="quickstart/web.html"><strong aria-hidden="true">2.3.</strong> Developing the web app</a></li><li><a href="quickstart/wrappingup.html"><strong aria-hidden="true">2.4.</strong> Wrapping up</a></li></ol></li><li><a href="backend.html" class="active"><strong aria-hidden="true">3.</strong> Backend guide</a></li><li><a href="frontend.html"><strong aria-hidden="true">4.</strong> Frontend guide</a></li><li><a href="miner.html"><strong aria-hidden="true">5.</strong> Miner guide</a></li></ol>
         </nav>
 
         <div id="page-wrapper" class="page-wrapper">
@@ -258,7 +258,7 @@ USAGE:
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="quickstart/web.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="quickstart/wrappingup.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
@@ -276,7 +276,7 @@ USAGE:
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a href="quickstart/web.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a href="quickstart/wrappingup.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
@@ -291,24 +291,15 @@ USAGE:
         </div>
 
         
-        <!-- Livereload script (if served using the cli tool) -->
-        <script type="text/javascript">
-            var socket = new WebSocket("ws://localhost:3001");
-            socket.onmessage = function (event) {
-                if (event.data === "reload") {
-                    socket.close();
-                    location.reload(true); // force reload from server (not from cache)
-                }
-            };
-
-            window.onbeforeunload = function() {
-                socket.close();
-            }
-        </script>
-        
 
         
 
+        
+        <script src="ace.js" type="text/javascript" charset="utf-8"></script>
+        <script src="editor.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mode-rust.js" type="text/javascript" charset="utf-8"></script>
+        <script src="theme-dawn.js" type="text/javascript" charset="utf-8"></script>
+        <script src="theme-tomorrow_night.js" type="text/javascript" charset="utf-8"></script>
         
 
         

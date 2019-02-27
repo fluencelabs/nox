@@ -75,7 +75,7 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <ol class="chapter"><li><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><a href="quickstart/plan.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><ol class="section"><li><a href="quickstart/plan.html"><strong aria-hidden="true">2.1.</strong> Plan</a></li><li><a href="quickstart/rust.html"><strong aria-hidden="true">2.2.</strong> Developing the backend app</a></li><li><a href="quickstart/publish.html"><strong aria-hidden="true">2.3.</strong> Publishing your app</a></li><li><a href="quickstart/web.html"><strong aria-hidden="true">2.4.</strong> Developing the web app</a></li></ol></li><li><a href="backend.html"><strong aria-hidden="true">3.</strong> Backend guide</a></li><li><a href="frontend.html"><strong aria-hidden="true">4.</strong> Frontend guide</a></li><li><a href="miner.html"><strong aria-hidden="true">5.</strong> Miner guide</a></li></ol>
+            <ol class="chapter"><li><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><a href="quickstart/plan.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><ol class="section"><li><a href="quickstart/rust.html"><strong aria-hidden="true">2.1.</strong> Developing the backend app</a></li><li><a href="quickstart/publish.html"><strong aria-hidden="true">2.2.</strong> Publishing your app</a></li><li><a href="quickstart/web.html"><strong aria-hidden="true">2.3.</strong> Developing the web app</a></li><li><a href="quickstart/wrappingup.html"><strong aria-hidden="true">2.4.</strong> Wrapping up</a></li></ol></li><li><a href="backend.html"><strong aria-hidden="true">3.</strong> Backend guide</a></li><li><a href="frontend.html"><strong aria-hidden="true">4.</strong> Frontend guide</a></li><li><a href="miner.html"><strong aria-hidden="true">5.</strong> Miner guide</a></li></ol>
         </nav>
 
         <div id="page-wrapper" class="page-wrapper">
@@ -154,10 +154,6 @@
 <a class="header" href="#how-to-develop-web-apps-using-fluences-backends" id="how-to-develop-web-apps-using-fluences-backends"><h2>How to develop web apps using Fluence's backends</h2></a>
 <p>If you already have a backend you want to use, and it's deployed to Fluence network, you can use it to build a web app with decentralized backend with ease. To do that, you'd need knowledge from <a href="frontend.html">Fronend Developer Guide</a></p>
 <a class="header" href="#the-plan" id="the-plan"><h1>The plan</h1></a>
-<p>First, you will use Fluence Rust SDK to develop a Rust backend, and compile it to WebAssembly.</p>
-<p>Then, you will publish compiled backend to the Fluence network.</p>
-<p>And finally, you will build a web application integrated with your decentralized backend.</p>
-<a class="header" href="#the-plan-1" id="the-plan-1"><h1>The plan</h1></a>
 <p>First, you will use Fluence Rust SDK to develop a Rust backend, and compile it to WebAssembly.</p>
 <p>Then, you will publish compiled backend to the Fluence network.</p>
 <p>And finally, you will build a web application integrated with your decentralized backend.</p>
@@ -536,6 +532,9 @@ logResultAsString(result);
 &lt;undefined&gt;
 Hello, world! From user myName
 </code></pre>
+<a class="header" href="#wrapping-up" id="wrapping-up"><h1>Wrapping up</h1></a>
+<p>This was fun!</p>
+<p>TODO</p>
 <a class="header" href="#introduction" id="introduction"><h3>Introduction</h3></a>
 <p>This guide goes through the basics of application creation for the Fluence Network using simple Rust application as an example.</p>
 <p>The Fluence ecosystem is designed to run Webassembly (Wasm) program in decentralized trustless environments. Generally it can be considered as several logical parts: a <code>client-side</code> (a frontend used for sending requests to Wasm program; developed by user), the <code>VM wrapper</code> (an intermediate layer that receives queries from <code>client side</code> and routes it to a <code>Wasm program</code>) and a <code>Wasm program</code> (also developed by user).</p>
@@ -1014,24 +1013,15 @@ env.user = &quot;root&quot;
         </div>
 
         
-        <!-- Livereload script (if served using the cli tool) -->
-        <script type="text/javascript">
-            var socket = new WebSocket("ws://localhost:3001");
-            socket.onmessage = function (event) {
-                if (event.data === "reload") {
-                    socket.close();
-                    location.reload(true); // force reload from server (not from cache)
-                }
-            };
-
-            window.onbeforeunload = function() {
-                socket.close();
-            }
-        </script>
-        
 
         
 
+        
+        <script src="ace.js" type="text/javascript" charset="utf-8"></script>
+        <script src="editor.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mode-rust.js" type="text/javascript" charset="utf-8"></script>
+        <script src="theme-dawn.js" type="text/javascript" charset="utf-8"></script>
+        <script src="theme-tomorrow_night.js" type="text/javascript" charset="utf-8"></script>
         
 
         
