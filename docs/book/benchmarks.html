@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Frontend guide - The Fluence book</title>
+        <title>Benchmarks - The Fluence book</title>
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -28,6 +28,9 @@
         <!-- Custom theme stylesheets -->
         
 
+        
+        <!-- MathJax -->
+        <script async type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
         
     </head>
     <body class="light">
@@ -75,7 +78,7 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <ol class="chapter"><li><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><a href="kickstart.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><a href="backend/index.html"><strong aria-hidden="true">3.</strong> Backend guide</a></li><li><ol class="section"><li><a href="backend/app_conventions.html"><strong aria-hidden="true">3.1.</strong> Backend app conventions</a></li><li><a href="backend/sdk_overview.html"><strong aria-hidden="true">3.2.</strong> Fluence backend SDK overview</a></li><li><a href="backend/app_debugging.html"><strong aria-hidden="true">3.3.</strong> Backend app debugging</a></li><li><a href="backend/examples.html"><strong aria-hidden="true">3.4.</strong> Examples</a></li><li><a href="backend/best_practices.html"><strong aria-hidden="true">3.5.</strong> Best practices</a></li></ol></li><li><a href="frontend.html" class="active"><strong aria-hidden="true">4.</strong> Frontend guide</a></li><li><a href="miner.html"><strong aria-hidden="true">5.</strong> Miner guide</a></li></ol>
+            <ol class="chapter"><li><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li><a href="overview/overview.html"><strong aria-hidden="true">1.1.</strong> Overview</a></li><li><a href="overview/motivation.html"><strong aria-hidden="true">1.2.</strong> Motivation</a></li></ol></li><li><a href="whatworks.html"><strong aria-hidden="true">2.</strong> Current state of development</a></li><li><a href="quickstart/plan.html"><strong aria-hidden="true">3.</strong> Quick start</a></li><li><ol class="section"><li><a href="quickstart/rust.html"><strong aria-hidden="true">3.1.</strong> Developing the backend app</a></li><li><a href="quickstart/publish.html"><strong aria-hidden="true">3.2.</strong> Publishing your app</a></li><li><a href="quickstart/web.html"><strong aria-hidden="true">3.3.</strong> Developing the web app</a></li><li><a href="quickstart/wrappingup.html"><strong aria-hidden="true">3.4.</strong> Wrapping up</a></li></ol></li><li><a href="backend/index.html"><strong aria-hidden="true">4.</strong> Backend guide</a></li><li><ol class="section"><li><a href="backend/app_conventions.html"><strong aria-hidden="true">4.1.</strong> Backend app conventions</a></li><li><a href="backend/sdk_overview.html"><strong aria-hidden="true">4.2.</strong> Fluence backend SDK overview</a></li><li><a href="backend/app_debugging.html"><strong aria-hidden="true">4.3.</strong> Backend app debugging</a></li><li><a href="backend/examples.html"><strong aria-hidden="true">4.4.</strong> Examples</a></li><li><a href="backend/best_practices.html"><strong aria-hidden="true">4.5.</strong> Best practices</a></li></ol></li><li><a href="roles/miner.html"><strong aria-hidden="true">5.</strong> Miner guide</a></li><li><a href="tools/tools.html"><strong aria-hidden="true">6.</strong> Tools and SDKs</a></li><li><ol class="section"><li><a href="tools/cli_README.html"><strong aria-hidden="true">6.1.</strong> CLI</a></li><li><a href="tools/rust_README.html"><strong aria-hidden="true">6.2.</strong> Rust SDK</a></li><li><a href="tools/js_README.html"><strong aria-hidden="true">6.3.</strong> JS SDK</a></li></ol></li><li><a href="unsolved.html"><strong aria-hidden="true">7.</strong> Open problems</a></li><li><a href="examples/examples.html"><strong aria-hidden="true">8.</strong> Examples</a></li><li><ol class="section"><li><a href="examples/backend.html"><strong aria-hidden="true">8.1.</strong> Backend</a></li><li><a href="examples/frontend.html"><strong aria-hidden="true">8.2.</strong> Web apps</a></li></ol></li><li><a href="benchmarks.html" class="active"><strong aria-hidden="true">9.</strong> Benchmarks</a></li></ol>
         </nav>
 
         <div id="page-wrapper" class="page-wrapper">
@@ -140,79 +143,23 @@
 
                 <div id="content" class="content">
                     <main>
-                        <a class="header" href="#requirements" id="requirements"><h2>Requirements</h2></a>
-<ul>
-<li><code>npm</code></li>
-</ul>
-<a class="header" href="#installation" id="installation"><h2>Installation</h2></a>
-<ul>
-<li><code>npm install fluence</code></li>
-</ul>
-<a class="header" href="#description" id="description"><h2>Description</h2></a>
-<p><code>js-fluence-client</code> is a library written in TypeScript that allows you to interact with an app (usually a backend) deployed to a Fluence cluster in the Fluence network, from a web browser. Using this library together with Metamask and Ethereum network, you can develop a <code>web3</code> decentralized application.</p>
-<a class="header" href="#usage" id="usage"><h2>Usage</h2></a>
-<p>Import a dependency:</p>
-<pre><code class="language-js">import * as fluence from &quot;fluence&quot;;
-</code></pre>
-<p>To connect to the Fluence cluster we need to create a session between the browser and all nodes or one node in this cluster.
-There is two ways of establishing a connection:</p>
-<ol>
-<li>Using host and port directly (for debug purposes) to connect with a single node of the cluster, or simply <code>worker</code>:</li>
-</ol>
-<pre><code class="language-js">let workerSession = fluence.directConnect(&quot;&lt;host&gt;&quot;, &lt;port&gt;);
-</code></pre>
-<ol start="2">
-<li>Using installed MetaMask or a deployed local Ethereum node:</li>
-</ol>
-<pre><code class="language-js">let appSession;
-let appSessionPromise = fluence.connect(&quot;&lt;contract-address&gt;&quot;, &quot;&lt;app-id&gt;&quot;, &quot;&lt;ethereum-url-optional&gt;&quot;).then((responseSession) =&gt; {
-    appSession = responseSession;
-});
-</code></pre>
-<p>You can find Fluence contract on Rinkeby testnet deployed at address: <code>0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7</code>.
-The second argument, <code>appId</code> - is an ID of application registered in the contract. For example, there is an existing <a href="https://github.com/fluencelabs/llamadb">LlamaDB</a> application with <code>appId</code>: <code>0x0000000000000000000000000000000000000000000000000000000000000002</code>.</p>
-<p><code>connect</code> asynchronously interacts with an Ethereum blockchain, so it will return a <code>Promise&lt;AppSession&gt;</code>. <code>AppSession</code> is a structure that combines all sessions to nodes in a cluster and keeps some metadata of these nodes.</p>
-<p>Then we can use <code>invoke</code> to send commands to workers and get responses.
-We'll go with <a href="https://github.com/fluencelabs/llamadb">LlamaDB</a> application as an example. Send simple SQL commands to the cluster:</p>
-<pre><code class="language-js">let response = appSession.invoke(&quot;CREATE TABLE test_table (id INT, text VARCHAR(128))&quot;)
-</code></pre>
-<p>It will send a request and return the submitted transaction. Retrieving result requires calling <code>result()</code> method, that's because sending a transaction via <code>invoke</code> doesn't return result back, it just changes cluster state. <code>result()</code> method explicitly reads result of the transaction from the cluster state, and returns it as a <code>Promise&lt;Result&gt;</code>:</p>
-<pre><code class="language-js">let resultPromise = response.result();
-resultPromise.then((r) =&gt; console.log(r.asString()))
-</code></pre>
-<p>Client and cluster are communicating by exchanging raw bytes. You can use <code>asString()</code> to convert bytes to UTF-8 string or <code>hex()</code> to get hex representation of the data.</p>
-<p>In case you need fine-grained control, you can use <code>workerSession</code> directly:</p>
-<pre><code class="language-js">let workerSession = appSession.workerSessions[&lt;worker-idx&gt;].session
-// send tx from string
-let resultPromise = workerSession.invoke(&quot;SELECT ...&quot;);
-
-// send tx from raw bytes
-let resultPromise = workerSession.invokeRaw(&lt;raw-bytes-in-hex&gt;);
-</code></pre>
-<p>Given these simple methods, you can build a working decentralized web application!</p>
-<p>You can find examples of such applications below.</p>
-<a class="header" href="#example-apps" id="example-apps"><h2>Example apps</h2></a>
-<p>Simple app to start with or use as a template for your app. Interacts with predeployed Llamadb on top of Fluence cluster connected to Kovan testnet:
-https://github.com/fluencelabs/frontend-example</p>
-<p>App that allows you to send SQL requests from a browser and shows status of the cluster's workers. Written in TypeScript:
-https://github.com/fluencelabs/fluence/tree/master/js-client/src/examples/fluence-sqldb</p>
-<a class="header" href="#acknowledgments" id="acknowledgments"><h2>Acknowledgments</h2></a>
-<p>Thanks to @nukep for the Llamadb database (https://github.com/nukep/llamadb) that we used in this example!</p>
+                        <a class="header" href="#benchmarks" id="benchmarks"><h1>Benchmarks</h1></a>
+<a class="header" href="#vm-benchmark" id="vm-benchmark"><h2>VM benchmark</h2></a>
+<p>TODO: add a link to benchmarking post and code</p>
+<a class="header" href="#tendermint-benchmark" id="tendermint-benchmark"><h2>Tendermint benchmark</h2></a>
+<p>TODO: add a link to tendermint benchmark</p>
+<a class="header" href="#tbd-fluence-benchmark" id="tbd-fluence-benchmark"><h2>TBD: Fluence benchmark</h2></a>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
                         
-                            <a rel="prev" href="backend/best_practices.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="examples/frontend.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
 
-                        
-                            <a rel="next" href="miner.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                                <i class="fa fa-angle-right"></i>
-                            </a>
                         
 
                         <div style="clear: both"></div>
@@ -222,15 +169,11 @@ https://github.com/fluencelabs/fluence/tree/master/js-client/src/examples/fluenc
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
                 
-                    <a href="backend/best_practices.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a href="examples/frontend.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
 
-                
-                    <a href="miner.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
-                        <i class="fa fa-angle-right"></i>
-                    </a>
                 
             </nav>
 
@@ -240,6 +183,12 @@ https://github.com/fluencelabs/fluence/tree/master/js-client/src/examples/fluenc
 
         
 
+        
+        <script src="ace.js" type="text/javascript" charset="utf-8"></script>
+        <script src="editor.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mode-rust.js" type="text/javascript" charset="utf-8"></script>
+        <script src="theme-dawn.js" type="text/javascript" charset="utf-8"></script>
+        <script src="theme-tomorrow_night.js" type="text/javascript" charset="utf-8"></script>
         
 
         
