@@ -40,9 +40,9 @@ object MasterNodeApp extends IOApp with LazyLogging {
    * - Starts HTTP API serving status information
    */
   override def run(args: List[String]): IO[ExitCode] = {
-    configureLogging()
     MasterConfig
       .load()
+      .map(mc => { configureLogging(mc.logLevel); mc })
       .flatMap(mc ⇒ Configuration.init(mc).map(_ → mc))
       .flatMap {
         case (conf, masterConf) =>
@@ -78,10 +78,10 @@ object MasterNodeApp extends IOApp with LazyLogging {
       }
   }
 
-  private def configureLogging(): Unit = {
+  private def configureLogging(level: LogLevel): Unit = {
     PrintLoggerFactory.formatter =
       new DefaultPrefixFormatter(printLevel = true, printName = true, printTimestamp = true)
     LoggerConfig.factory = PrintLoggerFactory()
-    LoggerConfig.level = LogLevel.DEBUG
+    LoggerConfig.level = level
   }
 }

@@ -85,8 +85,8 @@ class MasterNodeIntegrationSpec
     val master1Port: Short = basePort
     val master2Port: Short = (basePort + 1).toShort
     for {
-      master1 <- runMaster(master1Port, "master1", n=1)
-      master2 <- runMaster(master2Port, "master2", n=2)
+      master1 <- runMaster(master1Port, "master1", n = 1)
+      master2 <- runMaster(master2Port, "master2", n = 2)
 
       _ <- Resource liftF eventually[IO](checkMasterRunning(master1), maxWait = 30.seconds) // TODO: 30 seconds is a bit too much for startup
       _ <- Resource liftF eventually[IO](checkMasterRunning(master2), maxWait = 30.seconds) // TODO: investigate and reduce timeout

@@ -22,6 +22,7 @@ import fluence.node.workers.tendermint.config.TendermintConfig
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import net.ceedubs.ficus.readers.ValueReader
+import LogLevel.LogLevel
 
 /**
  * Main config class for master node.
@@ -44,7 +45,8 @@ case class MasterConfig(
   worker: DockerConfig,
   tendermint: DockerConfig,
   ethereum: EthereumRpcConfig,
-  tendermintConfig: TendermintConfig
+  tendermintConfig: TendermintConfig,
+  logLevel: LogLevel
 )
 
 object MasterConfig {
@@ -56,6 +58,7 @@ object MasterConfig {
   import ConfigOps.inetAddressValueReader
   import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
   import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+  import net.ceedubs.ficus.readers.EnumerationReader._
   import net.ceedubs.ficus.Ficus._
 
   implicit val shortReader: ValueReader[Short] = ValueReader[Int].map(_.toShort)
