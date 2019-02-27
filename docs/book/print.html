@@ -75,7 +75,7 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <ol class="chapter"><li><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><a href="kickstart.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><a href="backend.html"><strong aria-hidden="true">3.</strong> Backend guide</a></li><li><a href="frontend.html"><strong aria-hidden="true">4.</strong> Frontend guide</a></li><li><a href="miner.html"><strong aria-hidden="true">5.</strong> Miner guide</a></li></ol>
+            <ol class="chapter"><li><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><a href="quickstart/plan.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><ol class="section"><li><a href="quickstart/plan.html"><strong aria-hidden="true">2.1.</strong> Plan</a></li><li><a href="quickstart/rust.html"><strong aria-hidden="true">2.2.</strong> Developing the backend app</a></li><li><a href="quickstart/publish.html"><strong aria-hidden="true">2.3.</strong> Publishing your app</a></li><li><a href="quickstart/web.html"><strong aria-hidden="true">2.4.</strong> Developing the web app</a></li></ol></li><li><a href="backend.html"><strong aria-hidden="true">3.</strong> Backend guide</a></li><li><a href="frontend.html"><strong aria-hidden="true">4.</strong> Frontend guide</a></li><li><a href="miner.html"><strong aria-hidden="true">5.</strong> Miner guide</a></li></ol>
         </nav>
 
         <div id="page-wrapper" class="page-wrapper">
@@ -153,47 +153,11 @@
 <p>To learn how to build you backend with the help of <a href="../../sdk/rust/README.html">Fluence SDK</a>, compile it to <a href="https://webassembly.org">Webassembly</a>, and publish to Fluence smart contract, please read <a href="backend.html">Backend Developer Guide</a></p>
 <a class="header" href="#how-to-develop-web-apps-using-fluences-backends" id="how-to-develop-web-apps-using-fluences-backends"><h2>How to develop web apps using Fluence's backends</h2></a>
 <p>If you already have a backend you want to use, and it's deployed to Fluence network, you can use it to build a web app with decentralized backend with ease. To do that, you'd need knowledge from <a href="frontend.html">Fronend Developer Guide</a></p>
-<ul>
-<li><a href="#the-plan">The plan</a></li>
-<li><a href="#developing-the-backend-app">Developing the backend app</a>
-<ul>
-<li><a href="#setting-up-rust">Setting up Rust</a></li>
-<li><a href="#creating-an-empty-rust-package">Creating an empty Rust package</a></li>
-<li><a href="#optional-creating-a-hello-world-rust-application">Optional: Creating a Hello World Rust application</a></li>
-<li><a href="#creating-a-fluence-hello-world-backend">Creating a Fluence Hello World backend</a>
-<ul>
-<li><a href="#adding-fluence-as-a-dependency">Adding Fluence as a dependency</a></li>
-<li><a href="#implementing-backend-greeting-logic">Implementing backend greeting logic</a></li>
-<li><a href="#making-it-a-library">Making it a library</a></li>
-<li><a href="#compiling-to-webassembly">Compiling to WebAssembly</a></li>
-</ul>
-</li>
-</ul>
-</li>
-<li><a href="#publishing-your-app">Publishing your app</a>
-<ul>
-<li><a href="#connect-to-swarm-and-ethereum-rinkeby">Connect to Swarm and Ethereum Rinkeby</a></li>
-<li><a href="#registering-an-ethereum-rinkeby-account">Registering an Ethereum Rinkeby account</a>
-<ul>
-<li><a href="#via-myetherwalletcom">Via myetherwallet.com</a></li>
-<li><a href="#top-up-account-with-funds">Top up account with funds</a></li>
-</ul>
-</li>
-<li><a href="#installing-fluence-cli">Installing Fluence CLI</a></li>
-<li><a href="#publishing-via-fluence-cli">Publishing via Fluence CLI</a></li>
-<li><a href="#check-app-status">Check app status</a></li>
-</ul>
-</li>
-<li><a href="#frontend">Frontend</a>
-<ul>
-<li><a href="#preparing-web-app">Preparing web app</a></li>
-<li><a href="#running-and-using">Running and using</a></li>
-</ul>
-</li>
-</ul>
-<p>This guide aims first-time users of Fluence. At the end, you will develop a dApp consisting of a decentralized backend running on top of Fluence network, and a web frontend application that's able to communicate with that backend.</p>
 <a class="header" href="#the-plan" id="the-plan"><h1>The plan</h1></a>
-<p>This document is structured as follows.</p>
+<p>First, you will use Fluence Rust SDK to develop a Rust backend, and compile it to WebAssembly.</p>
+<p>Then, you will publish compiled backend to the Fluence network.</p>
+<p>And finally, you will build a web application integrated with your decentralized backend.</p>
+<a class="header" href="#the-plan-1" id="the-plan-1"><h1>The plan</h1></a>
 <p>First, you will use Fluence Rust SDK to develop a Rust backend, and compile it to WebAssembly.</p>
 <p>Then, you will publish compiled backend to the Fluence network.</p>
 <p>And finally, you will build a web application integrated with your decentralized backend.</p>
@@ -302,7 +266,7 @@ error: Could not compile hello-world.
 <hr />
 <p>Now that we have a working hello world, it's time to adapt it to be used with Fluence.</p>
 <a class="header" href="#creating-a-fluence-hello-world-backend" id="creating-a-fluence-hello-world-backend"><h2>Creating a Fluence Hello World backend</h2></a>
-<p>For a backend to be compatible with Fluence network, it should <a href="backend.html#wasm-program-conventions">follow a few conventions</a>, so Fluence knows how to call your code correctly. To reduce boilerplate and make it easier, we developed a Fluence Rust SDK. Let's see how to use it.</p>
+<p>For a backend to be compatible with Fluence network, it should <a href="quickstart/backend.html#wasm-program-conventions">follow a few conventions</a>, so Fluence knows how to call your code correctly. To reduce boilerplate and make it easier, we developed a Fluence Rust SDK. Let's see how to use it.</p>
 <a class="header" href="#adding-fluence-as-a-dependency" id="adding-fluence-as-a-dependency"><h3>Adding Fluence as a dependency</h3></a>
 <p>First you need to add it to <code>Cargo.toml</code> as a dependency. Let's take a look at <code>Cargo.toml</code>:</p>
 <pre><code class="language-bash">~/hello-world $ cat Cargo.toml
@@ -379,7 +343,7 @@ fluence = { version = &quot;0.0.8&quot;, features = [&quot;export_allocator&quot
 <li>Fluence smart contract is what rules the Fluence network and allows users to use it.</li>
 </ul>
 <p>To upload your code to Swarm, you need to have access to one of its nodes. The same with Ethereum, you will need a connection to any Ethereum node on Rinkeby testnet.</p>
-<p><strong>We will use existing Ethereum &amp; Swarm nodes, but if you wish, you can <a href="miner.html">use your own nodes</a> or any other.</strong></p>
+<p><strong>We will use existing Ethereum &amp; Swarm nodes, but if you wish, you can <a href="quickstart/miner.html">use your own nodes</a> or any other.</strong></p>
 <a class="header" href="#registering-an-ethereum-rinkeby-account" id="registering-an-ethereum-rinkeby-account"><h2>Registering an Ethereum Rinkeby account</h2></a>
 <a class="header" href="#via-myetherwalletcom" id="via-myetherwalletcom"><h3>Via myetherwallet.com</h3></a>
 <p>Go to https://vintage.myetherwallet.com/, then select Rinkeby in the upper right, enter any password, and download the Keystore file.</p>
@@ -405,7 +369,7 @@ Fluence CLI 0.1.2
 <a class="header" href="#publishing-via-fluence-cli" id="publishing-via-fluence-cli"><h2>Publishing via Fluence CLI</h2></a>
 <p>As was mentioned before, you will need a connection to Ethereum Rinkeby network, and a connection to Swarm network.</p>
 <p>For your convenience, and to make this guide simple, we use addresses of existing Ethereum Rinkeby and Swarm nodes running in a cloud on Fluence nodes. <strong>However, this is a centralized way to connect to Ethereum Rinkeby and Swarm networks, and shouldn't be used in production or in a security-sensitive context.</strong> You may use <strong>any</strong> Rinkeby and Swarm nodes by providing their URIs within <code>--eth_url</code> and <code>--swarm_url</code> options (see below).</p>
-<p>Also you will need a Rinkeby account with some money on it (you can <a href="https://faucet.rinkeby.io/">get money from faucet</a>) and it's private key. Private key can be either a hex string or a <a href="../cli/README.html#keystore-json-file">JSON keystore file</a>.</p>
+<p>Also you will need a Rinkeby account with some money on it (you can <a href="https://faucet.rinkeby.io/">get money from faucet</a>) and it's private key. Private key can be either a hex string or a <a href="quickstart/../cli/README.html#keystore-json-file">JSON keystore file</a>.</p>
 <p>Having all that, you're now ready to publish your app. Examples below will specify a cluster size of 4 nodes for your app. Adjust it to your needs.</p>
 <p>If you have your private key <strong>in hex</strong>, run the following in your terminal, replacing <code>&lt;&gt;</code> with actual values:</p>
 <pre><code class="language-bash">~ $ ./fluence publish \
@@ -432,7 +396,7 @@ Fluence CLI 0.1.2
             --wait_syncing \
             --wait
 </code></pre>
-<p>There is more info on using keystore files with Fluence CLI in it's <a href="../cli/README.html#keystore-json-file">README</a>.</p>
+<p>There is more info on using keystore files with Fluence CLI in it's <a href="quickstart/../cli/README.html#keystore-json-file">README</a>.</p>
 <p>After running the command, you will see an output similar to the following:</p>
 <pre><code class="language-bash">[1/3]   Application code uploaded. ---&gt; [00:00:00]
 swarm hash: 0xf5c604478031e9a658551220da3af1f086965b257e7375bbb005e0458c805874
@@ -499,7 +463,7 @@ App deployed.
             --interactive
 </code></pre>
 <div style="text-align:center">
-<img src="images/interactive.png" width="776px"/>
+<img src="../images/interactive.png" width="776px"/>
 <br>
 </div>
 <p>You can press <code>q</code> to exit it.</p>
@@ -561,7 +525,7 @@ Session created
 </code></pre>
 <div style="text-align:center">
 <kbd>
-<img src="images/helloworld.png" width="529px"/>
+<img src="../images/helloworld.png" width="529px"/>
 </kbd>
 <br><br><br>
 </div>
@@ -1049,6 +1013,21 @@ env.user = &quot;root&quot;
 
         </div>
 
+        
+        <!-- Livereload script (if served using the cli tool) -->
+        <script type="text/javascript">
+            var socket = new WebSocket("ws://localhost:3001");
+            socket.onmessage = function (event) {
+                if (event.data === "reload") {
+                    socket.close();
+                    location.reload(true); // force reload from server (not from cache)
+                }
+            };
+
+            window.onbeforeunload = function() {
+                socket.close();
+            }
+        </script>
         
 
         
