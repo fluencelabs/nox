@@ -2,7 +2,6 @@
 
 - [Introduction](introduction.md)
     - [Overview](overview/overview.md)
-    - [Components](overview/components.md)
     - [Motivation](overview/motivation.md)
 - [Current state of development](whatworks.md)
 - [Quick start](quickstart/plan.md)
