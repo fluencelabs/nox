@@ -199,7 +199,70 @@ GROUP BY DATE(ts)
 <p>Batch validation also decreases the probability that an intentional mistake made by a real-time cluster will never get noticed. Assume that in the same network where 10% of all nodes are malicious, we spun a real-time cluster of 4 workers and allocated a budget for 3 batch validations.</p>
 <p>In this setup, a mistake can go unnoticed only if malicious actors comprise at least \(\frac{2}{3}\) of the realtime workers and all of the batch validators that verified the transaction history. The chance of this happening is \(≈ 3.7 · 10^{−6}\), which is two orders of magnitude less than in the case where the entire budget was spent on the real-time cluster only.</p>
 <p>We also expect that in the presence of batch validators, the fraction of malicious nodes in the network will drop significantly below 10%, because every time a malicious action is caught, the node that performed it loses its deposit and thus leaves the network.</p>
-<a class="header" href="#todo" id="todo"><h1>TODO</h1></a>
+<a class="header" href="#current-state-of-development" id="current-state-of-development"><h1>Current state of development</h1></a>
+<a class="header" href="#real-time" id="real-time"><h2>Real-time</h2></a>
+<p>Fluence Node and Worker works, and are running on the devnet.</p>
+<a class="header" href="#real-time-disputes" id="real-time-disputes"><h3>Real-time disputes</h3></a>
+<p>TODO</p>
+<a class="header" href="#vm" id="vm"><h2>VM</h2></a>
+<p>TODO</p>
+<a class="header" href="#e-t-h-e-r-e-u-m----i-n-d-e-x" id="e-t-h-e-r-e-u-m----i-n-d-e-x"><h2>E t h e r e u m    i n d e x</h2></a>
+<p>TODO: isn't it too sensitive to write here about?</p>
+<a class="header" href="#validators" id="validators"><h2>Validators</h2></a>
+<p>TODO</p>
+<a class="header" href="#disputes" id="disputes"><h3>Disputes</h3></a>
+<p>TODO</p>
+<a class="header" href="#todo" id="todo"><h2>TODO</h2></a>
+<a class="header" href="#todo-1" id="todo-1"><h3>TODO</h3></a>
+<pre><code class="language-java">                       ____
+                    ,;|||||\                       _________
+  ___               |;|||:;:|                    ,' to do `----.
+/;,a.\\             |||||...._                   `-. _   to do   ;
+|||@@@\\\        __----,'......~\_    ,---._        ;; `-._______,'
+|||@@@@\\\,-~~~~::::::,'... _.----\_,'      `.      '
+|||;aaa/,;;;;:::::::::: _.-':      ;...._    ;
+`::||||;;;;:::::::::::' `--'    ,;;:::::~:~~----._____
+     ;;;;;::::::::::::`-.     ,;::::::::::::::::::::::::___
+    |;;;;;:::::::::::::::`---;:::::::::::::::::::'.,-/~~   ~~\-._
+    |;;;;;;;;::::::::::::::::::::::: :: ::::::',-'   `\  |  /'.  :
+     `-:;;;;;;;;;;:::::::::::::::::::::::: :::;  . .   `\:/' . . ;
+        `~--;;;;;;;;;;;;::::::::::::::::::: ::: . .      |     ,'
+            `~~~~--;;;;;;;;;;;;::::::::: ::::::`..    _/' `\_/';
+                   `~~.;;;;;::::::::::::::::::::::---' . ..   ,'
+                       ~~;.....;'~~~`---.::::::::::         ,'
+                         :;;;:::         ~~~~~~`---`-.____,'
+                         `|;;::::
+                          |;;:::::                   ...........
+                          |;;:::::                 .::::::::::|||:.
+                       ___||::::::: ___           .||||        `:|||
+                     /':::`|::::::|':::`\        .||||          ||||
+                    /::::::||/@@@\::::::::\      ||||           ||||
+                   /::::::||:@@@@@@@\::::::\     ||||__         ||||
+                  /::::::|||@@@@@@@@@|::::::\    |`.`--)        ||||
+                 /::::::;||:@@@@@@@@@|:::::::\    \_~_/        ,||||
+                /:::::;;|||:@@@@@@@@@@|\::::::\                ||||'
+               /:::::;;;||::@@@@@@@@@@| \::::::\               ||||
+              /:::::;; |||:@@@@@@@@@@@@| \::::::\              ||||.
+             /:::::;;  |||:@@@@@@@@@@@@|. \::::::\             `||||
+            ,'::::;;  |||::@@@@@@@@@@@@||  \::::::\___          ||||
+           ,:::::;;   |||::@@@@@@@@@@@|:|   \;,'~~'_  `-.      ,||||
+          ,:::::;;    ||::@@@@@@@@@@@@|:|   ,'   ~~ `._  `.   ,||||'
+         ,::::;;;    |||::_--._@@@@@@|::| ,'     __    `._|  .||||'
+        ,:::::;;     ;~~~'     ~--.__|::|;      '  `-.   ;   ||||'
+       ,::::;;;    ,'        ::::::::~~--;__          `_,'   |||||
+      ,:::::;;   ,'         (~--::::::::::: ~~-._    _;\     `|||||
+     ,:::::;/  ,'   _______-.-----~~~-._ ::::::  `--' ;;\     `|||||
+    |:::::/  ____.-:::::::::::::::::::,-~-.::::::::::::::)    .||||'
+    |:::::`~':::::::::::::::::::.--'|::::| `~~~~~--.__.-'     ||||'
+    `::::::::::::::::___----~~~~@@@@|::::|                 .|||||'
+     `--____,---~~~~~   @@@@@@@@@@@|:::::|                ,||||.'
+            ;          `.@@@@@@@@@@|:::::|            ,||||||.'
+           |  :   :     ;@@@@@@@@@@|:::::|         ,|||||||.'
+           `._;.__;`-._,'@@@@@@@@@@|:::::|      ,|||||||'~~
+                  |:@@@@@@@@@@@@@@|:::::::|   ,||||||'~
+                  |:@@@@@@@@@@@@@@|:::::::|  ||||||'
+=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+</code></pre>
 <a class="header" href="#quickstart" id="quickstart"><h1>Quickstart</h1></a>
 <p>This document will guide you through three main steps of development with Fluence.</p>
 <p>You will develop a traditional two-tiered web application with a backend written in Rust, and a frontend built with JavaScript. Unlike traditional two-tiered architecture, however, your backend will be decentralized and running on top of the Fluence network, not requiring a dedicated server machine.</p>
