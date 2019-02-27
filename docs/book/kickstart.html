@@ -396,9 +396,9 @@ Fluence CLI 0.1.2
 <p>Having all that, you're now ready to publish your app. Examples below will specify a cluster size of 4 nodes for your app. Adjust it to your needs.</p>
 <p>If you have your private key <strong>in hex</strong>, run the following in your terminal, replacing <code>&lt;&gt;</code> with actual values:</p>
 <pre><code class="language-bash">~ $ ./fluence publish \
-            --eth_url          http://207.154.240.52:8545 \
-            --swarm_url        http://207.154.240.52:8500 \
-            --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \            
+            --eth_url          http://207.154.232.92:8545 \
+            --swarm_url        http://207.154.232.92:8500 \
+            --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \
             --gas_price        10 \
             --account          &lt;your ethereum address&gt; \
             --secret_key       &lt;your ethereum private key&gt; \
@@ -408,9 +408,9 @@ Fluence CLI 0.1.2
 </code></pre>
 <p>If you have a JSON <strong>keystore file</strong>, run the following in your terminal, replacing <code>&lt;&gt;</code> with actual values:</p>
 <pre><code class="language-bash">~ $ ./fluence publish \
-            --eth_url          http://207.154.240.52:8545 \
-            --swarm_url        http://207.154.240.52:8500 \
-            --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \            
+            --eth_url          http://207.154.232.92:8545 \
+            --swarm_url        http://207.154.232.92:8500 \
+            --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \
             --gas_price        10 \
             --account          &lt;your ethereum address&gt; \
             --keystore         &lt;path to keystore&gt; \
@@ -433,7 +433,7 @@ App deployed.
 <a class="header" href="#check-app-status" id="check-app-status"><h2>Check app status</h2></a>
 <p>To see how smart contract sees your app, and what nodes it was deployed onto, you can use <code>status</code> like this:</p>
 <pre><code class="language-bash">~ $ ./fluence status \
-            --eth_url          http://207.154.240.52:8545 \            
+            --eth_url          http://207.154.232.92:8545 \
             --app_id           &lt;your app id here&gt;
 </code></pre>
 <p>The output will be in JSON, and look similar to the following:</p>
@@ -481,7 +481,7 @@ App deployed.
 </code></pre>
 <p>You can also use interactive mode instead of default by supplying <code>--interactive</code> flag:</p>
 <pre><code class="language-bash">./fluence status \
-            --eth_url          http://207.154.240.52:8545 \            
+            --eth_url          http://207.154.232.92:8545 \
             --app_id           &lt;your app id here&gt; \
             --interactive
 </code></pre>
@@ -542,7 +542,7 @@ function send() {
 <p>Now you can open http://localhost:8080/ in your browser. You will see an input text box and a disabled button. Button will become enabled once AppSession is created. You can enter your name, and press <code>Say hello!</code> button, and greeting will be displayed next to <code>Result:</code>.</p>
 <p>You can also open Developer Console, and you'll see a log about session creation:</p>
 <pre><code>...
-Connecting web3 to http://207.154.240.52:8545
+Connecting web3 to http://207.154.232.92:8545
 ...
 Session created
 </code></pre>
