@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Fluence backend conventions - The Fluence book</title>
+        <title>Backend app conventions - The Fluence book</title>
         <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
         <meta name="description" content="">
         <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -75,7 +75,7 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <ol class="chapter"><li><a href="../introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><a href="../kickstart.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><a href="../backend/index.html"><strong aria-hidden="true">3.</strong> Backend guide</a></li><li><ol class="section"><li><a href="../backend/app_conventions.html" class="active"><strong aria-hidden="true">3.1.</strong> Fluence backend conventions</a></li><li><a href="../backend/sdk_overview.html"><strong aria-hidden="true">3.2.</strong> Fluence SDK overview</a></li><li><a href="../backend/app_debugging.html"><strong aria-hidden="true">3.3.</strong> App debugging</a></li><li><a href="../backend/examples.html"><strong aria-hidden="true">3.4.</strong> Examples</a></li><li><a href="../backend/best_practices.html"><strong aria-hidden="true">3.5.</strong> Best practices</a></li></ol></li><li><a href="../frontend.html"><strong aria-hidden="true">4.</strong> Frontend guide</a></li><li><a href="../miner.html"><strong aria-hidden="true">5.</strong> Miner guide</a></li></ol>
+            <ol class="chapter"><li><a href="../introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><a href="../kickstart.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><a href="../backend/index.html"><strong aria-hidden="true">3.</strong> Backend guide</a></li><li><ol class="section"><li><a href="../backend/app_conventions.html" class="active"><strong aria-hidden="true">3.1.</strong> Backend app conventions</a></li><li><a href="../backend/sdk_overview.html"><strong aria-hidden="true">3.2.</strong> Fluence backend SDK overview</a></li><li><a href="../backend/app_debugging.html"><strong aria-hidden="true">3.3.</strong> Backend app debugging</a></li><li><a href="../backend/examples.html"><strong aria-hidden="true">3.4.</strong> Examples</a></li><li><a href="../backend/best_practices.html"><strong aria-hidden="true">3.5.</strong> Best practices</a></li></ol></li><li><a href="../frontend.html"><strong aria-hidden="true">4.</strong> Frontend guide</a></li><li><a href="../miner.html"><strong aria-hidden="true">5.</strong> Miner guide</a></li></ol>
         </nav>
 
         <div id="page-wrapper" class="page-wrapper">
@@ -140,9 +140,9 @@
 
                 <div id="content" class="content">
                     <main>
-                        <a class="header" href="#fluence-backend-conventions" id="fluence-backend-conventions"><h1>Fluence backend conventions</h1></a>
+                        <a class="header" href="#backend-app-conventions" id="backend-app-conventions"><h1>Backend app conventions</h1></a>
 <a class="header" href="#app-lifecycle" id="app-lifecycle"><h2>App lifecycle</h2></a>
-<p>The Fluence network backend infrastructure is based on Scala and Rust. Each computation unit node in the network has a <code>VM wrapper</code> written on Scala that interacts with a backend <code>App</code> written on Wasm and published to the network by developers. To be able to run supplied Wasm code <a href="https://github.com/fluencelabs/asmble">Asmble</a> is used. It compiles supplied Wasm cdoe to a JVM class that then loaded by <code>VM wrapper</code>. All other interactions between <code>App</code> and <code>VM wrapper</code> occurs in <code>VM wrapper</code> process address space without any inter-process communications.</p>
+<p>The Fluence network backend infrastructure is based on Scala and Rust. Each computation node in the network has a <code>VM wrapper</code> written on Scala that interacts with a backend <code>app</code> written on Wasm and published to the network by developers. To be able to run supplied Wasm code <a href="https://github.com/fluencelabs/asmble">Asmble</a> is used. It compiles supplied Wasm code to a JVM class that then loaded by <code>VM wrapper</code>. All other interactions between <code>app</code> and <code>VM wrapper</code> occurs in <code>VM wrapper</code> process address space without any inter-process communications.</p>
 <p>A <code>main</code> module is invoked by <code>VM wrapper</code> according to the following scheme:</p>
 <ol>
 <li>
@@ -168,7 +168,7 @@
 </li>
 </ol>
 <a class="header" href="#fluence-app-conventions" id="fluence-app-conventions"><h2>Fluence App conventions</h2></a>
-<p>There are several restriction and conventions that each supplied <code>App</code> has to be met:</p>
+<p>There are several restriction and conventions that each supplied <code>app</code> has to be met:</p>
 <ol>
 <li>
 <p><code>App</code> can consist of several Wasm modules with different names, but only one of them (let's call it <code>main</code> and all other as <code>sidemodules</code> according to <a href="https://github.com/emscripten-core/emscripten/wiki/Linking#overview-of-dynamic-linking">emcscripten</a>) can be called from <code>user-side</code>. This <code>main</code> module MUST don't have the module name section. This requirement is based on the fact that according to the Wasm specification module name is optional, and now there is no a possibility to add it to a generated Wasm binary by default <code>rust</code> compiler.</p>

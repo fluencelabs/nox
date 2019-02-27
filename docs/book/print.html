@@ -75,7 +75,7 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <ol class="chapter"><li><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><a href="kickstart.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><a href="backend/index.html"><strong aria-hidden="true">3.</strong> Backend guide</a></li><li><ol class="section"><li><a href="backend/app_conventions.html"><strong aria-hidden="true">3.1.</strong> Fluence backend conventions</a></li><li><a href="backend/sdk_overview.html"><strong aria-hidden="true">3.2.</strong> Fluence SDK overview</a></li><li><a href="backend/app_debugging.html"><strong aria-hidden="true">3.3.</strong> App debugging</a></li><li><a href="backend/examples.html"><strong aria-hidden="true">3.4.</strong> Examples</a></li><li><a href="backend/best_practices.html"><strong aria-hidden="true">3.5.</strong> Best practices</a></li></ol></li><li><a href="frontend.html"><strong aria-hidden="true">4.</strong> Frontend guide</a></li><li><a href="miner.html"><strong aria-hidden="true">5.</strong> Miner guide</a></li></ol>
+            <ol class="chapter"><li><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><a href="kickstart.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><a href="backend/index.html"><strong aria-hidden="true">3.</strong> Backend guide</a></li><li><ol class="section"><li><a href="backend/app_conventions.html"><strong aria-hidden="true">3.1.</strong> Backend app conventions</a></li><li><a href="backend/sdk_overview.html"><strong aria-hidden="true">3.2.</strong> Fluence backend SDK overview</a></li><li><a href="backend/app_debugging.html"><strong aria-hidden="true">3.3.</strong> Backend app debugging</a></li><li><a href="backend/examples.html"><strong aria-hidden="true">3.4.</strong> Examples</a></li><li><a href="backend/best_practices.html"><strong aria-hidden="true">3.5.</strong> Best practices</a></li></ol></li><li><a href="frontend.html"><strong aria-hidden="true">4.</strong> Frontend guide</a></li><li><a href="miner.html"><strong aria-hidden="true">5.</strong> Miner guide</a></li></ol>
         </nav>
 
         <div id="page-wrapper" class="page-wrapper">
@@ -573,14 +573,14 @@ logResultAsString(result);
 Hello, world! From user myName
 </code></pre>
 <a class="header" href="#backend-guide" id="backend-guide"><h1>Backend guide</h1></a>
-<p>The Fluence network is designed to run Webassembly (Wasm) program in decentralized trustless environments. Generally, it can be considered as several logical parts: a <code>client-side</code> (a frontend part used for sending requests to Wasm program), the <code>VM wrapper</code> (an intermediate layer that receives queries from client side and routes it to a Wasm program) and a <code>backend app</code> written on Wasm:</p>
+<p>The Fluence network is designed to run Webassembly (Wasm) applications (<code>app</code>) in decentralized trustless environments. Generally, it can be considered as several logical parts: a <code>client-side</code> (a frontend part used for sending requests to Wasm program), the <code>VM wrapper</code> (an intermediate layer that receives queries from client side and routes it to a <code>app</code>) and a <code>app</code> written on Wasm:</p>
 <p align="center">
   <img src="images/arch_overview.png" alt="Fluence arch overview" width="700px"/>
 </p>
-<p>But an arbitrary Wasm code can't be run on Fluence - for example, it can use some imports of host-based functions that environment isn't provided for security reasons. And also each Wasm program has to follow some conventions to be able to interact with <code>VM wrapper</code>. These are described in details in <a href="backend/app_conventions.html">Backend application conventions</a> section of this book.</p>
-<a class="header" href="#fluence-backend-conventions" id="fluence-backend-conventions"><h1>Fluence backend conventions</h1></a>
+<p>Each <code>app</code> should has some features to be able to run on Fluence. They are described in details in <a href="backend/./app_conventions.html">backend application conventions</a>. To simplify <code>app</code> process developing we developed a backend sdk that described in <a href="backend/./sdk_overview.html">sdk overview</a>.</p>
+<a class="header" href="#backend-app-conventions" id="backend-app-conventions"><h1>Backend app conventions</h1></a>
 <a class="header" href="#app-lifecycle" id="app-lifecycle"><h2>App lifecycle</h2></a>
-<p>The Fluence network backend infrastructure is based on Scala and Rust. Each computation unit node in the network has a <code>VM wrapper</code> written on Scala that interacts with a backend <code>App</code> written on Wasm and published to the network by developers. To be able to run supplied Wasm code <a href="https://github.com/fluencelabs/asmble">Asmble</a> is used. It compiles supplied Wasm cdoe to a JVM class that then loaded by <code>VM wrapper</code>. All other interactions between <code>App</code> and <code>VM wrapper</code> occurs in <code>VM wrapper</code> process address space without any inter-process communications.</p>
+<p>The Fluence network backend infrastructure is based on Scala and Rust. Each computation node in the network has a <code>VM wrapper</code> written on Scala that interacts with a backend <code>app</code> written on Wasm and published to the network by developers. To be able to run supplied Wasm code <a href="https://github.com/fluencelabs/asmble">Asmble</a> is used. It compiles supplied Wasm code to a JVM class that then loaded by <code>VM wrapper</code>. All other interactions between <code>app</code> and <code>VM wrapper</code> occurs in <code>VM wrapper</code> process address space without any inter-process communications.</p>
 <p>A <code>main</code> module is invoked by <code>VM wrapper</code> according to the following scheme:</p>
 <ol>
 <li>
@@ -606,7 +606,7 @@ Hello, world! From user myName
 </li>
 </ol>
 <a class="header" href="#fluence-app-conventions" id="fluence-app-conventions"><h2>Fluence App conventions</h2></a>
-<p>There are several restriction and conventions that each supplied <code>App</code> has to be met:</p>
+<p>There are several restriction and conventions that each supplied <code>app</code> has to be met:</p>
 <ol>
 <li>
 <p><code>App</code> can consist of several Wasm modules with different names, but only one of them (let's call it <code>main</code> and all other as <code>sidemodules</code> according to <a href="https://github.com/emscripten-core/emscripten/wiki/Linking#overview-of-dynamic-linking">emcscripten</a>) can be called from <code>user-side</code>. This <code>main</code> module MUST don't have the module name section. This requirement is based on the fact that according to the Wasm specification module name is optional, and now there is no a possibility to add it to a generated Wasm binary by default <code>rust</code> compiler.</p>
@@ -624,10 +624,10 @@ Hello, world! From user myName
 <p><code>deallocate</code> function MUST have the next signature <code>(func (export &quot;deallocate&quot;) (param $address i32) (param $size i32) (return))</code>. It is called by <code>VM wrapper</code> with a pointer to a memory region previously allocated through <code>allocate</code> function and its size. This function SHOULD free this memory region.</p>
 </li>
 </ol>
-<a class="header" href="#fluence-sdk-overview" id="fluence-sdk-overview"><h1>Fluence SDK overview</h1></a>
+<a class="header" href="#fluence-backend-sdk-overview" id="fluence-backend-sdk-overview"><h1>Fluence backend SDK overview</h1></a>
 <p>Fluence SDK consists of two crates: <code>main</code> and <code>macro</code>. The first one is used for all memory relative operations and logging (please see <a href="backend/./app_debugging.html">App debugging</a> section for more information). The second one contains a procedural macro that simplifies the entry function signature. These crates can be used separately of each other but the more preferred way is using the global <code>fluence</code> crate that reexport all other. In <code>edition 2018</code> rust it can be done by add <code>use fluence::sdk::*</code> to the source.</p>
-<a class="header" href="#writing-app-without-sdk" id="writing-app-without-sdk"><h2>Writing App without SDK</h2></a>
-<p>First of all let's review how a simple <code>hello-world</code> app can be written without Fluence SDK on Rust. From <a href="backend/app_conventions.html">Fluence backend conventions</a> it follows that each App must have a <code>main</code> module with three export functions. According to the restrictions of their signatures a basic structure of <code>main</code> module can look like that:</p>
+<a class="header" href="#writing-app-without-sdk" id="writing-app-without-sdk"><h2>Writing app without SDK</h2></a>
+<p>First of all let's review how a simple <code>hello-world</code> <code>app</code> can be written without Fluence SDK on Rust. From <a href="backend/app_conventions.html">Fluence backend conventions</a> it follows that each <code>app</code> must have a <code>main</code> module with three export functions. According to the restrictions of their signatures a basic structure of <code>main</code> module can look like that:</p>
 <pre><code class="language-Rust">#[no_mangle]
 pub unsafe fn invoke(ptr: *mut u8, len: usize) -&gt; usize {
     ...
@@ -696,7 +696,7 @@ pub unsafe fn deallocate(ptr: NonNull&lt;u8&gt;, size: usize) {
 }
 </code></pre>
 <a class="header" href="#fluence-sdk-usage" id="fluence-sdk-usage"><h2>Fluence SDK usage</h2></a>
-<p>From the example above it can be seen that <code>allocate</code> and <code>deallocate</code> functions have only a utility purpose and normally used only by VM wrapper. These functions aren't any that most of developers want to realize in their Apps. Fluence SDK provides <code>fluence::memory::alloc</code> and <code>fluence::memory::dealloc</code> functions also based on <a href="https://doc.rust-lang.org/beta/std/alloc/trait.GlobalAlloc.html">GlobalAlloc</a>. They exported by default after including the sdk and can be disabled by specifying the <code>no_export_allocator</code> feature.</p>
+<p>From the example above it can be seen that <code>allocate</code> and <code>deallocate</code> functions have only a utility purpose and normally used only by VM wrapper. These functions aren't any that most of developers want to realize in their <code>apps</code>. Fluence SDK provides <code>fluence::memory::alloc</code> and <code>fluence::memory::dealloc</code> functions also based on <a href="https://doc.rust-lang.org/beta/std/alloc/trait.GlobalAlloc.html">GlobalAlloc</a>. They exported by default after including the sdk and can be disabled by specifying the <code>no_export_allocator</code> feature.</p>
 <p>The <code>invoke</code> function can be also simplified by using the Fluence SDK that provides <code>fluence::memory::write_result_to_mem</code> and <code>fluence::memory::read_input_from_mem_</code> in this way:</p>
 <pre><code class="language-Rust">#[no_mangle]
 pub unsafe fn invoke(_ptr: *mut u8, _len: usize) -&gt; usize {
@@ -793,7 +793,7 @@ extern crate fluence;
 
 use fluence::sdk::*;
 </code></pre>
-<p>Example of <code>hello-world2</code> app on rust <code>edition 2015</code> can be found <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2015">here</a>.</p>
+<p>Example of <code>hello-world2</code> <code>app</code> on rust <code>edition 2015</code> can be found <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2015">here</a>.</p>
 <a class="header" href="#fluence-app-debugging" id="fluence-app-debugging"><h1>Fluence app debugging</h1></a>
 <a class="header" href="#wasm-logger-usage" id="wasm-logger-usage"><h2>Wasm logger usage</h2></a>
 <p>There is a few debugging capabilities for Wasm program. The Fluence network provides a possibility to so-called print-debugging. It can be included by specifying <code>wasm_logger</code> feature of the sdk.</p>
@@ -822,8 +822,8 @@ fn main(name: String) -&gt; String {
 </code></pre>
 <p>It is important to note that by default debugging capabilities is disabled on the Fluence network because of verification game process (you can find more information about it in <a href="TODO">our paper</a>).</p>
 <a class="header" href="#usage-of-scala-runner" id="usage-of-scala-runner"><h2>Usage of Scala runner</h2></a>
-<p>Sometimes it needs not only debug output but a possibility to run resulted Wasm App with some different inputs. It can be done by using so-called runner written on Scala (because of it uses a <code>WasmVm</code> implementation that also written on Scala).</p>
-<p>Let's a dig a little bit into <code>hello-world2</code> <a href="(https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/runner)">runner</a>. It receives a path to a Wasm binary as the first CLI argument, then creates <code>vm</code> object that extends <code>WasmVm</code> trait. During this creation Wasm code is compiled by Asmble to JVM and loaded into VM. This trait has two public methods: <code>invoke</code> that manages requests to app and <code>getVmState</code> that computes a hash of significant inner state. In the following code snippet</p>
+<p>Sometimes it needs not only debug output but a possibility to run resulted Wasm <code>app</code> with some different inputs. It can be done by using so-called runner written on Scala (because of it uses a <code>WasmVm</code> implementation that also written on Scala).</p>
+<p>Let's a dig a little bit into <code>hello-world2</code> <a href="(https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/runner)">runner</a>. It receives a path to a Wasm binary as the first CLI argument, then creates <code>vm</code> object that extends <code>WasmVm</code> trait. During this creation Wasm code is compiled by Asmble to JVM and loaded into VM. This trait has two public methods: <code>invoke</code> that manages requests to <code>app</code> and <code>getVmState</code> that computes a hash of significant inner state. In the following code snippet</p>
 <pre><code class="language-Scala">      inputFile &lt;- EitherT(getWasmFilePath(args).attempt)
         .leftMap(e =&gt; InternalVmError(e.getMessage, Some(e)))
         
@@ -833,7 +833,7 @@ fn main(name: String) -&gt; String {
 
       result1 ← vm.invoke[IO](None, &quot;John&quot;.getBytes())
 </code></pre>
-<p><code>inputFile</code> points to supplied path to wasm file. Then WasmVm instance is created with path and <code>fluence.vm.debugger</code> config. This config (for <code>hello-world2</code> app it can be found <a href="https://github.com/fluencelabs/fluence/blob/master/vm/examples/hello-world2/runner/src/main/resources/reference.conf">here</a>) contains some useful settings that control some inner VM creation process a little bit:</p>
+<p><code>inputFile</code> points to supplied path to wasm file. Then WasmVm instance is created with path and <code>fluence.vm.debugger</code> config. This config (for <code>hello-world2</code> <code>app</code> it can be found <a href="https://github.com/fluencelabs/fluence/blob/master/vm/examples/hello-world2/runner/src/main/resources/reference.conf">here</a>) contains some useful settings that control some inner VM creation process a little bit:</p>
 <ul>
 <li>
 <p><code>defaultMaxMemPages</code> - the maximum number of memory pages when a module doesn't specify it, each Wasm page according to the specification contains 65536 bytes (64 by default, 65536*64 = 4MB)</p>
@@ -851,17 +851,17 @@ fn main(name: String) -&gt; String {
 <p><code>invokeFunctionName</code> - the name of the main module handler function (<code>invoke</code> by default)</p>
 </li>
 </ul>
-<p>Then the hash of internal state is computed by <code>vm.getVmState</code> and App <code>invoke</code> is called by <code>vm.invoke</code>.</p>
+<p>Then the hash of internal state is computed by <code>vm.getVmState</code> and <code>invoke</code> from <code>app</code> is called by <code>vm.invoke</code>.</p>
 <a class="header" href="#examples" id="examples"><h1>Examples</h1></a>
 <p>In this sections some examples of backend applications are described.</p>
 <a class="header" href="#hello-world" id="hello-world"><h2>Hello-world</h2></a>
-<p><a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world">Hello-world</a> is a simple demo app for the Fluence network that shows a basic usage of the Fluence SDK.</p>
+<p><a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world">Hello-world</a> is a simple demo <code>app</code> for the Fluence network that shows a basic usage of the Fluence SDK.</p>
 <a class="header" href="#hello-world2-with-logging" id="hello-world2-with-logging"><h2>Hello-world2 with logging</h2></a>
 <p><a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2018">Hello-world2</a> is a simple demo app for the Fluence network that shows either a basic usage and the logger feature of the Fluence SDK.</p>
 <a class="header" href="#llamadb" id="llamadb"><h2>Llamadb</h2></a>
-<p><a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/llamadb">Llamadb</a> app is an example of adopting of existing in-memory SQL database to the Fluence network. This app is based on the original <a href="https://github.com/fluencelabs/llamadb">llamadb</a> database. Since it is in-memory database and doesn't use multithreading, disk storage or other OS features it can be easily ported to the Fluence. All that need to do it is a simple <a href="https://github.com/fluencelabs/fluence/blob/master/vm/examples/llamadb/src/lib.rs">wrapper</a> that receives requests from <code>client-side</code>, manages it to the original <code>llamadb</code> and returns results back.</p>
+<p><a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/llamadb">Llamadb</a> <code>app</code> is an example of adopting of existing in-memory SQL database to the Fluence network. This <code>app</code> is based on the original <a href="https://github.com/fluencelabs/llamadb">llamadb</a> database. Since it is in-memory database and doesn't use multithreading, disk storage or other OS features it can be easily ported to the Fluence. All that need to do it is a simple <a href="https://github.com/fluencelabs/fluence/blob/master/vm/examples/llamadb/src/lib.rs">wrapper</a> that receives requests from <code>client-side</code>, manages it to the original <code>llamadb</code> and returns results back.</p>
 <a class="header" href="#tic-tac-toe" id="tic-tac-toe"><h2>Tic-tac-toe</h2></a>
-<p><a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/tic-tac-toe">tic-tac-toe</a> app is an example of proper memory management and function routing scheme through json. This app provides us with a bunch of public methods:</p>
+<p><a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/tic-tac-toe">tic-tac-toe</a> <code>app</code> is an example of proper memory management and function routing scheme through json. This <code>app</code> provides us with a bunch of public methods:</p>
 <ul>
 <li>
 <p><code>create_payer</code> - creates a new player with a given player name</p>
@@ -870,7 +870,7 @@ fn main(name: String) -&gt; String {
 <p><code>create_game</code> - creates a new game for a provided player</p>
 </li>
 <li>
-<p><code>move</code> - makes user and app moves sequentially, returns app move coordinates</p>
+<p><code>move</code> - makes user and <code>app</code> moves sequentially, returns <code>app</code> move coordinates</p>
 </li>
 <li>
 <p><code>get_game_state</code> - returns state of game for given user (includes board state and user tile)</p>
@@ -913,7 +913,7 @@ fn main(name: String) -&gt; String {
 <p>It can be viewed that at first <code>req</code> is parsed to <code>serde_json::Value</code> (and this parsing is occurred only once), then the result is parsed to a <code>Request</code> struct same for all requests. This struct contains <code>action</code> and <code>player_name</code> fields. After this parsing routing could be done by <code>action</code> field value. Each action can has it own request structure and additional parsing to a concrete structure can be done in the same way (please see <code>move</code> and <code>create_game</code> cases from the above example).</p>
 <a class="header" href="#memory-management" id="memory-management"><h3>Memory management</h3></a>
 <p>Proper memory management is a corner stone of application that provides capabilities to store some user-supplied data. In tic-tac-toe it is solved by using a fixed-size collection for all internal objects that can be of two types: <code>Player</code> and <code>Game</code>. <code>Player</code> contains a string that represents its name and <code>Game</code> contains board state and a tile chosen by user.</p>
-<p>Since <code>create_player</code> allows to create an infinite count of <code>Player</code>, they could exhaust all app memory. <a href="https://github.com/andylokandy/arraydeque">ArrayDeque</a> manages to solve this problem by providing a fixed size queue that can pop up object from the front while exceeding the limit.</p>
+<p>Since <code>create_player</code> allows to create an infinite count of <code>Player</code>, they could exhaust all <code>app</code> memory. <a href="https://github.com/andylokandy/arraydeque">ArrayDeque</a> manages to solve this problem by providing a fixed size queue that can pop up object from the front while exceeding the limit.</p>
 <p>Then consider a situation when each user can have play to several games or the size of <code>Game</code> is too big compare to the size of <code>Player</code> to give example that is more close to real applications. In this situation one of the approaches is use a separate queue for <code>Game</code> objects (of cause <code>Game</code> can be saved into a <code>Player</code> even in vector or map but consider a more complex design that give a more control of memory management). To implement it each <code>Player</code> should has a smth like id of a proper <code>Game</code> object. Since all of them are placed in queue that can change it position in some time, the only way is using a smart pointers. It this example there are two queues that own <code>Player</code> and <code>Game</code> objects (it means that they store a strong Rc ptr to them) and <code>Player</code> has a weak ptr to a proper <code>Game</code> object.</p>
 <p>Also it would be good to find <code>Player</code> object by name more faster than <code>O(n)</code>. To reach it <code>HashMap</code> can be used. And because of our design <code>HashMap</code> should also contains weak pointers to players. According to all of these the final structure could look like this:</p>
 <pre><code class="language-Rust">pub struct GameManager {
@@ -926,10 +926,10 @@ fn main(name: String) -&gt; String {
 <p>TBD</p>
 <a class="header" href="#best-practices" id="best-practices"><h1>Best practices</h1></a>
 <a class="header" href="#memory-management-in-app" id="memory-management-in-app"><h2>Memory management in app</h2></a>
-<p>Please pay attention to module memory usage - each app can have maximum 4Gb of heap. But in many situations app can have public API that explicitly or indirectly consume module memory (e.g. by saving some user data). So users can make a DoS attack to such app. Usually proper work with memory can be reach by using fix-size collections like <a href="https://github.com/andylokandy/arraydeque">ArrayDeque</a>. In future Fluence SDK will provide some other collections for that.</p>
-<p>One example of careful memory management can be found in <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/tic-tac-toe">tic-tac-toe</a> example app.</p>
-<a class="header" href="#shrinking-app-code-size" id="shrinking-app-code-size"><h2>Shrinking App code size</h2></a>
-<p>There are some techniques that can reduce size of generated app. Most of them can be found in this nice <a href="https://rustwasm.github.io/book/reference/code-size.html">chapter</a> of <code>Rust and WebAssembly</code> book. But as for the Fluence network to reduce the size of binary as much is possible <code>no_std</code> crate without SDK can be used. The example of <code>hello-world</code> implemented without the sdk can be found in <a href="backend/sdk_overview.html">Fluence SDK overview</a>.</p>
+<p>Please pay attention to module memory usage - each <code>app</code> can have maximum 4Gb of heap. But in many situations <code>app</code> can have public API that explicitly or indirectly consume module memory (e.g. by saving some user data). So users can make a DoS attack to such app. Usually proper work with memory can be reach by using fix-size collections like <a href="https://github.com/andylokandy/arraydeque">ArrayDeque</a>. In future Fluence SDK will provide some other collections for that.</p>
+<p>One example of careful memory management can be found in <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/tic-tac-toe">tic-tac-toe</a> example <code>app</code>.</p>
+<a class="header" href="#shrinking-app-code-size" id="shrinking-app-code-size"><h2>Shrinking app code size</h2></a>
+<p>There are some techniques that can reduce size of generated <code>app</code>. Most of them can be found in this nice <a href="https://rustwasm.github.io/book/reference/code-size.html">chapter</a> of <code>Rust and WebAssembly</code> book. But as for the Fluence network to reduce the size of binary as much is possible <code>no_std</code> crate without SDK can be used. The example of <code>hello-world</code> implemented without the sdk can be found in <a href="backend/sdk_overview.html">Fluence SDK overview</a>.</p>
 <a class="header" href="#other" id="other"><h2>Other</h2></a>
 <ul>
 <li>
