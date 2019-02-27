@@ -57,7 +57,7 @@ Given these simple methods, you can build a working decentralized web applicatio
 
 You can find examples of such applications below.
 
-# Example apps
+## Example apps
 
 Simple app to start with or use as a template for your app. Interacts with predeployed Llamadb on top of Fluence cluster connected to Kovan testnet:
 https://github.com/fluencelabs/frontend-example
@@ -65,5 +65,5 @@ https://github.com/fluencelabs/frontend-example
 App that allows you to send SQL requests from a browser and shows status of the cluster's workers. Written in TypeScript:
 https://github.com/fluencelabs/fluence/tree/master/js-client/src/examples/fluence-sqldb
 
-# Acknowledgments
+## Acknowledgments
 Thanks to @nukep for the Llamadb database (https://github.com/nukep/llamadb) that we used in this example!
