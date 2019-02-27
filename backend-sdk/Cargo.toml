@@ -1,0 +1,35 @@
+[package]
+name = "fluence"
+version = "0.0.11"  # remember to update html_root_url
+description = "Rust SDK for writing applications for Fluence"
+documentation = "https://docs.rs/fluence/"
+repository = "https://github.com/fluencelabs/fluence/tree/master/sdk/rust"
+authors = ["Fluence Labs"]
+readme = "readme.md"
+keywords = ["fluence", "sdk", "webassembly"]
+categories = ["api-bindings", "wasm"]
+license = "Apache-2.0"
+maintenance = { status = "actively-developed" }
+
+[package.metadata.docs.rs] # https://docs.rs/about
+all-features = true
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+fluence-sdk-macro = { path = "crates/macro", version = "=0.0.11" }
+fluence-sdk-main = { path = "crates/main", version = "=0.0.11" }
+
+[features]
+# Turn on a compilation for module contains Wasm logger realization.
+wasm_logger = ["fluence-sdk-main/wasm_logger"]
+
+# Turn off a compilation for module contains standart implementation of allocate/deallocate functions.
+no_export_allocator = ["fluence-sdk-main/no_export_allocator"]
+
+[workspace]
+members = [
+  "crates/main",
+  "crates/macro",
+  ]

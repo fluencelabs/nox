@@ -1,0 +1,480 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Miner guide - The Fluence book</title>
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="shortcut icon" href="favicon.png">
+        <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+        <link rel="stylesheet" href="css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
+        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+    </head>
+    <body class="light">
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { } 
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            document.body.className = theme;
+            document.querySelector('html').className = theme + ' js';
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <ol class="chapter"><li><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><a href="kickstart.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><a href="backend/index.html"><strong aria-hidden="true">3.</strong> Backend guide</a></li><li><ol class="section"><li><a href="backend/app_conventions.html"><strong aria-hidden="true">3.1.</strong> Fluence backend conventions</a></li><li><a href="backend/sdk_overview.html"><strong aria-hidden="true">3.2.</strong> Fluence SDK overview</a></li><li><a href="backend/app_debugging.html"><strong aria-hidden="true">3.3.</strong> App debugging</a></li><li><a href="backend/examples.html"><strong aria-hidden="true">3.4.</strong> Examples</a></li><li><a href="backend/best_practices.html"><strong aria-hidden="true">3.5.</strong> Best practices</a></li></ol></li><li><a href="frontend.html"><strong aria-hidden="true">4.</strong> Frontend guide</a></li><li><a href="miner.html" class="active"><strong aria-hidden="true">5.</strong> Miner guide</a></li></ol>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar" class="menu-bar">
+                    <div id="menu-bar-sticky-container">
+                        <div class="left-buttons">
+                            <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                                <i class="fa fa-bars"></i>
+                            </button>
+                            <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                                <i class="fa fa-paint-brush"></i>
+                            </button>
+                            <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                                <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                            </ul>
+                            
+                            <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                                <i class="fa fa-search"></i>
+                            </button>
+                            
+                        </div>
+
+                        <h1 class="menu-title">The Fluence book</h1> 
+
+                        <div class="right-buttons">
+                            <a href="print.html" title="Print this book" aria-label="Print this book">
+                                <i id="print-button" class="fa fa-print"></i>
+                            </a>
+                            
+                        </div>
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <ul>
+<li><a href="#fluence-miner-guide">Fluence miner guide</a>
+<ul>
+<li><a href="#how-mining-works">How mining works</a></li>
+<li><a href="#how-to-become-a-fluence-miner">How to become a Fluence miner</a>
+<ul>
+<li><a href="#deploy-fluence-node-to-a-cloud">Deploy Fluence node to a cloud</a></li>
+<li><a href="#deploy-fluence-node-locally">Deploy Fluence node locally</a></li>
+</ul>
+</li>
+<li><a href="#how-to-check-if-node-is-registered">How to check if node is registered</a></li>
+<li><a href="#private-nodes-and-application-pinning">Private nodes and application pinning</a>
+<ul>
+<li><a href="#private-nodes">Private nodes</a></li>
+<li><a href="#application-pinning">Application pinning</a>
+<ul>
+<li><a href="#mixing-pinning-and-matching">Mixing pinning and matching</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#how-to-remove-a-node-from-the-fluence-smart-contract">How to remove a node from the Fluence smart contract</a></li>
+<li><a href="#tips-and-tricks">Tips and tricks</a></li>
+</ul>
+</li>
+</ul>
+<a class="header" href="#fluence-miner-guide" id="fluence-miner-guide"><h1>Fluence miner guide</h1></a>
+<p>Being a miner in Fluence network means that you will provide you computation power to host decentralized backends. In order to do that, you will need just a few things:</p>
+<ol>
+<li>A computer to run a Fluence node and workers on it</li>
+<li>Installed and running Docker and <code>docker-compose</code></li>
+<li>Installed python2 pip</li>
+<li>An Ethereum light-client or full node connected to Rinkeby testnet</li>
+<li>A Rinkeby Ethereum wallet topped up with some ETH to submit transactions</li>
+</ol>
+<a class="header" href="#how-mining-works" id="how-mining-works"><h2>How mining works</h2></a>
+<p>The process is as follows:
+You run a Docker image with Fluence node on your computer, then you register that node within Fluence smart contract by using Fluence CLI. On registration, you specify max number of backends you wish to host, so your node doesn't run out of resources.</p>
+<p>After you registered your node within smart contract, it starts waiting to be included in an application cluster. That will happen when someone publishes an app and the Fluence smart contract will match that app to your node, and then send an Ethereum event that your node is listening to.</p>
+<p>When node receives an event stating it's a part of an application cluster now, it will download application code from Swarm, and then run a Docker image with Fluence worker hosting that code.</p>
+<a class="header" href="#how-to-become-a-fluence-miner" id="how-to-become-a-fluence-miner"><h2>How to become a Fluence miner</h2></a>
+<p>The first step is to deploy a Fluence node. Deploy is automated, you can get scripts by cloning <a href="https://github.com/fluencelabs/fluence">Fluence repo</a>:</p>
+<pre><code>git clone https://github.com/fluencelabs/fluence
+</code></pre>
+<a class="header" href="#deploy-fluence-node-to-a-cloud" id="deploy-fluence-node-to-a-cloud"><h3>Deploy Fluence node to a cloud</h3></a>
+<p>It's an automated task, you will only need to specify your cloud instance IP addresses and your Ethereum wallet, and then run a (Fabric)[https://github.com/fabric/fabric] script.</p>
+<p>First, let's install Fabric:</p>
+<pre><code class="language-bash"># make use you're using python2
+$ pip --version
+pip 18.0 from &lt;...&gt; (python 2.7)
+$ pip install Fabric==1.14.1
+</code></pre>
+<p>It should install fabric 1.14.1. <strong>Be careful not to install Fabric 2 as it's not current supported.</strong></p>
+<p>Next, open <a href="../../tools/deploy/instances.json">fluence/tools/deploy/instances.json</a> in your favorite text editor, and modify config:</p>
+<pre><code class="language-json">{
+    &quot;&lt;ip1&gt;&quot;: {
+        &quot;owner&quot;: &quot;&lt;owner-account1&gt;&quot;,
+        &quot;key&quot;: &quot;&lt;secret-key1&gt;&quot;,
+        &quot;api_port&quot;: &quot;&lt;port&gt;&quot;,
+        &quot;capacity&quot;: &quot;&lt;max-num-of-apps&gt;&quot;
+    },
+    &quot;&lt;ip2&gt;&quot;: {
+        &quot;owner&quot;: &quot;&lt;owner-account2&gt;&quot;,
+        &quot;key&quot;: &quot;&lt;secret-key2&gt;&quot;,
+        &quot;api_port&quot;: &quot;&lt;port&gt;&quot;,
+        &quot;capacity&quot;: &quot;&lt;max-num-of-apps&gt;&quot;
+    }
+}
+
+</code></pre>
+<p>You can specify here several nodes, but for the sake of example, let's continue with a single node. After filling info in deploy_config.json, it should look similar to this:</p>
+<pre><code class="language-json">{
+    &quot;53.42.31.20&quot;: {
+        &quot;owner&quot;: &quot;0x00a329c0648769a73afac7f9381e08fb43dbea72&quot;,
+        &quot;key&quot;: &quot;4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7&quot;,
+        &quot;api_port&quot;: &quot;25000&quot;,
+        &quot;capacity&quot;: 10
+    }
+}
+</code></pre>
+<p>You can also change user running setup commands on cloud instance by <code>env.user</code> to desired username.</p>
+<pre><code class="language-python"># Set the username
+env.user = &quot;root&quot;
+</code></pre>
+<p>Now, let's deploy Fluence node along with Geth and Swarm containers:</p>
+<pre><code class="language-bash">$ fab deploy
+</code></pre>
+<p>At the end of the successful deployment you should see something like the following:</p>
+<pre><code>[53.42.31.20] out: CONTRACT_ADDRESS=0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7
+[53.42.31.20] out: NAME=fluence-node-1
+[53.42.31.20] out: HOST_IP=53.42.31.20
+[53.42.31.20] out: EXTERNAL_HOST_IP=53.42.31.20
+[53.42.31.20] out: OWNER_ADDRESS=0x00a329c0648769a73afac7f9381e08fb43dbea72
+...
+[53.42.31.20] out: Node container is started.
+[53.42.31.20] out: CURRENT NODE = 1
+[53.42.31.20] out: TENDERMINT_KEY=YAa6x36acTUIemAoejyplm+cUKe5rhTC1ArMPLMfvFY=
+[53.42.31.20] out: API_PORT=25000
+[53.42.31.20] out: CAPACITY=10
+</code></pre>
+<p>Here you have some useful information that you can use with Fluence CLI.</p>
+<p>At the very end, you should see something like this:</p>
+<pre><code>[53.42.31.20] out: [1/2]   Node synced. ---&gt; [00:00:00]
+[53.42.31.20] out: [2/2]   Node added. ---&gt; [00:00:00]
+[53.42.31.20] out: Node registered. Submitted transaction: 0x51e1dcf1cf20e136ce66d240e9897c329894c1084e55b13a4fab751fbaced981
+</code></pre>
+<p>That's the result of script registering your node within Fluence smart contract. You can see it in <a href="../../tools/deploy/scripts/compose.sh">compose.sh</a>:</p>
+<pre><code class="language-bash">./fluence register \
+        --node_ip           $EXTERNAL_HOST_IP \
+        --tendermint_key    $TENDERMINT_KEY \
+        --contract_address  $CONTRACT_ADDRESS \
+        --account           $OWNER_ADDRESS \
+        --secret_key        $PRIVATE_KEY \
+        --api_port          $API_PORT \
+        --capacity          $CAPACITY \
+        --wait_syncing \
+        --base64_tendermint_key
+</code></pre>
+<p>All environment variables used in the command are listed in the useful information above, so you can easily use them with Fluence CLI.</p>
+<a class="header" href="#deploy-fluence-node-locally" id="deploy-fluence-node-locally"><h3>Deploy Fluence node locally</h3></a>
+<p>If you wish to use your local computer to host Fluence node, you can do that by running <a href="../../tools/deploy/scripts/rinkeby-compose.sh">rinkeby-compose.sh</a> like this:</p>
+<pre><code># ./rinkeby-compose.sh &lt;external-ip&gt; &lt;owner-address&gt; &lt;private-key&gt; &lt;api-port&gt; &lt;capacity&gt;
+./rinkeby-compose.sh 53.42.31.20 0x00a329c0648769a73afac7f9381e08fb43dbea72 4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 25000 10
+</code></pre>
+<a class="header" href="#how-to-check-if-node-is-registered" id="how-to-check-if-node-is-registered"><h2>How to check if node is registered</h2></a>
+<p>You can use <a href="../../cli/README.html">Fluence CLI</a> to query current state of network in Fluence smart contract like this:</p>
+<pre><code class="language-bash">./fluence status
+</code></pre>
+<p><strong>Note:</strong> if your Ethereum node is remote, you can specify it's address via <code>--eth_url</code> option, like this:</p>
+<pre><code class="language-bash">./fluence status --eth_url https://53.42.31.20:8545
+</code></pre>
+<p>You should see your Ethereum address under <code>owner</code> in <code>nodes</code> list. Similar to this:</p>
+<pre><code class="language-json">{
+  &quot;apps&quot;: [],
+  &quot;nodes&quot;: [
+    {
+      &quot;id&quot;: &quot;0x6006bac77e9a7135087a60287a3ca9966f9c50a7b9ae14c2d40acc3cb31fbc56&quot;,
+      &quot;tendermint_key&quot;: &quot;0x4b4432951f27c2e9a29017b3b6dee46a2e08c3a2&quot;,
+      &quot;ip_addr&quot;: &quot;53.42.31.20&quot;,
+      &quot;api_port&quot;: 25001,
+      &quot;capacity&quot;: 10,
+      &quot;owner&quot;: &quot;0x00a329c0648769a73afac7f9381e08fb43dbea72&quot;,
+      &quot;is_private&quot;: false,
+      &quot;clusters_ids&quot;: []
+    }
+  ]
+}
+</code></pre>
+<p>Please refer to Fluence CLI <a href="../../cli/README.html">README</a> for more info on installation and usage.</p>
+<a class="header" href="#private-nodes-and-application-pinning" id="private-nodes-and-application-pinning"><h2>Private nodes and application pinning</h2></a>
+<a class="header" href="#private-nodes" id="private-nodes"><h3>Private nodes</h3></a>
+<p>By default, after you register a node in the Fluence smart contract, any matching code could be deployed on it. So the node is publici by default.</p>
+<p>But if you want to host only your app, there is a way to mark node <strong>private</strong>. That could be to be sure about what apps you're hosting, what's their workload or just to be sure <em>your</em> app gets enough resources to be ran.</p>
+<p>When a node is marked as <strong>private</strong>, only your apps can be deployed on that node. This is determined by the Ethereum address that sent the transaction for node registration and for application deployment.</p>
+<p>The following command will register a private node:</p>
+<pre><code class="language-bash">./fluence register \
+            --private \
+            --node_ip               85.82.118.4 \
+            --tendermint_key        1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
+            --tendermint_node_id    5e4eedba85fda7451356a03caffb0716e599679b \
+            --contract_address      0x9995882876ae612bfd829498ccd73dd962ec950a \
+            --account               0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --base64_tendermint_key \
+            --secret_key            0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
+            --wait_syncing \
+            --api_port              25000 \
+            --capacity              10
+</code></pre>
+<p>As suggested by it's name, it's the <code>--private</code> flag what's making the registered node a private one.</p>
+<p>Now, only apps <a href="backend.html">published</a> to Fluence smart contract from your Ethereum address can get deployed on your nodes. <strong>But these apps need to specify nodes they should be hosted on</strong>, that's called <strong>application pinning</strong>.</p>
+<a class="header" href="#application-pinning" id="application-pinning"><h3>Application pinning</h3></a>
+<p>So, since your nodes are <a href="#private-nodes">private</a>, the application publishing process changes a little: you need to specify IDs of the nodes where you want the application to be hosted. With CLI, that's pretty easy. Assuming you have registered 4 private nodes, and their IDs are:</p>
+<ul>
+<li><code>1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM=</code></li>
+<li><code>QYLcTI9uChtEVdXaR9+WgMlxJ1AVVuroe5Jyay+epbI=</code></li>
+<li><code>+l30LsCMPGeL6/YIwKg8RWOhS55PLIAZT05D11GJAxY=</code></li>
+<li><code>xkaW9SpCJjfzLABM+1B6PTh54qIwvgsHCkOe3VULYbE=</code></li>
+</ul>
+<p>All you have to do is to provide these node ids to <code>--pin_to</code> flag as a space-separated list:</p>
+<pre><code class="language-bash">./fluence publish \
+            --code_path        fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm \
+            --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
+            --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --cluster_size     4 \
+            --secret_key       0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
+            --pin_to           1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
+                               QYLcTI9uChtEVdXaR9+WgMlxJ1AVVuroe5Jyay+epbI= \
+                               +l30LsCMPGeL6/YIwKg8RWOhS55PLIAZT05D11GJAxY= \
+                               xkaW9SpCJjfzLABM+1B6PTh54qIwvgsHCkOe3VULYbE= \
+            --base64
+</code></pre>
+<p><em>Note that you can pin your app to your both <strong>private</strong> and <strong>public</strong> nodes.</em> Marking node as private just prevents random apps to be deployed on that node.</p>
+<a class="header" href="#mixing-pinning-and-matching" id="mixing-pinning-and-matching"><h4>Mixing pinning and matching</h4></a>
+<p>The command above is a perfect match, it's pinning the app to four nodes, and also specifies a cluster size of four, so every node hosting the app is directly pinned to it.</p>
+<p>But what if your app requires more nodes than you wish to register? In that case, you can pin your app to any number of nodes, be it just one or a few, and specify a cluster size that you need. Fluence smart contract will then match your app both against your pinned nodes and available public nodes. The command is almost the same, except the <code>--cluster_size</code> requires eight nodes.</p>
+<pre><code class="language-bash">./fluence publish \
+            --code_path        /Users/folex/Development/fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm \            
+            --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --cluster_size     8 \
+            --secret_key       0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
+            --pin_to           1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
+                               QYLcTI9uChtEVdXaR9+WgMlxJ1AVVuroe5Jyay+epbI= \
+                               +l30LsCMPGeL6/YIwKg8RWOhS55PLIAZT05D11GJAxY= \
+                               xkaW9SpCJjfzLABM+1B6PTh54qIwvgsHCkOe3VULYbE= \
+            --base64
+</code></pre>
+<p>So, assuming contract has just four registered nodes and one app, the <code>./fluence status --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a</code> will look like this:</p>
+<pre><code class="language-json">{
+  &quot;apps&quot;: [
+    {
+      &quot;app_id&quot;: &quot;0x0000000000000000000000000000000000000000000000000000000000000001&quot;,
+      &quot;storage_hash&quot;: &quot;0x585114171e6b1639af3e9a4f237d8da6d1c5624b235cb45c062ca5d89a151cc2&quot;,
+      &quot;storage_receipt&quot;: &quot;0x0000000000000000000000000000000000000000000000000000000000000000&quot;,
+      &quot;cluster_size&quot;: 8,
+      &quot;owner&quot;: &quot;0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d&quot;,
+      &quot;pin_to_nodes&quot;: [
+        &quot;0xd46543202ce0af0d6a6a13df49bc027d8c34cebc3dd4e319e3a4282af24c8e33&quot;,
+        &quot;0x4182dc4c8f6e0a1b4455d5da47df9680c97127501556eae87b92726b2f9ea5b2&quot;,
+        &quot;0xfa5df42ec08c3c678bebf608c0a83c4563a14b9e4f2c80194f4e43d751890316&quot;,
+        &quot;0xc64696f52a422637f32c004cfb507a3d3879e2a230be0b070a439edd550b61b1&quot;
+      ],
+      &quot;cluster&quot;: null
+    }
+  ],
+  &quot;nodes&quot;: [
+    {
+      &quot;id&quot;: &quot;0xd46543202ce0af0d6a6a13df49bc027d8c34cebc3dd4e319e3a4282af24c8e33&quot;,
+      &quot;tendermint_key&quot;: &quot;0x5e4eedba85fda7451356a03caffb0716e599679b&quot;,
+      &quot;ip_addr&quot;: &quot;85.82.118.4&quot;,
+      &quot;api_port&quot;: 25000,
+      &quot;capacity&quot;: 10,
+      &quot;owner&quot;: &quot;0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d&quot;,
+      &quot;is_private&quot;: true,
+      &quot;clusters_ids&quot;: []
+    },
+    {
+      &quot;id&quot;: &quot;0x4182dc4c8f6e0a1b4455d5da47df9680c97127501556eae87b92726b2f9ea5b2&quot;,
+      &quot;tendermint_key&quot;: &quot;0x5e4eedba85fda7451356a03caffb0716e599679b&quot;,
+      &quot;ip_addr&quot;: &quot;85.82.118.4&quot;,
+      &quot;api_port&quot;: 25000,
+      &quot;capacity&quot;: 10,
+      &quot;owner&quot;: &quot;0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d&quot;,
+      &quot;is_private&quot;: true,
+      &quot;clusters_ids&quot;: []
+    },
+    {
+      &quot;id&quot;: &quot;0xfa5df42ec08c3c678bebf608c0a83c4563a14b9e4f2c80194f4e43d751890316&quot;,
+      &quot;tendermint_key&quot;: &quot;0x5e4eedba85fda7451356a03caffb0716e599679b&quot;,
+      &quot;ip_addr&quot;: &quot;85.82.118.4&quot;,
+      &quot;api_port&quot;: 25000,
+      &quot;capacity&quot;: 10,
+      &quot;owner&quot;: &quot;0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d&quot;,
+      &quot;is_private&quot;: true,
+      &quot;clusters_ids&quot;: []
+    },
+    {
+      &quot;id&quot;: &quot;0xc64696f52a422637f32c004cfb507a3d3879e2a230be0b070a439edd550b61b1&quot;,
+      &quot;tendermint_key&quot;: &quot;0x5e4eedba85fda7451356a03caffb0716e599679b&quot;,
+      &quot;ip_addr&quot;: &quot;85.82.118.4&quot;,
+      &quot;api_port&quot;: 25000,
+      &quot;capacity&quot;: 10,
+      &quot;owner&quot;: &quot;0x4180rfc65d613ba7e1a385181a219f1dbfe7bf11d&quot;,
+      &quot;is_private&quot;: true,
+      &quot;clusters_ids&quot;: []
+    }
+  ]
+}
+</code></pre>
+<p>You see app's <code>cluster</code> is <code>null</code>, that means it's not deployed yet, waiting for enough nodes to be available.</p>
+<a class="header" href="#how-to-remove-a-node-from-the-fluence-smart-contract" id="how-to-remove-a-node-from-the-fluence-smart-contract"><h2>How to remove a node from the Fluence smart contract</h2></a>
+<p>If you shut down your node, it's not available anymore for any reason, or you just want to stop it hosting apps, you can remove the node from the Fluence smart contract like this:</p>
+<pre><code class="language-bash">./fluence delete_node \            
+            --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --secret_key       0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
+            --tendermint_key   1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
+            --base64_tendermint_key
+</code></pre>
+<a class="header" href="#tips-and-tricks" id="tips-and-tricks"><h2>Tips and tricks</h2></a>
+<p>CLI has some neat features not described in that guide:</p>
+<ul>
+<li>Wait until your Ethereum is fully synced</li>
+<li>Wait until the transaction is included in a block, printing additional info from contract</li>
+<li>Look at smart contract <code>status</code> via interactive command-line table viewer</li>
+</ul>
+<p>All these features are described in <a href="../../cli/README.html#tips-and-tricks">CLI's readme</a>, so take a look!</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="frontend.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a href="frontend.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+
+        
+
+        
+        <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>

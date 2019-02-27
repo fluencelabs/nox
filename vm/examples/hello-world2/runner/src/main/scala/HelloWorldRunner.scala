@@ -32,7 +32,7 @@ object HelloWorldRunner extends IOApp {
   override def run(args: List[String]): IO[ExitCode] = {
 
     val program: EitherT[IO, VmError, String] = for {
-      inputFile <- EitherT(getInputFile(args).attempt)
+      inputFile <- EitherT(getWasmFilePath(args).attempt)
         .leftMap(e => InternalVmError(e.getMessage, Some(e)))
       vm ← WasmVm[IO](NonEmptyList.one(inputFile), "fluence.vm.debugger")
       initState ← vm.getVmState[IO]
@@ -76,7 +76,7 @@ object HelloWorldRunner extends IOApp {
     }
   }
 
-  private def getInputFile(args: List[String]): IO[String] = IO {
+  private def getWasmFilePath(args: List[String]): IO[String] = IO {
     args.headOption match {
       case Some(value) ⇒
         println(s"Starts for input file $value")
