@@ -10,8 +10,8 @@ WEB3J=$(command -v web3j)
 BOOTSTRAP_DIR=$(pwd)
 CONTRACTS_DIR=$BOOTSTRAP_DIR/contracts
 COMPILED_DIR=$CONTRACTS_DIR/compiled
-JAVA_CODE_DIR=$(cd $BOOTSTRAP_DIR/../ethclient/src/main/java/; pwd)
+JAVA_CODE_DIR=$(cd $BOOTSTRAP_DIR/../effects/ethclient/src/main/java/; pwd)
 
 mkdir -p $COMPILED_DIR
 
-$WEB3J solidity generate --solidityTypes -b $COMPILED_DIR/Network.bin -a $COMPILED_DIR/Network.abi -o $JAVA_CODE_DIR -p fluence.ethclient
+$WEB3J solidity generate --solidityTypes -b $COMPILED_DIR/Network.bin -a $COMPILED_DIR/Network.abi -o $JAVA_CODE_DIR -p fluence.effects.ethclient

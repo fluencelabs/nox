@@ -95,14 +95,12 @@ class Committer[F[_]](
   private def logState(state: MerkleTreeNode, height: Long, commitTimeMeter: TimeMeter): Unit = {
     val commitDuration = commitTimeMeter.millisElapsed
     logger.info(
-      "{} Commit: processTime={} height={} hash={}",
-      TimeLogger.currentTime(),
+      "Commit: processTime={} height={} hash={}",
       commitDuration,
       height,
       state.merkleHash.toHex
     )
-    logger.debug("\n{}", state.dump())
-    logger.info("") // separating messages related to different blocks from each other
+    logger.debug("MerkleTree state: {}", state.dump())
     commitCounter.inc()
     commitTimeCounter.inc(commitDuration)
   }

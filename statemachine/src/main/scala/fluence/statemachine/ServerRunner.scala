@@ -48,11 +48,9 @@ import scala.language.higherKinds
  */
 object ServerRunner extends IOApp with LazyLogging {
   override def run(args: List[String]): IO[ExitCode] = {
-    configureLogging()
-
     for {
       config <- StateMachineConfig.load[IO]()
-      _ = configureLogLevel(config.logLevel)
+      _ = configureLogging(convertLogLevel(config.logLevel))
 
       _ = logger.info("Starting Metrics servlet")
       _ = startMetricsServer(config.metricsPort)
@@ -173,26 +171,28 @@ object ServerRunner extends IOApp with LazyLogging {
   /**
    * Configures `slogging` logger.
    */
-  private def configureLogging(): Unit = {
-    PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, false)
+  private def configureLogging(level: LogLevel): Unit = {
+    PrintLoggerFactory.formatter = new DefaultPrefixFormatter(true, true, true)
     LoggerConfig.factory = PrintLoggerFactory()
     LoggerConfig.level = LogLevel.INFO
   }
 
   /**
-   * Configures `slogging` log level.
+   * Converts String to `slogging` log level.
    *
    * @param logLevel level of logging
    */
-  private def configureLogLevel(logLevel: String): Unit =
-    LoggerConfig.level = logLevel.toUpperCase match {
+  private def convertLogLevel(logLevel: String): LogLevel =
+    logLevel.toUpperCase match {
       case "OFF" => LogLevel.OFF
       case "ERROR" => LogLevel.ERROR
       case "WARN" => LogLevel.WARN
       case "INFO" => LogLevel.INFO
       case "DEBUG" => LogLevel.DEBUG
       case "TRACE" => LogLevel.TRACE
-      case _ => LogLevel.INFO
+      case _ =>
+        logger.warn(s"Unknown log level `$logLevel`; falling back to INFO")
+        LogLevel.INFO
     }
 
 }

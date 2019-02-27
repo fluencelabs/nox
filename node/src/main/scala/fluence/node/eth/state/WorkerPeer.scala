@@ -18,7 +18,7 @@ package fluence.node.eth.state
 
 import java.net.InetAddress
 
-import fluence.ethclient.helpers.Web3jConverters.bytes32ToBinary
+import fluence.effects.ethclient.helpers.Web3jConverters.bytes32ToBinary
 import org.web3j.abi.datatypes.generated._
 import scodec.bits.ByteVector
 
