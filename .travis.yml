@@ -138,6 +138,6 @@ matrix:
       - cargo install-update -a
 
       script:
-      - cd docs/ && mdbook build && mdbook test
+      - cd docs/ && mdbook build
 
       if: type = pull_request
