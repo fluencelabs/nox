@@ -23,7 +23,7 @@ use failure::{err_msg, ResultExt};
 use fluence::publisher::Published;
 use fluence::register::Registered;
 use fluence::utils;
-use fluence::{check, contract_status, delete_all, delete_app, delete_node, publisher, register};
+use fluence::{check, contract_status, delete_all, delete_app, delete_node, publisher, register, setup};
 use web3::types::H256;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -41,7 +41,8 @@ fn main() -> Result<(), ExitFailure> {
         .subcommand(check::subcommand())
         .subcommand(delete_app::subcommand())
         .subcommand(delete_node::subcommand())
-        .subcommand(delete_all::subcommand());
+        .subcommand(delete_all::subcommand())
+        .subcommand(setup::subcommand());
 
     match app.get_matches().subcommand() {
         ("publish", Some(args)) => {
@@ -136,6 +137,14 @@ fn main() -> Result<(), ExitFailure> {
 
             println!("All nodes and apps should be deleted. Check contract with `status` command.");
         }
+
+        ("setup", _) => {
+            setup::interactive_setup();
+
+            println!("Setup completed.");
+        }
+
+
 
         c => Err(err_msg(format!("Unexpected command: {}", c.0)))?,
     }

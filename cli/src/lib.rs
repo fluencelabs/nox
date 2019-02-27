@@ -17,3 +17,4 @@ pub mod register;
 pub mod step_counter;
 pub mod types;
 pub mod utils;
+pub mod setup;
