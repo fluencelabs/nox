@@ -2,7 +2,7 @@
 
 ## Documentation
 
-The book with detailed description how to use Flunece can be found [here](docs/book/index.html)
+The book with detailed description of how to use Flunece can be found [here](docs/book/index.html)
 
 ## Moving Parts
 
