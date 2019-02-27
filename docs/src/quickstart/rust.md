@@ -165,7 +165,7 @@ authors = ["root"]
 edition = "2018"
 
 [dependencies]
-fluence = { version = "0.0.8", features = ["export_allocator"]}
+fluence = { version = "0.0.11"}
 ```
 
 ### Implementing backend greeting logic
@@ -200,7 +200,7 @@ path = "src/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-fluence = { version = "0.0.8", features = ["export_allocator"]}
+fluence = { version = "0.0.11"}
 ```
 
 ### Compiling to WebAssembly
