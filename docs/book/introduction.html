@@ -29,6 +29,9 @@
         
 
         
+        <!-- MathJax -->
+        <script async type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        
     </head>
     <body class="light">
         <!-- Provide site root to javascript -->
@@ -75,7 +78,7 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <ol class="chapter"><li><a href="introduction.html" class="active"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><a href="kickstart.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><a href="backend/index.html"><strong aria-hidden="true">3.</strong> Backend guide</a></li><li><ol class="section"><li><a href="backend/app_conventions.html"><strong aria-hidden="true">3.1.</strong> Fluence backend conventions</a></li><li><a href="backend/sdk_overview.html"><strong aria-hidden="true">3.2.</strong> Fluence SDK overview</a></li><li><a href="backend/app_debugging.html"><strong aria-hidden="true">3.3.</strong> App debugging</a></li><li><a href="backend/examples.html"><strong aria-hidden="true">3.4.</strong> Examples</a></li><li><a href="backend/best_practices.html"><strong aria-hidden="true">3.5.</strong> Best practices</a></li></ol></li><li><a href="frontend.html"><strong aria-hidden="true">4.</strong> Frontend guide</a></li><li><a href="miner.html"><strong aria-hidden="true">5.</strong> Miner guide</a></li></ol>
+            <ol class="chapter"><li><a href="introduction.html" class="active"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li><a href="overview/overview.html"><strong aria-hidden="true">1.1.</strong> Overview</a></li><li><a href="overview/motivation.html"><strong aria-hidden="true">1.2.</strong> Motivation</a></li></ol></li><li><a href="whatworks.html"><strong aria-hidden="true">2.</strong> Current state of development</a></li><li><a href="quickstart/plan.html"><strong aria-hidden="true">3.</strong> Quick start</a></li><li><ol class="section"><li><a href="quickstart/rust.html"><strong aria-hidden="true">3.1.</strong> Developing the backend app</a></li><li><a href="quickstart/publish.html"><strong aria-hidden="true">3.2.</strong> Publishing your app</a></li><li><a href="quickstart/web.html"><strong aria-hidden="true">3.3.</strong> Developing the web app</a></li><li><a href="quickstart/wrappingup.html"><strong aria-hidden="true">3.4.</strong> Wrapping up</a></li></ol></li><li><a href="backend/index.html"><strong aria-hidden="true">4.</strong> Backend guide</a></li><li><ol class="section"><li><a href="backend/app_conventions.html"><strong aria-hidden="true">4.1.</strong> Fluence backend conventions</a></li><li><a href="backend/sdk_overview.html"><strong aria-hidden="true">4.2.</strong> Fluence SDK overview</a></li><li><a href="backend/app_debugging.html"><strong aria-hidden="true">4.3.</strong> App debugging</a></li><li><a href="backend/examples.html"><strong aria-hidden="true">4.4.</strong> Examples</a></li><li><a href="backend/best_practices.html"><strong aria-hidden="true">4.5.</strong> Best practices</a></li></ol></li><li><a href="roles/miner.html"><strong aria-hidden="true">5.</strong> Miner guide</a></li><li><a href="tools/tools.html"><strong aria-hidden="true">6.</strong> Tools and SDKs</a></li><li><ol class="section"><li><a href="tools/cli_README.html"><strong aria-hidden="true">6.1.</strong> CLI</a></li><li><a href="tools/rust_README.html"><strong aria-hidden="true">6.2.</strong> Rust SDK</a></li><li><a href="tools/js_README.html"><strong aria-hidden="true">6.3.</strong> JS SDK</a></li></ol></li><li><a href="unsolved.html"><strong aria-hidden="true">7.</strong> Open problems</a></li><li><a href="examples/examples.html"><strong aria-hidden="true">8.</strong> Examples</a></li><li><ol class="section"><li><a href="examples/backend.html"><strong aria-hidden="true">8.1.</strong> Backend</a></li><li><a href="examples/frontend.html"><strong aria-hidden="true">8.2.</strong> Web apps</a></li></ol></li><li><a href="benchmarks.html"><strong aria-hidden="true">9.</strong> Benchmarks</a></li></ol>
         </nav>
 
         <div id="page-wrapper" class="page-wrapper">
@@ -140,19 +143,11 @@
 
                 <div id="content" class="content">
                     <main>
-                        <a class="header" href="#how-to-use-fluence" id="how-to-use-fluence"><h1>How to use Fluence</h1></a>
-<p>In Fluence, you can play one of three roles, you can be:</p>
-<ol>
-<li>A miner, providing your computation power to the Fluence Network</li>
-<li>A backend developer, deploying your Webassembly backend application to miners' nodes</li>
-<li>A frontend developer, using someone's backend to develop end-user application</li>
-</ol>
-<a class="header" href="#how-to-become-a-miner" id="how-to-become-a-miner"><h2>How to become a miner</h2></a>
-<p>To learn how to register your computer as a Fluence Node, please refer to <a href="miner.html">Miner Guide</a></p>
-<a class="header" href="#how-to-build-backend-app-with-fluence" id="how-to-build-backend-app-with-fluence"><h2>How to build backend app with Fluence</h2></a>
-<p>To learn how to build you backend with the help of <a href="../../backend-sdk/README.html">Fluence SDK</a>, compile it to <a href="https://webassembly.org">Webassembly</a>, and publish to Fluence smart contract, please read <a href="backend.html">Backend Developer Guide</a></p>
-<a class="header" href="#how-to-develop-web-apps-using-fluences-backends" id="how-to-develop-web-apps-using-fluences-backends"><h2>How to develop web apps using Fluence's backends</h2></a>
-<p>If you already have a backend you want to use, and it's deployed to Fluence network, you can use it to build a web app with decentralized backend with ease. To do that, you'd need knowledge from <a href="frontend.html">Fronend Developer Guide</a></p>
+                        <a class="header" href="#introduction" id="introduction"><h1>Introduction</h1></a>
+<a class="header" href="#what-is-fluence" id="what-is-fluence"><h2>What is Fluence?</h2></a>
+<p>Fluence is a decentralized data processing platform that allows to achieve latency of few seconds for request processing and computational redundancy similar to traditional cloud computing.</p>
+<p>In order to achieve low latency and high throughput, Fluence trades security. Fluence provides moderate guarantees that results delivered to the client are correct, but warrants that served results will eventually be additionally verified. If during the additional verification it is found that results were produced incorrectly, offending network nodes lose their deposits.</p>
+<p>In the next section we will provide a brief Fluence overview.</p>
 
                     </main>
 
@@ -161,7 +156,7 @@
                         
 
                         
-                            <a rel="next" href="kickstart.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next" href="overview/overview.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -175,7 +170,7 @@
                 
 
                 
-                    <a href="kickstart.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a href="overview/overview.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                 
@@ -187,6 +182,12 @@
 
         
 
+        
+        <script src="ace.js" type="text/javascript" charset="utf-8"></script>
+        <script src="editor.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mode-rust.js" type="text/javascript" charset="utf-8"></script>
+        <script src="theme-dawn.js" type="text/javascript" charset="utf-8"></script>
+        <script src="theme-tomorrow_night.js" type="text/javascript" charset="utf-8"></script>
         
 
         
