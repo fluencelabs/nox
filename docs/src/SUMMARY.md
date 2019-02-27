@@ -14,3 +14,7 @@
     - [Backend guide](backend.md)
     - [Frontend guide](frontend.md)
     - [Miner guide](miner.md)
+- [Fluence tools and SDKs](tools/tools.md )
+    - [CLI](tools/cli_README.md)
+    - [Rust SDK](tools/rust_README.md)
+    - [JS SDK](tools/js_README.md)

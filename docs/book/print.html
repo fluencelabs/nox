@@ -78,7 +78,7 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <ol class="chapter"><li><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li><a href="overview/overview.html"><strong aria-hidden="true">1.1.</strong> Overview</a></li><li><a href="overview/components.html"><strong aria-hidden="true">1.2.</strong> Components</a></li><li><a href="overview/motivation.html"><strong aria-hidden="true">1.3.</strong> Motivation</a></li></ol></li><li><a href="roles.html"><strong aria-hidden="true">2.</strong> How to use Fluence</a></li><li><a href="whatworks.html"><strong aria-hidden="true">3.</strong> Current state of development</a></li><li><a href="quickstart/plan.html"><strong aria-hidden="true">4.</strong> Quick start</a></li><li><ol class="section"><li><a href="quickstart/rust.html"><strong aria-hidden="true">4.1.</strong> Developing the backend app</a></li><li><a href="quickstart/publish.html"><strong aria-hidden="true">4.2.</strong> Publishing your app</a></li><li><a href="quickstart/web.html"><strong aria-hidden="true">4.3.</strong> Developing the web app</a></li><li><a href="quickstart/wrappingup.html"><strong aria-hidden="true">4.4.</strong> Wrapping up</a></li></ol></li><li><a href="backend.html"><strong aria-hidden="true">5.</strong> Backend guide</a></li><li><a href="frontend.html"><strong aria-hidden="true">6.</strong> Frontend guide</a></li><li><a href="miner.html"><strong aria-hidden="true">7.</strong> Miner guide</a></li></ol>
+            <ol class="chapter"><li><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li><a href="overview/overview.html"><strong aria-hidden="true">1.1.</strong> Overview</a></li><li><a href="overview/components.html"><strong aria-hidden="true">1.2.</strong> Components</a></li><li><a href="overview/motivation.html"><strong aria-hidden="true">1.3.</strong> Motivation</a></li></ol></li><li><a href="whatworks.html"><strong aria-hidden="true">2.</strong> Current state of development</a></li><li><a href="quickstart/plan.html"><strong aria-hidden="true">3.</strong> Quick start</a></li><li><ol class="section"><li><a href="quickstart/rust.html"><strong aria-hidden="true">3.1.</strong> Developing the backend app</a></li><li><a href="quickstart/publish.html"><strong aria-hidden="true">3.2.</strong> Publishing your app</a></li><li><a href="quickstart/web.html"><strong aria-hidden="true">3.3.</strong> Developing the web app</a></li><li><a href="quickstart/wrappingup.html"><strong aria-hidden="true">3.4.</strong> Wrapping up</a></li></ol></li><li><a href="roles.html"><strong aria-hidden="true">4.</strong> How to use Fluence</a></li><li><ol class="section"><li><a href="backend.html"><strong aria-hidden="true">4.1.</strong> Backend guide</a></li><li><a href="frontend.html"><strong aria-hidden="true">4.2.</strong> Frontend guide</a></li><li><a href="miner.html"><strong aria-hidden="true">4.3.</strong> Miner guide</a></li></ol></li><li><a href="tools/tools.html"><strong aria-hidden="true">5.</strong> Fluence tools and SDKs</a></li><li><ol class="section"><li><a href="tools/cli_README.html"><strong aria-hidden="true">5.1.</strong> CLI</a></li><li><a href="tools/rust_README.html"><strong aria-hidden="true">5.2.</strong> Rust SDK</a></li><li><a href="tools/js_README.html"><strong aria-hidden="true">5.3.</strong> JS SDK</a></li></ol></li></ol>
         </nav>
 
         <div id="page-wrapper" class="page-wrapper">
@@ -199,25 +199,15 @@ GROUP BY DATE(ts)
 <p>Batch validation also decreases the probability that an intentional mistake made by a real-time cluster will never get noticed. Assume that in the same network where 10% of all nodes are malicious, we spun a real-time cluster of 4 workers and allocated a budget for 3 batch validations.</p>
 <p>In this setup, a mistake can go unnoticed only if malicious actors comprise at least \(\frac{2}{3}\) of the realtime workers and all of the batch validators that verified the transaction history. The chance of this happening is \(≈ 3.7 · 10^{−6}\), which is two orders of magnitude less than in the case where the entire budget was spent on the real-time cluster only.</p>
 <p>We also expect that in the presence of batch validators, the fraction of malicious nodes in the network will drop significantly below 10%, because every time a malicious action is caught, the node that performed it loses its deposit and thus leaves the network.</p>
-<a class="header" href="#how-to-use-fluence" id="how-to-use-fluence"><h1>How to use Fluence</h1></a>
-<p>In Fluence, you can play one of three roles, you can be:</p>
-<ol>
-<li>A miner, providing your computation power to the Fluence Network</li>
-<li>A backend developer, deploying your Webassembly backend application to miners' nodes</li>
-<li>A frontend developer, using someone's backend to develop end-user application</li>
-</ol>
-<a class="header" href="#how-to-become-a-miner" id="how-to-become-a-miner"><h2>How to become a miner</h2></a>
-<p>To learn how to register your computer as a Fluence Node, please refer to <a href="miner.html">Miner Guide</a></p>
-<a class="header" href="#how-to-build-backend-app-with-fluence" id="how-to-build-backend-app-with-fluence"><h2>How to build backend app with Fluence</h2></a>
-<p>To learn how to build you backend with the help of <a href="../../sdk/rust/README.html">Fluence SDK</a>, compile it to <a href="https://webassembly.org">Webassembly</a>, and publish to Fluence smart contract, please read <a href="backend.html">Backend Developer Guide</a></p>
-<a class="header" href="#how-to-develop-web-apps-using-fluences-backends" id="how-to-develop-web-apps-using-fluences-backends"><h2>How to develop web apps using Fluence's backends</h2></a>
-<p>If you already have a backend you want to use, and it's deployed to Fluence network, you can use it to build a web app with decentralized backend with ease. To do that, you'd need knowledge from <a href="frontend.html">Fronend Developer Guide</a></p>
 <a class="header" href="#todo" id="todo"><h1>TODO</h1></a>
-<a class="header" href="#the-plan" id="the-plan"><h1>The plan</h1></a>
-<p>First, you will use Fluence Rust SDK to develop a Rust backend, and compile it to WebAssembly.</p>
-<p>Then, you will publish compiled backend to the Fluence network.</p>
-<p>And finally, you will build a web application integrated with your decentralized backend.</p>
+<a class="header" href="#quickstart" id="quickstart"><h1>Quickstart</h1></a>
+<p>This document will guide you through three main steps of development with Fluence.</p>
+<p>You will develop a traditional two-tiered web application with a backend written in Rust, and a frontend built with JavaScript. Unlike traditional two-tiered architecture, however, your backend will be decentralized and running on top of the Fluence network, not requiring a dedicated server machine.</p>
+<p>We will show you how to use Fluence Rust SDK to develop a backend in Rust, and compile it to WebAssembly. Then, to deploy your backend to the Fluence network, you will publish it to the Fluence smart contract. And finally, build a frontend integrated with your decentralized backend.</p>
+<p>If you experience any problems with this guide, or a desire to discuss Fluence with the team, feel free to join our [Discord](TODO: link).</p>
 <a class="header" href="#developing-the-backend-app" id="developing-the-backend-app"><h1>Developing the backend app</h1></a>
+<p>Fluence runs Webassembly programs, so it's possible to build a Fluence backend in any program language that targets Wasm. In this guide, we will use Rust as a language of choice.</p>
+<p>First you will build a simple hello-world backend in Rust, adapt it to be used with Fluence, and compile to Webassembly.</p>
 <a class="header" href="#setting-up-rust" id="setting-up-rust"><h2>Setting up Rust</h2></a>
 <p>Let's get some Rust.</p>
 <p>Install rust compiler and it's tools:</p>
@@ -539,7 +529,16 @@ App deployed.
 <li><code>index.js</code> that imports <code>fluence</code> js library and shows how to connect to a cluster</li>
 </ul>
 <p>Let's take a look at <code>index.js</code>:</p>
-<pre><code class="language-javascript">...
+<pre><code class="language-javascript">
+// address of the Fluence smart contract on Ethereum.
+let contractAddress = &quot;0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7&quot;;
+
+// Address of the Ethereum node. If set to `undefined`, MetaMask will be used to send transactions.
+let ethUrl = &quot;http://207.154.240.52:8545/&quot;;
+
+// appId of the backend as seen in Fluence smart contract.
+let appId = &quot;6&quot;;
+...
 // create a session between client and backend application
 fluence.connect(contractAddress, appId, ethUrl).then((s) =&gt; {
   console.log(&quot;Session created&quot;);
@@ -562,7 +561,7 @@ function send() {
 <p>This code queries the Fluence smart contract for IP addresses of Tendermint nodes hosting the app with specified <code>appId</code>, creates an <code>AppSession</code> from these connections, and saves it to <code>window.session</code>, so it can be used later. All this is done via <code>connect</code> method.</p>
 <p>Then, it assigns <code>send()</code> function as a callback for clicking the button, which will call an <code>invoke</code> method provided by <code>AppSession</code>. <code>invoke</code> takes a <code>String</code>, and sends it to the backend as a transaction. Result will be displayed in <code>greeting</code> label.</p>
 <a class="header" href="#running-and-using" id="running-and-using"><h2>Running and using</h2></a>
-<p>Please make sure you have changed <code>appId</code> to your actuall appId.</p>
+<p>Please make sure you have changed <code>appId</code> to the appId of existing backend. If you haven't published your backend yet, please take a look at <a href="quickstart/publish.html">Publishing guide</a>. You can also use backends published by other people, take a look at</p>
 <p>To install all dependencies, compile and run the application, run in the terminal:</p>
 <pre><code class="language-bash">~/frontend-template $ npm install
 ~/frontend-template $ npm run start
@@ -595,6 +594,19 @@ Hello, world! From user myName
 <a class="header" href="#wrapping-up" id="wrapping-up"><h1>Wrapping up</h1></a>
 <p>This was fun!</p>
 <p>TODO</p>
+<a class="header" href="#how-to-use-fluence" id="how-to-use-fluence"><h1>How to use Fluence</h1></a>
+<p>In Fluence, you can play one of three roles, you can be:</p>
+<ol>
+<li>A miner, providing your computation power to the Fluence Network</li>
+<li>A backend developer, deploying your Webassembly backend application to miners' nodes</li>
+<li>A frontend developer, using someone's backend to develop end-user application</li>
+</ol>
+<a class="header" href="#how-to-become-a-miner" id="how-to-become-a-miner"><h2>How to become a miner</h2></a>
+<p>To learn how to register your computer as a Fluence Node, please refer to <a href="miner.html">Miner Guide</a></p>
+<a class="header" href="#how-to-build-backend-app-with-fluence" id="how-to-build-backend-app-with-fluence"><h2>How to build backend app with Fluence</h2></a>
+<p>To learn how to build you backend with the help of <a href="../../sdk/rust/README.html">Fluence SDK</a>, compile it to <a href="https://webassembly.org">Webassembly</a>, and publish to Fluence smart contract, please read <a href="backend.html">Backend Developer Guide</a></p>
+<a class="header" href="#how-to-develop-web-apps-using-fluences-backends" id="how-to-develop-web-apps-using-fluences-backends"><h2>How to develop web apps using Fluence's backends</h2></a>
+<p>If you already have a backend you want to use, and it's deployed to Fluence network, you can use it to build a web app with decentralized backend with ease. To do that, you'd need knowledge from <a href="frontend.html">Fronend Developer Guide</a></p>
 <a class="header" href="#introduction-1" id="introduction-1"><h3>Introduction</h3></a>
 <p>This guide goes through the basics of application creation for the Fluence Network using simple Rust application as an example.</p>
 <p>The Fluence ecosystem is designed to run Webassembly (Wasm) program in decentralized trustless environments. Generally it can be considered as several logical parts: a <code>client-side</code> (a frontend used for sending requests to Wasm program; developed by user), the <code>VM wrapper</code> (an intermediate layer that receives queries from <code>client side</code> and routes it to a <code>Wasm program</code>) and a <code>Wasm program</code> (also developed by user).</p>
@@ -1050,6 +1062,344 @@ env.user = &quot;root&quot;
 <li>Look at smart contract <code>status</code> via interactive command-line table viewer</li>
 </ul>
 <p>All these features are described in <a href="../../cli/README.html#tips-and-tricks">CLI's readme</a>, so take a look!</p>
+<a class="header" href="#fluence-tools-and-sdks" id="fluence-tools-and-sdks"><h1>Fluence tools and SDKs</h1></a>
+<ul>
+<li><a href="tools/cli_README.html">CLI</a> to interact with Fluence smart contract.</li>
+</ul>
+<ul>
+<li><a href="tools/rust_README.html">Rust SDK</a> will help building a backend in Rust. Also, see the <a href="tools/../quickstart/rust.html">backend quick start</a>.</li>
+</ul>
+<ul>
+<li><a href="tools/js_README.html">JS SDK</a> to interact with backends deployed on top of Fluence. See the <a href="tools/../quickstart/web.html">frontent quick start</a> to learn how to use it.</li>
+</ul>
+<ul>
+<li><a href="#fluence-cli">Fluence CLI</a></li>
+<li><a href="#requirements">Requirements</a></li>
+<li><a href="#installation">Installation</a></li>
+<li><a href="#usage">Usage</a></li>
+<li><a href="#usage-examples">Usage examples</a>
+<ul>
+<li><a href="#register-a-node">Register a node</a></li>
+<li><a href="#publish-an-app">Publish an app</a>
+<ul>
+<li><a href="#waiting-for-an-app-to-be-deployed-or-enqueued">Waiting for an app to be deployed or enqueued</a></li>
+</ul>
+</li>
+<li><a href="#delete-an-app">Delete an app</a></li>
+<li><a href="#retrieve-fluence-network-state-as-json">Retrieve Fluence network state as JSON</a>
+<ul>
+<li><a href="#filtering-status">Filtering status</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#tips-and-tricks">Tips and tricks</a>
+<ul>
+<li><a href="#waiting-for-an-ethereum-node-to-sync">Waiting for an Ethereum node to sync</a></li>
+<li><a href="#waiting-for-a-transaction-to-be-included-in-a-block">Waiting for a transaction to be included in a block</a></li>
+<li><a href="#interactive-status">Interactive status</a></li>
+<li><a href="#authorization-and-private-keys">Authorization and private keys</a>
+<ul>
+<li><a href="#keystore-json-file">Keystore JSON file</a></li>
+<li><a href="#private-key">Private key</a></li>
+<li><a href="#password">Password</a></li>
+<li><a href="#no-authorization">No authorization</a></li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+<a class="header" href="#fluence-cli" id="fluence-cli"><h2>Fluence CLI</h2></a>
+<p>Fluence CLI is an automation tool for tasks of app management (deployment and deletion), computation resource sharing (node registration), and monitoring Fluence network state (status). See usage for more info.</p>
+<a class="header" href="#requirements-1" id="requirements-1"><h2>Requirements</h2></a>
+<p>CLI assumes running Ethereum and Swarm on <code>http://localhost:8545/</code> and <code>http://localhost:8500/</code> respectively. Use <code>--eth_url</code> and <code>--swarm_url</code> to specify actual addresses as you need.</p>
+<p>Please note, that your Ethereum account should have sufficient funds for issuing transactions to smart-contract. It's only for transaction fees, Fluence itself doesn't currently charge miners or developers. That could change in the future, for example when miners' deposits are implemented.</p>
+<p>Also, take a look at <a href="tools/../tools/deploy/README.html">deployment scripts</a>, they will assist you in running Swarm, Ethereum and Fluence nodes.</p>
+<a class="header" href="#installation-1" id="installation-1"><h2>Installation</h2></a>
+<p>Requirements: <a href="https://doc.rust-lang.org/cargo/getting-started/installation.html"><code>cargo</code></a> and <a href="https://www.npmjs.com/get-npm"><code>npm</code></a> are needed.</p>
+<ul>
+<li>clone this repo and <code>cd</code> to <code>cli</code> folder</li>
+<li>run <code>cargo build</code></li>
+<li>go to <code>target/debug</code></li>
+<li>there is an executable file <code>fluence</code> to work with</li>
+</ul>
+<a class="header" href="#usage-1" id="usage-1"><h2>Usage</h2></a>
+<p>To look at all possible arguments and options use <code>./fluence --help</code>:</p>
+<p>You can use <code>./fluence [SUBCOMMAND] --help</code> to learn how to use commands.</p>
+<a class="header" href="#usage-examples" id="usage-examples"><h2>Usage examples</h2></a>
+<a class="header" href="#register-a-node" id="register-a-node"><h3>Register a node</h3></a>
+<p>To provide your computation resources to Fluence network, you need to register your computer within smart-contract. The simplest way to do that is through CLI.
+The following command will register a node:</p>
+<pre><code>./fluence register \
+            --node_ip               85.82.118.4 \
+            --tendermint_key        1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
+            --tendermint_node_id    5e4eedba85fda7451356a03caffb0716e599679b \            
+            --account               0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --base64_tendermint_key \
+            --secret_key            0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
+            --wait_syncing \
+            --api_port              25000 \
+            --capacity              10
+</code></pre>
+<p>Parameters are:</p>
+<ul>
+<li>advertised address <code>85.82.118.4</code>, please note that this address should be available from Internet as it will be used to connect with other workers in a future cluster</li>
+<li>Tendermint key (used to identify node) <code>1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM=</code>, note base64 format
+<ul>
+<li>flag <code>--base64_tendermint_key</code> passed so tendermint key is treated as base64-encoded as opposed to hex-encoded</li>
+<li>currently, Tendermint key can be found in logs of <code>fluencelabs/node</code> Docker container</li>
+<li>note that key should be unique, i.e. you can't register several nodes with the same key</li>
+</ul>
+</li>
+<li>Tendermint p2p node ID <code>5e4eedba85fda7451356a03caffb0716e599679b</code> is needed to securely connect nodes in Tendermint cluster</li>
+<li><code>0x9995882876ae612bfd829498ccd73dd962ec950a</code> is a contract address, register transaction will be sent there</li>
+<li><code>0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d</code> will be used as Ethereum account for issuing transactions. <em>Use your Ethereum account here</em></li>
+<li><code>--secret_key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133</code> denotes an Ethereum private key, used for offline transaction signing. <em>Use your Ethereum private key here</em>
+<ul>
+<li>using <code>--password</code> is possible instead of private key, but private key is preferred</li>
+</ul>
+</li>
+<li><code>--wait_syncing</code> so CLI waits until Ethereum node is fully synced</li>
+<li><code>--api_port 25000</code> specifies the main port of the Fluence node, so other nodes and users know where to connect</li>
+<li><code>--capacity 10</code> limits number of apps that could be run on the node by 10</li>
+</ul>
+<a class="header" href="#publish-an-app" id="publish-an-app"><h3>Publish an app</h3></a>
+<p>To deploy your app on Fluence network, you must upload it to Swarm and publish hash to smart-contract. The simplest way to achieve that is to use CLI command <code>publish</code>.</p>
+<p>The following command will publish app <code>counter.wasm</code>.</p>
+<pre><code>./fluence publish \
+            --code_path        fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm \            
+            --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --cluster_size     4 \
+            --secret_key       0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
+            --pin_to           1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
+            --base64
+</code></pre>
+<p>Interesting bits:</p>
+<ul>
+<li><code>--cluster_size 4</code> requires cluster of 4 workers to host this app</li>
+<li><code>--pin_to 1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= --base64</code> requires that one of the node in cluster must be <code>1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM=</code>
+<ul>
+<li>note that to be used in <code>pin_to</code> node must be already registered in smart-contract</li>
+</ul>
+</li>
+<li><code>fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm</code> is just an example path and doesn't exist in project
+<ul>
+<li>however, you can build it by issuing <code>sbt vm-counter/compile</code> in project root</li>
+</ul>
+</li>
+</ul>
+<p>Please refer to <a href="tools/../sdk/rust/README.html">Fluence Rust SDK</a> to get information about developing apps with Fluence.</p>
+<a class="header" href="#waiting-for-an-app-to-be-deployed-or-enqueued" id="waiting-for-an-app-to-be-deployed-or-enqueued"><h4>Waiting for an app to be deployed or enqueued</h4></a>
+<p>You can pass <code>--wait</code> option to <code>publish</code> command, and CLI will wait until transaction is included in a block, and then provide you with information about app deployment status and app id.
+Deployed application:</p>
+<pre><code class="language-bash">[1/3]   Application code uploaded. ---&gt; [00:00:00]
+swarm hash: 0x585114171e6b1639af3e9a4f237d8da6d1c5624b235cb45c062ca5d89a151cc2
+[2/3]   Transaction publishing app was sent. ---&gt; [00:00:00]
+  tx hash: 0xf62a8823e95804bf1f8d3832c0c49d44c7c138c1a541f9f5c0dbe7cd34056f40
+[3/3]   Transaction was included. ---&gt; [00:00:00]
+App deployed.
+   app id: 1
+  tx hash: 0xf62a8823e95804bf1f8d3832c0c49d44c7c138c1a541f9f5c0dbe7cd34056f40
+</code></pre>
+<p>Enqueued:</p>
+<pre><code class="language-bash">[1/3]   Application code uploaded. ---&gt; [00:00:00]
+swarm hash: 0x585114171e6b1639af3e9a4f237d8da6d1c5624b235cb45c062ca5d89a151cc2
+[2/3]   Transaction publishing app was sent. ---&gt; [00:00:00]
+  tx hash: 0x4e87150da0e273fc7d44324e6843ba9abb91413f6fb6fdce67b7f7d4a1dd320a
+[3/3]   Transaction was included. ---&gt; [00:00:00]
+App enqueued.
+   app id: 2
+  tx hash: 0x4e87150da0e273fc7d44324e6843ba9abb91413f6fb6fdce67b7f7d4a1dd320a
+</code></pre>
+<a class="header" href="#delete-an-app" id="delete-an-app"><h3>Delete an app</h3></a>
+<p>If you want to delete your app from smart contract, you can use <code>delete_app</code> command.</p>
+<p>The following will delete app with id <code>0x0000000000000000000000000000000000000000000000000000000000000002</code>. App id could be retrieved either from status (see below) or from smart-contract.</p>
+<pre><code>./fluence delete_app \            
+            --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --app_id           0x0000000000000000000000000000000000000000000000000000000000000002 \
+            --secret_key       4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 \
+            --deployed
+</code></pre>
+<p>Note <code>--deployed</code> at the end. It means that app is deployed and cluster hosting it should be deleted as well. Without that flag, app would be removed only if there is no assigned cluster (i.e., app is not yet deployed).</p>
+<p>See below on how to know if your app is deployed.</p>
+<a class="header" href="#retrieve-fluence-network-state-as-json" id="retrieve-fluence-network-state-as-json"><h3>Retrieve Fluence network state as JSON</h3></a>
+<p>To inspect what apps are in queue, what clusters are working out there and what nodes are participating in them, you can use <code>status</code> command as follows:</p>
+<pre><code>./fluence status
+</code></pre>
+<p>The results will be in JSON and should resemble the following</p>
+<pre><code class="language-json">{
+  &quot;apps&quot;: [
+    {
+      &quot;app_id&quot;: &quot;0x0000000000000000000000000000000000000000000000000000000000000001&quot;,
+      &quot;storage_hash&quot;: &quot;0xeb2a623210c080d0702cc520b790151861601c46d90179a6e8efe6bda8ac5477&quot;,
+      &quot;storage_receipt&quot;: &quot;0x0000000000000000000000000000000000000000000000000000000000000000&quot;,
+      &quot;cluster_size&quot;: 5,
+      &quot;owner&quot;: &quot;0x64b8f12d14925394ae0119466dff6ff2b021a3e9&quot;,
+      &quot;pin_to_nodes&quot;: [],
+      &quot;cluster&quot;: null
+    },
+    {
+      &quot;app_id&quot;: &quot;0x0000000000000000000000000000000000000000000000000000000000000005&quot;,
+      &quot;storage_hash&quot;: &quot;0xeb2a623210c080d0702cc520b790151861601c46d90179a6e8efe6bda8ac5477&quot;,
+      &quot;storage_receipt&quot;: &quot;0x0000000000000000000000000000000000000000000000000000000000000000&quot;,
+      &quot;cluster_size&quot;: 5,
+      &quot;owner&quot;: &quot;0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d&quot;,
+      &quot;pin_to_nodes&quot;: [
+        &quot;0x000000000000000000000000000000000000000000000000ef0f3348eb26bcc5&quot;,
+        &quot;0x0000000000000000000000000000000000000000000000009d0b83faa72e0948&quot;,
+        &quot;0x0000000000000000000000000000000000000000000000003b0222f266098324&quot;,
+        &quot;0x000000000000000000000000000000000000000000000000d4cbdb932f4294d6&quot;,
+        &quot;0x0000000000000000000000000000000000000000000000005aaa1fdc5999eacb&quot;
+      ],
+      &quot;cluster&quot;: {
+        &quot;genesis_time&quot;: 1547643251,
+        &quot;node_ids&quot;: [
+          &quot;0x000000000000000000000000000000000000000000000000ef0f3348eb26bcc5&quot;,
+          &quot;0x0000000000000000000000000000000000000000000000009d0b83faa72e0948&quot;,
+          &quot;0x0000000000000000000000000000000000000000000000003b0222f266098324&quot;,
+          &quot;0x000000000000000000000000000000000000000000000000d4cbdb932f4294d6&quot;,
+          &quot;0x0000000000000000000000000000000000000000000000005aaa1fdc5999eacb&quot;
+        ],
+        &quot;ports&quot;: [
+          25000,
+          25002,
+          25004,
+          25006,
+          25008
+        ]
+      }
+    }
+  ]
+}
+</code></pre>
+<p>Here you can see two apps, the first one is enqueued (cluster is <code>null</code>) and waiting for enough nodes to host it, and the second one is already hosted on top of 5 nodes. Second app also specifies all 5 nodes in <code>pin_to_nodes</code>, and you can see the same nodes in <code>cluster.node_ids</code>.</p>
+<a class="header" href="#filtering-status" id="filtering-status"><h4>Filtering status</h4></a>
+<p>If you need to select specific information from status, you can use different filters:</p>
+<pre><code class="language-bash">OPTIONS:
+    ...
+    -a, --app_id &lt;app_id&gt;                   Filter nodes and apps by app id
+    -i, --node_ip &lt;ip address&gt;              Filter nodes by IP address
+    -o, --owner &lt;eth address&gt;               Filter nodes and apps owned by this Ethereum address
+    -K, --tendermint_key &lt;key&gt;              Filter nodes and apps by Tendermint validator key (node id)
+    -f, --filter_mode &lt;and|or&gt;              Logical mode of the filter [default: and]
+</code></pre>
+<p>Filters work in both JSON and interactive modes. Here's an example of how they can be used:</p>
+<pre><code class="language-bash">./fluence status \            
+            --tendermint_key 0xb5575140febb7484393c1c99263b763d1caf6b6c83bc0a9fd6c084d2982af763 \
+            --node_ip 43.32.21.10 \
+            --filter_mode or
+</code></pre>
+<p>This will display all nodes with id <code>0xb5575140febb7484393c1c99263b763d1caf6b6c83bc0a9fd6c084d2982af763</code>, all nodes with ip <code>43.32.21.10</code> and all apps hosted by these nodes.</p>
+<p>Note <code>--filter_mode or</code>, it directs CLI to match all nodes and apps that satisfy any of specified filters. You can also pass <code>--filter_mode and</code>:</p>
+<pre><code class="language-bash">./fluence status \            
+            --tendermint_key 0xb5575140febb7484393c1c99263b763d1caf6b6c83bc0a9fd6c084d2982af763 \
+            --node_ip 43.32.21.10 \
+            --filter_mode and
+</code></pre>
+<p>And you will get only node with id <code>0xb5575140febb7484393c1c99263b763d1caf6b6c83bc0a9fd6c084d2982af763</code> <strong>and</strong> IP <code>43.32.21.10</code>, if there is one, and all apps hosted by that node.</p>
+<a class="header" href="#tips-and-tricks-1" id="tips-and-tricks-1"><h2>Tips and tricks</h2></a>
+<a class="header" href="#waiting-for-an-ethereum-node-to-sync" id="waiting-for-an-ethereum-node-to-sync"><h3>Waiting for an Ethereum node to sync</h3></a>
+<p>There is a flag <code>--wait_syncing</code> that, when supplied, will make CLI to wait until your Ethereum node is fully synced. It works by querying <code>eth_syncing</code> until it returns <code>false</code>.</p>
+<p>This is handy when you don't want to manually check if Ethereum node is synced.</p>
+<a class="header" href="#waiting-for-a-transaction-to-be-included-in-a-block" id="waiting-for-a-transaction-to-be-included-in-a-block"><h3>Waiting for a transaction to be included in a block</h3></a>
+<p>There is a flag <code>--wait</code> than, when supplied, will make CLI to wait until the sent transaction is included in a block. It also parses Ethereum events (logs) related to issued command, and will print out some useful information on finish.</p>
+<p>For example, when you <code>publish</code> your app, it will tell you the <code>appID</code> and if it's been deployed immediatly or enqueued to wait for enough available nodes.</p>
+<p>This is easier that manually checking <code>status</code> after every command.</p>
+<p>Note, however, that if you're using Ethereum node in a <strong>light mode</strong>, it can take a while until light node realizes transaction was included in a block. It can take up to several minutes (sometimes up to 10-15 minutes), so it requires some patience.</p>
+<a class="header" href="#specify-contract-address" id="specify-contract-address"><h3>Specify contract address</h3></a>
+<p>There is a flag <code>--contract_address</code> to use all commands to interact with non-default Fluence smart contract. You can deploy <a href="../bootstrap/contracts/Network.sol">Fluence contract</a> on your own and use CLI like this:</p>
+<pre><code class="language-bash">./fluence &lt;command&gt;
+            ...
+            --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
+            ...
+</code></pre>
+<a class="header" href="#interactive-status" id="interactive-status"><h3>Interactive status</h3></a>
+<p>If reading raw JSON in <code>status</code> isn't the best option for you, you can use interactive status:</p>
+<pre><code class="language-bash">./fluence status --interactive
+</code></pre>
+<p>It's just a status viewer, but it will gain more functionality in the future.</p>
+<a class="header" href="#authorization-and-private-keys" id="authorization-and-private-keys"><h3>Authorization and private keys</h3></a>
+<p>There are several ways to provide authorization details for your Ethereum account to Fluence CLI: via keystore JSON file, private key or password for your wallet in Ethereum node.</p>
+<a class="header" href="#keystore-json-file" id="keystore-json-file"><h4>Keystore JSON file</h4></a>
+<p><strong><em>This is the most secure way to provide your credentials, so it's preffered over other options</em></strong></p>
+<p>That's how Geth and a few other tools export private keys. The file looks like this:</p>
+<pre><code class="language-json">{&quot;address&quot;:&quot;c2d7cf95645d33006175b78989035c7c9061d3f9&quot;,
+  &quot;crypto&quot;:{
+    &quot;cipher&quot;:&quot;aes-128-ctr&quot;,
+    &quot;ciphertext&quot;:&quot;0f6d343b2a34fe571639235fc16250823c6fe3bc30525d98c41dfdf21a97aedb&quot;,
+    &quot;cipherparams&quot;:{
+      &quot;iv&quot;:&quot;cabce7fb34e4881870a2419b93f6c796&quot;
+    },
+    &quot;kdf&quot;:&quot;scrypt&quot;,
+    &quot;kdfparams&quot;: {
+      &quot;dklen&quot;:32,
+      &quot;n&quot;:262144,
+      &quot;p&quot;:1,
+      &quot;r&quot;:8,
+      &quot;salt&quot;:&quot;1af9c4a44cf45fe6fb03dcc126fa56cb0f9e81463683dd6493fb4dc76edddd51&quot;
+    },
+    &quot;mac&quot;:&quot;5cf4012fffd1fbe41b122386122350c3825a709619224961a16e908c2a366aa6&quot;
+  },
+  &quot;id&quot;:&quot;eddd71dd-7ad6-4cd3-bc1a-11022f7db76c&quot;,
+  &quot;version&quot;:3
+}
+</code></pre>
+<p>It's a private key encrypted with user password. You can use it with Fluence CLI like this:</p>
+<pre><code class="language-bash">./fluence SUBCOMMAND
+          ...
+          --account            0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+          --keystore           ~/Library/Ethereum/keystore/UTC--2017-03-03T13-24-07.826187674Z--4e6cf0ed2d8bbf1fbbc9f2a100602ceba4bf1319 \
+          --passowrd           my_secure_passw0rd
+</code></pre>
+<p>For example, with <code>delete_app</code></p>
+<pre><code class="language-bash">./fluence delete_app \            
+            --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --app_id           0x0000000000000000000000000000000000000000000000000000000000000002 \
+            --keystore         ~/Library/Ethereum/keystore/UTC--2017-03-03T13-24-07.826187674Z--4e6cf0ed2d8bbf1fbbc9f2a100602ceba4bf1319 \
+            --password         my_secure_passw0rd \
+            --deployed
+</code></pre>
+<p>Decrypted private key will be used to sign transaction in offline mode, so <strong>your key is never sent through network.</strong></p>
+<a class="header" href="#private-key" id="private-key"><h4>Private key</h4></a>
+<p>Other option is to provide unencrypted private key, like in most examples above:</p>
+<pre><code class="language-bash">./fluence SUBCOMMAND
+          ...
+          --account            0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+          --secret_key         4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 
+</code></pre>
+<p>Since private key isn't encrypted, no password is required.</p>
+<p>Private key will be used to sign transaction in offline mode, so <strong>your key is never sent through network.</strong></p>
+<a class="header" href="#password" id="password"><h4>Password</h4></a>
+<p>In case you have a <strong>trusted</strong> Ethereum node with an imported wallet, Fluence CLI can delegate signing a transaction to the Ethereum node. This can be done like this:</p>
+<pre><code class="language-bash">./fluence SUBCOMMAND
+          ...
+          --account            0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+          --password           my_secure_passw0rd
+</code></pre>
+<p><code>personal_sendTransaction</code> will be used to send transaction. It means <strong>your password will be sent over network</strong> to the Ethereum node, and the node will sign and send transaction all by itself. It's preffered to use keystore or private key options instead of providing just a password.</p>
+<p>Note, that <strong>your account is not unlocked before, in, or after that operation.</strong></p>
+<a class="header" href="#no-authorization" id="no-authorization"><h4>No authorization</h4></a>
+<p>It's also possible to avoid providing any credentials:</p>
+<pre><code class="language-bash">./fluence SUBCOMMAND
+          ...
+          --account            0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d
+</code></pre>
+<p>In that case, transaction is sent to Ethereum node via <code>eth_sendTransaction</code> unsigned, so it's expected that there is no authorization enabled on your node. <strong>This option isn't secure and was meant to be used for testing purposes.</strong></p>
+<a class="header" href="#fluence-sdk" id="fluence-sdk"><h2>Fluence SDK</h2></a>
+<p>Fluence SDK library contains frequently used functions required to integrate
+Rust code with the Fluence network VM. The library is a work in progress, please,
+contact Fluence <a href="https://gitter.im/fluencelabs/fluence">Gitter</a> for support and
+example usage. Also you can find an example of using this SDK in out <a href="https://github.com/fluencelabs/fluence/blob/master/docs/guides/backend.md">backend guide</a>.</p>
+<a class="header" href="#important-client-and-readme-are-under-heavy-development-and-can-be-outdated-ask-a-question-in-gitter-or-file-an-issue" id="important-client-and-readme-are-under-heavy-development-and-can-be-outdated-ask-a-question-in-gitter-or-file-an-issue"><h2>IMPORTANT: Client and README are under heavy development and can be outdated. Ask a question in gitter or file an issue.</h2></a>
+<a class="header" href="#fluence-javascript-client" id="fluence-javascript-client"><h2>Fluence Javascript Client</h2></a>
+<p><strong>Fluence Javascript Client</strong> allows you to interact with a real-time cluster from a browser or use it like <code>npm</code> module.</p>
+<a class="header" href="#motivation-1" id="motivation-1"><h2>Motivation</h2></a>
+<p>Browser client simplifies interaction with the real-time cluster for a user. It has zero dependencies and can be added to other code.
+Developers can deploy their backend code to Fluence network and built a web3 application based on <strong>Fluence Client</strong> to interact with this backend code.
+It is written on TypeScript to reach more clean, understandable and typesafe code with good reusability.</p>
+<a class="header" href="#documentation" id="documentation"><h2>Documentation</h2></a>
+<p><a href="https://github.com/fluencelabs/fluence/blob/master/docs/guides/frontend.md">Guide</a></p>
+<p>TODO</p>
 
                     </main>
 

@@ -16,6 +16,15 @@ There are just three files (except for README, LICENSE and .gitignore):
 
 Let's take a look at `index.js`:
 ```javascript
+
+// address of the Fluence smart contract on Ethereum.
+let contractAddress = "0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7";
+
+// Address of the Ethereum node. If set to `undefined`, MetaMask will be used to send transactions.
+let ethUrl = "http://207.154.240.52:8545/";
+
+// appId of the backend as seen in Fluence smart contract.
+let appId = "6";
 ...
 // create a session between client and backend application
 fluence.connect(contractAddress, appId, ethUrl).then((s) => {
@@ -42,7 +51,7 @@ This code queries the Fluence smart contract for IP addresses of Tendermint node
 Then, it assigns `send()` function as a callback for clicking the button, which will call an `invoke` method provided by `AppSession`. `invoke` takes a `String`, and sends it to the backend as a transaction. Result will be displayed in `greeting` label.
 
 ## Running and using
-Please make sure you have changed `appId` to your actuall appId.
+Please make sure you have changed `appId` to the appId of existing backend. If you haven't published your backend yet, please take a look at [Publishing guide](publish.md). You can also use backends published by other people, take a look at 
 
 To install all dependencies, compile and run the application, run in the terminal:
 ```bash
