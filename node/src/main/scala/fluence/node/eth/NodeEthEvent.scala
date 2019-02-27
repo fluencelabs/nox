@@ -15,7 +15,7 @@
  */
 
 package fluence.node.eth
-import fluence.ethclient.data.Block
+import fluence.effects.ethclient.data.Block
 import scodec.bits.ByteVector
 import state.App
 

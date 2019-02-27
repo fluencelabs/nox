@@ -48,4 +48,4 @@ case object Empty extends TxInvocationResult
  * @param code short text code describing error
  * @param message detailed error message
  */
-case class Error(code: String, message: String) extends TxInvocationResult
+case class Error(code: String, message: String, cause: Option[String]) extends TxInvocationResult

@@ -16,10 +16,10 @@
 
 package fluence.node.workers.tendermint.rpc
 
-import scala.util.control.NoStackTrace
+import fluence.effects.EffectError
 
 /** TendermintRpc errors */
-sealed trait RpcError extends Throwable with NoStackTrace
+sealed trait RpcError extends EffectError
 
 /** Request finished with exception */
 case class RpcRequestFailed(cause: Throwable) extends Exception("Tendermint RPC request failed", cause) with RpcError

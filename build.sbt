@@ -186,12 +186,20 @@ lazy val statemachine = (project in file("statemachine"))
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
   .dependsOn(vm, `statemachine-control`)
 
-lazy val swarm = (project in file("effects/swarm"))
+lazy val effects = project
   .settings(
     commons,
     libraryDependencies ++= Seq(
       cats,
-      catsEffect,
+      catsEffect
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val swarm = (project in file("effects/swarm"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
       sttp,
       sttpCirce,
       sttpCatsBackend,
@@ -207,22 +215,22 @@ lazy val swarm = (project in file("effects/swarm"))
       scalaTest
     )
   )
+  .dependsOn(effects)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val ethclient = (project in file("ethclient"))
+lazy val ethclient = (project in file("effects/ethclient"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
       web3jCore,
       slogging,
       scodecBits,
-      cats,
-      catsEffect,
       fs2,
       fs2rx,
       scalaTest
     ),
   )
+  .dependsOn(effects)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kvstore` = (project in file("effects/kvstore"))
@@ -231,13 +239,12 @@ lazy val `kvstore` = (project in file("effects/kvstore"))
     libraryDependencies ++= Seq(
       slogging,
       codecCore,
-      cats,
-      catsEffect,
       fs2,
       rocksDb,
       scalaTest
     )
   )
+  .dependsOn(effects)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val node = project

@@ -144,7 +144,9 @@ class TxProcessor[F[_]](
           )
 
     }
-  }.valueOrF(error => putResult(tx, TransactionStatus.Error, Error(error.code, error.message)))
+  }.valueOrF(
+    error => putResult(tx, TransactionStatus.Error, Error(error.code, error.message, error.causedBy.map(_.getMessage)))
+  )
 
   /**
    * Traverses all currently stored sessions and mark those of them which need to be expired,
@@ -217,7 +219,7 @@ class TxProcessor[F[_]](
   ): F[TransactionStatus] = {
     for {
       _ <- mutableConsensusState.putValue(txResultPath(tx.header), result.toStoreValue)
-      _ = logger.info("  #{}: {} result: {}", tx.header.order, tx.payload, result.toStoreValue)
+      _ = logger.info("Tx #{}: {} result: {}", tx.header.order, tx.payload, result.toStoreValue)
       _ <- mutableConsensusState.putValue(txStatusPath(tx.header), txStatus.storeValue)
       txCounter <- getTxCounter
       sessionSummary = SessionSummary(txStatus.sessionStatus, tx.header.order + 1, txCounter)

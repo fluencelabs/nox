@@ -16,10 +16,9 @@
 
 package fluence.effects.kvstore
 import fluence.codec.CodecError
+import fluence.effects.EffectError
 
-import scala.util.control.NoStackTrace
-
-sealed trait KVStoreError extends Throwable with NoStackTrace
+sealed trait KVStoreError extends EffectError
 
 sealed trait KVReadError extends KVStoreError
 

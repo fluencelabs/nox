@@ -19,17 +19,17 @@ package fluence.node.eth
 import cats.Monad
 import cats.effect.{LiftIO, Timer}
 import cats.syntax.functor._
-import fluence.ethclient.helpers.Web3jConverters.stringToBytes32
+import fluence.effects.ethclient.helpers.Web3jConverters.stringToBytes32
 import fluence.node.config.NodeConfig
 import org.web3j.abi.datatypes.{Bool, DynamicArray}
 import org.web3j.abi.datatypes.generated._
-import fluence.ethclient.syntax._
+import fluence.effects.ethclient.syntax._
 
 import scala.language.higherKinds
 
 object FluenceContractTestOps {
   implicit class NodeConfigEthOps(nodeConfig: NodeConfig) {
-    import fluence.ethclient.helpers.Web3jConverters.nodeAddressToBytes24
+    import fluence.effects.ethclient.helpers.Web3jConverters.nodeAddressToBytes24
     import nodeConfig._
 
     /**

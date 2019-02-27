@@ -22,9 +22,15 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.apply._
 import cats.instances.option._
-import fluence.ethclient.Network.{APPDELETED_EVENT, APPDEPLOYED_EVENT, AppDeployedEventResponse, NODEDELETED_EVENT}
-import fluence.ethclient.{EthClient, EthRetryPolicy, Network}
-import fluence.ethclient.syntax._
+import fluence.effects.Backoff
+import fluence.effects.ethclient.Network.{
+  APPDELETED_EVENT,
+  APPDEPLOYED_EVENT,
+  AppDeployedEventResponse,
+  NODEDELETED_EVENT
+}
+import fluence.effects.ethclient.{EthClient, EthRequestError, Network}
+import fluence.effects.ethclient.syntax._
 import fluence.node.config.FluenceContractConfig
 import fluence.node.eth.state.{App, Cluster}
 import org.web3j.abi.EventEncoder
@@ -42,8 +48,9 @@ import scala.language.higherKinds
  * @param ethClient Ethereum client
  * @param contract Contract ABI, received from Ethereum
  */
-class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val contract: Network)
-    extends slogging.LazyLogging {
+class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val contract: Network)(
+  implicit backoff: Backoff[EthRequestError] = Backoff.default
+) extends slogging.LazyLogging {
 
   /**
    * Builds a filter for specified event. Filter is to be used in eth_newFilter
@@ -53,17 +60,17 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
   private def eventFilter[F[_]: LiftIO: Monad: Timer](
     event: Event
   ): F[EthFilter] =
-    ethClient
-      .getBlockNumber[F]
-      .retryUntilSuccess
-      .map(
-        currentBlock ⇒
-          new SingleAddressEthFilter(
-            DefaultBlockParameter.valueOf(currentBlock.bigInteger),
-            DefaultBlockParameterName.LATEST,
-            contract.getContractAddress
-          ).addSingleTopic(EventEncoder.encode(event))
-      )
+    backoff(
+      ethClient
+        .getBlockNumber[F]
+    ).map(
+      currentBlock ⇒
+        new SingleAddressEthFilter(
+          DefaultBlockParameter.valueOf(currentBlock.bigInteger),
+          DefaultBlockParameterName.LATEST,
+          contract.getContractAddress
+        ).addSingleTopic(EventEncoder.encode(event))
+    )
 
   /**
    * Returns IDs of the apps hosted by this node's workers
@@ -82,7 +89,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
             s"Cannot get node apps from the smart contract. Got result '$r'. " +
               s"Are you sure the contract address is correct?"
           )
-          Timer[F].sleep(EthRetryPolicy.Default.maxDelay) *> getNodeAppIds(validatorKey)
+          Timer[F].sleep(Backoff.default.maxDelay) *> getNodeAppIds(validatorKey)
       }
 
   /**
