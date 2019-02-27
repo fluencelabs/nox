@@ -3,7 +3,7 @@ version: '3.4'
 services:
   fluence-node-1:
     container_name: $NAME
-    image: fluencelabs/node:issue-501
+    image: fluencelabs/node:v0.1.4
     environment:
       - TENDERMINT_IP=$DOCKER_IP
       - ETHEREUM_IP=$HOST_IP
