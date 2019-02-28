@@ -1,4 +1,8 @@
 # Publishing your app
+In Fluence network, app is deployed by uploading the Wasm code to Swarm, and publishing hash-address of the code to the Fluence smart contract. 
+
+It is possible to specify desired cluster size along with the hash-address. Cluster size sets the required number of real-time workers in the cluster hosting the app. Note that app would wait in the queue until there is enough free workers to create a cluster of the desired size.
+
 ## Connect to Swarm and Ethereum Rinkeby
 To publish a backend app to Fluence network, you need to upload it to Swarm, and then send its location in Swarm to a Fluence smart contract on Ethereum Rinkeby testnet. 
 
@@ -13,12 +17,16 @@ To upload your code to Swarm, you need to have access to one of its nodes. The s
 
 ## Registering an Ethereum Rinkeby account
 ### Via myetherwallet.com
-Go to [MyEtherWallet.com](https://vintage.myetherwallet.com/), then select Rinkeby in the upper right, enter any password, and download the Keystore file.
+Go to [MyEtherWallet.com](https://vintage.myetherwallet.com/), then select any Rinkeby in the upper right, enter any password, and download the Keystore file.
 
 ### Top up account with funds
-Follow instructions for [Rinkeby faucet](https://faucet.rinkeby.io/)
+There are two main Rinkeby faucets. [This one](https://faucet.rinkeby.io/) will give you up to 18 Ether, but it requires you to post an Ethereum address to a social network, [another one](http://rinkeby-faucet.com/) gives you ETH right away, but just `0.001`  ether. 
+
+`0.001` ether is enough for the sake of this tutorial, so you may want to go with the [easier one](http://rinkeby-faucet.com/)
 
 ## Installing Fluence CLI
+Creating publish transactions manually is hard and error-prone, so we provide Fluence CLI to make this task easier.
+
 You can download Fluence CLI from the [latest release](https://github.com/fluencelabs/fluence/releases/)
 
 Or in terminal:
@@ -99,7 +107,7 @@ App deployed.
 ```
 
 
-## Check app status
+## Check app in the smart contract
 To see how smart contract sees your app, and what nodes it was deployed onto, you can use `status` like this:
 ```bash
 ~ $ ./fluence status \
@@ -125,9 +133,6 @@ The output will be in JSON, and look similar to the following:
           "0xb557bb40febb7484393c1c99263b763d1caf6b6c83bc0a9fd6c084d2982af763",
           "0xac72ccc7886457c3f7da048e184b8b8a43f99c77950e7bb635b6cb3aeb3869fe",
           "0x9251dd451f4bd9f412173cc21279afc8d885312eb1c21828134ba9095da8306b",
-        ],
-        "ports": [
-          25001
         ]
       }
     }
@@ -137,8 +142,8 @@ The output will be in JSON, and look similar to the following:
       "validator_key": "0x5ed7a87da4bd800cd4f5b440f36ccece9c9e4542f9808ea6bfa45f84b8198185",
       "tendermint_p2p_id": "0x6c03a3fe792314f100ac8088a161f70bd7d257b1",
       "ip_addr": "43.32.21.10",
-      "next_port": 25003,
-      "last_port": 25099,
+      "api_port": 25000,
+      "capacity": 10,
       "owner": "0x5902720e872fb2b0cd4402c69d6d43c86e973db7",
       "is_private": false,
       "app_ids": [
