@@ -3,7 +3,7 @@ name = "hello_world2_2015"
 version = "0.1.0"
 authors = ["Fluence Labs"]
 publish = false
-description = "Just a demo application for Fluence with logging ability"
+description = "Just a demo application for Fluence with logging ability based on Rust 2015 edition"
 
 [lib]
 name = "hello_world2_2015"

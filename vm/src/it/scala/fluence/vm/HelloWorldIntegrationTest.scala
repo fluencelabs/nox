@@ -26,7 +26,7 @@ import scala.language.{higherKinds, implicitConversions}
 class HelloWorldIntegrationTest extends AppIntegrationTest with EitherValues {
 
   private val helloWorldFilePath =
-    getModuleDirPrefix() + "/examples/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm"
+    getModuleDirPrefix() + "/examples/hello-world/app-with-sdk/target/wasm32-unknown-unknown/release/hello_world.wasm"
 
   "hello user app" should {
 
