@@ -6,8 +6,9 @@ services:
     image: fluencelabs/node:v0.1.4
     environment:
       - TENDERMINT_IP=$DOCKER_IP
-      - ETHEREUM_IP=$HOST_IP
-      - SWARM_HOST=http://$HOST_IP:8500
+      - ETHEREUM_IP=$ETHEREUM_IP
+      - SWARM_ADDRESS=$SWARM_ADDRESS
+      - SWARM_HOST=$SWARM_ADDRESS # TODO: remove SWARM_HOST (replaced by SWARM_ADDRESS)
       - CONTRACT_ADDRESS=$CONTRACT_ADDRESS
       - OWNER_ADDRESS=$OWNER_ADDRESS
     ports:

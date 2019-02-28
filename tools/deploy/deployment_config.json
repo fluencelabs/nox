@@ -1,5 +1,7 @@
 {
   "stage": {
+    "swarm": "http://142.93.131.227:8500",
+    "ethereum_ip": "142.93.131.227",
     "contract": "0x4c9c53c3005a52d3468bb8a20fcb4c3ea76098ac",
     "nodes": {
       "46.101.221.231": {

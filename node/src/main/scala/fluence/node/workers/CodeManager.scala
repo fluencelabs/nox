@@ -130,7 +130,7 @@ object CodeManager {
     config: SwarmConfig
   )(implicit sttpBackend: SttpBackend[F, Nothing], backoff: Backoff[SwarmError] = Backoff.default): F[CodeManager[F]] =
     if (config.enabled) {
-      SwarmClient(config.host)
+      SwarmClient(config.address)
         .map(client => new SwarmCodeManager[F](client))
     } else {
       Applicative[F].pure(new TestCodeManager[F]())
