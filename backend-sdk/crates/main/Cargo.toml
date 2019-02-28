@@ -1,6 +1,6 @@
 [package]
 name = "fluence-sdk-main"
-version = "0.0.11"  # remember to update html_root_url
+version = "0.0.12"  # remember to update html_root_url
 edition = "2018"
 description = "Rust SDK for writing applications for Fluence"
 documentation = "https://docs.rs/fluence/fluence-sdk-macro"
@@ -12,7 +12,9 @@ license = "Apache-2.0"
 maintenance = { status = "actively-developed" }
 
 [package.metadata.docs.rs] # https://docs.rs/about
-all-features = true
+features = ["wasm_logger"]
+all_features = false
+no_default_features = false
 
 [lib]
 path = "src/lib.rs"

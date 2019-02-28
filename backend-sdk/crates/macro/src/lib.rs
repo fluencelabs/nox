@@ -30,7 +30,7 @@
 //! }
 //! ```
 //!
-//! Instead of this way you can write more pretty one using `#[invocation_handler]`:
+//! We can use a neater way instead with `#[invocation_handler]`:
 //!
 //! ```
 //! use fluence::sdk::*;
@@ -41,7 +41,7 @@
 //! }
 //! ```
 //!
-//! To use this macro with a function `f` some conditions must be met:
+//! To use this macro with a function `f` certain conditions must be met:
 //! 1. `f` mustn't have more than one input argument.
 //! 2. `f` mustn't be `unsafe`, `const`, generic, have custom abi linkage or variadic param.
 //! 3. The type of `f` input (if it present) and output parameters must be one from
