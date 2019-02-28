@@ -103,7 +103,7 @@ export class ResultAwait implements ResultPromise {
         if (this.invokeResult === undefined) {
             await this.broadcastRequest;
 
-            const path = this.targetKey + "/result";
+            const path = this.targetKey;
 
             let pr = this.checkResultPeriodically(path, this.config.requestsPerSec,
                 this.config.checkSessionTimeout, this.config.requestTimeout)

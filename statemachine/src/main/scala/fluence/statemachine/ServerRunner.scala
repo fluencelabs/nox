@@ -19,15 +19,11 @@ package fluence.statemachine
 import cats.Monad
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.ExitCase.{Canceled, Completed, Error}
-import cats.effect.concurrent.MVar
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import com.github.jtendermint.jabci.socket.TSocket
-import com.github.jtendermint.jabci.types.Request.ValueCase.{CHECK_TX, DELIVER_TX}
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.control.{ControlServer, ControlSignals}
 import fluence.statemachine.error.StateMachineError
-import fluence.statemachine.state._
-import fluence.statemachine.tx.{TxParser, TxProcessor, TxStateDependentChecker, VmOperationInvoker}
 import fluence.vm.WasmVm
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging._
@@ -99,7 +95,7 @@ object ServerRunner extends IOApp with LazyLogging {
   private[statemachine] def buildAbciHandler(
     config: StateMachineConfig,
     controlSignals: ControlSignals[IO]
-  ): EitherT[IO, StateMachineError, AbciHandler] =
+  ): EitherT[IO, StateMachineError, AbciHandler[IO]] =
     for {
       moduleFilenames <- config.collectModuleFiles[IO]
       _ = logger.info("Loading VM modules from " + moduleFilenames)
@@ -107,30 +103,8 @@ object ServerRunner extends IOApp with LazyLogging {
 
       vmInvoker = new VmOperationInvoker[IO](vm)
 
-      initialState <- EitherT.right(MVar[IO].of(TendermintState.initial))
-      stateHolder = new TendermintStateHolder[IO](initialState)
-      mutableConsensusState = new MutableStateTree(stateHolder)
-
-      queryProcessor = new QueryProcessor(stateHolder)
-
-      txParser = new TxParser[IO]()
-      checkTxStateChecker = new TxStateDependentChecker[IO](CHECK_TX, stateHolder.mempoolState)
-      deliverTxStateChecker = new TxStateDependentChecker(DELIVER_TX, mutableConsensusState.getRoot)
-
-      txProcessor = new TxProcessor(mutableConsensusState, vmInvoker, config)
-
-      committer = new Committer[IO](stateHolder, vmInvoker)
-
-      abciHandler = new AbciHandler(
-        committer,
-        queryProcessor,
-        txParser,
-        checkTxStateChecker,
-        deliverTxStateChecker,
-        txProcessor,
-        controlSignals
-      )
-    } yield abciHandler
+      service <- EitherT.right(AbciService[IO](vmInvoker))
+    } yield new AbciHandler[IO](service, controlSignals)
 
   /**
    * Builds a VM instance used to perform function calls from the clients.

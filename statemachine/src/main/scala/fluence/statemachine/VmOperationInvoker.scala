@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.tx
+package fluence.statemachine
 
 import cats.Monad
 import cats.data.EitherT
 import cats.effect.LiftIO
 import fluence.statemachine.error.{StateMachineError, VmRuntimeError}
 import fluence.vm.{VmError, WasmVm}
-import scodec.bits.Bases.Alphabets.HexUppercase
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -39,11 +38,11 @@ class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) extends
    * @param arg an argument for Wasm VM module main handler
    * @return either successful invocation's result or failed invocation's error
    */
-  def invoke(arg: Array[Byte]): EitherT[F, StateMachineError, String] =
+  def invoke(arg: Array[Byte]): EitherT[F, StateMachineError, Array[Byte]] =
     vm
     // by our name conventional a master Wasm module in VM doesn't have name
       .invoke(None, arg)
-      .bimap(VmOperationInvoker.convertToStateMachineError, ByteVector(_).toHex(HexUppercase))
+      .leftMap(VmOperationInvoker.convertToStateMachineError)
 
   /**
    * Obtains the current state hash of VM.

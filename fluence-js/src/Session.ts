@@ -16,7 +16,6 @@
 
 import {ResultAwait, ResultError, ResultPromise} from "./ResultAwait";
 import {error, ErrorResult, Result} from "./Result";
-import {genTxBase64} from "./tx";
 import {TendermintClient} from "./TendermintClient";
 import {SessionConfig} from "./SessionConfig";
 
@@ -31,7 +30,6 @@ const txDebug = debug("broadcast-request");
 export class Session {
     readonly tm: TendermintClient;
     private readonly session: string;
-    private readonly sessionSummaryKey: string;
     private readonly config: SessionConfig;
     private counter: number;
     private lastResult: ResultAwait;
@@ -58,15 +56,13 @@ export class Session {
         this.counter = 0;
         this.closed = false;
         this.closing = false;
-
-        this.sessionSummaryKey = `@meta/${this.session}/@sessionSummary`;
     }
 
     /**
      * Generates a key, that will be an identifier of the request.
      */
     private targetKey(counter: number) {
-        return `@meta/${this.session}/${counter}`;
+        return `${this.session}/${counter}`;
     }
 
     /**
@@ -103,11 +99,11 @@ export class Session {
         // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
         let currentCounter = this.getCounterAndIncrement();
 
-        let txBase64 = genTxBase64(this.session, currentCounter, payload);
+        let tx = `${this.session}/${currentCounter}\n${payload}`;
 
         // send transaction
         txDebug("send broadcastTxSync");
-        let broadcastRequestPromise: Promise<void> = this.tm.broadcastTxSync(txBase64).then((resp: any) => {
+        let broadcastRequestPromise: Promise<void> = this.tm.broadcastTxSync(tx).then((resp: any) => {
             detailedDebug("broadCastTxSync response received");
             txDebug("broadCastTxSync response received");
             // close session if some error on sending transaction occurred
@@ -125,7 +121,7 @@ export class Session {
             this.markSessionAsClosed(err.error)
         };
 
-        let resultAwait = new ResultAwait(this.tm, this.config, targetKey, this.sessionSummaryKey,
+        let resultAwait = new ResultAwait(this.tm, this.config, targetKey, this.session,
             broadcastRequestPromise, callback);
         this.lastResult = resultAwait;
 

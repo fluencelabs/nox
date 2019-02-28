@@ -125,14 +125,10 @@ lazy val statemachine = (project in file("statemachine"))
     libraryDependencies ++= Seq(
       cats,
       catsEffect,
-      circeGeneric,
-      circeParser,
       pureConfig,
-      cryptoHashing,
       slogging,
       scodecBits,
       "com.github.jtendermint" % "jabci"          % "0.26.0",
-      "org.bouncycastle"       % "bcpkix-jdk15on" % "1.56",
       scalaTest
     ),
     assemblyJarName in assembly := "statemachine.jar",
