@@ -1,0 +1,14 @@
+[package]
+name = "rocket_tests"
+version = "0.0.11"  # remember to update html_root_url
+description = "Rust SDK for writing applications for Fluence"
+authors = ["Fluence Labs"]
+maintenance = { status = "actively-developed" }
+ediiton = "2018"
+
+[[bin]]
+name = "basic_test"
+path = "src/main.rs"
+
+[dependencies]
+rocket = "0.4.0"
