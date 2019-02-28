@@ -1,6 +1,5 @@
 # creates register command to register deployed node
 def register_command(data, secret_key):
-    eth_url = "http://" + data['node_ip'] + ":8545"
     command = "./fluence register \
         --node_ip            %s \
         --tendermint_key     %s \
@@ -22,7 +21,7 @@ def register_command(data, secret_key):
             secret_key,
             data['api_port'],
             data['capacity'],
-            eth_url
+            data['ethereum_address']
         )
 
     return ' '.join(command.split())

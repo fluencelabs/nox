@@ -26,11 +26,10 @@ if hasattr(env, 'environment'):
     file.close()
 
     info = json.loads(info_json)[environment]
-
     contract = info['contract']
-
-    # Fluence will be deployed on all hosts in an environment from `info.json`
     nodes = info['nodes']
+    env.swarm = info['swarm']
+    env.ethereum_ip = info['ethereum_ip']
 else:
     # gets deployed contract address from a file
     file = open("instances.json", "r")
@@ -51,7 +50,7 @@ env.user = "root"
 # Set to False to disable `[ip.ad.dre.ss] out:` prefix
 env.output_prefix = True
 
-RELEASE = "https://github.com/fluencelabs/fluence/releases/download/cli-0.1.3/fluence-cli-0.1.3-linux-x64"
+RELEASE = "https://github.com/fluencelabs/fluence/releases/download/v0.1.4/fluence-cli-0.1.4-linux-x64"
 
 
 # copies all necessary files for deploying
@@ -107,6 +106,17 @@ def deploy():
             current_key = nodes[current_host]['key']
             api_port = nodes[current_host]['api_port']
             capacity = nodes[current_host]['capacity']
+            if env.swarm is None:
+                swarm = "http://%s:8500" % current_host
+                start_swarm = "true"
+            else:
+                swarm = env.swarm
+                start_swarm = "false"
+
+            if env.ethereum_ip is None:
+                ethereum_ip = "http://%s:8545" % current_host
+            else:
+                ethereum_ip = env.ethereum_ip
 
             with shell_env(CHAIN=chain,
                            # flag that show to script, that it will deploy all with non-default arguments
@@ -119,7 +129,10 @@ def deploy():
                            # container name
                            NAME="fluence-node-1",
                            HOST_IP=current_host,
-                           ETHEREUM_SERVICE="geth"):
+                           SWARM_ADDRESS=swarm,
+                           START_SWARM=start_swarm,
+                           ETHEREUM_SERVICE="provided",
+                           ETHEREUM_IP=ethereum_ip):
                 run('chmod +x compose.sh')
                 # the script will return command with arguments that will register node in Fluence contract
                 output = run('./compose.sh deploy')
