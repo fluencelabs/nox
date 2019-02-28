@@ -1,6 +1,6 @@
 [package]
 name = "fluence"
-version = "0.0.11"  # remember to update html_root_url
+version = "0.0.12"  # remember to update html_root_url
 description = "Rust SDK for writing applications for Fluence"
 documentation = "https://docs.rs/fluence/"
 repository = "https://github.com/fluencelabs/fluence/tree/master/sdk/rust"
@@ -12,14 +12,16 @@ license = "Apache-2.0"
 maintenance = { status = "actively-developed" }
 
 [package.metadata.docs.rs] # https://docs.rs/about
-all-features = true
+features = ["wasm_logger"]
+all_features = false
+no_default_features = false
 
 [lib]
 path = "src/lib.rs"
 
 [dependencies]
-fluence-sdk-macro = { path = "crates/macro", version = "=0.0.11" }
-fluence-sdk-main = { path = "crates/main", version = "=0.0.11" }
+fluence-sdk-macro = { path = "crates/macro", version = "=0.0.12" }
+fluence-sdk-main = { path = "crates/main", version = "=0.0.12" }
 
 [features]
 # Turn on a compilation for module contains Wasm logger realization.

@@ -3,7 +3,7 @@ name = "hello_world2_2018"
 version = "0.1.0"
 authors = ["Fluence Labs"]
 publish = false
-description = "Just a demo application for Fluence with logging ability"
+description = "Just a demo application for Fluence with logging ability based on Rust 2015 edition"
 edition = "2018"
 
 [lib]
@@ -19,4 +19,4 @@ panic = "abort"
 
 [dependencies]
 log = "0.4"
-fluence = { version = "0.0.11", features = ["wasm_logger"] }
+fluence = { version = "0.0.12", features = ["wasm_logger"] }
