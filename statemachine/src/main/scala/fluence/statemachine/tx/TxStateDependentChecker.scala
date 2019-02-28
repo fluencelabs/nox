@@ -15,12 +15,12 @@
  */
 
 package fluence.statemachine.tx
+
 import cats.Monad
 import cats.data.EitherT
 import com.github.jtendermint.jabci.types.Request.ValueCase
 import fluence.statemachine.tree.{StoragePaths, TreeNode}
-import fluence.statemachine.util.{ClientInfoMessages, Metrics}
-import io.prometheus.client.Counter
+import fluence.statemachine.util.ClientInfoMessages
 
 import scala.language.higherKinds
 
@@ -32,14 +32,6 @@ import scala.language.higherKinds
  * @param state state against which checking is applied
  */
 class TxStateDependentChecker[F[_]: Monad](val method: ValueCase, state: F[TreeNode]) {
-  private val methodName = method.name().toLowerCase.replace("_", "")
-
-  private val txCounter: Counter =
-    Metrics.registerCounter(s"worker_${methodName}_count")
-  private val txLatencyCounter: Counter =
-    Metrics.registerCounter(s"worker_${methodName}_latency_sum")
-  private val txValidationTimeCounter: Counter =
-    Metrics.registerCounter(s"worker_${methodName}_validation_time_sum")
 
   /**
    * Checks whether given `tx` is unique and its state is active against provided [[state]].
@@ -65,17 +57,5 @@ class TxStateDependentChecker[F[_]: Monad](val method: ValueCase, state: F[TreeN
         ClientInfoMessages.SessionAlreadyClosed
       )
     } yield checkedTx
-
-  /**
-   * Collects transaction validation metrics.
-   *
-   * @param latency current tx latency
-   * @param validationDuration tx validation duration
-   */
-  def collect(latency: Long, validationDuration: Long): Unit = {
-    txCounter.inc()
-    txLatencyCounter.inc(latency)
-    txValidationTimeCounter.inc(validationDuration)
-  }
 
 }

@@ -15,6 +15,7 @@
  */
 
 package fluence.statemachine.tx
+
 import fluence.statemachine.StoreValue
 import io.circe.generic.auto._
 import io.circe.parser.{parse => parseJson}

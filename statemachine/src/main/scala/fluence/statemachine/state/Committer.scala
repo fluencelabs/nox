@@ -22,8 +22,6 @@ import com.google.protobuf.ByteString
 import fluence.statemachine.StoreValue
 import fluence.statemachine.tree.{MerkleTreeNode, StoragePaths, TreeNode}
 import fluence.statemachine.tx.VmOperationInvoker
-import fluence.statemachine.util.{HexCodec, Metrics, TimeLogger, TimeMeter}
-import io.prometheus.client.Counter
 
 import scala.language.higherKinds
 
@@ -41,17 +39,12 @@ class Committer[F[_]](
     extends slogging.LazyLogging {
   private val WrongVmHashValue: StoreValue = "wrong_vm_hash"
 
-  private val commitCounter: Counter = Metrics.registerCounter("worker_commit_count")
-  private val commitTimeCounter: Counter = Metrics.registerCounter("worker_commit_time_sum")
-
   /**
    * Handles `Commit` ABCI method (in Consensus thread).
    *
    * @return app hash for Tendermint
    */
-  def processCommit(): F[ByteString] = {
-    val commitTimeMeter = TimeMeter()
-
+  def processCommit(): F[ByteString] =
     stateHolder.modifyStates(
       for {
         // 2 State monads composed because an atomic update required for Commit
@@ -59,11 +52,10 @@ class Committer[F[_]](
         stateAndHeight <- commitStatesUpdate()
 
         (state, height) = stateAndHeight
-        appHash = ByteString.copyFrom(state.merkleHash.bytes.toArray)
-        _ = logState(state, height, commitTimeMeter)
+        appHash = ByteString.copyFrom(state.merkleHash.value.toArray)
+        _ = logState(state, height)
       } yield appHash
     )
-  }
 
   /**
    * Modifies Consensus state to prepare it for commit.
@@ -74,14 +66,13 @@ class Committer[F[_]](
     StateT(
       oldConsensusState =>
         for {
-          vmStateHash <- vmInvoker.vmStateHash().map(HexCodec.binaryToHex).getOrElse(WrongVmHashValue)
+          vmStateHash <- vmInvoker.vmStateHash().map(_.toHex).getOrElse(WrongVmHashValue)
           newConsensusState = oldConsensusState.putValue(StoragePaths.VmStateHashPath, vmStateHash)
         } yield (newConsensusState, ())
     )
 
   /**
    * Switches states and returns the resulting app hash.
-   *
    */
   private def commitStatesUpdate(): StateT[F, TendermintState, (MerkleTreeNode, Long)] = StateT(
     oldStates =>
@@ -92,17 +83,13 @@ class Committer[F[_]](
       } yield (newStates, (merkelized, height))
   )
 
-  private def logState(state: MerkleTreeNode, height: Long, commitTimeMeter: TimeMeter): Unit = {
-    val commitDuration = commitTimeMeter.millisElapsed
+  private def logState(state: MerkleTreeNode, height: Long): Unit = {
     logger.info(
-      "Commit: processTime={} height={} hash={}",
-      commitDuration,
+      "Commit: height={} hash={}",
       height,
-      state.merkleHash.toHex
+      state.merkleHash.value.toHex
     )
     logger.debug("MerkleTree state: {}", state.dump())
-    commitCounter.inc()
-    commitTimeCounter.inc(commitDuration)
   }
 
 }

@@ -15,7 +15,8 @@
  */
 
 package fluence.statemachine.state
-import fluence.statemachine.tree.{BinaryBasedDigestMergeRule, MerkleHash}
+
+import fluence.statemachine.tree.MerkleHash
 import org.bouncycastle.jcajce.provider.digest.SHA3
 import org.scalatest.{FlatSpec, Matchers}
 import scodec.bits.ByteVector
@@ -36,6 +37,6 @@ class MerkleHashSpec extends FlatSpec with Matchers {
     val expectedMergedParts = Array(1, 2, 3, 4, 5, 6, 7, 8).map(_.toByte)
     val expectedDigest = new SHA3.Digest256().digest(expectedMergedParts)
 
-    MerkleHash.merge(parts, BinaryBasedDigestMergeRule).bytes.toArray shouldBe expectedDigest
+    MerkleHash.merge(parts).value.toArray shouldBe expectedDigest
   }
 }

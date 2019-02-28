@@ -48,7 +48,7 @@ object StoragePaths {
    * @param txHeader transaction header
    */
   def sessionSummaryPath(txHeader: TransactionHeader): TreePath[StoreKey] =
-    TreePath(List(MetadataRootKey, txHeader.client, txHeader.session, SessionSummaryKey))
+    TreePath(List(MetadataRootKey, txHeader.session, SessionSummaryKey))
 
   /**
    * Path used to store a transaction status.
@@ -74,7 +74,7 @@ object StoragePaths {
   def txResultPath(txHeader: TransactionHeader): TreePath[StoreKey] = txPathTemplate(txHeader, TxResultKey)
 
   private def txPathTemplate(txHeader: TransactionHeader, postfix: String): TreePath[StoreKey] =
-    TreePath(List(MetadataRootKey, txHeader.client, txHeader.session, txHeader.order.toString, postfix))
+    TreePath(List(MetadataRootKey, txHeader.session, txHeader.order.toString, postfix))
 }
 
 /**

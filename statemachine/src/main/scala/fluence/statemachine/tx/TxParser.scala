@@ -19,8 +19,6 @@ package fluence.statemachine.tx
 import cats.Applicative
 import cats.data.EitherT
 import com.google.protobuf.ByteString
-import fluence.statemachine.contract.ClientRegistry
-import fluence.statemachine.util.{ClientInfoMessages, Crypto, HexCodec}
 import io.circe.generic.auto._
 import io.circe.parser.{parse => parseJson}
 
@@ -31,10 +29,8 @@ import scala.language.higherKinds
  * Returns error message if parsing failed (because of wrong format or incorrect signature).
  *
  * Does not perform any checks against application state.
- *
- * @param clientRegistry client registry used to check client's signature
  */
-class TxParser[F[_]: Applicative](clientRegistry: ClientRegistry) {
+class TxParser[F[_]: Applicative]() {
 
   /**
    * Tries to parse a given serialized transaction.
@@ -45,12 +41,6 @@ class TxParser[F[_]: Applicative](clientRegistry: ClientRegistry) {
   def parseTx(rawTx: ByteString): EitherT[F, String, Transaction] =
     EitherT.fromEither[F](for {
       parsedJson <- parseJson(rawTx.toStringUtf8).left.map(_.message)
-      signedTx <- parsedJson.as[SignedTransaction].left.map(_.message)
-      publicKey <- clientRegistry.getPublicKey(signedTx.tx.header.client)
-      checkedTx <- Either.cond(
-        Crypto.verify(signedTx.signature, signedTx.tx.signString, publicKey),
-        signedTx.tx,
-        ClientInfoMessages.InvalidSignature
-      )
-    } yield checkedTx)
+      tx <- parsedJson.as[Transaction].left.map(_.message)
+    } yield tx)
 }

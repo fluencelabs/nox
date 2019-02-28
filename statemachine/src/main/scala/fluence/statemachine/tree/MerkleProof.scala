@@ -41,7 +41,7 @@ case class MerkleProof(proof: List[List[MerkleHash]]) {
   /**
    * Provides hex representation of [[MerkleProof]].
    */
-  def toHex: String = proof.map(level => level.map(_.toHex).mkString(" ")).mkString(", ")
+  def toHex: String = proof.map(level => level.map(_.value.toHex).mkString(" ")).mkString(", ")
 
   override def toString: String = toHex
 }

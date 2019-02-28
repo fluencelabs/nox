@@ -189,7 +189,7 @@ case class MerkleTreeNode(
 object MerkleTreeNode {
 
   def apply(children: Map[StoreKey, MerkleTreeNode], value: Option[StoreValue]): MerkleTreeNode =
-    MerkleTreeNode(children, value, MerkleHash.merge(merkleItems(children, value), HexBasedDigestMergeRule))
+    MerkleTreeNode(children, value, MerkleHash.merge(merkleItems(children, value)))
 
   /**
    * Builds list of digests that used to produce node's hash.

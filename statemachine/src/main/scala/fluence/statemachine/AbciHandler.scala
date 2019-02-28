@@ -20,14 +20,12 @@ import cats.Monad
 import cats.effect.IO
 import cats.syntax.functor._
 import com.github.jtendermint.jabci.api._
-import com.github.jtendermint.jabci.types.Request.ValueCase.DELIVER_TX
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
 import fluence.statemachine.control.{ControlSignals, DropPeer}
 import fluence.statemachine.state.{Committer, QueryProcessor}
 import fluence.statemachine.tx._
-import fluence.statemachine.util.{ClientInfoMessages, Metrics, TimeLogger, TimeMeter}
-import io.prometheus.client.Counter
+import fluence.statemachine.util.ClientInfoMessages
 import slogging.LazyLogging
 
 import scala.language.higherKinds
@@ -47,9 +45,6 @@ class AbciHandler(
   private val controlSignals: ControlSignals[IO]
 ) extends LazyLogging with ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock {
 
-  private val queryCounter: Counter = Metrics.registerCounter("worker_query_count")
-  private val queryProcessTimeCounter: Counter = Metrics.registerCounter("worker_query_process_time_sum")
-
   /**
    * Handler for `Commit` ABCI method (processed in Consensus thread).
    *
@@ -67,27 +62,24 @@ class AbciHandler(
    * @param req `Query` request data
    * @return `Query` response data
    */
-  override def requestQuery(req: RequestQuery): ResponseQuery = {
-    val queryTimeMeter = TimeMeter()
-    val responseData = queryProcessor.processQuery(req.getPath, req.getHeight, req.getProve).unsafeRunSync()
-
-    val queryDuration = queryTimeMeter.millisElapsed
-    logger.debug("Query duration={} info={}", queryDuration, responseData.info)
-    queryCounter.inc()
-    queryProcessTimeCounter.inc(queryDuration)
-
-    ResponseQuery.newBuilder
-      .setCode(responseData.code)
-      .setInfo(responseData.info)
-      .setHeight(responseData.height)
-      .setValue(ByteString.copyFromUtf8(responseData.result.getOrElse("")))
-      .setProof(
-        Proof
-          .newBuilder()
-          .addOps(ProofOp.newBuilder().setData(ByteString.copyFromUtf8(responseData.proof.getOrElse(""))))
+  override def requestQuery(req: RequestQuery): ResponseQuery =
+    queryProcessor
+      .processQuery(req.getPath, req.getHeight, req.getProve)
+      .map(
+        responseData ⇒
+          ResponseQuery.newBuilder
+            .setCode(responseData.code)
+            .setInfo(responseData.info)
+            .setHeight(responseData.height)
+            .setValue(ByteString.copyFromUtf8(responseData.result.getOrElse("")))
+            .setProof(
+              Proof
+                .newBuilder()
+                .addOps(ProofOp.newBuilder().setData(ByteString.copyFromUtf8(responseData.proof.getOrElse(""))))
+            )
+            .build
       )
-      .build
-  }
+      .unsafeRunSync()
 
   /**
    * Handler for `CheckTx` ABCI method (processed in Mempool thread).
@@ -118,13 +110,10 @@ class AbciHandler(
     val responseData = (for {
       validated <- validateTx(req.getTx, txParser, deliverTxStateChecker)
 
-      processingTimeMeter = TimeMeter()
       _ <- validated.validatedTx match {
         case None => IO.unit
         case Some(tx) => txProcessor.processNewTx(tx)
       }
-      processingDuration = processingTimeMeter.millisElapsed
-      _ = logger.info("DeliverTx processTime={}", processingDuration)
     } yield validated).unsafeRunSync()
     ResponseDeliverTx.newBuilder
       .setCode(responseData.code)
@@ -148,8 +137,7 @@ class AbciHandler(
     txBytes: ByteString,
     txParser: TxParser[F],
     txStateChecker: TxStateDependentChecker[F]
-  )(implicit F: Monad[F]): F[TxResponseData] = {
-    val validationTimeMeter = TimeMeter()
+  )(implicit F: Monad[F]): F[TxResponseData] =
     for {
       validated <- (for {
         parsedTx <- txParser.parseTx(txBytes)
@@ -159,22 +147,8 @@ class AbciHandler(
         case Right(tx) => TxResponseData(Some(tx), CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
       }
 
-      duration = validationTimeMeter.millisElapsed
-      latency = validated.validatedTx
-        .flatMap(tx => tx.timestamp)
-        .map(TimeMeter.millisFromPastToNow(_) - duration)
-        .map(Math.max(0, _))
-        .getOrElse(0L)
-
-      _ = txStateChecker.collect(latency, duration)
-
-      method = txStateChecker.method
-      logMessage = () => s"ValidateTx from ${method.name()} latency=$latency validationTime=$duration $validated"
-
-      verboseInfoLogNeeded = method == DELIVER_TX || validated.code != CodeType.OK
-      _ = if (verboseInfoLogNeeded) logger.info(logMessage()) else logger.debug(logMessage())
+      _ = logger.debug(s"ValidateTx from ${txStateChecker.method.name()} $validated")
     } yield validated
-  }
 
   // At the end of block H, we can propose validator updates, they will be applied at block H+2
   // see https://github.com/tendermint/tendermint/blob/master/docs/spec/abci/abci.md#endblock

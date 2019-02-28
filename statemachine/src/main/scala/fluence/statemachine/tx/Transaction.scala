@@ -22,11 +22,10 @@ import fluence.statemachine._
  * Transaction header.
  * Contains important information about transaction and acts as it's unique identifier.
  *
- * @param client client identifier
  * @param session session identifier
  * @param order transaction counter in scope of session
  */
-case class TransactionHeader(client: ClientId, session: SessionId, order: Long) {
+case class TransactionHeader(session: SessionId, order: Long) {
 
   /**
    * Header describing transaction that required to be applied before the current transaction, if necessary.
@@ -34,7 +33,7 @@ case class TransactionHeader(client: ClientId, session: SessionId, order: Long) 
    *
    */
   def requiredTxHeader: Option[TransactionHeader] =
-    if (order == 0) None else Some(TransactionHeader(client, session, order - 1))
+    if (order == 0) None else Some(TransactionHeader(session, order - 1))
 
   /**
    * Header describing a transaction that is the immediate transaction to be applied right after
@@ -44,7 +43,7 @@ case class TransactionHeader(client: ClientId, session: SessionId, order: Long) 
    * or not received yet (in normal case).
    *
    */
-  def dependentTxHeader: TransactionHeader = TransactionHeader(client, session, order + 1)
+  def dependentTxHeader: TransactionHeader = TransactionHeader(session, order + 1)
 }
 
 /**
@@ -55,15 +54,4 @@ case class TransactionHeader(client: ClientId, session: SessionId, order: Long) 
  * @param payload transaction payload describing operation that should be invoked by VM
  * @param timestamp optional timestamp set by client. For tracing only, it doesn't affect tx processing
  */
-case class Transaction(header: TransactionHeader, payload: String, timestamp: Option[Long]) {
-  def signString: String = s"${header.client}-${header.session}-${header.order}-$payload"
-}
-
-/**
- * [[Transaction]] together with client signature.
- * This is in fact deserialized representation of transaction got from Tendermint.
- *
- * @param tx transaction
- * @param signature signature used to prove the client's identity
- */
-case class SignedTransaction(tx: Transaction, signature: String) {}
+case class Transaction(header: TransactionHeader, payload: String, timestamp: Option[Long])

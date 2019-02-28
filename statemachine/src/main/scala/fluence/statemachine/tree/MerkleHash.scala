@@ -16,52 +16,29 @@
 
 package fluence.statemachine.tree
 
-import fluence.statemachine.util.{Crypto, HexCodec}
+import fluence.statemachine.util.Crypto
 import scodec.bits.ByteVector
 
 /**
  * Merkle hash used as hash of [[MerkleTreeNode]]
  *
- * @param bytes binary representation of the hash
+ * @param value binary representation of the hash
  */
-case class MerkleHash(bytes: ByteVector) extends AnyVal {
-  def toHex: String = HexCodec.binaryToHex(bytes.toArray)
-}
+case class MerkleHash(value: ByteVector) extends AnyVal
 
 object MerkleHash {
 
   /**
    * Merges sequence of digests.
    *
-   * TODO: [[BinaryBasedDigestMergeRule]] might be vulnerable if merged digest might have arbitrary lengths.
-   * We need to check it or change the rule.
-   *
    * @param parts merkle hashes that take part in merging
-   * @param mergeRule describes how to merge parts
    */
-  def merge(parts: Seq[MerkleHash], mergeRule: DigestMergeRule = HexBasedDigestMergeRule): MerkleHash =
-    mergeRule match {
-      case BinaryBasedDigestMergeRule =>
-        val buffer = Array.fill[Byte](parts.map(_.bytes.size).sum.toInt)(0)
-        val insertPositions = parts.scanLeft(0L)(_ + _.bytes.size).take(parts.length)
-        parts.zip(insertPositions).foreach {
-          case (part, pos) => Array.copy(part.bytes.toArray, 0, buffer, pos.toInt, part.bytes.size.toInt)
-        }
-        Crypto.sha3Digest256(buffer)
-      case HexBasedDigestMergeRule => Crypto.sha3Digest256(parts.map(_.toHex).mkString(" ").getBytes)
+  def merge(parts: Seq[MerkleHash]): MerkleHash = {
+    val buffer = Array.fill[Byte](parts.map(_.value.size).sum.toInt)(0)
+    val insertPositions = parts.scanLeft(0L)(_ + _.value.size).take(parts.length)
+    parts.zip(insertPositions).foreach {
+      case (part, pos) => Array.copy(part.value.toArray, 0, buffer, pos.toInt, part.value.size.toInt)
     }
+    Crypto.sha3Digest256(buffer)
+  }
 }
-
-sealed trait DigestMergeRule
-
-/**
- * Merge rule that uses a concatenation of merged hashes as an input for digest function.
- */
-case object BinaryBasedDigestMergeRule extends DigestMergeRule
-
-/**
- * Merge rule that uses a space-separated concatenation of hex representation of merged hashes
- * as an input for digest function.
- * TODO: get rid of it
- */
-case object HexBasedDigestMergeRule extends DigestMergeRule

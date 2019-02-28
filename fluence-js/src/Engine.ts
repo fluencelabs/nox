@@ -16,7 +16,6 @@
 
 import {TendermintClient} from "./TendermintClient";
 import {Session} from "./Session";
-import {Client} from "./Client";
 import {SessionConfig} from "./SessionConfig";
 
 /**
@@ -34,20 +33,18 @@ export class Engine {
 
     /**
      * Creates a new session with a random identifier with the real-time cluster.
-     * @param client identifier of a client and a signer
      * @param config parameters that regulate the session
      */
-    genSession(client: Client, config: SessionConfig = new SessionConfig()): Session {
-        return new Session(this.tm, client, config)
+    genSession(config: SessionConfig = new SessionConfig()): Session {
+        return new Session(this.tm, config)
     }
 
     /**
      * Creates new session with the real-time cluster.
-     * @param client identifier of the client and the signer
      * @param config parameters that regulate the session
      * @param sessionId session identifier
      */
-    createSession(client: Client, config: SessionConfig = new SessionConfig(), sessionId: string): Session {
-        return new Session(this.tm, client, config, sessionId)
+    createSession(config: SessionConfig = new SessionConfig(), sessionId: string): Session {
+        return new Session(this.tm, config, sessionId)
     }
 }

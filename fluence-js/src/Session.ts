@@ -18,7 +18,6 @@ import {ResultAwait, ResultError, ResultPromise} from "./ResultAwait";
 import {error, ErrorResult, Result} from "./Result";
 import {genTxBase64} from "./tx";
 import {TendermintClient} from "./TendermintClient";
-import {Client} from "./Client";
 import {SessionConfig} from "./SessionConfig";
 
 import  * as debug from "debug";
@@ -30,7 +29,6 @@ const txDebug = debug("broadcast-request");
  * It is an identifier around which client can build a queue of requests.
  */
 export class Session {
-    private readonly client: Client;
     readonly tm: TendermintClient;
     private readonly session: string;
     private readonly sessionSummaryKey: string;
@@ -48,14 +46,12 @@ export class Session {
 
     /**
      * @param _tm transport to interact with the real-time cluster
-     * @param _client an identifier and a signer
      * @param _config parameters that regulate the session
      * @param _session session id, will be a random string with length 12 by default
      */
-    constructor(_tm: TendermintClient, _client: Client, _config: SessionConfig,
+    constructor(_tm: TendermintClient, _config: SessionConfig,
                 _session: string = Session.genSessionId()) {
         this.tm = _tm;
-        this.client = _client;
         this.session = _session;
         this.config = _config;
 
@@ -63,14 +59,14 @@ export class Session {
         this.closed = false;
         this.closing = false;
 
-        this.sessionSummaryKey = `@meta/${this.client.id}/${this.session}/@sessionSummary`;
+        this.sessionSummaryKey = `@meta/${this.session}/@sessionSummary`;
     }
 
     /**
      * Generates a key, that will be an identifier of the request.
      */
     private targetKey(counter: number) {
-        return `@meta/${this.client.id}/${this.session}/${counter}`;
+        return `@meta/${this.session}/${counter}`;
     }
 
     /**
@@ -107,7 +103,7 @@ export class Session {
         // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
         let currentCounter = this.getCounterAndIncrement();
 
-        let txBase64 = genTxBase64(this.client, this.session, currentCounter, payload);
+        let txBase64 = genTxBase64(this.session, currentCounter, payload);
 
         // send transaction
         txDebug("send broadcastTxSync");

@@ -17,7 +17,6 @@
 package fluence
 
 package object statemachine {
-  type ClientId = String
   type SessionId = String
 
   type PublicKey = String

@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-import {Signer} from "./Signer";
-import {Client} from "./Client";
 import * as base64js from "base64-js";
 
 /**
@@ -26,8 +24,8 @@ import * as base64js from "base64-js";
  * @param counter transaction counter for ordering
  * @param payload command with arguments
  */
-export function genTxBase64(client: Client, session: string, counter: number, payload: string): string {
-    let tx = new TxEncoder(client.id, session, counter, payload).createJson(client.signer);
+export function genTxBase64(session: string, counter: number, payload: string): string {
+    let tx = new TxEncoder(session, counter, payload).tx;
     return jsonToBase64(tx)
 }
 
@@ -35,7 +33,7 @@ export function genTxBase64(client: Client, session: string, counter: number, pa
  * Makes hex string from json object that will be correct to the real-time cluster.
  * @param json transaction with command, metainformation and signature
  */
-function jsonToBase64(json: TxJson): string {
+function jsonToBase64(json: Tx): string {
     return base64js.fromByteArray(Buffer.from(JSON.stringify(json)));
 }
 
@@ -43,34 +41,16 @@ function jsonToBase64(json: TxJson): string {
  * Class to aggregate information and create signed transaction json for the real-time cluster.
  */
 class TxEncoder {
-    private readonly tx: Tx;
+    public readonly tx: Tx;
 
-    constructor(client: string, session: string, counter: number, payload: string) {
+    constructor(session: string, counter: number, payload: string) {
         this.tx = {
             header: {
-                client: client,
                 session: session,
                 order: counter
             },
             payload: payload,
             timestamp: +new Date
-        };
-    }
-
-    /**
-     * Creates a correct json representation for the cluster
-     * @param signer
-     */
-    createJson(signer: Signer): TxJson {
-
-        let header = this.tx.header;
-        let str = `${header.client}-${header.session}-${header.order}-${this.tx.payload}`;
-
-        let signature = signer.sign(str);
-
-        return {
-            tx: this.tx,
-            signature: signature
         };
     }
 }
@@ -79,7 +59,6 @@ class TxEncoder {
  * The header of the transaction.
  */
 interface Header {
-    client: string;
     session: string;
     order: number;
 }
@@ -91,12 +70,4 @@ interface Tx {
     header: Header;
     payload: string;
     timestamp: number;
-}
-
-/**
- * The transaction with signature.
- */
-export interface TxJson {
-    tx: Tx
-    signature: string
 }

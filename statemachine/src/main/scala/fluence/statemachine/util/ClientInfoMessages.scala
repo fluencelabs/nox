@@ -20,8 +20,6 @@ package fluence.statemachine.util
  * Constants used as `Info` for ABCI requests.
  */
 object ClientInfoMessages {
-  val UnknownClient: String = "Unknown client"
-  val InvalidSignature: String = "Invalid signature"
   val DuplicatedTransaction: String = "Duplicated transaction"
   val SessionAlreadyClosed: String = "Session already closed"
   val SuccessfulTxResponse: String = ""
