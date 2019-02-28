@@ -30,6 +30,7 @@ class AbciHandler[F[_]: Effect](
   service: AbciService[F],
   controlSignals: ControlSignals[F]
 ) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock {
+
   override def requestCheckTx(
     req: RequestCheckTx
   ): ResponseCheckTx =

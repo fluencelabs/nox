@@ -27,6 +27,12 @@ import slogging.LazyLogging
 
 import scala.language.higherKinds
 
+/**
+ * Wraps all the state and logic required to perform ABCI logic.
+ *
+ * @param state See [[AbciState]]
+ * @param vm Virtual machine invoker
+ */
 class AbciService[F[_]: Monad](
   state: Ref[F, AbciState],
   vm: VmOperationInvoker[F]
@@ -34,15 +40,24 @@ class AbciService[F[_]: Monad](
 
   import AbciService._
 
-  // returns app hash
+  /**
+   * Take all the transactions we're able to process, and pass them to VM one by one.
+   *
+   * @return App (VM) Hash
+   */
   def commit: F[ByteVector] =
     for {
+      // Get current state
       s ← state.get
+      // Form a block: take ordered txs from AbciState
       sTxs ← AbciState.formBlock[F].run(s)
 
+      // Process txs one by one
       st ← Monad[F].tailRecM[(AbciState, List[Tx]), AbciState](sTxs) {
         case (st, tx :: txs) ⇒
+          // Invoke
           vm.invoke(tx.data.value)
+            // Save the tx response to AbciState
             .semiflatMap(value ⇒ AbciState.putResponse[F](tx.head, value).map(_ ⇒ txs).run(st).map(Left(_)))
             .leftMap(err ⇒ logger.error(s"VM invoke failed: $err for tx: $tx"))
             .getOrElse(Right(st)) // TODO do not ignore vm error
@@ -51,56 +66,88 @@ class AbciService[F[_]: Monad](
           Applicative[F].pure(Right(st))
       }
 
+      // Get the VM hash
       hash ← vm
         .vmStateHash()
         .leftMap(err ⇒ logger.error(s"VM is unable to compute state hash: $err"))
         .getOrElse(ByteVector.empty) // TODO do not ignore vm error
 
+      // Push hash to AbciState, increment block number
       newState ← AbciState.setAppHash(hash).runS(st)
 
+      // Store updated state in the Ref (the changes were transient for readers before this step)
       _ ← state.set(newState)
     } yield hash
 
+  /**
+   * Queries the storage for sessionId/nonce result, or for sessionId status.
+   *
+   * @param path sessionId/nonce or sessionId
+   */
   def query(path: String): F[QueryResponse] =
     Tx.readHead(path) match {
+      // There's no /nonce part, but path could be a sessionId as a whole
       case None ⇒
         state.get.map(
           state ⇒
+            // Try to find a session
             state.sessions.data.get(path) match {
               case Some(ses) ⇒
+                // Got session, so first line is "Active"
                 QueryResponse(
                   state.height,
-                  s"nextNonce:${ses.nextNonce}".getBytes(),
+                  s"Active\nNext Nonce:${ses.nextNonce}".getBytes(),
                   0,
                   s"Session $path is found"
                 )
 
               case None ⇒
+                // Session not found, so first line is "Closed"
                 QueryResponse(
                   state.height,
-                  Array.emptyByteArray,
+                  s"Closed\nSession not found for the path.".getBytes(),
                   1,
-                  s"Cannot parse query path: $path, must be in `session-nonce` format"
+                  s"Cannot parse query path: $path, must be in `sessionId/nonce` format"
                 )
           }
         )
 
       case Some(head) ⇒
+        // It's a query for a particular response for a session and nonce
         state.get.map(s ⇒ s.responses.find(_._1 == head) -> s.height).map {
           case (Some((_, data)), h) ⇒
             QueryResponse(h, data, 0, s"Responded for path $path")
+
           case (_, h) ⇒
-            QueryResponse(h, Array.emptyByteArray, 2, s"No response found for path: $path")
+            QueryResponse(
+              h,
+              s"Closed\nSession not found for the path".getBytes,
+              2,
+              s"No response found for path: $path"
+            )
         }
     }
 
+  /**
+   * Push incoming transaction to be processed on [[commit]].
+   *
+   * @param data Incoming transaction
+   */
   def deliverTx(data: Array[Byte]): F[TxResponse] =
     Tx.readTx(data) match {
       case Some(tx) ⇒
-        state.modifyState(AbciState.addTx(tx)).map(_ ⇒ TxResponse(0, s"Transaction delivered: ${tx.head}"))
+        state
+        // Update the state with a new tx
+          .modifyState(AbciState.addTx(tx))
+          .map(_ ⇒ TxResponse(0, s"Transaction delivered: ${tx.head}"))
       case None ⇒ Applicative[F].pure(TxResponse(1, s"Cannot parse transaction header"))
     }
 
+  /**
+   * Check if transaction is well-formed: [[Tx.readTx()]] must return Some
+   *
+   * @param data Incoming transaction
+   */
   def checkTx(data: Array[Byte]): F[TxResponse] =
     Tx.readTx(data) match {
       case Some(tx) ⇒ Applicative[F].pure(TxResponse(0, s"Parsed transaction head: ${tx.head}"))
@@ -128,6 +175,13 @@ object AbciService {
    */
   case class TxResponse(code: Int, info: String)
 
+  /**
+   * Build an empty AbciService for the vm. App hash is empty!
+   *
+   * @param vm VM to invoke
+   * @tparam F Sync for Ref
+   * @return Brand new AbciService instance
+   */
   def apply[F[_]: Sync](vm: VmOperationInvoker[F]): F[AbciService[F]] =
     for {
       state ← Ref.of[F, AbciState](AbciState())

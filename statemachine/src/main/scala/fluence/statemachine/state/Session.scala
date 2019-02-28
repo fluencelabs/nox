@@ -22,18 +22,29 @@ import fluence.statemachine.Tx
 import scala.collection.immutable.TreeMap
 import scala.language.higherKinds
 
+/**
+ * Single session data, required for correct ordering.
+ *
+ * @param nextNonce Next nonce (order index), starting with 0, incremented with no gaps
+ * @param pendingTxs Ordered map of pending transactions
+ */
 case class Session(nextNonce: Long, pendingTxs: TreeMap[Long, Tx.Data])
 
 object Session {
 
-  def shake[F[_]: Monad]: StateT[F, Session, List[(Long, Tx.Data)]] =
+  /**
+   * Takes all the txs from the beginning, starting with nextNonce, and drops them away.
+   *
+   * @return List of txs to handle in this block
+   */
+  def commit[F[_]: Monad]: StateT[F, Session, List[(Long, Tx.Data)]] =
     StateT.get[F, Session].flatMap {
       case Session(nextNonce, pendingTxs) ⇒
         pendingTxs.get(nextNonce) match {
           case Some(data) ⇒
             for {
               _ <- StateT.set(Session(nextNonce + 1, pendingTxs - nextNonce))
-              others ← shake[F]
+              others ← commit[F]
             } yield (nextNonce, data) :: others
 
           case None ⇒
