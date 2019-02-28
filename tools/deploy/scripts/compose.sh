@@ -284,19 +284,20 @@ function check_envs()
             echo >&2 "START_SWARM is not defined"
             exit 1
         }
-        declare -p ETHEREUM_IP &>/dev/null || {
-            echo >&2 "ETHEREUM_IP is not defined"
-            exit 1
-        }
-        declare -p ETHEREUM_ADDRESS &>/dev/null || {
-            echo >&2 "ETHEREUM_ADDRESS is not defined"
-            exit 1
-        }
-        declare -p ETHEREUM_SERVICE &>/dev/null || {
-            echo >&2 "ETHEREUM_SERVICE is not defined"
-            exit 1
-        }
     fi
+
+    declare -p ETHEREUM_IP &>/dev/null || {
+        echo >&2 "ETHEREUM_IP is not defined"
+        exit 1
+    }
+    declare -p ETHEREUM_ADDRESS &>/dev/null || {
+        echo >&2 "ETHEREUM_ADDRESS is not defined"
+        exit 1
+    }
+    declare -p ETHEREUM_SERVICE &>/dev/null || {
+        echo >&2 "ETHEREUM_SERVICE is not defined"
+        exit 1
+    }
 }
 
 # main function to deploy Fluence
@@ -307,7 +308,8 @@ function deploy()
 
     if [ -z "$PROD_DEPLOY" ]; then
         check_fluence_installed
-        START_SWARM="true"
+        export START_SWARM="true"
+        export SWARM_ADDRESS="http://$HOST_IP:8500"
     fi
 
     if [ -z "$CAPACITY" ]; then
