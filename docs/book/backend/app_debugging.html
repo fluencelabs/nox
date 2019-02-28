@@ -144,7 +144,7 @@
                 <div id="content" class="content">
                     <main>
                         <a class="header" href="#backend-app-debugging" id="backend-app-debugging"><h1>Backend app debugging</h1></a>
-<a class="header" href="#wasm-logger-usage" id="wasm-logger-usage"><h2>Wasm logger usage</h2></a>
+<a class="header" href="#wasm-logger" id="wasm-logger"><h2>Wasm logger</h2></a>
 <p>There is a few debugging capabilities for Wasm program. The Fluence network provides a possibility to so-called print-debugging. It can be included by specifying <code>wasm_logger</code> feature of the sdk.</p>
 <p>The logger is implemented as a logging facade for crate <a href="https://github.com/rust-lang-nursery/log">log</a>. It means that all <code>log</code> crate possibilities can be used as usual. Let's review it by example of <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2018">hello-world2</a> application with simple logging:</p>
 <pre><code class="language-Rust">use fluence::sdk::*;
@@ -171,7 +171,7 @@ fn main(name: String) -&gt; String {
 }
 </code></pre>
 <p>It is important to note that by default debugging capabilities is disabled in the Fluence network because of verification game process (you can find more information about it in <a href="TODO">our paper</a>).</p>
-<a class="header" href="#usage-of-scala-runner" id="usage-of-scala-runner"><h2>Usage of Scala runner</h2></a>
+<a class="header" href="#app-runner" id="app-runner"><h2>App runner</h2></a>
 <p>Sometimes it needs not only a debug output but a possibility to run resulted Wasm <code>app</code> with some different inputs. It can be done by using so-called runner written on Scala (because of it uses a <code>WasmVm</code> implementation that also written on Scala).</p>
 <p>Let's a dig a little bit into <code>hello-world2</code> <a href="(https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/runner)">runner</a>. It receives a path to a Wasm binary as the first CLI argument, then creates <code>vm</code> object that extends <code>WasmVm</code> trait. During this creation Wasm code is compiled by Asmble to JVM and loaded into VM. This trait has two public methods: <code>invoke</code> that manages requests to <code>app</code> and <code>getVmState</code> that computes a hash of significant inner state. In the following code snippet</p>
 <pre><code class="language-Scala">      inputFile &lt;- EitherT(getWasmFilePath(args).attempt)

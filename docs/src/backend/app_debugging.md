@@ -1,6 +1,6 @@
 # Backend app debugging
 
-## Wasm logger usage
+## Wasm logger
 
 There is a few debugging capabilities for Wasm program. The Fluence network provides a possibility to so-called print-debugging. It can be included by specifying `wasm_logger` feature of the sdk. 
 
@@ -37,7 +37,7 @@ fn init() {
 
 It is important to note that by default debugging capabilities is disabled in the Fluence network because of verification game process (you can find more information about it in [our paper](TODO)).
 
-## Usage of Scala runner
+## App runner
 
 Sometimes it needs not only a debug output but a possibility to run resulted Wasm `app` with some different inputs. It can be done by using so-called runner written on Scala (because of it uses a `WasmVm` implementation that also written on Scala).
 
