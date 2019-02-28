@@ -688,21 +688,32 @@ pub unsafe fn deallocate(ptr: *mut u8, size: usize) {
 }
 </code></pre>
 <p>Note that <code>#[no_mangle]</code> and <code>pub unsafe</code> parts of function signature manage function to be exported from a Wasm module (more information can be found in this <a href="https://internals.rust-lang.org/t/precise-semantics-of-no-mangle/4098">discussion</a>).</p>
-<p>To implement <code>hello-world</code> example from <a href="TODO">quick start</a> these functions can be implemented like this:</p>
-<pre><code class="language-Rust">#[no_mangle]
-pub unsafe fn invoke(_ptr: *mut u8, _len: usize) -&gt; usize {
-    let result = &quot;Hello, world!&quot;;
-    
+<p>The <code>hello-world</code> example without SDK from <a href="backend/../quickstart/rust.html">quick start</a> can be implemented like this:</p>
+<pre><code class="language-Rust">#![feature(allocator_api)]
+
+use std::alloc::{Alloc, Global, Layout};
+use std::mem;
+use std::num::NonZeroUsize;
+use std::ptr::{self, NonNull};
+
+#[no_mangle]
+pub unsafe fn invoke(ptr: *mut u8, len: usize) -&gt; NonNull&lt;u8&gt; {
+    let raw_string = Vec::from_raw_parts(ptr, len, len);
+    let user_name = String::from_utf8(raw_string).unwrap();
+
+    let result = format!(&quot;Hello, world! From user {}&quot;, user_name);
+    const RESULT_SIZE_BYTES: usize = 4;
+
     let result_len = result.len();
     let total_len = result_len
         .checked_add(RESULT_SIZE_BYTES)
-        .ok_or_else(|| MemError::new(&quot;usize overflow occurred&quot;))?;
+        .expect(&quot;usize overflow occurred&quot;);
 
     // converts array size to bytes in little-endian
     let len_as_bytes: [u8; RESULT_SIZE_BYTES] = mem::transmute((result_len as u32).to_le());
 
     // allocates a new memory region for the result
-    let result_ptr = alloc(NonZeroUsize::new_unchecked(total_len))?;
+    let result_ptr = allocate(total_len);
 
     // copies length of array to memory
     ptr::copy_nonoverlapping(
@@ -718,27 +729,30 @@ pub unsafe fn invoke(_ptr: *mut u8, _len: usize) -&gt; usize {
         result_len,
     );
 
-    result_ptr as usize
+    result_ptr
 }
 
 #[no_mangle]
 pub unsafe fn allocate(size: usize) -&gt; NonNull&lt;u8&gt; {
-    let non_zero_size = NonZeroUsize::new(size)
-        .unwrap_or_else(|| panic!(&quot;[Error] Allocation of zero bytes is not allowed.&quot;));
-        
-    let layout: Layout = Layout::from_size_align(non_zero_size.get(), mem::align_of::&lt;u8&gt;())?;
-    Global.alloc(layout)
-        .unwrap_or_else(|_| panic!(&quot;[Error] Allocation of {} bytes failed.&quot;, size))
+    let non_zero_size =
+        NonZeroUsize::new(size).expect(&quot;[Error]: allocation of zero bytes is not allowed.&quot;);
+    let layout: Layout = Layout::from_size_align(non_zero_size.get(), mem::align_of::&lt;u8&gt;())
+        .unwrap_or_else(|_| panic!(&quot;[Error]: layout creation failed while allocation&quot;));
+    Global
+        .alloc(layout)
+        .unwrap_or_else(|_| panic!(&quot;[Error]: allocation of {} bytes failed&quot;, size))
 }
 
 #[no_mangle]
 pub unsafe fn deallocate(ptr: NonNull&lt;u8&gt;, size: usize) {
-    let non_zero_size = NonZeroUsize::new(size)
-        .unwrap_or_else(|| panic!(&quot;[Error] Deallocation of zero bytes is not allowed.&quot;));
-    let layout = Layout::from_size_align(non_zero_size.get(), mem::align_of::&lt;u8&gt;())?;
+    let non_zero_size =
+        NonZeroUsize::new(size).expect(&quot;[Error]: deallocation of zero bytes is not allowed.&quot;);
+    let layout = Layout::from_size_align(non_zero_size.get(), mem::align_of::&lt;u8&gt;())
+        .unwrap_or_else(|_| panic!(&quot;[Error]: layout creation failed while deallocation&quot;));;
     Global.dealloc(ptr, layout);
 }
 </code></pre>
+<p>The full working code of this example can be found <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world/app-without-sdk">here</a>.</p>
 <a class="header" href="#fluence-sdk-usage" id="fluence-sdk-usage"><h2>Fluence SDK usage</h2></a>
 <p>From the example above it can be seen that <code>allocate</code> and <code>deallocate</code> functions serve only utility purpose and are normally used only by VM wrapper. These functions aren't any that most of developers would want to implement in their <code>app</code>. Fluence backend SDK provides <code>fluence::memory::alloc</code> and <code>fluence::memory::dealloc</code> functions also based on <a href="https://doc.rust-lang.org/beta/std/alloc/trait.GlobalAlloc.html">GlobalAlloc</a>. They exported by default after including the sdk and can be disabled by specifying the <code>no_export_allocator</code> feature of the sdk.</p>
 <p>The <code>invoke</code> function can be also simplified by using the Fluence backend SDK that provides <code>fluence::memory::write_result_to_mem</code> and <code>fluence::memory::read_input_from_mem_</code> in this way:</p>
@@ -839,7 +853,7 @@ use fluence::sdk::*;
 </code></pre>
 <p>Example of <code>hello-world2</code> <code>app</code> on <code>Rust edition 2015</code> can be found <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2015">here</a>.</p>
 <a class="header" href="#backend-app-debugging" id="backend-app-debugging"><h1>Backend app debugging</h1></a>
-<a class="header" href="#wasm-logger-usage" id="wasm-logger-usage"><h2>Wasm logger usage</h2></a>
+<a class="header" href="#wasm-logger" id="wasm-logger"><h2>Wasm logger</h2></a>
 <p>There is a few debugging capabilities for Wasm program. The Fluence network provides a possibility to so-called print-debugging. It can be included by specifying <code>wasm_logger</code> feature of the sdk.</p>
 <p>The logger is implemented as a logging facade for crate <a href="https://github.com/rust-lang-nursery/log">log</a>. It means that all <code>log</code> crate possibilities can be used as usual. Let's review it by example of <a href="https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2018">hello-world2</a> application with simple logging:</p>
 <pre><code class="language-Rust">use fluence::sdk::*;
@@ -866,7 +880,7 @@ fn main(name: String) -&gt; String {
 }
 </code></pre>
 <p>It is important to note that by default debugging capabilities is disabled in the Fluence network because of verification game process (you can find more information about it in <a href="TODO">our paper</a>).</p>
-<a class="header" href="#usage-of-scala-runner" id="usage-of-scala-runner"><h2>Usage of Scala runner</h2></a>
+<a class="header" href="#app-runner" id="app-runner"><h2>App runner</h2></a>
 <p>Sometimes it needs not only a debug output but a possibility to run resulted Wasm <code>app</code> with some different inputs. It can be done by using so-called runner written on Scala (because of it uses a <code>WasmVm</code> implementation that also written on Scala).</p>
 <p>Let's a dig a little bit into <code>hello-world2</code> <a href="(https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/runner)">runner</a>. It receives a path to a Wasm binary as the first CLI argument, then creates <code>vm</code> object that extends <code>WasmVm</code> trait. During this creation Wasm code is compiled by Asmble to JVM and loaded into VM. This trait has two public methods: <code>invoke</code> that manages requests to <code>app</code> and <code>getVmState</code> that computes a hash of significant inner state. In the following code snippet</p>
 <pre><code class="language-Scala">      inputFile &lt;- EitherT(getWasmFilePath(args).attempt)

@@ -45,9 +45,14 @@ lazy val `vm-counter` = (project in file("vm/examples/counter"))
     rustVmExample("counter")
   )
 
-lazy val `vm-hello-world` = (project in file("vm/examples/hello-world"))
+lazy val `vm-hello-world` = (project in file("vm/examples/hello-world/app-with-sdk/"))
   .settings(
-    rustVmExample("hello-world")
+    rustVmExample("hello-world/app-with-sdk/")
+  )
+
+lazy val `vm-hello-world-without-sdk` = (project in file("vm/examples/hello-world/app-without-sdk/"))
+  .settings(
+    rustVmExample("hello-world/app-without-sdk/")
   )
 
 lazy val `vm-hello-world2-2015` = (project in file("vm/examples/hello-world2/app-2015"))

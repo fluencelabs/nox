@@ -5,6 +5,7 @@ import json
 def test_json_format():
     env_with_args = dict()
     env_with_args["EXTERNAL_HOST_IP"] = "123"
+    env_with_args["ETHEREUM_ADDRESS"] = "http://123:8545"
     env_with_args["TENDERMINT_KEY"] = "456"
     env_with_args["TENDERMINT_NODE_ID"] = "qwe"
     env_with_args["CONTRACT_ADDRESS"] = "ca"
