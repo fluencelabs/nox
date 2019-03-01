@@ -156,7 +156,8 @@ class AbciService[F[_]: Monad](
             case true ⇒ TxResponse(CodeType.OK, s"Delivered\n${tx.head}")
             case false ⇒ TxResponse(CodeType.BadNonce, s"Dropped\n${tx.head}")
           }
-      case None ⇒ Applicative[F].pure(TxResponse(CodeType.BAD, s"Cannot parse transaction header"))
+      case None ⇒
+        Applicative[F].pure(TxResponse(CodeType.BAD, s"Cannot parse transaction header"))
     }
 
   /**
@@ -167,11 +168,10 @@ class AbciService[F[_]: Monad](
   def checkTx(data: Array[Byte]): F[TxResponse] =
     Tx.readTx(data) match {
       case Some(tx) ⇒
-        state.get
-          .map(
+        state.get.map(
             !_.sessions.data
               .get(tx.head.session)
-              .exists(_.nextNonce < tx.head.nonce)
+              .exists(_.nextNonce > tx.head.nonce)
           )
           .map {
             case true ⇒
@@ -179,7 +179,7 @@ class AbciService[F[_]: Monad](
               TxResponse(CodeType.OK, s"Parsed transaction head: ${tx.head}")
             case false ⇒
               // Invalid nonce -- misorder
-              TxResponse(CodeType.BadNonce, s"Misordered: ${tx.head}")
+              TxResponse(CodeType.BadNonce, s"Misordered\n${tx.head}")
           }
       case None ⇒
         Applicative[F].pure(TxResponse(CodeType.BAD, s"Cannot parse transaction header"))

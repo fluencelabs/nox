@@ -167,7 +167,6 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendCheckTx(tx0)._1 shouldBe CodeType.OK
       sendCommit()
 
-      // TODO deduplication doesn't work now, but it should be working!!
       sendCheckTx(tx0)._1 shouldBe CodeType.BadNonce
       sendDeliverTx(tx0)._1 shouldBe CodeType.BadNonce
     }
