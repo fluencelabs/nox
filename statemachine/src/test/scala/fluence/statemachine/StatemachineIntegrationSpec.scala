@@ -89,10 +89,10 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
     )
     val tx2 = tx(session, 2, "()")
     val tx3 = tx(session, 3, "()")
-    val tx0Result = s"@meta/$session/0/result"
-    val tx1Result = s"@meta/$session/1/result"
-    val tx2Result = s"@meta/$session/2/result"
-    val tx3Result = s"@meta/$session/3/result"
+    val tx0Result = s"$session/0"
+    val tx1Result = s"$session/1"
+    val tx2Result = s"$session/2"
+    val tx3Result = s"$session/3"
 
     "process correct tx/query sequence" in {
       // TODO: rewrite tests. 2 kinds of tests required:
@@ -109,7 +109,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendCheckTx(tx1)
       sendCheckTx(tx2)
       sendCheckTx(tx3)
-      //sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
+      sendQuery(tx1Result).left.get._1 shouldBe AbciService.Codes.NotFound
       sendDeliverTx(tx0)
       sendCommit()
       //latestAppHash shouldBe "7b0a908531e5936acdfce3c581ba6b39c2ca185553f47b167440490b13bfa132"

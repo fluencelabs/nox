@@ -97,7 +97,7 @@ class AbciService[F[_]: Monad](
                 QueryResponse(
                   state.height,
                   s"Active\nNext Nonce:${ses.nextNonce}".getBytes(),
-                  0,
+                  Codes.Ok,
                   s"Session $path is found"
                 )
 
@@ -106,7 +106,7 @@ class AbciService[F[_]: Monad](
                 QueryResponse(
                   state.height,
                   s"Closed\nSession not found for the path.".getBytes(),
-                  1,
+                  Codes.NotFound,
                   s"Cannot parse query path: $path, must be in `sessionId/nonce` format"
                 )
           }
@@ -116,13 +116,13 @@ class AbciService[F[_]: Monad](
         // It's a query for a particular response for a session and nonce
         state.get.map(s ⇒ s.responses.find(_._1 == head) -> s.height).map {
           case (Some((_, data)), h) ⇒
-            QueryResponse(h, data, 0, s"Responded for path $path")
+            QueryResponse(h, data, Codes.Ok, s"Responded for path $path")
 
           case (_, h) ⇒
             QueryResponse(
               h,
               s"Closed\nSession not found for the path".getBytes,
-              2,
+              Codes.NotFound,
               s"No response found for path: $path"
             )
         }
@@ -139,8 +139,11 @@ class AbciService[F[_]: Monad](
         state
         // Update the state with a new tx
           .modifyState(AbciState.addTx(tx))
-          .map(_ ⇒ TxResponse(0, s"Transaction delivered: ${tx.head}"))
-      case None ⇒ Applicative[F].pure(TxResponse(1, s"Cannot parse transaction header"))
+          .map {
+            case true ⇒ TxResponse(Codes.Ok, s"Transaction delivered: ${tx.head}")
+            case false ⇒ TxResponse(Codes.Dropped, s"Transaction dropped: ${tx.head}")
+          }
+      case None ⇒ Applicative[F].pure(TxResponse(Codes.CannotParseHeader, s"Cannot parse transaction header"))
     }
 
   /**
@@ -150,12 +153,19 @@ class AbciService[F[_]: Monad](
    */
   def checkTx(data: Array[Byte]): F[TxResponse] =
     Tx.readTx(data) match {
-      case Some(tx) ⇒ Applicative[F].pure(TxResponse(0, s"Parsed transaction head: ${tx.head}"))
-      case None ⇒ Applicative[F].pure(TxResponse(1, s"Cannot parse transaction header"))
+      case Some(tx) ⇒ Applicative[F].pure(TxResponse(Codes.Ok, s"Parsed transaction head: ${tx.head}"))
+      case None ⇒ Applicative[F].pure(TxResponse(Codes.CannotParseHeader, s"Cannot parse transaction header"))
     }
 }
 
 object AbciService {
+
+  object Codes {
+    val Ok = 0
+    val CannotParseHeader = 1
+    val Dropped = 2
+    val NotFound = 3
+  }
 
   /**
    * A structure for aggregating data specific to building `Query` ABCI method response.
