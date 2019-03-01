@@ -128,10 +128,7 @@ export class ResultAwait implements ResultPromise {
      * @returns `none` if there is no result, `some` if result appeared and throws an error if result is an error
      */
     private async checkResult(path: string): Promise<Option<Result>> {
-
-        const statusResponse: Option<any> = (await this.tm.abciQuery(path));
-
-        return statusResponse.map(parseObject);
+        return await this.tm.abciQuery(path);
     }
 
     /**

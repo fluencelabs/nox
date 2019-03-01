@@ -16,8 +16,9 @@
 
 import {none, Option, Some} from "ts-option";
 import {fromHex} from "./utils";
-import  * as debug from "debug";
+import * as debug from "debug";
 import {RpcClient} from "./RpcClient";
+import {error, Result, value} from "./Result";
 
 const d = debug("tendermintClient");
 
@@ -69,20 +70,37 @@ export class TendermintClient {
      *
      * @returns `none` if there is no value, and `some` with parsed from hex value otherwise.
      */
-    async abciQuery(path: string): Promise<Option<any>> {
+    async abciQuery(path: string): Promise<Option<Result>> {
         d("abciQuery request");
 
         let response: any = (await this.client.abciQuery(path)).data.result.response;
 
-        if (response.value) {
-            let resultRaw = atob(response.value);
+        function getResult(): any {
+            try {
+                return atob(response.value);
+            } catch (e) {
+                throw error("error on atob(response.value): " + JSON.stringify(response) + " err: " + e);
+            }
+        }
 
-            let result = JSON.parse(resultRaw);
-            return new Some(result);
+        if (response.value) {
+            if (response.code === undefined || response.code === 0) {
+                // code == OK
+                return new Some(value(getResult()))
+            } else if (response.code === 1 || response.code === 2) {
+                // code == CannotParseHeader || Dropped
+                let result = getResult();
+                throw error("bad code on response: " + JSON.stringify(response) + " result: " + JSON.stringify(result));
+            } else if (response.code === 3 || response.code === 4) {
+                // code == Pending || NotFound
+                return none;
+            } else {
+                let result = getResult();
+                throw error("unknown code on response: " + JSON.stringify(response) + " result: " + JSON.stringify(result));
+            }
         } else {
             return none;
         }
-
     }
 }
 

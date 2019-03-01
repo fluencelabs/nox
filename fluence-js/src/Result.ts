@@ -45,13 +45,15 @@ export class Value {
     }
 
     asString(): string {
-        return fromHex(this.value)
+        return this.value
     }
 
     asInt(): number {
-        // todo: validate value
         // todo: why do we need to specify endian explicitly?
-        return fromHexToView(this.value).getInt32(0, true);
+        // return fromHexToView(this.value).getInt32(0, true);
+
+        // todo: validate value
+        return parseInt(this.value);
     }
 
 }
@@ -83,13 +85,5 @@ export function error(err: string) {
 }
 
 export function parseObject(obj: any): Result {
-    if (obj.Error !== undefined) {
-        throw error(obj.Error.message)
-    } else if (obj.Empty !== undefined) {
-        return empty;
-    } else if (obj.Computed) {
-        return value(obj.Computed.value);
-    } else {
-        throw error("Could not parse the response: " + JSON.stringify(obj))
-    }
+    return value(obj);
 }
