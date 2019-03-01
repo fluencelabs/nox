@@ -127,9 +127,9 @@ function container_update()
     printf '.'
     docker pull ethdevops/swarm:edge >/dev/null
     printf '.'
-    docker pull fluencelabs/node:v0.1.4 >/dev/null
+    docker pull fluencelabs/node:v0.1.5 >/dev/null
     printf '.\n'
-    docker pull fluencelabs/worker:v0.1.4 >/dev/null
+    docker pull fluencelabs/worker:v0.1.5 >/dev/null
     echo 'Containers are updated.'
 }
 
