@@ -21,6 +21,7 @@ import cats.{Applicative, Monad}
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.effect.concurrent.Ref
+import com.github.jtendermint.jabci.api.CodeType
 import fluence.statemachine.state.AbciState
 import scodec.bits.ByteVector
 import slogging.LazyLogging
@@ -114,17 +115,28 @@ class AbciService[F[_]: Monad](
 
       case Some(head) ⇒
         // It's a query for a particular response for a session and nonce
-        state.get.map(s ⇒ s.responses.find(_._1 == head) -> s.height).map {
-          case (Some((_, data)), h) ⇒
-            QueryResponse(h, data, Codes.Ok, s"Responded for path $path")
+        state.get.map { st ⇒
+          st.responses.find(_._1 == head) match {
+            case Some((_, data)) ⇒
+              QueryResponse(st.height, data, Codes.Ok, s"Responded for path $path")
 
-          case (_, h) ⇒
-            QueryResponse(
-              h,
-              s"Closed\nSession not found for the path".getBytes,
-              Codes.NotFound,
-              s"No response found for path: $path"
-            )
+            case _ ⇒
+              // Is it pending or unknown?
+              if (st.sessions.data.get(head.session).exists(_.nextNonce <= head.nonce))
+                QueryResponse(
+                  st.height,
+                  s"Pending\nTransaction is not yet processed".getBytes,
+                  Codes.Pending,
+                  s"Transaction is not yet processed: $path"
+                )
+              else
+                QueryResponse(
+                  st.height,
+                  s"Closed\nSession not found for the path".getBytes,
+                  Codes.NotFound,
+                  s"No response found for path: $path"
+                )
+          }
         }
     }
 
@@ -136,14 +148,15 @@ class AbciService[F[_]: Monad](
   def deliverTx(data: Array[Byte]): F[TxResponse] =
     Tx.readTx(data) match {
       case Some(tx) ⇒
+        // TODO we have different logic in checkTx and deliverTx, as only in deliverTx tx might be dropped due to pending txs overflow
         state
         // Update the state with a new tx
           .modifyState(AbciState.addTx(tx))
           .map {
-            case true ⇒ TxResponse(Codes.Ok, s"Transaction delivered: ${tx.head}")
-            case false ⇒ TxResponse(Codes.Dropped, s"Transaction dropped: ${tx.head}")
+            case true ⇒ TxResponse(CodeType.OK, s"Delivered\n${tx.head}")
+            case false ⇒ TxResponse(CodeType.BadNonce, s"Dropped\n${tx.head}")
           }
-      case None ⇒ Applicative[F].pure(TxResponse(Codes.CannotParseHeader, s"Cannot parse transaction header"))
+      case None ⇒ Applicative[F].pure(TxResponse(CodeType.BAD, s"Cannot parse transaction header"))
     }
 
   /**
@@ -153,18 +166,34 @@ class AbciService[F[_]: Monad](
    */
   def checkTx(data: Array[Byte]): F[TxResponse] =
     Tx.readTx(data) match {
-      case Some(tx) ⇒ Applicative[F].pure(TxResponse(Codes.Ok, s"Parsed transaction head: ${tx.head}"))
-      case None ⇒ Applicative[F].pure(TxResponse(Codes.CannotParseHeader, s"Cannot parse transaction header"))
+      case Some(tx) ⇒
+        state.get
+          .map(
+            !_.sessions.data
+              .get(tx.head.session)
+              .exists(_.nextNonce < tx.head.nonce)
+          )
+          .map {
+            case true ⇒
+              // Session is unknown, or nonce is valid
+              TxResponse(CodeType.OK, s"Parsed transaction head: ${tx.head}")
+            case false ⇒
+              // Invalid nonce -- misorder
+              TxResponse(CodeType.BadNonce, s"Misordered: ${tx.head}")
+          }
+      case None ⇒
+        Applicative[F].pure(TxResponse(CodeType.BAD, s"Cannot parse transaction header"))
     }
 }
 
 object AbciService {
 
   object Codes {
-    val Ok = 0
-    val CannotParseHeader = 1
-    val Dropped = 2
-    val NotFound = 3
+    val Ok: Int = 0
+    val CannotParseHeader: Int = 1
+    val Dropped: Int = 2
+    val NotFound: Int = 3
+    val Pending: Int = 4
   }
 
   /**

@@ -24,6 +24,7 @@ import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.control.ControlServer.ControlServerConfig
 import fluence.statemachine.control.ControlSignals
 import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
+import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -61,10 +62,10 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
     abciHandler.requestCommit(RequestCommit.newBuilder().build())
 
   def sendQuery(query: String, height: Int = 0): Either[(Int, String), String] = {
-    val builtQuery = RequestQuery.newBuilder().setHeight(height).setPath(query).setProve(true).build()
+    val builtQuery = RequestQuery.newBuilder().setHeight(height).setPath(query).setProve(false).build()
     val response = abciHandler.requestQuery(builtQuery)
     response.getCode match {
-      case CodeType.OK => Right(response.getValue.toStringUtf8)
+      case CodeType.OK => Right(ByteVector(response.getValue.toByteArray).toHex)
       case _ => Left((response.getCode, response.getInfo))
     }
   }
@@ -117,18 +118,15 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendCheckTx(tx1)
       sendCheckTx(tx2)
       sendCheckTx(tx3)
-      //sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
+      sendQuery(tx1Result).left.get._1 shouldBe AbciService.Codes.Pending
       sendDeliverTx(tx1)
       sendDeliverTx(tx2)
       sendDeliverTx(tx3)
       sendCommit()
       //latestAppHash shouldBe "fbca0d73019bc3ac6c8960782fe681835c13ace92a0d1dffd73fd363a173122c"
 
-      //sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
-      sendCommit()
-
-      //sendQuery(tx1Result) shouldBe Right(Computed(littleEndian4ByteHex(2)).toStoreValue)
-      //sendQuery(tx3Result) shouldBe Right(Computed(littleEndian4ByteHex(4)).toStoreValue)
+      sendQuery(tx1Result) shouldBe Right(littleEndian4ByteHex(2))
+      sendQuery(tx3Result) shouldBe Right(littleEndian4ByteHex(4))
 
       //latestCommittedHeight shouldBe 5
       //latestAppHash shouldBe "fbca0d73019bc3ac6c8960782fe681835c13ace92a0d1dffd73fd363a173122c"
@@ -144,33 +142,34 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendCommit()
       sendCommit()
 
-//      sendQuery(tx0Result) shouldBe Right(Computed(littleEndian4ByteHex(1)).toStoreValue)
-//      sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
-//      sendQuery(tx2Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
-//      sendQuery(tx3Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
+      sendQuery(tx0Result) shouldBe Right(littleEndian4ByteHex(1))
+      sendQuery(tx1Result).left.get._1 shouldBe AbciService.Codes.Pending
+      sendQuery(tx2Result).left.get._1 shouldBe AbciService.Codes.Pending
+      sendQuery(tx3Result).left.get._1 shouldBe AbciService.Codes.Pending
 
       sendDeliverTx(tx1)
       sendCommit()
       sendCommit()
 
-//      sendQuery(tx0Result) shouldBe Right(Computed(littleEndian4ByteHex(1)).toStoreValue)
-//      sendQuery(tx1Result) shouldBe Right(Computed(littleEndian4ByteHex(2)).toStoreValue)
-//      sendQuery(tx2Result) shouldBe Right(Computed(littleEndian4ByteHex(3)).toStoreValue)
-//      sendQuery(tx3Result) shouldBe Right(Computed(littleEndian4ByteHex(4)).toStoreValue)
+      sendQuery(tx0Result) shouldBe Right(littleEndian4ByteHex(1))
+      sendQuery(tx1Result) shouldBe Right(littleEndian4ByteHex(2))
+      sendQuery(tx2Result) shouldBe Right(littleEndian4ByteHex(3))
+      sendQuery(tx3Result) shouldBe Right(littleEndian4ByteHex(4))
     }
 
     "ignore duplicated tx" in {
       sendCommit()
       sendCommit()
 
-//      sendCheckTx(tx0) shouldBe (CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
-//      sendDeliverTx(tx0) shouldBe (CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
+      sendCheckTx(tx0)._1 shouldBe CodeType.OK
+      sendDeliverTx(tx0)._1 shouldBe CodeType.OK
 //      // Mempool state updated only on commit!
-//      sendCheckTx(tx0) shouldBe (CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
-//      sendCommit()
-//
-//      sendCheckTx(tx0) shouldBe (CodeType.BAD, ClientInfoMessages.DuplicatedTransaction)
-//      sendDeliverTx(tx0) shouldBe (CodeType.BAD, ClientInfoMessages.DuplicatedTransaction)
+      sendCheckTx(tx0)._1 shouldBe CodeType.OK
+      sendCommit()
+
+      // TODO deduplication doesn't work now, but it should be working!!
+      sendCheckTx(tx0)._1 shouldBe CodeType.BadNonce
+      sendDeliverTx(tx0)._1 shouldBe CodeType.BadNonce
     }
 
     "process Query method correctly" in {
@@ -180,14 +179,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendCommit()
 //      sendQuery(tx0Result) shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.QueryStateIsNotReadyYet))
 
-      sendCommit()
-//      sendQuery("") shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.InvalidQueryPath))
-//      sendQuery("/a/b/") shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.InvalidQueryPath))
-//      sendQuery("/a/b") shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.InvalidQueryPath))
-//      sendQuery("a/b/") shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.InvalidQueryPath))
-//      sendQuery("a//b") shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.InvalidQueryPath))
-//      sendQuery(tx0Result, 2) shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.RequestingCustomHeightIsForbidden))
-//      sendQuery(tx0Result) shouldBe Right(Computed(littleEndian4ByteHex(1)).toStoreValue)
+      sendQuery(tx0Result) shouldBe Right(littleEndian4ByteHex(1))
     }
 
     "change session summary if session explicitly closed" in {
