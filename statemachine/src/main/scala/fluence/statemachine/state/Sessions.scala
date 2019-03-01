@@ -166,4 +166,17 @@ object Sessions {
         // No sessions touched -- do nothing
         StateT.pure(Nil)
     }
+
+  /**
+   * Refresh sessions -- mark them as recently used
+   *
+   * @param sessions Set of sessions to touch
+   */
+  def refresh[F[_]: Monad](sessions: Set[String]): StateT[F, Sessions, Unit] =
+    StateT.modify(
+      s ⇒
+        s.copy(
+          queue = s.queue.filterNot(sessions).enqueue(sessions)
+      )
+    )
 }

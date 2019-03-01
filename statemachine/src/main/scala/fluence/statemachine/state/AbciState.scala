@@ -123,5 +123,6 @@ object AbciState {
       state ← StateT.get[F, AbciState]
       txs ← Sessions.commit[F](state.blockSessions.toList).toAbciState
       _ ← StateT.modify[F, AbciState](s ⇒ s.copy(blockSessions = Set.empty))
+      _ ← Sessions.refresh[F](state.blockSessions).toAbciState
     } yield txs
 }

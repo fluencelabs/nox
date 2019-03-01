@@ -168,7 +168,8 @@ class AbciService[F[_]: Monad](
   def checkTx(data: Array[Byte]): F[TxResponse] =
     Tx.readTx(data) match {
       case Some(tx) ⇒
-        state.get.map(
+        state.get
+          .map(
             !_.sessions.data
               .get(tx.head.session)
               .exists(_.nextNonce > tx.head.nonce)
