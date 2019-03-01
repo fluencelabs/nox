@@ -85,5 +85,13 @@ export function error(err: string) {
 }
 
 export function parseObject(obj: any): Result {
-    return value(obj);
+    if (obj.Error !== undefined) {
+        throw error(obj.Error.message)
+    } else if (obj.Empty !== undefined) {
+        return empty;
+    } else if (obj.Computed) {
+        return value(obj.Computed.value);
+    } else {
+        throw error("Could not parse the response: " + JSON.stringify(obj))
+    }
 }
