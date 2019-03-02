@@ -147,7 +147,7 @@
 <p>This document will guide you through three main steps of development with Fluence.</p>
 <p>You will develop a traditional two-tiered web application with a backend written in Rust, and a frontend built with JavaScript. Unlike traditional two-tiered architecture, however, your backend will be decentralized and running on top of the Fluence network, not requiring a dedicated server machine.</p>
 <p>We will show you how to use Fluence Rust SDK to develop a backend in Rust, and compile it to WebAssembly. Then, to deploy your backend to the Fluence network, you will publish it to the Fluence smart contract. And finally, build a frontend integrated with your decentralized backend.</p>
-<p>If you experience any problems with this guide, or a desire to discuss Fluence with the team, feel free to join our [Discord](TODO: link).</p>
+<p>If you experience any problems with this guide, or a desire to discuss Fluence with the team, feel free to join our <a href="https://discordapp.com/invite/AjfbDKQ">Discord</a>.</p>
 
                     </main>
 
@@ -188,6 +188,23 @@
 
         
 
+        
+        <!-- Google Analytics Tag -->
+        <script type="text/javascript">
+            var localAddrs = ["localhost", "127.0.0.1", ""];
+
+            // make sure we don't activate google analytics if the developer is
+            // inspecting the book locally...
+            if (localAddrs.indexOf(document.location.hostname) === -1) {
+                (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+                (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+                m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+                })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+                ga('create', 'UA-120211353-6', 'auto');
+                ga('send', 'pageview');
+            }
+        </script>
         
 
         
