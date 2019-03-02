@@ -76,33 +76,29 @@ export class TendermintClient {
 
         let response: QueryResponse = (await this.client.abciQuery(path)).data.result.response;
 
-        if (response.value) {
-            switch (response.code) {
-                case undefined:
-                case 0: {
-                    try {
-                        return some(new Result(toByteArray(response.value)));
-                    } catch (e) {
-                        throw error("error on atob(response.value): " + JSON.stringify(response) + " err: " + e);
-                    }
-                }
-                case 1: {
-                    throw error(`Cannot parse headers on path ${path}: ${response.info}`);
-                }
-                case 2: {
-                    throw error(`Request with path '${path}' is dropped: ${response.info}`);
-                }
-                case 3:
-                case 4: {
-                    console.log(`Response is in pending state or not found: : ${response.info}`);
-                    return none;
-                }
-                default: {
-                    throw error(`unknown code ${response.code} response: ${JSON.stringify(response)}`);
+        switch (response.code) {
+            case undefined:
+            case 0: {
+                try {
+                    return some(new Result(toByteArray(response.value)));
+                } catch (e) {
+                    throw error("error on parsing value from response: " + JSON.stringify(response) + " err: " + e);
                 }
             }
-        } else {
-            throw error("unknown response: " + JSON.stringify(response));
+            case 1: {
+                throw error(`Cannot parse headers on path ${path}: ${response.info}`);
+            }
+            case 2: {
+                throw error(`Request with path '${path}' is dropped: ${response.info}`);
+            }
+            case 3:
+            case 4: {
+                console.log(`Response is in pending state or not found: : ${response.info}`);
+                return none;
+            }
+            default: {
+                throw error(`unknown code ${response.code} response: ${JSON.stringify(response)}`);
+            }
         }
     }
 }
