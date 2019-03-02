@@ -8,7 +8,29 @@
 <body>
 <div class="container mt-2">
     <h2 class="text-center mb-2">Fluence DB Example</h2>
-    <div class="row">
+    <form id="init">
+    <div class="form-group">
+        <label for="contract-address">Contract Address</label>
+        <input type="text" id="contract-address" class="form-control" aria-label="Contract Address" aria-describedby="basic-addon1" value="0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7" required>
+    </div>
+    <div class="form-group">
+        <label for="app-id">App ID</label>
+        <input type="text" class="form-control" id="app-id" placeholder="App ID" aria-label="App ID" aria-describedby="basic-addon1" required>
+    </div>
+    <div class="form-group">
+        <label for="ethereum-address">Ethereum Node Address</label>
+        <input type="text" class="form-control" id="ethereum-address" aria-label="Ethereum Address" aria-describedby="basic-addon1" value="http://142.93.131.227:8545" required>
+    </div>
+    <div class="form-check" id="use-metamask-div">
+        <input class="form-check-input" type="checkbox" value="" id="use-metamask">
+        <label class="form-check-label" for="use-metamask">
+            Use metamask (check if it connected to a correct chain)
+        </label>
+    </div>
+    <button type="button" class="btn btn-primary" id="start">Start</button>
+    </form>
+
+    <div class="row" id="main" hidden>
         <div class="col-sm-4">
             <div class="p-2">
                 <label>Status:</label>

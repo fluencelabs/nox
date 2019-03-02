@@ -17,7 +17,7 @@
 import "bootstrap/dist/css/bootstrap.min.css";
 import * as fluence from "fluence";
 import {AppSession, Result} from "fluence";
-import {getNodeStatus, isAvailable, NodeStatus, UnavailableNode} from "fluence-monitoring";
+import {getNodeStatus} from "fluence-monitoring";
 
 /**
  * The address of one node of a real-time cluster.
@@ -67,10 +67,7 @@ class DbClient {
             console.log("query: " + q);
             let res = workerSession.session.invoke(q).result();
             res.then((r: Result) => {
-                if (fluence.isValue(r)) {
-                    let strResult = Buffer.from(r.hex(), 'hex').toString();
-                    console.log(`the result is:\n ${strResult}`);
-                }
+                return r.asString()
             });
             return res;
         });
@@ -79,9 +76,9 @@ class DbClient {
     /**
      * Gets status of all nodes.
      */
-    async status(): Promise<(NodeStatus|UnavailableNode)[]> {
+    async status(): Promise<any[]> {
         return Promise.all(this.appSession.workerSessions.map((session) => {
-            return getNodeStatus(session.worker.node);
+            return getNodeStatus(session.node);
         }));
     }
 }
@@ -91,6 +88,14 @@ let updateStatusBtn = document.getElementById("updateStatus") as HTMLButtonEleme
 let resultField: HTMLTextAreaElement = window.document.getElementById("result") as HTMLTextAreaElement;
 let inputField: HTMLInputElement = window.document.getElementById("query") as HTMLInputElement;
 let statusField: HTMLTextAreaElement = window.document.getElementById("status") as HTMLTextAreaElement;
+let startBtn = document.getElementById("start") as HTMLButtonElement;
+let main = document.getElementById("main") as HTMLDivElement;
+let init = document.getElementById("init") as HTMLFormElement;
+let metamaskCheckbox = document.getElementById("use-metamask") as HTMLInputElement;
+let metamaskWrapper = document.getElementById("use-metamask-div") as HTMLDivElement;
+let contractAddress: HTMLInputElement = window.document.getElementById("contract-address") as HTMLInputElement;
+let appId: HTMLInputElement = window.document.getElementById("app-id") as HTMLInputElement;
+let ethereumAddress: HTMLInputElement = window.document.getElementById("ethereum-address") as HTMLInputElement;
 
 function genStatus(status: Status) {
     return `<div class="m-2 rounded border list-group-item-info p-2">
@@ -126,38 +131,42 @@ interface Config {
 let newLine = String.fromCharCode(13, 10);
 let sep = "**************************";
 
-// todo: get actual contract address and app id from file
-let contractAddress = "0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7";
-let appId = "6";
+async function preparePage(contractAddress: string, appId: string, ethereumAddress?: string) {
+    init.hidden = true;
+    main.hidden = false;
 
-async function preparePage() {
-    let sessions = await fluence.connect(contractAddress, appId);
+    let sessions = await fluence.connect(contractAddress, appId, ethereumAddress);
 
     let client = new DbClient(sessions);
 
     function updateStatus() {
         client.status().then((r) => {
-            let addrs = client.appSession.workerSessions.map((s) => s.session.tm.addr);
+            let addrs = client.appSession.workerSessions.map((s: any) => s.session.tm.addr);
             statusField.innerHTML = r.map((status, idx) => {
                 let addr = addrs[idx];
                 // if there is a response from a node
-                if (isAvailable(status)) {
-                    let info = status.workers[0];
-                    if (info.WorkerRunning !== undefined) {
-                        let runningInfo = info.WorkerRunning.info;
-                        let status: Status = {
-                            addr: addr,
-                            block_hash: shorten(runningInfo.lastBlock as string, 10),
-                            app_hash: shorten(runningInfo.lastAppHash as string, 10),
-                            block_height: runningInfo.lastBlockHeight as number
-                        };
-                        return genStatus(status)
-                    } else if (info.WorkerContainerNotRunning !== undefined) {
-                        return genErrorStatus(addr, "container not running")
-                    } else if (info.WorkerHttpCheckFailed !== undefined) {
-                        return genErrorStatus(addr, info.WorkerHttpCheckFailed.causedBy.substring(0, 40))
-                    } else if (info.WorkerNotYetLaunched !== undefined) {
-                        return genErrorStatus(addr, "worker not yet launched")
+                if (status.workers) {
+                    let workers: any[] = status.workers;
+                    let worker = workers.find((w) => w.appId === parseInt(appId));
+                    if (worker) {
+                        if (!worker.isHealthy) {
+                            return genErrorStatus(addr, "worker is not healthy")
+                        } else if (worker.tendermint.http.HttpCheckStatus) {
+                            let syncInfo = worker.tendermint.http.HttpCheckStatus.data.sync_info;
+                            let status: Status = {
+                                addr: addr,
+                                block_hash: shorten(syncInfo.latest_block_hash as string, 10),
+                                app_hash: shorten(syncInfo.latest_app_hash as string, 10),
+                                block_height: syncInfo.latest_block_height as number
+                            };
+                            return genStatus(status)
+                        } else if (worker.tendermint.http.HttpCheckFailed) {
+                            return genErrorStatus(addr, `worker http check failed: ${worker.worker.http.HttpCheckFailed.cause}`)
+                        } else {
+                            return genErrorStatus(addr, "worker is not healthy")
+                        }
+                    } else {
+                        return genErrorStatus(addr, "there is no worker with such appId")
                     }
                 } else {
                     return genErrorStatus(addr, status.causeBy)
@@ -172,10 +181,8 @@ async function preparePage() {
         client.submitQuery(queries.split('\n')).then((results) => {
             results.forEach((pr) => {
                 pr.then((r) => {
-                    if (fluence.isValue(r)) {
-                        let strRes = r.asString().replace('\\n', newLine);
-                        resultField.value += sep + newLine + strRes + newLine + sep;
-                    }
+                    let strRes = r.asString().replace('\\n', newLine);
+                    resultField.value += sep + newLine + strRes + newLine + sep;
                 });
 
             });
@@ -206,12 +213,25 @@ async function preparePage() {
         }
 
     });
-
-    const _global = (window /* browser */ || global /* node */) as any;
-    _global.client = client;
-    _global.DbClient = DbClient;
 }
 
-window.onload = function() {
-    preparePage()
-};
+startBtn.addEventListener("click", () => {
+    if (contractAddress.value && appId.value && ethereumAddress.value) {
+        let ethUrl = metamaskCheckbox.checked ? undefined : ethereumAddress.value;
+        preparePage(contractAddress.value, appId.value, ethUrl);
+    }
+});
+
+window.addEventListener('load', function() {
+
+    let web3 = (window as any).web3;
+
+    // Check if Web3 has been injected by the browser (Mist/MetaMask).
+    if (typeof web3 === 'undefined') {
+        metamaskWrapper.hidden = true;
+    } else {
+        metamaskCheckbox.addEventListener( 'change', function() {
+            ethereumAddress.disabled = this.checked;
+        });
+    }
+});
