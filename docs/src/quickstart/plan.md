@@ -6,4 +6,4 @@ You will develop a traditional two-tiered web application with a backend written
 
 We will show you how to use Fluence Rust SDK to develop a backend in Rust, and compile it to WebAssembly. Then, to deploy your backend to the Fluence network, you will publish it to the Fluence smart contract. And finally, build a frontend integrated with your decentralized backend.
 
-If you experience any problems with this guide, or a desire to discuss Fluence with the team, feel free to join our [Discord](TODO: link).
+If you experience any problems with this guide, or a desire to discuss Fluence with the team, feel free to join our [Discord](https://discordapp.com/invite/AjfbDKQ).
