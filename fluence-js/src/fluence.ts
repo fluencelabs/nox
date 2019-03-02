@@ -18,7 +18,7 @@ import { TendermintClient } from "./TendermintClient";
 import { Engine } from "./Engine";
 import { Session } from "./Session";
 import { SessionConfig } from "./SessionConfig";
-import {Empty, Result, Value, isValue} from "./Result";
+import {Result} from "./Result";
 import {getAppNodes, Node} from "fluence-monitoring"
 import { ResultPromise } from "./ResultAwait";
 
@@ -26,10 +26,7 @@ export {
     TendermintClient as TendermintClient,
     Engine as Engine,
     Session as Session,
-    Empty as Empty,
     Result as Result,
-    Value as Value,
-    isValue as isValue,
     SessionConfig as SessionConfig
 }
 

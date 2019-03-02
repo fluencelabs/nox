@@ -104,7 +104,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
 
       sendCommit()
       sendCommit()
-      //latestAppHash shouldBe "42bb448ea02f6f4fe069f89e392315602f5463d223cbd0a8246ac42c521ea6bb"
+//      latestAppHash shouldBe "42bb448ea02f6f4fe069f89e392315602f5463d223cbd0a8246ac42c521ea6bb"
 
       sendCheckTx(tx0)
       sendCheckTx(tx1)
@@ -113,7 +113,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendQuery(tx1Result).left.get._1 shouldBe AbciService.Codes.NotFound
       sendDeliverTx(tx0)
       sendCommit()
-      //latestAppHash shouldBe "7b0a908531e5936acdfce3c581ba6b39c2ca185553f47b167440490b13bfa132"
+//      latestAppHash shouldBe "7b0a908531e5936acdfce3c581ba6b39c2ca185553f47b167440490b13bfa132"
 
       sendCheckTx(tx1)
       sendCheckTx(tx2)
@@ -123,13 +123,13 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendDeliverTx(tx2)
       sendDeliverTx(tx3)
       sendCommit()
-      //latestAppHash shouldBe "fbca0d73019bc3ac6c8960782fe681835c13ace92a0d1dffd73fd363a173122c"
+//      latestAppHash shouldBe "fbca0d73019bc3ac6c8960782fe681835c13ace92a0d1dffd73fd363a173122c"
 
       sendQuery(tx1Result) shouldBe Right(littleEndian4ByteHex(2))
       sendQuery(tx3Result) shouldBe Right(littleEndian4ByteHex(4))
 
-      //latestCommittedHeight shouldBe 5
-      //latestAppHash shouldBe "fbca0d73019bc3ac6c8960782fe681835c13ace92a0d1dffd73fd363a173122c"
+//      latestCommittedHeight shouldBe 5
+//      latestAppHash shouldBe "fbca0d73019bc3ac6c8960782fe681835c13ace92a0d1dffd73fd363a173122c"
     }
 
     "invoke session txs in session counter order" in {
@@ -163,7 +163,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
 
       sendCheckTx(tx0)._1 shouldBe CodeType.OK
       sendDeliverTx(tx0)._1 shouldBe CodeType.OK
-//      // Mempool state updated only on commit!
+      // Mempool state updated only on commit!
       sendCheckTx(tx0)._1 shouldBe CodeType.OK
       sendCommit()
 
@@ -179,45 +179,6 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
 //      sendQuery(tx0Result) shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.QueryStateIsNotReadyYet))
 
       sendQuery(tx0Result) shouldBe Right(littleEndian4ByteHex(1))
-    }
-
-    "change session summary if session explicitly closed" in {
-      sendCommit()
-      sendCommit()
-
-      sendDeliverTx(tx0)
-      sendDeliverTx(tx1)
-      sendDeliverTx(tx2)
-      sendDeliverTx(tx3)
-      sendDeliverTx(tx(session, 4, "@closeSession"))
-      sendCommit()
-      sendCommit()
-
-//      sendQuery(s"@meta/$session/4/status") shouldBe Right("sessionClosed")
-//      sendQuery(s"@meta/$session/@sessionSummary") shouldBe
-//        Right("{\"status\":{\"ExplicitlyClosed\":{}},\"invokedTxsCount\":5,\"lastTxCounter\":5}")
-    }
-
-    "expire session after expiration period elapsed" in {
-      sendCommit()
-      sendCommit()
-
-      val firstSession = "000001"
-      val secondSession = "000002"
-      val thirdSession = "000003"
-      sendDeliverTx(tx(firstSession, 0, "()"))
-      sendDeliverTx(tx(secondSession, 0, "()"))
-      for (i <- 0 to 5)
-        sendDeliverTx(tx(thirdSession, i, "()"))
-      sendDeliverTx(tx(thirdSession, 6, "@closeSession"))
-      sendCommit()
-      sendCommit()
-
-      //sendQuery(s"@meta/$firstSession/@sessionSummary") shouldBe Right("{\"status\":{\"Expired\":{}},\"invokedTxsCount\":1,\"lastTxCounter\":1}")
-//      sendQuery(s"@meta/$secondSession/@sessionSummary") shouldBe
-//        Right("{\"status\":{\"Active\":{}},\"invokedTxsCount\":1,\"lastTxCounter\":2}")
-//      sendQuery(s"@meta/$thirdSession/@sessionSummary") shouldBe
-//        Right("{\"status\":{\"ExplicitlyClosed\":{}},\"invokedTxsCount\":7,\"lastTxCounter\":9}")
     }
   }
 }

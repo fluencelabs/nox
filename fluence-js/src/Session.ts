@@ -15,7 +15,7 @@
  */
 
 import {ResultAwait, ResultError, ResultPromise} from "./ResultAwait";
-import {error, ErrorResult, Result} from "./Result";
+import {error, ErrorResponse, Result} from "./Result";
 import {TendermintClient} from "./TendermintClient";
 import {SessionConfig} from "./SessionConfig";
 
@@ -116,7 +116,7 @@ export class Session {
 
         let targetKey = this.targetKey(currentCounter);
 
-        let callback = (err: ErrorResult) => {
+        let callback = (err: ErrorResponse) => {
             // close session on error
             this.markSessionAsClosed(err.error)
         };

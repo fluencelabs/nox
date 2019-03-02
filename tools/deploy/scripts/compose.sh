@@ -121,6 +121,7 @@ function deploy_contract_locally()
 function container_update()
 {
     printf 'Updating all containers.'
+    # TODO recreate containers if they became an updated
     docker pull ethereum/client-go:stable >/dev/null
     printf '.'
     docker pull parity/parity:stable >/dev/null
@@ -178,8 +179,10 @@ function export_arguments()
         # eth address in `dev` mode Parity with eth
         export OWNER_ADDRESS=0x00a329c0648769a73afac7f9381e08fb43dbea72
         export PRIVATE_KEY=4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
-
         export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
+        export ETHEREUM_IP=$HOST_IP
+        export ETHEREUM_SERVICE='parity'
+
     else
         echo "Deploying for $CHAIN chain."
         if [ "$ETHEREUM_SERVICE" == "geth" ]; then
@@ -247,44 +250,45 @@ function start_ethereum()
 
 function check_envs()
 {
-    if [ ! -z "PROD_DEPLOY" ]; then
+    if [ -n "$PROD_DEPLOY" ]; then
         declare -p CONTRACT_ADDRESS &>/dev/null || {
             echo >&2 "CONTRACT_ADDRESS is not defined"
             exit 1
         }
-        declare -p OWNER_ADDRESS &>/dev/null || {
-            echo >&2 "OWNER_ADDRESS is not defined"
-            exit 1
-        }
-        declare -p API_PORT &>/dev/null || {
-            echo >&2 "API_PORT is not defined"
-            exit 1
-        }
-        declare -p CAPACITY &>/dev/null || {
-            echo >&2 "CAPACITY is not defined"
-            exit 1
-        }
-        declare -p PARITY_RESERVED_PEERS &>/dev/null || {
-            echo >&2 "PARITY_RESERVED_PEERS is not defined"
-            exit 1
-        }
-        declare -p NAME &>/dev/null || {
-            echo >&2 "NAME is not defined"
-            exit 1
-        }
-        declare -p HOST_IP &>/dev/null || {
-            echo >&2 "HOST_IP is not defined"
-            exit 1
-        }
-        declare -p SWARM_ADDRESS &>/dev/null || {
-            echo >&2 "SWARM_ADDRESS is not defined"
-            exit 1
-        }
-        declare -p START_SWARM &>/dev/null || {
-            echo >&2 "START_SWARM is not defined"
-            exit 1
-        }
     fi
+
+    declare -p OWNER_ADDRESS &>/dev/null || {
+        echo >&2 "OWNER_ADDRESS is not defined"
+        exit 1
+    }
+    declare -p API_PORT &>/dev/null || {
+        echo >&2 "API_PORT is not defined"
+        exit 1
+    }
+    declare -p CAPACITY &>/dev/null || {
+        echo >&2 "CAPACITY is not defined"
+        exit 1
+    }
+    declare -p PARITY_RESERVED_PEERS &>/dev/null || {
+        echo >&2 "PARITY_RESERVED_PEERS is not defined"
+        exit 1
+    }
+    declare -p NAME &>/dev/null || {
+        echo >&2 "NAME is not defined"
+        exit 1
+    }
+    declare -p HOST_IP &>/dev/null || {
+        echo >&2 "HOST_IP is not defined"
+        exit 1
+    }
+    declare -p SWARM_ADDRESS &>/dev/null || {
+        echo >&2 "SWARM_ADDRESS is not defined"
+        exit 1
+    }
+    declare -p START_SWARM &>/dev/null || {
+        echo >&2 "START_SWARM is not defined"
+        exit 1
+    }
 
     declare -p ETHEREUM_IP &>/dev/null || {
         echo >&2 "ETHEREUM_IP is not defined"
@@ -306,6 +310,13 @@ function deploy()
     # disables docker-compose warnings about orphan services
     export COMPOSE_IGNORE_ORPHANS=True
 
+    get_docker_ip_address
+
+    get_external_ip
+
+    # exports initial arguments to global scope for `docker-compose` files
+    export_arguments
+
     if [ -z "$PROD_DEPLOY" ]; then
         check_fluence_installed
         export START_SWARM="true"
@@ -324,13 +335,6 @@ function deploy()
     check_envs
 
     container_update
-
-    # exports initial arguments to global scope for `docker-compose` files
-    export_arguments
-
-    get_docker_ip_address
-
-    get_external_ip
 
     start_swarm
 

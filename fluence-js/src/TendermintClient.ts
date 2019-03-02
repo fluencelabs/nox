@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-import {none, Option, Some} from "ts-option";
+import {none, Option, some, Some} from "ts-option";
 import {fromHex} from "./utils";
 import * as debug from "debug";
 import {RpcClient} from "./RpcClient";
-import {error, Result, value} from "./Result";
+import {QueryResponse, error, Result} from "./Result";
+import {fromByteArray, toByteArray} from "base64-js";
 
 const d = debug("tendermintClient");
 
@@ -73,33 +74,36 @@ export class TendermintClient {
     async abciQuery(path: string): Promise<Option<Result>> {
         d("abciQuery request");
 
-        let response: any = (await this.client.abciQuery(path)).data.result.response;
+        let response: QueryResponse = (await this.client.abciQuery(path)).data.result.response;
 
-        function getResult(): any {
-            try {
-                return atob(response.value);
-            } catch (e) {
-                throw error("error on atob(response.value): " + JSON.stringify(response) + " err: " + e);
-            }
-        }
-
-        if (response.value) {
-            if (response.code === undefined || response.code === 0) {
-                // code == OK
-                return new Some(value(getResult()))
-            } else if (response.code === 1 || response.code === 2) {
-                // code == CannotParseHeader || Dropped
-                let result = getResult();
-                throw error("bad code on response: " + JSON.stringify(response) + " result: " + JSON.stringify(result));
-            } else if (response.code === 3 || response.code === 4) {
-                // code == Pending || NotFound
-                return none;
-            } else {
-                let result = getResult();
-                throw error("unknown code on response: " + JSON.stringify(response) + " result: " + JSON.stringify(result));
+        if (response.value && response.code) {
+            switch (response.code) {
+                case 0: {
+                    try {
+                        return some(new Result(toByteArray(response.value)));
+                    } catch (e) {
+                        throw error("error on atob(response.value): " + JSON.stringify(response) + " err: " + e);
+                    }
+                }
+                case 1: {
+                    throw error(`Cannot parse headers on path ${path}: ${response.info}`);
+                }
+                case 2: {
+                    throw error(`Request with path '${path}' is dropped: ${response.info}`);
+                }
+                case 3: {
+                    console.log("Response is in pending state.");
+                    return none;
+                }
+                case 4: {
+                    throw error(`Request with path '${path}' is not found: ${response.info}`);
+                }
+                default: {
+                    throw error(`unknown code ${response.code} response: ${JSON.stringify(response)}`);
+                }
             }
         } else {
-            return none;
+            throw error("unknown response: " + JSON.stringify(response));
         }
     }
 }

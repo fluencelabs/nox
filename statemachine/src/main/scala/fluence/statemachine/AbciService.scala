@@ -91,26 +91,12 @@ class AbciService[F[_]: Monad](
       case None ⇒
         state.get.map(
           state ⇒
-            // Try to find a session
-            state.sessions.data.get(path) match {
-              case Some(ses) ⇒
-                // Got session, so first line is "Active"
-                QueryResponse(
-                  state.height,
-                  s"Active\nNext Nonce:${ses.nextNonce}".getBytes(),
-                  Codes.Ok,
-                  s"Session $path is found"
-                )
-
-              case None ⇒
-                // Session not found, so first line is "Closed"
-                QueryResponse(
-                  state.height,
-                  s"Closed\nSession not found for the path.".getBytes(),
-                  Codes.NotFound,
-                  s"Cannot parse query path: $path, must be in `sessionId/nonce` format"
-                )
-          }
+            QueryResponse(
+              state.height,
+              Array[Byte](),
+              Codes.NotFound,
+              s"Cannot parse query path: $path, must be in `sessionId/nonce` format"
+          )
         )
 
       case Some(head) ⇒
@@ -125,14 +111,14 @@ class AbciService[F[_]: Monad](
               if (st.sessions.data.get(head.session).exists(_.nextNonce <= head.nonce))
                 QueryResponse(
                   st.height,
-                  s"Pending\nTransaction is not yet processed".getBytes,
+                  Array[Byte](),
                   Codes.Pending,
                   s"Transaction is not yet processed: $path"
                 )
               else
                 QueryResponse(
                   st.height,
-                  s"Closed\nSession not found for the path".getBytes,
+                  Array[Byte](),
                   Codes.NotFound,
                   s"No response found for path: $path"
                 )
