@@ -14,18 +14,18 @@
  * limitations under the License.
  */
 
-//! A simple demo application for Fluence.
-use fluence::sdk::*;
+use std::cell::RefCell;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
+
+use fluence::sdk::*;
 use rand::{Rng, SeedableRng};
 use rand_isaac::IsaacRng;
-use std::cell::RefCell;
 
 enum Guess {
     LESS,
     GREATER,
-    EQUAL
+    EQUAL,
 }
 
 thread_local! {
@@ -52,7 +52,7 @@ fn game(input: String) -> String {
                 next_game();
                 format!("Success! You guessed right.")
             }
-        }
+        },
     }
 }
 
@@ -74,21 +74,23 @@ fn update_state(input: &String) {
 }
 
 fn update_seed(input: &String) {
-    GAMES_COUNT.with(|count| SEED.with(|seed| {
-        let count = *count.borrow();
-        let mut seed = seed.borrow_mut();
-        let mut hasher = DefaultHasher::new();
-        hasher.write(input.as_bytes());
-        hasher.write_u32(count);
-        hasher.write_u64(*seed);
-        *seed = hasher.finish();
-    }))
+    GAMES_COUNT.with(|count| {
+        SEED.with(|seed| {
+            let count = *count.borrow();
+            let mut seed = seed.borrow_mut();
+            let mut hasher = DefaultHasher::new();
+            hasher.write(input.as_bytes());
+            hasher.write_u32(count);
+            hasher.write_u64(*seed);
+            *seed = hasher.finish();
+        })
+    })
 }
 
 fn update_secret() {
     SEED.with(|seed| {
         let mut rng: IsaacRng = SeedableRng::seed_from_u64(*seed.borrow());
-        SECRET.with(|secret|{
+        SECRET.with(|secret| {
             *secret.borrow_mut() = rng.gen::<u8>();
         })
     })
@@ -100,7 +102,7 @@ fn check_guess(guess: i16) -> Guess {
         match guess {
             _ if guess < secret => Guess::LESS,
             _ if guess > secret => Guess::GREATER,
-            _ => Guess::EQUAL
+            _ => Guess::EQUAL,
         }
     })
 }
