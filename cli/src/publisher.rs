@@ -225,9 +225,10 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Error> {
     }
 
     if (cluster_size - pin_to_nodes.len()) > MAX_CLUSTER_SIZE {
-        return Err(err_msg(
-            format!("maximum cluster size is {}. For larger cluster, use pinned nodes via --{}", MAX_CLUSTER_SIZE, PINNED)
-        ));
+        return Err(err_msg(format!(
+            "maximum cluster size is {}. For larger cluster, use pinned nodes via --{}",
+            MAX_CLUSTER_SIZE, PINNED
+        )));
     }
 
     Ok(Publisher::new(
@@ -255,7 +256,13 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .required(false)
             .takes_value(true)
             .default_value("4")
-            .help(format!("Cluster size that needed to deploy this code. MAX = {}", MAX_CLUSTER_SIZE).as_str())
+            .help(
+                format!(
+                    "Cluster size that needed to deploy this code. MAX = {}",
+                    MAX_CLUSTER_SIZE
+                )
+                .as_str(),
+            )
             .display_order(1),
         Arg::with_name(PINNED)
             .long(PINNED)
