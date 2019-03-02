@@ -9,6 +9,7 @@ create-missing = false
 
 [output.html]
 mathjax-support = true
+google-analytics = "UA-120211353-6"
 
 [output.html.playpen]
 editable = true
