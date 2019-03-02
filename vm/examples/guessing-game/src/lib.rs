@@ -29,9 +29,13 @@ enum Guess {
 }
 
 thread_local! {
+    /// Number of games won, used for SEED generation
     static GAMES_COUNT: RefCell<u32> = RefCell::new(0);
+    /// Number of tries, used for SEED generation
     static TRIES: RefCell<u32> = RefCell::new(0);
+    /// Seed for rng
     static SEED: RefCell<u64> = RefCell::new(0);
+    /// Number to guess
     static SECRET: RefCell<u8> = RefCell::new(0);
 }
 
@@ -48,7 +52,7 @@ fn game(input: String) -> String {
 
     match input.parse::<i16>() {
         Err(e) => format!("Input can't be parsed as i16 {}: {}", input, e),
-        Ok(guess) => match check_guess(guess) {
+        Ok(guess) => match compare_guess(guess) {
             Guess::LESS => format!("Your guess is too low! Try something bigger."),
             Guess::GREATER => format!("Too big! Try again."),
             Guess::EQUAL => {
@@ -59,15 +63,12 @@ fn game(input: String) -> String {
     }
 }
 
-fn next_game() {
-    GAMES_COUNT.with(|c| *c.borrow_mut() += 1);
-    update_secret();
-}
-
+/// Increment number of tries
 fn count_request(input: &String) {
     TRIES.with(|t| *t.borrow_mut() += 1);
 }
 
+/// Set secret to random value if it's not initialized
 fn init_secret() {
     SECRET.with(|secret| {
         if *secret.borrow() == 0 {
@@ -76,6 +77,7 @@ fn init_secret() {
     })
 }
 
+/// Update seed for rng
 fn update_seed(input: &String) {
     GAMES_COUNT.with(|count| {
         SEED.with(|seed| {
@@ -90,6 +92,7 @@ fn update_seed(input: &String) {
     })
 }
 
+/// Update secret from rng(SEED)
 fn update_secret() {
     SEED.with(|seed| {
         let mut rng: IsaacRng = SeedableRng::seed_from_u64(*seed.borrow());
@@ -99,7 +102,8 @@ fn update_secret() {
     })
 }
 
-fn check_guess(guess: i16) -> Guess {
+/// Compare user's guess to SECRET
+fn compare_guess(guess: i16) -> Guess {
     SECRET.with(|secret| {
         let secret = *secret.borrow() as i16;
         match guess {
@@ -108,6 +112,12 @@ fn check_guess(guess: i16) -> Guess {
             _ => Guess::EQUAL,
         }
     })
+}
+
+/// Generate next secret and increment won games count
+fn next_game() {
+    GAMES_COUNT.with(|c| *c.borrow_mut() += 1);
+    update_secret();
 }
 
 #[test]
