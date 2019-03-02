@@ -35,6 +35,7 @@ use crate::contract_func::{call_contract, get_transaction_logs_raw, wait_tx_incl
 use crate::step_counter::StepCounter;
 use crate::utils;
 
+const MAX_CLUSTER_SIZE: u32 = 4;
 const CODE_PATH: &str = "code_path";
 const CLUSTER_SIZE: &str = "cluster_size";
 const SWARM_URL: &str = "swarm_url";
@@ -223,6 +224,12 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Error> {
         ));
     }
 
+    if (cluster_size - pin_to_nodes.len()) > MAX_CLUSTER_SIZE {
+        return Err(err_msg(
+            format!("maximum cluster size is {}. For larger cluster, use pinned nodes via --{}", MAX_CLUSTER_SIZE, PINNED)
+        ));
+    }
+
     Ok(Publisher::new(
         buf.to_owned(),
         swarm_url,
@@ -247,8 +254,8 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .short("s")
             .required(false)
             .takes_value(true)
-            .default_value("3")
-            .help("Cluster's size that needed to deploy this code")
+            .default_value("4")
+            .help(format!("Cluster size that needed to deploy this code. MAX = {}", MAX_CLUSTER_SIZE).as_str())
             .display_order(1),
         Arg::with_name(PINNED)
             .long(PINNED)

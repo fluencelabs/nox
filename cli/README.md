@@ -101,7 +101,9 @@ Interesting bits:
 - `fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm` is just an example path and doesn't exist in project
     - however, you can build it by issuing `sbt vm-counter/compile` in project root
 
-Please refer to [Fluence Rust SDK](../backend-sdk/README.md) to get information about developing apps with Fluence.
+NOTE: currently maximum `cluster_size` is limited by `4`. This is to limit resource exhaustion. To use a cluster of larger size, you can [spin up your own nodes](../docs/src/roles/miner.md), and ping to them via `--pin_to` flag. 
+
+Please refer to [Fluence Rust SDK](../backend-sdk/README.md) and [Rust guide](../docs/src/quickstart/rust.md) to get information about developing apps with Fluence.
 
 #### Waiting for an app to be deployed or enqueued
 You can pass `--wait` option to `publish` command, and CLI will wait until transaction is included in a block, and then provide you with information about app deployment status and app id.
