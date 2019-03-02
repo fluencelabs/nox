@@ -36,12 +36,15 @@ thread_local! {
 }
 
 fn init() {
+    // Set seed to some random value, just to show how to use init()
     SEED.with(|seed| *seed.borrow_mut() = 123456789);
 }
 
 #[invocation_handler(init_fn = init)]
 fn game(input: String) -> String {
-    update_state(&input);
+    count_request(&input);
+    update_seed(&input);
+    init_secret();
 
     match input.parse::<i16>() {
         Err(e) => format!("Input can't be parsed as i16 {}: {}", input, e),
@@ -61,11 +64,11 @@ fn next_game() {
     update_secret();
 }
 
-fn update_state(input: &String) {
+fn count_request(input: &String) {
     TRIES.with(|t| *t.borrow_mut() += 1);
+}
 
-    update_seed(input);
-
+fn init_secret() {
     SECRET.with(|secret| {
         if *secret.borrow() == 0 {
             update_secret()
