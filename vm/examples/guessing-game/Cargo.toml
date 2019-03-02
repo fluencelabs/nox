@@ -1,0 +1,22 @@
+[package]
+name = "guessing_game"
+version = "0.1.0"
+authors = ["Fluence Labs"]
+publish = false
+description = "Guessing game as in https://doc.rust-lang.org/1.30.0/book/second-edition/ch02-00-guessing-game-tutorial.html"
+edition = "2018"
+
+[lib]
+name = "guessing_game"
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[profile.release]
+debug = false
+lto = true
+opt-level = "z"
+panic = "abort"
+
+[dependencies]
+log = "0.4"
+fluence = { version = "0.0.12", features = ["wasm_logger"] }
