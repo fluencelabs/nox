@@ -128,9 +128,9 @@ function container_update()
     printf '.'
     docker pull ethdevops/swarm:edge >/dev/null
     printf '.'
-    docker pull fluencelabs/node:v0.1.5 >/dev/null
+    docker pull fluencelabs/node:$IMAGE_TAG >/dev/null
     printf '.\n'
-    docker pull fluencelabs/worker:v0.1.5 >/dev/null
+    docker pull fluencelabs/worker:$IMAGE_TAG >/dev/null
     echo 'Containers are updated.'
 }
 
@@ -300,6 +300,10 @@ function check_envs()
     }
     declare -p ETHEREUM_SERVICE &>/dev/null || {
         echo >&2 "ETHEREUM_SERVICE is not defined"
+        exit 1
+    }
+    declare -p IMAGE_TAG &>/dev/null || {
+        echo >&2 "IMAGE_TAG is not defined"
         exit 1
     }
 }

@@ -101,6 +101,8 @@ object ServerRunner extends IOApp with LazyLogging {
       _ = logger.info("Loading VM modules from " + moduleFilenames)
       vm <- buildVm[IO](moduleFilenames)
 
+      _ = logger.info("VM instantiated")
+
       vmInvoker = new VmOperationInvoker[IO](vm)
 
       service <- EitherT.right(AbciService[IO](vmInvoker))
