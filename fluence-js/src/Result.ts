@@ -59,6 +59,6 @@ export class Result {
     }
 
     asString(): string {
-        return this.value.toString()
+        return new TextDecoder("utf-8").decode(this.value);
     }
 }

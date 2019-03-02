@@ -76,8 +76,9 @@ export class TendermintClient {
 
         let response: QueryResponse = (await this.client.abciQuery(path)).data.result.response;
 
-        if (response.value && response.code) {
+        if (response.value) {
             switch (response.code) {
+                case undefined:
                 case 0: {
                     try {
                         return some(new Result(toByteArray(response.value)));
@@ -91,12 +92,10 @@ export class TendermintClient {
                 case 2: {
                     throw error(`Request with path '${path}' is dropped: ${response.info}`);
                 }
-                case 3: {
-                    console.log("Response is in pending state.");
-                    return none;
-                }
+                case 3:
                 case 4: {
-                    throw error(`Request with path '${path}' is not found: ${response.info}`);
+                    console.log(`Response is in pending state or not found: : ${response.info}`);
+                    return none;
                 }
                 default: {
                     throw error(`unknown code ${response.code} response: ${JSON.stringify(response)}`);
