@@ -34,21 +34,20 @@ thread_local! {
     /// Number of tries, used for SEED generation
     static TRIES: RefCell<u32> = RefCell::new(0);
     /// Seed for rng
-    static SEED: RefCell<u64> = RefCell::new(0);
+    static SEED: RefCell<u64> = RefCell::new(123456789);
     /// Number to guess
     static SECRET: RefCell<u8> = RefCell::new(0);
 }
 
 fn init() {
-    // Set seed to some random value, just to show how to use init()
-    SEED.with(|seed| *seed.borrow_mut() = 123456789);
+    /// Generate a secret
+    update_secret();
 }
 
 #[invocation_handler(init_fn = init)]
 fn game(input: String) -> String {
     count_request(&input);
     update_seed(&input);
-    init_secret();
 
     match input.parse::<i16>() {
         Err(e) => format!("Input can't be parsed as i16 {}: {}", input, e),
@@ -66,15 +65,6 @@ fn game(input: String) -> String {
 /// Increment number of tries
 fn count_request(input: &String) {
     TRIES.with(|t| *t.borrow_mut() += 1);
-}
-
-/// Set secret to random value if it's not initialized
-fn init_secret() {
-    SECRET.with(|secret| {
-        if *secret.borrow() == 0 {
-            update_secret()
-        }
-    })
 }
 
 /// Update seed for rng
