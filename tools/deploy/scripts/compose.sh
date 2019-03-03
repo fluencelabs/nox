@@ -186,7 +186,7 @@ function export_arguments()
     else
         echo "Deploying for $CHAIN chain."
         if [ "$ETHEREUM_SERVICE" == "geth" ]; then
-            export GETH_ARGS="--$CHAIN --rpc --rpccorsdomain "*" --rpcaddr '0.0.0.0' --rpcport 8545 --ws --wsaddr '0.0.0.0' --wsport 8546 --syncmode light --verbosity 3 --datadir /root/.ethereum --v5disc"
+            export GETH_ARGS="--$CHAIN --rpc --rpccorsdomain "*" --rpcaddr '0.0.0.0' --rpcport 8545 --ws --wsaddr '0.0.0.0' --wsport 8546 --syncmode light --verbosity 3 --datadir /root/.ethereum --v5disc --rpcvhosts=*"
         else
             if [ "$CHAIN" = "kovan" ]; then
                 NO_WARP="--no-warp "

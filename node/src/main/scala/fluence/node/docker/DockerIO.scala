@@ -100,7 +100,13 @@ object DockerIO extends LazyLogging {
     } {
       case (Success(dockerId), exitCase) ⇒
         shiftDelay {
-          logger.info(s"Going to stop container $dockerId, exit case: $exitCase")
+          val name = Try(s"""docker ps -af id=$dockerId --format "{{.Names}}" """.!!) match {
+            case Success(n) => n.trim.replace("\"", "")
+            case Failure(e) =>
+              logger.warn(s"Error on docker ps: $e")
+              ""
+          }
+          logger.info(s"Going to stop container $name $dockerId, exit case: $exitCase")
           val t = Try(s"docker stop -t $stopTimeout $dockerId".!)
           // TODO should we `docker kill` if Cancel is triggered while stopping?
           logger.debug(s"Stop result: $t")
