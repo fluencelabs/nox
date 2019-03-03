@@ -12,7 +12,7 @@ object SbtCommons {
 
   val commons = Seq(
     scalaV,
-    version                              := "0.1.4",
+    version                              := "0.1.5",
     fork in Test                         := true,
     parallelExecution in Test            := false,
     fork in IntegrationTest              := true,
@@ -100,7 +100,7 @@ object SbtCommons {
   val sttpCirce = "com.softwaremill.sttp"       %% "circe"                          % sttpVersion
   val sttpCatsBackend = "com.softwaremill.sttp" %% "async-http-client-backend-cats" % sttpVersion
 
-  val http4sVersion = "0.20.0-M5"
+  val http4sVersion = "0.20.0-M6"
   val http4sDsl = "org.http4s"    %% "http4s-dsl"          % http4sVersion
   val http4sServer = "org.http4s" %% "http4s-blaze-server" % http4sVersion
   val http4sCirce = "org.http4s"  %% "http4s-circe"        % http4sVersion

@@ -118,6 +118,11 @@ def deploy():
             else:
                 ethereum_ip = env.ethereum_ip
 
+            if env.image_tag is None:
+                image_tag = "v0.1.5"
+            else:
+                image_tag = env.image_tag
+
             with shell_env(CHAIN=chain,
                            # flag that show to script, that it will deploy all with non-default arguments
                            PROD_DEPLOY="true",
@@ -132,7 +137,8 @@ def deploy():
                            SWARM_ADDRESS=swarm,
                            START_SWARM=start_swarm,
                            ETHEREUM_SERVICE="provided",
-                           ETHEREUM_IP=ethereum_ip):
+                           ETHEREUM_IP=ethereum_ip,
+                           IMAGE_TAG=image_tag):
                 run('chmod +x compose.sh')
                 # the script will return command with arguments that will register node in Fluence contract
                 output = run('./compose.sh deploy')

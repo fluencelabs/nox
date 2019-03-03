@@ -63,7 +63,13 @@ case class TendermintRpc[F[_]](
    * @param id Tracking ID, you may omit it
    */
   def broadcastTxSync(tx: String, id: String): EitherT[F, RpcError, String] =
-    post(RpcRequest(method = "broadcast_tx_sync", params = Json.fromString(tx) :: Nil, id = id))
+    post(
+      RpcRequest(
+        method = "broadcast_tx_sync",
+        params = Json.fromString(java.util.Base64.getEncoder.encodeToString(tx.getBytes)) :: Nil,
+        id = id
+      )
+    )
 
   def unsafeDialPeers(peers: Seq[String], persistent: Boolean, id: String = "dontcare"): EitherT[F, RpcError, String] =
     post(
@@ -110,17 +116,22 @@ object TendermintRpc extends slogging.LazyLogging {
   private def sendHandlingErrors[F[_]: Sync](
     reqT: RequestT[Id, String, Nothing]
   )(implicit sttpBackend: SttpBackend[F, Nothing]): EitherT[F, RpcError, String] =
-    reqT
-      .send()
-      .attemptT
-      .leftMap[RpcError](RpcRequestFailed)
-      .subflatMap[RpcError, String] { resp ⇒
-        val eitherResp = resp.body
-          .leftMap[RpcError](RpcRequestErrored(resp.code, _))
+    EitherT
+      .pure(logger.debug(s"TendermintRpc request $reqT"))
+      .flatMap(
+        _ =>
+          reqT
+            .send()
+            .attemptT
+            .leftMap[RpcError](RpcRequestFailed)
+            .subflatMap[RpcError, String] { resp ⇒
+              val eitherResp = resp.body
+                .leftMap[RpcError](RpcRequestErrored(resp.code, _))
 
-        logger.trace(s"TendermintRpc response(${resp.code}): $eitherResp")
-        eitherResp
-      }
+              logger.debug(s"TendermintRpc response(${resp.code}): $eitherResp")
+              eitherResp
+          }
+      )
 
   /**
    * Runs a WorkerRpc with F effect, acquiring some resources for it

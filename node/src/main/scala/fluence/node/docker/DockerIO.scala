@@ -79,6 +79,14 @@ object DockerIO extends LazyLogging {
       params.process.!!.trim
     }
 
+  private def getName(containerId: String) =
+    Try(s"""docker ps -af id=$containerId --format "{{.Names}}" """.!!) match {
+      case Success(n) => n.trim.replace("\"", "")
+      case Failure(e) =>
+        logger.warn(s"Error on docker ps: $e")
+        ""
+    }
+
   /**
    * Runs a daemonized docker container, providing a single String with the container ID.
    * Calls `docker rm -f` on that ID when stream is over.
@@ -100,7 +108,8 @@ object DockerIO extends LazyLogging {
     } {
       case (Success(dockerId), exitCase) ⇒
         shiftDelay {
-          logger.info(s"Going to stop container $dockerId, exit case: $exitCase")
+          val name = getName(dockerId)
+          logger.info(s"Going to stop container $name $dockerId, exit case: $exitCase")
           val t = Try(s"docker stop -t $stopTimeout $dockerId".!)
           // TODO should we `docker kill` if Cancel is triggered while stopping?
           logger.debug(s"Stop result: $t")
@@ -108,8 +117,13 @@ object DockerIO extends LazyLogging {
         }.flatMap {
           case Success(0) ⇒
             shiftDelay {
-              logger.info(s"Container $dockerId stopped gracefully, going to rm -v it")
-              logger.info(Console.CYAN + s"docker logs --tail 100 $dockerId".!!.replaceAll("^", "  ") + Console.RESET)
+              val name = getName(dockerId)
+              logger.info(s"Container $dockerId with name $name stopped gracefully, going to rm -v it")
+              val containerLogs = s"docker logs --tail 100 $dockerId".!!.replaceAll("(?m)^", s"$name  ")
+              if (containerLogs.trim.nonEmpty)
+                logger.info(Console.CYAN + containerLogs + Console.RESET)
+              else
+                logger.info(Console.CYAN + s"$name: empty logs." + Console.RESET)
               s"docker rm -v $dockerId".!
             }.void
           case Failure(err) ⇒

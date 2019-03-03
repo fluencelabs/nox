@@ -130,18 +130,10 @@ lazy val statemachine = (project in file("statemachine"))
     libraryDependencies ++= Seq(
       cats,
       catsEffect,
-      circeGeneric,
-      circeParser,
       pureConfig,
-      cryptoHashing,
       slogging,
       scodecBits,
-      prometheusClient,
-      prometheusClientJetty,
-      prometheusClientServlet,
       "com.github.jtendermint" % "jabci"          % "0.26.0",
-      "org.bouncycastle"       % "bcpkix-jdk15on" % "1.56",
-      "net.i2p.crypto"         % "eddsa"          % "0.3.0",
       scalaTest
     ),
     assemblyJarName in assembly := "statemachine.jar",
@@ -166,7 +158,6 @@ lazy val statemachine = (project in file("statemachine"))
       // State machine constants
       val workerDataRoot = "/worker"
       val workerRunScript = s"$workerDataRoot/run.sh"
-      val stateMachinePrometheusPort = 26661
       val abciHandlerPort = 26658
 
       val vmDataRoot = "/vmcode"
@@ -175,7 +166,6 @@ lazy val statemachine = (project in file("statemachine"))
         from("openjdk:8-jre-alpine")
 
         expose(abciHandlerPort)
-        expose(stateMachinePrometheusPort)
 
         volume(vmDataRoot)
 

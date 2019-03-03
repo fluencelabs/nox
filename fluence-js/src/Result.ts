@@ -15,51 +15,19 @@
  */
 
 /**
- * Possible results from the real-time cluster.
- */
-import {fromHex, fromHexToView} from "./utils";
-
-export type Result = Empty | Value
-
-/**
- * The empty result, if there is no value in response.
- */
-export class Empty {}
-
-/**
  * The result with value as a string from the real-time cluster.
  */
-export class Value {
-
-    private readonly value: string;
-
-    /**
-     * @param v hex string
-     */
-    constructor(v: string) {
-        this.value = v
-    }
-
-    hex(): string {
-        return this.value;
-    }
-
-    asString(): string {
-        return fromHex(this.value)
-    }
-
-    asInt(): number {
-        // todo: validate value
-        // todo: why do we need to specify endian explicitly?
-        return fromHexToView(this.value).getInt32(0, true);
-    }
-
+export interface QueryResponse {
+    height: string;
+    value: string;
+    code: number;
+    info: string;
 }
 
 /**
  * Returns if some error occurred on request in the real-time cluster.
  */
-export class ErrorResult extends Error {
+export class ErrorResponse extends Error {
     constructor(err: string) {
         super(err);
         this.error = err;
@@ -68,28 +36,29 @@ export class ErrorResult extends Error {
     readonly error: string
 }
 
-export const empty: Result = new Empty();
-
-export function isValue(r: Result): r is Value {
-    return r instanceof Value;
-}
-
-export function value(v: string): Value {
-    return new Value(v)
-}
-
 export function error(err: string) {
-    return new ErrorResult(err)
+    return new ErrorResponse(err)
 }
 
-export function parseObject(obj: any): Result {
-    if (obj.Error !== undefined) {
-        throw error(obj.Error.message)
-    } else if (obj.Empty !== undefined) {
-        return empty;
-    } else if (obj.Computed) {
-        return value(obj.Computed.value);
-    } else {
-        throw error("Could not parse the response: " + JSON.stringify(obj))
+/**
+ * The result with value as a bytes array from the real-time cluster.
+ */
+export class Result {
+
+    private readonly value: Uint8Array;
+
+    /**
+     * @param v hex string
+     */
+    constructor(v: Uint8Array) {
+        this.value = v
+    }
+
+    bytes(): Uint8Array {
+        return this.value;
+    }
+
+    asString(): string {
+        return new TextDecoder("utf-8").decode(this.value);
     }
 }
