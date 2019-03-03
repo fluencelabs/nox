@@ -40,13 +40,13 @@ thread_local! {
 }
 
 fn init() {
-    /// Generate a secret
+    // Generate a secret
     update_secret();
 }
 
 #[invocation_handler(init_fn = init)]
 fn game(input: String) -> String {
-    count_request(&input);
+    count_request();
     update_seed(&input);
 
     match input.parse::<i16>() {
@@ -63,7 +63,7 @@ fn game(input: String) -> String {
 }
 
 /// Increment number of tries
-fn count_request(input: &String) {
+fn count_request() {
     TRIES.with(|t| *t.borrow_mut() += 1);
 }
 
