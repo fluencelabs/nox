@@ -219,6 +219,10 @@ startBtn.addEventListener("click", () => {
     if (contractAddress.value && appId.value && ethereumAddress.value) {
         let ethUrl = metamaskCheckbox.checked ? undefined : ethereumAddress.value;
         preparePage(contractAddress.value, appId.value, ethUrl);
+    } else {
+        contractAddress.reportValidity();
+        appId.reportValidity();
+        ethereumAddress.reportValidity();
     }
 });
 
