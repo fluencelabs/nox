@@ -19,7 +19,7 @@ import {fromHex} from "./utils";
 import * as debug from "debug";
 import {RpcClient} from "./RpcClient";
 import {QueryResponse, error, Result} from "./Result";
-import {fromByteArray, toByteArray} from "base64-js";
+import {toByteArray} from "base64-js";
 
 const d = debug("tendermintClient");
 
