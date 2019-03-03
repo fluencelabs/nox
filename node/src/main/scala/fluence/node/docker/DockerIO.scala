@@ -119,7 +119,7 @@ object DockerIO extends LazyLogging {
             shiftDelay {
               logger.info(s"Container $dockerId stopped gracefully, going to rm -v it")
               val name = getName(dockerId)
-              val containerLogs = s"docker logs --tail 100 $dockerId".!!.replaceAll("^", s"$name  ")
+              val containerLogs = s"docker logs --tail 100 $dockerId".!!.replaceAll("(?m)^", s"$name  ")
               logger.info(Console.CYAN + containerLogs + Console.RESET)
               s"docker rm -v $dockerId".!
             }.void
