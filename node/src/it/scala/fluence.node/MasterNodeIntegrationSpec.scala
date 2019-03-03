@@ -82,7 +82,7 @@ class MasterNodeIntegrationSpec
 
   def runTwoMasters(basePort: Short): Resource[IO, Seq[String]] = {
     val master1Port: Short = basePort
-    val master2Port: Short = (basePort + 123).toShort
+    val master2Port: Short = (basePort + 1).toShort
     for {
       master1 <- runMaster(master1Port, "master1", n = 1)
       master2 <- runMaster(master2Port, "master2", n = 2)
@@ -128,7 +128,7 @@ class MasterNodeIntegrationSpec
 
     def runTwoWorkers(basePort: Short)(implicit ethClient: EthClient, sttp: SttpBackend[IO, Nothing]): IO[Unit] = {
       val contract = FluenceContract(ethClient, contractConfig)
-      val master2Port = (basePort + 123).toShort
+      val master2Port = (basePort + 1).toShort
       for {
         status1 <- getStatus(basePort)
         status2 <- getStatus(master2Port)
@@ -159,7 +159,7 @@ class MasterNodeIntegrationSpec
         _ <- eventually[IO](
           for {
             worker1 <- getRunningWorker(basePort)
-            worker2 <- getRunningWorker((basePort + 123).toShort)
+            worker2 <- getRunningWorker((basePort + 1).toShort)
           } yield {
             worker1 shouldBe defined
             worker2 shouldBe defined
@@ -175,7 +175,7 @@ class MasterNodeIntegrationSpec
           logger.debug("Prepared two masters for Delete App test")
           implicit val sttp = s
           val getStatus1 = getRunningWorker(basePort)
-          val getStatus2 = getRunningWorker((basePort + 123).toShort)
+          val getStatus2 = getRunningWorker((basePort + 1).toShort)
           val contract = FluenceContract(ethClient, contractConfig)
 
           for {
@@ -199,7 +199,7 @@ class MasterNodeIntegrationSpec
             _ <- eventually[IO](
               for {
                 s1 <- getRunningWorker(basePort)
-                s2 <- getRunningWorker((basePort + 123).toShort)
+                s2 <- getRunningWorker((basePort + 1).toShort)
               } yield {
                 // Check that workers run no more
                 s1 should not be defined
@@ -225,7 +225,7 @@ class MasterNodeIntegrationSpec
     }
 
     "stop workers on AppDelete event" in {
-      deleteApp(27000).unsafeRunSync()
+      deleteApp(26000).unsafeRunSync()
     }
   }
 }

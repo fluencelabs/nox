@@ -117,10 +117,13 @@ object DockerIO extends LazyLogging {
         }.flatMap {
           case Success(0) ⇒
             shiftDelay {
-              logger.info(s"Container $dockerId stopped gracefully, going to rm -v it")
               val name = getName(dockerId)
+              logger.info(s"Container $dockerId with name $name stopped gracefully, going to rm -v it")
               val containerLogs = s"docker logs --tail 100 $dockerId".!!.replaceAll("(?m)^", s"$name  ")
-              logger.info(Console.CYAN + containerLogs + Console.RESET)
+              if (containerLogs.trim.nonEmpty)
+                logger.info(Console.CYAN + containerLogs + Console.RESET)
+              else
+                logger.info(Console.CYAN + s"$name: empty logs." + Console.RESET)
               s"docker rm -v $dockerId".!
             }.void
           case Failure(err) ⇒
