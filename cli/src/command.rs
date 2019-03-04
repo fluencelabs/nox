@@ -16,19 +16,15 @@
 
 use crate::config::SetupConfig;
 use crate::credentials::Credentials;
+use crate::credentials;
 use crate::utils;
 use crate::utils::parse_hex;
+use crate::ethereum_params::EthereumParams;
 use clap::value_t;
 use clap::Arg;
 use clap::ArgMatches;
-use ethkey::Password;
-use ethkey::Secret;
-use ethstore::accounts_dir::{DiskKeyFileManager, KeyFileManager};
-use ethstore::SafeAccount;
-use failure::err_msg;
 use failure::Error;
 use failure::ResultExt;
-use std::fs::File;
 use std::net::IpAddr;
 use web3::types::Address;
 use web3::types::H160;
@@ -51,55 +47,7 @@ pub const TENDERMINT_KEY: &str = "tendermint_key";
 
 pub const TO_GWEI_MUL: u64 = 1_000_000_000;
 
-#[derive(Debug, Clone)]
-pub struct EthereumParams {
-    pub credentials: Credentials,
-    pub gas: u32,
-    pub gas_price: u64,
-    pub account: Address,
-    pub contract_address: Address,
-    pub eth_url: String,
-    pub wait_tx_include: bool,
-    pub wait_eth_sync: bool,
-}
 
-impl EthereumParams {
-    pub fn generate(args: &EthereumArgs, config: &SetupConfig) -> Result<EthereumParams, Error> {
-        let secret_key = config.secret_key.map(|s| Secret::from(s));
-
-        let creds = args.credentials.clone();
-        let creds = match creds {
-            Credentials::No => load_credentials(
-                config.keystore_path.clone(),
-                config.password.clone(),
-                secret_key,
-            )?,
-            other => other,
-        };
-
-        let contract_address = args
-            .contract_address
-            .unwrap_or(config.contract_address.clone());
-
-        let account = args
-            .account
-            .or_else(|| config.account)
-            .ok_or_else(|| err_msg("Specify account address in config or in argument"))?;
-
-        let eth_url = args.eth_url.clone().unwrap_or(config.eth_url.clone());
-
-        Ok(EthereumParams {
-            credentials: creds,
-            gas: args.gas,
-            gas_price: args.gas_price,
-            account: account,
-            contract_address: contract_address,
-            eth_url: eth_url,
-            wait_tx_include: args.wait_tx_include,
-            wait_eth_sync: args.wait_eth_sync,
-        })
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct EthereumArgs {
@@ -247,37 +195,6 @@ pub fn parse_eth_url(args: &ArgMatches) -> Option<String> {
     args.value_of(ETH_URL).map(|s| s.to_owned())
 }
 
-fn load_keystore(path: String, password: String) -> Result<Secret, Error> {
-    let keystore = File::open(path).context("can't open keystore file")?;
-    let dkfm = DiskKeyFileManager {};
-    let keystore: SafeAccount = dkfm
-        .read(None, keystore)
-        .map_err(|e| err_msg(e.to_string()))
-        .context("can't parse keystore file")?;
-
-    let password: Password = password.into();
-    keystore
-        .crypto
-        .secret(&password)
-        .map_err(|e| err_msg(e.to_string()))
-        .context("can't parse secret from keystore file")
-        .map_err(Into::into)
-}
-
-fn load_credentials(
-    keystore: Option<String>,
-    password: Option<String>,
-    secret_key: Option<Secret>,
-) -> Result<Credentials, Error> {
-    match keystore {
-        Some(keystore) => match password {
-            Some(password) => load_keystore(keystore, password).map(Credentials::Secret),
-            None => Err(err_msg("password is required for keystore")),
-        },
-        None => Ok(Credentials::get(secret_key, password.clone())),
-    }
-}
-
 pub fn parse_ethereum_args(
     args: &ArgMatches,
     config: SetupConfig,
@@ -286,7 +203,7 @@ pub fn parse_ethereum_args(
     let password = args.value_of(PASSWORD).map(|s| s.to_string());
     let keystore = args.value_of(KEYSTORE).map(|s| s.to_string());
 
-    let credentials = load_credentials(keystore, password, secret_key)?;
+    let credentials = credentials::load_credentials(keystore, password, secret_key)?;
 
     let gas = value_t!(args, GAS, u32)?;
     let gas_price = value_t!(args, GAS_PRICE, u64)?;

@@ -21,6 +21,7 @@ use web3::transports::Http;
 use web3::types::H256;
 
 use crate::command;
+use crate::ethereum_params::EthereumParams;
 use crate::config::SetupConfig;
 use crate::contract_func::call_contract;
 use crate::contract_func::contract::events::app_deleted;
@@ -41,7 +42,7 @@ const DEPLOYED: &str = "deployed";
 pub struct DeleteApp {
     app_id: u64,
     deployed: bool,
-    eth: command::EthereumParams,
+    eth: EthereumParams,
 }
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
@@ -82,7 +83,7 @@ pub fn parse(args: &ArgMatches, config: SetupConfig) -> Result<DeleteApp, Error>
 }
 
 impl DeleteApp {
-    pub fn new(app_id: u64, deployed: bool, eth: command::EthereumParams) -> DeleteApp {
+    pub fn new(app_id: u64, deployed: bool, eth: EthereumParams) -> DeleteApp {
         DeleteApp {
             app_id,
             deployed,

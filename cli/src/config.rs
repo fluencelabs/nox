@@ -28,6 +28,7 @@ pub const DEFAULT_CONTRACT_ADDRESS: &str = include_str!("../../tools/deploy/scri
 pub const DEFAULT_ETH_URL: &str = "http://data.fluence.ai:8545/";
 pub const DEFAULT_SWARM_URL: &str = "http://data.fluence.ai:8500/";
 
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SetupConfig {
     pub contract_address: Address,
@@ -39,6 +40,7 @@ pub struct SetupConfig {
     pub password: Option<String>,
 }
 
+// returns default value if value is empty and vice versa
 pub fn empty_or_default(value: String, default: String) -> String {
     if value.is_empty() {
         default
@@ -47,6 +49,7 @@ pub fn empty_or_default(value: String, default: String) -> String {
     }
 }
 
+// returns None if string value is empty and Some if non empty
 pub fn none_if_empty(value: &str) -> Option<&str> {
     if value.is_empty() {
         None
@@ -76,7 +79,8 @@ impl SetupConfig {
         };
     }
 
-    pub fn read_from_file(home_dir: &str) -> Result<SetupConfig, Error> {
+    // reads config file or generates default config if file does not exist
+    pub fn read_from_file_or_default(home_dir: &str) -> Result<SetupConfig, Error> {
         let path = format!("{}{}", home_dir, "cli.json");
         let path = Path::new(path.as_str());
 
@@ -97,6 +101,7 @@ impl SetupConfig {
         }
     }
 
+    // writes config to file
     pub fn write_to_file(&self, home_dir: &str) -> Result<(), Error> {
         create_dir_all(HOME_DIR)?;
         let config_str = serde_json::to_string(&self)?;

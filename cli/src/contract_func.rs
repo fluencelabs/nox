@@ -25,7 +25,7 @@ use web3::Web3;
 
 use failure::{err_msg, Error, ResultExt, SyncFailure};
 
-use crate::command::EthereumParams;
+use crate::ethereum_params::EthereumParams;
 use crate::credentials::Credentials;
 use crate::utils;
 use ethabi::RawLog;

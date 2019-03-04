@@ -19,6 +19,7 @@ use clap::{App, AppSettings, SubCommand};
 use web3::transports::Http;
 
 use crate::command;
+use crate::ethereum_params::EthereumParams;
 use crate::config::SetupConfig;
 use crate::contract_func::call_contract;
 use crate::contract_func::contract::functions::delete_app;
@@ -30,7 +31,7 @@ use web3::futures::Future;
 
 #[derive(Debug)]
 pub struct DeleteAll {
-    eth: command::EthereumParams,
+    eth: EthereumParams,
 }
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
@@ -48,7 +49,7 @@ pub fn parse(args: &ArgMatches, config: SetupConfig) -> Result<DeleteAll, Error>
 }
 
 impl DeleteAll {
-    pub fn new(eth: command::EthereumParams) -> DeleteAll {
+    pub fn new(eth: EthereumParams) -> DeleteAll {
         DeleteAll { eth }
     }
 

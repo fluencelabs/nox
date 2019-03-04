@@ -30,6 +30,7 @@ use crate::contract_func::contract::functions::add_node;
 use crate::contract_func::{call_contract, get_transaction_logs, wait_sync, wait_tx_included};
 use crate::contract_status::{find_by_tendermint_key, status};
 use crate::step_counter::StepCounter;
+use crate::ethereum_params::EthereumParams;
 use crate::types::{NodeAddress, IP_LEN, TENDERMINT_NODE_ID_LEN};
 use crate::utils;
 use web3::transports::Http;

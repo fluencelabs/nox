@@ -27,7 +27,7 @@ use reqwest::Client;
 use web3::transports::Http;
 use web3::types::H256;
 
-use crate::command::EthereumParams;
+use crate::ethereum_params::EthereumParams;
 use crate::command::{parse_ethereum_args, with_ethereum_args};
 use crate::config::SetupConfig;
 use crate::contract_func::contract::events::app_deployed::parse_log as parse_deployed;
