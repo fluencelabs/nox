@@ -214,7 +214,7 @@ class DashboardApp extends React.Component<Props, State>{
                         <p>Fluence is a decentralized computation platform, trustless and efficient. It could be used to set-up and access a database or to run a full-scale application backend.</p>
                         <p>Fluence Network is a work in progress, currently in a state of Devnet. We strongly advise against using the Devnet for anything than testing and education purposes.</p>
                         <p>If you've got any questions or need help with your setup, please, feel free to ask <a href="https://discord.gg/AjfbDKQ" target="_blank">on Discord</a>!</p>
-                        <p>Fluence Network documentation can be found <a href="https://fluence.network/fluence/docs/book/introduction.html" target="_blank">here</a>.</p>
+                        <p>Fluence Network documentation can be found <a href="https://fluence.network/fluence/docs/book/introduction/index.html" target="_blank">here</a>.</p>
                         <p>Main Fluence <a href="https://github.com/fluencelabs/fluence" target="_blank">repository on GitHub</a></p>
                     </div>
                 </div>
