@@ -145,36 +145,36 @@
                     <main>
                         <a class="header" href="#backend-app-conventions" id="backend-app-conventions"><h1>Backend app conventions</h1></a>
 <a class="header" href="#app-lifecycle" id="app-lifecycle"><h2>App lifecycle</h2></a>
-<p>The Fluence network backend infrastructure is based on Scala and Rust. Each computation node in the network has a <code>VM wrapper</code> written on Scala that interacts with a backend <code>app</code> written on Wasm and published to the network by developers. To be able to run supplied Wasm code <a href="https://github.com/fluencelabs/asmble">Asmble</a> is used. It compiles supplied Wasm code to a JVM class that then loaded by <code>VM wrapper</code>. All other interactions between <code>app</code> and <code>VM wrapper</code> occurs in <code>VM wrapper</code> process address space without any inter-process communications.</p>
-<p>A <code>main</code> module is invoked by <code>VM wrapper</code> according to the following scheme:</p>
+<p>The Fluence network backend infrastructure is based on Scala and Rust. Each computation node in the network has the <code>VM wrapper</code> written on Scala that interacts with a backend <code>app</code> written on Wasm and published to the network by developers. To be able to run supplied Wasm code <a href="https://github.com/fluencelabs/asmble">Asmble</a> is used. It compiles supplied Wasm code to a JVM class that then loaded by the <code>VM wrapper</code>. All other interactions between an <code>app</code> and the <code>VM wrapper</code> occur in the <code>VM wrapper</code> process address space without any inter-process communications.</p>
+<p>A <code>main</code> module is invoked by the <code>VM wrapper</code> according to the following scheme:</p>
 <ol>
 <li>
-<p>A <code>client-side</code> send a request to <code>App</code> as a byte array.</p>
+<p>A <code>client-side</code> sends a request to <code>App</code> as a byte array.</p>
 </li>
 <li>
-<p><code>VM wrapper</code> call <code>allocate</code> function of <code>main</code> Wasm module with a size of the array.</p>
+<p>The <code>VM wrapper</code> calls <code>allocate</code> function of <code>main</code> Wasm module with a size of the array.</p>
 </li>
 <li>
-<p><code>VM wrapper</code> writes the array to the module memory.</p>
+<p>The <code>VM wrapper</code> writes the array to memory of the module.</p>
 </li>
 <li>
-<p><code>VM wrapper</code> call <code>invoke</code> function from <code>main</code> module with the address returned from <code>allocate</code> function and the array size.</p>
+<p>The <code>VM wrapper</code> calls <code>invoke</code> function from <code>main</code> module with the address returned from <code>allocate</code> function and the array size.</p>
 </li>
 <li>
-<p><code>VM wrapper</code> synchronously waits of <code>invoke</code> result. After receiving a <code>pointer</code> from it, reads 4 bytes (that represents <code>size</code> of a byte array) and then reads <code>size</code> bytes from <code>pointer + 4</code> offset (<code>result</code>).</p>
+<p>The <code>VM wrapper</code> synchronously waits of <code>invoke</code> result. After receiving a <code>pointer</code> from it, reads 4 bytes (that represents <code>size</code> of a byte array) and then reads <code>size</code> bytes from <code>pointer + 4</code> offset (<code>result</code>).</p>
 </li>
 <li>
-<p><code>VM wrapper</code> call <code>deallocate</code> function of <code>main</code> Wasm module with the received pointer.</p>
+<p>The <code>VM wrapper</code> calls <code>deallocate</code> function of <code>main</code> Wasm module with the received pointer.</p>
 </li>
 <li>
-<p>Finally, <code>result</code> as a byte array is sent to a <code>client-side</code>.</p>
+<p>Finally, a <code>result</code> is sent to a <code>client-side</code> as a byte array.</p>
 </li>
 </ol>
 <a class="header" href="#fluence-app-conventions" id="fluence-app-conventions"><h2>Fluence App conventions</h2></a>
 <p>There are several restriction and conventions that each supplied <code>app</code> has to be met:</p>
 <ol>
 <li>
-<p><code>App</code> can consist of several Wasm modules with different names, but only one of them (let's call it <code>main</code> and all other as <code>sidemodules</code> according to <a href="https://github.com/emscripten-core/emscripten/wiki/Linking#overview-of-dynamic-linking">emcscripten</a>) can be called from <code>user-side</code>. This <code>main</code> module MUST don't have the module name section. This requirement is based on the fact that according to the Wasm specification module name is optional, and now there is no a possibility to add it to a generated Wasm binary by default <code>rust</code> compiler.</p>
+<p>An <code>app</code> can consist of several Wasm modules with different names, but only one of them (let's call it <code>main</code> module and all other as <code>side</code> modules according to the <a href="https://github.com/emscripten-core/emscripten/wiki/Linking#overview-of-dynamic-linking">emcscripten</a>) can be called from <code>user-side</code>. This <code>main</code> module MUST don't have the module name section. This requirement is based on the fact that according to the Wasm specification module name is optional, and now there aren't any possibilities to add it to a generated Wasm binary by default <code>rust</code> compiler.</p>
 </li>
 <li>
 <p>Each <code>main</code> module MUST have three export (in terms of the Wasm specification) functions with names <code>invoke</code>, <code>allocate</code> and <code>deallocate</code>.</p>
@@ -186,7 +186,7 @@
 <p><code>allocate</code> function MUST have the next signature <code>(func (export &quot;allocate&quot;) (param $size i32) (result i32))</code> in wast representation. It MUST return a pointer as i32 to a module memory region long enough to hold <code>size</code> bytes.</p>
 </li>
 <li>
-<p><code>deallocate</code> function MUST have the next signature <code>(func (export &quot;deallocate&quot;) (param $address i32) (param $size i32) (return))</code>. It is called by <code>VM wrapper</code> with a pointer to a memory region previously allocated through <code>allocate</code> function and its size. This function SHOULD free this memory region.</p>
+<p><code>deallocate</code> function MUST have the next signature <code>(func (export &quot;deallocate&quot;) (param $address i32) (param $size i32) (return))</code>. It is called by the <code>VM wrapper</code> with a pointer to a memory region previously allocated by <code>allocate</code> function and its size. This function SHOULD free this memory region.</p>
 </li>
 </ol>
 
