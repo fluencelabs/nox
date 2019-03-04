@@ -78,7 +78,7 @@
         </script>
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
-            <ol class="chapter"><li><a href="introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li><a href="overview/overview.html"><strong aria-hidden="true">1.1.</strong> Overview</a></li><li><a href="overview/motivation.html"><strong aria-hidden="true">1.2.</strong> Motivation</a></li><li><a href="overview/incentive_model.html"><strong aria-hidden="true">1.3.</strong> Incentive model</a></li></ol></li><li><a href="whatworks.html"><strong aria-hidden="true">2.</strong> Current state of development</a></li><li><a href="quickstart/plan.html"><strong aria-hidden="true">3.</strong> Quick start</a></li><li><ol class="section"><li><a href="quickstart/rust.html"><strong aria-hidden="true">3.1.</strong> Developing the backend app</a></li><li><a href="quickstart/publish.html"><strong aria-hidden="true">3.2.</strong> Publishing your app</a></li><li><a href="quickstart/web.html"><strong aria-hidden="true">3.3.</strong> Developing the web app</a></li><li><a href="quickstart/wrappingup.html"><strong aria-hidden="true">3.4.</strong> Wrapping up</a></li></ol></li><li><a href="backend/index.html"><strong aria-hidden="true">4.</strong> Backend guide</a></li><li><ol class="section"><li><a href="backend/app_conventions.html"><strong aria-hidden="true">4.1.</strong> Backend app conventions</a></li><li><a href="backend/sdk_overview.html"><strong aria-hidden="true">4.2.</strong> Fluence backend SDK overview</a></li><li><a href="backend/app_debugging.html"><strong aria-hidden="true">4.3.</strong> Backend app debugging</a></li><li><a href="backend/examples.html"><strong aria-hidden="true">4.4.</strong> Examples</a></li><li><a href="backend/best_practices.html"><strong aria-hidden="true">4.5.</strong> Best practices</a></li></ol></li><li><a href="roles/miner.html"><strong aria-hidden="true">5.</strong> Miner guide</a></li><li><a href="tools/tools.html"><strong aria-hidden="true">6.</strong> Tools and SDKs</a></li><li><ol class="section"><li><a href="tools/cli_README.html"><strong aria-hidden="true">6.1.</strong> CLI</a></li><li><a href="tools/rust_README.html"><strong aria-hidden="true">6.2.</strong> Rust SDK</a></li><li><a href="tools/js_README.html"><strong aria-hidden="true">6.3.</strong> JS SDK</a></li></ol></li><li><a href="unsolved.html"><strong aria-hidden="true">7.</strong> Open problems</a></li><li><a href="examples/examples.html"><strong aria-hidden="true">8.</strong> Examples</a></li><li><ol class="section"><li><a href="examples/backend.html"><strong aria-hidden="true">8.1.</strong> Backend</a></li><li><a href="examples/frontend.html"><strong aria-hidden="true">8.2.</strong> Web apps</a></li></ol></li><li><a href="benchmarks.html"><strong aria-hidden="true">9.</strong> Benchmarks</a></li></ol>
+            <ol class="chapter"><li><a href="introduction/index.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li><a href="introduction/overview.html"><strong aria-hidden="true">1.1.</strong> Overview</a></li><li><a href="introduction/motivation.html"><strong aria-hidden="true">1.2.</strong> Motivation</a></li><li><a href="introduction/incentive_model.html"><strong aria-hidden="true">1.3.</strong> Incentive model</a></li></ol></li><li><a href="quickstart/index.html"><strong aria-hidden="true">2.</strong> Quick start</a></li><li><ol class="section"><li><a href="quickstart/rust.html"><strong aria-hidden="true">2.1.</strong> Developing the backend app</a></li><li><a href="quickstart/publish.html"><strong aria-hidden="true">2.2.</strong> Publishing your app</a></li><li><a href="quickstart/web.html"><strong aria-hidden="true">2.3.</strong> Developing the web app</a></li><li><a href="quickstart/wrappingup.html"><strong aria-hidden="true">2.4.</strong> Wrapping up</a></li></ol></li><li><a href="backend/index.html"><strong aria-hidden="true">3.</strong> Backend guide</a></li><li><ol class="section"><li><a href="backend/app_conventions.html"><strong aria-hidden="true">3.1.</strong> Backend app conventions</a></li><li><a href="backend/sdk_overview.html"><strong aria-hidden="true">3.2.</strong> Fluence backend SDK overview</a></li><li><a href="backend/app_debugging.html"><strong aria-hidden="true">3.3.</strong> Backend app debugging</a></li><li><a href="backend/examples.html"><strong aria-hidden="true">3.4.</strong> Examples</a></li><li><a href="backend/best_practices.html"><strong aria-hidden="true">3.5.</strong> Best practices</a></li></ol></li><li><a href="roles/miner.html"><strong aria-hidden="true">4.</strong> Miner guide</a></li><li><a href="tools/index.html"><strong aria-hidden="true">5.</strong> Tools and SDKs</a></li><li><ol class="section"><li><a href="tools/cli_README.html"><strong aria-hidden="true">5.1.</strong> CLI</a></li><li><a href="tools/rust_README.html"><strong aria-hidden="true">5.2.</strong> Rust SDK</a></li><li><a href="tools/js_README.html"><strong aria-hidden="true">5.3.</strong> JS SDK</a></li></ol></li><li><a href="project.html"><strong aria-hidden="true">6.</strong> Project status</a></li></ol>
         </nav>
 
         <div id="page-wrapper" class="page-wrapper">
@@ -145,9 +145,7 @@
                     <main>
                         <a class="header" href="#introduction" id="introduction"><h1>Introduction</h1></a>
 <a class="header" href="#what-is-fluence" id="what-is-fluence"><h2>What is Fluence?</h2></a>
-<p>Fluence is an efficient trustless computation platform that allows to achieve few seconds request processing latency and cost efficiency similar to traditional cloud computing. To execute computations, Fluence uses a WebAssembly virtual machine, which allows to deploy and run applications written in multiple programming languages.</p>
-<p>In order to reach low latency and high throughput, Fluence splits network nodes into two layers: the <em>real-time processing layer</em> and the <em>batch validation layer</em>. The real-time processing layer is able to promptly serve client requests, but provides only moderate security guarantees that returned responses are correct. Later, the batch validation layer additionally verifies returned responses, and if it is found that some of the responses were incorrect, offending real-time nodes lose their deposits.</p>
-<p>In this section we provide brief Fluence overview and discuss reasons to have delayed verification. We also consider Fluence basic incentive model.</p>
+<p>Fluence is an efficient trustless computation platform that allows to achieve few seconds request processing latency and cost efficiency similar to traditional cloud computing. To execute computations, Fluence uses a WebAssembly virtual machine, which allows to deploy into the decentralized environment applications written in multiple programming languages.</p>
 <a class="header" href="#what-can-be-built-with-fluence" id="what-can-be-built-with-fluence"><h2>What can be built with Fluence?</h2></a>
 <p>Fluence can be used as a general purpose backend engine for decentralized applications. Because of its cost efficiency, developers generally do not have to worry much about low-level code optimization. Existing software packages can be ported to Fluence as is, once they are compiled into WebAssembly.</p>
 <a class="header" href="#decentralized-databases" id="decentralized-databases"><h4>Decentralized databases</h4></a>
@@ -159,6 +157,10 @@
 <p>We expect, however, that approaches such as <a href="https://ethereum.stackexchange.com/questions/376/what-are-effective-and-secure-ways-of-shuffling-a-deck-of-cards-in-a-contract/758">decentralized card deck shuffling</a> can be employed to port certain imperfect information games to the Fluence network. In the meanwhile we have prepared a <em><a href="https://github.com/fluencelabs/fun/tree/master/guessing-game">broken implementation</a></em> of Guess the Number game ;)</p>
 <a class="header" href="#games" id="games"><h4>Games</h4></a>
 <p>Perfect information games can be easily built on top of Fluence. Think of chess, Go, rock–paper–scissors, games similar to Dungeons and Dragons, or roll-and-move board games. We have prepared a <a href="https://github.com/fluencelabs/fun/tree/master/tic-tac-toe">tic-tac-toe</a> example to play with. Collectible decentralized applications can be launched on Fluence as well.</p>
+<a class="header" href="#how-does-fluence-work" id="how-does-fluence-work"><h2>How does Fluence work?</h2></a>
+<p>In order to reach low latency and high throughput, Fluence splits network nodes into two layers: the <em>real-time processing layer</em> and the <em>batch validation layer</em>.</p>
+<p>The real-time processing layer is able to promptly serve client requests, but provides only moderate security guarantees that returned responses are correct. Later, the batch validation layer additionally verifies returned responses, and if it is found that some of the responses were incorrect, offending real-time nodes lose their deposits.</p>
+<p>In this section we provide brief Fluence overview and discuss reasons to have delayed verification. We also consider Fluence basic incentive model.</p>
 <a class="header" href="#overview" id="overview"><h1>Overview</h1></a>
 <p>The Fluence network consists of nodes performing computations in response to transactions sent by external clients. Algorithms specifying those computations are expressed in the WebAssembly bytecode; consequently, every node willing to participate in the network has to run a WebAssembly virtual machine.</p>
 <p>Independent developers are expected to implement a backend package handling client transactions in a high-level language such as C/C++, Rust, or TypeScript, compile it into one or more WebAssembly modules, and then deploy those modules to the Fluence network. The network then takes care of spinning up the nodes that run the deployed backend package, interacting with clients, and making sure that client transactions are processed correctly.</p>
@@ -199,7 +201,7 @@
 </kbd>
 <br><br><br>
 </div>
-<a class="header" href="#disputes-resolution-layer" id="disputes-resolution-layer"><h3>Disputes resolution layer</h3></a>
+<a class="header" href="#dispute-resolution-layer" id="dispute-resolution-layer"><h3>Dispute resolution layer</h3></a>
 <p>We have already mentioned that batch validators are able to dispute state transitions. This ability is not exclusive to batch validators: a real-time worker can submit a dispute if it disagrees with another real-time worker on how the state should be updated. However, such disputes normally arise only between workers that belong to the same cluster – other real-time workers simply do not carry the required state.</p>
 <p>No matter which node has submitted the dispute, it is resolved with the aid of an external authority. The Fluence network uses a specially developed Ethereum smart contract named Arbiter as this authority. Because Ethereum is computationally bounded and thus unable to repeat the entire computation to verify state transitions, a verification game mechanism is used to find the first WebAssembly instruction that produced the diverging states. Only this instruction with the relevant portion of the state is then submitted to the Arbiter contract, which then makes its final decision as to which node performed the incorrect state transition.</p>
 <p>Every node in the network is required to put down a significant security deposit before performing computations. If it is found that a node has behaved incorrectly, its deposit is slashed. Assuming that potential adversaries are financially restricted, this reduces the number of cases where a client might receive an incorrect response.</p>
@@ -256,18 +258,6 @@ GROUP BY DATE(ts)
 <p><strong>Client billing.</strong> As we have previously mentioned, developers are exclusively responsible for paying out rewards to the Fluence network nodes. Because miners’ compensation is proportional to used fuel and allocated storage space, developers are directly incentivized to write efficient backends.</p>
 <p>Generally, clients are not responsible for making any payments to network nodes. Nevertheless, different external monetization schemes are possible for reimbursing developers. The Fluence network does not prescribe an exact monetization scheme; however, it might provide some of the most common schemes through extension packages.</p>
 <p>For example, one developer might allow only those clients from a whitelist to interact with the deployed backend, charging a flat rate to add a client to that whitelist; another developer might charge clients a fixed fee per each submitted transaction. It might also be possible for clients to pay no explicit fee while the developer uses their personal funds to cover the miners’ expenses.</p>
-<a class="header" href="#current-state-of-development" id="current-state-of-development"><h1>Current state of development</h1></a>
-<a class="header" href="#real-time" id="real-time"><h2>Real-time</h2></a>
-<p>Fluence Node and Worker works, and are running on the devnet.</p>
-<a class="header" href="#real-time-disputes" id="real-time-disputes"><h3>Real-time disputes</h3></a>
-<p>TODO</p>
-<a class="header" href="#vm" id="vm"><h2>VM</h2></a>
-<p>TODO</p>
-<a class="header" href="#validators" id="validators"><h2>Validators</h2></a>
-<p>TODO</p>
-<a class="header" href="#disputes" id="disputes"><h3>Disputes</h3></a>
-<p>TODO</p>
-<a class="header" href="#todo" id="todo"><h2>TODO</h2></a>
 <a class="header" href="#quickstart" id="quickstart"><h1>Quickstart</h1></a>
 <p>This document will guide you through three main steps of development with Fluence.</p>
 <p>You will develop a traditional two-tiered web application with a backend written in Rust, and a frontend built with JavaScript. Unlike traditional two-tiered architecture, however, your backend will be decentralized and running on top of the Fluence network, not requiring a dedicated server machine.</p>
@@ -1681,31 +1671,18 @@ It is written on TypeScript to reach more clean, understandable and typesafe cod
 <a class="header" href="#documentation" id="documentation"><h2>Documentation</h2></a>
 <p><a href="https://github.com/fluencelabs/fluence/blob/master/docs/guides/frontend.md">Guide</a></p>
 <p>TODO</p>
-<a class="header" href="#open-problems" id="open-problems"><h1>Open problems</h1></a>
-<a class="header" href="#support-other-languages-for-backend" id="support-other-languages-for-backend"><h2>Support other languages for backend</h2></a>
-<a class="header" href="#c" id="c"><h3>C++</h3></a>
-<p>TODO</p>
-<a class="header" href="#javascript" id="javascript"><h3>JavaScript</h3></a>
-<p>There is a <a href="https://github.com/NectarJS/nectarjs">NectarJS</a> that allows to compile JS to Wasm. Looks like it could work with Fluence.</p>
-<a class="header" href="#todo-more-problems" id="todo-more-problems"><h3>TODO: more problems</h3></a>
-<a class="header" href="#web-app-examples" id="web-app-examples"><h1>Web app examples</h1></a>
-<a class="header" href="#guessing-game" id="guessing-game"><h2>Guessing game</h2></a>
-<p>TODO: TBD</p>
-<a class="header" href="#chess" id="chess"><h2>Chess</h2></a>
-<p>TODO</p>
-<a class="header" href="#rest" id="rest"><h2>REST</h2></a>
-<p>TODO</p>
-<a class="header" href="#backend-examples" id="backend-examples"><h1>Backend examples</h1></a>
-<a class="header" href="#tic-tac-toe-1" id="tic-tac-toe-1"><h2>Tic-tac-toe</h2></a>
-<p>TODO</p>
-<a class="header" href="#llamadb-1" id="llamadb-1"><h2>Llamadb</h2></a>
-<p>TODO</p>
-<a class="header" href="#benchmarks" id="benchmarks"><h1>Benchmarks</h1></a>
-<a class="header" href="#vm-benchmark" id="vm-benchmark"><h2>VM benchmark</h2></a>
-<p>TODO: add a link to benchmarking post and code</p>
-<a class="header" href="#tendermint-benchmark" id="tendermint-benchmark"><h2>Tendermint benchmark</h2></a>
-<p>TODO: add a link to tendermint benchmark</p>
-<a class="header" href="#tbd-fluence-benchmark" id="tbd-fluence-benchmark"><h2>TBD: Fluence benchmark</h2></a>
+<a class="header" href="#project-status" id="project-status"><h1>Project status</h1></a>
+<p>At the current moment, the project is under heavy development, and the architecture described in the <a href="introduction/overview.html">overview</a> is not covered completely by the deployed devnet. Below we have listed features that were already rolled out:</p>
+<p><strong>+</strong> Real-time processing layer: real-time clusters with built-in BFT consensus (Tendermint)<br />
+<strong>+</strong> Secure metadata storage: real-time clusters state (Ethereum)<br />
+<strong>+</strong> Arbitrary code execution: WebAssembly VM (<a href="https://github.com/cretz/asmble">Asmble</a>)<br />
+<strong>+</strong> SDK: frontend (JavaScript) and backend (Rust)</p>
+<p>Features that have not been released yet:<br />
+<strong>–</strong> Batch validation layer: tx history verification, VM state updates<br />
+<strong>–</strong> Secure metadata storage: batch validation state, security deposits<br />
+<strong>–</strong> Dispute resolution layer: verification game<br />
+<strong>–</strong> Data availability layer: Swarm storage for tx history</p>
+<p>We tentatively plan to let developers ingest Ethereum transactions, as well as data stored in Swarm/IPFS into Fluence to create decentralized query interfaces. We also plan that other languages such as C++ or JavaScript will be supported for backend development at some point.</p>
 
                     </main>
 
