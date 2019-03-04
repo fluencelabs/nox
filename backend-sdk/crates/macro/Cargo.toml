@@ -1,10 +1,10 @@
 [package]
 name = "fluence-sdk-macro"
-version = "0.0.12"  # remember to update html_root_url
+version = "0.0.13"  # remember to update html_root_url
 edition = "2018"
 description = "Definition of `#[invoke_handler]` attribute"
 documentation = "https://docs.rs/fluence/fluence-sdk-macro"
-repository = "https://github.com/fluencelabs/fluence/tree/master/sdk/rust/crates/macro"
+repository = "https://github.com/fluencelabs/fluence/tree/master/backend-sdk/crates/macro"
 authors = ["Fluence Labs"]
 keywords = ["fluence", "sdk", "webassembly", "procedural_macros"]
 categories = ["api-bindings", "wasm"]
@@ -21,4 +21,4 @@ proc-macro = true
 syn = { version = '0.15.0', features = ['full'] }
 quote = "0.6.3"
 proc-macro2 = "0.4"
-fluence-sdk-main = { path = "../main", version = "=0.0.12" }
+fluence-sdk-main = { path = "../main", version = "=0.0.13" }

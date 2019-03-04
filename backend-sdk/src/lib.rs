@@ -15,7 +15,7 @@
  */
 
 //! Rust SDK for writing applications for Fluence.
-#![doc(html_root_url = "https://docs.rs/fluence/0.0.12")]
+#![doc(html_root_url = "https://docs.rs/fluence/0.0.13")]
 #![feature(allocator_api)]
 
 extern crate fluence_sdk_macro;
@@ -33,7 +33,7 @@ pub mod sdk {
     #[cfg(feature = "wasm_logger")]
     pub use fluence_sdk_main::logger;
 
-    #[cfg(not(feature = "no_export_allocator"))]
+    #[cfg(feature = "export_allocator")]
     pub use fluence_sdk_main::export_allocator;
 
     pub use fluence_sdk_macro::invocation_handler;
