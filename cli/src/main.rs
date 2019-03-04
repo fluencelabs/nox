@@ -23,15 +23,17 @@ use failure::{err_msg, ResultExt};
 use fluence::publisher::Published;
 use fluence::register::Registered;
 use fluence::utils;
-use fluence::{check, contract_status, delete_all, delete_app, delete_node, publisher, register, setup};
+use fluence::{
+    check, contract_status, delete_all, delete_app, delete_node, publisher, register, setup,
+};
 use web3::types::H256;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() -> Result<(), ExitFailure> {
     let app = App::new("Fluence CLI")
-        .global_setting(AppSettings::ArgRequiredElseHelp)
         .global_setting(AppSettings::UnifiedHelpMessage)
+        .setting(AppSettings::SubcommandRequiredElseHelp)
         .version(VERSION)
         .author("Fluence Labs")
         .about("Console utility for deploying code to fluence cluster")
@@ -139,11 +141,10 @@ fn main() -> Result<(), ExitFailure> {
         }
 
         ("setup", _) => {
-            setup::interactive_setup();
+            setup::interactive_setup().context("Error making setup of Fluence CLI")?;
 
             println!("Setup completed.");
         }
-
 
 
         c => Err(err_msg(format!("Unexpected command: {}", c.0)))?,

@@ -18,7 +18,7 @@ use std::net::IpAddr;
 
 use failure::{Error, SyncFailure};
 
-use clap::{value_t, App, Arg, ArgMatches, SubCommand};
+use clap::{value_t, App, AppSettings, Arg, ArgMatches, SubCommand};
 use derive_getters::Getters;
 use hex;
 use web3::types::H256;
@@ -315,6 +315,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("register")
         .about("Register a node in the smart contract")
         .args(with_ethereum_args(args).as_slice())
+        .setting(AppSettings::ArgRequiredElseHelp)
 }
 
 #[cfg(test)]

@@ -15,7 +15,7 @@
  */
 
 use clap::ArgMatches;
-use clap::{App, SubCommand};
+use clap::{App, AppSettings, SubCommand};
 use web3::types::H256;
 
 use crate::contract_func::contract::events::node_deleted;
@@ -45,6 +45,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("delete_node")
         .about("Delete node from smart-contract")
         .args(with_ethereum_args(args).as_slice())
+        .setting(AppSettings::ArgRequiredElseHelp)
 }
 
 pub fn parse(args: &ArgMatches) -> Result<DeleteNode, Error> {

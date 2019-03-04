@@ -127,7 +127,7 @@ pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
             .long(ACCOUNT)
             .short("a")
             .value_name("eth address")
-            .required(true)
+            .required(false)
             .takes_value(true)
             .help("Ethereum account"),
         Arg::with_name(PASSWORD)
@@ -231,7 +231,7 @@ fn load_credentials(
 }
 
 pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Error> {
-    let secret_key = utils::parse_secret_key(args, SECRET_KEY)?;
+    let secret_key = utils::parse_secret_key(args.value_of(SECRET_KEY))?;
     let password = args.value_of(PASSWORD).map(|s| s.to_string());
     let keystore = args.value_of(KEYSTORE).map(|s| s.to_string());
 

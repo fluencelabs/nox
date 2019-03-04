@@ -37,6 +37,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
         .about("Delete all apps and nodes from contract. For the test net for contract owner only.")
         .args(command::with_ethereum_args(&[]).as_slice())
         .setting(AppSettings::Hidden)
+        .setting(AppSettings::ArgRequiredElseHelp)
 }
 
 pub fn parse(args: &ArgMatches) -> Result<DeleteAll, Error> {

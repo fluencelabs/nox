@@ -16,7 +16,7 @@
 
 use clap::value_t;
 use clap::ArgMatches;
-use clap::{App, Arg, SubCommand};
+use clap::{App, AppSettings, Arg, SubCommand};
 use web3::transports::Http;
 use web3::types::H256;
 
@@ -64,6 +64,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("delete_app")
         .about("Delete app from smart-contract")
         .args(command::with_ethereum_args(args).as_slice())
+        .setting(AppSettings::ArgRequiredElseHelp)
 }
 
 pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Error> {

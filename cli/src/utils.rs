@@ -128,12 +128,18 @@ pub fn parse_hex_opt(args: &ArgMatches, key: &str) -> Result<String, Error> {
     Ok(value_t!(args, key, String).map(|v| v.trim_start_matches("0x").to_string())?)
 }
 
-pub fn parse_secret_key(args: &ArgMatches, key: &str) -> Result<Option<Secret>, Error> {
-    Ok(args
-        .value_of(key)
+pub fn parse_secret_key(secret_key: Option<&str>) -> Result<Option<Secret>, Error> {
+    Ok(secret_key
         .map(|s| s.trim_start_matches("0x").parse::<Secret>())
         .map_or(Ok(None), |r| r.map(Some).into()) // Option<Result> -> Result<Option>
         .context("Error parsing secret key")?)
+}
+
+pub fn parse_h256(hex: Option<&str>) -> Result<Option<H256>, Error> {
+    Ok(hex
+        .map(|s| s.trim_start_matches("0x").parse::<H256>())
+        .map_or(Ok(None), |r| r.map(Some).into()) // Option<Result> -> Result<Option>
+        .context("Error parsing hex")?)
 }
 
 pub fn get_opt<E, T>(args: &ArgMatches, key: &str) -> Result<Option<T>, E>

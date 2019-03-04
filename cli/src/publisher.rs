@@ -20,7 +20,7 @@ use std::io::prelude::*;
 use failure::{err_msg, Error, ResultExt, SyncFailure};
 
 use clap::ArgMatches;
-use clap::{value_t, App, Arg, SubCommand};
+use clap::{value_t, App, AppSettings, Arg, SubCommand};
 use derive_getters::Getters;
 use ethabi::RawLog;
 use reqwest::Client;
@@ -286,6 +286,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("publish")
         .about("Upload code to Swarm and publish app to Ethereum blockchain")
         .args(with_ethereum_args(args).as_slice())
+        .setting(AppSettings::ArgRequiredElseHelp)
 }
 
 /// Uploads bytes of code to the Swarm
