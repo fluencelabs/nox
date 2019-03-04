@@ -98,7 +98,7 @@ impl GameManager {
         if player_name.len() > USER_NAME_MAX_LEN {
             return Err(format!(
                 "The user name is too long ({} bytes), the limit is {}",
-                plaer_name.len(),
+                player_name.len(),
                 USER_NAME_MAX_LEN
             ))
             .map_err(Into::into);
