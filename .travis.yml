@@ -47,6 +47,7 @@ matrix:
       script:
         - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.compile compile
         - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.test test
+      if: type != pull_request
 
     # These tests take a lot of time and run only while PR
     - <<: *_scala_fluence_template
@@ -57,7 +58,7 @@ matrix:
         - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile
         # Some tests in LlamadbIntegrationTest require 2 Gb RAM
         - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test
-      if: type = pull_request
+      if: branch = master OR type = pull_request
 
     - name: smart contract
       language: node_js
@@ -68,6 +69,7 @@ matrix:
         npm: true
         directories:
           - bootstrap/node_modules
+      if: type != pull_request
 
     - name: fluence-js
       language: node_js
@@ -80,16 +82,19 @@ matrix:
       before_install: cd fluence-js
       before_script: npm install
       script: npm test
+      if: type != pull_request
 
     - <<: *_rust_wasm_template
       name: rust App SDK
       before_script:
         - cd backend-sdk
+      if: type != pull_request
 
     - <<: *_rust_wasm_template
       name: llamaDb VM App
       before_script:
         - cd vm/examples/llamadb
+      if: type != pull_request
 
     - name: Fluence CLI
       language: rust
@@ -117,6 +122,7 @@ matrix:
         - popd
         - cargo fmt --all -- --check -v
         - cargo test
+      if: type != pull_request
 
     - name: Deploy Scripts
       language: python
@@ -125,6 +131,7 @@ matrix:
         - cd tools/deploy
       script:
         - pytest
+      if: type != pull_request
 
     - name: Fluence book
       language: rust
@@ -141,4 +148,4 @@ matrix:
       script:
       - cd docs/ && mdbook build
 
-      if: type = pull_request
+      if: branch = master OR type = pull_request
