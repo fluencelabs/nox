@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {error, Result, ErrorResult, parseObject} from "./Result";
+import {error, ErrorResponse, Result} from "./Result";
 import {TendermintClient} from "./TendermintClient";
 import {none, Option} from "ts-option";
 import {isActive, SessionSummary} from "./responses";
@@ -52,7 +52,7 @@ export class ResultAwait implements ResultPromise {
     private canceled: boolean;
     private canceledReason: string;
     private invokeResult: Promise<Result>;
-    private onError: (err: ErrorResult) => any;
+    private onError: (err: ErrorResponse) => any;
     private broadcastRequest: Promise<void>;
 
     /**
@@ -65,7 +65,7 @@ export class ResultAwait implements ResultPromise {
      * @param _onError callback on error
      */
     constructor(_tm: TendermintClient, _config: SessionConfig, _targetKey: string,
-                _summaryKey: string, _broadcastRequest: Promise<void>, _onError: (err: ErrorResult) => void) {
+                _summaryKey: string, _broadcastRequest: Promise<void>, _onError: (err: ErrorResponse) => void) {
         this.tm = _tm;
         this.config = _config;
         this.targetKey = _targetKey;
@@ -73,13 +73,6 @@ export class ResultAwait implements ResultPromise {
         this.broadcastRequest = _broadcastRequest;
         this.onError = _onError;
         this.canceled = false;
-    }
-
-    private async getSessionInfo(): Promise<Option<SessionSummary>> {
-        const sessionInfo: Option<any> = (await this.tm.abciQuery(this.summaryKey));
-        return sessionInfo.map((info: any) => {
-            return <SessionSummary> info
-        });
     }
 
     /**
@@ -103,7 +96,7 @@ export class ResultAwait implements ResultPromise {
         if (this.invokeResult === undefined) {
             await this.broadcastRequest;
 
-            const path = this.targetKey + "/result";
+            const path = this.targetKey;
 
             let pr = this.checkResultPeriodically(path, this.config.requestsPerSec,
                 this.config.checkSessionTimeout, this.config.requestTimeout)
@@ -128,10 +121,7 @@ export class ResultAwait implements ResultPromise {
      * @returns `none` if there is no result, `some` if result appeared and throws an error if result is an error
      */
     private async checkResult(path: string): Promise<Option<Result>> {
-
-        const statusResponse: Option<any> = (await this.tm.abciQuery(path));
-
-        return statusResponse.map(parseObject);
+        return await this.tm.abciQuery(path);
     }
 
     /**
@@ -153,14 +143,6 @@ export class ResultAwait implements ResultPromise {
             // checking result was canceled outside
             if (this.canceled) {
                 throw error(`The request was canceled. Cause: ${this.canceledReason}`)
-            }
-
-            // checks the session after some tries
-            let checkSession = _i > responseTimeoutSec * requestsPerSec;
-
-            if (checkSession) {
-                detailedDebug("get session info");
-                sessionInfo = await this.getSessionInfo();
             }
 
             let optionResult = await this.checkResult(path);

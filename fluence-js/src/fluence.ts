@@ -16,33 +16,19 @@
 
 import { TendermintClient } from "./TendermintClient";
 import { Engine } from "./Engine";
-import { Signer } from "./Signer";
-import { Client } from "./Client";
 import { Session } from "./Session";
 import { SessionConfig } from "./SessionConfig";
-import {Empty, Result, Value, isValue} from "./Result";
+import {Result} from "./Result";
 import {getAppNodes, Node} from "fluence-monitoring"
 import { ResultPromise } from "./ResultAwait";
 
 export {
     TendermintClient as TendermintClient,
     Engine as Engine,
-    Signer as Signer,
-    Client as Client,
     Session as Session,
-    Empty as Empty,
     Result as Result,
-    Value as Value,
-    isValue as isValue,
     SessionConfig as SessionConfig
 }
-
-// default signing key for now
-let signingKey = "TVAD4tNeMH2yJfkDZBSjrMJRbavmdc3/fGU2N2VAnxT3hAtSkX+Lrl4lN5OEsXjD7GGG7iEewSod472HudrkrA==";
-let signer = new Signer(signingKey);
-
-// `client002` is a default client for now
-let client = new Client("client002", signer);
 
 // A session with a worker with info about a worker
 export interface WorkerSession {
@@ -96,5 +82,5 @@ export function directConnect(host: string, port: number, appId: string) {
 
     let engine = new Engine(tm);
 
-    return engine.genSession(client);
+    return engine.genSession();
 }
