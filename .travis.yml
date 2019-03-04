@@ -148,4 +148,4 @@ matrix:
       script:
       - cd docs/ && mdbook build
 
-      if: branch = master OR type = pull_request
+      if: type != pull_request
