@@ -54,9 +54,10 @@ matrix:
       before_script:
         - docker pull tendermint/tendermint:0.30.1
       script:
-        - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile; fi'
+        - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile
         # Some tests in LlamadbIntegrationTest require 2 Gb RAM
-        - 'if [ "$TRAVIS_PULL_REQUEST" != "false" ]; then PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test; fi'
+        - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test
+      if: type = pull_request
 
     - name: smart contract
       language: node_js
@@ -83,7 +84,7 @@ matrix:
     - <<: *_rust_wasm_template
       name: rust App SDK
       before_script:
-        - cd sdk/rust
+        - cd backend-sdk
 
     - <<: *_rust_wasm_template
       name: llamaDb VM App
@@ -124,3 +125,20 @@ matrix:
         - cd tools/deploy
       script:
         - pytest
+
+    - name: Fluence book
+      language: rust
+      sudo: false
+      cache:
+      - cargo
+      rust: nightly-2019-01-08
+
+      before_script:
+      - (test -x $HOME/.cargo/bin/cargo-install-update || cargo install cargo-update)
+      - (test -x $HOME/.cargo/bin/mdbook || cargo install --vers "^0.1" mdbook)
+      - cargo install-update -a
+
+      script:
+      - cd docs/ && mdbook build
+
+      if: type = pull_request

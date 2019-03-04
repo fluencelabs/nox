@@ -3,13 +3,16 @@ version: '3.4'
 services:
   fluence-node-1:
     container_name: $NAME
-    image: fluencelabs/node:v0.1.4
+    image: fluencelabs/node:$IMAGE_TAG
     environment:
       - TENDERMINT_IP=$DOCKER_IP
-      - ETHEREUM_IP=$HOST_IP
-      - SWARM_HOST=http://$HOST_IP:8500
+      - ETHEREUM_IP=$ETHEREUM_IP
+      - SWARM_ADDRESS=$SWARM_ADDRESS
+      - SWARM_HOST=$SWARM_ADDRESS # TODO: remove SWARM_HOST (replaced by SWARM_ADDRESS)
       - CONTRACT_ADDRESS=$CONTRACT_ADDRESS
       - OWNER_ADDRESS=$OWNER_ADDRESS
+      - WORKER_MEMORY_LIMIT=200 # megabytes
+      - WORKER_TAG=$IMAGE_TAG
     ports:
       # API port
       - $API_PORT:5678

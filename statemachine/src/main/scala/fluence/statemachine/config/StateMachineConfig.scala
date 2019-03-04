@@ -15,6 +15,7 @@
  */
 
 package fluence.statemachine.config
+
 import java.io.File
 
 import cats.data.{EitherT, NonEmptyList}
@@ -36,7 +37,6 @@ import scala.language.higherKinds
  *                                its value at the last activity in the session.
  * @param moduleFiles Sequence of files with WASM module code
  * @param logLevel Level of logging ( OFF / ERROR / WARN / INFO / DEBUG / TRACE )
- * @param metricsPort Port to serve metrics on
  * @param abciPort Port to listen for ABCI events
  * @param control Configuration for ControlRPC server
  */
@@ -44,7 +44,6 @@ case class StateMachineConfig(
   sessionExpirationPeriod: Long,
   moduleFiles: List[String],
   logLevel: String,
-  metricsPort: Short,
   abciPort: Short,
   control: ControlServerConfig,
 ) {

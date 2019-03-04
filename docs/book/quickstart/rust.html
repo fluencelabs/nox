@@ -1,0 +1,403 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Developing the backend app - The Fluence book</title>
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" rel="stylesheet" type="text/css">
+        <link href="https://fonts.googleapis.com/css?family=Source+Code+Pro:500" rel="stylesheet" type="text/css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+
+        
+        <!-- MathJax -->
+        <script async type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS-MML_HTMLorMML"></script>
+        
+    </head>
+    <body class="light">
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "../";
+            var default_theme = "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { } 
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            document.body.className = theme;
+            document.querySelector('html').className = theme + ' js';
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <ol class="chapter"><li><a href="../introduction.html"><strong aria-hidden="true">1.</strong> Introduction</a></li><li><ol class="section"><li><a href="../overview/overview.html"><strong aria-hidden="true">1.1.</strong> Overview</a></li><li><a href="../overview/motivation.html"><strong aria-hidden="true">1.2.</strong> Motivation</a></li></ol></li><li><a href="../whatworks.html"><strong aria-hidden="true">2.</strong> Current state of development</a></li><li><a href="../quickstart/plan.html"><strong aria-hidden="true">3.</strong> Quick start</a></li><li><ol class="section"><li><a href="../quickstart/rust.html" class="active"><strong aria-hidden="true">3.1.</strong> Developing the backend app</a></li><li><a href="../quickstart/publish.html"><strong aria-hidden="true">3.2.</strong> Publishing your app</a></li><li><a href="../quickstart/web.html"><strong aria-hidden="true">3.3.</strong> Developing the web app</a></li><li><a href="../quickstart/wrappingup.html"><strong aria-hidden="true">3.4.</strong> Wrapping up</a></li></ol></li><li><a href="../backend/index.html"><strong aria-hidden="true">4.</strong> Backend guide</a></li><li><ol class="section"><li><a href="../backend/app_conventions.html"><strong aria-hidden="true">4.1.</strong> Backend app conventions</a></li><li><a href="../backend/sdk_overview.html"><strong aria-hidden="true">4.2.</strong> Fluence backend SDK overview</a></li><li><a href="../backend/app_debugging.html"><strong aria-hidden="true">4.3.</strong> Backend app debugging</a></li><li><a href="../backend/examples.html"><strong aria-hidden="true">4.4.</strong> Examples</a></li><li><a href="../backend/best_practices.html"><strong aria-hidden="true">4.5.</strong> Best practices</a></li></ol></li><li><a href="../roles/miner.html"><strong aria-hidden="true">5.</strong> Miner guide</a></li><li><a href="../tools/tools.html"><strong aria-hidden="true">6.</strong> Tools and SDKs</a></li><li><ol class="section"><li><a href="../tools/cli_README.html"><strong aria-hidden="true">6.1.</strong> CLI</a></li><li><a href="../tools/rust_README.html"><strong aria-hidden="true">6.2.</strong> Rust SDK</a></li><li><a href="../tools/js_README.html"><strong aria-hidden="true">6.3.</strong> JS SDK</a></li></ol></li><li><a href="../unsolved.html"><strong aria-hidden="true">7.</strong> Open problems</a></li><li><a href="../examples/examples.html"><strong aria-hidden="true">8.</strong> Examples</a></li><li><ol class="section"><li><a href="../examples/backend.html"><strong aria-hidden="true">8.1.</strong> Backend</a></li><li><a href="../examples/frontend.html"><strong aria-hidden="true">8.2.</strong> Web apps</a></li></ol></li><li><a href="../benchmarks.html"><strong aria-hidden="true">9.</strong> Benchmarks</a></li></ol>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar" class="menu-bar">
+                    <div id="menu-bar-sticky-container">
+                        <div class="left-buttons">
+                            <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                                <i class="fa fa-bars"></i>
+                            </button>
+                            <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                                <i class="fa fa-paint-brush"></i>
+                            </button>
+                            <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                                <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                                <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                            </ul>
+                            
+                            <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                                <i class="fa fa-search"></i>
+                            </button>
+                            
+                        </div>
+
+                        <h1 class="menu-title">The Fluence book</h1> 
+
+                        <div class="right-buttons">
+                            <a href="../print.html" title="Print this book" aria-label="Print this book">
+                                <i id="print-button" class="fa fa-print"></i>
+                            </a>
+                            
+                        </div>
+                    </div>
+                </div>
+
+                
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" name="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <a class="header" href="#developing-the-backend-app" id="developing-the-backend-app"><h1>Developing the backend app</h1></a>
+<p>Fluence runs Webassembly programs, so it's possible to build a Fluence backend in any program language that targets Wasm. In this guide, we will use Rust as a language of choice.</p>
+<p>First you will build a simple hello-world backend in Rust, adapt it to be used with Fluence, and compile to Webassembly.</p>
+<a class="header" href="#setting-up-rust" id="setting-up-rust"><h2>Setting up Rust</h2></a>
+<p>Let's get some Rust.</p>
+<p>Install rust compiler and it's tools:</p>
+<pre><code class="language-bash"># install Rust compiler and other tools to `~/.cargo/bin`
+~ $ curl https://sh.rustup.rs -sSf | sh -s -- -y
+info: downloading installer
+...
+Rust is installed now. Great!
+To configure your current shell run source $HOME/.cargo/env
+</code></pre>
+<p>Let's listen to the installer and configure your current shell:</p>
+<pre><code class="language-bash">~ $ source $HOME/.cargo/env
+&lt;no output&gt;
+</code></pre>
+<p>Fluence Rust SDK <a href="???">uses custom allocator (TODO: link)</a> for copying bytes to and from virtual machine internal memory, and that requires nightly toolchain. To install nightly toolchain, run:</p>
+<pre><code class="language-bash">~ $ rustup toolchain install nightly
+info: syncing channel updates ...
+...
+  nightly-&lt;arch&gt; installed - rustc 1.34.0-nightly (57d7cfc3c 2019-02-11)
+</code></pre>
+<p>To check nightly toolchain was installed succesfully:</p>
+<pre><code class="language-bash">~ $ rustup toolchain list | grep nightly
+# output should contain nighly toolchain
+...
+nightly-&lt;arch&gt;
+</code></pre>
+<p>Also, to be able to compile Rust to WebAssembly, we need to add wasm32 compilation target. Just run the following:</p>
+<pre><code class="language-bash"># install target for WebAssembly
+~ $ rustup target add wasm32-unknown-unknown --toolchain nightly
+info: downloading component 'rust-std' for 'wasm32-unknown-unknown'
+info: installing component 'rust-std' for 'wasm32-unknown-unknown'
+</code></pre>
+<p>To check that everything is set up correctly, let's compile some Rust code:</p>
+<pre><code class="language-bash"># create test.rs with a simple program that returns number 1
+~ $ echo &quot;fn main(){1;}&quot; &gt; test.rs
+
+# compile it to wasm using rustc from nightly toolchain
+~ $ rustup run nightly rustc --target=wasm32-unknown-unknown test.rs
+&lt;no output&gt;
+
+# check test.wasm was created
+~ $ ls -lh test.wasm
+-rwxr-xr-x  1 user  user   1.4M Feb 11 11:59 test.wasm
+</code></pre>
+<p>If everything looks similar, then it's time to create a Rust hello-world project!</p>
+<a class="header" href="#creating-an-empty-rust-package" id="creating-an-empty-rust-package"><h2>Creating an empty Rust package</h2></a>
+<p>First, let's create a new empty Rust package:</p>
+<pre><code class="language-bash"># create empty Rust package
+~ $ cargo +nightly new hello-world --edition 2018
+Created binary (application) `hello-world` package
+
+# go to the package directory
+~ $ cd hello-world
+~/hello-world $
+</code></pre>
+<p>More info on creating a new Rust project can be found in <a href="https://doc.rust-lang.org/cargo/guide/creating-a-new-project.html">Rust docs</a>.</p>
+<a class="header" href="#optional-creating-a-hello-world-rust-application" id="optional-creating-a-hello-world-rust-application"><h2>Optional: Creating a Hello World Rust application</h2></a>
+<p>If you are familiar with Rust, feel free to <a href="#creating-a-fluence-hello-world-backend">skip</a> that section.</p>
+<p>Let's write some code. Our backend should be able to receive a username from program arguments, and print greeting with the username in it.</p>
+<p>Take a look at <code>src/main.rs</code>:</p>
+<pre><code class="language-bash">~/hello-world $ cat src/main.rs
+</code></pre>
+<p>You will see the following code. It's there by default:</p>
+<pre><pre class="playpen"><code class="language-rust">fn main() {
+    println!(&quot;Hello, world!&quot;);
+}
+</code></pre></pre>
+<p>It almost does what we need, except for reading a username. So, open <code>src/main.rs</code> in your editor, delete all the code in there, and paste the following:</p>
+<pre><pre class="playpen"><code class="language-rust">use std::env;
+
+fn greeting(name: String) -&gt; String {
+    format!(&quot;Hello, world! From user {}&quot;, name)
+}
+
+fn main() {
+    let name = env::args().nth(1).unwrap();
+    println!(&quot;{}&quot;, greeting(name));
+}
+</code></pre></pre>
+<p>What this code does:</p>
+<ol>
+<li>Defines a <code>greeting</code> function that takes a name, and returns a greeting message</li>
+<li>Defines a <code>main</code> function that reads first program argument, passes it to <code>greeting</code>, and prints the result</li>
+</ol>
+<p>Let's now compile and run our example:</p>
+<pre><code class="language-bash">~/hello-world $ cargo +nightly run myName
+   Compiling hello-world v0.1.0 (/root/hello-world)
+    Finished dev [unoptimized + debuginfo] target(s) in 0.70s
+     Running `target/debug/hello-world myName`
+Hello, world! From user myName
+</code></pre>
+<hr />
+<p><strong>WARNING:</strong> If you see the following error, you should install <a href="https://gcc.gnu.org/install/">gcc</a> and try <code>cargo +nightly run</code> again:</p>
+<pre><code class="language-bash">Compiling hello-world v0.1.0 (/root/hello-world)
+error: linker cc not found
+  |
+  = note: No such file or directory (os error 2)
+
+error: aborting due to previous error
+error: Could not compile hello-world.
+</code></pre>
+<hr />
+<p>Now that we have a working hello world, it's time to adapt it to be used with Fluence.</p>
+<a class="header" href="#creating-a-fluence-hello-world-backend" id="creating-a-fluence-hello-world-backend"><h2>Creating a Fluence Hello World backend</h2></a>
+<p>For a backend to be compatible with Fluence network, it should <a href="backend.html#wasm-program-conventions">follow a few conventions</a>, so Fluence knows how to call your code correctly. To reduce boilerplate and make it easier, we developed a Fluence Rust SDK. Let's see how to use it.</p>
+<a class="header" href="#adding-fluence-as-a-dependency" id="adding-fluence-as-a-dependency"><h3>Adding Fluence as a dependency</h3></a>
+<p>First you need to add it to <code>Cargo.toml</code> as a dependency. Let's take a look at <code>Cargo.toml</code>:</p>
+<pre><code class="language-bash">~/hello-world $ cat Cargo.toml
+</code></pre>
+<p>It should look like this:</p>
+<pre><code class="language-toml">[package]
+name = &quot;hello-world&quot;
+version = &quot;0.1.0&quot;
+authors = [&quot;root&quot;]
+edition = &quot;2018&quot;
+
+[dependencies]
+</code></pre>
+<p>Now, open <code>Cargo.toml</code> in your editor, and add <code>fluence</code> to <code>dependencies</code>:</p>
+<pre><code class="language-toml">[package]
+name = &quot;hello-world&quot;
+version = &quot;0.1.0&quot;
+authors = [&quot;root&quot;]
+edition = &quot;2018&quot;
+
+[dependencies]
+fluence = { version = &quot;0.0.11&quot;}
+</code></pre>
+<a class="header" href="#implementing-backend-greeting-logic" id="implementing-backend-greeting-logic"><h3>Implementing backend greeting logic</h3></a>
+<p>Create &amp; open <code>~/hello-world/src/lib.rs</code> in your editor and paste the following code there:</p>
+<pre><pre class="playpen"><code class="language-rust">
+# #![allow(unused_variables)]
+#fn main() {
+use fluence::sdk::*;
+
+#[invocation_handler]
+fn greeting(name: String) -&gt; String {
+    format!(&quot;Hello, world! From user {}&quot;, name)
+}
+#}</code></pre></pre>
+<p>This code imports Fluence SDK, and marks <code>greeting</code> function with <code>#[invocation_handler]</code>, so Fluence knows how to call it.</p>
+<p>Function marked with <code>#[invocation_handler]</code> is called a <em>gateway function</em>. It is an entrypoint to your application, all transactions sent by users will be passed to that function, and it's result will be available to users. Gateway function can receive and return either <code>String</code> or <code>Vec&lt;u8&gt;</code>.</p>
+<a class="header" href="#making-it-a-library" id="making-it-a-library"><h3>Making it a library</h3></a>
+<p>For a gateway function to be exported and available for Fluence to call, backend should be compiled to WebAssembly as a library.</p>
+<p>To make your backend a library, open <code>Cargo.toml</code> in your editor, and paste the following there:</p>
+<pre><code class="language-toml">[package]
+name = &quot;hello-world&quot;
+version = &quot;0.1.0&quot;
+authors = [&quot;root&quot;]
+edition = &quot;2018&quot;
+
+[lib]
+name = &quot;hello_world&quot;
+path = &quot;src/lib.rs&quot;
+crate-type = [&quot;cdylib&quot;]
+
+[dependencies]
+fluence = { version = &quot;0.0.11&quot;}
+</code></pre>
+<a class="header" href="#compiling-to-webassembly" id="compiling-to-webassembly"><h3>Compiling to WebAssembly</h3></a>
+<p>Run the following code to build a <code>.wasm</code> file from your Rust code.</p>
+<p>NOTE: Downloading and compiling dependencies might take a few minutes.</p>
+<pre><code class="language-bash">~/hello-world $ cargo +nightly build --lib --target wasm32-unknown-unknown --release
+    Updating crates.io index
+    ...
+    Finished release [optimized] target(s) in 1m 16s
+</code></pre>
+<p>If everything goes well, you should have a <code>.wasm</code> file deep in <code>target</code>. Let's check it:</p>
+<pre><code class="language-bash">~/hello-world $ ls -lh target/wasm32-unknown-unknown/release/hello_world.wasm
+-rwxr-xr-x  2 user  user  1.4M Feb 11 11:59 target/wasm32-unknown-unknown/release/hello_world.wasm
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                            <a rel="prev" href="../quickstart/plan.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+                        
+
+                        
+                            <a rel="next" href="../quickstart/publish.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+                        
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                    <a href="../quickstart/plan.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+                
+
+                
+                    <a href="../quickstart/publish.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+                
+            </nav>
+
+        </div>
+
+        
+
+        
+        <!-- Google Analytics Tag -->
+        <script type="text/javascript">
+            var localAddrs = ["localhost", "127.0.0.1", ""];
+
+            // make sure we don't activate google analytics if the developer is
+            // inspecting the book locally...
+            if (localAddrs.indexOf(document.location.hostname) === -1) {
+                (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+                (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+                m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+                })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+                ga('create', 'UA-120211353-6', 'auto');
+                ga('send', 'pageview');
+            }
+        </script>
+        
+
+        
+        <script src="../ace.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../editor.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mode-rust.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../theme-dawn.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../theme-tomorrow_night.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        
+        <script src="../elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+
+        <script src="../clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="../book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+
+        
+
+    </body>
+</html>

@@ -35,6 +35,7 @@ import fluence.vm.utils.safelyRunThrowable
 import fluence.vm.wasm.WasmModule
 import scodec.bits.ByteVector
 import pureconfig.generic.auto._
+import slogging.LazyLogging
 
 import scala.collection.convert.ImplicitConversionsToJava.`seq AsJavaList`
 import scala.collection.convert.ImplicitConversionsToScala.`list asScalaBuffer`
@@ -72,7 +73,7 @@ trait WasmVm {
 
 }
 
-object WasmVm {
+object WasmVm extends LazyLogging {
 
   type ModuleIndex = Map[Option[String], WasmModule]
 
@@ -100,6 +101,8 @@ object WasmVm {
           )
         }
 
+      _ = logger.info("WasmVm: configs read...")
+
       // Compiling Wasm modules to JVM bytecode and registering derived classes
       // in the Asmble engine. Every Wasm module is compiled to exactly one JVM class.
       scriptCxt ← safelyRunThrowable(
@@ -111,8 +114,11 @@ object WasmVm {
         )
       )
 
+      _ = logger.info("WasmVm: scriptCtx prepared...")
+
       modules ← initializeModules(scriptCxt, config)
 
+      _ = logger.info("WasmVm: modules initialized")
     } yield
       new AsmbleWasmVm(
         modules,

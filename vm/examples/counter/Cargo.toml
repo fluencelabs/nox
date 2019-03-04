@@ -3,7 +3,7 @@ name = "counter"
 version = "0.1.0"
 authors = ["Fluence Labs"]
 publish = false
-description = "Simple counter for Fluence"
+description = "A simple counter for Fluence"
 edition = "2018"
 
 [profile.release]
@@ -18,5 +18,5 @@ crate-type = ["cdylib"]
 panic = "abort"
 
 [dependencies]
-fluence = { version = "0.0.10", features = ["export_allocator"] }
+fluence = { version = "0.0.12" }
 byteorder = { version = "1" }

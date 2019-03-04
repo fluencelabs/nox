@@ -15,7 +15,6 @@
  */
 
 package fluence.node
-import java.net.InetAddress
 
 import cats.effect._
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
@@ -29,7 +28,7 @@ import org.scalatest.{Timer ⇒ _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 import eth.FluenceContractTestOps._
-import fluence.node.config.{EndpointsConfig, FluenceContractConfig}
+import fluence.node.config.FluenceContractConfig
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -116,7 +115,7 @@ class MasterNodeIntegrationSpec
     } yield (ethClient, sttp)
 
   "MasterNodes" should {
-    PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, false)
+    PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, true)
     LoggerConfig.factory = PrintLoggerFactory()
     LoggerConfig.level = LogLevel.INFO
 

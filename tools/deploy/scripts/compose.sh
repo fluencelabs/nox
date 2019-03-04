@@ -40,6 +40,7 @@ function generate_json()
     DATA=$(cat <<EOF
 {
     "node_ip": "$EXTERNAL_HOST_IP",
+    "ethereum_address": "$ETHEREUM_ADDRESS",
     "tendermint_key": "$TENDERMINT_KEY",
     "tendermint_node_id": "$TENDERMINT_NODE_ID",
     "contract_address": "$CONTRACT_ADDRESS",
@@ -65,7 +66,7 @@ function generate_command()
             --secret_key         $PRIVATE_KEY \
             --api_port           $API_PORT \
             --capacity           $CAPACITY \
-            --eth_url            http://$EXTERNAL_HOST_IP:8545 \
+            --eth_url            $ETHEREUM_ADDRESS \
             --wait_syncing \
             --base64_tendermint_key \
             --gas_price 10"
@@ -120,15 +121,16 @@ function deploy_contract_locally()
 function container_update()
 {
     printf 'Updating all containers.'
+    # TODO recreate containers if they became an updated
     docker pull ethereum/client-go:stable >/dev/null
     printf '.'
     docker pull parity/parity:stable >/dev/null
     printf '.'
     docker pull ethdevops/swarm:edge >/dev/null
     printf '.'
-    docker pull fluencelabs/node:v0.1.4 >/dev/null
+    docker pull fluencelabs/node:$IMAGE_TAG >/dev/null
     printf '.\n'
-    docker pull fluencelabs/worker:v0.1.4 >/dev/null
+    docker pull fluencelabs/worker:$IMAGE_TAG >/dev/null
     echo 'Containers are updated.'
 }
 
@@ -177,12 +179,14 @@ function export_arguments()
         # eth address in `dev` mode Parity with eth
         export OWNER_ADDRESS=0x00a329c0648769a73afac7f9381e08fb43dbea72
         export PRIVATE_KEY=4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7
-
         export PARITY_ARGS='--config dev-insecure --jsonrpc-apis=all --jsonrpc-hosts=all --jsonrpc-cors="*" --unsafe-expose'
+        export ETHEREUM_IP=$HOST_IP
+        export ETHEREUM_SERVICE='parity'
+
     else
         echo "Deploying for $CHAIN chain."
         if [ "$ETHEREUM_SERVICE" == "geth" ]; then
-            export GETH_ARGS="--$CHAIN --rpc --rpcaddr '0.0.0.0' --rpcport 8545 --ws --wsaddr '0.0.0.0' --wsport 8546 --syncmode light --verbosity 3 --datadir /root/.ethereum"
+            export GETH_ARGS="--$CHAIN --rpc --rpccorsdomain "*" --rpcaddr '0.0.0.0' --rpcport 8545 --ws --wsaddr '0.0.0.0' --wsport 8546 --syncmode light --verbosity 3 --datadir /root/.ethereum --v5disc --rpcvhosts=*"
         else
             if [ "$CHAIN" = "kovan" ]; then
                 NO_WARP="--no-warp "
@@ -202,11 +206,13 @@ function export_arguments()
 function start_swarm()
 {
     if [ ! "$(docker ps -q -f name=swarm)" ]; then
-        echo "Starting Swarm container"
-        docker-compose --compatibility -f swarm.yml up -d >/dev/null
-        # todo get rid of `sleep`
-        sleep 15
-        echo "Swarm container is started"
+        if [ "$START_SWARM" == true ]; then
+            echo "Starting Swarm container"
+            docker-compose --compatibility -f swarm.yml up -d >/dev/null
+            # todo get rid of `sleep`
+            sleep 15
+            echo "Swarm container is started"
+        fi
     fi
 }
 
@@ -235,11 +241,71 @@ function start_geth()
 
 function start_ethereum()
 {
-    if [ "$ETHEREUM_SERVICE" == "geth" ]; then
-        start_geth
-    else
-        start_parity
+    case $ETHEREUM_SERVICE in
+        geth) start_geth ;;
+        parity) start_parity ;;
+        *) echo "Won't start Ethereum; using $ETHEREUM_ADDRESS" ;;
+    esac
+}
+
+function check_envs()
+{
+    if [ -n "$PROD_DEPLOY" ]; then
+        declare -p CONTRACT_ADDRESS &>/dev/null || {
+            echo >&2 "CONTRACT_ADDRESS is not defined"
+            exit 1
+        }
     fi
+
+    declare -p OWNER_ADDRESS &>/dev/null || {
+        echo >&2 "OWNER_ADDRESS is not defined"
+        exit 1
+    }
+    declare -p API_PORT &>/dev/null || {
+        echo >&2 "API_PORT is not defined"
+        exit 1
+    }
+    declare -p CAPACITY &>/dev/null || {
+        echo >&2 "CAPACITY is not defined"
+        exit 1
+    }
+    declare -p PARITY_RESERVED_PEERS &>/dev/null || {
+        echo >&2 "PARITY_RESERVED_PEERS is not defined"
+        exit 1
+    }
+    declare -p NAME &>/dev/null || {
+        echo >&2 "NAME is not defined"
+        exit 1
+    }
+    declare -p HOST_IP &>/dev/null || {
+        echo >&2 "HOST_IP is not defined"
+        exit 1
+    }
+    declare -p SWARM_ADDRESS &>/dev/null || {
+        echo >&2 "SWARM_ADDRESS is not defined"
+        exit 1
+    }
+    declare -p START_SWARM &>/dev/null || {
+        echo >&2 "START_SWARM is not defined"
+        exit 1
+    }
+
+    declare -p ETHEREUM_IP &>/dev/null || {
+        echo >&2 "ETHEREUM_IP is not defined"
+        exit 1
+    }
+    declare -p ETHEREUM_ADDRESS &>/dev/null || {
+        echo >&2 "ETHEREUM_ADDRESS is not defined"
+        exit 1
+    }
+    declare -p ETHEREUM_SERVICE &>/dev/null || {
+        echo >&2 "ETHEREUM_SERVICE is not defined"
+        exit 1
+    }
+    declare -p IMAGE_TAG &>/dev/null || {
+        echo >&2 "IMAGE_TAG is not defined"
+        exit 1
+    }
 }
 
 # main function to deploy Fluence
@@ -248,8 +314,17 @@ function deploy()
     # disables docker-compose warnings about orphan services
     export COMPOSE_IGNORE_ORPHANS=True
 
+    get_docker_ip_address
+
+    get_external_ip
+
+    # exports initial arguments to global scope for `docker-compose` files
+    export_arguments
+
     if [ -z "$PROD_DEPLOY" ]; then
         check_fluence_installed
+        export START_SWARM="true"
+        export SWARM_ADDRESS="http://$HOST_IP:8500"
     fi
 
     if [ -z "$CAPACITY" ]; then
@@ -259,14 +334,11 @@ function deploy()
         fi
     fi
 
+    export ETHEREUM_ADDRESS="http://$ETHEREUM_IP:8545"
+
+    check_envs
+
     container_update
-
-    # exports initial arguments to global scope for `docker-compose` files
-    export_arguments
-
-    get_docker_ip_address
-
-    get_external_ip
 
     start_swarm
 
@@ -283,6 +355,9 @@ function deploy()
     HOST_IP=$HOST_IP
     EXTERNAL_HOST_IP=$EXTERNAL_HOST_IP
     OWNER_ADDRESS=$OWNER_ADDRESS
+    SWARM_ADDRESS=$SWARM_ADDRESS
+    ETHEREUM_ADDRESS=$ETHEREUM_ADDRESS
+    ETHEREUM_SERVICE=$ETHEREUM_SERVICE
     "
 
     # uses for multiple deploys if needed
@@ -291,10 +366,10 @@ function deploy()
     # starting node container
     # if there was `multiple` flag on the running script, will be created 4 nodes, otherwise one node
     if [ "$1" = "multiple" ]; then
-        docker-compose --compatibility -f multiple-node.yml up -d --force-recreate >/dev/null
+        docker-compose --compatibility -f multiple-node.yml up -d --timeout 30 --force-recreate >/dev/null
         NUMBER_OF_NODES=4
     else
-        docker-compose --compatibility -f node.yml up -d --force-recreate >/dev/null
+        docker-compose --compatibility -f node.yml up -d --timeout 30 --force-recreate >/dev/null
         NUMBER_OF_NODES=1
     fi
 

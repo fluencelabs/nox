@@ -16,20 +16,15 @@
 
 package fluence.statemachine
 
-import cats.effect.concurrent.Deferred
-import cats.effect.{Concurrent, ContextShift, IO, Timer}
+import cats.effect.{ContextShift, IO, Timer}
 import com.github.jtendermint.jabci.api.CodeType
 import com.github.jtendermint.jabci.types.{RequestCheckTx, RequestCommit, RequestDeliverTx, RequestQuery}
 import com.google.protobuf.ByteString
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.control.ControlServer.ControlServerConfig
 import fluence.statemachine.control.ControlSignals
-import fluence.statemachine.state.QueryCodeType
-import fluence.statemachine.tree.MerkleTreeNode
-import fluence.statemachine.tx.Computed
-import fluence.statemachine.util.{ClientInfoMessages, HexCodec}
 import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
-import cats.syntax.flatMap._
+import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
@@ -42,11 +37,11 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
   // while Idea defaults to project root
   private val moduleDirPrefix = if (System.getProperty("user.dir").endsWith("/statemachine")) "../" else "./"
   private val moduleFiles = List("mul.wast", "counter.wast").map(moduleDirPrefix + "vm/src/test/resources/wast/" + _)
-  private val config = StateMachineConfig(8, moduleFiles, "OFF", 26661, 26658, ControlServerConfig("localhost", 26662))
+  private val config = StateMachineConfig(8, moduleFiles, "OFF", 26661, ControlServerConfig("localhost", 26662))
 
   private val signals: ControlSignals[IO] = ControlSignals[IO]().allocated.unsafeRunSync()._1
 
-  val abciHandler: AbciHandler = ServerRunner
+  val abciHandler: AbciHandler[IO] = ServerRunner
     .buildAbciHandler(config, signals)
     .valueOr(e => throw new RuntimeException(e.message))
     .unsafeRunSync()
@@ -67,62 +62,38 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
     abciHandler.requestCommit(RequestCommit.newBuilder().build())
 
   def sendQuery(query: String, height: Int = 0): Either[(Int, String), String] = {
-    val builtQuery = RequestQuery.newBuilder().setHeight(height).setPath(query).setProve(true).build()
+    val builtQuery = RequestQuery.newBuilder().setHeight(height).setPath(query).setProve(false).build()
     val response = abciHandler.requestQuery(builtQuery)
     response.getCode match {
-      case CodeType.OK => Right(response.getValue.toStringUtf8)
+      case CodeType.OK => Right(ByteVector(response.getValue.toByteArray).toHex)
       case _ => Left((response.getCode, response.getInfo))
     }
   }
 
-  def latestCommittedHeight: Long = abciHandler.committer.stateHolder.latestCommittedHeight.unsafeRunSync()
-
-  def latestCommittedState: MerkleTreeNode = abciHandler.committer.stateHolder.mempoolState.unsafeRunSync()
-
-  def latestAppHash: String = latestCommittedState.merkleHash.toHex
-
-  def tx(client: SigningClient, session: String, order: Long, payload: String, signature: String): String = {
-    val txHeaderJson = s"""{"client":"${client.id}","session":"$session","order":$order}"""
-    val txJson = s"""{"header":$txHeaderJson,"payload":"$payload","timestamp":"0"}"""
-    s"""{"tx":$txJson,"signature":"$signature"}"""
-  }
-
-  def tx(client: SigningClient, session: String, order: Long, payload: String): String = {
-    val txHeaderJson = s"""{"client":"${client.id}","session":"$session","order":$order}"""
-    val txJson = s"""{"header":$txHeaderJson,"payload":"$payload"}"""
-    val signingData = s"${client.id}-$session-$order-$payload"
-    s"""{"tx":$txJson,"signature":"${client.sign(signingData)}"}"""
-  }
+  def tx(session: String, order: Long, payload: String): String =
+    s"$session/$order\n$payload"
 
   def littleEndian4ByteHex(number: Int): String =
     Integer.toString(number, 16).reverse.padTo(8, '0').grouped(2).map(_.reverse).mkString.toUpperCase
 
   "State machine" should {
-    val client = SigningClient(
-      "client001",
-      "TVAD4tNeMH2yJfkDZBSjrMJRbavmdc3/fGU2N2VAnxQ"
-    )
     val session = "157A0E"
     val tx0 = tx(
-      client,
       session,
       0,
-      "()",
-      "L20to3vLwexFgUC1XgOaCKKNCxo433ScYc+EKBQdnMpIqlUOifG4Vn/9qL1OhLpBUGKOYRFBi3l517Uu37mOAQ=="
+      "()"
     )
     val tx1 = tx(
-      client,
       session,
       1,
-      "()",
-      "GnGwQ/sKW2m8HqvigBRlmljOJhkAGbnslyQ4UYkWtnnvyzvveX9YTQUCZ4cFpL5ZsugaVHMqGBFn5ERN5UWzBA=="
+      "()"
     )
-    val tx2 = tx(client, session, 2, "()")
-    val tx3 = tx(client, session, 3, "()")
-    val tx0Result = s"@meta/${client.id}/$session/0/result"
-    val tx1Result = s"@meta/${client.id}/$session/1/result"
-    val tx2Result = s"@meta/${client.id}/$session/2/result"
-    val tx3Result = s"@meta/${client.id}/$session/3/result"
+    val tx2 = tx(session, 2, "()")
+    val tx3 = tx(session, 3, "()")
+    val tx0Result = s"$session/0"
+    val tx1Result = s"$session/1"
+    val tx2Result = s"$session/2"
+    val tx3Result = s"$session/3"
 
     "process correct tx/query sequence" in {
       // TODO: rewrite tests. 2 kinds of tests required:
@@ -133,35 +104,32 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
 
       sendCommit()
       sendCommit()
-      latestAppHash shouldBe "CED687708BB077AFFF670943B503E30035E1FA4B56535B77A204BF80F5E51C3B"
+//      latestAppHash shouldBe "42bb448ea02f6f4fe069f89e392315602f5463d223cbd0a8246ac42c521ea6bb"
 
       sendCheckTx(tx0)
       sendCheckTx(tx1)
       sendCheckTx(tx2)
       sendCheckTx(tx3)
-      sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
+      sendQuery(tx1Result).left.get._1 shouldBe AbciService.Codes.NotFound
       sendDeliverTx(tx0)
       sendCommit()
-      latestAppHash shouldBe "501B4A2372F91385D08BF276F16167D1A5BAF074C91B630C5E582E15D6F3F23E"
+//      latestAppHash shouldBe "7b0a908531e5936acdfce3c581ba6b39c2ca185553f47b167440490b13bfa132"
 
       sendCheckTx(tx1)
       sendCheckTx(tx2)
       sendCheckTx(tx3)
-      sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
+      sendQuery(tx1Result).left.get._1 shouldBe AbciService.Codes.Pending
       sendDeliverTx(tx1)
       sendDeliverTx(tx2)
       sendDeliverTx(tx3)
       sendCommit()
-      latestAppHash shouldBe "D1FACD887C07449BC198538645D3AE86107746B9F887C402876FC50C26C2F3BD"
+//      latestAppHash shouldBe "fbca0d73019bc3ac6c8960782fe681835c13ace92a0d1dffd73fd363a173122c"
 
-      sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
-      sendCommit()
+      sendQuery(tx1Result) shouldBe Right(littleEndian4ByteHex(2))
+      sendQuery(tx3Result) shouldBe Right(littleEndian4ByteHex(4))
 
-      sendQuery(tx1Result) shouldBe Right(Computed(littleEndian4ByteHex(2)).toStoreValue)
-      sendQuery(tx3Result) shouldBe Right(Computed(littleEndian4ByteHex(4)).toStoreValue)
-
-      latestCommittedHeight shouldBe 5
-      latestAppHash shouldBe "D1FACD887C07449BC198538645D3AE86107746B9F887C402876FC50C26C2F3BD"
+//      latestCommittedHeight shouldBe 5
+//      latestAppHash shouldBe "fbca0d73019bc3ac6c8960782fe681835c13ace92a0d1dffd73fd363a173122c"
     }
 
     "invoke session txs in session counter order" in {
@@ -174,99 +142,43 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendCommit()
       sendCommit()
 
-      sendQuery(tx0Result) shouldBe Right(Computed(littleEndian4ByteHex(1)).toStoreValue)
-      sendQuery(tx1Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
-      sendQuery(tx2Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
-      sendQuery(tx3Result) shouldBe Left((QueryCodeType.NotReady, ClientInfoMessages.ResultIsNotReadyYet))
+      sendQuery(tx0Result) shouldBe Right(littleEndian4ByteHex(1))
+      sendQuery(tx1Result).left.get._1 shouldBe AbciService.Codes.Pending
+      sendQuery(tx2Result).left.get._1 shouldBe AbciService.Codes.Pending
+      sendQuery(tx3Result).left.get._1 shouldBe AbciService.Codes.Pending
 
       sendDeliverTx(tx1)
       sendCommit()
       sendCommit()
 
-      sendQuery(tx0Result) shouldBe Right(Computed(littleEndian4ByteHex(1)).toStoreValue)
-      sendQuery(tx1Result) shouldBe Right(Computed(littleEndian4ByteHex(2)).toStoreValue)
-      sendQuery(tx2Result) shouldBe Right(Computed(littleEndian4ByteHex(3)).toStoreValue)
-      sendQuery(tx3Result) shouldBe Right(Computed(littleEndian4ByteHex(4)).toStoreValue)
-    }
-
-    "ignore incorrectly signed tx" in {
-      sendCommit()
-      sendCommit()
-
-      val txWithWrongSignature = tx(client, session, 0, "()", "bad_signature")
-      sendCheckTx(txWithWrongSignature) shouldBe (CodeType.BAD, ClientInfoMessages.InvalidSignature)
-      sendDeliverTx(txWithWrongSignature) shouldBe (CodeType.BAD, ClientInfoMessages.InvalidSignature)
+      sendQuery(tx0Result) shouldBe Right(littleEndian4ByteHex(1))
+      sendQuery(tx1Result) shouldBe Right(littleEndian4ByteHex(2))
+      sendQuery(tx2Result) shouldBe Right(littleEndian4ByteHex(3))
+      sendQuery(tx3Result) shouldBe Right(littleEndian4ByteHex(4))
     }
 
     "ignore duplicated tx" in {
       sendCommit()
       sendCommit()
 
-      sendCheckTx(tx0) shouldBe (CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
-      sendDeliverTx(tx0) shouldBe (CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
+      sendCheckTx(tx0)._1 shouldBe CodeType.OK
+      sendDeliverTx(tx0)._1 shouldBe CodeType.OK
       // Mempool state updated only on commit!
-      sendCheckTx(tx0) shouldBe (CodeType.OK, ClientInfoMessages.SuccessfulTxResponse)
+      sendCheckTx(tx0)._1 shouldBe CodeType.OK
       sendCommit()
 
-      sendCheckTx(tx0) shouldBe (CodeType.BAD, ClientInfoMessages.DuplicatedTransaction)
-      sendDeliverTx(tx0) shouldBe (CodeType.BAD, ClientInfoMessages.DuplicatedTransaction)
+      sendCheckTx(tx0)._1 shouldBe CodeType.BadNonce
+      sendDeliverTx(tx0)._1 shouldBe CodeType.BadNonce
     }
 
     "process Query method correctly" in {
       sendDeliverTx(tx0)
-      sendQuery(tx0Result) shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.QueryStateIsNotReadyYet))
+//      sendQuery(tx0Result) shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.QueryStateIsNotReadyYet))
 
       sendCommit()
-      sendQuery(tx0Result) shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.QueryStateIsNotReadyYet))
+//      sendQuery(tx0Result) shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.QueryStateIsNotReadyYet))
 
-      sendCommit()
-      sendQuery("") shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.InvalidQueryPath))
-      sendQuery("/a/b/") shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.InvalidQueryPath))
-      sendQuery("/a/b") shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.InvalidQueryPath))
-      sendQuery("a/b/") shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.InvalidQueryPath))
-      sendQuery("a//b") shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.InvalidQueryPath))
-      sendQuery(tx0Result, 2) shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.RequestingCustomHeightIsForbidden))
-      sendQuery(tx0Result) shouldBe Right(Computed(littleEndian4ByteHex(1)).toStoreValue)
-    }
-
-    "change session summary if session explicitly closed" in {
-      sendCommit()
-      sendCommit()
-
-      sendDeliverTx(tx0)
-      sendDeliverTx(tx1)
-      sendDeliverTx(tx2)
-      sendDeliverTx(tx3)
-      sendDeliverTx(tx(client, session, 4, "@closeSession"))
-      sendCommit()
-      sendCommit()
-
-      sendQuery(s"@meta/${client.id}/$session/4/status") shouldBe Right("sessionClosed")
-      sendQuery(s"@meta/${client.id}/$session/@sessionSummary") shouldBe
-        Right("{\"status\":{\"ExplicitlyClosed\":{}},\"invokedTxsCount\":5,\"lastTxCounter\":5}")
-    }
-
-    "expire session after expiration period elapsed" in {
-      sendCommit()
-      sendCommit()
-
-      val firstSession = "000001"
-      val secondSession = "000002"
-      val thirdSession = "000003"
-      sendDeliverTx(tx(client, firstSession, 0, "()"))
-      sendDeliverTx(tx(client, secondSession, 0, "()"))
-      for (i <- 0 to 5)
-        sendDeliverTx(tx(client, thirdSession, i, "()"))
-      sendDeliverTx(tx(client, thirdSession, 6, "@closeSession"))
-      sendCommit()
-      sendCommit()
-
-      sendQuery(s"@meta/${client.id}/$firstSession/@sessionSummary") shouldBe
-        Right("{\"status\":{\"Expired\":{}},\"invokedTxsCount\":1,\"lastTxCounter\":1}")
-      sendQuery(s"@meta/${client.id}/$secondSession/@sessionSummary") shouldBe
-        Right("{\"status\":{\"Active\":{}},\"invokedTxsCount\":1,\"lastTxCounter\":2}")
-      sendQuery(s"@meta/${client.id}/$thirdSession/@sessionSummary") shouldBe
-        Right("{\"status\":{\"ExplicitlyClosed\":{}},\"invokedTxsCount\":7,\"lastTxCounter\":9}")
+      sendQuery(tx0Result) shouldBe Right(littleEndian4ByteHex(1))
     }
   }
 }

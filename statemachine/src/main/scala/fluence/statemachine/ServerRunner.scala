@@ -19,21 +19,12 @@ package fluence.statemachine
 import cats.Monad
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.ExitCase.{Canceled, Completed, Error}
-import cats.effect.concurrent.MVar
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import com.github.jtendermint.jabci.socket.TSocket
-import com.github.jtendermint.jabci.types.Request.ValueCase.{CHECK_TX, DELIVER_TX}
 import fluence.statemachine.config.StateMachineConfig
-import fluence.statemachine.contract.ClientRegistry
 import fluence.statemachine.control.{ControlServer, ControlSignals}
 import fluence.statemachine.error.StateMachineError
-import fluence.statemachine.state._
-import fluence.statemachine.tx.{TxParser, TxProcessor, TxStateDependentChecker, VmOperationInvoker}
-import fluence.statemachine.util.Metrics
 import fluence.vm.WasmVm
-import io.prometheus.client.exporter.MetricsServlet
-import org.eclipse.jetty.server.Server
-import org.eclipse.jetty.servlet.{ServletContextHandler, ServletHolder}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging._
 
@@ -53,7 +44,6 @@ object ServerRunner extends IOApp with LazyLogging {
       _ = configureLogging(convertLogLevel(config.logLevel))
 
       _ = logger.info("Starting Metrics servlet")
-      _ = startMetricsServer(config.metricsPort)
 
       _ = logger.info("Building State Machine ABCI handler")
       _ <- (
@@ -98,26 +88,6 @@ object ServerRunner extends IOApp with LazyLogging {
       .map(_ ⇒ ())
 
   /**
-   * Starts metrics servlet on provided port
-   *
-   * @param metricsPort port to expose Prometheus metrics
-   */
-  private def startMetricsServer(metricsPort: Int): Resource[IO, Unit] =
-    Resource
-      .make(IO {
-        val server = new Server(metricsPort)
-        val context = new ServletContextHandler
-        context.setContextPath("/")
-        server.setHandler(context)
-
-        context.addServlet(new ServletHolder(new MetricsServlet()), "/")
-        server.start()
-
-        server
-      })(server ⇒ IO(server.stop()))
-      .map(_ ⇒ ())
-
-  /**
    * Builds [[AbciHandler]], used to serve all Tendermint requests.
    *
    * @param config config object to load various settings
@@ -125,40 +95,18 @@ object ServerRunner extends IOApp with LazyLogging {
   private[statemachine] def buildAbciHandler(
     config: StateMachineConfig,
     controlSignals: ControlSignals[IO]
-  ): EitherT[IO, StateMachineError, AbciHandler] =
+  ): EitherT[IO, StateMachineError, AbciHandler[IO]] =
     for {
       moduleFilenames <- config.collectModuleFiles[IO]
       _ = logger.info("Loading VM modules from " + moduleFilenames)
       vm <- buildVm[IO](moduleFilenames)
 
-      _ = Metrics.resetCollectors()
+      _ = logger.info("VM instantiated")
 
       vmInvoker = new VmOperationInvoker[IO](vm)
 
-      initialState <- EitherT.right(MVar[IO].of(TendermintState.initial))
-      stateHolder = new TendermintStateHolder[IO](initialState)
-      mutableConsensusState = new MutableStateTree(stateHolder)
-
-      queryProcessor = new QueryProcessor(stateHolder)
-
-      txParser = new TxParser[IO](new ClientRegistry())
-      checkTxStateChecker = new TxStateDependentChecker[IO](CHECK_TX, stateHolder.mempoolState)
-      deliverTxStateChecker = new TxStateDependentChecker(DELIVER_TX, mutableConsensusState.getRoot)
-
-      txProcessor = new TxProcessor(mutableConsensusState, vmInvoker, config)
-
-      committer = new Committer[IO](stateHolder, vmInvoker)
-
-      abciHandler = new AbciHandler(
-        committer,
-        queryProcessor,
-        txParser,
-        checkTxStateChecker,
-        deliverTxStateChecker,
-        txProcessor,
-        controlSignals
-      )
-    } yield abciHandler
+      service <- EitherT.right(AbciService[IO](vmInvoker))
+    } yield new AbciHandler[IO](service, controlSignals)
 
   /**
    * Builds a VM instance used to perform function calls from the clients.
@@ -174,7 +122,7 @@ object ServerRunner extends IOApp with LazyLogging {
   private def configureLogging(level: LogLevel): Unit = {
     PrintLoggerFactory.formatter = new DefaultPrefixFormatter(true, true, true)
     LoggerConfig.factory = PrintLoggerFactory()
-    LoggerConfig.level = LogLevel.INFO
+    LoggerConfig.level = level
   }
 
   /**
