@@ -2,11 +2,11 @@
 
 The Fluence network consists of nodes performing computations in response to transactions sent by external clients. Algorithms specifying those computations are expressed in the WebAssembly bytecode; consequently, every node willing to participate in the network has to run a WebAssembly virtual machine.
 
-Independent developers are expected to implement a backend package handling client transactions in a high-level language such as C/C++, Rust, or TypeScript, compile it into one or more We- bAssembly modules, and then deploy those modules to the Fluence network. The network then takes care of spinning up the nodes that run the deployed backend package, interacting with clients, and making sure that client transactions are processed correctly.
+Independent developers are expected to implement a backend package handling client transactions in a high-level language such as C/C++, Rust, or TypeScript, compile it into one or more WebAssembly modules, and then deploy those modules to the Fluence network. The network then takes care of spinning up the nodes that run the deployed backend package, interacting with clients, and making sure that client transactions are processed correctly.
 
 ## Architecture
 
-Two major layers exist in the Fluence network: the real-time processing layer and the batch valida- tion layer. The former is responsible for direct interaction with clients; the latter, for computation verification. In other words, real-time processing is the speed layer and batch validation is the security layer. The network also relies on Ethereum (as a secure metadata storage and dispute resolution layer) and Swarm (as a data availability layer) 
+Two major layers exist in the Fluence network: the real-time processing layer and the batch validation layer. The former is responsible for direct interaction with clients; the latter, for computation verification. In other words, real-time processing is the speed layer and batch validation is the security layer. The network also relies on Ethereum (as a secure metadata storage and dispute resolution layer) and Swarm (as a data availability layer) 
 
 <div style="text-align:center">
 <kbd>
@@ -18,7 +18,14 @@ Two major layers exist in the Fluence network: the real-time processing layer an
 ## Components
 ### Real-time processing layer
  
-The real-time processing layer consists of multiple real-time clus- ters, which are stateful and keep locally the state required to serve client requests. Each cluster is formed by a few real-time worker nodes that are responsible for running particular backend packages and storing related state data. Workers in real-time clusters use Tendermint to reach BFT consensus and an interim metadata storage (built on top of a DHT such as Kademlia) to temporarily store consensus metadata before it is compacted and uploaded to the Ethereum blockchain.
+The real-time processing layer consists of multiple real-time clusters, which are stateful and keep locally the state required to serve client requests. Each cluster is formed by a few real-time worker nodes that are responsible for running particular backend packages and storing related state data. Workers in real-time clusters use Tendermint to reach BFT consensus and an interim metadata storage (built on top of a DHT such as Kademlia) to temporarily store consensus metadata before it is compacted and uploaded to the Ethereum blockchain.
+
+<div style="text-align:center">
+<kbd>
+<img src="../images/rt_overview.png" width="736px"/>
+</kbd>
+<br><br><br>
+</div>
 
 To deploy a backend package to the Fluence network, the developer first has to allocate a cluster to run the package. Once the package is deployed, those functions that are exposed as external can be invoked by client transactions. If the package is no longer needed, the developer is able to terminate the cluster.
 
@@ -30,9 +37,23 @@ Real-time clusters are able to promptly respond to client requests, but those re
 
 To keep real-time clusters in check, the batch validation layer separately verifies all performed computations. This layer is composed of independent batch validators, which are stateless and have to download the required data before performing verification. In order to support this, every real-time cluster is required to upload the history of received transactions and performed state transitions to Swarm. Because Tendermint organizes transactions into blocks that each carry the hash of the state obtained after the previous block execution, real-time clusters upload transactions to Swarm in blocks as well.
 
+<div style="text-align:center">
+<kbd>
+<img src="../images/validation_overview.png" width="651px"/>
+</kbd>
+<br><br><br>
+</div>
+
 Later on, batch validators replay fragments of transaction history, which are composed of one or more blocks, and challenge state transitions that they have deemed incorrect through the dispute resolution layer. If one of the state transitions is not correct, it takes only a single honest validator to challenge this and penalize the real-time cluster that performed the transition.
 
 Developers do not have any control over batch validators beyond deciding how much budget is carved out for batch validation – i.e., how many batch validations should happen for the fragment of transaction history once it is uploaded to Swarm. Furthermore, the batch validator that verifies any specific history fragment is chosen randomly out of all batch validators in the network in order to prevent possible cartels.
+
+<div style="text-align:center">
+<kbd>
+<img src="../images/rt_overview.png" width="705px"/>
+</kbd>
+<br><br><br>
+</div>
 
 Batch validators compact the transaction history and reduce Swarm space usage by uploading intermediate state snapshots to Swarm. Once a transaction history fragment has been verified a sufficient number of times, it is dropped, leaving only the corresponding snapshot.
    
