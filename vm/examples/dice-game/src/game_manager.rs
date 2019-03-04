@@ -60,7 +60,7 @@ impl GameManager {
         Ok(serde_json::to_value(response).unwrap())
     }
 
-    /// Checks bet parameters and does it.
+    /// Checks parameters of given bet and processes it.
     pub fn bet(&mut self, player_id: u64, placement: u8, bet_amount: u32) -> AppResult<Value> {
         fn check_bet(player_balance: u64, placement: u8, bet_amount: u64) -> AppResult<()> {
             if bet_amount > player_balance {
