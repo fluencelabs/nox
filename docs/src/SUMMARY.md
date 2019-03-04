@@ -3,6 +3,7 @@
 - [Introduction](introduction.md)
     - [Overview](overview/overview.md)
     - [Motivation](overview/motivation.md)
+    - [Incentive model](overview/incentive_model.md)
 - [Current state of development](whatworks.md)
 - [Quick start](quickstart/plan.md)
     - [Developing the backend app](quickstart/rust.md)

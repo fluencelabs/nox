@@ -37,6 +37,8 @@ Real-time clusters are able to promptly respond to client requests, but those re
 
 To keep real-time clusters in check, the batch validation layer separately verifies all performed computations. This layer is composed of independent batch validators, which are stateless and have to download the required data before performing verification. In order to support this, every real-time cluster is required to upload the history of received transactions and performed state transitions to Swarm. Because Tendermint organizes transactions into blocks that each carry the hash of the state obtained after the previous block execution, real-time clusters upload transactions to Swarm in blocks as well.
 
+Later on, batch validators replay fragments of transaction history, which are composed of one or more blocks, and challenge state transitions that they have deemed incorrect through the dispute resolution layer. If one of the state transitions is not correct, it takes only a single honest validator to challenge this and penalize the real-time cluster that performed the transition.
+
 <div style="text-align:center">
 <kbd>
 <img src="../images/validation_overview.png" width="651px"/>
@@ -44,9 +46,9 @@ To keep real-time clusters in check, the batch validation layer separately verif
 <br><br><br>
 </div>
 
-Later on, batch validators replay fragments of transaction history, which are composed of one or more blocks, and challenge state transitions that they have deemed incorrect through the dispute resolution layer. If one of the state transitions is not correct, it takes only a single honest validator to challenge this and penalize the real-time cluster that performed the transition.
-
 Developers do not have any control over batch validators beyond deciding how much budget is carved out for batch validation – i.e., how many batch validations should happen for the fragment of transaction history once it is uploaded to Swarm. Furthermore, the batch validator that verifies any specific history fragment is chosen randomly out of all batch validators in the network in order to prevent possible cartels.
+
+Batch validators compact the transaction history and reduce Swarm space usage by uploading intermediate state snapshots to Swarm. Once a transaction history fragment has been verified a sufficient number of times, it is dropped, leaving only the corresponding snapshot.
 
 <div style="text-align:center">
 <kbd>
@@ -55,7 +57,6 @@ Developers do not have any control over batch validators beyond deciding how muc
 <br><br><br>
 </div>
 
-Batch validators compact the transaction history and reduce Swarm space usage by uploading intermediate state snapshots to Swarm. Once a transaction history fragment has been verified a sufficient number of times, it is dropped, leaving only the corresponding snapshot.
    
    
 ### Disputes resolution layer
