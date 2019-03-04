@@ -22,7 +22,7 @@ use crate::json_parser::{
 };
 use crate::player::Player;
 
-use crate::settings::{GAMES_MAX_COUNT, PLAYERS_MAX_COUNT};
+use crate::settings::{GAMES_MAX_COUNT, PLAYERS_MAX_COUNT, USER_NAME_MAX_LEN};
 use arraydeque::{ArrayDeque, Wrapping};
 use serde_json::Value;
 use std::{cell::RefCell, collections::HashMap, ops::AddAssign, rc::Rc, rc::Weak};
@@ -95,6 +95,13 @@ impl GameManager {
 
     /// Creates a new player with given player name.
     pub fn create_player(&mut self, player_name: String) -> AppResult<Value> {
+        if player_name.len() > USER_NAME_MAX_LEN {
+            return Err(
+                format!("The user name is too long ({} bytes), the limit is {}", plaer_name.len(), USER_NAME_MAX_LEN),
+            )
+            .map_err(Into::into);
+        }
+
         let new_player = Rc::new(RefCell::new(Player::new(player_name.clone())));
         if let Some(_) = self.players_by_name.get(&player_name) {
             return Err(
