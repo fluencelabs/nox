@@ -50,7 +50,7 @@ Developers do not have any control over batch validators beyond deciding how muc
 
 <div style="text-align:center">
 <kbd>
-<img src="../images/rt_overview.png" width="705px"/>
+<img src="../images/validation_state.png" width="705px"/>
 </kbd>
 <br><br><br>
 </div>
