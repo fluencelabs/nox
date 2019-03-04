@@ -1,6 +1,3 @@
-## Fluence SDK
+## Fluence backend SDK
 
-Fluence SDK library contains frequently used functions required to integrate
-Rust code with the Fluence network VM. The library is a work in progress, please,
-contact Fluence [Gitter](https://gitter.im/fluencelabs/fluence) for support and 
-example usage. Also you can find an example of using this SDK in out [backend guide](https://github.com/fluencelabs/fluence/blob/master/docs/guides/backend.md).
+Fluence backend SDK contains frequently used functions required to run a backend application in the Fluence network. The library is a work in progress, please, contact Fluence [Gitter](https://gitter.im/fluencelabs/fluence) for support. Also you can find more information about this SDK in the [backend guide](https://fluence.network/fluence/docs/book/backend/).

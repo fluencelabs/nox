@@ -259,7 +259,8 @@ The following command will register a node:</p>
 </ul>
 </li>
 </ul>
-<p>Please refer to <a href="../backend-sdk/README.html">Fluence Rust SDK</a> to get information about developing apps with Fluence.</p>
+<p>NOTE: currently maximum <code>cluster_size</code> is limited by <code>4</code>. This is to limit resource exhaustion. To use a cluster of larger size, you can <a href="../docs/src/roles/miner.html">spin up your own nodes</a>, and ping to them via <code>--pin_to</code> flag.</p>
+<p>Please refer to <a href="../backend-sdk/README.html">Fluence Rust SDK</a> and <a href="../docs/src/quickstart/rust.html">Rust guide</a> to get information about developing apps with Fluence.</p>
 <a class="header" href="#waiting-for-an-app-to-be-deployed-or-enqueued" id="waiting-for-an-app-to-be-deployed-or-enqueued"><h4>Waiting for an app to be deployed or enqueued</h4></a>
 <p>You can pass <code>--wait</code> option to <code>publish</code> command, and CLI will wait until transaction is included in a block, and then provide you with information about app deployment status and app id.
 Deployed application:</p>
