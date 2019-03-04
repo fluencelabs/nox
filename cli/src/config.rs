@@ -39,15 +39,6 @@ pub struct SetupConfig {
     pub password: Option<String>,
 }
 
-// returns default value if value is empty and vice versa
-pub fn empty_or_default(value: String, default: String) -> String {
-    if value.is_empty() {
-        default
-    } else {
-        value
-    }
-}
-
 // returns None if string value is empty and Some if non empty
 pub fn none_if_empty(value: &str) -> Option<&str> {
     if value.is_empty() {
@@ -78,21 +69,25 @@ impl SetupConfig {
         };
     }
 
+    fn default() -> Result<SetupConfig, Error> {
+        let contract: Address = DEFAULT_CONTRACT_ADDRESS
+            .to_owned()
+            .trim_start_matches("0x")
+            .parse()?;
+        let eth_url = DEFAULT_ETH_URL.to_owned();
+        let swarm_url = DEFAULT_ETH_URL.to_owned();
+        Ok(SetupConfig::new(
+            contract, None, eth_url, swarm_url, None, None, None,
+        ))
+    }
+
     // reads config file or generates default config if file does not exist
     pub fn read_from_file_or_default(home_dir: &str) -> Result<SetupConfig, Error> {
         let path = format!("{}{}", home_dir, "cli.json");
         let path = Path::new(path.as_str());
 
         if !path.exists() {
-            let contract: Address = DEFAULT_CONTRACT_ADDRESS
-                .to_owned()
-                .trim_start_matches("0x")
-                .parse()?;
-            let eth_url = DEFAULT_ETH_URL.to_owned();
-            let swarm_url = DEFAULT_ETH_URL.to_owned();
-            Ok(SetupConfig::new(
-                contract, None, eth_url, swarm_url, None, None, None,
-            ))
+            SetupConfig::default()
         } else {
             let content = read_to_string(path)?;
             let config: SetupConfig = serde_json::from_str(content.as_str())?;
@@ -104,7 +99,7 @@ impl SetupConfig {
     pub fn write_to_file(&self, home_dir: &str) -> Result<(), Error> {
         create_dir_all(HOME_DIR)?;
         let config_str = serde_json::to_string(&self)?;
-        let path = format!("{}{}", home_dir, "cli.json");
+        let path = format!("{}cli.json", home_dir);
         println!("path: {}", path);
         let mut file = File::create(path)?;
 
