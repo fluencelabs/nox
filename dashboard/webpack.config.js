@@ -105,9 +105,12 @@ const config = {
   ].concat(production ? [
     new CleanPlugin(['build']),
     new MiniCssExtractPlugin({
-      filename: 'static/[name].css',
+      filename: 'static/[name].[chunkhash].css',
       allChunks: true,
     }),
+    new CopyWebpackPlugin([{
+      from: path.resolve(__dirname, 'src/front/static/favicons'),
+    }]),
   ] : []),
 };
 

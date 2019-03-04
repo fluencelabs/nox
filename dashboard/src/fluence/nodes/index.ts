@@ -2,6 +2,7 @@ import { Network } from '../../../types/web3-contracts/Network';
 import hexToArrayBuffer from 'hex-to-array-buffer';
 import arrayBufferToHex from 'array-buffer-to-hex';
 import axios from 'axios';
+import {AppId} from "../apps";
 
 export type NodeId = string;
 
@@ -14,8 +15,8 @@ export interface Node {
     id: string,
     tendermint_key: string,
     ip_addr: string,
-    next_port: number,
-    last_port: number,
+    api_port: number,
+    capacity: number,
     owner: string,
     is_private: boolean,
     clusters_ids: string[]
@@ -101,8 +102,8 @@ export async function getNodeIds(contract: Network): Promise<NodeId[]> {
 export async function getNode(contract: Network, id: NodeId): Promise<Node> {
     return contract.methods.getNode(id).call().then((res) => {
         let addr = decodeNodeAddress(res["0"]);
-        let nextPort = parseInt(res["1"]);
-        let lastPort = parseInt(res["2"]);
+        let apiPort = parseInt(res["1"]);
+        let capacity = parseInt(res["2"]);
         let owner = res["3"];
         let isPrivate = res["4"];
         let clusterIds = res["5"];
@@ -111,8 +112,8 @@ export async function getNode(contract: Network, id: NodeId): Promise<Node> {
             id: id,
             tendermint_key: addr.tendermint_key,
             ip_addr: addr.ip_addr,
-            next_port: nextPort,
-            last_port: lastPort,
+            api_port: apiPort,
+            capacity: capacity,
             owner: owner,
             is_private: isPrivate,
             clusters_ids: clusterIds
@@ -150,16 +151,80 @@ export function decodeNodeAddress(nodeAddress: string): NodeAddress {
     };
 }
 
-export function getStatusPort(node: Node) {
-    // todo: `+400` is a temporary solution, fix it after implementing correct port management
-    return node.last_port + 400;
-}
-
 export function getNodeStatus(node: Node): Promise<NodeInfo> {
-    let url = `http://${node.ip_addr}:${getStatusPort(node)}/status`;
+    let url = `http://${node.ip_addr}:${node.api_port}/status`;
     return axios.get(url).then((res) => {
         return <NodeInfo>{
             status: <NodeStatus>res.data,
+            nodeInfo: node,
+            causeBy: null
+        };
+    }).catch((err) => {
+        return {
+            status: null,
+            nodeInfo: node,
+            causeBy: err
+        };
+    });
+}
+
+export interface NodeAppStatusInfo {
+    status: NodeAppStatus|null,
+    nodeInfo: Node,
+    causeBy: string|null
+}
+
+export interface NodeAppStatus {
+    node_info: NodeAppStatusAppInfo;
+    sync_info: SyncInfo;
+    validator_info: ValidatorInfo;
+}
+export interface NodeAppStatusAppInfo {
+    protocol_version: ProtocolVersion;
+    id: string;
+    listen_addr: string;
+    network: string;
+    version: string;
+    channels: string;
+    moniker: string;
+    other: Other;
+}
+export interface ProtocolVersion {
+    p2p: string;
+    block: string;
+    app: string;
+}
+export interface Other {
+    tx_index: string;
+    rpc_address: string;
+}
+export interface SyncInfo {
+    latest_block_hash: string;
+    latest_app_hash: string;
+    latest_block_height: string;
+    latest_block_time: string;
+    catching_up: boolean;
+}
+export interface ValidatorInfo {
+    address: string;
+    pub_key: PubKey;
+    voting_power: string;
+}
+export interface PubKey {
+    type: string;
+    value: string;
+}
+
+/*
+* TODO: move to JsonRPC client
+*/
+export function getNodeAppStatus(node: Node, appId: AppId): Promise<NodeAppStatusInfo> {
+    let url = `http://${node.ip_addr}:${node.api_port}/apps/${appId}/status`;
+    return axios.get(url, {
+        timeout: 3000
+    }).then((res: any) => {
+        return <NodeAppStatusInfo>{
+            status: <NodeAppStatus>res.data.result,
             nodeInfo: node,
             causeBy: null
         };

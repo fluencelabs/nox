@@ -7,9 +7,9 @@ import { displayLoading,
 } from '../../actions';
 import { contractAddress } from '../../../fluence/contract';
 import {App, Node, NodeId, AppId} from '../../../fluence';
+import { cutId } from '../../../utils';
 import FluenceApp from '../fluence-app';
 import FluenceNode from '../fluence-node';
-import FluenceNodeStatus from '../fluence-node-status';
 import {Action} from "redux";
 
 import 'bootstrap/dist/css/bootstrap.css';
@@ -20,7 +20,18 @@ import 'admin-lte/dist/css/AdminLTE.css';
 import 'admin-lte/dist/css/skins/skin-blue.css';
 import './style.css';
 
-interface State {}
+export interface FluenceEntity {
+    id: NodeId|AppId
+    type: string
+}
+
+interface State {
+    appIdsLoading: boolean,
+    nodeIdsLoading: boolean,
+    appIdsVisible: boolean,
+    nodeIdsVisible: boolean,
+    currentEntity: FluenceEntity | null
+}
 
 interface Props {
     displayLoading: typeof displayLoading,
@@ -39,15 +50,33 @@ interface Props {
 }
 
 class DashboardApp extends React.Component<Props, State>{
-    state: State = {};
+    state: State = {
+        appIdsLoading: false,
+        nodeIdsLoading: false,
+        appIdsVisible: false,
+        nodeIdsVisible: false,
+        currentEntity: null,
+    };
 
     componentDidMount(): void {
 
         this.props.displayLoading();
+        this.setState({
+            appIdsLoading: true,
+            nodeIdsLoading: true,
+        });
 
         Promise.all([
-            this.props.retrieveNodeIds(),
-            this.props.retrieveAppIds(),
+            this.props.retrieveNodeIds().then(() => {
+                this.setState({
+                    nodeIdsLoading: false,
+                });
+            }),
+            this.props.retrieveAppIds().then(() => {
+                this.setState({
+                    appIdsLoading: false,
+                });
+            }),
         ]).then(() => {
             this.props.hideLoading();
         }).catch((e) => {
@@ -56,48 +85,140 @@ class DashboardApp extends React.Component<Props, State>{
         });
     }
 
-    renderApps(): React.ReactNode {
-        const nodes = this.props.appIds.map(appId => <FluenceApp appId={appId} />);
+    showApp = (e: React.MouseEvent<HTMLElement>, appId: AppId): void => {
+        e.preventDefault();
+        this.setState({
+            currentEntity: {
+                type: 'app',
+                id: appId
+            }
+        });
+    };
+
+    showAppIds = (e: React.MouseEvent<HTMLElement>): void => {
+        e.preventDefault();
+        this.setState({
+            appIdsVisible: true
+        });
+    };
+
+    hideAppIds = (e: React.MouseEvent<HTMLElement>): void => {
+        e.preventDefault();
+        this.setState({
+            appIdsVisible: false
+        });
+    };
+
+    renderAppsCount(): React.ReactNode {
         return (
-            <div>
-                <h3 className="page-header">Apps</h3>
-                {this.perRow(nodes)}
-            </div>
-        );
-    }
+            <div className="col-md-12">
+                <div className="small-box bg-fluence-blue-gradient">
+                    <div className="inner">
+                        <h3>{this.state.appIdsLoading ? '...' : this.props.appIds.length }</h3>
 
-    renderNodes(): React.ReactNode {
-        const nodes = this.props.nodeIds.map(nodeId => <FluenceNode nodeId={nodeId} />);
-        return (
-            <div>
-                <h3 className="page-header">Nodes</h3>
-                {this.perRow(nodes)}
-            </div>
-        );
-    }
-
-    renderNodesStatus(): React.ReactNode {
-        const nodes = this.props.nodeIds.map(nodeId => this.props.nodes[nodeId] && <FluenceNodeStatus node={this.props.nodes[nodeId]} />);
-        return (
-            <div>
-                <h3 className="page-header">Nodes Status</h3>
-                {this.perRow(nodes)}
-            </div>
-        );
-    }
-
-    perRow(items: React.ReactNode[]) {
-        const perRow = 3;
-        const groups = items.map((item, index) => {
-            return index % perRow === 0 ? items.slice(index, index + perRow) : null;
-        }).filter(item => item);
-
-        return groups.map(
-            (groupedItems: React.ReactNode[]) => (
-                <div className="row">
-                    {groupedItems}
+                        <p>Apps</p>
+                    </div>
+                    <div className="icon">
+                        <i className={this.state.appIdsLoading ? 'fa fa-refresh fa-spin' : 'ion ion-ios-gear-outline' }></i>
+                    </div>
+                    <a href="#" className="small-box-footer" onClick={this.showAppIds} style={{ display: this.state.appIdsLoading || this.state.appIdsVisible || this.props.appIds.length  <= 0 ? 'none' : 'block' }}>
+                        More info <i className="fa fa-arrow-circle-right"></i>
+                    </a>
+                    <a href="#" className="small-box-footer" onClick={this.hideAppIds} style={{ display: this.state.appIdsVisible ?  'block' : 'none' }}>
+                        Hide info <i className="fa fa-arrow-circle-up"></i>
+                    </a>
+                    { this.props.appIds.map(appId => (
+                        <div className="small-box-footer entity-link" onClick={(e) => this.showApp(e, appId)} style={{ display: this.state.appIdsVisible ? 'block' : 'none'}}>
+                            <div className="box-body">
+                                <strong><i className="fa fa-bullseye margin-r-5"></i> App {appId}</strong>
+                            </div>
+                        </div>
+                    )) }
                 </div>
-            )
+            </div>
+        );
+    }
+
+    showNode = (e: React.MouseEvent<HTMLElement>, nodeId: NodeId): void => {
+        e.preventDefault();
+        this.setState({
+            currentEntity: {
+                type: 'node',
+                id: nodeId
+            }
+        });
+    };
+
+    showNodeIds = (e: React.MouseEvent<HTMLElement>): void => {
+        e.preventDefault();
+        this.setState({
+            nodeIdsVisible: true
+        });
+    };
+
+    hideNodeIds = (e: React.MouseEvent<HTMLElement>): void => {
+        e.preventDefault();
+        this.setState({
+            nodeIdsVisible: false
+        });
+    };
+
+    renderNodesCount(): React.ReactNode {
+        return (
+            <div className="col-md-12">
+                <div className="small-box bg-fluence-blue-gradient">
+                    <div className="inner">
+                        <h3>{this.state.nodeIdsLoading ? '...' : this.props.nodeIds.length }</h3>
+
+                        <p>Nodes</p>
+                    </div>
+                    <div className="icon">
+                        <i className={this.state.nodeIdsLoading ? 'fa fa-refresh fa-spin' : 'ion ion-android-laptop' }></i>
+                    </div>
+                    <a href="#" className="small-box-footer" onClick={this.showNodeIds} style={{ display: this.state.nodeIdsLoading || this.state.nodeIdsVisible || this.props.nodeIds.length  <= 0 ? 'none' : 'block' }}>
+                        More info <i className="fa fa-arrow-circle-right"></i>
+                    </a>
+                    <a href="#" className="small-box-footer" onClick={this.hideNodeIds} style={{ display: this.state.nodeIdsVisible ?  'block' : 'none' }}>
+                        Hide info <i className="fa fa-arrow-circle-up"></i>
+                    </a>
+                    { this.props.nodeIds.map(nodeId => (
+                        <div className="small-box-footer entity-link" onClick={(e) => this.showNode(e, nodeId)} style={{ display: this.state.nodeIdsVisible ? 'block' : 'none'}}>
+                            <div className="box-body">
+                                <strong>
+                                    <i className="fa fa-bullseye margin-r-5"></i> Node <span title={nodeId}>{cutId(nodeId)}</span>
+                                </strong>
+                            </div>
+                        </div>
+                    )) }
+                </div>
+            </div>
+        );
+    }
+
+    renderEntity(entity: FluenceEntity|null): React.ReactNode {
+        if(entity) {
+            if (entity.type === 'app') {
+                return <FluenceApp appId={entity.id} />
+            } else if(entity.type === 'node') {
+                return <FluenceNode nodeId={entity.id} />
+            }
+        }
+
+        return (
+            <div className="col-md-4">
+                <div className="box box-primary">
+                    <div className="box-header with-border">
+                        <h3 className="box-title">Fluence Network</h3>
+                    </div>
+                    <div className="box-body">
+                        <p>Fluence is a decentralized computation platform, trustless and efficient. It could be used to set-up and access a database or to run a full-scale application backend.</p>
+                        <p>Fluence Network is a work in progress, currently in a state of Devnet. We strongly advise against using the Devnet for anything than testing and education purposes.</p>
+                        <p>If you've got any questions or need help with your setup, please, feel free to ask <a href="https://discord.gg/AjfbDKQ" target="_blank">on Discord</a>!</p>
+                        <p>Fluence Network documentation can be found <a href="https://fluence.network/fluence/docs/book/introduction.html" target="_blank">here</a>.</p>
+                        <p>Main Fluence <a href="https://github.com/fluencelabs/fluence" target="_blank">repository on GitHub</a></p>
+                    </div>
+                </div>
+            </div>
         );
     }
 
@@ -105,11 +226,18 @@ class DashboardApp extends React.Component<Props, State>{
         return (
             <div className="wrapper">
                 <header className="main-header">
-                    <nav className="navbar navbar-static-top">
+                    <nav className="navbar navbar-static-top navbar-fluence-background">
+
+                        <a href="/" className="logo">
+                            <span className="logo-lg">Fluence network dashboard</span>
+                        </a>
 
                         <div className="navbar-custom-menu">
                             <ul className="nav navbar-nav">
-                                <li style={{ display: this.props.loading ? 'block' : 'none' }}>
+                                <li>
+                                    <span className="fluence-contract-address">Network contract: <a href={'https://rinkeby.etherscan.io/address/' + contractAddress} title={contractAddress} target="_blank">{cutId(contractAddress)}</a></span>
+                                </li>
+                                <li style={{ visibility: this.props.loading ? 'visible' : 'hidden' }}>
                                     <a href="#"><i className="fa fa-refresh fa-spin"></i></a>
                                 </li>
                             </ul>
@@ -119,21 +247,26 @@ class DashboardApp extends React.Component<Props, State>{
 
                 <div className="content-wrapper">
                     <section className="content-header">
-                        <h1>
-                            Fluence network status
-                            <small>contract: {contractAddress}</small>
-                        </h1>
+                        <h1>Network status</h1>
                     </section>
 
                     <section className="content">
-                        { this.renderApps() }
-                        { this.renderNodes() }
-                        { this.renderNodesStatus() }
+                        <div className="row">
+                            <div className="col-lg-3 col-xs-6">
+                                <div className="row">
+                                    { this.renderAppsCount() }
+                                </div>
+                                <div className="row">
+                                    { this.renderNodesCount() }
+                                </div>
+                            </div>
+                            { this.renderEntity(this.state.currentEntity) }
+                        </div>
                     </section>
                 </div>
 
                 <footer className="main-footer">
-                    <strong><a href="https://fluence.one">Fluence Labs</a></strong>
+                    <strong><a href="http://fluence.network/">Fluence Labs</a></strong>
                 </footer>
             </div>
         );
