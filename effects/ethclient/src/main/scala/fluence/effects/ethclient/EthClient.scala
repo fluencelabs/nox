@@ -230,11 +230,13 @@ object EthClient extends LazyLogging {
     url: Option[String] = None,
     includeRaw: Boolean = false,
     checkSyncPeriod: FiniteDuration = 3.seconds
-  ): Resource[F, EthClient] =
-    makeResource(new HttpService(url.getOrElse(HttpService.DEFAULT_URL), createOkHttpClient, includeRaw)).evalMap {
-      client ⇒
-        client.waitEthSyncing(checkSyncPeriod).map(_ ⇒ client)
+  ): Resource[F, EthClient] = {
+    val ethUrl = url.getOrElse(HttpService.DEFAULT_URL)
+    logger.info(s"Starting ethereum client on: $ethUrl")
+    makeResource(new HttpService(ethUrl, createOkHttpClient, includeRaw)).evalMap { client ⇒
+      client.waitEthSyncing(checkSyncPeriod).map(_ ⇒ client)
     }
+  }
 
   /**
    * Make a cats-effect's [[Resource]] for an [[EthClient]], encapsulating its acquire and release lifecycle steps.

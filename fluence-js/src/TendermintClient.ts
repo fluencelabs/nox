@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-import {none, Option, Some} from "ts-option";
+import {none, Option, some, Some} from "ts-option";
 import {fromHex} from "./utils";
-import  * as debug from "debug";
+import * as debug from "debug";
 import {RpcClient} from "./RpcClient";
+import {QueryResponse, error, Result} from "./Result";
+import {toByteArray} from "base64-js";
 
 const d = debug("tendermintClient");
 
@@ -69,20 +71,35 @@ export class TendermintClient {
      *
      * @returns `none` if there is no value, and `some` with parsed from hex value otherwise.
      */
-    async abciQuery(path: string): Promise<Option<any>> {
+    async abciQuery(path: string): Promise<Option<Result>> {
         d("abciQuery request");
 
-        let response: any = (await this.client.abciQuery(path)).data.result.response;
+        let response: QueryResponse = (await this.client.abciQuery(path)).data.result.response;
 
-        if (response.value) {
-            let resultRaw = atob(response.value);
-
-            let result = JSON.parse(resultRaw);
-            return new Some(result);
-        } else {
-            return none;
+        switch (response.code) {
+            case undefined:
+            case 0: {
+                try {
+                    return some(new Result(toByteArray(response.value)));
+                } catch (e) {
+                    throw error("error on parsing value from response: " + JSON.stringify(response) + " err: " + e);
+                }
+            }
+            case 1: {
+                throw error(`Cannot parse headers on path ${path}: ${response.info}`);
+            }
+            case 2: {
+                throw error(`Request with path '${path}' is dropped: ${response.info}`);
+            }
+            case 3:
+            case 4: {
+                console.log(`Response is in pending state or not found: : ${response.info}`);
+                return none;
+            }
+            default: {
+                throw error(`unknown code ${response.code} response: ${JSON.stringify(response)}`);
+            }
         }
-
     }
 }
 
