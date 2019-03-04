@@ -59,7 +59,7 @@ Batch validators compact the transaction history and reduce Swarm space usage by
 
    
    
-### Disputes resolution layer
+### Dispute resolution layer
  
 We have already mentioned that batch validators are able to dispute state transitions. This ability is not exclusive to batch validators: a real-time worker can submit a dispute if it disagrees with another real-time worker on how the state should be updated. However, such disputes normally arise only between workers that belong to the same cluster – other real-time workers simply do not carry the required state.
 
