@@ -21,9 +21,13 @@
 //! This module is implemented as a logging facade for crate [`log`]. To enable this module in
 //! your project please specify `wasm_logger` feature of `fluence_sdk`.
 //!
-//! Note that this module works only for the Wasm environment and Fluence WasmVm. Don't use it for
-//! other targets and Vms. Also by default this module is disabled in WasmVm and should be used only
-//! for debugging purposes.
+//! Note that this module works only for the Wasm environment and Fluence `WasmVm` - by specifying
+//! this feature it is possible to compile application for the `wasm32-unknown-unknown` target.
+//! (please refer to the first example to find out a way to avoid it).
+//!
+//! The logging ability is disabled in `WasmVm` by default so this feature should be used only for
+//! debugging purposes. Please refer to [`backend app debugging`] section of the Fluence book to find
+//! more information about it.
 //!
 //! # Examples
 //!
@@ -70,6 +74,7 @@
 //! [`simple_logger`]: https://docs.rs/simple_logger
 //! [`static_lazy`]: https://docs.rs/lazy_static
 //! [`lazy_static::initialize()`]: https://docs.rs/lazy_static/1.2.0/lazy_static/fn.initialize.html
+//! [`backend app debugging`]: https://fluence.network/fluence/docs/book/backend/app_debugging.html
 
 extern crate log;
 

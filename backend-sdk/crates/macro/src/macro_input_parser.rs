@@ -149,6 +149,8 @@ impl InputTypeGenerator for ParsedType {
         match self {
             ParsedType::Utf8String => quote! {
                 let arg = memory::read_input_from_mem(ptr, len);
+                // unwrap is possible here since after compilation by Asmble it transforms to
+                // exception that will than catched.
                 let arg = String::from_utf8(arg).unwrap();
             },
             ParsedType::ByteVector => quote! {

@@ -1,10 +1,10 @@
 # Fluence backend SDK overview
 
-Fluence SDK consists of two crates: `main` and `macro`. The first one is used for all memory relative operations and logging (please see [app debugging](./app_debugging.md) section for more information). The second one contains a procedural macro to simplify the entry function's signature. These crates can be used separately but the more preferred way is using the global `fluence` crate that reexport all others. In `Rust 2018 edition` it can be done by simply adding `use fluence::sdk::*` to the source.
+Fluence backend SDK consists of two crates: `main` and `macro`. The first one is used for all memory relative operations and logging (please find more information in [app debugging](./app_debugging.md) section). The second one contains a procedural macro to simplify the entry function's signature. These crates can be used separately but the more preferred way is using the global `fluence` crate that reexports all others. In `Rust 2018 edition` it can be done by simply adding `use fluence::sdk::*` to the source.
 
 ## Writing app without SDK
 
-For a start, lets review how a simple `hello-world` `app` is made without Fluence SDK on pure Rust. From [fluence backend conventions](app_conventions.md) it follows that each `app` must have a `main` module with three export functions. Keeping in mind restrictions to their signatures, a basic structure of `main` module can look like that:
+For a start, let's review how a simple `hello-world` `app` is made without Fluence backend SDK on pure Rust. From [fluence backend conventions](app_conventions.md) it follows that each `app` must have a `main` module with three export functions. Keeping in mind restrictions to their signatures, a basic structure of a `main` module can look like that:
 
  ```Rust
  #[no_mangle]
@@ -23,9 +23,9 @@ For a start, lets review how a simple `hello-world` `app` is made without Fluenc
  }
  ```
 
-Note that `#[no_mangle]` and `pub unsafe` parts of function signature manage function to be exported from a Wasm module (more information can be found in this [discussion](https://internals.rust-lang.org/t/precise-semantics-of-no-mangle/4098)).
+Note that `#[no_mangle]` and `pub unsafe` parts of function signature manage function to be exported from a Wasm module (for more information please refer to this [discussion](https://internals.rust-lang.org/t/precise-semantics-of-no-mangle/4098)).
  
-The `hello-world` example without SDK from [quick start](../quickstart/rust.md) can be implemented like this:
+The `hello-world` example without SDK from the [quick start](../quickstart/rust.md) can be implemented like this:
  
 ```Rust
 #![feature(allocator_api)]
@@ -96,7 +96,7 @@ The full working code of this example can be found [here](https://github.com/flu
 
 ## Fluence SDK usage
 
-From the example above it can be seen that `allocate` and `deallocate` functions serve only utility purpose and are normally used only by VM wrapper. These functions aren't any that most of developers would want to implement in their `app`. Fluence backend SDK provides `fluence::memory::alloc` and `fluence::memory::dealloc` functions also based on [GlobalAlloc](https://doc.rust-lang.org/beta/std/alloc/trait.GlobalAlloc.html). They exported by default after including the sdk and can be disabled by specifying the `no_export_allocator` feature of the sdk.
+From the example above it can be seen that `allocate` and `deallocate` functions serve only utility purpose and are normally used only by the `VM wrapper`. These functions aren't any that most of the developers would want to implement in their `app`. Fluence backend SDK provides `fluence::memory::alloc` and `fluence::memory::dealloc` functions also based on [GlobalAlloc](https://doc.rust-lang.org/beta/std/alloc/trait.GlobalAlloc.html). They exported by default after including the sdk and can be disabled by including it with `fluence = {default-features = false}`.
 
 The `invoke` function can be also simplified by using the Fluence backend SDK that provides `fluence::memory::write_result_to_mem` and `fluence::memory::read_input_from_mem_` in this way:
 
@@ -114,7 +114,7 @@ pub unsafe fn invoke(_ptr: *mut u8, _len: usize) -> usize {
 
 ### Invocation handler to the rescue
 
-The example above can be simplified a little bit more using procedural macros `invocation_handler` as `hello-world` example mentioned in [quick start](TODO) example:
+The example above can be simplified a little bit more using procedural macros `invocation_handler` as the `hello-world` example mentioned in [quick start](TODO) example:
  
 ```Rust
 use fluence::sdk::*;
@@ -125,7 +125,7 @@ fn greeting(name: String) -> String {
 }
 ```
 
-Internally this macros creates a new function `invoke` that converts a raw argument to appropriate format, calls `f` and then converts its result via `memory::write_result_to_mem` from `fluence_sdk_main`. The following listing shows how this macros is expanded:
+Internally this macro creates a new function `invoke` that converts a raw argument to the appropriate format, calls `f` and then converts its result via `memory::write_result_to_mem` from `fluence_sdk_main`. The following listing shows how this macro is expanded:
  
 ```Rust
 use fluence::sdk::*;

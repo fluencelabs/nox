@@ -1,34 +1,32 @@
 [package]
 name = "fluence"
-version = "0.0.12"  # remember to update html_root_url
-description = "Rust SDK for writing applications for Fluence"
+version = "0.0.13"  # remember to update html_root_url
+description = "Fluence backend SDK for developing backend applications for the Fluence network"
 documentation = "https://docs.rs/fluence/"
-repository = "https://github.com/fluencelabs/fluence/tree/master/sdk/rust"
+repository = "https://github.com/fluencelabs/fluence/tree/master/backend-sdk"
 authors = ["Fluence Labs"]
-readme = "readme.md"
+readme = "Readme.md"
 keywords = ["fluence", "sdk", "webassembly"]
 categories = ["api-bindings", "wasm"]
 license = "Apache-2.0"
 maintenance = { status = "actively-developed" }
 
 [package.metadata.docs.rs] # https://docs.rs/about
-features = ["wasm_logger"]
-all_features = false
-no_default_features = false
+all_features = true
 
 [lib]
 path = "src/lib.rs"
 
 [dependencies]
-fluence-sdk-macro = { path = "crates/macro", version = "=0.0.12" }
-fluence-sdk-main = { path = "crates/main", version = "=0.0.12" }
+fluence-sdk-macro = { path = "crates/macro", version = "=0.0.13" }
+fluence-sdk-main = { path = "crates/main", version = "=0.0.13" }
 
 [features]
-# Turn on a compilation for module contains Wasm logger realization.
+# Turn on a compilation for the module that contains Wasm logger realization.
 wasm_logger = ["fluence-sdk-main/wasm_logger"]
 
-# Turn off a compilation for module contains standart implementation of allocate/deallocate functions.
-no_export_allocator = ["fluence-sdk-main/no_export_allocator"]
+# Turn on a compilation for the module that contains the standard implementation of allocate/deallocate functions.
+export_allocator = ["fluence-sdk-main/export_allocator"]
 
 [workspace]
 members = [
