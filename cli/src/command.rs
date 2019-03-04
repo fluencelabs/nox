@@ -15,11 +15,11 @@
  */
 
 use crate::config::SetupConfig;
-use crate::credentials::Credentials;
 use crate::credentials;
+use crate::credentials::Credentials;
+use crate::ethereum_params::EthereumParams;
 use crate::utils;
 use crate::utils::parse_hex;
-use crate::ethereum_params::EthereumParams;
 use clap::value_t;
 use clap::Arg;
 use clap::ArgMatches;
@@ -46,8 +46,6 @@ pub const NODE_IP: &str = "node_ip";
 pub const TENDERMINT_KEY: &str = "tendermint_key";
 
 pub const TO_GWEI_MUL: u64 = 1_000_000_000;
-
-
 
 #[derive(Debug, Clone)]
 pub struct EthereumArgs {

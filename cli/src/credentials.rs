@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-use ethkey::Secret;
 use ethkey::Password;
-use failure::ResultExt;
-use failure::{Error, err_msg};
+use ethkey::Secret;
 use ethstore::accounts_dir::{DiskKeyFileManager, KeyFileManager};
 use ethstore::SafeAccount;
+use failure::ResultExt;
+use failure::{err_msg, Error};
 use std::fs::File;
 
 /// Authorization to call contract methods

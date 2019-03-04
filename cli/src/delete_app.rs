@@ -21,7 +21,6 @@ use web3::transports::Http;
 use web3::types::H256;
 
 use crate::command;
-use crate::ethereum_params::EthereumParams;
 use crate::config::SetupConfig;
 use crate::contract_func::call_contract;
 use crate::contract_func::contract::events::app_deleted;
@@ -30,6 +29,7 @@ use crate::contract_func::contract::functions::delete_app;
 use crate::contract_func::contract::functions::dequeue_app;
 use crate::contract_func::wait_sync;
 use crate::contract_func::{get_transaction_logs, wait_tx_included};
+use crate::ethereum_params::EthereumParams;
 use crate::step_counter::StepCounter;
 use crate::utils;
 use ethabi::RawLog;

@@ -27,13 +27,13 @@ use reqwest::Client;
 use web3::transports::Http;
 use web3::types::H256;
 
-use crate::ethereum_params::EthereumParams;
 use crate::command::{parse_ethereum_args, with_ethereum_args};
 use crate::config::SetupConfig;
 use crate::contract_func::contract::events::app_deployed::parse_log as parse_deployed;
 use crate::contract_func::contract::events::app_enqueued::parse_log as parse_enqueued;
 use crate::contract_func::contract::functions::add_app;
 use crate::contract_func::{call_contract, get_transaction_logs_raw, wait_tx_included};
+use crate::ethereum_params::EthereumParams;
 use crate::step_counter::StepCounter;
 use crate::utils;
 

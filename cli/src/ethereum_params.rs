@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-use crate::config::SetupConfig;
-use crate::credentials::Credentials;
-use crate::credentials;
 use crate::command::EthereumArgs;
+use crate::config::SetupConfig;
+use crate::credentials;
+use crate::credentials::Credentials;
 use ethkey::Secret;
 use failure::err_msg;
 use failure::Error;

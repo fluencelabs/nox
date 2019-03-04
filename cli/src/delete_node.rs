@@ -21,8 +21,8 @@ use web3::types::H256;
 use crate::contract_func::contract::events::node_deleted;
 
 use crate::command::*;
-use crate::ethereum_params::EthereumParams;
 use crate::contract_func::call_contract;
+use crate::ethereum_params::EthereumParams;
 use crate::step_counter::StepCounter;
 use crate::utils;
 use failure::{err_msg, Error, SyncFailure};

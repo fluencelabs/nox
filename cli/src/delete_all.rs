@@ -19,13 +19,13 @@ use clap::{App, AppSettings, SubCommand};
 use web3::transports::Http;
 
 use crate::command;
-use crate::ethereum_params::EthereumParams;
 use crate::config::SetupConfig;
 use crate::contract_func::call_contract;
 use crate::contract_func::contract::functions::delete_app;
 use crate::contract_func::contract::functions::delete_node;
 use crate::contract_func::contract::functions::dequeue_app;
 use crate::contract_status::status;
+use crate::ethereum_params::EthereumParams;
 use failure::{Error, SyncFailure};
 use web3::futures::Future;
 

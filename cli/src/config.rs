@@ -28,7 +28,6 @@ pub const DEFAULT_CONTRACT_ADDRESS: &str = include_str!("../../tools/deploy/scri
 pub const DEFAULT_ETH_URL: &str = "http://data.fluence.ai:8545/";
 pub const DEFAULT_SWARM_URL: &str = "http://data.fluence.ai:8500/";
 
-
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SetupConfig {
     pub contract_address: Address,
