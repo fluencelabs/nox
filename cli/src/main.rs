@@ -146,7 +146,7 @@ fn main() -> Result<(), ExitFailure> {
         }
 
         ("setup", _) => {
-            setup::interactive_setup().context("Error making setup of Fluence CLI")?;
+            setup::interactive_setup(config).context("Error making setup of Fluence CLI")?;
 
             println!("Setup completed.");
         }

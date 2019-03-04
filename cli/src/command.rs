@@ -69,11 +69,17 @@ impl EthereumParams {
 
         let creds = args.credentials.clone();
         let creds = match creds {
-            Credentials::No => load_credentials(config.keystore_path.clone(), config.password.clone(), secret_key)?,
+            Credentials::No => load_credentials(
+                config.keystore_path.clone(),
+                config.password.clone(),
+                secret_key,
+            )?,
             other => other,
         };
 
-        let contract_address = args.contract_address.unwrap_or(config.contract_address.clone());
+        let contract_address = args
+            .contract_address
+            .unwrap_or(config.contract_address.clone());
 
         let account = args
             .account
