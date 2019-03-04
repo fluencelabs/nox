@@ -13,163 +13,118 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use crate::json_parser::{Request, Response};
 use crate::main;
 
 // TODO: add more tests
 
 #[test]
-fn x_tile_win() {
-    let create_player = create_player_json("John".to_owned(), "so_secret_key".to_owned());
+fn correct_bets() {
+    let response = Response::Join { player_id: 0 };
     assert_eq!(
-        main(create_player),
-        r#"{"player_name":"John","result":"A new player has been successfully created"}"#
+        main(create_join_request()),
+        serde_json::to_string(&response).unwrap()
     );
 
-    let create_game = create_game_json("John".to_owned(), "so_secret_key".to_owned(), 'X');
+    let response = Response::Join { player_id: 1 };
     assert_eq!(
-        main(create_game),
-        r#"{"player_name":"John","result":"A new game has been successfully created"}"#
+        main(create_join_request()),
+        serde_json::to_string(&response).unwrap()
     );
 
-    let player_move = create_move_json("John".to_owned(), "so_secret_key".to_owned(), 0, 0);
+    let response = Response::Bet {
+        outcome: 6,
+        player_balance: 85,
+    };
     assert_eq!(
-        main(player_move),
-        r#"{"coords":[0,1],"player_name":"John","winner":"None"}"#
+        main(create_bet_json(0, 1, 15)),
+        serde_json::to_string(&response).unwrap()
     );
 
-    let player_move = create_move_json("John".to_owned(), "so_secret_key".to_owned(), 1, 0);
+    let response = Response::Bet {
+        outcome: 4,
+        player_balance: 85,
+    };
     assert_eq!(
-        main(player_move),
-        r#"{"coords":[0,2],"player_name":"John","winner":"None"}"#
+        main(create_bet_json(1, 1, 15)),
+        serde_json::to_string(&response).unwrap()
     );
 
-    let player_move = create_move_json("John".to_owned(), "so_secret_key".to_owned(), 2, 0);
-    assert_eq!(main(player_move), r#"{"coords":[18446744073709551615,18446744073709551615],"player_name":"John","winner":"X"}"#);
-
-    let get_state = get_state_json("John".to_owned(), "so_secret_key".to_owned());
+    let response = Response::Bet {
+        outcome: 6,
+        player_balance: 510,
+    };
     assert_eq!(
-        main(get_state),
-        r#"{"board":["X","O","O","X","_","_","X","_","_"],"player_name":"John","player_tile":"X"}"#
+        main(create_bet_json(0, 6, 85)),
+        serde_json::to_string(&response).unwrap()
+    );
+
+    let response = Response::Bet {
+        outcome: 2,
+        player_balance: 0,
+    };
+    assert_eq!(
+        main(create_bet_json(1, 1, 85)),
+        serde_json::to_string(&response).unwrap()
+    );
+
+    let response = Response::GetBalance {
+        player_balance: 510,
+    };
+    assert_eq!(
+        main(create_get_balance_json(0)),
+        serde_json::to_string(&response).unwrap()
     );
 }
 
 #[test]
-fn o_tile_win() {
-    let create_player = create_player_json("John2".to_owned(), "so_secret_key2".to_owned());
+fn incorrect_bets() {
+    let response = Response::Join { player_id: 0 };
     assert_eq!(
-        main(create_player),
-        r#"{"player_name":"John2","result":"A new player has been successfully created"}"#
+        main(create_join_request()),
+        serde_json::to_string(&response).unwrap()
     );
 
-    let create_game = create_game_json("John2".to_owned(), "so_secret_key2".to_owned(), 'O');
+    let response = Response::Error {
+        message: "Incorrect placement, please choose number from 1 to 6".to_string(),
+    };
     assert_eq!(
-        main(create_game),
-        r#"{"coords":[0,0],"player_name":"John2","winner":"None"}"#
+        main(create_bet_json(0, 7, 15)),
+        serde_json::to_string(&response).unwrap()
     );
 
-    let player_move = create_move_json("John2".to_owned(), "so_secret_key2".to_owned(), 0, 2);
+    let response = Response::Error {
+        message: "Player with id 1 wasn\'t found".to_string(),
+    };
     assert_eq!(
-        main(player_move),
-        r#"{"coords":[0,1],"player_name":"John2","winner":"None"}"#
+        main(create_bet_json(1, 1, 0)),
+        serde_json::to_string(&response).unwrap()
     );
 
-    let player_move = create_move_json("John2".to_owned(), "so_secret_key2".to_owned(), 1, 2);
+    let response = Response::Error {
+        message: "Player hasn\'t enough money: player\'s current balance is 100 while the bet is 4294967295".to_string()
+    };
     assert_eq!(
-        main(player_move),
-        r#"{"coords":[1,0],"player_name":"John2","winner":"None"}"#
+        main(create_bet_json(0, 6, std::u32::MAX)),
+        serde_json::to_string(&response).unwrap()
     );
-
-    let player_move = create_move_json("John2".to_owned(), "so_secret_key2".to_owned(), 2, 2);
-    assert_eq!(
-        main(player_move),
-        r#"{"coords":[1,1],"player_name":"John2","winner":"None"}"#
-    );
-
-    let get_state = get_state_json("John2".to_owned(), "so_secret_key2".to_owned());
-    assert_eq!(main(get_state), r#"{"board":["X","X","O","X","X","O","_","_","O"],"player_name":"John2","player_tile":"O"}"#);
 }
 
-#[test]
-fn app_win() {
-    let create_player = create_player_json("John3".to_owned(), "so_secret_key3".to_owned());
-    assert_eq!(
-        main(create_player),
-        r#"{"player_name":"John3","result":"A new player has been successfully created"}"#
-    );
-
-    let create_game = create_game_json("John3".to_owned(), "so_secret_key3".to_owned(), 'O');
-    assert_eq!(
-        main(create_game),
-        r#"{"coords":[0,0],"player_name":"John3","winner":"None"}"#
-    );
-
-    let player_move = create_move_json("John3".to_owned(), "so_secret_key3".to_owned(), 2, 0);
-    assert_eq!(
-        main(player_move),
-        r#"{"coords":[0,1],"player_name":"John3","winner":"None"}"#
-    );
-
-    let player_move = create_move_json("John3".to_owned(), "so_secret_key3".to_owned(), 2, 1);
-    assert_eq!(
-        main(player_move),
-        r#"{"coords":[0,2],"player_name":"John3","winner":"X"}"#
-    );
-
-    let player_move = create_move_json("John3".to_owned(), "so_secret_key3".to_owned(), 2, 2);
-    assert_eq!(
-        main(player_move),
-        r#"{"error":"Player X has already won this game"}"#
-    );
-
-    let get_state = get_state_json("John3".to_owned(), "so_secret_key3".to_owned());
-    assert_eq!(main(get_state), r#"{"board":["X","X","X","_","_","_","O","O","_"],"player_name":"John3","player_tile":"O"}"#);
+fn create_join_request() -> String {
+    let request = Request::Join;
+    serde_json::to_value(request).unwrap().to_string()
 }
 
-fn create_move_json(player_name: String, player_sign: String, x: usize, y: usize) -> String {
-    generate_json(
-        "move".to_owned(),
-        player_name,
-        player_sign,
-        format!(r#", "coords": [{}, {}]"#, x, y),
-    )
+fn create_bet_json(player_id: u64, placement: u8, bet_amount: u32) -> String {
+    let request = Request::Bet {
+        player_id,
+        placement,
+        bet_amount,
+    };
+    serde_json::to_value(request).unwrap().to_string()
 }
 
-fn create_player_json(player_name: String, player_sign: String) -> String {
-    generate_json(
-        "create_player".to_owned(),
-        player_name,
-        player_sign,
-        "".to_owned(),
-    )
-}
-
-fn create_game_json(player_name: String, player_sign: String, tile: char) -> String {
-    generate_json(
-        "create_game".to_owned(),
-        player_name,
-        player_sign,
-        format!(r#", "tile": "{}""#, tile),
-    )
-}
-
-fn get_state_json(player_name: String, player_sign: String) -> String {
-    generate_json(
-        "get_game_state".to_owned(),
-        player_name,
-        player_sign,
-        "".to_owned(),
-    )
-}
-
-fn generate_json(
-    action: String,
-    player_name: String,
-    player_sign: String,
-    additional_fields: String,
-) -> String {
-    // TODO: move to json! macro
-    format!(
-        r#"{{ "action": "{}", "player_name": "{}", "player_sign": "{}" {} }}"#,
-        action, player_name, player_sign, additional_fields
-    )
+fn create_get_balance_json(player_id: u64) -> String {
+    let request = Request::GetBalance { player_id };
+    serde_json::to_value(request).unwrap().to_string()
 }

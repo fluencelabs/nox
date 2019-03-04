@@ -23,10 +23,10 @@ mod json_parser;
 
 use crate::error_type::AppResult;
 use crate::game_manager::GameManager;
-use crate::json_parser::*;
+use crate::json_parser::{Request, Response};
 
 use fluence::sdk::*;
-use serde_json::{json, Value};
+use serde_json::Value;
 use std::cell::RefCell;
 
 mod settings {
@@ -34,8 +34,8 @@ mod settings {
     pub const SEED: u64 = 12345678;
     // the account balance of new players
     pub const INIT_ACCOUNT_BALANCE: u64 = 100;
-    // if win, player receives PAYOUT_RATE*bet money
-    pub const PAYOUT_RATE: u32 = 5;
+    // if win, player receives bet_amount * PAYOUT_RATE money
+    pub const PAYOUT_RATE: u64 = 5;
 }
 
 thread_local! {
@@ -43,32 +43,20 @@ thread_local! {
 }
 
 fn do_request(req: String) -> AppResult<Value> {
-    let raw_request: Value = serde_json::from_str(req.as_str())?;
-    let request: Request = serde_json::from_value(raw_request.clone())?;
+    let request: Request = serde_json::from_str(req.as_str())?;
 
-    match request.action.as_str() {
-        "join" => GAME_MANAGER.with(|gm| gm.borrow_mut().join()),
+    match request {
+        Request::Join => GAME_MANAGER.with(|gm| gm.borrow_mut().join()),
 
-        "bet" => {
-            let bet_request: BetRequest = serde_json::from_value(raw_request)?;
-            GAME_MANAGER.with(|gm| {
-                gm.borrow_mut().bet(
-                    bet_request.player_id,
-                    bet_request.placement,
-                    bet_request.bet_amount,
-                )
-            })
+        Request::Bet {
+            player_id,
+            placement,
+            bet_amount,
+        } => GAME_MANAGER.with(|gm| gm.borrow_mut().bet(player_id, placement, bet_amount)),
+
+        Request::GetBalance { player_id } => {
+            GAME_MANAGER.with(|gm| gm.borrow_mut().get_player_balance(player_id))
         }
-
-        "get_account_state" => {
-            let get_balance_request: GetBalanceRequest = serde_json::from_value(raw_request)?;
-            GAME_MANAGER.with(|gm| {
-                gm.borrow_mut()
-                    .get_player_balance(get_balance_request.player_id)
-            })
-        }
-
-        _ => Err(format!("{} action key is unsupported", request.action)).map_err(Into::into),
     }
 }
 
@@ -76,9 +64,11 @@ fn do_request(req: String) -> AppResult<Value> {
 fn main(req: String) -> String {
     match do_request(req) {
         Ok(req) => req.to_string(),
-        Err(err) => json!({
-            "error": err.to_string()
-        })
-        .to_string(),
+        Err(err) => {
+            let response = Response::Error {
+                message: err.to_string(),
+            };
+            serde_json::to_string(&response).unwrap()
+        }
     }
 }

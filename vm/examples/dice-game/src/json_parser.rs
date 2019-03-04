@@ -18,38 +18,28 @@ use serde::{Deserialize, Serialize};
 
 /*
   join -> {id}
-  bet {id, money, result} -> {outcome, player_balance}
-  get_account_state {id} -> {account_state}
+  bet {id, placement, bet_amount} -> {outcome, player_balance}
+  get_balance {id} -> {player_balance}
 */
 #[derive(Serialize, Deserialize)]
-pub struct Request {
-    pub action: String,
+#[serde(tag = "action")]
+pub enum Request {
+    Join,
+    Bet {
+        player_id: u64,
+        placement: u8,
+        bet_amount: u32,
+    },
+    GetBalance {
+        player_id: u64,
+    },
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct BetRequest {
-    pub player_id: u64,
-    pub placement: u8,
-    pub bet_amount: u32,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct GetBalanceRequest {
-    pub player_id: u64,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct JoinResponse {
-    pub player_id: u64,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct BetResponse {
-    pub outcome: u8,
-    pub player_balance: u64,
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct GetBalanceResponse {
-    pub player_balance: u64,
+#[serde(untagged)]
+pub enum Response {
+    Join { player_id: u64 },
+    Bet { outcome: u8, player_balance: u64 },
+    GetBalance { player_balance: u64 },
+    Error { message: String },
 }
