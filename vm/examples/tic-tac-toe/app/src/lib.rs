@@ -34,7 +34,8 @@ use std::cell::RefCell;
 mod settings {
     pub const PLAYERS_MAX_COUNT: usize = 1024;
     pub const GAMES_MAX_COUNT: usize = 1024;
-    pub const USER_NAME_MAX_LEN = 1024;
+    // to prevent DoS attack with large strings
+    pub const USER_NAME_MAX_LEN: usize = 1024;
 }
 
 thread_local! {
