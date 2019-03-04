@@ -20,6 +20,8 @@ use console::style;
 
 use exitfailure::ExitFailure;
 use failure::{err_msg, ResultExt};
+use fluence::config::SetupConfig;
+use fluence::config::HOME_DIR;
 use fluence::publisher::Published;
 use fluence::register::Registered;
 use fluence::utils;
@@ -31,6 +33,8 @@ use web3::types::H256;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() -> Result<(), ExitFailure> {
+    let config = SetupConfig::read_from_file(HOME_DIR)?;
+
     let app = App::new("Fluence CLI")
         .global_setting(AppSettings::UnifiedHelpMessage)
         .setting(AppSettings::SubcommandRequiredElseHelp)
@@ -48,7 +52,7 @@ fn main() -> Result<(), ExitFailure> {
 
     match app.get_matches().subcommand() {
         ("publish", Some(args)) => {
-            let publisher = publisher::parse(args).context("Error parsing arguments")?;
+            let publisher = publisher::parse(args, config).context("Error parsing arguments")?;
             let published = publisher
                 .publish(true)
                 .context("Error sending transaction")?;
@@ -67,7 +71,7 @@ fn main() -> Result<(), ExitFailure> {
         }
 
         ("register", Some(args)) => {
-            let register = register::parse(args).context("Error parsing arguments")?;
+            let register = register::parse(args, config).context("Error parsing arguments")?;
             let registered = register
                 .register(true)
                 .context("Error sending transaction")?;
@@ -100,8 +104,8 @@ fn main() -> Result<(), ExitFailure> {
         }
 
         ("status", Some(args)) => {
-            let status =
-                contract_status::get_status_by_args(args).context("Error retrieving status")?;
+            let status = contract_status::get_status_by_args(args, config)
+                .context("Error retrieving status")?;
 
             if let Some(status) = status {
                 let json = serde_json::to_string_pretty(&status)
@@ -114,7 +118,7 @@ fn main() -> Result<(), ExitFailure> {
         ("check", Some(args)) => check::process(args)?,
 
         ("delete_app", Some(args)) => {
-            let delete_app = delete_app::parse(args).context("Error parsing arguments")?;
+            let delete_app = delete_app::parse(args, config).context("Error parsing arguments")?;
             let tx: H256 = delete_app
                 .delete_app(true)
                 .context("Error sending transaction")?;
@@ -123,7 +127,8 @@ fn main() -> Result<(), ExitFailure> {
         }
 
         ("delete_node", Some(args)) => {
-            let delete_node = delete_node::parse(args).context("Error parsing arguments")?;
+            let delete_node =
+                delete_node::parse(args, config).context("Error parsing arguments")?;
             let tx: H256 = delete_node
                 .delete_node(true)
                 .context("Error sending transaction")?;
@@ -132,7 +137,7 @@ fn main() -> Result<(), ExitFailure> {
         }
 
         ("delete_all", Some(args)) => {
-            let delete_all = delete_all::parse(args).context("Error parsing arguments")?;
+            let delete_all = delete_all::parse(args, config).context("Error parsing arguments")?;
             delete_all
                 .delete_all()
                 .context("Error sending transaction")?;
@@ -145,7 +150,6 @@ fn main() -> Result<(), ExitFailure> {
 
             println!("Setup completed.");
         }
-
 
         c => Err(err_msg(format!("Unexpected command: {}", c.0)))?,
     }

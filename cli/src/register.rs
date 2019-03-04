@@ -24,6 +24,7 @@ use hex;
 use web3::types::H256;
 
 use crate::command::*;
+use crate::config::SetupConfig;
 use crate::contract_func::contract::events::app_deployed::parse_log as parse_deployed;
 use crate::contract_func::contract::functions::add_node;
 use crate::contract_func::{call_contract, get_transaction_logs, wait_sync, wait_tx_included};
@@ -48,7 +49,7 @@ pub struct Register {
     capacity: u16,
     private: bool,
     no_status_check: bool,
-    eth: EthereumArgs,
+    eth: EthereumParams,
 }
 
 #[derive(PartialEq, Debug)]
@@ -73,7 +74,7 @@ impl Register {
         capacity: u16,
         private: bool,
         no_status_check: bool,
-        eth: EthereumArgs,
+        eth: EthereumParams,
     ) -> Result<Register, Error> {
         Ok(Register {
             node_ip: node_address,
@@ -250,7 +251,7 @@ impl Register {
     }
 }
 
-pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
+pub fn parse(args: &ArgMatches, config: SetupConfig) -> Result<Register, Error> {
     let tendermint_key: H256 = parse_tendermint_key(args)?;
 
     let tendermint_node_id: H160 = parse_tendermint_node_id(args)?;
@@ -261,7 +262,7 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
     let private: bool = args.is_present(PRIVATE);
     let no_status_check: bool = args.is_present(NO_STATUS_CHECK);
 
-    let eth = parse_ethereum_args(args)?;
+    let eth = parse_ethereum_args(args, config)?;
 
     let node_address = parse_node_ip(&args)?;
 

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use crate::command::EthereumArgs;
 use ethabi_contract::use_contract;
 use ethcore_transaction::{Action, Transaction};
 use ethkey::Secret;
@@ -26,6 +25,7 @@ use web3::Web3;
 
 use failure::{err_msg, Error, ResultExt, SyncFailure};
 
+use crate::command::EthereumParams;
 use crate::credentials::Credentials;
 use crate::utils;
 use ethabi::RawLog;
@@ -36,7 +36,7 @@ use_contract!(contract, "../bootstrap/contracts/compiled/Network.abi");
 /// Calls contract method and returns hash of the transaction
 pub fn call_contract(
     web3: &Web3<Http>,
-    eth: &EthereumArgs,
+    eth: &EthereumParams,
     call_data: ethabi::Bytes,
     nonce: Option<U256>,
 ) -> Result<H256, Error> {
@@ -56,7 +56,7 @@ fn call_contract_local_sign(
     web3: &Web3<Http>,
     secret: &Secret,
     call_data: ethabi::Bytes,
-    eth: &EthereumArgs,
+    eth: &EthereumParams,
     nonce: Option<U256>,
 ) -> Result<H256, Error> {
     let nonce = nonce.unwrap_or(
@@ -91,7 +91,7 @@ fn call_contract_trusted_node(
     web3: &Web3<Http>,
     password: Option<&str>,
     call_data: ethabi::Bytes,
-    eth: &EthereumArgs,
+    eth: &EthereumParams,
     nonce: Option<U256>,
 ) -> Result<H256, Error> {
     let options = utils::options();

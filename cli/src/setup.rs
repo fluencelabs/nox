@@ -1,57 +1,44 @@
-use crate::config::CliConfig;
+use crate::config::empty_or_default;
+use crate::config::none_if_empty;
+use crate::config::SetupConfig;
+use crate::config::DEFAULT_CONTRACT_ADDRESS;
+use crate::config::DEFAULT_ETH_URL;
+use crate::config::DEFAULT_SWARM_URL;
 use crate::config::HOME_DIR;
-use clap::{value_t, App, AppSettings, Arg, ArgMatches, SubCommand};
-use ethkey::Secret;
+use crate::utils::parse_hex;
+use clap::{App, AppSettings, SubCommand};
 use failure::Error;
-use rustyline::error::ReadlineError;
 use rustyline::Editor;
-use crate::utils::parse_h256;
 use web3::types::Address;
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use serde_json;
-
-fn empty_or_default(value: String, default: String) -> String {
-    if (value.is_empty()) {
-        default
-    } else {
-        value
-    }
-}
-
-fn none_if_empty(value: &str) -> Option<&str> {
-    if (value.is_empty()) {
-        None
-    } else {
-        Some(value)
-    }
-}
 
 pub fn interactive_setup() -> Result<(), Error> {
     let mut rl = Editor::<()>::new();
     println!("write your contract address...");
     let contract_address = rl.readline("> ")?;
-    let contract_address: Address = contract_address.as_str().trim_left_matches("0x").parse()?;
-    println!("your contract address is: {}", contract_address);
+    let contract_address: Address =
+        empty_or_default(contract_address, DEFAULT_CONTRACT_ADDRESS.to_owned())
+            .trim_start_matches("0x")
+            .parse()?;
+    println!("your contract address is: {:?}", contract_address);
 
     println!("write ethereum address or press enter for default");
     let ethereum_address = rl.readline("> ")?;
-    let ethereum_address =
-        empty_or_default(ethereum_address, "http://data.fluence.ai:8545/".to_owned());
+    let ethereum_address = empty_or_default(ethereum_address, DEFAULT_ETH_URL.to_owned());
     println!("your ethereum address is: {}", ethereum_address);
 
     println!("write swarm address or press enter for default");
     let swarm_address = rl.readline("> ")?;
-    let swarm_address = empty_or_default(swarm_address, "http://data.fluence.ai:8500/".to_owned());
+    let swarm_address = empty_or_default(swarm_address, DEFAULT_SWARM_URL.to_owned());
     println!("your swarm address is: {}", swarm_address);
 
     println!("write your account address...");
     let account_address = rl.readline("> ")?;
-    let account_address: Address = account_address.as_str().trim_left_matches("0x").parse()?;
-    println!("your account address is: {}", account_address);
+    let account_address = parse_hex(none_if_empty(account_address.as_str()))?;
+    println!("your account address is: {:?}", account_address);
 
     println!("write your secret key, press Enter if empty");
     let secret_key = rl.readline("> ")?;
-    let secret_key = parse_h256(none_if_empty(secret_key.as_str()))?;
+    let secret_key = parse_hex(none_if_empty(secret_key.as_str()))?;
     println!("your secret key is: {:?}", secret_key);
 
     println!("write your path to keystore file, press Enter if empty");
@@ -64,7 +51,7 @@ pub fn interactive_setup() -> Result<(), Error> {
     let password = none_if_empty(password.as_str());
     println!("your password is: {:?}", password);
 
-    let config = CliConfig::new(
+    let config = SetupConfig::new(
         contract_address,
         account_address,
         ethereum_address,

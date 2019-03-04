@@ -124,8 +124,13 @@ pub fn options() -> Options {
 }
 
 // Gets the value of option `key` and removes '0x' prefix
-pub fn parse_hex_opt(args: &ArgMatches, key: &str) -> Result<String, Error> {
+pub fn parse_hex_string(args: &ArgMatches, key: &str) -> Result<String, Error> {
     Ok(value_t!(args, key, String).map(|v| v.trim_start_matches("0x").to_string())?)
+}
+
+pub fn parse_hex_opt(args: &ArgMatches, key: &str) -> Option<String> {
+    args.value_of(key)
+        .map(|v| v.trim_start_matches("0x").to_string())
 }
 
 pub fn parse_secret_key(secret_key: Option<&str>) -> Result<Option<Secret>, Error> {
@@ -135,11 +140,14 @@ pub fn parse_secret_key(secret_key: Option<&str>) -> Result<Option<Secret>, Erro
         .context("Error parsing secret key")?)
 }
 
-pub fn parse_h256(hex: Option<&str>) -> Result<Option<H256>, Error> {
-    Ok(hex
-        .map(|s| s.trim_start_matches("0x").parse::<H256>())
-        .map_or(Ok(None), |r| r.map(Some).into()) // Option<Result> -> Result<Option>
-        .context("Error parsing hex")?)
+pub fn parse_hex<E, T>(hex: Option<&str>) -> Result<Option<T>, E>
+where
+    T: FromStr<Err = E>,
+{
+    Ok(
+        hex.map(|s| s.trim_start_matches("0x").parse::<T>())
+            .map_or(Ok(None), |r| r.map(Some).into())?, // Option<Result> -> Result<Option>
+    )
 }
 
 pub fn get_opt<E, T>(args: &ArgMatches, key: &str) -> Result<Option<T>, E>

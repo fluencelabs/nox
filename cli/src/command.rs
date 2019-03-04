@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
+use crate::config::SetupConfig;
 use crate::credentials::Credentials;
 use crate::utils;
+use crate::utils::parse_hex;
 use clap::value_t;
 use clap::Arg;
 use clap::ArgMatches;
@@ -50,7 +52,7 @@ pub const TENDERMINT_KEY: &str = "tendermint_key";
 pub const TO_GWEI_MUL: u64 = 1_000_000_000;
 
 #[derive(Debug, Clone)]
-pub struct EthereumArgs {
+pub struct EthereumParams {
     pub credentials: Credentials,
     pub gas: u32,
     pub gas_price: u64,
@@ -61,12 +63,55 @@ pub struct EthereumArgs {
     pub wait_eth_sync: bool,
 }
 
+impl EthereumParams {
+    pub fn generate(args: &EthereumArgs, config: &SetupConfig) -> Result<EthereumParams, Error> {
+        let secret_key = config.secret_key.map(|s| Secret::from(s));
+
+        let creds = args.credentials.clone();
+        let creds = match creds {
+            Credentials::No => load_credentials(config.keystore_path.clone(), config.password.clone(), secret_key)?,
+            other => other,
+        };
+
+        let contract_address = args.contract_address.unwrap_or(config.contract_address.clone());
+
+        let account = args
+            .account
+            .or_else(|| config.account)
+            .ok_or_else(|| err_msg("Specify account address in config or in argument"))?;
+
+        let eth_url = args.eth_url.clone().unwrap_or(config.eth_url.clone());
+
+        Ok(EthereumParams {
+            credentials: creds,
+            gas: args.gas,
+            gas_price: args.gas_price,
+            account: account,
+            contract_address: contract_address,
+            eth_url: eth_url,
+            wait_tx_include: args.wait_tx_include,
+            wait_eth_sync: args.wait_eth_sync,
+        })
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct EthereumArgs {
+    pub credentials: Credentials,
+    pub gas: u32,
+    pub gas_price: u64,
+    pub account: Option<Address>,
+    pub contract_address: Option<Address>,
+    pub eth_url: Option<String>,
+    pub wait_tx_include: bool,
+    pub wait_eth_sync: bool,
+}
+
 pub fn contract_address<'a, 'b>() -> Arg<'a, 'b> {
     Arg::with_name(CONTRACT_ADDRESS)
         .long(CONTRACT_ADDRESS)
         .short("d")
         .value_name("eth address")
-        .default_value(include_str!("../../tools/deploy/scripts/contract.txt").trim())
         .takes_value(true)
         .help("Fluence contract address")
 }
@@ -79,7 +124,6 @@ pub fn eth_url<'a, 'b>() -> Arg<'a, 'b> {
         .required(false)
         .takes_value(true)
         .help("Http address to ethereum node")
-        .default_value("http://localhost:8545/")
 }
 
 pub fn tendermint_key<'a, 'b>() -> Arg<'a, 'b> {
@@ -189,14 +233,12 @@ pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
     eth_args
 }
 
-pub fn parse_contract_address(args: &ArgMatches) -> Result<Address, Error> {
-    Ok(utils::parse_hex_opt(args, CONTRACT_ADDRESS)?
-        .parse::<Address>()
-        .context("Error parsing contract address")?)
+pub fn parse_contract_address(args: &ArgMatches) -> Result<Option<Address>, Error> {
+    Ok(parse_hex(args.value_of(CONTRACT_ADDRESS))?)
 }
 
-pub fn parse_eth_url(args: &ArgMatches) -> Result<String, clap::Error> {
-    value_t!(args, ETH_URL, String)
+pub fn parse_eth_url(args: &ArgMatches) -> Option<String> {
+    args.value_of(ETH_URL).map(|s| s.to_owned())
 }
 
 fn load_keystore(path: String, password: String) -> Result<Secret, Error> {
@@ -230,7 +272,10 @@ fn load_credentials(
     }
 }
 
-pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Error> {
+pub fn parse_ethereum_args(
+    args: &ArgMatches,
+    config: SetupConfig,
+) -> Result<EthereumParams, Error> {
     let secret_key = utils::parse_secret_key(args.value_of(SECRET_KEY))?;
     let password = args.value_of(PASSWORD).map(|s| s.to_string());
     let keystore = args.value_of(KEYSTORE).map(|s| s.to_string());
@@ -241,18 +286,16 @@ pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Error> {
     let gas_price = value_t!(args, GAS_PRICE, u64)?;
     // TODO: it could panic here on overflow
     let gas_price = gas_price * TO_GWEI_MUL;
-    let account: Address = utils::parse_hex_opt(args, ACCOUNT)?
-        .parse::<Address>()
-        .context("Error parsing account address")?;
+    let account: Option<Address> = utils::parse_hex(args.value_of(ACCOUNT))?;
 
-    let contract_address: Address = parse_contract_address(args)?;
+    let contract_address: Option<Address> = parse_contract_address(args)?;
 
-    let eth_url = parse_eth_url(args)?;
+    let eth_url = parse_eth_url(args);
 
     let wait = args.is_present(WAIT);
     let wait_syncing = args.is_present(WAIT_SYNCING);
 
-    return Ok(EthereumArgs {
+    let eth_args = EthereumArgs {
         credentials,
         gas,
         gas_price,
@@ -261,11 +304,13 @@ pub fn parse_ethereum_args(args: &ArgMatches) -> Result<EthereumArgs, Error> {
         eth_url,
         wait_tx_include: wait,
         wait_eth_sync: wait_syncing,
-    });
+    };
+
+    Ok(EthereumParams::generate(&eth_args, &config)?)
 }
 
 pub fn parse_tendermint_key(args: &ArgMatches) -> Result<H256, Error> {
-    let tendermint_key = utils::parse_hex_opt(args, TENDERMINT_KEY)
+    let tendermint_key = utils::parse_hex_string(args, TENDERMINT_KEY)
         .context("error parsing tendermint key")?
         .to_owned();
     let base64 = args.is_present(BASE64_TENDERMINT_KEY);
@@ -305,9 +350,9 @@ impl Default for EthereumArgs {
             credentials: Credentials::No,
             gas: 1_000_000,
             gas_price: 1_000_000_000,
-            account: "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d".parse().unwrap(),
-            contract_address: "9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap(),
-            eth_url: String::from("http://localhost:8545"),
+            account: Some("4180FC65D613bA7E1a385181a219F1DBfE7Bf11d".parse().unwrap()),
+            contract_address: Some("9995882876ae612bfd829498ccd73dd962ec950a".parse().unwrap()),
+            eth_url: Some(String::from("http://localhost:8545")),
             wait_tx_include: false,
             wait_eth_sync: false,
         }
@@ -318,7 +363,7 @@ impl EthereumArgs {
     pub fn with_acc_creds(account: Address, credentials: Credentials) -> EthereumArgs {
         let mut args = EthereumArgs::default();
         args.credentials = credentials;
-        args.account = account;
+        args.account = Some(account);
         args
     }
 }

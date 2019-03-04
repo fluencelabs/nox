@@ -27,7 +27,9 @@ use reqwest::Client;
 use web3::transports::Http;
 use web3::types::H256;
 
-use crate::command::{parse_ethereum_args, with_ethereum_args, EthereumArgs};
+use crate::command::EthereumParams;
+use crate::command::{parse_ethereum_args, with_ethereum_args};
+use crate::config::SetupConfig;
 use crate::contract_func::contract::events::app_deployed::parse_log as parse_deployed;
 use crate::contract_func::contract::events::app_enqueued::parse_log as parse_enqueued;
 use crate::contract_func::contract::functions::add_app;
@@ -48,7 +50,7 @@ pub struct Publisher {
     swarm_url: String,
     cluster_size: u8,
     pin_to_nodes: Vec<H256>,
-    eth: EthereumArgs,
+    eth: EthereumParams,
 }
 
 #[derive(Debug)]
@@ -74,7 +76,7 @@ impl Publisher {
         swarm_url: String,
         cluster_size: u8,
         pin_to_nodes: Vec<H256>,
-        eth: EthereumArgs,
+        eth: EthereumParams,
     ) -> Publisher {
         Publisher {
             bytes,
@@ -207,7 +209,7 @@ fn parse_pinned(args: &ArgMatches) -> Result<Vec<H256>, Error> {
 }
 
 /// Creates `Publisher` from arguments
-pub fn parse(matches: &ArgMatches) -> Result<Publisher, Error> {
+pub fn parse(matches: &ArgMatches, config: SetupConfig) -> Result<Publisher, Error> {
     let path = value_t!(matches, CODE_PATH, String)?; //TODO use is_file from clap_validators
     let mut file = File::open(path).context("can't open WASM file")?;
     let mut buf = Vec::new();
@@ -215,7 +217,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Error> {
 
     let swarm_url = value_t!(matches, SWARM_URL, String)?;
     let cluster_size = value_t!(matches, CLUSTER_SIZE, u8)?;
-    let eth = parse_ethereum_args(matches)?;
+    let eth = parse_ethereum_args(matches, config)?;
 
     let pin_to_nodes = parse_pinned(matches)?;
     if pin_to_nodes.len() > 0 && pin_to_nodes.len() > (cluster_size as usize) {
