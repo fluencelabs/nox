@@ -237,7 +237,7 @@ pub fn parse(matches: &ArgMatches, config: SetupConfig) -> Result<Publisher, Err
 
     Ok(Publisher::new(
         buf.to_owned(),
-        swarm_url,
+        swarm_url.clone().to_owned(),
         cluster_size,
         pin_to_nodes,
         eth,

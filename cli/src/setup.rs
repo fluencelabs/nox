@@ -26,61 +26,39 @@ use web3::types::Address;
 pub fn interactive_setup(config: SetupConfig) -> Result<(), Error> {
     let mut rl = Editor::<()>::new();
 
-    println!(
-        "default contract address will be: {:?}",
-        config.contract_address
-    );
-    println!("write contract address or press Enter for a default value:");
-    let contract_address = rl.readline("> ")?;
-    let contract_address = parse_hex(none_if_empty(contract_address.as_str()))?;
+    let contract_address_prompt = format!("Contract Address [{:?}]:", config.contract_address);
+    let contract_address = rl.readline(&contract_address_prompt)?;
+    let contract_address = parse_hex(none_if_empty(&contract_address))?;
     let contract_address: Address = contract_address.unwrap_or(config.contract_address);
-    println!("contract address is: {:?}", contract_address);
 
-    println!("default ethereum node url will be: {:?}", config.eth_url);
-    println!("write ethereum node url or press Enter for a default value");
-    let ethereum_address = rl.readline("> ")?;
-    let ethereum_address = none_if_empty(ethereum_address.as_str())
-        .unwrap_or(config.eth_url.as_str())
+    let ethereum_url_prompt = format!("Ethereum Node Url [{:?}]:", config.eth_url);
+    let ethereum_address = rl.readline(&ethereum_url_prompt)?;
+    let ethereum_address = none_if_empty(&ethereum_address)
+        .unwrap_or(&config.eth_url)
         .to_owned();
-    println!("ethereum node url is: {:?}", ethereum_address);
 
-    println!("default swarm node url will be: {:?}", config.eth_url);
-    println!("write swarm node url or press Enter for a default value");
-    let swarm_address = rl.readline("> ")?;
-    let swarm_address = none_if_empty(swarm_address.as_str())
-        .unwrap_or(config.swarm_url.as_str())
+    let swarm_url_prompt = format!("Swarm Node Url [{:?}]:", config.swarm_url);
+    let swarm_address = rl.readline(&swarm_url_prompt)?;
+    let swarm_address = none_if_empty(&swarm_address)
+        .unwrap_or(&config.swarm_url)
         .to_owned();
-    println!("swarm node url is: {:?}", swarm_address);
 
-    println!("default account address will be: {:?}", config.account);
-    println!("write account address or press Enter for a default value");
-    let account_address = rl.readline("> ")?;
-    let account_address: Option<Address> = parse_hex(none_if_empty(account_address.as_str()))?;
+    let account_address_prompt = format!("Account Address [{:?}]:", config.account);
+    let account_address = rl.readline(&account_address_prompt)?;
+    let account_address: Option<Address> = parse_hex(none_if_empty(&account_address))?;
     let account_address = account_address.or_else(|| config.account);
-    println!("account address is: {:?}", account_address);
 
-    println!("default secret key will be: {:?}", config.secret_key);
-    println!("write secret key or press Enter for a default value");
-    let secret_key = rl.readline("> ")?;
-    let secret_key = parse_hex(none_if_empty(secret_key.as_str()))?;
-    println!("secret key is: {:?}", secret_key);
+    let secret_key_prompt = format!("Secret Key [{:?}]:", config.secret_key);
+    let secret_key = rl.readline(&secret_key_prompt)?;
+    let secret_key = parse_hex(none_if_empty(&secret_key))?;
 
-    println!(
-        "default path to keystore will be: {:?}",
-        config.keystore_path
-    );
-    println!("write path to keystore file or press Enter for a default value");
-    let keystore_path = rl.readline("> ")?;
-    let keystore_path = none_if_empty(keystore_path.as_str());
-    println!("keystore path is: {:?}", keystore_path);
+    let keystore_path_prompt = format!("Keystore Path [{:?}]:", config.keystore_path);
+    let keystore_path = rl.readline(&keystore_path_prompt)?;
+    let keystore_path = none_if_empty(&keystore_path);
 
-    println!(
-        "default password for keystore will be: {:?}",
-        config.password
-    );
-    println!("write password for keystore file or press Enter for a default value");
-    let password = rl.readline("> ")?;
-    let password = none_if_empty(password.as_str());
+    let password_prompt = format!("Password [{:?}]:", config.password);
+    let password = rl.readline(&password_prompt)?;
+    let password = none_if_empty(&password);
     println!("password is: {:?}", password);
 
     let config = SetupConfig::new(

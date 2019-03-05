@@ -77,7 +77,7 @@ impl SetupConfig {
             .trim_start_matches("0x")
             .parse()?;
         let eth_url = DEFAULT_ETH_URL.to_owned();
-        let swarm_url = DEFAULT_ETH_URL.to_owned();
+        let swarm_url = DEFAULT_SWARM_URL.to_owned();
         Ok(SetupConfig::new(
             contract, None, eth_url, swarm_url, None, None, None,
         ))
