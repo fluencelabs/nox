@@ -29,13 +29,13 @@ use web3::types::H256;
 
 use fluence::command::EthereumArgs;
 use fluence::config::SetupConfig;
-use fluence::ethereum_params::EthereumParams;
 use fluence::contract_func::get_transaction_logs;
 use fluence::contract_status::get_status;
 use fluence::contract_status::status::Status;
 use fluence::delete_all::DeleteAll;
 use fluence::delete_app::DeleteApp;
 use fluence::delete_node::DeleteNode;
+use fluence::ethereum_params::EthereumParams;
 use fluence::publisher::Published;
 use fluence::publisher::Publisher;
 use fluence::register::Register;
