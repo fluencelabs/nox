@@ -21,15 +21,23 @@ use crate::utils::parse_hex;
 use clap::{App, AppSettings, SubCommand};
 use failure::Error;
 use rustyline::Editor;
-use web3::types::Address;
 
 pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
     let mut rl = Editor::<()>::new();
 
     let contract_address_prompt = format!("Contract Address [{:?}]:", config.contract_address);
-    let contract_address = rl.readline(&contract_address_prompt)?;
-    let contract_address = parse_hex(none_if_empty(&contract_address))?;
-    let contract_address: Address = contract_address.unwrap_or(config.contract_address);
+    let contract_address = loop {
+        let contract_address = rl.readline(&contract_address_prompt)?;
+        let contract_address = parse_hex(none_if_empty(&contract_address));
+        match contract_address {
+            Ok(r) =>
+                break r.unwrap_or(config.contract_address),
+            Err(e) => {
+                println!("error occured {}", e);
+                println!("try again");
+            },
+        }
+    };
 
     let ethereum_url_prompt = format!("Ethereum Node Url [{}]: ", config.eth_url);
     let ethereum_address = rl.readline(&ethereum_url_prompt)?;
@@ -44,13 +52,30 @@ pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
         .to_owned();
 
     let account_address_prompt = format!("Account Address [{:?}]: ", config.account);
-    let account_address = rl.readline(&account_address_prompt)?;
-    let account_address: Option<Address> = parse_hex(none_if_empty(&account_address))?;
-    let account_address = account_address.or_else(|| config.account);
+    let account_address = loop {
+        let account_address = rl.readline(&account_address_prompt)?;
+        match parse_hex(none_if_empty(&account_address)) {
+            Ok(r) =>
+                break r.or_else(|| config.account),
+            Err(e) => {
+                println!("error occured {}", e);
+                println!("try again");
+            },
+        }
+    };
 
     let secret_key_prompt = format!("Secret Key [{:?}]: ", config.secret_key);
-    let secret_key = rl.readline(&secret_key_prompt)?;
-    let secret_key = parse_hex(none_if_empty(&secret_key))?;
+    let secret_key = loop {
+        let secret_key = rl.readline(&secret_key_prompt)?;
+        match parse_hex(none_if_empty(&secret_key)) {
+            Ok(r) =>
+                break r.or_else(|| config.secret_key),
+            Err(e) => {
+                println!("error occured {}", e);
+                println!("try again");
+            },
+        };
+    };
 
     let keystore_path_prompt = format!("Keystore Path [{:?}]: ", config.keystore_path);
     let keystore_path = rl.readline(&keystore_path_prompt)?;
