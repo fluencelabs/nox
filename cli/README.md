@@ -25,7 +25,7 @@ Fluence CLI is an automation tool for tasks of app management (deployment and de
 
 ## Requirements
 
-CLI assumes running Ethereum and Swarm on `http://localhost:8545/` and `http://localhost:8500/` respectively. Use `--eth_url` and `--swarm_url` to specify actual addresses as you need.
+CLI assumes running Ethereum and Swarm on `http://data.fluence.one:8545/` and `http://data.fluence:8500/` respectively. Use `--eth_url` and `--swarm_url` to specify actual addresses as you need.
 
 Please note, that your Ethereum account should have sufficient funds for issuing transactions to smart-contract. It's only for transaction fees, Fluence itself doesn't currently charge miners or developers. That could change in the future, for example when miners' deposits are implemented.
 
@@ -48,6 +48,21 @@ To look at all possible arguments and options use `./fluence --help`:
 You can use `./fluence [SUBCOMMAND] --help` to learn how to use commands.
 
 ## Usage examples
+### Setup CLI
+Use `setup` command to enter main arguments into a config file. It will allow not to use common arguments in every command. 
+```bash
+./fluence setup
+```
+Contract address, Ethereum, and Swarm node addresses have defaults, but account address and credentials (secret key or Ethereum keystore and password) should be filled for correct transaction sending.
+Arguments description and examples:
+- `0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7` is a contract address, register transaction will be sent there
+- `http://data.fluence.one:8545` is an URL to Ethereum node
+- `http://data.fluence.one:8500` is an URL to Swarm node
+- `0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d` will be used as Ethereum account for issuing transactions. _Use your Ethereum account here_
+- `0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133` denotes an Ethereum private key, used for offline transaction signing. _Use your Ethereum private key here_
+- it is possible to use keystore file and password instead of secret key
+
+All arguments could be overridden by flags in commands.
 ### Register a node
 To provide your computation resources to Fluence network, you need to register your computer within smart-contract. The simplest way to do that is through CLI.
 The following command will register a node:
@@ -56,9 +71,7 @@ The following command will register a node:
             --node_ip               85.82.118.4 \
             --tendermint_key        1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
             --tendermint_node_id    5e4eedba85fda7451356a03caffb0716e599679b \            
-            --account               0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
             --base64_tendermint_key \
-            --secret_key            0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
             --wait_syncing \
             --api_port              25000 \
             --capacity              10
@@ -71,10 +84,6 @@ Parameters are:
     - currently, Tendermint key can be found in logs of `fluencelabs/node` Docker container
     - note that key should be unique, i.e. you can't register several nodes with the same key
 - Tendermint p2p node ID `5e4eedba85fda7451356a03caffb0716e599679b` is needed to securely connect nodes in Tendermint cluster
-- `0x9995882876ae612bfd829498ccd73dd962ec950a` is a contract address, register transaction will be sent there
-- `0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d` will be used as Ethereum account for issuing transactions. _Use your Ethereum account here_
-- `--secret_key 0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133` denotes an Ethereum private key, used for offline transaction signing. _Use your Ethereum private key here_
-    - using `--password` is possible instead of private key, but private key is preferred
 - `--wait_syncing` so CLI waits until Ethereum node is fully synced
 - `--api_port 25000` specifies the main port of the Fluence node, so other nodes and users know where to connect 
 - `--capacity 10` limits number of apps that could be run on the node by 10 
@@ -86,10 +95,8 @@ To deploy your app on Fluence network, you must upload it to Swarm and publish h
 The following command will publish app `counter.wasm`.
 ```
 ./fluence publish \
-            --code_path        fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm \            
-            --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
+            --code_path        fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm \                        
             --cluster_size     4 \
-            --secret_key       0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133 \
             --pin_to           1GVDICzgrw1qahPfSbwCfYw0zrw91OMZ46QoKvJMjjM= \
             --base64
 ```
@@ -134,13 +141,11 @@ App enqueued.
 ### Delete an app
 If you want to delete your app from smart contract, you can use `delete_app` command.
 
-The following will delete app with id `0x0000000000000000000000000000000000000000000000000000000000000002`. App id could be retrieved either from status (see below) or from smart-contract.
+The following will delete app with id `2`. App id could be retrieved either from status (see below) or from smart-contract.
 
 ```
-./fluence delete_app \            
-            --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
-            --app_id           0x0000000000000000000000000000000000000000000000000000000000000002 \
-            --secret_key       4d5db4107d237df6a3d58ee5f70ae63d73d7658d4026f2eefd2f204c81682cb7 \
+./fluence delete_app \
+            --app_id           2 \
             --deployed
 ```
 
@@ -159,7 +164,7 @@ The results will be in JSON and should resemble the following
 {
   "apps": [
     {
-      "app_id": "0x0000000000000000000000000000000000000000000000000000000000000001",
+      "app_id": "1",
       "storage_hash": "0xeb2a623210c080d0702cc520b790151861601c46d90179a6e8efe6bda8ac5477",
       "storage_receipt": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "cluster_size": 5,
@@ -168,7 +173,7 @@ The results will be in JSON and should resemble the following
       "cluster": null
     },
     {
-      "app_id": "0x0000000000000000000000000000000000000000000000000000000000000005",
+      "app_id": "5",
       "storage_hash": "0xeb2a623210c080d0702cc520b790151861601c46d90179a6e8efe6bda8ac5477",
       "storage_receipt": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "cluster_size": 5,
@@ -256,7 +261,7 @@ There is a flag `--contract_address` to use all commands to interact with non-de
 ```bash
 ./fluence <command>
             ...
-            --contract_address 0x9995882876ae612bfd829498ccd73dd962ec950a \
+            --contract_address 0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7 \
             ...
 ``` 
 
@@ -312,7 +317,7 @@ For example, with `delete_app`
 ```bash
 ./fluence delete_app \            
             --account          0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d \
-            --app_id           0x0000000000000000000000000000000000000000000000000000000000000002 \
+            --app_id           2 \
             --keystore         ~/Library/Ethereum/keystore/UTC--2017-03-03T13-24-07.826187674Z--4e6cf0ed2d8bbf1fbbc9f2a100602ceba4bf1319 \
             --password         my_secure_passw0rd \
             --deployed

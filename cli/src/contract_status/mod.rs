@@ -20,11 +20,12 @@ pub mod ui;
 
 use self::status::Status;
 use crate::command::*;
+use crate::config::SetupConfig;
 use crate::contract_status::app::{App, Node};
 use crate::contract_status::ui::rich_status;
 use crate::utils;
 use clap::Arg;
-use clap::{App as ClapApp, ArgMatches, SubCommand, _clap_count_exprs, arg_enum};
+use clap::{App as ClapApp, ArgMatches, SubCommand, _clap_count_exprs, arg_enum, AppSettings};
 use console::style;
 use failure::{err_msg, Error, ResultExt, SyncFailure};
 use lazy_static::lazy_static;
@@ -227,6 +228,7 @@ pub fn subcommand<'a, 'b>() -> ClapApp<'a, 'b> {
     SubCommand::with_name("status")
         .about("Show state of the Fluence network as seen by the smart-contract")
         .after_help(AFTER_HELP.as_str())
+        .setting(AppSettings::ArgRequiredElseHelp)
         .args(&[
             contract_address().display_order(0),
             eth_url().display_order(1),
@@ -273,10 +275,14 @@ pub fn subcommand<'a, 'b>() -> ClapApp<'a, 'b> {
 }
 
 /// Gets status about Fluence contract from ethereum blockchain.
-pub fn get_status_by_args(args: &ArgMatches) -> Result<Option<Status>, Error> {
-    let eth_url = parse_eth_url(args)?;
+pub fn get_status_by_args(
+    args: &ArgMatches,
+    config: &SetupConfig,
+) -> Result<Option<Status>, Error> {
+    let eth_url = parse_eth_url(args).unwrap_or(config.eth_url.clone());
 
-    let contract_address: Address = parse_contract_address(args)?;
+    let contract_address: Option<Address> = parse_contract_address(args)?;
+    let contract_address = contract_address.unwrap_or(config.contract_address.clone());
 
     let filter = StatusFilter::from_args(args)?;
 

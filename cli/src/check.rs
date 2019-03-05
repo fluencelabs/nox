@@ -16,7 +16,7 @@
 
 use std::collections::HashMap;
 
-use clap::{App, Arg, ArgMatches, SubCommand};
+use clap::{App, AppSettings, Arg, ArgMatches, SubCommand};
 use console::style;
 use parity_wasm::elements::Error as ParityError;
 use parity_wasm::elements::Module;
@@ -72,6 +72,7 @@ pub fn process(args: &ArgMatches) -> Result<(), Error> {
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("check")
         .about("Verifies wasm file, issue warning for using functions from banned modules.")
+        .setting(AppSettings::ArgRequiredElseHelp)
         .args(&[Arg::with_name(INPUT_ARG)
             .required(true)
             .takes_value(true)

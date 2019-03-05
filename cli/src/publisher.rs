@@ -20,18 +20,20 @@ use std::io::prelude::*;
 use failure::{err_msg, Error, ResultExt, SyncFailure};
 
 use clap::ArgMatches;
-use clap::{value_t, App, Arg, SubCommand};
+use clap::{value_t, App, AppSettings, Arg, SubCommand};
 use derive_getters::Getters;
 use ethabi::RawLog;
 use reqwest::Client;
 use web3::transports::Http;
 use web3::types::H256;
 
-use crate::command::{parse_ethereum_args, with_ethereum_args, EthereumArgs};
+use crate::command::{parse_ethereum_args, with_ethereum_args};
+use crate::config::SetupConfig;
 use crate::contract_func::contract::events::app_deployed::parse_log as parse_deployed;
 use crate::contract_func::contract::events::app_enqueued::parse_log as parse_enqueued;
 use crate::contract_func::contract::functions::add_app;
 use crate::contract_func::{call_contract, get_transaction_logs_raw, wait_tx_included};
+use crate::ethereum_params::EthereumParams;
 use crate::step_counter::StepCounter;
 use crate::utils;
 
@@ -48,7 +50,7 @@ pub struct Publisher {
     swarm_url: String,
     cluster_size: u8,
     pin_to_nodes: Vec<H256>,
-    eth: EthereumArgs,
+    eth: EthereumParams,
 }
 
 #[derive(Debug)]
@@ -74,7 +76,7 @@ impl Publisher {
         swarm_url: String,
         cluster_size: u8,
         pin_to_nodes: Vec<H256>,
-        eth: EthereumArgs,
+        eth: EthereumParams,
     ) -> Publisher {
         Publisher {
             bytes,
@@ -207,15 +209,17 @@ fn parse_pinned(args: &ArgMatches) -> Result<Vec<H256>, Error> {
 }
 
 /// Creates `Publisher` from arguments
-pub fn parse(matches: &ArgMatches) -> Result<Publisher, Error> {
+pub fn parse(matches: &ArgMatches, config: &SetupConfig) -> Result<Publisher, Error> {
     let path = value_t!(matches, CODE_PATH, String)?; //TODO use is_file from clap_validators
     let mut file = File::open(path).context("can't open WASM file")?;
     let mut buf = Vec::new();
     file.read_to_end(&mut buf)?;
 
-    let swarm_url = value_t!(matches, SWARM_URL, String)?;
+    let swarm_url = matches
+        .value_of(SWARM_URL)
+        .unwrap_or(config.swarm_url.as_str());
     let cluster_size = value_t!(matches, CLUSTER_SIZE, u8)?;
-    let eth = parse_ethereum_args(matches)?;
+    let eth = parse_ethereum_args(matches, config)?;
 
     let pin_to_nodes = parse_pinned(matches)?;
     if pin_to_nodes.len() > 0 && pin_to_nodes.len() > (cluster_size as usize) {
@@ -233,7 +237,7 @@ pub fn parse(matches: &ArgMatches) -> Result<Publisher, Error> {
 
     Ok(Publisher::new(
         buf.to_owned(),
-        swarm_url,
+        swarm_url.clone().to_owned(),
         cluster_size,
         pin_to_nodes,
         eth,
@@ -279,13 +283,13 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .required(false)
             .takes_value(true)
             .help("Http address to swarm node")
-            .default_value("http://localhost:8500/")
             .display_order(3),
     ];
 
     SubCommand::with_name("publish")
         .about("Upload code to Swarm and publish app to Ethereum blockchain")
         .args(with_ethereum_args(args).as_slice())
+        .setting(AppSettings::ArgRequiredElseHelp)
 }
 
 /// Uploads bytes of code to the Swarm
@@ -315,7 +319,9 @@ mod tests {
     use failure::Error;
 
     use crate::command::EthereumArgs;
+    use crate::config::SetupConfig;
     use crate::credentials::Credentials;
+    use crate::ethereum_params::EthereumParams;
     use crate::publisher::Publisher;
 
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
@@ -324,13 +330,16 @@ mod tests {
         let bytes = vec![1, 2, 3];
 
         let eth = EthereumArgs::with_acc_creds(account.parse().unwrap(), creds);
+        let config = SetupConfig::default().unwrap();
+
+        let eth_params = EthereumParams::generate(&eth, &config).unwrap();
 
         Publisher::new(
             bytes,
             String::from("http://localhost:8500/"),
             5,
             vec![],
-            eth,
+            eth_params,
         )
     }
 
