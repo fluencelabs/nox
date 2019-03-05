@@ -80,6 +80,11 @@ lazy val `vm-hello-world2-runner` = (project in file("vm/examples/hello-world2/r
   .dependsOn(vm, `vm-hello-world2-2018`)
   .enablePlugins(AutomateHeaderPlugin)
 
+lazy val `dice-game` = (project in file("vm/examples/dice-game"))
+  .settings(
+    rustVmExample("dice-game")
+  )
+
 lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
   .settings(
     rustVmExample("llamadb")
