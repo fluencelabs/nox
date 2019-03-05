@@ -5,6 +5,7 @@ src = "src"
 title = "The Fluence book"
 
 [build]
+build-dir = "book/book"
 create-missing = false
 
 [output.html]
