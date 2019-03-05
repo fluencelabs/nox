@@ -4,6 +4,7 @@ import nodes, { retrieveNode } from './nodes/nodes';
 import appIds, { retrieveAppIds } from './apps/app-ids';
 import apps, { retrieveApp } from './apps/apps';
 import nodesStatus, { retrieveNodeStatus } from './nodes/node-status';
+import nodesAppStatus, { retrieveNodesAppStatus } from './nodes/nodes-app-status';
 
 export {
     displayLoading,
@@ -13,6 +14,7 @@ export {
     retrieveNode,
     retrieveApp,
     retrieveNodeStatus,
+    retrieveNodesAppStatus,
 }
 
 export const reducers = {
@@ -21,5 +23,6 @@ export const reducers = {
     appIds,
     nodes,
     apps,
-    nodesStatus
+    nodesStatus,
+    nodesAppStatus,
 };
