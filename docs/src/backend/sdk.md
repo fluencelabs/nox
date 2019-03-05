@@ -1,208 +1,75 @@
-# Fluence backend SDK overview
+# Backend SDK overview
 
-Fluence backend SDK consists of two crates: `main` and `macro`. The first one is used for all memory relative operations and logging (please find more information in [app debugging](./app_debugging.md) section). The second one contains a procedural macro to simplify the entry function's signature. These crates can be used separately but the more preferred way is using the global `fluence` crate that reexports all others. In `Rust 2018 edition` it can be done by simply adding `use fluence::sdk::*` to the source.
+Fluence backend SDK consists of two crates: `main` and `macro`. The `main` crate is used for all memory relative operations and logging, while the `macro` crate contains the macro to simplify entry point functions. These crates can be used separately but the preferred way is to use the global `fluence` crate which combines all the others. 
 
-## Writing app without SDK
+In Rust 2018 this can be done by adding [Fluence SDK](https://crates.io/crates/fluence) as a dependency, and then adding `use fluence::sdk::*` to Rust sources.
 
-For a start, let's review how a simple `hello-world` `app` is made without Fluence backend SDK on pure Rust. From [fluence backend conventions](app_conventions.md) it follows that each `app` must have a `main` module with three export functions. Keeping in mind restrictions to their signatures, a basic structure of a `main` module can look like that:
+## Entry point function
 
- ```Rust
- #[no_mangle]
- pub unsafe fn invoke(ptr: *mut u8, len: usize) -> usize {
-     ...
- }
- 
- #[no_mangle]
- pub unsafe fn allocate(size: usize) -> NonNull<u8> {
-     ...
- }
- 
- #[no_mangle]
- pub unsafe fn deallocate(ptr: *mut u8, size: usize) {
-     ...
- }
- ```
+Each WebAssembly backend application deployed to the Fluence network is expected to provide a single entry point function named `invoke`. The easiest way to implement this function is to use the `invocation_handler` macro provided by the Fluence SDK:
 
-Note that `#[no_mangle]` and `pub unsafe` parts of function signature manage function to be exported from a Wasm module (for more information please refer to this [discussion](https://internals.rust-lang.org/t/precise-semantics-of-no-mangle/4098)).
- 
-The `hello-world` example without SDK from the [quick start](../quickstart/rust.md) can be implemented like this:
- 
-```Rust
-#![feature(allocator_api)]
-
-use std::alloc::{Alloc, Global, Layout};
-use std::mem;
-use std::num::NonZeroUsize;
-use std::ptr::{self, NonNull};
-
-#[no_mangle]
-pub unsafe fn invoke(ptr: *mut u8, len: usize) -> NonNull<u8> {
-    let raw_string = Vec::from_raw_parts(ptr, len, len);
-    let user_name = String::from_utf8(raw_string).unwrap();
-
-    let result = format!("Hello, world! From user {}", user_name);
-    const RESULT_SIZE_BYTES: usize = 4;
-
-    let result_len = result.len();
-    let total_len = result_len
-        .checked_add(RESULT_SIZE_BYTES)
-        .expect("usize overflow occurred");
-
-    // converts array size to bytes in little-endian
-    let len_as_bytes: [u8; RESULT_SIZE_BYTES] = mem::transmute((result_len as u32).to_le());
-
-    // allocates a new memory region for the result
-    let result_ptr = allocate(total_len);
-
-    // copies length of array to memory
-    ptr::copy_nonoverlapping(
-        len_as_bytes.as_ptr(),
-        result_ptr.as_ptr(),
-        RESULT_SIZE_BYTES,
-    );
-
-    // copies array to memory
-    ptr::copy_nonoverlapping(
-        result.as_ptr(),
-        result_ptr.as_ptr().add(RESULT_SIZE_BYTES),
-        result_len,
-    );
-
-    result_ptr
-}
-
-#[no_mangle]
-pub unsafe fn allocate(size: usize) -> NonNull<u8> {
-    let non_zero_size =
-        NonZeroUsize::new(size).expect("[Error]: allocation of zero bytes is not allowed.");
-    let layout: Layout = Layout::from_size_align(non_zero_size.get(), mem::align_of::<u8>())
-        .unwrap_or_else(|_| panic!("[Error]: layout creation failed while allocation"));
-    Global
-        .alloc(layout)
-        .unwrap_or_else(|_| panic!("[Error]: allocation of {} bytes failed", size))
-}
-
-#[no_mangle]
-pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) {
-    let non_zero_size =
-        NonZeroUsize::new(size).expect("[Error]: deallocation of zero bytes is not allowed.");
-    let layout = Layout::from_size_align(non_zero_size.get(), mem::align_of::<u8>())
-        .unwrap_or_else(|_| panic!("[Error]: layout creation failed while deallocation"));;
-    Global.dealloc(ptr, layout);
-}
-```
-
-The full working code of this example can be found [here](https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world/app-without-sdk).
-
-## Fluence SDK usage
-
-From the example above it can be seen that `allocate` and `deallocate` functions serve only utility purpose and are normally used only by the `VM wrapper`. These functions aren't any that most of the developers would want to implement in their `app`. Fluence backend SDK provides `fluence::memory::alloc` and `fluence::memory::dealloc` functions also based on [GlobalAlloc](https://doc.rust-lang.org/beta/std/alloc/trait.GlobalAlloc.html). They exported by default after including the sdk and can be disabled by including it with `fluence = {default-features = false}`.
-
-The `invoke` function can be also simplified by using the Fluence backend SDK that provides `fluence::memory::write_result_to_mem` and `fluence::memory::read_input_from_mem_` in this way:
-
-```Rust
-#[no_mangle]
-pub unsafe fn invoke(_ptr: *mut u8, _len: usize) -> usize {
-    let test_str = "Hello, world!";
-    fluence::memory::write_result_to_mem(test_str)
-        .unwrap_or_else(|_| {
-            panic!("[Error] Putting the result string into a raw memory was failed")
-        })
-        .as_ptr() as usize
-}
-```
-
-### Invocation handler to the rescue
-
-The example above can be simplified a little bit more using procedural macros `invocation_handler` as the `hello-world` example mentioned in [quick start](TODO) example:
- 
 ```Rust
 use fluence::sdk::*;
 
 #[invocation_handler]
 fn greeting(name: String) -> String {
-    format!("Hello, world! From user {}", name)
+    format!("Hello, world! -- {}", name)
 }
 ```
 
-Internally this macro creates a new function `invoke` that converts a raw argument to the appropriate format, calls `f` and then converts its result via `memory::write_result_to_mem` from `fluence_sdk_main`. The following listing shows how this macro is expanded:
- 
-```Rust
-use fluence::sdk::*;
+If anything goes wrong, [cargo expand](https://github.com/dtolnay/cargo-expand) can be used for troubleshooting and macros debugging.  Keep in mind that the function which the macro is attached to should:
 
-fn greeting(name: String) -> String {
-    format!("Hello, world! From user {}", name)
-}
+- not have more than one input argument and always return a value 
+- not be unsafe, const, generic, or have custom abi linkage or variadic params
+- have the input argument type (if present) and return type to be either `String` or `Vec<u8>`
+- not use the `invoke` name, which is reserved by the Fluence SDK
 
-#[no_mangle]
-pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
-    let arg = memory::read_input_from_mem(ptr, len);
-    let arg = String::from_utf8(arg).unwrap();
-    let result = greeting(arg);
-    memory::write_result_to_mem(result.as_bytes()).expect("Putting result string to memory has failed")
-}
-```
-
-To use this macro with a function `f` some conditions have to be satisfied:
-
-1. `f` mustn't have more than one input argument.
-
-2. `f` mustn't be `unsafe`, `const`, generic, have custom abi linkage or variadic param.
-
-3. The type of `f` input (if it present) and output parameters have to be one of {String, Vec<u8>} set.
-
-4. `f` mustn't have the name `invoke`.
-
-For troubleshooting and macros debugging [cargo expand](https://github.com/dtolnay/cargo-expand) can be used. 
-
-The macro also has an `init_fn` attribute that can be used for specifying initialization function name. This function will be called only in the first `invoke` function call. It can be used like this:
+The `invocation_handler` macro additionally allows to specify the initialization function:
 
 ```Rust
 use fluence::sdk::*;
 
 fn init() {
-    ...
+    // will be called just before the first `greeting()` function invocation
 }
 
 #[invocation_handler(init_fn = init)]
 fn greeting(name: String) -> String {
-    format!("Hello from Fluence to {}", name)
+    format!("Hello, world! -- {}", name)
 }
 ```
 
-This is expanded to
+The initialization function will be called only once and before any other code when the first transaction arrives. Therefore, it is a great place to put the code preparing the backend application.
+
+### Direct entry point function implementation
+
+Another option is to not use Fluence SDK macro and implement the `invoke()` function manually:
 
 ```Rust
 use fluence::sdk::*;
 
-fn init() { 
-    ...
-}
-
 fn greeting(name: String) -> String {
-    format!("Hello from Fluence to {}", name)
+    format!("Hello, world! -- {}", name)
 }
-
-static mut IS_INITED: bool = false;
 
 #[no_mangle]
 pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
-    if !IS_INITED { 
-        init();
-        unsafe { IS_INITED = true; }
-    }
     let arg = memory::read_input_from_mem(ptr, len);
     let arg = String::from_utf8(arg).unwrap();
+    
     let result = greeting(arg);
-    memory::write_result_to_mem(result.as_bytes()).expect("Putting result string to memory has failed")
+      
+    memory::write_result_to_mem(result.as_bytes()).expect("Memory write has failed")
 }
 ```
 
-Example of usage `invocation_handler` with `init_fn` attribure can be found [here](https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2018).
+Here you can see that the entry point function takes the pointer to the byte array and the length of the byte array. Then, it uses `fluence::memory::read_input_from_mem_` to read this data into the string argument, and calls the greeting function. Once the greeting function has returned a result, this result is written back to the WebAssembly memory with the help of `fluence::memory::write_result_to_mem` function.
 
-## Rust edition 2015
+To learn more about internals of Fluence backend applications, please consult [backend API conventions](./conventions.md).
 
-To use Fluence SDK with `Rust 2015 edition` please import it like this: 
+## Rust 2015
+
+To use Fluence SDK with Rust 2015 import it like this: 
 
 ```Rust
 #![feature(custom_attribute)]
@@ -211,4 +78,4 @@ extern crate fluence;
 use fluence::sdk::*;
 ```
 
-Example of `hello-world2` `app` on `Rust edition 2015` can be found [here](https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2015).
+Example Rust 2015 application can be found [here](https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2015).

@@ -33,3 +33,99 @@ There are several restriction and conventions that each supplied `app` has to be
 4. `allocate` function MUST have the next signature `(func (export "allocate") (param $size i32) (result i32))` in wast representation. It MUST return a pointer as i32 to a module memory region long enough to hold `size` bytes.
 
 5. `deallocate` function MUST have the next signature `(func (export "deallocate") (param $address i32) (param $size i32) (return))`. It is called by the `VM wrapper` with a pointer to a memory region previously allocated by `allocate` function and its size. This function SHOULD free this memory region.
+
+## Writing app without SDK
+
+For a start, let's review how a simple `hello-world` `app` is made without Fluence backend SDK on pure Rust. From [fluence backend conventions](app_conventions.md) it follows that each `app` must have a `main` module with three export functions. Keeping in mind restrictions to their signatures, a basic structure of a `main` module can look like that:
+
+ ```Rust
+ #[no_mangle]
+ pub unsafe fn invoke(ptr: *mut u8, len: usize) -> usize {
+     ...
+ }
+ 
+ #[no_mangle]
+ pub unsafe fn allocate(size: usize) -> NonNull<u8> {
+     ...
+ }
+ 
+ #[no_mangle]
+ pub unsafe fn deallocate(ptr: *mut u8, size: usize) {
+     ...
+ }
+ ```
+
+Note that `#[no_mangle]` and `pub unsafe` parts of function signature manage function to be exported from a Wasm module (for more information please refer to this [discussion](https://internals.rust-lang.org/t/precise-semantics-of-no-mangle/4098)).
+ 
+The `hello-world` example without SDK from the [quick start](../quickstart/rust.md) can be implemented like this:
+ 
+```Rust
+#![feature(allocator_api)]
+
+use std::alloc::{Alloc, Global, Layout};
+use std::mem;
+use std::num::NonZeroUsize;
+use std::ptr::{self, NonNull};
+
+#[no_mangle]
+pub unsafe fn invoke(ptr: *mut u8, len: usize) -> NonNull<u8> {
+    let raw_string = Vec::from_raw_parts(ptr, len, len);
+    let user_name = String::from_utf8(raw_string).unwrap();
+
+    let result = format!("Hello, world! From user {}", user_name);
+    const RESULT_SIZE_BYTES: usize = 4;
+
+    let result_len = result.len();
+    let total_len = result_len
+        .checked_add(RESULT_SIZE_BYTES)
+        .expect("usize overflow occurred");
+
+    // converts array size to bytes in little-endian
+    let len_as_bytes: [u8; RESULT_SIZE_BYTES] = mem::transmute((result_len as u32).to_le());
+
+    // allocates a new memory region for the result
+    let result_ptr = allocate(total_len);
+
+    // copies length of array to memory
+    ptr::copy_nonoverlapping(
+        len_as_bytes.as_ptr(),
+        result_ptr.as_ptr(),
+        RESULT_SIZE_BYTES,
+    );
+
+    // copies array to memory
+    ptr::copy_nonoverlapping(
+        result.as_ptr(),
+        result_ptr.as_ptr().add(RESULT_SIZE_BYTES),
+        result_len,
+    );
+
+    result_ptr
+}
+
+#[no_mangle]
+pub unsafe fn allocate(size: usize) -> NonNull<u8> {
+    let non_zero_size =
+        NonZeroUsize::new(size).expect("[Error]: allocation of zero bytes is not allowed.");
+    let layout: Layout = Layout::from_size_align(non_zero_size.get(), mem::align_of::<u8>())
+        .unwrap_or_else(|_| panic!("[Error]: layout creation failed while allocation"));
+    Global
+        .alloc(layout)
+        .unwrap_or_else(|_| panic!("[Error]: allocation of {} bytes failed", size))
+}
+
+#[no_mangle]
+pub unsafe fn deallocate(ptr: NonNull<u8>, size: usize) {
+    let non_zero_size =
+        NonZeroUsize::new(size).expect("[Error]: deallocation of zero bytes is not allowed.");
+    let layout = Layout::from_size_align(non_zero_size.get(), mem::align_of::<u8>())
+        .unwrap_or_else(|_| panic!("[Error]: layout creation failed while deallocation"));;
+    Global.dealloc(ptr, layout);
+}
+```
+
+The full working code of this example can be found [here](https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world/app-without-sdk).
+
+## Misc
+
+From the example above it can be seen that `allocate` and `deallocate` functions serve only utility purpose and are normally used only by the `VM wrapper`. These functions aren't any that most of the developers would want to implement in their `app`. Fluence backend SDK provides `fluence::memory::alloc` and `fluence::memory::dealloc` functions also based on [GlobalAlloc](https://doc.rust-lang.org/beta/std/alloc/trait.GlobalAlloc.html). They exported by default after including the sdk and can be disabled by including it with `fluence = {default-features = false}`.
