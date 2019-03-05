@@ -57,7 +57,7 @@ pub fn load_credentials(
             Some(password) => load_keystore(keystore, password).map(Credentials::Secret),
             None => Err(err_msg("password is required for keystore")),
         },
-        None => Ok(Credentials::get(secret_key, password.clone())),
+        None => Ok(Credentials::get(secret_key, password)),
     }
 }
 
