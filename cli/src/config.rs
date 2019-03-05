@@ -28,6 +28,8 @@ pub const DEFAULT_CONTRACT_ADDRESS: &str = include_str!("../../tools/deploy/scri
 pub const DEFAULT_ETH_URL: &str = "http://data.fluence.one:8545/";
 pub const DEFAULT_SWARM_URL: &str = "http://data.fluence.one:8500/";
 
+const CONFIG_FILENAME: &str = "cli.json";
+
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SetupConfig {
     pub contract_address: Address,
@@ -83,7 +85,7 @@ impl SetupConfig {
 
     // reads config file or generates default config if file does not exist
     pub fn read_from_file_or_default(home_dir: &str) -> Result<SetupConfig, Error> {
-        let path = format!("{}{}", home_dir, "cli.json");
+        let path = format!("{}{}", home_dir, CONFIG_FILENAME);
         let path = Path::new(path.as_str());
 
         if !path.exists() {
@@ -99,7 +101,7 @@ impl SetupConfig {
     pub fn write_to_file(&self, home_dir: &str) -> Result<(), Error> {
         create_dir_all(HOME_DIR)?;
         let config_str = serde_json::to_string(&self)?;
-        let path = format!("{}cli.json", home_dir);
+        let path = format!("{}{}", home_dir, CONFIG_FILENAME);
         println!("path: {}", path);
         let mut file = File::create(path)?;
 
