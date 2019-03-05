@@ -21,11 +21,21 @@ use crate::utils::parse_hex;
 use clap::{App, AppSettings, SubCommand};
 use failure::Error;
 use rustyline::Editor;
+use std::fmt::Debug;
 
 pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
+
+    fn format_option<T>(opt: &Option<T>) -> String
+        where T: Debug {
+        match opt {
+            Some(v) => format!("{:?}", v),
+            None => "none".to_owned()
+        }
+    }
+
     let mut rl = Editor::<()>::new();
 
-    let contract_address_prompt = format!("Contract Address [{:?}]:", config.contract_address);
+    let contract_address_prompt = format!("Contract Address [{:?}]: ", config.contract_address);
     let contract_address = loop {
         let contract_address = rl.readline(&contract_address_prompt)?;
         let contract_address = parse_hex(none_if_empty(&contract_address));
@@ -50,7 +60,7 @@ pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
         .unwrap_or(&config.swarm_url)
         .to_owned();
 
-    let account_address_prompt = format!("Account Address [{:?}]: ", config.account);
+    let account_address_prompt = format!("Account Address [{}]: ", format_option(&config.account));
     let account_address = loop {
         let account_address = rl.readline(&account_address_prompt)?;
         match parse_hex(none_if_empty(&account_address)) {
@@ -62,7 +72,7 @@ pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
         }
     };
 
-    let secret_key_prompt = format!("Secret Key [{:?}]: ", config.secret_key);
+    let secret_key_prompt = format!("Secret Key [{}]: ", format_option(&config.secret_key));
     let secret_key = loop {
         let secret_key = rl.readline(&secret_key_prompt)?;
         match parse_hex(none_if_empty(&secret_key)) {
@@ -74,14 +84,13 @@ pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
         };
     };
 
-    let keystore_path_prompt = format!("Keystore Path [{:?}]: ", config.keystore_path);
+    let keystore_path_prompt = format!("Keystore Path [{}]: ", format_option(&config.keystore_path));
     let keystore_path = rl.readline(&keystore_path_prompt)?;
     let keystore_path = none_if_empty(&keystore_path);
 
-    let password_prompt = format!("Password [{:?}]: ", config.password);
+    let password_prompt = format!("Password [{}]: ", format_option(&config.password));
     let password = rl.readline(&password_prompt)?;
     let password = none_if_empty(&password);
-    println!("password is: {:?}", password);
 
     let config = SetupConfig::new(
         contract_address,
