@@ -17,10 +17,11 @@
 use serde::{Deserialize, Serialize};
 
 /*
-  join -> {id}
-  bet {id, placement, bet_amount} -> {outcome, player_balance}
-  get_balance {id} -> {player_balance}
+  join: {} -> {id}
+  bet: {id, placement, bet_amount} -> {outcome, player_balance}
+  get_balance: {id} -> {player_balance}
 */
+
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "action")]
 pub enum Request {

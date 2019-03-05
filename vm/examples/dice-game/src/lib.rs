@@ -19,11 +19,11 @@ mod tests;
 
 mod error_type;
 mod game_manager;
-mod json_parser;
+mod request_response;
 
 use crate::error_type::AppResult;
 use crate::game_manager::GameManager;
-use crate::json_parser::{Request, Response};
+use crate::request_response::{Request, Response};
 
 use fluence::sdk::*;
 use serde_json::Value;

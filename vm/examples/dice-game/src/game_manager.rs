@@ -15,7 +15,7 @@
  */
 
 use crate::error_type::AppResult;
-use crate::json_parser::Response;
+use crate::request_response::Response;
 
 use crate::settings::{INIT_ACCOUNT_BALANCE, PAYOUT_RATE, PLAYERS_MAX_COUNT, SEED};
 use linked_hash_map::LinkedHashMap;
@@ -57,7 +57,8 @@ impl GameManager {
         };
 
         self.registered_players += 1;
-        Ok(serde_json::to_value(response).unwrap())
+
+        serde_json::to_value(response).map_err(Into::into)
     }
 
     /// Checks parameters of given bet and processes it.
@@ -97,14 +98,16 @@ impl GameManager {
 
         // update balance of the player
         *self.players.get_mut(&player_id).unwrap() = new_player_balance;
-        Ok(serde_json::to_value(response).unwrap())
+
+        serde_json::to_value(response).map_err(Into::into)
     }
 
     /// Returns the balance of the player identified by given `player_id`.
     pub fn get_player_balance(&self, player_id: u64) -> AppResult<Value> {
         let player_balance = self.player_balance(player_id)?;
         let response = Response::GetBalance { player_balance };
-        Ok(serde_json::to_value(response).unwrap())
+
+        serde_json::to_value(response).map_err(Into::into)
     }
 
     // returns a balance if there is a such player and Err() otherwise
