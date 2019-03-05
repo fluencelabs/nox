@@ -71,7 +71,7 @@ impl SetupConfig {
         };
     }
 
-    fn default() -> Result<SetupConfig, Error> {
+    pub fn default() -> Result<SetupConfig, Error> {
         let contract: Address = DEFAULT_CONTRACT_ADDRESS
             .to_owned()
             .trim_start_matches("0x")

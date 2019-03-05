@@ -321,6 +321,8 @@ mod tests {
     use crate::command::EthereumArgs;
     use crate::credentials::Credentials;
     use crate::publisher::Publisher;
+    use crate::ethereum_params::EthereumParams;
+    use crate::config::SetupConfig;
 
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
 
@@ -328,13 +330,16 @@ mod tests {
         let bytes = vec![1, 2, 3];
 
         let eth = EthereumArgs::with_acc_creds(account.parse().unwrap(), creds);
+        let config = SetupConfig::default().unwrap();
+
+        let eth_params = EthereumParams::generate(&eth, &config).unwrap();
 
         Publisher::new(
             bytes,
             String::from("http://localhost:8500/"),
             5,
             vec![],
-            eth,
+            eth_params,
         )
     }
 

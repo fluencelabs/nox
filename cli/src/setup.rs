@@ -31,32 +31,32 @@ pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
     let contract_address = parse_hex(none_if_empty(&contract_address))?;
     let contract_address: Address = contract_address.unwrap_or(config.contract_address);
 
-    let ethereum_url_prompt = format!("Ethereum Node Url [{:?}]:", config.eth_url);
+    let ethereum_url_prompt = format!("Ethereum Node Url [{}]: ", config.eth_url);
     let ethereum_address = rl.readline(&ethereum_url_prompt)?;
     let ethereum_address = none_if_empty(&ethereum_address)
         .unwrap_or(&config.eth_url)
         .to_owned();
 
-    let swarm_url_prompt = format!("Swarm Node Url [{:?}]:", config.swarm_url);
+    let swarm_url_prompt = format!("Swarm Node Url [{}]: ", config.swarm_url);
     let swarm_address = rl.readline(&swarm_url_prompt)?;
     let swarm_address = none_if_empty(&swarm_address)
         .unwrap_or(&config.swarm_url)
         .to_owned();
 
-    let account_address_prompt = format!("Account Address [{:?}]:", config.account);
+    let account_address_prompt = format!("Account Address [{:?}]: ", config.account);
     let account_address = rl.readline(&account_address_prompt)?;
     let account_address: Option<Address> = parse_hex(none_if_empty(&account_address))?;
     let account_address = account_address.or_else(|| config.account);
 
-    let secret_key_prompt = format!("Secret Key [{:?}]:", config.secret_key);
+    let secret_key_prompt = format!("Secret Key [{:?}]: ", config.secret_key);
     let secret_key = rl.readline(&secret_key_prompt)?;
     let secret_key = parse_hex(none_if_empty(&secret_key))?;
 
-    let keystore_path_prompt = format!("Keystore Path [{:?}]:", config.keystore_path);
+    let keystore_path_prompt = format!("Keystore Path [{:?}]: ", config.keystore_path);
     let keystore_path = rl.readline(&keystore_path_prompt)?;
     let keystore_path = none_if_empty(&keystore_path);
 
-    let password_prompt = format!("Password [{:?}]:", config.password);
+    let password_prompt = format!("Password [{:?}]: ", config.password);
     let password = rl.readline(&password_prompt)?;
     let password = none_if_empty(&password);
     println!("password is: {:?}", password);

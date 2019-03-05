@@ -329,6 +329,8 @@ pub mod tests {
     use web3::types::*;
 
     use crate::command::EthereumArgs;
+    use crate::ethereum_params::EthereumParams;
+    use crate::config::SetupConfig;
     use crate::credentials::Credentials;
 
     use super::Register;
@@ -348,6 +350,10 @@ pub mod tests {
 
         let eth = generate_eth_args(credentials);
 
+        let config = SetupConfig::default().unwrap();
+
+        let eth_params = EthereumParams::generate(&eth, &config).unwrap();
+
         Register::new(
             "127.0.0.1".parse().unwrap(),
             tendermint_key,
@@ -356,7 +362,7 @@ pub mod tests {
             25100,
             false,
             false,
-            eth,
+            eth_params,
         )
         .unwrap()
     }
