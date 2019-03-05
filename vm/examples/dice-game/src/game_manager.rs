@@ -80,16 +80,20 @@ impl GameManager {
             Ok(())
         }
 
+        fn update_balance(player_balance: u64, placement: u8, outcome: u8) -> u64 {
+            if placement == outcome {
+                player_balance + (bet_amount * PAYOUT_RATE)
+            } else {
+                player_balance - bet_amount
+            }
+        }
+
         let player_balance = self.player_balance(player_id)?;
         let bet_amount = u64::from(bet_amount);
         check_bet(player_balance, placement, bet_amount)?;
 
         let outcome = self.rng.gen::<u8>() % GameManager::DICE_LINE_COUNT + 1;
-        let new_player_balance = if placement == outcome {
-            player_balance + (bet_amount * PAYOUT_RATE)
-        } else {
-            player_balance - bet_amount
-        };
+        let new_player_balance = update_balance(player_balance, placement, outcome);
 
         let response = Response::Bet {
             outcome,
