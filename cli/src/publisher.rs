@@ -209,7 +209,7 @@ fn parse_pinned(args: &ArgMatches) -> Result<Vec<H256>, Error> {
 }
 
 /// Creates `Publisher` from arguments
-pub fn parse(matches: &ArgMatches, config: SetupConfig) -> Result<Publisher, Error> {
+pub fn parse(matches: &ArgMatches, config: &SetupConfig) -> Result<Publisher, Error> {
     let path = value_t!(matches, CODE_PATH, String)?; //TODO use is_file from clap_validators
     let mut file = File::open(path).context("can't open WASM file")?;
     let mut buf = Vec::new();

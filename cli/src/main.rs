@@ -33,7 +33,7 @@ use web3::types::H256;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() -> Result<(), ExitFailure> {
-    let config = SetupConfig::read_from_file_or_default(HOME_DIR)?;
+    let config = &SetupConfig::read_from_file_or_default(HOME_DIR)?;
 
     let app = App::new("Fluence CLI")
         .global_setting(AppSettings::UnifiedHelpMessage)

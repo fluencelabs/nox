@@ -69,7 +69,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
         .setting(AppSettings::ArgRequiredElseHelp)
 }
 
-pub fn parse(args: &ArgMatches, config: SetupConfig) -> Result<DeleteApp, Error> {
+pub fn parse(args: &ArgMatches, config: &SetupConfig) -> Result<DeleteApp, Error> {
     let app_id: u64 = value_t!(args, APP_ID, u64)?;
     let deployed = args.is_present(DEPLOYED);
 

@@ -50,7 +50,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
         .setting(AppSettings::ArgRequiredElseHelp)
 }
 
-pub fn parse(args: &ArgMatches, config: SetupConfig) -> Result<DeleteNode, Error> {
+pub fn parse(args: &ArgMatches, config: &SetupConfig) -> Result<DeleteNode, Error> {
     let tendermint_key = parse_tendermint_key(args)?;
     let eth = parse_ethereum_args(args, config)?;
 

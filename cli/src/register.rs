@@ -252,7 +252,7 @@ impl Register {
     }
 }
 
-pub fn parse(args: &ArgMatches, config: SetupConfig) -> Result<Register, Error> {
+pub fn parse(args: &ArgMatches, config: &SetupConfig) -> Result<Register, Error> {
     let tendermint_key: H256 = parse_tendermint_key(args)?;
 
     let tendermint_node_id: H160 = parse_tendermint_node_id(args)?;

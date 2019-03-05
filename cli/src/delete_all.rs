@@ -42,7 +42,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
         .setting(AppSettings::ArgRequiredElseHelp)
 }
 
-pub fn parse(args: &ArgMatches, config: SetupConfig) -> Result<DeleteAll, Error> {
+pub fn parse(args: &ArgMatches, config: &SetupConfig) -> Result<DeleteAll, Error> {
     let eth = command::parse_ethereum_args(args, config)?;
 
     return Ok(DeleteAll { eth });

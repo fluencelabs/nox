@@ -23,7 +23,7 @@ use failure::Error;
 use rustyline::Editor;
 use web3::types::Address;
 
-pub fn interactive_setup(config: SetupConfig) -> Result<(), Error> {
+pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
     let mut rl = Editor::<()>::new();
 
     let contract_address_prompt = format!("Contract Address [{:?}]:", config.contract_address);

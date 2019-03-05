@@ -195,7 +195,7 @@ pub fn parse_eth_url(args: &ArgMatches) -> Option<String> {
 
 pub fn parse_ethereum_args(
     args: &ArgMatches,
-    config: SetupConfig,
+    config: &SetupConfig,
 ) -> Result<EthereumParams, Error> {
     let secret_key = utils::parse_secret_key(args.value_of(SECRET_KEY))?;
     let password = args.value_of(PASSWORD).map(|s| s.to_string());
@@ -227,7 +227,7 @@ pub fn parse_ethereum_args(
         wait_eth_sync: wait_syncing,
     };
 
-    Ok(EthereumParams::generate(&eth_args, &config)?)
+    Ok(EthereumParams::generate(&eth_args, config)?)
 }
 
 pub fn parse_tendermint_key(args: &ArgMatches) -> Result<H256, Error> {
