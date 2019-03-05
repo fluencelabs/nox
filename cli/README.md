@@ -25,7 +25,7 @@ Fluence CLI is an automation tool for tasks of app management (deployment and de
 
 ## Requirements
 
-CLI assumes running Ethereum and Swarm on `http://data.fluence.ai:8545/` and `http://data.fluence:8500/` respectively. Use `--eth_url` and `--swarm_url` to specify actual addresses as you need.
+CLI assumes running Ethereum and Swarm on `http://data.fluence.one:8545/` and `http://data.fluence:8500/` respectively. Use `--eth_url` and `--swarm_url` to specify actual addresses as you need.
 
 Please note, that your Ethereum account should have sufficient funds for issuing transactions to smart-contract. It's only for transaction fees, Fluence itself doesn't currently charge miners or developers. That could change in the future, for example when miners' deposits are implemented.
 
@@ -56,8 +56,8 @@ Use `setup` command to enter main arguments into a config file. It will allow no
 Contract address, Ethereum, and Swarm node addresses have defaults, but account address and credentials (secret key or Ethereum keystore and password) should be filled for correct transaction sending.
 Arguments description and examples:
 - `0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7` is a contract address, register transaction will be sent there
-- `http://data.fluence.ai:8545` is an URL to Ethereum node
-- `http://data.fluence.ai:8500` is an URL to Swarm node
+- `http://data.fluence.one:8545` is an URL to Ethereum node
+- `http://data.fluence.one:8500` is an URL to Swarm node
 - `0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d` will be used as Ethereum account for issuing transactions. _Use your Ethereum account here_
 - `0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133` denotes an Ethereum private key, used for offline transaction signing. _Use your Ethereum private key here_
 - it is possible to use keystore file and password instead of secret key

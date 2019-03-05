@@ -25,8 +25,8 @@ use web3::types::H256;
 
 pub const HOME_DIR: &str = "~/.local/share/.fluence/";
 pub const DEFAULT_CONTRACT_ADDRESS: &str = include_str!("../../tools/deploy/scripts/contract.txt");
-pub const DEFAULT_ETH_URL: &str = "http://data.fluence.ai:8545/";
-pub const DEFAULT_SWARM_URL: &str = "http://data.fluence.ai:8500/";
+pub const DEFAULT_ETH_URL: &str = "http://data.fluence.one:8545/";
+pub const DEFAULT_SWARM_URL: &str = "http://data.fluence.one:8500/";
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SetupConfig {

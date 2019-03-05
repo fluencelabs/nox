@@ -18,14 +18,10 @@ export interface App {
     cluster: Option<Cluster>
 }
 
-export interface ClusterMember {
-    id: string,
-    port: number
-}
 
 export interface Cluster {
     genesis_time: number,
-    cluster_members: ClusterMember[]
+    node_ids: string[]
 }
 
 export async function getAppIds(contract: Network): Promise<AppId[]> {
@@ -42,9 +38,8 @@ export function getApp(contract: Network, id: AppId): Promise<App> {
 
         let genesisTime: number = parseInt(unparsedApp["5"]);
         let nodeIds: string[] = unparsedApp["6"];
-        let ports: number[] = unparsedApp["7"].map((p) => parseInt(p));
 
-        let clusterOpt = parseCluster(genesisTime, nodeIds, ports);
+        let clusterOpt = parseCluster(genesisTime, nodeIds);
 
         return {
             app_id: id,
@@ -70,18 +65,11 @@ export async function getApps(contract: Network, ids: AppId[]): Promise<App[]> {
     return Promise.all(appCalls);
 }
 
-export function parseCluster(genesisTime: number, nodeIds: string[], ports: number[]): Option<Cluster> {
+export function parseCluster(genesisTime: number, nodeIds: string[]): Option<Cluster> {
     if (genesisTime !== 0) {
-        let clusterMembers: ClusterMember[] = ports.map((port, idx) => {
-            return {
-                id: nodeIds[idx],
-                port: port
-            }
-        });
-
         return some({
             genesis_time: genesisTime,
-            cluster_members: clusterMembers
+            node_ids: nodeIds
         });
     } else { return none }
 }
