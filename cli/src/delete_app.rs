@@ -16,11 +16,12 @@
 
 use clap::value_t;
 use clap::ArgMatches;
-use clap::{App, Arg, SubCommand};
+use clap::{App, AppSettings, Arg, SubCommand};
 use web3::transports::Http;
 use web3::types::H256;
 
 use crate::command;
+use crate::config::SetupConfig;
 use crate::contract_func::call_contract;
 use crate::contract_func::contract::events::app_deleted;
 use crate::contract_func::contract::events::app_dequeued;
@@ -28,6 +29,7 @@ use crate::contract_func::contract::functions::delete_app;
 use crate::contract_func::contract::functions::dequeue_app;
 use crate::contract_func::wait_sync;
 use crate::contract_func::{get_transaction_logs, wait_tx_included};
+use crate::ethereum_params::EthereumParams;
 use crate::step_counter::StepCounter;
 use crate::utils;
 use ethabi::RawLog;
@@ -40,7 +42,7 @@ const DEPLOYED: &str = "deployed";
 pub struct DeleteApp {
     app_id: u64,
     deployed: bool,
-    eth: command::EthereumArgs,
+    eth: EthereumParams,
 }
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
@@ -64,13 +66,14 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("delete_app")
         .about("Delete app from smart-contract")
         .args(command::with_ethereum_args(args).as_slice())
+        .setting(AppSettings::ArgRequiredElseHelp)
 }
 
-pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Error> {
+pub fn parse(args: &ArgMatches, config: &SetupConfig) -> Result<DeleteApp, Error> {
     let app_id: u64 = value_t!(args, APP_ID, u64)?;
     let deployed = args.is_present(DEPLOYED);
 
-    let eth = command::parse_ethereum_args(args)?;
+    let eth = command::parse_ethereum_args(args, config)?;
 
     return Ok(DeleteApp {
         app_id,
@@ -80,7 +83,7 @@ pub fn parse(args: &ArgMatches) -> Result<DeleteApp, Error> {
 }
 
 impl DeleteApp {
-    pub fn new(app_id: u64, deployed: bool, eth: command::EthereumArgs) -> DeleteApp {
+    pub fn new(app_id: u64, deployed: bool, eth: EthereumParams) -> DeleteApp {
         DeleteApp {
             app_id,
             deployed,

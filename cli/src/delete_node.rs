@@ -15,18 +15,20 @@
  */
 
 use clap::ArgMatches;
-use clap::{App, SubCommand};
+use clap::{App, AppSettings, SubCommand};
 use web3::types::H256;
 
 use crate::contract_func::contract::events::node_deleted;
 
 use crate::command::*;
 use crate::contract_func::call_contract;
+use crate::ethereum_params::EthereumParams;
 use crate::step_counter::StepCounter;
 use crate::utils;
 use failure::{err_msg, Error, SyncFailure};
 use web3::transports::Http;
 
+use crate::config::SetupConfig;
 use crate::contract_func::contract::functions::delete_node;
 use crate::contract_func::get_transaction_logs;
 use crate::contract_func::wait_sync;
@@ -34,7 +36,7 @@ use crate::contract_func::wait_tx_included;
 
 pub struct DeleteNode {
     tendermint_key: H256,
-    eth: EthereumArgs,
+    eth: EthereumParams,
 }
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
@@ -45,11 +47,12 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("delete_node")
         .about("Delete node from smart-contract")
         .args(with_ethereum_args(args).as_slice())
+        .setting(AppSettings::ArgRequiredElseHelp)
 }
 
-pub fn parse(args: &ArgMatches) -> Result<DeleteNode, Error> {
+pub fn parse(args: &ArgMatches, config: &SetupConfig) -> Result<DeleteNode, Error> {
     let tendermint_key = parse_tendermint_key(args)?;
-    let eth = parse_ethereum_args(args)?;
+    let eth = parse_ethereum_args(args, config)?;
 
     Ok(DeleteNode {
         tendermint_key,
@@ -58,7 +61,7 @@ pub fn parse(args: &ArgMatches) -> Result<DeleteNode, Error> {
 }
 
 impl DeleteNode {
-    pub fn new(tendermint_key: H256, eth: EthereumArgs) -> DeleteNode {
+    pub fn new(tendermint_key: H256, eth: EthereumParams) -> DeleteNode {
         DeleteNode {
             tendermint_key,
             eth,

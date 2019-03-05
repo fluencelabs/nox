@@ -14,6 +14,8 @@ There are just three files (except for README, LICENSE and .gitignore):
 - `webpack.config.js` needed for the webpack to work
 - `index.js` that imports `fluence` js library and shows how to connect to a cluster
 
+`fluence` js library is an SDK, that can take cluster entry points from Ethereum smart contract with `connect` method and invoke commands to a cluster by method `invoke`.
+
 Let's take a look at `index.js`:
 ```javascript
 
@@ -46,9 +48,9 @@ function send() {
 }
 ```
 
-This code queries the Fluence smart contract for IP addresses of Tendermint nodes hosting the app with specified `appId`, creates an `AppSession` from these connections, and saves it to `window.session`, so it can be used later. All this is done via `connect` method. 
+This code creates a session, and saves it to `window.session`, so it can be used later. 
 
-Then, it assigns `send()` function as a callback for clicking the button, which will call an `invoke` method provided by `AppSession`. `invoke` takes a `String`, and sends it to the backend as a transaction. Result will be displayed in `greeting` label.
+Then, it assigns `send()` function on the button, which will call the `invoke` method. `invoke` takes a string from an input, and sends it to the backend as a transaction. The result will be displayed in a greeting label.
 
 ## Running and using
 Please make sure you have changed `appId` to the appId of existing backend. If you haven't published your backend yet, please take a look at [Publishing guide](publish.md). You can also use backends published by other people, take a look at 

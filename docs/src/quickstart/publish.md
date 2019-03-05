@@ -17,7 +17,11 @@ To upload your code to Swarm, you need to have access to one of its nodes. The s
 
 ## Registering an Ethereum Rinkeby account
 ### Via myetherwallet.com
-Go to [MyEtherWallet.com](https://vintage.myetherwallet.com/), then select any Rinkeby in the upper right, enter any password, and download the Keystore file.
+Go to [MyEtherWallet.com](https://vintage.myetherwallet.com/), then select any Rinkeby in the upper right, enter any password, and download the Keystore file. You will find your account address in last part of the keystore filename, e.g: 
+
+<pre>
+UTC--2019-03-03T14-48-59.325Z--<b>e1f9c157b45838ca83cb51b7bdcc6c7a3e56650f</b>
+</pre>
 
 ### Top up account with funds
 There are two main Rinkeby faucets. [This one](https://faucet.rinkeby.io/) will give you up to 18 Ether, but it requires you to post an Ethereum address to a social network, [another one](http://rinkeby-faucet.com/) gives you ETH right away, but just `0.001`  ether. 
@@ -33,12 +37,12 @@ Or in terminal:
 
 **Linux**
 ```bash
-~ $ curl -L https://github.com/fluencelabs/fluence/releases/download/v0.1.4/fluence-cli-0.1.4-linux-x64 -o fluence
+~ $ curl -L https://github.com/fluencelabs/fluence/releases/download/v0.1.5/fluence-cli-0.1.5-linux-x64 -o fluence
 ```
 
 **macOS**
 ```bash
-~ $ curl -L https://github.com/fluencelabs/fluence/releases/download/v0.1.4/fluence-cli-0.1.4-mac-x64 -o fluence
+~ $ curl -L https://github.com/fluencelabs/fluence/releases/download/v0.1.5/fluence-cli-0.1.5-mac-x64 -o fluence
 
 ```
 
@@ -48,7 +52,7 @@ And finally don't forget to add permission to execute it:
 
 # check CLI is working
 ~ $ ./fluence --version
-Fluence CLI 0.1.4
+Fluence CLI 0.1.5
 ```
 
 If you see CLI version, proceed to the next step.
@@ -60,39 +64,26 @@ For your convenience, and to make this guide simple, we use addresses of existin
 
 Also you will need a Rinkeby account with some money on it (you can [get money from faucet](https://faucet.rinkeby.io/)) and it's private key. Private key can be either a hex string or a [JSON keystore file](../cli/README.md#keystore-json-file).
 
+To interact with Fluence CLI, first of all, we will need to setup CLI to avoid input same arguments in all commands.
+
+```bash
+~ $ ./fluence setup
+```
+This command will ask you to enter Fluence contract address, Swarm and Ethereum node addresses, account credentials. It will create a config file, that will be used in all future commands.
+By default, our Swarm and Ethereum node addresses will be used. 
+Note that you need only secret key OR keystore path and password to have correct credentials and able to sign transactions to Ethereum.
+There is more info on using keystore files with Fluence CLI in its [README](../cli/README.md#keystore-json-file). 
+
 Having all that, you're now ready to publish your app. Examples below will specify a cluster size of 4 nodes for your app. Adjust it to your needs.
 
-If you have your private key **in hex**, run the following in your terminal, replacing `<>` with actual values:
 ```bash
 ~ $ ./fluence publish \
-            --eth_url          http://207.154.232.92:8545 \
-            --swarm_url        http://207.154.232.92:8500 \
             --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \
             --gas_price        10 \
-            --account          <your ethereum address> \
-            --secret_key       <your ethereum private key> \
             --cluster_size     4 \
             --wait_syncing \
             --wait
 ```
-
-If you have a JSON **keystore file**, run the following in your terminal, replacing `<>` with actual values:
-
-```bash
-~ $ ./fluence publish \
-            --eth_url          http://207.154.232.92:8545 \
-            --swarm_url        http://207.154.232.92:8500 \
-            --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \
-            --gas_price        10 \
-            --account          <your ethereum address> \
-            --keystore         <path to keystore> \
-            --password         <password for keystore> \
-            --cluster_size     4 \
-            --wait_syncing \
-            --wait
-```
-There is more info on using keystore files with Fluence CLI in its [README](../cli/README.md#keystore-json-file).
-
 
 After running the command, you will see an output similar to the following:
 ```bash
@@ -111,7 +102,6 @@ App deployed.
 To see how smart contract sees your app, and what nodes it was deployed onto, you can use `status` like this:
 ```bash
 ~ $ ./fluence status \
-            --eth_url          http://207.154.232.92:8545 \
             --app_id           <your app id here>
 ```
 
@@ -160,7 +150,6 @@ The output will be in JSON, and look similar to the following:
 You can also use interactive mode instead of default by supplying `--interactive` flag:
 ```bash
 ./fluence status \
-            --eth_url          http://207.154.232.92:8545 \
             --app_id           <your app id here> \
             --interactive
 ```

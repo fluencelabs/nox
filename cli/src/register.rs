@@ -18,16 +18,18 @@ use std::net::IpAddr;
 
 use failure::{Error, SyncFailure};
 
-use clap::{value_t, App, Arg, ArgMatches, SubCommand};
+use clap::{value_t, App, AppSettings, Arg, ArgMatches, SubCommand};
 use derive_getters::Getters;
 use hex;
 use web3::types::H256;
 
 use crate::command::*;
+use crate::config::SetupConfig;
 use crate::contract_func::contract::events::app_deployed::parse_log as parse_deployed;
 use crate::contract_func::contract::functions::add_node;
 use crate::contract_func::{call_contract, get_transaction_logs, wait_sync, wait_tx_included};
 use crate::contract_status::{find_by_tendermint_key, status};
+use crate::ethereum_params::EthereumParams;
 use crate::step_counter::StepCounter;
 use crate::types::{NodeAddress, IP_LEN, TENDERMINT_NODE_ID_LEN};
 use crate::utils;
@@ -48,7 +50,7 @@ pub struct Register {
     capacity: u16,
     private: bool,
     no_status_check: bool,
-    eth: EthereumArgs,
+    eth: EthereumParams,
 }
 
 #[derive(PartialEq, Debug)]
@@ -73,7 +75,7 @@ impl Register {
         capacity: u16,
         private: bool,
         no_status_check: bool,
-        eth: EthereumArgs,
+        eth: EthereumParams,
     ) -> Result<Register, Error> {
         Ok(Register {
             node_ip: node_address,
@@ -250,7 +252,7 @@ impl Register {
     }
 }
 
-pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
+pub fn parse(args: &ArgMatches, config: &SetupConfig) -> Result<Register, Error> {
     let tendermint_key: H256 = parse_tendermint_key(args)?;
 
     let tendermint_node_id: H160 = parse_tendermint_node_id(args)?;
@@ -261,7 +263,7 @@ pub fn parse(args: &ArgMatches) -> Result<Register, Error> {
     let private: bool = args.is_present(PRIVATE);
     let no_status_check: bool = args.is_present(NO_STATUS_CHECK);
 
-    let eth = parse_ethereum_args(args)?;
+    let eth = parse_ethereum_args(args, config)?;
 
     let node_address = parse_node_ip(&args)?;
 
@@ -315,6 +317,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("register")
         .about("Register a node in the smart contract")
         .args(with_ethereum_args(args).as_slice())
+        .setting(AppSettings::ArgRequiredElseHelp)
 }
 
 #[cfg(test)]
@@ -326,7 +329,9 @@ pub mod tests {
     use web3::types::*;
 
     use crate::command::EthereumArgs;
+    use crate::config::SetupConfig;
     use crate::credentials::Credentials;
+    use crate::ethereum_params::EthereumParams;
 
     use super::Register;
 
@@ -345,6 +350,10 @@ pub mod tests {
 
         let eth = generate_eth_args(credentials);
 
+        let config = SetupConfig::default().unwrap();
+
+        let eth_params = EthereumParams::generate(&eth, &config).unwrap();
+
         Register::new(
             "127.0.0.1".parse().unwrap(),
             tendermint_key,
@@ -353,7 +362,7 @@ pub mod tests {
             25100,
             false,
             false,
-            eth,
+            eth_params,
         )
         .unwrap()
     }
