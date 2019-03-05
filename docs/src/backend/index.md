@@ -9,6 +9,6 @@ Backend applications deployed to Fluence nodes are usually composed of two logic
 <br><br>
 </div>
 
-It is not necessary for a developer to use Fluence SDK – it merely exists to make development more convenient. However, there are certain rules which the code running within WebAssembly VM is expected to follow, so if you want to build unpadded applications or implement your own SDK please consult the [following document](./conventions.md).
+It is not necessary for a developer to use Fluence SDK – it merely exists to make development more convenient. However, there are certain rules which the code running within WebAssembly VM is expected to follow, so if you want to build unpadded applications or implement your own SDK please consult the [following document](./internals.md).
 
-If you would like to learn how to build backend applications using the Fluence SDK, please visit [SDK overview](./sdk_overview.md), [debugging info](./debugging.md), and [key examples](./examples.md) sections.
+If you would like to learn how to build backend applications using the Fluence SDK, please visit the [SDK overview](./sdk_overview.md).
