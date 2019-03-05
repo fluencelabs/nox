@@ -24,12 +24,13 @@ use rustyline::Editor;
 use std::fmt::Debug;
 
 pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
-
     fn format_option<T>(opt: &Option<T>) -> String
-        where T: Debug {
+    where
+        T: Debug,
+    {
         match opt {
             Some(v) => format!("{:?}", v),
-            None => "none".to_owned()
+            None => "none".to_owned(),
         }
     }
 
@@ -84,7 +85,8 @@ pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
         };
     };
 
-    let keystore_path_prompt = format!("Keystore Path [{}]: ", format_option(&config.keystore_path));
+    let keystore_path_prompt =
+        format!("Keystore Path [{}]: ", format_option(&config.keystore_path));
     let keystore_path = rl.readline(&keystore_path_prompt)?;
     let keystore_path = none_if_empty(&keystore_path);
 
