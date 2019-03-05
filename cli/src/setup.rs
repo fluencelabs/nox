@@ -27,7 +27,7 @@ pub fn interactive_setup(config: SetupConfig) -> Result<(), Error> {
     let mut rl = Editor::<()>::new();
 
     println!(
-        "default contract address will be: {}",
+        "default contract address will be: {:?}",
         config.contract_address
     );
     println!("write contract address or press Enter for a default value:");
@@ -36,21 +36,21 @@ pub fn interactive_setup(config: SetupConfig) -> Result<(), Error> {
     let contract_address: Address = contract_address.unwrap_or(config.contract_address);
     println!("contract address is: {:?}", contract_address);
 
-    println!("default ethereum node url will be: {}", config.eth_url);
+    println!("default ethereum node url will be: {:?}", config.eth_url);
     println!("write ethereum node url or press Enter for a default value");
     let ethereum_address = rl.readline("> ")?;
     let ethereum_address = none_if_empty(ethereum_address.as_str())
         .unwrap_or(config.eth_url.as_str())
         .to_owned();
-    println!("ethereum node url is: {}", ethereum_address);
+    println!("ethereum node url is: {:?}", ethereum_address);
 
-    println!("default swarm node url will be: {}", config.eth_url);
+    println!("default swarm node url will be: {:?}", config.eth_url);
     println!("write swarm node url or press Enter for a default value");
     let swarm_address = rl.readline("> ")?;
     let swarm_address = none_if_empty(swarm_address.as_str())
         .unwrap_or(config.swarm_url.as_str())
         .to_owned();
-    println!("swarm node url is: {}", swarm_address);
+    println!("swarm node url is: {:?}", swarm_address);
 
     println!("default account address will be: {:?}", config.account);
     println!("write account address or press Enter for a default value");
