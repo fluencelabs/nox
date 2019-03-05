@@ -215,7 +215,9 @@ pub fn parse(matches: &ArgMatches, config: SetupConfig) -> Result<Publisher, Err
     let mut buf = Vec::new();
     file.read_to_end(&mut buf)?;
 
-    let swarm_url = value_t!(matches, SWARM_URL, String)?;
+    let swarm_url = matches
+        .value_of(SWARM_URL)
+        .unwrap_or(config.swarm_url.as_str());
     let cluster_size = value_t!(matches, CLUSTER_SIZE, u8)?;
     let eth = parse_ethereum_args(matches, config)?;
 
@@ -281,7 +283,6 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .required(false)
             .takes_value(true)
             .help("Http address to swarm node")
-            .default_value("http://localhost:8500/")
             .display_order(3),
     ];
 
