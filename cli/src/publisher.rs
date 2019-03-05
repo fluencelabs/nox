@@ -319,10 +319,10 @@ mod tests {
     use failure::Error;
 
     use crate::command::EthereumArgs;
-    use crate::credentials::Credentials;
-    use crate::publisher::Publisher;
-    use crate::ethereum_params::EthereumParams;
     use crate::config::SetupConfig;
+    use crate::credentials::Credentials;
+    use crate::ethereum_params::EthereumParams;
+    use crate::publisher::Publisher;
 
     const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
 

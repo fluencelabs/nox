@@ -30,12 +30,11 @@ pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
         let contract_address = rl.readline(&contract_address_prompt)?;
         let contract_address = parse_hex(none_if_empty(&contract_address));
         match contract_address {
-            Ok(r) =>
-                break r.unwrap_or(config.contract_address),
+            Ok(r) => break r.unwrap_or(config.contract_address),
             Err(e) => {
                 println!("error occured {}", e);
                 println!("try again");
-            },
+            }
         }
     };
 
@@ -55,12 +54,11 @@ pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
     let account_address = loop {
         let account_address = rl.readline(&account_address_prompt)?;
         match parse_hex(none_if_empty(&account_address)) {
-            Ok(r) =>
-                break r.or_else(|| config.account),
+            Ok(r) => break r.or_else(|| config.account),
             Err(e) => {
                 println!("error occured {}", e);
                 println!("try again");
-            },
+            }
         }
     };
 
@@ -68,12 +66,11 @@ pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
     let secret_key = loop {
         let secret_key = rl.readline(&secret_key_prompt)?;
         match parse_hex(none_if_empty(&secret_key)) {
-            Ok(r) =>
-                break r.or_else(|| config.secret_key),
+            Ok(r) => break r.or_else(|| config.secret_key),
             Err(e) => {
                 println!("error occured {}", e);
                 println!("try again");
-            },
+            }
         };
     };
 

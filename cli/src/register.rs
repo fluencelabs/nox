@@ -329,9 +329,9 @@ pub mod tests {
     use web3::types::*;
 
     use crate::command::EthereumArgs;
-    use crate::ethereum_params::EthereumParams;
     use crate::config::SetupConfig;
     use crate::credentials::Credentials;
+    use crate::ethereum_params::EthereumParams;
 
     use super::Register;
 

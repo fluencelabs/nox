@@ -28,6 +28,8 @@ use web3::types::H160;
 use web3::types::H256;
 
 use fluence::command::EthereumArgs;
+use fluence::config::SetupConfig;
+use fluence::ethereum_params::EthereumParams;
 use fluence::contract_func::get_transaction_logs;
 use fluence::contract_status::get_status;
 use fluence::contract_status::status::Status;
@@ -46,17 +48,19 @@ pub struct TestOpts {
     api_port: u16,
     code_bytes: Vec<u8>,
     swarm_url: String,
-    eth: EthereumArgs,
+    eth: EthereumParams,
 }
 
 impl TestOpts {
     pub fn default() -> TestOpts {
         let eth = EthereumArgs::default();
+        let config = SetupConfig::default().unwrap();
+        let params = EthereumParams::generate(&eth, &config).unwrap();
         TestOpts {
             api_port: 25000,
             code_bytes: vec![1, 2, 3],
             swarm_url: String::from("http://localhost:8500"),
-            eth,
+            eth: params,
         }
     }
 
@@ -197,6 +201,6 @@ impl TestOpts {
     }
 
     pub fn get_status(&self) -> Result<Status> {
-        get_status(self.eth.eth_url.as_str(), self.eth.contract_address)
+        get_status(self.eth.eth_url.as_str(), self.eth.contract_address.clone())
     }
 }
