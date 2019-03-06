@@ -33,6 +33,13 @@ pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
         }
     }
 
+    fn format_option_str(opt: &Option<&str>) -> String {
+        match opt {
+            Some(v) => format!("{}", v),
+            None => "none".to_owned(),
+        }
+    }
+
     let mut rl = Editor::<()>::new();
 
     let contract_address_prompt = format!("Contract Address [{:?}]: ", config.contract_address);
@@ -84,14 +91,20 @@ pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
         };
     };
 
-    let keystore_path_prompt =
-        format!("Keystore Path [{}]: ", format_option(&config.keystore_path));
+    let keystore_path_prompt = format!(
+        "Keystore Path [{}]: ",
+        format_option_str(&config.keystore_path.as_ref().map(|s| &**s))
+    );
     let keystore_path = rl.readline(&keystore_path_prompt)?;
-    let keystore_path = none_if_empty(&keystore_path);
+    let keystore_path =
+        none_if_empty(&keystore_path).or_else(|| config.keystore_path.as_ref().map(|s| &**s));
 
-    let password_prompt = format!("Password [{}]: ", format_option(&config.password));
+    let password_prompt = format!(
+        "Password [{}]: ",
+        format_option_str(&config.password.as_ref().map(|s| &**s))
+    );
     let password = rl.readline(&password_prompt)?;
-    let password = none_if_empty(&password);
+    let password = none_if_empty(&password).or_else(|| config.password.as_ref().map(|s| &**s));
 
     let config = SetupConfig::new(
         contract_address,
