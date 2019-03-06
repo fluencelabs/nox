@@ -15,7 +15,7 @@ extern crate fluence;
 use fluence::sdk::*;
 ```
 
-Example Rust 2015 application can be found [here](https://github.com/fluencelabs/fluence/tree/master/vm/examples/hello-world2/app-2015).
+Example Rust 2015 application can be found [here](https://github.com/fluencelabs/tutorials/tree/master/hello-world/app-logger-rust-2015).
 
 ## Entry point function
 
