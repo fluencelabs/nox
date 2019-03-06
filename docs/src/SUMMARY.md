@@ -4,7 +4,7 @@
     - [Overview](introduction/overview.md)
     - [Motivation](introduction/motivation.md)
     - [Incentive model](introduction/incentive_model.md)
-- [Quick start](quickstart/index.md)
+- [Quickstart](quickstart/index.md)
     - [Developing the backend app](quickstart/backend.md)
     - [Publishing the backend app](quickstart/publish.md)
     - [Developing the web app](quickstart/web.md)
