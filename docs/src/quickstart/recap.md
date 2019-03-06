@@ -1,15 +1,13 @@
-# Wrapping up
-Thanks for finishing quick start guide! 
+# Recap
+Thanks for finishing the quickstart guide! 
 
 A short recap of what you have developed and learned:
 
-- Set up a Rust and Node.js environments from zero to compiling Webassembly backend and a working web application. 
-- Start with Rust basics, and end up using complex procedural macros and processing user input. 
-- Interact with Ethereum and alter Fluence network state. 
-- Spin up real decentralized backend on top of miners' machines, and integrate JavaScript web app with that backend.
+- How to set up Rust and Node.js environments from scratch.
+- How to interact with Ethereum and Swarm through the Fluence CLI.
+- How to spin up a decentralized backend running in the Fluence network, and build frontend applications interacting with this backend.
 
-Hope this was fun. If you experienced any problems with this guide or Fluence, or just want to chat with the team, feel free to join our [Discord](https://discordapp.com/invite/AjfbDKQ)!
+Hope this was fun!
 
-If you want to do more with Fluence, you can help us out by looking at [open problems](../unsolved.md) or [open issues](https://github.com/fluencelabs/fluence/issues), and give us some feedback.
- 
- Also, there are more examples of [backends](TODO) and [web apps](TODO), take a look.
+Join our [Discord](https://discordapp.com/invite/AjfbDKQ) if you have any feedback, questions, or ideas what could be built with Fluence :)
+
