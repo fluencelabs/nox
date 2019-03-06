@@ -1,7 +1,9 @@
-# Frontend
-For this part, you will need installed `npm`. Please refer to [npm docs](https://www.npmjs.com/get-npm) for installation instructions.
+# Developing the web app
 
-## Preparing web app
+For this part, you need installed `npm`. Please refer to [npm docs](https://www.npmjs.com/get-npm) for installation instructions.
+
+## Preparing web application
+
 Let's clone a simple web app template:
 ```bash
 ~ $ git clone https://github.com/fluencelabs/frontend-template
@@ -9,36 +11,42 @@ Let's clone a simple web app template:
 ~/frontend-template $ 
 ```
 
-There are just three files (except for README, LICENSE and .gitignore):
-- `package.json` that declares needed dependencies
-- `webpack.config.js` needed for the webpack to work
-- `index.js` that imports `fluence` js library and shows how to connect to a cluster
+Inside you should find:
+- `package.json` which adds required dependencies
+- `webpack.config.js` which is needed for the webpack to work
+- `index.js` which demonstrates how to interact with the real-time cluster
 
-`fluence` js library is an SDK, that can take cluster entry points from Ethereum smart contract with `connect` method and invoke commands to a cluster by method `invoke`.
+The template web application uses the Fluence frontend SDK. This SDK allows to locate the real-time cluster with the help of the Fluence smart contract, and then send transactions to this cluster.
 
 Let's take a look at `index.js`:
 ```javascript
 
-// address of the Fluence smart contract on Ethereum.
+// the address of the Fluence smart contract on Ethereum
 let contractAddress = "0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7";
 
-// Address of the Ethereum node. If set to `undefined`, MetaMask will be used to send transactions.
+// the address of the Ethereum node
+// MetaMask is used to send transactions if this address is set to `undefined`, 
 let ethUrl = "http://207.154.240.52:8545/";
 
-// appId of the backend as seen in Fluence smart contract.
+// the backend appId as seen in the Fluence smart contract
 let appId = "6";
+
 ...
-// create a session between client and backend application
+
+// create a session between the frontend client and the backend application
+// the session is used to send transactions to the real-time cluster
 fluence.connect(contractAddress, appId, ethUrl).then((s) => {
   console.log("Session created");
   window.session = s;
   helloBtn.disabled = false;
 });
+
 ...
-// set callback on button click
+
+// set a callback on the button click
 helloBtn.addEventListener("click", send)
 
-// send username as a transaction and display results in grettingLbl
+// send a transaction with the name to the real-time cluster and display the response
 function send() {
   const username = usernameInput.value.trim();
   let result = session.invoke(username);
@@ -48,14 +56,12 @@ function send() {
 }
 ```
 
-This code creates a session, and saves it to `window.session`, so it can be used later. 
+## Running the web application
 
-Then, it assigns `send()` function on the button, which will call the `invoke` method. `invoke` takes a string from an input, and sends it to the backend as a transaction. The result will be displayed in a greeting label.
+Make sure that you have changed the `appId` variable to the identifier of the deployed backend! 
 
-## Running and using
-Please make sure you have changed `appId` to the appId of existing backend. If you haven't published your backend yet, please take a look at [Publishing guide](publish.md). You can also use backends published by other people, take a look at 
+To install dependencies, and compile and run your web application, run:
 
-To install all dependencies, compile and run the application, run in the terminal:
 ```bash
 ~/frontend-template $ npm install
 ~/frontend-template $ npm run start
@@ -66,9 +72,16 @@ To install all dependencies, compile and run the application, run in the termina
 ...
 ```
 
-Now you can open http://localhost:8080/ in your browser. You will see an input text box and a disabled button. Button will become enabled once AppSession is created. You can enter your name, and press `Say hello!` button, and greeting will be displayed next to `Result:`.
+Now you can open [http://localhost:8080/](http://localhost:8080/) in your browser. You should see an input text element and a disabled button, which should become enabled once the session with the backend is initialized.
 
-You can also open Developer Console, and you'll see a log about session creation:
+<div style="text-align:center">
+<kbd>
+<img src="../images/helloworld.png" width="610px"/>
+</kbd>
+<br><br>
+</div>
+
+You can also open the developer console, and check out the Fluence SDK logs:
 ```
 ...
 Connecting web3 to http://207.154.232.92:8545
@@ -76,18 +89,12 @@ Connecting web3 to http://207.154.232.92:8545
 Session created
 ```
 
-<div style="text-align:center">
-<kbd>
-<img src="../images/helloworld.png" width="529px"/>
-</kbd>
-<br><br><br>
-</div>
+You can also interact with the backend application from the developer console:
 
-You can also use Fluence from within Developer console as follows:
 ```javascript
-let result = session.invoke("myName");
+let result = session.invoke("MyName");
 <undefined>
 logResultAsString(result);
 <undefined>
-Hello, world! From user myName
+Hello, world! -- MyName
 ```
