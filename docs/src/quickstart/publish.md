@@ -31,7 +31,11 @@ UTC--2019-03-03T14-48-59.325Z--<b>e1f9c157b45838ca83cb51b7bdcc6c7a3e56650f</b>
 
 ### Top up your account with funds
 
-There are two main Rinkeby faucets. [This one](https://faucet.rinkeby.io/) gives you up to 18 Ether, but it requires you to post an Ethereum address to a social network. [Another one](http://rinkeby-faucet.com/) gives you ETH right away, but just 0.001 Ether – which should be enough for this tutorial.
+There are two main Rinkeby faucets. 
+
+[This one](https://faucet.rinkeby.io/) gives you up to 18 Ether, but it requires you to post an Ethereum address to a social network. 
+
+[Another one](http://rinkeby-faucet.com/) gives you ETH right away, but just 0.001 Ether, which isn't enough for the publishing, so you may try to top up several times. 
 
 ## Installing the Fluence CLI
 
@@ -40,21 +44,21 @@ You can download the CLI from the [releases](https://github.com/fluencelabs/flue
 
 **Linux**
 ```bash
-~ $ curl -L https://github.com/fluencelabs/fluence/releases/download/v0.1.5/fluence-cli-0.1.5-linux-x64 -o fluence
+curl -L https://github.com/fluencelabs/fluence/releases/download/v0.1.5/fluence-cli-0.1.5-linux-x64 -o fluence
 ```
 
 **macOS**
 ```bash
-~ $ curl -L https://github.com/fluencelabs/fluence/releases/download/v0.1.5/fluence-cli-0.1.5-mac-x64 -o fluence
+curl -L https://github.com/fluencelabs/fluence/releases/download/v0.1.5/fluence-cli-0.1.5-mac-x64 -o fluence
 
 ```
 
 Don't forget to add permissions to run it:
 ```bash
-~ $ chmod +x ./fluence
+chmod +x ./fluence
 
 # check that the CLI is working
-~ $ ./fluence --version
+./fluence --version
 Fluence CLI 0.1.5
 ```
 
@@ -66,7 +70,7 @@ You also need a Rinkeby account with some money on it (you can [get Ethers from 
 To interact with the Fluence CLI, we will set it up first:
 
 ```bash
-~ $ ./fluence setup
+./fluence setup
 ```
 This command will ask you to enter the Fluence contract address, Swarm and Ethereum node addresses, and, finally, your account credentials. It will create the config file which will be used by the CLI tool in the future.
 
@@ -75,7 +79,7 @@ By default, Swarm and Ethereum nodes controlled by Fluence Labs will be used. No
 Having all that, now you are ready to publish your application:
 
 ```bash
-~ $ ./fluence publish \
+./fluence publish \
             --code_path        ~/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm \
             --gas_price        10 \
             --cluster_size     4 \
@@ -99,7 +103,7 @@ App deployed.
 ## Verifying the application status
 To check the state of your application – for example, which nodes it was deployed to, run:
 ```bash
-~ $ ./fluence status \
+./fluence status \
             --app_id           <your app id here>
 ```
 

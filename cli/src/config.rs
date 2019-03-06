@@ -19,11 +19,11 @@ use serde::{Deserialize, Serialize};
 use std::fs::create_dir_all;
 use std::fs::{read_to_string, File};
 use std::io::prelude::*;
-use std::path::Path;
+use std::path::PathBuf;
 use web3::types::Address;
 use web3::types::H256;
 
-pub const HOME_DIR: &str = "~/.local/share/.fluence/";
+pub const FLUENCE_DIR: &str = ".fluence/";
 pub const DEFAULT_CONTRACT_ADDRESS: &str = include_str!("../../tools/deploy/scripts/contract.txt");
 pub const DEFAULT_ETH_URL: &str = "http://data.fluence.one:8545/";
 pub const DEFAULT_SWARM_URL: &str = "http://data.fluence.one:8500/";
@@ -48,6 +48,12 @@ pub fn none_if_empty(value: &str) -> Option<&str> {
     } else {
         Some(value)
     }
+}
+
+pub fn get_config_dir() -> PathBuf {
+    let mut home = dirs::data_local_dir().unwrap();
+    home.push(FLUENCE_DIR);
+    home
 }
 
 impl SetupConfig {
@@ -84,9 +90,9 @@ impl SetupConfig {
     }
 
     // reads config file or generates default config if file does not exist
-    pub fn read_from_file_or_default(home_dir: &str) -> Result<SetupConfig, Error> {
-        let path = format!("{}{}", home_dir, CONFIG_FILENAME);
-        let path = Path::new(path.as_str());
+    pub fn read_from_file_or_default() -> Result<SetupConfig, Error> {
+        let mut path = get_config_dir();
+        path.push(CONFIG_FILENAME);
 
         if !path.exists() {
             SetupConfig::default()
@@ -98,12 +104,16 @@ impl SetupConfig {
     }
 
     // writes config to file
-    pub fn write_to_file(&self, home_dir: &str) -> Result<(), Error> {
-        create_dir_all(HOME_DIR)?;
+    pub fn write_to_file(&self) -> Result<(), Error> {
+        let mut path = get_config_dir();
+
+        create_dir_all(&path)?;
+
         let config_str = serde_json::to_string(&self)?;
-        let path = format!("{}{}", home_dir, CONFIG_FILENAME);
-        println!("path: {}", path);
-        let mut file = File::create(path)?;
+
+        path.push(CONFIG_FILENAME);
+        println!("path: {:?}", &path);
+        let mut file = File::create(&path)?;
 
         file.write_all(config_str.as_bytes())?;
 
