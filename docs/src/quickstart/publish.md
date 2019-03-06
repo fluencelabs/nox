@@ -31,7 +31,11 @@ UTC--2019-03-03T14-48-59.325Z--<b>e1f9c157b45838ca83cb51b7bdcc6c7a3e56650f</b>
 
 ### Top up your account with funds
 
-There are two main Rinkeby faucets. [This one](https://faucet.rinkeby.io/) gives you up to 18 Ether, but it requires you to post an Ethereum address to a social network. [Another one](http://rinkeby-faucet.com/) gives you ETH right away, but just 0.001 Ether – which should be enough for this tutorial.
+There are two main Rinkeby faucets. 
+
+[This one](https://faucet.rinkeby.io/) gives you up to 18 Ether, but it requires you to post an Ethereum address to a social network. 
+
+[Another one](http://rinkeby-faucet.com/) gives you ETH right away, but just 0.001 Ether, which isn't enough for the publishing, so you may try to top up several times. 
 
 ## Installing the Fluence CLI
 

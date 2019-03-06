@@ -8,7 +8,7 @@ At the current moment, the project is under heavy development, and the architect
 **+** SDK: frontend (JavaScript) and backend (Rust)  
 
 Features that have not been released yet:  
-**–** Batch validation layer: tx history verification, VM state updates  
+**–** Batch validation layer: tx history verification  
 **–** Secure metadata storage: batch validation state, security deposits  
 **–** Dispute resolution layer: verification game  
 **–** Data availability layer: Swarm storage for tx history  
