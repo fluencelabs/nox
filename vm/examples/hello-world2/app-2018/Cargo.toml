@@ -19,4 +19,4 @@ panic = "abort"
 
 [dependencies]
 log = "0.4"
-fluence = { path="../../../../backend-sdk", version = "0.1.0", features = ["wasm_logger"] }
+fluence = { version = "0.1.0", features = ["wasm_logger"] }
