@@ -16,7 +16,6 @@
 
 use crate::config::none_if_empty;
 use crate::config::SetupConfig;
-use crate::config::HOME_DIR;
 use crate::utils::parse_hex;
 use clap::{App, AppSettings, SubCommand};
 use failure::Error;
@@ -103,8 +102,7 @@ pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
         keystore_path.map(|s| s.to_owned()),
         password.map(|s| s.to_owned()),
     );
-    config.write_to_file(HOME_DIR)?;
-
+    config.write_to_file()?;
     Ok(())
 }
 

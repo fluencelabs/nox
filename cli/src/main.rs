@@ -21,7 +21,6 @@ use console::style;
 use exitfailure::ExitFailure;
 use failure::{err_msg, ResultExt};
 use fluence::config::SetupConfig;
-use fluence::config::HOME_DIR;
 use fluence::publisher::Published;
 use fluence::register::Registered;
 use fluence::utils;
@@ -33,7 +32,7 @@ use web3::types::H256;
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 fn main() -> Result<(), ExitFailure> {
-    let config = &SetupConfig::read_from_file_or_default(HOME_DIR)?;
+    let config = &SetupConfig::read_from_file_or_default()?;
 
     let app = App::new("Fluence CLI")
         .global_setting(AppSettings::UnifiedHelpMessage)
