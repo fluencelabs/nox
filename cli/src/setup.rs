@@ -16,7 +16,6 @@
 
 use crate::config::none_if_empty;
 use crate::config::SetupConfig;
-use crate::config::HOME_DIR;
 use crate::utils::parse_hex;
 use clap::{App, AppSettings, SubCommand};
 use failure::Error;
@@ -30,6 +29,13 @@ pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
     {
         match opt {
             Some(v) => format!("{:?}", v),
+            None => "none".to_owned(),
+        }
+    }
+
+    fn format_option_str(opt: &Option<&str>) -> String {
+        match opt {
+            Some(v) => format!("{}", v.trim()),
             None => "none".to_owned(),
         }
     }
@@ -53,12 +59,14 @@ pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
     let ethereum_address = rl.readline(&ethereum_url_prompt)?;
     let ethereum_address = none_if_empty(&ethereum_address)
         .unwrap_or(&config.eth_url)
+        .trim()
         .to_owned();
 
     let swarm_url_prompt = format!("Swarm Node Url [{}]: ", config.swarm_url);
     let swarm_address = rl.readline(&swarm_url_prompt)?;
     let swarm_address = none_if_empty(&swarm_address)
         .unwrap_or(&config.swarm_url)
+        .trim()
         .to_owned();
 
     let account_address_prompt = format!("Account Address [{}]: ", format_option(&config.account));
@@ -85,14 +93,20 @@ pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
         };
     };
 
-    let keystore_path_prompt =
-        format!("Keystore Path [{}]: ", format_option(&config.keystore_path));
+    let keystore_path_prompt = format!(
+        "Keystore Path [{}]: ",
+        format_option_str(&config.keystore_path.as_ref().map(|s| &**s))
+    );
     let keystore_path = rl.readline(&keystore_path_prompt)?;
-    let keystore_path = none_if_empty(&keystore_path);
+    let keystore_path =
+        none_if_empty(&keystore_path).or_else(|| config.keystore_path.as_ref().map(|s| &**s));
 
-    let password_prompt = format!("Password [{}]: ", format_option(&config.password));
+    let password_prompt = format!(
+        "Password [{}]: ",
+        format_option_str(&config.password.as_ref().map(|s| &**s))
+    );
     let password = rl.readline(&password_prompt)?;
-    let password = none_if_empty(&password);
+    let password = none_if_empty(&password).or_else(|| config.password.as_ref().map(|s| &**s));
 
     let config = SetupConfig::new(
         contract_address,
@@ -103,8 +117,7 @@ pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
         keystore_path.map(|s| s.to_owned()),
         password.map(|s| s.to_owned()),
     );
-    config.write_to_file(HOME_DIR)?;
-
+    config.write_to_file()?;
     Ok(())
 }
 
