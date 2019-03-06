@@ -53,8 +53,7 @@ Once the state machine receives a transaction block, it forwards each transactio
 
 ## Unmanaged application example
 
-Here is how a simple hello world application can be implemented without the Fluence SDK:
-
+Here is how a simple [hello world](https://github.com/fluencelabs/tutorials/tree/master/hello-world/app-nosdk-rust-2018) application can be implemented without the Fluence SDK:
  
 ```Rust
 #![feature(allocator_api)]
