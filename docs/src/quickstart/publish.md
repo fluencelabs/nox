@@ -1,39 +1,42 @@
-# Publishing your app
-In Fluence network, app is deployed by uploading the Wasm code to Swarm, and publishing hash-address of the code to the Fluence smart contract. 
+# Publishing the backend app
 
-It is possible to specify desired cluster size along with the hash-address. Cluster size sets the required number of real-time workers in the cluster hosting the app. Note that app would wait in the queue until there is enough free workers to create a cluster of the desired size.
+In the Fluence network, applications are deployed by uploading WebAssembly code to Swarm, and publishing hashes of the uploaded code to the Fluence smart contract.
 
-## Connect to Swarm and Ethereum Rinkeby
-To publish a backend app to Fluence network, you need to upload it to Swarm, and then send its location in Swarm to a Fluence smart contract on Ethereum Rinkeby testnet. 
+It is also possible to specify the desired cluster size, which sets the required number of real-time workers in the cluster hosting the application. Note that the application might wait in the queue until there are enough free workers to form a cluster of the desired size.
+
+## Connecting to Swarm and Ethereum Rinkeby nodes
 
 To make sure we're on the same page:
-- Swarm is a decentralized file storage. 
-- Ethereum Rinkeby testnet is one of the many Ethereum networks, but there's no real money in there, so it's safe and can be used for trying out something new.
-- Fluence smart contract is what rules the Fluence network and allows users to use it.
 
-To upload your code to Swarm, you need to have access to one of its nodes. The same with Ethereum, you will need a connection to any Ethereum node on Rinkeby testnet.
+- Swarm is a decentralized file storage
+- Ethereum Rinkeby is one of Ethereum testnets, which works with toy money
+- Fluence smart contract is what rules the Fluence network
 
-**We will use existing Ethereum & Swarm nodes, but if you wish, you can [use your own nodes](../roles/miner.md) or any other.**
+To upload the application code to Swarm, you need to have access to one of Swarm nodes. The same with Ethereum: you need access to any Ethereum node running Rinkeby testnet.
+
+For your convenience and to make this guide simpler, we use Ethereum and Swarm nodes set up by Fluence Labs, but you can use any other nodes if you wish.
+
+**WARNING! This is not a secure way to connect to Ethereum or Swarm.**  
+It should not be used in production or in a security-sensitive context.
 
 ## Registering an Ethereum Rinkeby account
+
 ### Via myetherwallet.com
-Go to [MyEtherWallet.com](https://vintage.myetherwallet.com/), then select any Rinkeby in the upper right, enter any password, and download the Keystore file. You will find your account address in last part of the keystore filename, e.g: 
+
+Go to [MyEtherWallet.com](https://vintage.myetherwallet.com/), select any Rinkeby in the upper right dropdown, enter any password, and download the Keystore file. You will find your account address in the last part of the Keystore file name, for example: 
 
 <pre>
 UTC--2019-03-03T14-48-59.325Z--<b>e1f9c157b45838ca83cb51b7bdcc6c7a3e56650f</b>
 </pre>
 
-### Top up account with funds
-There are two main Rinkeby faucets. [This one](https://faucet.rinkeby.io/) will give you up to 18 Ether, but it requires you to post an Ethereum address to a social network, [another one](http://rinkeby-faucet.com/) gives you ETH right away, but just `0.001`  ether. 
+### Top up your account with funds
 
-`0.001` ether is enough for the sake of this tutorial, so you may want to go with the [easier one](http://rinkeby-faucet.com/)
+There are two main Rinkeby faucets. [This one](https://faucet.rinkeby.io/) gives you up to 18 Ether, but it requires you to post an Ethereum address to a social network. [Another one](http://rinkeby-faucet.com/) gives you ETH right away, but just 0.001 Ether – which should be enough for this tutorial.
 
-## Installing Fluence CLI
-Creating publish transactions manually is hard and error-prone, so we provide Fluence CLI to make this task easier.
+## Installing the Fluence CLI
 
-You can download Fluence CLI from the [latest release](https://github.com/fluencelabs/fluence/releases/)
-
-Or in terminal:
+It is hard to send publication transactions manually, so we provide the Fluence CLI.  
+You can download the CLI from the [releases](https://github.com/fluencelabs/fluence/releases/) page, or fetch it in the terminal:
 
 **Linux**
 ```bash
@@ -46,35 +49,30 @@ Or in terminal:
 
 ```
 
-And finally don't forget to add permission to execute it:
+Don't forget to add permissions to run it:
 ```bash
 ~ $ chmod +x ./fluence
 
-# check CLI is working
+# check that the CLI is working
 ~ $ ./fluence --version
 Fluence CLI 0.1.5
 ```
 
-If you see CLI version, proceed to the next step.
+## Publishing the application with the Fluence CLI
+As we have already mentioned, you need to have access to the Ethereum Rinkeby and Swarm networks. You can either use Ethereum and Swarm nodes set up by Fluence Labs, or specify other nodes by providing their URIs using `--eth_url` and `--swarm_url` options.
 
-## Publishing via Fluence CLI
-As was mentioned before, you will need a connection to Ethereum Rinkeby network, and a connection to Swarm network. 
+You also need a Rinkeby account with some money on it (you can [get Ethers from faucet](https://faucet.rinkeby.io/)) and its private key, which can either be a hex string or a [Keystore file](../cli.md#keystore-json-file).
 
-For your convenience, and to make this guide simple, we use addresses of existing Ethereum Rinkeby and Swarm nodes running in a cloud on Fluence nodes. **However, this is a centralized way to connect to Ethereum Rinkeby and Swarm networks, and shouldn't be used in production or in a security-sensitive context.** You may use **any** Rinkeby and Swarm nodes by providing their URIs within `--eth_url` and `--swarm_url` options (see below).
-
-Also you will need a Rinkeby account with some money on it (you can [get money from faucet](https://faucet.rinkeby.io/)) and it's private key. Private key can be either a hex string or a [JSON keystore file](../cli/README.md#keystore-json-file).
-
-To interact with Fluence CLI, first of all, we will need to setup CLI to avoid input same arguments in all commands.
+To interact with the Fluence CLI, we will set it up first:
 
 ```bash
 ~ $ ./fluence setup
 ```
-This command will ask you to enter Fluence contract address, Swarm and Ethereum node addresses, account credentials. It will create a config file, that will be used in all future commands.
-By default, our Swarm and Ethereum node addresses will be used. 
-Note that you need only secret key OR keystore path and password to have correct credentials and able to sign transactions to Ethereum.
-There is more info on using keystore files with Fluence CLI in its [README](../cli/README.md#keystore-json-file). 
+This command will ask you to enter the Fluence contract address, Swarm and Ethereum node addresses, and, finally, your account credentials. It will create the config file which will be used by the CLI tool in the future.
 
-Having all that, you're now ready to publish your app. Examples below will specify a cluster size of 4 nodes for your app. Adjust it to your needs.
+By default, Swarm and Ethereum nodes controlled by Fluence Labs will be used. Note that you need to provide either the secret key **or** the Keystore file path + password to be able to send transactions to Ethereum.
+
+Having all that, now you are ready to publish your application:
 
 ```bash
 ~ $ ./fluence publish \
@@ -85,7 +83,7 @@ Having all that, you're now ready to publish your app. Examples below will speci
             --wait
 ```
 
-After running the command, you will see an output similar to the following:
+Once the command completes, you should see an output similar to the following:
 ```bash
 [1/3]   Application code uploaded. ---> [00:00:00]
 swarm hash: 0xf5c604478031e9a658551220da3af1f086965b257e7375bbb005e0458c805874
@@ -98,14 +96,14 @@ App deployed.
 ```
 
 
-## Check app in the smart contract
-To see how smart contract sees your app, and what nodes it was deployed onto, you can use `status` like this:
+## Verifying the application status
+To check the state of your application – for example, which nodes it was deployed to, run:
 ```bash
 ~ $ ./fluence status \
             --app_id           <your app id here>
 ```
 
-The output will be in JSON, and look similar to the following:
+The output will be in JSON, and should look similar to the following:
 ```json
 {
   "apps": [
@@ -147,18 +145,4 @@ The output will be in JSON, and look similar to the following:
 }
 ```
 
-You can also use interactive mode instead of default by supplying `--interactive` flag:
-```bash
-./fluence status \
-            --app_id           <your app id here> \
-            --interactive
-```
-
-<div style="text-align:center">
-<img src="../images/interactive.png" width="776px"/>
-<br>
-</div>
-
-You can press `q` to exit it.
-
-Your backend now is successfully deployed! You can proceed to access your code from a web browser.
+The backend application should be successfully deployed now!
