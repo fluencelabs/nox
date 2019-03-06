@@ -100,6 +100,18 @@ export function getNodeStatus(node: Node): Promise<any> {
     });
 }
 
+export function getWorkerStatus(node: Node, appId: number): Promise<any> {
+    let url = `http://${node.ip_addr}:${node.api_port}/apps/${appId}/status`;
+    return axios.get(url).then((res) => {
+        return res.data;
+    }).catch((err) => {
+        return {
+            nodeInfo: node,
+            causeBy: err
+        };
+    });
+}
+
 /**
  * Shows status of Fluence contract on the page.
  * @param ethereumUrl Url of an Ethereum node

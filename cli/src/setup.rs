@@ -35,7 +35,7 @@ pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
 
     fn format_option_str(opt: &Option<&str>) -> String {
         match opt {
-            Some(v) => format!("{}", v),
+            Some(v) => format!("{}", v.trim()),
             None => "none".to_owned(),
         }
     }
@@ -59,12 +59,14 @@ pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
     let ethereum_address = rl.readline(&ethereum_url_prompt)?;
     let ethereum_address = none_if_empty(&ethereum_address)
         .unwrap_or(&config.eth_url)
+        .trim()
         .to_owned();
 
     let swarm_url_prompt = format!("Swarm Node Url [{}]: ", config.swarm_url);
     let swarm_address = rl.readline(&swarm_url_prompt)?;
     let swarm_address = none_if_empty(&swarm_address)
         .unwrap_or(&config.swarm_url)
+        .trim()
         .to_owned();
 
     let account_address_prompt = format!("Account Address [{}]: ", format_option(&config.account));
