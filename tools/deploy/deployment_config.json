@@ -2,7 +2,7 @@
   "stage": {
     "swarm": "http://data.fluence.one:8500",
     "ethereum_ip": "data.fluence.one",
-    "contract": "0x4c9c53c3005a52d3468bb8a20fcb4c3ea76098ac",
+    "contract": "0x65452336ba247d08c5fabf5fad08d01ff42d255b",
     "nodes": {
       "46.101.221.231": {
         "owner": "0x6f0773cd2965c014d8a9d6ddd8e739568edeb7f5",
@@ -33,7 +33,7 @@
   "devnet": {
     "swarm": "http://data.fluence.one:8500",
     "ethereum_ip": "data.fluence.one",
-    "contract": "0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7",
+    "contract": "0xf008c29bb1fabd1eb1ea73b2410f523a5c213f19",
     "nodes": {
       "46.101.213.180": {
         "owner": "0x6f0773cd2965c014d8a9d6ddd8e739568edeb7f5",

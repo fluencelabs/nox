@@ -92,7 +92,7 @@ $ fab deploy
 
 At the end of the successful deployment you should see something like the following:
 ```
-[53.42.31.20] out: CONTRACT_ADDRESS=0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7
+[53.42.31.20] out: CONTRACT_ADDRESS=0xf008c29bb1fabd1eb1ea73b2410f523a5c213f19
 [53.42.31.20] out: NAME=fluence-node-1
 [53.42.31.20] out: HOST_IP=53.42.31.20
 [53.42.31.20] out: EXTERNAL_HOST_IP=53.42.31.20
