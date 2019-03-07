@@ -122,7 +122,7 @@ def deploy():
             else:
                 ethereum_ip = env.ethereum_ip
 
-            if env.image_tag is None:
+            if not hasattr(env, 'image_tag'):
                 image_tag = "v0.1.5"
             else:
                 image_tag = env.image_tag
