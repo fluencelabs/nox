@@ -7,7 +7,7 @@ let Tx = require('ethereumjs-tx');
 
 // Connect to the local ethereum node
 let web3 = new Web3();
-web3.setProvider(new web3.providers.HttpProvider('http://localhost:8545'));
+web3.setProvider(new web3.providers.HttpProvider('http://data.fluence.one:8545'));
 
 // Get ABI from compiled contract
 let source = fs.readFileSync("../../../bootstrap/contracts/compiled/Network.abi");
@@ -74,6 +74,7 @@ signedTxP.then(rawTx => {
                 console.log(receipt.contractAddress);
             } else {
                 console.log("CONTRACT ADDRESS IS NULL")
+                process.exit(1);
             }
         })
     })

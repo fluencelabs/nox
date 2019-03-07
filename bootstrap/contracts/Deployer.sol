@@ -327,7 +327,7 @@ contract Deployer {
 
             uint256[] storage appIDsArray = node.appIDs;
             uint idx = indexOf(appID, appIDsArray);
-            require(idx < nodeIDsArray.length, "error deleting app: app not found in node.appIDs");
+            require(idx < appIDsArray.length, "error deleting app: app not found in node.appIDs");
             removeArrayElement(idx, appIDsArray);
         }
     }
