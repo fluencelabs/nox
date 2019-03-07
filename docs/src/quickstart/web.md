@@ -22,7 +22,7 @@ Let's take a look at `index.js`:
 ```javascript
 
 // the address of the Fluence smart contract on Ethereum
-let contractAddress = "0x074a79f29c613f4f7035cec582d0f7e4d3cda2e7";
+let contractAddress = "0xf008c29bb1fabd1eb1ea73b2410f523a5c213f19";
 
 // the address of the Ethereum node
 // MetaMask is used to send transactions if this address is set to `undefined`, 
