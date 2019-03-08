@@ -78,7 +78,7 @@
 //! Please find more examples in `https://github.com/fluencelabs/fluence/tree/master/vm/examples`.
 //!
 
-#![doc(html_root_url = "https://docs.rs/fluence-sdk-macro/0.0.13")]
+#![doc(html_root_url = "https://docs.rs/fluence-sdk-macro/0.1.0")]
 
 extern crate proc_macro;
 mod macro_attr_parser;
@@ -181,13 +181,13 @@ fn invoke_handler_impl(
             quote! {
                 #fn_item
 
-                static mut IS_INITED: bool = false;
+                static mut __FLUENCE_SDK_IS_INITED_d28374a960b570e5db00dfe7a0c7b93: bool = false;
 
                 #[no_mangle]
                 pub unsafe fn invoke(ptr: *mut u8, len: usize) -> std::ptr::NonNull<u8> {
-                        if !IS_INITED {
+                        if !__FLUENCE_SDK_IS_INITED_d28374a960b570e5db00dfe7a0c7b93 {
                             #init_fn_name();
-                            unsafe { IS_INITED = true; }
+                            unsafe { __FLUENCE_SDK_IS_INITED_d28374a960b570e5db00dfe7a0c7b93 = true; }
                         }
 
                     #prolog
