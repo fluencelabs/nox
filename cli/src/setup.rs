@@ -30,6 +30,7 @@ use web3::types::H256;
 enum Auth {
     SecretKey,
     Keystore,
+    None,
 }
 
 fn format_option<T>(opt: &Option<T>) -> String
@@ -71,32 +72,21 @@ pub fn interactive_setup(config: SetupConfig) -> Result<(), Error> {
 
     let swarm_url_prompt = format!("Swarm Node Url [{}]: ", config.swarm_url);
     let swarm_address = rl.readline(&swarm_url_prompt)?;
-    let swarm_address = none_if_empty(&swarm_address)
+    let swarm_url = none_if_empty(&swarm_address)
         .unwrap_or(&config.swarm_url)
         .trim()
         .to_owned();
 
-    let auth_prompt = format!("Choose authorization type. (K)eystore / (S)ecret key [K]:");
-    let auth = loop {
-        let auth = rl.readline_with_initial(&auth_prompt, ("left", "right"))?;
-        let auth = auth.to_lowercase();
-        if auth.starts_with("k") || auth.is_empty() {
-            break Auth::Keystore;
-        } else if auth.starts_with("s") {
-            break Auth::SecretKey;
-        } else {
-            println!("Please, enter K for Keystore or S for Secret key")
-        }
-    };
+    let auth = ask_auth(&mut rl)?;
 
     let config = match auth {
         Auth::SecretKey => {
             let (account_address, secret_key) = secret_key_auth(&mut rl, &config)?;
             SetupConfig::new(
                 contract_address,
-                account_address,
                 ethereum_url,
-                swarm_address,
+                swarm_url,
+                account_address,
                 secret_key,
                 None,
                 None,
@@ -106,18 +96,48 @@ pub fn interactive_setup(config: SetupConfig) -> Result<(), Error> {
             let (keystore_path, password) = keystore_auth(&mut rl, &config)?;
             SetupConfig::new(
                 contract_address,
-                None,
                 ethereum_url,
-                swarm_address,
+                swarm_url,
                 None,
-                keystore_path.map(|s| s.to_owned()),
-                password.map(|s| s.to_owned()),
+                None,
+                keystore_path,
+                password,
             )
         }
+        Auth::None => SetupConfig::new(
+            contract_address,
+            ethereum_url,
+            swarm_url,
+            None,
+            None,
+            None,
+            None,
+        ),
     };
 
     config.write_to_file()?;
     Ok(())
+}
+
+fn ask_auth(rl: &mut Editor<()>) -> Result<Auth, Error> {
+    let auth_prompt = format!("Choose authorization type. (K)eystore / (S)ecret key / (N)one [K]:");
+    let auth = loop {
+        let auth = rl.readline_with_initial(&auth_prompt, ("left", "right"))?;
+        let auth = auth.to_lowercase();
+        if auth.starts_with("k") || auth.is_empty() {
+            break Auth::Keystore;
+        } else if auth.starts_with("s") {
+            break Auth::SecretKey;
+        } else if auth.starts_with("n") {
+            break Auth::None;
+        } else {
+            println!(
+                "Please, enter K - for Keystore, S - for Secret key, or N - for no authorization"
+            )
+        }
+    };
+
+    Ok(auth)
 }
 
 fn secret_key_auth(

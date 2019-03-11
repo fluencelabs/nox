@@ -68,9 +68,9 @@ pub fn get_config_dir() -> PathBuf {
 impl SetupConfig {
     pub fn new(
         contract_address: Address,
-        account: Option<Address>,
         eth_url: String,
         swarm_url: String,
+        account: Option<Address>,
         secret_key: Option<H256>,
         keystore_path: Option<String>,
         password: Option<String>,
@@ -94,7 +94,7 @@ impl SetupConfig {
         let eth_url = DEFAULT_ETH_URL.to_owned();
         let swarm_url = DEFAULT_SWARM_URL.to_owned();
         Ok(SetupConfig::new(
-            contract, None, eth_url, swarm_url, None, None, None,
+            contract, eth_url, swarm_url, None, None, None, None,
         ))
     }
 

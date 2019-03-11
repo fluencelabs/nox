@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
-use crate::command::EthereumArgs;
-use crate::config::SetupConfig;
-use crate::credentials;
-use crate::credentials::Credentials;
 use ethkey::Secret;
 use failure::err_msg;
 use failure::Error;
 use web3::types::Address;
+
+use crate::command::EthereumArgs;
+use crate::command::ACCOUNT;
+use crate::config::SetupConfig;
+use crate::credentials;
+use crate::credentials::Credentials;
 
 // TODO: merge EthereumArgs, SetupConfig and EthereumParams into a single structure
 #[derive(Debug, Clone)]
@@ -37,12 +39,12 @@ pub struct EthereumParams {
 }
 
 impl EthereumParams {
+    /// Merge command-line arguments with the stored config
+    /// specified arguments take precedence over values in config
     pub fn generate(args: EthereumArgs, config: SetupConfig) -> Result<EthereumParams, Error> {
-        let secret_key = config.secret_key.map(|s| Secret::from(s));
-
-        let credentials = args.credentials;
-        let credentials = match credentials {
+        let credentials = match args.credentials {
             Credentials::No => {
+                let secret_key = config.secret_key.map(|s| Secret::from(s));
                 credentials::load_credentials(config.keystore_path, config.password, secret_key)?
             }
             other => other,
@@ -50,10 +52,21 @@ impl EthereumParams {
 
         let contract_address = args.contract_address.unwrap_or(config.contract_address);
 
+        // Account source precedence:
+        // 1. --account argument
+        // 2. From credentials passed in arguments
+        // 3. config.account
+        // 4. From credentials in config
         let account = args
             .account
             .or(config.account)
-            .ok_or_else(|| err_msg("Account address is not defined. Use "))?;
+            .or(credentials.to_address())
+            .ok_or_else(|| {
+                err_msg(format!(
+                    "Account address is not defined. Specify it in `setup` command or with `--{}`.",
+                    ACCOUNT
+                ))
+            })?;
 
         let eth_url = args.eth_url.clone().unwrap_or(config.eth_url);
 

@@ -35,13 +35,13 @@ const SECRET_KEY: &str = "secret_key";
 const KEYSTORE: &str = "keystore";
 const GAS: &str = "gas";
 const GAS_PRICE: &str = "gas_price";
-const ACCOUNT: &str = "account";
 const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
 const BASE64_TENDERMINT_KEY: &str = "base64_tendermint_key";
 const TENDERMINT_NODE_ID: &str = "tendermint_node_id";
 const WAIT: &str = "wait";
 const WAIT_SYNCING: &str = "wait_syncing";
+pub const ACCOUNT: &str = "account";
 pub const NODE_IP: &str = "node_ip";
 pub const TENDERMINT_KEY: &str = "tendermint_key";
 
