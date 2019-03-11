@@ -54,13 +54,20 @@ use web3::Web3;
 // [1/2]   Code uploaded. ---> [00:00:10]
 // ```
 //
-pub fn with_progress<U, F>(msg: &str, prefix: &str, finish: &str, work: F) -> U
+pub fn with_progress<U, F>(msg: &str, prefix: &str, finish: &str, work: F) -> Result<U, Error>
 where
-    F: FnOnce() -> U,
+    F: FnOnce() -> Result<U, Error>,
 {
     let bar = create_progress_bar(prefix, msg);
     let result = work();
-    bar.finish_with_message(finish);
+    match result {
+        Ok(_) => bar.finish_with_message(finish),
+        Err(ref e) => {
+            let err = e.as_fail().to_string();
+            let err = format!("Error: {}", err);
+            bar.finish_with_message(err.as_str());
+        }
+    };
     result
 }
 

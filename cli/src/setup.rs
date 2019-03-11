@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
-use crate::config::none_if_empty;
-use crate::config::SetupConfig;
-use crate::utils::parse_hex;
+use std::fmt::Debug;
+
 use clap::{App, AppSettings, SubCommand};
 use failure::Error;
 use rustyline::Editor;
-use std::fmt::Debug;
+
+use crate::config::none_if_empty;
+use crate::config::SetupConfig;
+use crate::utils::parse_hex;
 
 pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
     fn format_option<T>(opt: &Option<T>) -> String

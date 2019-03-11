@@ -119,7 +119,7 @@ impl DeleteNode {
                 utils::with_progress(
                     "Waiting for a transaction to be included in a block...",
                     step_counter.format_next_step().as_str(),
-                    "Transaction included. App deleted.",
+                    "Transaction included. Node deleted.",
                     || {
                         wait_tx_included(&tx, web3)?;
                         wait_event_fn(&tx)?;
