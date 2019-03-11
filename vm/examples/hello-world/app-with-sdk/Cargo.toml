@@ -12,4 +12,4 @@ path = "src/lib.rs"
 crate-type = ["cdylib"]
 
 [dependencies]
-fluence = { version = "0.0.12" }
+fluence = { version = "0.1.0" }

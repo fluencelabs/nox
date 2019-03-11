@@ -35,10 +35,32 @@ dependencies = [
 ]
 
 [[package]]
-name = "hello_world2_2018"
+name = "lazy_static"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "llama_db"
 version = "0.1.0"
 dependencies = [
  "fluence 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "llamadb 0.1.0 (git+https://github.com/fluencelabs/llamadb.git)",
+]
+
+[[package]]
+name = "llamadb"
+version = "0.1.0"
+source = "git+https://github.com/fluencelabs/llamadb.git#85b8d273b6a4569d06eef1302cc1fe4690e958c4"
+dependencies = [
+ "log 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "log"
+version = "0.3.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
  "log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -86,6 +108,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum fluence 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "2883665a69893743bbd1e1b7877644232608393ddccbb84a3d466bf9ac84240f"
 "checksum fluence-sdk-macro 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "5024d2d0881cec4c0724683119d41b8bcfa47048cdb1da6c2bc14e11a4a67a72"
 "checksum fluence-sdk-main 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "3435030ef5787d287a4aabce7004c12437496f7ecbad411aee7f0a0ecde3676c"
+"checksum lazy_static 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a374c89b9db55895453a74c1e38861d9deec0b01b405a82516e9d5de4820dea1"
+"checksum llamadb 0.1.0 (git+https://github.com/fluencelabs/llamadb.git)" = "<none>"
+"checksum log 0.3.9 (registry+https://github.com/rust-lang/crates.io-index)" = "e19e8d5c34a3e0e2223db8e060f9e8264aeeb5c5fc64a4ee9965c062211c024b"
 "checksum log 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)" = "c84ec4b527950aa83a329754b01dbe3f58361d1c5efacd1f6d68c494d08a17c6"
 "checksum proc-macro2 0.4.27 (registry+https://github.com/rust-lang/crates.io-index)" = "4d317f9caece796be1980837fd5cb3dfec5613ebdb04ad0956deea83ce168915"
 "checksum quote 0.6.11 (registry+https://github.com/rust-lang/crates.io-index)" = "cdd8e04bd9c52e0342b406469d494fcb033be4bdbe5c606016defbb1681411e1"
