@@ -14,14 +14,18 @@
  * limitations under the License.
  */
 
-use failure::Error;
-use serde::{Deserialize, Serialize};
 use std::fs::create_dir_all;
 use std::fs::{read_to_string, File};
 use std::io::prelude::*;
 use std::path::PathBuf;
+
+use ethkey::Secret;
+use failure::{err_msg, Error, ResultExt};
+use serde::{Deserialize, Serialize};
 use web3::types::Address;
 use web3::types::H256;
+
+use crate::credentials::Credentials;
 
 pub const FLUENCE_DIR: &str = ".fluence/";
 pub const DEFAULT_CONTRACT_ADDRESS: &str = include_str!("../../tools/deploy/scripts/contract.txt");
@@ -30,16 +34,65 @@ pub const DEFAULT_SWARM_URL: &str = "http://data.fluence.one:8500/";
 
 const CONFIG_FILENAME: &str = "cli.json";
 
-// TODO: merge EthereumArgs, SetupConfig and EthereumParams into a single structure
 #[derive(Serialize, Deserialize, Clone)]
+pub enum Auth {
+    SecretKey,
+    Keystore,
+    None,
+}
+
+impl Default for Auth {
+    fn default() -> Self {
+        Auth::None
+    }
+}
+
+// TODO: merge EthereumArgs, SetupConfig and EthereumParams into a single structure
+#[derive(Clone)]
 pub struct SetupConfig {
     pub contract_address: Address,
-    pub account: Option<Address>,
     pub eth_url: String,
     pub swarm_url: String,
+    pub credentials: Credentials,
+}
+
+/// Flat, plain JSON representation of the config
+#[derive(Serialize, Deserialize, Clone)]
+struct FlatConfig {
+    pub contract_address: Address,
+    pub eth_url: String,
+    pub swarm_url: String,
+    #[serde(default)]
+    pub auth: Auth,
     pub secret_key: Option<H256>,
     pub keystore_path: Option<String>,
     pub password: Option<String>,
+}
+
+impl FlatConfig {
+    fn from_setup(config: SetupConfig) -> FlatConfig {
+        let (auth, secret_key, keystore_path, password) = match config.credentials {
+            Credentials::No => (Auth::None, None, None, None),
+            Credentials::Keystore {
+                secret: _,
+                path,
+                password,
+            } => (Auth::Keystore, None, Some(path), Some(password)),
+            Credentials::Secret(secret) => (Auth::SecretKey, Some(secret), None, None),
+        };
+
+        let secret_key = secret_key.map(|s| *s);
+
+        FlatConfig {
+            contract_address: config.contract_address,
+            eth_url: config.eth_url,
+            swarm_url: config.swarm_url,
+            auth,
+            secret_key,
+            keystore_path,
+            password,
+        }
+    }
 }
 
 // returns None if string value is empty and Some if non empty
@@ -70,19 +123,13 @@ impl SetupConfig {
         contract_address: Address,
         eth_url: String,
         swarm_url: String,
-        account: Option<Address>,
-        secret_key: Option<H256>,
-        keystore_path: Option<String>,
-        password: Option<String>,
+        credentials: Credentials,
     ) -> SetupConfig {
         return SetupConfig {
             contract_address,
-            account,
             eth_url,
             swarm_url,
-            secret_key,
-            keystore_path,
-            password,
+            credentials,
         };
     }
 
@@ -94,7 +141,10 @@ impl SetupConfig {
         let eth_url = DEFAULT_ETH_URL.to_owned();
         let swarm_url = DEFAULT_SWARM_URL.to_owned();
         Ok(SetupConfig::new(
-            contract, eth_url, swarm_url, None, None, None, None,
+            contract,
+            eth_url,
+            swarm_url,
+            Credentials::No,
         ))
     }
 
@@ -107,18 +157,21 @@ impl SetupConfig {
             SetupConfig::default()
         } else {
             let content = read_to_string(path)?;
-            let config: SetupConfig = serde_json::from_str(content.as_str())?;
-            Ok(config)
+            let config: FlatConfig =
+                serde_json::from_str(content.as_str()).context("Error while loading config")?;
+            SetupConfig::from_flat(config)
         }
     }
 
     // writes config to file
-    pub fn write_to_file(&self) -> Result<(), Error> {
+    // TODO: encrypt config
+    pub fn write_to_file(self) -> Result<(), Error> {
         let mut path = get_config_dir();
 
         create_dir_all(&path)?;
 
-        let config_str = serde_json::to_string(&self)?;
+        let flat_config = FlatConfig::from_setup(self);
+        let config_str = serde_json::to_string(&flat_config)?;
 
         path.push(CONFIG_FILENAME);
         println!("path: {:?}", &path);
@@ -127,5 +180,34 @@ impl SetupConfig {
         file.write_all(config_str.as_bytes())?;
 
         Ok(())
+    }
+
+    fn from_flat(config: FlatConfig) -> Result<Self, Error> {
+        let credentials = match config.auth {
+            Auth::Keystore => {
+                let path = config
+                    .keystore_path
+                    .ok_or(err_msg("Auth::Keystore, but keystore path isn't defined"))?;
+                let password = config
+                    .password
+                    .ok_or(err_msg("Auth::Keystore, but password isn't defined"))?;
+                Credentials::load_keystore(path, password)?
+            }
+            Auth::SecretKey => {
+                let secret = config
+                    .secret_key
+                    .ok_or(err_msg("Auth::SecretKey, but secret key isn't defined"))?;
+                let secret = Secret::from(secret);
+                Credentials::from_secret(secret)?
+            }
+            Auth::None => Credentials::No,
+        };
+
+        Ok(SetupConfig {
+            contract_address: config.contract_address,
+            eth_url: config.eth_url,
+            swarm_url: config.swarm_url,
+            credentials,
+        })
     }
 }

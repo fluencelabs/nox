@@ -14,21 +14,22 @@
  * limitations under the License.
  */
 
-use crate::config::SetupConfig;
-use crate::credentials;
-use crate::credentials::Credentials;
-use crate::ethereum_params::EthereumParams;
-use crate::utils;
-use crate::utils::parse_hex;
+use std::net::IpAddr;
+
 use clap::value_t;
 use clap::Arg;
 use clap::ArgMatches;
 use failure::Error;
 use failure::ResultExt;
-use std::net::IpAddr;
 use web3::types::Address;
 use web3::types::H160;
 use web3::types::H256;
+
+use crate::config::SetupConfig;
+use crate::credentials::Credentials;
+use crate::ethereum_params::EthereumParams;
+use crate::utils;
+use crate::utils::parse_hex;
 
 const PASSWORD: &str = "password";
 const SECRET_KEY: &str = "secret_key";
@@ -202,7 +203,7 @@ pub fn parse_ethereum_args(
     let password = args.value_of(PASSWORD).map(|s| s.to_string());
     let keystore = args.value_of(KEYSTORE).map(|s| s.to_string());
 
-    let credentials = credentials::load_credentials(keystore, password, secret_key)?;
+    let credentials = Credentials::load(keystore, password, secret_key)?;
 
     let gas = value_t!(args, GAS, u32)?;
     let gas_price = value_t!(args, GAS_PRICE, u64)?;
