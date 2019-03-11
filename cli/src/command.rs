@@ -47,6 +47,7 @@ pub const TENDERMINT_KEY: &str = "tendermint_key";
 
 pub const TO_GWEI_MUL: u64 = 1_000_000_000;
 
+// TODO: merge EthereumArgs, SetupConfig and EthereumParams into a single structure
 #[derive(Debug, Clone)]
 pub struct EthereumArgs {
     pub credentials: Credentials,
@@ -208,6 +209,7 @@ pub fn parse_ethereum_args(
     // TODO: it could panic here on overflow
     let gas_price = gas_price * TO_GWEI_MUL;
     let account: Option<Address> = utils::parse_hex(args.value_of(ACCOUNT))?;
+    let account = account.or(credentials.to_address());
 
     let contract_address: Option<Address> = parse_contract_address(args)?;
 

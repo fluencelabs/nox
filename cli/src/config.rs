@@ -30,6 +30,7 @@ pub const DEFAULT_SWARM_URL: &str = "http://data.fluence.one:8500/";
 
 const CONFIG_FILENAME: &str = "cli.json";
 
+// TODO: merge EthereumArgs, SetupConfig and EthereumParams into a single structure
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SetupConfig {
     pub contract_address: Address,
@@ -43,6 +44,14 @@ pub struct SetupConfig {
 
 // returns None if string value is empty and Some if non empty
 pub fn none_if_empty(value: &str) -> Option<&str> {
+    if value.is_empty() {
+        None
+    } else {
+        Some(value)
+    }
+}
+
+pub fn none_if_empty_string(value: String) -> Option<String> {
     if value.is_empty() {
         None
     } else {

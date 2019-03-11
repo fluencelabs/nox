@@ -23,6 +23,7 @@ use failure::err_msg;
 use failure::Error;
 use web3::types::Address;
 
+// TODO: merge EthereumArgs, SetupConfig and EthereumParams into a single structure
 #[derive(Debug, Clone)]
 pub struct EthereumParams {
     pub credentials: Credentials,
@@ -39,8 +40,8 @@ impl EthereumParams {
     pub fn generate(args: &EthereumArgs, config: &SetupConfig) -> Result<EthereumParams, Error> {
         let secret_key = config.secret_key.map(|s| Secret::from(s));
 
-        let creds = args.credentials.clone();
-        let creds = match creds {
+        let credentials = args.credentials.clone();
+        let credentials = match credentials {
             Credentials::No => credentials::load_credentials(
                 config.keystore_path.clone(),
                 config.password.clone(),
@@ -55,18 +56,18 @@ impl EthereumParams {
 
         let account = args
             .account
-            .or_else(|| config.account)
-            .ok_or_else(|| err_msg("Specify account address in config or in argument"))?;
+            .or(config.account)
+            .ok_or_else(|| err_msg("Account address is not defined. Use "))?;
 
         let eth_url = args.eth_url.clone().unwrap_or(config.eth_url.clone());
 
         Ok(EthereumParams {
-            credentials: creds,
+            credentials,
             gas: args.gas,
             gas_price: args.gas_price,
-            account: account,
-            contract_address: contract_address,
-            eth_url: eth_url,
+            account,
+            contract_address,
+            eth_url,
             wait_tx_include: args.wait_tx_include,
             wait_eth_sync: args.wait_eth_sync,
         })

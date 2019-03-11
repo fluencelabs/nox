@@ -16,11 +16,13 @@
 
 use ethkey::Password;
 use ethkey::Secret;
+use ethkey::{public_to_address, KeyPair};
 use ethstore::accounts_dir::{DiskKeyFileManager, KeyFileManager};
 use ethstore::SafeAccount;
 use failure::ResultExt;
 use failure::{err_msg, Error};
 use std::fs::File;
+use web3::types::Address;
 
 /// Authorization to call contract methods
 #[derive(Debug, Clone)]
@@ -31,11 +33,19 @@ pub enum Credentials {
 }
 
 impl Credentials {
+    fn from_secret(secret: Secret) -> Result<Credentials, Error> {
+        secret
+            .check_validity()
+            .map(|_| Credentials::Secret(secret))
+            .context("Secret isn't valid")
+            .map_err(Into::into)
+    }
+
     /// usage of secret key is priority
-    pub fn get(secret: Option<Secret>, password: Option<String>) -> Credentials {
+    pub fn get(secret: Option<Secret>, password: Option<String>) -> Result<Credentials, Error> {
         match (secret, password) {
-            (Some(secret), _) => Credentials::Secret(secret),
-            (_, password) => Credentials::from_password(password),
+            (Some(secret), _) => Credentials::from_secret(secret),
+            (_, password) => Ok(Credentials::from_password(password)),
         }
     }
 
@@ -43,6 +53,16 @@ impl Credentials {
         match pass {
             Some(p) => Credentials::Password(p.to_owned()),
             None => Credentials::No,
+        }
+    }
+
+    pub fn to_address(&self) -> Option<Address> {
+        if let &Credentials::Secret(ref s) = self {
+            KeyPair::from_secret(s.clone())
+                .ok()
+                .map(|s| public_to_address(s.public()))
+        } else {
+            None
         }
     }
 }
@@ -57,7 +77,7 @@ pub fn load_credentials(
             Some(password) => load_keystore(keystore, password).map(Credentials::Secret),
             None => Err(err_msg("password is required for keystore")),
         },
-        None => Ok(Credentials::get(secret_key, password)),
+        None => Credentials::get(secret_key, password),
     }
 }
 
@@ -68,12 +88,13 @@ pub fn load_keystore(path: String, password: String) -> Result<Secret, Error> {
         .read(None, keystore)
         .map_err(|e| err_msg(e.to_string()))
         .context("can't parse keystore file")?;
-
     let password: Password = password.into();
-    keystore
+    let secret = keystore
         .crypto
         .secret(&password)
         .map_err(|e| err_msg(e.to_string()))
-        .context("can't parse secret from keystore file")
-        .map_err(Into::into)
+        .context("can't parse secret from keystore file")?;
+    secret.check_validity()?;
+
+    Ok(secret)
 }
