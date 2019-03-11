@@ -26,7 +26,7 @@ import scala.language.{higherKinds, implicitConversions}
 class CounterIntegrationTest extends AppIntegrationTest with EitherValues {
 
   private val counterFilePath =
-    getModuleDirPrefix() + "/examples/counter/target/wasm32-unknown-unknown/release/counter.wasm"
+    getModuleDirPrefix() + "/src/it/resources/test-cases/counter/target/wasm32-unknown-unknown/release/counter.wasm"
 
   "counter app" should {
 
