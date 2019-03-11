@@ -32,7 +32,7 @@ class HelloWorldIntegrationTest extends AppIntegrationTest with EitherValues {
 
     "be able to instantiate" in {
       (for {
-        vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath))
+        vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath), "fluence.vm.client.4Mb")
         state ← vm.getVmState[IO].toVmError
 
       } yield {
@@ -44,7 +44,7 @@ class HelloWorldIntegrationTest extends AppIntegrationTest with EitherValues {
 
     "greets John correctly" in {
       (for {
-        vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath))
+        vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath), "fluence.vm.client.4Mb")
         greetingResult ← vm.invoke[IO](None, "John".getBytes())
         state ← vm.getVmState[IO].toVmError
 
@@ -56,7 +56,7 @@ class HelloWorldIntegrationTest extends AppIntegrationTest with EitherValues {
 
     "operates correctly with empty input" in {
       (for {
-        vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath))
+        vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath), "fluence.vm.client.4Mb")
         greetingResult ← vm.invoke[IO](None)
         state ← vm.getVmState[IO].toVmError
 
