@@ -352,7 +352,7 @@ pub mod tests {
 
         let config = SetupConfig::default().unwrap();
 
-        let eth_params = EthereumParams::generate(&eth, config).unwrap();
+        let eth_params = EthereumParams::generate(eth, config).unwrap();
 
         Register::new(
             "127.0.0.1".parse().unwrap(),

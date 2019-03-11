@@ -333,7 +333,7 @@ mod tests {
         let eth = EthereumArgs::with_acc_creds(account.parse().unwrap(), creds);
         let config = SetupConfig::default().unwrap();
 
-        let eth_params = EthereumParams::generate(&eth, config).unwrap();
+        let eth_params = EthereumParams::generate(eth, config).unwrap();
 
         Publisher::new(
             bytes,

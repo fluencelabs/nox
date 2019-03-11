@@ -229,7 +229,7 @@ pub fn parse_ethereum_args(
         wait_eth_sync: wait_syncing,
     };
 
-    Ok(EthereumParams::generate(&eth_args, config)?)
+    Ok(EthereumParams::generate(eth_args, config)?)
 }
 
 pub fn parse_tendermint_key(args: &ArgMatches) -> Result<H256, Error> {

@@ -37,29 +37,25 @@ pub struct EthereumParams {
 }
 
 impl EthereumParams {
-    pub fn generate(args: &EthereumArgs, config: SetupConfig) -> Result<EthereumParams, Error> {
+    pub fn generate(args: EthereumArgs, config: SetupConfig) -> Result<EthereumParams, Error> {
         let secret_key = config.secret_key.map(|s| Secret::from(s));
 
-        let credentials = args.credentials.clone();
+        let credentials = args.credentials;
         let credentials = match credentials {
-            Credentials::No => credentials::load_credentials(
-                config.keystore_path.clone(),
-                config.password.clone(),
-                secret_key,
-            )?,
+            Credentials::No => {
+                credentials::load_credentials(config.keystore_path, config.password, secret_key)?
+            }
             other => other,
         };
 
-        let contract_address = args
-            .contract_address
-            .unwrap_or(config.contract_address.clone());
+        let contract_address = args.contract_address.unwrap_or(config.contract_address);
 
         let account = args
             .account
             .or(config.account)
             .ok_or_else(|| err_msg("Account address is not defined. Use "))?;
 
-        let eth_url = args.eth_url.clone().unwrap_or(config.eth_url.clone());
+        let eth_url = args.eth_url.clone().unwrap_or(config.eth_url);
 
         Ok(EthereumParams {
             credentials,
