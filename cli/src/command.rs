@@ -196,7 +196,7 @@ pub fn parse_eth_url(args: &ArgMatches) -> Option<String> {
 
 pub fn parse_ethereum_args(
     args: &ArgMatches,
-    config: &SetupConfig,
+    config: SetupConfig,
 ) -> Result<EthereumParams, Error> {
     let secret_key = utils::parse_secret_key(args.value_of(SECRET_KEY))?;
     let password = args.value_of(PASSWORD).map(|s| s.to_string());

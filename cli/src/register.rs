@@ -252,7 +252,7 @@ impl Register {
     }
 }
 
-pub fn parse(args: &ArgMatches, config: &SetupConfig) -> Result<Register, Error> {
+pub fn parse(args: &ArgMatches, config: SetupConfig) -> Result<Register, Error> {
     let tendermint_key: H256 = parse_tendermint_key(args)?;
 
     let tendermint_node_id: H160 = parse_tendermint_node_id(args)?;
@@ -352,7 +352,7 @@ pub mod tests {
 
         let config = SetupConfig::default().unwrap();
 
-        let eth_params = EthereumParams::generate(&eth, &config).unwrap();
+        let eth_params = EthereumParams::generate(&eth, config).unwrap();
 
         Register::new(
             "127.0.0.1".parse().unwrap(),

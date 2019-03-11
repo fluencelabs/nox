@@ -42,7 +42,7 @@ fn format_option<T>(opt: &Option<T>) -> String
     }
 }
 
-pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
+pub fn interactive_setup(config: SetupConfig) -> Result<(), Error> {
     let mut rl = Editor::<()>::new();
 
     let contract_address_prompt = format!("Contract Address [{:?}]: ", config.contract_address);
@@ -91,7 +91,7 @@ pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
 
     let config = match auth {
         Auth::SecretKey => {
-            let (account_address, secret_key) = secret_key_auth(&mut rl, config)?;
+            let (account_address, secret_key) = secret_key_auth(&mut rl, &config)?;
             SetupConfig::new(
                 contract_address,
                 account_address,
@@ -103,7 +103,7 @@ pub fn interactive_setup(config: &SetupConfig) -> Result<(), Error> {
             )
         }
         Auth::Keystore => {
-            let (keystore_path, password) = keystore_auth(&mut rl, config)?;
+            let (keystore_path, password) = keystore_auth(&mut rl, &config)?;
             SetupConfig::new(
                 contract_address,
                 None,

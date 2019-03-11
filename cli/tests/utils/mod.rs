@@ -55,7 +55,7 @@ impl TestOpts {
     pub fn default() -> TestOpts {
         let eth = EthereumArgs::default();
         let config = SetupConfig::default().unwrap();
-        let params = EthereumParams::generate(&eth, &config).unwrap();
+        let params = EthereumParams::generate(&eth, config).unwrap();
         TestOpts {
             api_port: 25000,
             code_bytes: vec![1, 2, 3],

@@ -209,7 +209,7 @@ fn parse_pinned(args: &ArgMatches) -> Result<Vec<H256>, Error> {
 }
 
 /// Creates `Publisher` from arguments
-pub fn parse(matches: &ArgMatches, config: &SetupConfig) -> Result<Publisher, Error> {
+pub fn parse(matches: &ArgMatches, config: SetupConfig) -> Result<Publisher, Error> {
     let path = value_t!(matches, CODE_PATH, String)?; //TODO use is_file from clap_validators
     let mut file = File::open(path).context("can't open WASM file")?;
     let mut buf = Vec::new();
@@ -217,7 +217,8 @@ pub fn parse(matches: &ArgMatches, config: &SetupConfig) -> Result<Publisher, Er
 
     let swarm_url = matches
         .value_of(SWARM_URL)
-        .unwrap_or(config.swarm_url.as_str());
+        .map(|s| s.to_string())
+        .unwrap_or(config.swarm_url.clone());
     let cluster_size = value_t!(matches, CLUSTER_SIZE, u8)?;
     let eth = parse_ethereum_args(matches, config)?;
 
@@ -236,8 +237,8 @@ pub fn parse(matches: &ArgMatches, config: &SetupConfig) -> Result<Publisher, Er
     }
 
     Ok(Publisher::new(
-        buf.to_owned(),
-        swarm_url.clone().to_owned(),
+        buf,
+        swarm_url,
         cluster_size,
         pin_to_nodes,
         eth,
@@ -332,7 +333,7 @@ mod tests {
         let eth = EthereumArgs::with_acc_creds(account.parse().unwrap(), creds);
         let config = SetupConfig::default().unwrap();
 
-        let eth_params = EthereumParams::generate(&eth, &config).unwrap();
+        let eth_params = EthereumParams::generate(&eth, config).unwrap();
 
         Publisher::new(
             bytes,

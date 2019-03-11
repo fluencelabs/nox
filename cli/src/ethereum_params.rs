@@ -37,7 +37,7 @@ pub struct EthereumParams {
 }
 
 impl EthereumParams {
-    pub fn generate(args: &EthereumArgs, config: &SetupConfig) -> Result<EthereumParams, Error> {
+    pub fn generate(args: &EthereumArgs, config: SetupConfig) -> Result<EthereumParams, Error> {
         let secret_key = config.secret_key.map(|s| Secret::from(s));
 
         let credentials = args.credentials.clone();

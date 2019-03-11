@@ -277,7 +277,7 @@ pub fn subcommand<'a, 'b>() -> ClapApp<'a, 'b> {
 /// Gets status about Fluence contract from ethereum blockchain.
 pub fn get_status_by_args(
     args: &ArgMatches,
-    config: &SetupConfig,
+    config: SetupConfig,
 ) -> Result<Option<Status>, Error> {
     let eth_url = parse_eth_url(args).unwrap_or(config.eth_url.clone());
 
