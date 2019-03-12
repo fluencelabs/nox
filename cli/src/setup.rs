@@ -230,8 +230,8 @@ fn report(err: Error) {
 }
 
 fn format_option<T>(opt: &Option<T>) -> String
-    where
-        T: Debug,
+where
+    T: Debug,
 {
     match opt {
         Some(v) => format!("{:?}", v),
