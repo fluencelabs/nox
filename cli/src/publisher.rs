@@ -433,6 +433,7 @@ mod tests {
         assert!(result.is_err());
 
         if let Result::Err(e) = result {
+            println!("Err is {}", e);
             assert!(e
                 .find_root_cause()
                 .to_string()

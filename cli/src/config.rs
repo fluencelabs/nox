@@ -122,10 +122,10 @@ pub fn none_if_empty_string(value: String) -> Option<String> {
     }
 }
 
-pub fn get_config_dir() -> PathBuf {
-    let mut home = dirs::data_local_dir().unwrap();
+pub fn get_config_dir() -> Result<PathBuf, Error> {
+    let mut home = dirs::data_local_dir().ok_or(err_msg("Can't get data local dir. This shouldn't happen."))?;
     home.push(FLUENCE_DIR);
-    home
+    Ok(home)
 }
 
 impl SetupConfig {
@@ -145,11 +145,11 @@ impl SetupConfig {
 
     pub fn default() -> Result<SetupConfig, Error> {
         let contract: Address = DEFAULT_CONTRACT_ADDRESS
-            .to_owned()
+            .to_string()
             .trim_start_matches("0x")
             .parse()?;
-        let eth_url = DEFAULT_ETH_URL.to_owned();
-        let swarm_url = DEFAULT_SWARM_URL.to_owned();
+        let eth_url = DEFAULT_ETH_URL.to_string();
+        let swarm_url = DEFAULT_SWARM_URL.to_string();
         Ok(SetupConfig::new(
             contract,
             eth_url,
@@ -160,7 +160,7 @@ impl SetupConfig {
 
     // reads config file or generates default config if file does not exist
     pub fn read_from_file_or_default() -> Result<SetupConfig, Error> {
-        let mut path = get_config_dir();
+        let mut path = get_config_dir()?;
         path.push(CONFIG_FILENAME);
 
         if !path.exists() {
@@ -168,7 +168,7 @@ impl SetupConfig {
         } else {
             let content = read_to_string(path)?;
             let config: FlatConfig =
-                serde_json::from_str(content.as_str()).context("Error while loading config")?;
+                serde_json::from_str(&content).context("Error while loading config")?;
             SetupConfig::from_flat(config)
         }
     }
@@ -176,7 +176,7 @@ impl SetupConfig {
     // writes config to file
     // TODO: encrypt config
     pub fn write_to_file(self) -> Result<(), Error> {
-        let mut path = get_config_dir();
+        let mut path = get_config_dir()?;
 
         create_dir_all(&path)?;
 
