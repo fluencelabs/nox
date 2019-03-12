@@ -21,7 +21,7 @@ import {SessionConfig} from "./SessionConfig";
 
 import  * as debug from "debug";
 
-const detailedDebug = debug("invoke-detailed");
+const detailedDebug = debug("request-detailed");
 const txDebug = debug("broadcast-request");
 
 /**
@@ -84,7 +84,7 @@ export class Session {
      *
      * @param payload either an argument for Wasm VM main handler or a command for the statemachine
      */
-    invoke(payload: string): ResultPromise {
+    request(payload: string): ResultPromise {
         // throws an error immediately if the session is closed
         if (this.closed) {
             return new ResultError(`The session was closed. Cause: ${this.closedStatus}`)
@@ -94,7 +94,7 @@ export class Session {
             this.markSessionAsClosed(this.closedStatus)
         }
 
-        detailedDebug("start invoke");
+        detailedDebug("start request");
 
         // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
         let currentCounter = this.getCounterAndIncrement();
@@ -129,20 +129,9 @@ export class Session {
     }
 
     /**
-     * Syncs on all pending invokes.
+     * Syncs on all pending requests.
      */
     async sync(): Promise<Result> {
         return this.lastResult.result();
-    }
-
-    /**
-     * Closes session locally and send a command to close the session on the cluster.
-     */
-    close(reason: string = ""): ResultPromise {
-        this.closing = true;
-        this.closedStatus = reason;
-        let result = this.invoke("@closeSession");
-        result.result();
-        return result;
     }
 }
