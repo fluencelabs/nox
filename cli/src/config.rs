@@ -181,7 +181,7 @@ impl SetupConfig {
         create_dir_all(&path)?;
 
         let flat_config = FlatConfig::from_setup(self);
-        let config_str = serde_json::to_string(&flat_config)?;
+        let config_str = serde_json::to_string_pretty(&flat_config)?;
 
         path.push(CONFIG_FILENAME);
         println!("path: {:?}", &path);
