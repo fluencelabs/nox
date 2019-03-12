@@ -1,4 +1,5 @@
-[![Build Status](https://travis-ci.org/fluencelabs/fluence.svg?branch=master)](https://travis-ci.org/fluencelabs/fluence) [![Join the chat at https://gitter.im/fluencelabs/fluence](https://badges.gitter.im/fluencelabs/fluence.svg)](https://gitter.im/fluencelabs/fluence?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
+[![Build Status](https://travis-ci.org/fluencelabs/fluence.svg?branch=master)](https://travis-ci.org/fluencelabs/fluence) 
+[![Join The Discord Chat](https://img.shields.io/discord/483968379833679873.svg)](https://discord.gg/9x5XCNd)  
 
 ## What is Fluence?
 
