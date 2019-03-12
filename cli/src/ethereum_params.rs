@@ -38,7 +38,7 @@ pub struct EthereumParams {
 
 impl EthereumParams {
     /// Merge command-line arguments with the stored config
-    /// specified arguments take precedence over values in config
+    /// specified arguments take precedence over values in the config
     pub fn generate(args: EthereumArgs, config: SetupConfig) -> Result<EthereumParams, Error> {
         let credentials = match args.credentials {
             Credentials::No => config.credentials,

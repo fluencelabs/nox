@@ -123,7 +123,8 @@ pub fn none_if_empty_string(value: String) -> Option<String> {
 }
 
 pub fn get_config_dir() -> Result<PathBuf, Error> {
-    let mut home = dirs::data_local_dir().ok_or(err_msg("Can't get data local dir. This shouldn't happen."))?;
+    let mut home = dirs::data_local_dir()
+        .ok_or(err_msg("Can't get data local dir. This shouldn't happen."))?;
     home.push(FLUENCE_DIR);
     Ok(home)
 }
