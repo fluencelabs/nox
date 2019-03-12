@@ -19,7 +19,7 @@
     "array-buffer-to-hex": "1.0.0",
     "axios": "0.18.0",
     "hex-to-array-buffer": "1.1.0",
-    "moment": "2.18.1",
+    "moment": "2.19.4",
     "react": "16.5.2",
     "react-dom": "16.5.2",
     "react-redux": "5.0.7",
@@ -58,7 +58,7 @@
     "file-loader": "1.1.11",
     "html-loader": "0.5.5",
     "html-webpack-plugin": "3.2.0",
-    "less": "^2.7.2",
+    "less": "^3.0.4",
     "less-loader": "4.1.0",
     "mini-css-extract-plugin": "0.4.0",
     "style-loader": "0.19.1",
@@ -73,6 +73,6 @@
     "webpack": "4.16.1",
     "webpack-bundle-analyzer": "2.11.1",
     "webpack-cli": "3.1.0",
-    "webpack-dev-server": "3.1.4"
+    "webpack-dev-server": "3.1.14"
   }
 }
