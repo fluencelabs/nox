@@ -314,7 +314,6 @@ fn upload_code_to_swarm(url: &str, bytes: &[u8]) -> Result<String, Error> {
 mod tests {
     use ethkey::Secret;
     use web3;
-    use web3::futures::Future;
     use web3::types::H256;
 
     use failure::Error;
@@ -324,8 +323,6 @@ mod tests {
     use crate::credentials::Credentials;
     use crate::ethereum_params::EthereumParams;
     use crate::publisher::Publisher;
-
-    const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
 
     fn generate_publisher(account: &str, creds: Credentials) -> Publisher {
         let bytes = vec![1, 2, 3];
@@ -351,41 +348,6 @@ mod tests {
         let mut publisher = generate_publisher(account, Credentials::No);
         func(&mut publisher);
         publisher
-    }
-
-    pub fn generate_new_account(with_pass: bool) -> Publisher {
-        generate_with(OWNER, |p| {
-            let (_eloop, transport) = web3::transports::Http::new(p.eth.eth_url.as_str()).unwrap();
-            let web3 = web3::Web3::new(transport);
-            let acc = web3.personal().new_account("123").wait().unwrap();
-            p.eth.account = acc;
-
-            if with_pass {
-                p.eth.credentials = Credentials::Password(String::from("123"));
-            }
-        })
-    }
-
-    #[test]
-    fn publish_wrong_password() -> Result<(), Error> {
-        let publisher = generate_new_account(false);
-
-        let result = publisher.publish(false);
-
-        assert_eq!(result.is_err(), true);
-
-        Ok(())
-    }
-
-    #[test]
-    fn publish_no_eth() -> Result<(), Error> {
-        let publisher = generate_new_account(true);
-
-        let result = publisher.publish(false);
-
-        assert_eq!(result.is_err(), true);
-
-        Ok(())
     }
 
     #[test]

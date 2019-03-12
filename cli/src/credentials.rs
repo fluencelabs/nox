@@ -80,13 +80,13 @@ impl Credentials {
         let keystore: SafeAccount = dkfm
             .read(None, keystore)
             .map_err(|e| err_msg(e.to_string()))
-            .context("can't parse keystore file")?;
+            .context("can't parse the keystore file")?;
         let password: Password = password.into();
         let secret = keystore
             .crypto
             .secret(&password)
             .map_err(|e| err_msg(e.to_string()))
-            .context("can't parse secret from keystore file")?;
+            .context("can't parse secret from the keystore file")?;
         secret.check_validity()?;
 
         let password = password.as_str().to_string();

@@ -15,7 +15,6 @@
  */
 
 use std::fmt::Debug;
-use std::fmt::Display;
 
 use clap::{App, AppSettings, SubCommand};
 use ethkey::Secret;
@@ -29,59 +28,50 @@ use crate::config::SetupConfig;
 use crate::credentials::Credentials;
 use crate::utils::parse_hex;
 
-fn format_option<T>(opt: &Option<T>) -> String
-    where
-        T: Debug,
-{
-    match opt {
-        Some(v) => format!("{:?}", v),
-        None => "empty".to_owned(),
-    }
+pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
+    SubCommand::with_name("setup")
+        .about("Setup Fluence CLI with common parameters.")
+        .unset_setting(AppSettings::ArgRequiredElseHelp)
+        .unset_setting(AppSettings::SubcommandRequiredElseHelp)
 }
 
 pub fn interactive_setup(config: SetupConfig) -> Result<(), Error> {
-    let mut rl = Editor::<()>::new();
+    let SetupConfig {
+        contract_address: cfg_contract_address,
+        eth_url: cfg_eth_url,
+        swarm_url: cfg_swarm_url,
+        credentials: cfg_credentials,
+    } = config;
 
-    let contract_address_prompt = format!("Contract Address [{:?}]: ", config.contract_address);
+    let rl = &mut Editor::<()>::new();
+
+    let contract_address_prompt = format!("Contract Address [{:?}]: ", cfg_contract_address);
     let contract_address = loop {
-        let contract_address = rl.readline(&contract_address_prompt)?;
-        let contract_address = parse_hex(
-            none_if_empty_string(contract_address)
-                .as_ref()
-                .map(|s| s.as_str()),
-        );
+        let contract_address = readline(rl, &contract_address_prompt)?;
+        let contract_address = parse_hex(none_if_empty(&contract_address));
         match contract_address {
-            Ok(r) => break r.unwrap_or(config.contract_address),
-            Err(e) => {
-                println!("error occured {}", e);
-                println!("try again");
-            }
+            Ok(r) => break r.unwrap_or(cfg_contract_address),
+            Err(e) => report(e.into()),
         }
     };
 
-    let ethereum_url_prompt = format!("Ethereum Node Url [{}]: ", config.eth_url);
-    let ethereum_address = rl.readline(&ethereum_url_prompt)?;
-    let ethereum_url = none_if_empty(&ethereum_address)
-        .unwrap_or(&config.eth_url)
-        .trim()
-        .to_owned();
+    let ethereum_url_prompt = format!("Ethereum Node Url [{}]: ", cfg_eth_url);
+    let ethereum_address = readline(rl, &ethereum_url_prompt)?;
+    let ethereum_url = none_if_empty_string(ethereum_address).unwrap_or(cfg_eth_url);
 
-    let swarm_url_prompt = format!("Swarm Node Url [{}]: ", config.swarm_url);
-    let swarm_address = rl.readline(&swarm_url_prompt)?;
-    let swarm_url = none_if_empty(&swarm_address)
-        .unwrap_or(&config.swarm_url)
-        .trim()
-        .to_owned();
+    let swarm_url_prompt = format!("Swarm Node Url [{}]: ", cfg_swarm_url);
+    let swarm_address = readline(rl, &swarm_url_prompt)?;
+    let swarm_url = none_if_empty_string(swarm_address).unwrap_or(cfg_swarm_url);
 
-    let auth = ask_auth(&mut rl)?;
+    let auth = ask_auth(rl, &cfg_credentials)?;
     let credentials = match auth {
         Auth::SecretKey => {
-            let saved_key = get_saved_key(&config);
-            secret_key_auth(&mut rl, saved_key)
+            let saved_key = get_saved_key(&cfg_credentials);
+            secret_key_auth(rl, saved_key)?
         }
         Auth::Keystore => {
-            let (saved_path, saved_password) = get_saved_keystore(&config);
-            keystore_auth(&mut rl, saved_path, saved_password)
+            let (saved_path, saved_password) = get_saved_keystore(&cfg_credentials);
+            keystore_auth(rl, saved_path, saved_password)?
         }
         Auth::None => Credentials::No,
     };
@@ -92,33 +82,46 @@ pub fn interactive_setup(config: SetupConfig) -> Result<(), Error> {
     Ok(())
 }
 
-fn get_saved_key(config: &SetupConfig) -> Option<Secret> {
-    if let Credentials::Secret(ref old_key) = config.credentials {
-        Some(old_key.clone())
+fn get_saved_key(credentials: &Credentials) -> Option<&Secret> {
+    if let Credentials::Secret(ref old_key) = credentials {
+        Some(old_key)
     } else {
         None
     }
 }
 
-fn get_saved_keystore(config: &SetupConfig) -> (Option<String>, Option<String>) {
+fn get_saved_keystore(credentials: &Credentials) -> (Option<&String>, Option<&String>) {
     if let Credentials::Keystore {
         secret: _,
         ref path,
         ref password,
-    } = config.credentials
+    } = credentials
     {
-        (Some(path.clone()), Some(password.clone()))
+        (Some(path), Some(password))
     } else {
         (None, None)
     }
 }
 
-fn ask_auth(rl: &mut Editor<()>) -> Result<Auth, Error> {
-    let auth_prompt = format!("Choose authorization type. (K)eystore / (S)ecret key / (N)one [K]:");
+fn get_saved_auth(credentials: &Credentials) -> Auth {
+    match credentials {
+        Credentials::No => Auth::None,
+        Credentials::Secret(_) => Auth::SecretKey,
+        Credentials::Keystore { .. } => Auth::Keystore,
+    }
+}
+
+fn ask_auth(rl: &mut Editor<()>, credentials: &Credentials) -> Result<Auth, Error> {
+    let saved_auth = get_saved_auth(credentials);
+    let saved_letter = saved_auth.first_letter();
+    println!("Choose Ethereum authorization method.");
+    let auth_prompt = format!("(K)eystore / (S)ecret key / (N)one [{}]: ", saved_letter);
     let auth = loop {
-        let auth = rl.readline(&auth_prompt)?;
+        let auth = readline(rl, &auth_prompt)?;
         let auth = auth.to_lowercase();
-        if auth.starts_with("k") || auth.is_empty() {
+        if auth.is_empty() {
+            break saved_auth;
+        } else if auth.starts_with("k") {
             break Auth::Keystore;
         } else if auth.starts_with("s") {
             break Auth::SecretKey;
@@ -134,33 +137,28 @@ fn ask_auth(rl: &mut Editor<()>) -> Result<Auth, Error> {
     Ok(auth)
 }
 
-fn report(err: Error) {
-    println!("Error occured. {}", err);
-    let fail = err.as_fail();
-    for cause in fail.iter_causes() {
-        println!("Caused by: {}", cause);
-    }
-}
-
-fn secret_key_auth(rl: &mut Editor<()>, saved_key: Option<Secret>) -> Credentials {
-    let secret_key_prompt = format!("Secret Key [{}]: ", format_option(&saved_key));
+fn secret_key_auth(rl: &mut Editor<()>, saved_key: Option<&Secret>) -> Result<Credentials, Error> {
+    let secret_key_prompt = format!(
+        "Ethereum account secret key [{}]: ",
+        format_option(&saved_key)
+    );
     fn load(
         rl: &mut Editor<()>,
-        saved_key: Option<Secret>,
+        saved_key: Option<&Secret>,
         prompt: &String,
     ) -> Result<Credentials, Error> {
-        let secret_key = rl.readline(prompt).expect("Interruped."); //TODO: remove expect, use ?
+        let secret_key = readline(rl, prompt)?;
         let secret_key = parse_hex(none_if_empty(&secret_key))?;
         let secret = secret_key
-            .or(saved_key)
+            .or(saved_key.map(|s| s.clone()))
             .ok_or(err_msg("Secret Key cannot be empty"))?;
 
         Credentials::from_secret(secret)
     };
 
     loop {
-        match load(rl, saved_key.clone(), &secret_key_prompt) {
-            Ok(c) => break c,
+        match load(rl, saved_key, &secret_key_prompt) {
+            ok @ Ok(_) => break ok,
             Err(e) => report(e),
         }
     }
@@ -168,10 +166,13 @@ fn secret_key_auth(rl: &mut Editor<()>, saved_key: Option<Secret>) -> Credential
 
 fn keystore_auth(
     rl: &mut Editor<()>,
-    saved_path: Option<String>,
-    saved_password: Option<String>,
-) -> Credentials {
-    let keystore_path_prompt = format!("Keystore Path [{}]: ", format_option(&saved_path));
+    saved_path: Option<&String>,
+    saved_password: Option<&String>,
+) -> Result<Credentials, Error> {
+    let keystore_path_prompt = format!(
+        "Ethereum account keystore path [{}]: ",
+        format_option(&saved_path)
+    );
     let password_prompt = format!(
         "Password [{}]: ",
         if saved_password.is_some() {
@@ -183,9 +184,9 @@ fn keystore_auth(
 
     loop {
         let keystore_path = loop {
-            let keystore_path = rl.readline(&keystore_path_prompt).expect("Interrupted."); //TODO: remove expect, use ?
+            let keystore_path = readline(rl, &keystore_path_prompt)?;
             let keystore_path = none_if_empty_string(keystore_path)
-                .or(saved_path.clone())
+                .or(saved_path.map(|s| s.clone()))
                 .ok_or(err_msg("Keystore Path cannot be empty"));
             match keystore_path {
                 Ok(kp) => break kp,
@@ -194,9 +195,9 @@ fn keystore_auth(
         };
 
         let password = loop {
-            let password = rl.readline(&password_prompt).expect("Interrupted"); //TODO: remove expect, use ?
+            let password = readline(rl, &password_prompt)?;
             let password = none_if_empty_string(password)
-                .or(saved_password.clone())
+                .or(saved_password.map(|s| s.clone()))
                 .ok_or(err_msg("Password cannot be empty"));
             match password {
                 Ok(p) => break p,
@@ -205,19 +206,35 @@ fn keystore_auth(
         };
 
         match Credentials::load_keystore(keystore_path.clone(), password) {
-            Ok(c) => break c,
+            ok @ Ok(_) => break ok,
             Err(e) => {
-                println!("Error while loading keystore at {}", keystore_path.clone());
+                println!("Error while loading keystore. Path: `{}`", keystore_path);
                 report(e);
-//                println!("Password and/or path are incorrect");
             }
         }
     }
 }
 
-pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
-    SubCommand::with_name("setup")
-        .about("Setup Fluence CLI with common parameters.")
-        .unset_setting(AppSettings::ArgRequiredElseHelp)
-        .unset_setting(AppSettings::SubcommandRequiredElseHelp)
+fn readline(rl: &mut Editor<()>, prompt: &str) -> Result<String, Error> {
+    rl.readline(prompt)
+        .map(|s| s.trim().to_string())
+        .map_err(Into::into)
+}
+
+fn report(err: Error) {
+    println!("Error occured. {}", err);
+    let fail = err.as_fail();
+    for cause in fail.iter_causes() {
+        println!("Caused by: {}", cause);
+    }
+}
+
+fn format_option<T>(opt: &Option<T>) -> String
+    where
+        T: Debug,
+{
+    match opt {
+        Some(v) => format!("{:?}", v),
+        None => "empty".to_owned(),
+    }
 }

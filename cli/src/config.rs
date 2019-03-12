@@ -47,6 +47,16 @@ impl Default for Auth {
     }
 }
 
+impl Auth {
+    pub fn first_letter(&self) -> &str {
+        match self {
+            Auth::None => "N",
+            Auth::SecretKey => "S",
+            Auth::Keystore => "K",
+        }
+    }
+}
+
 // TODO: merge EthereumArgs, SetupConfig and EthereumParams into a single structure
 #[derive(Clone)]
 pub struct SetupConfig {
