@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.org/fluencelabs/fluence.svg?branch=master)](https://travis-ci.org/fluencelabs/fluence) 
-[![Join The Discord Chat](https://img.shields.io/discord/308323056592486420.svg)](https://discord.gg/9x5XCNd)  
+[![Join The Discord Chat](https://img.shields.io/discord/483968379833679873.svg)](https://discord.gg/9x5XCNd)  
 
 ## What is Fluence?
 
