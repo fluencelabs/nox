@@ -22,7 +22,7 @@
   },
   "homepage": "https://github.com/fluencelabs/fluence#readme",
   "dependencies": {
-    "fluence": "0.1.6"
+    "fluence": "0.1.17"
   },
   "devDependencies": {
     "webpack": "^4.20.2"

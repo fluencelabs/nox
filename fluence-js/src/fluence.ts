@@ -40,7 +40,7 @@ export interface WorkerSession {
 export interface AppSession {
     appId: string,
     workerSessions: WorkerSession[],
-    invoke(payload: string): ResultPromise
+    request(payload: string): ResultPromise
 }
 
 /*
@@ -56,21 +56,21 @@ export async function connect(contract: string, appId: string, ethereumUrl?: str
         }
     });
 
-    // randomly selects worker and calls `invoke` on that worker
-    function invoke(payload: string): ResultPromise {
+    // randomly selects worker and calls `request` on that worker
+    function request(payload: string): ResultPromise {
         function getRandom(floor:number, ceiling:number) {
             return Math.floor(Math.random() * (ceiling - floor + 1)) + floor;
         }
 
         const randomChoiceIndex = getRandom(0, sessions.length - 1);
         let session = sessions[randomChoiceIndex].session;
-        return session.invoke(payload);
+        return session.request(payload);
     }
 
     return {
         appId: appId,
         workerSessions: sessions,
-        invoke: invoke
+        request: request
     }
 }
 
