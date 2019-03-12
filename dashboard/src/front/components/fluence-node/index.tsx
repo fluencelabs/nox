@@ -114,7 +114,7 @@ class FluenceNode extends React.Component<Props, State> {
         const node = this.props.nodes[this.props.nodeId];
         const nodeStatus = this.props.nodesStatus[this.props.nodeId];
         return (
-            <div className="col-md-4">
+            <div className="col-md-4 col-xs-12">
                 <div className="box box-widget widget-user-2">
                     <div className="widget-user-header bg-fluence-blue-gradient">
                         <div className="widget-user-image">
