@@ -72,7 +72,7 @@ class FluenceApp extends React.Component<Props, State> {
         const app = this.props.apps[this.props.appId];
 
         return (
-            <div className="col-md-4">
+            <div className="col-md-4 col-xs-12">
                 <div className="box box-widget widget-user-2">
                     <div className="widget-user-header bg-fluence-blue-gradient">
                         <div className="widget-user-image">
