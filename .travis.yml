@@ -93,12 +93,6 @@ matrix:
         - cd backend-sdk
       if: type != pull_request
 
-    - <<: *_rust_wasm_template
-      name: llamaDb VM App
-      before_script:
-        - cd vm/examples/llamadb
-      if: type != pull_request
-
     - name: Fluence CLI
       language: rust
       cache:

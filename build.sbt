@@ -40,32 +40,22 @@ lazy val vm = (project in file("vm"))
   )
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `vm-counter` = (project in file("vm/examples/counter"))
+lazy val `vm-counter` = (project in file("vm/src/it/resources/test-cases/counter"))
   .settings(
-    rustVmExample("counter")
+    rustVmTest("counter")
   )
 
-lazy val `vm-hello-world` = (project in file("vm/examples/hello-world/app-with-sdk/"))
+lazy val `vm-hello-world` = (project in file("vm/src/it/resources/test-cases/hello-world"))
   .settings(
-    rustVmExample("hello-world/app-with-sdk/")
+    rustVmTest("hello-world")
   )
 
-lazy val `vm-hello-world-without-sdk` = (project in file("vm/examples/hello-world/app-without-sdk/"))
+lazy val `vm-llamadb` = (project in file("vm/src/it/resources/test-cases/llamadb"))
   .settings(
-    rustVmExample("hello-world/app-without-sdk/")
+    rustVmTest("llamadb")
   )
 
-lazy val `vm-hello-world2-2015` = (project in file("vm/examples/hello-world2/app-2015"))
-  .settings(
-    rustVmExample("hello-world2/app-2015")
-  )
-
-lazy val `vm-hello-world2-2018` = (project in file("vm/examples/hello-world2/app-2018"))
-  .settings(
-    rustVmExample("hello-world2/app-2018")
-  )
-
-lazy val `vm-hello-world2-runner` = (project in file("vm/examples/hello-world2/runner"))
+lazy val `vm-hello-world-runner` = (project in file("vm/src/it/resources/test-cases/hello-world/runner"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
@@ -76,37 +66,7 @@ lazy val `vm-hello-world2-runner` = (project in file("vm/examples/hello-world2/r
       cryptoHashing,
     )
   )
-  .dependsOn(vm, `vm-hello-world2-2015`)
-  .dependsOn(vm, `vm-hello-world2-2018`)
-  .enablePlugins(AutomateHeaderPlugin)
-
-lazy val `dice-game` = (project in file("vm/examples/dice-game"))
-  .settings(
-    rustVmExample("dice-game")
-  )
-
-lazy val `vm-llamadb` = (project in file("vm/examples/llamadb"))
-  .settings(
-    rustVmExample("llamadb")
-  )
-
-lazy val `tic-tac-toe` = (project in file("vm/examples/tic-tac-toe/app"))
-  .settings(
-    rustVmExample("tic-tac-toe/app")
-  )
-
-lazy val `tic-tac-toe-runner` = (project in file("vm/examples/tic-tac-toe/runner"))
-  .settings(
-    commons,
-    libraryDependencies ++= Seq(
-      asmble,
-      cats,
-      catsEffect,
-      pureConfig,
-      cryptoHashing,
-    )
-  )
-  .dependsOn(vm, `tic-tac-toe`)
+  .dependsOn(vm, `vm-hello-world`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `statemachine-control` = (project in file("statemachine/control"))
