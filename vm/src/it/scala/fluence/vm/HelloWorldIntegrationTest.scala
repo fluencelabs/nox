@@ -20,7 +20,8 @@ import cats.data.NonEmptyList
 import cats.effect.IO
 import org.scalatest.EitherValues
 
-import scala.language.{higherKinds, implicitConversions}
+import scala.language.implicitConversions
+import scala.language.higherKinds
 
 // TODO: to run this test from IDE It needs to build vm-hello-world project explicitly at first
 class HelloWorldIntegrationTest extends AppIntegrationTest with EitherValues {
