@@ -211,8 +211,7 @@ lazy val `dockerio` = (project in file("effects/docker"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      slogging,
-      fs2
+      slogging
     )
   )
   .dependsOn(effects)

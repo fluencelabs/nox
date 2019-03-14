@@ -165,7 +165,6 @@ class DockerIO[F[_]: Monad: LiftIO: ContextShift: Defer](
             }
             .handleError { err ⇒
               logger.error(s"Error cleaning up container $dockerId: $err", err)
-              ()
             }
 
         case (Left(err), _) ⇒
