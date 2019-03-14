@@ -17,7 +17,7 @@
 package fluence.node.workers.tendermint
 import java.nio.file.Path
 
-import cats.Applicative
+import cats.{Applicative, Monad}
 import cats.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -28,7 +28,6 @@ import fluence.node.workers.WorkerParams
 import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus}
 import fluence.node.workers.tendermint.rpc.{TendermintRpc, TendermintStatus}
 
-import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
 /**
@@ -42,7 +41,7 @@ case class DockerTendermint(
   name: String
 ) {
 
-  private def ifDockerOkRunHttpCheck[F[_]: Sync: ContextShift](
+  private def ifDockerOkRunHttpCheck[F[_]: Monad](
     rpc: TendermintRpc[F],
     dockerStatus: DockerStatus
   ): F[ServiceStatus[TendermintStatus]] =
@@ -55,21 +54,8 @@ case class DockerTendermint(
   /**
    * Service status for this docker + wrapped Tendermint Http service
    */
-  def status[F[_]: Sync: ContextShift](rpc: TendermintRpc[F]): F[ServiceStatus[TendermintStatus]] =
-    DockerIO.checkContainer[F](container).flatMap(ifDockerOkRunHttpCheck(rpc, _))
-
-  /**
-   * Launch service status check periodically. Resulting status is calculated from Docker container status and HTTP check.
-   *
-   * @param rpc Inner Tendermint RPC
-   * @param period Perform check once in the specified period
-   */
-  def periodicalStatus[F[_]: Timer: Sync: ContextShift](
-    rpc: TendermintRpc[F],
-    period: FiniteDuration
-  ): fs2.Stream[F, ServiceStatus[TendermintStatus]] =
-    DockerIO.checkPeriodically[F](container, period).evalMap(ifDockerOkRunHttpCheck(rpc, _))
-
+  def status[F[_]: Monad: DockerIO](rpc: TendermintRpc[F]): F[ServiceStatus[TendermintStatus]] =
+    DockerIO[F].checkContainer(container).flatMap(ifDockerOkRunHttpCheck(rpc, _))
 }
 
 object DockerTendermint {
@@ -89,14 +75,14 @@ object DockerTendermint {
    * @tparam F Effect
    * @return String output of the command execution
    */
-  def execCmd[F[_]: Sync: ContextShift](
+  def execCmd[F[_]: DockerIO](
     tmDockerConfig: DockerConfig,
     tendermintDir: Path,
     masterContainerId: Option[String],
     cmd: String,
     uid: String
   ): F[String] =
-    DockerIO.exec[F] {
+    DockerIO[F].exec {
       val params = DockerParams
         .build()
         .user(uid)
@@ -161,7 +147,7 @@ object DockerTendermint {
    * @param stopTimeout Seconds to wait for graceful stop of the Tendermint container before killing it
    * @return Running container
    */
-  def make[F[_]: Sync: ContextShift: LiftIO](
+  def make[F[_]: DockerIO: LiftIO: Monad](
     params: WorkerParams,
     p2pPort: Short,
     workerName: String,
@@ -172,7 +158,7 @@ object DockerTendermint {
       _ ← Resource.liftF(
         params.configTemplate.writeConfigs(params.app, params.tendermintPath, p2pPort, workerName)
       )
-      container ← DockerIO.run[F](dockerCommand(params, network, p2pPort), stopTimeout)
+      container ← DockerIO[F].run(dockerCommand(params, network, p2pPort), stopTimeout)
     } yield DockerTendermint(container, containerName(params))
 
 }

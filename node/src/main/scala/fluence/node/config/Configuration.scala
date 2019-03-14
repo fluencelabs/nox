@@ -18,11 +18,12 @@ package fluence.node.config
 
 import java.nio.file.{Path, Paths}
 
-import cats.effect.{ContextShift, IO, Sync}
+import cats.Monad
+import cats.effect.{ContextShift, IO, LiftIO}
 import cats.syntax.apply._
-import com.typesafe.config.Config
-import fluence.effects.docker.params.DockerImage
-import fluence.node.config.ConfigOps._
+import cats.syntax.functor._
+import cats.syntax.flatMap._
+import fluence.effects.docker.DockerIO
 import fluence.node.workers.tendermint.{DockerTendermint, ValidatorKey}
 import io.circe.parser._
 
@@ -37,9 +38,9 @@ case class Configuration(
 object Configuration extends slogging.LazyLogging {
 
   // TODO avoid this! it's not configuration, and what is being done there is very obscure!
-  def init(masterConfig: MasterConfig)(implicit ec: ContextShift[IO]): IO[Configuration] =
+  def init[F[_]: LiftIO: DockerIO: Monad](masterConfig: MasterConfig)(implicit ec: ContextShift[IO]): F[Configuration] =
     for {
-      rootPath <- IO(Paths.get(masterConfig.rootPath).toAbsolutePath)
+      rootPath <- IO(Paths.get(masterConfig.rootPath).toAbsolutePath).to[F]
       t <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.tendermint)
       (nodeId, validatorKey) = t
       nodeConfig = NodeConfig(
@@ -75,37 +76,39 @@ object Configuration extends slogging.LazyLogging {
    * @param tmDockerConfig Docker image for Tendermint, used to run Tendermint that is bundled inside
    * @return nodeId and validator key
    */
-  private def tendermintInit(masterContainerId: Option[String], rootPath: Path, tmDockerConfig: DockerConfig)(
-    implicit c: ContextShift[IO]
-  ): IO[(String, ValidatorKey)] = {
+  private def tendermintInit[F[_]: LiftIO: DockerIO: Monad](
+    masterContainerId: Option[String],
+    rootPath: Path,
+    tmDockerConfig: DockerConfig
+  ): F[(String, ValidatorKey)] = {
 
     val tendermintDir = rootPath.resolve("tendermint") // /master/tendermint
-    def execTendermintCmd[F[_]: Sync: ContextShift](cmd: String, uid: String): F[String] =
+    def execTendermintCmd(cmd: String, uid: String): F[String] =
       DockerTendermint.execCmd[F](tmDockerConfig, tendermintDir, masterContainerId, cmd, uid)
 
-    def init(uid: String): IO[Unit] =
+    def init(uid: String): F[Unit] =
       for {
-        _ <- execTendermintCmd[IO]("init", uid)
-        _ <- IO(tendermintDir.resolve("config").resolve("genesis.json").toFile.delete())
+        _ <- execTendermintCmd("init", uid)
+        _ <- IO(tendermintDir.resolve("config").resolve("genesis.json").toFile.delete()).to[F]
       } yield ()
 
     for {
       // Check that old `priv_validator.json` was migrated to `priv_validator_key.json` or raise an exception
-      _ <- checkMigratedPrivValOrRaise(tendermintDir)
+      _ <- checkMigratedPrivValOrRaise(tendermintDir).to[F]
 
-      uid <- IO(scala.sys.process.Process("id -u").!!.trim)
+      uid <- IO(scala.sys.process.Process("id -u").!!.trim).to[F]
 
-      initialized <- initialized(tendermintDir)
+      initialized <- initialized(tendermintDir).to[F]
       _ <- if (initialized) {
-        IO(logger.info("Node is already initialized"))
+        IO(logger.info("Node is already initialized")).to[F]
       } else init(uid)
 
-      nodeId <- execTendermintCmd[IO]("show_node_id", uid)
-      _ <- IO { logger.info(s"Node ID: $nodeId") }
+      nodeId <- execTendermintCmd("show_node_id", uid)
+      _ <- IO { logger.info(s"Node ID: $nodeId") }.to[F]
 
-      validatorRaw <- execTendermintCmd[IO]("show_validator", uid)
-      validator <- IO.fromEither(parse(validatorRaw).flatMap(_.as[ValidatorKey]))
-      _ <- IO { logger.info(s"Validator PubKey: ${validator.value}") }
+      validatorRaw <- execTendermintCmd("show_validator", uid)
+      validator <- IO.fromEither(parse(validatorRaw).flatMap(_.as[ValidatorKey])).to[F]
+      _ <- IO { logger.info(s"Validator PubKey: ${validator.value}") }.to[F]
     } yield (nodeId, validator)
   }
 

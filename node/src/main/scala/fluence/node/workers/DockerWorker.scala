@@ -16,7 +16,7 @@
 
 package fluence.node.workers
 
-import cats.{Applicative, Apply}
+import cats.{Applicative, Apply, Monad}
 import cats.effect._
 import cats.syntax.functor._
 import cats.syntax.apply._
@@ -91,11 +91,11 @@ object DockerWorker extends LazyLogging {
    * @return Resource of docker network and node connection.
    *         On release node will be disconnected, network will be removed.
    */
-  private def makeNetwork[F[_]: ContextShift: Sync](params: WorkerParams): Resource[F, DockerNetwork] = {
+  private def makeNetwork[F[_]: DockerIO: Monad](params: WorkerParams): Resource[F, DockerNetwork] = {
     logger.debug(s"Creating docker network ${dockerNetworkName(params)} for $params")
     for {
       network <- DockerNetwork.make(dockerNetworkName(params))
-      _ <- params.masterNodeContainerId.fold(Resource.pure(()))(DockerNetwork.join(_, network))
+      _ <- params.masterNodeContainerId.map(DockerContainer).fold(Resource.pure(()))(DockerNetwork.join(_, network))
     } yield network
   }
 
@@ -111,7 +111,7 @@ object DockerWorker extends LazyLogging {
    * @param sttpBackend Sttp Backend to launch HTTP healthchecks and RPC endpoints
    * @return the [[Worker]] instance
    */
-  def make[F[_]: ContextShift](
+  def make[F[_]: DockerIO](
     params: WorkerParams,
     p2pPort: Short,
     onStop: F[Unit],
@@ -124,7 +124,7 @@ object DockerWorker extends LazyLogging {
     for {
       network ← makeNetwork(params)
 
-      worker ← DockerIO.run[F](dockerCommand(params, network), stopTimeout)
+      worker ← DockerIO[F].run(dockerCommand(params, network), stopTimeout)
 
       tendermint ← DockerTendermint.make[F](params, p2pPort, containerName(params), network, stopTimeout)
 
@@ -132,8 +132,8 @@ object DockerWorker extends LazyLogging {
 
       control = ControlRpc[F](containerName(params), ControlRpcPort)
 
-      workerStatus = DockerIO
-        .checkContainer[F](worker)
+      workerStatus = DockerIO[F]
+        .checkContainer(worker)
         .flatMap[ServiceStatus[Unit]] {
           case d if d.isRunning ⇒ control.status.map(s ⇒ ServiceStatus(d, s))
           case d ⇒

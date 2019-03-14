@@ -60,8 +60,8 @@ trait DockerSetup extends OsSetup {
     capacity: Short = 1
   ): Resource[F, String] =
     tempDirectory.flatMap { masterDir =>
-      DockerIO
-        .run[F](
+    DockerIO.make[F]().flatMap{dio ⇒
+      dio.run(
           DockerParams
             .build()
             .option("-e", s"TENDERMINT_IP=$dockerHost")
@@ -85,5 +85,6 @@ trait DockerSetup extends OsSetup {
           20
         )
         .map(_.containerId)
+      }
     }
 }

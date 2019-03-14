@@ -20,6 +20,7 @@ import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect._
 import com.softwaremill.sttp.SttpBackend
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
+import fluence.effects.docker.DockerIO
 import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
 import slogging.MessageFormatter.DefaultPrefixFormatter
@@ -43,28 +44,38 @@ object MasterNodeApp extends IOApp with LazyLogging {
     MasterConfig
       .load()
       .map(mc => { configureLogging(mc.logLevel); mc })
-      .flatMap(mc ⇒ Configuration.init(mc).map(_ → mc))
-      .flatMap {
-        case (conf, masterConf) =>
-          // Run master node and status server
-          sttpResource
-            .flatMap(implicit sttpBackend ⇒ MasterNode.make[IO, IO.Par](masterConf, conf.nodeConfig, conf.rootPath))
-            .use { node ⇒
-              logger.debug("eth config {}", masterConf.contract)
+      .flatMap { masterConf =>
+        // Run master node and status server
+        DockerIO
+          .make[IO]()
+          .flatMap { implicit dockerIO ⇒
+            Resource
+              .liftF(Configuration.init[IO](masterConf))
+              .flatMap(
+                conf ⇒
+                  sttpResource
+                    .flatMap(
+                      implicit sttpBackend ⇒ MasterNode.make[IO, IO.Par](masterConf, conf.nodeConfig, conf.rootPath)
+                  )
+              )
+          }
+          .use { node ⇒
+            logger.debug("eth config {}", masterConf.contract)
 
-              (for {
-                st ← StatusAggregator.make(masterConf, node)
-                server ← MasterHttp.make[IO](
-                  "0.0.0.0",
-                  masterConf.httpApi.port.toShort,
-                  st,
-                  node.pool
-                )
-              } yield server).use { server =>
-                logger.info("Http api server has started on: " + server.address)
-                node.run
-              }
+            (for {
+              st ← StatusAggregator.make(masterConf, node)
+              server ← MasterHttp.make[IO](
+                "0.0.0.0",
+                masterConf.httpApi.port.toShort,
+                st,
+                node.pool
+              )
+            } yield server).use { server =>
+              logger.info("Http api server has started on: " + server.address)
+              node.run
             }
+          }
+
       }
       .attempt
       .flatMap(IO.fromEither)
