@@ -207,6 +207,17 @@ lazy val `kvstore` = (project in file("effects/kvstore"))
   .dependsOn(effects)
   .enablePlugins(AutomateHeaderPlugin)
 
+lazy val `dockerio` = (project in file("effects/docker"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      slogging,
+      fs2
+    )
+  )
+  .dependsOn(effects)
+  .enablePlugins(AutomateHeaderPlugin)
+
 lazy val node = project
   .configs(IntegrationTest)
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
@@ -284,4 +295,4 @@ lazy val node = project
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(ethclient, swarm, `statemachine-control`, `kvstore`)
+  .dependsOn(ethclient, swarm, `statemachine-control`, `kvstore`, `dockerio`)

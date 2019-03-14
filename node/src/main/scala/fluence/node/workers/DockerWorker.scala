@@ -22,7 +22,8 @@ import cats.syntax.functor._
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import com.softwaremill.sttp._
-import fluence.node.docker._
+import fluence.effects.docker._
+import fluence.effects.docker.params.DockerParams
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
 import fluence.node.workers.tendermint.DockerTendermint
@@ -66,13 +67,14 @@ object DockerWorker extends LazyLogging {
       .option("-e", s"""CODE_DIR=$vmCodePath""")
       .option("--name", containerName(params))
       .option("--network", network.name)
+      .limits(dockerConfig.limits)
 
     (masterNodeContainerId match {
       case Some(id) =>
         dockerParams.option("--volumes-from", s"$id:ro")
       case None =>
         dockerParams
-    }).prepared(dockerConfig).daemonRun()
+    }).prepared(dockerConfig.image).daemonRun()
   }
 
   private def dockerNetworkName(params: WorkerParams): String =
@@ -130,8 +132,8 @@ object DockerWorker extends LazyLogging {
 
       control = ControlRpc[F](containerName(params), ControlRpcPort)
 
-      workerStatus = worker
-        .check[F]
+      workerStatus = DockerIO
+        .checkContainer[F](worker)
         .flatMap[ServiceStatus[Unit]] {
           case d if d.isRunning ⇒ control.status.map(s ⇒ ServiceStatus(d, s))
           case d ⇒

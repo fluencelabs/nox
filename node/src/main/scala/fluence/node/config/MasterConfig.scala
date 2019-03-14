@@ -17,12 +17,12 @@
 package fluence.node.config
 
 import cats.effect.IO
-import fluence.node.docker.{DockerConfig, DockerImage}
 import fluence.node.workers.tendermint.config.TendermintConfig
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import net.ceedubs.ficus.readers.ValueReader
 import LogLevel.LogLevel
+import fluence.effects.docker.params.DockerImage
 
 /**
  * Main config class for master node.

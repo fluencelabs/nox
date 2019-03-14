@@ -21,8 +21,8 @@ import java.nio.file.{Path, Paths}
 import cats.effect.{ContextShift, IO, Sync}
 import cats.syntax.apply._
 import com.typesafe.config.Config
+import fluence.effects.docker.params.DockerImage
 import fluence.node.config.ConfigOps._
-import fluence.node.docker.{DockerConfig, DockerImage}
 import fluence.node.workers.tendermint.{DockerTendermint, ValidatorKey}
 import io.circe.parser._
 

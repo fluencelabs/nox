@@ -21,7 +21,9 @@ import cats.Applicative
 import cats.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.node.docker._
+import fluence.effects.docker._
+import fluence.effects.docker.params.DockerParams
+import fluence.node.config.DockerConfig
 import fluence.node.workers.WorkerParams
 import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus}
 import fluence.node.workers.tendermint.rpc.{TendermintRpc, TendermintStatus}
@@ -36,7 +38,7 @@ import scala.language.higherKinds
  * @param name Docker container's name, to connect to Tendermint via local network
  */
 case class DockerTendermint(
-  container: DockerIO,
+  container: DockerContainer,
   name: String
 ) {
 
@@ -54,7 +56,7 @@ case class DockerTendermint(
    * Service status for this docker + wrapped Tendermint Http service
    */
   def status[F[_]: Sync: ContextShift](rpc: TendermintRpc[F]): F[ServiceStatus[TendermintStatus]] =
-    container.check[F].flatMap(ifDockerOkRunHttpCheck(rpc, _))
+    DockerIO.checkContainer[F](container).flatMap(ifDockerOkRunHttpCheck(rpc, _))
 
   /**
    * Launch service status check periodically. Resulting status is calculated from Docker container status and HTTP check.
@@ -66,7 +68,7 @@ case class DockerTendermint(
     rpc: TendermintRpc[F],
     period: FiniteDuration
   ): fs2.Stream[F, ServiceStatus[TendermintStatus]] =
-    container.checkPeriodically[F](period).evalMap(ifDockerOkRunHttpCheck(rpc, _))
+    DockerIO.checkPeriodically[F](container, period).evalMap(ifDockerOkRunHttpCheck(rpc, _))
 
 }
 
@@ -98,19 +100,20 @@ object DockerTendermint {
       val params = DockerParams
         .build()
         .user(uid)
+        .limits(tmDockerConfig.limits)
 
       masterContainerId match {
         case Some(cId) ⇒
           params
             .option("--volumes-from", cId)
             .option("-e", s"TMHOME=$tendermintDir")
-            .prepared(tmDockerConfig)
+            .prepared(tmDockerConfig.image)
             .runExec(cmd)
 
         case None ⇒
           params
             .volume(tendermintDir.toString, "/tendermint")
-            .prepared(tmDockerConfig)
+            .prepared(tmDockerConfig.image)
             .runExec(cmd)
       }
     }
@@ -132,6 +135,7 @@ object DockerTendermint {
       .option("--name", containerName(params))
       .option("--network", network.name)
       .port(p2pPort, P2pPort)
+      .limits(tmDockerConfig.limits)
 
     (masterNodeContainerId match {
       case Some(id) =>
@@ -139,7 +143,7 @@ object DockerTendermint {
           .option("--volumes-from", id)
       case None =>
         dockerParams
-    }).prepared(tmDockerConfig).daemonRun("node")
+    }).prepared(tmDockerConfig.image).daemonRun("node")
   }
 
   /**

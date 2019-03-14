@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package fluence.node.docker
+package fluence.effects.docker
 import cats.effect.{ContextShift, Resource, Sync}
 
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.node.docker.DockerIO.shiftDelay
+import fluence.effects.docker.DockerIO.shiftDelay
 
 import scala.language.higherKinds
 import scala.sys.process._
