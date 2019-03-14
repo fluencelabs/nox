@@ -84,7 +84,10 @@ object Configuration extends slogging.LazyLogging {
 
     val tendermintDir = rootPath.resolve("tendermint") // /master/tendermint
     def execTendermintCmd(cmd: String, uid: String): F[String] =
-      DockerTendermint.execCmd[F](tmDockerConfig, tendermintDir, masterContainerId, cmd, uid)
+      DockerTendermint
+        .execCmd[F](tmDockerConfig, tendermintDir, masterContainerId, cmd, uid)
+        .value
+        .flatMap(IO.fromEither(_).to[F]) // TODO: should we handle errors there somehow?
 
     def init(uid: String): F[Unit] =
       for {

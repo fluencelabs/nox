@@ -20,8 +20,10 @@ import fluence.effects.EffectError
 /**
  * Error type to cover all possible Ethereum client errors
  */
-sealed trait EthClientError extends EffectError
+abstract class EthClientError(cause: Throwable) extends EffectError {
+  override def getCause: Throwable = Option(cause) getOrElse super.getCause
+}
 
-case class EthRequestError private[ethclient] (cause: Throwable) extends EthClientError
+case class EthRequestError private[ethclient] (cause: Throwable) extends EthClientError(cause)
 
-case class EthShutdownError private[ethclient] (cause: Throwable) extends EthClientError
+case class EthShutdownError private[ethclient] (cause: Throwable) extends EthClientError(cause)

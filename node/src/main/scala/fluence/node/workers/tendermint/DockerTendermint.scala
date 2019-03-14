@@ -17,6 +17,7 @@
 package fluence.node.workers.tendermint
 import java.nio.file.Path
 
+import cats.data.EitherT
 import cats.{Applicative, Monad}
 import cats.effect._
 import cats.syntax.flatMap._
@@ -81,7 +82,7 @@ object DockerTendermint {
     masterContainerId: Option[String],
     cmd: String,
     uid: String
-  ): F[String] =
+  ): EitherT[F, DockerError, String] =
     DockerIO[F].exec {
       val params = DockerParams
         .build()
