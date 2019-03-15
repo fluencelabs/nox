@@ -29,6 +29,7 @@ import cats.syntax.flatMap._
 import cats.syntax.apply._
 import cats.syntax.functor._
 import fluence.codec.PureCodec
+import fluence.effects.docker.DockerIO
 import fluence.effects.kvstore.RocksDBStore
 
 import scala.language.higherKinds
@@ -38,7 +39,7 @@ import scala.language.higherKinds
  *
  * @param workers a storage for running [[Worker]]s, indexed by appIds
  */
-class DockerWorkersPool[F[_]: ContextShift: Timer, G[_]](
+class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
   ports: WorkersPorts[F],
   workers: Ref[F, Map[Long, Worker[F]]],
   waitStopped: Ref[F, Map[Long, F[Unit]]]
@@ -220,7 +221,7 @@ object DockerWorkersPool extends LazyLogging {
   /**
    * Build a new [[DockerWorkersPool]]. All workers will be stopped when the pool is released
    */
-  def make[F[_]: ContextShift: Timer, G[_]](minPort: Short, maxPort: Short, rootPath: Path)(
+  def make[F[_]: DockerIO: ContextShift: Timer, G[_]](minPort: Short, maxPort: Short, rootPath: Path)(
     implicit
     sttpBackend: SttpBackend[F, Nothing],
     F: Concurrent[F],

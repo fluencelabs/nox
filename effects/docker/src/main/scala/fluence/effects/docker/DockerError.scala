@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-package fluence.effects.swarm
-
+package fluence.effects.docker
 import fluence.effects.EffectError
 
-// TODO change this error to errors with hierarchy
-case class SwarmError(message: String, causedBy: Option[Throwable] = None) extends EffectError {
-  override def getMessage: String = message
+sealed trait DockerError extends EffectError
 
-  override def getCause: Throwable = causedBy getOrElse super.getCause
-}
+case class DockerCommandError(cmd: String, cause: Throwable)
+    extends Exception(s"Failed to execute shell command: `$cmd`", cause) with DockerError
+
+case class DockerException(message: String, cause: Throwable) extends Exception(message, cause) with DockerError
