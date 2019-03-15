@@ -112,12 +112,13 @@ jobs:
       - image: circleci/rust:latest
     environment:
       RUST_BACKTRACE: 1
+      RUST_TEST_THREADS: 1
     steps:
       - checkout
       - restore_cache:
           keys:
             - backendsdk-{{ checksum "backend-sdk/Cargo.toml" }}
-      - run: |
+      - run: | # todo enable 'stable' and 'beta' when `allocator_api` will become stable
           cd backend-sdk/
           rustup toolchain install nightly
           rustup default nightly
@@ -169,6 +170,17 @@ jobs:
           npm install &>/dev/null
           npm test
 
+  fluence book:
+    docker:
+      - image: circleci/rust:latest
+    steps:
+      - checkout
+      - run: |
+          test -x $HOME/.cargo/bin/cargo-install-update || cargo install cargo-update
+          test -x $HOME/.cargo/bin/mdbook || cargo install --vers "^0.1" mdbook
+          cargo install-update -a
+          cd docs/
+          mdbook build
 
 workflows:
   version: 2
@@ -181,4 +193,5 @@ workflows:
       - deploy scripts
       - js sdk
       - backend sdk
+      - fluence book
 
