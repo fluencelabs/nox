@@ -134,8 +134,7 @@ jobs:
       - save_cache:
           paths:
             - bootstrap/node_modules
-          keys:
-            - contract-cache-{{ checksum "bootstrap/package-lock.json" }}
+          key: contract-cache-{{ checksum "bootstrap/package-lock.json" }}
 
   deploy scripts:
     docker:
@@ -162,8 +161,7 @@ jobs:
       - save_cache:
           paths:
             - fluence-js/node_modules
-          keys:
-            - fluence-js-{{ checksum "fluence-js/package-lock.json" }}
+          key: fluence-js-{{ checksum "fluence-js/package-lock.json" }}
 
   fluence book: #TODO: doesn't work, fix
     docker:
