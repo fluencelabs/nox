@@ -163,34 +163,13 @@ jobs:
 
 workflows:
   version: 2
-  sbt simple test:
+  all:
     jobs:
       - sbt simple test
-
-  sbt all tests:
-    jobs:
       - sbt all tests
-
-#  sbt integration tests:
-#    jobs:
-#      - sbt integration tests
-
-  cli:
-    jobs:
+      - sbt integration tests
       - cli
-
-  smart contract:
-    jobs:
       - smart contract
-
-  deploy scripts:
-    jobs:
       - deploy scripts
-
-  js sdk:
-    jobs:
       - js sdk
-
-  backend sdk:
-    jobs:
       - backend sdk
