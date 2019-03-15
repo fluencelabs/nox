@@ -32,15 +32,6 @@ rustup: &rustup
 
 version: 2
 jobs:
-  sbt simple test:
-      <<: *jdk_image
-      <<: *jvm_env
-      steps:
-        - checkout
-        - <<: *rc
-        - run: sbt -mem 2000 test:test
-        - <<: *sc
-
   sbt all tests:
     <<: *jdk_image
     <<: *jvm_env
@@ -48,7 +39,7 @@ jobs:
       - checkout
       - <<: *rc
       - <<: *rustup
-      - run: PATH="$PATH:$HOME/.cargo/bin:" SBT_OPTS="-Xms1024M -Xmx1024M -Xss6M" sbt -mem 1024 test
+      - run: PATH="$PATH:$HOME/.cargo/bin:" SBT_OPTS="-Xms2048M -Xmx2048M -Xss6M" sbt -mem 2048 test
       - <<: *sc
 
   sbt integration tests:
@@ -87,11 +78,11 @@ jobs:
             rustup component add clippy
             cargo clippy -v || true
       - run:
-          name: npm run generate-all
+          name: npm run compile-sol
           command: |
             cd bootstrap
             npm install
-            npm run generate-all
+            npm run compile-sol
       - run: cd cli; cargo build
       - run: 
           name: Ganache, Swarm, Test
@@ -181,9 +172,8 @@ jobs:
 
 workflows:
   version: 2
-  all:
+  fluence:
     jobs:
-      - sbt simple test
       - sbt all tests
 #      - sbt integration tests
       - cli
