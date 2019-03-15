@@ -113,6 +113,7 @@ jobs:
           keys:
             - backendsdk-{{ checksum "backend-sdk/Cargo.toml" }}
       - run: |
+          cd backend-sdk/
           rustup target add wasm32-unknown-unknown
           rustup component add rustfmt
           rustup component add clippy
@@ -161,15 +162,45 @@ jobs:
           npm test
 
 
+#workflows:
+#  version: 2
+#  all:
+#    jobs:
+#      - sbt simple test
+#      - sbt all tests
+#      - sbt integration tests
+#      - cli
+#      - smart contract
+#      - deploy scripts
+#      - js sdk
+#      - backend sdk
+
 workflows:
   version: 2
-  all:
+  sbt simple test:
     jobs:
       - sbt simple test
+
+  sbt all tests:
+    jobs:
       - sbt all tests
-      - sbt integration tests
+
+  cli:
+    jobs:
       - cli
+
+  smart contract:
+    jobs:
       - smart contract
+
+  deploy scripts:
+    jobs:
       - deploy scripts
+
+  js sdk:
+    jobs:
       - js sdk
+
+  backend sdk:
+    jobs:
       - backend sdk
