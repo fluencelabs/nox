@@ -5,10 +5,6 @@ just_jdk: &jdk_image
   docker:
     - *jdk
 
-jvm_env: &jvm_env
-  environment:
-    JVM_OPTS: -Xmx3200m
-
 rc: &rc
   restore_cache:
     keys:
@@ -34,24 +30,11 @@ version: 2
 jobs:
   sbt all tests:
     <<: *jdk_image
-    <<: *jvm_env
     steps:
       - checkout
       - <<: *rc
       - <<: *rustup
       - run: PATH="$PATH:$HOME/.cargo/bin:" SBT_OPTS="-Xms2048M -Xmx2048M -Xss6M" sbt -mem 2048 test
-      - <<: *sc
-
-  sbt integration tests:
-    <<: *jdk_image
-    <<: *jvm_env
-    steps:
-      - setup_remote_docker
-      - checkout
-      - <<: *rc
-      - <<: *rustup
-      - run: docker pull tendermint/tendermint:0.30.2
-      - run: tools/ci/dockerize.sh
       - <<: *sc
 
   cli:
@@ -70,7 +53,6 @@ jobs:
             cd cli
             rustup component add rustfmt
             cargo fmt --all -- --check --color always
-
       - run:
           name: clippy
           command: |
@@ -194,5 +176,5 @@ workflows:
       - deploy scripts
       - js sdk
       - backend sdk
-      - fluence book
+#      - fluence book
 

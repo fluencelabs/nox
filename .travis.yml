@@ -38,5 +38,20 @@ matrix:
         - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test
       if: branch = master OR type = pull_request
 
+    - name: Fluence book
+      language: rust
+      sudo: false
+      cache:
+        - cargo
+      rust: nightly-2019-01-08
 
+      before_script:
+        - (test -x $HOME/.cargo/bin/cargo-install-update || cargo install cargo-update)
+        - (test -x $HOME/.cargo/bin/mdbook || cargo install --vers "^0.1" mdbook)
+        - cargo install-update -a
+
+      script:
+        - cd docs/ && mdbook build
+
+      if: type != pull_request
 
