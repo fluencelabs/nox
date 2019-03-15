@@ -91,7 +91,7 @@ jobs:
             cd ../cli
             rustup component add rustfmt
             rustup component add clippy
-            cargo fmt --all -- --check -v
+            cargo fmt --all -- --check -v --color always
             cargo clippy -v
             cargo build
             cargo test
@@ -117,10 +117,10 @@ jobs:
           rustup target add wasm32-unknown-unknown
           rustup component add rustfmt
           rustup component add clippy
-          cargo fmt --all -- --check -v
-          cargo build -v --target wasm32-unknown-unknown --all-features
-          cargo test -v --all-features
-          cargo clippy -v --target wasm32-unknown-unknown
+          cargo +nightly fmt --all -- --check -v --color always
+          cargo +nightly build -v --target wasm32-unknown-unknown --all-features
+          cargo +nightly test -v --all-features
+          cargo +nightly clippy -v --target wasm32-unknown-unknown
       - save_cache:
           paths:
             - ~/.cargo
@@ -162,45 +162,45 @@ jobs:
           npm test
 
 
-#workflows:
-#  version: 2
-#  all:
-#    jobs:
-#      - sbt simple test
-#      - sbt all tests
-#      - sbt integration tests
-#      - cli
-#      - smart contract
-#      - deploy scripts
-#      - js sdk
-#      - backend sdk
-
 workflows:
   version: 2
-  sbt simple test:
+  all:
     jobs:
       - sbt simple test
-
-  sbt all tests:
-    jobs:
       - sbt all tests
-
-  cli:
-    jobs:
+      - sbt integration tests
       - cli
-
-  smart contract:
-    jobs:
       - smart contract
-
-  deploy scripts:
-    jobs:
       - deploy scripts
-
-  js sdk:
-    jobs:
       - js sdk
-
-  backend sdk:
-    jobs:
       - backend sdk
+
+#workflows:
+#  version: 2
+#  sbt simple test:
+#    jobs:
+#      - sbt simple test
+#
+#  sbt all tests:
+#    jobs:
+#      - sbt all tests
+#
+#  cli:
+#    jobs:
+#      - cli
+#
+#  smart contract:
+#    jobs:
+#      - smart contract
+#
+#  deploy scripts:
+#    jobs:
+#      - deploy scripts
+#
+#  js sdk:
+#    jobs:
+#      - js sdk
+#
+#  backend sdk:
+#    jobs:
+#      - backend sdk
