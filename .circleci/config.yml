@@ -1,0 +1,166 @@
+jdk: &jdk
+  image: circleci/openjdk:8-jdk-node
+
+just_jdk: &jdk_image
+  docker:
+    - *jdk
+
+jvm_env: &jvm_env
+  environment:
+    JVM_OPTS: -Xmx3200m
+
+rc: &rc
+  restore_cache:
+    keys:
+      - sbtcachenew-{{ checksum "build.sbt" }}
+
+sc: &sc
+  save_cache:
+    paths:
+      - ~/.m2
+      - ~/.ivy2
+      - ~/.sbt
+      - bootstrap/node_modules
+      - ~/.cargo
+      - ~/.rustup
+    key: sbtcachenew-{{ checksum "build.sbt" }}
+
+rustup: &rustup
+  - run: |
+      curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
+      ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly
+
+version: 2
+jobs:
+  sbt simple test:
+      <<: *jdk_image
+      <<: *jvm_env
+      steps:
+        - checkout
+        - <<: *rc
+        - run: sbt -mem 2000 test:test
+        - <<: *sc
+
+  sbt all tests:
+    <<: *jdk_image
+    <<: *jvm_env
+    steps:
+      - checkout
+      - <<: *rc
+      - <<: *rustup
+      - run: PATH="$PATH:$HOME/.cargo/bin:" SBT_OPTS="-Xms1024M -Xmx1024M -Xss6M" sbt -mem 1024 test
+      - <<: *sc
+
+#  sbt integration tests:
+#    <<: *jdk_image
+#    <<: *jvm_env
+#    steps:
+#      - setup_remote_docker
+#      - checkout
+#      - <<: *rc
+#      - <<: *rustup
+#      - run: docker pull tendermint/tendermint:0.30.1
+#      - run: tools/ci/dockerize.sh
+#      - <<: *sc
+
+  cli:
+    docker:
+      - image: circleci/rust:latest-node
+    environment:
+      RUST_BACKTRACE: 1
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - clicachenew2-{{ checksum "cli/Cargo.lock" }}
+      - run: 
+          name: Ganache, Swarm, fmt, Build, Test
+          command: |
+            cd bootstrap
+            npm install
+            
+            npm run ganache
+            npm run swarm-simulation
+            
+            sleep 1
+            npm run migrate 
+            
+            dockerize -wait tcp://127.0.0.1:8545 -timeout 30s
+            dockerize -wait tcp://127.0.0.1:8500 -timeout 30s
+              
+            cd ../cli
+            rustup component add rustfmt
+            cargo fmt --all -- --check
+            cargo build
+            cargo test
+      - save_cache:
+          paths:
+            - ~/.cargo
+            - ~/.rustup
+            - bootstrap/node_modules
+          key: clicachenew2-{{ checksum "cli/Cargo.lock" }}
+
+  smart contract:
+    docker:
+      - image: circleci/node:latest
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - contract-cache-{{ checksum "bootstrap/package-lock.json" }}
+      - run: |
+          cd bootstrap
+          npm install &>/dev/null
+          npm run ganache &>/dev/null
+          npm test
+
+  deploy scripts:
+    docker:
+      - image: circleci/python:2
+    steps:
+      - checkout
+      - run: |
+          cd tools/deploy
+          sudo pip install pytest # sudo? facepalm
+          pytest
+
+  js sdk:
+    docker:
+      - image: circleci/node:latest
+    steps:
+      - checkout
+      - run: |
+          cd fluence-js
+          npm install &>/dev/null
+          npm test
+
+
+workflows:
+  version: 2
+  sbt simple test:
+    jobs:
+      - sbt simple test
+
+  sbt all tests:
+    jobs:
+      - sbt all tests
+
+  sbt integration tests:
+    jobs:
+      - sbt integration tests
+
+  cli:
+    jobs:
+      - cli
+
+  smart contract:
+    jobs:
+      - smart contract
+
+  deploy scripts:
+    jobs:
+      - deploy scripts
+
+  js sdk:
+    jobs:
+      - js sdk
