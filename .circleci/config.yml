@@ -102,7 +102,7 @@ jobs:
             - bootstrap/node_modules
           key: clicachenew2-{{ checksum "cli/Cargo.lock" }}
 
-  rust sdk:
+  backend sdk:
     docker:
       - image: circleci/rust:latest
     environment:
@@ -111,12 +111,12 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - rustsdk-{{ checksum "backend-sdk/Cargo.lock" }}
+            - backendsdk-{{ checksum "backend-sdk/Cargo.toml" }}
       - run: |
           rustup target add wasm32-unknown-unknown
           rustup component add rustfmt
           rustup component add clippy
-          cargo fmt --all -- --check -v
+          cargo fmt --all --check -v
           cargo build -v --target wasm32-unknown-unknown --all-features
           cargo test -v --all-features
           cargo clippy -v --target wasm32-unknown-unknown
@@ -124,7 +124,7 @@ jobs:
           paths:
             - ~/.cargo
             - ~/.rustup
-          key: rustsdk-{{ checksum "backend-sdk/Cargo.lock" }}
+          key: backendsdk-{{ checksum "backend-sdk/Cargo.toml" }}
 
   smart contract:
     docker:
@@ -191,6 +191,6 @@ workflows:
     jobs:
       - js sdk
 
-  rust sdk:
+  backend sdk:
     jobs:
-      - rust sdk
+      - backend sdk
