@@ -131,6 +131,11 @@ jobs:
           npm install &>/dev/null
           npm run ganache &>/dev/null
           npm test
+      - save_cache:
+          paths:
+            - bootstrap/node_modules
+          keys:
+            - contract-cache-{{ checksum "bootstrap/package-lock.json" }}
 
   deploy scripts:
     docker:
@@ -147,12 +152,20 @@ jobs:
       - image: circleci/node:latest
     steps:
       - checkout
+      - restore_cache:
+          keys:
+            - fluence-js-{{ checksum "fluence-js/package-lock.json" }}
       - run: |
           cd fluence-js
           npm install &>/dev/null
           npm test
+      - save_cache:
+          paths:
+            - fluence-js/node_modules
+          keys:
+            - fluence-js-{{ checksum "fluence-js/package-lock.json" }}
 
-  fluence book:
+  fluence book: #TODO: doesn't work, fix
     docker:
       - image: circleci/rust:latest
     steps:
