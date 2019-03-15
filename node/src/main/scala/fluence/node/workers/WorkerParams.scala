@@ -17,7 +17,8 @@
 package fluence.node.workers
 import java.nio.file.Path
 
-import fluence.node.docker.{DockerConfig, DockerImage}
+import fluence.effects.docker.params.DockerImage
+import fluence.node.config.DockerConfig
 import fluence.node.eth.state.WorkerPeer
 import fluence.node.eth.state.App
 import fluence.node.workers.tendermint.config.ConfigTemplate

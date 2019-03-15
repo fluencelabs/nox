@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-package fluence.effects.swarm
+package fluence.effects.docker.params
 
-import fluence.effects.EffectError
-
-// TODO change this error to errors with hierarchy
-case class SwarmError(message: String, causedBy: Option[Throwable] = None) extends EffectError {
-  override def getMessage: String = message
-
-  override def getCause: Throwable = causedBy getOrElse super.getCause
+/**
+ * Representation of a docker image
+ *
+ * @param name Fully qualified name of an image, including a repository and a name. E.g., fluencelabs/worker
+ * @param tag Tag of the image, will be appended to [[name]] after a colon
+ */
+case class DockerImage(name: String, tag: String) {
+  val imageName = s"$name:$tag"
 }
