@@ -114,13 +114,16 @@ jobs:
             - backendsdk-{{ checksum "backend-sdk/Cargo.toml" }}
       - run: |
           cd backend-sdk/
+          rustup toolchain install nightly
+          rustup default nightly
+          rustup override set nightly
           rustup target add wasm32-unknown-unknown
           rustup component add rustfmt
           rustup component add clippy
-          cargo +nightly fmt --all -- --check -v --color always
-          cargo +nightly build -v --target wasm32-unknown-unknown --all-features
-          cargo +nightly test -v --all-features
-          cargo +nightly clippy -v --target wasm32-unknown-unknown
+          cargo fmt --all -- --check -v --color always
+          cargo build -v --target wasm32-unknown-unknown --all-features
+          cargo test -v --all-features
+          cargo clippy -v --target wasm32-unknown-unknown
       - save_cache:
           paths:
             - ~/.cargo
