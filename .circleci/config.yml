@@ -91,7 +91,7 @@ jobs:
             cd ../cli
             rustup component add rustfmt
             rustup component add clippy
-            cargo fmt --all -- --check
+            cargo fmt --all -- --check -v
             cargo clippy -v
             cargo build
             cargo test
@@ -116,7 +116,7 @@ jobs:
           rustup target add wasm32-unknown-unknown
           rustup component add rustfmt
           rustup component add clippy
-          cargo fmt --all --check -v
+          cargo fmt --all -- --check -v
           cargo build -v --target wasm32-unknown-unknown --all-features
           cargo test -v --all-features
           cargo clippy -v --target wasm32-unknown-unknown
