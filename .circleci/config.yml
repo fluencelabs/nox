@@ -190,3 +190,7 @@ workflows:
   js sdk:
     jobs:
       - js sdk
+
+  rust sdk:
+    jobs:
+      - rust sdk
