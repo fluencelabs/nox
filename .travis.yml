@@ -56,7 +56,7 @@ matrix:
     - <<: *_scala_fluence_template
       name: Fluence integration tests
       before_script:
-        - docker pull tendermint/tendermint:0.30.1
+        - docker pull tendermint/tendermint:0.30.2
       script:
         - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile
         # Some tests in LlamadbIntegrationTest require 2 Gb RAM
