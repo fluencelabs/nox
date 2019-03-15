@@ -4,8 +4,8 @@ _scala_fluence_template: &_scala_fluence_template
   jdk: oraclejdk8
 
   install:
-    - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-01-08
-    - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-01-08
+    - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
+    - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly
 
   # These directories are cached to S3 at the end of the build
   cache:
@@ -25,7 +25,7 @@ _scala_fluence_template: &_scala_fluence_template
 _rust_wasm_template: &_rust_wasm_template
   language: rust
   # todo enable 'stable' and 'beta' when `allocator_api` will become stable
-  rust: nightly-2019-01-08
+  rust: nightly
   cache:
     - cargo
 
@@ -135,7 +135,7 @@ matrix:
       sudo: false
       cache:
       - cargo
-      rust: nightly-2019-01-08
+      rust: nightly
 
       before_script:
       - (test -x $HOME/.cargo/bin/cargo-install-update || cargo install cargo-update)
