@@ -176,6 +176,7 @@ jobs:
     steps:
       - checkout
       - run: |
+          eval `ssh-agent` && ssh-add ~/.ssh/id_rsa # https://github.com/rust-lang/cargo/issues/2429
           test -x $HOME/.cargo/bin/cargo-install-update || cargo install cargo-update
           test -x $HOME/.cargo/bin/mdbook || cargo install --vers "^0.1" mdbook
           cargo install-update -a
