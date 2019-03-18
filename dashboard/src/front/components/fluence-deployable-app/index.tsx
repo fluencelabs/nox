@@ -1,6 +1,5 @@
 import * as React from 'react';
 import {connect} from 'react-redux';
-import {App} from "../../../fluence/apps";
 import {DeployableApp, DeployableAppId, deployableApps} from "../../../fluence/deployable";
 import {deploy} from "../../actions/deployable/deploy";
 import {Action} from "redux";
