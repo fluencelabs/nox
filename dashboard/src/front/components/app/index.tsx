@@ -275,7 +275,7 @@ class DashboardApp extends React.Component<Props, State>{
                         <div className="small-box-footer entity-link" onClick={(e) => this.showDeployableApp(e, id)} style={{ display: this.state.deployableAppIdsVisible ? 'block' : 'none'}}>
                             <div className="box-body">
                                 <strong>
-                                    <i className="fa fa-bullseye margin-r-5"></i> Node <span title={id}>{id}</span>
+                                    <i className="fa fa-bullseye margin-r-5"></i> <span title={id}>{id}</span>
                                 </strong>
                             </div>
                         </div>

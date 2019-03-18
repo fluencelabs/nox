@@ -12,7 +12,7 @@ const contractFromTag = rootElement ? rootElement.getAttribute('data-contract') 
 
 export const contractAddress: string = contractFromUrl ? contractFromUrl : (contractFromTag ? contractFromTag : defaultContractAddress);
 
-const web3js = new Web3(new Web3.providers.HttpProvider(fluenceNodeAddr));
-const contract = getContract(contractAddress, web3js);
+export const web3js = new Web3(new Web3.providers.HttpProvider(fluenceNodeAddr));
+const contract = getContract(contractAddress, web3js) as Network;
 
-export default contract as Network;
+export default contract;

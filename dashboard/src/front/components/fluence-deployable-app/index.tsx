@@ -2,6 +2,7 @@ import * as React from 'react';
 import {connect} from 'react-redux';
 import {App} from "../../../fluence/apps";
 import {DeployableApp, DeployableAppId, deployableApps} from "../../../fluence/deployable";
+import {contract, web3js} from "../../../fluence/contract";
 
 interface State {}
 
@@ -14,11 +15,6 @@ interface Props {
 
 class FluenceDeployableApp extends React.Component<Props, State> {
     state: State = {};
-
-    deployApp = (e: React.MouseEvent<HTMLElement>, app: DeployableApp): void => {
-        // TODO: implement
-        console.log("not implemented");
-    };
 
     renderAppInfo(app: DeployableApp): React.ReactNode {
         return (
@@ -35,7 +31,7 @@ class FluenceDeployableApp extends React.Component<Props, State> {
                     <p>
                         <button
                             type="button"
-                            onClick={e => this.deployApp(e, app)}
+                            onClick={e => deployApp(e, app)}
                             className="btn btn-block btn-primary">
                             Deploy app <i style={{ display: 'inline-block'}} className="fa fa-refresh fa-spin"></i>
                         </button>
