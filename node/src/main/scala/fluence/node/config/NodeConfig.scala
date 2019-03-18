@@ -15,7 +15,7 @@
  */
 
 package fluence.node.config
-import fluence.node.docker.{DockerConfig, DockerImage}
+import fluence.effects.docker.params.DockerImage
 import fluence.node.workers.tendermint.ValidatorKey
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}

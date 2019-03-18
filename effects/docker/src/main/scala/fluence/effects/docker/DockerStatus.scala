@@ -14,10 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.node.docker
-
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+package fluence.effects.docker
 
 sealed trait DockerStatus {
   def startedAt: Long
@@ -31,10 +28,4 @@ case class DockerRunning(startedAt: Long) extends DockerStatus {
 
 case class DockerStopped(startedAt: Long) extends DockerStatus {
   override val isRunning: Boolean = false
-}
-
-object DockerStatus {
-
-  implicit val dockerStatusEncoder: Encoder[DockerStatus] = deriveEncoder
-  implicit val dockerStatusDecoder: Decoder[DockerStatus] = deriveDecoder
 }

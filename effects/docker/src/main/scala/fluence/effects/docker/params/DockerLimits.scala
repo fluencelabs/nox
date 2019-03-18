@@ -14,19 +14,14 @@
  * limitations under the License.
  */
 
-package fluence.node.docker
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+package fluence.effects.docker.params
 
 /**
- * Docker config
+ * Limits on cpu and memory of a container
  *
- * @param image Docker image
- * @param limits CPU & memory limits for a container
+ * @see [[DockerParams.cpus]], [[DockerParams.memory]], [[DockerParams.memoryReservation]]
+ * @param cpus Fraction number of max cores available to a container.
+ * @param memoryMb A hard limit on maximum amount of memory available to a container
+ * @param memoryReservationMb Amount of memory guaranteed to be allocated for a container
  */
-case class DockerConfig(image: DockerImage, limits: DockerLimits)
-
-object DockerConfig {
-  implicit val enc: Encoder[DockerConfig] = deriveEncoder
-  implicit val dec: Decoder[DockerConfig] = deriveDecoder
-}
+case class DockerLimits(cpus: Option[Double], memoryMb: Option[Int], memoryReservationMb: Option[Int])
