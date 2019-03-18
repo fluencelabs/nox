@@ -22,6 +22,7 @@ import cats.effect.{Resource, Sync}
 import cats.syntax.either._
 import com.softwaremill.sttp._
 import cats.syntax.applicativeError._
+import fluence.effects.tendermint.rpc.response.{Response, TendermintStatus}
 import io.circe.parser.decode
 import io.circe.Json
 
@@ -46,7 +47,7 @@ case class TendermintRpc[F[_]](
   /** Get status, parse it to [[TendermintStatus]] */
   def statusParsed(implicit F: Functor[F]): EitherT[F, RpcError, TendermintStatus] =
     status
-      .map(decode[StatusResponse])
+      .map(decode[Response[TendermintStatus]])
       .subflatMap[RpcError, TendermintStatus](
         _.map(_.result).leftMap(RpcBodyMalformed)
       )

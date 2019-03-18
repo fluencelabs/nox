@@ -27,7 +27,8 @@ import fluence.effects.docker.params.DockerParams
 import fluence.node.config.DockerConfig
 import fluence.node.workers.WorkerParams
 import fluence.node.workers.status.{HttpCheckFailed, HttpCheckNotPerformed, HttpCheckStatus, ServiceStatus}
-import fluence.effects.tendermint.rpc.{TendermintRpc, TendermintStatus}
+import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.response.TendermintStatus
 
 import scala.language.higherKinds
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.effects.tendermint.rpc
+package fluence.effects.tendermint.rpc.response
 
 import io.circe.generic.extras.Configuration
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
@@ -23,14 +23,14 @@ import io.circe.{Decoder, Encoder}
 /**
  * Status information from a tendermint node.
  */
-private[tendermint] case class StatusResponse(result: TendermintStatus)
+private[tendermint] case class Response[T](error: String, result: T, id: String, jsonrpc: String)
 
-private[tendermint] object StatusResponse {
+private[tendermint] object Response {
 
   implicit val configuration: Configuration =
     Configuration.default.withSnakeCaseMemberNames.withSnakeCaseConstructorNames
 
-  implicit val decodeResponse: Decoder[StatusResponse] = deriveDecoder
+  implicit def decodeResponse[T: Decoder]: Decoder[Response[T]] = deriveDecoder
 
-  implicit val encodeResponse: Encoder[StatusResponse] = deriveEncoder
+  implicit def encodeResponse[T: Encoder]: Encoder[Response[T]] = deriveEncoder
 }
