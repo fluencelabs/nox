@@ -2,19 +2,27 @@ import * as React from 'react';
 import {connect} from 'react-redux';
 import {App} from "../../../fluence/apps";
 import {DeployableApp, DeployableAppId, deployableApps} from "../../../fluence/deployable";
-import {contract, web3js} from "../../../fluence/contract";
+import {deploy} from "../../actions/deployable/deploy";
+import {Action} from "redux";
 
-interface State {}
+interface State {
+}
 
 interface Props {
     id: DeployableAppId,
     deployableApps: {
         [key: string]: App
-    }
+    },
+    deploy: (app: DeployableApp) => Promise<Action>
 }
 
 class FluenceDeployableApp extends React.Component<Props, State> {
     state: State = {};
+
+    startDeploy = (e: React.MouseEvent<HTMLElement>, app: DeployableApp): void => {
+        console.log("start deploy " + app);
+        deploy(app);
+    };
 
     renderAppInfo(app: DeployableApp): React.ReactNode {
         return (
@@ -31,9 +39,9 @@ class FluenceDeployableApp extends React.Component<Props, State> {
                     <p>
                         <button
                             type="button"
-                            onClick={e => deployApp(e, app)}
+                            onClick={e => this.startDeploy(e, app)}
                             className="btn btn-block btn-primary">
-                            Deploy app <i style={{ display: 'inline-block'}} className="fa fa-refresh fa-spin"></i>
+                            Deploy app <i style={{display: 'inline-block'}} className="fa fa-refresh fa-spin"></i>
                         </button>
                     </p>
                 </div>
@@ -56,7 +64,7 @@ class FluenceDeployableApp extends React.Component<Props, State> {
                         <h3 className="widget-user-username">App</h3>
                         <h5 className="widget-user-desc">Name:&nbsp;{this.props.id}</h5>
                     </div>
-                    { app && this.renderAppInfo(app) }
+                    {app && this.renderAppInfo(app)}
                 </div>
             </div>
         );
@@ -67,6 +75,8 @@ const mapStateToProps = (state: any) => ({
     deployableApps: deployableApps,
 });
 
-const mapDispatchToProps = { };
+const mapDispatchToProps = {
+    // deploy
+};
 
 export default connect(mapStateToProps, mapDispatchToProps)(FluenceDeployableApp);
