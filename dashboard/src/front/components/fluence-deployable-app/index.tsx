@@ -6,6 +6,7 @@ import {deploy} from "../../actions/deployable/deploy";
 import {Action} from "redux";
 
 interface State {
+    loading: boolean
 }
 
 interface Props {
@@ -17,21 +18,29 @@ interface Props {
 }
 
 class FluenceDeployableApp extends React.Component<Props, State> {
-    state: State = {};
+    state: State = {
+        loading: false
+    };
 
     startDeploy = (e: React.MouseEvent<HTMLElement>, app: DeployableApp) => {
-        this.props.deploy(app);
+        this.setState({loading: true});
+        this.props.deploy(app)
+            .then(() => this.setState({loading: false}))
+            .catch(() => {
+                console.error("error while deploying " + e);
+                this.setState({loading: false});
+            });
     };
 
     renderAppInfo(app: DeployableApp): React.ReactNode {
         return (
             <div className="box-footer no-padding">
                 <div className="box-body">
-                    <strong><i className="fa fa-bullseye margin-r-5"></i>Storage Hash</strong>
+                    <strong><i className="fa fa-bullseye margin-r-5"/>Storage Hash</strong>
                     <p className="text-muted" title={app.storage_hash}>{app.storage_hash}</p>
                     <hr/>
 
-                    <strong><i className="fa fa-bullseye margin-r-5"></i>Cluster Size</strong>
+                    <strong><i className="fa fa-bullseye margin-r-5"/>Cluster Size</strong>
                     <p className="text-muted">{app.cluster_size}</p>
                     <hr/>
 
@@ -40,7 +49,8 @@ class FluenceDeployableApp extends React.Component<Props, State> {
                             type="button"
                             onClick={e => this.startDeploy(e, app)}
                             className="btn btn-block btn-primary">
-                            Deploy app <i style={{display: 'none'}} className="fa fa-refresh fa-spin"></i>
+                            Deploy app <i style={{display: this.state.loading ? 'inline-block' : 'none'}}
+                                          className="fa fa-refresh fa-spin"/>
                         </button>
                     </p>
                 </div>
@@ -57,7 +67,7 @@ class FluenceDeployableApp extends React.Component<Props, State> {
                     <div className="widget-user-header bg-fluence-blue-gradient">
                         <div className="widget-user-image">
                             <span className="entity-info-box-icon">
-                                <i className={app ? 'ion ion-ios-gear-outline' : 'fa fa-refresh fa-spin'}></i>
+                                <i className={app ? 'ion ion-ios-gear-outline' : 'fa fa-refresh fa-spin'}/>
                             </span>
                         </div>
                         <h3 className="widget-user-username">App</h3>
