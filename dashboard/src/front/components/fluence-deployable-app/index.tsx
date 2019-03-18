@@ -11,7 +11,7 @@ interface State {
 interface Props {
     id: DeployableAppId,
     deployableApps: {
-        [key: string]: App
+        [key: string]: DeployableApp
     },
     deploy: (app: DeployableApp) => Promise<Action>
 }
@@ -19,8 +19,8 @@ interface Props {
 class FluenceDeployableApp extends React.Component<Props, State> {
     state: State = {};
 
-    startDeploy = (e: React.MouseEvent<HTMLElement>, app: DeployableApp): void => {
-        deploy(app);
+    startDeploy = (e: React.MouseEvent<HTMLElement>, app: DeployableApp) => {
+        this.props.deploy(app);
     };
 
     renderAppInfo(app: DeployableApp): React.ReactNode {
@@ -75,7 +75,7 @@ const mapStateToProps = (state: any) => ({
 });
 
 const mapDispatchToProps = {
-    // deploy
+    deploy
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(FluenceDeployableApp);

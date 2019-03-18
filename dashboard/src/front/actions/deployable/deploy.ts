@@ -13,7 +13,7 @@ export const APP_DEPLOYED = 'APP_DEPLOYED';
 export const APP_ENQUEUED = 'APP_ENQUEUED';
 export const APP_DEPLOY_TIMEOUT = 'APP_DEPLOY_TIMEOUT';
 
-export const deploy = async (app: DeployableApp) => {
+export const deploy = (app: DeployableApp) => {
     return async (dispatch: Dispatch): Promise<Action> => {
         console.log("started deploy");
         let txData = contract.methods.addApp(app.storage_hash, "0x0", app.cluster_size, []).encodeABI();
@@ -81,7 +81,7 @@ async function checkStatus(deployableApp: DeployableApp) {
     let ids = await getAppIds(contract);
     let apps = await getApps(contract, ids);
     return apps.find(a => a.storage_hash == deployableApp.storage_hash);
-};
+}
 
 /*
  * Reducer
