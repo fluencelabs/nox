@@ -1,9 +1,7 @@
-import {getNode, NodeId} from '../../../fluence';
+import {getAppIds, getApps} from '../../../fluence';
 import contract, {web3js} from '../../../fluence/contract';
-import {Dispatch, Action} from 'redux';
 import {DeployableApp} from "../../../fluence/deployable";
-import {privateKey, defaultContractAddress, account} from "../../../constants";
-import {GET_NODE_RECEIVE} from "../nodes/nodes";
+import {account, defaultContractAddress, privateKey} from "../../../constants";
 
 let Tx = require('ethereumjs-tx');
 
@@ -30,23 +28,50 @@ export const deploy = async (app: DeployableApp) => {
     tx.sign(privateKey);
     let signed = tx.serialize();
     console.log("signed");
-    let receipt = await web3js.eth.sendSignedTransaction('0x' + signed.toString('hex'))
-        .once("transactionHash", h => console.log("got tx hash " + h));
+
+    let receipt = await web3js
+        .eth
+        .sendSignedTransaction('0x' + signed.toString('hex'))
+        .once("transactionHash", h => {
+            console.log("tx hash " + h)
+        });
     console.log("sent");
+
     if (receipt.events) {
         if (receipt.events.hasOwnProperty("AppEnqueued")) {
-            console.log("enq " + receipt.events)
+            console.log("enq " + JSON.stringify(receipt.events))
         } else if (receipt.events.hasOwnProperty("AppDeployed")) {
-            console.log("depl " + receipt.events)
+            console.log("depl " + JSON.stringify(receipt.events))
         }
     } else {
-        console.log("no events " + receipt)
+        // there could be no logs because we're using Ethereum light node
+        console.log("no events " + JSON.stringify(receipt));
+
+        let appeared = false;
+        for (let i = 0; i < 10 && !appeared; i++) {
+            console.log("checking status");
+            let appStatus = await checkStatus(app);
+            if (appStatus != undefined) {
+                appeared = true;
+                if (appStatus.cluster.isDefined) {
+                    console.log("deployed");
+                } else {
+                    console.log("enqueued");
+                }
+            }
+        }
     }
 
     // return dispatch({
     //     type: DEPLOY_TX_SENT
     // })
     // };
+};
+
+export const checkStatus = async (deployableApp: DeployableApp) => {
+    let ids = await getAppIds(contract);
+    let apps = await getApps(contract, ids);
+    return apps.find(a => a.storage_hash == deployableApp.storage_hash);
 };
 
 /*
