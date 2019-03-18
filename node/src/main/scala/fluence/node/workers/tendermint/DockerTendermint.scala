@@ -47,10 +47,11 @@ case class DockerTendermint(
     dockerStatus: DockerStatus
   ): F[ServiceStatus[TendermintStatus]] =
     dockerStatus match {
-      case d if d.isRunning ⇒ rpc.statusParsed.value.map {
-        case Right(resp) ⇒ HttpCheckStatus(resp)
-        case Left(err) ⇒ HttpCheckFailed(err)
-      }.map(s ⇒ ServiceStatus(d, s))
+      case d if d.isRunning ⇒
+        rpc.statusParsed.value.map {
+          case Right(resp) ⇒ HttpCheckStatus(resp)
+          case Left(err) ⇒ HttpCheckFailed(err)
+        }.map(s ⇒ ServiceStatus(d, s))
 
       case d ⇒
         Applicative[F].pure(ServiceStatus(d, HttpCheckNotPerformed("Tendermint Docker container is not launched")))
@@ -140,7 +141,7 @@ object DockerTendermint {
   /**
    * Worker's Tendermint container's name
    */
-  private def containerName(params: WorkerParams) =
+  def containerName(params: WorkerParams) =
     s"${params.appId}_tendermint_${params.currentWorker.index}"
 
   /**

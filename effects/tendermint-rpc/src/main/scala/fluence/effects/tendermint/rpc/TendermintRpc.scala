@@ -51,6 +51,15 @@ case class TendermintRpc[F[_]](
         _.map(_.result).leftMap(RpcBodyMalformed)
       )
 
+  def block(height: Long, id: String = "dontcare"): EitherT[F, RpcError, String] =
+    post(
+      RpcRequest(
+        method = "block",
+        params = Json.fromString(height.toString) :: Nil,
+        id = id
+      )
+    )
+
   /**
    * Builds a broadcast_tx_commit RPC request
    *

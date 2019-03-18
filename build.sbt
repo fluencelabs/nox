@@ -78,14 +78,13 @@ lazy val `statemachine-control` = (project in file("statemachine/control"))
       circeGeneric,
       circeParser,
       slogging,
-      scodecBits,
       http4sDsl,
       http4sServer,
       http4sCirce,
       scalaTest,
-      sttp,
-      sttpCirce,
-      sttpCatsBackend
+      sttp % Test,
+      sttpCirce % Test,
+      sttpCatsBackend % Test
     )
   )
 
@@ -98,6 +97,7 @@ lazy val statemachine = (project in file("statemachine"))
       pureConfig,
       slogging,
       scodecBits,
+      sttpCatsBackend,
       "com.github.jtendermint" % "jabci"          % "0.26.0",
       scalaTest
     ),
@@ -144,7 +144,7 @@ lazy val statemachine = (project in file("statemachine"))
     }
   )
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(vm, `statemachine-control`)
+  .dependsOn(vm, `statemachine-control`, `tendermint-rpc`)
 
 lazy val effects = project
   .settings(

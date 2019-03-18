@@ -22,24 +22,28 @@ import cats.effect.Effect
 import com.github.jtendermint.jabci.api._
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
+import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.statemachine.control.{ControlSignals, DropPeer}
 
 import scala.language.higherKinds
 
 class AbciHandler[F[_]: Effect](
   service: AbciService[F],
-  controlSignals: ControlSignals[F]
+  controlSignals: ControlSignals[F],
+  rpc: TendermintRpc[F]
 ) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock {
-
-
 
   override def requestBeginBlock(
     req: RequestBeginBlock
-  ): ResponseBeginBlock =
-    {
+  ): ResponseBeginBlock = {
+    val height = req.getHeader.getHeight
 
-      ResponseBeginBlock.newBuilder().build()
-    }
+    val log: String ⇒ Unit = s ⇒ println(Console.YELLOW + s + Console.RESET)
+
+    rpc.block(height).value.toIO.map(res ⇒ log(res.toString)).unsafeRunAsyncAndForget()
+
+    ResponseBeginBlock.newBuilder().build()
+  }
 
   override def requestCheckTx(
     req: RequestCheckTx
