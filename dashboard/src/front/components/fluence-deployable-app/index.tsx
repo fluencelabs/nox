@@ -20,7 +20,6 @@ class FluenceDeployableApp extends React.Component<Props, State> {
     state: State = {};
 
     startDeploy = (e: React.MouseEvent<HTMLElement>, app: DeployableApp): void => {
-        console.log("start deploy " + app);
         deploy(app);
     };
 
@@ -41,7 +40,7 @@ class FluenceDeployableApp extends React.Component<Props, State> {
                             type="button"
                             onClick={e => this.startDeploy(e, app)}
                             className="btn btn-block btn-primary">
-                            Deploy app <i style={{display: 'inline-block'}} className="fa fa-refresh fa-spin"></i>
+                            Deploy app <i style={{display: 'none'}} className="fa fa-refresh fa-spin"></i>
                         </button>
                     </p>
                 </div>
