@@ -27,7 +27,7 @@ import fluence.effects.docker.params.DockerParams
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
 import fluence.node.workers.tendermint.DockerTendermint
-import fluence.node.workers.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.TendermintRpc
 import slogging.LazyLogging
 
 import scala.language.higherKinds

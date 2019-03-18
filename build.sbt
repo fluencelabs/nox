@@ -217,6 +217,20 @@ lazy val `dockerio` = (project in file("effects/docker"))
   .dependsOn(effects)
   .enablePlugins(AutomateHeaderPlugin)
 
+lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      sttp,
+      circeGeneric,
+      circeParser,
+      circeGenericExtras,
+      slogging
+    )
+  )
+  .dependsOn(effects)
+  .enablePlugins(AutomateHeaderPlugin)
+
 lazy val node = project
   .configs(IntegrationTest)
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
@@ -294,4 +308,4 @@ lazy val node = project
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(ethclient, swarm, `statemachine-control`, `kvstore`, `dockerio`)
+  .dependsOn(ethclient, swarm, `statemachine-control`, `kvstore`, `dockerio`, `tendermint-rpc`)

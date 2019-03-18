@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.tendermint.rpc
+package fluence.effects.tendermint.rpc
 
 import io.circe.generic.extras.Configuration
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}

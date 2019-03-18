@@ -19,7 +19,7 @@ package fluence.node.workers
 import cats.data.EitherT
 import cats.syntax.flatMap._
 import cats.effect.Sync
-import fluence.node.workers.tendermint.rpc._
+import fluence.effects.tendermint.rpc._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{HttpRoutes, Response}
 import slogging.LazyLogging

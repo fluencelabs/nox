@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.tendermint.rpc
+package fluence.effects.tendermint.rpc
 
-import fluence.node.workers.tendermint.rpc.TendermintStatus.{NodeInfo, SyncInfo, ValidatorInfo}
+import fluence.effects.tendermint.rpc.TendermintStatus.{NodeInfo, SyncInfo, ValidatorInfo}
 import io.circe.generic.extras.Configuration
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}

@@ -29,7 +29,17 @@ import scala.language.higherKinds
 class AbciHandler[F[_]: Effect](
   service: AbciService[F],
   controlSignals: ControlSignals[F]
-) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock {
+) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock {
+
+
+
+  override def requestBeginBlock(
+    req: RequestBeginBlock
+  ): ResponseBeginBlock =
+    {
+
+      ResponseBeginBlock.newBuilder().build()
+    }
 
   override def requestCheckTx(
     req: RequestCheckTx
