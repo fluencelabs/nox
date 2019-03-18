@@ -1,3 +1,4 @@
+// @ts-ignore
 import {Network} from "../../../types/web3-contracts/Network";
 import {none, Option, some} from "ts-option";
 
