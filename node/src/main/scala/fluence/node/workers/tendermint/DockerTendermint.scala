@@ -68,7 +68,6 @@ object DockerTendermint {
   // Internal ports
   val P2pPort: Short = 26656
   val RpcPort: Short = 26657
-  val TmPrometheusPort: Short = 26660
 
   /**
    * Execute tendermint-specific command inside a temporary container, return the results
