@@ -23,10 +23,11 @@ sc: &sc
 
 rustup: &rustup
   - run: |
-      curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-03-10
+      curl https://sh.rustup.rs -sSf | sh -s -- -y
+      rustup toolchain install nightly-2019-03-10
       ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-03-10
-      curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
-      ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly
+#      rustup toolchain install nightly
+#      ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly
 
 version: 2
 jobs:
