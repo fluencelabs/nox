@@ -21,6 +21,7 @@ import 'admin-lte/dist/css/AdminLTE.css';
 import 'admin-lte/dist/css/skins/skin-blue.css';
 import './style.css';
 import {DeployableApp, DeployableAppId, deployableAppIds, deployableApps} from "../../../fluence/deployable";
+import Snippets from "../fluence-deployable-app/snippets";
 
 export interface FluenceEntity {
     id: NodeId|AppId|DeployableAppId

@@ -3,9 +3,10 @@ import {connect} from 'react-redux';
 import {DeployableApp, DeployableAppId, deployableApps} from "../../../fluence/deployable";
 import {deploy} from "../../actions/deployable/deploy";
 import {Action} from "redux";
+import Snippets from "./snippets";
 
 interface State {
-    loading: boolean
+    loading: boolean,
 }
 
 interface Props {
@@ -18,7 +19,7 @@ interface Props {
 
 class FluenceDeployableApp extends React.Component<Props, State> {
     state: State = {
-        loading: false
+        loading: false,
     };
 
     startDeploy = (e: React.MouseEvent<HTMLElement>, app: DeployableApp) => {
@@ -26,33 +27,36 @@ class FluenceDeployableApp extends React.Component<Props, State> {
         this.props.deploy(app)
             .then(() => this.setState({loading: false}))
             .catch(() => {
-                console.error("error while deploying " + e);
+                console.error("error while deploying " + JSON.stringify(e));
                 this.setState({loading: false});
             });
     };
 
     renderAppInfo(app: DeployableApp): React.ReactNode {
         return (
-            <div className="box-footer no-padding">
-                <div className="box-body">
-                    <strong><i className="fa fa-bullseye margin-r-5"/>Storage Hash</strong>
-                    <p className="text-muted" title={app.storage_hash}>{app.storage_hash}</p>
-                    <hr/>
+            <div>
+                <div className="box-footer no-padding">
+                    <div className="box-body">
+                        <strong><i className="fa fa-bullseye margin-r-5"/>Storage Hash</strong>
+                        <p className="text-muted" title={app.storage_hash}>{app.storage_hash}</p>
+                        <hr/>
 
-                    <strong><i className="fa fa-bullseye margin-r-5"/>Cluster Size</strong>
-                    <p className="text-muted">{app.cluster_size}</p>
-                    <hr/>
+                        <strong><i className="fa fa-bullseye margin-r-5"/>Cluster Size</strong>
+                        <p className="text-muted">{app.cluster_size}</p>
+                        <hr/>
 
-                    <p>
-                        <button
-                            type="button"
-                            onClick={e => this.startDeploy(e, app)}
-                            className="btn btn-block btn-primary">
-                            Deploy app <i style={{display: this.state.loading ? 'inline-block' : 'none'}}
-                                          className="fa fa-refresh fa-spin"/>
-                        </button>
-                    </p>
+                        <p>
+                            <button
+                                type="button"
+                                onClick={e => this.startDeploy(e, app)}
+                                className="btn btn-block btn-primary">
+                                Deploy app <i style={{display: this.state.loading ? 'inline-block' : 'none'}}
+                                              className="fa fa-refresh fa-spin"/>
+                            </button>
+                        </p>
+                    </div>
                 </div>
+                <Snippets/>
             </div>
         );
     }

@@ -1,4 +1,4 @@
-import {getAppIds, getApps} from '../../../fluence';
+import {App, getAppIds, getApps} from '../../../fluence';
 import contract, {web3js} from '../../../fluence/contract';
 import {DeployableApp} from "../../../fluence/deployable";
 import {account, defaultContractAddress, privateKey} from "../../../constants";
@@ -26,7 +26,13 @@ export const deploy = (app: DeployableApp) => {
             return dispatch({type: DEPLOY_TX_REVERTED});
         }
 
-        return dispatch({type: await waitApp(app)});
+        let [type, appStatus] = await waitApp(app);
+
+        return dispatch({
+            type: type,
+            appStatus: appStatus,
+            app: app
+        });
     };
 };
 
@@ -56,7 +62,7 @@ async function txParams(txData: string): Promise<any> {
     };
 }
 
-async function waitApp(app: DeployableApp): Promise<string> {
+async function waitApp(app: DeployableApp): Promise<[string, App|undefined]> {
     let appeared = false;
     for (let i = 0; i < 10 && !appeared; i++) {
         console.log("checking status");
@@ -65,16 +71,16 @@ async function waitApp(app: DeployableApp): Promise<string> {
             appeared = true;
             if (appStatus.cluster.isDefined) {
                 console.log("App deployed " + appStatus);
-                return APP_DEPLOYED;
+                return [APP_DEPLOYED, appStatus];
             } else {
                 console.log("App enqueued " + appStatus);
-                return APP_ENQUEUED;
+                return [APP_ENQUEUED, appStatus];
             }
         }
     }
 
     console.log("App deployment timed out :(");
-    return APP_DEPLOY_TIMEOUT;
+    return [APP_DEPLOY_TIMEOUT, undefined];
 }
 
 async function checkStatus(deployableApp: DeployableApp) {
