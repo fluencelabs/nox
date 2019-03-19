@@ -4,6 +4,7 @@ import {DeployableApp, DeployableAppId, deployableApps} from "../../../fluence/d
 import {deploy} from "../../actions/deployable/deploy";
 import {Action} from "redux";
 import {none, Option} from "ts-option";
+import {stringify} from "querystring";
 
 interface State {
     appId: number|undefined,
@@ -22,6 +23,7 @@ class Snippets extends React.Component<Props, State> {
     };
 
     render(): React.ReactNode {
+        console.log("render " + stringify(this.props));
         if (this.props.app != undefined && this.props.appId != undefined) {
             return (
                 <div className="col-md-4 col-xs-12">
@@ -42,10 +44,13 @@ class Snippets extends React.Component<Props, State> {
     }
 }
 
-const mapStateToProps = (state: any) => ({
-    app: state.app,
-    appId: state.appId
-});
+const mapStateToProps = (state: any) => {
+    console.log("mapStateToProps " + JSON.stringify(state));
+    return {
+        app: state.app,
+        appId: state.appId
+    }
+};
 
 const mapDispatchToProps = {
 };

@@ -84,8 +84,14 @@ async function waitApp(app: DeployableApp): Promise<[string, App|undefined]> {
 }
 
 async function checkStatus(deployableApp: DeployableApp) {
-    let ids = await getAppIds(contract);
+    console.log("checkstatus");
+    let ids = await getAppIds(contract).catch(e => {
+        console.log("error while getAppIds " + JSON.stringify(e));
+        return [];
+    });
+    console.log("getAppIds");
     let apps = await getApps(contract, ids);
+    console.log("getApps");
     return apps.find(a => a.storage_hash == deployableApp.storage_hash);
 }
 

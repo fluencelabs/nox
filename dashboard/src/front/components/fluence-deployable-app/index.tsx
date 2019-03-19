@@ -26,7 +26,7 @@ class FluenceDeployableApp extends React.Component<Props, State> {
         this.setState({loading: true});
         this.props.deploy(app)
             .then(() => this.setState({loading: false}))
-            .catch(() => {
+            .catch(e => {
                 console.error("error while deploying " + JSON.stringify(e));
                 this.setState({loading: false});
             });
