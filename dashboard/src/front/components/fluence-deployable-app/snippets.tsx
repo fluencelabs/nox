@@ -1,43 +1,50 @@
 import * as React from 'react';
 import {connect} from 'react-redux';
-import {DeployableApp, DeployableAppId, deployableApps} from "../../../fluence/deployable";
-import {deploy} from "../../actions/deployable/deploy";
-import {Action} from "redux";
-import {none, Option} from "ts-option";
-import {stringify} from "querystring";
+import {DeployableApp} from "../../../fluence/deployable";
+import {defaultContractAddress} from "../../../constants";
 
 interface State {
-    appId: number|undefined,
-    app: DeployableApp|undefined,
 }
 
 interface Props {
-    appId: number|undefined,
-    app: DeployableApp|undefined,
+    appId: number | undefined,
+    app: DeployableApp | undefined,
 }
 
 class Snippets extends React.Component<Props, State> {
-    state: State = {
-        appId: undefined,
-        app: undefined
-    };
+    state: State = {};
 
     render(): React.ReactNode {
-        console.log("render " + stringify(this.props));
         if (this.props.app != undefined && this.props.appId != undefined) {
             return (
-                <div className="col-md-4 col-xs-12">
-                    <div className="box box-primary">
-                        <div className="box-header with-border">
-                            <h3 className="box-title">Connect to {this.props.app.name}</h3>
+                <div className="box box-widget widget-user-2">
+                    <div className="widget-user-header bg-fluence-blue-gradient">
+                        <div className="widget-user-image">
+                            <span className="entity-info-box-icon">
+                                {/*<i className={app ? 'ion ion-ios-gear-outline' : 'fa fa-refresh fa-spin'}/>*/}
+                            </span>
                         </div>
+                        <h3 className="widget-user-username">Connect to {this.props.app.name}</h3>
+                    </div>
+                    <div className="box-footer no-padding">
                         <div className="box-body">
-                            <p>Snippet</p>
-                            <p>{this.props.appId}</p>
+                            <p>Install dependency</p>
+                            <pre>npm install --save fluence@0.1.16</pre>
+                            <p>Connect to {this.props.app.name}</p>
+                            <pre>{`
+import * as fluence from "fluence";
+fluence.connect(${defaultContractAddress}, ${this.props.appId}, "http://data.fluence.one").then((s) => {
+    console.log("Session created");
+    window.session = s;
+})
+                            `}
+                            </pre>
+                            <p>Call invoke</p>
+                            <pre>session.invoke("CREATE TABLE users ...").result().then(...)</pre>
                         </div>
                     </div>
                 </div>
-            );
+            )
         } else {
             return null
         }
@@ -45,14 +52,12 @@ class Snippets extends React.Component<Props, State> {
 }
 
 const mapStateToProps = (state: any) => {
-    console.log("mapStateToProps " + JSON.stringify(state));
     return {
-        app: state.app,
-        appId: state.appId
+        app: state.snippets.app,
+        appId: state.snippets.appId
     }
 };
 
-const mapDispatchToProps = {
-};
+const mapDispatchToProps = {};
 
 export default connect(mapStateToProps, mapDispatchToProps)(Snippets);

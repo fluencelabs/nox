@@ -15,7 +15,6 @@ export const APP_DEPLOY_TIMEOUT = 'APP_DEPLOY_TIMEOUT';
 
 export const deploy = (app: DeployableApp) => {
     return async (dispatch: Dispatch): Promise<Action> => {
-        console.log("started deploy");
         let txData = contract.methods.addApp(app.storage_hash, "0x0", app.cluster_size, []).encodeABI();
         let tx = new EthereumTx(await txParams(txData));
         tx.sign(privateKey);
@@ -41,7 +40,7 @@ function send(signedTx: Buffer, dispatch: Dispatch): Promise<TransactionReceipt>
         .eth
         .sendSignedTransaction('0x' + signedTx.toString('hex'))
         .once("transactionHash", h => {
-            dispatch({type: DEPLOY_TX_SENT}); // TODO: can I do this here?
+            dispatch({type: DEPLOY_TX_SENT});
             console.log("tx hash " + h)
         });
 }
@@ -62,7 +61,7 @@ async function txParams(txData: string): Promise<any> {
     };
 }
 
-async function waitApp(app: DeployableApp): Promise<[string, App|undefined]> {
+async function waitApp(app: DeployableApp): Promise<[string, App | undefined]> {
     let appeared = false;
     for (let i = 0; i < 10 && !appeared; i++) {
         console.log("checking status");
@@ -70,10 +69,10 @@ async function waitApp(app: DeployableApp): Promise<[string, App|undefined]> {
         if (appStatus != undefined) {
             appeared = true;
             if (appStatus.cluster.isDefined) {
-                console.log("App deployed " + appStatus);
+                console.log("App deployed " + JSON.stringify(appStatus));
                 return [APP_DEPLOYED, appStatus];
             } else {
-                console.log("App enqueued " + appStatus);
+                console.log("App enqueued " + JSON.stringify(appStatus));
                 return [APP_ENQUEUED, appStatus];
             }
         }
@@ -84,14 +83,15 @@ async function waitApp(app: DeployableApp): Promise<[string, App|undefined]> {
 }
 
 async function checkStatus(deployableApp: DeployableApp) {
-    console.log("checkstatus");
     let ids = await getAppIds(contract).catch(e => {
         console.log("error while getAppIds " + JSON.stringify(e));
         return [];
     });
-    console.log("getAppIds");
-    let apps = await getApps(contract, ids);
-    console.log("getApps");
+    let apps = await getApps(contract, ids).catch(e => {
+        console.log("error while getApps " + JSON.stringify(e));
+        let res: App[] = [];
+        return res;
+    });
     return apps.find(a => a.storage_hash == deployableApp.storage_hash);
 }
 
@@ -99,6 +99,5 @@ async function checkStatus(deployableApp: DeployableApp) {
  * Reducer
  */
 export default (state = {}, action: any) => {
-    console.log("Reducer: " + action.type + ". Wubba lubba dub dub.");
     return state;
 };

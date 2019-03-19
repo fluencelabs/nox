@@ -34,29 +34,26 @@ class FluenceDeployableApp extends React.Component<Props, State> {
 
     renderAppInfo(app: DeployableApp): React.ReactNode {
         return (
-            <div>
-                <div className="box-footer no-padding">
-                    <div className="box-body">
-                        <strong><i className="fa fa-bullseye margin-r-5"/>Storage Hash</strong>
-                        <p className="text-muted" title={app.storage_hash}>{app.storage_hash}</p>
-                        <hr/>
+            <div className="box-footer no-padding">
+                <div className="box-body">
+                    <strong><i className="fa fa-bullseye margin-r-5"/>Storage Hash</strong>
+                    <p className="text-muted" title={app.storage_hash}>{app.storage_hash}</p>
+                    <hr/>
 
-                        <strong><i className="fa fa-bullseye margin-r-5"/>Cluster Size</strong>
-                        <p className="text-muted">{app.cluster_size}</p>
-                        <hr/>
+                    <strong><i className="fa fa-bullseye margin-r-5"/>Cluster Size</strong>
+                    <p className="text-muted">{app.cluster_size}</p>
+                    <hr/>
 
-                        <p>
-                            <button
-                                type="button"
-                                onClick={e => this.startDeploy(e, app)}
-                                className="btn btn-block btn-primary">
-                                Deploy app <i style={{display: this.state.loading ? 'inline-block' : 'none'}}
-                                              className="fa fa-refresh fa-spin"/>
-                            </button>
-                        </p>
-                    </div>
+                    <p>
+                        <button
+                            type="button"
+                            onClick={e => this.startDeploy(e, app)}
+                            className="btn btn-block btn-primary">
+                            Deploy app <i style={{display: this.state.loading ? 'inline-block' : 'none'}}
+                                          className="fa fa-refresh fa-spin"/>
+                        </button>
+                    </p>
                 </div>
-                <Snippets/>
             </div>
         );
     }
@@ -65,18 +62,23 @@ class FluenceDeployableApp extends React.Component<Props, State> {
         const app = this.props.deployableApps[this.props.id];
 
         return (
-            <div className="col-md-4 col-xs-12">
-                <div className="box box-widget widget-user-2">
-                    <div className="widget-user-header bg-fluence-blue-gradient">
-                        <div className="widget-user-image">
+            <div>
+                <div className="col-md-4 col-xs-12">
+                    <div className="box box-widget widget-user-2">
+                        <div className="widget-user-header bg-fluence-blue-gradient">
+                            <div className="widget-user-image">
                             <span className="entity-info-box-icon">
                                 <i className={app ? 'ion ion-ios-gear-outline' : 'fa fa-refresh fa-spin'}/>
                             </span>
+                            </div>
+                            <h3 className="widget-user-username">App</h3>
+                            <h5 className="widget-user-desc">Name:&nbsp;{this.props.id}</h5>
                         </div>
-                        <h3 className="widget-user-username">App</h3>
-                        <h5 className="widget-user-desc">Name:&nbsp;{this.props.id}</h5>
+                        {app && this.renderAppInfo(app)}
                     </div>
-                    {app && this.renderAppInfo(app)}
+                </div>
+                <div className="col-md-4 col-xs-12">
+                    <Snippets/>
                 </div>
             </div>
         );
