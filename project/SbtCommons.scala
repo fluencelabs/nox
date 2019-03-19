@@ -33,18 +33,18 @@ object SbtCommons {
     addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
   )
 
-  def rustVmExample(exampleName: String): Seq[Def.Setting[_]] =
+  def rustVmTest(testName: String): Seq[Def.Setting[_]] =
     Seq(
       publishArtifact := false,
       test            := (test in Test).dependsOn(compile).value,
       compile := (compile in Compile)
         .dependsOn(Def.task {
           val log = streams.value.log
-          log.info(s"Compiling $exampleName.rs to $exampleName.wasm")
+          log.info(s"Compiling $testName.rs to $testName.wasm")
 
           val projectRoot = file("").getAbsolutePath
-          val exampleFolder = s"$projectRoot/vm/examples/$exampleName"
-          val compileCmd = s"cargo +nightly-2019-01-08 build --manifest-path $exampleFolder/Cargo.toml " +
+          val testFolder = s"$projectRoot/vm/src/it/resources/test-cases/$testName"
+          val compileCmd = s"cargo +nightly build --manifest-path $testFolder/Cargo.toml " +
             s"--target wasm32-unknown-unknown --release"
 
           assert((compileCmd !) == 0, "Rust to Wasm compilation failed")

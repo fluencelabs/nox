@@ -16,10 +16,11 @@
 
 package fluence.node
 
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Paths}
 
 import cats.effect._
-import fluence.node.docker._
+import fluence.effects.docker.DockerIO
+import fluence.effects.docker.params.{DockerImage, DockerParams}
 
 import scala.language.higherKinds
 
@@ -59,8 +60,8 @@ trait DockerSetup extends OsSetup {
     capacity: Short = 1
   ): Resource[F, String] =
     tempDirectory.flatMap { masterDir =>
-      DockerIO
-        .run[F](
+    DockerIO.make[F]().flatMap{dio ⇒
+      dio.run(
           DockerParams
             .build()
             .option("-e", s"TENDERMINT_IP=$dockerHost")
@@ -76,13 +77,14 @@ trait DockerSetup extends OsSetup {
             .volume(
               // TODO: by defaults, user.dir in sbt points to a submodule directory while in Idea to the project root
               System.getProperty("user.dir")
-                + "/../vm/examples/llamadb/target/wasm32-unknown-unknown/release",
+                + "/../vm/src/it/resources/test-cases/llamadb/target/wasm32-unknown-unknown/release",
               "/master/vmcode/vmcode-llamadb"
             )
-            .prepared(DockerConfig(DockerImage("fluencelabs/node", "latest"), DockerLimits(None, None, None)))
+            .prepared(DockerImage("fluencelabs/node", "latest"))
             .daemonRun(),
           20
         )
         .map(_.containerId)
+      }
     }
 }

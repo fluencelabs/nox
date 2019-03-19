@@ -43,8 +43,6 @@ object ServerRunner extends IOApp with LazyLogging {
       config <- StateMachineConfig.load[IO]()
       _ = configureLogging(convertLogLevel(config.logLevel))
 
-      _ = logger.info("Starting Metrics servlet")
-
       _ = logger.info("Building State Machine ABCI handler")
       _ <- (
         for {
@@ -85,7 +83,7 @@ object ServerRunner extends IOApp with LazyLogging {
           }
         }
       )(socketThread ⇒ IO(if (socketThread.isAlive) socketThread.interrupt()))
-      .map(_ ⇒ ())
+      .map(_ ⇒ logger.info("State Machine ABCI handler started successfully"))
 
   /**
    * Builds [[AbciHandler]], used to serve all Tendermint requests.

@@ -14,13 +14,18 @@
  * limitations under the License.
  */
 
-package fluence.effects.swarm
+package fluence.effects.docker
 
-import fluence.effects.EffectError
+sealed trait DockerStatus {
+  def startedAt: Long
 
-// TODO change this error to errors with hierarchy
-case class SwarmError(message: String, causedBy: Option[Throwable] = None) extends EffectError {
-  override def getMessage: String = message
+  def isRunning: Boolean
+}
 
-  override def getCause: Throwable = causedBy getOrElse super.getCause
+case class DockerRunning(startedAt: Long) extends DockerStatus {
+  override val isRunning: Boolean = true
+}
+
+case class DockerStopped(startedAt: Long) extends DockerStatus {
+  override val isRunning: Boolean = false
 }

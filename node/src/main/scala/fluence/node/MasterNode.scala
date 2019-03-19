@@ -25,6 +25,7 @@ import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
+import fluence.effects.docker.DockerIO
 import fluence.effects.ethclient.EthClient
 import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.eth._
@@ -184,7 +185,7 @@ object MasterNode extends LazyLogging {
    * @param P Parallel instance, used for Workers
    * @return Prepared [[MasterNode]], then see [[MasterNode.run]]
    */
-  def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer, G[_]](
+  def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer: DockerIO, G[_]](
     masterConfig: MasterConfig,
     nodeConfig: NodeConfig,
     rootPath: Path

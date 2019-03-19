@@ -15,7 +15,7 @@
  */
 
 package fluence.node.workers.status
-import fluence.node.docker.DockerStatus
+import fluence.effects.docker.DockerStatus
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto._
 
@@ -44,6 +44,9 @@ case class ServiceStatus[+T](
 }
 
 object ServiceStatus {
+  implicit val dockerStatusEncoder: Encoder[DockerStatus] = deriveEncoder
+  implicit val dockerStatusDecoder: Decoder[DockerStatus] = deriveDecoder
+
   implicit def serviceStatusEncoder[T: Encoder]: Encoder[ServiceStatus[T]] = deriveEncoder
 
   implicit def serviceStatusDecoder[T: Decoder]: Decoder[ServiceStatus[T]] = deriveDecoder

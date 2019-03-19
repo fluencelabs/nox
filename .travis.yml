@@ -4,8 +4,8 @@ _scala_fluence_template: &_scala_fluence_template
   jdk: oraclejdk8
 
   install:
-    - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-01-08
-    - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-01-08
+    - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
+    - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly
 
   # These directories are cached to S3 at the end of the build
   cache:
@@ -22,133 +22,36 @@ _scala_fluence_template: &_scala_fluence_template
     - find $HOME/.ivy2/cache -name "ivydata-*.properties" -print -delete
     - find $HOME/.sbt        -name "*.lock"               -print -delete
 
-_rust_wasm_template: &_rust_wasm_template
-  language: rust
-  # todo enable 'stable' and 'beta' when `allocator_api` will become stable
-  rust: nightly-2019-01-08
-  cache:
-    - cargo
-
-  install:
-    - rustup target add wasm32-unknown-unknown
-    - rustup component add rustfmt
-    - rustup component add clippy
-
-  script:
-    - cargo +$TRAVIS_RUST_VERSION fmt --all -- --check -v
-    - cargo +$TRAVIS_RUST_VERSION build -v --target wasm32-unknown-unknown --all-features
-    - cargo +$TRAVIS_RUST_VERSION test -v --all-features
-    - cargo +$TRAVIS_RUST_VERSION clippy -v --target wasm32-unknown-unknown
-
 git:
   submodules: false
 
 matrix:
   include:
-    - <<: *_scala_fluence_template
-      name: Fluence
-      script:
-        - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.compile compile
-        - PATH=$PATH:$HOME/.cargo/bin sbt -jvm-opts travis/jvmopts.test test
-      if: type != pull_request
-
     # These tests take a lot of time and run only while PR
     - <<: *_scala_fluence_template
       name: Fluence integration tests
       before_script:
-        - docker pull tendermint/tendermint:0.30.1
+        - docker pull tendermint/tendermint:0.30.2
       script:
         - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile
         # Some tests in LlamadbIntegrationTest require 2 Gb RAM
         - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test
       if: branch = master OR type = pull_request
 
-    - name: smart contract
-      language: node_js
-      node_js: v10.9.0
-      before_install: cd bootstrap
-      before_script: npm run ganache
-      cache:
-        npm: true
-        directories:
-          - bootstrap/node_modules
-      if: type != pull_request
-
-    - name: fluence-js
-      language: node_js
-      node_js:
-        - "5"
-        - "6"
-        - "7"
-        - "8"
-      cache: npm
-      before_install: cd fluence-js
-      before_script: npm install
-      script: npm test
-      if: type != pull_request
-
-    - <<: *_rust_wasm_template
-      name: rust App SDK
-      before_script:
-        - cd backend-sdk
-      if: type != pull_request
-
-    - <<: *_rust_wasm_template
-      name: llamaDb VM App
-      before_script:
-        - cd vm/examples/llamadb
-      if: type != pull_request
-
-    - name: Fluence CLI
-      language: rust
-      cache:
-        - cargo
-        - npm
-
-      install:
-        - rustup component add rustfmt-preview
-
-      before_script:
-        - cd cli
-
-      env:
-        - RUST_TEST_THREADS=1
-        - RUST_BACKTRACE=1
-
-      script:
-        - pushd ../bootstrap
-        - npm install
-        - npm run swarm-simulation &
-        - npm run ganache > /dev/null
-        - sleep 1
-        - npm run migrate
-        - popd
-        - cargo fmt --all -- --check -v
-        - cargo test
-      if: type != pull_request
-
-    - name: Deploy Scripts
-      language: python
-      python: "2.7"
-      before_script:
-        - cd tools/deploy
-      script:
-        - pytest
-      if: type != pull_request
-
     - name: Fluence book
       language: rust
       sudo: false
       cache:
-      - cargo
+        - cargo
       rust: nightly-2019-01-08
 
       before_script:
-      - (test -x $HOME/.cargo/bin/cargo-install-update || cargo install cargo-update)
-      - (test -x $HOME/.cargo/bin/mdbook || cargo install --vers "^0.1" mdbook)
-      - cargo install-update -a
+        - (test -x $HOME/.cargo/bin/cargo-install-update || cargo install cargo-update)
+        - (test -x $HOME/.cargo/bin/mdbook || cargo install --vers "^0.1" mdbook)
+        - cargo install-update -a
 
       script:
-      - cd docs/ && mdbook build
+        - cd docs/ && mdbook build
 
       if: type != pull_request
+

@@ -205,7 +205,7 @@ class DashboardApp extends React.Component<Props, State>{
         }
 
         return (
-            <div className="col-md-4">
+            <div className="col-md-4 col-xs-12">
                 <div className="box box-primary">
                     <div className="box-header with-border">
                         <h3 className="box-title">Fluence Network</h3>
@@ -252,7 +252,7 @@ class DashboardApp extends React.Component<Props, State>{
 
                     <section className="content">
                         <div className="row">
-                            <div className="col-lg-3 col-xs-6">
+                            <div className="col-md-3 col-xs-12">
                                 <div className="row">
                                     { this.renderAppsCount() }
                                 </div>

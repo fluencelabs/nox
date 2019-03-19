@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-package fluence.effects.swarm
+package fluence.effects.docker.params
 
-import fluence.effects.EffectError
-
-// TODO change this error to errors with hierarchy
-case class SwarmError(message: String, causedBy: Option[Throwable] = None) extends EffectError {
-  override def getMessage: String = message
-
-  override def getCause: Throwable = causedBy getOrElse super.getCause
-}
+/**
+ * Limits on cpu and memory of a container
+ *
+ * @see [[DockerParams.cpus]], [[DockerParams.memory]], [[DockerParams.memoryReservation]]
+ * @param cpus Fraction number of max cores available to a container.
+ * @param memoryMb A hard limit on maximum amount of memory available to a container
+ * @param memoryReservationMb Amount of memory guaranteed to be allocated for a container
+ */
+case class DockerLimits(cpus: Option[Double], memoryMb: Option[Int], memoryReservationMb: Option[Int])

@@ -1,0 +1,191 @@
+jdk: &jdk
+  image: circleci/openjdk:8-jdk-node
+
+just_jdk: &jdk_image
+  docker:
+    - *jdk
+
+rc: &rc
+  restore_cache:
+    keys:
+      - sbtcachenew-{{ checksum "build.sbt" }}
+
+sc: &sc
+  save_cache:
+    paths:
+      - ~/.m2
+      - ~/.ivy2
+      - ~/.sbt
+      - bootstrap/node_modules
+      - ~/.cargo
+      - ~/.rustup
+    key: sbtcachenew-{{ checksum "build.sbt" }}
+
+rustup: &rustup
+  - run: |
+      curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
+      ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly
+
+version: 2
+jobs:
+  sbt all tests:
+    <<: *jdk_image
+    steps:
+      - checkout
+      - <<: *rc
+      - <<: *rustup
+      - run: PATH="$PATH:$HOME/.cargo/bin:" SBT_OPTS="-Xms2048M -Xmx2048M -Xss6M" sbt -mem 2048 test
+      - <<: *sc
+
+  cli:
+    docker:
+      - image: circleci/rust:latest-node
+    environment:
+      RUST_BACKTRACE: 1
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - cli-{{ checksum "cli/Cargo.lock" }}
+      - run:
+          name: cargo fmt
+          command: |
+            cd cli
+            rustup component add rustfmt
+            cargo fmt --all -- --check --color always
+      - run:
+          name: clippy
+          command: |
+            cd cli
+            rustup component add clippy
+            cargo clippy -v || true
+      - run:
+          name: npm run compile-sol
+          command: |
+            cd bootstrap
+            npm install
+            npm run compile-sol
+      - run: cd cli; cargo build
+      - run: 
+          name: Ganache, Swarm, Test
+          command: |
+            cd bootstrap
+
+            npm run ganache
+            npm run swarm-simulation
+            
+            sleep 1
+            npm run migrate 
+            
+            dockerize -wait tcp://127.0.0.1:8545 -timeout 30s
+            dockerize -wait tcp://127.0.0.1:8500 -timeout 30s
+              
+            cd ../cli
+            cargo test
+      - save_cache:
+          paths:
+            - ~/.cargo
+            - ~/.rustup
+            - bootstrap/node_modules
+          key: cli-{{ checksum "cli/Cargo.lock" }}
+
+  backend sdk:
+    docker:
+      - image: circleci/rust:latest
+    environment:
+      RUST_BACKTRACE: 1
+      RUST_TEST_THREADS: 1
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - backendsdk-{{ checksum "backend-sdk/Cargo.toml" }}
+      - run: | # todo enable 'stable' and 'beta' when `allocator_api` will become stable
+          cd backend-sdk/
+          rustup toolchain install nightly
+          rustup default nightly
+          rustup override set nightly
+          rustup target add wasm32-unknown-unknown
+          rustup component add rustfmt
+          rustup component add clippy
+          cargo fmt --all -- --check --color always
+          cargo build -v --target wasm32-unknown-unknown --all-features
+          cargo test -v --all-features
+          cargo clippy -v --target wasm32-unknown-unknown
+      - save_cache:
+          paths:
+            - ~/.cargo
+            - ~/.rustup
+          key: backendsdk-{{ checksum "backend-sdk/Cargo.toml" }}
+
+  smart contract:
+    docker:
+      - image: circleci/node:latest
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - contract-cache-{{ checksum "bootstrap/package-lock.json" }}
+      - run: |
+          cd bootstrap
+          npm install &>/dev/null
+          npm run ganache &>/dev/null
+          npm test
+      - save_cache:
+          paths:
+            - bootstrap/node_modules
+          key: contract-cache-{{ checksum "bootstrap/package-lock.json" }}
+
+  deploy scripts:
+    docker:
+      - image: circleci/python:2
+    steps:
+      - checkout
+      - run: |
+          cd tools/deploy
+          sudo pip install pytest # sudo? facepalm
+          pytest
+
+  js sdk:
+    docker:
+      - image: circleci/node:latest
+    steps:
+      - checkout
+      - restore_cache:
+          keys:
+            - fluence-js-{{ checksum "fluence-js/package-lock.json" }}
+      - run: |
+          cd fluence-js
+          npm install &>/dev/null
+          npm test
+      - save_cache:
+          paths:
+            - fluence-js/node_modules
+          key: fluence-js-{{ checksum "fluence-js/package-lock.json" }}
+
+  fluence book: #TODO: doesn't work, fix
+    docker:
+      - image: circleci/rust:latest
+    steps:
+      - checkout
+      - run: |
+          eval `ssh-agent` && ssh-add ~/.ssh/id_rsa # https://github.com/rust-lang/cargo/issues/2429
+          test -x $HOME/.cargo/bin/cargo-install-update || cargo install cargo-update
+          test -x $HOME/.cargo/bin/mdbook || cargo install --vers "^0.1" mdbook
+          cargo install-update -a
+          cd docs/
+          mdbook build
+
+workflows:
+  version: 2
+  fluence:
+    jobs:
+      - sbt all tests
+#      - sbt integration tests
+      - cli
+      - smart contract
+      - deploy scripts
+      - js sdk
+      - backend sdk
+#      - fluence book
+
