@@ -36,10 +36,13 @@ class AppIntegrationTest extends WordSpec with Matchers with OptionValues with E
   protected def compareArrays(first: Array[Byte], second: Array[Byte]): Assertion =
     first.deep shouldBe second.deep
 
-  implicit class EitherTValueReader[E, V](origin: EitherT[IO, E, V]) {
+  implicit class EitherTValueReader[E <: Throwable, V](origin: EitherT[IO, E, V]) {
 
     def success(): V =
-      origin.value.unsafeRunSync().right.value
+      origin.value.unsafeRunSync() match {
+        case Left(e) => println(s"got error $e"); throw e
+        case Right(v) => v
+      }
 
     def failed(): E =
       origin.value.unsafeRunSync().left.value

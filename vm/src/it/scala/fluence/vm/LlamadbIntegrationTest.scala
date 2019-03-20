@@ -69,11 +69,16 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
       }
 
       "be able to create table and insert to it" in {
+        val vmT = WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
+        println(s"vmT: ${vmT.value}")
         (for {
-          vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
-          createResult ← createTestTable(vm)
+          vm ← vmT
+          createT = createTestTable(vm)
+          _ = println(s"createT: $createT")
+          createResult ← createT
 
         } yield {
+          println(s"Create result: ${new String(createResult)}")
           checkTestResult(createResult, "rows inserted")
 
         }).success()
