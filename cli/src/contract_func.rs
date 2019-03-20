@@ -14,22 +14,22 @@
  * limitations under the License.
  */
 
+use std::time::Duration;
+
+use ethabi::RawLog;
 use ethabi_contract::use_contract;
 use ethcore_transaction::{Action, Transaction};
 use ethkey::Secret;
+use failure::{err_msg, Error, ResultExt, SyncFailure};
 use web3::futures::Future;
 use web3::transports::Http;
 use web3::types::{Address, Bytes, Transaction as Web3Transaction, H256, U256};
 use web3::types::{CallRequest, Log, TransactionId, TransactionRequest};
 use web3::Web3;
 
-use failure::{err_msg, Error, ResultExt, SyncFailure};
-
 use crate::credentials::Credentials;
 use crate::ethereum_params::EthereumParams;
 use crate::utils;
-use ethabi::RawLog;
-use std::time::Duration;
 
 use_contract!(contract, "../bootstrap/contracts/compiled/Network.abi");
 
@@ -42,10 +42,7 @@ pub fn call_contract(
 ) -> Result<H256, Error> {
     match &eth.credentials {
         Credentials::No => call_contract_trusted_node(web3, None, call_data, &eth, nonce),
-        Credentials::Password(pass) => {
-            call_contract_trusted_node(web3, Some(pass.as_str()), call_data, &eth, nonce)
-        }
-        Credentials::Secret(secret) => {
+        Credentials::Secret(secret) | Credentials::Keystore { secret, .. } => {
             call_contract_local_sign(web3, &secret, call_data, &eth, nonce)
         }
     }
