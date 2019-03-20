@@ -36,7 +36,8 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
   private def createTestTable(vm: WasmVm): EitherT[IO, VmError, Array[Byte]] =
     for {
-      _ ← executeSql(vm, "CREATE TABLE Users(id INT, name TEXT, age INT)")
+      res ← executeSql(vm, "c631c67389432a7fc780c8c1a21db5eacaf95458ab1dfa7b05831add724851096b4da38731cc0d318154dea94a3016cac05744705df582d0713127af43897def\nCREATE TABLE Users(id INT, name TEXT, age INT)")
+      _ = println("res " + new String(res))
       insertResult ← executeSql(
         vm,
         "INSERT INTO Users VALUES(1, 'Monad', 23)," +
