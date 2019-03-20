@@ -78,7 +78,7 @@
 //! Please find more examples in `https://github.com/fluencelabs/fluence/tree/master/vm/examples`.
 //!
 
-#![doc(html_root_url = "https://docs.rs/fluence-sdk-macro/0.1.0")]
+#![doc(html_root_url = "https://docs.rs/fluence-sdk-macro/0.1.1")]
 
 extern crate proc_macro;
 mod macro_attr_parser;
