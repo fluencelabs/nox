@@ -14,39 +14,41 @@
  * limitations under the License.
  */
 
-use crate::config::SetupConfig;
-use crate::credentials;
-use crate::credentials::Credentials;
-use crate::ethereum_params::EthereumParams;
-use crate::utils;
-use crate::utils::parse_hex;
+use std::net::IpAddr;
+
 use clap::value_t;
 use clap::Arg;
 use clap::ArgMatches;
 use failure::Error;
 use failure::ResultExt;
-use std::net::IpAddr;
 use web3::types::Address;
 use web3::types::H160;
 use web3::types::H256;
+
+use crate::config::SetupConfig;
+use crate::credentials::Credentials;
+use crate::ethereum_params::EthereumParams;
+use crate::utils;
+use crate::utils::parse_hex;
 
 const PASSWORD: &str = "password";
 const SECRET_KEY: &str = "secret_key";
 const KEYSTORE: &str = "keystore";
 const GAS: &str = "gas";
 const GAS_PRICE: &str = "gas_price";
-const ACCOUNT: &str = "account";
 const CONTRACT_ADDRESS: &str = "contract_address";
 const ETH_URL: &str = "eth_url";
 const BASE64_TENDERMINT_KEY: &str = "base64_tendermint_key";
 const TENDERMINT_NODE_ID: &str = "tendermint_node_id";
 const WAIT: &str = "wait";
 const WAIT_SYNCING: &str = "wait_syncing";
+pub const ACCOUNT: &str = "account";
 pub const NODE_IP: &str = "node_ip";
 pub const TENDERMINT_KEY: &str = "tendermint_key";
 
 pub const TO_GWEI_MUL: u64 = 1_000_000_000;
 
+// TODO: merge EthereumArgs, SetupConfig and EthereumParams into a single structure
 #[derive(Debug, Clone)]
 pub struct EthereumArgs {
     pub credentials: Credentials,
@@ -195,19 +197,20 @@ pub fn parse_eth_url(args: &ArgMatches) -> Option<String> {
 
 pub fn parse_ethereum_args(
     args: &ArgMatches,
-    config: &SetupConfig,
+    config: SetupConfig,
 ) -> Result<EthereumParams, Error> {
     let secret_key = utils::parse_secret_key(args.value_of(SECRET_KEY))?;
     let password = args.value_of(PASSWORD).map(|s| s.to_string());
     let keystore = args.value_of(KEYSTORE).map(|s| s.to_string());
 
-    let credentials = credentials::load_credentials(keystore, password, secret_key)?;
+    let credentials = Credentials::load(keystore, password, secret_key)?;
 
     let gas = value_t!(args, GAS, u32)?;
     let gas_price = value_t!(args, GAS_PRICE, u64)?;
     // TODO: it could panic here on overflow
     let gas_price = gas_price * TO_GWEI_MUL;
     let account: Option<Address> = utils::parse_hex(args.value_of(ACCOUNT))?;
+    let account = account.or(credentials.to_address());
 
     let contract_address: Option<Address> = parse_contract_address(args)?;
 
@@ -227,7 +230,7 @@ pub fn parse_ethereum_args(
         wait_eth_sync: wait_syncing,
     };
 
-    Ok(EthereumParams::generate(&eth_args, config)?)
+    Ok(EthereumParams::generate(eth_args, config)?)
 }
 
 pub fn parse_tendermint_key(args: &ArgMatches) -> Result<H256, Error> {
