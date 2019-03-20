@@ -54,13 +54,20 @@ use web3::Web3;
 // [1/2]   Code uploaded. ---> [00:00:10]
 // ```
 //
-pub fn with_progress<U, F>(msg: &str, prefix: &str, finish: &str, work: F) -> U
+pub fn with_progress<U, F>(msg: &str, prefix: &str, finish: &str, work: F) -> Result<U, Error>
 where
-    F: FnOnce() -> U,
+    F: FnOnce() -> Result<U, Error>,
 {
     let bar = create_progress_bar(prefix, msg);
     let result = work();
-    bar.finish_with_message(finish);
+    match result {
+        Ok(_) => bar.finish_with_message(finish),
+        Err(ref e) => {
+            let err = e.as_fail().to_string();
+            let err = format!("Error: {}", err);
+            bar.finish_with_message(err.as_str());
+        }
+    };
     result
 }
 
@@ -128,16 +135,9 @@ pub fn parse_hex_string(args: &ArgMatches, key: &str) -> Result<String, Error> {
     Ok(value_t!(args, key, String).map(|v| v.trim_start_matches("0x").to_string())?)
 }
 
-pub fn parse_hex_opt(args: &ArgMatches, key: &str) -> Option<String> {
-    args.value_of(key)
-        .map(|v| v.trim_start_matches("0x").to_string())
-}
-
 pub fn parse_secret_key(secret_key: Option<&str>) -> Result<Option<Secret>, Error> {
-    Ok(secret_key
-        .map(|s| s.trim_start_matches("0x").parse::<Secret>())
-        .map_or(Ok(None), |r| r.map(Some).into()) // Option<Result> -> Result<Option>
-        .context("Error parsing secret key")?)
+    let secret: Result<Option<Secret>, Error> = parse_hex(secret_key).map_err(Into::into);
+    Ok(secret.context("Error parsing secret key")?)
 }
 
 pub fn parse_hex<E, T>(hex: Option<&str>) -> Result<Option<T>, E>

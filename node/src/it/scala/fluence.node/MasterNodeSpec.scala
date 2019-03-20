@@ -24,6 +24,7 @@ import cats.syntax.functor._
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
+import fluence.effects.docker.DockerIO
 import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.status.{MasterStatus, StatusAggregator}
 import fluence.node.workers.tendermint.ValidatorKey
@@ -79,8 +80,10 @@ class MasterNodeSpec
 
       val resource = for {
         sttpB ← sttpResource
+        dockerIO ← DockerIO.make[IO]()
         node ← {
           implicit val s = sttpB
+          implicit val d = dockerIO
           MasterNode
             .make[IO, IO.Par](masterConf, nodeConf, Files.createTempDirectory("masternodespec"))
         }

@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package fluence.node.docker
+package fluence.effects.docker.params
 
-import fluence.node.docker.DockerParams.Prepared
+import fluence.effects.docker.DockerIO
 
 import scala.collection.immutable.Queue
 import scala.sys.process._
@@ -113,10 +113,10 @@ case class DockerParams private (params: Queue[String]) {
   /**
    * Builds the current command to a representation ready to pass in [[scala.sys.process.Process]].
    *
-   * @param config Container image and limits
+   * @param image Container image
    */
-  def prepared(config: DockerConfig): DockerParams.Prepared =
-    Prepared(limits(config.limits).params, config.image)
+  def prepared(image: DockerImage): DockerParams.Prepared =
+    DockerParams.Prepared(params, image)
 }
 
 object DockerParams {

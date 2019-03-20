@@ -14,22 +14,27 @@
  * limitations under the License.
  */
 
-package fluence.node.docker
+package fluence.node.config
 
+import fluence.effects.docker.params.{DockerImage, DockerLimits}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 
 /**
- * Representation of a docker image
+ * Docker config
  *
- * @param name Fully qualified name of an image, including a repository and a name. E.g., fluencelabs/worker
- * @param tag Tag of the image, will be appended to [[name]] after a colon
+ * @param image Docker image
+ * @param limits CPU & memory limits for a container
  */
-case class DockerImage(name: String, tag: String) {
-  val imageName = s"$name:$tag"
-}
+case class DockerConfig(image: DockerImage, limits: DockerLimits)
 
-object DockerImage {
+object DockerConfig {
   implicit val encodeDockerImage: Encoder[DockerImage] = deriveEncoder
   implicit val decodeDockerImage: Decoder[DockerImage] = deriveDecoder
+
+  implicit val dockerLimitsEncoder: Encoder[DockerLimits] = deriveEncoder
+  implicit val dockerLimitsDecoder: Decoder[DockerLimits] = deriveDecoder
+
+  implicit val dockerConfigEncoder: Encoder[DockerConfig] = deriveEncoder
+  implicit val dockerConfigDecoder: Decoder[DockerConfig] = deriveDecoder
 }

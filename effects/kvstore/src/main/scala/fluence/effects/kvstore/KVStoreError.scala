@@ -24,8 +24,14 @@ sealed trait KVReadError extends KVStoreError
 
 sealed trait KVWriteError extends KVStoreError
 
-case class ValueCodecError(error: CodecError) extends KVReadError with KVWriteError
+case class ValueCodecError(error: CodecError) extends KVReadError with KVWriteError {
+  override def getCause: Throwable = error
+}
 
-case class KeyCodecError(error: CodecError) extends KVReadError with KVWriteError
+case class KeyCodecError(error: CodecError) extends KVReadError with KVWriteError {
+  override def getCause: Throwable = error
+}
 
-case class IOExceptionError(message: String, cause: Throwable) extends KVReadError with KVWriteError
+case class IOExceptionError(message: String, cause: Throwable) extends KVReadError with KVWriteError {
+  override def getCause: Throwable = Option(cause) getOrElse super.getCause
+}
