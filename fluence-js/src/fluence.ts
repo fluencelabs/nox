@@ -21,6 +21,7 @@ import { SessionConfig } from "./SessionConfig";
 import {Result} from "./Result";
 import {getAppNodes, Node} from "fluence-monitoring"
 import { ResultPromise } from "./ResultAwait";
+import {PrivateKey, secp256k1} from "./utils";
 
 export {
     TendermintClient as TendermintClient,
@@ -46,7 +47,13 @@ export interface AppSession {
 /*
  * Creates connection with an app (all nodes related to an app in Fluence contract)
  */
-export async function connect(contract: string, appId: string, ethereumUrl?: string): Promise<AppSession> {
+export async function connect(contract: string, appId: string, ethereumUrl?: string, privateKey?: PrivateKey): Promise<AppSession> {
+    if (privateKey != undefined) {
+        if (!secp256k1.privateKeyVerify(privateKey)) {
+            throw Error("Private key is invalid");
+        }
+    }
+
     let nodes: Node[] = await getAppNodes(contract, appId, ethereumUrl);
     let sessions: WorkerSession[] = nodes.map(node => {
         let session = directConnect(node.ip_addr, node.api_port, appId);
@@ -64,7 +71,7 @@ export async function connect(contract: string, appId: string, ethereumUrl?: str
 
         const randomChoiceIndex = getRandom(0, sessions.length - 1);
         let session = sessions[randomChoiceIndex].session;
-        return session.request(payload);
+        return session.request(payload, privateKey);
     }
 
     return {

@@ -1,3 +1,4 @@
+use crate::GenResult;
 use core::fmt;
 use std::error::Error;
 use std::num::ParseIntError;
@@ -7,14 +8,28 @@ use sha2::{Digest, Sha256};
 
 #[derive(Debug)]
 struct MyError(String);
+
 impl Error for MyError {}
+
 impl fmt::Display for MyError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
     }
 }
 
-type GenResult<T> = ::std::result::Result<T, Box<Error>>;
+struct Signed<'a> {
+    signature: &'a str,
+    nonce_payload: &'a str,
+}
+
+impl<'a> Signed<'a> {
+    pub fn payload(&self) -> GenResult<&'a str> {
+        let pos = self.nonce_payload.find("\n").ok_or(err_msg(
+            "Invalid input. Should be <signature hex>\\n<nonce>\\n<sql_query>",
+        ))?;
+        Ok(&self.nonce_payload[pos + 1..])
+    }
+}
 
 lazy_static! {
     static ref PK: PublicKey = get_pk();
@@ -63,20 +78,23 @@ fn check_signature(hash: &[u8; 32], signature: &str) -> GenResult<bool> {
     Ok(verify(&message, &signature, &PK))
 }
 
-fn split(input: &String) -> GenResult<(&str, &str)> {
+fn parse_signed(input: &String) -> GenResult<Signed> {
     let pos: usize = input.find("\n").ok_or(err_msg(
-        "Invalid input. Should be <signature hex>\\n<sql_query>",
+        "Invalid input. Should be <signature hex>\\n<nonce>\\n<sql_query>",
     ))?;
     let signature: &str = &input[..pos];
-    let sql_str: &str = &input[pos + 1..];
-    Ok((signature, sql_str))
+    let nonce_payload: &str = &input[pos + 1..];
+    Ok(Signed {
+        signature,
+        nonce_payload,
+    })
 }
 
 pub fn check_input(input: &String) -> GenResult<&str> {
-    let (signature, sql_str) = split(input)?;
-    let hash = hash_message(sql_str);
-    if check_signature(&hash, signature)? {
-        Ok(sql_str)
+    let signed = parse_signed(input)?;
+    let hash = hash_message(signed.nonce_payload);
+    if check_signature(&hash, signed.signature)? {
+        signed.payload()
     } else {
         Err(err_msg("Invalid signature"))
     }
