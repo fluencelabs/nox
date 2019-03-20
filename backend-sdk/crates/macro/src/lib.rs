@@ -75,8 +75,9 @@
 //!
 //! # Examples
 //!
-//! Please find more examples in `https://github.com/fluencelabs/fluence/tree/master/vm/examples`.
+//! Please find more examples [`here`].
 //!
+//! ['here']: https://github.com/fluencelabs/tutorials
 
 #![doc(html_root_url = "https://docs.rs/fluence-sdk-macro/0.1.1")]
 
