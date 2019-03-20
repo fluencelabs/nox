@@ -25,7 +25,7 @@ struct Signed<'a> {
 impl<'a> Signed<'a> {
     pub fn payload(&self) -> GenResult<&'a str> {
         let pos = self.nonce_payload.find("\n").ok_or(err_msg(
-            "Invalid input. Should be <signature hex>\\n<nonce>\\n<sql_query>",
+            &format!("Invalid input: no \\n between nonce and payload in `{}`. Should be <signature hex>\\n<nonce>\\n<sql_query>", self.nonce_payload),
         ))?;
         Ok(&self.nonce_payload[pos + 1..])
     }
@@ -80,7 +80,7 @@ fn check_signature(hash: &[u8; 32], signature: &str) -> GenResult<bool> {
 
 fn parse_signed(input: &String) -> GenResult<Signed> {
     let pos: usize = input.find("\n").ok_or(err_msg(
-        "Invalid input. Should be <signature hex>\\n<nonce>\\n<sql_query>",
+        &format!("Invalid input: no '\\n' between signature and nonce in `{}`. Should be <signature hex>\\n<nonce>\\n<sql_query>", input),
     ))?;
     let signature: &str = &input[..pos];
     let nonce_payload: &str = &input[pos + 1..];
