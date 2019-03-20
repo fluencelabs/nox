@@ -30,11 +30,18 @@ use core::fmt;
 use llamadb::tempdb::{ExecuteStatementResponse, TempDb};
 use secp256k1::PublicKey;
 use std::error::Error;
+use std::num::ParseIntError;
 use std::sync::Mutex;
+use secp256k1::Signature;
+use secp256k1::verify;
+use secp256k1::Message;
+use sha2::{Sha256, Digest};
 
 #[derive(Debug)]
 struct MyError(String);
+
 impl Error for MyError {}
+
 impl fmt::Display for MyError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
@@ -66,13 +73,34 @@ fn err_msg(s: &str) -> Box<Error> {
     MyError(s.to_string()).into()
 }
 
-fn check_signature(signature: &str) -> bool {
-    false
+fn decode_hex(s: &str) -> GenResult<Vec<u8>> {
+    (0..s.len())
+        .step_by(2)
+        .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
+        .collect::<Result<Vec<u8>, ParseIntError>>()
+        .map_err(Into::into)
+}
+
+fn hash_message(message: &str) -> [u8; 32] {
+    let mut sha = Sha256::default();
+    sha.input(message.as_bytes());
+    let hash = sha.result();
+    let mut result = [0; 32];
+    result.copy_from_slice(hash.as_slice()); //TODO: is there a better way for GenericArray<u8, 32> -> [u8; 32]
+    result
+}
+
+fn check_signature(hash: &[u8; 32], signature: &str) -> GenResult<bool> {
+    let signature = decode_hex(signature)?;
+    let signature = Signature::parse_slice(signature.as_slice()).map_err(|e| err_msg(&format!("{:?}", e)))?;
+    let message = Message::parse(hash);
+
+    Ok(verify(&message, &signature, &PK))
 }
 
 fn split(input: &String) -> GenResult<(&str, &str)> {
     let pos: usize = input.find("\n").ok_or(err_msg(
-        "Invalid input. Should be <signature>\\n<sql_query>",
+        "Invalid input. Should be <signature hex>\\n<sql_query>",
     ))?;
     let signature: &str = &input[..pos];
     let sql_str: &str = &input[pos + 1..];
@@ -81,7 +109,8 @@ fn split(input: &String) -> GenResult<(&str, &str)> {
 
 fn check_input(input: &String) -> GenResult<&str> {
     let (signature, sql_str) = split(input)?;
-    if check_signature(signature) {
+    let hash = hash_message(sql_str);
+    if check_signature(&hash, signature)? {
         Ok(sql_str)
     } else {
         Err(err_msg("Invalid signature"))
