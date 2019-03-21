@@ -57,160 +57,160 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
   "llamadb app" should {
 
-      "be able to instantiate" in {
-        (for {
-          vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
-          state ← vm.getVmState[IO].toVmError
-        } yield {
-          state should not be None
+    "be able to instantiate" in {
+      (for {
+        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
+        state ← vm.getVmState[IO].toVmError
+      } yield {
+        state should not be None
 
-        }).success()
+      }).success()
 
-      }
+    }
 
-      "be able to create table and insert to it" in {
-        (for {
-          vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
-          createResult ← createTestTable(vm)
+    "be able to create table and insert to it" in {
+      (for {
+        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
+        createResult ← createTestTable(vm)
 
-        } yield {
-          checkTestResult(createResult, "rows inserted")
+      } yield {
+        checkTestResult(createResult, "rows inserted")
 
-        }).success()
+      }).success()
 
-      }
+    }
 
-      "be able to select records" in {
-        (for {
-          vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
-          createResult ← createTestTable(vm)
-          emptySelectResult ← executeSql(vm, "SELECT * FROM Users WHERE name = 'unknown'")
-          selectAllResult ← executeSql(vm, "SELECT min(id), max(id), count(age), sum(age), avg(age) FROM Users")
-          explainResult ← executeSql(vm, "EXPLAIN SELECT id, name FROM Users")
+    "be able to select records" in {
+      (for {
+        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
+        createResult ← createTestTable(vm)
+        emptySelectResult ← executeSql(vm, "SELECT * FROM Users WHERE name = 'unknown'")
+        selectAllResult ← executeSql(vm, "SELECT min(id), max(id), count(age), sum(age), avg(age) FROM Users")
+        explainResult ← executeSql(vm, "EXPLAIN SELECT id, name FROM Users")
 
-        } yield {
-          checkTestResult(createResult, "rows inserted")
-          checkTestResult(emptySelectResult, "id, name, age")
-          checkTestResult(
-            selectAllResult,
-            "_0, _1, _2, _3, _4\n" +
-              "1, 4, 4, 98, 24.5"
-          )
-          checkTestResult(
-            explainResult,
-            "query plan\n" +
-              "column names: (`id`, `name`)\n" +
-              "(scan `users` :source-id 0\n" +
-              "  (yield\n" +
-              "    (column-field :source-id 0 :column-offset 0)\n" +
-              "    (column-field :source-id 0 :column-offset 1)))"
-          )
+      } yield {
+        checkTestResult(createResult, "rows inserted")
+        checkTestResult(emptySelectResult, "id, name, age")
+        checkTestResult(
+          selectAllResult,
+          "_0, _1, _2, _3, _4\n" +
+            "1, 4, 4, 98, 24.5"
+        )
+        checkTestResult(
+          explainResult,
+          "query plan\n" +
+            "column names: (`id`, `name`)\n" +
+            "(scan `users` :source-id 0\n" +
+            "  (yield\n" +
+            "    (column-field :source-id 0 :column-offset 0)\n" +
+            "    (column-field :source-id 0 :column-offset 1)))"
+        )
 
-        }).success()
+      }).success()
 
-      }
+    }
 
-      "be able to delete records and drop table" in {
-        (for {
-          vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
-          createResult1 ← createTestTable(vm)
-          deleteResult ← executeSql(vm, "DELETE FROM Users WHERE id = 1")
-          selectAfterDeleteTable ← executeSql(vm, "SELECT * FROM Users WHERE id = 1")
+    "be able to delete records and drop table" in {
+      (for {
+        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
+        createResult1 ← createTestTable(vm)
+        deleteResult ← executeSql(vm, "DELETE FROM Users WHERE id = 1")
+        selectAfterDeleteTable ← executeSql(vm, "SELECT * FROM Users WHERE id = 1")
 
-          truncateResult ← executeSql(vm, "TRUNCATE TABLE Users")
-          selectFromTruncatedTableResult ← executeSql(vm, "SELECT * FROM Users")
+        truncateResult ← executeSql(vm, "TRUNCATE TABLE Users")
+        selectFromTruncatedTableResult ← executeSql(vm, "SELECT * FROM Users")
 
-          createResult2 ← createTestTable(vm)
-          dropTableResult ← executeSql(vm, "DROP TABLE Users")
-          selectFromDroppedTableResult ← executeSql(vm, "SELECT * FROM Users")
+        createResult2 ← createTestTable(vm)
+        dropTableResult ← executeSql(vm, "DROP TABLE Users")
+        selectFromDroppedTableResult ← executeSql(vm, "SELECT * FROM Users")
 
-        } yield {
-          checkTestResult(createResult1, "rows inserted")
-          checkTestResult(deleteResult, "rows deleted: 1")
-          checkTestResult(selectAfterDeleteTable, "id, name, age")
-          checkTestResult(truncateResult, "rows deleted: 3")
-          checkTestResult(selectFromTruncatedTableResult, "id, name, age")
-          checkTestResult(createResult2, "rows inserted")
-          checkTestResult(dropTableResult, "table was dropped")
-          checkTestResult(selectFromDroppedTableResult, "[Error] table does not exist: users")
+      } yield {
+        checkTestResult(createResult1, "rows inserted")
+        checkTestResult(deleteResult, "rows deleted: 1")
+        checkTestResult(selectAfterDeleteTable, "id, name, age")
+        checkTestResult(truncateResult, "rows deleted: 3")
+        checkTestResult(selectFromTruncatedTableResult, "id, name, age")
+        checkTestResult(createResult2, "rows inserted")
+        checkTestResult(dropTableResult, "table was dropped")
+        checkTestResult(selectFromDroppedTableResult, "[Error] table does not exist: users")
 
-        }).success()
+      }).success()
 
-      }
+    }
 
-      "be able to manipulate with 2 tables and selects records with join" in {
-        (for {
-          vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
-          createResult ← createTestTable(vm)
-          createRoleResult ← executeSql(vm, "CREATE TABLE Roles(user_id INT, role VARCHAR(128))")
-          roleInsertResult ← executeSql(
-            vm,
-            "INSERT INTO Roles VALUES(1, 'Teacher'), (2, 'Student'), (3, 'Scientist'), (4, 'Writer')"
-          )
-          selectWithJoinResult ← executeSql(
-            vm,
-            "SELECT u.name AS Name, r.role AS Role FROM Users u JOIN Roles r ON u.id = r.user_id WHERE r.role = 'Writer'"
-          )
-          deleteResult ← executeSql(
-            vm,
-            "DELETE FROM Users WHERE id = (SELECT user_id FROM Roles WHERE role = 'Student')"
-          )
-          updateResult ← executeSql(
-            vm,
-            "UPDATE Roles r SET r.role = 'Professor' WHERE r.user_id = " +
-              "(SELECT id FROM Users WHERE name = 'Sara')"
-          )
+    "be able to manipulate with 2 tables and selects records with join" in {
+      (for {
+        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
+        createResult ← createTestTable(vm)
+        createRoleResult ← executeSql(vm, "CREATE TABLE Roles(user_id INT, role VARCHAR(128))")
+        roleInsertResult ← executeSql(
+          vm,
+          "INSERT INTO Roles VALUES(1, 'Teacher'), (2, 'Student'), (3, 'Scientist'), (4, 'Writer')"
+        )
+        selectWithJoinResult ← executeSql(
+          vm,
+          "SELECT u.name AS Name, r.role AS Role FROM Users u JOIN Roles r ON u.id = r.user_id WHERE r.role = 'Writer'"
+        )
+        deleteResult ← executeSql(
+          vm,
+          "DELETE FROM Users WHERE id = (SELECT user_id FROM Roles WHERE role = 'Student')"
+        )
+        updateResult ← executeSql(
+          vm,
+          "UPDATE Roles r SET r.role = 'Professor' WHERE r.user_id = " +
+            "(SELECT id FROM Users WHERE name = 'Sara')"
+        )
 
-        } yield {
-          checkTestResult(createResult, "rows inserted")
-          checkTestResult(createRoleResult, "table created")
-          checkTestResult(roleInsertResult, "rows inserted: 4")
-          checkTestResult(
-            selectWithJoinResult,
-            "name, role\n" +
-              "Tagless Final, Writer"
-          )
-          checkTestResult(deleteResult, "rows deleted: 1")
-          checkTestResult(updateResult, "[Error] subquery must yield exactly one row")
+      } yield {
+        checkTestResult(createResult, "rows inserted")
+        checkTestResult(createRoleResult, "table created")
+        checkTestResult(roleInsertResult, "rows inserted: 4")
+        checkTestResult(
+          selectWithJoinResult,
+          "name, role\n" +
+            "Tagless Final, Writer"
+        )
+        checkTestResult(deleteResult, "rows deleted: 1")
+        checkTestResult(updateResult, "[Error] subquery must yield exactly one row")
 
-        }).success()
+      }).success()
 
-      }
+    }
 
-      "be able to operate with empty strings" in {
-        (for {
-          vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
-          _ ← executeSql(vm, "")
-          _ ← createTestTable(vm)
-          emptyQueryResult ← executeSql(vm, "")
+    "be able to operate with empty strings" in {
+      (for {
+        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
+        _ ← executeSql(vm, "")
+        _ ← createTestTable(vm)
+        emptyQueryResult ← executeSql(vm, "")
 
-        } yield {
-          checkTestResult(
-            emptyQueryResult,
-            "[Error] Expected SELECT, INSERT, CREATE, DELETE, TRUNCATE or EXPLAIN statement; got no more tokens"
-          )
+      } yield {
+        checkTestResult(
+          emptyQueryResult,
+          "[Error] Expected SELECT, INSERT, CREATE, DELETE, TRUNCATE or EXPLAIN statement; got no more tokens"
+        )
 
-        }).success()
-      }
+      }).success()
+    }
 
-      "doesn't fail with incorrect queries" in {
-        (for {
-          vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
-          _ ← createTestTable(vm)
-          invalidQueryResult ← executeSql(vm, "SELECT salary FROM Users")
-          parserErrorResult ← executeSql(vm, "123")
-          incompatibleTypeResult ← executeSql(vm, "SELECT * FROM Users WHERE age = 'Bob'")
+    "doesn't fail with incorrect queries" in {
+      (for {
+        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
+        _ ← createTestTable(vm)
+        invalidQueryResult ← executeSql(vm, "SELECT salary FROM Users")
+        parserErrorResult ← executeSql(vm, "123")
+        incompatibleTypeResult ← executeSql(vm, "SELECT * FROM Users WHERE age = 'Bob'")
 
-        } yield {
-          checkTestResult(invalidQueryResult, "[Error] column does not exist: salary")
-          checkTestResult(
-            parserErrorResult,
-            "[Error] Expected SELECT, INSERT, CREATE, DELETE, TRUNCATE or EXPLAIN statement; got Number(\"123\")"
-          )
-          checkTestResult(incompatibleTypeResult, "[Error] 'Bob' cannot be cast to Integer { signed: true, bytes: 8 }")
+      } yield {
+        checkTestResult(invalidQueryResult, "[Error] column does not exist: salary")
+        checkTestResult(
+          parserErrorResult,
+          "[Error] Expected SELECT, INSERT, CREATE, DELETE, TRUNCATE or EXPLAIN statement; got Number(\"123\")"
+        )
+        checkTestResult(incompatibleTypeResult, "[Error] 'Bob' cannot be cast to Integer { signed: true, bytes: 8 }")
 
-        }).success()
-      }
+      }).success()
+    }
 
     "be able to launch VM with 4 MiB memory and to insert a lot of data" in {
       (for {
@@ -239,7 +239,7 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
         insertResult ← executeInsert(vm, 1)
 
       } yield {
-        checkTestResult(insertResult,  "rows inserted")
+        checkTestResult(insertResult, "rows inserted")
 
       }).success()
 
@@ -251,8 +251,8 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
         _ ← createTestTable(vm)
 
         // allocate ~30 MiB memory
-        insertResult1 ← executeInsert(vm, 15*1024)
-        insertResult2 ← executeInsert(vm, 15*1024)
+        insertResult1 ← executeInsert(vm, 15 * 1024)
+        insertResult2 ← executeInsert(vm, 15 * 1024)
 
       } yield {
         checkTestResult(insertResult1, "rows inserted")
@@ -280,11 +280,11 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
     "be able to launch VM with 2 GiB memory and to allocate 256 MiB of continuously memory" in {
       (for {
         vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.2Gb")
-        _ ← executeSql(vm, "create table USERS(name varchar(" + 256*1024*1024 + "))")
+        _ ← executeSql(vm, "create table USERS(name varchar(" + 256 * 1024 * 1024 + "))")
 
         // trying to insert two records to ~256 MiB field
-        insertResult1 ← executeSql(vm, "insert into USERS values(\'" + "A"*1024 + "\')")
-        insertResult2 ← executeSql(vm, "insert into USERS values(\'" + "A"*1024 + "\')")
+        insertResult1 ← executeSql(vm, "insert into USERS values(\'" + "A" * 1024 + "\')")
+        insertResult2 ← executeSql(vm, "insert into USERS values(\'" + "A" * 1024 + "\')")
 
       } yield {
         checkTestResult(insertResult1, "rows inserted")

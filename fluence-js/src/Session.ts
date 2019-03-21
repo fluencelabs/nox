@@ -19,7 +19,8 @@ import {error, ErrorResponse, Result} from "./Result";
 import {TendermintClient} from "./TendermintClient";
 import {SessionConfig} from "./SessionConfig";
 
-import  * as debug from "debug";
+import * as debug from "debug";
+import {PrivateKey, withSignature} from "./utils";
 
 const detailedDebug = debug("request-detailed");
 const txDebug = debug("broadcast-request");
@@ -83,8 +84,9 @@ export class Session {
      * Sends request with payload and wait for a response.
      *
      * @param payload either an argument for Wasm VM main handler or a command for the statemachine
+     * @param privateKey optional private key to sign requests
      */
-    request(payload: string): ResultPromise {
+    request(payload: string, privateKey?: PrivateKey): ResultPromise {
         // throws an error immediately if the session is closed
         if (this.closed) {
             return new ResultError(`The session was closed. Cause: ${this.closedStatus}`)
@@ -99,7 +101,8 @@ export class Session {
         // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
         let currentCounter = this.getCounterAndIncrement();
 
-        let tx = `${this.session}/${currentCounter}\n${payload}`;
+        let signed = withSignature(payload, currentCounter, privateKey);
+        let tx = `${this.session}/${currentCounter}\n${signed}`;
 
         // send transaction
         txDebug("send broadcastTxSync");
