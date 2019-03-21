@@ -23,7 +23,7 @@ import io.circe.{Decoder, Encoder}
 /**
  * Status information from a tendermint node.
  */
-private[tendermint] case class Response[T](error: String, result: T, id: String, jsonrpc: String)
+private[tendermint] case class Response[T](error: Option[String], result: T, id: String, jsonrpc: String)
 
 private[tendermint] object Response {
 

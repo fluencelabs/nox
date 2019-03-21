@@ -18,8 +18,8 @@ package fluence.effects.tendermint.rpc.response
 
 case class TendermintBlock(
   last_commit: TendermintBlock.LastCommit
-                          )
+)
 
 object TendermintBlock {
-   case class LastCommit()
+  case class LastCommit()
 }
