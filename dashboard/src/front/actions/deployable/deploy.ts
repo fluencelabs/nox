@@ -12,7 +12,7 @@ export const APP_DEPLOY_TIMEOUT = 'APP_DEPLOY_TIMEOUT';
 
 export const deploy = (app: DeployableApp) => {
     return async (dispatch: Dispatch): Promise<Action> => {
-        let txData = contract.methods.addApp(app.storage_hash, "0x0", app.cluster_size, []).encodeABI();
+        let txData = contract.methods.addApp(app.storageHash, "0x0", app.clusterSize, []).encodeABI();
         let tx = new EthereumTx(await txParams(txData));
         tx.sign(privateKey);
 

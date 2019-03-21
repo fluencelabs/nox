@@ -8,8 +8,8 @@ export type DeployableAppId = string;
 
 export interface DeployableApp {
     name: string,
-    storage_hash: string,
-    cluster_size: number,
+    storageHash: string,
+    clusterSize: number,
 }
 
 export const deployableAppIds: [DeployableAppId] = ["llamadb"];
@@ -17,8 +17,8 @@ export const deployableAppIds: [DeployableAppId] = ["llamadb"];
 export const deployableApps: { [key: string]: DeployableApp } = {
     "llamadb": {
         name: "SQL DB (llamadb)",
-        storage_hash: "0x9918b8657755b41096da7a7da0528550ffce4a812c2295d2811c86d29be23326",
-        cluster_size: 4
+        storageHash: "0x9918b8657755b41096da7a7da0528550ffce4a812c2295d2811c86d29be23326",
+        clusterSize: 4
     }
 };
 
@@ -53,7 +53,7 @@ export async function txParams(txData: string): Promise<any> {
 export async function waitApp(app: DeployableApp): Promise<[string, App | undefined]> {
     let appeared = false;
     for (let i = 0; i < 10 && !appeared; i++) {
-        console.log("checking status");
+        console.log("Checking if app is deployed");
         let appStatus = await checkStatus(app);
         if (appStatus != undefined) {
             appeared = true;
@@ -82,5 +82,5 @@ export async function checkStatus(deployableApp: DeployableApp): Promise<App | u
         let res: App[] = [];
         return res;
     });
-    return apps.find(a => a.storage_hash == deployableApp.storage_hash);
+    return apps.find(a => a.storage_hash == deployableApp.storageHash);
 }

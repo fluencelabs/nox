@@ -37,11 +37,11 @@ class FluenceDeployableApp extends React.Component<Props, State> {
             <div className="box-footer no-padding">
                 <div className="box-body">
                     <strong><i className="fa fa-bullseye margin-r-5"/>Storage Hash</strong>
-                    <p className="text-muted" title={app.storage_hash}>{app.storage_hash}</p>
+                    <p className="text-muted" title={app.storageHash}>{app.storageHash}</p>
                     <hr/>
 
                     <strong><i className="fa fa-bullseye margin-r-5"/>Cluster Size</strong>
-                    <p className="text-muted">{app.cluster_size}</p>
+                    <p className="text-muted">{app.clusterSize}</p>
                     <hr/>
 
                     <p>
