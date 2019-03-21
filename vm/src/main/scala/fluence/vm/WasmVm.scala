@@ -142,10 +142,9 @@ object WasmVm extends LazyLogging {
     invoke.setLogger(logger)
 
     val moduleNames: List[String] = inModuleNames.map(
-      x =>
-        x match {
-          case Some(moduleName) ⇒ moduleName: String
-          case None ⇒ null: String
+      _ match {
+        case Some(moduleName) ⇒ moduleName
+        case None ⇒ null: String
       }
     )
 
