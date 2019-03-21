@@ -5,7 +5,6 @@ import appIds, { retrieveAppIds } from './apps/app-ids';
 import apps, { retrieveApp } from './apps/apps';
 import nodesStatus, { retrieveNodeStatus } from './nodes/node-status';
 import nodesAppStatus, { retrieveNodesAppStatus } from './nodes/nodes-app-status';
-import deployable from './deployable/deploy';
 import snippets from './deployable/snippets';
 
 export {
@@ -27,6 +26,5 @@ export const reducers = {
     apps,
     nodesStatus,
     nodesAppStatus,
-    deployable,
     snippets
 };
