@@ -1,3 +1,4 @@
 [submodule "docs/book"]
-	path = docs/book
-	url = git@github.com:fluencelabs/docs.git
+    path = docs/book
+    url = git@github.com:fluencelabs/docs.git
+    branch = master

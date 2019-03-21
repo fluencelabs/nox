@@ -4,8 +4,8 @@ _scala_fluence_template: &_scala_fluence_template
   jdk: oraclejdk8
 
   install:
-    - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
-    - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly
+    - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-03-10
+    - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-03-10
 
   # These directories are cached to S3 at the end of the build
   cache:
@@ -43,7 +43,7 @@ matrix:
       sudo: false
       cache:
         - cargo
-      rust: nightly-2019-01-08
+      rust: nightly-2019-03-10
 
       before_script:
         - (test -x $HOME/.cargo/bin/cargo-install-update || cargo install cargo-update)
