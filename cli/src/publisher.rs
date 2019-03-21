@@ -209,7 +209,7 @@ fn parse_pinned(args: &ArgMatches) -> Result<Vec<H256>, Error> {
 }
 
 /// Creates `Publisher` from arguments
-pub fn parse(matches: &ArgMatches, config: &SetupConfig) -> Result<Publisher, Error> {
+pub fn parse(matches: &ArgMatches, config: SetupConfig) -> Result<Publisher, Error> {
     let path = value_t!(matches, CODE_PATH, String)?; //TODO use is_file from clap_validators
     let mut file = File::open(path).context("can't open WASM file")?;
     let mut buf = Vec::new();
@@ -217,7 +217,8 @@ pub fn parse(matches: &ArgMatches, config: &SetupConfig) -> Result<Publisher, Er
 
     let swarm_url = matches
         .value_of(SWARM_URL)
-        .unwrap_or(config.swarm_url.as_str());
+        .map(|s| s.to_string())
+        .unwrap_or(config.swarm_url.clone());
     let cluster_size = value_t!(matches, CLUSTER_SIZE, u8)?;
     let eth = parse_ethereum_args(matches, config)?;
 
@@ -236,8 +237,8 @@ pub fn parse(matches: &ArgMatches, config: &SetupConfig) -> Result<Publisher, Er
     }
 
     Ok(Publisher::new(
-        buf.to_owned(),
-        swarm_url.clone().to_owned(),
+        buf,
+        swarm_url,
         cluster_size,
         pin_to_nodes,
         eth,
@@ -313,7 +314,6 @@ fn upload_code_to_swarm(url: &str, bytes: &[u8]) -> Result<String, Error> {
 mod tests {
     use ethkey::Secret;
     use web3;
-    use web3::futures::Future;
     use web3::types::H256;
 
     use failure::Error;
@@ -324,15 +324,13 @@ mod tests {
     use crate::ethereum_params::EthereumParams;
     use crate::publisher::Publisher;
 
-    const OWNER: &str = "4180FC65D613bA7E1a385181a219F1DBfE7Bf11d";
-
     fn generate_publisher(account: &str, creds: Credentials) -> Publisher {
         let bytes = vec![1, 2, 3];
 
         let eth = EthereumArgs::with_acc_creds(account.parse().unwrap(), creds);
         let config = SetupConfig::default().unwrap();
 
-        let eth_params = EthereumParams::generate(&eth, &config).unwrap();
+        let eth_params = EthereumParams::generate(eth, config).unwrap();
 
         Publisher::new(
             bytes,
@@ -350,41 +348,6 @@ mod tests {
         let mut publisher = generate_publisher(account, Credentials::No);
         func(&mut publisher);
         publisher
-    }
-
-    pub fn generate_new_account(with_pass: bool) -> Publisher {
-        generate_with(OWNER, |p| {
-            let (_eloop, transport) = web3::transports::Http::new(p.eth.eth_url.as_str()).unwrap();
-            let web3 = web3::Web3::new(transport);
-            let acc = web3.personal().new_account("123").wait().unwrap();
-            p.eth.account = acc;
-
-            if with_pass {
-                p.eth.credentials = Credentials::Password(String::from("123"));
-            }
-        })
-    }
-
-    #[test]
-    fn publish_wrong_password() -> Result<(), Error> {
-        let publisher = generate_new_account(false);
-
-        let result = publisher.publish(false);
-
-        assert_eq!(result.is_err(), true);
-
-        Ok(())
-    }
-
-    #[test]
-    fn publish_no_eth() -> Result<(), Error> {
-        let publisher = generate_new_account(true);
-
-        let result = publisher.publish(false);
-
-        assert_eq!(result.is_err(), true);
-
-        Ok(())
     }
 
     #[test]
@@ -470,6 +433,7 @@ mod tests {
         assert!(result.is_err());
 
         if let Result::Err(e) = result {
+            println!("Err is {}", e);
             assert!(e
                 .find_root_cause()
                 .to_string()

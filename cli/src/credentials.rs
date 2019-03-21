@@ -14,66 +14,87 @@
  * limitations under the License.
  */
 
+use std::fs::File;
+
 use ethkey::Password;
 use ethkey::Secret;
+use ethkey::{public_to_address, KeyPair};
 use ethstore::accounts_dir::{DiskKeyFileManager, KeyFileManager};
 use ethstore::SafeAccount;
 use failure::ResultExt;
 use failure::{err_msg, Error};
-use std::fs::File;
+use web3::types::Address;
 
 /// Authorization to call contract methods
 #[derive(Debug, Clone)]
 pub enum Credentials {
     No,
-    Password(String),
     Secret(Secret),
+    Keystore {
+        secret: Secret,
+        path: String,
+        password: String,
+    },
 }
 
 impl Credentials {
-    /// usage of secret key is priority
-    pub fn get(secret: Option<Secret>, password: Option<String>) -> Credentials {
-        match (secret, password) {
-            (Some(secret), _) => Credentials::Secret(secret),
-            (_, password) => Credentials::from_password(password),
+    pub fn from_secret(secret: Secret) -> Result<Credentials, Error> {
+        secret
+            .check_validity()
+            .map(|_| Credentials::Secret(secret))
+            .context("Secret isn't valid")
+            .map_err(Into::into)
+    }
+
+    pub fn to_address(&self) -> Option<Address> {
+        if let &Credentials::Secret(ref s) = self {
+            KeyPair::from_secret(s.clone())
+                .ok()
+                .map(|s| public_to_address(s.public()))
+        } else {
+            None
         }
     }
 
-    pub fn from_password(pass: Option<String>) -> Credentials {
-        match pass {
-            Some(p) => Credentials::Password(p.to_owned()),
-            None => Credentials::No,
+    pub fn load(
+        keystore: Option<String>,
+        password: Option<String>,
+        secret_key: Option<Secret>,
+    ) -> Result<Credentials, Error> {
+        match keystore {
+            Some(path) => {
+                let password = password.ok_or(err_msg("password is required for keystore"))?;
+                Credentials::load_keystore(path, password)
+            }
+            _ if secret_key.is_some() => {
+                let secret = secret_key.expect("Secret key is None. This shouldn't happen.");
+                Credentials::from_secret(secret)
+            }
+            _ => Ok(Credentials::No),
         }
     }
-}
 
-pub fn load_credentials(
-    keystore: Option<String>,
-    password: Option<String>,
-    secret_key: Option<Secret>,
-) -> Result<Credentials, Error> {
-    match keystore {
-        Some(keystore) => match password {
-            Some(password) => load_keystore(keystore, password).map(Credentials::Secret),
-            None => Err(err_msg("password is required for keystore")),
-        },
-        None => Ok(Credentials::get(secret_key, password)),
+    pub fn load_keystore(path: String, password: String) -> Result<Credentials, Error> {
+        let keystore = File::open(&path).context("can't open keystore file")?;
+        let dkfm = DiskKeyFileManager {};
+        let keystore: SafeAccount = dkfm
+            .read(None, keystore)
+            .map_err(|e| err_msg(e.to_string()))
+            .context("can't parse the keystore file")?;
+        let password: Password = password.into();
+        let secret = keystore
+            .crypto
+            .secret(&password)
+            .map_err(|e| err_msg(e.to_string()))
+            .context("can't parse secret from the keystore file")?;
+        secret.check_validity()?;
+
+        let password = password.as_str().to_string();
+
+        Ok(Credentials::Keystore {
+            secret,
+            path,
+            password,
+        })
     }
-}
-
-pub fn load_keystore(path: String, password: String) -> Result<Secret, Error> {
-    let keystore = File::open(path).context("can't open keystore file")?;
-    let dkfm = DiskKeyFileManager {};
-    let keystore: SafeAccount = dkfm
-        .read(None, keystore)
-        .map_err(|e| err_msg(e.to_string()))
-        .context("can't parse keystore file")?;
-
-    let password: Password = password.into();
-    keystore
-        .crypto
-        .secret(&password)
-        .map_err(|e| err_msg(e.to_string()))
-        .context("can't parse secret from keystore file")
-        .map_err(Into::into)
 }

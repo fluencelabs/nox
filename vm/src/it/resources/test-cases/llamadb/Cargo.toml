@@ -21,3 +21,6 @@ crate-type = ["cdylib"]
 lazy_static = "1.1.0"
 fluence = { version = "0.1.0" }
 llamadb = { git = "https://github.com/fluencelabs/llamadb.git", branch = "master" }
+libsecp256k1 = "0.2.2"
+sha2 = "0.8.0"
+

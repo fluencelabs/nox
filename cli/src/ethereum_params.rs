@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-use crate::command::EthereumArgs;
-use crate::config::SetupConfig;
-use crate::credentials;
-use crate::credentials::Credentials;
-use ethkey::Secret;
 use failure::err_msg;
 use failure::Error;
 use web3::types::Address;
 
+use crate::command::EthereumArgs;
+use crate::command::ACCOUNT;
+use crate::config::SetupConfig;
+use crate::credentials::Credentials;
+
+// TODO: merge EthereumArgs, SetupConfig and EthereumParams into a single structure
 #[derive(Debug, Clone)]
 pub struct EthereumParams {
     pub credentials: Credentials,
@@ -36,37 +37,37 @@ pub struct EthereumParams {
 }
 
 impl EthereumParams {
-    pub fn generate(args: &EthereumArgs, config: &SetupConfig) -> Result<EthereumParams, Error> {
-        let secret_key = config.secret_key.map(|s| Secret::from(s));
-
-        let creds = args.credentials.clone();
-        let creds = match creds {
-            Credentials::No => credentials::load_credentials(
-                config.keystore_path.clone(),
-                config.password.clone(),
-                secret_key,
-            )?,
-            other => other,
+    /// Merge command-line arguments with the stored config
+    /// specified arguments take precedence over values in the config
+    pub fn generate(args: EthereumArgs, config: SetupConfig) -> Result<EthereumParams, Error> {
+        let credentials = match args.credentials {
+            Credentials::No => config.credentials,
+            from_args => from_args,
         };
 
-        let contract_address = args
-            .contract_address
-            .unwrap_or(config.contract_address.clone());
+        let contract_address = args.contract_address.unwrap_or(config.contract_address);
 
+        // Account source precedence:
+        // 1. --account argument
+        // 2. From credentials passed in arguments (see EthereumArgs::parse_ethereum_args)
+        // 3. From credentials in config
         let account = args
             .account
-            .or_else(|| config.account)
-            .ok_or_else(|| err_msg("Specify account address in config or in argument"))?;
+            .or(credentials.to_address())
+            .ok_or(err_msg(format!(
+                "Account address is not defined. Specify it in `setup` command or with `--{}`.",
+                ACCOUNT
+            )))?;
 
-        let eth_url = args.eth_url.clone().unwrap_or(config.eth_url.clone());
+        let eth_url = args.eth_url.clone().unwrap_or(config.eth_url);
 
         Ok(EthereumParams {
-            credentials: creds,
+            credentials,
             gas: args.gas,
             gas_price: args.gas_price,
-            account: account,
-            contract_address: contract_address,
-            eth_url: eth_url,
+            account,
+            contract_address,
+            eth_url,
             wait_tx_include: args.wait_tx_include,
             wait_eth_sync: args.wait_eth_sync,
         })
