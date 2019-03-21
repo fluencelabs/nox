@@ -59,6 +59,9 @@ fn err_msg(s: &str) -> Box<Error> {
 
 /// Converts hex string to a Vec<u8>
 fn decode_hex(s: &str) -> GenResult<Vec<u8>> {
+    if s.len() % 2 != 0 {
+        return Err(err_msg(&format!("Invalid hex length: {} isn't divisible by 2", s.len())))
+    }
     (0..s.len())
         .step_by(2)
         .map(|i| u8::from_str_radix(&s[i..i + 2], 16))
