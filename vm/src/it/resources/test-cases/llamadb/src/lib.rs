@@ -40,10 +40,18 @@ lazy_static! {
     static ref DATABASE: Mutex<TempDb> = Mutex::new(TempDb::new());
 }
 
+/// Flag to toggle signature validation
+static CHECK_SIGNATURE: bool = false;
+
 /// Executes SQL and converts llamadb error to string.
 #[invocation_handler]
 fn main(input: String) -> String {
-    let result = check_input(&input).and_then(run_query);
+    let result = if CHECK_SIGNATURE {
+        check_input(&input).and_then(run_query)
+    } else {
+        run_query(&input)
+    };
+
     match result {
         Ok(response) => response,
         Err(err_msg) => format!("[Error] {}", err_msg),
