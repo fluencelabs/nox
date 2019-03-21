@@ -87,6 +87,7 @@ object WasmVm extends LazyLogging {
    */
   def apply[F[_]: Monad](
     inFiles: NonEmptyList[String],
+    inModulesName: Option[List[Option[String]]] = None,
     configNamespace: String = "fluence.vm.client",
     cryptoHasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256
   ): EitherT[F, ApplyError, WasmVm] =
@@ -106,7 +107,7 @@ object WasmVm extends LazyLogging {
       // Compiling Wasm modules to JVM bytecode and registering derived classes
       // in the Asmble engine. Every Wasm module is compiled to exactly one JVM class.
       scriptCxt ← safelyRunThrowable(
-        prepareContext(inFiles, config),
+        prepareContext(inFiles, inModulesName, config),
         err ⇒
           InitializationError(
             s"Preparing execution context before execution was failed for $inFiles.",
@@ -132,6 +133,7 @@ object WasmVm extends LazyLogging {
    */
   private def prepareContext(
     inFiles: NonEmptyList[String],
+    inModulesName: Option[List[Option[String]]],
     config: VmConfig
   ): ScriptContext = {
     val invoke = new Invoke()
@@ -141,6 +143,7 @@ object WasmVm extends LazyLogging {
     invoke.prepareContext(
       new ScriptArgs(
         inFiles.toList,
+        inModulesName,
         Nil, // registrations
         false, // disableAutoRegister
         config.specTestRegister,
