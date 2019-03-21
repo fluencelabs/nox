@@ -25,6 +25,7 @@ class Snippets extends React.Component<Props, State> {
                             </span>
                         </div>
                         <h3 className="widget-user-username">Connect to {this.props.app.name}</h3>
+                        <h5 className="widget-user-desc">Your appID: {this.props.appId}</h5>
                     </div>
                     <div className="box-footer no-padding">
                         <div className="box-body">
@@ -42,7 +43,14 @@ fluence.connect(contract, ${this.props.appId}, "http://data.fluence.one").then((
                             `}
                             </pre>
                             <p>Call invoke:</p>
-                            <pre>session.invoke("CREATE TABLE users ...").result().then(...)</pre>
+                            <pre>
+                                session.request("CREATE TABLE users(id int, name varchar(128), age int)");
+                                session.request("INSERT INTO users VALUES(1, 'Sara', 23)");
+                                session.request("INSERT INTO users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 25)");
+                                session.request("SELECT AVG(age) FROM users").result().then(e =>
+                                    console.log("Result: " + r.asString());
+                                );
+                            </pre>
                         </div>
                     </div>
                 </div>
