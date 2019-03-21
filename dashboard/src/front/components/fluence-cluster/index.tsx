@@ -1,12 +1,12 @@
 import * as React from 'react';
-import { connect } from 'react-redux';
+import {connect} from 'react-redux';
 import moment from 'moment';
 import {
     displayLoading,
     hideLoading,
     retrieveNodesAppStatus,
 } from '../../actions';
-import { cutId } from '../../../utils';
+import {cutId} from '../../../utils';
 import {App, AppId, NodeId} from "../../../fluence";
 import {Option} from 'ts-option';
 import {Cluster} from "../../../fluence/apps";
@@ -50,7 +50,7 @@ class FluenceCluster extends React.Component<Props, State> {
         });
     };
 
-    renderClusterMemberBadge(id: NodeId) : React.ReactNode {
+    renderClusterMemberBadge(id: NodeId): React.ReactNode {
         if (this.props.nodesAppStatus[this.props.appId] && this.props.nodesAppStatus[this.props.appId][id]) {
             const blockHeight = parseInt(this.props.nodesAppStatus[this.props.appId][id].sync_info.latest_block_height);
             const colorStyle = blockHeight >= 2 ? 'bg-green' : 'bg-red';
@@ -73,10 +73,12 @@ class FluenceCluster extends React.Component<Props, State> {
     render(): React.ReactNode {
         let clusterInfo = null;
         if (this.props.cluster.isDefined) {
-            clusterInfo= (
+            clusterInfo = (
                 <p>
                     <p>
-                        <button type="button" onClick={this.loadClusterInfo} className="btn btn-block btn-primary">Check cluster <i style={{ display: this.state.clusterIsLoading ? 'inline-block' : 'none' }} className="fa fa-refresh fa-spin"></i></button>
+                        <button type="button" onClick={this.loadClusterInfo} className="btn btn-block btn-primary">Check
+                            cluster <i style={{display: this.state.clusterIsLoading ? 'inline-block' : 'none'}}
+                                       className="fa fa-refresh fa-spin"></i></button>
                     </p>
                     <p>
                         Genesis time: {moment.unix(this.props.cluster.get.genesis_time).format()}
@@ -108,4 +110,4 @@ const mapDispatchToProps = {
     retrieveNodesAppStatus,
 };
 
-export default connect(mapStateToProps ,mapDispatchToProps)(FluenceCluster);
+export default connect(mapStateToProps, mapDispatchToProps)(FluenceCluster);
