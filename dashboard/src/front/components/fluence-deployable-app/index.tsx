@@ -71,8 +71,7 @@ class FluenceDeployableApp extends React.Component<Props, State> {
                                 <i className={app ? 'ion ion-ios-gear-outline' : 'fa fa-refresh fa-spin'}/>
                             </span>
                             </div>
-                            <h3 className="widget-user-username">App</h3>
-                            <h5 className="widget-user-desc">Name:&nbsp;{this.props.id}</h5>
+                            <h3 className="widget-user-username">{this.props.deployableApps[this.props.id].name}</h3>
                         </div>
                         {app && this.renderAppInfo(app)}
                     </div>

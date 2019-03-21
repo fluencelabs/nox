@@ -46,6 +46,9 @@ interface Props {
     nodeIds: NodeId[],
     appIds: AppId[],
     deployableAppIds: DeployableAppId[],
+    deployableApps: {
+        [key: string]: DeployableApp
+    }
     apps: {
         [key: string]: App
     };
@@ -261,22 +264,22 @@ class DashboardApp extends React.Component<Props, State>{
                     <div className="inner">
                         <h3>{this.props.deployableAppIds.length}</h3>
 
-                        <p>Deploy an app</p>
+                        <p>Instant deploy</p>
                     </div>
                     <div className="icon">
-                        <i className='ion ion-cloud-download'></i>
+                        <i className='ion ion-cloud-download'/>
                     </div>
                     <a href="#" className="small-box-footer" onClick={this.showDeployableAppIds} style={{ display: this.state.deployableAppIdsVisible || this.props.deployableAppIds.length  <= 0 ? 'none' : 'block' }}>
-                        More info <i className="fa fa-arrow-circle-right"></i>
+                        Show available apps <i className="fa fa-arrow-circle-right"/>
                     </a>
                     <a href="#" className="small-box-footer" onClick={this.hideDeployableAppIds} style={{ display: this.state.deployableAppIdsVisible ?  'block' : 'none' }}>
-                        Hide info <i className="fa fa-arrow-circle-up"></i>
+                        Hide <i className="fa fa-arrow-circle-up"/>
                     </a>
                     { this.props.deployableAppIds.map(id => (
                         <div className="small-box-footer entity-link" onClick={(e) => this.showDeployableApp(e, id)} style={{ display: this.state.deployableAppIdsVisible ? 'block' : 'none'}}>
                             <div className="box-body">
                                 <strong>
-                                    <i className="fa fa-bullseye margin-r-5"></i> <span title={id}>{id}</span>
+                                    <i className="fa fa-bullseye margin-r-5"/> <span title={this.props.deployableApps[id].name}>{this.props.deployableApps[id].name}</span>
                                 </strong>
                             </div>
                         </div>
@@ -347,6 +350,7 @@ const mapStateToProps = (state: any) => ({
     nodes: state.nodes,
     apps: state.apps,
     deployableAppIds: deployableAppIds,
+    deployableApps: deployableApps,
 });
 
 const mapDispatchToProps = {
