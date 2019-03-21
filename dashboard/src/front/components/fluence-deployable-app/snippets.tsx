@@ -25,7 +25,7 @@ class Snippets extends React.Component<Props, State> {
                             </span>
                         </div>
                         <h3 className="widget-user-username">Connect to {this.props.app.name}</h3>
-                        <h5 className="widget-user-desc">Your appID: {this.props.appId}</h5>
+                        <h3 className="widget-user-desc">appID: <b>{this.props.appId}</b></h3>
                     </div>
                     <div className="box-footer no-padding">
                         <div className="box-body">
