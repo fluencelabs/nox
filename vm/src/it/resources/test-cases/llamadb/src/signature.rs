@@ -1,17 +1,16 @@
 use crate::GenResult;
 use core::fmt;
-use std::error::Error;
 use std::num::ParseIntError;
 
 use secp256k1::{verify, Message, PublicKey, Signature};
 use sha2::{Digest, Sha256};
 
 #[derive(Debug)]
-struct MyError(String);
+struct Error(String);
 
-impl Error for MyError {}
+impl std::error::Error for Error {}
 
-impl fmt::Display for MyError {
+impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -56,7 +55,7 @@ fn get_pk() -> PublicKey {
 }
 
 fn err_msg(s: &str) -> Box<Error> {
-    MyError(s.to_string()).into()
+    Error(s.to_string()).into()
 }
 
 /// Converts hex string to a Vec<u8>
