@@ -18,17 +18,20 @@
 //!
 //! Provides the FFI (`main`) for interact with Llamadb.
 
-use fluence::sdk::*;
-
-#[cfg(test)]
-mod tests;
-
 #[macro_use]
 extern crate lazy_static;
 
-use llamadb::tempdb::{ExecuteStatementResponse, TempDb};
 use std::error::Error;
 use std::sync::Mutex;
+
+use fluence::sdk::*;
+use llamadb::tempdb::{ExecuteStatementResponse, TempDb};
+
+use crate::signature::*;
+
+mod signature;
+#[cfg(test)]
+mod tests;
 
 /// Result for all possible Error types.
 type GenResult<T> = ::std::result::Result<T, Box<Error>>;
@@ -37,10 +40,19 @@ lazy_static! {
     static ref DATABASE: Mutex<TempDb> = Mutex::new(TempDb::new());
 }
 
+/// Flag to toggle signature validation
+static CHECK_SIGNATURE: bool = false;
+
 /// Executes SQL and converts llamadb error to string.
 #[invocation_handler]
-fn main(sql_str: String) -> String {
-    match run_query(&sql_str) {
+fn main(input: String) -> String {
+    let result = if CHECK_SIGNATURE {
+        check_input(&input).and_then(run_query)
+    } else {
+        run_query(&input)
+    };
+
+    match result {
         Ok(response) => response,
         Err(err_msg) => format!("[Error] {}", err_msg),
     }

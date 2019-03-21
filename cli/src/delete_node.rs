@@ -50,7 +50,7 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
         .setting(AppSettings::ArgRequiredElseHelp)
 }
 
-pub fn parse(args: &ArgMatches, config: &SetupConfig) -> Result<DeleteNode, Error> {
+pub fn parse(args: &ArgMatches, config: SetupConfig) -> Result<DeleteNode, Error> {
     let tendermint_key = parse_tendermint_key(args)?;
     let eth = parse_ethereum_args(args, config)?;
 
@@ -119,7 +119,7 @@ impl DeleteNode {
                 utils::with_progress(
                     "Waiting for a transaction to be included in a block...",
                     step_counter.format_next_step().as_str(),
-                    "Transaction included. App deleted.",
+                    "Transaction included. Node deleted.",
                     || {
                         wait_tx_included(&tx, web3)?;
                         wait_event_fn(&tx)?;

@@ -23,8 +23,9 @@ sc: &sc
 
 rustup: &rustup
   - run: |
-      curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly
-      ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly
+      curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-03-10
+      ~/.cargo/bin/rustup toolchain install nightly-2019-03-10 # in case some other toolchain was already installed
+      ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-03-10
 
 version: 2
 jobs:
@@ -100,11 +101,11 @@ jobs:
       - restore_cache:
           keys:
             - backendsdk-{{ checksum "backend-sdk/Cargo.toml" }}
-      - run: | # todo enable 'stable' and 'beta' when `allocator_api` will become stable
+      - run: | #TODO: enable 'stable' and 'beta' once `allocator_api` becomes stable
           cd backend-sdk/
-          rustup toolchain install nightly
-          rustup default nightly
-          rustup override set nightly
+          rustup toolchain install nightly-2019-03-10
+          rustup default nightly-2019-03-10
+          rustup override set nightly-2019-03-10
           rustup target add wasm32-unknown-unknown
           rustup component add rustfmt
           rustup component add clippy
