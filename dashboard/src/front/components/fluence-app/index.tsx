@@ -98,4 +98,4 @@ const mapDispatchToProps = {
     retrieveApp,
 };
 
-export default connect(mapStateToProps ,mapDispatchToProps)(FluenceApp);
+export default connect(mapStateToProps, mapDispatchToProps)(FluenceApp);

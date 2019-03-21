@@ -1,6 +1,6 @@
 import * as React from 'react';
-import { connect } from 'react-redux';
-import { cutId } from '../../../utils';
+import {connect} from 'react-redux';
+import {cutId} from '../../../utils';
 import {
     displayLoading,
     hideLoading,
@@ -10,7 +10,8 @@ import {
 import {NodeId, Node, NodeInfo} from "../../../fluence";
 import {Action} from "redux";
 
-interface State {}
+interface State {
+}
 
 interface Props {
     nodeId: NodeId,
@@ -94,7 +95,9 @@ class FluenceNode extends React.Component<Props, State> {
                     <hr/>
 
                     <strong><i className="fa fa-bullseye margin-r-5"></i>Owner</strong>
-                    <p className="text-muted" title={node.owner}><a href={'https://rinkeby.etherscan.io/address/' + node.owner} title={node.owner} className="etherscan-link" target="_blank">{cutId(node.owner)}</a></p>
+                    <p className="text-muted" title={node.owner}><a
+                        href={'https://rinkeby.etherscan.io/address/' + node.owner} title={node.owner}
+                        className="etherscan-link" target="_blank">{cutId(node.owner)}</a></p>
                     <hr/>
 
                     <strong><i className="fa fa-bullseye margin-r-5"></i>Is Private</strong>
@@ -104,7 +107,7 @@ class FluenceNode extends React.Component<Props, State> {
                     <strong><i className="fa fa-bullseye margin-r-5"></i>Cluster</strong>
                     <p className="text-muted">{node.clusters_ids.join(', ')}</p>
 
-                    { nodeStatus && this.renderNodeStatus(nodeStatus) }
+                    {nodeStatus && this.renderNodeStatus(nodeStatus)}
                 </div>
             </div>
         );
@@ -118,12 +121,14 @@ class FluenceNode extends React.Component<Props, State> {
                 <div className="box box-widget widget-user-2">
                     <div className="widget-user-header bg-fluence-blue-gradient">
                         <div className="widget-user-image">
-                            <span className="entity-info-box-icon"><i className={node && nodeStatus ? 'ion ion-android-laptop' : 'fa fa-refresh fa-spin'}></i></span>
+                            <span className="entity-info-box-icon"><i
+                                className={node && nodeStatus ? 'ion ion-android-laptop' : 'fa fa-refresh fa-spin'}></i></span>
                         </div>
                         <h3 className="widget-user-username">Node</h3>
-                        <h5 className="widget-user-desc" title={this.props.nodeId}>ID:&nbsp;{cutId(this.props.nodeId)}</h5>
+                        <h5 className="widget-user-desc"
+                            title={this.props.nodeId}>ID:&nbsp;{cutId(this.props.nodeId)}</h5>
                     </div>
-                    { node && this.renderNodeInfo(node, nodeStatus) }
+                    {node && this.renderNodeInfo(node, nodeStatus)}
                 </div>
             </div>
         );
@@ -142,4 +147,4 @@ const mapDispatchToProps = {
     retrieveNodeStatus
 };
 
-export default connect(mapStateToProps ,mapDispatchToProps)(FluenceNode);
+export default connect(mapStateToProps, mapDispatchToProps)(FluenceNode);
