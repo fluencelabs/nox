@@ -10,6 +10,7 @@ import {App, Node, NodeId, AppId} from '../../../fluence';
 import { cutId } from '../../../utils';
 import FluenceApp from '../fluence-app';
 import FluenceNode from '../fluence-node';
+import FluenceDeployableApp from '../fluence-deployable-app';
 import {Action} from "redux";
 
 import 'bootstrap/dist/css/bootstrap.css';
@@ -19,9 +20,11 @@ import 'admin-lte/bower_components/Ionicons/css/ionicons.min.css';
 import 'admin-lte/dist/css/AdminLTE.css';
 import 'admin-lte/dist/css/skins/skin-blue.css';
 import './style.css';
+import {DeployableApp, DeployableAppId, deployableAppIds, deployableApps} from "../../../fluence/deployable";
+import Snippets from "../fluence-deployable-app/snippets";
 
 export interface FluenceEntity {
-    id: NodeId|AppId
+    id: NodeId|AppId|DeployableAppId
     type: string
 }
 
@@ -30,6 +33,7 @@ interface State {
     nodeIdsLoading: boolean,
     appIdsVisible: boolean,
     nodeIdsVisible: boolean,
+    deployableAppIdsVisible: boolean,
     currentEntity: FluenceEntity | null
 }
 
@@ -55,6 +59,7 @@ class DashboardApp extends React.Component<Props, State>{
         nodeIdsLoading: false,
         appIdsVisible: false,
         nodeIdsVisible: false,
+        deployableAppIdsVisible: false,
         currentEntity: null,
     };
 
@@ -195,12 +200,38 @@ class DashboardApp extends React.Component<Props, State>{
         );
     }
 
+    showDeployableAppIds = (e: React.MouseEvent<HTMLElement>): void => {
+        e.preventDefault();
+        this.setState({
+            deployableAppIdsVisible: true
+        });
+    };
+
+    hideDeployableAppIds = (e: React.MouseEvent<HTMLElement>): void => {
+        e.preventDefault();
+        this.setState({
+            deployableAppIdsVisible: false
+        });
+    };
+
+    showDeployableApp = (e: React.MouseEvent<HTMLElement>, id: DeployableAppId) => {
+        e.preventDefault();
+        this.setState({
+            currentEntity: {
+                type: 'deployableApp',
+                id: id
+            }
+        })
+    };
+
     renderEntity(entity: FluenceEntity|null): React.ReactNode {
         if(entity) {
             if (entity.type === 'app') {
                 return <FluenceApp appId={entity.id} />
             } else if(entity.type === 'node') {
                 return <FluenceNode nodeId={entity.id} />
+            } else if (entity.type === 'deployableApp') {
+                return <FluenceDeployableApp id={entity.id} />
             }
         }
 
@@ -220,6 +251,38 @@ class DashboardApp extends React.Component<Props, State>{
                 </div>
             </div>
         );
+    }
+
+    renderDeployBox(): React.ReactNode {
+        return (
+            <div className="col-md-12">
+                <div className="small-box bg-fluence-blue-gradient">
+                    <div className="inner">
+                        <h3>{deployableAppIds.length}</h3>
+
+                        <p>Instant deploy</p>
+                    </div>
+                    <div className="icon">
+                        <i className='ion ion-cloud-download'/>
+                    </div>
+                    <a href="#" className="small-box-footer" onClick={this.showDeployableAppIds} style={{ display: this.state.deployableAppIdsVisible || deployableAppIds.length  <= 0 ? 'none' : 'block' }}>
+                        Show available apps <i className="fa fa-arrow-circle-right"/>
+                    </a>
+                    <a href="#" className="small-box-footer" onClick={this.hideDeployableAppIds} style={{ display: this.state.deployableAppIdsVisible ?  'block' : 'none' }}>
+                        Hide <i className="fa fa-arrow-circle-up"/>
+                    </a>
+                    { deployableAppIds.map(id => (
+                        <div className="small-box-footer entity-link" onClick={(e) => this.showDeployableApp(e, id)} style={{ display: this.state.deployableAppIdsVisible ? 'block' : 'none'}}>
+                            <div className="box-body">
+                                <strong>
+                                    <i className="fa fa-bullseye margin-r-5"/> <span title={deployableApps[id].name}>{deployableApps[id].name}</span>
+                                </strong>
+                            </div>
+                        </div>
+                    )) }
+                </div>
+            </div>
+        )
     }
 
     render(): React.ReactNode {
@@ -258,6 +321,9 @@ class DashboardApp extends React.Component<Props, State>{
                                 </div>
                                 <div className="row">
                                     { this.renderNodesCount() }
+                                </div>
+                                <div className="row">
+                                    { this.renderDeployBox() }
                                 </div>
                             </div>
                             { this.renderEntity(this.state.currentEntity) }
