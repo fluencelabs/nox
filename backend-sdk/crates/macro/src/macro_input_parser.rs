@@ -116,7 +116,7 @@ impl ParsedType {
             },
             _ => Err(Error::new(
                 type_segment.span(),
-                "Only String and Vec<u8> input types are supported",
+                "Only String and Vec<u8> input types are supported (also, it is possible not to specify the input argument)",
             )),
         }
     }
