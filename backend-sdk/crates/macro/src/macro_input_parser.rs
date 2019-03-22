@@ -156,7 +156,11 @@ impl InputTypeGenerator for ParsedType {
             ParsedType::ByteVector => quote! {
                 let arg = memory::read_input_from_mem(ptr, len);
             },
-            ParsedType::Empty => quote! {},
+            ParsedType::Empty => quote! {
+                // it is needed to delete memory occupied by the input argument
+                // this way does it without any additional imports of the export allocator module
+                let arg = memory::read_input_from_mem(ptr, len);
+            },
         }
     }
 }
