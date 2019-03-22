@@ -94,7 +94,7 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
 
             for {
               _ <- contract
-                .addApp(bytes, bytes, new Uint8(2), DynamicArray.empty("bytes32[]").asInstanceOf[DynamicArray[Bytes32]])
+                .addApp(bytes, bytes, new Uint8(2), new DynamicArray[Bytes32](classOf[Bytes32]))
                 .callUntilSuccess[IO]
 
               _ <- contract

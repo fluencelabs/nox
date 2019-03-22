@@ -18,7 +18,7 @@ package fluence.node.workers
 
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status.WorkerStatus
-import fluence.node.workers.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.TendermintRpc
 
 import scala.language.higherKinds
 
