@@ -25,11 +25,10 @@ class FluenceDeployableApp extends React.Component<Props, State> {
     startDeploy = (e: React.MouseEvent<HTMLElement>, app: DeployableApp) => {
         this.setState({loading: true});
         this.props.deploy(app)
-            .then(() => this.setState({loading: false}))
-            .catch(e => {
+            .catch(function (e) {
                 console.error("error while deploying " + JSON.stringify(e));
-                this.setState({loading: false});
-            });
+            })
+            .then(() => this.setState({loading: false}));
     };
 
     renderAppInfo(app: DeployableApp): React.ReactNode {
