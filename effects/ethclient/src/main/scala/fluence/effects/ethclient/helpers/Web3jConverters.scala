@@ -18,7 +18,6 @@ package fluence.effects.ethclient.helpers
 import java.util.Base64
 
 import org.web3j.abi.datatypes.generated._
-import org.web3j.abi.datatypes.{DynamicArray, Type}
 import scodec.bits.{Bases, ByteVector}
 
 object Web3jConverters {
@@ -36,25 +35,11 @@ object Web3jConverters {
   }
 
   /**
-   * Converts byte vector to hex string trimming leading zeros.
-   *
-   * @param b byte vector
-   */
-  def binaryToHexTrimZeros(b: ByteVector): String = b.dropWhile(_ == 0).toHex
-
-  /**
    * Converts base64 string to web3j's Bytes32.
    *
    * @param base64 base64 string
    */
   def base64ToBytes32(base64: String): Bytes32 = new Bytes32(Base64.getDecoder.decode(base64))
-
-  /**
-   * Converts web3j's Bytes32 to base64 string
-   *
-   * @param bytes32 bytes32 value
-   */
-  def bytes32ToBase64(bytes32: Bytes32): String = Base64.getEncoder.encodeToString(bytes32.getValue)
 
   /**
    * Converts bytes of web3j's Bytes32 to ByteVector
@@ -73,20 +58,6 @@ object Web3jConverters {
     ByteVector.fromHex(hex, Bases.Alphabets.HexUppercase).map(_.toArray).getOrElse(new Array[Byte](hex.length / 2))
 
   /**
-   * Converts hex string to Bytes32.
-   *
-   * @param hex hex string
-   */
-  def hexToBytes32(hex: String): Either[Throwable, Bytes32] = {
-    val binary = hexToBinary(hex)
-    if (binary.length == 32) {
-      Right(new Bytes32(hexToBinary(hex)))
-    } else {
-      Left(new Exception("Incorrect bytes length for 'hex': must be 32 bytes"))
-    }
-  }
-
-  /**
    * Encodes worker address information to web3j's Bytes24.
    *
    * @param ip worker host IP
@@ -100,12 +71,4 @@ object Web3jConverters {
 
     new Bytes24(buffer)
   }
-
-  def listToDynamicArray[T <: Type[_]](list: List[T]): DynamicArray[T] =
-    if (list.isEmpty) {
-      DynamicArray.empty("bytes32[]").asInstanceOf[DynamicArray[T]]
-    } else {
-      new DynamicArray[T](list: _*)
-    }
-
 }

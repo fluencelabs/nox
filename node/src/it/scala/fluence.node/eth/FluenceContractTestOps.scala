@@ -78,7 +78,7 @@ object FluenceContractTestOps {
           stringToBytes32(storageHash),
           stringToBytes32("receipt_stub"),
           new Uint8(clusterSize),
-          DynamicArray.empty("bytes32[]").asInstanceOf[DynamicArray[Bytes32]]
+          new DynamicArray[Bytes32](classOf[Bytes32])
         )
         .callUntilSuccess[F]
         .map(_.getBlockNumber)
