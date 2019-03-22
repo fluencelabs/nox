@@ -3,7 +3,7 @@ import {checkLogs, DeployableApp, send, txParams} from "../../../fluence/deploya
 import {privateKey} from "../../../constants";
 import {Action, Dispatch} from "redux";
 
-let EthereumTx = require("ethereumjs-tx");
+import EthereumTx from "ethereumjs-tx";
 
 export const DEPLOY_TX_REVERTED = 'DEPLOY_TX_REVERTED';
 export const APP_DEPLOYED = 'APP_DEPLOYED';

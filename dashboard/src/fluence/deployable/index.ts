@@ -5,8 +5,7 @@ import {AppId} from "../apps";
 import {APP_DEPLOY_FAILED, APP_DEPLOYED, APP_ENQUEUED} from "../../front/actions/deployable/deploy";
 import abi from '../../abi/Network.json';
 
-let { parseLog } = require("ethereum-event-logs");
-
+import { parseLog } from "ethereum-event-logs"
 
 export type DeployableAppId = string;
 
