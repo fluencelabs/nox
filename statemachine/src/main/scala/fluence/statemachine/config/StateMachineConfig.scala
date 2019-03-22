@@ -46,6 +46,7 @@ case class StateMachineConfig(
   logLevel: String,
   abciPort: Short,
   control: ControlServerConfig,
+  tendermintRpc: TendermintRpcConfig
 ) {
 
   /**

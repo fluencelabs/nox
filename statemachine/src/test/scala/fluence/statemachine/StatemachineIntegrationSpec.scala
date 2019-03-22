@@ -16,11 +16,13 @@
 
 package fluence.statemachine
 
+import cats.data.EitherT
 import cats.effect.{ContextShift, IO, Timer}
 import com.github.jtendermint.jabci.api.CodeType
 import com.github.jtendermint.jabci.types.{RequestCheckTx, RequestCommit, RequestDeliverTx, RequestQuery}
 import com.google.protobuf.ByteString
-import fluence.statemachine.config.StateMachineConfig
+import fluence.effects.tendermint.rpc.{RpcRequestFailed, TendermintRpc}
+import fluence.statemachine.config.{StateMachineConfig, TendermintRpcConfig}
 import fluence.statemachine.control.ControlServer.ControlServerConfig
 import fluence.statemachine.control.ControlSignals
 import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
@@ -37,12 +39,24 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
   // while Idea defaults to project root
   private val moduleDirPrefix = if (System.getProperty("user.dir").endsWith("/statemachine")) "../" else "./"
   private val moduleFiles = List("mul.wast", "counter.wast").map(moduleDirPrefix + "vm/src/test/resources/wast/" + _)
-  private val config = StateMachineConfig(8, moduleFiles, "OFF", 26661, ControlServerConfig("localhost", 26662))
+  private val config = StateMachineConfig(
+    8,
+    moduleFiles,
+    "OFF",
+    26661,
+    ControlServerConfig("localhost", 26662),
+    TendermintRpcConfig("localhost", 26657)
+  )
 
   private val signals: ControlSignals[IO] = ControlSignals[IO]().allocated.unsafeRunSync()._1
 
+  private val rpc: TendermintRpc[IO] = new TendermintRpc[IO](
+    _ ⇒ EitherT.leftT(RpcRequestFailed(new NotImplementedError("get stub"))),
+    _ ⇒ EitherT.leftT(RpcRequestFailed(new NotImplementedError("post stub")))
+  )
+
   val abciHandler: AbciHandler[IO] = ServerRunner
-    .buildAbciHandler(config, signals)
+    .buildAbciHandler(config, signals, rpc)
     .valueOr(e => throw new RuntimeException(e.message))
     .unsafeRunSync()
 

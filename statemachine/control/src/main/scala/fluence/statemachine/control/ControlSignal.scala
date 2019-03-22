@@ -1,5 +1,5 @@
 package fluence.statemachine.control
-import io.circe.generic.JsonCodec
+
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import scodec.bits.ByteVector
