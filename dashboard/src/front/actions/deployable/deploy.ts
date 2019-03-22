@@ -1,14 +1,14 @@
 import contract from '../../../fluence/contract';
-import {DeployableApp, send, txParams, waitApp} from "../../../fluence/deployable";
+import {checkLogs, DeployableApp, send, txParams} from "../../../fluence/deployable";
 import {privateKey} from "../../../constants";
 import {Action, Dispatch} from "redux";
 
-let EthereumTx = require("ethereumjs-tx");
+import EthereumTx from "ethereumjs-tx";
 
 export const DEPLOY_TX_REVERTED = 'DEPLOY_TX_REVERTED';
 export const APP_DEPLOYED = 'APP_DEPLOYED';
 export const APP_ENQUEUED = 'APP_ENQUEUED';
-export const APP_DEPLOY_TIMEOUT = 'APP_DEPLOY_TIMEOUT';
+export const APP_DEPLOY_FAILED = 'APP_DEPLOY_FAILED';
 
 export const deploy = (app: DeployableApp) => {
     return async (dispatch: Dispatch): Promise<Action> => {
@@ -22,11 +22,11 @@ export const deploy = (app: DeployableApp) => {
             return dispatch({type: DEPLOY_TX_REVERTED});
         }
 
-        let [type, appStatus] = await waitApp(app);
+        let [type, appId] = checkLogs(receipt);
 
         return dispatch({
             type: type,
-            appStatus: appStatus,
+            appId: appId,
             app: app
         });
     };
