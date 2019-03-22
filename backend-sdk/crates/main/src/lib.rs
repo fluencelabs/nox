@@ -17,7 +17,7 @@
 //! The main part of Fluence backend SDK. Contains `export_allocator` (that can be disabled by
 //! using `no_export_allocator` feature), `logger` (enabled by `wasm_logger`) and `memory` modules.
 
-#![doc(html_root_url = "https://docs.rs/fluence-sdk-main/0.1.1")]
+#![doc(html_root_url = "https://docs.rs/fluence-sdk-main/0.1.3")]
 #![feature(allocator_api)]
 
 extern crate core;
