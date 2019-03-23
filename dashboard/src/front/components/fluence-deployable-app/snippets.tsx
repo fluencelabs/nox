@@ -31,7 +31,7 @@ class Snippets extends React.Component<Props, State> {
                         <div className="box-body">
                             <p>Install dependency:</p>
                             <pre>npm install --save fluence@0.1.18</pre>
-                            <p>Connect to {this.props.app.name}:</p>
+                            <p>Connect to {this.props.app.name}, add snippet to a JS file:</p>
                             <pre>{`
 import * as fluence from "fluence";
 
