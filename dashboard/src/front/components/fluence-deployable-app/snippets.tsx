@@ -42,7 +42,7 @@ fluence.connect(contract, ${this.props.appId}, "http://data.fluence.one:8545").t
 })
                             `}
                             </pre>
-                            <p>Call invoke:</p>
+                            <p>Send request:</p>
                             <pre> {`
 session.request("CREATE TABLE users(id int, name varchar(128), age int)");
 session.request("INSERT INTO users VALUES(1, 'Sara', 23)");
