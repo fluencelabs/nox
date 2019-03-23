@@ -30,7 +30,7 @@ class Snippets extends React.Component<Props, State> {
                     <div className="box-footer no-padding">
                         <div className="box-body">
                             <p>Install dependency:</p>
-                            <pre>npm install --save fluence@0.1.17</pre>
+                            <pre>npm install --save fluence@0.1.18</pre>
                             <p>Connect to {this.props.app.name}:</p>
                             <pre>{`
 import * as fluence from "fluence";
