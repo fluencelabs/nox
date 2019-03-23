@@ -19,6 +19,11 @@ export class AppSession {
     }
 
     constructor(sessionId: string, appId: string, workerSessions: WorkerSession[], privateKey?: PrivateKey) {
+        if (workerSessions.length == 0) {
+            console.error("Empty workerSession passed to AppSession constructor");
+            throw new Error("Empty workerSession passed to AppSession constructor");
+        }
+
         this.counter = 0;
         this.workerCounter = 0;
         this.sessionId = sessionId;

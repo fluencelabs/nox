@@ -47,9 +47,9 @@ fluence.connect(contract, ${this.props.appId}, "http://data.fluence.one:8545").t
 session.request("CREATE TABLE users(id int, name varchar(128), age int)");
 session.request("INSERT INTO users VALUES(1, 'Sara', 23)");
 session.request("INSERT INTO users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 25)");
-session.request("SELECT AVG(age) FROM users").result().then(e =>
+session.request("SELECT AVG(age) FROM users").result().then((r) => {
     console.log("Result: " + r.asString());
-);
+});
                             `}
                             </pre>
                         </div>
