@@ -21,6 +21,7 @@ import {SessionConfig} from "./SessionConfig";
 
 import * as debug from "debug";
 import {PrivateKey, withSignature} from "./utils";
+import * as randomstring from "randomstring";
 
 const detailedDebug = debug("request-detailed");
 const txDebug = debug("broadcast-request");
@@ -38,8 +39,7 @@ export class Session {
     private closed: boolean;
     private closedStatus: string;
 
-    private static genSessionId() {
-        let randomstring = require("randomstring");
+    static genSessionId(): string {
         return randomstring.generate(12);
     }
 
@@ -76,17 +76,27 @@ export class Session {
         }
     }
 
-    private getCounterAndIncrement() {
-        return this.counter++;
+    /**
+     * Increments current counter or sets it to the `counter` passed as argument
+     * @param counter Optional external counter. External overrides local if external is bigger, so session is usable
+     */
+    private getCounterAndIncrement(counter?: number) {
+        if (counter == undefined || counter <= this.counter) {
+            return this.counter++;
+        } else {
+            this.counter = counter + 1;
+            return counter;
+        }
     }
 
     /**
      * Sends request with payload and wait for a response.
      *
-     * @param payload either an argument for Wasm VM main handler or a command for the statemachine
-     * @param privateKey optional private key to sign requests
+     * @param payload Either an argument for Wasm VM main handler or a command for the statemachine
+     * @param privateKey Optional private key to sign requests
+     * @param counter Optional counter, overrides current counter
      */
-    request(payload: string, privateKey?: PrivateKey): ResultPromise {
+    request(payload: string, privateKey?: PrivateKey, counter?: number): ResultPromise {
         // throws an error immediately if the session is closed
         if (this.closed) {
             return new ResultError(`The session was closed. Cause: ${this.closedStatus}`)
@@ -99,7 +109,7 @@ export class Session {
         detailedDebug("start request");
 
         // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
-        let currentCounter = this.getCounterAndIncrement();
+        let currentCounter = this.getCounterAndIncrement(counter);
 
         let signed = withSignature(payload, currentCounter, privateKey);
         let tx = `${this.session}/${currentCounter}\n${signed}`;

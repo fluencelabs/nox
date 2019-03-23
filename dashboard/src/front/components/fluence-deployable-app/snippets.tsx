@@ -30,13 +30,13 @@ class Snippets extends React.Component<Props, State> {
                     <div className="box-footer no-padding">
                         <div className="box-body">
                             <p>Install dependency:</p>
-                            <pre>npm install --save fluence@0.1.16</pre>
+                            <pre>npm install --save fluence@0.1.17</pre>
                             <p>Connect to {this.props.app.name}:</p>
                             <pre>{`
 import * as fluence from "fluence";
 
-let contract = ${defaultContractAddress};
-fluence.connect(contract, ${this.props.appId}, "http://data.fluence.one").then((s) => {
+let contract = "${defaultContractAddress}";
+fluence.connect(contract, ${this.props.appId}, "http://data.fluence.one:8545").then((s) => {
     console.log("Session created");
     window.session = s;
 })
