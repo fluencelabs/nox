@@ -5,7 +5,7 @@ import appIds, { retrieveAppIds } from './apps/app-ids';
 import apps, { retrieveApp } from './apps/apps';
 import nodesStatus, { retrieveNodeStatus } from './nodes/node-status';
 import nodesAppStatus, { retrieveNodesAppStatus } from './nodes/nodes-app-status';
-import snippets from './deployable/snippets';
+import deploy from './deployable/deploy';
 
 export {
     displayLoading,
@@ -26,5 +26,5 @@ export const reducers = {
     apps,
     nodesStatus,
     nodesAppStatus,
-    snippets
+    deploy
 };
