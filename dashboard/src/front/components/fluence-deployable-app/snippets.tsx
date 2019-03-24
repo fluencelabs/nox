@@ -30,26 +30,26 @@ class Snippets extends React.Component<Props, State> {
                     <div className="box-footer no-padding">
                         <div className="box-body">
                             <p>Install dependency:</p>
-                            <pre>npm install --save fluence@0.1.16</pre>
-                            <p>Connect to {this.props.app.name}:</p>
+                            <pre>npm install --save fluence@0.1.18</pre>
+                            <p>Connect to {this.props.app.name}, add snippet to a JS file:</p>
                             <pre>{`
 import * as fluence from "fluence";
 
-let contract = ${defaultContractAddress};
-fluence.connect(contract, ${this.props.appId}, "http://data.fluence.one").then((s) => {
+let contract = "${defaultContractAddress}";
+fluence.connect(contract, ${this.props.appId}, "http://data.fluence.one:8545").then((s) => {
     console.log("Session created");
     window.session = s;
 })
                             `}
                             </pre>
-                            <p>Call invoke:</p>
+                            <p>Send request:</p>
                             <pre> {`
 session.request("CREATE TABLE users(id int, name varchar(128), age int)");
 session.request("INSERT INTO users VALUES(1, 'Sara', 23)");
 session.request("INSERT INTO users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 25)");
-session.request("SELECT AVG(age) FROM users").result().then(e =>
+session.request("SELECT AVG(age) FROM users").result().then((r) => {
     console.log("Result: " + r.asString());
-);
+});
                             `}
                             </pre>
                         </div>
