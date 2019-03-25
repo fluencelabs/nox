@@ -22,7 +22,7 @@ export const deployableApps: { [key: string]: DeployableApp } = {
     "llamadb": {
         name: "SQL DB (llamadb)",
         shortName: "SQL DB",
-        storageHash: "0xf290584708603673fe1da3b70a942a7830ece6552815f9350ab8173e99473b53",
+        storageHash: "0x3c4f07d3d5919c13e080b560283a2405151559d5aacd53c5b394b2d6738ebc0e",
         clusterSize: 4
     }
 };
