@@ -100,13 +100,15 @@ export function getNodeStatus(node: Node): Promise<any> {
     });
 }
 
-export function getWorkerStatus(node: Node, appId: number): Promise<any> {
-    let url = `http://${node.ip_addr}:${node.api_port}/apps/${appId}/status`;
+// gets status of the worker through API
+export function getWorkerStatus(apiAddr: string, apiPort: string, appId: number): Promise<any> {
+    let url = `http://${apiAddr}:${apiPort}/apps/${appId}/status`;
     return axios.get(url).then((res) => {
         return res.data;
     }).catch((err) => {
         return {
-            nodeInfo: node,
+            apiAddr: apiAddr,
+            apiPort: apiPort,
             causeBy: err
         };
     });
