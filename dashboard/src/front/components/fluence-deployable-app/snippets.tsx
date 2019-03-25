@@ -74,23 +74,26 @@ class Snippets extends React.Component<Props, State> {
                         <div className="box-body">
                             {this.props.trxHash && <p>Transaction hash: <a href={'https://rinkeby.etherscan.io/tx/' + this.props.trxHash} title={this.props.trxHash} className="etherscan-link" target="_blank">{cutId(this.props.trxHash)}</a></p>}
                             <p>Install dependency:</p>
-                            <pre>npm install --save fluence@0.1.18</pre>
+                            <pre>npm install --save fluence@0.1.20</pre>
                             <p>Connect to {this.props.app.name}, add snippet to a JS file:</p>
                             <pre>{`
-import * as fluence from "fluence";
+import * as fluence from "fluence"; // Omit this if in the browser's console
 
-let contract = "${defaultContractAddress}";
-fluence.connect(contract, ${this.props.appId}, "http://data.fluence.one:8545").then((s) => {
+let contract = "0xf008c29bb1fabd1eb1ea73b2410f523a5c213f19";  // Fluence contract address
+let appId = 48;                                               // Deployed database id
+let ethereumUrl = "http://data.fluence.one:8545";             // Ethereum light node URL
+
+fluence.connect(contract, appId, ethereumUrl).then((s) => {
     console.log("Session created");
     window.session = s;
-})
+});
                             `}
                             </pre>
                             <p>Send request:</p>
                             <pre> {`
 session.request("CREATE TABLE users(id int, name varchar(128), age int)");
 session.request("INSERT INTO users VALUES(1, 'Sara', 23)");
-session.request("INSERT INTO users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 25)");
+session.request("INSERT INTO users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 27)");
 session.request("SELECT AVG(age) FROM users").result().then((r) => {
     console.log("Result: " + r.asString());
 });
