@@ -285,6 +285,8 @@ contract Deployer {
 
         removeEnqueuedApp(i);
 
+        removeAppId(appId);
+
         emit AppDequeued(appID);
     }
 
@@ -550,11 +552,21 @@ contract Deployer {
         removeArrayElement(index, enqueuedApps);
     }
 
-    /** @dev Removes cluster from clustersIds array and clusters mapping and emits an event on successful App removal
+    /** @dev Removes app from appIds array and apps mapping and emits an event on successful App removal
      *  @param appID ID of the app to be removed
-     *  returns true if cluster was deleted, false otherwise
      */
     function removeApp(uint256 appID)
+        internal
+    {
+        removeAppId(appID);
+
+        emit AppDeleted(appID);
+    }
+
+    /** @dev Removes app from appIds array and apps mapping
+     *  @param appID ID of the app to be removed
+     */
+    function removeAppId(uint256 appId)
         internal
     {
         // look for appID in appIDs array
@@ -567,9 +579,6 @@ contract Deployer {
 
         // also remove cluster from mapping
         delete apps[appID];
-
-
-        emit AppDeleted(appID);
     }
 
     function removeArrayElement(uint index, bytes32[] storage array)
