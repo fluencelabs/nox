@@ -38,13 +38,19 @@ class Snippets extends React.Component<Props, State> {
         }
     }
 
-    getDeployStateLabel(deployState: string | undefined): string {
-        switch (deployState) {
+    getDeployStateLabel(deployState: any): string {
+        switch (deployState.state) {
             case 'prepare': {
                 return 'preparing transaction...';
             }
             case 'trx': {
                 return 'sending transaction...';
+            }
+            case 'enqueued': {
+                return 'app is enqueued...';
+            }
+            case 'check_cluster': {
+                return `${deployState.note}...`;
             }
             default: {
                 return '';
