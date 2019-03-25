@@ -105,11 +105,17 @@ session.request("SELECT AVG(age) FROM users").result().then((r) => {
                             <p>That's it!</p>
                             <hr/>
                             <button type="button"
-                                    onClick={e => window.open(`http://sql.fluence.network?appId=${this.props.appId}&privateKey=${llamaPrivateKey}`, "_blank")}
+                                    onClick={e => window.open(`https://github.com/fluencelabs/tutorials`, "_blank")}
                                     className="btn btn-block btn-link">
                                 <i className="fa fa-external-link margin-r-5"/> <b>To develop your own app, follow
                                 GitHub Tutorials</b>
                             </button>
+                            <button type="button"
+                                    onClick={e => window.open(`https://fluence.network/docs`, "_blank")}
+                                    className="btn btn-block btn-link">
+                                <i className="fa fa-external-link margin-r-5"/> <b>More info in the docs</b>
+                            </button>
+
                             <hr/>
                             <p><strong><i className="fa fa-bullseye margin-r-5"/>Check your app's health:</strong></p>
                             {appInfo && <FluenceCluster appId={this.props.appId} cluster={appInfo.cluster}/>}
