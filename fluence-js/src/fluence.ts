@@ -28,7 +28,8 @@ export {
     Engine as Engine,
     Session as Session,
     Result as Result,
-    SessionConfig as SessionConfig
+    SessionConfig as SessionConfig,
+    AppSession as AppSession
 }
 
 // A session with a worker with info about a worker
