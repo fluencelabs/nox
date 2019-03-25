@@ -95,7 +95,7 @@ let contract = "${defaultContractAddress}";                         // Fluence c
 let appId = ${this.props.appId};                                                                      // Deployed database id
 let ethereumUrl = "http://data.fluence.one:8545";                                    // Ethereum light node URL
 
-fluence.connect(contract, appId, ethereumUrl).then((s) => {
+fluence.connect(contract, appId, ethereumUrl, privateKey).then((s) => {
     console.log("Session created");
     window.session = s;
 });`}
