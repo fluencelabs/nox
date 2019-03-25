@@ -93,7 +93,7 @@ export class TendermintClient {
             }
             case 3:
             case 4: {
-                console.log(`Response is in pending state or not found: : ${response.info}`);
+                d(`Response is in pending state or not found: : ${response.info}`);
                 return none;
             }
             default: {

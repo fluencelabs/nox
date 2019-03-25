@@ -41,6 +41,7 @@
     "@types/elliptic": "6.4.2",
     "@types/mocha": "5.2.5",
     "@types/promise.prototype.finally": "2.0.2",
+    "@types/randomstring": "1.1.6",
     "@types/secp256k1": "3.5.0",
     "@types/sha256": "0.2.0",
     "awesome-typescript-loader": "5.2.1",

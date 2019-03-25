@@ -12,6 +12,9 @@ import FluenceApp from '../fluence-app';
 import FluenceNode from '../fluence-node';
 import FluenceDeployableApp from '../fluence-deployable-app';
 import {Action} from "redux";
+import Cookies from 'js-cookie';
+import {DeployableApp, DeployableAppId, deployableAppIds, deployableApps} from "../../../fluence/deployable";
+import {restoreDeployed} from "../../actions/deployable/deploy";
 
 import 'bootstrap/dist/css/bootstrap.css';
 import 'font-awesome/css/font-awesome.css';
@@ -20,8 +23,6 @@ import 'admin-lte/bower_components/Ionicons/css/ionicons.min.css';
 import 'admin-lte/dist/css/AdminLTE.css';
 import 'admin-lte/dist/css/skins/skin-blue.css';
 import './style.css';
-import {DeployableApp, DeployableAppId, deployableAppIds, deployableApps} from "../../../fluence/deployable";
-import Snippets from "../fluence-deployable-app/snippets";
 
 export interface FluenceEntity {
     id: NodeId|AppId|DeployableAppId
@@ -42,6 +43,7 @@ interface Props {
     hideLoading: typeof hideLoading,
     retrieveNodeIds: () => Promise<Action>,
     retrieveAppIds: () => Promise<Action>,
+    restoreDeployed: (appId: string, appTypeId: string) => Action,
     loading: boolean,
     nodeIds: NodeId[],
     appIds: AppId[],
@@ -83,6 +85,18 @@ class DashboardApp extends React.Component<Props, State>{
                 });
             }),
         ]).then(() => {
+            const deployedAppId = Cookies.get('deployedAppId');
+            const deployedAppTypeId = Cookies.get('deployedAppTypeId');
+            if (deployedAppId && deployedAppTypeId) {
+                this.setState({
+                    currentEntity: {
+                        type: 'deployableApp',
+                        id: deployedAppTypeId
+                    }
+                });
+                return this.props.restoreDeployed(deployedAppId, deployedAppTypeId);
+            }
+        }).then(() => {
             this.props.hideLoading();
         }).catch((e) => {
             window.console.log(e);
@@ -265,14 +279,8 @@ class DashboardApp extends React.Component<Props, State>{
                     <div className="icon">
                         <i className='ion ion-cloud-download'/>
                     </div>
-                    <a href="#" className="small-box-footer" onClick={this.showDeployableAppIds} style={{ display: this.state.deployableAppIdsVisible || deployableAppIds.length  <= 0 ? 'none' : 'block' }}>
-                        Show available apps <i className="fa fa-arrow-circle-right"/>
-                    </a>
-                    <a href="#" className="small-box-footer" onClick={this.hideDeployableAppIds} style={{ display: this.state.deployableAppIdsVisible ?  'block' : 'none' }}>
-                        Hide <i className="fa fa-arrow-circle-up"/>
-                    </a>
                     { deployableAppIds.map(id => (
-                        <div className="small-box-footer entity-link" onClick={(e) => this.showDeployableApp(e, id)} style={{ display: this.state.deployableAppIdsVisible ? 'block' : 'none'}}>
+                        <div className="small-box-footer entity-link bg-fluence-green-gradient" onClick={(e) => this.showDeployableApp(e, id)}>
                             <div className="box-body">
                                 <strong>
                                     <i className="fa fa-bullseye margin-r-5"/> <span title={deployableApps[id].name}>{deployableApps[id].name}</span>
@@ -317,13 +325,13 @@ class DashboardApp extends React.Component<Props, State>{
                         <div className="row">
                             <div className="col-md-3 col-xs-12">
                                 <div className="row">
+                                    { this.renderDeployBox() }
+                                </div>
+                                <div className="row">
                                     { this.renderAppsCount() }
                                 </div>
                                 <div className="row">
                                     { this.renderNodesCount() }
-                                </div>
-                                <div className="row">
-                                    { this.renderDeployBox() }
                                 </div>
                             </div>
                             { this.renderEntity(this.state.currentEntity) }
@@ -352,6 +360,7 @@ const mapDispatchToProps = {
     hideLoading,
     retrieveNodeIds,
     retrieveAppIds,
+    restoreDeployed,
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(DashboardApp);

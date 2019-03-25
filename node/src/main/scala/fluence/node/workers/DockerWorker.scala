@@ -27,7 +27,7 @@ import fluence.effects.docker.params.DockerParams
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
 import fluence.node.workers.tendermint.DockerTendermint
-import fluence.node.workers.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.TendermintRpc
 import slogging.LazyLogging
 
 import scala.language.higherKinds
@@ -65,6 +65,8 @@ object DockerWorker extends LazyLogging {
     val dockerParams = DockerParams
       .build()
       .option("-e", s"""CODE_DIR=$vmCodePath""")
+      .option("-e", s"TM_RPC_PORT=${DockerTendermint.RpcPort}")
+      .option("-e", s"TM_RPC_HOST=${DockerTendermint.containerName(params)}")
       .option("--name", containerName(params))
       .option("--network", network.name)
       .limits(dockerConfig.limits)

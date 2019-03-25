@@ -1,6 +1,6 @@
 [package]
 name = "fluence"
-version = "0.1.0"  # remember to update html_root_url
+version = "0.1.3"  # remember to update html_root_url
 description = "Fluence backend SDK for developing backend applications for the Fluence network"
 documentation = "https://docs.rs/fluence/"
 repository = "https://github.com/fluencelabs/fluence/tree/master/backend-sdk"
@@ -12,14 +12,14 @@ license = "Apache-2.0"
 maintenance = { status = "actively-developed" }
 
 [package.metadata.docs.rs] # https://docs.rs/about
-all_features = true
+all-features = true
 
 [lib]
 path = "src/lib.rs"
 
 [dependencies]
-fluence-sdk-macro = { path = "crates/macro", version = "=0.1.0" }
-fluence-sdk-main = { path = "crates/main", version = "=0.1.0" }
+fluence-sdk-macro = { path = "crates/macro", version = "=0.1.3" }
+fluence-sdk-main = { path = "crates/main", version = "=0.1.3" }
 
 [features]
 # Turn on a compilation for the module that contains Wasm logger realization.

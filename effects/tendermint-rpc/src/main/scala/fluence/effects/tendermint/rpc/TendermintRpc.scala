@@ -14,16 +14,15 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.tendermint.rpc
+package fluence.effects.tendermint.rpc
 
 import cats.Functor
 import cats.data.EitherT
 import cats.effect.{Resource, Sync}
 import cats.syntax.either._
-import cats.syntax.functor._
 import com.softwaremill.sttp._
 import cats.syntax.applicativeError._
-import fluence.node.workers.status.{HttpCheckFailed, HttpCheckStatus, HttpStatus}
+import fluence.effects.tendermint.rpc.response.{Response, TendermintStatus}
 import io.circe.parser.decode
 import io.circe.Json
 
@@ -48,10 +47,19 @@ case class TendermintRpc[F[_]](
   /** Get status, parse it to [[TendermintStatus]] */
   def statusParsed(implicit F: Functor[F]): EitherT[F, RpcError, TendermintStatus] =
     status
-      .map(decode[StatusResponse])
+      .map(decode[Response[TendermintStatus]])
       .subflatMap[RpcError, TendermintStatus](
         _.map(_.result).leftMap(RpcBodyMalformed)
       )
+
+  def block(height: Long, id: String = "dontcare"): EitherT[F, RpcError, String] =
+    post(
+      RpcRequest(
+        method = "block",
+        params = Json.fromString(height.toString) :: Nil,
+        id = id
+      )
+    )
 
   /**
    * Builds a broadcast_tx_commit RPC request
@@ -99,15 +107,6 @@ case class TendermintRpc[F[_]](
         id = id
       )
     )
-
-  /**
-   * Performs http status check, lifting result to [[HttpStatus]] data type
-   */
-  def httpStatus(implicit F: Functor[F]): F[HttpStatus[TendermintStatus]] =
-    statusParsed.value.map {
-      case Right(resp) ⇒ HttpCheckStatus(resp)
-      case Left(err) ⇒ HttpCheckFailed(err)
-    }
 }
 
 object TendermintRpc extends slogging.LazyLogging {
