@@ -2,11 +2,7 @@ import * as React from 'react';
 import {connect} from 'react-redux';
 import {DeployableApp} from "../../../fluence/deployable";
 import {defaultContractAddress} from "../../../constants";
-import {
-    displayLoading,
-    hideLoading,
-    retrieveApp,
-} from '../../actions';
+import {displayLoading, hideLoading, retrieveApp,} from '../../actions';
 import FluenceCluster from '../fluence-cluster';
 import {App, AppId} from "../../../fluence";
 import {Action} from "redux";
@@ -73,24 +69,24 @@ class Snippets extends React.Component<Props, State> {
                     <div className="box-footer no-padding">
                         <div className="box-body">
                             {this.props.trxHash && <p>Transaction hash: <a href={'https://rinkeby.etherscan.io/tx/' + this.props.trxHash} title={this.props.trxHash} className="etherscan-link" target="_blank">{cutId(this.props.trxHash)}</a></p>}
-                            <p>Install dependency:</p>
-                            <pre>npm install --save fluence@0.1.18</pre>
-                            <p>Connect to {this.props.app.name}, add snippet to a JS file:</p>
+                            <p>Connect to {this.props.app.name}, directly in the browser console:</p>
                             <pre>{`
-import * as fluence from "fluence";
+let privateKey = "569ae4fed4b0485848d3cf9bbe3723f5783aadd0d5f6fd83e18b45ac22496859"; // Authorization private key
+let contract = "${defaultContractAddress}";        // Fluence contract address
+let appId = ${this.props.appId};                   // Deployed database id
+let ethereumUrl = "http://data.fluence.one:8545";  // Ethereum light node URL
 
-let contract = "${defaultContractAddress}";
-fluence.connect(contract, ${this.props.appId}, "http://data.fluence.one:8545").then((s) => {
+fluence.connect(contract, appId, ethereumUrl, privateKey).then((s) => {
     console.log("Session created");
     window.session = s;
-})
+});
                             `}
                             </pre>
                             <p>Send request:</p>
                             <pre> {`
 session.request("CREATE TABLE users(id int, name varchar(128), age int)");
 session.request("INSERT INTO users VALUES(1, 'Sara', 23)");
-session.request("INSERT INTO users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 25)");
+session.request("INSERT INTO users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 27)");
 session.request("SELECT AVG(age) FROM users").result().then((r) => {
     console.log("Result: " + r.asString());
 });

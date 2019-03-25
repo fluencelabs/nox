@@ -20,7 +20,7 @@ export const deployableAppIds: [DeployableAppId] = ["llamadb"];
 export const deployableApps: { [key: string]: DeployableApp } = {
     "llamadb": {
         name: "SQL DB (llamadb)",
-        storageHash: "0x9918b8657755b41096da7a7da0528550ffce4a812c2295d2811c86d29be23326",
+        storageHash: "0xf290584708603673fe1da3b70a942a7830ece6552815f9350ab8173e99473b53",
         clusterSize: 4
     }
 };
