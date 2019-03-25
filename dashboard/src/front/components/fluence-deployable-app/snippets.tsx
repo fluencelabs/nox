@@ -2,11 +2,7 @@ import * as React from 'react';
 import {connect} from 'react-redux';
 import {DeployableApp} from "../../../fluence/deployable";
 import {defaultContractAddress} from "../../../constants";
-import {
-    displayLoading,
-    hideLoading,
-    retrieveApp,
-} from '../../actions';
+import {displayLoading, hideLoading, retrieveApp,} from '../../actions';
 import FluenceCluster from '../fluence-cluster';
 import {App, AppId} from "../../../fluence";
 import {Action} from "redux";
@@ -79,8 +75,8 @@ class Snippets extends React.Component<Props, State> {
                             <pre>{`
 import * as fluence from "fluence"; // Omit this if in the browser's console
 
-let contract = "0xf008c29bb1fabd1eb1ea73b2410f523a5c213f19";  // Fluence contract address
-let appId = 48;                                               // Deployed database id
+let contract = "${defaultContractAddress}";  // Fluence contract address
+let appId = ${this.props.appId};                                               // Deployed database id
 let ethereumUrl = "http://data.fluence.one:8545";             // Ethereum light node URL
 
 fluence.connect(contract, appId, ethereumUrl).then((s) => {
