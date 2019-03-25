@@ -45,7 +45,11 @@ export interface WorkerSession {
  * @param ethereumUrl Optional ethereum node url. Connect via Metamask if `ethereulUrl` is undefined
  * @param privateKey Optional private key to sign requests. Signature is concatenated to the request payload.
  */
-export async function connect(contract: string, appId: string, ethereumUrl?: string, privateKey?: PrivateKey): Promise<AppSession> {
+export async function connect(contract: string, appId: string, ethereumUrl?: string, privateKey?: Buffer | string): Promise<AppSession> {
+    if (privateKey != undefined && typeof privateKey == 'string') {
+        privateKey = Buffer.from(privateKey);
+    }
+
     if (privateKey != undefined) {
         if (!secp256k1.privateKeyVerify(privateKey)) {
             throw Error("Private key is invalid");

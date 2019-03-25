@@ -42,7 +42,6 @@ class FluenceCluster extends React.Component<Props, State> {
             this.setState({
                 clusterIsLoading: false
             });
-            console.log('this.props.nodesAppStatus', this.props.nodesAppStatus);
         }).catch(() => {
             this.setState({
                 clusterIsLoading: false
