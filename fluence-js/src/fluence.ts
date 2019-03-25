@@ -20,8 +20,9 @@ import {Session} from "./Session";
 import {SessionConfig} from "./SessionConfig";
 import {Result} from "./Result";
 import {getAppNodes, Node} from "fluence-monitoring"
-import {PrivateKey, secp256k1} from "./utils";
+import {secp256k1} from "./utils";
 import {AppSession} from "./AppSession";
+import {remove0x} from "../../dashboard/src/utils";
 
 export {
     TendermintClient as TendermintClient,
@@ -47,7 +48,7 @@ export interface WorkerSession {
  */
 export async function connect(contract: string, appId: string, ethereumUrl?: string, privateKey?: Buffer | string): Promise<AppSession> {
     if (privateKey != undefined && typeof privateKey == 'string') {
-        privateKey = Buffer.from(privateKey);
+        privateKey = Buffer.from(remove0x(privateKey), "hex");
     }
 
     if (privateKey != undefined) {
