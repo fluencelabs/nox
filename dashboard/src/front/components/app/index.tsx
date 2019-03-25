@@ -270,7 +270,7 @@ class DashboardApp extends React.Component<Props, State>{
     renderDeployBox(): React.ReactNode {
         return (
             <div className="col-md-12">
-                <div className="small-box bg-fluence-green-gradient">
+                <div className="small-box bg-fluence-blue-gradient">
                     <div className="inner">
                         <h3>{deployableAppIds.length}</h3>
 
@@ -280,7 +280,7 @@ class DashboardApp extends React.Component<Props, State>{
                         <i className='ion ion-cloud-download'/>
                     </div>
                     { deployableAppIds.map(id => (
-                        <div className="small-box-footer entity-link" onClick={(e) => this.showDeployableApp(e, id)}>
+                        <div className="small-box-footer entity-link bg-fluence-green-gradient" onClick={(e) => this.showDeployableApp(e, id)}>
                             <div className="box-body">
                                 <strong>
                                     <i className="fa fa-bullseye margin-r-5"/> <span title={deployableApps[id].name}>{deployableApps[id].name}</span>
