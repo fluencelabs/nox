@@ -20,9 +20,8 @@ import {Session} from "./Session";
 import {SessionConfig} from "./SessionConfig";
 import {Result} from "./Result";
 import {getAppNodes, Node} from "fluence-monitoring"
-import {secp256k1} from "./utils";
+import {remove0x, secp256k1} from "./utils";
 import {AppSession} from "./AppSession";
-import {remove0x} from "../../dashboard/src/utils";
 
 export {
     TendermintClient as TendermintClient,

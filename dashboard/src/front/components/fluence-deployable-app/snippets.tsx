@@ -69,17 +69,14 @@ class Snippets extends React.Component<Props, State> {
                     <div className="box-footer no-padding">
                         <div className="box-body">
                             {this.props.trxHash && <p>Transaction hash: <a href={'https://rinkeby.etherscan.io/tx/' + this.props.trxHash} title={this.props.trxHash} className="etherscan-link" target="_blank">{cutId(this.props.trxHash)}</a></p>}
-                            <p>Install dependency:</p>
-                            <pre>npm install --save fluence@0.1.20</pre>
-                            <p>Connect to {this.props.app.name}, add snippet to a JS file:</p>
+                            <p>Connect to {this.props.app.name}, directly in the browser console:</p>
                             <pre>{`
-import * as fluence from "fluence"; // Omit this if in the browser's console
+let privateKey = "569ae4fed4b0485848d3cf9bbe3723f5783aadd0d5f6fd83e18b45ac22496859"; // Authorization private key
+let contract = "${defaultContractAddress}";        // Fluence contract address
+let appId = ${this.props.appId};                   // Deployed database id
+let ethereumUrl = "http://data.fluence.one:8545";  // Ethereum light node URL
 
-let contract = "${defaultContractAddress}";  // Fluence contract address
-let appId = ${this.props.appId};                                               // Deployed database id
-let ethereumUrl = "http://data.fluence.one:8545";             // Ethereum light node URL
-
-fluence.connect(contract, appId, ethereumUrl).then((s) => {
+fluence.connect(contract, appId, ethereumUrl, privateKey).then((s) => {
     console.log("Session created");
     window.session = s;
 });

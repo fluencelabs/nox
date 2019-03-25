@@ -25,7 +25,7 @@ function sign(payload: string, privateKey: PrivateKey): string {
     return sig.signature.toString('hex');
 }
 
-function remove0x(hex: string): string {
+export function remove0x(hex: string): string {
     if (hex.startsWith("0x")) {
         return hex.slice(2);
     } else {

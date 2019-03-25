@@ -33,7 +33,7 @@
     "redux-thunk": "2.3.0",
     "source-map-support": "0.5.4",
     "web3": "1.0.0-beta.37",
-    "fluence": "0.1.23"
+    "fluence": "0.1.25"
   },
   "devDependencies": {
     "@babel/cli": "7.0.0-beta.54",

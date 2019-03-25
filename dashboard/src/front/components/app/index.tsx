@@ -262,16 +262,15 @@ class DashboardApp extends React.Component<Props, State> {
                         <h3 className="box-title">Fluence Network</h3>
                     </div>
                     <div className="box-body">
-                        <p>Fluence is a decentralized computation platform, trustless and efficient. It could be used to
-                            set-up and access a database or to run a full-scale application backend.</p>
-                        <p>Fluence Network is a work in progress, currently in a state of Devnet. We strongly advise
-                            against using the Devnet for anything than testing and education purposes.</p>
-                        <p>If you've got any questions or need help with your setup, please, feel free to ask <a
-                            href="https://discord.gg/AjfbDKQ" target="_blank">on Discord</a>!</p>
-                        <p>Fluence Network documentation can be found <a href="https://fluence.network/docs"
-                                                                         target="_blank">here</a>.</p>
-                        <p>Main Fluence <a href="https://github.com/fluencelabs/fluence" target="_blank">repository on
-                            GitHub</a></p>
+                        <p>Fluence is a permissionless decentralized database platform, trustless and efficient.
+                            With Fluence, you will be able to deploy an SQL/NoSQL database with just a few clicks!</p>
+
+                        <p>Fluence Network is a work in progress and is currently in the devnet state. Feel free to play
+                            with it and build demo DApps on top of your deployed database, but keep in mind that the API
+                            is not stabilized yet and might change in the future.</p>
+
+                        <p>If you have any questions or need help with your setup, please reach out to us at Discord!
+                            You can also take a look at the Fluence documentation.</p>
                     </div>
                 </div>
             </div>
