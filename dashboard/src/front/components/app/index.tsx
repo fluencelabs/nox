@@ -269,7 +269,8 @@ class DashboardApp extends React.Component<Props, State> {
                             with it and build demo DApps on top of your deployed database, but keep in mind that the API
                             is not stabilized yet and might change in the future.</p>
 
-                        <p>If you have any questions or need help with your setup, please reach out to us at Discord!
+                        <p>If you have any questions or need help with your setup, please reach out to us at <a
+                            href="https://discord.gg/AjfbDKQ">Discord</a>!
                             You can also take a look at the Fluence documentation.</p>
                     </div>
                 </div>
