@@ -18,11 +18,11 @@ package fluence.node.workers
 
 import java.nio.file.{Files, Path, Paths}
 
-import cats.Applicative
-import cats.data.EitherT
-import cats.effect.{Sync, Timer}
+import cats.effect.concurrent.MVar
+import cats.effect.{Concurrent, Sync, Timer}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.{Applicative, Monad}
 import com.softwaremill.sttp.{asByteArray, sttp, SttpBackend, Uri}
 import fluence.effects.swarm.helpers.ResponseOps._
 import fluence.effects.swarm.{SwarmClient, SwarmError}
@@ -70,9 +70,34 @@ class TestCodeManager[F[_]](implicit F: Sync[F]) extends CodeManager[F] {
       .flatMap(p => F.pure(Paths.get("/master/vmcode/vmcode-" + p))) // preloaded code in master's docker container
 }
 
-class IpfsCodeManager[F[_]: Timer](ipfsUri: Uri)(
+class PolyglotCodeManager[F[_]: Timer: Monad: Sync: Concurrent](swarm: SwarmCodeManager[F], ipfs: IpfsCodeManager[F])
+    extends CodeManager[F] {
+  override def prepareCode(
+    path: CodePath,
+    storagePath: Path
+  ): F[Path] =
+    for {
+      mvar <- MVar.empty[F, Path]
+      swarmTmp <- Sync[F].delay(Files.createTempDirectory("swarm"))
+      fromSwarm <- Concurrent[F].start(swarm.prepareCode(path, swarmTmp).flatTap(mvar.tryPut))
+      ipfsTmp <- Sync[F].delay(Files.createTempDirectory("ipfs"))
+      fromIpfs <- Concurrent[F].start(ipfs.prepareCode(path, ipfsTmp).flatTap(mvar.tryPut))
+      tmp <- mvar.read
+      _ <- fromSwarm.cancel
+      _ <- fromIpfs.cancel
+      result <- Sync[F].delay(Files.move(tmp, storagePath))
+    } yield result
+}
+
+case class IpfsError(message: String, causedBy: Option[Throwable] = None) extends EffectError {
+  override def getMessage: String = message
+
+  override def getCause: Throwable = causedBy getOrElse super.getCause
+}
+
+class IpfsCodeManager[F[_]: Timer: Monad](ipfsUri: Uri)(
   implicit F: Sync[F],
-  backoff: Backoff[EffectError],
+  backoff: Backoff[SwarmError],
   sttpBackend: SttpBackend[F, Nothing]
 ) {
 
