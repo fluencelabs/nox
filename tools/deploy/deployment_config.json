@@ -4,9 +4,27 @@
     "ethereum_ip": "data.fluence.one",
     "contract": "0x65452336ba247d08c5fabf5fad08d01ff42d255b",
     "nodes": {
-      "<ip-addr>": {
-        "owner": "<owner-addr>",
-        "key": "<secret-key>",
+      "46.101.221.231": {
+        "owner": "0x6f0773cd2965c014d8a9d6ddd8e739568edeb7f5",
+        "key": "906ccd15743cf56dfe1d08c7ca5333560ecc88675da514a517ddeed2dc2cb820",
+        "api_port": "25000",
+        "capacity": "10"
+      },
+      "207.154.223.200": {
+        "owner": "0x1f111701508d76b27ff59d22e839cc907f273031",
+        "key": "3b00a2b6bbfc0cf1c4b041b8b6bad8e4bd718d88e7a9496a5dc4ca885b17d097",
+        "api_port": "25000",
+        "capacity": "10"
+      },
+      "207.154.210.117": {
+        "owner": "0x5903730e872fb2b0cd4402c69d6d43c86e973db7",
+        "key": "0x52c685b72c548da46ee7e595b4003635a1dab3f281dc26b9a13a5b0ea736d3b1",
+        "api_port": "25000",
+        "capacity": "10"
+      },
+      "207.154.210.151": {
+        "owner": "0x8965c5c7e89641dc44d9798dc21fc8294c68b80e",
+        "key": "0x0ba8dbe75adafab30aae7e276e8a977b37d2cac025968b2cd7c50d1eaf2c4a12",
         "api_port": "25000",
         "capacity": "10"
       }

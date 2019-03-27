@@ -1,5 +1,5 @@
 
-export const defaultContractAddress: string = '0xf008c29bb1fabd1eb1ea73b2410f523a5c213f19';
+export const defaultContractAddress: string = '0x65452336ba247d08c5fabf5fad08d01ff42d255b';
 export const rootTagId: string = 'root';
 
 export const fluenceNodeAddr = 'http://data.fluence.one:8545';

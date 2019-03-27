@@ -71,6 +71,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
 
   /**
    * Create directory to hold Tendermint config & data for a specific app (worker)
+   *
    * @param appPath Path containing all configs & data for a specific app
    * @return Path to Tendermint home ($TMHOME) directory
    */
@@ -82,6 +83,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
 
   /**
    * Create directory to hold app code downloaded from Swarm
+   *
    * @param appPath Path containing all configs & data for a specific app
    * @return Path to `vmcode` directory
    */
@@ -120,33 +122,35 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
       )
     } yield ()
 
+  def handleEthEvent(event: NodeEthEvent) = event match {
+    case RunAppWorker(app) ⇒
+      runAppWorker(app)
+
+    case RemoveAppWorker(appId) ⇒
+      pool.get(appId).flatMap {
+        case Some(w) ⇒
+          w.remove.attempt.map { removed =>
+            logger.info(s"Removed: ${w.description} => $removed")
+          }
+        case _ ⇒ ().pure[F]
+      }
+
+    case DropPeerWorker(appId, vk) ⇒
+      pool.get(appId).flatMap {
+        case Some(w) ⇒
+          w.control.dropPeer(vk)
+        case None ⇒ ().pure[F]
+      }
+
+    case NewBlockReceived(block) ⇒
+      ().pure[F]
+  }
+
   /**
    * Runs the appropriate effect for each incoming NodeEthEvent, keeping it untouched
    */
-  val handleEthEvent: fs2.Pipe[F, NodeEthEvent, NodeEthEvent] =
-    _.evalTap {
-      case RunAppWorker(app) ⇒
-        runAppWorker(app)
-
-      case RemoveAppWorker(appId) ⇒
-        pool.get(appId).flatMap {
-          case Some(w) ⇒
-            w.remove.attempt.map { removed =>
-              logger.info(s"Removed: ${w.description} => $removed")
-            }
-          case _ ⇒ ().pure[F]
-        }
-
-      case DropPeerWorker(appId, vk) ⇒
-        pool.get(appId).flatMap {
-          case Some(w) ⇒
-            w.control.dropPeer(vk)
-          case None ⇒ ().pure[F]
-        }
-
-      case NewBlockReceived(block) ⇒
-        ().pure[F]
-    }
+  val handleEthEventPipe: fs2.Pipe[F, NodeEthEvent, NodeEthEvent] =
+    _.evalTap(handleEthEvent)
 
   /**
    * Runs master node and starts listening for AppDeleted event in different threads,
@@ -155,7 +159,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
   val run: IO[ExitCode] =
     nodeEth.nodeEvents
       .evalTap(ev ⇒ Sync[F].delay(logger.debug("Got NodeEth event: " + ev)))
-      .through(handleEthEvent)
+      .parEvalMap(8)(e => handleEthEvent(e).as(e))
       .drain
       .compile
       .drain
