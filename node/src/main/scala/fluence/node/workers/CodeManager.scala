@@ -200,12 +200,14 @@ class SwarmCodeManager[F[_]: Timer](swarmClient: SwarmClient[F])(implicit F: Syn
 
 object CodeManager {
 
-  def apply[F[_]: Sync: Timer](
+  def apply[F[_]: Sync: Timer: Concurrent](
     config: SwarmConfig
   )(implicit sttpBackend: SttpBackend[F, Nothing], backoff: Backoff[SwarmError] = Backoff.default): F[CodeManager[F]] =
     if (config.enabled) {
-      SwarmClient(config.address)
-        .map(client => new SwarmCodeManager[F](client))
+      for {
+        swarm <- SwarmClient(config.address).map(new SwarmCodeManager[F](_))
+        ipfs = new IpfsCodeManager[F](Uri(config.address.replace("8500", "5001")))
+      } yield new PolyglotCodeManager[F](swarm, ipfs)
     } else {
       Applicative[F].pure(new TestCodeManager[F]())
     }
