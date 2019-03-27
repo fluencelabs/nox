@@ -26,8 +26,9 @@ import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
 import fluence.node.config.DockerConfig
 import fluence.node.workers.WorkerParams
-import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus}
-import fluence.node.workers.tendermint.rpc.{TendermintRpc, TendermintStatus}
+import fluence.node.workers.status.{HttpCheckFailed, HttpCheckNotPerformed, HttpCheckStatus, ServiceStatus}
+import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.response.TendermintStatus
 
 import scala.language.higherKinds
 
@@ -47,7 +48,12 @@ case class DockerTendermint(
     dockerStatus: DockerStatus
   ): F[ServiceStatus[TendermintStatus]] =
     dockerStatus match {
-      case d if d.isRunning ⇒ rpc.httpStatus.map(s ⇒ ServiceStatus(d, s))
+      case d if d.isRunning ⇒
+        rpc.statusParsed.value.map {
+          case Right(resp) ⇒ HttpCheckStatus(resp)
+          case Left(err) ⇒ HttpCheckFailed(err)
+        }.map(s ⇒ ServiceStatus(d, s))
+
       case d ⇒
         Applicative[F].pure(ServiceStatus(d, HttpCheckNotPerformed("Tendermint Docker container is not launched")))
     }
@@ -63,7 +69,6 @@ object DockerTendermint {
   // Internal ports
   val P2pPort: Short = 26656
   val RpcPort: Short = 26657
-  val TmPrometheusPort: Short = 26660
 
   /**
    * Execute tendermint-specific command inside a temporary container, return the results
@@ -136,7 +141,7 @@ object DockerTendermint {
   /**
    * Worker's Tendermint container's name
    */
-  private def containerName(params: WorkerParams) =
+  def containerName(params: WorkerParams) =
     s"${params.appId}_tendermint_${params.currentWorker.index}"
 
   /**

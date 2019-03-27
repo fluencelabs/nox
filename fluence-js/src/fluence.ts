@@ -14,34 +14,28 @@
  * limitations under the License.
  */
 
-import { TendermintClient } from "./TendermintClient";
-import { Engine } from "./Engine";
-import { Session } from "./Session";
-import { SessionConfig } from "./SessionConfig";
+import {TendermintClient} from "./TendermintClient";
+import {Engine} from "./Engine";
+import {Session} from "./Session";
+import {SessionConfig} from "./SessionConfig";
 import {Result} from "./Result";
 import {getAppNodes, Node} from "fluence-monitoring"
-import { ResultPromise } from "./ResultAwait";
-import {PrivateKey, secp256k1} from "./utils";
+import {remove0x, secp256k1} from "./utils";
+import {AppSession} from "./AppSession";
 
 export {
     TendermintClient as TendermintClient,
     Engine as Engine,
     Session as Session,
     Result as Result,
-    SessionConfig as SessionConfig
+    SessionConfig as SessionConfig,
+    AppSession as AppSession
 }
 
 // A session with a worker with info about a worker
 export interface WorkerSession {
     session: Session,
     node: Node
-}
-
-// All sessions with workers from an app
-export interface AppSession {
-    appId: string,
-    workerSessions: WorkerSession[],
-    request(payload: string): ResultPromise
 }
 
 /**
@@ -51,7 +45,11 @@ export interface AppSession {
  * @param ethereumUrl Optional ethereum node url. Connect via Metamask if `ethereulUrl` is undefined
  * @param privateKey Optional private key to sign requests. Signature is concatenated to the request payload.
  */
-export async function connect(contract: string, appId: string, ethereumUrl?: string, privateKey?: PrivateKey): Promise<AppSession> {
+export async function connect(contract: string, appId: string, ethereumUrl?: string, privateKey?: Buffer | string): Promise<AppSession> {
+    if (privateKey != undefined && typeof privateKey == 'string') {
+        privateKey = Buffer.from(remove0x(privateKey), "hex");
+    }
+
     if (privateKey != undefined) {
         if (!secp256k1.privateKeyVerify(privateKey)) {
             throw Error("Private key is invalid");
@@ -59,39 +57,28 @@ export async function connect(contract: string, appId: string, ethereumUrl?: str
     }
 
     let nodes: Node[] = await getAppNodes(contract, appId, ethereumUrl);
+    let sessionId = Session.genSessionId();
     let sessions: WorkerSession[] = nodes.map(node => {
-        let session = directConnect(node.ip_addr, node.api_port, appId);
+        let session = directConnect(node.ip_addr, node.api_port, appId, sessionId);
         return {
             session: session,
             node: node
         }
     });
 
-    // randomly selects worker and calls `request` on that worker
-    function request(payload: string): ResultPromise {
-        function getRandom(floor:number, ceiling:number) {
-            return Math.floor(Math.random() * (ceiling - floor + 1)) + floor;
-        }
-
-        const randomChoiceIndex = getRandom(0, sessions.length - 1);
-        let session = sessions[randomChoiceIndex].session;
-        return session.request(payload, privateKey);
-    }
-
-    return {
-        appId: appId,
-        workerSessions: sessions,
-        request: request
-    }
+    return new AppSession(sessionId, appId, sessions, privateKey);
 }
 
 /**
  * Creates direct connection to one node.
  */
-export function directConnect(host: string, port: number, appId: string) {
+export function directConnect(host: string, port: number, appId: string, sessionId?: string) {
     let tm = new TendermintClient(host, port, appId);
-
     let engine = new Engine(tm);
 
-    return engine.genSession();
+    if (sessionId == undefined) {
+        return engine.genSession();
+    } else {
+        return engine.createSession(new SessionConfig(), sessionId);
+    }
 }

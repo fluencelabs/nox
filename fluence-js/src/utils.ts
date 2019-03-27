@@ -25,6 +25,14 @@ function sign(payload: string, privateKey: PrivateKey): string {
     return sig.signature.toString('hex');
 }
 
+export function remove0x(hex: string): string {
+    if (hex.startsWith("0x")) {
+        return hex.slice(2);
+    } else {
+        return hex;
+    }
+}
+
 /**
  * Signs the payload concatenated with counter, and prepends the signature to the signed data
  *

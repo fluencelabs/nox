@@ -13,6 +13,6 @@ It is written on TypeScript to reach more clean, understandable and typesafe cod
 
 ## Documentation
 
-[Guide](https://github.com/fluencelabs/fluence/blob/master/docs/guides/frontend.md)
+[Guide](https://fluence.network/docs/book/quickstart/web.html)
 
 TODO

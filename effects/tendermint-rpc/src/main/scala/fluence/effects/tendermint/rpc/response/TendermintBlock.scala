@@ -14,20 +14,12 @@
  * limitations under the License.
  */
 
-//! The main part of Fluence backend SDK. Contains `export_allocator` (that can be disabled by
-//! using `no_export_allocator` feature), `logger` (enabled by `wasm_logger`) and `memory` modules.
+package fluence.effects.tendermint.rpc.response
 
-#![doc(html_root_url = "https://docs.rs/fluence-sdk-main/0.1.3")]
-#![feature(allocator_api)]
+case class TendermintBlock(
+  last_commit: TendermintBlock.LastCommit
+)
 
-extern crate core;
-
-pub mod memory;
-
-// wasm_logger feature should be used only for debugging purposes since the Fluence network doesn't
-// support writing messages to a log.
-#[cfg(feature = "wasm_logger")]
-pub mod logger;
-
-#[cfg(feature = "export_allocator")]
-pub mod export_allocator;
+object TendermintBlock {
+  case class LastCommit()
+}

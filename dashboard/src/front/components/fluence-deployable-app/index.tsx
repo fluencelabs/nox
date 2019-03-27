@@ -4,6 +4,7 @@ import {DeployableApp, DeployableAppId, deployableApps} from "../../../fluence/d
 import {deploy} from "../../actions/deployable/deploy";
 import {Action} from "redux";
 import Snippets from "./snippets";
+import {cutId, remove0x} from "../../../utils";
 
 interface State {
     loading: boolean,
@@ -11,10 +12,9 @@ interface State {
 
 interface Props {
     id: DeployableAppId,
-    deployableApps: {
-        [key: string]: DeployableApp
-    },
-    deploy: (app: DeployableApp) => Promise<Action>
+    deploy: (app: DeployableApp, appId: string) => Promise<Action>,
+    deployedApp: number | undefined,
+    deployedAppId: DeployableApp | undefined,
 }
 
 class FluenceDeployableApp extends React.Component<Props, State> {
@@ -22,33 +22,36 @@ class FluenceDeployableApp extends React.Component<Props, State> {
         loading: false,
     };
 
-    startDeploy = (e: React.MouseEvent<HTMLElement>, app: DeployableApp) => {
+    startDeploy = (e: React.MouseEvent<HTMLElement>, app: DeployableApp, appId: string) => {
         this.setState({loading: true});
-        this.props.deploy(app)
-            .then(() => this.setState({loading: false}))
-            .catch(e => {
-                console.error("error while deploying " + JSON.stringify(e));
-                this.setState({loading: false});
-            });
+        this.props.deploy(app, appId)
+            .catch(function (err) {
+                console.error("error while deploying " + JSON.stringify(err));
+            })
+            .then(() => this.setState({loading: false}));
     };
 
-    renderAppInfo(app: DeployableApp): React.ReactNode {
+    renderAppInfo(app: DeployableApp, appId: string): React.ReactNode {
         return (
             <div className="box-footer no-padding">
                 <div className="box-body">
-                    <strong><i className="fa fa-bullseye margin-r-5"/>Storage Hash</strong>
-                    <p className="text-muted" title={app.storageHash}>{app.storageHash}</p>
+                    <strong><i className="fa fa-bullseye margin-r-5"/>WebAssembly package</strong>
+                    <p className="text-muted" title={app.storageHash}><a
+                        href={'https://swarm-gateways.net/bzz:/' + remove0x(app.storageHash) + '/' + app.name + '.wasm'}
+                        title={app.storageHash}
+                        target="_blank">{cutId(app.storageHash)}</a></p>
                     <hr/>
 
                     <strong><i className="fa fa-bullseye margin-r-5"/>Cluster Size</strong>
-                    <p className="text-muted">{app.clusterSize}</p>
+                    <p className="text-muted">{app.clusterSize} nodes</p>
                     <hr/>
 
                     <p>
                         <button
                             type="button"
-                            onClick={e => this.startDeploy(e, app)}
-                            className="btn btn-block btn-primary">
+                            onClick={e => this.startDeploy(e, app, appId)}
+                            disabled={!!(this.props.deployedAppId || this.state.loading)}
+                            className="btn btn-block btn-success btn-lg">
                             Deploy app <i style={{display: this.state.loading ? 'inline-block' : 'none'}}
                                           className="fa fa-refresh fa-spin"/>
                         </button>
@@ -59,7 +62,7 @@ class FluenceDeployableApp extends React.Component<Props, State> {
     }
 
     render(): React.ReactNode {
-        const app = this.props.deployableApps[this.props.id];
+        const app = deployableApps[this.props.id];
 
         return (
             <div>
@@ -67,13 +70,12 @@ class FluenceDeployableApp extends React.Component<Props, State> {
                     <div className="box box-widget widget-user-2">
                         <div className="widget-user-header bg-fluence-blue-gradient">
                             <div className="widget-user-image">
-                            <span className="entity-info-box-icon">
-                                <i className={app ? 'ion ion-ios-gear-outline' : 'fa fa-refresh fa-spin'}/>
-                            </span>
+                                <span className="entity-info-box-icon entity-info-box-icon-thin"><i
+                                    className={app ? 'ion ion-ios-gear-outline' : 'fa fa-refresh fa-spin'}></i></span>
                             </div>
-                            <h3 className="widget-user-username">{this.props.deployableApps[this.props.id].name}</h3>
+                            <h3 className="widget-user-username">{app.name}</h3>
                         </div>
-                        {app && this.renderAppInfo(app)}
+                        {app && this.renderAppInfo(app, this.props.id)}
                     </div>
                 </div>
                 <div className="col-md-4 col-xs-12">
@@ -85,7 +87,8 @@ class FluenceDeployableApp extends React.Component<Props, State> {
 }
 
 const mapStateToProps = (state: any) => ({
-    deployableApps: deployableApps,
+    deployedApp: state.deploy.app,
+    deployedAppId: state.deploy.appId,
 });
 
 const mapDispatchToProps = {

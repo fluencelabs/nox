@@ -21,6 +21,9 @@ import cats.data.{EitherT, NonEmptyList}
 import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import com.github.jtendermint.jabci.socket.TSocket
+import com.softwaremill.sttp.SttpBackend
+import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
+import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.control.{ControlServer, ControlSignals}
 import fluence.statemachine.error.StateMachineError
@@ -38,6 +41,10 @@ import scala.language.higherKinds
  * according to Tendermint specification) and sends ABCI requests to `ABCIHandler`.
  */
 object ServerRunner extends IOApp with LazyLogging {
+
+  private val sttpResource: Resource[IO, SttpBackend[IO, Nothing]] =
+    Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
+
   override def run(args: List[String]): IO[ExitCode] = {
     for {
       config <- StateMachineConfig.load[IO]()
@@ -47,7 +54,15 @@ object ServerRunner extends IOApp with LazyLogging {
       _ <- (
         for {
           control ← ControlServer.make[IO](config.control)
-          _ ← abciHandlerResource(config.abciPort, config, control)
+
+          sttp ← sttpResource
+
+          rpc ← {
+            implicit val s = sttp
+            TendermintRpc.make[IO](config.tendermintRpc.host, config.tendermintRpc.port)
+          }
+
+          _ ← abciHandlerResource(config.abciPort, config, control, rpc)
         } yield control.signals.stop
       ).use(identity)
     } yield ExitCode.Success
@@ -63,11 +78,12 @@ object ServerRunner extends IOApp with LazyLogging {
   private def abciHandlerResource(
     abciPort: Int,
     config: StateMachineConfig,
-    controlServer: ControlServer[IO]
+    controlServer: ControlServer[IO],
+    rpc: TendermintRpc[IO]
   ): Resource[IO, Unit] =
     Resource
       .make(
-        buildAbciHandler(config, controlServer.signals).value.flatMap {
+        buildAbciHandler(config, controlServer.signals, rpc).value.flatMap {
           case Right(handler) ⇒ IO.pure(handler)
           case Left(err) ⇒ IO.raiseError(new RuntimeException("Building ABCI handler failed: " + err))
         }.flatMap { handler ⇒
@@ -92,7 +108,8 @@ object ServerRunner extends IOApp with LazyLogging {
    */
   private[statemachine] def buildAbciHandler(
     config: StateMachineConfig,
-    controlSignals: ControlSignals[IO]
+    controlSignals: ControlSignals[IO],
+    rpc: TendermintRpc[IO]
   ): EitherT[IO, StateMachineError, AbciHandler[IO]] =
     for {
       moduleFilenames <- config.collectModuleFiles[IO]
@@ -104,7 +121,7 @@ object ServerRunner extends IOApp with LazyLogging {
       vmInvoker = new VmOperationInvoker[IO](vm)
 
       service <- EitherT.right(AbciService[IO](vmInvoker))
-    } yield new AbciHandler[IO](service, controlSignals)
+    } yield new AbciHandler[IO](service, controlSignals, rpc)
 
   /**
    * Builds a VM instance used to perform function calls from the clients.
