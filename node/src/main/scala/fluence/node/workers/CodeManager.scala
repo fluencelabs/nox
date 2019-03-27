@@ -19,14 +19,16 @@ package fluence.node.workers
 import java.nio.file.{Files, Path, Paths}
 
 import cats.Applicative
+import cats.data.EitherT
 import cats.effect.{Sync, Timer}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import com.softwaremill.sttp.SttpBackend
-import fluence.effects.Backoff
-import fluence.node.config.SwarmConfig
+import com.softwaremill.sttp.{asByteArray, sttp, SttpBackend, Uri}
+import fluence.effects.swarm.helpers.ResponseOps._
 import fluence.effects.swarm.{SwarmClient, SwarmError}
 import fluence.effects.syntax.backoff._
+import fluence.effects.{Backoff, EffectError}
+import fluence.node.config.SwarmConfig
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -39,6 +41,7 @@ sealed trait CodeManager[F[_]] {
 
   /**
    * Downloads code from Swarm and manages paths to the code.
+   *
    * @param path a path to a code from the smart contract
    * @param storagePath a path to a worker's working directory
    * @return
@@ -54,6 +57,7 @@ class TestCodeManager[F[_]](implicit F: Sync[F]) extends CodeManager[F] {
 
   /**
    * Downloads code from Swarm and manages paths to the code.
+   *
    * @param path a path to a code from the smart contract
    * @param workerPath a path to a worker's working directory
    * @return
@@ -66,6 +70,48 @@ class TestCodeManager[F[_]](implicit F: Sync[F]) extends CodeManager[F] {
       .flatMap(p => F.pure(Paths.get("/master/vmcode/vmcode-" + p))) // preloaded code in master's docker container
 }
 
+class IpfsCodeManager[F[_]: Timer](ipfsUri: Uri)(
+  implicit F: Sync[F],
+  backoff: Backoff[EffectError],
+  sttpBackend: SttpBackend[F, Nothing]
+) {
+
+  def prepareCode(path: CodePath, storagePath: Path): F[Path] = {
+    for {
+      dirPath <- F.delay(storagePath.resolve("vmcode"))
+      _ <- if (dirPath.toFile.exists()) F.unit else F.delay(Files.createDirectory(dirPath))
+
+      //TODO check if file's Swarm hash corresponds to the address
+      filePath <- F.delay(dirPath.resolve(path + ".wasm"))
+      exists <- F.delay(filePath.toFile.exists())
+      _ <- if (exists) F.unit
+      else {
+        for {
+          tmpFile <- F.delay(Files.createTempFile("code_", "_wasm"))
+          _ <- download(path, tmpFile)
+          _ <- F.delay(Files.move(tmpFile, filePath))
+        } yield ()
+      }
+    } yield dirPath
+  }
+
+  def download(code: CodePath, target: Path): F[Unit] = {
+    val uri = ipfsUri.path("/api/v0/get").param("arg", code.asHex) //?arg=QmbSbQTsy7uHbPzkbNBy1YDcHixAvgJ8UxvtNxNCnCgMx2"
+    sttp
+      .response(asByteArray)
+      .get(uri)
+      .send()
+      .toEitherT { er =>
+        val errorMessage = s"Error on downloading from $uri. $er"
+        SwarmError(errorMessage)
+      }
+      .backoff
+      .flatMap { codeBytes =>
+        F.delay(Files.write(target, codeBytes))
+      }
+  }
+}
+
 /**
  * Uses the Swarm network to download a code.
  *
@@ -75,6 +121,7 @@ class SwarmCodeManager[F[_]: Timer](swarmClient: SwarmClient[F])(implicit F: Syn
 
   /**
    * Downloads file from the Swarm and store it on a disk.
+   *
    * @param swarmPath a code address and a Swarm URL address
    * @param filePath a path to code to store
    */
@@ -86,6 +133,7 @@ class SwarmCodeManager[F[_]: Timer](swarmClient: SwarmClient[F])(implicit F: Syn
 
   /**
    * Checks if there is no code already then download a file from the Swarm and store it to a disk.
+   *
    * @param workerPath a path to worker's directory
    * @param swarmPath a code address and a Swarm URL address
    * @return a path to a code
@@ -115,6 +163,7 @@ class SwarmCodeManager[F[_]: Timer](swarmClient: SwarmClient[F])(implicit F: Syn
 
   /**
    * Downloads code from Swarm and manages paths to the code.
+   *
    * @param path a path to a code from the smart contract
    * @param workerPath a path to a worker's working directory
    * @return
