@@ -1,5 +1,5 @@
-import { fromHex, toHex } from '../utils';
-import { expect } from 'chai';
+import {fromHex, toHex} from '../utils';
+import {expect} from 'chai';
 
 import 'mocha';
 
@@ -24,7 +24,7 @@ describe('utils', () => {
     it('the result should be equal to the original input variable after #toHex() and #fromHex()', () => {
         let randomstring = require("randomstring");
 
-        const str =  randomstring.generate(20);
+        const str = randomstring.generate(20);
 
         expect(fromHex(toHex(str))).to.equal(str);
     });

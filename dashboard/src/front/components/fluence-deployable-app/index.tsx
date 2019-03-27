@@ -4,6 +4,7 @@ import {DeployableApp, DeployableAppId, deployableApps} from "../../../fluence/d
 import {deploy} from "../../actions/deployable/deploy";
 import {Action} from "redux";
 import Snippets from "./snippets";
+import {cutId, remove0x} from "../../../utils";
 
 interface State {
     loading: boolean,
@@ -34,12 +35,15 @@ class FluenceDeployableApp extends React.Component<Props, State> {
         return (
             <div className="box-footer no-padding">
                 <div className="box-body">
-                    <strong><i className="fa fa-bullseye margin-r-5"/>Storage Hash</strong>
-                    <p className="text-muted" title={app.storageHash}>{app.storageHash}</p>
+                    <strong><i className="fa fa-bullseye margin-r-5"/>WebAssembly package</strong>
+                    <p className="text-muted" title={app.storageHash}><a
+                        href={'https://swarm-gateways.net/bzz:/' + remove0x(app.storageHash) + '/' + app.name + '.wasm'}
+                        title={app.storageHash}
+                        target="_blank">{cutId(app.storageHash)}</a></p>
                     <hr/>
 
                     <strong><i className="fa fa-bullseye margin-r-5"/>Cluster Size</strong>
-                    <p className="text-muted">{app.clusterSize}</p>
+                    <p className="text-muted">{app.clusterSize} nodes</p>
                     <hr/>
 
                     <p>
@@ -66,7 +70,8 @@ class FluenceDeployableApp extends React.Component<Props, State> {
                     <div className="box box-widget widget-user-2">
                         <div className="widget-user-header bg-fluence-blue-gradient">
                             <div className="widget-user-image">
-                                <span className="entity-info-box-icon entity-info-box-icon-thin"><i className={app ? 'ion ion-ios-gear-outline' : 'fa fa-refresh fa-spin'}></i></span>
+                                <span className="entity-info-box-icon entity-info-box-icon-thin"><i
+                                    className={app ? 'ion ion-ios-gear-outline' : 'fa fa-refresh fa-spin'}></i></span>
                             </div>
                             <h3 className="widget-user-username">{app.name}</h3>
                         </div>

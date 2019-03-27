@@ -11,6 +11,7 @@ export type DeployableAppId = string;
 
 export interface DeployableApp {
     name: string,
+    shortName: string,
     storageHash: string,
     clusterSize: number,
 }
@@ -20,7 +21,8 @@ export const deployableAppIds: [DeployableAppId] = ["llamadb"];
 export const deployableApps: { [key: string]: DeployableApp } = {
     "llamadb": {
         name: "SQL DB (llamadb)",
-        storageHash: "0x9918b8657755b41096da7a7da0528550ffce4a812c2295d2811c86d29be23326",
+        shortName: "SQL DB",
+        storageHash: "0x3c4f07d3d5919c13e080b560283a2405151559d5aacd53c5b394b2d6738ebc0e",
         clusterSize: 4
     }
 };
