@@ -1,6 +1,6 @@
 [package]
 name = "fluence-sdk-main"
-version = "0.1.3"  # remember to update html_root_url
+version = "0.1.4"  # remember to update html_root_url
 edition = "2018"
 description = "Rust SDK for writing applications for Fluence"
 documentation = "https://docs.rs/fluence/fluence-sdk-macro"
@@ -27,7 +27,6 @@ simple_logger = "1.0" # used in doc test
 lazy_static = "1.2.0" # used in doc test
 
 [features]
-default = ["export_allocator"]
 # Turn on a compilation for module contains Wasm logger realization.
 wasm_logger = []
 
