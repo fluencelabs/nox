@@ -121,7 +121,8 @@ class IpfsCodeManager[F[_]: Timer: Monad](ipfsUri: Uri)(
   }
 
   def download(code: CodePath, target: Path): F[Unit] = {
-    val uri = ipfsUri.path("/api/v0/get").param("arg", code.asHex) //?arg=QmbSbQTsy7uHbPzkbNBy1YDcHixAvgJ8UxvtNxNCnCgMx2"
+    val address = (ByteVector(0x12, 0x20) ++ code.storageHash).toBase58
+    val uri = ipfsUri.path("/api/v0/get").param("arg", address)
     sttp
       .response(asByteArray)
       .get(uri)
