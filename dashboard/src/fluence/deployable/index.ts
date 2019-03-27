@@ -16,13 +16,19 @@ export interface DeployableApp {
     clusterSize: number,
 }
 
-export const deployableAppIds: [DeployableAppId] = ["llamadb"];
+export const deployableAppIds: DeployableAppId[] = ["llamadb", "llamadb_ipfs"];
 
 export const deployableApps: { [key: string]: DeployableApp } = {
     "llamadb": {
         name: "SQL DB (llamadb)",
         shortName: "SQL DB",
         storageHash: "0x3c4f07d3d5919c13e080b560283a2405151559d5aacd53c5b394b2d6738ebc0e",
+        clusterSize: 4
+    },
+    "llamadb_ipfs": {
+        name: "SQL DB (llamadb) IPFS",
+        shortName: "SQL DB",
+        storageHash: "0xC2ADADC916DE10876CBA4668B3EB5C1E48752593748E02DB0CE635CE9179CA6F",
         clusterSize: 4
     }
 };

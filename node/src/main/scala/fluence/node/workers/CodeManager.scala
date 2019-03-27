@@ -30,6 +30,9 @@ import fluence.effects.syntax.backoff._
 import fluence.effects.{Backoff, EffectError}
 import fluence.node.config.SwarmConfig
 import scodec.bits.ByteVector
+import slogging.LazyLogging
+import com.softwaremill.sttp._
+import com.softwaremill.sttp.circe._
 
 import scala.language.higherKinds
 
@@ -77,16 +80,26 @@ class PolyglotCodeManager[F[_]: Timer: Monad: Sync: Concurrent](swarm: SwarmCode
     storagePath: Path
   ): F[Path] =
     for {
-      mvar <- MVar.empty[F, Path]
-      swarmTmp <- Sync[F].delay(Files.createTempDirectory("swarm"))
-      fromSwarm <- Concurrent[F].start(swarm.prepareCode(path, swarmTmp).flatTap(mvar.tryPut))
-      ipfsTmp <- Sync[F].delay(Files.createTempDirectory("ipfs"))
-      fromIpfs <- Concurrent[F].start(ipfs.prepareCode(path, ipfsTmp).flatTap(mvar.tryPut))
-      tmp <- mvar.read
-      _ <- fromSwarm.cancel
-      _ <- fromIpfs.cancel
-      result <- Sync[F].delay(Files.move(tmp, storagePath))
-    } yield result
+      dirPath <- Sync[F].delay(storagePath.resolve("vmcode"))
+      _ <- if (dirPath.toFile.exists()) Sync[F].unit else Sync[F].delay(Files.createDirectory(dirPath))
+
+      filePath <- Sync[F].delay(dirPath.resolve(path.asHex + ".wasm"))
+      exists <- Sync[F].delay(filePath.toFile.exists())
+      _ <- if (exists) Sync[F].unit
+      else {
+        for {
+          mvar <- MVar.empty[F, Path]
+          swarmTmp <- Sync[F].delay(Files.createTempDirectory("swarm"))
+          fromSwarm <- Concurrent[F].start(swarm.prepareCode(path, swarmTmp).flatTap(mvar.tryPut))
+          ipfsTmp <- Sync[F].delay(Files.createTempDirectory("ipfs"))
+          fromIpfs <- Concurrent[F].start(ipfs.prepareCode(path, ipfsTmp).flatTap(mvar.tryPut))
+          tmp <- mvar.read
+          _ <- fromSwarm.cancel
+          _ <- fromIpfs.cancel
+          _ <- Sync[F].delay(Files.move(tmp.resolve(path.asHex + ".wasm"), filePath))
+        } yield ()
+      }
+    } yield dirPath
 }
 
 case class IpfsError(message: String, causedBy: Option[Throwable] = None) extends EffectError {
@@ -99,7 +112,7 @@ class IpfsCodeManager[F[_]: Timer: Monad](ipfsUri: Uri)(
   implicit F: Sync[F],
   backoff: Backoff[SwarmError],
   sttpBackend: SttpBackend[F, Nothing]
-) {
+) extends LazyLogging {
 
   def prepareCode(path: CodePath, storagePath: Path): F[Path] = {
     for {
@@ -107,7 +120,7 @@ class IpfsCodeManager[F[_]: Timer: Monad](ipfsUri: Uri)(
       _ <- if (dirPath.toFile.exists()) F.unit else F.delay(Files.createDirectory(dirPath))
 
       //TODO check if file's Swarm hash corresponds to the address
-      filePath <- F.delay(dirPath.resolve(path + ".wasm"))
+      filePath <- F.delay(dirPath.resolve(path.asHex + ".wasm"))
       exists <- F.delay(filePath.toFile.exists())
       _ <- if (exists) F.unit
       else {
@@ -123,6 +136,7 @@ class IpfsCodeManager[F[_]: Timer: Monad](ipfsUri: Uri)(
   def download(code: CodePath, target: Path): F[Unit] = {
     val address = (ByteVector(0x12, 0x20) ++ code.storageHash).toBase58
     val uri = ipfsUri.path("/api/v0/get").param("arg", address)
+    logger.info(s"IPFS download start: $uri")
     sttp
       .response(asByteArray)
       .get(uri)
@@ -133,6 +147,7 @@ class IpfsCodeManager[F[_]: Timer: Monad](ipfsUri: Uri)(
       }
       .backoff
       .flatMap { codeBytes =>
+        logger.info(s"IPFS download finish: $uri -> $target")
         F.delay(Files.write(target, codeBytes))
       }
   }
@@ -207,7 +222,7 @@ object CodeManager {
     if (config.enabled) {
       for {
         swarm <- SwarmClient(config.address).map(new SwarmCodeManager[F](_))
-        ipfs = new IpfsCodeManager[F](Uri(config.address.replace("8500", "5001")))
+        ipfs = new IpfsCodeManager[F](uri"${config.address.replace("8500", "5001")}")
       } yield new PolyglotCodeManager[F](swarm, ipfs)
     } else {
       Applicative[F].pure(new TestCodeManager[F]())
