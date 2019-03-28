@@ -25,16 +25,20 @@ exports.appDeployedEvent = 'AppDeployed';
 exports.appDeletedEvent = 'AppDeleted';
 exports.appDequeuedEvent = 'AppDequeued';
 
+const padRight = web3.utils.padRight;
+const toHex = web3.utils.toHex;
+const toUtf8 = web3.utils.toUtf8;
+
 function string2Bytes32 (str) {
     // 64 is for 32 bytes, 2 chars each
     // + 2 is for '0x' prefix
-    return web3.padRight(web3.toHex(str), 64 + 2)
+    return padRight(toHex(str), 64 + 2)
 }
 
 exports.string2Bytes32 = string2Bytes32;
 
 function bytes32ToString (hex) {
-    return web3.toUtf8(hex);
+    return toUtf8(hex);
 }
 
 exports.bytes32ToString = bytes32ToString;

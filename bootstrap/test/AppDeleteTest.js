@@ -19,7 +19,7 @@ var FluenceContract = artifacts.require("./Network.sol");
 const utils = require("./Utils.js");
 const truffleAssert = require('truffle-assertions');
 const assert = require("chai").assert;
-const { shouldFail } = require('openzeppelin-test-helpers');
+const { shouldFail, expectEvent } = require('openzeppelin-test-helpers');
 
 contract('Fluence (app deletion)', function ([_, owner, anyone, other]) {
     beforeEach(async function() {
@@ -36,11 +36,7 @@ contract('Fluence (app deletion)', function ([_, owner, anyone, other]) {
 
     it("Remove enqueued app", async function() {
         let add = await addApp(1);
-        let appID;
-        truffleAssert.eventEmitted(add.receipt, utils.appEnqueuedEvent, ev => {
-            appID = ev.appID;
-            return true;
-        });
+        let appID = expectEvent.inLogs(add.receipt.logs, utils.appEnqueuedEvent).appID;
 
         let app = await global.contract.getApp(appID);
         assert.notEqual(app, undefined);
@@ -51,9 +47,10 @@ contract('Fluence (app deletion)', function ([_, owner, anyone, other]) {
         await shouldFail.reverting(global.contract.dequeueApp(appID, { from: other }));
 
         let dequeueApp = await global.contract.dequeueApp(appID, { from: anyone });
-        truffleAssert.eventEmitted(dequeueApp, utils.appDequeuedEvent, ev => {
-            return ev.appID.valueOf() === appID.valueOf();
-        });
+        expectEvent.inLogs(dequeueApp.logs, utils.appDequeuedEvent, { appID: appID });
+        // truffleAssert.eventEmitted(dequeueApp, utils.appDequeuedEvent, ev => {
+        //     return ev.appID.valueOf() === appID.valueOf();
+        // });
 
         await shouldFail.reverting(global.contract.getApp(appID)); // throws on non existing app
 
