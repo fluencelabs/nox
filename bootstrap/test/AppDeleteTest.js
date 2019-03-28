@@ -19,7 +19,7 @@ var FluenceContract = artifacts.require("./Network.sol");
 const utils = require("./Utils.js");
 const truffleAssert = require('truffle-assertions');
 const assert = require("chai").assert;
-const { expectThrow } = require('openzeppelin-solidity/test/helpers/expectThrow');
+const { shouldFail } = require('openzeppelin-test-helpers');
 
 contract('Fluence (app deletion)', function ([_, owner, anyone, other]) {
     beforeEach(async function() {
@@ -48,14 +48,14 @@ contract('Fluence (app deletion)', function ([_, owner, anyone, other]) {
         assert.equal(storageHash, add.storageHash);
 
         // only app owner can delete app
-        await expectThrow(global.contract.dequeueApp(appID, { from: other }));
+        await shouldFail.reverting(global.contract.dequeueApp(appID, { from: other }));
 
         let dequeueApp = await global.contract.dequeueApp(appID, { from: anyone });
         truffleAssert.eventEmitted(dequeueApp, utils.appDequeuedEvent, ev => {
             return ev.appID.valueOf() === appID.valueOf();
         });
 
-        await expectThrow(global.contract.getApp(appID)); // throws on non existing app
+        await shouldFail.reverting(global.contract.getApp(appID)); // throws on non existing app
 
         let appIDs = await global.contract.getAppIDs();
         assert.equal(0, appIDs.length);
@@ -83,17 +83,17 @@ contract('Fluence (app deletion)', function ([_, owner, anyone, other]) {
         assert.equal(storageHash, add.storageHash);
 
         // only app owner can delete app
-        await expectThrow(global.contract.deleteApp(appID, { from: other }));
+        await shouldFail.reverting(global.contract.deleteApp(appID, { from: other }));
 
         // can't delete with wrong clusterID
-        await expectThrow(global.contract.deleteApp(0, { from: anyone }));
+        await shouldFail.reverting(global.contract.deleteApp(0, { from: anyone }));
 
         let deleteApp = await global.contract.deleteApp(appID, { from: anyone });
         truffleAssert.eventEmitted(deleteApp, utils.appDeletedEvent, ev => {
             return ev.appID.valueOf() === appID.valueOf();
         });
 
-        await expectThrow(global.contract.getApp(appID));
+        await shouldFail.reverting(global.contract.getApp(appID));
 
         assert.equal(nodeIds.length, 5);
 

@@ -19,7 +19,7 @@ var FluenceContract = artifacts.require("./Network.sol");
 const utils = require('./Utils.js');
 const truffleAssert = require('truffle-assertions');
 const assert = require("chai").assert;
-const { expectThrow } = require('openzeppelin-solidity/test/helpers/expectThrow');
+const { shouldFail } = require('openzeppelin-test-helpers');
 
 contract('Fluence', function ([_, owner, anyone]) {
     beforeEach(async function() {
@@ -44,7 +44,7 @@ contract('Fluence', function ([_, owner, anyone]) {
     });
 
     it("Should throw an error if asking about non-existent cluster", async function() {
-        await expectThrow(
+        await shouldFail.reverting(
             this.contract.getApp(777)
         )
     });

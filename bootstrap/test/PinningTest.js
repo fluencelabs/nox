@@ -19,7 +19,7 @@ var FluenceContract = artifacts.require("./Network.sol");
 const utils = require("./Utils.js");
 const truffleAssert = require('truffle-assertions');
 const assert = require("chai").assert;
-const { expectThrow } = require('openzeppelin-solidity/test/helpers/expectThrow');
+const { shouldFail } = require('openzeppelin-test-helpers');
 
 contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
     beforeEach(async function() {
@@ -168,14 +168,14 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
     });
 
     it("Should revert on pinToNodes > clusterSize", async function() {
-        await expectThrow(
+        await shouldFail.reverting(
             addApp(5, Array(10).fill(0)),
             "number of pinTo nodes should be less or equal to the desired clusterSize"
         );
     });
 
     it("Should revert on pinning to non-registered node", async function() {
-        await expectThrow(
+        await shouldFail.reverting(
             addApp(5, ["non-existent-node-id"]),
             "Can pin only to registered nodes"
         );
@@ -184,7 +184,7 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
     it("Should revert on pinning to non-owned node", async function() {
         let result = await utils.addPinnedNodes(global.contract, 1, "127.0.0.1", anyone, 1);
         let nodeID = result.pop().nodeID;
-        await expectThrow(
+        await shouldFail.reverting(
             addApp(5, [nodeID]),
             "Can pin only to nodes you own"
         );

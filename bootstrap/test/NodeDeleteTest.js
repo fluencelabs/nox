@@ -19,7 +19,7 @@ var FluenceContract = artifacts.require("./Network.sol");
 const utils = require("./Utils.js");
 const truffleAssert = require('truffle-assertions');
 const assert = require("chai").assert;
-const { expectThrow } = require('openzeppelin-solidity/test/helpers/expectThrow');
+const { shouldFail } = require('openzeppelin-test-helpers');
 
 contract('Fluence (node deletion)', function ([_, owner, anyone, other]) {
     beforeEach(async function() {
@@ -57,12 +57,12 @@ contract('Fluence (node deletion)', function ([_, owner, anyone, other]) {
             return true;
         });
 
-        await expectThrow(
+        await shouldFail.reverting(
             global.contract.deleteNode(nodeID, { from: other }),
             "error deleting node: you must own node to delete it"
         );
 
-        await expectThrow(
+        await shouldFail.reverting(
             global.contract.deleteNode("wrongNodeId", { from: other }),
             "error deleting node: node not found"
         );
