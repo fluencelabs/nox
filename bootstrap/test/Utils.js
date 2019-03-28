@@ -25,6 +25,10 @@ exports.appDeployedEvent = 'AppDeployed';
 exports.appDeletedEvent = 'AppDeleted';
 exports.appDequeuedEvent = 'AppDequeued';
 
+exports.generateNodeIDs = generateNodeIDs;
+exports.ip2Bytes24 = ip2Bytes24;
+exports.bytes2Ip = bytes2Ip;
+
 const string2Bytes32 = web3.utils.asciiToHex;
 const bytes32ToString = web3.utils.toUtf8;
 
@@ -35,13 +39,16 @@ function generateNodeIDs(count) {
     return Array(count).fill(0).map(() => string2Bytes32(crypto.randomBytes(16).hexSlice()));
 }
 
-exports.generateNodeIDs = generateNodeIDs;
-
-function ip2Bytes(ip) {
-    return web3.utils.bytesToHex(ip.split(".").map(s => parseInt(s)));
+function ip2Bytes24(ip) {
+    let hex = web3.utils.bytesToHex(ip.split(".").map(s => parseInt(s)));
+    return web3.utils.padLeft(hex, 48);
 }
 
-exports.ip2bytes = ip2Bytes;
+function bytes2Ip(hex) {
+    let nozeros = hex.replace(/^0x0+/,"0x");
+    let bytes = web3.utils.hexToBytes(nozeros);
+    return bytes.map(b => b.toString(10)).join(".");
+}
 
 // Adds new node
 // count - number of nodes to add
@@ -56,7 +63,7 @@ async function addNodes(contract, count, nodeIP, ownerAddress, portCount = 2, is
         async (nodeID) => {
             let receipt = await contract.addNode(
                 nodeID,
-                ip2Bytes(nodeIP),
+                ip2Bytes24(nodeIP),
                 1000,
                 portCount,
                 isPrivate,
