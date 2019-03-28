@@ -83,7 +83,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
       .getNodeApps(validatorKey)
       .callUntilSuccess[F]
       .flatMap {
-        case arr if arr != null && arr.getValue != null => Applicative[F].point(arr.getValue.asScala.toList)
+        case arr if arr != null && arr.getValue != null => Applicative[F].pure(arr.getValue.asScala.toList)
         case r =>
           logger.error(
             s"Cannot get node apps from the smart contract. Got result '$r'. " +

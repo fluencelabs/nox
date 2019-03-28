@@ -46,36 +46,21 @@ object MasterNodeApp extends IOApp with LazyLogging {
       .map(mc => { configureLogging(mc.logLevel); mc })
       .flatMap { masterConf =>
         // Run master node and status server
-        DockerIO
-          .make[IO]()
-          .flatMap { implicit dockerIO ⇒
-            Resource
-              .liftF(Configuration.init[IO](masterConf))
-              .flatMap(
-                conf ⇒
-                  sttpResource
-                    .flatMap(
-                      implicit sttpBackend ⇒ MasterNode.make[IO, IO.Par](masterConf, conf.nodeConfig, conf.rootPath)
-                  )
-              )
+        makeNode(masterConf).use { node ⇒
+          logger.debug("Contract config: {}", masterConf.contract)
+          (for {
+            st ← StatusAggregator.make(masterConf, node)
+            server ← MasterHttp.make[IO](
+              "0.0.0.0",
+              masterConf.httpApi.port.toShort,
+              st,
+              node.pool
+            )
+          } yield server).use { server =>
+            logger.info("Http api server has started on: " + server.address)
+            node.run
           }
-          .use { node ⇒
-            logger.debug("eth config {}", masterConf.contract)
-
-            (for {
-              st ← StatusAggregator.make(masterConf, node)
-              server ← MasterHttp.make[IO](
-                "0.0.0.0",
-                masterConf.httpApi.port.toShort,
-                st,
-                node.pool
-              )
-            } yield server).use { server =>
-              logger.info("Http api server has started on: " + server.address)
-              node.run
-            }
-          }
-
+        }
       }
       .attempt
       .flatMap(IO.fromEither)
@@ -86,6 +71,21 @@ object MasterNodeApp extends IOApp with LazyLogging {
           IO(logger.error("MasterNodeApp stopped with error: {}", e)).map(_ => e.printStackTrace(System.err))
         case Completed =>
           IO(logger.info("MasterNodeApp exited gracefully"))
+      }
+  }
+
+  // Run DockerIO, init tendermint & build Configuration, and run MasterNode
+  private def makeNode(config: MasterConfig): Resource[IO, MasterNode[IO]] = {
+    DockerIO
+      .make[IO]()
+      .flatMap { implicit dockerIO ⇒
+        Resource
+          .liftF(Configuration.init[IO](config))
+          .flatMap { conf =>
+            sttpResource.flatMap { implicit sttpBackend =>
+              MasterNode.make[IO, IO.Par](config, conf.nodeConfig, conf.rootPath)
+            }
+          }
       }
   }
 
