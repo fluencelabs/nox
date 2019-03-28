@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.7;
 
 // TODO: comply to security suggestions from: https://github.com/OpenZeppelin/openzeppelin-solidity
 
@@ -190,7 +190,7 @@ contract Deployer {
       * emits ClusterFormed event when there is enough nodes for some Code
       */
     function addNode(bytes32 nodeID, bytes24 nodeAddress, uint16 apiPort, uint16 capacity, bool isPrivate)
-        external
+    external
     {
         require(nodes[nodeID].id == 0, "This node is already registered");
 
@@ -199,21 +199,21 @@ contract Deployer {
         nodesIds.push(nodeID);
 
         // No need to add private nodes to readyNodes, as they could only used with by-id pinning
-        if(!isPrivate) readyNodes.push(nodeID);
+        if (!isPrivate) readyNodes.push(nodeID);
 
         emit NewNode(nodeID);
 
         // match apps to the node until no matches left, or until this node ports range is exhausted
-        for(uint i = 0; i < enqueuedApps.length;) {
+        for (uint i = 0; i < enqueuedApps.length;) {
             uint256 appID = enqueuedApps[i];
             App storage app = apps[appID];
-            if(tryDeployApp(app)) {
+            if (tryDeployApp(app)) {
                 // Once an app is deployed, we already have a new app on i-th position, so no need to increment i
                 removeEnqueuedApp(i);
 
                 // We should stop if there's no more ports in this node -- its addition has no more effect
                 Node storage node = nodes[nodeID];
-                if(node.capacity == 0) break;
+                if (node.capacity == 0) break;
             } else i++;
         }
     }
@@ -226,8 +226,8 @@ contract Deployer {
       * emits ClusterFormed event when there is enough nodes for the App and
       * emits AppEnqueued otherwise, subject to change
       */
-    function addApp(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize, bytes32[] pinToNodes)
-        external
+    function addApp(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize, bytes32[] calldata pinToNodes)
+    external
     {
         require(clusterSize > 0, "Cluster size must be a positive number");
 
@@ -235,14 +235,14 @@ contract Deployer {
             "number of pinTo nodes should be less or equal to the desired clusterSize");
 
         // Check that pinToNodes are distinct nodes owned by msg.sender
-        for(uint8 i = 0; i < pinToNodes.length; i++) {
+        for (uint8 i = 0; i < pinToNodes.length; i++) {
             bytes32 nodeID_i = pinToNodes[i];
             Node storage node = nodes[nodeID_i];
             require(node.id != 0, "Can pin only to registered nodes");
             require(node.owner == msg.sender, "Can pin only to nodes you own");
 
-            for(uint8 j = 0; j <= i; j++) {
-                if(i != j) {
+            for (uint8 j = 0; j <= i; j++) {
+                if (i != j) {
                     require(nodeID_i != pinToNodes[j], "Node ids to pin to must be unique, otherwise the deployment result could be unpredictable and unexpected");
                 }
             }
@@ -260,7 +260,7 @@ contract Deployer {
         );
         appIDs.push(appID);
 
-        if(!tryDeployApp(apps[appID])) {
+        if (!tryDeployApp(apps[appID])) {
             // App hasn't been deployed -- enqueue it to have it deployed later
             enqueuedApps.push(appID);
             emit AppEnqueued(appID, storageHash, storageReceipt, clusterSize, msg.sender, pinToNodes);
@@ -275,7 +275,7 @@ contract Deployer {
       * reverts if app not found
       */
     function dequeueApp(uint256 appID)
-        external
+    external
     {
         uint i = indexOf(appID, enqueuedApps);
 
@@ -298,7 +298,7 @@ contract Deployer {
       * reverts if app or cluster aren't not found
       */
     function deleteApp(uint256 appID)
-        external
+    external
     {
         App storage app = apps[appID];
         require(app.appID != 0, "error deleting app: cluster not found");
@@ -319,7 +319,7 @@ contract Deployer {
       * @param nodeIDsArray list of nodes to remove appID from. Every node.appIDs in that list must contain that appID.
       */
     function removeAppFromNodes(uint256 appID, bytes32[] storage nodeIDsArray)
-        internal
+    internal
     {
         for (uint i = 0; i < nodeIDsArray.length; i++) {
             bytes32 nodeID = nodeIDsArray[i];
@@ -334,10 +334,9 @@ contract Deployer {
         }
 
         // Capacity was incremented, try to deploy up to 1 app
-        for(i = 0; i < enqueuedApps.length;) {
-            appID = enqueuedApps[i];
-            App storage app = apps[appID];
-            if(tryDeployApp(app)) {
+        for (uint i = 0; i < enqueuedApps.length;) {
+            App storage app = apps[enqueuedApps[i]];
+            if (tryDeployApp(app)) {
                 // Once an app is deployed, we already have a new app on i-th position, so no need to increment i
                 removeEnqueuedApp(i);
 
@@ -351,7 +350,7 @@ contract Deployer {
     * @param nodeID ID of the node to be deleted
     */
     function deleteNode(bytes32 nodeID)
-        external
+    external
     {
         Node storage node = nodes[nodeID];
         require(node.id != 0, "error deleting node: node not found");
@@ -385,7 +384,7 @@ contract Deployer {
       * Also remove app if there's no more nodes left to host it, and emit AppDeleted event.
       */
     function removeNodeFromApps(bytes32 nodeID, uint256[] storage appIDsArray)
-        internal
+    internal
     {
         for (uint i = 0; i < appIDsArray.length; i++) {
             uint256 appID = appIDsArray[i];
@@ -412,11 +411,11 @@ contract Deployer {
       * emits AppDeployed when App is deployed
       */
     function tryDeployApp(App storage app)
-        internal
-    returns(bool)
+    internal
+    returns (bool)
     {
         // There must be enough readyNodes to try to deploy the app
-        if(readyNodes.length >= app.clusterSize - app.pinToNodes.length) {
+        if (readyNodes.length >= app.clusterSize - app.pinToNodes.length) {
             // Number of collected workers
             uint8 workersCount = 0;
 
@@ -429,11 +428,11 @@ contract Deployer {
             // Find all the nodes where code should be pinned
             // Nodes in pinToNodes are already checked to belong to app owner
             // pinToNodes is already deduplicated in addApp
-            for(; i < app.pinToNodes.length; i++) {
+            for (; i < app.pinToNodes.length; i++) {
                 Node storage node = nodes[app.pinToNodes[i]];
 
                 // Return false if there's not enough capacity on pin-to node to deploy the app
-                if(node.capacity == 0) {
+                if (node.capacity == 0) {
                     return false;
                 }
 
@@ -442,8 +441,8 @@ contract Deployer {
             }
 
             // Find ready nodes to pin to
-            for(uint j = 0; j < readyNodes.length && workersCount < app.clusterSize; j++) {
-                node = nodes[readyNodes[j]];
+            for (uint j = 0; j < readyNodes.length && workersCount < app.clusterSize; j++) {
+                Node storage node = nodes[readyNodes[j]];
 
                 // True if node is already in workers array. That could happen if
                 // app.owner pinned app to non-private node
@@ -452,17 +451,17 @@ contract Deployer {
 
                 // That algorithm should work better than a custom data structure
                 // due to high storage costs & small workers size expectations
-                for(i = 0; i < workers.length && !skip; i++) {
-                    if(workers[i] == node.id) skip = true;
+                for (i = 0; i < workers.length && !skip; i++) {
+                    if (workers[i] == node.id) skip = true;
                 }
 
-                if(skip) continue;
+                if (skip) continue;
 
                 workers[workersCount] = node.id;
                 workersCount++;
             }
 
-            if(workersCount == app.clusterSize) {
+            if (workersCount == app.clusterSize) {
                 formCluster(app, workers);
                 return true;
             }
@@ -475,7 +474,7 @@ contract Deployer {
      * @dev Forms a cluster, emits ClusterFormed event, marks workers' ports as used
      */
     function formCluster(App storage app, bytes32[] memory workers)
-        internal
+    internal
     {
         require(app.clusterSize == workers.length, "There should be enough nodes to form a cluster");
 
@@ -512,7 +511,7 @@ contract Deployer {
      * returns true if node was deleted from readyNodes
      */
     function decrementCapacity(Node storage node)
-        internal
+    internal
     {
         // decrement capacity
         node.capacity--;
@@ -530,11 +529,11 @@ contract Deployer {
      * and add it to readyNodes if there was no capacity left
      */
     function incrementCapacity(Node storage node)
-        internal
+    internal
     {
         node.capacity++;
 
-        if(node.capacity == 1) {
+        if (node.capacity == 1) {
             readyNodes.push(node.id);
         }
     }
@@ -544,7 +543,7 @@ contract Deployer {
      *  @param index position in 'readyNodes' to remove
      */
     function removeReadyNode(uint index)
-        internal
+    internal
     {
         removeArrayElement(index, readyNodes);
     }
@@ -560,7 +559,7 @@ contract Deployer {
      * @param index position in 'enqueuedApps' to remove
      */
     function removeEnqueuedApp(uint index)
-        internal
+    internal
     {
         removeArrayElement(index, enqueuedApps);
     }
@@ -569,7 +568,7 @@ contract Deployer {
      *  @param appID ID of the app to be removed
      */
     function removeApp(uint256 appID)
-        internal
+    internal
     {
         removeAppID(appID);
 
@@ -580,7 +579,7 @@ contract Deployer {
      *  @param appID ID of the app to be removed
      */
     function removeAppID(uint256 appID)
-        internal
+    internal
     {
         // look for appID in appIDs array
         uint index = indexOf(appID, appIDs);
@@ -595,7 +594,7 @@ contract Deployer {
     }
 
     function removeArrayElement(uint index, bytes32[] storage array)
-        internal
+    internal
     {
         uint lenSubOne = array.length - 1;
         if (index != lenSubOne) {
@@ -623,12 +622,12 @@ contract Deployer {
     }
 
     function indexOf(uint256 id, uint256[] storage array)
-        internal view
+    internal view
     returns (uint)
     {
         uint i;
         // Find index of id in the array
-        for(i = 0; i < array.length; i++) {
+        for (i = 0; i < array.length; i++) {
             if (array[i] == id) {
                 break;
             }
@@ -638,12 +637,12 @@ contract Deployer {
     }
 
     function indexOf(bytes32 id, bytes32[] storage array)
-        internal view
+    internal view
     returns (uint)
     {
         uint i;
         // Find index of id in the array
-        for(i = 0; i < array.length; i++) {
+        for (i = 0; i < array.length; i++) {
             if (array[i] == id) {
                 break;
             }

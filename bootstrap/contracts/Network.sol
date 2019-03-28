@@ -15,7 +15,7 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-pragma solidity ^0.4.24;
+pragma solidity ^0.5.7;
 
 import "./Deployer.sol";
 
@@ -33,9 +33,9 @@ contract Network is Deployer {
      * returns tuple representation of Node structure
      */
     function getNode(bytes32 nodeID)
-        external
-        view
-    returns (bytes24, uint16, uint16, address, bool, uint256[])
+    external
+    view
+    returns (bytes24, uint16, uint16, address, bool, uint256[] memory)
     {
         Node memory node = nodes[nodeID];
         return (
@@ -54,9 +54,9 @@ contract Network is Deployer {
      *  returns IDs apps hosted by this node
      */
     function getNodeApps(bytes32 nodeID)
-        external
-        view
-    returns (uint256[])
+    external
+    view
+    returns (uint256[] memory)
     {
         return nodes[nodeID].appIDs;
     }
@@ -66,9 +66,9 @@ contract Network is Deployer {
      * returns tuple representation of a Cluster
      */
     function getApp(uint256 appID)
-        external
-        view
-    returns (bytes32, bytes32, uint8, address, bytes32[], uint, bytes32[])
+    external
+    view
+    returns (bytes32, bytes32, uint8, address, bytes32[] memory, uint, bytes32[] memory)
     {
         App memory app = apps[appID];
         require(app.appID > 0, "there is no such app");
@@ -89,9 +89,9 @@ contract Network is Deployer {
      * @param appID unique id of app
      */
     function getAppWorkers(uint256 appID)
-        external
-        view
-    returns (bytes24[], uint16[])
+    external
+    view
+    returns (bytes24[] memory, uint16[] memory)
     {
         App memory app = apps[appID];
         require(app.appID > 0, "there is no such app");
@@ -99,7 +99,7 @@ contract Network is Deployer {
         bytes24[] memory addresses = new bytes24[](app.cluster.nodeIDs.length);
         uint16[] memory ports = new uint16[](app.cluster.nodeIDs.length);
 
-        for(uint8 i = 0; i < app.cluster.nodeIDs.length; i++) {
+        for (uint8 i = 0; i < app.cluster.nodeIDs.length; i++) {
             addresses[i] = nodes[app.cluster.nodeIDs[i]].nodeAddress;
             ports[i] = nodes[app.cluster.nodeIDs[i]].apiPort;
         }
@@ -114,9 +114,9 @@ contract Network is Deployer {
      * return (node IDs, cluster IDs)
      */
     function getNodesIds()
-        external
-        view
-    returns(bytes32[])
+    external
+    view
+    returns (bytes32[] memory)
     {
         return nodesIds;
     }
@@ -124,7 +124,7 @@ contract Network is Deployer {
     function getAppIDs()
     external
     view
-    returns(uint256[])
+    returns (uint256[] memory)
     {
         return appIDs;
     }
