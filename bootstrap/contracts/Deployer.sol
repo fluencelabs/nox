@@ -333,7 +333,7 @@ contract Deployer {
             removeArrayElement(idx, appIDsArray);
         }
 
-        // Try to deploy up to 1 app
+        // Capacity was incremented, try to deploy up to 1 app
         for(i = 0; i < enqueuedApps.length;) {
             appID = enqueuedApps[i];
             App storage app = apps[appID];
