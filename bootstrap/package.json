@@ -19,15 +19,15 @@
   "author": "Fluence Labs",
   "license": "AGPL-3.0",
   "devDependencies": {
-    "chai": "^4.1.2",
-    "eth-gas-reporter": "^0.1.12",
+    "chai": "4.1.2",
+    "eth-gas-reporter": "0.1.12",
     "ganache-cli": "6.1.8",
     "openzeppelin-solidity": "2.2.0",
     "truffle": "5.0.9",
-    "truffle-assertions": "^0.3.1",
+    "truffle-assertions": "0.3.1",
     "solc": "0.5.7"
   },
   "dependencies": {
-    "keythereum": "^1.0.4"
+    "keythereum": "1.0.4"
   }
 }
