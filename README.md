@@ -3,11 +3,13 @@
 
 ## What is Fluence?
 
-Fluence is an efficient trustless computation platform that allows to achieve few seconds request processing latency and cost efficiency similar to traditional cloud computing. To run computations, Fluence uses a WebAssembly virtual machine, which allows to deploy into the decentralized environment applications written in multiple programming languages.
+Fluence is a decentralized database network that allows to deploy many existing first-class SQL/NoSQL/GraphQL databases such as SQLite or Redis into the decentralized environment. It will support many complex database operations, such as aggregate functions, joins, or stored procedures.
 
-## What can be built with Fluence?
+Fluence is built on top of Fluence Core – an efficient trustless computation platform that allows to achieve few seconds request processing latency and cost efficiency similar to traditional cloud computing. To run computations, Fluence uses a WebAssembly virtual machine, which allows to deploy into the decentralized environment applications written in multiple programming languages.
 
-Fluence can be used as a general purpose backend engine for decentralized applications. Because of its cost efficiency, developers generally do not have to worry much about low-level code optimization. Existing software packages can be ported to Fluence as is, once they are compiled into WebAssembly.
+## What is Fluence Core?
+
+Fluence Core is essentially a general purpose backend engine for decentralized applications. Because of its cost efficiency, developers generally do not have to worry much about low-level code optimization. Existing software packages can be ported to Fluence as is, once they are compiled into WebAssembly.
 
 As a showcase, we have prepared few example applications that can be launched on the Fluence network:
 
@@ -18,7 +20,7 @@ As a showcase, we have prepared few example applications that can be launched on
 - [Guess the Number](https://github.com/fluencelabs/tutorials/tree/master/guessing-game) is an invalid implementation of an imperfect information game (which cannot be launched on Fluence at the current moment)
 - [Streamr analytics](https://github.com/fluencelabs/tutorials/tree/master/streamr) is a simple analytics built on top of a [blockchain-based data marketplace](https://www.streamr.com/)
 
-## How does Fluence work?
+## How does Fluence Core work?
 
 In order to reach low latency and high throughput, Fluence splits network nodes into two layers: the _real-time processing layer_ and the _batch validation layer_. 
 
@@ -26,11 +28,11 @@ The real-time processing layer is responsible for direct interaction with client
 
 The real-time processing layer is able to promptly serve client requests, but provides only moderate security guarantees that returned responses are correct. Later, the batch validation layer additionally verifies returned responses, and if it is found that some of the responses were incorrect, offending real-time nodes lose their deposits. 
 
-The network also relies on Ethereum (as a secure metadata storage and dispute resolution layer) and Swarm (as a data availability layer).
+The network also relies on Ethereum (as a secure metadata storage and dispute resolution layer) and Swarm/Filecoin/Arweave (as a data availability layer).
 
 <img src="docs/src/images/architecture_overview.png" width="666"/>
 
-Check out the [Fluence book](https://fluence.network/docs/book/introduction/overview.html) to learn more about the general Fluence architecture.
+Check out the [Fluence book](https://fluence.network/docs/book/introduction/overview.html) to learn more about the general Fluence Core architecture.
 
 ## Project status
 The project is undergoing a heavy development at the moment.  
@@ -46,7 +48,7 @@ Features that have not been released yet:
 **–** Batch validation layer: tx history verification  
 **–** Secure metadata storage: batch validation state, security deposits  
 **–** Dispute resolution layer: verification game  
-**–** Data availability layer: Swarm storage for tx history  
+**–** Data availability layer: decentralized storage for tx history  
 
 While we are working hard to make Fluence bulletproof secure, you can already build and deploy applications to the Fluence devnet! Take a look at the [quickstart](https://fluence.network/docs/book/quickstart/index.html) to learn how to build and decentralize a simple Hello World app, and at the [dice game tutorial](https://github.com/fluencelabs/tutorials/tree/master/dice-game) to learn how to build more involved apps.
 
