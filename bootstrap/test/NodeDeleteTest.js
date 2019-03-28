@@ -19,7 +19,7 @@ var FluenceContract = artifacts.require("./Network.sol");
 const utils = require("./Utils.js");
 const truffleAssert = require('truffle-assertions');
 const assert = require("chai").assert;
-const { shouldFail } = require('openzeppelin-test-helpers');
+const { shouldFail, expectEvent } = require('openzeppelin-test-helpers');
 
 contract('Fluence (node deletion)', function ([_, owner, anyone, other]) {
     beforeEach(async function() {
@@ -37,25 +37,14 @@ contract('Fluence (node deletion)', function ([_, owner, anyone, other]) {
 
     it("Remove enqueued node", async function() {
         let add = await addNodes(1);
-        let nodeID;
-        truffleAssert.eventEmitted(add.pop(), utils.newNodeEvent, ev => {
-            nodeID = ev.id;
-            return true;
-        });
-
+        let nodeID = expectEvent.inLogs(add.pop().logs, utils.newNodeEvent).args.id;
         let receipt = await global.contract.deleteNode(nodeID, { from: anyone });
-        truffleAssert.eventEmitted(receipt, utils.nodeDeletedEvent, ev => {
-            return ev.id === nodeID;
-        });
+        expectEvent.inLogs(receipt.logs, utils.nodeDeletedEvent, { id: nodeID });
     });
 
     it("Contract owner should be able to remove node", async function() {
         let add = await addNodes(1);
-        let nodeID;
-        truffleAssert.eventEmitted(add.pop(), utils.newNodeEvent, ev => {
-            nodeID = ev.id;
-            return true;
-        });
+        let nodeID = expectEvent.inLogs(add.pop().logs, utils.newNodeEvent).args.id;
 
         await shouldFail.reverting(
             global.contract.deleteNode(nodeID, { from: other }),
@@ -63,14 +52,12 @@ contract('Fluence (node deletion)', function ([_, owner, anyone, other]) {
         );
 
         await shouldFail.reverting(
-            global.contract.deleteNode("wrongNodeId", { from: other }),
+            global.contract.deleteNode(web3.utils.fromAscii("wrongNodeId"), { from: other }),
             "error deleting node: node not found"
         );
 
         let receipt = await global.contract.deleteNode(nodeID, { from: owner });
-        truffleAssert.eventEmitted(receipt, utils.nodeDeletedEvent, ev => {
-            return ev.id === nodeID;
-        });
+        expectEvent.inLogs(receipt.logs, utils.nodeDeletedEvent, { id: nodeID });
     });
 
     it("Remove nodes with deployed app", async function() {
@@ -79,10 +66,8 @@ contract('Fluence (node deletion)', function ([_, owner, anyone, other]) {
 
         var nodeIDs = [];
         adds.forEach(add => {
-            truffleAssert.eventEmitted(add, utils.newNodeEvent, ev => {
-                nodeIDs.push(ev.id);
-                return true;
-            });
+            let nodeID = expectEvent.inLogs(add.logs, utils.newNodeEvent).args.id;
+            nodeIDs.push(nodeID);
         });
 
         assert.equal(nodeIDs.length, count);
@@ -91,12 +76,10 @@ contract('Fluence (node deletion)', function ([_, owner, anyone, other]) {
 
         let receipts = await Promise.all(nodeIDs.map(async nodeID => {
             let receipt = await global.contract.deleteNode(nodeID, { from: anyone });
-            truffleAssert.eventEmitted(receipt, utils.nodeDeletedEvent, ev => {
-                return ev.id === nodeID;
-            });
+            expectEvent.inLogs(receipt.logs, utils.nodeDeletedEvent, { id: nodeID });
             return receipt;
         }));
 
-        truffleAssert.eventEmitted(receipts.pop(), utils.appDeletedEvent);
+        expectEvent.inLogs(receipts.pop().logs, utils.appDeletedEvent);
     });
 });
