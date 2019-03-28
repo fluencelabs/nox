@@ -20,7 +20,7 @@ import {Session} from "./Session";
 import {SessionConfig} from "./SessionConfig";
 import {Result} from "./Result";
 import {getAppNodes, Node} from "fluence-monitoring"
-import {PrivateKey, secp256k1} from "./utils";
+import {remove0x, secp256k1} from "./utils";
 import {AppSession} from "./AppSession";
 
 export {
@@ -28,7 +28,8 @@ export {
     Engine as Engine,
     Session as Session,
     Result as Result,
-    SessionConfig as SessionConfig
+    SessionConfig as SessionConfig,
+    AppSession as AppSession
 }
 
 // A session with a worker with info about a worker
@@ -44,7 +45,11 @@ export interface WorkerSession {
  * @param ethereumUrl Optional ethereum node url. Connect via Metamask if `ethereulUrl` is undefined
  * @param privateKey Optional private key to sign requests. Signature is concatenated to the request payload.
  */
-export async function connect(contract: string, appId: string, ethereumUrl?: string, privateKey?: PrivateKey): Promise<AppSession> {
+export async function connect(contract: string, appId: string, ethereumUrl?: string, privateKey?: Buffer | string): Promise<AppSession> {
+    if (privateKey != undefined && typeof privateKey == 'string') {
+        privateKey = Buffer.from(remove0x(privateKey), "hex");
+    }
+
     if (privateKey != undefined) {
         if (!secp256k1.privateKeyVerify(privateKey)) {
             throw Error("Private key is invalid");
