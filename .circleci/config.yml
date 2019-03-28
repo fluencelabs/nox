@@ -111,7 +111,7 @@ jobs:
           rustup component add clippy
           cargo fmt --all -- --check --color always
           cargo build -v --target wasm32-unknown-unknown --all-features
-          cargo test -v --all-features
+          cargo test -v --all-features -- --nocapture # TODO: remove --nocapture, it's for test debugging
           cargo clippy -v --target wasm32-unknown-unknown
       - save_cache:
           paths:

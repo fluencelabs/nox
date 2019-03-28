@@ -151,13 +151,16 @@ pub fn get_apps(web3: &Web3<Http>, contract_address: Address) -> Result<Vec<App>
         .map(Into::into)
         .collect();
 
+    // TODO: remove  it's for test debugging
+    println!("app_ids: {:?}", app_ids);
+
     let apps: Result<Vec<App>, Error> = app_ids
         .iter()
         .map(|id| {
             let (call_data, decoder) = get_app::call(*id);
             let (storage_hash, storage_receipt, cluster_size, owner, pin_to, genesis, node_ids) =
                 query_contract(call_data, Box::new(decoder), web3, contract_address)
-                    .context("reading app ids from contract failed")?;
+                    .context(format!("reading app {} from contract failed", id))?;
 
             let cluster = if !genesis.is_zero() {
                 let genesis: u64 = genesis.into();
