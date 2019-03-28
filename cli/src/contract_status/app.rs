@@ -151,9 +151,6 @@ pub fn get_apps(web3: &Web3<Http>, contract_address: Address) -> Result<Vec<App>
         .map(Into::into)
         .collect();
 
-    // TODO: remove  it's for test debugging
-    println!("app_ids: {:?}", app_ids);
-
     let apps: Result<Vec<App>, Error> = app_ids
         .iter()
         .map(|id| {

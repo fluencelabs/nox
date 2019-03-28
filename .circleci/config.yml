@@ -43,6 +43,7 @@ jobs:
       - image: circleci/rust:latest-node
     environment:
       RUST_BACKTRACE: 1
+      RUST_TEST_THREADS: 1
     steps:
       - checkout
       - restore_cache:
@@ -111,7 +112,7 @@ jobs:
           rustup component add clippy
           cargo fmt --all -- --check --color always
           cargo build -v --target wasm32-unknown-unknown --all-features
-          cargo test -v --all-features -- --nocapture # TODO: remove --nocapture, it's for test debugging
+          cargo test -v --all-features
           cargo clippy -v --target wasm32-unknown-unknown
       - save_cache:
           paths:
