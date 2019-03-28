@@ -47,7 +47,7 @@ class DockerIO[F[_]: Monad: LiftIO: ContextShift: Defer](
    */
   private def runShell(cmd: String): EitherT[IO, DockerError, String] =
     IO {
-      logger.info(s"Running Docker command: `$cmd`")
+      logger.debug(s"Running Docker command: `$cmd`")
       cmd.!!.trim
     }.attemptT
       .leftMap(DockerCommandError(cmd, _))

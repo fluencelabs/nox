@@ -84,19 +84,18 @@ class SwarmClient[F[_]](swarmUri: Uri)(
   def download(target: String): EitherT[F, SwarmError, Array[Byte]] = {
     // TODO add a method that will return some sort of stream
     val downloadURI = uri(Bzz, target)
-    logger.info(s"Download request. Target: $target")
+    logger.info(s"Swarm download started: `$target`")
     sttp
       .response(asByteArray)
       .get(downloadURI)
       .send()
       .toEitherT { er =>
-        val errorMessage = s"Error on downloading from $downloadURI. $er"
+        val errorMessage = s"Swarm download error. Uri $downloadURI: $er"
         logger.error(errorMessage)
         SwarmError(errorMessage)
       }
       .map { r =>
-        logger.info(s"The resource has been downloaded.")
-        logger.debug(s"Resource size: ${r.length} bytes.")
+        logger.info(s"Swarm download finished: `$target` [${r.length} bytes]")
         r
       }
   }

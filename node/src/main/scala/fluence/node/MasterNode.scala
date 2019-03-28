@@ -58,9 +58,9 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
 
   private def runWorker(params: WorkerParams) =
     for {
-      _ <- IO(logger.info("Running worker `{}`", params)).to[F]
-      newly <- pool.run(params)
-      _ <- IO(logger.info(s"Worker started (newly=$newly) {}", params)).to[F]
+      _ <- IO(logger.info("Worker starting: `{}`", params)).to[F]
+      status <- pool.run(params)
+      _ <- IO(logger.info(s"Worker started, status: $status `{}`", params)).to[F]
     } yield ()
 
   /**
@@ -159,7 +159,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
   val run: IO[ExitCode] =
     nodeEth.nodeEvents
       .evalTap(ev ⇒ Sync[F].delay(logger.debug("Got NodeEth event: " + ev)))
-      .parEvalMap(8)(e => handleEthEvent(e).as(e))
+      .parEvalMap(1024)(e => handleEthEvent(e).as(e))
       .drain
       .compile
       .drain
