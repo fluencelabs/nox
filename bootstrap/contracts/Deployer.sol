@@ -49,8 +49,8 @@ pragma solidity ^0.4.24;
  *  - deploy a code to Fluence network by submitting Swarm hash of the code and desired cluster size
  *
  * This contract also stores information about registered nodes, codes and their respective states.
- * Work horse of this contract is the `matchWork()` function that's called on new node and/or code registration.
- * When a code is matched with available nodes of desired quantity, `ClusterFormed` event is emitted and
+ * Work horse of this contract is the `tryDeployApp()` function that's called on new node and/or app registration.
+ * When an app is matched with available nodes of desired quantity, `AppDeployed` event is emitted and
  * is expected to trigger real-time cluster creation when received by matched Fluence nodes
  *
  */
@@ -285,7 +285,7 @@ contract Deployer {
 
         removeEnqueuedApp(i);
 
-        removeAppId(appId);
+        removeAppID(appID);
 
         emit AppDequeued(appID);
     }
@@ -331,6 +331,19 @@ contract Deployer {
             uint idx = indexOf(appID, appIDsArray);
             require(idx < appIDsArray.length, "error deleting app: app not found in node.appIDs");
             removeArrayElement(idx, appIDsArray);
+        }
+
+        // Try to deploy up to 1 app
+        for(i = 0; i < enqueuedApps.length;) {
+            appID = enqueuedApps[i];
+            App storage app = apps[appID];
+            if(tryDeployApp(app)) {
+                // Once an app is deployed, we already have a new app on i-th position, so no need to increment i
+                removeEnqueuedApp(i);
+
+                // There could be a capacity just for a single app
+                break;
+            } else i++;
         }
     }
 
@@ -402,14 +415,14 @@ contract Deployer {
         internal
     returns(bool)
     {
-        // Number of collected workers
-        uint8 workersCount = 0;
-
-        // Array of workers that will be used to form a cluster
-        bytes32[] memory workers = new bytes32[](app.clusterSize);
-
         // There must be enough readyNodes to try to deploy the app
         if(readyNodes.length >= app.clusterSize - app.pinToNodes.length) {
+            // Number of collected workers
+            uint8 workersCount = 0;
+
+            // Array of workers that will be used to form a cluster
+            bytes32[] memory workers = new bytes32[](app.clusterSize);
+
             // Index used to iterate through pinToNodes and then workers
             uint8 i = 0;
 
@@ -448,14 +461,14 @@ contract Deployer {
                 workers[workersCount] = node.id;
                 workersCount++;
             }
-        }
 
-        if(workersCount == app.clusterSize) {
-            formCluster(app, workers);
-            return true;
+            if(workersCount == app.clusterSize) {
+                formCluster(app, workers);
+                return true;
+            }
+        } else {
+            return false;
         }
-
-        return false;
     }
 
     /**
@@ -558,7 +571,7 @@ contract Deployer {
     function removeApp(uint256 appID)
         internal
     {
-        removeAppId(appID);
+        removeAppID(appID);
 
         emit AppDeleted(appID);
     }
@@ -566,7 +579,7 @@ contract Deployer {
     /** @dev Removes app from appIds array and apps mapping
      *  @param appID ID of the app to be removed
      */
-    function removeAppId(uint256 appId)
+    function removeAppID(uint256 appID)
         internal
     {
         // look for appID in appIDs array
