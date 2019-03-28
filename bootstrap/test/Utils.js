@@ -25,22 +25,10 @@ exports.appDeployedEvent = 'AppDeployed';
 exports.appDeletedEvent = 'AppDeleted';
 exports.appDequeuedEvent = 'AppDequeued';
 
-const padRight = web3.utils.padRight;
-const toHex = web3.utils.toHex;
-const toUtf8 = web3.utils.toUtf8;
-
-function string2Bytes32 (str) {
-    // 64 is for 32 bytes, 2 chars each
-    // + 2 is for '0x' prefix
-    return padRight(toHex(str), 64 + 2)
-}
+const string2Bytes32 = web3.utils.asciiToHex;
+const bytes32ToString = web3.utils.toUtf8;
 
 exports.string2Bytes32 = string2Bytes32;
-
-function bytes32ToString (hex) {
-    return toUtf8(hex);
-}
-
 exports.bytes32ToString = bytes32ToString;
 
 function generateNodeIDs(count) {
@@ -49,29 +37,36 @@ function generateNodeIDs(count) {
 
 exports.generateNodeIDs = generateNodeIDs;
 
+function ip2Bytes(ip) {
+    return web3.utils.bytesToHex(ip.split(".").map(s => parseInt(s)));
+}
+
+exports.ip2bytes = ip2Bytes;
+
 // Adds new node
 // count - number of nodes to add
 // nodeIP - node IP address
 // ownerAddress - node owner Ethereum account
 // portCount - number of open ports, starting from 1000. i.e. [1000, 1000 + portCount - 1]
 // private -- true if node is private; false if public
-async function addNodes (contract, count, nodeIP, ownerAddress, portCount = 2, isPrivate = false) {
+async function addNodes(contract, count, nodeIP, ownerAddress, portCount = 2, isPrivate = false) {
     assert(portCount > 0, "node should have at least single open port");
-    
+
     return Promise.all(generateNodeIDs(count).map(
         async (nodeID) => {
             let receipt = await contract.addNode(
                 nodeID,
-                nodeIP,
+                ip2Bytes(nodeIP),
                 1000,
                 portCount,
                 isPrivate,
-                { from: ownerAddress }
+                {from: ownerAddress}
             );
-            
+
             return {
                 nodeID: nodeID,
-                receipt: receipt
+                receipt: receipt,
+                logs: receipt.logs
             }
         }
     ))
@@ -79,17 +74,17 @@ async function addNodes (contract, count, nodeIP, ownerAddress, portCount = 2, i
 
 exports.addNodesFull = addNodes;
 
-exports.addPinnedNodes = async function(contract, count, nodeIP, ownerAddress, portCount = 2, nodeIDs = []) {
+exports.addPinnedNodes = async function (contract, count, nodeIP, ownerAddress, portCount = 2, nodeIDs = []) {
     return addNodes(contract, count, nodeIP, ownerAddress, portCount, isPrivate = true, nodeIDs);
 };
 
-exports.addNodes = async function(contract, count, nodeIP, ownerAddress, portCount = 2) {
-    return addNodes(contract, count, nodeIP, ownerAddress, portCount, isPrivate = false).then (result =>
+exports.addNodes = async function (contract, count, nodeIP, ownerAddress, portCount = 2) {
+    return addNodes(contract, count, nodeIP, ownerAddress, portCount, isPrivate = false).then(result =>
         result.map(r => r.receipt)
     )
 };
 
-async function addApp (contract, count, owner, pinToNodes = []) {
+async function addApp(contract, count, owner, pinToNodes = []) {
     let storageHash = string2Bytes32(crypto.randomBytes(16).hexSlice());
     let storageReceipt = string2Bytes32(crypto.randomBytes(16).hexSlice());
     let receipt = await contract.addApp(storageHash, storageReceipt, count, pinToNodes, {from: owner});
@@ -97,7 +92,8 @@ async function addApp (contract, count, owner, pinToNodes = []) {
         storageHash: storageHash,
         storageReceipt: storageReceipt,
         clusterSize: count,
-        receipt: receipt
+        receipt: receipt,
+        logs: receipt.logs
     }
 }
 
