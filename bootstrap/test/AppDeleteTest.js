@@ -54,6 +54,11 @@ contract('Fluence (app deletion)', function ([_, owner, anyone, other]) {
         truffleAssert.eventEmitted(dequeueApp, utils.appDequeuedEvent, ev => {
             return ev.appID.valueOf() === appID.valueOf();
         });
+
+        await expectThrow(global.contract.getApp(appID)); // throws on non existing app
+
+        let appIDs = await global.contract.getAppIDs();
+        assert.equal(0, appIDs.length);
     });
 
     it("Remove deployed app", async function() {
@@ -130,5 +135,32 @@ contract('Fluence (app deletion)', function ([_, owner, anyone, other]) {
         truffleAssert.eventEmitted(deleteApp, utils.appDeletedEvent, ev => {
             return ev.appID.valueOf() === appID.valueOf();
         });
+    });
+
+    it("Enqueued app should be deployed after capacity increase", async function() {
+        await addNodes(5);
+        let add = await addApp(3);
+        let deployedAppId;
+        truffleAssert.eventEmitted(add.receipt, utils.appDeployedEvent, ev => {
+            deployedAppId = ev.appID;
+            return true;
+        });
+
+        add = await addApp(3);
+        let enqueuedAppId;
+        truffleAssert.eventEmitted(add.receipt, utils.appEnqueuedEvent, ev => {
+            enqueuedAppId = ev.appID;
+            return true;
+        });
+
+        let deleteApp = await global.contract.deleteApp(deployedAppId, { from: owner });
+
+        truffleAssert.eventEmitted(deleteApp, utils.appDeletedEvent, ev => {
+            return ev.appID.valueOf() === deployedAppId.valueOf();
+        });
+
+        truffleAssert.eventEmitted(deleteApp, utils.appDeployedEvent, ev => {
+            return ev.appID.valueOf() === enqueuedAppId.valueOf();
+        })
     });
 });
