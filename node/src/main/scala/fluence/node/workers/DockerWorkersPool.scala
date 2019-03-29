@@ -61,6 +61,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
     } yield (healthy, oldWorker)
   }
 
+  //  Builds WorkerServices resource, and takes WorkerServices instance out of resource
   private def workerServices(
     params: WorkerParams,
     p2pPort: Short,
@@ -108,9 +109,11 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
    * @return Unit; no failures are expected
    */
   def runWorker(appId: Long, p2pPort: Short, params: F[WorkerParams], stopTimeout: Int = 5): F[Unit] = {
-    def workerRun(getWorker: F[Worker[F]], waitServicesStop: F[Unit], returnServicesFiber: Fiber[F, Unit] => F[Unit]
+    // Builds worker services, starts it in a separate Fiber, and returns services instance
+    def buildWorkerServices(getWorker: F[Worker[F]], waitServicesStop: F[Unit], returnServicesFiber: Fiber[F, Unit] => F[Unit]
     ): F[WorkerServices[F]] = {
       for {
+        // Execute params building, could be a heavy operation
         p ← params
         (useServicesF, servicesF) = workerServices(p, p2pPort, stopTimeout, getWorker, waitServicesStop)
         // Fiber for the worker, needs to be joined to ensure worker cleanup process is completed
@@ -120,6 +123,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
         services <- servicesF
       } yield services
     }
+
 
     def cleanup(signalStopServices: F[Unit], getRunningServicesFiber: F[Fiber[F, Unit]]): F[Unit] = {
       for {
@@ -142,17 +146,15 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
       // Used to pass the worker's fiber inside worker's callbacks, which are defined before we have the fiber
       runningServicesFiberDef ← Deferred[F, Fiber[F, Unit]]
       workerDef ← Deferred[F, Worker[F]]
-
       worker ← Worker[F](
         appId,
         p2pPort,
         s"WorkerBus; appId=$appId p2pPort=$p2pPort",
-        workerRun(workerDef.get, stopServicesDef.get, runningServicesFiberDef.complete),
-        // onStop is one of callbacks that called when worker is stopping
+        buildWorkerServices(workerDef.get, stopServicesDef.get, runningServicesFiberDef.complete),
+        // onStop is one of callbacks that is called when worker is stopping
         onStop = cleanup(stopServicesDef.complete(()), runningServicesFiberDef.get),
         onRemove = ports.free(appId).value.void
       )
-
       _ ← workerDef.complete(worker)
       _ ← workers.update(_ + (appId -> worker))
     } yield ()
