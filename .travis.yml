@@ -10,7 +10,7 @@ _scala_fluence_template: &_scala_fluence_template
     - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-03-10
     - ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-03-10
 
-  # These directorieos are cached to S3 at the end of the build
+  # These directories are cached to S3 at the end of the build
   cache:
     npm: true
     cargo: true
@@ -47,12 +47,6 @@ matrix:
       cache:
         - cargo
       rust: nightly-2019-03-10
-
-      install:
-        - sudo apt-get update
-        - sudo apt-get install nodejs
-        - node --version
-        - npm --version
 
       before_script:
         - (test -x $HOME/.cargo/bin/cargo-install-update || cargo install cargo-update)
