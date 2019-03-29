@@ -35,8 +35,8 @@ const bytes32ToString = web3.utils.toUtf8;
 exports.string2Bytes32 = string2Bytes32;
 exports.bytes32ToString = bytes32ToString;
 
-const StorageIpfs = 1;
-const StorageSwarm = 1;
+const StorageIpfs = web3.utils.padRight(web3.utils.fromDecimal(1), 64);
+const StorageSwarm = web3.utils.padRight(web3.utils.fromDecimal(0), 64);
 exports.StorageIpfs = StorageIpfs;
 exports.StorageSwarm = StorageSwarm;
 

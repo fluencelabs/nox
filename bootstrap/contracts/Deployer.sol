@@ -74,11 +74,11 @@ contract Deployer {
         // WASM code address in a content-addressable storage;
         bytes32 storageHash;
 
-        // Storage receipt insuring code availability (like Swarm receipts)
+        // bytes32 receipt insuring code availability (like Swarm receipts)
         bytes32 storageReceipt;
 
         // Decentralized code storage type
-        Storage storageType;
+        bytes32 storageType;
 
         // number of real-time nodes required to host this code
         uint8 clusterSize;
@@ -101,17 +101,13 @@ contract Deployer {
         bytes32[] nodeIDs;
     }
 
-    enum Storage {
-        Swarm, Ipfs
-    }
-
     // Emitted when there is enough Workers for some App
     // Nodes' workers should form a cluster in reaction to this event
     event AppDeployed(
         uint256 appID,
 
         bytes32 storageHash,
-        Storage storageType,
+        bytes32 storageType,
         uint genesisTime,
 
         bytes32[] nodeIDs,
@@ -124,7 +120,7 @@ contract Deployer {
         uint256 appID,
         bytes32 storageHash,
         bytes32 storageReceipt,
-        Storage storageType,
+        bytes32 storageType,
         uint8 clusterSize,
         address owner,
         bytes32[] pinToNodes
@@ -221,7 +217,7 @@ contract Deployer {
       * emits ClusterFormed event when there is enough nodes for the App and
       * emits AppEnqueued otherwise, subject to change
       */
-    function addApp(bytes32 storageHash, bytes32 storageReceipt, Storage storageType, uint8 clusterSize, bytes32[] calldata pinToNodes)
+    function addApp(bytes32 storageHash, bytes32 storageReceipt, bytes32 storageType, uint8 clusterSize, bytes32[] calldata pinToNodes)
     external
     {
         require(clusterSize > 0, "Cluster size must be a positive number");

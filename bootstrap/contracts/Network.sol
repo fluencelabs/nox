@@ -68,7 +68,7 @@ contract Network is Deployer {
     function getApp(uint256 appID)
     external
     view
-    returns (bytes32, bytes32, Storage, uint8, address, bytes32[] memory, uint, bytes32[] memory)
+    returns (bytes32, bytes32, bytes32, uint8, address, bytes32[] memory, uint, bytes32[] memory)
     {
         App memory app = apps[appID];
         require(app.appID > 0, "there is no such app");
