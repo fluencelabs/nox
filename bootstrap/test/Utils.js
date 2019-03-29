@@ -35,6 +35,11 @@ const bytes32ToString = web3.utils.toUtf8;
 exports.string2Bytes32 = string2Bytes32;
 exports.bytes32ToString = bytes32ToString;
 
+const StorageIpfs = 1;
+const StorageSwarm = 1;
+exports.StorageIpfs = StorageIpfs;
+exports.StorageSwarm = StorageSwarm;
+
 function generateNodeIDs(count) {
     return Array(count).fill(0).map(() => string2Bytes32(crypto.randomBytes(16).hexSlice()));
 }
@@ -94,10 +99,11 @@ exports.addNodes = async function (contract, count, nodeIP, ownerAddress, portCo
 async function addApp(contract, count, owner, pinToNodes = []) {
     let storageHash = string2Bytes32(crypto.randomBytes(16).hexSlice());
     let storageReceipt = string2Bytes32(crypto.randomBytes(16).hexSlice());
-    let receipt = await contract.addApp(storageHash, storageReceipt, count, pinToNodes, {from: owner});
+    let receipt = await contract.addApp(storageHash, storageReceipt, StorageIpfs, count, pinToNodes, {from: owner});
     return {
         storageHash: storageHash,
         storageReceipt: storageReceipt,
+        storageType: StorageIpfs,
         clusterSize: count,
         receipt: receipt,
         logs: receipt.logs

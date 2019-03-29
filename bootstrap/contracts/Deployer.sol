@@ -28,21 +28,7 @@ pragma solidity ^0.5.7;
 // TODO: what are the most critical invariants here?
 // should we put a bug-bounty on them?
 
-// TODO: what are the gas usage goals/targets? is there any limit?
-// TODO: calculate current gas usage
-
-// TODO: should it be hash of the `storageHash`? so no one could download it
-// in other words, is code private?
-
 // Code:
-// TODO: should storageHash be of type hash?
-// TODO: should there be more statuses to just "deployed or not"?
-// e.g 'deploying', 'deployed'
-// maybe how many times it gets deployed, if that's the case
-
-// TODO: there should be timeout on deployment status, and it should be confirmed periodically
-// cuz it is possible for Workers to ignore `CodeDeploying` while code is marked as deployed=true
-
 /*
  * This contract allows to:
  *  - register a node in Fluence network by submitting IP address and port range
@@ -85,11 +71,14 @@ contract Deployer {
     struct App {
         uint256 appID;
 
-        // WASM code address in Swarm; also SwarmHash of the code
+        // WASM code address in a content-addressable storage;
         bytes32 storageHash;
 
-        // Swarm receipt insuring code availability
+        // Storage receipt insuring code availability (like Swarm receipts)
         bytes32 storageReceipt;
+
+        // Decentralized code storage type
+        Storage storageType;
 
         // number of real-time nodes required to host this code
         uint8 clusterSize;
@@ -112,12 +101,17 @@ contract Deployer {
         bytes32[] nodeIDs;
     }
 
+    enum Storage {
+        Swarm, Ipfs
+    }
+
     // Emitted when there is enough Workers for some App
     // Nodes' workers should form a cluster in reaction to this event
     event AppDeployed(
         uint256 appID,
 
         bytes32 storageHash,
+        Storage storageType,
         uint genesisTime,
 
         bytes32[] nodeIDs,
@@ -130,6 +124,7 @@ contract Deployer {
         uint256 appID,
         bytes32 storageHash,
         bytes32 storageReceipt,
+        Storage storageType,
         uint8 clusterSize,
         address owner,
         bytes32[] pinToNodes
@@ -226,7 +221,7 @@ contract Deployer {
       * emits ClusterFormed event when there is enough nodes for the App and
       * emits AppEnqueued otherwise, subject to change
       */
-    function addApp(bytes32 storageHash, bytes32 storageReceipt, uint8 clusterSize, bytes32[] calldata pinToNodes)
+    function addApp(bytes32 storageHash, bytes32 storageReceipt, Storage storageType, uint8 clusterSize, bytes32[] calldata pinToNodes)
     external
     {
         require(clusterSize > 0, "Cluster size must be a positive number");
@@ -253,6 +248,7 @@ contract Deployer {
             appID,
             storageHash,
             storageReceipt,
+            storageType,
             clusterSize,
             msg.sender,
             pinToNodes,
@@ -263,7 +259,7 @@ contract Deployer {
         if (!tryDeployApp(apps[appID])) {
             // App hasn't been deployed -- enqueue it to have it deployed later
             enqueuedApps.push(appID);
-            emit AppEnqueued(appID, storageHash, storageReceipt, clusterSize, msg.sender, pinToNodes);
+            emit AppEnqueued(appID, storageHash, storageReceipt, storageType, clusterSize, msg.sender, pinToNodes);
         }
     }
 
@@ -503,7 +499,7 @@ contract Deployer {
 
         // notify Fluence node it's time to run real-time workers and
         // create a Tendermint cluster hosting selected App (defined by storageHash)
-        emit AppDeployed(app.appID, app.storageHash, genesisTime, nodeIDs, workerAddrs, apiPorts);
+        emit AppDeployed(app.appID, app.storageHash, app.storageType, genesisTime, nodeIDs, workerAddrs, apiPorts);
     }
 
     /** @dev decrement node's capacity

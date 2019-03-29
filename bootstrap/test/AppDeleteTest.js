@@ -42,6 +42,8 @@ contract('Fluence (app deletion)', function ([_, owner, anyone, other]) {
         assert.notEqual(app, undefined);
         let storageHash = app[0];
         assert.equal(storageHash, add.storageHash);
+        let storageType = app[2];
+        assert.equal(storageType, utils.StorageIpfs);
 
         // only app owner can delete app
         await shouldFail.reverting(global.contract.dequeueApp(appID, { from: other }));
