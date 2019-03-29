@@ -53,6 +53,11 @@ matrix:
         - cargo
       rust: nightly-2019-03-10
 
+      install:
+        - sudo apt-get install nodejs
+        - node --version
+        - npm --version
+
       before_script:
         - (test -x $HOME/.cargo/bin/cargo-install-update || cargo install cargo-update)
         - (test -x $HOME/.cargo/bin/mdbook || cargo install --vers "^0.1" mdbook)
