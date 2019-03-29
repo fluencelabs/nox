@@ -32,7 +32,6 @@ import fluence.node.config.SwarmConfig
 import scodec.bits.ByteVector
 import slogging.LazyLogging
 import com.softwaremill.sttp._
-import com.softwaremill.sttp.circe._
 
 import scala.language.higherKinds
 
@@ -73,35 +72,6 @@ class TestCodeManager[F[_]](implicit F: Sync[F]) extends CodeManager[F] {
       .flatMap(p => F.pure(Paths.get("/master/vmcode/vmcode-" + p))) // preloaded code in master's docker container
 }
 
-class PolyglotCodeManager[F[_]: Timer: Monad: Sync: Concurrent](swarm: SwarmCodeManager[F], ipfs: IpfsCodeManager[F])
-    extends CodeManager[F] {
-  override def prepareCode(
-    path: CodePath,
-    storagePath: Path
-  ): F[Path] =
-    for {
-      dirPath <- Sync[F].delay(storagePath.resolve("vmcode"))
-      _ <- if (dirPath.toFile.exists()) Sync[F].unit else Sync[F].delay(Files.createDirectory(dirPath))
-
-      filePath <- Sync[F].delay(dirPath.resolve(path.asHex + ".wasm"))
-      exists <- Sync[F].delay(filePath.toFile.exists())
-      _ <- if (exists) Sync[F].unit
-      else {
-        for {
-          mvar <- MVar.empty[F, Path]
-          swarmTmp <- Sync[F].delay(Files.createTempDirectory("swarm"))
-          fromSwarm <- Concurrent[F].start(swarm.prepareCode(path, swarmTmp).flatTap(mvar.tryPut))
-          ipfsTmp <- Sync[F].delay(Files.createTempDirectory("ipfs"))
-          fromIpfs <- Concurrent[F].start(ipfs.prepareCode(path, ipfsTmp).flatTap(mvar.tryPut))
-          tmp <- mvar.read
-          _ <- fromSwarm.cancel
-          _ <- fromIpfs.cancel
-          _ <- Sync[F].delay(Files.move(tmp.resolve(path.asHex + ".wasm"), filePath))
-        } yield ()
-      }
-    } yield dirPath
-}
-
 case class IpfsError(message: String, causedBy: Option[Throwable] = None) extends EffectError {
   override def getMessage: String = message
 
@@ -112,7 +82,7 @@ class IpfsCodeManager[F[_]: Timer: Monad](ipfsUri: Uri)(
   implicit F: Sync[F],
   backoff: Backoff[SwarmError],
   sttpBackend: SttpBackend[F, Nothing]
-) extends LazyLogging {
+) extends CodeManager[F] with LazyLogging {
 
   def prepareCode(path: CodePath, storagePath: Path): F[Path] = {
     for {
@@ -220,10 +190,7 @@ object CodeManager {
     config: SwarmConfig
   )(implicit sttpBackend: SttpBackend[F, Nothing], backoff: Backoff[SwarmError] = Backoff.default): F[CodeManager[F]] =
     if (config.enabled) {
-      for {
-        swarm <- SwarmClient(config.address).map(new SwarmCodeManager[F](_))
-        ipfs = new IpfsCodeManager[F](uri"${config.address.replace("8500", "5001")}")
-      } yield new PolyglotCodeManager[F](swarm, ipfs)
+      Applicative[F].pure(new IpfsCodeManager[F](uri"${config.address.replace("8500", "5001")}"))
     } else {
       Applicative[F].pure(new TestCodeManager[F]())
     }

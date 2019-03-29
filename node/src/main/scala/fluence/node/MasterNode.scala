@@ -157,8 +157,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
    * then joins the threads and returns back exit code from master node
    */
   val run: IO[ExitCode] =
-    nodeEth.nodeEvents
-      .bufferAll
+    nodeEth.nodeEvents.bufferAll
       .evalTap(ev ⇒ Sync[F].delay(logger.debug("Got NodeEth event: " + ev)))
       .parEvalMap(1024)(e => handleEthEvent(e).as(e))
       .drain
