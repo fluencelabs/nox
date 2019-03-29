@@ -61,6 +61,43 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
     } yield (healthy, oldWorker)
   }
 
+  private def workerServices(
+    params: WorkerParams,
+    p2pPort: Short,
+    stopTimeout: Int,
+    getWorker: F[Worker[F]],
+    waitStopServices: F[Unit]
+  ): (F[Unit], F[WorkerServices[F]]) =
+    for {
+      // To get worker out of its Resource, once it's ready
+      servicesDef ← Deferred[F, WorkerServices[F]]
+      useServicesF = DockerWorkerServices
+        .make[F](params, p2pPort, stopTimeout)
+        .use(
+          services ⇒
+            for {
+              // Register worker in the pool
+              _ ← servicesDef.complete(services)
+
+              bus ← getWorker
+
+              // Launch a concurrent process of fetching p2p ports from other nodes
+              // Once a port is received, register it in tendermint
+              p2pPortsFiber ← WorkerP2pConnectivity
+                .join(bus, params.app.cluster.workers.filterNot(_.index == params.currentWorker.index))
+
+              // Worker is being used as a resource until this Deferred is resolved
+              _ ← waitStopServices
+
+              // If we haven't connected to some p2p host yet, stop trying
+              _ ← p2pPortsFiber.cancel
+
+            } yield logger.info(s"Releasing the worker resource: $params")
+        )
+        .map(_ ⇒ logger.debug(s"Worker removed from pool: $params"))
+      services <- servicesDef.get
+    } yield (useServicesF, services)
+
   /**
    * Runs a worker concurrently, registers it in the `workers` map
    *
@@ -70,87 +107,56 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
    *                    It might take up to 2*`stopTimeout` seconds to gracefully stop the worker, as 2 containers involved.
    * @return Unit; no failures are expected
    */
-  def runWorker(appId: Long, p2pPort: Short, params: F[WorkerParams], stopTimeout: Int = 5): F[Unit] =
+  def runWorker(appId: Long, p2pPort: Short, params: F[WorkerParams], stopTimeout: Int = 5): F[Unit] = {
+    def workerRun(getWorker: F[Worker[F]], waitServicesStop: F[Unit], returnServicesFiber: Fiber[F, Unit] => F[Unit]
+    ): F[WorkerServices[F]] = {
+      for {
+        p ← params
+        (useServicesF, servicesF) = workerServices(p, p2pPort, stopTimeout, getWorker, waitServicesStop)
+        // Fiber for the worker, needs to be joined to ensure worker cleanup process is completed
+        runningServicesFiber ← Concurrent[F].start(useServicesF)
+        // Pass the worker fiber to the Deferred
+        _ ← returnServicesFiber(runningServicesFiber)
+        services <- servicesF
+      } yield services
+    }
+
+    def cleanup(signalStopServices: F[Unit], getRunningServicesFiber: F[Fiber[F, Unit]]): F[Unit] = {
+      for {
+        // Release the worker resource, triggering resource cleanup
+        _ ← signalStopServices
+        // Get the worker's fiber
+        fiber ← getRunningServicesFiber
+        // Wait for the worker resource to be released and cleaned up
+        _ ← fiber.join
+        _ = logger.info(s"Removing worker from the pool: $params")
+        // Remove worker from the pool, so that worker's services cannot be used
+        _ ← workers.update(_ - appId)
+
+      } yield logger.debug(s"Worker's Fiber joined: $params")
+    }
+
     for {
-
-      // Remember that Deferred is like a non-blocking promise, but generalized for F[_]
-      // When completed, releases the used worker
+      // Deferred that's completed on worker's stop, signaling to stop WorkerServices
       stopServicesDef ← Deferred[F, Unit]
-
       // Used to pass the worker's fiber inside worker's callbacks, which are defined before we have the fiber
       runningServicesFiberDef ← Deferred[F, Fiber[F, Unit]]
-
-      // To get worker out of its Resource, once it's ready
-      servicesDef ← Deferred[F, WorkerServices[F]]
-
       workerDef ← Deferred[F, Worker[F]]
 
       worker ← Worker[F](
         appId,
         p2pPort,
         s"WorkerBus; appId=$appId p2pPort=$p2pPort",
-        for {
-          p ← params
-
-          // Fiber for the worker, needs to be joined to ensure worker cleanup process is completed
-          runningServicesFiber ← Concurrent[F].start(
-            DockerWorkerServices
-              .make[F](
-                p,
-                p2pPort,
-                stopTimeout
-              )
-              .use(
-                services ⇒
-                  for {
-                    // Register worker in the pool
-                    _ ← servicesDef.complete(services)
-
-                    bus ← workerDef.get
-
-                    // Launch a concurrent process of fetching p2p ports from other nodes
-                    // Once a port is received, register it in tendermint
-                    p2pPortsFiber ← WorkerP2pConnectivity
-                      .join(bus, p.app.cluster.workers.filterNot(_.index == p.currentWorker.index))
-
-                    // Worker is being used as a resource until this Deferred is resolved
-                    _ ← stopServicesDef.get
-
-                    // If we haven't connected to some p2p host yet, stop trying
-                    _ ← p2pPortsFiber.cancel
-
-                  } yield logger.info(s"Releasing the worker resource: $params")
-              )
-              .map(_ ⇒ logger.debug(s"Worker removed from pool: $params"))
-          )
-
-          // Pass the worker fiber to the Deferred
-          _ ← runningServicesFiberDef.complete(runningServicesFiber)
-
-          w ← servicesDef.get
-
-        } yield w,
-        // onStop is called externally, when one wants to stop the worker
-        onStop = for {
-          // Release the worker resource, triggering resource cleanup
-          _ ← stopServicesDef.complete(())
-          // Get the worker's fiber
-          fiber ← runningServicesFiberDef.get
-          // Wait for the worker resource to be released and cleaned up
-          _ ← fiber.join
-
-          _ = logger.info(s"Removing worker from the pool: $params")
-          // Remove worker from the pool, so that worker's services cannot be used
-          _ ← workers.update(_ - appId)
-
-        } yield logger.info(s"Worker's Fiber joined: $params"),
+        workerRun(workerDef.get, stopServicesDef.get, runningServicesFiberDef.complete),
+        // onStop is one of callbacks that called when worker is stopping
+        onStop = cleanup(stopServicesDef.complete(()), runningServicesFiberDef.get),
         onRemove = ports.free(appId).value.void
       )
 
       _ ← workerDef.complete(worker)
-
       _ ← workers.update(_ + (appId -> worker))
     } yield ()
+  }
 
   /**
    * Runs a new [[WorkerServices]] in the pool.
