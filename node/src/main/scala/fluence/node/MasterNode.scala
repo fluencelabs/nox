@@ -122,44 +122,42 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
       )
     } yield ()
 
-  def handleEthEvent(event: NodeEthEvent) = event match {
-    case RunAppWorker(app) ⇒
-      runAppWorker(app)
-
-    case RemoveAppWorker(appId) ⇒
-      pool.get(appId).flatMap {
-        case Some(w) ⇒
-          w.remove.attempt.map { removed =>
-            logger.info(s"Removed: ${w.description} => $removed")
-          }
-        case _ ⇒ ().pure[F]
-      }
-
-    case DropPeerWorker(appId, vk) ⇒
-      pool.get(appId).flatMap {
-        case Some(w) ⇒
-          w.control.dropPeer(vk)
-        case None ⇒ ().pure[F]
-      }
-
-    case NewBlockReceived(block) ⇒
-      ().pure[F]
-  }
-
   /**
    * Runs the appropriate effect for each incoming NodeEthEvent, keeping it untouched
    */
-  val handleEthEventPipe: fs2.Pipe[F, NodeEthEvent, NodeEthEvent] =
-    _.evalTap(handleEthEvent)
+  val handleEthEvent: fs2.Pipe[F, NodeEthEvent, NodeEthEvent] =
+    _.evalTap {
+      case RunAppWorker(app) ⇒
+        runAppWorker(app)
+
+      case RemoveAppWorker(appId) ⇒
+        pool.get(appId).flatMap {
+          case Some(w) ⇒
+            w.remove.attempt.map { removed =>
+              logger.info(s"Removed: ${w.description} => $removed")
+            }
+          case _ ⇒ ().pure[F]
+        }
+
+      case DropPeerWorker(appId, vk) ⇒
+        pool.get(appId).flatMap {
+          case Some(w) ⇒
+            w.control.dropPeer(vk)
+          case None ⇒ ().pure[F]
+        }
+
+      case NewBlockReceived(block) ⇒
+        ().pure[F]
+    }
 
   /**
    * Runs master node and starts listening for AppDeleted event in different threads,
    * then joins the threads and returns back exit code from master node
    */
   val run: IO[ExitCode] =
-    nodeEth.nodeEvents.bufferAll
+    nodeEth.nodeEvents
       .evalTap(ev ⇒ Sync[F].delay(logger.debug("Got NodeEth event: " + ev)))
-      .parEvalMap(1024)(e => handleEthEvent(e).as(e))
+      .through(handleEthEvent)
       .drain
       .compile
       .drain

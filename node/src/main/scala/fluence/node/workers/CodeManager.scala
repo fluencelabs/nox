@@ -184,12 +184,13 @@ class SwarmCodeManager[F[_]: Timer](swarmClient: SwarmClient[F])(implicit F: Syn
   }
 }
 
-object CodeManager {
+object CodeManager extends slogging.LazyLogging {
 
   def apply[F[_]: Sync: Timer: Concurrent](
     config: SwarmConfig
   )(implicit sttpBackend: SttpBackend[F, Nothing], backoff: Backoff[SwarmError] = Backoff.default): F[CodeManager[F]] =
     if (config.enabled) {
+      logger.info("Enabling IPFS code manager.")
       Applicative[F].pure(new IpfsCodeManager[F](uri"${config.address.replace("8500", "5001")}"))
     } else {
       Applicative[F].pure(new TestCodeManager[F]())
