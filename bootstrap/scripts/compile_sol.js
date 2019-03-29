@@ -67,5 +67,5 @@ if (networkContract.abi === undefined) {
     abort("networkContract.abi is undefined after compilation")
 }
 
-writeFile(compiledPath + '/Network.bin', JSON.stringify(networkContract.evm.bytecode.object));
+writeFile(compiledPath + '/Network.bin', networkContract.evm.bytecode.object);
 writeFile(compiledPath + '/Network.abi', JSON.stringify(networkContract.abi));
