@@ -4,6 +4,7 @@ _scala_fluence_template: &_scala_fluence_template
   jdk: oraclejdk8
 
   install:
+    - sudo apt-get update
     - sudo apt-get install nodejs
     - node --version
     - npm --version
@@ -29,9 +30,6 @@ git:
   submodules: false
 
 dist: xenial
-addons:
-  apt:
-    update: true
 
 matrix:
   include:
@@ -54,6 +52,7 @@ matrix:
       rust: nightly-2019-03-10
 
       install:
+        - sudo apt-get update
         - sudo apt-get install nodejs
         - node --version
         - npm --version
