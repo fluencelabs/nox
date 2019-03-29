@@ -4,8 +4,8 @@ _scala_fluence_template: &_scala_fluence_template
   jdk: oraclejdk8
 
   install:
-    - npm install -g npm
-    - npm install -g n
+    - sudo npm install -g npm
+    - sudo npm install -g n
     - sudo n stable
     - node --version
     - npm --version
