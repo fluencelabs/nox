@@ -16,36 +16,90 @@
 
 package fluence.node.workers
 
-import fluence.node.workers.control.ControlRpc
-import fluence.node.workers.status.WorkerStatus
-import fluence.effects.tendermint.rpc.TendermintRpc
+import cats.syntax.flatMap._
+import cats.syntax.apply._
+import cats.syntax.functor._
+import cats.syntax.applicative._
+import cats.effect.Concurrent
+import cats.effect.concurrent.{Deferred, TryableDeferred}
 
 import scala.language.higherKinds
 
-// Algebra for DockerWorker
-trait Worker[F[_]] {
-  // Tendermint p2p port
-  def p2pPort: Short
+// App ID worker handles
+// Tendermint p2p port
+// Human readable description of the worker
+// Stops the worker when F is evaluated
+// Worker could be restarted afterwards
+// Stops the worker and deallocates all resources used by it
+case class Worker[F[_]: Concurrent](
+  appId: Long,
+  p2pPort: Short,
+  private val servicesDef: TryableDeferred[F, WorkerServices[F]],
+  description: String,
+  private val call: F[Unit] ⇒ F[Unit],
+  stop: F[Unit],
+  remove: F[Unit]
+) {
 
-  // App ID worker handles
-  def appId: Long
+  val services: F[Option[WorkerServices[F]]] = servicesDef.tryGet
 
-  // RPC connection to tendermint
-  def tendermint: TendermintRpc[F]
+  def withServices_[T, A](f: WorkerServices[F] ⇒ T)(fn: T ⇒ F[A]): F[Unit] =
+    call(
+      for {
+        worker ← servicesDef.get
+        t = f(worker)
+        _ ← fn(t)
+      } yield ()
+    )
 
-  // RPC connection to worker
-  def control: ControlRpc[F]
+  def withServices[T, A](f: WorkerServices[F] ⇒ T)(fn: T ⇒ F[A]): F[A] =
+    for {
+      d ← Deferred[F, A]
+      _ ← withServices_(f)(t ⇒ fn(t).flatMap(d.complete))
+      r ← d.get
+    } yield r
 
-  // Stops the worker when F is evaluated
-  // Worker could be restarted afterwards
-  def stop: F[Unit]
+  val isHealthy: F[Boolean] = services.flatMap {
+    case Some(w) ⇒ w.status.map(_.isHealthy)
+    case None ⇒ false.pure[F]
+  }
 
-  // Stops the worker and deallocates all resources used by it
-  def remove: F[Unit]
+}
 
-  // Retrieves worker's health
-  def status: F[WorkerStatus]
+object Worker {
 
-  // Human readable description of the worker
-  def description: String
+  def apply[F[_]: Concurrent](
+    appId: Long,
+    p2pPort: Short,
+    description: String,
+    workerRun: F[WorkerServices[F]],
+    onStop: F[Unit],
+    onRemove: F[Unit]
+  ): F[Worker[F]] =
+    for {
+      services ← Deferred.tryable[F, WorkerServices[F]]
+      queue ← fs2.concurrent.Queue.noneTerminated[F, F[Unit]]
+      fiber ← Concurrent[F].start(
+        queue.dequeue.evalMap(identity).compile.drain
+      )
+
+      stopQueue = queue.enqueue1(None) *> fiber.join
+
+      doOnStop = stopQueue *> onStop
+
+      bus = Worker[F](
+        appId,
+        p2pPort,
+        services,
+        description,
+        (fn: F[Unit]) ⇒ queue.enqueue1(Some(fn)),
+        doOnStop,
+        doOnStop *> onRemove
+      )
+
+      _ <- bus.call(
+        workerRun.flatMap(services.complete)
+      )
+    } yield bus
+
 }

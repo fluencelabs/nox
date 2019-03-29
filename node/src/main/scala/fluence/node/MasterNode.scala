@@ -21,7 +21,6 @@ import cats.Parallel
 import cats.effect._
 import cats.effect.syntax.effect._
 import cats.syntax.applicative._
-import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
@@ -56,13 +55,6 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
   masterNodeContainerId: Option[String]
 ) extends slogging.LazyLogging {
 
-  private def runWorker(params: WorkerParams) =
-    for {
-      _ <- IO(logger.info("Running worker `{}`", params)).to[F]
-      newly <- pool.run(params)
-      _ <- IO(logger.info(s"Worker started (newly=$newly) {}", params)).to[F]
-    } yield ()
-
   /**
    * All app worker's data is stored here. Currently the folder is never purged
    */
@@ -91,13 +83,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
       _ ← IO(Files.createDirectories(vmCodePath)).to[F]
     } yield vmCodePath
 
-  /**
-   * Runs app worker on a pool
-   * TODO check that the worker is not yet running
-   *
-   * @param app App description
-   */
-  def runAppWorker(app: eth.state.App): F[Unit] =
+  def prepareWorkerParams(app: eth.state.App): F[WorkerParams] =
     for {
       appPath ← resolveAppPath(app)
       tendermintPath ← makeTendermintPath(appPath)
@@ -106,18 +92,27 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
       // TODO: in general, worker/vm is responsible about downloading the code during resource creation, isn't it?
       // we take output to substitute test folder in tests
       code <- codeManager.prepareCode(CodePath(app.storageHash), vmCodePath)
-
-      _ <- runWorker(
-        WorkerParams(
-          app,
-          tendermintPath,
-          code,
-          masterNodeContainerId,
-          nodeConfig.workerDockerConfig,
-          nodeConfig.tmDockerConfig,
-          configTemplate
-        )
+    } yield
+      WorkerParams(
+        app,
+        tendermintPath,
+        code,
+        masterNodeContainerId,
+        nodeConfig.workerDockerConfig,
+        nodeConfig.tmDockerConfig,
+        configTemplate
       )
+
+  /**
+   * Runs app worker on a pool
+   * TODO check that the worker is not yet running
+   *
+   * @param app App description
+   */
+  def runAppWorker(app: eth.state.App): F[Unit] =
+    for {
+      _ <- IO(logger.info("Running worker for id `{}`", app.id)).to[F]
+      _ <- pool.run(app.id, prepareWorkerParams(app))
     } yield ()
 
   /**
@@ -129,20 +124,10 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
         runAppWorker(app)
 
       case RemoveAppWorker(appId) ⇒
-        pool.get(appId).flatMap {
-          case Some(w) ⇒
-            w.remove.attempt.map { removed =>
-              logger.info(s"Removed: ${w.description} => $removed")
-            }
-          case _ ⇒ ().pure[F]
-        }
+        pool.withWorker(appId, _.remove).void
 
       case DropPeerWorker(appId, vk) ⇒
-        pool.get(appId).flatMap {
-          case Some(w) ⇒
-            w.control.dropPeer(vk)
-          case None ⇒ ().pure[F]
-        }
+        pool.withWorker(appId, _.withServices_(_.control)(_.dropPeer(vk))).void
 
       case NewBlockReceived(block) ⇒
         ().pure[F]
