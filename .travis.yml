@@ -4,8 +4,7 @@ _scala_fluence_template: &_scala_fluence_template
   jdk: oraclejdk8
 
   install:
-    - sudo apt-get update
-    - sudo apt-get install nodejs
+    - nvm install node
     - node --version
     - npm --version
     - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-03-10
