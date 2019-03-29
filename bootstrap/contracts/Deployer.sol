@@ -77,7 +77,7 @@ contract Deployer {
         // bytes32 receipt insuring code availability (like Swarm receipts)
         bytes32 storageReceipt;
 
-        // Decentralized code storage type
+        // Decentralized code storage type (Swarm, Ipfs, etc)
         bytes32 storageType;
 
         // number of real-time nodes required to host this code
