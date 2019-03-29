@@ -26,7 +26,7 @@ import scala.sys.process.{Process, ProcessLogger}
 trait OsSetup {
   protected val bootstrapDir = new File("../bootstrap")
   protected def runCmd(cmd: String): Unit = Process(cmd, bootstrapDir).! //(ProcessLogger(_ => ()))
-  protected def runBackground(cmd: String): Unit = Process(cmd, bootstrapDir).! //.run(ProcessLogger(_ => ()))
+  protected def runBackground(cmd: String): Unit = Process(cmd, bootstrapDir).run(ProcessLogger(_ => ()))
 
   // return IP address of the `interface`
   protected def ifaceIP(interface: String): String = {
