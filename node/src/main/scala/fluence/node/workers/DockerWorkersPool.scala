@@ -17,20 +17,19 @@
 package fluence.node.workers
 import java.nio.file.Path
 
-import cats.{Applicative, Apply, Parallel}
-import cats.syntax.applicative._
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
-import com.softwaremill.sttp.SttpBackend
-import slogging.LazyLogging
 import cats.instances.list._
+import cats.syntax.applicative._
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
-import cats.syntax.apply._
 import cats.syntax.functor._
+import cats.{Applicative, Apply, Parallel}
+import com.softwaremill.sttp.SttpBackend
 import fluence.codec.PureCodec
 import fluence.effects.docker.DockerIO
 import fluence.effects.kvstore.RocksDBStore
+import slogging.LazyLogging
 
 import scala.language.higherKinds
 
@@ -63,7 +62,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
   }
 
   /**
-   * Runs a worker concurrently, registers it in `workers` map
+   * Runs a worker concurrently, registers it in the `workers` map
    *
    * @param params Worker's description
    * @param p2pPort Tendermint p2p port
@@ -160,9 +159,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
    * @return F that resolves with true when worker is registered; it might be not running yet. If it was registered before, F resolves with false
    */
   override def run(appId: Long, params: F[WorkerParams]): F[WorkersPool.RunResult] =
-    /*
-  TODO worker should be responsible for restarting itself, so that we don't block here
-     */
+    // TODO worker should be responsible for restarting itself, so that we don't block here
     Apply[F]
       .product(checkWorkerHealthy(appId), ports.allocate(appId).value)
       .flatMap[WorkersPool.RunResult] {
