@@ -29,8 +29,6 @@ _scala_fluence_template: &_scala_fluence_template
 git:
   submodules: false
 
-dist: xenial
-
 matrix:
   include:
     # These tests take a lot of time and run only while PR
