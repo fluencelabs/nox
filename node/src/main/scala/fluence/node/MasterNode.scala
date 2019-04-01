@@ -31,7 +31,7 @@ import fluence.effects.castore.StoreError
 import fluence.effects.docker.DockerIO
 import fluence.effects.ethclient.EthClient
 import fluence.effects.swarm.{SwarmClient, SwarmStore}
-import fluence.node.code.{CodePath, CodeStore, LocalCodeStore, RemoteCodeStore}
+import fluence.node.code.{CodeStore, LocalCodeStore, RemoteCodeStore}
 import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.eth._
 import fluence.node.workers._
@@ -98,7 +98,6 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
 
   /**
    * Runs app worker on a pool
-   * TODO check that the worker is not yet running
    *
    * @param app App description
    */
@@ -108,9 +107,8 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
       tendermintPath ← makeTendermintPath(appPath)
       vmCodePath ← makeVmCodePath(appPath)
 
-      // TODO: in general, worker/vm is responsible about downloading the code during resource creation, isn't it?
-      // we take output to substitute test folder in tests
-      code <- codeStore.prepareCode(CodePath(app.code.storageHash), vmCodePath)
+      // TODO: Move description of the code preparation to Worker; it should be Worker's responsibility
+      code <- codeStore.prepareCode(app.code, vmCodePath)
 
       _ <- runWorker(
         WorkerParams(

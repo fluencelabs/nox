@@ -23,47 +23,49 @@ import cats.effect.{IO, LiftIO, Timer}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.Backoff
-import fluence.effects.castore.{ContentAddressableStore, StoreError}
-import scodec.bits.ByteVector
+import fluence.effects.castore.StoreError
+import fluence.node.eth.state.StorageRef
 
 import scala.language.higherKinds
 
-class RemoteCodeStore[F[_]: Timer: LiftIO: Monad](store: ContentAddressableStore[F])(
+class RemoteCodeStore[F[_]: Timer: LiftIO: Monad](store: PolyStore[F])(
   implicit backoff: Backoff[StoreError]
 ) extends CodeStore[F] {
 
   /**
-   * Downloads file from the Swarm and store it on a disk.
-   * @param hash a code address and a Swarm URL address
-   * @param filePath a path to code to store
+   * Downloads file from a storage, and stores it on a disk at the specified location.
+   *
+   * @param ref Reference to a code in a content addressable storage
+   * @param filePath A path to store code at
    */
-  private def downloadToFile(hash: ByteVector, filePath: Path): F[Unit] =
-    backoff(store.fetchTo(hash, filePath))
+  private def downloadToFile(ref: StorageRef, filePath: Path): F[Unit] =
+    backoff(store.fetchTo(ref, filePath))
 
   /**
    * Checks if there is no code already then download a file from the Swarm and store it to a disk.
+   *
    * @param workerPath a path to worker's directory
-   * @param hash a code address and a Swarm URL address
-   * @return a path to a code
+   * @param ref Reference to a code in a content addressable storage
+   * @return A path where code is stored (currently it's `workerPath / vmcode / hash.wasm`)
    */
   private def downloadAndWriteCodeToFile(
     workerPath: Path,
-    hash: ByteVector
+    ref: StorageRef
   ): F[Path] =
     // TODO handle fail system errors properly?
     for {
-      // TODO why to hardcode the directory and its creation?
+      // TODO move vmcode to a config file
       dirPath ← IO(workerPath.resolve("vmcode")).to[F]
       _ <- IO(if (!dirPath.toFile.exists()) Files.createDirectory(dirPath)).to[F]
 
       //TODO check if file's Swarm hash corresponds to the address
-      filePath <- IO(dirPath.resolve(hash.toHex + ".wasm")).to[F]
+      filePath <- IO(dirPath.resolve(ref.storageHash.toHex + ".wasm")).to[F]
       exists <- IO(filePath.toFile.exists()).to[F]
       _ <- if (exists) IO.unit.to[F]
       else
         for {
           tmpFile <- IO(Files.createTempFile("code_", "_wasm")).to[F]
-          _ <- downloadToFile(hash, tmpFile)
+          _ <- downloadToFile(ref, tmpFile)
           _ <- IO(Files.move(tmpFile, filePath)).to[F]
         } yield ()
 
@@ -71,11 +73,12 @@ class RemoteCodeStore[F[_]: Timer: LiftIO: Monad](store: ContentAddressableStore
 
   /**
    * Downloads code from Swarm and manages paths to the code.
-   * @param path a path to a code from the smart contract
+   *
+   * @param ref a path to a code from the smart contract
    * @param workerPath a path to a worker's working directory
    * @return
    */
-  override def prepareCode(path: CodePath, workerPath: Path): F[Path] =
-    downloadAndWriteCodeToFile(workerPath, path.storageHash)
+  override def prepareCode(ref: StorageRef, workerPath: Path): F[Path] =
+    downloadAndWriteCodeToFile(workerPath, ref)
 
 }

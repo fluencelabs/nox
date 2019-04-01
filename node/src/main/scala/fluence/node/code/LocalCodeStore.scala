@@ -18,15 +18,16 @@ package fluence.node.code
 
 import java.nio.file.{Path, Paths}
 
-import cats.syntax.flatMap._
 import cats.effect.Sync
+import cats.syntax.flatMap._
+import fluence.node.eth.state.StorageRef
 
 import scala.language.higherKinds
 
 class LocalCodeStore[F[_]](implicit F: Sync[F]) extends CodeStore[F] {
 
   override def prepareCode(
-    path: CodePath,
+    path: StorageRef,
     workerPath: Path
   ): F[Path] =
     F.fromEither(path.storageHash.decodeUtf8.map(_.trim))

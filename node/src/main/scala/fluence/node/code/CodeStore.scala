@@ -18,6 +18,8 @@ package fluence.node.code
 
 import java.nio.file.Path
 
+import fluence.node.eth.state.StorageRef
+
 import scala.language.higherKinds
 
 trait CodeStore[F[_]] {
@@ -29,5 +31,5 @@ trait CodeStore[F[_]] {
    * @param storagePath a path to a worker's working directory
    * @return path to the copied code inside storagePath
    */
-  def prepareCode(path: CodePath, storagePath: Path): F[Path]
+  def prepareCode(path: StorageRef, storagePath: Path): F[Path]
 }
