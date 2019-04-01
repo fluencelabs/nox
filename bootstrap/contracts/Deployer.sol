@@ -74,7 +74,7 @@ contract Deployer {
         // WASM code address in a content-addressable storage;
         bytes32 storageHash;
 
-        // bytes32 receipt insuring code availability (like Swarm receipts)
+        // A receipt insuring code availability (like Swarm receipts)
         bytes32 storageReceipt;
 
         // Decentralized code storage type (Swarm, Ipfs, etc)
