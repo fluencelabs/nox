@@ -28,12 +28,12 @@ import scala.util.Try
  * Represents an App deployed to some cluster
  *
  * @param id Application ID as defined in Fluence contract
- * @param storageHash Hash of the code in Swarm
+ * @param code Reference to the application code in a decentralized storage
  * @param cluster A cluster that hosts this App
  */
 case class App private[eth] (
   id: Long,
-  storageHash: ByteVector,
+  code: StorageRef,
   cluster: Cluster
 )
 
@@ -44,11 +44,16 @@ object App {
   private[eth] def apply[F[_]: Applicative](
     appId: Uint256,
     storageHash: Bytes32,
+    storageType: Bytes32,
     cluster: Cluster
   ): EitherT[F, AppMalformedError, App] =
     EitherT.fromEither(
       Try(
-        App(appId.getValue.longValueExact(), ByteVector(storageHash.getValue), cluster)
+        App(
+          appId.getValue.longValueExact(),
+          StorageRef(ByteVector(storageHash.getValue), ByteVector(storageType.getValue)),
+          cluster
+        )
       ).toEither.left.map(AppMalformedError)
     )
 
