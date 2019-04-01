@@ -16,11 +16,16 @@
 
 package fluence.effects.swarm
 
-import fluence.effects.castore.StoreError
+import java.nio.ByteBuffer
 
-// TODO change this error to errors with hierarchy
-case class SwarmError(message: String, causedBy: Option[Throwable] = None) extends StoreError {
-  override def getMessage: String = message
+import cats.data.EitherT
+import cats.effect.{Concurrent, ContextShift}
+import fluence.effects.castore.{ContentAddressableStore, StoreError}
+import scodec.bits.ByteVector
 
-  override def getCause: Throwable = causedBy getOrElse super.getCause
+import scala.language.higherKinds
+
+class SwarmStore[F[_]: Concurrent: ContextShift](client: SwarmClient[F]) extends ContentAddressableStore[F] {
+  override def fetch(hash: ByteVector): EitherT[F, StoreError, fs2.Stream[F, ByteBuffer]] =
+    client.fetch(hash.toHex).leftMap(identity[StoreError])
 }

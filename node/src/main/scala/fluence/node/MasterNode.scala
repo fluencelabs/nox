@@ -15,6 +15,7 @@
  */
 
 package fluence.node
+import java.nio.ByteBuffer
 import java.nio.file._
 
 import cats.Parallel
@@ -25,8 +26,12 @@ import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
+import fluence.effects.Backoff
+import fluence.effects.castore.StoreError
 import fluence.effects.docker.DockerIO
 import fluence.effects.ethclient.EthClient
+import fluence.effects.swarm.{SwarmClient, SwarmStore}
+import fluence.node.code.{CodePath, CodeStore, LocalCodeStore, RemoteCodeStore}
 import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.eth._
 import fluence.node.workers._
@@ -42,7 +47,7 @@ import scala.language.higherKinds
  * @param configTemplate Template for worker's configuration
  * @param nodeEth Ethereum adapter
  * @param pool Workers pool to launch workers in
- * @param codeManager To load the code from, usually backed with Swarm
+ * @param codeStore To load the code from, usually backed with Swarm
  * @param rootPath MasterNode's working directory, usually /master
  * @param masterNodeContainerId Docker Container ID for this process, to import Docker volumes from
  */
@@ -51,7 +56,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
   configTemplate: ConfigTemplate,
   nodeEth: NodeEth[F],
   pool: WorkersPool[F],
-  codeManager: CodeManager[F],
+  codeStore: CodeStore[F],
   rootPath: Path,
   masterNodeContainerId: Option[String]
 ) extends slogging.LazyLogging {
@@ -105,7 +110,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
 
       // TODO: in general, worker/vm is responsible about downloading the code during resource creation, isn't it?
       // we take output to substitute test folder in tests
-      code <- codeManager.prepareCode(CodePath(app.storageHash), vmCodePath)
+      code <- codeStore.prepareCode(CodePath(app.storageHash), vmCodePath)
 
       _ <- runWorker(
         WorkerParams(
@@ -189,7 +194,7 @@ object MasterNode extends LazyLogging {
     masterConfig: MasterConfig,
     nodeConfig: NodeConfig,
     rootPath: Path
-  )(implicit sttpBackend: SttpBackend[F, Nothing], P: Parallel[F, G]): Resource[F, MasterNode[F]] =
+  )(implicit sttpBackend: SttpBackend[F, fs2.Stream[F, ByteBuffer]], P: Parallel[F, G]): Resource[F, MasterNode[F]] =
     for {
       ethClient ← EthClient.make[F](Some(masterConfig.ethereum.uri))
 
@@ -203,7 +208,15 @@ object MasterNode extends LazyLogging {
 
       nodeEth ← NodeEth[F](nodeConfig.validatorKey.toByteVector, ethClient, masterConfig.contract)
 
-      codeManager ← Resource.liftF(CodeManager[F](masterConfig.swarm))
+      codeStore ← Resource.liftF[F, CodeStore[F]](
+        if (masterConfig.swarm.enabled) {
+          implicit val b: Backoff[StoreError] = Backoff.default
+          SwarmClient[F](masterConfig.swarm.address)
+            .map(new SwarmStore[F](_))
+            .map[CodeStore[F]](new RemoteCodeStore(_))
+        } else (new LocalCodeStore[F](): CodeStore[F]).pure[F]
+      )
+
       configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath, masterConfig.tendermintConfig))
     } yield
       MasterNode[F](
@@ -211,7 +224,7 @@ object MasterNode extends LazyLogging {
         configTemplate,
         nodeEth,
         pool,
-        codeManager,
+        codeStore,
         rootPath,
         masterConfig.masterContainerId
       )

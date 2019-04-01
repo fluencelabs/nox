@@ -14,13 +14,20 @@
  * limitations under the License.
  */
 
-package fluence.effects.swarm
+package fluence.node.code
 
-import fluence.effects.castore.StoreError
+import java.nio.file.Path
 
-// TODO change this error to errors with hierarchy
-case class SwarmError(message: String, causedBy: Option[Throwable] = None) extends StoreError {
-  override def getMessage: String = message
+import scala.language.higherKinds
 
-  override def getCause: Throwable = causedBy getOrElse super.getCause
+trait CodeStore[F[_]] {
+
+  /**
+   * Puts the copy of the code to the working directory
+   *
+   * @param path a path to a code from the smart contract
+   * @param storagePath a path to a worker's working directory
+   * @return path to the copied code inside storagePath
+   */
+  def prepareCode(path: CodePath, storagePath: Path): F[Path]
 }

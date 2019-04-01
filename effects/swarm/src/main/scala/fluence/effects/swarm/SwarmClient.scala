@@ -16,6 +16,8 @@
 
 package fluence.effects.swarm
 
+import java.nio.ByteBuffer
+
 import cats.data.EitherT
 import cats.effect.IO
 import cats.syntax.applicativeError._
@@ -47,7 +49,7 @@ import scala.language.higherKinds
  *                    Can be sync or async, with effects or not depending on the `F`
  */
 class SwarmClient[F[_]](swarmUri: Uri)(
-  implicit sttpBackend: SttpBackend[F, Nothing],
+  implicit sttpBackend: SttpBackend[F, fs2.Stream[F, ByteBuffer]],
   F: cats.MonadError[F, Throwable],
   hasher: Hasher[ByteVector, ByteVector]
 ) extends slogging.LazyLogging {
@@ -82,7 +84,6 @@ class SwarmClient[F[_]](swarmUri: Uri)(
    *
    */
   def download(target: String): EitherT[F, SwarmError, Array[Byte]] = {
-    // TODO add a method that will return some sort of stream
     val downloadURI = uri(Bzz, target)
     logger.info(s"Download request. Target: $target")
     sttp
@@ -98,6 +99,19 @@ class SwarmClient[F[_]](swarmUri: Uri)(
         logger.info(s"The resource has been downloaded.")
         logger.debug(s"Resource size: ${r.length} bytes.")
         r
+      }
+  }
+
+  def fetch(target: String): EitherT[F, SwarmError, fs2.Stream[F, ByteBuffer]] = {
+    val downloadURI = uri(Bzz, target)
+    sttp
+      .response(asStream[fs2.Stream[F, ByteBuffer]])
+      .get(downloadURI)
+      .send()
+      .toEitherT { er ⇒
+        val errorMessage = s"Error on downloading from $downloadURI. $er"
+        logger.error(errorMessage)
+        SwarmError(errorMessage)
       }
   }
 
@@ -314,9 +328,12 @@ object SwarmClient {
 
   def apply[F[_]](
     address: String
-  )(implicit sttpBackend: SttpBackend[F, Nothing], F: cats.MonadError[F, Throwable]): F[SwarmClient[F]] = {
+  )(
+    implicit sttpBackend: SttpBackend[F, fs2.Stream[F, ByteBuffer]],
+    F: cats.MonadError[F, Throwable]
+  ): F[SwarmClient[F]] = {
 
-    implicit val hasher: Hasher[ByteVector, ByteVector] = Keccak256Hasher.hasher
+    implicit val _: Hasher[ByteVector, ByteVector] = Keccak256Hasher.hasher
 
     // TODO return EitherT instead
     F.catchNonFatal {

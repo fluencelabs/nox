@@ -16,10 +16,12 @@
 
 package fluence.node
 
+import java.nio.ByteBuffer
+
 import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect._
 import com.softwaremill.sttp.SttpBackend
-import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
+import com.softwaremill.sttp.asynchttpclient.fs2.AsyncHttpClientFs2Backend
 import fluence.effects.docker.DockerIO
 import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
@@ -28,8 +30,8 @@ import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 
 object MasterNodeApp extends IOApp with LazyLogging {
 
-  private val sttpResource: Resource[IO, SttpBackend[IO, Nothing]] =
-    Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
+  private val sttpResource: Resource[IO, SttpBackend[IO, fs2.Stream[IO, ByteBuffer]]] =
+    Resource.make(IO(AsyncHttpClientFs2Backend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
   /**
    * Launches a Master Node instance

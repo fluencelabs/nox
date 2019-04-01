@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package fluence.effects.swarm
+package fluence.effects.castore
 
-import fluence.effects.castore.StoreError
+import java.nio.file.Path
 
-// TODO change this error to errors with hierarchy
-case class SwarmError(message: String, causedBy: Option[Throwable] = None) extends StoreError {
-  override def getMessage: String = message
+import fluence.effects.EffectError
+import scodec.bits.ByteVector
 
-  override def getCause: Throwable = causedBy getOrElse super.getCause
-}
+trait StoreError extends EffectError
+
+case class StorageToFileFailed(hash: ByteVector, dest: Path, err: Throwable) extends Exception(err) with StoreError

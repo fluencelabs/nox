@@ -14,13 +14,22 @@
  * limitations under the License.
  */
 
-package fluence.effects.swarm
+package fluence.node.code
 
-import fluence.effects.castore.StoreError
+import java.nio.file.{Path, Paths}
 
-// TODO change this error to errors with hierarchy
-case class SwarmError(message: String, causedBy: Option[Throwable] = None) extends StoreError {
-  override def getMessage: String = message
+import cats.syntax.flatMap._
+import cats.effect.Sync
 
-  override def getCause: Throwable = causedBy getOrElse super.getCause
+import scala.language.higherKinds
+
+class LocalCodeStore[F[_]](implicit F: Sync[F]) extends CodeStore[F] {
+
+  override def prepareCode(
+    path: CodePath,
+    workerPath: Path
+  ): F[Path] =
+    F.fromEither(path.storageHash.decodeUtf8.map(_.trim))
+      .flatMap(p => F.pure(Paths.get("/master/vmcode/vmcode-" + p))) // preloaded code in master's docker container
+
 }

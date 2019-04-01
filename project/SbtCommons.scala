@@ -87,18 +87,21 @@ object SbtCommons {
   val fs2io = "co.fs2" %% "fs2-io"               % fs2Version
 
   // functional wrapper around 'lightbend/config'
+  @deprecated("pureConfig is known to cause mindblowing failures on compile time, let's drop it away", "29.03.2019")
   val pureConfig = "com.github.pureconfig" %% "pureconfig" % "0.10.2"
   val ficus = "com.iheart"                 %% "ficus"      % "1.4.3"
 
-  val cryptoHashing = "one.fluence"  %% "crypto-hashsign" % "0.0.3"
-  val cryptoCipher = "one.fluence"   %% "crypto-cipher"   % "0.0.3"
-  val cryptoKeyStore = "one.fluence" %% "crypto-keystore" % "0.0.3"
+  val cryptoVersion = "0.0.3"
+  val cryptoHashing = "one.fluence"  %% "crypto-hashsign" % cryptoVersion
+  val cryptoCipher = "one.fluence"   %% "crypto-cipher"   % cryptoVersion
+  val cryptoKeyStore = "one.fluence" %% "crypto-keystore" % cryptoVersion
   val codecCore = "one.fluence"      %% "codec-core"      % "0.0.4"
 
   val sttpVersion = "1.5.4"
   val sttp = "com.softwaremill.sttp"            %% "core"                           % sttpVersion
   val sttpCirce = "com.softwaremill.sttp"       %% "circe"                          % sttpVersion
   val sttpCatsBackend = "com.softwaremill.sttp" %% "async-http-client-backend-cats" % sttpVersion
+  val sttpFs2Backend = "com.softwaremill.sttp" %% "async-http-client-backend-fs2" % sttpVersion
 
   val http4sVersion = "0.20.0-M6"
   val http4sDsl = "org.http4s"    %% "http4s-dsl"          % http4sVersion
@@ -117,11 +120,6 @@ object SbtCommons {
   val web3jVersion = "4.2.0"
   val web3jCrypto = "org.web3j" % "crypto" % web3jVersion
   val web3jCore = "org.web3j"   % "core"   % web3jVersion
-
-  val prometheusClientVersion = "0.5.0"
-  val prometheusClient = "io.prometheus"        % "simpleclient"         % prometheusClientVersion
-  val prometheusClientJetty = "io.prometheus"   % "simpleclient_jetty"   % prometheusClientVersion
-  val prometheusClientServlet = "io.prometheus" % "simpleclient_servlet" % prometheusClientVersion
 
   val toml = "com.electronwill.night-config" % "toml" % "3.4.2"
 

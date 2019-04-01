@@ -14,13 +14,8 @@
  * limitations under the License.
  */
 
-package fluence.effects.swarm
+package fluence.node.code
 
-import fluence.effects.castore.StoreError
+import scodec.bits.ByteVector
 
-// TODO change this error to errors with hierarchy
-case class SwarmError(message: String, causedBy: Option[Throwable] = None) extends StoreError {
-  override def getMessage: String = message
-
-  override def getCause: Throwable = causedBy getOrElse super.getCause
-}
+case class CodePath(storageHash: ByteVector) extends AnyVal

@@ -33,14 +33,14 @@ package fluence.node
  */
 
 import cats.effect.{ContextShift, IO, Resource, Timer}
-import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
+import com.softwaremill.sttp.asynchttpclient.fs2.AsyncHttpClientFs2Backend
 import fluence.node.workers.control.ControlRpc
 import fluence.statemachine.control.{ControlServer, DropPeer}
 import fluence.statemachine.control.ControlServer.ControlServerConfig
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
-import scala.concurrent.duration._
 
+import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class ControlRpcSpec extends WordSpec with Matchers {
@@ -49,11 +49,11 @@ class ControlRpcSpec extends WordSpec with Matchers {
     implicit val ioShift: ContextShift[IO] = IO.contextShift(global)
 
     val config = ControlServerConfig("localhost", 26662)
-    val server = ControlServer.make[IO](config)
+    val serverR = ControlServer.make[IO](config)
 
-    val sttp = Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
+    val sttp = Resource.make(IO(AsyncHttpClientFs2Backend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
     val resources = for {
-      server <- server
+      server <- serverR
       s <- sttp
       rpc = {
         implicit val b = s
