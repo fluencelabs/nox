@@ -50,7 +50,6 @@ impl Uploader {
 
     pub fn upload_code(self, show_progress: bool) -> Result<H256, Error> {
         let upload_to_storage_fn = || -> Result<H256, Error> {
-            println!("yoyo111111");
             upload_to_storage(
                 &self.storage_type,
                 &self.storage_url.as_str(),
@@ -58,7 +57,6 @@ impl Uploader {
             )
         };
 
-        println!("yoyo22222");
         let hash = if show_progress {
             utils::with_progress(
                 "Uploading application code to storage...",
@@ -83,7 +81,6 @@ pub fn parse(matches: &ArgMatches, config: SetupConfig) -> Result<Uploader, Erro
     let is_swarm = matches.is_present(IS_SWARM);
 
     let storage_type = if is_swarm { SWARM } else { IPFS };
-    println!("storage type {:?}", storage_type);
 
     let storage_url = matches
         .value_of(STORAGE_URL)
