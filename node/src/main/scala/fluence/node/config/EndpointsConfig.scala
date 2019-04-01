@@ -17,14 +17,14 @@
 package fluence.node.config
 import java.net.InetAddress
 
-import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.{Decoder, Encoder}
 
 /**
  * Information about a node possible endpoints (IP and ports) that will be used as addresses
  * for requests after a cluster will be formed
  *
- * @param ip p2p host IP
+ * @param ip P2p host IP
   **/
 case class EndpointsConfig(ip: InetAddress)
 

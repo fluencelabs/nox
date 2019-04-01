@@ -50,6 +50,10 @@ case class MasterConfig(
 )
 
 object MasterConfig {
+  import ConfigOps._
+  import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
+  import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+  import net.ceedubs.ficus.readers.EnumerationReader._
 
   implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder
   implicit val decodeMasterConfig: Decoder[MasterConfig] = deriveDecoder
