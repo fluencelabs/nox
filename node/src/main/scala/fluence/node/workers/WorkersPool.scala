@@ -16,6 +16,10 @@
 
 package fluence.node.workers
 
+import cats.{Applicative, Monad}
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+
 import scala.language.higherKinds
 
 /**
@@ -32,7 +36,7 @@ trait WorkersPool[F[_]] {
    * @param params Worker's description
    * @return Whether worker run or not
    */
-  def run(params: WorkerParams): F[WorkersPool.RunResult]
+  def run(appId: Long, params: F[WorkerParams]): F[WorkersPool.RunResult]
 
   /**
    * Get a Worker by its appId, if it's present
@@ -41,6 +45,12 @@ trait WorkersPool[F[_]] {
    * @return Worker
    */
   def get(appId: Long): F[Option[Worker[F]]]
+
+  def withWorker[A](appId: Long, fn: Worker[F] ⇒ F[A])(implicit F: Monad[F]): F[Option[A]] =
+    get(appId).flatMap {
+      case Some(w) ⇒ fn(w).map(Some(_))
+      case None ⇒ Applicative[F].pure(None)
+    }
 
   /**
    * Get all known workers
@@ -52,8 +62,8 @@ trait WorkersPool[F[_]] {
 
 object WorkersPool {
   sealed trait RunResult
-  case object Restarted extends RunResult
+  case object Restarting extends RunResult
   case class RunFailed(reason: Option[Throwable] = None) extends RunResult
   case object AlreadyRunning extends RunResult
-  case object Ran extends RunResult
+  case object Starting extends RunResult
 }

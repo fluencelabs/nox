@@ -40,22 +40,17 @@ import scala.language.higherKinds
  * @param tendermint Tendermint RPC endpoints for the worker
  * @param control Control RPC endpoints for the worker
  * @param status Getter for actual Worker's status
- * @param stop stops the worker, should be launched only once
- * @param description human readable description of the Docker Worker
  * @tparam F the effect
  */
-case class DockerWorker[F[_]] private (
+case class DockerWorkerServices[F[_]] private (
   p2pPort: Short,
   appId: Long,
   tendermint: TendermintRpc[F],
   control: ControlRpc[F],
-  status: F[WorkerStatus],
-  stop: F[Unit],
-  remove: F[Unit],
-  description: String
-) extends Worker[F]
+  status: F[WorkerStatus]
+) extends WorkerServices[F]
 
-object DockerWorker extends LazyLogging {
+object DockerWorkerServices extends LazyLogging {
   val SmPrometheusPort: Short = 26661
   val ControlRpcPort: Short = 26662
 
@@ -106,23 +101,19 @@ object DockerWorker extends LazyLogging {
    *
    * @param params Worker's running params
    * @param p2pPort Tendermint p2p port
-   * @param onStop A callback to launch when this worker is stopped
-   * @param onRemove A callback to clean all the resources used by worker
    * @param stopTimeout Timeout in seconds to allow graceful stopping of running containers.
    *                    It might take up to 2*`stopTimeout` seconds to gracefully stop the worker, as 2 containers involved.
    * @param sttpBackend Sttp Backend to launch HTTP healthchecks and RPC endpoints
-   * @return the [[Worker]] instance
+   * @return the [[WorkerServices]] instance
    */
   def make[F[_]: DockerIO](
     params: WorkerParams,
     p2pPort: Short,
-    onStop: F[Unit],
-    onRemove: F[Unit],
     stopTimeout: Int
   )(
     implicit sttpBackend: SttpBackend[F, Nothing],
     F: Concurrent[F]
-  ): Resource[F, Worker[F]] =
+  ): Resource[F, WorkerServices[F]] =
     for {
       network ← makeNetwork(params)
 
@@ -151,7 +142,6 @@ object DockerWorker extends LazyLogging {
         )
       }
 
-    } yield
-      new DockerWorker[F](p2pPort, params.appId, rpc, control, status, onStop, onStop *> onRemove, params.toString)
+    } yield new DockerWorkerServices[F](p2pPort, params.appId, rpc, control, status)
 
 }
