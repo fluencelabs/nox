@@ -20,6 +20,7 @@ import cats.data.EitherT
 import cats.Parallel
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
+import cats.syntax.functor._
 import cats.effect.{Concurrent, Fiber, Timer}
 import cats.instances.vector._
 import com.softwaremill.sttp.{SttpBackend, sttp, _}
@@ -79,12 +80,14 @@ object WorkerP2pConnectivity extends LazyLogging {
           logger.debug(s"Got Peer p2p port: ${p.peerAddress(p2pPort)}")
 
           backoff(
-            worker.tendermint
-              .unsafeDialPeers(p.peerAddress(p2pPort) :: Nil, persistent = true)
-              .map { res ⇒
-                logger.debug(s"dial_peers replied: $res")
-                res
-              }
+            EitherT(
+              worker.withServices(_.tendermint)(
+                _.unsafeDialPeers(p.peerAddress(p2pPort) :: Nil, persistent = true).value.map { res ⇒
+                  logger.debug(s"dial_peers replied: $res")
+                  res
+                }
+              )
+            )
           )
         }
       }

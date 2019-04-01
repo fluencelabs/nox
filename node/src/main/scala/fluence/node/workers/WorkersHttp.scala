@@ -43,9 +43,13 @@ object WorkersHttp extends LazyLogging {
 
     /** Helper: runs a function iff a worker is in a pool, unwraps EitherT into different response types, renders errors */
     def withTendermint(appId: Long)(fn: TendermintRpc[F] ⇒ EitherT[F, RpcError, String]): F[Response[F]] =
-      pool.get(appId).flatMap {
-        case Some(worker) ⇒
-          fn(worker.tendermint).value.flatMap {
+      pool.withWorker(appId, _.withServices(_.tendermint)(fn(_).value)).flatMap {
+        case None ⇒
+          logger.debug(s"Requested app $appId, but there's no such worker in the pool")
+          NotFound("App not found on the node")
+
+        case Some(res) ⇒
+          res match {
             case Right(result) ⇒
               logger.trace(s"Responding with OK: $result")
               Ok(result)
@@ -62,9 +66,6 @@ object WorkersHttp extends LazyLogging {
               logger.debug(s"RPC body malformed: $err", err)
               BadRequest(err.getMessage)
           }
-        case None ⇒
-          logger.debug(s"Requested app $appId, but there's no such worker in the pool")
-          NotFound("App not found on the node")
       }
 
     // Routes comes there

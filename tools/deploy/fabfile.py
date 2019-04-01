@@ -190,3 +190,21 @@ def deploy_netdata():
         with shell_env(COMPOSE_IGNORE_ORPHANS="true"):
             with show('running'):
                 run("PGID=%s HOSTNAME=$HOSTNAME docker-compose --compatibility -f ~/netdata/scripts/netdata.yml up -d" % pgid)
+
+@parallel
+def install_docker():
+    with hide('running', 'output'):
+        run("apt-get remove --yes docker docker-engine docker.io containerd runc || true")
+        print "apt-get update"
+        run("apt-get update")
+        print "preparing to install docker"
+        run("apt-get install --yes apt-transport-https ca-certificates curl gnupg-agent software-properties-common")
+        run("curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -")
+        run("apt-key fingerprint 0EBFCD88")
+        run("""sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" """)
+        run("apt-get update")
+        print "installing docker"
+        run("apt-get install --yes docker-ce docker-ce-cli containerd.io")
+        print "installing docker-compose"
+        run("""curl -L "https://github.com/docker/compose/releases/download/1.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose """)
+        run("chmod +x /usr/local/bin/docker-compose")
