@@ -15,11 +15,12 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+
 var FluenceContract = artifacts.require("./Network.sol");
 const utils = require('./Utils.js');
 const truffleAssert = require('truffle-assertions');
 const assert = require("chai").assert;
-const { expectThrow } = require('openzeppelin-solidity/test/helpers/expectThrow');
+const { shouldFail, expectEvent } = require('openzeppelin-test-helpers');
 
 contract('Fluence', function ([_, owner, anyone]) {
     beforeEach(async function() {
@@ -28,23 +29,17 @@ contract('Fluence', function ([_, owner, anyone]) {
 
     it("Should send event about new Node", async function() {
         let result = (await utils.addNodesFull(this.contract, 1, "127.0.0.1", anyone, 1)).pop();
-        truffleAssert.eventEmitted(result.receipt, utils.newNodeEvent, (ev) => {
-            assert.equal(ev.id, result.nodeID);
-            return true
-        })
+        expectEvent.inLogs(result.logs, utils.newNodeEvent, { id: result.nodeID });
     });
 
     it("Should send event about enqueued App", async function() {
         let result = await utils.addApp(this.contract, 5, anyone);
 
-        truffleAssert.eventEmitted(result.receipt, utils.appEnqueuedEvent, (ev) => {
-            assert.equal(ev.storageHash, result.storageHash);
-            return true
-        })
+        expectEvent.inLogs(result.logs, utils.appEnqueuedEvent, { storageHash: result.storageHash });
     });
 
     it("Should throw an error if asking about non-existent cluster", async function() {
-        await expectThrow(
+        await shouldFail.reverting(
             this.contract.getApp(777)
         )
     });
@@ -52,23 +47,16 @@ contract('Fluence', function ([_, owner, anyone]) {
     it("Should deploy an app when there are enough nodes", async function() {
         let count = 5;
         let addApp = await utils.addApp(this.contract, count, anyone);
-        let appID;
-        truffleAssert.eventEmitted(addApp.receipt, utils.appEnqueuedEvent, ev => {
-            appID = ev.appID;
-            return true;
-        });
+        let appID = expectEvent.inLogs(addApp.logs, utils.appEnqueuedEvent).args.appID;
         assert.notEqual(appID, undefined);
 
         let addNodes = await utils.addNodesFull(this.contract, count, "127.0.0.1", anyone);
         let nodeIDs = addNodes.map(r => r.nodeID);
         let receipt = addNodes.pop().receipt;
 
-        truffleAssert.eventEmitted(receipt, utils.appDeployedEvent, (ev) => {
-            assert.equal(ev.nodeAddresses.length, count);
-            assert.deepEqual(ev.nodeIDs, nodeIDs);
-            assert.equal(ev.appID.valueOf(), appID.valueOf());
-            return true;
-        });
+        let event = expectEvent.inLogs(receipt.logs, utils.appDeployedEvent, { appID: appID }).args;
+        assert.equal(event.nodeAddresses.length, count);
+        assert.deepEqual(event.nodeIDs, nodeIDs);
 
         let cluster = await this.contract.getApp(appID);
         assert.equal(cluster[0], addApp.storageHash);
@@ -96,37 +84,30 @@ contract('Fluence', function ([_, owner, anyone]) {
         for (let i = 0; i < ports; i++) {
             let addApp = await utils.addApp(this.contract, count, anyone);
 
-            let appID;
-
             truffleAssert.eventNotEmitted(addApp.receipt, utils.appEnqueuedEvent);
-            truffleAssert.eventEmitted(addApp.receipt, utils.appDeployedEvent, (ev) => {
-                assert.equal(ev.nodeAddresses.length, count);
-                ev.nodeAddresses.forEach(addr => 
-                    assert.equal(utils.bytes32ToString(addr), "127.0.0.1")
-                );
-                assert.deepEqual(ev.nodeIDs, nodeIDs);
-                
-                appID = ev.appID;
-                return true;
-            });
+
+            let event = expectEvent.inLogs(addApp.logs, utils.appDeployedEvent).args;
+            assert.equal(event.nodeAddresses.length, count);
+            event.nodeAddresses.forEach(addr => assert.equal(utils.bytes2Ip(addr), "127.0.0.1"));
+            assert.deepEqual(event.nodeIDs, nodeIDs);
+
+            let appID = event.appID;
 
             nodeIDs.forEach(async id => {
                 let nodeApps = await this.contract.getNodeApps(id);
                 assert.equal(nodeApps.length, i + 1);
-                assert.equal(nodeApps[i].valueOf(), appID.valueOf());
+                let nodeAppID = nodeApps[i].valueOf().toString(); // TODO: why it yields false on comparing simply valueOf()?
+                assert.ok(nodeAppID === appID.valueOf().toString());
             });
         }
 
         let addApp = await utils.addApp(this.contract, count, anyone);
-        var appID;
-        truffleAssert.eventEmitted(addApp.receipt, utils.appEnqueuedEvent, (ev) => {
-            appID = ev.appID;
-            return true;
-        });
+        let appID = expectEvent.inLogs(addApp.logs, utils.appEnqueuedEvent).args.appID;
 
         // check app with that ID is in enqueued apps list
         let appIDs = await this.contract.getAppIDs();
-        let enqueuedApp = appIDs.find(app => app.valueOf() === appID.valueOf());
+        // TODO: why it yields false on comparing simply valueOf() inside find?
+        let enqueuedApp = appIDs.find(app => app.valueOf().toString() === appID.valueOf().toString());
         assert.notEqual(enqueuedApp, undefined);
         truffleAssert.eventNotEmitted(addApp.receipt, utils.appDeployedEvent);
     });
