@@ -27,7 +27,6 @@ use crate::config::SetupConfig;
 use crate::storage::Storage::{IPFS, SWARM};
 use crate::storage::{upload_to_storage, Storage};
 use crate::utils;
-use crate::utils::print_info_id;
 
 const CODE_PATH: &str = "code_path";
 const STORAGE_URL: &str = "storage_url";
