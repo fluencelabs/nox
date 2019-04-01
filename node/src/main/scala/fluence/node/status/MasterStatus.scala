@@ -22,11 +22,12 @@ import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.eth.NodeEthState
 import fluence.node.eth.state.{Cluster, WorkerPeer}
 import fluence.node.workers.status.WorkerStatus
-import io.circe.{Decoder, Encoder, KeyDecoder, KeyEncoder}
 import io.circe.generic.semiauto._
+import io.circe.{Decoder, Encoder, KeyDecoder, KeyEncoder}
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
+import scala.language.postfixOps
 
 /**
  * Master node status.
@@ -57,6 +58,7 @@ object MasterStatus {
   private implicit val encodeFiniteDuration: Encoder[FiniteDuration] = Encoder.encodeLong.contramap(_.toSeconds)
   private implicit val encodeCluster: Encoder[Cluster] = deriveEncoder
   private implicit val encodeApp: Encoder[fluence.node.eth.state.App] = deriveEncoder
+  private implicit val encodeStorageRef: Encoder[fluence.node.eth.state.StorageRef] = deriveEncoder
   private implicit val keyEncoderByteVector: KeyEncoder[ByteVector] = KeyEncoder.instance(_.toHex)
   private implicit val encodeNodeEthState: Encoder[NodeEthState] = deriveEncoder
   implicit val encodeMasterState: Encoder[MasterStatus] = deriveEncoder
@@ -73,6 +75,7 @@ object MasterStatus {
   private implicit val decodeFiniteDuration: Decoder[FiniteDuration] = Decoder.decodeLong.map(_ seconds)
   private implicit val decodeCluster: Decoder[Cluster] = deriveDecoder
   private implicit val decodeApp: Decoder[fluence.node.eth.state.App] = deriveDecoder
+  private implicit val decodeStorageRef: Decoder[fluence.node.eth.state.StorageRef] = deriveDecoder
   private implicit val keyDecoderByteVector: KeyDecoder[ByteVector] = KeyDecoder.instance(ByteVector.fromHex(_))
   private implicit val decodeNodeEthState: Decoder[NodeEthState] = deriveDecoder
   implicit val decodeMasterState: Decoder[MasterStatus] = deriveDecoder
