@@ -14,14 +14,17 @@
  * limitations under the License.
  */
 
-package fluence.node.config
-import io.circe.{Decoder, Encoder}
+package fluence.node.config.storage
+
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.{Decoder, Encoder}
 
 /**
- * @param address address to Swarm node
+ * Configuration for Swarm storage, part of [[RemoteStorageConfig]]
+ *
+ * @param address URI of a Swarm node
  */
-case class SwarmConfig(enabled: Boolean, address: String)
+case class SwarmConfig(address: String)
 
 object SwarmConfig {
   implicit val encodeSwarmConfig: Encoder[SwarmConfig] = deriveEncoder
