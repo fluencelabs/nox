@@ -23,7 +23,6 @@ use clap::ArgMatches;
 use clap::{value_t, App, AppSettings, Arg, SubCommand};
 use derive_getters::Getters;
 use ethabi::RawLog;
-use reqwest::Client;
 use web3::transports::Http;
 use web3::types::H256;
 
@@ -35,19 +34,22 @@ use crate::contract_func::contract::functions::add_app;
 use crate::contract_func::{call_contract, get_transaction_logs_raw, wait_tx_included};
 use crate::ethereum_params::EthereumParams;
 use crate::step_counter::StepCounter;
+use crate::storage::{upload_to_storage, Storage};
 use crate::utils;
 
 const MAX_CLUSTER_SIZE: u8 = 4;
 const CODE_PATH: &str = "code_path";
 const CLUSTER_SIZE: &str = "cluster_size";
-const SWARM_URL: &str = "swarm_url";
+const STORAGE_URL: &str = "storage_url";
+const IS_SWARM: &str = "swarm";
 const PINNED: &str = "pin_to";
 const PIN_BASE64: &str = "base64";
 
 #[derive(Debug, Getters)]
 pub struct Publisher {
     bytes: Vec<u8>,
-    swarm_url: String,
+    storage_url: String,
+    storage_type: Storage,
     cluster_size: u8,
     pin_to_nodes: Vec<H256>,
     eth: EthereumParams,
@@ -73,29 +75,33 @@ impl Publisher {
     /// Creates `Publisher` structure
     pub fn new(
         bytes: Vec<u8>,
-        swarm_url: String,
+        storage_url: String,
+        storage_type: Storage,
         cluster_size: u8,
         pin_to_nodes: Vec<H256>,
         eth: EthereumParams,
     ) -> Publisher {
         Publisher {
             bytes,
-            swarm_url,
+            storage_url,
+            storage_type,
             cluster_size,
             pin_to_nodes,
             eth,
         }
     }
 
-    /// Sends code to Swarm and publishes the hash of the file from Swarm to Fluence smart contract
+    /// Sends code to a storage and publishes the hash of the file from a storage to Fluence smart contract
     pub fn publish(&self, show_progress: bool) -> Result<Published, Error> {
         let (_eloop, transport) = Http::new(self.eth.eth_url.as_str()).map_err(SyncFailure::new)?;
         let web3 = &web3::Web3::new(transport);
 
-        let upload_to_swarm_fn = || -> Result<H256, Error> {
-            let hash = upload_code_to_swarm(&self.swarm_url.as_str(), &self.bytes.as_slice())?;
-            let hash = hash.parse()?;
-            Ok(hash)
+        let upload_to_storage_fn = || -> Result<H256, Error> {
+            upload_to_storage(
+                &self.storage_type,
+                &self.storage_url.as_str(),
+                &self.bytes.as_slice(),
+            )
         };
 
         let publish_to_contract_fn = |hash: H256| -> Result<H256, Error> {
@@ -147,7 +153,7 @@ impl Publisher {
                 "Uploading application code to Swarm...",
                 step_counter.format_next_step().as_str(),
                 "Application code uploaded.",
-                upload_to_swarm_fn,
+                upload_to_storage_fn,
             )?;
             utils::print_info_id("swarm hash:", hash);
 
@@ -173,7 +179,7 @@ impl Publisher {
                 Ok(Published::TransactionSent(tx))
             }
         } else {
-            let hash = upload_to_swarm_fn()?;
+            let hash = upload_to_storage_fn()?;
             let tx = publish_to_contract_fn(hash)?;
 
             if self.eth.wait_tx_include {
@@ -215,10 +221,18 @@ pub fn parse(matches: &ArgMatches, config: SetupConfig) -> Result<Publisher, Err
     let mut buf = Vec::new();
     file.read_to_end(&mut buf)?;
 
-    let swarm_url = matches
-        .value_of(SWARM_URL)
+    let is_swarm = matches.is_present(IS_SWARM);
+
+    let storage_type = if is_swarm {
+        Storage::SWARM
+    } else {
+        Storage::IPFS
+    };
+
+    let storage_url = matches
+        .value_of(STORAGE_URL)
         .map(|s| s.to_string())
-        .unwrap_or(config.swarm_url.clone());
+        .unwrap_or(config.storage_url.clone());
     let cluster_size = value_t!(matches, CLUSTER_SIZE, u8)?;
     let eth = parse_ethereum_args(matches, config)?;
 
@@ -238,7 +252,8 @@ pub fn parse(matches: &ArgMatches, config: SetupConfig) -> Result<Publisher, Err
 
     Ok(Publisher::new(
         buf,
-        swarm_url,
+        storage_url,
+        storage_type,
         cluster_size,
         pin_to_nodes,
         eth,
@@ -277,37 +292,25 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
             .required(false)
             .takes_value(false)
             .help("If specified, tendermint keys for pin_to flag treated as base64")
-            .display_order(2),
-        Arg::with_name(SWARM_URL)
-            .long(SWARM_URL)
+            .display_order(3),
+        Arg::with_name(STORAGE_URL)
+            .long(STORAGE_URL)
             .short("w")
             .required(false)
             .takes_value(true)
-            .help("Http address to swarm node")
-            .display_order(3),
+            .help("Http address to storage node (IPFS by default)")
+            .display_order(4),
+        Arg::with_name(IS_SWARM)
+            .long(IS_SWARM)
+            .required(false)
+            .help("Use Swarm to upload code")
+            .display_order(5),
     ];
 
     SubCommand::with_name("publish")
-        .about("Upload code to Swarm and publish app to Ethereum blockchain")
+        .about("Upload code to storage and publish app to Ethereum blockchain")
         .args(with_ethereum_args(args).as_slice())
         .setting(AppSettings::ArgRequiredElseHelp)
-}
-
-/// Uploads bytes of code to the Swarm
-fn upload_code_to_swarm(url: &str, bytes: &[u8]) -> Result<String, Error> {
-    let mut url = utils::parse_url(url)?;
-    url.set_path("/bzz:/");
-
-    let client = Client::new();
-    let res = client
-        .post(url)
-        .body(bytes.to_vec())
-        .header("Content-Type", "application/octet-stream")
-        .send()
-        .and_then(|mut r| r.text())
-        .context("error uploading code to swarm")?;
-
-    Ok(res)
 }
 
 #[cfg(test)]
@@ -323,6 +326,7 @@ mod tests {
     use crate::credentials::Credentials;
     use crate::ethereum_params::EthereumParams;
     use crate::publisher::Publisher;
+    use crate::publisher::Storage::SWARM;
 
     fn generate_publisher(account: &str, creds: Credentials) -> Publisher {
         let bytes = vec![1, 2, 3];
@@ -335,6 +339,7 @@ mod tests {
         Publisher::new(
             bytes,
             String::from("http://localhost:8500/"),
+            SWARM,
             5,
             vec![],
             eth_params,
@@ -353,7 +358,7 @@ mod tests {
     #[test]
     fn publish_wrong_swarm_url() -> Result<(), Error> {
         let publisher = generate_with("02f906f8b3b932fd282109a5b8dc732ba2329888", |p| {
-            p.swarm_url = String::from("http://123.5.6.7:8385");
+            p.storage_url = String::from("http://123.5.6.7:8385");
         });
 
         let result = publisher.publish(false);

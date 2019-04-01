@@ -18,5 +18,7 @@ pub mod publisher;
 pub mod register;
 pub mod setup;
 pub mod step_counter;
+pub mod storage;
 pub mod types;
+pub mod uploader;
 pub mod utils;

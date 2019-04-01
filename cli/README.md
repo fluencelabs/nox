@@ -25,7 +25,7 @@ Fluence CLI is an automation tool for tasks of app management (deployment and de
 
 ## Requirements
 
-CLI assumes running Ethereum and Swarm on `http://data.fluence.one:8545/` and `http://data.fluence:8500/` respectively. Use `--eth_url` and `--swarm_url` to specify actual addresses as you need.
+CLI assumes running Ethereum and Swarm on `http://data.fluence.one:8545/` and `http://data.fluence:8500/` respectively. Use `--eth_url` and `--storage_url` to specify actual addresses as you need.
 
 Please note, that your Ethereum account should have sufficient funds for issuing transactions to smart-contract. It's only for transaction fees, Fluence itself doesn't currently charge miners or developers. That could change in the future, for example when miners' deposits are implemented.
 

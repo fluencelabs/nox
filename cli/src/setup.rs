@@ -39,7 +39,7 @@ pub fn interactive_setup(config: SetupConfig) -> Result<(), Error> {
     let SetupConfig {
         contract_address: cfg_contract_address,
         eth_url: cfg_eth_url,
-        swarm_url: cfg_swarm_url,
+        storage_url: cfg_storage_url,
         credentials: cfg_credentials,
     } = config;
 
@@ -59,9 +59,9 @@ pub fn interactive_setup(config: SetupConfig) -> Result<(), Error> {
     let ethereum_address = readline(rl, &ethereum_url_prompt)?;
     let ethereum_url = none_if_empty_string(ethereum_address).unwrap_or(cfg_eth_url);
 
-    let swarm_url_prompt = format!("Swarm Node Url [{}]: ", cfg_swarm_url);
-    let swarm_address = readline(rl, &swarm_url_prompt)?;
-    let swarm_url = none_if_empty_string(swarm_address).unwrap_or(cfg_swarm_url);
+    let storage_url_prompt = format!("Storage Node Url [{}]: ", cfg_storage_url);
+    let storage_address = readline(rl, &storage_url_prompt)?;
+    let storage_url = none_if_empty_string(storage_address).unwrap_or(cfg_storage_url);
 
     let auth = ask_auth(rl, &cfg_credentials)?;
     let credentials = match auth {
@@ -76,7 +76,7 @@ pub fn interactive_setup(config: SetupConfig) -> Result<(), Error> {
         Auth::None => Credentials::No,
     };
 
-    let config = SetupConfig::new(contract_address, ethereum_url, swarm_url, credentials);
+    let config = SetupConfig::new(contract_address, ethereum_url, storage_url, credentials);
     config.write_to_file()?;
 
     Ok(())

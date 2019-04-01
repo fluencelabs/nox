@@ -40,6 +40,8 @@ tui = {git = "https://github.com/fdehau/tui-rs.git", rev = "52a40ec99"}
 termion = "1.5"
 rustyline = "3.0.0"
 dirs = "1.0.5"
+ipfs-api = "0.5.1"
+hyper = "0.12.25"
 
 [dev-dependencies]
 futures = "0.1.25"

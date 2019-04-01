@@ -23,10 +23,10 @@ use failure::{err_msg, ResultExt};
 use fluence::config::SetupConfig;
 use fluence::publisher::Published;
 use fluence::register::Registered;
-use fluence::utils;
 use fluence::{
     check, contract_status, delete_all, delete_app, delete_node, publisher, register, setup,
 };
+use fluence::{uploader, utils};
 use web3::types::H256;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -47,6 +47,7 @@ fn main() -> Result<(), ExitFailure> {
         .subcommand(delete_app::subcommand())
         .subcommand(delete_node::subcommand())
         .subcommand(delete_all::subcommand())
+        .subcommand(uploader::subcommand())
         .subcommand(setup::subcommand());
 
     match app.get_matches().subcommand() {
@@ -148,6 +149,13 @@ fn main() -> Result<(), ExitFailure> {
             setup::interactive_setup(config).context("Error making setup of Fluence CLI")?;
 
             println!("Setup completed.");
+        }
+
+        ("upload", Some(args)) => {
+            let upload = uploader::parse(args, config).context("Error parsing arguments")?;
+            let hash = upload.upload_code(false).context("Error uploading file")?;
+
+            utils::print_info_id("Upload completed. Hash", hash);
         }
 
         c => Err(err_msg(format!("Unexpected command: {}", c.0)))?,

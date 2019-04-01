@@ -47,7 +47,7 @@ pub type Result<T> = StdResult<T, Error>;
 pub struct TestOpts {
     api_port: u16,
     code_bytes: Vec<u8>,
-    swarm_url: String,
+    storage_url: String,
     eth: EthereumParams,
 }
 
@@ -59,7 +59,7 @@ impl TestOpts {
         TestOpts {
             api_port: 25000,
             code_bytes: vec![1, 2, 3],
-            swarm_url: String::from("http://localhost:8500"),
+            storage_url: String::from("http://localhost:8500"),
             eth: params,
         }
     }
@@ -128,7 +128,7 @@ impl TestOpts {
     pub fn publish_app(&self, cluster_size: u8, pin_to: Vec<H256>) -> Result<H256> {
         let publish = Publisher::new(
             self.code_bytes.clone(),
-            self.swarm_url.clone(),
+            self.storage_url.clone(),
             cluster_size,
             pin_to,
             self.eth.clone(),
