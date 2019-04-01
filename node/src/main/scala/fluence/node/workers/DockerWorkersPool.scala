@@ -171,13 +171,15 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
       // Used to pass the worker's fiber inside worker's callbacks, which are defined before we have the fiber
       runningServicesFiberDef ← Deferred[F, Fiber[F, Unit]]
       workerDef ← Deferred[F, Worker[F]]
+      workerRunF = buildWorkerServices(workerDef.get, stopServicesDef.get, runningServicesFiberDef.complete)
+      cleanupF = cleanup(stopServicesDef.complete(()), runningServicesFiberDef.get)
       worker ← Worker[F](
         appId,
         p2pPort,
-        s"WorkerBus; appId=$appId p2pPort=$p2pPort",
-        buildWorkerServices(workerDef.get, stopServicesDef.get, runningServicesFiberDef.complete),
+        description = s"WorkerBus; appId=$appId p2pPort=$p2pPort",
+        workerRun = workerRunF,
         // onStop is one of (possibly many) callbacks that is called when worker is stopping
-        onStop = cleanup(stopServicesDef.complete(()), runningServicesFiberDef.get),
+        onStop = cleanupF,
         onRemove = ports.free(appId).value.void
       )
       _ ← workerDef.complete(worker)
