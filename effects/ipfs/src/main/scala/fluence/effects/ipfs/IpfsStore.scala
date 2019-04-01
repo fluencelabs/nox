@@ -40,22 +40,31 @@ object ResponseOps {
   }
 }
 
-case class IpfsError(message: String, causedBy: Option[Throwable] = None) extends StoreError {
-  override def getMessage: String = message
-
-  override def getCause: Throwable = causedBy getOrElse super.getCause
-}
-
+/**
+ * Implementation of IPFS downloading mechanism
+ *
+ * @param ipfsUri URI of the IPFS node
+ */
 class IpfsStore[F[_]: Concurrent: ContextShift](ipfsUri: String)(
   implicit sttpBackend: SttpBackend[F, fs2.Stream[F, ByteBuffer]],
   backoff: Backoff[IpfsError] = Backoff.default
 ) extends ContentAddressableStore[F] with slogging.LazyLogging {
+
+  object Multihash {
+    // https://github.com/multiformats/multicodec/blob/master/table.csv
+    val SHA256 = ByteVector(0x12, 32) // 0x12 => SHA256; 32 = 256 bits in bytes
+  }
+
+  // URI for downloading the file
   private val CatUri = uri"$ipfsUri".path("/api/v0/cat")
 
-  private def getUri(addressBase58: String) = CatUri.param("arg", addressBase58)
+  private def getUri(addressBase58: String): Uri = CatUri.param("arg", addressBase58)
+
+  // Converts 256-bits hash to an bas58 IPFS address, prepending multihash bytes
+  private def toAddress(hash: ByteVector): String = (Multihash.SHA256 ++ hash).toBase58
 
   override def fetch(hash: ByteVector): EitherT[F, StoreError, fs2.Stream[F, ByteBuffer]] = {
-    val address = (ByteVector(0x12, 0x20) ++ hash).toBase58
+    val address = toAddress(hash)
     val uri = getUri(address)
     logger.debug(s"IPFS download started $uri")
     sttp
