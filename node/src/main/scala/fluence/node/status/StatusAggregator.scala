@@ -47,7 +47,7 @@ case class StatusAggregator[F[_]: Monad: Clock](
   val getStatus: F[MasterStatus] = for {
     currentTime ← Clock[F].monotonic(MILLISECONDS)
     workers ← masterNode.pool.getAll
-    workerInfos ← Traverse[List].traverse(workers)(_.status)
+    workerInfos ← Traverse[List].traverse(workers)(_.withServices(identity)(_.status))
     ethState ← masterNode.nodeEth.expectedState
   } yield
     MasterStatus(
