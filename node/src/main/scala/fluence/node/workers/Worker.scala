@@ -26,15 +26,15 @@ import cats.effect.concurrent.{Deferred, TryableDeferred}
 import scala.language.higherKinds
 
 /**
-  * Worker is a representation of App Worker, incapsulating WorkerServices, and ordered execution via [[withServices_]] and [[withServices]].
-  * @param appId AppId of the application hosted by this worker
-  * @param p2pPort Tendermint p2p port
-  * @param servicesDef Promise of WorkerServices (Tendermint, ControlRPC)
-  * @param description Human readable description of the worker
-  * @param execute Description of how to execute F[Unit] in Worker's context. As of now, preserves ordered of the execution.
-  * @param stop Delayed effect, when executed, stops the worker and deallocates resources
-  * @param remove Delayed effect, when executed, removes worker and removes some resources
-  */
+ * Worker is a representation of App Worker, incapsulating WorkerServices, and ordered execution via [[withServices_]] and [[withServices]].
+ * @param appId AppId of the application hosted by this worker
+ * @param p2pPort Tendermint p2p port
+ * @param servicesDef Promise of WorkerServices (Tendermint, ControlRPC)
+ * @param description Human readable description of the worker
+ * @param execute Description of how to execute F[Unit] in Worker's context. As of now, preserves ordered of the execution.
+ * @param stop Delayed effect, when executed, stops the worker and deallocates resources
+ * @param remove Delayed effect, when executed, removes worker and removes some resources
+ */
 case class Worker[F[_]: Concurrent](
   appId: Long,
   p2pPort: Short,
@@ -73,18 +73,19 @@ case class Worker[F[_]: Concurrent](
 }
 
 object Worker {
-  /**
-  * Builds a Worker, executing [[workerRun]] as a first worker's command
- *
-    * @param appId AppId of the application hosted by this worker
-    * @param p2pPort Tendermint p2p port
-    * @param description Human readable description of the worker
-    * @param workerRun Description of how to run the worker
-    * @param onStop Callback, called on worker's stop, but only after all commands have been processed
-    * @param onRemove Callback, called on worker's removal, but only after all commands have been processed
 
-    * @return A Worker's instance, that will initialize itself in the background
-    */
+  /**
+   * Builds a Worker, executing [[workerRun]] as a first worker's command
+   *
+   * @param appId AppId of the application hosted by this worker
+   * @param p2pPort Tendermint p2p port
+   * @param description Human readable description of the worker
+   * @param workerRun Description of how to run the worker
+   * @param onStop Callback, called on worker's stop, but only after all commands have been processed
+   * @param onRemove Callback, called on worker's removal, but only after all commands have been processed
+
+   * @return A Worker's instance, that will initialize itself in the background
+   */
   def apply[F[_]: Concurrent](
     appId: Long,
     p2pPort: Short,
