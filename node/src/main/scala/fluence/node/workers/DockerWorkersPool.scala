@@ -65,7 +65,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
    * Builds a description of how to run WorkerServices resource, and takes WorkerServices instance out of the resource
    *
    * TODO: Code is way too complex. The root of the evil is a recursive dependency between Worker and WorkerServices.
-   * TODO: Abstract away this pattern of 'unresoursing' the resource via promises
+   * TODO: Abstract away this pattern of 'unresourcing' the resource via promises
    *
    * @param params Parameters required for worker creation
    * @param p2pPort Worker's Tendermint p2p port
