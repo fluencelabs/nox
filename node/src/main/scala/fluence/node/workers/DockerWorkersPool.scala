@@ -56,7 +56,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
       oldWorker = map.get(appId)
       healthy <- oldWorker match {
         case None => F.pure(false)
-        case Some(workerBus) => workerBus.isHealthy
+        case Some(worker) => worker.isHealthy
       }
     } yield (healthy, oldWorker)
   }
@@ -176,7 +176,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
       worker ← Worker[F](
         appId,
         p2pPort,
-        description = s"WorkerBus; appId=$appId p2pPort=$p2pPort",
+        description = s"Worker; appId=$appId p2pPort=$p2pPort",
         workerRun = workerRunF,
         // onStop is one of (possibly many) callbacks that is called when worker is stopping
         onStop = cleanupF,

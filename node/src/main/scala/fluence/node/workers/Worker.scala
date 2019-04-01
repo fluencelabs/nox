@@ -108,7 +108,7 @@ object Worker {
 
       doOnStop = stopQueue *> onStop
 
-      bus = Worker[F](
+      worker = Worker[F](
         appId,
         p2pPort,
         services,
@@ -118,9 +118,9 @@ object Worker {
         doOnStop *> onRemove
       )
 
-      _ <- bus.execute(
+      _ <- worker.execute(
         workerRun.flatMap(services.complete)
       )
-    } yield bus
+    } yield worker
 
 }
