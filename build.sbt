@@ -195,6 +195,9 @@ lazy val ipfs = (project in file("effects/ipfs"))
     commons,
     libraryDependencies ++= Seq(
       sttp,
+      slogging,
+      scodecBits,
+      scodecCore,
       sttpFs2Backend % Test,
       scalaTest
     )

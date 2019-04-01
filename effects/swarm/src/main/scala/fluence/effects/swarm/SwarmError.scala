@@ -18,7 +18,6 @@ package fluence.effects.swarm
 
 import fluence.effects.castore.StoreError
 
-// TODO change this error to errors with hierarchy
 case class SwarmError(message: String, causedBy: Option[Throwable] = None) extends StoreError {
   override def getMessage: String = message
 

@@ -40,8 +40,8 @@ import scala.language.higherKinds
 // TODO add logs
 /**
  * Client for working with Swarm.
- * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#
  *
+ * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#
  * @param swarmUri HTTP address of trusted swarm node
  * @param hasher hashing algorithm. Must be Keccak SHA-3 algorithm for real Swarm node or another for test purposes
  *               @see https://en.wikipedia.org/wiki/SHA-3
@@ -77,33 +77,33 @@ class SwarmClient[F[_]](swarmUri: Uri)(
   private def uri(bzzUri: BzzProtocol) = swarmUri.path(bzzUri.protocol)
 
   /**
-   * Download a file.
-   * @see https://swarm-guide.readthedocs.io/en/latest/up-and-download.html
+   * Downloads a file from Swarm
    *
-   * @param target hash of resource (file, metadata, manifest) or address from ENS.
+   * @see https://swarm-guide.readthedocs.io/en/latest/up-and-download.html
+   * @param hash Hash of resource (file, metadata, manifest) or address from ENS.
    *
    */
-  def download(target: String): EitherT[F, SwarmError, Array[Byte]] = {
-    val downloadURI = uri(Bzz, target)
-    logger.info(s"Download request. Target: $target")
+  def download(hash: String): EitherT[F, SwarmError, Array[Byte]] = {
+    val downloadURI = uri(Bzz, hash)
+    logger.debug(s"Swarm download started $downloadURI")
     sttp
       .response(asByteArray)
       .get(downloadURI)
       .send()
       .toEitherT { er =>
-        val errorMessage = s"Error on downloading from $downloadURI. $er"
+        val errorMessage = s"Swarm download error $downloadURI: $er"
         logger.error(errorMessage)
         SwarmError(errorMessage)
       }
       .map { r =>
-        logger.info(s"The resource has been downloaded.")
-        logger.debug(s"Resource size: ${r.length} bytes.")
+        logger.debug(s"Swarm download finished $downloadURI [${r.length}] bytes")
         r
       }
   }
 
   def fetch(target: String): EitherT[F, SwarmError, fs2.Stream[F, ByteBuffer]] = {
     val downloadURI = uri(Bzz, target)
+    logger.debug(s"Swarm download started $downloadURI")
     sttp
       .response(asStream[fs2.Stream[F, ByteBuffer]])
       .get(downloadURI)
@@ -113,12 +113,16 @@ class SwarmClient[F[_]](swarmUri: Uri)(
         logger.error(errorMessage)
         SwarmError(errorMessage)
       }
+      .map { r =>
+        logger.debug(s"Swarm download finished $downloadURI")
+        r
+      }
   }
 
   /**
    * Upload a data.
-   * @see https://swarm-guide.readthedocs.io/en/latest/up-and-download.html
    *
+   * @see https://swarm-guide.readthedocs.io/en/latest/up-and-download.html
    * @return hash of resource (address in Swarm)
    */
   def upload(data: Array[Byte]): EitherT[F, SwarmError, String] = {
@@ -127,8 +131,8 @@ class SwarmClient[F[_]](swarmUri: Uri)(
 
   /**
    * Upload a data.
-   * @see https://swarm-guide.readthedocs.io/en/latest/up-and-download.html
    *
+   * @see https://swarm-guide.readthedocs.io/en/latest/up-and-download.html
    * @return hash of resource (address in Swarm)
    */
   def upload(data: ByteVector): EitherT[F, SwarmError, String] = {
@@ -149,8 +153,8 @@ class SwarmClient[F[_]](swarmUri: Uri)(
 
   /**
    * Download a manifest directly.
-   * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#manifests
    *
+   * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#manifests
    * @param target hash of resource (file, metadata, manifest) or address from ENS
    *
    */
@@ -175,8 +179,8 @@ class SwarmClient[F[_]](swarmUri: Uri)(
 
   /**
    * Retrieve a mutable resource.
-   * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#retrieving-a-mutable-resource
    *
+   * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#retrieving-a-mutable-resource
    * @param target hash of resource (file, metadata, manifest) or address from ENS
    * @param param optional parameter (download concrete period or version or download the only metafile) for download
    * @return stored file or error if the file doesn't exist
@@ -201,8 +205,8 @@ class SwarmClient[F[_]](swarmUri: Uri)(
   /**
    * Initialize a mutable resource. Upload a metafile with startTime, frequency and name, then upload data.
    * Period and version are set to 1 for initialization.
-   * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#creating-a-mutable-resource
    *
+   * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#creating-a-mutable-resource
    * @param mutableResourceId parameters that describe the mutable resource and required for searching updates of the mutable resource
    * @param data content the Mutable Resource will be initialized with
    * @param multiHash is a flag indicating whether the data field should be interpreted as a raw data or a multihash
@@ -243,8 +247,8 @@ class SwarmClient[F[_]](swarmUri: Uri)(
 
   /**
    * Upload a metafile for future use.
-   * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#creating-a-mutable-resource
    *
+   * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#creating-a-mutable-resource
    * @param mutableResourceId parameters that describe the mutable resource and required for searching updates of the mutable resource
    * @return hash of metafile. This is the address of mutable resource
    */
@@ -269,8 +273,8 @@ class SwarmClient[F[_]](swarmUri: Uri)(
 
   /**
    * Update a mutable resource.
-   * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#updating-a-mutable-resource
    *
+   * @see https://swarm-guide.readthedocs.io/en/latest/usage.html#updating-a-mutable-resource
    * @param mutableResourceId parameters that describe the mutable resource and required for searching updates of the mutable resource
    * @param data content the Mutable Resource will be initialized with
    * @param multiHash is a flag indicating whether the data field should be interpreted as raw data or a multihash

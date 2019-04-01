@@ -30,10 +30,13 @@ import fluence.effects.Backoff
 import fluence.effects.castore.StoreError
 import fluence.effects.docker.DockerIO
 import fluence.effects.ethclient.EthClient
+import fluence.effects.ipfs.IpfsStore
 import fluence.effects.swarm.{SwarmClient, SwarmStore}
-import fluence.node.code.{CodeStore, LocalCodeStore, RemoteCodeStore}
+import fluence.node.code.{CodeStore, LocalCodeStore, PolyStore, RemoteCodeStore}
+import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.eth._
+import fluence.node.eth.state.StorageType
 import fluence.node.workers._
 import fluence.node.workers.tendermint.config.ConfigTemplate
 import slogging.LazyLogging
@@ -76,6 +79,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
 
   /**
    * Create directory to hold Tendermint config & data for a specific app (worker)
+   *
    * @param appPath Path containing all configs & data for a specific app
    * @return Path to Tendermint home ($TMHOME) directory
    */
@@ -87,6 +91,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
 
   /**
    * Create directory to hold app code downloaded from Swarm
+   *
    * @param appPath Path containing all configs & data for a specific app
    * @return Path to `vmcode` directory
    */
@@ -206,14 +211,7 @@ object MasterNode extends LazyLogging {
 
       nodeEth ← NodeEth[F](nodeConfig.validatorKey.toByteVector, ethClient, masterConfig.contract)
 
-      codeStore ← Resource.liftF[F, CodeStore[F]](
-        if (masterConfig.swarm.enabled) {
-          implicit val b: Backoff[StoreError] = Backoff.default
-          SwarmClient[F](masterConfig.swarm.address)
-            .map(new SwarmStore[F](_))
-            .map[CodeStore[F]](new RemoteCodeStore(_))
-        } else (new LocalCodeStore[F](): CodeStore[F]).pure[F]
-      )
+      codeStore ← Resource.liftF(codeStore[F](masterConfig.remoteStorage))
 
       configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath, masterConfig.tendermintConfig))
     } yield
@@ -226,4 +224,22 @@ object MasterNode extends LazyLogging {
         rootPath,
         masterConfig.masterContainerId
       )
+
+  def codeStore[F[_]: Sync: ContextShift: Concurrent: Timer: LiftIO](
+    config: RemoteStorageConfig
+  )(implicit sttpBackend: SttpBackend[F, fs2.Stream[F, ByteBuffer]]): F[CodeStore[F]] =
+    if (config.enabled) {
+      implicit val b: Backoff[StoreError] = Backoff.default
+      for {
+        swarmClient <- SwarmClient[F](config.swarm.address)
+        swarmStore = new SwarmStore[F](swarmClient)
+        ipfsStore = new IpfsStore[F](config.ipfs.address)
+        polyStore = new PolyStore[F]({
+          case StorageType.Swarm => swarmStore
+          case StorageType.Ipfs => ipfsStore
+        })
+      } yield new RemoteCodeStore[F](polyStore)
+    } else {
+      (new LocalCodeStore[F](): CodeStore[F]).pure[F]
+    }
 }
