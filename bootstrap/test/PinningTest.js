@@ -19,7 +19,7 @@ var FluenceContract = artifacts.require("./Network.sol");
 const utils = require("./Utils.js");
 const truffleAssert = require('truffle-assertions');
 const assert = require("chai").assert;
-const { expectThrow } = require('openzeppelin-solidity/test/helpers/expectThrow');
+const { shouldFail, expectEvent } = require('openzeppelin-test-helpers');
 
 contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
     beforeEach(async function() {
@@ -58,12 +58,9 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
         let app = await addApp(cluster, pinnedNodes);
         let receipt = app.receipt;
         
-        let appID;
-        truffleAssert.eventEmitted(receipt, utils.appDeployedEvent, (ev) => {
-            assert.deepEqual(ev.nodeIDs, pinnedNodes);
-            appID = ev.appID;
-            return true
-        });
+        let event = expectEvent.inLogs(receipt.logs, utils.appDeployedEvent).args;
+        assert.deepEqual(event.nodeIDs, pinnedNodes);
+        let appID = event.appID;
 
         let clusterInfo = await global.contract.getApp(appID);
         let clusterSize = clusterInfo[2];
@@ -110,22 +107,15 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
         truffleAssert.eventNotEmitted(add.receipt, utils.appDeployedEvent, () => true);
 
         // App is enqueued
-        truffleAssert.eventEmitted(add.receipt, utils.appEnqueuedEvent, ev => {
-            assert.equal(ev.storageHash, add.storageHash);
-            return true
-        });
+        expectEvent.inLogs(add.logs, utils.appEnqueuedEvent, { storageHash: add.storageHash });
 
         // Add remaining public nodes
         let result = await addNodes(count - pinnedCount);
         let receipt = result.pop();
 
         // Cluster is formed
-        truffleAssert.eventEmitted(receipt, utils.appDeployedEvent, ev => {
-            pinnedNodeIDs.forEach(id => 
-                assert.include(ev.nodeIDs, id)
-            );
-            return true
-        });
+        let nodeIDs = expectEvent.inLogs(receipt.logs, utils.appDeployedEvent).args.nodeIDs;
+        pinnedNodeIDs.forEach(id => assert.include(nodeIDs, id));
     });
 
     it("Should enqueue several apps & deploy them in a single tx", async function() {
@@ -144,16 +134,14 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
             let result = await addApp(count, pinnedNodeIDs);
 
             // App should be enqueued
-            truffleAssert.eventEmitted(result.receipt, utils.appEnqueuedEvent, ev => {
-                assert.equal(ev.storageHash, result.storageHash);
-                return true
-            })
+            expectEvent.inLogs(result.logs, utils.appEnqueuedEvent, { storageHash: result.storageHash });
         }
 
         // adding 1 node that can host `apps` apps. should trigger ClusterFormed
         let receipts = await addNodes(1, ports = apps);
 
         var eventCount = 0;
+        // TODO: replace with openzeppelin's expectEvent?
         truffleAssert.eventEmitted(receipts.pop(), utils.appDeployedEvent, ev => {
             assert.equal(ev.nodeIDs.length, count);
             // should be deployed on all pinned nodes + one public node (not checked here)
@@ -168,15 +156,15 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
     });
 
     it("Should revert on pinToNodes > clusterSize", async function() {
-        await expectThrow(
-            addApp(5, Array(10).fill(0)),
+        await shouldFail.reverting(
+            addApp(5, utils.generateNodeIDs(10)),
             "number of pinTo nodes should be less or equal to the desired clusterSize"
         );
     });
 
     it("Should revert on pinning to non-registered node", async function() {
-        await expectThrow(
-            addApp(5, ["non-existent-node-id"]),
+        await shouldFail.reverting(
+            addApp(5, [web3.utils.fromAscii("non-existent-node-id")]),
             "Can pin only to registered nodes"
         );
     });
@@ -184,7 +172,7 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
     it("Should revert on pinning to non-owned node", async function() {
         let result = await utils.addPinnedNodes(global.contract, 1, "127.0.0.1", anyone, 1);
         let nodeID = result.pop().nodeID;
-        await expectThrow(
+        await shouldFail.reverting(
             addApp(5, [nodeID]),
             "Can pin only to nodes you own"
         );
