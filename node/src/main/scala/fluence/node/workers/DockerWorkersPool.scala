@@ -34,9 +34,9 @@ import slogging.LazyLogging
 import scala.language.higherKinds
 
 /**
- * Wraps several [[WorkerServices]]s in a pool, providing running and monitoring functionality.
+ * Wraps several [[Worker]]s in a pool, providing running and monitoring functionality.
  *
- * @param workers a storage for running [[WorkerServices]]s, indexed by appIds
+ * @param workers a storage for running [[Worker]]s, indexed by appIds
  */
 class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
   ports: WorkersPorts[F],
@@ -98,12 +98,12 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
               // Put services instance in a promise
               _ ← servicesDef.complete(services)
 
-              bus ← getWorkerF
+              worker ← getWorkerF
 
               // Launch a concurrent process of fetching p2p ports from other nodes
               // Once a port is received, register it in tendermint
               p2pPortsFiber ← WorkerP2pConnectivity
-                .join(bus, params.app.cluster.workers.filterNot(_.index == params.currentWorker.index))
+                .join(worker, params.app.cluster.workers.filterNot(_.index == params.currentWorker.index))
 
               // Worker is being used as a resource until this promise is completed,
               // i.e., until worker services are stopped externally
@@ -188,7 +188,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
   }
 
   /**
-   * Runs a new [[WorkerServices]] in the pool.
+   * Runs a new [[Worker]] in the pool.
    *
    * @param params see [[WorkerParams]]
    * @return F that resolves with true when worker is registered; it might be not running yet. If it was registered before, F resolves with false

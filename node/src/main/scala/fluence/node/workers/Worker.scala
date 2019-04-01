@@ -16,17 +16,19 @@
 
 package fluence.node.workers
 
-import cats.syntax.flatMap._
-import cats.syntax.apply._
-import cats.syntax.functor._
-import cats.syntax.applicative._
 import cats.effect.Concurrent
 import cats.effect.concurrent.{Deferred, TryableDeferred}
+import cats.syntax.applicative._
+import cats.syntax.apply._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 
 import scala.language.higherKinds
 
 /**
- * Worker is a representation of App Worker, incapsulating WorkerServices, and ordered execution via [[withServices_]] and [[withServices]].
+ * Worker is a representation of App Worker, incapsulating WorkerServices,
+ * and ordered execution via [[withServices_]] and [[withServices]].
+ *
  * @param appId AppId of the application hosted by this worker
  * @param p2pPort Tendermint p2p port
  * @param servicesDef Promise of WorkerServices (Tendermint, ControlRPC)
@@ -83,7 +85,6 @@ object Worker {
    * @param workerRun Description of how to run the worker
    * @param onStop Callback, called on worker's stop, but only after all commands have been processed
    * @param onRemove Callback, called on worker's removal, but only after all commands have been processed
-
    * @return A Worker's instance, that will initialize itself in the background
    */
   def apply[F[_]: Concurrent](

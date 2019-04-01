@@ -22,7 +22,7 @@ import fluence.effects.tendermint.rpc.TendermintRpc
 
 import scala.language.higherKinds
 
-// Algebra for DockerWorker
+// Algebra for WorkerServices
 trait WorkerServices[F[_]] {
   // RPC connection to tendermint
   def tendermint: TendermintRpc[F]
