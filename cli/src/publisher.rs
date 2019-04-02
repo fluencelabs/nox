@@ -108,7 +108,7 @@ impl Publisher {
             let receipt: H256 =
                 "0000000000000000000000000000000000000000000000000000000000000000".parse()?;
 
-            let type_num: u64 = self.storage_type.clone() as u64;
+            let type_num: u64 = self.storage_type.to_u8() as u64;
             let storage_type: H256 = H256::from(type_num);
 
             let (call_data, _) = add_app::call(

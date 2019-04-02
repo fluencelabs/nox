@@ -15,7 +15,6 @@
  */
 
 use std::convert::Into;
-use std::convert::Into;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::PathBuf;
@@ -45,6 +44,14 @@ impl Storage {
             u => UNKNOWN(u),
         }
     }
+
+    pub fn to_u8(&self) -> u8 {
+        match self {
+            SWARM => 0,
+            IPFS => 1,
+            UNKNOWN(u) => *u,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -67,7 +74,10 @@ pub fn upload_to_storage(
         Storage::SWARM => {
             let hash = upload_code_to_swarm(storage_url, path)?;
             hash.parse().map_err(|e| {
-                err_msg(format!("Swarm upload error: invalid hex returned {}", hash))
+                err_msg(format!(
+                    "Swarm upload error: invalid hex returned {} {}",
+                    hash, e
+                ))
             })?
         }
         Storage::IPFS => upload_code_to_ipfs(storage_url, path)?,
