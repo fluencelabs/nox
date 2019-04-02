@@ -22,8 +22,8 @@ use std::path::PathBuf;
 
 use base58::{FromBase58, FromBase58Error};
 use failure::{err_msg, Error, ResultExt};
-use reqwest::Client;
 use reqwest::multipart::Form;
+use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use web3::types::H256;
 
@@ -113,7 +113,7 @@ fn upload_code_to_ipfs(url: &str, path: PathBuf) -> Result<H256, Error> {
         .multipart(form)
         .send()
         .and_then(|mut r| r.text())
-        .context("error uploading code to swarm")?;
+        .context("Error uploading code to IPFS")?;
 
     let ipfs_response: IpfsResponse = serde_json::from_str(response.as_str())?;
 
