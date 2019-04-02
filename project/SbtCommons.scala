@@ -4,7 +4,8 @@ import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys._
 import sbt.{Def, _}
 import sbtdocker.DockerPlugin.autoImport.docker
-import sys.process._
+
+import scala.sys.process._
 
 object SbtCommons {
 
@@ -101,14 +102,14 @@ object SbtCommons {
   val sttp = "com.softwaremill.sttp"            %% "core"                           % sttpVersion
   val sttpCirce = "com.softwaremill.sttp"       %% "circe"                          % sttpVersion
   val sttpCatsBackend = "com.softwaremill.sttp" %% "async-http-client-backend-cats" % sttpVersion
-  val sttpFs2Backend = "com.softwaremill.sttp" %% "async-http-client-backend-fs2" % sttpVersion
+  val sttpFs2Backend = "com.softwaremill.sttp"  %% "async-http-client-backend-fs2"  % sttpVersion
 
-  val http4sVersion = "0.20.0-M6"
+  val http4sVersion = "0.20.0-M7"
   val http4sDsl = "org.http4s"    %% "http4s-dsl"          % http4sVersion
   val http4sServer = "org.http4s" %% "http4s-blaze-server" % http4sVersion
   val http4sCirce = "org.http4s"  %% "http4s-circe"        % http4sVersion
 
-  val circeVersion = "0.10.0"
+  val circeVersion = "0.11.1"
   val circeCore = "io.circe"          %% "circe-core"           % circeVersion
   val circeGeneric = "io.circe"       %% "circe-generic"        % circeVersion
   val circeGenericExtras = "io.circe" %% "circe-generic-extras" % circeVersion
