@@ -18,12 +18,10 @@ package fluence.effects.swarm
 import java.nio
 
 import cats.effect.{ContextShift, IO, Timer}
-import com.softwaremill.sttp.SttpBackend
-import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
+import com.softwaremill.sttp._
 import com.softwaremill.sttp.asynchttpclient.fs2.AsyncHttpClientFs2Backend
-import fluence.effects.swarm.crypto.Secp256k1Signer.Signer
 import fluence.effects.swarm.crypto.Secp256k1Signer
-import fs2.Chunk.ByteBuffer
+import fluence.effects.swarm.crypto.Secp256k1Signer.Signer
 import org.scalatest.{EitherValues, FlatSpec, Ignore, Matchers}
 import org.web3j.crypto.{ECKeyPair, Keys}
 import scodec.bits.ByteVector
@@ -47,7 +45,7 @@ class SwarmClientIntegrationSpec extends FlatSpec with Matchers with EitherValue
   private implicit val ioShift: ContextShift[IO] = IO.contextShift(global)
   private implicit val sttpBackend: SttpBackend[IO, fs2.Stream[IO, nio.ByteBuffer]] = AsyncHttpClientFs2Backend[IO]()
 
-  val api = SwarmClient("http://localhost:8500").unsafeRunSync()
+  val api = SwarmClient(uri"http://localhost:8500")
 
   val ethAddress: ByteVector = ByteVector.fromHex(Keys.getAddress(randomKeys)).get
 
