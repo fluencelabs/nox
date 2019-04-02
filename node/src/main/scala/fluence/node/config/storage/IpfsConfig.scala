@@ -16,17 +16,26 @@
 
 package fluence.node.config.storage
 
+import cats.syntax.either._
+import com.softwaremill.sttp._
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
+
+import scala.util.Try
 
 /**
  * Configuration for Ipfs storage, part of [[RemoteStorageConfig]]
  *
  * @param address URI of an Ipfs node
  */
-case class IpfsConfig(address: String)
+case class IpfsConfig(address: Uri)
 
 object IpfsConfig {
+  implicit val uriEncoder: Encoder[Uri] = Encoder.encodeString.contramap[Uri](_.toString)
+  implicit val decodeUri: Decoder[Uri] =
+    Decoder.decodeString.emap { str =>
+      Try(uri"$str").toEither.leftMap(e => s"Error while parsing uri in IpfsConfig: $e")
+    }
   implicit val encoder: Encoder[IpfsConfig] = deriveEncoder
   implicit val decoder: Decoder[IpfsConfig] = deriveDecoder
 }

@@ -331,19 +331,15 @@ class SwarmClient[F[_]](swarmUri: Uri)(
 object SwarmClient {
 
   def apply[F[_]](
-    address: String
+    swarmUri: Uri
   )(
     implicit sttpBackend: SttpBackend[F, fs2.Stream[F, ByteBuffer]],
     F: cats.MonadError[F, Throwable]
-  ): F[SwarmClient[F]] = {
+  ): SwarmClient[F] = {
 
     implicit val _: Hasher[ByteVector, ByteVector] = Keccak256Hasher.hasher
 
-    // TODO return EitherT instead
-    F.catchNonFatal {
-      val swarmUri = uri"$address"
-      new SwarmClient[F](swarmUri)
-    }
+    new SwarmClient[F](swarmUri)
   }
 
   implicit class UnsafeClient(client: SwarmClient[IO]) {

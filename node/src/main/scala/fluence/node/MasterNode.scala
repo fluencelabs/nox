@@ -196,7 +196,7 @@ object MasterNode extends LazyLogging {
 
       nodeEth ← NodeEth[F](nodeConfig.validatorKey.toByteVector, ethClient, masterConfig.contract)
 
-      codeStore ← Resource.liftF(codeStore[F](masterConfig.remoteStorage))
+      codeStore ← Resource.pure(codeStore[F](masterConfig.remoteStorage))
 
       configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath, masterConfig.tendermintConfig))
     } yield
@@ -212,19 +212,18 @@ object MasterNode extends LazyLogging {
 
   def codeStore[F[_]: Sync: ContextShift: Concurrent: Timer: LiftIO](
     config: RemoteStorageConfig
-  )(implicit sttpBackend: SttpBackend[F, fs2.Stream[F, ByteBuffer]]): F[CodeCarrier[F]] =
+  )(implicit sttpBackend: SttpBackend[F, fs2.Stream[F, ByteBuffer]]): CodeCarrier[F] =
     if (config.enabled) {
       implicit val b: Backoff[StoreError] = Backoff.default
-      for {
-        swarmClient <- SwarmClient[F](config.swarm.address)
-        swarmStore = new SwarmStore[F](swarmClient)
-        ipfsStore = new IpfsStore[F](config.ipfs.address)
-        polyStore = new PolyStore[F]({
-          case StorageType.Swarm => swarmStore
-          case StorageType.Ipfs => ipfsStore
-        })
-      } yield new RemoteCodeCarrier[F](polyStore)
+      val swarmClient = SwarmClient[F](config.swarm.address)
+      val swarmStore = new SwarmStore[F](swarmClient)
+      val ipfsStore = new IpfsStore[F](config.ipfs.address)
+      val polyStore = new PolyStore[F]({
+        case StorageType.Swarm => swarmStore
+        case StorageType.Ipfs => ipfsStore
+      })
+      new RemoteCodeCarrier[F](polyStore)
     } else {
-      (new LocalCodeCarrier[F](): CodeCarrier[F]).pure[F]
+      new LocalCodeCarrier[F]()
     }
 }

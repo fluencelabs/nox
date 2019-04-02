@@ -45,7 +45,7 @@ object ResponseOps {
  *
  * @param ipfsUri URI of the IPFS node
  */
-class IpfsStore[F[_]: Concurrent: ContextShift](ipfsUri: String)(
+class IpfsStore[F[_]: Concurrent: ContextShift](ipfsUri: Uri)(
   implicit sttpBackend: SttpBackend[F, fs2.Stream[F, ByteBuffer]],
   backoff: Backoff[IpfsError] = Backoff.default
 ) extends ContentAddressableStore[F] with slogging.LazyLogging {
@@ -56,7 +56,7 @@ class IpfsStore[F[_]: Concurrent: ContextShift](ipfsUri: String)(
   }
 
   // URI for downloading the file
-  private val CatUri = uri"$ipfsUri".path("/api/v0/cat")
+  private val CatUri = ipfsUri.path("/api/v0/cat")
 
   private def getUri(addressBase58: String): Uri = CatUri.param("arg", addressBase58)
 
