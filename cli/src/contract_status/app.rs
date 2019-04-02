@@ -25,7 +25,9 @@ use crate::contract_func::contract::functions::get_app_i_ds;
 use crate::contract_func::contract::functions::get_node;
 use crate::contract_func::contract::functions::get_nodes_ids;
 use crate::contract_func::query_contract;
+use crate::storage::Storage;
 use crate::types::NodeAddress;
+use std::convert::Into;
 use std::net::IpAddr;
 use web3::transports::Http;
 use web3::Web3;
@@ -35,6 +37,7 @@ pub struct App {
     pub app_id: u64,
     pub storage_hash: H256,
     pub storage_receipt: H256,
+    pub storage_type: Storage,
     pub cluster_size: u8,
     pub owner: Address,
     pub pin_to_nodes: Option<Vec<H256>>,
@@ -46,6 +49,7 @@ impl App {
         app_id: u64,
         storage_hash: H256,
         storage_receipt: H256,
+        storage_type: Storage,
         cluster_size: u8,
         owner: Address,
         pin_to_nodes: Option<Vec<H256>>,
@@ -55,6 +59,7 @@ impl App {
             app_id,
             storage_hash,
             storage_receipt,
+            storage_type,
             cluster_size,
             owner,
             pin_to_nodes,
@@ -155,9 +160,17 @@ pub fn get_apps(web3: &Web3<Http>, contract_address: Address) -> Result<Vec<App>
         .iter()
         .map(|id| {
             let (call_data, decoder) = get_app::call(*id);
-            let (storage_hash, storage_receipt, cluster_size, owner, pin_to, genesis, node_ids) =
-                query_contract(call_data, Box::new(decoder), web3, contract_address)
-                    .context(format!("reading app {} from contract failed", id))?;
+            let (
+                storage_hash,
+                storage_receipt,
+                storage_type_bytes,
+                cluster_size,
+                owner,
+                pin_to,
+                genesis,
+                node_ids,
+            ) = query_contract(call_data, Box::new(decoder), web3, contract_address)
+                .context(format!("reading app {} from contract failed", id))?;
 
             let cluster = if !genesis.is_zero() {
                 let genesis: u64 = genesis.into();
@@ -169,10 +182,14 @@ pub fn get_apps(web3: &Web3<Http>, contract_address: Address) -> Result<Vec<App>
 
             let cluster_size: u64 = cluster_size.into();
 
+            let last_byte = storage_type_bytes.0[31];
+            let storage_type = Storage::from(last_byte);
+
             let app = App::new(
                 *id,
                 storage_hash,
                 storage_receipt,
+                storage_type,
                 cluster_size as u8,
                 owner,
                 Some(pin_to),

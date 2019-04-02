@@ -51,7 +51,7 @@ impl Uploader {
     pub fn upload_code(self, show_progress: bool) -> Result<H256, Error> {
         let upload_to_storage_fn = || -> Result<H256, Error> {
             upload_to_storage(
-                &self.storage_type,
+                self.storage_type,
                 &self.storage_url.as_str(),
                 &self.bytes.as_slice(),
             )

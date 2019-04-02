@@ -98,7 +98,7 @@ impl Publisher {
 
         let upload_to_storage_fn = || -> Result<H256, Error> {
             upload_to_storage(
-                &self.storage_type,
+                self.storage_type.clone(),
                 &self.storage_url.as_str(),
                 &self.bytes.as_slice(),
             )
@@ -109,9 +109,13 @@ impl Publisher {
             let receipt: H256 =
                 "0000000000000000000000000000000000000000000000000000000000000000".parse()?;
 
+            let type_num: u64 = self.storage_type.clone() as u64;
+            let storage_type: H256 = H256::from(type_num);
+
             let (call_data, _) = add_app::call(
                 hash,
                 receipt,
+                storage_type,
                 u64::from(self.cluster_size),
                 self.pin_to_nodes.clone(),
             );
@@ -150,12 +154,12 @@ impl Publisher {
             };
 
             let hash: H256 = utils::with_progress(
-                "Uploading application code to Swarm...",
+                format!("Uploading application code to {:?}...", &self.storage_type).as_str(),
                 step_counter.format_next_step().as_str(),
                 "Application code uploaded.",
                 upload_to_storage_fn,
             )?;
-            utils::print_info_id("swarm hash:", hash);
+            utils::print_info_id(format!("{:?} hash:", &self.storage_type).as_str(), hash);
 
             let tx = utils::with_progress(
                 "Publishing the app to the smart contract...",

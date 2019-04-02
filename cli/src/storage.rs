@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use crate::storage::Storage::{IPFS, SWARM, UNKNOWN};
 use crate::utils;
 use base58::{FromBase58, FromBase58Error};
 use failure::{err_msg, Error, ResultExt};
@@ -23,10 +24,21 @@ use serde::{Deserialize, Serialize};
 use std::convert::Into;
 use web3::types::H256;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Storage {
-    SWARM,
-    IPFS,
+    SWARM = 0,
+    IPFS = 1,
+    UNKNOWN = 100,
+}
+
+impl Storage {
+    pub fn from(n: u8) -> Storage {
+        match n {
+            0 => SWARM,
+            1 => IPFS,
+            _ => UNKNOWN,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -41,7 +53,7 @@ struct IpfsResponse {
 
 /// uploads bytes to specified storage
 pub fn upload_to_storage(
-    storage_type: &Storage,
+    storage_type: Storage,
     storage_url: &str,
     bytes: &[u8],
 ) -> Result<H256, Error> {
@@ -51,6 +63,7 @@ pub fn upload_to_storage(
             .map_err(err_msg)
             .context("Swarm upload error on hex parsing")?,
         Storage::IPFS => upload_code_to_ipfs(storage_url, bytes)?,
+        Storage::UNKNOWN => Err(err_msg(format!("Unknown type of storage.")))?,
     };
 
     Ok(hash)
