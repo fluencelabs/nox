@@ -15,11 +15,15 @@
  */
 
 use std::convert::Into;
+use std::convert::Into;
+use std::fs::File;
+use std::io::prelude::*;
+use std::path::PathBuf;
 
 use base58::{FromBase58, FromBase58Error};
 use failure::{err_msg, Error, ResultExt};
-use reqwest::multipart::{Form, Part};
 use reqwest::Client;
+use reqwest::multipart::Form;
 use serde::{Deserialize, Serialize};
 use web3::types::H256;
 
@@ -57,16 +61,16 @@ struct IpfsResponse {
 pub fn upload_to_storage(
     storage_type: Storage,
     storage_url: &str,
-    bytes: &[u8],
+    path: PathBuf,
 ) -> Result<H256, Error> {
     let hash = match storage_type {
         Storage::SWARM => {
-            let hash = upload_code_to_swarm(storage_url, bytes)?;
+            let hash = upload_code_to_swarm(storage_url, path)?;
             hash.parse().map_err(|e| {
                 err_msg(format!("Swarm upload error: invalid hex returned {}", hash))
             })?
         }
-        Storage::IPFS => upload_code_to_ipfs(storage_url, bytes)?,
+        Storage::IPFS => upload_code_to_ipfs(storage_url, path)?,
         Storage::UNKNOWN(u) => Err(err_msg(format!("Unknown type of storage: {}", u)))?,
     };
 
@@ -74,14 +78,18 @@ pub fn upload_to_storage(
 }
 
 /// Uploads bytes of code to the Swarm
-fn upload_code_to_swarm(url: &str, bytes: &[u8]) -> Result<String, Error> {
+fn upload_code_to_swarm(url: &str, path: PathBuf) -> Result<String, Error> {
+    let mut file = File::open(path)?;
+    let mut buf = Vec::new();
+    file.read_to_end(&mut buf)?;
+
     let mut url = utils::parse_url(url)?;
     url.set_path("/bzz:/");
 
     let client = Client::new();
     let res = client
         .post(url)
-        .body(bytes.to_vec())
+        .body(buf)
         .header("Content-Type", "application/octet-stream")
         .send()
         .and_then(|mut r| r.text())
@@ -91,14 +99,13 @@ fn upload_code_to_swarm(url: &str, bytes: &[u8]) -> Result<String, Error> {
 }
 
 /// Uploads bytes of code to IPFS
-fn upload_code_to_ipfs(url: &str, bytes: &[u8]) -> Result<H256, Error> {
+fn upload_code_to_ipfs(url: &str, path: PathBuf) -> Result<H256, Error> {
     let mut url = utils::parse_url(url)?;
     url.set_path("/api/v0/add");
     url.set_query(Some("pin=true"));
 
-    let part = Part::bytes(bytes.to_vec());
-    let form = Form::new();
-    let form = form.part("path", part);
+    let path = path.as_path();
+    let form = Form::new().file("path", path)?;
 
     let client = Client::new();
     let response = client

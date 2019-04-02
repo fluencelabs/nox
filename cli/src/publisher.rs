@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 
-use std::fs::File;
-use std::io::prelude::*;
-
 use failure::{err_msg, Error, ResultExt, SyncFailure};
 
 use clap::ArgMatches;
@@ -36,6 +33,8 @@ use crate::ethereum_params::EthereumParams;
 use crate::step_counter::StepCounter;
 use crate::storage::{upload_to_storage, Storage};
 use crate::utils;
+use std::clone::Clone;
+use std::path::{Path, PathBuf};
 
 const MAX_CLUSTER_SIZE: u8 = 4;
 const CODE_PATH: &str = "code_path";
@@ -47,7 +46,7 @@ const PIN_BASE64: &str = "base64";
 
 #[derive(Debug, Getters)]
 pub struct Publisher {
-    bytes: Vec<u8>,
+    path: PathBuf,
     storage_url: String,
     storage_type: Storage,
     cluster_size: u8,
@@ -74,7 +73,7 @@ impl Published {
 impl Publisher {
     /// Creates `Publisher` structure
     pub fn new(
-        bytes: Vec<u8>,
+        path: PathBuf,
         storage_url: String,
         storage_type: Storage,
         cluster_size: u8,
@@ -82,7 +81,7 @@ impl Publisher {
         eth: EthereumParams,
     ) -> Publisher {
         Publisher {
-            bytes,
+            path,
             storage_url,
             storage_type,
             cluster_size,
@@ -100,7 +99,7 @@ impl Publisher {
             upload_to_storage(
                 self.storage_type.clone(),
                 &self.storage_url.as_str(),
-                &self.bytes.as_slice(),
+                self.path.clone(),
             )
         };
 
@@ -221,9 +220,7 @@ fn parse_pinned(args: &ArgMatches) -> Result<Vec<H256>, Error> {
 /// Creates `Publisher` from arguments
 pub fn parse(matches: &ArgMatches, config: SetupConfig) -> Result<Publisher, Error> {
     let path = value_t!(matches, CODE_PATH, String)?; //TODO use is_file from clap_validators
-    let mut file = File::open(path).context("can't open WASM file")?;
-    let mut buf = Vec::new();
-    file.read_to_end(&mut buf)?;
+    let path = Path::new(path.as_str()).to_owned();
 
     let is_swarm = matches.is_present(IS_SWARM);
 
@@ -255,7 +252,7 @@ pub fn parse(matches: &ArgMatches, config: SetupConfig) -> Result<Publisher, Err
     }
 
     Ok(Publisher::new(
-        buf,
+        path,
         storage_url,
         storage_type,
         cluster_size,
