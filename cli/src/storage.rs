@@ -14,21 +14,23 @@
  * limitations under the License.
  */
 
-use crate::storage::Storage::{IPFS, SWARM, UNKNOWN};
-use crate::utils;
+use std::convert::Into;
+
 use base58::{FromBase58, FromBase58Error};
 use failure::{err_msg, Error, ResultExt};
 use reqwest::multipart::{Form, Part};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::convert::Into;
 use web3::types::H256;
+
+use crate::storage::Storage::{IPFS, SWARM, UNKNOWN};
+use crate::utils;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Storage {
-    SWARM = 0,
-    IPFS = 1,
-    UNKNOWN = 100,
+    SWARM,
+    IPFS,
+    UNKNOWN(u8),
 }
 
 impl Storage {
@@ -36,7 +38,7 @@ impl Storage {
         match n {
             0 => SWARM,
             1 => IPFS,
-            _ => UNKNOWN,
+            u => UNKNOWN(u),
         }
     }
 }
@@ -58,12 +60,14 @@ pub fn upload_to_storage(
     bytes: &[u8],
 ) -> Result<H256, Error> {
     let hash = match storage_type {
-        Storage::SWARM => upload_code_to_swarm(storage_url, bytes)?
-            .parse()
-            .map_err(err_msg)
-            .context("Swarm upload error on hex parsing")?,
+        Storage::SWARM => {
+            let hash = upload_code_to_swarm(storage_url, bytes)?;
+            hash.parse().map_err(|e| {
+                err_msg(format!("Swarm upload error: invalid hex returned {}", hash))
+            })?
+        }
         Storage::IPFS => upload_code_to_ipfs(storage_url, bytes)?,
-        Storage::UNKNOWN => Err(err_msg(format!("Unknown type of storage.")))?,
+        Storage::UNKNOWN(u) => Err(err_msg(format!("Unknown type of storage: {}", u)))?,
     };
 
     Ok(hash)
