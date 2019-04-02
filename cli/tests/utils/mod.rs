@@ -65,6 +65,7 @@ impl TestOpts {
         if !dir.exists() {
             let mut f = File::create(dir.clone()).expect("Cannot create a temporary file");
             f.write_all(b"wasm integration test").expect("Cannot write to the temporary file");
+            f.flush().expect("Cannot flush temporary file");
         }
 
         dir
