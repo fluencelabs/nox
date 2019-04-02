@@ -24,6 +24,8 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import net.ceedubs.ficus.readers.ValueReader
 
+import scala.util.Try
+
 /**
  * Main config class for master node.
  *
@@ -54,13 +56,11 @@ object MasterConfig {
   import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
   import net.ceedubs.ficus.readers.ArbitraryTypeReader._
   import net.ceedubs.ficus.readers.EnumerationReader._
-
-  implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder
-  implicit val decodeMasterConfig: Decoder[MasterConfig] = deriveDecoder
-
   import net.ceedubs.ficus.Ficus._
   import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 
+  implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder
+  implicit val decodeMasterConfig: Decoder[MasterConfig] = deriveDecoder
   implicit val shortReader: ValueReader[Short] = ValueReader[Int].map(_.toShort)
 
   def load(): IO[MasterConfig] =

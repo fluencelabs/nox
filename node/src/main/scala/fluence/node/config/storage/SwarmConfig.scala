@@ -34,7 +34,7 @@ object SwarmConfig {
   implicit val uriEncoder: Encoder[Uri] = Encoder.encodeString.contramap[Uri](_.toString)
   implicit val decodeUri: Decoder[Uri] =
     Decoder.decodeString.emap { str =>
-      Try(uri"$str").toEither.leftMap(e => s"Error while parsing uri in SwarmConfig: $e")
+      Try(uri"$str").toEither.leftMap(e => s"Error while decoding uri in SwarmConfig: $e")
     }
   implicit val encodeSwarmConfig: Encoder[SwarmConfig] = deriveEncoder
   implicit val decodeSwarmConfig: Decoder[SwarmConfig] = deriveDecoder
