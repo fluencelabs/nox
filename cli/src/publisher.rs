@@ -337,7 +337,8 @@ mod tests {
         file_path.push("test.wasm");
         let mut f = File::create(file_path.clone()).expect("cannot create temporary file");
 
-        f.write_all(b"wasm").expect("cannot write to temporary file");
+        f.write_all(b"wasm")
+            .expect("cannot write to temporary file");
         f.flush().expect("cannot flush temporary file");
 
         let eth = EthereumArgs::with_acc_creds(account.parse().unwrap(), creds);

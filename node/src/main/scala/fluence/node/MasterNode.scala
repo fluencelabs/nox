@@ -49,7 +49,7 @@ import scala.language.higherKinds
  * @param configTemplate Template for worker's configuration
  * @param nodeEth Ethereum adapter
  * @param pool Workers pool to launch workers in
- * @param codeStore To load the code from, usually backed with Swarm
+ * @param codeCarrier To load the code from, usually backed with Swarm
  * @param rootPath MasterNode's working directory, usually /master
  * @param masterNodeContainerId Docker Container ID for this process, to import Docker volumes from
  */
@@ -58,7 +58,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
   configTemplate: ConfigTemplate,
   nodeEth: NodeEth[F],
   pool: WorkersPool[F],
-  codeStore: CodeCarrier[F],
+  codeCarrier: CodeCarrier[F],
   rootPath: Path,
   masterNodeContainerId: Option[String]
 ) extends slogging.LazyLogging {
@@ -100,7 +100,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
       vmCodePath ← makeVmCodePath(appPath)
 
       // TODO: Move description of the code preparation to Worker; it should be Worker's responsibility
-      code <- codeStore.carryCode(app.code, vmCodePath)
+      code <- codeCarrier.carryCode(app.code, vmCodePath)
     } yield
       WorkerParams(
         app,
@@ -196,7 +196,7 @@ object MasterNode extends LazyLogging {
 
       nodeEth ← NodeEth[F](nodeConfig.validatorKey.toByteVector, ethClient, masterConfig.contract)
 
-      codeStore ← Resource.pure(codeStore[F](masterConfig.remoteStorage))
+      codeCarrier ← Resource.pure(codeCarrier[F](masterConfig.remoteStorage))
 
       configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath, masterConfig.tendermintConfig))
     } yield
@@ -205,12 +205,12 @@ object MasterNode extends LazyLogging {
         configTemplate,
         nodeEth,
         pool,
-        codeStore,
+        codeCarrier,
         rootPath,
         masterConfig.masterContainerId
       )
 
-  def codeStore[F[_]: Sync: ContextShift: Concurrent: Timer: LiftIO](
+  def codeCarrier[F[_]: Sync: ContextShift: Concurrent: Timer: LiftIO](
     config: RemoteStorageConfig
   )(implicit sttpBackend: SttpBackend[F, fs2.Stream[F, ByteBuffer]]): CodeCarrier[F] =
     if (config.enabled) {

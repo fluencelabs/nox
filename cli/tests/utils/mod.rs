@@ -40,11 +40,11 @@ use fluence::publisher::Published;
 use fluence::publisher::Publisher;
 use fluence::register::Register;
 use fluence::register::Registered;
-use std::path::PathBuf;
+use fluence::storage::Storage;
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
-use fluence::storage::Storage;
+use std::path::PathBuf;
 
 pub type Result<T> = StdResult<T, Error>;
 
@@ -64,7 +64,8 @@ impl TestOpts {
 
         if !dir.exists() {
             let mut f = File::create(dir.clone()).expect("Cannot create a temporary file");
-            f.write_all(b"wasm integration test").expect("Cannot write to the temporary file");
+            f.write_all(b"wasm integration test")
+                .expect("Cannot write to the temporary file");
             f.flush().expect("Cannot flush temporary file");
         }
 
