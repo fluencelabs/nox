@@ -328,9 +328,17 @@ mod tests {
     use crate::ethereum_params::EthereumParams;
     use crate::publisher::Publisher;
     use crate::publisher::Storage::SWARM;
+    use std::env;
+    use std::fs::File;
+    use std::io::prelude::*;
 
     fn generate_publisher(account: &str, creds: Credentials) -> Publisher {
-        let bytes = vec![1, 2, 3];
+        let mut file_path = env::temp_dir();
+        file_path.push("test.wasm");
+        let mut f = File::create(file_path.clone()).expect("cannot create temporary file");
+
+        f.write_all(b"wasm").expect("cannot write to temporary file");
+        f.flush().expect("cannot flush temporary file");
 
         let eth = EthereumArgs::with_acc_creds(account.parse().unwrap(), creds);
         let config = SetupConfig::default().unwrap();
@@ -338,7 +346,7 @@ mod tests {
         let eth_params = EthereumParams::generate(eth, config).unwrap();
 
         Publisher::new(
-            bytes,
+            file_path,
             String::from("http://localhost:8500/"),
             SWARM,
             5,
