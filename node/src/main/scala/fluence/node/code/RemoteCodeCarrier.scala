@@ -28,9 +28,9 @@ import fluence.node.eth.state.StorageRef
 
 import scala.language.higherKinds
 
-class RemoteCodeStore[F[_]: Timer: LiftIO: Monad](store: PolyStore[F])(
+class RemoteCodeCarrier[F[_]: Timer: LiftIO: Monad](store: PolyStore[F])(
   implicit backoff: Backoff[StoreError]
-) extends CodeStore[F] {
+) extends CodeCarrier[F] {
 
   /**
    * Downloads file from a storage, and stores it on a disk at the specified location.
@@ -42,11 +42,11 @@ class RemoteCodeStore[F[_]: Timer: LiftIO: Monad](store: PolyStore[F])(
     backoff(store.fetchTo(ref, filePath))
 
   /**
-   * Checks if there is no code already then download a file from the Swarm and store it to a disk.
+   * If code doesn't exist yet, downloads it from a storage, and puts to `workerPath / vmcode / <hash>.wasm`
    *
    * @param workerPath a path to worker's directory
    * @param ref Reference to a code in a content addressable storage
-   * @return A path where code is stored (currently it's `workerPath / vmcode / hash.wasm`)
+   * @return A path where code is stored (currently it's `workerPath / vmcode / <hash>.wasm`)
    */
   private def downloadAndWriteCodeToFile(
     workerPath: Path,
@@ -72,13 +72,13 @@ class RemoteCodeStore[F[_]: Timer: LiftIO: Monad](store: PolyStore[F])(
     } yield dirPath
 
   /**
-   * Downloads code from Swarm and manages paths to the code.
+   * Downloads code from a storage, and writes it to `workerPath / vmcode / <hash>.wasm`
    *
    * @param ref a path to a code from the smart contract
    * @param workerPath a path to a worker's working directory
    * @return
    */
-  override def prepareCode(ref: StorageRef, workerPath: Path): F[Path] =
+  override def carryCode(ref: StorageRef, workerPath: Path): F[Path] =
     downloadAndWriteCodeToFile(workerPath, ref)
 
 }

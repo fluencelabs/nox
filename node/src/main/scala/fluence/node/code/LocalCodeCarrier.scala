@@ -16,20 +16,24 @@
 
 package fluence.node.code
 
-import java.nio.file.Path
+import java.nio.file.{Path, Paths}
 
+import cats.effect.Sync
+import cats.syntax.functor._
 import fluence.node.eth.state.StorageRef
 
 import scala.language.higherKinds
 
-trait CodeStore[F[_]] {
+/**
+ * Code carrier, used for tests
+ */
+class LocalCodeCarrier[F[_]](implicit F: Sync[F]) extends CodeCarrier[F] {
 
-  /**
-   * Puts the copy of the code to the working directory
-   *
-   * @param path a path to a code from the smart contract
-   * @param storagePath a path to a worker's working directory
-   * @return path to the copied code inside storagePath
-   */
-  def prepareCode(path: StorageRef, storagePath: Path): F[Path]
+  override def carryCode(
+    ref: StorageRef,
+    notUsed: Path
+  ): F[Path] =
+    F.fromEither(ref.storageHash.decodeUtf8.map(_.trim))
+      .map(p => Paths.get("/master/vmcode/vmcode-" + p)) // preloaded code in master's docker container
+
 }

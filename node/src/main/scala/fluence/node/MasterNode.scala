@@ -31,7 +31,7 @@ import fluence.effects.docker.DockerIO
 import fluence.effects.ethclient.EthClient
 import fluence.effects.ipfs.IpfsStore
 import fluence.effects.swarm.{SwarmClient, SwarmStore}
-import fluence.node.code.{CodeStore, LocalCodeStore, PolyStore, RemoteCodeStore}
+import fluence.node.code.{CodeCarrier, LocalCodeCarrier, PolyStore, RemoteCodeCarrier}
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.eth._
@@ -58,7 +58,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
   configTemplate: ConfigTemplate,
   nodeEth: NodeEth[F],
   pool: WorkersPool[F],
-  codeStore: CodeStore[F],
+  codeStore: CodeCarrier[F],
   rootPath: Path,
   masterNodeContainerId: Option[String]
 ) extends slogging.LazyLogging {
@@ -100,7 +100,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
       vmCodePath ← makeVmCodePath(appPath)
 
       // TODO: Move description of the code preparation to Worker; it should be Worker's responsibility
-      code <- codeStore.prepareCode(app.code, vmCodePath)
+      code <- codeStore.carryCode(app.code, vmCodePath)
     } yield
       WorkerParams(
         app,
@@ -212,7 +212,7 @@ object MasterNode extends LazyLogging {
 
   def codeStore[F[_]: Sync: ContextShift: Concurrent: Timer: LiftIO](
     config: RemoteStorageConfig
-  )(implicit sttpBackend: SttpBackend[F, fs2.Stream[F, ByteBuffer]]): F[CodeStore[F]] =
+  )(implicit sttpBackend: SttpBackend[F, fs2.Stream[F, ByteBuffer]]): F[CodeCarrier[F]] =
     if (config.enabled) {
       implicit val b: Backoff[StoreError] = Backoff.default
       for {
@@ -223,8 +223,8 @@ object MasterNode extends LazyLogging {
           case StorageType.Swarm => swarmStore
           case StorageType.Ipfs => ipfsStore
         })
-      } yield new RemoteCodeStore[F](polyStore)
+      } yield new RemoteCodeCarrier[F](polyStore)
     } else {
-      (new LocalCodeStore[F](): CodeStore[F]).pure[F]
+      (new LocalCodeCarrier[F](): CodeCarrier[F]).pure[F]
     }
 }

@@ -22,7 +22,7 @@ import io.circe.{Decoder, Encoder}
 /**
  * Configuration for remote decentralized content-addressable stores used by Node
  *
- * @param enabled Disables remote storage, [[fluence.node.code.LocalCodeStore]] is used in that case
+ * @param enabled Disables remote storage, [[fluence.node.code.LocalCodeCarrier]] is used in that case
  * @param swarm Config for Swarm
  * @param ipfs Config for Ipfs
  */
