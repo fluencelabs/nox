@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-use failure::{err_msg, Error, ResultExt, SyncFailure};
+use std::clone::Clone;
+use std::path::{Path, PathBuf};
 
 use clap::ArgMatches;
 use clap::{value_t, App, AppSettings, Arg, SubCommand};
 use derive_getters::Getters;
 use ethabi::RawLog;
+use failure::{err_msg, Error, ResultExt, SyncFailure};
 use web3::transports::Http;
 use web3::types::H256;
 
@@ -33,8 +35,6 @@ use crate::ethereum_params::EthereumParams;
 use crate::step_counter::StepCounter;
 use crate::storage::{upload_to_storage, Storage};
 use crate::utils;
-use std::clone::Clone;
-use std::path::{Path, PathBuf};
 
 const MAX_CLUSTER_SIZE: u8 = 4;
 const CODE_PATH: &str = "code_path";
@@ -316,11 +316,14 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 
 #[cfg(test)]
 mod tests {
+    use std::env;
+    use std::fs::File;
+    use std::io::prelude::*;
+
     use ethkey::Secret;
+    use failure::Error;
     use web3;
     use web3::types::H256;
-
-    use failure::Error;
 
     use crate::command::EthereumArgs;
     use crate::config::SetupConfig;
@@ -328,18 +331,17 @@ mod tests {
     use crate::ethereum_params::EthereumParams;
     use crate::publisher::Publisher;
     use crate::publisher::Storage::SWARM;
-    use std::env;
-    use std::fs::File;
-    use std::io::prelude::*;
 
     fn generate_publisher(account: &str, creds: Credentials) -> Publisher {
         let mut file_path = env::temp_dir();
         file_path.push("test.wasm");
-        let mut f = File::create(file_path.clone()).expect("cannot create temporary file");
+        if !file_path.exists() {
+            let mut f = File::create(file_path.clone()).expect("cannot create temporary file");
 
-        f.write_all(b"wasm")
-            .expect("cannot write to temporary file");
-        f.flush().expect("cannot flush temporary file");
+            f.write_all(b"wasm")
+                .expect("cannot write to temporary file");
+            f.flush().expect("cannot flush temporary file");
+        }
 
         let eth = EthereumArgs::with_acc_creds(account.parse().unwrap(), creds);
         let config = SetupConfig::default().unwrap();
