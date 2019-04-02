@@ -63,7 +63,7 @@ Fluence CLI 0.1.5
 ```
 
 ## Publishing the application with the Fluence CLI
-As we have already mentioned, you need to have access to the Ethereum Rinkeby and Swarm networks. You can either use Ethereum and Swarm nodes set up by Fluence Labs, or specify other nodes by providing their URIs using `--eth_url` and `--swarm_url` options.
+As we have already mentioned, you need to have access to the Ethereum Rinkeby and Swarm networks. You can either use Ethereum and Swarm nodes set up by Fluence Labs, or specify other nodes by providing their URIs using `--eth_url` and `--storage_url` options.
 
 You also need a Rinkeby account with some money on it (you can [get Ethers from faucet](https://faucet.rinkeby.io/)) and its private key, which can either be a hex string or a [Keystore file](../cli.md#keystore-json-file).
 

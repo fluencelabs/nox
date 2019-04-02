@@ -42,7 +42,7 @@ export interface WorkerSession {
  * Creates a connection with an app (all nodes hosting an app)
  * @param contract Contract address to read app's nodes list from
  * @param appId Target app
- * @param ethereumUrl Optional ethereum node url. Connect via Metamask if `ethereulUrl` is undefined
+ * @param ethereumUrl Optional ethereum node url. Connect via Metamask if `etheremlUrl` is undefined
  * @param privateKey Optional private key to sign requests. Signature is concatenated to the request payload.
  */
 export async function connect(contract: string, appId: string, ethereumUrl?: string, privateKey?: Buffer | string): Promise<AppSession> {
