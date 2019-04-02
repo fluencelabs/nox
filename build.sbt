@@ -174,6 +174,7 @@ lazy val swarm = (project in file("effects/swarm"))
     libraryDependencies ++= Seq(
       sttp,
       sttpCirce,
+      sttpCatsBackend % Test,
       sttpFs2Backend % Test,
       slogging,
       circeCore,

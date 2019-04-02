@@ -98,7 +98,7 @@ object SbtCommons {
   val cryptoKeyStore = "one.fluence" %% "crypto-keystore" % cryptoVersion
   val codecCore = "one.fluence"      %% "codec-core"      % "0.0.4"
 
-  val sttpVersion = "1.5.4"
+  val sttpVersion = "1.5.11"
   val sttp = "com.softwaremill.sttp"            %% "core"                           % sttpVersion
   val sttpCirce = "com.softwaremill.sttp"       %% "circe"                          % sttpVersion
   val sttpCatsBackend = "com.softwaremill.sttp" %% "async-http-client-backend-cats" % sttpVersion

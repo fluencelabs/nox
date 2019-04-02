@@ -16,19 +16,20 @@
 
 package fluence.node
 
+import java.nio.ByteBuffer
 import java.nio.file.Files
 import java.util.Base64
 
 import cats.effect._
 import cats.syntax.functor._
-import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
+import com.softwaremill.sttp.asynchttpclient.fs2.AsyncHttpClientFs2Backend
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
 import fluence.effects.docker.DockerIO
 import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.status.{MasterStatus, StatusAggregator}
 import fluence.node.workers.tendermint.ValidatorKey
-import org.scalatest.{Timer ⇒ _, _}
+import org.scalatest.{Timer => _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 
@@ -43,8 +44,10 @@ class MasterNodeSpec
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
-  private val sttpResource: Resource[IO, SttpBackend[IO, Nothing]] = Resource
-    .make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
+  type Sttp = SttpBackend[IO, fs2.Stream[IO, ByteBuffer]]
+
+  private val sttpResource: Resource[IO, Sttp] = Resource
+    .make(IO(AsyncHttpClientFs2Backend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
   override protected def beforeAll(): Unit = {
     wireupContract()
@@ -54,7 +57,7 @@ class MasterNodeSpec
     killGanache()
   }
 
-  def getStatus(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[MasterStatus] = {
+  def getStatus(statusPort: Short)(implicit sttpBackend: Sttp): IO[MasterStatus] = {
     import MasterStatus._
     for {
       resp <- sttp.response(asJson[MasterStatus]).get(uri"http://127.0.0.1:$statusPort/status").send()

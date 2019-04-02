@@ -27,6 +27,11 @@ object StorageType extends Enumeration {
 
   val Swarm, Ipfs = Value
 
+  def toByte(storageType: StorageType): Byte = storageType match {
+    case StorageType.Swarm => 0
+    case StorageType.Ipfs => 1
+  }
+
   implicit val decoder: Decoder[StorageType] = Decoder.enumDecoder(StorageType)
   implicit val encoder: Encoder[StorageType] = Encoder.enumEncoder(StorageType)
 }
