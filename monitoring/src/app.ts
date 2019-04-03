@@ -27,6 +27,7 @@ import {Cluster, parseCluster} from "./cluster";
 export interface App {
     app_id: string,
     storage_hash: string,
+    storage_type: number,
     storage_receipt: string,
     cluster_size: number,
     owner: string,
@@ -42,12 +43,13 @@ export function getApp(contract: Network, id: string): Promise<App> {
         }).then((unparsedApp) => {
             let storageHash: string = unparsedApp["0"];
             let storageReceipt: string = unparsedApp["1"];
-            let clusterSize: number = parseInt(unparsedApp["2"]);
-            let owner: string = unparsedApp["3"];
-            let pinToNodes: string[] = unparsedApp["4"];
+            let storageType: number = parseInt(unparsedApp["2"]);
+            let clusterSize: number = parseInt(unparsedApp["3"]);
+            let owner: string = unparsedApp["4"];
+            let pinToNodes: string[] = unparsedApp["5"];
 
-            let genesisTime: number = parseInt(unparsedApp["5"]);
-            let nodeIds: string[] = unparsedApp["6"];
+            let genesisTime: number = parseInt(unparsedApp["6"]);
+            let nodeIds: string[] = unparsedApp["7"];
 
             let clusterOpt;
             try {
@@ -61,6 +63,7 @@ export function getApp(contract: Network, id: string): Promise<App> {
                 app_id: id,
                 storage_hash: storageHash,
                 storage_receipt: storageReceipt,
+                storage_type: storageType,
                 cluster_size: clusterSize,
                 owner: owner,
                 pinToNodes: pinToNodes,
