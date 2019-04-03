@@ -15,7 +15,7 @@
  */
 
 use std::convert::Into;
-use std::fs::File;
+use std::fs::{read_dir, File};
 use std::io::prelude::*;
 use std::path::PathBuf;
 
@@ -87,7 +87,8 @@ pub fn upload_to_storage(
     Ok(hash)
 }
 
-/// Uploads bytes of code to the Swarm
+/// Uploads file of code to the Swarm
+/// TODO add directories support
 fn upload_code_to_swarm(url: &str, path: PathBuf) -> Result<String, Error> {
     let mut file = File::open(path)?;
     let mut buf = Vec::new();
@@ -108,14 +109,25 @@ fn upload_code_to_swarm(url: &str, path: PathBuf) -> Result<String, Error> {
     Ok(res)
 }
 
-/// Uploads bytes of code to IPFS
+/// Uploads files to IPFS
 fn upload_code_to_ipfs(url: &str, path: PathBuf) -> Result<H256, Error> {
     let mut url = utils::parse_url(url)?;
     url.set_path("/api/v0/add");
-    url.set_query(Some("pin=true"));
 
     let path = path.as_path();
-    let form = Form::new().file("path", path)?;
+
+    let form = if path.is_dir() {
+        url.set_query(Some("pin=true&recursive=true&wrap-with-directory=true"));
+        let entry_iter = read_dir(path)?;
+        entry_iter.fold(Ok(Form::new()), |form: Result<Form, Error>, entry| {
+            let entry = entry?;
+            let form = form?.file("path", entry.path())?;
+            Ok(form)
+        })?
+    } else {
+        url.set_query(Some("pin=true"));
+        Form::new().file("path", path)?
+    };
 
     let client = Client::new();
     let response = client
@@ -125,9 +137,31 @@ fn upload_code_to_ipfs(url: &str, path: PathBuf) -> Result<H256, Error> {
         .and_then(|mut r| r.text())
         .context("Error uploading code to IPFS")?;
 
-    let ipfs_response: IpfsResponse = serde_json::from_str(response.as_str())?;
+    let responses: Result<Vec<IpfsResponse>, Error> = response
+        .as_str()
+        .split_whitespace()
+        .map(|str| {
+            let resp: IpfsResponse = serde_json::from_str(str)?;
+            Ok(resp)
+        })
+        .collect();
 
-    let base58_str = ipfs_response.hash.as_str();
+    let responses: Vec<IpfsResponse> = responses?;
+
+    let base58_str = if responses.len() == 0 {
+        Err(err_msg("Empty response"))?
+    } else if responses.len() == 1 {
+        responses[0].hash.as_str()
+    } else {
+        // directory hash is in response with empty name
+        let dir_response: Option<&str> = responses
+            .iter()
+            .find(|r| r.name.is_empty())
+            .map(|r| r.hash.as_str());
+        dir_response.ok_or_else(|| err_msg("Multiple files uploaded, but no hash of directory."))?
+    };
+
+    utils::print_info_msg("IPFS file address", base58_str.to_owned());
 
     let bytes = base58_str
         .from_base58()
