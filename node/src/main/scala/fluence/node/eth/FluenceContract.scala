@@ -35,7 +35,7 @@ import fluence.node.config.FluenceContractConfig
 import fluence.node.eth.state.{App, Cluster}
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.generated._
-import org.web3j.abi.datatypes.Event
+import org.web3j.abi.datatypes.{Address, DynamicArray, Event}
 import org.web3j.protocol.core.methods.request.{EthFilter, SingleAddressEthFilter}
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
 
@@ -98,7 +98,19 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @param validatorKey Tendermint Validator key of the current node, used to filter out apps which aren't related to current node
    * @tparam F Effect
    */
-  private def getNodeApps[F[_]: LiftIO: Timer: Monad](validatorKey: Bytes32): fs2.Stream[F, state.App] =
+  private def getNodeApps[F[_]: LiftIO: Timer: Monad](validatorKey: Bytes32): fs2.Stream[F, state.App] = {
+    import org.web3j.tuples.generated.{Tuple2, Tuple8}
+    def mapApp(tuple: Tuple8[Bytes32, Bytes32, _, _, _, _, Uint256, DynamicArray[Bytes32]]) = {
+      import tuple._
+      // storageHash, storageType, genesisTime, validatorKeys
+      (getValue1, getValue2, getValue7, getValue8)
+    }
+    def mapWorker(tuple: Tuple2[DynamicArray[Bytes24], DynamicArray[Uint16]]) = {
+      import tuple._
+      // address, ports
+      (getValue1, getValue2)
+    }
+
     fs2.Stream
       .evalUnChunk(getNodeAppIds[F](validatorKey).map(cs ⇒ fs2.Chunk(cs: _*)))
       .evalMap(
@@ -108,22 +120,23 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
               contract
                 .getApp(appId)
                 .callUntilSuccess[F]
-                .map(tuple ⇒ (tuple.getValue1, tuple.getValue6, tuple.getValue7)),
+                .map(mapApp),
               contract
                 .getAppWorkers(appId)
                 .callUntilSuccess[F]
-                .map(tuple ⇒ (tuple.getValue1, tuple.getValue2))
+                .map(mapWorker)
             ) {
-              case ((storageHash, genesisTime, validatorKeys), (addrs, ports)) ⇒
+              case ((storageHash, storageType, genesisTime, validatorKeys), (addrs, ports)) ⇒
                 val cluster =
                   Cluster.build(genesisTime, validatorKeys, addrs, ports, currentValidatorKey = validatorKey)
                 Traverse[Option]
-                  .traverse(cluster)(c => App[F](appId, storageHash, c).value.map(_.toOption))
+                  .traverse(cluster)(c => App[F](appId, storageHash, storageType, c).value.map(_.toOption))
                   .map(_.flatten)
             }
             .flatten
       )
       .unNone
+  }
 
   /**
    * Returns a stream derived from the new AppDeployed events, showing that this node should join new clusters.
@@ -157,7 +170,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
         Sync[F]
           .delay(logger.info(s"Error on getting all previously clusters: $err."))
           .map(_ => err.printStackTrace())
-    } ++ getNodeAppDeployed(validatorKey)
+    }.scope ++ getNodeAppDeployed(validatorKey)
 
   // TODO: on reconnect, do getApps again and remove all apps that are running on this node but not in getApps list
   // this may happen if we missed some events due to network outage or the like
@@ -204,7 +217,7 @@ object FluenceContract {
       .traverse(
         Cluster
           .build(event.genesisTime, event.nodeIDs, event.nodeAddresses, event.ports, currentValidatorKey = validatorKey)
-      )(c => App[F](event.appID, event.storageHash, c).value.map(_.toOption))
+      )(c => App[F](event.appID, event.storageHash, event.storageType, c).value.map(_.toOption))
       .map(_.flatten)
 
   /**

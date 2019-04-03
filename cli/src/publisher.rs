@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-use std::fs::File;
-use std::io::prelude::*;
-
-use failure::{err_msg, Error, ResultExt, SyncFailure};
+use std::clone::Clone;
+use std::path::{Path, PathBuf};
 
 use clap::ArgMatches;
 use clap::{value_t, App, AppSettings, Arg, SubCommand};
 use derive_getters::Getters;
 use ethabi::RawLog;
+use failure::{err_msg, Error, ResultExt, SyncFailure};
 use web3::transports::Http;
 use web3::types::H256;
 
@@ -47,7 +46,7 @@ const PIN_BASE64: &str = "base64";
 
 #[derive(Debug, Getters)]
 pub struct Publisher {
-    bytes: Vec<u8>,
+    path: PathBuf,
     storage_url: String,
     storage_type: Storage,
     cluster_size: u8,
@@ -74,7 +73,7 @@ impl Published {
 impl Publisher {
     /// Creates `Publisher` structure
     pub fn new(
-        bytes: Vec<u8>,
+        path: PathBuf,
         storage_url: String,
         storage_type: Storage,
         cluster_size: u8,
@@ -82,7 +81,7 @@ impl Publisher {
         eth: EthereumParams,
     ) -> Publisher {
         Publisher {
-            bytes,
+            path,
             storage_url,
             storage_type,
             cluster_size,
@@ -98,9 +97,9 @@ impl Publisher {
 
         let upload_to_storage_fn = || -> Result<H256, Error> {
             upload_to_storage(
-                &self.storage_type,
+                self.storage_type.clone(),
                 &self.storage_url.as_str(),
-                &self.bytes.as_slice(),
+                self.path.clone(),
             )
         };
 
@@ -109,9 +108,13 @@ impl Publisher {
             let receipt: H256 =
                 "0000000000000000000000000000000000000000000000000000000000000000".parse()?;
 
+            let type_num: u64 = self.storage_type.to_u8() as u64;
+            let storage_type: H256 = H256::from(type_num);
+
             let (call_data, _) = add_app::call(
                 hash,
                 receipt,
+                storage_type,
                 u64::from(self.cluster_size),
                 self.pin_to_nodes.clone(),
             );
@@ -150,12 +153,12 @@ impl Publisher {
             };
 
             let hash: H256 = utils::with_progress(
-                "Uploading application code to Swarm...",
+                format!("Uploading application code to {:?}...", &self.storage_type).as_str(),
                 step_counter.format_next_step().as_str(),
                 "Application code uploaded.",
                 upload_to_storage_fn,
             )?;
-            utils::print_info_id("swarm hash:", hash);
+            utils::print_info_id(format!("{:?} hash:", &self.storage_type).as_str(), hash);
 
             let tx = utils::with_progress(
                 "Publishing the app to the smart contract...",
@@ -217,9 +220,7 @@ fn parse_pinned(args: &ArgMatches) -> Result<Vec<H256>, Error> {
 /// Creates `Publisher` from arguments
 pub fn parse(matches: &ArgMatches, config: SetupConfig) -> Result<Publisher, Error> {
     let path = value_t!(matches, CODE_PATH, String)?; //TODO use is_file from clap_validators
-    let mut file = File::open(path).context("can't open WASM file")?;
-    let mut buf = Vec::new();
-    file.read_to_end(&mut buf)?;
+    let path = Path::new(path.as_str()).to_owned();
 
     let is_swarm = matches.is_present(IS_SWARM);
 
@@ -251,7 +252,7 @@ pub fn parse(matches: &ArgMatches, config: SetupConfig) -> Result<Publisher, Err
     }
 
     Ok(Publisher::new(
-        buf,
+        path,
         storage_url,
         storage_type,
         cluster_size,
@@ -315,11 +316,14 @@ pub fn subcommand<'a, 'b>() -> App<'a, 'b> {
 
 #[cfg(test)]
 mod tests {
+    use std::env;
+    use std::fs::File;
+    use std::io::prelude::*;
+
     use ethkey::Secret;
+    use failure::Error;
     use web3;
     use web3::types::H256;
-
-    use failure::Error;
 
     use crate::command::EthereumArgs;
     use crate::config::SetupConfig;
@@ -329,7 +333,15 @@ mod tests {
     use crate::publisher::Storage::SWARM;
 
     fn generate_publisher(account: &str, creds: Credentials) -> Publisher {
-        let bytes = vec![1, 2, 3];
+        let mut file_path = env::temp_dir();
+        file_path.push("test.wasm");
+        if !file_path.exists() {
+            let mut f = File::create(file_path.clone()).expect("cannot create temporary file");
+
+            f.write_all(b"wasm")
+                .expect("cannot write to temporary file");
+            f.flush().expect("cannot flush temporary file");
+        }
 
         let eth = EthereumArgs::with_acc_creds(account.parse().unwrap(), creds);
         let config = SetupConfig::default().unwrap();
@@ -337,7 +349,7 @@ mod tests {
         let eth_params = EthereumParams::generate(eth, config).unwrap();
 
         Publisher::new(
-            bytes,
+            file_path,
             String::from("http://localhost:8500/"),
             SWARM,
             5,

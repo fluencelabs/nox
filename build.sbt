@@ -156,13 +156,26 @@ lazy val effects = project
   )
   .enablePlugins(AutomateHeaderPlugin)
 
+lazy val `ca-store` = (project in file("effects/ca-store"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      scodecCore,
+      fs2,
+      fs2io
+    )
+  )
+  .dependsOn(effects)
+  .enablePlugins(AutomateHeaderPlugin)
+
 lazy val swarm = (project in file("effects/swarm"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
       sttp,
       sttpCirce,
-      sttpCatsBackend,
+      sttpCatsBackend % Test,
+      sttpFs2Backend % Test,
       slogging,
       circeCore,
       circeGeneric,
@@ -175,7 +188,22 @@ lazy val swarm = (project in file("effects/swarm"))
       scalaTest
     )
   )
-  .dependsOn(effects)
+  .dependsOn(`ca-store`)
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val ipfs = (project in file("effects/ipfs"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      sttp,
+      slogging,
+      scodecBits,
+      scodecCore,
+      sttpFs2Backend % Test,
+      scalaTest
+    )
+  )
+  .dependsOn(`ca-store`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val ethclient = (project in file("effects/ethclient"))
@@ -240,7 +268,7 @@ lazy val node = project
     libraryDependencies ++= Seq(
       catsEffect,
       sttp,
-      sttpCatsBackend,
+      sttpFs2Backend,
       fs2io,
       ficus,
       circeGeneric,
@@ -308,4 +336,4 @@ lazy val node = project
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(ethclient, swarm, `statemachine-control`, `kvstore`, `dockerio`, `tendermint-rpc`)
+  .dependsOn(ethclient, swarm, ipfs, `statemachine-control`, `kvstore`, `dockerio`, `tendermint-rpc`)

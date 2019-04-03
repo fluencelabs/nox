@@ -40,25 +40,47 @@ use fluence::publisher::Published;
 use fluence::publisher::Publisher;
 use fluence::register::Register;
 use fluence::register::Registered;
+use fluence::storage::Storage;
+use std::env;
+use std::fs::File;
+use std::io::prelude::*;
+use std::path::PathBuf;
 
 pub type Result<T> = StdResult<T, Error>;
 
 #[derive(Debug, Getters)]
 pub struct TestOpts {
     api_port: u16,
-    code_bytes: Vec<u8>,
+    code_path: PathBuf,
+    storage_type: Storage,
     storage_url: String,
     eth: EthereumParams,
 }
 
 impl TestOpts {
+    pub fn get_code_file() -> PathBuf {
+        let mut dir = env::temp_dir();
+        dir.push("integration_test.wasm");
+
+        if !dir.exists() {
+            let mut f = File::create(dir.clone()).expect("Cannot create a temporary file");
+            f.write_all(b"wasm integration test")
+                .expect("Cannot write to the temporary file");
+            f.flush().expect("Cannot flush temporary file");
+        }
+
+        dir
+    }
+
     pub fn default() -> TestOpts {
         let eth = EthereumArgs::default();
         let config = SetupConfig::default().unwrap();
         let params = EthereumParams::generate(eth, config).unwrap();
+        let code_path = TestOpts::get_code_file();
         TestOpts {
             api_port: 25000,
-            code_bytes: vec![1, 2, 3],
+            code_path,
+            storage_type: Storage::SWARM,
             storage_url: String::from("http://localhost:8500"),
             eth: params,
         }
@@ -127,8 +149,9 @@ impl TestOpts {
 
     pub fn publish_app(&self, cluster_size: u8, pin_to: Vec<H256>) -> Result<H256> {
         let publish = Publisher::new(
-            self.code_bytes.clone(),
+            self.code_path.clone(),
             self.storage_url.clone(),
+            self.storage_type.clone(),
             cluster_size,
             pin_to,
             self.eth.clone(),

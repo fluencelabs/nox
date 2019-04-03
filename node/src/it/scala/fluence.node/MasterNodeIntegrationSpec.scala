@@ -16,15 +16,17 @@
 
 package fluence.node
 
+import java.nio.ByteBuffer
+
 import cats.effect._
-import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
+import com.softwaremill.sttp.asynchttpclient.fs2.AsyncHttpClientFs2Backend
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
 import fluence.effects.ethclient.EthClient
 import fluence.node.eth.FluenceContract
 import fluence.node.status.MasterStatus
 import fluence.node.workers.status.WorkerStatus
-import org.scalatest.{Timer ⇒ _, _}
+import org.scalatest.{Timer => _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 import eth.FluenceContractTestOps._
@@ -45,10 +47,12 @@ class MasterNodeIntegrationSpec
     extends WordSpec with LazyLogging with Matchers with BeforeAndAfterAll with OptionValues with Integration
     with TendermintSetup with GanacheSetup with DockerSetup {
 
+  type Sttp = SttpBackend[IO, fs2.Stream[IO, ByteBuffer]]
+
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
-  private val sttpResource = Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
+  private val sttpResource: Resource[IO, SttpBackend[IO, fs2.Stream[IO, ByteBuffer]]] = Resource.make(IO(AsyncHttpClientFs2Backend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
   // TODO integrate with CLI, get app id from tx
   @volatile private var lastAppId = 1l
@@ -61,7 +65,7 @@ class MasterNodeIntegrationSpec
     killGanache()
   }
 
-  def getStatus(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[MasterStatus] = {
+  def getStatus(statusPort: Short)(implicit sttpBackend: Sttp): IO[MasterStatus] = {
     import MasterStatus._
     for {
       resp <- sttp.response(asJson[MasterStatus]).get(uri"http://127.0.0.1:$statusPort/status").send()
@@ -93,7 +97,7 @@ class MasterNodeIntegrationSpec
     } yield Seq(master1, master2)
   }
 
-  def getRunningWorker(statusPort: Short)(implicit sttpBackend: SttpBackend[IO, Nothing]): IO[Option[WorkerStatus]] =
+  def getRunningWorker(statusPort: Short)(implicit sttpBackend: Sttp): IO[Option[WorkerStatus]] =
     IO.suspend {
       getStatus(statusPort).map(
         st ⇒
@@ -107,7 +111,7 @@ class MasterNodeIntegrationSpec
       )
     }
 
-  def withEthSttpAndTwoMasters(basePort: Short): Resource[IO, (EthClient, SttpBackend[IO, Nothing])] =
+  def withEthSttpAndTwoMasters(basePort: Short): Resource[IO, (EthClient, Sttp)] =
     for {
       ethClient <- EthClient.make[IO]()
       sttp <- sttpResource
@@ -126,7 +130,7 @@ class MasterNodeIntegrationSpec
 
     val contractConfig = FluenceContractConfig(owner, contractAddress)
 
-    def runTwoWorkers(basePort: Short)(implicit ethClient: EthClient, sttp: SttpBackend[IO, Nothing]): IO[Unit] = {
+    def runTwoWorkers(basePort: Short)(implicit ethClient: EthClient, sttp: Sttp): IO[Unit] = {
       val contract = FluenceContract(ethClient, contractConfig)
       val master2Port = (basePort + 1).toShort
       for {

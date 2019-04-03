@@ -14,48 +14,92 @@
  * limitations under the License.
  */
 
-use crate::utils;
-use failure::{Error, ResultExt, err_msg};
-use reqwest::Client;
-use web3::types::H256;
-use hyper::rt::Future;
-use ipfs_api::IpfsClient;
-use std::borrow::ToOwned;
-use std::io::Cursor;
-use futures::{future, Future};
+use std::convert::Into;
+use std::fs::File;
+use std::io::prelude::*;
+use std::path::PathBuf;
 
-#[derive(Debug)]
+use base58::{FromBase58, FromBase58Error};
+use failure::{err_msg, Error, ResultExt};
+use reqwest::multipart::Form;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use web3::types::H256;
+
+use crate::storage::Storage::{IPFS, SWARM, UNKNOWN};
+use crate::utils;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum Storage {
     SWARM,
     IPFS,
+    UNKNOWN(u8),
 }
 
+impl Storage {
+    pub fn from(n: u8) -> Storage {
+        match n {
+            0 => SWARM,
+            1 => IPFS,
+            u => UNKNOWN(u),
+        }
+    }
+
+    pub fn to_u8(&self) -> u8 {
+        match self {
+            SWARM => 0,
+            IPFS => 1,
+            UNKNOWN(u) => *u,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+struct IpfsResponse {
+    #[serde(rename = "Name")]
+    name: String,
+    #[serde(rename = "Hash")]
+    hash: String,
+    #[serde(rename = "Size")]
+    size: String,
+}
+
+/// uploads bytes to specified storage
 pub fn upload_to_storage(
-    storage_type: &Storage,
+    storage_type: Storage,
     storage_url: &str,
-    bytes: &[u8],
+    path: PathBuf,
 ) -> Result<H256, Error> {
-    println!("hi11111");
     let hash = match storage_type {
-        Storage::SWARM => upload_code_to_swarm(storage_url, bytes)?,
-        Storage::IPFS => upload_code_to_ipfs(storage_url, bytes)?,
+        Storage::SWARM => {
+            let hash = upload_code_to_swarm(storage_url, path)?;
+            hash.parse().map_err(|e| {
+                err_msg(format!(
+                    "Swarm upload error: invalid hex returned {} {}",
+                    hash, e
+                ))
+            })?
+        }
+        Storage::IPFS => upload_code_to_ipfs(storage_url, path)?,
+        Storage::UNKNOWN(u) => Err(err_msg(format!("Unknown type of storage: {}", u)))?,
     };
 
-    println!("result = {:?}", hash);
-
-    let hash = hash.parse().map_err(err_msg).context("Error on hex parsing")?;
     Ok(hash)
 }
 
 /// Uploads bytes of code to the Swarm
-fn upload_code_to_swarm(url: &str, bytes: &[u8]) -> Result<String, Error> {
+fn upload_code_to_swarm(url: &str, path: PathBuf) -> Result<String, Error> {
+    let mut file = File::open(path)?;
+    let mut buf = Vec::new();
+    file.read_to_end(&mut buf)?;
+
     let mut url = utils::parse_url(url)?;
     url.set_path("/bzz:/");
 
     let client = Client::new();
     let res = client
         .post(url)
-        .body(bytes.to_vec())
+        .body(buf)
         .header("Content-Type", "application/octet-stream")
         .send()
         .and_then(|mut r| r.text())
@@ -64,18 +108,42 @@ fn upload_code_to_swarm(url: &str, bytes: &[u8]) -> Result<String, Error> {
     Ok(res)
 }
 
-fn upload_code_to_ipfs(url: &str, bytes: &[u8]) -> Result<String, Error> {
+/// Uploads bytes of code to IPFS
+fn upload_code_to_ipfs(url: &str, path: PathBuf) -> Result<H256, Error> {
     let mut url = utils::parse_url(url)?;
-    let host = format!("{:?}", url.host().unwrap()).as_str();
+    url.set_path("/api/v0/add");
+    url.set_query(Some("pin=true"));
 
-    let data = Cursor::new(bytes);
+    let path = path.as_path();
+    let form = Form::new().file("path", path)?;
 
-    let client = IpfsClient::new(host, url.port().unwrap())?;
-    let req = client.add(data);
+    let client = Client::new();
+    let response = client
+        .post(url)
+        .multipart(form)
+        .send()
+        .and_then(|mut r| r.text())
+        .context("Error uploading code to IPFS")?;
 
+    let ipfs_response: IpfsResponse = serde_json::from_str(response.as_str())?;
 
-    let resp = hyper::rt::run(req).wait();
+    let base58_str = ipfs_response.hash.as_str();
 
+    let bytes = base58_str
+        .from_base58()
+        .map_err(|err| match err {
+            FromBase58Error::InvalidBase58Character(c, pos) => format!(
+                "Base58 decoding error: Invalid character '{}' at position {}",
+                c, pos
+            ),
+            FromBase58Error::InvalidBase58Length => format!(
+                "Base58 decoding error: Invalid input length '{}'",
+                base58_str.len()
+            ),
+        })
+        .map_err(err_msg)
+        .context("Error on base58 decoding")?;
 
-    Ok("".to_owned())
+    // drops first 2 bytes, because ipfs return multihash format
+    Ok(bytes.as_slice()[2..].into())
 }

@@ -13,10 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::fs::File;
-use std::io::prelude::*;
 
-use failure::{Error, ResultExt};
+use failure::Error;
 
 use clap::ArgMatches;
 use clap::{value_t, App, AppSettings, Arg, SubCommand};
@@ -27,7 +25,7 @@ use crate::config::SetupConfig;
 use crate::storage::Storage::{IPFS, SWARM};
 use crate::storage::{upload_to_storage, Storage};
 use crate::utils;
-use crate::utils::print_info_id;
+use std::path::{Path, PathBuf};
 
 const CODE_PATH: &str = "code_path";
 const STORAGE_URL: &str = "storage_url";
@@ -35,15 +33,15 @@ const IS_SWARM: &str = "swarm";
 
 #[derive(Debug, Getters)]
 pub struct Uploader {
-    bytes: Vec<u8>,
+    path: PathBuf,
     storage_url: String,
     storage_type: Storage,
 }
 
 impl Uploader {
-    pub fn new(bytes: Vec<u8>, storage_url: String, storage_type: Storage) -> Uploader {
+    pub fn new(path: PathBuf, storage_url: String, storage_type: Storage) -> Uploader {
         Uploader {
-            bytes,
+            path,
             storage_url,
             storage_type,
         }
@@ -51,15 +49,9 @@ impl Uploader {
 
     pub fn upload_code(self, show_progress: bool) -> Result<H256, Error> {
         let upload_to_storage_fn = || -> Result<H256, Error> {
-            println!("yoyo111111");
-            upload_to_storage(
-                &self.storage_type,
-                &self.storage_url.as_str(),
-                &self.bytes.as_slice(),
-            )
+            upload_to_storage(self.storage_type, &self.storage_url.as_str(), self.path)
         };
 
-        println!("yoyo22222");
         let hash = if show_progress {
             utils::with_progress(
                 "Uploading application code to storage...",
@@ -77,21 +69,18 @@ impl Uploader {
 
 pub fn parse(matches: &ArgMatches, config: SetupConfig) -> Result<Uploader, Error> {
     let path = value_t!(matches, CODE_PATH, String)?;
-    let mut file = File::open(path).context("can't open WASM file")?;
-    let mut buf = Vec::new();
-    file.read_to_end(&mut buf)?;
+    let path = Path::new(path.as_str());
 
     let is_swarm = matches.is_present(IS_SWARM);
 
     let storage_type = if is_swarm { SWARM } else { IPFS };
-    println!("storage type {:?}", storage_type);
 
     let storage_url = matches
         .value_of(STORAGE_URL)
         .map(|s| s.to_string())
         .unwrap_or(config.storage_url.clone());
 
-    Ok(Uploader::new(buf, storage_url, storage_type))
+    Ok(Uploader::new(path.to_owned(), storage_url, storage_type))
 }
 
 pub fn subcommand<'a, 'b>() -> App<'a, 'b> {

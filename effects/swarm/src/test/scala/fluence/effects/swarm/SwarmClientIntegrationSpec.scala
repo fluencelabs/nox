@@ -15,15 +15,18 @@
  */
 
 package fluence.effects.swarm
-import cats.effect.IO
-import com.softwaremill.sttp.SttpBackend
-import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
-import fluence.effects.swarm.crypto.Secp256k1Signer.Signer
+import java.nio
+
+import cats.effect.{ContextShift, IO, Timer}
+import com.softwaremill.sttp._
+import com.softwaremill.sttp.asynchttpclient.fs2.AsyncHttpClientFs2Backend
 import fluence.effects.swarm.crypto.Secp256k1Signer
+import fluence.effects.swarm.crypto.Secp256k1Signer.Signer
 import org.scalatest.{EitherValues, FlatSpec, Ignore, Matchers}
 import org.web3j.crypto.{ECKeyPair, Keys}
 import scodec.bits.ByteVector
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.Random
@@ -38,9 +41,11 @@ class SwarmClientIntegrationSpec extends FlatSpec with Matchers with EitherValue
   val randomKeys: ECKeyPair = Keys.createEcKeyPair()
   val signer: Signer[ByteVector, ByteVector] = Secp256k1Signer.signer(randomKeys)
 
-  private implicit val sttpBackend: SttpBackend[IO, Nothing] = AsyncHttpClientCatsBackend()
+  private implicit val ioTimer: Timer[IO] = IO.timer(global)
+  private implicit val ioShift: ContextShift[IO] = IO.contextShift(global)
+  private implicit val sttpBackend: SttpBackend[IO, fs2.Stream[IO, nio.ByteBuffer]] = AsyncHttpClientFs2Backend[IO]()
 
-  val api = SwarmClient("http://localhost:8500").unsafeRunSync()
+  val api = SwarmClient(uri"http://localhost:8500")
 
   val ethAddress: ByteVector = ByteVector.fromHex(Keys.getAddress(randomKeys)).get
 

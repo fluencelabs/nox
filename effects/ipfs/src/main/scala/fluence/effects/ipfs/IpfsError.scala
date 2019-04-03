@@ -14,16 +14,11 @@
  * limitations under the License.
  */
 
-package fluence.node.config
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+package fluence.effects.ipfs
+import fluence.effects.castore.StoreError
 
-/**
- * @param address address to Swarm node
- */
-case class SwarmConfig(enabled: Boolean, address: String)
+case class IpfsError(message: String, causedBy: Option[Throwable] = None) extends StoreError {
+  override def getMessage: String = message
 
-object SwarmConfig {
-  implicit val encodeSwarmConfig: Encoder[SwarmConfig] = deriveEncoder
-  implicit val decodeSwarmConfig: Decoder[SwarmConfig] = deriveDecoder
+  override def getCause: Throwable = causedBy getOrElse super.getCause
 }
