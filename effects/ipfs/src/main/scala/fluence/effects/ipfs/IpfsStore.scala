@@ -24,6 +24,9 @@ import fluence.effects.Backoff
 import fluence.effects.castore.{ContentAddressableStore, StoreError}
 import fluence.effects.ipfs.ResponseOps._
 import scodec.bits.ByteVector
+import com.softwaremill.sttp.circe.asJson
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
 import scala.language.higherKinds
 
@@ -40,6 +43,19 @@ object ResponseOps {
   }
 }
 
+case class FileManifest(Name: String, Hash: String, Size: Int, Type: Int)
+case class IpfsObject(Hash: String, Links: List[FileManifest])
+case class IpfsLs(Objects: List[IpfsObject])
+object IpfsLs {
+  implicit val encodeFileManifest: Encoder[FileManifest] = deriveEncoder
+  implicit val decodeFileManifest: Decoder[FileManifest] = deriveDecoder
+  implicit val encodeIpfsObject: Encoder[IpfsObject] = deriveEncoder
+  implicit val decodeIpfsObject: Decoder[IpfsObject] = deriveDecoder
+  implicit val encodeIpfsLs: Encoder[IpfsLs] = deriveEncoder
+  implicit val decodeIpfsLs: Decoder[IpfsLs] = deriveDecoder
+}
+
+
 /**
  * Implementation of IPFS downloading mechanism
  *
@@ -50,6 +66,8 @@ class IpfsStore[F[_]: Concurrent: ContextShift](ipfsUri: Uri)(
   backoff: Backoff[IpfsError] = Backoff.default
 ) extends ContentAddressableStore[F] with slogging.LazyLogging {
 
+  import IpfsLs._
+
   object Multihash {
     // https://github.com/multiformats/multicodec/blob/master/table.csv
     val SHA256 = ByteVector(0x12, 32) // 0x12 => SHA256; 32 = 256 bits in bytes
@@ -58,14 +76,14 @@ class IpfsStore[F[_]: Concurrent: ContextShift](ipfsUri: Uri)(
   // URI for downloading the file
   private val CatUri = ipfsUri.path("/api/v0/cat")
 
-  private def getUri(addressBase58: String): Uri = CatUri.param("arg", addressBase58)
+  private val LsUri = ipfsUri.path("/api/v0/ls")
 
   // Converts 256-bits hash to an bas58 IPFS address, prepending multihash bytes
   private def toAddress(hash: ByteVector): String = (Multihash.SHA256 ++ hash).toBase58
 
   override def fetch(hash: ByteVector): EitherT[F, StoreError, fs2.Stream[F, ByteBuffer]] = {
     val address = toAddress(hash)
-    val uri = getUri(address)
+    val uri = CatUri.param("arg", address)
     logger.debug(s"IPFS download started $uri")
     sttp
       .response(asStream[fs2.Stream[F, ByteBuffer]])
@@ -81,4 +99,41 @@ class IpfsStore[F[_]: Concurrent: ContextShift](ipfsUri: Uri)(
       }
       .leftMap(identity[StoreError])
   }
+
+  private def lsRaw(hash: ByteVector): EitherT[F, StoreError, IpfsLs] = {
+    val address = toAddress(hash)
+    val uri = LsUri.param("arg", address)
+    logger.debug(s"IPFS `ls` started $uri")
+    sttp
+      .response(asJson[IpfsLs])
+      .get(uri)
+      .send()
+      .toEitherT { er =>
+        val errorMessage = s"IPFS 'ls' error $uri: $er"
+        IpfsError(errorMessage)
+      }
+      .subflatMap(_.left.map { er =>
+        logger.error(s"Deserialization error: $er")
+        IpfsError(s"IPFS 'ls' deserialization error $uri.", Some(er.error))
+      })
+      .map { r =>
+        logger.debug(s"IPFS 'ls' finished $uri")
+        r
+      }
+      .leftMap(identity[StoreError])
+  }
+
+  /**
+   * Returns hash of files from directory.
+   * If hash belongs to file, returns the same hash.
+   *
+   * @param hash Content's hash
+   */
+  override def ls(hash: ByteVector): EitherT[F, StoreError, List[ByteVector]] =
+    for {
+      rawResponse <- lsRaw(hash)
+
+    } yield {
+      List.empty
+    }
 }

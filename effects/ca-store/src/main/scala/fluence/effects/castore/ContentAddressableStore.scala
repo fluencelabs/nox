@@ -42,6 +42,14 @@ abstract class ContentAddressableStore[F[_]: Concurrent: ContextShift](
   def fetch(hash: ByteVector): EitherT[F, StoreError, fs2.Stream[F, ByteBuffer]]
 
   /**
+   * Returns hash of files from directory.
+   * If hash belongs to file, returns the same hash.
+   *
+   * @param hash Content's hash
+   */
+  def ls(hash: ByteVector): EitherT[F, StoreError, List[ByteVector]]
+
+  /**
    * Fetches contents and stores it into the dest path.
    * We assume that it's the file fetched.
    *

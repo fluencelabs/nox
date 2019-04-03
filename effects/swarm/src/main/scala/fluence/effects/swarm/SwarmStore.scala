@@ -28,4 +28,6 @@ import scala.language.higherKinds
 class SwarmStore[F[_]: Concurrent: ContextShift](client: SwarmClient[F]) extends ContentAddressableStore[F] {
   override def fetch(hash: ByteVector): EitherT[F, StoreError, fs2.Stream[F, ByteBuffer]] =
     client.fetch(hash.toHex).leftMap(identity[StoreError])
+
+  override def ls(hash: ByteVector): EitherT[F, StoreError, List[ByteVector]] = EitherT.pure(hash)
 }

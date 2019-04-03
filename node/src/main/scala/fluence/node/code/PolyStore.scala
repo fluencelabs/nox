@@ -23,12 +23,17 @@ import cats.effect.{LiftIO, Timer}
 import fluence.effects.castore.{ContentAddressableStore, StoreError}
 import fluence.node.eth.state.StorageRef
 import fluence.node.eth.state.StorageType.StorageType
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-class PolyStore[F[_]: Timer: LiftIO: Monad](map: StorageType => ContentAddressableStore[F]) {
+class PolyStore[F[_]: Timer: LiftIO: Monad](selector: StorageType => ContentAddressableStore[F]) {
 
   def fetchTo(ref: StorageRef, dest: Path): EitherT[F, StoreError, Unit] = {
-    map(ref.storageType).fetchTo(ref.storageHash, dest)
+    selector(ref.storageType).fetchTo(ref.storageHash, dest)
+  }
+
+  def ls(ref: StorageRef): EitherT[F, StoreError, List[ByteVector]] = {
+    selector(ref.storageType).ls(ref.storageHash)
   }
 }
