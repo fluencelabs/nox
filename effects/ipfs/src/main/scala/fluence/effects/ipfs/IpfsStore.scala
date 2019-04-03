@@ -18,8 +18,9 @@ package fluence.effects.ipfs
 import java.nio.ByteBuffer
 
 import cats.data.EitherT
-import cats.effect.{Concurrent, ContextShift}
-import com.softwaremill.sttp.{SttpBackend, sttp, _}
+import cats.instances.list._
+import cats.Traverse.ops._
+import com.softwaremill.sttp.{asStream, sttp, SttpBackend, Uri}
 import fluence.effects.Backoff
 import fluence.effects.castore.{ContentAddressableStore, StoreError}
 import fluence.effects.ipfs.ResponseOps._
@@ -37,7 +38,7 @@ object ResponseOps {
   import cats.syntax.applicativeError._
   import com.softwaremill.sttp.Response
 
-  implicit class RichResponse[F[_], T](resp: F[Response[T]])(implicit F: ApplicativeError[F, Throwable]) {
+  implicit class RichResponse[F[_], T, EE <: Throwable](resp: F[Response[T]])(implicit F: ApplicativeError[F, EE]) {
     val toEitherT: EitherT[F, String, T] = resp.attemptT.leftMap(_.getMessage).subflatMap(_.body)
     def toEitherT[E](errFunc: String => E): EitherT[F, E, T] = toEitherT.leftMap(errFunc)
   }
@@ -46,6 +47,7 @@ object ResponseOps {
 case class FileManifest(Name: String, Hash: String, Size: Int, Type: Int)
 case class IpfsObject(Hash: String, Links: List[FileManifest])
 case class IpfsLs(Objects: List[IpfsObject])
+
 object IpfsLs {
   implicit val encodeFileManifest: Encoder[FileManifest] = deriveEncoder
   implicit val decodeFileManifest: Decoder[FileManifest] = deriveDecoder
@@ -55,14 +57,14 @@ object IpfsLs {
   implicit val decodeIpfsLs: Decoder[IpfsLs] = deriveDecoder
 }
 
-
 /**
  * Implementation of IPFS downloading mechanism
  *
  * @param ipfsUri URI of the IPFS node
  */
-class IpfsStore[F[_]: Concurrent: ContextShift](ipfsUri: Uri)(
+class IpfsStore[F[_]](ipfsUri: Uri)(
   implicit sttpBackend: SttpBackend[F, fs2.Stream[F, ByteBuffer]],
+  F: cats.MonadError[F, StoreError],
   backoff: Backoff[IpfsError] = Backoff.default
 ) extends ContentAddressableStore[F] with slogging.LazyLogging {
 
@@ -123,6 +125,10 @@ class IpfsStore[F[_]: Concurrent: ContextShift](ipfsUri: Uri)(
       .leftMap(identity[StoreError])
   }
 
+  private def assert(test: Boolean, error: IpfsError): EitherT[F, StoreError, Unit] = {
+    EitherT.fromEither(Either.cond(test, (), error.asInstanceOf[StoreError]))
+  }
+
   /**
    * Returns hash of files from directory.
    * If hash belongs to file, returns the same hash.
@@ -132,8 +138,22 @@ class IpfsStore[F[_]: Concurrent: ContextShift](ipfsUri: Uri)(
   override def ls(hash: ByteVector): EitherT[F, StoreError, List[ByteVector]] =
     for {
       rawResponse <- lsRaw(hash)
-
+      _ <- assert(
+        rawResponse.Objects.size == 1,
+        IpfsError(s"One Object should be in IPFS response. Response: $rawResponse")
+      )
+      rawHashes = {
+        val headObject = rawResponse.Objects.head
+        if (headObject.Links.isEmpty) List(headObject.Hash)
+        else headObject.Links.map(_.Hash)
+      }
+      hashes <- rawHashes.map { h =>
+        val a = EitherT
+          .fromEither[F](ByteVector.fromHexDescriptive(h))
+          .leftMap(err => IpfsError(s"Cannot parse '$h' hex: $err").asInstanceOf[StoreError])
+        a
+      }.sequence
     } yield {
-      List.empty
+      hashes
     }
 }

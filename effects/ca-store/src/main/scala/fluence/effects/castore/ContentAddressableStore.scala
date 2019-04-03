@@ -17,21 +17,18 @@
 package fluence.effects.castore
 
 import java.nio.ByteBuffer
-import java.nio.file.Path
 import java.util.concurrent.Executors
 
-import cats.syntax.applicativeError._
-import cats.Monad
+import cats.MonadError
 import cats.data.EitherT
-import cats.effect.{Concurrent, ContextShift}
 import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext
 import scala.language.higherKinds
 
-abstract class ContentAddressableStore[F[_]: Concurrent: ContextShift](
+abstract class ContentAddressableStore[F[_]](
   blockingCtx: ExecutionContext = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
-) {
+)(implicit F: cats.MonadError[F, StoreError]) {
 
   /**
    * Fetches contents corresponding to the given hash.
@@ -48,21 +45,4 @@ abstract class ContentAddressableStore[F[_]: Concurrent: ContextShift](
    * @param hash Content's hash
    */
   def ls(hash: ByteVector): EitherT[F, StoreError, List[ByteVector]]
-
-  /**
-   * Fetches contents and stores it into the dest path.
-   * We assume that it's the file fetched.
-   *
-   * @param hash Content's hash
-   * @param dest Destination file (not folder!). File will be created if it doesn't exist
-   */
-  def fetchTo(hash: ByteVector, dest: Path): EitherT[F, StoreError, Unit] =
-    fetch(hash).flatMap(
-      _.flatMap(bb ⇒ fs2.Stream.chunk(fs2.Chunk.byteBuffer(bb)))
-        .to(fs2.io.file.writeAll(dest, blockingCtx))
-        .compile
-        .drain
-        .attemptT
-        .leftMap(err ⇒ StorageToFileFailed(hash, dest, err))
-    )
 }

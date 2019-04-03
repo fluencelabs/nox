@@ -14,20 +14,23 @@
  * limitations under the License.
  */
 
-package fluence.effects.swarm
-
-import java.nio.ByteBuffer
+package fluence.effects.ipfs
 
 import cats.MonadError
-import cats.data.EitherT
-import fluence.effects.castore.{ContentAddressableStore, StoreError}
-import scodec.bits.ByteVector
+import cats.effect.IO
+import cats.syntax.monadError._
+import cats.syntax.try_._
+import com.softwaremill.sttp.{SttpBackend, TryHttpURLConnectionBackend}
+import com.softwaremill.sttp._
+import fluence.effects.castore.StoreError
 
-import scala.language.higherKinds
+import scala.language.implicitConversions
+import scala.util.Try
 
-class SwarmStore[F[_]](client: SwarmClient[F])(implicit F: cats.MonadError[F, StoreError]) extends ContentAddressableStore[F] {
-  override def fetch(hash: ByteVector): EitherT[F, StoreError, fs2.Stream[F, ByteBuffer]] =
-    client.fetch(hash.toHex).leftMap(identity[StoreError])
+class TestMain extends App {
+  implicit val sttp: SttpBackend[Try, Nothing] = TryHttpURLConnectionBackend()
 
-  override def ls(hash: ByteVector): EitherT[F, StoreError, List[ByteVector]] = EitherT.pure(hash)
+
+
+  val store = new IpfsStore[Try](uri"http://data.fluence.one:5001")
 }
