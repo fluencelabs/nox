@@ -149,7 +149,6 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
     nodeEth.nodeEvents
       .evalTap(ev ⇒ Sync[F].delay(logger.debug("Got NodeEth event: " + ev)))
       .through(handleEthEvent)
-      .drain
       .compile
       .drain
       .toIO

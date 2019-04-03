@@ -99,9 +99,10 @@ class MasterNodeSpec
           implicit val s = sttpB
           logger.debug("Going to run the node")
           for {
-            _ ← Concurrent[IO].start(node.run)
+            fiber ← Concurrent[IO].start(node.run)
             _ = logger.debug("Node is running")
-            _ ← eventually[IO](getStatus(5678).void, 1.second, 15.seconds)
+            _ ← eventually[IO](getStatus(5678).map(_.ethState.lastBlock.get.number.get.toInt shouldBe 3).void, 1.second, 15.seconds)
+          _ ← fiber.cancel
           } yield ()
 
       }.unsafeRunSync()

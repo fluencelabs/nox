@@ -82,7 +82,7 @@ object SbtCommons {
   val cats = "org.typelevel"       %% "cats-core"   % "1.5.0"
   val catsEffect = "org.typelevel" %% "cats-effect" % "1.2.0"
 
-  val fs2Version = "1.0.2"
+  val fs2Version = "1.0.4"
   val fs2 = "co.fs2"   %% "fs2-core"             % fs2Version
   val fs2rx = "co.fs2" %% "fs2-reactive-streams" % fs2Version
   val fs2io = "co.fs2" %% "fs2-io"               % fs2Version

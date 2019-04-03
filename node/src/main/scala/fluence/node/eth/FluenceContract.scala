@@ -170,7 +170,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
         Sync[F]
           .delay(logger.info(s"Error on getting all previously clusters: $err."))
           .map(_ => err.printStackTrace())
-    } ++ getNodeAppDeployed(validatorKey)
+    }.scope ++ getNodeAppDeployed(validatorKey)
 
   // TODO: on reconnect, do getApps again and remove all apps that are running on this node but not in getApps list
   // this may happen if we missed some events due to network outage or the like

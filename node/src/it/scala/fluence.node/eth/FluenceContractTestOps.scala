@@ -83,7 +83,7 @@ object FluenceContractTestOps {
         .addApp(
           stringToBytes32(storageHash),
           stringToBytes32("receipt_stub"),
-          new Bytes32(Array(StorageType.toByte(storageType))),
+          new Bytes32(Array.concat(Array.fill[Byte](31)(0), Array(StorageType.toByte(storageType)))),
           new Uint8(clusterSize),
           new DynamicArray[Bytes32](classOf[Bytes32])
         )
