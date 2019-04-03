@@ -15,7 +15,7 @@
  */
 
 use std::convert::Into;
-use std::fs::{File, read_dir};
+use std::fs::{read_dir, File};
 use std::io::prelude::*;
 use std::path::PathBuf;
 
@@ -137,12 +137,14 @@ fn upload_code_to_ipfs(url: &str, path: PathBuf) -> Result<H256, Error> {
         .and_then(|mut r| r.text())
         .context("Error uploading code to IPFS")?;
 
-    let responses: Result<Vec<IpfsResponse>, Error> = response.as_str()
+    let responses: Result<Vec<IpfsResponse>, Error> = response
+        .as_str()
         .split_whitespace()
         .map(|str| {
             let resp: IpfsResponse = serde_json::from_str(str)?;
             Ok(resp)
-        }).collect();
+        })
+        .collect();
 
     let responses: Vec<IpfsResponse> = responses?;
 
@@ -152,7 +154,10 @@ fn upload_code_to_ipfs(url: &str, path: PathBuf) -> Result<H256, Error> {
         responses[0].hash.as_str()
     } else {
         // directory hash is in response with empty name
-        let dir_response: Option<&str> = responses.iter().find(|r| r.name.is_empty()).map(|r| r.hash.as_str());
+        let dir_response: Option<&str> = responses
+            .iter()
+            .find(|r| r.name.is_empty())
+            .map(|r| r.hash.as_str());
         dir_response.ok_or_else(|| err_msg("Multiple files uploaded, but no hash of directory."))?
     };
 
