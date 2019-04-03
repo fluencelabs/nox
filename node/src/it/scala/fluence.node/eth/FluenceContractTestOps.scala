@@ -20,10 +20,12 @@ import cats.Monad
 import cats.effect.{LiftIO, Timer}
 import cats.syntax.functor._
 import fluence.effects.ethclient.helpers.Web3jConverters.stringToBytes32
-import fluence.node.config.NodeConfig
-import org.web3j.abi.datatypes.{Bool, DynamicArray}
-import org.web3j.abi.datatypes.generated._
 import fluence.effects.ethclient.syntax._
+import fluence.node.config.NodeConfig
+import fluence.node.eth.state.StorageType
+import fluence.node.eth.state.StorageType.StorageType
+import org.web3j.abi.datatypes.generated._
+import org.web3j.abi.datatypes.{Bool, DynamicArray}
 
 import scala.language.higherKinds
 
@@ -72,11 +74,16 @@ object FluenceContractTestOps {
      * @tparam F Effect
      * @return The block number where transaction has been mined
      */
-    def addApp[F[_]: LiftIO: Timer: Monad](storageHash: String, clusterSize: Short = 1): F[BigInt] =
+    def addApp[F[_]: LiftIO: Timer: Monad](
+      storageHash: String,
+      storageType: StorageType = StorageType.Swarm,
+      clusterSize: Short = 1
+    ): F[BigInt] =
       contract
         .addApp(
           stringToBytes32(storageHash),
           stringToBytes32("receipt_stub"),
+          new Bytes32(Array.concat(Array.fill[Byte](31)(0), Array(StorageType.toByte(storageType)))),
           new Uint8(clusterSize),
           new DynamicArray[Bytes32](classOf[Bytes32])
         )

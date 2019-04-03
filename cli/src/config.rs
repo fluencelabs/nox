@@ -30,9 +30,9 @@ use crate::credentials::Credentials;
 pub const FLUENCE_DIR: &str = ".fluence/";
 pub const DEFAULT_CONTRACT_ADDRESS: &str = include_str!("../../tools/deploy/scripts/contract.txt");
 pub const DEFAULT_ETH_URL: &str = "http://data.fluence.one:8545/";
-pub const DEFAULT_SWARM_URL: &str = "http://data.fluence.one:8500/";
+pub const DEFAULT_STORAGE_URL: &str = "http://data.fluence.one:5001/";
 
-const CONFIG_FILENAME: &str = "cli.json";
+const CONFIG_FILENAME: &str = "fluence_config.json";
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum Auth {
@@ -62,7 +62,7 @@ impl Auth {
 pub struct SetupConfig {
     pub contract_address: Address,
     pub eth_url: String,
-    pub swarm_url: String,
+    pub storage_url: String,
     pub credentials: Credentials,
 }
 
@@ -71,7 +71,7 @@ pub struct SetupConfig {
 struct FlatConfig {
     pub contract_address: Address,
     pub eth_url: String,
-    pub swarm_url: String,
+    pub storage_url: String,
     #[serde(default)]
     pub auth: Auth,
     pub secret_key: Option<H256>,
@@ -96,7 +96,7 @@ impl FlatConfig {
         FlatConfig {
             contract_address: config.contract_address,
             eth_url: config.eth_url,
-            swarm_url: config.swarm_url,
+            storage_url: config.storage_url,
             auth,
             secret_key,
             keystore_path,
@@ -133,13 +133,13 @@ impl SetupConfig {
     pub fn new(
         contract_address: Address,
         eth_url: String,
-        swarm_url: String,
+        storage_url: String,
         credentials: Credentials,
     ) -> SetupConfig {
         return SetupConfig {
             contract_address,
             eth_url,
-            swarm_url,
+            storage_url,
             credentials,
         };
     }
@@ -150,11 +150,11 @@ impl SetupConfig {
             .trim_start_matches("0x")
             .parse()?;
         let eth_url = DEFAULT_ETH_URL.to_string();
-        let swarm_url = DEFAULT_SWARM_URL.to_string();
+        let storage_url = DEFAULT_STORAGE_URL.to_string();
         Ok(SetupConfig::new(
             contract,
             eth_url,
-            swarm_url,
+            storage_url,
             Credentials::No,
         ))
     }
@@ -217,7 +217,7 @@ impl SetupConfig {
         Ok(SetupConfig {
             contract_address: config.contract_address,
             eth_url: config.eth_url,
-            swarm_url: config.swarm_url,
+            storage_url: config.storage_url,
             credentials,
         })
     }

@@ -19,6 +19,7 @@ import java.net.InetAddress
 
 import cats.effect.IO
 import cats.syntax.apply._
+import com.softwaremill.sttp._
 import com.typesafe.config.{Config, ConfigFactory}
 import net.ceedubs.ficus.readers.ValueReader
 import net.ceedubs.ficus.Ficus._
@@ -31,4 +32,7 @@ private[config] object ConfigOps extends LazyLogging {
 
   implicit val inetAddressValueReader: ValueReader[InetAddress] =
     ValueReader[String].map(InetAddress.getByName)
+
+  implicit val uriReader: ValueReader[Uri] =
+    ValueReader[String].map(s => uri"$s")
 }

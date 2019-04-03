@@ -29,6 +29,7 @@ ethkey = { git = "https://github.com/paritytech/parity.git", tag = "v2.2.7" }
 ethstore = { git = "https://github.com/paritytech/parity.git", tag = "v2.2.7" }
 rlp = "0.3.0"
 base64 = "0.10.0"
+base58 = "0.1.0"
 lazy_static = "1.2.0"
 fixed-hash = "0.3.0"
 ethabi = "6.1.0"

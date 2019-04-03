@@ -63,9 +63,9 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
         let appID = event.appID;
 
         let clusterInfo = await global.contract.getApp(appID);
-        let clusterSize = clusterInfo[2];
-        let appPinToNodes = clusterInfo[4];
-        let nodeIDs = clusterInfo[6];
+        let clusterSize = clusterInfo[3];
+        let appPinToNodes = clusterInfo[5];
+        let nodeIDs = clusterInfo[7];
 
         assert.equal(clusterSize, cluster);
         assert.deepEqual(appPinToNodes, pinnedNodes);
@@ -88,11 +88,11 @@ contract('Fluence (pinning)', function ([_, owner, whitelisted, anyone]) {
 
         let pinnedApp = apps.find(a => a[0] === appWithPins.storageHash);
         assert.notEqual(pinnedApp, undefined);
-        assert.deepEqual(pinnedApp[4], pinnedNodeIDs);
+        assert.deepEqual(pinnedApp[5], pinnedNodeIDs);
 
         let unpinnedApp = apps.find(a => a[0] === app.storageHash);
         assert.notEqual(unpinnedApp, undefined);
-        assert.equal(unpinnedApp[4].length, 0);
+        assert.equal(unpinnedApp[5].length, 0);
     });
 
     it("Should use both public & private nodes for pinned app", async function() {

@@ -61,6 +61,7 @@ contract('Fluence', function ([_, owner, anyone]) {
         let cluster = await this.contract.getApp(appID);
         assert.equal(cluster[0], addApp.storageHash);
         assert.equal(cluster[1], addApp.storageReceipt);
+        assert.equal(cluster[2], addApp.storageType);
     });
 
     it("Should not form cluster from workers of same node", async function() {
@@ -130,15 +131,17 @@ contract('Fluence', function ([_, owner, anyone]) {
 
             let storageHash = app[0];
             let storageReceipt = app[1];
-            let clusterSize = app[2];
-            let owner = app[3];
-            let pin_to = app[4];
+            let storageType = app[2];
+            let clusterSize = app[3];
+            let owner = app[4];
+            let pin_to = app[5];
 
             let addApp = addApps.find(add => add.storageHash === storageHash);
             assert.notEqual(addApp, undefined);
 
             assert.equal(addApp.storageHash, storageHash);
             assert.equal(addApp.storageReceipt, storageReceipt);
+            assert.equal(addApp.storageType, storageType);
             assert.equal(addApp.clusterSize, clusterSize);
             assert.equal(anyone, owner);
             assert.equal(0, pin_to.length);
@@ -161,8 +164,8 @@ contract('Fluence', function ([_, owner, anyone]) {
         let count = 5;
         let storageHash = utils.string2Bytes32("abc");
         let storageReceipt = utils.string2Bytes32("bca");
-        await this.contract.addApp(storageHash, storageReceipt, count, [], {from: anyone});
-        await this.contract.addApp(storageHash, storageReceipt, count, [], {from: anyone});
+        await this.contract.addApp(storageHash, storageReceipt, utils.StorageIpfs, count, [], {from: anyone});
+        await this.contract.addApp(storageHash, storageReceipt, utils.StorageSwarm, count, [], {from: anyone});
 
         let firstCluster = (await utils.addNodes(this.contract, count, "127.0.0.1", anyone, portCount = 1)).pop();
         let secondCluster = (await utils.addNodes(this.contract, count, "127.0.0.1", anyone, portCount = 1)).pop();
