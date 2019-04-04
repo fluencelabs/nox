@@ -28,7 +28,7 @@ export const deployableApps: { [key: string]: DeployableApp } = {
     "llamadb": {
         name: "SQL DB (llamadb)",
         shortName: "SQL DB",
-        storageHash: "0x3c4f07d3d5919c13e080b560283a2405151559d5aacd53c5b394b2d6738ebc0e",
+        storageHash: "0x090A9B7CCA9D55A9632BBCC3A30A57F2DB1D1FD688659CFF95AB8D1F904AD74B",
         storageType: StorageType.Ipfs,
         clusterSize: 4
     }

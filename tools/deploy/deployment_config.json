@@ -1,8 +1,9 @@
 {
   "stage": {
     "swarm": "http://data.fluence.one:8500",
+    "ipfs": "http://data.fluence.one:5001",
     "ethereum_ip": "data.fluence.one",
-    "contract": "0x65452336ba247d08c5fabf5fad08d01ff42d255b",
+    "contract": "0xe01690f60E08207Fa29F9ef98fA35e7fB7A12A96",
     "nodes": {
       "<ip-addr>": {
         "owner": "<owner-addr>",
@@ -14,6 +15,7 @@
   },
   "devnet": {
     "swarm": "http://data.fluence.one:8500",
+    "ipfs": "http://data.fluence.one:5001",
     "ethereum_ip": "data.fluence.one",
     "contract": "0xf008c29bb1fabd1eb1ea73b2410f523a5c213f19",
     "nodes": {
