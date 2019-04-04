@@ -19,6 +19,7 @@ import java.nio.ByteBuffer
 import java.nio.file._
 
 import cats.Parallel
+import cats.data.EitherT
 import cats.effect._
 import cats.effect.syntax.effect._
 import cats.syntax.applicative._
@@ -181,7 +182,10 @@ object MasterNode extends LazyLogging {
     masterConfig: MasterConfig,
     nodeConfig: NodeConfig,
     rootPath: Path
-  )(implicit sttpBackend: SttpBackend[F, fs2.Stream[F, ByteBuffer]], P: Parallel[F, G]): Resource[F, MasterNode[F]] =
+  )(
+    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
+    P: Parallel[F, G]
+  ): Resource[F, MasterNode[F]] =
     for {
       ethClient ← EthClient.make[F](Some(masterConfig.ethereum.uri))
 
@@ -211,7 +215,7 @@ object MasterNode extends LazyLogging {
 
   def codeCarrier[F[_]: Sync: ContextShift: Concurrent: Timer: LiftIO](
     config: RemoteStorageConfig
-  )(implicit sttpBackend: SttpBackend[F, fs2.Stream[F, ByteBuffer]]): CodeCarrier[F] =
+  )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]): CodeCarrier[F] =
     if (config.enabled) {
       implicit val b: Backoff[StoreError] = Backoff.default
       val swarmClient = SwarmClient[F](config.swarm.address)

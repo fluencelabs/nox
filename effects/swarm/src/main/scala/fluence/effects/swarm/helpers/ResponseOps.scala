@@ -15,7 +15,7 @@
  */
 
 package fluence.effects.swarm.helpers
-import cats.ApplicativeError
+import cats.{ApplicativeError, Functor}
 import cats.syntax.applicativeError._
 import cats.data.EitherT
 import com.softwaremill.sttp.Response
@@ -23,8 +23,10 @@ import com.softwaremill.sttp.Response
 import scala.language.higherKinds
 
 object ResponseOps {
-  implicit class RichResponse[F[_], T](resp: F[Response[T]])(implicit F: ApplicativeError[F, Throwable]) {
-    val toEitherT: EitherT[F, String, T] = resp.attemptT.leftMap(_.getMessage).subflatMap(_.body)
+  implicit class RichResponse[F[_], T, EE <: Throwable](resp: EitherT[F, Throwable, Response[T]])(
+    implicit F: Functor[F]
+  ) {
+    val toEitherT: EitherT[F, String, T] = resp.leftMap(_.getMessage).subflatMap(_.body)
     def toEitherT[E](errFunc: String => E): EitherT[F, E, T] = toEitherT.leftMap(errFunc)
   }
 }

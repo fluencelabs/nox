@@ -17,8 +17,10 @@
 package fluence.effects.ipfs
 import java.nio.ByteBuffer
 
+import cats.Functor
 import cats.data.EitherT
 import cats.instances.list._
+import cats.syntax.functor._
 import cats.Traverse.ops._
 import com.softwaremill.sttp.{asStream, sttp, SttpBackend, Uri}
 import fluence.effects.Backoff
@@ -33,13 +35,13 @@ import scala.language.higherKinds
 
 // TODO move somewhere else
 object ResponseOps {
-  import cats.ApplicativeError
   import cats.data.EitherT
-  import cats.syntax.applicativeError._
   import com.softwaremill.sttp.Response
 
-  implicit class RichResponse[F[_], T, EE <: Throwable](resp: F[Response[T]])(implicit F: ApplicativeError[F, EE]) {
-    val toEitherT: EitherT[F, String, T] = resp.attemptT.leftMap(_.getMessage).subflatMap(_.body)
+  implicit class RichResponse[F[_], T, EE <: Throwable](resp: EitherT[F, Throwable, Response[T]])(
+    implicit F: Functor[F]
+  ) {
+    val toEitherT: EitherT[F, String, T] = resp.leftMap(_.getMessage).subflatMap(_.body)
     def toEitherT[E](errFunc: String => E): EitherT[F, E, T] = toEitherT.leftMap(errFunc)
   }
 }
@@ -63,8 +65,8 @@ object IpfsLs {
  * @param ipfsUri URI of the IPFS node
  */
 class IpfsStore[F[_]](ipfsUri: Uri)(
-  implicit sttpBackend: SttpBackend[F, fs2.Stream[F, ByteBuffer]],
-  F: cats.MonadError[F, StoreError],
+  implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
+  F: cats.Monad[F],
   backoff: Backoff[IpfsError] = Backoff.default
 ) extends ContentAddressableStore[F] with slogging.LazyLogging {
 
@@ -82,6 +84,8 @@ class IpfsStore[F[_]](ipfsUri: Uri)(
 
   // Converts 256-bits hash to an bas58 IPFS address, prepending multihash bytes
   private def toAddress(hash: ByteVector): String = (Multihash.SHA256 ++ hash).toBase58
+
+  private def fromAddress(str: String) = ByteVector.fromBase58Descriptive(str.drop(2))
 
   override def fetch(hash: ByteVector): EitherT[F, StoreError, fs2.Stream[F, ByteBuffer]] = {
     val address = toAddress(hash)
@@ -149,7 +153,7 @@ class IpfsStore[F[_]](ipfsUri: Uri)(
       }
       hashes <- rawHashes.map { h =>
         val a = EitherT
-          .fromEither[F](ByteVector.fromHexDescriptive(h))
+          .fromEither[F](fromAddress(h))
           .leftMap(err => IpfsError(s"Cannot parse '$h' hex: $err").asInstanceOf[StoreError])
         a
       }.sequence

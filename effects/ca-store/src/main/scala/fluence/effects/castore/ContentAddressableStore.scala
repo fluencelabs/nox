@@ -28,7 +28,7 @@ import scala.language.higherKinds
 
 abstract class ContentAddressableStore[F[_]](
   blockingCtx: ExecutionContext = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
-)(implicit F: cats.MonadError[F, StoreError]) {
+)(implicit F: cats.Functor[F]) {
 
   /**
    * Fetches contents corresponding to the given hash.

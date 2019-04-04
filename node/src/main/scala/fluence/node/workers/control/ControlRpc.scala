@@ -15,6 +15,7 @@
  */
 
 package fluence.node.workers.control
+import cats.data.EitherT
 import cats.effect.Sync
 import com.softwaremill.sttp._
 import fluence.node.workers.status.HttpStatus
@@ -56,7 +57,7 @@ object ControlRpc {
    * @return Instance implementing ControlRPC interface
    */
   def apply[F[_]: Sync](hostname: String, port: Short)(
-    implicit s: SttpBackend[F, Nothing]
+    implicit s: SttpBackend[EitherT[F, Throwable, ?], Nothing]
   ): ControlRpc[F] =
     new HttpControlRpc[F](hostname, port)
 }

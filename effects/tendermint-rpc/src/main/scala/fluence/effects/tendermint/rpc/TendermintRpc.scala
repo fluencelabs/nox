@@ -114,14 +114,13 @@ object TendermintRpc extends slogging.LazyLogging {
   /** Perform the request, and lift the errors to EitherT */
   private def sendHandlingErrors[F[_]: Sync](
     reqT: RequestT[Id, String, Nothing]
-  )(implicit sttpBackend: SttpBackend[F, Nothing]): EitherT[F, RpcError, String] =
+  )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]): EitherT[F, RpcError, String] =
     EitherT
       .pure(logger.debug(s"TendermintRpc request $reqT"))
       .flatMap(
         _ =>
           reqT
             .send()
-            .attemptT
             .leftMap[RpcError](RpcRequestFailed)
             .subflatMap[RpcError, String] { resp ⇒
               val eitherResp = resp.body
@@ -144,7 +143,7 @@ object TendermintRpc extends slogging.LazyLogging {
   def make[F[_]: Sync](
     hostName: String,
     port: Short
-  )(implicit sttpBackend: SttpBackend[F, Nothing]): Resource[F, TendermintRpc[F]] = {
+  )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]): Resource[F, TendermintRpc[F]] = {
     def rpcUri(hostName: String, path: String = ""): Uri =
       uri"http://$hostName:$port/$path"
 

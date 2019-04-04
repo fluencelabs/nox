@@ -17,6 +17,7 @@
 package fluence.node.workers
 import java.nio.file.Path
 
+import cats.data.EitherT
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.instances.list._
@@ -42,7 +43,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
   ports: WorkersPorts[F],
   workers: Ref[F, Map[Long, Worker[F]]]
 )(
-  implicit sttpBackend: SttpBackend[F, Nothing],
+  implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
   F: Concurrent[F],
   P: Parallel[F, G]
 ) extends WorkersPool[F] with LazyLogging {
@@ -276,7 +277,7 @@ object DockerWorkersPool extends LazyLogging {
    */
   def make[F[_]: DockerIO: ContextShift: Timer, G[_]](minPort: Short, maxPort: Short, rootPath: Path)(
     implicit
-    sttpBackend: SttpBackend[F, Nothing],
+    sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
     F: Concurrent[F],
     P: Parallel[F, G]
   ): Resource[F, WorkersPool[F]] =

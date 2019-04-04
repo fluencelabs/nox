@@ -20,11 +20,12 @@ import java.nio.ByteBuffer
 import java.nio.file.Files
 import java.util.Base64
 
+import cats.data.EitherT
 import cats.effect._
 import cats.syntax.functor._
-import com.softwaremill.sttp.asynchttpclient.fs2.AsyncHttpClientFs2Backend
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
+import fluence.EitherTSttpBackend
 import fluence.effects.docker.DockerIO
 import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.status.{MasterStatus, StatusAggregator}
@@ -44,10 +45,10 @@ class MasterNodeSpec
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
-  type Sttp = SttpBackend[IO, fs2.Stream[IO, ByteBuffer]]
+  type Sttp = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
 
-  private val sttpResource: Resource[IO, Sttp] = Resource
-    .make(IO(AsyncHttpClientFs2Backend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
+  private val sttpResource: Resource[IO, SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]] =
+    Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
   override protected def beforeAll(): Unit = {
     wireupContract()
@@ -59,9 +60,9 @@ class MasterNodeSpec
 
   def getStatus(statusPort: Short)(implicit sttpBackend: Sttp): IO[MasterStatus] = {
     import MasterStatus._
-    for {
+    (for {
       resp <- sttp.response(asJson[MasterStatus]).get(uri"http://127.0.0.1:$statusPort/status").send()
-    } yield resp.unsafeBody.right.get
+    } yield resp.unsafeBody.right.get).value.map(_.right.get)
   }
 
   "MasterNode" should {

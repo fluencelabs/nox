@@ -16,21 +16,49 @@
 
 package fluence.effects.ipfs
 
-import cats.MonadError
-import cats.effect.IO
-import cats.syntax.monadError._
-import cats.syntax.try_._
-import com.softwaremill.sttp.{SttpBackend, TryHttpURLConnectionBackend}
-import com.softwaremill.sttp._
-import fluence.effects.castore.StoreError
+import java.nio.ByteBuffer
 
-import scala.language.implicitConversions
-import scala.util.Try
+import cats.data.EitherT
+import cats.effect.{ContextShift, IO, Timer}
+import com.softwaremill.sttp.{MonadError => _, _}
 
-class TestMain extends App {
-  implicit val sttp: SttpBackend[Try, Nothing] = TryHttpURLConnectionBackend()
+import scala.language.{higherKinds, implicitConversions}
+import com.softwaremill.sttp.SttpBackend
+import fluence.EitherTSttpBackend
+import scodec.bits.ByteVector
 
+import scala.concurrent.ExecutionContext.Implicits.global
 
+object TestMain extends App {
+  implicit private val ioTimer: Timer[IO] = IO.timer(global)
+  implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
-  val store = new IpfsStore[Try](uri"http://data.fluence.one:5001")
+  implicit val sttp: SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]] = EitherTSttpBackend[IO]()
+
+  val store = new IpfsStore[IO](uri"http://data.fluence.one:5001")
+
+  val res1 = store
+    .fetch(ByteVector.fromValidHex("0x73d0cc44bdac8f7f3d3893d5a30448d73d1bf686aec138ebdb9527b8c6d22779"))
+    .value
+    .unsafeRunSync()
+    .right
+    .get
+    .collect {
+      case bb =>
+        val a = ByteVector(bb).decodeUtf8
+        println(a)
+        a
+    }
+    .compile
+    .drain
+    .unsafeRunSync()
+  println("file response = " + res1)
+
+  val res2 = store
+    .ls(ByteVector.fromValidHex("0x5f220381bf07054f4f1ee0b454b9427ac9b1b79d145ab30004ea8a37f1a64157"))
+    .value
+    .unsafeRunSync()
+  println("directory response = " + res2)
+
+  sys.exit(0)
 }

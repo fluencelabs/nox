@@ -30,31 +30,33 @@ import scodec.bits.ByteVector
 import scala.concurrent.ExecutionContext
 import scala.language.higherKinds
 
-class PolyStore[F[_]: Sync: ContextShift](selector: StorageType => ContentAddressableStore[F],
-                                            blockingCtx: ExecutionContext = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())) {
-
-  def fetchTo(ref: StorageRef, dest: Path): EitherT[F, StoreError, Unit] = {
-    selector(ref.storageType).fetch(ref.storageHash).flatMap(
-      _.flatMap(bb ⇒ fs2.Stream.chunk(fs2.Chunk.byteBuffer(bb)))
-        .through(fs2.io.file.writeAll(dest, blockingCtx))
-        .compile
-        .drain
-        .attemptT
-        .leftMap(err ⇒ StorageToFileFailed(ref.storageHash, dest, err).asInstanceOf[StoreError])
-    )
-  }
-
-  def ls(ref: StorageRef): EitherT[F, StoreError, List[ByteVector]] = {
-    selector(ref.storageType).ls(ref.storageHash)
-  }
+class PolyStore[F[_]: Sync: ContextShift](
+  selector: StorageType => ContentAddressableStore[F],
+  blockingCtx: ExecutionContext = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
+) {
 
   /**
    * Fetches contents and stores it into the dest path.
    * We assume that it's the file fetched.
    *
-   * @param hash Content's hash
+   * @param ref Content's hash and storage type
    * @param dest Destination file (not folder!). File will be created if it doesn't exist
    */
-  def fetchTo(hash: ByteVector, dest: Path): EitherT[F, StoreError, Unit] =
+  def fetchTo(ref: StorageRef, dest: Path): EitherT[F, StoreError, Unit] = {
+    selector(ref.storageType)
+      .fetch(ref.storageHash)
+      .flatMap(
+        _.flatMap(bb ⇒ fs2.Stream.chunk(fs2.Chunk.byteBuffer(bb)))
+          .through(fs2.io.file.writeAll(dest, blockingCtx))
+          .compile
+          .drain
+          .attemptT
+          .leftMap(err ⇒ StorageToFileFailed(ref.storageHash, dest, err).asInstanceOf[StoreError])
+      )
+  }
+
+  def ls(ref: StorageRef): EitherT[F, StoreError, List[ByteVector]] = {
+    selector(ref.storageType).ls(ref.storageHash)
+  }
 
 }
