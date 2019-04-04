@@ -19,13 +19,13 @@ export function remove0x(hex: string): string {
 }
 
 export function storageToString32(s: StorageType): string {
-    let a = web3js.utils.fromDecimal(s.valueOf());
-    return web3js.utils.padLeft(a, 64, "")
+    let hex = web3js.utils.fromDecimal(s.valueOf());
+    return web3js.utils.padLeft(hex, 64, "")
 }
 
 export function toIpfsHash(h: string): string {
-    let mh = Buffer.from([0x12, 0x20]);
+    let multiHeader = Buffer.from([0x12, 0x20]);
     let buf = Buffer.from(remove0x(h), 'hex');
-    let multihash = Buffer.concat([mh, buf]);
+    let multihash = Buffer.concat([multiHeader, buf]);
     return bs58.encode(multihash);
 }
