@@ -15,11 +15,10 @@
  */
 
 package fluence.effects.swarm
-import java.nio
 
 import cats.effect.{ContextShift, IO, Timer}
 import com.softwaremill.sttp._
-import com.softwaremill.sttp.asynchttpclient.fs2.AsyncHttpClientFs2Backend
+import fluence.EitherTSttpBackend
 import fluence.effects.swarm.crypto.Secp256k1Signer
 import fluence.effects.swarm.crypto.Secp256k1Signer.Signer
 import org.scalatest.{EitherValues, FlatSpec, Ignore, Matchers}
@@ -43,7 +42,7 @@ class SwarmClientIntegrationSpec extends FlatSpec with Matchers with EitherValue
 
   private implicit val ioTimer: Timer[IO] = IO.timer(global)
   private implicit val ioShift: ContextShift[IO] = IO.contextShift(global)
-  private implicit val sttpBackend: SttpBackend[IO, fs2.Stream[IO, nio.ByteBuffer]] = AsyncHttpClientFs2Backend[IO]()
+  private implicit val sttpBackend = EitherTSttpBackend[IO]()
 
   val api = SwarmClient(uri"http://localhost:8500")
 

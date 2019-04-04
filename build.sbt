@@ -91,6 +91,7 @@ lazy val `statemachine-control` = (project in file("statemachine/control"))
 lazy val statemachine = (project in file("statemachine"))
   .settings(
     commons,
+    kindProjector,
     libraryDependencies ++= Seq(
       cats,
       catsEffect,
@@ -144,7 +145,7 @@ lazy val statemachine = (project in file("statemachine"))
     }
   )
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(vm, `statemachine-control`, `tendermint-rpc`)
+  .dependsOn(vm, `statemachine-control`, `tendermint-rpc`, sttpEitherT)
 
 lazy val effects = project
   .settings(
@@ -201,7 +202,7 @@ lazy val swarm = (project in file("effects/swarm"))
       scalaTest
     )
   )
-  .dependsOn(`ca-store`)
+  .dependsOn(`ca-store`, sttpEitherT % "test->test;compile->compile")
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val ipfs = (project in file("effects/ipfs"))

@@ -16,13 +16,15 @@
 
 package fluence.statemachine
 
+import java.nio.ByteBuffer
+
 import cats.Monad
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import com.github.jtendermint.jabci.socket.TSocket
 import com.softwaremill.sttp.SttpBackend
-import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
+import fluence.EitherTSttpBackend
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.control.{ControlServer, ControlSignals}
@@ -42,8 +44,8 @@ import scala.language.higherKinds
  */
 object ServerRunner extends IOApp with LazyLogging {
 
-  private val sttpResource: Resource[IO, SttpBackend[IO, Nothing]] =
-    Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
+  private val sttpResource: Resource[IO, SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]] =
+    Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
   override def run(args: List[String]): IO[ExitCode] = {
     for {
