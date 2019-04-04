@@ -1,5 +1,6 @@
 import {StorageType} from "../fluence/deployable";
 import {web3js} from "../fluence/contract";
+import * as bs58 from "bs58";
 
 export function cutId(id: string): string {
     if (id.startsWith('0x')) {
@@ -21,3 +22,13 @@ export function storageToString32(s: StorageType): string {
     let a = web3js.utils.fromDecimal(s.valueOf());
     return web3js.utils.padLeft(a, 64, "")
 }
+
+export function toIpfsHash(h: string): string {
+    let mh = Buffer.from([0x12, 0x20]);
+    let buf = Buffer.from(remove0x(h), 'hex');
+    let multihash = Buffer.concat([mh, buf]);
+    return bs58.encode(multihash);
+}
+
+(window as any).Buffer = Buffer;
+(window as any).bs58 = bs58;
