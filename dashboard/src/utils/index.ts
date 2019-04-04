@@ -29,6 +29,3 @@ export function toIpfsHash(h: string): string {
     let multihash = Buffer.concat([mh, buf]);
     return bs58.encode(multihash);
 }
-
-(window as any).Buffer = Buffer;
-(window as any).bs58 = bs58;
