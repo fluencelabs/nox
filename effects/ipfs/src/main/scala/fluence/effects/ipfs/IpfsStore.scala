@@ -19,6 +19,7 @@ import java.nio.ByteBuffer
 
 import cats.data.EitherT
 import cats.effect.{Concurrent, ContextShift}
+import cats.syntax.apply._
 import com.softwaremill.sttp.{SttpBackend, sttp, _}
 import fluence.effects.Backoff
 import fluence.effects.castore.{ContentAddressableStore, StoreError}
@@ -66,19 +67,20 @@ class IpfsStore[F[_]: Concurrent: ContextShift](ipfsUri: Uri)(
   override def fetch(hash: ByteVector): EitherT[F, StoreError, fs2.Stream[F, ByteBuffer]] = {
     val address = toAddress(hash)
     val uri = getUri(address)
-    logger.debug(s"IPFS download started $uri")
-    sttp
-      .response(asStream[fs2.Stream[F, ByteBuffer]])
-      .get(uri)
-      .send()
-      .toEitherT { er =>
-        val errorMessage = s"IPFS download error $uri: $er"
-        IpfsError(errorMessage)
-      }
-      .map { r =>
-        logger.debug(s"IPFS download finished $uri")
-        r
-      }
-      .leftMap(identity[StoreError])
+
+    EitherT.pure[F, StoreError](logger.debug(s"IPFS download started $uri")) *>
+      sttp
+        .response(asStream[fs2.Stream[F, ByteBuffer]])
+        .get(uri)
+        .send()
+        .toEitherT { er =>
+          val errorMessage = s"IPFS download error $uri: $er"
+          IpfsError(errorMessage)
+        }
+        .map { r =>
+          logger.debug(s"IPFS download finished $uri")
+          r
+        }
+        .leftMap(identity[StoreError])
   }
 }

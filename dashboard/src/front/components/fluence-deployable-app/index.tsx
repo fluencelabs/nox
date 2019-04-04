@@ -1,10 +1,10 @@
 import * as React from 'react';
 import {connect} from 'react-redux';
-import {DeployableApp, DeployableAppId, deployableApps} from "../../../fluence/deployable";
+import {DeployableApp, DeployableAppId, deployableApps, StorageType} from "../../../fluence/deployable";
 import {deploy} from "../../actions/deployable/deploy";
 import {Action} from "redux";
 import Snippets from "./snippets";
-import {cutId, remove0x} from "../../../utils";
+import {cutId, remove0x, toIpfsHash} from "../../../utils";
 
 interface State {
     loading: boolean,
@@ -32,15 +32,31 @@ class FluenceDeployableApp extends React.Component<Props, State> {
     };
 
     renderAppInfo(app: DeployableApp, appId: string): React.ReactNode {
+        let storageHash;
+        if (app.storageType == StorageType.Ipfs) {
+            storageHash =
+                <p className="text-muted" title={app.storageHash}><a
+                    href={'http://data.fluence.one:5001/api/v0/cat?arg=' + toIpfsHash(app.storageHash)}
+                    title={app.storageHash}
+                    target="_blank"
+                    rel="noreferrer"
+                    download>{cutId(app.storageHash)}</a></p>
+                ;
+        } else {
+            storageHash =
+                <p className="text-muted" title={app.storageHash}><a
+                    href={'https://swarm-gateways.net/bzz:/' + remove0x(app.storageHash) + '/' + app.name + '.wasm'}
+                    title={app.storageHash}
+                    target="_blank">{cutId(app.storageHash)}</a></p>
+                ;
+        }
+
         return (
             <div className="box-footer no-padding">
                 <div className="box-body">
                     <strong><i className="fa fa-bullseye margin-r-5"/>WebAssembly package</strong>
-                    <p className="text-muted" title={app.storageHash}><a
-                        href={'https://swarm-gateways.net/bzz:/' + remove0x(app.storageHash) + '/' + app.name + '.wasm'}
-                        title={app.storageHash}
-                        target="_blank">{cutId(app.storageHash)}</a></p>
-                    <hr/>
+
+                    {storageHash}
 
                     <strong><i className="fa fa-bullseye margin-r-5"/>Cluster Size</strong>
                     <p className="text-muted">{app.clusterSize} nodes</p>
