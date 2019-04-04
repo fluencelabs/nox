@@ -5,6 +5,7 @@ import {Action, Dispatch} from "redux";
 import Cookies from 'js-cookie';
 import EthereumTx from "ethereumjs-tx";
 import {getApp, getNode, getNodeAppStatus} from "../../../fluence";
+import {storageToString32} from "../../../utils";
 
 export const DEPLOY_STATE_PREPARE = 'DEPLOY_STATE_PREPARE';
 export const DEPLOY_STATE_TRX = 'DEPLOY_STATE_TRX';
@@ -20,7 +21,8 @@ export const deploy = (app: DeployableApp, appTypeId: string) => {
 
         dispatch({type: DEPLOY_STATE_PREPARE});
 
-        let txData = contract.methods.addApp(app.storageHash, "0x0", app.clusterSize, []).encodeABI();
+        let storageType = storageToString32(app.storageType);
+        let txData = contract.methods.addApp(app.storageHash, "0x0", storageType, app.clusterSize, []).encodeABI();
         let tx = new EthereumTx(await txParams(txData));
         tx.sign(privateKey);
 
