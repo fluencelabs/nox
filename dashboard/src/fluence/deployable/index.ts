@@ -22,7 +22,7 @@ export interface DeployableApp {
     clusterSize: number,
 }
 
-export const deployableAppIds: [DeployableAppId] = ["llamadb"];
+export const deployableAppIds: DeployableAppId[] = ["llamadb", "dice", "guess", "tictactoe"];
 
 export const deployableApps: { [key: string]: DeployableApp } = {
     "llamadb": {
@@ -31,7 +31,31 @@ export const deployableApps: { [key: string]: DeployableApp } = {
         storageHash: "0x090A9B7CCA9D55A9632BBCC3A30A57F2DB1D1FD688659CFF95AB8D1F904AD74B",
         storageType: StorageType.Ipfs,
         clusterSize: 4
-    }
+    },
+    "dice": {
+        // {"Name":"dice_game.wasm","Hash":"QmNsWcjoeMSjnVdBt4uGpwqEs24sQWjopP4wZyHsJ2CyMs","Size":"471184"}
+        name: "Dice Game",
+        shortName: "Dice Game",
+        storageHash: "0x07E7DAD4A8C553BE9773C6E6FF9AECB70A46D84FE9B7EE379577AEE6A174C982",
+        storageType: StorageType.Ipfs,
+        clusterSize: 4
+    },
+    "guess": {
+        // {"Name":"guessing_game.wasm","Hash":"QmPKt1idN3xDYC28sBbrCfQu3ZZShwvqGMTCAjmHodVAt5","Size":"242001"}
+        name: "Guessing Game",
+        shortName: "Guessing Game",
+        storageHash: "0x0EA9260B083F8312DEDB4B37FFA40EA73E12E08E788A932C8D1B02B843A47936",
+        storageType: StorageType.Ipfs,
+        clusterSize: 4
+    },
+    "tictactoe": {
+        // {"Name":"tic_tac_toe.wasm","Hash":"QmQw2qEJvCrgpH29PcNduzsTcmYYcGWcn9XRi6G5NroUri","Size":"508346"}
+        name: "Tic Tac Toe",
+        shortName: "Tic Tac Toe",
+        storageHash: "0x268622BE3A3CB9473E764C229BE02ED9228170FF61F876CA3634590D748E1CEF",
+        storageType: StorageType.Ipfs,
+        clusterSize: 4
+    },
 };
 
 // Sends a signed transaction to Ethereum
