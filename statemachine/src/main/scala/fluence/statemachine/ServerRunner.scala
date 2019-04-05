@@ -87,7 +87,12 @@ object ServerRunner extends IOApp with LazyLogging {
       .make(
         buildAbciHandler(config, controlServer.signals, rpc).value.flatMap {
           case Right(handler) ⇒ IO.pure(handler)
-          case Left(err) ⇒ IO.raiseError(new RuntimeException("Building ABCI handler failed: " + err))
+          case Left(err) ⇒
+            val exception = err.causedBy match {
+              case Some(caused) => new RuntimeException("Building ABCI handler failed: " + err, caused)
+              case None => new RuntimeException("Building ABCI handler failed: " + err)
+            }
+            IO.raiseError(exception)
         }.flatMap { handler ⇒
           IO {
             logger.info("Starting State Machine ABCI handler")
