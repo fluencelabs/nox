@@ -20,7 +20,6 @@ import java.nio.ByteBuffer
 import cats.Functor
 import cats.data.EitherT
 import cats.instances.list._
-import cats.syntax.functor._
 import cats.Traverse.ops._
 import com.softwaremill.sttp.{asStream, sttp, SttpBackend, Uri}
 import fluence.effects.Backoff
@@ -85,7 +84,7 @@ class IpfsStore[F[_]](ipfsUri: Uri)(
   // Converts 256-bits hash to an bas58 IPFS address, prepending multihash bytes
   private def toAddress(hash: ByteVector): String = (Multihash.SHA256 ++ hash).toBase58
 
-  private def fromAddress(str: String) = ByteVector.fromBase58Descriptive(str.drop(2))
+  private def fromAddress(str: String) = ByteVector.fromBase58Descriptive(str).map(_.drop(2))
 
   override def fetch(hash: ByteVector): EitherT[F, StoreError, fs2.Stream[F, ByteBuffer]] = {
     val address = toAddress(hash)
@@ -152,12 +151,12 @@ class IpfsStore[F[_]](ipfsUri: Uri)(
         else headObject.Links.map(_.Hash)
       }
       hashes <- rawHashes.map { h =>
-        val a = EitherT
+        EitherT
           .fromEither[F](fromAddress(h))
           .leftMap(err => IpfsError(s"Cannot parse '$h' hex: $err").asInstanceOf[StoreError])
-        a
       }.sequence
     } yield {
+      logger.debug("List of file hashes: " + hashes)
       hashes
     }
 }
