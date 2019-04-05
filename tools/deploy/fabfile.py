@@ -29,6 +29,7 @@ if hasattr(env, 'environment'):
     contract = info['contract']
     nodes = info['nodes']
     env.swarm = info['swarm']
+    env.ipfs = info['ipfs']
     env.ethereum_ip = info['ethereum_ip']
 else:
     # gets deployed contract address from a file
@@ -110,17 +111,26 @@ def deploy():
             current_key = nodes[current_host]['key']
             api_port = nodes[current_host]['api_port']
             capacity = nodes[current_host]['capacity']
+
+            remote_storage_enabled = "false"
+
             if env.swarm is None:
                 swarm = "http://%s:8500" % current_host
-                start_swarm = "true"
+                remote_storage_enabled = "true"
             else:
                 swarm = env.swarm
-                start_swarm = "false"
+
+            if env.ipfs is None:
+                ipfs = "http://%s:5001" % current_host
+                remote_storage_enabled = "true"
+            else:
+                ipfs = env.ipfs
 
             if env.ethereum_ip is None:
                 ethereum_ip = "http://%s:8545" % current_host
             else:
                 ethereum_ip = env.ethereum_ip
+
 
             if not hasattr(env, 'image_tag'):
                 image_tag = "v0.1.5"
@@ -139,7 +149,8 @@ def deploy():
                            NAME="fluence-node-1",
                            HOST_IP=current_host,
                            SWARM_ADDRESS=swarm,
-                           START_SWARM=start_swarm,
+                           IPFS_ADDRESS=ipfs,
+                           REMOTE_STORAGE_ENABLED=remote_storage_enabled,
                            ETHEREUM_SERVICE="provided",
                            ETHEREUM_IP=ethereum_ip,
                            IMAGE_TAG=image_tag):

@@ -47,12 +47,16 @@ impl Credentials {
     }
 
     pub fn to_address(&self) -> Option<Address> {
-        if let &Credentials::Secret(ref s) = self {
-            KeyPair::from_secret(s.clone())
+        match self {
+            &Credentials::Secret(ref s)
+            | &Credentials::Keystore {
+                secret: ref s,
+                path: _,
+                password: _,
+            } => KeyPair::from_secret(s.clone())
                 .ok()
-                .map(|s| public_to_address(s.public()))
-        } else {
-            None
+                .map(|s| public_to_address(s.public())),
+            _ => None,
         }
     }
 

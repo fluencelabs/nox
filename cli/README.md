@@ -55,7 +55,7 @@ Use `setup` command to enter main arguments into a config file. It will allow no
 ```
 Contract address, Ethereum, and Swarm node addresses have defaults, but account address and credentials (secret key or Ethereum keystore and password) should be filled for correct transaction sending.
 Arguments description and examples:
-- `0xf008c29bb1fabd1eb1ea73b2410f523a5c213f19` is a contract address, register transaction will be sent there
+- `0xeFF91455de6D4CF57C141bD8bF819E5f873c1A01` is a contract address, register transaction will be sent there
 - `http://data.fluence.one:8545` is an URL to Ethereum node
 - `http://data.fluence.one:8500` is an URL to Swarm node
 - `0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d` will be used as Ethereum account for issuing transactions. _Use your Ethereum account here_
@@ -261,7 +261,7 @@ There is a flag `--contract_address` to use all commands to interact with non-de
 ```bash
 ./fluence <command>
             ...
-            --contract_address 0xf008c29bb1fabd1eb1ea73b2410f523a5c213f19 \
+            --contract_address 0xeFF91455de6D4CF57C141bD8bF819E5f873c1A01 \
             ...
 ``` 
 

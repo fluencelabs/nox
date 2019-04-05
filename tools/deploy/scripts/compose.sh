@@ -206,7 +206,7 @@ function export_arguments()
 function start_swarm()
 {
     if [ ! "$(docker ps -q -f name=swarm)" ]; then
-        if [ "$START_SWARM" == true ]; then
+        if [ "$REMOTE_STORAGE_ENABLED" == true ]; then
             echo "Starting Swarm container"
             docker-compose --compatibility -f swarm.yml up -d >/dev/null
             # todo get rid of `sleep`
@@ -285,8 +285,12 @@ function check_envs()
         echo >&2 "SWARM_ADDRESS is not defined"
         exit 1
     }
-    declare -p START_SWARM &>/dev/null || {
-        echo >&2 "START_SWARM is not defined"
+    declare -p IPFS_ADDRESS &>/dev/null || {
+        echo >&2 "IPFS_ADDRESS is not defined"
+        exit 1
+    }
+    declare -p REMOTE_STORAGE_ENABLED &>/dev/null || {
+        echo >&2 "REMOTE_STORAGE_ENABLED is not defined"
         exit 1
     }
 
@@ -323,8 +327,9 @@ function deploy()
 
     if [ -z "$PROD_DEPLOY" ]; then
         check_fluence_installed
-        export START_SWARM="true"
+        export REMOTE_STORAGE_ENABLED="true"
         export SWARM_ADDRESS="http://$HOST_IP:8500"
+        export IPFS_ADDRESS="http://$HOST_IP:5001"
     fi
 
     if [ -z "$CAPACITY" ]; then

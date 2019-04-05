@@ -116,7 +116,7 @@ object TendermintRpc extends slogging.LazyLogging {
     reqT: RequestT[Id, String, Nothing]
   )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]): EitherT[F, RpcError, String] =
     EitherT
-      .pure(logger.debug(s"TendermintRpc request $reqT"))
+      .pure(logger.debug(s"TendermintRpc request ${reqT.uri}"))
       .flatMap(
         _ =>
           reqT
@@ -126,7 +126,9 @@ object TendermintRpc extends slogging.LazyLogging {
               val eitherResp = resp.body
                 .leftMap[RpcError](RpcRequestErrored(resp.code, _))
 
-              logger.debug(s"TendermintRpc response(${resp.code}): $eitherResp")
+              // Print just the first line of response
+              logger.debug(s"TendermintRpc response code ${resp.code}")
+              logger.trace(s"TendermintRpc full response: $eitherResp")
               eitherResp
           }
       )

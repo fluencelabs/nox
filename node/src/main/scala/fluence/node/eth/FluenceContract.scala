@@ -100,10 +100,10 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    */
   private def getNodeApps[F[_]: LiftIO: Timer: Monad](validatorKey: Bytes32): fs2.Stream[F, state.App] = {
     import org.web3j.tuples.generated.{Tuple2, Tuple8}
-    def mapApp(tuple: Tuple8[Bytes32, Bytes32, _, _, _, _, Uint256, DynamicArray[Bytes32]]) = {
+    def mapApp(tuple: Tuple8[Bytes32, _, Bytes32, _, _, _, Uint256, DynamicArray[Bytes32]]) = {
       import tuple._
       // storageHash, storageType, genesisTime, validatorKeys
-      (getValue1, getValue2, getValue7, getValue8)
+      (getValue1, getValue3, getValue7, getValue8)
     }
     def mapWorker(tuple: Tuple2[DynamicArray[Bytes24], DynamicArray[Uint16]]) = {
       import tuple._

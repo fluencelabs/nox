@@ -8,10 +8,10 @@ services:
       - TENDERMINT_IP=$DOCKER_IP
       - ETHEREUM_IP=$ETHEREUM_IP
       - SWARM_ADDRESS=$SWARM_ADDRESS
-      - SWARM_HOST=$SWARM_ADDRESS # TODO: remove SWARM_HOST (replaced by SWARM_ADDRESS)
+      - IPFS_ADDRESS=$IPFS_ADDRESS
       - CONTRACT_ADDRESS=$CONTRACT_ADDRESS
       - OWNER_ADDRESS=$OWNER_ADDRESS
-      - WORKER_MEMORY_LIMIT=200 # megabytes
+      - WORKER_MEMORY_LIMIT=300 # megabytes
       - WORKER_TAG=$IMAGE_TAG
     ports:
       # API port
@@ -23,6 +23,6 @@ services:
       resources:
         limits:
           cpus: '0.50'
-          memory: 200M
+          memory: 350M
         reservations:
-          memory: 150M
+          memory: 300M
