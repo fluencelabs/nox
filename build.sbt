@@ -93,12 +93,9 @@ lazy val statemachine = (project in file("statemachine"))
     commons,
     kindProjector,
     libraryDependencies ++= Seq(
-      cats,
-      catsEffect,
       pureConfig,
       slogging,
       scodecBits,
-      sttpCatsBackend,
       "com.github.jtendermint" % "jabci"          % "0.26.0",
       scalaTest
     ),
@@ -283,9 +280,6 @@ lazy val node = project
     commons,
     kindProjector,
     libraryDependencies ++= Seq(
-      catsEffect,
-      sttp,
-      sttpFs2Backend,
       fs2io,
       ficus,
       circeGeneric,
