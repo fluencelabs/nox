@@ -2,7 +2,6 @@ import {TransactionReceipt} from "web3/types";
 import {web3js} from "../contract";
 import {account, defaultContractAddress} from "../../constants";
 import {AppId} from "../apps";
-import {APP_DEPLOY_FAILED, APP_DEPLOYED, APP_ENQUEUED} from "../../front/actions/deployable/deploy";
 import abi from '../../abi/Network.json';
 
 import { parseLog } from "ethereum-event-logs"
@@ -85,20 +84,40 @@ export async function txParams(txData: string): Promise<any> {
     };
 }
 
+export enum DeployedAppState {
+    Enqueued,
+    Deployed,
+    Failed
+}
+
+export interface DeployedApp {
+    state: DeployedAppState,
+    appId: AppId | undefined
+}
+
 // Parse AppDeployed or AppEnqueued from TransactionReceipt
-export function checkLogs(receipt: TransactionReceipt): [string, AppId | undefined] {
+export function checkLogs(receipt: TransactionReceipt): DeployedApp {
     type AppEvent = { name: string, args: { appID: AppId } }
     let logs: AppEvent[] = parseLog(receipt.logs, abi);
     let enqueued = logs.find(l => l.name == "AppEnqueued");
     let deployed = logs.find(l => l.name == "AppDeployed");
     if (enqueued != undefined) {
         console.log("App enqueued with appID = " + enqueued.args.appID);
-        return [APP_ENQUEUED, enqueued.args.appID];
+        return {
+            state: DeployedAppState.Enqueued,
+            appId: enqueued.args.appID
+        };
     } else if (deployed != undefined) {
         console.log("App deployed with appID = " + deployed.args.appID);
-        return [APP_DEPLOYED, deployed.args.appID];
+        return {
+            state: DeployedAppState.Enqueued,
+            appId: deployed.args.appID
+        };
     }
 
     console.error("No AppDeployed or AppEnqueued event in logs: " + JSON.stringify(logs));
-    return [APP_DEPLOY_FAILED, undefined];
+    return {
+        state: DeployedAppState.Failed,
+        appId: undefined
+    };
 }
