@@ -21,7 +21,7 @@ export interface DeployableApp {
     clusterSize: number,
 }
 
-export const deployableAppIds: DeployableAppId[] = ["llamadb", "dice", "guess", "tictactoe"];
+export const deployableAppIds: DeployableAppId[] = ["llamadb"]; // 'dice, guess, tictactoe' are hidden intentionally
 
 export const deployableApps: { [key: string]: DeployableApp } = {
     "llamadb": {
