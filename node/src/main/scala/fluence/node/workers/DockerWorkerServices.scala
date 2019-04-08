@@ -54,7 +54,6 @@ case class DockerWorkerServices[F[_]] private (
 }
 
 object DockerWorkerServices extends LazyLogging {
-  val SmPrometheusPort: Short = 26661
   val ControlRpcPort: Short = 26662
 
   private def dockerCommand(params: WorkerParams, network: DockerNetwork): DockerParams.DaemonParams = {

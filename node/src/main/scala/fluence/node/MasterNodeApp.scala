@@ -66,7 +66,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
             (for {
               st ← StatusAggregator.make(masterConf, node)
-              server ← MasterHttp.make[IO](
+              server ← MasterHttp.make[IO, IO.Par](
                 "0.0.0.0",
                 masterConf.httpApi.port.toShort,
                 st,

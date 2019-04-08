@@ -16,7 +16,7 @@
 
 package fluence.node.status
 
-import cats.{Monad, Traverse}
+import cats.{Monad, Parallel}
 import cats.effect._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
@@ -37,29 +37,30 @@ import scala.language.higherKinds
 case class StatusAggregator[F[_]: Monad: Clock](
   config: MasterConfig,
   masterNode: MasterNode[F],
-  startTimeMillis: Long,
-  statusTimeout: FiniteDuration
+  startTimeMillis: Long
 ) {
 
   /**
    * Gets all state information about master node and workers.
+   *
    * @return gathered information
    */
-  val getStatus: F[MasterStatus] = for {
-    currentTime ← Clock[F].monotonic(MILLISECONDS)
-    workers ← masterNode.pool.getAll
-    workerInfos ← Traverse[List].traverse(workers)(_.withServices(identity)(_.status(statusTimeout)))
-    ethState ← masterNode.nodeEth.expectedState
-  } yield
-    MasterStatus(
-      config.endpoints.ip.getHostName,
-      currentTime - startTimeMillis,
-      masterNode.nodeConfig,
-      workerInfos.size,
-      workerInfos,
-      config,
-      ethState
-    )
+  def getStatus[G[_]](statusTimeout: FiniteDuration)(implicit P: Parallel[F, G]): F[MasterStatus] =
+    for {
+      currentTime ← Clock[F].monotonic(MILLISECONDS)
+      workers ← masterNode.pool.getAll
+      workerInfos ← Parallel.parTraverse(workers)(_.withServices(identity)(_.status(statusTimeout)))
+      ethState ← masterNode.nodeEth.expectedState
+    } yield
+      MasterStatus(
+        config.endpoints.ip.getHostName,
+        currentTime - startTimeMillis,
+        masterNode.nodeConfig,
+        workerInfos.size,
+        workerInfos,
+        config,
+        ethState
+      )
 }
 
 object StatusAggregator extends LazyLogging {
@@ -72,14 +73,13 @@ object StatusAggregator extends LazyLogging {
    */
   def make[F[_]: Timer: ContextShift: Monad](
     masterConfig: MasterConfig,
-    masterNode: MasterNode[F],
-    statusTimeout: FiniteDuration = 5.seconds
+    masterNode: MasterNode[F]
   ): Resource[F, StatusAggregator[F]] =
     Resource.liftF(
       for {
         startTimeMillis ← Clock[F].realTime(MILLISECONDS)
         _ = logger.debug("Start time millis: " + startTimeMillis)
-      } yield StatusAggregator(masterConfig, masterNode, startTimeMillis, statusTimeout)
+      } yield StatusAggregator(masterConfig, masterNode, startTimeMillis)
     )
 
 }
