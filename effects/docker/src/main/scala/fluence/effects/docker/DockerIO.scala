@@ -185,9 +185,9 @@ class DockerIO[F[_]: Monad: LiftIO: ContextShift: Defer](
    * Inspect the docker container to find out its running status
    *
    * @param container Docker container
-   * @return DockerRunStatus
+   * @return DockerRunning or any error found on the way
    */
-  def checkContainer(container: DockerContainer): F[DockerStatus] = {
+  def checkContainer(container: DockerContainer): EitherT[F, DockerError, DockerRunning] = {
     import java.time.format.DateTimeFormatter
     val format = DateTimeFormatter.ISO_DATE_TIME
     val dockerId = container.containerId
@@ -201,11 +201,11 @@ class DockerIO[F[_]: Monad: LiftIO: ContextShift: Defer](
 
         Instant.from(format.parse(started)).getEpochSecond → running.contains("true")
       }.attemptT.leftMap(DockerException(s"Cannot parse container status: $status", _): DockerError)
-      (time, isRunning) = timeIsRunning
-    } yield
-      if (isRunning) DockerRunning(time): DockerStatus
-      else DockerStopped(time)
-  }.mapK(liftCtx).getOrElse(DockerStopped(0)) // TODO should be DockerCheckFailed
+    } yield timeIsRunning
+  }.mapK(liftCtx).subflatMap {
+    case (time, true) ⇒ Right(DockerRunning(time))
+    case (time, false) ⇒ Left(DockerContainerStopped(time))
+  }
 
   /**
    *  Create docker network as a resource. Network is deleted after resource is used.
