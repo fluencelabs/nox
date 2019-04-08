@@ -26,7 +26,8 @@ trait TendermintSetup {
   protected def heightFromTendermintStatus(host: String, port: Short, appId: Long): IO[Option[Long]] = IO {
     import io.circe.Json
     import io.circe.parser.parse
-    val source = Source.fromURL(s"http://$host:$port/apps/$appId/status").mkString
+    val url = s"http://$host:$port/apps/$appId/status"
+    val source = Source.fromURL(url).mkString
     val height = parse(source)
       .getOrElse(Json.Null)
       .asObject

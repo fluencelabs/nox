@@ -19,13 +19,14 @@ package fluence.effects.swarm
 import java.nio.ByteBuffer
 
 import cats.data.EitherT
-import cats.effect.{Concurrent, ContextShift}
 import fluence.effects.castore.{ContentAddressableStore, StoreError}
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-class SwarmStore[F[_]: Concurrent: ContextShift](client: SwarmClient[F]) extends ContentAddressableStore[F] {
+class SwarmStore[F[_]](client: SwarmClient[F])(implicit F: cats.Monad[F]) extends ContentAddressableStore[F] {
   override def fetch(hash: ByteVector): EitherT[F, StoreError, fs2.Stream[F, ByteBuffer]] =
     client.fetch(hash.toHex).leftMap(identity[StoreError])
+
+  override def ls(hash: ByteVector): EitherT[F, StoreError, List[ByteVector]] = EitherT.pure(List(hash))
 }

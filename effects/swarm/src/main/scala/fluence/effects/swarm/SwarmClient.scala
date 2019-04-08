@@ -49,8 +49,8 @@ import scala.language.higherKinds
  *                    Can be sync or async, with effects or not depending on the `F`
  */
 class SwarmClient[F[_]](swarmUri: Uri)(
-  implicit sttpBackend: SttpBackend[F, fs2.Stream[F, ByteBuffer]],
-  F: cats.MonadError[F, Throwable],
+  implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
+  F: cats.Monad[F],
   hasher: Hasher[ByteVector, ByteVector]
 ) extends slogging.LazyLogging {
 
@@ -318,10 +318,7 @@ class SwarmClient[F[_]](swarmUri: Uri)(
         .post(updateURI)
         .body(jsonToBytes(json))
         .send()
-        .attemptT
-        .leftMap(_.getMessage)
-        .subflatMap(_.body)
-        .leftMap(er => SwarmError(s"Error on sending request to $updateURI. $er"))
+        .toEitherT(er => SwarmError(s"Error on sending request to $updateURI. $er"))
       _ = logger.info("A mutable resource has been updated.")
     } yield response
 
@@ -333,7 +330,7 @@ object SwarmClient {
   def apply[F[_]](
     swarmUri: Uri
   )(
-    implicit sttpBackend: SttpBackend[F, fs2.Stream[F, ByteBuffer]],
+    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
     F: cats.MonadError[F, Throwable]
   ): SwarmClient[F] = {
 

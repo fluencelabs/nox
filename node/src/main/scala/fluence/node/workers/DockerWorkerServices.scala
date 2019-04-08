@@ -16,7 +16,8 @@
 
 package fluence.node.workers
 
-import cats.{Apply, Monad}
+import cats.data.EitherT
+import cats.{Applicative, Apply, Monad}
 import cats.effect._
 import cats.syntax.functor._
 import cats.syntax.apply._
@@ -113,7 +114,7 @@ object DockerWorkerServices extends LazyLogging {
     p2pPort: Short,
     stopTimeout: Int
   )(
-    implicit sttpBackend: SttpBackend[F, Nothing],
+    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
     F: Concurrent[F]
   ): Resource[F, WorkerServices[F]] =
     for {

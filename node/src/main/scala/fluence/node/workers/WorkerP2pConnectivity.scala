@@ -54,7 +54,7 @@ object WorkerP2pConnectivity extends LazyLogging {
     backoff: Backoff[EffectError] = Backoff.default
   )(
     implicit P: Parallel[F, G],
-    sttpBackend: SttpBackend[F, Nothing]
+    sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]
   ): F[Fiber[F, Unit]] =
     Concurrent[F].start(
       Parallel.parTraverse_(peers) { p ⇒
@@ -64,7 +64,6 @@ object WorkerP2pConnectivity extends LazyLogging {
         val getPort: EitherT[F, EffectError, Short] = sttp
           .get(uri"http://${p.ip.getHostAddress}:${p.apiPort}/apps/${worker.appId}/p2pPort")
           .send()
-          .attemptT
           .leftMap(new RuntimeException(_) with EffectError)
           .flatMap { resp ⇒
             EitherT.fromEither(

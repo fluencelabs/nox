@@ -19,6 +19,8 @@ package fluence.node.code
 import java.nio.file.{Files, Path}
 
 import cats.Monad
+import cats.instances.list._
+import cats.Traverse.ops._
 import cats.effect.{IO, LiftIO, Timer}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -50,15 +52,12 @@ class RemoteCodeCarrier[F[_]: Timer: LiftIO: Monad](store: PolyStore[F])(
    */
   private def downloadAndWriteCodeToFile(
     workerPath: Path,
+    dirPath: Path,
     ref: StorageRef
-  ): F[Path] =
+  ): F[Unit] =
     // TODO handle fail system errors properly?
     for {
-      // TODO move vmcode to a config file
-      dirPath ← IO(workerPath.resolve("vmcode")).to[F]
-      _ <- IO(if (!dirPath.toFile.exists()) Files.createDirectory(dirPath)).to[F]
-
-      //TODO check if file's Swarm hash corresponds to the address
+      //TODO check if file's storage hash corresponds to the address
       filePath <- IO(dirPath.resolve(ref.storageHash.toHex + ".wasm")).to[F]
       exists <- IO(filePath.toFile.exists()).to[F]
       _ <- if (exists) IO.unit.to[F]
@@ -68,17 +67,22 @@ class RemoteCodeCarrier[F[_]: Timer: LiftIO: Monad](store: PolyStore[F])(
           _ <- downloadToFile(ref, tmpFile)
           _ <- IO(Files.move(tmpFile, filePath)).to[F]
         } yield ()
-
-    } yield dirPath
+    } yield ()
 
   /**
-   * Downloads code from a storage, and writes it to `workerPath / vmcode / <hash>.wasm`
+   * Downloads code files from a storage, and writes it to `workerPath / vmcode / <hash>.wasm`
    *
    * @param ref a path to a code from the smart contract
    * @param workerPath a path to a worker's working directory
    * @return
    */
   override def carryCode(ref: StorageRef, workerPath: Path): F[Path] =
-    downloadAndWriteCodeToFile(workerPath, ref)
+    for {
+      // TODO move vmcode to a config file
+      dirPath ← IO(workerPath.resolve("vmcode")).to[F]
+      _ <- IO(if (!dirPath.toFile.exists()) Files.createDirectory(dirPath)).to[F]
+      fileList <- backoff(store.ls(ref))
+      _ <- fileList.map(h => downloadAndWriteCodeToFile(workerPath, dirPath, ref.copy(storageHash = h))).sequence
+    } yield dirPath
 
 }

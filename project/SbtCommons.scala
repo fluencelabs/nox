@@ -76,7 +76,7 @@ object SbtCommons {
 
   /* Common deps */
 
-  val asmble = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.2-fl"
+  val asmble = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.4-fl"
 
   val slogging = "biz.enef"        %% "slogging"    % "0.6.1"
   val cats = "org.typelevel"       %% "cats-core"   % "1.5.0"
@@ -101,8 +101,8 @@ object SbtCommons {
   val sttpVersion = "1.5.11"
   val sttp = "com.softwaremill.sttp"            %% "core"                           % sttpVersion
   val sttpCirce = "com.softwaremill.sttp"       %% "circe"                          % sttpVersion
-  val sttpCatsBackend = "com.softwaremill.sttp" %% "async-http-client-backend-cats" % sttpVersion
   val sttpFs2Backend = "com.softwaremill.sttp"  %% "async-http-client-backend-fs2"  % sttpVersion
+  val sttpCatsBackend = "com.softwaremill.sttp"        %% "async-http-client-backend-cats" % "1.5.16-fl"
 
   val http4sVersion = "0.20.0-M7"
   val http4sDsl = "org.http4s"    %% "http4s-dsl"          % http4sVersion

@@ -33,7 +33,7 @@ package fluence.node
  */
 
 import cats.effect.{ContextShift, IO, Resource, Timer}
-import com.softwaremill.sttp.asynchttpclient.fs2.AsyncHttpClientFs2Backend
+import fluence.EitherTSttpBackend
 import fluence.node.workers.control.ControlRpc
 import fluence.statemachine.control.{ControlServer, DropPeer}
 import fluence.statemachine.control.ControlServer.ControlServerConfig
@@ -51,7 +51,7 @@ class ControlRpcSpec extends WordSpec with Matchers {
     val config = ControlServerConfig("localhost", 26662)
     val serverR = ControlServer.make[IO](config)
 
-    val sttp = Resource.make(IO(AsyncHttpClientFs2Backend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
+    val sttp = Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
     val resources = for {
       server <- serverR
       s <- sttp
