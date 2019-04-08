@@ -32,6 +32,7 @@ import scala.language.higherKinds
 
 object StatusHttp extends LazyLogging {
 
+  // Timeout in seconds
   object Timeout extends OptionalQueryParamDecoderMatcher[Int]("timeout")
 
   /**
@@ -41,14 +42,18 @@ object StatusHttp extends LazyLogging {
    * @param dsl Http4s DSL to build routes with
    */
   def routes[F[_]: Sync, G[_]](
-    sm: StatusAggregator[F]
+    sm: StatusAggregator[F],
+    defaultTimeout: FiniteDuration = 5.seconds
   )(implicit dsl: Http4sDsl[F], P: Parallel[F, G]): HttpRoutes[F] = {
     import dsl._
+
+    val maxTimeout = defaultTimeout * 20
+
     HttpRoutes
       .of[F] {
         case GET -> Root :? Timeout(t) =>
           (for {
-            status <- sm.getStatus(t.getOrElse(5).seconds)
+            status <- sm.getStatus(t.map(_.seconds).filter(_ < maxTimeout).getOrElse(defaultTimeout))
             maybeJson <- Sync[F].delay(status.asJson.spaces2).attempt
           } yield (status, maybeJson)).flatMap {
             case (status, Left(e)) ⇒
