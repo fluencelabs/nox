@@ -55,7 +55,7 @@ case class DockerTendermint(
       .checkContainer(container)
       .semiflatMap[ServiceStatus[TendermintStatus]] { d ⇒
         HttpStatus
-          .unhalt(
+          .timed(
             rpc.statusParsed.fold[HttpStatus[TendermintStatus]](
               HttpCheckFailed,
               HttpCheckStatus(_)

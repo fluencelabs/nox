@@ -47,7 +47,8 @@ object ServiceStatus {
   private implicit val dockerRunningEncoder: Encoder[DockerRunning] = deriveEncoder
   private implicit val dockerRunningDecoder: Decoder[DockerRunning] = deriveDecoder
 
-  private implicit val throwableEncoder: Encoder[Throwable] = Encoder.encodeString.contramap(_.getMessage)
+  private implicit val throwableEncoder: Encoder[Throwable] =
+    Encoder.encodeString.contramap(e => e.getMessage + Option(e.getCause).map(c => s"; caused by: ${c.getMessage}"))
   private implicit val throwableDecoder: Decoder[Throwable] = Decoder.decodeString.map(new RuntimeException(_))
 
   private implicit val dockerErrorEncoder: Encoder[DockerError] = deriveEncoder

@@ -25,6 +25,7 @@ import com.softwaremill.sttp.asynchttpclient.fs2.AsyncHttpClientFs2Backend
 import fluence.effects.docker.DockerIO
 import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
+import fluence.node.workers.DockerWorkersPool
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 
@@ -57,7 +58,12 @@ object MasterNodeApp extends IOApp with LazyLogging {
                 conf ⇒
                   sttpResource
                     .flatMap(
-                      implicit sttpBackend ⇒ MasterNode.make[IO, IO.Par](masterConf, conf.nodeConfig, conf.rootPath)
+                      implicit sttpBackend ⇒
+                        DockerWorkersPool
+                          .make(masterConf.ports.minPort, masterConf.ports.maxPort, conf.rootPath)
+                          .flatMap(
+                            MasterNode.make[IO, IO.Par](masterConf, conf.nodeConfig, _)
+                        )
                   )
               )
           }

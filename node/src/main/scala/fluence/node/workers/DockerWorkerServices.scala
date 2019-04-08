@@ -132,7 +132,7 @@ object DockerWorkerServices extends LazyLogging {
           .checkContainer(worker)
           .semiflatMap[ServiceStatus[Unit]] { d ⇒
             HttpStatus
-              .unhalt(control.status, timeout)
+              .timed(control.status, timeout)
               .map(s ⇒ ServiceStatus(Right(d), s))
           }
           .valueOr(err ⇒ ServiceStatus(Left(err), HttpCheckNotPerformed("Worker's Docker container is not launched")))

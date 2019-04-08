@@ -46,7 +46,7 @@ case class HttpCheckFailed(cause: Throwable) extends HttpStatus[Nothing]
 /**
  * Request has been made, but no response received in time
  */
-case object HttpCheckHalted extends HttpStatus[Nothing]
+case object HttpCheckTimedOut extends HttpStatus[Nothing]
 
 /**
  * Request has been made, response received
@@ -65,14 +65,14 @@ object HttpStatus {
   implicit def httpStatusEncoder[T: Encoder]: Encoder[HttpStatus[T]] = deriveEncoder
   implicit def httpStatusDecoder[T: Decoder]: Decoder[HttpStatus[T]] = deriveDecoder
 
-  def unhalt[F[_]: Concurrent: Timer, T](status: F[HttpStatus[T]], timeout: FiniteDuration): F[HttpStatus[T]] =
+  def timed[F[_]: Concurrent: Timer, T](status: F[HttpStatus[T]], timeout: FiniteDuration): F[HttpStatus[T]] =
     Concurrent[F]
       .race(
         Timer[F].sleep(timeout),
         status
       )
       .map {
-        case Left(_) ⇒ HttpCheckHalted
+        case Left(_) ⇒ HttpCheckTimedOut
         case Right(s) ⇒ s
       }
 }
