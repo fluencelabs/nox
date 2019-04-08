@@ -21,7 +21,7 @@ import cats.Parallel
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.effect.{Concurrent, Fiber, Timer}
+import cats.effect.{Concurrent, Fiber, Resource, Timer}
 import cats.instances.vector._
 import com.softwaremill.sttp.{SttpBackend, sttp, _}
 import fluence.effects.{Backoff, EffectError}
@@ -91,5 +91,15 @@ object WorkerP2pConnectivity extends LazyLogging {
         }
       }
     )
+
+  def make[F[_]: Concurrent: Timer, G[_]](
+    worker: Worker[F],
+    peers: Vector[WorkerPeer],
+    backoff: Backoff[EffectError] = Backoff.default
+  )(
+    implicit P: Parallel[F, G],
+    sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]
+  ): Resource[F, Unit] =
+    Resource.make(join(worker, peers, backoff))(_.cancel).void
 
 }
