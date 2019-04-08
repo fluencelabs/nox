@@ -1,16 +1,18 @@
 import * as React from 'react';
 import {connect} from 'react-redux';
-import {displayLoading, hideLoading, retrieveAppIds, retrieveNodeIds,} from '../../actions';
+import {Action} from "redux";
+import Cookies from 'js-cookie';
 import {contractAddress} from '../../../fluence/contract';
-import {App, AppId, Node, NodeId} from '../../../fluence';
+import {App, Node} from '../../../fluence';
 import {cutId} from '../../../utils';
 import FluenceApp from '../fluence-app';
 import FluenceNode from '../fluence-node';
 import FluenceDeployableApp from '../fluence-deployable-app';
-import {Action} from "redux";
-import Cookies from 'js-cookie';
-import {DeployableAppId, deployableAppIds, deployableApps} from "../../../fluence/deployable";
-import {restoreDeployed} from "../../actions/deployable/deploy";
+import FluenceAppsList from '../fluence-apps-list'
+import FluenceNodesList from '../fluence-nodes-list'
+import FluenceDeployList from '../fluence-deploy-list'
+import {restoreDeployed, showEntity} from '../../actions';
+import { FluenceEntity, FluenceEntityType } from '../../actions/entity';
 import * as fluence from "fluence";
 
 import 'bootstrap/dist/css/bootstrap.css';
@@ -21,29 +23,13 @@ import 'admin-lte/dist/css/AdminLTE.css';
 import 'admin-lte/dist/css/skins/skin-blue.css';
 import './style.css';
 
-export interface FluenceEntity {
-    id: NodeId | AppId | DeployableAppId
-    type: string
-}
-
-interface State {
-    appIdsLoading: boolean,
-    nodeIdsLoading: boolean,
-    appIdsVisible: boolean,
-    nodeIdsVisible: boolean,
-    deployableAppIdsVisible: boolean,
-    currentEntity: FluenceEntity | null
-}
+interface State {}
 
 interface Props {
-    displayLoading: typeof displayLoading,
-    hideLoading: typeof hideLoading,
-    retrieveNodeIds: () => Promise<Action>,
-    retrieveAppIds: () => Promise<Action>,
-    restoreDeployed: (appId: string, appTypeId: string) => Action,
     loading: boolean,
-    nodeIds: NodeId[],
-    appIds: AppId[],
+    restoreDeployed: (appId: string, appTypeId: string) => Action,
+    showEntity: (entity: FluenceEntity) => Action,
+    currentEntity: FluenceEntity | null
     apps: {
         [key: string]: App
     };
@@ -53,196 +39,22 @@ interface Props {
 }
 
 class DashboardApp extends React.Component<Props, State> {
-    state: State = {
-        appIdsLoading: false,
-        nodeIdsLoading: false,
-        appIdsVisible: false,
-        nodeIdsVisible: false,
-        deployableAppIdsVisible: false,
-        currentEntity: null,
-    };
+    state: State = {};
 
     componentDidMount(): void {
         // Make fluence available from browser console
         (window as any).fluence = fluence;
 
-        this.props.displayLoading();
-        this.setState({
-            appIdsLoading: true,
-            nodeIdsLoading: true,
-        });
-
-        Promise.all([
-            this.props.retrieveNodeIds().then(() => {
-                this.setState({
-                    nodeIdsLoading: false,
-                });
-            }),
-            this.props.retrieveAppIds().then(() => {
-                this.setState({
-                    appIdsLoading: false,
-                });
-            }),
-        ]).then(() => {
-            const deployedAppId = Cookies.get('deployedAppId');
-            const deployedAppTypeId = Cookies.get('deployedAppTypeId');
-            if (deployedAppId && deployedAppTypeId) {
-                this.setState({
-                    currentEntity: {
-                        type: 'deployableApp',
-                        id: deployedAppTypeId
-                    }
-                });
-                return this.props.restoreDeployed(deployedAppId, deployedAppTypeId);
-            }
-        }).then(() => {
-            this.props.hideLoading();
-        }).catch((e) => {
-            window.console.log(e);
-            this.props.hideLoading();
-        });
+        const deployedAppId = Cookies.get('deployedAppId');
+        const deployedAppTypeId = Cookies.get('deployedAppTypeId');
+        if (deployedAppId && deployedAppTypeId) {
+            this.props.showEntity({
+                type: FluenceEntityType.DeployableApp,
+                id: deployedAppTypeId,
+            });
+            this.props.restoreDeployed(deployedAppId, deployedAppTypeId);
+        }
     }
-
-    showApp = (e: React.MouseEvent<HTMLElement>, appId: AppId): void => {
-        e.preventDefault();
-        this.setState({
-            currentEntity: {
-                type: 'app',
-                id: appId
-            }
-        });
-    };
-
-    showAppIds = (e: React.MouseEvent<HTMLElement>): void => {
-        e.preventDefault();
-        this.setState({
-            appIdsVisible: true
-        });
-    };
-
-    hideAppIds = (e: React.MouseEvent<HTMLElement>): void => {
-        e.preventDefault();
-        this.setState({
-            appIdsVisible: false
-        });
-    };
-
-    renderAppsCount(): React.ReactNode {
-        return (
-            <div className="col-md-12">
-                <div className="small-box bg-fluence-blue-gradient">
-                    <div className="inner">
-                        <h3>{this.state.appIdsLoading ? '...' : this.props.appIds.length}</h3>
-
-                        <p>Apps</p>
-                    </div>
-                    <div className="icon">
-                        <i className={this.state.appIdsLoading ? 'fa fa-refresh fa-spin' : 'ion ion-ios-gear-outline'}></i>
-                    </div>
-                    <a href="#" className="small-box-footer" onClick={this.showAppIds}
-                       style={{display: this.state.appIdsLoading || this.state.appIdsVisible || this.props.appIds.length <= 0 ? 'none' : 'block'}}>
-                        More info <i className="fa fa-arrow-circle-right"></i>
-                    </a>
-                    <a href="#" className="small-box-footer" onClick={this.hideAppIds}
-                       style={{display: this.state.appIdsVisible ? 'block' : 'none'}}>
-                        Hide info <i className="fa fa-arrow-circle-up"></i>
-                    </a>
-                    {this.props.appIds.map(appId => (
-                        <div className="small-box-footer entity-link" onClick={(e) => this.showApp(e, appId)}
-                             style={{display: this.state.appIdsVisible ? 'block' : 'none'}}>
-                            <div className="box-body">
-                                <strong><i className="fa fa-bullseye margin-r-5"></i> App {appId}</strong>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        );
-    }
-
-    showNode = (e: React.MouseEvent<HTMLElement>, nodeId: NodeId): void => {
-        e.preventDefault();
-        this.setState({
-            currentEntity: {
-                type: 'node',
-                id: nodeId
-            }
-        });
-    };
-
-    showNodeIds = (e: React.MouseEvent<HTMLElement>): void => {
-        e.preventDefault();
-        this.setState({
-            nodeIdsVisible: true
-        });
-    };
-
-    hideNodeIds = (e: React.MouseEvent<HTMLElement>): void => {
-        e.preventDefault();
-        this.setState({
-            nodeIdsVisible: false
-        });
-    };
-
-    renderNodesCount(): React.ReactNode {
-        return (
-            <div className="col-md-12">
-                <div className="small-box bg-fluence-blue-gradient">
-                    <div className="inner">
-                        <h3>{this.state.nodeIdsLoading ? '...' : this.props.nodeIds.length}</h3>
-
-                        <p>Nodes</p>
-                    </div>
-                    <div className="icon">
-                        <i className={this.state.nodeIdsLoading ? 'fa fa-refresh fa-spin' : 'ion ion-android-laptop'}></i>
-                    </div>
-                    <a href="#" className="small-box-footer" onClick={this.showNodeIds}
-                       style={{display: this.state.nodeIdsLoading || this.state.nodeIdsVisible || this.props.nodeIds.length <= 0 ? 'none' : 'block'}}>
-                        More info <i className="fa fa-arrow-circle-right"></i>
-                    </a>
-                    <a href="#" className="small-box-footer" onClick={this.hideNodeIds}
-                       style={{display: this.state.nodeIdsVisible ? 'block' : 'none'}}>
-                        Hide info <i className="fa fa-arrow-circle-up"></i>
-                    </a>
-                    {this.props.nodeIds.map(nodeId => (
-                        <div className="small-box-footer entity-link" onClick={(e) => this.showNode(e, nodeId)}
-                             style={{display: this.state.nodeIdsVisible ? 'block' : 'none'}}>
-                            <div className="box-body">
-                                <strong>
-                                    <i className="fa fa-bullseye margin-r-5"></i> Node <span
-                                    title={nodeId}>{cutId(nodeId)}</span>
-                                </strong>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        );
-    }
-
-    showDeployableAppIds = (e: React.MouseEvent<HTMLElement>): void => {
-        e.preventDefault();
-        this.setState({
-            deployableAppIdsVisible: true
-        });
-    };
-
-    hideDeployableAppIds = (e: React.MouseEvent<HTMLElement>): void => {
-        e.preventDefault();
-        this.setState({
-            deployableAppIdsVisible: false
-        });
-    };
-
-    showDeployableApp = (e: React.MouseEvent<HTMLElement>, id: DeployableAppId) => {
-        e.preventDefault();
-        this.setState({
-            currentEntity: {
-                type: 'deployableApp',
-                id: id
-            }
-        })
-    };
 
     renderEntity(entity: FluenceEntity | null): React.ReactNode {
         if (entity) {
@@ -276,34 +88,6 @@ class DashboardApp extends React.Component<Props, State> {
                 </div>
             </div>
         );
-    }
-
-    renderDeployBox(): React.ReactNode {
-        return (
-            <div className="col-md-12">
-                <div className="small-box bg-fluence-blue-gradient">
-                    <div className="inner">
-                        <h3>{deployableAppIds.length}</h3>
-
-                        <p>Instant deploy</p>
-                    </div>
-                    <div className="icon">
-                        <i className='ion ion-cloud-download'/>
-                    </div>
-                    {deployableAppIds.map(id => (
-                        <div className="small-box-footer entity-link bg-fluence-green-gradient"
-                             onClick={(e) => this.showDeployableApp(e, id)}>
-                            <div className="box-body">
-                                <strong>
-                                    <i className="fa fa-bullseye margin-r-5"/> <span
-                                    title={deployableApps[id].name}>{deployableApps[id].name}</span>
-                                </strong>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        )
     }
 
     render(): React.ReactNode {
@@ -340,16 +124,22 @@ class DashboardApp extends React.Component<Props, State> {
                         <div className="row">
                             <div className="col-md-3 col-xs-12">
                                 <div className="row">
-                                    {this.renderDeployBox()}
+                                    <div className="col-md-12">
+                                        <FluenceDeployList/>
+                                    </div>
                                 </div>
                                 <div className="row">
-                                    {this.renderAppsCount()}
+                                    <div className="col-md-12">
+                                        <FluenceAppsList/>
+                                    </div>
                                 </div>
                                 <div className="row">
-                                    {this.renderNodesCount()}
+                                    <div className="col-md-12">
+                                        <FluenceNodesList/>
+                                    </div>
                                 </div>
                             </div>
-                            {this.renderEntity(this.state.currentEntity)}
+                            {this.renderEntity(this.props.currentEntity)}
                         </div>
                     </section>
                 </div>
@@ -368,18 +158,14 @@ class DashboardApp extends React.Component<Props, State> {
 
 const mapStateToProps = (state: any) => ({
     loading: state.loading.isLoading,
-    nodeIds: state.nodeIds,
-    appIds: state.appIds,
     nodes: state.nodes,
     apps: state.apps,
+    currentEntity: state.entity
 });
 
 const mapDispatchToProps = {
-    displayLoading,
-    hideLoading,
-    retrieveNodeIds,
-    retrieveAppIds,
     restoreDeployed,
+    showEntity,
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(DashboardApp);
