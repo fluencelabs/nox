@@ -75,14 +75,14 @@ class IpfsStore[F[_]](ipfsUri: Uri)(
     val address = toAddress(hash)
     val uri = CatUri.param("arg", address)
     for {
-      _ <- EitherT.pure(logger.debug(s"IPFS download started $uri"))
+      _ <- EitherT.pure[F, StoreError](logger.debug(s"IPFS download started $uri"))
       response <- sttp
-      .response(asStream[fs2.Stream[F, ByteBuffer]])
-      .get(uri)
-      .send()
-      .toEitherT { er =>
-        val errorMessage = s"IPFS download error $uri: $er"
-        IpfsError(errorMessage)
+        .response(asStream[fs2.Stream[F, ByteBuffer]])
+        .get(uri)
+        .send()
+        .toEitherT { er =>
+          val errorMessage = s"IPFS download error $uri: $er"
+          IpfsError(errorMessage)
         }
         .map { r =>
           logger.debug(s"IPFS download finished $uri")
@@ -97,14 +97,14 @@ class IpfsStore[F[_]](ipfsUri: Uri)(
     val address = toAddress(hash)
     val uri = LsUri.param("arg", address)
     for {
-      _ <- EitherT.pure(logger.debug(s"IPFS `ls` started $uri"))
+      _ <- EitherT.pure[F, StoreError](logger.debug(s"IPFS `ls` started $uri"))
       response <- sttp
-      .response(asJson[IpfsLsResponse])
-      .get(uri)
-      .send()
-      .toEitherT { er =>
-        val errorMessage = s"IPFimport cats.syntax.apply._S 'ls' error $uri: $er"
-        IpfsError(errorMessage)
+        .response(asJson[IpfsLsResponse])
+        .get(uri)
+        .send()
+        .toEitherT { er =>
+          val errorMessage = s"IPFimport cats.syntax.apply._S 'ls' error $uri: $er"
+          IpfsError(errorMessage)
         }
         .subflatMap(_.left.map { er =>
           logger.error(s"Deserialization error: $er")
