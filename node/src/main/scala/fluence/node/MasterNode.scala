@@ -180,7 +180,6 @@ object MasterNode extends LazyLogging {
   def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer: DockerIO, G[_]](
     masterConfig: MasterConfig,
     nodeConfig: NodeConfig,
-    rootPath: Path,
     pool: WorkersPool[F]
   )(
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
