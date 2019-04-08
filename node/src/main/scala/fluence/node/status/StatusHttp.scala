@@ -16,6 +16,7 @@
 
 package fluence.node.status
 
+import cats.Parallel
 import cats.effect.Sync
 import cats.syntax.functor._
 import cats.syntax.flatMap._
@@ -23,12 +24,16 @@ import org.http4s.HttpRoutes
 import cats.syntax.applicativeError._
 import io.circe.syntax._
 import org.http4s.dsl._
+import org.http4s.dsl.impl.OptionalQueryParamDecoderMatcher
 import slogging.LazyLogging
 
+import scala.concurrent.duration._
 import scala.language.higherKinds
-import scala.util.control.NonFatal
 
 object StatusHttp extends LazyLogging {
+
+  // Timeout in seconds
+  object Timeout extends OptionalQueryParamDecoderMatcher[Int]("timeout")
 
   /**
    * Master status' routes.
@@ -36,13 +41,19 @@ object StatusHttp extends LazyLogging {
    * @param sm Status aggregator
    * @param dsl Http4s DSL to build routes with
    */
-  def routes[F[_]: Sync](sm: StatusAggregator[F])(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
+  def routes[F[_]: Sync, G[_]](
+    sm: StatusAggregator[F],
+    defaultTimeout: FiniteDuration = 5.seconds
+  )(implicit dsl: Http4sDsl[F], P: Parallel[F, G]): HttpRoutes[F] = {
     import dsl._
+
+    val maxTimeout = defaultTimeout * 20
+
     HttpRoutes
       .of[F] {
-        case GET -> Root =>
+        case GET -> Root :? Timeout(t) =>
           (for {
-            status <- sm.getStatus
+            status <- sm.getStatus(t.map(_.seconds).filter(_ < maxTimeout).getOrElse(defaultTimeout))
             maybeJson <- Sync[F].delay(status.asJson.spaces2).attempt
           } yield (status, maybeJson)).flatMap {
             case (status, Left(e)) ⇒

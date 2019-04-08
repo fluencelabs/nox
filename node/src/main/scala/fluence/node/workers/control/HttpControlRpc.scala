@@ -61,13 +61,13 @@ class HttpControlRpc[F[_]: Sync](hostname: String, port: Short)(
     // TODO handle errors properly
     send(DropPeer(key), "dropPeer").void.value.flatMap(Sync[F].fromEither)
 
-  override def status: F[HttpStatus[Unit]] =
+  override val status: F[HttpStatus[Unit]] =
     send(GetStatus(), "status").value.map {
       case Right(_) ⇒ HttpCheckStatus(())
       case Left(err) ⇒ HttpCheckFailed(err)
     }
 
-  override def stop: F[Unit] =
+  override val stop: F[Unit] =
     // TODO handle errors properly
     send(Stop(), "stop").void.value.flatMap(Sync[F].fromEither)
 }

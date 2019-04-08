@@ -15,10 +15,14 @@
  */
 
 package fluence.node.workers.status
+import cats.effect.{Concurrent, Timer}
+import cats.syntax.functor._
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
+import scala.concurrent.duration.FiniteDuration
 import scala.util.control.NoStackTrace
+import scala.language.higherKinds
 
 /**
  * Result of Http check: not performed, check failed, or status of type T is fetched
@@ -40,6 +44,11 @@ case class HttpCheckNotPerformed(reason: String) extends HttpStatus[Nothing]
 case class HttpCheckFailed(cause: Throwable) extends HttpStatus[Nothing]
 
 /**
+ * Request has been made, but no response received in time
+ */
+case object HttpCheckTimedOut extends HttpStatus[Nothing]
+
+/**
  * Request has been made, response received
  *
  * @param data Response value
@@ -55,4 +64,15 @@ object HttpStatus {
 
   implicit def httpStatusEncoder[T: Encoder]: Encoder[HttpStatus[T]] = deriveEncoder
   implicit def httpStatusDecoder[T: Decoder]: Decoder[HttpStatus[T]] = deriveDecoder
+
+  def timed[F[_]: Concurrent: Timer, T](status: F[HttpStatus[T]], timeout: FiniteDuration): F[HttpStatus[T]] =
+    Concurrent[F]
+      .race(
+        Timer[F].sleep(timeout),
+        status
+      )
+      .map {
+        case Left(_) ⇒ HttpCheckTimedOut
+        case Right(s) ⇒ s
+      }
 }

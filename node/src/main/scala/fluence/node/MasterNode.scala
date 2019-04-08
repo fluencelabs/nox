@@ -173,7 +173,6 @@ object MasterNode extends LazyLogging {
    *
    * @param masterConfig MasterConfig
    * @param nodeConfig NodeConfig
-   * @param rootPath Master's root path
    * @param sttpBackend HTTP client implementation
    * @param P Parallel instance, used for Workers
    * @return Prepared [[MasterNode]], then see [[MasterNode.run]]
@@ -181,7 +180,8 @@ object MasterNode extends LazyLogging {
   def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer: DockerIO, G[_]](
     masterConfig: MasterConfig,
     nodeConfig: NodeConfig,
-    rootPath: Path
+    rootPath: Path,
+    pool: WorkersPool[F]
   )(
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
     P: Parallel[F, G]
@@ -192,8 +192,7 @@ object MasterNode extends LazyLogging {
       _ = logger.debug("-> going to create a pool")
 
       // TODO wrap Paths.get somehow?
-      pool ← DockerWorkersPool
-        .make(masterConfig.ports.minPort, masterConfig.ports.maxPort, Paths.get(masterConfig.rootPath))
+      rootPath = Paths.get(masterConfig.rootPath).toAbsolutePath
 
       _ = logger.debug("-> going to create nodeEth")
 

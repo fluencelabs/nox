@@ -16,6 +16,7 @@
 
 package fluence.node
 
+import cats.Parallel
 import fluence.node.status.{StatusAggregator, StatusHttp}
 import cats.effect._
 import fluence.node.workers.{WorkersHttp, WorkersPool}
@@ -46,16 +47,16 @@ object MasterHttp {
    * @param agg Status Aggregator
    * @param pool Workers Pool
    */
-  def make[F[_]: Timer: ConcurrentEffect](
+  def make[F[_]: Timer: ConcurrentEffect, G[_]](
     host: String,
     port: Short,
     agg: StatusAggregator[F],
     pool: WorkersPool[F]
-  ): Resource[F, Server[F]] = {
+  )(implicit P: Parallel[F, G]): Resource[F, Server[F]] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
     val routes: HttpRoutes[F] = Router[F](
-      "/status" -> StatusHttp.routes[F](agg),
+      "/status" -> StatusHttp.routes[F, G](agg),
       "/apps" -> WorkersHttp.routes[F](pool)
     )
 

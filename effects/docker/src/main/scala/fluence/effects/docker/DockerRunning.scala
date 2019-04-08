@@ -16,16 +16,4 @@
 
 package fluence.effects.docker
 
-sealed trait DockerStatus {
-  def startedAt: Long
-
-  def isRunning: Boolean
-}
-
-case class DockerRunning(startedAt: Long) extends DockerStatus {
-  override val isRunning: Boolean = true
-}
-
-case class DockerStopped(startedAt: Long) extends DockerStatus {
-  override val isRunning: Boolean = false
-}
+case class DockerRunning(startedAt: Long)

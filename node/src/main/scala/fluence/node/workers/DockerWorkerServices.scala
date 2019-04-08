@@ -31,6 +31,7 @@ import fluence.node.workers.tendermint.DockerTendermint
 import fluence.effects.tendermint.rpc.TendermintRpc
 import slogging.LazyLogging
 
+import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
 /**
@@ -40,7 +41,7 @@ import scala.language.higherKinds
  * @param appId Worker's app ID
  * @param tendermint Tendermint RPC endpoints for the worker
  * @param control Control RPC endpoints for the worker
- * @param status Getter for actual Worker's status
+ * @param statusCall Getter for actual Worker's status
  * @tparam F the effect
  */
 case class DockerWorkerServices[F[_]] private (
@@ -48,11 +49,12 @@ case class DockerWorkerServices[F[_]] private (
   appId: Long,
   tendermint: TendermintRpc[F],
   control: ControlRpc[F],
-  status: F[WorkerStatus]
-) extends WorkerServices[F]
+  statusCall: FiniteDuration ⇒ F[WorkerStatus]
+) extends WorkerServices[F] {
+  override def status(timeout: FiniteDuration): F[WorkerStatus] = statusCall(timeout)
+}
 
 object DockerWorkerServices extends LazyLogging {
-  val SmPrometheusPort: Short = 26661
   val ControlRpcPort: Short = 26662
 
   private def dockerCommand(params: WorkerParams, network: DockerNetwork): DockerParams.DaemonParams = {
@@ -107,7 +109,7 @@ object DockerWorkerServices extends LazyLogging {
    * @param sttpBackend Sttp Backend to launch HTTP healthchecks and RPC endpoints
    * @return the [[WorkerServices]] instance
    */
-  def make[F[_]: DockerIO](
+  def make[F[_]: DockerIO: Timer](
     params: WorkerParams,
     p2pPort: Short,
     stopTimeout: Int
@@ -126,21 +128,24 @@ object DockerWorkerServices extends LazyLogging {
 
       control = ControlRpc[F](containerName(params), ControlRpcPort)
 
-      workerStatus = DockerIO[F]
-        .checkContainer(worker)
-        .flatMap[ServiceStatus[Unit]] {
-          case d if d.isRunning ⇒ control.status.map(s ⇒ ServiceStatus(d, s))
-          case d ⇒
-            Applicative[F].pure(ServiceStatus(d, HttpCheckNotPerformed("Worker's Docker container is not launched")))
-        }
+      workerStatus = (timeout: FiniteDuration) ⇒
+        DockerIO[F]
+          .checkContainer(worker)
+          .semiflatMap[ServiceStatus[Unit]] { d ⇒
+            HttpStatus
+              .timed(control.status, timeout)
+              .map(s ⇒ ServiceStatus(Right(d), s))
+          }
+          .valueOr(err ⇒ ServiceStatus(Left(err), HttpCheckNotPerformed("Worker's Docker container is not launched")))
 
-      status = Apply[F].map2(tendermint.status(rpc), workerStatus) { (ts, ws) ⇒
-        WorkerStatus(
-          isHealthy = ts.isOk(_.sync_info.latest_block_height > 1) && ws.isOk(),
-          params.appId,
-          ts,
-          ws
-        )
+      status = (timeout: FiniteDuration) ⇒
+        Apply[F].map2(tendermint.status(rpc, timeout), workerStatus(timeout)) { (ts, ws) ⇒
+          WorkerStatus(
+            isHealthy = ts.isOk(_.sync_info.latest_block_height > 1) && ws.isOk(),
+            params.appId,
+            ts,
+            ws
+          )
       }
 
     } yield new DockerWorkerServices[F](p2pPort, params.appId, rpc, control, status)

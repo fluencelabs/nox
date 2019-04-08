@@ -20,6 +20,7 @@ import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status.WorkerStatus
 import fluence.effects.tendermint.rpc.TendermintRpc
 
+import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
 // Algebra for WorkerServices
@@ -31,6 +32,6 @@ trait WorkerServices[F[_]] {
   def control: ControlRpc[F]
 
   // Retrieves worker's health
-  def status: F[WorkerStatus]
+  def status(timeout: FiniteDuration): F[WorkerStatus]
 
 }

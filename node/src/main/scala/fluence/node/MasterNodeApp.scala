@@ -26,6 +26,7 @@ import fluence.EitherTSttpBackend
 import fluence.effects.docker.DockerIO
 import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
+import fluence.node.workers.DockerWorkersPool
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 
@@ -58,7 +59,12 @@ object MasterNodeApp extends IOApp with LazyLogging {
                 conf ⇒
                   sttpResource
                     .flatMap(
-                      implicit sttpBackend ⇒ MasterNode.make[IO, IO.Par](masterConf, conf.nodeConfig, conf.rootPath)
+                      implicit sttpBackend ⇒
+                        DockerWorkersPool
+                          .make(masterConf.ports.minPort, masterConf.ports.maxPort, conf.rootPath)
+                          .flatMap(
+                            MasterNode.make[IO, IO.Par](masterConf, conf.nodeConfig, _)
+                        )
                   )
               )
           }
@@ -67,7 +73,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
             (for {
               st ← StatusAggregator.make(masterConf, node)
-              server ← MasterHttp.make[IO](
+              server ← MasterHttp.make[IO, IO.Par](
                 "0.0.0.0",
                 masterConf.httpApi.port.toShort,
                 st,

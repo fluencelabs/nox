@@ -23,6 +23,7 @@ import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 
+import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
 /**
@@ -50,8 +51,8 @@ case class Worker[F[_]: Concurrent](
   private val services: F[Option[WorkerServices[F]]] = servicesDef.tryGet
 
   // Reports this worker's health
-  val isHealthy: F[Boolean] = services.flatMap {
-    case Some(w) ⇒ w.status.map(_.isHealthy)
+  def isHealthy(timeout: FiniteDuration): F[Boolean] = services.flatMap {
+    case Some(w) ⇒ w.status(timeout).map(_.isHealthy)
     case None ⇒ false.pure[F]
   }
 
@@ -77,7 +78,7 @@ case class Worker[F[_]: Concurrent](
 object Worker {
 
   /**
-   * Builds a Worker, executing [[workerRun]] as a first worker's command
+   * Builds a Worker, executing workerRun as a first worker's command
    *
    * @param appId AppId of the application hosted by this worker
    * @param p2pPort Tendermint p2p port

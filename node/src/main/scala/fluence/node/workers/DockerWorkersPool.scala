@@ -32,6 +32,7 @@ import fluence.effects.docker.DockerIO
 import fluence.effects.kvstore.RocksDBStore
 import slogging.LazyLogging
 
+import scala.concurrent.duration._
 import scala.language.higherKinds
 
 /**
@@ -41,7 +42,8 @@ import scala.language.higherKinds
  */
 class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
   ports: WorkersPorts[F],
-  workers: Ref[F, Map[Long, Worker[F]]]
+  workers: Ref[F, Map[Long, Worker[F]]],
+  healthyWorkerTimeout: FiniteDuration = 1.second
 )(
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
   F: Concurrent[F],
@@ -57,7 +59,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
       oldWorker = map.get(appId)
       healthy <- oldWorker match {
         case None => F.pure(false)
-        case Some(worker) => worker.isHealthy
+        case Some(worker) => worker.isHealthy(healthyWorkerTimeout)
       }
     } yield (healthy, oldWorker)
   }
