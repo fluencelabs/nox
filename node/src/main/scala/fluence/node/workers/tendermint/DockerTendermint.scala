@@ -26,10 +26,11 @@ import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
 import fluence.node.config.DockerConfig
 import fluence.node.workers.WorkerParams
-import fluence.node.workers.status.{HttpCheckFailed, HttpCheckNotPerformed, HttpCheckStatus, ServiceStatus}
+import fluence.node.workers.status.{HttpCheckFailed, HttpCheckNotPerformed, HttpCheckStatus, HttpStatus, ServiceStatus}
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.response.TendermintStatus
 
+import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
 /**
@@ -43,26 +44,27 @@ case class DockerTendermint(
   name: String
 ) {
 
-  private def ifDockerOkRunHttpCheck[F[_]: Monad](
-    rpc: TendermintRpc[F],
-    dockerStatus: DockerStatus
-  ): F[ServiceStatus[TendermintStatus]] =
-    dockerStatus match {
-      case d if d.isRunning ⇒
-        rpc.statusParsed.value.map {
-          case Right(resp) ⇒ HttpCheckStatus(resp)
-          case Left(err) ⇒ HttpCheckFailed(err)
-        }.map(s ⇒ ServiceStatus(d, s))
-
-      case d ⇒
-        Applicative[F].pure(ServiceStatus(d, HttpCheckNotPerformed("Tendermint Docker container is not launched")))
-    }
-
   /**
    * Service status for this docker + wrapped Tendermint Http service
    */
-  def status[F[_]: Monad: DockerIO](rpc: TendermintRpc[F]): F[ServiceStatus[TendermintStatus]] =
-    DockerIO[F].checkContainer(container).flatMap(ifDockerOkRunHttpCheck(rpc, _))
+  def status[F[_]: Concurrent: Timer: DockerIO](
+    rpc: TendermintRpc[F],
+    timeout: FiniteDuration
+  ): F[ServiceStatus[TendermintStatus]] =
+    DockerIO[F]
+      .checkContainer(container)
+      .semiflatMap[ServiceStatus[TendermintStatus]] { d ⇒
+        HttpStatus
+          .unhalt(
+            rpc.statusParsed.fold[HttpStatus[TendermintStatus]](
+              HttpCheckFailed,
+              HttpCheckStatus(_)
+            ),
+            timeout
+          )
+          .map(s ⇒ ServiceStatus(Right(d), s))
+      }
+      .valueOr(err ⇒ ServiceStatus(Left(err), HttpCheckNotPerformed("Tendermint's Docker container is not launched")))
 }
 
 object DockerTendermint {

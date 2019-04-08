@@ -37,7 +37,8 @@ import scala.language.higherKinds
 case class StatusAggregator[F[_]: Monad: Clock](
   config: MasterConfig,
   masterNode: MasterNode[F],
-  startTimeMillis: Long
+  startTimeMillis: Long,
+  statusTimeout: FiniteDuration
 ) {
 
   /**
@@ -47,7 +48,7 @@ case class StatusAggregator[F[_]: Monad: Clock](
   val getStatus: F[MasterStatus] = for {
     currentTime ← Clock[F].monotonic(MILLISECONDS)
     workers ← masterNode.pool.getAll
-    workerInfos ← Traverse[List].traverse(workers)(_.withServices(identity)(_.status))
+    workerInfos ← Traverse[List].traverse(workers)(_.withServices(identity)(_.status(statusTimeout)))
     ethState ← masterNode.nodeEth.expectedState
   } yield
     MasterStatus(
@@ -71,13 +72,14 @@ object StatusAggregator extends LazyLogging {
    */
   def make[F[_]: Timer: ContextShift: Monad](
     masterConfig: MasterConfig,
-    masterNode: MasterNode[F]
+    masterNode: MasterNode[F],
+    statusTimeout: FiniteDuration = 5.seconds
   ): Resource[F, StatusAggregator[F]] =
     Resource.liftF(
       for {
         startTimeMillis ← Clock[F].realTime(MILLISECONDS)
         _ = logger.debug("Start time millis: " + startTimeMillis)
-      } yield StatusAggregator(masterConfig, masterNode, startTimeMillis)
+      } yield StatusAggregator(masterConfig, masterNode, startTimeMillis, statusTimeout)
     )
 
 }

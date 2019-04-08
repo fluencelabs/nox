@@ -15,7 +15,7 @@
  */
 
 package fluence.node.workers.status
-import fluence.effects.docker.DockerStatus
+import fluence.effects.docker.{DockerError, DockerRunning}
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto._
 
@@ -27,7 +27,7 @@ import io.circe.generic.semiauto._
  * @tparam T Custom status info type
  */
 case class ServiceStatus[+T](
-  docker: DockerStatus,
+  docker: Either[DockerError, DockerRunning],
   http: HttpStatus[T]
 ) {
 
@@ -37,15 +37,26 @@ case class ServiceStatus[+T](
    * @param httpOk Predicate for Http check's status
    */
   def isOk(httpOk: T ⇒ Boolean = _ ⇒ true): Boolean =
-    docker.isRunning && (http match {
+    docker.isRight && (http match {
       case HttpCheckStatus(data) ⇒ httpOk(data)
       case _ ⇒ false
     })
 }
 
 object ServiceStatus {
-  implicit val dockerStatusEncoder: Encoder[DockerStatus] = deriveEncoder
-  implicit val dockerStatusDecoder: Decoder[DockerStatus] = deriveDecoder
+  private implicit val dockerRunningEncoder: Encoder[DockerRunning] = deriveEncoder
+  private implicit val dockerRunningDecoder: Decoder[DockerRunning] = deriveDecoder
+
+  private implicit val throwableEncoder: Encoder[Throwable] = Encoder.encodeString.contramap(_.getMessage)
+  private implicit val throwableDecoder: Decoder[Throwable] = Decoder.decodeString.map(new RuntimeException(_))
+
+  private implicit val dockerErrorEncoder: Encoder[DockerError] = deriveEncoder
+  private implicit val dockerErrorDecoder: Decoder[DockerError] = deriveDecoder
+
+  private implicit val dockerEitherEncoder: Encoder[Either[DockerError, DockerRunning]] =
+    Encoder.encodeEither("failed", "running")
+  private implicit val dockerEitherDecoder: Decoder[Either[DockerError, DockerRunning]] =
+    Decoder.decodeEither("failed", "running")
 
   implicit def serviceStatusEncoder[T: Encoder]: Encoder[ServiceStatus[T]] = deriveEncoder
 
