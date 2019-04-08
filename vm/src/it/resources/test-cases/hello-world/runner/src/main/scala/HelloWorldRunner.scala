@@ -14,12 +14,6 @@
  * limitations under the License.
  */
 
-import cats.{Foldable, Traverse}
-
-import scala.concurrent.duration._
-import cats.syntax.foldable._
-import cats.syntax.list._
-import cats.instances.list._
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.{ExitCode, IO, IOApp}
 import fluence.vm.VmError.InternalVmError
@@ -37,93 +31,17 @@ object HelloWorldRunner extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] = {
 
-//    val inputFile = "/home/diemust/git/fun/dice-game/backend-as/build/optimized.wasm"
-    /*val inputFiles = "/home/diemust/git/fun/llamadb/backend-submodule/target/wasm32-unknown-unknown/release/llama_db.wasm" ::
-      "/home/diemust/git/fun/signature/target/wasm32-unknown-unknown/release/signature.wasm" ::
-      "/home/diemust/git/fun/dice-game/backend-db-as/build/optimized.wasm" :: Nil*/
-    val inputFiles = "/home/diemust/.fluence/app-1-0/vmcode/vmcode/bfe4950eb8318d41bdd757d6b004f0ebc62b37203c96f0d85aad4bd71523e8cc.wasm" ::
-      "/home/diemust/.fluence/app-1-0/vmcode/vmcode/2370146677e959abbdbf1f05a39e166d157d2541ec3d829e1143c38ce6990518.wasm" ::
-      "/home/diemust/.fluence/app-1-0/vmcode/vmcode/a7cd91b3ff4f08ffe65f842a610f7d66c175cdf3046b0470eec59592dd32e3ea.wasm" :: Nil
-    val loggerFile = ""
-//    val inputFile = "/home/diemust/git/fun/dice-game/backend/target/wasm32-unknown-unknown/release/dice_game.wasm"
-//    val inputFile = "/home/diemust/git/example/build/optimized.wasm"
-
     val program: EitherT[IO, VmError, String] = for {
-//      inputFile <- EitherT(getWasmFilePath(args).attempt)
-//        .leftMap(e => InternalVmError(e.getMessage, Some(e)))
-      vm ← WasmVm[IO](
-        NonEmptyList.fromList(inputFiles).get,
-        "fluence.vm.debugger"
-      )
+      inputFile <- EitherT(getWasmFilePath(args).attempt)
+        .leftMap(e => InternalVmError(e.getMessage, Some(e)))
+      vm ← WasmVm[IO](NonEmptyList.one(inputFile), "fluence.vm.debugger")
       initState ← vm.getVmState[IO]
 
-      join = "{\"action\": \"Join\"}"
-      result1 ← vm.invoke[IO](None, join.getBytes())
-      /*_ ← vm.invoke[IO](None, join.getBytes())
-      _ ← vm.invoke[IO](None, join.getBytes())
-      _ ← vm.invoke[IO](None, join.getBytes())*/
-      _ = println(result1)
-      roll = """
-               |{
-               | "action": "Roll",
-               | "player_id": 0,
-               | "bet_placement": 2,
-               | "bet_size": 1
-               |}
-               |
-        """.stripMargin
-      randomString = "3ffcf636c9c862a952d08472832f1425b17b8a4847ef864d93edce81bd5db1e55b5140257d466a400f62008b895e27807ef22fd32dc48099f258d11931f6fee6\n0\nSELECT MAX(age) FROM users"
-      getBalance = """
-                     |{
-                     | "action": "GetBalance",
-                     | "player_id": 0
-                     |}
-                     |
-        """.stripMargin
-      result2 ← vm.invoke[IO](None, roll.getBytes())
-      _ <- vm.invoke[IO](None, join.getBytes())
-      _ <- {
-        val a: IO[IO[Unit]] = Foldable[List].foldM(List.range(0, 20000), IO.unit) {
-          case (acc, v) =>
-            for {
-//              _ <- IO.sleep(200.millis)
-              _ <- acc
-              _ <- {
-                if (v % 100 == 0) {
-                  vm.invoke[IO](None, roll.getBytes()).value.attempt
-                } else {
-                  IO.unit
-                }
-              }
-              _ <- {
-                if (v % 2000 == 0) {
-                  vm.getVmState[IO].toVmError.value.attempt
-                } else {
-                  IO.unit
-                }
-              }
-              res <- vm.invoke[IO](None, roll.getBytes()).value.attempt
-              _ = {}
-            } yield {
-              if (res.isRight && res.right.get.isRight) {
-                IO.delay(println(v + " " + new String(res.right.get.right.get)))
-              } else {
-                IO.unit
-              }
-            }
+      result1 ← vm.invoke[IO](None, "John".getBytes())
+      result2 ← vm.invoke[IO](None, "".getBytes())
+      result3 ← vm.invoke[IO](None, "Peter".getBytes())
 
-        }
-
-        val b: EitherT[IO, VmError, IO[Unit]] = EitherT.liftF(a)
-        b.map(_.attempt)
-      }
-
-      _ = println(result2)
-      result3 ← vm.invoke[IO](None, getBalance.getBytes())
-      _ ← vm.invoke[IO](None, getBalance.getBytes())
-      _ = println(result3)
       finishState <- vm.getVmState[IO].toVmError
-      _ = println("result3")
     } yield {
 
       /*
@@ -142,7 +60,6 @@ object HelloWorldRunner extends IOApp {
 
       s"[SUCCESS] Execution Results.\n" +
         s"initState=$initState \n" +
-        s"initState size=$initState \n" +
         s"result1=${new String(result1)} \n" +
         s"result2=${new String(result2)} \n" +
         s"result3=${new String(result3)} \n" +
@@ -152,7 +69,6 @@ object HelloWorldRunner extends IOApp {
     program.value.map {
       case Left(err) ⇒
         println(s"[Error]: $err cause=${err.getCause}")
-        err.printStackTrace()
         ExitCode.Error
       case Right(value) ⇒
         println(value)
