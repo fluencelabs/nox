@@ -84,7 +84,7 @@ lazy val `statemachine-control` = (project in file("statemachine/control"))
       scalaTest,
       sttp % Test,
       sttpCirce % Test,
-      sttpCats % Test
+      sttpCatsBackend % Test
     )
   )
 
@@ -163,7 +163,7 @@ lazy val sttpEitherT = (project in file("effects/sttpEitherT"))
       catsEffect,
       sttp,
       sttpFs2Backend,
-      sttpCats
+      sttpCatsBackend
     )
   )
 
@@ -186,7 +186,7 @@ lazy val swarm = (project in file("effects/swarm"))
     libraryDependencies ++= Seq(
       sttp,
       sttpCirce,
-      sttpCats % Test,
+      sttpCatsBackend % Test,
       sttpFs2Backend % Test,
       slogging,
       circeCore,
