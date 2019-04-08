@@ -91,13 +91,11 @@ lazy val `statemachine-control` = (project in file("statemachine/control"))
 lazy val statemachine = (project in file("statemachine"))
   .settings(
     commons,
+    kindProjector,
     libraryDependencies ++= Seq(
-      cats,
-      catsEffect,
       pureConfig,
       slogging,
       scodecBits,
-      sttpCatsBackend,
       "com.github.jtendermint" % "jabci"          % "0.26.0",
       scalaTest
     ),
@@ -144,7 +142,7 @@ lazy val statemachine = (project in file("statemachine"))
     }
   )
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(vm, `statemachine-control`, `tendermint-rpc`)
+  .dependsOn(vm, `statemachine-control`, `tendermint-rpc`, sttpEitherT)
 
 lazy val effects = project
   .settings(
@@ -155,6 +153,19 @@ lazy val effects = project
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
+
+lazy val sttpEitherT = (project in file("effects/sttpEitherT"))
+  .settings(
+    commons,
+    kindProjector,
+    libraryDependencies ++= Seq(
+      cats,
+      catsEffect,
+      sttp,
+      sttpFs2Backend,
+      sttpCatsBackend
+    )
+  )
 
 lazy val `ca-store` = (project in file("effects/ca-store"))
   .settings(
@@ -171,6 +182,7 @@ lazy val `ca-store` = (project in file("effects/ca-store"))
 lazy val swarm = (project in file("effects/swarm"))
   .settings(
     commons,
+    kindProjector,
     libraryDependencies ++= Seq(
       sttp,
       sttpCirce,
@@ -188,22 +200,24 @@ lazy val swarm = (project in file("effects/swarm"))
       scalaTest
     )
   )
-  .dependsOn(`ca-store`)
+  .dependsOn(`ca-store`, sttpEitherT % "test->test;compile->compile")
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val ipfs = (project in file("effects/ipfs"))
   .settings(
     commons,
+    kindProjector,
     libraryDependencies ++= Seq(
       sttp,
+      sttpCirce,
+      circeGeneric,
       slogging,
       scodecBits,
       scodecCore,
-      sttpFs2Backend % Test,
       scalaTest
     )
   )
-  .dependsOn(`ca-store`)
+  .dependsOn(`ca-store`, sttpEitherT % "test->test;compile->compile")
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val ethclient = (project in file("effects/ethclient"))
@@ -248,6 +262,7 @@ lazy val `dockerio` = (project in file("effects/docker"))
 lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
   .settings(
     commons,
+    kindProjector,
     libraryDependencies ++= Seq(
       sttp,
       circeGeneric,
@@ -266,9 +281,6 @@ lazy val node = project
     commons,
     kindProjector,
     libraryDependencies ++= Seq(
-      catsEffect,
-      sttp,
-      sttpFs2Backend,
       fs2io,
       ficus,
       circeGeneric,
@@ -336,4 +348,4 @@ lazy val node = project
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(ethclient, swarm, ipfs, `statemachine-control`, `kvstore`, `dockerio`, `tendermint-rpc`)
+  .dependsOn(ethclient, swarm, ipfs, `statemachine-control`, `kvstore`, `dockerio`, `tendermint-rpc`, sttpEitherT)

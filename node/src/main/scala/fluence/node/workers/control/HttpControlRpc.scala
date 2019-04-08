@@ -34,8 +34,9 @@ import scala.language.higherKinds
  * @param hostname Hostname to send requests
  * @param port Port to send requests
  */
-class HttpControlRpc[F[_]: Sync](hostname: String, port: Short)(implicit s: SttpBackend[F, Nothing])
-    extends ControlRpc[F] {
+class HttpControlRpc[F[_]: Sync](hostname: String, port: Short)(
+  implicit s: SttpBackend[EitherT[F, Throwable, ?], Nothing]
+) extends ControlRpc[F] {
 
   /**
    * Send a serializable request to the worker's control endpoint
@@ -43,14 +44,18 @@ class HttpControlRpc[F[_]: Sync](hostname: String, port: Short)(implicit s: Sttp
    * @param request Control RPC request
    * @param path Control RPC path
    */
-  private def send[Req: Encoder](request: Req, path: String): EitherT[F, Throwable, String] =
-    EitherT(
-      sttp
+  private def send[Req: Encoder](request: Req, path: String): EitherT[F, Throwable, String] = {
+    for {
+      rawResponse <- sttp
         .body(request)
         .post(uri"http://$hostname:$port/control/$path")
         .send()
         .map(_.body)
-    ).leftMap(msg => new Exception(s"Error sending $request: $msg"): Throwable)
+      response <- EitherT
+        .fromEither(rawResponse)
+        .leftMap(msg => new Exception(s"Error sending $request: $msg"): Throwable)
+    } yield response
+  }
 
   override def dropPeer(key: ByteVector): F[Unit] =
     // TODO handle errors properly

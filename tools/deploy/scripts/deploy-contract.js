@@ -74,8 +74,8 @@ signedTxP.then(rawTx => {
                 console.log(receipt.contractAddress);
             } else {
                 console.log("CONTRACT ADDRESS IS NULL")
-                process.exit(1);
             }
+            process.exit(1);
         })
     })
 }).catch(e => {
