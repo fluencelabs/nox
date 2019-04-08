@@ -1,5 +1,5 @@
 import contract from '../../../fluence/contract';
-import {checkLogs, DeployableApp, send, txParams, deployableApps} from "../../../fluence/deployable";
+import {checkLogs, DeployableApp, send, txParams, deployableApps, DeployedAppState} from "../../../fluence/deployable";
 import {privateKey} from "../../../constants";
 import {Action, Dispatch} from "redux";
 import Cookies from 'js-cookie';
@@ -33,26 +33,26 @@ export const deploy = (app: DeployableApp, appTypeId: string) => {
             return dispatch({type: DEPLOY_TX_REVERTED});
         }
 
-        let [type, appId] = checkLogs(receipt);
+        let deployStatus = checkLogs(receipt);
 
         Cookies.remove('deployedAppId');
         Cookies.remove('deployedAppTypeId');
-        Cookies.set('deployedAppId', String(appId), { expires: 365 });
+        Cookies.set('deployedAppId', String(deployStatus.appId), { expires: 365 });
         Cookies.set('deployedAppTypeId', String(appTypeId), { expires: 365 });
 
-        if (type == APP_DEPLOYED) {
+        if (deployStatus.state == DeployedAppState.Deployed) {
             dispatch({type: DEPLOY_STATE_CLUSTER_CHECK, note: 'retrieving app'});
-            const app = await getApp(contract, String(appId));
+            const deployedApp = await getApp(contract, String(deployStatus.appId));
 
             dispatch({type: DEPLOY_STATE_CLUSTER_CHECK, note: 'retrieving nodes'});
             const nodes = await Promise.all(
-                app.cluster.get.node_ids.map(nodeId => getNode(contract, nodeId))
+                deployedApp.cluster.get.node_ids.map(nodeId => getNode(contract, nodeId))
             );
 
             dispatch({type: DEPLOY_STATE_CLUSTER_CHECK, note: 'checking deploy status'});
             const checkCluster = async () => {
                 const nodesAppStatus = await Promise.all(
-                    nodes.map(node => getNodeAppStatus(node, String(appId)))
+                    nodes.map(node => getNodeAppStatus(node, String(deployStatus.appId)))
                 );
                 let nodesCount = nodesAppStatus.length;
                 let readyNodes = 0;
@@ -74,13 +74,20 @@ export const deploy = (app: DeployableApp, appTypeId: string) => {
             };
 
             await checkCluster();
-        } else if (type == APP_ENQUEUED) {
+
+            return dispatch({
+                type: APP_DEPLOYED,
+                appId: deployStatus.appId,
+                app: app,
+                trxHash: receipt.transactionHash
+            });
+        } else if (deployStatus.state == DeployedAppState.Enqueued) {
             return dispatch({type: DEPLOY_STATE_ENQUEUED});
         }
 
         return dispatch({
-            type: type,
-            appId: appId,
+            type: APP_DEPLOY_FAILED,
+            appId: deployStatus.appId,
             app: app,
             trxHash: receipt.transactionHash
         });
