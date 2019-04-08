@@ -17,7 +17,7 @@
 package fluence.node
 
 import java.nio.ByteBuffer
-import java.nio.file.Files
+import java.nio.file.{Files, Paths}
 import java.util.Base64
 
 import cats.effect._
@@ -28,8 +28,9 @@ import com.softwaremill.sttp.{SttpBackend, _}
 import fluence.effects.docker.DockerIO
 import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.status.{MasterStatus, StatusAggregator}
+import fluence.node.workers.DockerWorkersPool
 import fluence.node.workers.tendermint.ValidatorKey
-import org.scalatest.{Timer => _, _}
+import org.scalatest.{Timer ⇒ _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 
@@ -87,8 +88,11 @@ class MasterNodeSpec
         node ← {
           implicit val s = sttpB
           implicit val d = dockerIO
+          DockerWorkersPool
+            .make(masterConf.ports.minPort, masterConf.ports.maxPort, Paths.get(masterConf.rootPath)).flatMap(
           MasterNode
-            .make[IO, IO.Par](masterConf, nodeConf, Files.createTempDirectory("masternodespec"))
+            .make[IO, IO.Par](masterConf, nodeConf, _)
+          )
         }
         agg ← StatusAggregator.make(masterConf, node)
       _ ← MasterHttp.make("127.0.0.1", 5678, agg, node.pool)

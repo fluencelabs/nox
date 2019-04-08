@@ -93,7 +93,7 @@ class AbciService[F[_]: Monad](
           state ⇒
             QueryResponse(
               state.height,
-              Array[Byte](),
+              Array.emptyByteArray,
               Codes.NotFound,
               s"Cannot parse query path: $path, must be in `sessionId/nonce` format"
           )
@@ -111,14 +111,14 @@ class AbciService[F[_]: Monad](
               if (st.sessions.data.get(head.session).exists(_.nextNonce <= head.nonce))
                 QueryResponse(
                   st.height,
-                  Array[Byte](),
+                  Array.emptyByteArray,
                   Codes.Pending,
                   s"Transaction is not yet processed: $path"
                 )
               else
                 QueryResponse(
                   st.height,
-                  Array[Byte](),
+                  Array.emptyByteArray,
                   Codes.NotFound,
                   s"No response found for path: $path"
                 )
