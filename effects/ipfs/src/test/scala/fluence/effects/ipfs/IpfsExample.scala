@@ -29,7 +29,10 @@ import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-object TestMain extends App {
+/**
+ * Example to check IPFS interaction.
+ */
+object IpfsExample extends App {
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
@@ -45,12 +48,10 @@ object TestMain extends App {
     .get
     .collect {
       case bb =>
-        val a = ByteVector(bb).decodeUtf8
-        println(a)
-        a
+        ByteVector(bb).decodeUtf8
     }
     .compile
-    .drain
+    .toList
     .unsafeRunSync()
   println("file response = " + res1)
 

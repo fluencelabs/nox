@@ -39,7 +39,7 @@ abstract class ContentAddressableStore[F[_]](
   def fetch(hash: ByteVector): EitherT[F, StoreError, fs2.Stream[F, ByteBuffer]]
 
   /**
-   * Returns hash of files from directory.
+   * Returns hash of files from a directory.
    * If hash belongs to file, returns the same hash.
    *
    * @param hash Content's hash

@@ -45,19 +45,6 @@ object ResponseOps {
   }
 }
 
-case class FileManifest(Name: String, Hash: String, Size: Int, Type: Int)
-case class IpfsObject(Hash: String, Links: List[FileManifest])
-case class IpfsLs(Objects: List[IpfsObject])
-
-object IpfsLs {
-  implicit val encodeFileManifest: Encoder[FileManifest] = deriveEncoder
-  implicit val decodeFileManifest: Decoder[FileManifest] = deriveDecoder
-  implicit val encodeIpfsObject: Encoder[IpfsObject] = deriveEncoder
-  implicit val decodeIpfsObject: Decoder[IpfsObject] = deriveDecoder
-  implicit val encodeIpfsLs: Encoder[IpfsLs] = deriveEncoder
-  implicit val decodeIpfsLs: Decoder[IpfsLs] = deriveDecoder
-}
-
 /**
  * Implementation of IPFS downloading mechanism
  *
@@ -69,7 +56,7 @@ class IpfsStore[F[_]](ipfsUri: Uri)(
   backoff: Backoff[IpfsError] = Backoff.default
 ) extends ContentAddressableStore[F] with slogging.LazyLogging {
 
-  import IpfsLs._
+  import IpfsLsResponse._
 
   object Multihash {
     // https://github.com/multiformats/multicodec/blob/master/table.csv
@@ -105,12 +92,12 @@ class IpfsStore[F[_]](ipfsUri: Uri)(
       .leftMap(identity[StoreError])
   }
 
-  private def lsRaw(hash: ByteVector): EitherT[F, StoreError, IpfsLs] = {
+  private def lsRaw(hash: ByteVector): EitherT[F, StoreError, IpfsLsResponse] = {
     val address = toAddress(hash)
     val uri = LsUri.param("arg", address)
     logger.debug(s"IPFS `ls` started $uri")
     sttp
-      .response(asJson[IpfsLs])
+      .response(asJson[IpfsLsResponse])
       .get(uri)
       .send()
       .toEitherT { er =>

@@ -50,7 +50,7 @@ import scala.language.higherKinds
  */
 class SwarmClient[F[_]](swarmUri: Uri)(
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
-  F: cats.MonadError[F, Throwable],
+  F: cats.Monad[F],
   hasher: Hasher[ByteVector, ByteVector]
 ) extends slogging.LazyLogging {
 

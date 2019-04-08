@@ -31,6 +31,9 @@ import cats.~>
 import com.softwaremill.sttp.asynchttpclient.fs2.AsyncHttpClientFs2Backend
 import com.softwaremill.sttp.impl.cats.implicits._
 
+/**
+ * Async sttp backend that will return EitherT.
+ */
 object EitherTSttpBackend {
 
   def apply[F[_]: ConcurrentEffect](): SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]] = {
@@ -51,6 +54,9 @@ object EitherTSttpBackend {
   }
 }
 
+/**
+ * sttp MonadError for EitherT
+ */
 class EitherTMonad[F[_]](implicit F: Monad[F]) extends ME[EitherT[F, Throwable, ?]] {
   type R[T] = EitherT[F, Throwable, T]
 

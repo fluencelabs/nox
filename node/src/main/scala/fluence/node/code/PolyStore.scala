@@ -55,6 +55,11 @@ class PolyStore[F[_]: Sync: ContextShift](
       )
   }
 
+  /**
+   * Returns hash of files from a directory.
+   * If hash belongs to file, returns the same hash.
+   *
+   */
   def ls(ref: StorageRef): EitherT[F, StoreError, List[ByteVector]] = {
     selector(ref.storageType).ls(ref.storageHash)
   }
