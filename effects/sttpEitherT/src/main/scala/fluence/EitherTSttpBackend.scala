@@ -27,7 +27,6 @@ import com.softwaremill.sttp.{MonadError => ME, _}
 
 import scala.language.{higherKinds, implicitConversions}
 import com.softwaremill.sttp.SttpBackend
-import cats.~>
 import com.softwaremill.sttp.asynchttpclient.fs2.AsyncHttpClientFs2Backend
 import com.softwaremill.sttp.impl.cats.implicits._
 
@@ -41,7 +40,7 @@ object EitherTSttpBackend {
 
     val eitherTArrow: F ~> EitherT[F, Throwable, ?] = new FunctionK[F, EitherT[F, Throwable, ?]] {
       override def apply[A](fa: F[A]): EitherT[F, Throwable, A] = {
-        EitherT.liftF(fa)
+        EitherT(fa.attempt)
       }
     }
 
