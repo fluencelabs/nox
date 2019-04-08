@@ -26,16 +26,10 @@ import cats.implicits._
 import com.softwaremill.sttp.{MonadError => ME, _}
 
 import scala.language.{higherKinds, implicitConversions}
-import com.softwaremill.sttp.{Request, Response, SttpBackend}
+import com.softwaremill.sttp.SttpBackend
 import cats.~>
 import com.softwaremill.sttp.asynchttpclient.fs2.AsyncHttpClientFs2Backend
-import fluence.MappedKSttpBackend.MappableSttpBackend
-
-object MappedKSttpBackend {
-  implicit class MappableSttpBackend[R[_], -S](val sttpBackend: SttpBackend[R, S]) extends AnyVal {
-    def mapK[G[_]: ME](f: R ~> G): SttpBackend[G, S] = new MappedKSttpBackend(sttpBackend, f, implicitly)
-  }
-}
+import com.softwaremill.sttp.impl.cats.implicits._
 
 object EitherTSttpBackend {
 
@@ -51,20 +45,10 @@ object EitherTSttpBackend {
     implicit val me: EitherTMonad[F] = new EitherTMonad[F]()
 
     val eitherTSttp: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]] =
-      new MappableSttpBackend[F, fs2.Stream[F, ByteBuffer]](sttp).mapK(eitherTArrow)
+      sttp.mapK(eitherTArrow)
 
     eitherTSttp
   }
-}
-
-private final class MappedKSttpBackend[F[_], -S, G[_]](
-  wrapped: SttpBackend[F, S],
-  mapping: F ~> G,
-  val responseMonad: ME[G]
-) extends SttpBackend[G, S] {
-  def send[T](request: Request[T, S]): G[Response[T]] = mapping(wrapped.send(request))
-
-  def close(): Unit = wrapped.close()
 }
 
 class EitherTMonad[F[_]](implicit F: Monad[F]) extends ME[EitherT[F, Throwable, ?]] {
