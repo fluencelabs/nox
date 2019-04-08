@@ -27,8 +27,6 @@ import fluence.effects.castore.{ContentAddressableStore, StoreError}
 import fluence.effects.ipfs.ResponseOps._
 import scodec.bits.ByteVector
 import com.softwaremill.sttp.circe.asJson
-import io.circe.{Decoder, Encoder}
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
 import scala.language.higherKinds
 
@@ -76,43 +74,49 @@ class IpfsStore[F[_]](ipfsUri: Uri)(
   override def fetch(hash: ByteVector): EitherT[F, StoreError, fs2.Stream[F, ByteBuffer]] = {
     val address = toAddress(hash)
     val uri = CatUri.param("arg", address)
-    logger.debug(s"IPFS download started $uri")
-    sttp
+    for {
+      _ <- EitherT.pure(logger.debug(s"IPFS download started $uri"))
+      response <- sttp
       .response(asStream[fs2.Stream[F, ByteBuffer]])
       .get(uri)
       .send()
       .toEitherT { er =>
         val errorMessage = s"IPFS download error $uri: $er"
         IpfsError(errorMessage)
-      }
-      .map { r =>
-        logger.debug(s"IPFS download finished $uri")
-        r
-      }
-      .leftMap(identity[StoreError])
+        }
+        .map { r =>
+          logger.debug(s"IPFS download finished $uri")
+          r
+        }
+        .leftMap(identity[StoreError])
+    } yield response
+
   }
 
   private def lsRaw(hash: ByteVector): EitherT[F, StoreError, IpfsLsResponse] = {
     val address = toAddress(hash)
     val uri = LsUri.param("arg", address)
-    logger.debug(s"IPFS `ls` started $uri")
-    sttp
+    for {
+      _ <- EitherT.pure(logger.debug(s"IPFS `ls` started $uri"))
+      response <- sttp
       .response(asJson[IpfsLsResponse])
       .get(uri)
       .send()
       .toEitherT { er =>
-        val errorMessage = s"IPFS 'ls' error $uri: $er"
+        val errorMessage = s"IPFimport cats.syntax.apply._S 'ls' error $uri: $er"
         IpfsError(errorMessage)
-      }
-      .subflatMap(_.left.map { er =>
-        logger.error(s"Deserialization error: $er")
-        IpfsError(s"IPFS 'ls' deserialization error $uri.", Some(er.error))
-      })
-      .map { r =>
-        logger.debug(s"IPFS 'ls' finished $uri")
-        r
-      }
-      .leftMap(identity[StoreError])
+        }
+        .subflatMap(_.left.map { er =>
+          logger.error(s"Deserialization error: $er")
+          IpfsError(s"IPFS 'ls' deserialization error $uri.", Some(er.error))
+        })
+        .map { r =>
+          logger.debug(s"IPFS 'ls' finished $uri")
+          r
+        }
+        .leftMap(identity[StoreError])
+    } yield response
+
   }
 
   private def assert(test: Boolean, error: IpfsError): EitherT[F, StoreError, Unit] = {
@@ -130,7 +134,7 @@ class IpfsStore[F[_]](ipfsUri: Uri)(
       rawResponse <- lsRaw(hash)
       _ <- assert(
         rawResponse.Objects.size == 1,
-        IpfsError(s"One Object should be in IPFS response. Response: $rawResponse")
+        IpfsError(s"Expected a single object, got ${rawResponse.Objects.size}. Response: $rawResponse")
       )
       rawHashes = {
         val headObject = rawResponse.Objects.head
@@ -140,10 +144,10 @@ class IpfsStore[F[_]](ipfsUri: Uri)(
       hashes <- rawHashes.map { h =>
         EitherT
           .fromEither[F](fromAddress(h))
-          .leftMap(err => IpfsError(s"Cannot parse '$h' hex: $err").asInstanceOf[StoreError])
+          .leftMap(err => IpfsError(s"Cannot parse '$h' hex: $err"): StoreError)
       }.sequence
     } yield {
-      logger.debug("List of file hashes: " + hashes)
+      logger.debug(s"IPFS 'ls' hashes: ${hashes.mkString(" ")}")
       hashes
     }
 }
