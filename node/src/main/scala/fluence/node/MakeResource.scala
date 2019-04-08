@@ -105,6 +105,13 @@ object MakeResource extends LazyLogging {
             queue.enqueue1(Some(fn))
       }
 
+  /**
+   * Uses the resource concurrently in a separate fiber, until the given F[Unit] resolves.
+   *
+   * @param resource release use => resource
+   * @tparam F Effect
+   * @return Delayed action of using the resource
+   */
   def useConcurrently[F[_]: Concurrent](resource: F[Unit] ⇒ Resource[F, _]): F[Unit] =
     for {
       completeDef ← Deferred[F, Unit]

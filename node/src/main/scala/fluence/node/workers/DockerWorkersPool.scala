@@ -66,6 +66,11 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
     } yield (healthy, oldWorker)
   }
 
+  /**
+   * For the given Worker, registers it in the pool on acquire and removes on release
+   *
+   * @param worker Worker to register in the pool
+   */
   private def registeredWorker(worker: Worker[F]): Resource[F, Unit] =
     Resource
       .make(
@@ -74,6 +79,15 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
       )(_ ⇒ workers.update(_ - worker.appId) *> Sync[F].delay(logger.info(s"Removing worker ($worker) from the pool")))
       .void
 
+  /**
+   * Prepares the worker resource with all the necessary bindings and lifecycle events
+   *
+   * @param onStop Should release the use of this resource
+   * @param params Prepare WorkerParams; could be an expensive operation
+   * @param p2pPort P2p port
+   * @param stopTimeout Docker stop timeout
+   * @return Worker resource to be used
+   */
   private def workerResource(
     onStop: F[Unit],
     params: F[WorkerParams],
@@ -81,8 +95,10 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
     stopTimeout: Int
   ): Resource[F, Worker[F]] =
     for {
+      // Order events in the Worker context
       exec ← MakeResource.orderedEffects[F]
 
+      // Prepare WorkerParams in the Worker context
       ps ← Resource.liftF(
         for {
           ds ← Deferred[F, WorkerParams]
@@ -104,7 +120,10 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
         onRemove = ports.free(ps.appId).value.void
       )
 
+      // Once the worker is created, run background job to connect it to all the peers
       _ ← WorkerP2pConnectivity.make(worker, ps.app.cluster.workers)
+
+      // Finally, register the worker in the pool
       _ ← registeredWorker(worker)
 
     } yield worker

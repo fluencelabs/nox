@@ -92,6 +92,18 @@ object WorkerP2pConnectivity extends LazyLogging {
       }
     )
 
+  /**
+   * Ping peers to get theirs p2p port for the app, then pass that port to Worker's TendermintRPC to dial.
+   * Works in background until all peers responded. Stops the background job on resource release.
+   *
+   * @param worker Local worker, App cluster participant
+   * @param peers All the other peers to form the cluster
+   * @param backoff Retry policy for exponential backoff in reties
+   * @param P Parallelize request to pings
+   * @param sttpBackend Used to perform http requests
+   * @tparam F Concurrent to make a fiber so that you can cancel the joining job, Timer to make retries
+   * @tparam G F.Par
+   */
   def make[F[_]: Concurrent: Timer, G[_]](
     worker: Worker[F],
     peers: Vector[WorkerPeer],
