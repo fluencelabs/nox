@@ -52,10 +52,10 @@ env.user = "root"
 env.output_prefix = True
 
 # Linux
-RELEASE = "https://github.com/fluencelabs/fluence/releases/download/v0.1.5/fluence-cli-0.1.5-linux-x64"
+RELEASE = "https://github.com/fluencelabs/fluence/releases/download/v0.1.6/fluence-cli-0.1.6-linux-x64"
 
 # macOS
-# RELEASE = "https://github.com/fluencelabs/fluence/releases/download/v0.1.5/fluence-cli-0.1.5-mac-x64"
+# RELEASE = "https://github.com/fluencelabs/fluence/releases/download/v0.1.6/fluence-cli-0.1.6-mac-x64"
 
 
 # copies all necessary files for deploying

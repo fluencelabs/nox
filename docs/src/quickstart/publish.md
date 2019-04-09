@@ -1,22 +1,22 @@
 # Publishing the backend app
 
-In the Fluence network, applications are deployed by uploading WebAssembly code to Swarm, and publishing hashes of the uploaded code to the Fluence smart contract.
+In the Fluence network, applications are deployed by uploading WebAssembly code to IPFS, and publishing hashes of the uploaded code to the Fluence smart contract.
 
 It is also possible to specify the desired cluster size, which sets the required number of real-time workers in the cluster hosting the application. Note that the application might wait in the queue until there are enough free workers to form a cluster of the desired size.
 
-## Connecting to Swarm and Ethereum Rinkeby nodes
+## Connecting to IPFS and Ethereum Rinkeby nodes
 
 To make sure we're on the same page:
 
-- Swarm is a decentralized file storage
+- IPFS is a decentralized file storage
 - Ethereum Rinkeby is one of Ethereum testnets, which works with toy money
 - Fluence smart contract is what rules the Fluence network
 
-To upload the application code to Swarm, you need to have access to one of Swarm nodes. The same with Ethereum: you need access to any Ethereum node running Rinkeby testnet.
+To upload the application code to IPFS, you need to have access to one of IPFS nodes. The same with Ethereum: you need access to any Ethereum node running Rinkeby testnet.
 
-For your convenience and to make this guide simpler, we use Ethereum and Swarm nodes set up by Fluence Labs, but you can use any other nodes if you wish.
+For your convenience and to make this guide simpler, we use Ethereum and IPFS nodes set up by Fluence Labs, but you can use any other nodes if you wish.
 
-**WARNING! This is not a secure way to connect to Ethereum or Swarm.**  
+**WARNING! This is not a secure way to connect to Ethereum or IPFS.**  
 It should not be used in production or in a security-sensitive context.
 
 ## Registering an Ethereum Rinkeby account
@@ -44,12 +44,12 @@ You can download the CLI from the [releases](https://github.com/fluencelabs/flue
 
 **Linux**
 ```bash
-curl -L https://github.com/fluencelabs/fluence/releases/download/v0.1.5/fluence-cli-0.1.5-linux-x64 -o fluence
+curl -L https://github.com/fluencelabs/fluence/releases/download/v0.1.6/fluence-cli-0.1.6-linux-x64 -o fluence
 ```
 
 **macOS**
 ```bash
-curl -L https://github.com/fluencelabs/fluence/releases/download/v0.1.5/fluence-cli-0.1.5-mac-x64 -o fluence
+curl -L https://github.com/fluencelabs/fluence/releases/download/v0.1.6/fluence-cli-0.1.6-mac-x64 -o fluence
 
 ```
 
@@ -59,11 +59,11 @@ chmod +x ./fluence
 
 # check that the CLI is working
 ./fluence --version
-Fluence CLI 0.1.5
+Fluence CLI 0.1.6
 ```
 
 ## Publishing the application with the Fluence CLI
-As we have already mentioned, you need to have access to the Ethereum Rinkeby and Swarm networks. You can either use Ethereum and Swarm nodes set up by Fluence Labs, or specify other nodes by providing their URIs using `--eth_url` and `--storage_url` options.
+As we have already mentioned, you need to have access to the Ethereum Rinkeby and IPFS networks. You can either use Ethereum and IPFS nodes set up by Fluence Labs, or specify other nodes by providing their URIs using `--eth_url` and `--storage_url` options.
 
 You also need a Rinkeby account with some money on it (you can [get Ethers from faucet](https://faucet.rinkeby.io/)) and its private key, which can either be a hex string or a [Keystore file](../cli.md#keystore-json-file).
 
@@ -72,9 +72,9 @@ To interact with the Fluence CLI, we will set it up first:
 ```bash
 ./fluence setup
 ```
-This command will ask you to enter the Fluence contract address, Swarm and Ethereum node addresses, and, finally, your account credentials. It will create the config file which will be used by the CLI tool in the future.
+This command will ask you to enter the Fluence contract address, IPFS and Ethereum node addresses, and, finally, your account credentials. It will create the config file which will be used by the CLI tool in the future.
 
-By default, Swarm and Ethereum nodes controlled by Fluence Labs will be used. Note that you need to provide either the secret key **or** the Keystore file path + password to be able to send transactions to Ethereum.
+By default, IPFS and Ethereum nodes controlled by Fluence Labs will be used. Note that you need to provide either the secret key **or** the Keystore file path + password to be able to send transactions to Ethereum.
 
 Having all that, now you are ready to publish your application:
 
@@ -90,7 +90,7 @@ Having all that, now you are ready to publish your application:
 Once the command completes, you should see an output similar to the following:
 ```bash
 [1/3]   Application code uploaded. ---> [00:00:00]
-swarm hash: 0xf5c604478031e9a658551220da3af1f086965b257e7375bbb005e0458c805874
+IPFS hash: 0xf5c604478031e9a658551220da3af1f086965b257e7375bbb005e0458c805874
 [2/3]   Transaction publishing app was sent. ---> [00:00:03]
   tx hash: 0x5552ee8f136bce0b020950676d84af00e4016490b8ee8b1c51780546ad6016b7
 [3/3]   Transaction was included. ---> [00:02:38]
@@ -101,52 +101,23 @@ App deployed.
 
 
 ## Verifying the application status
-To check the state of your application – for example, which nodes it was deployed to, run:
-```bash
-./fluence status \
-            --app_id           <your app id here>
-```
+To check the state of your application – for example, which nodes it was deployed to, go to the [dashboard](http://dash.fluence.network), and find your app in the apps list:
 
-The output will be in JSON, and should look similar to the following:
-```json
-{
-  "apps": [
-    {
-      "app_id": "<your app id here>",
-      "storage_hash": "<swarm hash>",
-      "storage_receipt": "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "cluster_size": 4,
-      "owner": "<your ethereum address>",
-      "pin_to_nodes": [],
-      "cluster": {
-        "genesis_time": 1549353504,
-        "node_ids": [
-          "0x5ed7aaada4bd800cd4f5b440f36ccece9c9e4542f9808ea6bfa45f84b8198185",
-          "0xb557bb40febb7484393c1c99263b763d1caf6b6c83bc0a9fd6c084d2982af763",
-          "0xac72ccc7886457c3f7da048e184b8b8a43f99c77950e7bb635b6cb3aeb3869fe",
-          "0x9251dd451f4bd9f412173cc21279afc8d885312eb1c21828134ba9095da8306b",
-        ]
-      }
-    }
-  ],
-  "nodes": [
-    {
-      "validator_key": "0x5ed7a87da4bd800cd4f5b440f36ccece9c9e4542f9808ea6bfa45f84b8198185",
-      "tendermint_p2p_id": "0x6c03a3fe792314f100ac8088a161f70bd7d257b1",
-      "ip_addr": "43.32.21.10",
-      "api_port": 25000,
-      "capacity": 10,
-      "owner": "0x5902720e872fb2b0cd4402c69d6d43c86e973db7",
-      "is_private": false,
-      "app_ids": [
-        1,
-        2,
-        6
-      ]
-    },
-    "<3 more nodes here>"
-  ]
-}
-```
+<div style="text-align:center">
+<kbd>
+<img src="../images/apps.png" width="544px"/>
+</kbd>
+<br><br><br>
+</div>
 
-The backend application should be successfully deployed now!
+Click on your app, you will see it's status:
+<div style="text-align:center">
+<kbd>
+<img src="../images/app_status.png" width="544px"/>
+</kbd>
+<br><br><br>
+</div>
+
+Press on the `Check cluster` button, and after a while green boxes with a number on it will appear. That is the height of your app's Tendermint blockchain. 
+
+For a healthy cluster, it should be bigger than 1, that means that application was started successfully, and ready to work! 
