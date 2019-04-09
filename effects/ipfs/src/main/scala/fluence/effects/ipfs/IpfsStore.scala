@@ -138,7 +138,7 @@ class IpfsStore[F[_]](ipfsUri: Uri)(
       )
       rawHashes = {
         val headObject = rawResponse.Objects.head
-        if (headObject.Hash.nonEmpty || headObject.Links.isEmpty) List(headObject.Hash)
+        if (headObject.Links.forall(_.Name.isEmpty)) List(headObject.Hash)
         else headObject.Links.map(_.Hash)
       }
       hashes <- rawHashes.map { h =>
