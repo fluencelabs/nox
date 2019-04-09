@@ -110,7 +110,7 @@ export function checkLogs(receipt: TransactionReceipt): DeployedApp {
     } else if (deployed != undefined) {
         console.log("App deployed with appID = " + deployed.args.appID);
         return {
-            state: DeployedAppState.Enqueued,
+            state: DeployedAppState.Deployed,
             appId: deployed.args.appID
         };
     }
