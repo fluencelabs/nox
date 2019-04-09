@@ -59,7 +59,7 @@ chmod +x ./fluence
 
 # check that the CLI is working
 ./fluence --version
-Fluence CLI 0.1.5
+Fluence CLI 0.1.6
 ```
 
 ## Publishing the application with the Fluence CLI
@@ -101,52 +101,23 @@ App deployed.
 
 
 ## Verifying the application status
-To check the state of your application – for example, which nodes it was deployed to, run:
-```bash
-./fluence status \
-            --app_id           <your app id here>
-```
+To check the state of your application – for example, which nodes it was deployed to, go to the [dashboard](http://dash.fluence.network), and find your app in the apps list:
 
-The output will be in JSON, and should look similar to the following:
-```json
-{
-  "apps": [
-    {
-      "app_id": "<your app id here>",
-      "storage_hash": "<ipfs hash>",
-      "storage_receipt": "0x0000000000000000000000000000000000000000000000000000000000000000",
-      "cluster_size": 4,
-      "owner": "<your ethereum address>",
-      "pin_to_nodes": [],
-      "cluster": {
-        "genesis_time": 1549353504,
-        "node_ids": [
-          "0x5ed7aaada4bd800cd4f5b440f36ccece9c9e4542f9808ea6bfa45f84b8198185",
-          "0xb557bb40febb7484393c1c99263b763d1caf6b6c83bc0a9fd6c084d2982af763",
-          "0xac72ccc7886457c3f7da048e184b8b8a43f99c77950e7bb635b6cb3aeb3869fe",
-          "0x9251dd451f4bd9f412173cc21279afc8d885312eb1c21828134ba9095da8306b",
-        ]
-      }
-    }
-  ],
-  "nodes": [
-    {
-      "validator_key": "0x5ed7a87da4bd800cd4f5b440f36ccece9c9e4542f9808ea6bfa45f84b8198185",
-      "tendermint_p2p_id": "0x6c03a3fe792314f100ac8088a161f70bd7d257b1",
-      "ip_addr": "43.32.21.10",
-      "api_port": 25000,
-      "capacity": 10,
-      "owner": "0x5902720e872fb2b0cd4402c69d6d43c86e973db7",
-      "is_private": false,
-      "app_ids": [
-        1,
-        2,
-        6
-      ]
-    },
-    "<3 more nodes here>"
-  ]
-}
-```
+<div style="text-align:center">
+<kbd>
+<img src="../images/apps.png" width="544px"/>
+</kbd>
+<br><br><br>
+</div>
 
-The backend application should be successfully deployed now!
+Click on your app, you will see it's status:
+<div style="text-align:center">
+<kbd>
+<img src="../images/app_status.png" width="544px"/>
+</kbd>
+<br><br><br>
+</div>
+
+Press on the `Check cluster` button, and after a while green boxes with a number on it will appear. That is the height of your app's Tendermint blockchain. 
+
+For a healthy cluster, it should be bigger than 1, that means that application was started successfully, and ready to work! 
