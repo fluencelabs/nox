@@ -101,7 +101,7 @@ fluence.connect(contract, appId, ethereumUrl, privateKey).then((s) => {
 });`}
                             </pre>
                             <p>Execute some queries:</p>
-                            <pre> {`session.request("CREATE TABLE users(id int, name varchar(128), age int)");
+                            <pre>{`session.request("CREATE TABLE users(id int, name varchar(128), age int)");
 session.request("INSERT INTO users VALUES(1, 'Sara', 23)");
 session.request("INSERT INTO users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 27)");
 session.request("SELECT AVG(age) FROM users").result().then((r) => {
