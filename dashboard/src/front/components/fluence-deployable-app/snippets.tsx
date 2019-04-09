@@ -1,7 +1,7 @@
 import * as React from 'react';
 import {connect} from 'react-redux';
 import {DeployableApp} from "../../../fluence/deployable";
-import {defaultContractAddress, llamaPrivateKey} from "../../../constants";
+import {defaultContractAddress, fluenceLightNodeAddr, llamaPrivateKey} from "../../../constants";
 import {displayLoading, hideLoading, retrieveApp,} from '../../actions';
 import FluenceCluster from '../fluence-cluster';
 import {App, AppId} from "../../../fluence";
@@ -93,7 +93,7 @@ class Snippets extends React.Component<Props, State> {
                             <pre>{`let privateKey = "${llamaPrivateKey}"; // Authorization private key
 let contract = "${defaultContractAddress}";                         // Fluence contract address
 let appId = ${this.props.appId};                                                                      // Deployed database id
-let ethereumUrl = "http://data.fluence.one:8545";                                    // Ethereum light node URL
+let ethereumUrl = "${fluenceLightNodeAddr}";                                    // Ethereum light node URL
 
 fluence.connect(contract, appId, ethereumUrl, privateKey).then((s) => {
     console.log("Session created");
