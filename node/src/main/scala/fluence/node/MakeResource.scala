@@ -78,4 +78,49 @@ object MakeResource extends LazyLogging {
    */
   def refOf[F[_]: Sync, T](initial: T): Resource[F, Ref[F, T]] =
     Resource.liftF(Ref.of(initial))
+
+  /**
+   * Order effects execution in the resource scope using a queue
+   *
+   * @tparam F Effect
+   * @return (F[Unit] to execute) => F[Unit] to schedule, so that execution itself is non-blocking
+   */
+  def orderedEffects[F[_]: Concurrent]: Resource[F, F[Unit] ⇒ F[Unit]] =
+    Resource
+      .make(
+        for {
+          queue ← fs2.concurrent.Queue.noneTerminated[F, F[Unit]]
+          fiber ← Concurrent[F].start(
+            queue.dequeue.evalMap(identity).compile.drain
+          )
+        } yield (queue, fiber)
+      ) {
+        case (queue, fiber) ⇒
+          // Terminate queue by submitting none, and wait until it stops
+          queue.enqueue1(None) >> fiber.join
+      }
+      .map {
+        case (queue, _) ⇒
+          (fn: F[Unit]) ⇒
+            queue.enqueue1(Some(fn))
+      }
+
+  /**
+   * Uses the resource concurrently in a separate fiber, until the given F[Unit] resolves.
+   *
+   * @param resource release use => resource
+   * @tparam F Effect
+   * @return Delayed action of using the resource
+   */
+  def useConcurrently[F[_]: Concurrent](resource: F[Unit] ⇒ Resource[F, _]): F[Unit] =
+    for {
+      completeDef ← Deferred[F, Unit]
+      fiberDef ← Deferred[F, Fiber[F, Unit]]
+      fiber ← Concurrent[F].start(
+        resource(
+          completeDef.complete(()) >> fiberDef.get.flatMap(_.join)
+        ).use(_ ⇒ completeDef.get)
+      )
+      _ ← fiberDef.complete(fiber)
+    } yield ()
 }

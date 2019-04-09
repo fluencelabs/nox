@@ -16,9 +16,8 @@
 
 package fluence.node.workers
 
-import cats.effect.Concurrent
-import cats.effect.concurrent.{Deferred, TryableDeferred}
-import cats.syntax.applicative._
+import cats.effect.{Concurrent, Resource}
+import cats.effect.concurrent.Deferred
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -32,38 +31,30 @@ import scala.language.higherKinds
  *
  * @param appId AppId of the application hosted by this worker
  * @param p2pPort Tendermint p2p port
- * @param servicesDef Promise of WorkerServices (Tendermint, ControlRPC)
+ * @param services WorkerServices (Tendermint, ControlRPC)
  * @param description Human readable description of the worker
  * @param execute Description of how to execute F[Unit] in Worker's context. As of now, preserves ordered of the execution.
  * @param stop Delayed effect, when executed, stops the worker and deallocates resources
  * @param remove Delayed effect, when executed, removes worker and removes some resources
  */
-case class Worker[F[_]: Concurrent](
+case class Worker[F[_]: Concurrent] private (
   appId: Long,
   p2pPort: Short,
-  private val servicesDef: TryableDeferred[F, WorkerServices[F]],
+  services: WorkerServices[F],
   description: String,
   private val execute: F[Unit] ⇒ F[Unit],
   stop: F[Unit],
   remove: F[Unit]
 ) {
 
-  private val services: F[Option[WorkerServices[F]]] = servicesDef.tryGet
-
   // Reports this worker's health
-  def isHealthy(timeout: FiniteDuration): F[Boolean] = services.flatMap {
-    case Some(w) ⇒ w.status(timeout).map(_.isHealthy)
-    case None ⇒ false.pure[F]
-  }
+  def isHealthy(timeout: FiniteDuration): F[Boolean] =
+    services.status(timeout).map(_.isHealthy)
 
   // Executes fn * f in worker's context, keeping execution order. Discards the result.
   def withServices_[T, A](f: WorkerServices[F] ⇒ T)(fn: T ⇒ F[A]): F[Unit] =
     execute(
-      for {
-        worker ← servicesDef.get
-        t = f(worker)
-        _ ← fn(t)
-      } yield ()
+      fn(f(services)).void
     )
 
   // Executes fn * f in worker's context, keeping execution order. Returns the result.
@@ -83,45 +74,30 @@ object Worker {
    * @param appId AppId of the application hosted by this worker
    * @param p2pPort Tendermint p2p port
    * @param description Human readable description of the worker
-   * @param workerRun Description of how to run the worker
+   * @param services Worker services
    * @param onStop Callback, called on worker's stop, but only after all commands have been processed
    * @param onRemove Callback, called on worker's removal, but only after all commands have been processed
    * @return A Worker's instance, that will initialize itself in the background
    */
-  def apply[F[_]: Concurrent](
+  def make[F[_]: Concurrent](
     appId: Long,
     p2pPort: Short,
     description: String,
-    workerRun: F[WorkerServices[F]],
+    services: WorkerServices[F],
+    scheduleExecution: F[Unit] ⇒ F[Unit],
     onStop: F[Unit],
     onRemove: F[Unit]
-  ): F[Worker[F]] =
-    for {
-      services ← Deferred.tryable[F, WorkerServices[F]]
-      queue ← fs2.concurrent.Queue.noneTerminated[F, F[Unit]]
-      // Main execution fiber, executes all commands in the queue one by one
-      fiber ← Concurrent[F].start(
-        queue.dequeue.evalMap(identity).compile.drain
-      )
-
-      // Terminate queue be submitting none, and wait it stops
-      stopQueue = queue.enqueue1(None) *> fiber.join
-
-      doOnStop = stopQueue *> onStop
-
-      worker = Worker[F](
+  ): Resource[F, Worker[F]] =
+    Resource.pure(
+      Worker[F](
         appId,
         p2pPort,
         services,
         description,
-        (fn: F[Unit]) ⇒ queue.enqueue1(Some(fn)),
-        doOnStop,
-        doOnStop *> onRemove
+        scheduleExecution,
+        onStop,
+        onStop *> onRemove
       )
-
-      _ <- worker.execute(
-        workerRun.flatMap(services.complete)
-      )
-    } yield worker
+    )
 
 }
