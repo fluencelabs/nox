@@ -63,6 +63,9 @@ Function `loggedStringHandler` in `invoke` use `handler` to handle incoming mess
 [Dice game](https://github.com/fluencelabs/tutorials/tree/master/dice-game/backend-as)
 [Multimodule dice game with connected DB written on Rust](https://github.com/fluencelabs/tutorials/tree/master/dice-game/backend-db-as)
 
+## AssemblyScript 
+[AssemblyScript introduction](https://github.com/AssemblyScript/assemblyscript)
+
 ## Limitations of AssemblyScript
 It is important to note that AssemblyScript is NOT TypeScript. There are several important features that are missing notably:
 - interfaces
