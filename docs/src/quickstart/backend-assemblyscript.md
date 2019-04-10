@@ -31,6 +31,7 @@ Change empty string with `return "Hello, " + request + "!"` and that's it, the a
 2. File `build/optimized.wasm` will be created.
 3. You can publish this file like in [Publishing the backend app](publish.md) tutorial.
 
+
 ## Advanced
 
 For deeper understanding let's open `assembly/index.ts` file. We can see functions, that are gateways from outer VM to written code:
@@ -57,3 +58,14 @@ export function invoke(ptr: i32, size: i32): i32 {
 ```
 
 Function `loggedStringHandler` in `invoke` use `handler` to handle incoming messages and returning response. There are some other methods for interacting with requests and responses in different formats. You can look at them here [AssemblyScript SDK](https://github.com/fluencelabs/assemblyscript-sdk/blob/master/assembly/index.ts) 
+
+## Examples
+[Dice game](https://github.com/fluencelabs/tutorials/tree/master/dice-game/backend-as)
+[Multimodule dice game with connected DB written on Rust](https://github.com/fluencelabs/tutorials/tree/master/dice-game/backend-db-as)
+
+## Limitations of AssemblyScript
+It is important to note that AssemblyScript is NOT TypeScript. There are several important features that are missing notably:
+- interfaces
+- use of untyped variables or the any type
+- JSON.parse/JSON.stringify
+- virtual methods (the method of the compile time type will always be called)
