@@ -107,6 +107,7 @@ Interesting bits:
     - note that to be used in `pin_to` node must be already registered in smart-contract
 - `fluence/vm/examples/counter/target/wasm32-unknown-unknown/release/deps/counter.wasm` is just an example path and doesn't exist in project
     - however, you can build it by issuing `sbt vm-counter/compile` in project root
+- you can publish multiple wasm files in one directory. 
 
 NOTE: currently maximum `cluster_size` is limited by `4`. This is to limit resource exhaustion. To use a cluster of larger size, you can [spin up your own nodes](../docs/src/roles/miner.md), and ping to them via `--pin_to` flag. 
 
