@@ -14,9 +14,10 @@ First of all, we need already written frontend interacting with Fluence nodes.
 
 And then let's upload directory with frontend code:
 ```
-ipfs --api /ip4/142.93.131.227/tcp/5001 add -r directory/
+IPFS_ADDR=$(host data.fluence.one | awk '/has address/ { print $4 }')
+ipfs --api /ip4/$IPFS_ADDR/tcp/5001 add -r build/
 ```
-`142.93.131.227` - is a data.fluence.one ip address
+`IPFS_ADDR` - is a data.fluence.one ip address
 
 This command will return a hash of directory. We can check if the directory is uploaded by opening a link with this hash: `http://data.fluence.one:8080/ipfs/<IpfsHash>`
 
