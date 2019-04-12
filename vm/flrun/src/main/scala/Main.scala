@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import cats.effect.concurrent.Ref
+import cats.effect.concurrent.{MVar, Ref}
 import cats.effect.{ExitCode, IO, IOApp}
 import cats.syntax.list._
 import fluence.statemachine.config.StateMachineConfig
@@ -61,7 +61,8 @@ object Main extends IOApp with slogging.LazyLogging {
       vmOrError <- WasmVm[IO](files, "fluence.vm.debugger").value
       vm <- IO.fromEither(vmOrError)
       map <- Ref.of[IO, Map[String, String]](Map.empty[String, String])
-      httpApp = app(Handler(vm, map))
+      mutex <- MVar.empty[IO, Unit]
+      httpApp = app(Handler(vm, map, mutex))
       res = BlazeServerBuilder[IO].withBanner(Nil).bindHttp(Port, Host).withHttpApp(httpApp).resource
       _ <- res.use(_ => IO.never)
     } yield ExitCode.Success
