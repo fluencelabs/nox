@@ -58,7 +58,9 @@ object Main extends IOApp with slogging.LazyLogging {
       vm <- IO.fromEither(vmOrError)
       map <- Ref.of[IO, Map[String, String]](Map.empty[String, String])
       mutex <- MVar.empty[IO, Unit]
-      httpApp = app(Handler(vm, map, mutex))
+      ref <- Ref[IO].of(-1)
+      order = Order(ref)
+      httpApp = app(Handler(vm, map, mutex, order))
       res = BlazeServerBuilder[IO].withBanner(Nil).bindHttp(Port, Host).withHttpApp(httpApp).resource
       _ <- res.use(_ => IO.never)
     } yield ExitCode.Success

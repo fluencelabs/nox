@@ -26,7 +26,9 @@ case class Tx(appId: Long, path: String, body: String)
 
 case class Query(appId: Long, path: String)
 
-case class Handler(vm: WasmVm, map: Ref[IO, Map[String, String]], mutex: MVar[IO, Unit], order: Order)(implicit dsl: Http4sDsl[IO]) {
+case class Handler(vm: WasmVm, map: Ref[IO, Map[String, String]], mutex: MVar[IO, Unit], order: Order)(
+  implicit dsl: Http4sDsl[IO]
+) {
 
   import dsl._
 
@@ -47,44 +49,40 @@ case class Handler(vm: WasmVm, map: Ref[IO, Map[String, String]], mutex: MVar[IO
         result <- vm.invoke[IO](None, body.getBytes()).value.flatMap(IO.fromEither)
         encoded = ByteVector(result).toBase64
         _ <- map.update(_.updated(path, encoded))
-        json =
-        s"""
-           | {
-           |  "jsonrpc": "2.0",
-           |  "id": "dontcare",
-           |  "result": {
-           |    "code": 0,
-           |    "data": "$encoded",
-           |    "hash": "no hash"
-           |  }
-           | }
+        json = s"""
+                  | {
+                  |  "jsonrpc": "2.0",
+                  |  "id": "dontcare",
+                  |  "result": {
+                  |    "code": 0,
+                  |    "data": "$encoded",
+                  |    "hash": "no hash"
+                  |  }
+                  | }
             """.stripMargin
         response <- Ok(json)
       } yield response
-    }
+    } <* order.set(getId(tx.path))
   }
 
   def processQuery(query: Query): IO[Response[IO]] = {
     import query._
 
-    order.wait(getId(query.path)) *> locked  {
-      for {
-        result <- map.get.map(_.get(path)).map(_.getOrElse("not found"))
-        json =
-        s"""
-           | {
-           |   "jsonrpc": "2.0",
-           |   "id": "dontcare",
-           |   "result": {
-           |     "response": {
-           |       "info": "Responded for path $path",
-           |       "value": "$result"
-           |     }
-           |   }
-           | }
+    for {
+      result <- map.get.map(_.get(path)).map(_.getOrElse("not found"))
+      json = s"""
+                | {
+                |   "jsonrpc": "2.0",
+                |   "id": "dontcare",
+                |   "result": {
+                |     "response": {
+                |       "info": "Responded for path $path",
+                |       "value": "$result"
+                |     }
+                |   }
+                | }
            """.stripMargin
-        response <- Ok(json)
-      } yield response
-    }
+      response <- Ok(json)
+    } yield response
   }
 }
