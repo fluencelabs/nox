@@ -79,9 +79,10 @@ lazy val flrun = (project in file("vm/flrun"))
 
           expose(port)
 
+          copy((resourceDirectory in Compile).value / "reference.conf", "/reference.conf")
           copy(artifact, artifactTargetPath)
 
-          entryPoint("java", "-jar", artifactTargetPath)
+          entryPoint("java", "-jar", "-Dconfig.file=/reference.conf", artifactTargetPath)
         }
       }
     )
