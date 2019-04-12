@@ -5,9 +5,27 @@
     "ethereum_ip": "rinkeby.fluence.one",
     "contract": "0xe01690f60E08207Fa29F9ef98fA35e7fB7A12A96",
     "nodes": {
-      "<ip-addr>": {
-        "owner": "<owner-addr>",
-        "key": "<secret-key>",
+      "46.101.221.231": {
+        "owner": "0x6f0773cd2965c014d8a9d6ddd8e739568edeb7f5",
+        "key": "906ccd15743cf56dfe1d08c7ca5333560ecc88675da514a517ddeed2dc2cb820",
+        "api_port": "25000",
+        "capacity": "10"
+      },
+      "207.154.223.200": {
+        "owner": "0x1f111701508d76b27ff59d22e839cc907f273031",
+        "key": "3b00a2b6bbfc0cf1c4b041b8b6bad8e4bd718d88e7a9496a5dc4ca885b17d097",
+        "api_port": "25000",
+        "capacity": "10"
+      },
+      "207.154.210.117": {
+        "owner": "0x5903730e872fb2b0cd4402c69d6d43c86e973db7",
+        "key": "0x52c685b72c548da46ee7e595b4003635a1dab3f281dc26b9a13a5b0ea736d3b1",
+        "api_port": "25000",
+        "capacity": "10"
+      },
+      "207.154.210.151": {
+        "owner": "0x8965c5c7e89641dc44d9798dc21fc8294c68b80e",
+        "key": "0x0ba8dbe75adafab30aae7e276e8a977b37d2cac025968b2cd7c50d1eaf2c4a12",
         "api_port": "25000",
         "capacity": "10"
       }
@@ -19,15 +37,51 @@
     "ethereum_ip": "rinkeby.fluence.one",
     "contract": "0xeFF91455de6D4CF57C141bD8bF819E5f873c1A01",
     "nodes": {
-      "<ip-addr1>": {
-        "owner": "<owner-addr1>",
-        "key": "<secret-key1>",
+      "165.22.142.185": {
+        "owner": "0x5Ede0cA40a8FaB2226073F3dC2BDE2b56Df015aA",
+        "key": "8447C3B0EBBB09F3153EC59702459EE23C4AF524E7882DE9F5718F14C3F0E00B",
         "api_port": "25000",
         "capacity": "10"
       },
-      "<ip-addr2>": {
-        "owner": "<owner-addr2>",
-        "key": "<secret-key2>",
+      "159.65.110.2": {
+        "owner": "0x5903730e872fb2b0cd4402c69d6d43c86e973db7",
+        "key": "0x52c685b72c548da46ee7e595b4003635a1dab3f281dc26b9a13a5b0ea736d3b1",
+        "api_port": "25000",
+        "capacity": "10"
+      },
+      "134.209.59.207": {
+        "owner": "0xCDBCBc2B755d3421B63a9dFf92797B0DfCF4C28A",
+        "key": "0x4b692989a903b9e99b29f2699e540d5ee22238ba7da7aaef5e8c23af2e715e0c",
+        "api_port": "25000",
+        "capacity": "10"
+      },
+      "165.22.142.184": {
+        "owner": "0xE850fCdB2579b69Eb348975B11088B784E6E406d",
+        "key": "0xfd89218ea7d28ef58582426b06fb5d787e533f71606d2a1431b26f1e86472f8d",
+        "api_port": "25000",
+        "capacity": "10"
+      },
+      "207.154.240.52": {
+        "owner": "0x6f0773cd2965c014d8a9d6ddd8e739568edeb7f5",
+        "key": "906ccd15743cf56dfe1d08c7ca5333560ecc88675da514a517ddeed2dc2cb820",
+        "api_port": "25000",
+        "capacity": "10"
+      },
+      "159.89.17.35": {
+        "owner": "0x1f111701508d76b27ff59d22e839cc907f273031",
+        "key": "3b00a2b6bbfc0cf1c4b041b8b6bad8e4bd718d88e7a9496a5dc4ca885b17d097",
+        "api_port": "25000",
+        "capacity": "10"
+      },
+      "207.154.232.92": {
+        "owner": "0x8965c5c7e89641dc44d9798dc21fc8294c68b80e",
+        "key": "0x0ba8dbe75adafab30aae7e276e8a977b37d2cac025968b2cd7c50d1eaf2c4a12",
+        "api_port": "25000",
+        "capacity": "10"
+      },
+      "209.97.191.196": {
+        "owner": "0x7DdAE2d6118562AaC405284bb297C9A53d975326",
+        "key": "0x3639CC2D3D27ABF76509077EFC0BE6093290F0F8739C00BDDA6504B9D9FC66C2",
         "api_port": "25000",
         "capacity": "10"
       }

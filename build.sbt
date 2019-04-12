@@ -40,6 +40,25 @@ lazy val vm = (project in file("vm"))
   )
   .enablePlugins(AutomateHeaderPlugin)
 
+/**
+ * Wasm VM docker runner for easy Wasm app debugging
+ */
+lazy val flrun = (project in file("vm/flrun"))
+    .settings(
+      commons,
+      libraryDependencies ++= Seq(
+        cats,
+        catsEffect,
+        sttp,
+        sttpCirce,
+        sttpCatsBackend,
+        http4sDsl,
+        http4sServer,
+      )
+    )
+    .dependsOn(vm)
+    .enablePlugins(AutomateHeaderPlugin)
+
 lazy val `vm-counter` = (project in file("vm/src/it/resources/test-cases/counter"))
   .settings(
     rustVmTest("counter")
