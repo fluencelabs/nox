@@ -15,7 +15,7 @@
  */
 
 import cats.effect.concurrent.Ref
-import cats.effect.{ContextShift, Fiber, IO, Timer}
+import cats.effect.{ContextShift, IO, Timer}
 import cats.syntax.apply._
 
 import scala.concurrent.duration._
@@ -25,12 +25,9 @@ case class Order(ref: Ref[IO, Int])(implicit cs: ContextShift[IO], t: Timer[IO])
   def wait(id: Int): IO[Unit] =
     for {
       last <- ref.get
-      _ = println(s"id: $id last: $last")
       _ <- if (id - last == 1 || last < 0) {
-        println(s"id $id unit")
         IO.unit
       } else {
-        println(s"id $id repeat")
         IO.shift *> IO.sleep(100.millis) *> wait(id)
       }
     } yield ()

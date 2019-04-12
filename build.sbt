@@ -65,9 +65,28 @@ lazy val flrun = (project in file("vm/flrun"))
           val oldStrategy = (assemblyMergeStrategy in assembly).value
           oldStrategy(x)
       },
+      imageNames in docker := Seq(ImageName("fluencelabs/frun")),
+      dockerfile in docker := {
+        // Run `sbt docker` to create image
+
+        val artifact = assembly.value
+        val artifactTargetPath = s"/${artifact.name}"
+
+        val port = 30000
+
+        new Dockerfile {
+          from("openjdk:8-jre-alpine")
+
+          expose(port)
+
+          copy(artifact, artifactTargetPath)
+
+          entryPoint("java", "-jar", artifactTargetPath)
+        }
+      }
     )
     .dependsOn(vm, statemachine)
-    .enablePlugins(AutomateHeaderPlugin)
+    .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
 
 lazy val `vm-counter` = (project in file("vm/src/it/resources/test-cases/counter"))
   .settings(
@@ -125,7 +144,7 @@ lazy val statemachine = (project in file("statemachine"))
       pureConfig,
       slogging,
       scodecBits,
-      "com.github.jtendermint" % "jabci"          % "0.26.0",
+      "com.github.jtendermint" % "jabci" % "0.26.0",
       scalaTest
     ),
     assemblyJarName in assembly := "statemachine.jar",

@@ -20,9 +20,7 @@ import scala.concurrent.duration._
 
 object Settings {
 
-  val CodeDirectory =
-    "/Users/folex/Development/fluencelabs/fluence-main/vm/src/it/resources/test-cases/llamadb/target/wasm32-unknown-unknown/release/"
-  //  val CodeDirectory = "Code"
+  val CodeDirectory = "/code"
   val Port = 30000
   val Host = "0.0.0.0"
 
