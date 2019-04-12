@@ -16,21 +16,6 @@
 
 import org.http4s.server.middleware.CORSConfig
 
-import cats.effect.concurrent.Ref
-import cats.effect.{ExitCode, IO, IOApp}
-import cats.syntax.list._
-import fluence.statemachine.config.StateMachineConfig
-import fluence.statemachine.error.VmModuleLocationError
-import fluence.vm.WasmVm
-import org.http4s.dsl.Http4sDsl
-import org.http4s.implicits._
-import org.http4s.server.blaze.BlazeServerBuilder
-import org.http4s.server.middleware.{CORS, CORSConfig}
-import org.http4s.{HttpApp, HttpRoutes, Response}
-import scodec.bits.ByteVector
-import slogging.MessageFormatter.DefaultPrefixFormatter
-import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
-
 import scala.concurrent.duration._
 
 object Settings {

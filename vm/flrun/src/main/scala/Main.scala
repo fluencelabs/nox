@@ -16,16 +16,12 @@
 
 import cats.effect.concurrent.{MVar, Ref}
 import cats.effect.{ExitCode, IO, IOApp}
-import cats.syntax.list._
-import fluence.statemachine.config.StateMachineConfig
-import fluence.statemachine.error.VmModuleLocationError
 import fluence.vm.WasmVm
 import org.http4s.implicits._
 import org.http4s.server.blaze.BlazeServerBuilder
 import org.http4s.server.middleware.CORS
 import org.http4s.{HttpApp, HttpRoutes}
-import slogging.MessageFormatter.DefaultPrefixFormatter
-import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
+import slogging.LogLevel
 
 object Main extends IOApp with slogging.LazyLogging {
 

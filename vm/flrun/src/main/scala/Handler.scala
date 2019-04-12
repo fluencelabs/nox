@@ -16,6 +16,7 @@
 
 import cats.effect.IO
 import cats.effect.concurrent.{MVar, Ref}
+import cats.syntax.apply._
 import fluence.vm.WasmVm
 import org.http4s.Response
 import org.http4s.dsl.Http4sDsl
@@ -25,34 +26,38 @@ case class Tx(appId: Long, path: String, body: String)
 
 case class Query(appId: Long, path: String)
 
-case class Handler(vm: WasmVm, map: Ref[IO, Map[String, String]], mutex: MVar[IO, Unit])(implicit dsl: Http4sDsl[IO]) {
+case class Handler(vm: WasmVm, map: Ref[IO, Map[String, String]], mutex: MVar[IO, Unit], order: Order)(implicit dsl: Http4sDsl[IO]) {
 
   import dsl._
 
-  def acquire(): IO[Unit] = mutex.put(())
+  // unsafe!!!
+  private def getId(path: String) = path.split("/").last.toInt
 
-  def release(): IO[Unit] = mutex.take
+  private def acquire(): IO[Unit] = mutex.put(())
 
-  def locked[A](io: IO[A]): IO[A] = acquire().bracket(_ => io)(_ => release())
+  private def release(): IO[Unit] = mutex.take
+
+  private def locked[A](io: IO[A]): IO[A] = acquire().bracket(_ => io)(_ => release())
 
   def processTx(tx: Tx): IO[Response[IO]] = {
     import tx._
 
-    locked {
+    order.wait(getId(tx.path)) *> locked {
       for {
         result <- vm.invoke[IO](None, body.getBytes()).value.flatMap(IO.fromEither)
         encoded = ByteVector(result).toBase64
         _ <- map.update(_.updated(path, encoded))
-        json = s"""
-                  | {
-                  |  "jsonrpc": "2.0",
-                  |  "id": "dontcare",
-                  |  "result": {
-                  |    "code": 0,
-                  |    "data": "$encoded",
-                  |    "hash": "no hash"
-                  |  }
-                  | }
+        json =
+        s"""
+           | {
+           |  "jsonrpc": "2.0",
+           |  "id": "dontcare",
+           |  "result": {
+           |    "code": 0,
+           |    "data": "$encoded",
+           |    "hash": "no hash"
+           |  }
+           | }
             """.stripMargin
         response <- Ok(json)
       } yield response
@@ -62,20 +67,21 @@ case class Handler(vm: WasmVm, map: Ref[IO, Map[String, String]], mutex: MVar[IO
   def processQuery(query: Query): IO[Response[IO]] = {
     import query._
 
-    locked {
+    order.wait(getId(query.path)) *> locked  {
       for {
         result <- map.get.map(_.get(path)).map(_.getOrElse("not found"))
-        json = s"""
-                  | {
-                  |   "jsonrpc": "2.0",
-                  |   "id": "dontcare",
-                  |   "result": {
-                  |     "response": {
-                  |       "info": "Responded for path $path",
-                  |       "value": "$result"
-                  |     }
-                  |   }
-                  | }
+        json =
+        s"""
+           | {
+           |   "jsonrpc": "2.0",
+           |   "id": "dontcare",
+           |   "result": {
+           |     "response": {
+           |       "info": "Responded for path $path",
+           |       "value": "$result"
+           |     }
+           |   }
+           | }
            """.stripMargin
         response <- Ok(json)
       } yield response
