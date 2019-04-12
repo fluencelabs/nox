@@ -103,7 +103,7 @@ object StateMachineConfig {
    * @param path a path to a folder where files should be listed
    * @return a list of files in given directory or provided file if the path to a file has has been given
    */
-  private def listFiles(path: String): IO[List[File]] = IO {
+  def listFiles(path: String): IO[List[File]] = IO {
     val pathName = new File(path)
     pathName match {
       case file if pathName.isFile => file :: Nil
@@ -117,7 +117,7 @@ object StateMachineConfig {
    * @param path Folder to walk through
    * @return List of found files, possibly empty
    */
-  private def listWasmFiles(path: String): IO[List[String]] =
+  def listWasmFiles(path: String): IO[List[String]] =
     listFiles(path)
       .map(
         // converts File objects to their path

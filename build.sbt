@@ -47,6 +47,7 @@ lazy val flrun = (project in file("vm/flrun"))
     .settings(
       commons,
       libraryDependencies ++= Seq(
+        asmble,
         cats,
         catsEffect,
         sttp,
@@ -54,9 +55,18 @@ lazy val flrun = (project in file("vm/flrun"))
         sttpCatsBackend,
         http4sDsl,
         http4sServer,
-      )
+      ),
+      assemblyMergeStrategy in assembly := {
+        // a module definition fails compilation for java 8, just skip it
+        case PathList("module-info.class", xs @ _*) => MergeStrategy.first
+        case "META-INF/io.netty.versions.properties" =>
+          MergeStrategy.first
+        case x =>
+          val oldStrategy = (assemblyMergeStrategy in assembly).value
+          oldStrategy(x)
+      },
     )
-    .dependsOn(vm)
+    .dependsOn(vm, statemachine)
     .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `vm-counter` = (project in file("vm/src/it/resources/test-cases/counter"))
