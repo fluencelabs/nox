@@ -85,3 +85,7 @@
 .entity-info-box-icon-thin {
     margin-top: -12px;
 }
+
+.error {
+    color: #f56954;
+}

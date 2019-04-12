@@ -112,6 +112,7 @@ class FluenceDeployableApp extends React.Component<Props, State> {
                     <hr/>
 
                     <p>
+                        <span className="error" style={{display: !app.selfUpload && this.props.deployedAppId ? 'inline' : 'none'}}>app already deployed</span>
                         <button
                             type="button"
                             onClick={e => this.startDeploy(e, app, appId)}
