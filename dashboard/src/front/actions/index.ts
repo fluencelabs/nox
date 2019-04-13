@@ -6,7 +6,7 @@ import appIds, { retrieveAppIds } from './apps/app-ids';
 import apps, { retrieveApp } from './apps/apps';
 import nodesStatus, { retrieveNodeStatus } from './nodes/node-status';
 import nodesAppStatus, { retrieveNodesAppStatus } from './nodes/nodes-app-status';
-import deployReducer, { restoreDeployed, deploy} from './deployable/deploy';
+import deployReducer, { restoreDeployed, deploy, deployUpload } from './deployable/deploy';
 
 export {
     displayLoading,
@@ -20,6 +20,7 @@ export {
     retrieveNodesAppStatus,
     deploy,
     restoreDeployed,
+    deployUpload,
 }
 
 export const reducers = {

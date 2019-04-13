@@ -29,3 +29,9 @@ export function toIpfsHash(h: string): string {
     let multihash = Buffer.concat([multiHeader, buf]);
     return bs58.encode(multihash);
 }
+
+export function fromIpfsHash(h: string): string {
+    let decoded = bs58.decode(h);
+    let cropped = decoded.slice(2);
+    return '0x' + cropped.toString('hex').toUpperCase();
+}
