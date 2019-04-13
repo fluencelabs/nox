@@ -15,6 +15,7 @@
     - [SDK overview](backend/sdk.md)
     - [Best practices](backend/best_practices.md)        
     - [Internals](backend/internals.md)
+    - [HTTP protocol](http.md)
 - [Running Fluence nodes](nodes.md)
 - [Command-line interface](cli.md)
 - [Key examples](examples.md)
