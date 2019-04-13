@@ -101,8 +101,6 @@ object WasmVm extends LazyLogging {
           )
         }
 
-      _ = println(s"config is $config")
-
       _ = logger.info("WasmVm: configs read...")
 
       // Compiling Wasm modules to JVM bytecode and registering derived classes
