@@ -68,7 +68,6 @@ class FluenceDeployableApp extends React.Component<Props, State> {
 
         if (app.selfUpload && this.props.upload.storageHash == '') {
             return [];
-            //block.push(<p className="text-muted">Upload your app first!</p>);
         } else if (app.storageType == StorageType.Ipfs) {
             let storageHash = app.selfUpload ? this.props.upload.storageHash : app.storageHash;
             block.push(
