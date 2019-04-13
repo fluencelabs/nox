@@ -36,9 +36,8 @@ object Main extends IOApp with slogging.LazyLogging {
     case req @ POST -> Root / "apps" / LongVar(appId) / "tx" ⇒
       logger.info(s"Tx request. appId: $appId")
       req.decode[String] { input ⇒
-        logger.info(s"Tx: '$input'")
         val Array(path, tx) = input.split('\n')
-
+        logger.info(s"Tx: '$tx'")
         handler.processTx(Tx(appId, path, tx))
       }
 
