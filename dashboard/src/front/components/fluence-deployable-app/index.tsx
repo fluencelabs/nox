@@ -98,6 +98,14 @@ class FluenceDeployableApp extends React.Component<Props, State> {
         ]);
     }
 
+    isDeployButtonDisabled(app: DeployableApp): boolean {
+        if(app.selfUpload) {
+            return !!(this.props.upload.uploading || this.props.upload.uploaded);
+        } else {
+            return !!(this.props.deployedAppId || this.state.loading);
+        }
+    }
+
     renderAppInfo(app: DeployableApp, appId: string): React.ReactNode {
         return (
             <div className="box-footer no-padding">
@@ -114,21 +122,11 @@ class FluenceDeployableApp extends React.Component<Props, State> {
                         <span className="error" style={{display: !app.selfUpload && this.props.deployedAppId ? 'inline' : 'none'}}>app already deployed</span>
                         <button
                             type="button"
-                            onClick={e => this.startDeploy(e, app, appId)}
-                            style={{display: !app.selfUpload ? 'block' : 'none'}}
-                            disabled={!!(this.props.deployedAppId || this.state.loading)}
+                            onClick={e => app.selfUpload ? this.startUpload(e, app, appId) : this.startDeploy(e, app, appId)}
+                            disabled={this.isDeployButtonDisabled(app)}
                             className="btn btn-block btn-success btn-lg">
-                            Deploy app <i style={{display: this.state.loading ? 'inline-block' : 'none'}}
+                            Deploy app <i style={{display: (this.state.loading || this.props.upload.uploading) ? 'inline-block' : 'none'}}
                                           className="fa fa-refresh fa-spin"/>
-                        </button>
-                        <button
-                            type="button"
-                            onClick={e => this.startUpload(e, app, appId)}
-                            style={{display: app.selfUpload ? 'block' : 'none'}}
-                            disabled={!!(this.props.upload.uploading || this.props.upload.uploaded)}
-                            className="btn btn-block btn-success btn-lg">
-                            Deploy app <i style={{display: this.props.upload.uploading ? 'inline-block' : 'none'}}
-                                      className="fa fa-refresh fa-spin"/>
                         </button>
                     </p>
                 </div>
