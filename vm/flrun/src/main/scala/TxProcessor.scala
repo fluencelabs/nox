@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import cats.Monad
+import cats.{Monad, MonadError}
 import cats.effect._
 import cats.effect.concurrent.{MVar, Ref}
 import cats.effect.syntax.bracket._
@@ -28,6 +28,7 @@ import org.http4s.dsl.Http4sDsl
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
+import scala.util.Try
 
 /**
  * Representation of /apps/N/tx request, sends a tx to WasmVM
@@ -69,7 +70,10 @@ case class TxProcessor[F[_]: Sync: Monad: LiftIO] private (
   // unsafe!!!
   private def getId(path: String): F[TxId] =
     Sync[F].fromEither(path.split("/") match {
-      case Array(session: String, count: String) => Either.right(TxId(session, count.toInt))
+      case Array(session: String, count: String) =>
+        Try(count.toInt).toEither
+          .leftMap(e => new RuntimeException(s"Error parsing count: ${e.getMessage}", e))
+          .map(TxId(session, _))
       case _ => Either.left(new RuntimeException("Wrong tx path format, expected session/count, got: " + path))
     })
 
@@ -133,7 +137,9 @@ object TxProcessor {
   import cats.syntax.flatMap._
   import cats.syntax.functor._
 
-  def apply[F[_]: ContextShift: Concurrent: Timer: Sync](vm: WasmVm)(
+  type ME[F[_]] = MonadError[F, Throwable]
+
+  def apply[F[_]: ContextShift: Concurrent: Timer: Sync: ME](vm: WasmVm)(
     implicit dsl: Http4sDsl[F]
   ): F[TxProcessor[F]] = {
     for {

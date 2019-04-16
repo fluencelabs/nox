@@ -19,7 +19,7 @@ import fluence.vm.WasmVm
 import org.http4s.implicits._
 import org.http4s.server.blaze.BlazeServerBuilder
 import org.http4s.server.middleware.CORS
-import org.http4s.{HttpApp, HttpRoutes}
+import org.http4s.{HttpApp, HttpRoutes, Response}
 import slogging.LogLevel
 
 object Main extends IOApp with slogging.LazyLogging {
@@ -37,12 +37,12 @@ object Main extends IOApp with slogging.LazyLogging {
       req.decode[String] { input ⇒
         val Array(path, tx) = input.split('\n')
         logger.info(s"Tx: '$tx'")
-        handler.processTx(Tx(appId, path, tx))
+        handler.processTx(Tx(appId, path, tx)).handleErrorWith(e => BadRequest(e.getMessage))
       }
 
     case GET -> Root / "apps" / LongVar(appId) / "query" :? QueryPath(path) +& QueryData(data) ⇒
       logger.info(s"Query request. appId: $appId, path: $path, data: $data")
-      handler.processQuery(Query(appId, path))
+      handler.processQuery(Query(appId, path)).handleErrorWith(e => BadRequest(e.getMessage))
   }
 
   def app(handler: TxProcessor[IO]): HttpApp[IO] =

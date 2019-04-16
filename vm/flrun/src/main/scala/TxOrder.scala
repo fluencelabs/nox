@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import cats.Monad
+import cats.{ApplicativeError, Monad, MonadError}
 import cats.effect.concurrent.Ref
 import cats.effect.{ContextShift, Timer}
 import cats.syntax.applicative._
@@ -25,7 +25,8 @@ import cats.syntax.functor._
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-case class TxOrder[F[_]: Monad: ContextShift: Timer](txIds: Ref[F, Map[String, Int]]) extends slogging.LazyLogging {
+case class TxOrder[F[_]: ContextShift: Timer](txIds: Ref[F, Map[String, Int]])(implicit F: MonadError[F, Throwable])
+    extends slogging.LazyLogging {
 
   /**
    * Wait until `id` becomes next to latest processed request
@@ -38,7 +39,14 @@ case class TxOrder[F[_]: Monad: ContextShift: Timer](txIds: Ref[F, Map[String, I
         ().pure[F]
       } else {
         if (last == -1) logger.warn(s"First request should start with counter = 0, was ${id.count} (${id.session})")
-        ContextShift[F].shift *> Timer[F].sleep(100.millis) *> waitOrder(id)
+
+        if (id.count <= last) {
+          F.raiseError[Unit](
+            new RuntimeException(s"Counter should be bigger than $last, was ${id.count} (${id.session})")
+          )
+        } else {
+          ContextShift[F].shift *> Timer[F].sleep(100.millis) *> waitOrder(id)
+        }
       }
     } yield ()
   }
