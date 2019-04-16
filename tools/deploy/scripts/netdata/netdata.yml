@@ -1,22 +1,6 @@
 version: '3'
 
 services:
-  caddy:
-    image: abiosoft/caddy
-    container_name: caddy
-    ports:
-      - %(caddy_port)s:80
-    volumes:
-      - %(home_dir)s/netdata/config/Caddyfile:/etc/Caddyfile
-      - %(home_dir)s/.local/caddy:/root/.caddy
-    environment:
-      ACME_AGREE: 'true'
-    deploy:
-      resources:
-        limits:
-          cpus: '0.05'
-          memory: 20M
-
   netdata:
     container_name: netdata
     hostname: $HOSTNAME

@@ -186,15 +186,18 @@ def deploy_netdata():
         env.role = 'slave'
 
     with hide('running', 'output'):
+        if env.role == 'master':
+            run("docker pull abiosoft/caddy")
         run("docker pull netdata/netdata")
-        run("docker pull abiosoft/caddy")
         run("mkdir -p ~/netdata/scripts")
         run("mkdir -p ~/netdata/config")
         run("mkdir -p ~/.local/netdata_cache")
         run("chmod o+rw ~/.local/netdata_cache")
         env.home_dir = run("pwd").stdout
         upload_template("scripts/netdata/netdata.yml", "~/netdata/scripts/netdata.yml", context=env)
-        upload_template("config/netdata/Caddyfile", "~/netdata/config/Caddyfile", context=env)
+        if env.role == 'master':
+            upload_template("scripts/netdata/netdata_caddy.yml", "~/netdata/scripts/netdata_caddy.yml", context=env)
+            upload_template("config/netdata/Caddyfile", "~/netdata/config/Caddyfile", context=env)
 
         if env.role == 'slave':
             print "netdata mode = slave"
@@ -211,7 +214,10 @@ def deploy_netdata():
 
         with shell_env(COMPOSE_IGNORE_ORPHANS="true"):
             with show('running'):
-                run("PGID=%s HOSTNAME=$HOSTNAME docker-compose --compatibility -f ~/netdata/scripts/netdata.yml up -d" % pgid)
+                if env.role == 'slave':
+                    run("PGID=%s HOSTNAME=$HOSTNAME docker-compose --compatibility -f ~/netdata/scripts/netdata.yml up -d" % pgid)
+                else:
+                    run("PGID=%s HOSTNAME=$HOSTNAME docker-compose --compatibility -f ~/netdata/scripts/netdata_caddy.yml -f ~/netdata/scripts/netdata.yml up -d" % pgid)
 
 @parallel
 def install_docker():
