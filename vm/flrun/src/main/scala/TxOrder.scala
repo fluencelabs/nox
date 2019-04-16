@@ -25,23 +25,33 @@ import cats.syntax.functor._
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-case class TxOrder[F[_]: Monad: ContextShift: Timer](txIds: Ref[F, Map[String, Int]]) {
+case class TxOrder[F[_]: Monad: ContextShift: Timer](txIds: Ref[F, Map[String, Int]]) extends slogging.LazyLogging {
 
   /**
    * Wait until `id` becomes next to latest processed request
    */
   def waitOrder(id: TxId): F[Unit] = {
     for {
-      last <- txIds.get.map(_.get(id.session))
-      nextToLast = last.forall(l => id.count - l == 1)
+      last <- txIds.get.map(_.getOrElse(id.session, -1))
+      nextToLast = id.count - last == 1
       _ <- if (nextToLast) {
         ().pure[F]
       } else {
+        if (last == -1) logger.warn(s"First request should start with counter = 0, was ${id.count} (${id.session})")
         ContextShift[F].shift *> Timer[F].sleep(100.millis) *> waitOrder(id)
       }
     } yield ()
   }
 
   def set(id: TxId): F[Unit] =
-    txIds.update(_.updated(id.session, id.count))
+    for {
+      _ <- txIds.modify(m => {
+        val last = m.getOrElse(id.session, -1)
+        val nextToLast = id.count - last == 1
+        if (nextToLast)
+          m.updated(id.session, id.count) -> Unit
+        else
+          m -> Unit
+      })
+    } yield ()
 }
