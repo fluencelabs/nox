@@ -30,7 +30,7 @@ import fluence.effects.Backoff
 import fluence.effects.castore.StoreError
 import fluence.effects.docker.DockerIO
 import fluence.effects.ethclient.EthClient
-import fluence.effects.ipfs.IpfsStore
+import fluence.effects.ipfs.{IpfsClient, IpfsStore}
 import fluence.effects.swarm.{SwarmClient, SwarmStore}
 import fluence.node.code.{CodeCarrier, LocalCodeCarrier, PolyStore, RemoteCodeCarrier}
 import fluence.node.config.storage.RemoteStorageConfig
@@ -217,8 +217,9 @@ object MasterNode extends LazyLogging {
     if (config.enabled) {
       implicit val b: Backoff[StoreError] = Backoff.default
       val swarmClient = SwarmClient[F](config.swarm.address)
+      val ipfsClient = new IpfsClient[F](config.swarm.address)
       val swarmStore = new SwarmStore[F](swarmClient)
-      val ipfsStore = new IpfsStore[F](config.ipfs.address)
+      val ipfsStore = new IpfsStore[F](ipfsClient)
       val polyStore = new PolyStore[F]({
         case StorageType.Swarm => swarmStore
         case StorageType.Ipfs => ipfsStore

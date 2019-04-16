@@ -38,22 +38,28 @@ object IpfsExample extends App {
 
   implicit val sttp: SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]] = EitherTSttpBackend[IO]()
 
-  val store = new IpfsStore[IO](uri"http://data.fluence.one:5001")
+  val data = ByteVector(Array[Byte](1,2,3,4))
+  val store = new IpfsClient[IO](uri"http://data.fluence.one:5001")
+
+  val hashE = store.upload(data).value.unsafeRunSync()
+  println(hashE)
+
+  val hash1 = hashE.right.get
 
   val res1 = store
-    .fetch(ByteVector.fromValidHex("0x73d0cc44bdac8f7f3d3893d5a30448d73d1bf686aec138ebdb9527b8c6d22779"))
+    .download(hash1)
     .value
     .unsafeRunSync()
     .right
     .get
     .collect {
       case bb =>
-        ByteVector(bb).decodeUtf8
+        ByteVector(bb)
     }
     .compile
     .toList
     .unsafeRunSync()
-  println("file response = " + res1)
+  println("file response = " + res1.head.toArray.mkString(" "))
 
   val res2 = store
     .ls(ByteVector.fromValidHex("0x5f220381bf07054f4f1ee0b454b9427ac9b1b79d145ab30004ea8a37f1a64157"))
