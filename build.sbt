@@ -40,6 +40,55 @@ lazy val vm = (project in file("vm"))
   )
   .enablePlugins(AutomateHeaderPlugin)
 
+/**
+ * Wasm VM docker runner for easy Wasm app debugging
+ */
+lazy val flrun = (project in file("vm/flrun"))
+    .settings(
+      commons,
+      libraryDependencies ++= Seq(
+        asmble,
+        cats,
+        catsEffect,
+        sttp,
+        sttpCirce,
+        sttpCatsBackend,
+        http4sDsl,
+        http4sServer,
+      ),
+      assemblyMergeStrategy in assembly := {
+        // a module definition fails compilation for java 8, just skip it
+        case PathList("module-info.class", xs @ _*) => MergeStrategy.first
+        case "META-INF/io.netty.versions.properties" =>
+          MergeStrategy.first
+        case x =>
+          val oldStrategy = (assemblyMergeStrategy in assembly).value
+          oldStrategy(x)
+      },
+      imageNames in docker := Seq(ImageName("fluencelabs/frun")),
+      dockerfile in docker := {
+        // Run `sbt docker` to create image
+
+        val artifact = assembly.value
+        val artifactTargetPath = s"/${artifact.name}"
+
+        val port = 30000
+
+        new Dockerfile {
+          from("openjdk:8-jre-alpine")
+
+          expose(port)
+
+          copy((resourceDirectory in Compile).value / "reference.conf", "/reference.conf")
+          copy(artifact, artifactTargetPath)
+
+          entryPoint("java", "-jar", "-Dconfig.file=/reference.conf", "-Xmx2G", artifactTargetPath)
+        }
+      }
+    )
+    .dependsOn(vm, statemachine)
+    .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
+
 lazy val `vm-counter` = (project in file("vm/src/it/resources/test-cases/counter"))
   .settings(
     rustVmTest("counter")
@@ -96,7 +145,7 @@ lazy val statemachine = (project in file("statemachine"))
       pureConfig,
       slogging,
       scodecBits,
-      "com.github.jtendermint" % "jabci"          % "0.26.0",
+      "com.github.jtendermint" % "jabci" % "0.26.0",
       scalaTest
     ),
     assemblyJarName in assembly := "statemachine.jar",

@@ -38,6 +38,12 @@ class Snippets extends React.Component<Props, State> {
         }
     }
 
+    componentDidMount(): void {
+        if (this.props.appId && !this.props.apps[this.props.appId]) {
+            this.loadData();
+        }
+    }
+
     getDeployStateLabel(deployState: any): string {
         switch (deployState.state) {
             case 'prepare': {
@@ -58,6 +64,91 @@ class Snippets extends React.Component<Props, State> {
         }
     }
 
+    renderTrxHashBlock(): React.ReactNode {
+        if (this.props.trxHash) {
+            return (
+                <p>
+                    Transaction hash: <a href={'https://rinkeby.etherscan.io/tx/' + this.props.trxHash}
+                                         title={this.props.trxHash} className="etherscan-link"
+                                         target="_blank">{cutId(this.props.trxHash)}</a>
+                </p>
+            );
+        }
+    };
+
+    renderAppSnippets(): React.ReactNode[] {
+        return ([
+            <button type="button"
+                    onClick={e => window.open(`http://sql.fluence.network?appId=${this.props.appId}&privateKey=${llamaPrivateKey}`, "_blank")}
+                    className="btn btn-block btn-link">
+                <i className="fa fa-external-link margin-r-5"/> <b>Open SQL DB web interface</b>
+            </button>,
+            <hr/>,
+            this.renderTrxHashBlock(),
+            <p>
+                <b>
+                    Or connect to {this.props.app && this.props.app.shortName} directly in the browser console.
+                </b>
+            </p>,
+            <p> Open Developer Tools, and paste:</p>,
+            <pre>{`let privateKey = "${llamaPrivateKey}"; // Authorization private key
+let contract = "${defaultContractAddress}";                         // Fluence contract address
+let appId = ${this.props.appId};                                                                      // Deployed database id
+let ethereumUrl = "${fluenceLightNodeAddr}";                                    // Ethereum light node URL
+
+fluence.connect(contract, appId, ethereumUrl, privateKey).then((s) => {
+    console.log("Session created");
+    window.session = s;
+});`}
+            </pre>,
+            <p>Execute some queries:</p>,
+            <pre>{`session.request("CREATE TABLE users(id int, name varchar(128), age int)");
+session.request("INSERT INTO users VALUES(1, 'Sara', 23)");
+session.request("INSERT INTO users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 27)");
+session.request("SELECT AVG(age) FROM users").result().then((r) => {
+    console.log("Result: " + r.asString());
+});`}
+            </pre>,
+            <p>That's it!</p>,
+            <hr/>,
+            <button type="button"
+                onClick={e => window.open(`https://github.com/fluencelabs/tutorials`, "_blank")}
+                className="btn btn-block btn-link">
+                    <i className="fa fa-external-link margin-r-5"/> <b>To develop your own app, follow
+                GitHub Tutorials</b>
+            </button>,
+            <button type="button"
+                onClick={e => window.open(`https://fluence.network/docs`, "_blank")}
+                className="btn btn-block btn-link">
+                    <i className="fa fa-external-link margin-r-5"/> <b>More info in the docs</b>
+            </button>
+        ]);
+    }
+
+    renderUploadedAppSnippets(): React.ReactNode[] {
+        return ([
+            this.renderTrxHashBlock(),
+            <pre>{`let contract = "${defaultContractAddress}";                         // Fluence contract address
+let appId = ${this.props.appId};                                                                      // Deployed database id
+let ethereumUrl = "${fluenceLightNodeAddr}";                                    // Ethereum light node URL
+
+// Connect to your app
+fluence.connect(contract, appId, ethereumUrl).then((s) => {
+    console.log("Session created");
+    window.session = s;
+});
+
+// Send a request
+session.request("<enter your request here>");
+
+// Send a request, and read its result
+session.request("<enter your request here>").result().then((r) => {
+    console.log("Result: " + r.asString());
+});`}
+            </pre>,
+        ]);
+    }
+
     render(): React.ReactNode {
         if (this.props.app != undefined && this.props.appId != undefined) {
             const appInfo = this.props.apps[this.props.appId];
@@ -74,53 +165,8 @@ class Snippets extends React.Component<Props, State> {
                     </div>
                     <div className="box-footer no-padding">
                         <div className="box-body">
-                            <button type="button"
-                                    onClick={e => window.open(`http://sql.fluence.network?appId=${this.props.appId}&privateKey=${llamaPrivateKey}`, "_blank")}
-                                    className="btn btn-block btn-link">
-                                <i className="fa fa-external-link margin-r-5"/> <b>Open SQL DB web interface</b>
-                            </button>
-                            <hr/>
-                            {this.props.trxHash &&
-                            <p>Transaction hash: <a href={'https://rinkeby.etherscan.io/tx/' + this.props.trxHash}
-                                                    title={this.props.trxHash} className="etherscan-link"
-                                                    target="_blank">{cutId(this.props.trxHash)}</a></p>}
-                            <p>
-                                <b>
-                                    Or connect to {this.props.app.shortName} directly in the browser console.
-                                </b>
-                            </p>
-                            <p> Open Developer Tools, and paste:</p>
-                            <pre>{`let privateKey = "${llamaPrivateKey}"; // Authorization private key
-let contract = "${defaultContractAddress}";                         // Fluence contract address
-let appId = ${this.props.appId};                                                                      // Deployed database id
-let ethereumUrl = "${fluenceLightNodeAddr}";                                    // Ethereum light node URL
 
-fluence.connect(contract, appId, ethereumUrl, privateKey).then((s) => {
-    console.log("Session created");
-    window.session = s;
-});`}
-                            </pre>
-                            <p>Execute some queries:</p>
-                            <pre>{`session.request("CREATE TABLE users(id int, name varchar(128), age int)");
-session.request("INSERT INTO users VALUES(1, 'Sara', 23)");
-session.request("INSERT INTO users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 27)");
-session.request("SELECT AVG(age) FROM users").result().then((r) => {
-    console.log("Result: " + r.asString());
-});`}
-                            </pre>
-                            <p>That's it!</p>
-                            <hr/>
-                            <button type="button"
-                                    onClick={e => window.open(`https://github.com/fluencelabs/tutorials`, "_blank")}
-                                    className="btn btn-block btn-link">
-                                <i className="fa fa-external-link margin-r-5"/> <b>To develop your own app, follow
-                                GitHub Tutorials</b>
-                            </button>
-                            <button type="button"
-                                    onClick={e => window.open(`https://fluence.network/docs`, "_blank")}
-                                    className="btn btn-block btn-link">
-                                <i className="fa fa-external-link margin-r-5"/> <b>More info in the docs</b>
-                            </button>
+                            {this.props.app.selfUpload ? this.renderUploadedAppSnippets() : this.renderAppSnippets()}
 
                             <hr/>
                             <p><strong><i className="fa fa-bullseye margin-r-5"/>Check your app's health:</strong></p>
@@ -147,7 +193,7 @@ session.request("SELECT AVG(age) FROM users").result().then((r) => {
                 </div>
             );
         } else {
-            return null
+            return null;
         }
     }
 }

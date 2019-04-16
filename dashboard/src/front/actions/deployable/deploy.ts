@@ -1,12 +1,14 @@
 import contract from '../../../fluence/contract';
 import {checkLogs, DeployableApp, send, txParams, deployableApps, DeployedAppState} from "../../../fluence/deployable";
-import {privateKey} from "../../../constants";
+import {privateKey, appUploadUrl} from "../../../constants";
 import {Action, Dispatch} from "redux";
 import Cookies from 'js-cookie';
+import axios from 'axios';
 import EthereumTx from "ethereumjs-tx";
 import {getApp, getNode, getNodeAppStatus} from "../../../fluence";
-import {storageToString32} from "../../../utils";
+import {fromIpfsHash, storageToString32} from "../../../utils";
 
+export const DEPLOY_CLEAR_STATE = 'DEPLOY_CLEAR_STATE';
 export const DEPLOY_STATE_PREPARE = 'DEPLOY_STATE_PREPARE';
 export const DEPLOY_STATE_TRX = 'DEPLOY_STATE_TRX';
 export const DEPLOY_STATE_CLUSTER_CHECK = 'DEPLOY_STATE_CLUSTER_CHECK';
@@ -16,13 +18,15 @@ export const APP_DEPLOYED = 'APP_DEPLOYED';
 export const APP_ENQUEUED = 'APP_ENQUEUED';
 export const APP_DEPLOY_FAILED = 'APP_DEPLOY_FAILED';
 
-export const deploy = (app: DeployableApp, appTypeId: string) => {
+export const deploy = (app: DeployableApp, appTypeId: string, storageHashOverload?: string) => {
     return async (dispatch: Dispatch): Promise<Action> => {
 
+        dispatch({type: DEPLOY_CLEAR_STATE});
         dispatch({type: DEPLOY_STATE_PREPARE});
 
+        let storageHash = app.selfUpload && storageHashOverload ? storageHashOverload : app.storageHash;
         let storageType = storageToString32(app.storageType);
-        let txData = contract.methods.addApp(app.storageHash, "0x0", storageType, app.clusterSize, []).encodeABI();
+        let txData = contract.methods.addApp(storageHash, "0x0", storageType, app.clusterSize, []).encodeABI();
         let tx = new EthereumTx(await txParams(txData));
         tx.sign(privateKey);
 
@@ -105,8 +109,46 @@ export const restoreDeployed = (appId: string, appTypeId: string) => {
     };
 };
 
-export default (state = {}, action: any) => {
+export const DEPLOY_UPLOAD_STARTED = 'DEPLOY_UPLOAD_STARTED';
+export const DEPLOY_UPLOAD_FINISHED = 'DEPLOY_UPLOAD_FINISHED';
+export const DEPLOY_UPLOAD_FAILED = 'DEPLOY_UPLOAD_FAILED';
+export const deployUpload = (form: FormData) => {
+    return async (dispatch: Dispatch): Promise<Action> => {
+
+        dispatch({type: DEPLOY_UPLOAD_STARTED});
+
+        return axios.post(appUploadUrl, form).then(function (response) {
+            return dispatch({
+                type: DEPLOY_UPLOAD_FINISHED,
+                result: response.data,
+                storageHash: fromIpfsHash(response.data.Hash)
+            });
+        }).catch(function (error) {
+            return dispatch({
+                type: DEPLOY_UPLOAD_FAILED,
+                error: error
+            });
+        });
+    };
+};
+
+export default (state = {
+    upload: {
+        uploaded: false,
+        uploading: false,
+        data: {},
+        storageHash: '',
+    }
+}, action: any) => {
     switch (action.type) {
+        case DEPLOY_CLEAR_STATE: {
+            return {
+                ...state,
+                app: undefined,
+                appId: undefined,
+                trxHash: undefined
+            };
+        }
         case DEPLOY_STATE_PREPARE: {
             return {
                 ...state,
@@ -158,6 +200,38 @@ export default (state = {}, action: any) => {
                 deployState: 'end',
                 app: action.app,
                 appId: action.appId,
+            };
+        }
+        case DEPLOY_UPLOAD_STARTED: {
+            return {
+                ...state,
+                upload: {
+                    ...state.upload,
+                    uploading: true,
+                }
+            };
+        }
+        case DEPLOY_UPLOAD_FINISHED: {
+            return {
+                ...state,
+                upload: {
+                    ...state.upload,
+                    uploading: false,
+                    uploaded: true,
+                    data: action.result,
+                    storageHash: action.storageHash,
+                }
+            };
+        }
+        case DEPLOY_UPLOAD_FAILED: {
+            return {
+                ...state,
+                upload: {
+                    ...state.upload,
+                    uploading: false,
+                    uploaded: false,
+                    error: action.error
+                }
             };
         }
         default: {

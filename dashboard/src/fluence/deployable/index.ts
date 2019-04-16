@@ -19,9 +19,10 @@ export interface DeployableApp {
     storageHash: string,
     storageType: StorageType,
     clusterSize: number,
+    selfUpload?: boolean,
 }
 
-export const deployableAppIds: DeployableAppId[] = ["llamadb"]; // 'dice, guess, tictactoe' are hidden intentionally
+export const deployableAppIds: DeployableAppId[] = ["llamadb", "upload"]; // 'dice, guess, tictactoe' are hidden intentionally
 
 export const deployableApps: { [key: string]: DeployableApp } = {
     "llamadb": {
@@ -54,6 +55,14 @@ export const deployableApps: { [key: string]: DeployableApp } = {
         storageHash: "0x268622BE3A3CB9473E764C229BE02ED9228170FF61F876CA3634590D748E1CEF",
         storageType: StorageType.Ipfs,
         clusterSize: 4
+    },
+    "upload": {
+        name: "Upload your own app",
+        shortName: "Upload your own app",
+        storageHash: "",
+        storageType: StorageType.Ipfs,
+        clusterSize: 4,
+        selfUpload: true
     },
 };
 
