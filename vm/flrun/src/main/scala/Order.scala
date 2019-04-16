@@ -14,24 +14,29 @@
  * limitations under the License.
  */
 
+import cats.Monad
 import cats.effect.concurrent.Ref
-import cats.effect.{ContextShift, IO, Timer}
+import cats.effect.{ContextShift, Timer}
+import cats.syntax.applicative._
 import cats.syntax.apply._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 
 import scala.concurrent.duration._
+import scala.language.higherKinds
 
-case class Order(ref: Ref[IO, Int])(implicit cs: ContextShift[IO], t: Timer[IO]) {
+case class Order[F[_]: Monad: ContextShift: Timer](ref: Ref[F, Int]) {
 
-  def wait(id: Int): IO[Unit] =
+  def wait(id: Int): F[Unit] =
     for {
       last <- ref.get
       _ <- if (id - last == 1 || last < 0) {
-        IO.unit
+        ().pure[F]
       } else {
-        IO.shift *> IO.sleep(100.millis) *> wait(id)
+        ContextShift[F].shift *> Timer[F].sleep(100.millis) *> wait(id)
       }
     } yield ()
 
-  def set(id: Int): IO[Unit] =
+  def set(id: Int): F[Unit] =
     ref.set(id)
 }

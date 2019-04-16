@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import cats.effect.concurrent.{MVar, Ref}
 import cats.effect.{ExitCode, IO, IOApp}
 import fluence.vm.WasmVm
 import org.http4s.implicits._
@@ -32,7 +31,7 @@ object Main extends IOApp with slogging.LazyLogging {
 
   // apps/1/tx
   // apps/1/query?path=kALX917gZsqm%2F0&data=
-  def routes(handler: Handler): HttpRoutes[IO] = HttpRoutes.of[IO] {
+  def routes(handler: TxProcessor[IO]): HttpRoutes[IO] = HttpRoutes.of[IO] {
     case req @ POST -> Root / "apps" / LongVar(appId) / "tx" ⇒
       logger.info(s"Tx request. appId: $appId")
       req.decode[String] { input ⇒
@@ -46,7 +45,7 @@ object Main extends IOApp with slogging.LazyLogging {
       handler.processQuery(Query(appId, path))
   }
 
-  def app(handler: Handler): HttpApp[IO] =
+  def app(handler: TxProcessor[IO]): HttpApp[IO] =
     CORS[IO, IO](routes(handler).orNotFound, corsConfig)
 
   override def run(args: List[String]): IO[ExitCode] = {
@@ -55,11 +54,8 @@ object Main extends IOApp with slogging.LazyLogging {
       files <- getWasmFiles()
       vmOrError <- WasmVm[IO](files, "fluence.vm.debugger").value
       vm <- IO.fromEither(vmOrError)
-      map <- Ref.of[IO, Map[String, String]](Map.empty[String, String])
-      mutex <- MVar.empty[IO, Unit]
-      ref <- Ref[IO].of(-1)
-      order = Order(ref)
-      httpApp = app(Handler(vm, map, mutex, order))
+      processor <- TxProcessor[IO](vm)
+      httpApp = app(processor)
       res = BlazeServerBuilder[IO].withBanner(Nil).bindHttp(Port, Host).withHttpApp(httpApp).resource
       _ <- res.use(_ => IO.never)
     } yield ExitCode.Success
