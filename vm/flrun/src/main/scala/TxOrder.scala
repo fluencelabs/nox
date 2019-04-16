@@ -25,18 +25,23 @@ import cats.syntax.functor._
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-case class Order[F[_]: Monad: ContextShift: Timer](ref: Ref[F, Int]) {
+case class TxOrder[F[_]: Monad: ContextShift: Timer](txIds: Ref[F, Map[String, Int]]) {
 
-  def wait(id: Int): F[Unit] =
+  /**
+   * Wait until `id` becomes next to latest processed request
+   */
+  def waitOrder(id: TxId): F[Unit] = {
     for {
-      last <- ref.get
-      _ <- if (id - last == 1 || last < 0) {
+      last <- txIds.get.map(_.get(id.session))
+      nextToLast = last.forall(l => id.count - l == 1)
+      _ <- if (nextToLast) {
         ().pure[F]
       } else {
-        ContextShift[F].shift *> Timer[F].sleep(100.millis) *> wait(id)
+        ContextShift[F].shift *> Timer[F].sleep(100.millis) *> waitOrder(id)
       }
     } yield ()
+  }
 
-  def set(id: Int): F[Unit] =
-    ref.set(id)
+  def set(id: TxId): F[Unit] =
+    txIds.update(_.updated(id.session, id.count))
 }

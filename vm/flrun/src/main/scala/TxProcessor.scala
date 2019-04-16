@@ -19,6 +19,7 @@ import cats.effect._
 import cats.effect.concurrent.{MVar, Ref}
 import cats.effect.syntax.bracket._
 import cats.syntax.apply._
+import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.vm.WasmVm
@@ -39,6 +40,11 @@ case class Tx(appId: Long, path: String, body: String)
 case class Query(appId: Long, path: String)
 
 /**
+ * Tx ordering
+ */
+case class TxId(session: String, count: Int)
+
+/**
  * Wrapper around WasmVM
  * - Saves results from WasmVM to memory
  * - Keeps txs in order
@@ -53,7 +59,7 @@ case class TxProcessor[F[_]: Sync: Monad: LiftIO] private (
   vm: WasmVm,
   responses: Ref[F, Map[String, String]],
   mutex: MVar[F, Unit],
-  order: Order[F]
+  order: TxOrder[F]
 )(
   implicit dsl: Http4sDsl[F]
 ) {
@@ -61,7 +67,11 @@ case class TxProcessor[F[_]: Sync: Monad: LiftIO] private (
   import dsl._
 
   // unsafe!!!
-  private def getId(path: String) = path.split("/").last.toInt
+  private def getId(path: String): F[TxId] =
+    Sync[F].fromEither(path.split("/") match {
+      case Array(session: String, count: String) => Either.right(TxId(session, count.toInt))
+      case _ => Either.left(new RuntimeException("Wrong tx path format, expected session/count, got: " + path))
+    })
 
   private def acquire(): F[Unit] = mutex.put(())
 
@@ -72,7 +82,10 @@ case class TxProcessor[F[_]: Sync: Monad: LiftIO] private (
   def processTx(tx: Tx): F[Response[F]] = {
     import tx._
 
-    order.wait(getId(tx.path)) *> locked {
+    val waitOrder = getId(tx.path) >>= order.waitOrder
+    val setLastId = getId(tx.path) >>= order.set
+
+    waitOrder *> locked {
       for {
         result <- vm.invoke[F](None, body.getBytes()).value.flatMap(Sync[F].fromEither)
         encoded = ByteVector(result).toBase64
@@ -90,7 +103,7 @@ case class TxProcessor[F[_]: Sync: Monad: LiftIO] private (
             """.stripMargin
         response <- Ok(json)
       } yield response
-    } <* order.set(getId(tx.path))
+    } <* setLastId
   }
 
   def processQuery(query: Query): F[Response[F]] = {
@@ -116,6 +129,7 @@ case class TxProcessor[F[_]: Sync: Monad: LiftIO] private (
 }
 
 object TxProcessor {
+
   import cats.syntax.flatMap._
   import cats.syntax.functor._
 
@@ -125,8 +139,8 @@ object TxProcessor {
     for {
       map <- Ref.of[F, Map[String, String]](Map.empty[String, String])
       mutex <- MVar.empty[F, Unit]
-      ref <- Ref[F].of(-1)
-      order = Order(ref)
+      ref <- Ref[F].of(Map.empty[String, Int])
+      order = TxOrder(ref)
     } yield TxProcessor(vm, map, mutex, order)
 
   }
