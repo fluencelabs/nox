@@ -323,6 +323,21 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
   .dependsOn(effects)
   .enablePlugins(AutomateHeaderPlugin)
 
+lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
+  .settings(
+    commons,
+    kindProjector,
+    libraryDependencies ++= Seq(
+      circeGeneric,
+      circeParser,
+      circeGenericExtras,
+      slogging,
+      protobuf
+    )
+  )
+  .dependsOn(effects)
+  .enablePlugins(AutomateHeaderPlugin)
+
 lazy val node = project
   .configs(IntegrationTest)
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
