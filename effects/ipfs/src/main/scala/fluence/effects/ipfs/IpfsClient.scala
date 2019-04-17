@@ -131,12 +131,11 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
       hashes
     }
 
-  /**
-   * Uploads bytes to IPFS node
-   * @return hash of data
-   */
-  def upload(data: ByteVector): EitherT[F, StoreError, ByteVector] = {
-    val uri = UploadUri.queryFragment(KeyValue("pin", "true")).queryFragment(KeyValue("path", ""))
+  private def add(data: ByteVector, onlyHash: Boolean): EitherT[F, StoreError, ByteVector] = {
+    val uri = UploadUri
+      .queryFragment(KeyValue("pin", "true"))
+      .queryFragment(KeyValue("path", ""))
+      .queryFragment(KeyValue("only-hash", onlyHash.toString))
     for {
       _ <- EitherT.pure[F, StoreError](logger.debug(s"IPFS upload started $uri"))
       response <- sttp
@@ -164,4 +163,15 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
         }.leftMap(identity[StoreError])
     } yield hash
   }
-}
+
+  /**
+   * Only calculate hash - do not write to disk.
+   * @return hash of data
+   */
+  def calculateHash(data: ByteVector): EitherT[F, StoreError, ByteVector] = add(data, onlyHash = true)
+
+  /**
+   * Uploads bytes to IPFS node
+   * @return hash of data
+   */
+  def upload(data: ByteVector): EitherT[F, StoreError, ByteVector] = add(data, onlyHash = false)
