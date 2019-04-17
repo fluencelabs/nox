@@ -1,26 +1,12 @@
 version: '3'
 
 services:
-  caddy:
-    image: abiosoft/caddy
-    container_name: caddy
-    ports:
-      - %(caddy_port)s:80
-    volumes:
-      - %(home_dir)s/netdata/config/Caddyfile:/etc/Caddyfile
-      - %(home_dir)s/.local/caddy:/root/.caddy
-    environment:
-      ACME_AGREE: 'true'
-    deploy:
-      resources:
-        limits:
-          cpus: '0.05'
-          memory: 20M
-
   netdata:
     container_name: netdata
     hostname: $HOSTNAME
     image: netdata/netdata
+    ports:
+      - 19999:19999
     cap_add:
       - SYS_PTRACE
     environment:
@@ -31,6 +17,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - %(home_dir)s/.local/netdata_cache:/var/cache/netdata
       - %(home_dir)s/netdata/config/netdata.conf:/netdata.conf
+      - %(home_dir)s/netdata/config/stream.conf:/stream.conf
     command:
       -c /netdata.conf
     deploy:
