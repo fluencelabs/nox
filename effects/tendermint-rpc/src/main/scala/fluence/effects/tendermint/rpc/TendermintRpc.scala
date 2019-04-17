@@ -61,6 +61,15 @@ case class TendermintRpc[F[_]](
       )
     )
 
+  def commit(height: Long, id: String = "dontcare"): EitherT[F, RpcError, String] =
+    post(
+      RpcRequest(
+        method = "commit",
+        params = Json.fromString(height.toString) :: Nil,
+        id = id
+      )
+    )
+
   /**
    * Builds a broadcast_tx_commit RPC request
    *

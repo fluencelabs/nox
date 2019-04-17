@@ -40,7 +40,8 @@ class AbciHandler[F[_]: Effect](
 
     val log: String ⇒ Unit = s ⇒ println(Console.YELLOW + s + Console.RESET)
 
-    rpc.block(height).value.toIO.map(res ⇒ log(height + " ::: " + res.toString)).unsafeRunAsyncAndForget()
+    rpc.block(height).value.toIO.map(res ⇒ log(s"block[$height]" + " ::: " + res.toString)).unsafeRunAsyncAndForget()
+    rpc.commit(height).value.toIO.map(res ⇒ log(s"commit[$height]" + " ::: " + res.toString)).unsafeRunAsyncAndForget()
 
     ResponseBeginBlock.newBuilder().build()
   }
