@@ -16,7 +16,9 @@
 
 package fluence.effects.ipfs
 
+import java.io.File
 import java.nio.ByteBuffer
+import java.nio.file.{Files, Path, Paths}
 
 import cats.data.EitherT
 import cats.effect.{ContextShift, IO, Timer}
@@ -38,11 +40,19 @@ object IpfsExample extends App {
 
   implicit val sttp: SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]] = EitherTSttpBackend[IO]()
 
-  val data = ByteVector(Array[Byte](1,2,3,4))
+  val data = ByteVector(Array[Byte](1, 2, 3, 4))
   val store = new IpfsClient[IO](uri"http://data.fluence.one:5001")
+
+  val home = System.getProperty( "user.home" )
 
   val hashE = store.upload(data).value.unsafeRunSync()
   println(hashE)
+
+  val dirHash = store.upload(Paths.get(home).resolve("testdir")).value.unsafeRunSync().right.get
+  println("dir upload: " + dirHash)
+  println("file upload: " + store.upload(Paths.get(home).resolve("test.wasm")).value.unsafeRunSync())
+  println("empty upload: " + store.upload(Paths.get(home).resolve("emptydir")).value.unsafeRunSync())
+
 
   val hash1 = hashE.right.get
 
@@ -62,7 +72,7 @@ object IpfsExample extends App {
   println("file response = " + res1.head.toArray.mkString(" "))
 
   val res2 = store
-    .ls(ByteVector.fromValidHex("0x5f220381bf07054f4f1ee0b454b9427ac9b1b79d145ab30004ea8a37f1a64157"))
+    .ls(dirHash)
     .value
     .unsafeRunSync()
   println("directory response = " + res2)

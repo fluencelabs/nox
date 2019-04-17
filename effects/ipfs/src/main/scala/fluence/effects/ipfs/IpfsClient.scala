@@ -1,17 +1,39 @@
+/*
+ * Copyright 2018 Fluence Labs Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package fluence.effects.ipfs
 
 import java.nio.ByteBuffer
+import java.nio.file.{Files, Path}
 
-import cats.Monad
+import cats.{Monad, Show}
 import cats.data.EitherT
 import cats.instances.list._
 import cats.Traverse.ops._
 import com.softwaremill.sttp.Uri.QueryFragment.KeyValue
-import com.softwaremill.sttp.{ByteArrayBody, Multipart, SttpBackend, Uri, asStream, sttp}
+import com.softwaremill.sttp.{asStream, sttp, ByteArrayBody, Multipart, SttpBackend, Uri}
+import com.softwaremill.sttp._
 import fluence.effects.castore.StoreError
 import scodec.bits.ByteVector
 import com.softwaremill.sttp.circe.asJson
+import io.circe.Decoder
+import cats.instances.either._
+import cats.syntax.either._
 
+import scala.collection.immutable
 import scala.language.higherKinds
 
 // TODO move somewhere else
@@ -31,8 +53,10 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
   F: cats.Monad[F]
 ) extends slogging.LazyLogging {
+
   import IpfsLsResponse._
   import ResponseOps._
+  import IpfsClient._
 
   object Multihash {
     // https://github.com/multiformats/multicodec/blob/master/table.csv
@@ -99,8 +123,8 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
 
   }
 
-  private def assert(test: Boolean, error: IpfsError): EitherT[F, StoreError, Unit] = {
-    EitherT.fromEither(Either.cond(test, (), error.asInstanceOf[StoreError]))
+  private def assert(test: Boolean, errorMessage: String): EitherT[F, StoreError, Unit] = {
+    EitherT.fromEither(Either.cond(test, (), IpfsError(errorMessage): StoreError))
   }
 
   /**
@@ -114,7 +138,7 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
       rawResponse <- lsRaw(hash)
       _ <- assert(
         rawResponse.Objects.size == 1,
-        IpfsError(s"Expected a single object, got ${rawResponse.Objects.size}. Response: $rawResponse")
+        s"Expected a single object, got ${rawResponse.Objects.size}. Response: $rawResponse"
       )
       rawHashes = {
         val headObject = rawResponse.Objects.head
@@ -131,17 +155,35 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
       hashes
     }
 
-  private def add(data: ByteVector, onlyHash: Boolean): EitherT[F, StoreError, ByteVector] = {
+  /**
+   * `add` operation. Wraps files with a directory if there are multiple files.
+   *
+   * @param multiparts parts to `add`
+   * @param onlyHash if true calculates only hash - does not write to disk.
+   * @return
+   */
+  private def add(
+    multiparts: immutable.Seq[Multipart],
+    onlyHash: Boolean
+  ): EitherT[F, StoreError, ByteVector] = {
+
+    // will wrap multiple files in a directory
+    val multipleFlag = (multiparts.length > 1).toString
+
     val uri = UploadUri
       .queryFragment(KeyValue("pin", "true"))
       .queryFragment(KeyValue("path", ""))
       .queryFragment(KeyValue("only-hash", onlyHash.toString))
+      .queryFragment(KeyValue("recursive", multipleFlag))
+      .queryFragment(KeyValue("wrap-with-directory", multipleFlag))
+
     for {
       _ <- EitherT.pure[F, StoreError](logger.debug(s"IPFS upload started $uri"))
-      response <- sttp
-        .response(asJson[UploadResponse])
+      // raw response: {upload-response-object}\n{upload-response-object}...
+      responses <- sttp
+        .response(asListJson[UploadResponse])
         .post(uri)
-        .multipartBody(Multipart("", ByteArrayBody(data.toArray)))
+        .multipartBody(multiparts)
         .send()
         .toEitherT { er =>
           val errorMessage = s"IPFS 'add' error $uri: $er"
@@ -156,22 +198,92 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
           r
         }
         .leftMap(identity[StoreError])
-      hash <- EitherT.fromEither[F](fromAddress(response.Hash))
-        .leftMap { r =>
-          logger.debug(s"IPFS 'add' hash ${response.Hash} is not correct $uri")
-          IpfsError(r)
-        }.leftMap(identity[StoreError])
+      _ <- assert(responses.nonEmpty, "IPFS 'add': Empty response.")
+      namesWithHashes <- EitherT.fromEither[F](
+        responses
+          .map(
+            r =>
+              fromAddress(r.Hash).map(h => r.Name -> h).leftMap { e =>
+                logger.debug(s"IPFS 'add' hash ${r.Hash} is not correct $uri")
+                IpfsError(e)
+            }
+          )
+          .sequence
+      )
+      hash <- {
+        if (namesWithHashes.length == 1) EitherT.pure[F, StoreError](namesWithHashes.head._2)
+        else {
+          // if there is more then one JSON objects
+          // find an object with an empty name - it will be an object with a directory
+          EitherT.fromEither[F](
+            namesWithHashes
+              .find(_._1.isEmpty)
+              .map(_._2)
+              .toRight(
+                IpfsError(s"IPFS 'add' incorrect response: $responses. No response with empty name."): StoreError
+              )
+          )
+        }
+      }
     } yield hash
   }
 
   /**
-   * Only calculate hash - do not write to disk.
+   * Only calculates hash - do not write to disk.
+   *
    * @return hash of data
    */
-  def calculateHash(data: ByteVector): EitherT[F, StoreError, ByteVector] = add(data, onlyHash = true)
+  def calculateHash(data: ByteVector): EitherT[F, StoreError, ByteVector] =
+    add(immutable.Seq(Multipart("", ByteArrayBody(data.toArray))), onlyHash = true)
 
   /**
    * Uploads bytes to IPFS node
+   *
    * @return hash of data
    */
-  def upload(data: ByteVector): EitherT[F, StoreError, ByteVector] = add(data, onlyHash = false)
+  def upload(data: ByteVector): EitherT[F, StoreError, ByteVector] =
+    add(immutable.Seq(multipart("", data.toArray)), onlyHash = false)
+
+  private def listPaths(path: Path): EitherT[F, StoreError, immutable.Seq[Path]] = {
+    import scala.collection.JavaConverters._
+    if (Files.isDirectory(path)) {
+      val allFiles = Files.list(path).iterator().asScala.to[immutable.Seq]
+      assert(allFiles.forall(p => Files.isRegularFile(p)), s"Directory ${path.getFileName} has nester directories.")
+        .map(_ => allFiles)
+    } else EitherT.pure(immutable.Seq(path))
+  }
+
+  /**
+   * Uploads files to IPFS node. Supports only one file or files in one directory, without nested directories.
+   *
+   * @param path to a file or a directory
+   * @return hash address
+   */
+  def upload(path: Path): EitherT[F, StoreError, ByteVector] = {
+    for {
+      _ <- assert(Files.exists(path), s"File '${path.getFileName}' does not exist")
+      pathsList <- listPaths(path)
+      parts = pathsList.map(p => multipartFile("", p))
+      _ <- assert(parts.nonEmpty, s"Directory ${path.getFileName} is empty.")
+      hash <- add(parts, onlyHash = false)
+    } yield hash
+  }
+}
+
+object IpfsClient {
+  import io.circe.parser.decode
+
+  // parses JSON like {object1}\n{object2}...
+  def asListJson[B: Decoder: IsOption]: ResponseAs[Either[DeserializationError[io.circe.Error], List[B]], Nothing] = {
+    asString.map(
+      _.split("\\s+")
+        .map(
+          s =>
+            decode[B](s).left
+              .map(e => DeserializationError(s, e, Show[io.circe.Error].show(e)))
+        )
+        .toList
+        .sequence
+    )
+  }
+}
