@@ -292,7 +292,7 @@ object IpfsClient {
             case e: Throwable => DecodingFailure(e.getLocalizedMessage, Nil)
           })
           .toList
-          .map(a => a.map(_.as[B]).flatMap(identity))
+          .map(_.map(_.as[B]).flatMap(identity))
           .sequence
       )
   }
