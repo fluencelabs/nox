@@ -28,4 +28,4 @@ fi
 cp -rf "$CODE_DIR/." "/vmcode/"
 
 # run State machine
-exec java -jar "$JAR"
+exec java -Xmx1G -jar "$JAR"

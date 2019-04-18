@@ -3,9 +3,11 @@
 //
 // Protofile syntax: PROTO3
 
-package proto3.block
+package proto3.tendermint
 
-/** @param version
+/** ======================= from Tendermint's block.proto
+  *
+  * @param version
   *   basic block info
   * @param lastBlockID
   *   prev block info
@@ -33,13 +35,13 @@ package proto3.block
   */
 @SerialVersionUID(0L)
 final case class Header(
-    version: _root_.scala.Option[proto3.block.Version] = None,
+    version: _root_.scala.Option[proto3.tendermint.Version] = None,
     chainID: _root_.scala.Predef.String = "",
     height: _root_.scala.Long = 0L,
-    time: _root_.scala.Option[proto3.block.Timestamp] = None,
+    time: _root_.scala.Option[proto3.tendermint.Timestamp] = None,
     numTxs: _root_.scala.Long = 0L,
     totalTxs: _root_.scala.Long = 0L,
-    lastBlockID: _root_.scala.Option[proto3.block.BlockID] = None,
+    lastBlockID: _root_.scala.Option[proto3.tendermint.BlockID] = None,
     lastCommitHash: _root_.com.google.protobuf.ByteString = _root_.com.google.protobuf.ByteString.EMPTY,
     dataHash: _root_.com.google.protobuf.ByteString = _root_.com.google.protobuf.ByteString.EMPTY,
     validatorsHash: _root_.com.google.protobuf.ByteString = _root_.com.google.protobuf.ByteString.EMPTY,
@@ -265,7 +267,7 @@ final case class Header(
         }
       };
     }
-    def mergeFrom(`_input__`: _root_.com.google.protobuf.CodedInputStream): proto3.block.Header = {
+    def mergeFrom(`_input__`: _root_.com.google.protobuf.CodedInputStream): proto3.tendermint.Header = {
       var __version = this.version
       var __chainID = this.chainID
       var __height = this.height
@@ -288,19 +290,19 @@ final case class Header(
         _tag__ match {
           case 0 => _done__ = true
           case 10 =>
-            __version = Option(_root_.scalapb.LiteParser.readMessage(_input__, __version.getOrElse(proto3.block.Version.defaultInstance)))
+            __version = Option(_root_.scalapb.LiteParser.readMessage(_input__, __version.getOrElse(proto3.tendermint.Version.defaultInstance)))
           case 18 =>
             __chainID = _input__.readString()
           case 24 =>
             __height = _input__.readInt64()
           case 34 =>
-            __time = Option(_root_.scalapb.LiteParser.readMessage(_input__, __time.getOrElse(proto3.block.Timestamp.defaultInstance)))
+            __time = Option(_root_.scalapb.LiteParser.readMessage(_input__, __time.getOrElse(proto3.tendermint.Timestamp.defaultInstance)))
           case 40 =>
             __numTxs = _input__.readInt64()
           case 48 =>
             __totalTxs = _input__.readInt64()
           case 58 =>
-            __lastBlockID = Option(_root_.scalapb.LiteParser.readMessage(_input__, __lastBlockID.getOrElse(proto3.block.BlockID.defaultInstance)))
+            __lastBlockID = Option(_root_.scalapb.LiteParser.readMessage(_input__, __lastBlockID.getOrElse(proto3.tendermint.BlockID.defaultInstance)))
           case 66 =>
             __lastCommitHash = _input__.readBytes()
           case 74 =>
@@ -322,7 +324,7 @@ final case class Header(
           case tag => _input__.skipField(tag)
         }
       }
-      proto3.block.Header(
+      proto3.tendermint.Header(
           version = __version,
           chainID = __chainID,
           height = __height,
@@ -341,19 +343,19 @@ final case class Header(
           proposerAddress = __proposerAddress
       )
     }
-    def getVersion: proto3.block.Version = version.getOrElse(proto3.block.Version.defaultInstance)
+    def getVersion: proto3.tendermint.Version = version.getOrElse(proto3.tendermint.Version.defaultInstance)
     def clearVersion: Header = copy(version = None)
-    def withVersion(__v: proto3.block.Version): Header = copy(version = Option(__v))
+    def withVersion(__v: proto3.tendermint.Version): Header = copy(version = Option(__v))
     def withChainID(__v: _root_.scala.Predef.String): Header = copy(chainID = __v)
     def withHeight(__v: _root_.scala.Long): Header = copy(height = __v)
-    def getTime: proto3.block.Timestamp = time.getOrElse(proto3.block.Timestamp.defaultInstance)
+    def getTime: proto3.tendermint.Timestamp = time.getOrElse(proto3.tendermint.Timestamp.defaultInstance)
     def clearTime: Header = copy(time = None)
-    def withTime(__v: proto3.block.Timestamp): Header = copy(time = Option(__v))
+    def withTime(__v: proto3.tendermint.Timestamp): Header = copy(time = Option(__v))
     def withNumTxs(__v: _root_.scala.Long): Header = copy(numTxs = __v)
     def withTotalTxs(__v: _root_.scala.Long): Header = copy(totalTxs = __v)
-    def getLastBlockID: proto3.block.BlockID = lastBlockID.getOrElse(proto3.block.BlockID.defaultInstance)
+    def getLastBlockID: proto3.tendermint.BlockID = lastBlockID.getOrElse(proto3.tendermint.BlockID.defaultInstance)
     def clearLastBlockID: Header = copy(lastBlockID = None)
-    def withLastBlockID(__v: proto3.block.BlockID): Header = copy(lastBlockID = Option(__v))
+    def withLastBlockID(__v: proto3.tendermint.BlockID): Header = copy(lastBlockID = Option(__v))
     def withLastCommitHash(__v: _root_.com.google.protobuf.ByteString): Header = copy(lastCommitHash = __v)
     def withDataHash(__v: _root_.com.google.protobuf.ByteString): Header = copy(dataHash = __v)
     def withValidatorsHash(__v: _root_.com.google.protobuf.ByteString): Header = copy(validatorsHash = __v)
@@ -444,22 +446,22 @@ final case class Header(
       }
     }
     def toProtoString: _root_.scala.Predef.String = _root_.scalapb.TextFormat.printToUnicodeString(this)
-    def companion = proto3.block.Header
+    def companion = proto3.tendermint.Header
 }
 
-object Header extends scalapb.GeneratedMessageCompanion[proto3.block.Header] {
-  implicit def messageCompanion: scalapb.GeneratedMessageCompanion[proto3.block.Header] = this
-  def fromFieldsMap(__fieldsMap: scala.collection.immutable.Map[_root_.com.google.protobuf.Descriptors.FieldDescriptor, _root_.scala.Any]): proto3.block.Header = {
+object Header extends scalapb.GeneratedMessageCompanion[proto3.tendermint.Header] {
+  implicit def messageCompanion: scalapb.GeneratedMessageCompanion[proto3.tendermint.Header] = this
+  def fromFieldsMap(__fieldsMap: scala.collection.immutable.Map[_root_.com.google.protobuf.Descriptors.FieldDescriptor, _root_.scala.Any]): proto3.tendermint.Header = {
     _root_.scala.Predef.require(__fieldsMap.keys.forall(_.getContainingType() == javaDescriptor), "FieldDescriptor does not match message type.")
     val __fields = javaDescriptor.getFields
-    proto3.block.Header(
-      __fieldsMap.get(__fields.get(0)).asInstanceOf[_root_.scala.Option[proto3.block.Version]],
+    proto3.tendermint.Header(
+      __fieldsMap.get(__fields.get(0)).asInstanceOf[_root_.scala.Option[proto3.tendermint.Version]],
       __fieldsMap.getOrElse(__fields.get(1), "").asInstanceOf[_root_.scala.Predef.String],
       __fieldsMap.getOrElse(__fields.get(2), 0L).asInstanceOf[_root_.scala.Long],
-      __fieldsMap.get(__fields.get(3)).asInstanceOf[_root_.scala.Option[proto3.block.Timestamp]],
+      __fieldsMap.get(__fields.get(3)).asInstanceOf[_root_.scala.Option[proto3.tendermint.Timestamp]],
       __fieldsMap.getOrElse(__fields.get(4), 0L).asInstanceOf[_root_.scala.Long],
       __fieldsMap.getOrElse(__fields.get(5), 0L).asInstanceOf[_root_.scala.Long],
-      __fieldsMap.get(__fields.get(6)).asInstanceOf[_root_.scala.Option[proto3.block.BlockID]],
+      __fieldsMap.get(__fields.get(6)).asInstanceOf[_root_.scala.Option[proto3.tendermint.BlockID]],
       __fieldsMap.getOrElse(__fields.get(7), _root_.com.google.protobuf.ByteString.EMPTY).asInstanceOf[_root_.com.google.protobuf.ByteString],
       __fieldsMap.getOrElse(__fields.get(8), _root_.com.google.protobuf.ByteString.EMPTY).asInstanceOf[_root_.com.google.protobuf.ByteString],
       __fieldsMap.getOrElse(__fields.get(9), _root_.com.google.protobuf.ByteString.EMPTY).asInstanceOf[_root_.com.google.protobuf.ByteString],
@@ -471,17 +473,17 @@ object Header extends scalapb.GeneratedMessageCompanion[proto3.block.Header] {
       __fieldsMap.getOrElse(__fields.get(15), _root_.com.google.protobuf.ByteString.EMPTY).asInstanceOf[_root_.com.google.protobuf.ByteString]
     )
   }
-  implicit def messageReads: _root_.scalapb.descriptors.Reads[proto3.block.Header] = _root_.scalapb.descriptors.Reads{
+  implicit def messageReads: _root_.scalapb.descriptors.Reads[proto3.tendermint.Header] = _root_.scalapb.descriptors.Reads{
     case _root_.scalapb.descriptors.PMessage(__fieldsMap) =>
       _root_.scala.Predef.require(__fieldsMap.keys.forall(_.containingMessage == scalaDescriptor), "FieldDescriptor does not match message type.")
-      proto3.block.Header(
-        __fieldsMap.get(scalaDescriptor.findFieldByNumber(1).get).flatMap(_.as[_root_.scala.Option[proto3.block.Version]]),
+      proto3.tendermint.Header(
+        __fieldsMap.get(scalaDescriptor.findFieldByNumber(1).get).flatMap(_.as[_root_.scala.Option[proto3.tendermint.Version]]),
         __fieldsMap.get(scalaDescriptor.findFieldByNumber(2).get).map(_.as[_root_.scala.Predef.String]).getOrElse(""),
         __fieldsMap.get(scalaDescriptor.findFieldByNumber(3).get).map(_.as[_root_.scala.Long]).getOrElse(0L),
-        __fieldsMap.get(scalaDescriptor.findFieldByNumber(4).get).flatMap(_.as[_root_.scala.Option[proto3.block.Timestamp]]),
+        __fieldsMap.get(scalaDescriptor.findFieldByNumber(4).get).flatMap(_.as[_root_.scala.Option[proto3.tendermint.Timestamp]]),
         __fieldsMap.get(scalaDescriptor.findFieldByNumber(5).get).map(_.as[_root_.scala.Long]).getOrElse(0L),
         __fieldsMap.get(scalaDescriptor.findFieldByNumber(6).get).map(_.as[_root_.scala.Long]).getOrElse(0L),
-        __fieldsMap.get(scalaDescriptor.findFieldByNumber(7).get).flatMap(_.as[_root_.scala.Option[proto3.block.BlockID]]),
+        __fieldsMap.get(scalaDescriptor.findFieldByNumber(7).get).flatMap(_.as[_root_.scala.Option[proto3.tendermint.BlockID]]),
         __fieldsMap.get(scalaDescriptor.findFieldByNumber(8).get).map(_.as[_root_.com.google.protobuf.ByteString]).getOrElse(_root_.com.google.protobuf.ByteString.EMPTY),
         __fieldsMap.get(scalaDescriptor.findFieldByNumber(9).get).map(_.as[_root_.com.google.protobuf.ByteString]).getOrElse(_root_.com.google.protobuf.ByteString.EMPTY),
         __fieldsMap.get(scalaDescriptor.findFieldByNumber(10).get).map(_.as[_root_.com.google.protobuf.ByteString]).getOrElse(_root_.com.google.protobuf.ByteString.EMPTY),
@@ -494,32 +496,32 @@ object Header extends scalapb.GeneratedMessageCompanion[proto3.block.Header] {
       )
     case _ => throw new RuntimeException("Expected PMessage")
   }
-  def javaDescriptor: _root_.com.google.protobuf.Descriptors.Descriptor = BlockProto.javaDescriptor.getMessageTypes.get(2)
-  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = BlockProto.scalaDescriptor.messages(2)
+  def javaDescriptor: _root_.com.google.protobuf.Descriptors.Descriptor = TendermintProto.javaDescriptor.getMessageTypes.get(4)
+  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = TendermintProto.scalaDescriptor.messages(4)
   def messageCompanionForFieldNumber(__number: _root_.scala.Int): _root_.scalapb.GeneratedMessageCompanion[_] = {
     var __out: _root_.scalapb.GeneratedMessageCompanion[_] = null
     (__number: @_root_.scala.unchecked) match {
-      case 1 => __out = proto3.block.Version
-      case 4 => __out = proto3.block.Timestamp
-      case 7 => __out = proto3.block.BlockID
+      case 1 => __out = proto3.tendermint.Version
+      case 4 => __out = proto3.tendermint.Timestamp
+      case 7 => __out = proto3.tendermint.BlockID
     }
     __out
   }
   lazy val nestedMessagesCompanions: Seq[_root_.scalapb.GeneratedMessageCompanion[_]] = Seq.empty
   def enumCompanionForFieldNumber(__fieldNumber: _root_.scala.Int): _root_.scalapb.GeneratedEnumCompanion[_] = throw new MatchError(__fieldNumber)
-  lazy val defaultInstance = proto3.block.Header(
+  lazy val defaultInstance = proto3.tendermint.Header(
   )
-  implicit class HeaderLens[UpperPB](_l: _root_.scalapb.lenses.Lens[UpperPB, proto3.block.Header]) extends _root_.scalapb.lenses.ObjectLens[UpperPB, proto3.block.Header](_l) {
-    def version: _root_.scalapb.lenses.Lens[UpperPB, proto3.block.Version] = field(_.getVersion)((c_, f_) => c_.copy(version = Option(f_)))
-    def optionalVersion: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Option[proto3.block.Version]] = field(_.version)((c_, f_) => c_.copy(version = f_))
+  implicit class HeaderLens[UpperPB](_l: _root_.scalapb.lenses.Lens[UpperPB, proto3.tendermint.Header]) extends _root_.scalapb.lenses.ObjectLens[UpperPB, proto3.tendermint.Header](_l) {
+    def version: _root_.scalapb.lenses.Lens[UpperPB, proto3.tendermint.Version] = field(_.getVersion)((c_, f_) => c_.copy(version = Option(f_)))
+    def optionalVersion: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Option[proto3.tendermint.Version]] = field(_.version)((c_, f_) => c_.copy(version = f_))
     def chainID: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Predef.String] = field(_.chainID)((c_, f_) => c_.copy(chainID = f_))
     def height: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Long] = field(_.height)((c_, f_) => c_.copy(height = f_))
-    def time: _root_.scalapb.lenses.Lens[UpperPB, proto3.block.Timestamp] = field(_.getTime)((c_, f_) => c_.copy(time = Option(f_)))
-    def optionalTime: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Option[proto3.block.Timestamp]] = field(_.time)((c_, f_) => c_.copy(time = f_))
+    def time: _root_.scalapb.lenses.Lens[UpperPB, proto3.tendermint.Timestamp] = field(_.getTime)((c_, f_) => c_.copy(time = Option(f_)))
+    def optionalTime: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Option[proto3.tendermint.Timestamp]] = field(_.time)((c_, f_) => c_.copy(time = f_))
     def numTxs: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Long] = field(_.numTxs)((c_, f_) => c_.copy(numTxs = f_))
     def totalTxs: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Long] = field(_.totalTxs)((c_, f_) => c_.copy(totalTxs = f_))
-    def lastBlockID: _root_.scalapb.lenses.Lens[UpperPB, proto3.block.BlockID] = field(_.getLastBlockID)((c_, f_) => c_.copy(lastBlockID = Option(f_)))
-    def optionalLastBlockID: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Option[proto3.block.BlockID]] = field(_.lastBlockID)((c_, f_) => c_.copy(lastBlockID = f_))
+    def lastBlockID: _root_.scalapb.lenses.Lens[UpperPB, proto3.tendermint.BlockID] = field(_.getLastBlockID)((c_, f_) => c_.copy(lastBlockID = Option(f_)))
+    def optionalLastBlockID: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Option[proto3.tendermint.BlockID]] = field(_.lastBlockID)((c_, f_) => c_.copy(lastBlockID = f_))
     def lastCommitHash: _root_.scalapb.lenses.Lens[UpperPB, _root_.com.google.protobuf.ByteString] = field(_.lastCommitHash)((c_, f_) => c_.copy(lastCommitHash = f_))
     def dataHash: _root_.scalapb.lenses.Lens[UpperPB, _root_.com.google.protobuf.ByteString] = field(_.dataHash)((c_, f_) => c_.copy(dataHash = f_))
     def validatorsHash: _root_.scalapb.lenses.Lens[UpperPB, _root_.com.google.protobuf.ByteString] = field(_.validatorsHash)((c_, f_) => c_.copy(validatorsHash = f_))

@@ -3,12 +3,12 @@
 //
 // Protofile syntax: PROTO3
 
-package proto3.block
+package proto3.tendermint
 
 @SerialVersionUID(0L)
 final case class BlockID(
     hash: _root_.com.google.protobuf.ByteString = _root_.com.google.protobuf.ByteString.EMPTY,
-    partsHeader: _root_.scala.Option[proto3.block.PartSetHeader] = None
+    partsHeader: _root_.scala.Option[proto3.tendermint.PartSetHeader] = None
     ) extends scalapb.GeneratedMessage with scalapb.Message[BlockID] with scalapb.lenses.Updatable[BlockID] {
     @transient
     private[this] var __serializedSizeCachedValue: _root_.scala.Int = 0
@@ -49,7 +49,7 @@ final case class BlockID(
         __m.writeTo(_output__)
       };
     }
-    def mergeFrom(`_input__`: _root_.com.google.protobuf.CodedInputStream): proto3.block.BlockID = {
+    def mergeFrom(`_input__`: _root_.com.google.protobuf.CodedInputStream): proto3.tendermint.BlockID = {
       var __hash = this.hash
       var __partsHeader = this.partsHeader
       var _done__ = false
@@ -60,19 +60,19 @@ final case class BlockID(
           case 10 =>
             __hash = _input__.readBytes()
           case 18 =>
-            __partsHeader = Option(_root_.scalapb.LiteParser.readMessage(_input__, __partsHeader.getOrElse(proto3.block.PartSetHeader.defaultInstance)))
+            __partsHeader = Option(_root_.scalapb.LiteParser.readMessage(_input__, __partsHeader.getOrElse(proto3.tendermint.PartSetHeader.defaultInstance)))
           case tag => _input__.skipField(tag)
         }
       }
-      proto3.block.BlockID(
+      proto3.tendermint.BlockID(
           hash = __hash,
           partsHeader = __partsHeader
       )
     }
     def withHash(__v: _root_.com.google.protobuf.ByteString): BlockID = copy(hash = __v)
-    def getPartsHeader: proto3.block.PartSetHeader = partsHeader.getOrElse(proto3.block.PartSetHeader.defaultInstance)
+    def getPartsHeader: proto3.tendermint.PartSetHeader = partsHeader.getOrElse(proto3.tendermint.PartSetHeader.defaultInstance)
     def clearPartsHeader: BlockID = copy(partsHeader = None)
-    def withPartsHeader(__v: proto3.block.PartSetHeader): BlockID = copy(partsHeader = Option(__v))
+    def withPartsHeader(__v: proto3.tendermint.PartSetHeader): BlockID = copy(partsHeader = Option(__v))
     def getFieldByNumber(__fieldNumber: _root_.scala.Int): _root_.scala.Any = {
       (__fieldNumber: @_root_.scala.unchecked) match {
         case 1 => {
@@ -90,45 +90,45 @@ final case class BlockID(
       }
     }
     def toProtoString: _root_.scala.Predef.String = _root_.scalapb.TextFormat.printToUnicodeString(this)
-    def companion = proto3.block.BlockID
+    def companion = proto3.tendermint.BlockID
 }
 
-object BlockID extends scalapb.GeneratedMessageCompanion[proto3.block.BlockID] {
-  implicit def messageCompanion: scalapb.GeneratedMessageCompanion[proto3.block.BlockID] = this
-  def fromFieldsMap(__fieldsMap: scala.collection.immutable.Map[_root_.com.google.protobuf.Descriptors.FieldDescriptor, _root_.scala.Any]): proto3.block.BlockID = {
+object BlockID extends scalapb.GeneratedMessageCompanion[proto3.tendermint.BlockID] {
+  implicit def messageCompanion: scalapb.GeneratedMessageCompanion[proto3.tendermint.BlockID] = this
+  def fromFieldsMap(__fieldsMap: scala.collection.immutable.Map[_root_.com.google.protobuf.Descriptors.FieldDescriptor, _root_.scala.Any]): proto3.tendermint.BlockID = {
     _root_.scala.Predef.require(__fieldsMap.keys.forall(_.getContainingType() == javaDescriptor), "FieldDescriptor does not match message type.")
     val __fields = javaDescriptor.getFields
-    proto3.block.BlockID(
+    proto3.tendermint.BlockID(
       __fieldsMap.getOrElse(__fields.get(0), _root_.com.google.protobuf.ByteString.EMPTY).asInstanceOf[_root_.com.google.protobuf.ByteString],
-      __fieldsMap.get(__fields.get(1)).asInstanceOf[_root_.scala.Option[proto3.block.PartSetHeader]]
+      __fieldsMap.get(__fields.get(1)).asInstanceOf[_root_.scala.Option[proto3.tendermint.PartSetHeader]]
     )
   }
-  implicit def messageReads: _root_.scalapb.descriptors.Reads[proto3.block.BlockID] = _root_.scalapb.descriptors.Reads{
+  implicit def messageReads: _root_.scalapb.descriptors.Reads[proto3.tendermint.BlockID] = _root_.scalapb.descriptors.Reads{
     case _root_.scalapb.descriptors.PMessage(__fieldsMap) =>
       _root_.scala.Predef.require(__fieldsMap.keys.forall(_.containingMessage == scalaDescriptor), "FieldDescriptor does not match message type.")
-      proto3.block.BlockID(
+      proto3.tendermint.BlockID(
         __fieldsMap.get(scalaDescriptor.findFieldByNumber(1).get).map(_.as[_root_.com.google.protobuf.ByteString]).getOrElse(_root_.com.google.protobuf.ByteString.EMPTY),
-        __fieldsMap.get(scalaDescriptor.findFieldByNumber(2).get).flatMap(_.as[_root_.scala.Option[proto3.block.PartSetHeader]])
+        __fieldsMap.get(scalaDescriptor.findFieldByNumber(2).get).flatMap(_.as[_root_.scala.Option[proto3.tendermint.PartSetHeader]])
       )
     case _ => throw new RuntimeException("Expected PMessage")
   }
-  def javaDescriptor: _root_.com.google.protobuf.Descriptors.Descriptor = BlockProto.javaDescriptor.getMessageTypes.get(1)
-  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = BlockProto.scalaDescriptor.messages(1)
+  def javaDescriptor: _root_.com.google.protobuf.Descriptors.Descriptor = TendermintProto.javaDescriptor.getMessageTypes.get(1)
+  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = TendermintProto.scalaDescriptor.messages(1)
   def messageCompanionForFieldNumber(__number: _root_.scala.Int): _root_.scalapb.GeneratedMessageCompanion[_] = {
     var __out: _root_.scalapb.GeneratedMessageCompanion[_] = null
     (__number: @_root_.scala.unchecked) match {
-      case 2 => __out = proto3.block.PartSetHeader
+      case 2 => __out = proto3.tendermint.PartSetHeader
     }
     __out
   }
   lazy val nestedMessagesCompanions: Seq[_root_.scalapb.GeneratedMessageCompanion[_]] = Seq.empty
   def enumCompanionForFieldNumber(__fieldNumber: _root_.scala.Int): _root_.scalapb.GeneratedEnumCompanion[_] = throw new MatchError(__fieldNumber)
-  lazy val defaultInstance = proto3.block.BlockID(
+  lazy val defaultInstance = proto3.tendermint.BlockID(
   )
-  implicit class BlockIDLens[UpperPB](_l: _root_.scalapb.lenses.Lens[UpperPB, proto3.block.BlockID]) extends _root_.scalapb.lenses.ObjectLens[UpperPB, proto3.block.BlockID](_l) {
+  implicit class BlockIDLens[UpperPB](_l: _root_.scalapb.lenses.Lens[UpperPB, proto3.tendermint.BlockID]) extends _root_.scalapb.lenses.ObjectLens[UpperPB, proto3.tendermint.BlockID](_l) {
     def hash: _root_.scalapb.lenses.Lens[UpperPB, _root_.com.google.protobuf.ByteString] = field(_.hash)((c_, f_) => c_.copy(hash = f_))
-    def partsHeader: _root_.scalapb.lenses.Lens[UpperPB, proto3.block.PartSetHeader] = field(_.getPartsHeader)((c_, f_) => c_.copy(partsHeader = Option(f_)))
-    def optionalPartsHeader: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Option[proto3.block.PartSetHeader]] = field(_.partsHeader)((c_, f_) => c_.copy(partsHeader = f_))
+    def partsHeader: _root_.scalapb.lenses.Lens[UpperPB, proto3.tendermint.PartSetHeader] = field(_.getPartsHeader)((c_, f_) => c_.copy(partsHeader = Option(f_)))
+    def optionalPartsHeader: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Option[proto3.tendermint.PartSetHeader]] = field(_.partsHeader)((c_, f_) => c_.copy(partsHeader = f_))
   }
   final val HASH_FIELD_NUMBER = 1
   final val PARTSHEADER_FIELD_NUMBER = 2

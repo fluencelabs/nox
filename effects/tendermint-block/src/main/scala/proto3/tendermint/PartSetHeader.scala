@@ -3,7 +3,7 @@
 //
 // Protofile syntax: PROTO3
 
-package proto3.block
+package proto3.tendermint
 
 @SerialVersionUID(0L)
 final case class PartSetHeader(
@@ -52,7 +52,7 @@ final case class PartSetHeader(
         }
       };
     }
-    def mergeFrom(`_input__`: _root_.com.google.protobuf.CodedInputStream): proto3.block.PartSetHeader = {
+    def mergeFrom(`_input__`: _root_.com.google.protobuf.CodedInputStream): proto3.tendermint.PartSetHeader = {
       var __total = this.total
       var __hash = this.hash
       var _done__ = false
@@ -67,7 +67,7 @@ final case class PartSetHeader(
           case tag => _input__.skipField(tag)
         }
       }
-      proto3.block.PartSetHeader(
+      proto3.tendermint.PartSetHeader(
           total = __total,
           hash = __hash
       )
@@ -94,36 +94,36 @@ final case class PartSetHeader(
       }
     }
     def toProtoString: _root_.scala.Predef.String = _root_.scalapb.TextFormat.printToUnicodeString(this)
-    def companion = proto3.block.PartSetHeader
+    def companion = proto3.tendermint.PartSetHeader
 }
 
-object PartSetHeader extends scalapb.GeneratedMessageCompanion[proto3.block.PartSetHeader] {
-  implicit def messageCompanion: scalapb.GeneratedMessageCompanion[proto3.block.PartSetHeader] = this
-  def fromFieldsMap(__fieldsMap: scala.collection.immutable.Map[_root_.com.google.protobuf.Descriptors.FieldDescriptor, _root_.scala.Any]): proto3.block.PartSetHeader = {
+object PartSetHeader extends scalapb.GeneratedMessageCompanion[proto3.tendermint.PartSetHeader] {
+  implicit def messageCompanion: scalapb.GeneratedMessageCompanion[proto3.tendermint.PartSetHeader] = this
+  def fromFieldsMap(__fieldsMap: scala.collection.immutable.Map[_root_.com.google.protobuf.Descriptors.FieldDescriptor, _root_.scala.Any]): proto3.tendermint.PartSetHeader = {
     _root_.scala.Predef.require(__fieldsMap.keys.forall(_.getContainingType() == javaDescriptor), "FieldDescriptor does not match message type.")
     val __fields = javaDescriptor.getFields
-    proto3.block.PartSetHeader(
+    proto3.tendermint.PartSetHeader(
       __fieldsMap.getOrElse(__fields.get(0), 0).asInstanceOf[_root_.scala.Int],
       __fieldsMap.getOrElse(__fields.get(1), _root_.com.google.protobuf.ByteString.EMPTY).asInstanceOf[_root_.com.google.protobuf.ByteString]
     )
   }
-  implicit def messageReads: _root_.scalapb.descriptors.Reads[proto3.block.PartSetHeader] = _root_.scalapb.descriptors.Reads{
+  implicit def messageReads: _root_.scalapb.descriptors.Reads[proto3.tendermint.PartSetHeader] = _root_.scalapb.descriptors.Reads{
     case _root_.scalapb.descriptors.PMessage(__fieldsMap) =>
       _root_.scala.Predef.require(__fieldsMap.keys.forall(_.containingMessage == scalaDescriptor), "FieldDescriptor does not match message type.")
-      proto3.block.PartSetHeader(
+      proto3.tendermint.PartSetHeader(
         __fieldsMap.get(scalaDescriptor.findFieldByNumber(1).get).map(_.as[_root_.scala.Int]).getOrElse(0),
         __fieldsMap.get(scalaDescriptor.findFieldByNumber(2).get).map(_.as[_root_.com.google.protobuf.ByteString]).getOrElse(_root_.com.google.protobuf.ByteString.EMPTY)
       )
     case _ => throw new RuntimeException("Expected PMessage")
   }
-  def javaDescriptor: _root_.com.google.protobuf.Descriptors.Descriptor = BlockProto.javaDescriptor.getMessageTypes.get(0)
-  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = BlockProto.scalaDescriptor.messages(0)
+  def javaDescriptor: _root_.com.google.protobuf.Descriptors.Descriptor = TendermintProto.javaDescriptor.getMessageTypes.get(0)
+  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = TendermintProto.scalaDescriptor.messages(0)
   def messageCompanionForFieldNumber(__number: _root_.scala.Int): _root_.scalapb.GeneratedMessageCompanion[_] = throw new MatchError(__number)
   lazy val nestedMessagesCompanions: Seq[_root_.scalapb.GeneratedMessageCompanion[_]] = Seq.empty
   def enumCompanionForFieldNumber(__fieldNumber: _root_.scala.Int): _root_.scalapb.GeneratedEnumCompanion[_] = throw new MatchError(__fieldNumber)
-  lazy val defaultInstance = proto3.block.PartSetHeader(
+  lazy val defaultInstance = proto3.tendermint.PartSetHeader(
   )
-  implicit class PartSetHeaderLens[UpperPB](_l: _root_.scalapb.lenses.Lens[UpperPB, proto3.block.PartSetHeader]) extends _root_.scalapb.lenses.ObjectLens[UpperPB, proto3.block.PartSetHeader](_l) {
+  implicit class PartSetHeaderLens[UpperPB](_l: _root_.scalapb.lenses.Lens[UpperPB, proto3.tendermint.PartSetHeader]) extends _root_.scalapb.lenses.ObjectLens[UpperPB, proto3.tendermint.PartSetHeader](_l) {
     def total: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Int] = field(_.total)((c_, f_) => c_.copy(total = f_))
     def hash: _root_.scalapb.lenses.Lens[UpperPB, _root_.com.google.protobuf.ByteString] = field(_.hash)((c_, f_) => c_.copy(hash = f_))
   }

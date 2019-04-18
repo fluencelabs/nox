@@ -3,14 +3,8 @@
 //
 // Protofile syntax: PROTO3
 
-package proto3.block
+package proto3.tendermint
 
-/** Timestamp wraps how amino encodes time.
-  * This is the protobuf well-known type protobuf/timestamp.proto
-  * See:
-  * https://github.com/google/protobuf/blob/d2980062c859649523d5fd51d6b55ab310e47482/src/google/protobuf/timestamp.proto#L123-L135
-  * NOTE/XXX: nanos do not get skipped if they are zero in amino.
-  */
 @SerialVersionUID(0L)
 final case class Timestamp(
     seconds: _root_.scala.Long = 0L,
@@ -58,7 +52,7 @@ final case class Timestamp(
         }
       };
     }
-    def mergeFrom(`_input__`: _root_.com.google.protobuf.CodedInputStream): proto3.block.Timestamp = {
+    def mergeFrom(`_input__`: _root_.com.google.protobuf.CodedInputStream): proto3.tendermint.Timestamp = {
       var __seconds = this.seconds
       var __nanos = this.nanos
       var _done__ = false
@@ -73,7 +67,7 @@ final case class Timestamp(
           case tag => _input__.skipField(tag)
         }
       }
-      proto3.block.Timestamp(
+      proto3.tendermint.Timestamp(
           seconds = __seconds,
           nanos = __nanos
       )
@@ -100,36 +94,36 @@ final case class Timestamp(
       }
     }
     def toProtoString: _root_.scala.Predef.String = _root_.scalapb.TextFormat.printToUnicodeString(this)
-    def companion = proto3.block.Timestamp
+    def companion = proto3.tendermint.Timestamp
 }
 
-object Timestamp extends scalapb.GeneratedMessageCompanion[proto3.block.Timestamp] {
-  implicit def messageCompanion: scalapb.GeneratedMessageCompanion[proto3.block.Timestamp] = this
-  def fromFieldsMap(__fieldsMap: scala.collection.immutable.Map[_root_.com.google.protobuf.Descriptors.FieldDescriptor, _root_.scala.Any]): proto3.block.Timestamp = {
+object Timestamp extends scalapb.GeneratedMessageCompanion[proto3.tendermint.Timestamp] {
+  implicit def messageCompanion: scalapb.GeneratedMessageCompanion[proto3.tendermint.Timestamp] = this
+  def fromFieldsMap(__fieldsMap: scala.collection.immutable.Map[_root_.com.google.protobuf.Descriptors.FieldDescriptor, _root_.scala.Any]): proto3.tendermint.Timestamp = {
     _root_.scala.Predef.require(__fieldsMap.keys.forall(_.getContainingType() == javaDescriptor), "FieldDescriptor does not match message type.")
     val __fields = javaDescriptor.getFields
-    proto3.block.Timestamp(
+    proto3.tendermint.Timestamp(
       __fieldsMap.getOrElse(__fields.get(0), 0L).asInstanceOf[_root_.scala.Long],
       __fieldsMap.getOrElse(__fields.get(1), 0).asInstanceOf[_root_.scala.Int]
     )
   }
-  implicit def messageReads: _root_.scalapb.descriptors.Reads[proto3.block.Timestamp] = _root_.scalapb.descriptors.Reads{
+  implicit def messageReads: _root_.scalapb.descriptors.Reads[proto3.tendermint.Timestamp] = _root_.scalapb.descriptors.Reads{
     case _root_.scalapb.descriptors.PMessage(__fieldsMap) =>
       _root_.scala.Predef.require(__fieldsMap.keys.forall(_.containingMessage == scalaDescriptor), "FieldDescriptor does not match message type.")
-      proto3.block.Timestamp(
+      proto3.tendermint.Timestamp(
         __fieldsMap.get(scalaDescriptor.findFieldByNumber(1).get).map(_.as[_root_.scala.Long]).getOrElse(0L),
         __fieldsMap.get(scalaDescriptor.findFieldByNumber(2).get).map(_.as[_root_.scala.Int]).getOrElse(0)
       )
     case _ => throw new RuntimeException("Expected PMessage")
   }
-  def javaDescriptor: _root_.com.google.protobuf.Descriptors.Descriptor = BlockProto.javaDescriptor.getMessageTypes.get(4)
-  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = BlockProto.scalaDescriptor.messages(4)
+  def javaDescriptor: _root_.com.google.protobuf.Descriptors.Descriptor = TendermintProto.javaDescriptor.getMessageTypes.get(2)
+  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = TendermintProto.scalaDescriptor.messages(2)
   def messageCompanionForFieldNumber(__number: _root_.scala.Int): _root_.scalapb.GeneratedMessageCompanion[_] = throw new MatchError(__number)
   lazy val nestedMessagesCompanions: Seq[_root_.scalapb.GeneratedMessageCompanion[_]] = Seq.empty
   def enumCompanionForFieldNumber(__fieldNumber: _root_.scala.Int): _root_.scalapb.GeneratedEnumCompanion[_] = throw new MatchError(__fieldNumber)
-  lazy val defaultInstance = proto3.block.Timestamp(
+  lazy val defaultInstance = proto3.tendermint.Timestamp(
   )
-  implicit class TimestampLens[UpperPB](_l: _root_.scalapb.lenses.Lens[UpperPB, proto3.block.Timestamp]) extends _root_.scalapb.lenses.ObjectLens[UpperPB, proto3.block.Timestamp](_l) {
+  implicit class TimestampLens[UpperPB](_l: _root_.scalapb.lenses.Lens[UpperPB, proto3.tendermint.Timestamp]) extends _root_.scalapb.lenses.ObjectLens[UpperPB, proto3.tendermint.Timestamp](_l) {
     def seconds: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Long] = field(_.seconds)((c_, f_) => c_.copy(seconds = f_))
     def nanos: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Int] = field(_.nanos)((c_, f_) => c_.copy(nanos = f_))
   }

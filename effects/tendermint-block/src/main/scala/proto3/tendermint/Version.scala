@@ -3,7 +3,7 @@
 //
 // Protofile syntax: PROTO3
 
-package proto3.block
+package proto3.tendermint
 
 @SerialVersionUID(0L)
 final case class Version(
@@ -52,7 +52,7 @@ final case class Version(
         }
       };
     }
-    def mergeFrom(`_input__`: _root_.com.google.protobuf.CodedInputStream): proto3.block.Version = {
+    def mergeFrom(`_input__`: _root_.com.google.protobuf.CodedInputStream): proto3.tendermint.Version = {
       var __block = this.block
       var __app = this.app
       var _done__ = false
@@ -67,7 +67,7 @@ final case class Version(
           case tag => _input__.skipField(tag)
         }
       }
-      proto3.block.Version(
+      proto3.tendermint.Version(
           block = __block,
           app = __app
       )
@@ -94,36 +94,36 @@ final case class Version(
       }
     }
     def toProtoString: _root_.scala.Predef.String = _root_.scalapb.TextFormat.printToUnicodeString(this)
-    def companion = proto3.block.Version
+    def companion = proto3.tendermint.Version
 }
 
-object Version extends scalapb.GeneratedMessageCompanion[proto3.block.Version] {
-  implicit def messageCompanion: scalapb.GeneratedMessageCompanion[proto3.block.Version] = this
-  def fromFieldsMap(__fieldsMap: scala.collection.immutable.Map[_root_.com.google.protobuf.Descriptors.FieldDescriptor, _root_.scala.Any]): proto3.block.Version = {
+object Version extends scalapb.GeneratedMessageCompanion[proto3.tendermint.Version] {
+  implicit def messageCompanion: scalapb.GeneratedMessageCompanion[proto3.tendermint.Version] = this
+  def fromFieldsMap(__fieldsMap: scala.collection.immutable.Map[_root_.com.google.protobuf.Descriptors.FieldDescriptor, _root_.scala.Any]): proto3.tendermint.Version = {
     _root_.scala.Predef.require(__fieldsMap.keys.forall(_.getContainingType() == javaDescriptor), "FieldDescriptor does not match message type.")
     val __fields = javaDescriptor.getFields
-    proto3.block.Version(
+    proto3.tendermint.Version(
       __fieldsMap.getOrElse(__fields.get(0), 0L).asInstanceOf[_root_.scala.Long],
       __fieldsMap.getOrElse(__fields.get(1), 0L).asInstanceOf[_root_.scala.Long]
     )
   }
-  implicit def messageReads: _root_.scalapb.descriptors.Reads[proto3.block.Version] = _root_.scalapb.descriptors.Reads{
+  implicit def messageReads: _root_.scalapb.descriptors.Reads[proto3.tendermint.Version] = _root_.scalapb.descriptors.Reads{
     case _root_.scalapb.descriptors.PMessage(__fieldsMap) =>
       _root_.scala.Predef.require(__fieldsMap.keys.forall(_.containingMessage == scalaDescriptor), "FieldDescriptor does not match message type.")
-      proto3.block.Version(
+      proto3.tendermint.Version(
         __fieldsMap.get(scalaDescriptor.findFieldByNumber(1).get).map(_.as[_root_.scala.Long]).getOrElse(0L),
         __fieldsMap.get(scalaDescriptor.findFieldByNumber(2).get).map(_.as[_root_.scala.Long]).getOrElse(0L)
       )
     case _ => throw new RuntimeException("Expected PMessage")
   }
-  def javaDescriptor: _root_.com.google.protobuf.Descriptors.Descriptor = BlockProto.javaDescriptor.getMessageTypes.get(3)
-  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = BlockProto.scalaDescriptor.messages(3)
+  def javaDescriptor: _root_.com.google.protobuf.Descriptors.Descriptor = TendermintProto.javaDescriptor.getMessageTypes.get(5)
+  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = TendermintProto.scalaDescriptor.messages(5)
   def messageCompanionForFieldNumber(__number: _root_.scala.Int): _root_.scalapb.GeneratedMessageCompanion[_] = throw new MatchError(__number)
   lazy val nestedMessagesCompanions: Seq[_root_.scalapb.GeneratedMessageCompanion[_]] = Seq.empty
   def enumCompanionForFieldNumber(__fieldNumber: _root_.scala.Int): _root_.scalapb.GeneratedEnumCompanion[_] = throw new MatchError(__fieldNumber)
-  lazy val defaultInstance = proto3.block.Version(
+  lazy val defaultInstance = proto3.tendermint.Version(
   )
-  implicit class VersionLens[UpperPB](_l: _root_.scalapb.lenses.Lens[UpperPB, proto3.block.Version]) extends _root_.scalapb.lenses.ObjectLens[UpperPB, proto3.block.Version](_l) {
+  implicit class VersionLens[UpperPB](_l: _root_.scalapb.lenses.Lens[UpperPB, proto3.tendermint.Version]) extends _root_.scalapb.lenses.ObjectLens[UpperPB, proto3.tendermint.Version](_l) {
     def block: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Long] = field(_.block)((c_, f_) => c_.copy(block = f_))
     def app: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Long] = field(_.app)((c_, f_) => c_.copy(app = f_))
   }
