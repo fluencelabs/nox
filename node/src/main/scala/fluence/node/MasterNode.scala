@@ -174,30 +174,25 @@ object MasterNode extends LazyLogging {
    * @param masterConfig MasterConfig
    * @param nodeConfig NodeConfig
    * @param sttpBackend HTTP client implementation
-   * @param P Parallel instance, used for Workers
    * @return Prepared [[MasterNode]], then see [[MasterNode.run]]
    */
-  def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer: DockerIO, G[_]](
+  def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer, G[_]](
     masterConfig: MasterConfig,
     nodeConfig: NodeConfig,
     pool: WorkersPool[F]
   )(
-    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
-    P: Parallel[F, G]
+    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]
   ): Resource[F, MasterNode[F]] =
     for {
       ethClient ← EthClient.make[F](Some(masterConfig.ethereum.uri))
-
-      _ = logger.debug("-> going to create a pool")
-
-      // TODO wrap Paths.get somehow?
-      rootPath = Paths.get(masterConfig.rootPath).toAbsolutePath
 
       _ = logger.debug("-> going to create nodeEth")
 
       nodeEth ← NodeEth[F](nodeConfig.validatorKey.toByteVector, ethClient, masterConfig.contract)
 
       codeCarrier ← Resource.pure(codeCarrier[F](masterConfig.remoteStorage))
+
+      rootPath <- Resource.liftF(IO(Paths.get(masterConfig.rootPath).toAbsolutePath).to[F])
 
       configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath, masterConfig.tendermintConfig))
     } yield

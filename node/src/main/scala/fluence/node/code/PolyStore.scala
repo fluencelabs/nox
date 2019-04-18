@@ -18,10 +18,9 @@ package fluence.node.code
 import java.nio.file.Path
 import java.util.concurrent.Executors
 
-import cats.Monad
 import cats.syntax.applicativeError._
 import cats.data.EitherT
-import cats.effect.{ContextShift, LiftIO, Sync, Timer}
+import cats.effect.{ContextShift, Sync}
 import fluence.effects.castore.{ContentAddressableStore, StorageToFileFailed, StoreError}
 import fluence.node.eth.state.StorageRef
 import fluence.node.eth.state.StorageType.StorageType
@@ -51,7 +50,7 @@ class PolyStore[F[_]: Sync: ContextShift](
           .compile
           .drain
           .attemptT
-          .leftMap(err ⇒ StorageToFileFailed(ref.storageHash, dest, err).asInstanceOf[StoreError])
+          .leftMap(err ⇒ StorageToFileFailed(ref.storageHash, dest, err): StoreError)
       )
   }
 

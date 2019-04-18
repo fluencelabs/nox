@@ -103,6 +103,13 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
     } yield response
   }
 
+  /**
+   * Generates URI for uploading to IPFS.
+   *
+   * @param onlyHash If true, IPFS will calculates the hash, without saving a data to IPFS
+   * @param canBeMultiple If true, IPFS will wrap the list of files with directory and return a hash of this directory
+   * @return
+   */
   private def uploadUri(onlyHash: Boolean, canBeMultiple: Boolean) = {
     val multipleStr = canBeMultiple.toString
     UploadUri
