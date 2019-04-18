@@ -77,35 +77,11 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
   // Converts base58 IPFS address to a 256-bits hash
   private def fromAddress(str: String): Either[String, ByteVector] = ByteVector.fromBase58Descriptive(str).map(_.drop(2))
 
-  /**
-   * Downloads data from IPFS.
-   *
-   * @param hash data address in IPFS
-   * @return
-   */
-  def download(hash: ByteVector): EitherT[F, StoreError, fs2.Stream[F, ByteBuffer]] = {
-    val address = toAddress(hash)
-    val uri = CatUri.param("arg", address)
-    for {
-      _ <- EitherT.pure[F, StoreError](logger.debug(s"IPFS download started $uri"))
-      response <- sttp
-        .response(asStream[fs2.Stream[F, ByteBuffer]])
-        .get(uri)
-        .send()
-        .toEitherT { er =>
-          val errorMessage = s"IPFS download error $uri: $er"
-          IpfsError(errorMessage)
-        }
-        .map { r =>
-          logger.debug(s"IPFS download finished $uri")
-          r
-        }
-        .leftMap(identity[StoreError])
-    } yield response
-
+  private def assert(test: Boolean, errorMessage: String): EitherT[F, StoreError, Unit] = {
+    EitherT.fromEither(Either.cond(test, (), IpfsError(errorMessage): StoreError))
   }
 
-  private def lsRaw(hash: ByteVector): EitherT[F, StoreError, IpfsLsResponse] = {
+  private def lsCall(hash: ByteVector): EitherT[F, StoreError, IpfsLsResponse] = {
     val address = toAddress(hash)
     val uri = LsUri.param("arg", address)
     for {
@@ -131,38 +107,6 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
 
   }
 
-  private def assert(test: Boolean, errorMessage: String): EitherT[F, StoreError, Unit] = {
-    EitherT.fromEither(Either.cond(test, (), IpfsError(errorMessage): StoreError))
-  }
-
-  /**
-   * Returns hash of files from directory.
-   * If hash belongs to file, returns the same hash.
-   *
-   * @param hash Content's hash
-   */
-  def ls(hash: ByteVector): EitherT[F, StoreError, List[ByteVector]] =
-    for {
-      rawResponse <- lsRaw(hash)
-      _ <- assert(
-        rawResponse.Objects.size == 1,
-        s"Expected a single object, got ${rawResponse.Objects.size}. Response: $rawResponse"
-      )
-      rawHashes = {
-        val headObject = rawResponse.Objects.head
-        if (headObject.Links.forall(_.Name.isEmpty)) List(headObject.Hash)
-        else headObject.Links.map(_.Hash)
-      }
-      hashes <- rawHashes.map { h =>
-        EitherT
-          .fromEither[F](fromAddress(h))
-          .leftMap(err => IpfsError(s"Cannot parse '$h' hex: $err"): StoreError)
-      }.sequence
-    } yield {
-      logger.debug(s"IPFS 'ls' hashes: ${hashes.mkString(" ")}")
-      hashes
-    }
-
   /**
    * `add` operation. Wraps files with a directory if there are multiple files.
    *
@@ -186,7 +130,7 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
 
     for {
       _ <- EitherT.pure[F, StoreError](logger.debug(s"IPFS upload started $uri"))
-      responses <- addHttpCall(uri, multiparts)
+      responses <- addCall(uri, multiparts)
       _ <- assert(responses.nonEmpty, "IPFS 'add': Empty response")
       hash <- EitherT.fromEither(getParentHash(responses))
     } yield hash
@@ -196,7 +140,7 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
    * HTTP call to add multiparts to IPFS.
    *
    */
-  private def addHttpCall(uri: Uri, multiparts: immutable.Seq[Multipart]) =
+  private def addCall(uri: Uri, multiparts: immutable.Seq[Multipart]): EitherT[F, StoreError, List[UploadResponse]] =
     // raw response: {upload-response-object}\n{upload-response-object}...
     sttp
       .response(asListJson[UploadResponse])
@@ -250,6 +194,76 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
       }
     } yield hash
 
+  /**
+   * Returns incoming path if it is a file, return a list of files, if the incoming path is a directory.
+   * Validates if the directory doesn't have nested directories.
+   */
+  private def listPaths(path: Path): EitherT[F, StoreError, immutable.Seq[Path]] = {
+    import scala.collection.JavaConverters._
+    if (Files.isDirectory(path)) {
+      val allFiles = Files.list(path).iterator().asScala.to[immutable.Seq]
+      val allFilesIsRegular = allFiles.forall(p => Files.isRegularFile(p))
+      assert(
+        allFilesIsRegular,
+        s"IPFS 'listPaths' error: expected flat directory, found nested directories in ${path.getFileName}"
+      ).map(_ => allFiles)
+    } else EitherT.pure(immutable.Seq(path))
+  }
+
+  /**
+   * Returns hash of files from directory.
+   * If hash belongs to file, returns the same hash.
+   *
+   * @param hash Content's hash
+   */
+  def ls(hash: ByteVector): EitherT[F, StoreError, List[ByteVector]] =
+    for {
+      rawResponse <- lsCall(hash)
+      _ <- assert(
+        rawResponse.Objects.size == 1,
+        s"Expected a single object, got ${rawResponse.Objects.size}. Response: $rawResponse"
+      )
+      rawHashes = {
+        val headObject = rawResponse.Objects.head
+        if (headObject.Links.forall(_.Name.isEmpty)) List(headObject.Hash)
+        else headObject.Links.map(_.Hash)
+      }
+      hashes <- rawHashes.map { h =>
+        EitherT
+          .fromEither[F](fromAddress(h))
+          .leftMap(err => IpfsError(s"Cannot parse '$h' hex: $err"): StoreError)
+      }.sequence
+    } yield {
+      logger.debug(s"IPFS 'ls' hashes: ${hashes.mkString(" ")}")
+      hashes
+    }
+
+  /**
+   * Downloads data from IPFS.
+   *
+   * @param hash data address in IPFS
+   * @return
+   */
+  def download(hash: ByteVector): EitherT[F, StoreError, fs2.Stream[F, ByteBuffer]] = {
+    val address = toAddress(hash)
+    val uri = CatUri.param("arg", address)
+    for {
+      _ <- EitherT.pure[F, StoreError](logger.debug(s"IPFS download started $uri"))
+      response <- sttp
+        .response(asStream[fs2.Stream[F, ByteBuffer]])
+        .get(uri)
+        .send()
+        .toEitherT { er =>
+          val errorMessage = s"IPFS download error $uri: $er"
+          IpfsError(errorMessage)
+        }
+        .map { r =>
+          logger.debug(s"IPFS download finished $uri")
+          r
+        }
+        .leftMap(identity[StoreError])
+    } yield response
+  }
 
   /**
    * Only calculates hash - do not write to disk.
@@ -267,25 +281,13 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
   def upload(data: ByteVector): EitherT[F, StoreError, ByteVector] =
     add(immutable.Seq(multipart("", data.toArray)), onlyHash = false)
 
-  private def listPaths(path: Path): EitherT[F, StoreError, immutable.Seq[Path]] = {
-    import scala.collection.JavaConverters._
-    if (Files.isDirectory(path)) {
-      val allFiles = Files.list(path).iterator().asScala.to[immutable.Seq]
-      val allFilesIsRegular = allFiles.forall(p => Files.isRegularFile(p))
-      assert(
-        allFilesIsRegular,
-        s"IPFS 'listPaths' error: expected flat directory, found nested directories in ${path.getFileName}"
-      ).map(_ => allFiles)
-    } else EitherT.pure(immutable.Seq(path))
-  }
-
   /**
    * Uploads files to IPFS node. Supports only one file or files in one directory, without nested directories.
    *
    * @param path to a file or a directory
    * @return hash address
    */
-  def upload(path: Path): EitherT[F, StoreError, ByteVector] = {
+  def upload(path: Path): EitherT[F, StoreError, ByteVector] =
     for {
       _ <- assert(Files.exists(path), s"IPFS 'upload' error: file '${path.getFileName}' does not exist")
       pathsList <- listPaths(path)
@@ -293,7 +295,6 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
       _ <- assert(parts.nonEmpty, s"IPFS 'upload' error: directory ${path.getFileName} is empty")
       hash <- add(parts, onlyHash = false)
     } yield hash
-  }
 }
 
 object IpfsClient {
