@@ -18,7 +18,9 @@ package fluence.effects.swarm
 
 import java.nio.ByteBuffer
 
+import cats.Monad
 import cats.data.EitherT
+import com.softwaremill.sttp.{SttpBackend, Uri}
 import fluence.effects.castore.{ContentAddressableStore, StoreError}
 import scodec.bits.ByteVector
 
@@ -29,4 +31,13 @@ class SwarmStore[F[_]](client: SwarmClient[F])(implicit F: cats.Monad[F]) extend
     client.fetch(hash.toHex).leftMap(identity[StoreError])
 
   override def ls(hash: ByteVector): EitherT[F, StoreError, List[ByteVector]] = EitherT.pure(List(hash))
+}
+
+object SwarmStore {
+
+  def apply[F[_]](address: Uri)(
+    implicit F: Monad[F],
+    sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]
+  ): SwarmStore[F] =
+    new SwarmStore(SwarmClient[F](address))
 }

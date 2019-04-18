@@ -17,7 +17,9 @@
 package fluence.effects.ipfs
 import java.nio.ByteBuffer
 
+import cats.Monad
 import cats.data.EitherT
+import com.softwaremill.sttp.{SttpBackend, Uri}
 import fluence.effects.castore.{ContentAddressableStore, StoreError}
 import scodec.bits.ByteVector
 
@@ -41,4 +43,12 @@ class IpfsStore[F[_]](client: IpfsClient[F]) extends ContentAddressableStore[F] 
    */
   override def ls(hash: ByteVector): EitherT[F, StoreError, List[ByteVector]] =
     client.ls(hash)
+}
+
+object IpfsStore {
+
+  def apply[F[_]](
+    address: Uri
+  )(implicit F: Monad[F], sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]): IpfsStore[F] =
+    new IpfsStore(new IpfsClient[F](address))
 }

@@ -216,10 +216,8 @@ object MasterNode extends LazyLogging {
   )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]): CodeCarrier[F] =
     if (config.enabled) {
       implicit val b: Backoff[StoreError] = Backoff.default
-      val swarmClient = SwarmClient[F](config.swarm.address)
-      val ipfsClient = new IpfsClient[F](config.swarm.address)
-      val swarmStore = new SwarmStore[F](swarmClient)
-      val ipfsStore = new IpfsStore[F](ipfsClient)
+      val swarmStore = SwarmStore[F](config.swarm.address)
+      val ipfsStore = IpfsStore[F](config.ipfs.address)
       val polyStore = new PolyStore[F]({
         case StorageType.Swarm => swarmStore
         case StorageType.Ipfs => ipfsStore

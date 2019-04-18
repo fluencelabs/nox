@@ -49,9 +49,8 @@ object ResponseOps {
   }
 }
 
-class IpfsClient[F[_]](ipfsUri: Uri)(
-  implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
-  F: cats.Monad[F]
+class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
+  implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]
 ) extends slogging.LazyLogging {
 
   import IpfsLsResponse._
