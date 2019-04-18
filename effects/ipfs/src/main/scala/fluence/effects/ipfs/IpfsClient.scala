@@ -19,19 +19,18 @@ package fluence.effects.ipfs
 import java.nio.ByteBuffer
 import java.nio.file.{Files, Path}
 
-import cats.{Monad, Show}
-import cats.data.EitherT
-import cats.instances.list._
 import cats.Traverse.ops._
-import com.softwaremill.sttp.Uri.QueryFragment.KeyValue
-import com.softwaremill.sttp.{asStream, sttp, ByteArrayBody, Multipart, SttpBackend, Uri}
-import com.softwaremill.sttp._
-import fluence.effects.castore.StoreError
-import scodec.bits.ByteVector
-import com.softwaremill.sttp.circe.asJson
-import io.circe.Decoder
+import cats.data.EitherT
 import cats.instances.either._
+import cats.instances.list._
 import cats.syntax.either._
+import cats.{Monad, Show}
+import com.softwaremill.sttp.Uri.QueryFragment.KeyValue
+import com.softwaremill.sttp.circe.asJson
+import com.softwaremill.sttp.{ByteArrayBody, Multipart, SttpBackend, Uri, asStream, sttp, _}
+import fluence.effects.castore.StoreError
+import io.circe.Decoder
+import scodec.bits.ByteVector
 
 import scala.collection.immutable
 import scala.language.higherKinds
@@ -54,9 +53,9 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
   F: cats.Monad[F]
 ) extends slogging.LazyLogging {
 
+  import IpfsClient._
   import IpfsLsResponse._
   import ResponseOps._
-  import IpfsClient._
 
   object Multihash {
     // https://github.com/multiformats/multicodec/blob/master/table.csv
@@ -166,16 +165,21 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
   /**
    * `add` operation. Wraps files with a directory if there are multiple files.
    *
-   * @param multiparts parts to `add`
+   * @param data Data to upload - either a single byte vector, or a collection of files
    * @param onlyHash If true, only calculates the hash, without saving a data to IPFS
    */
   private def add(
-    multiparts: immutable.Seq[Multipart],
+    data: Either[ByteVector, Seq[Path]],
     onlyHash: Boolean
   ): EitherT[F, StoreError, ByteVector] = {
 
     // will wrap multiple files in a directory
-    val multipleFlag = (multiparts.length > 1).toString
+    val multipleFlag = data.fold(_ => "false", _ => "true")
+
+    val multiparts = data.fold(
+      bytes => immutable.Seq(Multipart("", ByteArrayBody(bytes.toArray))),
+      paths => paths.map(multipartFile("", _))
+    ).to[immutable.Seq]
 
     val uri = UploadUri
       .queryFragment(KeyValue("pin", "true"))
@@ -184,8 +188,8 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
       .queryFragment(KeyValue("recursive", multipleFlag))
       .queryFragment(KeyValue("wrap-with-directory", multipleFlag))
 
+    logger.debug(s"IPFS upload started $uri")
     for {
-      _ <- EitherT.pure[F, StoreError](logger.debug(s"IPFS upload started $uri"))
       responses <- addHttpCall(uri, multiparts)
       _ <- assert(responses.nonEmpty, "IPFS 'add': Empty response")
       hash <- EitherT.fromEither(getParentHash(responses))
@@ -257,7 +261,7 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
    * @return hash of data
    */
   def calculateHash(data: ByteVector): EitherT[F, StoreError, ByteVector] =
-    add(immutable.Seq(Multipart("", ByteArrayBody(data.toArray))), onlyHash = true)
+    add(Either.left(data), onlyHash = true)
 
   /**
    * Uploads bytes to IPFS node
@@ -265,7 +269,7 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
    * @return hash of data
    */
   def upload(data: ByteVector): EitherT[F, StoreError, ByteVector] =
-    add(immutable.Seq(multipart("", data.toArray)), onlyHash = false)
+    add(Either.left(data), onlyHash = false)
 
   private def listPaths(path: Path): EitherT[F, StoreError, immutable.Seq[Path]] = {
     import scala.collection.JavaConverters._
@@ -289,9 +293,8 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
     for {
       _ <- assert(Files.exists(path), s"IPFS 'upload' error: file '${path.getFileName}' does not exist")
       pathsList <- listPaths(path)
-      parts = pathsList.map(p => multipartFile("", p))
-      _ <- assert(parts.nonEmpty, s"IPFS 'upload' error: directory ${path.getFileName} is empty")
-      hash <- add(parts, onlyHash = false)
+      _ <- assert(pathsList.nonEmpty, s"IPFS 'upload' error: directory ${path.getFileName} is empty")
+      hash <- add(Either.right(pathsList), onlyHash = false)
     } yield hash
   }
 }
