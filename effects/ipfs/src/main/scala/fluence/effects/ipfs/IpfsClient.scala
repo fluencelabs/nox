@@ -107,6 +107,9 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
 
   }
 
+  private def addBytes(bytes: ByteVector, onlyHash: Boolean) =
+    add(immutable.Seq(Multipart("", ByteArrayBody(bytes.toArray))), onlyHash = true)
+
   /**
    * `add` operation. Wraps files with a directory if there are multiple files.
    *
@@ -271,7 +274,7 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
    * @return hash of data
    */
   def calculateHash(data: ByteVector): EitherT[F, StoreError, ByteVector] =
-    add(immutable.Seq(Multipart("", ByteArrayBody(data.toArray))), onlyHash = true)
+    addBytes(data, onlyHash = true)
 
   /**
    * Uploads bytes to IPFS node
@@ -279,7 +282,7 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
    * @return hash of data
    */
   def upload(data: ByteVector): EitherT[F, StoreError, ByteVector] =
-    add(immutable.Seq(multipart("", data.toArray)), onlyHash = false)
+    addBytes(data, onlyHash = false)
 
   /**
    * Uploads files to IPFS node. Supports only one file or files in one directory, without nested directories.
