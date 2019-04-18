@@ -160,7 +160,7 @@ session.request("<enter your request here>").result().then((r) => {
                                 <i className="ion ion-ios-checkmark-outline"/>
                             </span>
                         </div>
-                        <h3 className="widget-user-username">Connect to {this.props.app.name}</h3>
+                        <h3 className="widget-user-username">Connect to {this.props.app.shortName}</h3>
                         <h3 className="widget-user-desc">appID: <b>{this.props.appId}</b></h3>
                     </div>
                     <div className="box-footer no-padding">
