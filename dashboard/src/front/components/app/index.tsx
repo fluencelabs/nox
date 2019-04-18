@@ -1,10 +1,10 @@
 import * as React from 'react';
 import {connect} from 'react-redux';
 import {Action} from "redux";
-import Cookies from 'js-cookie';
 import {contractAddress} from '../../../fluence/contract';
-import {App, Node} from '../../../fluence';
+import {App, AppId, Node} from '../../../fluence';
 import {cutId} from '../../../utils';
+import {clearDeployedApp, getDeployedApp} from "../../../utils/cookie";
 import FluenceApp from '../fluence-app';
 import FluenceNode from '../fluence-node';
 import FluenceDeployableApp from '../fluence-deployable-app';
@@ -45,24 +45,40 @@ class DashboardApp extends React.Component<Props, State> {
         // Make fluence available from browser console
         (window as any).fluence = fluence;
 
-        const deployedAppId = Cookies.get('deployedAppId');
-        const deployedAppTypeId = Cookies.get('deployedAppTypeId');
-        if (deployedAppId && deployedAppTypeId) {
+        const deployedApp = getDeployedApp();
+        if (deployedApp) {
             this.props.showEntity({
                 type: FluenceEntityType.DeployableApp,
-                id: deployedAppTypeId,
+                id: deployedApp.deployedAppTypeId,
             });
-            this.props.restoreDeployed(deployedAppId, deployedAppTypeId);
+            this.props.restoreDeployed(deployedApp.deployedAppId, deployedApp.deployedAppTypeId);
         }
     }
 
+    checkAppExists = (appIds: AppId[]): void => {
+        const deployedApp = getDeployedApp();
+        if (deployedApp && appIds.indexOf(deployedApp.deployedAppId) === -1) {
+            if (
+                this.props.currentEntity
+                && this.props.currentEntity.type == FluenceEntityType.DeployableApp
+                && this.props.currentEntity.id == deployedApp.deployedAppTypeId
+            ) {
+                this.props.showEntity({
+                    type: FluenceEntityType.Stub,
+                    id: '',
+                });
+            }
+            clearDeployedApp();
+        }
+    };
+
     renderEntity(entity: FluenceEntity | null): React.ReactNode {
         if (entity) {
-            if (entity.type === 'app') {
+            if (entity.type === FluenceEntityType.App) {
                 return <FluenceApp appId={entity.id}/>
-            } else if (entity.type === 'node') {
+            } else if (entity.type === FluenceEntityType.Node) {
                 return <FluenceNode nodeId={entity.id}/>
-            } else if (entity.type === 'deployableApp') {
+            } else if (entity.type === FluenceEntityType.DeployableApp) {
                 return <FluenceDeployableApp id={entity.id}/>
             }
         }
@@ -130,7 +146,7 @@ class DashboardApp extends React.Component<Props, State> {
                                 </div>
                                 <div className="row">
                                     <div className="col-md-12">
-                                        <FluenceAppsList/>
+                                        <FluenceAppsList appIdsRetrievedCallback={this.checkAppExists}/>
                                     </div>
                                 </div>
                                 <div className="row">

@@ -2,11 +2,11 @@ import contract from '../../../fluence/contract';
 import {checkLogs, DeployableApp, send, txParams, deployableApps, DeployedAppState} from "../../../fluence/deployable";
 import {privateKey, appUploadUrl} from "../../../constants";
 import {Action, Dispatch} from "redux";
-import Cookies from 'js-cookie';
 import axios from 'axios';
 import EthereumTx from "ethereumjs-tx";
 import {getApp, getNode, getNodeAppStatus} from "../../../fluence";
 import {fromIpfsHash, storageToString32} from "../../../utils";
+import {saveDeployedApp} from "../../../utils/cookie";
 
 export const DEPLOY_CLEAR_STATE = 'DEPLOY_CLEAR_STATE';
 export const DEPLOY_STATE_PREPARE = 'DEPLOY_STATE_PREPARE';
@@ -39,10 +39,7 @@ export const deploy = (app: DeployableApp, appTypeId: string, storageHashOverloa
 
         let deployStatus = checkLogs(receipt);
 
-        Cookies.remove('deployedAppId');
-        Cookies.remove('deployedAppTypeId');
-        Cookies.set('deployedAppId', String(deployStatus.appId), { expires: 365 });
-        Cookies.set('deployedAppTypeId', String(appTypeId), { expires: 365 });
+        saveDeployedApp(String(deployStatus.appId), appTypeId);
 
         if (deployStatus.state == DeployedAppState.Deployed) {
             dispatch({type: DEPLOY_STATE_CLUSTER_CHECK, note: 'retrieving app'});
