@@ -155,10 +155,11 @@ object JSON {
   }
 
   def gvote(json: String): Tendermint.Vote = {
-    import com.google.protobuf.util.{JsonFormat => GJsonFormat}
-    val gparser = GJsonFormat.parser()
+    import com.google.protobuf.util.JsonFormat.{parser => gparser}
+
     val builder = Tendermint.Vote.newBuilder()
-    gparser.merge(json, builder)
+    gparser().merge(json, builder)
+
     val id = builder.getBlockId
     val goodHash = fixBytes(id.getHash)
     val goodId = Tendermint.BlockID.newBuilder(id).setHash(goodHash)
@@ -169,7 +170,13 @@ object JSON {
   /**
    * Performs base64 encode -> hex decode -> to byte string
    *
-   * Protobuf erroneously applied `base64 decode` to a hex string, this function fixes that
+   * Protobuf "erroneously" applied `base64 decode` to a hex string, this function fixes that
+   *
+   * NOTE:
+   *   It's not a protobuf mistake, it's just a protocol quirk.
+   *   When Tendermint encodes values to JSON to return in RPC, some bytes (i.e., common.HexBytes) are encoded in hex,
+   *   while other bytes (i.e., byte[]) are encoded in base64.
+   *   It's just a happy coincidence that protobuf works on that JSON at all, it wasn't meant to.
    *
    * @param bs bs = ByteString.copyFrom(base64-decode(hexString))
    * @return Good, correct bytes, that were represented by a hexString
