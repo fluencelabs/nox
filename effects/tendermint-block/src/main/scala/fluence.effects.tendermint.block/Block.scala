@@ -16,9 +16,11 @@
 
 package fluence.effects.tendermint.block
 
+import com.google.protobuf.ByteString
 import proto3.Tendermint
 import proto3.tendermint.{Header, Vote}
-import scalapb_circe.{JsonFormat, Parser}
+import scalapb_circe.Parser
+import scodec.bits.ByteVector
 
 // About BlockID: https://tendermint.com/docs/spec/blockchain/blockchain.html#blockid
 
@@ -146,15 +148,36 @@ object JSON {
       |    "signature": "Z09xcrfz9T6+3q1Yk+gxUo2todPI7mebKed6zO+i1pnIMPdFbSFT9JJjxo5J9HLrn4x2Fqf3QYefQ8lQGNMzBg=="
       |}
     """.stripMargin
-  def vote(json: String): Vote = parser.fromJsonString[Vote](json)
+
+  def vote(json: String): Vote = {
+    val v = parser.fromJsonString[Vote](json)
+    v.update(_.blockId.modify(id => id.withHash(fixBytes(id.hash))))
+  }
 
   def gvote(json: String): Tendermint.Vote = {
     import com.google.protobuf.util.{JsonFormat => GJsonFormat}
     val gparser = GJsonFormat.parser()
     val builder = Tendermint.Vote.newBuilder()
     gparser.merge(json, builder)
+    val id = builder.getBlockId
+    val goodHash = fixBytes(id.getHash)
+    val goodId = Tendermint.BlockID.newBuilder(id).setHash(goodHash)
+    builder.setBlockId(goodId)
     builder.build()
   }
 
-  ByteVector gvote(firstVote).toByteArray
+  /**
+   * Performs base64 encode -> hex decode -> to byte string
+   *
+   * Protobuf erroneously applied `base64 decode` to a hex string, this function fixes that
+   *
+   * @param bs bs = ByteString.copyFrom(base64-decode(hexString))
+   * @return Good, correct bytes, that were represented by a hexString
+   */
+  def fixBytes(bs: ByteString): ByteString = {
+    val hex = ByteVector(bs.toByteArray).toBase64
+    val value = ByteVector.fromHex(hex)
+    val bytes = ByteString.copyFrom(value.toArray[Byte])
+    bytes
+  }
 }
