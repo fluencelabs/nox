@@ -95,7 +95,7 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
           IpfsError(errorMessage)
         }
         .subflatMap(_.left.map { er =>
-          logger.error(s"Deserialization error: $er")
+          logger.error(s"IPFS 'ls' deserialization error: $er")
           IpfsError(s"IPFS 'ls' deserialization error $uri", Some(er.error))
         })
         .map { r =>
@@ -132,7 +132,7 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
       .queryFragment(KeyValue("wrap-with-directory", multipleFlag))
 
     for {
-      _ <- EitherT.pure[F, StoreError](logger.debug(s"IPFS upload started $uri"))
+      _ <- EitherT.pure[F, StoreError](logger.debug(s"IPFS 'add' started $uri"))
       responses <- addCall(uri, multiparts)
       _ <- assert(responses.nonEmpty, "IPFS 'add': Empty response")
       hash <- EitherT.fromEither(getParentHash(responses))
@@ -155,7 +155,7 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
         IpfsError(errorMessage)
       }
       .subflatMap(_.left.map { er =>
-        logger.error(s"Deserialization error: $er")
+        logger.error(s"IPFS 'add' deserialization error: $er")
         IpfsError(s"IPFS 'add' deserialization error $uri", Some(er.error))
       })
       .map { r =>
@@ -251,17 +251,17 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
     val address = toAddress(hash)
     val uri = CatUri.param("arg", address)
     for {
-      _ <- EitherT.pure[F, StoreError](logger.debug(s"IPFS download started $uri"))
+      _ <- EitherT.pure[F, StoreError](logger.debug(s"IPFS 'download' started $uri"))
       response <- sttp
         .response(asStream[fs2.Stream[F, ByteBuffer]])
         .get(uri)
         .send()
         .toEitherT { er =>
-          val errorMessage = s"IPFS download error $uri: $er"
+          val errorMessage = s"IPFS 'download' error $uri: $er"
           IpfsError(errorMessage)
         }
         .map { r =>
-          logger.debug(s"IPFS download finished $uri")
+          logger.debug(s"IPFS 'download' finished $uri")
           r
         }
         .leftMap(identity[StoreError])
@@ -292,10 +292,10 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
    */
   def upload(path: Path): EitherT[F, StoreError, ByteVector] =
     for {
-      _ <- assert(Files.exists(path), s"IPFS 'upload' error: file '${path.getFileName}' does not exist")
+      _ <- assert(Files.exists(path), s"IPFS 'add' error: file '${path.getFileName}' does not exist")
       pathsList <- listPaths(path)
       parts = pathsList.map(p => multipartFile("", p))
-      _ <- assert(parts.nonEmpty, s"IPFS 'upload' error: directory ${path.getFileName} is empty")
+      _ <- assert(parts.nonEmpty, s"IPFS 'add' error: directory ${path.getFileName} is empty")
       hash <- add(parts, onlyHash = false)
     } yield hash
 }
