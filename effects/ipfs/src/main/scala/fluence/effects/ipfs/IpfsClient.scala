@@ -63,18 +63,26 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
     val SHA256 = ByteVector(0x12, 32) // 0x12 => SHA256; 32 = 256 bits in bytes
   }
 
-  // URI for downloading the file
+  // URI for downloading data
   private val CatUri = ipfsUri.path("/api/v0/cat")
 
+  // URI for listing data if it has nested resources
   private val LsUri = ipfsUri.path("/api/v0/ls")
 
   private val UploadUri = ipfsUri.path("/api/v0/add")
 
-  // Converts 256-bits hash to an bas58 IPFS address, prepending multihash bytes
+  // Converts 256-bits hash to a base58 IPFS address, prepending multihash bytes
   private def toAddress(hash: ByteVector): String = (Multihash.SHA256 ++ hash).toBase58
 
-  private def fromAddress(str: String) = ByteVector.fromBase58Descriptive(str).map(_.drop(2))
+  // Converts base58 IPFS address to a 256-bits hash
+  private def fromAddress(str: String): Either[String, ByteVector] = ByteVector.fromBase58Descriptive(str).map(_.drop(2))
 
+  /**
+   * Downloads data from IPFS.
+   *
+   * @param hash data address in IPFS
+   * @return
+   */
   def download(hash: ByteVector): EitherT[F, StoreError, fs2.Stream[F, ByteBuffer]] = {
     val address = toAddress(hash)
     val uri = CatUri.param("arg", address)
@@ -112,7 +120,7 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
         }
         .subflatMap(_.left.map { er =>
           logger.error(s"Deserialization error: $er")
-          IpfsError(s"IPFS 'ls' deserialization error $uri.", Some(er.error))
+          IpfsError(s"IPFS 'ls' deserialization error $uri", Some(er.error))
         })
         .map { r =>
           logger.debug(s"IPFS 'ls' finished $uri")
@@ -159,8 +167,7 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
    * `add` operation. Wraps files with a directory if there are multiple files.
    *
    * @param multiparts parts to `add`
-   * @param onlyHash if true calculates only hash - does not write to disk.
-   * @return
+   * @param onlyHash If true, only calculates the hash, without saving a data to IPFS
    */
   private def add(
     multiparts: immutable.Seq[Multipart],
@@ -179,54 +186,70 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
 
     for {
       _ <- EitherT.pure[F, StoreError](logger.debug(s"IPFS upload started $uri"))
-      // raw response: {upload-response-object}\n{upload-response-object}...
-      responses <- sttp
-        .response(asListJson[UploadResponse])
-        .post(uri)
-        .multipartBody(multiparts)
-        .send()
-        .toEitherT { er =>
-          val errorMessage = s"IPFS 'add' error $uri: $er"
-          IpfsError(errorMessage)
-        }
-        .subflatMap(_.left.map { er =>
-          logger.error(s"Deserialization error: $er")
-          IpfsError(s"IPFS 'add' deserialization error $uri.", Some(er.error))
-        })
-        .map { r =>
-          logger.debug(s"IPFS 'add' finished $uri")
-          r
-        }
-        .leftMap(identity[StoreError])
-      _ <- assert(responses.nonEmpty, "IPFS 'add': Empty response.")
-      namesWithHashes <- EitherT.fromEither[F](
-        responses
-          .map(
-            r =>
-              fromAddress(r.Hash).map(h => r.Name -> h).leftMap { e =>
-                logger.debug(s"IPFS 'add' hash ${r.Hash} is not correct $uri")
-                IpfsError(e)
-            }
-          )
-          .sequence
-      )
-      hash <- {
-        if (namesWithHashes.length == 1) EitherT.pure[F, StoreError](namesWithHashes.head._2)
-        else {
-          // if there is more then one JSON objects
-          // find an object with an empty name - it will be an object with a directory
-          EitherT.fromEither[F](
-            namesWithHashes
-              .find(_._1.isEmpty)
-              .map(_._2)
-              .toRight(
-                IpfsError(s"IPFS 'add' incorrect response: $responses. No response with empty name."): StoreError
-              )
-          )
-        }
-      }
+      responses <- addHttpCall(uri, multiparts)
+      _ <- assert(responses.nonEmpty, "IPFS 'add': Empty response")
+      hash <- EitherT.fromEither(getParentHash(responses))
     } yield hash
   }
+
+  /**
+   * HTTP call to add multiparts to IPFS.
+   *
+   */
+  private def addHttpCall(uri: Uri, multiparts: immutable.Seq[Multipart]) =
+    // raw response: {upload-response-object}\n{upload-response-object}...
+    sttp
+      .response(asListJson[UploadResponse])
+      .post(uri)
+      .multipartBody(multiparts)
+      .send()
+      .toEitherT { er =>
+        val errorMessage = s"IPFS 'add' error $uri: $er"
+        IpfsError(errorMessage)
+      }
+      .subflatMap(_.left.map { er =>
+        logger.error(s"Deserialization error: $er")
+        IpfsError(s"IPFS 'add' deserialization error $uri", Some(er.error))
+      })
+      .map { r =>
+        logger.debug(s"IPFS 'add' finished $uri")
+        r
+      }
+      .leftMap(identity[StoreError])
+
+  /**
+   * Returns hash of element with empty name. It is a wrapping directory's name.
+   * If only one file was uploaded, a list has one element and a hash of this element will be returned.
+   *
+   * @param responses list of JSON responses from IPFS
+   */
+  private def getParentHash(responses: List[UploadResponse]): Either[StoreError, ByteVector] =
+    for {
+      namesWithHashes <- responses
+        .map(
+          r =>
+            fromAddress(r.Hash).map(h => r.Name -> h).leftMap { e =>
+              logger.debug(s"IPFS 'add' hash ${r.Hash} is not correct")
+              IpfsError(e)
+            }
+        )
+        .sequence
+      hash <- if (namesWithHashes.length == 1) Right(namesWithHashes.head._2)
+      else {
+        // if there is more then one JSON objects
+        // find an object with an empty name - it will be an object with a directory
+        namesWithHashes
+          .find(_._1.isEmpty)
+          .map(_._2)
+          .toRight(
+            IpfsError(
+              s"IPFS 'add' error: incorrect response, expected at least 1 response with empty name, found 0. " +
+                s"Check 'wrap-with-directory' query flag in URI"
+            ): StoreError
+          )
+      }
+    } yield hash
+
 
   /**
    * Only calculates hash - do not write to disk.
@@ -248,8 +271,11 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
     import scala.collection.JavaConverters._
     if (Files.isDirectory(path)) {
       val allFiles = Files.list(path).iterator().asScala.to[immutable.Seq]
-      assert(allFiles.forall(p => Files.isRegularFile(p)), s"Directory ${path.getFileName} has nester directories.")
-        .map(_ => allFiles)
+      val allFilesIsRegular = allFiles.forall(p => Files.isRegularFile(p))
+      assert(
+        allFilesIsRegular,
+        s"IPFS 'listPaths' error: expected flat directory, found nested directories in ${path.getFileName}"
+      ).map(_ => allFiles)
     } else EitherT.pure(immutable.Seq(path))
   }
 
@@ -261,10 +287,10 @@ class IpfsClient[F[_]](ipfsUri: Uri)(
    */
   def upload(path: Path): EitherT[F, StoreError, ByteVector] = {
     for {
-      _ <- assert(Files.exists(path), s"File '${path.getFileName}' does not exist")
+      _ <- assert(Files.exists(path), s"IPFS 'upload' error: file '${path.getFileName}' does not exist")
       pathsList <- listPaths(path)
       parts = pathsList.map(p => multipartFile("", p))
-      _ <- assert(parts.nonEmpty, s"Directory ${path.getFileName} is empty.")
+      _ <- assert(parts.nonEmpty, s"IPFS 'upload' error: directory ${path.getFileName} is empty")
       hash <- add(parts, onlyHash = false)
     } yield hash
   }
