@@ -17,14 +17,14 @@
 package fluence.effects.ipfs
 
 import java.nio.ByteBuffer
-import java.nio.file.{Files, Path}
+import java.nio.file.Path
 
-import cats.Monad
+import cats.{Applicative, Monad}
 import cats.data.EitherT
-import cats.instances.list._
 import cats.Traverse.ops._
+import cats.instances.list._
 import com.softwaremill.sttp.Uri.QueryFragment.KeyValue
-import com.softwaremill.sttp.{asStream, sttp, ByteArrayBody, Multipart, SttpBackend, Uri}
+import com.softwaremill.sttp.{asStream, sttp, Multipart, SttpBackend, Uri}
 import com.softwaremill.sttp._
 import fluence.effects.castore.StoreError
 import scodec.bits.ByteVector
@@ -78,10 +78,6 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
   private def fromAddress(str: String): Either[String, ByteVector] =
     ByteVector.fromBase58Descriptive(str).map(_.drop(2))
 
-  private def assert(test: Boolean, errorMessage: String): EitherT[F, StoreError, Unit] = {
-    EitherT.fromEither(Either.cond(test, (), IpfsError(errorMessage): StoreError))
-  }
-
   private def lsCall(hash: ByteVector): EitherT[F, StoreError, IpfsLsResponse] = {
     val address = toAddress(hash)
     val uri = LsUri.param("arg", address)
@@ -105,37 +101,34 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
         }
         .leftMap(identity[StoreError])
     } yield response
-
   }
 
-  private def addBytes(bytes: ByteVector, onlyHash: Boolean) =
-    add(immutable.Seq(Multipart("", ByteArrayBody(bytes.toArray))), onlyHash = true)
+  private def uploadUri(onlyHash: Boolean, canBeMultiple: Boolean) = {
+    val multipleStr = canBeMultiple.toString
+    UploadUri
+      .queryFragment(KeyValue("pin", "true"))
+      .queryFragment(KeyValue("path", ""))
+      .queryFragment(KeyValue("only-hash", onlyHash.toString))
+      .queryFragment(KeyValue("recursive", multipleStr))
+      .queryFragment(KeyValue("wrap-with-directory", multipleStr))
+  }
 
   /**
    * `add` operation. Wraps files with a directory if there are multiple files.
    *
-   * @param multiparts parts to `add`
+   * @param data uploads to IPFS
    * @param onlyHash If true, only calculates the hash, without saving a data to IPFS
    */
   private def add(
-    multiparts: immutable.Seq[Multipart],
+    data: IpfsData[F],
     onlyHash: Boolean
   ): EitherT[F, StoreError, ByteVector] = {
-
-    // will wrap multiple files in a directory
-    val multipleFlag = (multiparts.length > 1).toString
-
-    val uri = UploadUri
-      .queryFragment(KeyValue("pin", "true"))
-      .queryFragment(KeyValue("path", ""))
-      .queryFragment(KeyValue("only-hash", onlyHash.toString))
-      .queryFragment(KeyValue("recursive", multipleFlag))
-      .queryFragment(KeyValue("wrap-with-directory", multipleFlag))
-
+    val uri = uploadUri(onlyHash, data.canBeMultiple)
     for {
       _ <- EitherT.pure[F, StoreError](logger.debug(s"IPFS 'add' started $uri"))
+      multiparts <- data.toMultipart
       responses <- addCall(uri, multiparts)
-      _ <- assert(responses.nonEmpty, "IPFS 'add': Empty response")
+      _ <- assert[F](responses.nonEmpty, "IPFS 'add': Empty response")
       hash <- EitherT.fromEither[F](getParentHash(responses))
     } yield hash
   }
@@ -199,22 +192,6 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
     } yield hash
 
   /**
-   * Returns incoming path if it is a file, return a list of files, if the incoming path is a directory.
-   * Validates if the directory doesn't have nested directories.
-   */
-  private def listPaths(path: Path): EitherT[F, StoreError, immutable.Seq[Path]] = {
-    import scala.collection.JavaConverters._
-    if (Files.isDirectory(path)) {
-      val allFiles = Files.list(path).iterator().asScala.to[immutable.Seq]
-      val allFilesIsRegular = allFiles.forall(p => Files.isRegularFile(p))
-      assert(
-        allFilesIsRegular,
-        s"IPFS 'listPaths' error: expected flat directory, found nested directories in ${path.getFileName}"
-      ).map(_ => allFiles)
-    } else EitherT.pure(immutable.Seq(path))
-  }
-
-  /**
    * Returns hash of files from directory.
    * If hash belongs to file, returns the same hash.
    *
@@ -223,7 +200,7 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
   def ls(hash: ByteVector): EitherT[F, StoreError, List[ByteVector]] =
     for {
       rawResponse <- lsCall(hash)
-      _ <- assert(
+      _ <- assert[F](
         rawResponse.Objects.size == 1,
         s"Expected a single object, got ${rawResponse.Objects.size}. Response: $rawResponse"
       )
@@ -275,7 +252,7 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
    * @return hash of data
    */
   def calculateHash(data: ByteVector): EitherT[F, StoreError, ByteVector] =
-    addBytes(data, onlyHash = true)
+    add(IpfsData(data), onlyHash = true)
 
   /**
    * Uploads bytes to IPFS node
@@ -283,7 +260,7 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
    * @return hash of data
    */
   def upload(data: ByteVector): EitherT[F, StoreError, ByteVector] =
-    addBytes(data, onlyHash = false)
+    add(IpfsData(data), onlyHash = false)
 
   /**
    * Uploads files to IPFS node. Supports only one file or files in one directory, without nested directories.
@@ -293,16 +270,15 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
    */
   def upload(path: Path): EitherT[F, StoreError, ByteVector] =
     for {
-      _ <- assert(Files.exists(path), s"IPFS 'add' error: file '${path.getFileName}' does not exist")
-      pathsList <- listPaths(path)
-      parts = pathsList.map(p => multipartFile("", p))
-      _ <- assert(parts.nonEmpty, s"IPFS 'add' error: directory ${path.getFileName} is empty")
-      hash <- add(parts, onlyHash = false)
+      hash <- add(IpfsData(path), onlyHash = false)
     } yield hash
 }
 
 object IpfsClient {
   import io.circe.fs2.stringStreamParser
+
+  def assert[F[_]: Applicative](test: Boolean, errorMessage: String): EitherT[F, IpfsError, Unit] =
+    EitherT.fromEither[F](Either.cond(test, (), IpfsError(errorMessage)))
 
   // parses application/json+stream like {object1}\n{object2}...
   def asListJson[B: Decoder: IsOption]: ResponseAs[Decoder.Result[List[B]], Nothing] = {
