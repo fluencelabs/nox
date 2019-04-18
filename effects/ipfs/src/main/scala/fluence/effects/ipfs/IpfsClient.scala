@@ -19,7 +19,7 @@ package fluence.effects.ipfs
 import java.nio.ByteBuffer
 import java.nio.file.{Files, Path}
 
-import cats.{Monad, Show}
+import cats.Monad
 import cats.data.EitherT
 import cats.instances.list._
 import cats.Traverse.ops._
@@ -29,9 +29,10 @@ import com.softwaremill.sttp._
 import fluence.effects.castore.StoreError
 import scodec.bits.ByteVector
 import com.softwaremill.sttp.circe.asJson
-import io.circe.Decoder
+import io.circe.{Decoder, DecodingFailure}
 import cats.instances.either._
 import cats.syntax.either._
+import fs2.RaiseThrowable
 
 import scala.collection.immutable
 import scala.language.higherKinds
@@ -74,7 +75,8 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
   private def toAddress(hash: ByteVector): String = (Multihash.SHA256 ++ hash).toBase58
 
   // Converts base58 IPFS address to a 256-bits hash
-  private def fromAddress(str: String): Either[String, ByteVector] = ByteVector.fromBase58Descriptive(str).map(_.drop(2))
+  private def fromAddress(str: String): Either[String, ByteVector] =
+    ByteVector.fromBase58Descriptive(str).map(_.drop(2))
 
   private def assert(test: Boolean, errorMessage: String): EitherT[F, StoreError, Unit] = {
     EitherT.fromEither(Either.cond(test, (), IpfsError(errorMessage): StoreError))
@@ -134,7 +136,7 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
       _ <- EitherT.pure[F, StoreError](logger.debug(s"IPFS 'add' started $uri"))
       responses <- addCall(uri, multiparts)
       _ <- assert(responses.nonEmpty, "IPFS 'add': Empty response")
-      hash <- EitherT.fromEither(getParentHash(responses))
+      hash <- EitherT.fromEither[F](getParentHash(responses))
     } yield hash
   }
 
@@ -155,7 +157,7 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
       }
       .subflatMap(_.left.map { er =>
         logger.error(s"IPFS 'add' deserialization error: $er")
-        IpfsError(s"IPFS 'add' deserialization error $uri", Some(er.error))
+        IpfsError(s"IPFS 'add' deserialization error $uri", Some(er))
       })
       .map { r =>
         logger.debug(s"IPFS 'add' finished $uri")
@@ -177,7 +179,7 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
             fromAddress(r.Hash).map(h => r.Name -> h).leftMap { e =>
               logger.debug(s"IPFS 'add' hash ${r.Hash} is not correct")
               IpfsError(e)
-            }
+          }
         )
         .sequence
       hash <- if (namesWithHashes.length == 1) Right(namesWithHashes.head._2)
@@ -300,19 +302,22 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
 }
 
 object IpfsClient {
-  import io.circe.parser.decode
+  import io.circe.fs2.stringStreamParser
 
-  // parses JSON like {object1}\n{object2}...
-  def asListJson[B: Decoder: IsOption]: ResponseAs[Either[DeserializationError[io.circe.Error], List[B]], Nothing] = {
-    asString.map(
-      _.split("\\s+")
-        .map(
-          s =>
-            decode[B](s).left
-              .map(e => DeserializationError(s, e, Show[io.circe.Error].show(e)))
-        )
-        .toList
-        .sequence
-    )
+  // parses application/json+stream like {object1}\n{object2}...
+  def asListJson[B: Decoder: IsOption]: ResponseAs[Decoder.Result[List[B]], Nothing] = {
+    implicit val rt = new RaiseThrowable[fs2.Pure] {}
+    asString
+      .map(fs2.Stream.emit)
+      .map(
+        _.through(stringStreamParser[fs2.Pure]).attempt
+          .map(_.leftMap {
+            case e: DecodingFailure => e
+            case e: Throwable => DecodingFailure(e.getLocalizedMessage, Nil)
+          })
+          .toList
+          .map(a => a.map(_.as[B]).flatMap(identity))
+          .sequence
+      )
   }
 }

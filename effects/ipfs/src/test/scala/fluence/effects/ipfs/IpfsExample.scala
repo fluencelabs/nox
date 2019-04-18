@@ -27,6 +27,8 @@ import com.softwaremill.sttp.{MonadError => _, _}
 import scala.language.{higherKinds, implicitConversions}
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
+import fs2.RaiseThrowable
+import io.circe.fs2.stringStreamParser
 import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -39,6 +41,11 @@ object IpfsExample extends App {
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
   implicit val sttp: SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]] = EitherTSttpBackend[IO]()
+
+
+  implicit val rt = new RaiseThrowable[fs2.Pure] {}
+  val k = fs2.Stream.emit("incorrect json").through(stringStreamParser[fs2.Pure]).attempt.toList
+  println(k)
 
   val data = ByteVector(Array[Byte](1, 2, 3, 4))
   val store = new IpfsClient[IO](uri"http://data.fluence.one:5001")
