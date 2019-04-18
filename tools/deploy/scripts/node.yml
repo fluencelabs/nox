@@ -13,6 +13,7 @@ services:
       - OWNER_ADDRESS=$OWNER_ADDRESS
       - WORKER_MEMORY_LIMIT=300 # megabytes
       - WORKER_TAG=$IMAGE_TAG
+      - WORKER_CPUS_LIMIT=2
     ports:
       # API port
       - $API_PORT:5678
@@ -22,7 +23,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.50'
+          cpus: '1'
           memory: 350M
         reservations:
           memory: 300M
