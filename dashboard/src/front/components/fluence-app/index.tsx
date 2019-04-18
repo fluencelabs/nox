@@ -9,7 +9,6 @@ import {
 import FluenceCluster from '../fluence-cluster';
 import {AppId, App} from "../../../fluence";
 import {Action} from "redux";
-import {contractAddress} from "../../../fluence/contract";
 
 interface State {}
 

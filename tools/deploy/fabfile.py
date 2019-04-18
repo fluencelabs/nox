@@ -169,7 +169,7 @@ def deploy():
                     local(command)
 
 
-# usage: fab --set environment=stage,caddy_login=LOGIN,caddy_password=PASSWORD deploy_netdata
+# usage: fab --set environment=stage,caddy_login=LOGIN,caddy_password=PASSWORD,role=slave deploy_netdata
 @parallel
 def deploy_netdata():
     from fabric.contrib.files import upload_template
@@ -182,17 +182,31 @@ def deploy_netdata():
     assert hasattr(env, 'caddy_login'), usage
     assert hasattr(env, 'caddy_password'), usage
 
+    if not hasattr(env, 'role'):
+        env.role = 'slave'
+
     with hide('running', 'output'):
+        if env.role == 'master':
+            run("docker pull abiosoft/caddy")
         run("docker pull netdata/netdata")
-        run("docker pull abiosoft/caddy")
         run("mkdir -p ~/netdata/scripts")
         run("mkdir -p ~/netdata/config")
         run("mkdir -p ~/.local/netdata_cache")
         run("chmod o+rw ~/.local/netdata_cache")
         env.home_dir = run("pwd").stdout
-        upload_template("scripts/netdata.yml", "~/netdata/scripts/netdata.yml", context=env)
-        upload_template("config/Caddyfile", "~/netdata/config/Caddyfile", context=env)
-        put("config/netdata.conf", "~/netdata/config/")
+        upload_template("scripts/netdata/netdata.yml", "~/netdata/scripts/netdata.yml", context=env)
+        if env.role == 'master':
+            upload_template("scripts/netdata/netdata_caddy.yml", "~/netdata/scripts/netdata_caddy.yml", context=env)
+            upload_template("config/netdata/Caddyfile", "~/netdata/config/Caddyfile", context=env)
+
+        if env.role == 'slave':
+            print "netdata mode = slave"
+            put("config/netdata/netdata_slave.conf", "~/netdata/config/netdata.conf")
+            put("config/netdata/stream_slave.conf", "~/netdata/config/stream.conf")
+        else:
+            print "netdata mode = master"
+            put("config/netdata/netdata_master.conf", "~/netdata/config/netdata.conf")
+            put("config/netdata/stream_master.conf", "~/netdata/config/stream.conf")
 
         ensure_docker_group(env.user)
         chown_docker_sock(env.user)
@@ -200,7 +214,10 @@ def deploy_netdata():
 
         with shell_env(COMPOSE_IGNORE_ORPHANS="true"):
             with show('running'):
-                run("PGID=%s HOSTNAME=$HOSTNAME docker-compose --compatibility -f ~/netdata/scripts/netdata.yml up -d" % pgid)
+                if env.role == 'slave':
+                    run("PGID=%s HOSTNAME=$HOSTNAME docker-compose --compatibility -f ~/netdata/scripts/netdata.yml up -d" % pgid)
+                else:
+                    run("PGID=%s HOSTNAME=$HOSTNAME docker-compose --compatibility -f ~/netdata/scripts/netdata_caddy.yml -f ~/netdata/scripts/netdata.yml up -d" % pgid)
 
 @parallel
 def install_docker():
