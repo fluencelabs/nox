@@ -30,7 +30,7 @@ final case class Vote(
   height: _root_.scala.Long = 0L,
   round: _root_.scala.Int = 0,
   blockId: _root_.scala.Option[proto3.tendermint.BlockID] = None,
-  time: _root_.scala.Option[proto3.tendermint.Timestamp] = None,
+  timestamp: _root_.scala.Option[com.google.protobuf.timestamp.Timestamp] = None,
   validatorAddress: _root_.com.google.protobuf.ByteString = _root_.com.google.protobuf.ByteString.EMPTY,
   validatorIndex: _root_.scala.Int = 0,
   signature: _root_.com.google.protobuf.ByteString = _root_.com.google.protobuf.ByteString.EMPTY
@@ -66,8 +66,8 @@ final case class Vote(
       __size += 1 + _root_.com.google.protobuf.CodedOutputStream
         .computeUInt32SizeNoTag(__value.serializedSize) + __value.serializedSize
     };
-    if (time.isDefined) {
-      val __value = time.get
+    if (timestamp.isDefined) {
+      val __value = timestamp.get
       __size += 1 + _root_.com.google.protobuf.CodedOutputStream
         .computeUInt32SizeNoTag(__value.serializedSize) + __value.serializedSize
     };
@@ -128,7 +128,7 @@ final case class Vote(
       _output__.writeUInt32NoTag(__m.serializedSize)
       __m.writeTo(_output__)
     };
-    time.foreach { __v =>
+    timestamp.foreach { __v =>
       val __m = __v
       _output__.writeTag(5, 2)
       _output__.writeUInt32NoTag(__m.serializedSize)
@@ -159,7 +159,7 @@ final case class Vote(
     var __height = this.height
     var __round = this.round
     var __blockId = this.blockId
-    var __time = this.time
+    var __timestamp = this.timestamp
     var __validatorAddress = this.validatorAddress
     var __validatorIndex = this.validatorIndex
     var __signature = this.signature
@@ -180,9 +180,9 @@ final case class Vote(
               .readMessage(_input__, __blockId.getOrElse(proto3.tendermint.BlockID.defaultInstance))
           )
         case 42 =>
-          __time = Option(
+          __timestamp = Option(
             _root_.scalapb.LiteParser
-              .readMessage(_input__, __time.getOrElse(proto3.tendermint.Timestamp.defaultInstance))
+              .readMessage(_input__, __timestamp.getOrElse(com.google.protobuf.timestamp.Timestamp.defaultInstance))
           )
         case 50 =>
           __validatorAddress = _input__.readBytes()
@@ -198,7 +198,7 @@ final case class Vote(
       height = __height,
       round = __round,
       blockId = __blockId,
-      time = __time,
+      timestamp = __timestamp,
       validatorAddress = __validatorAddress,
       validatorIndex = __validatorIndex,
       signature = __signature
@@ -210,9 +210,11 @@ final case class Vote(
   def getBlockId: proto3.tendermint.BlockID = blockId.getOrElse(proto3.tendermint.BlockID.defaultInstance)
   def clearBlockId: Vote = copy(blockId = None)
   def withBlockId(__v: proto3.tendermint.BlockID): Vote = copy(blockId = Option(__v))
-  def getTime: proto3.tendermint.Timestamp = time.getOrElse(proto3.tendermint.Timestamp.defaultInstance)
-  def clearTime: Vote = copy(time = None)
-  def withTime(__v: proto3.tendermint.Timestamp): Vote = copy(time = Option(__v))
+
+  def getTimestamp: com.google.protobuf.timestamp.Timestamp =
+    timestamp.getOrElse(com.google.protobuf.timestamp.Timestamp.defaultInstance)
+  def clearTimestamp: Vote = copy(timestamp = None)
+  def withTimestamp(__v: com.google.protobuf.timestamp.Timestamp): Vote = copy(timestamp = Option(__v))
   def withValidatorAddress(__v: _root_.com.google.protobuf.ByteString): Vote = copy(validatorAddress = __v)
   def withValidatorIndex(__v: _root_.scala.Int): Vote = copy(validatorIndex = __v)
   def withSignature(__v: _root_.com.google.protobuf.ByteString): Vote = copy(signature = __v)
@@ -232,7 +234,7 @@ final case class Vote(
         if (__t != 0) __t else null
       }
       case 4 => blockId.orNull
-      case 5 => time.orNull
+      case 5 => timestamp.orNull
       case 6 => {
         val __t = validatorAddress
         if (__t != _root_.com.google.protobuf.ByteString.EMPTY) __t else null
@@ -255,7 +257,7 @@ final case class Vote(
       case 2 => _root_.scalapb.descriptors.PLong(height)
       case 3 => _root_.scalapb.descriptors.PInt(round)
       case 4 => blockId.map(_.toPMessage).getOrElse(_root_.scalapb.descriptors.PEmpty)
-      case 5 => time.map(_.toPMessage).getOrElse(_root_.scalapb.descriptors.PEmpty)
+      case 5 => timestamp.map(_.toPMessage).getOrElse(_root_.scalapb.descriptors.PEmpty)
       case 6 => _root_.scalapb.descriptors.PByteString(validatorAddress)
       case 7 => _root_.scalapb.descriptors.PInt(validatorIndex)
       case 8 => _root_.scalapb.descriptors.PByteString(signature)
@@ -284,7 +286,7 @@ object Vote extends scalapb.GeneratedMessageCompanion[proto3.tendermint.Vote] {
       __fieldsMap.getOrElse(__fields.get(1), 0L).asInstanceOf[_root_.scala.Long],
       __fieldsMap.getOrElse(__fields.get(2), 0).asInstanceOf[_root_.scala.Int],
       __fieldsMap.get(__fields.get(3)).asInstanceOf[_root_.scala.Option[proto3.tendermint.BlockID]],
-      __fieldsMap.get(__fields.get(4)).asInstanceOf[_root_.scala.Option[proto3.tendermint.Timestamp]],
+      __fieldsMap.get(__fields.get(4)).asInstanceOf[_root_.scala.Option[com.google.protobuf.timestamp.Timestamp]],
       __fieldsMap
         .getOrElse(__fields.get(5), _root_.com.google.protobuf.ByteString.EMPTY)
         .asInstanceOf[_root_.com.google.protobuf.ByteString],
@@ -310,7 +312,7 @@ object Vote extends scalapb.GeneratedMessageCompanion[proto3.tendermint.Vote] {
             .flatMap(_.as[_root_.scala.Option[proto3.tendermint.BlockID]]),
           __fieldsMap
             .get(scalaDescriptor.findFieldByNumber(5).get)
-            .flatMap(_.as[_root_.scala.Option[proto3.tendermint.Timestamp]]),
+            .flatMap(_.as[_root_.scala.Option[com.google.protobuf.timestamp.Timestamp]]),
           __fieldsMap
             .get(scalaDescriptor.findFieldByNumber(6).get)
             .map(_.as[_root_.com.google.protobuf.ByteString])
@@ -325,14 +327,14 @@ object Vote extends scalapb.GeneratedMessageCompanion[proto3.tendermint.Vote] {
     }
 
   def javaDescriptor: _root_.com.google.protobuf.Descriptors.Descriptor =
-    TendermintProto.javaDescriptor.getMessageTypes.get(3)
-  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = TendermintProto.scalaDescriptor.messages(3)
+    TendermintProto.javaDescriptor.getMessageTypes.get(2)
+  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = TendermintProto.scalaDescriptor.messages(2)
 
   def messageCompanionForFieldNumber(__number: _root_.scala.Int): _root_.scalapb.GeneratedMessageCompanion[_] = {
     var __out: _root_.scalapb.GeneratedMessageCompanion[_] = null
     (__number: @ _root_.scala.unchecked) match {
       case 4 => __out = proto3.tendermint.BlockID
-      case 5 => __out = proto3.tendermint.Timestamp
+      case 5 => __out = com.google.protobuf.timestamp.Timestamp
     }
     __out
   }
@@ -358,11 +360,12 @@ object Vote extends scalapb.GeneratedMessageCompanion[proto3.tendermint.Vote] {
     def optionalBlockId: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Option[proto3.tendermint.BlockID]] =
       field(_.blockId)((c_, f_) => c_.copy(blockId = f_))
 
-    def time: _root_.scalapb.lenses.Lens[UpperPB, proto3.tendermint.Timestamp] =
-      field(_.getTime)((c_, f_) => c_.copy(time = Option(f_)))
+    def timestamp: _root_.scalapb.lenses.Lens[UpperPB, com.google.protobuf.timestamp.Timestamp] =
+      field(_.getTimestamp)((c_, f_) => c_.copy(timestamp = Option(f_)))
 
-    def optionalTime: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Option[proto3.tendermint.Timestamp]] =
-      field(_.time)((c_, f_) => c_.copy(time = f_))
+    def optionalTimestamp
+      : _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Option[com.google.protobuf.timestamp.Timestamp]] =
+      field(_.timestamp)((c_, f_) => c_.copy(timestamp = f_))
 
     def validatorAddress: _root_.scalapb.lenses.Lens[UpperPB, _root_.com.google.protobuf.ByteString] =
       field(_.validatorAddress)((c_, f_) => c_.copy(validatorAddress = f_))
@@ -377,7 +380,7 @@ object Vote extends scalapb.GeneratedMessageCompanion[proto3.tendermint.Vote] {
   final val HEIGHT_FIELD_NUMBER = 2
   final val ROUND_FIELD_NUMBER = 3
   final val BLOCK_ID_FIELD_NUMBER = 4
-  final val TIME_FIELD_NUMBER = 5
+  final val TIMESTAMP_FIELD_NUMBER = 5
   final val VALIDATOR_ADDRESS_FIELD_NUMBER = 6
   final val VALIDATOR_INDEX_FIELD_NUMBER = 7
   final val SIGNATURE_FIELD_NUMBER = 8

@@ -127,6 +127,7 @@ object SbtCommons {
   val rocksDb               = "org.rocksdb" % "rocksdbjni" % "5.17.2"
 
   val protobuf              = "io.github.scalapb-json" %% "scalapb-circe" % "0.4.3"
+  val protobufUtil          = "com.google.protobuf" % "protobuf-java-util" % "3.7.1"
 
 
   /* Test deps*/

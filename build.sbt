@@ -332,7 +332,9 @@ lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
       circeParser,
       circeGenericExtras,
       slogging,
-      protobuf
+      protobuf,
+      protobufUtil,
+      scodecBits
     )
   )
   .dependsOn(effects)

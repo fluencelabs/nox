@@ -23,11 +23,11 @@ package proto3.tendermint
 
 object TendermintProto extends _root_.scalapb.GeneratedFileObject {
   lazy val dependencies: Seq[_root_.scalapb.GeneratedFileObject] = Seq(
-    )
+    com.google.protobuf.timestamp.TimestampProto
+  )
   lazy val messagesCompanions: Seq[_root_.scalapb.GeneratedMessageCompanion[_]] = Seq(
     proto3.tendermint.PartSetHeader,
     proto3.tendermint.BlockID,
-    proto3.tendermint.Timestamp,
     proto3.tendermint.Vote,
     proto3.tendermint.Header,
     proto3.tendermint.Version
@@ -36,22 +36,22 @@ object TendermintProto extends _root_.scalapb.GeneratedFileObject {
     scalapb.Encoding.fromBase64(
       scala.collection
         .Seq(
-          """ChB0ZW5kZXJtaW50LnByb3RvEgZwcm90bzMiOQoNUGFydFNldEhlYWRlchIUCgV0b3RhbBgBIAEoBVIFdG90YWwSEgoEaGFza
-  BgCIAEoDFIEaGFzaCJXCgdCbG9ja0lEEhIKBGhhc2gYASABKAxSBGhhc2gSOAoMcGFydHNfaGVhZGVyGAIgASgLMhUucHJvdG8zL
-  lBhcnRTZXRIZWFkZXJSC3BhcnRzSGVhZGVyIjsKCVRpbWVzdGFtcBIYCgdzZWNvbmRzGAEgASgDUgdzZWNvbmRzEhQKBW5hbm9zG
-  AIgASgFUgVuYW5vcyKPAgoEVm90ZRISCgR0eXBlGAEgASgFUgR0eXBlEhYKBmhlaWdodBgCIAEoA1IGaGVpZ2h0EhQKBXJvdW5kG
-  AMgASgFUgVyb3VuZBIqCghibG9ja19pZBgEIAEoCzIPLnByb3RvMy5CbG9ja0lEUgdibG9ja0lkEiUKBHRpbWUYBSABKAsyES5wc
-  m90bzMuVGltZXN0YW1wUgR0aW1lEisKEXZhbGlkYXRvcl9hZGRyZXNzGAYgASgMUhB2YWxpZGF0b3JBZGRyZXNzEicKD3ZhbGlkY
-  XRvcl9pbmRleBgHIAEoBVIOdmFsaWRhdG9ySW5kZXgSHAoJc2lnbmF0dXJlGAggASgMUglzaWduYXR1cmUi2AQKBkhlYWRlchIpC
-  gd2ZXJzaW9uGAEgASgLMg8ucHJvdG8zLlZlcnNpb25SB3ZlcnNpb24SGQoIY2hhaW5faWQYAiABKAlSB2NoYWluSWQSFgoGaGVpZ
-  2h0GAMgASgDUgZoZWlnaHQSJQoEdGltZRgEIAEoCzIRLnByb3RvMy5UaW1lc3RhbXBSBHRpbWUSFwoHbnVtX3R4cxgFIAEoA1IGb
-  nVtVHhzEhsKCXRvdGFsX3R4cxgGIAEoA1IIdG90YWxUeHMSMwoNbGFzdF9ibG9ja19pZBgHIAEoCzIPLnByb3RvMy5CbG9ja0lEU
-  gtsYXN0QmxvY2tJZBIoChBsYXN0X2NvbW1pdF9oYXNoGAggASgMUg5sYXN0Q29tbWl0SGFzaBIbCglkYXRhX2hhc2gYCSABKAxSC
-  GRhdGFIYXNoEicKD3ZhbGlkYXRvcnNfaGFzaBgKIAEoDFIOdmFsaWRhdG9yc0hhc2gSMAoUbmV4dF92YWxpZGF0b3JzX2hhc2gYC
-  yABKAxSEm5leHRWYWxpZGF0b3JzSGFzaBIlCg5jb25zZW5zdXNfaGFzaBgMIAEoDFINY29uc2Vuc3VzSGFzaBIZCghhcHBfaGFza
-  BgNIAEoDFIHYXBwSGFzaBIqChFsYXN0X3Jlc3VsdHNfaGFzaBgOIAEoDFIPbGFzdFJlc3VsdHNIYXNoEiMKDWV2aWRlbmNlX2hhc
-  2gYDyABKAxSDGV2aWRlbmNlSGFzaBIpChBwcm9wb3Nlcl9hZGRyZXNzGBAgASgMUg9wcm9wb3NlckFkZHJlc3MiMQoHVmVyc2lvb
-  hIUCgVCbG9jaxgBIAEoBFIFQmxvY2sSEAoDQXBwGAIgASgEUgNBcHBiBnByb3RvMw=="""
+          """ChB0ZW5kZXJtaW50LnByb3RvEgZwcm90bzMaH2dvb2dsZS9wcm90b2J1Zi90aW1lc3RhbXAucHJvdG8iOQoNUGFydFNldEhlY
+  WRlchIUCgV0b3RhbBgBIAEoBVIFdG90YWwSEgoEaGFzaBgCIAEoDFIEaGFzaCJKCgdCbG9ja0lEEhIKBGhhc2gYASABKAxSBGhhc
+  2gSKwoFcGFydHMYAiABKAsyFS5wcm90bzMuUGFydFNldEhlYWRlclIFcGFydHMipQIKBFZvdGUSEgoEdHlwZRgBIAEoBVIEdHlwZ
+  RIWCgZoZWlnaHQYAiABKANSBmhlaWdodBIUCgVyb3VuZBgDIAEoBVIFcm91bmQSKwoIYmxvY2tfaWQYBCABKAsyDy5wcm90bzMuQ
+  mxvY2tJRFIIYmxvY2tfaWQSOAoJdGltZXN0YW1wGAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcFIJdGltZXN0YW1wE
+  iwKEXZhbGlkYXRvcl9hZGRyZXNzGAYgASgMUhF2YWxpZGF0b3JfYWRkcmVzcxIoCg92YWxpZGF0b3JfaW5kZXgYByABKAVSD3Zhb
+  GlkYXRvcl9pbmRleBIcCglzaWduYXR1cmUYCCABKAxSCXNpZ25hdHVyZSLhBAoGSGVhZGVyEikKB3ZlcnNpb24YASABKAsyDy5wc
+  m90bzMuVmVyc2lvblIHdmVyc2lvbhIZCghjaGFpbl9pZBgCIAEoCVIHY2hhaW5JZBIWCgZoZWlnaHQYAyABKANSBmhlaWdodBIuC
+  gR0aW1lGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcFIEdGltZRIXCgdudW1fdHhzGAUgASgDUgZudW1UeHMSGwoJd
+  G90YWxfdHhzGAYgASgDUgh0b3RhbFR4cxIzCg1sYXN0X2Jsb2NrX2lkGAcgASgLMg8ucHJvdG8zLkJsb2NrSURSC2xhc3RCbG9ja
+  0lkEigKEGxhc3RfY29tbWl0X2hhc2gYCCABKAxSDmxhc3RDb21taXRIYXNoEhsKCWRhdGFfaGFzaBgJIAEoDFIIZGF0YUhhc2gSJ
+  woPdmFsaWRhdG9yc19oYXNoGAogASgMUg52YWxpZGF0b3JzSGFzaBIwChRuZXh0X3ZhbGlkYXRvcnNfaGFzaBgLIAEoDFISbmV4d
+  FZhbGlkYXRvcnNIYXNoEiUKDmNvbnNlbnN1c19oYXNoGAwgASgMUg1jb25zZW5zdXNIYXNoEhkKCGFwcF9oYXNoGA0gASgMUgdhc
+  HBIYXNoEioKEWxhc3RfcmVzdWx0c19oYXNoGA4gASgMUg9sYXN0UmVzdWx0c0hhc2gSIwoNZXZpZGVuY2VfaGFzaBgPIAEoDFIMZ
+  XZpZGVuY2VIYXNoEikKEHByb3Bvc2VyX2FkZHJlc3MYECABKAxSD3Byb3Bvc2VyQWRkcmVzcyIxCgdWZXJzaW9uEhQKBUJsb2NrG
+  AEgASgEUgVCbG9jaxIQCgNBcHAYAiABKARSA0FwcGIGcHJvdG8z"""
         )
         .mkString
     )
@@ -64,7 +64,8 @@ object TendermintProto extends _root_.scalapb.GeneratedFileObject {
     com.google.protobuf.Descriptors.FileDescriptor.buildFrom(
       javaProto,
       Array(
-        )
+        com.google.protobuf.timestamp.TimestampProto.javaDescriptor
+      )
     )
   }
 

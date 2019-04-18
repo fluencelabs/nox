@@ -1,4 +1,9 @@
+// Genration command:
+// /Users/folex/Downloads/scalapbc-0.8.3/bin/scalapbc -I/usr/local/Cellar/protobuf/3.7.1/include --scala_out=/Users/folex/Development/fluencelabs/fluence-main/effects/tendermint-block/src/main/scala/ -I$(pwd) tendermint.proto
+
 syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
 
 package proto3;
 
@@ -9,22 +14,22 @@ message PartSetHeader {
 
 message BlockID {
     bytes hash = 1;
-    PartSetHeader parts_header = 2;
+    PartSetHeader parts = 2;
 }
 
-message Timestamp {
-    int64 seconds = 1;
-    int32 nanos = 2;
-}
+//message Timestamp {
+//    int64 seconds = 1;
+//    int32 nanos = 2;
+//}
 
 message Vote {
     int32 type = 1; // it should be of `byte` type, actually, so int32 may be incorrect. TODO: check
     int64 height = 2;
     int32 round = 3;
-    BlockID block_id = 4;
-    Timestamp time = 5;
-    bytes validator_address = 6;
-    int32 validator_index = 7;
+    BlockID block_id = 4 [json_name = "block_id"];
+    google.protobuf.Timestamp timestamp = 5;
+    bytes validator_address = 6 [json_name = "validator_address"];
+    int32 validator_index = 7 [json_name = "validator_index"];
     bytes signature = 8;
 }
 
@@ -34,7 +39,7 @@ message Header {
     Version version = 1;
     string chain_id = 2;
     int64 height = 3;
-    Timestamp time = 4;
+    google.protobuf.Timestamp time = 4;
     int64 num_txs = 5;
     int64 total_txs = 6;
 

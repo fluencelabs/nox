@@ -16,9 +16,9 @@
 
 package fluence.effects.tendermint.block
 
-import jdk.internal.org.objectweb.asm.ByteVector
+import proto3.Tendermint
 import proto3.tendermint.{Header, Vote}
-import scalapb_circe.JsonFormat
+import scalapb_circe.{JsonFormat, Parser}
 
 // About BlockID: https://tendermint.com/docs/spec/blockchain/blockchain.html#blockid
 
@@ -125,6 +125,7 @@ object Amino {
 }
 
 object JSON {
+  val parser = new Parser(true)
 
   val firstVote =
     """
@@ -145,5 +146,15 @@ object JSON {
       |    "signature": "Z09xcrfz9T6+3q1Yk+gxUo2todPI7mebKed6zO+i1pnIMPdFbSFT9JJjxo5J9HLrn4x2Fqf3QYefQ8lQGNMzBg=="
       |}
     """.stripMargin
-  def vote(json: String): Vote = JsonFormat.fromJsonString[Vote](json)
+  def vote(json: String): Vote = parser.fromJsonString[Vote](json)
+
+  def gvote(json: String): Tendermint.Vote = {
+    import com.google.protobuf.util.{JsonFormat => GJsonFormat}
+    val gparser = GJsonFormat.parser()
+    val builder = Tendermint.Vote.newBuilder()
+    gparser.merge(json, builder)
+    builder.build()
+  }
+
+  ByteVector gvote(firstVote).toByteArray
 }

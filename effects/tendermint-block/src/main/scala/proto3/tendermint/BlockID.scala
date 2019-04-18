@@ -24,7 +24,7 @@ package proto3.tendermint
 @SerialVersionUID(0L)
 final case class BlockID(
   hash: _root_.com.google.protobuf.ByteString = _root_.com.google.protobuf.ByteString.EMPTY,
-  partsHeader: _root_.scala.Option[proto3.tendermint.PartSetHeader] = None
+  parts: _root_.scala.Option[proto3.tendermint.PartSetHeader] = None
 ) extends scalapb.GeneratedMessage with scalapb.Message[BlockID] with scalapb.lenses.Updatable[BlockID] {
 
   @transient
@@ -38,8 +38,8 @@ final case class BlockID(
         __size += _root_.com.google.protobuf.CodedOutputStream.computeBytesSize(1, __value)
       }
     };
-    if (partsHeader.isDefined) {
-      val __value = partsHeader.get
+    if (parts.isDefined) {
+      val __value = parts.get
       __size += 1 + _root_.com.google.protobuf.CodedOutputStream
         .computeUInt32SizeNoTag(__value.serializedSize) + __value.serializedSize
     };
@@ -61,7 +61,7 @@ final case class BlockID(
         _output__.writeBytes(1, __v)
       }
     };
-    partsHeader.foreach { __v =>
+    parts.foreach { __v =>
       val __m = __v
       _output__.writeTag(2, 2)
       _output__.writeUInt32NoTag(__m.serializedSize)
@@ -71,7 +71,7 @@ final case class BlockID(
 
   def mergeFrom(`_input__`: _root_.com.google.protobuf.CodedInputStream): proto3.tendermint.BlockID = {
     var __hash = this.hash
-    var __partsHeader = this.partsHeader
+    var __parts = this.parts
     var _done__ = false
     while (!_done__) {
       val _tag__ = _input__.readTag()
@@ -80,24 +80,22 @@ final case class BlockID(
         case 10 =>
           __hash = _input__.readBytes()
         case 18 =>
-          __partsHeader = Option(
+          __parts = Option(
             _root_.scalapb.LiteParser
-              .readMessage(_input__, __partsHeader.getOrElse(proto3.tendermint.PartSetHeader.defaultInstance))
+              .readMessage(_input__, __parts.getOrElse(proto3.tendermint.PartSetHeader.defaultInstance))
           )
         case tag => _input__.skipField(tag)
       }
     }
     proto3.tendermint.BlockID(
       hash = __hash,
-      partsHeader = __partsHeader
+      parts = __parts
     )
   }
   def withHash(__v: _root_.com.google.protobuf.ByteString): BlockID = copy(hash = __v)
-
-  def getPartsHeader: proto3.tendermint.PartSetHeader =
-    partsHeader.getOrElse(proto3.tendermint.PartSetHeader.defaultInstance)
-  def clearPartsHeader: BlockID = copy(partsHeader = None)
-  def withPartsHeader(__v: proto3.tendermint.PartSetHeader): BlockID = copy(partsHeader = Option(__v))
+  def getParts: proto3.tendermint.PartSetHeader = parts.getOrElse(proto3.tendermint.PartSetHeader.defaultInstance)
+  def clearParts: BlockID = copy(parts = None)
+  def withParts(__v: proto3.tendermint.PartSetHeader): BlockID = copy(parts = Option(__v))
 
   def getFieldByNumber(__fieldNumber: _root_.scala.Int): _root_.scala.Any = {
     (__fieldNumber: @ _root_.scala.unchecked) match {
@@ -105,7 +103,7 @@ final case class BlockID(
         val __t = hash
         if (__t != _root_.com.google.protobuf.ByteString.EMPTY) __t else null
       }
-      case 2 => partsHeader.orNull
+      case 2 => parts.orNull
     }
   }
 
@@ -113,7 +111,7 @@ final case class BlockID(
     _root_.scala.Predef.require(__field.containingMessage eq companion.scalaDescriptor)
     (__field.number: @ _root_.scala.unchecked) match {
       case 1 => _root_.scalapb.descriptors.PByteString(hash)
-      case 2 => partsHeader.map(_.toPMessage).getOrElse(_root_.scalapb.descriptors.PEmpty)
+      case 2 => parts.map(_.toPMessage).getOrElse(_root_.scalapb.descriptors.PEmpty)
     }
   }
   def toProtoString: _root_.scala.Predef.String = _root_.scalapb.TextFormat.printToUnicodeString(this)
@@ -183,12 +181,12 @@ object BlockID extends scalapb.GeneratedMessageCompanion[proto3.tendermint.Block
     def hash: _root_.scalapb.lenses.Lens[UpperPB, _root_.com.google.protobuf.ByteString] =
       field(_.hash)((c_, f_) => c_.copy(hash = f_))
 
-    def partsHeader: _root_.scalapb.lenses.Lens[UpperPB, proto3.tendermint.PartSetHeader] =
-      field(_.getPartsHeader)((c_, f_) => c_.copy(partsHeader = Option(f_)))
+    def parts: _root_.scalapb.lenses.Lens[UpperPB, proto3.tendermint.PartSetHeader] =
+      field(_.getParts)((c_, f_) => c_.copy(parts = Option(f_)))
 
-    def optionalPartsHeader: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Option[proto3.tendermint.PartSetHeader]] =
-      field(_.partsHeader)((c_, f_) => c_.copy(partsHeader = f_))
+    def optionalParts: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Option[proto3.tendermint.PartSetHeader]] =
+      field(_.parts)((c_, f_) => c_.copy(parts = f_))
   }
   final val HASH_FIELD_NUMBER = 1
-  final val PARTS_HEADER_FIELD_NUMBER = 2
+  final val PARTS_FIELD_NUMBER = 2
 }

@@ -152,8 +152,8 @@ object Version extends scalapb.GeneratedMessageCompanion[proto3.tendermint.Versi
     }
 
   def javaDescriptor: _root_.com.google.protobuf.Descriptors.Descriptor =
-    TendermintProto.javaDescriptor.getMessageTypes.get(5)
-  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = TendermintProto.scalaDescriptor.messages(5)
+    TendermintProto.javaDescriptor.getMessageTypes.get(4)
+  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = TendermintProto.scalaDescriptor.messages(4)
 
   def messageCompanionForFieldNumber(__number: _root_.scala.Int): _root_.scalapb.GeneratedMessageCompanion[_] =
     throw new MatchError(__number)
