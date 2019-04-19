@@ -124,6 +124,7 @@ lazy val `merkelized-bytebuffer` = (project in file("statemachine/merkelized-byt
     libraryDependencies ++= Seq(
       cats,
       catsEffect,
+      scodecBits,
       slogging,
       scalaTest
     )
