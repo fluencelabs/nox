@@ -16,11 +16,14 @@
 
 package fluence.effects.tendermint.block
 
-import com.google.protobuf.ByteString
+import java.nio.charset.Charset
+
+import com.google.protobuf.{ByteString, CodedOutputStream}
 import io.circe.Decoder
+import io.circe.generic.semiauto.deriveDecoder
 import proto3.tendermint.{BlockID, Vote}
+import scalapb.GeneratedMessage
 import scodec.bits.ByteVector
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
 import scala.util.Try
 
@@ -58,9 +61,9 @@ object Block {
 // TODO: add evidence
 case class Block(header: Header, data: Data, last_commit: LastCommit) {
   type Parts = List[ByteVector]
-  type Hash = ByteVector
-  type Tx = ByteVector
-  type Evidence = ByteVector
+  type Hash = Array[Byte]
+  type Tx = Array[Byte]
+  type Evidence = Array[Byte]
   type Precommits = List[Vote] // also, Vote = CommitSig in Go
 
   // SimpleHash, go: SimpleHashFromByteSlices
@@ -90,7 +93,7 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
 		b.EvidenceHash = b.Evidence.Hash()
    */
 
-  def headerHash(): ByteVector = {
+  def headerHash(): Array[Byte] = {
     fillHeader() // don't forget it's already called in blockHash (meh)
     val data = List(
       Amino.encode(header.version),
@@ -111,7 +114,7 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
       Amino.encode(header.proposer_address),
     )
 
-    Merkle.simpleHash(data)
+    Merkle.simpleHashArray(data)
   }
 
   // Merkle hash of all precommits (some of them could be null?)
@@ -124,7 +127,7 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
    */
 
   // Merkle hash from the list of TXs
-  def txsHash(txs: List[Tx]) = Merkle.simpleHash(txs)
+  def txsHash(txs: List[Tx]) = Merkle.simpleHashArray(txs)
   /*
     for i := 0; i < len(txs); i++ {
       txBzs[i] = txs[i].Hash()
@@ -135,7 +138,7 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
   // Hash of the single tx, go: tmhash.Sum(tx) -> SHA256.sum
   def singleTxHash(tx: Tx) = SHA256.sum(tx)
 
-  def evidenceHash(evl: List[Evidence]) = Merkle.simpleHash(evl)
+  def evidenceHash(evl: List[Evidence]) = Merkle.simpleHashArray(evl)
   /*
     for i := 0; i < len(evl); i++ {
       evidenceBzs[i] = evl[i].Bytes()
@@ -146,16 +149,32 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
 }
 
 object SHA256 {
-  def sum(bs: ByteVector): ByteVector = ???
+  import fluence.crypto.hash.CryptoHashers.Sha256
+
+  def sum(bs: Array[Byte]): Array[Byte] = Sha256.unsafe(bs)
 }
 
 object Amino {
-  def encode(any: Any): ByteVector = ???
-}
+  private def stringSize(s: String) = CodedOutputStream.computeStringSizeNoTag(s)
+  private def int64Size(l: Long) = CodedOutputStream.computeInt64SizeNoTag(l)
+  private def bytesSize(bs: ByteString) = CodedOutputStream.computeBytesSizeNoTag(bs)
 
-object Protobuf {
+  private def withOutput(size: => Int, f: CodedOutputStream => Unit): Array[Byte] = {
+    val bytes = new Array[Byte](size)
+    val out = CodedOutputStream.newInstance(bytes)
+    f(out)
+    out.flush()
 
-  def bytes(bv: ByteVector): ByteVector = {
-    ByteVector(ByteString.copyFrom(bv.toArray).toByteArray)
+    bytes
   }
+
+  def encode(s: String): Array[Byte] = withOutput(stringSize(s), _.writeStringNoTag(s))
+  def encode(l: Long): Array[Byte] = withOutput(int64Size(l), _.writeInt64NoTag(l))
+
+  def encode(bv: ByteVector): Array[Byte] = {
+    val bs = ByteString.copyFrom(bv.toArray)
+    withOutput(bytesSize(bs), _.writeBytesNoTag(bs))
+  }
+  def encode[T <: GeneratedMessage](m: Option[T]): Array[Byte] = m.fold(Array.empty[Byte])(encode(_))
+  def encode[T <: GeneratedMessage](m: T): Array[Byte] = m.toByteArray
 }
