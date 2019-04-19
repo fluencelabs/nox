@@ -16,7 +16,6 @@
 
 package fluence.effects.tendermint.block
 
-import scodec.bits.ByteVector
 import fluence.crypto.hash.CryptoHashers.Sha256
 
 object Merkle {
