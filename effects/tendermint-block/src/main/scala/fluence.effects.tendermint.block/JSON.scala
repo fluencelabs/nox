@@ -21,6 +21,7 @@ import com.google.protobuf.timestamp.Timestamp
 import io.circe.Decoder.Result
 import io.circe.Json
 import proto3.tendermint.{BlockID, Version, Vote}
+import scalapb.lenses.{Lens, Mutation}
 import scalapb_circe.Parser
 import scodec.bits.ByteVector
 
@@ -76,18 +77,15 @@ object JSON {
   }
 
   def vote(json: Json): Vote = {
-    println(s"Decoding vote from $json")
     val v = parser.fromJson[Vote](json)
     v.update(
-      _.blockId.update(
-        _.hash.modify(fixBytes),
-        _.parts.update(_.hash.modify(fixBytes))
-      ),
+      _.blockId.update(fixBlockId(): _*),
       _.validatorAddress.modify(fixBytes)
     )
   }
 
   def version(json: Json): Version = {
+    println(s"decoding version from $json")
     parser.fromJson[Version](json)
   }
 
@@ -96,7 +94,14 @@ object JSON {
   }
 
   def blockId(json: Json): BlockID = {
-    parser.fromJson[BlockID](json)
+    parser.fromJson[BlockID](json).update(fixBlockId(): _*)
+  }
+
+  private def fixBlockId(): List[Lens[BlockID, BlockID] => Mutation[BlockID]] = {
+    val hash: Lens[BlockID, BlockID] => Mutation[BlockID] = _.hash.modify(fixBytes)
+    val parts: Lens[BlockID, BlockID] => Mutation[BlockID] = _.parts.update(_.hash.modify(fixBytes))
+
+    List(hash, parts)
   }
 
   /**

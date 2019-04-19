@@ -334,7 +334,8 @@ lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
       slogging,
       protobuf,
       protobufUtil,
-      scodecBits
+      scodecBits,
+      scalaTest
     )
   )
   .dependsOn(effects)

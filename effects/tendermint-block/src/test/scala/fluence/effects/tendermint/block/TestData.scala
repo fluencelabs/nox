@@ -163,4 +163,24 @@ object TestData {
       |  }
       |}
     """.stripMargin
+
+  val vote =
+    """
+      |{
+      |    "type": 2,
+      |    "height": 16,
+      |    "round": 0,
+      |    "block_id": {
+      |        "hash": "1E56CF404964AA6B0768E67AD9CBACABCEBCD6A84DC0FC924F1C0AF9043C0188",
+      |        "parts": {
+      |            "total": 1,
+      |            "hash": "D0A00D1902638E1F4FD625568D4A4A7D9FC49E8F3586F257535FC835E7B0B785"
+      |        }
+      |    },
+      |    "timestamp": "2019-04-17T13:30:03.536359799Z",
+      |    "validator_address": "04C60B72246943675E2F3AADA00E30EC41AA7D4E",
+      |    "validator_index": 0,
+      |    "signature": "Z09xcrfz9T6+3q1Yk+gxUo2todPI7mebKed6zO+i1pnIMPdFbSFT9JJjxo5J9HLrn4x2Fqf3QYefQ8lQGNMzBg=="
+      |}
+    """.stripMargin
 }
