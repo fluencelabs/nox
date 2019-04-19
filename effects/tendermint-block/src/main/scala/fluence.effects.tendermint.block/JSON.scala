@@ -85,7 +85,6 @@ object JSON {
   }
 
   def version(json: Json): Version = {
-    println(s"decoding version from $json")
     parser.fromJson[Version](json)
   }
 
