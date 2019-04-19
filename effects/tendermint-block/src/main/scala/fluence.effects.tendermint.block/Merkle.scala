@@ -24,9 +24,7 @@ object Merkle {
   private val NodePrefix: Byte = 1
 
   def simpleHash(data: List[Array[Byte]]): Array[Byte] = {
-    val len = data.length
-
-    len match {
+    data.length match {
       case 0 => Array.empty
       case 1 => leafHash(data.head)
       case n =>
