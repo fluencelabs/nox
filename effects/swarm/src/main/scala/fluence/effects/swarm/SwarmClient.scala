@@ -331,7 +331,7 @@ object SwarmClient {
     swarmUri: Uri
   )(
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
-    F: cats.MonadError[F, Throwable]
+    F: cats.Monad[F]
   ): SwarmClient[F] = {
 
     implicit val _: Hasher[ByteVector, ByteVector] = Keccak256Hasher.hasher
