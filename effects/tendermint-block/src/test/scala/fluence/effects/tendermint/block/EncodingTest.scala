@@ -51,7 +51,7 @@ class EncodingTest extends FunSpec with Matchers with OptionValues {
     val version = block.header.version.value
     println(s"version is $version")
     val scalaHex = toHex(version)
-    val goHex = "08E70710CD02"
+    val goHex = "080A"
 
     checkHex(scalaHex, goHex)
   }
