@@ -17,7 +17,44 @@
 package fluence.effects.tendermint.block
 
 import scodec.bits.ByteVector
+import fluence.crypto.hash.CryptoHashers.Sha256
 
 object Merkle {
-  def simpleHash(data: List[ByteVector]): ByteVector = ???
+  private val LeafPrefix: Byte = 0
+  private val NodePrefix: Byte = 1
+
+  def simpleHash(data: List[Array[Byte]]): Array[Byte] = {
+    val len = data.length
+
+    len match {
+      case 0 => Array.empty
+      case 1 => leafHash(data.head)
+      case n =>
+        val (l, r) = data.splitAt(splitPoint(n))
+        val left = simpleHash(l)
+        val right = simpleHash(r)
+        nodeHash(left, right)
+    }
+  }
+
+  def splitPoint(length: Int): Int = {
+    // From doc of Integer.numberOfLeadingZeros:
+    //  floor(log_2(x)) = 31 - numberOfLeadingZeros(x)
+    val inferiorPower = 31 - Integer.numberOfLeadingZeros(length)
+
+    // Math.pow(2, inferiorPower), but avoiding Doubles
+    val result = 1 << inferiorPower
+
+    if (result == length) {
+      result >> 1
+    } else {
+      result
+    }
+  }
+
+  def leafHash(bs: Array[Byte]): Array[Byte] =
+    Sha256.unsafe(LeafPrefix +: bs)
+
+  def nodeHash(left: Array[Byte], right: Array[Byte]): Array[Byte] =
+    Sha256.unsafe(NodePrefix +: (left ++ right))
 }
