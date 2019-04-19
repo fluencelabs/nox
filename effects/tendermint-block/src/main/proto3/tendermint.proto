@@ -17,13 +17,8 @@ message BlockID {
     PartSetHeader parts = 2;
 }
 
-//message Timestamp {
-//    int64 seconds = 1;
-//    int32 nanos = 2;
-//}
-
 message Vote {
-    int32 type = 1; // it should be of `byte` type, actually, so int32 may be incorrect. TODO: check
+    int32 type = 1; // In Go, it's a `byte`, not int32, be careful
     int64 height = 2;
     int32 round = 3;
     BlockID block_id = 4 [json_name = "block_id"];
@@ -33,8 +28,14 @@ message Vote {
     bytes signature = 8;
 }
 
-// ======================= from Tendermint's block.proto
-message Header {
+message Version {
+    uint64 block = 1;
+    uint64 app = 2;
+}
+
+// In go, Block is a concatenation of field sets from structs `Header` and `Data`, and a few custom fields
+message Block {
+    //                          === type Header fields ===
     // basic block info
     Version version = 1;
     string chain_id = 2;
@@ -48,21 +49,49 @@ message Header {
 
     // hashes of block data
     bytes last_commit_hash = 8; // commit from validators from the last block
-    bytes data_hash = 9; // transactions
+    bytes data_hash = 9;        // transactions
 
     // hashes from the app output from the prev block
-    bytes validators_hash = 10; // validators for the current block
+    bytes validators_hash = 10;      // validators for the current block
     bytes next_validators_hash = 11; // validators for the next block
-    bytes consensus_hash = 12; // consensus params for current block
-    bytes app_hash = 13; // state after txs from the previous block
-    bytes last_results_hash = 14; // root hash of all results from the txs from the previous block
+    bytes consensus_hash = 12;       // consensus params for current block
+    bytes app_hash = 13;             // state after txs from the previous block
+    bytes last_results_hash = 14;    // root hash of all results from the txs from the previous block
 
     // consensus info
-    bytes evidence_hash = 15; // evidence included in the block
+    bytes evidence_hash = 15;    // evidence included in the block
     bytes proposer_address = 16; // original proposer of the block
+
+    //                          === type Data fields ===
+    repeated bytes txs = 17;
+
+    //                          === type Block fields ===
+    EvidenceData evidence = 18;
+    Commit last_commit = 19;
 }
 
-message Version {
-    uint64 block = 1;
-    uint64 app = 2;
+message Commit {
+    BlockID    block_id = 1;
+    repeated Vote precommits = 2;
+}
+
+message EvidenceData {
+    repeated Evidence evidence = 1;
+    bytes hash = 2;
+}
+
+// From Tendermint's types.proto
+message Evidence {
+    string type = 1;
+    Validator validator = 2;
+    int64 height = 3;
+    google.protobuf.Timestamp time = 4;
+    int64 total_voting_power = 5;
+}
+
+// Validator
+message Validator {
+    bytes address = 1;
+    //PubKey pub_key = 2 // TODO: I wonder, why is it commented out?
+    int64 power = 3;
 }

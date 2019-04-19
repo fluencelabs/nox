@@ -47,4 +47,13 @@ object Amino {
   }
   def encode[T <: GeneratedMessage](m: Option[T]): Array[Byte] = m.fold(Array.empty[Byte])(encode(_))
   def encode[T <: GeneratedMessage](m: T): Array[Byte] = m.toByteArray
+
+  // go: MarshalBinaryLengthPrefixed
+  // Encodes a structure, prefixed with UVarInt encoding of the encoded structure's size
+  // It's all happening for Go reasons
+  def encodeLengthPrefixed[T <: GeneratedMessage](m: T): Array[Byte] = {
+    val bytes = encode(m)
+    val size = encode(bytes.length)
+    size ++ bytes
+  }
 }

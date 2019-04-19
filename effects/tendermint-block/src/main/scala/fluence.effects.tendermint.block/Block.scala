@@ -16,13 +16,10 @@
 
 package fluence.effects.tendermint.block
 
-import java.nio.charset.Charset
-
-import com.google.protobuf.{ByteString, CodedOutputStream}
+import com.google.protobuf.ByteString
 import io.circe.Decoder
 import io.circe.generic.semiauto.deriveDecoder
-import proto3.tendermint.{BlockID, Vote}
-import scalapb.GeneratedMessage
+import proto3.tendermint.{BlockID, Commit, Vote}
 import scodec.bits.ByteVector
 
 import scala.util.Try
@@ -37,30 +34,22 @@ case class LastCommit(block_id: BlockID, precommits: List[Option[Vote]])
 
 object Block {
   import Header._
-
-  implicit final val decodeBase64ByteVector: Decoder[Base64ByteVector] = {
-    Decoder.decodeString.emap { str =>
-      ByteVector.fromBase64Descriptive(str).map(Base64ByteVector).left.map(_ => "Base64ByteVector")
-    }
-  }
-
-  implicit final val decodeVote: Decoder[Vote] = {
-    Decoder.decodeJson.emap { jvalue =>
-      Try(JSON.vote(jvalue)).toEither.left.map(_ => "Vote")
-    }
-  }
-
+  implicit final val decodeBase64ByteVector: Decoder[Base64ByteVector] = Decoder.decodeString.emap(
+    str => ByteVector.fromBase64Descriptive(str).map(Base64ByteVector).left.map(_ => "Base64ByteVector")
+  )
+  implicit final val decodeVote: Decoder[Vote] =
+    Decoder.decodeJson.emap(jvalue => Try(JSON.vote(jvalue)).toEither.left.map(_ => "Vote"))
   implicit final val dataDecoder: Decoder[Data] = deriveDecoder
-
   implicit final val lastCommitDecoder: Decoder[LastCommit] = deriveDecoder
-
   implicit final val blockDecoder: Decoder[Block] = deriveDecoder
+
+  val BlockPartSizeBytes = 65536 // 64kB
 }
 
 // TODO: to/from JSON
 // TODO: add evidence
 case class Block(header: Header, data: Data, last_commit: LastCommit) {
-  type Parts = List[ByteVector]
+  type Parts = List[Array[Byte]]
   type Hash = Array[Byte]
   type Tx = Base64ByteVector
   type Evidence = Array[Byte]
@@ -77,7 +66,10 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
   def blockHash(): Hash = headerHash()
 
   // used for secure gossipping of the block during consensus
-  def parts(): Parts = ???
+  def makeParts(): Parts = {
+    val bytes = Amino.encodeLengthPrefixed(this)
+    ???
+  }
   // MerkleRoot of the complete serialized block cut into parts (ie. MerkleRoot(MakeParts(block))
   // go: SimpleProofsFromByteSlices
   def partsHash(): Hash = ???
@@ -130,6 +122,37 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
   def singleTxHash(tx: Tx) = SHA256.sum(tx.bv.toArray)
 
   def evidenceHash(evl: List[Evidence]) = Merkle.simpleHash(evl)
+}
+
+object AminoBlock {
+  import proto3.tendermint.{Block => PBBlock}
+
+  def toAmino(b: Block): PBBlock = {
+    def bs(bv: ByteVector): ByteString = ByteString.copyFrom(bv.toArray)
+    def toCommit(lc: LastCommit) = Commit(Some(lc.block_id), lc.precommits.flatten)
+
+    PBBlock(
+      version =            b.header.version,
+      chainId =            b.header.chain_id,
+      height =             b.header.height,
+      time =               b.header.time,
+      numTxs =             b.header.num_txs,
+      totalTxs =           b.header.total_txs,
+      lastBlockId =        b.header.last_block_id,
+      lastCommitHash =     bs(b.header.last_commit_hash),
+      dataHash =           bs(b.header.data_hash),
+      validatorsHash =     bs(b.header.validators_hash),
+      nextValidatorsHash = bs(b.header.next_validators_hash),
+      consensusHash =      bs(b.header.consensus_hash),
+      appHash =            bs(b.header.app_hash),
+      lastResultsHash =    bs(b.header.last_results_hash),
+      evidenceHash =       bs(b.header.evidence_hash),
+      proposerAddress =    bs(b.header.proposer_address),
+      txs =                b.data.txs.map(bv64 => bs(bv64.bv)),
+      evidence =           None,
+      lastCommit =         Some(toCommit(b.last_commit)),
+    )
+  }
 }
 
 object SHA256 {
