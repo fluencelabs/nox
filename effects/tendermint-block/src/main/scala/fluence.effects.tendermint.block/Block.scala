@@ -17,7 +17,6 @@
 package fluence.effects.tendermint.block
 
 import com.google.protobuf.ByteString
-import proto3.Tendermint
 import proto3.tendermint.{Header, Vote}
 import scalapb_circe.Parser
 import scodec.bits.ByteVector
@@ -126,6 +125,13 @@ object Amino {
   def encode(any: Any): ByteVector = ???
 }
 
+object Protobuf {
+
+  def bytes(bv: ByteVector): ByteVector = {
+    ByteVector(ByteString.copyFrom(bv.toArray).toByteArray)
+  }
+}
+
 object JSON {
   val parser = new Parser(true)
 
@@ -149,22 +155,35 @@ object JSON {
       |}
     """.stripMargin
 
+  val actualVote =
+    """
+      |{
+      |  "type": 2,
+      |  "height": "16",
+      |  "round": "0",
+      |  "block_id": {
+      |    "hash": "1E56CF404964AA6B0768E67AD9CBACABCEBCD6A84DC0FC924F1C0AF9043C0188",
+      |    "parts": {
+      |      "total": "1",
+      |      "hash": "D0A00D1902638E1F4FD625568D4A4A7D9FC49E8F3586F257535FC835E7B0B785"
+      |    }
+      |  },
+      |  "timestamp": "2019-04-17T13:30:03.536359799Z",
+      |  "validator_address": "991C9F03698AC07BEB41B71A87715FC4364A994A",
+      |  "validator_index": "2",
+      |  "signature": "VkQicfjxbG+EsHimIXr87a7w8KkHnAq/l60Cv+0oY+rthLIw77NpNhjsMRXVBTiMJzZ3abTBvBUb9jrwPClSCA=="
+      |}
+  """.stripMargin
+
   def vote(json: String): Vote = {
     val v = parser.fromJsonString[Vote](json)
-    v.update(_.blockId.modify(id => id.withHash(fixBytes(id.hash))))
-  }
-
-  def gvote(json: String): Tendermint.Vote = {
-    import com.google.protobuf.util.JsonFormat.{parser => gparser}
-
-    val builder = Tendermint.Vote.newBuilder()
-    gparser().merge(json, builder)
-
-    val id = builder.getBlockId
-    val goodHash = fixBytes(id.getHash)
-    val goodId = Tendermint.BlockID.newBuilder(id).setHash(goodHash)
-    builder.setBlockId(goodId)
-    builder.build()
+    v.update(
+      _.blockId.update(
+        _.hash.modify(fixBytes),
+        _.parts.update(_.hash.modify(fixBytes))
+      ),
+      _.validatorAddress.modify(fixBytes)
+    )
   }
 
   /**
@@ -183,8 +202,9 @@ object JSON {
    */
   def fixBytes(bs: ByteString): ByteString = {
     val hex = ByteVector(bs.toByteArray).toBase64
-    val value = ByteVector.fromHex(hex)
-    val bytes = ByteString.copyFrom(value.toArray[Byte])
+    val value = ByteVector.fromHex(hex).getOrElse(throw new RuntimeException(s"Can't fromHex from $hex"))
+    val array: Array[Byte] = value.toArray
+    val bytes: ByteString = ByteString.copyFrom(array)
     bytes
   }
 }
