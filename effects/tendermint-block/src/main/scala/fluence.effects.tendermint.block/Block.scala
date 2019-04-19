@@ -17,14 +17,46 @@
 package fluence.effects.tendermint.block
 
 import com.google.protobuf.ByteString
-import proto3.tendermint.{Header, Vote}
-import scalapb_circe.Parser
+import io.circe.Decoder
+import proto3.tendermint.{BlockID, Vote}
 import scodec.bits.ByteVector
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+
+import scala.util.Try
 
 // About BlockID: https://tendermint.com/docs/spec/blockchain/blockchain.html#blockid
 
+// newtype
+case class Base64ByteVector(bv: ByteVector)
+case class Data(txs: List[Base64ByteVector])
+
+case class LastCommit(block_id: BlockID, precommits: List[Option[Vote]])
+
+object Block {
+  import Header._
+
+  implicit final val decodeBase64ByteVector: Decoder[Base64ByteVector] = {
+    Decoder.decodeString.emap { str =>
+      ByteVector.fromBase64Descriptive(str).map(Base64ByteVector).left.map(_ => "Base64ByteVector")
+    }
+  }
+
+  implicit final val decodeVote: Decoder[Vote] = {
+    Decoder.decodeJson.emap { jvalue =>
+      Try(JSON.vote(jvalue)).toEither.left.map(_ => "Vote")
+    }
+  }
+
+  implicit final val dataDecoder: Decoder[Data] = deriveDecoder
+
+  implicit final val lastCommitDecoder: Decoder[LastCommit] = deriveDecoder
+
+  implicit final val blockDecoder: Decoder[Block] = deriveDecoder
+}
+
 // TODO: to/from JSON
-case class Block(header: Header, txs: List[_]) {
+// TODO: add evidence
+case class Block(header: Header, data: Data, last_commit: LastCommit) {
   type Parts = List[ByteVector]
   type Hash = ByteVector
   type Tx = ByteVector
@@ -62,21 +94,21 @@ case class Block(header: Header, txs: List[_]) {
     fillHeader() // don't forget it's already called in blockHash (meh)
     val data = List(
       Amino.encode(header.version),
-      Amino.encode(header.chainId),
+      Amino.encode(header.chain_id),
       Amino.encode(header.height),
       Amino.encode(header.time),
-      Amino.encode(header.numTxs),
-      Amino.encode(header.totalTxs),
-      Amino.encode(header.lastBlockId),
-      Amino.encode(header.lastCommitHash),
-      Amino.encode(header.dataHash),
-      Amino.encode(header.validatorsHash),
-      Amino.encode(header.nextValidatorsHash),
-      Amino.encode(header.consensusHash),
-      Amino.encode(header.appHash),
-      Amino.encode(header.lastResultsHash),
-      Amino.encode(header.evidenceHash),
-      Amino.encode(header.proposerAddress),
+      Amino.encode(header.num_txs),
+      Amino.encode(header.total_txs),
+      Amino.encode(header.last_block_id),
+      Amino.encode(header.last_commit_hash),
+      Amino.encode(header.data_hash),
+      Amino.encode(header.validators_hash),
+      Amino.encode(header.next_validators_hash),
+      Amino.encode(header.consensus_hash),
+      Amino.encode(header.app_hash),
+      Amino.encode(header.last_results_hash),
+      Amino.encode(header.evidence_hash),
+      Amino.encode(header.proposer_address),
     )
 
     Merkle.simpleHash(data)
@@ -113,10 +145,6 @@ case class Block(header: Header, txs: List[_]) {
 
 }
 
-object Merkle {
-  def simpleHash(data: List[ByteVector]): ByteVector = ???
-}
-
 object SHA256 {
   def sum(bs: ByteVector): ByteVector = ???
 }
@@ -129,82 +157,5 @@ object Protobuf {
 
   def bytes(bv: ByteVector): ByteVector = {
     ByteVector(ByteString.copyFrom(bv.toArray).toByteArray)
-  }
-}
-
-object JSON {
-  val parser = new Parser(true)
-
-  val firstVote =
-    """
-      |{
-      |    "type": 2,
-      |    "height": 16,
-      |    "round": 0,
-      |    "block_id": {
-      |        "hash": "1E56CF404964AA6B0768E67AD9CBACABCEBCD6A84DC0FC924F1C0AF9043C0188",
-      |        "parts": {
-      |            "total": 1,
-      |            "hash": "D0A00D1902638E1F4FD625568D4A4A7D9FC49E8F3586F257535FC835E7B0B785"
-      |        }
-      |    },
-      |    "timestamp": "2019-04-17T13:30:03.536359799Z",
-      |    "validator_address": "04C60B72246943675E2F3AADA00E30EC41AA7D4E",
-      |    "validator_index": 0,
-      |    "signature": "Z09xcrfz9T6+3q1Yk+gxUo2todPI7mebKed6zO+i1pnIMPdFbSFT9JJjxo5J9HLrn4x2Fqf3QYefQ8lQGNMzBg=="
-      |}
-    """.stripMargin
-
-  val actualVote =
-    """
-      |{
-      |  "type": 2,
-      |  "height": "16",
-      |  "round": "0",
-      |  "block_id": {
-      |    "hash": "1E56CF404964AA6B0768E67AD9CBACABCEBCD6A84DC0FC924F1C0AF9043C0188",
-      |    "parts": {
-      |      "total": "1",
-      |      "hash": "D0A00D1902638E1F4FD625568D4A4A7D9FC49E8F3586F257535FC835E7B0B785"
-      |    }
-      |  },
-      |  "timestamp": "2019-04-17T13:30:03.536359799Z",
-      |  "validator_address": "991C9F03698AC07BEB41B71A87715FC4364A994A",
-      |  "validator_index": "2",
-      |  "signature": "VkQicfjxbG+EsHimIXr87a7w8KkHnAq/l60Cv+0oY+rthLIw77NpNhjsMRXVBTiMJzZ3abTBvBUb9jrwPClSCA=="
-      |}
-  """.stripMargin
-
-  def vote(json: String): Vote = {
-    val v = parser.fromJsonString[Vote](json)
-    v.update(
-      _.blockId.update(
-        _.hash.modify(fixBytes),
-        _.parts.update(_.hash.modify(fixBytes))
-      ),
-      _.validatorAddress.modify(fixBytes)
-    )
-  }
-
-  /**
-   * Performs base64 encode -> hex decode -> to byte string
-   *
-   * Protobuf "erroneously" applied `base64 decode` to a hex string, this function fixes that
-   *
-   * NOTE:
-   *   It's not a protobuf mistake, it's just a protocol quirk.
-   *   When Tendermint encodes values to JSON to return in RPC, some bytes (i.e., common.HexBytes) are encoded in hex,
-   *   while other bytes (i.e., byte[]) are encoded in base64.
-   *   It's just a happy coincidence that protobuf works on that JSON at all, it wasn't meant to.
-   *
-   * @param bs bs = ByteString.copyFrom(base64-decode(hexString))
-   * @return Good, correct bytes, that were represented by a hexString
-   */
-  def fixBytes(bs: ByteString): ByteString = {
-    val hex = ByteVector(bs.toByteArray).toBase64
-    val value = ByteVector.fromHex(hex).getOrElse(throw new RuntimeException(s"Can't fromHex from $hex"))
-    val array: Array[Byte] = value.toArray
-    val bytes: ByteString = ByteString.copyFrom(array)
-    bytes
   }
 }
