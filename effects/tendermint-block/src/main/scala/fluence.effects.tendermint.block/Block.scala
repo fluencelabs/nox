@@ -62,7 +62,7 @@ object Block {
 case class Block(header: Header, data: Data, last_commit: LastCommit) {
   type Parts = List[ByteVector]
   type Hash = Array[Byte]
-  type Tx = Array[Byte]
+  type Tx = Base64ByteVector
   type Evidence = Array[Byte]
   type Precommits = List[Vote] // also, Vote = CommitSig in Go
 
@@ -74,10 +74,7 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
   //    For struct arguments, we compute a [][]byte containing the amino encoding of each field in the
   //    struct, in the same order the fields appear in the struct. For []struct arguments, we compute a
   //    [][]byte by amino encoding the individual struct elements.
-  def blockHash(): Hash = {
-    fillHeader()
-    headerHash()
-  }
+  def blockHash(): Hash = headerHash()
 
   // used for secure gossipping of the block during consensus
   def parts(): Parts = ???
@@ -86,15 +83,19 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
   def partsHash(): Hash = ???
 
   // Calculates 3 hashes, should be called before blockHash()
-  def fillHeader(): Unit = ???
-  /*
-		b.LastCommitHash = b.LastCommit.Hash() // commitHash
-		b.DataHash = b.Data.Hash() // txsHash
-		b.EvidenceHash = b.Evidence.Hash()
-   */
+  def fillHeader(): Block = {
+    val lastCommitHash = ByteVector(commitHash(last_commit.precommits))
+    val dataHash = ByteVector(txsHash(data.txs))
+    val evHash = ByteVector(evidenceHash(Nil))
+
+    copy(header.copy(last_commit_hash = lastCommitHash, data_hash = dataHash, evidence_hash = evHash))
+  }
 
   def headerHash(): Array[Byte] = {
-    fillHeader() // don't forget it's already called in blockHash (meh)
+    fillHeader().filledHeaderHash()
+  }
+
+  private def filledHeaderHash(): Array[Byte] = {
     val data = List(
       Amino.encode(header.version),
       Amino.encode(header.chain_id),
@@ -114,67 +115,25 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
       Amino.encode(header.proposer_address),
     )
 
-    Merkle.simpleHashArray(data)
+    Merkle.simpleHash(data)
   }
 
   // Merkle hash of all precommits (some of them could be null?)
-  def commitHash(precommits: List[Vote]) = ???
-  /*
-    for i, precommit := range commit.Precommits {
-			bs[i] = cdcEncode(precommit)
-		}
-		commit.hash = merkle.SimpleHashFromByteSlices(bs)
-   */
+  def commitHash(precommits: List[Option[Vote]]) = {
+    Merkle.simpleHash(precommits.map(Amino.encode(_)))
+  }
 
   // Merkle hash from the list of TXs
-  def txsHash(txs: List[Tx]) = Merkle.simpleHashArray(txs)
-  /*
-    for i := 0; i < len(txs); i++ {
-      txBzs[i] = txs[i].Hash()
-    }
-    return merkle.SimpleHashFromByteSlices(txBzs)
-   */
+  def txsHash(txs: List[Tx]) = Merkle.simpleHash(txs.map(singleTxHash))
 
   // Hash of the single tx, go: tmhash.Sum(tx) -> SHA256.sum
-  def singleTxHash(tx: Tx) = SHA256.sum(tx)
+  def singleTxHash(tx: Tx) = SHA256.sum(tx.bv.toArray)
 
-  def evidenceHash(evl: List[Evidence]) = Merkle.simpleHashArray(evl)
-  /*
-    for i := 0; i < len(evl); i++ {
-      evidenceBzs[i] = evl[i].Bytes()
-    }
-    return merkle.SimpleHashFromByteSlices(evidenceBzs)
- */
-
+  def evidenceHash(evl: List[Evidence]) = Merkle.simpleHash(evl)
 }
 
 object SHA256 {
   import fluence.crypto.hash.CryptoHashers.Sha256
 
   def sum(bs: Array[Byte]): Array[Byte] = Sha256.unsafe(bs)
-}
-
-object Amino {
-  private def stringSize(s: String) = CodedOutputStream.computeStringSizeNoTag(s)
-  private def int64Size(l: Long) = CodedOutputStream.computeInt64SizeNoTag(l)
-  private def bytesSize(bs: ByteString) = CodedOutputStream.computeBytesSizeNoTag(bs)
-
-  private def withOutput(size: => Int, f: CodedOutputStream => Unit): Array[Byte] = {
-    val bytes = new Array[Byte](size)
-    val out = CodedOutputStream.newInstance(bytes)
-    f(out)
-    out.flush()
-
-    bytes
-  }
-
-  def encode(s: String): Array[Byte] = withOutput(stringSize(s), _.writeStringNoTag(s))
-  def encode(l: Long): Array[Byte] = withOutput(int64Size(l), _.writeInt64NoTag(l))
-
-  def encode(bv: ByteVector): Array[Byte] = {
-    val bs = ByteString.copyFrom(bv.toArray)
-    withOutput(bytesSize(bs), _.writeBytesNoTag(bs))
-  }
-  def encode[T <: GeneratedMessage](m: Option[T]): Array[Byte] = m.fold(Array.empty[Byte])(encode(_))
-  def encode[T <: GeneratedMessage](m: T): Array[Byte] = m.toByteArray
 }

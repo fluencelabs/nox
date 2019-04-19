@@ -20,12 +20,23 @@ import org.scalatest.{FunSpec, Matchers, OptionValues}
 import scodec.bits.ByteVector
 
 class MerkleTest extends FunSpec with Matchers with OptionValues {
-  it("compare hash to Go's") {
+  val block = JSON.block(TestData.blockResponse).right.get
+  def toHex(ba: Array[Byte]) = ByteVector(ba).toHex
+  def checkHex(scalaHex: String, goHex: String) = scalaHex.toLowerCase shouldBe goHex.toLowerCase
+
+  it("merkle hash") {
     val data = (1 to 32).map(i => Array.fill[Byte](4)(i.toByte)).toList
     val goHash = "62BDC2B8D88E187E4CEEBDDD72F3C8CB8DC98F64D620CAD92AF553B70D567816"
-    val scalaHash = Merkle.simpleHashArray(data)
+    val scalaHash = Merkle.simpleHash(data)
     val scalaHex = ByteVector(scalaHash).toHex
 
     goHash.toLowerCase shouldBe scalaHex.toLowerCase
+  }
+
+  it("block merkle hash") {
+    val scalaHex = toHex(block.headerHash())
+    val goHex = "C921CCB37C268965A56FC546713419AEF683201D5151613E07CBD9293308027F"
+
+    checkHex(scalaHex, goHex)
   }
 }
