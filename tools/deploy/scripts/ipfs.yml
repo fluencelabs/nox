@@ -1,0 +1,18 @@
+version: '3.4'
+
+services:
+  swarm:
+    container_name: ipfs
+    image: ipfs/go-ipfs
+    ports:
+      - 4001:4001
+      - 8080:8080
+      - 5001:5001
+    volumes:
+      - $IPFS_STORAGE/export:/export
+      - $IPFS_STORAGE/data:/data/ipfs
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 500M

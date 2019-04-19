@@ -16,6 +16,9 @@
 
 package fluence.effects.swarm
 
+import java.nio.ByteBuffer
+
+import cats.data.EitherT
 import cats.effect.{ContextShift, IO, Timer}
 import com.softwaremill.sttp._
 import fluence.EitherTSttpBackend
@@ -44,7 +47,7 @@ class SwarmClientIntegrationSpec extends FlatSpec with Matchers with EitherValue
   private implicit val ioShift: ContextShift[IO] = IO.contextShift(global)
   private implicit val sttpBackend = EitherTSttpBackend[IO]()
 
-  val api = SwarmClient(uri"http://localhost:8500")
+  val api = SwarmClient[IO](uri"http://localhost:8500")
 
   val ethAddress: ByteVector = ByteVector.fromHex(Keys.getAddress(randomKeys)).get
 

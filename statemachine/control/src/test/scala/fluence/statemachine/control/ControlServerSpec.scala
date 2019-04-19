@@ -6,7 +6,6 @@ import fluence.statemachine.control.ControlServer.ControlServerConfig
 import io.circe.Encoder
 import org.scalatest.{EitherValues, Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
-import cats.syntax.either._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Random
