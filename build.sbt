@@ -118,6 +118,17 @@ lazy val `vm-hello-world-runner` = (project in file("vm/src/it/resources/test-ca
   .dependsOn(vm, `vm-hello-world`)
   .enablePlugins(AutomateHeaderPlugin)
 
+lazy val `merkelized-bytebuffer` = (project in file("statemachine/merkelized-bytebuffer"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      cats,
+      catsEffect,
+      slogging,
+      scalaTest
+    )
+  )
+
 lazy val `statemachine-control` = (project in file("statemachine/control"))
   .settings(
     commons,
