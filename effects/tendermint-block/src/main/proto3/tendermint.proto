@@ -33,8 +33,7 @@ message Version {
     uint64 app = 2;
 }
 
-// In go, Block is a concatenation of field sets from structs `Header` and `Data`, and a few custom fields
-message Block {
+message Header {
     //                          === type Header fields ===
     // basic block info
     Version version = 1;
@@ -57,17 +56,21 @@ message Block {
     bytes consensus_hash = 12;       // consensus params for current block
     bytes app_hash = 13;             // state after txs from the previous block
     bytes last_results_hash = 14;    // root hash of all results from the txs from the previous block
-
     // consensus info
     bytes evidence_hash = 15;    // evidence included in the block
     bytes proposer_address = 16; // original proposer of the block
+}
+
+// In go, Block is a concatenation of field sets from structs `Header` and `Data`, and a few custom fields
+message Block {
+    Header header = 1;
 
     //                          === type Data fields ===
-    repeated bytes txs = 17;
+    repeated bytes txs = 2;
 
     //                          === type Block fields ===
-    EvidenceData evidence = 18;
-    Commit last_commit = 19;
+    EvidenceData evidence = 3;
+    Commit last_commit = 4;
 }
 
 message Commit {

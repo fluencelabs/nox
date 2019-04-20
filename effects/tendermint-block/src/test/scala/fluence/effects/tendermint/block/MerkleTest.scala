@@ -39,4 +39,11 @@ class MerkleTest extends FunSpec with Matchers with OptionValues {
 
     checkHex(scalaHex, goHex)
   }
+
+  it("block parts merkle hash") {
+    val scalaHex = toHex(block.partsHash())
+    val goHex = "046C3623869234B711759E66664CC5728B16F577C8D3FFE436278C4D8075E635"
+
+    checkHex(scalaHex, goHex)
+  }
 }

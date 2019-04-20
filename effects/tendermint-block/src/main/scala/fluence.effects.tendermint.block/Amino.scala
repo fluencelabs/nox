@@ -37,14 +37,42 @@ object Amino {
   def encode(s: String): Array[Byte] = withOutput(stringSize(s), _.writeStringNoTag(s))
   def encode(l: Long): Array[Byte] = withOutput(int64Size(l), _.writeInt64NoTag(l))
 
-  def encode(bv: ByteVector): Array[Byte] = {
-    if (bv.nonEmpty) {
-      val bs = ByteString.copyFrom(bv.toArray)
-      withOutput(bytesSize(bs), _.writeBytesNoTag(bs))
-    } else {
+  /**
+   * Encodes byte vector in protobuf encoding, without field tag
+   *
+   * @param bv        ByteVector
+   * @param skipEmpty If true, yields empty array on empty bs; yields [00] if skipEmpty = false
+   * NOTE:
+   *   In Tendermint's Go code, cdcEncode function is akin to skipEmpty = true,
+   *   while MarshalBinaryBare is akin to skipEmpty = false
+   *
+   */
+  def encode(bv: ByteVector, skipEmpty: Boolean): Array[Byte] = {
+    if (bv.isEmpty && skipEmpty) {
       Array.empty
+    } else {
+      val bs = ByteString.copyFrom(bv.toArray)
+      encode(bs, skipEmpty)
     }
   }
+
+  /**
+   * Encodes byte string in protobuf encoding, without field tag
+   *
+   * @param bs ByteString
+   * @param skipEmpty If true, yields empty array on empty bs; yields [00] if skipEmpty = false
+   * NOTE:
+   *   In Tendermint's Go code, cdcEncode function is akin to skipEmpty = true,
+   *   while MarshalBinaryBare is akin to skipEmpty = false
+   */
+  def encode(bs: ByteString, skipEmpty: Boolean): Array[Byte] = {
+    if (bs.isEmpty && skipEmpty) {
+      Array.empty
+    } else {
+      withOutput(bytesSize(bs), _.writeBytesNoTag(bs))
+    }
+  }
+
   def encode[T <: GeneratedMessage](m: Option[T]): Array[Byte] = m.fold(Array.empty[Byte])(encode(_))
   def encode[T <: GeneratedMessage](m: T): Array[Byte] = m.toByteArray
 
@@ -54,6 +82,7 @@ object Amino {
   def encodeLengthPrefixed[T <: GeneratedMessage](m: T): Array[Byte] = {
     val bytes = encode(m)
     val size = encode(bytes.length)
+    println(s"encodeLengthPrefixed size: ${bytes.length} -> ${ByteVector(size).toHex}")
     size ++ bytes
   }
 }

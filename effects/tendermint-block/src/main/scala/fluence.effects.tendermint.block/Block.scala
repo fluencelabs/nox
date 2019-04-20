@@ -65,14 +65,13 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
   //    [][]byte by amino encoding the individual struct elements.
   def blockHash(): Hash = headerHash()
 
-  // used for secure gossipping of the block during consensus
-  def makeParts(): Parts = {
-    val bytes = Amino.encodeLengthPrefixed(this)
-    ???
-  }
   // MerkleRoot of the complete serialized block cut into parts (ie. MerkleRoot(MakeParts(block))
   // go: SimpleProofsFromByteSlices
-  def partsHash(): Hash = ???
+  def partsHash(): Hash = {
+    val bytes = Amino.encodeLengthPrefixed(AminoBlock.toAmino(this))
+    val parts = bytes.grouped(Block.BlockPartSizeBytes).toList
+    Merkle.simpleHash(parts)
+  }
 
   // Calculates 3 hashes, should be called before blockHash()
   def fillHeader(): Block = {
@@ -87,6 +86,9 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
     fillHeader().filledHeaderHash()
   }
 
+  // NOTE:
+  //  In Tendermnt's Go code, header hash is calculated from `cdcEncode`-ed fields,
+  //  which yields [] on empty arrays, that's why skipEmpty = true
   private def filledHeaderHash(): Array[Byte] = {
     val data = List(
       Amino.encode(header.version),
@@ -96,15 +98,15 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
       Amino.encode(header.num_txs),
       Amino.encode(header.total_txs),
       Amino.encode(header.last_block_id),
-      Amino.encode(header.last_commit_hash),
-      Amino.encode(header.data_hash),
-      Amino.encode(header.validators_hash),
-      Amino.encode(header.next_validators_hash),
-      Amino.encode(header.consensus_hash),
-      Amino.encode(header.app_hash),
-      Amino.encode(header.last_results_hash),
-      Amino.encode(header.evidence_hash),
-      Amino.encode(header.proposer_address),
+      Amino.encode(header.last_commit_hash, skipEmpty = true),
+      Amino.encode(header.data_hash, skipEmpty = true),
+      Amino.encode(header.validators_hash, skipEmpty = true),
+      Amino.encode(header.next_validators_hash, skipEmpty = true),
+      Amino.encode(header.consensus_hash, skipEmpty = true),
+      Amino.encode(header.app_hash, skipEmpty = true),
+      Amino.encode(header.last_results_hash, skipEmpty = true),
+      Amino.encode(header.evidence_hash, skipEmpty = true),
+      Amino.encode(header.proposer_address, skipEmpty = true),
     )
 
     Merkle.simpleHash(data)
@@ -125,32 +127,40 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
 }
 
 object AminoBlock {
-  import proto3.tendermint.{Block => PBBlock}
+  import proto3.tendermint.{Block => PBBlock, Header => PBHeader}
+
+  private def bs(bv: ByteVector): ByteString = ByteString.copyFrom(bv.toArray)
+  private def toCommit(lc: LastCommit) = Commit(Some(lc.block_id), lc.precommits.flatten)
+
+  def toAminoHeader(h: Header): PBHeader = {
+    PBHeader(
+      version = h.version,
+      chainId = h.chain_id,
+      height = h.height,
+      time = h.time,
+      numTxs = h.num_txs,
+      totalTxs = h.total_txs,
+      lastBlockId = h.last_block_id,
+      lastCommitHash = bs(h.last_commit_hash),
+      dataHash = bs(h.data_hash),
+      validatorsHash = bs(h.validators_hash),
+      nextValidatorsHash = bs(h.next_validators_hash),
+      consensusHash = bs(h.consensus_hash),
+      appHash = bs(h.app_hash),
+      lastResultsHash = bs(h.last_results_hash),
+      evidenceHash = bs(h.evidence_hash),
+      proposerAddress = bs(h.proposer_address),
+    )
+  }
 
   def toAmino(b: Block): PBBlock = {
-    def bs(bv: ByteVector): ByteString = ByteString.copyFrom(bv.toArray)
-    def toCommit(lc: LastCommit) = Commit(Some(lc.block_id), lc.precommits.flatten)
+    val header = toAminoHeader(b.header)
 
     PBBlock(
-      version =            b.header.version,
-      chainId =            b.header.chain_id,
-      height =             b.header.height,
-      time =               b.header.time,
-      numTxs =             b.header.num_txs,
-      totalTxs =           b.header.total_txs,
-      lastBlockId =        b.header.last_block_id,
-      lastCommitHash =     bs(b.header.last_commit_hash),
-      dataHash =           bs(b.header.data_hash),
-      validatorsHash =     bs(b.header.validators_hash),
-      nextValidatorsHash = bs(b.header.next_validators_hash),
-      consensusHash =      bs(b.header.consensus_hash),
-      appHash =            bs(b.header.app_hash),
-      lastResultsHash =    bs(b.header.last_results_hash),
-      evidenceHash =       bs(b.header.evidence_hash),
-      proposerAddress =    bs(b.header.proposer_address),
-      txs =                b.data.txs.map(bv64 => bs(bv64.bv)),
-      evidence =           None,
-      lastCommit =         Some(toCommit(b.last_commit)),
+      header = Some(header),
+      txs = b.data.txs.map(bv64 => bs(bv64.bv)),
+      evidence = None,
+      lastCommit = Some(toCommit(b.last_commit)),
     )
   }
 }
