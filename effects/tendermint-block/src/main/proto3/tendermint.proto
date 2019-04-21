@@ -34,7 +34,6 @@ message Version {
 }
 
 message Header {
-    //                          === type Header fields ===
     // basic block info
     Version version = 1;
     string chain_id = 2;
@@ -61,21 +60,20 @@ message Header {
     bytes proposer_address = 16; // original proposer of the block
 }
 
-// In go, Block is a concatenation of field sets from structs `Header` and `Data`, and a few custom fields
+message Data {
+    repeated bytes txs = 1;
+}
+
 message Block {
     Header header = 1;
-
-    //                          === type Data fields ===
-    repeated bytes txs = 2;
-
-    //                          === type Block fields ===
+    Data data = 2;
     EvidenceData evidence = 3;
     Commit last_commit = 4;
 }
 
 message Commit {
     BlockID    block_id = 1;
-    repeated Vote precommits = 2;
+    bytes precommits = 2;
 }
 
 message EvidenceData {
@@ -92,7 +90,6 @@ message Evidence {
     int64 total_voting_power = 5;
 }
 
-// Validator
 message Validator {
     bytes address = 1;
     //PubKey pub_key = 2 // TODO: I wonder, why is it commented out?

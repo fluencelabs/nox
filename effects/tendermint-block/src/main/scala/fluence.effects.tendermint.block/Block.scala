@@ -68,7 +68,7 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
   // MerkleRoot of the complete serialized block cut into parts (ie. MerkleRoot(MakeParts(block))
   // go: SimpleProofsFromByteSlices
   def partsHash(): Hash = {
-    val bytes = Amino.encodeLengthPrefixed(AminoBlock.toAmino(this))
+    val bytes = Amino.encodeLengthPrefixed(AminoConverter.toAmino(this))
     val parts = bytes.grouped(Block.BlockPartSizeBytes).toList
     Merkle.simpleHash(parts)
   }
@@ -124,45 +124,6 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
   def singleTxHash(tx: Tx) = SHA256.sum(tx.bv.toArray)
 
   def evidenceHash(evl: List[Evidence]) = Merkle.simpleHash(evl)
-}
-
-object AminoBlock {
-  import proto3.tendermint.{Block => PBBlock, Header => PBHeader}
-
-  private def bs(bv: ByteVector): ByteString = ByteString.copyFrom(bv.toArray)
-  private def toCommit(lc: LastCommit) = Commit(Some(lc.block_id), lc.precommits.flatten)
-
-  def toAminoHeader(h: Header): PBHeader = {
-    PBHeader(
-      version = h.version,
-      chainId = h.chain_id,
-      height = h.height,
-      time = h.time,
-      numTxs = h.num_txs,
-      totalTxs = h.total_txs,
-      lastBlockId = h.last_block_id,
-      lastCommitHash = bs(h.last_commit_hash),
-      dataHash = bs(h.data_hash),
-      validatorsHash = bs(h.validators_hash),
-      nextValidatorsHash = bs(h.next_validators_hash),
-      consensusHash = bs(h.consensus_hash),
-      appHash = bs(h.app_hash),
-      lastResultsHash = bs(h.last_results_hash),
-      evidenceHash = bs(h.evidence_hash),
-      proposerAddress = bs(h.proposer_address),
-    )
-  }
-
-  def toAmino(b: Block): PBBlock = {
-    val header = toAminoHeader(b.header)
-
-    PBBlock(
-      header = Some(header),
-      txs = b.data.txs.map(bv64 => bs(bv64.bv)),
-      evidence = None,
-      lastCommit = Some(toCommit(b.last_commit)),
-    )
-  }
 }
 
 object SHA256 {

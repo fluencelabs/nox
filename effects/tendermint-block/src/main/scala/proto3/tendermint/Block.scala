@@ -21,17 +21,10 @@
 
 package proto3.tendermint
 
-/** In go, Block is a concatenation of field sets from structs `Header` and `Data`, and a few custom fields
- *
- * @param txs
- *                            === type Data fields ===
- * @param evidence
- *                            === type Block fields ===
- */
 @SerialVersionUID(0L)
 final case class Block(
   header: _root_.scala.Option[proto3.tendermint.Header] = None,
-  txs: _root_.scala.collection.Seq[_root_.com.google.protobuf.ByteString] = _root_.scala.collection.Seq.empty,
+  data: _root_.scala.Option[proto3.tendermint.Data] = None,
   evidence: _root_.scala.Option[proto3.tendermint.EvidenceData] = None,
   lastCommit: _root_.scala.Option[proto3.tendermint.Commit] = None
 ) extends scalapb.GeneratedMessage with scalapb.Message[Block] with scalapb.lenses.Updatable[Block] {
@@ -45,10 +38,11 @@ final case class Block(
       __size += 1 + _root_.com.google.protobuf.CodedOutputStream
         .computeUInt32SizeNoTag(__value.serializedSize) + __value.serializedSize
     };
-    txs.foreach { __item =>
-      val __value = __item
-      __size += _root_.com.google.protobuf.CodedOutputStream.computeBytesSize(2, __value)
-    }
+    if (data.isDefined) {
+      val __value = data.get
+      __size += 1 + _root_.com.google.protobuf.CodedOutputStream
+        .computeUInt32SizeNoTag(__value.serializedSize) + __value.serializedSize
+    };
     if (evidence.isDefined) {
       val __value = evidence.get
       __size += 1 + _root_.com.google.protobuf.CodedOutputStream
@@ -77,9 +71,11 @@ final case class Block(
       _output__.writeUInt32NoTag(__m.serializedSize)
       __m.writeTo(_output__)
     };
-    txs.foreach { __v =>
+    data.foreach { __v =>
       val __m = __v
-      _output__.writeBytes(2, __m)
+      _output__.writeTag(2, 2)
+      _output__.writeUInt32NoTag(__m.serializedSize)
+      __m.writeTo(_output__)
     };
     evidence.foreach { __v =>
       val __m = __v
@@ -97,8 +93,7 @@ final case class Block(
 
   def mergeFrom(`_input__`: _root_.com.google.protobuf.CodedInputStream): proto3.tendermint.Block = {
     var __header = this.header
-    val __txs = (_root_.scala.collection.immutable.Vector
-      .newBuilder[_root_.com.google.protobuf.ByteString] ++= this.txs)
+    var __data = this.data
     var __evidence = this.evidence
     var __lastCommit = this.lastCommit
     var _done__ = false
@@ -112,7 +107,9 @@ final case class Block(
               .readMessage(_input__, __header.getOrElse(proto3.tendermint.Header.defaultInstance))
           )
         case 18 =>
-          __txs += _input__.readBytes()
+          __data = Option(
+            _root_.scalapb.LiteParser.readMessage(_input__, __data.getOrElse(proto3.tendermint.Data.defaultInstance))
+          )
         case 26 =>
           __evidence = Option(
             _root_.scalapb.LiteParser
@@ -128,7 +125,7 @@ final case class Block(
     }
     proto3.tendermint.Block(
       header = __header,
-      txs = __txs.result(),
+      data = __data,
       evidence = __evidence,
       lastCommit = __lastCommit
     )
@@ -136,10 +133,9 @@ final case class Block(
   def getHeader: proto3.tendermint.Header = header.getOrElse(proto3.tendermint.Header.defaultInstance)
   def clearHeader: Block = copy(header = None)
   def withHeader(__v: proto3.tendermint.Header): Block = copy(header = Option(__v))
-  def clearTxs = copy(txs = _root_.scala.collection.Seq.empty)
-  def addTxs(__vs: _root_.com.google.protobuf.ByteString*): Block = addAllTxs(__vs)
-  def addAllTxs(__vs: TraversableOnce[_root_.com.google.protobuf.ByteString]): Block = copy(txs = txs ++ __vs)
-  def withTxs(__v: _root_.scala.collection.Seq[_root_.com.google.protobuf.ByteString]): Block = copy(txs = __v)
+  def getData: proto3.tendermint.Data = data.getOrElse(proto3.tendermint.Data.defaultInstance)
+  def clearData: Block = copy(data = None)
+  def withData(__v: proto3.tendermint.Data): Block = copy(data = Option(__v))
   def getEvidence: proto3.tendermint.EvidenceData = evidence.getOrElse(proto3.tendermint.EvidenceData.defaultInstance)
   def clearEvidence: Block = copy(evidence = None)
   def withEvidence(__v: proto3.tendermint.EvidenceData): Block = copy(evidence = Option(__v))
@@ -150,7 +146,7 @@ final case class Block(
   def getFieldByNumber(__fieldNumber: _root_.scala.Int): _root_.scala.Any = {
     (__fieldNumber: @ _root_.scala.unchecked) match {
       case 1 => header.orNull
-      case 2 => txs
+      case 2 => data.orNull
       case 3 => evidence.orNull
       case 4 => lastCommit.orNull
     }
@@ -160,9 +156,7 @@ final case class Block(
     _root_.scala.Predef.require(__field.containingMessage eq companion.scalaDescriptor)
     (__field.number: @ _root_.scala.unchecked) match {
       case 1 => header.map(_.toPMessage).getOrElse(_root_.scalapb.descriptors.PEmpty)
-      case 2 =>
-        _root_.scalapb.descriptors
-          .PRepeated(txs.map(_root_.scalapb.descriptors.PByteString)(_root_.scala.collection.breakOut))
+      case 2 => data.map(_.toPMessage).getOrElse(_root_.scalapb.descriptors.PEmpty)
       case 3 => evidence.map(_.toPMessage).getOrElse(_root_.scalapb.descriptors.PEmpty)
       case 4 => lastCommit.map(_.toPMessage).getOrElse(_root_.scalapb.descriptors.PEmpty)
     }
@@ -187,9 +181,7 @@ object Block extends scalapb.GeneratedMessageCompanion[proto3.tendermint.Block] 
     val __fields = javaDescriptor.getFields
     proto3.tendermint.Block(
       __fieldsMap.get(__fields.get(0)).asInstanceOf[_root_.scala.Option[proto3.tendermint.Header]],
-      __fieldsMap
-        .getOrElse(__fields.get(1), Nil)
-        .asInstanceOf[_root_.scala.collection.Seq[_root_.com.google.protobuf.ByteString]],
+      __fieldsMap.get(__fields.get(1)).asInstanceOf[_root_.scala.Option[proto3.tendermint.Data]],
       __fieldsMap.get(__fields.get(2)).asInstanceOf[_root_.scala.Option[proto3.tendermint.EvidenceData]],
       __fieldsMap.get(__fields.get(3)).asInstanceOf[_root_.scala.Option[proto3.tendermint.Commit]]
     )
@@ -207,8 +199,7 @@ object Block extends scalapb.GeneratedMessageCompanion[proto3.tendermint.Block] 
             .flatMap(_.as[_root_.scala.Option[proto3.tendermint.Header]]),
           __fieldsMap
             .get(scalaDescriptor.findFieldByNumber(2).get)
-            .map(_.as[_root_.scala.collection.Seq[_root_.com.google.protobuf.ByteString]])
-            .getOrElse(_root_.scala.collection.Seq.empty),
+            .flatMap(_.as[_root_.scala.Option[proto3.tendermint.Data]]),
           __fieldsMap
             .get(scalaDescriptor.findFieldByNumber(3).get)
             .flatMap(_.as[_root_.scala.Option[proto3.tendermint.EvidenceData]]),
@@ -220,13 +211,14 @@ object Block extends scalapb.GeneratedMessageCompanion[proto3.tendermint.Block] 
     }
 
   def javaDescriptor: _root_.com.google.protobuf.Descriptors.Descriptor =
-    TendermintProto.javaDescriptor.getMessageTypes.get(5)
-  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = TendermintProto.scalaDescriptor.messages(5)
+    TendermintProto.javaDescriptor.getMessageTypes.get(6)
+  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = TendermintProto.scalaDescriptor.messages(6)
 
   def messageCompanionForFieldNumber(__number: _root_.scala.Int): _root_.scalapb.GeneratedMessageCompanion[_] = {
     var __out: _root_.scalapb.GeneratedMessageCompanion[_] = null
     (__number: @ _root_.scala.unchecked) match {
       case 1 => __out = proto3.tendermint.Header
+      case 2 => __out = proto3.tendermint.Data
       case 3 => __out = proto3.tendermint.EvidenceData
       case 4 => __out = proto3.tendermint.Commit
     }
@@ -247,8 +239,11 @@ object Block extends scalapb.GeneratedMessageCompanion[proto3.tendermint.Block] 
     def optionalHeader: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Option[proto3.tendermint.Header]] =
       field(_.header)((c_, f_) => c_.copy(header = f_))
 
-    def txs: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.collection.Seq[_root_.com.google.protobuf.ByteString]] =
-      field(_.txs)((c_, f_) => c_.copy(txs = f_))
+    def data: _root_.scalapb.lenses.Lens[UpperPB, proto3.tendermint.Data] =
+      field(_.getData)((c_, f_) => c_.copy(data = Option(f_)))
+
+    def optionalData: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Option[proto3.tendermint.Data]] =
+      field(_.data)((c_, f_) => c_.copy(data = f_))
 
     def evidence: _root_.scalapb.lenses.Lens[UpperPB, proto3.tendermint.EvidenceData] =
       field(_.getEvidence)((c_, f_) => c_.copy(evidence = Option(f_)))
@@ -263,7 +258,7 @@ object Block extends scalapb.GeneratedMessageCompanion[proto3.tendermint.Block] 
       field(_.lastCommit)((c_, f_) => c_.copy(lastCommit = f_))
   }
   final val HEADER_FIELD_NUMBER = 1
-  final val TXS_FIELD_NUMBER = 2
+  final val DATA_FIELD_NUMBER = 2
   final val EVIDENCE_FIELD_NUMBER = 3
   final val LAST_COMMIT_FIELD_NUMBER = 4
 }

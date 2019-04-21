@@ -22,7 +22,6 @@
 package proto3.tendermint
 
 /** @param version
- *                            === type Header fields ===
  *   basic block info
  * @param lastBlockId
  *   prev block info

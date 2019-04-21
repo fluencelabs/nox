@@ -21,9 +21,7 @@
 
 package proto3.tendermint
 
-/** Validator
- *
- * @param power
+/** @param power
  *  PubKey pub_key = 2 // TODO: I wonder, why is it commented out?
  */
 @SerialVersionUID(0L)
@@ -162,8 +160,8 @@ object Validator extends scalapb.GeneratedMessageCompanion[proto3.tendermint.Val
     }
 
   def javaDescriptor: _root_.com.google.protobuf.Descriptors.Descriptor =
-    TendermintProto.javaDescriptor.getMessageTypes.get(9)
-  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = TendermintProto.scalaDescriptor.messages(9)
+    TendermintProto.javaDescriptor.getMessageTypes.get(10)
+  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = TendermintProto.scalaDescriptor.messages(10)
 
   def messageCompanionForFieldNumber(__number: _root_.scala.Int): _root_.scalapb.GeneratedMessageCompanion[_] =
     throw new MatchError(__number)
