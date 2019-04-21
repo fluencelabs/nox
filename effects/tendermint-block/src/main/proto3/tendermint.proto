@@ -73,7 +73,7 @@ message Block {
 
 message Commit {
     BlockID    block_id = 1;
-    bytes precommits = 2;
+    repeated bytes precommits = 2;
 }
 
 message EvidenceData {

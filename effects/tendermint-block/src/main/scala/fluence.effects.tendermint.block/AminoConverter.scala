@@ -54,7 +54,8 @@ object AminoConverter {
   import proto3.tendermint.{Block => PBBlock, Header => PBHeader, Data => PBData}
 
   private def bs(bv: ByteVector): ByteString = ByteString.copyFrom(bv.toArray)
-  private def serialize(precommits: List[Option[Vote]]): ByteString = ByteString.copyFrom(Amino.encode(precommits))
+  private def serialize(precommits: List[Option[Vote]]): List[ByteString] =
+    Amino.encode(precommits).map(ByteString.copyFrom)
 
   def toCommit(lc: LastCommit) = Commit(Some(lc.block_id), serialize(lc.precommits))
 

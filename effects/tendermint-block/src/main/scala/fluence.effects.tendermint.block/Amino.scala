@@ -88,39 +88,7 @@ object Amino {
 
   def encodeJava[T <: com.google.protobuf.GeneratedMessageV3](m: T): Array[Byte] = m.toByteArray
 
-  private val NoneBytes = Array[Byte](0)
-
-  def encode[T <: GeneratedMessage](repeated: List[Option[T]]): Array[Byte] = {
-    import CodedOutputStream.{computeUInt32SizeNoTag => sizeBytes}
-    val bytes = repeated.map(_.map(_.toByteArray))
-
-    // 1 for tag before each element, sizeBytes to encode size of each element, and element itself
-    val size = bytes.map(1 + _.fold(NoneBytes.length)(b => sizeBytes(b.length) + b.length)).sum
-
-    withOutput(
-      size,
-      out => {
-        bytes.foreach {
-          maybeBytes =>
-            def write(out: CodedOutputStream): Unit = {
-              out.writeTag(2, 2) // becomes 0x12
-              maybeBytes
-                .foreach(bs => out.writeUInt32NoTag(bs.length)) // Encode length for existing values; skip for None
-              val array = maybeBytes.getOrElse(NoneBytes)
-              out.write(array, 0, array.length)
-//              println(s"Bytes written ${out.getTotalBytesWritten}")
-            }
-
-            val len = maybeBytes.fold(NoneBytes.length)(_.length)
-            val szBytes = maybeBytes.fold(0)(_ => sizeBytes(len))
-            val outLen = 1 + szBytes + len
-//            println(s"Will write $outLen bytes; len $len szBytes $szBytes")
-            val debug = ByteVector(withOutput(outLen, write)).toHex
-            println(s"Written $debug")
-
-            write(out)
-        }
-      }
-    )
+  def encode[T <: GeneratedMessage](repeated: List[Option[T]]): List[Array[Byte]] = {
+    repeated.map(_.fold(Array.empty[Byte])(_.toByteArray))
   }
 }
