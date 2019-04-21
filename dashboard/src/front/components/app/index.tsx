@@ -1,5 +1,7 @@
 import * as React from 'react';
 import {connect} from 'react-redux';
+import { push as pushHistory } from 'connected-react-router';
+import {match, withRouter} from "react-router";
 import {Action} from "redux";
 import {contractAddress} from '../../../fluence/contract';
 import {App, AppId, Node} from '../../../fluence';
@@ -11,8 +13,7 @@ import FluenceDeployableApp from '../fluence-deployable-app';
 import FluenceAppsList from '../fluence-apps-list'
 import FluenceNodesList from '../fluence-nodes-list'
 import FluenceDeployList from '../fluence-deploy-list'
-import {restoreDeployed, showEntity} from '../../actions';
-import { FluenceEntity, FluenceEntityType } from '../../actions/entity';
+import {restoreDeployed} from '../../actions';
 import * as fluence from "fluence";
 
 import 'bootstrap/dist/css/bootstrap.css';
@@ -23,13 +24,26 @@ import 'admin-lte/dist/css/AdminLTE.css';
 import 'admin-lte/dist/css/skins/skin-blue.css';
 import './style.css';
 
+export enum FluenceEntityType {
+    None = -1,
+    Stub = 'stub',
+    App  = 'app',
+    Node = 'node',
+    DeployableApp = 'deploy',
+}
+
 interface State {}
 
+interface UrlParams {
+    entityType: string,
+    entityId: string,
+    appId: string,
+}
+
 interface Props {
+    match: match<UrlParams>,
     loading: boolean,
     restoreDeployed: (appId: string, appTypeId: string) => Action,
-    showEntity: (entity: FluenceEntity) => Action,
-    currentEntity: FluenceEntity | null
     apps: {
         [key: string]: App
     };
@@ -46,11 +60,7 @@ class DashboardApp extends React.Component<Props, State> {
         (window as any).fluence = fluence;
 
         const deployedApp = getDeployedApp();
-        if (deployedApp) {
-            this.props.showEntity({
-                type: FluenceEntityType.DeployableApp,
-                id: deployedApp.deployedAppTypeId,
-            });
+        if (deployedApp && this.props.match.path == '/') {
             this.props.restoreDeployed(deployedApp.deployedAppId, deployedApp.deployedAppTypeId);
         }
     }
@@ -59,27 +69,25 @@ class DashboardApp extends React.Component<Props, State> {
         const deployedApp = getDeployedApp();
         if (deployedApp && appIds.indexOf(deployedApp.deployedAppId) === -1) {
             if (
-                this.props.currentEntity
-                && this.props.currentEntity.type == FluenceEntityType.DeployableApp
-                && this.props.currentEntity.id == deployedApp.deployedAppTypeId
+                this.props.match.params.entityType == FluenceEntityType.DeployableApp
+                && this.props.match.params.entityId == deployedApp.deployedAppTypeId
             ) {
-                this.props.showEntity({
-                    type: FluenceEntityType.Stub,
-                    id: '',
-                });
+                pushHistory(`/`);
             }
             clearDeployedApp();
         }
     };
 
-    renderEntity(entity: FluenceEntity | null): React.ReactNode {
-        if (entity) {
-            if (entity.type === FluenceEntityType.App) {
-                return <FluenceApp appId={entity.id}/>
-            } else if (entity.type === FluenceEntityType.Node) {
-                return <FluenceNode nodeId={entity.id}/>
-            } else if (entity.type === FluenceEntityType.DeployableApp) {
-                return <FluenceDeployableApp id={entity.id}/>
+    renderEntity(): React.ReactNode {
+        let entityType = this.props.match.params.entityType;
+        let entityId = this.props.match.params.entityId;
+        if (entityType && entityId) {
+            if (entityType === FluenceEntityType.App) {
+                return <FluenceApp appId={entityId}/>
+            } else if (entityType === FluenceEntityType.Node) {
+                return <FluenceNode nodeId={entityId}/>
+            } else if (entityType === FluenceEntityType.DeployableApp) {
+                return <FluenceDeployableApp id={entityId}/>
             }
         }
 
@@ -155,7 +163,7 @@ class DashboardApp extends React.Component<Props, State> {
                                     </div>
                                 </div>
                             </div>
-                            {this.renderEntity(this.props.currentEntity)}
+                            {this.renderEntity()}
                         </div>
                     </section>
                 </div>
@@ -176,12 +184,10 @@ const mapStateToProps = (state: any) => ({
     loading: state.loading.isLoading,
     nodes: state.nodes,
     apps: state.apps,
-    currentEntity: state.entity
 });
 
 const mapDispatchToProps = {
     restoreDeployed,
-    showEntity,
 };
 
-export default connect(mapStateToProps, mapDispatchToProps)(DashboardApp);
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(DashboardApp));

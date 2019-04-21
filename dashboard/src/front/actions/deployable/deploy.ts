@@ -1,5 +1,6 @@
 import contract from '../../../fluence/contract';
 import {checkLogs, DeployableApp, send, txParams, deployableApps, DeployedAppState} from "../../../fluence/deployable";
+import { push as pushHistory } from 'connected-react-router';
 import {privateKey, appUploadUrl} from "../../../constants";
 import {Action, Dispatch} from "redux";
 import axios from 'axios';
@@ -40,6 +41,7 @@ export const deploy = (app: DeployableApp, appTypeId: string, storageHashOverloa
         let deployStatus = checkLogs(receipt);
 
         saveDeployedApp(String(deployStatus.appId), appTypeId);
+        pushHistory(`/deploy/${appTypeId}/${deployStatus.appId}`);
 
         if (deployStatus.state == DeployedAppState.Deployed) {
             dispatch({type: DEPLOY_STATE_CLUSTER_CHECK, note: 'retrieving app'});
@@ -98,6 +100,7 @@ export const deploy = (app: DeployableApp, appTypeId: string, storageHashOverloa
 export const DEPLOY_RESTORE = 'DEPLOY_RESTORE';
 export const restoreDeployed = (appId: string, appTypeId: string) => {
     return (dispatch: Dispatch): Action => {
+        pushHistory(`/deploy/${appTypeId}/${appId}`);
         return dispatch({
             type: DEPLOY_RESTORE,
             appId,
