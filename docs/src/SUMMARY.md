@@ -27,3 +27,12 @@
 - [Command-line interface](cli.md)
 - [Key examples](examples.md)
 - [Project status](project.md)
+
+[Tutorials](https://github.com/fluencelabs/tutorials/)
+
+[Fluence Labs site](http://fluence.network/)
+
+[Discord](https://discordapp.com/invite/AjfbDKQ)
+
+[Github](https://github.com/fluencelabs/fluence)
+
