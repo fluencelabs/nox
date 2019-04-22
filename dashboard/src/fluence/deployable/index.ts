@@ -67,7 +67,7 @@ export const deployableApps: { [key: string]: DeployableApp } = {
     "redis": {
         name: "Redis",
         shortName: "Redis",
-        storageHash: "0xabd76500d85e45f55ab6d498b969df7757bdab580daad83f15dff1caad1e6103",
+        storageHash: "0xD5B85113DCB16A6457226F123A918AF4D90A47FB5FB89D7FC48247D3E1419D15",
         storageType: StorageType.Ipfs,
         clusterSize: 4,
     }
