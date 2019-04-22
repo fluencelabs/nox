@@ -65,7 +65,7 @@ export const deployableApps: { [key: string]: DeployableApp } = {
         selfUpload: true
     },
     "redis": {
-        name: "Redis",
+        name: "Redis (b0e8c4f)",
         shortName: "Redis",
         storageHash: "0xD5B85113DCB16A6457226F123A918AF4D90A47FB5FB89D7FC48247D3E1419D15",
         storageType: StorageType.Ipfs,
