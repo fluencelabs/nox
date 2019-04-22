@@ -82,7 +82,6 @@ object Amino {
   def encodeLengthPrefixed[T <: GeneratedMessage](m: T): Array[Byte] = {
     val bytes = encode(m)
     val size = encode(bytes.length)
-    println(s"encodeLengthPrefixed size: ${bytes.length} -> ${ByteVector(size).toHex}")
     size ++ bytes
   }
 
