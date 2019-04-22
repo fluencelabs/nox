@@ -102,7 +102,7 @@ object SbtCommons {
   val sttp = "com.softwaremill.sttp"            %% "core"                           % sttpVersion
   val sttpCirce = "com.softwaremill.sttp"       %% "circe"                          % sttpVersion
   val sttpFs2Backend = "com.softwaremill.sttp"  %% "async-http-client-backend-fs2"  % sttpVersion
-  val sttpCatsBackend = "com.softwaremill.sttp"        %% "async-http-client-backend-cats" % sttpVersion
+  val sttpCatsBackend = "com.softwaremill.sttp" %% "async-http-client-backend-cats" % sttpVersion
 
   val http4sVersion = "0.20.0-M7"
   val http4sDsl = "org.http4s"    %% "http4s-dsl"          % http4sVersion
@@ -114,6 +114,7 @@ object SbtCommons {
   val circeGeneric = "io.circe"       %% "circe-generic"        % circeVersion
   val circeGenericExtras = "io.circe" %% "circe-generic-extras" % circeVersion
   val circeParser = "io.circe"        %% "circe-parser"         % circeVersion
+  val circeFs2 = "io.circe"           %% "circe-fs2"            % "0.11.0"
 
   val scodecBits = "org.scodec" %% "scodec-bits" % "1.1.9"
   val scodecCore = "org.scodec" %% "scodec-core" % "1.11.3"

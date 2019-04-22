@@ -12,10 +12,10 @@ Fluence nodes are stateful but it is wasteful to store website (or something els
 
 First of all, we need already written frontend interacting with Fluence nodes.
 
-And then let's upload directory with frontend code:
+And then let's upload directory with built frontend code:
 ```
 IPFS_ADDR=$(host data.fluence.one | awk '/has address/ { print $4 }')
-ipfs --api /ip4/$IPFS_ADDR/tcp/5001 add -r build/
+ipfs --api /ip4/$IPFS_ADDR/tcp/5001 add -r path/to/built/frontend
 ```
 `IPFS_ADDR` - is a data.fluence.one ip address
 

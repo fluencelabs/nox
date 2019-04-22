@@ -19,6 +19,13 @@ package fluence.effects.ipfs
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
+case class UploadResponse(Name: String, Hash: String, Size: Int)
+
+object UploadResponse {
+  implicit val encodeUploadResponse: Encoder[UploadResponse] = deriveEncoder
+  implicit val decodeUploadResponse: Decoder[UploadResponse] = deriveDecoder
+}
+
 /**
  * File in IPFS.
  */
