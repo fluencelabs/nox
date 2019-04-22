@@ -18,6 +18,7 @@ package fluence.effects.swarm
 
 import java.nio.ByteBuffer
 
+import cats.Monad
 import cats.data.EitherT
 import cats.effect.IO
 import cats.syntax.applicativeError._
@@ -48,9 +49,8 @@ import scala.language.higherKinds
  * @param sttpBackend way to represent the backend implementation.
  *                    Can be sync or async, with effects or not depending on the `F`
  */
-class SwarmClient[F[_]](swarmUri: Uri)(
+class SwarmClient[F[_]: Monad](swarmUri: Uri)(
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
-  F: cats.Monad[F],
   hasher: Hasher[ByteVector, ByteVector]
 ) extends slogging.LazyLogging {
 
@@ -327,11 +327,10 @@ class SwarmClient[F[_]](swarmUri: Uri)(
 
 object SwarmClient {
 
-  def apply[F[_]](
+  def apply[F[_]: Monad](
     swarmUri: Uri
   )(
-    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
-    F: cats.Monad[F]
+    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]
   ): SwarmClient[F] = {
 
     implicit val _: Hasher[ByteVector, ByteVector] = Keccak256Hasher.hasher
