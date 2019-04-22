@@ -21,8 +21,7 @@ import fluence.crypto.ecdsa.Ecdsa
 import proto3.tendermint._
 import scodec.bits.ByteVector
 
-// key is ed25519
-// go's crypto ed25519 + sha512
+// Ed25519
 object Signature {
 
   def verifyBC(message: Array[Byte], pubKey: Array[Byte], signature: Array[Byte]): Boolean = {
@@ -37,8 +36,7 @@ object Signature {
   }
 
   // Doesn't work :( That's because it's Curve25519, not Ed25519, and their keys arent compatible
-  // Bouncy Castle 1.61 added support for Ed25519, and Fluence Crypto is on 1.60
-  // But Fluence Crypto uses ECNamedCurveTable
+  // Fluence Crypto uses ECNamedCurveTable, and it seems it doesn't support Ed25519
   def verifyFluenceCrypto(message: Array[Byte], pubKey: Array[Byte], signature: Array[Byte]): Boolean = {
     println(s"Signature.verify key ${ByteVector(pubKey).toHex}")
     val ed25519 = new Ecdsa("Curve25519", "NONEwithECDSA", None)
@@ -53,7 +51,7 @@ object Signature {
   }
 
   // ChainID could be taken from e.g., InitChain
-  def verifyVote(vote: Vote, chainID: String, pubKey: Array[Byte]) = {
+  def verifyVote(vote: Vote, chainID: String, pubKey: Array[Byte]): Boolean = {
     val canonicalVote = canonicalize(vote, chainID)
     val bytes = Amino.encodeLengthPrefixed(canonicalVote)
     verifyBC(bytes, pubKey, vote.signature.toByteArray)

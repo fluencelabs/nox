@@ -31,6 +31,7 @@ case class Base64ByteVector(bv: ByteVector)
 case class Data(txs: List[Base64ByteVector])
 
 case class LastCommit(block_id: BlockID, precommits: List[Option[Vote]])
+case class PartsHeader(hash: Array[Byte], count: Int)
 
 object Block {
   import Header._
@@ -67,10 +68,11 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
 
   // MerkleRoot of the complete serialized block cut into parts (ie. MerkleRoot(MakeParts(block))
   // go: SimpleProofsFromByteSlices
-  def partsHash(): Hash = {
+  def partsHash(): PartsHeader = {
     val bytes = Amino.encodeLengthPrefixed(AminoConverter.toAmino(this))
     val parts = bytes.grouped(Block.BlockPartSizeBytes).toList
-    Merkle.simpleHash(parts)
+    val hash = Merkle.simpleHash(parts)
+    PartsHeader(hash, parts.length)
   }
 
   // Calculates 3 hashes, should be called before blockHash()

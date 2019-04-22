@@ -166,6 +166,106 @@ object TestData {
       |}
     """.stripMargin
 
+  val commitResponse =
+    """
+      |{
+      |  "jsonrpc": "2.0",
+      |  "id": "dontcare",
+      |  "result": {
+      |    "signed_header": {
+      |      "header": {
+      |        "version": {
+      |          "block": "10",
+      |          "app": "0"
+      |        },
+      |        "chain_id": "10",
+      |        "height": "17",
+      |        "time": "2019-04-17T13:30:03.536359799Z",
+      |        "num_txs": "4",
+      |        "total_txs": "58",
+      |        "last_block_id": {
+      |          "hash": "1E56CF404964AA6B0768E67AD9CBACABCEBCD6A84DC0FC924F1C0AF9043C0188",
+      |          "parts": {
+      |            "total": "1",
+      |            "hash": "D0A00D1902638E1F4FD625568D4A4A7D9FC49E8F3586F257535FC835E7B0B785"
+      |          }
+      |        },
+      |        "last_commit_hash": "4B2FE08AE3C3F7573DB0A36250FB2AABCB1893638EBBECAB7356DDCEF358B423",
+      |        "data_hash": "61135E296D5570C607C456416CBD6827E21DED57F7FE2F08879ADCC8228FA7C0",
+      |        "validators_hash": "E55E99B667008D3E275ECEEAF8807F1BFF36B30D6DD638CC57CC09939F475374",
+      |        "next_validators_hash": "E55E99B667008D3E275ECEEAF8807F1BFF36B30D6DD638CC57CC09939F475374",
+      |        "consensus_hash": "048091BC7DDC283F77BFBF91D73C44DA58C3DF8A9CBC867405D8B7F3DAADA22F",
+      |        "app_hash": "DA265DD0F482C2D76B7E67B0128B391FED2971CD74E6DED3EDCCBAB200653DAE",
+      |        "last_results_hash": "7FD69E789D2A445E0F3258965481A2E70D5EB9960BCAF065B08C417EF045A846",
+      |        "evidence_hash": "",
+      |        "proposer_address": "04C60B72246943675E2F3AADA00E30EC41AA7D4E"
+      |      },
+      |      "commit": {
+      |        "block_id": {
+      |          "hash": "C921CCB37C268965A56FC546713419AEF683201D5151613E07CBD9293308027F",
+      |          "parts": {
+      |            "total": "1",
+      |            "hash": "046C3623869234B711759E66664CC5728B16F577C8D3FFE436278C4D8075E635"
+      |          }
+      |        },
+      |        "precommits": [
+      |          {
+      |            "type": 2,
+      |            "height": "17",
+      |            "round": "0",
+      |            "block_id": {
+      |              "hash": "C921CCB37C268965A56FC546713419AEF683201D5151613E07CBD9293308027F",
+      |              "parts": {
+      |                "total": "1",
+      |                "hash": "046C3623869234B711759E66664CC5728B16F577C8D3FFE436278C4D8075E635"
+      |              }
+      |            },
+      |            "timestamp": "2019-04-17T13:30:04.536359799Z",
+      |            "validator_address": "04C60B72246943675E2F3AADA00E30EC41AA7D4E",
+      |            "validator_index": "0",
+      |            "signature": "o7VjYDU8/CpRVDa3Pej6BXkiFig92/+TQ+yj/1TXTiBv2TdHQ16rhkmOsu0WA22JMvhA2fFxQ+abIzPhotHAAg=="
+      |          },
+      |          null,
+      |          {
+      |            "type": 2,
+      |            "height": "17",
+      |            "round": "0",
+      |            "block_id": {
+      |              "hash": "C921CCB37C268965A56FC546713419AEF683201D5151613E07CBD9293308027F",
+      |              "parts": {
+      |                "total": "1",
+      |                "hash": "046C3623869234B711759E66664CC5728B16F577C8D3FFE436278C4D8075E635"
+      |              }
+      |            },
+      |            "timestamp": "2019-04-17T13:30:04.536359799Z",
+      |            "validator_address": "991C9F03698AC07BEB41B71A87715FC4364A994A",
+      |            "validator_index": "2",
+      |            "signature": "IFoLrmvh25Jgx1HD6rhVqYh4gnFXckByX+zlDtzvbrNk6NckZZ4DOmJHWTVGt1anFw63hlQEwGKB1y2auUcWBw=="
+      |          },
+      |          {
+      |            "type": 2,
+      |            "height": "17",
+      |            "round": "0",
+      |            "block_id": {
+      |              "hash": "C921CCB37C268965A56FC546713419AEF683201D5151613E07CBD9293308027F",
+      |              "parts": {
+      |                "total": "1",
+      |                "hash": "046C3623869234B711759E66664CC5728B16F577C8D3FFE436278C4D8075E635"
+      |              }
+      |            },
+      |            "timestamp": "2019-04-17T13:30:04.536359799Z",
+      |            "validator_address": "9F16F63227F11942E6E4A3282B2A293E4BF8206C",
+      |            "validator_index": "3",
+      |            "signature": "amtVDN/ly1z0GGwQ22d8uCQgIlscyYj78ITwhoVJIBUj4gQx2u6nIRQjh1CWprTIxG2ygHV78G919M4+gCVXBg=="
+      |          }
+      |        ]
+      |      }
+      |    },
+      |    "canonical": false
+      |  }
+      |}
+  """.stripMargin
+
   val vote =
     """
       |{
@@ -186,6 +286,10 @@ object TestData {
       |}
     """.stripMargin
 
-  val validator = ByteVector.fromBase64("j0ZM+xnnX0ZjCavm4zW06+71mbamGAiye3v0GxGJY0Y=").get
-  val validator2 = ByteVector.fromBase64("oq0QENlTvGeV7eMugt3v3cv9dmmuxoVcr3BI7AiUgH4=").get
+  val validators = Map(
+    0 -> ByteVector.fromBase64("j0ZM+xnnX0ZjCavm4zW06+71mbamGAiye3v0GxGJY0Y=").get,
+    1 -> ByteVector.fromBase64("oq0QENlTvGeV7eMugt3v3cv9dmmuxoVcr3BI7AiUgH4=").get,
+    2 -> ByteVector.fromBase64("9bbFPqyTgxVLe4bddNa1FRPREltHH+JQ3vSLUQtc+zI=").get,
+    3 -> ByteVector.fromBase64("vAs+M0nQVqntR6jjPqTsHpJ4bsswA3ohx05yorqveyc=").get,
+  )
 }

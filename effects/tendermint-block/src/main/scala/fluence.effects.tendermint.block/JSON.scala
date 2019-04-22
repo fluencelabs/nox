@@ -76,6 +76,14 @@ object JSON {
     block.as[Block]
   }
 
+  def commit(commitResponse: String): Result[Commit] = {
+    import io.circe._, io.circe.parser._
+
+    val p: Json = parse(commitResponse).right.get
+    val commit: Json = p.hcursor.downField("result").downField("signed_header").get[Json]("commit").right.get
+    commit.as[Commit]
+  }
+
   def vote(json: Json): Vote = {
     val v = parser.fromJson[Vote](json)
     v.update(

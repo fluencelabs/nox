@@ -92,7 +92,7 @@ object SbtCommons {
   val pureConfig            = "com.github.pureconfig" %% "pureconfig" % "0.10.2"
   val ficus                 = "com.iheart"            %% "ficus"      % "1.4.5"
 
-  val cryptoVersion         = "0.0.3"
+  val cryptoVersion         = "0.0.4"
   val cryptoHashing         = "one.fluence" %% "crypto-hashsign" % cryptoVersion
   val cryptoCipher          = "one.fluence" %% "crypto-cipher"   % cryptoVersion
   val cryptoKeyStore        = "one.fluence" %% "crypto-keystore" % cryptoVersion
@@ -128,7 +128,7 @@ object SbtCommons {
 
   val protobuf              = "io.github.scalapb-json" %% "scalapb-circe" % "0.4.3"
   val protobufUtil          = "com.google.protobuf" % "protobuf-java-util" % "3.7.1"
-  
+
   val bouncyCastle          = "org.bouncycastle" % "bcprov-jdk15on" % "1.61"
 
 
