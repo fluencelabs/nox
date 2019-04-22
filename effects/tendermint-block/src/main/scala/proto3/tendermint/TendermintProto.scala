@@ -36,7 +36,10 @@ object TendermintProto extends _root_.scalapb.GeneratedFileObject {
     proto3.tendermint.Commit,
     proto3.tendermint.EvidenceData,
     proto3.tendermint.Evidence,
-    proto3.tendermint.Validator
+    proto3.tendermint.Validator,
+    proto3.tendermint.CanonicalVote,
+    proto3.tendermint.CanonicalBlockID,
+    proto3.tendermint.CanonicalPartSetHeader
   )
   private lazy val ProtoBytes: Array[Byte] =
     scalapb.Encoding.fromBase64(
@@ -65,8 +68,13 @@ object TendermintProto extends _root_.scalapb.GeneratedFileObject {
   mNlUghldmlkZW5jZRISCgRoYXNoGAIgASgMUgRoYXNoIsUBCghFdmlkZW5jZRISCgR0eXBlGAEgASgJUgR0eXBlEi8KCXZhbGlkY
   XRvchgCIAEoCzIRLnByb3RvMy5WYWxpZGF0b3JSCXZhbGlkYXRvchIWCgZoZWlnaHQYAyABKANSBmhlaWdodBIuCgR0aW1lGAQgA
   SgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcFIEdGltZRIsChJ0b3RhbF92b3RpbmdfcG93ZXIYBSABKANSEHRvdGFsVm90a
-  W5nUG93ZXIiOwoJVmFsaWRhdG9yEhgKB2FkZHJlc3MYASABKAxSB2FkZHJlc3MSFAoFcG93ZXIYAyABKANSBXBvd2VyYgZwcm90b
-  zM="""
+  W5nUG93ZXIiOwoJVmFsaWRhdG9yEhgKB2FkZHJlc3MYASABKAxSB2FkZHJlc3MSFAoFcG93ZXIYAyABKANSBXBvd2VyItEBCg1DY
+  W5vbmljYWxWb3RlEhIKBHR5cGUYASABKAVSBHR5cGUSFgoGaGVpZ2h0GAIgASgGUgZoZWlnaHQSFAoFcm91bmQYAyABKAZSBXJvd
+  W5kEjMKCGJsb2NrX2lkGAQgASgLMhgucHJvdG8zLkNhbm9uaWNhbEJsb2NrSURSB2Jsb2NrSWQSLgoEdGltZRgFIAEoCzIaLmdvb
+  2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBSBHRpbWUSGQoIY2hhaW5faWQYBiABKAlSB2NoYWluSWQiaQoQQ2Fub25pY2FsQmxvY2tJR
+  BISCgRoYXNoGAEgASgMUgRoYXNoEkEKDHBhcnRzX2hlYWRlchgCIAEoCzIeLnByb3RvMy5DYW5vbmljYWxQYXJ0U2V0SGVhZGVyU
+  gtwYXJ0c0hlYWRlciJCChZDYW5vbmljYWxQYXJ0U2V0SGVhZGVyEhIKBGhhc2gYASABKAxSBGhhc2gSFAoFdG90YWwYAiABKAVSB
+  XRvdGFsYgZwcm90bzM="""
         )
         .mkString
     )

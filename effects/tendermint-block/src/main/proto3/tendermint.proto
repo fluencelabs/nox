@@ -95,3 +95,23 @@ message Validator {
     //PubKey pub_key = 2 // TODO: I wonder, why is it commented out?
     int64 power = 3;
 }
+
+// === Canonical ===
+message CanonicalVote {
+    int32 type = 1; // it's actually byte in Go, be careful
+    fixed64 height = 2;
+    fixed64 round = 3;
+    CanonicalBlockID block_id = 4;
+    google.protobuf.Timestamp time = 5;
+    string chain_id = 6;
+}
+
+message CanonicalBlockID {
+    bytes hash = 1;
+    CanonicalPartSetHeader parts_header = 2;
+}
+
+message CanonicalPartSetHeader {
+    bytes hash = 1;
+    int32 total = 2;
+}

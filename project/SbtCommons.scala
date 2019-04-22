@@ -128,6 +128,8 @@ object SbtCommons {
 
   val protobuf              = "io.github.scalapb-json" %% "scalapb-circe" % "0.4.3"
   val protobufUtil          = "com.google.protobuf" % "protobuf-java-util" % "3.7.1"
+  
+  val bouncyCastle          = "org.bouncycastle" % "bcprov-jdk15on" % "1.61"
 
 
   /* Test deps*/

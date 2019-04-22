@@ -16,6 +16,8 @@
 
 package fluence.effects.tendermint.block
 
+import scodec.bits.ByteVector
+
 object TestData {
 
   val blockResponse =
@@ -183,4 +185,7 @@ object TestData {
       |    "signature": "Z09xcrfz9T6+3q1Yk+gxUo2todPI7mebKed6zO+i1pnIMPdFbSFT9JJjxo5J9HLrn4x2Fqf3QYefQ8lQGNMzBg=="
       |}
     """.stripMargin
+
+  val validator = ByteVector.fromBase64("j0ZM+xnnX0ZjCavm4zW06+71mbamGAiye3v0GxGJY0Y=").get
+  val validator2 = ByteVector.fromBase64("oq0QENlTvGeV7eMugt3v3cv9dmmuxoVcr3BI7AiUgH4=").get
 }
