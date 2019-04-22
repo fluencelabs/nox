@@ -19,8 +19,10 @@
         - [Internals](backend/internals.md)
     - [C, C++, AssemblyScript: soon](soon.md)
     - [HTTP protocol](http.md)
+- [Frontend guide](frontend/index.md)
+    - [Javascript Client](frontend/javascript.md)    
 
-
+- [Debug code locally](debugging.md)
 - [Running Fluence nodes](nodes.md)
 - [Command-line interface](cli.md)
 - [Key examples](examples.md)
