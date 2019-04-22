@@ -9,6 +9,6 @@ object Append {
 
   implicit def appendString[A]: Append[String] =
     new Append[String] {
-      override def append(appendables: List[String]): String = appendables.mkString("|")
+      override def append(appendables: List[String]): String = appendables.mkString("<>")
     }
 }

@@ -4,20 +4,37 @@ import java.nio.ByteBuffer
 import cats.Show
 import scodec.bits.ByteVector
 
-case class Hash[T: Show](hash: T, height: Int, index: Int, numberOfChanges: Int = 0) {
-  override def toString: String = s"hash: ${Show[T].show(hash)} ($height, $index, $numberOfChanges)"
+case class Hash[T: Show](hash: T) {
+  override def toString: String = Show[T].show(hash)
 }
 
-object Hash {
-  def default[T: Default: Show](height: Int, index: Int): Hash[T] = new Hash(Default[T].default, height, index)
+object TreeMath {
+
+  def log2(input: Int): Int = {
+    val res = 31 - Integer.numberOfLeadingZeros(input)
+    res
+  }
+
+  def log2Ceiling(input: Int): Int = {
+    val log2I = log2(input)
+    val log2Next = log2(input + 1)
+    if (log2Next > log2I) log2Next else log2I + 1
+  }
+
+  def power2(power: Int) = {
+    1 << power
+  }
+}
+
+object MerkleTreeBuilder {
+
+  def apply[A](size: Int, chunkSize: Int): MerkleTreeBuilder[A] = {
+    new MerkleTreeBuilder(size, chunkSize)
+  }
 }
 
 class MerkleTreeBuilder[A](size: Int, chunkSize: Int) {
-
-  def log2(input: Int): Int = {
-    31 - Integer.numberOfLeadingZeros(input)
-  }
-
+  import TreeMath._
   val childrenCount = 2
 
   // size of one bulk
@@ -32,30 +49,31 @@ class MerkleTreeBuilder[A](size: Int, chunkSize: Int) {
   // number of leafs in ByteBuffer
   val leafCount = {
     val power = log2(mappedLeafCount)
-    val k = 1 << power
+    val k = power2(power)
     if (k >= mappedLeafCount) k
-    else 1 << (power + 1)
+    else power2(power + 1)
   }
 
-  val treeHeight = log2(16)
+  val treeHeight = log2(leafCount)
 
-  val numberOfNodes = (0 to treeHeight).fold(0) {
-    case (acc, v) =>
-      val s = leafCount / (1 << v)
-      acc + s
-  }
+  val numberOfNodes = power2(treeHeight + 1) - 1
 
-  def fillTree[I, H: Default: Show: Append](
+  def fillTree[I, H: Show: Append](
     init: Int => I,
     hashFunc: H => H,
+    default: H,
     get: (I, Int, Int) => H
   ): (I, MerkleTree[I, H]) = {
+    val struct = init(size)
     val arrayTree = new Array[Hash[H]](numberOfNodes)
     for (i <- 0 until numberOfNodes) {
-      val height = log2(i + 1)
-      arrayTree(i) = Hash.default(height, i)
+      if (i < mappedLeafCount) {
+        arrayTree(i) = Hash(hashFunc(get(struct, i * chunkSize, chunkSize)))
+      } else {
+        arrayTree(i) = Hash(hashFunc(default))
+      }
+
     }
-    val struct = init(size)
     (struct, MerkleTree(arrayTree, treeHeight, struct, get, chunkSize, hashFunc))
   }
 }
@@ -68,10 +86,11 @@ case class MerkleTree[I, H: Show: Append](
   chunkSize: Int,
   hashFunc: H => H
 ) {
+  import TreeMath._
 
   private def getNodeIndex(height: Int, pos: Int) = {
     if (height < 0 || height > treeHeight) throw new RuntimeException("invalid height")
-    val startOfLine = 1 << height
+    val startOfLine = power2(height)
     println(s"getNodeIndex: height: $height, pos: $pos")
     println("start of line: " + startOfLine)
     val index = startOfLine + pos - 1
@@ -103,16 +122,16 @@ case class MerkleTree[I, H: Show: Append](
   }
 
   @scala.annotation.tailrec
-  final def recalculateHash(affectedChunks: Set[Int], height: Int = treeHeight - 1): H = {
+  final def recalculateHash(affectedChunks: Set[Int], height: Int = treeHeight): H = {
     if (height == 0) {
       println(s"height: $height")
       val childrens = getChildrens(0, 0).map(_.hash).toList
-      nodes(0) = Hash(hashFunc(Append[H].append(childrens)), height, 0, nodes(0).numberOfChanges + 1)
+      nodes(0) = Hash(hashFunc(Append[H].append(childrens)))
       nodes(0).hash
     } else {
       val affectedParents: Set[Int] = for (i <- affectedChunks) yield {
         val index = getNodeIndex(height, i)
-        if (height == treeHeight - 1) {
+        if (height == treeHeight) {
           val offset = i * chunkSize
           val length = chunkSize
           println(s"offset: $offset, length: $length")
@@ -120,7 +139,7 @@ case class MerkleTree[I, H: Show: Append](
           println(s"index: $index")
           val bytes = get(struct, offset, length)
           println("BYTES === " + bytes)
-          val newHash = Hash(hashFunc(bytes), height, index, nodes(index).numberOfChanges + 1)
+          val newHash = Hash(hashFunc(bytes))
           println("NEW LEAF HASH: " + newHash)
           nodes(index) = newHash
         } else {
@@ -128,7 +147,7 @@ case class MerkleTree[I, H: Show: Append](
           val childrens = getChildrens(height, i).map(_.hash).toList
           println(s"childrens: ${childrens.mkString(", ")}")
           val newHash =
-            Hash(hashFunc(Append[H].append(childrens)), height, index, nodes(index).numberOfChanges + 1)
+            Hash(hashFunc(Append[H].append(childrens)))
           println("NEW HASH: " + newHash)
           nodes(index) = newHash
         }
@@ -144,56 +163,60 @@ case class MerkleTree[I, H: Show: Append](
   }
 
   def showTree(): Unit = {
-    nodes.foldLeft(0) {
-      case (height, v) =>
-        if (height == v.height) {
-          print(v.toString + "| ")
-          height
+    print(nodes(0).toString)
+    println()
+    nodes.zipWithIndex.drop(1).foldLeft(2) {
+      case (goingAheadHeight, (hash, index)) =>
+        val nextHeight = log2(index + 2)
+        print(hash.toString)
+        if (nextHeight < goingAheadHeight) {
+          print(" || ")
+          goingAheadHeight
         } else {
           println()
-          print(v.toString + "| ")
-          height + 1
+          goingAheadHeight + 1
         }
     }
+    println()
   }
 }
 
 object TestSome extends App {
 
   // ByteBuffer size
-  val size = 12
+  val size = 13
 
   // size of one chunk to hash
   val chunkSize = 2
 
   val treeBuilder = new MerkleTreeBuilder(size, chunkSize)
 
-  println("leaf number: " + treeBuilder.leafCount)
+  println("leaf count: " + treeBuilder.leafCount)
   println("mapped number: " + treeBuilder.mappedLeafCount)
 
   println("tree height: " + treeBuilder.treeHeight)
   println("tree number of nodes: " + treeBuilder.numberOfNodes)
 
-  import Default._
   implicit val showDep: Show[String] = Show.fromToString
 
   val init: Int => ByteBuffer = { bbSize =>
     val array = Array.fill[Byte](bbSize)(0)
-    println("INIT!")
+    println("INIT! size: " + bbSize)
     ByteBuffer.wrap(array)
   }
 
   val getBytes: (ByteBuffer, Int, Int) => String = (bb: ByteBuffer, offset: Int, length: Int) => {
     val array = new Array[Byte](length)
     bb.position(offset)
-    bb.get(array, 0, length)
-    println("ARRAY = " + array.mkString(", "))
+    val remaining = bb.remaining()
+    val lengthToGet = if (remaining < length) remaining else length
+    bb.get(array, 0, lengthToGet)
     ByteVector(array).toHex
   }
 
   val (bb, tree) = treeBuilder.fillTree[ByteBuffer, String](init, str => {
-    "enc(" + str + ")"
-  }, getBytes)
+    "enc[" + str + "]"
+  }, "0000", getBytes)
   println(tree.nodes.mkString(", "))
 
   println()
@@ -203,6 +226,7 @@ object TestSome extends App {
   println()
   println("====================================================================")
   println()
+
   val n1 = 0
   val n2 = 1
   val n3 = 5
