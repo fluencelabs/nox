@@ -92,7 +92,7 @@ class FluenceDeployableApp extends React.Component<Props, State> {
 
     renderUploadBlock(): React.ReactNode[] {
         return ([
-            <strong><i className="fa fa-bullseye margin-r-5"/>Upload .*wasm file</strong>,
+            <strong><i className="fa fa-bullseye margin-r-5"/>Upload *.wasm file</strong>,
             <p><input type="file" ref={(ref: HTMLInputElement) => { this.uploadFormElement = ref; }} /></p>,
             <hr/>
         ]);
