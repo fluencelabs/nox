@@ -17,41 +17,11 @@
 package fluence.effects.tendermint.block
 
 import com.google.protobuf.ByteString
-import proto3.tendermint.{Commit, Data, Header, Vote}
+import proto3.tendermint.{Commit, Vote}
 import scodec.bits.ByteVector
 
-object JavaAminoConverter {
-  // import proto3.Tendermint.{Block => JBlock, Header => JHeader, Data => JData, Commit => JCommit, Vote => JVote, BlockID => JBlockID}
-  import proto3.Tendermint.{
-    Block => JBlock,
-    Header => JHeader,
-    Data => JData,
-    Commit => JCommit,
-    Vote => JVote,
-    BlockID => JBlockID
-  }
-  import proto3.tendermint.{Vote => SVote, BlockID => SBlockID}
-
-  def toAmino(vote: SVote): JVote = {
-    JVote.parseFrom(vote.toByteArray)
-  }
-
-  def toAmino(blockID: SBlockID): JBlockID = {
-    JBlockID.parseFrom(blockID.toByteArray)
-  }
-
-  def toAmino(lc: LastCommit): JCommit = {
-    import scala.collection.JavaConverters._
-    val builder = JCommit.newBuilder()
-    val votes = lc.precommits.map(_.map(toAmino).orNull)
-    builder.addAllPrecommits(votes.asJava)
-    builder.setBlockId(toAmino(lc.block_id))
-    builder.build()
-  }
-}
-
 object AminoConverter {
-  import proto3.tendermint.{Block => PBBlock, Header => PBHeader, Data => PBData}
+  import proto3.tendermint.{Block => PBBlock, Data => PBData, Header => PBHeader}
 
   private def bs(bv: ByteVector): ByteString = ByteString.copyFrom(bv.toArray)
   private def serialize(precommits: List[Option[Vote]]): List[ByteString] =
