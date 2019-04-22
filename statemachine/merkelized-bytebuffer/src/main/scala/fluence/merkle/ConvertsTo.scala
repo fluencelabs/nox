@@ -1,4 +1,4 @@
-package fluence
+package fluence.merkle
 
 trait ConvertsTo[A, B] {
   def convert(v: A): B

@@ -1,4 +1,4 @@
-package fluence
+package fluence.merkle
 
 trait Append[A] {
   def append(appendables: List[A]): A
