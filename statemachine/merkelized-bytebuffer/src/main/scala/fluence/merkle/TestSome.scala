@@ -1,6 +1,7 @@
 package fluence.merkle
 
 import java.nio.ByteBuffer
+import java.security.MessageDigest
 
 import cats.Show
 import scodec.bits.ByteVector
@@ -10,11 +11,19 @@ trait Hash[T] {
 }
 
 object Hash {
+
+  val sha256 = MessageDigest.getInstance("SHA-256")
+
   def apply[A](implicit instance: Hash[A]): Hash[A] = instance
 
-  implicit def hashString[A]: Hash[String] =
+  implicit def hashString: Hash[String] =
     new Hash[String] {
       override def hash(t: String): String = "enc(" + t + ")"
+    }
+
+  implicit def hashBytes: Hash[Array[Byte]] =
+    new Hash[Array[Byte]] {
+      override def hash(t: Array[Byte]): Array[Byte] = sha256.digest(t)
     }
 }
 

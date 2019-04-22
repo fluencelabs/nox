@@ -11,4 +11,9 @@ object Append {
     new Append[String] {
       override def append(appendables: List[String]): String = appendables.mkString("<>")
     }
+
+  implicit def appendBytes[A]: Append[Array[Byte]] =
+    new Append[Array[Byte]] {
+      override def append(appendables: List[Array[Byte]]): Array[Byte] = appendables.reduce(_ ++ _)
+    }
 }

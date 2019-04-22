@@ -2,6 +2,8 @@ package fluence.merkle
 
 import java.nio.ByteBuffer
 
+import fluence.merkle
+
 import scala.collection.mutable
 
 class ByteBufferWrapper(bb: ByteBuffer, chunkSize: Int) {
@@ -179,4 +181,15 @@ class ByteBufferWrapper(bb: ByteBuffer, chunkSize: Int) {
   def array = bb.array
 
   def arrayOffset = bb.arrayOffset
+}
+
+object ByteBufferWrapper {
+
+  def allocate(capacity: Int) = {
+    new merkle.ByteBufferWrapper(ByteBuffer.allocate(capacity), 100)
+  }
+
+  def allocateDirect(capacity: Int) = {
+    new merkle.ByteBufferWrapper(ByteBuffer.allocateDirect(capacity), 100)
+  }
 }

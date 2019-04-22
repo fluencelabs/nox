@@ -1,18 +1,26 @@
 package fluence.merkle
 
+import java.nio.ByteBuffer
+
 import cats.Show
 
 import scala.reflect.ClassTag
 
-case class MerkleTree[I, H: Show: Append](
-  nodes: Array[H],
-  treeHeight: Int,
+class MerkleTree[I, H: Show: Append] private (
+  val nodes: Array[H],
+  val treeHeight: Int,
   struct: I,
   get: (I, Int, Int) => H,
   chunkSize: Int
 )(implicit Hash: Hash[H], m: ClassTag[H]) {
   import TreeMath._
 
+  /**
+   * Calculates node index in array.
+   *
+   * @param height position of node in a 'column'
+   * @param pos position of node in a row
+   */
   private def getNodeIndex(height: Int, pos: Int) = {
     if (height < 0 || height > treeHeight) throw new RuntimeException("invalid height")
     val startOfLine = power2(height)
@@ -23,10 +31,13 @@ case class MerkleTree[I, H: Show: Append](
     index
   }
 
-  private def getRoot: H = {
-    nodes(0)
-  }
-
+  /**
+   * Find childrens by node's position.
+   *
+   * @param height position of node in a 'column'
+   * @param pos position of node in a row
+   * @return
+   */
   private def getChildrens(height: Int, pos: Int): Array[H] = {
     if (height == treeHeight) throw new RuntimeException("No childrens on leafs")
     getBatch(height + 1, pos * 2)
@@ -42,12 +53,27 @@ case class MerkleTree[I, H: Show: Append](
     else nodes.slice(index - 1, index + 1)
   }
 
+  /**
+   * Calculates parent position in a row that upper than child's row
+   *
+   * @param pos child position in a row
+   */
   private def getParentPos(pos: Int) = {
     pos / 2
   }
 
+  /**
+   * Recalculates hashes of touched chunks and touched ascending chain of nodes.
+   *
+   * @param affectedChunks number of chunks that are changed
+   * @return
+   */
+  def recalculateHash(affectedChunks: Set[Int]): H = {
+    recalculateHash(affectedChunks, treeHeight)
+  }
+
   @scala.annotation.tailrec
-  final def recalculateHash(affectedChunks: Set[Int], height: Int = treeHeight): H = {
+  final private def recalculateHash(affectedChunks: Set[Int], height: Int): H = {
     if (height == 0) {
       println(s"height: $height")
       val childrens = getChildrens(0, 0).map(Hash.hash).toList
@@ -108,6 +134,29 @@ case class MerkleTree[I, H: Show: Append](
 
 object MerkleTree {
 
+  def apply(size: Int, chunkSize: Int): (ByteBufferWrapper, MerkleTree[ByteBufferWrapper, Array[Byte]]) = {
+
+    val init: Int => ByteBufferWrapper = { bbSize =>
+      val array = Array.fill[Byte](bbSize)(0)
+      new ByteBufferWrapper(ByteBuffer.wrap(array), chunkSize)
+    }
+
+    val getBytes: (ByteBufferWrapper, Int, Int) => Array[Byte] = (bb: ByteBufferWrapper, offset: Int, length: Int) => {
+      val array = new Array[Byte](length)
+      bb.position(offset)
+      val remaining = bb.remaining()
+      val lengthToGet = if (remaining < length) remaining else length
+      bb.get(array, 0, lengthToGet)
+      array
+    }
+
+    implicit val showDep: Show[Array[Byte]] = new Show[Array[Byte]] {
+      override def show(t: Array[Byte]): String = t.mkString("")
+    }
+
+    MerkleTree[ByteBufferWrapper, Array[Byte]](size, chunkSize, init, Array.fill(1)(0), getBytes)
+  }
+
   def apply[I, H: Show: Append](
     size: Int,
     chunkSize: Int,
@@ -149,6 +198,6 @@ object MerkleTree {
       }
 
     }
-    (struct, MerkleTree(arrayTree, treeHeight, struct, get, chunkSize))
+    (struct, new MerkleTree(arrayTree, treeHeight, struct, get, chunkSize))
   }
 }
