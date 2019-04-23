@@ -45,6 +45,10 @@ case class DockerParams private (params: Queue[String]) {
   def option(optionName: String, optionValue: String): DockerParams =
     add(optionName).add(optionValue)
 
+  def option(optionName: String, optionValue: Option[String]): DockerParams = {
+    optionValue.fold(this)(v => add(optionName).add(v))
+  }
+
   /**
    * Adds a port mapping.
    *
