@@ -25,7 +25,12 @@ EOF
   exit 1
 fi
 
+if [ -n "$WORKER_MEMORY_LIMIT" ]; then
+    XMX="-Xmx${WORKER_MEMORY_LIMIT}M"
+    echo "Xmx = $XMX"
+fi
+
 cp -rf "$CODE_DIR/." "/vmcode/"
 
 # run State machine
-exec java -Xmx1G -jar "$JAR"
+exec java $XMX -jar "$JAR"

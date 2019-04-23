@@ -14,6 +14,7 @@ interface Props {
     displayLoading: typeof displayLoading,
     hideLoading: typeof hideLoading,
     retrieveAppIds: () => Promise<Action>,
+    appIdsRetrievedCallback: (appIds: AppId[]) => void,
     appIds: AppId[],
     showEntity: (entity: FluenceEntity) => Action,
 }
@@ -35,6 +36,10 @@ class FluenceAppsList extends React.Component<Props, State> {
                 appIdsLoading: false,
             });
             this.props.hideLoading();
+
+            if (this.props.appIdsRetrievedCallback) {
+                this.props.appIdsRetrievedCallback(this.props.appIds);
+            }
         }).catch((e) => {
             window.console.log(e);
             this.setState({

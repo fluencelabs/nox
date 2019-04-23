@@ -60,16 +60,12 @@ class AsmbleWasmVm(
         )
 
       preprocessedArgument ← loadArgToMemory(fnArgument, wasmModule)
-      invocationResult ← wasmModule.invoke(preprocessedArgument)
+      resultOffset ← wasmModule.invoke(preprocessedArgument)
 
       // It is expected that callee (Wasm module) has to clean memory by itself because of otherwise
       // there can be some non-determinism (deterministic execution is very important for verification game
       // and this kind of non-determinism can break all verification game).
-      offset ← safelyRunThrowable(
-        invocationResult.toString.toInt,
-        e ⇒ VmMemoryError(s"Trying to extract result from incorrect offset=$invocationResult", Some(e))
-      )
-      extractedResult ← extractResultFromWasmModule(offset, wasmModule)
+      extractedResult ← extractResultFromWasmModule(resultOffset, wasmModule)
 
     } yield extractedResult
 

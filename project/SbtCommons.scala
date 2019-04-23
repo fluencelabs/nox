@@ -98,22 +98,23 @@ object SbtCommons {
   val cryptoKeyStore        = "one.fluence" %% "crypto-keystore" % cryptoVersion
   val codecCore             = "one.fluence" %% "codec-core"      % "0.0.4"
 
-  val sttpVersion           = "1.5.12"
-  val sttp                  = "com.softwaremill.sttp" %% "core"                           % sttpVersion
-  val sttpCirce             = "com.softwaremill.sttp" %% "circe"                          % sttpVersion
-  val sttpFs2Backend        = "com.softwaremill.sttp" %% "async-http-client-backend-fs2"  % sttpVersion
-  val sttpCatsBackend       = "com.softwaremill.sttp" %% "async-http-client-backend-cats" % sttpVersion
+  val sttpVersion = "1.5.12"
+  val sttp = "com.softwaremill.sttp"            %% "core"                           % sttpVersion
+  val sttpCirce = "com.softwaremill.sttp"       %% "circe"                          % sttpVersion
+  val sttpFs2Backend = "com.softwaremill.sttp"  %% "async-http-client-backend-fs2"  % sttpVersion
+  val sttpCatsBackend = "com.softwaremill.sttp" %% "async-http-client-backend-cats" % sttpVersion
 
   val http4sVersion         = "0.20.0-M7"
   val http4sDsl             = "org.http4s" %% "http4s-dsl"          % http4sVersion
   val http4sServer          = "org.http4s" %% "http4s-blaze-server" % http4sVersion
   val http4sCirce           = "org.http4s" %% "http4s-circe"        % http4sVersion
 
-  val circeVersion          = "0.11.1"
-  val circeCore             = "io.circe" %% "circe-core"           % circeVersion
-  val circeGeneric          = "io.circe" %% "circe-generic"        % circeVersion
-  val circeGenericExtras    = "io.circe" %% "circe-generic-extras" % circeVersion
-  val circeParser           = "io.circe" %% "circe-parser"         % circeVersion
+  val circeVersion = "0.11.1"
+  val circeCore = "io.circe"          %% "circe-core"           % circeVersion
+  val circeGeneric = "io.circe"       %% "circe-generic"        % circeVersion
+  val circeGenericExtras = "io.circe" %% "circe-generic-extras" % circeVersion
+  val circeParser = "io.circe"        %% "circe-parser"         % circeVersion
+  val circeFs2 = "io.circe"           %% "circe-fs2"            % "0.11.0"
 
   val scodecBits            = "org.scodec" %% "scodec-bits" % "1.1.9"
   val scodecCore            = "org.scodec" %% "scodec-core" % "1.11.3"

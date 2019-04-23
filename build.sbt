@@ -260,6 +260,7 @@ lazy val ipfs = (project in file("effects/ipfs"))
       sttp,
       sttpCirce,
       circeGeneric,
+      circeFs2,
       slogging,
       scodecBits,
       scodecCore,
