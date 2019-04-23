@@ -3,6 +3,7 @@ package fluence.merkle
 import java.nio.ByteBuffer
 
 import cats.Show
+import org.apache.commons.lang3.StringUtils
 
 import scala.reflect.ClassTag
 
@@ -11,6 +12,7 @@ class MerkleTree[I, H: Show: Append] private (
   val treeHeight: Int,
   struct: I,
   get: (I, Int, Int) => H,
+  getAffectedChunks: I => Set[Int],
   chunkSize: Int
 )(implicit Hash: Hash[H], m: ClassTag[H]) {
   import TreeMath._
@@ -114,21 +116,38 @@ class MerkleTree[I, H: Show: Append] private (
   }
 
   def showTree(): Unit = {
-    print(nodes(0).toString)
-    println()
+
+    var treeNodesStr: Map[Int, List[String]] = Map.empty
+
+    val leafSize = (nodes.last.toString + " || ").length
+
+    val bottomSize = leafSize * power2(treeHeight)
+
+    treeNodesStr = treeNodesStr + (0 -> List(nodes(0).toString))
     nodes.zipWithIndex.drop(1).foldLeft(2) {
       case (goingAheadHeight, (hash, index)) =>
         val nextHeight = log2(index + 2)
-        print(hash.toString)
+        treeNodesStr = treeNodesStr + ((goingAheadHeight - 1) -> treeNodesStr
+          .get(goingAheadHeight - 1)
+          .map(l => l :+ hash.toString)
+          .getOrElse(List(hash.toString)))
         if (nextHeight < goingAheadHeight) {
-          print(" || ")
           goingAheadHeight
         } else {
-          println()
           goingAheadHeight + 1
         }
     }
-    println()
+
+    val lineSize =
+      treeNodesStr.map(_._2.foldLeft(0) { case (acc, str) => acc + str.length }).max + treeNodesStr.size * 8
+    treeNodesStr.foreach {
+      case (_, els) =>
+        els.zipWithIndex.foreach {
+          case (s, i) =>
+            print(StringUtils.center(s, lineSize / els.size))
+        }
+        println()
+    }
   }
 }
 
@@ -150,11 +169,15 @@ object MerkleTree {
       array
     }
 
+    val getAffectedChunks: ByteBufferWrapper => Set[Int] = (bb: ByteBufferWrapper) => {
+      bb.getTouchedAndReset()
+    }
+
     implicit val showDep: Show[Array[Byte]] = new Show[Array[Byte]] {
       override def show(t: Array[Byte]): String = t.mkString("")
     }
 
-    MerkleTree[ByteBufferWrapper, Array[Byte]](size, chunkSize, init, Array.fill(1)(0), getBytes)
+    MerkleTree[ByteBufferWrapper, Array[Byte]](size, chunkSize, init, Array.fill(1)(0), getBytes, getAffectedChunks)
   }
 
   def apply[I, H: Show: Append](
@@ -162,7 +185,8 @@ object MerkleTree {
     chunkSize: Int,
     init: Int => I,
     default: H,
-    get: (I, Int, Int) => H
+    get: (I, Int, Int) => H,
+    getAffectedChunks: I => Set[Int]
   )(implicit Hash: Hash[H], m: ClassTag[H]): (I, MerkleTree[I, H]) = {
     import TreeMath._
     val childrenCount = 2
@@ -198,6 +222,6 @@ object MerkleTree {
       }
 
     }
-    (struct, new MerkleTree(arrayTree, treeHeight, struct, get, chunkSize))
+    (struct, new MerkleTree(arrayTree, treeHeight, struct, get, getAffectedChunks, chunkSize))
   }
 }

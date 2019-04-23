@@ -102,7 +102,7 @@ object SbtCommons {
   val sttp = "com.softwaremill.sttp"            %% "core"                           % sttpVersion
   val sttpCirce = "com.softwaremill.sttp"       %% "circe"                          % sttpVersion
   val sttpFs2Backend = "com.softwaremill.sttp"  %% "async-http-client-backend-fs2"  % sttpVersion
-  val sttpCatsBackend = "com.softwaremill.sttp"        %% "async-http-client-backend-cats" % sttpVersion
+  val sttpCatsBackend = "com.softwaremill.sttp" %% "async-http-client-backend-cats" % sttpVersion
 
   val http4sVersion = "0.20.0-M7"
   val http4sDsl = "org.http4s"    %% "http4s-dsl"          % http4sVersion
@@ -125,6 +125,8 @@ object SbtCommons {
   val toml = "com.electronwill.night-config" % "toml" % "3.4.2"
 
   val rocksDb = "org.rocksdb" % "rocksdbjni" % "5.17.2"
+
+  val apacheCommons = "org.apache.commons" % "commons-lang3" % "3.9"
 
   /* Test deps*/
 

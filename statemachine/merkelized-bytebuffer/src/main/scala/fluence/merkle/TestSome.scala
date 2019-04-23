@@ -40,10 +40,12 @@ object TreeMath {
     if (log2Next > log2I) log2Next else log2I + 1
   }
 
-  def power2(power: Int) = {
+  def power2(power: Int): Int = {
     1 << power
   }
 }
+
+case class StringHash(hash: String, numberOfTouches: Int)
 
 object TestSome extends App {
 
@@ -70,7 +72,11 @@ object TestSome extends App {
     ByteVector(array).toHex
   }
 
-  val (bb, tree) = MerkleTree[ByteBufferWrapper, String](size, chunkSize, init, "0000", getBytes)
+  val getAffectedChunks: ByteBufferWrapper => Set[Int] = (bb: ByteBufferWrapper) => {
+    bb.getTouchedAndReset()
+  }
+
+  val (bb, tree) = MerkleTree[ByteBufferWrapper, String](size, chunkSize, init, "0000", getBytes, getAffectedChunks)
   println(tree.nodes.mkString(", "))
 
   println()
