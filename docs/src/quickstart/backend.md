@@ -186,7 +186,7 @@ This code imports the Fluence SDK, and marks the `greeting` function with the `#
 
 The function marked with the `#[invocation_handler]` macro is called a _gateway function_. It is essentially the entry point to your application: all client transactions will be passed to this function, and once it returns a result, clients can read this result. 
 
-Gateway functions are allowed to take and return only `String` or `Vec<u8>` values – check out the [SDK overview](../backend/sdk.md) for more information. 
+Gateway functions are allowed to take and return only `String` or `Vec<u8>` values – check out the [SDK overview](../backend/rust/sdk.md) for more information. 
 
 ### Making it a library
 For the gateway function to be correctly exported and thus available for Fluence, the backend should be compiled to WebAssembly as a library.
