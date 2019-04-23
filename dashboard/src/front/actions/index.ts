@@ -1,5 +1,4 @@
 import loading, { displayLoading, hideLoading } from './loading';
-import entity, { showEntity } from './entity';
 import nodeIds, { retrieveNodeIds } from './nodes/node-ids';
 import nodes, { retrieveNode } from './nodes/nodes';
 import appIds, { retrieveAppIds } from './apps/app-ids';
@@ -11,7 +10,6 @@ import deployReducer, { restoreDeployed, deploy, deployUpload } from './deployab
 export {
     displayLoading,
     hideLoading,
-    showEntity,
     retrieveNodeIds,
     retrieveAppIds,
     retrieveNode,
@@ -25,7 +23,6 @@ export {
 
 export const reducers = {
     loading,
-    entity,
     nodeIds,
     appIds,
     nodes,

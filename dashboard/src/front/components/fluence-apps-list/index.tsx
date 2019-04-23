@@ -1,9 +1,9 @@
 import * as React from 'react';
 import {connect} from 'react-redux';
-import {displayLoading, hideLoading, retrieveAppIds, showEntity} from "../../actions";
+import {Link} from "react-router-dom";
+import {displayLoading, hideLoading, retrieveAppIds} from "../../actions";
 import {Action} from "redux";
 import {AppId} from "../../../fluence";
-import {FluenceEntity, FluenceEntityType} from "../../actions/entity";
 
 interface State {
     appIdsLoading: boolean,
@@ -16,7 +16,6 @@ interface Props {
     retrieveAppIds: () => Promise<Action>,
     appIdsRetrievedCallback: (appIds: AppId[]) => void,
     appIds: AppId[],
-    showEntity: (entity: FluenceEntity) => Action,
 }
 
 class FluenceAppsList extends React.Component<Props, State> {
@@ -63,14 +62,6 @@ class FluenceAppsList extends React.Component<Props, State> {
         });
     };
 
-    showApp = (e: React.MouseEvent<HTMLElement>, appId: AppId): void => {
-        e.preventDefault();
-        this.props.showEntity({
-            type: FluenceEntityType.App,
-            id: appId,
-        });
-    };
-
     render(): React.ReactNode {
         return (
             <div className="small-box bg-fluence-blue-gradient">
@@ -91,11 +82,12 @@ class FluenceAppsList extends React.Component<Props, State> {
                     Hide info <i className="fa fa-arrow-circle-up"></i>
                 </a>
                 {this.props.appIds.map(appId => (
-                    <div className="small-box-footer entity-link" onClick={(e) => this.showApp(e, appId)}
-                         style={{display: this.state.appIdsVisible ? 'block' : 'none'}}>
-                        <div className="box-body">
-                            <strong><i className="fa fa-bullseye margin-r-5"></i> App {appId}</strong>
-                        </div>
+                    <div className="small-box-footer entity-link" style={{display: this.state.appIdsVisible ? 'block' : 'none'}}>
+                        <Link to={`/app/${appId}`}>
+                            <div className="box-body">
+                                <strong><i className="fa fa-bullseye margin-r-5"></i> App {appId}</strong>
+                            </div>
+                        </Link>
                     </div>
                 ))}
             </div>
@@ -111,7 +103,6 @@ const mapDispatchToProps = {
     displayLoading,
     hideLoading,
     retrieveAppIds,
-    showEntity,
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(FluenceAppsList);
