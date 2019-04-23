@@ -6,11 +6,9 @@ import java.security.MessageDigest
 import cats.Show
 import scodec.bits.ByteVector
 
-trait Hash[T] {
-  def hash(t: T): T
-}
+import scala.collection.mutable
 
-object Hash {
+/*object Hash {
 
   val sha256 = MessageDigest.getInstance("SHA-256")
 
@@ -18,14 +16,14 @@ object Hash {
 
   implicit def hashString: Hash[String] =
     new Hash[String] {
-      override def hash(t: String): String = "enc(" + t + ")"
+      override def hash(t: String): String = t
     }
 
   implicit def hashBytes: Hash[Array[Byte]] =
     new Hash[Array[Byte]] {
       override def hash(t: Array[Byte]): Array[Byte] = sha256.digest(t)
     }
-}
+}*/
 
 object TreeMath {
 
@@ -45,39 +43,57 @@ object TreeMath {
   }
 }
 
-case class StringHash(hash: String, numberOfTouches: Int)
+case class StringHash(hash: String, numberOfTouches: Int) {
+  override def toString: String = hash
+}
 
 object TestSome extends App {
 
-  // ByteBuffer size
-  val size = 13
+  /*// ByteBuffer size
+  val size = 31
 
   // size of one chunk to hash
-  val chunkSize = 2
+  val chunkSize = 1
 
   implicit val showDep: Show[String] = Show.fromToString
 
-  val init: Int => ByteBufferWrapper = { bbSize =>
+  val init: Int => StringBuffer = { bbSize =>
     val array = Array.fill[Byte](bbSize)(0)
     println("INIT! size: " + bbSize)
-    new ByteBufferWrapper(ByteBuffer.wrap(array), chunkSize)
+
+    new StringBuffer("0" * bbSize)
   }
 
-  val getBytes: (ByteBufferWrapper, Int, Int) => String = (bb: ByteBufferWrapper, offset: Int, length: Int) => {
-    val array = new Array[Byte](length)
-    bb.position(offset)
-    val remaining = bb.remaining()
-    val lengthToGet = if (remaining < length) remaining else length
-    bb.get(array, 0, lengthToGet)
-    ByteVector(array).toHex
+  val getBytes: (StringBuffer, Int, Int) => String = (bb: StringBuffer, offset: Int, length: Int) => {
+    val bb1 = new StringBuffer("0" * length)
+    println("offset getBytes: " + offset)
+    println("length getBytes: " + length)
+    val res =
+      if (bb.length() <= offset) bb1.toString
+      else {
+        if (bb.length() >= offset + length) bb.substring(offset, offset + length)
+        else bb.substring(offset, bb.length()) + bb1.substring(0, bb.length() - offset)
+      }
+    println("res " + res + " res")
+    res
   }
 
-  val getAffectedChunks: ByteBufferWrapper => Set[Int] = (bb: ByteBufferWrapper) => {
-    bb.getTouchedAndReset()
+  val affectedSet = mutable.Set.empty[Int]
+
+  val getAffectedChunks: StringBuffer => Set[Int] = (bb: StringBuffer) => {
+    val result = affectedSet.toSet
+    affectedSet.clear()
+    result
   }
 
-  val (bb, tree) = MerkleTree[ByteBufferWrapper, String](size, chunkSize, init, "0000", getBytes, getAffectedChunks)
+  val (bb, tree) = MerkleTree[StringBuffer, String](size, chunkSize, init, "0", getBytes, getAffectedChunks)
   println(tree.nodes.mkString(", "))
+  tree.recalculateAll()
+
+  def put(start: Int, end: Int, str: String) = {
+    bb.replace(start, end, str)
+    affectedSet.add(start)
+  }
 
   println()
   println("====================================================================")
@@ -86,23 +102,18 @@ object TestSome extends App {
   println()
   println("====================================================================")
   println()
+  put(1, 2, "1")
+  put(4, 5, "2")
+  put(7, 8, "3")
 
-  val n1 = 0
-  val n2 = 1
-  val n3 = 5
-  bb.put(n1 * chunkSize, 1)
-  bb.put(n2 * chunkSize, 7)
-  bb.put(n3 * chunkSize, 127)
-  tree.recalculateHash(bb.getTouchedAndReset())
+  tree.recalculateHash()
   tree.showTree()
 
-  val n4 = 0
-  bb.put(n4 * chunkSize + 1, 1)
-  tree.recalculateHash(bb.getTouchedAndReset())
+  put(7, 8, "4")
+  tree.recalculateHash()
   tree.showTree()
 
-  val n5 = 1
-  bb.put(n5 * chunkSize + 1, 1)
-  tree.recalculateHash(bb.getTouchedAndReset())
-  tree.showTree()
+  put(14, 15, "7")
+  tree.recalculateHash()
+  tree.showTree()*/
 }
