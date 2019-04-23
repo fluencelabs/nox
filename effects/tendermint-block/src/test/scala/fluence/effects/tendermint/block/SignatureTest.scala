@@ -34,7 +34,6 @@ class SignatureTest extends FunSpec with Matchers with OptionValues {
 
   it("verify commits") {
     val block = JSON.block(TestData.blockResponse).right.get.fillHeader()
-    println("commit des" + JSON.commit(TestData.commitResponse))
     val commit = JSON.commit(TestData.commitResponse).right.get
 
     val chainId = block.header.chain_id
