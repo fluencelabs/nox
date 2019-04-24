@@ -46,21 +46,6 @@ private[block] object TendermintSignature {
     signer.verifySignature(signature)
   }
 
-  // Doesn't work :( That's because it's Curve25519, not Ed25519, and their keys arent compatible
-  // Fluence Crypto uses ECNamedCurveTable, and it seems it doesn't support Ed25519
-  private def verifyFluenceCrypto(message: Array[Byte], pubKey: Array[Byte], signature: Array[Byte]): Boolean = {
-    println(s"Signature.verify key ${ByteVector(pubKey).toHex}")
-    val ed25519 = new Ecdsa("Curve25519", "NONEwithECDSA", None)
-    val result = ed25519
-      .verify(
-        KeyPair.Public(ByteVector(pubKey)),
-        fluence.crypto.signature.Signature(signature),
-        ByteVector(message)
-      )
-    result.value.left.foreach(e => println(s"Signature.verify error: ${e.getMessage()}"))
-    result.isRight
-  }
-
   /**
    * Verifies that signatures in Vote are correct
    *

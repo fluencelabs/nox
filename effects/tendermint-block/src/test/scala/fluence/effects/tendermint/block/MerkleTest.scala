@@ -27,9 +27,18 @@ class MerkleTest extends FunSpec with Matchers with OptionValues {
   def checkHex(scalaHex: String, goHex: String) = scalaHex.toLowerCase shouldBe goHex.toLowerCase
 
   describe("usual block") {
-    it("merkle hash") {
+    it("merkle hash, size = 32") {
       val data = (1 to 32).map(i => Array.fill[Byte](4)(i.toByte)).toList
       val goHash = "62BDC2B8D88E187E4CEEBDDD72F3C8CB8DC98F64D620CAD92AF553B70D567816"
+      val scalaHash = Merkle.simpleHash(data)
+      val scalaHex = ByteVector(scalaHash).toHex
+
+      goHash.toLowerCase shouldBe scalaHex.toLowerCase
+    }
+
+    it("merkle hash, size = 92") {
+      val data = (1 to 92).map(i => Array.fill[Byte](4)(i.toByte)).toList
+      val goHash = "672B5E8C92A04FABF1EDB44EF70F50749B850EDCC767E565728BC3A1DF0F49CF"
       val scalaHash = Merkle.simpleHash(data)
       val scalaHex = ByteVector(scalaHash).toHex
 

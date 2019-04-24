@@ -23,6 +23,7 @@ import com.github.jtendermint.jabci.api._
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
 import fluence.effects.tendermint.block.TendermintBlock
+import fluence.effects.tendermint.block.errors.Errors._
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.statemachine.control.{ControlSignals, DropPeer}
 
@@ -43,19 +44,14 @@ class AbciHandler[F[_]: Effect](
       .block(height)
       .value
       .toIO
-      .map {
-        case Left(e) => logger.warn(s"RPC Block[$height] failed: $e")
-        case Right(res) =>
-          TendermintBlock(res) match {
-            case Left(e) => logBad(s"Failed to decode tendermint block from JSON: $e")
-            case Right(b) =>
-              b.validateHashes() match {
-                case Left(e) => logBad(s"Block at height $height is invalid: $e")
-                case Right(_) => log(s"Block at height $height is valid")
-              }
-          }
-      }
-      .unsafeRunAsyncAndForget()
+      .map(
+        res =>
+          for {
+            str <- res.leftTap(e => logger.warn(s"RPC Block[$height] failed: $e"))
+            block <- TendermintBlock(str).leftTap(e => logBad(s"Failed to decode tendermint block from JSON: $e"))
+            _ <- block.validateHashes().leftTap(e => logBad(s"Block at height $height is invalid: $e"))
+          } yield log(s"Block at height $height is valid")
+      ).unsafeRunAsyncAndForget()
   }
 
   override def requestBeginBlock(

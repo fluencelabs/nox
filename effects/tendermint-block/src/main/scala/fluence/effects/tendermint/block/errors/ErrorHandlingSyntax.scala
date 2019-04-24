@@ -23,5 +23,9 @@ trait ErrorHandlingSyntax {
 
   implicit class EitherHandlerOps[A, E, EE](either: Either[E, A]) {
     def convertError(implicit convert: ConvertError[E, EE]): Either[EE, A] = either.leftMap(convert(_))
+
+    def leftTap(f: E => Unit): Either[E, A] = either.leftMap { e =>
+      f(e); e
+    }
   }
 }
