@@ -1,24 +1,22 @@
-package fluence.merkle
+package fluence.merkle.storage
 
 import java.nio.ByteBuffer
+import java.util
 
-import fluence.merkle
+class ByteBufferWrapper(val bb: ByteBuffer, chunkSize: Int) extends Storage[Array[Byte]] {
 
-import scala.collection.mutable
+  private val touchedChunks = new util.BitSet(chunkSize)
 
-class ByteBufferWrapper(bb: ByteBuffer, chunkSize: Int) {
+  def getTouched: util.BitSet = touchedChunks
 
-  private val touchedChunks = mutable.Set.empty[Int]
-
-  def getTouchedAndReset(): Set[Int] = {
-    val result = touchedChunks.toSet
-    touchedChunks.clear()
-    result
+  override def getElements(offset: Int, length: Int): Array[Byte] = {
+    val arr = new Array[Byte](length)
+    bb.position(offset)
+    bb.get(arr, 0, length)
+    arr
   }
 
-  private def touch(i: Int) = {
-    touchedChunks.add(i / chunkSize)
-  }
+  override def getDirtyChunks: util.BitSet = touchedChunks
 
   def slice(): ByteBuffer = bb.slice()
 
@@ -37,7 +35,7 @@ class ByteBufferWrapper(bb: ByteBuffer, chunkSize: Int) {
   def put(b: Byte) = {
     val index = bb.position() + 1
     bb.put(b)
-    touch(index)
+    touchedChunks.set(index / chunkSize)
     this
   }
 
@@ -45,7 +43,7 @@ class ByteBufferWrapper(bb: ByteBuffer, chunkSize: Int) {
 
   def put(index: Int, b: Byte) = {
     bb.put(index, b)
-    touch(index)
+    getDirtyChunks.set(index / chunkSize)
     this
   }
 
@@ -185,11 +183,11 @@ class ByteBufferWrapper(bb: ByteBuffer, chunkSize: Int) {
 
 object ByteBufferWrapper {
 
-  def allocate(capacity: Int) = {
-    new merkle.ByteBufferWrapper(ByteBuffer.allocate(capacity), 100)
+  def allocate(capacity: Int, chunkSize: Int) = {
+    new ByteBufferWrapper(ByteBuffer.allocate(capacity), chunkSize)
   }
 
-  def allocateDirect(capacity: Int) = {
-    new merkle.ByteBufferWrapper(ByteBuffer.allocateDirect(capacity), 100)
+  def allocateDirect(capacity: Int, chunkSize: Int) = {
+    new ByteBufferWrapper(ByteBuffer.allocateDirect(capacity), chunkSize)
   }
 }
