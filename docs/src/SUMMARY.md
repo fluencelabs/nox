@@ -20,7 +20,7 @@
         - [SDK overview](backend/c_cpp/sdk_overview.md)
         - [Best practices](backend/c_cpp/best_practices.md)
     - [AssemblyScript: soon](soon.md)
-    - [Application debugging](backend/debugging.md)
+    - [Debugging](backend/debugging.md)
     - [Internals](backend/internals.md)
     - [HowTo: common patterns](soon.md)
 - [Frontend guide](frontend/index.md)
