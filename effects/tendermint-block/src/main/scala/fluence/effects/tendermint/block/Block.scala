@@ -94,7 +94,7 @@ private[block] case class Block(header: Header, data: Data, last_commit: LastCom
    * @return Parts header, containing hash and the number of parts
    */
   def partsHash(): PartsHeader = {
-    val bytes = Protobuf.encodeLengthPrefixed(ProtobufConverter.toAmino(this))
+    val bytes = Protobuf.encodeLengthPrefixed(ProtobufConverter.toProtobuf(this))
     val parts = bytes.grouped(Block.BlockPartSizeBytes).toList
     val hash = Merkle.simpleHash(parts)
     PartsHeader(hash, parts.length)

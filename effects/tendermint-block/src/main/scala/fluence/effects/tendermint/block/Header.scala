@@ -47,6 +47,11 @@ private[block] object Header {
   implicit val headerDecoder: Decoder[Header] = deriveDecoder[Header]
 }
 
+/**
+ * Scala representation of Tendermint's block header
+ *
+ * Exists to provide easy JSON decoding customization, i.e., Header.decodeByteVector
+ */
 private[block] case class Header(
   version: Option[proto3.tendermint.Version],
   chain_id: String,

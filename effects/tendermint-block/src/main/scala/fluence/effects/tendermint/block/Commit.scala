@@ -16,13 +16,13 @@
 
 package fluence.effects.tendermint.block
 
-import io.circe.Decoder
-import io.circe.generic.semiauto.deriveDecoder
 import proto3.tendermint.{BlockID, Vote}
 
 private[block] object Commit {
   import Block.decodeVote
   import Header.decodeBlockID
+  import io.circe.Decoder
+  import io.circe.generic.semiauto.deriveDecoder
 
   implicit val commitDecoder: Decoder[Commit] = deriveDecoder[Commit]
 }

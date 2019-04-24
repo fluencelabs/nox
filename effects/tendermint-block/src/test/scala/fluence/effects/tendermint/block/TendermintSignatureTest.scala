@@ -21,7 +21,7 @@ import io.circe.parser.parse
 import org.scalatest.{FunSpec, Matchers, OptionValues}
 import scodec.bits.ByteVector
 
-class SignatureTest extends FunSpec with Matchers with OptionValues {
+class TendermintSignatureTest extends FunSpec with Matchers with OptionValues {
   def toHex(ba: Array[Byte]): String = ByteVector(ba).toHex.toLowerCase
   def toHex(bs: ByteString): String = toHex(bs.toByteArray)
 
@@ -29,11 +29,11 @@ class SignatureTest extends FunSpec with Matchers with OptionValues {
     val chainID = "10"
     val vote = parse(TestData.vote).flatMap(ProtobufJson.vote).right.get
     val validator = TestData.validators(vote.validatorIndex).toArray
-    Signature.verifyVote(vote, chainID, validator) shouldBe true
+    TendermintSignature.verifyVote(vote, chainID, validator) shouldBe true
   }
 
   it("verify commits") {
-    val block = ProtobufJson.block(TestData.blockResponse).right.get.fillHeader()
+    val block = ProtobufJson.block(TestData.blockResponse).right.get
     val commit = ProtobufJson.commit(TestData.commitResponse).right.get
 
     val chainId = block.header.chain_id
@@ -51,7 +51,7 @@ class SignatureTest extends FunSpec with Matchers with OptionValues {
 
       TestData.validators.keySet should contain(vote.validatorIndex)
       val validator = TestData.validators(vote.validatorIndex).toArray
-      Signature.verifyVote(vote, chainId, validator)
+      TendermintSignature.verifyVote(vote, chainId, validator)
     }
   }
 }

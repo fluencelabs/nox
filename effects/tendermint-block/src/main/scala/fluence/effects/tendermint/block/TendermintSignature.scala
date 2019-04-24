@@ -22,7 +22,7 @@ import proto3.tendermint._
 import scodec.bits.ByteVector
 
 // Ed25519
-private[block] object Signature {
+private[block] object TendermintSignature {
 
   def verifyBC(message: Array[Byte], pubKey: Array[Byte], signature: Array[Byte]): Boolean = {
     import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters

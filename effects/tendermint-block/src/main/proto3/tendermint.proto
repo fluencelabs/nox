@@ -73,6 +73,9 @@ message Block {
 
 message Commit {
     BlockID    block_id = 1;
+    // It's `repeated bytes` instead of `repeated Vote` to be compatible with
+    // Tendermint's amino encoding of null in repeated fields,
+    // for details, see https://github.com/tendermint/go-amino/issues/260
     repeated bytes precommits = 2;
 }
 

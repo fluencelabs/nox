@@ -24,12 +24,21 @@ private[block] object ProtobufConverter {
   import proto3.tendermint.{Block => PBBlock, Commit => PBCommit, Data => PBData, Header => PBHeader}
 
   private def bs(bv: ByteVector): ByteString = ByteString.copyFrom(bv.toArray)
+
+  /**
+    * Encodes a list of optional protobuf Votes:
+    * 1. To a default protobuf structure serialization, if element is defined
+    * 2. To an empty byte array, if element is None
+    *
+    * Each empty byte array will become [0x1, 0x2, 0x0, 0x0] in PBCommit encoding
+    * This is to be compatible with Tendermint's amino encoding, for details see https://github.com/tendermint/go-amino/issues/260
+    */
   private def serialize(precommits: List[Option[Vote]]): List[ByteString] =
     Protobuf.encode(precommits).map(ByteString.copyFrom)
 
-  def toCommit(lc: LastCommit) = PBCommit(Some(lc.block_id), serialize(lc.precommits))
+  def toProtobuf(lc: LastCommit) = PBCommit(Some(lc.block_id), serialize(lc.precommits))
 
-  def toAmino(h: Header): PBHeader = {
+  def toProtobuf(h: Header): PBHeader = {
     PBHeader(
       version = h.version,
       chainId = h.chain_id,
@@ -50,19 +59,19 @@ private[block] object ProtobufConverter {
     )
   }
 
-  def toAmino(d: Data): PBData = {
+  def toProtobuf(d: Data): PBData = {
     PBData(d.txs.map(bv64 => bs(bv64.bv)))
   }
 
-  def toAmino(b: Block): PBBlock = {
-    val header = toAmino(b.header)
-    val data = toAmino(b.data)
+  def toProtobuf(b: Block): PBBlock = {
+    val header = toProtobuf(b.header)
+    val data = toProtobuf(b.data)
 
     PBBlock(
       header = Some(header),
       data = Some(data),
       evidence = None,
-      lastCommit = Some(toCommit(b.last_commit)),
+      lastCommit = Some(toProtobuf(b.last_commit)),
     )
   }
 }

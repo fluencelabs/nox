@@ -20,6 +20,9 @@ import com.google.protobuf.{ByteString, CodedOutputStream}
 import scalapb.GeneratedMessage
 import scodec.bits.ByteVector
 
+/**
+ * Collection of functions encoding primitives or generated protobuf structures into byte arrays
+ */
 private[block] object Protobuf {
   private def stringSize(s: String) = CodedOutputStream.computeStringSizeNoTag(s)
   private def int64Size(l: Long) = CodedOutputStream.computeInt64SizeNoTag(l)
@@ -34,7 +37,20 @@ private[block] object Protobuf {
     bytes
   }
 
+  /**
+   * Encodes String as protobuf's string
+   *
+   * @param s String value to be encoded
+   * @return Byte array with encoded value
+   */
   def encode(s: String): Array[Byte] = withOutput(stringSize(s), _.writeStringNoTag(s))
+
+  /**
+   * Encodes Long as protobuf's varint (int64, UVarInt64)
+   *
+   * @param l Long value to be encoded
+   * @return Byte array with encoded value
+   */
   def encode(l: Long): Array[Byte] = withOutput(int64Size(l), _.writeInt64NoTag(l))
 
   /**
@@ -59,7 +75,7 @@ private[block] object Protobuf {
   /**
    * Encodes byte string in protobuf encoding, without field tag
    *
-   * @param bs ByteString
+   * @param bs Byte string to encode
    * @param skipEmpty If true, yields empty array on empty bs; yields [00] if skipEmpty = false
    * NOTE:
    *   In Tendermint's Go code, cdcEncode function is akin to skipEmpty = true,
@@ -73,20 +89,41 @@ private[block] object Protobuf {
     }
   }
 
+  /**
+   * Encodes optional protobuf message to either empty byte array or default protobuf encoding
+   *
+   * @param m Optional message to be encoded
+   * @return Byte array, empty or containing encoded message
+   */
   def encode[T <: GeneratedMessage](m: Option[T]): Array[Byte] = m.fold(Array.empty[Byte])(encode(_))
+
+  /**
+   * Encodes any protobuf message to byte array
+   *
+   * @param m Message to be encoded
+   * @return Byte array with encoded message
+   */
   def encode[T <: GeneratedMessage](m: T): Array[Byte] = m.toByteArray
 
-  // go: MarshalBinaryLengthPrefixed
-  // Encodes a structure, prefixed with UVarInt encoding of the encoded structure's size
-  // It's all happening for Go reasons
+  /**
+   * Encodes a structure, prefixed with UVarInt encoding of the encoded structure's size
+   *
+   * In Go code: MarshalBinaryLengthPrefixed
+   *
+   * @param m Message to be encoded
+   * @return Bytes of length-prefixed encoded message
+   */
   def encodeLengthPrefixed[T <: GeneratedMessage](m: T): Array[Byte] = {
     val bytes = encode(m)
     val size = encode(bytes.length)
     size ++ bytes
   }
 
-  def encodeJava[T <: com.google.protobuf.GeneratedMessageV3](m: T): Array[Byte] = m.toByteArray
-
+  /**
+   * Encodes a list of optional protobuf structures:
+   * 1. To a default protobuf structure serialization, if element is defined
+   * 2. To an empty byte array, if element is None
+   */
   def encode[T <: GeneratedMessage](repeated: List[Option[T]]): List[Array[Byte]] = {
     repeated.map(_.fold(Array.empty[Byte])(_.toByteArray))
   }
