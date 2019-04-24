@@ -27,14 +27,14 @@ class SignatureTest extends FunSpec with Matchers with OptionValues {
 
   it("verify vote") {
     val chainID = "10"
-    val vote = parse(TestData.vote).flatMap(JSON.vote).right.get
+    val vote = parse(TestData.vote).flatMap(ProtobufJson.vote).right.get
     val validator = TestData.validators(vote.validatorIndex).toArray
     Signature.verifyVote(vote, chainID, validator) shouldBe true
   }
 
   it("verify commits") {
-    val block = JSON.block(TestData.blockResponse).right.get.fillHeader()
-    val commit = JSON.commit(TestData.commitResponse).right.get
+    val block = ProtobufJson.block(TestData.blockResponse).right.get.fillHeader()
+    val commit = ProtobufJson.commit(TestData.commitResponse).right.get
 
     val chainId = block.header.chain_id
     val headerHash = toHex(block.headerHash())

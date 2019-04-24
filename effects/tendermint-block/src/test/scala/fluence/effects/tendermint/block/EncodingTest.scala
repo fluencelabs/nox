@@ -22,8 +22,8 @@ import scodec.bits.ByteVector
 
 class EncodingTest extends FunSpec with Matchers with OptionValues {
 
-  val block = JSON.block(TestData.blockResponse).right.get.fillHeader()
-  val vote = parse(TestData.vote).flatMap(JSON.vote).right.get
+  val block = ProtobufJson.block(TestData.blockResponse).right.get.fillHeader()
+  val vote = parse(TestData.vote).flatMap(ProtobufJson.vote).right.get
 
   def toHex(ba: Array[Byte]) = ByteVector(ba).toHex
   def checkHex(scalaHex: String, goHex: String) = scalaHex.toLowerCase shouldBe goHex.toLowerCase

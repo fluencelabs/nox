@@ -20,7 +20,7 @@ import org.scalatest.{FunSpec, Matchers, OptionValues}
 import scodec.bits.ByteVector
 
 class MerkleTest extends FunSpec with Matchers with OptionValues {
-  val block = JSON.block(TestData.blockResponse).right.get
+  val block = ProtobufJson.block(TestData.blockResponse).right.get
   def toHex(ba: Array[Byte]) = ByteVector(ba).toHex
   def checkHex(scalaHex: String, goHex: String) = scalaHex.toLowerCase shouldBe goHex.toLowerCase
 

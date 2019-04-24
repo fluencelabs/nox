@@ -21,10 +21,7 @@ import scala.util.Either
 trait ErrorHandlingSyntax {
   import cats.syntax.either._
 
-  implicit class TrivialHandlerOps[A, E, EE](either: Either[E, A]) {
+  implicit class EitherHandlerOps[A, E, EE](either: Either[E, A]) {
     def convertError(implicit convert: ConvertError[E, EE]): Either[EE, A] = either.leftMap(convert(_))
-    //    def flatMap[A1](f: A => Either[E, A1])(implicit convert: ConvertError[E, EE]): Either[EE, A1] = {
-    //      either.right.flatMap(f(_)).leftMap(convert(_))
-    //    }
   }
 }

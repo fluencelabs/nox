@@ -22,7 +22,7 @@ import scodec.bits.ByteVector
 
 object TendermintBlock {
   implicit final val blockDecoder: Decoder[TendermintBlock] =
-    Decoder.decodeString.emap(JSON.block(_).left.map(_ => "Block").map(TendermintBlock(_)))
+    Decoder.decodeString.emap(ProtobufJson.block(_).left.map(_ => "Block").map(TendermintBlock(_)))
 }
 
 /**
