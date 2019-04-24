@@ -14,11 +14,20 @@
  * limitations under the License.
  */
 
-package fluence.effects.tendermint.block.data
+package fluence.effects.tendermint.block
 
-/**
- * Wrapper around transaction list, mimics Tendermint's structure
- *
- * @param txs List of transactions
- */
-case class Data(txs: Option[List[Base64ByteVector]])
+import org.scalatest.{EitherValues, FunSpec, Matchers, OptionValues}
+
+class TendermintBlockTest extends FunSpec with Matchers with OptionValues with EitherValues {
+  it("verify block response") {
+    val block = TendermintBlock(TestData.blockResponse).right.value
+    val valid = block.validateHashes()
+    valid.isRight shouldBe true
+  }
+
+  it("verify block response where data = null") {
+    val block = TendermintBlock(TestData.blockDataNullResponse).right.value
+    val valid = block.validateHashes()
+    valid.isRight shouldBe true
+  }
+}

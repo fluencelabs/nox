@@ -64,8 +64,8 @@ private[block] object ProtobufConverter {
     )
   }
 
-  def toProtobuf(d: Data): PBData = {
-    PBData(d.txs.map(bv64 => bs(bv64.bv)))
+  def toProtobuf(d: Data): Option[PBData] = {
+    d.txs.map(txs => PBData(txs.map(bv64 => bs(bv64.bv))))
   }
 
   def toProtobuf(b: Block): PBBlock = {
@@ -74,7 +74,7 @@ private[block] object ProtobufConverter {
 
     PBBlock(
       header = Some(header),
-      data = Some(data),
+      data = data,
       evidence = None,
       lastCommit = Some(toProtobuf(b.last_commit)),
     )

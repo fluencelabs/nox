@@ -192,7 +192,7 @@ lazy val statemachine = (project in file("statemachine"))
     }
   )
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(vm, `statemachine-control`, `tendermint-rpc`, sttpEitherT)
+  .dependsOn(vm, `statemachine-control`, `tendermint-rpc`, sttpEitherT, `tendermint-block`)
 
 lazy val effects = project
   .settings(

@@ -286,6 +286,162 @@ object TestData {
       |}
     """.stripMargin
 
+  val blockDataNullResponse =
+    """
+      |{
+      |  "jsonrpc": "2.0",
+      |  "id": "dontcare",
+      |  "result": {
+      |    "block_meta": {
+      |      "block_id": {
+      |        "hash": "DB78AB6E93E47DC61821B0A542062B4B14CE7E4FE80B43892D34CE04F5CAACE4",
+      |        "parts": {
+      |          "total": "1",
+      |          "hash": "A5C8730981D8723EAA64087926F81C49D0DA5A082D0237EAC833E2B3E294E777"
+      |        }
+      |      },
+      |      "header": {
+      |        "version": {
+      |          "block": "10",
+      |          "app": "0"
+      |        },
+      |        "chain_id": "10",
+      |        "height": "19",
+      |        "time": "2019-04-24T14:13:12.072775037Z",
+      |        "num_txs": "0",
+      |        "total_txs": "59",
+      |        "last_block_id": {
+      |          "hash": "C5FDEC64C64E8EC018FD0090BAB9B3359C04B327D7E470674F357BD785025ACC",
+      |          "parts": {
+      |            "total": "1",
+      |            "hash": "5AE5A8746094CE0CDB3B4953908EFA4AB63330A999445C079B37A665E254818C"
+      |          }
+      |        },
+      |        "last_commit_hash": "2F0EF75860A315E965412EAE57584EFC95877A91513A89ED4389B4DF3FFE256A",
+      |        "data_hash": "",
+      |        "validators_hash": "E55E99B667008D3E275ECEEAF8807F1BFF36B30D6DD638CC57CC09939F475374",
+      |        "next_validators_hash": "E55E99B667008D3E275ECEEAF8807F1BFF36B30D6DD638CC57CC09939F475374",
+      |        "consensus_hash": "048091BC7DDC283F77BFBF91D73C44DA58C3DF8A9CBC867405D8B7F3DAADA22F",
+      |        "app_hash": "CC0F66A511BBA4815752D83B253E9FD50F535A33C210F1121097F9C6FB584641",
+      |        "last_results_hash": "1A3CEF7A7D9A114F955678B2B37BCD6EF17712484EEE466F058E0E43BD66B90A",
+      |        "evidence_hash": "",
+      |        "proposer_address": "991C9F03698AC07BEB41B71A87715FC4364A994A"
+      |      }
+      |    },
+      |    "block": {
+      |      "header": {
+      |        "version": {
+      |          "block": "10",
+      |          "app": "0"
+      |        },
+      |        "chain_id": "10",
+      |        "height": "19",
+      |        "time": "2019-04-24T14:13:12.072775037Z",
+      |        "num_txs": "0",
+      |        "total_txs": "59",
+      |        "last_block_id": {
+      |          "hash": "C5FDEC64C64E8EC018FD0090BAB9B3359C04B327D7E470674F357BD785025ACC",
+      |          "parts": {
+      |            "total": "1",
+      |            "hash": "5AE5A8746094CE0CDB3B4953908EFA4AB63330A999445C079B37A665E254818C"
+      |          }
+      |        },
+      |        "last_commit_hash": "2F0EF75860A315E965412EAE57584EFC95877A91513A89ED4389B4DF3FFE256A",
+      |        "data_hash": "",
+      |        "validators_hash": "E55E99B667008D3E275ECEEAF8807F1BFF36B30D6DD638CC57CC09939F475374",
+      |        "next_validators_hash": "E55E99B667008D3E275ECEEAF8807F1BFF36B30D6DD638CC57CC09939F475374",
+      |        "consensus_hash": "048091BC7DDC283F77BFBF91D73C44DA58C3DF8A9CBC867405D8B7F3DAADA22F",
+      |        "app_hash": "CC0F66A511BBA4815752D83B253E9FD50F535A33C210F1121097F9C6FB584641",
+      |        "last_results_hash": "1A3CEF7A7D9A114F955678B2B37BCD6EF17712484EEE466F058E0E43BD66B90A",
+      |        "evidence_hash": "",
+      |        "proposer_address": "991C9F03698AC07BEB41B71A87715FC4364A994A"
+      |      },
+      |      "data": {
+      |        "txs": null
+      |      },
+      |      "evidence": {
+      |        "evidence": null
+      |      },
+      |      "last_commit": {
+      |        "block_id": {
+      |          "hash": "C5FDEC64C64E8EC018FD0090BAB9B3359C04B327D7E470674F357BD785025ACC",
+      |          "parts": {
+      |            "total": "1",
+      |            "hash": "5AE5A8746094CE0CDB3B4953908EFA4AB63330A999445C079B37A665E254818C"
+      |          }
+      |        },
+      |        "precommits": [
+      |          {
+      |            "type": 2,
+      |            "height": "18",
+      |            "round": "0",
+      |            "block_id": {
+      |              "hash": "C5FDEC64C64E8EC018FD0090BAB9B3359C04B327D7E470674F357BD785025ACC",
+      |              "parts": {
+      |                "total": "1",
+      |                "hash": "5AE5A8746094CE0CDB3B4953908EFA4AB63330A999445C079B37A665E254818C"
+      |              }
+      |            },
+      |            "timestamp": "2019-04-24T14:13:12.074842848Z",
+      |            "validator_address": "04C60B72246943675E2F3AADA00E30EC41AA7D4E",
+      |            "validator_index": "0",
+      |            "signature": "8y3JNmcGHR31lDqQOsuSX92NNnEVGZ0sJbbehh8RIsAlIXP9wSi9ZcKYtWVa5eD4AJPY7ueDG0fUrO8Ju6b7BQ=="
+      |          },
+      |          {
+      |            "type": 2,
+      |            "height": "18",
+      |            "round": "0",
+      |            "block_id": {
+      |              "hash": "C5FDEC64C64E8EC018FD0090BAB9B3359C04B327D7E470674F357BD785025ACC",
+      |              "parts": {
+      |                "total": "1",
+      |                "hash": "5AE5A8746094CE0CDB3B4953908EFA4AB63330A999445C079B37A665E254818C"
+      |              }
+      |            },
+      |            "timestamp": "2019-04-24T14:13:12.072775037Z",
+      |            "validator_address": "0D71FECA786E7FE982E6FC13422AAC82329DF077",
+      |            "validator_index": "1",
+      |            "signature": "JgRZhimN7sMYhEtWoPidfEleqhd7/JyBZqRWtzld4WOKTQ0sGR58ZD2oL4AqnPhU4BK5YoNS7Zy4PTuL9xl5AA=="
+      |          },
+      |          {
+      |            "type": 2,
+      |            "height": "18",
+      |            "round": "0",
+      |            "block_id": {
+      |              "hash": "C5FDEC64C64E8EC018FD0090BAB9B3359C04B327D7E470674F357BD785025ACC",
+      |              "parts": {
+      |                "total": "1",
+      |                "hash": "5AE5A8746094CE0CDB3B4953908EFA4AB63330A999445C079B37A665E254818C"
+      |              }
+      |            },
+      |            "timestamp": "2019-04-24T14:13:12.074140202Z",
+      |            "validator_address": "991C9F03698AC07BEB41B71A87715FC4364A994A",
+      |            "validator_index": "2",
+      |            "signature": "xNSjtR3+a1IRC1jLy/o5YS8/x9t9CJGar4oKTy8hAJqaOboNVHa1/+Gb86VhdkA6xgHSJAobvbOOUJ5U2riSBQ=="
+      |          },
+      |          {
+      |            "type": 2,
+      |            "height": "18",
+      |            "round": "0",
+      |            "block_id": {
+      |              "hash": "C5FDEC64C64E8EC018FD0090BAB9B3359C04B327D7E470674F357BD785025ACC",
+      |              "parts": {
+      |                "total": "1",
+      |                "hash": "5AE5A8746094CE0CDB3B4953908EFA4AB63330A999445C079B37A665E254818C"
+      |              }
+      |            },
+      |            "timestamp": "2019-04-24T14:13:12.072669086Z",
+      |            "validator_address": "9F16F63227F11942E6E4A3282B2A293E4BF8206C",
+      |            "validator_index": "3",
+      |            "signature": "6l+DQlBpzgzuEBmfoxNKqtsdE/E6sXGQO39W7aVjfPEUrnXseAfO9ZNlzNW14CJoHrL5d+BQVgmuaTmq7Ws0BA=="
+      |          }
+      |        ]
+      |      }
+      |    }
+      |  }
+      |}
+    """.stripMargin
+
   val validators = Map(
     0 -> ByteVector.fromBase64("j0ZM+xnnX0ZjCavm4zW06+71mbamGAiye3v0GxGJY0Y=").get,
     1 -> ByteVector.fromBase64("oq0QENlTvGeV7eMugt3v3cv9dmmuxoVcr3BI7AiUgH4=").get,

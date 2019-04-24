@@ -24,7 +24,7 @@ import io.circe.generic.semiauto.deriveDecoder
 import proto3.tendermint.Vote
 import scodec.bits.ByteVector
 
-private[block] object Block {
+object Block {
   /* JSON decoders */
   import Header._
   implicit final val decodeBase64ByteVector: Decoder[Base64ByteVector] = Decoder.decodeString.emap(
@@ -77,7 +77,7 @@ private[block] object Block {
 }
 
 // TODO: Add Evidence field to the Block
-private[block] case class Block(header: Header, data: Data, last_commit: LastCommit) {
+case class Block(header: Header, data: Data, last_commit: LastCommit) {
   import Block._
 
   /**
@@ -100,7 +100,7 @@ private[block] case class Block(header: Header, data: Data, last_commit: LastCom
    */
   private def fillHeader(): Block = {
     val lastCommitHash = ByteVector(commitHash(last_commit.precommits))
-    val dataHash = ByteVector(txsHash(data.txs))
+    val dataHash = ByteVector(this.dataHash())
     val evHash = ByteVector(evidenceHash(Nil))
 
     copy(header.copy(last_commit_hash = lastCommitHash, data_hash = dataHash, evidence_hash = evHash))
@@ -121,7 +121,7 @@ private[block] case class Block(header: Header, data: Data, last_commit: LastCom
    * @return Merkle hash of the transaction list
    */
   def dataHash(): Array[Byte] = {
-    txsHash(data.txs)
+    data.txs.fold(Array.empty[Byte])(txsHash)
   }
 
   /**

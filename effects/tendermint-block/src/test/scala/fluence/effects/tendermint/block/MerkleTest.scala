@@ -26,26 +26,39 @@ class MerkleTest extends FunSpec with Matchers with OptionValues {
   def toHex(ba: Array[Byte]) = ByteVector(ba).toHex
   def checkHex(scalaHex: String, goHex: String) = scalaHex.toLowerCase shouldBe goHex.toLowerCase
 
-  it("merkle hash") {
-    val data = (1 to 32).map(i => Array.fill[Byte](4)(i.toByte)).toList
-    val goHash = "62BDC2B8D88E187E4CEEBDDD72F3C8CB8DC98F64D620CAD92AF553B70D567816"
-    val scalaHash = Merkle.simpleHash(data)
-    val scalaHex = ByteVector(scalaHash).toHex
+  describe("usual block") {
+    it("merkle hash") {
+      val data = (1 to 32).map(i => Array.fill[Byte](4)(i.toByte)).toList
+      val goHash = "62BDC2B8D88E187E4CEEBDDD72F3C8CB8DC98F64D620CAD92AF553B70D567816"
+      val scalaHash = Merkle.simpleHash(data)
+      val scalaHex = ByteVector(scalaHash).toHex
 
-    goHash.toLowerCase shouldBe scalaHex.toLowerCase
+      goHash.toLowerCase shouldBe scalaHex.toLowerCase
+    }
+
+    it("block merkle hash") {
+      val scalaHex = toHex(block.headerHash())
+      val goHex = "C921CCB37C268965A56FC546713419AEF683201D5151613E07CBD9293308027F"
+
+      checkHex(scalaHex, goHex)
+    }
+
+    it("block parts merkle hash") {
+      val scalaHex = toHex(block.partsHash().hash)
+      val goHex = "046C3623869234B711759E66664CC5728B16F577C8D3FFE436278C4D8075E635"
+
+      checkHex(scalaHex, goHex)
+    }
   }
 
-  it("block merkle hash") {
-    val scalaHex = toHex(block.headerHash())
-    val goHex = "C921CCB37C268965A56FC546713419AEF683201D5151613E07CBD9293308027F"
+  describe("block with data = null") {
+    val blockEmpty = ProtobufJson.block(TestData.blockDataNullResponse).right.get
 
-    checkHex(scalaHex, goHex)
-  }
+    it("block parts merkle hash") {
+      val scalaHex = toHex(blockEmpty.partsHash().hash)
+      val goHex = "A5C8730981D8723EAA64087926F81C49D0DA5A082D0237EAC833E2B3E294E777"
 
-  it("block parts merkle hash") {
-    val scalaHex = toHex(block.partsHash().hash)
-    val goHex = "046C3623869234B711759E66664CC5728B16F577C8D3FFE436278C4D8075E635"
-
-    checkHex(scalaHex, goHex)
+      checkHex(scalaHex, goHex)
+    }
   }
 }

@@ -17,11 +17,12 @@
 package fluence.statemachine
 
 import cats.Applicative
-import cats.effect.syntax.effect._
 import cats.effect.Effect
+import cats.effect.syntax.effect._
 import com.github.jtendermint.jabci.api._
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
+import fluence.effects.tendermint.block.TendermintBlock
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.statemachine.control.{ControlSignals, DropPeer}
 
@@ -31,17 +32,35 @@ class AbciHandler[F[_]: Effect](
   service: AbciService[F],
   controlSignals: ControlSignals[F],
   rpc: TendermintRpc[F]
-) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock {
+) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock with slogging.LazyLogging {
+
+  private def checkBlock(height: Long): Unit = {
+    val log: String ⇒ Unit = s ⇒ logger.info(Console.YELLOW + s + Console.RESET)
+
+    rpc
+      .block(height)
+      .value
+      .toIO
+      .map {
+        case Left(e) => logger.info(s"rpc.block($height) failed: $e ${e.getMessage}")
+        case Right(res) =>
+          TendermintBlock(res) match {
+            case Left(e) => logger.warn(s"Failed to decode tendermint block from JSON: $e ${e.getMessage}")
+            case Right(b) =>
+              b.validateHashes() match {
+                case Left(e) => logger.warn(s"Block at height $height is invalid: $e ${e.getMessage}")
+                case Right(_) => log(s"Block at height $height is valid")
+              }
+          }
+      }
+      .unsafeRunAsyncAndForget()
+  }
 
   override def requestBeginBlock(
     req: RequestBeginBlock
   ): ResponseBeginBlock = {
     val height = req.getHeader.getHeight
-
-    val log: String ⇒ Unit = s ⇒ println(Console.YELLOW + s + Console.RESET)
-
-    rpc.block(height).value.toIO.map(res ⇒ log(s"block[$height]" + " ::: " + res.toString)).unsafeRunAsyncAndForget()
-    rpc.commit(height).value.toIO.map(res ⇒ log(s"commit[$height]" + " ::: " + res.toString)).unsafeRunAsyncAndForget()
+    checkBlock(height)
 
     ResponseBeginBlock.newBuilder().build()
   }

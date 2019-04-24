@@ -17,14 +17,16 @@
 package fluence.effects.tendermint.block
 
 import fluence.effects.tendermint.block.data.Block
+import fluence.effects.tendermint.block.errors.TendermintBlockError
 import fluence.effects.tendermint.block.errors.ValidationError._
 import fluence.effects.tendermint.block.protobuf.ProtobufJson
-import io.circe.Decoder
 import scodec.bits.ByteVector
 
 object TendermintBlock {
-  implicit final val blockDecoder: Decoder[TendermintBlock] =
-    Decoder.decodeString.emap(ProtobufJson.block(_).left.map(_ => "Block").map(TendermintBlock(_)))
+
+  def apply(json: String): Either[TendermintBlockError, TendermintBlock] = {
+    ProtobufJson.block(json).map(TendermintBlock(_))
+  }
 }
 
 /**
