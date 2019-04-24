@@ -32,23 +32,25 @@ class AbciHandler[F[_]: Effect](
   service: AbciService[F],
   controlSignals: ControlSignals[F],
   rpc: TendermintRpc[F]
-) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock with slogging.LazyLogging {
+) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock
+    with slogging.LazyLogging {
 
   private def checkBlock(height: Long): Unit = {
     val log: String ⇒ Unit = s ⇒ logger.info(Console.YELLOW + s + Console.RESET)
+    val logBad: String ⇒ Unit = s ⇒ logger.info(Console.RED + s + Console.RESET)
 
     rpc
       .block(height)
       .value
       .toIO
       .map {
-        case Left(e) => logger.info(s"rpc.block($height) failed: $e ${e.getMessage}")
+        case Left(e) => logger.warn(s"RPC Block[$height] failed: $e")
         case Right(res) =>
           TendermintBlock(res) match {
-            case Left(e) => logger.warn(s"Failed to decode tendermint block from JSON: $e ${e.getMessage}")
+            case Left(e) => logBad(s"Failed to decode tendermint block from JSON: $e")
             case Right(b) =>
               b.validateHashes() match {
-                case Left(e) => logger.warn(s"Block at height $height is invalid: $e ${e.getMessage}")
+                case Left(e) => logBad(s"Block at height $height is invalid: $e")
                 case Right(_) => log(s"Block at height $height is valid")
               }
           }
