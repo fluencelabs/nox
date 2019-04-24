@@ -26,11 +26,11 @@ wasm-ld: warning: function signature mismatch: qsort
 >>> defined as (i32, i32, i32, i32) -> void in /opt/wasi-sdk/share/sysroot/lib/wasm32-wasi/libc.a(qsort.o)
 ```
 
-It could happen because of lack of `stdlib.h` in includes and manages compiler to generate an unnecessary `drop` instruction since the compiler will use the different signature of this function. And finally, such binary is invalid and couldn't run on Fluence.
+The reason for this error is a lack of `#include <stdlib.h>` directive. For some reason, a compiler could use the signature of this function that returns `i32` whereas the original function doesn't return anything. The result is an unnecessary `drop` instruction after each call of such function. It makes resulted binary incorrect for Wasm validator and, finally, it couldn't be run on Fluence.
 
 ## Shrinking app code size
 
-In most cases, there is no need to worry about the size of the generated WebAssembly code. However, there some common techniques for reducing the WebAssembly package size:
+In most cases, there is no need to worry about the size of the generated WebAssembly code. However, there are some common techniques for reducing the WebAssembly package size:
 - using `-O3` option for aggressive optimization 
 - using `--strip-all` options of linker for strip all symbols from generated binary
 - not using `double float` and all functions that receive it as a parameter because it generates a lot of wasm instructions and generates imports to compiler-rt lib.
