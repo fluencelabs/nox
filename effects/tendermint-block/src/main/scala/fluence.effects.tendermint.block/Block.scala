@@ -39,7 +39,7 @@ object Block {
     str => ByteVector.fromBase64Descriptive(str).map(Base64ByteVector).left.map(_ => "Base64ByteVector")
   )
   implicit final val decodeVote: Decoder[Vote] =
-    Decoder.decodeJson.emap(jvalue => Try(JSON.vote(jvalue)).toEither.left.map(_ => "Vote"))
+    Decoder.decodeJson.emap(jvalue => JSON.vote(jvalue).left.map(_ => "Vote"))
   implicit final val dataDecoder: Decoder[Data] = deriveDecoder
   implicit final val lastCommitDecoder: Decoder[LastCommit] = deriveDecoder
   implicit final val blockDecoder: Decoder[Block] = deriveDecoder

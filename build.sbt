@@ -30,7 +30,8 @@ lazy val vm = (project in file("vm"))
       cryptoHashing,
       scalaTest,
       scalaIntegrationTest,
-      mockito
+      mockito,
+      slogging
     ),
     test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(compile in `vm-counter`)

@@ -16,14 +16,17 @@
 
 package fluence.effects.tendermint.block
 
+import cats.syntax.either._
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
-import io.circe.Decoder.Result
 import io.circe.Json
 import proto3.tendermint.{BlockID, Version, Vote}
 import scalapb.lenses.{Lens, Mutation}
 import scalapb_circe.Parser
 import scodec.bits.ByteVector
+
+import scala.language.postfixOps
+import scala.util.Try
 
 object JSON {
   val parser = new Parser(true)
@@ -68,40 +71,53 @@ object JSON {
       |}
     """.stripMargin
 
-  def block(blockResponse: String): Result[Block] = {
-    import io.circe._, io.circe.parser._
+  def block(blockResponse: String): Either[TendermintBlockError, Block] = {
+    import ErrorHandling._
+    import JsonDecodingError._
+    import JsonParsingError._
+    import io.circe._
+    import io.circe.parser._
 
-    val p: Json = parse(blockResponse).right.get
-    val block: Json = p.hcursor.downField("result").get[Json]("block").right.get
-    block.as[Block]
+    for {
+      resposnseJson <- parse(blockResponse).convertError
+      blockJson <- resposnseJson.hcursor.downField("result").get[Json]("block").convertError
+      block <- blockJson.as[Block].convertError
+    } yield block
   }
 
-  def commit(commitResponse: String): Result[Commit] = {
-    import io.circe._, io.circe.parser._
+  def commit(commitResponse: String): Either[TendermintBlockError, Commit] = {
+    import ErrorHandling._
+    import JsonDecodingError._
+    import JsonParsingError._
+    import io.circe._
+    import io.circe.parser._
 
-    val p: Json = parse(commitResponse).right.get
-    val commit: Json = p.hcursor.downField("result").downField("signed_header").get[Json]("commit").right.get
-    commit.as[Commit]
+    for {
+      responseJson <- parse(commitResponse).convertError
+      commitJson <- responseJson.hcursor.downField("result").downField("signed_header").get[Json]("commit").convertError
+      commit <- commitJson.as[Commit].convertError
+    } yield commit
   }
 
-  def vote(json: Json): Vote = {
-    val v = parser.fromJson[Vote](json)
-    v.update(
-      _.blockId.update(fixBlockId(): _*),
-      _.validatorAddress.modify(fixBytes)
+  def vote(json: Json): Either[Throwable, Vote] = {
+    Try(parser.fromJson[Vote](json)).toEither.map(
+      _.update(
+        _.blockId.update(fixBlockId(): _*),
+        _.validatorAddress.modify(fixBytes)
+      )
     )
   }
 
-  def version(json: Json): Version = {
-    parser.fromJson[Version](json)
+  def version(json: Json): Either[Throwable, Version] = {
+    Try(parser.fromJson[Version](json)).toEither
   }
 
-  def timestamp(json: Json): Timestamp = {
-    parser.fromJson[Timestamp](json)
+  def timestamp(json: Json): Either[Throwable, Timestamp] = {
+    Try(parser.fromJson[Timestamp](json)).toEither
   }
 
-  def blockId(json: Json): BlockID = {
-    parser.fromJson[BlockID](json).update(fixBlockId(): _*)
+  def blockId(json: Json): Either[Throwable, BlockID] = {
+    Try(parser.fromJson[BlockID](json).update(fixBlockId(): _*)).toEither
   }
 
   private def fixBlockId(): List[Lens[BlockID, BlockID] => Mutation[BlockID]] = {
@@ -127,9 +143,14 @@ object JSON {
    */
   def fixBytes(bs: ByteString): ByteString = {
     val hex = ByteVector(bs.toByteArray).toBase64
-    val value = ByteVector.fromHex(hex).getOrElse(throw new RuntimeException(s"Can't fromHex from $hex"))
-    val array: Array[Byte] = value.toArray
-    val bytes: ByteString = ByteString.copyFrom(array)
-    bytes
+
+    ByteVector
+      .fromHexDescriptive(hex)
+      .map { value =>
+        val array: Array[Byte] = value.toArray
+        val bytes: ByteString = ByteString.copyFrom(array)
+        bytes
+      }
+      .fold(e => throw FixBytesError(e), identity) // ARGHHH >_<
   }
 }

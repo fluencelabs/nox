@@ -17,17 +17,17 @@
 package fluence.effects.tendermint.block
 
 import com.google.protobuf.ByteString
-import proto3.tendermint.{Commit, Vote}
+import proto3.tendermint.Vote
 import scodec.bits.ByteVector
 
 object AminoConverter {
-  import proto3.tendermint.{Block => PBBlock, Data => PBData, Header => PBHeader}
+  import proto3.tendermint.{Block => PBBlock, Commit => PBCommit, Data => PBData, Header => PBHeader}
 
   private def bs(bv: ByteVector): ByteString = ByteString.copyFrom(bv.toArray)
   private def serialize(precommits: List[Option[Vote]]): List[ByteString] =
     Amino.encode(precommits).map(ByteString.copyFrom)
 
-  def toCommit(lc: LastCommit) = Commit(Some(lc.block_id), serialize(lc.precommits))
+  def toCommit(lc: LastCommit) = PBCommit(Some(lc.block_id), serialize(lc.precommits))
 
   def toAmino(h: Header): PBHeader = {
     PBHeader(
