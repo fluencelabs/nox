@@ -25,7 +25,7 @@
     - [HowTo: common patterns](soon.md)
 - [Frontend guide](frontend/index.md)
     - [Javascript Client](frontend/javascript.md)    
-    - [HTTP protocol](http.md)
+    - [HTTP protocol](frontend/http.md)
 - [Running Fluence nodes](nodes.md)
 - [Command-line interface](cli.md)
 - [Key examples](examples.md)

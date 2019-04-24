@@ -44,4 +44,4 @@ After this get response `request.result()`. And we will see the result:
 [Mon Apr 22 16:03:31 MSK 2019, info, TxProcessor] Queried result: Hello, world! From user Fluence
 ```
 
-NOTE: You can also send requests from command line with curl, read [here](../http.md) for more.
+NOTE: You can also send requests from command line with curl, read [here](../frontend/http.md) for more.
