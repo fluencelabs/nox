@@ -36,4 +36,11 @@ The real-time processing layer is able to promptly serve client requests, but pr
 
 In this section we provide brief Fluence overview and discuss reasons to have delayed verification. We also consider Fluence basic incentive model.
 
+## Links
+
+- [Fluence Labs site](http://fluence.network/)
+- [Discord](https://discordapp.com/invite/AjfbDKQ)
+- [Github](https://github.com/fluencelabs/fluence)
+- [Tutorials](https://github.com/fluencelabs/tutorials/)
+
 
