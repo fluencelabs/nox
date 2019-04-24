@@ -32,7 +32,7 @@ private[block] object TendermintSignature {
    * @param message Signed message
    * @param pubKey Public key for the signature
    * @param signature Signatore of the message
-   * @return True, if signature is correct, false otherwise
+   * @return True if signature is correct, false otherwise
    */
   private def verifyBC(message: Array[Byte], pubKey: Array[Byte], signature: Array[Byte]): Boolean = {
     import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
