@@ -8,4 +8,4 @@ In the presence of a backend we able to interact with written code through HTTP 
 Useful links:
 - [Backend Guide](../backend/index.md) 
 - [Frontend Quickstart](../quickstart/web.md)
-- [Debugger](../debugging.md): test you frontend without deploying backend in Fluence network 
+- [Debugger](../backend/debugging.md): test you frontend without deploying backend in Fluence network 

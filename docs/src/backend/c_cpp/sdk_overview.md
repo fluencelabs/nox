@@ -23,7 +23,7 @@ Compilation with WASI-sysroot is quite simple:
 ~ $ clang --sysroot=/opt/wasi-sdk/ --target=wasm32-unknown-wasi -o module.wasm -nostartfiles -fvisibility=hidden -Wl,--no-entry,--export=allocate,--export=deallocate,--export=invoke,--allow-undefined -- *.c
 ```
 
-There `--export` directives for linker manage it to make three functions exported from module and `--allow-undefined` used for make it possible to import `write` and `flush` functions.
+There `--export` directives for linker manage it to make three functions exported from module and `--allow-undefined` used to make it possible to import `write` and `flush` functions.
 
 ### wasm32-unknwon-unknown
 
@@ -165,6 +165,6 @@ extern "C" char *invoke(char *str, int length) {
 }
 ```
 
-In this example we have some excess allocation (while transforming a raw supplied string to std::string and while appending two strings) and to reduce this overhead scheme from C application could be used.
+In this example, we have some excess allocation (while transforming a raw supplied string to std::string and while appending two strings) and to reduce this overhead scheme from C application could be used.
 
 The complete Hello World example written on C++ could be found [here](https://github.com/fluencelabs/tutorials/tree/master/hello-world/app-logger-cpp).
