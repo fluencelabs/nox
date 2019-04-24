@@ -18,6 +18,7 @@ package fluence.effects.tendermint.block
 
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
+import fluence.effects.tendermint.block.data.{Block, Commit}
 import fluence.effects.tendermint.block.errors.Errors._
 import fluence.effects.tendermint.block.errors.TendermintBlockError
 import io.circe.Json

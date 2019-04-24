@@ -16,6 +16,7 @@
 
 package fluence.effects.tendermint.block
 
+import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.errors.ValidationError._
 import io.circe.Decoder
 import scodec.bits.ByteVector

@@ -17,6 +17,7 @@
 package fluence.effects.tendermint.block
 
 import com.google.protobuf.ByteString
+import fluence.effects.tendermint.block.data.PartsHeader
 import io.circe.parser.parse
 import org.scalatest.{FunSpec, Matchers, OptionValues}
 import scodec.bits.ByteVector

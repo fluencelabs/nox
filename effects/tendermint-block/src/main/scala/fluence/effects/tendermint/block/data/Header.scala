@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-package fluence.effects.tendermint.block
+package fluence.effects.tendermint.block.data
 
+import fluence.effects.tendermint.block.ProtobufJson
 import io.circe.Decoder
 import io.circe.generic.semiauto.deriveDecoder
 import proto3.tendermint.BlockID

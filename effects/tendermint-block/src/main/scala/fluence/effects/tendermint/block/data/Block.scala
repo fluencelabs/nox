@@ -14,22 +14,14 @@
  * limitations under the License.
  */
 
-package fluence.effects.tendermint.block
+package fluence.effects.tendermint.block.data
 
 import fluence.crypto.hash.CryptoHashers.Sha256
+import fluence.effects.tendermint.block.{Merkle, Protobuf, ProtobufConverter, ProtobufJson}
 import io.circe.Decoder
 import io.circe.generic.semiauto.deriveDecoder
-import proto3.tendermint.{BlockID, Vote}
+import proto3.tendermint.Vote
 import scodec.bits.ByteVector
-
-// About BlockID: https://tendermint.com/docs/spec/blockchain/blockchain.html#blockid
-
-// newtype
-case class Base64ByteVector(bv: ByteVector)
-case class Data(txs: List[Base64ByteVector])
-
-case class LastCommit(block_id: BlockID, precommits: List[Option[Vote]])
-case class PartsHeader(hash: Array[Byte], count: Int)
 
 private[block] object Block {
   /* JSON decoders */

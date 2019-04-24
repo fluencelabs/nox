@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.effects.tendermint.block
+package fluence.effects.tendermint.block.data
 
 import proto3.tendermint.{BlockID, Vote}
 

@@ -17,6 +17,7 @@
 package fluence.effects.tendermint.block
 
 import com.google.protobuf.ByteString
+import fluence.effects.tendermint.block.data._
 import proto3.tendermint.Vote
 import scodec.bits.ByteVector
 
