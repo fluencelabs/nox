@@ -48,41 +48,51 @@ private[block] object Block {
   type Hash = Array[Byte]
   type Tx = Base64ByteVector
   type Evidence = Array[Byte]
-  type Precommits = List[Vote] // also, Vote = CommitSig in Go
 
+  // Default block part size
   val BlockPartSizeBytes = 65536 // 64kB
 
-  // Merkle hash of all precommits (some of them could be null?)
-  def commitHash(precommits: List[Option[Vote]]) = {
+  /**
+   * Merkle hash of all precommits.
+   *
+   * Some of them could be None (null in JSON, nil in Go), such are serialized to [0x0, 0x0] (with prefix)
+   * More details here: https://github.com/tendermint/go-amino/issues/260
+   *
+   * @param precommits List of possibly empty votes
+   * @return Merkle hash of these votes
+   */
+  def commitHash(precommits: List[Option[Vote]]): Array[Byte] = {
     Merkle.simpleHash(precommits.map(Protobuf.encode(_)))
   }
 
-  // Merkle hash from the list of TXs
-  def txsHash(txs: List[Tx]) = Merkle.simpleHash(txs.map(singleTxHash))
+  /**
+   * Calculates merkle hash from the list of TXs
+   */
+  def txsHash(txs: List[Tx]): Array[Byte] = Merkle.simpleHash(txs.map(singleTxHash))
 
-  // Hash of the single tx, go: tmhash.Sum(tx) -> SHA256.sum
-  def singleTxHash(tx: Tx) = Sha256.unsafe(tx.bv.toArray)
+  /**
+   * Calculates hash of the single tx
+   * In Go code it is `tmhash.Sum(tx)` -> `SHA256.sum`
+   */
+  def singleTxHash(tx: Tx): Array[Byte] = Sha256.unsafe(tx.bv.toArray)
 
-  def evidenceHash(evl: List[Evidence]) = Merkle.simpleHash(evl)
+  /**
+   * Calculates merkle hash of list of Evidence
+   * TODO: Add Evidence to block, write tests on evidence
+   */
+  def evidenceHash(evl: List[Evidence]): Array[Byte] = Merkle.simpleHash(evl)
 }
 
-// TODO: to/from JSON
-// TODO: add evidence
+// TODO: Add Evidence field to the Block
 private[block] case class Block(header: Header, data: Data, last_commit: LastCommit) {
   import Block._
 
-  // SimpleHash, go: SimpleHashFromByteSlices
-  // https://github.com/tendermint/tendermint/wiki/Merkle-Trees#simple-tree-with-dictionaries
-  // MerkleRoot of all the fields in the header (ie. MerkleRoot(header))
-  // Note:
-  //    We will abuse notion and invoke MerkleRoot with arguments of type struct or type []struct.
-  //    For struct arguments, we compute a [][]byte containing the amino encoding of each field in the
-  //    struct, in the same order the fields appear in the struct. For []struct arguments, we compute a
-  //    [][]byte by amino encoding the individual struct elements.
-  def blockHash(): Hash = headerHash()
-
-  // MerkleRoot of the complete serialized block cut into parts (ie. MerkleRoot(MakeParts(block))
-  // go: SimpleProofsFromByteSlices
+  /**
+   * MerkleRoot of the complete serialized block cut into parts (ie. MerkleRoot(MakeParts(block))
+   * go: SimpleProofsFromByteSlices
+   *
+   * @return Parts header, containing hash and the number of parts
+   */
   def partsHash(): PartsHeader = {
     val bytes = Protobuf.encodeLengthPrefixed(ProtobufConverter.toAmino(this))
     val parts = bytes.grouped(Block.BlockPartSizeBytes).toList
@@ -90,8 +100,12 @@ private[block] case class Block(header: Header, data: Data, last_commit: LastCom
     PartsHeader(hash, parts.length)
   }
 
-  // Calculates 3 hashes, should be called before blockHash()
-  def fillHeader(): Block = {
+  /**
+   * Calculates 3 hashes, should be called before blockHash()
+   *
+   * @return Copy of the Block with filled hashes
+   */
+  private def fillHeader(): Block = {
     val lastCommitHash = ByteVector(commitHash(last_commit.precommits))
     val dataHash = ByteVector(txsHash(data.txs))
     val evHash = ByteVector(evidenceHash(Nil))
@@ -99,21 +113,40 @@ private[block] case class Block(header: Header, data: Data, last_commit: LastCom
     copy(header.copy(last_commit_hash = lastCommitHash, data_hash = dataHash, evidence_hash = evHash))
   }
 
+  /**
+   * Calculates Merkle hash of the header
+   *
+   * @return Merkle hash of the header
+   */
   def headerHash(): Array[Byte] = {
     fillHeader().filledHeaderHash()
   }
 
+  /**
+   * Calculates Merkle hash of the transaction list
+   *
+   * @return Merkle hash of the transaction list
+   */
   def dataHash(): Array[Byte] = {
     txsHash(data.txs)
   }
 
+  /**
+   * Calculates Merkle hash of the lastCommit.precommits (votes for the previous block)
+   *
+   * @return Merkle hash of precommits
+   */
   def lastCommitHash(): Array[Byte] = {
     commitHash(last_commit.precommits)
   }
 
-  // NOTE:
-  //  In Tendermnt's Go code, header hash is calculated from `cdcEncode`-ed fields,
-  //  which yields [] on empty arrays, that's why skipEmpty = true
+  /**
+   * Calculates Merkle hash from serialized header
+   *
+   * NOTE:
+   *   In Tendermnt's Go code, header hash is calculated from `cdcEncode`-ed fields,
+   *   which yields [] on empty arrays, that's why skipEmpty = true
+   */
   private def filledHeaderHash(): Array[Byte] = {
     val data = List(
       Protobuf.encode(header.version),
