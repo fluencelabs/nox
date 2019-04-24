@@ -1,17 +1,13 @@
 import * as React from 'react';
 import {connect} from 'react-redux';
+import {Link} from "react-router-dom";
 import {DeployableAppId, deployableAppIds, deployableApps} from '../../../fluence/deployable';
-import {showEntity} from '../../actions';
-import {FluenceEntity, FluenceEntityType} from "../../actions/entity";
-import {Action} from "redux";
 
 interface State {
     deployableAppIdsVisible: boolean,
 }
 
-interface Props {
-    showEntity: (entity: FluenceEntity) => Action,
-}
+interface Props {}
 
 class FluenceDeployList extends React.Component<Props, State> {
     state: State = {
@@ -32,14 +28,6 @@ class FluenceDeployList extends React.Component<Props, State> {
         });
     };
 
-    showDeployableApp = (e: React.MouseEvent<HTMLElement>, id: DeployableAppId) => {
-        e.preventDefault();
-        this.props.showEntity({
-            type: FluenceEntityType.DeployableApp,
-            id: id,
-        });
-    };
-
     render(): React.ReactNode {
         return (
             <div className="small-box bg-fluence-blue-gradient">
@@ -51,15 +39,16 @@ class FluenceDeployList extends React.Component<Props, State> {
                 <div className="icon">
                     <i className='ion ion-cloud-download'/>
                 </div>
-                {deployableAppIds.map(id => (
-                    <div className="small-box-footer entity-link bg-fluence-green-gradient"
-                         onClick={(e) => this.showDeployableApp(e, id)}>
-                        <div className="box-body">
-                            <strong>
-                                <i className="fa fa-bullseye margin-r-5"/> <span
-                                title={deployableApps[id].name}>{deployableApps[id].name}</span>
-                            </strong>
-                        </div>
+                {deployableAppIds.map((id: DeployableAppId) => (
+                    <div className="small-box-footer entity-link bg-fluence-green-gradient">
+                        <Link to={`/deploy/${id}`}>
+                            <div className="box-body">
+                                <strong>
+                                    <i className="fa fa-bullseye margin-r-5"/> <span
+                                    title={deployableApps[id].name}>{deployableApps[id].name}</span>
+                                </strong>
+                            </div>
+                        </Link>
                     </div>
                 ))}
             </div>
@@ -67,11 +56,8 @@ class FluenceDeployList extends React.Component<Props, State> {
     }
 }
 
-const mapStateToProps = (state: any) => ({
-});
+const mapStateToProps = (state: any) => ({});
 
-const mapDispatchToProps = {
-    showEntity
-};
+const mapDispatchToProps = {};
 
 export default connect(mapStateToProps, mapDispatchToProps)(FluenceDeployList);

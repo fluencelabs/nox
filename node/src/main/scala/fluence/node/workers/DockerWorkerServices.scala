@@ -60,21 +60,21 @@ object DockerWorkerServices extends LazyLogging {
   private def dockerCommand(params: WorkerParams, network: DockerNetwork): DockerParams.DaemonParams = {
     import params._
 
-    val dockerParams = DockerParams
+    // Set worker's Xmx to mem * 0.75, so there's a gap between JVM heap and cgroup memory limit
+    val internalMem = dockerConfig.limits.memoryMb.map(mem => Math.floor(mem * 0.75).toInt)
+
+    DockerParams
       .build()
       .option("-e", s"""CODE_DIR=$vmCodePath""")
       .option("-e", s"TM_RPC_PORT=${DockerTendermint.RpcPort}")
       .option("-e", s"TM_RPC_HOST=${DockerTendermint.containerName(params)}")
+      .option("-e", internalMem.map(mem => s"WORKER_MEMORY_LIMIT=$mem"))
       .option("--name", containerName(params))
       .option("--network", network.name)
+      .option("--volumes-from", masterNodeContainerId.map(id => s"$id:ro"))
       .limits(dockerConfig.limits)
-
-    (masterNodeContainerId match {
-      case Some(id) =>
-        dockerParams.option("--volumes-from", s"$id:ro")
-      case None =>
-        dockerParams
-    }).prepared(dockerConfig.image).daemonRun()
+      .prepared(dockerConfig.image)
+      .daemonRun()
   }
 
   private def dockerNetworkName(params: WorkerParams): String =
