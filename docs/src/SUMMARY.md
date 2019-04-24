@@ -17,7 +17,7 @@
         - [SDK overview](backend/rust/sdk.md)
         - [Best practices](backend/rust/best_practices.md)
     - [C/C++](backend/c_cpp/sdk.md)
-        - [Compilation overview](backend/c_cpp/compilation_overview.md)
+        - [Compilation overview](backend/c_cpp/sdk_overview.md)
         - [SDK overview](backend/c_cpp/sdk.md)
         - [Best practices](backend/c_cpp/best_practices.md)
     - [AssemblyScript: soon](soon.md)

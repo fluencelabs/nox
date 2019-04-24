@@ -1,4 +1,4 @@
-# Best practices for backend applications
+# Best practices for Rust backend applications
 
 ## Request routing
 
@@ -36,10 +36,6 @@ fn handle_request(req: String) -> String {
   }
 }
 ```
-
-## Authentication
-
-**TBD**
 
 ## Memory management
 

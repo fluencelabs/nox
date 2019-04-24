@@ -54,7 +54,7 @@ fn greeting(name: String) -> String {
 
 The initialization function will be called only once and before any other code when the first transaction arrives. Therefore, it is a great place to put the code preparing the backend application.
 
-## Debugging
+## Logging
 
 **TBD**
 
