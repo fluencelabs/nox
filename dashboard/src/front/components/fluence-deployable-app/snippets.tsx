@@ -166,7 +166,7 @@ session.request("<enter your request here>").result().then((r) => {
                     <div className="box-footer no-padding">
                         <div className="box-body">
 
-                            {this.props.app.selfUpload ? this.renderUploadedAppSnippets() : this.renderAppSnippets()}
+                            { (this.props.app.shortName === "Redis" || this.props.app.selfUpload) ? this.renderUploadedAppSnippets() : this.renderAppSnippets()}
 
                             <hr/>
                             <p><strong><i className="fa fa-bullseye margin-r-5"/>Check your app's health:</strong></p>
