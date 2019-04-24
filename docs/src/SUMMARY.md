@@ -22,17 +22,8 @@
 - [Frontend guide](frontend/index.md)
     - [Javascript Client](frontend/javascript.md)    
 
-- [Debug code locally](debugging.md)
+- [Application debugging](debugging.md)
 - [Running Fluence nodes](nodes.md)
 - [Command-line interface](cli.md)
 - [Key examples](examples.md)
 - [Project status](project.md)
-
-[Tutorials](https://github.com/fluencelabs/tutorials/)
-
-[Fluence Labs site](http://fluence.network/)
-
-[Discord](https://discordapp.com/invite/AjfbDKQ)
-
-[Github](https://github.com/fluencelabs/fluence)
-
