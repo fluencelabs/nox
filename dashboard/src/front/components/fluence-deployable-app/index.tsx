@@ -1,5 +1,6 @@
 import * as React from 'react';
 import {connect} from 'react-redux';
+import {withRouter} from "react-router";
 import {DeployableApp, DeployableAppId, deployableApps, StorageType} from "../../../fluence/deployable";
 import {deploy, deployUpload} from "../../actions";
 import {Action} from "redux";
@@ -92,7 +93,7 @@ class FluenceDeployableApp extends React.Component<Props, State> {
 
     renderUploadBlock(): React.ReactNode[] {
         return ([
-            <strong><i className="fa fa-bullseye margin-r-5"/>Upload .*wasm file</strong>,
+            <strong><i className="fa fa-bullseye margin-r-5"/>Upload *.wasm file</strong>,
             <p><input type="file" ref={(ref: HTMLInputElement) => { this.uploadFormElement = ref; }} /></p>,
             <hr/>
         ]);
@@ -170,4 +171,4 @@ const mapDispatchToProps = {
     deployUpload
 };
 
-export default connect(mapStateToProps, mapDispatchToProps)(FluenceDeployableApp);
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(FluenceDeployableApp));

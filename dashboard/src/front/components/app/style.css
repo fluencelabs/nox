@@ -19,6 +19,9 @@
     cursor: pointer;
     overflow: hidden;
 }
+.entity-link a {
+    color: rgba(255, 255, 255, 0.8);
+}
 
 .small-node-id {
     font-size: 11px;

@@ -63,7 +63,7 @@ case class TxProcessor[F[_]: Sync: Monad: LiftIO] private (
   order: TxOrder[F]
 )(
   implicit dsl: Http4sDsl[F]
-) {
+) extends slogging.LazyLogging {
 
   import dsl._
 
@@ -91,7 +91,7 @@ case class TxProcessor[F[_]: Sync: Monad: LiftIO] private (
 
     waitOrder *> locked {
       for {
-        result <- vm.invoke[F](None, body.getBytes()).value.flatMap(Sync[F].fromEither)
+        result <- vm.invoke(None, body.getBytes()).value.flatMap(Sync[F].fromEither)
         encoded = ByteVector(result).toBase64
         _ <- responses.update(_.updated(path, encoded))
         json = s"""
@@ -115,6 +115,12 @@ case class TxProcessor[F[_]: Sync: Monad: LiftIO] private (
 
     for {
       result <- responses.get.map(_.get(path)).map(_.getOrElse("not found"))
+      _ = {
+        ByteVector.fromBase64Descriptive(result).foreach { bv =>
+          val strResult = new String(bv.toArray)
+          logger.info("Queried result: " + strResult)
+        }
+      }
       json = s"""
                 | {
                 |   "jsonrpc": "2.0",
