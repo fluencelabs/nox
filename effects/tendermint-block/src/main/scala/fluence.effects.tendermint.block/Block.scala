@@ -16,13 +16,10 @@
 
 package fluence.effects.tendermint.block
 
-import com.google.protobuf.ByteString
 import io.circe.Decoder
 import io.circe.generic.semiauto.deriveDecoder
-import proto3.tendermint.{BlockID, Commit, Vote}
+import proto3.tendermint.{BlockID, Vote}
 import scodec.bits.ByteVector
-
-import scala.util.Try
 
 // About BlockID: https://tendermint.com/docs/spec/blockchain/blockchain.html#blockid
 
@@ -34,6 +31,7 @@ case class LastCommit(block_id: BlockID, precommits: List[Option[Vote]])
 case class PartsHeader(hash: Array[Byte], count: Int)
 
 object Block {
+  /* JSON decoders */
   import Header._
   implicit final val decodeBase64ByteVector: Decoder[Base64ByteVector] = Decoder.decodeString.emap(
     str => ByteVector.fromBase64Descriptive(str).map(Base64ByteVector).left.map(_ => "Base64ByteVector")
@@ -44,17 +42,33 @@ object Block {
   implicit final val lastCommitDecoder: Decoder[LastCommit] = deriveDecoder
   implicit final val blockDecoder: Decoder[Block] = deriveDecoder
 
-  val BlockPartSizeBytes = 65536 // 64kB
-}
-
-// TODO: to/from JSON
-// TODO: add evidence
-case class Block(header: Header, data: Data, last_commit: LastCommit) {
+  /* Definitions */
   type Parts = List[Array[Byte]]
   type Hash = Array[Byte]
   type Tx = Base64ByteVector
   type Evidence = Array[Byte]
   type Precommits = List[Vote] // also, Vote = CommitSig in Go
+
+  val BlockPartSizeBytes = 65536 // 64kB
+
+  // Merkle hash of all precommits (some of them could be null?)
+  def commitHash(precommits: List[Option[Vote]]) = {
+    Merkle.simpleHash(precommits.map(Amino.encode(_)))
+  }
+
+  // Merkle hash from the list of TXs
+  def txsHash(txs: List[Tx]) = Merkle.simpleHash(txs.map(singleTxHash))
+
+  // Hash of the single tx, go: tmhash.Sum(tx) -> SHA256.sum
+  def singleTxHash(tx: Tx) = SHA256.sum(tx.bv.toArray)
+
+  def evidenceHash(evl: List[Evidence]) = Merkle.simpleHash(evl)
+}
+
+// TODO: to/from JSON
+// TODO: add evidence
+case class Block(header: Header, data: Data, last_commit: LastCommit) {
+  import Block._
 
   // SimpleHash, go: SimpleHashFromByteSlices
   // https://github.com/tendermint/tendermint/wiki/Merkle-Trees#simple-tree-with-dictionaries
@@ -88,6 +102,14 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
     fillHeader().filledHeaderHash()
   }
 
+  def dataHash(): Array[Byte] = {
+    txsHash(data.txs)
+  }
+
+  def lastCommitHash(): Array[Byte] = {
+    commitHash(last_commit.precommits)
+  }
+
   // NOTE:
   //  In Tendermnt's Go code, header hash is calculated from `cdcEncode`-ed fields,
   //  which yields [] on empty arrays, that's why skipEmpty = true
@@ -113,19 +135,6 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
 
     Merkle.simpleHash(data)
   }
-
-  // Merkle hash of all precommits (some of them could be null?)
-  def commitHash(precommits: List[Option[Vote]]) = {
-    Merkle.simpleHash(precommits.map(Amino.encode(_)))
-  }
-
-  // Merkle hash from the list of TXs
-  def txsHash(txs: List[Tx]) = Merkle.simpleHash(txs.map(singleTxHash))
-
-  // Hash of the single tx, go: tmhash.Sum(tx) -> SHA256.sum
-  def singleTxHash(tx: Tx) = SHA256.sum(tx.bv.toArray)
-
-  def evidenceHash(evl: List[Evidence]) = Merkle.simpleHash(evl)
 }
 
 object SHA256 {

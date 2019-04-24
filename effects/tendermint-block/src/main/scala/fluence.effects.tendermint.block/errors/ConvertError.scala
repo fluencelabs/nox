@@ -14,20 +14,8 @@
  * limitations under the License.
  */
 
-package fluence.effects.tendermint.block
+package fluence.effects.tendermint.block.errors
 
-import io.circe.Decoder
-import scodec.bits.ByteVector
-
-object TendermintBlock {
-  implicit final val blockDecoder: Decoder[TendermintBlock] =
-    Decoder.decodeString.emap(JSON.block(_).left.map(_ => "Block").map(TendermintBlock(_)))
-}
-case class TendermintBlock(block: Block) {
-
-  def check() = {
-    val dataHash = ByteVector(block.dataHash()).toHex == block.header.data_hash.toHex
-    val lastCommitHash = ByteVector(block.lastCommitHash()) == block.header.last_commit_hash.toHex
-
-  }
+case class ConvertError[E, EE](convert: E => EE) {
+  def apply(e: E): EE = convert(e)
 }

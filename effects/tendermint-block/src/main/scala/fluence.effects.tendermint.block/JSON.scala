@@ -16,10 +16,12 @@
 
 package fluence.effects.tendermint.block
 
-import cats.syntax.either._
 import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
+import fluence.effects.tendermint.block.errors.Errors._
+import fluence.effects.tendermint.block.errors.TendermintBlockError
 import io.circe.Json
+import io.circe.parser._
 import proto3.tendermint.{BlockID, Version, Vote}
 import scalapb.lenses.{Lens, Mutation}
 import scalapb_circe.Parser
@@ -72,12 +74,6 @@ object JSON {
     """.stripMargin
 
   def block(blockResponse: String): Either[TendermintBlockError, Block] = {
-    import ErrorHandling._
-    import JsonDecodingError._
-    import JsonParsingError._
-    import io.circe._
-    import io.circe.parser._
-
     for {
       resposnseJson <- parse(blockResponse).convertError
       blockJson <- resposnseJson.hcursor.downField("result").get[Json]("block").convertError
@@ -86,12 +82,6 @@ object JSON {
   }
 
   def commit(commitResponse: String): Either[TendermintBlockError, Commit] = {
-    import ErrorHandling._
-    import JsonDecodingError._
-    import JsonParsingError._
-    import io.circe._
-    import io.circe.parser._
-
     for {
       responseJson <- parse(commitResponse).convertError
       commitJson <- responseJson.hcursor.downField("result").downField("signed_header").get[Json]("commit").convertError

@@ -33,17 +33,17 @@ object Header {
 
   implicit val decodeVersion: Decoder[proto3.tendermint.Version] = {
     Decoder.decodeJson.emap { jvalue =>
-      Try(JSON.version(jvalue)).toEither.left.map(_ => "Version")
+      JSON.version(jvalue).left.map(_ => "Version")
     }
   }
 
   implicit val decodeTimestamp: Decoder[com.google.protobuf.timestamp.Timestamp] = {
-    Decoder.decodeJson.emap(jvalue => Try(JSON.timestamp(jvalue)).toEither.left.map(_ => "Timestamp"))
+    Decoder.decodeJson.emap(jvalue => JSON.timestamp(jvalue).left.map(_ => "Timestamp"))
   }
 
   implicit val decodeBlockID: Decoder[BlockID] = {
     Decoder.decodeJson.emap { jvalue =>
-      Try(JSON.blockId(jvalue)).toEither.left.map(_ => "BlockID")
+      JSON.blockId(jvalue).left.map(_ => "BlockID")
     }
   }
 

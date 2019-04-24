@@ -14,20 +14,14 @@
  * limitations under the License.
  */
 
-package fluence.effects.tendermint.block
+package fluence.effects.tendermint.block.errors
 
-import io.circe.Decoder
-import scodec.bits.ByteVector
+import scala.util.control.NoStackTrace
 
-object TendermintBlock {
-  implicit final val blockDecoder: Decoder[TendermintBlock] =
-    Decoder.decodeString.emap(JSON.block(_).left.map(_ => "Block").map(TendermintBlock(_)))
-}
-case class TendermintBlock(block: Block) {
+trait TendermintBlockError extends NoStackTrace
 
-  def check() = {
-    val dataHash = ByteVector(block.dataHash()).toHex == block.header.data_hash.toHex
-    val lastCommitHash = ByteVector(block.lastCommitHash()) == block.header.last_commit_hash.toHex
+trait WithCause[E <: Throwable] extends TendermintBlockError {
+  def cause: E
 
-  }
+  initCause(cause)
 }

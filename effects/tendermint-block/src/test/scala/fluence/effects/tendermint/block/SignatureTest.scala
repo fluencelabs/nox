@@ -27,7 +27,7 @@ class SignatureTest extends FunSpec with Matchers with OptionValues {
 
   it("verify vote") {
     val chainID = "10"
-    val vote = JSON.vote(parse(TestData.vote).right.get)
+    val vote = parse(TestData.vote).flatMap(JSON.vote).right.get
     val validator = TestData.validators(vote.validatorIndex).toArray
     Signature.verifyVote(vote, chainID, validator) shouldBe true
   }
