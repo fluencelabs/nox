@@ -160,13 +160,13 @@ session.request("<enter your request here>").result().then((r) => {
                                 <i className="ion ion-ios-checkmark-outline"/>
                             </span>
                         </div>
-                        <h3 className="widget-user-username">Connect to {this.props.app.name}</h3>
+                        <h3 className="widget-user-username">Connect to {this.props.app.shortName}</h3>
                         <h3 className="widget-user-desc">appID: <b>{this.props.appId}</b></h3>
                     </div>
                     <div className="box-footer no-padding">
                         <div className="box-body">
 
-                            {this.props.app.selfUpload ? this.renderUploadedAppSnippets() : this.renderAppSnippets()}
+                            { (this.props.app.shortName === "Redis" || this.props.app.selfUpload) ? this.renderUploadedAppSnippets() : this.renderAppSnippets()}
 
                             <hr/>
                             <p><strong><i className="fa fa-bullseye margin-r-5"/>Check your app's health:</strong></p>
