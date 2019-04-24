@@ -17,16 +17,24 @@
 package fluence.effects.tendermint.block
 
 import fluence.crypto.hash.CryptoHashers.Sha256
-import scodec.bits.ByteVector
 
+/**
+ * Port of Tendermint's SimpleMerkleHash
+ *
+ * Uses different prefixes for leafs and nodes in order to
+ * avoid second preimage attack, for details, see https://tools.ietf.org/html/rfc6962#section-2.1
+ *
+ */
 private[block] object Merkle {
   private val LeafPrefix: Byte = 0
   private val NodePrefix: Byte = 1
 
-  def simpleHashBV(data: List[ByteVector]): ByteVector = {
-    ByteVector(simpleHash(data.map(_.toArray)))
-  }
-
+  /**
+   * Calculates merkle root (binary) for a list of array bytes
+   *
+   * @param data List of array bytes, can be of any size
+   * @return Merkle hash
+   */
   def simpleHash(data: List[Array[Byte]]): Array[Byte] = {
     data.length match {
       case 0 => Array.empty
@@ -39,24 +47,34 @@ private[block] object Merkle {
     }
   }
 
-  def splitPoint(length: Int): Int = {
+  /**
+   * Calculates lower-nearest power of two.
+   *
+   * i.e., for some N such that 2**N < length < 2**M, function returns 2**N
+   *
+   * @param length Number of leafs in the tree
+   * @return Power of two, less than length
+   */
+  private def splitPoint(length: Int): Int = {
     // From doc of Integer.numberOfLeadingZeros:
     //  floor(log_2(x)) = 31 - numberOfLeadingZeros(x)
     val inferiorPower = 31 - Integer.numberOfLeadingZeros(length)
 
-    // Math.pow(2, inferiorPower), but avoiding Doubles
+    // Same as Math.pow(2, inferiorPower), but avoiding Doubles
     val result = 1 << inferiorPower
 
     if (result == length) {
+      // We need lower-nearest, but got equal power of two,
+      // so apply square root to get lower power of 2
       result >> 1
     } else {
       result
     }
   }
 
-  def leafHash(bs: Array[Byte]): Array[Byte] =
+  private def leafHash(bs: Array[Byte]): Array[Byte] =
     Sha256.unsafe(LeafPrefix +: bs)
 
-  def nodeHash(left: Array[Byte], right: Array[Byte]): Array[Byte] =
+  private def nodeHash(left: Array[Byte], right: Array[Byte]): Array[Byte] =
     Sha256.unsafe(NodePrefix +: (left ++ right))
 }

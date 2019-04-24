@@ -26,13 +26,13 @@ private[block] object ProtobufConverter {
   private def bs(bv: ByteVector): ByteString = ByteString.copyFrom(bv.toArray)
 
   /**
-    * Encodes a list of optional protobuf Votes:
-    * 1. To a default protobuf structure serialization, if element is defined
-    * 2. To an empty byte array, if element is None
-    *
-    * Each empty byte array will become [0x1, 0x2, 0x0, 0x0] in PBCommit encoding
-    * This is to be compatible with Tendermint's amino encoding, for details see https://github.com/tendermint/go-amino/issues/260
-    */
+   * Encodes a list of optional protobuf Votes:
+   * 1. To a default protobuf structure serialization, if element is defined
+   * 2. To an empty byte array, if element is None
+   *
+   * Each empty byte array will become [0x1, 0x2, 0x0, 0x0] in PBCommit encoding
+   * This is to be compatible with Tendermint's amino encoding, for details see https://github.com/tendermint/go-amino/issues/260
+   */
   private def serialize(precommits: List[Option[Vote]]): List[ByteString] =
     Protobuf.encode(precommits).map(ByteString.copyFrom)
 

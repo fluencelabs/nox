@@ -24,6 +24,14 @@ import scodec.bits.ByteVector
 // Ed25519
 private[block] object TendermintSignature {
 
+  /**
+   * Verifies Ed25519 signature for specified message and pubKey, using BouncyCastle library
+   *
+   * @param message Signed message
+   * @param pubKey Public key for the signature
+   * @param signature Signatore of the message
+   * @return True, if signature is correct, false otherwise
+   */
   def verifyBC(message: Array[Byte], pubKey: Array[Byte], signature: Array[Byte]): Boolean = {
     import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
     import org.bouncycastle.crypto.signers.Ed25519Signer
@@ -50,23 +58,19 @@ private[block] object TendermintSignature {
     result.isRight
   }
 
-  // ChainID could be taken from e.g., InitChain
+  /**
+   * Verifies that signatures in Vote are correct
+   *
+   * Signatures are verified against protobuf-encoded canonical Vote
+   *
+   * @param vote Vote to verify
+   * @param chainID could be taken from e.g., InitChain
+   * @param pubKey Public key to check signature against
+   * @return True if signature is correct, false otherwise
+   */
   def verifyVote(vote: Vote, chainID: String, pubKey: Array[Byte]): Boolean = {
-    val canonicalVote = canonicalize(vote, chainID)
+    val canonicalVote = Canonical.vote(vote, chainID)
     val bytes = Protobuf.encodeLengthPrefixed(canonicalVote)
     verifyBC(bytes, pubKey, vote.signature.toByteArray)
-  }
-
-  def canonicalize(header: PartSetHeader): CanonicalPartSetHeader = {
-    CanonicalPartSetHeader(header.hash, header.total)
-  }
-
-  def canonicalize(blockID: BlockID): CanonicalBlockID = {
-    CanonicalBlockID(blockID.hash, blockID.parts.map(canonicalize))
-  }
-
-  def canonicalize(vote: Vote, chainID: String): CanonicalVote = {
-    val blockID = vote.blockId.map(canonicalize)
-    CanonicalVote(vote.`type`, vote.height, vote.round, blockID, vote.timestamp, chainID)
   }
 }

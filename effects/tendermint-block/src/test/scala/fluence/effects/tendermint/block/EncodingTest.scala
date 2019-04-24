@@ -384,7 +384,7 @@ class EncodingTest extends FunSpec with Matchers with OptionValues {
     val chainID = block.header.chain_id
     it("encode canonical vote") {
 
-      val bytes = Protobuf.encodeLengthPrefixed(TendermintSignature.canonicalize(vote, chainID))
+      val bytes = Protobuf.encodeLengthPrefixed(Canonical.vote(vote, chainID))
       val scalaHex = toHex(bytes)
       val goHex =
         "67080211100000000000000022480A201E56CF404964AA6B0768E67AD9CBACABCEBCD6A84DC0FC924F1C0AF9043C018812240A20D0A00D1902638E1F4FD625568D4A4A7D9FC49E8F3586F257535FC835E7B0B78510012A0C08DBD4DCE50510F7E6E0FF0132023130"

@@ -27,6 +27,9 @@ private[block] object Commit {
   implicit val commitDecoder: Decoder[Commit] = deriveDecoder[Commit]
 }
 
+/**
+ * Representation of the Tendermint's commit structure
+ */
 private[block] case class Commit(
   block_id: BlockID,
   precommits: List[Option[Vote]],
