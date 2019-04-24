@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.effects.tendermint.block
+package fluence.effects.tendermint.block.protobuf
 
 import com.google.protobuf.{ByteString, CodedOutputStream}
 import scalapb.GeneratedMessage

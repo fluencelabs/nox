@@ -18,6 +18,7 @@ package fluence.effects.tendermint.block
 
 import fluence.crypto.KeyPair
 import fluence.crypto.ecdsa.Ecdsa
+import fluence.effects.tendermint.block.protobuf.Protobuf
 import proto3.tendermint._
 import scodec.bits.ByteVector
 

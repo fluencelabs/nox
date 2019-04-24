@@ -16,7 +16,7 @@
 
 package fluence.effects.tendermint.block.data
 
-import fluence.effects.tendermint.block.ProtobufJson
+import fluence.effects.tendermint.block.protobuf.ProtobufJson
 import io.circe.Decoder
 import io.circe.generic.semiauto.deriveDecoder
 import proto3.tendermint.BlockID

@@ -16,6 +16,7 @@
 
 package fluence.effects.tendermint.block
 
+import fluence.effects.tendermint.block.protobuf.{Protobuf, ProtobufConverter, ProtobufJson}
 import io.circe.parser._
 import org.scalatest.{FunSpec, Matchers, OptionValues}
 import scodec.bits.ByteVector
