@@ -20,7 +20,7 @@ import com.google.protobuf.{ByteString, CodedOutputStream}
 import scalapb.GeneratedMessage
 import scodec.bits.ByteVector
 
-object Protobuf {
+private[block] object Protobuf {
   private def stringSize(s: String) = CodedOutputStream.computeStringSizeNoTag(s)
   private def int64Size(l: Long) = CodedOutputStream.computeInt64SizeNoTag(l)
   private def bytesSize(bs: ByteString) = CodedOutputStream.computeBytesSizeNoTag(bs)

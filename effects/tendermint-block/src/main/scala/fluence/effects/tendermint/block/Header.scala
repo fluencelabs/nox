@@ -16,15 +16,12 @@
 
 package fluence.effects.tendermint.block
 
-import com.google.protobuf.ByteString
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.Decoder
-import proto3.tendermint.{BlockID, Vote}
+import io.circe.generic.semiauto.deriveDecoder
+import proto3.tendermint.BlockID
 import scodec.bits.ByteVector
 
-import scala.util.Try
-
-object Header {
+private[block] object Header {
   implicit final val decodeByteVector: Decoder[ByteVector] = {
     Decoder.decodeString.emap { str =>
       ByteVector.fromHexDescriptive(str).left.map(_ => "ByteVector")
@@ -50,7 +47,7 @@ object Header {
   implicit val headerDecoder: Decoder[Header] = deriveDecoder[Header]
 }
 
-case class Header(
+private[block] case class Header(
   version: Option[proto3.tendermint.Version],
   chain_id: String,
   height: Long,

@@ -16,6 +16,7 @@
 
 package fluence.effects.tendermint.block
 
+import fluence.crypto.hash.CryptoHashers.Sha256
 import io.circe.Decoder
 import io.circe.generic.semiauto.deriveDecoder
 import proto3.tendermint.{BlockID, Vote}
@@ -30,7 +31,7 @@ case class Data(txs: List[Base64ByteVector])
 case class LastCommit(block_id: BlockID, precommits: List[Option[Vote]])
 case class PartsHeader(hash: Array[Byte], count: Int)
 
-object Block {
+private[block] object Block {
   /* JSON decoders */
   import Header._
   implicit final val decodeBase64ByteVector: Decoder[Base64ByteVector] = Decoder.decodeString.emap(
@@ -60,14 +61,14 @@ object Block {
   def txsHash(txs: List[Tx]) = Merkle.simpleHash(txs.map(singleTxHash))
 
   // Hash of the single tx, go: tmhash.Sum(tx) -> SHA256.sum
-  def singleTxHash(tx: Tx) = SHA256.sum(tx.bv.toArray)
+  def singleTxHash(tx: Tx) = Sha256.unsafe(tx.bv.toArray)
 
   def evidenceHash(evl: List[Evidence]) = Merkle.simpleHash(evl)
 }
 
 // TODO: to/from JSON
 // TODO: add evidence
-case class Block(header: Header, data: Data, last_commit: LastCommit) {
+private[block] case class Block(header: Header, data: Data, last_commit: LastCommit) {
   import Block._
 
   // SimpleHash, go: SimpleHashFromByteSlices
@@ -135,10 +136,4 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
 
     Merkle.simpleHash(data)
   }
-}
-
-object SHA256 {
-  import fluence.crypto.hash.CryptoHashers.Sha256
-
-  def sum(bs: Array[Byte]): Array[Byte] = Sha256.unsafe(bs)
 }

@@ -19,7 +19,7 @@ package fluence.effects.tendermint.block
 import fluence.crypto.hash.CryptoHashers.Sha256
 import scodec.bits.ByteVector
 
-object Merkle {
+private[block] object Merkle {
   private val LeafPrefix: Byte = 0
   private val NodePrefix: Byte = 1
 

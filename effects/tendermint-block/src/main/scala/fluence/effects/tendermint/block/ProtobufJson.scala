@@ -30,7 +30,7 @@ import scodec.bits.ByteVector
 import scala.language.postfixOps
 import scala.util.Try
 
-object ProtobufJson {
+private[block] object ProtobufJson {
   val parser = new Parser(true)
 
   def block(blockResponse: String): Either[TendermintBlockError, Block] = {

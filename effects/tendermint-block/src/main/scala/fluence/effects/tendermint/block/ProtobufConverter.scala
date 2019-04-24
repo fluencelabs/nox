@@ -20,7 +20,7 @@ import com.google.protobuf.ByteString
 import proto3.tendermint.Vote
 import scodec.bits.ByteVector
 
-object ProtobufConverter {
+private[block] object ProtobufConverter {
   import proto3.tendermint.{Block => PBBlock, Commit => PBCommit, Data => PBData, Header => PBHeader}
 
   private def bs(bv: ByteVector): ByteString = ByteString.copyFrom(bv.toArray)

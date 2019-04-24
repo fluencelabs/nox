@@ -20,14 +20,14 @@ import io.circe.Decoder
 import io.circe.generic.semiauto.deriveDecoder
 import proto3.tendermint.{BlockID, Vote}
 
-object Commit {
-  import Block._
-  import Header._
+private[block] object Commit {
+  import Block.decodeVote
+  import Header.decodeBlockID
 
-  implicit val headerDecoder: Decoder[Commit] = deriveDecoder[Commit]
+  implicit val commitDecoder: Decoder[Commit] = deriveDecoder[Commit]
 }
 
-case class Commit(
+private[block] case class Commit(
   block_id: BlockID,
   precommits: List[Option[Vote]],
 )
