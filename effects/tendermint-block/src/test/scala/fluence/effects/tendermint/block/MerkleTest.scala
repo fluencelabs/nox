@@ -17,6 +17,7 @@
 package fluence.effects.tendermint.block
 
 import fluence.effects.tendermint.block.protobuf.ProtobufJson
+import fluence.effects.tendermint.block.signature.Merkle
 import org.scalatest.{FunSpec, Matchers, OptionValues}
 import scodec.bits.ByteVector
 

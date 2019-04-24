@@ -17,8 +17,8 @@
 package fluence.effects.tendermint.block.data
 
 import fluence.crypto.hash.CryptoHashers.Sha256
-import fluence.effects.tendermint.block.Merkle
 import fluence.effects.tendermint.block.protobuf.{Protobuf, ProtobufConverter, ProtobufJson}
+import fluence.effects.tendermint.block.signature.Merkle
 import io.circe.Decoder
 import io.circe.generic.semiauto.deriveDecoder
 import proto3.tendermint.Vote

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.effects.tendermint.block
+package fluence.effects.tendermint.block.signature
 
 import fluence.crypto.hash.CryptoHashers.Sha256
 

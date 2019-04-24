@@ -19,6 +19,7 @@ package fluence.effects.tendermint.block
 import com.google.protobuf.ByteString
 import fluence.effects.tendermint.block.data.PartsHeader
 import fluence.effects.tendermint.block.protobuf.ProtobufJson
+import fluence.effects.tendermint.block.signature.TendermintSignature
 import io.circe.parser.parse
 import org.scalatest.{FunSpec, Matchers, OptionValues}
 import scodec.bits.ByteVector
