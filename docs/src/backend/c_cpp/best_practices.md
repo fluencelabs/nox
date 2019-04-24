@@ -8,17 +8,17 @@ One option would be to use JSON serialization (for example, provided by [parson]
 
 ## Syscall imports
 
-Sometimes especially by including some libraries (like `stdio.h`) imports of syscall could appear in compiled wasm binary. For checking the appearance of such imports, it just needs to translate wasm (binary format) to wast (test format) ([wabt](https://github.com/WebAssembly/wabt) could be used) and check manually for imports. All possible imports are these two needed for logger:
+Sometimes imports of syscall could appear in compiled wasm binary. It happens mostly by including some libraries (like `stdio.h`).
+Checking the appearance of such imports could be done by translating wasm (binary format) to wast (test format) (e.g. by [wabt](https://github.com/WebAssembly/wabt)) and viewing manually for imports. All possible imports are these two:
 ```
 (import "logger" "write" (func $__write (type 0)))
 (import "logger" "flush" (func $__flush (type 7)))
 ```
-
-Almost always imports of syscall could be replaced in text format to empty function.
+They are needed for logger. Also note, almost always imports of syscall could be replaced in text format to empty function.
 
 ## Carefully tracking compiler and linker warnings
 
-Generally, it is good to investigate all tracking compiler and linker warnings and try to get rid of them. But especially it is important during compilation to Webassembly. One of these seemingly innocuous warnings could look like this:
+Generally, it is good idea to investigate all tracking compiler and linker warnings and try to get rid of them. But especially it is important during compilation to Webassembly. Let's review one of these seemingly innocuous warnings that look like this:
 
 ```bash
 wasm-ld: warning: function signature mismatch: qsort
@@ -26,11 +26,11 @@ wasm-ld: warning: function signature mismatch: qsort
 >>> defined as (i32, i32, i32, i32) -> void in /opt/wasi-sdk/share/sysroot/lib/wasm32-wasi/libc.a(qsort.o)
 ```
 
-The reason for this error is a lack of `#include <stdlib.h>` directive. For some reason, a compiler could use the signature of this function that returns `i32` whereas the original function doesn't return anything. The result is an unnecessary `drop` instruction after each call of such function. It makes resulted binary incorrect for Wasm validator and, finally, it couldn't be run on Fluence.
+The reason for this error is lacking of `#include <stdlib.h>` directive. For some reason, a compiler could use signature of this function that returns `i32` whereas the original function doesn't return anything. The result is an unnecessary `drop` instruction after each call of such function. It makes resulted binary incorrect for Wasm validator and, finally, it couldn't be run on Fluence.
 
 ## Shrinking app code size
 
 In most cases, there is no need to worry about the size of the generated WebAssembly code. However, there are some common techniques for reducing the WebAssembly package size:
 - using `-O3` option for aggressive optimization 
 - using `--strip-all` options of linker for strip all symbols from generated binary
-- not using `double float` and all functions that receive it as a parameter because it generates a lot of wasm instructions and generates imports to compiler-rt lib.
+- not using `double float` and all functions that receive it as a parameter because it generates a lot of wasm instructions and imports to compiler-rt lib.
