@@ -53,7 +53,7 @@ object Block {
 
   // Merkle hash of all precommits (some of them could be null?)
   def commitHash(precommits: List[Option[Vote]]) = {
-    Merkle.simpleHash(precommits.map(Amino.encode(_)))
+    Merkle.simpleHash(precommits.map(Protobuf.encode(_)))
   }
 
   // Merkle hash from the list of TXs
@@ -83,7 +83,7 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
   // MerkleRoot of the complete serialized block cut into parts (ie. MerkleRoot(MakeParts(block))
   // go: SimpleProofsFromByteSlices
   def partsHash(): PartsHeader = {
-    val bytes = Amino.encodeLengthPrefixed(AminoConverter.toAmino(this))
+    val bytes = Protobuf.encodeLengthPrefixed(ProtobufConverter.toAmino(this))
     val parts = bytes.grouped(Block.BlockPartSizeBytes).toList
     val hash = Merkle.simpleHash(parts)
     PartsHeader(hash, parts.length)
@@ -115,22 +115,22 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
   //  which yields [] on empty arrays, that's why skipEmpty = true
   private def filledHeaderHash(): Array[Byte] = {
     val data = List(
-      Amino.encode(header.version),
-      Amino.encode(header.chain_id),
-      Amino.encode(header.height),
-      Amino.encode(header.time),
-      Amino.encode(header.num_txs),
-      Amino.encode(header.total_txs),
-      Amino.encode(header.last_block_id),
-      Amino.encode(header.last_commit_hash, skipEmpty = true),
-      Amino.encode(header.data_hash, skipEmpty = true),
-      Amino.encode(header.validators_hash, skipEmpty = true),
-      Amino.encode(header.next_validators_hash, skipEmpty = true),
-      Amino.encode(header.consensus_hash, skipEmpty = true),
-      Amino.encode(header.app_hash, skipEmpty = true),
-      Amino.encode(header.last_results_hash, skipEmpty = true),
-      Amino.encode(header.evidence_hash, skipEmpty = true),
-      Amino.encode(header.proposer_address, skipEmpty = true),
+      Protobuf.encode(header.version),
+      Protobuf.encode(header.chain_id),
+      Protobuf.encode(header.height),
+      Protobuf.encode(header.time),
+      Protobuf.encode(header.num_txs),
+      Protobuf.encode(header.total_txs),
+      Protobuf.encode(header.last_block_id),
+      Protobuf.encode(header.last_commit_hash, skipEmpty = true),
+      Protobuf.encode(header.data_hash, skipEmpty = true),
+      Protobuf.encode(header.validators_hash, skipEmpty = true),
+      Protobuf.encode(header.next_validators_hash, skipEmpty = true),
+      Protobuf.encode(header.consensus_hash, skipEmpty = true),
+      Protobuf.encode(header.app_hash, skipEmpty = true),
+      Protobuf.encode(header.last_results_hash, skipEmpty = true),
+      Protobuf.encode(header.evidence_hash, skipEmpty = true),
+      Protobuf.encode(header.proposer_address, skipEmpty = true),
     )
 
     Merkle.simpleHash(data)

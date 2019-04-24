@@ -20,12 +20,12 @@ import com.google.protobuf.ByteString
 import proto3.tendermint.Vote
 import scodec.bits.ByteVector
 
-object AminoConverter {
+object ProtobufConverter {
   import proto3.tendermint.{Block => PBBlock, Commit => PBCommit, Data => PBData, Header => PBHeader}
 
   private def bs(bv: ByteVector): ByteString = ByteString.copyFrom(bv.toArray)
   private def serialize(precommits: List[Option[Vote]]): List[ByteString] =
-    Amino.encode(precommits).map(ByteString.copyFrom)
+    Protobuf.encode(precommits).map(ByteString.copyFrom)
 
   def toCommit(lc: LastCommit) = PBCommit(Some(lc.block_id), serialize(lc.precommits))
 

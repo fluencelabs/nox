@@ -16,6 +16,7 @@
 
 package fluence.effects.tendermint.block
 
+import fluence.effects.tendermint.block.errors.ValidationError._
 import io.circe.Decoder
 import scodec.bits.ByteVector
 
@@ -23,11 +24,31 @@ object TendermintBlock {
   implicit final val blockDecoder: Decoder[TendermintBlock] =
     Decoder.decodeString.emap(JSON.block(_).left.map(_ => "Block").map(TendermintBlock(_)))
 }
+
+/**
+ * Representation of Tendermint's block, implements validation.
+ * Can be deserialized directly from Tendermint's RPC.
+ *
+ * @param block Block DTO
+ */
 case class TendermintBlock(block: Block) {
 
-  def check() = {
-    val dataHash = ByteVector(block.dataHash()).toHex == block.header.data_hash.toHex
-    val lastCommitHash = ByteVector(block.lastCommitHash()) == block.header.last_commit_hash.toHex
+  /**
+   * Validates correctness of Merkle hashes for:
+   *  1) transaction list for this block,
+   *  2) last commit (votes for previous block)
+   *
+   * Doesn't verify any signatures; to be used to prove block correctness & txs inclusion
+   *
+   * @return Either a validation error, or Unit on success
+   */
+  def validateHashes(): Either[ValidationError, Unit] = {
+    def validateOr(expected: String, actual: String, err: (String, String) => ValidationError) =
+      Either.cond(expected == actual, (), err(expected, actual))
 
+    for {
+      _ <- validateOr(ByteVector(block.dataHash()).toHex, block.header.data_hash.toHex, InvalidDataHash)
+      _ <- validateOr(ByteVector(block.lastCommitHash()).toHex, block.header.last_commit_hash.toHex, InvalidCommitHash)
+    } yield ()
   }
 }

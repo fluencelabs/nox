@@ -53,7 +53,7 @@ object Signature {
   // ChainID could be taken from e.g., InitChain
   def verifyVote(vote: Vote, chainID: String, pubKey: Array[Byte]): Boolean = {
     val canonicalVote = canonicalize(vote, chainID)
-    val bytes = Amino.encodeLengthPrefixed(canonicalVote)
+    val bytes = Protobuf.encodeLengthPrefixed(canonicalVote)
     verifyBC(bytes, pubKey, vote.signature.toByteArray)
   }
 
