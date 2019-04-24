@@ -1,4 +1,4 @@
-### Debugging with local Fluence node
+# Debugging with local Fluence node
 
 Keep your write-test-fix cycle short by debugging your application locally, without waiting for deployment and network.
 
@@ -8,9 +8,9 @@ You will need [Docker](https://docs.docker.com/install/) installed.
 
 ## How to
 
-NOTE: For this guide, you will need compiled Wasm code. [Read here](quickstart/backend.md#compiling-to-webassembly) to learn about compilation to Wasm.
+NOTE: For this guide, you will need compiled Wasm code. Please read [here](../quickstart/backend.md#compiling-to-webassembly) to learn about compilation to Wasm.
 
-### Start your application
+## Start your application
 
 Run the following command in terminal, it will start your application in a Docker container:
 
@@ -28,7 +28,7 @@ fluence.directConnect("localhost", 30000, appId);
 ```
 `appId` could be any number. You do not need to specify the correct `appId` for local testing.
 
-NOTE: Use `connect` method instead of `directConnect` for an application deployed in the Fluence network. [Read here](frontend/javascript.md) to learn how to interact with deployed applications.
+NOTE: Use `connect` method instead of `directConnect` for an application deployed in the Fluence network. [Read here](../frontend/javascript.md) to learn how to interact with deployed applications.
 
 Send request `val request = session.request("Fluence")` to [hello-world app](https://github.com/fluencelabs/tutorials/tree/master/hello-world) through JavaScript client and we can see in docker logs:
 ```
@@ -36,7 +36,7 @@ Send request `val request = session.request("Fluence")` to [hello-world app](htt
 [Mon Apr 22 16:03:31 MSK 2019, info, Main$] Tx: 'Fluence'
 INFO  [hello_world2_2018] Fluence has been successfully greeted
 ```
-`Tx: 'Fluence'` is our request, `INFO  [hello_world2_2018] Fluence has been successfully greeted` is logs from code. How to write logs from code code you can see in [backend guides](backend/index.md).
+`Tx: 'Fluence'` is our request, `INFO  [hello_world2_2018] Fluence has been successfully greeted` is logs from code. How to write logs from code code you can see in [backend guides](index.md).
 
 After this get response `request.result()`. And we will see the result:
 ```
@@ -44,4 +44,4 @@ After this get response `request.result()`. And we will see the result:
 [Mon Apr 22 16:03:31 MSK 2019, info, TxProcessor] Queried result: Hello, world! From user Fluence
 ```
 
-NOTE: You can also send requests from command line with curl, read [here](http.md) for more.
+NOTE: You can also send requests from command line with curl, read [here](../frontend/http.md) for more.
