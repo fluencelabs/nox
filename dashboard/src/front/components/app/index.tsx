@@ -1,8 +1,9 @@
 import * as React from 'react';
 import {connect} from 'react-redux';
-import { push as pushHistory } from 'connected-react-router';
+import {Link} from "react-router-dom";
 import {match, withRouter} from "react-router";
 import {Action} from "redux";
+import {History} from 'history';
 import {contractAddress} from '../../../fluence/contract';
 import {App, AppId, Node} from '../../../fluence';
 import {cutId} from '../../../utils';
@@ -42,8 +43,9 @@ interface UrlParams {
 
 interface Props {
     match: match<UrlParams>,
+    history: History,
     loading: boolean,
-    restoreDeployed: (appId: string, appTypeId: string) => Action,
+    restoreDeployed: (appId: string, appTypeId: string, history: History) => Action,
     apps: {
         [key: string]: App
     };
@@ -60,8 +62,11 @@ class DashboardApp extends React.Component<Props, State> {
         (window as any).fluence = fluence;
 
         const deployedApp = getDeployedApp();
-        if (deployedApp && this.props.match.path == '/') {
-            this.props.restoreDeployed(deployedApp.deployedAppId, deployedApp.deployedAppTypeId);
+        console.log(this.props.match, deployedApp);
+        if (deployedApp
+            && (this.props.match.path == '/' || this.props.match.path == '/:entityType/:entityId/:appId')
+        ) {
+            this.props.restoreDeployed(deployedApp.deployedAppId, deployedApp.deployedAppTypeId, this.props.history);
         }
     }
 
@@ -72,7 +77,7 @@ class DashboardApp extends React.Component<Props, State> {
                 this.props.match.params.entityType == FluenceEntityType.DeployableApp
                 && this.props.match.params.entityId == deployedApp.deployedAppTypeId
             ) {
-                pushHistory(`/`);
+                this.props.history.push(`/`);
             }
             clearDeployedApp();
         }
@@ -120,9 +125,9 @@ class DashboardApp extends React.Component<Props, State> {
                 <header className="main-header">
                     <nav className="navbar navbar-static-top navbar-fluence-background">
 
-                        <a href="/" className="logo">
+                        <Link to="/" className="logo">
                             <span className="logo-lg">Fluence network dashboard</span>
-                        </a>
+                        </Link>
 
                         <div className="navbar-custom-menu">
                             <ul className="nav navbar-nav">
