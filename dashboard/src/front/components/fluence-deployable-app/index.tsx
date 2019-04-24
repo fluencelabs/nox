@@ -1,5 +1,6 @@
 import * as React from 'react';
 import {connect} from 'react-redux';
+import {withRouter} from "react-router";
 import {DeployableApp, DeployableAppId, deployableApps, StorageType} from "../../../fluence/deployable";
 import {deploy, deployUpload} from "../../actions";
 import {Action} from "redux";
@@ -170,4 +171,4 @@ const mapDispatchToProps = {
     deployUpload
 };
 
-export default connect(mapStateToProps, mapDispatchToProps)(FluenceDeployableApp);
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(FluenceDeployableApp));
