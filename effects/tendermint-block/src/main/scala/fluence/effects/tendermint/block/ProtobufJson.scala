@@ -30,9 +30,18 @@ import scodec.bits.ByteVector
 import scala.language.postfixOps
 import scala.util.Try
 
+/**
+ * Collection of functions that parse JSON strings to protobuf or scala classes
+ */
 private[block] object ProtobufJson {
   val parser = new Parser(true)
 
+  /**
+   * Parses block from Tendermint's RPC "Block" response
+   *
+   * @param blockResponse JSON string containing Tendermint's RPC response
+   * @return Either an error or block
+   */
   def block(blockResponse: String): Either[TendermintBlockError, Block] = {
     for {
       resposnseJson <- parse(blockResponse).convertError
@@ -41,6 +50,12 @@ private[block] object ProtobufJson {
     } yield block
   }
 
+  /**
+   * Parses commit from Tendermint's RPC "Commit" response
+   *
+   * @param commitResponse JSON string containing Tendermint's RPC response
+   * @return Either an error or commit
+   */
   def commit(commitResponse: String): Either[TendermintBlockError, Commit] = {
     for {
       responseJson <- parse(commitResponse).convertError
@@ -49,30 +64,59 @@ private[block] object ProtobufJson {
     } yield commit
   }
 
+  /**
+   * Parses Json value into a protobuf Vote, re-encodes bytes where needed
+   *
+   * @param json Json value, parsed by circe
+   * @return Either an error or protobuf Vote
+   */
   def vote(json: Json): Either[ProtobufJsonError, Vote] = {
     Try(parser.fromJson[Vote](json)).toEither.convertError.map(
       _.update(
         _.blockId.update(fixBlockId(): _*),
-        _.validatorAddress.modify(fixBytes)
+        _.validatorAddress.modify(reencode)
       )
     )
   }
 
+  /**
+   * Parses Json value into a protobuf Version
+   *
+   * @param json Json value, parsed by circe
+   * @return Either an error or protobuf Version
+   */
   def version(json: Json): Either[ProtobufJsonError, Version] = {
     Try(parser.fromJson[Version](json)).toEither.convertError
   }
 
+  /**
+   * Parses Json value into a protobuf Timestamp
+   *
+   * @param json Json value, parsed by circe
+   * @return Either an error or protobuf Timestamp
+   */
   def timestamp(json: Json): Either[ProtobufJsonError, Timestamp] = {
     Try(parser.fromJson[Timestamp](json)).toEither.convertError
   }
 
+  /**
+   * Parses Json value into a protobuf BlockID
+   *
+   * @param json Json value, parsed by circe
+   * @return Either an error or protobuf BlockID
+   */
   def blockId(json: Json): Either[ProtobufJsonError, BlockID] = {
     Try(parser.fromJson[BlockID](json).update(fixBlockId(): _*)).toEither.convertError
   }
 
+  /**
+   * Re-encodes hashes inside BlockID, @see reencode doc for details
+   *
+   * @return List of lenses that reencode hashes in a BlockID
+   */
   private def fixBlockId(): List[Lens[BlockID, BlockID] => Mutation[BlockID]] = {
-    val hash: Lens[BlockID, BlockID] => Mutation[BlockID] = _.hash.modify(fixBytes)
-    val parts: Lens[BlockID, BlockID] => Mutation[BlockID] = _.parts.update(_.hash.modify(fixBytes))
+    val hash: Lens[BlockID, BlockID] => Mutation[BlockID] = _.hash.modify(reencode)
+    val parts: Lens[BlockID, BlockID] => Mutation[BlockID] = _.parts.update(_.hash.modify(reencode))
 
     List(hash, parts)
   }
@@ -91,7 +135,7 @@ private[block] object ProtobufJson {
    * @param bs bs = ByteString.copyFrom(base64-decode(hexString))
    * @return Good, correct bytes, that were represented by a hexString
    */
-  def fixBytes(bs: ByteString): ByteString = {
+  private def reencode(bs: ByteString): ByteString = {
     val hex = ByteVector(bs.toByteArray).toBase64
 
     ByteVector
@@ -101,6 +145,8 @@ private[block] object ProtobufJson {
         val bytes: ByteString = ByteString.copyFrom(array)
         bytes
       }
-      .fold(e => throw FixBytesError(e), identity) // ARGHHH >_<
+      // Throwing an exception here, because `reencode` is used
+      // with ScalaPB lenses, and they don't work with Either
+      .fold(e => throw FixBytesError(e), identity) // TODO: don't throw exception, find a better way
   }
 }

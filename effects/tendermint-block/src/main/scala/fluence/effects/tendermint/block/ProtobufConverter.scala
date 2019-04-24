@@ -20,6 +20,10 @@ import com.google.protobuf.ByteString
 import proto3.tendermint.Vote
 import scodec.bits.ByteVector
 
+/**
+ * Collection of functions to convert Scala case classes to their protobuf counterparts
+ * Main purpose is to serialize Block to protobuf bytes, and calculate Block.partsHash
+ */
 private[block] object ProtobufConverter {
   import proto3.tendermint.{Block => PBBlock, Commit => PBCommit, Data => PBData, Header => PBHeader}
 

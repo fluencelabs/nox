@@ -21,7 +21,9 @@ import fluence.crypto.ecdsa.Ecdsa
 import proto3.tendermint._
 import scodec.bits.ByteVector
 
-// Ed25519
+/**
+ * Implementation of Tendermint's Ed25519 signature
+ */
 private[block] object TendermintSignature {
 
   /**
@@ -32,7 +34,7 @@ private[block] object TendermintSignature {
    * @param signature Signatore of the message
    * @return True, if signature is correct, false otherwise
    */
-  def verifyBC(message: Array[Byte], pubKey: Array[Byte], signature: Array[Byte]): Boolean = {
+  private def verifyBC(message: Array[Byte], pubKey: Array[Byte], signature: Array[Byte]): Boolean = {
     import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
     import org.bouncycastle.crypto.signers.Ed25519Signer
 
@@ -45,7 +47,7 @@ private[block] object TendermintSignature {
 
   // Doesn't work :( That's because it's Curve25519, not Ed25519, and their keys arent compatible
   // Fluence Crypto uses ECNamedCurveTable, and it seems it doesn't support Ed25519
-  def verifyFluenceCrypto(message: Array[Byte], pubKey: Array[Byte], signature: Array[Byte]): Boolean = {
+  private def verifyFluenceCrypto(message: Array[Byte], pubKey: Array[Byte], signature: Array[Byte]): Boolean = {
     println(s"Signature.verify key ${ByteVector(pubKey).toHex}")
     val ed25519 = new Ecdsa("Curve25519", "NONEwithECDSA", None)
     val result = ed25519
