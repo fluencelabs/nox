@@ -1,6 +1,6 @@
-# SDK overview
+# Backend C/C++ SDK overview
 
-## Compilation overview
+## Compilation C/C++ to Webassembly
 
 There are two main requirements for provided Webassembly modules:
 - they must have three export functions: `allocate`, `deallocate`, `invoke`
@@ -9,10 +9,10 @@ There are two main requirements for provided Webassembly modules:
 You can find more detailed info about requirements in [internals](../internals.md) section of this guide. But compilation of C/C++ to Webassembly often generates modules with several syscall imports. We have tried to simplify the compilation process for C/C++ as much as possible.
 
 There are few possible ways of compilation of C/C++ code to Webassembly, and two of them are most suitable for our platform:
-- by wasm32-unknwon-wasi target
+- by wasm32-unknown-wasi target
 - by wasm32-unknown-unknown target
 
-### wasm32-unknwon-wasi
+### wasm32-unknown-wasi
 
 Compilation with WASI-sysroot is quite simple:
  
@@ -25,9 +25,9 @@ Compilation with WASI-sysroot is quite simple:
 
 There `--export` directives for linker manage it to make three functions exported from module and `--allow-undefined` used to make it possible to import `write` and `flush` functions.
 
-### wasm32-unknwon-unknown
+### wasm32-unknown-unknown
 
-Compilation for wasm32-unknwon-unknown is more complicated and suggests building sysroot first:
+Compilation for wasm32-unknown-unknown is more complicated and suggests building sysroot first:
 
 1. First of all it needs to install the latest stable llvm 8.x that supports Webassembly. On Ubuntu it could be done by following commands (more detailed overview of llvm installation could be found [here](http://apt.llvm.org)):
 ```bash
@@ -165,6 +165,8 @@ extern "C" char *invoke(char *str, int length) {
 }
 ```
 
-In this example, we have some excess allocation (while transforming a raw supplied string to std::string and while appending two strings) and to reduce this overhead scheme from C application could be used.
+In this example, there are some excess allocations (while transforming a raw supplied string to std::string and while appending two strings) - scheme with raw C strings from C application could be used to reduce this overhead.
 
 The complete Hello World example written on C++ could be found [here](https://github.com/fluencelabs/tutorials/tree/master/hello-world/app-logger-cpp).
+
+Please also note that there is no support of exceptions now so to compile C++ `-fno-exception` option should be used.

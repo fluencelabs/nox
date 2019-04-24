@@ -1,4 +1,4 @@
-# Backend SDK overview
+# Backend Rust SDK overview
 
 Fluence backend SDK consists of two crates: `main` and `macro`. The `main` crate is used for all memory relative operations and logging, while the `macro` crate contains the macro to simplify entry point functions. These crates can be used separately but the preferred way is to use the global `fluence` crate which combines all the others. 
 

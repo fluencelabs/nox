@@ -1,4 +1,4 @@
-### Debugging with local Fluence node
+# Debugging with local Fluence node
 
 Keep your write-test-fix cycle short by debugging your application locally, without waiting for deployment and network.
 
@@ -8,9 +8,9 @@ You will need [Docker](https://docs.docker.com/install/) installed.
 
 ## How to
 
-NOTE: For this guide, you will need compiled Wasm code. [Read here](../quickstart/backend.md#compiling-to-webassembly) to learn about compilation to Wasm.
+NOTE: For this guide, you will need compiled Wasm code. Please read [here](../quickstart/backend.md#compiling-to-webassembly) to learn about compilation to Wasm.
 
-### Start your application
+## Start your application
 
 Run the following command in terminal, it will start your application in a Docker container:
 
