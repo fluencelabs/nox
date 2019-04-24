@@ -4,9 +4,10 @@ import java.util
 
 import cats.Show
 import cats.syntax.show._
-import fluence.merkle.ops.MerkleOperations
+import fluence.merkle.ops.{ByteMerkleOperations, MerkleOperations}
 import fluence.merkle.storage.Storage
 import org.apache.commons.lang3.StringUtils
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 import scala.reflect.ClassTag
@@ -184,32 +185,19 @@ class BinaryMerkleTree[T: Show] private (
 
 object BinaryMerkleTree {
 
-  /*def apply(size: Int, chunkSize: Int): (ByteBufferWrapper, MerkleTree[ByteBufferWrapper, Array[Byte]]) = {
+  def apply(
+    size: Int,
+    chunkSize: Int,
+    storage: Storage[Array[Byte]],
+    hashFunc: Array[Byte] => Array[Byte]
+  ): BinaryMerkleTree[Array[Byte]] = {
 
-    val init: Int => ByteBufferWrapper = { bbSize =>
-      val array = Array.fill[Byte](bbSize)(0)
-      new ByteBufferWrapper(ByteBuffer.wrap(array), chunkSize)
-    }
+    val operations = new ByteMerkleOperations(hashFunc)
 
-    val getBytes: (ByteBufferWrapper, Int, Int) => Array[Byte] = (bb: ByteBufferWrapper, offset: Int, length: Int) => {
-      val array = new Array[Byte](length)
-      bb.position(offset)
-      val remaining = bb.remaining()
-      val lengthToGet = if (remaining < length) remaining else length
-      bb.getElements(array, 0, lengthToGet)
-      array
-    }
+    implicit val s: Show[Array[Byte]] = (a: Array[Byte]) => ByteVector(a).toHex
 
-    val getDirtyChunks: ByteBufferWrapper => Set[Int] = (bb: ByteBufferWrapper) => {
-      bb.getTouchedAndReset()
-    }
-
-    implicit val showDep: Show[Array[Byte]] = new Show[Array[Byte]] {
-      override def show(t: Array[Byte]): String = t.mkString("")
-    }
-
-    MerkleTree[ByteBufferWrapper, Array[Byte]](size, chunkSize, init, Array.fill(1)(0), getBytes, getDirtyChunks)
-  }*/
+    BinaryMerkleTree[Array[Byte]](size, chunkSize, operations, storage)
+  }
 
   def apply[T: Show](
     size: Int,
@@ -218,6 +206,8 @@ object BinaryMerkleTree {
     storage: Storage[T]
   )(implicit c: ClassTag[T]): BinaryMerkleTree[T] = {
     import TreeMath._
+
+    assert(size % chunkSize == 0)
 
     // count of leafs that mapped on byte array (can have non-zero values)
     val mappedLeafCount = size / chunkSize + (if (size % chunkSize == 0) 0 else 1)

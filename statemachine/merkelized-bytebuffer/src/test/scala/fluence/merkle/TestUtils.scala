@@ -67,16 +67,9 @@ object TestUtils {
     hashFunc: Array[Byte] => Array[Byte] = identity
   ): (ByteBufferWrapper, BinaryMerkleTree[Array[Byte]]) = {
 
-    if (size % chunkSize != 0) throw new RuntimeException("size % chunkSize == 0")
-
     val storage = ByteBufferWrapper.allocate(size, chunkSize)
-    val operations = new ByteMerkleOperations(hashFunc)
 
-    implicit val s = new Show[Array[Byte]] {
-      def show(a: Array[Byte]): String = a.mkString("")
-    }
-
-    val tree = BinaryMerkleTree[Array[Byte]](size, chunkSize, operations, storage)
+    val tree = BinaryMerkleTree(size, chunkSize, storage, hashFunc)
 
     (storage, tree)
   }
