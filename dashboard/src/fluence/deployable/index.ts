@@ -22,12 +22,12 @@ export interface DeployableApp {
     selfUpload?: boolean,
 }
 
-export const deployableAppIds: DeployableAppId[] = ["llamadb", "upload"]; // 'dice, guess, tictactoe' are hidden intentionally
+export const deployableAppIds: DeployableAppId[] = ["redis", "llamadb", "upload"]; // 'dice, guess, tictactoe' are hidden intentionally
 
 export const deployableApps: { [key: string]: DeployableApp } = {
     "llamadb": {
         name: "SQL DB (llamadb)",
-        shortName: "SQL DB",
+        shortName: "llamadb",
         storageHash: "0x090A9B7CCA9D55A9632BBCC3A30A57F2DB1D1FD688659CFF95AB8D1F904AD74B",
         storageType: StorageType.Ipfs,
         clusterSize: 4
@@ -58,12 +58,19 @@ export const deployableApps: { [key: string]: DeployableApp } = {
     },
     "upload": {
         name: "Upload your own app",
-        shortName: "Upload your own app",
+        shortName: "your app",
         storageHash: "",
         storageType: StorageType.Ipfs,
         clusterSize: 4,
         selfUpload: true
     },
+    "redis": {
+        name: "Redis (wasm-version 0.1)",
+        shortName: "Redis",
+        storageHash: "0xD5B85113DCB16A6457226F123A918AF4D90A47FB5FB89D7FC48247D3E1419D15",
+        storageType: StorageType.Ipfs,
+        clusterSize: 4,
+    }
 };
 
 // Sends a signed transaction to Ethereum

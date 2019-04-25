@@ -38,9 +38,11 @@ case class TxOrder[F[_]: ContextShift: Timer](txIds: Ref[F, Map[String, Int]])(i
       _ <- if (nextToLast) {
         ().pure[F]
       } else {
-        if (last == -1) logger.warn(s"First request should start with counter = 0, was ${id.count} (${id.session})")
-
-        if (id.count <= last) {
+        if (last == -1) {
+          logger.warn(s"First request should start with counter = 0, was ${id.count} (${id.session})")
+          // TODO don't spam with logs
+          ContextShift[F].shift *> Timer[F].sleep(1000.millis) *> waitOrder(id)
+        } else if (id.count <= last) {
           F.raiseError[Unit](
             new RuntimeException(s"Counter should be bigger than $last, was ${id.count} (${id.session})")
           )

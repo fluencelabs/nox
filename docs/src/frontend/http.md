@@ -17,4 +17,4 @@ curl 'http://1.2.3.4:25000/apps/2/tx' --data $'sessionId/0\nRequestBody'
 - '\n'- separator between `sessionId/counter` and the request
 - 'RequestBody' - could be anything, sent directly to your application
 
-So, the main thing to take away is a `sessionId/counter\nbody` format, and remember to increment requests counter sequentially, because Fluence will wait for all omitted request numbers. This is done to preserve strict ordering, so Fluence can guarantee request processing in the strict order.
+So, the main thing to take away is a `sessionId/counter\nbody` format, and remember to increment requests counter sequentially, **because Fluence will wait for all omitted request numbers. This is done to preserve strict ordering, so Fluence can guarantee request processing in the strict order.**

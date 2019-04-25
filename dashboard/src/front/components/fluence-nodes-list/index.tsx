@@ -1,10 +1,10 @@
 import * as React from 'react';
 import {connect} from 'react-redux';
+import {Link} from "react-router-dom";
 import {cutId} from "../../../utils";
-import {displayLoading, hideLoading, retrieveNodeIds, showEntity} from "../../actions";
+import {displayLoading, hideLoading, retrieveNodeIds} from "../../actions";
 import {Action} from "redux";
 import {NodeId} from "../../../fluence";
-import {FluenceEntity, FluenceEntityType} from "../../actions/entity";
 
 
 interface State {
@@ -17,7 +17,6 @@ interface Props {
     hideLoading: typeof hideLoading,
     retrieveNodeIds: () => Promise<Action>,
     nodeIds: NodeId[],
-    showEntity: (entity: FluenceEntity) => Action,
 }
 
 class FluenceNodesList extends React.Component<Props, State> {
@@ -64,14 +63,6 @@ class FluenceNodesList extends React.Component<Props, State> {
         });
     };
 
-    showNode = (e: React.MouseEvent<HTMLElement>, nodeId: NodeId): void => {
-        e.preventDefault();
-        this.props.showEntity({
-            type: FluenceEntityType.Node,
-            id: nodeId,
-        });
-    };
-
     render(): React.ReactNode {
         return (
             <div className="small-box bg-fluence-blue-gradient">
@@ -92,14 +83,15 @@ class FluenceNodesList extends React.Component<Props, State> {
                     Hide info <i className="fa fa-arrow-circle-up"></i>
                 </a>
                 {this.props.nodeIds.map(nodeId => (
-                    <div className="small-box-footer entity-link" onClick={(e) => this.showNode(e, nodeId)}
-                         style={{display: this.state.nodeIdsVisible ? 'block' : 'none'}}>
-                        <div className="box-body">
-                            <strong>
-                                <i className="fa fa-bullseye margin-r-5"></i> Node <span
-                                title={nodeId}>{cutId(nodeId)}</span>
-                            </strong>
-                        </div>
+                    <div className="small-box-footer entity-link" style={{display: this.state.nodeIdsVisible ? 'block' : 'none'}}>
+                        <Link to={`/node/${nodeId}`}>
+                            <div className="box-body">
+                                <strong>
+                                    <i className="fa fa-bullseye margin-r-5"></i> Node <span
+                                    title={nodeId}>{cutId(nodeId)}</span>
+                                </strong>
+                            </div>
+                        </Link>
                     </div>
                 ))}
             </div>
@@ -115,7 +107,6 @@ const mapDispatchToProps = {
     displayLoading,
     hideLoading,
     retrieveNodeIds,
-    showEntity,
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(FluenceNodesList);
