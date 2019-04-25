@@ -17,11 +17,13 @@
 package fluence.statemachine
 
 import cats.Applicative
-import cats.effect.syntax.effect._
 import cats.effect.Effect
+import cats.effect.syntax.effect._
 import com.github.jtendermint.jabci.api._
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
+import fluence.effects.tendermint.block.TendermintBlock
+import fluence.effects.tendermint.block.errors.Errors._
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.statemachine.control.{ControlSignals, DropPeer}
 
@@ -31,16 +33,32 @@ class AbciHandler[F[_]: Effect](
   service: AbciService[F],
   controlSignals: ControlSignals[F],
   rpc: TendermintRpc[F]
-) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock {
+) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock
+    with slogging.LazyLogging {
+
+  private def checkBlock(height: Long): Unit = {
+    val log: String ⇒ Unit = s ⇒ logger.info(Console.YELLOW + s + Console.RESET)
+    val logBad: String ⇒ Unit = s ⇒ logger.info(Console.RED + s + Console.RESET)
+
+    rpc
+      .block(height)
+      .value
+      .toIO
+      .map(
+        res =>
+          for {
+            str <- res.leftTap(e => logger.warn(s"RPC Block[$height] failed: $e"))
+            block <- TendermintBlock(str).leftTap(e => logBad(s"Failed to decode tendermint block from JSON: $e"))
+            _ <- block.validateHashes().leftTap(e => logBad(s"Block at height $height is invalid: $e"))
+          } yield log(s"Block at height $height is valid")
+      ).unsafeRunAsyncAndForget()
+  }
 
   override def requestBeginBlock(
     req: RequestBeginBlock
   ): ResponseBeginBlock = {
     val height = req.getHeader.getHeight
-
-    val log: String ⇒ Unit = s ⇒ println(Console.YELLOW + s + Console.RESET)
-
-    rpc.block(height).value.toIO.map(res ⇒ log(height + " ::: " + res.toString)).unsafeRunAsyncAndForget()
+    checkBlock(height)
 
     ResponseBeginBlock.newBuilder().build()
   }
