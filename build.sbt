@@ -44,7 +44,7 @@ lazy val vm = (project in file("vm"))
 /**
  * Wasm VM docker runner for easy Wasm app debugging
  */
-lazy val flrun = (project in file("vm/flrun"))
+lazy val frun = (project in file("vm/frun"))
     .settings(
       commons,
       libraryDependencies ++= Seq(
