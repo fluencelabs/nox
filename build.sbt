@@ -80,6 +80,9 @@ lazy val frun = (project in file("vm/frun"))
 
           expose(port)
 
+          runRaw("apk add cargo rust")
+//          runRaw("curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh")
+
           copy((resourceDirectory in Compile).value / "reference.conf", "/reference.conf")
           copy(artifact, artifactTargetPath)
 

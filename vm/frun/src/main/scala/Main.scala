@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import java.nio.file.{Files, Paths}
+
 import cats.effect.{ExitCode, IO, IOApp}
 import fluence.vm.WasmVm
 import org.http4s.implicits._
@@ -21,6 +23,8 @@ import org.http4s.server.blaze.BlazeServerBuilder
 import org.http4s.server.middleware.CORS
 import org.http4s.{HttpApp, HttpRoutes, Response}
 import slogging.LogLevel
+
+import scala.util.control.NoStackTrace
 
 object Main extends IOApp with slogging.LazyLogging {
 
@@ -49,6 +53,7 @@ object Main extends IOApp with slogging.LazyLogging {
     CORS[IO, IO](routes(handler).orNotFound, corsConfig)
 
   override def run(args: List[String]): IO[ExitCode] = {
+    println(s"Args are $args")
     configureLogging(LogLevel.DEBUG)
     for {
       files <- getWasmFiles()
