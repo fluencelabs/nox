@@ -74,9 +74,10 @@ export const deployableApps: { [key: string]: DeployableApp } = {
         storageHash: '0x58B359786EDA25922DDF37C5566DCBDC0A1C8258A48E52D6956F3F53A4096846',
         storageType: StorageType.Ipfs,
         clusterSize: 4,
-        requestExamples: ['SADD X 10',
-                          'SADD X 20',
-                          'SMEMBERS X']
+        requestExamples: ['SET A 10',
+                          'SADD B 20',
+                          'GET A',
+                          'SMEMBERS B']
     }
 };
 

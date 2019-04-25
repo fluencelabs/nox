@@ -110,16 +110,13 @@ class Snippets extends React.Component<Props, State> {
                 <label htmlFor={queryId}>Type queries:</label>
                 <textarea className="form-control" rows={4} id={queryId}>{defaultText}</textarea>
             </p>,
-            <div className="icon">
-                <i id={iconId} className={this.state.requestSending ? 'fa fa-refresh fa-spin' : 'ion ion-ios-gear-outline'}></i>
-            </div>,
             <p>
                 <button type="button" value="Submit query" id={buttonId}
                         className="btn btn-primary btn-block"
                         onClick={e => {
 
                             if (inputField.value.trim().length !== 0) {
-                                iconEl.className = 'fa fa-refresh fa-spin';
+                                iconEl.style.display = 'inline-block';
                                 buttonEl.disabled = true;
                                 const queries = inputField.value.trim().split('\n');
                                 const results = queries.map(q => {
@@ -132,18 +129,17 @@ class Snippets extends React.Component<Props, State> {
                                 const fullResult: Promise<string[]> = Promise.all(results);
                                 fullResult.then(rs => {
                                     outputField.value = rs.map((r, i) => {
-                                        return `>>>${queries[i]}\n${r}`
+                                        return `>>>${queries[i]}\n${r}`;
                                     }).join('\n');
                                 });
                                 fullResult.finally(() => {
-                                    iconEl.className = 'ion ion-ios-gear-outline';
+                                    iconEl.style.display = 'none';
                                     buttonEl.disabled = false;
                                 });
-                                inputField.value = '';
                             }
                         }
                         }>
-                    Submit query
+                    Submit query <i id={iconId} style={{display: 'none'}} className="fa fa-refresh fa-spin"/>
                 </button>
             </p>,
             <label htmlFor="result">Result:</label>,
