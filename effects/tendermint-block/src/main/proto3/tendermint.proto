@@ -1,0 +1,121 @@
+// Generation command for :
+// cd /path/to/fluence/effects/tendermint-block/src/main/proto3
+// scalapbc -I/usr/local/Cellar/protobuf/3.7.1/include --scala_out=/path/to/fluence/effects/tendermint-block/src/main/scala/ -I$(pwd) tendermint.proto
+
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package proto3;
+
+message PartSetHeader {
+    int32 total = 1;
+    bytes hash = 2;
+}
+
+message BlockID {
+    bytes hash = 1;
+    PartSetHeader parts = 2;
+}
+
+message Vote {
+    int32 type = 1; // In Go, it's a `byte`, not int32, be careful
+    int64 height = 2;
+    int32 round = 3;
+    BlockID block_id = 4 [json_name = "block_id"];
+    google.protobuf.Timestamp timestamp = 5;
+    bytes validator_address = 6 [json_name = "validator_address"];
+    int32 validator_index = 7 [json_name = "validator_index"];
+    bytes signature = 8;
+}
+
+message Version {
+    uint64 block = 1;
+    uint64 app = 2;
+}
+
+message Header {
+    // basic block info
+    Version version = 1;
+    string chain_id = 2;
+    int64 height = 3;
+    google.protobuf.Timestamp time = 4;
+    int64 num_txs = 5;
+    int64 total_txs = 6;
+
+    // prev block info
+    BlockID last_block_id = 7;
+
+    // hashes of block data
+    bytes last_commit_hash = 8; // commit from validators from the last block
+    bytes data_hash = 9;        // transactions
+
+    // hashes from the app output from the prev block
+    bytes validators_hash = 10;      // validators for the current block
+    bytes next_validators_hash = 11; // validators for the next block
+    bytes consensus_hash = 12;       // consensus params for current block
+    bytes app_hash = 13;             // state after txs from the previous block
+    bytes last_results_hash = 14;    // root hash of all results from the txs from the previous block
+    // consensus info
+    bytes evidence_hash = 15;    // evidence included in the block
+    bytes proposer_address = 16; // original proposer of the block
+}
+
+message Data {
+    repeated bytes txs = 1;
+}
+
+message Block {
+    Header header = 1;
+    Data data = 2;
+    EvidenceData evidence = 3;
+    Commit last_commit = 4;
+}
+
+message Commit {
+    BlockID    block_id = 1;
+    // It's `repeated bytes` instead of `repeated Vote` to be compatible with
+    // Tendermint's amino encoding of null in repeated fields,
+    // for details, see https://github.com/tendermint/go-amino/issues/260
+    repeated bytes precommits = 2;
+}
+
+message EvidenceData {
+    repeated Evidence evidence = 1;
+    bytes hash = 2;
+}
+
+// From Tendermint's types.proto
+message Evidence {
+    string type = 1;
+    Validator validator = 2;
+    int64 height = 3;
+    google.protobuf.Timestamp time = 4;
+    int64 total_voting_power = 5;
+}
+
+message Validator {
+    bytes address = 1;
+    //PubKey pub_key = 2 // TODO: I wonder, why is it commented out?
+    int64 power = 3;
+}
+
+// === Canonical ===
+message CanonicalVote {
+    int32 type = 1; // it's actually byte in Go, be careful
+    fixed64 height = 2;
+    fixed64 round = 3;
+    CanonicalBlockID block_id = 4;
+    google.protobuf.Timestamp time = 5;
+    string chain_id = 6;
+}
+
+message CanonicalBlockID {
+    bytes hash = 1;
+    CanonicalPartSetHeader parts_header = 2;
+}
+
+message CanonicalPartSetHeader {
+    bytes hash = 1;
+    int32 total = 2;
+}

@@ -30,7 +30,8 @@ lazy val vm = (project in file("vm"))
       cryptoHashing,
       scalaTest,
       scalaIntegrationTest,
-      mockito
+      mockito,
+      slogging
     ),
     test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(compile in `vm-counter`)
@@ -191,7 +192,7 @@ lazy val statemachine = (project in file("statemachine"))
     }
   )
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(vm, `statemachine-control`, `tendermint-rpc`, sttpEitherT)
+  .dependsOn(vm, `statemachine-control`, `tendermint-rpc`, sttpEitherT, `tendermint-block`)
 
 lazy val effects = project
   .settings(
@@ -319,6 +320,26 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
       circeParser,
       circeGenericExtras,
       slogging
+    )
+  )
+  .dependsOn(effects)
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
+  .settings(
+    commons,
+    kindProjector,
+    libraryDependencies ++= Seq(
+      circeGeneric,
+      circeParser,
+      circeGenericExtras,
+      slogging,
+      protobuf,
+      protobufUtil,
+      scodecBits,
+      cryptoHashing,
+      scalaTest,
+      bouncyCastle
     )
   )
   .dependsOn(effects)
