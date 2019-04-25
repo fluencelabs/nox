@@ -64,10 +64,11 @@ export const deployableApps: { [key: string]: DeployableApp } = {
         clusterSize: 4,
         selfUpload: true
     },
+    // {"Name":"redis6.wasm","Hash":"QmUJuCpLL3mJ3wtCrmcnjJ5j5aWj2EmMZVRqNVYnMYSsYZ","Size":"902447"}
     "redis": {
-        name: "Redis (wasm-version 0.1)",
+        name: "Redis (wasm-version 0.2)",
         shortName: "Redis",
-        storageHash: "0xD5B85113DCB16A6457226F123A918AF4D90A47FB5FB89D7FC48247D3E1419D15",
+        storageHash: "0x58B359786EDA25922DDF37C5566DCBDC0A1C8258A48E52D6956F3F53A4096846",
         storageType: StorageType.Ipfs,
         clusterSize: 4,
     }
