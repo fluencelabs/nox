@@ -1,5 +1,6 @@
-// Genration command:
-// /Users/folex/Downloads/scalapbc-0.8.3/bin/scalapbc -I/usr/local/Cellar/protobuf/3.7.1/include --scala_out=/Users/folex/Development/fluencelabs/fluence-main/effects/tendermint-block/src/main/scala/ -I$(pwd) tendermint.proto
+// Generation command for :
+// cd /path/to/fluence/effects/tendermint-block/src/main/proto3
+// scalapbc -I/usr/local/Cellar/protobuf/3.7.1/include --scala_out=/path/to/fluence/effects/tendermint-block/src/main/scala/ -I$(pwd) tendermint.proto
 
 syntax = "proto3";
 

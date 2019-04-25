@@ -74,7 +74,7 @@ private[block] object ProtobufJson {
   def vote(json: Json): Either[ProtobufJsonError, Vote] = {
     Try(parser.fromJson[Vote](json)).toEither.convertError.map(
       _.update(
-        _.blockId.update(fixBlockId(): _*),
+        _.blockId.update(fixBlockId: _*),
         _.validatorAddress.modify(reencode)
       )
     )
@@ -107,7 +107,7 @@ private[block] object ProtobufJson {
    * @return Either an error or protobuf BlockID
    */
   def blockId(json: Json): Either[ProtobufJsonError, BlockID] = {
-    Try(parser.fromJson[BlockID](json).update(fixBlockId(): _*)).toEither.convertError
+    Try(parser.fromJson[BlockID](json).update(fixBlockId: _*)).toEither.convertError
   }
 
   /**
@@ -115,7 +115,7 @@ private[block] object ProtobufJson {
    *
    * @return List of lenses that reencode hashes in a BlockID
    */
-  private def fixBlockId(): List[Lens[BlockID, BlockID] => Mutation[BlockID]] = {
+  private val fixBlockId: List[Lens[BlockID, BlockID] => Mutation[BlockID]] = {
     val hash: Lens[BlockID, BlockID] => Mutation[BlockID] = _.hash.modify(reencode)
     val parts: Lens[BlockID, BlockID] => Mutation[BlockID] = _.parts.update(_.hash.modify(reencode))
 
