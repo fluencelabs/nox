@@ -1,27 +1,29 @@
 import * as React from 'react';
-import {connect} from 'react-redux';
-import {DeployableApp} from "../../../fluence/deployable";
-import {defaultContractAddress, fluenceLightNodeAddr, llamaPrivateKey} from "../../../constants";
-import {displayLoading, hideLoading, retrieveApp,} from '../../actions';
+import { connect } from 'react-redux';
+import { DeployableApp } from '../../../fluence/deployable';
+import { defaultContractAddress, fluenceNodeAddr, llamaPrivateKey } from '../../../constants';
+import { displayLoading, hideLoading, retrieveApp, } from '../../actions';
 import FluenceCluster from '../fluence-cluster';
-import {App, AppId} from "../../../fluence";
-import {Action} from "redux";
-import {cutId} from "../../../utils";
+import { App, AppId } from '../../../fluence';
+import { Action } from 'redux';
+import { cutId } from '../../../utils';
+import * as fluence from 'fluence';
+import { AppSession } from 'fluence/dist/AppSession';
 
 interface State {
 }
 
 interface Props {
-    deployState: string | undefined,
-    appId: number | undefined,
-    app: DeployableApp | undefined,
+    deployState: string | undefined;
+    appId: number | undefined;
+    app: DeployableApp | undefined;
     apps: {
-        [key: string]: App
-    },
-    trxHash: string,
-    retrieveApp: (appId: AppId) => Promise<Action>,
-    displayLoading: typeof displayLoading,
-    hideLoading: typeof hideLoading,
+        [key: string]: App;
+    };
+    trxHash: string;
+    retrieveApp: (appId: AppId) => Promise<Action>;
+    displayLoading: typeof displayLoading;
+    hideLoading: typeof hideLoading;
 }
 
 class Snippets extends React.Component<Props, State> {
@@ -33,7 +35,7 @@ class Snippets extends React.Component<Props, State> {
     }
 
     componentDidUpdate(prevProps: Props): void {
-        if (this.props.appId && prevProps.appId != this.props.appId) {
+        if (this.props.appId && prevProps.appId !== this.props.appId) {
             this.loadData();
         }
     }
@@ -74,12 +76,62 @@ class Snippets extends React.Component<Props, State> {
                 </p>
             );
         }
-    };
+    }
+
+    renderInteractiveSnippet(appId: number, defaultQueries?: string[]): React.ReactNode[] {
+        let session: AppSession;
+        fluence.connect(defaultContractAddress, appId.toString(), fluenceNodeAddr).then(s => {
+            session = s;
+        });
+
+        const queryId = `query${this.props.appId}`;
+        const resultId = `result${this.props.appId}`;
+
+        const inputField: HTMLInputElement = window.document.getElementById(queryId) as HTMLInputElement;
+        const outputField: HTMLInputElement = window.document.getElementById(resultId) as HTMLInputElement;
+
+        const defaultText = (defaultQueries) ? defaultQueries.join('\n') : '';
+
+        return ([
+            <p>
+                <label htmlFor={queryId}>Type queries:</label>
+                <textarea className="form-control" rows={4} id={queryId}>{defaultText}</textarea>
+            </p>,
+            <p>
+                <button type="button" value="Submit query"
+                        className="btn btn-primary btn-block"
+                        onClick={e => {
+
+                            if (inputField.value.trim().length !== 0) {
+                                const queries = inputField.value.trim().split('\n');
+                                const results = queries.map(q => {
+                                    const res = session.request(q).result();
+
+                                    return res.then(r => {
+                                        return r.asString().trim();
+                                    });
+                                });
+                                const fullResult: Promise<string[]> = Promise.all(results);
+                                fullResult.then(r => {
+                                    outputField.value = r.join('\n');
+                                });
+                                inputField.value = '';
+                            }
+                        }
+                        }>
+                    Submit query
+                </button>
+            </p>,
+            <label htmlFor="result">Result:</label>,
+            <textarea id={resultId} className="form-control" rows={6} readOnly/>
+
+        ]);
+    }
 
     renderAppSnippets(): React.ReactNode[] {
         return ([
             <button type="button"
-                    onClick={e => window.open(`http://sql.fluence.network?appId=${this.props.appId}&privateKey=${llamaPrivateKey}`, "_blank")}
+                    onClick={e => window.open(`http://sql.fluence.network?appId=${this.props.appId}&privateKey=${llamaPrivateKey}`, '_blank')}
                     className="btn btn-block btn-link">
                 <i className="fa fa-external-link margin-r-5"/> <b>Open SQL DB web interface</b>
             </button>,
@@ -94,7 +146,7 @@ class Snippets extends React.Component<Props, State> {
             <pre>{`let privateKey = "${llamaPrivateKey}"; // Authorization private key
 let contract = "${defaultContractAddress}";                         // Fluence contract address
 let appId = ${this.props.appId};                                                                      // Deployed database id
-let ethereumUrl = "${fluenceLightNodeAddr}";                                    // Ethereum light node URL
+let ethereumUrl = "${fluenceNodeAddr}";                                    // Ethereum light node URL
 
 fluence.connect(contract, appId, ethereumUrl, privateKey).then((s) => {
     console.log("Session created");
@@ -112,14 +164,14 @@ session.request("SELECT AVG(age) FROM users").result().then((r) => {
             <p>That's it!</p>,
             <hr/>,
             <button type="button"
-                onClick={e => window.open(`https://github.com/fluencelabs/tutorials`, "_blank")}
-                className="btn btn-block btn-link">
+                    onClick={e => window.open(`https://github.com/fluencelabs/tutorials`, '_blank')}
+                    className="btn btn-block btn-link">
                     <i className="fa fa-external-link margin-r-5"/> <b>To develop your own app, follow
                 GitHub Tutorials</b>
             </button>,
             <button type="button"
-                onClick={e => window.open(`https://fluence.network/docs`, "_blank")}
-                className="btn btn-block btn-link">
+                    onClick={e => window.open(`https://fluence.network/docs`, '_blank')}
+                    className="btn btn-block btn-link">
                     <i className="fa fa-external-link margin-r-5"/> <b>More info in the docs</b>
             </button>
         ]);
@@ -130,7 +182,7 @@ session.request("SELECT AVG(age) FROM users").result().then((r) => {
             this.renderTrxHashBlock(),
             <pre>{`let contract = "${defaultContractAddress}";                         // Fluence contract address
 let appId = ${this.props.appId};                                                                      // Deployed database id
-let ethereumUrl = "${fluenceLightNodeAddr}";                                    // Ethereum light node URL
+let ethereumUrl = "${fluenceNodeAddr}";                                    // Ethereum light node URL
 
 // Connect to your app
 fluence.connect(contract, appId, ethereumUrl).then((s) => {
@@ -150,7 +202,7 @@ session.request("<enter your request here>").result().then((r) => {
     }
 
     render(): React.ReactNode {
-        if (this.props.app != undefined && this.props.appId != undefined) {
+        if (this.props.app !== undefined && this.props.appId !== undefined) {
             const appInfo = this.props.apps[this.props.appId];
             return (
                 <div className="box box-widget widget-user-2">
@@ -165,8 +217,9 @@ session.request("<enter your request here>").result().then((r) => {
                     </div>
                     <div className="box-footer no-padding">
                         <div className="box-body">
-
-                            { (this.props.app.shortName === "Redis" || this.props.app.selfUpload) ? this.renderUploadedAppSnippets() : this.renderAppSnippets()}
+                            {this.renderInteractiveSnippet(this.props.appId, this.props.app.requestExamples)}
+                            <hr/>
+                            { (this.props.app.shortName === 'Redis' || this.props.app.selfUpload) ? this.renderUploadedAppSnippets() : this.renderAppSnippets()}
 
                             <hr/>
                             <p><strong><i className="fa fa-bullseye margin-r-5"/>Check your app's health:</strong></p>
@@ -174,7 +227,7 @@ session.request("<enter your request here>").result().then((r) => {
                         </div>
                     </div>
                 </div>
-            )
+            );
         } else if (this.props.deployState) {
             return (
                 <div className="box box-widget widget-user-2">
@@ -205,7 +258,7 @@ const mapStateToProps = (state: any) => {
         appId: state.deploy.appId,
         trxHash: state.deploy.trxHash,
         apps: state.apps,
-    }
+    };
 };
 
 const mapDispatchToProps = {

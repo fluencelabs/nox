@@ -1,21 +1,21 @@
 import * as React from 'react';
-import {connect} from 'react-redux';
-import {Link} from "react-router-dom";
-import {displayLoading, hideLoading, retrieveAppIds} from "../../actions";
-import {Action} from "redux";
-import {AppId} from "../../../fluence";
+import { connect } from 'react-redux';
+import { Link } from 'react-router-dom';
+import { displayLoading, hideLoading, retrieveAppIds } from '../../actions';
+import { Action } from 'redux';
+import { AppId } from '../../../fluence';
 
 interface State {
-    appIdsLoading: boolean,
-    appIdsVisible: boolean,
+    appIdsLoading: boolean;
+    appIdsVisible: boolean;
 }
 
 interface Props {
-    displayLoading: typeof displayLoading,
-    hideLoading: typeof hideLoading,
-    retrieveAppIds: () => Promise<Action>,
-    appIdsRetrievedCallback: (appIds: AppId[]) => void,
-    appIds: AppId[],
+    displayLoading: typeof displayLoading;
+    hideLoading: typeof hideLoading;
+    retrieveAppIds: () => Promise<Action>;
+    appIdsRetrievedCallback: (appIds: AppId[]) => void;
+    appIds: AppId[];
 }
 
 class FluenceAppsList extends React.Component<Props, State> {
@@ -39,7 +39,7 @@ class FluenceAppsList extends React.Component<Props, State> {
             if (this.props.appIdsRetrievedCallback) {
                 this.props.appIdsRetrievedCallback(this.props.appIds);
             }
-        }).catch((e) => {
+        }).catch(e => {
             window.console.log(e);
             this.setState({
                 appIdsLoading: false,
