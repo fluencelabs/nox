@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { connect } from 'react-redux';
 import { DeployableApp } from '../../../fluence/deployable';
-import { defaultContractAddress, fluenceNodeAddr, llamaPrivateKey } from '../../../constants';
+import { defaultContractAddress, fluenceNodeAddr, llamaPrivateKey, privateKey } from '../../../constants';
 import { displayLoading, hideLoading, retrieveApp, } from '../../actions';
 import FluenceCluster from '../fluence-cluster';
 import { App, AppId } from '../../../fluence';
@@ -11,6 +11,7 @@ import * as fluence from 'fluence';
 import { AppSession } from 'fluence/dist/AppSession';
 
 interface State {
+    requestSending: Boolean;
 }
 
 interface Props {
@@ -27,7 +28,9 @@ interface Props {
 }
 
 class Snippets extends React.Component<Props, State> {
-    state: State = {};
+    state: State = {
+        requestSending: false
+    };
 
     loadData(): void {
         this.props.displayLoading();
@@ -78,17 +81,27 @@ class Snippets extends React.Component<Props, State> {
         }
     }
 
-    renderInteractiveSnippet(appId: number, defaultQueries?: string[]): React.ReactNode[] {
+    renderInteractiveSnippet(appId: number, shortName: string, defaultQueries?: string[]): React.ReactNode[] {
         let session: AppSession;
-        fluence.connect(defaultContractAddress, appId.toString(), fluenceNodeAddr).then(s => {
+
+        let auth = undefined;
+        if (shortName === 'llamadb') {
+            auth = llamaPrivateKey;
+        }
+
+        fluence.connect(defaultContractAddress, appId.toString(), fluenceNodeAddr, auth).then(s => {
             session = s;
         });
 
         const queryId = `query${this.props.appId}`;
+        const iconId = `icon${this.props.appId}`;
+        const buttonId = `button${this.props.appId}`;
         const resultId = `result${this.props.appId}`;
 
         const inputField: HTMLInputElement = window.document.getElementById(queryId) as HTMLInputElement;
         const outputField: HTMLInputElement = window.document.getElementById(resultId) as HTMLInputElement;
+        const iconEl: HTMLElement = window.document.getElementById(iconId) as HTMLElement;
+        const buttonEl: HTMLButtonElement = window.document.getElementById(buttonId) as HTMLButtonElement;
 
         const defaultText = (defaultQueries) ? defaultQueries.join('\n') : '';
 
@@ -97,12 +110,17 @@ class Snippets extends React.Component<Props, State> {
                 <label htmlFor={queryId}>Type queries:</label>
                 <textarea className="form-control" rows={4} id={queryId}>{defaultText}</textarea>
             </p>,
+            <div className="icon">
+                <i id={iconId} className={this.state.requestSending ? 'fa fa-refresh fa-spin' : 'ion ion-ios-gear-outline'}></i>
+            </div>,
             <p>
-                <button type="button" value="Submit query"
+                <button type="button" value="Submit query" id={buttonId}
                         className="btn btn-primary btn-block"
                         onClick={e => {
 
                             if (inputField.value.trim().length !== 0) {
+                                iconEl.className = 'fa fa-refresh fa-spin';
+                                buttonEl.disabled = true;
                                 const queries = inputField.value.trim().split('\n');
                                 const results = queries.map(q => {
                                     const res = session.request(q).result();
@@ -112,8 +130,14 @@ class Snippets extends React.Component<Props, State> {
                                     });
                                 });
                                 const fullResult: Promise<string[]> = Promise.all(results);
-                                fullResult.then(r => {
-                                    outputField.value = r.join('\n');
+                                fullResult.then(rs => {
+                                    outputField.value = rs.map((r, i) => {
+                                        return `>>>${queries[i]}\n${r}`
+                                    }).join('\n');
+                                });
+                                fullResult.finally(() => {
+                                    iconEl.className = 'ion ion-ios-gear-outline';
+                                    buttonEl.disabled = false;
                                 });
                                 inputField.value = '';
                             }
@@ -123,7 +147,7 @@ class Snippets extends React.Component<Props, State> {
                 </button>
             </p>,
             <label htmlFor="result">Result:</label>,
-            <textarea id={resultId} className="form-control" rows={6} readOnly/>
+            <textarea id={resultId} className="form-control" rows={6} readOnly={true}/>
 
         ]);
     }
@@ -217,9 +241,11 @@ session.request("<enter your request here>").result().then((r) => {
                     </div>
                     <div className="box-footer no-padding">
                         <div className="box-body">
-                            {this.renderInteractiveSnippet(this.props.appId, this.props.app.requestExamples)}
+                            {
+                                this.renderInteractiveSnippet(this.props.appId, this.props.app.shortName, this.props.app.requestExamples)
+                            }
                             <hr/>
-                            { (this.props.app.shortName === 'Redis' || this.props.app.selfUpload) ? this.renderUploadedAppSnippets() : this.renderAppSnippets()}
+                            {(this.props.app.shortName === 'Redis' || this.props.app.selfUpload) ? this.renderUploadedAppSnippets() : this.renderAppSnippets()}
 
                             <hr/>
                             <p><strong><i className="fa fa-bullseye margin-r-5"/>Check your app's health:</strong></p>
