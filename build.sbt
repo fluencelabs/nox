@@ -75,13 +75,22 @@ lazy val frun = (project in file("vm/frun"))
 
         val port = 30000
 
+        // TODO: separate rust + openjdk to a separate container,
+        //  so we don't waste time rebuilding these layers every time
         new Dockerfile {
-          from("openjdk:8-jre-alpine")
+          from("openjdk:8-jre-slim")
+
+          env("PATH", "/root/.cargo/bin/:$PATH")
+
+          val update = "apt-get -qq update >/dev/null"
+          val curlInstall = "apt-get -qq install -yq --no-install-recommends curl clang >/dev/null"
+          val rustup = "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain nightly"
+          val wasm = "/root/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly"
+          val curlRm = "apt-get remove -yq --auto-remove curl >/dev/null"
+
+          runRaw(s"$update && $curlInstall && ($rustup) && $wasm && $curlRm")
 
           expose(port)
-
-          runRaw("apk add cargo rust")
-//          runRaw("curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh")
 
           copy((resourceDirectory in Compile).value / "reference.conf", "/reference.conf")
           copy(artifact, artifactTargetPath)
