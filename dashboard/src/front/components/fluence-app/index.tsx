@@ -7,19 +7,19 @@ import {
     retrieveApp,
 } from '../../actions';
 import FluenceCluster from '../fluence-cluster';
-import {AppId, App} from "../../../fluence";
-import {Action} from "redux";
+import { AppId, App } from '../../../fluence';
+import { Action } from 'redux';
 
 interface State {}
 
 interface Props {
-    appId: AppId,
+    appId: AppId;
     apps: {
-        [key: string]: App
-    },
-    retrieveApp: (appId: AppId) => Promise<Action>,
-    displayLoading: typeof displayLoading,
-    hideLoading: typeof hideLoading,
+        [key: string]: App;
+    };
+    retrieveApp: (appId: AppId) => Promise<Action>;
+    displayLoading: typeof displayLoading;
+    hideLoading: typeof hideLoading;
 }
 
 class FluenceApp extends React.Component<Props, State> {
@@ -35,7 +35,7 @@ class FluenceApp extends React.Component<Props, State> {
     }
 
     componentDidUpdate(prevProps: Props): void {
-        if (prevProps.appId != this.props.appId) {
+        if (prevProps.appId !== this.props.appId) {
             this.loadData();
         }
     }
@@ -44,19 +44,19 @@ class FluenceApp extends React.Component<Props, State> {
         return (
             <div className="box-footer no-padding">
                 <div className="box-body">
-                    <strong><i className="fa fa-bullseye margin-r-5"></i>Storage Hash</strong>
+                    <strong><i className="fa fa-bullseye margin-r-5"/>Storage Hash</strong>
                     <p className="text-muted" title={app.storage_hash}>{cutId(app.storage_hash)}</p>
                     <hr/>
 
-                    <strong><i className="fa fa-bullseye margin-r-5"></i>Storage Receipt</strong>
+                    <strong><i className="fa fa-bullseye margin-r-5"/>Storage Receipt</strong>
                     <p className="text-muted" title={app.storage_receipt}>{cutId(app.storage_receipt)}</p>
                     <hr/>
 
-                    <strong><i className="fa fa-bullseye margin-r-5"></i>Cluster Size</strong>
+                    <strong><i className="fa fa-bullseye margin-r-5"/>Cluster Size</strong>
                     <p className="text-muted">{app.cluster_size}</p>
                     <hr/>
 
-                    <strong><i className="fa fa-bullseye margin-r-5"></i>Owner</strong>
+                    <strong><i className="fa fa-bullseye margin-r-5"/>Owner</strong>
                     <p className="text-muted" title={app.owner}><a href={'https://rinkeby.etherscan.io/address/' + app.owner} title={app.owner} className="etherscan-link" target="_blank">{cutId(app.owner)}</a></p>
                     <hr/>
 
@@ -75,12 +75,12 @@ class FluenceApp extends React.Component<Props, State> {
                 <div className="box box-widget widget-user-2">
                     <div className="widget-user-header bg-fluence-blue-gradient">
                         <div className="widget-user-image">
-                            <span className="entity-info-box-icon"><i className={app ? 'ion ion-ios-gear-outline' : 'fa fa-refresh fa-spin'}></i></span>
+                            <span className="entity-info-box-icon"><i className={app ? 'ion ion-ios-gear-outline' : 'fa fa-refresh fa-spin'}/></span>
                         </div>
                         <h3 className="widget-user-username">App</h3>
                         <h5 className="widget-user-desc">ID:&nbsp;{this.props.appId}</h5>
                     </div>
-                    { app && this.renderAppInfo(app) }
+                    {app && this.renderAppInfo(app)}
                 </div>
             </div>
         );

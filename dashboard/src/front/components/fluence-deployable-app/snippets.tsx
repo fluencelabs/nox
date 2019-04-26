@@ -1,31 +1,36 @@
 import * as React from 'react';
-import {connect} from 'react-redux';
-import {DeployableApp} from "../../../fluence/deployable";
-import {defaultContractAddress, fluenceLightNodeAddr, llamaPrivateKey} from "../../../constants";
-import {displayLoading, hideLoading, retrieveApp,} from '../../actions';
+import { connect } from 'react-redux';
+import { DeployableApp } from '../../../fluence/deployable';
+import { defaultContractAddress, fluenceNodeAddr, llamaPrivateKey } from '../../../constants';
+import { displayLoading, hideLoading, retrieveApp, } from '../../actions';
 import FluenceCluster from '../fluence-cluster';
-import {App, AppId} from "../../../fluence";
-import {Action} from "redux";
-import {cutId} from "../../../utils";
+import { App, AppId } from '../../../fluence';
+import { Action } from 'redux';
+import { cutId } from '../../../utils';
+import * as fluence from 'fluence';
+import { AppSession } from 'fluence/dist/AppSession';
 
 interface State {
+    requestSending: Boolean;
 }
 
 interface Props {
-    deployState: string | undefined,
-    appId: number | undefined,
-    app: DeployableApp | undefined,
+    deployState: string | undefined;
+    appId: number | undefined;
+    app: DeployableApp | undefined;
     apps: {
-        [key: string]: App
-    },
-    trxHash: string,
-    retrieveApp: (appId: AppId) => Promise<Action>,
-    displayLoading: typeof displayLoading,
-    hideLoading: typeof hideLoading,
+        [key: string]: App;
+    };
+    trxHash: string;
+    retrieveApp: (appId: AppId) => Promise<Action>;
+    displayLoading: typeof displayLoading;
+    hideLoading: typeof hideLoading;
 }
 
 class Snippets extends React.Component<Props, State> {
-    state: State = {};
+    state: State = {
+        requestSending: false
+    };
 
     loadData(): void {
         this.props.displayLoading();
@@ -33,7 +38,7 @@ class Snippets extends React.Component<Props, State> {
     }
 
     componentDidUpdate(prevProps: Props): void {
-        if (this.props.appId && prevProps.appId != this.props.appId) {
+        if (this.props.appId && prevProps.appId !== this.props.appId) {
             this.loadData();
         }
     }
@@ -74,12 +79,122 @@ class Snippets extends React.Component<Props, State> {
                 </p>
             );
         }
-    };
+    }
+
+    renderInteractiveSnippet(appId: number, shortName: string, defaultQueries?: string[]): React.ReactNode[] {
+
+        const queryId = `query${this.props.appId}`;
+        const iconId = `icon${this.props.appId}`;
+        const buttonId = `button${this.props.appId}`;
+        const resultId = `result${this.props.appId}`;
+
+        const inputField = function (): HTMLInputElement {
+            return window.document.getElementById(queryId) as HTMLInputElement;
+        };
+        const outputField = function (): HTMLInputElement {
+            return window.document.getElementById(resultId) as HTMLInputElement;
+        };
+        const iconEl = function (): HTMLElement {
+            return window.document.getElementById(iconId) as HTMLElement;
+        };
+        const buttonEl = function (): HTMLButtonElement {
+            return window.document.getElementById(buttonId) as HTMLButtonElement;
+        };
+
+        let session: AppSession;
+
+        let auth = undefined;
+        if (shortName === 'llamadb') {
+            auth = llamaPrivateKey;
+        }
+
+        fluence.connect(defaultContractAddress, appId.toString(), fluenceNodeAddr, auth).then(s => {
+            session = s;
+            buttonEl().disabled = false;
+            buttonEl().onclick = function (): any {
+                if (inputField().value.trim().length !== 0) {
+                    iconEl().style.display = 'inline-block';
+                    buttonEl().disabled = true;
+                    const queries = inputField().value.trim().split('\n').filter(s => {
+                        return s.trim().length !== 0;
+                    });
+                    const results = queries.map(q => {
+                        const res = session.request(q).result();
+
+                        return res.then(r => {
+                            return parser(r.asString().trim());
+                        });
+                    });
+                    const fullResult: Promise<string[]> = Promise.all(results);
+                    fullResult.then(rs => {
+                        outputField().value = rs.map((r, i) => {
+                            return `>>>${queries[i]}\n${r}`;
+                        }).join('\n\n');
+                    });
+                    fullResult.finally(() => {
+                        iconEl().style.display = 'none';
+                        buttonEl().disabled = false;
+                    });
+                }
+            };
+            iconEl().style.display = 'none';
+        });
+
+        const defaultText = (defaultQueries) ? defaultQueries.join('\n') : '';
+
+        let parser: (s: string) => string;
+        if (shortName === 'llamadb') {
+            parser = function (s: string): string {
+                return s.replace('_0\n', '');
+            };
+        } else if (shortName === 'Redis') {
+            parser = function (s: string): string {
+                let res = s;
+                if (s.startsWith(':')) {
+                    res = s.replace(':', '');
+                }
+
+                return res.split('\n')
+                    .map(r => {
+                        return r.trim();
+                    })
+                    .filter(r => {
+                        return !r.startsWith('$') && r !== String.fromCharCode(0, 0, 0, 0);
+                    })
+                    .filter(r => {
+                        return r.length !== 0;
+                    })
+                    .join('\n');
+            };
+        } else {
+            parser = function (s: string): string {
+                return s;
+            };
+        }
+
+        return ([
+            <p>
+                <label htmlFor={queryId}>Type queries:</label>
+                <textarea className="form-control" rows={4} id={queryId}>{defaultText}</textarea>
+            </p>,
+            <p>
+                <button type="button" value="Submit query" id={buttonId}
+                        className="btn btn-primary btn-block"
+                        disabled={true}
+                >
+                    Submit query <i id={iconId} style={{display: 'inline-block'}} className="fa fa-refresh fa-spin"/>
+                </button>
+            </p>,
+            <label htmlFor="result">Result:</label>,
+            <textarea id={resultId} className="form-control" rows={6} readOnly={true}/>
+
+        ]);
+    }
 
     renderAppSnippets(): React.ReactNode[] {
         return ([
             <button type="button"
-                    onClick={e => window.open(`http://sql.fluence.network?appId=${this.props.appId}&privateKey=${llamaPrivateKey}`, "_blank")}
+                    onClick={e => window.open(`http://sql.fluence.network?appId=${this.props.appId}&privateKey=${llamaPrivateKey}`, '_blank')}
                     className="btn btn-block btn-link">
                 <i className="fa fa-external-link margin-r-5"/> <b>Open SQL DB web interface</b>
             </button>,
@@ -94,7 +209,7 @@ class Snippets extends React.Component<Props, State> {
             <pre>{`let privateKey = "${llamaPrivateKey}"; // Authorization private key
 let contract = "${defaultContractAddress}";                         // Fluence contract address
 let appId = ${this.props.appId};                                                                      // Deployed database id
-let ethereumUrl = "${fluenceLightNodeAddr}";                                    // Ethereum light node URL
+let ethereumUrl = "${fluenceNodeAddr}";                                    // Ethereum light node URL
 
 fluence.connect(contract, appId, ethereumUrl, privateKey).then((s) => {
     console.log("Session created");
@@ -112,25 +227,33 @@ session.request("SELECT AVG(age) FROM users").result().then((r) => {
             <p>That's it!</p>,
             <hr/>,
             <button type="button"
-                onClick={e => window.open(`https://github.com/fluencelabs/tutorials`, "_blank")}
-                className="btn btn-block btn-link">
+                    onClick={e => window.open(`https://github.com/fluencelabs/tutorials`, '_blank')}
+                    className="btn btn-block btn-link">
                     <i className="fa fa-external-link margin-r-5"/> <b>To develop your own app, follow
                 GitHub Tutorials</b>
             </button>,
             <button type="button"
-                onClick={e => window.open(`https://fluence.network/docs`, "_blank")}
-                className="btn btn-block btn-link">
+                    onClick={e => window.open(`https://fluence.network/docs`, '_blank')}
+                    className="btn btn-block btn-link">
                     <i className="fa fa-external-link margin-r-5"/> <b>More info in the docs</b>
             </button>
         ]);
     }
 
-    renderUploadedAppSnippets(): React.ReactNode[] {
+    renderUploadedAppSnippets(shortName: string): React.ReactNode[] {
+        const request = (shortName === 'Redis') ? 'SET A 10' : '<enter your request here>';
+        const requestForResult = (shortName === 'Redis') ? 'GET A' : '<enter your request here>';
+
         return ([
             this.renderTrxHashBlock(),
+            <p>
+                <b>
+                    Connect to {shortName} directly in the browser console.
+                </b>
+            </p>,
             <pre>{`let contract = "${defaultContractAddress}";                         // Fluence contract address
 let appId = ${this.props.appId};                                                                      // Deployed database id
-let ethereumUrl = "${fluenceLightNodeAddr}";                                    // Ethereum light node URL
+let ethereumUrl = "${fluenceNodeAddr}";                                    // Ethereum light node URL
 
 // Connect to your app
 fluence.connect(contract, appId, ethereumUrl).then((s) => {
@@ -139,10 +262,10 @@ fluence.connect(contract, appId, ethereumUrl).then((s) => {
 });
 
 // Send a request
-session.request("<enter your request here>");
+session.request("${request}");
 
 // Send a request, and read its result
-session.request("<enter your request here>").result().then((r) => {
+session.request("${requestForResult}").result().then((r) => {
     console.log("Result: " + r.asString());
 });`}
             </pre>,
@@ -150,7 +273,7 @@ session.request("<enter your request here>").result().then((r) => {
     }
 
     render(): React.ReactNode {
-        if (this.props.app != undefined && this.props.appId != undefined) {
+        if (this.props.app !== undefined && this.props.appId !== undefined) {
             const appInfo = this.props.apps[this.props.appId];
             return (
                 <div className="box box-widget widget-user-2">
@@ -160,13 +283,16 @@ session.request("<enter your request here>").result().then((r) => {
                                 <i className="ion ion-ios-checkmark-outline"/>
                             </span>
                         </div>
-                        <h3 className="widget-user-username">Connect to {this.props.app.shortName}</h3>
+                        <h3 className="widget-user-username">Try {this.props.app.shortName}</h3>
                         <h3 className="widget-user-desc">appID: <b>{this.props.appId}</b></h3>
                     </div>
                     <div className="box-footer no-padding">
                         <div className="box-body">
-
-                            { (this.props.app.shortName === "Redis" || this.props.app.selfUpload) ? this.renderUploadedAppSnippets() : this.renderAppSnippets()}
+                            {
+                                this.renderInteractiveSnippet(this.props.appId, this.props.app.shortName, this.props.app.requestExamples)
+                            }
+                            <hr/>
+                            {(this.props.app.shortName === 'Redis' || this.props.app.selfUpload) ? this.renderUploadedAppSnippets(this.props.app.shortName) : this.renderAppSnippets()}
 
                             <hr/>
                             <p><strong><i className="fa fa-bullseye margin-r-5"/>Check your app's health:</strong></p>
@@ -174,7 +300,7 @@ session.request("<enter your request here>").result().then((r) => {
                         </div>
                     </div>
                 </div>
-            )
+            );
         } else if (this.props.deployState) {
             return (
                 <div className="box box-widget widget-user-2">
@@ -205,7 +331,7 @@ const mapStateToProps = (state: any) => {
         appId: state.deploy.appId,
         trxHash: state.deploy.trxHash,
         apps: state.apps,
-    }
+    };
 };
 
 const mapDispatchToProps = {
