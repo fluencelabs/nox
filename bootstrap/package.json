@@ -21,10 +21,10 @@
   "devDependencies": {
     "chai": "4.1.2",
     "eth-gas-reporter": "0.1.12",
-    "ganache-cli": "6.1.8",
+    "ganache-cli": "6.4.3",
     "openzeppelin-solidity": "2.2.0",
-    "truffle": "5.0.9",
-    "truffle-assertions": "0.3.1",
+    "truffle": "5.0.13",
+    "truffle-assertions": "0.8.2",
     "solc": "0.5.7",
     "openzeppelin-test-helpers": "0.3.0"
   },
