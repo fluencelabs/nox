@@ -156,7 +156,7 @@ class FluenceDeployableApp extends React.Component<Props, State> {
                     </div>
                 </div>
                 <div className="col-md-4 col-xs-12">
-                    <Snippets deployedAppId={this.props.deployedAppId}/>
+                    <Snippets app={app} deployedAppId={this.props.deployedAppId}/>
                 </div>
             </div>
         );

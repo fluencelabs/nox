@@ -327,7 +327,6 @@ session.request("${requestForResult}").result().then((r) => {
 const mapStateToProps = (state: any) => {
     return {
         deployState: state.deploy.deployState,
-        app: state.deploy.app,
         trxHash: state.deploy.trxHash,
         apps: state.apps,
     };
