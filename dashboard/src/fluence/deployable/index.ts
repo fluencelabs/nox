@@ -68,6 +68,7 @@ export const deployableApps: { [key: string]: DeployableApp } = {
         clusterSize: 4,
         selfUpload: true
     },
+    // {"Name":"redis6.wasm","Hash":"QmUJuCpLL3mJ3wtCrmcnjJ5j5aWj2EmMZVRqNVYnMYSsYZ","Size":"902447"}
     redis: {
         name: 'Redis (wasm-version 0.1)',
         shortName: 'Redis',
