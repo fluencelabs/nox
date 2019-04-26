@@ -1,6 +1,5 @@
 import contract from '../../../fluence/contract';
 import {checkLogs, DeployableApp, send, txParams, deployableApps, DeployedAppState} from "../../../fluence/deployable";
-import { push as pushHistory } from 'connected-react-router';
 import {History} from 'history';
 import {privateKey, appUploadUrl} from "../../../constants";
 import {Action, Dispatch} from "redux";
@@ -8,7 +7,7 @@ import axios from 'axios';
 import EthereumTx from "ethereumjs-tx";
 import {getApp, getNode, getNodeAppStatus} from "../../../fluence";
 import {fromIpfsHash, storageToString32} from "../../../utils";
-import {saveDeployedApp} from "../../../utils/cookie";
+import {clearDeployedApp, saveDeployedApp} from "../../../utils/cookie";
 
 export const DEPLOY_CLEAR_STATE = 'DEPLOY_CLEAR_STATE';
 export const DEPLOY_STATE_PREPARE = 'DEPLOY_STATE_PREPARE';
@@ -20,7 +19,7 @@ export const APP_DEPLOYED = 'APP_DEPLOYED';
 export const APP_ENQUEUED = 'APP_ENQUEUED';
 export const APP_DEPLOY_FAILED = 'APP_DEPLOY_FAILED';
 
-export const deploy = (app: DeployableApp, appTypeId: string, storageHashOverload?: string) => {
+export const deploy = (app: DeployableApp, appTypeId: string, storageHashOverload: string, history: History) => {
     return async (dispatch: Dispatch): Promise<Action> => {
 
         dispatch({type: DEPLOY_CLEAR_STATE});
@@ -42,7 +41,7 @@ export const deploy = (app: DeployableApp, appTypeId: string, storageHashOverloa
         let deployStatus = checkLogs(receipt);
 
         saveDeployedApp(String(deployStatus.appId), appTypeId);
-        dispatch(pushHistory(`/deploy/${appTypeId}/${deployStatus.appId}`));
+        history.push(`/deploy/${appTypeId}/${deployStatus.appId}`);
 
         if (deployStatus.state == DeployedAppState.Deployed) {
             dispatch({type: DEPLOY_STATE_CLUSTER_CHECK, note: 'retrieving app'});
@@ -106,6 +105,16 @@ export const restoreDeployed = (appId: string, appTypeId: string, history: Histo
             type: DEPLOY_RESTORE,
             appId,
             app: deployableApps[appTypeId],
+        });
+    };
+};
+
+export const DEPLOY_RESET = 'DEPLOY_RESET';
+export const resetDeployed = () => {
+    return (dispatch: Dispatch): Action => {
+        clearDeployedApp();
+        return dispatch({
+            type: DEPLOY_RESET
         });
     };
 };
@@ -201,6 +210,14 @@ export default (state = {
                 deployState: 'end',
                 app: action.app,
                 appId: action.appId,
+            };
+        }
+        case DEPLOY_RESET: {
+            return {
+                ...state,
+                deployState: undefined,
+                app: undefined,
+                appId: undefined,
             };
         }
         case DEPLOY_UPLOAD_STARTED: {

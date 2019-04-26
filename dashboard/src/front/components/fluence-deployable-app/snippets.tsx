@@ -16,7 +16,7 @@ interface State {
 
 interface Props {
     deployState: string | undefined;
-    appId: number | undefined;
+    deployedAppId: AppId | undefined,
     app: DeployableApp | undefined;
     apps: {
         [key: string]: App;
@@ -34,17 +34,17 @@ class Snippets extends React.Component<Props, State> {
 
     loadData(): void {
         this.props.displayLoading();
-        this.props.retrieveApp(String(this.props.appId)).then(this.props.hideLoading).catch(this.props.hideLoading);
+        this.props.retrieveApp(String(this.props.deployedAppId)).then(this.props.hideLoading).catch(this.props.hideLoading);
     }
 
     componentDidUpdate(prevProps: Props): void {
-        if (this.props.appId && prevProps.appId !== this.props.appId) {
+        if (this.props.deployedAppId && prevProps.deployedAppId !== this.props.deployedAppId) {
             this.loadData();
         }
     }
 
     componentDidMount(): void {
-        if (this.props.appId && !this.props.apps[this.props.appId]) {
+        if (this.props.deployedAppId && !this.props.apps[this.props.deployedAppId]) {
             this.loadData();
         }
     }
@@ -83,10 +83,10 @@ class Snippets extends React.Component<Props, State> {
 
     renderInteractiveSnippet(appId: number, shortName: string, defaultQueries?: string[]): React.ReactNode[] {
 
-        const queryId = `query${this.props.appId}`;
-        const iconId = `icon${this.props.appId}`;
-        const buttonId = `button${this.props.appId}`;
-        const resultId = `result${this.props.appId}`;
+        const queryId = `query${this.props.deployedAppId}`;
+        const iconId = `icon${this.props.deployedAppId}`;
+        const buttonId = `button${this.props.deployedAppId}`;
+        const resultId = `result${this.props.deployedAppId}`;
 
         const inputField = function (): HTMLInputElement {
             return window.document.getElementById(queryId) as HTMLInputElement;
@@ -194,7 +194,7 @@ class Snippets extends React.Component<Props, State> {
     renderAppSnippets(): React.ReactNode[] {
         return ([
             <button type="button"
-                    onClick={e => window.open(`http://sql.fluence.network?appId=${this.props.appId}&privateKey=${llamaPrivateKey}`, '_blank')}
+                    onClick={e => window.open(`http://sql.fluence.network?appId=${this.props.deployedAppId}&privateKey=${llamaPrivateKey}`, '_blank')}
                     className="btn btn-block btn-link">
                 <i className="fa fa-external-link margin-r-5"/> <b>Open SQL DB web interface</b>
             </button>,
@@ -208,7 +208,7 @@ class Snippets extends React.Component<Props, State> {
             <p> Open Developer Tools, and paste:</p>,
             <pre>{`let privateKey = "${llamaPrivateKey}"; // Authorization private key
 let contract = "${defaultContractAddress}";                         // Fluence contract address
-let appId = ${this.props.appId};                                                                      // Deployed database id
+let appId = ${this.props.deployedAppId};                                                                      // Deployed database id
 let ethereumUrl = "${fluenceNodeAddr}";                                    // Ethereum light node URL
 
 fluence.connect(contract, appId, ethereumUrl, privateKey).then((s) => {
@@ -252,7 +252,7 @@ session.request("SELECT AVG(age) FROM users").result().then((r) => {
                 </b>
             </p>,
             <pre>{`let contract = "${defaultContractAddress}";                         // Fluence contract address
-let appId = ${this.props.appId};                                                                      // Deployed database id
+let appId = ${this.props.deployedAppId};                                                                      // Deployed database id
 let ethereumUrl = "${fluenceNodeAddr}";                                    // Ethereum light node URL
 
 // Connect to your app
@@ -273,8 +273,8 @@ session.request("${requestForResult}").result().then((r) => {
     }
 
     render(): React.ReactNode {
-        if (this.props.app !== undefined && this.props.appId !== undefined) {
-            const appInfo = this.props.apps[this.props.appId];
+        if (this.props.app !== undefined && this.props.deployedAppId !== undefined) {
+            const appInfo = this.props.apps[this.props.deployedAppId];
             return (
                 <div className="box box-widget widget-user-2">
                     <div className="widget-user-header bg-fluence-blue-gradient">
@@ -284,19 +284,19 @@ session.request("${requestForResult}").result().then((r) => {
                             </span>
                         </div>
                         <h3 className="widget-user-username">Try {this.props.app.shortName}</h3>
-                        <h3 className="widget-user-desc">appID: <b>{this.props.appId}</b></h3>
+                        <h3 className="widget-user-desc">appID: <b>{this.props.deployedAppId}</b></h3>
                     </div>
                     <div className="box-footer no-padding">
                         <div className="box-body">
                             {
-                                this.renderInteractiveSnippet(this.props.appId, this.props.app.shortName, this.props.app.requestExamples)
+                                this.renderInteractiveSnippet(Number(this.props.deployedAppId), this.props.app.shortName, this.props.app.requestExamples)
                             }
                             <hr/>
                             {(this.props.app.shortName === 'Redis' || this.props.app.selfUpload) ? this.renderUploadedAppSnippets(this.props.app.shortName) : this.renderAppSnippets()}
 
                             <hr/>
                             <p><strong><i className="fa fa-bullseye margin-r-5"/>Check your app's health:</strong></p>
-                            {appInfo && <FluenceCluster appId={this.props.appId} cluster={appInfo.cluster}/>}
+                            {appInfo && <FluenceCluster appId={this.props.deployedAppId} cluster={appInfo.cluster}/>}
                         </div>
                     </div>
                 </div>
@@ -328,7 +328,6 @@ const mapStateToProps = (state: any) => {
     return {
         deployState: state.deploy.deployState,
         app: state.deploy.app,
-        appId: state.deploy.appId,
         trxHash: state.deploy.trxHash,
         apps: state.apps,
     };

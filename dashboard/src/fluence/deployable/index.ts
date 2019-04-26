@@ -150,3 +150,11 @@ export function checkLogs(receipt: TransactionReceipt): DeployedApp {
         appId: undefined
     };
 }
+
+export function findDeployableAppByStorageHash(storageHash: string): DeployableApp | undefined {
+    const deployableAppId = deployableAppIds.find(id => {
+        return deployableApps[id].storageHash.toLowerCase() == storageHash.toLowerCase();
+    });
+
+    return deployableAppId ? deployableApps[deployableAppId] : undefined;
+}
