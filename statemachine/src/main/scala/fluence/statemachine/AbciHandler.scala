@@ -51,7 +51,8 @@ class AbciHandler[F[_]: Effect](
             block <- TendermintBlock(str).leftTap(e => logBad(s"Failed to decode tendermint block from JSON: $e"))
             _ <- block.validateHashes().leftTap(e => logBad(s"Block at height $height is invalid: $e"))
           } yield log(s"Block at height $height is valid")
-      ).unsafeRunAsyncAndForget()
+      )
+      .unsafeRunAsyncAndForget()
   }
 
   override def requestBeginBlock(

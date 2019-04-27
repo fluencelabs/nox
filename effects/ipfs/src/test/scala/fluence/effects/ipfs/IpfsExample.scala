@@ -42,7 +42,6 @@ object IpfsExample extends App {
 
   implicit val sttp: SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]] = EitherTSttpBackend[IO]()
 
-
   implicit val rt = new RaiseThrowable[fs2.Pure] {}
   val k = fs2.Stream.emit("incorrect json").through(stringStreamParser[fs2.Pure]).attempt.toList
   println(k)
@@ -50,7 +49,7 @@ object IpfsExample extends App {
   val data = ByteVector(Array[Byte](1, 2, 3, 4))
   val store = new IpfsClient[IO](uri"http://data.fluence.one:5001")
 
-  val home = System.getProperty( "user.home" )
+  val home = System.getProperty("user.home")
 
   val hashE = store.upload(data).value.unsafeRunSync()
   println(hashE)
@@ -59,7 +58,6 @@ object IpfsExample extends App {
   println("dir upload: " + dirHash)
   println("file upload: " + store.upload(Paths.get(home).resolve("test.wasm")).value.unsafeRunSync())
   println("empty upload: " + store.upload(Paths.get(home).resolve("emptydir")).value.unsafeRunSync())
-
 
   val hash1 = hashE.right.get
 
