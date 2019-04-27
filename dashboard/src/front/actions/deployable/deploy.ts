@@ -207,7 +207,9 @@ export default (state = {
         case DEPLOY_RESTORE: {
             return {
                 ...state,
-                deployState: 'end',
+                deployState: {
+                    state: 'end'
+                },
                 app: action.app,
                 appId: action.appId,
             };

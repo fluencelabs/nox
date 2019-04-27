@@ -15,7 +15,7 @@ interface State {
 }
 
 interface Props {
-    deployState: string | undefined;
+    deployState: { state: string } | undefined;
     deployedAppId: AppId | undefined,
     app: DeployableApp | undefined;
     apps: {
@@ -273,7 +273,24 @@ session.request("${requestForResult}").result().then((r) => {
     }
 
     render(): React.ReactNode {
-        if (this.props.app !== undefined && this.props.deployedAppId !== undefined) {
+        if (this.props.deployState && this.props.deployState.state != 'end') {
+            return (
+                <div className="box box-widget widget-user-2">
+                    <div className="widget-user-header bg-fluence-blue-gradient">
+                        <div className="widget-user-image">
+                            <span className="entity-info-box-icon"><i className="fa fa-refresh fa-spin"/></span>
+                        </div>
+                        <h3 className="widget-user-username">Deploying app</h3>
+                        <h3 className="widget-user-desc">...</h3>
+                    </div>
+                    <div className="box-footer no-padding">
+                        <div className="box-body">
+                            <p>Status: {this.getDeployStateLabel(this.props.deployState)}</p>
+                        </div>
+                    </div>
+                </div>
+            );
+        } else if (this.props.app !== undefined && this.props.deployedAppId !== undefined) {
             const appInfo = this.props.apps[this.props.deployedAppId];
             return (
                 <div className="box box-widget widget-user-2">
@@ -297,23 +314,6 @@ session.request("${requestForResult}").result().then((r) => {
                             <hr/>
                             <p><strong><i className="fa fa-bullseye margin-r-5"/>Check your app's health:</strong></p>
                             {appInfo && <FluenceCluster appId={this.props.deployedAppId} cluster={appInfo.cluster}/>}
-                        </div>
-                    </div>
-                </div>
-            );
-        } else if (this.props.deployState) {
-            return (
-                <div className="box box-widget widget-user-2">
-                    <div className="widget-user-header bg-fluence-blue-gradient">
-                        <div className="widget-user-image">
-                            <span className="entity-info-box-icon"><i className="fa fa-refresh fa-spin"/></span>
-                        </div>
-                        <h3 className="widget-user-username">Deploying app</h3>
-                        <h3 className="widget-user-desc">...</h3>
-                    </div>
-                    <div className="box-footer no-padding">
-                        <div className="box-body">
-                            <p>Status: {this.getDeployStateLabel(this.props.deployState)}</p>
                         </div>
                     </div>
                 </div>

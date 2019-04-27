@@ -63,9 +63,7 @@ class DashboardApp extends React.Component<Props, State> {
         (window as any).fluence = fluence;
 
         const deployedApp = getDeployedApp();
-        if (deployedApp
-            && (this.props.match.path == '/' || this.props.match.path == '/:entityType/:entityId/:appId')
-        ) {
+        if (deployedApp && this.props.match.path == '/') {
             this.props.restoreDeployed(deployedApp.deployedAppId, deployedApp.deployedAppTypeId, this.props.history);
         }
     }
