@@ -22,8 +22,8 @@ import java.util.Base64
 
 import cats.data.EitherT
 import cats.effect._
-import cats.syntax.functor._
 import cats.syntax.apply._
+import cats.syntax.functor._
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
 import fluence.EitherTSttpBackend
@@ -31,12 +31,12 @@ import fluence.effects.docker.DockerIO
 import fluence.effects.ethclient.EthClient
 import fluence.node.config.{FluenceContractConfig, MasterConfig, NodeConfig}
 import fluence.node.eth.FluenceContract
+import fluence.node.eth.FluenceContractTestOps._
 import fluence.node.status.{MasterStatus, StatusAggregator}
 import fluence.node.workers.tendermint.ValidatorKey
-import org.scalatest.{Timer ⇒ _, _}
+import org.scalatest.{Timer => _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
-import eth.FluenceContractTestOps._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -121,7 +121,10 @@ class MasterNodeSpec
           logger.debug("Going to run the node")
 
           eventually[IO](
-            getStatus(5678).map(_.ethState.lastBlock.get.number.get.toInt shouldBe 3).void,
+            for {
+              status <- getStatus(5678)
+              _ = (Math.abs(status.uptime) > 0) shouldBe true
+            } yield (),
             100.millis, 15.seconds
           )
 
