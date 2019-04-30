@@ -6,6 +6,7 @@ import {
     hideLoading,
     retrieveApp,
 } from '../../actions';
+import { findDeployableAppByStorageHash } from "../../../fluence/deployable";
 import FluenceCluster from '../fluence-cluster';
 import { AppId, App } from '../../../fluence';
 import { Action } from 'redux';
@@ -70,6 +71,13 @@ class FluenceApp extends React.Component<Props, State> {
     render(): React.ReactNode {
         const app = this.props.apps[this.props.appId];
 
+        let appName = 'App';
+        if (app) {
+            const deployableApp = findDeployableAppByStorageHash(app.storage_hash);
+            if (deployableApp) {
+                appName += ` (${deployableApp.shortName})`;
+            }
+        }
         return (
             <div className="col-md-4 col-xs-12">
                 <div className="box box-widget widget-user-2">
@@ -77,7 +85,7 @@ class FluenceApp extends React.Component<Props, State> {
                         <div className="widget-user-image">
                             <span className="entity-info-box-icon"><i className={app ? 'ion ion-ios-gear-outline' : 'fa fa-refresh fa-spin'}/></span>
                         </div>
-                        <h3 className="widget-user-username">App</h3>
+                        <h3 className="widget-user-username">{appName}</h3>
                         <h5 className="widget-user-desc">ID:&nbsp;{this.props.appId}</h5>
                     </div>
                     {app && this.renderAppInfo(app)}
