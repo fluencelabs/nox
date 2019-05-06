@@ -97,7 +97,7 @@ object SbtCommons {
   val fs2Version            = "1.0.4"
   val fs2                   = "co.fs2" %% "fs2-core"             % fs2Version
   val fs2rx                 = "co.fs2" %% "fs2-reactive-streams" % fs2Version
-  val fs2io                 = "co.fs2" %% "fs2-io"
+  val fs2io                 = "co.fs2" %% "fs2-io"               % fs2Version
 
   // functional wrapper around 'lightbend/config'
   @deprecated("pureConfig is known to cause mindblowing failures on compile time, let's drop it away", "29.03.2019")
