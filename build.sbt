@@ -122,11 +122,6 @@ lazy val `merkelized-bytebuffer` = (project in file("statemachine/merkelized-byt
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      cats,
-      catsEffect,
-      scodecBits,
-      slogging,
-      apacheCommons,
       scalaTest
     )
   )

@@ -3,7 +3,6 @@ package fluence.merkle
 import java.security.MessageDigest
 
 import org.scalatest.{Matchers, WordSpec}
-import scodec.bits.ByteVector
 
 class MerkleTreeTest extends WordSpec with Matchers {
   "check size of tree" in {
@@ -26,6 +25,8 @@ class MerkleTreeTest extends WordSpec with Matchers {
     tree3.allNodes.length shouldBe 255
     tree3.treeHeight shouldBe 7
 
+    tree3.showTree()
+
     val (_, tree4) = TestUtils.initBytesTestMerkle(254, 2)
     tree4.allNodes.length shouldBe 255
     tree4.treeHeight shouldBe 7
@@ -44,8 +45,6 @@ class MerkleTreeTest extends WordSpec with Matchers {
     val size = 900
     val chunkSize = 25
     val (storage, tree) = TestUtils.initBytesTestMerkle(size, chunkSize)
-
-    tree.showTree()
 
     val leafsCount = tree.leafsCount
 
@@ -128,6 +127,6 @@ class MerkleTreeTest extends WordSpec with Matchers {
     println("finish put: " + (System.currentTimeMillis() - startTime))
     val hash = tree.recalculateHash()
     println("finish recalculate: " + (System.currentTimeMillis() - startTime))
-    println("hash: " + ByteVector(hash).toHex)
+    println("hash: " + BinaryMerkleTree.bytesToHex(hash))
   }
 }

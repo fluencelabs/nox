@@ -2,24 +2,20 @@ package fluence.merkle
 
 import java.util
 
-import cats.Show
-import cats.syntax.show._
 import fluence.merkle.ops.{ByteMerkleOperations, MerkleOperations}
 import fluence.merkle.storage.Storage
-import org.apache.commons.lang3.StringUtils
-import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 import scala.reflect.ClassTag
 
-class BinaryMerkleTree[T: Show] private (
-  val allNodes: Array[T],
+class BinaryMerkleTree private (
+  val allNodes: Array[Array[Byte]],
   val treeHeight: Int,
   chunkSize: Int,
   mappedLeafCount: Int,
-  ops: MerkleOperations[T],
-  storage: Storage[T]
-)(implicit m: ClassTag[T]) {
+  ops: MerkleOperations[Array[Byte]],
+  storage: Storage[Array[Byte]]
+)(implicit m: ClassTag[Array[Byte]]) {
   import TreeMath._
 
   val leafsCount: Int = power2(treeHeight)
@@ -46,7 +42,7 @@ class BinaryMerkleTree[T: Show] private (
    * @param pos position of node in a row
    * @return
    */
-  private def getChildren(height: Int, pos: Int): (T, T) = {
+  private def getChildren(height: Int, pos: Int): (Array[Byte], Array[Byte]) = {
     // leafs don't have children
     assert(height < treeHeight)
     val index = getNodeIndex(height + 1, pos * 2)
@@ -66,10 +62,10 @@ class BinaryMerkleTree[T: Show] private (
    *
    * @return root hash
    */
-  def recalculateHash(): T = recalculateLeafs(leafsCount, storage.getDirtyChunks)
+  def recalculateHash(): Array[Byte] = recalculateLeafs(leafsCount, storage.getDirtyChunks)
 
   // for test purpose only
-  def recalculateAll(): T = {
+  def recalculateAll(): Array[Byte] = {
     val allLeafs = leafsCount
     val bs = new util.BitSet(allLeafs)
     bs.set(0, allLeafs)
@@ -81,7 +77,7 @@ class BinaryMerkleTree[T: Show] private (
    *
    * @param pos leaf position
    */
-  private def calculateLeafHash(pos: Int): Unit = {
+  private def recalculateLeafHash(pos: Int): Unit = {
     val index = startOfLeafIndex + pos - 1
     val bytes = if (pos >= mappedLeafCount) {
       defaultLeafChunk
@@ -102,7 +98,7 @@ class BinaryMerkleTree[T: Show] private (
    */
   private def calculateNodeHash(height: Int, pos: Int): Unit = {
     if (height == treeHeight) {
-      calculateLeafHash(pos)
+      recalculateLeafHash(pos)
     } else {
       val (l, r) = getChildren(height, pos)
       val newHash =
@@ -111,7 +107,7 @@ class BinaryMerkleTree[T: Show] private (
     }
   }
 
-  private def calculateRootHash(): T = {
+  private def calculateRootHash(): Array[Byte] = {
     allNodes(0) = ops.hash(ops.concatenate(allNodes(1), allNodes(2)))
     allNodes(0)
   }
@@ -126,7 +122,7 @@ class BinaryMerkleTree[T: Show] private (
    * @return root hash
    */
   @scala.annotation.tailrec
-  private def recalculateNodes(rowSize: Int, height: Int, dirtyNodes: util.BitSet): T = {
+  private def recalculateNodes(rowSize: Int, height: Int, dirtyNodes: util.BitSet): Array[Byte] = {
     var i = -1
     var exit = true
     val parentsRowSize = rowSize / 2
@@ -146,7 +142,7 @@ class BinaryMerkleTree[T: Show] private (
     else recalculateNodes(parentsRowSize, nextHeight, parents)
   }
 
-  private def recalculateLeafs(size: Int, bits: util.BitSet): T = {
+  private def recalculateLeafs(size: Int, bits: util.BitSet): Array[Byte] = {
     recalculateNodes(size, treeHeight, bits)
   }
 
@@ -155,18 +151,18 @@ class BinaryMerkleTree[T: Show] private (
     var treeNodesStr: Map[Int, List[String]] = Map.empty
     val spaceSize = 4
 
-    val leafSize = (allNodes.last.show + " " * spaceSize).length
+    val leafSize = (BinaryMerkleTree.bytesToHex(allNodes.last) + " " * spaceSize).length
 
     val bottomSize = leafSize * power2(treeHeight)
 
-    treeNodesStr = treeNodesStr + (0 -> List(allNodes(0).show))
+    treeNodesStr = treeNodesStr + (0 -> List(BinaryMerkleTree.bytesToHex(allNodes(0))))
     allNodes.zipWithIndex.drop(1).foreach {
       case (n, index) =>
         val height = log2(index + 1)
         treeNodesStr = treeNodesStr + (height -> treeNodesStr
           .get(height)
-          .map(l => l :+ n.show)
-          .getOrElse(List(n.show)))
+          .map(l => l :+ BinaryMerkleTree.bytesToHex(n))
+          .getOrElse(List(BinaryMerkleTree.bytesToHex(n))))
     }
 
     val lineSize =
@@ -174,9 +170,12 @@ class BinaryMerkleTree[T: Show] private (
     treeNodesStr.map { case (k, v) => (k, v) }.toList.sortBy(_._1).foreach {
       case (_, els) =>
         els.zipWithIndex.foreach {
-          case (s, i) =>
-            val si = scala.math.ceil(lineSize.toDouble / els.size).toInt
-            print(StringUtils.center(s, si))
+          case (str, i) =>
+            val size = scala.math.ceil(lineSize.toDouble / els.size).toInt
+            val strLen = str.length
+            val pads = " " * ((size - strLen) / 2)
+
+            print(pads + str + pads)
         }
         println()
     }
@@ -185,26 +184,32 @@ class BinaryMerkleTree[T: Show] private (
 
 object BinaryMerkleTree {
 
+  def bytesToHex(hashInBytes: Array[Byte]): String = {
+    val sb = new StringBuilder
+    for (b <- hashInBytes) yield {
+      sb.append(Integer.toHexString(b))
+    }
+    sb.toString
+  }
+
   def apply(
     size: Int,
     chunkSize: Int,
     storage: Storage[Array[Byte]],
     hashFunc: Array[Byte] => Array[Byte]
-  ): BinaryMerkleTree[Array[Byte]] = {
+  ): BinaryMerkleTree = {
 
     val operations = new ByteMerkleOperations(hashFunc)
 
-    implicit val s: Show[Array[Byte]] = (a: Array[Byte]) => ByteVector(a).toHex
-
-    BinaryMerkleTree[Array[Byte]](size, chunkSize, operations, storage)
+    BinaryMerkleTree(size, chunkSize, operations, storage)
   }
 
-  def apply[T: Show](
+  def apply(
     size: Int,
     chunkSize: Int,
-    ops: MerkleOperations[T],
-    storage: Storage[T]
-  )(implicit c: ClassTag[T]): BinaryMerkleTree[T] = {
+    ops: MerkleOperations[Array[Byte]],
+    storage: Storage[Array[Byte]]
+  )(implicit c: ClassTag[Array[Byte]]): BinaryMerkleTree = {
     import TreeMath._
 
     assert(size % chunkSize == 0)
@@ -228,7 +233,7 @@ object BinaryMerkleTree {
 
     val numberOfNodes = power2(treeHeight + 1) - 1
 
-    val arrayTree = new Array[T](numberOfNodes)
+    val arrayTree = new Array[Array[Byte]](numberOfNodes)
 
     val tree = new BinaryMerkleTree(arrayTree, treeHeight, chunkSize, mappedLeafCount, ops, storage)
     tree.recalculateAll()
