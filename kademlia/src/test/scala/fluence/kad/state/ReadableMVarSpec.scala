@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.kad.mvar
+package fluence.kad.state
 
 import cats.data.StateT
 import cats.effect.IO

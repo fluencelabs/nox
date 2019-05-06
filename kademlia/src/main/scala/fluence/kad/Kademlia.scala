@@ -23,8 +23,9 @@ import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.eq._
 import cats.Parallel
-import fluence.kad.core.{Bucket, BucketsState, IterativeRouting, LocalRouting, SiblingsState}
+import fluence.kad.routing.{IterativeRouting, LocalRouting}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
+import fluence.kad.state.{Bucket, BucketsState, SiblingsState}
 
 import scala.concurrent.duration.Duration
 import scala.language.higherKinds
@@ -157,7 +158,7 @@ object Kademlia {
      * @return true if node is present in routing table after update, false if it's dropped
      */
     override def update(node: Node[C]): F[Boolean] =
-      localRouting.update(node, rpc, pingExpiresIn, checkNode)
+      localRouting.update(node, rpc, pingExpiresIn, checkNode).map(_.updated.contains(node.key))
 
     /**
      * @return KademliaRPC instance to handle incoming RPC requests

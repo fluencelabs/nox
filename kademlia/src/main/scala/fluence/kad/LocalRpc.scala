@@ -18,7 +18,7 @@ package fluence.kad
 
 import cats.effect.{Effect, IO}
 import cats.effect.syntax.effect._
-import fluence.kad.core.LocalRouting
+import fluence.kad.routing.LocalRouting
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 
 import scala.language.higherKinds

@@ -14,17 +14,21 @@
  * limitations under the License.
  */
 
-package fluence.kad.core
+package fluence.kad.routing
 
-import cats.effect.{Clock, IO, LiftIO}
+import cats.effect.{Clock, Concurrent, IO, LiftIO}
 import cats.instances.list._
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.apply._
+import cats.syntax.semigroupk._
 import cats.syntax.monoid._
 import cats.syntax.order._
-import cats.{Monad, Parallel}
+import cats.{Monad, Parallel, Traverse}
+import fluence.effects.kvstore.KVStore
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
+import fluence.kad.state.{Bucket, BucketsState, ModResult, Siblings, SiblingsState}
 
 import scala.annotation.tailrec
 import scala.collection.immutable.Queue
@@ -69,7 +73,7 @@ trait LocalRouting[F[_], C] {
    * @param key Key
    * @return Optional node, if it was removed
    */
-  def remove(key: Key): F[Option[Node[C]]]
+  def remove(key: Key): F[ModResult[C]]
 
   /**
    * Locates the bucket responsible for given contact, and updates it using given ping function
@@ -85,7 +89,7 @@ trait LocalRouting[F[_], C] {
     rpc: C ⇒ KademliaRpc[C],
     pingExpiresIn: Duration,
     checkNode: Node[C] ⇒ IO[Boolean]
-  )(implicit clock: Clock[F], liftIO: LiftIO[F]): F[Boolean]
+  )(implicit clock: Clock[F], liftIO: LiftIO[F]): F[ModResult[C]]
 
   /**
    * Update RoutingTable with a list of fresh nodes
@@ -101,7 +105,7 @@ trait LocalRouting[F[_], C] {
     rpc: C ⇒ KademliaRpc[C],
     pingExpiresIn: Duration,
     checkNode: Node[C] ⇒ IO[Boolean]
-  )(implicit clock: Clock[F], liftIO: LiftIO[F]): F[List[Node[C]]]
+  )(implicit clock: Clock[F], liftIO: LiftIO[F]): F[ModResult[C]]
 }
 
 object LocalRouting {
@@ -210,11 +214,11 @@ object LocalRouting {
      * @param key Key
      * @return Optional node, if it was removed
      */
-    override def remove(key: Key): F[Option[Node[C]]] =
+    override def remove(key: Key): F[ModResult[C]] =
       P sequential P.apply.map2(
         P parallel siblings.remove(key),
         P parallel buckets.remove((key |+| nodeId).zerosPrefixLen, key)
-      )(_ orElse _)
+      )(_ <+> _)
 
     /**
      * Locates the bucket responsible for given contact, and updates it using given ping function
@@ -223,33 +227,49 @@ object LocalRouting {
      * @param rpc           Function to perform request to remote contact
      * @param pingExpiresIn Duration when no ping requests are made by the bucket, to avoid overflows
      * @param checkNode     Test node correctness, e.g. signatures are correct, ip is public, etc.
-     * @return True if the node is saved into routing table
+     * @return ModResult
      */
     override def update(
       node: Node[C],
       rpc: C ⇒ KademliaRpc[C],
       pingExpiresIn: Duration,
       checkNode: Node[C] ⇒ IO[Boolean]
-    )(implicit clock: Clock[F], liftIO: LiftIO[F]): F[Boolean] =
-      if (nodeId === node.key) false.pure[F]
+    )(implicit clock: Clock[F], liftIO: LiftIO[F]): F[ModResult[C]] =
+      updateK(node, rpc, pingExpiresIn, checkNode, keepExisting = true)
+
+    /**
+     * Implementation for [[update]] with managed ModResult checks -- required for [[updateList]] optimization
+     */
+    private def updateK(
+      node: Node[C],
+      rpc: C ⇒ KademliaRpc[C],
+      pingExpiresIn: Duration,
+      checkNode: Node[C] ⇒ IO[Boolean],
+      keepExisting: Boolean
+    )(implicit clock: Clock[F], liftIO: LiftIO[F]): F[ModResult[C]] =
+      if (nodeId === node.key)
+        ModResult.noop[C].pure[F]
       else
         checkNode(node).attempt.to[F].flatMap {
           case Right(true) ⇒
             logger.trace("Update node: {}", node.key)
 
-            P sequential P.apply.map2(
-              // Update bucket, performing ping if necessary
-              P parallel buckets.update((node.key |+| nodeId).zerosPrefixLen, node, rpc, pingExpiresIn),
-              // Update siblings
-              P parallel siblings.add(node)
-            )(_ || _)
+            P.sequential(
+                P.apply.map2(
+                  // Update bucket, performing ping if necessary
+                  P parallel buckets.update((node.key |+| nodeId).zerosPrefixLen, node, rpc, pingExpiresIn),
+                  // Update siblings
+                  P parallel siblings.add(node)
+                )(_ <+> _)
+              )
+              .flatMap(z ⇒ if (keepExisting) keepExistingNodes(z) else z.pure[F])
 
           case Left(err) ⇒
             logger.trace(s"Node check failed with an exception for $node", err)
-            false.pure[F]
+            ModResult.noop[C].pure[F]
 
           case _ ⇒
-            false.pure[F]
+            ModResult.noop[C].pure[F]
         }
 
     /**
@@ -259,14 +279,14 @@ object LocalRouting {
      * @param rpc           Function to perform request to remote contact
      * @param pingExpiresIn Duration when no ping requests are made by the bucket, to avoid overflows
      * @param checkNode     Test node correctness, e.g. signatures are correct, ip is public, etc.
-     * @return The same list of `nodes`
+     * @return Result of state modification
      */
     override def updateList(
       nodes: List[Node[C]],
       rpc: C ⇒ KademliaRpc[C],
       pingExpiresIn: Duration,
       checkNode: Node[C] ⇒ IO[Boolean]
-    )(implicit clock: Clock[F], liftIO: LiftIO[F]): F[List[Node[C]]] = {
+    )(implicit clock: Clock[F], liftIO: LiftIO[F]): F[ModResult[C]] = {
       // From iterable of groups, make list of list of items from different groups
       @tailrec
       def rearrange(groups: Iterable[List[Node[C]]], agg: List[List[Node[C]]] = Nil): List[List[Node[C]]] = {
@@ -287,19 +307,18 @@ object LocalRouting {
       }
 
       // Update portion, taking nodes one by one, and return all updated nodes
-      def updatePortion(portion: List[Node[C]], agg: Stream[Node[C]] = Stream.empty): F[Stream[Node[C]]] =
+      def updatePortion(portion: List[Node[C]], agg: ModResult[C] = ModResult.noop): F[ModResult[C]] =
         portion match {
           case Nil ⇒ agg.pure[F]
           case node :: tail ⇒
-            update(node, rpc, pingExpiresIn, checkNode).flatMap {
-              case true ⇒ updatePortion(tail, node #:: agg)
-              case false ⇒ updatePortion(tail, agg)
+            updateK(node, rpc, pingExpiresIn, checkNode, keepExisting = false).flatMap { res ⇒
+              updatePortion(tail, res <+> agg)
             }
         }
 
       // Update each portion in parallel, and return all updated nodes
-      def updateParPortions(portions: List[List[Node[C]]]): F[Stream[Node[C]]] =
-        Parallel.parTraverse(portions)(updatePortion(_)).map(_.foldLeft(Stream.empty[Node[C]])(_ #::: _))
+      def updateParPortions(portions: List[List[Node[C]]]): F[ModResult[C]] =
+        Parallel.parTraverse(portions)(updatePortion(_)).map(_.foldLeft(ModResult.noop[C])(_ <+> _))
 
       updateParPortions(
         // Rearrange in portions with distinct bucket ids, so that it's possible to update it in parallel
@@ -307,8 +326,101 @@ object LocalRouting {
           // Group by bucketId, so that each group should never be updated in parallel
           nodes.groupBy(p ⇒ (p.key |+| nodeId).zerosPrefixLen).values
         )
-      ).map(_ ⇒ nodes)
+      ).flatMap(keepExistingNodes)
     }
 
+    /**
+     * Keep existing nodes in case they were dropped either from buckets or siblings, but kept in another storage.
+     *
+     * @param res Mod result
+     * @return ModResult
+     */
+    private def keepExistingNodes(res: ModResult[C]): F[ModResult[C]] =
+      Traverse[List]
+        .traverse(res.removed.toList)(find)
+        .map(_.foldLeft(res) {
+          case (mr, Some(n)) ⇒ mr.keep(n.key)
+          case (mr, _) ⇒ mr
+        })
   }
+
+  /**
+   * Load previously stored data from the store, bootstrap the LocalRouting with it; reflect LocalRouting state changes in the given store
+   *
+   * @param localRouting Local routing to delegate operations to
+   * @param store Store for node contacts
+   * @param rpc           Function to perform request to remote contact
+   * @param pingExpiresIn Duration when no ping requests are made by the bucket, to avoid overflows
+   * @param checkNode     Test node correctness, e.g. signatures are correct, ip is public, etc.
+   * @tparam F Effect; storing is performed in the background with no blocking
+   * @tparam C Contact
+   * @return Bootstrapped LocalRouting that stores state changes in the store
+   */
+  def bootstrapWithStore[F[_]: Concurrent: Clock, C](
+    localRouting: LocalRouting[F, C],
+    store: KVStore[F, Key, Node[C]],
+    rpc: C ⇒ KademliaRpc[C],
+    pingExpiresIn: Duration,
+    checkNode: Node[C] ⇒ IO[Boolean]
+  ): F[LocalRouting[F, C]] =
+    store.stream.chunks
+      .evalTap(ch ⇒ localRouting.updateList(ch.map(_._2).toList, rpc, pingExpiresIn, checkNode).void)
+      .compile
+      .drain as withStore(localRouting, store)
+
+  /**
+   * Reflect LocalRouting's state modifications in KVStore
+   *
+   * @param localRouting Local routing to delegate operations to
+   * @param store Store for node contacts
+   * @tparam F Effect; storing is performed in the background with no blocking
+   * @tparam C Contact
+   * @return LocalRouting that stores state changes in the store
+   */
+  def withStore[F[_]: Concurrent, C](
+    localRouting: LocalRouting[F, C],
+    store: KVStore[F, Key, Node[C]]
+  ): LocalRouting[F, C] =
+    new LocalRouting[F, C] {
+      // Reflect the state modification results in the store
+      private def modResult(res: ModResult[C]): F[Unit] =
+        Concurrent[F]
+          .start(
+            Traverse[List].traverse(res.updated.toList) {
+              case (k, v) ⇒ store.put(k, v).value // TODO: at least log errors?
+            } *> Traverse[List].traverse(res.removed.toList)(store.remove(_).value)
+          )
+          .void
+
+      override val nodeId: Key =
+        localRouting.nodeId
+
+      override def find(key: Key): F[Option[Node[C]]] =
+        localRouting.find(key)
+
+      override def lookup(key: Key, numOfNodes: Int, predicate: Node[C] ⇒ Boolean): F[Seq[Node[C]]] =
+        localRouting.lookup(key, numOfNodes, predicate)
+
+      override def lookupAway(key: Key, moveAwayFrom: Key, numOfNodes: Int): F[Seq[Node[C]]] =
+        localRouting.lookupAway(key, moveAwayFrom, numOfNodes)
+
+      override def remove(key: Key): F[ModResult[C]] =
+        localRouting.remove(key).flatTap(modResult)
+
+      override def update(
+        node: Node[C],
+        rpc: C ⇒ KademliaRpc[C],
+        pingExpiresIn: Duration,
+        checkNode: Node[C] ⇒ IO[Boolean]
+      )(implicit clock: Clock[F], liftIO: LiftIO[F]): F[ModResult[C]] =
+        localRouting.update(node, rpc, pingExpiresIn, checkNode).flatTap(modResult)
+
+      override def updateList(
+        nodes: List[Node[C]],
+        rpc: C ⇒ KademliaRpc[C],
+        pingExpiresIn: Duration,
+        checkNode: Node[C] ⇒ IO[Boolean]
+      )(implicit clock: Clock[F], liftIO: LiftIO[F]): F[ModResult[C]] =
+        localRouting.updateList(nodes, rpc, pingExpiresIn, checkNode).flatTap(modResult)
+    }
 }

@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-package fluence.kad.core
+package fluence.kad.state
 
 import java.util.concurrent.TimeUnit
 
 import cats.data.StateT
 import cats.effect.{Clock, LiftIO}
 import cats.syntax.eq._
+import cats.syntax.functor._
 import cats.{Monad, Show}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 
@@ -102,13 +103,13 @@ object Bucket {
    * @param node Contact to check and update
    * @param rpc    Ping function
    * @tparam F StateT effect
-   * @return updated Bucket, and true if bucket was updated with this node, false if it wasn't
+   * @return updated Bucket, and Left if this node wasn't saved, Right with optional dropped node if it was
    */
   def update[F[_]: LiftIO: Monad: Clock, C](
     node: Node[C],
     rpc: C ⇒ KademliaRpc[C],
     pingExpiresIn: Duration
-  ): StateT[F, Bucket[C], Boolean] = {
+  ): StateT[F, Bucket[C], ModResult[C]] = {
     def mapRecords(f: Queue[Record[C]] ⇒ Queue[Record[C]]): StateT[F, Bucket[C], Unit] =
       StateT.modify[F, Bucket[C]](b ⇒ b.copy(records = f(b.records)))
 
@@ -117,39 +118,39 @@ object Bucket {
     def makeRecord(n: Node[C]): StateT[F, Bucket[C], Record[C]] =
       time.map(Record(n, _))
 
-    StateT.get[F, Bucket[C]].flatMap[Boolean, Bucket[C]] { b ⇒
+    StateT.get[F, Bucket[C]].flatMap[ModResult[C], Bucket[C]] { b ⇒
       b.find(node.key) match {
         case Some(c) ⇒
           // put contact on top
           for {
             r ← makeRecord(node)
             _ ← mapRecords(_.filterNot(_.node.key === c.key).enqueue(r))
-          } yield true
+          } yield ModResult.updated(node)
 
         case None if b.isFull ⇒ // Bucket is full, so we should check if we can drop the last node
 
           // ping last, if pong, put last on top and drop contact, if not, drop last and put contact on top
           val (last, records) = b.records.dequeue
 
-          def enqueue(n: Node[C], nodeInserted: Boolean): StateT[F, Bucket[C], Boolean] =
+          def enqueue(n: Node[C]): StateT[F, Bucket[C], Unit] =
             for {
               r ← makeRecord(n)
               _ ← StateT.set(b.copy(records = records.enqueue(r)))
-            } yield nodeInserted
+            } yield ()
 
           // The last contact in the queue is the oldest
           // If it's still very fresh, drop incoming node without pings
           time.map(t ⇒ !pingExpiresIn.isFinite() || t - last.lastSeenEpochMillis <= pingExpiresIn.toMillis).flatMap {
             case false ⇒
-              StateT.pure(false)
+              StateT.pure(ModResult.noop)
             case true ⇒
               // Ping last contact.
               // If it responds, enqueue it and drop the new node, otherwise, drop it and enqueue new one
               StateT.liftF(rpc(last.node.contact).ping().attempt.to[F]).flatMap {
                 case Left(_) ⇒
-                  enqueue(node, nodeInserted = true)
+                  enqueue(node) as ModResult.updated(node).remove(last.node.key)
                 case Right(updatedLastContact) ⇒
-                  enqueue(updatedLastContact, nodeInserted = false)
+                  enqueue(updatedLastContact) as ModResult.updated(updatedLastContact)
               }
           }
 
@@ -158,7 +159,7 @@ object Bucket {
           for {
             r ← makeRecord(node)
             _ ← mapRecords(_.enqueue(r))
-          } yield true
+          } yield ModResult.updated(node)
       }
     }
   }
@@ -169,22 +170,21 @@ object Bucket {
    * @tparam F Monad
    * @tparam C Contact type
    * @param key Key to remove
-   * @return Optional removed node
+   * @return Modification result
    */
-  def remove[F[_]: Monad, C](key: Key): StateT[F, Bucket[C], Option[Node[C]]] =
+  def remove[F[_]: Monad, C](key: Key): StateT[F, Bucket[C], ModResult[C]] =
     StateT.get[F, Bucket[C]].map(_.find(key)).flatMap {
       case None ⇒
-        StateT.pure(None)
+        StateT.pure(ModResult.noop)
 
-      case someNode ⇒
+      case _ ⇒
         StateT
           .modify[F, Bucket[C]](
             bucket ⇒
               bucket.copy(
                 records = bucket.records.filterNot(_.node.key === key)
               )
-          )
-          .map(_ ⇒ someNode)
+          ) as ModResult.removed(key)
     }
 
 }

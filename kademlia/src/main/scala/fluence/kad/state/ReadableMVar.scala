@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-package fluence.kad.mvar
+package fluence.kad.state
 
 import cats.data.StateT
-import cats.effect.{Async, Bracket, ExitCase}
 import cats.effect.concurrent.{MVar, Ref}
+import cats.effect.syntax.bracket._
+import cats.effect.{Async, Bracket, ExitCase}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.effect.syntax.bracket._
+import cats.~>
 
 import scala.language.higherKinds
 
@@ -35,7 +36,7 @@ import scala.language.higherKinds
  * @tparam F Effect
  * @tparam S State type
  */
-class ReadableMVar[F[_], S] private (private val mVar: MVar[F, S], private val ref: Ref[F, S])(
+private[state] class ReadableMVar[F[_], S] private (private val mVar: MVar[F, S], private val ref: Ref[F, S])(
   implicit F: Bracket[F, Throwable]
 ) {
 
@@ -66,9 +67,12 @@ class ReadableMVar[F[_], S] private (private val mVar: MVar[F, S], private val r
    * Non-blocking read
    */
   def read: F[S] = ref.get
+
+  def run: StateT[F, S, ?] ~> F =
+    λ[StateT[F, S, ?] ~> F](mod ⇒ apply(mod))
 }
 
-object ReadableMVar {
+private[state] object ReadableMVar {
 
   /**
    * Provides an instance of ReadableMVar.

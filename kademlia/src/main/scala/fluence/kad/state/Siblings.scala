@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-package fluence.kad.core
+package fluence.kad.state
 
-import cats.Show
+import cats.{Monad, Show}
+import cats.data.{State, StateT}
 import cats.syntax.eq._
+import cats.syntax.functor._
 import fluence.kad.protocol.{Key, Node}
 
 import scala.collection.SortedSet
@@ -43,9 +45,6 @@ case class Siblings[C] private (nodes: SortedSet[Node[C]], maxSize: Int) {
 
   def contains(key: Key): Boolean = nodes.exists(_.key === key)
 
-  def add(node: Node[C]): Siblings[C] =
-    copy((nodes + node).take(maxSize))
-
   def remove(key: Key): Siblings[C] =
     copy(nodes.filterNot(_.key === key))
 }
@@ -53,6 +52,21 @@ case class Siblings[C] private (nodes: SortedSet[Node[C]], maxSize: Int) {
 object Siblings {
   implicit def show[C](implicit ks: Show[Key]): Show[Siblings[C]] =
     s ⇒ s.nodes.toSeq.map(_.key).map(ks.show).mkString(s"\nSiblings: ${s.size}\n\t", "\n\t", "")
+
+  def add[F[_]: Monad, C](node: Node[C]): StateT[F, Siblings[C], ModResult[C]] =
+    StateT.get[F, Siblings[C]].flatMap { st ⇒
+      val (keep, drop) = (st.nodes + node).splitAt(st.maxSize)
+
+      StateT.set(st.copy(keep)) as drop.map(_.key).foldLeft(ModResult.updated(node))(_ remove _)
+    }
+
+  def remove[F[_]: Monad, C](key: Key): StateT[F, Siblings[C], ModResult[C]] =
+    StateT.get[F, Siblings[C]].flatMap {
+      case st if st.contains(key) ⇒
+        StateT.set(st.copy(st.nodes.filterNot(_.key === key))) as ModResult.removed(key)
+      case _ ⇒
+        StateT.pure(ModResult.noop)
+    }
 
   /**
    * Builds a Siblings instance with ordering relative to nodeId

@@ -16,14 +16,13 @@
 
 package fluence.kad.mvar
 
-import cats.{~>, Parallel}
-import cats.data.StateT
+import cats.Parallel
 import cats.effect._
 import cats.kernel.Monoid
 import cats.syntax.functor._
 import fluence.kad._
-import fluence.kad.core.{Siblings, SiblingsState}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
+import fluence.kad.state.{BucketsState, ReadableMVar, Siblings, SiblingsState}
 
 import scala.language.{higherKinds, implicitConversions}
 
@@ -49,8 +48,8 @@ object KademliaMVar {
   )(implicit P: Parallel[F, P]): F[Kademlia[F, C]] =
     P.sequential(
         P.apply.product(
-          P.parallel(KademliaMVar.siblingsOps[F, C](nodeId, conf.maxSiblingsSize)),
-          P.parallel(MVarBucketOps[F, C](conf.maxBucketSize))
+          P.parallel(SiblingsState.withMVar[F, C](nodeId, conf.maxSiblingsSize)),
+          P.parallel(BucketsState.withMVar[F, C](conf.maxBucketSize))
         )
       )
       .map {
@@ -89,16 +88,4 @@ object KademliaMVar {
       conf,
       checkNode
     )
-
-  /**
-   * Builds asynchronous sibling ops with $maxSiblings nodes max.
-   *
-   * @param nodeId      Siblings are sorted by distance to this nodeId
-   * @param maxSiblings Max number of closest siblings to store
-   * @tparam C Node contacts type
-   */
-  private def siblingsOps[F[_]: Concurrent, C](nodeId: Key, maxSiblings: Int): F[SiblingsState[F, C]] =
-    ReadableMVar.of(Siblings[C](nodeId, maxSiblings)).map { state ⇒
-      SiblingsState.liftState[F, C](λ[StateT[F, Siblings[C], ?] ~> F](mod ⇒ state(mod)), state.read)
-    }
 }

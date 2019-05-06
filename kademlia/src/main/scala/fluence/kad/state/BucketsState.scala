@@ -14,20 +14,19 @@
  * limitations under the License.
  */
 
-package fluence.kad.core
+package fluence.kad.state
 
 import java.util.concurrent.TimeUnit
 
-import cats.Monad
+import cats.{Monad, Traverse}
 import cats.data.StateT
-import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.functor._
 import cats.syntax.applicative._
-import cats.effect.{Clock, LiftIO}
+import cats.effect.{Async, Clock, LiftIO}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 
 import scala.concurrent.duration.Duration
-
 import scala.language.higherKinds
 
 /**
@@ -75,14 +74,14 @@ trait BucketsState[F[_], C] {
     implicit liftIO: LiftIO[F],
     F: Monad[F],
     clock: Clock[F]
-  ): F[Boolean] =
+  ): F[ModResult[C]] =
     for {
       time ← clock.realTime(TimeUnit.MILLISECONDS)
       bucket ← read(bucketId)
       result ← if (bucket.shouldUpdate(node, pingExpiresIn, time))
         run(bucketId, Bucket.update(node, rpc, pingExpiresIn))
       else
-        false.pure[F]
+        ModResult.noop[C].pure[F]
     } yield result
 
   /**
@@ -93,6 +92,51 @@ trait BucketsState[F[_], C] {
    * @param F Monad
    * @return Optional removed node
    */
-  def remove(bucketId: Int, key: Key)(implicit F: Monad[F]): F[Option[Node[C]]] =
+  def remove(bucketId: Int, key: Key)(implicit F: Monad[F]): F[ModResult[C]] =
     run(bucketId, Bucket.remove(key))
+}
+
+object BucketsState {
+
+  /**
+   * Implementation of Bucket.WriteOps, based on MVar and TrieMap -- available only on JVM
+   *
+   * @param maxBucketSize Max number of nodes in each bucket
+   * @tparam C Node contacts
+   */
+  def withMVar[F[_]: Async, C](maxBucketSize: Int, numOfBuckets: Int = Key.BitLength): F[BucketsState[F, C]] = {
+    import cats.instances.stream._
+
+    val emptyBucket = Bucket[C](maxBucketSize)
+
+    Traverse[Stream]
+      .traverse(Stream.range(0, numOfBuckets))(
+        i ⇒
+          ReadableMVar
+            .of[F, Bucket[C]](emptyBucket)
+            .map(i → _)
+      )
+      .map(_.toMap)
+      .map { state ⇒
+        new BucketsState[F, C] {
+
+          /**
+           * Runs a mutation on bucket, blocks the bucket from writes until mutation is complete
+           *
+           * @param bucketId Bucket ID
+           * @param mod      Mutation
+           * @tparam T Return value
+           */
+          override protected def run[T](bucketId: Int, mod: StateT[F, Bucket[C], T]): F[T] =
+            state(bucketId).apply(mod)
+
+          /**
+           * Returns current bucket state
+           *
+           * @param bucketId Bucket id, 0 to [[Key.BitLength]]
+           */
+          override def read(bucketId: Int): F[Bucket[C]] = state(bucketId).read
+        }
+      }
+  }
 }

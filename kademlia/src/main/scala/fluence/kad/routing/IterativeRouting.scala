@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.kad.core
+package fluence.kad.routing
 
 import cats.{Monad, Parallel}
 import cats.data.EitherT
@@ -222,6 +222,7 @@ object IterativeRouting {
 
           remote0X
             .flatMap(localRouting.updateList(_, rpc, pingExpiresIn, checkNode)) // Update routing table
+            .map(_.updated.values.toList)
             .map { remotes ⇒
               val updatedShortlist = shortlist ++
                 remotes.filter(
@@ -486,7 +487,7 @@ object IterativeRouting {
             logger.info("Discovered neighbors: " + ns.map(_.key))
             localRouting.updateList(ns, rpc, pingExpiresIn, checkNode)
           }
-          .map(_.nonEmpty)
+          .map(_.updated.nonEmpty)
           .flatMap[Either[JoinError, Unit]] {
             case true ⇒ // At least joined to a single node
               logger.info("Joined! " + Console.GREEN + localRouting.nodeId + Console.RESET)

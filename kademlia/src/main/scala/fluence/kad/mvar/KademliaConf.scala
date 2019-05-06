@@ -16,7 +16,7 @@
 
 package fluence.kad.mvar
 
-import fluence.kad.core.Bucket
+import fluence.kad.state.Bucket
 
 import scala.concurrent.duration.Duration
 import scala.language.higherKinds

@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-package fluence.kad
+package fluence.kad.state
 
 import cats.data.StateT
 import cats.effect.{ContextShift, IO, Timer}
-import fluence.kad.core.Bucket
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import org.scalatest.{Matchers, WordSpec}
 
@@ -36,7 +35,7 @@ class BucketSpec extends WordSpec with Matchers {
     type F[A] = StateT[IO, Bucket[C], A]
 
     def update(node: Node[Int], rpc: C ⇒ KademliaRpc[C]): F[Boolean] =
-      Bucket.update[IO, C](node, rpc, Duration.Undefined)
+      Bucket.update[IO, C](node, rpc, Duration.Undefined).map(_.updated.contains(node.key))
 
     "update contacts" in {
 

@@ -18,16 +18,16 @@ package fluence.kad
 
 import cats.data.StateT
 import cats.effect.{ContextShift, IO, Timer}
-import cats.~>
-import fluence.kad.core.{Bucket, BucketsState, LocalRouting, Siblings, SiblingsState}
-import fluence.kad.mvar.ReadableMVar
+import fluence.kad.routing.LocalRouting
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
+import fluence.kad.state.{Bucket, BucketsState, SiblingsState}
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
 
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.global
 import scala.language.implicitConversions
+import scala.util.control.NonFatal
 
 class LocalRoutingSpec extends WordSpec with Matchers {
   implicit def key(i: Long): Key =
@@ -82,10 +82,8 @@ class LocalRoutingSpec extends WordSpec with Matchers {
           buckets.toString()
       }
 
-    def siblingsOps(nodeId: Key, maxSiblingsSize: Int): SiblingsState[IO, Long] = {
-      val state = ReadableMVar.of[IO, Siblings[Long]](Siblings[Long](nodeId, maxSiblingsSize)).unsafeRunSync()
-      SiblingsState.liftState[IO, Long](λ[StateT[IO, Siblings[Long], ?] ~> IO](mod ⇒ state.apply(mod)), state.read)
-    }
+    def siblingsOps(nodeId: Key, maxSiblingsSize: Int): SiblingsState[IO, Long] =
+      SiblingsState.withMVar[IO, Long](nodeId, maxSiblingsSize).unsafeRunSync()
 
     "not fail when requesting its own key" in {
       val nodeId: Key = 0L
@@ -105,7 +103,12 @@ class LocalRoutingSpec extends WordSpec with Matchers {
       val rt = LocalRouting[IO, IO.Par, Long](nodeId, so, bo)
 
       (1L to 5L).foreach { i ⇒
-        rt.update(Node(i, i), failLocalRPC, pingDuration, checkNode).unsafeRunSync()
+        try rt.update(Node(i, i), failLocalRPC, pingDuration, checkNode).unsafeRunSync()
+        catch {
+          case NonFatal(e) ⇒
+            println(e)
+            e.printStackTrace()
+        }
         (1L to i).foreach { n ⇒
           rt.find(n).unsafeRunSync() shouldBe defined
         }
