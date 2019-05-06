@@ -347,6 +347,7 @@ lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
 lazy val `kademlia` = (project in file("kademlia"))
   .settings(
     commons,
+    kindProjector,
     libraryDependencies ++= Seq(
       slogging,
       cats,
@@ -357,6 +358,7 @@ lazy val `kademlia` = (project in file("kademlia"))
       scalaTest
     )
   )
+  .dependsOn(`kvstore`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val node = project

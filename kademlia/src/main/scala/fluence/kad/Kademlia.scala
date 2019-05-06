@@ -22,14 +22,12 @@ import cats.syntax.applicative._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.eq._
-import cats.effect.syntax.effect._
 import cats.Parallel
 import fluence.kad.core.{Bucket, BucketsState, IterativeRouting, LocalRouting, SiblingsState}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
-import slogging.LazyLogging
 
 import scala.concurrent.duration.Duration
-import scala.language.{existentials, higherKinds}
+import scala.language.higherKinds
 
 trait Kademlia[F[_], C] {
 
@@ -164,48 +162,8 @@ object Kademlia {
     /**
      * @return KademliaRPC instance to handle incoming RPC requests
      */
-    override val handleRPC: KademliaRpc[C] = new KademliaRpc[C] with LazyLogging {
-
-      /**
-       * Respond for a ping with node's own contact data
-       *
-       * @return
-       */
-      override def ping(): IO[Node[C]] = {
-        logger.trace(s"HandleRPC($nodeId): ping")
-        ownContactGetter
-      }
-
-      /**
-       * Perform a lookup in local RoutingTable
-       *
-       * @param key           Key to lookup
-       * @param numberOfNodes How many nodes to return (upper bound)
-       * @return locally known neighborhood
-       */
-      override def lookup(key: Key, numberOfNodes: Int): IO[Seq[Node[C]]] =
-        IO.suspend {
-          logger.trace(s"HandleRPC($nodeId): lookup($key, $numberOfNodes)")
-
-          localRouting.lookup(key, numberOfNodes).toIO
-        }
-
-      /**
-       * Perform a lookup in local RoutingTable for a key,
-       * return `numberOfNodes` closest known nodes, going away from the second key
-       *
-       * @param key           Key to lookup
-       * @param numberOfNodes How many nodes to return (upper bound)
-       */
-      override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): IO[Seq[Node[C]]] =
-        IO.suspend {
-          logger.trace(s"HandleRPC($nodeId): lookupAway($key, $moveAwayFrom, $numberOfNodes)")
-
-          localRouting
-            .lookupAway(key, moveAwayFrom, numberOfNodes)
-            .toIO
-        }
-    }
+    override val handleRPC: KademliaRpc[C] =
+      new LocalRpc(ownContactGetter, localRouting)
 
     /**
      * Finds a node by its key, either in a local RoutingTable or doing up to ''maxRequests'' lookup calls

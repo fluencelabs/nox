@@ -18,6 +18,7 @@ package fluence.kad
 
 import cats.data.StateT
 import cats.effect.{ContextShift, IO, Timer}
+import cats.~>
 import fluence.kad.core.{Bucket, BucketsState, LocalRouting, Siblings, SiblingsState}
 import fluence.kad.mvar.ReadableMVar
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
@@ -81,19 +82,10 @@ class LocalRoutingSpec extends WordSpec with Matchers {
           buckets.toString()
       }
 
-    def siblingsOps(nodeId: Key, maxSiblingsSize: Int): SiblingsState[IO, Long] =
-      new SiblingsState[IO, Long] {
-        private val state = ReadableMVar.of[IO, Siblings[Long]](Siblings[Long](nodeId, maxSiblingsSize)).unsafeRunSync()
-
-        override protected def run[T](mod: StateT[IO, Siblings[Long], T]) =
-          state.apply(mod)
-
-        override def read =
-          state.read
-
-        override def toString: String =
-          state.read.unsafeRunSync().toString
-      }
+    def siblingsOps(nodeId: Key, maxSiblingsSize: Int): SiblingsState[IO, Long] = {
+      val state = ReadableMVar.of[IO, Siblings[Long]](Siblings[Long](nodeId, maxSiblingsSize)).unsafeRunSync()
+      SiblingsState.liftState[IO, Long](λ[StateT[IO, Siblings[Long], ?] ~> IO](mod ⇒ state.apply(mod)), state.read)
+    }
 
     "not fail when requesting its own key" in {
       val nodeId: Key = 0L

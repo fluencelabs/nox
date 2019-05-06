@@ -16,7 +16,7 @@
 
 package fluence.kad.mvar
 
-import cats.Parallel
+import cats.{~>, Parallel}
 import cats.data.StateT
 import cats.effect._
 import cats.kernel.Monoid
@@ -99,13 +99,6 @@ object KademliaMVar {
    */
   private def siblingsOps[F[_]: Concurrent, C](nodeId: Key, maxSiblings: Int): F[SiblingsState[F, C]] =
     ReadableMVar.of(Siblings[C](nodeId, maxSiblings)).map { state ⇒
-      new SiblingsState[F, C] {
-
-        override protected def run[T](mod: StateT[F, Siblings[C], T]): F[T] =
-          state.apply(mod)
-
-        override def read: F[Siblings[C]] =
-          state.read
-      }
+      SiblingsState.liftState[F, C](λ[StateT[F, Siblings[C], ?] ~> F](mod ⇒ state(mod)), state.read)
     }
 }
