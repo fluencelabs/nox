@@ -14,23 +14,10 @@
  * limitations under the License.
  */
 
-package fluence.kad.mvar
+package fluence.kad
 
-import fluence.kad.core.Bucket
+sealed trait KadError
 
-import scala.concurrent.duration.Duration
-import scala.language.higherKinds
+sealed trait JoinError extends KadError
 
-/**
- *
- * @param maxSiblingsSize Maximum number of siblings to store, e.g. K * Alpha
- * @param maxBucketSize   Maximum size of a bucket, usually K
- * @param parallelism     Parallelism factor (named Alpha in paper)
- * @param pingExpiresIn   Duration to avoid too frequent ping requests, used in [[Bucket.update]]
- */
-case class KademliaConf(
-  maxBucketSize: Int,
-  maxSiblingsSize: Int,
-  parallelism: Int,
-  pingExpiresIn: Duration
-)
+case object CantJoinAnyNode extends JoinError

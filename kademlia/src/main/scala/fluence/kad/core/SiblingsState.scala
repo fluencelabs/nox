@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.kad
+package fluence.kad.core
 
 import cats.Monad
 import cats.data.StateT

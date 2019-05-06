@@ -18,6 +18,7 @@ package fluence.kad
 
 import cats.data.StateT
 import cats.effect.{ContextShift, IO, Timer}
+import fluence.kad.core.{Bucket, BucketsState, LocalRouting, Siblings, SiblingsState}
 import fluence.kad.mvar.ReadableMVar
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import org.scalatest.{Matchers, WordSpec}
@@ -27,7 +28,7 @@ import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.global
 import scala.language.implicitConversions
 
-class RoutingTableSpec extends WordSpec with Matchers {
+class LocalRoutingSpec extends WordSpec with Matchers {
   implicit def key(i: Long): Key =
     Key.fromBytes.unsafe(Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
       ByteVector.fromLong(i).toArray
@@ -98,7 +99,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
       val nodeId: Key = 0L
       val bo = bucketOps(2)
       val so = siblingsOps(nodeId, 2)
-      val rt = new RoutingTable[IO, IO.Par, Long](nodeId, so, bo)
+      val rt = LocalRouting[IO, IO.Par, Long](nodeId, so, bo)
 
       rt.find(0L).unsafeRunSync() shouldBe empty
       rt.lookup(0L, 1).unsafeRunSync() shouldBe empty
@@ -109,7 +110,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
       val nodeId: Key = 0L
       val bo = bucketOps(2)
       val so = siblingsOps(nodeId, 2)
-      val rt = new RoutingTable[IO, IO.Par, Long](nodeId, so, bo)
+      val rt = LocalRouting[IO, IO.Par, Long](nodeId, so, bo)
 
       (1L to 5L).foreach { i ⇒
         rt.update(Node(i, i), failLocalRPC, pingDuration, checkNode).unsafeRunSync()
@@ -143,7 +144,7 @@ class RoutingTableSpec extends WordSpec with Matchers {
       val nodeId: Key = 0L
       val bo = bucketOps(2)
       val so = siblingsOps(nodeId, 10)
-      val rt = new RoutingTable[IO, IO.Par, Long](nodeId, so, bo)
+      val rt = LocalRouting[IO, IO.Par, Long](nodeId, so, bo)
 
       (1L to 10L).foreach { i ⇒
         rt.update(Node(i, i), successLocalRPC, pingDuration, checkNode).unsafeRunSync()

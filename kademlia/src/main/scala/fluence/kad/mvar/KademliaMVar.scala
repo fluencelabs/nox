@@ -22,6 +22,7 @@ import cats.effect._
 import cats.kernel.Monoid
 import cats.syntax.functor._
 import fluence.kad._
+import fluence.kad.core.{Siblings, SiblingsState}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 
 import scala.language.{higherKinds, implicitConversions}

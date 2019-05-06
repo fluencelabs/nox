@@ -14,19 +14,20 @@
  * limitations under the License.
  */
 
-package fluence.kad
+package fluence.kad.core
 
 import java.util.concurrent.TimeUnit
 
 import cats.Monad
 import cats.data.StateT
-import cats.effect.{Clock, LiftIO}
-import cats.syntax.applicative._
-import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.flatMap._
+import cats.syntax.applicative._
+import cats.effect.{Clock, LiftIO}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 
 import scala.concurrent.duration.Duration
+
 import scala.language.higherKinds
 
 /**

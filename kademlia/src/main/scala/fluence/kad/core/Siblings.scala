@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.kad
+package fluence.kad.core
 
 import cats.Show
 import cats.syntax.eq._

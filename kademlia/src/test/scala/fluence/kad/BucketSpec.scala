@@ -18,6 +18,7 @@ package fluence.kad
 
 import cats.data.StateT
 import cats.effect.{ContextShift, IO, Timer}
+import fluence.kad.core.Bucket
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import org.scalatest.{Matchers, WordSpec}
 

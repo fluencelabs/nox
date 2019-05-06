@@ -20,7 +20,7 @@ import cats.Traverse
 import cats.data.StateT
 import cats.effect.Async
 import cats.syntax.functor._
-import fluence.kad.{Bucket, BucketsState}
+import fluence.kad.core.{Bucket, BucketsState}
 import fluence.kad.protocol.Key
 
 import scala.language.higherKinds

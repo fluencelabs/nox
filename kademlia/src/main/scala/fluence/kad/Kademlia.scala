@@ -24,6 +24,7 @@ import cats.syntax.flatMap._
 import cats.syntax.eq._
 import cats.effect.syntax.effect._
 import cats.Parallel
+import fluence.kad.core.{Bucket, BucketsState, IterativeRouting, LocalRouting, SiblingsState}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import slogging.LazyLogging
 
@@ -72,7 +73,7 @@ trait Kademlia[F[_], C] {
   def findNode(key: Key, maxRequests: Int): F[Option[Node[C]]]
 
   /**
-   * Perform iterative lookup, see [[RoutingTable.lookupIterative]]
+   * Perform iterative lookup, see [[IterativeRouting.lookupIterative]]
    *
    * @param key Key to lookup
    * @return key's neighborhood
@@ -81,7 +82,7 @@ trait Kademlia[F[_], C] {
 
   /**
    * Performs lookupIterative for a key, and then callIterative for neighborhood.
-   * See [[RoutingTable.callIterative]]
+   * See [[IterativeRouting.callIterative]]
    *
    * @param key            Key to call function near
    * @param fn             Function to call
@@ -132,7 +133,8 @@ object Kademlia {
   )(implicit P: Parallel[F, P]): Kademlia[F, C] = new Kademlia[F, C] {
     self ⇒
 
-    val routingTable = new RoutingTable[F, P, C](nodeIdK, siblingsState, bucketsState)
+    private val localRouting = LocalRouting[F, P, C](nodeIdK, siblingsState, bucketsState)
+    private val iterativeRouting = IterativeRouting(localRouting, rpc, pingExpiresIn, checkNode)
 
     override val nodeId: Key = nodeIdK
 
@@ -157,7 +159,7 @@ object Kademlia {
      * @return true if node is present in routing table after update, false if it's dropped
      */
     override def update(node: Node[C]): F[Boolean] =
-      routingTable.update(node, rpc, pingExpiresIn, checkNode)
+      localRouting.update(node, rpc, pingExpiresIn, checkNode)
 
     /**
      * @return KademliaRPC instance to handle incoming RPC requests
@@ -185,7 +187,7 @@ object Kademlia {
         IO.suspend {
           logger.trace(s"HandleRPC($nodeId): lookup($key, $numberOfNodes)")
 
-          routingTable.lookup(key, numberOfNodes).toIO
+          localRouting.lookup(key, numberOfNodes).toIO
         }
 
       /**
@@ -199,7 +201,7 @@ object Kademlia {
         IO.suspend {
           logger.trace(s"HandleRPC($nodeId): lookupAway($key, $moveAwayFrom, $numberOfNodes)")
 
-          routingTable
+          localRouting
             .lookupAway(key, moveAwayFrom, numberOfNodes)
             .toIO
         }
@@ -212,7 +214,7 @@ object Kademlia {
      * @param maxRequests Max number of remote requests
      */
     override def findNode(key: Key, maxRequests: Int): F[Option[Node[C]]] =
-      routingTable.find(key).flatMap {
+      localRouting.find(key).flatMap {
         case found @ Some(_) ⇒ (found: Option[Node[C]]).pure[F]
 
         case None ⇒
@@ -227,17 +229,17 @@ object Kademlia {
       }
 
     /**
-     * Perform iterative lookup, see [[RoutingTable.lookupIterative]]
+     * Perform iterative lookup, see [[IterativeRouting.lookupIterative]]
      *
      * @param key Key to lookup
      * @return key's neighborhood
      */
     override def lookupIterative(key: Key, numberOfNodes: Int): F[Seq[Node[C]]] =
-      routingTable.lookupIterative(key, numberOfNodes, parallelism, rpc, pingExpiresIn, checkNode)
+      iterativeRouting.lookupIterative(key, numberOfNodes, parallelism)
 
     /**
      * Performs lookupIterative for a key, and then callIterative for neighborhood.
-     * See [[RoutingTable.callIterative]]
+     * See [[IterativeRouting.callIterative]]
      *
      * @param key            Key to call function near
      * @param fn             Function to call
@@ -254,8 +256,8 @@ object Kademlia {
       maxNumOfCalls: Int,
       isIdempotentFn: Boolean = true
     ): F[Seq[(Node[C], A)]] =
-      routingTable
-        .callIterative(key, fn, numToCollect, parallelism, maxNumOfCalls, isIdempotentFn, rpc, pingExpiresIn, checkNode)
+      iterativeRouting
+        .callIterative(key, fn, numToCollect, parallelism, maxNumOfCalls, isIdempotentFn)
         .map(_.toSeq)
 
     /**
@@ -265,7 +267,7 @@ object Kademlia {
      * @return
      */
     override def join(peers: Seq[C], numberOfNodes: Int): F[Boolean] =
-      routingTable.join(peers, rpc, pingExpiresIn, numberOfNodes, checkNode, parallelism).value.map(_.isRight)
+      iterativeRouting.join(peers, numberOfNodes, parallelism).value.map(_.isRight)
   }
 
 }
