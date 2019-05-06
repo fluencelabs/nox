@@ -16,32 +16,34 @@
 
 import java.nio.file.Paths
 
+import Rust.RustDirectory
 import cats.data.NonEmptyList
 import cats.effect.IO
 
+import scala.sys.process.ProcessLogger
 import scala.util.control.NoStackTrace
 
+object NoProjectFound extends NoStackTrace {
+  override def getMessage: String =
+    s"$RustDirectory/Cargo.toml not found\n" +
+      s"Please pass Rust project as a volume: `-v /path/to/your/project:$RustDirectory`"
+}
+
+object CompilationFailed extends NoStackTrace {
+  override def getMessage: String = s"Rust project compilation failed"
+}
+
+case class NotFoundInPath(component: String) extends NoStackTrace {
+  override def getMessage: String = s"$component was not found in $$PATH (`command -v $component` exit code != 0)"
+}
+
+object Wasm32NotFound extends NoStackTrace {
+  override def getMessage: String =
+    "wasm32-unknown-unknown isn't found in Rust targets.\nfix: rustup target add wasm32-unknown-unknown --toolchain nightly"
+}
+
 object Rust {
-  private val RustDirectory = "/rust"
-
-  object NoProjectFound extends NoStackTrace {
-    override def getMessage: String =
-      s"$RustDirectory/Cargo.toml not found\n" +
-        s"Please pass Rust project as a volume: `-v /path/to/your/project:$RustDirectory`"
-  }
-
-  object CompilationFailed extends NoStackTrace {
-    override def getMessage: String = s"Rust project compilation failed"
-  }
-
-  case class NotFoundInPath(component: String) extends NoStackTrace {
-    override def getMessage: String = s"$component was not found in $$PATH (`command -v $component` exit code != 0)"
-  }
-
-  object Wasm32NotFound extends NoStackTrace {
-    override def getMessage: String =
-      "wasm32-unknown-unknown isn't found in Rust targets.\nfix: rustup target add wasm32-unknown-unknown --toolchain nightly"
-  }
+  val RustDirectory = "/rust"
 
   private def checkProjectExists(): IO[Unit] =
     for {
@@ -59,6 +61,27 @@ object Rust {
     } yield ()
   }
 
+  private val NopLogger = new ProcessLogger {
+    override def out(s: => String): Unit = {}
+    override def err(s: => String): Unit = {}
+    override def buffer[T](f: => T): T = f
+  }
+
+  private def exec(error: Throwable, cmds: String*): IO[Unit] = {
+    import scala.sys.process._
+
+    val processIO = cmds.toList match {
+      case head :: tail => IO(tail.foldLeft(Process(head)) { case (pb, next) => pb #| next })
+      case Nil => IO.raiseError(new RuntimeException("exec was called with empty argument list"))
+    }
+
+    for {
+      process <- processIO
+      code <- IO(process.run(NopLogger).exitValue())
+      _ <- if (code != 0) IO.raiseError(error) else IO.unit
+    } yield ()
+  }
+
   private def compileProject(): IO[NonEmptyList[String]] =
     for {
       _ <- run("cargo +nightly build --lib --target wasm32-unknown-unknown --release")
@@ -67,13 +90,11 @@ object Rust {
     } yield wasmFiles
 
   private def checkRustInstalled(): IO[Unit] = {
-    def raise[AA](e: Throwable): Throwable => IO[AA] = _ => IO.raiseError(e)
-    def runOrRaise(cmd: String, e: Throwable) = run(cmd).handleErrorWith(raise(e))
-    def check(component: String) = runOrRaise(s"command -v $component", NotFoundInPath(component))
+    def check(component: String) = exec(NotFoundInPath(component), s"which $component")
     for {
       _ <- check("cargo")
       _ <- check("rustup")
-      _ <- runOrRaise("rustup target list | grep -q wasm32-unknown-unknown", Wasm32NotFound)
+      _ <- exec(Wasm32NotFound, "rustup target list", "grep -q wasm32-unknown-unknown")
     } yield ()
   }
 
