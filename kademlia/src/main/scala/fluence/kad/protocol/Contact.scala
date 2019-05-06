@@ -35,17 +35,16 @@ import scala.language.higherKinds
 /**
  * Node contact
  *
- * @param addr IP address
- * @param grpcPort Port for GRPC server
- * @param publicKey Public key of the node
+ * @param addr            IP address
+ * @param httpPort        Port for HTTP server
+ * @param publicKey       Public key of the node
  * @param protocolVersion Protocol version the node is known to follow
- * @param gitHash Git hash of current build running on node
- * @param b64seed Serialized JWT
+ * @param gitHash         Git hash of current build running on node
+ * @param b64seed         Serialized JWT
  */
 case class Contact(
   addr: String,
-  grpcPort: Int, // httpPort, websocketPort and other transports //
-  websocketPort: Option[Int],
+  httpPort: Int,
   publicKey: KeyPair.Public,
   protocolVersion: Long,
   gitHash: String,
@@ -67,7 +66,7 @@ object Contact {
 
   case class JwtHeader(publicKey: KeyPair.Public, protocolVersion: Long)
 
-  case class JwtData(addr: String, grpcPort: Int, websocketPort: Option[Int], gitHash: String)
+  case class JwtData(addr: String, httpPort: Int, gitHash: String)
 
   object JwtImplicits {
     implicit val encodeHeader: Encoder[JwtHeader] = header ⇒
@@ -90,18 +89,16 @@ object Contact {
     implicit val encodeData: Encoder[JwtData] = data ⇒
       Json.obj(
         "a" -> Json.fromString(data.addr),
-        "gp" -> Json.fromInt(data.grpcPort),
-        "gh" -> Json.fromString(data.gitHash),
-        "wp" -> data.websocketPort.map(Json.fromInt).getOrElse(Json.Null)
+        "hp" -> Json.fromInt(data.httpPort),
+        "gh" -> Json.fromString(data.gitHash)
       )
 
     implicit val decodeData: Decoder[JwtData] = c ⇒
       for {
         addr ← c.downField("a").as[String]
-        p ← c.downField("gp").as[Int]
+        p ← c.downField("hp").as[Int]
         gh ← c.downField("gh").as[String]
-        wp ← c.downField("wp").as[Option[Int]]
-      } yield JwtData(addr = addr, grpcPort = p, websocketPort = wp, gitHash = gh)
+      } yield JwtData(addr = addr, httpPort = p, gitHash = gh)
   }
 
   val cryptoJwt: CryptoJwt[JwtHeader, JwtData] = {
@@ -126,7 +123,6 @@ object Contact {
   def buildOwn(
     addr: String,
     port: Int, // httpPort, websocketPort and other transports //
-    websocketPort: Option[Int],
     protocolVersion: Long,
     gitHash: String,
     signer: Signer
@@ -135,21 +131,13 @@ object Contact {
       Contact.JwtHeader(signer.publicKey, protocolVersion)
 
     val jwtData =
-      Contact.JwtData(addr, port, websocketPort, gitHash)
+      Contact.JwtData(addr, port, gitHash)
 
     cryptoJwt
       .writer(signer)
       .pointAt(jwtHeader → jwtData)
       .map { seed ⇒
-        Contact(
-          addr,
-          port,
-          websocketPort: Option[Int],
-          signer.publicKey,
-          protocolVersion,
-          gitHash,
-          seed
-        )
+        Contact(addr, port, signer.publicKey, protocolVersion, gitHash, seed)
       }
   }
 
@@ -166,8 +154,7 @@ object Contact {
       case ((header, data), str) ⇒
         Contact(
           addr = data.addr,
-          grpcPort = data.grpcPort,
-          websocketPort = data.websocketPort,
+          httpPort = data.httpPort,
           publicKey = header.publicKey,
           protocolVersion = header.protocolVersion,
           gitHash = data.gitHash,
