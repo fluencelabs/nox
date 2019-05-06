@@ -12,7 +12,7 @@ object TestUtils {
 
     val storage = ByteBufferWrapper.allocate(size, chunkSize)
 
-    val tree = BinaryMerkleTree(size, chunkSize, storage, hashFunc)
+    val tree = BinaryMerkleTree(size, chunkSize, hashFunc, storage)
 
     (storage, tree)
   }

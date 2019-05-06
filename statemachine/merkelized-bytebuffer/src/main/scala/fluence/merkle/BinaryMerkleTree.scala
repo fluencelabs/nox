@@ -2,7 +2,6 @@ package fluence.merkle
 
 import java.util
 
-import fluence.merkle.ops.{ByteMerkleOperations, MerkleOperations}
 import fluence.merkle.storage.Storage
 
 import scala.language.higherKinds
@@ -13,14 +12,20 @@ class BinaryMerkleTree private (
   val treeHeight: Int,
   chunkSize: Int,
   mappedLeafCount: Int,
-  ops: MerkleOperations[Array[Byte]],
+  hashFunc: Array[Byte] => Array[Byte],
   storage: Storage[Array[Byte]]
 )(implicit m: ClassTag[Array[Byte]]) {
   import TreeMath._
 
   val leafsCount: Int = power2(treeHeight)
   private val startOfLeafIndex = leafsCount
-  private val defaultLeafChunk = ops.defaultLeaf(chunkSize)
+  private val defaultLeafChunk = defaultLeaf(chunkSize)
+
+  private def hash(t: Array[Byte]): Array[Byte] = hashFunc(t)
+
+  private def concatenate(l: Array[Byte], r: Array[Byte]): Array[Byte] = l ++ r
+
+  private def defaultLeaf(chunkSize: Int): Array[Byte] = Array.fill(chunkSize)(0)
 
   /**
    * Calculates node index in array.
@@ -86,7 +91,7 @@ class BinaryMerkleTree private (
       storage.getElements(offset, chunkSize)
     }
 
-    val newHash = ops.hash(bytes)
+    val newHash = hash(bytes)
     allNodes(index) = newHash
   }
 
@@ -102,13 +107,13 @@ class BinaryMerkleTree private (
     } else {
       val (l, r) = getChildren(height, pos)
       val newHash =
-        ops.hash(ops.concatenate(l, r))
+        hash(concatenate(l, r))
       allNodes(getNodeIndex(height, pos)) = newHash
     }
   }
 
   private def calculateRootHash(): Array[Byte] = {
-    allNodes(0) = ops.hash(ops.concatenate(allNodes(1), allNodes(2)))
+    allNodes(0) = hash(concatenate(allNodes(1), allNodes(2)))
     allNodes(0)
   }
 
@@ -195,19 +200,7 @@ object BinaryMerkleTree {
   def apply(
     size: Int,
     chunkSize: Int,
-    storage: Storage[Array[Byte]],
-    hashFunc: Array[Byte] => Array[Byte]
-  ): BinaryMerkleTree = {
-
-    val operations = new ByteMerkleOperations(hashFunc)
-
-    BinaryMerkleTree(size, chunkSize, operations, storage)
-  }
-
-  def apply(
-    size: Int,
-    chunkSize: Int,
-    ops: MerkleOperations[Array[Byte]],
+    hashFunc: Array[Byte] => Array[Byte],
     storage: Storage[Array[Byte]]
   )(implicit c: ClassTag[Array[Byte]]): BinaryMerkleTree = {
     import TreeMath._
@@ -235,7 +228,7 @@ object BinaryMerkleTree {
 
     val arrayTree = new Array[Array[Byte]](numberOfNodes)
 
-    val tree = new BinaryMerkleTree(arrayTree, treeHeight, chunkSize, mappedLeafCount, ops, storage)
+    val tree = new BinaryMerkleTree(arrayTree, treeHeight, chunkSize, mappedLeafCount, hashFunc, storage)
     tree.recalculateAll()
     tree
   }
