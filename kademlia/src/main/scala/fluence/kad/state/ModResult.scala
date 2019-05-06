@@ -17,20 +17,23 @@
 package fluence.kad.state
 
 import cats.MonoidK
+import cats.syntax.monoid._
 import fluence.kad.protocol.{Key, Node}
 
-case class ModResult[C] private (updated: Map[Key, Node[C]], removed: Set[Key]) {
+case class ModResult[C] private (updated: Map[Key, Node[C]], removed: Set[Key], trace: Trace) {
 
-  def update(node: Node[C]): ModResult[C] =
+  def update(node: Node[C], log: ⇒ String): ModResult[C] =
     ModResult(
       updated + (node.key -> node),
-      removed - node.key
+      removed - node.key,
+      trace(log)
     )
 
-  def remove(key: Key): ModResult[C] =
+  def remove(key: Key, log: String): ModResult[C] =
     ModResult(
       updated,
-      if (updated.contains(key)) removed else removed + key
+      if (updated.contains(key)) removed else removed + key,
+      trace(log)
     )
 
   def keep(key: Key): ModResult[C] =
@@ -38,13 +41,13 @@ case class ModResult[C] private (updated: Map[Key, Node[C]], removed: Set[Key]) 
 }
 
 object ModResult {
-  def noop[C]: ModResult[C] = new ModResult[C](Map.empty, Set.empty)
+  def noop[C]: ModResult[C] = new ModResult[C](Map.empty, Set.empty, Trace.empty)
 
-  def updated[C](node: Node[C]): ModResult[C] =
-    noop[C].update(node)
+  def updated[C](node: Node[C], log: String): ModResult[C] =
+    noop[C].update(node, log)
 
-  def removed[C](key: Key): ModResult[C] =
-    noop[C].remove(key)
+  def removed[C](key: Key, log: String): ModResult[C] =
+    noop[C].remove(key, log)
 
   implicit object modResultMonoidK extends MonoidK[ModResult] {
     override def empty[A]: ModResult[A] = noop[A]
@@ -53,7 +56,8 @@ object ModResult {
       ModResult(
         x.updated ++ y.updated,
         // Do not remove a node if it was updated somehow
-        (x.removed -- y.updated.keys) ++ (y.removed -- x.updated.keys)
+        (x.removed -- y.updated.keys) ++ (y.removed -- x.updated.keys),
+        x.trace |+| y.trace
       )
   }
 }

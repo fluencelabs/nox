@@ -17,7 +17,7 @@
 package fluence.kad.state
 
 import cats.{Monad, Show}
-import cats.data.{State, StateT}
+import cats.data.StateT
 import cats.syntax.eq._
 import cats.syntax.functor._
 import fluence.kad.protocol.{Key, Node}
@@ -57,13 +57,23 @@ object Siblings {
     StateT.get[F, Siblings[C]].flatMap { st ⇒
       val (keep, drop) = (st.nodes + node).splitAt(st.maxSize)
 
-      StateT.set(st.copy(keep)) as drop.map(_.key).foldLeft(ModResult.updated(node))(_ remove _)
+      StateT
+        .set(st.copy(keep))
+        .as(
+          if (drop.toList == List(node)) ModResult.noop[C]
+          else
+            drop
+              .map(_.key)
+              .foldLeft(ModResult.updated(node, s"Sibling updated ${node.key}")) {
+                case (mr, d) ⇒ mr.remove(d, s"Pushed $d away by siblings")
+              }
+        )
     }
 
   def remove[F[_]: Monad, C](key: Key): StateT[F, Siblings[C], ModResult[C]] =
     StateT.get[F, Siblings[C]].flatMap {
       case st if st.contains(key) ⇒
-        StateT.set(st.copy(st.nodes.filterNot(_.key === key))) as ModResult.removed(key)
+        StateT.set(st.copy(st.nodes.filterNot(_.key === key))) as ModResult.removed(key, s"Remove $key from siblings")
       case _ ⇒
         StateT.pure(ModResult.noop)
     }

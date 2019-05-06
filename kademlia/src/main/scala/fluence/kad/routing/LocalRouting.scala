@@ -262,7 +262,7 @@ object LocalRouting {
                   P parallel siblings.add(node)
                 )(_ <+> _)
               )
-              .flatMap(z ⇒ if (keepExisting) keepExistingNodes(z) else z.pure[F])
+              .flatMap(if (keepExisting) keepExistingNodes else _.pure[F])
 
           case Left(err) ⇒
             logger.trace(s"Node check failed with an exception for $node", err)

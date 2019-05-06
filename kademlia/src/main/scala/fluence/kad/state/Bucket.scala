@@ -125,7 +125,7 @@ object Bucket {
           for {
             r ← makeRecord(node)
             _ ← mapRecords(_.filterNot(_.node.key === c.key).enqueue(r))
-          } yield ModResult.updated(node)
+          } yield ModResult.updated(node, s"Bucket updated ${node.key}: was present, moved on top")
 
         case None if b.isFull ⇒ // Bucket is full, so we should check if we can drop the last node
 
@@ -148,9 +148,14 @@ object Bucket {
               // If it responds, enqueue it and drop the new node, otherwise, drop it and enqueue new one
               StateT.liftF(rpc(last.node.contact).ping().attempt.to[F]).flatMap {
                 case Left(_) ⇒
-                  enqueue(node) as ModResult.updated(node).remove(last.node.key)
+                  enqueue(node) as ModResult
+                    .updated(node, s"Bucket updated ${node.key}")
+                    .remove(last.node.key, s"Bucket removed ${last.node.key}: ping failed")
                 case Right(updatedLastContact) ⇒
-                  enqueue(updatedLastContact) as ModResult.updated(updatedLastContact)
+                  enqueue(updatedLastContact) as ModResult.updated(
+                    updatedLastContact,
+                    s"Node updated last contact: ${updatedLastContact.key}; offered ${node.key} dropped"
+                  )
               }
           }
 
@@ -159,7 +164,7 @@ object Bucket {
           for {
             r ← makeRecord(node)
             _ ← mapRecords(_.enqueue(r))
-          } yield ModResult.updated(node)
+          } yield ModResult.updated(node, s"Bucket added ${node.key}")
       }
     }
   }
@@ -184,7 +189,7 @@ object Bucket {
               bucket.copy(
                 records = bucket.records.filterNot(_.node.key === key)
               )
-          ) as ModResult.removed(key)
+          ) as ModResult.removed(key, s"Bucket removed $key")
     }
 
 }

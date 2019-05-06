@@ -39,6 +39,7 @@ import scala.language.higherKinds
 private[state] class ReadableMVar[F[_], S] private (private val mVar: MVar[F, S], private val ref: Ref[F, S])(
   implicit F: Bracket[F, Throwable]
 ) {
+  self ⇒
 
   /**
    * Apply the transition, using current state. No concurrent transitions possible.
@@ -69,7 +70,7 @@ private[state] class ReadableMVar[F[_], S] private (private val mVar: MVar[F, S]
   def read: F[S] = ref.get
 
   def run: StateT[F, S, ?] ~> F =
-    λ[StateT[F, S, ?] ~> F](mod ⇒ apply(mod))
+    λ[StateT[F, S, ?] ~> F](mod ⇒ self.apply(mod))
 }
 
 private[state] object ReadableMVar {

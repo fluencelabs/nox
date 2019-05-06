@@ -27,7 +27,6 @@ import scodec.bits.ByteVector
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.global
 import scala.language.implicitConversions
-import scala.util.control.NonFatal
 
 class LocalRoutingSpec extends WordSpec with Matchers {
   implicit def key(i: Long): Key =
@@ -103,12 +102,7 @@ class LocalRoutingSpec extends WordSpec with Matchers {
       val rt = LocalRouting[IO, IO.Par, Long](nodeId, so, bo)
 
       (1L to 5L).foreach { i ⇒
-        try rt.update(Node(i, i), failLocalRPC, pingDuration, checkNode).unsafeRunSync()
-        catch {
-          case NonFatal(e) ⇒
-            println(e)
-            e.printStackTrace()
-        }
+        rt.update(Node(i, i), failLocalRPC, pingDuration, checkNode).unsafeRunSync()
         (1L to i).foreach { n ⇒
           rt.find(n).unsafeRunSync() shouldBe defined
         }
@@ -116,17 +110,20 @@ class LocalRoutingSpec extends WordSpec with Matchers {
 
       rt.find(4L).unsafeRunSync() shouldBe defined
 
-      rt.update(Node(6L, 6L), failLocalRPC, pingDuration, checkNode).unsafeRunSync() shouldBe true
+      rt.update(Node(6L, 6L), failLocalRPC, pingDuration, checkNode).unsafeRunSync().updated.contains(6L) shouldBe true
 
       rt.find(4L).unsafeRunSync() shouldBe empty
       rt.find(6L).unsafeRunSync() shouldBe defined
 
-      rt.update(Node(4L, 4L), successLocalRPC, pingDuration, checkNode).unsafeRunSync() shouldBe false
+      rt.update(Node(4L, 4L), successLocalRPC, pingDuration, checkNode)
+        .unsafeRunSync()
+        .updated
+        .contains(4L) shouldBe false
 
       rt.find(4L).unsafeRunSync() shouldBe empty
       rt.find(6L).unsafeRunSync() shouldBe defined
 
-      rt.update(Node(4L, 4L), failLocalRPC, pingDuration, checkNode).unsafeRunSync() shouldBe true
+      rt.update(Node(4L, 4L), failLocalRPC, pingDuration, checkNode).unsafeRunSync().updated.contains(4L) shouldBe true
 
       rt.find(4L).unsafeRunSync() shouldBe defined
       rt.find(6L).unsafeRunSync() shouldBe empty
