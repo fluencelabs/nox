@@ -64,7 +64,7 @@ lazy val frun = (project in file("vm/frun"))
     .dependsOn(vm, statemachine)
     .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
 
-lazy val `frun-rust` = project.settings(
+lazy val `frun-rust` = project.in(frun.base / "rust").settings(
   imageNames in docker := Seq(ImageName(DockerContainers.FrunRust)),
   dockerfile in docker := DockerContainers.frunRust((assembly in frun).value, (resourceDirectory in frun in Compile).value)
 ).dependsOn(frun).enablePlugins(DockerPlugin)

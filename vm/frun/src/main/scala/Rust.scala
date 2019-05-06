@@ -34,6 +34,15 @@ object Rust {
     override def getMessage: String = s"Rust project compilation failed"
   }
 
+  case class NotFoundInPath(component: String) extends NoStackTrace {
+    override def getMessage: String = s"$component was not found in $$PATH (`command -v $component` exit code != 0)"
+  }
+
+  object Wasm32NotFound extends NoStackTrace {
+    override def getMessage: String =
+      "wasm32-unknown-unknown isn't found in Rust targets.\nfix: rustup target add wasm32-unknown-unknown --toolchain nightly"
+  }
+
   private def checkProjectExists(): IO[Unit] =
     for {
       path <- IO(Paths.get(RustDirectory, "Cargo.toml"))
@@ -57,8 +66,20 @@ object Rust {
       wasmFiles <- Utils.getWasmFiles(targetDir)
     } yield wasmFiles
 
+  private def checkRustInstalled(): IO[Unit] = {
+    def raise[AA](e: Throwable): Throwable => IO[AA] = _ => IO.raiseError(e)
+    def runOrRaise(cmd: String, e: Throwable) = run(cmd).handleErrorWith(raise(e))
+    def check(component: String) = runOrRaise(s"command -v $component", NotFoundInPath(component))
+    for {
+      _ <- check("cargo")
+      _ <- check("rustup")
+      _ <- runOrRaise("rustup target list | grep -q wasm32-unknown-unknown", Wasm32NotFound)
+    } yield ()
+  }
+
   def compile(): IO[NonEmptyList[String]] =
     for {
+      _ <- checkRustInstalled()
       _ <- checkProjectExists()
       wasmFiles <- compileProject()
     } yield wasmFiles
