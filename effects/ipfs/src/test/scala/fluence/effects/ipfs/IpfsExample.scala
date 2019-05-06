@@ -47,7 +47,7 @@ object IpfsExample extends App {
   println(k)
 
   val data = ByteVector(Array[Byte](1, 2, 3, 4))
-  val store = new IpfsClient[IO](uri"http://data.fluence.one:5001")
+  val store = new IpfsClient[IO](uri"http://ipfs.fluence.one:5001")
 
   val home = System.getProperty("user.home")
 

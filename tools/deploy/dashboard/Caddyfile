@@ -1,0 +1,17 @@
+http://dash.fluence.network, http://dashboard.fluence.network {
+    root /root/dashboard/build
+    rewrite / { to {path} {path}/ / }
+}
+
+http://dashtest.fluence.one {
+    root /root/test-dashboard/build
+    rewrite / { to {path} {path}/ / }
+}
+
+http://nagios.fluence.network {
+    errors visible
+    proxy / http://nagios:80 {
+        insecure_skip_verify
+        transparent
+    }
+}

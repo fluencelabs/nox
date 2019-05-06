@@ -12,7 +12,7 @@ We need to know three constants to work with Fluence:
 let contractAddress = "0xeFF91455de6D4CF57C141bD8bF819E5f873c1A01";
 
 // set ethUrl to `undefined` to use MetaMask instead of Ethereum node
-let ethUrl = "http://rinkeby.fluence.one:8545/";
+let ethUrl = "http://geth.fluence.one:8545/";
 
 // application to interact with that stored in Fluence contract
 let appId = "43";

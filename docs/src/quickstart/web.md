@@ -26,7 +26,7 @@ let contractAddress = "0xeFF91455de6D4CF57C141bD8bF819E5f873c1A01";
 
 // the address of the Ethereum node
 // MetaMask is used to send transactions if this address is set to `undefined`, 
-let ethUrl = "http://data.fluence.one:8545/";
+let ethUrl = "http://geth.fluence.one:8545/";
 
 // the backend appId as seen in the Fluence smart contract
 let appId = "6";
