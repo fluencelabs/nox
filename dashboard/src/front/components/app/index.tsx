@@ -1,21 +1,21 @@
 import * as React from 'react';
-import {connect} from 'react-redux';
-import {Link} from "react-router-dom";
-import {match, withRouter} from "react-router";
-import {Action} from "redux";
-import {History} from 'history';
-import {contractAddress} from '../../../fluence/contract';
-import {App, AppId, Node} from '../../../fluence';
-import {cutId} from '../../../utils';
-import {clearDeployedApp, getDeployedApp} from "../../../utils/cookie";
+import { connect } from 'react-redux';
+import { Link } from 'react-router-dom';
+import { match, withRouter } from 'react-router';
+import { Action } from 'redux';
+import { History } from 'history';
+import { contractAddress } from '../../../fluence/contract';
+import { App, AppId, Node } from '../../../fluence';
+import { cutId } from '../../../utils';
+import { getDeployedApp } from '../../../utils/cookie';
 import FluenceApp from '../fluence-app';
 import FluenceNode from '../fluence-node';
 import FluenceDeployableApp from '../fluence-deployable-app';
-import FluenceAppsList from '../fluence-apps-list'
-import FluenceNodesList from '../fluence-nodes-list'
-import FluenceDeployList from '../fluence-deploy-list'
-import {restoreDeployed} from '../../actions';
-import * as fluence from "fluence";
+import FluenceAppsList from '../fluence-apps-list';
+import FluenceNodesList from '../fluence-nodes-list';
+import FluenceDeployList from '../fluence-deploy-list';
+import { restoreDeployed, resetDeployed } from '../../actions';
+import * as fluence from 'fluence';
 
 import 'bootstrap/dist/css/bootstrap.css';
 import 'font-awesome/css/font-awesome.css';
@@ -36,21 +36,22 @@ export enum FluenceEntityType {
 interface State {}
 
 interface UrlParams {
-    entityType: string,
-    entityId: string,
-    appId: string,
+    entityType: string;
+    entityId: string;
+    appId: string;
 }
 
 interface Props {
-    match: match<UrlParams>,
-    history: History,
-    loading: boolean,
-    restoreDeployed: (appId: string, appTypeId: string, history: History) => Action,
+    match: match<UrlParams>;
+    history: History;
+    loading: boolean;
+    restoreDeployed: (appId: string, appTypeId: string, history: History) => Action;
+    resetDeployed: () => Action;
     apps: {
-        [key: string]: App
+        [key: string]: App;
     };
     nodes: {
-        [key: string]: Node
+        [key: string]: Node;
     };
 }
 
@@ -62,10 +63,7 @@ class DashboardApp extends React.Component<Props, State> {
         (window as any).fluence = fluence;
 
         const deployedApp = getDeployedApp();
-        console.log(this.props.match, deployedApp);
-        if (deployedApp
-            && (this.props.match.path == '/' || this.props.match.path == '/:entityType/:entityId/:appId')
-        ) {
+        if (deployedApp && this.props.match.path == '/') {
             this.props.restoreDeployed(deployedApp.deployedAppId, deployedApp.deployedAppTypeId, this.props.history);
         }
     }
@@ -79,20 +77,21 @@ class DashboardApp extends React.Component<Props, State> {
             ) {
                 this.props.history.push(`/`);
             }
-            clearDeployedApp();
+            this.props.resetDeployed();
         }
-    };
+    }
 
     renderEntity(): React.ReactNode {
-        let entityType = this.props.match.params.entityType;
-        let entityId = this.props.match.params.entityId;
+        const entityType = this.props.match.params.entityType;
+        const entityId = this.props.match.params.entityId;
         if (entityType && entityId) {
             if (entityType === FluenceEntityType.App) {
-                return <FluenceApp appId={entityId}/>
+                return <FluenceApp appId={entityId}/>;
             } else if (entityType === FluenceEntityType.Node) {
-                return <FluenceNode nodeId={entityId}/>
+                return <FluenceNode nodeId={entityId}/>;
             } else if (entityType === FluenceEntityType.DeployableApp) {
-                return <FluenceDeployableApp id={entityId}/>
+                const appId = this.props.match.params.appId;
+                return <FluenceDeployableApp id={entityId} deployedAppId={appId}/>;
             }
         }
 
@@ -193,6 +192,7 @@ const mapStateToProps = (state: any) => ({
 
 const mapDispatchToProps = {
     restoreDeployed,
+    resetDeployed,
 };
 
 export default withRouter(connect(mapStateToProps, mapDispatchToProps)(DashboardApp));

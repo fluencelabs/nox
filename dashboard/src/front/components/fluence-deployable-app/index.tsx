@@ -6,6 +6,8 @@ import {deploy, deployUpload} from "../../actions";
 import {Action} from "redux";
 import Snippets from "./snippets";
 import {cutId, remove0x, toIpfsHash} from "../../../utils";
+import {AppId} from "../../../fluence/apps";
+import {History} from "history";
 
 interface State {
     loading: boolean,
@@ -21,10 +23,11 @@ export interface DeployUploadSate {
 
 interface Props {
     id: DeployableAppId,
-    deploy: (app: DeployableApp, appId: string, storageHash?: string) => Promise<Action>,
+    deploy: (app: DeployableApp, appId: string, storageHash: string, history: History) => Promise<Action>,
+    history: History;
     deployUpload: (form: FormData) => Promise<Action>,
-    deployedApp: number | undefined,
-    deployedAppId: DeployableApp | undefined,
+    deployedApp: DeployableApp | undefined,
+    deployedAppId: AppId | undefined,
     upload: DeployUploadSate,
 }
 
@@ -37,7 +40,7 @@ class FluenceDeployableApp extends React.Component<Props, State> {
 
     startDeploy = (e: React.MouseEvent<HTMLElement>, app: DeployableApp, appId: string) => {
         this.setState({loading: true});
-        this.props.deploy(app, appId, this.props.upload.storageHash)
+        this.props.deploy(app, appId, this.props.upload.storageHash, this.props.history)
             .catch(function (err) {
                 console.error("error while deploying " + JSON.stringify(err));
             })
@@ -56,7 +59,7 @@ class FluenceDeployableApp extends React.Component<Props, State> {
 
         this.props.deployUpload(form).then(() => {
             this.setState({loading: true});
-            return this.props.deploy(app, appId, this.props.upload.storageHash);
+            return this.props.deploy(app, appId, this.props.upload.storageHash, this.props.history);
         }).catch(function (err) {
             console.error("error while deploying " + JSON.stringify(err));
         }).then(() => this.setState({loading: false}));
@@ -94,7 +97,7 @@ class FluenceDeployableApp extends React.Component<Props, State> {
     renderUploadBlock(): React.ReactNode[] {
         return ([
             <strong><i className="fa fa-bullseye margin-r-5"/>Upload *.wasm file</strong>,
-            <p><input type="file" ref={(ref: HTMLInputElement) => { this.uploadFormElement = ref; }} /></p>,
+            <p><input type="file" ref={(ref: HTMLInputElement) => { this.uploadFormElement = ref; }} accept=".wasm"/></p>,
             <hr/>
         ]);
     }
@@ -153,7 +156,7 @@ class FluenceDeployableApp extends React.Component<Props, State> {
                     </div>
                 </div>
                 <div className="col-md-4 col-xs-12">
-                    <Snippets/>
+                    <Snippets app={app} deployedAppId={this.props.deployedAppId}/>
                 </div>
             </div>
         );
@@ -162,7 +165,6 @@ class FluenceDeployableApp extends React.Component<Props, State> {
 
 const mapStateToProps = (state: any) => ({
     deployedApp: state.deploy.app,
-    deployedAppId: state.deploy.appId,
     upload: state.deploy.upload
 });
 
