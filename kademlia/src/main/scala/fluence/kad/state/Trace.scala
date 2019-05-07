@@ -19,6 +19,11 @@ package fluence.kad.state
 import cats.{Eval, Monoid, Traverse}
 import cats.instances.list._
 
+/**
+ * Utility class to trace complicated execution flows and collect some debug messages lazily
+ *
+ * @param trace List of messages, newest on top
+ */
 case class Trace private (trace: List[Eval[String]]) {
   def apply(log: ⇒ String): Trace = copy(Eval.later(log) :: trace)
 

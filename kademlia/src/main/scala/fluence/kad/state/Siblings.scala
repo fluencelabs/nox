@@ -53,6 +53,14 @@ object Siblings {
   implicit def show[C](implicit ks: Show[Key]): Show[Siblings[C]] =
     s ⇒ s.nodes.toSeq.map(_.key).map(ks.show).mkString(s"\nSiblings: ${s.size}\n\t", "\n\t", "")
 
+  /**
+   * Add a node to the siblings, or drop it if all known siblings are closer then the given node
+   *
+   * @param node Node to add to Siblings
+   * @tparam F Effect
+   * @tparam C Contact
+   * @return State modification
+   */
   def add[F[_]: Monad, C](node: Node[C]): StateT[F, Siblings[C], ModResult[C]] =
     StateT.get[F, Siblings[C]].flatMap { st ⇒
       val (keep, drop) = (st.nodes + node).splitAt(st.maxSize)
@@ -70,6 +78,14 @@ object Siblings {
         )
     }
 
+  /**
+   * Remove a node from siblings, if it's present
+   *
+   * @param key Node's key to remove
+   * @tparam F Effect
+   * @tparam C Contact
+   * @return State modification
+   */
   def remove[F[_]: Monad, C](key: Key): StateT[F, Siblings[C], ModResult[C]] =
     StateT.get[F, Siblings[C]].flatMap {
       case st if st.contains(key) ⇒

@@ -230,6 +230,18 @@ object Kademlia {
       iterativeRouting.join(peers, numberOfNodes, parallelism).value.map(_.isRight)
   }
 
+  /**
+   * Creates an in-memory Kademlia instance
+   *
+   * @param nodeId Current node's Kademlia Key
+   * @param conf Kademlia configuration
+   * @param checkNode Check node correctness, e.g. signatures are correct, ip is public, etc.
+   * @param ownContactGetter Get this node's contact
+   * @param kademliaRpc Access RPC interface for Kademlia for the given Contact
+   * @param P Parallel
+   * @tparam C Contact
+   * @return Kademlia with in-memory routing table
+   */
   def withMVar[F[_]: Effect: Clock, P[_], C](
     nodeId: Key,
     conf: KademliaConf,
@@ -243,6 +255,20 @@ object Kademlia {
         st ⇒ new Impl(nodeId, conf.parallelism, conf.pingExpiresIn, checkNode, ownContactGetter, kademliaRpc, st)
       )
 
+  /**
+   * For the given [[KVStore]], bootstraps the in-memory Kademlia routing table with the stored contacts, and then
+   * reflects all the state changes (saved, updated, removed contacts) to that Store.
+   *
+   * @param nodeId Current node's Kademlia Key
+   * @param conf Kademlia configuration
+   * @param store Persistent store for the known contacts
+   * @param checkNode Check node correctness, e.g. signatures are correct, ip is public, etc.
+   * @param ownContactGetter Get this node's contact
+   * @param kademliaRpc Access RPC interface for Kademlia for the given Contact
+   * @param P Parallel
+   * @tparam C Contact
+   * @return Kademlia with the in-memory routing table being reflected to the given store
+   */
   def bootstrapWithStore[F[_]: ConcurrentEffect: Clock, P[_], C](
     nodeId: Key,
     conf: KademliaConf,

@@ -28,7 +28,6 @@ import cats.syntax.semigroupk._
 import cats.{Monad, Parallel, Traverse}
 import fluence.effects.kvstore.KVStore
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
-import fluence.kad.routing.LocalRouting
 
 import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
@@ -37,10 +36,25 @@ import scala.language.higherKinds
 
 trait RoutingState[F[_], C] {
 
+  /**
+   * Non-blocking read access for [[Siblings]] state
+   */
   def siblings: F[Siblings[C]]
 
+  /**
+   * Non-blocking read access for a [[Bucket]] by the distance key
+   *
+   * @param distanceKey Usually (someOtherNodeKey |+| thisNodeKey)
+   * @return Bucket
+   */
   def bucket(distanceKey: Key): F[Bucket[C]]
 
+  /**
+   * Non-blocking read access for a [[Bucket]] by the given index; must be in range [0, [[Key.BitLength]])
+   *
+   * @param idx Bucket index
+   * @return Bucket
+   */
   def bucket(idx: Int): F[Bucket[C]]
 
   /**
@@ -259,7 +273,7 @@ object RoutingState {
             ).mapN(_ orElse _)
         )
         .map(_.foldLeft(res) {
-          case (mr, Some(n)) ⇒ mr.keep(n.key)
+          case (mr, Some(n)) ⇒ mr.keep(n.key, s"Kept ${n.key}, as it's still present in routing table")
           case (mr, _) ⇒ mr
         })
   }
