@@ -35,7 +35,7 @@ import scala.language.higherKinds
  * @tparam F Effect
  * @tparam C Node contacts
  */
-trait BucketsState[F[_], C] {
+sealed trait BucketsState[F[_], C] {
 
   /**
    * Returns current bucket state
@@ -104,7 +104,10 @@ object BucketsState {
    * @param maxBucketSize Max number of nodes in each bucket
    * @tparam C Node contacts
    */
-  def withMVar[F[_]: Async, C](maxBucketSize: Int, numOfBuckets: Int = Key.BitLength): F[BucketsState[F, C]] = {
+  private[state] def withMVar[F[_]: Async, C](
+    maxBucketSize: Int,
+    numOfBuckets: Int = Key.BitLength
+  ): F[BucketsState[F, C]] = {
     import cats.instances.stream._
 
     val emptyBucket = Bucket[C](maxBucketSize)

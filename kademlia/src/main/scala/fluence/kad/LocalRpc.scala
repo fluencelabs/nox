@@ -28,10 +28,10 @@ import scala.language.higherKinds
  *
  * @param loopbackContact This node's contact
  * @param localRouting Local routing table
- * @tparam F
+ * @tparam F Effect, to be converted to IO
  * @tparam C Type for contact data
  */
-private[kad] class LocalRpc[F[_]: Effect, C](loopbackContact: IO[Node[C]], localRouting: LocalRouting[F, C])
+private[kad] class LocalRpc[F[_]: Effect, C](loopbackContact: F[Node[C]], localRouting: LocalRouting[F, C])
     extends KademliaRpc[C] with slogging.LazyLogging {
   import localRouting.nodeId
 
@@ -40,7 +40,7 @@ private[kad] class LocalRpc[F[_]: Effect, C](loopbackContact: IO[Node[C]], local
    */
   override def ping(): IO[Node[C]] = {
     logger.trace(s"HandleRPC($nodeId): ping")
-    loopbackContact
+    loopbackContact.toIO
   }
 
   /**

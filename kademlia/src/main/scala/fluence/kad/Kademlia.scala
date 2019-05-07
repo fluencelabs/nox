@@ -17,15 +17,16 @@
 package fluence.kad
 
 import cats.data.EitherT
-import cats.effect.{Effect, IO, Timer}
+import cats.effect.{Clock, ConcurrentEffect, Effect, IO}
 import cats.syntax.applicative._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.eq._
 import cats.Parallel
+import fluence.effects.kvstore.KVStore
 import fluence.kad.routing.{IterativeRouting, LocalRouting}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
-import fluence.kad.state.{Bucket, BucketsState, SiblingsState}
+import fluence.kad.state.{Bucket, RoutingState}
 
 import scala.concurrent.duration.Duration
 import scala.language.higherKinds
@@ -43,7 +44,7 @@ trait Kademlia[F[_], C] {
    * @param contact Description on how to connect to remote node
    * @return
    */
-  def rpc(contact: C): KademliaRpc[C]
+  protected def rpc(contact: C): KademliaRpc[C]
 
   /**
    * How to promote this node to others
@@ -120,20 +121,20 @@ object Kademlia {
    * @tparam F Effect
    * @tparam C Contact info
    */
-  def apply[F[_]: Effect: Timer, P[_], C](
+  private class Impl[F[_]: Effect: Clock, P[_], C](
     nodeIdK: Key,
     parallelism: Int,
     pingExpiresIn: Duration,
     checkNode: Node[C] ⇒ IO[Boolean],
-    ownContactGetter: IO[Node[C]],
+    ownContactGetter: F[Node[C]],
     kademliaRpc: C ⇒ KademliaRpc[C],
-    bucketsState: BucketsState[F, C],
-    siblingsState: SiblingsState[F, C]
-  )(implicit P: Parallel[F, P]): Kademlia[F, C] = new Kademlia[F, C] {
+    routingState: RoutingState[F, C]
+  )(implicit P: Parallel[F, P])
+      extends Kademlia[F, C] {
     self ⇒
 
-    private val localRouting = LocalRouting[F, P, C](nodeIdK, siblingsState, bucketsState)
-    private val iterativeRouting = IterativeRouting(localRouting, rpc, pingExpiresIn, checkNode)
+    private val localRouting = LocalRouting[F, P, C](nodeIdK, routingState.siblings, routingState.bucket)
+    private val iterativeRouting = IterativeRouting(localRouting, routingState, rpc, pingExpiresIn, checkNode)
 
     override val nodeId: Key = nodeIdK
 
@@ -143,12 +144,12 @@ object Kademlia {
      * @param contact Description on how to connect to remote node
      * @return
      */
-    override def rpc(contact: C): KademliaRpc[C] = kademliaRpc(contact)
+    override protected def rpc(contact: C): KademliaRpc[C] = kademliaRpc(contact)
 
     /**
      * How to promote this node to others
      */
-    override val ownContact: F[Node[C]] = ownContactGetter.to[F]
+    override val ownContact: F[Node[C]] = ownContactGetter
 
     /**
      * Update RoutingTable with a freshly seen node
@@ -158,7 +159,7 @@ object Kademlia {
      * @return true if node is present in routing table after update, false if it's dropped
      */
     override def update(node: Node[C]): F[Boolean] =
-      localRouting.update(node, rpc, pingExpiresIn, checkNode).map(_.updated.contains(node.key))
+      routingState.update(node, rpc, pingExpiresIn, checkNode).map(_.updated.contains(node.key))
 
     /**
      * @return KademliaRPC instance to handle incoming RPC requests
@@ -228,5 +229,33 @@ object Kademlia {
     override def join(peers: Seq[C], numberOfNodes: Int): F[Boolean] =
       iterativeRouting.join(peers, numberOfNodes, parallelism).value.map(_.isRight)
   }
+
+  def withMVar[F[_]: Effect: Clock, P[_], C](
+    nodeId: Key,
+    conf: KademliaConf,
+    checkNode: Node[C] ⇒ IO[Boolean],
+    ownContactGetter: F[Node[C]],
+    kademliaRpc: C ⇒ KademliaRpc[C]
+  )(implicit P: Parallel[F, P]): F[Kademlia[F, C]] =
+    RoutingState
+      .withMVar[F, P, C](nodeId, conf.maxSiblingsSize, conf.maxBucketSize)
+      .map(
+        st ⇒ new Impl(nodeId, conf.parallelism, conf.pingExpiresIn, checkNode, ownContactGetter, kademliaRpc, st)
+      )
+
+  def bootstrapWithStore[F[_]: ConcurrentEffect: Clock, P[_], C](
+    nodeId: Key,
+    conf: KademliaConf,
+    store: KVStore[F, Key, Node[C]],
+    checkNode: Node[C] ⇒ IO[Boolean],
+    ownContactGetter: F[Node[C]],
+    kademliaRpc: C ⇒ KademliaRpc[C]
+  )(implicit P: Parallel[F, P]): F[Kademlia[F, C]] =
+    RoutingState
+      .withMVar[F, P, C](nodeId, conf.maxSiblingsSize, conf.maxBucketSize)
+      .flatMap(RoutingState.bootstrapWithStore(_, store, kademliaRpc, conf.pingExpiresIn, checkNode))
+      .map(
+        st ⇒ new Impl(nodeId, conf.parallelism, conf.pingExpiresIn, checkNode, ownContactGetter, kademliaRpc, st)
+      )
 
 }

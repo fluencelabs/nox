@@ -26,6 +26,7 @@ import cats.instances.list._
 import cats.effect.{Clock, IO, LiftIO}
 import fluence.kad.{CantJoinAnyNode, JoinError}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
+import fluence.kad.state.RoutingState
 
 import scala.collection.immutable.SortedSet
 import scala.concurrent.duration.Duration
@@ -121,11 +122,12 @@ object IterativeRouting {
 
   def apply[F[_]: Monad: Clock: LiftIO, P[_], C](
     localRouting: LocalRouting[F, C],
+    routingMutate: RoutingState[F, C],
     rpc: C ⇒ KademliaRpc[C],
     pingExpiresIn: Duration,
     checkNode: Node[C] ⇒ IO[Boolean]
   )(implicit P: Parallel[F, P]): IterativeRouting[F, C] =
-    new Impl[F, P, C](localRouting, rpc, pingExpiresIn, checkNode)
+    new Impl[F, P, C](localRouting, routingMutate, rpc, pingExpiresIn, checkNode)
 
   /**
    *
@@ -138,6 +140,7 @@ object IterativeRouting {
    */
   private class Impl[F[_]: Monad: Clock: LiftIO, P[_], C](
     localRouting: LocalRouting[F, C],
+    routingMutate: RoutingState[F, C],
     rpc: C ⇒ KademliaRpc[C],
     pingExpiresIn: Duration,
     checkNode: Node[C] ⇒ IO[Boolean]
@@ -221,7 +224,7 @@ object IterativeRouting {
             )
 
           remote0X
-            .flatMap(localRouting.updateList(_, rpc, pingExpiresIn, checkNode)) // Update routing table
+            .flatMap(routingMutate.updateList(_, rpc, pingExpiresIn, checkNode)) // Update routing table
             .map(_.updated.values.toList)
             .map { remotes ⇒
               val updatedShortlist = shortlist ++
@@ -485,7 +488,7 @@ object IterativeRouting {
           .flatMap { ns ⇒
             // Save discovered nodes to the routing table
             logger.info("Discovered neighbors: " + ns.map(_.key))
-            localRouting.updateList(ns, rpc, pingExpiresIn, checkNode)
+            routingMutate.updateList(ns, rpc, pingExpiresIn, checkNode)
           }
           .map(_.updated.nonEmpty)
           .flatMap[Either[JoinError, Unit]] {

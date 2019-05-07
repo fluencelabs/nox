@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-package fluence.kad.mvar
+package fluence.kad
 
 import fluence.kad.state.Bucket
 
 import scala.concurrent.duration.Duration
-import scala.language.higherKinds
 
 /**
  *

@@ -29,7 +29,7 @@ import scala.language.higherKinds
  * @tparam F Effect type
  * @tparam C Contact
  */
-trait SiblingsState[F[_], C] {
+sealed trait SiblingsState[F[_], C] {
 
   def read: F[Siblings[C]]
 
@@ -52,7 +52,7 @@ trait SiblingsState[F[_], C] {
 
 object SiblingsState {
 
-  def forMVar[F[_]: Monad, C](state: ReadableMVar[F, Siblings[C]]): SiblingsState[F, C] =
+  private[state] def forMVar[F[_]: Monad, C](state: ReadableMVar[F, Siblings[C]]): SiblingsState[F, C] =
     new SiblingsState[F, C] {
       override val read: F[Siblings[C]] = state.read
 
@@ -70,6 +70,6 @@ object SiblingsState {
    * @param maxSize     Max number of closest siblings to store
    * @tparam C Node contacts type
    */
-  def withMVar[F[_]: Async, C](nodeId: Key, maxSize: Int): F[SiblingsState[F, C]] =
+  private[state] def withMVar[F[_]: Async, C](nodeId: Key, maxSize: Int): F[SiblingsState[F, C]] =
     ReadableMVar.of(Siblings[C](nodeId, maxSize)).map(forMVar[F, C])
 }
