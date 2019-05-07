@@ -4,7 +4,7 @@ services:
     image: "ethereum/client-go:stable"
     restart: always
     container_name: "geth-rinkeby"
-    command: --rinkeby --rpc --rpccorsdomain "*" --rpcaddr '0.0.0.0' --rpcport 8545 --ws --wsaddr '0.0.0.0' --wsport 8546 --verbosity 3 --datadir /root/.ethereum --v5disc --rpcvhosts=* --nat extip:188.166.17.90 --lightserv 90 --lightpeers 100
+    command: --rinkeby --rpc --rpccorsdomain "*" --rpcaddr '0.0.0.0' --rpcport 8545 --ws --wsaddr '0.0.0.0' --wsport 8546 --verbosity 3 --datadir /root/.ethereum --v5disc --rpcvhosts=* --nat extip:159.65.85.42 --lightserv 90 --lightpeers 100
     volumes:
       - /root/.geth:/root/.ethereum
 
