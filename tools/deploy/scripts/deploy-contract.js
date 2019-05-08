@@ -93,11 +93,38 @@ async function deployContract(name, deployArgument) {
     return receipt.contractAddress;
 }
 
-async function run() {
+async function deployNetwork() {
     let network = await deployContract("Network").catch(e => console.error("Error deploying Network: " + e));
-    console.log(`Network contract: ${network}\n`);
-    let dashboard = await deployContract("Dashboard", [network]).catch(e => console.error("Error deploying Dashboard: " + e));
-    console.log(`Dashboard contract: ${dashboard}`)
+    console.log(`Network contract: ${network}`);
+    return network;
 }
-run();
 
+async function deployDashboard(network) {
+    let dashboard = await deployContract("Dashboard", [network]).catch(e => console.error("Error deploying Dashboard: " + e));
+    console.log(`Dashboard contract: ${dashboard}`);
+    return dashboard;
+}
+
+async function deployBoth() {
+    let network = await deployNetwork();
+    console.log("\n");
+    await deployDashboard(network);
+}
+
+if (process.argv.length >= 3) {
+    if (process.argv[2] === "network") {
+        return deployNetwork();
+    } else if (process.argv[2] === "dashboard") {
+        let network = process.argv[3];
+        if (network === null || network === undefined) {
+            console.error("Network address should be specified as a second argument");
+        } else {
+            console.log(`Network address is ${network}`);
+            return deployDashboard(network);
+        }
+    } else {
+        console.error(`Unknown deployment type ${process.argv[2]}`)
+    }
+} else {
+    return deployBoth();
+}
