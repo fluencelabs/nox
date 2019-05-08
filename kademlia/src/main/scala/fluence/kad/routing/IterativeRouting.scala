@@ -329,6 +329,7 @@ object IterativeRouting {
                 val loadedNum = updatedLoaded.size - loaded.size
 
                 moreNodes(updatedLoaded, updatedLookedUp, loadMore - loadedNum)
+                moreNodes(updatedLoaded, updatedLookedUp, loadMore - loadedNum)
               }
           }
         }

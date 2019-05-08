@@ -111,21 +111,19 @@ object Kademlia {
   /**
    * Kademlia interface for current node and all Kademlia-related RPC calls, both incoming and outgoing
    *
-   * @param nodeIdK        Current node's Kademlia key
+   * @param nodeId        Current node's Kademlia key
    * @param parallelism   Parallelism factor (named Alpha in paper)
    * @tparam F Effect
    * @tparam C Contact info
    */
   private class Impl[F[_]: Effect: Clock, P[_], C: ContactAccess](
-    nodeIdK: Key,
+    override val nodeId: Key,
     parallelism: Int,
     ownContactGetter: F[Node[C]],
     routing: RoutingTable[F, C]
   )(implicit P: Parallel[F, P])
       extends Kademlia[F, C] {
     self ⇒
-
-    override val nodeId: Key = nodeIdK
 
     /**
      * Returns a network wrapper around a contact C, allowing querying it with Kademlia protocol

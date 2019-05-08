@@ -20,12 +20,13 @@ import java.util.concurrent.TimeUnit
 
 import cats.Traverse
 import cats.data.EitherT
-import cats.effect.{Concurrent, Fiber, Timer}
+import cats.effect.{Concurrent, Fiber, Sync, Timer}
 import cats.effect.concurrent.MVar
 import fluence.kad.JoinError
 import fluence.kad.protocol.{Key, Node}
-import cats.syntax.apply._
+import cats.syntax.applicative._
 import cats.syntax.flatMap._
+import cats.syntax.apply._
 import cats.syntax.functor._
 import cats.instances.stream._
 import cats.syntax.monoid._
@@ -39,38 +40,37 @@ import scala.language.higherKinds
  * - For each bucket, once in a refreshTimeout, perform a [[lookupIterative]] for a random key from that bucket
  * - If there was any user-triggered lookupIterative for a bucket, postpone the scheduled refreshing job accordingly
  *
- * @param rnd Random is used to produce keys to lookup
  * @param routing Actual routing is delegated there
- * @param refreshTimeout Refresh timeouts
- * @param refreshNeighbors Numer of nodes to lokup on refresh
- * @param parallelism Parallelism factor, should be taken from Kademlia config
  * @param refreshFibers State of refresh fibers // TODO is it optimal? won't it cause deadlocks? maybe map of mvars is better then mvar of map?
  * @tparam F Effect
  * @tparam C Contact
  */
-private class RefreshingIterativeRouting[F[_]: Concurrent: Timer, C](
-  rnd: Random,
+private class RefreshingIterativeRouting[F[_]: Concurrent, C](
   routing: IterativeRouting[F, C],
-  refreshTimeout: FiniteDuration,
-  refreshNeighbors: Int,
-  parallelism: Int,
-  refreshFibers: MVar[F, Map[Int, Fiber[F, Unit]]]
+  scheduleRefresh: Int ⇒ F[Fiber[F, Unit]],
+  refreshFibers: Map[Int, MVar[F, Fiber[F, Unit]]]
 ) extends IterativeRouting[F, C] {
 
   override def nodeId: Key = routing.nodeId
 
+  /**
+   * Called each time when any *Iterative method is called by user, reschedules the refreshing job for the bucket
+   *
+   * @param key Touched key
+   */
   private def touchedIterative(key: Key): F[Unit] = {
     val idx = (key |+| nodeId).zerosPrefixLen
 
-    for {
-      rf ← refreshFibers.take
-      _ ← rf(idx).cancel
-      fiber ← Concurrent[F].start(
-        Timer[F]
-          .sleep(refreshTimeout) *> lookupIterative(nodeId.randomize(idx, rnd), refreshNeighbors, parallelism).void
-      )
-      _ ← refreshFibers.put(rf.updated(idx, fiber))
-    } yield ()
+    val mFiber = refreshFibers(idx)
+
+    mFiber.tryTake.flatMap {
+      case Some(fiber) ⇒
+        // Do not do what was scheduled, schedule refresh instead, save schedule fiber
+        (fiber.cancel >> scheduleRefresh(idx)).map(mFiber.put)
+      case None ⇒
+        // It's in progress of re-scheduling, do nothing
+        ().pure[F]
+    }
   }
 
   override def lookupIterative(key: Key, neighbors: Int, parallelism: Int): F[Seq[Node[C]]] =
@@ -92,41 +92,65 @@ private class RefreshingIterativeRouting[F[_]: Concurrent: Timer, C](
 
 object RefreshingIterativeRouting {
 
+  /**
+   *
+   * @param iterativeRouting [[IterativeRouting]] implementation to delegate calls to
+   * @param refreshTimeout Refresh timeouts
+   * @param refreshNeighbors Number of nodes to lookup on refresh
+   * @param parallelism Parallelism factor, should be taken from Kademlia config
+   * @tparam F Effect
+   * @tparam C Contact
+   * @return Enhanced [[IterativeRouting]]
+   */
   def apply[F[_]: Concurrent: Timer, C](
     iterativeRouting: IterativeRouting[F, C],
     refreshTimeout: FiniteDuration,
     refreshNeighbors: Int,
     parallelism: Int
-  ): F[IterativeRouting[F, C]] =
-    for {
-      t <- Timer[F].clock.realTime(TimeUnit.MILLISECONDS)
+  ): F[IterativeRouting[F, C]] = {
+    val nodeId = iterativeRouting.nodeId
 
-      rnd = new Random(t)
+    (
+      // Bootstrap the Random that will be used to generate Keys and jitters
+      Timer[F].clock.realTime(TimeUnit.MILLISECONDS).map(new Random(_)),
+      // Prepare a map of empty MVars, where scheduled refreshing jobs will be stored
+      Traverse[Stream]
+        .traverse(Stream.range[Int](0, Key.BitLength - 1))(
+          idx ⇒ MVar.empty[F, Fiber[F, Unit]].map(idx -> _)
+        )
+        .map(_.toMap)
+    ).tupled.flatMap {
+      case (rnd, refreshFibers) ⇒
+        // Generate new timeout, sleep
+        val sleep = Sync[F].delay(refreshTimeout + rnd.nextInt.abs.millis) >>= Timer[F].sleep
 
-      refreshFibers ← MVar.empty[F, Map[Int, Fiber[F, Unit]]]
+        // Lookup iteratively the bucket
+        def refresh(idx: Int) =
+          iterativeRouting
+            .lookupIterative(nodeId.randomize(idx, rnd), refreshNeighbors, parallelism)
+            .void
 
-      routing = new RefreshingIterativeRouting(
-        rnd,
-        iterativeRouting,
-        refreshTimeout,
-        refreshNeighbors,
-        parallelism,
-        refreshFibers
-      )
+        // Drop current fiber out from MVar, because it refers to current execution flow
+        // Schedule new refresh, save its fiber
+        def reschedule(idx: Int) =
+          refreshFibers(idx).take >> scheduleRefresh(idx) >>= refreshFibers(idx).put
 
-      fibers ← Traverse[Stream].traverse(Stream.range[Int](0, Key.BitLength - 1))(
-        idx ⇒
-          Concurrent[F]
-            .start(
-              // TODO: apply a coherent jitter policy
-              Timer[F].sleep(refreshTimeout + rnd.nextLong().abs.millis) *> routing
-                .lookupIterative(iterativeRouting.nodeId.randomize(idx, rnd), refreshNeighbors, parallelism)
-                .void
-            )
-            .map(idx -> _)
-      )
+        // Schedule refreshing job for a bucket
+        def scheduleRefresh(idx: Int): F[Fiber[F, Unit]] =
+          Concurrent[F].start(
+            sleep >> refresh(idx) >> reschedule(idx)
+          )
 
-      _ ← refreshFibers.put(fibers.toMap)
+        val routing = new RefreshingIterativeRouting(
+          iterativeRouting,
+          scheduleRefresh,
+          refreshFibers
+        )
 
-    } yield routing
+        // All MVars are empty yet, so just put fibers there
+        Traverse[Stream].traverse(Stream.range[Int](0, Key.BitLength - 1))(
+          idx ⇒ scheduleRefresh(idx) >>= refreshFibers(idx).put
+        ) as routing
+    }
+  }
 }

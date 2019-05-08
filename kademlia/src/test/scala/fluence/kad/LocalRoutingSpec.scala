@@ -18,7 +18,7 @@ package fluence.kad
 
 import cats.effect.{ContextShift, IO, Timer}
 import fluence.kad.routing.LocalRouting
-import fluence.kad.protocol.{KademliaRpc, Key, Node}
+import fluence.kad.protocol.{ContactAccess, KademliaRpc, Key, Node}
 import fluence.kad.state.RoutingState
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
@@ -62,6 +62,14 @@ class LocalRoutingSpec extends WordSpec with Matchers {
 
     val checkNode: Node[Long] ⇒ IO[Boolean] = _ ⇒ IO(true)
 
+    object failCA {
+      implicit val ca: ContactAccess[Long] = new ContactAccess[Long](pingDuration, checkNode, failLocalRPC)
+    }
+
+    object successCA {
+      implicit val ca: ContactAccess[Long] = new ContactAccess[Long](pingDuration, checkNode, successLocalRPC)
+    }
+
     def routing(
       nodeId: Key,
       maxSiblingsSize: Int = 2,
@@ -87,7 +95,8 @@ class LocalRoutingSpec extends WordSpec with Matchers {
       val (up, rt) = routing(nodeId)
 
       (1L to 5L).foreach { i ⇒
-        up.update(Node(i, i), failLocalRPC, pingDuration, checkNode).unsafeRunSync()
+        import failCA._
+        up.update(Node(i, i)).unsafeRunSync()
         (1L to i).foreach { n ⇒
           rt.find(n).unsafeRunSync() shouldBe defined
         }
@@ -95,20 +104,29 @@ class LocalRoutingSpec extends WordSpec with Matchers {
 
       rt.find(4L).unsafeRunSync() shouldBe defined
 
-      up.update(Node(6L, 6L), failLocalRPC, pingDuration, checkNode).unsafeRunSync().updated.contains(6L) shouldBe true
+      {
+        import failCA._
+        up.update(Node(6L, 6L)).unsafeRunSync().updated.contains(6L) shouldBe true
+      }
 
       rt.find(4L).unsafeRunSync() shouldBe empty
       rt.find(6L).unsafeRunSync() shouldBe defined
 
-      up.update(Node(4L, 4L), successLocalRPC, pingDuration, checkNode)
-        .unsafeRunSync()
-        .updated
-        .contains(4L) shouldBe false
+      {
+        import successCA._
+        up.update(Node(4L, 4L))
+          .unsafeRunSync()
+          .updated
+          .contains(4L) shouldBe false
+      }
 
       rt.find(4L).unsafeRunSync() shouldBe empty
       rt.find(6L).unsafeRunSync() shouldBe defined
 
-      up.update(Node(4L, 4L), failLocalRPC, pingDuration, checkNode).unsafeRunSync().updated.contains(4L) shouldBe true
+      {
+        import failCA._
+        up.update(Node(4L, 4L)).unsafeRunSync().updated.contains(4L) shouldBe true
+      }
 
       rt.find(4L).unsafeRunSync() shouldBe defined
       rt.find(6L).unsafeRunSync() shouldBe empty
@@ -122,14 +140,16 @@ class LocalRoutingSpec extends WordSpec with Matchers {
       val (up, rt) = routing(nodeId, maxSiblingsSize = 10)
 
       (1L to 10L).foreach { i ⇒
-        up.update(Node(i, i), successLocalRPC, pingDuration, checkNode).unsafeRunSync()
+        import successCA._
+        up.update(Node(i, i)).unsafeRunSync()
       }
 
       val nbs10 = rt.lookup(100L, 10).unsafeRunSync()
       nbs10.size should be >= 7
 
       (1L to 127L).foreach { i ⇒
-        up.update(Node(i, i), successLocalRPC, pingDuration, checkNode).unsafeRunSync()
+        import successCA._
+        up.update(Node(i, i)).unsafeRunSync()
       }
 
       (1L to 127L).foreach { i ⇒
