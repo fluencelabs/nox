@@ -1,5 +1,5 @@
-import {getAppIds, getAppsNew} from '../../../fluence';
-import contract, {dashboardContract} from '../../../fluence/contract';
+import {getAppIds} from '../../../fluence';
+import contract from '../../../fluence/contract';
 import {Action, Dispatch} from 'redux';
 
 export const GET_APPS_IDS_RECEIVE = 'GET_APPS_IDS_RECEIVE';
@@ -7,8 +7,6 @@ export const GET_APPS_IDS_RECEIVE = 'GET_APPS_IDS_RECEIVE';
 export const retrieveAppIds = () => {
     return async (dispatch: Dispatch): Promise<Action> => {
         const appIds = await getAppIds(contract);
-        const smallApps = await getAppsNew(dashboardContract);
-        console.log("smallApps: " + JSON.stringify(smallApps));
         return dispatch({
             type: GET_APPS_IDS_RECEIVE,
             appIds,

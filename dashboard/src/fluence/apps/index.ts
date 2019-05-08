@@ -1,5 +1,5 @@
-import { Network } from '../../../types/web3-contracts/Network';
-import { none, Option, some } from 'ts-option';
+import {Network} from '../../../types/web3-contracts/Network';
+import {none, Option, some} from 'ts-option';
 import {Dashboard} from "../../../types/web3-contracts/Dashboard";
 
 export type AppId = string;
@@ -29,17 +29,20 @@ export async function getAppIds(contract: Network): Promise<AppId[]> {
     return contract.methods.getAppIDs().call();
 }
 
-export interface SmallApp {
+/**
+ * Application consisting of app id and a storage hash.
+ * TODO: Naming could be better
+ */
+export interface AppRef {
     app_id: string;
     storage_hash: string;
 }
 
-export async function getAppsNew(contract: Dashboard): Promise<SmallApp[]> {
+export async function getAppRefs(contract: Dashboard): Promise<AppRef[]> {
     let result = await contract.methods.getApps().call();
-    console.log("result is " + JSON.stringify(result));
     let app_ids = result["0"];
     let storage_hashes = result["1"];
-    let apps: SmallApp[] = [];
+    let apps: AppRef[] = [];
     for (let i = 0; i < app_ids.length; i++) {
         apps[i] = {
             app_id: app_ids[i],
