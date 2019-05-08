@@ -19,6 +19,12 @@ pragma solidity ^0.5.8;
 
 import "./Network.sol";
 
+/*
+ * This contract is a read model for the main Fluence (Deployer + Network) contract
+ *
+ * It's main purpose is to allow to change read API independently of the main Fluence contract.
+ *
+ */
 contract Dashboard {
     Network network;
 
