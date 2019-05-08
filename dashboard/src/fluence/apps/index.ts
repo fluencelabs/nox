@@ -1,5 +1,6 @@
 import { Network } from '../../../types/web3-contracts/Network';
 import { none, Option, some } from 'ts-option';
+import {Dashboard} from "../../../types/web3-contracts/Dashboard";
 
 export type AppId = string;
 
@@ -26,6 +27,27 @@ export interface Cluster {
 
 export async function getAppIds(contract: Network): Promise<AppId[]> {
     return contract.methods.getAppIDs().call();
+}
+
+export interface SmallApp {
+    app_id: string;
+    storage_hash: string;
+}
+
+export async function getAppsNew(contract: Dashboard): Promise<SmallApp[]> {
+    let result = await contract.methods.getApps().call();
+    console.log("result is " + JSON.stringify(result));
+    let app_ids = result["0"];
+    let storage_hashes = result["1"];
+    let apps: SmallApp[] = [];
+    for (let i = 0; i < app_ids.length; i++) {
+        apps[i] = {
+            app_id: app_ids[i],
+            storage_hash: storage_hashes[i],
+        };
+    }
+
+    return apps;
 }
 
 export function getApp(contract: Network, id: AppId): Promise<App> {
