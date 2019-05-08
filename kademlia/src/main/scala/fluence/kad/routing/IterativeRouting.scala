@@ -23,16 +23,17 @@ import cats.syntax.eq._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.instances.list._
-import cats.effect.{Clock, IO, LiftIO}
+import cats.effect.{Clock, LiftIO}
 import fluence.kad.{CantJoinAnyNode, JoinError}
-import fluence.kad.protocol.{KademliaRpc, Key, Node}
+import fluence.kad.protocol.{ContactAccess, Key, Node}
 import fluence.kad.state.RoutingState
 
 import scala.collection.immutable.SortedSet
-import scala.concurrent.duration.Duration
 import scala.language.higherKinds
 
 trait IterativeRouting[F[_], C] {
+
+  def nodeId: Key
 
   /**
    * The search begins by selecting alpha contacts from the non-empty k-bucket closest to the bucket appropriate
@@ -120,32 +121,25 @@ trait IterativeRouting[F[_], C] {
 
 object IterativeRouting {
 
-  def apply[F[_]: Monad: Clock: LiftIO, P[_], C](
+  def apply[F[_]: Monad: Clock: LiftIO, P[_], C: ContactAccess](
     localRouting: LocalRouting[F, C],
-    routingMutate: RoutingState[F, C],
-    rpc: C ⇒ KademliaRpc[C],
-    pingExpiresIn: Duration,
-    checkNode: Node[C] ⇒ IO[Boolean]
+    routingState: RoutingState[F, C]
   )(implicit P: Parallel[F, P]): IterativeRouting[F, C] =
-    new Impl[F, P, C](localRouting, routingMutate, rpc, pingExpiresIn, checkNode)
+    new Impl[F, P, C](localRouting, routingState)
 
   /**
    *
    * @param localRouting Local routing table
-   * @param rpc Used to perform lookups
-   * @param pingExpiresIn Duration to prevent too frequent ping requests from buckets
-   * @param checkNode Test node correctness, e.g. signatures are correct, ip is public, etc.
    * @tparam F Effect
    * @tparam C Contact
    */
-  private class Impl[F[_]: Monad: Clock: LiftIO, P[_], C](
+  private class Impl[F[_]: Monad: Clock: LiftIO, P[_], C: ContactAccess](
     localRouting: LocalRouting[F, C],
-    routingMutate: RoutingState[F, C],
-    rpc: C ⇒ KademliaRpc[C],
-    pingExpiresIn: Duration,
-    checkNode: Node[C] ⇒ IO[Boolean]
+    routingState: RoutingState[F, C]
   )(implicit P: Parallel[F, P])
       extends IterativeRouting[F, C] with slogging.LazyLogging {
+
+    override def nodeId: Key = localRouting.nodeId
 
     /**
      * The search begins by selecting alpha contacts from the non-empty k-bucket closest to the bucket appropriate
@@ -206,7 +200,8 @@ object IterativeRouting {
           // Fetch remote lookups into F; filter previously seen nodes
           val remote0X = Parallel
             .parTraverse(handle) { c ⇒
-              rpc(c.contact)
+              ContactAccess[C]
+                .rpc(c.contact)
                 .lookup(key, neighbors)
                 .attempt
                 .map {
@@ -224,7 +219,7 @@ object IterativeRouting {
             )
 
           remote0X
-            .flatMap(routingMutate.updateList(_, rpc, pingExpiresIn, checkNode)) // Update routing table
+            .flatMap(routingState.updateList(_)) // Update routing table
             .map(_.updated.values.toList)
             .map { remotes ⇒
               val updatedShortlist = shortlist ++
@@ -320,7 +315,7 @@ object IterativeRouting {
             // Make lookup requests for node's own neighborhood
             Parallel
               .parTraverse(toLookup) { n ⇒
-                rpc(n.contact).lookupAway(n.key, key, lookupSize).attempt.to[F]
+                ContactAccess[C].rpc(n.contact).lookupAway(n.key, key, lookupSize).attempt.to[F]
               }
               .flatMap { lookupResult ⇒
                 val ns = lookupResult.collect {
@@ -440,11 +435,11 @@ object IterativeRouting {
 
             // For each peer
             // Try to ping the peer; if no pings are performed, join is failed
-            rpc(peer).ping().attempt.to[F].flatMap[Option[(Node[C], List[Node[C]])]] {
+            ContactAccess[C].rpc(peer).ping().attempt.to[F].flatMap[Option[(Node[C], List[Node[C]])]] {
               case Right(peerNode) if peerNode.key =!= localRouting.nodeId ⇒ // Ping successful, lookup node's neighbors
                 logger.info("PeerPing successful to " + peerNode.key)
 
-                rpc(peer).lookup(localRouting.nodeId, numberOfNodes).attempt.to[F].map {
+                ContactAccess[C].rpc(peer).lookup(localRouting.nodeId, numberOfNodes).attempt.to[F].map {
                   case Right(neighbors) if neighbors.isEmpty ⇒
                     logger.info("Neighbors list is empty for peer " + peerNode.key)
                     Some(peerNode -> Nil)
@@ -478,7 +473,7 @@ object IterativeRouting {
             Parallel
               .parTraverse(
                 ns
-              )(p ⇒ rpc(p.contact).ping().attempt.to[F])
+              )(p ⇒ ContactAccess[C].rpc(p.contact).ping().attempt.to[F])
               .map(_.collect {
                 case Right(n) ⇒ n
               })
@@ -488,7 +483,7 @@ object IterativeRouting {
           .flatMap { ns ⇒
             // Save discovered nodes to the routing table
             logger.info("Discovered neighbors: " + ns.map(_.key))
-            routingMutate.updateList(ns, rpc, pingExpiresIn, checkNode)
+            routingState.updateList(ns)
           }
           .map(_.updated.nonEmpty)
           .flatMap[Either[JoinError, Unit]] {

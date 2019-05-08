@@ -16,9 +16,10 @@
 
 package fluence.kad.state
 
-import cats.Monad
+import cats.{Eval, Monad}
 import cats.syntax.functor._
-import cats.effect.Async
+import cats.effect.{Async, Sync}
+import cats.effect.concurrent.Ref
 import fluence.kad.protocol.{Key, Node}
 
 import scala.language.higherKinds
@@ -51,6 +52,22 @@ sealed trait SiblingsState[F[_], C] {
 }
 
 object SiblingsState {
+
+  private[state] def withRef[F[_]: Sync, C](nodeId: Key, maxSize: Int): F[SiblingsState[F, C]] =
+    Ref
+      .of[F, Siblings[C]](Siblings[C](nodeId, maxSize))
+      .map(
+        ref ⇒
+          new SiblingsState[F, C] {
+            override def read: F[Siblings[C]] = ref.get
+
+            override def add(node: Node[C]): F[ModResult[C]] =
+              ref.modifyState(Siblings.add[Eval, C](node))
+
+            override def remove(key: Key): F[ModResult[C]] =
+              ref.modifyState(Siblings.remove[Eval, C](key))
+          }
+      )
 
   private[state] def forMVar[F[_]: Monad, C](state: ReadableMVar[F, Siblings[C]]): SiblingsState[F, C] =
     new SiblingsState[F, C] {

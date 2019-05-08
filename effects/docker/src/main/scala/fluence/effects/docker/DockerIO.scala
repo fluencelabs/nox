@@ -238,7 +238,7 @@ class DockerIO[F[_]: Monad: LiftIO: ContextShift: Defer](
                   s"Trying to disconnect container ${container.containerId} from network ${network.name}, got error $err",
                   err
                 )
-          }
+            }
       )
       .mapK(liftCtx)
 }

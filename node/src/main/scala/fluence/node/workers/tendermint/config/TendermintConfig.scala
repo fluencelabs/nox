@@ -59,7 +59,7 @@ case class TendermintConfig(
     "consensus.timeout_commit" -> s"${commitTimeoutMs}ms",
     "consensus.skip_timeout_commit" -> s"$skipCommitTimeout",
     "consensus.create_empty_blocks" -> s"$createEmptyBlocks",
-    "instrumentation.prometheus" -> s"$prometheus",
+    "instrumentation.prometheus" -> s"$prometheus"
   )
 
   /**
@@ -78,7 +78,7 @@ case class TendermintConfig(
     workerPeerAddress: String,
     workerIndex: Int,
     abciHost: String,
-    appId: Long,
+    appId: Long
   ): F[Unit] = Sync[F].delay {
     val properties = List(
       "proxy_app" -> s"tcp://$abciHost:$abciPort",

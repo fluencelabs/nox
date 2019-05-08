@@ -42,33 +42,33 @@ class WorkersPortsSpec extends WordSpec with Matchers {
                 init ← ports.getMapping
                 _ = init shouldBe empty
 
-                p1 ← ports.allocate(1l).value.map(_.right.get)
+                p1 ← ports.allocate(1L).value.map(_.right.get)
                 _ = p1 shouldBe 100
 
                 mapping1 ← ports.getMapping
-                _ = mapping1 shouldBe Map(1l -> 100.toShort)
+                _ = mapping1 shouldBe Map(1L -> 100.toShort)
 
-                pp1 ← ports.allocate(1l).value.map(_.right.get)
+                pp1 ← ports.allocate(1L).value.map(_.right.get)
                 _ = pp1 shouldBe 100
 
-                pg1 ← ports.get(1l)
+                pg1 ← ports.get(1L)
                 _ = pg1 shouldBe Some(100)
 
-                pgn ← ports.get(1000l)
+                pgn ← ports.get(1000L)
                 _ = pgn shouldBe empty
 
-                _ ← ports.free(1l).value.map(_.right.get)
+                _ ← ports.free(1L).value.map(_.right.get)
 
-                p1f ← ports.get(1l)
+                p1f ← ports.get(1L)
                 _ = p1f shouldBe empty
 
                 freed ← ports.getMapping
                 _ = freed shouldBe empty
 
-                pp10 ← ports.allocate(10l).value.map(_.right.get)
+                pp10 ← ports.allocate(10L).value.map(_.right.get)
                 _ = pp10 shouldBe 100
 
-                _ ← ports.allocate(20l).value.map(_.right.get)
+                _ ← ports.allocate(20L).value.map(_.right.get)
 
               } yield ()
 
@@ -78,7 +78,7 @@ class WorkersPortsSpec extends WordSpec with Matchers {
               ports ⇒
                 for {
                   init ← ports.getMapping
-                  _ = init shouldBe Map(10l -> 100, 20l -> 101)
+                  _ = init shouldBe Map(10L -> 100, 20L -> 101)
                 } yield ()
             )
 

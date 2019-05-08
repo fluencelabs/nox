@@ -32,5 +32,5 @@ private[block] object Commit {
  */
 private[block] case class Commit(
   block_id: BlockID,
-  precommits: List[Option[Vote]],
+  precommits: List[Option[Vote]]
 )

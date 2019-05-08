@@ -68,7 +68,7 @@ class LocalRoutingSpec extends WordSpec with Matchers {
       maxBucketSize: Int = 2
     ): (RoutingState[IO, Long], LocalRouting[IO, Long]) =
       RoutingState
-        .withMVar[IO, IO.Par, Long](nodeId, maxSiblingsSize, maxBucketSize)
+        .inMemory[IO, IO.Par, Long](nodeId, maxSiblingsSize, maxBucketSize)
         .map(rs ⇒ rs -> LocalRouting(nodeId, rs.siblings, rs.bucket))
         .unsafeRunSync()
 

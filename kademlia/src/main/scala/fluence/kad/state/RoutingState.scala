@@ -16,7 +16,7 @@
 
 package fluence.kad.state
 
-import cats.effect.{Async, Clock, Concurrent, IO, LiftIO}
+import cats.effect.{Async, Clock, Concurrent, LiftIO}
 import cats.instances.list._
 import cats.syntax.applicative._
 import cats.syntax.apply._
@@ -27,14 +27,15 @@ import cats.syntax.order._
 import cats.syntax.semigroupk._
 import cats.{Monad, Parallel, Traverse}
 import fluence.effects.kvstore.KVStore
-import fluence.kad.protocol.{KademliaRpc, Key, Node}
+import fluence.kad.protocol.{ContactAccess, Key, Node}
 
 import scala.annotation.tailrec
 import scala.collection.mutable.ListBuffer
-import scala.concurrent.duration.Duration
 import scala.language.higherKinds
 
 trait RoutingState[F[_], C] {
+
+  def nodeId: Key
 
   /**
    * Non-blocking read access for [[Siblings]] state
@@ -69,33 +70,21 @@ trait RoutingState[F[_], C] {
    * Locates the bucket responsible for given contact, and updates it using given ping function
    *
    * @param node        Contact to update
-   * @param rpc           Function to perform request to remote contact
-   * @param pingExpiresIn Duration when no ping requests are made by the bucket, to avoid overflows
-   * @param checkNode Test node correctness, e.g. signatures are correct, ip is public, etc.
    * @return True if the node is saved into routing table
    */
   def update(
-    node: Node[C],
-    rpc: C ⇒ KademliaRpc[C],
-    pingExpiresIn: Duration,
-    checkNode: Node[C] ⇒ IO[Boolean]
-  )(implicit clock: Clock[F], liftIO: LiftIO[F]): F[ModResult[C]]
+    node: Node[C]
+  )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]]
 
   /**
    * Update RoutingTable with a list of fresh nodes
    *
    * @param nodes List of new nodes
-   * @param rpc   Function to perform request to remote contact
-   * @param pingExpiresIn Duration when no ping requests are made by the bucket, to avoid overflows
-   * @param checkNode Test node correctness, e.g. signatures are correct, ip is public, etc.
    * @return The same list of `nodes`
    */
   def updateList(
-    nodes: List[Node[C]],
-    rpc: C ⇒ KademliaRpc[C],
-    pingExpiresIn: Duration,
-    checkNode: Node[C] ⇒ IO[Boolean]
-  )(implicit clock: Clock[F], liftIO: LiftIO[F]): F[ModResult[C]]
+    nodes: List[Node[C]]
+  )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]]
 }
 
 object RoutingState {
@@ -108,18 +97,18 @@ object RoutingState {
    * @param maxBucketSize The size of a bucket
    * @tparam C Contact
    */
-  def withMVar[F[_]: Async, P[_], C](nodeId: Key, siblingsSize: Int, maxBucketSize: Int)(
+  def inMemory[F[_]: Async, P[_], C](nodeId: Key, siblingsSize: Int, maxBucketSize: Int)(
     implicit P: Parallel[F, P]
   ): F[RoutingState[F, C]] =
     (
-      SiblingsState.withMVar[F, C](nodeId, siblingsSize),
+      SiblingsState.withRef[F, C](nodeId, siblingsSize),
       BucketsState.withMVar[F, C](maxBucketSize)
     ).mapN {
       case (ss, bs) ⇒ new Impl(nodeId, ss, bs)
     }
 
   private class Impl[F[_]: Monad, P[_], C](
-    val nodeId: Key,
+    override val nodeId: Key,
     siblingsState: SiblingsState[F, C],
     bucketsState: BucketsState[F, C]
   )(
@@ -151,40 +140,31 @@ object RoutingState {
      * Locates the bucket responsible for given contact, and updates it using given ping function
      *
      * @param node          Contact to update
-     * @param rpc           Function to perform request to remote contact
-     * @param pingExpiresIn Duration when no ping requests are made by the bucket, to avoid overflows
-     * @param checkNode     Test node correctness, e.g. signatures are correct, ip is public, etc.
      * @return ModResult
      */
     override def update(
-      node: Node[C],
-      rpc: C ⇒ KademliaRpc[C],
-      pingExpiresIn: Duration,
-      checkNode: Node[C] ⇒ IO[Boolean]
-    )(implicit clock: Clock[F], liftIO: LiftIO[F]): F[ModResult[C]] =
-      updateK(node, rpc, pingExpiresIn, checkNode, keepExisting = true)
+      node: Node[C]
+    )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]] =
+      updateK(node, keepExisting = true)
 
     /**
      * Implementation for [[update]] with managed ModResult checks -- required for [[updateList]] optimization
      */
     private def updateK(
       node: Node[C],
-      rpc: C ⇒ KademliaRpc[C],
-      pingExpiresIn: Duration,
-      checkNode: Node[C] ⇒ IO[Boolean],
       keepExisting: Boolean
-    )(implicit clock: Clock[F], liftIO: LiftIO[F]): F[ModResult[C]] =
+    )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]] =
       if (nodeId === node.key)
         ModResult.noop[C].pure[F]
       else
-        checkNode(node).attempt.to[F].flatMap {
+        ca.check(node).attempt.to[F].flatMap {
           case Right(true) ⇒
             logger.trace("Update node: {}", node.key)
 
             P.sequential(
                 P.apply.map2(
                   // Update bucket, performing ping if necessary
-                  P parallel bucketsState.update((node.key |+| nodeId).zerosPrefixLen, node, rpc, pingExpiresIn),
+                  P parallel bucketsState.update((node.key |+| nodeId).zerosPrefixLen, node, ca.rpc, ca.pingExpiresIn),
                   // Update siblings
                   P parallel siblingsState.add(node)
                 )(_ <+> _)
@@ -203,17 +183,11 @@ object RoutingState {
      * Update RoutingTable with a list of fresh nodes
      *
      * @param nodes         List of new nodes
-     * @param rpc           Function to perform request to remote contact
-     * @param pingExpiresIn Duration when no ping requests are made by the bucket, to avoid overflows
-     * @param checkNode     Test node correctness, e.g. signatures are correct, ip is public, etc.
      * @return Result of state modification
      */
     override def updateList(
-      nodes: List[Node[C]],
-      rpc: C ⇒ KademliaRpc[C],
-      pingExpiresIn: Duration,
-      checkNode: Node[C] ⇒ IO[Boolean]
-    )(implicit clock: Clock[F], liftIO: LiftIO[F]): F[ModResult[C]] = {
+      nodes: List[Node[C]]
+    )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]] = {
       // From iterable of groups, make list of list of items from different groups
       @tailrec
       def rearrange(groups: Iterable[List[Node[C]]], agg: List[List[Node[C]]] = Nil): List[List[Node[C]]] = {
@@ -238,7 +212,7 @@ object RoutingState {
         portion match {
           case Nil ⇒ agg.pure[F]
           case node :: tail ⇒
-            updateK(node, rpc, pingExpiresIn, checkNode, keepExisting = false).flatMap { res ⇒
+            updateK(node, keepExisting = false).flatMap { res ⇒
               updatePortion(tail, res <+> agg)
             }
         }
@@ -283,22 +257,16 @@ object RoutingState {
    *
    * @param routingMutate RoutingMutate to delegate operations to
    * @param store Store for node contacts
-   * @param rpc           Function to perform request to remote contact
-   * @param pingExpiresIn Duration when no ping requests are made by the bucket, to avoid overflows
-   * @param checkNode     Test node correctness, e.g. signatures are correct, ip is public, etc.
    * @tparam F Effect; storing is performed in the background with no blocking
    * @tparam C Contact
    * @return Bootstrapped RoutingState that stores state changes in the store
    */
-  def bootstrapWithStore[F[_]: Concurrent: Clock, C](
+  def bootstrapWithStore[F[_]: Concurrent: Clock, C: ContactAccess](
     routingMutate: RoutingState[F, C],
-    store: KVStore[F, Key, Node[C]],
-    rpc: C ⇒ KademliaRpc[C],
-    pingExpiresIn: Duration,
-    checkNode: Node[C] ⇒ IO[Boolean]
+    store: KVStore[F, Key, Node[C]]
   ): F[RoutingState[F, C]] =
     store.stream.chunks
-      .evalTap(ch ⇒ routingMutate.updateList(ch.map(_._2).toList, rpc, pingExpiresIn, checkNode).void)
+      .evalTap(ch ⇒ routingMutate.updateList(ch.map(_._2).toList).void)
       .compile
       .drain as withStore(routingMutate, store)
 
@@ -316,6 +284,7 @@ object RoutingState {
     store: KVStore[F, Key, Node[C]]
   ): RoutingState[F, C] =
     new RoutingState[F, C] {
+      override def nodeId: Key = routingState.nodeId
 
       override val siblings: F[Siblings[C]] =
         routingState.siblings
@@ -340,19 +309,13 @@ object RoutingState {
         routingState.remove(key).flatTap(modResult)
 
       override def update(
-        node: Node[C],
-        rpc: C ⇒ KademliaRpc[C],
-        pingExpiresIn: Duration,
-        checkNode: Node[C] ⇒ IO[Boolean]
-      )(implicit clock: Clock[F], liftIO: LiftIO[F]): F[ModResult[C]] =
-        routingState.update(node, rpc, pingExpiresIn, checkNode).flatTap(modResult)
+        node: Node[C]
+      )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]] =
+        routingState.update(node).flatTap(modResult)
 
       override def updateList(
-        nodes: List[Node[C]],
-        rpc: C ⇒ KademliaRpc[C],
-        pingExpiresIn: Duration,
-        checkNode: Node[C] ⇒ IO[Boolean]
-      )(implicit clock: Clock[F], liftIO: LiftIO[F]): F[ModResult[C]] =
-        routingState.updateList(nodes, rpc, pingExpiresIn, checkNode).flatTap(modResult)
+        nodes: List[Node[C]]
+      )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]] =
+        routingState.updateList(nodes).flatTap(modResult)
     }
 }

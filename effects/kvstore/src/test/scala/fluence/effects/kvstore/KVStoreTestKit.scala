@@ -32,14 +32,14 @@ trait KVStoreTestKit extends WordSpec with Matchers {
       storeMaker.use { store ⇒
         IO {
 
-          store.put(12312323l, "value").value.unsafeRunSync().isRight shouldBe true
-          store.get(12312323l).value.unsafeRunSync() shouldBe Right(Some("value"))
+          store.put(12312323L, "value").value.unsafeRunSync().isRight shouldBe true
+          store.get(12312323L).value.unsafeRunSync() shouldBe Right(Some("value"))
 
-          store.stream.compile.toList.unsafeRunSync() shouldBe ((12312323l, "value") :: Nil)
+          store.stream.compile.toList.unsafeRunSync() shouldBe ((12312323L, "value") :: Nil)
 
-          store.remove(12312323l).value.unsafeRunSync().isRight shouldBe true
+          store.remove(12312323L).value.unsafeRunSync().isRight shouldBe true
 
-          store.get(12312323l).value.unsafeRunSync() shouldBe Right(None)
+          store.get(12312323L).value.unsafeRunSync() shouldBe Right(None)
 
           store.stream.compile.toList.unsafeRunSync() shouldBe empty
 

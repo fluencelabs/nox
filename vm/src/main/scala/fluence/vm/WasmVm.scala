@@ -111,7 +111,7 @@ object WasmVm extends LazyLogging {
           InitializationError(
             s"Preparing execution context before execution was failed for $inFiles.",
             Some(err)
-        )
+          )
       )
 
       _ = logger.info("WasmVm: scriptCtx prepared...")

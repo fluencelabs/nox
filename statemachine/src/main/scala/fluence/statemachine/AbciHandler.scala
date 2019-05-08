@@ -152,7 +152,7 @@ class AbciHandler[F[_]: Effect](
                 case (resp, drop) ⇒ resp.addValidatorUpdates(dropValidator(drop))
               }
               .build()
-        }
+          }
       )
       .toIO
       .unsafeRunSync()

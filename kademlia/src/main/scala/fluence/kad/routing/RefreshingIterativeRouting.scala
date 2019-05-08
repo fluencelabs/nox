@@ -30,12 +30,25 @@ import cats.syntax.functor._
 import cats.instances.stream._
 import cats.syntax.monoid._
 
-import scala.concurrent.duration.FiniteDuration
+import scala.concurrent.duration._
 import scala.util.Random
 import scala.language.higherKinds
 
+/**
+ * Wraps [[IterativeRouting]] and provides routing table refreshing:
+ * - For each bucket, once in a refreshTimeout, perform a [[lookupIterative]] for a random key from that bucket
+ * - If there was any user-triggered lookupIterative for a bucket, postpone the scheduled refreshing job accordingly
+ *
+ * @param rnd Random is used to produce keys to lookup
+ * @param routing Actual routing is delegated there
+ * @param refreshTimeout Refresh timeouts
+ * @param refreshNeighbors Numer of nodes to lokup on refresh
+ * @param parallelism Parallelism factor, should be taken from Kademlia config
+ * @param refreshFibers State of refresh fibers // TODO is it optimal? won't it cause deadlocks? maybe map of mvars is better then mvar of map?
+ * @tparam F Effect
+ * @tparam C Contact
+ */
 private class RefreshingIterativeRouting[F[_]: Concurrent: Timer, C](
-  nodeId: Key,
   rnd: Random,
   routing: IterativeRouting[F, C],
   refreshTimeout: FiniteDuration,
@@ -43,6 +56,8 @@ private class RefreshingIterativeRouting[F[_]: Concurrent: Timer, C](
   parallelism: Int,
   refreshFibers: MVar[F, Map[Int, Fiber[F, Unit]]]
 ) extends IterativeRouting[F, C] {
+
+  override def nodeId: Key = routing.nodeId
 
   private def touchedIterative(key: Key): F[Unit] = {
     val idx = (key |+| nodeId).zerosPrefixLen
@@ -78,7 +93,6 @@ private class RefreshingIterativeRouting[F[_]: Concurrent: Timer, C](
 object RefreshingIterativeRouting {
 
   def apply[F[_]: Concurrent: Timer, C](
-    nodeId: Key,
     iterativeRouting: IterativeRouting[F, C],
     refreshTimeout: FiniteDuration,
     refreshNeighbors: Int,
@@ -88,15 +102,10 @@ object RefreshingIterativeRouting {
       t <- Timer[F].clock.realTime(TimeUnit.MILLISECONDS)
 
       rnd = new Random(t)
-      fibers = Stream
-        .range[Int](0, Key.BitLength - 1)
-        .map(_ -> Fiber[F, Unit](Concurrent[F].never, Concurrent[F].unit))
-        .toMap
 
-      refreshFibers ← MVar.of(fibers)
+      refreshFibers ← MVar.empty[F, Map[Int, Fiber[F, Unit]]]
 
       routing = new RefreshingIterativeRouting(
-        nodeId,
         rnd,
         iterativeRouting,
         refreshTimeout,
@@ -105,14 +114,13 @@ object RefreshingIterativeRouting {
         refreshFibers
       )
 
-      _ ← refreshFibers.take
-
       fibers ← Traverse[Stream].traverse(Stream.range[Int](0, Key.BitLength - 1))(
         idx ⇒
           Concurrent[F]
             .start(
-              Timer[F].sleep(refreshTimeout) *> routing
-                .lookupIterative(nodeId.randomize(idx, rnd), refreshNeighbors, parallelism)
+              // TODO: apply a coherent jitter policy
+              Timer[F].sleep(refreshTimeout + rnd.nextLong().abs.millis) *> routing
+                .lookupIterative(iterativeRouting.nodeId.randomize(idx, rnd), refreshNeighbors, parallelism)
                 .void
             )
             .map(idx -> _)

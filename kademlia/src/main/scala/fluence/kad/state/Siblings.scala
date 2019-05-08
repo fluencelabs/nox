@@ -27,6 +27,7 @@ import scala.language.higherKinds
 
 /**
  * List of the closest known nodes for the current one
+ *
  * @param nodes Nodes, ordered by distance
  * @param maxSize Maximum number of sibling nodes to keep
  * @tparam C Contact type
@@ -96,6 +97,7 @@ object Siblings {
 
   /**
    * Builds a Siblings instance with ordering relative to nodeId
+   *
    * @param nodeId Current node's id
    * @param maxSize Maximum number of sibling nodes to keep
    * @tparam C Contact info

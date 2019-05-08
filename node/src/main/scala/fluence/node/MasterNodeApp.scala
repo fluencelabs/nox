@@ -64,8 +64,8 @@ object MasterNodeApp extends IOApp with LazyLogging {
                           .make(masterConf.ports.minPort, masterConf.ports.maxPort, conf.rootPath)
                           .flatMap(
                             MasterNode.make[IO, IO.Par](masterConf, conf.nodeConfig, _)
-                        )
-                  )
+                          )
+                    )
               )
           }
           .use { node ⇒

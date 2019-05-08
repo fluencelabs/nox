@@ -146,7 +146,7 @@ object DockerWorkerServices extends LazyLogging {
             ts,
             ws
           )
-      }
+        }
 
     } yield new DockerWorkerServices[F](p2pPort, params.appId, rpc, control, status)
 

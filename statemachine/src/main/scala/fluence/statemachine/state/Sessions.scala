@@ -177,6 +177,6 @@ object Sessions {
       s ⇒
         s.copy(
           queue = s.queue.filterNot(sessions).enqueue(sessions)
-      )
+        )
     )
 }
