@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import Settings.CodeDirectory
+import Settings.WasmCodeDirectory
 import cats.effect.IO
 import cats.syntax.list._
 import fluence.statemachine.config.StateMachineConfig
@@ -24,9 +24,9 @@ import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 object Utils {
 
-  def getWasmFiles() =
+  def getWasmFiles(dir: String) =
     StateMachineConfig
-      .listWasmFiles(CodeDirectory)
+      .listWasmFiles(dir)
       .map(
         _.toNel.toRight(
           new RuntimeException(

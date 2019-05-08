@@ -68,17 +68,18 @@ export const deployableApps: { [key: string]: DeployableApp } = {
         clusterSize: 4,
         selfUpload: true
     },
-    // {"Name":"redis6.wasm","Hash":"QmUJuCpLL3mJ3wtCrmcnjJ5j5aWj2EmMZVRqNVYnMYSsYZ","Size":"902447"}
+    // {"Name":"redis9.wasm","Hash":"QmP3efHaEXp5wSuZDZ6dBuCnWMPTATyFjUKdnhncdnSnFi","Size":"780180"}
     redis: {
-        name: 'Redis (wasm-version 0.1)',
+        name: 'Redis (wasm-version 0.3)',
         shortName: 'Redis',
-        storageHash: '0x58B359786EDA25922DDF37C5566DCBDC0A1C8258A48E52D6956F3F53A4096846',
+        storageHash: '0x0A80C2190F2F13AE30386132F9209F649B8954F56FA96A63559DD865912CD421',
         storageType: StorageType.Ipfs,
         clusterSize: 4,
         requestExamples: ['SET A 10',
                           'SADD B 20',
                           'GET A',
-                          'SMEMBERS B']
+                          'SMEMBERS B',
+                          `eval "return {{1,'Hello World!'},2,3}" 0`]
     }
 };
 
