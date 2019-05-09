@@ -6,7 +6,7 @@ services:
     container_name: caddy
     restart: always
     ports:
-      - 8546:8546
+      - 8545:8545
     volumes:
       - /root/Caddyfile:/etc/Caddyfile
       - /root/.local/caddy:/root/.caddy

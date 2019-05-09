@@ -1,12 +1,13 @@
-http://geth.fluence.one:8546 {
+http://geth.fluence.one:8545 http://rinkeby.fluence.one:8545 {
     errors visible
-    proxy / http://geth2.fluence.one:8545 http://geth1.fluence.one:8545 {
+    proxy / http://geth2.fluence.one:8546 http://geth1.fluence.one:8546 {
         policy first
         fail_timeout 1m
         max_fails 3
         try_duration 5s
-        health_check /
-        health_check_port 8545
+        health_check /sync
+        health_check_port 20000
+        health_check_contains "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":false}"
         transparent
     }
 }
