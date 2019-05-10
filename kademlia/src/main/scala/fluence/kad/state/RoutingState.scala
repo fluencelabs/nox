@@ -17,22 +17,20 @@
 package fluence.kad.state
 
 import cats.effect.{Async, Clock, Concurrent, LiftIO}
-import cats.instances.list._
-import cats.syntax.applicative._
 import cats.syntax.apply._
-import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.syntax.monoid._
-import cats.syntax.order._
-import cats.syntax.semigroupk._
-import cats.{Monad, Parallel, Traverse}
+import cats.Parallel
 import fluence.effects.kvstore.KVStore
 import fluence.kad.protocol.{ContactAccess, Key, Node}
 
-import scala.annotation.tailrec
-import scala.collection.mutable.ListBuffer
 import scala.language.higherKinds
 
+/**
+ * Write model for routing state, hiding all the write access to both [[Siblings]] and [[Bucket]]
+ *
+ * @tparam F Effect
+ * @tparam C Contact
+ */
 trait RoutingState[F[_], C] {
 
   def nodeId: Key
@@ -90,7 +88,7 @@ trait RoutingState[F[_], C] {
 object RoutingState {
 
   /**
-   * Initialize [[BucketsState]] and [[SiblingsState]] with [[ReadableMVar]], pass to [[Impl]]
+   * Initialize [[BucketsState]] and [[SiblingsState]] with [[ReadableMVar]], pass to [[RoutingStateImpl]]
    *
    * @param nodeId This node's Kademlia key
    * @param siblingsSize How many siblings to store in the routing table
@@ -104,153 +102,8 @@ object RoutingState {
       SiblingsState.withRef[F, C](nodeId, siblingsSize),
       BucketsState.withMVar[F, C](maxBucketSize)
     ).mapN {
-      case (ss, bs) ⇒ new Impl(nodeId, ss, bs)
+      case (ss, bs) ⇒ new RoutingStateImpl(nodeId, ss, bs)
     }
-
-  private class Impl[F[_]: Monad, P[_], C](
-    override val nodeId: Key,
-    siblingsState: SiblingsState[F, C],
-    bucketsState: BucketsState[F, C]
-  )(
-    implicit P: Parallel[F, P]
-  ) extends RoutingState[F, C] with slogging.LazyLogging {
-
-    override val siblings: F[Siblings[C]] =
-      siblingsState.read
-
-    override def bucket(distanceKey: Key): F[Bucket[C]] =
-      bucketsState.read(distanceKey)
-
-    override def bucket(idx: Int): F[Bucket[C]] =
-      bucketsState.read(idx)
-
-    /**
-     * Removes a node from routing table by its key, returns optional removed node
-     *
-     * @param key Key
-     * @return Optional node, if it was removed
-     */
-    override def remove(key: Key): F[ModResult[C]] =
-      P sequential P.apply.map2(
-        P parallel siblingsState.remove(key),
-        P parallel bucketsState.remove((key |+| nodeId).zerosPrefixLen, key)
-      )(_ <+> _)
-
-    /**
-     * Locates the bucket responsible for given contact, and updates it using given ping function
-     *
-     * @param node          Contact to update
-     * @return ModResult
-     */
-    override def update(
-      node: Node[C]
-    )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]] =
-      updateK(node, keepExisting = true)
-
-    /**
-     * Implementation for [[update]] with managed ModResult checks -- required for [[updateList]] optimization
-     */
-    private def updateK(
-      node: Node[C],
-      keepExisting: Boolean
-    )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]] =
-      if (nodeId === node.key)
-        ModResult.noop[C].pure[F]
-      else
-        ca.check(node).attempt.to[F].flatMap {
-          case Right(true) ⇒
-            logger.trace("Update node: {}", node.key)
-
-            P.sequential(
-                P.apply.map2(
-                  // Update bucket, performing ping if necessary
-                  P parallel bucketsState.update((node.key |+| nodeId).zerosPrefixLen, node, ca.rpc, ca.pingExpiresIn),
-                  // Update siblings
-                  P parallel siblingsState.add(node)
-                )(_ <+> _)
-              )
-              .flatMap(if (keepExisting) keepExistingNodes else _.pure[F])
-
-          case Left(err) ⇒
-            logger.trace(s"Node check failed with an exception for $node", err)
-            ModResult.noop[C].pure[F]
-
-          case _ ⇒
-            ModResult.noop[C].pure[F]
-        }
-
-    /**
-     * Update RoutingTable with a list of fresh nodes
-     *
-     * @param nodes         List of new nodes
-     * @return Result of state modification
-     */
-    override def updateList(
-      nodes: List[Node[C]]
-    )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]] = {
-      // From iterable of groups, make list of list of items from different groups
-      @tailrec
-      def rearrange(groups: Iterable[List[Node[C]]], agg: List[List[Node[C]]] = Nil): List[List[Node[C]]] = {
-        if (groups.isEmpty) agg
-        else {
-          val current = ListBuffer[Node[C]]()
-          val next = ListBuffer[List[Node[C]]]()
-          groups.foreach {
-            case head :: Nil ⇒
-              current.append(head)
-            case head :: tail ⇒
-              current.append(head)
-              next.append(tail)
-            case _ ⇒
-          }
-          rearrange(next.toList, current.toList :: agg)
-        }
-      }
-
-      // Update portion, taking nodes one by one, and return all updated nodes
-      def updatePortion(portion: List[Node[C]], agg: ModResult[C] = ModResult.noop): F[ModResult[C]] =
-        portion match {
-          case Nil ⇒ agg.pure[F]
-          case node :: tail ⇒
-            updateK(node, keepExisting = false).flatMap { res ⇒
-              updatePortion(tail, res <+> agg)
-            }
-        }
-
-      // Update each portion in parallel, and return all updated nodes
-      def updateParPortions(portions: List[List[Node[C]]]): F[ModResult[C]] =
-        Parallel.parTraverse(portions)(updatePortion(_)).map(_.foldLeft(ModResult.noop[C])(_ <+> _))
-
-      updateParPortions(
-        // Rearrange in portions with distinct bucket ids, so that it's possible to update it in parallel
-        rearrange(
-          // Group by bucketId, so that each group should never be updated in parallel
-          nodes.groupBy(p ⇒ (p.key |+| nodeId).zerosPrefixLen).values
-        )
-      ).flatMap(keepExistingNodes)
-    }
-
-    /**
-     * Keep existing nodes in case they were dropped either from buckets or siblings, but kept in another storage.
-     *
-     * @param res Mod result
-     * @return ModResult
-     */
-    private def keepExistingNodes(res: ModResult[C]): F[ModResult[C]] =
-      Traverse[List]
-        .traverse(res.removed.toList)(
-          k ⇒
-            // TODO is it optimal?
-            (
-              siblingsState.read.map(_.find(k)),
-              bucketsState.read(nodeId |+| k).map(_.find(k))
-            ).mapN(_ orElse _)
-        )
-        .map(_.foldLeft(res) {
-          case (mr, Some(n)) ⇒ mr.keep(n.key, s"Kept ${n.key}, as it's still present in routing table")
-          case (mr, _) ⇒ mr
-        })
-  }
 
   /**
    * Load previously stored data from the store, bootstrap the RoutingMutate with it; reflect RoutingMutate state changes in the given store
@@ -283,39 +136,5 @@ object RoutingState {
     routingState: RoutingState[F, C],
     store: KVStore[F, Key, Node[C]]
   ): RoutingState[F, C] =
-    new RoutingState[F, C] {
-      override def nodeId: Key = routingState.nodeId
-
-      override val siblings: F[Siblings[C]] =
-        routingState.siblings
-
-      override def bucket(distanceKey: Key): F[Bucket[C]] =
-        routingState.bucket(distanceKey)
-
-      override def bucket(idx: Int): F[Bucket[C]] =
-        routingState.bucket(idx)
-
-      // Reflect the state modification results in the store
-      private def modResult(res: ModResult[C]): F[Unit] =
-        Concurrent[F]
-          .start(
-            Traverse[List].traverse(res.updated.toList) {
-              case (k, v) ⇒ store.put(k, v).value // TODO: at least log errors?
-            } *> Traverse[List].traverse(res.removed.toList)(store.remove(_).value)
-          )
-          .void
-
-      override def remove(key: Key): F[ModResult[C]] =
-        routingState.remove(key).flatTap(modResult)
-
-      override def update(
-        node: Node[C]
-      )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]] =
-        routingState.update(node).flatTap(modResult)
-
-      override def updateList(
-        nodes: List[Node[C]]
-      )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]] =
-        routingState.updateList(nodes).flatTap(modResult)
-    }
+    new StoredRoutingState[F, C](routingState, store)
 }

@@ -50,7 +50,7 @@ class LocalRoutingSpec extends WordSpec with Matchers {
 
         override def lookup(key: Key, numberOfNodes: Int) = ???
         override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) = ???
-      }
+    }
 
     val successLocalRPC = (c: Long) ⇒
       new KademliaRpc[Long] {
@@ -58,7 +58,7 @@ class LocalRoutingSpec extends WordSpec with Matchers {
 
         override def lookup(key: Key, numberOfNodes: Int) = ???
         override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) = ???
-      }
+    }
 
     val checkNode: Node[Long] ⇒ IO[Boolean] = _ ⇒ IO(true)
 

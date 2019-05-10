@@ -16,9 +16,9 @@
 
 package fluence.kad.state
 
-import cats.{Eval, Monad}
+import cats.Eval
 import cats.syntax.functor._
-import cats.effect.{Async, Sync}
+import cats.effect.Sync
 import cats.effect.concurrent.Ref
 import fluence.kad.protocol.{Key, Node}
 
@@ -53,6 +53,14 @@ sealed trait SiblingsState[F[_], C] {
 
 object SiblingsState {
 
+  /**
+   * Builds asynchronous sibling ops with $maxSiblings nodes max.
+   * Note that it is safe to use Ref, effectively blocking on state changes, as there's no I/O delays, see [[Bucket.update]]
+   *
+   * @param nodeId      Siblings are sorted by distance to this nodeId
+   * @param maxSize     Max number of closest siblings to store
+   * @tparam C Node contacts type
+   */
   private[state] def withRef[F[_]: Sync, C](nodeId: Key, maxSize: Int): F[SiblingsState[F, C]] =
     Ref
       .of[F, Siblings[C]](Siblings[C](nodeId, maxSize))
@@ -66,27 +74,6 @@ object SiblingsState {
 
             override def remove(key: Key): F[ModResult[C]] =
               ref.modifyState(Siblings.remove[Eval, C](key))
-          }
+        }
       )
-
-  private[state] def forMVar[F[_]: Monad, C](state: ReadableMVar[F, Siblings[C]]): SiblingsState[F, C] =
-    new SiblingsState[F, C] {
-      override val read: F[Siblings[C]] = state.read
-
-      override def add(node: Node[C]): F[ModResult[C]] =
-        state.run(Siblings.add(node))
-
-      override def remove(key: Key): F[ModResult[C]] =
-        state.run(Siblings.remove(key))
-    }
-
-  /**
-   * Builds asynchronous sibling ops with $maxSiblings nodes max.
-   *
-   * @param nodeId      Siblings are sorted by distance to this nodeId
-   * @param maxSize     Max number of closest siblings to store
-   * @tparam C Node contacts type
-   */
-  private[state] def withMVar[F[_]: Async, C](nodeId: Key, maxSize: Int): F[SiblingsState[F, C]] =
-    ReadableMVar.of(Siblings[C](nodeId, maxSize)).map(forMVar[F, C])
 }
