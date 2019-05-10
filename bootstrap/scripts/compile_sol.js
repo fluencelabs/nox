@@ -15,6 +15,9 @@ var input = {
         },
         'Network.sol': {
             content: fs.readFileSync(__dirname + '/../contracts/Network.sol', 'utf8')
+        },
+        'Dashboard.sol': {
+            content: fs.readFileSync(__dirname + '/../contracts/Dashboard.sol', 'utf8')
         }
     },
     settings: {
@@ -57,15 +60,20 @@ if (!fs.existsSync(compiledPath)){
     fs.mkdirSync(compiledPath);
 }
 
-let networkContract = output.contracts["Network.sol"]["Network"];
-if (networkContract.evm.bytecode === undefined) {
-    console.error("networkContract.evm.bytecode is undefined after compilation");
-    abort("networkContract.evm.bytecode is undefined after compilation")
-}
-if (networkContract.abi === undefined) {
-    console.error("networkContract.abi is undefined after compilation");
-    abort("networkContract.abi is undefined after compilation")
+function writeContract(name) {
+    let contract = output.contracts[`${name}.sol`][`${name}`];
+    if (contract.evm.bytecode === undefined) {
+        console.error(`${name}.evm.bytecode is undefined after compilation`);
+        abort(`${name}.evm.bytecode is undefined after compilation`)
+    }
+    if (contract.abi === undefined) {
+        console.error(`${name}.abi is undefined after compilation`);
+        abort(`${name}.abi is undefined after compilation`)
+    }
+
+    writeFile(compiledPath + `/${name}.bin`, contract.evm.bytecode.object);
+    writeFile(compiledPath + `/${name}.abi`, JSON.stringify(contract.abi));
 }
 
-writeFile(compiledPath + '/Network.bin', networkContract.evm.bytecode.object);
-writeFile(compiledPath + '/Network.abi', JSON.stringify(networkContract.abi));
+writeContract("Network");
+writeContract("Dashboard");
