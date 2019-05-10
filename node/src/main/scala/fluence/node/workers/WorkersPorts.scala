@@ -104,7 +104,7 @@ class WorkersPorts[F[_]: Monad] private (
                           .map(_ ⇒ Right(port))
                     }
               }
-          }
+        }
       )
     )
 

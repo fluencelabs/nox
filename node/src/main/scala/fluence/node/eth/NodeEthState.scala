@@ -75,7 +75,7 @@ object NodeEthState {
           nodesToApps = app.cluster.workers.map(_.validatorKey).foldLeft(s.nodesToApps) {
             case (acc, nodeId) ⇒ acc.updated(nodeId, acc.getOrElse(nodeId, Set.empty) + app.id)
           }
-        )
+      )
     ).map(_ ⇒ RunAppWorker(app) :: Nil)
 
   /**

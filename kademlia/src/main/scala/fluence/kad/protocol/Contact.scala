@@ -73,7 +73,7 @@ object Contact {
       Json.obj(
         "pk" -> Json.fromString(header.publicKey.value.toBase64(Bases.Alphabets.Base64Url)),
         "pv" -> Json.fromLong(header.protocolVersion)
-      )
+    )
 
     implicit val decodeHeader: Decoder[JwtHeader] = c ⇒
       for {
@@ -91,7 +91,7 @@ object Contact {
         "a" -> Json.fromString(data.addr),
         "hp" -> Json.fromInt(data.httpPort),
         "gh" -> Json.fromString(data.gitHash)
-      )
+    )
 
     implicit val decodeData: Decoder[JwtData] = c ⇒
       for {

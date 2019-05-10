@@ -188,7 +188,7 @@ object Bucket {
             bucket ⇒
               bucket.copy(
                 records = bucket.records.filterNot(_.node.key === key)
-              )
+            )
           ) as ModResult.removed(key, s"Bucket removed $key")
     }
 

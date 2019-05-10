@@ -96,7 +96,7 @@ class AbciService[F[_]: Monad](
               Array.emptyByteArray,
               Codes.NotFound,
               s"Cannot parse query path: $path, must be in `sessionId/nonce` format"
-            )
+          )
         )
 
       case Some(head) ⇒

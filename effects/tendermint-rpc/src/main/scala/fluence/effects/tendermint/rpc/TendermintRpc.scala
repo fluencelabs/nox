@@ -164,13 +164,13 @@ object TendermintRpc extends slogging.LazyLogging {
         path ⇒
           logGet(path) *> sendHandlingErrors(
             sttp.get(RpcUri.path(path))
-          ),
+        ),
         req ⇒
           logPost(req) *> sendHandlingErrors(
             sttp
               .post(RpcUri)
               .body(req.toJsonString)
-          )
+        )
       )
     )
   }
