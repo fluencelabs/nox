@@ -4,21 +4,8 @@ let request = require('request');
 let Accounts = require('web3-eth-accounts');
 let Tx = require('ethereumjs-tx');
 
-
 // Connect to the local ethereum node
-let web3 = new Web3();
-web3.setProvider(new web3.providers.HttpProvider('http://geth.fluence.one:8545'));
-
-// Get ABI from compiled contract
-let source = fs.readFileSync("../../../bootstrap/contracts/compiled/Network.abi");
-let abi = JSON.parse(source);
-
-// Get bytecode from compiled contract
-let sourceBin = fs.readFileSync("../../../bootstrap/contracts/compiled/Network.bin");
-let bytecode = '0x' + sourceBin;
-
-// Create Contract proxy class
-let NetworkContract = new web3.eth.Contract(abi);
+let web3 = new Web3(new Web3.providers.HttpProvider('http://geth.fluence.one:8545'));
 
 // Default account on parity node in dev mode with a huge amount of ethereum
 let acc = '0x7DdAE2d6118562AaC405284bb297C9A53d975326';
@@ -30,56 +17,114 @@ if (!acc.startsWith("0x")) {
 
 let privateKeyBuf = Buffer.from(privateKey.replace(/^0x/, ""), 'hex');
 
-// Get encoded request for deploying contract
-let encodedAbi = NetworkContract.deploy({
-    data: bytecode
-}).encodeABI();
+let compiledPath = "../../../bootstrap/contracts/compiled/";
+function path(file) { return compiledPath + file }
+function pause(duration) { return new Promise(resolve => setTimeout(resolve, duration)) }
+function print(str) { process.stdout.write(str) }
 
-let nonceHexP = web3.eth.getTransactionCount(acc, "pending").then(nonce => web3.utils.numberToHex(nonce));
-let gasPriceHexP = web3.eth.getGasPrice().then(gasPrice => web3.utils.numberToHex(gasPrice));
-let gasLimitHex = web3.utils.numberToHex(4500000);
+async function getReceipt(hash, tries = 10, wait = 2000, count = 0) {
+    let receipt = await web3.eth.getTransactionReceipt(hash);
+    if (receipt === null || receipt === undefined) {
+        if (count < tries) {
+            print(".");
+            await pause(wait);
+            return await getReceipt(hash, tries, wait, count + 1);
+        } else {
+            await Promise.reject(`Unable to retrieve tx receipt after ${count} tries.`);
+        }
+    } else {
+        return receipt;
+    }
+}
 
-let rawTxP = nonceHexP.then(nonceHex => gasPriceHexP.then(gasPriceHex => {
-    return {
+async function deployContract(name, deployArgument) {
+    print(`Deploying contract ${name}`);
+    // Get ABI from compiled contract
+    let abiPath = path(name + ".abi");
+    let abiJSON = fs.readFileSync(abiPath);
+    let abi = JSON.parse(abiJSON);
+
+    // Get bytecode from compiled contract
+    let sourcePath = path(name + ".bin");
+    let sourceBin = fs.readFileSync(sourcePath);
+    let bytecode = '0x' + sourceBin;
+    print(".");
+
+    // Create Contract proxy class
+    let contract = new web3.eth.Contract(abi);
+
+    // Get encoded request for deploying contract
+    let encodedAbi = contract.deploy({
+        data: bytecode,
+        arguments: deployArgument
+    }).encodeABI();
+
+    let nonceHex = await web3.eth.getTransactionCount(acc, "pending").then(nonce => web3.utils.numberToHex(nonce));
+    let gasPriceHex = await web3.eth.getGasPrice().then(gasPrice => web3.utils.numberToHex(gasPrice));
+    let gasLimitHex = await web3.utils.numberToHex(4500000);
+
+    let tx = new Tx({
         nonce: nonceHex,
         gasPrice: gasPriceHex,
         gasLimit: gasLimitHex,
         data: encodedAbi,
         from: acc
-    }
-}));
-
-let signedTxP = rawTxP.then(rawTx => {
-    let tx = new Tx(rawTx);
+    });
     tx.sign(privateKeyBuf);
+    let signedTx = tx.serialize();
 
-    return tx.serialize()
-}).catch(e => {
-    console.error("tx signing failed: " + e);
-    process.exit(1);
-});
+    let rawTx = '0x' + signedTx.toString('hex');
+    print(".");
 
-signedTxP.then(rawTx => {
-    web3.eth.sendSignedTransaction('0x' + rawTx.toString('hex'), (err, hash) => {
-        if (err) {
-            console.log(err);
-            return;
+    // Using `new Promise` here since just `await sendSignedTransaction` didn't work - it hanged forever, don't know why
+    let receipt = await new Promise((resolve, reject) => {
+        web3.eth.sendSignedTransaction(rawTx, async (error, hash) => {
+            getReceipt(hash).then(receipt => {
+                print("OK\n");
+                console.log(`tx hash: ${hash}`);
+                resolve(receipt)
+            }).catch(e => {
+                print("FAIL\n");
+                reject(`tx hash: ${hash}\n${e}`)
+            });
+        });
+    });
+
+    return receipt.contractAddress;
+}
+
+async function deployNetwork() {
+    let network = await deployContract("Network").catch(e => console.error("Error deploying Network: " + e));
+    console.log(`Network contract: ${network}`);
+    return network;
+}
+
+async function deployDashboard(network) {
+    let dashboard = await deployContract("Dashboard", [network]).catch(e => console.error("Error deploying Dashboard: " + e));
+    console.log(`Dashboard contract: ${dashboard}`);
+    return dashboard;
+}
+
+async function deployBoth() {
+    let network = await deployNetwork();
+    console.log("\n");
+    await deployDashboard(network);
+}
+
+if (process.argv.length >= 3) {
+    if (process.argv[2] === "network") {
+        return deployNetwork();
+    } else if (process.argv[2] === "dashboard") {
+        let network = process.argv[3];
+        if (network === null || network === undefined) {
+            console.error("Network address should be specified as a second argument");
+        } else {
+            console.log(`Network address is ${network}`);
+            return deployDashboard(network);
         }
-
-        // Log the tx, you can explore status manually with eth.getTransaction()
-        console.log('Contract creation tx: ' + hash);
-        web3.eth.getTransactionReceipt(hash).then((receipt) => {
-            // will be null on light node, use etherescan for non-dev chains
-            if (receipt !== null && receipt !== undefined && receipt.contractAddress !== undefined && receipt.contractAddress !== null) {
-                console.log(receipt.contractAddress);
-            } else {
-                console.log("CONTRACT ADDRESS IS NULL")
-            }
-            process.exit(1);
-        })
-    })
-}).catch(e => {
-    console.error("Error while sending signed transaction");
-    process.exit(1);
-});
-
+    } else {
+        console.error(`Unknown deployment type ${process.argv[2]}`)
+    }
+} else {
+    return deployBoth();
+}
