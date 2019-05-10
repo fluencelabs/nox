@@ -20,7 +20,7 @@ import scala.concurrent.duration._
 
 object Settings {
 
-  val CodeDirectory = "/code"
+  val WasmCodeDirectory = "/code"
   val Port = 30000
   val Host = "0.0.0.0"
 

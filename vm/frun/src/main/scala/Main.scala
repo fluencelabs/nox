@@ -14,13 +14,20 @@
  * limitations under the License.
  */
 
+import cats.data.NonEmptyList
 import cats.effect.{ExitCode, IO, IOApp}
 import fluence.vm.WasmVm
 import org.http4s.implicits._
 import org.http4s.server.blaze.BlazeServerBuilder
 import org.http4s.server.middleware.CORS
-import org.http4s.{HttpApp, HttpRoutes, Response}
+import org.http4s.{HttpApp, HttpRoutes}
 import slogging.LogLevel
+
+import scala.util.control.NoStackTrace
+
+case class UnknownLanguage(language: String) extends NoStackTrace {
+  override def getMessage: String = s"Unsupported language: $language. Supported languages are: rust, wasm"
+}
 
 object Main extends IOApp with slogging.LazyLogging {
 
@@ -48,10 +55,17 @@ object Main extends IOApp with slogging.LazyLogging {
   def app(handler: TxProcessor[IO]): HttpApp[IO] =
     CORS[IO, IO](routes(handler).orNotFound, corsConfig)
 
+  def getFilesToRun(language: Option[String]): IO[NonEmptyList[String]] =
+    language.map(_.toLowerCase) match {
+      case None | Some("wasm") | Some("webassembly") => getWasmFiles(WasmCodeDirectory)
+      case Some("rust") => Rust.compile()
+      case Some(lang) => IO.raiseError(UnknownLanguage(lang))
+    }
+
   override def run(args: List[String]): IO[ExitCode] = {
     configureLogging(LogLevel.DEBUG)
     for {
-      files <- getWasmFiles()
+      files <- getFilesToRun(args.headOption)
       vmOrError <- WasmVm[IO](files, "fluence.vm.debugger").value
       vm <- IO.fromEither(vmOrError)
       processor <- TxProcessor[IO](vm)
