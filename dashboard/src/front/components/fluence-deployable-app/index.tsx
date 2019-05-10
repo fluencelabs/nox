@@ -8,6 +8,7 @@ import Snippets from "./snippets";
 import {cutId, remove0x, toIpfsHash} from "../../../utils";
 import {AppId} from "../../../fluence/apps";
 import {History} from "history";
+import {fluenceIpfsAddr, ipfsDownloadUrl} from "../../../constants";
 
 interface State {
     loading: boolean,
@@ -76,7 +77,7 @@ class FluenceDeployableApp extends React.Component<Props, State> {
             let storageHash = app.selfUpload ? this.props.upload.storageHash : app.storageHash;
             block.push(
                 <p className="text-muted" title={storageHash}><a
-                    href={'http://data.fluence.one:5001/api/v0/cat?arg=' + toIpfsHash(storageHash)}
+                    href={ipfsDownloadUrl + toIpfsHash(storageHash)}
                     title={storageHash}
                     target="_blank"
                     rel="noreferrer"

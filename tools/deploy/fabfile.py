@@ -28,9 +28,9 @@ if hasattr(env, 'environment'):
     info = json.loads(info_json)[environment]
     contract = info['contract']
     nodes = info['nodes']
-    env.swarm = info['swarm']
-    env.ipfs = info['ipfs']
-    env.ethereum_ip = info['ethereum_ip']
+    env.swarm = info.get('swarm')
+    env.ipfs = info.get('ipfs')
+    env.ethereum_ip = info.get('ethereum_ip')
 else:
     # gets deployed contract address from a file
     file = open("instances.json", "r")

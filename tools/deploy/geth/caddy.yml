@@ -1,0 +1,14 @@
+version: '3'
+
+services:
+  caddy:
+    image: abiosoft/caddy
+    container_name: caddy
+    restart: always
+    ports:
+      - 8545:8545
+    volumes:
+      - /root/Caddyfile:/etc/Caddyfile
+      - /root/.local/caddy:/root/.caddy
+    environment:
+      ACME_AGREE: 'true'
