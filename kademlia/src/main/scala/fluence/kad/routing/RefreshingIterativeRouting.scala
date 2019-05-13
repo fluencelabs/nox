@@ -41,14 +41,15 @@ import scala.language.higherKinds
  * - If there was any user-triggered lookupIterative for a bucket, postpone the scheduled refreshing job accordingly
  *
  * @param routing Actual routing is delegated there
- * @param refreshFibers State of refresh fibers // TODO is it optimal? won't it cause deadlocks? maybe map of mvars is better then mvar of map?
+ * @param scheduleRefresh For the given bucketId, schedule a refresh job and return the corresponding fiber
+ * @param refreshingFibers State of refresh fibers // TODO is it optimal? won't it cause deadlocks? maybe map of mvars is better then mvar of map?
  * @tparam F Effect
  * @tparam C Contact
  */
 private class RefreshingIterativeRouting[F[_]: Concurrent, C](
   routing: IterativeRouting[F, C],
   scheduleRefresh: Int ⇒ F[Fiber[F, Unit]],
-  refreshFibers: Map[Int, MVar[F, Fiber[F, Unit]]]
+  refreshingFibers: Map[Int, MVar[F, Fiber[F, Unit]]]
 ) extends IterativeRouting[F, C] {
 
   override def nodeKey: Key = routing.nodeKey
@@ -58,10 +59,10 @@ private class RefreshingIterativeRouting[F[_]: Concurrent, C](
    *
    * @param key Touched key
    */
-  private def touchedIterative(key: Key): F[Unit] = {
+  private def rescheduleRefresh(key: Key): F[Unit] = {
     val idx = (key |+| nodeKey).zerosPrefixLen
 
-    val mFiber = refreshFibers(idx)
+    val mFiber = refreshingFibers(idx)
 
     mFiber.tryTake.flatMap {
       case Some(fiber) ⇒
@@ -74,7 +75,7 @@ private class RefreshingIterativeRouting[F[_]: Concurrent, C](
   }
 
   override def lookupIterative(key: Key, neighbors: Int, parallelism: Int): F[Seq[Node[C]]] =
-    touchedIterative(key) *> routing.lookupIterative(key, neighbors, parallelism)
+    rescheduleRefresh(key) *> routing.lookupIterative(key, neighbors, parallelism)
 
   override def callIterative[E, A](
     key: Key,
@@ -84,10 +85,10 @@ private class RefreshingIterativeRouting[F[_]: Concurrent, C](
     maxNumOfCalls: Int,
     isIdempotentFn: Boolean
   ): F[Vector[(Node[C], A)]] =
-    touchedIterative(key) *> routing.callIterative(key, fn, numToCollect, parallelism, maxNumOfCalls, isIdempotentFn)
+    rescheduleRefresh(key) *> routing.callIterative(key, fn, numToCollect, parallelism, maxNumOfCalls, isIdempotentFn)
 
   override def join(peers: Seq[C], numberOfNodes: Int, parallelism: Int): EitherT[F, JoinError, Unit] =
-    routing.join(peers, numberOfNodes, parallelism) <* EitherT.liftF(touchedIterative(nodeKey))
+    routing.join(peers, numberOfNodes, parallelism) <* EitherT.liftF(rescheduleRefresh(nodeKey))
 }
 
 object RefreshingIterativeRouting {
@@ -124,7 +125,7 @@ object RefreshingIterativeRouting {
         // Generate new timeout, sleep
         val sleep = Sync[F].delay(refreshTimeout + rnd.nextInt.abs.millis) >>= Timer[F].sleep
 
-        // Lookup iteratively the bucket
+        // Lookup the bucket iteratively
         def refresh(idx: Int) =
           iterativeRouting
             .lookupIterative(nodeKey.randomDistantKey(idx, rnd), refreshNeighbors, parallelism)

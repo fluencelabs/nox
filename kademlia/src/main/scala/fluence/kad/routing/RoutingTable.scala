@@ -50,12 +50,26 @@ case class RoutingTable[F[_], C](
 
 object RoutingTable {
 
+  /**
+   * Wraps the logic of applying an extension while building the [[RoutingTable]], see [[apply]]
+   *
+   * @param modifyState Modify state, prior to building on it
+   * @param modifyLocal Modify local routing logic, prior to building on it
+   * @param modifyIterative Modify iterative routing logic, prior to building on it
+   * @tparam F Effect
+   * @tparam C Contact
+   */
   sealed class Extension[F[_], C](
-    val mapState: RoutingState[F, C] ⇒ F[RoutingState[F, C]],
-    val mapLocal: LocalRouting[F, C] ⇒ F[LocalRouting[F, C]],
-    val mapIterative: IterativeRouting[F, C] ⇒ F[IterativeRouting[F, C]]
+    private[routing] val modifyState: RoutingState[F, C] ⇒ F[RoutingState[F, C]],
+    private[routing] val modifyLocal: LocalRouting[F, C] ⇒ F[LocalRouting[F, C]],
+    private[routing] val modifyIterative: IterativeRouting[F, C] ⇒ F[IterativeRouting[F, C]]
   )
 
+  /**
+   * Extension: see [[RoutingState.bootstrapWithStore]]
+   *
+   * @param store Store to bootstrap from, and to save nodes to
+   */
   def bootstrapWithStore[F[_]: Concurrent: Clock, C: ContactAccess](store: KVStore[F, Key, Node[C]]): Extension[F, C] =
     new Extension[F, C](
       state ⇒ RoutingState.bootstrapWithStore(state, store),
@@ -63,6 +77,13 @@ object RoutingTable {
       _.pure[F]
     )
 
+  /**
+   * Extension: see [[RefreshingIterativeRouting]]
+   *
+   * @param refreshTimeout Frequency for each bucket's refresh, should be around an hour or more
+   * @param refreshNeighbors How many neighbors to lookup on refresh
+   * @param parallelism Refreshing parallelism, should be taken from KademliaConf
+   */
   def refreshing[F[_]: Concurrent: Timer, C](
     refreshTimeout: FiniteDuration,
     refreshNeighbors: Int,
@@ -74,6 +95,15 @@ object RoutingTable {
       iterative ⇒ RefreshingIterativeRouting(iterative, refreshTimeout, refreshNeighbors, parallelism)
     )
 
+  /**
+   * Build an in-memory Kademlia state, apply extensions on it
+   *
+   * @param nodeKey Current node's key
+   * @param siblingsSize Number of siblings to store in [[fluence.kad.state.Siblings]] state
+   * @param maxBucketSize Number of nodes to store in each [[fluence.kad.state.Bucket]] state
+   * @param extensions Extensions to apply
+   * @return Ready-to-use RoutingTable, expected to be a singleton
+   */
   def apply[F[_]: Async: Clock: LiftIO, P[_], C: ContactAccess](
     nodeKey: Key,
     siblingsSize: Int,
@@ -87,19 +117,19 @@ object RoutingTable {
       // Apply extensions to the state, use extended version then
       exts = extensions.toList
       state ← Traverse[List].foldLeftM(exts, st) {
-        case (s, ext) ⇒ ext.mapState(s)
+        case (s, ext) ⇒ ext.modifyState(s)
       }
 
       // Extend local routing, using extended state
       loc = LocalRouting(state.nodeKey, state.siblings, state.bucket)
       local ← Traverse[List].foldLeftM(exts, loc) {
-        case (l, ext) ⇒ ext.mapLocal(l)
+        case (l, ext) ⇒ ext.modifyLocal(l)
       }
 
       // Extend iterative routing, using extended local routing and state
       it = IterativeRouting(local, state)
       iterative ← Traverse[List].foldLeftM(exts, it) {
-        case (i, ext) ⇒ ext.mapIterative(i)
+        case (i, ext) ⇒ ext.modifyIterative(i)
       }
 
       // Yield routing, aggregating all the extensions inside

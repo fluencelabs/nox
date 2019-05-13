@@ -51,10 +51,10 @@ trait RoutingState[F[_], C] {
   /**
    * Non-blocking read access for a [[Bucket]] by the given index; must be in range [0, [[Key.BitLength]])
    *
-   * @param idx Bucket index
+   * @param bucketId Bucket ID
    * @return Bucket
    */
-  def bucket(idx: Int): F[Bucket[C]]
+  def bucket(bucketId: Int): F[Bucket[C]]
 
   /**
    * Removes a node from routing table by its key, returns optional removed node

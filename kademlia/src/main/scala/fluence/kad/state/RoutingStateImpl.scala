@@ -29,7 +29,6 @@ import cats.syntax.semigroupk._
 import fluence.kad.protocol.{ContactAccess, Key, Node}
 
 import scala.annotation.tailrec
-import scala.collection.mutable.ListBuffer
 import scala.language.higherKinds
 
 private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
@@ -46,8 +45,8 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
   override def bucket(distanceKey: Key): F[Bucket[C]] =
     bucketsState.read(distanceKey)
 
-  override def bucket(idx: Int): F[Bucket[C]] =
-    bucketsState.read(idx)
+  override def bucket(bucketId: Int): F[Bucket[C]] =
+    bucketsState.read(bucketId)
 
   /**
    * Removes a node from routing table by its key, returns optional removed node
@@ -118,16 +117,7 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
     def rearrange(groups: Iterable[List[Node[C]]], agg: List[List[Node[C]]] = Nil): List[List[Node[C]]] = {
       if (groups.isEmpty) agg
       else {
-        val current = ListBuffer[Node[C]]()
-        val next = ListBuffer[List[Node[C]]]()
-        groups.foreach {
-          case head :: Nil ⇒
-            current.append(head)
-          case head :: tail ⇒
-            current.append(head)
-            next.append(tail)
-          case _ ⇒
-        }
+        val (current, next) = groups.collect { case head :: tail => head -> tail }.unzip
         rearrange(next.toList, current.toList :: agg)
       }
     }
@@ -150,7 +140,7 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
       // Rearrange in portions with distinct bucket ids, so that it's possible to update it in parallel
       rearrange(
         // Group by bucketId, so that each group should never be updated in parallel
-        nodes.groupBy(p ⇒ (p.key |+| nodeKey).zerosPrefixLen).values
+        nodes.groupBy(n ⇒ (n.key |+| nodeKey).zerosPrefixLen).values
       )
     ).flatMap(keepExistingNodes)
   }

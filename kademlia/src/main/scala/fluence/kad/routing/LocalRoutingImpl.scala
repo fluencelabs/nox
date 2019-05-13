@@ -41,7 +41,7 @@ private[routing] class LocalRoutingImpl[F[_]: Monad, P[_], C](
       Option.empty[Node[C]].pure[F]
     else
       Parallel.parAp2(
-        ((_: Option[Node[C]]) orElse _).pure[F]
+        ((_: Option[Node[C]]) orElse (_: Option[Node[C]])).pure[F]
       )(
         siblings.map(_.find(key)),
         buckets((nodeKey |+| key).zerosPrefixLen).map(_.find(key))
@@ -109,7 +109,7 @@ private[routing] class LocalRoutingImpl[F[_]: Monad, P[_], C](
     type S = Stream[Node[C]]
 
     Parallel
-      .parAp2((mergeSorted(_, _).take(neighbors)).pure[F])(
+      .parAp2((mergeSorted(_: S, _: S).take(neighbors)).pure[F])(
         // Sorted stream of neighbors, taken from siblings
         siblings.map(_.nodes.filter(predicate).toStream.sorted),
         // Sorted stream of neighbors, taken from buckets
