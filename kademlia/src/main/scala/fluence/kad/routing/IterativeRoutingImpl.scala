@@ -197,7 +197,7 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
   ): F[Vector[(Node[C], A)]] =
     lookupIterative(key, numToCollect max parallelism, parallelism).flatMap { prefetchedNodes ⇒
       // Lazy stream that takes nodes from the right
-      def tailStream[T](from: SortedSet[T]): Stream[T] =
+      def reverseStream[T](from: SortedSet[T]): Stream[T] =
         from.toVector.reverseIterator.toStream
 
       // How many nodes to lookup, should be not too much to reduce network load,
@@ -206,17 +206,17 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
       val lookupSize = (parallelism max numToCollect) * parallelism
 
       // 1: take next nodes to try fn on.
-      // Firstly take from seed, then expand seed with lookup on tail
+      // First take from prefetched nodes, then expand list of available nodes with lookups on farthest ones
       def moreNodes(
-        loaded: SortedSet[Node[C]],
+        prefetchedNodes: SortedSet[Node[C]],
         lookedUp: Set[Key],
         loadMore: Int
       ): F[(SortedSet[Node[C]], Set[Key])] = {
         // If we can't expand the set, don't try
-        if (lookedUp.size == loaded.size) (loaded, lookedUp).pure[F]
+        if (lookedUp.size == prefetchedNodes.size) (prefetchedNodes, lookedUp).pure[F]
         else {
           // Take the most far nodes
-          val toLookup = tailStream(loaded).filter(nc ⇒ !lookedUp(nc.key)).take(parallelism).toList
+          val toLookup = reverseStream(prefetchedNodes).filter(nc ⇒ !lookedUp(nc.key)).take(parallelism).toList
 
           // Make lookup requests for node's own neighborhood
           Parallel
@@ -228,11 +228,11 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
                 case Right(v) ⇒ v
               }.flatten
               // Add new nodes, sort & filter dups with SortedSet
-              val updatedLoaded = loaded ++ ns
+              val updatedLoaded = prefetchedNodes ++ ns
               // Add keys used for neighborhood lookups to not lookup them again
               val updatedLookedUp = lookedUp ++ toLookup.map(_.key)
               // Thats the size of additions
-              val loadedNum = updatedLoaded.size - loaded.size
+              val loadedNum = updatedLoaded.size - prefetchedNodes.size
 
               moreNodes(updatedLoaded, updatedLookedUp, loadMore - loadedNum)
             }
