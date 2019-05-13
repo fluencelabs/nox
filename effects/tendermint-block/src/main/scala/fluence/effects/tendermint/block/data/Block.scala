@@ -157,7 +157,7 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
       Protobuf.encode(header.app_hash, skipEmpty = true),
       Protobuf.encode(header.last_results_hash, skipEmpty = true),
       Protobuf.encode(header.evidence_hash, skipEmpty = true),
-      Protobuf.encode(header.proposer_address, skipEmpty = true),
+      Protobuf.encode(header.proposer_address, skipEmpty = true)
     )
 
     Merkle.simpleHash(data)

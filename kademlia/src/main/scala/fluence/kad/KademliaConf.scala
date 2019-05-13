@@ -14,23 +14,22 @@
  * limitations under the License.
  */
 
-package fluence.effects.tendermint.block.data
+package fluence.kad
 
-import proto3.tendermint.{BlockID, Vote}
+import fluence.kad.state.Bucket
 
-private[block] object Commit {
-  import Block.decodeVote
-  import Header.decodeBlockID
-  import io.circe.Decoder
-  import io.circe.generic.semiauto.deriveDecoder
-
-  implicit val commitDecoder: Decoder[Commit] = deriveDecoder[Commit]
-}
+import scala.concurrent.duration.Duration
 
 /**
- * Representation of the Tendermint's commit structure
+ *
+ * @param maxSiblingsSize Maximum number of siblings to store, e.g. K * Alpha
+ * @param maxBucketSize   Maximum size of a bucket, usually K
+ * @param parallelism     Parallelism factor (named Alpha in paper)
+ * @param pingExpiresIn   Duration to avoid too frequent ping requests, used in [[Bucket.update]]
  */
-private[block] case class Commit(
-  block_id: BlockID,
-  precommits: List[Option[Vote]]
+case class KademliaConf(
+  maxBucketSize: Int,
+  maxSiblingsSize: Int,
+  parallelism: Int,
+  pingExpiresIn: Duration
 )
