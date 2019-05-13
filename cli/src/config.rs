@@ -29,8 +29,8 @@ use crate::credentials::Credentials;
 
 pub const FLUENCE_DIR: &str = ".fluence/";
 pub const DEFAULT_CONTRACT_ADDRESS: &str = include_str!("../../tools/deploy/scripts/contract.txt");
-pub const DEFAULT_ETH_URL: &str = "http://data.fluence.one:8545/";
-pub const DEFAULT_STORAGE_URL: &str = "http://data.fluence.one:5001/";
+pub const DEFAULT_ETH_URL: &str = "http://geth.fluence.one:8545/";
+pub const DEFAULT_STORAGE_URL: &str = "http://ipfs.fluence.one:5001/";
 
 const CONFIG_FILENAME: &str = "fluence_config.json";
 
