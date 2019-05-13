@@ -35,15 +35,17 @@ contract Dashboard {
     function getApps()
     external
     view
-    returns (uint256[] memory, bytes32[] memory) {
+    returns (uint256[] memory, bytes32[] memory, address[] memory) {
         uint256[] memory appIDs = network.getAppIDs();
 
         bytes32[] memory storageHashes = new bytes32[](appIDs.length);
+        address[] memory owners = new address[](appIDs.length);
         for (uint8 i = 0; i < appIDs.length; i++) {
-            (bytes32 storageHash,,,,,,,) = network.getApp(appIDs[i]);
+            (bytes32 storageHash,,,,address owner,,,) = network.getApp(appIDs[i]);
             storageHashes[i] = storageHash;
+            owners[i] = owner;
         }
 
-        return (appIDs, storageHashes);
+        return (appIDs, storageHashes, owners);
     }
 }

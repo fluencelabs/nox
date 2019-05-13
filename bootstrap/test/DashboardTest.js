@@ -42,9 +42,14 @@ contract('Dashboard', function ([_, owner, anyone, other]) {
         let result = await global.dashboard.getApps();
         assert.equal(result[0].length, 3);
         assert.equal(result[1].length, 3);
+        assert.equal(result[2].length, 3);
 
         assert.equal(result[1][0], app1.storageHash);
         assert.equal(result[1][1], app2.storageHash);
         assert.equal(result[1][2], app3.storageHash);
+
+        assert.equal(result[2][0], anyone);
+        assert.equal(result[2][1], anyone);
+        assert.equal(result[2][2], anyone);
     });
 });
