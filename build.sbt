@@ -126,7 +126,8 @@ lazy val statemachine = (project in file("statemachine"))
       slogging,
       scodecBits,
       "com.github.jtendermint" % "jabci" % "0.26.0",
-      scalaTest
+      scalaTest,
+      "org.gnieh" %% "diffson-circe" % "4.0.0-M3"
     ),
     assemblyJarName in assembly := "statemachine.jar",
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,

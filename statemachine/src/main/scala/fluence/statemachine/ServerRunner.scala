@@ -21,6 +21,7 @@ import java.nio.ByteBuffer
 import cats.Monad
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.ExitCase.{Canceled, Completed, Error}
+import cats.effect.concurrent.Ref
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import com.github.jtendermint.jabci.socket.TSocket
 import com.softwaremill.sttp.SttpBackend
@@ -30,6 +31,7 @@ import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.control.{ControlServer, ControlSignals}
 import fluence.statemachine.error.StateMachineError
 import fluence.vm.WasmVm
+import io.circe.Json
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging._
 
@@ -128,7 +130,9 @@ object ServerRunner extends IOApp with LazyLogging {
       vmInvoker = new VmOperationInvoker[IO](vm)
 
       service <- EitherT.right(AbciService[IO](vmInvoker))
-    } yield new AbciHandler[IO](service, controlSignals, rpc)
+      blocks <- EitherT.liftF(Ref.of[IO, Map[Long, (String, Json)]](Map.empty))
+      commits <- EitherT.liftF(Ref.of[IO, Map[Long, (String, Json)]](Map.empty))
+    } yield new AbciHandler[IO](service, controlSignals, rpc, blocks, commits)
 
   /**
    * Builds a VM instance used to perform function calls from the clients.
