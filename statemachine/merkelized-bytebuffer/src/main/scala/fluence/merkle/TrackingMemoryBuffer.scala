@@ -5,16 +5,18 @@ import java.util
 
 import asmble.compile.jvm.MemoryBuffer
 
-class TrackingMemoryBuffer(val bb: ByteBuffer, size: Int, chunkSize: Int) extends MemoryBuffer {
+class TrackingMemoryBuffer(val bb: ByteBuffer, size: Int, val chunkSize: Int) extends MemoryBuffer {
   import TrackingMemoryBuffer._
 
   private val dirtyChunks = new util.BitSet(size / chunkSize)
 
-  def getElements(offset: Int, length: Int): Array[Byte] = {
-    val arr = new Array[Byte](length)
-    val newBb = bb.duplicate()
-    bb.position(offset)
-    bb.get(arr, 0, length)
+  def getChunk(offset: Int): Array[Byte] = {
+    val arr = new Array[Byte](chunkSize)
+    val duplicated = bb.duplicate()
+    duplicated.order(ByteOrder.LITTLE_ENDIAN)
+    duplicated.clear()
+    duplicated.position(offset)
+    duplicated.get(arr, 0, chunkSize)
     arr
   }
 

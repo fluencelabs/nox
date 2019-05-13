@@ -16,16 +16,16 @@
 
 package fluence.vm.wasm
 
-import java.lang.reflect.{Method, Modifier}
-import java.nio.ByteBuffer
+import java.lang.reflect.Modifier
 
-import asmble.compile.jvm.{MemoryBuffer, MemoryByteBuffer}
+import asmble.compile.jvm.MemoryBuffer
 import asmble.run.jvm.Module.Compiled
 import asmble.run.jvm.ScriptContext
 import cats.data.EitherT
 import cats.effect.LiftIO
 import cats.Monad
-import fluence.crypto.CryptoError
+import cats.syntax.either._
+import fluence.crypto.Crypto.Hasher
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
 import fluence.vm.VmError.{InitializationError, NoSuchFnError, VmMemoryError}
 
@@ -49,7 +49,7 @@ import scala.util.Try
  */
 class WasmModule(
   private val name: Option[String],
-  private val wasmMemory: Option[WasmModuleMemory],
+  private val wasmMemory: WasmModuleMemory,
   private val moduleInstance: Any,
   private val allocateFunction: Option[WasmFunction],
   private val deallocateFunction: Option[WasmFunction],
@@ -91,11 +91,7 @@ class WasmModule(
    *  @param size bytes count to read
    */
   def readMemory[F[_]: Monad](offset: Int, size: Int): EitherT[F, VmMemoryError, Array[Byte]] =
-    wasmMemory.fold(
-      EitherT.leftT[F, Array[Byte]](
-        VmMemoryError(s"Module with name=$this doesn't contain memory")
-      )
-    )(_.readBytes(offset, size))
+    wasmMemory.readBytes(offset, size)
 
   /**
    * Writes array of bytes to module memory.
@@ -104,27 +100,16 @@ class WasmModule(
    * @param injectedArray an array that should be written into the module memory
    */
   def writeMemory[F[_]: Monad](offset: Int, injectedArray: Array[Byte]): EitherT[F, VmMemoryError, Unit] =
-    wasmMemory.fold(
-      EitherT.leftT[F, Unit](
-        VmMemoryError(s"Module with name=$this doesn't contain memory")
-      )
-    )(_.writeBytes(offset, injectedArray))
+    wasmMemory.writeBytes(offset, injectedArray)
 
   /**
    * Computes hash of all significant inner state of this Module. Now only memory is used for state hash computing;
    * other fields (such as Shadow stack, executed instruction counter, ...) should also be included after their
    * implementation.
    *
-   * @param hashFn a hash function
    */
-  def computeStateHash[F[_]: Monad](
-    hashFn: Array[Byte] ⇒ EitherT[F, CryptoError, Array[Byte]]
-  ): EitherT[F, GetVmStateError, Array[Byte]] =
-    wasmMemory.fold(
-      EitherT.rightT[F, GetVmStateError](
-        Array.emptyByteArray
-      )
-    )(_.computeMemoryHash(hashFn))
+  def computeStateHash[F[_]: Monad](): EitherT[F, GetVmStateError, Array[Byte]] =
+    wasmMemory.computeMemoryHash()
 
   private def invokeWasmFunction[F[_]: LiftIO: Monad](
     wasmFn: Option[WasmFunction],
@@ -169,7 +154,8 @@ object WasmModule {
     scriptContext: ScriptContext,
     allocationFunctionName: String,
     deallocationFunctionName: String,
-    invokeFunctionName: String
+    invokeFunctionName: String,
+    hasher: Hasher[Array[Byte], Array[Byte]]
   ): Either[ApplyError, WasmModule] =
     for {
 
@@ -193,20 +179,21 @@ object WasmModule {
       // use, but it gives us the capability for getting memory for any module. And in the future, we
       // should move to it.
       memory ← Try {
-        val getMemoryMethod: Option[Method] = Try(
-          moduleInstance.getClass.getMethod("getMemory")
-        ).toOption
-        getMemoryMethod
-          .flatMap(Option(_))
-          .map(_.invoke(moduleInstance).asInstanceOf[MemoryBuffer])
-          .flatMap(Option(_))
-      }.toEither.left.map { e ⇒
+        val getMemoryMethod = moduleInstance.getClass.getMethod("getMemory")
+        getMemoryMethod.invoke(moduleInstance).asInstanceOf[MemoryBuffer]
+      }.toEither.leftMap { e ⇒
         InitializationError(
           s"Unable to get memory from module=${moduleDescription.getName}",
           Some(e)
         ): ApplyError
       }
-
+      moduleMemory <- WasmModuleMemory(memory, hasher).leftMap(
+        e ⇒
+          InitializationError(
+            s"Unable to instantiate WasmModuleMemory for module=${moduleDescription.getName}",
+            Some(e)
+          ): ApplyError
+      )
       (allocMethod, deallocMethod, invokeMethod) = moduleDescription.getCls.getDeclaredMethods.toStream
         .filter(method ⇒ Modifier.isPublic(method.getModifiers))
         .map(method ⇒ WasmFunction(method.getName, method))
@@ -226,7 +213,7 @@ object WasmModule {
     } yield
       new WasmModule(
         Option(moduleDescription.getName),
-        memory.map(WasmModuleMemory),
+        moduleMemory,
         moduleInstance,
         allocMethod,
         deallocMethod,

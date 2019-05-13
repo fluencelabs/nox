@@ -10,7 +10,7 @@ object TestUtils {
 
     val storage = TrackingMemoryBuffer.allocate(size, chunkSize)
 
-    val tree = BinaryMerkleTree(size, chunkSize, hashFunc, storage)
+    val tree = BinaryMerkleTree(chunkSize, hashFunc, storage)
 
     (storage, tree)
   }

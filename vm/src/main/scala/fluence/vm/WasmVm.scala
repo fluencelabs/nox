@@ -117,7 +117,7 @@ object WasmVm extends LazyLogging {
 
       _ = logger.info("WasmVm: scriptCtx prepared...")
 
-      modules ← initializeModules(scriptCxt, config)
+      modules ← initializeModules(scriptCxt, config, cryptoHasher)
 
       _ = logger.info("WasmVm: modules initialized")
     } yield
@@ -148,7 +148,7 @@ object WasmVm extends LazyLogging {
         config.specTestRegister,
         config.defaultMaxMemPages,
         config.loggerRegister,
-        (capacity: Int) => TrackingMemoryBuffer.allocate(capacity, 100)
+        (capacity: Int) => TrackingMemoryBuffer.allocate(capacity, config.chunkSize)
       )
     )
   }
@@ -160,7 +160,8 @@ object WasmVm extends LazyLogging {
    */
   private def initializeModules[F[_]: Applicative](
     scriptCxt: ScriptContext,
-    config: VmConfig
+    config: VmConfig,
+    hasher: Crypto.Hasher[Array[Byte], Array[Byte]]
   ): EitherT[F, ApplyError, ModuleIndex] = {
     val emptyIndex: Either[ApplyError, ModuleIndex] = Right(Map[Option[String], WasmModule]())
 
@@ -176,7 +177,8 @@ object WasmVm extends LazyLogging {
               scriptCxt,
               config.allocateFunctionName,
               config.deallocateFunctionName,
-              config.invokeFunctionName
+              config.invokeFunctionName,
+              hasher
             )
 
           } yield acc + (wasmModule.getName → wasmModule)

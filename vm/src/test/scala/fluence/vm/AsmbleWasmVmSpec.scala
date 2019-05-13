@@ -263,21 +263,6 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
     }
 
     "returns state" when {
-      "there is one module without memory present" in {
-        val testHasher = DumbCrypto.testHasher
-        // 'no-getMemory.wast' doesn't use memory so Asmble creates class file without 'mem' field
-        val sumTestFile = getClass.getResource("/wast/no-getMemory.wast").getPath
-
-        val res = for {
-          vm ← WasmVm[IO](NonEmptyList.one(sumTestFile), cryptoHasher = testHasher)
-          state ← vm.getVmState[IO].toVmError
-        } yield {
-          state.toArray shouldBe testHasher.unsafe(Array.emptyByteArray)
-        }
-
-        res.success()
-      }
-
       "there is one module with memory present" in {
         // the code in 'counter.wast' uses 'memory', instance for this module created with 'memory' field
         val counterTestFile = getClass.getResource("/wast/counter.wast").getPath

@@ -25,8 +25,6 @@ class MerkleTreeTest extends WordSpec with Matchers {
     tree3.allNodes.length shouldBe 255
     tree3.treeHeight shouldBe 7
 
-    tree3.showTree()
-
     val (_, tree4) = TestUtils.initBytesTestMerkle(254, 2)
     tree4.allNodes.length shouldBe 255
     tree4.treeHeight shouldBe 7
@@ -86,12 +84,10 @@ class MerkleTreeTest extends WordSpec with Matchers {
     storage.put(1, 3)
     val hash5 = tree.recalculateHash()
     appendBuffer() shouldBe hash5
-    tree.showTree()
 
     storage.put(size - 1, 9)
     val hash6 = tree.recalculateHash()
     appendBuffer() shouldBe hash6
-    tree.showTree()
   }
 
   "huge tree" in {

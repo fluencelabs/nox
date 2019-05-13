@@ -85,7 +85,7 @@ class BinaryMerkleTree private (
       defaultLeafChunk
     } else {
       val offset = pos * chunkSize
-      storage.getElements(offset, chunkSize)
+      storage.getChunk(offset)
     }
 
     val newHash = hash(bytes)
@@ -191,14 +191,15 @@ object BinaryMerkleTree {
   }
 
   def apply(
-    size: Int,
     chunkSize: Int,
     hashFunc: Array[Byte] => Array[Byte],
     storage: TrackingMemoryBuffer
   ): BinaryMerkleTree = {
     import TreeMath._
 
-    assert(size % chunkSize == 0)
+    val size = storage.capacity()
+    if (size % chunkSize != 0)
+      throw new RuntimeException(s"Size should be divided entirely on chunkSize. Size: $size, chunkSize: $chunkSize")
 
     // count of leafs that mapped on byte array (can have non-zero values)
     val mappedLeafCount = (size + chunkSize - 1) / chunkSize

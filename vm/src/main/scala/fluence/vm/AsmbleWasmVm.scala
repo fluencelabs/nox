@@ -78,8 +78,7 @@ class AsmbleWasmVm(
       .foldLeft(EitherT.rightT[F, GetVmStateError](Array[Byte]())) {
         case (acc, (moduleName, module)) ⇒
           for {
-            moduleStateHash ← module
-              .computeStateHash(arr ⇒ hasher[F](arr))
+            moduleStateHash ← module.computeStateHash()
 
             prevModulesHash ← acc
 
