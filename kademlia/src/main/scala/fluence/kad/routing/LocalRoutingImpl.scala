@@ -44,7 +44,7 @@ private[routing] class LocalRoutingImpl[F[_]: Monad, P[_], C](
         ((_: Option[Node[C]]) orElse (_: Option[Node[C]])).pure[F]
       )(
         siblings.map(_.find(key)),
-        buckets((nodeKey |+| key).zerosPrefixLen).map(_.find(key))
+        buckets(nodeKey.distanceTo(key)).map(_.find(key))
       )
 
   override def lookup(key: Key, neighbors: Int, predicate: Node[C] ⇒ Boolean = _ ⇒ true): F[Seq[Node[C]]] = {
@@ -54,7 +54,7 @@ private[routing] class LocalRoutingImpl[F[_]: Monad, P[_], C](
     // Build stream of neighbors, taken from buckets
     val bucketsStream: Stream[F[Stream[Node[C]]]] = {
       // Initial bucketId: nodes as far from this one as the target key is
-      val bucketId = (nodeKey |+| key).zerosPrefixLen
+      val bucketId = nodeKey.distanceTo(key)
 
       // Diverging stream of indices, going left (farther from current node) then right (closer), like 5 4 6 3 7 ...
       Stream(bucketId)

@@ -57,7 +57,7 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
   override def remove(key: Key): F[ModResult[C]] =
     P sequential P.apply.map2(
       P parallel siblingsState.remove(key),
-      P parallel bucketsState.remove((key |+| nodeKey).zerosPrefixLen, key)
+      P parallel bucketsState.remove(key distanceTo nodeKey, key)
     )(_ <+> _)
 
   /**
@@ -88,7 +88,7 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
           P.sequential(
               P.apply.map2(
                 // Update bucket, performing ping if necessary
-                P parallel bucketsState.update((node.key |+| nodeKey).zerosPrefixLen, node, ca.rpc, ca.pingExpiresIn),
+                P parallel bucketsState.update(node.key distanceTo nodeKey, node, ca.rpc, ca.pingExpiresIn),
                 // Update siblings
                 P parallel siblingsState.add(node)
               )(_ <+> _)
@@ -140,7 +140,7 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
       // Rearrange in portions with distinct bucket ids, so that it's possible to update it in parallel
       rearrange(
         // Group by bucketId, so that each group should never be updated in parallel
-        nodes.groupBy(n ⇒ (n.key |+| nodeKey).zerosPrefixLen).values
+        nodes.groupBy(_.key distanceTo nodeKey).values
       )
     ).flatMap(keepExistingNodes)
   }

@@ -60,14 +60,14 @@ private class RefreshingIterativeRouting[F[_]: Concurrent, C](
    * @param key Touched key
    */
   private def rescheduleRefresh(key: Key): F[Unit] = {
-    val idx = (key |+| nodeKey).zerosPrefixLen
+    val distance = key.distanceTo(nodeKey)
 
-    val mFiber = refreshingFibers(idx)
+    val mFiber = refreshingFibers(distance)
 
     mFiber.tryTake.flatMap {
       case Some(fiber) ⇒
         // Do not do what was scheduled, schedule refresh instead, save schedule fiber
-        (fiber.cancel >> scheduleRefresh(idx)).map(mFiber.put)
+        (fiber.cancel >> scheduleRefresh(distance)).map(mFiber.put)
       case None ⇒
         // It's in progress of re-scheduling, do nothing
         ().pure[F]

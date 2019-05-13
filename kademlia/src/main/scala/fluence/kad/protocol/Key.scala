@@ -62,6 +62,15 @@ final case class Key private (value: ByteVector) {
    */
   def randomDistantKey(distance: Int, rnd: Random = Random): Key =
     Key(Range(distance, Key.BitLength).foldLeft(bits)(_.update(_, rnd.nextBoolean())).toByteVector)
+
+  /**
+   * Kademlia distance from this key to some other one.
+   *
+   * @param otherKey Key to calculate distance to
+   * @return Distance, could be used as bucketId
+   */
+  def distanceTo(otherKey: Key): Int =
+    Key.XorDistanceMonoid.combine(this, otherKey).zerosPrefixLen
 }
 
 object Key {
