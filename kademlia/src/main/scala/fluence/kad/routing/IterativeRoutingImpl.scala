@@ -337,44 +337,46 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
     EitherT(
       Parallel
         .parTraverse(peers.toList) { peer: C ⇒
-          logger.trace("Going to ping Peer to join: " + peer)
+          logger.trace("Join: Going to ping Peer to join: " + peer)
 
           // For each peer
-          // Try to ping the peer; if no pings are performed, join is failed
+          // Try to ping the peer, and collect its neighbours; if no pings are performed, join is failed
           ContactAccess[C].rpc(peer).ping().attempt.to[F].flatMap[Option[(Node[C], List[Node[C]])]] {
+
+            case Right(peerNode) if peerNode.key === localRouting.nodeKey ⇒
+              logger.debug(s"Join: Can't initialize from myself (${localRouting.nodeKey})")
+              Option.empty[(Node[C], List[Node[C]])].pure[F]
+
             case Right(peerNode) if peerNode.key =!= localRouting.nodeKey ⇒ // Ping successful, lookup node's neighbors
-              logger.info("PeerPing successful to " + peerNode.key)
+              logger.info("Join: PeerPing successful to " + peerNode.key)
 
               ContactAccess[C].rpc(peer).lookup(localRouting.nodeKey, numberOfNodes).attempt.to[F].map {
                 case Right(neighbors) if neighbors.isEmpty ⇒
-                  logger.info("Neighbors list is empty for peer " + peerNode.key)
+                  logger.info("Join: Neighbors list is empty for peer " + peerNode.key)
                   Some(peerNode -> Nil)
 
                 case Right(neighbors) ⇒
                   Some(peerNode -> neighbors.toList)
 
                 case Left(e) ⇒
-                  logger.warn(s"Can't perform lookup for $peer during join", e)
+                  logger.warn(s"Join: Can't perform lookup for $peer during join", e)
                   Some(peerNode -> Nil)
               }
 
-            case Right(_) ⇒
-              logger.debug(s"Can't initialize from myself (${localRouting.nodeKey})")
-              Option.empty[(Node[C], List[Node[C]])].pure[F]
-
             case Left(e) ⇒
-              logger.warn(s"Can't perform ping for $peer during join", e)
+              logger.warn(s"Join: Can't perform ping for $peer during join", e)
               Option.empty[(Node[C], List[Node[C]])].pure[F]
           }
 
         }
         .map(_.flatten)
         .flatMap { peerNeighbors ⇒
+          // Neighbors collected, now let's check they're alive, and promote this node to them on the same moment
           val ps = peerNeighbors.map(_._1)
           val peerSet = ps.map(_.key).toSet
 
           val ns =
-            peerNeighbors.flatMap(_._2).groupBy(_.key).mapValues(_.head).values.filterNot(n ⇒ peerSet(n.key)).toList
+            peerNeighbors.flatMap(_._2).groupBy(_.key).mapValues(_.head).values.filterNot(peerSet contains _.key).toList
 
           Parallel
             .parTraverse(
@@ -388,17 +390,17 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
         }
         .flatMap { ns ⇒
           // Save discovered nodes to the routing table
-          logger.info("Discovered neighbors: " + ns.map(_.key))
+          logger.info("Join: Discovered neighbors: " + ns.map(_.key))
           routingState.updateList(ns)
         }
         .map(_.updated.nonEmpty)
         .flatMap[Either[JoinError, Unit]] {
           case true ⇒ // At least joined to a single node
-            logger.info("Joined! " + Console.GREEN + localRouting.nodeKey + Console.RESET)
+            logger.info("Join: Joined! " + Console.GREEN + localRouting.nodeKey + Console.RESET)
             lookupIterative(localRouting.nodeKey, numberOfNodes, numberOfNodes)
               .map(_ ⇒ Right(()))
           case false ⇒ // Can't join to any node
-            logger.warn("Can't join!")
+            logger.warn("Join: Can't join!")
             Monad[F].pure(Left[JoinError, Unit](CantJoinAnyNode))
         }
     )
