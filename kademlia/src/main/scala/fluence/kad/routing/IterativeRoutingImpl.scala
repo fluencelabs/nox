@@ -379,9 +379,7 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
             peerNeighbors.flatMap(_._2).groupBy(_.key).mapValues(_.head).values.filterNot(peerSet contains _.key).toList
 
           Parallel
-            .parTraverse(
-              ns
-            )(p ⇒ ContactAccess[C].rpc(p.contact).ping().attempt.to[F])
+            .parTraverse(ns)(p ⇒ ContactAccess[C].rpc(p.contact).ping().attempt.to[F])
             .map(_.collect {
               case Right(n) ⇒ n
             })
@@ -400,7 +398,7 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
             lookupIterative(localRouting.nodeKey, numberOfNodes, numberOfNodes)
               .map(_ ⇒ Right(()))
           case false ⇒ // Can't join to any node
-            logger.warn("Join: Can't join!")
+            logger.warn(Console.RED + "Join: Can't join!" + Console.RESET)
             Monad[F].pure(Left[JoinError, Unit](CantJoinAnyNode))
         }
     )
