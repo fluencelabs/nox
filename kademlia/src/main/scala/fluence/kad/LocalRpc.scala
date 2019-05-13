@@ -33,13 +33,13 @@ import scala.language.higherKinds
  */
 private[kad] class LocalRpc[F[_]: Effect, C](loopbackContact: F[Node[C]], localRouting: LocalRouting[F, C])
     extends KademliaRpc[C] with slogging.LazyLogging {
-  import localRouting.nodeId
+  import localRouting.nodeKey
 
   /**
    * Ping the contact, get its actual Node status, or fail.
    */
   override def ping(): IO[Node[C]] = {
-    logger.trace(s"HandleRPC($nodeId): ping")
+    logger.trace(s"HandleRPC($nodeKey): ping")
     loopbackContact.toIO
   }
 
@@ -50,7 +50,7 @@ private[kad] class LocalRpc[F[_]: Effect, C](loopbackContact: F[Node[C]], localR
    */
   override def lookup(key: Key, numberOfNodes: Int): IO[Seq[Node[C]]] =
     IO.suspend {
-      logger.trace(s"HandleRPC($nodeId): lookup($key, $numberOfNodes)")
+      logger.trace(s"HandleRPC($nodeKey): lookup($key, $numberOfNodes)")
 
       localRouting.lookup(key, numberOfNodes).toIO
     }
@@ -62,7 +62,7 @@ private[kad] class LocalRpc[F[_]: Effect, C](loopbackContact: F[Node[C]], localR
    */
   override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): IO[Seq[Node[C]]] =
     IO.suspend {
-      logger.trace(s"HandleRPC($nodeId): lookupAway($key, $moveAwayFrom, $numberOfNodes)")
+      logger.trace(s"HandleRPC($nodeKey): lookupAway($key, $moveAwayFrom, $numberOfNodes)")
 
       localRouting
         .lookupAway(key, moveAwayFrom, numberOfNodes)

@@ -57,7 +57,7 @@ private[state] class StoredRoutingState[F[_]: Concurrent, C](
       )
       .void
 
-  override def nodeId: Key = routingState.nodeId
+  override def nodeKey: Key = routingState.nodeKey
 
   override val siblings: F[Siblings[C]] =
     routingState.siblings

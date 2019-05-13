@@ -45,7 +45,7 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
 )(implicit P: Parallel[F, P])
     extends IterativeRouting[F, C] with slogging.LazyLogging {
 
-  override def nodeId: Key = localRouting.nodeId
+  override def nodeKey: Key = localRouting.nodeKey
 
   /**
    * The search begins by selecting alpha contacts from the non-empty k-bucket closest to the bucket appropriate
@@ -130,7 +130,7 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
           .map { remotes ⇒
             val updatedShortlist = shortlist ++
               remotes.filter(
-                c ⇒ (shortlist.size < neighbors || ordering.lt(c, shortlist.head)) && c.key =!= localRouting.nodeId
+                c ⇒ (shortlist.size < neighbors || ordering.lt(c, shortlist.head)) && c.key =!= localRouting.nodeKey
               )
 
             AdvanceData(updatedShortlist, updatedProbed, hasNext = true)
@@ -234,7 +234,6 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
               // Thats the size of additions
               val loadedNum = updatedLoaded.size - loaded.size
 
-              moreNodes(updatedLoaded, updatedLookedUp, loadMore - loadedNum)
               moreNodes(updatedLoaded, updatedLookedUp, loadMore - loadedNum)
             }
         }
@@ -343,10 +342,10 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
           // For each peer
           // Try to ping the peer; if no pings are performed, join is failed
           ContactAccess[C].rpc(peer).ping().attempt.to[F].flatMap[Option[(Node[C], List[Node[C]])]] {
-            case Right(peerNode) if peerNode.key =!= localRouting.nodeId ⇒ // Ping successful, lookup node's neighbors
+            case Right(peerNode) if peerNode.key =!= localRouting.nodeKey ⇒ // Ping successful, lookup node's neighbors
               logger.info("PeerPing successful to " + peerNode.key)
 
-              ContactAccess[C].rpc(peer).lookup(localRouting.nodeId, numberOfNodes).attempt.to[F].map {
+              ContactAccess[C].rpc(peer).lookup(localRouting.nodeKey, numberOfNodes).attempt.to[F].map {
                 case Right(neighbors) if neighbors.isEmpty ⇒
                   logger.info("Neighbors list is empty for peer " + peerNode.key)
                   Some(peerNode -> Nil)
@@ -360,7 +359,7 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
               }
 
             case Right(_) ⇒
-              logger.debug(s"Can't initialize from myself (${localRouting.nodeId})")
+              logger.debug(s"Can't initialize from myself (${localRouting.nodeKey})")
               Option.empty[(Node[C], List[Node[C]])].pure[F]
 
             case Left(e) ⇒
@@ -395,8 +394,8 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
         .map(_.updated.nonEmpty)
         .flatMap[Either[JoinError, Unit]] {
           case true ⇒ // At least joined to a single node
-            logger.info("Joined! " + Console.GREEN + localRouting.nodeId + Console.RESET)
-            lookupIterative(localRouting.nodeId, numberOfNodes, numberOfNodes)
+            logger.info("Joined! " + Console.GREEN + localRouting.nodeKey + Console.RESET)
+            lookupIterative(localRouting.nodeKey, numberOfNodes, numberOfNodes)
               .map(_ ⇒ Right(()))
           case false ⇒ // Can't join to any node
             logger.warn("Can't join!")

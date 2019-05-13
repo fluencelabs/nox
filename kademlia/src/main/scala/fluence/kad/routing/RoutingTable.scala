@@ -44,7 +44,7 @@ case class RoutingTable[F[_], C](
   private[kad] val state: RoutingState[F, C]
 ) {
 
-  def nodeId: Key = local.nodeId
+  def nodeKey: Key = local.nodeKey
 
 }
 
@@ -75,14 +75,14 @@ object RoutingTable {
     )
 
   def apply[F[_]: Async: Clock: LiftIO, P[_], C: ContactAccess](
-    nodeId: Key,
+    nodeKey: Key,
     siblingsSize: Int,
     maxBucketSize: Int,
     extensions: Extension[F, C]*
   )(implicit P: Parallel[F, P]): F[RoutingTable[F, C]] =
     for {
       // Build a plain in-memory routing state
-      st ← RoutingState.inMemory[F, P, C](nodeId, siblingsSize, maxBucketSize)
+      st ← RoutingState.inMemory[F, P, C](nodeKey, siblingsSize, maxBucketSize)
 
       // Apply extensions to the state, use extended version then
       exts = extensions.toList
@@ -91,7 +91,7 @@ object RoutingTable {
       }
 
       // Extend local routing, using extended state
-      loc = LocalRouting(state.nodeId, state.siblings, state.bucket)
+      loc = LocalRouting(state.nodeKey, state.siblings, state.bucket)
       local ← Traverse[List].foldLeftM(exts, loc) {
         case (l, ext) ⇒ ext.mapLocal(l)
       }

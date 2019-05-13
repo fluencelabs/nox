@@ -17,17 +17,19 @@
 package fluence.kad.routing
 
 import cats.{Monad, Parallel}
+import cats.syntax.monoid._
+import cats.syntax.order._
 import fluence.kad.protocol.{Key, Node}
 import fluence.kad.state.{Bucket, Siblings}
 
 import scala.language.higherKinds
 
 /**
- * LocalRouting describes how to route various requests over Kademlia network.
- * State is stored within [[Siblings]] and [[Bucket]], so there's no special case class.
+ * LocalRouting provides Kademlia routing using locally stored routing data only.
+ * State is stored within [[Siblings]] and [[Bucket]] case classes.
  */
 trait LocalRouting[F[_], C] {
-  val nodeId: Key
+  val nodeKey: Key
 
   /**
    * Tries to route a key to a Contact, if it's known locally
@@ -40,25 +42,28 @@ trait LocalRouting[F[_], C] {
    * Performs local lookup for the key, returning a stream of closest known nodes to it
    *
    * @param key Key to lookup
-   * @return
+   * @param neighbors Number of key's neighbors to return
+   * @param predicate Predicate to test nodes against prior to returning
+   * @return Sequence of nodes, ordered by distance to the given key
    */
-  def lookup(key: Key, numOfNodes: Int, predicate: Node[C] ⇒ Boolean = _ ⇒ true): F[Seq[Node[C]]]
+  def lookup(key: Key, neighbors: Int, predicate: Node[C] ⇒ Boolean = _ ⇒ true): F[Seq[Node[C]]]
 
   /**
-   * Perform a lookup in local RoutingTable for a key,
-   * return `numberOfNodes` closest known nodes, going away from the second key
+   * Perform a lookup in local RoutingTable for a key, skipping nodes closer to moveAwayFrom than to key
    *
    * @param key Key to lookup
-   * @param moveAwayFrom Key to move away
+   * @param moveAwayFrom Key to move away from
+   * @param neighbors Number of key's neighbors to return
    */
-  def lookupAway(key: Key, moveAwayFrom: Key, numOfNodes: Int): F[Seq[Node[C]]]
+  def lookupAway(key: Key, moveAwayFrom: Key, neighbors: Int): F[Seq[Node[C]]] =
+    lookup(key, neighbors, n ⇒ (n.key |+| key) < (n.key |+| moveAwayFrom))
 
 }
 
 object LocalRouting {
 
-  def apply[F[_]: Monad, P[_], C](nodeId: Key, siblings: F[Siblings[C]], buckets: Int ⇒ F[Bucket[C]])(
+  def apply[F[_]: Monad, P[_], C](nodeKey: Key, siblings: F[Siblings[C]], buckets: Int ⇒ F[Bucket[C]])(
     implicit P: Parallel[F, P]
-  ): LocalRouting[F, C] = new LocalRoutingImpl(nodeId, siblings, buckets)
+  ): LocalRouting[F, C] = new LocalRoutingImpl(nodeKey, siblings, buckets)
 
 }

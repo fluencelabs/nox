@@ -96,15 +96,15 @@ object Siblings {
     }
 
   /**
-   * Builds a Siblings instance with ordering relative to nodeId
+   * Builds a Siblings instance with ordering relative to nodeKey
    *
-   * @param nodeId Current node's id
+   * @param nodeKey Current node's Kademlia key
    * @param maxSize Maximum number of sibling nodes to keep
    * @tparam C Contact info
    */
-  def apply[C](nodeId: Key, maxSize: Int): Siblings[C] =
+  def apply[C](nodeKey: Key, maxSize: Int): Siblings[C] =
     new Siblings[C](
-      SortedSet.empty(Node.relativeOrdering(nodeId)),
+      SortedSet.empty(Node.relativeOrdering(nodeKey)),
       maxSize
     )
 

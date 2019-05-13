@@ -33,7 +33,7 @@ import scala.language.higherKinds
  */
 trait RoutingState[F[_], C] {
 
-  def nodeId: Key
+  def nodeKey: Key
 
   /**
    * Non-blocking read access for [[Siblings]] state
@@ -90,19 +90,19 @@ object RoutingState {
   /**
    * Initialize [[BucketsState]] and [[SiblingsState]] with [[ReadableMVar]], pass to [[RoutingStateImpl]]
    *
-   * @param nodeId This node's Kademlia key
+   * @param nodeKey This node's Kademlia key
    * @param siblingsSize How many siblings to store in the routing table
    * @param maxBucketSize The size of a bucket
    * @tparam C Contact
    */
-  def inMemory[F[_]: Async, P[_], C](nodeId: Key, siblingsSize: Int, maxBucketSize: Int)(
+  def inMemory[F[_]: Async, P[_], C](nodeKey: Key, siblingsSize: Int, maxBucketSize: Int)(
     implicit P: Parallel[F, P]
   ): F[RoutingState[F, C]] =
     (
-      SiblingsState.withRef[F, C](nodeId, siblingsSize),
+      SiblingsState.withRef[F, C](nodeKey, siblingsSize),
       BucketsState.withMVar[F, C](maxBucketSize)
     ).mapN {
-      case (ss, bs) ⇒ new RoutingStateImpl(nodeId, ss, bs)
+      case (ss, bs) ⇒ new RoutingStateImpl(nodeKey, ss, bs)
     }
 
   /**

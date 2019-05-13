@@ -29,64 +29,63 @@ import scala.collection.immutable.Queue
 import scala.language.higherKinds
 
 private[routing] class LocalRoutingImpl[F[_]: Monad, P[_], C](
-  val nodeId: Key,
+  val nodeKey: Key,
   siblings: F[Siblings[C]],
   buckets: Int ⇒ F[Bucket[C]]
 )(
   implicit P: Parallel[F, P]
 ) extends LocalRouting[F, C] with slogging.LazyLogging {
 
-  /**
-   * Tries to route a key to a Contact, if it's known locally
-   *
-   * @param key Key to lookup
-   */
   override def find(key: Key): F[Option[Node[C]]] =
-    if (key === nodeId) Option.empty[Node[C]].pure[F]
+    if (key === nodeKey)
+      Option.empty[Node[C]].pure[F]
     else
-      P sequential P.apply.map2( // TODO: it's enough to find one non-empty reply; is there any way to explain it?
-        P parallel siblings.map(_.find(key)),
-        P parallel buckets((nodeId |+| key).zerosPrefixLen).map(_.find(key))
-      )(_ orElse _)
+      Parallel.parAp2(
+        ((_: Option[Node[C]]) orElse _).pure[F]
+      )(
+        siblings.map(_.find(key)),
+        buckets((nodeKey |+| key).zerosPrefixLen).map(_.find(key))
+      )
 
-  /**
-   * Performs local lookup for the key, returning a stream of closest known nodes to it
-   *
-   * @param key Key to lookup
-   * @return
-   */
-  override def lookup(key: Key, numOfNodes: Int, predicate: Node[C] ⇒ Boolean = _ ⇒ true): F[Seq[Node[C]]] = {
+  override def lookup(key: Key, neighbors: Int, predicate: Node[C] ⇒ Boolean = _ ⇒ true): F[Seq[Node[C]]] = {
 
     implicit val ordering: Ordering[Node[C]] = Node.relativeOrdering(key)
 
     // Build stream of neighbors, taken from buckets
     val bucketsStream: Stream[F[Stream[Node[C]]]] = {
-      // Base index: nodes as far from this one as the target key is
-      val idx = (nodeId |+| key).zerosPrefixLen
+      // Initial bucketId: nodes as far from this one as the target key is
+      val bucketId = (nodeKey |+| key).zerosPrefixLen
 
       // Diverging stream of indices, going left (farther from current node) then right (closer), like 5 4 6 3 7 ...
-      Stream(idx)
+      Stream(bucketId)
         .filter(_ < Key.BitLength) // In case current node is given, this will remove IndexOutOfBoundsException
         .append(
-          Stream.from(1).takeWhile(i ⇒ idx + i < Key.BitLength || idx - i >= 0).flatMap { i ⇒
-            (if (idx - i >= 0) Stream(idx - i) else Stream.empty) append
-              (if (idx + i < Key.BitLength) Stream(idx + i) else Stream.empty)
+          Stream.from(1).takeWhile(i ⇒ bucketId + i < Key.BitLength || bucketId - i >= 0).flatMap { i ⇒
+            (if (bucketId - i >= 0) Stream(bucketId - i) else Stream.empty) append
+              (if (bucketId + i < Key.BitLength) Stream(bucketId + i) else Stream.empty)
           }
         )
         .map(
-          idx ⇒
+          bucketId ⇒
             // Take contacts from the bucket, and sort them
-            buckets(idx).map(_.stream)
+            buckets(bucketId).map(_.stream)
         )
     }
 
-    // Fetch the minimal necessary amount of nodes close to target from buckets
+    /**
+     * Fetch the minimal necessary amount of nodes close to target from buckets.
+     * Later on these nodes will be mergeSorted with those taken from Siblings
+     *
+     * @param more see [[bucketsStream]]
+     * @param collected Queue of collected nodes, used for recursion
+     * @return
+     */
     def fetchEnoughFromBuckets(
       more: Stream[F[Stream[Node[C]]]],
       collected: Queue[Node[C]] = Queue.empty
     ): F[Queue[Node[C]]] =
       more match {
-        case _ if collected.length >= numOfNodes ⇒ // TODO: this is not optimal
+        case _ if collected.length >= neighbors ⇒ // TODO: this is not optimal
           collected.pure[F]
         case next #:: evenMore ⇒
           next.map(_.filter(predicate)).flatMap { fetched ⇒
@@ -96,36 +95,26 @@ private[routing] class LocalRoutingImpl[F[_]: Monad, P[_], C](
           collected.pure[F]
       }
 
-    def combine(left: Stream[Node[C]], right: Stream[Node[C]], seen: Set[Key] = Set.empty): Stream[Node[C]] =
+    def mergeSorted(left: Stream[Node[C]], right: Stream[Node[C]], seen: Set[Key] = Set.empty): Stream[Node[C]] =
       (left, right) match {
-        case (hl #:: tl, _) if seen(hl.key) ⇒ combine(tl, right, seen)
-        case (_, hr #:: tr) if seen(hr.key) ⇒ combine(left, tr, seen)
-        case (hl #:: tl, hr #:: _) if ordering.lt(hl, hr) ⇒ hl #:: combine(tl, right, seen + hl.key)
-        case (hl #:: _, hr #:: tr) if ordering.gt(hl, hr) ⇒ hr #:: combine(left, tr, seen + hr.key)
-        case (hl #:: tl, hr #:: tr) if ordering.equiv(hl, hr) ⇒ hr #:: combine(tl, tr, seen + hr.key)
+        case (hl #:: tl, _) if seen(hl.key) ⇒ mergeSorted(tl, right, seen)
+        case (_, hr #:: tr) if seen(hr.key) ⇒ mergeSorted(left, tr, seen)
+        case (hl #:: tl, hr #:: _) if ordering.lt(hl, hr) ⇒ hl #:: mergeSorted(tl, right, seen + hl.key)
+        case (hl #:: _, hr #:: tr) if ordering.gt(hl, hr) ⇒ hr #:: mergeSorted(left, tr, seen + hr.key)
+        case (hl #:: tl, hr #:: tr) if ordering.equiv(hl, hr) ⇒ hr #:: mergeSorted(tl, tr, seen + hr.key)
         case (Stream.Empty, _) ⇒ right
         case (_, Stream.Empty) ⇒ left
       }
 
-    P sequential P.apply.map2(
-      // Stream of neighbors, taken from siblings
-      P parallel siblings.map(_.nodes.filter(predicate).toStream.sorted),
-      // Stream of buckets, sorted by closeness
-      P parallel fetchEnoughFromBuckets(bucketsStream).map(_.toStream.sorted)
-    )(
-      // Combine stream, taking closer nodes first
-      combine(_, _).take(numOfNodes)
-    )
+    type S = Stream[Node[C]]
+
+    Parallel
+      .parAp2((mergeSorted(_, _).take(neighbors)).pure[F])(
+        // Sorted stream of neighbors, taken from siblings
+        siblings.map(_.nodes.filter(predicate).toStream.sorted),
+        // Sorted stream of neighbors, taken from buckets
+        fetchEnoughFromBuckets(bucketsStream).map(_.toStream.sorted)
+      )
+      .map(_.toSeq)
   }
-
-  /**
-   * Perform a lookup in local RoutingTable for a key,
-   * return `numberOfNodes` closest known nodes, going away from the second key
-   *
-   * @param key          Key to lookup
-   * @param moveAwayFrom Key to move away
-   */
-  override def lookupAway(key: Key, moveAwayFrom: Key, numOfNodes: Int): F[Seq[Node[C]]] =
-    lookup(key, numOfNodes, n ⇒ (n.key |+| key) < (n.key |+| moveAwayFrom))
-
 }

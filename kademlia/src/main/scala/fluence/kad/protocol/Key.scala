@@ -56,12 +56,12 @@ final case class Key private (value: ByteVector) {
   /**
    * Provides a Key with the same prefix of ''keepNumBits'' size and random suffix.
    *
-   * @param keepNumBits Size of this key's prefix to keep
+   * @param distance Size of this key's prefix to keep
    * @param rnd Random instance
    * @return Randomized key
    */
-  def randomize(keepNumBits: Int, rnd: Random = Random): Key =
-    Key(Range(keepNumBits, Key.BitLength).foldLeft(bits)(_.update(_, rnd.nextBoolean())).toByteVector)
+  def randomDistantKey(distance: Int, rnd: Random = Random): Key =
+    Key(Range(distance, Key.BitLength).foldLeft(bits)(_.update(_, rnd.nextBoolean())).toByteVector)
 }
 
 object Key {

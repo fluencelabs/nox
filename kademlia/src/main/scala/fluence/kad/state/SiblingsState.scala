@@ -57,13 +57,13 @@ object SiblingsState {
    * Builds asynchronous sibling ops with $maxSiblings nodes max.
    * Note that it is safe to use Ref, effectively blocking on state changes, as there's no I/O delays, see [[Bucket.update]]
    *
-   * @param nodeId      Siblings are sorted by distance to this nodeId
+   * @param nodeKey      Siblings are sorted by distance to this nodeId
    * @param maxSize     Max number of closest siblings to store
    * @tparam C Node contacts type
    */
-  private[state] def withRef[F[_]: Sync, C](nodeId: Key, maxSize: Int): F[SiblingsState[F, C]] =
+  private[state] def withRef[F[_]: Sync, C](nodeKey: Key, maxSize: Int): F[SiblingsState[F, C]] =
     Ref
-      .of[F, Siblings[C]](Siblings[C](nodeId, maxSize))
+      .of[F, Siblings[C]](Siblings[C](nodeKey, maxSize))
       .map(
         ref ⇒
           new SiblingsState[F, C] {

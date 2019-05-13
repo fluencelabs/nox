@@ -80,9 +80,9 @@ class KeySpec extends WordSpec with Matchers {
     "randomize only suffix" in {
       val k = Key.fromBytes.unsafe(Array.fill(Key.Length)(81: Byte))
 
-      k.randomize(Key.BitLength) shouldBe k
+      k.randomDistantKey(Key.BitLength) shouldBe k
 
-      (k.randomize(Key.BitLength / 2) |+| k).zerosPrefixLen should be >= (Key.BitLength / 2)
+      (k.randomDistantKey(Key.BitLength / 2) |+| k).zerosPrefixLen should be >= (Key.BitLength / 2)
     }
 
   }

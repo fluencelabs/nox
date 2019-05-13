@@ -51,7 +51,7 @@ private class RefreshingIterativeRouting[F[_]: Concurrent, C](
   refreshFibers: Map[Int, MVar[F, Fiber[F, Unit]]]
 ) extends IterativeRouting[F, C] {
 
-  override def nodeId: Key = routing.nodeId
+  override def nodeKey: Key = routing.nodeKey
 
   /**
    * Called each time when any *Iterative method is called by user, reschedules the refreshing job for the bucket
@@ -59,7 +59,7 @@ private class RefreshingIterativeRouting[F[_]: Concurrent, C](
    * @param key Touched key
    */
   private def touchedIterative(key: Key): F[Unit] = {
-    val idx = (key |+| nodeId).zerosPrefixLen
+    val idx = (key |+| nodeKey).zerosPrefixLen
 
     val mFiber = refreshFibers(idx)
 
@@ -87,7 +87,7 @@ private class RefreshingIterativeRouting[F[_]: Concurrent, C](
     touchedIterative(key) *> routing.callIterative(key, fn, numToCollect, parallelism, maxNumOfCalls, isIdempotentFn)
 
   override def join(peers: Seq[C], numberOfNodes: Int, parallelism: Int): EitherT[F, JoinError, Unit] =
-    routing.join(peers, numberOfNodes, parallelism) <* EitherT.liftF(touchedIterative(nodeId))
+    routing.join(peers, numberOfNodes, parallelism) <* EitherT.liftF(touchedIterative(nodeKey))
 }
 
 object RefreshingIterativeRouting {
@@ -108,7 +108,7 @@ object RefreshingIterativeRouting {
     refreshNeighbors: Int,
     parallelism: Int
   ): F[IterativeRouting[F, C]] = {
-    val nodeId = iterativeRouting.nodeId
+    val nodeKey = iterativeRouting.nodeKey
 
     (
       // Bootstrap the Random that will be used to generate Keys and jitters
@@ -127,7 +127,7 @@ object RefreshingIterativeRouting {
         // Lookup iteratively the bucket
         def refresh(idx: Int) =
           iterativeRouting
-            .lookupIterative(nodeId.randomize(idx, rnd), refreshNeighbors, parallelism)
+            .lookupIterative(nodeKey.randomDistantKey(idx, rnd), refreshNeighbors, parallelism)
             .void
 
         // Drop current fiber out from MVar, because it refers to current execution flow

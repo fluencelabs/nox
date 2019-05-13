@@ -18,22 +18,16 @@ package fluence.kad.routing
 
 import cats.{Monad, Parallel}
 import cats.data.EitherT
-import cats.syntax.applicative._
-import cats.syntax.eq._
-import cats.syntax.flatMap._
-import cats.syntax.functor._
-import cats.instances.list._
 import cats.effect.{Clock, LiftIO}
-import fluence.kad.{CantJoinAnyNode, JoinError}
+import fluence.kad.JoinError
 import fluence.kad.protocol.{ContactAccess, Key, Node}
 import fluence.kad.state.RoutingState
 
-import scala.collection.immutable.SortedSet
 import scala.language.higherKinds
 
 trait IterativeRouting[F[_], C] {
 
-  def nodeId: Key
+  def nodeKey: Key
 
   /**
    * The search begins by selecting alpha contacts from the non-empty k-bucket closest to the bucket appropriate
@@ -108,13 +102,13 @@ trait IterativeRouting[F[_], C] {
    * Joins network with known peers
    *
    * @param peers         List of known peer contacts (assuming that Kademlia ID is unknown)
-   * @param numberOfNodes How many nodes to lookupIterative for each peer
+   * @param neighbors How many nodes to lookupIterative for each peer
    * @param parallelism   Parallelism factor to perform self-[[lookupIterative()]] in case of successful join
    * @return F[Unit], possibly a failure if were not able to join any node
    */
   def join(
     peers: Seq[C],
-    numberOfNodes: Int,
+    neighbors: Int,
     parallelism: Int
   ): EitherT[F, JoinError, Unit]
 }

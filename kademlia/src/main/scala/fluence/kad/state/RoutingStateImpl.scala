@@ -33,7 +33,7 @@ import scala.collection.mutable.ListBuffer
 import scala.language.higherKinds
 
 private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
-  override val nodeId: Key,
+  override val nodeKey: Key,
   siblingsState: SiblingsState[F, C],
   bucketsState: BucketsState[F, C]
 )(
@@ -58,7 +58,7 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
   override def remove(key: Key): F[ModResult[C]] =
     P sequential P.apply.map2(
       P parallel siblingsState.remove(key),
-      P parallel bucketsState.remove((key |+| nodeId).zerosPrefixLen, key)
+      P parallel bucketsState.remove((key |+| nodeKey).zerosPrefixLen, key)
     )(_ <+> _)
 
   /**
@@ -79,7 +79,7 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
     node: Node[C],
     keepExisting: Boolean
   )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]] =
-    if (nodeId === node.key)
+    if (nodeKey === node.key)
       ModResult.noop[C].pure[F]
     else
       ca.check(node).attempt.to[F].flatMap {
@@ -89,7 +89,7 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
           P.sequential(
               P.apply.map2(
                 // Update bucket, performing ping if necessary
-                P parallel bucketsState.update((node.key |+| nodeId).zerosPrefixLen, node, ca.rpc, ca.pingExpiresIn),
+                P parallel bucketsState.update((node.key |+| nodeKey).zerosPrefixLen, node, ca.rpc, ca.pingExpiresIn),
                 // Update siblings
                 P parallel siblingsState.add(node)
               )(_ <+> _)
@@ -150,7 +150,7 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
       // Rearrange in portions with distinct bucket ids, so that it's possible to update it in parallel
       rearrange(
         // Group by bucketId, so that each group should never be updated in parallel
-        nodes.groupBy(p ⇒ (p.key |+| nodeId).zerosPrefixLen).values
+        nodes.groupBy(p ⇒ (p.key |+| nodeKey).zerosPrefixLen).values
       )
     ).flatMap(keepExistingNodes)
   }
@@ -168,7 +168,7 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
           // TODO is it optimal?
           (
             siblingsState.read.map(_.find(k)),
-            bucketsState.read(nodeId |+| k).map(_.find(k))
+            bucketsState.read(nodeKey |+| k).map(_.find(k))
           ).mapN(_ orElse _)
       )
       .map(_.foldLeft(res) {
