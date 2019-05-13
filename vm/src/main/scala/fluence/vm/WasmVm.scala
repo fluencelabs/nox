@@ -25,6 +25,7 @@ import cats.effect.LiftIO
 import cats.{Applicative, Monad}
 import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
+import fluence.merkle.TrackingMemoryBuffer
 import fluence.vm.VmError.{InitializationError, InternalVmError}
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
 import fluence.vm.wasm.WasmFunction
@@ -138,6 +139,7 @@ object WasmVm extends LazyLogging {
     // TODO: in future common logger for this project should be used
     val logger = new Logger.Print(Logger.Level.WARN)
     invoke.setLogger(logger)
+
     invoke.prepareContext(
       new ScriptArgs(
         inFiles.toList,
@@ -145,7 +147,8 @@ object WasmVm extends LazyLogging {
         false, // disableAutoRegister
         config.specTestRegister,
         config.defaultMaxMemPages,
-        config.loggerRegister
+        config.loggerRegister,
+        (capacity: Int) => TrackingMemoryBuffer.allocate(capacity, 100)
       )
     )
   }

@@ -18,6 +18,7 @@ package fluence.vm
 import java.lang.reflect.InvocationTargetException
 import java.nio.ByteBuffer
 
+import asmble.compile.jvm.{MemoryBuffer, MemoryByteBuffer}
 import asmble.run.jvm.Module.Compiled
 import asmble.run.jvm.ScriptContext
 import cats.data.EitherT
@@ -94,7 +95,7 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
       }
 
       "module has a memory" in {
-        val instance = new { def getMemory: ByteBuffer = ByteBuffer.wrap(Array[Byte](1, 2, 3)) }
+        val instance = new { def getMemory: MemoryBuffer = new MemoryByteBuffer(ByteBuffer.wrap(Array[Byte](1, 2, 3))) }
         val module = mock[Compiled]
         Mockito.when(module.getName).thenReturn("test-module-name")
         val scriptCtx = mock[ScriptContext]
@@ -106,8 +107,8 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
             for {
               memoryRegion <- moduleInstance.readMemory(0, 3)
             } yield memoryRegion should contain allOf (1, 2, 3)
-          case Left(_) ⇒
-            fail("Error shouldn't appears.")
+          case Left(e) ⇒
+            fail(s"Error shouldn't appears. $e")
         }
       }
     }
@@ -116,7 +117,7 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
   "innerState" should {
     "returns an error" when {
       "hasher returns an error" in {
-        val instance = new { def getMemory: ByteBuffer = ByteBuffer.wrap(Array[Byte](1, 2, 3)) }
+        val instance = new { def getMemory: MemoryBuffer = new MemoryByteBuffer(ByteBuffer.wrap(Array[Byte](1, 2, 3))) }
         val result =
           createWasmModule(instance).computeStateHash(arr ⇒ EitherT.leftT(CryptoError("error!"))).value.left.get
 
@@ -141,7 +142,9 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
 
     "returns hash of VM's state" when {
       "memory is present in a module" in {
-        val instance = new { def getMemory: ByteBuffer = ByteBuffer.wrap(Array[Byte](1, 2, 3)) }
+        val instance = new {
+          def getMemory: MemoryByteBuffer = new MemoryByteBuffer(ByteBuffer.wrap(Array[Byte](1, 2, 3)))
+        }
         val result = createWasmModule(instance).computeStateHash(arr ⇒ EitherT.rightT(arr)).value.right.get
         result should contain allOf (1, 2, 3)
       }
@@ -150,7 +153,7 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
     "getting inner state should be idempotent for VM inner state" in {
       // create a memory, set ByteBuffer position to 1, after getting state buffer
       // should be completely the same that was before.
-      val memoryBuffer = ByteBuffer.wrap(Array[Byte](1, 2, 3))
+      val memoryBuffer = new MemoryByteBuffer(ByteBuffer.wrap(Array[Byte](1, 2, 3)))
       memoryBuffer.position(1)
       val expected = memoryBuffer.duplicate()
 
@@ -163,7 +166,7 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
       memoryBuffer.position(1)
       memoryBuffer shouldBe expected
       // getting inner VM state
-      val instance = new { def getMemory: ByteBuffer = memoryBuffer }
+      val instance = new { def getMemory: MemoryByteBuffer = memoryBuffer }
       val result = createWasmModule(instance).computeStateHash(arr ⇒ EitherT.rightT(arr)).value.right.get
       // checks that result is correct
       result should contain allOf (1, 2, 3)

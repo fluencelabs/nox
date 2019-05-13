@@ -17,6 +17,7 @@
 package fluence.vm.wasm
 import java.nio.{ByteBuffer, ByteOrder}
 
+import asmble.compile.jvm.{MemoryBuffer, MemoryByteBuffer}
 import fluence.vm.utils.safelyRunThrowable
 import cats.Monad
 import cats.data.EitherT
@@ -26,7 +27,7 @@ import fluence.vm.VmError.WasmVmError.GetVmStateError
 
 import scala.language.higherKinds
 
-final case class WasmModuleMemory(memory: ByteBuffer) {
+final case class WasmModuleMemory(memory: MemoryBuffer) {
 
   /**
    * Reads [offset, offset+size) region from the memory.

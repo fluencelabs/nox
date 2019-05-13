@@ -19,6 +19,7 @@ package fluence.vm.wasm
 import java.lang.reflect.{Method, Modifier}
 import java.nio.ByteBuffer
 
+import asmble.compile.jvm.{MemoryBuffer, MemoryByteBuffer}
 import asmble.run.jvm.Module.Compiled
 import asmble.run.jvm.ScriptContext
 import cats.data.EitherT
@@ -197,7 +198,7 @@ object WasmModule {
         ).toOption
         getMemoryMethod
           .flatMap(Option(_))
-          .map(_.invoke(moduleInstance).asInstanceOf[ByteBuffer])
+          .map(_.invoke(moduleInstance).asInstanceOf[MemoryBuffer])
           .flatMap(Option(_))
       }.toEither.left.map { e ⇒
         InitializationError(

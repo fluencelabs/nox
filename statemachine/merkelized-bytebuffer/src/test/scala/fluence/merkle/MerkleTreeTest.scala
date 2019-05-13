@@ -54,7 +54,10 @@ class MerkleTreeTest extends WordSpec with Matchers {
 
     def appendBuffer() = {
       val charsToAppend = leafsCount * chunkSize - size
-      storage.bb.array() ++ Array.fill[Byte](charsToAppend)(0)
+      val arr = new Array[Byte](size)
+      storage.position(0)
+      storage.bb.get(arr)
+      arr ++ Array.fill[Byte](charsToAppend)(0)
     }
 
     val hash1 = tree.recalculateHash()
@@ -64,9 +67,17 @@ class MerkleTreeTest extends WordSpec with Matchers {
     val hash2 = tree.recalculateHash()
     appendBuffer() shouldBe hash2
 
-    storage.put(7, 4)
+    storage.put(chunkSize, 4)
     val hash3 = tree.recalculateHash()
     appendBuffer() shouldBe hash3
+
+    storage.put(chunkSize - 1, 3)
+    val hash31 = tree.recalculateHash()
+    appendBuffer() shouldBe hash31
+
+    storage.put(chunkSize + 1, 2)
+    val hash32 = tree.recalculateHash()
+    appendBuffer() shouldBe hash32
 
     (0 until size).foreach(i => storage.put(i, 8))
     val hash4 = tree.recalculateHash()

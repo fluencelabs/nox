@@ -2,10 +2,7 @@ package fluence.merkle
 
 import java.util
 
-import fluence.merkle.storage.Storage
-
 import scala.language.higherKinds
-import scala.reflect.ClassTag
 
 class BinaryMerkleTree private (
   val allNodes: Array[Array[Byte]],
@@ -13,8 +10,8 @@ class BinaryMerkleTree private (
   chunkSize: Int,
   mappedLeafCount: Int,
   hashFunc: Array[Byte] => Array[Byte],
-  storage: Storage[Array[Byte]]
-)(implicit m: ClassTag[Array[Byte]]) {
+  storage: TrackingMemoryBuffer
+) {
   import TreeMath._
 
   val leafsCount: Int = power2(treeHeight)
@@ -128,18 +125,14 @@ class BinaryMerkleTree private (
    */
   @scala.annotation.tailrec
   private def recalculateNodes(rowSize: Int, height: Int, dirtyNodes: util.BitSet): Array[Byte] = {
-    var i = -1
-    var exit = true
     val parentsRowSize = rowSize / 2
     val parents = new util.BitSet(parentsRowSize)
 
-    while (exit) {
-      i = dirtyNodes.nextSetBit(i + 1)
-      if (i < 0 || i == Integer.MAX_VALUE) exit = false
-      else {
-        calculateNodeHash(height, i)
-        parents.set(getParentPos(i))
-      }
+    var dirtyNodeId = dirtyNodes.nextSetBit(0)
+    while (dirtyNodeId >= 0 && dirtyNodeId != Integer.MAX_VALUE) {
+      calculateNodeHash(height, dirtyNodeId)
+      parents.set(getParentPos(dirtyNodeId))
+      dirtyNodeId = dirtyNodes.nextSetBit(dirtyNodeId + 1)
     }
 
     val nextHeight = height - 1
@@ -201,14 +194,14 @@ object BinaryMerkleTree {
     size: Int,
     chunkSize: Int,
     hashFunc: Array[Byte] => Array[Byte],
-    storage: Storage[Array[Byte]]
-  )(implicit c: ClassTag[Array[Byte]]): BinaryMerkleTree = {
+    storage: TrackingMemoryBuffer
+  ): BinaryMerkleTree = {
     import TreeMath._
 
     assert(size % chunkSize == 0)
 
     // count of leafs that mapped on byte array (can have non-zero values)
-    val mappedLeafCount = size / chunkSize + (if (size % chunkSize == 0) 0 else 1)
+    val mappedLeafCount = (size + chunkSize - 1) / chunkSize
 
     // number of leafs in ByteBuffer
     val leafCount = {

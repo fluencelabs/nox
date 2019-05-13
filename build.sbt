@@ -38,6 +38,7 @@ lazy val vm = (project in file("vm"))
       .dependsOn(compile in `vm-llamadb`)
       .value
   )
+  .dependsOn(`merkelized-bytebuffer`)
   .enablePlugins(AutomateHeaderPlugin)
 
 /**
@@ -122,6 +123,7 @@ lazy val `merkelized-bytebuffer` = (project in file("statemachine/merkelized-byt
   .settings(
     commons,
     libraryDependencies ++= Seq(
+      asmble,
       scalaTest
     )
   )
