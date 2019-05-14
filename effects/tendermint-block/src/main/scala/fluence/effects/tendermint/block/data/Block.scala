@@ -17,6 +17,7 @@
 package fluence.effects.tendermint.block.data
 
 import fluence.crypto.hash.CryptoHashers.Sha256
+import fluence.effects.tendermint.block.errors.TendermintBlockError
 import fluence.effects.tendermint.block.protobuf.{Protobuf, ProtobufConverter, ProtobufJson}
 import fluence.effects.tendermint.block.signature.Merkle
 import io.circe.Decoder
@@ -74,6 +75,10 @@ object Block {
    * TODO: Add Evidence to block, write tests on evidence
    */
   def evidenceHash(evl: List[Evidence]): Array[Byte] = Merkle.simpleHash(evl)
+
+  def apply(json: String): Either[TendermintBlockError, Block] = {
+    ProtobufJson.block(json)
+  }
 }
 
 // TODO: Add Evidence field to the Block

@@ -18,6 +18,7 @@ package fluence.statemachine
 
 import cats.effect.concurrent.{MVar, Ref}
 import cats.effect.{Concurrent, Fiber, Timer}
+import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Applicative, Monad}
@@ -26,7 +27,7 @@ import fluence.codec.PureCodec
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.effects.Backoff
-import fluence.effects.node.rpc.{BlockManifest, NodeRpc}
+import fluence.effects.node.rpc.{BlockManifest, NodeRpc, Receipt}
 import fluence.statemachine.state.AbciState
 import scodec.bits.ByteVector
 import slogging.LazyLogging
@@ -42,7 +43,7 @@ import scala.language.higherKinds
 class AbciService[F[_]: Monad: Timer: Concurrent](
   state: Ref[F, AbciState],
   vm: VmOperationInvoker[F],
-  manifest: MVar[F, Fiber[F, BlockManifest]],
+  manifestReceipt: MVar[F, Fiber[F, Option[Receipt]]],
   nodeRpc: NodeRpc[F]
 )(implicit hasher: Hasher[ByteVector, ByteVector])
     extends LazyLogging {
@@ -83,11 +84,14 @@ class AbciService[F[_]: Monad: Timer: Concurrent](
         .leftMap(err ⇒ logger.error(s"VM is unable to compute state hash: $err"))
         .getOrElse(ByteVector.empty) // TODO do not ignore vm error
 
-      mfest <- manifest.read.flatMap(_.join)
-      appHash <- hasher(vmHash ++ mfest.bytes())
-        .leftMap(err => logger.error(s"Error on hashing vmHash + manifest: $err"))
-        .getOrElse(vmHash) // TODO: that's awful; don't ignore errors
-      _ <- requestBlockUpload(st.height)
+      receipt <- manifestReceipt.read.flatMap(_.join)
+      appHash <- receipt.fold(vmHash.pure[F])(
+        r =>
+          hasher(vmHash ++ r.bytes())
+            .leftMap(err => logger.error(s"Error on hashing vmHash + receipt: $err"))
+            .getOrElse(vmHash) // TODO: that's awful; don't ignore errors
+      )
+      _ <- requestBlockUpload(st.height, vmHash, receipt)
 
       // Push hash to AbciState, increment block number
       newState ← AbciState.setAppHash(appHash).runS(st)
@@ -103,10 +107,12 @@ class AbciService[F[_]: Monad: Timer: Concurrent](
    *
    * @param height Height of the block to upload
    */
-  private def requestBlockUpload(height: Long) =
+  private def requestBlockUpload(height: Long, vmHash: ByteVector, previousManifestReceipt: Option[Receipt]) =
     for {
-      fiber <- Concurrent[F].start(Backoff.default(nodeRpc.uploadBlock(height)))
-      _ <- manifest.put(fiber)
+      fiber <- Concurrent[F].start(
+        Backoff.default(nodeRpc.uploadBlock(height, vmHash, previousManifestReceipt))
+      )
+      _ <- manifestReceipt.put(fiber.map(Option(_)))
     } yield ()
 
   /**
@@ -243,8 +249,8 @@ object AbciService {
 
     for {
       state ← Ref.of[F, AbciState](AbciState())
-      fiber <- Concurrent[F].start(BlockManifest.Empty.pure[F])
-      manifest <- MVar.of[F, Fiber[F, BlockManifest]](fiber)
+      fiber <- Concurrent[F].start(Option.empty[Receipt].pure[F])
+      manifest <- MVar.of[F, Fiber[F, Option[Receipt]]](fiber)
     } yield {
       implicit val hasher: Hasher[Array[Byte], Array[Byte]] =
         PureCodec[ByteVector, Array[Byte]].andThen(JdkCryptoHasher.Sha256)

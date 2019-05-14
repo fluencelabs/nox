@@ -3,6 +3,7 @@ package fluence.effects.node.rpc
 import cats.Applicative
 import cats.data.EitherT
 import cats.effect.Resource
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
@@ -11,8 +12,10 @@ import scala.language.higherKinds
  */
 case class NodeRpc[F[_]]() {
 
-  def uploadBlock(height: Long)(implicit F: Applicative[F]): EitherT[F, RpcError, BlockManifest] =
-    EitherT.pure[F, RpcError](BlockManifest())
+  def uploadBlock(height: Long, vmHash: ByteVector, previousManifestReceipt: Option[Receipt])(
+    implicit F: Applicative[F]
+  ): EitherT[F, RpcError, Receipt] =
+    EitherT.pure[F, RpcError](Receipt)
 }
 
 object NodeRpc {

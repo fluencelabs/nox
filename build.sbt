@@ -278,10 +278,13 @@ lazy val `node-rpc` = (project in file("effects/node-rpc"))
       circeParser,
       circeGenericExtras,
       slogging,
-      scodecBits
+      scodecBits,
+      http4sDsl,
+      http4sServer,
+      http4sCirce
     )
   )
-  .dependsOn(effects)
+  .dependsOn(effects, `tendermint-block`, `tendermint-rpc`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
