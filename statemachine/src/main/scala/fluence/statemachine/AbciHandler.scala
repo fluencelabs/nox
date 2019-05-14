@@ -39,7 +39,7 @@ import scala.util.Try
 class AbciHandler[F[_]: Effect](
   service: AbciService[F],
   controlSignals: ControlSignals[F],
-  rpc: TendermintRpc[F],
+  tendermintRpc: TendermintRpc[F],
   blocks: Ref[F, Map[Long, (String, Json)]],
   commits: Ref[F, Map[Long, (String, Json)]]
 ) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock
@@ -52,9 +52,9 @@ class AbciHandler[F[_]: Effect](
 
   private def getJsons(height: Long): F[(Json, Json)] = {
     val jsonsF = for {
-      block <- rpc.block(height).leftMap(new Exception(_): Throwable)
-      blockJson <- EitherT.fromEither(parseJson(block)).leftMap(new Exception(_): Throwable)
-      commit <- rpc.commit(height).leftMap(new Exception(_): Throwable)
+      block <- tendermintRpc.block(height)               .leftMap(new Exception(_): Throwable)
+      blockJson <- EitherT.fromEither(parseJson(block))  .leftMap(new Exception(_): Throwable)
+      commit <- tendermintRpc.commit(height)             .leftMap(new Exception(_): Throwable)
       commitJson <- EitherT.fromEither(parseJson(commit)).leftMap(new Exception(_): Throwable)
     } yield (blockJson, commitJson)
 
@@ -116,7 +116,7 @@ class AbciHandler[F[_]: Effect](
     val log: String ⇒ Unit = s ⇒ logger.info(Console.YELLOW + s + Console.RESET)
     val logBad: String ⇒ Unit = s ⇒ logger.info(Console.RED + s + Console.RESET)
 
-    rpc
+    tendermintRpc
       .block(height)
       .value
       .toIO

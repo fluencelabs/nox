@@ -16,12 +16,17 @@
 
 package fluence.statemachine
 
-import cats.effect.Sync
-import cats.{Applicative, Monad}
-import cats.syntax.functor._
+import cats.effect.concurrent.{MVar, Ref}
+import cats.effect.{Concurrent, Fiber, Timer}
 import cats.syntax.flatMap._
-import cats.effect.concurrent.Ref
+import cats.syntax.functor._
+import cats.{Applicative, Monad}
 import com.github.jtendermint.jabci.api.CodeType
+import fluence.codec.PureCodec
+import fluence.crypto.Crypto.Hasher
+import fluence.crypto.hash.JdkCryptoHasher
+import fluence.effects.Backoff
+import fluence.effects.node.rpc.{BlockManifest, NodeRpc}
 import fluence.statemachine.state.AbciState
 import scodec.bits.ByteVector
 import slogging.LazyLogging
@@ -34,10 +39,13 @@ import scala.language.higherKinds
  * @param state See [[AbciState]]
  * @param vm Virtual machine invoker
  */
-class AbciService[F[_]: Monad](
+class AbciService[F[_]: Monad: Timer: Concurrent](
   state: Ref[F, AbciState],
-  vm: VmOperationInvoker[F]
-) extends LazyLogging {
+  vm: VmOperationInvoker[F],
+  manifest: MVar[F, Fiber[F, BlockManifest]],
+  nodeRpc: NodeRpc[F]
+)(implicit hasher: Hasher[ByteVector, ByteVector])
+    extends LazyLogging {
 
   import AbciService._
 
@@ -70,17 +78,36 @@ class AbciService[F[_]: Monad](
       }
 
       // Get the VM hash
-      hash ← vm
+      vmHash ← vm
         .vmStateHash()
         .leftMap(err ⇒ logger.error(s"VM is unable to compute state hash: $err"))
         .getOrElse(ByteVector.empty) // TODO do not ignore vm error
 
+      mfest <- manifest.read.flatMap(_.join)
+      appHash <- hasher(vmHash ++ mfest.bytes())
+        .leftMap(err => logger.error(s"Error on hashing vmHash + manifest: $err"))
+        .getOrElse(vmHash) // TODO: that's awful; don't ignore errors
+      _ <- requestBlockUpload(st.height)
+
       // Push hash to AbciState, increment block number
-      newState ← AbciState.setAppHash(hash).runS(st)
+      newState ← AbciState.setAppHash(appHash).runS(st)
 
       // Store updated state in the Ref (the changes were transient for readers before this step)
       _ ← state.set(newState)
-    } yield hash
+    } yield appHash
+
+  /**
+   * Sends a signal to Node to upload a block at the specified height to a decentralized storage
+   * Resulting Fiber with Manifest is then stored to MVar
+   * Signaling request is retried until success
+   *
+   * @param height Height of the block to upload
+   */
+  private def requestBlockUpload(height: Long) =
+    for {
+      fiber <- Concurrent[F].start(Backoff.default(nodeRpc.uploadBlock(height)))
+      _ <- manifest.put(fiber)
+    } yield ()
 
   /**
    * Queries the storage for sessionId/nonce result, or for sessionId status.
@@ -210,9 +237,19 @@ object AbciService {
    * @tparam F Sync for Ref
    * @return Brand new AbciService instance
    */
-  def apply[F[_]: Sync](vm: VmOperationInvoker[F]): F[AbciService[F]] =
+  def apply[F[_]: Concurrent: Timer](vm: VmOperationInvoker[F], nodeRpc: NodeRpc[F]): F[AbciService[F]] = {
+    import cats.syntax.applicative._
+    import cats.syntax.compose._
+
     for {
       state ← Ref.of[F, AbciState](AbciState())
-    } yield new AbciService[F](state, vm)
+      fiber <- Concurrent[F].start(BlockManifest.Empty.pure[F])
+      manifest <- MVar.of[F, Fiber[F, BlockManifest]](fiber)
+    } yield {
+      implicit val hasher: Hasher[Array[Byte], Array[Byte]] =
+        PureCodec[ByteVector, Array[Byte]].andThen(JdkCryptoHasher.Sha256)
+      new AbciService[F](state, vm, manifest, nodeRpc)
+    }
+  }
 
 }

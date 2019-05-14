@@ -135,7 +135,7 @@ lazy val statemachine = (project in file("statemachine"))
     dockerfile in docker := DockerContainers.worker(assembly.value, baseDirectory.value)
   )
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(vm, `statemachine-control`, `tendermint-rpc`, sttpEitherT, `tendermint-block`)
+  .dependsOn(vm, `statemachine-control`, `tendermint-rpc`, sttpEitherT, `tendermint-block`, `node-rpc`)
 
 lazy val effects = project
   .settings(
@@ -263,6 +263,22 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
       circeParser,
       circeGenericExtras,
       slogging
+    )
+  )
+  .dependsOn(effects)
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `node-rpc` = (project in file("effects/node-rpc"))
+  .settings(
+    commons,
+    kindProjector,
+    libraryDependencies ++= Seq(
+      sttp,
+      circeGeneric,
+      circeParser,
+      circeGenericExtras,
+      slogging,
+      scodecBits
     )
   )
   .dependsOn(effects)
