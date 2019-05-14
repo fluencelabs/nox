@@ -1,8 +1,9 @@
 package fluence.merkle
 
 import java.nio.ByteBuffer
-import java.util.BitSet
+import java.util
 
+import scala.collection.mutable
 import scala.language.higherKinds
 
 /**
@@ -37,8 +38,6 @@ class BinaryMerkleTree private (
   private def concatenate(l: Array[Byte], r: Array[Byte]): Array[Byte] =
     if (r == null) l
     else l ++ r
-
-  private def defaultLeaf(chunkSize: Int): Array[Byte] = Array.fill(chunkSize)(0)
 
   /**
    * Calculates node index in array.
@@ -75,6 +74,10 @@ class BinaryMerkleTree private (
    */
   private def getParentPos(pos: Int) = pos / 2
 
+  def getHash: Array[Byte] = {
+    calculateRootHash()
+  }
+
   /**
    * Recalculates hashes of dirty chunks and ascend calculation to the root of the tree.
    *
@@ -89,7 +92,7 @@ class BinaryMerkleTree private (
   // for test purpose only
   def recalculateAll(): Array[Byte] = {
     val allLeafs = mappedLeafCount
-    val bs = new BitSet(allLeafs)
+    val bs = new util.BitSet(allLeafs)
     bs.set(0, allLeafs)
     recalculateLeafs(allLeafs, bs)
   }
@@ -141,7 +144,7 @@ class BinaryMerkleTree private (
    * @return root hash
    */
   @scala.annotation.tailrec
-  private def recalculateNodes(rowSize: Int, height: Int, dirtyNodes: BitSet): Array[Byte] = {
+  private def recalculateNodes(rowSize: Int, height: Int, dirtyNodes: util.BitSet): Array[Byte] = {
     var dirtyNodeId = dirtyNodes.nextSetBit(0)
     while (dirtyNodeId >= 0 && dirtyNodeId < rowSize) {
       calculateNodeHash(height, dirtyNodeId)
@@ -159,7 +162,50 @@ class BinaryMerkleTree private (
     }
   }
 
-  private def recalculateLeafs(size: Int, bits: BitSet): Array[Byte] = {
+  def calculateNodeHashPrev(height: Int, pos: Int, value: Array[Byte]): Unit = {
+    val (l, r) = getChildren(height, pos)
+    val index = getNodeIndex(height, pos)
+    if (l == r) {
+      allNodes(index) = value
+    } else {
+      val newHash =
+        hashNodes(concatenate(l, r))
+      allNodes(index) = newHash
+    }
+  }
+
+  def fillLeafs(value: Array[Byte]): Unit = {
+    val firstIndex = getNodeIndex(treeHeight, 0)
+    for { i <- firstIndex until firstIndex + mappedLeafCount } yield {
+      allNodes(i) = value
+    }
+  }
+
+  def fillRow(height: Int, rowSize: Int, value: Array[Byte]): Unit = {
+    for { i <- 0 until rowSize } yield {
+      val index = getNodeIndex(height, 0)
+      calculateNodeHashPrev(height, i, value)
+    }
+  }
+
+  def initTree(): Unit = {
+    val leafHash = hashLeafs(ByteBuffer.wrap(Array.fill(chunkSize)(0)))
+    fillLeafs(leafHash)
+    val precalculatedHashes = mutable.Map.empty[Int, Array[Byte]]
+    precalculatedHashes.put(treeHeight, leafHash)
+    (1 until treeHeight).reverse.foldLeft[Int]((mappedLeafCount + 1) / 2) {
+      case (rowSize, height) =>
+        val previousHash = precalculatedHashes(height + 1)
+        val hash = hashNodes(previousHash ++ previousHash)
+        fillRow(height, rowSize, hash)
+        precalculatedHashes.put(height, hash)
+        (rowSize + 1) / 2
+    }
+    calculateRootHash()
+
+  }
+
+  private def recalculateLeafs(size: Int, bits: util.BitSet): Array[Byte] = {
     recalculateNodes(size, treeHeight, bits)
   }
 
@@ -255,7 +301,7 @@ object BinaryMerkleTree {
 
     val tree =
       new BinaryMerkleTree(arrayTree, treeHeight, chunkSize, mappedLeafCount, hashFuncLeafs, hashFuncNodes, storage)
-    tree.recalculateAll()
+    tree.initTree()
     tree
   }
 }

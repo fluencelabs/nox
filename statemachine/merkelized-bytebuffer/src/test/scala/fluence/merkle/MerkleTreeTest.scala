@@ -38,6 +38,23 @@ class MerkleTreeTest extends WordSpec with Matchers {
     tree6.treeHeight shouldBe 7
   }
 
+  "check tree initialization for different sizes" in {
+    for { i <- 4 to 120 } yield {
+      val chunkSize = 2
+
+      val size = 2 * i
+      val (storage, tree) = TestUtils.initBytesTestMerkle(size, chunkSize)
+
+      // get hash after initialization
+      val hash1 = tree.getHash
+
+      // recalculate hashes for all chunks
+      val hash2 = tree.recalculateAll()
+      hash1 shouldBe hash2
+    }
+
+  }
+
   "check hash calculation" in {
 
     val chunkSize = 25
@@ -99,8 +116,8 @@ class MerkleTreeTest extends WordSpec with Matchers {
         size,
         4 * 1024,
         direct = true,
-        b => { digester.update(b); digester.digest() },
-        digester.digest
+        b => { digester.reset(); digester.update(b); digester.digest() },
+        b => { digester.reset(); digester.digest(b) }
       )
 
     def rndIndex = (math.random() * size).toInt
