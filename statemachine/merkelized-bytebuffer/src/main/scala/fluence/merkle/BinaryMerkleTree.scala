@@ -64,7 +64,11 @@ class BinaryMerkleTree private (
    *
    * @return root hash
    */
-  def recalculateHash(): Array[Byte] = recalculateLeafs(leafsCount, storage.getDirtyChunks)
+  def recalculateHash(): Array[Byte] = {
+    val hash = recalculateLeafs(leafsCount, storage.getDirtyChunks)
+    storage.getDirtyChunks.clear()
+    hash
+  }
 
   // for test purpose only
   def recalculateAll(): Array[Byte] = {
@@ -125,19 +129,21 @@ class BinaryMerkleTree private (
    */
   @scala.annotation.tailrec
   private def recalculateNodes(rowSize: Int, height: Int, dirtyNodes: util.BitSet): Array[Byte] = {
-    val parentsRowSize = rowSize / 2
-    val parents = new util.BitSet(parentsRowSize)
-
     var dirtyNodeId = dirtyNodes.nextSetBit(0)
-    while (dirtyNodeId >= 0 && dirtyNodeId != Integer.MAX_VALUE) {
+    while (dirtyNodeId >= 0 && dirtyNodeId < rowSize) {
       calculateNodeHash(height, dirtyNodeId)
-      parents.set(getParentPos(dirtyNodeId))
+
+      dirtyNodes.set(getParentPos(dirtyNodeId))
+
       dirtyNodeId = dirtyNodes.nextSetBit(dirtyNodeId + 1)
     }
 
     val nextHeight = height - 1
     if (nextHeight == 0) calculateRootHash()
-    else recalculateNodes(parentsRowSize, nextHeight, parents)
+    else {
+      val parentsRowSize = rowSize / 2
+      recalculateNodes(parentsRowSize, nextHeight, dirtyNodes)
+    }
   }
 
   private def recalculateLeafs(size: Int, bits: util.BitSet): Array[Byte] = {
@@ -184,8 +190,12 @@ object BinaryMerkleTree {
 
   def bytesToHex(hashInBytes: Array[Byte]): String = {
     val sb = new StringBuilder
-    for (b <- hashInBytes) yield {
-      sb.append(Integer.toHexString(b))
+    if (hashInBytes == null) {
+      sb.append(Integer.toHexString(0))
+    } else {
+      for (b <- hashInBytes) yield {
+        sb.append(Integer.toHexString(b))
+      }
     }
     sb.toString
   }

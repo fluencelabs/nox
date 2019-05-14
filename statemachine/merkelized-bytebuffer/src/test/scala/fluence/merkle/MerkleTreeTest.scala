@@ -59,35 +59,35 @@ class MerkleTreeTest extends WordSpec with Matchers {
     }
 
     val hash1 = tree.recalculateHash()
-    appendBuffer() shouldBe hash1
+    hash1 shouldBe appendBuffer()
 
     storage.put(4, 7)
     val hash2 = tree.recalculateHash()
-    appendBuffer() shouldBe hash2
+    hash2 shouldBe appendBuffer()
 
     storage.put(chunkSize, 4)
     val hash3 = tree.recalculateHash()
-    appendBuffer() shouldBe hash3
+    hash3 shouldBe appendBuffer()
 
     storage.put(chunkSize - 1, 3)
     val hash31 = tree.recalculateHash()
-    appendBuffer() shouldBe hash31
+    hash31 shouldBe appendBuffer()
 
     storage.put(chunkSize + 1, 2)
     val hash32 = tree.recalculateHash()
-    appendBuffer() shouldBe hash32
+    hash32 shouldBe appendBuffer()
 
     (0 until size).foreach(i => storage.put(i, 8))
     val hash4 = tree.recalculateHash()
-    appendBuffer() shouldBe hash4
+    hash4 shouldBe appendBuffer()
 
     storage.put(1, 3)
     val hash5 = tree.recalculateHash()
-    appendBuffer() shouldBe hash5
+    hash5 shouldBe appendBuffer()
 
     storage.put(size - 1, 9)
     val hash6 = tree.recalculateHash()
-    appendBuffer() shouldBe hash6
+    hash6 shouldBe appendBuffer()
   }
 
   "huge tree" in {
