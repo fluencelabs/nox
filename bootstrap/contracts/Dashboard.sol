@@ -48,4 +48,23 @@ contract Dashboard {
 
         return (appIDs, storageHashes, owners);
     }
+
+    function getNodes()
+    external
+    view
+    returns (bytes32[] memory, address[] memory, uint16[] memory, bool[] memory) {
+        bytes32[] memory nodeIDs = network.getNodesIds();
+
+        address[] memory owners = new address[](nodeIDs.length);
+        uint16[] memory capacities = new uint16[](nodeIDs.length);
+        bool[] memory privateness = new bool[](nodeIDs.length);
+        for (uint8 i = 0; i < nodeIDs.length; i++) {
+            (,,uint16 capacity, address owner, bool isPrivate,) = network.getNode(nodeIDs[i]);
+            owners[i] = owner;
+            capacities[i] = capacity;
+            privateness[i] = isPrivate;
+        }
+
+        return (nodeIDs, owners, capacities, privateness);
+    }
 }
