@@ -1,26 +1,42 @@
 package fluence.merkle
 
-import java.util
+import java.nio.ByteBuffer
+import java.util.BitSet
 
 import scala.language.higherKinds
 
+/**
+ *
+ *
+ * Note: use different hash functions for leafs and other nodes is to prevent preimage attacks.
+ * https://crypto.stackexchange.com/questions/2097/how-does-a-tiger-tree-hash-handle-data-whose-size-isnt-a-power-of-two/2103#2103
+ * https://crypto.stackexchange.com/questions/2106/what-is-the-purpose-of-using-different-hash-functions-for-the-leaves-and-interna
+ *
+ * @param allNodes
+ * @param treeHeight
+ * @param chunkSize
+ * @param mappedLeafCount
+ * @param hashLeafs
+ * @param hashNodes
+ * @param storage
+ */
 class BinaryMerkleTree private (
   val allNodes: Array[Array[Byte]],
   val treeHeight: Int,
   chunkSize: Int,
   mappedLeafCount: Int,
-  hashFunc: Array[Byte] => Array[Byte],
+  hashLeafs: ByteBuffer => Array[Byte],
+  hashNodes: Array[Byte] => Array[Byte],
   storage: TrackingMemoryBuffer
 ) {
   import TreeMath._
 
   val leafsCount: Int = power2(treeHeight)
   private val startOfLeafIndex = leafsCount
-  private val defaultLeafChunk = defaultLeaf(chunkSize)
 
-  private def hash(t: Array[Byte]): Array[Byte] = hashFunc(t)
-
-  private def concatenate(l: Array[Byte], r: Array[Byte]): Array[Byte] = l ++ r
+  private def concatenate(l: Array[Byte], r: Array[Byte]): Array[Byte] =
+    if (r == null) l
+    else l ++ r
 
   private def defaultLeaf(chunkSize: Int): Array[Byte] = Array.fill(chunkSize)(0)
 
@@ -65,15 +81,15 @@ class BinaryMerkleTree private (
    * @return root hash
    */
   def recalculateHash(): Array[Byte] = {
-    val hash = recalculateLeafs(leafsCount, storage.getDirtyChunks)
+    val hash = recalculateLeafs(mappedLeafCount, storage.getDirtyChunks)
     storage.getDirtyChunks.clear()
     hash
   }
 
   // for test purpose only
   def recalculateAll(): Array[Byte] = {
-    val allLeafs = leafsCount
-    val bs = new util.BitSet(allLeafs)
+    val allLeafs = mappedLeafCount
+    val bs = new BitSet(allLeafs)
     bs.set(0, allLeafs)
     recalculateLeafs(allLeafs, bs)
   }
@@ -84,16 +100,13 @@ class BinaryMerkleTree private (
    * @param pos leaf position
    */
   private def recalculateLeafHash(pos: Int): Unit = {
-    val index = startOfLeafIndex + pos - 1
-    val bytes = if (pos >= mappedLeafCount) {
-      defaultLeafChunk
-    } else {
+    if (pos < mappedLeafCount) {
+      val index = startOfLeafIndex + pos - 1
       val offset = pos * chunkSize
-      storage.getChunk(offset)
+      val bytes = storage.getChunk(offset)
+      val newHash = hashLeafs(bytes)
+      allNodes(index) = newHash
     }
-
-    val newHash = hash(bytes)
-    allNodes(index) = newHash
   }
 
   /**
@@ -108,13 +121,13 @@ class BinaryMerkleTree private (
     } else {
       val (l, r) = getChildren(height, pos)
       val newHash =
-        hash(concatenate(l, r))
+        hashNodes(concatenate(l, r))
       allNodes(getNodeIndex(height, pos)) = newHash
     }
   }
 
   private def calculateRootHash(): Array[Byte] = {
-    allNodes(0) = hash(concatenate(allNodes(1), allNodes(2)))
+    allNodes(0) = hashNodes(concatenate(allNodes(1), allNodes(2)))
     allNodes(0)
   }
 
@@ -128,7 +141,7 @@ class BinaryMerkleTree private (
    * @return root hash
    */
   @scala.annotation.tailrec
-  private def recalculateNodes(rowSize: Int, height: Int, dirtyNodes: util.BitSet): Array[Byte] = {
+  private def recalculateNodes(rowSize: Int, height: Int, dirtyNodes: BitSet): Array[Byte] = {
     var dirtyNodeId = dirtyNodes.nextSetBit(0)
     while (dirtyNodeId >= 0 && dirtyNodeId < rowSize) {
       calculateNodeHash(height, dirtyNodeId)
@@ -141,12 +154,12 @@ class BinaryMerkleTree private (
     val nextHeight = height - 1
     if (nextHeight == 0) calculateRootHash()
     else {
-      val parentsRowSize = rowSize / 2
+      val parentsRowSize = (rowSize + 1) / 2
       recalculateNodes(parentsRowSize, nextHeight, dirtyNodes)
     }
   }
 
-  private def recalculateLeafs(size: Int, bits: util.BitSet): Array[Byte] = {
+  private def recalculateLeafs(size: Int, bits: BitSet): Array[Byte] = {
     recalculateNodes(size, treeHeight, bits)
   }
 
@@ -173,13 +186,12 @@ class BinaryMerkleTree private (
       treeNodesStr.map(_._2.foldLeft(0) { case (acc, str) => acc + str.length + spaceSize }).max
     treeNodesStr.map { case (k, v) => (k, v) }.toList.sortBy(_._1).foreach {
       case (_, els) =>
-        els.zipWithIndex.foreach {
-          case (str, i) =>
-            val size = scala.math.ceil(lineSize.toDouble / els.size).toInt
-            val strLen = str.length
-            val pads = " " * ((size - strLen) / 2)
+        els.foreach { str =>
+          val size = scala.math.ceil(lineSize.toDouble / els.size).toInt
+          val strLen = str.length
+          val pads = " " * ((size - strLen) / 2)
 
-            print(pads + str + pads)
+          print(pads + str + pads)
         }
         println()
     }
@@ -191,7 +203,7 @@ object BinaryMerkleTree {
   def bytesToHex(hashInBytes: Array[Byte]): String = {
     val sb = new StringBuilder
     if (hashInBytes == null) {
-      sb.append(Integer.toHexString(0))
+      sb.append("E")
     } else {
       for (b <- hashInBytes) yield {
         sb.append(Integer.toHexString(b))
@@ -200,9 +212,18 @@ object BinaryMerkleTree {
     sb.toString
   }
 
+  /**
+   *
+   * @param chunkSize
+   * @param hashFuncLeafs
+   * @param hashFuncNodes
+   * @param storage
+   * @return
+   */
   def apply(
     chunkSize: Int,
-    hashFunc: Array[Byte] => Array[Byte],
+    hashFuncLeafs: ByteBuffer => Array[Byte],
+    hashFuncNodes: Array[Byte] => Array[Byte],
     storage: TrackingMemoryBuffer
   ): BinaryMerkleTree = {
     import TreeMath._
@@ -232,7 +253,8 @@ object BinaryMerkleTree {
 
     val arrayTree = new Array[Array[Byte]](numberOfNodes)
 
-    val tree = new BinaryMerkleTree(arrayTree, treeHeight, chunkSize, mappedLeafCount, hashFunc, storage)
+    val tree =
+      new BinaryMerkleTree(arrayTree, treeHeight, chunkSize, mappedLeafCount, hashFuncLeafs, hashFuncNodes, storage)
     tree.recalculateAll()
     tree
   }

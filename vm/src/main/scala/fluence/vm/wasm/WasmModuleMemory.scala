@@ -21,7 +21,6 @@ import asmble.compile.jvm.MemoryBuffer
 import fluence.vm.utils.safelyRunThrowable
 import cats.Monad
 import cats.data.EitherT
-import fluence.crypto.Crypto.Hasher
 import fluence.vm.VmError.VmMemoryError
 import fluence.vm.VmError.WasmVmError.GetVmStateError
 
@@ -93,10 +92,10 @@ object WasmModuleMemory {
 
   def apply(
     memory: MemoryBuffer,
-    hasher: Hasher[Array[Byte], Array[Byte]]
+    memoryHasher: MemoryHasher.Builder
   ): Either[GetVmStateError, WasmModuleMemory] = {
     for {
-      memoryHasher <- MemoryHasher(memory, hasher)
+      memoryHasher <- memoryHasher(memory)
     } yield new WasmModuleMemory(memory, memoryHasher)
   }
 }

@@ -10,14 +10,14 @@ class TrackingMemoryBuffer(val bb: ByteBuffer, size: Int, val chunkSize: Int) ex
 
   private val dirtyChunks = new util.BitSet(size / chunkSize)
 
-  def getChunk(offset: Int): Array[Byte] = {
+  def getChunk(offset: Int): ByteBuffer = {
     val arr = new Array[Byte](chunkSize)
     val duplicated = bb.duplicate()
     duplicated.order(ByteOrder.LITTLE_ENDIAN)
     duplicated.clear()
     duplicated.position(offset)
-    duplicated.get(arr, 0, chunkSize)
-    arr
+    duplicated.limit(offset + chunkSize)
+    duplicated
   }
 
   def getDirtyChunks: util.BitSet = dirtyChunks

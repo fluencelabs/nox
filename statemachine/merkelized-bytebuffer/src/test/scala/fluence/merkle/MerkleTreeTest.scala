@@ -40,8 +40,9 @@ class MerkleTreeTest extends WordSpec with Matchers {
 
   "check hash calculation" in {
 
-    val size = 900
     val chunkSize = 25
+    // not 1024 to leave the last leafs empty
+    val size = 25 * 1022
     val (storage, tree) = TestUtils.initBytesTestMerkle(size, chunkSize)
 
     val leafsCount = tree.leafsCount
@@ -51,11 +52,10 @@ class MerkleTreeTest extends WordSpec with Matchers {
     storage.put(3, 7)
 
     def appendBuffer() = {
-      val charsToAppend = leafsCount * chunkSize - size
       val arr = new Array[Byte](size)
       storage.position(0)
       storage.bb.get(arr)
-      arr ++ Array.fill[Byte](charsToAppend)(0)
+      arr
     }
 
     val hash1 = tree.recalculateHash()
@@ -94,7 +94,14 @@ class MerkleTreeTest extends WordSpec with Matchers {
     val startTime = System.currentTimeMillis()
     val size = 1 * 1024 * 1024 * 1024
     val digester = MessageDigest.getInstance("SHA-256")
-    val (storage, tree) = TestUtils.initBytesTestMerkle(size, 4 * 1024, digester.digest)
+    val (storage, tree) =
+      TestUtils.initBytesTestMerkle(
+        size,
+        4 * 1024,
+        direct = true,
+        b => { digester.update(b); digester.digest() },
+        digester.digest
+      )
 
     def rndIndex = (math.random() * size).toInt
     def rndByte = (math.random() * Byte.MaxValue).toByte

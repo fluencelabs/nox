@@ -17,6 +17,7 @@
 package fluence.vm.wasm
 
 import java.lang.reflect.Modifier
+import java.nio.ByteBuffer
 
 import asmble.compile.jvm.MemoryBuffer
 import asmble.run.jvm.Module.Compiled
@@ -155,7 +156,7 @@ object WasmModule {
     allocationFunctionName: String,
     deallocationFunctionName: String,
     invokeFunctionName: String,
-    hasher: Hasher[Array[Byte], Array[Byte]]
+    memoryHasher: MemoryHasher.Builder
   ): Either[ApplyError, WasmModule] =
     for {
 
@@ -184,11 +185,11 @@ object WasmModule {
         getMemoryMethod.invoke(moduleInstance).asInstanceOf[MemoryBuffer]
       }.toEither.leftMap { e ⇒
         InitializationError(
-          s"Unable to get memory from module=${moduleDescription.getName}",
+          s"Unable to get memory from module=${Option(moduleDescription.getName).getOrElse("<no-name>")}",
           Some(e)
         ): ApplyError
       }
-      moduleMemory <- WasmModuleMemory(memory, hasher).leftMap(
+      moduleMemory <- WasmModuleMemory(memory, memoryHasher).leftMap(
         e ⇒
           InitializationError(
             s"Unable to instantiate WasmModuleMemory for module=${moduleDescription.getName}",
