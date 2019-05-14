@@ -140,15 +140,14 @@ object SbtCommons {
 
   val rocksDb = "org.rocksdb" % "rocksdbjni" % "5.17.2"
 
-  /* Test deps*/
-
-  val scalaTest = "org.scalatest"            %% "scalatest"   % "3.0.5"  % Test
-  val scalaIntegrationTest = "org.scalatest" %% "scalatest"   % "3.0.5"  % IntegrationTest
-  val mockito = "org.mockito"                % "mockito-core" % "2.21.0" % Test
-
   val protobuf = "io.github.scalapb-json"  %% "scalapb-circe"     % "0.4.3"
   val protobufUtil = "com.google.protobuf" % "protobuf-java-util" % "3.7.1"
 
   val bouncyCastle = "org.bouncycastle" % "bcprov-jdk15on" % "1.61"
 
+  /* Test deps*/
+
+  val scalaTest = "org.scalatest"            %% "scalatest"   % "3.0.5"  % Test
+  val scalaIntegrationTest = "org.scalatest" %% "scalatest"   % "3.0.5"  % IntegrationTest
+  val mockito = "org.mockito"                % "mockito-core" % "2.21.0" % Test
 }

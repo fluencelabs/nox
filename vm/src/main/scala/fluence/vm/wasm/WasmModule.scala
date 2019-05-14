@@ -178,6 +178,7 @@ object WasmModule {
       // accessing is more complicated because Mem provides a more low level and nonsuitable interface for
       // use, but it gives us the capability for getting memory for any module. And in the future, we
       // should move to it.
+      // TODO: patch Asmble to create `getMemory` method in all cases
       memory ← Try {
         val getMemoryMethod = moduleInstance.getClass.getMethod("getMemory")
         getMemoryMethod.invoke(moduleInstance).asInstanceOf[MemoryBuffer]
