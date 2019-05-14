@@ -33,7 +33,7 @@ import scala.language.higherKinds
  */
 case class WasmFunction(
   fnName: String,
-  javaMethod: Method,
+  javaMethod: Method
 ) {
 
   /**

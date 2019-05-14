@@ -69,5 +69,5 @@ private[block] case class Header(
   app_hash: ByteVector,
   last_results_hash: ByteVector,
   evidence_hash: ByteVector,
-  proposer_address: ByteVector,
+  proposer_address: ByteVector
 )

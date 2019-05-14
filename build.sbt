@@ -27,7 +27,7 @@ lazy val vm = (project in file("vm"))
       cats,
       catsEffect,
       pureConfig,
-      cryptoHashing,
+      cryptoHashsign,
       scalaTest,
       scalaIntegrationTest,
       mockito,
@@ -91,8 +91,7 @@ lazy val `vm-hello-world-runner` = (project in file("vm/src/it/resources/test-ca
       asmble,
       cats,
       catsEffect,
-      pureConfig,
-      cryptoHashing,
+      pureConfig
     )
   )
   .dependsOn(vm, `vm-hello-world`)
@@ -190,7 +189,7 @@ lazy val swarm = (project in file("effects/swarm"))
       scodecBits,
       scodecCore,
       web3jCrypto,
-      cryptoHashing,
+      cryptoHashsign,
       scalaTest
     )
   )
@@ -281,12 +280,29 @@ lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
       protobuf,
       protobufUtil,
       scodecBits,
-      cryptoHashing,
+      cryptoHashsign,
       scalaTest,
       bouncyCastle
     )
   )
   .dependsOn(effects)
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `kademlia` = (project in file("kademlia"))
+  .settings(
+    commons,
+    kindProjector,
+    libraryDependencies ++= Seq(
+      slogging,
+      cats,
+      catsEffect,
+      codecCore,
+      cryptoJwt,
+      cryptoHashsign,
+      scalaTest
+    )
+  )
+  .dependsOn(`kvstore`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val node = project

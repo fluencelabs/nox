@@ -52,4 +52,28 @@ contract('Dashboard', function ([_, owner, anyone, other]) {
         assert.equal(result[2][1], anyone);
         assert.equal(result[2][2], anyone);
     });
+
+    it("Get nodes (dashboard)", async function () {
+        let count = 3;
+        let add = await addNodes(count, count);
+
+        let result = await global.dashboard.getNodes();
+        let nodeIDs = result[0];
+        let owners = result[1];
+        let capacity = result[2];
+        let privacy = result[3];
+
+        assert.equal(nodeIDs.length, count);
+        assert.equal(owners.length, count);
+        assert.equal(capacity.length, count);
+        assert.equal(privacy.length, count);
+
+        owners.forEach(o => assert.equal(o, anyone));
+        capacity.forEach(c => assert.equal(c, count));
+        privacy.forEach(p => assert.equal(p, false));
+
+        for (let i = 0; i < count; i++) {
+            assert.equal(add[i].nodeID, nodeIDs[i]);
+        }
+    });
 });

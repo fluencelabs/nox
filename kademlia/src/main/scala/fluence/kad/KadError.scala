@@ -14,23 +14,10 @@
  * limitations under the License.
  */
 
-package fluence.effects.tendermint.block.data
+package fluence.kad
 
-import proto3.tendermint.{BlockID, Vote}
+sealed trait KadError
 
-private[block] object Commit {
-  import Block.decodeVote
-  import Header.decodeBlockID
-  import io.circe.Decoder
-  import io.circe.generic.semiauto.deriveDecoder
+sealed trait JoinError extends KadError
 
-  implicit val commitDecoder: Decoder[Commit] = deriveDecoder[Commit]
-}
-
-/**
- * Representation of the Tendermint's commit structure
- */
-private[block] case class Commit(
-  block_id: BlockID,
-  precommits: List[Option[Vote]]
-)
+case object CantJoinAnyNode extends JoinError

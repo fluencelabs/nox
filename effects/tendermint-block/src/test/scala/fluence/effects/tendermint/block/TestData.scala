@@ -446,6 +446,6 @@ object TestData {
     0 -> ByteVector.fromBase64("j0ZM+xnnX0ZjCavm4zW06+71mbamGAiye3v0GxGJY0Y=").get,
     1 -> ByteVector.fromBase64("oq0QENlTvGeV7eMugt3v3cv9dmmuxoVcr3BI7AiUgH4=").get,
     2 -> ByteVector.fromBase64("9bbFPqyTgxVLe4bddNa1FRPREltHH+JQ3vSLUQtc+zI=").get,
-    3 -> ByteVector.fromBase64("vAs+M0nQVqntR6jjPqTsHpJ4bsswA3ohx05yorqveyc=").get,
+    3 -> ByteVector.fromBase64("vAs+M0nQVqntR6jjPqTsHpJ4bsswA3ohx05yorqveyc=").get
   )
 }
