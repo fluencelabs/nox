@@ -25,11 +25,9 @@ Fluence CLI is an automation tool for tasks of app management (deployment and de
 
 ## Requirements
 
-CLI assumes running Ethereum and Swarm on `http://data.fluence.one:8545/` and `http://data.fluence:8500/` respectively. Use `--eth_url` and `--storage_url` to specify actual addresses as you need.
+CLI assumes running Ethereum and IPFS on `http://geth.fluence.one:8545/` and `http://ipfs.fluence:8500/` respectively. Use `--eth_url` and `--storage_url` to specify actual addresses as you need.
 
 Please note, that your Ethereum account should have sufficient funds for issuing transactions to smart-contract. It's only for transaction fees, Fluence itself doesn't currently charge miners or developers. That could change in the future, for example when miners' deposits are implemented.
-
-Also, take a look at [deployment scripts](../tools/deploy/README.md), they will assist you in running Swarm, Ethereum and Fluence nodes.
 
 
 ## Installation
@@ -53,11 +51,11 @@ Use `setup` command to enter main arguments into a config file. It will allow no
 ```bash
 ./fluence setup
 ```
-Contract address, Ethereum, and Swarm node addresses have defaults, but account address and credentials (secret key or Ethereum keystore and password) should be filled for correct transaction sending.
+Contract address, Ethereum, and IPFS node addresses have defaults, but account address and credentials (secret key or Ethereum keystore and password) should be filled for correct transaction sending.
 Arguments description and examples:
 - `0xeFF91455de6D4CF57C141bD8bF819E5f873c1A01` is a contract address, register transaction will be sent there
-- `http://data.fluence.one:8545` is an URL to Ethereum node
-- `http://data.fluence.one:8500` is an URL to Swarm node
+- `http://geth.fluence.one:8545` is an URL to Ethereum node
+- `http://ipfs.fluence.one:5001` is an URL to IPFS node
 - `0x4180fc65d613ba7e1a385181a219f1dbfe7bf11d` will be used as Ethereum account for issuing transactions. _Use your Ethereum account here_
 - `0xcb0799337df06a6c73881bab91304a68199a430ccd4bc378e37e51fd1b118133` denotes an Ethereum private key, used for offline transaction signing. _Use your Ethereum private key here_
 - it is possible to use keystore file and password instead of secret key
@@ -90,7 +88,7 @@ Parameters are:
 
 
 ### Publish an app
-To deploy your app on Fluence network, you must upload it to Swarm and publish hash to smart-contract. The simplest way to achieve that is to use CLI command `publish`.
+To deploy your app on Fluence network, you must upload it to IPFS and publish hash to smart-contract. The simplest way to achieve that is to use CLI command `publish`.
 
 The following command will publish app `counter.wasm`.
 ```
@@ -118,7 +116,7 @@ You can pass `--wait` option to `publish` command, and CLI will wait until trans
 Deployed application:
 ```bash
 [1/3]   Application code uploaded. ---> [00:00:00]
-swarm hash: 0x585114171e6b1639af3e9a4f237d8da6d1c5624b235cb45c062ca5d89a151cc2
+IPFS hash: 0x585114171e6b1639af3e9a4f237d8da6d1c5624b235cb45c062ca5d89a151cc2
 [2/3]   Transaction publishing app was sent. ---> [00:00:00]
   tx hash: 0xf62a8823e95804bf1f8d3832c0c49d44c7c138c1a541f9f5c0dbe7cd34056f40
 [3/3]   Transaction was included. ---> [00:00:00]
@@ -130,7 +128,7 @@ App deployed.
 Enqueued:
 ```bash
 [1/3]   Application code uploaded. ---> [00:00:00]
-swarm hash: 0x585114171e6b1639af3e9a4f237d8da6d1c5624b235cb45c062ca5d89a151cc2
+IPFS hash: 0x585114171e6b1639af3e9a4f237d8da6d1c5624b235cb45c062ca5d89a151cc2
 [2/3]   Transaction publishing app was sent. ---> [00:00:00]
   tx hash: 0x4e87150da0e273fc7d44324e6843ba9abb91413f6fb6fdce67b7f7d4a1dd320a
 [3/3]   Transaction was included. ---> [00:00:00]

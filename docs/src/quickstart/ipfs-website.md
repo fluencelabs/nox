@@ -12,15 +12,15 @@ Fluence nodes are stateful but it is wasteful to store website (or something els
 
 First of all, we need already written frontend interacting with Fluence nodes.
 
-And then let's upload directory with frontend code:
+And then let's upload directory with built frontend code:
 ```
-IPFS_ADDR=$(host data.fluence.one | awk '/has address/ { print $4 }')
-ipfs --api /ip4/$IPFS_ADDR/tcp/5001 add -r build/
+IPFS_ADDR=$(host ipfs.fluence.one | awk '/has address/ { print $4 }')
+ipfs --api /ip4/$IPFS_ADDR/tcp/5001 add -r path/to/built/frontend
 ```
-`IPFS_ADDR` - is a data.fluence.one ip address
+`IPFS_ADDR` - is a ipfs.fluence.one ip address
 
-This command will return a hash of directory. We can check if the directory is uploaded by opening a link with this hash: `http://data.fluence.one:8080/ipfs/<IpfsHash>`
+This command will return a hash of directory. We can check if the directory is uploaded by opening a link with this hash: `http://ipfs.fluence.one:8080/ipfs/<IpfsHash>`
 
-That's it! Now your frontend code is available with this link: `http://data.fluence.one:8080/ipfs/<IpfsHash>/index.html`
+That's it! Now your frontend code is available with this link: `http://ipfs.fluence.one:8080/ipfs/<IpfsHash>/index.html`
 
 Note, that your entrypoint is not `index.html`, change the link to right one. 

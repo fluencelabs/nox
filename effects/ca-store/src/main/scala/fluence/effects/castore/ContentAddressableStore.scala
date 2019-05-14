@@ -17,18 +17,13 @@
 package fluence.effects.castore
 
 import java.nio.ByteBuffer
-import java.util.concurrent.Executors
 
-import cats.MonadError
 import cats.data.EitherT
 import scodec.bits.ByteVector
 
-import scala.concurrent.ExecutionContext
 import scala.language.higherKinds
 
-abstract class ContentAddressableStore[F[_]](
-  blockingCtx: ExecutionContext = ExecutionContext.fromExecutorService(Executors.newCachedThreadPool())
-)(implicit F: cats.Functor[F]) {
+trait ContentAddressableStore[F[_]] {
 
   /**
    * Fetches contents corresponding to the given hash.

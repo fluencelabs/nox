@@ -30,7 +30,7 @@ import fluence.effects.Backoff
 import fluence.effects.castore.StoreError
 import fluence.effects.docker.DockerIO
 import fluence.effects.ethclient.EthClient
-import fluence.effects.ipfs.IpfsStore
+import fluence.effects.ipfs.{IpfsClient, IpfsStore}
 import fluence.effects.swarm.{SwarmClient, SwarmStore}
 import fluence.node.code.{CodeCarrier, LocalCodeCarrier, PolyStore, RemoteCodeCarrier}
 import fluence.node.config.storage.RemoteStorageConfig
@@ -174,30 +174,25 @@ object MasterNode extends LazyLogging {
    * @param masterConfig MasterConfig
    * @param nodeConfig NodeConfig
    * @param sttpBackend HTTP client implementation
-   * @param P Parallel instance, used for Workers
    * @return Prepared [[MasterNode]], then see [[MasterNode.run]]
    */
-  def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer: DockerIO, G[_]](
+  def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer, G[_]](
     masterConfig: MasterConfig,
     nodeConfig: NodeConfig,
     pool: WorkersPool[F]
   )(
-    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
-    P: Parallel[F, G]
+    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]
   ): Resource[F, MasterNode[F]] =
     for {
       ethClient ← EthClient.make[F](Some(masterConfig.ethereum.uri))
-
-      _ = logger.debug("-> going to create a pool")
-
-      // TODO wrap Paths.get somehow?
-      rootPath = Paths.get(masterConfig.rootPath).toAbsolutePath
 
       _ = logger.debug("-> going to create nodeEth")
 
       nodeEth ← NodeEth[F](nodeConfig.validatorKey.toByteVector, ethClient, masterConfig.contract)
 
       codeCarrier ← Resource.pure(codeCarrier[F](masterConfig.remoteStorage))
+
+      rootPath <- Resource.liftF(IO(Paths.get(masterConfig.rootPath).toAbsolutePath).to[F])
 
       configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath, masterConfig.tendermintConfig))
     } yield
@@ -216,9 +211,8 @@ object MasterNode extends LazyLogging {
   )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]): CodeCarrier[F] =
     if (config.enabled) {
       implicit val b: Backoff[StoreError] = Backoff.default
-      val swarmClient = SwarmClient[F](config.swarm.address)
-      val swarmStore = new SwarmStore[F](swarmClient)
-      val ipfsStore = new IpfsStore[F](config.ipfs.address)
+      val swarmStore = SwarmStore[F](config.swarm.address)
+      val ipfsStore = IpfsStore[F](config.ipfs.address)
       val polyStore = new PolyStore[F]({
         case StorageType.Swarm => swarmStore
         case StorageType.Ipfs => ipfsStore

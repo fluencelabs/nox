@@ -124,6 +124,8 @@ function container_update()
     # TODO recreate containers if they became an updated
     docker pull ethereum/client-go:stable >/dev/null
     printf '.'
+    docker pull ipfs/go-ipfs:latest >/dev/null
+    printf '.'
     docker pull parity/parity:stable >/dev/null
     printf '.'
     docker pull ethdevops/swarm:edge >/dev/null
@@ -198,6 +200,7 @@ function export_arguments()
     export PARITY_RESERVED_PEERS='../config/reserved_peers.txt'
 
     export FLUENCE_STORAGE="$HOME/.fluence/"
+    export IPFS_STORAGE="$FLUENCE_STORAGE/ipfs/"
     export PARITY_STORAGE="$HOME/.parity/"
     export GETH_STORAGE="$HOME/.geth"
 }
@@ -212,6 +215,19 @@ function start_swarm()
             # todo get rid of `sleep`
             sleep 15
             echo "Swarm container is started"
+        fi
+    fi
+}
+
+function start_ipfs()
+{
+    if [ ! "$(docker ps -q -f name=ipfs)" ]; then
+        if [ "$LOCAL_IPFS_ENABLED" == true ]; then
+            echo "Starting IPFS container"
+            docker-compose --compatibility -f ipfs.yml up -d >/dev/null
+            # todo get rid of `sleep`
+            sleep 15
+            echo "IPFS container is started"
         fi
     fi
 }
@@ -346,6 +362,8 @@ function deploy()
     container_update
 
     start_swarm
+
+    start_ipfs
 
     start_ethereum
 

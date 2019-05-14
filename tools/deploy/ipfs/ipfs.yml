@@ -1,0 +1,13 @@
+version: '3.4'
+services:
+  ipfs:
+    image: "ipfs/go-ipfs:latest"
+    restart: always
+    container_name: "ipfs"
+    volumes:
+      - /root/.ipfs/staging:/export
+      - /root/.ipfs/data:/data/ipfs
+    ports:
+      - 4001:4001
+      - 8080:8080
+      - 5001:5001

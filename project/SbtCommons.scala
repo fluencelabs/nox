@@ -3,6 +3,8 @@ import de.heikoseeberger.sbtheader.License
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys._
 import sbt.{Def, _}
+import sbtassembly.AssemblyPlugin.autoImport.assemblyMergeStrategy
+import sbtassembly.{MergeStrategy, PathList}
 import sbtdocker.DockerPlugin.autoImport.docker
 
 import scala.sys.process._
@@ -33,6 +35,16 @@ object SbtCommons {
     resolvers += Resolver.sonatypeRepo("releases"),
     addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
   )
+
+  val mergeStrategy = Def.setting[String => MergeStrategy]({
+    // a module definition fails compilation for java 8, just skip it
+    case PathList("module-info.class", xs @ _*) => MergeStrategy.first
+    case "META-INF/io.netty.versions.properties" => MergeStrategy.first
+    case x =>
+      import sbtassembly.AssemblyPlugin.autoImport.assembly
+      val oldStrategy = (assemblyMergeStrategy in assembly).value
+      oldStrategy(x)
+  }: String => MergeStrategy)
 
   def rustVmTest(testName: String): Seq[Def.Setting[_]] =
     Seq(
@@ -76,7 +88,7 @@ object SbtCommons {
 
   /* Common deps */
 
-  val asmble = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.5-fl-test15"
+  val asmble = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.5-fl"
 
   val slogging = "biz.enef"        %% "slogging"    % "0.6.1"
   val cats = "org.typelevel"       %% "cats-core"   % "1.5.0"
@@ -92,8 +104,9 @@ object SbtCommons {
   val pureConfig = "com.github.pureconfig" %% "pureconfig" % "0.10.2"
   val ficus = "com.iheart"                 %% "ficus"      % "1.4.5"
 
-  val cryptoVersion = "0.0.3"
-  val cryptoHashing = "one.fluence"  %% "crypto-hashsign" % cryptoVersion
+  val cryptoVersion = "0.0.4"
+  val cryptoHashsign = "one.fluence" %% "crypto-hashsign" % cryptoVersion
+  val cryptoJwt = "one.fluence"      %% "crypto-jwt"      % cryptoVersion
   val cryptoCipher = "one.fluence"   %% "crypto-cipher"   % cryptoVersion
   val cryptoKeyStore = "one.fluence" %% "crypto-keystore" % cryptoVersion
   val codecCore = "one.fluence"      %% "codec-core"      % "0.0.4"
@@ -114,6 +127,7 @@ object SbtCommons {
   val circeGeneric = "io.circe"       %% "circe-generic"        % circeVersion
   val circeGenericExtras = "io.circe" %% "circe-generic-extras" % circeVersion
   val circeParser = "io.circe"        %% "circe-parser"         % circeVersion
+  val circeFs2 = "io.circe"           %% "circe-fs2"            % "0.11.0"
 
   val scodecBits = "org.scodec" %% "scodec-bits" % "1.1.9"
   val scodecCore = "org.scodec" %% "scodec-core" % "1.11.3"
@@ -126,11 +140,15 @@ object SbtCommons {
 
   val rocksDb = "org.rocksdb" % "rocksdbjni" % "5.17.2"
 
-  val apacheCommons = "org.apache.commons" % "commons-lang3" % "3.9"
-
   /* Test deps*/
 
   val scalaTest = "org.scalatest"            %% "scalatest"   % "3.0.5"  % Test
   val scalaIntegrationTest = "org.scalatest" %% "scalatest"   % "3.0.5"  % IntegrationTest
   val mockito = "org.mockito"                % "mockito-core" % "2.21.0" % Test
+
+  val protobuf = "io.github.scalapb-json"  %% "scalapb-circe"     % "0.4.3"
+  val protobufUtil = "com.google.protobuf" % "protobuf-java-util" % "3.7.1"
+
+  val bouncyCastle = "org.bouncycastle" % "bcprov-jdk15on" % "1.61"
+
 }

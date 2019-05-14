@@ -31,7 +31,7 @@ case class WorkerStatus(
   isHealthy: Boolean,
   appId: Long,
   tendermint: ServiceStatus[TendermintStatus],
-  worker: ServiceStatus[Unit],
+  worker: ServiceStatus[Unit]
 )
 
 object WorkerStatus {

@@ -48,7 +48,7 @@ class SwarmClientIntegrationSpec extends FlatSpec with Matchers with EitherValue
   private implicit val sttpBackend: SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]] =
     EitherTSttpBackend[IO]()
 
-  val api = SwarmClient(uri"http://localhost:8500")
+  val api = SwarmClient[IO](uri"http://localhost:8500")
 
   val ethAddress: ByteVector = ByteVector.fromHex(Keys.getAddress(randomKeys)).get
 

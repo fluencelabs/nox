@@ -28,9 +28,9 @@ if hasattr(env, 'environment'):
     info = json.loads(info_json)[environment]
     contract = info['contract']
     nodes = info['nodes']
-    env.swarm = info['swarm']
-    env.ipfs = info['ipfs']
-    env.ethereum_ip = info['ethereum_ip']
+    env.swarm = info.get('swarm')
+    env.ipfs = info.get('ipfs')
+    env.ethereum_ip = info.get('ethereum_ip')
 else:
     # gets deployed contract address from a file
     file = open("instances.json", "r")
@@ -72,6 +72,7 @@ def copy_resources():
     put('scripts/parity.yml', 'scripts/')
     put('scripts/geth.yml', 'scripts/')
     put('scripts/swarm.yml', 'scripts/')
+    put('scripts/ipfs.yml', 'scripts/')
     put('config/reserved_peers.txt', 'config/')
 
 
@@ -133,7 +134,7 @@ def deploy():
 
 
             if not hasattr(env, 'image_tag'):
-                image_tag = "v0.1.5"
+                image_tag = "v0.1.6"
             else:
                 image_tag = env.image_tag
 
@@ -153,6 +154,7 @@ def deploy():
                            REMOTE_STORAGE_ENABLED=remote_storage_enabled,
                            ETHEREUM_SERVICE="provided",
                            ETHEREUM_IP=ethereum_ip,
+                           LOCAL_IPFS_ENABLED="false",
                            IMAGE_TAG=image_tag):
                 run('chmod +x compose.sh')
                 # the script will return command with arguments that will register node in Fluence contract

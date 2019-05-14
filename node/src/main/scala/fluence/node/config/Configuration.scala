@@ -38,7 +38,7 @@ case class Configuration(
 object Configuration extends slogging.LazyLogging {
 
   // TODO avoid this! it's not configuration, and what is being done there is very obscure!
-  def init[F[_]: LiftIO: DockerIO: Monad](masterConfig: MasterConfig)(implicit ec: ContextShift[IO]): F[Configuration] =
+  def init[F[_]: LiftIO: DockerIO: Monad](masterConfig: MasterConfig): F[Configuration] =
     for {
       rootPath <- IO(Paths.get(masterConfig.rootPath).toAbsolutePath).to[F]
       t <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.tendermint)
