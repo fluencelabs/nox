@@ -73,7 +73,8 @@ class BinaryMerkleTree private (
   }
 
   /**
-   * Recalculates hashes of dirty chunks and ascend calculation to the root of the tree.
+   * Recalculates hashes of dirty chunks and ascend calculations to the root of the tree.
+   * After this list of dirty chunks will be cleared.
    *
    * @return root hash
    */
@@ -156,47 +157,50 @@ class BinaryMerkleTree private (
     }
   }
 
-  def calculateNodeHashPrev(height: Int, pos: Int, value: Array[Byte]): Unit = {
-    val (l, r) = getChildren(height, pos)
-    val index = getNodeIndex(height, pos)
-    if (l == r) {
-      allNodes(index) = value
-    } else {
-      val newHash =
-        treeHasher.digest(concatenate(l, r))
-      allNodes(index) = newHash
-    }
-  }
+  /**
+   * Fills the tree with all hashes for empty memory.
+   */
+  private def initTree(): Unit = {
 
-  def fillLeafs(value: Array[Byte]): Unit = {
-    val firstIndex = getNodeIndex(treeHeight, 0)
-    for { i <- firstIndex until firstIndex + mappedLeafCount } yield {
-      allNodes(i) = value
+    // fills all leaves with hashes of empty byte array with the size of chunkSize
+    def fillLeaves(value: Array[Byte]): Unit = {
+      val firstIndex = getNodeIndex(treeHeight, 0)
+      for { i <- firstIndex until firstIndex + mappedLeafCount } yield {
+        allNodes(i) = value
+      }
     }
-  }
 
-  def fillRow(height: Int, rowSize: Int, value: Array[Byte]): Unit = {
-    for { i <- 0 until rowSize } yield {
-      val index = getNodeIndex(height, 0)
-      calculateNodeHashPrev(height, i, value)
+    // fills one row with precalculated hash
+    def fillRow(height: Int, rowSize: Int, value: Array[Byte]): Unit = {
+      for { i <- 0 until (rowSize - 1) } yield {
+        val index = getNodeIndex(height, i)
+        allNodes(index) = value
+      }
+
+      // last node in a row could have empty right child or different children, check this and calculate new hash if needed
+      val index = getNodeIndex(height, rowSize - 1)
+      val (l, r) = getChildren(height, rowSize - 1)
+      if (l != r) {
+        val newHash =
+          treeHasher.digest(concatenate(l, r))
+        allNodes(index) = newHash
+      } else allNodes(index) = value
+
     }
-  }
 
-  def initTree(): Unit = {
     val leafHash = treeHasher.digest(ByteBuffer.wrap(Array.fill(memory.chunkSize)(0)))
-    fillLeafs(leafHash)
-    val precalculatedHashes = mutable.Map.empty[Int, Array[Byte]]
-    precalculatedHashes.put(treeHeight, leafHash)
-    (1 until treeHeight).reverse.foldLeft[Int]((mappedLeafCount + 1) / 2) {
-      case (rowSize, height) =>
-        val previousHash = precalculatedHashes(height + 1)
+    fillLeaves(leafHash)
+
+    // go through all rows except row with leaves
+    // new rowSize calculation depends on previous rowSize
+    // new hash calculation depends on previous hash
+    (1 until treeHeight).reverse.foldLeft[(Int, Array[Byte])](((mappedLeafCount + 1) / 2, leafHash)) {
+      case ((rowSize, previousHash), height) =>
         val hash = treeHasher.digest(previousHash ++ previousHash)
         fillRow(height, rowSize, hash)
-        precalculatedHashes.put(height, hash)
-        (rowSize + 1) / 2
+        ((rowSize + 1) / 2, hash)
     }
     calculateRootHash()
-
   }
 
   private def recalculateLeafs(size: Int, bits: util.BitSet): Array[Byte] = {
@@ -240,7 +244,7 @@ class BinaryMerkleTree private (
 
 object BinaryMerkleTree {
 
-  def bytesToHex(hashInBytes: Array[Byte]): String = {
+  private def bytesToHex(hashInBytes: Array[Byte]): String = {
     val sb = new StringBuilder
     if (hashInBytes == null) {
       sb.append("E")
