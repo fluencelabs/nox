@@ -25,7 +25,7 @@ import cats.syntax.either._
 import cats.data.EitherT
 import fluence.crypto.{Crypto, CryptoError}
 import fluence.crypto.Crypto.Hasher
-import fluence.merkle.{BinaryMerkleTree, TrackingMemoryBuffer}
+import fluence.merkle.{BinaryMerkleTree, TrackingMemoryBuffer, TreeHasher}
 import fluence.vm.VmError.{InternalVmError, VmMemoryError}
 import fluence.vm.VmError.WasmVmError.GetVmStateError
 import fluence.vm.utils._
@@ -42,16 +42,8 @@ object MemoryHasher {
   type Builder = MemoryBuffer => Either[GetVmStateError, MemoryHasher]
 
   def defaultMerkleTreeHasher(memory: TrackingMemoryBuffer): Either[GetVmStateError, MemoryHasher] = {
-    val leafDigester = MessageDigest.getInstance("SHA-512")
-    val nodeDigester = MessageDigest.getInstance("SHA-256")
-    merkleHasher(memory, bb => {
-      leafDigester.reset()
-      leafDigester.update(bb)
-      leafDigester.digest()
-    }, arr => {
-      nodeDigester.reset()
-      nodeDigester.digest(arr)
-    })
+    val digester = MessageDigest.getInstance("SHA-256")
+    merkleHasher(memory, TreeHasher(digester))
   }
 
   def defaultPlainHasher(memory: MemoryBuffer): MemoryHasher = {
@@ -118,17 +110,21 @@ object MemoryHasher {
     }
   }
 
+  /**
+   * Builds memory hasher based on Merkle Tree.
+   *
+   * @param memoryBuffer an access to memory
+   * @param treeHasher class with hash functions
+   * @return
+   */
   def merkleHasher(
     memoryBuffer: TrackingMemoryBuffer,
-    leafHasher: ByteBuffer => Array[Byte],
-    nodeHasher: Array[Byte] => Array[Byte]
+    treeHasher: TreeHasher
   ): Either[GetVmStateError, MemoryHasher] = {
     for {
       tree <- Try(
         BinaryMerkleTree(
-          memoryBuffer.chunkSize,
-          leafHasher,
-          nodeHasher,
+          treeHasher,
           memoryBuffer
         )
       ).toEither.leftMap(e => InternalVmError(s"Cannot create binary Merkle Tree", Some(e)): GetVmStateError)

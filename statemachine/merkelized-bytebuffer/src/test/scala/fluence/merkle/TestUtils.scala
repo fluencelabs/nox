@@ -1,6 +1,6 @@
 package fluence.merkle
 
-import java.nio.ByteBuffer
+import java.security.MessageDigest
 
 object TestUtils {
 
@@ -8,19 +8,16 @@ object TestUtils {
     size: Int,
     chunkSize: Int,
     direct: Boolean = false,
-    hashFuncLeafs: ByteBuffer => Array[Byte] = { bb =>
-      val arr = new Array[Byte](bb.limit() - bb.position())
-      bb.get(arr)
-      arr
-    },
-    hashFuncNodes: Array[Byte] => Array[Byte] = identity
+    digester: Option[MessageDigest] = None
   ): (TrackingMemoryBuffer, BinaryMerkleTree) = {
 
     val storage =
       if (direct) TrackingMemoryBuffer.allocateDirect(size, chunkSize)
       else TrackingMemoryBuffer.allocate(size, chunkSize)
 
-    val tree = BinaryMerkleTree(chunkSize, hashFuncLeafs, hashFuncNodes, storage)
+    val hasher = digester.map(TreeHasher.apply).getOrElse(new PlainTreeHasher)
+
+    val tree = BinaryMerkleTree(hasher, storage)
 
     (storage, tree)
   }

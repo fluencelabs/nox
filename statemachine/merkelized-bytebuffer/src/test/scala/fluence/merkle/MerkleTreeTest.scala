@@ -56,7 +56,6 @@ class MerkleTreeTest extends WordSpec with Matchers {
   }
 
   "check hash calculation" in {
-
     val chunkSize = 25
     // not 1024 to leave the last leafs empty
     val size = 25 * 1022
@@ -116,8 +115,7 @@ class MerkleTreeTest extends WordSpec with Matchers {
         size,
         4 * 1024,
         direct = true,
-        b => { digester.reset(); digester.update(b); digester.digest() },
-        b => { digester.reset(); digester.digest(b) }
+        digester = Option(digester)
       )
 
     def rndIndex = (math.random() * size).toInt
@@ -158,6 +156,6 @@ class MerkleTreeTest extends WordSpec with Matchers {
     println("finish put: " + (System.currentTimeMillis() - startTime))
     val hash = tree.recalculateHash()
     println("finish recalculate: " + (System.currentTimeMillis() - startTime))
-    println("hash: " + BinaryMerkleTree.bytesToHex(hash))
+    println("hash: " + hash.mkString(" "))
   }
 }

@@ -5,13 +5,21 @@ import java.util
 
 import asmble.compile.jvm.MemoryBuffer
 
-class TrackingMemoryBuffer(val bb: ByteBuffer, size: Int, val chunkSize: Int) extends MemoryBuffer {
+/**
+ * Wrapper for `ByteBuffer` with tracking all changes in `ByteBuffer` and marking these changes in BitSet.
+ * Uses with `BinaryMerkleTree` to recalculate hash only for changed bytes.
+ *
+ * @param bb wrapped bytes
+ * @param chunkSize size of one chunk that will be marked as changed if one or more bytes will be changed in this chunk
+ */
+class TrackingMemoryBuffer(val bb: ByteBuffer, val chunkSize: Int) extends MemoryBuffer {
   import TrackingMemoryBuffer._
+
+  private val size = bb.capacity()
 
   private val dirtyChunks = new util.BitSet(size / chunkSize)
 
   def getChunk(offset: Int): ByteBuffer = {
-    val arr = new Array[Byte](chunkSize)
     val duplicated = bb.duplicate()
     duplicated.order(ByteOrder.LITTLE_ENDIAN)
     duplicated.clear()
@@ -25,7 +33,7 @@ class TrackingMemoryBuffer(val bb: ByteBuffer, size: Int, val chunkSize: Int) ex
   def slice(): ByteBuffer = bb.slice()
 
   def duplicate(): MemoryBuffer = {
-    new TrackingMemoryBuffer(bb.duplicate(), size, chunkSize)
+    new TrackingMemoryBuffer(bb.duplicate(), chunkSize)
   }
 
   def get(): Byte = bb.get()
@@ -157,11 +165,23 @@ object TrackingMemoryBuffer {
   val FLOAT_SIZE = 4
   val DOUBLE_SIZE = 8
 
+  /**
+   * Creates TrackingMemoryBuffer that wrapping HeapByteBuffer.
+   *
+   * @param capacity the new buffer's capacity, in bytes
+   * @param chunkSize size of one chunk that will be marked as changed if one or more bytes will be changed in this chunk
+   */
   def allocate(capacity: Int, chunkSize: Int): TrackingMemoryBuffer = {
-    new TrackingMemoryBuffer(ByteBuffer.allocate(capacity), capacity, chunkSize)
+    new TrackingMemoryBuffer(ByteBuffer.allocate(capacity), chunkSize)
   }
 
+  /**
+   * Creates TrackingMemoryBuffer that wrapping DirectByteBuffer.
+   *
+   * @param capacity the new buffer's capacity, in bytes
+   * @param chunkSize size of one chunk that will be marked as changed if one or more bytes will be changed in this chunk
+   */
   def allocateDirect(capacity: Int, chunkSize: Int): TrackingMemoryBuffer = {
-    new TrackingMemoryBuffer(ByteBuffer.allocateDirect(capacity), capacity, chunkSize)
+    new TrackingMemoryBuffer(ByteBuffer.allocateDirect(capacity), chunkSize)
   }
 }

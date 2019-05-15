@@ -8,31 +8,25 @@ import scala.language.higherKinds
 
 /**
  *
+ * Balanced tree that connects with ByteBuffer through leaves.
  *
- * Note: use different hash functions for leafs and other nodes is to prevent preimage attacks.
- * https://crypto.stackexchange.com/questions/2097/how-does-a-tiger-tree-hash-handle-data-whose-size-isnt-a-power-of-two/2103#2103
- * https://crypto.stackexchange.com/questions/2106/what-is-the-purpose-of-using-different-hash-functions-for-the-leaves-and-interna
- *
- * @param allNodes
- * @param treeHeight
- * @param chunkSize
- * @param mappedLeafCount
- * @param hashLeafs
- * @param hashNodes
- * @param storage
+ * @param allNodes the full tree with hashes in one array
+ * @param treeHeight the number of all rows in tree
+ * @param mappedLeafCount the number of leaves that have data from storage
+ * @param treeHasher the functionality to calculate hashes
+ * @param memory the tree is based on this memory
  */
 class BinaryMerkleTree private (
   val allNodes: Array[Array[Byte]],
   val treeHeight: Int,
-  chunkSize: Int,
   mappedLeafCount: Int,
-  hashLeafs: ByteBuffer => Array[Byte],
-  hashNodes: Array[Byte] => Array[Byte],
-  storage: TrackingMemoryBuffer
+  treeHasher: TreeHasher,
+  memory: TrackingMemoryBuffer
 ) {
   import TreeMath._
 
   val leafsCount: Int = power2(treeHeight)
+  private val chunkSize = memory.chunkSize
   private val startOfLeafIndex = leafsCount
 
   private def concatenate(l: Array[Byte], r: Array[Byte]): Array[Byte] =
@@ -84,8 +78,8 @@ class BinaryMerkleTree private (
    * @return root hash
    */
   def recalculateHash(): Array[Byte] = {
-    val hash = recalculateLeafs(mappedLeafCount, storage.getDirtyChunks)
-    storage.getDirtyChunks.clear()
+    val hash = recalculateLeafs(mappedLeafCount, memory.getDirtyChunks)
+    memory.getDirtyChunks.clear()
     hash
   }
 
@@ -106,8 +100,8 @@ class BinaryMerkleTree private (
     if (pos < mappedLeafCount) {
       val index = startOfLeafIndex + pos - 1
       val offset = pos * chunkSize
-      val bytes = storage.getChunk(offset)
-      val newHash = hashLeafs(bytes)
+      val bytes = memory.getChunk(offset)
+      val newHash = treeHasher.digest(bytes)
       allNodes(index) = newHash
     }
   }
@@ -124,13 +118,13 @@ class BinaryMerkleTree private (
     } else {
       val (l, r) = getChildren(height, pos)
       val newHash =
-        hashNodes(concatenate(l, r))
+        treeHasher.digest(concatenate(l, r))
       allNodes(getNodeIndex(height, pos)) = newHash
     }
   }
 
   private def calculateRootHash(): Array[Byte] = {
-    allNodes(0) = hashNodes(concatenate(allNodes(1), allNodes(2)))
+    allNodes(0) = treeHasher.digest(concatenate(allNodes(1), allNodes(2)))
     allNodes(0)
   }
 
@@ -169,7 +163,7 @@ class BinaryMerkleTree private (
       allNodes(index) = value
     } else {
       val newHash =
-        hashNodes(concatenate(l, r))
+        treeHasher.digest(concatenate(l, r))
       allNodes(index) = newHash
     }
   }
@@ -189,14 +183,14 @@ class BinaryMerkleTree private (
   }
 
   def initTree(): Unit = {
-    val leafHash = hashLeafs(ByteBuffer.wrap(Array.fill(chunkSize)(0)))
+    val leafHash = treeHasher.digest(ByteBuffer.wrap(Array.fill(memory.chunkSize)(0)))
     fillLeafs(leafHash)
     val precalculatedHashes = mutable.Map.empty[Int, Array[Byte]]
     precalculatedHashes.put(treeHeight, leafHash)
     (1 until treeHeight).reverse.foldLeft[Int]((mappedLeafCount + 1) / 2) {
       case (rowSize, height) =>
         val previousHash = precalculatedHashes(height + 1)
-        val hash = hashNodes(previousHash ++ previousHash)
+        val hash = treeHasher.digest(previousHash ++ previousHash)
         fillRow(height, rowSize, hash)
         precalculatedHashes.put(height, hash)
         (rowSize + 1) / 2
@@ -259,29 +253,30 @@ object BinaryMerkleTree {
   }
 
   /**
+   * Constructor to allocation nodes and leaves in the tree, calculation basic constants and hash of empty tree.
+   * Capacity of storage should be dividable by `chunkSize`
    *
-   * @param chunkSize
-   * @param hashFuncLeafs
-   * @param hashFuncNodes
-   * @param storage
-   * @return
+   * @param treeHasher the functionality to calculate hashes
+   * @param storage the structure that tree will be based on
+   * @throws RuntimeException if capacity of storage is not dividable by `chunkSize`
+   * @return tree with calculated hash
    */
   def apply(
-    chunkSize: Int,
-    hashFuncLeafs: ByteBuffer => Array[Byte],
-    hashFuncNodes: Array[Byte] => Array[Byte],
+    treeHasher: TreeHasher,
     storage: TrackingMemoryBuffer
   ): BinaryMerkleTree = {
     import TreeMath._
+
+    val chunkSize = storage.chunkSize
 
     val size = storage.capacity()
     if (size % chunkSize != 0)
       throw new RuntimeException(s"Size should be divided entirely on chunkSize. Size: $size, chunkSize: $chunkSize")
 
-    // count of leafs that mapped on byte array (can have non-zero values)
+    // count of leaves that mapped on byte array (can have non-zero values)
     val mappedLeafCount = (size + chunkSize - 1) / chunkSize
 
-    // number of leafs in ByteBuffer
+    // number of leaves in ByteBuffer
     val leafCount = {
       val power = log2(mappedLeafCount)
       val k = power2(power)
@@ -300,7 +295,7 @@ object BinaryMerkleTree {
     val arrayTree = new Array[Array[Byte]](numberOfNodes)
 
     val tree =
-      new BinaryMerkleTree(arrayTree, treeHeight, chunkSize, mappedLeafCount, hashFuncLeafs, hashFuncNodes, storage)
+      new BinaryMerkleTree(arrayTree, treeHeight, mappedLeafCount, treeHasher, storage)
     tree.initTree()
     tree
   }
