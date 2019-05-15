@@ -98,7 +98,7 @@ lazy val `vm-hello-world-runner` = (project in file("vm/src/it/resources/test-ca
   .dependsOn(vm, `vm-hello-world`)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `merkelized-bytebuffer` = (project in file("statemachine/merkelized-bytebuffer"))
+lazy val `merkelized-bytebuffer` = (project in file("vm/merkelized-bytebuffer"))
   .settings(
     commons,
     libraryDependencies ++= Seq(

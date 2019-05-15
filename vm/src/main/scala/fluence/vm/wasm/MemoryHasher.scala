@@ -147,7 +147,7 @@ object MemoryHasher {
       ).toEither.leftMap(e => InternalVmError(s"Cannot create binary Merkle Tree", Some(e)): GetVmStateError)
     } yield {
       new MemoryHasher {
-        override def computeMemoryHash[FF[_]: Monad](): EitherT[FF, GetVmStateError, Array[Byte]] = {
+        override def computeMemoryHash[F[_]: Monad](): EitherT[F, GetVmStateError, Array[Byte]] = {
           safelyRunThrowable(
             tree.recalculateHash(),
             e => InternalVmError(s"Computing wasm memory hash failed", Some(e)): GetVmStateError
