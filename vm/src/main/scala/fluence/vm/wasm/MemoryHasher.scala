@@ -41,14 +41,22 @@ object MemoryHasher {
 
   type Builder = MemoryBuffer => Either[GetVmStateError, MemoryHasher]
 
+  /**
+   * Builds memory hasher based on Merkle Tree with SHA-256 hash algorithm.
+   *
+   */
   def defaultMerkleTreeHasher(memory: TrackingMemoryBuffer): Either[GetVmStateError, MemoryHasher] = {
     val digester = MessageDigest.getInstance("SHA-256")
     merkleHasher(memory, TreeHasher(digester))
   }
 
+  /**
+   * Instantiates the class, that get all memory and hash it with SHA-256 algorithm.
+   *
+   */
   def defaultPlainHasher(memory: MemoryBuffer): MemoryHasher = {
-    val alghoritm = "SHA3-256"
-    val leafDigester = MessageDigest.getInstance("SHA-256")
+    val alghoritm = "SHA-256"
+    val leafDigester = MessageDigest.getInstance(alghoritm)
     val hasher: Hasher[ByteBuffer, Array[Byte]] = Crypto.liftFuncEither(
       bytes ⇒
         Try {
@@ -58,9 +66,13 @@ object MemoryHasher {
         }.toEither.left
           .map(err ⇒ CryptoError(s"Error on calculating $alghoritm for plain memory hasher", Some(err)))
     )
-    plainHasher(memory, hasher)
+    plainMemoryHasher(memory, hasher)
   }
 
+  /**
+   * Instantiates default hasher for different types of MemoryBuffer.
+   *
+   */
   def apply(
     memory: MemoryBuffer
   ): Either[GetVmStateError, MemoryHasher] = {
@@ -72,10 +84,15 @@ object MemoryHasher {
   }
 
   def plainHasherBuilder(hasher: Hasher[ByteBuffer, Array[Byte]]): Builder = m => {
-    Right(plainHasher(m, hasher))
+    Right(plainMemoryHasher(m, hasher))
   }
 
-  def plainHasher(memory: MemoryBuffer, hasher: Hasher[ByteBuffer, Array[Byte]]): MemoryHasher = {
+  /**
+   * Instantiates the class, that get all memory and hash it with `hasher` function on call.
+   *
+   * @param hasher hash function
+   */
+  def plainMemoryHasher(memory: MemoryBuffer, hasher: Hasher[ByteBuffer, Array[Byte]]): MemoryHasher = {
     new MemoryHasher {
       override def computeMemoryHash[F[_]: Monad](): EitherT[F, GetVmStateError, Array[Byte]] = {
         for {

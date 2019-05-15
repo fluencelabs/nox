@@ -19,15 +19,25 @@ class TrackingMemoryBuffer(val bb: ByteBuffer, val chunkSize: Int) extends Memor
 
   private val dirtyChunks = new util.BitSet(size / chunkSize)
 
-  def getChunk(offset: Int): ByteBuffer = {
+  /**
+   * Finds a chunk where byte with `index` is presented.
+   *
+   * @param index of byte
+   * @return a chunk of bytes
+   */
+  def getChunk(index: Int): ByteBuffer = {
     val duplicated = bb.duplicate()
     duplicated.order(ByteOrder.LITTLE_ENDIAN)
     duplicated.clear()
-    duplicated.position(offset)
-    duplicated.limit(offset + chunkSize)
+    duplicated.position(index)
+    duplicated.limit(index + chunkSize)
     duplicated
   }
 
+  /**
+   * Returns list of pointers on dirty chunks encoded in BitSet for compaction.
+   *
+   */
   def getDirtyChunks: util.BitSet = dirtyChunks
 
   def slice(): ByteBuffer = bb.slice()

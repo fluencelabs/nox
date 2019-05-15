@@ -83,7 +83,8 @@ object WasmVm extends LazyLogging {
    *
    * @param inFiles input files in wasm or wast format
    * @param configNamespace a path of config in 'lightbend/config terms, please see reference.conf
-   * @param cryptoHasher a hash function provider
+   * @param memoryHasher a hash function provider for calculating memory's hash
+   * @param cryptoHasher a hash function provider for module state hash calculation
    */
   def apply[F[_]: Monad](
     inFiles: NonEmptyList[String],

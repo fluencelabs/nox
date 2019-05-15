@@ -178,7 +178,7 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
       }
     }
 
-    createWasmModuleFull(instance, m => Right(MemoryHasher.plainHasher(m, plainHasher)))
+    createWasmModuleFull(instance, m => Right(MemoryHasher.plainMemoryHasher(m, plainHasher)))
   }
   private def createWasmModule(instance: AnyRef): WasmModule = createWasmModuleFull(instance, MemoryHasher.apply)
 

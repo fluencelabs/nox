@@ -3,7 +3,6 @@ package fluence.merkle
 import java.nio.ByteBuffer
 import java.util
 
-import scala.collection.mutable
 import scala.language.higherKinds
 
 /**
@@ -207,7 +206,8 @@ class BinaryMerkleTree private (
     recalculateNodes(size, treeHeight, bits)
   }
 
-  def showTree(): Unit = {
+  // shows the tree in `sout`. For test purpose only.
+  private[this] def showTree(): Unit = {
 
     var treeNodesStr: Map[Int, List[String]] = Map.empty
     val spaceSize = 4
