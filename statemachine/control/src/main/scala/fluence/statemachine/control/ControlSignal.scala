@@ -1,7 +1,8 @@
 package fluence.statemachine.control
 
-import io.circe.{Decoder, Encoder}
+import fluence.effects.tendermint.block.history.Receipt
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.{Decoder, Encoder}
 import scodec.bits.ByteVector
 
 /**
@@ -50,4 +51,12 @@ object DropPeer {
 
   implicit val enc: Encoder[DropPeer] = deriveEncoder[DropPeer]
   private implicit val encbc: Encoder[ByteVector] = Encoder.encodeString.contramap(_.toHex)
+}
+
+
+case class BlockReceipt(receipt: Receipt) extends ControlSignal
+
+object BlockReceipt {
+  implicit val dec: Decoder[BlockReceipt] = deriveDecoder[BlockReceipt]
+  implicit val enc: Encoder[BlockReceipt] = deriveEncoder[BlockReceipt]
 }

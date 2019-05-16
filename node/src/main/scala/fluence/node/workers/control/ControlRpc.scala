@@ -19,6 +19,7 @@ import cats.data.EitherT
 import cats.effect.Sync
 import com.softwaremill.sttp._
 import fluence.node.workers.status.HttpStatus
+import fluence.statemachine.control.BlockReceipt
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -46,6 +47,9 @@ abstract class ControlRpc[F[_]] {
    * Requests worker to stop
    */
   def stop: F[Unit]
+
+  // def uploadBlock(height: Long, vmHash: ByteVector, previousManifestReceipt: Option[Receipt])
+  def sendBlockReceipt(blockReceipt: BlockReceipt): F[Unit]
 }
 
 object ControlRpc {

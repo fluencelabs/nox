@@ -27,7 +27,7 @@ import fluence.codec.PureCodec
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.effects.Backoff
-import fluence.effects.node.rpc.{BlockManifest, NodeRpc, Receipt}
+import fluence.effects.node.rpc.{NodeRpc, Receipt}
 import fluence.statemachine.state.AbciState
 import scodec.bits.ByteVector
 import slogging.LazyLogging

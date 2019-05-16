@@ -1,13 +1,12 @@
-package fluence.effects.node.rpc
+package fluence.effects.tendermint.block.history
 
 import cats.instances.option._
 import cats.syntax.functor._
 import cats.{Applicative, Traverse}
 import fluence.effects.tendermint.block.data.Block
+
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
-import scodec.bits.ByteVector
-
 import scala.language.higherKinds
 
 case class Receipt() {

@@ -115,6 +115,8 @@ lazy val `statemachine-control` = (project in file("statemachine/control"))
       sttpCatsBackend % Test
     )
   )
+  .dependsOn(`tendermint-block-history`)
+  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val statemachine = (project in file("statemachine"))
   .settings(
@@ -135,7 +137,7 @@ lazy val statemachine = (project in file("statemachine"))
     dockerfile in docker := DockerContainers.worker(assembly.value, baseDirectory.value)
   )
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(vm, `statemachine-control`, `tendermint-rpc`, sttpEitherT, `tendermint-block`, `node-rpc`)
+  .dependsOn(vm, `statemachine-control`, `tendermint-rpc`, sttpEitherT, `tendermint-block`)
 
 lazy val effects = project
   .settings(
@@ -229,7 +231,7 @@ lazy val ethclient = (project in file("effects/ethclient"))
   .dependsOn(effects)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `kvstore` = (project in file("effects/kvstore"))
+lazy val kvstore = (project in file("effects/kvstore"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
@@ -243,7 +245,7 @@ lazy val `kvstore` = (project in file("effects/kvstore"))
   .dependsOn(effects)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `dockerio` = (project in file("effects/docker"))
+lazy val dockerio = (project in file("effects/docker"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
@@ -268,25 +270,6 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
   .dependsOn(effects)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `node-rpc` = (project in file("effects/node-rpc"))
-  .settings(
-    commons,
-    kindProjector,
-    libraryDependencies ++= Seq(
-      sttp,
-      circeGeneric,
-      circeParser,
-      circeGenericExtras,
-      slogging,
-      scodecBits,
-      http4sDsl,
-      http4sServer,
-      http4sCirce
-    )
-  )
-  .dependsOn(effects, `tendermint-block`, `tendermint-rpc`)
-  .enablePlugins(AutomateHeaderPlugin)
-
 lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
   .settings(
     commons,
@@ -307,7 +290,30 @@ lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
   .dependsOn(effects)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `kademlia` = (project in file("kademlia"))
+lazy val `tendermint-block-history` = (project in file("effects/tendermint-block-history"))
+  .settings(
+    commons,
+    kindProjector,
+    libraryDependencies ++= Seq(
+      slogging,
+      cats,
+      catsEffect,
+      sttp,
+      circeGeneric,
+      circeParser,
+      circeGenericExtras,
+      slogging,
+      scodecBits,
+      http4sDsl,
+      http4sServer,
+      http4sCirce,
+      scalaTest,
+    )
+  )
+  .dependsOn(effects, `tendermint-block`)
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val kademlia = (project in file("kademlia"))
   .settings(
     commons,
     kindProjector,
@@ -321,7 +327,7 @@ lazy val `kademlia` = (project in file("kademlia"))
       scalaTest
     )
   )
-  .dependsOn(`kvstore`)
+  .dependsOn(kvstore)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val node = project
