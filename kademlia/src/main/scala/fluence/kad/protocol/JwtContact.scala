@@ -42,7 +42,7 @@ import scala.language.higherKinds
  * @param gitHash         Git hash of current build running on node
  * @param b64seed         Serialized JWT
  */
-case class Contact(
+case class JwtContact(
   addr: String,
   httpPort: Int,
   publicKey: KeyPair.Public,
@@ -51,11 +51,11 @@ case class Contact(
   b64seed: String
 )
 
-object Contact {
-  implicit val publicKeyR: Reader[Contact, KeyPair.Public] = Reader(_.publicKey)
-  implicit val addrR: Reader[Contact, String] = Reader(_.addr)
+object JwtContact {
+  implicit val publicKeyR: Reader[JwtContact, KeyPair.Public] = Reader(_.publicKey)
+  implicit val addrR: Reader[JwtContact, String] = Reader(_.addr)
 
-  implicit def contactBytesCodec(implicit checkerFn: CheckerFn): PureCodec[Contact, Array[Byte]] =
+  implicit def contactBytesCodec(implicit checkerFn: CheckerFn): PureCodec[JwtContact, Array[Byte]] =
     PureCodec.Bijection(
       PureCodec
         .liftFunc(_.b64seed.getBytes()),
@@ -107,8 +107,8 @@ object Contact {
     new CryptoJwt[JwtHeader, JwtData](PureCodec.liftFunc(_._1.publicKey))
   }
 
-  implicit val show: Show[Contact] =
-    (c: Contact) ⇒ s"$c"
+  implicit val show: Show[JwtContact] =
+    (c: JwtContact) ⇒ s"$c"
 
   /**
    * Builder for Node's own contact: node don't have JWT seed for it, but can produce it with its Signer
@@ -126,18 +126,18 @@ object Contact {
     protocolVersion: Long,
     gitHash: String,
     signer: Signer
-  ): Crypto.Point[Contact] = {
+  ): Crypto.Point[JwtContact] = {
     val jwtHeader =
-      Contact.JwtHeader(signer.publicKey, protocolVersion)
+      JwtContact.JwtHeader(signer.publicKey, protocolVersion)
 
     val jwtData =
-      Contact.JwtData(addr, port, gitHash)
+      JwtContact.JwtData(addr, port, gitHash)
 
     cryptoJwt
       .writer(signer)
       .pointAt(jwtHeader → jwtData)
       .map { seed ⇒
-        Contact(addr, port, signer.publicKey, protocolVersion, gitHash, seed)
+        JwtContact(addr, port, signer.publicKey, protocolVersion, gitHash, seed)
       }
   }
 
@@ -147,12 +147,12 @@ object Contact {
    * @param checkerFn Signature checker
    * @return Func from JWT to Contact
    */
-  def readB64seed(implicit checkerFn: CheckerFn): Crypto.Func[String, Contact] =
+  def readB64seed(implicit checkerFn: CheckerFn): Crypto.Func[String, JwtContact] =
     (Crypto.liftFunc[String, (String, String)](str ⇒ (str, str)) andThen cryptoJwt
       .reader(checkerFn)
       .first[String]).rmap {
       case ((header, data), str) ⇒
-        Contact(
+        JwtContact(
           addr = data.addr,
           httpPort = data.httpPort,
           publicKey = header.publicKey,

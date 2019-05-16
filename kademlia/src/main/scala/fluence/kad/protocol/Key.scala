@@ -26,7 +26,7 @@ import fluence.codec.{CodecError, PureCodec}
 import fluence.crypto.hash.CryptoHashers
 import scodec.bits.{BitVector, ByteVector}
 import fluence.codec.bits.BitsCodecs._
-import fluence.codec.bits.BitsCodecs.Base64._
+import fluence.codec.bits.BitsCodecs.Base58._
 import fluence.crypto.{CryptoError, KeyPair}
 
 import scala.language.higherKinds
@@ -49,9 +49,9 @@ final case class Key private (value: ByteVector) {
   lazy val zerosPrefixLen: Int =
     bits.toIndexedSeq.takeWhile(!_).size
 
-  lazy val b64: String = value.toBase64
+  lazy val asBase58: String = value.toBase58
 
-  override def toString: String = b64
+  override def toString: String = asBase58
 
   /**
    * Provides a Key with the same prefix of ''keepNumBits'' size and random suffix.
@@ -108,8 +108,8 @@ object Key {
   def relativeOrdering(key: Key): Ordering[Key] =
     relativeOrder(key).compare(_, _)
 
-  implicit object ShowKeyBase64 extends Show[Key] {
-    override def show(f: Key): String = f.b64
+  implicit object ShowKeyBase58 extends Show[Key] {
+    override def show(f: Key): String = f.asBase58
   }
 
   implicit val keyVectorCodec: PureCodec[Key, ByteVector] =
@@ -120,7 +120,7 @@ object Key {
         else Left(CodecError(s"Key length in bytes must be $Length, but ${vec.size} given"))
     )
 
-  implicit val b64Codec: PureCodec[Key, String] =
+  implicit val base58codec: PureCodec[Key, String] =
     keyVectorCodec andThen implicitly[PureCodec[ByteVector, String]]
 
   implicit val bytesCodec: PureCodec[Key, Array[Byte]] =
@@ -132,8 +132,8 @@ object Key {
   /**
    * Tries to read base64 form of Kademlia key.
    */
-  val fromB64: PureCodec.Func[String, Key] =
-    b64Codec.inverse
+  val fromB58: PureCodec.Func[String, Key] =
+    base58codec.inverse
 
   /**
    * Calculates sha-1 hash of the payload, and wraps it with Key.

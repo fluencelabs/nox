@@ -37,12 +37,12 @@ trait KademliaRpc[C] {
    *
    * @param key Key to lookup
    */
-  def lookup(key: Key, numberOfNodes: Int): IO[Seq[Node[C]]]
+  def lookup(key: Key, neighbors: Int): IO[Seq[Node[C]]]
 
   /**
    * Perform a local lookup for a key, return K closest known nodes, going away from the second key.
    *
    * @param key Key to lookup
    */
-  def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): IO[Seq[Node[C]]]
+  def lookupAway(key: Key, moveAwayFrom: Key, neighbors: Int): IO[Seq[Node[C]]]
 }

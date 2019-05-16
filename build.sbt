@@ -304,6 +304,19 @@ lazy val `kademlia` = (project in file("kademlia"))
   .dependsOn(`kvstore`)
   .enablePlugins(AutomateHeaderPlugin)
 
+lazy val `kademlia-http` = (project in file("kademlia/http"))
+  .settings(
+    commons,
+    kindProjector,
+    libraryDependencies ++= Seq(
+      sttp,
+      circeGeneric,
+      circeParser,
+      http4sDsl
+    )
+  ).dependsOn(`kademlia`)
+  .enablePlugins(AutomateHeaderPlugin)
+
 lazy val node = project
   .configs(IntegrationTest)
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
