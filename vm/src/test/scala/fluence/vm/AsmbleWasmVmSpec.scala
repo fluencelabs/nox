@@ -82,7 +82,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         val error = res.failed()
         error.getMessage should
           startWith("Unable to get memory from module=<no-name>")
-        error shouldBe a[VmMemoryError]
+        error shouldBe a[InitializationError]
       }
 
       "wasm code falls into the trap" in {
@@ -255,7 +255,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         } yield state
 
         val error = res.failed()
-        error.getMessage shouldBe "Computing wasm memory hash failed"
+        error.getMessage shouldBe "Getting VM state for module=None failed"
         error.getCause shouldBe a[CryptoError]
         error shouldBe a[InternalVmError]
       }

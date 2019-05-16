@@ -108,7 +108,7 @@ object MemoryHasher {
                   m.getBb
                 case m =>
                   val arr = new Array[Byte](memory.capacity())
-                  memory.duplicate().order(ByteOrder.LITTLE_ENDIAN).clear().position(0).get(arr)
+                  memory.duplicate().order(ByteOrder.LITTLE_ENDIAN).clear().get(arr)
                   ByteBuffer.wrap(arr)
               }
 

@@ -172,8 +172,10 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
       override def apply[F[_]](input: ByteBuffer)(
         implicit evidence$2: Monad[F]
       ): EitherT[F, CryptoError, Array[Byte]] = {
-        val arr = new Array[Byte](input.remaining())
-        input.get(arr)
+        val arr = new Array[Byte](input.capacity())
+        val dup = input.duplicate()
+        dup.clear()
+        dup.get(arr)
         EitherT.pure(arr)
       }
     }
