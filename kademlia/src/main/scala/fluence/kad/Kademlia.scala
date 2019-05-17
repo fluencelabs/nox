@@ -56,7 +56,7 @@ trait Kademlia[F[_], C] {
   /**
    * @return KademliaRPC instance to handle incoming RPC requests
    */
-  def handleRPC: KademliaRpc[C]
+  def handleRPC(implicit log: Log[F]): KademliaRpc[C]
 
   /**
    * Finds a node by its key, either in a local RoutingTable or doing up to ''maxRequests'' lookup calls

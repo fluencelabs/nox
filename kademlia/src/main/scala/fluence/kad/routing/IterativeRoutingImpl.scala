@@ -91,55 +91,60 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
         case class AdvanceData(shortlist: SortedSet[Node[C]], probed: Set[Key], hasNext: Boolean)
 
         // Query `parallelism` more nodes, looking for better results
-        def advance(shortlist: SortedSet[Node[C]], probed: Set[Key]): F[AdvanceData] = {
-          // Take `parallelism` unvisited nodes to perform lookups on
-          val handle = shortlist.filter(c ⇒ !probed(c.key)).take(parallelism).toList
+        def advance(shortlist: SortedSet[Node[C]], probed: Set[Key]): F[AdvanceData] = log.scope("advance" -> "") {
+          implicit log ⇒
+            log.trace(s"Shortlist:$shortlist probed:$probed") >> {
+              // Take `parallelism` unvisited nodes to perform lookups on
+              val handle = shortlist.filter(c ⇒ !probed(c.key)).take(parallelism).toList
 
-          // If handle is empty, return
-          if (handle.isEmpty || shortlist.isEmpty) {
-            AdvanceData(shortlist, probed, hasNext = false).pure[F]
-          } else {
+              // If handle is empty, return
+              if (handle.isEmpty || shortlist.isEmpty) {
+                AdvanceData(shortlist, probed, hasNext = false).pure[F]
+              } else {
 
-            // The closest node -- we're trying to improve this result
-            //val closest = shortlist.head
+                // The closest node -- we're trying to improve this result
+                //val closest = shortlist.head
 
-            // We're going to probe handled, and want to filter them out
-            val updatedProbed = probed ++ handle.map(_.key)
+                // We're going to probe handled, and want to filter them out
+                val updatedProbed = probed ++ handle.map(_.key)
 
-            // Fetch remote lookups into F; filter previously seen nodes
-            val remote0X = Parallel
-              .parTraverse(handle) { c ⇒
-                ContactAccess[C]
-                  .rpc(c.contact)
-                  .lookup(key, neighbors)
-                  .attempt
-                  .to[F]
-                  .flatMap {
-                    case Left(err) ⇒
-                      Log[F]
-                        .warn(s"Cannot call lookupIterative on node $c", err)
-                        .as(Seq.empty[Node[C]])
-                    case Right(sqnc) ⇒
-                      sqnc.pure[F]
+                // Fetch remote lookups into F; filter previously seen nodes
+                val remote0X = Parallel
+                  .parTraverse(handle) { c ⇒
+                    ContactAccess[C]
+                      .rpc(c.contact)
+                      .lookup(key, neighbors)
+                      .attempt
+                      .to[F]
+                      .flatMap {
+                        case Left(err) ⇒
+                          Log[F]
+                            .warn(s"Cannot call lookupIterative on node $c", err)
+                            .as(Seq.empty[Node[C]])
+                        case Right(sqnc) ⇒
+                          sqnc.pure[F]
+                      }
                   }
-              }
-              .map[List[Node[C]]](
-                _.flatten
-                  .filterNot(c ⇒ updatedProbed(c.key)) // Filter away already seen nodes
-              )
-
-            remote0X
-              .flatMap(routingState.updateList(_)) // Update routing table
-              .map(_.updated.values.toList)
-              .map { remotes ⇒
-                val updatedShortlist = shortlist ++
-                  remotes.filter(
-                    c ⇒ (shortlist.size < neighbors || ordering.lt(c, shortlist.head)) && c.key =!= localRouting.nodeKey
+                  .map[List[Node[C]]](
+                    _.flatten
+                      .filterNot(c ⇒ updatedProbed(c.key)) // Filter away already seen nodes
                   )
 
-                AdvanceData(updatedShortlist, updatedProbed, hasNext = true)
+                remote0X
+                  .flatMap(routingState.updateList(_)) // Update routing table
+                  .map(_.updated.values.toList)
+                  .map { remotes ⇒
+                    val updatedShortlist = shortlist ++
+                      remotes.filter(
+                        c ⇒
+                          (shortlist.size < neighbors || ordering
+                            .lt(c, shortlist.head)) && c.key =!= localRouting.nodeKey
+                      )
+
+                    AdvanceData(updatedShortlist, updatedProbed, hasNext = true)
+                  }
               }
-          }
+            }
         }
 
         def iterate(collected: SortedSet[Node[C]], probed: Set[Key], data: Stream[SortedSet[Node[C]]])
@@ -147,7 +152,7 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
           if (data.isEmpty) collected.toSeq.pure[F]
           else {
             val d #:: tail = data
-            Log[F].debug("Iterate over: " + collected.map(_.contact)) >>
+            Log[F].trace("Iterate over: " + collected.map(_.contact)) >>
               advance(d, probed).flatMap { updatedData ⇒
                 if (!updatedData.hasNext) {
                   iterate((collected ++ updatedData.shortlist).take(neighbors), updatedData.probed, tail)

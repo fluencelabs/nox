@@ -54,7 +54,7 @@ class KademliaImpl[F[_]: Effect: Clock, P[_], C: ContactAccess](
   override def update(node: Node[C])(implicit log: Log[F]): F[Boolean] =
     routing.state.update(node).map(_.updated.contains(node.key))
 
-  override val handleRPC: KademliaRpc[C] =
+  override def handleRPC(implicit log: Log[F]): KademliaRpc[C] =
     new LocalRpc(ownContactGetter, routing.local)
 
   override def findNode(key: Key, maxRequests: Int)(implicit log: Log[F]): F[Option[Node[C]]] =

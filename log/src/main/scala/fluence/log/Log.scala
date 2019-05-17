@@ -62,6 +62,17 @@ class Log[F[_]: Sync: Clock](val ctx: Context, private val data: Ref[F, Chain[Lo
   def scope[A](kvs: (String, String)*)(fn: Log[F] ⇒ F[A]): F[A] =
     scope(_.scope(kvs: _*))(fn)
 
+  /**
+   * Provide a logger with modified context
+   *
+   * @param k Key to modify the context (value will be empty)
+   * @param fn Function to use the new logger
+   * @tparam A Return type
+   * @return What the inner function returns
+   */
+  def scope[A](k: String)(fn: Log[F] ⇒ F[A]): F[A] =
+    scope(_.scope(k -> ""))(fn)
+
   def trace(msg: ⇒ String): F[Unit] =
     append(Log.Trace, Eval.later(msg), None)
 

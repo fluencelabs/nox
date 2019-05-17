@@ -30,7 +30,6 @@ import fluence.log.{Context, Log}
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
 
-import scala.concurrent.duration._
 import scala.language.implicitConversions
 import scala.concurrent.ExecutionContext.global
 import scala.util.Random
@@ -41,12 +40,12 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
   implicit val timer: Timer[IO] = IO.timer(global)
 
   implicit def key(i: Long): Key =
-    Key.fromBytes.unsafe(Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
-      ByteVector.fromLong(i).toArray
-    }))
+    Key.fromBytes.unsafe(
+      Stream.continually(ByteVector.fromLong(i).toArray).flatten.take(Key.Length).toArray
+    )
 
   def keyToLong(k: Key): Long =
-    ByteBuffer.wrap(k.id.takeRight(java.lang.Long.BYTES)).getLong
+    ByteBuffer.wrap(k.id.take(java.lang.Long.BYTES)).getLong
 
   implicit val sk: Show[Key] =
     (k: Key) ⇒ Console.CYAN + java.lang.Long.toBinaryString(keyToLong(k)).reverse.padTo(64, '-').reverse + Console.RESET
@@ -58,11 +57,11 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
 
   "kademlia simulation" should {
     // Kademlia's K
-    val K = 16
+    val K = 8
     // Number of nodes in simulation
-    val N = 200
+    val N = 50
     // Size of probe
-    val P = 25
+    val P = 12
 
     val seed = 10000004
 
@@ -71,6 +70,7 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
       implicit val log = Log[IO]
 
       val random = new Random(seed)
+
       lazy val nodes: Map[Long, Kademlia[IO, Long]] =
         TestKademlia.simulationIO(K, N, keyToLong, key(random.nextLong()), 3)
 
