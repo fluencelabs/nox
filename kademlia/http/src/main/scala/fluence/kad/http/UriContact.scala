@@ -35,78 +35,73 @@ import org.http4s.Uri
 import scodec.bits.ByteVector
 import BitsCodecs.Base58.base58ToVector
 import PureCodec.{liftFuncEither ⇒ liftFE}
+import Crypto.liftCodecErrorToCrypto
 
 import scala.language.higherKinds
+import scala.language.implicitConversions
 
+/**
+ * URI representation of Node's contact, should be encoded as fluence://(b58 of pubKey):(b58 of signature)@host:port,
+ * where (pubKey ++ host ++ port) are the signed bytes.
+ *
+ * @param host Host
+ * @param port Port
+ * @param signature Signature, along with the Public Key
+ */
 case class UriContact(host: String, port: Int, signature: PubKeyAndSignature) {
-  override def toString = s"${signature.publicKey.value.toBase58}:${signature.signature.sign.toBase58}@$host:$port"
+  override def toString =
+    s"fluence://${signature.publicKey.value.toBase58}:${signature.signature.sign.toBase58}@$host:$port"
 
-  lazy val msg: ByteVector = signature.publicKey.value ++ ByteVector(host.getBytes) ++ ByteVector.fromInt(port)
-
-  def key = Key.fromPublicKey(signature.publicKey)
+  // What's to be signed
+  private[http] lazy val msg: ByteVector = signature.publicKey.value ++ ByteVector(host.getBytes) ++ ByteVector.fromInt(
+    port
+  )
 }
 
 object UriContact {
+  type ~~>[A, B] = PureCodec.Func[A, B]
+  type <~>[A, B] = PureCodec[A, B]
 
+  /**
+   * Build a contact with the given params
+   *
+   * @param host Host
+   * @param port Port
+   * @param signer Signer associated with this node's keypair
+   */
   def buildContact(host: String, port: Int, signer: Signer): Crypto.Point[UriContact] = {
     val msg = signer.publicKey.value ++ ByteVector(host.getBytes) ++ ByteVector.fromInt(port)
     signer.signWithPK.pointAt(msg).rmap(UriContact(host, port, _))
   }
 
-  implicit val signatureCodec: PureCodec[String, Signature] = PureCodec[String, ByteVector] >>> PureCodec
-    .liftB[ByteVector, Signature](Signature(_), _.sign)
-  implicit val pubKeyCodec: PureCodec[String, KeyPair.Public] = PureCodec[String, ByteVector] >>> PureCodec
-    .liftB[ByteVector, KeyPair.Public](KeyPair.Public, _.value)
+  /**
+   * Parse contact from string, check its signature
+   *
+   * @param checkerFn Signature checker function
+   */
+  def readAndCheckContact(checkerFn: CheckerFn): Crypto.Func[String, UriContact] =
+    Crypto.fromOtherFunc(readContact).rmap(i ⇒ (i, i)) >>> checkContact(checkerFn)
+      .second[UriContact]
+      .rmap(_._1)
 
-  implicit val pkWithSignatureCodec: PureCodec[(String, String), PubKeyAndSignature] =
+  // codec for base58-encoded public key and signature
+  implicit val pkWithSignatureCodec: (String, String) <~> PubKeyAndSignature = {
+    val signatureCodec: String <~> Signature =
+      PureCodec[String, ByteVector] >>> PureCodec.liftB[ByteVector, Signature](Signature(_), _.sign)
+
+    val pubKeyCodec: String <~> KeyPair.Public =
+      PureCodec[String, ByteVector] >>> PureCodec.liftB[ByteVector, KeyPair.Public](KeyPair.Public, _.value)
+
     (pubKeyCodec split signatureCodec) >>> PureCodec.liftB[(KeyPair.Public, Signature), PubKeyAndSignature](
       pks ⇒ PubKeyAndSignature(pks._1, pks._2),
       pks ⇒ pks.publicKey -> pks.signature
     )
-
-  val readUri: PureCodec.Func[String, Uri] =
-    liftFE[String, Uri](Uri.fromString(_).leftMap(pf ⇒ CodecError("Cannot parse string as Uri", Some(pf))))
-
-  private val readContact = {
-    val readHost = liftFE[Uri, String](uri ⇒ Either.fromOption(uri.host, CodecError("Host not provided")).map(_.value))
-    val readPort = liftFE[Uri, Int](uri ⇒ Either.fromOption(uri.port, CodecError("Port not provided")))
-    val checkScheme = liftFE[Uri, Unit](
-      uri ⇒
-        Either.fromOption(
-          uri.scheme.filter(_.value.equalsIgnoreCase("fluence")).void,
-          CodecError("Uri must start with fluence://")
-      )
-    )
-
-    val readUserInfo = liftFE[Uri, (String, String)](
-      uri ⇒
-        Either.fromOption(uri.userInfo, CodecError("User info must be provided")).map(_.split(':')).flatMap {
-          case Array(a, b) ⇒ Right((a, b))
-          case _ ⇒ Left(CodecError("User info must be in pk:sign form"))
-      }
-    )
-
-    val readPks = readUserInfo >>> pkWithSignatureCodec.direct
-
-    (readHost &&& readPort &&& readPks &&& checkScheme).rmap {
-      case (((host, port), pks), _) ⇒ UriContact(host, port, pks)
-    }
   }
 
-  private def checkContact(checkerFn: CheckerFn): Crypto.Func[UriContact, Unit] =
-    new Crypto.Func[UriContact, Unit] {
-      override def apply[F[_]: Monad](input: UriContact): EitherT[F, CryptoError, Unit] =
-        checkerFn(input.signature.publicKey).check[F](input.signature.signature, input.msg)
-    }
-
-  import Crypto.liftCodecErrorToCrypto
-
-  def readCheckedContact(checkerFn: CheckerFn): Crypto.Func[String, UriContact] =
-    Crypto.fromOtherFunc(readUri >>> readContact.rmap(i ⇒ (i, i))) >>> checkContact(checkerFn)
-      .second[UriContact]
-      .rmap(_._1)
-
-  val writeContact: PureCodec.Func[UriContact, String] = {
+  /**
+   * Convert contact to string
+   */
+  val writeContact: UriContact ~~> String = {
     val writePks: PureCodec.Func[UriContact, String] =
       pkWithSignatureCodec.inverse.rmap(pks ⇒ s"${pks._1}:${pks._2}").lmap[UriContact](_.signature)
 
@@ -115,14 +110,72 @@ object UriContact {
     }
   }
 
-  val writeNode: PureCodec.Func[Node[UriContact], String] = writeContact.lmap(_.contact)
+  /**
+   * Convert Node to string
+   */
+  val writeNode: Node[UriContact] ~~> String =
+    writeContact.lmap(_.contact)
 
+  /**
+   * Read Node from string, checking the signature on the way
+   *
+   * @param checkerFn Signature checker function
+   */
   def readNode(checkerFn: CheckerFn): Crypto.Func[String, Node[UriContact]] =
-    readCheckedContact(checkerFn).rmap(c ⇒ (c, c)) >>> (
+    readAndCheckContact(checkerFn).rmap(c ⇒ (c, c)) >>> (
       Crypto.fromOtherFunc(Key.fromPublicKey).lmap[UriContact](_.signature.publicKey) split Crypto
         .identityFunc[UriContact]
     ).rmap {
       case (k, uc) ⇒ Node(k, uc)
+    }
+
+  // to remove PureCodec.liftFuncEither boilerplate whereas possible
+  private implicit def liftEitherF[A, B](fn: A ⇒ Either[CodecError, B]): A ~~> B =
+    PureCodec.liftFuncEither(fn)
+
+  /**
+   * Read the contact, performing all the formal validations on the way. Note that signature is not checked
+   */
+  private val readContact: String ~~> UriContact = {
+    val readUri: String ~~> Uri =
+      liftFE[String, Uri](Uri.fromString(_).leftMap(pf ⇒ CodecError("Cannot parse string as Uri", Some(pf))))
+
+    val readHost: Uri ~~> String = (uri: Uri) ⇒
+      Either.fromOption(uri.host, CodecError("Host not provided")).map(_.value)
+
+    val readPort: Uri ~~> Int = (uri: Uri) ⇒ Either.fromOption(uri.port, CodecError("Port not provided"))
+
+    val checkScheme: Uri ~~> Unit =
+      (uri: Uri) ⇒
+        Either.fromOption(
+          uri.scheme.filter(_.value.equalsIgnoreCase("fluence")).void,
+          CodecError("Uri must start with fluence://")
+      )
+
+    // PubKey and Signature are encoded as base58 in userInfo part of URI
+    val readPks: Uri ~~> PubKeyAndSignature = liftFE[Uri, (String, String)](
+      uri ⇒
+        Either.fromOption(uri.userInfo, CodecError("User info must be provided")).map(_.split(':')).flatMap {
+          case Array(a, b) ⇒ Right((a, b))
+          case _ ⇒ Left(CodecError("User info must be in pk:sign form"))
+      }
+    ) >>> pkWithSignatureCodec.direct
+
+    // Finally, compose parsers and build the UriContact product
+    readUri >>> (readHost &&& readPort &&& readPks &&& checkScheme).rmap {
+      case (((host, port), pks), _) ⇒ UriContact(host, port, pks)
+    }
+  }
+
+  /**
+   * Check the contact's signature
+   *
+   * @param checkerFn Signature checker function
+   */
+  private def checkContact(checkerFn: CheckerFn): Crypto.Func[UriContact, Unit] =
+    new Crypto.Func[UriContact, Unit] {
+      override def apply[F[_]: Monad](input: UriContact): EitherT[F, CryptoError, Unit] =
+        checkerFn(input.signature.publicKey).check[F](input.signature.signature, input.msg)
     }
 
 }
