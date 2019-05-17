@@ -17,14 +17,15 @@
 package fluence.node.workers.control
 import cats.data.EitherT
 import cats.effect.Sync
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import com.softwaremill.sttp.circe._
 import com.softwaremill.sttp.{SttpBackend, sttp, _}
+import fluence.effects.tendermint.block.history.Receipt
 import fluence.node.workers.status.{HttpCheckFailed, HttpCheckStatus, HttpStatus}
-import fluence.statemachine.control.{DropPeer, GetStatus, Stop}
+import fluence.statemachine.control.{BlockReceipt, DropPeer, GetStatus, Stop}
 import io.circe.Encoder
 import scodec.bits.ByteVector
-import cats.syntax.functor._
-import cats.syntax.flatMap._
 
 import scala.language.higherKinds
 
@@ -70,4 +71,7 @@ class HttpControlRpc[F[_]: Sync](hostname: String, port: Short)(
   override val stop: F[Unit] =
     // TODO handle errors properly
     send(Stop(), "stop").void.value.flatMap(Sync[F].fromEither)
+
+  override def sendBlockReceipt(receipt: Receipt): F[Unit] =
+    send(BlockReceipt(receipt), "blockReceipt").void.value.flatMap(Sync[F].fromEither)
 }

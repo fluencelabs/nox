@@ -21,6 +21,7 @@ import cats.effect.{Concurrent, Resource, Sync}
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.effects.tendermint.block.history.Receipt
 
 import scala.language.higherKinds
 
@@ -32,7 +33,8 @@ import scala.language.higherKinds
  */
 class ControlSignals[F[_]: FlatMap] private (
   private val dropPeersRef: MVar[F, Set[DropPeer]],
-  private val stopRef: Deferred[F, Unit]
+  private val stopRef: Deferred[F, Unit],
+  private val receiptRef: MVar[F, Option[Receipt]]
 ) {
 
   /**
@@ -62,6 +64,10 @@ class ControlSignals[F[_]: FlatMap] private (
    * Will evaluate once the worker should stop
    */
   val stop: F[Unit] = stopRef.get
+
+  val receipt: F[Option[Receipt]] = receiptRef.read
+
+  def putReceipt(receipt: Receipt): F[Unit] = receiptRef.put(Some(receipt))
 }
 
 object ControlSignals {
@@ -76,7 +82,8 @@ object ControlSignals {
       for {
         dropPeersRef ← MVar[F].of[Set[DropPeer]](Set.empty)
         stopRef ← Deferred[F, Unit]
-        instance = new ControlSignals[F](dropPeersRef, stopRef)
+        receiptRef <- MVar[F].of[Option[Receipt]](None)
+        instance = new ControlSignals[F](dropPeersRef, stopRef, receiptRef)
       } yield instance
     ) { s =>
       Sync[F].suspend(

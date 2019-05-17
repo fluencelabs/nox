@@ -55,7 +55,8 @@ object ControlServer extends slogging.LazyLogging {
   )(implicit dsl: Http4sDsl[F]): Kleisli[F, Request[F], Response[F]] = {
     import dsl._
 
-    implicit val decoder: EntityDecoder[F, DropPeer] = jsonOf[F, DropPeer]
+    implicit val dpdec: EntityDecoder[F, DropPeer] = jsonOf[F, DropPeer]
+    implicit val bpdec: EntityDecoder[F, BlockReceipt] = jsonOf[F, BlockReceipt]
 
     val route: PartialFunction[Request[F], F[Response[F]]] = {
       case req @ POST -> Root / "control" / "dropPeer" =>
@@ -69,6 +70,13 @@ object ControlServer extends slogging.LazyLogging {
         signals.stopWorker().flatMap(_ => Ok())
 
       case (GET | POST) -> Root / "control" / "status" => Ok()
+
+      case req @ POST -> Root / "control" / "blockReceipt" =>
+        for {
+          receipt <- req.as[BlockReceipt].map(_.receipt)
+          _ <- signals.putReceipt(receipt)
+          ok <- Ok()
+        } yield ok
 
       case _ => Sync[F].pure(Response.notFound)
     }

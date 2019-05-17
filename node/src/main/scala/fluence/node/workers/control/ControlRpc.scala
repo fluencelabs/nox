@@ -18,6 +18,7 @@ package fluence.node.workers.control
 import cats.data.EitherT
 import cats.effect.Sync
 import com.softwaremill.sttp._
+import fluence.effects.tendermint.block.history.Receipt
 import fluence.node.workers.status.HttpStatus
 import fluence.statemachine.control.BlockReceipt
 import scodec.bits.ByteVector
@@ -49,7 +50,7 @@ abstract class ControlRpc[F[_]] {
   def stop: F[Unit]
 
   // def uploadBlock(height: Long, vmHash: ByteVector, previousManifestReceipt: Option[Receipt])
-  def sendBlockReceipt(blockReceipt: BlockReceipt): F[Unit]
+  def sendBlockReceipt(receipt: Receipt): F[Unit]
 }
 
 object ControlRpc {
