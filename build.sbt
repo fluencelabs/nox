@@ -292,16 +292,14 @@ lazy val `kademlia` = (project in file("kademlia"))
     commons,
     kindProjector,
     libraryDependencies ++= Seq(
-      slogging,
       cats,
       catsEffect,
       codecCore,
-      cryptoJwt,
       cryptoHashsign,
       scalaTest
     )
   )
-  .dependsOn(`kvstore`)
+  .dependsOn(`kvstore`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kademlia-http` = (project in file("kademlia/http"))
@@ -315,6 +313,26 @@ lazy val `kademlia-http` = (project in file("kademlia/http"))
       http4sDsl
     )
   ).dependsOn(`kademlia`)
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `kademlia-testkit` = (project in file("kademlia/testkit"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      scalaTest
+    )
+  ).dependsOn(`kademlia`)
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `log` = (project in file("log"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      cats,
+      catsEffect,
+      scalaTest
+    )
+  )
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val node = project

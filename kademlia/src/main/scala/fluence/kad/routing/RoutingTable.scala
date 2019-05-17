@@ -25,6 +25,7 @@ import cats.syntax.functor._
 import fluence.effects.kvstore.KVStore
 import fluence.kad.protocol.{ContactAccess, Key, Node}
 import fluence.kad.state.RoutingState
+import fluence.log.Log
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -84,7 +85,7 @@ object RoutingTable {
    * @param refreshNeighbors How many neighbors to lookup on refresh
    * @param parallelism Refreshing parallelism, should be taken from KademliaConf
    */
-  def refreshing[F[_]: Concurrent: Timer, C](
+  def refreshing[F[_]: Concurrent: Timer: Log, C](
     refreshTimeout: FiniteDuration,
     refreshNeighbors: Int,
     parallelism: Int

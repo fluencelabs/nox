@@ -25,6 +25,7 @@ import cats.syntax.eq._
 import cats.effect.{Clock, Effect}
 import fluence.kad.protocol.{ContactAccess, KademliaRpc, Key, Node}
 import fluence.kad.routing.RoutingTable
+import fluence.log.Log
 
 import scala.language.higherKinds
 
@@ -50,13 +51,13 @@ class KademliaImpl[F[_]: Effect: Clock, P[_], C: ContactAccess](
 
   override val ownContact: F[Node[C]] = ownContactGetter
 
-  override def update(node: Node[C]): F[Boolean] =
+  override def update(node: Node[C])(implicit log: Log[F]): F[Boolean] =
     routing.state.update(node).map(_.updated.contains(node.key))
 
   override val handleRPC: KademliaRpc[C] =
     new LocalRpc(ownContactGetter, routing.local)
 
-  override def findNode(key: Key, maxRequests: Int): F[Option[Node[C]]] =
+  override def findNode(key: Key, maxRequests: Int)(implicit log: Log[F]): F[Option[Node[C]]] =
     routing.local.find(key).flatMap {
       case found @ Some(_) ⇒ (found: Option[Node[C]]).pure[F]
 
@@ -69,7 +70,7 @@ class KademliaImpl[F[_]: Effect: Clock, P[_], C: ContactAccess](
         ).map(_.headOption.map(_._1))
     }
 
-  override def lookupIterative(key: Key, numberOfNodes: Int): F[Seq[Node[C]]] =
+  override def lookupIterative(key: Key, numberOfNodes: Int)(implicit log: Log[F]): F[Seq[Node[C]]] =
     routing.iterative.lookupIterative(key, numberOfNodes, parallelism)
 
   override def callIterative[E, A](
@@ -78,11 +79,11 @@ class KademliaImpl[F[_]: Effect: Clock, P[_], C: ContactAccess](
     numToCollect: Int,
     maxCalls: Int,
     isIdempotentFn: Boolean = true
-  ): F[Seq[(Node[C], A)]] =
+  )(implicit log: Log[F]): F[Seq[(Node[C], A)]] =
     routing.iterative
       .callIterative(key, fn, numToCollect, parallelism, maxCalls, isIdempotentFn)
       .map(_.toSeq)
 
-  override def join(peers: Seq[C], neighbors: Int): F[Boolean] =
+  override def join(peers: Seq[C], neighbors: Int)(implicit log: Log[F]): F[Boolean] =
     routing.iterative.join(peers, neighbors, parallelism).value.map(_.isRight)
 }

@@ -27,6 +27,7 @@ import cats.effect.{Clock, LiftIO}
 import fluence.kad.{CantJoinAnyNode, JoinError}
 import fluence.kad.protocol.{ContactAccess, Key, Node}
 import fluence.kad.state.RoutingState
+import fluence.log.Log
 
 import scala.collection.immutable.SortedSet
 import scala.language.higherKinds
@@ -43,7 +44,7 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
   localRouting: LocalRouting[F, C],
   routingState: RoutingState[F, C]
 )(implicit P: Parallel[F, P])
-    extends IterativeRouting[F, C] with slogging.LazyLogging {
+    extends IterativeRouting[F, C] {
 
   override def nodeKey: Key = localRouting.nodeKey
 
@@ -82,87 +83,92 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
     key: Key,
     neighbors: Int,
     parallelism: Int
-  ): F[Seq[Node[C]]] = {
-    implicit val ordering: Ordering[Node[C]] = Node.relativeOrdering(key)
+  )(implicit log: Log[F]): F[Seq[Node[C]]] =
+    log
+      .scope("lookupIterative" -> s"$key,$neighbors,$parallelism") { implicit log ⇒
+        implicit val ordering: Ordering[Node[C]] = Node.relativeOrdering(key)
 
-    case class AdvanceData(shortlist: SortedSet[Node[C]], probed: Set[Key], hasNext: Boolean)
+        case class AdvanceData(shortlist: SortedSet[Node[C]], probed: Set[Key], hasNext: Boolean)
 
-    // Query `parallelism` more nodes, looking for better results
-    def advance(shortlist: SortedSet[Node[C]], probed: Set[Key]): F[AdvanceData] = {
-      // Take `parallelism` unvisited nodes to perform lookups on
-      val handle = shortlist.filter(c ⇒ !probed(c.key)).take(parallelism).toList
+        // Query `parallelism` more nodes, looking for better results
+        def advance(shortlist: SortedSet[Node[C]], probed: Set[Key]): F[AdvanceData] = {
+          // Take `parallelism` unvisited nodes to perform lookups on
+          val handle = shortlist.filter(c ⇒ !probed(c.key)).take(parallelism).toList
 
-      // If handle is empty, return
-      if (handle.isEmpty || shortlist.isEmpty) {
-        AdvanceData(shortlist, probed, hasNext = false).pure[F]
-      } else {
+          // If handle is empty, return
+          if (handle.isEmpty || shortlist.isEmpty) {
+            AdvanceData(shortlist, probed, hasNext = false).pure[F]
+          } else {
 
-        // The closest node -- we're trying to improve this result
-        //val closest = shortlist.head
+            // The closest node -- we're trying to improve this result
+            //val closest = shortlist.head
 
-        // We're going to probe handled, and want to filter them out
-        val updatedProbed = probed ++ handle.map(_.key)
+            // We're going to probe handled, and want to filter them out
+            val updatedProbed = probed ++ handle.map(_.key)
 
-        // Fetch remote lookups into F; filter previously seen nodes
-        val remote0X = Parallel
-          .parTraverse(handle) { c ⇒
-            ContactAccess[C]
-              .rpc(c.contact)
-              .lookup(key, neighbors)
-              .attempt
-              .map {
-                case Left(err) ⇒
-                  logger.warn(s"Cannot call lookupIterative on node $c", err)
-                  Seq.empty
-                case Right(sqnc) ⇒
-                  sqnc
+            // Fetch remote lookups into F; filter previously seen nodes
+            val remote0X = Parallel
+              .parTraverse(handle) { c ⇒
+                ContactAccess[C]
+                  .rpc(c.contact)
+                  .lookup(key, neighbors)
+                  .attempt
+                  .to[F]
+                  .flatMap {
+                    case Left(err) ⇒
+                      Log[F]
+                        .warn(s"Cannot call lookupIterative on node $c", err)
+                        .as(Seq.empty[Node[C]])
+                    case Right(sqnc) ⇒
+                      sqnc.pure[F]
+                  }
               }
-              .to[F]
-          }
-          .map[List[Node[C]]](
-            _.flatten
-              .filterNot(c ⇒ updatedProbed(c.key)) // Filter away already seen nodes
-          )
-
-        remote0X
-          .flatMap(routingState.updateList(_)) // Update routing table
-          .map(_.updated.values.toList)
-          .map { remotes ⇒
-            val updatedShortlist = shortlist ++
-              remotes.filter(
-                c ⇒ (shortlist.size < neighbors || ordering.lt(c, shortlist.head)) && c.key =!= localRouting.nodeKey
+              .map[List[Node[C]]](
+                _.flatten
+                  .filterNot(c ⇒ updatedProbed(c.key)) // Filter away already seen nodes
               )
 
-            AdvanceData(updatedShortlist, updatedProbed, hasNext = true)
+            remote0X
+              .flatMap(routingState.updateList(_)) // Update routing table
+              .map(_.updated.values.toList)
+              .map { remotes ⇒
+                val updatedShortlist = shortlist ++
+                  remotes.filter(
+                    c ⇒ (shortlist.size < neighbors || ordering.lt(c, shortlist.head)) && c.key =!= localRouting.nodeKey
+                  )
+
+                AdvanceData(updatedShortlist, updatedProbed, hasNext = true)
+              }
           }
-      }
-    }
-
-    def iterate(collected: SortedSet[Node[C]], probed: Set[Key], data: Stream[SortedSet[Node[C]]]): F[Seq[Node[C]]] =
-      if (data.isEmpty) collected.toSeq.pure[F]
-      else {
-        logger.debug("Iterate over: " + collected.map(_.contact))
-        val d #:: tail = data
-        advance(d, probed).flatMap { updatedData ⇒
-          if (!updatedData.hasNext) {
-            iterate((collected ++ updatedData.shortlist).take(neighbors), updatedData.probed, tail)
-          } else iterate(collected, updatedData.probed, tail append Stream(updatedData.shortlist))
         }
+
+        def iterate(collected: SortedSet[Node[C]], probed: Set[Key], data: Stream[SortedSet[Node[C]]])
+          : F[Seq[Node[C]]] =
+          if (data.isEmpty) collected.toSeq.pure[F]
+          else {
+            val d #:: tail = data
+            Log[F].debug("Iterate over: " + collected.map(_.contact)) >>
+              advance(d, probed).flatMap { updatedData ⇒
+                if (!updatedData.hasNext) {
+                  iterate((collected ++ updatedData.shortlist).take(neighbors), updatedData.probed, tail)
+                } else iterate(collected, updatedData.probed, tail append Stream(updatedData.shortlist))
+              }
+          }
+
+        // Perform local lookup
+        localRouting
+          .lookup(key, parallelism)
+          .map(_.toStream)
+          .flatMap(
+            closest ⇒ // TODO: why stream?
+
+              // We perform lookup on `parallelism` disjoint paths
+              // To ensure paths are disjoint, we keep the sole set of visited contacts
+              // To synchronize the set, we iterate over `parallelism` distinct shortlists
+              iterate(SortedSet(closest: _*), Set.empty, closest.map(SortedSet(_)))
+          )
       }
-
-    // Perform local lookup
-    localRouting
-      .lookup(key, parallelism)
-      .map(_.toStream)
-      .flatMap(
-        closest ⇒ // TODO: why stream?
-
-          // We perform lookup on `parallelism` disjoint paths
-          // To ensure paths are disjoint, we keep the sole set of visited contacts
-          // To synchronize the set, we iterate over `parallelism` distinct shortlists
-          iterate(SortedSet(closest: _*), Set.empty, closest.map(SortedSet(_)))
-      )
-  }.map(_.take(neighbors))
+      .map(_.take(neighbors))
 
   /**
    * Calls fn on some key's neighbourhood, described by ordering of `prefetchedNodes`,
@@ -194,7 +200,7 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
     parallelism: Int,
     maxNumOfCalls: Int,
     isIdempotentFn: Boolean
-  ): F[Vector[(Node[C], A)]] =
+  )(implicit log: Log[F]): F[Vector[(Node[C], A)]] =
     lookupIterative(key, numToCollect max parallelism, parallelism).flatMap { prefetchedNodes ⇒
       // Lazy stream that takes nodes from the right
       def reverseStream[T](from: SortedSet[T]): Stream[T] =
@@ -333,73 +339,89 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
     peers: Seq[C],
     numberOfNodes: Int,
     parallelism: Int
-  ): EitherT[F, JoinError, Unit] =
+  )(implicit log: Log[F]): EitherT[F, JoinError, Unit] =
     EitherT(
-      Parallel
-        .parTraverse(peers.toList) { peer: C ⇒
-          logger.trace("Join: Going to ping Peer to join: " + peer)
+      log.scope("op" -> s"join") { implicit log ⇒
+        Parallel
+          .parTraverse(peers.toList) {
+            peer: C ⇒
+              // For each peer
+              // Try to ping the peer, and collect its neighbours; if no pings are performed, join is failed
+              Log[F].trace("Join: Going to ping Peer to join: " + peer) >> ContactAccess[C]
+                .rpc(peer)
+                .ping()
+                .attempt
+                .to[F]
+                .flatMap[Option[(Node[C], List[Node[C]])]] {
 
-          // For each peer
-          // Try to ping the peer, and collect its neighbours; if no pings are performed, join is failed
-          ContactAccess[C].rpc(peer).ping().attempt.to[F].flatMap[Option[(Node[C], List[Node[C]])]] {
+                  case Right(peerNode) if peerNode.key === localRouting.nodeKey ⇒
+                    Log[F].debug(s"Join: Can't initialize from myself (${localRouting.nodeKey})") >>
+                      Option.empty[(Node[C], List[Node[C]])].pure[F]
 
-            case Right(peerNode) if peerNode.key === localRouting.nodeKey ⇒
-              logger.debug(s"Join: Can't initialize from myself (${localRouting.nodeKey})")
-              Option.empty[(Node[C], List[Node[C]])].pure[F]
+                  case Right(peerNode)
+                      if peerNode.key =!= localRouting.nodeKey ⇒ // Ping successful, lookup node's neighbors
+                    Log[F].info("Join: PeerPing successful to " + peerNode.key) >> ContactAccess[C]
+                      .rpc(peer)
+                      .lookup(localRouting.nodeKey, numberOfNodes)
+                      .attempt
+                      .to[F]
+                      .flatMap {
+                        case Right(neighbors) if neighbors.isEmpty ⇒
+                          Log[F].info("Join: Neighbors list is empty for peer " + peerNode.key) as
+                            Option(peerNode -> Nil)
 
-            case Right(peerNode) if peerNode.key =!= localRouting.nodeKey ⇒ // Ping successful, lookup node's neighbors
-              logger.info("Join: PeerPing successful to " + peerNode.key)
+                        case Right(neighbors) ⇒
+                          Option(peerNode -> neighbors.toList).pure[F]
 
-              ContactAccess[C].rpc(peer).lookup(localRouting.nodeKey, numberOfNodes).attempt.to[F].map {
-                case Right(neighbors) if neighbors.isEmpty ⇒
-                  logger.info("Join: Neighbors list is empty for peer " + peerNode.key)
-                  Some(peerNode -> Nil)
+                        case Left(e) ⇒
+                          Log[F].warn(s"Join: Can't perform lookup for $peer during join", e) as
+                            Option(peerNode -> Nil)
+                      }
 
-                case Right(neighbors) ⇒
-                  Some(peerNode -> neighbors.toList)
+                  case Left(e) ⇒
+                    Log[F].warn(s"Can't perform ping for $peer during join", e) as
+                      Option.empty[(Node[C], List[Node[C]])]
+                }
 
-                case Left(e) ⇒
-                  logger.warn(s"Join: Can't perform lookup for $peer during join", e)
-                  Some(peerNode -> Nil)
-              }
-
-            case Left(e) ⇒
-              logger.warn(s"Join: Can't perform ping for $peer during join", e)
-              Option.empty[(Node[C], List[Node[C]])].pure[F]
           }
+          .map(_.flatten)
+          .flatMap { peerNeighbors ⇒
+            // Neighbors collected, now let's check they're alive, and promote this node to them on the same moment
+            val ps = peerNeighbors.map(_._1)
+            val peerSet = ps.map(_.key).toSet
 
-        }
-        .map(_.flatten)
-        .flatMap { peerNeighbors ⇒
-          // Neighbors collected, now let's check they're alive, and promote this node to them on the same moment
-          val ps = peerNeighbors.map(_._1)
-          val peerSet = ps.map(_.key).toSet
+            val ns =
+              peerNeighbors
+                .flatMap(_._2)
+                .groupBy(_.key)
+                .mapValues(_.head)
+                .values
+                .filterNot(peerSet contains _.key)
+                .toList
 
-          val ns =
-            peerNeighbors.flatMap(_._2).groupBy(_.key).mapValues(_.head).values.filterNot(peerSet contains _.key).toList
+            Parallel
+              .parTraverse(ns)(p ⇒ ContactAccess[C].rpc(p.contact).ping().attempt.to[F])
+              .map(_.collect {
+                case Right(n) ⇒ n
+              })
+              .map(_ ::: ps)
 
-          Parallel
-            .parTraverse(ns)(p ⇒ ContactAccess[C].rpc(p.contact).ping().attempt.to[F])
-            .map(_.collect {
-              case Right(n) ⇒ n
-            })
-            .map(_ ::: ps)
-
-        }
-        .flatMap { ns ⇒
-          // Save discovered nodes to the routing table
-          logger.info("Join: Discovered neighbors: " + ns.map(_.key))
-          routingState.updateList(ns)
-        }
-        .map(_.updated.nonEmpty)
-        .flatMap[Either[JoinError, Unit]] {
-          case true ⇒ // At least joined to a single node
-            logger.info("Join: Joined! " + Console.GREEN + localRouting.nodeKey + Console.RESET)
-            lookupIterative(localRouting.nodeKey, numberOfNodes, numberOfNodes)
-              .map(_ ⇒ Right(()))
-          case false ⇒ // Can't join to any node
-            logger.warn(Console.RED + "Join: Can't join!" + Console.RESET)
-            Monad[F].pure(Left[JoinError, Unit](CantJoinAnyNode))
-        }
+          }
+          .flatMap { ns ⇒
+            // Save discovered nodes to the routing table
+            Log[F].info("Discovered neighbors: " + ns.map(_.key)) >>
+              routingState.updateList(ns)
+          }
+          .map(_.updated.nonEmpty)
+          .flatMap[Either[JoinError, Unit]] {
+            case true ⇒ // At least joined to a single node
+              Log[F].info("Joined! " + Console.GREEN + localRouting.nodeKey + Console.RESET) >>
+                lookupIterative(localRouting.nodeKey, numberOfNodes, numberOfNodes)
+                  .map(_ ⇒ Right(()))
+            case false ⇒ // Can't join to any node
+              Log[F].warn(Console.RED + "Can't join!" + Console.RESET) >>
+                Monad[F].pure(Left[JoinError, Unit](CantJoinAnyNode))
+          }
+      }
     )
 }
