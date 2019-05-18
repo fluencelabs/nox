@@ -169,16 +169,6 @@ object WasmModule {
         )
       }
 
-      // TODO: there are two ways of getting memory from a Wasm module: by exported getMemory function or
-      // through moduleInstance.getMem interface. Based on Asmble source code It seems that the getMemory
-      // returns smth like 'export memory' in terms of Wasm specification. Also getMemory is more suitable
-      // for the scenario when at first Wasm module translates to Java class and only then compiled with
-      // the rest of Java code. In our approach, it needs to use reflection for invocation. Another issue
-      // lies in the fact that Asmble may not generate this function. But ByteBuffer is present in every
-      // translated module (it is created in ctors of generated Java class). The second approach of
-      // accessing is more complicated because Mem provides a more low level and nonsuitable interface for
-      // use, but it gives us the capability for getting memory for any module. And in the future, we
-      // should move to it.
       // TODO: patch Asmble to create `getMemory` method in all cases
       memory ← Try {
         val getMemoryMethod = moduleInstance.getClass.getMethod("getMemory")

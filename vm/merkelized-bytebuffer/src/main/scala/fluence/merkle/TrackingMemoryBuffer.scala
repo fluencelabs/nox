@@ -27,6 +27,7 @@ class TrackingMemoryBuffer(val bb: ByteBuffer, val chunkSize: Int) extends Memor
    */
   def getChunk(index: Int): ByteBuffer = {
     val duplicated = bb.duplicate()
+    // ordering is not copying after duplication
     duplicated.order(ByteOrder.LITTLE_ENDIAN)
     duplicated.clear()
     duplicated.position(index)
@@ -40,7 +41,17 @@ class TrackingMemoryBuffer(val bb: ByteBuffer, val chunkSize: Int) extends Memor
    */
   def getDirtyChunks: util.BitSet = dirtyChunks
 
-  def slice(): ByteBuffer = bb.slice()
+  /**
+   * Marks all chunks untouched.
+   */
+  def clearDirtyChunks(): Unit = dirtyChunks.clear()
+
+  private def touch(index: Int, size: Int): Unit = {
+    val from = index / chunkSize
+    val to = (index + size) / chunkSize
+    if (from == to) getDirtyChunks.set(from)
+    else getDirtyChunks.set(from, to)
+  }
 
   def duplicate(): MemoryBuffer = {
     new TrackingMemoryBuffer(bb.duplicate(), chunkSize)
@@ -71,17 +82,14 @@ class TrackingMemoryBuffer(val bb: ByteBuffer, val chunkSize: Int) extends Memor
 
   def putShort(index: Int, value: Short): MemoryBuffer = {
     bb.putShort(index, value)
-    val from = index / chunkSize
-    val to = (index + SHORT_SIZE) / chunkSize
-    if (from == to) getDirtyChunks.set(from)
-    else getDirtyChunks.set(from, to)
+    touch(index, SHORT_SIZE)
     this
   }
 
   def capacity: Int = bb.capacity
 
   def clear(): MemoryBuffer = {
-    bb.clear
+    bb.clear()
     this
   }
 
@@ -124,37 +132,25 @@ class TrackingMemoryBuffer(val bb: ByteBuffer, val chunkSize: Int) extends Memor
 
   override def putInt(index: Int, n: Int): MemoryBuffer = {
     bb.putInt(index, n)
-    val from = index / chunkSize
-    val to = (index + INT_SIZE) / chunkSize
-    if (from == to) getDirtyChunks.set(from)
-    else getDirtyChunks.set(from, to)
+    touch(index, INT_SIZE)
     this
   }
 
   override def putLong(index: Int, n: Long): MemoryBuffer = {
     bb.putLong(index, n)
-    val from = index / chunkSize
-    val to = (index + LONG_SIZE) / chunkSize
-    if (from == to) getDirtyChunks.set(from)
-    else getDirtyChunks.set(from, to)
+    touch(index, LONG_SIZE)
     this
   }
 
   override def putDouble(index: Int, n: Double): MemoryBuffer = {
     bb.putDouble(index, n)
-    val from = index / chunkSize
-    val to = (index + DOUBLE_SIZE) / chunkSize
-    if (from == to) getDirtyChunks.set(from)
-    else getDirtyChunks.set(from, to)
+    touch(index, DOUBLE_SIZE)
     this
   }
 
   override def putFloat(index: Int, n: Float): MemoryBuffer = {
     bb.putFloat(index, n)
-    val from = index / chunkSize
-    val to = (index + FLOAT_SIZE) / chunkSize
-    if (from == to) getDirtyChunks.set(from)
-    else getDirtyChunks.set(from, to)
+    touch(index, FLOAT_SIZE)
     this
   }
 

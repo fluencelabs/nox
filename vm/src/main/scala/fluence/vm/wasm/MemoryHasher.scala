@@ -39,14 +39,16 @@ trait MemoryHasher {
 
 object MemoryHasher {
 
+  val SHA_256 = "SHA-256"
+
   type Builder = MemoryBuffer => Either[GetVmStateError, MemoryHasher]
 
   /**
    * Builds memory hasher based on Merkle Tree with SHA-256 hash algorithm.
    *
    */
-  def defaultMerkleTreeHasher(memory: TrackingMemoryBuffer): Either[GetVmStateError, MemoryHasher] = {
-    val digester = MessageDigest.getInstance("SHA-256")
+  def buildMerkleTreeHasher(memory: TrackingMemoryBuffer): Either[GetVmStateError, MemoryHasher] = {
+    val digester = MessageDigest.getInstance(SHA_256)
     merkleHasher(memory, TreeHasher(digester))
   }
 
@@ -54,8 +56,8 @@ object MemoryHasher {
    * Instantiates the class, that get all memory and hash it with SHA-256 algorithm.
    *
    */
-  def defaultPlainHasher(memory: MemoryBuffer): MemoryHasher = {
-    val alghoritm = "SHA-256"
+  def buildPlainHasher(memory: MemoryBuffer): MemoryHasher = {
+    val alghoritm = SHA_256
     val leafDigester = MessageDigest.getInstance(alghoritm)
     val hasher: Hasher[ByteBuffer, Array[Byte]] = Crypto.liftFuncEither(
       bytes ⇒
@@ -78,8 +80,8 @@ object MemoryHasher {
   ): Either[GetVmStateError, MemoryHasher] = {
     memory match {
       case m: TrackingMemoryBuffer =>
-        defaultMerkleTreeHasher(m)
-      case m => Either.right(defaultPlainHasher(m))
+        buildMerkleTreeHasher(m)
+      case m => Either.right(buildPlainHasher(m))
     }
   }
 

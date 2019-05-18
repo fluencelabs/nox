@@ -7,7 +7,8 @@ import scala.language.higherKinds
 
 /**
  *
- * Balanced tree that connects with ByteBuffer through leaves.
+ * Balanced tree that connects with ByteBuffer through leaves. Not thread safe.
+ *
  *
  * @param allNodes the full tree with hashes in one array
  * @param treeHeight the number of all rows in tree
@@ -56,7 +57,9 @@ class BinaryMerkleTree private (
     // leafs don't have children
     assert(height < treeHeight)
     val index = getNodeIndex(height + 1, pos * 2)
-    if (index % 2 != 0) (allNodes(index), allNodes(index + 1))
+    val leftMost = index % 2 != 0
+
+    if (leftMost) (allNodes(index), allNodes(index + 1))
     else (allNodes(index - 1), allNodes(index))
   }
 
@@ -67,6 +70,10 @@ class BinaryMerkleTree private (
    */
   private def getParentPos(pos: Int) = pos / 2
 
+  /**
+   * Returns current calculated hash without any state changes.
+   *
+   */
   def getHash: Array[Byte] = {
     calculateRootHash()
   }
@@ -79,7 +86,7 @@ class BinaryMerkleTree private (
    */
   def recalculateHash(): Array[Byte] = {
     val hash = recalculateLeafs(mappedLeafCount, memory.getDirtyChunks)
-    memory.getDirtyChunks.clear()
+    memory.clearDirtyChunks()
     hash
   }
 

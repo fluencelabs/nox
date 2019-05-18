@@ -2,7 +2,7 @@ package fluence.merkle
 
 object TreeMath {
 
-  // log2(input) for integers
+  // ceil(log2(input)) for integers
   def log2(input: Int): Int = {
     val res = 31 - Integer.numberOfLeadingZeros(input)
     res
