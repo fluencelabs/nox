@@ -272,59 +272,66 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
             val needCollect = numToCollect - replies.size
             // If we've collected enough, stop
             if (needCollect <= 0) replies.pure[F]
-            else {
-              // For idempotent requests, we could make more calls then needed to increase chances to success
-              val callsNeeded = if (isIdempotentFn) parallelism else needCollect min parallelism
+            else
+              log.trace(
+                s"needCollect:$needCollect replies:${replies.size} remaining:$requestsRemaining calls:${if (isIdempotentFn) parallelism
+                else needCollect.min(parallelism).min(requestsRemaining)}"
+              ) >> {
+                // For idempotent requests, we could make more calls then needed to increase chances to success
+                val callsNeeded = if (isIdempotentFn) parallelism else needCollect min parallelism min requestsRemaining
 
-              // Call on nodes
-              val callOnNodes = nodes
-                .filter(n ⇒ !fnCalled(n.key))
-                .take(callsNeeded)
+                // Call on nodes
+                val callOnNodes = nodes
+                  .filter(n ⇒ !fnCalled(n.key))
+                  .take(callsNeeded)
 
-              (if (callOnNodes.size < callsNeeded) {
-                 // If there's not enough nodes to call fn on, try to get more
-                 moreNodes(nodes, lookedUp, needCollect - callOnNodes.size).map {
-                   case (updatedNodes, updatedLookedUp) ⇒
-                     (
-                       updatedNodes,
-                       updatedLookedUp,
-                       updatedNodes.size - nodes.size >= needCollect - callOnNodes.size, // if there're new nodes, we have a reason to fetch more
-                       updatedNodes
-                         .filter(n ⇒ !fnCalled(n.key))
-                         .take(callsNeeded)
-                     )
-                 }
-               } else {
-                 (nodes, lookedUp, true, callOnNodes).pure[F]
-               }).flatMap {
-                case (updatedNodes, updatedLookedUp, hasMoreNodesToLookup, updatedCallOnNodes) ⇒
-                  callFn(callOnNodes.toList).flatMap { newReplies ⇒
-                    val updatedReplies = replies ++ newReplies
-                    val updatedRequestsRemaining = requestsRemaining - updatedCallOnNodes.size
-                    val updatedFnCalled = fnCalled ++ updatedCallOnNodes.map(_.key)
+                (if (callOnNodes.size < callsNeeded) {
+                   // If there's not enough nodes to call fn on, try to get more
+                   log.trace("Need more nodes") >> moreNodes(nodes, lookedUp, needCollect - callOnNodes.size).map {
+                     case (updatedNodes, updatedLookedUp) ⇒
+                       (
+                         updatedNodes,
+                         updatedLookedUp,
+                         updatedNodes.size - nodes.size >= needCollect - callOnNodes.size, // if there're new nodes, we have a reason to fetch more
+                         updatedNodes
+                           .filter(n ⇒ !fnCalled(n.key))
+                           .take(callsNeeded)
+                       )
+                   }
+                 } else {
+                   (nodes, lookedUp, true, callOnNodes).pure[F]
+                 }).flatMap {
+                  case (updatedNodes, updatedLookedUp, hasMoreNodesToLookup, updatedCallOnNodes) ⇒
+                    log.trace(s"Calling on ${updatedCallOnNodes.size} -- $updatedCallOnNodes") >> callFn(
+                      updatedCallOnNodes.toList
+                    ).flatMap { newReplies ⇒
+                      val updatedReplies = replies ++ newReplies
+                      val updatedRequestsRemaining = requestsRemaining - updatedCallOnNodes.size
+                      val updatedFnCalled = fnCalled ++ updatedCallOnNodes.map(_.key)
 
-                    val escapeCondition =
-                      updatedReplies.lengthCompare(numToCollect) >= 0 || // collected enough replies
-                        updatedRequestsRemaining <= 0 || // Too many requests are made
-                        (updatedFnCalled.size == updatedNodes.size && !hasMoreNodesToLookup) // No more nodes to call fn on
+                      val escapeCondition =
+                        updatedReplies.lengthCompare(numToCollect) >= 0 || // collected enough replies
+                          updatedRequestsRemaining <= 0 || // Too many requests are made
+                          (updatedFnCalled.size == updatedNodes.size && !hasMoreNodesToLookup) // No more nodes to call fn on
 
-                    if (escapeCondition)
-                      log.debug(
-                        s"Escape: enough:${updatedReplies.length} of $numToCollect " +
-                          s"|| noMoreRequests:$updatedRequestsRemaining of $maxNumOfCalls " +
-                          s"|| noMoreNodes:${updatedFnCalled.size == updatedNodes.size && !hasMoreNodesToLookup}"
-                      ) as updatedReplies // Stop iterations
-                    else
-                      iterate(
-                        updatedNodes,
-                        updatedReplies,
-                        updatedLookedUp,
-                        updatedFnCalled,
-                        updatedRequestsRemaining
-                      )
-                  }
+                      if (escapeCondition)
+                        log.debug(
+                          s"Finished: got:${updatedReplies.length} of $numToCollect " +
+                            s"|| remainingRequests:$updatedRequestsRemaining of $maxNumOfCalls " +
+                            s"|| noMoreNodes:${updatedFnCalled.size == updatedNodes.size && !hasMoreNodesToLookup}"
+                        ) as updatedReplies // Stop iterations
+                      else
+                        log.trace(s"req: $requestsRemaining -> $updatedRequestsRemaining") >>
+                          iterate(
+                            updatedNodes,
+                            updatedReplies,
+                            updatedLookedUp,
+                            updatedFnCalled,
+                            updatedRequestsRemaining
+                          )
+                    }
+                }
               }
-            }
           }
 
           // Call with initial params

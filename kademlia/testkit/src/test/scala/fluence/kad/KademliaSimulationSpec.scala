@@ -22,7 +22,7 @@ import cats.syntax.show._
 import cats.Show
 import cats.data.EitherT
 import cats.effect.{ContextShift, IO, Timer}
-import cats.effect.concurrent.MVar
+import cats.effect.concurrent.{MVar, Ref}
 import fluence.kad.protocol.{Key, Node}
 import fluence.kad.testkit.TestKademlia
 import fluence.log.{ChainLog, Context, Log, PrintlnLog}
@@ -58,9 +58,9 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
     // Kademlia's K
     val K = 16
     // Number of nodes in simulation
-    val N = 200
+    val N = 20
     // Size of probe
-    val P = 25
+    val P = 5
 
     val seed = 1000004
 
@@ -107,23 +107,21 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
 
       val kad = nodes.drop(N / 4).head._2
 
-      val counter = MVar[IO].of(0).unsafeRunSync()
+      val counter = Ref[IO].of(0).unsafeRunSync()
       val increment =
-        for {
-          v ← counter.take
-          _ ← counter.put(v + 1)
-        } yield ()
+        counter.update(_ + 1)
 
       kad
         .callIterative[String, Unit](
           nodes.last._1,
           _ ⇒ EitherT(increment.map[Either[String, Unit]](_ ⇒ Left("This should never succeed"))),
           K min P,
-          K max P max (N / 3)
+          K max P max (N / 3),
+          isIdempotentFn = false
         )
         .unsafeRunSync() shouldBe empty
 
-      counter.read.unsafeRunSync() shouldBe (K max P max (N / 3))
+      counter.get.unsafeRunSync() shouldBe (K max P max (N / 3))
     }
 
     "callIterative: make no less requests then num+parallelism in idempotent callIterative" in {
