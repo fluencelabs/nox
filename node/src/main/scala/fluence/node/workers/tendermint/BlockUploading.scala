@@ -13,9 +13,9 @@ import scala.language.higherKinds
 object BlockUploading extends slogging.LazyLogging {
 
   def start[F[_]: Concurrent](worker: Worker[F]): Resource[F, Unit] = {
-    val services = worker.services
     def upload(block: Block): F[Receipt] = ???
 
+    val services = worker.services
     Resource
       .make(
         Concurrent[F].start(

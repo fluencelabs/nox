@@ -22,6 +22,7 @@ import cats.syntax.flatMap._
 import cats.syntax.monad._
 import cats.instances.option._
 import cats.{Applicative, Monad, Traverse}
+import fluence.effects.ipfs.IpfsClient
 import fluence.effects.tendermint.block.data.Block
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
@@ -31,7 +32,10 @@ import scala.language.higherKinds
 
 case class Receipt() {
   // TODO: serialize to JSON, and get bytes
-  def bytes(): ByteVector = ???
+  def bytes(): ByteVector = {
+    import io.circe.syntax._
+    ByteVector((this: Receipt).asJson.noSpaces.getBytes())
+  }
 }
 
 object Receipt {
@@ -41,7 +45,7 @@ object Receipt {
 
 // TODO: Move that class to a separate package? Validator could use that for downloading
 // TODO: Pass IPFS here
-case class BlockHistory[F[_]: Monad]() {
+case class BlockHistory[F[_]: Monad](ipfs: IpfsClient[F]) {
 
   def upload(block: Block, vmHash: ByteVector, previousManifestReceipt: Option[Receipt]): F[Receipt] = {
     val txs = block.data.txs.map(_.map(_.bv))
@@ -54,6 +58,6 @@ case class BlockHistory[F[_]: Monad]() {
     } yield receipt
   }
 
-  private def uploadTxs(txs: List[ByteVector]): F[Receipt] = ???
+  private def uploadTxs(txs: List[ByteVector]): F[Receipt] = ipfs.upload()
   private def uploadManifest(manifest: BlockManifest): F[Receipt] = ???
 }

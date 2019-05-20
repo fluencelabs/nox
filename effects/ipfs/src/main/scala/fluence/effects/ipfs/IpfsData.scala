@@ -18,11 +18,9 @@ package fluence.effects.ipfs
 
 import java.nio.file.{Files, Path}
 
-import cats.{Applicative, Monad}
 import cats.data.EitherT
-import com.softwaremill.sttp.Multipart
-import com.softwaremill.sttp._
-import fluence.effects.castore.StoreError
+import cats.{Applicative, Monad}
+import com.softwaremill.sttp.{Multipart, _}
 import scodec.bits.ByteVector
 
 import scala.collection.immutable
@@ -34,6 +32,16 @@ trait IpfsData[F[_]] {
 }
 
 object IpfsData {
+
+  def apply[F[_]: Applicative](chunks: List[ByteVector]): IpfsData[F] = new IpfsData[F] {
+    override def toMultipart: EitherT[F, IpfsError, immutable.Seq[Multipart]] = {
+      EitherT.pure(chunks.zipWithIndex.map { case (chunk, idx) =>
+        multipart(idx.toString, ByteArrayBody(chunk.toArray))
+      })
+    }
+
+    override def canBeMultiple: Boolean = true
+  }
 
   def apply[F[_]: Applicative](bytes: ByteVector): IpfsData[F] = new IpfsData[F] {
     override def toMultipart: EitherT[F, IpfsError, immutable.Seq[Multipart]] =

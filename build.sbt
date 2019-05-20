@@ -313,7 +313,7 @@ lazy val `tendermint-block-history` = (project in file("effects/tendermint-block
       scalaTest,
     )
   )
-  .dependsOn(effects, `tendermint-block`)
+  .dependsOn(effects, `tendermint-block`, ipfs)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val kademlia = (project in file("kademlia"))
