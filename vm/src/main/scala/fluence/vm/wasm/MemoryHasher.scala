@@ -57,8 +57,7 @@ object MemoryHasher {
    *
    */
   def buildPlainHasher(memory: MemoryBuffer): MemoryHasher = {
-    val alghoritm = SHA_256
-    val leafDigester = MessageDigest.getInstance(alghoritm)
+    val leafDigester = MessageDigest.getInstance(SHA_256)
     val hasher: Hasher[ByteBuffer, Array[Byte]] = Crypto.liftFuncEither(
       bytes ⇒
         Try {
@@ -66,7 +65,7 @@ object MemoryHasher {
           leafDigester.update(bytes)
           leafDigester.digest()
         }.toEither.left
-          .map(err ⇒ CryptoError(s"Error on calculating $alghoritm for plain memory hasher", Some(err)))
+          .map(err ⇒ CryptoError(s"Error on calculating $SHA_256 for plain memory hasher", Some(err)))
     )
     plainMemoryHasher(memory, hasher)
   }

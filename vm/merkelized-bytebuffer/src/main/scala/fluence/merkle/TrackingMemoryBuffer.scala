@@ -48,9 +48,10 @@ class TrackingMemoryBuffer(val bb: ByteBuffer, val chunkSize: Int) extends Memor
 
   private def touch(index: Int, size: Int): Unit = {
     val from = index / chunkSize
-    val to = (index + size) / chunkSize
-    if (from == to) getDirtyChunks.set(from)
-    else getDirtyChunks.set(from, to)
+    // `to` sets exclusively in BitSet
+    val to = ((index + size - 1) / chunkSize) + 1
+
+    dirtyChunks.set(from, to)
   }
 
   def duplicate(): MemoryBuffer = {
@@ -65,6 +66,7 @@ class TrackingMemoryBuffer(val bb: ByteBuffer, val chunkSize: Int) extends Memor
 
   def put(b: Byte): TrackingMemoryBuffer = {
     val index = bb.position()
+    println("index?: " + index)
     bb.put(b)
     dirtyChunks.set(index / chunkSize)
     this
@@ -74,7 +76,7 @@ class TrackingMemoryBuffer(val bb: ByteBuffer, val chunkSize: Int) extends Memor
 
   def put(index: Int, b: Byte): TrackingMemoryBuffer = {
     bb.put(index, b)
-    getDirtyChunks.set(index / chunkSize)
+    dirtyChunks.set(index / chunkSize)
     this
   }
 
@@ -114,14 +116,14 @@ class TrackingMemoryBuffer(val bb: ByteBuffer, val chunkSize: Int) extends Memor
 
   override def put(arr: Array[Byte], offset: Int, length: Int): MemoryBuffer = {
     bb.put(arr, offset, length)
-    getDirtyChunks.set(offset / chunkSize, (offset + length) / chunkSize)
+    dirtyChunks.set(offset / chunkSize, (offset + length) / chunkSize)
     this
   }
 
   override def put(arr: Array[Byte]): MemoryBuffer = {
     val pos = bb.position()
     bb.put(arr)
-    getDirtyChunks.set(pos / chunkSize, (pos + arr.length) / chunkSize)
+    touch(pos, arr.length)
     this
   }
 

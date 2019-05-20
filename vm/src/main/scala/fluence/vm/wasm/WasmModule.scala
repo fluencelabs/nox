@@ -179,7 +179,7 @@ object WasmModule {
           Some(e)
         ): ApplyError
       }
-      moduleMemory <- WasmModuleMemory(memory, memoryHasher).leftMap(
+      moduleMemory ← WasmModuleMemory(memory, memoryHasher).leftMap(
         e ⇒
           InitializationError(
             s"Unable to instantiate WasmModuleMemory for module=${moduleDescription.getName}",
