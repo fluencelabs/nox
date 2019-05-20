@@ -111,7 +111,7 @@ object SbtCommons {
   val cryptoKeyStore        = "one.fluence" %% "crypto-keystore" % cryptoVersion
   val codecCore             = "one.fluence" %% "codec-core"      % "0.0.4"
 
-  val sttpVersion           = "1.5.12"
+  val sttpVersion           = "1.5.17"
   val sttp                  = "com.softwaremill.sttp" %% "core"                           % sttpVersion
   val sttpCirce             = "com.softwaremill.sttp" %% "circe"                          % sttpVersion
   val sttpFs2Backend        = "com.softwaremill.sttp" %% "async-http-client-backend-fs2"  % sttpVersion
@@ -144,6 +144,8 @@ object SbtCommons {
   val protobufUtil          = "com.google.protobuf" % "protobuf-java-util" % "3.7.1"
 
   val bouncyCastle          = "org.bouncycastle" % "bcprov-jdk15on" % "1.61"
+
+  val asyncHttpClient       = "org.asynchttpclient" % "async-http-client" % "2.8.1"
 
   /* Test deps*/
 

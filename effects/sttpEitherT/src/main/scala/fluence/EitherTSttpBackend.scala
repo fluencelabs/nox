@@ -44,7 +44,7 @@ object EitherTSttpBackend {
       }
     }
 
-    implicit val me: EitherTMonad[F] = new EitherTMonad[F]()
+//    implicit val me: EitherTMonad[F] = new EitherTMonad[F]()
 
     val eitherTSttp: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]] =
       sttp.mapK(eitherTArrow)

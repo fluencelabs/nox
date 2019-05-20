@@ -264,7 +264,10 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
       circeGeneric,
       circeParser,
       circeGenericExtras,
-      slogging
+      slogging,
+      fs2,
+      fs2io,
+      asyncHttpClient
     )
   )
   .dependsOn(effects)

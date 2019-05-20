@@ -62,7 +62,7 @@ class MasterNodeIntegrationSpec
   }
 
   override protected def afterAll(): Unit = {
-    killGanache()
+//    killGanache()
   }
 
   def getStatus(statusPort: Short)(implicit sttpBackend: Sttp): IO[MasterStatus] = {

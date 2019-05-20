@@ -22,8 +22,8 @@ import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.instances.list._
 import cats.syntax.applicative._
-import cats.syntax.apply._
 import cats.syntax.applicativeError._
+import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Applicative, Apply, Parallel}
@@ -32,6 +32,7 @@ import fluence.codec.PureCodec
 import fluence.effects.docker.DockerIO
 import fluence.effects.kvstore.RocksDBStore
 import fluence.node.MakeResource
+import fluence.node.workers.tendermint.BlockUploading
 import slogging.LazyLogging
 
 import scala.concurrent.duration._
@@ -122,6 +123,9 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
 
       // Once the worker is created, run background job to connect it to all the peers
       _ ← WorkerP2pConnectivity.make(worker, ps.app.cluster.workers)
+
+      // Start uploading tendermint blocks and send receipts to statemachine
+      _ <- BlockUploading.start(worker)
 
       // Finally, register the worker in the pool
       _ ← registeredWorker(worker)

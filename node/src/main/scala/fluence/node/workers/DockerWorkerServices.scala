@@ -25,10 +25,12 @@ import cats.syntax.flatMap._
 import com.softwaremill.sttp._
 import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
+import fluence.effects.tendermint.block.data.Block
+import fluence.effects.tendermint.block.history.Receipt
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
 import fluence.node.workers.tendermint.DockerTendermint
-import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.{TendermintRpc, WebsocketTendermintRpc}
 import slogging.LazyLogging
 
 import scala.concurrent.duration.FiniteDuration
@@ -49,7 +51,8 @@ case class DockerWorkerServices[F[_]] private (
   appId: Long,
   tendermint: TendermintRpc[F],
   control: ControlRpc[F],
-  statusCall: FiniteDuration ⇒ F[WorkerStatus]
+  statusCall: FiniteDuration ⇒ F[WorkerStatus],
+  blocks: fs2.Stream[F, String]
 ) extends WorkerServices[F] {
   override def status(timeout: FiniteDuration): F[WorkerStatus] = statusCall(timeout)
 }
@@ -125,6 +128,8 @@ object DockerWorkerServices extends LazyLogging {
       tendermint ← DockerTendermint.make[F](params, p2pPort, containerName(params), network, stopTimeout)
 
       rpc ← TendermintRpc.make[F](tendermint.name, DockerTendermint.RpcPort)
+
+      blocks <- WebsocketTendermintRpc.subscribeNewBlock(tendermint.name, DockerTendermint.RpcPort)
 
       control = ControlRpc[F](containerName(params), ControlRpcPort)
 

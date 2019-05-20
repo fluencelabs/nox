@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-package fluence.effects.ethclient.helpers
+package fluence.effects
+
 import java.util.concurrent.{CancellationException, CompletableFuture, CompletionException}
 
 import cats.effect.Async
+
 import scala.language.higherKinds
 
 object JavaFutureConversion {
@@ -25,7 +27,7 @@ object JavaFutureConversion {
   /**
    * Utility converters from Java's CompletableFuture to cats-effect types
    */
-  private[ethclient] implicit class FromJavaFuture[A](cf: CompletableFuture[A]) {
+  implicit class FromJavaFuture[A](cf: CompletableFuture[A]) {
 
     /**
      * Convert Java Future to some Async F type.
