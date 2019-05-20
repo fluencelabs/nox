@@ -296,7 +296,9 @@ lazy val `kademlia` = (project in file("kademlia"))
       catsEffect,
       codecCore,
       cryptoHashsign,
-      scalaTest
+      catsTestkit,
+      scalaTest,
+      scalacheckShapeless
     )
   )
   .dependsOn(`kvstore`, `log`)

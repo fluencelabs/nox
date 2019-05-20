@@ -33,7 +33,7 @@ object SbtCommons {
 
   val kindProjector = Seq(
     resolvers += Resolver.sonatypeRepo("releases"),
-    addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
+    addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.0")
   )
 
   val mergeStrategy = Def.setting[String => MergeStrategy]({
@@ -91,8 +91,10 @@ object SbtCommons {
   val asmble                = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.4-fl"
 
   val slogging              = "biz.enef"       %% "slogging"    % "0.6.1"
-  val cats                  = "org.typelevel"  %% "cats-core"   % "1.5.0"
-  val catsEffect            = "org.typelevel"  %% "cats-effect" % "1.2.0"
+
+  val catsVersion = "1.6.0"
+  val cats                  = "org.typelevel"  %% "cats-core"   % catsVersion
+  val catsEffect            = "org.typelevel"  %% "cats-effect" % "1.3.0"
 
   val fs2Version            = "1.0.4"
   val fs2                   = "co.fs2" %% "fs2-core"             % fs2Version
@@ -146,6 +148,8 @@ object SbtCommons {
   val bouncyCastle          = "org.bouncycastle" % "bcprov-jdk15on" % "1.61"
 
   /* Test deps*/
+  val scalacheckShapeless = "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % "1.1.8" % Test
+  val catsTestkit                  = "org.typelevel"  %% "cats-testkit"   % catsVersion % Test
 
   val scalaTest             = "org.scalatest" %% "scalatest"   % "3.0.5"  % Test
   val scalaIntegrationTest  = "org.scalatest" %% "scalatest"   % "3.0.5"  % IntegrationTest

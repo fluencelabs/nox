@@ -35,7 +35,7 @@ case class Context(data: Map[String, String] = Map.empty) {
 
 object Context {
 
-  def init(k: String, v: String): Context =
+  def init(k: String, v: String = ""): Context =
     Context(Map(k -> v))
 
   implicit def fromLog[F[_]: Log]: Context =
