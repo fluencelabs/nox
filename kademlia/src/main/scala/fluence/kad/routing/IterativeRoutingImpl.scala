@@ -91,8 +91,8 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
         case class AdvanceData(shortlist: SortedSet[Node[C]], probed: Set[Key], hasNext: Boolean)
 
         // Query `parallelism` more nodes, looking for better results
-        def advance(shortlist: SortedSet[Node[C]], probed: Set[Key]): F[AdvanceData] = log.scope("advance" -> "") {
-          implicit log ⇒
+        def advance(shortlist: SortedSet[Node[C]], probed: Set[Key]): F[AdvanceData] =
+          log.scope("advance" -> "") { implicit log ⇒
             log.trace(s"Shortlist:$shortlist probed:$probed") >> {
               // Take `parallelism` unvisited nodes to perform lookups on
               val handle = shortlist.filter(c ⇒ !probed(c.key)).take(parallelism).toList
@@ -131,8 +131,8 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
                   )
 
                 remote0X
-                  .flatMap(routingState.updateList(_)) // Update routing table
-                  .map(_.updated.values.toList)
+                  .flatMap(rs ⇒ routingState.updateList(rs) as rs) // Update routing table
+                  .flatTap(l ⇒ log.trace(s"Fetched from remote node: " + l))
                   .map { remotes ⇒
                     val updatedShortlist = shortlist ++
                       remotes.filter(
@@ -145,7 +145,7 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
                   }
               }
             }
-        }
+          }
 
         def iterate(collected: SortedSet[Node[C]], probed: Set[Key], data: Stream[SortedSet[Node[C]]])
           : F[Seq[Node[C]]] =
@@ -206,130 +206,136 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
     maxNumOfCalls: Int,
     isIdempotentFn: Boolean
   )(implicit log: Log[F]): F[Vector[(Node[C], A)]] =
-    lookupIterative(key, numToCollect max parallelism, parallelism).flatMap { prefetchedNodes ⇒
-      // Lazy stream that takes nodes from the right
-      def reverseStream[T](from: SortedSet[T]): Stream[T] =
-        from.toVector.reverseIterator.toStream
+    log.scope("callIterative" -> s"$key,$numToCollect,$maxNumOfCalls,$parallelism,$isIdempotentFn") { implicit log ⇒
+      log.debug("Launching callIterative") >>
+        lookupIterative(key, numToCollect max parallelism, parallelism).flatMap { prefetchedNodes ⇒
+          // Lazy stream that takes nodes from the right
+          def reverseStream[T](from: SortedSet[T]): Stream[T] =
+            from.toVector.reverseIterator.toStream
 
-      // How many nodes to lookup, should be not too much to reduce network load,
-      // and not too less to avoid network roundtrips
-      // TODO: we should decide what value fits best; it's unknown if this formula is good enough
-      val lookupSize = (parallelism max numToCollect) * parallelism
+          // How many nodes to lookup, should be not too much to reduce network load,
+          // and not too less to avoid network roundtrips
+          // TODO: we should decide what value fits best; it's unknown if this formula is good enough
+          val lookupSize = (parallelism max numToCollect) * parallelism
 
-      // 1: take next nodes to try fn on.
-      // First take from prefetched nodes, then expand list of available nodes with lookups on farthest ones
-      def moreNodes(
-        prefetchedNodes: SortedSet[Node[C]],
-        lookedUp: Set[Key],
-        loadMore: Int
-      ): F[(SortedSet[Node[C]], Set[Key])] = {
-        // If we can't expand the set, don't try
-        if (lookedUp.size == prefetchedNodes.size) (prefetchedNodes, lookedUp).pure[F]
-        else {
-          // Take the most far nodes
-          val toLookup = reverseStream(prefetchedNodes).filter(nc ⇒ !lookedUp(nc.key)).take(parallelism).toList
+          // 1: take next nodes to try fn on.
+          // First take from prefetched nodes, then expand list of available nodes with lookups on farthest ones
+          def moreNodes(
+            prefetchedNodes: SortedSet[Node[C]],
+            lookedUp: Set[Key],
+            loadMore: Int
+          ): F[(SortedSet[Node[C]], Set[Key])] =
+            // If we can't expand the set, don't try
+            if (lookedUp.size == prefetchedNodes.size) (prefetchedNodes, lookedUp).pure[F]
+            else {
+              // Take the most far nodes
+              val toLookup = reverseStream(prefetchedNodes).filter(nc ⇒ !lookedUp(nc.key)).take(parallelism).toList
 
-          // Make lookup requests for node's own neighborhood
-          Parallel
-            .parTraverse(toLookup) { n ⇒
-              ContactAccess[C].rpc(n.contact).lookupAway(n.key, key, lookupSize).attempt.to[F]
+              // Make lookup requests for node's own neighborhood
+              Parallel
+                .parTraverse(toLookup) { n ⇒
+                  ContactAccess[C].rpc(n.contact).lookupAway(n.key, key, lookupSize).attempt.to[F]
+                }
+                .flatMap { lookupResult ⇒
+                  val ns = lookupResult.collect {
+                    case Right(v) ⇒ v
+                  }.flatten
+                  // Add new nodes, sort & filter dups with SortedSet
+                  val updatedLoaded = prefetchedNodes ++ ns
+                  // Add keys used for neighborhood lookups to not lookup them again
+                  val updatedLookedUp = lookedUp ++ toLookup.map(_.key)
+                  // Thats the size of additions
+                  val loadedNum = updatedLoaded.size - prefetchedNodes.size
+
+                  moreNodes(updatedLoaded, updatedLookedUp, loadMore - loadedNum)
+                }
             }
-            .flatMap { lookupResult ⇒
-              val ns = lookupResult.collect {
-                case Right(v) ⇒ v
-              }.flatten
-              // Add new nodes, sort & filter dups with SortedSet
-              val updatedLoaded = prefetchedNodes ++ ns
-              // Add keys used for neighborhood lookups to not lookup them again
-              val updatedLookedUp = lookedUp ++ toLookup.map(_.key)
-              // Thats the size of additions
-              val loadedNum = updatedLoaded.size - prefetchedNodes.size
 
-              moreNodes(updatedLoaded, updatedLookedUp, loadMore - loadedNum)
-            }
-        }
-      }
+          // 2: on given nodes, call fn in parallel.
+          // Return list of collected replies, and list of unsuccessful trials
+          def callFn(nodes: List[Node[C]]): F[Seq[(Node[C], A)]] =
+            Parallel
+              .parTraverse(nodes)(n ⇒ fn(n).value.map(n -> _))
+              .map(_.collect { case (n, Right(a)) ⇒ (n, a) })
 
-      // 2: on given nodes, call fn in parallel.
-      // Return list of collected replies, and list of unsuccessful trials
-      def callFn(nodes: List[Node[C]]): F[Seq[(Node[C], A)]] =
-        Parallel
-          .parTraverse(nodes)(n ⇒ fn(n).value.map(n -> _))
-          .map(_.collect { case (n, Right(a)) ⇒ (n, a) })
+          // 3: take nodes from 1, run 2, until one of conditions is met:
+          // - numToCollect is collected
+          // - maxRequests is made
+          // - no more nodes to query are available
+          def iterate(
+            nodes: SortedSet[Node[C]],
+            replies: Vector[(Node[C], A)],
+            lookedUp: Set[Key],
+            fnCalled: Set[Key],
+            requestsRemaining: Int
+          ): F[Vector[(Node[C], A)]] = {
+            val needCollect = numToCollect - replies.size
+            // If we've collected enough, stop
+            if (needCollect <= 0) replies.pure[F]
+            else {
+              // For idempotent requests, we could make more calls then needed to increase chances to success
+              val callsNeeded = if (isIdempotentFn) parallelism else needCollect min parallelism
 
-      // 3: take nodes from 1, run 2, until one of conditions is met:
-      // - numToCollect is collected
-      // - maxRequests is made
-      // - no more nodes to query are available
-      def iterate(
-        nodes: SortedSet[Node[C]],
-        replies: Vector[(Node[C], A)],
-        lookedUp: Set[Key],
-        fnCalled: Set[Key],
-        requestsRemaining: Int
-      ): F[Vector[(Node[C], A)]] = {
-        val needCollect = numToCollect - replies.size
-        // If we've collected enough, stop
-        if (needCollect <= 0) replies.pure[F]
-        else {
-          // For idempotent requests, we could make more calls then needed to increase chances to success
-          val callsNeeded = if (isIdempotentFn) parallelism else needCollect min parallelism
+              // Call on nodes
+              val callOnNodes = nodes
+                .filter(n ⇒ !fnCalled(n.key))
+                .take(callsNeeded)
 
-          // Call on nodes
-          val callOnNodes = nodes
-            .filter(n ⇒ !fnCalled(n.key))
-            .take(callsNeeded)
+              (if (callOnNodes.size < callsNeeded) {
+                 // If there's not enough nodes to call fn on, try to get more
+                 moreNodes(nodes, lookedUp, needCollect - callOnNodes.size).map {
+                   case (updatedNodes, updatedLookedUp) ⇒
+                     (
+                       updatedNodes,
+                       updatedLookedUp,
+                       updatedNodes.size - nodes.size >= needCollect - callOnNodes.size, // if there're new nodes, we have a reason to fetch more
+                       updatedNodes
+                         .filter(n ⇒ !fnCalled(n.key))
+                         .take(callsNeeded)
+                     )
+                 }
+               } else {
+                 (nodes, lookedUp, true, callOnNodes).pure[F]
+               }).flatMap {
+                case (updatedNodes, updatedLookedUp, hasMoreNodesToLookup, updatedCallOnNodes) ⇒
+                  callFn(callOnNodes.toList).flatMap { newReplies ⇒
+                    val updatedReplies = replies ++ newReplies
+                    val updatedRequestsRemaining = requestsRemaining - updatedCallOnNodes.size
+                    val updatedFnCalled = fnCalled ++ updatedCallOnNodes.map(_.key)
 
-          (if (callOnNodes.size < callsNeeded) {
-             // If there's not enough nodes to call fn on, try to get more
-             moreNodes(nodes, lookedUp, needCollect - callOnNodes.size).map {
-               case (updatedNodes, updatedLookedUp) ⇒
-                 (
-                   updatedNodes,
-                   updatedLookedUp,
-                   updatedNodes.size - nodes.size >= needCollect - callOnNodes.size, // if there're new nodes, we have a reason to fetch more
-                   updatedNodes
-                     .filter(n ⇒ !fnCalled(n.key))
-                     .take(callsNeeded)
-                 )
-             }
-           } else {
-             (nodes, lookedUp, true, callOnNodes).pure[F]
-           }).flatMap {
-            case (updatedNodes, updatedLookedUp, hasMoreNodesToLookup, updatedCallOnNodes) ⇒
-              callFn(callOnNodes.toList).flatMap { newReplies ⇒
-                val updatedReplies = replies ++ newReplies
-                val updatedRequestsRemaining = requestsRemaining - updatedCallOnNodes.size
-                val updatedFnCalled = fnCalled ++ updatedCallOnNodes.map(_.key)
+                    val escapeCondition =
+                      updatedReplies.lengthCompare(numToCollect) >= 0 || // collected enough replies
+                        updatedRequestsRemaining <= 0 || // Too many requests are made
+                        (updatedFnCalled.size == updatedNodes.size && !hasMoreNodesToLookup) // No more nodes to call fn on
 
-                val escapeCondition =
-                  updatedReplies.lengthCompare(numToCollect) >= 0 || // collected enough replies
-                    updatedRequestsRemaining <= 0 || // Too many requests are made
-                    (updatedFnCalled.size == updatedNodes.size && !hasMoreNodesToLookup) // No more nodes to call fn on
-
-                if (escapeCondition)
-                  updatedReplies.pure[F] // Stop iterations
-                else
-                  iterate(
-                    updatedNodes,
-                    updatedReplies,
-                    updatedLookedUp,
-                    updatedFnCalled,
-                    updatedRequestsRemaining
-                  )
+                    if (escapeCondition)
+                      log.debug(
+                        s"Escape: enough:${updatedReplies.length} of $numToCollect " +
+                          s"|| noMoreRequests:$updatedRequestsRemaining of $maxNumOfCalls " +
+                          s"|| noMoreNodes:${updatedFnCalled.size == updatedNodes.size && !hasMoreNodesToLookup}"
+                      ) as updatedReplies // Stop iterations
+                    else
+                      iterate(
+                        updatedNodes,
+                        updatedReplies,
+                        updatedLookedUp,
+                        updatedFnCalled,
+                        updatedRequestsRemaining
+                      )
+                  }
               }
+            }
           }
-        }
-      }
 
-      // Call with initial params
-      iterate(
-        nodes = SortedSet(prefetchedNodes: _*)(Node.relativeOrdering(key)),
-        replies = Vector.empty,
-        lookedUp = Set.empty,
-        fnCalled = Set.empty,
-        requestsRemaining = maxNumOfCalls
-      )
+          // Call with initial params
+          iterate(
+            nodes = SortedSet(prefetchedNodes: _*)(Node.relativeOrdering(key)),
+            replies = Vector.empty,
+            lookedUp = Set.empty,
+            fnCalled = Set.empty,
+            requestsRemaining = maxNumOfCalls
+          )
+        }
     }
 
   /**

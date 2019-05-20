@@ -24,8 +24,10 @@ import scala.language.implicitConversions
  *
  * @param data Context data
  */
-case class Context(data: Map[String, String] = Map.empty) {
+case class Context(data: Map[String, String] = Map.empty, loggingLevel: Log.Level) {
   def scope(kv: (String, String)*): Context = copy(data = data ++ kv)
+
+  def level(l: Log.Level): Context = copy(loggingLevel = l)
 
   override def toString: String =
     data.toSeq
@@ -35,8 +37,8 @@ case class Context(data: Map[String, String] = Map.empty) {
 
 object Context {
 
-  def init(k: String, v: String = ""): Context =
-    Context(Map(k -> v))
+  def init(k: String, v: String = "", level: Log.Level = Log.Info): Context =
+    Context(Map(k -> v), level)
 
   implicit def fromLog[F[_]: Log]: Context =
     Log[F].ctx

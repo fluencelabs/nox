@@ -90,6 +90,7 @@ object SbtCommons {
 
   val asmble                = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.4-fl"
 
+  @deprecated("Migrate to fluence.log.Log facade", "20.05.2019")
   val slogging              = "biz.enef"       %% "slogging"    % "0.6.1"
 
   val catsVersion = "1.6.0"

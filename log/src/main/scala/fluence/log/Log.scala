@@ -20,25 +20,27 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.concurrent.TimeUnit
 
-import cats.data.Chain
-import cats.{Eval, Order}
-import cats.syntax.functor._
-import cats.syntax.flatMap._
+import cats.{Applicative, Eval, Order}
 import cats.effect.{Clock, Sync}
-import cats.effect.concurrent.Ref
+import cats.syntax.order._
+import cats.syntax.flatMap._
 
 import scala.language.higherKinds
 
 /**
  * Functional logger facade
  *
- * @param ctx Trace Context
- * @param data Log Data
  * @tparam F Effect
  */
-class Log[F[_]: Sync: Clock](val ctx: Context, private val data: Ref[F, Chain[Log.Msg]]) {
+abstract class Log[F[_]: Sync: Clock] {
 
-  private val millis = Clock[F].realTime(TimeUnit.MILLISECONDS)
+  private val unit = Applicative[F].unit
+
+  val ctx: Context
+
+  import ctx.loggingLevel
+
+  private val millis: F[Long] = Clock[F].realTime(TimeUnit.MILLISECONDS)
 
   /**
    * Provide a logger with modified context
@@ -48,8 +50,7 @@ class Log[F[_]: Sync: Clock](val ctx: Context, private val data: Ref[F, Chain[Lo
    * @tparam A Return type
    * @return What the inner function returns
    */
-  def scope[A](modContext: Context ⇒ Context)(fn: Log[F] ⇒ F[A]): F[A] =
-    fn(new Log(modContext(ctx), data))
+  def scope[A](modContext: Context ⇒ Context)(fn: Log[F] ⇒ F[A]): F[A]
 
   /**
    * Provide a logger with modified context
@@ -74,25 +75,24 @@ class Log[F[_]: Sync: Clock](val ctx: Context, private val data: Ref[F, Chain[Lo
     scope(_.scope(k -> ""))(fn)
 
   def trace(msg: ⇒ String): F[Unit] =
-    append(Log.Trace, Eval.later(msg), None)
+    if (loggingLevel <= Log.Trace) append(Log.Trace, Eval.later(msg), None) else unit
 
   def debug(msg: ⇒ String): F[Unit] =
-    append(Log.Debug, Eval.later(msg), None)
+    if (loggingLevel <= Log.Debug) append(Log.Debug, Eval.later(msg), None) else unit
 
   def info(msg: ⇒ String): F[Unit] =
-    append(Log.Info, Eval.later(msg), None)
+    if (loggingLevel <= Log.Info) append(Log.Info, Eval.later(msg), None) else unit
 
   def warn(msg: ⇒ String, cause: Throwable = null): F[Unit] =
-    append(Log.Warn, Eval.later(msg), Option(cause))
+    if (loggingLevel <= Log.Warn) append(Log.Warn, Eval.later(msg), Option(cause)) else unit
 
   def error(msg: ⇒ String, cause: Throwable = null): F[Unit] =
-    append(Log.Error, Eval.later(msg), Option(cause))
+    if (loggingLevel <= Log.Error) append(Log.Error, Eval.later(msg), Option(cause)) else unit
 
   private def append(level: Log.Level, msg: Eval[String], cause: Option[Throwable]): F[Unit] =
-    millis >>= (m ⇒ data.update(_.append(Log.Msg(m, level, ctx, msg, cause))))
+    millis >>= (m ⇒ appendMsg(Log.Msg(m, level, ctx, msg, cause)))
 
-  def mkString(level: Log.Level = Log.Trace): F[String] =
-    data.get.map(_.iterator.filter(_.level.flag >= level.flag).mkString("\n"))
+  protected def appendMsg(msg: Log.Msg): F[Unit]
 }
 
 object Log {
@@ -105,11 +105,11 @@ object Log {
   private val dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
 
   case class Msg(timestamp: Long, level: Level, ctx: Context, msg: Eval[String], cause: Option[Throwable]) {
-    def date = dateFormat.format(new Date(timestamp))
+    private def date = dateFormat.format(new Date(timestamp))
 
     override def toString: String =
-      s"${Console.WHITE}$date${Console.RESET} ${level.color}${level.name}${Console.RESET} $ctx\t${msg.value}" + cause
-        .fold("")(c ⇒ s"\tcaused by: $c")
+      s"${Console.WHITE}$date${Console.RESET} ${level.color}${level.name}${Console.RESET} $ctx\t${msg.value}" +
+        cause.fold("")(c ⇒ s"\tcaused by: $c")
   }
 
   sealed abstract class Level(val flag: Int, val name: String, val color: String)
@@ -122,6 +122,4 @@ object Log {
   implicit val LevelOrder: Order[Level] =
     Order.by[Level, Int](_.flag)(Order.fromOrdering[Int])
 
-  implicit def forCtx[F[_]: Sync: Clock](implicit ctx: Context): Log[F] =
-    new Log[F](ctx, Ref.unsafe(Chain.empty))
 }
