@@ -39,6 +39,7 @@ lazy val vm = (project in file("vm"))
       .dependsOn(compile in `vm-llamadb`)
       .value
   )
+  .dependsOn(`merkelized-bytebuffer`)
   .enablePlugins(AutomateHeaderPlugin)
 
 /**
@@ -96,6 +97,16 @@ lazy val `vm-hello-world-runner` = (project in file("vm/src/it/resources/test-ca
   )
   .dependsOn(vm, `vm-hello-world`)
   .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `merkelized-bytebuffer` = (project in file("vm/merkelized-bytebuffer"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      asmble,
+      cryptoHashsign,
+      scalaTest
+    )
+  )
 
 lazy val `statemachine-control` = (project in file("statemachine/control"))
   .settings(
