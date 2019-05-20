@@ -150,8 +150,8 @@ class MasterNodeIntegrationSpec
             c1s1 <- heightFromTendermintStatus("localhost", master2Port, lastAppId)
             _ = logger.info(s"c1s1 === " + c1s1)
           } yield {
-            c1s0 shouldBe Some(2)
-            c1s1 shouldBe Some(2)
+            c1s0.value should be >= 2L
+            c1s1.value should be >= 2L
           },
           maxWait = 90.seconds
         )

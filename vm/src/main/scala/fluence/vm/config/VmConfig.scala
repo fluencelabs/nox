@@ -39,6 +39,7 @@ case class VmConfig(
   defaultMaxMemPages: Int,
   specTestRegister: Boolean,
   loggerRegister: Int,
+  chunkSize: Int,
   allocateFunctionName: String,
   deallocateFunctionName: String,
   invokeFunctionName: String
