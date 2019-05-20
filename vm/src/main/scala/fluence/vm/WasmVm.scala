@@ -25,14 +25,14 @@ import cats.effect.LiftIO
 import cats.{Applicative, Monad}
 import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
+import fluence.merkle.TrackingMemoryBuffer
 import fluence.vm.VmError.{InitializationError, InternalVmError}
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
-import fluence.vm.wasm.WasmFunction
+import fluence.vm.wasm.{MemoryHasher, WasmFunction, WasmModule}
 import fluence.vm.config.VmConfig
 import fluence.vm.config.VmConfig._
 import fluence.vm.config.VmConfig.ConfigError
 import fluence.vm.utils.safelyRunThrowable
-import fluence.vm.wasm.WasmModule
 import scodec.bits.ByteVector
 import pureconfig.generic.auto._
 import slogging.LazyLogging
@@ -83,12 +83,14 @@ object WasmVm extends LazyLogging {
    *
    * @param inFiles input files in wasm or wast format
    * @param configNamespace a path of config in 'lightbend/config terms, please see reference.conf
-   * @param cryptoHasher a hash function provider
+   * @param memoryHasher a hash function provider for calculating memory's hash
+   * @param cryptoHasher a hash function provider for module state hash calculation
    */
   def apply[F[_]: Monad](
     inFiles: NonEmptyList[String],
     configNamespace: String = "fluence.vm.client",
-    cryptoHasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256
+    memoryHasher: MemoryHasher.Builder = MemoryHasher.apply,
+    cryptoHasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256,
   ): EitherT[F, ApplyError, WasmVm] =
     for {
       // reading config
@@ -116,7 +118,7 @@ object WasmVm extends LazyLogging {
 
       _ = logger.info("WasmVm: scriptCtx prepared...")
 
-      modules ← initializeModules(scriptCxt, config)
+      modules ← initializeModules(scriptCxt, config, memoryHasher)
 
       _ = logger.info("WasmVm: modules initialized")
     } yield
@@ -138,6 +140,7 @@ object WasmVm extends LazyLogging {
     // TODO: in future common logger for this project should be used
     val logger = new Logger.Print(Logger.Level.WARN)
     invoke.setLogger(logger)
+
     invoke.prepareContext(
       new ScriptArgs(
         inFiles.toList,
@@ -145,7 +148,8 @@ object WasmVm extends LazyLogging {
         false, // disableAutoRegister
         config.specTestRegister,
         config.defaultMaxMemPages,
-        config.loggerRegister
+        config.loggerRegister,
+        (capacity: Int) => TrackingMemoryBuffer.allocateDirect(capacity, config.chunkSize)
       )
     )
   }
@@ -157,7 +161,8 @@ object WasmVm extends LazyLogging {
    */
   private def initializeModules[F[_]: Applicative](
     scriptCxt: ScriptContext,
-    config: VmConfig
+    config: VmConfig,
+    memoryHasher: MemoryHasher.Builder
   ): EitherT[F, ApplyError, ModuleIndex] = {
     val emptyIndex: Either[ApplyError, ModuleIndex] = Right(Map[Option[String], WasmModule]())
 
@@ -173,7 +178,8 @@ object WasmVm extends LazyLogging {
               scriptCxt,
               config.allocateFunctionName,
               config.deallocateFunctionName,
-              config.invokeFunctionName
+              config.invokeFunctionName,
+              memoryHasher
             )
 
           } yield acc + (wasmModule.getName → wasmModule)

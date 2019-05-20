@@ -81,8 +81,8 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
         val error = res.failed()
         error.getMessage should
-          startWith("Module with name=<no-name> doesn't contain memory")
-        error shouldBe a[VmMemoryError]
+          startWith("Unable to get memory from module=<no-name>")
+        error shouldBe a[InitializationError]
       }
 
       "wasm code falls into the trap" in {
@@ -255,7 +255,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         } yield state
 
         val error = res.failed()
-        error.getMessage shouldBe "Computing wasm memory hash failed"
+        error.getMessage shouldBe "Getting VM state for module=None failed"
         error.getCause shouldBe a[CryptoError]
         error shouldBe a[InternalVmError]
       }
@@ -263,21 +263,6 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
     }
 
     "returns state" when {
-      "there is one module without memory present" in {
-        val testHasher = DumbCrypto.testHasher
-        // 'no-getMemory.wast' doesn't use memory so Asmble creates class file without 'mem' field
-        val sumTestFile = getClass.getResource("/wast/no-getMemory.wast").getPath
-
-        val res = for {
-          vm ← WasmVm[IO](NonEmptyList.one(sumTestFile), cryptoHasher = testHasher)
-          state ← vm.getVmState[IO].toVmError
-        } yield {
-          state.toArray shouldBe testHasher.unsafe(Array.emptyByteArray)
-        }
-
-        res.success()
-      }
-
       "there is one module with memory present" in {
         // the code in 'counter.wast' uses 'memory', instance for this module created with 'memory' field
         val counterTestFile = getClass.getResource("/wast/counter.wast").getPath

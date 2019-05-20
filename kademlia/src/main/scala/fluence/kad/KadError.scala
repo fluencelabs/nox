@@ -14,21 +14,10 @@
  * limitations under the License.
  */
 
-import org.http4s.server.middleware.CORSConfig
+package fluence.kad
 
-import scala.concurrent.duration._
+sealed trait KadError
 
-object Settings {
+sealed trait JoinError extends KadError
 
-  val CodeDirectory = "/code"
-  val Port = 30000
-  val Host = "0.0.0.0"
-
-  val corsConfig = CORSConfig(
-    anyOrigin = true,
-    anyMethod = true,
-    allowedMethods = Some(Set("GET", "POST")),
-    allowCredentials = true,
-    maxAge = 1.day.toSeconds
-  )
-}
+case object CantJoinAnyNode extends JoinError

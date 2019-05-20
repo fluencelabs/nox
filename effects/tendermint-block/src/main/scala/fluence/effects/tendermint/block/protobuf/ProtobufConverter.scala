@@ -60,7 +60,7 @@ private[block] object ProtobufConverter {
       appHash = bs(h.app_hash),
       lastResultsHash = bs(h.last_results_hash),
       evidenceHash = bs(h.evidence_hash),
-      proposerAddress = bs(h.proposer_address),
+      proposerAddress = bs(h.proposer_address)
     )
   }
 
@@ -76,7 +76,7 @@ private[block] object ProtobufConverter {
       header = Some(header),
       data = data,
       evidence = None,
-      lastCommit = Some(toProtobuf(b.last_commit)),
+      lastCommit = Some(toProtobuf(b.last_commit))
     )
   }
 }

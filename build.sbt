@@ -27,7 +27,7 @@ lazy val vm = (project in file("vm"))
       cats,
       catsEffect,
       pureConfig,
-      cryptoHashing,
+      cryptoHashsign,
       scalaTest,
       scalaIntegrationTest,
       mockito,
@@ -39,12 +39,13 @@ lazy val vm = (project in file("vm"))
       .dependsOn(compile in `vm-llamadb`)
       .value
   )
+  .dependsOn(`merkelized-bytebuffer`)
   .enablePlugins(AutomateHeaderPlugin)
 
 /**
  * Wasm VM docker runner for easy Wasm app debugging
  */
-lazy val flrun = (project in file("vm/flrun"))
+lazy val frun = (project in file("vm/frun"))
     .settings(
       commons,
       libraryDependencies ++= Seq(
@@ -57,38 +58,17 @@ lazy val flrun = (project in file("vm/flrun"))
         http4sDsl,
         http4sServer,
       ),
-      assemblyMergeStrategy in assembly := {
-        // a module definition fails compilation for java 8, just skip it
-        case PathList("module-info.class", xs @ _*) => MergeStrategy.first
-        case "META-INF/io.netty.versions.properties" =>
-          MergeStrategy.first
-        case x =>
-          val oldStrategy = (assemblyMergeStrategy in assembly).value
-          oldStrategy(x)
-      },
-      imageNames in docker := Seq(ImageName("fluencelabs/frun")),
-      dockerfile in docker := {
-        // Run `sbt docker` to create image
-
-        val artifact = assembly.value
-        val artifactTargetPath = s"/${artifact.name}"
-
-        val port = 30000
-
-        new Dockerfile {
-          from("openjdk:8-jre-alpine")
-
-          expose(port)
-
-          copy((resourceDirectory in Compile).value / "reference.conf", "/reference.conf")
-          copy(artifact, artifactTargetPath)
-
-          entryPoint("java", "-jar", "-Dconfig.file=/reference.conf", "-Xmx2G", artifactTargetPath)
-        }
-      }
+      assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
+      imageNames in docker := Seq(ImageName(DockerContainers.Frun)),
+      dockerfile in docker := DockerContainers.frun(assembly.value, (resourceDirectory in Compile).value)
     )
     .dependsOn(vm, statemachine)
     .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
+
+lazy val `frun-rust` = project.in(frun.base / "rust").settings(
+  imageNames in docker := Seq(ImageName(DockerContainers.FrunRust)),
+  dockerfile in docker := DockerContainers.frunRust((assembly in frun).value, (resourceDirectory in frun in Compile).value)
+).dependsOn(frun).enablePlugins(DockerPlugin)
 
 lazy val `vm-counter` = (project in file("vm/src/it/resources/test-cases/counter"))
   .settings(
@@ -112,12 +92,21 @@ lazy val `vm-hello-world-runner` = (project in file("vm/src/it/resources/test-ca
       asmble,
       cats,
       catsEffect,
-      pureConfig,
-      cryptoHashing,
+      pureConfig
     )
   )
   .dependsOn(vm, `vm-hello-world`)
   .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `merkelized-bytebuffer` = (project in file("vm/merkelized-bytebuffer"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      asmble,
+      cryptoHashsign,
+      scalaTest
+    )
+  )
 
 lazy val `statemachine-control` = (project in file("statemachine/control"))
   .settings(
@@ -150,46 +139,10 @@ lazy val statemachine = (project in file("statemachine"))
       scalaTest
     ),
     assemblyJarName in assembly := "statemachine.jar",
-    assemblyMergeStrategy in assembly := {
-      // a module definition fails compilation for java 8, just skip it
-      case PathList("module-info.class", xs @ _*) => MergeStrategy.first
-      case "META-INF/io.netty.versions.properties" =>
-        MergeStrategy.first
-      case x =>
-        val oldStrategy = (assemblyMergeStrategy in assembly).value
-        oldStrategy(x)
-    },
+    assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
     test in assembly     := {},
-    imageNames in docker := Seq(ImageName("fluencelabs/worker")),
-    dockerfile in docker := {
-      // Run `sbt docker` to create image
-
-      // The assembly task generates a fat JAR file
-      val artifact = assembly.value
-      val artifactTargetPath = s"/${artifact.name}"
-
-      // State machine constants
-      val workerDataRoot = "/worker"
-      val workerRunScript = s"$workerDataRoot/run.sh"
-      val abciHandlerPort = 26658
-
-      val vmDataRoot = "/vmcode"
-
-      new Dockerfile {
-        from("openjdk:8-jre-alpine")
-
-        expose(abciHandlerPort)
-
-        volume(vmDataRoot)
-
-        // includes worker run script
-        copy(baseDirectory.value / "docker" / "worker", workerDataRoot)
-
-        copy(artifact, artifactTargetPath)
-
-        entryPoint("sh", workerRunScript, artifactTargetPath)
-      }
-    }
+    imageNames in docker := Seq(ImageName(DockerContainers.Worker)),
+    dockerfile in docker := DockerContainers.worker(assembly.value, baseDirectory.value)
   )
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
   .dependsOn(vm, `statemachine-control`, `tendermint-rpc`, sttpEitherT, `tendermint-block`)
@@ -246,7 +199,7 @@ lazy val swarm = (project in file("effects/swarm"))
       scodecBits,
       scodecCore,
       web3jCrypto,
-      cryptoHashing,
+      cryptoHashsign,
       scalaTest
     )
   )
@@ -337,12 +290,29 @@ lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
       protobuf,
       protobufUtil,
       scodecBits,
-      cryptoHashing,
+      cryptoHashsign,
       scalaTest,
       bouncyCastle
     )
   )
   .dependsOn(effects)
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `kademlia` = (project in file("kademlia"))
+  .settings(
+    commons,
+    kindProjector,
+    libraryDependencies ++= Seq(
+      slogging,
+      cats,
+      catsEffect,
+      codecCore,
+      cryptoJwt,
+      cryptoHashsign,
+      scalaTest
+    )
+  )
+  .dependsOn(`kvstore`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val node = project
@@ -362,15 +332,7 @@ lazy val node = project
       scalaIntegrationTest,
       scalaTest
     ),
-    assemblyMergeStrategy in assembly := {
-      // a module definition fails compilation for java 8, just skip it
-      case PathList("module-info.class", xs @ _*) => MergeStrategy.first
-      case "META-INF/io.netty.versions.properties" =>
-        MergeStrategy.first
-      case x =>
-        val oldStrategy = (assemblyMergeStrategy in assembly).value
-        oldStrategy(x)
-    },
+    assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
     test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(docker)
       .dependsOn(docker in statemachine)
@@ -380,42 +342,8 @@ lazy val node = project
     mainClass in assembly       := Some("fluence.node.MasterNodeApp"),
     assemblyJarName in assembly := "master-node.jar",
     test in assembly            := {},
-    imageNames in docker        := Seq(ImageName("fluencelabs/node")),
-    dockerfile in docker := {
-      // The assembly task generates a fat JAR file
-      val artifact: File = assembly.value
-      val artifactTargetPath = s"/${artifact.name}"
-
-      new Dockerfile {
-        // docker is needed in image so it can connect to host's docker.sock and run workers on host
-        val dockerBinary = "https://download.docker.com/linux/static/stable/x86_64/docker-18.06.1-ce.tgz"
-        from("openjdk:8-jre-alpine")
-        runRaw(s"wget -q $dockerBinary -O- | tar -C /usr/bin/ -zxv docker/docker --strip-components=1")
-
-        // this is needed for some binaries (e.g. rocksdb) to run properly on alpine linux since they need libc and
-        // alpine use musl
-        runRaw("ln -sf /lib/libc.musl-x86_64.so.1 /usr/lib/ld-linux-x86-64.so.2")
-
-        volume("/master") // anonymous volume to store all data
-
-        // p2p ports range
-        env("MIN_PORT", "10000")
-        env("MAX_PORT", "11000")
-
-        /*
-         * The following directory structure is assumed in node/src/main/resources:
-         *    docker/
-         *      entrypoint.sh
-         *      application.conf
-         */
-        copy((resourceDirectory in Compile).value / "docker", "/")
-
-        copy(artifact, artifactTargetPath)
-
-        cmd("java", "-jar", "-Dconfig.file=/master/application.conf", artifactTargetPath)
-        entryPoint("sh", "/entrypoint.sh")
-      }
-    }
+    imageNames in docker        := Seq(ImageName(DockerContainers.Node)),
+    dockerfile in docker := DockerContainers.node(assembly.value, (resourceDirectory in Compile).value)
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)

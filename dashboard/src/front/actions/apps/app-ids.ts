@@ -1,6 +1,6 @@
-import {getAppIds, AppId} from '../../../fluence';
+import {getAppIds} from '../../../fluence';
 import contract from '../../../fluence/contract';
-import { Dispatch, Action } from 'redux';
+import {Action, Dispatch} from 'redux';
 
 export const GET_APPS_IDS_RECEIVE = 'GET_APPS_IDS_RECEIVE';
 
