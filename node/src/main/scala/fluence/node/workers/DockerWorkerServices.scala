@@ -47,8 +47,7 @@ case class DockerWorkerServices[F[_]] private (
   appId: Long,
   tendermint: TendermintRpc[F],
   control: ControlRpc[F],
-  statusCall: FiniteDuration ⇒ F[WorkerStatus],
-  blocks: fs2.Stream[F, String]
+  statusCall: FiniteDuration ⇒ F[WorkerStatus]
 ) extends WorkerServices[F] {
   override def status(timeout: FiniteDuration): F[WorkerStatus] = statusCall(timeout)
 }
@@ -124,8 +123,6 @@ object DockerWorkerServices extends LazyLogging {
       tendermint ← DockerTendermint.make[F](params, p2pPort, containerName(params), network, stopTimeout)
 
       rpc ← TendermintRpc.make[F](tendermint.name, DockerTendermint.RpcPort)
-
-      blocks <- WebsocketTendermintRpc.subscribeNewBlock(tendermint.name, DockerTendermint.RpcPort)
 
       control = ControlRpc[F](containerName(params), ControlRpcPort)
 

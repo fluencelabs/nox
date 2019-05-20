@@ -82,7 +82,7 @@ object Block {
 }
 
 // TODO: Add Evidence field to the Block
-case class Block(header: Header, data: Data, last_commit: LastCommit) {
+case class Block private[block] (header: Header, data: Data, last_commit: LastCommit) {
   import Block._
 
   /**

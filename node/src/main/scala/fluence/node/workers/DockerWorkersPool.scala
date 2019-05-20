@@ -49,7 +49,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
   healthyWorkerTimeout: FiniteDuration = 1.second
 )(
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
-  F: Concurrent[F],
+  F: ConcurrentEffect[F],
   P: Parallel[F, G]
 ) extends WorkersPool[F] with LazyLogging {
 
@@ -241,7 +241,7 @@ object DockerWorkersPool extends LazyLogging {
   def make[F[_]: DockerIO: ContextShift: Timer, G[_]](minPort: Short, maxPort: Short, rootPath: Path)(
     implicit
     sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
-    F: Concurrent[F],
+    F: ConcurrentEffect[F],
     P: Parallel[F, G]
   ): Resource[F, WorkersPool[F]] =
     for {

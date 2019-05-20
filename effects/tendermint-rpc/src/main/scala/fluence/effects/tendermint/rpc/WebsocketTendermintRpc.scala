@@ -34,10 +34,17 @@ import scala.language.higherKinds
  * Implementation of Tendermint RPC Subscribe call
  * Details: https://tendermint.com/rpc/#subscribe
  */
-class WebsocketTendermintRpc[F[_]: ConcurrentEffect](host: String, port: Int) extends slogging.LazyLogging {
+trait WebsocketTendermintRpc extends slogging.LazyLogging {
+  val host: String
+  val port: Int
+
   private val wsUrl = s"ws://$host:$port/websocket"
 
-  def subscribe(
+  def subscribeNewBlock[F[_]: ConcurrentEffect]: Resource[F, fs2.Stream[F, String]] = {
+    subscribe("NewBlock").map(_.dequeue.unNoneTerminate)
+  }
+
+  private def subscribe[F[_]: ConcurrentEffect](
     event: String
   ): Resource[F, Queue[F, Option[String]]] = {
     def close(ws: (NettyWebSocket, _)) = ws._1.sendCloseFrame().asAsync.void
@@ -62,7 +69,7 @@ class WebsocketTendermintRpc[F[_]: ConcurrentEffect](host: String, port: Int) ex
        |}
                """.stripMargin
 
-  private def wsHandler(event: String, ref: Ref[F, String], queue: Queue[F, Option[String]]) =
+  private def wsHandler[F[_]: ConcurrentEffect](event: String, ref: Ref[F, String], queue: Queue[F, Option[String]]) =
     new WebSocketUpgradeHandler.Builder()
       .addWebSocketListener(
         new WebSocketListener {
@@ -81,7 +88,7 @@ class WebsocketTendermintRpc[F[_]: ConcurrentEffect](host: String, port: Int) ex
               ref.update(_.concat(payload)).toIO.unsafeRunSync()
             } else {
               // TODO: run sync or async? which is better here? In examples, they do it async (see onOpen), but why?
-              ((ref.get.map(Some(_)) >>= queue.enqueue1) >> ref.set("")).toIO.unsafeRunSync ()
+              ((ref.get.map(Some(_)) >>= queue.enqueue1) >> ref.set("")).toIO.unsafeRunSync()
             }
           }
 
@@ -92,17 +99,10 @@ class WebsocketTendermintRpc[F[_]: ConcurrentEffect](host: String, port: Int) ex
       )
       .build()
 
-  private def connect(handler: WebSocketUpgradeHandler) =
+  private def connect[F[_]: Async](handler: WebSocketUpgradeHandler) =
     asyncHttpClient()
       .prepareGet(wsUrl)
       .execute(handler)
       .toCompletableFuture
       .asAsync[F]
-}
-
-object WebsocketTendermintRpc {
-
-  def subscribeNewBlock[F[_]: ConcurrentEffect](host: String, port: Int): Resource[F, fs2.Stream[F, String]] = {
-    new WebsocketTendermintRpc(host, port).subscribe("NewBlock").map(_.dequeue.unNoneTerminate)
-  }
 }

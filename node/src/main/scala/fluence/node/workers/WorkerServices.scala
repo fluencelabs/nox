@@ -28,9 +28,6 @@ trait WorkerServices[F[_]] {
   // RPC connection to tendermint
   def tendermint: TendermintRpc[F]
 
-  // Stream of tendermint blocks
-  def blocks: fs2.Stream[F, String]
-
   // RPC connection to worker
   def control: ControlRpc[F]
 

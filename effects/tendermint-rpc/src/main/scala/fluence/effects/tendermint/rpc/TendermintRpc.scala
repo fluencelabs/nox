@@ -19,8 +19,8 @@ package fluence.effects.tendermint.rpc
 import cats.Functor
 import cats.data.EitherT
 import cats.effect.{Resource, Sync}
-import cats.syntax.either._
 import cats.syntax.apply._
+import cats.syntax.either._
 import com.softwaremill.sttp._
 import fluence.effects.tendermint.rpc.response.{Response, TendermintStatus}
 import io.circe.Json
@@ -31,14 +31,18 @@ import scala.language.higherKinds
 /**
  * Provides a single concurrent endpoint to run RPC requests on Worker
  *
- * @param get Perform a Get request for the given path
- * @param post Perform a Post request, sending the given [[RpcRequest]]
+ * @param host Tendermint hostname (usually docker container name)
+ * @param port Tendermint RPC port
  * @tparam F Http requests effect
  */
-case class TendermintRpc[F[_]](
-  get: String ⇒ EitherT[F, RpcError, String],
-  post: RpcRequest ⇒ EitherT[F, RpcError, String]
-) extends slogging.LazyLogging {
+case class TendermintRpc[F[_]: Sync](
+  host: String,
+  port: Int
+)(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing])
+    extends WebsocketTendermintRpc with slogging.LazyLogging {
+
+  val RpcUri = uri"http://$host:$port"
+  logger.info(s"TendermintRpc started, uri: $RpcUri")
 
   /** Get status as string */
   val status: EitherT[F, RpcError, String] =
@@ -116,12 +120,9 @@ case class TendermintRpc[F[_]](
         id = id
       )
     )
-}
-
-object TendermintRpc extends slogging.LazyLogging {
 
   /** Perform the request, and lift the errors to EitherT */
-  private def sendHandlingErrors[F[_]: Sync](
+  private def sendHandlingErrors(
     reqT: RequestT[Id, String, Nothing]
   )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]): EitherT[F, RpcError, String] =
     reqT
@@ -137,6 +138,26 @@ object TendermintRpc extends slogging.LazyLogging {
         eitherResp
       }
 
+  private def logPost(req: RpcRequest): EitherT[F, RpcError, Unit] =
+    EitherT.pure[F, RpcError](logger.debug(s"TendermintRpc POST method=${req.method}"))
+
+  private def logGet(path: String): EitherT[F, RpcError, Unit] =
+    EitherT.pure[F, RpcError](logger.debug(s"TendermintRpc GET path=$path"))
+
+  /**
+   * Performs a Get request for the given path
+   */
+  private def get(path: String) = logGet(path) *> sendHandlingErrors(sttp.get(RpcUri.path(path)))
+
+  /**
+   * Performs a Post request, sending the given [[RpcRequest]]
+   */
+  private def post(req: RpcRequest) = logPost(req) *> sendHandlingErrors(sttp.post(RpcUri).body(req.toJsonString))
+
+}
+
+object TendermintRpc extends slogging.LazyLogging {
+
   /**
    * Runs a WorkerRpc with F effect, acquiring some resources for it
    *
@@ -150,28 +171,8 @@ object TendermintRpc extends slogging.LazyLogging {
     hostName: String,
     port: Short
   )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]): Resource[F, TendermintRpc[F]] = {
-    val RpcUri = uri"http://$hostName:$port"
-
-    logger.info(s"TendermintRpc started, uri: $RpcUri")
-
-    def logPost(req: RpcRequest): EitherT[F, RpcError, Unit] =
-      EitherT.pure(logger.debug(s"TendermintRpc POST method=${req.method}"))
-    def logGet(path: String): EitherT[F, RpcError, Unit] =
-      EitherT.pure(logger.debug(s"TendermintRpc GET path=$path"))
-
     Resource.pure(
-      new TendermintRpc[F](
-        path ⇒
-          logGet(path) *> sendHandlingErrors(
-            sttp.get(RpcUri.path(path))
-        ),
-        req ⇒
-          logPost(req) *> sendHandlingErrors(
-            sttp
-              .post(RpcUri)
-              .body(req.toJsonString)
-        )
-      )
+      new TendermintRpc[F](hostName, port)
     )
   }
 }
