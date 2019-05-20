@@ -17,8 +17,10 @@
 package fluence.node.workers.tendermint
 
 import cats.Monad
+import cats.effect.concurrent.MVar
 import cats.effect.{Concurrent, ConcurrentEffect, Resource}
 import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.node.workers.Worker
@@ -28,18 +30,27 @@ import scala.language.higherKinds
 object BlockUploading extends slogging.LazyLogging {
 
   def start[F[_]: ConcurrentEffect](worker: Worker[F]): Resource[F, Unit] = {
-    def upload(block: Block): F[Receipt] = ???
+    def upload(lastReceipt: Option[Receipt], block: Block): F[Receipt] = ???
 
     val services = worker.services
 
     for {
+      lastManifestReceipt <- Resource.liftF(MVar.of[F, Option[Receipt]](None))
       blocks <- services.tendermint.subscribeNewBlock[F]
       _ <- Resource.make(
         Concurrent[F].start(
           blocks.evalMap { blockRaw =>
             Block(blockRaw) match {
-              case Left(e) => Monad[F].pure(logger.error(s"DWS failed to parse Tendermint block: ${e.getMessage}"))
-              case Right(block) => upload(block) >>= services.control.sendBlockReceipt
+              case Left(e) =>
+                Monad[F].pure(logger.error(s"DWS failed to parse Tendermint block: ${e.getMessage}"))
+
+              case Right(block) =>
+                for {
+                  lastReceipt <- lastManifestReceipt.read
+                  receipt <- upload(lastReceipt, block)
+                  _ <- services.control.sendBlockReceipt(receipt)
+                  _ <- lastManifestReceipt.put(Some(receipt))
+                } yield ()
             }
           }.compile.drain
         )

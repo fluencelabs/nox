@@ -67,7 +67,7 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
        |    "id": "dontcare",
        |    "query": "tm.event = '$event'"
        |}
-               """.stripMargin
+     """.stripMargin
 
   private def wsHandler[F[_]: ConcurrentEffect](event: String, ref: Ref[F, String], queue: Queue[F, Option[String]]) =
     new WebSocketUpgradeHandler.Builder()
