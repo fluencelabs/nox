@@ -26,7 +26,6 @@ class BinaryMerkleTree private (
 ) {
   import TreeMath._
 
-  val leafsCount: Int = power2(treeHeight)
   private val chunkSize = memory.chunkSize
 
   private def concatenate(l: Array[Byte], r: Array[Byte]): Array[Byte] =
