@@ -16,17 +16,18 @@
 
 package fluence.effects.tendermint.rpc
 
+import cats.Applicative
 import cats.data.EitherT
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.syntax.effect._
-import cats.syntax.flatMap._
 import cats.syntax.applicativeError._
-import cats.syntax.functor._
 import cats.syntax.apply._
-import fluence.effects.{Backoff, EffectError}
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fluence.effects.JavaFutureConversion._
 import fluence.effects.tendermint.rpc.helpers.NettyFutureConversion._
+import fluence.effects.{Backoff, EffectError}
 import fs2.concurrent.Queue
 import org.asynchttpclient.Dsl._
 import org.asynchttpclient.netty.ws.NettyWebSocket
@@ -54,22 +55,24 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
     event: String
   ): Resource[F, Queue[F, Option[String]]] = {
     def close(ws: (NettyWebSocket, _)) = ws._1.sendCloseFrame().asAsync.void
-
     Resource.make {
       for {
-        queue <- Queue.unbounded[F, Option[String]]
-        ref <- Ref.of[F, String]("")
-        websocket <- {
-          Backoff.default(EitherT(for {
-            // promise will be completed with Right on connect and Left on close
-            promise <- Deferred[F, Either[Disconnected.type, Unit]]
-            websocket <- connect(wsHandler(event, ref, queue, promise))
-            connected <- promise.get
-          } yield connected.map(_ => websocket)))
+        (websocket, queue) <- {
+          Backoff.default.retry(
+            EitherT(for {
+              queue <- Queue.unbounded[F, Option[String]]
+              ref <- Ref.of[F, String]("")
+              // promise will be completed with Right on connect and Left on close
+              promise <- Deferred[F, Either[Disconnected.type, Unit]]
+              websocket <- connect(wsHandler(event, ref, queue, promise))
+              connected <- promise.get
+            } yield connected.map(_ => (websocket, queue))),
+            (e: EffectError) => Applicative[F].pure(logger.error(s"WRPC $wsUrl: error connecting: ${e.getMessage}"))
+          )
         }
         _ <- websocket.sendTextFrame(request(event)).asAsync
       } yield (websocket, queue)
-    }(close).map(_._2)
+    }(close).map { case (_, queue) => queue }
   }
 
   private def request(event: String) =

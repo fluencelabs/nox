@@ -64,8 +64,7 @@ class AbciHandler[F[_]: Effect](
   private def store(height: Long, method: String) = {
     logger.info(s"Store[$height] began")
     for {
-      tuple <- getJsons(height)
-      (blockJson, commitJson) = tuple
+      (blockJson, commitJson) <- getJsons(height)
       _ <- blocks.update(_.updated(height, method -> blockJson))
       _ <- commits.update(_.updated(height, method -> commitJson))
       _ = logger.info(s"Store[$height] completed")
@@ -87,8 +86,7 @@ class AbciHandler[F[_]: Effect](
   private def compare(height: Long, method: String) = {
     logger.info(s"Compare[$height] began")
     for {
-      tuple <- getJsons(height)
-      (blockJson, commitJson) = tuple
+      (blockJson, commitJson) <- getJsons(height)
       storedBlock <- blocks.get.map(_.get(height))
       storedCommit <- commits.get.map(_.get(height))
     } yield {

@@ -278,10 +278,16 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
       slogging,
       fs2,
       fs2io,
-      asyncHttpClient
+      asyncHttpClient,
+      scalaTest,
+      http4sDsl % Test,
+      http4sServer % Test,
+      sttp % Test,
+      sttpCirce % Test,
+      sttpCatsBackend % Test
     )
   )
-  .dependsOn(effects)
+  .dependsOn(effects, sttpEitherT)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `tendermint-block` = (project in file("effects/tendermint-block"))

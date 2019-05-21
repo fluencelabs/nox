@@ -2,7 +2,7 @@ import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.headerLicense
 import de.heikoseeberger.sbtheader.License
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys._
-import sbt.{Def, _}
+import sbt.{Def, addCompilerPlugin, _}
 import sbtassembly.AssemblyPlugin.autoImport.assemblyMergeStrategy
 import sbtassembly.{MergeStrategy, PathList}
 import sbtdocker.DockerPlugin.autoImport.docker
@@ -28,7 +28,8 @@ object SbtCommons {
     resolvers += Resolver.bintrayRepo("fluencelabs", "releases"),
     scalafmtOnCompile := true,
     // see good explanation https://gist.github.com/djspiewak/7a81a395c461fd3a09a6941d4cd040f2
-    scalacOptions ++= Seq("-Ypartial-unification", "-deprecation")
+    scalacOptions ++= Seq("-Ypartial-unification", "-deprecation"),
+    addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0")
   )
 
   val kindProjector = Seq(

@@ -31,8 +31,9 @@ import fluence.node.workers.DockerWorkersPool
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 
-object MasterNodeApp extends IOApp with LazyLogging {
+import scala.language.higherKinds
 
+object MasterNodeApp extends IOApp with LazyLogging {
   private val sttpResource: Resource[IO, SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]] =
     Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
@@ -46,50 +47,39 @@ object MasterNodeApp extends IOApp with LazyLogging {
    * - Starts HTTP API serving status information
    */
   override def run(args: List[String]): IO[ExitCode] = {
+    type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
     MasterConfig
       .load()
       .map(mc => { configureLogging(mc.logLevel); mc })
       .flatMap { masterConf =>
         // Run master node and status server
-        DockerIO
-          .make[IO]()
-          .flatMap { implicit dockerIO ⇒
-            Resource
-              .liftF(Configuration.init[IO](masterConf))
-              .flatMap(
-                conf ⇒
-                  sttpResource
-                    .flatMap(
-                      implicit sttpBackend ⇒
-                        DockerWorkersPool
-                          .make(
-                            masterConf.ports.minPort,
-                            masterConf.ports.maxPort,
-                            conf.rootPath,
-                            masterConf.remoteStorage
-                          )
-                          .flatMap(
-                            MasterNode.make[IO, IO.Par](masterConf, conf.nodeConfig, _)
-                        )
-                  )
-              )
-          }
-          .use { node ⇒
-            logger.debug("eth config {}", masterConf.contract)
+        (for {
+          implicit0(sttp: STTP) <- sttpResource
+          implicit0(dockerIO: DockerIO[IO]) <- DockerIO.make[IO]()
+          conf <- Resource.liftF(Configuration.init[IO](masterConf))
+          pool <- DockerWorkersPool.make(
+            masterConf.ports.minPort,
+            masterConf.ports.maxPort,
+            conf.rootPath,
+            masterConf.remoteStorage
+          )
+          node <- MasterNode.make[IO, IO.Par](masterConf, conf.nodeConfig, pool)
+        } yield node).use { node ⇒
+          logger.debug("eth config {}", masterConf.contract)
 
-            (for {
-              st ← StatusAggregator.make(masterConf, node)
-              server ← MasterHttp.make[IO, IO.Par](
-                "0.0.0.0",
-                masterConf.httpApi.port.toShort,
-                st,
-                node.pool
-              )
-            } yield server).use { server =>
-              logger.info("Http api server has started on: " + server.address)
-              node.run
-            }
+          (for {
+            st ← StatusAggregator.make(masterConf, node)
+            server ← MasterHttp.make[IO, IO.Par](
+              "0.0.0.0",
+              masterConf.httpApi.port.toShort,
+              st,
+              node.pool
+            )
+          } yield server).use { server =>
+            logger.info("Http api server has started on: " + server.address)
+            node.run
           }
+        }
 
       }
       .attempt
