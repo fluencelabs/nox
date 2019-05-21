@@ -16,12 +16,11 @@
 
 package fluence.node.workers.control
 
+import fluence.effects.EffectError
 import fluence.effects.tendermint.block.history.Receipt
 import scodec.bits.ByteVector
 
-import scala.util.control.NoStackTrace
-
-trait ControlRpcError extends NoStackTrace
+trait ControlRpcError extends EffectError
 
 trait WithCause[E <: Throwable] extends ControlRpcError {
   def cause: E

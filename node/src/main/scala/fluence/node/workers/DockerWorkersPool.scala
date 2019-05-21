@@ -259,7 +259,7 @@ object DockerWorkersPool extends LazyLogging {
     P: Parallel[F, G]
   ): Resource[F, WorkersPool[F]] =
     for {
-      blockUploading <- Resource.pure(BlockUploading.make[F](remoteStorageConfig))
+      blockUploading <- Resource.pure[F, BlockUploading[F]](BlockUploading.make(remoteStorageConfig))
       ports ← makePorts(minPort, maxPort, rootPath)
       pool ← Resource.make {
         for {

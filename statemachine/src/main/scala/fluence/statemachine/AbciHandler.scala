@@ -52,9 +52,9 @@ class AbciHandler[F[_]: Effect](
 
   private def getJsons(height: Long): F[(Json, Json)] = {
     val jsonsF = for {
-      block <- tendermintRpc.block(height)               .leftMap(new Exception(_): Throwable)
-      blockJson <- EitherT.fromEither(parseJson(block))  .leftMap(new Exception(_): Throwable)
-      commit <- tendermintRpc.commit(height)             .leftMap(new Exception(_): Throwable)
+      block <- tendermintRpc.block(height).leftMap(new Exception(_): Throwable)
+      blockJson <- EitherT.fromEither(parseJson(block)).leftMap(new Exception(_): Throwable)
+      commit <- tendermintRpc.commit(height).leftMap(new Exception(_): Throwable)
       commitJson <- EitherT.fromEither(parseJson(commit)).leftMap(new Exception(_): Throwable)
     } yield (blockJson, commitJson)
 

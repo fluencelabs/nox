@@ -23,11 +23,9 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Applicative, Monad}
 import com.github.jtendermint.jabci.api.CodeType
-import fluence.codec.PureCodec
+import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
-import fluence.effects.Backoff
-import fluence.effects.tendermint.block.history.Receipt
 import fluence.statemachine.control.ControlSignals
 import fluence.statemachine.state.AbciState
 import scodec.bits.ByteVector
@@ -227,15 +225,24 @@ object AbciService {
    * @tparam F Sync for Ref
    * @return Brand new AbciService instance
    */
-  def apply[F[_]: Concurrent: Timer](vm: VmOperationInvoker[F], controlSignals: ControlSignals[F]): F[AbciService[F]] = {
-    import cats.syntax.applicative._
+  def apply[F[_]: Concurrent: Timer](
+    vm: VmOperationInvoker[F],
+    controlSignals: ControlSignals[F]
+  ): F[AbciService[F]] = {
     import cats.syntax.compose._
+    import scodec.bits.ByteVector
+
+    import scala.language.higherKinds
 
     for {
       state ← Ref.of[F, AbciState](AbciState())
     } yield {
-      implicit val hasher: Hasher[Array[Byte], Array[Byte]] =
-        PureCodec[ByteVector, Array[Byte]].andThen(JdkCryptoHasher.Sha256)
+
+      val bva: Crypto.Hasher[ByteVector, Array[Byte]] = Crypto.liftFunc[ByteVector, Array[Byte]](_.toArray)
+      val abv: Crypto.Hasher[Array[Byte], ByteVector] = Crypto.liftFunc[Array[Byte], ByteVector](ByteVector(_))
+      implicit val hasher: Crypto.Hasher[ByteVector, ByteVector] =
+        bva.andThen[Array[Byte]](JdkCryptoHasher.Sha256).andThen(abv)
+
       new AbciService[F](state, vm, controlSignals)
     }
   }

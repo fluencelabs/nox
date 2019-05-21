@@ -25,7 +25,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Applicative, Monad}
 import com.softwaremill.sttp.SttpBackend
-import fluence.effects.Backoff
+import fluence.effects.{Backoff, EffectError}
 import fluence.effects.ipfs.IpfsClient
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
@@ -67,15 +67,16 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) ex
                   vmHash <- services.control.getVmHash
                   receipt <- history.upload(block, vmHash, lastReceipt)
                   _ <- services.control.sendBlockReceipt(receipt)
-                  _ <- EitherT.pure(lastManifestReceipt.put(Some(receipt)))
+                  // TODO: How to avoid specifying [F, NoStackTrace, Unit] in liftF?
+                  _ <- EitherT.liftF[F, EffectError, Unit](lastManifestReceipt.put(Some(receipt)))
                 } yield ()
 
                 // TODO: add health check on this: if error keeps happening, miner should be alerted
                 // Retry uploading until forever
                 Backoff.default
-                  .retry[F, NoStackTrace, Unit](
+                  .retry(
                     processF,
-                    e =>
+                    (e: EffectError) =>
                       Applicative[F].pure(
                         logger.error(s"BlockUploading: Error uploading block ${block.header.height}: ${e.getMessage}")
                     )

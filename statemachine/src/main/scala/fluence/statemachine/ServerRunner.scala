@@ -116,9 +116,9 @@ object ServerRunner extends IOApp with LazyLogging {
    * @param config config object to load various settings
    */
   private[statemachine] def buildAbciHandler(
-                                              config: StateMachineConfig,
-                                              controlSignals: ControlSignals[IO],
-                                              tendermintRpc: TendermintRpc[IO]
+    config: StateMachineConfig,
+    controlSignals: ControlSignals[IO],
+    tendermintRpc: TendermintRpc[IO]
   ): EitherT[IO, StateMachineError, AbciHandler[IO]] =
     for {
       moduleFilenames <- config.collectModuleFiles[IO]
