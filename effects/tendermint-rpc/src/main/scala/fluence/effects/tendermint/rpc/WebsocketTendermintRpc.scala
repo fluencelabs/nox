@@ -16,11 +16,15 @@
 
 package fluence.effects.tendermint.rpc
 
+import cats.data.EitherT
 import cats.effect._
-import cats.effect.concurrent.Ref
+import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.syntax.effect._
 import cats.syntax.flatMap._
+import cats.syntax.applicativeError._
 import cats.syntax.functor._
+import cats.syntax.apply._
+import fluence.effects.{Backoff, EffectError}
 import fluence.effects.JavaFutureConversion._
 import fluence.effects.tendermint.rpc.helpers.NettyFutureConversion._
 import fs2.concurrent.Queue
@@ -35,16 +39,18 @@ import scala.language.higherKinds
  * Details: https://tendermint.com/rpc/#subscribe
  */
 trait WebsocketTendermintRpc extends slogging.LazyLogging {
+  import WebsocketTendermintRpc.Disconnected
+
   val host: String
   val port: Int
 
   private val wsUrl = s"ws://$host:$port/websocket"
 
-  def subscribeNewBlock[F[_]: ConcurrentEffect]: Resource[F, fs2.Stream[F, String]] = {
+  def subscribeNewBlock[F[_]: ConcurrentEffect: Timer]: Resource[F, fs2.Stream[F, String]] = {
     subscribe("NewBlock").map(_.dequeue.unNoneTerminate)
   }
 
-  private def subscribe[F[_]: ConcurrentEffect](
+  private def subscribe[F[_]: ConcurrentEffect: Timer](
     event: String
   ): Resource[F, Queue[F, Option[String]]] = {
     def close(ws: (NettyWebSocket, _)) = ws._1.sendCloseFrame().asAsync.void
@@ -53,8 +59,14 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
       for {
         queue <- Queue.unbounded[F, Option[String]]
         ref <- Ref.of[F, String]("")
-        handler = wsHandler(event, ref, queue)
-        websocket <- connect(handler)
+        websocket <- {
+          Backoff.default(EitherT(for {
+            // promise will be completed with Right on connect and Left on close
+            promise <- Deferred[F, Either[Disconnected.type, Unit]]
+            websocket <- connect(wsHandler(event, ref, queue, promise))
+            connected <- promise.get
+          } yield connected.map(_ => websocket)))
+        }
         _ <- websocket.sendTextFrame(request(event)).asAsync
       } yield (websocket, queue)
     }(close).map(_._2)
@@ -69,22 +81,32 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
        |}
      """.stripMargin
 
-  private def wsHandler[F[_]: ConcurrentEffect](event: String, ref: Ref[F, String], queue: Queue[F, Option[String]]) =
+  private def wsHandler[F[_]: ConcurrentEffect](
+    event: String,
+    ref: Ref[F, String],
+    queue: Queue[F, Option[String]],
+    connected: Deferred[F, Either[Disconnected.type, Unit]]
+  ) =
     new WebSocketUpgradeHandler.Builder()
       .addWebSocketListener(
         new WebSocketListener {
-          override def onOpen(websocket: WebSocket): Unit = {}
+          override def onOpen(websocket: WebSocket): Unit = {
+            logger.info(s"Tendermint WRPC: $wsUrl connected")
+            connected.complete(Right(())).toIO.unsafeRunSync()
+          }
 
-          override def onClose(websocket: WebSocket, code: Int, reason: String): Unit =
-            queue.enqueue1(None).toIO.unsafeRunSync()
+          override def onClose(websocket: WebSocket, code: Int, reason: String): Unit = {
+            logger.warn(s"Tendermint WRPC: $wsUrl closed")
+            (connected.complete(Left(Disconnected)).attempt.void *> queue.enqueue1(None)).toIO.unsafeRunSync()
+          }
 
           override def onError(t: Throwable): Unit = {
-            logger.error(s"Tendermint WRPC: ${t.getMessage}")
+            logger.error(s"Tendermint WRPC: $wsUrl ${t.getMessage}")
           }
 
           override def onTextFrame(payload: String, finalFragment: Boolean, rsv: Int): Unit = {
             if (!finalFragment) {
-              logger.warn("Tendermint WRPC event was split into several websocket frames")
+              logger.warn(s"Tendermint WRPC: $wsUrl event was split into several websocket frames")
               ref.update(_.concat(payload)).toIO.unsafeRunSync()
             } else {
               // TODO: run sync or async? which is better here? In examples, they do it async (see onOpen), but why?
@@ -105,4 +127,8 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
       .execute(handler)
       .toCompletableFuture
       .asAsync[F]
+}
+
+object WebsocketTendermintRpc {
+  private[rpc] case object Disconnected extends EffectError
 }

@@ -25,15 +25,14 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Applicative, Monad}
 import com.softwaremill.sttp.SttpBackend
-import fluence.effects.{Backoff, EffectError}
 import fluence.effects.ipfs.IpfsClient
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
+import fluence.effects.{Backoff, EffectError}
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.workers.Worker
 
 import scala.language.higherKinds
-import scala.util.control.NoStackTrace
 
 class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) extends slogging.LazyLogging {
 
