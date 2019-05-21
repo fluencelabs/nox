@@ -20,67 +20,16 @@ import java.nio.ByteBuffer
 
 import cats.data.EitherT
 import cats.effect._
-import cats.effect.concurrent.Ref
-import cats.syntax.apply._
 import cats.syntax.flatMap._
-import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
-import fs2.concurrent.{Queue, SignallingRef}
-import fs2.{Pipe, Stream}
-import org.http4s.HttpRoutes
-import org.http4s.dsl.Http4sDsl
-import org.http4s.implicits._
-import org.http4s.server.blaze.BlazeServerBuilder
-import org.http4s.server.websocket.WebSocketBuilder
-import org.http4s.websocket.WebSocketFrame
-import org.http4s.websocket.WebSocketFrame.{Close, Text}
+import org.http4s.websocket.WebSocketFrame.Text
 import org.scalatest.{Matchers, WordSpec}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.higherKinds
-
-case class WebsocketServer[F[_]: ConcurrentEffect: Timer](
-  toClient: Queue[F, WebSocketFrame],
-  fromClient: Queue[F, WebSocketFrame],
-  signal: SignallingRef[F, Boolean]
-) extends Http4sDsl[F] {
-
-  private def routes(to: Stream[F, WebSocketFrame], from: Pipe[F, WebSocketFrame, Unit]): HttpRoutes[F] =
-    HttpRoutes.of[F] {
-      case GET -> Root / "websocket" =>
-        println("Got /websocket request")
-        WebSocketBuilder[F].build(to, from)
-    }
-
-  def close(): F[Unit] = toClient.enqueue1(Close()) *> signal.set(true)
-  def requests(): Stream[F, WebSocketFrame] = fromClient.dequeue.interruptWhen(signal)
-  def send(frame: WebSocketFrame): F[Unit] = toClient.enqueue1(frame)
-
-  def start(): Stream[F, ExitCode] =
-    for {
-      exitCode <- Stream.eval(Ref[F].of(ExitCode.Success))
-      server <- BlazeServerBuilder[F]
-        .bindHttp(8080)
-        .withHttpApp(routes(toClient.dequeue, fromClient.enqueue).orNotFound)
-        .serveWhile(signal, exitCode)
-    } yield server
-}
-
-object WebsocketServer {
-
-  def make[F[_]: ConcurrentEffect: Timer]: Resource[F, WebsocketServer[F]] = Resource.liftF(
-    for {
-      to <- Queue.unbounded[F, WebSocketFrame]
-      from <- Queue.unbounded[F, WebSocketFrame]
-      signal <- SignallingRef[F, Boolean](false)
-      server = WebsocketServer(to, from, signal)
-      _ <- Concurrent[F].start(server.start().compile.drain)
-    } yield server
-  )
-}
 
 class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging {
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
@@ -92,7 +41,7 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
   "WebsocketRPC" should {
     PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, true)
     LoggerConfig.factory = PrintLoggerFactory()
-    LoggerConfig.level = LogLevel.DEBUG
+    LoggerConfig.level = LogLevel.TRACE
 
     val resourcesF = for {
       server <- WebsocketServer.make[IO]
@@ -101,18 +50,34 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
     } yield (server, blocks)
 
     "connect and disconnect" in {
-      val (blocks, requests) = resourcesF.use {
-        case (server, blocks) =>
+      val (events, requests) = resourcesF.use {
+        case (server, events) =>
           for {
             _ <- server.close()
-            result <- blocks.compile.toList
+            result <- events.compile.toList
             requests <- server.requests().compile.toList
           } yield (result, requests)
       }.unsafeRunSync()
 
-      blocks shouldBe empty
-      println(s"requests are ${requests.mkString("\n")}")
-      requests.collect { case Text(_) => }.size shouldBe 1
+      events shouldBe empty
+      requests.collect { case Text(_, _) => }.size shouldBe 1
+    }
+
+    "receive messages" in {
+      val events = resourcesF.use {
+        case (server, events) =>
+          for {
+            _ <- server.send(Text("first"))
+            _ <- server.send(Text("second")) // TODO: for some reason, this message wouldn't be sent o_O
+            _ <- server.close()
+            result <- events.compile.toList
+          } yield result
+      }.unsafeRunSync()
+
+      println(s"events: $events")
+      events.size shouldBe 2
+      events.head shouldBe "first"
+      events.tail.head shouldBe "second"
     }
   }
 }

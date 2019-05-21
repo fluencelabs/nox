@@ -24,7 +24,9 @@ import cats.effect.syntax.effect._
 import cats.syntax.applicativeError._
 import cats.syntax.apply._
 import cats.syntax.flatMap._
+import cats.syntax.compose._
 import cats.syntax.functor._
+import cats.syntax.option._
 import fluence.effects.JavaFutureConversion._
 import fluence.effects.tendermint.rpc.helpers.NettyFutureConversion._
 import fluence.effects.{Backoff, EffectError}
@@ -108,12 +110,13 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
           }
 
           override def onTextFrame(payload: String, finalFragment: Boolean, rsv: Int): Unit = {
+            logger.trace(s"Tendermint WRPC: text $payload")
             if (!finalFragment) {
               logger.warn(s"Tendermint WRPC: $wsUrl event was split into several websocket frames")
               ref.update(_.concat(payload)).toIO.unsafeRunSync()
             } else {
               // TODO: run sync or async? which is better here? In examples, they do it async (see onOpen), but why?
-              ((ref.get.map(Some(_)) >>= queue.enqueue1) >> ref.set("")).toIO.unsafeRunSync()
+              ((ref.get.map(_.concat(payload).some) >>= queue.enqueue1) >> ref.set("")).toIO.unsafeRunSync()
             }
           }
 
