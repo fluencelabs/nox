@@ -15,6 +15,7 @@
  */
 
 package fluence.node.workers
+import java.nio.ByteBuffer
 import java.nio.file.Path
 
 import cats.data.EitherT
@@ -47,8 +48,9 @@ import scala.language.higherKinds
 class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
   ports: WorkersPorts[F],
   workers: Ref[F, Map[Long, Worker[F]]],
-  healthyWorkerTimeout: FiniteDuration = 1.second,
-  blockUploading: BlockUploading[F]
+  // TODO: it's not OK to have blockUploading here, it should be moved somewhere else
+  blockUploading: BlockUploading[F],
+  healthyWorkerTimeout: FiniteDuration = 1.second
 )(
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
   F: ConcurrentEffect[F],
@@ -77,9 +79,13 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
   private def registeredWorker(worker: Worker[F]): Resource[F, Unit] =
     Resource
       .make(
-        workers.update(_ + (worker.appId -> worker)) *> Sync[F]
-          .delay(logger.info(s"Added worker ($worker) to the pool"))
-      )(_ ⇒ workers.update(_ - worker.appId) *> Sync[F].delay(logger.info(s"Removing worker ($worker) from the pool")))
+        workers.update(_ + (worker.appId -> worker)) *>
+          Sync[F].delay(logger.info(s"Added worker ($worker) to the pool"))
+      )(
+        _ ⇒
+          workers.update(_ - worker.appId) *>
+            Sync[F].delay(logger.info(s"Removing worker ($worker) from the pool"))
+      )
       .void
 
   /**
@@ -240,19 +246,25 @@ object DockerWorkersPool extends LazyLogging {
   /**
    * Build a new [[DockerWorkersPool]]. All workers will be stopped when the pool is released
    */
-  def make[F[_]: DockerIO: ContextShift: Timer, G[_]](minPort: Short, maxPort: Short, rootPath: Path, remoteStorageConfig: RemoteStorageConfig)(
+  def make[F[_]: DockerIO: ContextShift: Timer, G[_]](
+    minPort: Short,
+    maxPort: Short,
+    rootPath: Path,
+    remoteStorageConfig: RemoteStorageConfig
+  )(
     implicit
     sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
+    sttpBackendStreaming: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
     F: ConcurrentEffect[F],
     P: Parallel[F, G]
   ): Resource[F, WorkersPool[F]] =
     for {
-      blockUploading <- BlockUploading.make(remoteStorageConfig)
+      blockUploading <- Resource.pure(BlockUploading.make[F](remoteStorageConfig))
       ports ← makePorts(minPort, maxPort, rootPath)
       pool ← Resource.make {
         for {
           workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
-        } yield new DockerWorkersPool[F, G](ports, workers)
+        } yield new DockerWorkersPool[F, G](ports, workers, blockUploading)
       }(_.stopAll())
     } yield pool: WorkersPool[F]
 

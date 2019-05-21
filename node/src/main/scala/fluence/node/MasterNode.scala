@@ -138,11 +138,17 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
         pool.withWorker(appId, _.remove).void
 
       case DropPeerWorker(appId, vk) ⇒
-        pool.withWorker(appId, _.withServices_(_.control)(_.dropPeer(vk).value.map {
-          case Right(_) =>
-          case Left(e: DropPeerError) => logger.error(s"Error while dropping peer appId=$appId: ${e.getMessage}", e)
-          case Left(e) => logger.error(s"Unexpected error while dropping peer appId=$appId key=${vk.toHex}: ${e.getMessage}", e)
-        })).void
+        pool
+          .withWorker(
+            appId,
+            _.withServices_(_.control)(_.dropPeer(vk).value.map {
+              case Right(_) =>
+              case Left(e: DropPeerError) => logger.error(s"Error while dropping peer appId=$appId: ${e.getMessage}", e)
+              case Left(e) =>
+                logger.error(s"Unexpected error while dropping peer appId=$appId key=${vk.toHex}: ${e.getMessage}", e)
+            })
+          )
+          .void
 
       case NewBlockReceived(_) ⇒
         ().pure[F]

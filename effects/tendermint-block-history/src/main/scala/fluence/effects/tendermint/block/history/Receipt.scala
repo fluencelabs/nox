@@ -24,6 +24,7 @@ import scala.language.higherKinds
 import fluence.effects.tendermint.block.history.helpers.ByteVectorJsonCodec._
 
 case class Receipt(hash: ByteVector) {
+
   def bytes(): ByteVector = {
     import io.circe.syntax._
     ByteVector((this: Receipt).asJson.noSpaces.getBytes())

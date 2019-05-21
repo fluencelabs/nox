@@ -28,9 +28,9 @@ import scala.language.higherKinds
 
 /**
  * Implements block manifest uploading as described in Fluence paper
-  *
-  * 1. Upload transactions, get receipt
-  * 2. Upload BlockManifest, using receipt from step 1, get receipt
+ *
+ * 1. Upload transactions, get receipt
+ * 2. Upload BlockManifest, using receipt from step 1, get receipt
  *
  * @param ipfs Decentralized storage, currently IPFS
  */
