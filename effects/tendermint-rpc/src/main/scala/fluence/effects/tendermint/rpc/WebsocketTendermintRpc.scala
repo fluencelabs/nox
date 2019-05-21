@@ -21,15 +21,17 @@ import cats.data.EitherT
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.syntax.effect._
+import cats.instances.either._
 import cats.syntax.applicativeError._
 import cats.syntax.apply._
-import cats.syntax.flatMap._
 import cats.syntax.compose._
+import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.option._
 import fluence.effects.JavaFutureConversion._
+import fluence.effects.tendermint.rpc.WebsocketTendermintRpc.ConnectionFailed
 import fluence.effects.tendermint.rpc.helpers.NettyFutureConversion._
-import fluence.effects.{Backoff, EffectError}
+import fluence.effects.{Backoff, EffectError, WithCause}
 import fs2.concurrent.Queue
 import org.asynchttpclient.Dsl._
 import org.asynchttpclient.netty.ws.NettyWebSocket
@@ -57,21 +59,13 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
     event: String
   ): Resource[F, Queue[F, Option[String]]] = {
     def close(ws: (NettyWebSocket, _)) = ws._1.sendCloseFrame().asAsync.void
+    def logConnectionError(e: EffectError) =
+      Applicative[F].pure(logger.error(s"WRPC $wsUrl: error connecting: ${e.getMessage}"))
+
     Resource.make {
       for {
-        (websocket, queue) <- {
-          Backoff.default.retry(
-            EitherT(for {
-              queue <- Queue.unbounded[F, Option[String]]
-              ref <- Ref.of[F, String]("")
-              // promise will be completed with Right on connect and Left on close
-              promise <- Deferred[F, Either[Disconnected.type, Unit]]
-              websocket <- connect(wsHandler(event, ref, queue, promise))
-              connected <- promise.get
-            } yield connected.map(_ => (websocket, queue))),
-            (e: EffectError) => Applicative[F].pure(logger.error(s"WRPC $wsUrl: error connecting: ${e.getMessage}"))
-          )
-        }
+        // Keep connecting until forever
+        (websocket, queue) <- Backoff.default.retry(connect, logConnectionError)
         _ <- websocket.sendTextFrame(request(event)).asAsync
       } yield (websocket, queue)
     }(close).map { case (_, queue) => queue }
@@ -86,11 +80,32 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
        |}
      """.stripMargin
 
+  private def connect[F[_]: ConcurrentEffect: Timer] =
+    EitherT(
+      for {
+        queue <- Queue.unbounded[F, Option[String]]
+        ref <- Ref.of[F, String]("")
+        // promise will be completed with Right on connect and Left on close
+        promise <- Deferred[F, Either[EffectError, Unit]]
+        websocket <- socket(wsHandler(ref, queue, promise)).value
+        connected <- promise.get
+      } yield connected >> websocket.tupleRight(queue)
+    )
+
+  private def socket[F[_]: Async](handler: WebSocketUpgradeHandler) =
+    EitherT(
+      asyncHttpClient()
+        .prepareGet(wsUrl)
+        .execute(handler)
+        .toCompletableFuture
+        .asAsync[F]
+        .attempt
+    ).leftMap[EffectError](ConnectionFailed)
+
   private def wsHandler[F[_]: ConcurrentEffect](
-    event: String,
     ref: Ref[F, String],
     queue: Queue[F, Option[String]],
-    connected: Deferred[F, Either[Disconnected.type, Unit]]
+    connected: Deferred[F, Either[EffectError, Unit]]
   ) =
     new WebSocketUpgradeHandler.Builder()
       .addWebSocketListener(
@@ -101,12 +116,15 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
           }
 
           override def onClose(websocket: WebSocket, code: Int, reason: String): Unit = {
-            logger.warn(s"Tendermint WRPC: $wsUrl closed")
+            logger.warn(s"Tendermint WRPC: $wsUrl closed $code $reason")
+            // If close received before connection is established, fail `connected` promise
             (connected.complete(Left(Disconnected)).attempt.void *> queue.enqueue1(None)).toIO.unsafeRunSync()
           }
 
           override def onError(t: Throwable): Unit = {
             logger.error(s"Tendermint WRPC: $wsUrl ${t.getMessage}")
+            // If error received before connection is established, fail `connected` promise
+            connected.complete(Left(Disconnected)).attempt.void.toIO.unsafeRunSync()
           }
 
           override def onTextFrame(payload: String, finalFragment: Boolean, rsv: Int): Unit = {
@@ -126,15 +144,9 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
         }
       )
       .build()
-
-  private def connect[F[_]: Async](handler: WebSocketUpgradeHandler) =
-    asyncHttpClient()
-      .prepareGet(wsUrl)
-      .execute(handler)
-      .toCompletableFuture
-      .asAsync[F]
 }
 
 object WebsocketTendermintRpc {
   private[rpc] case object Disconnected extends EffectError
+  private[rpc] case class ConnectionFailed(cause: Throwable) extends WithCause[Throwable]
 }

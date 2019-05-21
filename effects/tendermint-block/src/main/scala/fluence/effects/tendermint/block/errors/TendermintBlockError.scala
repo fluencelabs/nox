@@ -16,12 +16,7 @@
 
 package fluence.effects.tendermint.block.errors
 
-import scala.util.control.NoStackTrace
+import fluence.effects.EffectError
 
-trait TendermintBlockError extends NoStackTrace
+trait TendermintBlockError extends EffectError
 
-trait WithCause[E <: Throwable] extends TendermintBlockError {
-  def cause: E
-
-  initCause(cause)
-}

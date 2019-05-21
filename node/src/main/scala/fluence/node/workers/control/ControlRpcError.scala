@@ -16,30 +16,24 @@
 
 package fluence.node.workers.control
 
-import fluence.effects.EffectError
 import fluence.effects.tendermint.block.history.Receipt
+import fluence.effects.{EffectError, WithCause}
 import scodec.bits.ByteVector
 
 trait ControlRpcError extends EffectError
 
-trait WithCause[E <: Throwable] extends ControlRpcError {
-  def cause: E
-
-  initCause(cause)
-}
-
-case class DropPeerError(key: ByteVector, cause: Throwable) extends WithCause[Throwable] {
+case class DropPeerError(key: ByteVector, cause: Throwable) extends ControlRpcError with WithCause[Throwable] {
   override def getMessage: String = s"Error dropping peer ${key.toHex}"
 }
-case class WorkerStatusError(cause: Throwable) extends WithCause[Throwable] {
+case class WorkerStatusError(cause: Throwable) extends ControlRpcError with WithCause[Throwable] {
   override def getMessage: String = "Error retrieving worker status"
 }
-case class StopError(cause: Throwable) extends WithCause[Throwable] {
+case class StopError(cause: Throwable) extends ControlRpcError with WithCause[Throwable] {
   override def getMessage: String = "Error while signaling worker to stop"
 }
-case class SendBlockReceiptError(receipt: Receipt, cause: Throwable) extends WithCause[Throwable] {
+case class SendBlockReceiptError(receipt: Receipt, cause: Throwable) extends ControlRpcError with WithCause[Throwable] {
   override def getMessage: String = s"Error sending block receipt ${receipt.hash.toHex}"
 }
-case class GetVmHashError(cause: Throwable) extends WithCause[Throwable] {
+case class GetVmHashError(cause: Throwable) extends ControlRpcError with WithCause[Throwable] {
   override def getMessage: String = "Error getting VM hash from worker"
 }

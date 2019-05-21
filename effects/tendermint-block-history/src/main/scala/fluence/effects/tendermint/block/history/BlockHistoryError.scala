@@ -16,23 +16,19 @@
 
 package fluence.effects.tendermint.block.history
 
-import fluence.effects.EffectError
 import fluence.effects.castore.StoreError
+import fluence.effects.{EffectError, WithCause}
 
 import scala.util.control.NoStackTrace
 
 trait BlockHistoryError extends EffectError with NoStackTrace
 
-trait WithCause[E <: Throwable] extends BlockHistoryError {
-  def cause: E
-
-  initCause(cause)
-}
-
-case class ManifestUploadingError(height: Long, cause: StoreError) extends WithCause[StoreError] {
+case class ManifestUploadingError(height: Long, cause: StoreError)
+    extends BlockHistoryError with WithCause[StoreError] {
   override def getMessage: String = s"Error uploading manifest at height $height: ${cause.getMessage}"
 }
 
-case class TxsUploadingError(height: Long, txsCount: Int, cause: StoreError) extends WithCause[StoreError] {
+case class TxsUploadingError(height: Long, txsCount: Int, cause: StoreError)
+    extends BlockHistoryError with WithCause[StoreError] {
   override def getMessage: String = s"Error uploading $txsCount txs at height $height: ${cause.getMessage}"
 }

@@ -22,13 +22,17 @@ import scalapb_json.JsonFormatException
 trait JsonErrors {
   case class FixBytesError(msg: String) extends TendermintBlockError
 
-  case class JsonDecodingError private (cause: DecodingFailure) extends WithCause[DecodingFailure]
+  case class JsonDecodingError private (cause: DecodingFailure)
+      extends TendermintBlockError with WithCause[DecodingFailure]
 
-  case class JsonParsingError private (cause: ParsingFailure) extends WithCause[ParsingFailure]
+  case class JsonParsingError private (cause: ParsingFailure)
+      extends TendermintBlockError with WithCause[ParsingFailure]
 
   trait ProtobufJsonError extends TendermintBlockError
+
   case class ProtobufJsonFormatError(cause: JsonFormatException)
       extends ProtobufJsonError with WithCause[JsonFormatException]
+
   case class ProtobufJsonUnknownError(cause: Throwable) extends ProtobufJsonError with WithCause[Throwable]
 
   implicit object LiftDecodingFailure extends ConvertError[DecodingFailure, JsonDecodingError](JsonDecodingError.apply)

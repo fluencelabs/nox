@@ -68,7 +68,9 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
         case (server, events) =>
           for {
             _ <- server.send(Text("first"))
-            _ <- server.send(Text("second")) // TODO: for some reason, this message wouldn't be sent o_O
+            // TODO: for some reason, this message doesn't get sent o_O
+            // TODO(cont): oh well, sometimes it does! There's a race O_O. Where? How? Why? WHO? The Doctor.
+            _ <- server.send(Text("second"))
             _ <- server.close()
             result <- events.compile.toList
           } yield result
@@ -79,5 +81,18 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
       events.head shouldBe "first"
       events.tail.head shouldBe "second"
     }
+
+    // TODO: How to implement this test?
+//    "reconnect forever" in {
+//      val badResourcesF = for {
+//        server <- WebsocketServer.make[IO]
+//        wrpc <- TendermintRpc.make[IO]("127.0.0.1", 12345)
+//        blocks <- wrpc.subscribeNewBlock[IO]
+//      } yield (server, blocks)
+//
+//      val result = badResourcesF.use(_ => IO.unit).attempt.unsafeRunSync()
+//      println(s"Result: ${result.left.toOption.map(_.getMessage)}")
+//      result.isRight shouldBe true
+//    }
   }
 }
