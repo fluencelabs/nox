@@ -16,6 +16,7 @@
 
 package fluence.effects.tendermint.block.errors
 
+import fluence.effects.WithCause
 import io.circe.{DecodingFailure, ParsingFailure}
 import scalapb_json.JsonFormatException
 

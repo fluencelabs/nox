@@ -19,4 +19,3 @@ package fluence.effects.tendermint.block.errors
 import fluence.effects.EffectError
 
 trait TendermintBlockError extends EffectError
-

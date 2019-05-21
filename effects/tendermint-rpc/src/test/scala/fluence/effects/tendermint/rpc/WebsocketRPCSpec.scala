@@ -82,7 +82,7 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
       events.tail.head shouldBe "second"
     }
 
-    // TODO: How to implement this test?
+    // TODO: How to implement this test? With fibers? Not sure about that.........................
 //    "reconnect forever" in {
 //      val badResourcesF = for {
 //        server <- WebsocketServer.make[IO]
