@@ -233,7 +233,6 @@ object AbciService {
 
     for {
       state ← Ref.of[F, AbciState](AbciState())
-      fiber <- Concurrent[F].start(Option.empty[Receipt].pure[F])
     } yield {
       implicit val hasher: Hasher[Array[Byte], Array[Byte]] =
         PureCodec[ByteVector, Array[Byte]].andThen(JdkCryptoHasher.Sha256)

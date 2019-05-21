@@ -22,32 +22,43 @@ import cats.effect.{Concurrent, ConcurrentEffect, Resource}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.tendermint.block.data.Block
-import fluence.effects.tendermint.block.history.Receipt
+import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
 import fluence.node.workers.Worker
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-object BlockUploading extends slogging.LazyLogging {
+case class BlockUploading[F[_]: ConcurrentEffect](history: BlockHistory[F]) extends slogging.LazyLogging {
 
-  def start[F[_]: ConcurrentEffect](worker: Worker[F]): Resource[F, Unit] = {
-    def upload(lastReceipt: Option[Receipt], block: Block): F[Receipt] = ???
+  /**
+   * Subscribe on new blocks from tendermint and upload them one by one to the decentralized storage
+   * For each block: 1. retrieve vmHash from state machine; 2. Send block manifest receipt to state machine
+   *
+   * @param worker Blocks are coming from this worker's Tendermint; receipts are sent to this worker
+   */
+  def start(worker: Worker[F]): Resource[F, Unit] = {
+    def upload(lastReceipt: Option[Receipt], block: Block, vmHash: ByteVector): F[Receipt] = ???
 
     val services = worker.services
 
     for {
+      // Storage for a previous manifest
       lastManifestReceipt <- Resource.liftF(MVar.of[F, Option[Receipt]](None))
       blocks <- services.tendermint.subscribeNewBlock[F]
       _ <- Resource.make(
+        // Start block processing in a background fiber
         Concurrent[F].start(
           blocks.evalMap { blockRaw =>
+            // Parse block from JSON
             Block(blockRaw) match {
               case Left(e) =>
-                Monad[F].pure(logger.error(s"DWS failed to parse Tendermint block: ${e.getMessage}"))
+                Monad[F].pure(logger.error(s"BlockUploading: failed to parse Tendermint block: ${e.getMessage}"))
 
               case Right(block) =>
                 for {
                   lastReceipt <- lastManifestReceipt.read
-                  receipt <- upload(lastReceipt, block)
+                  vmHash <- services.control.getVmHash
+                  receipt <- upload(lastReceipt, block, vmHash)
                   _ <- services.control.sendBlockReceipt(receipt)
                   _ <- lastManifestReceipt.put(Some(receipt))
                 } yield ()

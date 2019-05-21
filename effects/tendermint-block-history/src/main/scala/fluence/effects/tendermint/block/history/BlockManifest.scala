@@ -17,8 +17,11 @@
 package fluence.effects.tendermint.block.history
 
 import fluence.effects.tendermint.block.data.Header
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import proto3.tendermint.Vote
 import scodec.bits.ByteVector
+import fluence.effects.tendermint.block.history.helpers.ByteVectorJsonCodec._
 
 case class BlockManifest(
   // TODO: Why do we need vmHash here? Wont header.appHash suffice? It's could be tricky to retrieve vmhash from the Worker
@@ -29,5 +32,13 @@ case class BlockManifest(
   header: Header,
   votes: List[Vote]
 ) {
-  def bytes(): ByteVector = ???
+  def bytes(): ByteVector = {
+    import io.circe.syntax._
+    ByteVector((this: BlockManifest).asJson.noSpaces.getBytes())
+  }
+}
+
+object BlockManifest {
+  implicit val dec: Decoder[BlockManifest] = deriveDecoder[BlockManifest]
+  implicit val enc: Encoder[BlockManifest] = deriveEncoder[BlockManifest]
 }

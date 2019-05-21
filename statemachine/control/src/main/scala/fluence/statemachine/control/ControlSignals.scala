@@ -22,11 +22,13 @@ import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.tendermint.block.history.Receipt
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
 /**
  * Sink and source for control events
+ *
  * @param dropPeersRef Holds a set of DropPeer events. NOTE: since Tendermint 0.30.0 Validator set updates must be unique by pub key.
  * @param stopRef Deferred holding stop signal, completed when the worker should stop
  * @tparam F Effect
@@ -34,7 +36,8 @@ import scala.language.higherKinds
 class ControlSignals[F[_]: FlatMap] private (
   private val dropPeersRef: MVar[F, Set[DropPeer]],
   private val stopRef: Deferred[F, Unit],
-  private val receiptRef: MVar[F, Option[Receipt]]
+  private val receiptRef: MVar[F, Option[Receipt]],
+  private val hashRef: MVar[F, ByteVector]
 ) {
 
   /**
@@ -50,6 +53,7 @@ class ControlSignals[F[_]: FlatMap] private (
    * Move list of current DropPeer events from ControlSignals to call-site
    * dropPeersRef is emptied on resource's acquisition, and filled with Nil after resource is used
    * Using Resource this way guarantees exclusive access to data
+   *
    * @return Resource with List of DropPeer signals
    */
   val dropPeers: Resource[F, Set[DropPeer]] =
@@ -65,15 +69,35 @@ class ControlSignals[F[_]: FlatMap] private (
    */
   val stop: F[Unit] = stopRef.get
 
+  /**
+   * Stores block receipt in memory, async blocks if previous receipt is still there
+   * Receipt comes from node through control rpc
+   *
+   * @param receipt Receipt to store
+   */
+  private[control] def putReceipt(receipt: Receipt): F[Unit] = receiptRef.put(Some(receipt))
+
+  /**
+   * Retrieves block receipt, async blocks until there's a receipt
+   */
   val receipt: F[Option[Receipt]] = receiptRef.read
 
-  def putReceipt(receipt: Receipt): F[Unit] = receiptRef.put(Some(receipt))
+  /**
+   * Stores vm hash to memory, so node can retrieve it for block manifest uploading
+   */
+  def putVmHash(hash: ByteVector): F[Unit] = hashRef.put(hash)
+
+  /**
+   * Retrieves stored vm hash. Called by node on block manifest uploading
+   */
+  private[control] val vmHash: F[ByteVector] = hashRef.read
 }
 
 object ControlSignals {
 
   /**
    * Create a resource holding ControlSignals. Stop ControlSignals after resource is used.
+   *
    * @tparam F Effect
    * @return Resource holding a ControlSignals instance
    */
@@ -83,7 +107,8 @@ object ControlSignals {
         dropPeersRef ← MVar[F].of[Set[DropPeer]](Set.empty)
         stopRef ← Deferred[F, Unit]
         receiptRef <- MVar[F].of[Option[Receipt]](None)
-        instance = new ControlSignals[F](dropPeersRef, stopRef, receiptRef)
+        hashRef <- MVar[F].empty[ByteVector]
+        instance = new ControlSignals[F](dropPeersRef, stopRef, receiptRef, hashRef)
       } yield instance
     ) { s =>
       Sync[F].suspend(

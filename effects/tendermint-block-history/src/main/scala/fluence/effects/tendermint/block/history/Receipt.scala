@@ -21,10 +21,9 @@ import io.circe.{Decoder, Encoder}
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
+import fluence.effects.tendermint.block.history.helpers.ByteVectorJsonCodec._
 
 case class Receipt(hash: ByteVector) {
-
-  // TODO: serialize to JSON, and get bytes
   def bytes(): ByteVector = {
     import io.circe.syntax._
     ByteVector((this: Receipt).asJson.noSpaces.getBytes())
@@ -32,13 +31,6 @@ case class Receipt(hash: ByteVector) {
 }
 
 object Receipt {
-  private implicit val decbc: Decoder[ByteVector] =
-    Decoder.decodeString.flatMap(
-      ByteVector.fromHex(_).fold(Decoder.failedWithMessage[ByteVector]("Not a hex"))(Decoder.const)
-    )
-
-  private implicit val encbc: Encoder[ByteVector] = Encoder.encodeString.contramap(_.toHex)
-
   implicit val dec: Decoder[Receipt] = deriveDecoder[Receipt]
   implicit val enc: Encoder[Receipt] = deriveEncoder[Receipt]
 }

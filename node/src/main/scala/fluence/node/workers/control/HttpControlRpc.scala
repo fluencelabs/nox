@@ -21,7 +21,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.softwaremill.sttp.circe._
 import com.softwaremill.sttp.{SttpBackend, sttp, _}
-import fluence.effects.tendermint.block.history.Receipt
+import fluence.effects.tendermint.block.history.{helpers, Receipt}
 import fluence.node.workers.status.{HttpCheckFailed, HttpCheckStatus, HttpStatus}
 import fluence.statemachine.control.{BlockReceipt, DropPeer, GetStatus, Stop}
 import io.circe.Encoder
@@ -74,4 +74,14 @@ class HttpControlRpc[F[_]: Sync](hostname: String, port: Short)(
 
   override def sendBlockReceipt(receipt: Receipt): F[Unit] =
     send(BlockReceipt(receipt), "blockReceipt").void.value.flatMap(Sync[F].fromEither)
+
+  override def getVmHash: F[ByteVector] = {
+    import helpers.ByteVectorJsonCodec._
+    import io.circe.parser._
+
+    send((), "vmHash")
+      .subflatMap(parse(_).flatMap(_.as[ByteVector]))
+      .value
+      .flatMap(Sync[F].fromEither)
+  }
 }

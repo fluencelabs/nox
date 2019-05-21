@@ -26,7 +26,14 @@ import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-// TODO: Pass IPFS here
+/**
+ * Implements block manifest uploading as described in Fluence paper
+  *
+  * 1. Upload transactions, get receipt
+  * 2. Upload BlockManifest, using receipt from step 1, get receipt
+ *
+ * @param ipfs Decentralized storage, currently IPFS
+ */
 case class BlockHistory[F[_]: Monad](ipfs: IpfsClient[F]) {
 
   def upload(
