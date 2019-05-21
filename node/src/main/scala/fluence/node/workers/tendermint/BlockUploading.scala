@@ -37,8 +37,6 @@ case class BlockUploading[F[_]: ConcurrentEffect](history: BlockHistory[F]) exte
    * @param worker Blocks are coming from this worker's Tendermint; receipts are sent to this worker
    */
   def start(worker: Worker[F]): Resource[F, Unit] = {
-    def upload(lastReceipt: Option[Receipt], block: Block, vmHash: ByteVector): F[Receipt] = ???
-
     val services = worker.services
 
     for {
@@ -58,7 +56,7 @@ case class BlockUploading[F[_]: ConcurrentEffect](history: BlockHistory[F]) exte
                 for {
                   lastReceipt <- lastManifestReceipt.read
                   vmHash <- services.control.getVmHash
-                  receipt <- upload(lastReceipt, block, vmHash)
+                  receipt <- history.upload(block, vmHash, lastReceipt)
                   _ <- services.control.sendBlockReceipt(receipt)
                   _ <- lastManifestReceipt.put(Some(receipt))
                 } yield ()

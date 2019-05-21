@@ -15,13 +15,14 @@
  */
 
 package fluence.node.workers.control
+import cats.Monad
 import cats.data.EitherT
 import cats.effect.Sync
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.softwaremill.sttp.circe._
 import com.softwaremill.sttp.{SttpBackend, sttp, _}
-import fluence.effects.tendermint.block.history.{helpers, Receipt}
+import fluence.effects.tendermint.block.history.{Receipt, helpers}
 import fluence.node.workers.status.{HttpCheckFailed, HttpCheckStatus, HttpStatus}
 import fluence.statemachine.control.{BlockReceipt, DropPeer, GetStatus, Stop}
 import io.circe.Encoder
@@ -35,7 +36,7 @@ import scala.language.higherKinds
  * @param hostname Hostname to send requests
  * @param port Port to send requests
  */
-class HttpControlRpc[F[_]: Sync](hostname: String, port: Short)(
+class HttpControlRpc[F[_]: Monad](hostname: String, port: Short)(
   implicit s: SttpBackend[EitherT[F, Throwable, ?], Nothing]
 ) extends ControlRpc[F] {
 
