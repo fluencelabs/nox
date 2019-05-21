@@ -70,7 +70,7 @@ class ControlRpcSpec extends WordSpec with Matchers {
         case (server, rpc) =>
           for {
             key <- IO.pure(ByteVector.fill(32)(1))
-            _ <- rpc.dropPeer(key)
+            _ <- rpc.dropPeer(key).value.flatMap(IO.fromEither)
             received <- server.signals.dropPeers.use(IO.pure)
           } yield {
             received.size shouldBe 1
@@ -84,7 +84,7 @@ class ControlRpcSpec extends WordSpec with Matchers {
         case (server, rpc) =>
           for {
             before <- IO.pure(server.signals.stop.unsafeRunTimed(0.seconds))
-            _ <- rpc.stop
+            _ <- rpc.stop.value.flatMap(IO.fromEither)
             after <- IO.pure(server.signals.stop.unsafeRunTimed(0.seconds))
           } yield {
             before should not be defined

@@ -16,7 +16,7 @@ trait WithCause[E <: Throwable] extends ControlRpcError {
 case class DropPeerError(key: ByteVector, cause: Throwable) extends WithCause[Throwable] {
   override def getMessage: String = s"Error dropping peer ${key.toHex}"
 }
-case class StatusError(cause: Throwable) extends WithCause[Throwable] {
+case class WorkerStatusError(cause: Throwable) extends WithCause[Throwable] {
   override def getMessage: String = "Error retrieving worker status"
 }
 case class StopError(cause: Throwable) extends WithCause[Throwable] {

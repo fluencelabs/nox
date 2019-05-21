@@ -32,6 +32,7 @@ import fluence.codec.PureCodec
 import fluence.effects.docker.DockerIO
 import fluence.effects.kvstore.RocksDBStore
 import fluence.node.MakeResource
+import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.workers.tendermint.BlockUploading
 import slogging.LazyLogging
 
@@ -46,7 +47,8 @@ import scala.language.higherKinds
 class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
   ports: WorkersPorts[F],
   workers: Ref[F, Map[Long, Worker[F]]],
-  healthyWorkerTimeout: FiniteDuration = 1.second
+  healthyWorkerTimeout: FiniteDuration = 1.second,
+  blockUploading: BlockUploading[F]
 )(
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
   F: ConcurrentEffect[F],
@@ -125,7 +127,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
       _ ← WorkerP2pConnectivity.make(worker, ps.app.cluster.workers)
 
       // Start uploading tendermint blocks and send receipts to statemachine
-      _ <- BlockUploading.start(worker)
+      _ <- blockUploading.start(worker)
 
       // Finally, register the worker in the pool
       _ ← registeredWorker(worker)
@@ -238,13 +240,14 @@ object DockerWorkersPool extends LazyLogging {
   /**
    * Build a new [[DockerWorkersPool]]. All workers will be stopped when the pool is released
    */
-  def make[F[_]: DockerIO: ContextShift: Timer, G[_]](minPort: Short, maxPort: Short, rootPath: Path)(
+  def make[F[_]: DockerIO: ContextShift: Timer, G[_]](minPort: Short, maxPort: Short, rootPath: Path, remoteStorageConfig: RemoteStorageConfig)(
     implicit
     sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
     F: ConcurrentEffect[F],
     P: Parallel[F, G]
   ): Resource[F, WorkersPool[F]] =
     for {
+      blockUploading <- BlockUploading.make(remoteStorageConfig)
       ports ← makePorts(minPort, maxPort, rootPath)
       pool ← Resource.make {
         for {

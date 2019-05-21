@@ -16,23 +16,32 @@
 
 package fluence.node.workers.tendermint
 
-import cats.Monad
+import java.nio.ByteBuffer
+
+import cats.data.EitherT
 import cats.effect.concurrent.MVar
-import cats.effect.{Concurrent, ConcurrentEffect, Resource}
+import cats.effect.{Concurrent, ConcurrentEffect, Resource, Timer}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.{Applicative, Monad}
+import com.softwaremill.sttp.SttpBackend
+import fluence.effects.Backoff
+import fluence.effects.ipfs.IpfsClient
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
+import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.workers.Worker
-import scodec.bits.ByteVector
 
 import scala.language.higherKinds
+import scala.util.control.NoStackTrace
 
-case class BlockUploading[F[_]: ConcurrentEffect](history: BlockHistory[F]) extends slogging.LazyLogging {
+class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) extends slogging.LazyLogging {
 
   /**
    * Subscribe on new blocks from tendermint and upload them one by one to the decentralized storage
-   * For each block: 1. retrieve vmHash from state machine; 2. Send block manifest receipt to state machine
+   * For each block:
+   *   1. retrieve vmHash from state machine
+   *   2. Send block manifest receipt to state machine
    *
    * @param worker Blocks are coming from this worker's Tendermint; receipts are sent to this worker
    */
@@ -50,20 +59,46 @@ case class BlockUploading[F[_]: ConcurrentEffect](history: BlockHistory[F]) exte
             // Parse block from JSON
             Block(blockRaw) match {
               case Left(e) =>
-                Monad[F].pure(logger.error(s"BlockUploading: failed to parse Tendermint block: ${e.getMessage}"))
+                Applicative[F].pure(logger.error(s"BlockUploading: failed to parse Tendermint block: ${e.getMessage}"))
 
               case Right(block) =>
-                for {
-                  lastReceipt <- lastManifestReceipt.read
+                val processF = for {
+                  lastReceipt <- EitherT.liftF(lastManifestReceipt.read)
                   vmHash <- services.control.getVmHash
                   receipt <- history.upload(block, vmHash, lastReceipt)
                   _ <- services.control.sendBlockReceipt(receipt)
-                  _ <- lastManifestReceipt.put(Some(receipt))
+                  _ <- EitherT.pure(lastManifestReceipt.put(Some(receipt)))
                 } yield ()
+
+                // TODO: add health check on this: if error keeps happening, miner should be alerted
+                // Retry uploading until forever
+                Backoff.default
+                  .retry[F, NoStackTrace, Unit](
+                    processF,
+                    e =>
+                      Applicative[F].pure(
+                        logger.error(s"BlockUploading: Error uploading block ${block.header.height}: ${e.getMessage}")
+                    )
+                  )
+                  .map(
+                    _ => logger.info(s"BlockUploading: Block ${block.header.height} uploaded")
+                  )
             }
           }.compile.drain
         )
       )(_.cancel)
     } yield ()
+  }
+}
+
+object BlockUploading {
+
+  def make[F[_]: Monad: ConcurrentEffect: Timer](
+    remoteStorageConfig: RemoteStorageConfig
+  )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]): BlockUploading[F] = {
+    // TODO: handle remoteStorageConfig.enabled = false
+    val ipfs = new IpfsClient[F](remoteStorageConfig.ipfs.address)
+    val history = new BlockHistory[F](ipfs)
+    new BlockUploading[F](history)
   }
 }

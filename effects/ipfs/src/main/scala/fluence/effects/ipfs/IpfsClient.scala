@@ -271,11 +271,11 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
 object IpfsClient {
   import io.circe.fs2.stringStreamParser
 
-  def assert[F[_]: Applicative](test: Boolean, errorMessage: String): EitherT[F, IpfsError, Unit] =
+  private[ipfs] def assert[F[_]: Applicative](test: Boolean, errorMessage: String): EitherT[F, IpfsError, Unit] =
     EitherT.fromEither[F](Either.cond(test, (), IpfsError(errorMessage)))
 
   // parses application/json+stream like {object1}\n{object2}...
-  def asListJson[B: Decoder: IsOption]: ResponseAs[Decoder.Result[List[B]], Nothing] = {
+  private[ipfs] def asListJson[B: Decoder: IsOption]: ResponseAs[Decoder.Result[List[B]], Nothing] = {
     implicit val rt = new RaiseThrowable[fs2.Pure] {}
     asString
       .map(fs2.Stream.emit)

@@ -21,6 +21,7 @@ import java.nio.ByteBuffer
 import cats.data.EitherT
 import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect._
+import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
 import fluence.effects.docker.DockerIO
@@ -61,7 +62,12 @@ object MasterNodeApp extends IOApp with LazyLogging {
                     .flatMap(
                       implicit sttpBackend ⇒
                         DockerWorkersPool
-                          .make(masterConf.ports.minPort, masterConf.ports.maxPort, conf.rootPath)
+                          .make(
+                            masterConf.ports.minPort,
+                            masterConf.ports.maxPort,
+                            conf.rootPath,
+                            masterConf.remoteStorage
+                          )
                           .flatMap(
                             MasterNode.make[IO, IO.Par](masterConf, conf.nodeConfig, _)
                         )

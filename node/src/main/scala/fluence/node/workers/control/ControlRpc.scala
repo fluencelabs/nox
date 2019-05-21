@@ -34,7 +34,7 @@ abstract class ControlRpc[F[_]] {
    *
    * @param key Public key of the Tendermint validator
    */
-  def dropPeer(key: ByteVector): F[Unit]
+  def dropPeer(key: ByteVector): EitherT[F, ControlRpcError, Unit]
 
   /**
    * Request current worker status
@@ -46,17 +46,17 @@ abstract class ControlRpc[F[_]] {
   /**
    * Requests worker to stop
    */
-  def stop: F[Unit]
+  def stop: EitherT[F, ControlRpcError, Unit]
 
   /**
    * Send block manifest receipt, so state machine can use it for app hash calculation
    */
-  def sendBlockReceipt(receipt: Receipt): F[Unit]
+  def sendBlockReceipt(receipt: Receipt): EitherT[F, ControlRpcError, Unit]
 
   /**
    * Retrieves vm hash from state machine, required for block manifest uploading
    */
-  def getVmHash: F[ByteVector]
+  def getVmHash: EitherT[F, ControlRpcError, ByteVector]
 }
 
 object ControlRpc {

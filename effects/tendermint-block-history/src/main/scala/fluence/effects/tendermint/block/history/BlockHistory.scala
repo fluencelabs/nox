@@ -34,7 +34,7 @@ import scala.language.higherKinds
  *
  * @param ipfs Decentralized storage, currently IPFS
  */
-case class BlockHistory[F[_]: Monad](ipfs: IpfsClient[F]) {
+class BlockHistory[F[_]: Monad](ipfs: IpfsClient[F]) {
 
   def upload(
     block: Block,
