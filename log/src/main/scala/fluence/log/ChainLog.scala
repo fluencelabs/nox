@@ -25,9 +25,9 @@ import cats.effect.concurrent.Ref
 import scala.language.higherKinds
 
 /**
- * Functional logger facade
+ * Attaches log messages to the tail of a [[Chain]], so that they could be printed in a batch later
  *
- * @param ctx Trace Context
+ * @param ctx Logger Context
  * @param data Log Data
  * @tparam F Effect
  */
@@ -47,6 +47,12 @@ class ChainLog[F[_]: Sync: Clock](override val ctx: Context, private val data: R
   override protected def appendMsg(msg: Log.Msg): F[Unit] =
     data.update(_.append(msg))
 
+  /**
+   * Make a string from all the logs
+   *
+   * @param level Log level to filter the messages
+   * @return \n-glued string of all the logs
+   */
   def mkStringF(level: Log.Level = ctx.loggingLevel): F[String] =
     data.get.map(_.iterator.filter(_.level >= level).mkString("\n"))
 }

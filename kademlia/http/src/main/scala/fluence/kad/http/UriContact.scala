@@ -23,7 +23,6 @@ import fluence.crypto.{Crypto, CryptoError, KeyPair}
 import fluence.crypto.signature.{PubKeyAndSignature, Signature, Signer}
 import cats.syntax.compose._
 import cats.syntax.arrow._
-import cats.syntax.strong._
 import cats.syntax.profunctor._
 import cats.syntax.either._
 import cats.syntax.functor._
@@ -52,10 +51,9 @@ case class UriContact(host: String, port: Int, signature: PubKeyAndSignature) {
   override def toString =
     s"fluence://${signature.publicKey.value.toBase58}:${signature.signature.sign.toBase58}@$host:$port"
 
-  // What's to be signed
-  private[http] lazy val msg: ByteVector = signature.publicKey.value ++ ByteVector(host.getBytes) ++ ByteVector.fromInt(
-    port
-  )
+  // What's to be signed TODO build it only during signature checking, drop after that
+  private[http] lazy val msg: ByteVector =
+    signature.publicKey.value ++ ByteVector(host.getBytes) ++ ByteVector.fromInt(port)
 }
 
 object UriContact {
@@ -80,12 +78,10 @@ object UriContact {
    * @param checkerFn Signature checker function
    */
   def readAndCheckContact(checkerFn: CheckerFn): Crypto.Func[String, UriContact] =
-    Crypto.fromOtherFunc(readContact).rmap(i ⇒ (i, i)) >>> checkContact(checkerFn)
-      .second[UriContact]
-      .rmap(_._1)
+    Crypto.fromOtherFunc(readContact) >>> checkContact(checkerFn)
 
   // codec for base58-encoded public key and signature
-  implicit val pkWithSignatureCodec: (String, String) <~> PubKeyAndSignature = {
+  val pkWithSignatureCodec: (String, String) <~> PubKeyAndSignature = {
     val signatureCodec: String <~> Signature =
       PureCodec[String, ByteVector] >>> PureCodec.liftB[ByteVector, Signature](Signature(_), _.sign)
 
@@ -172,10 +168,10 @@ object UriContact {
    *
    * @param checkerFn Signature checker function
    */
-  private def checkContact(checkerFn: CheckerFn): Crypto.Func[UriContact, Unit] =
-    new Crypto.Func[UriContact, Unit] {
-      override def apply[F[_]: Monad](input: UriContact): EitherT[F, CryptoError, Unit] =
-        checkerFn(input.signature.publicKey).check[F](input.signature.signature, input.msg)
+  private def checkContact(checkerFn: CheckerFn): Crypto.Func[UriContact, UriContact] =
+    new Crypto.Func[UriContact, UriContact] {
+      override def apply[F[_]: Monad](input: UriContact): EitherT[F, CryptoError, UriContact] =
+        checkerFn(input.signature.publicKey).check[F](input.signature.signature, input.msg).as(input)
     }
 
 }
