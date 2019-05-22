@@ -19,7 +19,7 @@ package fluence.effects.tendermint.rpc
 import fluence.effects.EffectError
 
 /** TendermintRpc errors */
-trait RpcError extends EffectError
+sealed trait RpcError extends EffectError
 
 /** Request finished with exception */
 case class RpcRequestFailed(cause: Throwable) extends Exception("Tendermint RPC request failed", cause) with RpcError
