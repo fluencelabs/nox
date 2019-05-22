@@ -23,6 +23,7 @@ import cats.effect._
 import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
+import io.circe.Json
 import org.http4s.websocket.WebSocketFrame.Text
 import org.scalatest.{Matchers, WordSpec}
 import slogging.MessageFormatter.DefaultPrefixFormatter
@@ -41,13 +42,31 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
   "WebsocketRPC" should {
     PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, true)
     LoggerConfig.factory = PrintLoggerFactory()
-    LoggerConfig.level = LogLevel.ERROR
+    LoggerConfig.level = LogLevel.TRACE
 
     val resourcesF = for {
       server <- WebsocketServer.make[IO]
       wrpc <- TendermintRpc.make[IO]("127.0.0.1", 8080)
       blocks <- wrpc.subscribeNewBlock[IO]
     } yield (server, blocks)
+
+    def text(text: String) = Text(
+      s"""
+         |{
+         |  "jsonrpc": "2.0",
+         |  "id": "1#event",
+         |  "result": {
+         |    "query": "tm.event = 'NewBlock'",
+         |    "data": {
+         |      "type": "tendermint/event/NewBlock",
+         |      "value": "$text"
+         |    }
+         |  }
+         |}
+      """.stripMargin
+    )
+
+    def asString(json: Json) = json.as[String].right.get
 
     // TODO: I guess that now it's impossible to implement this test without sending & waiting for events.
 //    "connect and disconnect" in {
@@ -64,22 +83,23 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
 //      requests.collect { case Text(_, _) => }.size shouldBe 1
 //    }
 
-    "receive messages" in {
-      val events = resourcesF.use {
+    "subscribe and receive messages" in {
+      val (events, requests) = resourcesF.use {
         case (server, events) =>
           for {
-            _ <- server.send(Text("first"))
-            // TODO: for some reason, this message doesn't get sent o_O
-            // TODO(cont): oh well, sometimes it does! There's a race O_O. Where? How? Why? WHO? The Doctor.
-            _ <- server.send(Text("second"))
+            _ <- server.send(text("first"))
+            _ <- server.send(text("second"))
             result <- events.take(2).compile.toList
             _ <- server.close()
-          } yield result
+            requests <- server.requests().compile.toList
+          } yield (result, requests)
       }.unsafeRunSync()
 
+      requests.size shouldBe 1
+
       events.size shouldBe 2
-      events.head shouldBe "first"
-      events.tail.head shouldBe "second"
+      asString(events.head) shouldBe "first"
+      asString(events.tail.head) shouldBe "second"
     }
 
     // TODO: How to implement this test? With fibers? Not sure about that.........................
@@ -93,6 +113,19 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
 //      val result = badResourcesF.use(_ => IO.unit).attempt.unsafeRunSync()
 //      println(s"Result: ${result.left.toOption.map(_.getMessage)}")
 //      result.isRight shouldBe true
+//    }
+
+    // TODO: test on reconnect
+    // TODO: integration test with Tendermint
+
+//    "connect to real tendermint" in {
+//      val realResF = for {
+//        wrpc <- TendermintRpc.make[IO]("127.0.0.1", 27358)
+//        blocks <- wrpc.subscribeNewBlock[IO]
+//      } yield blocks
+//
+//      val events = realResF.use(_.compile.toList).unsafeRunSync()
+//      println(s"events $events")
 //    }
   }
 }

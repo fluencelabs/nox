@@ -22,13 +22,13 @@ import fluence.kad.protocol.Key
 import org.scalacheck.{Arbitrary, Gen}
 
 /**
-* Kademlia Keys form a Monoid with Order:
-  * - Kademlia XOR distance acts as monoidal combine
-  * - Empty key (filled with zeroes) is a neutral element
-  * - All keys are ordered by Kademlia distance
-  *
-  * This spec just checks that all laws for Monoid and Order are met
-  */
+ * Kademlia Keys form a Monoid with Order:
+ * - Kademlia XOR distance acts as monoidal combine
+ * - Empty key (filled with zeroes) is a neutral element
+ * - All keys are ordered by Kademlia distance
+ *
+ * This spec just checks that all laws for Monoid and Order are met
+ */
 class KeyLawsSpec extends CatsSuite {
 
   private implicit val arbKey: Arbitrary[Key] =

@@ -31,6 +31,7 @@ import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
 import fluence.effects.{Backoff, EffectError}
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.workers.{Worker, WorkerServices}
+import io.circe.Json
 
 import scala.language.higherKinds
 
@@ -61,12 +62,12 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) ex
   }
 
   private def processBlock(
-    blockRaw: String,
+    blockJson: Json,
     services: WorkerServices[F],
     lastManifestReceipt: MVar[F, Option[Receipt]]
   ) = {
     // Parse block from JSON
-    Block(blockRaw) match {
+    Block(blockJson) match {
       case Left(e) =>
         // TODO: load block through TendermintRPC (not WRPC) again
         Applicative[F].pure(logger.error(s"BlockUploading: failed to parse Tendermint block: ${e.getMessage}"))

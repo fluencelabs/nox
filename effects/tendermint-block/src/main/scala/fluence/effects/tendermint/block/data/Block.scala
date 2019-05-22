@@ -20,8 +20,8 @@ import fluence.crypto.hash.CryptoHashers.Sha256
 import fluence.effects.tendermint.block.errors.TendermintBlockError
 import fluence.effects.tendermint.block.protobuf.{Protobuf, ProtobufConverter, ProtobufJson}
 import fluence.effects.tendermint.block.signature.Merkle
-import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.deriveDecoder
+import io.circe.{Decoder, Encoder, Json}
 import proto3.tendermint.Vote
 import scalapb.GeneratedMessage
 import scalapb_circe.JsonFormat
@@ -79,8 +79,20 @@ object Block {
    */
   def evidenceHash(evl: List[Evidence]): Array[Byte] = Merkle.simpleHash(evl)
 
-  def apply(json: String): Either[TendermintBlockError, Block] = {
-    ProtobufJson.block(json)
+  /**
+   * Parses block from Tendermint RPC response
+   * @param blockResponse Response on Tendermint RPC 'Block' request
+   */
+  def apply(blockResponse: String): Either[TendermintBlockError, Block] = {
+    ProtobufJson.block(blockResponse)
+  }
+
+  /**
+   * Parses block from Json, assuming there's no field nesting
+   * @param blockJson Json representation of block
+   */
+  def apply(blockJson: Json): Either[TendermintBlockError, Block] = {
+    ProtobufJson.block(blockJson)
   }
 }
 
@@ -102,6 +114,15 @@ case class Block private[block] (header: Header, data: Data, last_commit: LastCo
   }
 
   /**
+   * Calculates Merkle hash of the header
+   *
+   * @return Merkle hash of the header
+   */
+  def headerHash(): Array[Byte] = {
+    fillHeader().filledHeaderHash()
+  }
+
+  /**
    * Calculates 3 hashes, should be called before blockHash()
    *
    * @return Copy of the Block with filled hashes
@@ -115,30 +136,12 @@ case class Block private[block] (header: Header, data: Data, last_commit: LastCo
   }
 
   /**
-   * Calculates Merkle hash of the header
-   *
-   * @return Merkle hash of the header
-   */
-  def headerHash(): Array[Byte] = {
-    fillHeader().filledHeaderHash()
-  }
-
-  /**
    * Calculates Merkle hash of the transaction list
    *
    * @return Merkle hash of the transaction list
    */
   def dataHash(): Array[Byte] = {
     data.txs.fold(Array.empty[Byte])(txsHash)
-  }
-
-  /**
-   * Calculates Merkle hash of the lastCommit.precommits (votes for the previous block)
-   *
-   * @return Merkle hash of precommits
-   */
-  def lastCommitHash(): Array[Byte] = {
-    commitHash(last_commit.precommits)
   }
 
   /**
@@ -169,5 +172,14 @@ case class Block private[block] (header: Header, data: Data, last_commit: LastCo
     )
 
     Merkle.simpleHash(data)
+  }
+
+  /**
+   * Calculates Merkle hash of the lastCommit.precommits (votes for the previous block)
+   *
+   * @return Merkle hash of precommits
+   */
+  def lastCommitHash(): Array[Byte] = {
+    commitHash(last_commit.precommits)
   }
 }

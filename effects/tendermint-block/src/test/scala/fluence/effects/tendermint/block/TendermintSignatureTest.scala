@@ -17,7 +17,7 @@
 package fluence.effects.tendermint.block
 
 import com.google.protobuf.ByteString
-import fluence.effects.tendermint.block.data.PartsHeader
+import fluence.effects.tendermint.block.data.{Block, PartsHeader}
 import fluence.effects.tendermint.block.protobuf.ProtobufJson
 import fluence.effects.tendermint.block.signature.TendermintSignature
 import io.circe.parser.parse
@@ -36,7 +36,7 @@ class TendermintSignatureTest extends FunSpec with Matchers with OptionValues {
   }
 
   it("verify commits") {
-    val block = ProtobufJson.block(TestData.blockResponse).right.get
+    val block = Block(TestData.blockResponse).right.get
     val commit = ProtobufJson.commit(TestData.commitResponse).right.get
 
     val chainId = block.header.chain_id

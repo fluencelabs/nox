@@ -17,11 +17,12 @@
 package fluence.effects.tendermint.rpc
 
 import fluence.effects.{EffectError, WithCause}
+import io.circe.{DecodingFailure, ParsingFailure}
 
 sealed trait WRpcError extends EffectError
 
-private[rpc] case object Disconnected extends WRpcError {
-  override def getMessage: String = "websocket received close early"
+private[rpc] case class Disconnected(code: Int, reason: String) extends WRpcError {
+  override def getMessage: String = s"closed $code $reason"
 }
 
 private[rpc] case class DisconnectedWithError(cause: Throwable) extends WRpcError with WithCause[Throwable] {
@@ -30,4 +31,12 @@ private[rpc] case class DisconnectedWithError(cause: Throwable) extends WRpcErro
 
 private[rpc] case class ConnectionFailed(cause: Throwable) extends WRpcError with WithCause[Throwable] {
   override def getMessage: String = s"connection failed: $cause"
+}
+
+private[rpc] case class InvalidJsonResponse(cause: ParsingFailure) extends WRpcError with WithCause[ParsingFailure] {
+  override def getMessage: String = s"unable to parse json: $cause"
+}
+
+private[rpc] case class InvalidJsonStructure(cause: DecodingFailure) extends WRpcError with WithCause[DecodingFailure] {
+  override def getMessage: String = s"can't find required fields in json: $cause"
 }
