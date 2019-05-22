@@ -92,7 +92,7 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
     onConnect: WebSocket => F[Unit]
   ): F[Unit] = {
     def logConnectionError(e: EffectError) =
-      Applicative[F].pure(logger.error(s"WRPC $wsUrl: error connecting: $e"))
+      Applicative[F].pure(logger.error(s"WRPC $wsUrl: error connecting: ${e.getMessage}"))
 
     def close(ws: NettyWebSocket) = ws.sendCloseFrame().asAsync.attempt.void
 
@@ -104,10 +104,10 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
       // keep connecting until success
       websocket <- Backoff.default.retry(socket(wsHandler(ref, queue, promise)), logConnectionError)
       // wait until socket disconnects (it may never do)
-      disconnected <- promise.get
+      error <- promise.get
       // try to signal tendermint ws is closing ; TODO: will that ever succeed?
       _ <- close(websocket)
-      _ = logger.info(s"Tendermint WRPC: $wsUrl will reconnect: $disconnected")
+      _ = logger.info(s"Tendermint WRPC: $wsUrl will reconnect: ${error.getMessage}")
       // reconnect using same queue
       _ <- connect(queue, onConnect)
     } yield ()

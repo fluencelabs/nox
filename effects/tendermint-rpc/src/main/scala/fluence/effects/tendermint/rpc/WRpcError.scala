@@ -27,6 +27,7 @@ private[rpc] case object Disconnected extends WRpcError {
 private[rpc] case class DisconnectedWithError(cause: Throwable) extends WRpcError with WithCause[Throwable] {
   override def getMessage: String = s"websocket closed due to error: $cause"
 }
+
 private[rpc] case class ConnectionFailed(cause: Throwable) extends WRpcError with WithCause[Throwable] {
   override def getMessage: String = s"connection failed: $cause"
 }
