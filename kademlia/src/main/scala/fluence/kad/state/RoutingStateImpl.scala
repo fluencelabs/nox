@@ -114,13 +114,12 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
   )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]] = {
     // From iterable of groups, make list of list of items from different groups
     @tailrec
-    def rearrange(groups: Iterable[List[Node[C]]], agg: List[List[Node[C]]] = Nil): List[List[Node[C]]] = {
+    def rearrange(groups: Iterable[List[Node[C]]], agg: List[List[Node[C]]] = Nil): List[List[Node[C]]] =
       if (groups.isEmpty) agg
       else {
         val (current, next) = groups.collect { case head :: tail => head -> tail }.unzip
         rearrange(next.toList, current.toList :: agg)
       }
-    }
 
     // Update portion, taking nodes one by one, and return all updated nodes
     def updatePortion(portion: List[Node[C]], agg: ModResult[C] = ModResult.noop): F[ModResult[C]] =

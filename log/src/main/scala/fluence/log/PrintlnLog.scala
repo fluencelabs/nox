@@ -14,35 +14,32 @@
  * limitations under the License.
  */
 
-package fluence.kad.protocol
+package fluence.log
 
-import cats.effect.IO
+import cats.effect.{Clock, Sync}
 
 import scala.language.higherKinds
 
 /**
- * An interface to Kademlia-related calls for a remote node.
+ * Functional logger facade
  *
- * @tparam C Type for contact data
+ * @param ctx Trace Context
+ * @tparam F Effect
  */
-trait KademliaRpc[C] {
+class PrintlnLog[F[_]: Sync: Clock](override val ctx: Context) extends Log[F] {
 
   /**
-   * Ping the contact, get its actual Node status, or fail.
-   */
-  def ping(): IO[Node[C]]
-
-  /**
-   * Perform a local lookup for a key, return K closest known nodes.
+   * Provide a logger with modified context
    *
-   * @param key Key to lookup
+   * @param modContext Context modification
+   * @param fn         Function to use the new logger
+   * @tparam A Return type
+   * @return What the inner function returns
    */
-  def lookup(key: Key, neighbors: Int): IO[Seq[Node[C]]]
+  override def scope[A](modContext: Context ⇒ Context)(fn: Log[F] ⇒ F[A]): F[A] =
+    fn(new PrintlnLog(modContext(ctx)))
 
-  /**
-   * Perform a local lookup for a key, return K closest known nodes, going away from the second key.
-   *
-   * @param key Key to lookup
-   */
-  def lookupAway(key: Key, moveAwayFrom: Key, neighbors: Int): IO[Seq[Node[C]]]
+  override protected def appendMsg(msg: Log.Msg): F[Unit] =
+    Sync[F].delay(println(msg))
+
 }

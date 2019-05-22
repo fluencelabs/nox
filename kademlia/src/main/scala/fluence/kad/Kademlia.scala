@@ -21,6 +21,7 @@ import cats.effect.{Clock, Effect}
 import cats.Parallel
 import fluence.kad.routing.{IterativeRouting, RoutingTable}
 import fluence.kad.protocol.{ContactAccess, KademliaRpc, Key, Node}
+import fluence.log.Log
 
 import scala.language.higherKinds
 
@@ -50,12 +51,12 @@ trait Kademlia[F[_], C] {
    * @param node Discovered node, known to be alive and reachable
    * @return true if node is present in routing table after update, false if it was not added
    */
-  def update(node: Node[C]): F[Boolean]
+  def update(node: Node[C])(implicit log: Log[F]): F[Boolean]
 
   /**
    * @return KademliaRPC instance to handle incoming RPC requests
    */
-  def handleRPC: KademliaRpc[C]
+  def handleRPC(implicit log: Log[F]): KademliaRpc[C]
 
   /**
    * Finds a node by its key, either in a local RoutingTable or doing up to ''maxRequests'' lookup calls
@@ -63,7 +64,7 @@ trait Kademlia[F[_], C] {
    * @param key Kademlia key to find node for
    * @param maxRequests Max number of remote requests
    */
-  def findNode(key: Key, maxRequests: Int): F[Option[Node[C]]]
+  def findNode(key: Key, maxRequests: Int)(implicit log: Log[F]): F[Option[Node[C]]]
 
   /**
    * Perform iterative lookup, see [[IterativeRouting.lookupIterative]]
@@ -72,7 +73,7 @@ trait Kademlia[F[_], C] {
    * @param neighbors How many neighbors to return
    * @return key's neighborhood, .size <= neighbors
    */
-  def lookupIterative(key: Key, neighbors: Int): F[Seq[Node[C]]]
+  def lookupIterative(key: Key, neighbors: Int)(implicit log: Log[F]): F[Seq[Node[C]]]
 
   /**
    * Performs lookupIterative for a key, and then callIterative for neighborhood.
@@ -92,7 +93,7 @@ trait Kademlia[F[_], C] {
     takeFnResults: Int,
     maxFnCallTries: Int,
     isIdempotentFn: Boolean = true
-  ): F[Seq[(Node[C], A)]]
+  )(implicit log: Log[F]): F[Seq[(Node[C], A)]]
 
   /**
    * Joins the Kademlia network by a list of known peers
@@ -100,7 +101,7 @@ trait Kademlia[F[_], C] {
    * @param peers Peers contact info
    * @return Whether joined or not
    */
-  def join(peers: Seq[C], numberOfNodes: Int): F[Boolean]
+  def join(peers: Seq[C], numberOfNodes: Int)(implicit log: Log[F]): F[Boolean]
 }
 
 object Kademlia {

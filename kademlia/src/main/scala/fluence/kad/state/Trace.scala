@@ -24,6 +24,7 @@ import cats.instances.list._
  *
  * @param trace List of messages, newest on top
  */
+@deprecated("Use Log instead", "20.05.2019")
 case class Trace private (trace: List[Eval[String]]) {
   def apply(log: ⇒ String): Trace = copy(Eval.later(log) :: trace)
 
