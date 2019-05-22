@@ -41,7 +41,7 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
   "WebsocketRPC" should {
     PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, true)
     LoggerConfig.factory = PrintLoggerFactory()
-    LoggerConfig.level = LogLevel.TRACE
+    LoggerConfig.level = LogLevel.ERROR
 
     val resourcesF = for {
       server <- WebsocketServer.make[IO]
@@ -77,7 +77,6 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
           } yield result
       }.unsafeRunSync()
 
-      println(s"events: $events")
       events.size shouldBe 2
       events.head shouldBe "first"
       events.tail.head shouldBe "second"
