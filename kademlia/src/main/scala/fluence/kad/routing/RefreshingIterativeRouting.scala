@@ -29,7 +29,7 @@ import cats.syntax.flatMap._
 import cats.syntax.apply._
 import cats.syntax.functor._
 import cats.instances.stream._
-import cats.syntax.monoid._
+import fluence.log.Log
 
 import scala.concurrent.duration._
 import scala.util.Random
@@ -74,7 +74,7 @@ private class RefreshingIterativeRouting[F[_]: Concurrent, C](
     }
   }
 
-  override def lookupIterative(key: Key, neighbors: Int, parallelism: Int): F[Seq[Node[C]]] =
+  override def lookupIterative(key: Key, neighbors: Int, parallelism: Int)(implicit log: Log[F]): F[Seq[Node[C]]] =
     rescheduleRefresh(key) *> routing.lookupIterative(key, neighbors, parallelism)
 
   override def callIterative[E, A](
@@ -84,10 +84,12 @@ private class RefreshingIterativeRouting[F[_]: Concurrent, C](
     parallelism: Int,
     maxNumOfCalls: Int,
     isIdempotentFn: Boolean
-  ): F[Vector[(Node[C], A)]] =
+  )(implicit log: Log[F]): F[Vector[(Node[C], A)]] =
     rescheduleRefresh(key) *> routing.callIterative(key, fn, numToCollect, parallelism, maxNumOfCalls, isIdempotentFn)
 
-  override def join(peers: Seq[C], numberOfNodes: Int, parallelism: Int): EitherT[F, JoinError, Unit] =
+  override def join(peers: Seq[C], numberOfNodes: Int, parallelism: Int)(
+    implicit log: Log[F]
+  ): EitherT[F, JoinError, Unit] =
     routing.join(peers, numberOfNodes, parallelism) <* EitherT.liftF(rescheduleRefresh(nodeKey))
 }
 
@@ -103,7 +105,7 @@ object RefreshingIterativeRouting {
    * @tparam C Contact
    * @return Enhanced [[IterativeRouting]]
    */
-  def apply[F[_]: Concurrent: Timer, C](
+  def apply[F[_]: Concurrent: Timer: Log, C](
     iterativeRouting: IterativeRouting[F, C],
     refreshTimeout: FiniteDuration,
     refreshNeighbors: Int,

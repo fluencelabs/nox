@@ -22,6 +22,7 @@ import cats.effect.{Clock, LiftIO}
 import fluence.kad.JoinError
 import fluence.kad.protocol.{ContactAccess, Key, Node}
 import fluence.kad.state.RoutingState
+import fluence.log.Log
 
 import scala.language.higherKinds
 
@@ -64,7 +65,7 @@ trait IterativeRouting[F[_], C] {
     key: Key,
     neighbors: Int,
     parallelism: Int
-  ): F[Seq[Node[C]]]
+  )(implicit log: Log[F]): F[Seq[Node[C]]]
 
   /**
    * Calls fn on some key's neighbourhood, described by ordering of `prefetchedNodes`,
@@ -96,7 +97,7 @@ trait IterativeRouting[F[_], C] {
     parallelism: Int,
     maxNumOfCalls: Int,
     isIdempotentFn: Boolean
-  ): F[Vector[(Node[C], A)]]
+  )(implicit log: Log[F]): F[Vector[(Node[C], A)]]
 
   /**
    * Joins network with known peers
@@ -110,7 +111,7 @@ trait IterativeRouting[F[_], C] {
     peers: Seq[C],
     neighbors: Int,
     parallelism: Int
-  ): EitherT[F, JoinError, Unit]
+  )(implicit log: Log[F]): EitherT[F, JoinError, Unit]
 }
 
 object IterativeRouting {

@@ -1,0 +1,159 @@
+/*
+ * Copyright 2018 Fluence Labs Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package fluence.kad.testkit
+
+import cats.effect.{ConcurrentEffect, ContextShift, IO, LiftIO, Timer}
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.syntax.applicative._
+import cats.Parallel
+import cats.instances.stream._
+import cats.effect.syntax.effect._
+import fluence.crypto.KeyPair
+import fluence.crypto.signature.Signer
+import fluence.kad.KademliaConf
+import fluence.kad.protocol.{ContactAccess, KademliaRpc, Key, Node}
+import fluence.kad.Kademlia
+import fluence.kad.routing.RoutingTable
+import fluence.log.Log
+
+import scala.concurrent.duration._
+import scala.language.higherKinds
+
+object TestKademlia {
+
+  def apply[F[_]: Timer: ConcurrentEffect: LiftIO: Log, P[_], C](
+    nodeId: Key,
+    alpha: Int,
+    k: Int,
+    getKademlia: C ⇒ Kademlia[F, C],
+    toContact: Key ⇒ C,
+    pingExpiresIn: FiniteDuration = 1.second
+  )(
+    implicit
+    P: Parallel[F, P]
+  ): F[Kademlia[F, C]] = {
+    def ownContactValue = Node[C](nodeId, toContact(nodeId))
+
+    implicit val ca = new ContactAccess[C](
+      pingExpiresIn,
+      _ ⇒ IO.pure(true),
+      contact ⇒
+        new KademliaRpc[C] {
+          private val kad = getKademlia(contact)
+
+          /**
+           * Ping the contact, get its actual Node status, or fail
+           */
+          override def ping() =
+            kad.update(ownContactValue).flatMap(_ ⇒ kad.handleRPC.ping().to[F]).toIO
+
+          /**
+           * Perform a local lookup for a key, return K closest known nodes
+           *
+           * @param key Key to lookup
+           */
+          override def lookup(key: Key, numberOfNodes: Int) =
+            kad.update(ownContactValue).flatMap(_ ⇒ kad.handleRPC.lookup(key, numberOfNodes).to[F]).toIO
+
+          /**
+           * Perform a local lookup for a key, return K closest known nodes, going away from the second key
+           *
+           * @param key Key to lookup
+           */
+          override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) =
+            kad
+              .update(ownContactValue)
+              .flatMap(_ ⇒ kad.handleRPC.lookupAway(key, moveAwayFrom, numberOfNodes).to[F])
+              .toIO
+      }
+    )
+
+    RoutingTable[F, P, C](nodeId, k, k)
+      .map(Kademlia[F, P, C](_, ownContactValue.pure[F], KademliaConf(k, k, alpha, pingExpiresIn)))
+
+  }
+
+  def simulationIO[C](
+    k: Int,
+    n: Int,
+    toContact: Key ⇒ C,
+    nextRandomKey: ⇒ Key,
+    joinPeers: Int = 0,
+    alpha: Int = 3,
+    pingExpiresIn: FiniteDuration = 1.second
+  )(implicit t: Timer[IO], cs: ContextShift[IO], log: Log[IO]): Map[C, Kademlia[IO, C]] = {
+    lazy val kads: Map[C, Kademlia[IO, C]] =
+      Parallel
+        .parTraverse(
+          Stream
+            .fill(n)(nextRandomKey)
+        )(
+          rk ⇒
+            log.scope("key" -> toContact(rk).toString)(
+              implicit log ⇒ apply(rk, alpha, k, kads(_), toContact, pingExpiresIn)
+          )
+        )
+        .unsafeRunSync()
+        .foldLeft(Map.empty[C, Kademlia[IO, C]]) {
+          case (acc, kad) ⇒
+            acc + (toContact(kad.nodeKey) -> kad)
+        }
+
+    val peers = kads.keys.take(joinPeers).toSeq
+
+    if (peers.nonEmpty)
+      kads.values.foreach(
+        kd ⇒ log.scope("key" -> toContact(kd.nodeKey).toString)(implicit log ⇒ kd.join(peers, k)).unsafeRunSync()
+      )
+
+    kads
+  }
+
+  def simulationKP[C](
+    k: Int,
+    n: Int,
+    toContact: Key ⇒ C,
+    nextRandomKeyPair: ⇒ KeyPair,
+    joinPeers: Int = 0,
+    alpha: Int = 3,
+    pingExpiresIn: FiniteDuration = 1.second
+  )(implicit t: Timer[IO], cs: ContextShift[IO], log: Log[IO]): Map[C, (Signer, Kademlia[IO, C])] = {
+    import fluence.crypto.DumbCrypto.signAlgo
+
+    lazy val kads: Map[C, (Signer, Kademlia[IO, C])] =
+      Parallel
+        .parTraverse[Stream, IO, IO.Par, KeyPair, (C, (Signer, Kademlia[IO, C]))](
+          Stream.fill(n)(nextRandomKeyPair)
+        ) { keyPair ⇒
+          val signer = signAlgo.signer(keyPair)
+          val key = Key.fromPublicKey.unsafe(keyPair.publicKey)
+          apply[IO, IO.Par, C](key, alpha, k, kads(_)._2, toContact, pingExpiresIn).map(
+            kad ⇒ toContact(key) -> (signer, kad)
+          )
+        }
+        .unsafeRunSync()
+        .toMap
+
+    val peers = kads.keys.take(joinPeers).toSeq
+
+    if (peers.nonEmpty)
+      kads.values.foreach(_._2.join(peers, k).unsafeRunSync())
+
+    kads
+  }
+}

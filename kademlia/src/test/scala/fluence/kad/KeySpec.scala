@@ -43,16 +43,6 @@ class KeySpec extends WordSpec with Matchers {
       buffer.getLong()
     }
 
-    "have correct XOR monoid" in {
-
-      val id = Key.fromBytes.unsafe(Array.fill(Key.Length)(81: Byte))
-      val eqv = Eq[Key].eqv(_, _) // as we can't simply compare byte arrays
-
-      eqv(Monoid[Key].empty |+| id, id) shouldBe true
-      eqv(id |+| Monoid[Key].empty, id) shouldBe true
-      eqv(Monoid[Key].empty |+| Key.XorDistanceMonoid.empty, Key.XorDistanceMonoid.empty) shouldBe true
-    }
-
     "count leading zeros" in {
       Monoid[Key].empty.zerosPrefixLen shouldBe Key.BitLength
       Key.fromBytes.unsafe(Array.fill(Key.Length)(81: Byte)).zerosPrefixLen shouldBe 1
