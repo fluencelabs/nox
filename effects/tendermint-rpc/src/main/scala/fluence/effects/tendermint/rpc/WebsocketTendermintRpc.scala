@@ -21,17 +21,13 @@ import cats.data.EitherT
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.syntax.effect._
-import cats.instances.either._
 import cats.syntax.applicativeError._
-import cats.syntax.apply._
 import cats.syntax.compose._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.syntax.option._
 import fluence.effects.JavaFutureConversion._
-import fluence.effects.tendermint.rpc.WebsocketTendermintRpc.ConnectionFailed
 import fluence.effects.tendermint.rpc.helpers.NettyFutureConversion._
-import fluence.effects.{Backoff, EffectError, WithCause}
+import fluence.effects.{Backoff, EffectError}
 import fs2.concurrent.Queue
 import org.asynchttpclient.Dsl._
 import org.asynchttpclient.netty.ws.NettyWebSocket
@@ -44,31 +40,32 @@ import scala.language.higherKinds
  * Details: https://tendermint.com/rpc/#subscribe
  */
 trait WebsocketTendermintRpc extends slogging.LazyLogging {
-  import WebsocketTendermintRpc.Disconnected
 
   val host: String
   val port: Int
 
   private val wsUrl = s"ws://$host:$port/websocket"
 
+  /**
+   * Subscribe on new blocks from Tendermint
+   */
   def subscribeNewBlock[F[_]: ConcurrentEffect: Timer]: Resource[F, fs2.Stream[F, String]] = {
-    subscribe("NewBlock").map(_.dequeue.unNoneTerminate)
+    subscribe("NewBlock").map(_.dequeue)
   }
 
   private def subscribe[F[_]: ConcurrentEffect: Timer](
     event: String
-  ): Resource[F, Queue[F, Option[String]]] = {
-    def close(ws: (NettyWebSocket, _)) = ws._1.sendCloseFrame().asAsync.void
-    def logConnectionError(e: EffectError) =
-      Applicative[F].pure(logger.error(s"WRPC $wsUrl: error connecting: ${e.getMessage}"))
+  ): Resource[F, Queue[F, String]] = {
+    def subscribe(ws: WebSocket) = ws.sendTextFrame(request(event)).asAsync.void
+    def cancelFiber(fiber: (Fiber[F, _], _)) = fiber._1.cancel
 
     Resource.make {
       for {
-        // Keep connecting until forever
-        (websocket, queue) <- Backoff.default.retry(connect, logConnectionError)
-        _ <- websocket.sendTextFrame(request(event)).asAsync
-      } yield (websocket, queue)
-    }(close).map { case (_, queue) => queue }
+        queue <- Queue.unbounded[F, String]
+        // Connect in background forever, using same queue
+        fiber <- Concurrent[F].start(connect(queue, subscribe))
+      } yield (fiber, queue)
+    }(cancelFiber).map { case (_, queue) => queue }
   }
 
   private def request(event: String) =
@@ -80,17 +77,41 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
        |}
      """.stripMargin
 
-  private def connect[F[_]: ConcurrentEffect: Timer] =
-    EitherT(
-      for {
-        queue <- Queue.unbounded[F, Option[String]]
-        ref <- Ref.of[F, String]("")
-        // promise will be completed with Right on connect and Left on close
-        promise <- Deferred[F, Either[EffectError, Unit]]
-        websocket <- socket(wsHandler(ref, queue, promise)).value
-        connected <- promise.get
-      } yield connected >> websocket.tupleRight(queue)
-    )
+  /**
+   * Connects to Tendermint Websocket RPC, recreates socket on disconnect.
+   * All received events are pushed to the queue. Async blocks until the end of the world.
+   *
+   * NOTE: this method is expected to be called in background (e.g., in a separate Fiber)
+   * NOTE: events sent between reconnects WOULD BE LOST (this is OK for NewBlock though)
+   *
+   * @param queue Queue to send events to
+   * @param onConnect Will be executed on each successful connection
+   */
+  private def connect[F[_]: ConcurrentEffect: Timer](
+    queue: Queue[F, String],
+    onConnect: WebSocket => F[Unit]
+  ): F[Unit] = {
+    def logConnectionError(e: EffectError) =
+      Applicative[F].pure(logger.error(s"WRPC $wsUrl: error connecting: $e"))
+
+    def close(ws: NettyWebSocket) = ws.sendCloseFrame().asAsync.attempt.void
+
+    for {
+      // Ref to accumulate payload frames (websocket allows to split single message into several)
+      ref <- Ref.of[F, String]("")
+      // promise will be completed by exception when socket is disconnected
+      promise <- Deferred[F, WRpcError]
+      // keep connecting until success
+      websocket <- Backoff.default.retry(socket(wsHandler(ref, queue, promise)), logConnectionError)
+      // wait until socket disconnects (it may never do)
+      disconnected <- promise.get
+      // try to signal tendermint ws is closing ; TODO: will that ever succeed?
+      _ <- close(websocket)
+      _ = logger.info(s"Tendermint WRPC: $wsUrl will reconnect: $disconnected")
+      // reconnect using same queue
+      _ <- connect(queue, onConnect)
+    } yield ()
+  }
 
   private def socket[F[_]: Async](handler: WebSocketUpgradeHandler) =
     EitherT(
@@ -104,49 +125,40 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
 
   private def wsHandler[F[_]: ConcurrentEffect](
     ref: Ref[F, String],
-    queue: Queue[F, Option[String]],
-    connected: Deferred[F, Either[EffectError, Unit]]
+    queue: Queue[F, String],
+    disconnected: Deferred[F, WRpcError]
   ) =
     new WebSocketUpgradeHandler.Builder()
       .addWebSocketListener(
         new WebSocketListener {
           override def onOpen(websocket: WebSocket): Unit = {
             logger.info(s"Tendermint WRPC: $wsUrl connected")
-            connected.complete(Right(())).toIO.unsafeRunSync()
           }
 
           override def onClose(websocket: WebSocket, code: Int, reason: String): Unit = {
             logger.warn(s"Tendermint WRPC: $wsUrl closed $code $reason")
-            // If close received before connection is established, fail `connected` promise
-            (connected.complete(Left(Disconnected)).attempt.void *> queue.enqueue1(None)).toIO.unsafeRunSync()
+            disconnected.complete(Disconnected).attempt.void.toIO.unsafeRunSync()
           }
 
           override def onError(t: Throwable): Unit = {
-            logger.error(s"Tendermint WRPC: $wsUrl ${t.getMessage}")
-            // If error received before connection is established, fail `connected` promise
-            connected.complete(Left(Disconnected)).attempt.void.toIO.unsafeRunSync()
+            logger.error(s"Tendermint WRPC: $wsUrl $t")
+            disconnected.complete(DisconnectedWithError(t)).attempt.void.toIO.unsafeRunSync()
           }
 
           override def onTextFrame(payload: String, finalFragment: Boolean, rsv: Int): Unit = {
             logger.trace(s"Tendermint WRPC: text $payload")
             if (!finalFragment) {
-              logger.warn(s"Tendermint WRPC: $wsUrl event was split into several websocket frames")
               ref.update(_.concat(payload)).toIO.unsafeRunSync()
             } else {
-              // TODO: run sync or async? which is better here? In examples, they do it async (see onOpen), but why?
-              ((ref.get.map(_.concat(payload).some) >>= queue.enqueue1) >> ref.set("")).toIO.unsafeRunSync()
+              // TODO: run sync or async? which is better here? In examples, they do it async, but does it matter?
+              ((ref.get.map(_.concat(payload)) >>= queue.enqueue1) >> ref.set("")).toIO.unsafeRunSync()
             }
           }
 
           override def onBinaryFrame(payload: Array[Byte], finalFragment: Boolean, rsv: Int): Unit = {
-            logger.warn(s"UNIMPLEMENTED: Tendermint WRPC: unexpected binary frame")
+            logger.warn(s"UNIMPLEMENTED: Tendermint WRPC: $wsUrl unexpected binary frame")
           }
         }
       )
       .build()
-}
-
-object WebsocketTendermintRpc {
-  private[rpc] case object Disconnected extends EffectError
-  private[rpc] case class ConnectionFailed(cause: Throwable) extends WithCause[Throwable]
 }
