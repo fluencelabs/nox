@@ -372,7 +372,7 @@ lazy val `kademlia-testkit` = (project in file("kademlia/testkit"))
   ).dependsOn(kademlia)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `log` = (project in file("log"))
+lazy val log = (project in file("log"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
@@ -415,4 +415,4 @@ lazy val node = project
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(ethclient, swarm, ipfs, `statemachine-control`, `kvstore`, `dockerio`, `tendermint-rpc`, sttpEitherT)
+  .dependsOn(ethclient, swarm, ipfs, `statemachine-control`, kvstore, dockerio, `tendermint-rpc`, sttpEitherT)
