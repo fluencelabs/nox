@@ -31,36 +31,34 @@ object JsonCodecs {
   implicit val conf: Configuration = Configuration.default.withDefaults
 
   /*  Encoders  */
-  implicit def encodeMessage[A <: GeneratedMessage]: Encoder[A] = Encoder.instance(JsonFormat.toJson)
-  implicit final val encbc: Encoder[ByteVector] = Encoder.encodeString.contramap(_.toHex)
+  implicit def messageEncoder[A <: GeneratedMessage]: Encoder[A] = Encoder.instance(JsonFormat.toJson)
+  implicit final val byteVectorEncoder: Encoder[ByteVector] = Encoder.encodeString.contramap(_.toHex)
 
   /*  Decoders  */
-  implicit final val decodeBase64ByteVector: Decoder[Base64ByteVector] = Decoder.decodeString.emap(
+  implicit final val base64ByteVectorDecoder: Decoder[Base64ByteVector] = Decoder.decodeString.emap(
     str => ByteVector.fromBase64Descriptive(str).map(Base64ByteVector).left.map(_ => "Base64ByteVector")
   )
 
-  implicit final val decodeVote: Decoder[Vote] =
+  implicit final val voteDecoder: Decoder[Vote] =
     Decoder.decodeJson.emap(jvalue => ProtobufJson.vote(jvalue).left.map(_ => "Vote"))
 
-  Decoder.decodeJson.emap(jvalue => ProtobufJson.vote(jvalue).left.map(_ => "Vote"))
-
-  implicit final val decodeByteVector: Decoder[ByteVector] = {
+  implicit final val byteVectorDecoder: Decoder[ByteVector] = {
     Decoder.decodeString.emap { str =>
       ByteVector.fromHexDescriptive(str).left.map(_ => "ByteVector")
     }
   }
 
-  implicit final val decodeVersion: Decoder[Version] = {
+  implicit final val versionDecoder: Decoder[Version] = {
     Decoder.decodeJson.emap { jvalue =>
       ProtobufJson.version(jvalue).left.map(_ => "Version")
     }
   }
 
-  implicit final val decodeTimestamp: Decoder[Timestamp] = {
+  implicit final val timestampDecoder: Decoder[Timestamp] = {
     Decoder.decodeJson.emap(jvalue => ProtobufJson.timestamp(jvalue).left.map(_ => "Timestamp"))
   }
 
-  implicit final val decodeBlockID: Decoder[BlockID] = {
+  implicit final val blockIdDecoder: Decoder[BlockID] = {
     Decoder.decodeJson.emap { jvalue =>
       ProtobufJson.blockId(jvalue).left.map(_ => "BlockID")
     }

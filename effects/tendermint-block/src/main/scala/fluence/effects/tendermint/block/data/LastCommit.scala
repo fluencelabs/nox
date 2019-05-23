@@ -29,7 +29,7 @@ import proto3.tendermint.{BlockID, Vote}
 case class LastCommit(block_id: BlockID, precommits: List[Option[Vote]] = List.empty)
 
 object LastCommit {
-  import JsonCodecs.{conf, decodeBlockID, decodeVote, encodeMessage}
+  import JsonCodecs.{blockIdDecoder, conf, messageEncoder, voteDecoder}
 
   implicit final val lastCommitDecoder: Decoder[LastCommit] = deriveDecoder
   implicit final val lastCommitEncoder: Encoder[LastCommit] = deriveEncoder

@@ -22,7 +22,7 @@ import io.circe.Decoder
 import io.circe.generic.extras.semiauto.deriveDecoder
 
 private[block] object Commit {
-  import JsonCodecs.{conf, decodeBlockID, decodeVote}
+  import JsonCodecs.{blockIdDecoder, conf, voteDecoder}
 
   implicit val commitDecoder: Decoder[Commit] = deriveDecoder[Commit]
 }
