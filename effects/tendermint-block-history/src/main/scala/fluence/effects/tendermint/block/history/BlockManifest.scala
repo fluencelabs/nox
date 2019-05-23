@@ -46,8 +46,6 @@ object BlockManifest {
   import ByteVectorJsonCodec._
   import Block._
 
-//  implicit def encodeMessage[A <: GeneratedMessage]: Encoder[A] = Encoder.instance(JsonFormat.toJson)
-
   implicit val dec: Decoder[BlockManifest] = deriveDecoder[BlockManifest]
   implicit val enc: Encoder[BlockManifest] = deriveEncoder[BlockManifest]
 }

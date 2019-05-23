@@ -16,6 +16,7 @@
 
 package fluence.effects.tendermint.block
 
+import fluence.effects.tendermint.block.data.Block
 import org.scalatest.{EitherValues, FunSpec, Matchers, OptionValues}
 
 class TendermintBlockTest extends FunSpec with Matchers with OptionValues with EitherValues {
@@ -25,9 +26,18 @@ class TendermintBlockTest extends FunSpec with Matchers with OptionValues with E
     valid.isRight shouldBe true
   }
 
-  it("verify block response where data = null") {
+  it("verify block response where data.txs = null") {
     val block = TendermintBlock(TestData.blockDataNullResponse).right.value
     val valid = block.validateHashes()
     valid.isRight shouldBe true
+  }
+
+  it("decode first block") {
+    import io.circe.parser._
+
+    val blockJson = parse(TestData.firstBlock).right.get
+    val block = Block(blockJson)
+
+    block.isRight shouldBe true
   }
 }

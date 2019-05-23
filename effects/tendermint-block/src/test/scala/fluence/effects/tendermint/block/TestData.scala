@@ -448,4 +448,59 @@ object TestData {
     2 -> ByteVector.fromBase64("9bbFPqyTgxVLe4bddNa1FRPREltHH+JQ3vSLUQtc+zI=").get,
     3 -> ByteVector.fromBase64("vAs+M0nQVqntR6jjPqTsHpJ4bsswA3ohx05yorqveyc=").get
   )
+
+  val firstBlock =
+    """
+      |{
+      |  "block": {
+      |    "header": {
+      |      "version": {
+      |        "block": "10",
+      |        "app": "0"
+      |      },
+      |      "chain_id": "21",
+      |      "height": "1",
+      |      "time": "2019-05-23T14:49:56Z",
+      |      "num_txs": "0",
+      |      "total_txs": "0",
+      |      "last_block_id": {
+      |        "hash": "",
+      |        "parts": {
+      |          "total": "0",
+      |          "hash": ""
+      |        }
+      |      },
+      |      "last_commit_hash": "",
+      |      "data_hash": "",
+      |      "validators_hash": "E55E99B667008D3E275ECEEAF8807F1BFF36B30D6DD638CC57CC09939F475374",
+      |      "next_validators_hash": "E55E99B667008D3E275ECEEAF8807F1BFF36B30D6DD638CC57CC09939F475374",
+      |      "consensus_hash": "048091BC7DDC283F77BFBF91D73C44DA58C3DF8A9CBC867405D8B7F3DAADA22F",
+      |      "app_hash": "",
+      |      "last_results_hash": "",
+      |      "evidence_hash": "",
+      |      "proposer_address": "0D71FECA786E7FE982E6FC13422AAC82329DF077"
+      |    },
+      |    "data": {
+      |      "txs": null
+      |    },
+      |    "evidence": {
+      |      "evidence": null
+      |    },
+      |    "last_commit": {
+      |      "block_id": {
+      |        "hash": "",
+      |        "parts": {
+      |          "total": "0",
+      |          "hash": ""
+      |        }
+      |      },
+      |      "precommits": null
+      |    }
+      |  },
+      |  "result_begin_block": {},
+      |  "result_end_block": {
+      |    "validator_updates": null
+      |  }
+      |}
+    """.stripMargin
 }

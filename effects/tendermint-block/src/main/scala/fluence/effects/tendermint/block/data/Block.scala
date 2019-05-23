@@ -20,24 +20,16 @@ import fluence.crypto.hash.CryptoHashers.Sha256
 import fluence.effects.tendermint.block.errors.TendermintBlockError
 import fluence.effects.tendermint.block.protobuf.{Protobuf, ProtobufConverter, ProtobufJson}
 import fluence.effects.tendermint.block.signature.Merkle
-import io.circe.generic.semiauto.deriveDecoder
-import io.circe.{Decoder, Encoder, Json}
+import io.circe.generic.extras.semiauto.deriveDecoder
+import io.circe.{Decoder, Json}
 import proto3.tendermint.Vote
-import scalapb.GeneratedMessage
-import scalapb_circe.JsonFormat
 import scodec.bits.ByteVector
 
 object Block {
   /* JSON decoders */
-  import Header._
-  implicit def encodeMessage[A <: GeneratedMessage]: Encoder[A] = Encoder.instance(JsonFormat.toJson)
-  implicit final val decodeBase64ByteVector: Decoder[Base64ByteVector] = Decoder.decodeString.emap(
-    str => ByteVector.fromBase64Descriptive(str).map(Base64ByteVector).left.map(_ => "Base64ByteVector")
-  )
-  implicit final val decodeVote: Decoder[Vote] =
-    Decoder.decodeJson.emap(jvalue => ProtobufJson.vote(jvalue).left.map(_ => "Vote"))
-  implicit final val dataDecoder: Decoder[Data] = deriveDecoder
-  implicit final val lastCommitDecoder: Decoder[LastCommit] = deriveDecoder
+  import Header.{headerDecoder, headerEncoder}
+  import JsonCodecs._
+
   implicit final val blockDecoder: Decoder[Block] = deriveDecoder
 
   /* Definitions */

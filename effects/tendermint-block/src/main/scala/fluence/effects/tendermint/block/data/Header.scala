@@ -16,40 +16,13 @@
 
 package fluence.effects.tendermint.block.data
 
-import com.google.protobuf.ByteString
-import fluence.effects.tendermint.block.protobuf.ProtobufJson
-import io.circe.{Decoder, Encoder, Json, ObjectEncoder}
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
-import proto3.tendermint.{BlockID, PartSetHeader, Version}
+import io.circe.generic.extras.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.{Decoder, Encoder}
+import proto3.tendermint.BlockID
 import scodec.bits.ByteVector
-import com.google.protobuf.timestamp.Timestamp
 
 private[block] object Header {
-  import Block.encodeMessage
-
-  implicit final val decodeByteVector: Decoder[ByteVector] = {
-    Decoder.decodeString.emap { str =>
-      ByteVector.fromHexDescriptive(str).left.map(_ => "ByteVector")
-    }
-  }
-
-  implicit final val encbc: Encoder[ByteVector] = Encoder.encodeString.contramap(_.toHex)
-
-  implicit final val decodeVersion: Decoder[Version] = {
-    Decoder.decodeJson.emap { jvalue =>
-      ProtobufJson.version(jvalue).left.map(_ => "Version")
-    }
-  }
-
-  implicit final val decodeTimestamp: Decoder[Timestamp] = {
-    Decoder.decodeJson.emap(jvalue => ProtobufJson.timestamp(jvalue).left.map(_ => "Timestamp"))
-  }
-
-  implicit final val decodeBlockID: Decoder[BlockID] = {
-    Decoder.decodeJson.emap { jvalue =>
-      ProtobufJson.blockId(jvalue).left.map(_ => "BlockID")
-    }
-  }
+  import JsonCodecs._
 
   implicit final val headerDecoder: Decoder[Header] = deriveDecoder[Header]
   implicit final val headerEncoder: Encoder[Header] = deriveEncoder[Header]
