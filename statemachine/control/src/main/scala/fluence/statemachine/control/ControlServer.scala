@@ -15,11 +15,11 @@
  */
 
 package fluence.statemachine.control
-import cats.Applicative
 import cats.data.Kleisli
 import cats.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.effects.tendermint.block.history.helpers
 import org.http4s._
 import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
@@ -27,7 +27,6 @@ import org.http4s.implicits._
 import org.http4s.server.Server
 import org.http4s.server.blaze._
 import scodec.bits.ByteVector
-import fluence.effects.tendermint.block.history.helpers
 
 import scala.language.higherKinds
 

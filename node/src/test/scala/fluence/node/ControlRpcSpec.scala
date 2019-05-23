@@ -40,13 +40,13 @@ import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.node.workers.control.ControlRpc
-import fluence.statemachine.control.{ControlServer, DropPeer}
 import fluence.statemachine.control.ControlServer.ControlServerConfig
+import fluence.statemachine.control.{ControlServer, DropPeer}
 import org.scalatest.{Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
 
-import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 
 class ControlRpcSpec extends WordSpec with Matchers with OptionValues {
   "ControlRpc" should {
