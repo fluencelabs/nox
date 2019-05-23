@@ -95,6 +95,9 @@ class AbciService[F[_]: Monad: Timer: Concurrent](
 
       // Store updated state in the Ref (the changes were transient for readers before this step)
       _ ← state.set(newState)
+
+      // Store vmHash, so master node could retrieve it
+      _ <- controlSignals.putVmHash(vmHash)
     } yield appHash
 
   /**
