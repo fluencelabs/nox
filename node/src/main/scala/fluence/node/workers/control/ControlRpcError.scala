@@ -23,17 +23,17 @@ import scodec.bits.ByteVector
 trait ControlRpcError extends EffectError
 
 case class DropPeerError(key: ByteVector, cause: Throwable) extends ControlRpcError with WithCause[Throwable] {
-  override def getMessage: String = s"Error dropping peer ${key.toHex}"
+  override def getMessage: String = s"Error dropping peer ${key.toHex} $cause"
 }
 case class WorkerStatusError(cause: Throwable) extends ControlRpcError with WithCause[Throwable] {
-  override def getMessage: String = "Error retrieving worker status"
+  override def getMessage: String = s"Error retrieving worker status $cause"
 }
 case class StopError(cause: Throwable) extends ControlRpcError with WithCause[Throwable] {
-  override def getMessage: String = "Error while signaling worker to stop"
+  override def getMessage: String = s"Error while signaling worker to stop $cause"
 }
 case class SendBlockReceiptError(receipt: Receipt, cause: Throwable) extends ControlRpcError with WithCause[Throwable] {
-  override def getMessage: String = s"Error sending block receipt ${receipt.hash.toHex}"
+  override def getMessage: String = s"Error sending block receipt ${receipt.hash.toHex} $cause"
 }
 case class GetVmHashError(cause: Throwable) extends ControlRpcError with WithCause[Throwable] {
-  override def getMessage: String = "Error getting VM hash from worker"
+  override def getMessage: String = s"Error getting VM hash from worker: $cause"
 }
