@@ -15,6 +15,7 @@
  */
 
 package fluence.statemachine.control
+import cats.Applicative
 import cats.data.Kleisli
 import cats.effect._
 import cats.syntax.flatMap._
@@ -82,13 +83,17 @@ object ControlServer extends slogging.LazyLogging {
           ok <- Ok()
         } yield ok
 
-      case GET -> Root / "control" / "vmHash" =>
+      case (GET | POST) -> Root / "control" / "vmHash" =>
         for {
           vmHash <- signals.vmHash
           ok <- Ok(vmHash)
         } yield ok
 
-      case _ => Sync[F].pure(Response.notFound)
+      case r =>
+        Sync[F].pure {
+          logger.warn(s"RPC: unexpected request: ${r.method} ${r.pathInfo}")
+          Response.notFound
+        }
     }
 
     val log: PartialFunction[Request[F], Request[F]] = {

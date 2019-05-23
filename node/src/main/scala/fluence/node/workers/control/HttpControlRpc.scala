@@ -54,7 +54,7 @@ class HttpControlRpc[F[_]: Monad](hostname: String, port: Short)(
         .map(_.body)
       response <- EitherT
         .fromEither[F](rawResponse)
-        .leftMap(msg => new Exception(s"Error sending $request: $msg"): Throwable)
+        .leftMap(msg => new Exception(s"Error sending $request $path: $msg"): Throwable)
     } yield response
   }
 

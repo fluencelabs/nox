@@ -80,7 +80,7 @@ class ControlSignals[F[_]: FlatMap] private (
   /**
    * Retrieves block receipt, async blocks until there's a receipt
    */
-  val receipt: F[Option[Receipt]] = receiptRef.read
+  val receipt: F[Option[Receipt]] = receiptRef.take
 
   /**
    * Stores vm hash to memory, so node can retrieve it for block manifest uploading
@@ -90,7 +90,7 @@ class ControlSignals[F[_]: FlatMap] private (
   /**
    * Retrieves stored vm hash. Called by node on block manifest uploading
    */
-  private[control] val vmHash: F[ByteVector] = hashRef.read
+  private[control] val vmHash: F[ByteVector] = hashRef.take
 }
 
 object ControlSignals {

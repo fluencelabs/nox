@@ -74,7 +74,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) ex
 
       case Right(block) =>
         val processF = for {
-          lastReceipt <- EitherT.liftF(lastManifestReceipt.read)
+          lastReceipt <- EitherT.liftF(lastManifestReceipt.take)
           vmHash <- services.control.getVmHash
           receipt <- history.upload(block, vmHash, lastReceipt)
           _ <- services.control.sendBlockReceipt(receipt)
