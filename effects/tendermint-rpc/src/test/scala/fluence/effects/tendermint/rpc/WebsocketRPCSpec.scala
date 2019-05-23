@@ -21,8 +21,14 @@ import java.nio.ByteBuffer
 import cats.data.EitherT
 import cats.effect._
 import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.syntax.monad._
+import cats.syntax.apply._
+import cats.instances.either._
+import cats.syntax.either._
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
+import fluence.effects.tendermint.block.data.Block
 import io.circe.Json
 import org.http4s.websocket.WebSocketFrame.Text
 import org.scalatest.{Matchers, WordSpec}
@@ -47,7 +53,7 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
     val resourcesF = for {
       server <- WebsocketServer.make[IO]
       wrpc <- TendermintRpc.make[IO]("127.0.0.1", 8080)
-      blocks <- wrpc.subscribeNewBlock[IO]
+      blocks = wrpc.subscribeNewBlock[IO]
     } yield (server, blocks)
 
     def text(text: String) = Text(
@@ -100,6 +106,23 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
       events.size shouldBe 2
       asString(events.head) shouldBe "first"
       asString(events.tail.head) shouldBe "second"
+    }
+
+    "parse block json correctly" in {
+      val events = resourcesF.use {
+        case (server, events) =>
+          for {
+            _ <- server.send(Text(TestData.block))
+            result <- events.take(1).compile.toList
+            _ <- server.close()
+          } yield result
+      }.unsafeRunSync()
+
+      events.size shouldBe 1
+
+      val block = Block(events.head)
+      block.left.foreach(throw _)
+      block.isRight shouldBe true
     }
 
     // TODO: How to implement this test? With fibers? Not sure about that.........................

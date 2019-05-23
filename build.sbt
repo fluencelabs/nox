@@ -287,7 +287,7 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
       sttpCatsBackend % Test
     )
   )
-  .dependsOn(`effects`, `sttpEitherT`)
+  .dependsOn(`effects`, `sttpEitherT`, `tendermint-block` % "test")
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `tendermint-block` = (project in file("effects/tendermint-block"))

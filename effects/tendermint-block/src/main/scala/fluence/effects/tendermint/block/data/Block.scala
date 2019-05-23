@@ -88,7 +88,7 @@ object Block {
   }
 
   /**
-   * Parses block from Json, assuming there's no field nesting
+   * Parses block from Json, assuming block JSON is under the "block" key
    * @param blockJson Json representation of block
    */
   def apply(blockJson: Json): Either[TendermintBlockError, Block] = {

@@ -58,13 +58,13 @@ private[block] object ProtobufJson {
   def block(blockResponse: String): Either[TendermintBlockError, Block] = {
     for {
       resposnseJson <- parse(blockResponse).convertError
-      blockJson <- resposnseJson.hcursor.downField("result").downField("block").as[Json].convertError
+      blockJson <- resposnseJson.hcursor.get[Json]("result").convertError
       block <- block(blockJson)
     } yield block
   }
 
   def block(blockJson: Json): Either[TendermintBlockError, Block] =
-    blockJson.as[Block].convertError
+    blockJson.hcursor.get[Block]("block").convertError
 
   /**
    * Parses commit from Tendermint's RPC "Commit" response
