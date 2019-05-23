@@ -60,16 +60,13 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) ex
     } yield ()
   }
 
-  private def parseBlock(blockJson: Json): Either[Throwable, Block] =
-    blockJson.hcursor.get[Json]("block").flatMap(Block(_))
-
   private def processBlock(
     blockJson: Json,
     services: WorkerServices[F],
     lastManifestReceipt: MVar[F, Option[Receipt]]
   ) = {
     // Parse block from JSON
-    blockJson.hcursor.get[Json]("block").flatMap(Block(_)) match {
+    Block(blockJson) match {
       case Left(e) =>
         // TODO: load block through TendermintRPC (not WRPC) again
         Applicative[F].pure(logger.error(s"BlockUploading: failed to parse Tendermint block: $e"))
