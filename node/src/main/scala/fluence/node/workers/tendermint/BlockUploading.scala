@@ -20,7 +20,7 @@ import java.nio.ByteBuffer
 
 import cats.data.EitherT
 import cats.effect.concurrent.MVar
-import cats.effect.{Concurrent, ConcurrentEffect, Resource, Timer}
+import cats.effect.{ConcurrentEffect, Resource, Timer}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Applicative, Monad}
@@ -29,6 +29,7 @@ import fluence.effects.ipfs.IpfsClient
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
 import fluence.effects.{Backoff, EffectError}
+import fluence.node.MakeResource
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.workers.{Worker, WorkerServices}
 import io.circe.Json
@@ -51,13 +52,11 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) ex
     for {
       // Storage for a previous manifest
       lastManifestReceipt <- Resource.liftF(MVar.of[F, Option[Receipt]](None))
-      blocks <- services.tendermint.subscribeNewBlock[F]
-      _ <- Resource.make(
-        // Start block processing in a background fiber
-        Concurrent[F].start(
-          blocks.evalMap(processBlock(_, services, lastManifestReceipt)).compile.drain
-        )
-      )(_.cancel)
+      blocks = services.tendermint.subscribeNewBlock[F]
+      _ <- MakeResource.concurrentStream(
+        blocks.evalMap(processBlock(_, services, lastManifestReceipt)),
+        name = "BlockUploadingStream"
+      )
     } yield ()
   }
 

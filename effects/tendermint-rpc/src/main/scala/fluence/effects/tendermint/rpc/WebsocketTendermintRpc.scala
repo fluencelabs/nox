@@ -27,6 +27,8 @@ import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.JavaFutureConversion._
+import fluence.effects.syntax.backoff._
+import fluence.effects.syntax.eitherT._
 import fluence.effects.tendermint.rpc.helpers.NettyFutureConversion._
 import fluence.effects.{Backoff, EffectError}
 import fs2.concurrent.Queue
@@ -51,23 +53,29 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
   /**
    * Subscribe on new blocks from Tendermint
    */
-  def subscribeNewBlock[F[_]: ConcurrentEffect: Timer]: Resource[F, fs2.Stream[F, Json]] = {
-    subscribe("NewBlock").map(_.dequeue)
+  def subscribeNewBlock[F[_]: ConcurrentEffect: Timer]: fs2.Stream[F, Json] = {
+    subscribe("NewBlock")
   }
 
   private def subscribe[F[_]: ConcurrentEffect: Timer](
     event: String
-  ): Resource[F, Queue[F, Json]] = {
+  ): fs2.Stream[F, Json] = {
     def subscribe(ws: WebSocket) = ws.sendTextFrame(request(event)).asAsync.void
     def cancelFiber(fiber: (Fiber[F, _], _)) = fiber._1.cancel
 
-    Resource.make {
-      for {
-        queue <- Queue.unbounded[F, Json]
-        // Connect in background forever, using same queue
-        fiber <- Concurrent[F].start(connect(queue, subscribe))
-      } yield (fiber, queue)
-    }(cancelFiber).map { case (_, queue) => queue }
+    fs2.Stream.bracket(for {
+      queue <- Queue.unbounded[F, Json]
+      // Connect in background forever, using same queue
+      fiber <- Concurrent[F].start(connect(queue, subscribe))
+    } yield (fiber, queue))(cancelFiber).flatMap { case (_, queue) => queue.dequeue }
+
+//    Resource.make {
+//      for {
+//        queue <- Queue.unbounded[F, Json]
+//        // Connect in background forever, using same queue
+//        fiber <- Concurrent[F].start(connect(queue, subscribe))
+//      } yield (fiber, queue)
+//    }(cancelFiber).map { case (_, queue) => queue.dequeue }
   }
 
   private def request(event: String) =
@@ -77,7 +85,7 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
        |    "id": 1,
        |    "method": "subscribe",
        |    "params": [
-       |        "tm.event = 'NewBlock'"
+       |        "tm.event = '$event'"
        |    ]
        |}
      """.stripMargin
@@ -95,13 +103,13 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
   private def connect[F[_]: ConcurrentEffect: Timer](
     queue: Queue[F, Json],
     onConnect: WebSocket => F[Unit]
-  ): F[Unit] = {
+  )(implicit bf: Backoff[WRpcError] = Backoff.default): F[Unit] = {
     def logConnectionError(e: EffectError) =
       Applicative[F].pure(logger.error(s"Tendermint WRPC: $wsUrl error connecting: ${e.getMessage}"))
 
     def close(ws: NettyWebSocket) = ws.sendCloseFrame().asAsync.attempt.void
 
-    for {
+    (for {
       // Ref to accumulate payload frames (websocket allows to split single message into several)
       ref <- Ref.of[F, String]("")
       // promise will be completed by exception when socket is disconnected
@@ -114,9 +122,7 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
       // try to signal tendermint ws is closing ; TODO: will that ever succeed?
       _ <- close(websocket)
       _ = logger.info(s"Tendermint WRPC: $wsUrl will reconnect: ${error.getMessage}")
-      // reconnect using same queue
-      _ <- connect(queue, onConnect)
-    } yield ()
+    } yield error.asLeft).eitherT.backoff.void
   }
 
   private def socket[F[_]: Async](handler: WebSocketUpgradeHandler) =

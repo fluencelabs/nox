@@ -28,4 +28,10 @@ package object syntax {
     }
   }
 
+  object eitherT {
+    implicit class EitherTOps[F[_], A, B](ef: F[Either[A, B]]) {
+      def eitherT: EitherT[F, A, B] = EitherT(ef)
+    }
+  }
+
 }
