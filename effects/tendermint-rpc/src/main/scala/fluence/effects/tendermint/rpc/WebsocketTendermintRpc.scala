@@ -181,7 +181,6 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
             logger.warn(s"UNIMPLEMENTED: Tendermint WRPC: $wsUrl unexpected binary frame")
           }
 
-
           override def onPingFrame(payload: Array[Byte]): Unit = {
             logger.info(s"Tendermint WRPC: received ping frame")
           }
