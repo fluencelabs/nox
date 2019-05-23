@@ -54,7 +54,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) ex
       lastManifestReceipt <- Resource.liftF(MVar.of[F, Option[Receipt]](None))
       blocks = services.tendermint.subscribeNewBlock[F]
       _ <- MakeResource.concurrentStream(
-        blocks.evalMap(processBlock(_, services, lastManifestReceipt)),
+        blocks.evalMap(processBlock(_, services, lastManifestReceipt, worker.appId)),
         name = "BlockUploadingStream"
       )
     } yield ()
@@ -63,13 +63,14 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) ex
   private def processBlock(
     blockJson: Json,
     services: WorkerServices[F],
-    lastManifestReceipt: MVar[F, Option[Receipt]]
+    lastManifestReceipt: MVar[F, Option[Receipt]],
+    appId: Long
   ) = {
     // Parse block from JSON
     Block(blockJson) match {
       case Left(e) =>
         // TODO: load block through TendermintRPC (not WRPC) again
-        Applicative[F].pure(logger.error(s"BlockUploading: failed to parse Tendermint block: $e"))
+        Applicative[F].pure(logger.error(s"BlockUploading: app $appId failed to parse Tendermint block: $e"))
 
       case Right(block) =>
         val processF = for {
@@ -88,11 +89,11 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) ex
             processF,
             (e: EffectError) =>
               Applicative[F].pure(
-                logger.error(s"BlockUploading: Error uploading block ${block.header.height}: ${e.getMessage}")
+                logger.error(s"BlockUploading: app $appId error uploading block ${block.header.height}: $e")
             )
           )
           .map(
-            _ => logger.info(s"BlockUploading: Block ${block.header.height} uploaded")
+            _ => logger.info(s"BlockUploading: app $appId block ${block.header.height} uploaded")
           )
     }
   }
