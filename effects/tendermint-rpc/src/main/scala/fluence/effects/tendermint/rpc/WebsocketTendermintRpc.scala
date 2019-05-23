@@ -19,7 +19,7 @@ package fluence.effects.tendermint.rpc
 import cats.Applicative
 import cats.data.EitherT
 import cats.effect._
-import cats.effect.concurrent.{Deferred, Ref}
+import cats.effect.concurrent.{Deferred, MVar, Ref}
 import cats.effect.syntax.effect._
 import cats.syntax.applicativeError._
 import cats.syntax.compose._
@@ -141,8 +141,11 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
     new WebSocketUpgradeHandler.Builder()
       .addWebSocketListener(
         new WebSocketListener {
+          val websocketP = Deferred.unsafe[F, WebSocket]
+
           override def onOpen(websocket: WebSocket): Unit = {
             logger.info(s"Tendermint WRPC: $wsUrl connected")
+            websocketP.complete(websocket).toIO.unsafeRunSync()
           }
 
           override def onClose(websocket: WebSocket, code: Int, reason: String): Unit = {
@@ -182,11 +185,7 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
           }
 
           override def onPingFrame(payload: Array[Byte]): Unit = {
-            logger.info(s"Tendermint WRPC: received ping frame")
-          }
-
-          override def onPongFrame(payload: Array[Byte]): Unit = {
-            logger.info(s"Tendermint WRPC: received pong frame")
+            websocketP.get.flatMap(_.sendPongFrame().asAsync.void).toIO.unsafeRunSync()
           }
 
           private def asJson(payload: String) = {
