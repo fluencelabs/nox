@@ -70,14 +70,6 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
         fiber <- Concurrent[F].start(connect(queue, subscribe))
       } yield (fiber, queue))(cancelFiber)
       .flatMap { case (_, queue) => queue.dequeue }
-
-//    Resource.make {
-//      for {
-//        queue <- Queue.unbounded[F, Json]
-//        // Connect in background forever, using same queue
-//        fiber <- Concurrent[F].start(connect(queue, subscribe))
-//      } yield (fiber, queue)
-//    }(cancelFiber).map { case (_, queue) => queue.dequeue }
   }
 
   private def request(event: String) =
@@ -187,6 +179,15 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
 
           override def onBinaryFrame(payload: Array[Byte], finalFragment: Boolean, rsv: Int): Unit = {
             logger.warn(s"UNIMPLEMENTED: Tendermint WRPC: $wsUrl unexpected binary frame")
+          }
+
+
+          override def onPingFrame(payload: Array[Byte]): Unit = {
+            logger.info(s"Tendermint WRPC: received ping frame")
+          }
+
+          override def onPongFrame(payload: Array[Byte]): Unit = {
+            logger.info(s"Tendermint WRPC: received pong frame")
           }
 
           private def asJson(payload: String) = {
