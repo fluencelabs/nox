@@ -26,7 +26,6 @@ import cats.syntax.compose._
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.instances.either._
 import fluence.effects.JavaFutureConversion._
 import fluence.effects.syntax.backoff._
 import fluence.effects.syntax.eitherT._
@@ -130,12 +129,14 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
 
   private def socket[F[_]: Async](handler: WebSocketUpgradeHandler) =
     EitherT(
-      asyncHttpClient()
-        .prepareGet(wsUrl)
-        .execute(handler)
-        .toCompletableFuture
-        .asAsync[F]
-        .attempt
+      Async[F].delay(
+        asyncHttpClient()
+          .prepareGet(wsUrl)
+          .execute(handler)
+          .toCompletableFuture
+          .asAsync[F]
+          .attempt
+      ).flatten
     ).leftMap[EffectError](ConnectionFailed)
 
   private def wsHandler[F[_]: ConcurrentEffect](
