@@ -129,14 +129,16 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
 
   private def socket[F[_]: Async](handler: WebSocketUpgradeHandler) =
     EitherT(
-      Async[F].delay(
-        asyncHttpClient()
-          .prepareGet(wsUrl)
-          .execute(handler)
-          .toCompletableFuture
-          .asAsync[F]
-          .attempt
-      ).flatten
+      Async[F]
+        .delay(
+          asyncHttpClient()
+            .prepareGet(wsUrl)
+            .execute(handler)
+            .toCompletableFuture
+            .asAsync[F]
+            .attempt
+        )
+        .flatten
     ).leftMap[EffectError](ConnectionFailed)
 
   private def wsHandler[F[_]: ConcurrentEffect](
