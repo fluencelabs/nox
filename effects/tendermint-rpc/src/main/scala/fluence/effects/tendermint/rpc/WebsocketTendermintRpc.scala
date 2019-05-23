@@ -26,6 +26,7 @@ import cats.syntax.compose._
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.instances.either._
 import fluence.effects.JavaFutureConversion._
 import fluence.effects.syntax.backoff._
 import fluence.effects.syntax.eitherT._
@@ -63,11 +64,13 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
     def subscribe(ws: WebSocket) = ws.sendTextFrame(request(event)).asAsync.void
     def cancelFiber(fiber: (Fiber[F, _], _)) = fiber._1.cancel
 
-    fs2.Stream.bracket(for {
-      queue <- Queue.unbounded[F, Json]
-      // Connect in background forever, using same queue
-      fiber <- Concurrent[F].start(connect(queue, subscribe))
-    } yield (fiber, queue))(cancelFiber).flatMap { case (_, queue) => queue.dequeue }
+    fs2.Stream
+      .bracket(for {
+        queue <- Queue.unbounded[F, Json]
+        // Connect in background forever, using same queue
+        fiber <- Concurrent[F].start(connect(queue, subscribe))
+      } yield (fiber, queue))(cancelFiber)
+      .flatMap { case (_, queue) => queue.dequeue }
 
 //    Resource.make {
 //      for {
@@ -122,7 +125,7 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
       // try to signal tendermint ws is closing ; TODO: will that ever succeed?
       _ <- close(websocket)
       _ = logger.info(s"Tendermint WRPC: $wsUrl will reconnect: ${error.getMessage}")
-    } yield error.asLeft).eitherT.backoff.void
+    } yield error.asLeft[Unit]).eitherT.backoff.void
   }
 
   private def socket[F[_]: Async](handler: WebSocketUpgradeHandler) =
