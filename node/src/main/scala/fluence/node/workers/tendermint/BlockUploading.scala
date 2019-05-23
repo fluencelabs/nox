@@ -69,7 +69,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) ex
     Block(blockJson) match {
       case Left(e) =>
         // TODO: load block through TendermintRPC (not WRPC) again
-        Applicative[F].pure(logger.error(s"BlockUploading: failed to parse Tendermint block: ${e.getMessage}"))
+        Applicative[F].pure(logger.error(s"BlockUploading: failed to parse Tendermint block: $e"))
 
       case Right(block) =>
         val processF = for {

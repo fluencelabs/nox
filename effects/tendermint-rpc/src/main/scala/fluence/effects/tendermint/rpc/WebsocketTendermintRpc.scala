@@ -163,7 +163,7 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
 
           override def onTextFrame(payload: String, finalFragment: Boolean, rsv: Int): Unit = {
 
-            logger.trace(s"Tendermint WRPC: text $payload")
+            logger.debug(s"Tendermint WRPC: text $payload") //TODO: change to logger.trace
             if (!finalFragment) {
               ref.update(_.concat(payload)).toIO.unsafeRunSync()
             } else {
