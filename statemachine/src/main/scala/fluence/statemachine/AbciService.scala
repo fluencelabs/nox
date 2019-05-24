@@ -26,6 +26,7 @@ import com.github.jtendermint.jabci.api.CodeType
 import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
+import fluence.effects.tendermint.block.history.Receipt
 import fluence.statemachine.control.ControlSignals
 import fluence.statemachine.state.AbciState
 import scodec.bits.ByteVector
@@ -82,13 +83,7 @@ class AbciService[F[_]: Monad: Timer: Concurrent](
         .leftMap(err ⇒ logger.error(s"VM is unable to compute state hash: $err"))
         .getOrElse(ByteVector.empty) // TODO do not ignore vm error
 
-      receipt <- controlSignals.receipt
-      appHash <- receipt.fold(vmHash.pure[F])(
-        r =>
-          hasher(vmHash ++ r.bytes())
-            .leftMap(err => logger.error(s"Error on hashing vmHash + receipt: $err"))
-            .getOrElse(vmHash) // TODO: that's awful; don't ignore errors
-      )
+      appHash = vmHash // TODO: concatenate with controlSignals.receipt
 
       // Push hash to AbciState, increment block number
       newState ← AbciState.setAppHash(appHash).runS(st)
@@ -96,8 +91,7 @@ class AbciService[F[_]: Monad: Timer: Concurrent](
       // Store updated state in the Ref (the changes were transient for readers before this step)
       _ ← state.set(newState)
 
-      // Store vmHash, so master node could retrieve it
-      _ <- controlSignals.putVmHash(vmHash)
+      // TODO: Store vmHash, so master node could retrieve it
     } yield appHash
 
   /**

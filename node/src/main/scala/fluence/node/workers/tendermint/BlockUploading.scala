@@ -47,6 +47,10 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) ex
    * @param worker Blocks are coming from this worker's Tendermint; receipts are sent to this worker
    */
   def start(worker: Worker[F]): Resource[F, Unit] = {
+    if (!BlockUploading.Enabled) { // TODO: remove that once BlockUploading is enabled
+      return Resource.pure(())
+    }
+
     val services = worker.services
 
     for {
@@ -100,6 +104,8 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) ex
 }
 
 object BlockUploading {
+
+  private val Enabled = false
 
   def make[F[_]: Monad: ConcurrentEffect: Timer](
     remoteStorageConfig: RemoteStorageConfig

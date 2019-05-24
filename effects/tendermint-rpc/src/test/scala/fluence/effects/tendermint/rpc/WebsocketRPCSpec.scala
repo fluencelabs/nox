@@ -21,11 +21,6 @@ import java.nio.ByteBuffer
 import cats.data.EitherT
 import cats.effect._
 import cats.syntax.flatMap._
-import cats.syntax.functor._
-import cats.syntax.monad._
-import cats.syntax.apply._
-import cats.instances.either._
-import cats.syntax.either._
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
 import fluence.effects.tendermint.block.data.Block
@@ -48,7 +43,7 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
   "WebsocketRPC" should {
     PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, true)
     LoggerConfig.factory = PrintLoggerFactory()
-    LoggerConfig.level = LogLevel.TRACE
+    LoggerConfig.level = LogLevel.ERROR
 
     val resourcesF = for {
       server <- WebsocketServer.make[IO]
@@ -73,21 +68,6 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
     )
 
     def asString(json: Json) = json.as[String].right.get
-
-    // TODO: I guess that now it's impossible to implement this test without sending & waiting for events.
-//    "connect and disconnect" in {
-//      val (events, requests) = resourcesF.use {
-//        case (server, events) =>
-//          for {
-//            _ <- server.close()
-//            result <- events.compile.toList
-//            requests <- server.requests().compile.toList
-//          } yield (result, requests)
-//      }.unsafeRunSync()
-//
-//      events shouldBe empty
-//      requests.collect { case Text(_, _) => }.size shouldBe 1
-//    }
 
     "subscribe and receive messages" in {
       val (events, requests) = resourcesF.use {
