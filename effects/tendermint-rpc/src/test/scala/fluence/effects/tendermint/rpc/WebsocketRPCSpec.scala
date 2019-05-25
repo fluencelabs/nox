@@ -105,30 +105,21 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
       block.isRight shouldBe true
     }
 
-    // TODO: How to implement this test? With fibers? Not sure about that.........................
-//    "reconnect forever" in {
-//      val badResourcesF = for {
-//        server <- WebsocketServer.make[IO]
-//        wrpc <- TendermintRpc.make[IO]("127.0.0.1", 12345)
-//        blocks <- wrpc.subscribeNewBlock[IO]
-//      } yield (server, blocks)
-//
-//      val result = badResourcesF.use(_ => IO.unit).attempt.unsafeRunSync()
-//      println(s"Result: ${result.left.toOption.map(_.getMessage)}")
-//      result.isRight shouldBe true
-//    }
+    "receive message after reconnect" in {
+      val msg = "yo"
+      val events = resourcesF.use {
+        case (server, events) =>
+          for {
+            _ <- server.close()
+            _ <- WebsocketServer.make[IO].use { newServer =>
+              newServer.send(text(msg))
+            }
+            result <- events.take(1).compile.toList
+          } yield result
+      }.unsafeRunSync()
 
-    // TODO: test on reconnect
-    // TODO: integration test with Tendermint
-
-//    "connect to real tendermint" in {
-//      val realResF = for {
-//        wrpc <- TendermintRpc.make[IO]("127.0.0.1", 27358)
-//        blocks <- wrpc.subscribeNewBlock[IO]
-//      } yield blocks
-//
-//      val events = realResF.use(_.compile.toList).unsafeRunSync()
-//      println(s"events $events")
-//    }
+      events.size shouldBe 1
+      asString(events.head) shouldBe msg
+    }
   }
 }
