@@ -56,6 +56,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) ex
     for {
       // Storage for a previous manifest
       lastManifestReceipt <- Resource.liftF(MVar.of[F, Option[Receipt]](None))
+      // TODO: 1st block could be missed if we're too late to subscribe. Retrieve it manually.
       blocks = services.tendermint.subscribeNewBlock[F]
       _ <- MakeResource.concurrentStream(
         blocks.evalMap(processBlock(_, services, lastManifestReceipt, worker.appId)),

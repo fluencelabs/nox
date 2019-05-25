@@ -24,9 +24,15 @@ import scodec.bits.ByteVector
 import fluence.effects.tendermint.block.history.helpers.ByteVectorJsonCodec
 import fluence.effects.tendermint.block.data.JsonCodecs
 
+/**
+* Manifest of the block, as described in Fluence paper
+ * @param vmHash Hash of the vm state after the previous block
+ * @param previousManifestReceipt Storage receipt for manifest on the previous block
+ * @param txsReceipt Storage receipt on txs for the current block
+ * @param header Block header
+ * @param votes Votes (commits) on the previous blockID
+ */
 case class BlockManifest(
-  // TODO: Why do we need vmHash here? Wont header.appHash suffice? It's could be tricky to retrieve vmhash from the Worker
-  // TODO: I guess I'll omit it for now
   vmHash: ByteVector,
   previousManifestReceipt: Option[Receipt],
   txsReceipt: Option[Receipt],
@@ -34,6 +40,7 @@ case class BlockManifest(
   votes: List[Vote]
 ) {
 
+  // TODO: Avoid using JSON since it's not a stable serialization. Maybe use protobuf? Or something custom.
   def bytes(): ByteVector = {
     import io.circe.syntax._
     ByteVector((this: BlockManifest).asJson.noSpaces.getBytes())
