@@ -21,6 +21,8 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import proto3.tendermint.Vote
 import scodec.bits.ByteVector
+import fluence.effects.tendermint.block.history.helpers.ByteVectorJsonCodec
+import fluence.effects.tendermint.block.data.JsonCodecs
 
 /**
  * Manifest of the block, as described in Fluence paper
@@ -47,6 +49,8 @@ case class BlockManifest(
 }
 
 object BlockManifest {
+  import ByteVectorJsonCodec._
+  import JsonCodecs.{messageEncoder, voteDecoder}
   import Header.{headerDecoder, headerEncoder}
 
   implicit val dec: Decoder[BlockManifest] = deriveDecoder[BlockManifest]
