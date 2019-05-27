@@ -60,13 +60,14 @@ case class WebsocketServer[F[_]: ConcurrentEffect: Timer](
 
 object WebsocketServer {
 
-  def make[F[_]: ConcurrentEffect: Timer]: Resource[F, WebsocketServer[F]] = Resource.liftF(
-    for {
-      to <- Queue.unbounded[F, WebSocketFrame]
-      from <- Queue.unbounded[F, WebSocketFrame]
-      signal <- SignallingRef[F, Boolean](false)
-      server = WebsocketServer(to, from, signal)
-      _ <- Concurrent[F].start(server.start().compile.drain)
-    } yield server
-  )
+  def make[F[_]: ConcurrentEffect: Timer]: Resource[F, WebsocketServer[F]] =
+    Resource.make(
+      for {
+        to <- Queue.unbounded[F, WebSocketFrame]
+        from <- Queue.unbounded[F, WebSocketFrame]
+        signal <- SignallingRef[F, Boolean](false)
+        server = WebsocketServer(to, from, signal)
+        _ <- Concurrent[F].start(server.start().compile.drain)
+      } yield server
+    )(_.close())
 }

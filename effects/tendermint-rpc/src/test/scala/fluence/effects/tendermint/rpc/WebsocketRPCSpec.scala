@@ -111,10 +111,9 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
         case (server, events) =>
           for {
             _ <- server.close()
-            _ <- WebsocketServer.make[IO].use { newServer =>
-              newServer.send(text(msg))
+            result <- WebsocketServer.make[IO].use { newServer =>
+              newServer.send(text(msg)) >> events.take(1).compile.toList
             }
-            result <- events.take(1).compile.toList
           } yield result
       }.unsafeRunSync()
 
