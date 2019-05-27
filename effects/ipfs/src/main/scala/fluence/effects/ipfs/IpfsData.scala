@@ -29,7 +29,7 @@ import scala.language.higherKinds
 
 trait IpfsData[A] {
   def toMultipart[F[_]: Monad](data: A): EitherT[F, IpfsError, immutable.Seq[Multipart]]
-  val canBeMultiple: Boolean
+  val wrapInDirectory: Boolean
 }
 
 object IpfsData {
@@ -43,14 +43,14 @@ object IpfsData {
       })
     }
 
-    override val canBeMultiple: Boolean = true
+    override val wrapInDirectory: Boolean = true
   }
 
   implicit val bytesData: IpfsData[ByteVector] = new IpfsData[ByteVector] {
     override def toMultipart[F[_]: Monad](data: ByteVector): EitherT[F, IpfsError, immutable.Seq[Multipart]] =
       EitherT.pure(immutable.Seq(multipart("", ByteArrayBody(data.toArray))))
 
-    override val canBeMultiple: Boolean = false
+    override val wrapInDirectory: Boolean = false
   }
 
   /**
@@ -83,7 +83,7 @@ object IpfsData {
       } yield parts
     }
 
-    override val canBeMultiple: Boolean = true
+    override val wrapInDirectory: Boolean = true
   }
 
   def apply[A](implicit id: IpfsData[A]): IpfsData[A] = id

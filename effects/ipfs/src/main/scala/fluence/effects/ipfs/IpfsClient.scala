@@ -128,7 +128,7 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
     data: A,
     onlyHash: Boolean
   ): EitherT[F, StoreError, ByteVector] = {
-    val uri = uploadUri(onlyHash, IpfsData[A].canBeMultiple)
+    val uri = uploadUri(onlyHash, IpfsData[A].wrapInDirectory)
     for {
       _ <- EitherT.pure[F, StoreError](logger.debug(s"IPFS 'add' started $uri"))
       multiparts <- IpfsData[A].toMultipart[F](data)
