@@ -112,7 +112,7 @@ class MasterNodeSpec
   "MasterNode" should {
     PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, true)
     LoggerConfig.factory = PrintLoggerFactory()
-    LoggerConfig.level = LogLevel.DEBUG
+    LoggerConfig.level = LogLevel.ERROR
 
     "provide status" in {
       runningNode.use {
