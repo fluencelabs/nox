@@ -121,5 +121,28 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
       events.size shouldBe 1
       asString(events.head) shouldBe msg
     }
+
+    "ignore incorrect json messages" in {
+      val incorrectMsg = "incorrect"
+      val msg = "correct"
+
+      // To hide error about incorrect msg
+      LoggerConfig.level = LogLevel.OFF
+
+      val events = resourcesF.use {
+        case (server, events) =>
+          for {
+            _ <- server.send(Text(incorrectMsg))
+            _ <- server.send(text(msg))
+            result <- events.take(1).compile.toList
+            _ <- server.close()
+          } yield result
+      }.unsafeRunSync()
+
+      LoggerConfig.level = LogLevel.ERROR
+
+      events.size shouldBe 1
+      asString(events.head) shouldBe msg
+    }
   }
 }
