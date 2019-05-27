@@ -36,6 +36,11 @@ import io.circe.Json
 
 import scala.language.higherKinds
 
+/**
+ * Implements continuous uploading process of Tendermint's blocks
+ *
+ * @param history Description of how to store blocks
+ */
 class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) extends slogging.LazyLogging {
 
   /**

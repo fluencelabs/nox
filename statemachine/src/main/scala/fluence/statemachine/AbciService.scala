@@ -18,7 +18,6 @@ package fluence.statemachine
 
 import cats.effect.concurrent.Ref
 import cats.effect.{Concurrent, Timer}
-import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Applicative, Monad}
@@ -26,7 +25,6 @@ import com.github.jtendermint.jabci.api.CodeType
 import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
-import fluence.effects.tendermint.block.history.Receipt
 import fluence.statemachine.control.ControlSignals
 import fluence.statemachine.state.AbciState
 import scodec.bits.ByteVector
@@ -39,6 +37,7 @@ import scala.language.higherKinds
  *
  * @param state See [[AbciState]]
  * @param vm Virtual machine invoker
+ * @param controlSignals Communication channel with master node
  */
 class AbciService[F[_]: Monad: Timer: Concurrent](
   state: Ref[F, AbciState],

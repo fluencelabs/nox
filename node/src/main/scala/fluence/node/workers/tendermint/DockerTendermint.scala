@@ -129,7 +129,6 @@ object DockerTendermint {
       .option("--name", containerName(params))
       .option("--network", network.name)
       .port(p2pPort, P2pPort)
-      .port((p2pPort + 357).toShort, 26657)
       .limits(tmDockerConfig.limits)
 
     (masterNodeContainerId match {
