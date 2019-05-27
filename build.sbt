@@ -339,10 +339,9 @@ lazy val `receipt-storage` = (project in file("effects/receipt-storage"))
       fs2,
       cats,
       catsEffect,
-      rocksDb,
       scalaTest,
     )
-  ).dependsOn(`log`)
+  ).dependsOn(`log`, `kvstore`, `tendermint-block-history`)
 
 lazy val `kademlia` = (project in file("kademlia"))
   .settings(
