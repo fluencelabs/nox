@@ -16,8 +16,8 @@
 
 package fluence.statemachine
 
+import cats.effect.Sync
 import cats.effect.concurrent.Ref
-import cats.effect.{Concurrent, Timer}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Applicative, Monad}
@@ -39,7 +39,7 @@ import scala.language.higherKinds
  * @param vm Virtual machine invoker
  * @param controlSignals Communication channel with master node
  */
-class AbciService[F[_]: Monad: Timer: Concurrent](
+class AbciService[F[_]: Monad](
   state: Ref[F, AbciState],
   vm: VmOperationInvoker[F],
   controlSignals: ControlSignals[F]
@@ -221,7 +221,7 @@ object AbciService {
    * @tparam F Sync for Ref
    * @return Brand new AbciService instance
    */
-  def apply[F[_]: Concurrent: Timer](
+  def apply[F[_]: Sync](
     vm: VmOperationInvoker[F],
     controlSignals: ControlSignals[F]
   ): F[AbciService[F]] = {
@@ -234,8 +234,8 @@ object AbciService {
       state ← Ref.of[F, AbciState](AbciState())
     } yield {
 
-      val bva: Crypto.Hasher[ByteVector, Array[Byte]] = Crypto.liftFunc[ByteVector, Array[Byte]](_.toArray)
-      val abv: Crypto.Hasher[Array[Byte], ByteVector] = Crypto.liftFunc[Array[Byte], ByteVector](ByteVector(_))
+      val bva = Crypto.liftFunc[ByteVector, Array[Byte]](_.toArray)
+      val abv = Crypto.liftFunc[Array[Byte], ByteVector](ByteVector(_))
       implicit val hasher: Crypto.Hasher[ByteVector, ByteVector] =
         bva.andThen[Array[Byte]](JdkCryptoHasher.Sha256).andThen(abv)
 
