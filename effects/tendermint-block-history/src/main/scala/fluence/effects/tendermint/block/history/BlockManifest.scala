@@ -16,16 +16,15 @@
 
 package fluence.effects.tendermint.block.history
 
-import fluence.effects.tendermint.block.data.{Block, Header}
+import fluence.effects.tendermint.block.data.Header
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import proto3.tendermint.Vote
 import scodec.bits.ByteVector
-import fluence.effects.tendermint.block.history.helpers.ByteVectorJsonCodec
-import fluence.effects.tendermint.block.data.JsonCodecs
 
 /**
-* Manifest of the block, as described in Fluence paper
+ * Manifest of the block, as described in Fluence paper
+ *
  * @param vmHash Hash of the vm state after the previous block
  * @param previousManifestReceipt Storage receipt for manifest on the previous block
  * @param txsReceipt Storage receipt on txs for the current block
@@ -48,8 +47,6 @@ case class BlockManifest(
 }
 
 object BlockManifest {
-  import ByteVectorJsonCodec._
-  import JsonCodecs.{messageEncoder, voteDecoder}
   import Header.{headerDecoder, headerEncoder}
 
   implicit val dec: Decoder[BlockManifest] = deriveDecoder[BlockManifest]

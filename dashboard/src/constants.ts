@@ -1,5 +1,5 @@
-// export const defaultContractAddress: string = '0xeFF91455de6D4CF57C141bD8bF819E5f873c1A01';
-export const defaultContractAddress: string = '0xe01690f60E08207Fa29F9ef98fA35e7fB7A12A96';
+export const defaultContractAddress: string = '0xeFF91455de6D4CF57C141bD8bF819E5f873c1A01';
+export const stageContractAddress: string = '0xe01690f60E08207Fa29F9ef98fA35e7fB7A12A96';
 export const dashboardContractAddress: string = '0x64B686eA8c6b0cCb80039f700Fb0b2bd014b3d6c';
 export const rootTagId: string = 'root';
 

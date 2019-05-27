@@ -73,6 +73,7 @@ object Block {
 
   /**
    * Parses block from Tendermint RPC response
+   *
    * @param blockResponse Response on Tendermint RPC 'Block' request
    */
   def apply(blockResponse: String): Either[TendermintBlockError, Block] = {

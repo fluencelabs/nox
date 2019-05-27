@@ -97,7 +97,7 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
   private def connect[F[_]: ConcurrentEffect: Timer](
     queue: Queue[F, Json],
     onConnect: WebSocket => F[Unit]
-  )(implicit bf: Backoff[WRpcError] = Backoff.default): F[Unit] = {
+  )(implicit bf: Backoff[WebsocketRpcError] = Backoff.default): F[Unit] = {
     def logConnectionError(e: EffectError) =
       Applicative[F].pure(logger.error(s"Tendermint WRPC: $wsUrl error connecting: ${e.getMessage}"))
 
@@ -107,7 +107,7 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
       // Ref to accumulate payload frames (websocket allows to split single message into several)
       ref <- Ref.of[F, String]("")
       // promise will be completed by exception when socket is disconnected
-      promise <- Deferred[F, WRpcError]
+      promise <- Deferred[F, WebsocketRpcError]
       // keep connecting until success
       websocket <- Backoff.default.retry(socket(wsHandler(ref, queue, promise)), logConnectionError)
       _ <- onConnect(websocket)
@@ -136,12 +136,12 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
   private def wsHandler[F[_]: ConcurrentEffect](
     ref: Ref[F, String],
     queue: Queue[F, Json],
-    disconnected: Deferred[F, WRpcError]
+    disconnected: Deferred[F, WebsocketRpcError]
   ) =
     new WebSocketUpgradeHandler.Builder()
       .addWebSocketListener(
         new WebSocketListener {
-          val websocketP = Deferred.unsafe[F, WebSocket]
+          private val websocketP = Deferred.unsafe[F, WebSocket]
 
           override def onOpen(websocket: WebSocket): Unit = {
             logger.info(s"Tendermint WRPC: $wsUrl connected")
@@ -160,7 +160,7 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
 
           override def onTextFrame(payload: String, finalFragment: Boolean, rsv: Int): Unit = {
 
-            logger.debug(s"Tendermint WRPC: text $payload") //TODO: change to logger.trace
+            logger.trace(s"Tendermint WRPC: text $payload")
             if (!finalFragment) {
               ref.update(_.concat(payload)).toIO.unsafeRunSync()
             } else {
@@ -185,7 +185,10 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
           }
 
           override def onPingFrame(payload: Array[Byte]): Unit = {
-            websocketP.get.flatMap(_.sendPongFrame().asAsync.void).toIO.unsafeRunSync()
+            websocketP.get.flatMap(_.sendPongFrame().asAsync.void).toIO.unsafeRunAsync {
+              case Left(e) => logger.error(s"Tendermint WRPC: $wsUrl ping failed: $e")
+              case _ =>
+            }
           }
 
           private def asJson(payload: String) = {

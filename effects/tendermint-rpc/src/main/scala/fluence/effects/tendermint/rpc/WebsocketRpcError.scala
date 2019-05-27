@@ -19,24 +19,26 @@ package fluence.effects.tendermint.rpc
 import fluence.effects.{EffectError, WithCause}
 import io.circe.{DecodingFailure, ParsingFailure}
 
-sealed trait WRpcError extends EffectError
+sealed trait WebsocketRpcError extends EffectError
 
-private[rpc] case class Disconnected(code: Int, reason: String) extends WRpcError {
+private[rpc] case class Disconnected(code: Int, reason: String) extends WebsocketRpcError {
   override def getMessage: String = s"closed $code $reason"
 }
 
-private[rpc] case class DisconnectedWithError(cause: Throwable) extends WRpcError with WithCause[Throwable] {
+private[rpc] case class DisconnectedWithError(cause: Throwable) extends WebsocketRpcError with WithCause[Throwable] {
   override def getMessage: String = s"websocket closed due to error: $cause"
 }
 
-private[rpc] case class ConnectionFailed(cause: Throwable) extends WRpcError with WithCause[Throwable] {
+private[rpc] case class ConnectionFailed(cause: Throwable) extends WebsocketRpcError with WithCause[Throwable] {
   override def getMessage: String = s"connection failed: $cause"
 }
 
-private[rpc] case class InvalidJsonResponse(cause: ParsingFailure) extends WRpcError with WithCause[ParsingFailure] {
+private[rpc] case class InvalidJsonResponse(cause: ParsingFailure)
+    extends WebsocketRpcError with WithCause[ParsingFailure] {
   override def getMessage: String = s"unable to parse json: $cause"
 }
 
-private[rpc] case class InvalidJsonStructure(cause: DecodingFailure) extends WRpcError with WithCause[DecodingFailure] {
+private[rpc] case class InvalidJsonStructure(cause: DecodingFailure)
+    extends WebsocketRpcError with WithCause[DecodingFailure] {
   override def getMessage: String = s"can't find required fields in json: $cause"
 }
