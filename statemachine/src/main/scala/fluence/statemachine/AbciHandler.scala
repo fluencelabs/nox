@@ -45,71 +45,6 @@ class AbciHandler[F[_]: Effect](
 ) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock
     with slogging.LazyLogging {
 
-  private def parseJson(json: String): Either[ParsingFailure, Json] = {
-    import io.circe.parser._
-    parse(json)
-  }
-
-  private def getJsons(height: Long): F[(Json, Json)] = {
-    val jsonsF = for {
-      block <- tendermintRpc.block(height).leftMap(new Exception(_): Throwable)
-      blockJson <- EitherT.fromEither(parseJson(block)).leftMap(new Exception(_): Throwable)
-      commit <- tendermintRpc.commit(height).leftMap(new Exception(_): Throwable)
-      commitJson <- EitherT.fromEither(parseJson(commit)).leftMap(new Exception(_): Throwable)
-    } yield (blockJson, commitJson)
-
-    jsonsF.value.flatMap(Effect[F].fromEither)
-  }
-
-  private def store(height: Long, method: String) = {
-    logger.info(s"Store[$height] began")
-    for {
-      (blockJson, commitJson) <- getJsons(height)
-      _ <- blocks.update(_.updated(height, method -> blockJson))
-      _ <- commits.update(_.updated(height, method -> commitJson))
-      _ = logger.info(s"Store[$height] completed")
-    } yield ()
-  }
-
-  private def getDiff(left: Json, right: Json) = {
-    import diffson._
-    import diffson.circe._
-    import diffson.jsonpatch.lcsdiff._
-    import diffson.lcs._
-    import io.circe._
-
-    implicit val lcs = new Patience[Json]
-
-    diff(left, right)
-  }
-
-  private def compare(height: Long, method: String) = {
-    logger.info(s"Compare[$height] began")
-    for {
-      (blockJson, commitJson) <- getJsons(height)
-      storedBlock <- blocks.get.map(_.get(height))
-      storedCommit <- commits.get.map(_.get(height))
-    } yield {
-      storedBlock match {
-        case None => logger.info(s"Block[$height] $method: stored block is empty")
-        case Some((storeMethod, storedBlock)) if storedBlock =!= blockJson =>
-          val diff = Try(getDiff(storedBlock, blockJson))
-          logger.info(s"Block[$height] $storeMethod EQ $method => FALSE\nDIFF:\n$diff")
-        case Some((storeMethod, storedBlock)) =>
-          logger.info(s"Block[$height] $storeMethod EQ $method => TRUE")
-      }
-
-      storedCommit match {
-        case None => logger.info(s"Commit[$height] $method: stored commit is empty")
-        case Some((storeMethod, storedCommit)) if storedCommit =!= commitJson =>
-          val diff = Try(getDiff(storedCommit, commitJson))
-          logger.info(s"Commit[$height] $storeMethod EQ $method => FALSE\nDIFF:\n$diff")
-        case Some((storeMethod, storedCommit)) =>
-          logger.info(s"Commit[$height] $storeMethod EQ $method => TRUE")
-      }
-    }
-  }
-
   private def checkBlock(height: Long): Unit = {
     val log: String ⇒ Unit = s ⇒ logger.info(Console.YELLOW + s + Console.RESET)
     val logBad: String ⇒ Unit = s ⇒ logger.info(Console.RED + s + Console.RESET)
@@ -121,10 +56,11 @@ class AbciHandler[F[_]: Effect](
       .map(
         res =>
           for {
-            str <- res.leftTap(e => logger.warn(s"RPC Block[$height] failed: $e"))
-            block <- TendermintBlock(str).leftTap(e => logBad(s"Failed to decode tendermint block from JSON: $e"))
+            str <- res.leftTap(e => logger.warn(s"RPC Block[$height] failed: $e ${e.getCause}"))
+            block <- TendermintBlock(str)
+              .leftTap(e => logBad(s"Failed to decode tendermint block from JSON: $e ${e.getCause}"))
             _ = logger.info(s"RPC Block[$height] => height = ${block.block.header.height}")
-            _ <- block.validateHashes().leftTap(e => logBad(s"Block at height $height is invalid: $e"))
+            _ <- block.validateHashes().leftTap(e => logBad(s"Block at height $height is invalid: $e ${e.getCause}"))
           } yield log(s"Block at height $height is valid")
       )
       .unsafeRunAsyncAndForget()
@@ -135,10 +71,6 @@ class AbciHandler[F[_]: Effect](
   ): ResponseBeginBlock = {
     val height = req.getHeader.getHeight
     checkBlock(height)
-
-    store(height, "BeginBlock").toIO.handleErrorWith { e =>
-      IO.pure(logger.error("Error while storing block in BeginBlock: " + e))
-    }.unsafeRunSync()
 
     ResponseBeginBlock.newBuilder().build()
   }
@@ -180,15 +112,6 @@ class AbciHandler[F[_]: Effect](
   override def requestCommit(
     requestCommit: RequestCommit
   ): ResponseCommit = {
-    service.stateHeight
-      .flatMap(h => compare(h, "RequestCommit"))
-      .toIO
-      .handleErrorWith { e =>
-        IO.pure(logger.error("Error comparing in RequestCommit: " + e))
-      }
-      .unsafeRunSync()
-    logger.info("After compare in RequestCommit")
-
     ResponseCommit
       .newBuilder()
       .setData(

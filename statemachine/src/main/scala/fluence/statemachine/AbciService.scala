@@ -48,8 +48,6 @@ class AbciService[F[_]: Monad](
 
   import AbciService._
 
-  def stateHeight = state.get.map(_.height)
-
   /**
    * Take all the transactions we're able to process, and pass them to VM one by one.
    *

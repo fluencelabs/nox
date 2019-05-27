@@ -138,8 +138,7 @@ lazy val `statemachine` = (project in file("statemachine"))
       slogging,
       scodecBits,
       "com.github.jtendermint" % "jabci" % "0.26.0",
-      scalaTest,
-      "org.gnieh" %% "diffson-circe" % "4.0.0-M3"
+      scalaTest
     ),
     assemblyJarName in assembly := "statemachine.jar",
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
@@ -401,6 +400,12 @@ lazy val `node` = project
       scalaTest
     ),
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
+    testOnly in IntegrationTest := (testOnly in IntegrationTest)
+      .dependsOn(docker)
+      .dependsOn(docker in `statemachine`)
+      .dependsOn(compile in `vm-llamadb`)
+      .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
+      .evaluated,
     test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(docker)
       .dependsOn(docker in `statemachine`)
