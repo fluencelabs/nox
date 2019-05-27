@@ -337,6 +337,7 @@ lazy val `receipt-storage` = (project in file("effects/receipt-storage"))
     commons,
     libraryDependencies ++= Seq(
       fs2,
+      fs2io,
       cats,
       catsEffect,
       scalaTest,
