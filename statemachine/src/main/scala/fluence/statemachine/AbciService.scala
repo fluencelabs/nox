@@ -74,13 +74,15 @@ class AbciService[F[_]: Monad](
           Applicative[F].pure(Right(st))
       }
 
+      receipt <- controlSignals.receipt
+
       // Get the VM hash
       vmHash ← vm
         .vmStateHash()
         .leftMap(err ⇒ logger.error(s"VM is unable to compute state hash: $err"))
         .getOrElse(ByteVector.empty) // TODO do not ignore vm error
 
-      appHash = vmHash // TODO: concatenate with controlSignals.receipt
+      appHash = hash(vmHash ++ receipt.get.bytes()) // TODO: concatenate with controlSignals.receipt
 
       // Push hash to AbciState, increment block number
       newState ← AbciState.setAppHash(appHash).runS(st)
@@ -89,6 +91,7 @@ class AbciService[F[_]: Monad](
       _ ← state.set(newState)
 
       // TODO: Store vmHash, so master node could retrieve it
+      _ <- controlSignals.putVmHash(vmHash)
     } yield appHash
 
   /**

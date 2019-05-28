@@ -17,17 +17,20 @@
 package fluence.node.workers.tendermint
 
 import java.nio.ByteBuffer
+import java.nio.file.Path
 
 import cats.data.EitherT
 import cats.effect.concurrent.MVar
-import cats.effect.{ConcurrentEffect, Resource, Timer}
+import cats.effect.{ConcurrentEffect, ContextShift, Resource, Timer}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Applicative, Monad}
 import com.softwaremill.sttp.SttpBackend
 import fluence.effects.ipfs.IpfsClient
+import fluence.effects.receipt.storage.KVReceiptStorage
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
+import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.node.MakeResource
 import fluence.node.config.storage.RemoteStorageConfig
@@ -41,7 +44,7 @@ import scala.language.higherKinds
  *
  * @param history Description of how to store blocks
  */
-class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) extends slogging.LazyLogging {
+class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: BlockHistory[F], rootPath: Path) extends slogging.LazyLogging {
 
   /**
    * Subscribe on new blocks from tendermint and upload them one by one to the decentralized storage
@@ -59,21 +62,27 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) ex
     val services = worker.services
 
     for {
+      receiptStorage <- KVReceiptStorage.make[F](worker.appId, rootPath)
       // Storage for a previous manifest
       lastManifestReceipt <- Resource.liftF(MVar.of[F, Option[Receipt]](None))
       // TODO: 1st block could be missed if we're too late to subscribe. Retrieve it manually.
       blocks = services.tendermint.subscribeNewBlock[F]
       _ <- MakeResource.concurrentStream(
-        blocks.evalMap(processBlock(_, services, lastManifestReceipt, worker.appId)),
+        blocks.evalMap(processBlock(_, services, lastManifestReceipt, receiptStorage, worker.appId)),
         name = "BlockUploadingStream"
       )
     } yield ()
   }
 
+  private def pushReceiptChain(rpc: TendermintRpc[F]): F[Unit] = for {
+    
+  } yield ()
+
   private def processBlock(
     blockJson: Json,
     services: WorkerServices[F],
     lastManifestReceipt: MVar[F, Option[Receipt]],
+    receiptStorage: KVReceiptStorage[F],
     appId: Long
   ) = {
     // Parse block from JSON
@@ -87,6 +96,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) ex
           lastReceipt <- EitherT.liftF(lastManifestReceipt.take)
           vmHash <- services.control.getVmHash
           receipt <- history.upload(block, vmHash, lastReceipt)
+          _ <- receiptStorage.put(block.header.height, receipt)
           _ <- services.control.sendBlockReceipt(receipt)
           // TODO: How to avoid specifying [F, NoStackTrace, Unit] in liftF?
           _ <- EitherT.liftF[F, EffectError, Unit](lastManifestReceipt.put(Some(receipt)))
@@ -114,7 +124,8 @@ object BlockUploading {
   private val Enabled = false
 
   def make[F[_]: Monad: ConcurrentEffect: Timer](
-    remoteStorageConfig: RemoteStorageConfig
+    remoteStorageConfig: RemoteStorageConfig,
+    rootPath: Path
   )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]): BlockUploading[F] = {
     // TODO: should I handle remoteStorageConfig.enabled = false?
     val ipfs = new IpfsClient[F](remoteStorageConfig.ipfs.address)

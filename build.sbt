@@ -432,4 +432,8 @@ lazy val `node` = project
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(`ethclient`, `swarm`, `ipfs`, `statemachine-control`, `kvstore`, `dockerio`, `tendermint-rpc`, `sttpEitherT`)
+  .dependsOn(
+    `ethclient`, `swarm`, `ipfs`, `statemachine-control`,
+    `kvstore`, `dockerio`, `tendermint-rpc`, `sttpEitherT`,
+    `receipt-storage`
+  )
