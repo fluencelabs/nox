@@ -30,10 +30,10 @@ import fluence.effects.ipfs.IpfsClient
 import fluence.effects.receipt.storage.KVReceiptStorage
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
-import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.node.MakeResource
 import fluence.node.config.storage.RemoteStorageConfig
+import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 import fluence.node.workers.{Worker, WorkerServices}
 import io.circe.Json
 
@@ -44,7 +44,8 @@ import scala.language.higherKinds
  *
  * @param history Description of how to store blocks
  */
-class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: BlockHistory[F], rootPath: Path) extends slogging.LazyLogging {
+class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: BlockHistory[F], rootPath: Path)
+    extends slogging.LazyLogging {
 
   /**
    * Subscribe on new blocks from tendermint and upload them one by one to the decentralized storage
@@ -54,7 +55,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
    *
    * @param worker Blocks are coming from this worker's Tendermint; receipts are sent to this worker
    */
-  def start(worker: Worker[F]): Resource[F, Unit] = {
+  def start(worker: Worker[F])(implicit backoff: Backoff[EffectError] = Backoff.default): Resource[F, Unit] = {
     if (!BlockUploading.Enabled) { // TODO: remove that once BlockUploading is enabled
       return Resource.pure(())
     }
@@ -63,9 +64,12 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
 
     for {
       receiptStorage <- KVReceiptStorage.make[F](worker.appId, rootPath)
+      // TODO: what if we failed to store receipt for the last block? Retrieve & upload block manually.
+      // Push stored receipts to the state machine
+      _ <- Resource.liftF(pushReceiptChain(worker.services.control, receiptStorage))
       // Storage for a previous manifest
       lastManifestReceipt <- Resource.liftF(MVar.of[F, Option[Receipt]](None))
-      // TODO: 1st block could be missed if we're too late to subscribe. Retrieve it manually.
+      // TODO: we could miss 1st block if we're too late to subscribe. Retrieve it manually.
       blocks = services.tendermint.subscribeNewBlock[F]
       _ <- MakeResource.concurrentStream(
         blocks.evalMap(processBlock(_, services, lastManifestReceipt, receiptStorage, worker.appId)),
@@ -74,9 +78,24 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
     } yield ()
   }
 
-  private def pushReceiptChain(rpc: TendermintRpc[F]): F[Unit] = for {
-    
-  } yield ()
+  /**
+   * Load stored receipts, and push them one by one to the ControlRpc
+   */
+  private def pushReceiptChain(control: ControlRpc[F], storage: KVReceiptStorage[F])(
+    implicit backoff: Backoff[EffectError]
+  ): F[Unit] =
+    storage
+      .retrieve()
+      .evalMap {
+        case (_, receipt) =>
+          //TODO: why syntax .backoff doesn't work?
+          backoff.retry(
+            control.sendBlockReceipt(receipt),
+            (e: ControlRpcError) => Monad[F].pure(logger.error(s"BlockUploading: failed to push receipt: $e"))
+          )
+      }
+      .compile
+      .drain
 
   private def processBlock(
     blockJson: Json,
@@ -84,7 +103,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
     lastManifestReceipt: MVar[F, Option[Receipt]],
     receiptStorage: KVReceiptStorage[F],
     appId: Long
-  ) = {
+  )(implicit backoff: Backoff[EffectError]) = {
     // Parse block from JSON
     Block(blockJson) match {
       case Left(e) =>
@@ -123,13 +142,16 @@ object BlockUploading {
 
   private val Enabled = false
 
-  def make[F[_]: Monad: ConcurrentEffect: Timer](
+  def make[F[_]: Monad: ConcurrentEffect: Timer: ContextShift](
     remoteStorageConfig: RemoteStorageConfig,
     rootPath: Path
-  )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]): BlockUploading[F] = {
+  )(
+    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
+    backoff: Backoff[EffectError] = Backoff.default
+  ): BlockUploading[F] = {
     // TODO: should I handle remoteStorageConfig.enabled = false?
     val ipfs = new IpfsClient[F](remoteStorageConfig.ipfs.address)
     val history = new BlockHistory[F](ipfs)
-    new BlockUploading[F](history)
+    new BlockUploading[F](history, rootPath)
   }
 }
