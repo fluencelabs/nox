@@ -368,7 +368,7 @@ lazy val `kademlia-testkit` = (project in file("kademlia/testkit"))
     libraryDependencies ++= Seq(
       scalaTest
     )
-  ).dependsOn(kademlia)
+  ).dependsOn(`kademlia`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `log` = (project in file("log"))

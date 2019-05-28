@@ -56,7 +56,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) ex
       return Resource.pure(())
     }
 
-    val services = worker.services
+    import worker.services
 
     for {
       // Storage for a previous manifest

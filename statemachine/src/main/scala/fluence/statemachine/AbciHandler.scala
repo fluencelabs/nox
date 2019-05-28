@@ -111,14 +111,12 @@ class AbciHandler[F[_]: Effect](
 
   override def requestCommit(
     requestCommit: RequestCommit
-  ): ResponseCommit = {
-    ResponseCommit
+  ): ResponseCommit = ResponseCommit
       .newBuilder()
       .setData(
         ByteString.copyFrom(service.commit.toIO.unsafeRunSync().toArray)
       )
       .build()
-  }
 
   override def requestQuery(
     req: RequestQuery
