@@ -19,6 +19,7 @@ package fluence.effects.tendermint.block.history
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import scodec.bits.ByteVector
+import fluence.effects.tendermint.block.history.helpers.ByteVectorJsonCodec._
 
 import scala.language.higherKinds
 
