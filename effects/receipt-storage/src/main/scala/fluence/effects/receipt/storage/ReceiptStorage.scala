@@ -37,5 +37,5 @@ trait ReceiptStorage[F[_]] {
   def retrieve(
     from: Option[Long] = None,
     to: Option[Long] = None
-  ): F[List[(Long, Receipt)]]
+  ): fs2.Stream[F, (Long, Receipt)]
 }

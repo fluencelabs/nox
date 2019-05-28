@@ -35,13 +35,12 @@ class KVReceiptStorage[F[_]: Sync](val appId: Long, store: KVStore[F, Long, Rece
   override def retrieve(
     from: Option[Long],
     to: Option[Long]
-  ): F[List[(Long, Receipt)]] = {
+  ): fs2.Stream[F, (Long, Receipt)] = {
 
     val stream = store.stream
     val dropped = from.fold(stream)(from => stream.dropWhile(_._1 < from))
-    val taken = to.fold(dropped)(to => dropped.takeWhile(_._1 < to))
 
-    taken.compile.toList
+    to.fold(dropped)(to => dropped.takeWhile(_._1 < to))
   }
 }
 
