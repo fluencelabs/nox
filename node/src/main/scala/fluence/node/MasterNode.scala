@@ -38,6 +38,7 @@ import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.eth._
 import fluence.node.eth.state.StorageType
 import fluence.node.workers._
+import fluence.node.workers.control.DropPeerError
 import fluence.node.workers.tendermint.config.ConfigTemplate
 import slogging.LazyLogging
 
@@ -55,6 +56,7 @@ import scala.language.higherKinds
  * @param masterNodeContainerId Docker Container ID for this process, to import Docker volumes from
  */
 case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
+  masterConfig: MasterConfig,
   nodeConfig: NodeConfig,
   configTemplate: ConfigTemplate,
   nodeEth: NodeEth[F],
@@ -136,9 +138,19 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
         pool.withWorker(appId, _.remove).void
 
       case DropPeerWorker(appId, vk) ⇒
-        pool.withWorker(appId, _.withServices_(_.control)(_.dropPeer(vk))).void
+        pool
+          .withWorker(
+            appId,
+            _.withServices_(_.control)(_.dropPeer(vk).value.map {
+              case Right(_) =>
+              case Left(e: DropPeerError) => logger.error(s"Error while dropping peer appId=$appId: ${e.getMessage}", e)
+              case Left(e) =>
+                logger.error(s"Unexpected error while dropping peer appId=$appId key=${vk.toHex}: ${e.getMessage}", e)
+            })
+          )
+          .void
 
-      case NewBlockReceived(block) ⇒
+      case NewBlockReceived(_) ⇒
         ().pure[F]
     }
 
@@ -197,6 +209,7 @@ object MasterNode extends LazyLogging {
       configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath, masterConfig.tendermintConfig))
     } yield
       MasterNode[F](
+        masterConfig,
         nodeConfig,
         configTemplate,
         nodeEth,

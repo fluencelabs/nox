@@ -19,13 +19,12 @@ package fluence.effects.tendermint.block
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.errors.TendermintBlockError
 import fluence.effects.tendermint.block.errors.ValidationError._
-import fluence.effects.tendermint.block.protobuf.ProtobufJson
 import scodec.bits.ByteVector
 
 object TendermintBlock {
 
   def apply(json: String): Either[TendermintBlockError, TendermintBlock] = {
-    ProtobufJson.block(json).map(TendermintBlock(_))
+    Block(json).map(TendermintBlock(_))
   }
 }
 

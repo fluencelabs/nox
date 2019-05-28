@@ -16,12 +16,16 @@
 
 package fluence.statemachine
 
+import java.nio.ByteBuffer
+
 import cats.data.EitherT
 import cats.effect.{ContextShift, IO, Timer}
 import com.github.jtendermint.jabci.api.CodeType
 import com.github.jtendermint.jabci.types.{RequestCheckTx, RequestCommit, RequestDeliverTx, RequestQuery}
 import com.google.protobuf.ByteString
-import fluence.effects.tendermint.rpc.{RpcRequestFailed, TendermintRpc}
+import com.softwaremill.sttp.SttpBackend
+import fluence.EitherTSttpBackend
+import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.statemachine.config.{StateMachineConfig, TendermintRpcConfig}
 import fluence.statemachine.control.ControlServer.ControlServerConfig
 import fluence.statemachine.control.ControlSignals
@@ -34,6 +38,8 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
+  implicit private val sttp: SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]] =
+    EitherTSttpBackend[IO]()
 
   // sbt defaults user directory to submodule directory
   // while Idea defaults to project root
@@ -47,13 +53,8 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
     ControlServerConfig("localhost", 26662),
     TendermintRpcConfig("localhost", 26657)
   )
-
   private val signals: ControlSignals[IO] = ControlSignals[IO]().allocated.unsafeRunSync()._1
-
-  private val rpc: TendermintRpc[IO] = new TendermintRpc[IO](
-    _ ⇒ EitherT.leftT(RpcRequestFailed(new NotImplementedError("get stub"))),
-    _ ⇒ EitherT.leftT(RpcRequestFailed(new NotImplementedError("post stub")))
-  )
+  private val rpc: TendermintRpc[IO] = new TendermintRpc[IO](config.tendermintRpc.host, config.tendermintRpc.port)
 
   val abciHandler: AbciHandler[IO] = ServerRunner
     .buildAbciHandler(config, signals, rpc)

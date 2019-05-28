@@ -17,22 +17,20 @@
 package fluence.effects.ipfs
 
 import java.nio.ByteBuffer
-import java.nio.file.Path
 
-import cats.{Applicative, Monad}
-import cats.data.EitherT
 import cats.Traverse.ops._
-import cats.instances.list._
-import com.softwaremill.sttp.Uri.QueryFragment.KeyValue
-import com.softwaremill.sttp.{asStream, sttp, Multipart, SttpBackend, Uri}
-import com.softwaremill.sttp._
-import fluence.effects.castore.StoreError
-import scodec.bits.ByteVector
-import com.softwaremill.sttp.circe.asJson
-import io.circe.{Decoder, DecodingFailure}
+import cats.data.EitherT
 import cats.instances.either._
+import cats.instances.list._
 import cats.syntax.either._
+import cats.{Applicative, Monad}
+import com.softwaremill.sttp.Uri.QueryFragment.KeyValue
+import com.softwaremill.sttp.circe.asJson
+import com.softwaremill.sttp.{Multipart, SttpBackend, Uri, asStream, sttp, _}
+import fluence.effects.castore.StoreError
 import fs2.RaiseThrowable
+import io.circe.{Decoder, DecodingFailure}
+import scodec.bits.ByteVector
 
 import scala.collection.immutable
 import scala.language.higherKinds
@@ -54,9 +52,9 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]
 ) extends slogging.LazyLogging {
 
+  import IpfsClient._
   import IpfsLsResponse._
   import ResponseOps._
-  import IpfsClient._
 
   object Multihash {
     // https://github.com/multiformats/multicodec/blob/master/table.csv
@@ -126,14 +124,14 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
    * @param data uploads to IPFS
    * @param onlyHash If true, only calculates the hash, without saving a data to IPFS
    */
-  private def add(
-    data: IpfsData[F],
+  private def add[A: IpfsData](
+    data: A,
     onlyHash: Boolean
   ): EitherT[F, StoreError, ByteVector] = {
-    val uri = uploadUri(onlyHash, data.canBeMultiple)
+    val uri = uploadUri(onlyHash, IpfsData[A].wrapInDirectory)
     for {
       _ <- EitherT.pure[F, StoreError](logger.debug(s"IPFS 'add' started $uri"))
-      multiparts <- data.toMultipart
+      multiparts <- IpfsData[A].toMultipart[F](data)
       responses <- addCall(uri, multiparts)
       _ <- assert[F](responses.nonEmpty, "IPFS 'add': Empty response")
       hash <- EitherT.fromEither[F](getParentHash(responses))
@@ -254,41 +252,30 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
   }
 
   /**
-   * Only calculates hash - do not write to disk.
+   * Only calculates hash - no data will be persisted on IPFS.
    *
    * @return hash of data
    */
-  def calculateHash(data: ByteVector): EitherT[F, StoreError, ByteVector] =
-    add(IpfsData(data), onlyHash = true)
+  def calculateHash[A: IpfsData](data: A): EitherT[F, StoreError, ByteVector] =
+    add(data, onlyHash = true)
 
   /**
-   * Uploads bytes to IPFS node
+   * Uploads data to IPFS
    *
    * @return hash of data
    */
-  def upload(data: ByteVector): EitherT[F, StoreError, ByteVector] =
-    add(IpfsData(data), onlyHash = false)
-
-  /**
-   * Uploads files to IPFS node. Supports only one file or files in one directory, without nested directories.
-   *
-   * @param path to a file or a directory
-   * @return hash address
-   */
-  def upload(path: Path): EitherT[F, StoreError, ByteVector] =
-    for {
-      hash <- add(IpfsData(path), onlyHash = false)
-    } yield hash
+  def upload[A: IpfsData](data: A): EitherT[F, StoreError, ByteVector] =
+    add(data, onlyHash = false)
 }
 
 object IpfsClient {
   import io.circe.fs2.stringStreamParser
 
-  def assert[F[_]: Applicative](test: Boolean, errorMessage: String): EitherT[F, IpfsError, Unit] =
+  private[ipfs] def assert[F[_]: Applicative](test: Boolean, errorMessage: String): EitherT[F, IpfsError, Unit] =
     EitherT.fromEither[F](Either.cond(test, (), IpfsError(errorMessage)))
 
   // parses application/json+stream like {object1}\n{object2}...
-  def asListJson[B: Decoder: IsOption]: ResponseAs[Decoder.Result[List[B]], Nothing] = {
+  private[ipfs] def asListJson[B: Decoder: IsOption]: ResponseAs[Decoder.Result[List[B]], Nothing] = {
     implicit val rt = new RaiseThrowable[fs2.Pure] {}
     asString
       .map(fs2.Stream.emit)

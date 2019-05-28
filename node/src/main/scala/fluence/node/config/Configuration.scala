@@ -41,8 +41,7 @@ object Configuration extends slogging.LazyLogging {
   def init[F[_]: LiftIO: DockerIO: Monad](masterConfig: MasterConfig): F[Configuration] =
     for {
       rootPath <- IO(Paths.get(masterConfig.rootPath).toAbsolutePath).to[F]
-      t <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.tendermint)
-      (nodeId, validatorKey) = t
+      (nodeId, validatorKey) <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.tendermint)
       nodeConfig = NodeConfig(
         masterConfig.endpoints,
         validatorKey,
@@ -124,7 +123,7 @@ object Configuration extends slogging.LazyLogging {
       files <- IO.pure(List("config.toml", "node_key.json", "priv_validator_key.json"))
       configDir <- IO(tendermintDir.resolve("config"))
 
-      r <- IO {
+      (all, any, notFound) <- IO {
         files.foldLeft((true, false, Iterable.empty[String])) {
           // All - all files exist, any - any of the files exist, notFound - list of missing files
           case ((all, any, notFound), f) =>
@@ -134,7 +133,6 @@ object Configuration extends slogging.LazyLogging {
             (all && exists, any || exists, nf)
         }
       }
-      (all, any, notFound) = r
 
       // No files should exist or all files
       _ <- if (any && !all) {

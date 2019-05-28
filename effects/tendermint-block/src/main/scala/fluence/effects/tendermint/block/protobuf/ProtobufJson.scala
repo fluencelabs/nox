@@ -38,6 +38,18 @@ private[block] object ProtobufJson {
   val parser = new Parser(true)
 
   /**
+   * Re-encodes hashes inside BlockID, @see reencode doc for details
+   *
+   * @return List of lenses that reencode hashes in a BlockID
+   */
+  private val fixBlockId: List[Lens[BlockID, BlockID] => Mutation[BlockID]] = {
+    val hash: Lens[BlockID, BlockID] => Mutation[BlockID] = _.hash.modify(reencode)
+    val parts: Lens[BlockID, BlockID] => Mutation[BlockID] = _.parts.update(_.hash.modify(reencode))
+
+    List(hash, parts)
+  }
+
+  /**
    * Parses block from Tendermint's RPC "Block" response
    *
    * @param blockResponse JSON string containing Tendermint's RPC response
@@ -46,10 +58,13 @@ private[block] object ProtobufJson {
   def block(blockResponse: String): Either[TendermintBlockError, Block] = {
     for {
       resposnseJson <- parse(blockResponse).convertError
-      blockJson <- resposnseJson.hcursor.downField("result").get[Json]("block").convertError
-      block <- blockJson.as[Block].convertError
+      blockJson <- resposnseJson.hcursor.get[Json]("result").convertError
+      block <- block(blockJson)
     } yield block
   }
+
+  def block(blockJson: Json): Either[TendermintBlockError, Block] =
+    blockJson.hcursor.get[Block]("block").convertError
 
   /**
    * Parses commit from Tendermint's RPC "Commit" response
@@ -81,6 +96,35 @@ private[block] object ProtobufJson {
   }
 
   /**
+   * Performs base64 encode -> hex decode -> to byte string
+   *
+   * Protobuf "erroneously" applied `base64 decode` to a hex string, this function fixes that
+   *
+   * NOTE:
+   *   It's not a protobuf mistake, it's just a protocol quirk.
+   *   When Tendermint encodes values to JSON to return in RPC, some bytes (i.e., common.HexBytes) are encoded in hex,
+   *   while other bytes (i.e., byte[]) are encoded in base64.
+   *   It's just a happy coincidence that protobuf works on that JSON at all, it wasn't meant to.
+   *
+   * @param bs bs = ByteString.copyFrom(base64-decode(hexString))
+   * @return Good, correct bytes, that were represented by a hexString
+   */
+  private def reencode(bs: ByteString): ByteString = {
+    val hex = ByteVector(bs.toByteArray).toBase64
+
+    ByteVector
+      .fromHexDescriptive(hex)
+      .map { value =>
+        val array: Array[Byte] = value.toArray
+        val bytes: ByteString = ByteString.copyFrom(array)
+        bytes
+      }
+      // Throwing an exception here, because `reencode` is used
+      // with ScalaPB lenses, and they don't work with Either
+      .fold(e => throw FixBytesError(e), identity) // TODO: don't throw exception, find a better way
+  }
+
+  /**
    * Parses Json value into a protobuf Version
    *
    * @param json Json value, parsed by circe
@@ -108,46 +152,5 @@ private[block] object ProtobufJson {
    */
   def blockId(json: Json): Either[ProtobufJsonError, BlockID] = {
     Try(parser.fromJson[BlockID](json).update(fixBlockId: _*)).toEither.convertError
-  }
-
-  /**
-   * Re-encodes hashes inside BlockID, @see reencode doc for details
-   *
-   * @return List of lenses that reencode hashes in a BlockID
-   */
-  private val fixBlockId: List[Lens[BlockID, BlockID] => Mutation[BlockID]] = {
-    val hash: Lens[BlockID, BlockID] => Mutation[BlockID] = _.hash.modify(reencode)
-    val parts: Lens[BlockID, BlockID] => Mutation[BlockID] = _.parts.update(_.hash.modify(reencode))
-
-    List(hash, parts)
-  }
-
-  /**
-   * Performs base64 encode -> hex decode -> to byte string
-   *
-   * Protobuf "erroneously" applied `base64 decode` to a hex string, this function fixes that
-   *
-   * NOTE:
-   *   It's not a protobuf mistake, it's just a protocol quirk.
-   *   When Tendermint encodes values to JSON to return in RPC, some bytes (i.e., common.HexBytes) are encoded in hex,
-   *   while other bytes (i.e., byte[]) are encoded in base64.
-   *   It's just a happy coincidence that protobuf works on that JSON at all, it wasn't meant to.
-   *
-   * @param bs bs = ByteString.copyFrom(base64-decode(hexString))
-   * @return Good, correct bytes, that were represented by a hexString
-   */
-  private def reencode(bs: ByteString): ByteString = {
-    val hex = ByteVector(bs.toByteArray).toBase64
-
-    ByteVector
-      .fromHexDescriptive(hex)
-      .map { value =>
-        val array: Array[Byte] = value.toArray
-        val bytes: ByteString = ByteString.copyFrom(array)
-        bytes
-      }
-      // Throwing an exception here, because `reencode` is used
-      // with ScalaPB lenses, and they don't work with Either
-      .fold(e => throw FixBytesError(e), identity) // TODO: don't throw exception, find a better way
   }
 }

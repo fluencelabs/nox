@@ -19,12 +19,14 @@ import cats.data.Kleisli
 import cats.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.effects.tendermint.block.history.helpers
 import org.http4s._
 import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.implicits._
 import org.http4s.server.Server
 import org.http4s.server.blaze._
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
@@ -54,8 +56,11 @@ object ControlServer extends slogging.LazyLogging {
     signals: ControlSignals[F]
   )(implicit dsl: Http4sDsl[F]): Kleisli[F, Request[F], Response[F]] = {
     import dsl._
+    import helpers.ByteVectorJsonCodec._
 
-    implicit val decoder: EntityDecoder[F, DropPeer] = jsonOf[F, DropPeer]
+    implicit val dpdec: EntityDecoder[F, DropPeer] = jsonOf[F, DropPeer]
+    implicit val bpdec: EntityDecoder[F, BlockReceipt] = jsonOf[F, BlockReceipt]
+    implicit val bvenc: EntityEncoder[F, ByteVector] = jsonEncoderOf[F, ByteVector]
 
     val route: PartialFunction[Request[F], F[Response[F]]] = {
       case req @ POST -> Root / "control" / "dropPeer" =>
@@ -70,7 +75,24 @@ object ControlServer extends slogging.LazyLogging {
 
       case (GET | POST) -> Root / "control" / "status" => Ok()
 
-      case _ => Sync[F].pure(Response.notFound)
+      case req @ POST -> Root / "control" / "blockReceipt" =>
+        for {
+          receipt <- req.as[BlockReceipt].map(_.receipt)
+          _ <- signals.putReceipt(receipt)
+          ok <- Ok()
+        } yield ok
+
+      case (GET | POST) -> Root / "control" / "vmHash" =>
+        for {
+          vmHash <- signals.vmHash
+          ok <- Ok(vmHash)
+        } yield ok
+
+      case r =>
+        Sync[F].pure {
+          logger.warn(s"RPC: unexpected request: ${r.method} ${r.pathInfo}")
+          Response.notFound
+        }
     }
 
     val log: PartialFunction[Request[F], Request[F]] = {

@@ -16,36 +16,16 @@
 
 package fluence.effects.tendermint.block.data
 
-import fluence.effects.tendermint.block.protobuf.ProtobufJson
-import io.circe.Decoder
-import io.circe.generic.semiauto.deriveDecoder
+import io.circe.generic.extras.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.{Decoder, Encoder}
 import proto3.tendermint.BlockID
 import scodec.bits.ByteVector
 
 private[block] object Header {
-  implicit final val decodeByteVector: Decoder[ByteVector] = {
-    Decoder.decodeString.emap { str =>
-      ByteVector.fromHexDescriptive(str).left.map(_ => "ByteVector")
-    }
-  }
+  import JsonCodecs._
 
-  implicit val decodeVersion: Decoder[proto3.tendermint.Version] = {
-    Decoder.decodeJson.emap { jvalue =>
-      ProtobufJson.version(jvalue).left.map(_ => "Version")
-    }
-  }
-
-  implicit val decodeTimestamp: Decoder[com.google.protobuf.timestamp.Timestamp] = {
-    Decoder.decodeJson.emap(jvalue => ProtobufJson.timestamp(jvalue).left.map(_ => "Timestamp"))
-  }
-
-  implicit val decodeBlockID: Decoder[BlockID] = {
-    Decoder.decodeJson.emap { jvalue =>
-      ProtobufJson.blockId(jvalue).left.map(_ => "BlockID")
-    }
-  }
-
-  implicit val headerDecoder: Decoder[Header] = deriveDecoder[Header]
+  implicit final val headerDecoder: Decoder[Header] = deriveDecoder[Header]
+  implicit final val headerEncoder: Encoder[Header] = deriveEncoder[Header]
 }
 
 /**
@@ -53,7 +33,7 @@ private[block] object Header {
  *
  * Exists to provide easy JSON decoding customization, i.e., Header.decodeByteVector
  */
-private[block] case class Header(
+case class Header(
   version: Option[proto3.tendermint.Version],
   chain_id: String,
   height: Long,

@@ -16,6 +16,7 @@
 
 package fluence.effects.tendermint.block
 
+import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.protobuf.{Protobuf, ProtobufConverter, ProtobufJson}
 import fluence.effects.tendermint.block.signature.Canonical
 import io.circe.parser._
@@ -24,7 +25,7 @@ import scodec.bits.ByteVector
 
 class EncodingTest extends FunSpec with Matchers with OptionValues {
 
-  val block = ProtobufJson.block(TestData.blockResponse).right.get
+  val block = Block(TestData.blockResponse).right.get
   val vote = parse(TestData.vote).flatMap(ProtobufJson.vote).right.get
 
   def toHex(ba: Array[Byte]) = ByteVector(ba).toHex
@@ -357,7 +358,7 @@ class EncodingTest extends FunSpec with Matchers with OptionValues {
   }
 
   describe("amino block with data = null") {
-    val blockEmpty = ProtobufJson.block(TestData.blockDataNullResponse).right.get
+    val blockEmpty = Block(TestData.blockDataNullResponse).right.get
 
     it("encode data") {
       val simpleBytes = Protobuf.encode(ProtobufConverter.toProtobuf(blockEmpty.data))

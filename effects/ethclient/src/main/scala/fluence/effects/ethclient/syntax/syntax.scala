@@ -23,7 +23,7 @@ import fluence.effects.Backoff
 import io.reactivex.Flowable
 import slogging.LazyLogging
 import fs2.interop.reactivestreams._
-import fluence.effects.ethclient.helpers.JavaFutureConversion._
+import fluence.effects.JavaFutureConversion._
 import org.web3j.protocol.core.RemoteCall
 
 import scala.concurrent.duration._

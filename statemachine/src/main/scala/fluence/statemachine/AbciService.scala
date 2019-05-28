@@ -17,11 +17,15 @@
 package fluence.statemachine
 
 import cats.effect.Sync
-import cats.{Applicative, Monad}
-import cats.syntax.functor._
-import cats.syntax.flatMap._
 import cats.effect.concurrent.Ref
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.{Applicative, Monad}
 import com.github.jtendermint.jabci.api.CodeType
+import fluence.crypto.Crypto
+import fluence.crypto.Crypto.Hasher
+import fluence.crypto.hash.JdkCryptoHasher
+import fluence.statemachine.control.ControlSignals
 import fluence.statemachine.state.AbciState
 import scodec.bits.ByteVector
 import slogging.LazyLogging
@@ -33,11 +37,14 @@ import scala.language.higherKinds
  *
  * @param state See [[AbciState]]
  * @param vm Virtual machine invoker
+ * @param controlSignals Communication channel with master node
  */
 class AbciService[F[_]: Monad](
   state: Ref[F, AbciState],
-  vm: VmOperationInvoker[F]
-) extends LazyLogging {
+  vm: VmOperationInvoker[F],
+  controlSignals: ControlSignals[F]
+)(implicit hasher: Hasher[ByteVector, ByteVector])
+    extends LazyLogging {
 
   import AbciService._
 
@@ -68,17 +75,21 @@ class AbciService[F[_]: Monad](
       }
 
       // Get the VM hash
-      hash ← vm
+      vmHash ← vm
         .vmStateHash()
         .leftMap(err ⇒ logger.error(s"VM is unable to compute state hash: $err"))
         .getOrElse(ByteVector.empty) // TODO do not ignore vm error
 
+      appHash = vmHash // TODO: concatenate with controlSignals.receipt
+
       // Push hash to AbciState, increment block number
-      newState ← AbciState.setAppHash(hash).runS(st)
+      newState ← AbciState.setAppHash(appHash).runS(st)
 
       // Store updated state in the Ref (the changes were transient for readers before this step)
       _ ← state.set(newState)
-    } yield hash
+
+      // TODO: Store vmHash, so master node could retrieve it
+    } yield appHash
 
   /**
    * Queries the storage for sessionId/nonce result, or for sessionId status.
@@ -208,9 +219,26 @@ object AbciService {
    * @tparam F Sync for Ref
    * @return Brand new AbciService instance
    */
-  def apply[F[_]: Sync](vm: VmOperationInvoker[F]): F[AbciService[F]] =
+  def apply[F[_]: Sync](
+    vm: VmOperationInvoker[F],
+    controlSignals: ControlSignals[F]
+  ): F[AbciService[F]] = {
+    import cats.syntax.compose._
+    import scodec.bits.ByteVector
+
+    import scala.language.higherKinds
+
     for {
       state ← Ref.of[F, AbciState](AbciState())
-    } yield new AbciService[F](state, vm)
+    } yield {
+
+      val bva = Crypto.liftFunc[ByteVector, Array[Byte]](_.toArray)
+      val abv = Crypto.liftFunc[Array[Byte], ByteVector](ByteVector(_))
+      implicit val hasher: Crypto.Hasher[ByteVector, ByteVector] =
+        bva.andThen[Array[Byte]](JdkCryptoHasher.Sha256).andThen(abv)
+
+      new AbciService[F](state, vm, controlSignals)
+    }
+  }
 
 }

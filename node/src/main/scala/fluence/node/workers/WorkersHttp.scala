@@ -45,13 +45,13 @@ object WorkersHttp extends LazyLogging {
     def withTendermint(appId: Long)(fn: TendermintRpc[F] ⇒ EitherT[F, RpcError, String]): F[Response[F]] =
       pool.withWorker(appId, _.withServices(_.tendermint)(fn(_).value)).flatMap {
         case None ⇒
-          logger.debug(s"Requested app $appId, but there's no such worker in the pool")
+          logger.debug(s"RPC Requested app $appId, but there's no such worker in the pool")
           NotFound("App not found on the node")
 
         case Some(res) ⇒
           res match {
             case Right(result) ⇒
-              logger.trace(s"Responding with OK: $result")
+              logger.trace(s"RPC responding with OK: $result")
               Ok(result)
 
             case Left(RpcRequestFailed(err)) ⇒

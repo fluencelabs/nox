@@ -17,18 +17,16 @@
 package fluence.node.workers
 
 import cats.data.EitherT
-import cats.{Applicative, Apply, Monad}
 import cats.effect._
 import cats.syntax.functor._
-import cats.syntax.apply._
-import cats.syntax.flatMap._
+import cats.{Apply, Monad}
 import com.softwaremill.sttp._
 import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
+import fluence.effects.tendermint.rpc.{TendermintRpc, WebsocketTendermintRpc}
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
 import fluence.node.workers.tendermint.DockerTendermint
-import fluence.effects.tendermint.rpc.TendermintRpc
 import slogging.LazyLogging
 
 import scala.concurrent.duration.FiniteDuration

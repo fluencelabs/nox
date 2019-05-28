@@ -21,6 +21,7 @@ import java.nio.ByteBuffer
 import cats.Monad
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.ExitCase.{Canceled, Completed, Error}
+import cats.effect.concurrent.Ref
 import cats.effect.{ExitCode, IO, IOApp, Resource}
 import com.github.jtendermint.jabci.socket.TSocket
 import com.softwaremill.sttp.SttpBackend
@@ -30,6 +31,7 @@ import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.control.{ControlServer, ControlSignals}
 import fluence.statemachine.error.StateMachineError
 import fluence.vm.WasmVm
+import io.circe.Json
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging._
 
@@ -59,12 +61,12 @@ object ServerRunner extends IOApp with LazyLogging {
 
           sttp ← sttpResource
 
-          rpc ← {
+          tendermintRpc ← {
             implicit val s = sttp
             TendermintRpc.make[IO](config.tendermintRpc.host, config.tendermintRpc.port)
           }
 
-          _ ← abciHandlerResource(config.abciPort, config, control, rpc)
+          _ ← abciHandlerResource(config.abciPort, config, control, tendermintRpc)
         } yield control.signals.stop
       ).use(identity)
     } yield ExitCode.Success
@@ -81,11 +83,11 @@ object ServerRunner extends IOApp with LazyLogging {
     abciPort: Int,
     config: StateMachineConfig,
     controlServer: ControlServer[IO],
-    rpc: TendermintRpc[IO]
+    tendermintRpc: TendermintRpc[IO]
   ): Resource[IO, Unit] =
     Resource
       .make(
-        buildAbciHandler(config, controlServer.signals, rpc).value.flatMap {
+        buildAbciHandler(config, controlServer.signals, tendermintRpc).value.flatMap {
           case Right(handler) ⇒ IO.pure(handler)
           case Left(err) ⇒
             val exception = err.causedBy match {
@@ -116,7 +118,7 @@ object ServerRunner extends IOApp with LazyLogging {
   private[statemachine] def buildAbciHandler(
     config: StateMachineConfig,
     controlSignals: ControlSignals[IO],
-    rpc: TendermintRpc[IO]
+    tendermintRpc: TendermintRpc[IO]
   ): EitherT[IO, StateMachineError, AbciHandler[IO]] =
     for {
       moduleFilenames <- config.collectModuleFiles[IO]
@@ -127,8 +129,10 @@ object ServerRunner extends IOApp with LazyLogging {
 
       vmInvoker = new VmOperationInvoker[IO](vm)
 
-      service <- EitherT.right(AbciService[IO](vmInvoker))
-    } yield new AbciHandler[IO](service, controlSignals, rpc)
+      service <- EitherT.right(AbciService[IO](vmInvoker, controlSignals))
+      blocks <- EitherT.liftF(Ref.of[IO, Map[Long, (String, Json)]](Map.empty))
+      commits <- EitherT.liftF(Ref.of[IO, Map[Long, (String, Json)]](Map.empty))
+    } yield new AbciHandler[IO](service, controlSignals, tendermintRpc, blocks, commits)
 
   /**
    * Builds a VM instance used to perform function calls from the clients.

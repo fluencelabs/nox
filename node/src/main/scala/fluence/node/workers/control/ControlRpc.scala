@@ -18,6 +18,7 @@ package fluence.node.workers.control
 import cats.data.EitherT
 import cats.effect.Sync
 import com.softwaremill.sttp._
+import fluence.effects.tendermint.block.history.Receipt
 import fluence.node.workers.status.HttpStatus
 import scodec.bits.ByteVector
 
@@ -33,7 +34,7 @@ abstract class ControlRpc[F[_]] {
    *
    * @param key Public key of the Tendermint validator
    */
-  def dropPeer(key: ByteVector): F[Unit]
+  def dropPeer(key: ByteVector): EitherT[F, ControlRpcError, Unit]
 
   /**
    * Request current worker status
@@ -45,13 +46,24 @@ abstract class ControlRpc[F[_]] {
   /**
    * Requests worker to stop
    */
-  def stop: F[Unit]
+  def stop: EitherT[F, ControlRpcError, Unit]
+
+  /**
+   * Send block manifest receipt, so state machine can use it for app hash calculation
+   */
+  def sendBlockReceipt(receipt: Receipt): EitherT[F, ControlRpcError, Unit]
+
+  /**
+   * Retrieves vm hash from state machine, required for block manifest uploading
+   */
+  def getVmHash: EitherT[F, ControlRpcError, ByteVector]
 }
 
 object ControlRpc {
 
   /**
    * Creates a ControlRPC instance. Currently [[HttpControlRpc]] is used.
+   *
    * @param hostname Hostname to send control requests
    * @param port Port to send control requests
    * @return Instance implementing ControlRPC interface

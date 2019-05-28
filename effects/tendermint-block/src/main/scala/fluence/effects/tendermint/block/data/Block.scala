@@ -17,23 +17,19 @@
 package fluence.effects.tendermint.block.data
 
 import fluence.crypto.hash.CryptoHashers.Sha256
+import fluence.effects.tendermint.block.errors.TendermintBlockError
 import fluence.effects.tendermint.block.protobuf.{Protobuf, ProtobufConverter, ProtobufJson}
 import fluence.effects.tendermint.block.signature.Merkle
-import io.circe.Decoder
-import io.circe.generic.semiauto.deriveDecoder
+import io.circe.generic.extras.semiauto.deriveDecoder
+import io.circe.{Decoder, Json}
 import proto3.tendermint.Vote
 import scodec.bits.ByteVector
 
 object Block {
   /* JSON decoders */
-  import Header._
-  implicit final val decodeBase64ByteVector: Decoder[Base64ByteVector] = Decoder.decodeString.emap(
-    str => ByteVector.fromBase64Descriptive(str).map(Base64ByteVector).left.map(_ => "Base64ByteVector")
-  )
-  implicit final val decodeVote: Decoder[Vote] =
-    Decoder.decodeJson.emap(jvalue => ProtobufJson.vote(jvalue).left.map(_ => "Vote"))
-  implicit final val dataDecoder: Decoder[Data] = deriveDecoder
-  implicit final val lastCommitDecoder: Decoder[LastCommit] = deriveDecoder
+  import Header.{headerDecoder, headerEncoder}
+  import JsonCodecs._
+
   implicit final val blockDecoder: Decoder[Block] = deriveDecoder
 
   /* Definitions */
@@ -74,10 +70,27 @@ object Block {
    * TODO: Add Evidence to block, write tests on evidence
    */
   def evidenceHash(evl: List[Evidence]): Array[Byte] = Merkle.simpleHash(evl)
+
+  /**
+   * Parses block from Tendermint RPC response
+   *
+   * @param blockResponse Response on Tendermint RPC 'Block' request
+   */
+  def apply(blockResponse: String): Either[TendermintBlockError, Block] = {
+    ProtobufJson.block(blockResponse)
+  }
+
+  /**
+   * Parses block from Json, assuming block JSON is under the "block" key
+   * @param blockJson Json representation of block
+   */
+  def apply(blockJson: Json): Either[TendermintBlockError, Block] = {
+    ProtobufJson.block(blockJson)
+  }
 }
 
 // TODO: Add Evidence field to the Block
-case class Block(header: Header, data: Data, last_commit: LastCommit) {
+case class Block private[block] (header: Header, data: Data, last_commit: LastCommit) {
   import Block._
 
   /**
@@ -94,6 +107,15 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
   }
 
   /**
+   * Calculates Merkle hash of the header
+   *
+   * @return Merkle hash of the header
+   */
+  def headerHash(): Array[Byte] = {
+    fillHeader().filledHeaderHash()
+  }
+
+  /**
    * Calculates 3 hashes, should be called before blockHash()
    *
    * @return Copy of the Block with filled hashes
@@ -107,30 +129,12 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
   }
 
   /**
-   * Calculates Merkle hash of the header
-   *
-   * @return Merkle hash of the header
-   */
-  def headerHash(): Array[Byte] = {
-    fillHeader().filledHeaderHash()
-  }
-
-  /**
    * Calculates Merkle hash of the transaction list
    *
    * @return Merkle hash of the transaction list
    */
   def dataHash(): Array[Byte] = {
     data.txs.fold(Array.empty[Byte])(txsHash)
-  }
-
-  /**
-   * Calculates Merkle hash of the lastCommit.precommits (votes for the previous block)
-   *
-   * @return Merkle hash of precommits
-   */
-  def lastCommitHash(): Array[Byte] = {
-    commitHash(last_commit.precommits)
   }
 
   /**
@@ -161,5 +165,14 @@ case class Block(header: Header, data: Data, last_commit: LastCommit) {
     )
 
     Merkle.simpleHash(data)
+  }
+
+  /**
+   * Calculates Merkle hash of the lastCommit.precommits (votes for the previous block)
+   *
+   * @return Merkle hash of precommits
+   */
+  def lastCommitHash(): Array[Byte] = {
+    commitHash(last_commit.precommits)
   }
 }

@@ -17,8 +17,13 @@
 package fluence.statemachine
 
 import cats.Applicative
-import cats.effect.Effect
+import cats.data.EitherT
+import cats.effect.concurrent.Ref
 import cats.effect.syntax.effect._
+import cats.effect.{Effect, IO}
+import cats.syntax.eq._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import com.github.jtendermint.jabci.api._
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
@@ -26,13 +31,17 @@ import fluence.effects.tendermint.block.TendermintBlock
 import fluence.effects.tendermint.block.errors.Errors._
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.statemachine.control.{ControlSignals, DropPeer}
+import io.circe.{Json, ParsingFailure}
 
 import scala.language.higherKinds
+import scala.util.Try
 
 class AbciHandler[F[_]: Effect](
   service: AbciService[F],
   controlSignals: ControlSignals[F],
-  rpc: TendermintRpc[F]
+  tendermintRpc: TendermintRpc[F],
+  blocks: Ref[F, Map[Long, (String, Json)]],
+  commits: Ref[F, Map[Long, (String, Json)]]
 ) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock
     with slogging.LazyLogging {
 
@@ -40,16 +49,18 @@ class AbciHandler[F[_]: Effect](
     val log: String ⇒ Unit = s ⇒ logger.info(Console.YELLOW + s + Console.RESET)
     val logBad: String ⇒ Unit = s ⇒ logger.info(Console.RED + s + Console.RESET)
 
-    rpc
+    tendermintRpc
       .block(height)
       .value
       .toIO
       .map(
         res =>
           for {
-            str <- res.leftTap(e => logger.warn(s"RPC Block[$height] failed: $e"))
-            block <- TendermintBlock(str).leftTap(e => logBad(s"Failed to decode tendermint block from JSON: $e"))
-            _ <- block.validateHashes().leftTap(e => logBad(s"Block at height $height is invalid: $e"))
+            str <- res.leftTap(e => logger.warn(s"RPC Block[$height] failed: $e ${e.getCause}"))
+            block <- TendermintBlock(str)
+              .leftTap(e => logBad(s"Failed to decode tendermint block from JSON: $e ${e.getCause}"))
+            _ = logger.info(s"RPC Block[$height] => height = ${block.block.header.height}")
+            _ <- block.validateHashes().leftTap(e => logBad(s"Block at height $height is invalid: $e ${e.getCause}"))
           } yield log(s"Block at height $height is valid")
       )
       .unsafeRunAsyncAndForget()
@@ -100,8 +111,7 @@ class AbciHandler[F[_]: Effect](
 
   override def requestCommit(
     requestCommit: RequestCommit
-  ): ResponseCommit =
-    ResponseCommit
+  ): ResponseCommit = ResponseCommit
       .newBuilder()
       .setData(
         ByteString.copyFrom(service.commit.toIO.unsafeRunSync().toArray)

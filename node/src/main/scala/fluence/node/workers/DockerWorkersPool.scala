@@ -15,6 +15,7 @@
  */
 
 package fluence.node.workers
+import java.nio.ByteBuffer
 import java.nio.file.Path
 
 import cats.data.EitherT
@@ -22,8 +23,8 @@ import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.instances.list._
 import cats.syntax.applicative._
-import cats.syntax.apply._
 import cats.syntax.applicativeError._
+import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Applicative, Apply, Parallel}
@@ -32,6 +33,8 @@ import fluence.codec.PureCodec
 import fluence.effects.docker.DockerIO
 import fluence.effects.kvstore.RocksDBStore
 import fluence.node.MakeResource
+import fluence.node.config.storage.RemoteStorageConfig
+import fluence.node.workers.tendermint.BlockUploading
 import slogging.LazyLogging
 
 import scala.concurrent.duration._
@@ -45,10 +48,12 @@ import scala.language.higherKinds
 class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
   ports: WorkersPorts[F],
   workers: Ref[F, Map[Long, Worker[F]]],
+  // TODO: it's not OK to have blockUploading here, it should be moved somewhere else
+  blockUploading: BlockUploading[F],
   healthyWorkerTimeout: FiniteDuration = 1.second
 )(
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
-  F: Concurrent[F],
+  F: ConcurrentEffect[F],
   P: Parallel[F, G]
 ) extends WorkersPool[F] with LazyLogging {
 
@@ -74,9 +79,13 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
   private def registeredWorker(worker: Worker[F]): Resource[F, Unit] =
     Resource
       .make(
-        workers.update(_ + (worker.appId -> worker)) *> Sync[F]
-          .delay(logger.info(s"Added worker ($worker) to the pool"))
-      )(_ ⇒ workers.update(_ - worker.appId) *> Sync[F].delay(logger.info(s"Removing worker ($worker) from the pool")))
+        workers.update(_ + (worker.appId -> worker)) *>
+          Sync[F].delay(logger.info(s"Added worker ($worker) to the pool"))
+      )(
+        _ ⇒
+          workers.update(_ - worker.appId) *>
+            Sync[F].delay(logger.info(s"Removing worker ($worker) from the pool"))
+      )
       .void
 
   /**
@@ -122,6 +131,9 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
 
       // Once the worker is created, run background job to connect it to all the peers
       _ ← WorkerP2pConnectivity.make(worker, ps.app.cluster.workers)
+
+      // Start uploading tendermint blocks and send receipts to statemachine
+      _ <- blockUploading.start(worker)
 
       // Finally, register the worker in the pool
       _ ← registeredWorker(worker)
@@ -234,18 +246,25 @@ object DockerWorkersPool extends LazyLogging {
   /**
    * Build a new [[DockerWorkersPool]]. All workers will be stopped when the pool is released
    */
-  def make[F[_]: DockerIO: ContextShift: Timer, G[_]](minPort: Short, maxPort: Short, rootPath: Path)(
+  def make[F[_]: DockerIO: ContextShift: Timer, G[_]](
+    minPort: Short,
+    maxPort: Short,
+    rootPath: Path,
+    remoteStorageConfig: RemoteStorageConfig
+  )(
     implicit
     sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
-    F: Concurrent[F],
+    sttpBackendStreaming: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
+    F: ConcurrentEffect[F],
     P: Parallel[F, G]
   ): Resource[F, WorkersPool[F]] =
     for {
+      blockUploading <- Resource.pure[F, BlockUploading[F]](BlockUploading.make(remoteStorageConfig))
       ports ← makePorts(minPort, maxPort, rootPath)
       pool ← Resource.make {
         for {
           workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
-        } yield new DockerWorkersPool[F, G](ports, workers)
+        } yield new DockerWorkersPool[F, G](ports, workers, blockUploading)
       }(_.stopAll())
     } yield pool: WorkersPool[F]
 

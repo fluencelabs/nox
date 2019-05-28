@@ -17,18 +17,18 @@
 package fluence.node.workers.tendermint
 import java.nio.file.Path
 
+import cats.Monad
 import cats.data.EitherT
-import cats.{Applicative, Monad}
 import cats.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
-import fluence.node.config.DockerConfig
-import fluence.node.workers.WorkerParams
-import fluence.node.workers.status.{HttpCheckFailed, HttpCheckNotPerformed, HttpCheckStatus, HttpStatus, ServiceStatus}
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.response.TendermintStatus
+import fluence.node.config.DockerConfig
+import fluence.node.workers.WorkerParams
+import fluence.node.workers.status._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds

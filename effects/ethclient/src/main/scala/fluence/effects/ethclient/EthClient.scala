@@ -28,7 +28,7 @@ import cats.syntax.applicativeError._
 import cats.{~>, Applicative, Functor, Monad}
 import fluence.effects.Backoff
 import fluence.effects.ethclient.data.{Block, Log}
-import fluence.effects.ethclient.helpers.JavaFutureConversion._
+import fluence.effects.JavaFutureConversion._
 import fluence.effects.ethclient.syntax._
 import org.web3j.abi.EventEncoder
 import org.web3j.protocol.core._

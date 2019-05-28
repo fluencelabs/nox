@@ -15,16 +15,17 @@
  */
 
 package fluence.node.workers.control
+import cats.Monad
 import cats.data.EitherT
-import cats.effect.Sync
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import com.softwaremill.sttp.circe._
 import com.softwaremill.sttp.{SttpBackend, sttp, _}
+import fluence.effects.tendermint.block.history.{helpers, Receipt}
 import fluence.node.workers.status.{HttpCheckFailed, HttpCheckStatus, HttpStatus}
-import fluence.statemachine.control.{DropPeer, GetStatus, Stop}
+import fluence.statemachine.control.{BlockReceipt, DropPeer, GetStatus, Stop}
 import io.circe.Encoder
 import scodec.bits.ByteVector
-import cats.syntax.functor._
-import cats.syntax.flatMap._
 
 import scala.language.higherKinds
 
@@ -34,7 +35,7 @@ import scala.language.higherKinds
  * @param hostname Hostname to send requests
  * @param port Port to send requests
  */
-class HttpControlRpc[F[_]: Sync](hostname: String, port: Short)(
+class HttpControlRpc[F[_]: Monad](hostname: String, port: Short)(
   implicit s: SttpBackend[EitherT[F, Throwable, ?], Nothing]
 ) extends ControlRpc[F] {
 
@@ -52,14 +53,14 @@ class HttpControlRpc[F[_]: Sync](hostname: String, port: Short)(
         .send()
         .map(_.body)
       response <- EitherT
-        .fromEither(rawResponse)
-        .leftMap(msg => new Exception(s"Error sending $request: $msg"): Throwable)
+        .fromEither[F](rawResponse)
+        .leftMap(msg => new Exception(s"Error sending $request $path: $msg"): Throwable)
     } yield response
   }
 
-  override def dropPeer(key: ByteVector): F[Unit] =
+  override def dropPeer(key: ByteVector): EitherT[F, ControlRpcError, Unit] =
     // TODO handle errors properly
-    send(DropPeer(key), "dropPeer").void.value.flatMap(Sync[F].fromEither)
+    send(DropPeer(key), "dropPeer").void.leftMap(DropPeerError(key, _))
 
   override val status: F[HttpStatus[Unit]] =
     send(GetStatus(), "status").value.map {
@@ -67,7 +68,18 @@ class HttpControlRpc[F[_]: Sync](hostname: String, port: Short)(
       case Left(err) ⇒ HttpCheckFailed(err)
     }
 
-  override val stop: F[Unit] =
-    // TODO handle errors properly
-    send(Stop(), "stop").void.value.flatMap(Sync[F].fromEither)
+  override val stop: EitherT[F, ControlRpcError, Unit] =
+    send(Stop(), "stop").void.leftMap(WorkerStatusError)
+
+  override def sendBlockReceipt(receipt: Receipt): EitherT[F, ControlRpcError, Unit] =
+    send(BlockReceipt(receipt), "blockReceipt").void.leftMap(SendBlockReceiptError(receipt, _))
+
+  override def getVmHash: EitherT[F, ControlRpcError, ByteVector] = {
+    import helpers.ByteVectorJsonCodec._
+    import io.circe.parser._
+
+    send((), "vmHash")
+      .subflatMap(parse(_).flatMap(_.as[ByteVector]))
+      .leftMap(GetVmHashError)
+  }
 }
