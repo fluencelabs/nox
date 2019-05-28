@@ -19,10 +19,15 @@ package fluence.effects.tendermint.block.history
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import scodec.bits.ByteVector
-
-import scala.language.higherKinds
 import fluence.effects.tendermint.block.history.helpers.ByteVectorJsonCodec._
 
+import scala.language.higherKinds
+
+/**
+ * Decentralized storage receipt
+ *
+ * @param hash Hash of the stored data
+ */
 case class Receipt(hash: ByteVector) {
 
   def bytes(): ByteVector = {

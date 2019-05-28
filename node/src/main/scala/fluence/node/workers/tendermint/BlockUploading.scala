@@ -59,7 +59,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
       return Resource.pure(())
     }
 
-    val services = worker.services
+    import worker.services
 
     for {
       receiptStorage <- KVReceiptStorage.make[F](worker.appId, rootPath)

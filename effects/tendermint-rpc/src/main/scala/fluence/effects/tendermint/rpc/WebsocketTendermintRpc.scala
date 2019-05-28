@@ -19,7 +19,7 @@ package fluence.effects.tendermint.rpc
 import cats.Applicative
 import cats.data.EitherT
 import cats.effect._
-import cats.effect.concurrent.{Deferred, MVar, Ref}
+import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.syntax.effect._
 import cats.syntax.applicativeError._
 import cats.syntax.compose._
@@ -61,14 +61,13 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
     event: String
   ): fs2.Stream[F, Json] = {
     def subscribe(ws: WebSocket) = ws.sendTextFrame(request(event)).asAsync.void
-    def cancelFiber(fiber: (Fiber[F, _], _)) = fiber._1.cancel
 
     fs2.Stream
       .bracket(for {
         queue <- Queue.unbounded[F, Json]
         // Connect in background forever, using same queue
         fiber <- Concurrent[F].start(connect(queue, subscribe))
-      } yield (fiber, queue))(cancelFiber)
+      } yield (fiber, queue))(_._1.cancel)
       .flatMap { case (_, queue) => queue.dequeue }
   }
 

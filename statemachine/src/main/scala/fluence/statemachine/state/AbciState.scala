@@ -38,7 +38,7 @@ case class AbciState(
   appHash: ByteVector = ByteVector.empty,
   blockSessions: Set[String] = Set.empty,
   responses: Queue[(Tx.Head, Array[Byte])] = Queue.empty,
-  sessions: Sessions = Sessions(),
+  sessions: Sessions = Sessions()
 )
 
 object AbciState {
