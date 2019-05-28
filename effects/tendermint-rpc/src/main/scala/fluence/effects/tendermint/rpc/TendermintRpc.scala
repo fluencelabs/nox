@@ -42,7 +42,7 @@ case class TendermintRpc[F[_]: Sync](
     extends WebsocketTendermintRpc with slogging.LazyLogging {
 
   val RpcUri = uri"http://$host:$port"
-  logger.info(s"TendermintRpc started, uri: $RpcUri")
+  logger.info(s"TendermintRpc created, uri: $RpcUri")
 
   /** Get status as string */
   val status: EitherT[F, RpcError, String] =
