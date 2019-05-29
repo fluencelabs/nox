@@ -30,6 +30,7 @@ import fluence.effects.ipfs.IpfsClient
 import fluence.effects.receipt.storage.KVReceiptStorage
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
+import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.node.MakeResource
 import fluence.node.config.storage.RemoteStorageConfig
@@ -60,82 +61,96 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
       return Resource.pure(())
     }
 
-    import worker.services
-
     for {
       receiptStorage <- KVReceiptStorage.make[F](worker.appId, rootPath)
-      // TODO: what if we failed to store receipt for the last block? Retrieve & upload block manually.
-      // Push stored receipts to the state machine
-      _ <- Resource.liftF(pushReceiptChain(worker.services.control, receiptStorage))
       // Storage for a previous manifest
       lastManifestReceipt <- Resource.liftF(MVar.of[F, Option[Receipt]](None))
-      // TODO: we could miss 1st block if we're too late to subscribe. Retrieve it manually.
-      blocks = services.tendermint.subscribeNewBlock[F]
-      _ <- MakeResource.concurrentStream(
-        blocks.evalMap(processBlock(_, services, lastManifestReceipt, receiptStorage, worker.appId)),
-        name = "BlockUploadingStream"
+      _ <- pushReceipts(
+        worker.appId,
+        lastManifestReceipt,
+        receiptStorage,
+        worker.services.tendermint,
+        worker.services.control,
       )
     } yield ()
   }
 
-  /**
-   * Load stored receipts, and push them one by one to the ControlRpc
-   */
-  private def pushReceiptChain(control: ControlRpc[F], storage: KVReceiptStorage[F])(
-    implicit backoff: Backoff[EffectError]
-  ): F[Unit] =
-    storage
-      .retrieve()
-      .evalMap {
-        case (_, receipt) =>
-          //TODO: why syntax .backoff doesn't work?
-          backoff.retry(
-            control.sendBlockReceipt(receipt),
-            (e: ControlRpcError) => Monad[F].pure(logger.error(s"BlockUploading: failed to push receipt: $e"))
-          )
-      }
-      .compile
-      .drain
-
-  private def processBlock(
-    blockJson: Json,
-    services: WorkerServices[F],
+  private def pushReceipts(
+    appId: Long,
     lastManifestReceipt: MVar[F, Option[Receipt]],
-    receiptStorage: KVReceiptStorage[F],
-    appId: Long
+    storage: KVReceiptStorage[F],
+    rpc: TendermintRpc[F],
+    control: ControlRpc[F],
   )(implicit backoff: Backoff[EffectError]) = {
-    // Parse block from JSON
-    Block(blockJson) match {
-      case Left(e) =>
-        // TODO: load block through TendermintRPC (not WRPC) again
-        Applicative[F].pure(logger.error(s"BlockUploading: app $appId failed to parse Tendermint block: $e"))
+    // pipes
+    val parse = parseBlock(appId)
+    val upload = uploadBlock(appId, lastManifestReceipt, control, storage)
 
-      case Right(block) =>
-        val processF = for {
-          lastReceipt <- EitherT.liftF(lastManifestReceipt.take)
-          vmHash <- services.control.getVmHash
+    val storedReceipts = storage.retrieve()
+    // last block, will evaluate only after all storedReceipts were processed
+    val lastBlock = storedReceipts.last.flatMap {
+      case Some((height, _)) => fs2.Stream.eval(loadLastBlock(height + 1)).unNone
+      case None => fs2.Stream.empty
+    }
+    val lastBlockReceipt = lastBlock.through(parse).through(upload)
+
+    val blocks = fs2.Stream.eval(loadFirstBlock()) ++ rpc.subscribeNewBlock[F]
+    val parsed = blocks.through(parse)
+    val receipts = storedReceipts ++ lastBlockReceipt ++ parsed.through(upload)
+
+    MakeResource.concurrentStream(
+      receipts,
+      name = "BlockUploadingStream"
+    )
+  }
+
+  private def parseBlock(appId: Long): fs2.Pipe[F, Json, Block] = {
+    _.map(Block(_)).map {
+      case Left(e) =>
+        Applicative[F].pure(logger.error(s"BlockUploading: app $appId failed to parse Tendermint block: $e"))
+        None
+
+      case Right(b) => Some(b)
+    }.unNone
+  }
+
+  private def uploadBlock(
+    appId: Long,
+    lastManifestReceipt: MVar[F, Option[Receipt]],
+    control: ControlRpc[F],
+    receiptStorage: KVReceiptStorage[F],
+  )(implicit backoff: Backoff[EffectError]): fs2.Pipe[F, Block, Receipt] = {
+    _.evalMap { block =>
+      lastManifestReceipt.take.flatMap { lastReceipt =>
+        val uploadF: EitherT[F, EffectError, Receipt] = for {
+          vmHash <- control.getVmHash
           receipt <- history.upload(block, vmHash, lastReceipt)
           _ <- receiptStorage.put(block.header.height, receipt)
-          _ <- services.control.sendBlockReceipt(receipt)
-          // TODO: How to avoid specifying [F, NoStackTrace, Unit] in liftF?
-          _ <- EitherT.liftF[F, EffectError, Unit](lastManifestReceipt.put(Some(receipt)))
-        } yield ()
+        } yield receipt
 
         // TODO: add health check on this: if error keeps happening, miner should be alerted
         // Retry uploading until forever
-        Backoff.default
+        backoff
           .retry(
-            processF,
+            uploadF,
             (e: EffectError) =>
               Applicative[F].pure(
                 logger.error(s"BlockUploading: app $appId error uploading block ${block.header.height}: $e")
             )
           )
           .map(
-            _ => logger.info(s"BlockUploading: app $appId block ${block.header.height} uploaded")
+            receipt => {
+              logger.info(s"BlockUploading: app $appId block ${block.header.height} uploaded")
+              receipt
+            }
           )
+          .flatTap(receipt => lastManifestReceipt.put(Some(receipt)))
+      }
     }
   }
+
+  private def loadFirstBlock(): F[Json] = ???
+  private def loadLastBlock(lastSavedReceiptHeight: Long): F[Option[Json]] = ???
 }
 
 object BlockUploading {
