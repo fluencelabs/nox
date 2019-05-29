@@ -71,7 +71,9 @@ object RoutingTable {
    *
    * @param store Store to bootstrap from, and to save nodes to
    */
-  def bootstrapWithStore[F[_]: Concurrent: Clock, C: ContactAccess](store: KVStore[F, Key, Node[C]]): Extension[F, C] =
+  def bootstrapWithStore[F[_]: Concurrent: Clock: Log, C: ContactAccess](
+    store: KVStore[F, Key, Node[C]]
+  ): Extension[F, C] =
     new Extension[F, C](
       state ⇒ RoutingState.bootstrapWithStore(state, store),
       _.pure[F],

@@ -17,7 +17,6 @@
 package fluence.kad.state
 
 import cats.MonoidK
-import cats.syntax.monoid._
 import fluence.kad.protocol.{Key, Node}
 
 /**
@@ -25,49 +24,45 @@ import fluence.kad.protocol.{Key, Node}
  *
  * @param updated Map of updated nodes
  * @param removed Set of removed keys
- * @param trace Execution trace to keep track why a node was added or removed
  * @tparam C Contact
  */
-case class ModResult[C] private (updated: Map[Key, Node[C]], removed: Set[Key], trace: Trace) {
+case class ModResult[C] private (updated: Map[Key, Node[C]], removed: Set[Key]) {
 
   /**
    * Update a node
    */
-  def update(node: Node[C], log: ⇒ String): ModResult[C] =
+  def update(node: Node[C]): ModResult[C] =
     ModResult(
       updated + (node.key -> node),
-      removed - node.key,
-      trace(log)
+      removed - node.key
     )
 
   /**
    * Remove a node, if it wasn't updated
    *
    * @param key Key to remove
-   * @param log Log message
    */
-  def remove(key: Key, log: ⇒ String): ModResult[C] =
+  def remove(key: Key): ModResult[C] =
     ModResult(
       updated,
-      if (updated.contains(key)) removed else removed + key,
-      trace(log)
+      if (updated.contains(key)) removed else removed + key
     )
 
   /**
    * Do not remove a node
    */
-  def keep(key: Key, log: ⇒ String): ModResult[C] =
-    copy(removed = removed - key, trace = trace(log))
+  def keep(key: Key): ModResult[C] =
+    copy(removed = removed - key)
 }
 
 object ModResult {
-  def noop[C]: ModResult[C] = new ModResult[C](Map.empty, Set.empty, Trace.empty)
+  def noop[C]: ModResult[C] = new ModResult[C](Map.empty, Set.empty)
 
-  def updated[C](node: Node[C], log: ⇒ String): ModResult[C] =
-    noop[C].update(node, log)
+  def updated[C](node: Node[C]): ModResult[C] =
+    noop[C].update(node)
 
-  def removed[C](key: Key, log: ⇒ String): ModResult[C] =
-    noop[C].remove(key, log)
+  def removed[C](key: Key): ModResult[C] =
+    noop[C].remove(key)
 
   implicit object modResultMonoidK extends MonoidK[ModResult] {
     override def empty[A]: ModResult[A] = noop[A]
@@ -76,8 +71,7 @@ object ModResult {
       ModResult(
         x.updated ++ y.updated,
         // Do not remove a node if it was updated somehow
-        (x.removed -- y.updated.keys) ++ (y.removed -- x.updated.keys),
-        x.trace |+| y.trace
+        (x.removed -- y.updated.keys) ++ (y.removed -- x.updated.keys)
       )
   }
 }
