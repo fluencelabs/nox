@@ -6,11 +6,13 @@ import cats.data.EitherT
 import cats.effect.{ContextShift, LiftIO, Resource, Sync}
 import cats.syntax.flatMap._
 import fluence.codec
-import fluence.codec.PureCodec
+import fluence.codec.{CodecError, PureCodec}
 import fluence.effects.kvstore.{KVStore, RocksDBStore}
 import fluence.effects.tendermint.block.history.Receipt
+import cats.syntax.either._
 
 import scala.language.higherKinds
+import scala.util.Try
 
 /**
  * Implementation of ReceiptStorage with KVStore
@@ -53,12 +55,18 @@ object KVReceiptStorage {
   private implicit val receiptCodec: codec.PureCodec[Array[Byte], Receipt] =
     codec.PureCodec.liftB(Receipt.fromBytesCompact, _.bytesCompact())
 
-  implicit val stringCodec: PureCodec[String, Array[Byte]] =
-    PureCodec.liftB(_.getBytes(), bs ⇒ new String(bs))
+  implicit val stringCodec: PureCodec[String, Array[Byte]] = PureCodec.liftEitherB[String, Array[Byte]](
+    str ⇒ Try(str.getBytes()).toEither.leftMap(t ⇒ CodecError("Cannot serialize string to bytes", Some(t))),
+    bs ⇒ Try(new String(bs)).toEither.leftMap(t ⇒ CodecError("Cannot parse bytes to string", Some(t)))
+  )
+
+  implicit val longStringCodec: PureCodec[Long, String] = PureCodec.liftEitherB[Long, String](
+    _.toString.asRight,
+    str ⇒ Try(str.toLong).toEither.leftMap(t ⇒ CodecError("Cannot parse string to long", Some(t)))
+  )
 
   implicit val longCodec: PureCodec[Long, Array[Byte]] =
-    PureCodec.liftB[Long, String](_.toString, _.toLong) andThen
-      PureCodec[String, Array[Byte]]
+    PureCodec[Long, String] >>> PureCodec[String, Array[Byte]]
 
   def make[F[_]: Sync: LiftIO: ContextShift](appId: Long, storagePath: Path): Resource[F, KVReceiptStorage[F]] =
     for {
