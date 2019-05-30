@@ -422,4 +422,15 @@ lazy val `node` = project
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(`ethclient`, `swarm`, `ipfs`, `statemachine-control`, `kvstore`, `dockerio`, `tendermint-rpc`, `sttpEitherT`, `kademlia-http`)
+  .dependsOn(
+    `ethclient`, 
+    `swarm`, 
+    `ipfs`, 
+    `statemachine-control`, 
+    `kvstore`, 
+    `dockerio`, 
+    `tendermint-rpc`, 
+    `sttpEitherT`, 
+    `kademlia-http`,
+    `kademlia-testkit` % Test
+  )

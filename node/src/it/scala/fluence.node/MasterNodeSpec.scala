@@ -24,17 +24,22 @@ import cats.data.EitherT
 import cats.effect._
 import cats.syntax.apply._
 import cats.syntax.functor._
+import cats.syntax.flatMap._
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
 import fluence.EitherTSttpBackend
+import fluence.crypto.{DumbCrypto, KeyPair}
 import fluence.effects.docker.DockerIO
 import fluence.effects.ethclient.EthClient
+import fluence.kad.KademliaConf
+import fluence.kad.http.UriContact
+import fluence.log.LogFactory
 import fluence.node.config.{FluenceContractConfig, MasterConfig, NodeConfig}
 import fluence.node.eth.FluenceContract
 import fluence.node.eth.FluenceContractTestOps._
 import fluence.node.status.{MasterStatus, StatusAggregator}
 import fluence.node.workers.tendermint.ValidatorKey
-import org.scalatest.{Timer => _, _}
+import org.scalatest.{Timer ⇒ _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 
@@ -49,9 +54,12 @@ class MasterNodeSpec
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
+  implicit private val logFactory = LogFactory.forChains[IO]()
+  implicit private val log = logFactory.init("master-node-spec").unsafeRunSync()
+
   type Sttp = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
 
-  private val sttpResource: Resource[IO, SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]] =
+  private val sttpResource: Resource[IO, Sttp] =
     Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
   override protected def beforeAll(): Unit = {
@@ -69,36 +77,40 @@ class MasterNodeSpec
     } yield resp.unsafeBody.right.get).value.map(_.right.get)
   }
 
-  private val nodeResource = for {
-    sttpB ← sttpResource
-    dockerIO ← DockerIO.make[IO]()
+  private val nodeResource: Resource[IO, (Sttp, MasterNode[IO, UriContact])] = for {
+    implicit0(sttpB: Sttp) ← sttpResource
+    implicit0(dockerIO: DockerIO[IO]) ← DockerIO.make[IO]()
 
     masterConf = MasterConfig
       .load()
       .unsafeRunSync()
       .copy(rootPath = Files.createTempDirectory("masternodespec").toString)
 
-    node ← {
-      implicit val s = sttpB
-      implicit val d = dockerIO
+    kad ← KademliaNode.make[IO, IO.Par](
+      "127.0.0.1",
+      5789,
+      KademliaConf(1, 1, 4, 5.seconds),
+      DumbCrypto.signAlgo,
+      KeyPair.fromBytes(Array.emptyByteArray, Array.emptyByteArray)
+    )
 
-      val nodeConf = NodeConfig(
-        masterConf.endpoints,
-        ValidatorKey("", Base64.getEncoder.encodeToString(Array.fill(32)(5))),
-        "vAs+M0nQVqntR6jjPqTsHpJ4bsswA3ohx05yorqveyc=",
-        masterConf.worker,
-        masterConf.tendermint
-      )
+    pool ← TestWorkersPool
+      .make[IO]
 
-      TestWorkersPool
-        .make[IO]
-        .flatMap(
-          MasterNode
-            .make[IO, IO.Par](masterConf, nodeConf, _)
-        )
-    }
-    agg ← StatusAggregator.make(masterConf, node)
-    _ ← MasterHttp.make("127.0.0.1", 5678, agg, node.pool)
+    nodeConf = NodeConfig(
+      masterConf.endpoints,
+      ValidatorKey("", Base64.getEncoder.encodeToString(Array.fill(32)(5))),
+      "vAs+M0nQVqntR6jjPqTsHpJ4bsswA3ohx05yorqveyc=",
+      masterConf.worker,
+      masterConf.tendermint
+    )
+
+    node ←
+      MasterNode
+        .make[IO, IO.Par, UriContact](masterConf, nodeConf, pool, kad.kademlia)
+
+    agg ← StatusAggregator.make[IO](masterConf, node)
+    _ ← MasterHttp.make("127.0.0.1", 5678, agg, node.pool, kad.http)
   } yield (sttpB, node)
 
   def fiberResource[F[_]: Concurrent, A](f: F[A]): Resource[F, Unit] =
