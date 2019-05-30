@@ -125,7 +125,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
         val uploadF: EitherT[F, EffectError, Receipt] = for {
           vmHash <- control.getVmHash
           receipt <- history.upload(block, vmHash, lastReceipt)
-          _ <- receiptStorage.put(block.header.height, receipt)
+          _ <- receiptStorage.put(block.header.height, receipt).leftMap(identity[EffectError])
         } yield receipt
 
         // TODO: add health check on this: if error keeps happening, miner should be alerted
