@@ -14,38 +14,27 @@
  * limitations under the License.
  */
 
-package fluence.log
+package fluence.log.appender
 
+import cats.Monad
 import cats.data.Chain
-import cats.syntax.functor._
-import cats.syntax.flatMap._
-import cats.syntax.order._
-import cats.effect.{Clock, Sync}
+import cats.effect.Sync
 import cats.effect.concurrent.Ref
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.syntax.order._
+import fluence.log.Log
 
 import scala.language.higherKinds
 
 /**
  * Attaches log messages to the tail of a [[Chain]], so that they could be printed in a batch later
  *
- * @param ctx Logger Context
  * @param data Log Data
  * @tparam F Effect
  */
-class ChainLog[F[_]: Sync: Clock](override val ctx: Context, private val data: Ref[F, Chain[Log.Msg]]) extends Log[F] {
-
-  /**
-   * Provide a logger with modified context
-   *
-   * @param modContext Context modification
-   * @param fn         Function to use the new logger
-   * @tparam A Return type
-   * @return What the inner function returns
-   */
-  override def scope[A](modContext: Context ⇒ Context)(fn: Log[F] ⇒ F[A]): F[A] =
-    fn(new ChainLog(modContext(ctx), data))
-
-  override protected def appendMsg(msg: Log.Msg): F[Unit] =
+class ChainLogAppender[F[_]: Monad](private val data: Ref[F, Chain[Log.Msg]]) extends LogAppender[F] {
+  override private[log] def appendMsg(msg: Log.Msg): F[Unit] =
     data.update(_.append(msg))
 
   /**
@@ -54,7 +43,7 @@ class ChainLog[F[_]: Sync: Clock](override val ctx: Context, private val data: R
    * @param level Log level to filter the messages
    * @return \n-glued string of all the logs
    */
-  def mkStringF(level: Log.Level = ctx.loggingLevel): F[String] =
+  def mkStringF(level: Log.Level = Log.Trace)(): F[String] =
     data.get.map(_.iterator.filter(_.level >= level).mkString("\n"))
 
   /**
@@ -65,15 +54,14 @@ class ChainLog[F[_]: Sync: Clock](override val ctx: Context, private val data: R
    * @return Unit after onBatch is handled
    */
   def handleBatch(
-    level: Log.Level = ctx.loggingLevel,
-    onBatch: Iterator[Log.Msg] ⇒ F[Unit] = it ⇒ Sync[F].delay(println(it.mkString("\n")))
+    onBatch: Iterator[Log.Msg] ⇒ F[Unit],
+    level: Log.Level = Log.Trace
   ): F[Unit] =
     data.getAndSet(Chain.empty).map(_.iterator.filter(_.level >= level)) >>= onBatch
 }
 
-object ChainLog {
+object ChainLogAppender {
 
-  implicit def forCtx[F[_]: Sync: Clock](implicit ctx: Context): ChainLog[F] =
-    new ChainLog[F](ctx, Ref.unsafe(Chain.empty))
-
+  def apply[F[_]: Sync](): F[ChainLogAppender[F]] =
+    Ref.of(Chain.empty[Log.Msg]).map(new ChainLogAppender[F](_))
 }

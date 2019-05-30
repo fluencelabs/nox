@@ -357,9 +357,10 @@ lazy val `kademlia-http` = (project in file("kademlia/http"))
       sttp,
       circeGeneric,
       circeParser,
-      http4sDsl
+      http4sDsl,
+      scalaTest
     )
-  ).dependsOn(`kademlia`)
+  ).dependsOn(`kademlia`, `kademlia-testkit` % Test)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kademlia-testkit` = (project in file("kademlia/testkit"))
@@ -421,4 +422,4 @@ lazy val `node` = project
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(`ethclient`, `swarm`, `ipfs`, `statemachine-control`, `kvstore`, `dockerio`, `tendermint-rpc`, `sttpEitherT`)
+  .dependsOn(`ethclient`, `swarm`, `ipfs`, `statemachine-control`, `kvstore`, `dockerio`, `tendermint-rpc`, `sttpEitherT`, `kademlia-http`)

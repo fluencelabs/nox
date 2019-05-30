@@ -16,9 +16,9 @@
 
 package fluence.kad
 
-import cats.effect.{Effect, IO}
+import cats.Monad
+import cats.data.EitherT
 import cats.syntax.apply._
-import cats.effect.syntax.effect._
 import fluence.kad.routing.LocalRouting
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import fluence.log.Log
@@ -33,34 +33,40 @@ import scala.language.higherKinds
  * @tparam F Effect, to be converted to IO
  * @tparam C Type for contact data
  */
-private[kad] class LocalRpc[F[_]: Effect: Log, C](loopbackContact: F[Node[C]], localRouting: LocalRouting[F, C])
-    extends KademliaRpc[C] {
+private[kad] class LocalRpc[F[_]: Monad, C](loopbackContact: F[Node[C]], localRouting: LocalRouting[F, C])
+    extends KademliaRpc[F, C] {
   import localRouting.nodeKey
 
   /**
    * Ping the contact, get its actual Node status, or fail.
    */
-  override def ping(): IO[Node[C]] = {
-    (Log[F].trace(s"HandleRPC($nodeKey): ping") *> loopbackContact).toIO
-  }
+  override def ping()(implicit log: Log[F]): EitherT[F, KadRpcError, Node[C]] =
+    EitherT.right(
+      Log[F].trace(s"HandleRPC($nodeKey): ping")
+        *> loopbackContact
+    )
 
   /**
    * Perform a local lookup for a key, return K closest known nodes.
    *
    * @param key Key to lookup
    */
-  override def lookup(key: Key, numberOfNodes: Int): IO[Seq[Node[C]]] =
-    (Log[F].trace(s"HandleRPC($nodeKey): lookup($key, $numberOfNodes)")
-      *> localRouting.lookup(key, numberOfNodes)).toIO
+  override def lookup(key: Key, numberOfNodes: Int)(implicit log: Log[F]): EitherT[F, KadRpcError, Seq[Node[C]]] =
+    EitherT.right(
+      Log[F].trace(s"HandleRPC($nodeKey): lookup($key, $numberOfNodes)")
+        *> localRouting.lookup(key, numberOfNodes)
+    )
 
   /**
    * Perform a local lookup for a key, return K closest known nodes, going away from the second key.
    *
    * @param key Key to lookup
    */
-  override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int): IO[Seq[Node[C]]] =
-    (Log[F].trace(s"HandleRPC($nodeKey): lookupAway($key, $moveAwayFrom, $numberOfNodes)") *>
-
-      localRouting
-        .lookupAway(key, moveAwayFrom, numberOfNodes)).toIO
+  override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int)(
+    implicit log: Log[F]
+  ): EitherT[F, KadRpcError, Seq[Node[C]]] =
+    EitherT.right(
+      Log[F].trace(s"HandleRPC($nodeKey): lookupAway($key, $moveAwayFrom, $numberOfNodes)")
+        *> localRouting.lookupAway(key, moveAwayFrom, numberOfNodes)
+    )
 }

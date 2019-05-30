@@ -17,8 +17,8 @@
 package fluence.kad
 
 import cats.data.EitherT
-import cats.effect.{Clock, Effect}
-import cats.Parallel
+import cats.effect.Clock
+import cats.{Monad, Parallel}
 import fluence.kad.routing.{IterativeRouting, RoutingTable}
 import fluence.kad.protocol.{ContactAccess, KademliaRpc, Key, Node}
 import fluence.log.Log
@@ -38,7 +38,7 @@ trait Kademlia[F[_], C] {
    * @param contact Description on how to connect to remote node
    * @return
    */
-  protected def rpc(contact: C): KademliaRpc[C]
+  protected def rpc(contact: C): KademliaRpc[F, C]
 
   /**
    * How to promote this node to others
@@ -56,7 +56,7 @@ trait Kademlia[F[_], C] {
   /**
    * @return KademliaRPC instance to handle incoming RPC requests
    */
-  def handleRPC(implicit log: Log[F]): KademliaRpc[C]
+  def handleRPC: KademliaRpc[F, C]
 
   /**
    * Finds a node by its key, either in a local RoutingTable or doing up to ''maxRequests'' lookup calls
@@ -106,11 +106,11 @@ trait Kademlia[F[_], C] {
 
 object Kademlia {
 
-  def apply[F[_]: Effect: Clock, P[_], C: ContactAccess](
+  def apply[F[_]: Monad: Clock, P[_], C](
     routing: RoutingTable[F, C],
     ownContactGetter: F[Node[C]],
     conf: KademliaConf
-  )(implicit P: Parallel[F, P]): Kademlia[F, C] =
+  )(implicit P: Parallel[F, P], ca: ContactAccess[F, C]): Kademlia[F, C] =
     new KademliaImpl(routing.nodeKey, conf.parallelism, ownContactGetter, routing)
 
 }

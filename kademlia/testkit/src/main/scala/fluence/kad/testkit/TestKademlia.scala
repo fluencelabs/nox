@@ -21,13 +21,12 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.applicative._
 import cats.Parallel
+import cats.data.EitherT
 import cats.instances.stream._
-import cats.effect.syntax.effect._
 import fluence.crypto.KeyPair
 import fluence.crypto.signature.Signer
-import fluence.kad.KademliaConf
+import fluence.kad.{KadRpcError, Kademlia, KademliaConf}
 import fluence.kad.protocol.{ContactAccess, KademliaRpc, Key, Node}
-import fluence.kad.Kademlia
 import fluence.kad.routing.RoutingTable
 import fluence.log.Log
 
@@ -36,7 +35,7 @@ import scala.language.higherKinds
 
 object TestKademlia {
 
-  def apply[F[_]: Timer: ConcurrentEffect: LiftIO: Log, P[_], C](
+  def apply[F[_]: Timer: ConcurrentEffect: LiftIO, P[_], C](
     nodeId: Key,
     alpha: Int,
     k: Int,
@@ -49,37 +48,37 @@ object TestKademlia {
   ): F[Kademlia[F, C]] = {
     def ownContactValue = Node[C](nodeId, toContact(nodeId))
 
-    implicit val ca = new ContactAccess[C](
+    implicit val ca = new ContactAccess[F, C](
       pingExpiresIn,
-      _ ⇒ IO.pure(true),
+      _ ⇒ true.pure[F],
       contact ⇒
-        new KademliaRpc[C] {
+        new KademliaRpc[F, C] {
           private val kad = getKademlia(contact)
+
+          private def updateOwn(implicit log: Log[F]): EitherT[F, KadRpcError, Boolean] =
+            EitherT.liftF(kad.update(ownContactValue))
 
           /**
            * Ping the contact, get its actual Node status, or fail
            */
-          override def ping() =
-            kad.update(ownContactValue).flatMap(_ ⇒ kad.handleRPC.ping().to[F]).toIO
+          override def ping()(implicit log: Log[F]) =
+            updateOwn >> kad.handleRPC.ping()
 
           /**
            * Perform a local lookup for a key, return K closest known nodes
            *
            * @param key Key to lookup
            */
-          override def lookup(key: Key, numberOfNodes: Int) =
-            kad.update(ownContactValue).flatMap(_ ⇒ kad.handleRPC.lookup(key, numberOfNodes).to[F]).toIO
+          override def lookup(key: Key, numberOfNodes: Int)(implicit log: Log[F]) =
+            updateOwn >> kad.handleRPC.lookup(key, numberOfNodes)
 
           /**
            * Perform a local lookup for a key, return K closest known nodes, going away from the second key
            *
            * @param key Key to lookup
            */
-          override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) =
-            kad
-              .update(ownContactValue)
-              .flatMap(_ ⇒ kad.handleRPC.lookupAway(key, moveAwayFrom, numberOfNodes).to[F])
-              .toIO
+          override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int)(implicit log: Log[F]) =
+            updateOwn >> kad.handleRPC.lookupAway(key, moveAwayFrom, numberOfNodes)
       }
     )
 

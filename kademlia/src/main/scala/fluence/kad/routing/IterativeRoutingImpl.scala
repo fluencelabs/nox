@@ -40,10 +40,10 @@ import scala.language.higherKinds
  * @tparam F Effect
  * @tparam C Contact
  */
-private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C: ContactAccess](
+private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C](
   localRouting: LocalRouting[F, C],
   routingState: RoutingState[F, C]
-)(implicit P: Parallel[F, P])
+)(implicit P: Parallel[F, P], ca: ContactAccess[F, C])
     extends IterativeRouting[F, C] {
 
   override def nodeKey: Key = localRouting.nodeKey
@@ -111,11 +111,10 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
                 // Fetch remote lookups into F; filter previously seen nodes
                 val remote0X = Parallel
                   .parTraverse(handle) { c ⇒
-                    ContactAccess[C]
+                    ContactAccess[F, C]
                       .rpc(c.contact)
                       .lookup(key, neighbors)
-                      .attempt
-                      .to[F]
+                      .value
                       .flatMap {
                         case Left(err) ⇒
                           Log[F]
@@ -234,7 +233,7 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
               // Make lookup requests for node's own neighborhood
               Parallel
                 .parTraverse(toLookup) { n ⇒
-                  ContactAccess[C].rpc(n.contact).lookupAway(n.key, key, lookupSize).attempt.to[F]
+                  ContactAccess[F, C].rpc(n.contact).lookupAway(n.key, key, lookupSize).value
                 }
                 .flatMap { lookupResult ⇒
                   val ns = lookupResult.collect {
@@ -365,11 +364,10 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
             peer: C ⇒
               // For each peer
               // Try to ping the peer, and collect its neighbours; if no pings are performed, join is failed
-              Log[F].trace("Join: Going to ping Peer to join: " + peer) >> ContactAccess[C]
+              Log[F].trace("Join: Going to ping Peer to join: " + peer) >> ContactAccess[F, C]
                 .rpc(peer)
                 .ping()
-                .attempt
-                .to[F]
+                .value
                 .flatMap[Option[(Node[C], List[Node[C]])]] {
 
                   case Right(peerNode) if peerNode.key === localRouting.nodeKey ⇒
@@ -378,11 +376,10 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
 
                   case Right(peerNode)
                       if peerNode.key =!= localRouting.nodeKey ⇒ // Ping successful, lookup node's neighbors
-                    Log[F].info("Join: PeerPing successful to " + peerNode.key) >> ContactAccess[C]
+                    Log[F].info("Join: PeerPing successful to " + peerNode.key) >> ContactAccess[F, C]
                       .rpc(peer)
                       .lookup(localRouting.nodeKey, numberOfNodes)
-                      .attempt
-                      .to[F]
+                      .value
                       .flatMap {
                         case Right(neighbors) if neighbors.isEmpty ⇒
                           Log[F].info("Join: Neighbors list is empty for peer " + peerNode.key) as
@@ -418,7 +415,7 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C:
                 .toList
 
             Parallel
-              .parTraverse(ns)(p ⇒ ContactAccess[C].rpc(p.contact).ping().attempt.to[F])
+              .parTraverse(ns)(p ⇒ ContactAccess[F, C].rpc(p.contact).ping().value)
               .map(_.collect {
                 case Right(n) ⇒ n
               })

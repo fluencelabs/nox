@@ -16,7 +16,7 @@
 
 package fluence.kad.state
 
-import cats.effect.{Clock, LiftIO}
+import cats.effect.Clock
 import cats.{Applicative, Monad, Parallel, Traverse}
 import cats.instances.list._
 import cats.syntax.applicative._
@@ -38,7 +38,7 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
   bucketsState: BucketsState[F, C]
 )(
   implicit P: Parallel[F, P]
-) extends RoutingState[F, C] with slogging.LazyLogging {
+) extends RoutingState[F, C] {
 
   override val siblings: F[Siblings[C]] =
     siblingsState.read
@@ -69,7 +69,7 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
    */
   override def update(
     node: Node[C]
-  )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C], log: Log[F]): F[ModResult[C]] =
+  )(implicit clock: Clock[F], ca: ContactAccess[F, C], log: Log[F]): F[ModResult[C]] =
     updateWithKeepExisting(node, keepExisting = true)
 
   /**
@@ -78,27 +78,26 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
   private def updateWithKeepExisting(
     node: Node[C],
     keepExisting: Boolean
-  )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C], log: Log[F]): F[ModResult[C]] =
+  )(implicit clock: Clock[F], ca: ContactAccess[F, C], log: Log[F]): F[ModResult[C]] =
     if (nodeKey === node.key)
       ModResult.noop[C].pure[F]
     else
-      ca.check(node).attempt.to[F].flatMap {
-        case Right(true) ⇒
-          logger.trace("Update node: {}", node.key)
+      ca.check(node).flatMap {
+        case true ⇒
+          log.trace(s"Update node: ${node.key}") *>
+            P.sequential(
+                P.apply.map2(
+                  // Update bucket, performing ping if necessary
+                  P parallel bucketsState.update(node.key distanceTo nodeKey, node, ca.rpc, ca.pingExpiresIn),
+                  // Update siblings
+                  P parallel siblingsState.add(node)
+                )(_ <+> _)
+              )
+              .flatMap(if (keepExisting) keepExistingNodes else _.pure[F])
 
-          P.sequential(
-              P.apply.map2(
-                // Update bucket, performing ping if necessary
-                P parallel bucketsState.update(node.key distanceTo nodeKey, node, ca.rpc, ca.pingExpiresIn),
-                // Update siblings
-                P parallel siblingsState.add(node)
-              )(_ <+> _)
-            )
-            .flatMap(if (keepExisting) keepExistingNodes else _.pure[F])
-
-        case Left(err) ⇒
-          logger.trace(s"Node check failed with an exception for $node", err)
-          ModResult.noop[C].pure[F]
+        case false ⇒
+          log.trace(s"Node check failed $node") as
+            ModResult.noop[C]
 
         case _ ⇒
           ModResult.noop[C].pure[F]
@@ -112,7 +111,7 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
    */
   override def updateList(
     nodes: List[Node[C]]
-  )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C], log: Log[F]): F[ModResult[C]] = {
+  )(implicit clock: Clock[F], ca: ContactAccess[F, C], log: Log[F]): F[ModResult[C]] = {
     // From iterable of groups, make list of list of items from different groups
     @tailrec
     def rearrange(groups: Iterable[List[Node[C]]], agg: List[List[Node[C]]] = Nil): List[List[Node[C]]] =
