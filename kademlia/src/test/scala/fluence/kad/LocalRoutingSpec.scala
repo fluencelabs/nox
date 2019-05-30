@@ -20,6 +20,7 @@ import cats.effect.{ContextShift, IO, Timer}
 import fluence.kad.routing.LocalRouting
 import fluence.kad.protocol.{ContactAccess, KademliaRpc, Key, Node}
 import fluence.kad.state.RoutingState
+import fluence.log.{ChainLog, Context, Log}
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
 
@@ -41,6 +42,9 @@ class LocalRoutingSpec extends WordSpec with Matchers {
 
   implicit val shift: ContextShift[IO] = IO.contextShift(global)
   implicit val timer: Timer[IO] = IO.timer(global)
+
+  implicit val ctx = Context.init("local-routing-spec")
+  implicit val log: Log[IO] = ChainLog.forCtx[IO]
 
   "kademlia routing table (non-iterative)" should {
 

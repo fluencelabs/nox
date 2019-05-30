@@ -16,11 +16,14 @@
 
 package fluence.kad.state
 
-import cats.{Monad, Show}
+import cats.{Applicative, Monad, Show}
 import cats.data.StateT
 import cats.syntax.eq._
 import cats.syntax.functor._
+import cats.syntax.apply._
+import cats.syntax.applicative._
 import fluence.kad.protocol.{Key, Node}
+import fluence.log.Log
 
 import scala.collection.SortedSet
 import scala.language.higherKinds
@@ -62,19 +65,20 @@ object Siblings {
    * @tparam C Contact
    * @return State modification
    */
-  def add[F[_]: Monad, C](node: Node[C]): StateT[F, Siblings[C], ModResult[C]] =
+  def add[F[_]: Monad: Log, C](node: Node[C]): StateT[F, Siblings[C], ModResult[C]] =
     StateT.get[F, Siblings[C]].flatMap { st ⇒
       val (keep, drop) = (st.nodes + node).splitAt(st.maxSize)
 
       StateT
         .set(st.copy(keep))
-        .as(
-          if (drop.toList == List(node)) ModResult.noop[C]
-          else
-            drop
-              .map(_.key)
-              .foldLeft(ModResult.updated(node, s"Sibling updated ${node.key}")) {
-                case (mr, d) ⇒ mr.remove(d, s"Pushed $d away by siblings")
+        .flatMapF(
+          _ ⇒
+            if (drop.toList == List(node)) ModResult.noop[C].pure[F]
+            else
+              Log[F].trace(s"Sibling updated ${node.key}") *>
+                Monad[F].tailRecM(drop.map(_.key).toList -> ModResult.updated(node)) {
+                  case (Nil, mr) ⇒ Applicative[F].pure(Right(mr))
+                  case (d :: tail, mr) ⇒ Log[F].trace(s"Pushed $d away by siblings") as Left(tail -> mr.remove(d))
               }
         )
     }
@@ -87,10 +91,14 @@ object Siblings {
    * @tparam C Contact
    * @return State modification
    */
-  def remove[F[_]: Monad, C](key: Key): StateT[F, Siblings[C], ModResult[C]] =
+  def remove[F[_]: Monad: Log, C](key: Key): StateT[F, Siblings[C], ModResult[C]] =
     StateT.get[F, Siblings[C]].flatMap {
       case st if st.contains(key) ⇒
-        StateT.set(st.copy(st.nodes.filterNot(_.key === key))) as ModResult.removed(key, s"Remove $key from siblings")
+        StateT
+          .set(
+            st.copy(st.nodes.filterNot(_.key === key))
+          )
+          .flatMapF(_ ⇒ Log[F].trace(s"Remove $key from siblings") as ModResult.removed(key))
       case _ ⇒
         StateT.pure(ModResult.noop)
     }

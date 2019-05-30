@@ -22,6 +22,7 @@ import cats.syntax.functor._
 import cats.Parallel
 import fluence.effects.kvstore.KVStore
 import fluence.kad.protocol.{ContactAccess, Key, Node}
+import fluence.log.Log
 
 import scala.language.higherKinds
 
@@ -62,7 +63,7 @@ trait RoutingState[F[_], C] {
    * @param key Key
    * @return Optional node, if it was removed
    */
-  def remove(key: Key): F[ModResult[C]]
+  def remove(key: Key)(implicit log: Log[F]): F[ModResult[C]]
 
   /**
    * Locates the bucket responsible for given contact, and updates it using given ping function
@@ -72,7 +73,7 @@ trait RoutingState[F[_], C] {
    */
   def update(
     node: Node[C]
-  )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]]
+  )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C], log: Log[F]): F[ModResult[C]]
 
   /**
    * Update RoutingTable with a list of fresh nodes
@@ -82,7 +83,7 @@ trait RoutingState[F[_], C] {
    */
   def updateList(
     nodes: List[Node[C]]
-  )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]]
+  )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C], log: Log[F]): F[ModResult[C]]
 }
 
 object RoutingState {
@@ -114,7 +115,7 @@ object RoutingState {
    * @tparam C Contact
    * @return Bootstrapped RoutingState that stores state changes in the store
    */
-  def bootstrapWithStore[F[_]: Concurrent: Clock, C: ContactAccess](
+  def bootstrapWithStore[F[_]: Concurrent: Clock: Log, C: ContactAccess](
     routingMutate: RoutingState[F, C],
     store: KVStore[F, Key, Node[C]]
   ): F[RoutingState[F, C]] =

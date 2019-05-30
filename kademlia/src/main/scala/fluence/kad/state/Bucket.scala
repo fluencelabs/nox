@@ -22,8 +22,10 @@ import cats.data.StateT
 import cats.effect.{Clock, LiftIO}
 import cats.syntax.eq._
 import cats.syntax.functor._
+import cats.syntax.apply._
 import cats.{Monad, Show}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
+import fluence.log.Log
 
 import scala.collection.immutable.Queue
 import scala.concurrent.duration.Duration
@@ -105,7 +107,7 @@ object Bucket {
    * @tparam F StateT effect
    * @return updated Bucket, and Left if this node wasn't saved, Right with optional dropped node if it was
    */
-  def update[F[_]: LiftIO: Monad: Clock, C](
+  def update[F[_]: LiftIO: Monad: Clock: Log, C](
     node: Node[C],
     rpc: C ⇒ KademliaRpc[C],
     pingExpiresIn: Duration
@@ -118,6 +120,9 @@ object Bucket {
     def makeRecord(n: Node[C]): StateT[F, Bucket[C], Record[C]] =
       time.map(Record(n, _))
 
+    // Log for StateT[F, Bucket[C], ?]
+    val log = Log.stateT[F, Bucket[C]]
+
     StateT.get[F, Bucket[C]].flatMap[ModResult[C], Bucket[C]] { b ⇒
       b.find(node.key) match {
         case Some(c) ⇒
@@ -125,7 +130,8 @@ object Bucket {
           for {
             r ← makeRecord(node)
             _ ← mapRecords(_.filterNot(_.node.key === c.key).enqueue(r))
-          } yield ModResult.updated(node, s"Bucket updated ${node.key}: was present, moved on top")
+            _ ← log.trace(s"Bucket updated ${node.key}: was present, moved on top")
+          } yield ModResult.updated(node)
 
         case None if b.isFull ⇒ // Bucket is full, so we should check if we can drop the last node
 
@@ -148,14 +154,16 @@ object Bucket {
               // If it responds, enqueue it and drop the new node, otherwise, drop it and enqueue new one
               StateT.liftF(rpc(last.node.contact).ping().attempt.to[F]).flatMap {
                 case Left(_) ⇒
-                  enqueue(node) as ModResult
-                    .updated(node, s"Bucket updated ${node.key}")
-                    .remove(last.node.key, s"Bucket removed ${last.node.key}: ping failed")
+                  for {
+                    _ ← enqueue(node)
+                    _ ← log.trace(s"Bucket updated ${node.key}")
+                    _ ← log.trace(s"Bucket removed ${last.node.key}: ping failed")
+                  } yield ModResult.updated(node).remove(last.node.key)
+
                 case Right(updatedLastContact) ⇒
-                  enqueue(updatedLastContact) as ModResult.updated(
-                    updatedLastContact,
-                    s"Node updated last contact: ${updatedLastContact.key}; offered ${node.key} dropped"
-                  )
+                  enqueue(updatedLastContact) *>
+                    log.trace(s"Node updated last contact: ${updatedLastContact.key}; offered ${node.key} dropped") as
+                    ModResult.updated(updatedLastContact)
               }
           }
 
@@ -164,7 +172,8 @@ object Bucket {
           for {
             r ← makeRecord(node)
             _ ← mapRecords(_.enqueue(r))
-          } yield ModResult.updated(node, s"Bucket added ${node.key}")
+            _ ← log.trace(s"Bucket added ${node.key}")
+          } yield ModResult.updated(node)
       }
     }
   }
@@ -177,7 +186,7 @@ object Bucket {
    * @param key Key to remove
    * @return Modification result
    */
-  def remove[F[_]: Monad, C](key: Key): StateT[F, Bucket[C], ModResult[C]] =
+  def remove[F[_]: Monad: Log, C](key: Key): StateT[F, Bucket[C], ModResult[C]] =
     StateT.get[F, Bucket[C]].map(_.find(key)).flatMap {
       case None ⇒
         StateT.pure(ModResult.noop)
@@ -189,7 +198,9 @@ object Bucket {
               bucket.copy(
                 records = bucket.records.filterNot(_.node.key === key)
             )
-          ) as ModResult.removed(key, s"Bucket removed $key")
+          ) *>
+          Log.stateT[F, Bucket[C]].trace(s"Bucket removed $key") as
+          ModResult.removed(key)
     }
 
 }

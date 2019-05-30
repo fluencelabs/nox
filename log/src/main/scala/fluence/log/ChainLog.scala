@@ -18,6 +18,7 @@ package fluence.log
 
 import cats.data.Chain
 import cats.syntax.functor._
+import cats.syntax.flatMap._
 import cats.syntax.order._
 import cats.effect.{Clock, Sync}
 import cats.effect.concurrent.Ref
@@ -55,6 +56,19 @@ class ChainLog[F[_]: Sync: Clock](override val ctx: Context, private val data: R
    */
   def mkStringF(level: Log.Level = ctx.loggingLevel): F[String] =
     data.get.map(_.iterator.filter(_.level >= level).mkString("\n"))
+
+  /**
+   * Reset the chain, and call a function on previously collected batch
+   *
+   * @param level Level to filter the messages with
+   * @param onBatch Callback for the batch; it will be dropped after that
+   * @return Unit after onBatch is handled
+   */
+  def handleBatch(
+    level: Log.Level = ctx.loggingLevel,
+    onBatch: Iterator[Log.Msg] ⇒ F[Unit] = it ⇒ Sync[F].delay(println(it.mkString("\n")))
+  ): F[Unit] =
+    data.getAndSet(Chain.empty).map(_.iterator.filter(_.level >= level)) >>= onBatch
 }
 
 object ChainLog {
