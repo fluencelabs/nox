@@ -22,6 +22,7 @@ import cats.effect.{Resource, Sync}
 import cats.syntax.apply._
 import cats.syntax.either._
 import com.softwaremill.sttp._
+import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc.response.{Response, TendermintStatus}
 import io.circe.Json
 import io.circe.parser.decode
@@ -56,14 +57,14 @@ case class TendermintRpc[F[_]: Sync](
         _.map(_.result).leftMap(RpcBodyMalformed)
       )
 
-  def block(height: Long, id: String = "dontcare"): EitherT[F, RpcError, String] =
+  def block(height: Long, id: String = "dontcare"): EitherT[F, RpcError, Block] =
     post(
       RpcRequest(
         method = "block",
         params = Json.fromString(height.toString) :: Nil,
         id = id
       )
-    )
+    ).subflatMap(Block(_).leftMap(RpcBlockParsingFailed))
 
   def commit(height: Long, id: String = "dontcare"): EitherT[F, RpcError, String] =
     post(

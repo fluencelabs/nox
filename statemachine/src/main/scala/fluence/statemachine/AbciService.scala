@@ -18,6 +18,7 @@ package fluence.statemachine
 
 import cats.effect.Sync
 import cats.effect.concurrent.Ref
+import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Applicative, Monad}
@@ -74,15 +75,23 @@ class AbciService[F[_]: Monad](
           Applicative[F].pure(Right(st))
       }
 
-      receipt <- controlSignals.receipt
-
       // Get the VM hash
       vmHash ← vm
         .vmStateHash()
         .leftMap(err ⇒ logger.error(s"VM is unable to compute state hash: $err"))
         .getOrElse(ByteVector.empty) // TODO do not ignore vm error
 
-      appHash = hash(vmHash ++ receipt.get.bytes()) // TODO: concatenate with controlSignals.receipt
+      _ = println("got vmhash")
+
+      receipt <- controlSignals.receipt
+      _ = println("got receipt")
+
+      appHash <- receipt.fold(vmHash.pure[F])(
+        r =>
+          hasher(vmHash ++ r.bytes())
+            .leftMap(err => logger.error(s"Error on hashing vmHash + receipt: $err"))
+            .getOrElse(vmHash) // TODO: that's awful; don't ignore errors
+      )
 
       // Push hash to AbciState, increment block number
       newState ← AbciState.setAppHash(appHash).runS(st)
@@ -90,8 +99,9 @@ class AbciService[F[_]: Monad](
       // Store updated state in the Ref (the changes were transient for readers before this step)
       _ ← state.set(newState)
 
-      // TODO: Store vmHash, so master node could retrieve it
+      // Store vmHash, so master node could retrieve it
       _ <- controlSignals.putVmHash(vmHash)
+      _ = println("sent vmhash")
     } yield appHash
 
   /**

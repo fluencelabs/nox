@@ -16,7 +16,8 @@
 
 package fluence.effects.tendermint.rpc
 
-import fluence.effects.EffectError
+import fluence.effects.{EffectError, WithCause}
+import fluence.effects.tendermint.block.errors.TendermintBlockError
 
 /** TendermintRpc errors */
 sealed trait RpcError extends EffectError
@@ -31,3 +32,7 @@ case class RpcRequestErrored(statusCode: Int, error: String)
 /** Response was received, but it's not possible to parse the response to the desired type */
 case class RpcBodyMalformed(error: Throwable)
     extends Exception("Tendermint RPC body cannot be parsed", error) with RpcError
+
+case class RpcBlockParsingFailed(cause: TendermintBlockError) extends RpcError with WithCause[TendermintBlockError] {
+  override def getMessage: String = s"TendermintRPC failed to parse block: $cause"
+}

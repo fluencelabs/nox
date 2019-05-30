@@ -54,13 +54,13 @@ class AbciHandler[F[_]: Effect](
       .value
       .toIO
       .map(
-        res =>
+        blockE =>
           for {
-            str <- res.leftTap(e => logger.warn(s"RPC Block[$height] failed: $e ${e.getCause}"))
-            block <- TendermintBlock(str)
-              .leftTap(e => logBad(s"Failed to decode tendermint block from JSON: $e ${e.getCause}"))
-            _ = logger.info(s"RPC Block[$height] => height = ${block.block.header.height}")
-            _ <- block.validateHashes().leftTap(e => logBad(s"Block at height $height is invalid: $e ${e.getCause}"))
+            block <- blockE.leftTap(e => logger.warn(s"RPC Block[$height] failed: $e ${e.getCause}"))
+            _ = logger.info(s"RPC Block[$height] => height = ${block.header.height}")
+            _ <- TendermintBlock(block)
+              .validateHashes()
+              .leftTap(e => logBad(s"Block at height $height is invalid: $e ${e.getCause}"))
           } yield log(s"Block at height $height is valid")
       )
       .unsafeRunAsyncAndForget()
@@ -111,7 +111,8 @@ class AbciHandler[F[_]: Effect](
 
   override def requestCommit(
     requestCommit: RequestCommit
-  ): ResponseCommit = ResponseCommit
+  ): ResponseCommit =
+    ResponseCommit
       .newBuilder()
       .setData(
         ByteString.copyFrom(service.commit.toIO.unsafeRunSync().toArray)

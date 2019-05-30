@@ -30,12 +30,12 @@ import fluence.effects.ipfs.IpfsClient
 import fluence.effects.receipt.storage.KVReceiptStorage
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
-import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.{RpcError, TendermintRpc}
 import fluence.effects.{Backoff, EffectError}
 import fluence.node.MakeResource
 import fluence.node.config.storage.RemoteStorageConfig
-import fluence.node.workers.control.{ControlRpc, ControlRpcError}
-import fluence.node.workers.{Worker, WorkerServices}
+import fluence.node.workers.Worker
+import fluence.node.workers.control.ControlRpc
 import io.circe.Json
 
 import scala.language.higherKinds
@@ -57,10 +57,6 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
    * @param worker Blocks are coming from this worker's Tendermint; receipts are sent to this worker
    */
   def start(worker: Worker[F])(implicit backoff: Backoff[EffectError] = Backoff.default): Resource[F, Unit] = {
-    if (!BlockUploading.Enabled) { // TODO: remove that once BlockUploading is enabled
-      return Resource.pure(())
-    }
-
     for {
       receiptStorage <- KVReceiptStorage.make[F](worker.appId, rootPath)
       // Storage for a previous manifest
@@ -86,22 +82,27 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
     val parse = parseBlock(appId)
     val upload = uploadBlock(appId, lastManifestReceipt, control, storage)
 
+    /*
+     * There are 2 problems solved by `lastOrFirstBlock`:
+     *
+     * 1. If stored receipts are empty, then we're still on a 1st block
+     *    In that case, `subscribeNewBlock` might miss 1st block (it's a race), so we're load it via `loadFirstBlock`,
+     *    and send its receipt as a first one.
+     *
+     * 2. Otherwise, we already had processed some blocks
+     *    But it is possible that we had failed to upload and/or store last block. In that case,
+     *    we need to load it via `loadLastBlock(lastReceipt.height + 1)`, and send its receipt after all stored receipts
+     */
+
     val storedReceipts = storage.retrieve()
-    // last block, will evaluate only after all storedReceipts were processed
-    val lastBlock = storedReceipts.last.flatMap {
-      case Some((height, _)) => fs2.Stream.eval(loadLastBlock(height + 1)).unNone
-      case None => fs2.Stream.empty
+    val lastOrFirstBlock = storedReceipts.last.flatMap {
+      case None => fs2.Stream.eval(loadFirstBlock(rpc))
+      case Some((height, _)) => fs2.Stream.eval(loadLastBlock(height + 1, rpc)).unNone
     }
-    val lastBlockReceipt = lastBlock.through(parse).through(upload)
+    val subscriptionBlocks = rpc.subscribeNewBlock[F].through(parse)
+    val receipts = storedReceipts ++ (lastOrFirstBlock ++ subscriptionBlocks).through(upload)
 
-    val blocks = fs2.Stream.eval(loadFirstBlock()) ++ rpc.subscribeNewBlock[F]
-    val parsed = blocks.through(parse)
-    val receipts = storedReceipts ++ lastBlockReceipt ++ parsed.through(upload)
-
-    MakeResource.concurrentStream(
-      receipts,
-      name = "BlockUploadingStream"
-    )
+    MakeResource.concurrentStream(receipts, name = "BlockUploadingStream")
   }
 
   private def parseBlock(appId: Long): fs2.Pipe[F, Json, Block] = {
@@ -124,8 +125,11 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
       lastManifestReceipt.take.flatMap { lastReceipt =>
         val uploadF: EitherT[F, EffectError, Receipt] = for {
           vmHash <- control.getVmHash
+          _ = println(s"got vmhash ${block.header.height}")
           receipt <- history.upload(block, vmHash, lastReceipt)
+          _ = println("sent receipt ${block.header.height}")
           _ <- receiptStorage.put(block.header.height, receipt).leftMap(identity[EffectError])
+          _ = println("saved receipt ${block.header.height}")
         } yield receipt
 
         // TODO: add health check on this: if error keeps happening, miner should be alerted
@@ -149,8 +153,14 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
     }
   }
 
-  private def loadFirstBlock(): F[Json] = ???
-  private def loadLastBlock(lastSavedReceiptHeight: Long): F[Option[Json]] = ???
+  private def loadFirstBlock(rpc: TendermintRpc[F])(implicit backoff: Backoff[EffectError]): F[Block] = {
+    backoff
+      .retry(rpc.block(1), (e: RpcError) => Applicative[F].pure(logger.error(s"BlockUploading load first block: $e")))
+  }
+
+  private def loadLastBlock(lastSavedReceiptHeight: Long, rpc: TendermintRpc[F]): F[Option[Block]] =
+    // TODO: retry on all errors except 'this block doesn't exist'
+    rpc.block(lastSavedReceiptHeight).toOption.value
 }
 
 object BlockUploading {

@@ -63,8 +63,12 @@ object WorkersHttp extends LazyLogging {
               InternalServerError(err.error)
 
             case Left(RpcBodyMalformed(err)) ⇒
-              logger.debug(s"RPC body malformed: $err", err)
+              logger.warn(s"RPC body malformed: $err", err)
               BadRequest(err.getMessage)
+
+            case Left(err: RpcBlockParsingFailed) =>
+              logger.warn(s"RPC $err", err)
+              InternalServerError(err.getMessage)
           }
       }
 
