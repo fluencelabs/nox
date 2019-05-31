@@ -386,6 +386,7 @@ lazy val `kademlia-testkit` = (project in file("kademlia/testkit"))
 lazy val `log` = (project in file("log"))
   .settings(
     commons,
+    kindProjector,
     libraryDependencies ++= Seq(
       cats,
       catsEffect,

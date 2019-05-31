@@ -20,8 +20,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.concurrent.TimeUnit
 
-import cats.{Applicative, Eval, Order}
-import cats.effect.{Clock, Sync}
+import cats.data.{EitherT, StateT}
+import cats.{~>, Applicative, Eval, Monad, Order}
+import cats.effect.Clock
 import cats.syntax.order._
 import cats.syntax.flatMap._
 
@@ -32,7 +33,8 @@ import scala.language.higherKinds
  *
  * @tparam F Effect
  */
-abstract class Log[F[_]: Sync: Clock] {
+abstract class Log[F[_]: Monad: Clock] {
+  self ⇒
 
   private val unit = Applicative[F].unit
 
@@ -93,6 +95,35 @@ abstract class Log[F[_]: Sync: Clock] {
     millis >>= (m ⇒ appendMsg(Log.Msg(m, level, ctx, msg, cause)))
 
   protected def appendMsg(msg: Log.Msg): F[Unit]
+
+  /**
+   * Apply a natural transformation, obtaining a Log for a new type
+   *
+   * @param nat Natural transformation
+   * @tparam G Target type
+   * @return Log[G] that delegates actual logging work for this instance
+   */
+  def mapK[G[_]: Monad](nat: F ~> G): Log[G] = {
+    implicit val clockG: Clock[G] = new Clock[G] {
+      override def realTime(unit: TimeUnit): G[Long] = nat(Clock[F].realTime(unit))
+
+      override def monotonic(unit: TimeUnit): G[Long] = nat(Clock[F].monotonic(unit))
+    }
+    def logForCtx(context: Context): Log[G] =
+      new Log[G] {
+        override val ctx: Context = context
+
+        // Scoping builds anew Log for a modified context
+        override def scope[A](modContext: Context ⇒ Context)(fn: Log[G] ⇒ G[A]): G[A] =
+          fn(logForCtx(modContext(context)))
+
+        // Delegate appendMsg implementation to this instance
+        override protected def appendMsg(msg: Log.Msg): G[Unit] =
+          nat(self.appendMsg(msg))
+      }
+
+    logForCtx(self.ctx)
+  }
 }
 
 object Log {
@@ -101,6 +132,18 @@ object Log {
    * Summoner
    */
   def apply[F[_]](implicit log: Log[F]): Log[F] = log
+
+  /**
+   * Summon log for stateT
+   */
+  def stateT[F[_]: Monad, S](implicit log: Log[F]): Log[StateT[F, S, ?]] =
+    log.mapK(StateT.liftK[F, S])
+
+  /**
+   * Summon log for eitherT
+   */
+  def eitherT[F[_]: Monad, E](implicit log: Log[F]): Log[EitherT[F, E, ?]] =
+    log.mapK(EitherT.liftK[F, E])
 
   private val dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
 

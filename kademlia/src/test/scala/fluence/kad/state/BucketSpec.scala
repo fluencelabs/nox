@@ -19,6 +19,7 @@ package fluence.kad.state
 import cats.data.StateT
 import cats.effect.{ContextShift, IO, Timer}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
+import fluence.log.{ChainLog, Context, Log}
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.duration._
@@ -33,6 +34,9 @@ class BucketSpec extends WordSpec with Matchers {
 
     type C = Int
     type F[A] = StateT[IO, Bucket[C], A]
+
+    implicit val ctx = Context.init("bucket-spec")
+    implicit val log: Log[IO] = ChainLog.forCtx[IO]
 
     def update(node: Node[Int], rpc: C ⇒ KademliaRpc[C]): F[Boolean] =
       Bucket.update[IO, C](node, rpc, Duration.Undefined).map(_.updated.contains(node.key))
