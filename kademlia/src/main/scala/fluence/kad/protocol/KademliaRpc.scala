@@ -16,7 +16,9 @@
 
 package fluence.kad.protocol
 
-import cats.effect.IO
+import cats.data.EitherT
+import fluence.kad.KadRpcError
+import fluence.log.Log
 
 import scala.language.higherKinds
 
@@ -25,24 +27,28 @@ import scala.language.higherKinds
  *
  * @tparam C Type for contact data
  */
-trait KademliaRpc[C] {
+trait KademliaRpc[F[_], C] {
 
   /**
    * Ping the contact, get its actual Node status, or fail.
    */
-  def ping(): IO[Node[C]]
+  def ping()(implicit log: Log[F]): EitherT[F, KadRpcError, Node[C]]
 
   /**
    * Perform a local lookup for a key, return K closest known nodes.
    *
    * @param key Key to lookup
    */
-  def lookup(key: Key, neighbors: Int): IO[Seq[Node[C]]]
+  def lookup(key: Key, neighbors: Int)(
+    implicit log: Log[F]
+  ): EitherT[F, KadRpcError, Seq[Node[C]]]
 
   /**
    * Perform a local lookup for a key, return K closest known nodes, going away from the second key.
    *
    * @param key Key to lookup
    */
-  def lookupAway(key: Key, moveAwayFrom: Key, neighbors: Int): IO[Seq[Node[C]]]
+  def lookupAway(key: Key, moveAwayFrom: Key, neighbors: Int)(
+    implicit log: Log[F]
+  ): EitherT[F, KadRpcError, Seq[Node[C]]]
 }

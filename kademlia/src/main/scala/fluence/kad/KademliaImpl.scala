@@ -16,13 +16,13 @@
 
 package fluence.kad
 
-import cats.Parallel
+import cats.{Monad, Parallel}
 import cats.data.EitherT
 import cats.syntax.applicative._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.eq._
-import cats.effect.{Clock, Effect}
+import cats.effect.Clock
 import fluence.kad.protocol.{ContactAccess, KademliaRpc, Key, Node}
 import fluence.kad.routing.RoutingTable
 import fluence.log.Log
@@ -37,24 +37,24 @@ import scala.language.higherKinds
  * @tparam F Effect
  * @tparam C Contact info
  */
-class KademliaImpl[F[_]: Effect: Clock, P[_], C: ContactAccess](
+class KademliaImpl[F[_]: Monad: Clock, P[_], C](
   override val nodeKey: Key,
   parallelism: Int,
   ownContactGetter: F[Node[C]],
   routing: RoutingTable[F, C]
-)(implicit P: Parallel[F, P])
+)(implicit P: Parallel[F, P], ca: ContactAccess[F, C])
     extends Kademlia[F, C] {
   self ⇒
 
-  override protected def rpc(contact: C): KademliaRpc[C] =
-    ContactAccess[C].rpc(contact)
+  override protected def rpc(contact: C): KademliaRpc[F, C] =
+    ContactAccess[F, C].rpc(contact)
 
   override val ownContact: F[Node[C]] = ownContactGetter
 
   override def update(node: Node[C])(implicit log: Log[F]): F[Boolean] =
     routing.state.update(node).map(_.updated.contains(node.key))
 
-  override def handleRPC(implicit log: Log[F]): KademliaRpc[C] =
+  override def handleRPC: KademliaRpc[F, C] =
     new LocalRpc(ownContactGetter, routing.local)
 
   override def findNode(key: Key, maxRequests: Int)(implicit log: Log[F]): F[Option[Node[C]]] =

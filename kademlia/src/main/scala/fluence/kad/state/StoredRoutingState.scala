@@ -17,7 +17,7 @@
 package fluence.kad.state
 
 import cats.Traverse
-import cats.effect.{Clock, Concurrent, LiftIO}
+import cats.effect.{Clock, Concurrent}
 import cats.instances.list._
 import cats.syntax.apply._
 import cats.syntax.flatMap._
@@ -83,12 +83,12 @@ private[state] class StoredRoutingState[F[_]: Concurrent, C](
 
   override def update(
     node: Node[C]
-  )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C], log: Log[F]): F[ModResult[C]] =
+  )(implicit clock: Clock[F], ca: ContactAccess[F, C], log: Log[F]): F[ModResult[C]] =
     routingState.update(node).flatTap(modResult)
 
   override def updateList(
     nodes: List[Node[C]]
-  )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C], log: Log[F]): F[ModResult[C]] =
+  )(implicit clock: Clock[F], ca: ContactAccess[F, C], log: Log[F]): F[ModResult[C]] =
     routingState.updateList(nodes).flatTap(modResult)
 
 }

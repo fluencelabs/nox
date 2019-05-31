@@ -25,6 +25,7 @@ import cats.{~>, Applicative, Eval, Monad, Order}
 import cats.effect.Clock
 import cats.syntax.order._
 import cats.syntax.flatMap._
+import fluence.log.appender.LogAppender
 
 import scala.language.higherKinds
 
@@ -33,14 +34,17 @@ import scala.language.higherKinds
  *
  * @tparam F Effect
  */
-abstract class Log[F[_]: Monad: Clock] {
+abstract class Log[F[_]: Monad: Clock](val ctx: Context) {
   self ⇒
+
+  type Appender <: LogAppender[F]
+
+  val appender: Appender
 
   private val unit = Applicative[F].unit
 
-  val ctx: Context
-
   import ctx.loggingLevel
+  import appender.appendMsg
 
   private val millis: F[Long] = Clock[F].realTime(TimeUnit.MILLISECONDS)
 
@@ -52,7 +56,11 @@ abstract class Log[F[_]: Monad: Clock] {
    * @tparam A Return type
    * @return What the inner function returns
    */
-  def scope[A](modContext: Context ⇒ Context)(fn: Log[F] ⇒ F[A]): F[A]
+  def scope[A](modContext: Context ⇒ Context)(fn: Log[F] ⇒ F[A]): F[A] =
+    fn(new Log(modContext(ctx)) {
+      override type Appender = self.Appender
+      override val appender: Appender = self.appender
+    })
 
   /**
    * Provide a logger with modified context
@@ -94,8 +102,6 @@ abstract class Log[F[_]: Monad: Clock] {
   private def append(level: Log.Level, msg: Eval[String], cause: Option[Throwable]): F[Unit] =
     millis >>= (m ⇒ appendMsg(Log.Msg(m, level, ctx, msg, cause)))
 
-  protected def appendMsg(msg: Log.Msg): F[Unit]
-
   /**
    * Apply a natural transformation, obtaining a Log for a new type
    *
@@ -109,24 +115,17 @@ abstract class Log[F[_]: Monad: Clock] {
 
       override def monotonic(unit: TimeUnit): G[Long] = nat(Clock[F].monotonic(unit))
     }
-    def logForCtx(context: Context): Log[G] =
-      new Log[G] {
-        override val ctx: Context = context
 
-        // Scoping builds anew Log for a modified context
-        override def scope[A](modContext: Context ⇒ Context)(fn: Log[G] ⇒ G[A]): G[A] =
-          fn(logForCtx(modContext(context)))
-
-        // Delegate appendMsg implementation to this instance
-        override protected def appendMsg(msg: Log.Msg): G[Unit] =
-          nat(self.appendMsg(msg))
-      }
-
-    logForCtx(self.ctx)
+    new Log[G](ctx) {
+      logG ⇒
+      override type Appender = LogAppender[G]
+      override val appender: logG.Appender = self.appender.mapK(nat)
+    }
   }
 }
 
 object Log {
+  type Aux[F[_], A <: LogAppender[F]] = Log[F] { type Appender = A }
 
   /**
    * Summoner

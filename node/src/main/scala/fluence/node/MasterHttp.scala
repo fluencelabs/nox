@@ -19,6 +19,10 @@ package fluence.node
 import cats.Parallel
 import fluence.node.status.{StatusAggregator, StatusHttp}
 import cats.effect._
+import fluence.codec.PureCodec
+import fluence.kad.http.KademliaHttp
+import fluence.kad.protocol.Node
+import fluence.log.LogFactory
 import fluence.node.workers.{WorkersHttp, WorkersPool}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{HttpApp, HttpRoutes}
@@ -47,17 +51,19 @@ object MasterHttp {
    * @param agg Status Aggregator
    * @param pool Workers Pool
    */
-  def make[F[_]: Timer: ConcurrentEffect, G[_]](
+  def make[F[_]: Timer: ConcurrentEffect: LogFactory, G[_], C](
     host: String,
     port: Short,
     agg: StatusAggregator[F],
-    pool: WorkersPool[F]
-  )(implicit P: Parallel[F, G]): Resource[F, Server[F]] = {
+    pool: WorkersPool[F],
+    kad: KademliaHttp[F, C]
+  )(implicit P: Parallel[F, G], writeNode: PureCodec.Func[Node[C], String]): Resource[F, Server[F]] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
     val routes: HttpRoutes[F] = Router[F](
       "/status" -> StatusHttp.routes[F, G](agg),
-      "/apps" -> WorkersHttp.routes[F](pool)
+      "/apps" -> WorkersHttp.routes[F](pool),
+      "/kad" -> kad.routes()
     )
 
     val app: HttpApp[F] = CORS[F, F](routes.orNotFound, corsConfig)

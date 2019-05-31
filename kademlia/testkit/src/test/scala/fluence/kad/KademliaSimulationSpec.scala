@@ -25,7 +25,7 @@ import cats.effect.{ContextShift, IO, Timer}
 import cats.effect.concurrent.{MVar, Ref}
 import fluence.kad.protocol.{Key, Node}
 import fluence.kad.testkit.TestKademlia
-import fluence.log.{ChainLog, Context, Log, PrintlnLog}
+import fluence.log.{Context, Log, LogFactory}
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
 
@@ -54,6 +54,9 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
 
   private def now = Instant.now()
 
+  private val logFactory = LogFactory.forChains[IO]()
+  private val printlnLogFactory = LogFactory.forPrintln[IO]()
+
   "kademlia simulation" should {
     // Kademlia's K
     val K = 16
@@ -65,8 +68,7 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
     val seed = 1000004
 
     "launch with 200 nodes" in {
-      implicit val ctx = Context.init("spec", "launch")
-      implicit val log = ChainLog.forCtx[IO]
+      implicit val log = logFactory.init("spec", "launch").unsafeRunSync()
 
       val random = new Random(seed)
 
@@ -78,8 +80,7 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
       random.shuffle(nodes.toVector).take(P).foreach {
         case (i, ki) ⇒
           random.shuffle(nodes.values).take(P).filterNot(_.nodeKey === ki.nodeKey).foreach { kj ⇒
-            implicit val ctx = Context.init(kj.nodeKey.asBase58)
-            val log = ChainLog.forCtx[IO]
+            val log = logFactory.init(kj.nodeKey.asBase58).unsafeRunSync()
 
             val neighbors = kj.lookupIterative(i, K)(log).unsafeRunSync()
 
@@ -95,15 +96,12 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
     val random = new Random(seed)
 
     val nodes = {
-      implicit val ctx = Context.init("spec", "simulationIO")
-      import ChainLog.forCtx
+      implicit val log = logFactory.init("spec", "simulationIO").unsafeRunSync()
       TestKademlia.simulationIO[Long](K, N, keyToLong, random.nextLong(), joinPeers = 2)
     }
 
     "callIterative: make no more requests then limit in callIterative" in {
-      implicit val ctx = Context.init("spec", "callIt-limit", Log.Debug)
-
-      implicit val log = new PrintlnLog[IO](ctx)
+      implicit val log = printlnLogFactory.init("spec", "callIt-limit", Log.Debug).unsafeRunSync()
 
       val kad = nodes.drop(N / 4).head._2
 
@@ -125,8 +123,7 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
     }
 
     "callIterative: make no less requests then num+parallelism in idempotent callIterative" in {
-      implicit val ctx = Context.init("spec", "callIt-idempotence")
-      import ChainLog.forCtx
+      implicit val log = logFactory.init("spec", "callIt-idempotence").unsafeRunSync()
 
       val kad = nodes.drop(N / 3).head._2
 
@@ -155,8 +152,7 @@ class KademliaSimulationSpec extends WordSpec with Matchers {
     }
 
     "callIterative: make num calls in non-idempotent callIterative" in {
-      implicit val ctx = Context.init("spec", "callIt-calls")
-      import ChainLog.forCtx
+      implicit val log = logFactory.init("spec", "callIt-calls").unsafeRunSync()
 
       val kad = nodes.drop(N / 3).head._2
 

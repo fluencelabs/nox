@@ -14,18 +14,16 @@
  * limitations under the License.
  */
 
-package fluence.kad
+package fluence.log.appender
 
-import scala.util.control.NoStackTrace
+import cats.{~>, Monad}
+import fluence.log.Log
+import scala.language.higherKinds
 
-sealed trait KadError extends NoStackTrace
+trait LogAppender[F[_]] {
+  self ⇒
+  private[log] def appendMsg(msg: Log.Msg): F[Unit]
 
-sealed trait JoinError extends KadError
-
-case object CantJoinAnyNode extends JoinError
-
-sealed trait KadRpcError extends KadError
-
-case class KadRemoteError(msg: String, cause: Throwable) extends KadRpcError {
-  initCause(cause)
+  def mapK[G[_]: Monad](nat: F ~> G): LogAppender[G] =
+    (msg: Log.Msg) ⇒ nat(self.appendMsg(msg))
 }

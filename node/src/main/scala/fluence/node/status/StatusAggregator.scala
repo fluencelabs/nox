@@ -36,7 +36,7 @@ import scala.language.higherKinds
  */
 case class StatusAggregator[F[_]: Monad: Clock](
   config: MasterConfig,
-  masterNode: MasterNode[F],
+  masterNode: MasterNode[F, _],
   startTimeMillis: Long
 ) {
 
@@ -73,7 +73,7 @@ object StatusAggregator extends LazyLogging {
    */
   def make[F[_]: Timer: ContextShift: Monad](
     masterConfig: MasterConfig,
-    masterNode: MasterNode[F]
+    masterNode: MasterNode[F, _]
   ): Resource[F, StatusAggregator[F]] =
     Resource.liftF(
       for {

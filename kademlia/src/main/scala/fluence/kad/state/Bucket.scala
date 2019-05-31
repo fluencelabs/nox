@@ -19,7 +19,7 @@ package fluence.kad.state
 import java.util.concurrent.TimeUnit
 
 import cats.data.StateT
-import cats.effect.{Clock, LiftIO}
+import cats.effect.Clock
 import cats.syntax.eq._
 import cats.syntax.functor._
 import cats.syntax.apply._
@@ -107,9 +107,9 @@ object Bucket {
    * @tparam F StateT effect
    * @return updated Bucket, and Left if this node wasn't saved, Right with optional dropped node if it was
    */
-  def update[F[_]: LiftIO: Monad: Clock: Log, C](
+  def update[F[_]: Monad: Clock: Log, C](
     node: Node[C],
-    rpc: C ⇒ KademliaRpc[C],
+    rpc: C ⇒ KademliaRpc[F, C],
     pingExpiresIn: Duration
   ): StateT[F, Bucket[C], ModResult[C]] = {
     def mapRecords(f: Queue[Record[C]] ⇒ Queue[Record[C]]): StateT[F, Bucket[C], Unit] =
@@ -152,7 +152,7 @@ object Bucket {
             case true ⇒
               // Ping last contact.
               // If it responds, enqueue it and drop the new node, otherwise, drop it and enqueue new one
-              StateT.liftF(rpc(last.node.contact).ping().attempt.to[F]).flatMap {
+              StateT.liftF(rpc(last.node.contact).ping().value).flatMap {
                 case Left(_) ⇒
                   for {
                     _ ← enqueue(node)

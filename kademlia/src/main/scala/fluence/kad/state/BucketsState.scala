@@ -71,8 +71,8 @@ sealed trait BucketsState[F[_], C] {
    * @param pingExpiresIn Duration for the ping to be considered relevant
    * @return True if node is updated in a bucket, false otherwise
    */
-  def update(bucketId: Int, node: Node[C], rpc: C ⇒ KademliaRpc[C], pingExpiresIn: Duration)(
-    implicit liftIO: LiftIO[F],
+  def update(bucketId: Int, node: Node[C], rpc: C ⇒ KademliaRpc[F, C], pingExpiresIn: Duration)(
+    implicit
     F: Monad[F],
     clock: Clock[F],
     log: Log[F]

@@ -4,7 +4,7 @@ import java.security.MessageDigest
 
 import org.scalatest.{Matchers, WordSpec}
 
-class MerkleTreeTest extends WordSpec with Matchers {
+class MerkleTreeSpec extends WordSpec with Matchers {
   "check size of tree" in {
     // minimum: root and 2 leafs
     val (_, tree) = TestUtils.initBytesTestMerkle(10, 10)
@@ -125,7 +125,8 @@ class MerkleTreeTest extends WordSpec with Matchers {
 
   "huge tree" in {
     val startTime = System.currentTimeMillis()
-    val size = 1 * 1024 * 1024 * 1024
+    // 256M
+    val size = 1 * 1024 * 1024 * 256
     val digester = MessageDigest.getInstance("SHA-256")
     val (storage, tree) =
       TestUtils.initBytesTestMerkle(

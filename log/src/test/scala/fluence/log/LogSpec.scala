@@ -18,9 +18,7 @@ package fluence.log
 
 import cats.Order
 import cats.effect.IO
-import cats.syntax.functor._
 import cats.syntax.flatMap._
-import cats.syntax.order._
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.ExecutionContext
@@ -28,10 +26,11 @@ import scala.concurrent.ExecutionContext
 class LogSpec extends WordSpec with Matchers {
   implicit val timer = IO.timer(ExecutionContext.global)
 
+  val logFactory = LogFactory.forChains[IO]()
+
   "log" should {
     "resolve context" in {
-      implicit val ctx = Context.init("init", "ctx")
-      implicit val l = ChainLog.forCtx[IO]
+      implicit val l = logFactory.init("log-spec", "resolve-ctx").unsafeRunSync()
 
       val r = Log[IO].info("outer info") >> Log[IO].scope("inner" -> "call") { implicit l ⇒
         Log[IO].warn("inner info???", new RuntimeException("some exception"))
@@ -40,7 +39,7 @@ class LogSpec extends WordSpec with Matchers {
 
       r.unsafeRunSync()
 
-      println(l.mkStringF(Log.Trace).unsafeRunSync())
+      println(l.appender.mkStringF(Log.Trace).unsafeRunSync())
 
     }
 
@@ -50,11 +49,10 @@ class LogSpec extends WordSpec with Matchers {
       o.max(Log.Trace, Log.Debug) shouldBe Log.Debug
       o.max(Log.Trace, Log.Info) shouldBe Log.Info
 
-      implicit val ctx = Context.init("init", "ctx", Log.Info)
-      implicit val l = ChainLog.forCtx[IO]
+      implicit val l = logFactory.init("init", "ctx", Log.Info).unsafeRunSync()
 
       l.trace("Trace message").unsafeRunSync()
-      l.mkStringF().unsafeRunSync() shouldBe ""
+      l.appender.mkStringF().unsafeRunSync() shouldBe ""
     }
   }
 
