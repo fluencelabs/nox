@@ -289,6 +289,7 @@ object DockerWorkersPool extends LazyLogging {
       PureCodec[Array[Byte], String] andThen PureCodec
         .liftB[String, Short](_.toShort, _.toString)
 
+    // TODO: handle exception
     val path = rootPath.resolve(P2pPortsDbFolder)
 
     logger.debug(s"Ports db: $path")

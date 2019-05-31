@@ -332,6 +332,18 @@ lazy val `tendermint-block-history` = (project in file("effects/tendermint-block
   .dependsOn(`effects`, `tendermint-block`, `ipfs`)
   .enablePlugins(AutomateHeaderPlugin)
 
+lazy val `receipt-storage` = (project in file("effects/receipt-storage"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      fs2,
+      fs2io,
+      cats,
+      catsEffect,
+      scalaTest,
+    )
+  ).dependsOn(`log`, `kvstore`, `tendermint-block-history`)
+
 lazy val `kademlia` = (project in file("kademlia"))
   .settings(
     commons,
