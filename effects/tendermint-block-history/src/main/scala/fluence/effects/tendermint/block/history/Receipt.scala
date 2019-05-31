@@ -34,9 +34,13 @@ case class Receipt(hash: ByteVector) {
     import io.circe.syntax._
     ByteVector((this: Receipt).asJson.noSpaces.getBytes())
   }
+
+  def bytesCompact(): Array[Byte] = hash.toArray
 }
 
 object Receipt {
+  def fromBytesCompact(bytes: Array[Byte]) = Receipt(ByteVector(bytes))
+
   implicit val dec: Decoder[Receipt] = deriveDecoder[Receipt]
   implicit val enc: Encoder[Receipt] = deriveEncoder[Receipt]
 }
