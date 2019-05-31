@@ -189,7 +189,7 @@ object MasterNode extends LazyLogging {
    * @param sttpBackend HTTP client implementation
    * @return Prepared [[MasterNode]], then see [[MasterNode.run]]
    */
-  def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer, G[_], C](
+  def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer, C](
     masterConfig: MasterConfig,
     nodeConfig: NodeConfig,
     pool: WorkersPool[F],

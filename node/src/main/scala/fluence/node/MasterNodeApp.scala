@@ -83,7 +83,7 @@ object MasterNodeApp extends IOApp with LazyLogging {
             Ecdsa.signAlgo, // TODO use tendermint algo
             Ecdsa.ecdsa_secp256k1_sha256.generateKeyPair.unsafe(None) // TODO use tendermint validator key
           )
-          node <- MasterNode.make[IO, IO.Par, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
+          node <- MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
         } yield (kad.http, node, log)).use {
           case (kadHttp, node, log) ⇒
             logger.debug("eth config {}", masterConf.contract)

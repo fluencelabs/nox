@@ -28,13 +28,10 @@ class UriContactSpec extends WordSpec with Matchers {
 
       val uriContact = UriContact.buildContact("localhost", 2550, algo.signer(kp)).unsafe(())
 
-      //println(uriContact)
-
       UriContact.readAndCheckContact(algo.checker).unsafe(uriContact.toString) should be(uriContact)
     }
 
     "fail on wrong input" in {
-
       val algo = Ecdsa.signAlgo
       val kp = algo.generateKeyPair.unsafe(None)
 

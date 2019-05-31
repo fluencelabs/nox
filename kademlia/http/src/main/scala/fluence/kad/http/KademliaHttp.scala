@@ -68,7 +68,7 @@ class KademliaHttp[F[_]: Sync, C](
     HttpRoutes
       .of[F] {
         case req @ GET -> Root / "lookup" :? KeyQ(key) & LookupAwayQ(awayOpt) & NeighborsQ(n) ⇒
-          // Just a magic number to omit ?n query param
+          // Fallback to default 8 for number of neighbors to lookup
           val neighbors = n.getOrElse(8)
 
           LogFactory[F].init("kad-http", "lookup") >>= { implicit log: Log[F] ⇒
@@ -93,15 +93,23 @@ class KademliaHttp[F[_]: Sync, C](
       }
   }
 
+  /**
+   * For an incoming request, fetches the Fluence auth token from a request header, parses it and updates RoutingTable.
+   *
+   * @param req Incoming request
+   * @param log Log corresponding to current request
+   * @return The same request
+   */
   def updateOnReq[G[_]](
     req: Request[G]
   )(implicit log: Log[F]): F[Request[G]] =
     req.headers.get(Authorization).fold(req.pure[F]) {
       case Authorization(Credentials.Token(FluenceAuthScheme, tkn)) ⇒
         readNode[F](tkn).value.flatMap {
-          case Left(_) ⇒
-            // TODO mention error in response header?
-            req.pure[F]
+          case Left(err) ⇒
+            // TODO mention error in response header as well?
+            log.debug(s"Auth token check failed: $err") as
+              req
           case Right(node) ⇒
             // TODO check request origin?
             kademlia.update(node).as(req)

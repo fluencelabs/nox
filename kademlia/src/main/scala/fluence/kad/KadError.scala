@@ -26,4 +26,6 @@ case object CantJoinAnyNode extends JoinError
 
 sealed trait KadRpcError extends KadError
 
-case class KadRemoteError(msg: String, cause: Throwable) extends KadRpcError
+case class KadRemoteError(msg: String, cause: Throwable) extends KadRpcError {
+  initCause(cause)
+}

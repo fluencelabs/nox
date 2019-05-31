@@ -107,7 +107,7 @@ class MasterNodeSpec
 
     node ←
       MasterNode
-        .make[IO, IO.Par, UriContact](masterConf, nodeConf, pool, kad.kademlia)
+        .make[IO, UriContact](masterConf, nodeConf, pool, kad.kademlia)
 
     agg ← StatusAggregator.make[IO](masterConf, node)
     _ ← MasterHttp.make("127.0.0.1", 5678, agg, node.pool, kad.http)

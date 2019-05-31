@@ -98,9 +98,6 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
         case false ⇒
           log.trace(s"Node check failed $node") as
             ModResult.noop[C]
-
-        case _ ⇒
-          ModResult.noop[C].pure[F]
       }
 
   /**
