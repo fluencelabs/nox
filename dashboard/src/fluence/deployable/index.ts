@@ -1,10 +1,11 @@
 import { TransactionReceipt } from 'web3/types';
-import { web3js } from '../contract';
+import { getWeb3Js } from '../contract';
 import { account, defaultContractAddress } from '../../constants';
 import { AppId } from '../apps';
 import abi from '../../abi/Network.json';
 
 import { parseLog } from 'ethereum-event-logs';
+import {Tx} from "web3/eth/types";
 
 export enum StorageType {
     Swarm = 0,
@@ -85,19 +86,29 @@ export const deployableApps: { [key: string]: DeployableApp } = {
 
 // Sends a signed transaction to Ethereum
 export function send(signedTx: Buffer): Promise<TransactionReceipt> {
-    return web3js
+    return getWeb3Js()
         .eth
         .sendSignedTransaction('0x' + signedTx.toString('hex'))
-        .once('transactionHash', h => {
+        .once('transactionHash', (h: string) => {
+            console.log('tx hash ' + h);
+        });
+}
+
+// Sends a transaction to Ethereum
+export function sendUnsigned(tx: Tx): Promise<TransactionReceipt> {
+    return getWeb3Js()
+        .eth
+        .sendTransaction(tx)
+        .once('transactionHash', (h: string) => {
             console.log('tx hash ' + h);
         });
 }
 
 // Builds TxParams object to later use for building a transaction
 export async function txParams(txData: string): Promise<any> {
-    const nonce = web3js.utils.numberToHex(await web3js.eth.getTransactionCount(account, 'pending'));
-    const gasPrice = web3js.utils.numberToHex(await web3js.eth.getGasPrice());
-    const gasLimit = web3js.utils.numberToHex(1000000);
+    const nonce = getWeb3Js().utils.numberToHex(await getWeb3Js().eth.getTransactionCount(account, 'pending'));
+    const gasPrice = getWeb3Js().utils.numberToHex(await getWeb3Js().eth.getGasPrice());
+    const gasLimit = getWeb3Js().utils.numberToHex(1000000);
 
     return {
         nonce: nonce,
@@ -153,9 +164,9 @@ export function checkLogs(receipt: TransactionReceipt): DeployedApp {
 }
 
 export function findDeployableAppByStorageHash(storageHash: string): DeployableApp | undefined {
-    const deployableAppId = deployableAppIds.find(id => {
-        return deployableApps[id].storageHash.toLowerCase() == storageHash.toLowerCase();
+    const deployableApp = Object.values(deployableApps).find(deployableApp => {
+        return deployableApp.storageHash.toLowerCase() == storageHash.toLowerCase();
     });
 
-    return deployableAppId ? deployableApps[deployableAppId] : undefined;
+    return deployableApp ? deployableApp : undefined;
 }

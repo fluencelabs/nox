@@ -1,27 +1,31 @@
 import * as React from 'react';
 import { connect } from 'react-redux';
 import { Link } from 'react-router-dom';
-import { displayLoading, hideLoading, retrieveAppIds } from '../../actions';
+import { displayLoading, hideLoading, retrieveAppRefs } from '../../actions';
 import { Action } from 'redux';
-import { AppId } from '../../../fluence';
+import {AppRef} from '../../../fluence';
+import {findDeployableAppByStorageHash} from "../../../fluence/deployable";
 
 interface State {
     appIdsLoading: boolean;
-    appIdsVisible: boolean;
 }
 
 interface Props {
     displayLoading: typeof displayLoading;
     hideLoading: typeof hideLoading;
-    retrieveAppIds: () => Promise<Action>;
-    appIdsRetrievedCallback: (appIds: AppId[]) => void;
-    appIds: AppId[];
+    retrieveAppRefs: () => Promise<Action>;
+    appIdsRetrievedCallback: (appRefs: AppRef[]) => void;
+    appRefs: AppRef[];
+    filter: (appRef: AppRef) => boolean;
 }
 
 class FluenceAppsList extends React.Component<Props, State> {
     state: State = {
         appIdsLoading: false,
-        appIdsVisible: false,
+    };
+
+    static defaultProps = {
+        filter: () => true
     };
 
     componentDidMount(): void {
@@ -30,14 +34,14 @@ class FluenceAppsList extends React.Component<Props, State> {
             appIdsLoading: true,
         });
 
-        this.props.retrieveAppIds().then(() => {
+        this.props.retrieveAppRefs().then(() => {
             this.setState({
                 appIdsLoading: false,
             });
             this.props.hideLoading();
 
             if (this.props.appIdsRetrievedCallback) {
-                this.props.appIdsRetrievedCallback(this.props.appIds);
+                this.props.appIdsRetrievedCallback(this.props.appRefs);
             }
         }).catch(e => {
             window.console.log(e);
@@ -48,44 +52,27 @@ class FluenceAppsList extends React.Component<Props, State> {
         });
     }
 
-    showAppIds = (e: React.MouseEvent<HTMLElement>): void => {
-        e.preventDefault();
-        this.setState({
-            appIdsVisible: true
-        });
-    };
-
-    hideAppIds = (e: React.MouseEvent<HTMLElement>): void => {
-        e.preventDefault();
-        this.setState({
-            appIdsVisible: false
-        });
-    };
+    getAppLabel(appRef: AppRef): string {
+        const deployableApp = findDeployableAppByStorageHash(appRef.storage_hash);
+        return ( (deployableApp && deployableApp.shortName) || 'App') + '#' + appRef.app_id;
+    }
 
     render(): React.ReactNode {
         return (
             <div className="small-box bg-fluence-blue-gradient">
                 <div className="inner">
-                    <h3>{this.state.appIdsLoading ? '...' : this.props.appIds.length}</h3>
+                    <h3>{this.state.appIdsLoading ? '...' : this.props.appRefs.filter(this.props.filter).length}</h3>
 
                     <p>Apps</p>
                 </div>
                 <div className="icon">
                     <i className={this.state.appIdsLoading ? 'fa fa-refresh fa-spin' : 'ion ion-ios-gear-outline'}></i>
                 </div>
-                <a href="#" className="small-box-footer" onClick={this.showAppIds}
-                   style={{display: this.state.appIdsLoading || this.state.appIdsVisible || this.props.appIds.length <= 0 ? 'none' : 'block'}}>
-                    More info <i className="fa fa-arrow-circle-right"></i>
-                </a>
-                <a href="#" className="small-box-footer" onClick={this.hideAppIds}
-                   style={{display: this.state.appIdsVisible ? 'block' : 'none'}}>
-                    Hide info <i className="fa fa-arrow-circle-up"></i>
-                </a>
-                {this.props.appIds.map(appId => (
-                    <div className="small-box-footer entity-link" style={{display: this.state.appIdsVisible ? 'block' : 'none'}}>
-                        <Link to={`/app/${appId}`}>
+                {this.props.appRefs.filter(this.props.filter).map(appRef => (
+                    <div className="small-box-footer entity-link">
+                        <Link to={`/app/${appRef.app_id}`}>
                             <div className="box-body">
-                                <strong><i className="fa fa-bullseye margin-r-5"></i> App {appId}</strong>
+                                <strong><i className="fa fa-bullseye margin-r-5"></i>{this.getAppLabel(appRef)}</strong>
                             </div>
                         </Link>
                     </div>
@@ -96,13 +83,13 @@ class FluenceAppsList extends React.Component<Props, State> {
 }
 
 const mapStateToProps = (state: any) => ({
-    appIds: state.appIds,
+    appRefs: state.appRefs,
 });
 
 const mapDispatchToProps = {
     displayLoading,
     hideLoading,
-    retrieveAppIds,
+    retrieveAppRefs,
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(FluenceAppsList);

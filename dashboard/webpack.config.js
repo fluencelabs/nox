@@ -18,7 +18,6 @@ const config = {
   mode: production ? 'production' : 'development',
   entry: {
     app: [
-      '@babel/polyfill',
       './src/front/app.tsx',
     ],
   },
@@ -42,17 +41,6 @@ const config = {
   },
   module: {
     rules: [
-      {
-        resource: {
-          test: /\.js$/,
-          include: [
-            path.resolve(__dirname, 'src'),
-          ],
-        },
-        use: [
-          { loader: 'babel-loader' },
-        ],
-      },
       {
         resource: { test: /\.(css|less)$/ },
         use: [

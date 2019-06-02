@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { connect } from 'react-redux';
-import { DeployableApp } from '../../../fluence/deployable';
+import {DeployableApp, findDeployableAppByStorageHash, deployableApps} from '../../../fluence/deployable';
 import { defaultContractAddress, fluenceNodeAddr, llamaPrivateKey } from '../../../constants';
 import { displayLoading, hideLoading, retrieveApp, } from '../../actions';
 import FluenceCluster from '../fluence-cluster';
@@ -15,9 +15,7 @@ interface State {
 }
 
 interface Props {
-    deployState: { state: string } | undefined;
-    deployedAppId: AppId | undefined,
-    app: DeployableApp | undefined;
+    appId: AppId,
     apps: {
         [key: string]: App;
     };
@@ -27,45 +25,27 @@ interface Props {
     hideLoading: typeof hideLoading;
 }
 
-class Snippets extends React.Component<Props, State> {
+class FluenceAppSnippet extends React.Component<Props, State> {
+    app: DeployableApp;
+
     state: State = {
         requestSending: false
     };
 
     loadData(): void {
         this.props.displayLoading();
-        this.props.retrieveApp(String(this.props.deployedAppId)).then(this.props.hideLoading).catch(this.props.hideLoading);
+        this.props.retrieveApp(this.props.appId).then(this.props.hideLoading).catch(this.props.hideLoading);
     }
 
     componentDidUpdate(prevProps: Props): void {
-        if (this.props.deployedAppId && prevProps.deployedAppId !== this.props.deployedAppId) {
+        if (this.props.appId && prevProps.appId !== this.props.appId) {
             this.loadData();
         }
     }
 
     componentDidMount(): void {
-        if (this.props.deployedAppId && !this.props.apps[this.props.deployedAppId]) {
+        if (this.props.appId && !this.props.apps[this.props.appId]) {
             this.loadData();
-        }
-    }
-
-    getDeployStateLabel(deployState: any): string {
-        switch (deployState.state) {
-            case 'prepare': {
-                return 'preparing transaction...';
-            }
-            case 'trx': {
-                return 'sending transaction...';
-            }
-            case 'enqueued': {
-                return 'app is enqueued...';
-            }
-            case 'check_cluster': {
-                return `${deployState.note}...`;
-            }
-            default: {
-                return '';
-            }
         }
     }
 
@@ -83,10 +63,10 @@ class Snippets extends React.Component<Props, State> {
 
     renderInteractiveSnippet(appId: number, shortName: string, defaultQueries?: string[]): React.ReactNode[] {
 
-        const queryId = `query${this.props.deployedAppId}`;
-        const iconId = `icon${this.props.deployedAppId}`;
-        const buttonId = `button${this.props.deployedAppId}`;
-        const resultId = `result${this.props.deployedAppId}`;
+        const queryId = `query${this.props.appId}`;
+        const iconId = `icon${this.props.appId}`;
+        const buttonId = `button${this.props.appId}`;
+        const resultId = `result${this.props.appId}`;
 
         const inputField = function (): HTMLInputElement {
             return window.document.getElementById(queryId) as HTMLInputElement;
@@ -175,7 +155,7 @@ class Snippets extends React.Component<Props, State> {
         return ([
             <p>
                 <label htmlFor={queryId}>Type queries:</label>
-                <textarea className="form-control" rows={4} id={queryId}>{defaultText}</textarea>
+                <textarea className="form-control" rows={4} id={queryId} value={defaultText}></textarea>
             </p>,
             <p>
                 <button type="button" value="Submit query" id={buttonId}
@@ -194,7 +174,7 @@ class Snippets extends React.Component<Props, State> {
     renderAppSnippets(): React.ReactNode[] {
         return ([
             <button type="button"
-                    onClick={e => window.open(`http://sql.fluence.network?appId=${this.props.deployedAppId}&privateKey=${llamaPrivateKey}`, '_blank')}
+                    onClick={e => window.open(`http://sql.fluence.network?appId=${this.props.appId}&privateKey=${llamaPrivateKey}`, '_blank')}
                     className="btn btn-block btn-link">
                 <i className="fa fa-external-link margin-r-5"/> <b>Open SQL DB web interface</b>
             </button>,
@@ -202,13 +182,13 @@ class Snippets extends React.Component<Props, State> {
             this.renderTrxHashBlock(),
             <p>
                 <b>
-                    Or connect to {this.props.app && this.props.app.shortName} directly in the browser console.
+                    Or connect to {this.app && this.app.shortName} directly in the browser console.
                 </b>
             </p>,
             <p> Open Developer Tools, and paste:</p>,
             <pre>{`let privateKey = "${llamaPrivateKey}"; // Authorization private key
 let contract = "${defaultContractAddress}";                         // Fluence contract address
-let appId = ${this.props.deployedAppId};                                                                      // Deployed database id
+let appId = ${this.props.appId};                                                                      // Deployed database id
 let ethereumUrl = "${fluenceNodeAddr}";                                    // Ethereum light node URL
 
 fluence.connect(contract, appId, ethereumUrl, privateKey).then((s) => {
@@ -252,7 +232,7 @@ session.request("SELECT AVG(age) FROM users").result().then((r) => {
                 </b>
             </p>,
             <pre>{`let contract = "${defaultContractAddress}";                         // Fluence contract address
-let appId = ${this.props.deployedAppId};                                                                      // Deployed database id
+let appId = ${this.props.appId};                                                                      // Deployed database id
 let ethereumUrl = "${fluenceNodeAddr}";                                    // Ethereum light node URL
 
 // Connect to your app
@@ -273,61 +253,43 @@ session.request("${requestForResult}").result().then((r) => {
     }
 
     render(): React.ReactNode {
-        if (this.props.deployState && this.props.deployState.state != 'end') {
-            return (
-                <div className="box box-widget widget-user-2">
-                    <div className="widget-user-header bg-fluence-blue-gradient">
-                        <div className="widget-user-image">
-                            <span className="entity-info-box-icon"><i className="fa fa-refresh fa-spin"/></span>
-                        </div>
-                        <h3 className="widget-user-username">Deploying app</h3>
-                        <h3 className="widget-user-desc">...</h3>
-                    </div>
-                    <div className="box-footer no-padding">
-                        <div className="box-body">
-                            <p>Status: {this.getDeployStateLabel(this.props.deployState)}</p>
-                        </div>
-                    </div>
-                </div>
-            );
-        } else if (this.props.app !== undefined && this.props.deployedAppId !== undefined) {
-            const appInfo = this.props.apps[this.props.deployedAppId];
-            return (
-                <div className="box box-widget widget-user-2">
-                    <div className="widget-user-header bg-fluence-blue-gradient">
-                        <div className="widget-user-image">
-                            <span className="entity-info-box-icon">
-                                <i className="ion ion-ios-checkmark-outline"/>
-                            </span>
-                        </div>
-                        <h3 className="widget-user-username">Try {this.props.app.shortName}</h3>
-                        <h3 className="widget-user-desc">appID: <b>{this.props.deployedAppId}</b></h3>
-                    </div>
-                    <div className="box-footer no-padding">
-                        <div className="box-body">
-                            {
-                                this.renderInteractiveSnippet(Number(this.props.deployedAppId), this.props.app.shortName, this.props.app.requestExamples)
-                            }
-                            <hr/>
-                            {(this.props.app.shortName === 'Redis' || this.props.app.selfUpload) ? this.renderUploadedAppSnippets(this.props.app.shortName) : this.renderAppSnippets()}
+        const appInfo = this.props.apps[this.props.appId];
 
-                            <hr/>
-                            <p><strong><i className="fa fa-bullseye margin-r-5"/>Check your app's health:</strong></p>
-                            {appInfo && <FluenceCluster appId={this.props.deployedAppId} cluster={appInfo.cluster}/>}
-                        </div>
+        if (!appInfo) return null;
+
+        this.app = findDeployableAppByStorageHash(appInfo.storage_hash) || deployableApps['upload'];
+        return (
+            <div className="box box-widget widget-user-2">
+                <div className="widget-user-header bg-fluence-blue-gradient">
+                    <div className="widget-user-image">
+                        <span className="entity-info-box-icon">
+                            <i className="ion ion-ios-checkmark-outline"/>
+                        </span>
+                    </div>
+                    <h3 className="widget-user-username">Try {this.app.shortName}</h3>
+                    <h3 className="widget-user-desc">appID: <b>{this.props.appId}</b></h3>
+                </div>
+                <div className="box-footer no-padding">
+                    <div className="box-body">
+                        {
+                            this.renderInteractiveSnippet(Number(this.props.appId), this.app.shortName, this.app.requestExamples || [])
+                        }
+                        <hr/>
+                        {(this.app.shortName === 'Redis' || this.app.selfUpload) ? this.renderUploadedAppSnippets(this.app.shortName) : this.renderAppSnippets()}
+
+                        <hr/>
+                        <p><strong><i className="fa fa-bullseye margin-r-5"/>Check your app's health:</strong></p>
+                        {appInfo && <FluenceCluster appId={this.props.appId} cluster={appInfo.cluster}/>}
                     </div>
                 </div>
-            );
-        } else {
-            return null;
-        }
+            </div>
+        );
+
     }
 }
 
 const mapStateToProps = (state: any) => {
     return {
-        deployState: state.deploy.deployState,
-        trxHash: state.deploy.trxHash,
         apps: state.apps,
     };
 };
@@ -338,4 +300,4 @@ const mapDispatchToProps = {
     retrieveApp,
 };
 
-export default connect(mapStateToProps, mapDispatchToProps)(Snippets);
+export default connect(mapStateToProps, mapDispatchToProps)(FluenceAppSnippet);
