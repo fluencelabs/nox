@@ -77,7 +77,7 @@ object ControlServer extends slogging.LazyLogging {
 
       case req @ POST -> Root / "control" / "blockReceipt" =>
         for {
-          receipt <- req.as[BlockReceipt].map(_.receipt)
+          receipt <- req.as[BlockReceipt]
           _ <- signals.putReceipt(receipt)
           ok <- Ok()
         } yield ok

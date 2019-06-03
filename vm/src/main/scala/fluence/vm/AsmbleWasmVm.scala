@@ -28,6 +28,7 @@ import fluence.vm.wasm.WasmModule
 import fluence.vm.utils.safelyRunThrowable
 import scodec.bits.ByteVector
 import WasmVm._
+import fluence.merkle.TrackingMemoryBuffer
 
 import scala.language.higherKinds
 
@@ -43,7 +44,7 @@ import scala.language.higherKinds
 class AsmbleWasmVm(
   private val modules: ModuleIndex,
   private val hasher: Hasher[Array[Byte], Array[Byte]]
-) extends WasmVm {
+) extends WasmVm with slogging.LazyLogging {
 
   // size in bytes of pointer type in Wasm VM (can be different after Wasm64 release)
   private val WasmPointerSize = 4

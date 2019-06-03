@@ -17,63 +17,29 @@
 package fluence.statemachine
 
 import cats.Applicative
-import cats.data.EitherT
+import cats.effect.Effect
 import cats.effect.concurrent.Ref
 import cats.effect.syntax.effect._
-import cats.effect.{Effect, IO}
-import cats.syntax.eq._
 import cats.syntax.flatMap._
-import cats.syntax.functor._
 import com.github.jtendermint.jabci.api._
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
-import fluence.effects.tendermint.block.TendermintBlock
-import fluence.effects.tendermint.block.errors.Errors._
-import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.statemachine.control.{ControlSignals, DropPeer}
-import io.circe.{Json, ParsingFailure}
+import io.circe.Json
 
 import scala.language.higherKinds
-import scala.util.Try
 
 class AbciHandler[F[_]: Effect](
   service: AbciService[F],
   controlSignals: ControlSignals[F],
-  tendermintRpc: TendermintRpc[F],
   blocks: Ref[F, Map[Long, (String, Json)]],
   commits: Ref[F, Map[Long, (String, Json)]]
 ) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock
     with slogging.LazyLogging {
 
-  private def checkBlock(height: Long): Unit = {
-    val log: String ⇒ Unit = s ⇒ logger.info(Console.YELLOW + s + Console.RESET)
-    val logBad: String ⇒ Unit = s ⇒ logger.info(Console.RED + s + Console.RESET)
-
-    tendermintRpc
-      .block(height)
-      .value
-      .toIO
-      .map(
-        blockE =>
-          for {
-            block <- blockE.leftTap(e => logger.warn(s"RPC Block[$height] failed: $e ${e.getCause}"))
-            _ = logger.info(s"RPC Block[$height] => height = ${block.header.height}")
-            _ <- TendermintBlock(block)
-              .validateHashes()
-              .leftTap(e => logBad(s"Block at height $height is invalid: $e ${e.getCause}"))
-          } yield log(s"Block at height $height is valid")
-      )
-      .unsafeRunAsyncAndForget()
-  }
-
   override def requestBeginBlock(
     req: RequestBeginBlock
-  ): ResponseBeginBlock = {
-    val height = req.getHeader.getHeight
-    checkBlock(height)
-
-    ResponseBeginBlock.newBuilder().build()
-  }
+  ): ResponseBeginBlock = ResponseBeginBlock.newBuilder().build()
 
   override def requestCheckTx(
     req: RequestCheckTx

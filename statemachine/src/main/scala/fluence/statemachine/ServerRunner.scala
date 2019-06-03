@@ -129,10 +129,10 @@ object ServerRunner extends IOApp with LazyLogging {
 
       vmInvoker = new VmOperationInvoker[IO](vm)
 
-      service <- EitherT.right(AbciService[IO](vmInvoker, controlSignals))
+      service <- EitherT.right(AbciService[IO](vmInvoker, controlSignals, tendermintRpc))
       blocks <- EitherT.liftF(Ref.of[IO, Map[Long, (String, Json)]](Map.empty))
       commits <- EitherT.liftF(Ref.of[IO, Map[Long, (String, Json)]](Map.empty))
-    } yield new AbciHandler[IO](service, controlSignals, tendermintRpc, blocks, commits)
+    } yield new AbciHandler[IO](service, controlSignals, blocks, commits)
 
   /**
    * Builds a VM instance used to perform function calls from the clients.

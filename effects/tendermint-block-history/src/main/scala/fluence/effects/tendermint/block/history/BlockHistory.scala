@@ -46,8 +46,10 @@ class BlockHistory[F[_]: Monad](ipfs: IpfsClient[F]) {
     val height = block.header.height
     for {
       txsReceipt <- Traverse[Option].sequence(txs.map(uploadTxs(height, _)))
+      _ = println(s"uploaded txs ${block.header.height}")
       manifest = BlockManifest(vmHash, previousManifestReceipt, txsReceipt, block.header, votes)
       receipt <- uploadManifest(height, manifest)
+      _ = println(s"uploaded manifest ${block.header.height}")
     } yield receipt
   }
 

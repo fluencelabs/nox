@@ -16,8 +16,9 @@
 
 package fluence.statemachine
 
-import cats.effect.Sync
+import cats.effect.{Effect, Sync}
 import cats.effect.concurrent.Ref
+import cats.effect.syntax.effect._
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -26,7 +27,10 @@ import com.github.jtendermint.jabci.api.CodeType
 import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
-import fluence.statemachine.control.ControlSignals
+import fluence.effects.tendermint.block.TendermintBlock
+import fluence.effects.tendermint.block.errors.Errors._
+import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.statemachine.control.{BlockReceipt, ControlSignals, ReceiptType}
 import fluence.statemachine.state.AbciState
 import scodec.bits.ByteVector
 import slogging.LazyLogging
@@ -40,14 +44,36 @@ import scala.language.higherKinds
  * @param vm Virtual machine invoker
  * @param controlSignals Communication channel with master node
  */
-class AbciService[F[_]: Monad](
+class AbciService[F[_]: Monad: Effect](
   state: Ref[F, AbciState],
   vm: VmOperationInvoker[F],
-  controlSignals: ControlSignals[F]
+  controlSignals: ControlSignals[F],
+  tendermintRpc: TendermintRpc[F]
 )(implicit hasher: Hasher[ByteVector, ByteVector])
     extends LazyLogging {
 
   import AbciService._
+
+  private def checkBlock(height: Long): Unit = {
+    val log: String ⇒ Unit = s ⇒ logger.info(Console.YELLOW + s + Console.RESET)
+    val logBad: String ⇒ Unit = s ⇒ logger.info(Console.RED + s + Console.RESET)
+
+    tendermintRpc
+      .block(height)
+      .value
+      .toIO
+      .map(
+        blockE =>
+          for {
+            block <- blockE.leftTap(e => logger.warn(s"RPC Block[$height] failed: $e ${e.getCause}"))
+            _ = logger.info(s"RPC Block[$height] => height = ${block.header.height}")
+            _ <- TendermintBlock(block)
+              .validateHashes()
+              .leftTap(e => logBad(s"Block at height $height is invalid: $e ${e.getCause}"))
+          } yield log(s"Block at height $height is valid")
+      )
+      .unsafeRunAsyncAndForget()
+  }
 
   /**
    * Take all the transactions we're able to process, and pass them to VM one by one.
@@ -75,6 +101,8 @@ class AbciService[F[_]: Monad](
           Applicative[F].pure(Right(st))
       }
 
+      _ = checkBlock(st.height)
+
       // Get the VM hash
       vmHash ← vm
         .vmStateHash()
@@ -84,14 +112,14 @@ class AbciService[F[_]: Monad](
       _ = println("got vmhash")
 
       receipt <- controlSignals.receipt
-      _ = println("got receipt")
+      _ = println(s"got receipt $receipt")
 
-      appHash <- receipt.fold(vmHash.pure[F])(
-        r =>
+      appHash <- receipt.fold(vmHash.pure[F]) {
+        case BlockReceipt(r, _) =>
           hasher(vmHash ++ r.bytes())
             .leftMap(err => logger.error(s"Error on hashing vmHash + receipt: $err"))
             .getOrElse(vmHash) // TODO: that's awful; don't ignore errors
-      )
+      }
 
       // Push hash to AbciState, increment block number
       newState ← AbciState.setAppHash(appHash).runS(st)
@@ -101,6 +129,11 @@ class AbciService[F[_]: Monad](
 
       // Store vmHash, so master node could retrieve it
       _ <- controlSignals.putVmHash(vmHash)
+      _ <- receipt.map(_.`type`) match {
+        case Some(ReceiptType.New) | None => controlSignals.putVmHash(vmHash)
+        case Some(ReceiptType.Stored) => Applicative[F].unit
+        case Some(ReceiptType.LastStored) => controlSignals.setVmHash(vmHash)
+      }
       _ = println("sent vmhash")
     } yield appHash
 
@@ -232,9 +265,10 @@ object AbciService {
    * @tparam F Sync for Ref
    * @return Brand new AbciService instance
    */
-  def apply[F[_]: Sync](
+  def apply[F[_]: Effect](
     vm: VmOperationInvoker[F],
-    controlSignals: ControlSignals[F]
+    controlSignals: ControlSignals[F],
+    tendermintRpc: TendermintRpc[F]
   ): F[AbciService[F]] = {
     import cats.syntax.compose._
     import scodec.bits.ByteVector
@@ -250,7 +284,7 @@ object AbciService {
       implicit val hasher: Crypto.Hasher[ByteVector, ByteVector] =
         bva.andThen[Array[Byte]](JdkCryptoHasher.Sha256).andThen(abv)
 
-      new AbciService[F](state, vm, controlSignals)
+      new AbciService[F](state, vm, controlSignals, tendermintRpc)
     }
   }
 

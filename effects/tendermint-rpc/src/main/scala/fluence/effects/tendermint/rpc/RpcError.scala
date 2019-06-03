@@ -33,6 +33,8 @@ case class RpcRequestErrored(statusCode: Int, error: String)
 case class RpcBodyMalformed(error: Throwable)
     extends Exception("Tendermint RPC body cannot be parsed", error) with RpcError
 
-case class RpcBlockParsingFailed(cause: TendermintBlockError) extends RpcError with WithCause[TendermintBlockError] {
-  override def getMessage: String = s"TendermintRPC failed to parse block: $cause"
+case class RpcBlockParsingFailed(cause: TendermintBlockError, rawBlock: String, height: Long)
+    extends RpcError with WithCause[TendermintBlockError] {
+  override def getMessage: String =
+    s"TendermintRPC failed to parse block $height: $cause\n" + Console.RED + rawBlock + Console.RESET
 }

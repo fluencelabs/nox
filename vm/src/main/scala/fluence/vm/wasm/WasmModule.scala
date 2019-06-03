@@ -50,7 +50,7 @@ import scala.util.Try
  */
 class WasmModule(
   private val name: Option[String],
-  private val wasmMemory: WasmModuleMemory,
+  val wasmMemory: WasmModuleMemory,
   private val moduleInstance: Any,
   private val allocateFunction: Option[WasmFunction],
   private val deallocateFunction: Option[WasmFunction],

@@ -64,7 +64,7 @@ case class TendermintRpc[F[_]: Sync](
         params = Json.fromString(height.toString) :: Nil,
         id = id
       )
-    ).subflatMap(Block(_).leftMap(RpcBlockParsingFailed))
+    ).subflatMap(str => Block(str).leftMap(RpcBlockParsingFailed(_, str, height)))
 
   def commit(height: Long, id: String = "dontcare"): EitherT[F, RpcError, String] =
     post(

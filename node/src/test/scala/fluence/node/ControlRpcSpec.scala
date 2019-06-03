@@ -41,7 +41,7 @@ import fluence.EitherTSttpBackend
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.node.workers.control.ControlRpc
 import fluence.statemachine.control.ControlServer.ControlServerConfig
-import fluence.statemachine.control.{ControlServer, DropPeer}
+import fluence.statemachine.control.{ControlServer, DropPeer, ReceiptType}
 import org.scalatest.{Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
 
@@ -103,7 +103,7 @@ class ControlRpcSpec extends WordSpec with Matchers with OptionValues {
         case (server, rpc) =>
           for {
             before <- server.signals.receipt
-            _ <- rpc.sendBlockReceipt(receipt).value.flatMap(IO.fromEither)
+            _ <- rpc.sendBlockReceipt(receipt, ReceiptType.New).value.flatMap(IO.fromEither)
             after <- server.signals.receipt
           } yield {
             before should not be defined
