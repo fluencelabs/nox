@@ -60,7 +60,7 @@ class FluenceDeployableApp extends React.Component<Props, State> {
     }
 
     async showModal(): Promise<boolean> {
-        if (this.props.modal.alreadyOpened) {
+        if (this.props.isMetamaskActive || this.props.modal.alreadyOpened) {
             return true;
         }
 
