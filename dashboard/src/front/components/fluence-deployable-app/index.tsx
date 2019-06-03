@@ -2,13 +2,11 @@ import * as React from 'react';
 import {connect} from 'react-redux';
 import {withRouter} from "react-router";
 import {DeployableApp, DeployableAppId, deployableApps, StorageType} from "../../../fluence/deployable";
-import {deploy, deployUpload} from "../../actions";
+import {deploy, deployUpload, showModal} from "../../actions";
 import {Action} from "redux";
-import Snippets from "./snippets";
 import {cutId, remove0x, toIpfsHash} from "../../../utils";
-import {AppId} from "../../../fluence/apps";
 import {History} from "history";
-import {fluenceIpfsAddr, ipfsDownloadUrl} from "../../../constants";
+import {ipfsDownloadUrl} from "../../../constants";
 
 interface State {
     loading: boolean,
@@ -27,9 +25,11 @@ interface Props {
     deploy: (app: DeployableApp, appId: string, storageHash: string, history: History) => Promise<Action>,
     history: History;
     deployUpload: (form: FormData) => Promise<Action>,
-    deployedApp: DeployableApp | undefined,
-    deployedAppId: AppId | undefined,
+    deployState: { state: string } | undefined,
     upload: DeployUploadSate,
+    isMetamaskActive: boolean,
+    showModal: typeof showModal,
+    modal: any,
 }
 
 class FluenceDeployableApp extends React.Component<Props, State> {
@@ -39,7 +39,46 @@ class FluenceDeployableApp extends React.Component<Props, State> {
 
     uploadFormElement: HTMLInputElement;
 
-    startDeploy = (e: React.MouseEvent<HTMLElement>, app: DeployableApp, appId: string) => {
+    getDeployStateLabel(deployState: any): string {
+        switch (deployState.state) {
+            case 'prepare': {
+                return 'preparing transaction...';
+            }
+            case 'trx': {
+                return 'sending transaction...';
+            }
+            case 'enqueued': {
+                return 'app is enqueued...';
+            }
+            case 'check_cluster': {
+                return `${deployState.note}...`;
+            }
+            default: {
+                return '';
+            }
+        }
+    }
+
+    async showModal(): Promise<boolean> {
+        if (this.props.isMetamaskActive || this.props.modal.alreadyOpened) {
+            return true;
+        }
+
+        return new Promise(resolve => {
+            this.props.showModal({
+                once: true,
+                deployText: true,
+                okCallback: () => resolve(true),
+                cancelCallback: () => resolve(false),
+            });
+        });
+    }
+
+    startDeploy = async (e: React.MouseEvent<HTMLElement>, app: DeployableApp, appId: string) => {
+        if (!await this.showModal()) {
+            return;
+        }
+
         this.setState({loading: true});
         this.props.deploy(app, appId, this.props.upload.storageHash, this.props.history)
             .catch(function (err) {
@@ -48,8 +87,12 @@ class FluenceDeployableApp extends React.Component<Props, State> {
             .then(() => this.setState({loading: false}));
     };
 
-    startUpload = (e: React.MouseEvent<HTMLElement>, app: DeployableApp, appId: string) => {
+    startUpload = async (e: React.MouseEvent<HTMLElement>, app: DeployableApp, appId: string) => {
         e.preventDefault();
+
+        if (!await this.showModal()) {
+            return;
+        }
 
         if (!this.uploadFormElement || !this.uploadFormElement.files || this.uploadFormElement.files.length == 0) {
             return;
@@ -107,7 +150,7 @@ class FluenceDeployableApp extends React.Component<Props, State> {
         if(app.selfUpload) {
             return !!(this.props.upload.uploading || this.props.upload.uploaded);
         } else {
-            return !!(this.props.deployedAppId || this.state.loading);
+            return this.state.loading;
         }
     }
 
@@ -124,15 +167,15 @@ class FluenceDeployableApp extends React.Component<Props, State> {
                     <hr/>
 
                     <p>
-                        <span className="error" style={{display: !app.selfUpload && this.props.deployedAppId ? 'inline' : 'none'}}>app already deployed</span>
                         <button
                             type="button"
                             onClick={e => app.selfUpload ? this.startUpload(e, app, appId) : this.startDeploy(e, app, appId)}
                             disabled={this.isDeployButtonDisabled(app)}
                             className="btn btn-block btn-success btn-lg">
-                            Deploy app <i style={{display: (this.state.loading || this.props.upload.uploading) ? 'inline-block' : 'none'}}
+                            Deploy app {!this.props.isMetamaskActive && '(demo mode)'} <i style={{display: (this.state.loading || this.props.upload.uploading) ? 'inline-block' : 'none'}}
                                           className="fa fa-refresh fa-spin"/>
                         </button>
+                        {this.props.deployState && <span>Status: {this.getDeployStateLabel(this.props.deployState)}</span>}
                     </p>
                 </div>
             </div>
@@ -143,35 +186,32 @@ class FluenceDeployableApp extends React.Component<Props, State> {
         const app = deployableApps[this.props.id];
 
         return (
-            <div>
-                <div className="col-md-4 col-xs-12">
-                    <div className="box box-widget widget-user-2">
-                        <div className="widget-user-header bg-fluence-blue-gradient">
-                            <div className="widget-user-image">
-                                <span className="entity-info-box-icon entity-info-box-icon-thin"><i
-                                    className={app ? 'ion ion-ios-gear-outline' : 'fa fa-refresh fa-spin'}></i></span>
-                            </div>
-                            <h3 className="widget-user-username">{app.name}</h3>
-                        </div>
-                        {app && this.renderAppInfo(app, this.props.id)}
+            <div className="box box-widget widget-user-2">
+                <div className="widget-user-header bg-fluence-blue-gradient">
+                    <div className="widget-user-image">
+                        <span className="entity-info-box-icon entity-info-box-icon-thin"><i
+                            className={app ? 'ion ion-ios-gear-outline' : 'fa fa-refresh fa-spin'}></i></span>
                     </div>
+                    <h3 className="widget-user-username">{app.name}</h3>
                 </div>
-                <div className="col-md-4 col-xs-12">
-                    <Snippets app={app} deployedAppId={this.props.deployedAppId}/>
-                </div>
+                {app && this.renderAppInfo(app, this.props.id)}
             </div>
         );
     }
 }
 
 const mapStateToProps = (state: any) => ({
-    deployedApp: state.deploy.app,
-    upload: state.deploy.upload
+    upload: state.deploy.upload,
+    deployState: state.deploy.deployState,
+    trxHash: state.deploy.trxHash,
+    modal: state.modal,
+    isMetamaskActive: state.ethereumConnection.isMetamaskProviderActive,
 });
 
 const mapDispatchToProps = {
     deploy,
-    deployUpload
+    deployUpload,
+    showModal,
 };
 
 export default withRouter(connect(mapStateToProps, mapDispatchToProps)(FluenceDeployableApp));

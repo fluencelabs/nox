@@ -5,13 +5,18 @@ import {
     displayLoading,
     hideLoading,
     retrieveApp,
+    deleteApp
 } from '../../actions';
 import { findDeployableAppByStorageHash } from "../../../fluence/deployable";
 import FluenceCluster from '../fluence-cluster';
-import { AppId, App } from '../../../fluence';
+import {AppId, App} from '../../../fluence';
 import { Action } from 'redux';
+import {History} from "history";
+import {withRouter} from "react-router";
 
-interface State {}
+interface State {
+    deleting: boolean;
+}
 
 interface Props {
     appId: AppId;
@@ -19,12 +24,17 @@ interface Props {
         [key: string]: App;
     };
     retrieveApp: (appId: AppId) => Promise<Action>;
+    deleteApp: (appId: AppId, history: History) => Promise<Action>;
     displayLoading: typeof displayLoading;
     hideLoading: typeof hideLoading;
+    history: History;
+    userAddress: string;
 }
 
 class FluenceApp extends React.Component<Props, State> {
-    state: State = {};
+    state: State = {
+        deleting: false,
+    };
 
     loadData(): void {
         this.props.displayLoading();
@@ -40,6 +50,21 @@ class FluenceApp extends React.Component<Props, State> {
             this.loadData();
         }
     }
+
+    deleteApplication = (): void => {
+        if (!confirm('Are you sure you want to delete this app?')) return;
+
+        this.props.displayLoading();
+        this.setState({
+            deleting: true
+        });
+        this.props.deleteApp(this.props.appId, this.props.history).finally(() => {
+            this.props.hideLoading();
+            this.setState({
+                deleting: false
+            });
+        });
+    };
 
     renderAppInfo(app: App): React.ReactNode {
         return (
@@ -63,6 +88,16 @@ class FluenceApp extends React.Component<Props, State> {
 
                     <strong><i className="fa fa-bullseye margin-r-5"></i>Cluster</strong>
                     {<FluenceCluster appId={this.props.appId} cluster={app.cluster}/>}
+
+                    <hr/>
+                    <button type="button"
+                            onClick={this.deleteApplication}
+                            style={{display: app.owner.toUpperCase() === this.props.userAddress.toUpperCase() ? 'block' : 'none'}}
+                            disabled={this.state.deleting}
+                            className="btn btn-block btn-danger"
+                    >
+                        Delete app <i style={{display: (this.state.deleting) ? 'inline-block' : 'none'}} className="fa fa-refresh fa-spin"/>
+                    </button>
                 </div>
             </div>
         );
@@ -79,17 +114,15 @@ class FluenceApp extends React.Component<Props, State> {
             }
         }
         return (
-            <div className="col-md-4 col-xs-12">
-                <div className="box box-widget widget-user-2">
-                    <div className="widget-user-header bg-fluence-blue-gradient">
-                        <div className="widget-user-image">
-                            <span className="entity-info-box-icon"><i className={app ? 'ion ion-ios-gear-outline' : 'fa fa-refresh fa-spin'}/></span>
-                        </div>
-                        <h3 className="widget-user-username">{appName}</h3>
-                        <h5 className="widget-user-desc">ID:&nbsp;{this.props.appId}</h5>
+            <div className="box box-widget widget-user-2">
+                <div className="widget-user-header bg-fluence-blue-gradient">
+                    <div className="widget-user-image">
+                        <span className="entity-info-box-icon"><i className={app ? 'ion ion-ios-gear-outline' : 'fa fa-refresh fa-spin'}/></span>
                     </div>
-                    {app && this.renderAppInfo(app)}
+                    <h3 className="widget-user-username">{appName}</h3>
+                    <h5 className="widget-user-desc">ID:&nbsp;{this.props.appId}</h5>
                 </div>
+                {app && this.renderAppInfo(app)}
             </div>
         );
     }
@@ -97,12 +130,14 @@ class FluenceApp extends React.Component<Props, State> {
 
 const mapStateToProps = (state: any) => ({
     apps: state.apps,
+    userAddress: state.ethereumConnection.userAddress,
 });
 
 const mapDispatchToProps = {
     displayLoading,
     hideLoading,
     retrieveApp,
+    deleteApp,
 };
 
-export default connect(mapStateToProps, mapDispatchToProps)(FluenceApp);
+export default withRouter(connect(mapStateToProps, mapDispatchToProps)(FluenceApp));

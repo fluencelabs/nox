@@ -1,5 +1,5 @@
 import {getNode, getNodeAppStatus, NodeId, AppId} from '../../../fluence';
-import contract from '../../../fluence/contract';
+import { getContract } from '../../../fluence/contract';
 import { Dispatch, Action } from 'redux';
 import {NodeAppStatusInfo} from "../../../fluence/nodes";
 
@@ -8,7 +8,7 @@ export const GET_NODES_APP_STATUS_RECEIVE = 'GET_NODES_APP_STATUS_RECEIVE';
 export const retrieveNodesAppStatus = (nodeIds: NodeId[], appId: AppId) => {
     return async (dispatch: Dispatch): Promise<Action> => {
         const nodes = await Promise.all(
-            nodeIds.map(nodeId => getNode(contract, nodeId))
+            nodeIds.map(nodeId => getNode(getContract(), nodeId))
         );
 
         const nodesAppStatus = await Promise.all(
