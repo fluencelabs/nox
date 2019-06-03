@@ -4,11 +4,9 @@ import {withRouter} from "react-router";
 import {DeployableApp, DeployableAppId, deployableApps, StorageType} from "../../../fluence/deployable";
 import {deploy, deployUpload, showModal} from "../../actions";
 import {Action} from "redux";
-import Snippets from "./snippets";
 import {cutId, remove0x, toIpfsHash} from "../../../utils";
-import {AppId} from "../../../fluence/apps";
 import {History} from "history";
-import {fluenceIpfsAddr, ipfsDownloadUrl} from "../../../constants";
+import {ipfsDownloadUrl} from "../../../constants";
 
 interface State {
     loading: boolean,
