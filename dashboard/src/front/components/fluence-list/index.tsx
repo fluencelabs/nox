@@ -83,7 +83,7 @@ class FluenceList extends React.Component<Props, State> {
             ...deployableAppIds.map((id: DeployableAppId) => (
                 <li className={this.props.entityId == id ? 'active' : ''}>
                     <Link to={`/deploy/${id}`}>
-                        <i className="fa fa-circle-o"></i> {deployableApps[id].name}
+                        <i className="fa fa-arrow-circle-up"></i> {deployableApps[id].name}
                     </Link>
                 </li>
             ))
@@ -105,7 +105,7 @@ class FluenceList extends React.Component<Props, State> {
             ...appRefs.map(appRef => (
                 <li className={this.props.entityId == appRef.app_id ? 'active' : ''}>
                     <Link to={`${urlPrefix}/app/${appRef.app_id}`}>
-                        <i className="fa fa-circle-o"></i> {this.getAppLabel(appRef)}
+                        <i className="ion ion-ios-gear-outline"></i> {this.getAppLabel(appRef)}
                     </Link>
                 </li>
             ))
@@ -122,7 +122,7 @@ class FluenceList extends React.Component<Props, State> {
             ...nodeRefs.map(nodeRef => (
                 <li className={this.props.entityId == nodeRef.node_id ? 'active' : ''}>
                     <Link to={`${urlPrefix}/node/${nodeRef.node_id}`}>
-                        <i className="fa fa-circle-o"></i>
+                        <i className="ion ion-android-laptop"></i>
                         Node <span title={nodeRef.node_id}>{cutId(nodeRef.node_id)}</span>
                         <span className="node-details">Capacity: {nodeRef.capacity}</span>
                         {nodeRef.is_private && <span className="node-details">private</span>}
