@@ -37,7 +37,7 @@ trait MemoryHasher {
   def computeMemoryHash[F[_]: Monad](): EitherT[F, GetVmStateError, Array[Byte]]
 }
 
-object MemoryHasher {
+object MemoryHasher extends slogging.LazyLogging {
 
   val SHA_256 = "SHA-256"
 
@@ -79,8 +79,11 @@ object MemoryHasher {
   ): Either[GetVmStateError, MemoryHasher] = {
     memory match {
       case m: TrackingMemoryBuffer =>
+        logger.info("TrackingMemoryBuffer with MerkleTree hasher will be used.")
         buildMerkleTreeHasher(m)
-      case m => Either.right(buildPlainHasher(m))
+      case m =>
+        logger.info("Plain hasher will be used.")
+        Either.right(buildPlainHasher(m))
     }
   }
 
