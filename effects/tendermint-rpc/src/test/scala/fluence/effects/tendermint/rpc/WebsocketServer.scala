@@ -19,7 +19,9 @@ package fluence.effects.tendermint.rpc
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.syntax.flatMap._
+import cats.syntax.applicativeError._
 import cats.syntax.functor._
+import fluence.effects.{Backoff, WithCause}
 import fs2.concurrent.{Queue, SignallingRef}
 import fs2.{Pipe, Stream}
 import org.http4s.HttpRoutes
@@ -60,14 +62,26 @@ case class WebsocketServer[F[_]: ConcurrentEffect: Timer](
 
 object WebsocketServer {
 
-  def make[F[_]: ConcurrentEffect: Timer]: Resource[F, WebsocketServer[F]] =
+  def make[F[_]: Timer]()(implicit F: ConcurrentEffect[F]): Resource[F, WebsocketServer[F]] =
     Resource.make(
       for {
         to <- Queue.unbounded[F, WebSocketFrame]
         from <- Queue.unbounded[F, WebSocketFrame]
         signal <- SignallingRef[F, Boolean](false)
         server = WebsocketServer(to, from, signal)
-        _ <- Concurrent[F].start(server.start().compile.drain)
+        _ <- Concurrent[F].start(Backoff.default {
+          server
+            .start()
+            .compile
+            .drain
+            .attemptT
+            .leftMap(
+              t =>
+                new WithCause[Throwable] {
+                  override def cause: Throwable = t
+              }
+            )
+        })
       } yield server
     )(_.close())
 }

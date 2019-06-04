@@ -16,8 +16,16 @@
 
 package fluence.kad
 
-sealed trait KadError
+import scala.util.control.NoStackTrace
+
+sealed trait KadError extends NoStackTrace
 
 sealed trait JoinError extends KadError
 
 case object CantJoinAnyNode extends JoinError
+
+sealed trait KadRpcError extends KadError
+
+case class KadRemoteError(msg: String, cause: Throwable) extends KadRpcError {
+  initCause(cause)
+}

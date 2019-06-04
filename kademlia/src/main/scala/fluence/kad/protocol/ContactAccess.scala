@@ -16,9 +16,8 @@
 
 package fluence.kad.protocol
 
-import cats.effect.IO
-
 import scala.concurrent.duration.Duration
+import scala.language.higherKinds
 
 /**
  * Provides access to contact-specific services
@@ -28,12 +27,12 @@ import scala.concurrent.duration.Duration
  * @param check Test node correctness, e.g. signatures are correct, ip is public, etc.
  * @tparam C Contact class
  */
-class ContactAccess[C](
+class ContactAccess[F[_], C](
   val pingExpiresIn: Duration,
-  val check: Node[C] ⇒ IO[Boolean],
-  val rpc: C ⇒ KademliaRpc[C]
+  val check: Node[C] ⇒ F[Boolean],
+  val rpc: C ⇒ KademliaRpc[F, C]
 )
 
 object ContactAccess {
-  def apply[C](implicit ca: ContactAccess[C]): ContactAccess[C] = ca
+  def apply[F[_], C](implicit ca: ContactAccess[F, C]): ContactAccess[F, C] = ca
 }

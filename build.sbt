@@ -369,9 +369,10 @@ lazy val `kademlia-http` = (project in file("kademlia/http"))
       sttp,
       circeGeneric,
       circeParser,
-      http4sDsl
+      http4sDsl,
+      scalaTest
     )
-  ).dependsOn(`kademlia`)
+  ).dependsOn(`kademlia`, `kademlia-testkit` % Test)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kademlia-testkit` = (project in file("kademlia/testkit"))
@@ -386,6 +387,7 @@ lazy val `kademlia-testkit` = (project in file("kademlia/testkit"))
 lazy val `log` = (project in file("log"))
   .settings(
     commons,
+    kindProjector,
     libraryDependencies ++= Seq(
       cats,
       catsEffect,
@@ -433,7 +435,15 @@ lazy val `node` = project
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
   .dependsOn(
-    `ethclient`, `swarm`, `ipfs`, `statemachine-control`,
-    `kvstore`, `dockerio`, `tendermint-rpc`, `sttpEitherT`,
-    `receipt-storage`
+    `ethclient`, 
+    `swarm`, 
+    `ipfs`, 
+    `statemachine-control`, 
+    `kvstore`, 
+    `dockerio`, 
+    `tendermint-rpc`, 
+    `sttpEitherT`,
+    `receipt-storage`,
+    `kademlia-http`,
+    `kademlia-testkit` % Test
   )

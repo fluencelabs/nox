@@ -3,6 +3,11 @@ import hexToArrayBuffer from 'hex-to-array-buffer';
 import arrayBufferToHex from 'array-buffer-to-hex';
 import axios from 'axios';
 import {AppId} from "../apps";
+import {Dashboard} from "../../../types/web3-contracts/Dashboard";
+import {send, sendUnsigned, txParams} from "../deployable";
+import {privateKey} from "../../constants";
+import EthereumTx from "ethereumjs-tx";
+import {getUserAddress, isMetamaskActive} from "../contract";
 
 export type NodeId = string;
 
@@ -95,8 +100,53 @@ export interface WorkerInfo {
     tendermintPrometheusPort?: number
 }
 
+export interface NodeRef {
+    node_id: string;
+    capacity: number,
+    owner: string,
+    is_private: boolean,
+}
+
+export async function getNodeRefs(contract: Dashboard): Promise<NodeRef[]> {
+    let result = await contract.methods.getNodes().call();
+    let node_ids = result["0"];
+    let owners = result["1"];
+    let capacities = result["2"];
+    let privateness = result["3"];
+    let nodes: NodeRef[] = [];
+    for (let i = 0; i < node_ids.length; i++) {
+        nodes[i] = {
+            node_id: node_ids[i],
+            owner: owners[i],
+            capacity: parseInt(capacities[i]),
+            is_private: privateness[i]
+        };
+    }
+
+    return nodes;
+}
+
 export async function getNodeIds(contract: Network): Promise<NodeId[]> {
     return contract.methods.getNodesIds().call();
+}
+
+export async function deleteNode(contract: Network, id: NodeId): Promise<boolean> {
+    let txData = contract.methods.deleteNode(id).encodeABI();
+
+    let receipt = null;
+
+    if (isMetamaskActive()) {
+        receipt = await sendUnsigned({
+            from: getUserAddress(),
+            ...await txParams(txData),
+        });
+    } else {
+        let tx = new EthereumTx(await txParams(txData));
+        tx.sign(privateKey);
+        receipt = await send(tx.serialize());
+    }
+
+    return receipt && receipt.status as boolean;
 }
 
 export async function getNode(contract: Network, id: NodeId): Promise<Node> {

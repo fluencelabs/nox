@@ -14,32 +14,29 @@
  * limitations under the License.
  */
 
-package fluence.log
+package fluence.log.appender
 
-import cats.effect.{Clock, Sync}
+import cats.syntax.applicative._
+import cats.effect.Sync
+import fluence.log.Log
 
 import scala.language.higherKinds
 
 /**
  * Functional logger facade
  *
- * @param ctx Trace Context
  * @tparam F Effect
  */
-class PrintlnLog[F[_]: Sync: Clock](override val ctx: Context) extends Log[F] {
+class PrintlnLogAppender[F[_]: Sync] extends LogAppender[F] {
 
-  /**
-   * Provide a logger with modified context
-   *
-   * @param modContext Context modification
-   * @param fn         Function to use the new logger
-   * @tparam A Return type
-   * @return What the inner function returns
-   */
-  override def scope[A](modContext: Context ⇒ Context)(fn: Log[F] ⇒ F[A]): F[A] =
-    fn(new PrintlnLog(modContext(ctx)))
-
-  override protected def appendMsg(msg: Log.Msg): F[Unit] =
+  override private[log] def appendMsg(msg: Log.Msg): F[Unit] =
     Sync[F].delay(println(msg))
+
+}
+
+object PrintlnLogAppender {
+
+  def apply[F[_]: Sync](): F[PrintlnLogAppender[F]] =
+    new PrintlnLogAppender[F].pure[F]
 
 }

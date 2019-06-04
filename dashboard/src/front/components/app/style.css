@@ -8,9 +8,91 @@
     font-size: 45px;
 }
 
-.content-wrapper, .main-footer, .main-header .navbar {
+.main-header .navbar, .main-footer { /* Make header and footer page-wide */
     margin-left: 0;
 }
+
+/* Solution to remove scroll */
+html,body {
+    height: unset;
+}
+
+.wrapper {
+    display: flex;
+    flex-flow: column;
+    min-height: 100vh;
+}
+
+.main-header {
+    flex: 0 1 auto;
+}
+
+.content-middle {
+    flex: 1 1 auto;
+    display: flex;
+}
+
+.main-sidebar {
+    position: absolute; /* For scroll in apps\nodes-list */
+    height: 100%; /* For scroll in apps\nodes-list */
+    padding: 50px 0; /* Padding for page-wide header and footer */
+    flex: 0 1 460px;
+    width: 460px;
+    min-width: 460px;
+}
+
+.content-wrapper {
+    flex: 1 1 auto;
+    margin-left: 460px;
+    overflow-x: auto;
+}
+
+.main-footer {
+    flex: 0 1 40px;
+}
+
+.sidebar {
+    width: 230px;
+    display: inline-block; /* for display 2 blocks */
+    vertical-align: top; /* for display 2 blocks at the top */
+}
+
+.one-column-mode .main-sidebar {
+    flex: 0 1 230px;
+    width: 230px;
+    min-width: 230px;
+}
+.one-column-mode .content-wrapper {
+    margin-left: 230px;
+}
+.one-column-mode .sidebar.fluence-list {
+    display: none;
+}
+
+.sidebar.fluence-list {
+    height: 100%;
+    overflow-y: scroll;
+}
+.node-details {
+    display: block;
+    margin-left: 20px;
+}
+
+.sidebar.fluence-list {
+    background: #fff;
+}
+.sidebar.fluence-list  li.header {
+    color: #000;
+    background: #ccc;
+}
+.sidebar.fluence-list  li a {
+    color: #000;
+    background: #fff;
+}
+.sidebar.fluence-list  li:hover a, .sidebar.fluence-list li.active a {
+    background: #ccc;
+}
+
 .text-muted, .widget-user-desc {
     word-break: break-word;
 }
@@ -29,33 +111,13 @@
     display: block;
 }
 
-/* Solution to remove scroll */
-.wrapper {
-    display: flex;
-    flex-flow: column;
-    height: 100%;
-}
-
-.main-header {
-    flex: 0 1 auto;
-}
-
-.content-wrapper {
-    flex: 1 1 auto;
-    min-height: unset;
-}
-
-.main-footer {
-    flex: 0 1 40px;
-}
-
 .bg-fluence-blue-gradient {
-    background-image: linear-gradient(286deg,#1248db,#528afc);
-    color: #fff;
+    /*background-image: linear-gradient(286deg,#1248db,#528afc);*/
+    /*color: #fff;*/
 }
 .bg-fluence-green-gradient {
-    background-image: linear-gradient(286deg, #008d4c, #00a65a) !important;
-    color: #fff;
+    /*background-image: linear-gradient(286deg, #008d4c, #00a65a) !important;*/
+    /*color: #fff;*/
 }
 
 .skin-fluence .main-header .navbar.navbar-fluence-background,
@@ -67,16 +129,17 @@
     width: unset;
 }
 
-.nav .fluence-contract-address {
+.nav .fluence-header-label {
     color: #fff;
     padding-top: 15px;
     padding-bottom: 15px;
+    padding-left: 10px;
     position: relative;
     display: block;
     font-size: 15px;
 }
 
-.nav .fluence-contract-address a {
+.nav .fluence-header-label a {
     color: #fff;
     text-decoration: underline;
 }
@@ -91,4 +154,39 @@
 
 .error {
     color: #f56954;
+}
+
+.pseudolink {
+    text-decoration: underline;
+    text-decoration-style: dashed;
+    cursor: pointer;
+}
+
+.react-modal-overlay {
+    z-index: 99999;
+    position: fixed;
+    top: 0px;
+    left: 0px;
+    right: 0px;
+    bottom: 0px;
+    background-color: rgba(0, 0, 0, 0.6);
+}
+.react-modal-content {
+    position: absolute;
+    top: 40px;
+    left: 40px;
+    right: 40px;
+    bottom: 40px;
+    /* border: 1px solid rgb(204, 204, 204); */
+    /* background: rgb(255, 255, 255); */
+    overflow: auto;
+    border-radius: 4px;
+    outline: none;
+    padding: 20px;
+}
+
+.list-filler {
+    font-size: 110px;
+    text-align: center;
+    opacity: 0.2;
 }

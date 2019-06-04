@@ -16,9 +16,11 @@
 
 package fluence.kad.state
 
-import cats.data.StateT
+import cats.data.{EitherT, StateT}
 import cats.effect.{ContextShift, IO, Timer}
+import fluence.kad.{KadRemoteError, KadRpcError}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
+import fluence.log.{Log, LogFactory}
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.duration._
@@ -34,7 +36,10 @@ class BucketSpec extends WordSpec with Matchers {
     type C = Int
     type F[A] = StateT[IO, Bucket[C], A]
 
-    def update(node: Node[Int], rpc: C ⇒ KademliaRpc[C]): F[Boolean] =
+    val logFactory = LogFactory.forChains[IO]()
+    implicit val log: Log[IO] = logFactory.init("bucket-spec").unsafeRunSync()
+
+    def update(node: Node[Int], rpc: C ⇒ KademliaRpc[IO, C]): F[Boolean] =
       Bucket.update[IO, C](node, rpc, Duration.Undefined).map(_.updated.contains(node.key))
 
     "update contacts" in {
@@ -45,21 +50,22 @@ class BucketSpec extends WordSpec with Matchers {
       val k2 = Key.fromBytes.unsafe(Array.fill(Key.Length)(3: Byte))
 
       val failRPC = (_: C) ⇒
-        new KademliaRpc[C] {
-          override def ping() = IO.raiseError(new NoSuchElementException)
+        new KademliaRpc[IO, C] {
+          override def ping()(implicit log: Log[IO]): EitherT[IO, KadRpcError, Node[C]] =
+            EitherT.leftT(KadRemoteError("-", new NoSuchElementException): KadRpcError)
 
-          override def lookup(key: Key, numberOfNodes: Int) = ???
+          override def lookup(key: Key, numberOfNodes: Int)(implicit log: Log[IO]) = ???
 
-          override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C) = ???
+          override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C)(implicit log: Log[IO]) = ???
       }
 
       val successRPC = (c: C) ⇒
-        new KademliaRpc[C] {
-          override def ping() =
-            IO(Node(Key.fromBytes.unsafe(Array.fill(Key.Length)(c.toByte)), c))
+        new KademliaRpc[IO, C] {
+          override def ping()(implicit log: Log[IO]) =
+            EitherT.rightT(Node(Key.fromBytes.unsafe(Array.fill(Key.Length)(c.toByte)), c))
 
-          override def lookup(key: Key, numberOfNodes: Int) = ???
-          override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C) = ???
+          override def lookup(key: Key, numberOfNodes: Int)(implicit log: Log[IO]) = ???
+          override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C)(implicit log: Log[IO]) = ???
       }
 
       // By default, bucket is empty

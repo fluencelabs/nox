@@ -23,6 +23,7 @@ import fluence.crypto.{Crypto, CryptoError, KeyPair}
 import fluence.crypto.signature.{PubKeyAndSignature, Signature, Signer}
 import cats.syntax.compose._
 import cats.syntax.arrow._
+import cats.syntax.flatMap._
 import cats.syntax.profunctor._
 import cats.syntax.either._
 import cats.syntax.functor._
@@ -38,6 +39,7 @@ import Crypto.liftCodecErrorToCrypto
 
 import scala.language.higherKinds
 import scala.language.implicitConversions
+import scala.util.Try
 
 /**
  * URI representation of Node's contact, should be encoded as fluence://(b58 of pubKey):(b58 of signature)@host:port,
@@ -47,7 +49,7 @@ import scala.language.implicitConversions
  * @param port Port
  * @param signature Signature, along with the Public Key
  */
-case class UriContact(host: String, port: Int, signature: PubKeyAndSignature) {
+case class UriContact private (host: String, port: Short, signature: PubKeyAndSignature) {
   override def toString =
     s"fluence://${signature.publicKey.value.toBase58}:${signature.signature.sign.toBase58}@$host:$port"
 
@@ -67,10 +69,23 @@ object UriContact {
    * @param port Port
    * @param signer Signer associated with this node's keypair
    */
-  def buildContact(host: String, port: Int, signer: Signer): Crypto.Point[UriContact] = {
+  def buildContact(host: String, port: Short, signer: Signer): Crypto.Point[UriContact] = {
     val msg = signer.publicKey.value ++ ByteVector(host.getBytes) ++ ByteVector.fromInt(port)
     signer.signWithPK.pointAt(msg).rmap(UriContact(host, port, _))
   }
+
+  /**
+   * Build a node with the given params
+   *
+   * @param host Host
+   * @param port Port
+   * @param signer Signer associated with this node's keypair
+   */
+  def buildNode(host: String, port: Short, signer: Signer): Crypto.Point[Node[UriContact]] =
+    for {
+      c ← buildContact(host, port, signer)
+      k ← Crypto.fromOtherFunc(Key.fromPublicKey).pointAt(signer.publicKey)
+    } yield Node(k, c)
 
   /**
    * Parse contact from string, check its signature
@@ -109,7 +124,7 @@ object UriContact {
   /**
    * Convert Node to string
    */
-  val writeNode: Node[UriContact] ~~> String =
+  implicit val writeNode: Node[UriContact] ~~> String =
     writeContact.lmap(_.contact)
 
   /**
@@ -139,7 +154,10 @@ object UriContact {
     val readHost: Uri ~~> String = (uri: Uri) ⇒
       Either.fromOption(uri.host, CodecError("Host not provided")).map(_.value)
 
-    val readPort: Uri ~~> Int = (uri: Uri) ⇒ Either.fromOption(uri.port, CodecError("Port not provided"))
+    val readPort: Uri ~~> Short = (uri: Uri) ⇒
+      Either
+        .fromOption(uri.port, CodecError("Port not provided"))
+        .flatMap(p ⇒ Try(p.toShort).toEither.left.map(t ⇒ CodecError(s"Port is not convertible to Short: $p", Some(t))))
 
     val checkScheme: Uri ~~> Unit =
       (uri: Uri) ⇒

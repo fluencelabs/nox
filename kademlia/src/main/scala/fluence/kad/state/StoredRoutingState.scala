@@ -17,13 +17,14 @@
 package fluence.kad.state
 
 import cats.Traverse
-import cats.effect.{Clock, Concurrent, LiftIO}
+import cats.effect.{Clock, Concurrent}
 import cats.instances.list._
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.kvstore.KVStore
 import fluence.kad.protocol.{ContactAccess, Key, Node}
+import fluence.log.Log
 
 import scala.language.higherKinds
 
@@ -46,14 +47,23 @@ private[state] class StoredRoutingState[F[_]: Concurrent, C](
    * @param res State Modifications result
    * @return Runs on background, always returns just Unit
    */
-  private def modResult(res: ModResult[C]): F[Unit] =
+  private def modResult(res: ModResult[C])(implicit log: Log[F]): F[Unit] =
     Concurrent[F]
       .start(
         // Put (upsert, insert or update) refreshed nodes
         Traverse[List].traverse(res.updated.toList) {
-          case (k, v) ⇒ store.put(k, v).value // TODO: at least log errors?
+          case (k, v) ⇒
+            store
+              .put(k, v)
+              .leftSemiflatMap(err ⇒ log.warn("Cannot put an updated Kademlia record into store", err))
+              .value
         } *> // And remove
-          Traverse[List].traverse(res.removed.toList)(store.remove(_).value)
+          Traverse[List].traverse(res.removed.toList)(
+            store
+              .remove(_)
+              .leftSemiflatMap(err ⇒ log.warn("Cannot remove a dropped Kademlia record from the store", err))
+              .value
+          )
       )
       .void
 
@@ -68,17 +78,17 @@ private[state] class StoredRoutingState[F[_]: Concurrent, C](
   override def bucket(idx: Int): F[Bucket[C]] =
     routingState.bucket(idx)
 
-  override def remove(key: Key): F[ModResult[C]] =
+  override def remove(key: Key)(implicit log: Log[F]): F[ModResult[C]] =
     routingState.remove(key).flatTap(modResult)
 
   override def update(
     node: Node[C]
-  )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]] =
+  )(implicit clock: Clock[F], ca: ContactAccess[F, C], log: Log[F]): F[ModResult[C]] =
     routingState.update(node).flatTap(modResult)
 
   override def updateList(
     nodes: List[Node[C]]
-  )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]] =
+  )(implicit clock: Clock[F], ca: ContactAccess[F, C], log: Log[F]): F[ModResult[C]] =
     routingState.updateList(nodes).flatTap(modResult)
 
 }

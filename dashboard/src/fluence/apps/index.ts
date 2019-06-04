@@ -1,6 +1,10 @@
 import {Network} from '../../../types/web3-contracts/Network';
 import {none, Option, some} from 'ts-option';
 import {Dashboard} from "../../../types/web3-contracts/Dashboard";
+import {send, sendUnsigned, txParams} from "../deployable";
+import {privateKey} from "../../constants";
+import {getUserAddress, isMetamaskActive} from "../contract";
+import EthereumTx from "ethereumjs-tx";
 
 export type AppId = string;
 
@@ -29,6 +33,24 @@ export async function getAppIds(contract: Network): Promise<AppId[]> {
     return contract.methods.getAppIDs().call();
 }
 
+export async function deleteApp(contract: Network, id: AppId): Promise<boolean> {
+    let txData = contract.methods.deleteApp(id).encodeABI();
+    let receipt = null;
+
+    if (isMetamaskActive()) {
+        receipt = await sendUnsigned({
+            from: getUserAddress(),
+            ...await txParams(txData),
+        });
+    } else {
+        let tx = new EthereumTx(await txParams(txData));
+        tx.sign(privateKey);
+        receipt = await send(tx.serialize());
+    }
+
+    return receipt && receipt.status as boolean;
+}
+
 /**
  * Application consisting of app id and a storage hash.
  * TODO: Naming could be better
@@ -36,17 +58,20 @@ export async function getAppIds(contract: Network): Promise<AppId[]> {
 export interface AppRef {
     app_id: string;
     storage_hash: string;
+    owner: string;
 }
 
 export async function getAppRefs(contract: Dashboard): Promise<AppRef[]> {
     let result = await contract.methods.getApps().call();
     let app_ids = result["0"];
     let storage_hashes = result["1"];
+    let owners = result["2"];
     let apps: AppRef[] = [];
     for (let i = 0; i < app_ids.length; i++) {
         apps[i] = {
             app_id: app_ids[i],
             storage_hash: storage_hashes[i],
+            owner: owners[i],
         };
     }
 

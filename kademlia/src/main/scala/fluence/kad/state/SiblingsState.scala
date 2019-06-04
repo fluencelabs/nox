@@ -16,11 +16,10 @@
 
 package fluence.kad.state
 
-import cats.Eval
 import cats.syntax.functor._
-import cats.effect.Sync
-import cats.effect.concurrent.Ref
+import cats.effect.Async
 import fluence.kad.protocol.{Key, Node}
+import fluence.log.Log
 
 import scala.language.higherKinds
 
@@ -40,7 +39,7 @@ sealed trait SiblingsState[F[_], C] {
    * @param node Node to add
    * @return True if the node is in Siblings after update
    */
-  def add(node: Node[C]): F[ModResult[C]]
+  def add(node: Node[C])(implicit log: Log[F]): F[ModResult[C]]
 
   /**
    * Removes a node
@@ -48,32 +47,31 @@ sealed trait SiblingsState[F[_], C] {
    * @param key Node to remove
    * @return Optional node, if it was removed
    */
-  def remove(key: Key): F[ModResult[C]]
+  def remove(key: Key)(implicit log: Log[F]): F[ModResult[C]]
 }
 
 object SiblingsState {
 
   /**
    * Builds asynchronous sibling ops with $maxSiblings nodes max.
-   * Note that it is safe to use Ref, effectively blocking on state changes, as there's no I/O delays, see [[Bucket.update]]
    *
    * @param nodeKey      Siblings are sorted by distance to this nodeId
    * @param maxSize     Max number of closest siblings to store
    * @tparam C Node contacts type
    */
-  private[state] def withRef[F[_]: Sync, C](nodeKey: Key, maxSize: Int): F[SiblingsState[F, C]] =
-    Ref
+  private[state] def withRef[F[_]: Async, C](nodeKey: Key, maxSize: Int): F[SiblingsState[F, C]] =
+    ReadableMVar
       .of[F, Siblings[C]](Siblings[C](nodeKey, maxSize))
       .map(
-        ref ⇒
+        rmv ⇒
           new SiblingsState[F, C] {
-            override def read: F[Siblings[C]] = ref.get
+            override def read: F[Siblings[C]] = rmv.read
 
-            override def add(node: Node[C]): F[ModResult[C]] =
-              ref.modifyState(Siblings.add[Eval, C](node))
+            override def add(node: Node[C])(implicit log: Log[F]): F[ModResult[C]] =
+              rmv(Siblings.add(node))
 
-            override def remove(key: Key): F[ModResult[C]] =
-              ref.modifyState(Siblings.remove[Eval, C](key))
+            override def remove(key: Key)(implicit log: Log[F]): F[ModResult[C]] =
+              rmv(Siblings.remove(key))
         }
       )
 }

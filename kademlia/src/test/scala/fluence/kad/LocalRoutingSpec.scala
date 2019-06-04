@@ -16,10 +16,12 @@
 
 package fluence.kad
 
+import cats.data.EitherT
 import cats.effect.{ContextShift, IO, Timer}
 import fluence.kad.routing.LocalRouting
 import fluence.kad.protocol.{ContactAccess, KademliaRpc, Key, Node}
 import fluence.kad.state.RoutingState
+import fluence.log.{Log, LogFactory}
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
 
@@ -42,32 +44,37 @@ class LocalRoutingSpec extends WordSpec with Matchers {
   implicit val shift: ContextShift[IO] = IO.contextShift(global)
   implicit val timer: Timer[IO] = IO.timer(global)
 
+  private val logFactory = LogFactory.forChains[IO]()
+  implicit val log: Log[IO] = logFactory.init("local-routing-spec").unsafeRunSync()
+
   "kademlia routing table (non-iterative)" should {
 
     val failLocalRPC = (_: Long) ⇒
-      new KademliaRpc[Long] {
-        override def ping() = IO.raiseError(new NoSuchElementException)
+      new KademliaRpc[IO, Long] {
+        override def ping()(implicit log: Log[IO]) =
+          EitherT.leftT(KadRemoteError("-", new NoSuchElementException): KadRpcError)
 
-        override def lookup(key: Key, numberOfNodes: Int) = ???
-        override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) = ???
+        override def lookup(key: Key, numberOfNodes: Int)(implicit log: Log[IO]) = ???
+        override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int)(implicit log: Log[IO]) = ???
     }
 
     val successLocalRPC = (c: Long) ⇒
-      new KademliaRpc[Long] {
-        override def ping() = IO(Node(c, c))
+      new KademliaRpc[IO, Long] {
+        override def ping()(implicit log: Log[IO]) =
+          EitherT.rightT(Node(c, c))
 
-        override def lookup(key: Key, numberOfNodes: Int) = ???
-        override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int) = ???
+        override def lookup(key: Key, numberOfNodes: Int)(implicit log: Log[IO]) = ???
+        override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int)(implicit log: Log[IO]) = ???
     }
 
     val checkNode: Node[Long] ⇒ IO[Boolean] = _ ⇒ IO(true)
 
     object failCA {
-      implicit val ca: ContactAccess[Long] = new ContactAccess[Long](pingDuration, checkNode, failLocalRPC)
+      implicit val ca: ContactAccess[IO, Long] = new ContactAccess[IO, Long](pingDuration, checkNode, failLocalRPC)
     }
 
     object successCA {
-      implicit val ca: ContactAccess[Long] = new ContactAccess[Long](pingDuration, checkNode, successLocalRPC)
+      implicit val ca: ContactAccess[IO, Long] = new ContactAccess[IO, Long](pingDuration, checkNode, successLocalRPC)
     }
 
     def routing(

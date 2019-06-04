@@ -16,8 +16,8 @@
 
 package fluence.kad.state
 
-import cats.effect.{Clock, LiftIO}
-import cats.{Monad, Parallel, Traverse}
+import cats.effect.Clock
+import cats.{Applicative, Monad, Parallel, Traverse}
 import cats.instances.list._
 import cats.syntax.applicative._
 import cats.syntax.apply._
@@ -27,6 +27,7 @@ import cats.syntax.monoid._
 import cats.syntax.order._
 import cats.syntax.semigroupk._
 import fluence.kad.protocol.{ContactAccess, Key, Node}
+import fluence.log.Log
 
 import scala.annotation.tailrec
 import scala.language.higherKinds
@@ -37,7 +38,7 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
   bucketsState: BucketsState[F, C]
 )(
   implicit P: Parallel[F, P]
-) extends RoutingState[F, C] with slogging.LazyLogging {
+) extends RoutingState[F, C] {
 
   override val siblings: F[Siblings[C]] =
     siblingsState.read
@@ -54,7 +55,7 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
    * @param key Key
    * @return Optional node, if it was removed
    */
-  override def remove(key: Key): F[ModResult[C]] =
+  override def remove(key: Key)(implicit log: Log[F]): F[ModResult[C]] =
     P sequential P.apply.map2(
       P parallel siblingsState.remove(key),
       P parallel bucketsState.remove(key distanceTo nodeKey, key)
@@ -68,7 +69,7 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
    */
   override def update(
     node: Node[C]
-  )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]] =
+  )(implicit clock: Clock[F], ca: ContactAccess[F, C], log: Log[F]): F[ModResult[C]] =
     updateWithKeepExisting(node, keepExisting = true)
 
   /**
@@ -77,30 +78,26 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
   private def updateWithKeepExisting(
     node: Node[C],
     keepExisting: Boolean
-  )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]] =
+  )(implicit clock: Clock[F], ca: ContactAccess[F, C], log: Log[F]): F[ModResult[C]] =
     if (nodeKey === node.key)
       ModResult.noop[C].pure[F]
     else
-      ca.check(node).attempt.to[F].flatMap {
-        case Right(true) ⇒
-          logger.trace("Update node: {}", node.key)
+      ca.check(node).flatMap {
+        case true ⇒
+          log.trace(s"Update node: ${node.key}") *>
+            P.sequential(
+                P.apply.map2(
+                  // Update bucket, performing ping if necessary
+                  P parallel bucketsState.update(node.key distanceTo nodeKey, node, ca.rpc, ca.pingExpiresIn),
+                  // Update siblings
+                  P parallel siblingsState.add(node)
+                )(_ <+> _)
+              )
+              .flatMap(if (keepExisting) keepExistingNodes else _.pure[F])
 
-          P.sequential(
-              P.apply.map2(
-                // Update bucket, performing ping if necessary
-                P parallel bucketsState.update(node.key distanceTo nodeKey, node, ca.rpc, ca.pingExpiresIn),
-                // Update siblings
-                P parallel siblingsState.add(node)
-              )(_ <+> _)
-            )
-            .flatMap(if (keepExisting) keepExistingNodes else _.pure[F])
-
-        case Left(err) ⇒
-          logger.trace(s"Node check failed with an exception for $node", err)
-          ModResult.noop[C].pure[F]
-
-        case _ ⇒
-          ModResult.noop[C].pure[F]
+        case false ⇒
+          log.trace(s"Node check failed $node") as
+            ModResult.noop[C]
       }
 
   /**
@@ -111,7 +108,7 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
    */
   override def updateList(
     nodes: List[Node[C]]
-  )(implicit clock: Clock[F], liftIO: LiftIO[F], ca: ContactAccess[C]): F[ModResult[C]] = {
+  )(implicit clock: Clock[F], ca: ContactAccess[F, C], log: Log[F]): F[ModResult[C]] = {
     // From iterable of groups, make list of list of items from different groups
     @tailrec
     def rearrange(groups: Iterable[List[Node[C]]], agg: List[List[Node[C]]] = Nil): List[List[Node[C]]] =
@@ -150,7 +147,7 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
    * @param res Mod result
    * @return ModResult
    */
-  private def keepExistingNodes(res: ModResult[C]): F[ModResult[C]] =
+  private def keepExistingNodes(res: ModResult[C])(implicit log: Log[F]): F[ModResult[C]] =
     Traverse[List]
       .traverse(res.removed.toList)(
         k ⇒
@@ -160,8 +157,13 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
             bucketsState.read(nodeKey |+| k).map(_.find(k))
           ).mapN(_ orElse _)
       )
-      .map(_.foldLeft(res) {
-        case (mr, Some(n)) ⇒ mr.keep(n.key, s"Kept ${n.key}, as it's still present in routing table")
-        case (mr, _) ⇒ mr
-      })
+      .flatMap(
+        nodes ⇒
+          Monad[F].tailRecM(nodes.flatten -> res) {
+            case (Nil, mr) ⇒
+              Applicative[F].pure(Right(mr))
+            case (n :: tail, mr) ⇒
+              log.trace(s"Kept ${n.key}, as it's still present in routing table") as Left(tail -> mr.keep(n.key))
+        }
+      )
 }

@@ -25,6 +25,7 @@ import cats.syntax.functor._
 import cats.syntax.applicative._
 import cats.effect.{Async, Clock, LiftIO}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
+import fluence.log.Log
 
 import scala.concurrent.duration.Duration
 import scala.language.higherKinds
@@ -70,10 +71,11 @@ sealed trait BucketsState[F[_], C] {
    * @param pingExpiresIn Duration for the ping to be considered relevant
    * @return True if node is updated in a bucket, false otherwise
    */
-  def update(bucketId: Int, node: Node[C], rpc: C ⇒ KademliaRpc[C], pingExpiresIn: Duration)(
-    implicit liftIO: LiftIO[F],
+  def update(bucketId: Int, node: Node[C], rpc: C ⇒ KademliaRpc[F, C], pingExpiresIn: Duration)(
+    implicit
     F: Monad[F],
-    clock: Clock[F]
+    clock: Clock[F],
+    log: Log[F]
   ): F[ModResult[C]] =
     for {
       time ← clock.realTime(TimeUnit.MILLISECONDS)
@@ -92,7 +94,7 @@ sealed trait BucketsState[F[_], C] {
    * @param F Monad
    * @return Optional removed node
    */
-  def remove(bucketId: Int, key: Key)(implicit F: Monad[F]): F[ModResult[C]] =
+  def remove(bucketId: Int, key: Key)(implicit F: Monad[F], log: Log[F]): F[ModResult[C]] =
     run(bucketId, Bucket.remove(key))
 }
 

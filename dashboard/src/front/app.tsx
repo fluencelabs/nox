@@ -42,6 +42,13 @@ const providers: ((el: JSX.Element) => JSX.Element)[] = [
         </Provider>),
 ];
 
-const body = providers.reverse().reduce((memo, callback) => callback(memo), (<Route path={['/:entityType/:entityId/:appId', '/:entityType/:entityId', '/']} component={DashboardApp} />));
+const routes = [
+    '/:entityType/:entitySubType/:entityId',
+    '/:entityType/:entityId',
+    '/:entityType',
+    '/'
+];
+
+const body = providers.reverse().reduce((memo, callback) => callback(memo), (<Route path={routes} component={DashboardApp} />));
 
 ReactDOM.render(body, document.getElementById(rootTagId));

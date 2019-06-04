@@ -18,7 +18,6 @@ package fluence.node
 import java.nio.ByteBuffer
 import java.nio.file._
 
-import cats.Parallel
 import cats.data.EitherT
 import cats.effect._
 import cats.effect.syntax.effect._
@@ -28,10 +27,10 @@ import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
 import fluence.effects.Backoff
 import fluence.effects.castore.StoreError
-import fluence.effects.docker.DockerIO
 import fluence.effects.ethclient.EthClient
-import fluence.effects.ipfs.{IpfsClient, IpfsStore}
-import fluence.effects.swarm.{SwarmClient, SwarmStore}
+import fluence.effects.ipfs.IpfsStore
+import fluence.effects.swarm.SwarmStore
+import fluence.kad.Kademlia
 import fluence.node.code.{CodeCarrier, LocalCodeCarrier, PolyStore, RemoteCodeCarrier}
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.config.{MasterConfig, NodeConfig}
@@ -53,9 +52,10 @@ import scala.language.higherKinds
  * @param pool Workers pool to launch workers in
  * @param codeCarrier To load the code from, usually backed with Swarm
  * @param rootPath MasterNode's working directory, usually /master
+ * @param kademlia Kademlia instance
  * @param masterNodeContainerId Docker Container ID for this process, to import Docker volumes from
  */
-case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
+case class MasterNode[F[_]: ConcurrentEffect: LiftIO, C](
   masterConfig: MasterConfig,
   nodeConfig: NodeConfig,
   configTemplate: ConfigTemplate,
@@ -63,6 +63,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO](
   pool: WorkersPool[F],
   codeCarrier: CodeCarrier[F],
   rootPath: Path,
+  kademlia: Kademlia[F, C],
   masterNodeContainerId: Option[String]
 ) extends slogging.LazyLogging {
 
@@ -188,13 +189,14 @@ object MasterNode extends LazyLogging {
    * @param sttpBackend HTTP client implementation
    * @return Prepared [[MasterNode]], then see [[MasterNode.run]]
    */
-  def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer, G[_]](
+  def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer, C](
     masterConfig: MasterConfig,
     nodeConfig: NodeConfig,
-    pool: WorkersPool[F]
+    pool: WorkersPool[F],
+    kademlia: Kademlia[F, C]
   )(
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]
-  ): Resource[F, MasterNode[F]] =
+  ): Resource[F, MasterNode[F, C]] =
     for {
       ethClient ← EthClient.make[F](Some(masterConfig.ethereum.uri))
 
@@ -208,7 +210,7 @@ object MasterNode extends LazyLogging {
 
       configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath, masterConfig.tendermintConfig))
     } yield
-      MasterNode[F](
+      MasterNode[F, C](
         masterConfig,
         nodeConfig,
         configTemplate,
@@ -216,6 +218,7 @@ object MasterNode extends LazyLogging {
         pool,
         codeCarrier,
         rootPath,
+        kademlia,
         masterConfig.masterContainerId
       )
 

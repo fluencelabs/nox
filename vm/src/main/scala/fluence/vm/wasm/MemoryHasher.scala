@@ -79,10 +79,10 @@ object MemoryHasher extends slogging.LazyLogging {
   ): Either[GetVmStateError, MemoryHasher] = {
     memory match {
       case m: TrackingMemoryBuffer =>
-        logger.info(s"Will use Merkle Tree Hasher")
+        logger.info("TrackingMemoryBuffer with MerkleTree hasher will be used.")
         buildMerkleTreeHasher(m)
       case m =>
-        logger.info(s"Will use Plain Memory Hasher")
+        logger.info("Plain hasher will be used.")
         Either.right(buildPlainHasher(m))
     }
   }
