@@ -34,7 +34,7 @@ import fluence.effects.ethclient.EthClient
 import fluence.kad.RoutingConf
 import fluence.kad.http.UriContact
 import fluence.log.LogFactory
-import fluence.node.config.{FluenceContractConfig, MasterConfig, NodeConfig}
+import fluence.node.config.{FluenceContractConfig, KademliaConfig, MasterConfig, NodeConfig}
 import fluence.node.eth.FluenceContract
 import fluence.node.eth.FluenceContractTestOps._
 import fluence.node.status.{MasterStatus, StatusAggregator}
@@ -87,9 +87,11 @@ class MasterNodeSpec
       .copy(rootPath = Files.createTempDirectory("masternodespec").toString)
 
     kad ← KademliaNode.make[IO, IO.Par](
-      "127.0.0.1",
-      5789,
-      RoutingConf(1, 1, 4, 5.seconds),
+      KademliaConfig(
+        RoutingConf(1, 1, 4, 5.seconds),
+        KademliaConfig.Advertize("127.0.0.1", 5789),
+        KademliaConfig.Join(Nil, 0),
+      ),
       DumbCrypto.signAlgo,
       KeyPair.fromBytes(Array.emptyByteArray, Array.emptyByteArray)
     )
