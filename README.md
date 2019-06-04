@@ -30,9 +30,9 @@ The real-time processing layer is able to promptly serve client requests, but pr
 
 The network also relies on Ethereum (as a secure metadata storage and dispute resolution layer) and Swarm/Filecoin/Arweave (as a data availability layer).
 
-<img src="docs/src/images/architecture_overview.png" width="666"/>
+<img src="docs/architecture_overview.png" width="666"/>
 
-Check out the [Fluence book](https://fluence.network/docs/book/introduction/overview.html) to learn more about the general Fluence Core architecture.
+Check out the [Fluence docs](https://fluence.dev/docs/overview) to learn more about the general Fluence Core architecture.
 
 ## Project status
 The project is undergoing a heavy development at the moment.  
@@ -50,11 +50,11 @@ Features that have not been released yet:
 **–** Dispute resolution layer: verification game  
 **–** Data availability layer: decentralized storage for tx history  
 
-While we are working hard to make Fluence bulletproof secure, you can already build and deploy applications to the Fluence devnet! Take a look at the [quickstart](https://fluence.network/docs/book/quickstart/index.html) to learn how to build and decentralize a simple Hello World app, and at the [dice game tutorial](https://github.com/fluencelabs/tutorials/tree/master/dice-game) to learn how to build more involved apps.
+While we are working hard to make Fluence bulletproof secure, you can already build and deploy applications to the Fluence devnet! Take a look at the [quickstart](https://fluence.dev/docs/quickstart) to learn how to build and decentralize a simple Hello World app, and at the [dice game tutorial](https://github.com/fluencelabs/tutorials/tree/master/dice-game) to learn how to build more involved apps.
 
 ## Resources
 
-- [The Fluence book](https://fluence.network/docs/book/)
+- [Fluence docs](https://fluence.dev/)
 - [Key examples and tutorials](https://github.com/fluencelabs/tutorials)
 
 ## Contributing
