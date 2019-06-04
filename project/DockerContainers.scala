@@ -76,6 +76,7 @@ object DockerContainers {
   }
 
   val Node = "fluencelabs/node"
+
   def node(artifact: sbt.File, resourceDirectory: sbt.File): Dockerfile = {
     val artifactTargetPath = s"/${artifact.name}"
 
