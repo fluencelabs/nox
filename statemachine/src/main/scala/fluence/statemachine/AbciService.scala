@@ -110,11 +110,11 @@ class AbciService[F[_]: Monad: Effect](
         .leftMap(err ⇒ logger.error(s"VM is unable to compute state hash: $err"))
         .getOrElse(ByteVector.empty) // TODO do not ignore vm error
 
-      _ = println("got vmhash")
+      _ = println(s"${st.height} calculated vmhash; txs count ${transactions.size}")
 
       // Do not retrieve receipt if block is empty (i.e., there are no txs in state)
-      receipt <- if (transactions.nonEmpty) controlSignals.receipt else none[BlockReceipt].pure[F]
-      _ = println(s"got receipt $receipt")
+      receipt <- if (transactions.nonEmpty) controlSignals.receipt.map(_.some) else none[BlockReceipt].pure[F]
+      _ = println(s"${st.height} got receipt $receipt")
 
       appHash <- receipt.fold(vmHash.pure[F]) {
         case BlockReceipt(r, _) =>
@@ -131,12 +131,12 @@ class AbciService[F[_]: Monad: Effect](
 
       // Store vmHash, so master node could retrieve it
       _ <- receipt.map(_.`type`) match {
-        case None if transactions.isEmpty => Applicative[F].unit
+        case None if transactions.isEmpty => controlSignals.putVmHash(vmHash)
         case Some(ReceiptType.New) | None => controlSignals.putVmHash(vmHash)
         case Some(ReceiptType.Stored) => Applicative[F].unit
         case Some(ReceiptType.LastStored) => controlSignals.setVmHash(vmHash)
       }
-      _ = println("sent vmhash")
+      _ = println(s"${st.height} sent vmhash")
     } yield appHash
 
   /**

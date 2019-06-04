@@ -164,18 +164,21 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift: Log](history: 
 
       for {
         lastReceipt <- lastManifestReceipt.take
+        _ <- Log[F].info(s"WILL getVmHash ${block.header.height}") //TODO: remove
         vmHash <- getVmHash
+        _ <- Log[F].info(s"got vm hash ${block.header.height}") //TODO: remove
         receipt <- backoff.retry(history.upload(block, vmHash, lastReceipt, emptiesReceipts.toList), logError)
-        _ = println(s"saved receipt ${block.header.height}")
+        _ <- Log[F].info(s"app $appId block ${block.header.height} uploaded") //TODO: remove
         _ <- backoff.retry(receiptStorage.put(block.header.height, receipt), logError)
-        _ <- Log[F].info(s"app $appId block ${block.header.height} uploaded")
+        _ <- Log[F].info(s"receipt stored ${block.header.height}")
         _ <- lastManifestReceipt.put(Some(receipt))
       } yield receipt
     }
 
     _.evalMap {
       case (empties, block) =>
-        Traverse[Chain].traverse(empties)(upload(_)) >>= (upload(block, _))
+        Log[F].info(s"empties: ${empties.map(_.header.height).toList.mkString("->")} block: ${block.header.height}") >>
+          Traverse[Chain].traverse(empties)(upload(_)) >>= (upload(block, _))
     }
   }
 

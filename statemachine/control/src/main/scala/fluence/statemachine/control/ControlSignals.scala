@@ -36,7 +36,7 @@ import scala.language.higherKinds
 class ControlSignals[F[_]: FlatMap] private (
   private val dropPeersRef: MVar[F, Set[DropPeer]],
   private val stopRef: Deferred[F, Unit],
-  private val receiptRef: MVar[F, Option[BlockReceipt]],
+  private val receiptRef: MVar[F, BlockReceipt],
   private val hashRef: MVar[F, ByteVector]
 ) {
 
@@ -75,12 +75,12 @@ class ControlSignals[F[_]: FlatMap] private (
    *
    * @param receipt Receipt to store
    */
-  private[control] def putReceipt(receipt: BlockReceipt): F[Unit] = receiptRef.put(Some(receipt))
+  private[control] def putReceipt(receipt: BlockReceipt): F[Unit] = receiptRef.put(receipt)
 
   /**
    * Retrieves block receipt, async blocks until there's a receipt
    */
-  val receipt: F[Option[BlockReceipt]] = receiptRef.take
+  val receipt: F[BlockReceipt] = receiptRef.take
 
   /**
    * Stores vm hash to memory, so node can retrieve it for block manifest uploading
@@ -108,7 +108,7 @@ object ControlSignals {
       for {
         dropPeersRef ← MVar[F].of[Set[DropPeer]](Set.empty)
         stopRef ← Deferred[F, Unit]
-        receiptRef <- MVar[F].of[Option[BlockReceipt]](None)
+        receiptRef <- MVar[F].empty[BlockReceipt]
         hashRef <- MVar[F].empty[ByteVector]
         instance = new ControlSignals[F](dropPeersRef, stopRef, receiptRef, hashRef)
       } yield instance
