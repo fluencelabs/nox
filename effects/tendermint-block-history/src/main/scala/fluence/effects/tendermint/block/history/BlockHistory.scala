@@ -39,15 +39,16 @@ class BlockHistory[F[_]: Monad](ipfs: IpfsClient[F]) {
   def upload(
     block: Block,
     vmHash: ByteVector,
-    previousManifestReceipt: Option[Receipt]
+    previousManifestReceipt: Option[Receipt],
+    emptyBlocksManifests: List[Receipt]
   ): EitherT[F, BlockHistoryError, Receipt] = {
-    val txs = block.data.txs.map(_.map(_.bv))
+    val txs = block.data.txs.filter(_.nonEmpty).map(_.map(_.bv))
     val votes = block.last_commit.precommits.flatten
     val height = block.header.height
     for {
       txsReceipt <- Traverse[Option].sequence(txs.map(uploadTxs(height, _)))
       _ = println(s"uploaded txs ${block.header.height}")
-      manifest = BlockManifest(vmHash, previousManifestReceipt, txsReceipt, block.header, votes)
+      manifest = BlockManifest(vmHash, previousManifestReceipt, txsReceipt, block.header, votes, emptyBlocksManifests)
       receipt <- uploadManifest(height, manifest)
       _ = println(s"uploaded manifest ${block.header.height}")
     } yield receipt

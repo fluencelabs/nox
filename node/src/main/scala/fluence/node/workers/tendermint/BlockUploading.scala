@@ -19,7 +19,7 @@ package fluence.node.workers.tendermint
 import java.nio.ByteBuffer
 import java.nio.file.Path
 
-import cats.Monad
+import cats.{Monad, Traverse}
 import cats.data.EitherT
 import cats.effect.concurrent.MVar
 import cats.effect._
@@ -39,6 +39,7 @@ import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.workers.Worker
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 import fluence.statemachine.control.ReceiptType
+import fs2.Chunk
 import io.circe.Json
 
 import scala.language.{higherKinds, postfixOps}
@@ -83,7 +84,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift: Log](history: 
   )(implicit backoff: Backoff[EffectError]) = {
     // pipes
     val parse = parseBlock(appId)
-    val upload = uploadBlock(appId, lastManifestReceipt, control, storage)
+    def upload = uploadBlocks(appId, lastManifestReceipt, control, storage)
     def sendReceipt(receipt: Receipt, rType: ReceiptType.Value) = backoff.retry(
       control.sendBlockReceipt(receipt, rType),
       (e: ControlRpcError) => Log[F].error(s"error sending receipt: $e")
@@ -106,13 +107,22 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift: Log](history: 
       case None => fs2.Stream.eval(loadFirstBlock(rpc))
       case Some((height, _)) => fs2.Stream.eval(loadLastBlock(height + 1, rpc)).unNone
     }
-    val subscriptionBlocks = rpc.subscribeNewBlock[F].through(parse)
+
+    def emptyBlock(b: Block) = b.data.txs.forall(_.isEmpty)
+    val subscriptionBlocks =
+      rpc
+        .subscribeNewBlock[F]
+        .through(parse)
+        .dropWhile(_.header.height < 2)
 
     val storedTypedReceipts =
       storedReceipts.dropLast.map(_._2 -> ReceiptType.Stored) ++
         storedReceipts.takeRight(1).map(_._2 -> ReceiptType.LastStored)
 
-    val newReceipts = (lastOrFirstBlock ++ subscriptionBlocks).through(upload).map(_ -> ReceiptType.New)
+    val splitted: fs2.Stream[F, Chunk[Block]] = (lastOrFirstBlock ++ subscriptionBlocks).split(emptyBlock)
+
+    val newReceipts =
+      splitted.through(upload).map(_ -> ReceiptType.New)
 
     val receipts = (storedTypedReceipts ++ newReceipts).evalMap(sendReceipt _ tupled)
 
@@ -129,11 +139,29 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift: Log](history: 
     }.unNone
   }
 
+  private def uploadBlocks(
+    appId: Long,
+    lastManifestReceipt: MVar[F, Option[Receipt]],
+    control: ControlRpc[F],
+    receiptStorage: KVReceiptStorage[F]
+  )(implicit backoff: Backoff[EffectError]): fs2.Pipe[F, Chunk[Block], Receipt] = {
+    def upload(receipts: fs2.Stream[F, Receipt] = fs2.Stream.empty) =
+      uploadBlock(appId, lastManifestReceipt, control, receiptStorage, receipts)
+
+    _.flatMap { chunk =>
+      val (empty, last) = chunk.splitAt(chunk.size - 1)
+
+      val receipts = fs2.Stream(empty.toList: _*).through(upload())
+      fs2.Stream(last.toList: _*).through(upload(receipts))
+    }
+  }
+
   private def uploadBlock(
     appId: Long,
     lastManifestReceipt: MVar[F, Option[Receipt]],
     control: ControlRpc[F],
     receiptStorage: KVReceiptStorage[F],
+    emptyBlocksReceipts: fs2.Stream[F, Receipt]
   )(implicit backoff: Backoff[EffectError]): fs2.Pipe[F, Block, Receipt] = {
     _.evalMap { block =>
       def logError[E <: EffectError](e: E) =
@@ -142,21 +170,16 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift: Log](history: 
       val getVmHash =
         backoff.retry(control.getVmHash, logError) <* Log[F].info(s"got vmhash ${block.header.height}")
 
-      (lastManifestReceipt.take, getVmHash).tupled.flatMap {
-        case (lastReceipt, vmHash) =>
-          val uploadF: EitherT[F, EffectError, Receipt] = for {
-            receipt <- history.upload(block, vmHash, lastReceipt)
-            _ <- receiptStorage.put(block.header.height, receipt).leftMap(identity[EffectError])
-            _ = println(s"saved receipt ${block.header.height}")
-          } yield receipt
-
-          // TODO: add health check on this: if error keeps happening, miner should be alerted
-          // Retry uploading until forever
-          backoff
-            .retry(uploadF, logError)
-            .flatTap(_ => Log[F].info(s"BlockUploading: app $appId block ${block.header.height} uploaded"))
-            .flatTap(receipt => lastManifestReceipt.put(Some(receipt)))
-      }
+      for {
+        lastReceipt <- lastManifestReceipt.take
+        vmHash <- getVmHash
+        empties <- emptyBlocksReceipts.compile.toList
+        receipt <- backoff.retry(history.upload(block, vmHash, lastReceipt, empties), logError)
+        _ = println(s"saved receipt ${block.header.height}")
+        _ <- backoff.retry(receiptStorage.put(block.header.height, receipt), logError)
+        _ <- Log[F].info(s"BlockUploading: app $appId block ${block.header.height} uploaded")
+        _ <- lastManifestReceipt.put(Some(receipt))
+      } yield receipt
     }
   }
 

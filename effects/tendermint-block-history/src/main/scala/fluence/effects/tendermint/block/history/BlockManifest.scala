@@ -38,7 +38,8 @@ case class BlockManifest(
   previousManifestReceipt: Option[Receipt],
   txsReceipt: Option[Receipt],
   header: Header,
-  votes: List[Vote]
+  votes: List[Vote],
+  emptyBlocksReceipts: List[Receipt]
 ) {
 
   // TODO: Avoid using JSON since it's not a stable serialization. Maybe use protobuf? Or something custom.
