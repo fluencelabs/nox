@@ -34,6 +34,7 @@ import fluence.statemachine.control.{BlockReceipt, ControlSignals, ReceiptType}
 import fluence.statemachine.state.AbciState
 import scodec.bits.ByteVector
 import slogging.LazyLogging
+import cats.syntax.option._
 
 import scala.language.higherKinds
 
@@ -85,7 +86,7 @@ class AbciService[F[_]: Monad: Effect](
       // Get current state
       s ← state.get
       // Form a block: take ordered txs from AbciState
-      sTxs ← AbciState.formBlock[F].run(s)
+      sTxs @ (_, transactions) ← AbciState.formBlock[F].run(s)
 
       // Process txs one by one
       st ← Monad[F].tailRecM[(AbciState, List[Tx]), AbciState](sTxs) {
@@ -111,8 +112,8 @@ class AbciService[F[_]: Monad: Effect](
 
       _ = println("got vmhash")
 
-      // TODO: do not retrieve receipt if block is empty (i.e., there are no txs in state)
-      receipt <- controlSignals.receipt
+      // Do not retrieve receipt if block is empty (i.e., there are no txs in state)
+      receipt <- if (transactions.nonEmpty) controlSignals.receipt else none[BlockReceipt].pure[F]
       _ = println(s"got receipt $receipt")
 
       appHash <- receipt.fold(vmHash.pure[F]) {
