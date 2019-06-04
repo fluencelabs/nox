@@ -108,7 +108,7 @@ object ControlSignals {
       for {
         dropPeersRef ← MVar[F].of[Set[DropPeer]](Set.empty)
         stopRef ← Deferred[F, Unit]
-        receiptRef <- MVar[F].of[Option[Receipt]](None)
+        receiptRef <- MVar[F].of[Option[BlockReceipt]](None)
         hashRef <- MVar[F].empty[ByteVector]
         instance = new ControlSignals[F](dropPeersRef, stopRef, receiptRef, hashRef)
       } yield instance
