@@ -109,7 +109,7 @@ object Kademlia {
   def apply[F[_]: Monad: Clock, P[_], C](
     routing: RoutingTable[F, C],
     ownContactGetter: F[Node[C]],
-    conf: KademliaConf
+    conf: RoutingConf
   )(implicit P: Parallel[F, P], ca: ContactAccess[F, C]): Kademlia[F, C] =
     new KademliaImpl(routing.nodeKey, conf.parallelism, ownContactGetter, routing)
 

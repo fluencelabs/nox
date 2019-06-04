@@ -18,6 +18,7 @@ package fluence.node
 
 import java.nio.ByteBuffer
 
+import cats.Monad
 import cats.data.EitherT
 import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect._
@@ -25,11 +26,8 @@ import cats.syntax.apply._
 import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
-import fluence.crypto.KeyPair
 import fluence.crypto.ecdsa.Ecdsa
-import fluence.crypto.signature.SignAlgo
 import fluence.effects.docker.DockerIO
-import fluence.kad.KademliaConf
 import fluence.kad.http.UriContact
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.{Configuration, MasterConfig}
@@ -38,10 +36,9 @@ import fluence.node.workers.DockerWorkersPool
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 
-import scala.concurrent.duration._
 import scala.language.higherKinds
 
-object MasterNodeApp extends IOApp with LazyLogging {
+object MasterNodeApp extends IOApp {
   private val sttpResource: Resource[IO, SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]] =
     Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
@@ -59,59 +56,58 @@ object MasterNodeApp extends IOApp with LazyLogging {
 
     implicit val logFactory: LogFactory[IO] = LogFactory.forChains[IO]()
 
-    MasterConfig
-      .load()
-      .map(mc => { configureLogging(mc.logLevel); mc })
-      .flatMap { masterConf =>
-        // Run master node and status server
-        (for {
-          implicit0(sttp: STTP) <- sttpResource
-          implicit0(dockerIO: DockerIO[IO]) <- DockerIO.make[IO]()
-          implicit0(log: Log[IO]) ← Resource.liftF(logFactory.init("masterApp", "run"))
-          conf <- Resource.liftF(Configuration.init[IO](masterConf))
-          pool <- DockerWorkersPool.make(
-            masterConf.ports.minPort,
-            masterConf.ports.maxPort,
-            conf.rootPath,
-            masterConf.remoteStorage
-          )
-          kad ← KademliaNode.make[IO, IO.Par](
-            // TODO use real publicly available host and port
-            "localhost",
-            6565,
-            KademliaConf(16, 16, 4, 1.minute), // TODO read from conf
-            Ecdsa.signAlgo, // TODO use tendermint algo
-            Ecdsa.ecdsa_secp256k1_sha256.generateKeyPair.unsafe(None) // TODO use tendermint validator key
-          )
-          node <- MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
-        } yield (kad.http, node, log)).use {
-          case (kadHttp, node, log) ⇒
-            logger.debug("eth config {}", masterConf.contract)
+    logFactory.init("masterApp", "run") >>= { implicit log ⇒
+      MasterConfig
+        .load()
+        .map(mc => {
+          configureLogging(mc.logLevel); mc
+        })
+        .flatMap { masterConf =>
+          // Run master node and status server
+          (for {
+            implicit0(sttp: STTP) <- sttpResource
+            implicit0(dockerIO: DockerIO[IO]) <- DockerIO.make[IO]()
+            conf <- Resource.liftF(Configuration.init[IO](masterConf))
+            pool <- DockerWorkersPool.make(
+              masterConf.ports.minPort,
+              masterConf.ports.maxPort,
+              conf.rootPath,
+              masterConf.remoteStorage
+            )
+            kad ← KademliaNode.make[IO, IO.Par](
+              masterConf.kademlia,
+              Ecdsa.signAlgo, // TODO use tendermint algo
+              Ecdsa.ecdsa_secp256k1_sha256.generateKeyPair.unsafe(None) // TODO use tendermint validator key
+            )
+            node <- MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
+          } yield (kad.http, node)).use {
+            case (kadHttp, node) ⇒
+              (for {
+                _ ← Log.resource[IO](Monad[IO], log).debug(s"eth config ${masterConf.contract}")
+                st ← StatusAggregator.make(masterConf, node)
+                server ← MasterHttp.make[IO, IO.Par, UriContact](
+                  "0.0.0.0",
+                  masterConf.httpApi.port.toShort,
+                  st,
+                  node.pool,
+                  kadHttp
+                )
+              } yield server).use { server =>
+                log.info("Http api server has started on: " + server.address) *>
+                  node.run
+              }
+          }
 
-            (for {
-              st ← StatusAggregator.make(masterConf, node)
-              server ← MasterHttp.make[IO, IO.Par, UriContact](
-                "0.0.0.0",
-                masterConf.httpApi.port.toShort,
-                st,
-                node.pool,
-                kadHttp
-              )
-            } yield server).use { server =>
-              log.info("Http api server has started on: " + server.address) *>
-                node.run
-            }
         }
-
-      }
-      .guaranteeCase {
-        case Canceled =>
-          IO(logger.error("MasterNodeApp was canceled"))
-        case Error(e) =>
-          IO(logger.error("MasterNodeApp stopped with error: {}", e)).map(_ => e.printStackTrace(System.err))
-        case Completed =>
-          IO(logger.info("MasterNodeApp exited gracefully"))
-      }
+        .guaranteeCase {
+          case Canceled =>
+            log.error("MasterNodeApp was canceled")
+          case Error(e) =>
+            log.error("MasterNodeApp stopped with error: {}", e).map(_ => e.printStackTrace(System.err))
+          case Completed =>
+            log.info("MasterNodeApp exited gracefully")
+        }
+    }
   }
 
   private def configureLogging(level: LogLevel): Unit = {

@@ -48,6 +48,7 @@ case class MasterConfig(
   tendermint: DockerConfig,
   ethereum: EthereumRpcConfig,
   tendermintConfig: TendermintConfig,
+  kademlia: KademliaConfig,
   logLevel: LogLevel
 )
 

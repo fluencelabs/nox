@@ -31,7 +31,7 @@ import fluence.EitherTSttpBackend
 import fluence.crypto.{DumbCrypto, KeyPair}
 import fluence.effects.docker.DockerIO
 import fluence.effects.ethclient.EthClient
-import fluence.kad.KademliaConf
+import fluence.kad.RoutingConf
 import fluence.kad.http.UriContact
 import fluence.log.LogFactory
 import fluence.node.config.{FluenceContractConfig, MasterConfig, NodeConfig}
@@ -89,7 +89,7 @@ class MasterNodeSpec
     kad ← KademliaNode.make[IO, IO.Par](
       "127.0.0.1",
       5789,
-      KademliaConf(1, 1, 4, 5.seconds),
+      RoutingConf(1, 1, 4, 5.seconds),
       DumbCrypto.signAlgo,
       KeyPair.fromBytes(Array.emptyByteArray, Array.emptyByteArray)
     )
