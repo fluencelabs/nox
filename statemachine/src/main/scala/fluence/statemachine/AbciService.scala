@@ -16,12 +16,13 @@
 
 package fluence.statemachine
 
-import cats.effect.{Effect, Sync}
+import cats.effect.Effect
 import cats.effect.concurrent.Ref
 import cats.effect.syntax.effect._
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.option._
 import cats.{Applicative, Monad}
 import com.github.jtendermint.jabci.api.CodeType
 import fluence.crypto.Crypto
@@ -34,7 +35,6 @@ import fluence.statemachine.control.{BlockReceipt, ControlSignals, ReceiptType}
 import fluence.statemachine.state.AbciState
 import scodec.bits.ByteVector
 import slogging.LazyLogging
-import cats.syntax.option._
 
 import scala.language.higherKinds
 
