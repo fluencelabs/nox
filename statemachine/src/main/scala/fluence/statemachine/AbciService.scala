@@ -130,8 +130,8 @@ class AbciService[F[_]: Monad: Effect](
       _ ← state.set(newState)
 
       // Store vmHash, so master node could retrieve it
-      _ <- controlSignals.putVmHash(vmHash)
       _ <- receipt.map(_.`type`) match {
+        case None if transactions.isEmpty => Applicative[F].unit
         case Some(ReceiptType.New) | None => controlSignals.putVmHash(vmHash)
         case Some(ReceiptType.Stored) => Applicative[F].unit
         case Some(ReceiptType.LastStored) => controlSignals.setVmHash(vmHash)
