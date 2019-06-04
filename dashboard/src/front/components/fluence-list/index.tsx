@@ -101,14 +101,15 @@ class FluenceList extends React.Component<Props, State> {
         const urlPrefix = options.urlPrefix || '';
         const appRefs =  this.props.appRefs.filter(filter);
         return [
-            appRefs.length ? <li className="header">Applications</li> : null,
+            <li className="header">Applications</li>,
             ...appRefs.map(appRef => (
                 <li className={this.props.entityId == appRef.app_id ? 'active' : ''}>
                     <Link to={`${urlPrefix}/app/${appRef.app_id}`}>
                         <i className="ion ion-ios-gear-outline"></i> {this.getAppLabel(appRef)}
                     </Link>
                 </li>
-            ))
+            )),
+            appRefs.length <= 0 ? <li className="list-filler"><i className="ion ion-ios-gear-outline"/></li> : null,
         ];
     }
 
@@ -118,7 +119,7 @@ class FluenceList extends React.Component<Props, State> {
         const urlPrefix = options.urlPrefix || '';
         const nodeRefs = this.props.nodeRefs.filter(filter);
         return [
-            nodeRefs.length ? <li className="header">Nodes</li> : null,
+            <li className="header">Nodes</li>,
             ...nodeRefs.map(nodeRef => (
                 <li className={this.props.entityId == nodeRef.node_id ? 'active' : ''}>
                     <Link to={`${urlPrefix}/node/${nodeRef.node_id}`}>
@@ -128,7 +129,8 @@ class FluenceList extends React.Component<Props, State> {
                         {nodeRef.is_private && <span className="node-details">private</span>}
                     </Link>
                 </li>
-            ))
+            )),
+            nodeRefs.length <= 0 ? <li className="list-filler"><i className="ion ion-android-laptop"/></li> : null,
         ];
     }
 

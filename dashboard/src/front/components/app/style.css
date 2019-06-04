@@ -184,3 +184,9 @@ html,body {
     outline: none;
     padding: 20px;
 }
+
+.list-filler {
+    font-size: 110px;
+    text-align: center;
+    opacity: 0.2;
+}
