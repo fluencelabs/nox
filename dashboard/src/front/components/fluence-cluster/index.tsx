@@ -1,5 +1,6 @@
 import * as React from 'react';
 import {connect} from 'react-redux';
+import {Link} from "react-router-dom";
 import moment from 'moment';
 import {
     displayLoading,
@@ -64,7 +65,9 @@ class FluenceCluster extends React.Component<Props, State> {
     renderClusterMember(id: NodeId): React.ReactNode {
         return (
             <li>
-                {cutId(id)} {this.renderClusterMemberBadge(id)}
+                <Link to={`/node/${id}`}>
+                    {cutId(id)} {this.renderClusterMemberBadge(id)}
+                </Link>
             </li>
         );
     }

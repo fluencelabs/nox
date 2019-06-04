@@ -1,12 +1,12 @@
 import {getNodeIds, NodeId} from '../../../fluence';
-import contract from '../../../fluence/contract';
+import { getContract } from '../../../fluence/contract';
 import { Dispatch, Action } from 'redux';
 
 export const GET_NODES_IDS_RECEIVE = 'GET_NODES_IDS_RECEIVE';
 
 export const retrieveNodeIds = () => {
     return async (dispatch: Dispatch): Promise<Action> => {
-        const nodeIds = await getNodeIds(contract);
+        const nodeIds = await getNodeIds(getContract());
         return dispatch({
             type: GET_NODES_IDS_RECEIVE,
             nodeIds,
