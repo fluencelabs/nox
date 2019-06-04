@@ -111,6 +111,7 @@ class AbciService[F[_]: Monad: Effect](
 
       _ = println("got vmhash")
 
+      // TODO: do not retrieve receipt if block is empty (i.e., there are no txs in state)
       receipt <- controlSignals.receipt
       _ = println(s"got receipt $receipt")
 

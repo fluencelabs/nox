@@ -19,13 +19,13 @@ package fluence.node.workers.tendermint
 import java.nio.ByteBuffer
 import java.nio.file.Path
 
-import cats.{Monad, Traverse}
-import cats.data.EitherT
-import cats.effect.concurrent.MVar
+import cats.data.{Chain, EitherT}
 import cats.effect._
+import cats.effect.concurrent.MVar
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.{Monad, Traverse}
 import com.softwaremill.sttp.SttpBackend
 import fluence.effects.ipfs.IpfsClient
 import fluence.effects.receipt.storage.KVReceiptStorage
@@ -39,7 +39,6 @@ import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.workers.Worker
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 import fluence.statemachine.control.ReceiptType
-import fs2.Chunk
 import io.circe.Json
 
 import scala.language.{higherKinds, postfixOps}
@@ -89,6 +88,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift: Log](history: 
       control.sendBlockReceipt(receipt, rType),
       (e: ControlRpcError) => Log[F].error(s"error sending receipt: $e")
     )
+    def emptyBlock(b: Block) = b.data.txs.forall(_.isEmpty)
 
     /*
      * There are 2 problems solved by `lastOrFirstBlock`:
@@ -108,35 +108,45 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift: Log](history: 
       case Some((height, _)) => fs2.Stream.eval(loadLastBlock(height + 1, rpc)).unNone
     }
 
-    def emptyBlock(b: Block) = b.data.txs.forall(_.isEmpty)
-    val subscriptionBlocks =
-      rpc
-        .subscribeNewBlock[F]
-        .through(parse)
-        .dropWhile(_.header.height < 2)
+    val subscriptionBlocks = rpc
+      .subscribeNewBlock[F]
+      .through(parse)
+      // Skip first block due to race condition (see details above)
+      .dropWhile(_.header.height < 2)
 
+    // Group sequence of empty blocks with the first non-empty block (empty := 0 txs)
+    val grouped = (lastOrFirstBlock ++ subscriptionBlocks)
+      .scan[Either[Chain[Block], (Chain[Block], Block)]](Left(Chain.empty)) {
+        case (Left(empties), block) if emptyBlock(block) => Left(empties :+ block)
+        case (Left(empties), block) /* if !emptyBlock(block) */ => Right(empties -> block)
+        case (Right(_), block) if emptyBlock(block) => Left(Chain(block))
+        case (Right(_), block) /* if !emptyBlock(block) */ => Right(Chain.empty -> block)
+      }
+      .map(_.toOption)
+      .unNone
+
+    // Receipts from new blocks (as opposed to stored receipts)
+    val newReceipts = grouped.through(upload).map(_ -> ReceiptType.New)
+
+    // Receipts from storage; last one will treated differently (see AbciService for details)
     val storedTypedReceipts =
       storedReceipts.dropLast.map(_._2 -> ReceiptType.Stored) ++
         storedReceipts.takeRight(1).map(_._2 -> ReceiptType.LastStored)
 
-    val splitted: fs2.Stream[F, Chunk[Block]] = (lastOrFirstBlock ++ subscriptionBlocks).split(emptyBlock)
-
-    val newReceipts =
-      splitted.through(upload).map(_ -> ReceiptType.New)
-
+    // Send receipts to the state machine (worker)
     val receipts = (storedTypedReceipts ++ newReceipts).evalMap(sendReceipt _ tupled)
 
     MakeResource.concurrentStream(receipts, name = "BlockUploadingStream")
   }
 
   private def parseBlock(appId: Long): fs2.Pipe[F, Json, Block] = {
-    _.map(Block(_)).map {
+    _.map(Block(_) match {
       case Left(e) =>
-        Log[F].error(s"BlockUploading: app $appId failed to parse Tendermint block: $e")
+        Log[F].error(s"app $appId failed to parse Tendermint block: $e")
         None
 
       case Right(b) => Some(b)
-    }.unNone
+    }).unNone
   }
 
   private def uploadBlocks(
@@ -144,28 +154,10 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift: Log](history: 
     lastManifestReceipt: MVar[F, Option[Receipt]],
     control: ControlRpc[F],
     receiptStorage: KVReceiptStorage[F]
-  )(implicit backoff: Backoff[EffectError]): fs2.Pipe[F, Chunk[Block], Receipt] = {
-    def upload(receipts: fs2.Stream[F, Receipt] = fs2.Stream.empty) =
-      uploadBlock(appId, lastManifestReceipt, control, receiptStorage, receipts)
-
-    _.flatMap { chunk =>
-      val (empty, last) = chunk.splitAt(chunk.size - 1)
-
-      val receipts = fs2.Stream(empty.toList: _*).through(upload())
-      fs2.Stream(last.toList: _*).through(upload(receipts))
-    }
-  }
-
-  private def uploadBlock(
-    appId: Long,
-    lastManifestReceipt: MVar[F, Option[Receipt]],
-    control: ControlRpc[F],
-    receiptStorage: KVReceiptStorage[F],
-    emptyBlocksReceipts: fs2.Stream[F, Receipt]
-  )(implicit backoff: Backoff[EffectError]): fs2.Pipe[F, Block, Receipt] = {
-    _.evalMap { block =>
+  )(implicit backoff: Backoff[EffectError]): fs2.Pipe[F, (Chain[Block], Block), Receipt] = {
+    def upload(block: Block, emptiesReceipts: Chain[Receipt] = Chain.empty) = {
       def logError[E <: EffectError](e: E) =
-        Log[F].error(s"BlockUploading: app $appId error uploading block ${block.header.height}: $e", e)
+        Log[F].error(s"app $appId upload block ${block.header.height}: $e", e)
 
       val getVmHash =
         backoff.retry(control.getVmHash, logError) <* Log[F].info(s"got vmhash ${block.header.height}")
@@ -173,20 +165,25 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift: Log](history: 
       for {
         lastReceipt <- lastManifestReceipt.take
         vmHash <- getVmHash
-        empties <- emptyBlocksReceipts.compile.toList
-        receipt <- backoff.retry(history.upload(block, vmHash, lastReceipt, empties), logError)
+        receipt <- backoff.retry(history.upload(block, vmHash, lastReceipt, emptiesReceipts.toList), logError)
         _ = println(s"saved receipt ${block.header.height}")
         _ <- backoff.retry(receiptStorage.put(block.header.height, receipt), logError)
-        _ <- Log[F].info(s"BlockUploading: app $appId block ${block.header.height} uploaded")
+        _ <- Log[F].info(s"app $appId block ${block.header.height} uploaded")
         _ <- lastManifestReceipt.put(Some(receipt))
       } yield receipt
     }
+
+    _.evalMap {
+      case (empties, block) =>
+        Traverse[Chain].traverse(empties)(upload(_)) >>= (upload(block, _))
+    }
   }
 
-  private def loadFirstBlock(rpc: TendermintRpc[F])(implicit backoff: Backoff[EffectError]): F[Block] = {
-    backoff
-      .retry(rpc.block(1), (e: RpcError) => Log[F].error(s"BlockUploading load first block: $e"))
-  }
+  private def loadFirstBlock(rpc: TendermintRpc[F])(implicit backoff: Backoff[EffectError]): F[Block] =
+    backoff.retry(
+      rpc.block(1),
+      (e: RpcError) => Log[F].error(s"load first block: $e")
+    )
 
   private def loadLastBlock(lastSavedReceiptHeight: Long, rpc: TendermintRpc[F]): F[Option[Block]] =
     // TODO: retry on all errors except 'this block doesn't exist'
