@@ -41,11 +41,20 @@ class FluenceModal extends React.Component<Props, State> {
         ];
     }
 
-    renderModalText(): React.ReactNode {
+    renderModalText(): React.ReactNode | React.ReactNode[] {
+        const elements = [
+            <p>WARNING</p>,
+            <p>You are in demo mode: you won’t be able to delete the apps you create, the data you upload might be tampered with by any other user.</p>,
+            <p>For the full experience, please, login into Metamask (if you don’t have one, <a href="https://metamask.io/" target="_blank">get one here</a>) and switch to the Rinkeby test network.</p>,
+        ];
+
         if (this.props.modal.deployText) {
-            return <p>Working in demo mode. Please install metamask and select Rinkeby network to work in normal mode.<br/>Proceed with deploy?</p>
+            elements.push(
+                <p>Proceed with deploy anyway?</p>
+            );
         }
-        return <p>Working in demo mode. Please install metamask and select Rinkeby network to work in normal mode.</p>;
+
+        return elements;
     }
 
     render(): React.ReactNode {
