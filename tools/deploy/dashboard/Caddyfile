@@ -3,6 +3,11 @@ http://dash.fluence.network, http://dashboard.fluence.network {
     rewrite / { to {path} {path}/ / }
 }
 
+http://old.fluence.network, http://straw.fluence.network {
+    root /root/old_dashboard/bundle
+    rewrite / { to {path} {path}/ / }
+}
+
 http://nagios.fluence.network {
     errors visible
     proxy / http://nagios:80 {
