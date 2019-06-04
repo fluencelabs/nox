@@ -81,7 +81,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
         val error = res.failed()
         error.getMessage should
-          startWith("Unable to get memory from module=<no-name>")
+          startWith("Unable to initialize module=null")
         error shouldBe a[InitializationError]
       }
 
