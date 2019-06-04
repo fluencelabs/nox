@@ -12,10 +12,13 @@ services:
       - /root/.local/caddy:/root/.caddy
       - /root/web:/root/web
       - /root/fluence/dashboard/:/root/dashboard
-      - /tmp/fluence/dashboard:/root/test-dashboard
+      - /root/fluence_old_dashboard/dashboard:/root/old_dashboard
     networks:
       - caddy
     external_links:
       - nagios:nagios
     environment:
       ACME_AGREE: 'true'
+
+networks:
+  caddy:
