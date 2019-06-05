@@ -115,7 +115,7 @@ class AbciService[F[_]: Monad: Effect](
 
       // Do not use receipt in app hash if there's no txs in a block, so empty blocks have the same appHash as
       // previous non-empty ones. This is because Tendermint stops producing empty blocks only after
-      // at least 2 blocks have the same appHash.
+      // at least 2 blocks have the same appHash. Otherwise, empty blocks would be produced indefinitely.
       appHash <- receipt.filter(_ => transactions.nonEmpty).fold(vmHash.pure[F]) {
         case BlockReceipt(r, _) =>
           hasher(vmHash ++ r.bytes())
