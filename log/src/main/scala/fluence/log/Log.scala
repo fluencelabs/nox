@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit
 
 import cats.data.{EitherT, StateT}
 import cats.{~>, Applicative, Eval, Monad, Order}
-import cats.effect.Clock
+import cats.effect.{Clock, Resource}
 import cats.syntax.order._
 import cats.syntax.flatMap._
 import fluence.log.appender.LogAppender
@@ -143,6 +143,12 @@ object Log {
    */
   def eitherT[F[_]: Monad, E](implicit log: Log[F]): Log[EitherT[F, E, ?]] =
     log.mapK(EitherT.liftK[F, E])
+
+  /**
+   * Summon log for Resource
+   */
+  def resource[F[_]: Monad](implicit log: Log[F]): Log[Resource[F, ?]] =
+    log.mapK(λ[F ~> Resource[F, ?]](f ⇒ Resource.liftF(f)))
 
   private val dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
 

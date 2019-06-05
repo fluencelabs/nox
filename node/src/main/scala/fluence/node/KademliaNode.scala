@@ -20,16 +20,18 @@ import cats.data.EitherT
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
-import cats.{Monad, MonadError, Parallel}
-import cats.effect.{Clock, Effect, Resource}
+import cats.instances.list._
+import cats.{Monad, MonadError, Parallel, Traverse}
+import cats.effect.{Clock, Concurrent, ConcurrentEffect, Resource}
 import com.softwaremill.sttp.SttpBackend
 import fluence.crypto.{Crypto, KeyPair}
 import fluence.crypto.signature.SignAlgo
-import fluence.kad.{Kademlia, KademliaConf}
+import fluence.kad.Kademlia
 import fluence.kad.http.{KademliaHttp, KademliaHttpClient, UriContact}
 import fluence.kad.protocol.{ContactAccess, Node}
 import fluence.kad.routing.RoutingTable
 import fluence.log.Log
+import fluence.node.config.KademliaConfig
 
 import scala.language.higherKinds
 
@@ -40,10 +42,8 @@ case class KademliaNode[F[_], C](
 
 object KademliaNode {
 
-  def make[F[_]: Effect: Clock: Log, P[_]](
-    host: String,
-    port: Short,
-    conf: KademliaConf,
+  def make[F[_]: ConcurrentEffect: Clock: Log, P[_]](
+    conf: KademliaConfig,
     signAlgo: SignAlgo,
     keyPair: KeyPair
   )(
@@ -60,7 +60,7 @@ object KademliaNode {
     import Crypto.liftCodecErrorToCrypto
 
     val nodeAuth = for {
-      selfNode ← UriContact.buildNode(host, port, signAlgo.signer(keyPair))
+      selfNode ← UriContact.buildNode(conf.advertize.host, conf.advertize.port, signAlgo.signer(keyPair))
       selfNodeAuth ← Crypto.fromOtherFunc(writeNode).pointAt(selfNode)
     } yield (selfNode, selfNodeAuth)
 
@@ -72,7 +72,7 @@ object KademliaNode {
 
       // Express the way we're going to access other nodes
       implicit0(ca: ContactAccess[F, UriContact]) ← new ContactAccess[F, UriContact](
-        pingExpiresIn = conf.pingExpiresIn,
+        pingExpiresIn = conf.routing.pingExpiresIn,
         _ ⇒ Monad[F].pure(true), // TODO implement formal check function
         (contact: UriContact) ⇒ new KademliaHttpClient(contact.host, contact.port, contactStr)
       ).pure[F]
@@ -80,17 +80,40 @@ object KademliaNode {
       // Initiate an empty RoutingTable
       rt ← RoutingTable[F, P, UriContact](
         selfNode.key,
-        siblingsSize = conf.maxSiblingsSize,
-        maxBucketSize = conf.maxBucketSize
+        siblingsSize = conf.routing.maxSiblingsSize,
+        maxBucketSize = conf.routing.maxBucketSize
       )
 
       // Kademlia instance just wires everything together
-      kad = Kademlia[F, P, UriContact](rt, selfNode.pure[F], conf)
-      http = new KademliaHttp[F, UriContact](kad, readNode, writeNode)
-    } yield KademliaNode(kad, http)
+      kad = Kademlia[F, P, UriContact](rt, selfNode.pure[F], conf.routing)
 
-    // Joining should be performed later with some seeds
-    Resource.liftF[F, KademliaNode[F, UriContact]](makeNodeF)
+      // Join asynchronously
+      fiber ← Concurrent[F].start(
+        Traverse[List]
+          .traverse(
+            conf.join.seeds.toList
+          )(s ⇒ UriContact.readAndCheckContact(signAlgo.checker).runEither[F](s))
+          .map(_.collect {
+            case Right(c) ⇒ c
+          })
+          .flatMap(
+            seeds ⇒
+              Log[F].scope("kad" -> "join")(
+                log ⇒
+                  kad.join(seeds, conf.join.numOfNodes)(log).flatMap {
+                    case true ⇒
+                      log.info("Joined")
+                    case false ⇒
+                      log.warn("Unable to join any Kademlia seed")
+                }
+            )
+          )
+      )
+
+      http = new KademliaHttp[F, UriContact](kad, readNode, writeNode)
+    } yield KademliaNode(kad, http) -> fiber
+
+    Resource.make(makeNodeF)(_._2.cancel).map(_._1)
   }
 
 }
