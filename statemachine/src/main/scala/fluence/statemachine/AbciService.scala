@@ -102,8 +102,6 @@ class AbciService[F[_]: Monad: Effect](
           Applicative[F].pure(Right(st))
       }
 
-      _ = if (st.height > 0) checkBlock(st.height)
-
       // Get the VM hash
       vmHash ← vm
         .vmStateHash()
@@ -112,6 +110,9 @@ class AbciService[F[_]: Monad: Effect](
 
       // Do not wait for receipt on the very first block
       receipt <- if (st.height > 0) controlSignals.receipt.map(_.some) else none[BlockReceipt].pure[F]
+
+      // Check block for correctness, for debugging purposes
+      _ = if (st.height > 0 && receipt.forall(_.`type` == ReceiptType.New)) checkBlock(st.height)
 
       // Do not use receipt in app hash if there's no txs in a block, so empty blocks have the same appHash as
       // previous non-empty ones. This is because Tendermint stops producing empty blocks only after

@@ -33,7 +33,7 @@ import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
 import fluence.effects.tendermint.rpc.{RpcError, TendermintRpc}
 import fluence.effects.{Backoff, EffectError}
-import fluence.log.{Log, LogFactory}
+import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.workers.Worker
@@ -48,7 +48,7 @@ import scala.language.{higherKinds, postfixOps}
  *
  * @param history Description of how to store blocks
  */
-class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift: Log](history: BlockHistory[F], rootPath: Path)
+class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: BlockHistory[F], rootPath: Path)
     extends slogging.LazyLogging {
 
   /**
@@ -59,7 +59,9 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift: Log](history: 
    *
    * @param worker Blocks are coming from this worker's Tendermint; receipts are sent to this worker
    */
-  def start(worker: Worker[F])(implicit backoff: Backoff[EffectError] = Backoff.default): Resource[F, Unit] = {
+  def start(
+    worker: Worker[F]
+  )(implicit log: Log[F], backoff: Backoff[EffectError] = Backoff.default): Resource[F, Unit] = {
     for {
       receiptStorage <- KVReceiptStorage.make[F](worker.appId, rootPath)
       // Storage for a previous manifest
@@ -83,16 +85,14 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift: Log](history: 
     rpc: TendermintRpc[F],
     control: ControlRpc[F],
     subscriptionBlocksRaw: fs2.Stream[F, Json]
-  )(implicit backoff: Backoff[EffectError], F: Applicative[F]) = {
-    val parse = parseBlock(appId)
-
+  )(implicit backoff: Backoff[EffectError], F: Applicative[F], log: Log[F]) = {
     def upload(empties: Chain[Receipt], block: Block) =
       uploadBlock(block, empties, appId, lastManifestReceipt, control, storage)
     def uploadEmpty(block: Block) = upload(Chain.empty, block)
 
-    def sendReceipt(receipt: Receipt, rType: ReceiptType.Value) = backoff.retry(
+    def sendReceipt(receipt: Receipt, rType: ReceiptType.Value)(implicit log: Log[F]) = backoff.retry(
       control.sendBlockReceipt(receipt, rType),
-      (e: ControlRpcError) => Log[F].error(s"error sending receipt: $e")
+      (e: ControlRpcError) => log.error(s"error sending receipt: $e")
     )
 
     def emptyBlock(b: Block) = b.data.txs.forall(_.isEmpty)
@@ -116,10 +116,9 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift: Log](history: 
     }
 
     val subscriptionBlocks = subscriptionBlocksRaw
-      .through(parse)
+      .through(parseBlock)
       // Skip first block due to race condition (see details above)
       .dropWhile(_.header.height < 2)
-      .evalTap(b => Log[F].info(s"subscription block: ${b.header.height}"))
 
     // Group empty blocks with the first non-empty block, and upload empty blocks right away
     val grouped = (lastOrFirstBlock ++ subscriptionBlocks)
@@ -148,11 +147,11 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift: Log](history: 
     MakeResource.concurrentStream(receipts, name = "BlockUploadingStream")
   }
 
-  private def parseBlock(appId: Long): fs2.Pipe[F, Json, Block] = {
+  private def parseBlock(implicit log: Log[F]): fs2.Pipe[F, Json, Block] = {
     _.map(Block(_) match {
       case Left(e) =>
         // TODO: retry loading block from RPC until it parses
-        Log[F].error(s"app $appId failed to parse Tendermint block: $e")
+        Log[F].error(s"failed to parse Tendermint block: $e")
         None
 
       case Right(b) => Some(b)
@@ -166,8 +165,8 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift: Log](history: 
     lastManifestReceipt: MVar[F, Option[Receipt]],
     control: ControlRpc[F],
     receiptStorage: KVReceiptStorage[F]
-  )(implicit backoff: Backoff[EffectError]) =
-    Log[F].scope("app" -> appId.toString, "block" -> block.header.height.toString, "upload block" -> "") { log =>
+  )(implicit backoff: Backoff[EffectError], log: Log[F]) =
+    log.scope("block" -> block.header.height.toString, "upload block" -> "") { log =>
       def logError[E <: EffectError](e: E) = log.error("", e)
 
       for {
@@ -200,13 +199,10 @@ object BlockUploading {
   )(
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
     backoff: Backoff[EffectError] = Backoff.default
-  ): F[BlockUploading[F]] = {
+  ): BlockUploading[F] = {
     // TODO: should I handle remoteStorageConfig.enabled = false?
     val ipfs = new IpfsClient[F](remoteStorageConfig.ipfs.address)
     val history = new BlockHistory[F](ipfs)
-    // TODO: Move log creation to MasterNodeApp
-    LogFactory.forPrintln[F]().init("BlockUploading", "", Log.Debug).map { implicit log =>
-      new BlockUploading[F](history, rootPath)
-    }
+    new BlockUploading[F](history, rootPath)
   }
 }

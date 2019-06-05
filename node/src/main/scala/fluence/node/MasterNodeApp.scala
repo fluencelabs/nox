@@ -29,6 +29,8 @@ import fluence.EitherTSttpBackend
 import fluence.crypto.ecdsa.Ecdsa
 import fluence.effects.docker.DockerIO
 import fluence.kad.http.UriContact
+import fluence.log.Log.Aux
+import fluence.log.appender.PrintlnLogAppender
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator

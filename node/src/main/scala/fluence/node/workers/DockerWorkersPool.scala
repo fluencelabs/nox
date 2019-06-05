@@ -32,6 +32,7 @@ import com.softwaremill.sttp.SttpBackend
 import fluence.codec.PureCodec
 import fluence.effects.docker.DockerIO
 import fluence.effects.kvstore.RocksDBStore
+import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.workers.tendermint.BlockUploading
@@ -102,7 +103,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
     params: F[WorkerParams],
     p2pPort: Short,
     stopTimeout: Int
-  ): Resource[F, Worker[F]] =
+  )(implicit log: Log[F]): Resource[F, Worker[F]] =
     for {
       // Order events in the Worker context
       exec ← MakeResource.orderedEffects[F]
@@ -149,7 +150,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
    *                    It might take up to 2*`stopTimeout` seconds to gracefully stop the worker, as 2 containers involved.
    * @return Unit; no failures are expected
    */
-  def runWorker(p2pPort: Short, params: F[WorkerParams], stopTimeout: Int = 5): F[Unit] =
+  def runWorker(p2pPort: Short, params: F[WorkerParams], stopTimeout: Int = 5)(implicit log: Log[F]): F[Unit] =
     MakeResource.useConcurrently[F](
       workerResource(
         _,
@@ -165,7 +166,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
    * @param params see [[WorkerParams]]
    * @return F that resolves with true when worker is registered; it might be not running yet. If it was registered before, F resolves with false
    */
-  override def run(appId: Long, params: F[WorkerParams]): F[WorkersPool.RunResult] =
+  override def run(appId: Long, params: F[WorkerParams])(implicit log: Log[F]): F[WorkersPool.RunResult] =
     // TODO worker should be responsible for restarting itself, so that we don't block here
     Apply[F]
       .product(checkWorkerHealthy(appId), ports.allocate(appId).value)
@@ -259,7 +260,7 @@ object DockerWorkersPool extends LazyLogging {
     P: Parallel[F, G]
   ): Resource[F, WorkersPool[F]] =
     for {
-      blockUploading <- Resource.liftF[F, BlockUploading[F]](BlockUploading.make(remoteStorageConfig, rootPath))
+      blockUploading <- Resource.pure[F, BlockUploading[F]](BlockUploading.make(remoteStorageConfig, rootPath))
       ports ← makePorts(minPort, maxPort, rootPath)
       pool ← Resource.make {
         for {

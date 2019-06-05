@@ -24,6 +24,7 @@ import cats.syntax.functor._
 import cats.syntax.applicative._
 import fluence.effects.docker.DockerContainerStopped
 import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.log.Log
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus, WorkerStatus}
 import fluence.node.workers.{Worker, WorkerParams, WorkerServices, WorkersPool}
@@ -39,36 +40,39 @@ class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]]) 
    * @param params Worker's description
    * @return Whether worker run or not
    */
-  override def run(appId: Long, params: F[WorkerParams]): F[WorkersPool.RunResult] =
+  override def run(appId: Long, params: F[WorkerParams])(implicit log: Log[F]): F[WorkersPool.RunResult] =
     workers.take.flatMap {
       case m if m.contains(appId) ⇒ workers.put(m).as(WorkersPool.AlreadyRunning)
       case m ⇒
         for {
           p ← params
-          w ← Worker.make[F](
-            appId,
-            0: Short,
-            s"Test worker for appId $appId",
-            new WorkerServices[F] {
-              override def tendermint: TendermintRpc[F] = ???
+          w ← Worker
+            .make[F](
+              appId,
+              0: Short,
+              s"Test worker for appId $appId",
+              new WorkerServices[F] {
+                override def tendermint: TendermintRpc[F] = ???
 
-              override def control: ControlRpc[F] = ???
+                override def control: ControlRpc[F] = ???
 
-              override def status(timeout: FiniteDuration): F[WorkerStatus] =
-                WorkerStatus(
-                  isHealthy = true,
-                  appId = appId,
-                  ServiceStatus(Left(DockerContainerStopped(0)), HttpCheckNotPerformed("dumb")),
-                  ServiceStatus(Left(DockerContainerStopped(0)), HttpCheckNotPerformed("dumb"))
-                ).pure[F]
-            },
-            identity,
-            for {
-              ws ← workers.take
-              _ ← workers.put(ws - appId)
-            } yield (),
-            Applicative[F].unit
-          ).allocated.map(_._1)
+                override def status(timeout: FiniteDuration): F[WorkerStatus] =
+                  WorkerStatus(
+                    isHealthy = true,
+                    appId = appId,
+                    ServiceStatus(Left(DockerContainerStopped(0)), HttpCheckNotPerformed("dumb")),
+                    ServiceStatus(Left(DockerContainerStopped(0)), HttpCheckNotPerformed("dumb"))
+                  ).pure[F]
+              },
+              identity,
+              for {
+                ws ← workers.take
+                _ ← workers.put(ws - appId)
+              } yield (),
+              Applicative[F].unit
+            )
+            .allocated
+            .map(_._1)
           _ ← workers.put(m + (appId -> w))
         } yield WorkersPool.Starting
     }
