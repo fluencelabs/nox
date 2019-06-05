@@ -25,7 +25,7 @@ import cats.data.EitherT
 import cats.instances.stream._
 import fluence.crypto.KeyPair
 import fluence.crypto.signature.Signer
-import fluence.kad.{KadRpcError, Kademlia, KademliaConf}
+import fluence.kad.{KadRpcError, Kademlia, RoutingConf}
 import fluence.kad.protocol.{ContactAccess, KademliaRpc, Key, Node}
 import fluence.kad.routing.RoutingTable
 import fluence.log.Log
@@ -83,7 +83,7 @@ object TestKademlia {
     )
 
     RoutingTable[F, P, C](nodeId, k, k)
-      .map(Kademlia[F, P, C](_, ownContactValue.pure[F], KademliaConf(k, k, alpha, pingExpiresIn)))
+      .map(Kademlia[F, P, C](_, ownContactValue.pure[F], RoutingConf(k, k, alpha, pingExpiresIn)))
 
   }
 
