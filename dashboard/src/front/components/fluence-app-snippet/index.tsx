@@ -155,7 +155,7 @@ class FluenceAppSnippet extends React.Component<Props, State> {
         return ([
             <p>
                 <label htmlFor={queryId}>Type queries:</label>
-                <textarea className="form-control" rows={4} id={queryId} value={defaultText}></textarea>
+                <textarea className="form-control" rows={4} id={queryId} defaultValue={defaultText}></textarea>
             </p>,
             <p>
                 <button type="button" value="Submit query" id={buttonId}
@@ -275,7 +275,7 @@ session.request("${requestForResult}").result().then((r) => {
                             this.renderInteractiveSnippet(Number(this.props.appId), this.app.shortName, this.app.requestExamples || [])
                         }
                         <hr/>
-                        {(this.app.shortName === 'Redis' || this.app.selfUpload) ? this.renderUploadedAppSnippets(this.app.shortName) : this.renderAppSnippets()}
+                        {(this.app.shortName === 'LlamaDB') ? this.renderAppSnippets() : this.renderUploadedAppSnippets(this.app.shortName) }
 
                         <hr/>
                         <p><strong><i className="fa fa-bullseye margin-r-5"/>Check your app's health:</strong></p>
