@@ -137,6 +137,7 @@ class AbciService[F[_]: Monad: Effect](
         case Some(ReceiptType.Stored) => Applicative[F].unit
         // After-restart case. Last of the stored receipts, so vmHash is new, and will be required for the next block manifest
         case Some(ReceiptType.LastStored) => controlSignals.setVmHash(vmHash)
+        case unknown => logger.error(s"Unknown receipt kind: $unknown").pure[F]
       }
     } yield appHash
 
