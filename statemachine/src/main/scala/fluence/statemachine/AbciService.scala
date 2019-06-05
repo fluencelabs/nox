@@ -102,7 +102,7 @@ class AbciService[F[_]: Monad: Effect](
           Applicative[F].pure(Right(st))
       }
 
-      _ = checkBlock(st.height)
+      _ = if (st.height > 0) checkBlock(st.height)
 
       // Get the VM hash
       vmHash ← vm
@@ -110,13 +110,13 @@ class AbciService[F[_]: Monad: Effect](
         .leftMap(err ⇒ logger.error(s"VM is unable to compute state hash: $err"))
         .getOrElse(ByteVector.empty) // TODO do not ignore vm error
 
-      _ = println(s"${st.height} calculated vmhash; txs count ${transactions.size}")
+      // Do not wait for receipt on the very first block
+      receipt <- if (st.height > 0) controlSignals.receipt.map(_.some) else none[BlockReceipt].pure[F]
 
-      // Do not retrieve receipt if block is empty (i.e., there are no txs in state)
-      receipt <- if (transactions.nonEmpty) controlSignals.receipt.map(_.some) else none[BlockReceipt].pure[F]
-      _ = println(s"${st.height} got receipt $receipt")
-
-      appHash <- receipt.fold(vmHash.pure[F]) {
+      // Do not use receipt in app hash if there's no txs in a block, so empty blocks have the same appHash as
+      // previous non-empty ones. This is because Tendermint stops producing empty blocks only after
+      // at least 2 blocks have the same appHash.
+      appHash <- receipt.filter(_ => transactions.nonEmpty).fold(vmHash.pure[F]) {
         case BlockReceipt(r, _) =>
           hasher(vmHash ++ r.bytes())
             .leftMap(err => logger.error(s"Error on hashing vmHash + receipt: $err"))
@@ -131,12 +131,13 @@ class AbciService[F[_]: Monad: Effect](
 
       // Store vmHash, so master node could retrieve it
       _ <- receipt.map(_.`type`) match {
-        case None if transactions.isEmpty => controlSignals.putVmHash(vmHash)
+        // Most common case. Receipt for a previous block; None means block was either empty or the very first one
         case Some(ReceiptType.New) | None => controlSignals.putVmHash(vmHash)
+        // After-restart case. Node has stored receipts, and replaying them. There will be no demand for vmHash, so skip it
         case Some(ReceiptType.Stored) => Applicative[F].unit
+        // After-restart case. Last of the stored receipts, so vmHash is new, and will be required for the next block manifest
         case Some(ReceiptType.LastStored) => controlSignals.setVmHash(vmHash)
       }
-      _ = println(s"${st.height} sent vmhash")
     } yield appHash
 
   /**

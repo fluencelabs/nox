@@ -36,21 +36,28 @@ import scala.language.higherKinds
  */
 class BlockHistory[F[_]: Monad](ipfs: IpfsClient[F]) {
 
+  /**
+   * Uploads block manifest.
+   *
+   * @param block The block to upload
+   * @param vmHash Hash of the VM state after this block
+   * @param previousManifestReceipt Receipt of the manifest for previous block
+   * @param emptyBlocksReceipts Receipts for empty blocks preceding the current `block`
+   * @return Block manifest receipt
+   */
   def upload(
     block: Block,
     vmHash: ByteVector,
     previousManifestReceipt: Option[Receipt],
-    emptyBlocksManifests: List[Receipt]
+    emptyBlocksReceipts: List[Receipt]
   ): EitherT[F, BlockHistoryError, Receipt] = {
     val txs = block.data.txs.filter(_.nonEmpty).map(_.map(_.bv))
     val votes = block.last_commit.precommits.flatten
     val height = block.header.height
     for {
       txsReceipt <- Traverse[Option].sequence(txs.map(uploadTxs(height, _)))
-      _ = println(s"uploaded txs ${block.header.height}")
-      manifest = BlockManifest(vmHash, previousManifestReceipt, txsReceipt, block.header, votes, emptyBlocksManifests)
+      manifest = BlockManifest(vmHash, previousManifestReceipt, txsReceipt, block.header, votes, emptyBlocksReceipts)
       receipt <- uploadManifest(height, manifest)
-      _ = println(s"uploaded manifest ${block.header.height}")
     } yield receipt
   }
 

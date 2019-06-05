@@ -53,22 +53,22 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
   /**
    * Subscribe on new blocks from Tendermint
    */
-  def subscribeNewBlock[F[_]: ConcurrentEffect: Timer]: fs2.Stream[F, Json] = {
+  def subscribeNewBlock[F[_]: ConcurrentEffect: Timer]: Resource[F, fs2.Stream[F, Json]] = {
     subscribe("NewBlock")
   }
 
   private def subscribe[F[_]: ConcurrentEffect: Timer](
     event: String
-  ): fs2.Stream[F, Json] = {
+  ): Resource[F, fs2.Stream[F, Json]] = {
     def subscribe(ws: WebSocket) = ws.sendTextFrame(request(event)).asAsync.void
 
-    fs2.Stream
-      .bracket(for {
+    Resource
+      .make(for {
         queue <- Queue.unbounded[F, Json]
         // Connect in background forever, using same queue
         fiber <- Concurrent[F].start(connect(queue, subscribe))
       } yield (fiber, queue))(_._1.cancel)
-      .flatMap { case (_, queue) => queue.dequeue }
+      .map { case (_, queue) => queue.dequeue }
   }
 
   private def request(event: String) =
@@ -96,7 +96,7 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
   private def connect[F[_]: ConcurrentEffect: Timer](
     queue: Queue[F, Json],
     onConnect: WebSocket => F[Unit]
-  )(implicit bf: Backoff[WebsocketRpcError] = Backoff.default): F[Unit] = {
+  )(implicit backoff: Backoff[WebsocketRpcError] = Backoff.default): F[Unit] = {
     def logConnectionError(e: EffectError) =
       Applicative[F].pure(logger.error(s"Tendermint WRPC: $wsUrl error connecting: ${e.getMessage}"))
 
@@ -108,7 +108,7 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
       // promise will be completed by exception when socket is disconnected
       promise <- Deferred[F, WebsocketRpcError]
       // keep connecting until success
-      websocket <- Backoff.default.retry(socket(wsHandler(ref, queue, promise)), logConnectionError)
+      websocket <- backoff.retry(socket(wsHandler(ref, queue, promise)), logConnectionError)
       _ <- onConnect(websocket)
       // wait until socket disconnects (it may never do)
       error <- promise.get
@@ -130,7 +130,7 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
             .attempt
         )
         .flatten
-    ).leftMap[EffectError](ConnectionFailed)
+    ).leftMap(ConnectionFailed)
 
   private def wsHandler[F[_]: ConcurrentEffect](
     ref: Ref[F, String],
