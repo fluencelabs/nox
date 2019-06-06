@@ -106,8 +106,10 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
      *    we need to load it via `loadLastBlock(lastReceipt.height + 1)`, and send its receipt after all stored receipts
      */
 
-    val storedReceipts = storage.retrieve()
-    val lastOrFirstBlock = storedReceipts.last.flatMap {
+    val storedReceipts =
+      fs2.Stream.eval(log.info("will start loading stored receipts")) >>
+        storage.retrieve()
+    val lastOrFirstBlock = storedReceipts.last.evalTap(lsr => log.info(s"last stored receipt: $lsr")).flatMap {
       case None => fs2.Stream.eval(loadFirstBlock(rpc))
       case Some((height, _)) => fs2.Stream.eval(loadLastBlock(height + 1, rpc)).unNone
     }
