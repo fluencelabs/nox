@@ -28,8 +28,8 @@ export const deployableAppIds: DeployableAppId[] = ['redis', 'llamadb', 'upload'
 
 export const deployableApps: { [key: string]: DeployableApp } = {
     llamadb: {
-        name: 'SQL DB (llamadb)',
-        shortName: 'llamadb',
+        name: 'LlamaDB (sql, wasm v0.1.2)',
+        shortName: 'LlamaDB',
         storageHash: '0x090A9B7CCA9D55A9632BBCC3A30A57F2DB1D1FD688659CFF95AB8D1F904AD74B',
         storageType: StorageType.Ipfs,
         clusterSize: 4,
@@ -71,7 +71,7 @@ export const deployableApps: { [key: string]: DeployableApp } = {
     },
     // {"Name":"redis9.wasm","Hash":"QmP3efHaEXp5wSuZDZ6dBuCnWMPTATyFjUKdnhncdnSnFi","Size":"780180"}
     redis: {
-        name: 'Redis (wasm-version 0.3)',
+        name: 'Redis (nosql, wasm v0.3)',
         shortName: 'Redis',
         storageHash: '0x0A80C2190F2F13AE30386132F9209F649B8954F56FA96A63559DD865912CD421',
         storageType: StorageType.Ipfs,
