@@ -107,7 +107,7 @@ object DockerWorkerServices extends LazyLogging {
    * @param sttpBackend Sttp Backend to launch HTTP healthchecks and RPC endpoints
    * @return the [[WorkerServices]] instance
    */
-  def make[F[_]: DockerIO: Timer](
+  def make[F[_]: DockerIO: Timer: ConcurrentEffect](
     params: WorkerParams,
     p2pPort: Short,
     stopTimeout: Int

@@ -15,9 +15,10 @@
  */
 
 package fluence.effects
-import cats.Monad
+import cats.{Functor, Monad}
 import cats.data.EitherT
 import cats.effect.Timer
+
 import scala.language.higherKinds
 
 package object syntax {
@@ -30,7 +31,7 @@ package object syntax {
   }
 
   object eitherT {
-    implicit class EitherTOps[F[_], A, B](ef: F[Either[A, B]]) {
+    implicit class EitherTOps[F[_]: Functor, A, B](ef: F[Either[A, B]]) {
       def eitherT: EitherT[F, A, B] = EitherT(ef)
     }
   }

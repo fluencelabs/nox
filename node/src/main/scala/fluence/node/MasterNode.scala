@@ -32,7 +32,7 @@ import fluence.effects.ethclient.EthClient
 import fluence.effects.ipfs.IpfsStore
 import fluence.effects.swarm.SwarmStore
 import fluence.kad.Kademlia
-import fluence.log.Log
+import fluence.log.{Log, LogFactory}
 import fluence.node.code.{CodeCarrier, LocalCodeCarrier, PolyStore, RemoteCodeCarrier}
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.config.{MasterConfig, NodeConfig}

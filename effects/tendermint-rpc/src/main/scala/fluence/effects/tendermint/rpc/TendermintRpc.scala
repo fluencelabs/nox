@@ -16,9 +16,9 @@
 
 package fluence.effects.tendermint.rpc
 
-import cats.Functor
+import cats.{Functor, Monad}
 import cats.data.EitherT
-import cats.effect.{Resource, Sync}
+import cats.effect.{ConcurrentEffect, Resource, Sync, Timer}
 import cats.syntax.apply._
 import cats.syntax.either._
 import com.softwaremill.sttp._
@@ -36,11 +36,11 @@ import scala.language.higherKinds
  * @param port Tendermint RPC port
  * @tparam F Http requests effect
  */
-case class TendermintRpc[F[_]: Sync](
+case class TendermintRpc[F[_]: ConcurrentEffect: Timer: Monad](
   host: String,
   port: Int
 )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing])
-    extends WebsocketTendermintRpc with slogging.LazyLogging {
+    extends WebsocketTendermintRpc[F] with slogging.LazyLogging {
 
   val RpcUri = uri"http://$host:$port"
   logger.info(s"TendermintRpc created, uri: $RpcUri")
@@ -74,6 +74,9 @@ case class TendermintRpc[F[_]: Sync](
         id = id
       )
     )
+
+  def consensusHeight(id: String = "dontcare"): EitherT[F, RpcError, Long] =
+    statusParsed.map(_.sync_info.latest_block_height)
 
   /**
    * Builds a broadcast_tx_commit RPC request
@@ -168,7 +171,7 @@ object TendermintRpc extends slogging.LazyLogging {
    * @tparam F Concurrent effect
    * @return Worker RPC instance. Note that it should be stopped at some point, and can't be used after it's stopped
    */
-  def make[F[_]: Sync](
+  def make[F[_]: ConcurrentEffect: Timer: Monad](
     hostName: String,
     port: Short
   )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]): Resource[F, TendermintRpc[F]] = {

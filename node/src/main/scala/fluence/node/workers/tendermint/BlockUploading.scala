@@ -66,14 +66,12 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
       receiptStorage <- KVReceiptStorage.make[F](worker.appId, rootPath)
       // Storage for a previous manifest
       lastManifestReceipt <- Resource.liftF(MVar.of[F, Option[Receipt]](None))
-      blocks <- worker.services.tendermint.subscribeNewBlock[F]
       _ <- pushReceipts(
         worker.appId,
         lastManifestReceipt,
         receiptStorage,
         worker.services.tendermint,
-        worker.services.control,
-        blocks
+        worker.services.control
       )
     } yield ()
   }
@@ -83,8 +81,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
     lastManifestReceipt: MVar[F, Option[Receipt]],
     storage: KVReceiptStorage[F],
     rpc: TendermintRpc[F],
-    control: ControlRpc[F],
-    subscriptionBlocksRaw: fs2.Stream[F, Json]
+    control: ControlRpc[F]
   )(implicit backoff: Backoff[EffectError], F: Applicative[F], log: Log[F]) = {
     def upload(empties: Chain[Receipt], block: Block) =
       uploadBlock(block, empties, appId, lastManifestReceipt, control, storage)
@@ -115,13 +112,19 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
       case Some((height, _)) => fs2.Stream.eval(loadLastBlock(height + 1, rpc)).unNone
     }
 
-    val subscriptionBlocks = subscriptionBlocksRaw
-      .through(parseBlock)
-      // Skip first block due to race condition (see details above)
-      .dropWhile(_.header.height < 2)
+    val blocks = lastOrFirstBlock.flatMap(
+      b =>
+        fs2.Stream.eval(log.info(s"got lastOrFirstBlock ${b.header.height}, will subscribe now")) >>
+          fs2.Stream.emit(b) ++
+            rpc
+              .subscribeNewBlock(b.header.height)
+              // Skip first block due to race condition (see details above)
+              .dropWhile(_.header.height < 2)
+    )
 
     // Group empty blocks with the first non-empty block, and upload empty blocks right away
-    val grouped = (lastOrFirstBlock ++ subscriptionBlocks)
+    val grouped = blocks
+      .evalTap(b => log.info(s"processing block ${b.header.height}"))
       .evalScan[F, Either[Chain[Receipt], (Chain[Receipt], Block)]](Left(Chain.empty)) {
         case (Left(empties), block) if emptyBlock(block) => uploadEmpty(block).map(r => Left(empties :+ r))
         case (Left(empties), block) => F.pure((empties -> block).asRight)
@@ -142,20 +145,12 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
         storedReceipts.takeRight(1).map(_._2 -> ReceiptType.LastStored)
 
     // Send receipts to the state machine (worker)
-    val receipts = (storedTypedReceipts ++ newReceipts).evalMap(sendReceipt _ tupled)
+    val receipts = (storedTypedReceipts ++ newReceipts)
+      .evalTap(t => log.info(s"processing receipt $t"))
+      .evalMap(sendReceipt _ tupled)
+      .evalTap(_ => log.info("receipt processed."))
 
     MakeResource.concurrentStream(receipts, name = "BlockUploadingStream")
-  }
-
-  private def parseBlock(implicit log: Log[F]): fs2.Pipe[F, Json, Block] = {
-    _.map(Block(_) match {
-      case Left(e) =>
-        // TODO: retry loading block from RPC until it parses
-        Log[F].error(s"failed to parse Tendermint block: $e")
-        None
-
-      case Right(b) => Some(b)
-    }).unNone
   }
 
   private def uploadBlock(
