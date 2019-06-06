@@ -24,6 +24,7 @@ import cats.data.{EitherT, StateT}
 import cats.{~>, Applicative, Eval, Monad, Order}
 import cats.effect.{Clock, Resource}
 import cats.syntax.order._
+import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import fluence.log.appender.LogAppender
 
@@ -149,6 +150,15 @@ object Log {
    */
   def resource[F[_]: Monad](implicit log: Log[F]): Log[Resource[F, ?]] =
     log.mapK(λ[F ~> Resource[F, ?]](f ⇒ Resource.liftF(f)))
+
+  /**
+   * Summon log for Resource, with the given context modifier.
+   * The summoned log lives in the Resource scope.
+   */
+  def resourceScope[F[_]: Monad](
+    modContext: Context ⇒ Context
+  )(implicit log: Log[F]): Resource[F, Log[Resource[F, ?]]] =
+    Resource.liftF(log.scope(modContext)(_.mapK(λ[F ~> Resource[F, ?]](f ⇒ Resource.liftF(f))).pure[F]))
 
   private val dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
 

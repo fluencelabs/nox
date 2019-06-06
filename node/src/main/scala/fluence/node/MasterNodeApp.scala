@@ -26,7 +26,7 @@ import cats.syntax.apply._
 import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
-import fluence.crypto.ecdsa.Ecdsa
+import fluence.crypto.ecdsa._
 import fluence.effects.docker.DockerIO
 import fluence.kad.http.UriContact
 import fluence.log.{Log, LogFactory}
@@ -76,14 +76,14 @@ object MasterNodeApp extends IOApp {
             )
             kad ← KademliaNode.make[IO, IO.Par](
               masterConf.kademlia,
-              Ecdsa.signAlgo, // TODO use tendermint algo
-              Ecdsa.ecdsa_secp256k1_sha256.generateKeyPair.unsafe(None) // TODO use tendermint validator key
+              Ed25519.tendermintAlgo,
+              Ed25519.tendermintAlgo.generateKeyPair.unsafe(None) // TODO use tendermint validator key
             )
             node <- MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
           } yield (kad.http, node)).use {
             case (kadHttp, node) ⇒
               (for {
-                _ ← Log.resource[IO](Monad[IO], log).debug(s"eth config ${masterConf.contract}")
+                _ ← Log.resource[IO].debug(s"eth config ${masterConf.contract}")
                 st ← StatusAggregator.make(masterConf, node)
                 server ← MasterHttp.make[IO, IO.Par, UriContact](
                   "0.0.0.0",
