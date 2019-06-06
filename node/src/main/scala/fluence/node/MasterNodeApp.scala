@@ -18,7 +18,6 @@ package fluence.node
 
 import java.nio.ByteBuffer
 
-import cats.Monad
 import cats.data.EitherT
 import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect._
@@ -26,7 +25,7 @@ import cats.syntax.apply._
 import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
-import fluence.crypto.ecdsa._
+import fluence.crypto.ecdsa.Ed25519
 import fluence.effects.docker.DockerIO
 import fluence.kad.http.UriContact
 import fluence.log.{Log, LogFactory}
@@ -34,7 +33,7 @@ import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
 import fluence.node.workers.DockerWorkersPool
 import slogging.MessageFormatter.DefaultPrefixFormatter
-import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
+import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.language.higherKinds
 
