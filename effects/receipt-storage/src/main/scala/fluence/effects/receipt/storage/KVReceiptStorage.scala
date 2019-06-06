@@ -55,22 +55,26 @@ object KVReceiptStorage {
   private implicit val receiptCodec: codec.PureCodec[Array[Byte], Receipt] =
     codec.PureCodec.liftB(Receipt.fromBytesCompact, _.bytesCompact())
 
+  // TODO: don't do that, it makes sorting lexicographical instead of numerical
   implicit val stringCodec: PureCodec[String, Array[Byte]] = PureCodec.liftEitherB[String, Array[Byte]](
     str ⇒ Try(str.getBytes()).toEither.leftMap(t ⇒ CodecError("Cannot serialize string to bytes", Some(t))),
     bs ⇒ Try(new String(bs)).toEither.leftMap(t ⇒ CodecError("Cannot parse bytes to string", Some(t)))
   )
 
+  // TODO: don't do that, it makes sorting lexicographical instead of numerical
   implicit val longStringCodec: PureCodec[Long, String] = PureCodec.liftEitherB[Long, String](
     _.toString.asRight,
     str ⇒ Try(str.toLong).toEither.leftMap(t ⇒ CodecError("Cannot parse string to long", Some(t)))
   )
 
+  // TODO: don't do that, it makes sorting lexicographical instead of numerical
   implicit val longCodec: PureCodec[Long, Array[Byte]] =
     PureCodec[Long, String] >>> PureCodec[String, Array[Byte]]
 
   def make[F[_]: Sync: LiftIO: ContextShift](appId: Long, storagePath: Path): Resource[F, KVReceiptStorage[F]] =
     for {
       path <- Resource.liftF(Sync[F].catchNonFatal(storagePath.resolve(ReceiptStoragePath).resolve(appId.toString)))
+      // TODO: don't do that, it makes sorting lexicographical instead of numerical
       store <- RocksDBStore.make[F, Long, Receipt](path.toAbsolutePath.toString)
     } yield new KVReceiptStorage[F](appId, store)
 }
