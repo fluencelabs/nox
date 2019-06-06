@@ -106,26 +106,31 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
      *    we need to load it via `loadLastBlock(lastReceipt.height + 1)`, and send its receipt after all stored receipts
      */
 
+    // TODO: it stores receipts stored as 1, 11, ..., 2, 20, ..., 3, 30 :D
     val storedReceipts =
       fs2.Stream.eval(log.info("will start loading stored receipts")) >>
-        storage.retrieve()
+        storage
+          .retrieve()
+          .evalTap(t => log.info(s"stored receipt ${t._1}"))
+
     val lastOrFirstBlock = storedReceipts.last.evalTap(lsr => log.info(s"last stored receipt: $lsr")).flatMap {
       case None => fs2.Stream.eval(loadFirstBlock(rpc))
       case Some((height, _)) => fs2.Stream.eval(loadLastBlock(height + 1, rpc)).unNone
     }
 
-    val blocks = lastOrFirstBlock.flatMap(
-      b =>
-        fs2.Stream.eval(log.info(s"got lastOrFirstBlock ${b.header.height}, will subscribe now")) >>
-          fs2.Stream.emit(b) ++
-            rpc
-              .subscribeNewBlock(b.header.height)
-              // Skip first block due to race condition (see details above)
-              .dropWhile(_.header.height < 2)
+    val lastKnownHeight = storedReceipts.last.map(_.map(_._1).getOrElse(1L))
+
+    val subscriptionBlocks = lastKnownHeight.flatMap(
+      height =>
+        fs2.Stream.eval(log.info(s"got lastOrFirstBlock $height, will subscribe now")) >>
+          rpc
+            .subscribeNewBlock(height)
+            // Skip first block due to race condition (see details above)
+            .dropWhile(_.header.height < 2)
     )
 
     // Group empty blocks with the first non-empty block, and upload empty blocks right away
-    val grouped = blocks
+    val grouped = (lastOrFirstBlock ++ subscriptionBlocks)
       .evalTap(b => log.info(s"processing block ${b.header.height}"))
       .evalScan[F, Either[Chain[Receipt], (Chain[Receipt], Block)]](Left(Chain.empty)) {
         case (Left(empties), block) if emptyBlock(block) => uploadEmpty(block).map(r => Left(empties :+ r))
@@ -183,9 +188,12 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
       (e: RpcError) => log.error(s"load first block: $e")
     )
 
-  private def loadLastBlock(lastSavedReceiptHeight: Long, rpc: TendermintRpc[F]): F[Option[Block]] =
+  private def loadLastBlock(lastSavedReceiptHeight: Long, rpc: TendermintRpc[F])(
+    implicit log: Log[F]
+  ): F[Option[Block]] =
     // TODO: retry on all errors except 'this block doesn't exist'
-    rpc.block(lastSavedReceiptHeight).toOption.value
+    log.info(s"will load last block $lastSavedReceiptHeight") >>
+      rpc.block(lastSavedReceiptHeight).value.flatMap(e => log.info(s"loadLastBlock: $e") as e.toOption)
 }
 
 object BlockUploading {
