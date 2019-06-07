@@ -8,8 +8,8 @@ let Tx = require('ethereumjs-tx');
 let web3 = new Web3(new Web3.providers.HttpProvider('http://geth.fluence.one:8545'));
 
 // Default account on parity node in dev mode with a huge amount of ethereum
-let acc = '0x7DdAE2d6118562AaC405284bb297C9A53d975326';
-let privateKey = '3639CC2D3D27ABF76509077EFC0BE6093290F0F8739C00BDDA6504B9D9FC66C2';
+let acc = '<fill your account here>';
+let privateKey = '<fill your private key here>';
 
 if (!acc.startsWith("0x")) {
     acc = "0x" + acc;
