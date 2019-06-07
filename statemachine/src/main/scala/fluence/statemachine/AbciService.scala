@@ -108,12 +108,8 @@ class AbciService[F[_]: Monad: Effect](
         .leftMap(err ⇒ logger.error(s"VM is unable to compute state hash: $err"))
         .getOrElse(ByteVector.empty) // TODO do not ignore vm error
 
-      _ = println(s"calculated vmhash ${st.height}")
-
       // Do not wait for receipt on the very first block
       receipt <- if (st.height > 0) controlSignals.receipt.map(_.some) else none[BlockReceipt].pure[F]
-
-      _ = println(s"got receipt ${st.height}")
 
       // Check block for correctness, for debugging purposes
       _ = if (st.height > 0 && receipt.forall(_.`type` == ReceiptType.New)) checkBlock(st.height)
@@ -144,7 +140,6 @@ class AbciService[F[_]: Monad: Effect](
         case Some(ReceiptType.LastStored) => controlSignals.setVmHash(vmHash)
         case unknown => logger.error(s"Unknown receipt kind: $unknown").pure[F]
       }
-      _ = println(s"sent vmhash ${st.height}")
     } yield appHash
 
   /**
