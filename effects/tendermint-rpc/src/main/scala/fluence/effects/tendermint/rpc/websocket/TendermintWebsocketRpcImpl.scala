@@ -51,8 +51,8 @@ private[websocket] case object Reconnect extends Event
  * Implementation of Tendermint RPC Subscribe call
  * Details: https://tendermint.com/rpc/#subscribe
  */
-abstract class WebsocketTendermintRpcImpl[F[_]: ConcurrentEffect: Timer: Monad]
-    extends WebsocketTendermintRpc[F] with slogging.LazyLogging {
+abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad]
+    extends TendermintWebsocketRpc[F] with slogging.LazyLogging {
   self: TendermintHttpRpc[F] =>
 
   val host: String

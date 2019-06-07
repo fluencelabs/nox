@@ -17,14 +17,15 @@
 package fluence.effects.tendermint.rpc.http
 
 import cats.data.EitherT
-import cats.effect.{ConcurrentEffect, Resource, Timer}
+import cats.effect.{ConcurrentEffect, Timer}
 import cats.syntax.apply._
 import cats.syntax.either._
 import cats.{Functor, Monad}
 import com.softwaremill.sttp._
 import fluence.effects.tendermint.block.data.Block
+import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.response.{Response, TendermintStatus}
-import fluence.effects.tendermint.rpc.websocket.WebsocketTendermintRpc
+import fluence.effects.tendermint.rpc.websocket.{TendermintWebsocketRpc, TendermintWebsocketRpcImpl}
 import io.circe.Json
 import io.circe.parser.decode
 
@@ -41,7 +42,8 @@ case class TendermintHttpRpcImpl[F[_]: ConcurrentEffect: Timer: Monad](
   host: String,
   port: Int
 )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing])
-    extends TendermintHttpRpc[F] with slogging.LazyLogging {
+    extends TendermintWebsocketRpcImpl with TendermintHttpRpc[F] with TendermintWebsocketRpc[F] with TendermintRpc[F]
+    with slogging.LazyLogging {
 
   val RpcUri = uri"http://$host:$port"
   logger.info(s"TendermintRpc created, uri: $RpcUri")
@@ -166,27 +168,4 @@ case class TendermintHttpRpcImpl[F[_]: ConcurrentEffect: Timer: Monad](
    */
   private def post(req: RpcRequest) = logPost(req) *> sendHandlingErrors(sttp.post(RpcUri).body(req.toJsonString))
 
-}
-
-object TendermintHttpRpc extends slogging.LazyLogging {
-
-  /**
-   * Runs a WorkerRpc with F effect, acquiring some resources for it
-   *
-   * @param sttpBackend Sttp Backend to be used to make RPC calls
-   * @param hostName Hostname to query status from
-   * @param port Port to query status from
-   * @tparam F Concurrent effect
-   * @return Worker RPC instance. Note that it should be stopped at some point, and can't be used after it's stopped
-   */
-  def make[F[_]: ConcurrentEffect: Timer: Monad](
-    hostName: String,
-    port: Short
-  )(
-    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]
-  ): Resource[F, TendermintHttpRpc[F] with WebsocketTendermintRpc[F]] = {
-    Resource.pure(
-      new TendermintHttpRpcImpl[F](hostName, port)
-    )
-  }
 }

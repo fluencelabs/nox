@@ -29,7 +29,7 @@ import scala.language.higherKinds
 /**
  * Algebra for Tendermint's websocket RPC
  */
-trait WebsocketTendermintRpc[F[_]] {
+trait TendermintWebsocketRpc[F[_]] {
 
   /**
    * Subscribe on new blocks from Tendermint, retrieves missing blocks and keeps them in order
