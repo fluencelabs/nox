@@ -26,6 +26,7 @@ import cats.effect.{ExitCode, IO, IOApp, Resource}
 import com.github.jtendermint.jabci.socket.TSocket
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
+import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.control.{ControlServer, ControlSignals}
@@ -63,7 +64,7 @@ object ServerRunner extends IOApp with LazyLogging {
 
           tendermintRpc ← {
             implicit val s = sttp
-            TendermintHttpRpc.make[IO](config.tendermintRpc.host, config.tendermintRpc.port)
+            TendermintRpc.make[IO](config.tendermintRpc.host, config.tendermintRpc.port)
           }
 
           _ ← abciHandlerResource(config.abciPort, config, control, tendermintRpc)
@@ -83,7 +84,7 @@ object ServerRunner extends IOApp with LazyLogging {
     abciPort: Int,
     config: StateMachineConfig,
     controlServer: ControlServer[IO],
-    tendermintRpc: TendermintHttpRpc[IO]
+    tendermintRpc: TendermintRpc[IO]
   ): Resource[IO, Unit] =
     Resource
       .make(
