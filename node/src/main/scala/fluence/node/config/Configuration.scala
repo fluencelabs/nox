@@ -24,7 +24,7 @@ import cats.syntax.apply._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import fluence.effects.docker.DockerIO
-import fluence.node.workers.tendermint.{DockerTendermint, ValidatorKey}
+import fluence.node.workers.tendermint.{DockerTendermint, ValidatorPublicKey}
 import io.circe.parser._
 
 import scala.language.higherKinds
@@ -79,7 +79,7 @@ object Configuration extends slogging.LazyLogging {
     masterContainerId: Option[String],
     rootPath: Path,
     tmDockerConfig: DockerConfig
-  ): F[(String, ValidatorKey)] = {
+  ): F[(String, ValidatorPublicKey)] = {
 
     val tendermintDir = rootPath.resolve("tendermint") // /master/tendermint
     def execTendermintCmd(cmd: String, uid: String): F[String] =
@@ -109,7 +109,7 @@ object Configuration extends slogging.LazyLogging {
       _ <- IO { logger.info(s"Node ID: $nodeId") }.to[F]
 
       validatorRaw <- execTendermintCmd("show_validator", uid)
-      validator <- IO.fromEither(parse(validatorRaw).flatMap(_.as[ValidatorKey])).to[F]
+      validator <- IO.fromEither(parse(validatorRaw).flatMap(_.as[ValidatorPublicKey])).to[F]
       _ <- IO { logger.info(s"Validator PubKey: ${validator.value}") }.to[F]
     } yield (nodeId, validator)
   }

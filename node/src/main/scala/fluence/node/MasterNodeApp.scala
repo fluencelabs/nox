@@ -17,6 +17,7 @@
 package fluence.node
 
 import java.nio.ByteBuffer
+import java.nio.file.{Files, Paths}
 
 import cats.data.EitherT
 import cats.effect.ExitCase.{Canceled, Completed, Error}
@@ -32,6 +33,8 @@ import fluence.log.{Log, LogFactory}
 import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
 import fluence.node.workers.DockerWorkersPool
+import fluence.node.workers.tendermint.TendermintPrivateKey
+import io.circe.parser._
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
@@ -40,6 +43,33 @@ import scala.language.higherKinds
 object MasterNodeApp extends IOApp {
   private val sttpResource: Resource[IO, SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]] =
     Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
+
+  /**
+   * Reads KeyPair from priv_validator_key.json file in tendermint path.
+   *
+   */
+  private def readTendermintKeyPair(rootPath: String) = {
+    for {
+      validatorKeyString <- IO(
+        new String(
+          Files.readAllBytes(
+            Paths
+              .get(rootPath)
+              .toAbsolutePath
+              .resolve("tendermint")
+              .resolve("priv_validator_key.json")
+          )
+        )
+      )
+      parsed <- IO.fromEither(decode[TendermintPrivateKey](validatorKeyString))
+      keys <- IO.fromEither(
+        TendermintPrivateKey
+          .getKeyPair(parsed)
+          .left
+          .map(err => new RuntimeException("Cannot parse KeyPair from priv_validator_key.json: " + err))
+      )
+    } yield keys
+  }
 
   /**
    * Launches a Master Node instance
@@ -73,10 +103,11 @@ object MasterNodeApp extends IOApp {
               conf.rootPath,
               masterConf.remoteStorage
             )
+            keys <- Resource.liftF(readTendermintKeyPair(masterConf.rootPath))
             kad ← KademliaNode.make[IO, IO.Par](
               masterConf.kademlia,
               Ed25519.tendermintAlgo,
-              Ed25519.tendermintAlgo.generateKeyPair.unsafe(None) // TODO use tendermint validator key
+              keys
             )
             node <- MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
           } yield (kad.http, node)).use {
