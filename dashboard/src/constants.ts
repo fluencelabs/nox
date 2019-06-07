@@ -1,6 +1,6 @@
-export const defaultContractAddress: string = '0xe01690f60E08207Fa29F9ef98fA35e7fB7A12A96';
+export const defaultContractAddress: string = '0xeFF91455de6D4CF57C141bD8bF819E5f873c1A01';
 export const stageContractAddress: string = '0xe01690f60E08207Fa29F9ef98fA35e7fB7A12A96';
-export const dashboardContractAddress: string = '0x883ba536ca79bbae03ab04716bd1054fba106739';
+export const dashboardContractAddress: string = '0x7392838158bA5E862BbDc679cD84949c8cFA4d09';
 export const rootTagId: string = 'root';
 
 export const fluenceNodeAddr = 'http://geth.fluence.one:8545';
