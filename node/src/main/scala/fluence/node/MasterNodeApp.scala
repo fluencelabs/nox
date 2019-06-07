@@ -26,6 +26,7 @@ import cats.syntax.apply._
 import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
+import fluence.crypto.KeyPair
 import fluence.crypto.ecdsa.Ed25519
 import fluence.effects.docker.DockerIO
 import fluence.kad.http.UriContact
@@ -48,15 +49,15 @@ object MasterNodeApp extends IOApp {
    * Reads KeyPair from priv_validator_key.json file in tendermint path.
    *
    */
-  private def readTendermintKeyPair(rootPath: String) = {
+  private def readTendermintKeyPair(rootPath: String): IO[KeyPair] = {
     for {
       validatorKeyString <- IO(
         new String(
           Files.readAllBytes(
             Paths
               .get(rootPath)
-              .toAbsolutePath
               .resolve("tendermint")
+              .resolve("config")
               .resolve("priv_validator_key.json")
           )
         )
@@ -103,11 +104,11 @@ object MasterNodeApp extends IOApp {
               conf.rootPath,
               masterConf.remoteStorage
             )
-            keys <- Resource.liftF(readTendermintKeyPair(masterConf.rootPath))
+            keyPair <- Resource.liftF(readTendermintKeyPair(masterConf.rootPath))
             kad ← KademliaNode.make[IO, IO.Par](
               masterConf.kademlia,
               Ed25519.tendermintAlgo,
-              keys
+              keyPair
             )
             node <- MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
           } yield (kad.http, node)).use {
