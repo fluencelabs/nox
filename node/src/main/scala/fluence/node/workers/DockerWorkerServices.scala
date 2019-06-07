@@ -23,7 +23,7 @@ import cats.{Apply, Monad}
 import com.softwaremill.sttp._
 import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
-import fluence.effects.tendermint.rpc.{TendermintRpc, WebsocketTendermintRpc}
+import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
 import fluence.node.workers.tendermint.DockerTendermint

@@ -23,8 +23,8 @@ import cats.effect._
 import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
-import fluence.effects.tendermint.block.data.Block
-import io.circe.Json
+import fluence.log.Log.Aux
+import fluence.log.LogFactory
 import org.http4s.websocket.WebSocketFrame.Text
 import org.scalatest.{Matchers, WordSpec}
 import slogging.MessageFormatter.DefaultPrefixFormatter
@@ -39,6 +39,8 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
 
   type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
   implicit private val sttpResource: STTP = EitherTSttpBackend[IO]()
+  implicit val logFactory: LogFactory[IO] = LogFactory.forPrintln[IO]()
+  implicit val log: Aux[IO, logFactory.Appender] = logFactory.init("WebsocketRPCSpec").unsafeRunSync()
 
   "WebsocketRPC" should {
     PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, true)
@@ -47,34 +49,18 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
 
     val resourcesF = for {
       server <- WebsocketServer.make[IO]
-      wrpc <- TendermintRpc.make[IO]("127.0.0.1", 8080)
-      blocks = wrpc.subscribeNewBlock[IO]
+      wrpc = new TestWRpc[IO]("127.0.0.1", 8080)
+      blocks = wrpc.subscribeNewBlock(0)
     } yield (server, blocks)
 
-    def text(text: String) = Text(
-      s"""
-         |{
-         |  "jsonrpc": "2.0",
-         |  "id": "1#event",
-         |  "result": {
-         |    "query": "tm.event = 'NewBlock'",
-         |    "data": {
-         |      "type": "tendermint/event/NewBlock",
-         |      "value": "$text"
-         |    }
-         |  }
-         |}
-      """.stripMargin
-    )
-
-    def asString(json: Json) = json.as[String].right.get
+    def block(height: Long) = Text(TestData.block(height))
 
     "subscribe and receive messages" in {
       val (events, requests) = resourcesF.use {
         case (server, events) =>
           for {
-            _ <- server.send(text("first"))
-            _ <- server.send(text("second"))
+            _ <- server.send(block(1))
+            _ <- server.send(block(2))
             result <- events.take(2).compile.toList
             _ <- server.close()
             requests <- server.requests().compile.toList
@@ -84,64 +70,42 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
       requests.size shouldBe 1
 
       events.size shouldBe 2
-      asString(events.head) shouldBe "first"
-      asString(events.tail.head) shouldBe "second"
-    }
-
-    "parse block json correctly" in {
-      val events = resourcesF.use {
-        case (server, events) =>
-          for {
-            _ <- server.send(Text(TestData.block))
-            result <- events.take(1).compile.toList
-            _ <- server.close()
-          } yield result
-      }.unsafeRunSync()
-
-      events.size shouldBe 1
-
-      val block = Block(events.head)
-      block.left.foreach(throw _)
-      block.isRight shouldBe true
+      events.head.header.height shouldBe 1L
+      events.tail.head.header.height shouldBe 2L
     }
 
     "receive message after reconnect" in {
-      val msg = "yo"
+      val height = 123L
       val events = resourcesF.use {
         case (server, events) =>
           for {
             _ <- server.close()
             result <- WebsocketServer.make[IO].use { newServer =>
-              newServer.send(text(msg)) >> events.take(1).compile.toList
+              newServer.send(block(height)) >> events.take(1).compile.toList
             }
           } yield result
       }.unsafeRunSync()
 
       events.size shouldBe 1
-      asString(events.head) shouldBe msg
+      events.head.header.height shouldBe height
     }
 
     "ignore incorrect json messages" in {
       val incorrectMsg = "incorrect"
-      val msg = "correct"
-
-      // To hide error about incorrect msg
-      LoggerConfig.level = LogLevel.OFF
+      val height = 345L
 
       val events = resourcesF.use {
         case (server, events) =>
           for {
             _ <- server.send(Text(incorrectMsg))
-            _ <- server.send(text(msg))
+            _ <- server.send(block(height))
             result <- events.take(1).compile.toList
             _ <- server.close()
           } yield result
       }.unsafeRunSync()
 
-      LoggerConfig.level = LogLevel.ERROR
-
       events.size shouldBe 1
-      asString(events.head) shouldBe msg
+      events.head.header.height shouldBe height
     }
   }
 }

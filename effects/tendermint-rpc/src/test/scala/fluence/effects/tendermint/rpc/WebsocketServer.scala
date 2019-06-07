@@ -16,6 +16,7 @@
 
 package fluence.effects.tendermint.rpc
 
+import cats.Applicative
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.syntax.flatMap._
@@ -24,7 +25,7 @@ import cats.syntax.functor._
 import fluence.effects.{Backoff, WithCause}
 import fs2.concurrent.{Queue, SignallingRef}
 import fs2.{Pipe, Stream}
-import org.http4s.HttpRoutes
+import org.http4s.{HttpRoutes, Response}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.implicits._
 import org.http4s.server.blaze.BlazeServerBuilder

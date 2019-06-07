@@ -24,10 +24,29 @@ import cats.syntax.either._
 import com.softwaremill.sttp._
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc.response.{Response, TendermintStatus}
+import fluence.effects.tendermint.rpc.websocket.{WebsocketTendermintRpc, WebsocketTendermintRpcImpl}
 import io.circe.Json
 import io.circe.parser.decode
 
 import scala.language.higherKinds
+
+trait TendermintRpc[F[_]] {
+  def status: EitherT[F, RpcError, String]
+  def statusParsed(implicit F: Functor[F]): EitherT[F, RpcError, TendermintStatus]
+  def block(height: Long, id: String = "dontcare"): EitherT[F, RpcError, Block]
+  def commit(height: Long, id: String = "dontcare"): EitherT[F, RpcError, String]
+  def consensusHeight(id: String = "dontcare"): EitherT[F, RpcError, Long]
+  def broadcastTxSync(tx: String, id: String): EitherT[F, RpcError, String]
+  def unsafeDialPeers(peers: Seq[String], persistent: Boolean, id: String = "dontcare"): EitherT[F, RpcError, String]
+
+  def query(
+    path: String,
+    data: String = "",
+    height: Long = 0,
+    prove: Boolean = false,
+    id: String
+  ): EitherT[F, RpcError, String]
+}
 
 /**
  * Provides a single concurrent endpoint to run RPC requests on Worker
@@ -36,16 +55,16 @@ import scala.language.higherKinds
  * @param port Tendermint RPC port
  * @tparam F Http requests effect
  */
-case class TendermintRpc[F[_]: ConcurrentEffect: Timer: Monad](
+case class TendermintRpcImpl[F[_]: ConcurrentEffect: Timer: Monad](
   host: String,
   port: Int
 )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing])
-    extends WebsocketTendermintRpc[F] with slogging.LazyLogging {
+    extends WebsocketTendermintRpcImpl[F] with TendermintRpc[F] with slogging.LazyLogging {
 
   val RpcUri = uri"http://$host:$port"
   logger.info(s"TendermintRpc created, uri: $RpcUri")
 
-  /** Get status as string */
+  /** Get status as a string */
   val status: EitherT[F, RpcError, String] =
     get("status")
 
@@ -177,9 +196,11 @@ object TendermintRpc extends slogging.LazyLogging {
   def make[F[_]: ConcurrentEffect: Timer: Monad](
     hostName: String,
     port: Short
-  )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]): Resource[F, TendermintRpc[F]] = {
+  )(
+    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]
+  ): Resource[F, TendermintRpc[F] with WebsocketTendermintRpc[F]] = {
     Resource.pure(
-      new TendermintRpc[F](hostName, port)
+      new TendermintRpcImpl[F](hostName, port)
     )
   }
 }
