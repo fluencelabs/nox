@@ -75,6 +75,9 @@ case class TendermintRpc[F[_]: ConcurrentEffect: Timer: Monad](
       )
     )
 
+  /**
+   * Returns last block height known by this Tendermint node
+   */
   def consensusHeight(id: String = "dontcare"): EitherT[F, RpcError, Long] =
     statusParsed.map(_.sync_info.latest_block_height)
 
