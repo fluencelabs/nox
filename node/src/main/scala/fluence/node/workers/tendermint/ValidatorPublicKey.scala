@@ -28,7 +28,7 @@ import scodec.bits.ByteVector
  * @param `type` key type
  * @param value 32-byte public key in base64 representation
  */
-case class ValidatorKey(`type`: String, value: String) {
+case class ValidatorPublicKey(`type`: String, value: String) {
 
   /**
    * Returns node's public key in format ready to pass to the contract.
@@ -38,8 +38,8 @@ case class ValidatorKey(`type`: String, value: String) {
   lazy val toByteVector: ByteVector = ByteVector(toBytes32.getValue)
 }
 
-object ValidatorKey {
-  implicit val validatorKeyDecoder: Decoder[ValidatorKey] = deriveDecoder[ValidatorKey]
+object ValidatorPublicKey {
+  implicit val validatorKeyDecoder: Decoder[ValidatorPublicKey] = deriveDecoder[ValidatorPublicKey]
 
-  implicit val validatorKeyEncoder: Encoder[ValidatorKey] = deriveEncoder[ValidatorKey]
+  implicit val validatorKeyEncoder: Encoder[ValidatorPublicKey] = deriveEncoder[ValidatorPublicKey]
 }

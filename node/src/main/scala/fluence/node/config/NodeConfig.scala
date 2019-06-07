@@ -15,7 +15,7 @@
  */
 
 package fluence.node.config
-import fluence.node.workers.tendermint.ValidatorKey
+import fluence.node.workers.tendermint.ValidatorPublicKey
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
@@ -29,7 +29,7 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
  */
 case class NodeConfig(
   endpoints: EndpointsConfig,
-  validatorKey: ValidatorKey,
+  validatorKey: ValidatorPublicKey,
   nodeAddress: String,
   workerDockerConfig: DockerConfig,
   tmDockerConfig: DockerConfig,

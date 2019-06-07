@@ -113,7 +113,7 @@ object SbtCommons {
   val cryptoJwt = "one.fluence"      %% "crypto-jwt"      % cryptoVersion
   val cryptoCipher = "one.fluence"   %% "crypto-cipher"   % cryptoVersion
   val cryptoKeyStore = "one.fluence" %% "crypto-keystore" % cryptoVersion
-  val codecCore = "one.fluence"      %% "codec-core"      % "0.0.4"
+  val codecCore = "one.fluence"      %% "codec-core"      % cryptoVersion
 
   val sttpVersion = "1.5.17"
   val sttp = "com.softwaremill.sttp"            %% "core"                           % sttpVersion

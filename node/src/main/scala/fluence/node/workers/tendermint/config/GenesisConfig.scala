@@ -22,7 +22,7 @@ import java.util.TimeZone
 
 import cats.effect.IO
 import fluence.node.eth.state.App
-import fluence.node.workers.tendermint.ValidatorKey
+import fluence.node.workers.tendermint.ValidatorPublicKey
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 import slogging.LazyLogging
@@ -72,7 +72,7 @@ private object GenesisConfig {
       app_hash = "",
       validators = app.cluster.workers.map { w =>
         ValidatorConfig(
-          ValidatorKey(
+          ValidatorPublicKey(
             `type` = "tendermint/PubKeyEd25519",
             value = w.base64ValidatorKey
           ),

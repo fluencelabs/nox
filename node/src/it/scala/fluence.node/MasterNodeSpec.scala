@@ -38,7 +38,7 @@ import fluence.node.config.{FluenceContractConfig, KademliaConfig, MasterConfig,
 import fluence.node.eth.FluenceContract
 import fluence.node.eth.FluenceContractTestOps._
 import fluence.node.status.{MasterStatus, StatusAggregator}
-import fluence.node.workers.tendermint.ValidatorKey
+import fluence.node.workers.tendermint.ValidatorPublicKey
 import org.scalatest.{Timer ⇒ _, _}
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
@@ -101,15 +101,14 @@ class MasterNodeSpec
 
     nodeConf = NodeConfig(
       masterConf.endpoints,
-      ValidatorKey("", Base64.getEncoder.encodeToString(Array.fill(32)(5))),
+      ValidatorPublicKey("", Base64.getEncoder.encodeToString(Array.fill(32)(5))),
       "vAs+M0nQVqntR6jjPqTsHpJ4bsswA3ohx05yorqveyc=",
       masterConf.worker,
       masterConf.tendermint
     )
 
-    node ←
-      MasterNode
-        .make[IO, UriContact](masterConf, nodeConf, pool, kad.kademlia)
+    node ← MasterNode
+      .make[IO, UriContact](masterConf, nodeConf, pool, kad.kademlia)
 
     agg ← StatusAggregator.make[IO](masterConf, node)
     _ ← MasterHttp.make("127.0.0.1", 5678, agg, node.pool, kad.http)
@@ -139,7 +138,8 @@ class MasterNodeSpec
               status <- getStatus(5678)
               _ = (Math.abs(status.uptime) > 0) shouldBe true
             } yield (),
-            100.millis, 15.seconds
+            100.millis,
+            15.seconds
           )
 
       }.unsafeRunSync()
