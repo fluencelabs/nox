@@ -17,7 +17,6 @@
 package fluence.node
 
 import java.nio.ByteBuffer
-import java.nio.file.{Files, Paths}
 
 import cats.data.EitherT
 import cats.effect.ExitCase.{Canceled, Completed, Error}
@@ -26,7 +25,6 @@ import cats.syntax.apply._
 import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
-import fluence.crypto.KeyPair
 import fluence.crypto.ecdsa.Ed25519
 import fluence.effects.docker.DockerIO
 import fluence.kad.http.UriContact
@@ -34,8 +32,6 @@ import fluence.log.{Log, LogFactory}
 import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
 import fluence.node.workers.DockerWorkersPool
-import fluence.node.workers.tendermint.TendermintPrivateKey
-import io.circe.parser._
 import slogging.MessageFormatter.DefaultPrefixFormatter
 import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
@@ -44,33 +40,6 @@ import scala.language.higherKinds
 object MasterNodeApp extends IOApp {
   private val sttpResource: Resource[IO, SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]] =
     Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
-
-  /**
-   * Reads KeyPair from priv_validator_key.json file in tendermint path.
-   *
-   */
-  private def readTendermintKeyPair(rootPath: String): IO[KeyPair] = {
-    for {
-      validatorKeyString <- IO(
-        new String(
-          Files.readAllBytes(
-            Paths
-              .get(rootPath)
-              .resolve("tendermint")
-              .resolve("config")
-              .resolve("priv_validator_key.json")
-          )
-        )
-      )
-      parsed <- IO.fromEither(decode[TendermintPrivateKey](validatorKeyString))
-      keys <- IO.fromEither(
-        TendermintPrivateKey
-          .getKeyPair(parsed)
-          .left
-          .map(err => new RuntimeException("Cannot parse KeyPair from priv_validator_key.json: " + err))
-      )
-    } yield keys
-  }
 
   /**
    * Launches a Master Node instance
@@ -104,7 +73,7 @@ object MasterNodeApp extends IOApp {
               conf.rootPath,
               masterConf.remoteStorage
             )
-            keyPair <- Resource.liftF(readTendermintKeyPair(masterConf.rootPath))
+            keyPair <- Resource.liftF(Configuration.readTendermintKeyPair(masterConf.rootPath))
             kad ← KademliaNode.make[IO, IO.Par](
               masterConf.kademlia,
               Ed25519.tendermintAlgo,
