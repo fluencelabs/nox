@@ -39,7 +39,6 @@ import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.workers.Worker
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 import fluence.statemachine.control.ReceiptType
-import io.circe.Json
 
 import scala.language.{higherKinds, postfixOps}
 
@@ -106,30 +105,23 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
      *    we need to load it via `loadLastBlock(lastReceipt.height + 1)`, and send its receipt after all stored receipts
      */
 
-    // TODO: it stores receipts stored as 1, 11, ..., 2, 20, ..., 3, 30 :D
-    val storedReceipts =
-      fs2.Stream.eval(log.info("will start loading stored receipts")) >>
-        storage
-          .retrieve()
-          .evalTap(t => log.info(s"stored receipt ${t._1}"))
+    // TODO: storedReceipts got calculated 4 times. How to memoize that?
+    val storedReceipts = storage.retrieve()
 
-    val lastOrFirstBlock = storedReceipts.last.evalTap(lsr => log.info(s"last stored receipt: $lsr")).flatMap {
+    // TODO: maybe it is possible to avoid loading first block manually? Pass lastKnownHeight = 0, and go with it...?
+    //  In other words, is there still a race condition? Or was it fixed by new algorithm in WRPC.subscribeNewBlock?
+    val lastOrFirstBlock = storedReceipts.last.flatMap {
       case None => fs2.Stream.eval(loadFirstBlock(rpc))
       case Some((height, _)) => fs2.Stream.eval(loadLastBlock(height + 1, rpc)).unNone
     }
 
+    // Either height of the last stored receipt, or the 1st block. 1st because we will load it manually.
     val lastKnownHeight = storedReceipts.last.map(_.map(_._1).getOrElse(1L))
 
-    val subscriptionBlocks = lastKnownHeight.flatMap(
-      height =>
-        fs2.Stream.eval(log.info(s"got lastOrFirstBlock $height, will subscribe now")) >>
-          rpc
-            .subscribeNewBlock(height)
-            // Skip first block due to race condition (see details above)
-            .dropWhile(_.header.height < 2)
-    )
+    // Skip first block due to race condition (see details above)
+    val subscriptionBlocks = lastKnownHeight >>= (rpc.subscribeNewBlock(_).dropWhile(_.header.height < 2))
 
-    // Group empty blocks with the first non-empty block, and upload empty blocks right away
+    // Group empty blocks with the first non-empty block; upload empty blocks right away
     val grouped = (lastOrFirstBlock ++ subscriptionBlocks)
       .evalTap(b => log.info(s"processing block ${b.header.height}"))
       .evalScan[F, Either[Chain[Receipt], (Chain[Receipt], Block)]](Left(Chain.empty)) {
@@ -139,7 +131,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
         case (Right(_), block) => F.pure((Chain.empty -> block).asRight)
       }
 
-    // Receipts from new blocks (as opposed to stored receipts)
+    // Receipts from the new blocks (as opposed to stored receipts)
     val newReceipts = grouped.flatMap {
       // Emit receipts for the empty blocks
       case Left(empties) => fs2.Stream.emits(empties.toList.takeRight(1))
@@ -152,10 +144,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
         storedReceipts.takeRight(1).map(_._2 -> ReceiptType.LastStored)
 
     // Send receipts to the state machine (worker)
-    val receipts = (storedTypedReceipts ++ newReceipts)
-      .evalTap(t => log.info(s"processing receipt $t"))
-      .evalMap(sendReceipt _ tupled)
-      .evalTap(_ => log.info("receipt processed."))
+    val receipts = (storedTypedReceipts ++ newReceipts).evalMap(sendReceipt _ tupled)
 
     MakeResource.concurrentStream(receipts, name = "BlockUploadingStream")
   }
@@ -172,13 +161,13 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
       def logError[E <: EffectError](e: E) = log.error("", e)
 
       for {
-        _ <- log.trace(s"started")
+        _ <- log.debug(s"started")
         lastReceipt <- lastManifestReceipt.take
         vmHash <- backoff.retry(control.getVmHash, logError)
         receipt <- backoff.retry(history.upload(block, vmHash, lastReceipt, emptiesReceipts.toList), logError)
         _ <- backoff.retry(receiptStorage.put(block.header.height, receipt), logError)
         _ <- lastManifestReceipt.put(Some(receipt))
-        _ <- log.trace(s"finished")
+        _ <- log.debug(s"finished")
       } yield receipt
     }
 
@@ -192,8 +181,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
     implicit log: Log[F]
   ): F[Option[Block]] =
     // TODO: retry on all errors except 'this block doesn't exist'
-    log.info(s"will load last block $lastSavedReceiptHeight") >>
-      rpc.block(lastSavedReceiptHeight).value.flatMap(e => log.info(s"loadLastBlock: $e") as e.toOption)
+    rpc.block(lastSavedReceiptHeight).value.map(_.toOption)
 }
 
 object BlockUploading {
