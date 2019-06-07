@@ -55,7 +55,7 @@ object KVReceiptStorage {
     codec.PureCodec.liftB(Receipt.fromBytesCompact, _.bytesCompact())
 
   implicit val longBytesCodec: PureCodec[Long, Array[Byte]] =
-    PureCodec.liftB(ByteBuffer.allocate(4).putLong(_).array(), ByteBuffer.wrap(_).getLong)
+    PureCodec.liftB(ByteBuffer.allocate(8).putLong(_).array(), ByteBuffer.wrap(_).getLong)
 
   def make[F[_]: Sync: LiftIO: ContextShift](appId: Long, storagePath: Path): Resource[F, KVReceiptStorage[F]] =
     for {
