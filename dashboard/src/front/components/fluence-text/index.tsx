@@ -153,8 +153,8 @@ class FluenceText extends React.Component<Props, State> {
                             <h3 className="box-title">Dashboard</h3>
                         </div>
                         <div className="box-body">
-                            <p><a href="https://fluence.network/" target="_blank">Fluence</a> is a robust distributed
-                                cloud for databases and web applications. Please, mind that the project is a work in
+                            <p><a href="https://fluence.network/" target="_blank">Fluence</a> is a robust decentralized
+                                cloud for databases and Web3 applications. Please, mind that the project is a work in
                                 progress and right now the network is in the test state.</p>
 
                             <p>Using this dashboard you can:</p>

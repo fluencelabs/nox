@@ -92,7 +92,7 @@ class FluenceList extends React.Component<Props, State> {
 
     getAppLabel(appRef: AppRef): string {
         const deployableApp = findDeployableAppByStorageHash(appRef.storage_hash);
-        return ( (deployableApp && deployableApp.shortName) || 'App') + '#' + appRef.app_id;
+        return '#' + appRef.app_id + ' \u2013 ' + ( (deployableApp && deployableApp.shortName) || 'App');
     }
 
     renderApplicationItems(options?: RenderOptions): React.ReactNode[] {
