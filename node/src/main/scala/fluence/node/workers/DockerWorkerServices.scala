@@ -23,7 +23,7 @@ import cats.{Apply, Monad}
 import com.softwaremill.sttp._
 import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
-import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
 import fluence.node.workers.tendermint.DockerTendermint
@@ -45,7 +45,7 @@ import scala.language.higherKinds
 case class DockerWorkerServices[F[_]] private (
   p2pPort: Short,
   appId: Long,
-  tendermint: TendermintRpc[F],
+  tendermint: TendermintHttpRpc[F],
   control: ControlRpc[F],
   statusCall: FiniteDuration ⇒ F[WorkerStatus]
 ) extends WorkerServices[F] {
@@ -122,7 +122,7 @@ object DockerWorkerServices extends LazyLogging {
 
       tendermint ← DockerTendermint.make[F](params, p2pPort, containerName(params), network, stopTimeout)
 
-      rpc ← TendermintRpc.make[F](tendermint.name, DockerTendermint.RpcPort)
+      rpc ← TendermintHttpRpc.make[F](tendermint.name, DockerTendermint.RpcPort)
 
       control = ControlRpc[F](containerName(params), ControlRpcPort)
 

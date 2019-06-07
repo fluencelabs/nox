@@ -32,7 +32,7 @@ import fluence.effects.syntax.backoff._
 import fluence.effects.syntax.eitherT._
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc.helpers.NettyFutureConversion._
-import fluence.effects.tendermint.rpc.{RpcBlockParsingFailed, TendermintRpc}
+import fluence.effects.tendermint.rpc.http.{RpcBlockParsingFailed, TendermintHttpRpc}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fs2.concurrent.Queue
@@ -53,7 +53,7 @@ private[websocket] case object Reconnect extends Event
  */
 abstract class WebsocketTendermintRpcImpl[F[_]: ConcurrentEffect: Timer: Monad]
     extends WebsocketTendermintRpc[F] with slogging.LazyLogging {
-  self: TendermintRpc[F] =>
+  self: TendermintHttpRpc[F] =>
 
   val host: String
   val port: Int
@@ -123,7 +123,7 @@ abstract class WebsocketTendermintRpcImpl[F[_]: ConcurrentEffect: Timer: Monad]
                 loadBlock(startHeight).map(b => (b.header.height + 1, b.some))
               else
                 // 2. startHeight == consensusHeight - 1 => lastKnownHeight == consensusHeight,
-                // so we're all caught up, and can start waiting for a new block (i.e., JsonEvent)
+                // so we're all caught   up, and can start waiting for a new block (i.e., JsonEvent)
                 (startHeight, none[Block]).pure[F]
             } yield (height, block)
         }

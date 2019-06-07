@@ -20,6 +20,14 @@ import cats.data.EitherT
 import cats.syntax.flatMap._
 import cats.effect.Sync
 import fluence.effects.tendermint.rpc._
+import fluence.effects.tendermint.rpc.http.{
+  RpcBlockParsingFailed,
+  RpcBodyMalformed,
+  RpcError,
+  RpcRequestErrored,
+  RpcRequestFailed,
+  TendermintHttpRpc
+}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{HttpRoutes, Response}
 import slogging.LazyLogging
@@ -42,7 +50,7 @@ object WorkersHttp extends LazyLogging {
     object QueryId extends OptionalQueryParamDecoderMatcher[String]("id")
 
     /** Helper: runs a function iff a worker is in a pool, unwraps EitherT into different response types, renders errors */
-    def withTendermint(appId: Long)(fn: TendermintRpc[F] ⇒ EitherT[F, RpcError, String]): F[Response[F]] =
+    def withTendermint(appId: Long)(fn: TendermintHttpRpc[F] ⇒ EitherT[F, RpcError, String]): F[Response[F]] =
       pool.withWorker(appId, _.withServices(_.tendermint)(fn(_).value)).flatMap {
         case None ⇒
           logger.debug(s"RPC Requested app $appId, but there's no such worker in the pool")

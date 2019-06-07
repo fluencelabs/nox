@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-package fluence.effects.tendermint.rpc
+package fluence.effects.tendermint.rpc.http
 
-import fluence.effects.{EffectError, WithCause}
 import fluence.effects.tendermint.block.errors.TendermintBlockError
+import fluence.effects.{EffectError, WithCause}
 
-/** TendermintRpc errors */
+/** TendermintHttpRpc errors */
 sealed trait RpcError extends EffectError
 
 /** Request finished with exception */

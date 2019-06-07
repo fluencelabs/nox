@@ -31,7 +31,8 @@ import fluence.effects.ipfs.IpfsClient
 import fluence.effects.receipt.storage.KVReceiptStorage
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
-import fluence.effects.tendermint.rpc.{RpcError, TendermintRpc}
+import fluence.effects.tendermint.rpc.http.{RpcError, TendermintHttpRpc}
+import fluence.effects.tendermint.rpc.websocket.WebsocketTendermintRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.MakeResource
@@ -79,7 +80,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
     appId: Long,
     lastManifestReceipt: MVar[F, Option[Receipt]],
     storage: KVReceiptStorage[F],
-    rpc: TendermintRpc[F],
+    rpc: TendermintHttpRpc[F] with WebsocketTendermintRpc[F],
     control: ControlRpc[F]
   )(implicit backoff: Backoff[EffectError], F: Applicative[F], log: Log[F]) = {
     def upload(empties: Chain[Receipt], block: Block) =
@@ -171,13 +172,13 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
       } yield receipt
     }
 
-  private def loadFirstBlock(rpc: TendermintRpc[F])(implicit backoff: Backoff[EffectError], log: Log[F]): F[Block] =
+  private def loadFirstBlock(rpc: TendermintHttpRpc[F])(implicit backoff: Backoff[EffectError], log: Log[F]): F[Block] =
     backoff.retry(
       rpc.block(1),
       (e: RpcError) => log.error(s"load first block: $e")
     )
 
-  private def loadLastBlock(lastSavedReceiptHeight: Long, rpc: TendermintRpc[F])(
+  private def loadLastBlock(lastSavedReceiptHeight: Long, rpc: TendermintHttpRpc[F])(
     implicit log: Log[F]
   ): F[Option[Block]] =
     // TODO: retry on all errors except 'this block doesn't exist'

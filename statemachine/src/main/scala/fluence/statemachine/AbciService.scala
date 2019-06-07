@@ -30,7 +30,7 @@ import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.effects.tendermint.block.TendermintBlock
 import fluence.effects.tendermint.block.errors.Errors._
-import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.statemachine.control.{BlockReceipt, ControlSignals, ReceiptType}
 import fluence.statemachine.state.AbciState
 import scodec.bits.ByteVector
@@ -49,7 +49,7 @@ class AbciService[F[_]: Monad: Effect](
   state: Ref[F, AbciState],
   vm: VmOperationInvoker[F],
   controlSignals: ControlSignals[F],
-  tendermintRpc: TendermintRpc[F]
+  tendermintRpc: TendermintHttpRpc[F]
 )(implicit hasher: Hasher[ByteVector, ByteVector])
     extends LazyLogging {
 
@@ -273,7 +273,7 @@ object AbciService {
   def apply[F[_]: Effect](
     vm: VmOperationInvoker[F],
     controlSignals: ControlSignals[F],
-    tendermintRpc: TendermintRpc[F]
+    tendermintRpc: TendermintHttpRpc[F]
   ): F[AbciService[F]] = {
     import cats.syntax.compose._
     import scodec.bits.ByteVector

@@ -26,7 +26,7 @@ import cats.effect.{ExitCode, IO, IOApp, Resource}
 import com.github.jtendermint.jabci.socket.TSocket
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
-import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.control.{ControlServer, ControlSignals}
 import fluence.statemachine.error.StateMachineError
@@ -63,7 +63,7 @@ object ServerRunner extends IOApp with LazyLogging {
 
           tendermintRpc ← {
             implicit val s = sttp
-            TendermintRpc.make[IO](config.tendermintRpc.host, config.tendermintRpc.port)
+            TendermintHttpRpc.make[IO](config.tendermintRpc.host, config.tendermintRpc.port)
           }
 
           _ ← abciHandlerResource(config.abciPort, config, control, tendermintRpc)
@@ -83,7 +83,7 @@ object ServerRunner extends IOApp with LazyLogging {
     abciPort: Int,
     config: StateMachineConfig,
     controlServer: ControlServer[IO],
-    tendermintRpc: TendermintRpc[IO]
+    tendermintRpc: TendermintHttpRpc[IO]
   ): Resource[IO, Unit] =
     Resource
       .make(
@@ -118,7 +118,7 @@ object ServerRunner extends IOApp with LazyLogging {
   private[statemachine] def buildAbciHandler(
     config: StateMachineConfig,
     controlSignals: ControlSignals[IO],
-    tendermintRpc: TendermintRpc[IO]
+    tendermintRpc: TendermintHttpRpc[IO]
   ): EitherT[IO, StateMachineError, AbciHandler[IO]] =
     for {
       moduleFilenames <- config.collectModuleFiles[IO]

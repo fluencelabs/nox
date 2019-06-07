@@ -23,19 +23,21 @@ import cats.syntax.either._
 import cats.{Functor, Monad}
 import fluence.effects.syntax.eitherT._
 import fluence.effects.tendermint.block.data.Block
+import fluence.effects.tendermint.rpc.http.{RpcError, TendermintHttpRpc}
 import fluence.effects.tendermint.rpc.response.TendermintStatus
 import fluence.effects.tendermint.rpc.websocket.WebsocketTendermintRpcImpl
 
 import scala.language.higherKinds
 
 class TestWRpc[F[_]: ConcurrentEffect: Timer: Monad](override val host: String, override val port: Int)
-    extends WebsocketTendermintRpcImpl[F] with TendermintRpc[F] {
+    extends WebsocketTendermintRpcImpl[F] with TendermintHttpRpc[F] {
   override def status: EitherT[F, RpcError, String] = throw new NotImplementedError("val status")
 
   override def statusParsed(implicit F: Functor[F]): EitherT[F, RpcError, TendermintStatus] =
     throw new NotImplementedError("def statusParsed")
 
-  override def block(height: Long, id: String): EitherT[F, RpcError, Block] = throw new NotImplementedError("def block")
+  override def block(height: Long, id: String): EitherT[F, RpcError, Block] =
+    throw new NotImplementedError("def block")
 
   override def commit(height: Long, id: String): EitherT[F, RpcError, String] =
     throw new NotImplementedError("def commit")

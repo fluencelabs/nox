@@ -24,7 +24,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
-import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.response.TendermintStatus
 import fluence.node.config.DockerConfig
 import fluence.node.workers.WorkerParams
@@ -48,7 +48,7 @@ case class DockerTendermint(
    * Service status for this docker + wrapped Tendermint Http service
    */
   def status[F[_]: Concurrent: Timer: DockerIO](
-    rpc: TendermintRpc[F],
+    rpc: TendermintHttpRpc[F],
     timeout: FiniteDuration
   ): F[ServiceStatus[TendermintStatus]] =
     DockerIO[F]

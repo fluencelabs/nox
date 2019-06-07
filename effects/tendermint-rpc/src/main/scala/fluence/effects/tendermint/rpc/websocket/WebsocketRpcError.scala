@@ -18,7 +18,7 @@ package fluence.effects.tendermint.rpc.websocket
 
 import cats.Eval
 import fluence.effects.tendermint.block.errors.TendermintBlockError
-import fluence.effects.tendermint.rpc.RpcError
+import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.effects.{EffectError, WithCause}
 import io.circe.{DecodingFailure, ParsingFailure}
 
