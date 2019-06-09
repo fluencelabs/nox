@@ -10,8 +10,10 @@
     "deploy": "npm run build && rm -rf bundle && cp -r build bundle",
     "watch": "webpack-dev-server",
     "clean": "rm -rf build",
-    "typechain:generate": "typechain --target=web3-1.0.0 '../bootstrap/contracts/compiled/*.abi'",
-    "prepare": "npm run compile-sol --prefix ../bootstrap/ && npm run typechain:generate && cp ../bootstrap/contracts/compiled/Network.abi src/abi/Network.json && cp ../bootstrap/contracts/compiled/Dashboard.abi src/abi/Dashboard.json"
+    "typedef:compile": "npm run compile-sol --prefix ../bootstrap/",
+    "typedef:typechain": "typechain --target=web3-1.0.0 '../bootstrap/contracts/compiled/*.abi'",
+    "typedef:copy": "cp ../bootstrap/contracts/compiled/Network.abi src/abi/Network.json && cp ../bootstrap/contracts/compiled/Dashboard.abi src/abi/Dashboard.json",
+    "prepare": "npm run typedef:compile && npm run typedef:typechain && npm run typedef:copy"
   },
   "author": "Fluence Labs",
   "license": "Apache-2.0",
