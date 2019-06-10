@@ -107,7 +107,11 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
      */
 
     // TODO: storedReceipts got calculated 4 times. How to memoize that?
-    val storedReceipts = storage.retrieve()
+    val storedReceipts =
+      fs2.Stream.eval(log.info("will start loading stored receipts")) >>
+        storage
+          .retrieve()
+          .evalTap(t => log.info(s"stored receipt ${t._1}"))
 
     // TODO: maybe it is possible to avoid loading first block manually? Pass lastKnownHeight = 0, and go with it...?
     //  In other words, is there still a race condition? Or was it fixed by new algorithm in WRPC.subscribeNewBlock?

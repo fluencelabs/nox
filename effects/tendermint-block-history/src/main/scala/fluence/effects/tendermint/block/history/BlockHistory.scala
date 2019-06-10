@@ -64,12 +64,12 @@ class BlockHistory[F[_]: Monad](ipfs: IpfsClient[F]) {
   private def uploadTxs(height: Long, txs: List[ByteVector]): EitherT[F, BlockHistoryError, Receipt] =
     ipfs
       .upload(txs)
-      .map(Receipt(_))
+      .map(Receipt(height, _))
       .leftMap(se => TxsUploadingError(height, txs.size, se): BlockHistoryError)
 
   private def uploadManifest(height: Long, manifest: BlockManifest): EitherT[F, BlockHistoryError, Receipt] =
     ipfs
       .upload(manifest.bytes())
-      .map(Receipt(_))
+      .map(Receipt(height, _))
       .leftMap(se => ManifestUploadingError(height, se): BlockHistoryError)
 }

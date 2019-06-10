@@ -110,6 +110,11 @@ class AbciService[F[_]: Monad: Effect](
 
       // Do not wait for receipt on the very first block
       receipt <- if (st.height > 0) controlSignals.receipt.map(_.some) else none[BlockReceipt].pure[F]
+      _ = receipt.foreach(
+        b =>
+          if (b.receipt.height != st.height)
+            logger.error(s"Got wrong receipt height. st.height: ${st.height}, receipt: ${b.receipt.height}")
+      )
 
       // Check block for correctness, for debugging purposes
       _ = if (st.height > 0 && receipt.forall(_.`type` == ReceiptType.New)) checkBlock(st.height)
