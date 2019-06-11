@@ -84,7 +84,7 @@ class FluenceAppSnippet extends React.Component<Props, State> {
         let session: AppSession;
 
         let auth = undefined;
-        if (shortName === 'llamadb') {
+        if (shortName === 'LlamaDB') {
             auth = llamaPrivateKey;
         }
 
