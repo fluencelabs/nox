@@ -23,12 +23,13 @@ import cats.effect.concurrent.MVar
 import cats.effect.{ConcurrentEffect, Resource, Timer}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{Applicative, Monad}
+import cats.syntax.apply._
 import com.softwaremill.sttp.SttpBackend
 import fluence.effects.ipfs.IpfsClient
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
 import fluence.effects.{Backoff, EffectError}
+import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.workers.{Worker, WorkerServices}
@@ -41,7 +42,7 @@ import scala.language.higherKinds
  *
  * @param history Description of how to store blocks
  */
-class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) extends slogging.LazyLogging {
+class BlockUploading[F[_]: ConcurrentEffect: Timer: Log](history: BlockHistory[F]) {
 
   /**
    * Subscribe on new blocks from tendermint and upload them one by one to the decentralized storage
@@ -80,7 +81,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) ex
     Block(blockJson) match {
       case Left(e) =>
         // TODO: load block through TendermintRPC (not WRPC) again
-        Applicative[F].pure(logger.error(s"BlockUploading: app $appId failed to parse Tendermint block: $e"))
+        Log[F].error(s"BlockUploading: app $appId failed to parse Tendermint block: $e", e)
 
       case Right(block) =>
         val processF = for {
@@ -98,13 +99,10 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer](history: BlockHistory[F]) ex
           .retry(
             processF,
             (e: EffectError) =>
-              Applicative[F].pure(
-                logger.error(s"BlockUploading: app $appId error uploading block ${block.header.height}: $e")
-            )
-          )
-          .map(
-            _ => logger.info(s"BlockUploading: app $appId block ${block.header.height} uploaded")
-          )
+              Log[F].error(s"BlockUploading: app $appId error uploading block ${block.header.height}: $e", e)
+          ) *>
+          Log[F].info(s"BlockUploading: app $appId block ${block.header.height} uploaded")
+
     }
   }
 }
@@ -113,7 +111,7 @@ object BlockUploading {
 
   private val Enabled = false
 
-  def make[F[_]: Monad: ConcurrentEffect: Timer](
+  def make[F[_]: Log: ConcurrentEffect: Timer](
     remoteStorageConfig: RemoteStorageConfig
   )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]): BlockUploading[F] = {
     // TODO: should I handle remoteStorageConfig.enabled = false?

@@ -17,15 +17,15 @@
 package fluence.node
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
-import slogging.LazyLogging
 import cats.syntax.apply._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.applicativeError._
+import fluence.log.Log
 
 import scala.language.higherKinds
 
-object MakeResource extends LazyLogging {
+object MakeResource {
 
   /**
    * Drains a stream concurrently while the resource is in use, interrupts it when it's released
@@ -35,38 +35,38 @@ object MakeResource extends LazyLogging {
    * @tparam F Effect
    * @return Resource that acts as a "stream is running" effect
    */
-  def concurrentStream[F[_]: Concurrent](
+  def concurrentStream[F[_]: Concurrent: Log](
     stream: fs2.Stream[F, _],
     name: String = "concurrentStream"
   ): Resource[F, Unit] =
     Resource
-      .makeCase[F, (Deferred[F, Either[Throwable, Unit]], Fiber[F, Unit])](
+      .makeCase[F, (Deferred[F, Either[Throwable, Unit]], Fiber[F, Unit], Log[F])](
         for {
           stopDef ← Deferred[F, Either[Throwable, Unit]]
           streamFiber ← Concurrent[F].start(
             stream.interruptWhen(stopDef).compile.drain
           )
-        } yield stopDef → streamFiber
+        } yield (stopDef, streamFiber, Log[F].scoped(name))
       ) {
-        case ((stopDef, streamFiber), exitCase) ⇒
+        case ((stopDef, streamFiber, log), exitCase) ⇒
           (exitCase match {
             case ExitCase.Error(e) ⇒
-              logger.error(s"Stopping $name resource with error", e)
-              stopDef.complete(Left(e)) *> streamFiber.join
+              log.error(s"Stopping with error", e) *>
+                stopDef.complete(Left(e)) *> streamFiber.join
 
             case ExitCase.Canceled ⇒
-              logger.warn(s"Stopping $name resource due to Cancel")
-              // Notice that we still .join the fiber
-              stopDef.complete(Right(())) *> streamFiber.join
+              log.warn(s"Stopping due to Cancel") *>
+                // Notice that we still .join the fiber
+                stopDef.complete(Right(())) *> streamFiber.join
 
             case _ ⇒
-              logger.debug(s"Stopping $name resource as it's not used anymore")
-              stopDef.complete(Right(())) *> streamFiber.join
-          }).map(_ ⇒ logger.debug(s"$name stopped, fiber joined"))
-            .handleError(
+              log.debug(s"Stopping as it's not used anymore") *>
+                stopDef.complete(Right(())) *> streamFiber.join
+          }).flatMap(_ ⇒ log.debug(s"Stopped, fiber joined"))
+            .handleErrorWith(
               t ⇒
                 // Do not raise errors during cleanup, catch them here to let other resources to clean them up
-                logger.error(s"$name resource errored during stop: $t", t)
+                log.error(s"Errored during stop: $t", t)
             )
       }
       .void

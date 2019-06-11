@@ -27,11 +27,13 @@ import cats.syntax.applicativeError._
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.compose._
 import cats.{Applicative, Apply, Parallel}
 import com.softwaremill.sttp.SttpBackend
 import fluence.codec.PureCodec
 import fluence.effects.docker.DockerIO
 import fluence.effects.kvstore.RocksDBStore
+import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.workers.tendermint.BlockUploading
@@ -102,7 +104,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
     params: F[WorkerParams],
     p2pPort: Short,
     stopTimeout: Int
-  ): Resource[F, Worker[F]] =
+  )(implicit log: Log[F]): Resource[F, Worker[F]] =
     for {
       // Order events in the Worker context
       exec ← MakeResource.orderedEffects[F]
@@ -149,7 +151,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
    *                    It might take up to 2*`stopTimeout` seconds to gracefully stop the worker, as 2 containers involved.
    * @return Unit; no failures are expected
    */
-  def runWorker(p2pPort: Short, params: F[WorkerParams], stopTimeout: Int = 5): F[Unit] =
+  def runWorker(p2pPort: Short, params: F[WorkerParams], stopTimeout: Int = 5)(implicit log: Log[F]): F[Unit] =
     MakeResource.useConcurrently[F](
       workerResource(
         _,
@@ -165,7 +167,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
    * @param params see [[WorkerParams]]
    * @return F that resolves with true when worker is registered; it might be not running yet. If it was registered before, F resolves with false
    */
-  override def run(appId: Long, params: F[WorkerParams]): F[WorkersPool.RunResult] =
+  override def run(appId: Long, params: F[WorkerParams])(implicit log: Log[F]): F[WorkersPool.RunResult] =
     // TODO worker should be responsible for restarting itself, so that we don't block here
     Apply[F]
       .product(checkWorkerHealthy(appId), ports.allocate(appId).value)
@@ -246,7 +248,7 @@ object DockerWorkersPool extends LazyLogging {
   /**
    * Build a new [[DockerWorkersPool]]. All workers will be stopped when the pool is released
    */
-  def make[F[_]: DockerIO: ContextShift: Timer, G[_]](
+  def make[F[_]: DockerIO: ContextShift: Timer: Log, G[_]](
     minPort: Short,
     maxPort: Short,
     rootPath: Path,
@@ -268,32 +270,31 @@ object DockerWorkersPool extends LazyLogging {
       }(_.stopAll())
     } yield pool: WorkersPool[F]
 
-  private def makePorts[F[_]: Concurrent: LiftIO: ContextShift](
+  private def makePorts[F[_]: Concurrent: LiftIO: ContextShift: Log](
     minPort: Short,
     maxPort: Short,
     rootPath: Path
-  ): Resource[F, WorkersPorts[F]] = {
-    import cats.syntax.compose._
+  ): Resource[F, WorkersPorts[F]] =
+    for {
+      _ <- Log.resource[F].debug("Making ports for a WorkersPool, first prepare RocksDBStore")
 
-    logger.debug("Making ports for a WorkersPool, first prepare RocksDBStore")
+      // TODO use better serialization, check for errors
+      implicit0(stringCodec: PureCodec[String, Array[Byte]]) = PureCodec
+        .liftB[String, Array[Byte]](_.getBytes(), bs ⇒ new String(bs))
 
-    // TODO use better serialization, check for errors
-    implicit val stringCodec: PureCodec[String, Array[Byte]] =
-      PureCodec.liftB(_.getBytes(), bs ⇒ new String(bs))
-
-    implicit val longCodec: PureCodec[Array[Byte], Long] =
-      PureCodec[Array[Byte], String] andThen PureCodec
+      implicit0(longCodec: PureCodec[Array[Byte], Long]) = PureCodec[Array[Byte], String] andThen PureCodec
         .liftB[String, Long](_.toLong, _.toString)
 
-    implicit val shortCodec: PureCodec[Array[Byte], Short] =
-      PureCodec[Array[Byte], String] andThen PureCodec
+      implicit0(shortCodec: PureCodec[Array[Byte], Short]) = PureCodec[Array[Byte], String] andThen PureCodec
         .liftB[String, Short](_.toShort, _.toString)
 
-    // TODO: handle exception
-    val path = rootPath.resolve(P2pPortsDbFolder)
+      // TODO: handle exception
+      path = rootPath.resolve(P2pPortsDbFolder)
 
-    logger.debug(s"Ports db: $path")
+      _ <- Log.resource[F].debug(s"Ports db: $path")
 
-    RocksDBStore.make[F, Long, Short](path.toString)
-  }.flatMap(WorkersPorts.make(minPort, maxPort, _))
+      store <- RocksDBStore.make[F, Long, Short](path.toString)
+
+      ports ← WorkersPorts.make(minPort, maxPort, store)
+    } yield ports
 }

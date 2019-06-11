@@ -245,24 +245,20 @@ lazy val `kvstore` = (project in file("effects/kvstore"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      slogging,
       codecCore,
       fs2,
       rocksDb,
       scalaTest
     )
   )
-  .dependsOn(`effects`)
+  .dependsOn(`effects`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `dockerio` = (project in file("effects/docker"))
   .settings(
-    commons,
-    libraryDependencies ++= Seq(
-      slogging
-    )
+    commons
   )
-  .dependsOn(`effects`)
+  .dependsOn(`effects`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))

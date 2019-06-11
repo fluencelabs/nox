@@ -19,6 +19,7 @@ package fluence.node.eth
 import cats.{Applicative, Monad}
 import cats.data.StateT
 import fluence.effects.ethclient.data.Block
+import fluence.log.LogFactory
 import scodec.bits.ByteVector
 import state.App
 

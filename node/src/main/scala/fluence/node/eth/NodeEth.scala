@@ -21,6 +21,7 @@ import cats.effect.{ConcurrentEffect, Resource, Timer}
 import cats.syntax.apply._
 import fluence.effects.ethclient.EthClient
 import fluence.effects.ethclient.data.Block
+import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.node.config.FluenceContractConfig
 import org.web3j.abi.datatypes.generated.Bytes32
@@ -67,7 +68,7 @@ object NodeEth extends LazyLogging {
   def apply[F[_]: ConcurrentEffect: Timer](
     validatorKey: ByteVector,
     contract: FluenceContract
-  ): Resource[F, NodeEth[F]] = {
+  )(implicit log: Log[F]): Resource[F, NodeEth[F]] = {
     val initialState = NodeEthState(validatorKey)
 
     for {
@@ -147,7 +148,7 @@ object NodeEth extends LazyLogging {
    * @param config To lookup addresses
    * @return FluenceContract instance with web3j contract inside
    */
-  def apply[F[_]: ConcurrentEffect: Timer](
+  def apply[F[_]: ConcurrentEffect: Timer: Log](
     validatorKey: ByteVector,
     ethClient: EthClient,
     config: FluenceContractConfig

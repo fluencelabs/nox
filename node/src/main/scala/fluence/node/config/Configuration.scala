@@ -18,13 +18,15 @@ package fluence.node.config
 
 import java.nio.file.{Files, Path, Paths}
 
-import cats.Monad
+import cats.{Applicative, Monad}
 import cats.effect.{IO, LiftIO}
 import cats.syntax.apply._
+import cats.syntax.applicative._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import fluence.crypto.KeyPair
 import fluence.effects.docker.DockerIO
+import fluence.log.Log
 import fluence.node.workers.tendermint.{DockerTendermint, TendermintPrivateKey, ValidatorPublicKey}
 import io.circe.parser._
 
@@ -36,10 +38,10 @@ case class Configuration(
   nodeConfig: NodeConfig
 )
 
-object Configuration extends slogging.LazyLogging {
+object Configuration {
 
   // TODO avoid this! it's not configuration, and what is being done there is very obscure!
-  def init[F[_]: LiftIO: DockerIO: Monad](masterConfig: MasterConfig): F[Configuration] =
+  def init[F[_]: LiftIO: DockerIO: Monad: Log](masterConfig: MasterConfig): F[Configuration] =
     for {
       rootPath <- IO(Paths.get(masterConfig.rootPath).toAbsolutePath).to[F]
       (nodeId, validatorKey) <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.tendermint)
@@ -76,7 +78,7 @@ object Configuration extends slogging.LazyLogging {
    * @param tmDockerConfig Docker image for Tendermint, used to run Tendermint that is bundled inside
    * @return nodeId and validator key
    */
-  private def tendermintInit[F[_]: LiftIO: DockerIO: Monad](
+  private def tendermintInit[F[_]: LiftIO: DockerIO: Monad: Log](
     masterContainerId: Option[String],
     rootPath: Path,
     tmDockerConfig: DockerConfig
@@ -97,21 +99,21 @@ object Configuration extends slogging.LazyLogging {
 
     for {
       // Check that old `priv_validator.json` was migrated to `priv_validator_key.json` or raise an exception
-      _ <- checkMigratedPrivValOrRaise(tendermintDir).to[F]
+      _ <- checkMigratedPrivValOrRaise(tendermintDir)
 
       uid <- IO(scala.sys.process.Process("id -u").!!.trim).to[F]
 
-      initialized <- initialized(tendermintDir).to[F]
+      initialized <- initialized(tendermintDir)
       _ <- if (initialized) {
-        IO(logger.info("Node is already initialized")).to[F]
+        Log[F].info("Node is already initialized")
       } else init(uid)
 
       nodeId <- execTendermintCmd("show_node_id", uid)
-      _ <- IO { logger.info(s"Node ID: $nodeId") }.to[F]
+      _ <- Log[F].info(s"Node ID: $nodeId")
 
       validatorRaw <- execTendermintCmd("show_validator", uid)
       validator <- IO.fromEither(parse(validatorRaw).flatMap(_.as[ValidatorPublicKey])).to[F]
-      _ <- IO { logger.info(s"Validator PubKey: ${validator.value}") }.to[F]
+      _ <- Log[F].info(s"Validator PubKey: ${validator.value}")
     } yield (nodeId, validator)
   }
 
@@ -119,10 +121,10 @@ object Configuration extends slogging.LazyLogging {
    * Checks that all or none of config.toml, node_key.json, priv_validator_key.json exist
    * @return true if all files exist, false if none exist, raiseError otherwise
    */
-  private def initialized(tendermintDir: Path): IO[Boolean] =
+  private def initialized[F[_]: Monad: LiftIO: Log](tendermintDir: Path): F[Boolean] =
     for {
-      files <- IO.pure(List("config.toml", "node_key.json", "priv_validator_key.json"))
-      configDir <- IO(tendermintDir.resolve("config"))
+      files <- List("config.toml", "node_key.json", "priv_validator_key.json").pure[F]
+      configDir <- IO(tendermintDir.resolve("config")).to[F]
 
       (all, any, notFound) <- IO {
         files.foldLeft((true, false, Iterable.empty[String])) {
@@ -133,40 +135,43 @@ object Configuration extends slogging.LazyLogging {
 
             (all && exists, any || exists, nf)
         }
-      }
+      }.to[F]
 
       // No files should exist or all files
       _ <- if (any && !all) {
-        logger.error(
+        Log[F].error(
           s"Unable to execute tendermint init: $configDir is in inconsistent state. " +
             s"Missing files: ${notFound.mkString(", ")}"
-        )
-        IO.raiseError(new Exception(s"Unable to execute tendermint init: $configDir is in inconsistent state. "))
-      } else IO.unit
+        ) >>
+          IO.raiseError[Unit](
+              new Exception(s"Unable to execute tendermint init: $configDir is in inconsistent state. ")
+            )
+            .to[F]
+      } else Applicative[F].unit
     } yield any && all
 
   /**
    * Check that old `priv_validator.json` was migrated to `priv_validator_key.json`
    * @see https://github.com/tendermint/tendermint/blob/master/UPGRADING.md#v0280
    */
-  private def checkMigratedPrivValOrRaise(tendermintDir: Path): IO[Unit] =
+  private def checkMigratedPrivValOrRaise[F[_]: Monad: LiftIO: Log](tendermintDir: Path): F[Unit] =
     for {
-      configDir <- IO(tendermintDir.resolve("config"))
-      old <- IO(configDir.resolve("priv_validator.json").toFile.exists())
+      configDir <- IO(tendermintDir.resolve("config")).to[F]
+      old <- IO(configDir.resolve("priv_validator.json").toFile.exists()).to[F]
       _ <- if (old) {
-        IO(
-          logger.info(
-            s"priv_validator.json is found in $configDir.\n" +
-              s"Since Tendermint 0.28.0 it was replaced by priv_validator_key.json and priv_validator_state.json.\n" +
-              "Please, run migration. See https://github.com/tendermint/tendermint/blob/master/UPGRADING.md#v0280\n"
-          )
-        ) *> IO.raiseError(
-          new RuntimeException(
-            s"priv_validator.json is found in $configDir. " +
-              "See https://github.com/tendermint/tendermint/blob/master/UPGRADING.md#v0280"
-          )
-        )
-      } else IO.unit
+        Log[F].info(
+          s"priv_validator.json is found in $configDir.\n" +
+            s"Since Tendermint 0.28.0 it was replaced by priv_validator_key.json and priv_validator_state.json.\n" +
+            "Please, run migration. See https://github.com/tendermint/tendermint/blob/master/UPGRADING.md#v0280\n"
+        ) *>
+          IO.raiseError[Unit](
+              new RuntimeException(
+                s"priv_validator.json is found in $configDir. " +
+                  "See https://github.com/tendermint/tendermint/blob/master/UPGRADING.md#v0280"
+              )
+            )
+            .to[F]
+      } else Applicative[F].unit
     } yield ()
 
   /**

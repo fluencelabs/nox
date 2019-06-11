@@ -18,6 +18,7 @@ package fluence.node
 import java.nio.ByteBuffer
 import java.nio.file._
 
+import cats.Applicative
 import cats.data.EitherT
 import cats.effect._
 import cats.effect.syntax.effect._
@@ -31,6 +32,7 @@ import fluence.effects.ethclient.EthClient
 import fluence.effects.ipfs.IpfsStore
 import fluence.effects.swarm.SwarmStore
 import fluence.kad.Kademlia
+import fluence.log.{Log, LogFactory}
 import fluence.node.code.{CodeCarrier, LocalCodeCarrier, PolyStore, RemoteCodeCarrier}
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.config.{MasterConfig, NodeConfig}
@@ -39,7 +41,6 @@ import fluence.node.eth.state.StorageType
 import fluence.node.workers._
 import fluence.node.workers.control.DropPeerError
 import fluence.node.workers.tendermint.config.ConfigTemplate
-import slogging.LazyLogging
 
 import scala.language.higherKinds
 
@@ -55,7 +56,7 @@ import scala.language.higherKinds
  * @param kademlia Kademlia instance
  * @param masterNodeContainerId Docker Container ID for this process, to import Docker volumes from
  */
-case class MasterNode[F[_]: ConcurrentEffect: LiftIO, C](
+case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
   masterConfig: MasterConfig,
   nodeConfig: NodeConfig,
   configTemplate: ConfigTemplate,
@@ -65,7 +66,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO, C](
   rootPath: Path,
   kademlia: Kademlia[F, C],
   masterNodeContainerId: Option[String]
-) extends slogging.LazyLogging {
+) {
 
   /**
    * All app worker's data is stored here. Currently the folder is never purged
@@ -123,14 +124,15 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO, C](
    */
   def runAppWorker(app: eth.state.App): F[Unit] =
     for {
-      _ <- IO(logger.info("Running worker for id `{}`", app.id)).to[F]
+      implicit0(log: Log[F]) ← LogFactory[F].init("app", app.id.toString)
+      _ ← log.info("Running worker")
       _ <- pool.run(app.id, prepareWorkerParams(app))
     } yield ()
 
   /**
    * Runs the appropriate effect for each incoming NodeEthEvent, keeping it untouched
    */
-  val handleEthEvent: fs2.Pipe[F, NodeEthEvent, NodeEthEvent] =
+  def handleEthEvent(implicit log: Log[F]): fs2.Pipe[F, NodeEthEvent, NodeEthEvent] =
     _.evalTap {
       case RunAppWorker(app) ⇒
         runAppWorker(app)
@@ -142,11 +144,12 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO, C](
         pool
           .withWorker(
             appId,
-            _.withServices_(_.control)(_.dropPeer(vk).value.map {
-              case Right(_) =>
-              case Left(e: DropPeerError) => logger.error(s"Error while dropping peer appId=$appId: ${e.getMessage}", e)
+            _.withServices_(_.control)(_.dropPeer(vk).value.flatMap {
+              case Right(_) => Applicative[F].unit
+              case Left(e: DropPeerError) =>
+                log.error(s"Error while dropping peer appId=$appId: ${e.getMessage}", e)
               case Left(e) =>
-                logger.error(s"Unexpected error while dropping peer appId=$appId key=${vk.toHex}: ${e.getMessage}", e)
+                log.error(s"Unexpected error while dropping peer appId=$appId key=${vk.toHex}: ${e.getMessage}", e)
             })
           )
           .void
@@ -159,27 +162,28 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO, C](
    * Runs master node and starts listening for AppDeleted event in different threads,
    * then joins the threads and returns back exit code from master node
    */
-  val run: IO[ExitCode] =
+  def run(implicit log: Log[F]): IO[ExitCode] =
     nodeEth.nodeEvents
-      .evalTap(ev ⇒ Sync[F].delay(logger.debug("Got NodeEth event: " + ev)))
+      .evalTap(ev ⇒ log.debug("Got NodeEth event: " + ev))
       .through(handleEthEvent)
       .compile
       .drain
       .toIO
       .attempt
-      .map {
+      .flatMap {
         case Left(err) ⇒
-          logger.error("Execution failed")
-          err.printStackTrace(System.err)
-          ExitCode.Error
+          log.error("Execution failed").toIO as {
+            err.printStackTrace(System.err)
+            ExitCode.Error
+          }
 
         case Right(_) ⇒
-          logger.info("Execution finished")
-          ExitCode.Success
+          log.info("Execution finished").toIO as
+            ExitCode.Success
       }
 }
 
-object MasterNode extends LazyLogging {
+object MasterNode {
 
   /**
    * Makes the MasterNode resource for the given config
@@ -189,7 +193,7 @@ object MasterNode extends LazyLogging {
    * @param sttpBackend HTTP client implementation
    * @return Prepared [[MasterNode]], then see [[MasterNode.run]]
    */
-  def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer, C](
+  def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer: Log: LogFactory, C](
     masterConfig: MasterConfig,
     nodeConfig: NodeConfig,
     pool: WorkersPool[F],
@@ -200,7 +204,7 @@ object MasterNode extends LazyLogging {
     for {
       ethClient ← EthClient.make[F](Some(masterConfig.ethereum.uri))
 
-      _ = logger.debug("-> going to create nodeEth")
+      _ ← Log.resource[F].debug("-> going to create nodeEth")
 
       nodeEth ← NodeEth[F](nodeConfig.validatorKey.toByteVector, ethClient, masterConfig.contract)
 

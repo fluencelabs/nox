@@ -58,10 +58,7 @@ abstract class Log[F[_]: Monad: Clock](val ctx: Context) {
    * @return What the inner function returns
    */
   def scope[A](modContext: Context ⇒ Context)(fn: Log[F] ⇒ F[A]): F[A] =
-    fn(new Log(modContext(ctx)) {
-      override type Appender = self.Appender
-      override val appender: Appender = self.appender
-    })
+    fn(scoped(modContext))
 
   /**
    * Provide a logger with modified context
@@ -84,6 +81,18 @@ abstract class Log[F[_]: Monad: Clock](val ctx: Context) {
    */
   def scope[A](k: String)(fn: Log[F] ⇒ F[A]): F[A] =
     scope(_.scope(k -> ""))(fn)
+
+  def scoped(modContext: Context ⇒ Context): Log.Aux[F, Appender] =
+    new Log(modContext(ctx)) {
+      override type Appender = self.Appender
+      override val appender: Appender = self.appender
+    }
+
+  def scoped(kvs: (String, String)*): Log.Aux[F, Appender] =
+    scoped(_.scope(kvs: _*))
+
+  def scoped(k: String): Log.Aux[F, Appender] =
+    scoped(k -> "")
 
   def trace(msg: ⇒ String): F[Unit] =
     if (loggingLevel <= Log.Trace) append(Log.Trace, Eval.later(msg), None) else unit
