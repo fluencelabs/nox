@@ -20,12 +20,16 @@ import java.nio.file.{Files, Path}
 import java.text.SimpleDateFormat
 import java.util.TimeZone
 
-import cats.effect.IO
+import cats.Monad
+import cats.effect.{IO, LiftIO}
+import cats.syntax.flatMap._
+import fluence.log.Log
 import fluence.node.eth.state.App
 import fluence.node.workers.tendermint.ValidatorPublicKey
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
-import slogging.LazyLogging
+
+import scala.language.higherKinds
 
 /**
  * Tendermint's genesis.json representation
@@ -35,7 +39,7 @@ case class GenesisConfig private (
   chain_id: String,
   app_hash: String,
   validators: Seq[ValidatorConfig]
-) extends LazyLogging {
+) {
   import GenesisConfig.configEncoder
 
   /**
@@ -48,11 +52,9 @@ case class GenesisConfig private (
    *
    * @param destPath Tendermint config directory to write genesis.json to
    */
-  def writeTo(destPath: Path): IO[Unit] =
-    IO {
-      logger.info("Writing {}/genesis.json", destPath)
-      Files.write(destPath.resolve("genesis.json"), toJsonString.getBytes)
-    }
+  def writeTo[F[_]: Monad: LiftIO: Log](destPath: Path): F[Unit] =
+    Log[F].info(s"Writing $destPath/genesis.json") >>
+    IO(Files.write(destPath.resolve("genesis.json"), toJsonString.getBytes)).to[F]
 }
 
 private object GenesisConfig {

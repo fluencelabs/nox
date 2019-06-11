@@ -26,7 +26,6 @@ import fluence.node.MakeResource
 import fluence.node.config.FluenceContractConfig
 import org.web3j.abi.datatypes.generated.Bytes32
 import scodec.bits.ByteVector
-import slogging.LazyLogging
 
 import scala.language.higherKinds
 
@@ -56,7 +55,7 @@ trait NodeEth[F[_]] {
 
 }
 
-object NodeEth extends LazyLogging {
+object NodeEth {
 
   /**
    * Provides the default NodeEth instance

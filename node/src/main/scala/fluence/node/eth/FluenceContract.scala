@@ -31,6 +31,7 @@ import fluence.effects.ethclient.Network.{
 }
 import fluence.effects.ethclient.{EthClient, EthRequestError, Network}
 import fluence.effects.ethclient.syntax._
+import fluence.log.Log
 import fluence.node.config.FluenceContractConfig
 import fluence.node.eth.state.{App, Cluster}
 import org.web3j.abi.EventEncoder
@@ -50,7 +51,7 @@ import scala.language.higherKinds
  */
 class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val contract: Network)(
   implicit backoff: Backoff[EthRequestError] = Backoff.default
-) extends slogging.LazyLogging {
+) {
 
   /**
    * Builds a filter for specified event. Filter is to be used in eth_newFilter
@@ -78,18 +79,19 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @param validatorKey Tendermint validator key identifying this node
    * @tparam F Effect
    */
-  private def getNodeAppIds[F[_]: LiftIO: Timer: Monad](validatorKey: Bytes32): F[List[Uint256]] =
+  private def getNodeAppIds[F[_]: LiftIO: Timer: Monad: Log](validatorKey: Bytes32): F[List[Uint256]] =
     contract
       .getNodeApps(validatorKey)
       .callUntilSuccess[F]
       .flatMap {
         case arr if arr != null && arr.getValue != null => Applicative[F].point(arr.getValue.asScala.toList)
         case r =>
-          logger.error(
+          Log[F].error(
             s"Cannot get node apps from the smart contract. Got result '$r'. " +
               s"Are you sure the contract address is correct?"
-          )
-          Timer[F].sleep(Backoff.default.maxDelay) *> getNodeAppIds(validatorKey)
+          ) >>
+            Timer[F].sleep(Backoff.default.maxDelay) >>
+            getNodeAppIds(validatorKey)
       }
 
   /**
@@ -98,7 +100,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @param validatorKey Tendermint Validator key of the current node, used to filter out apps which aren't related to current node
    * @tparam F Effect
    */
-  private def getNodeApps[F[_]: LiftIO: Timer: Monad](validatorKey: Bytes32): fs2.Stream[F, state.App] = {
+  private def getNodeApps[F[_]: LiftIO: Timer: Monad: Log](validatorKey: Bytes32): fs2.Stream[F, state.App] = {
     import org.web3j.tuples.generated.{Tuple2, Tuple8}
     def mapApp(tuple: Tuple8[Bytes32, _, Bytes32, _, _, _, Uint256, DynamicArray[Bytes32]]) = {
       import tuple._
@@ -160,16 +162,14 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of [[App]]s
    */
-  private[eth] def getAllNodeApps[F[_]: ConcurrentEffect: Timer](validatorKey: Bytes32): fs2.Stream[F, state.App] =
+  private[eth] def getAllNodeApps[F[_]: ConcurrentEffect: Timer: Log](validatorKey: Bytes32): fs2.Stream[F, state.App] =
     getNodeApps[F](validatorKey).onFinalizeCase {
       case ExitCase.Canceled =>
-        Sync[F].delay(logger.info("Getting all previously prepared clusters canceled."))
+        Log[F].info("Getting all previously prepared clusters canceled.")
       case ExitCase.Completed =>
-        Sync[F].delay(logger.info("Got all the previously prepared clusters. Now switching to the new clusters."))
+        Log[F].info("Got all the previously prepared clusters. Now switching to the new clusters.")
       case ExitCase.Error(err) =>
-        Sync[F]
-          .delay(logger.info(s"Error on getting all previously clusters: $err."))
-          .map(_ => err.printStackTrace())
+        Log[F].warn(s"Error on getting all previously clusters: $err.", err)
     }.scope ++ getNodeAppDeployed(validatorKey)
 
   // TODO: on reconnect, do getApps again and remove all apps that are running on this node but not in getApps list

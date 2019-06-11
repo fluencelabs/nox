@@ -317,7 +317,6 @@ lazy val `tendermint-block-history` = (project in file("effects/tendermint-block
       circeGeneric,
       circeParser,
       circeGenericExtras,
-      slogging,
       scodecBits,
       http4sDsl,
       http4sServer,

@@ -37,7 +37,6 @@ import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.workers.tendermint.BlockUploading
-import slogging.LazyLogging
 
 import scala.concurrent.duration._
 import scala.language.higherKinds
@@ -57,7 +56,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
   F: ConcurrentEffect[F],
   P: Parallel[F, G]
-) extends WorkersPool[F] with LazyLogging {
+) extends WorkersPool[F] {
 
   /**
    * Returns true if the worker is in the pool and healthy, and false otherwise. Also returns worker instance.
@@ -78,15 +77,15 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
    *
    * @param worker Worker to register in the pool
    */
-  private def registeredWorker(worker: Worker[F]): Resource[F, Unit] =
+  private def registeredWorker(worker: Worker[F])(implicit log: Log[F]): Resource[F, Unit] =
     Resource
       .make(
         workers.update(_ + (worker.appId -> worker)) *>
-          Sync[F].delay(logger.info(s"Added worker ($worker) to the pool"))
+          log.info(s"Added worker ($worker) to the pool")
       )(
         _ ⇒
           workers.update(_ - worker.appId) *>
-            Sync[F].delay(logger.info(s"Removing worker ($worker) from the pool"))
+            log.info(s"Removing worker ($worker) from the pool")
       )
       .void
 
@@ -184,8 +183,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
             else WorkersPool.Starting
 
         case ((true, oldWorker), _) ⇒
-          logger.info(s"Worker for app $appId was already ran as $oldWorker")
-          Applicative[F].pure(WorkersPool.AlreadyRunning)
+          log.info(s"Worker for app $appId was already ran as $oldWorker") as WorkersPool.AlreadyRunning
 
         // Cannot allocate port
         case (_, Left(err)) ⇒
@@ -199,15 +197,15 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
    * @param worker Worker to stop
    * @return Unit, no failures are possible
    */
-  private def stop(worker: Worker[F]): F[Unit] =
-    worker.stop.attempt.map(stopped ⇒ logger.info(s"Stopped: ${worker.description} => $stopped"))
+  private def stop(worker: Worker[F])(implicit log: Log[F]): F[Unit] =
+    worker.stop.attempt >>= (stopped ⇒ log.info(s"Stopped: ${worker.description} => $stopped"))
 
   /**
    * Stops all the registered workers. They should unregister themselves.
    *
    * @return F that resolves when all workers are stopped
    */
-  def stopAll(): F[Unit] =
+  def stopAll()(implicit log: Log[F]): F[Unit] =
     for {
       workers ← getAll
 
@@ -220,7 +218,8 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
       //_ = logger.debug(s"Having to wait for ${notStopped.size} workers to stop themselves...")
 
       //_ ← Parallel.parTraverse_(notStopped.values.toList)(identity)
-    } yield logger.info(s"Stopped: ${workers.map(_.description) zip stops}")
+      _ ← Log[F].info(s"Stopped: ${workers.map(_.description) zip stops}")
+    } yield ()
 
   /**
    * Get a Worker by its appId, if it's present
@@ -241,7 +240,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
 
 }
 
-object DockerWorkersPool extends LazyLogging {
+object DockerWorkersPool {
 
   private val P2pPortsDbFolder: String = "p2p-ports-db"
 
