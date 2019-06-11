@@ -53,22 +53,27 @@ class ConfigTemplate private (defaultTendermintDir: Path, tendermintConfig: Tend
    * @param app App description, used to generate config.toml and genesis.conf
    * @param appTendermintDir Directory to hold app-specific Tendermint configs & data
    */
-  def writeConfigs[F[_]: LiftIO: Monad: Log](app: App, appTendermintDir: Path, p2pPort: Short, abciHost: String): F[Unit] =
-      for {
-        defaultConfigs ← IO(defaultTendermintDir.resolve("config")).to[F]
-        appConfigs ← IO(appTendermintDir.resolve("config")).to[F]
+  def writeConfigs[F[_]: LiftIO: Monad: Log](
+    app: App,
+    appTendermintDir: Path,
+    p2pPort: Short,
+    abciHost: String
+  ): F[Unit] =
+    for {
+      defaultConfigs ← IO(defaultTendermintDir.resolve("config")).to[F]
+      appConfigs ← IO(appTendermintDir.resolve("config")).to[F]
 
-        defaultData ← IO(defaultTendermintDir.resolve("data")).to[F]
-        appData ← IO(appTendermintDir.resolve("data")).to[F]
+      defaultData ← IO(defaultTendermintDir.resolve("data")).to[F]
+      appData ← IO(appTendermintDir.resolve("data")).to[F]
 
-        _ ← IO(Files.createDirectories(appConfigs)).to[F]
-        _ ← IO(Files.createDirectories(appData)).to[F]
+      _ ← IO(Files.createDirectories(appConfigs)).to[F]
+      _ ← IO(Files.createDirectories(appData)).to[F]
 
-        _ ← copyMasterKeys(defaultConfigs, appConfigs)
-        _ ← copyValidatorState(defaultData, appData)
-        _ ← updateConfigTOML(defaultConfigs, appConfigs, app, p2pPort, abciHost)
-        _ ← GenesisConfig(app).writeTo(appConfigs)
-      } yield ()
+      _ ← copyMasterKeys(defaultConfigs, appConfigs)
+      _ ← copyValidatorState(defaultData, appData)
+      _ ← updateConfigTOML(defaultConfigs, appConfigs, app, p2pPort, abciHost)
+      _ ← GenesisConfig(app).writeTo(appConfigs)
+    } yield ()
 
   /**
    * Takes master keys from templates dir, and copies them to destination
@@ -82,9 +87,11 @@ class ConfigTemplate private (defaultTendermintDir: Path, tendermintConfig: Tend
     val validator = "priv_validator_key.json"
 
     Log[F].info(s"Copying node key to worker: ${defaultConfigs.resolve(nodeKey)} -> ${appConfigs.resolve(nodeKey)}") >>
-    IO(Files.copy(defaultConfigs.resolve(nodeKey), appConfigs.resolve(nodeKey), REPLACE_EXISTING)).to[F] >>
-    Log[F].info(s"Copying validator key to worker: ${defaultConfigs.resolve(validator)} -> ${appConfigs.resolve(validator)}") >>
-    IO(Files.copy(defaultConfigs.resolve(validator), appConfigs.resolve(validator), REPLACE_EXISTING)).to[F]
+      IO(Files.copy(defaultConfigs.resolve(nodeKey), appConfigs.resolve(nodeKey), REPLACE_EXISTING)).to[F] >>
+      Log[F].info(
+        s"Copying validator key to worker: ${defaultConfigs.resolve(validator)} -> ${appConfigs.resolve(validator)}"
+      ) >>
+      IO(Files.copy(defaultConfigs.resolve(validator), appConfigs.resolve(validator), REPLACE_EXISTING)).to[F].void
   }
 
   /**
@@ -118,7 +125,8 @@ class ConfigTemplate private (defaultTendermintDir: Path, tendermintConfig: Tend
           currentWorker.index,
           abciHost,
           app.id
-        ).to[F]
+        )
+        .to[F]
     } yield ()
 
   /**

@@ -23,6 +23,7 @@ import java.util.TimeZone
 import cats.Monad
 import cats.effect.{IO, LiftIO}
 import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fluence.log.Log
 import fluence.node.eth.state.App
 import fluence.node.workers.tendermint.ValidatorPublicKey
@@ -54,7 +55,7 @@ case class GenesisConfig private (
    */
   def writeTo[F[_]: Monad: LiftIO: Log](destPath: Path): F[Unit] =
     Log[F].info(s"Writing $destPath/genesis.json") >>
-    IO(Files.write(destPath.resolve("genesis.json"), toJsonString.getBytes)).to[F]
+      IO(Files.write(destPath.resolve("genesis.json"), toJsonString.getBytes)).to[F].void
 }
 
 private object GenesisConfig {

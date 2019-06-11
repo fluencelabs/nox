@@ -73,11 +73,9 @@ object WorkerP2pConnectivity {
           }
 
         Log[F].debug(s"Peer API address: ${p.ip.getHostAddress}:${p.apiPort}") >>
-
         // Get p2p port, pass it to worker's tendermint
         backoff(getPort).flatMap { p2pPort ⇒
           Log[F].debug(s"Got Peer p2p port: ${p.peerAddress(p2pPort)}") >>
-
           backoff(
             EitherT(
               worker.withServices(_.tendermint)(
