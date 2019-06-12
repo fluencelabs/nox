@@ -15,14 +15,18 @@
  */
 
 package fluence.node.workers
-import cats.effect.{ContextShift, IO}
+import cats.effect.{ContextShift, IO, Timer}
 import fluence.effects.kvstore.MVarKVStore
+import fluence.log.{Log, LogFactory}
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class WorkersPortsSpec extends WordSpec with Matchers {
   implicit val ioShift: ContextShift[IO] = IO.contextShift(global)
+
+  implicit val timer: Timer[IO] = IO.timer(global)
+  implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init("WorkersPortsSpec").unsafeRunSync()
 
   "workers ports" should {
     "allocate and deallocate" in {
