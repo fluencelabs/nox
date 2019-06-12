@@ -98,17 +98,15 @@ class ControlRpcSpec extends WordSpec with Matchers with OptionValues {
     }
 
     "send blockReceipt" in {
-      val receipt = Receipt(ByteVector(1, 2, 3))
+      val receipt = Receipt(0, ByteVector(1, 2, 3))
       resources.use {
         case (server, rpc) =>
           for {
-            before <- server.signals.receipt
             _ <- rpc.sendBlockReceipt(receipt, ReceiptType.New).value.flatMap(IO.fromEither)
-            after <- server.signals.receipt
+            after <- IO.pure(server.signals.receipt.unsafeRunTimed(1.second))
           } yield {
-            before should not be defined
             after shouldBe defined
-            after.value shouldBe receipt
+            after.value.receipt shouldBe receipt
           }
       }.unsafeRunSync()
     }
