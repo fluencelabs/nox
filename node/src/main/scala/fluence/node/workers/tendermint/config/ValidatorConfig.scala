@@ -15,11 +15,11 @@
  */
 
 package fluence.node.workers.tendermint.config
-import fluence.node.workers.tendermint.ValidatorKey
+import fluence.node.workers.tendermint.ValidatorPublicKey
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 
-case class ValidatorConfig(pub_key: ValidatorKey, power: String, name: String)
+case class ValidatorConfig(pub_key: ValidatorPublicKey, power: String, name: String)
 
 object ValidatorConfig {
   implicit val validatorEncoder: Encoder[ValidatorConfig] = deriveEncoder

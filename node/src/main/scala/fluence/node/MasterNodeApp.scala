@@ -75,10 +75,11 @@ object MasterNodeApp extends IOApp {
               conf.rootPath,
               masterConf.remoteStorage
             )
+            keyPair <- Resource.liftF(Configuration.readTendermintKeyPair(masterConf.rootPath))
             kad ← KademliaNode.make[IO, IO.Par](
               masterConf.kademlia,
               Ed25519.tendermintAlgo,
-              Ed25519.tendermintAlgo.generateKeyPair.unsafe(None) // TODO use tendermint validator key
+              keyPair
             )
             node <- MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
           } yield (kad.http, node)).use {
