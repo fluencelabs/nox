@@ -42,14 +42,16 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
   implicit val logFactory: LogFactory[IO] = LogFactory.forPrintln[IO]()
   implicit val log: Aux[IO, logFactory.Appender] = logFactory.init("WebsocketRPCSpec").unsafeRunSync()
 
+  val Port: Int = 18080
+
   "WebsocketRPC" should {
     PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, true)
     LoggerConfig.factory = PrintLoggerFactory()
     LoggerConfig.level = LogLevel.ERROR
 
     val resourcesF = for {
-      server <- WebsocketServer.make[IO]
-      wrpc = new TestWRpc[IO]("127.0.0.1", 8080)
+      server <- WebsocketServer.make[IO](Port)
+      wrpc = new TestWRpc[IO]("127.0.0.1", Port)
       blocks = wrpc.subscribeNewBlock(0)
     } yield (server, blocks)
 
@@ -80,7 +82,7 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
         case (server, events) =>
           for {
             _ <- server.close()
-            result <- WebsocketServer.make[IO].use { newServer =>
+            result <- WebsocketServer.make[IO](Port).use { newServer =>
               newServer.send(block(height)) >> events.take(1).compile.toList
             }
           } yield result

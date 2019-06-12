@@ -17,15 +17,18 @@
 package fluence.effects.tendermint.rpc
 
 import cats.data.EitherT
-import cats.effect.{ConcurrentEffect, Timer}
+import cats.effect.concurrent.Deferred
+import cats.effect.{Concurrent, ConcurrentEffect, Timer}
 import cats.syntax.applicative._
 import cats.syntax.either._
 import cats.{Functor, Monad}
 import fluence.effects.syntax.eitherT._
 import fluence.effects.tendermint.block.data.Block
-import fluence.effects.tendermint.rpc.http.{RpcError, TendermintHttpRpc}
+import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.effects.tendermint.rpc.response.TendermintStatus
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpcImpl
+import fluence.effects.{Backoff, EffectError}
+import fluence.log.Log
 
 import scala.language.higherKinds
 
@@ -58,4 +61,36 @@ class TestWRpc[F[_]: ConcurrentEffect: Timer: Monad](override val host: String, 
     id: String
   ): EitherT[F, RpcError, String] = throw new NotImplementedError("def query")
 
+  /**
+   * Subscribe on new blocks from Tendermint, retrieves missing blocks and keeps them in order
+   *
+   * @param lastKnownHeight Height of the block that was already processed (uploaded, and its receipt stored)
+   * @return Stream of blocks, strictly in order, without any repetitions
+   */
+  override def subscribeNewBlock(
+    lastKnownHeight: Long
+  )(implicit log: Log[F], backoff: Backoff[EffectError]): fs2.Stream[F, Block] = {
+    import cats.syntax.flatMap._
+    import cats.syntax.functor._
+
+    import scala.concurrent.duration._
+
+    val timeout = 5.seconds
+
+    val fiberF =
+      for {
+        promise <- Deferred[F, Unit]
+        fiber <- Concurrent[F].start(
+          Timer[F].sleep(timeout) >>
+            Log[F].error(s"subscribeNewBlock timed out after $timeout") >>
+            promise.complete(())
+        )
+      } yield (fiber, promise)
+
+    fs2.Stream.eval(fiberF).flatMap {
+      case (fiber, promise) =>
+        val signal = promise.get.map(_ => ().asRight[Throwable])
+        super.subscribeNewBlock(lastKnownHeight).evalTap(_ => fiber.cancel).interruptWhen(signal)
+    }
+  }
 }
