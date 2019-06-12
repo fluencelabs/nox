@@ -173,12 +173,6 @@ class FluenceAppSnippet extends React.Component<Props, State> {
 
     renderAppSnippets(): React.ReactNode[] {
         return ([
-            <button type="button"
-                    onClick={e => window.open(`http://sql.fluence.network?appId=${this.props.appId}&privateKey=${llamaPrivateKey}`, '_blank')}
-                    className="btn btn-block btn-link">
-                <i className="fa fa-external-link margin-r-5"/> <b>Open SQL DB web interface</b>
-            </button>,
-            <hr/>,
             this.renderTrxHashBlock(),
             <p>
                 <b>
