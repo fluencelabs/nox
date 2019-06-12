@@ -25,7 +25,7 @@ import com.github.jtendermint.jabci.types.{RequestCheckTx, RequestCommit, Reques
 import com.google.protobuf.ByteString
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
-import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
+import fluence.effects.tendermint.rpc.http.{TendermintHttpRpc, TendermintHttpRpcImpl}
 import fluence.statemachine.config.{StateMachineConfig, TendermintRpcConfig}
 import fluence.statemachine.control.ControlServer.ControlServerConfig
 import fluence.statemachine.control.ControlSignals
@@ -55,7 +55,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
   )
   private val signals: ControlSignals[IO] = ControlSignals[IO]().allocated.unsafeRunSync()._1
   private val rpc: TendermintHttpRpc[IO] =
-    new TendermintHttpRpc[IO](config.tendermintRpc.host, config.tendermintRpc.port)
+    new TendermintHttpRpcImpl[IO](config.tendermintRpc.host, config.tendermintRpc.port)
 
   val abciHandler: AbciHandler[IO] = ServerRunner
     .buildAbciHandler(config, signals, rpc)
