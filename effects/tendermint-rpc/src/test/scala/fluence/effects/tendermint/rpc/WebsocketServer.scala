@@ -54,7 +54,7 @@ case class WebsocketServer[F[_]: ConcurrentEffect: Timer](
     for {
       exitCode <- Stream.eval(Ref[F].of(ExitCode.Success))
       server <- BlazeServerBuilder[F]
-        .bindHttp(8080)
+        .bindHttp(18080)
         .withHttpApp(routes(toClient.dequeue, fromClient.enqueue).orNotFound)
         .serveWhile(signal, exitCode)
     } yield server

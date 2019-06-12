@@ -47,7 +47,7 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
 
     val resourcesF = for {
       server <- WebsocketServer.make[IO]
-      wrpc <- TendermintRpc.make[IO]("127.0.0.1", 8080)
+      wrpc <- TendermintRpc.make[IO]("127.0.0.1", 18080)
       blocks = wrpc.subscribeNewBlock[IO]
     } yield (server, blocks)
 
