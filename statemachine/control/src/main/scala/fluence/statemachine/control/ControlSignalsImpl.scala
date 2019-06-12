@@ -16,21 +16,37 @@
 
 package fluence.statemachine.control
 
+import cats.FlatMap
+import cats.effect.Resource
 import cats.effect.concurrent.{Deferred, MVar}
-import cats.effect.{Concurrent, Resource, Sync}
-import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-trait ControlSignals[F[_]] {
+/**
+ * Sink and source for control events
+ *
+ * @param dropPeersRef Holds a set of DropPeer events. NOTE: since Tendermint 0.30.0 Validator set updates must be unique by pub key.
+ * @param stopRef Deferred holding stop signal, completed when the worker should stop
+ * @tparam F Effect
+ */
+class ControlSignalsImpl[F[_]: FlatMap] private[control] (
+  private val dropPeersRef: MVar[F, Set[DropPeer]],
+  private val stopRef: Deferred[F, Unit],
+  private val receiptRef: MVar[F, BlockReceipt],
+  private val hashRef: MVar[F, ByteVector]
+) extends ControlSignals[F] {
 
   /**
    * Add a new DropPeer event
    */
-  private[control] def dropPeer(drop: DropPeer): F[Unit]
+  private[control] def dropPeer(drop: DropPeer): F[Unit] =
+    for {
+      changes <- dropPeersRef.take
+      _ <- dropPeersRef.put(changes + drop)
+    } yield ()
 
   /**
    * Move list of current DropPeer events from ControlSignals to call-site
@@ -39,17 +55,18 @@ trait ControlSignals[F[_]] {
    *
    * @return Resource with List of DropPeer signals
    */
-  val dropPeers: Resource[F, Set[DropPeer]]
+  val dropPeers: Resource[F, Set[DropPeer]] =
+    Resource.make(dropPeersRef.tryTake.map(_.getOrElse(Set.empty)))(_ => dropPeersRef.tryPut(Set.empty).void)
 
   /**
    * Orders the worker to stop
    */
-  private[control] def stopWorker(): F[Unit]
+  private[control] def stopWorker(): F[Unit] = stopRef.complete(())
 
   /**
    * Will evaluate once the worker should stop
    */
-  val stop: F[Unit]
+  val stop: F[Unit] = stopRef.get
 
   /**
    * Stores block receipt in memory, async blocks if previous receipt is still there
@@ -57,47 +74,22 @@ trait ControlSignals[F[_]] {
    *
    * @param receipt Receipt to store
    */
-  private[control] def putReceipt(receipt: BlockReceipt): F[Unit]
+  private[control] def putReceipt(receipt: BlockReceipt): F[Unit] = receiptRef.put(receipt)
 
   /**
    * Retrieves block receipt, async blocks until there's a receipt
    */
-  val receipt: F[BlockReceipt]
+  val receipt: F[BlockReceipt] = receiptRef.take
 
   /**
    * Stores vm hash to memory, so node can retrieve it for block manifest uploading
    */
-  def putVmHash(hash: ByteVector): F[Unit]
+  def putVmHash(hash: ByteVector): F[Unit] = hashRef.put(hash)
 
-  def setVmHash(hash: ByteVector): F[Unit]
+  def setVmHash(hash: ByteVector): F[Unit] = hashRef.tryTake >> hashRef.put(hash)
 
   /**
    * Retrieves stored vm hash. Called by node on block manifest uploading
    */
-  private[control] val vmHash: F[ByteVector]
-}
-
-object ControlSignals {
-
-  /**
-   * Create a resource holding ControlSignals. Stop ControlSignals after resource is used.
-   *
-   * @tparam F Effect
-   * @return Resource holding a ControlSignals instance
-   */
-  def apply[F[_]: Concurrent](): Resource[F, ControlSignals[F]] =
-    Resource.make(
-      for {
-        dropPeersRef ← MVar[F].of[Set[DropPeer]](Set.empty)
-        stopRef ← Deferred[F, Unit]
-        receiptRef <- MVar[F].empty[BlockReceipt]
-        hashRef <- MVar[F].empty[ByteVector]
-        instance = new ControlSignalsImpl[F](dropPeersRef, stopRef, receiptRef, hashRef)
-      } yield instance: ControlSignals[F]
-    ) { s =>
-      Sync[F].suspend(
-        // Tell worker to stop if ControlSignals is dropped
-        s.stopWorker().attempt.void
-      )
-    }
+  private[control] val vmHash: F[ByteVector] = hashRef.take
 }

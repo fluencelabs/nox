@@ -32,8 +32,6 @@ import scala.language.higherKinds
 class AbciHandler[F[_]: Effect](
   service: AbciService[F],
   controlSignals: ControlSignals[F],
-  blocks: Ref[F, Map[Long, (String, Json)]],
-  commits: Ref[F, Map[Long, (String, Json)]]
 ) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock
     with slogging.LazyLogging {
 

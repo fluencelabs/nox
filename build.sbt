@@ -147,7 +147,7 @@ lazy val `statemachine` = (project in file("statemachine"))
     dockerfile in docker := DockerContainers.worker(assembly.value, baseDirectory.value)
   )
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(`vm`, `statemachine-control`, `tendermint-rpc`, `sttpEitherT`, `tendermint-block`)
+  .dependsOn(`vm`, `statemachine-control`, `statemachine-control` % "test", `tendermint-rpc`, `sttpEitherT`, `tendermint-block`)
 
 lazy val `effects` = project
   .settings(

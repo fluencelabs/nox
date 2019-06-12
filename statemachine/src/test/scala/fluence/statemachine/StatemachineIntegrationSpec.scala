@@ -28,7 +28,7 @@ import fluence.EitherTSttpBackend
 import fluence.effects.tendermint.rpc.http.{TendermintHttpRpc, TendermintHttpRpcImpl}
 import fluence.statemachine.config.{StateMachineConfig, TendermintRpcConfig}
 import fluence.statemachine.control.ControlServer.ControlServerConfig
-import fluence.statemachine.control.ControlSignals
+import fluence.statemachine.control.{ControlSignals, MockedControlSignals}
 import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
 import scodec.bits.ByteVector
 
@@ -53,7 +53,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
     ControlServerConfig("localhost", 26662),
     TendermintRpcConfig("localhost", 26657)
   )
-  private val signals: ControlSignals[IO] = ControlSignals[IO]().allocated.unsafeRunSync()._1
+  private val signals: ControlSignals[IO] = new MockedControlSignals
   private val rpc: TendermintHttpRpc[IO] =
     new TendermintHttpRpcImpl[IO](config.tendermintRpc.host, config.tendermintRpc.port)
 
