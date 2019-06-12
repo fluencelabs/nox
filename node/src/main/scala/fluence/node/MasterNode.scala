@@ -143,7 +143,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO, C](
           .withWorker(
             appId,
             _.withServices_(_.control)(_.dropPeer(vk).value.map {
-              case Right(_) =>
+              case Right(_)               =>
               case Left(e: DropPeerError) => logger.error(s"Error while dropping peer appId=$appId: ${e.getMessage}", e)
               case Left(e) =>
                 logger.error(s"Unexpected error while dropping peer appId=$appId key=${vk.toHex}: ${e.getMessage}", e)
@@ -231,7 +231,7 @@ object MasterNode extends LazyLogging {
       val ipfsStore = IpfsStore[F](config.ipfs.address)
       val polyStore = new PolyStore[F]({
         case StorageType.Swarm => swarmStore
-        case StorageType.Ipfs => ipfsStore
+        case StorageType.Ipfs  => ipfsStore
       })
       new RemoteCodeCarrier[F](polyStore)
     } else {

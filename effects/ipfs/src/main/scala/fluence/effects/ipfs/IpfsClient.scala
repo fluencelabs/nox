@@ -283,7 +283,7 @@ object IpfsClient {
         _.through(stringStreamParser[fs2.Pure]).attempt
           .map(_.leftMap {
             case e: DecodingFailure => e
-            case e: Throwable => DecodingFailure(e.getLocalizedMessage, Nil)
+            case e: Throwable       => DecodingFailure(e.getLocalizedMessage, Nil)
           })
           .toList
           .map(_.map(_.as[B]).flatMap(identity))

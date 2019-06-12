@@ -36,7 +36,7 @@ case object StorageRef {
     storageType.lastOption.map(_.toInt) match {
       case Some(0) => StorageType.Swarm
       case Some(1) => StorageType.Ipfs
-      case _ => StorageType.Ipfs
+      case _       => StorageType.Ipfs
     }
   }
 }
