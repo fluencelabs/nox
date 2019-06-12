@@ -33,14 +33,14 @@ import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.higherKinds
 
-class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging {
+class WebsocketRpcSpec extends WordSpec with Matchers with slogging.LazyLogging {
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
   type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
   implicit private val sttpResource: STTP = EitherTSttpBackend[IO]()
 
-  "WebsocketRPC" should {
+  "WebsocketRpc" should {
     PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, true)
     LoggerConfig.factory = PrintLoggerFactory()
     LoggerConfig.level = LogLevel.ERROR

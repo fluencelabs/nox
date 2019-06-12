@@ -53,9 +53,9 @@ object MasterNodeApp extends IOApp {
   override def run(args: List[String]): IO[ExitCode] = {
     type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
 
-    implicit val logFactory: LogFactory[IO] = LogFactory.forChains[IO]()
+    implicit val logFactory: LogFactory[IO] = LogFactory.forPrintln[IO]()
 
-    logFactory.init("masterApp", "run") >>= { implicit log ⇒
+    logFactory.init("node", "run") >>= { implicit log ⇒
       MasterConfig
         .load()
         .map(mc => {

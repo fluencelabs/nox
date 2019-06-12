@@ -145,7 +145,7 @@ object RocksDBStore {
         ctx ⇒ IO(ctx.shutdown()).to[F]
       )
 
-      _ = Log.resource[F].trace("we have created ctx")
+      _ ← Log.resource[F].trace("we have created ctx")
 
       cs = ContextShift[F]
 

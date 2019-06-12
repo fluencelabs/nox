@@ -36,7 +36,7 @@ import fluence.node.config.FluenceContractConfig
 import fluence.node.eth.state.{App, Cluster}
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.generated._
-import org.web3j.abi.datatypes.{Address, DynamicArray, Event}
+import org.web3j.abi.datatypes.{DynamicArray, Event}
 import org.web3j.protocol.core.methods.request.{EthFilter, SingleAddressEthFilter}
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
 
@@ -147,7 +147,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of [[App]]s
    */
-  private def getNodeAppDeployed[F[_]: ConcurrentEffect: Timer](validatorKey: Bytes32): fs2.Stream[F, state.App] =
+  private def getNodeAppDeployed[F[_]: ConcurrentEffect: Timer: Log](validatorKey: Bytes32): fs2.Stream[F, state.App] =
     fs2.Stream
       .eval(eventFilter[F](APPDEPLOYED_EVENT))
       .flatMap(filter ⇒ contract.appDeployedEventFlowable(filter).toStreamRetrying[F]()) // It's checked that current node participates in a cluster there
@@ -180,7 +180,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of AppDeleted events
    */
-  private[eth] def getAppDeleted[F[_]: ConcurrentEffect: Timer]: fs2.Stream[F, Uint256] =
+  private[eth] def getAppDeleted[F[_]: ConcurrentEffect: Timer: Log]: fs2.Stream[F, Uint256] =
     fs2.Stream
       .eval(eventFilter[F](APPDELETED_EVENT))
       .flatMap(filter ⇒ contract.appDeletedEventFlowable(filter).toStreamRetrying[F]())
@@ -192,7 +192,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of NodeDeleted events
    */
-  private[eth] def getNodeDeleted[F[_]: ConcurrentEffect: Timer]: fs2.Stream[F, Bytes32] =
+  private[eth] def getNodeDeleted[F[_]: ConcurrentEffect: Timer: Log]: fs2.Stream[F, Bytes32] =
     fs2.Stream
       .eval(eventFilter[F](NODEDELETED_EVENT))
       .flatMap(filter ⇒ contract.nodeDeletedEventFlowable(filter).toStreamRetrying[F]())

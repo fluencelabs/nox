@@ -81,7 +81,7 @@ class MasterNodeIntegrationSpec
       var line = ""
       scala.sys.process
         .Process(s"docker logs $containerId")
-        .!!(ProcessLogger(_ => {}, o => line += s"$o\n"))
+        .!!(ProcessLogger(o => line += s"$o\n", o => line += s"$o\n"))
       line
     }.map(line => line should include("switching to the new clusters"))
 

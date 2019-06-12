@@ -157,6 +157,7 @@ lazy val `effects` = project
       catsEffect
     )
   )
+  .dependsOn(`log`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `sttpEitherT` = (project in file("effects/sttpEitherT"))
@@ -231,7 +232,6 @@ lazy val `ethclient` = (project in file("effects/ethclient"))
     commons,
     libraryDependencies ++= Seq(
       web3jCore,
-      slogging,
       scodecBits,
       fs2,
       fs2rx,
