@@ -84,11 +84,11 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad]
           )
           .recoverWith {
             case e =>
-              log.warn(s"parsing block $height, reloading", e)
-              self.block(height).leftMap {
-                case RpcBlockParsingFailed(cause, raw, height) => BlockParsingFailed(cause, Eval.now(raw), height)
-                case rpcErr => BlockRetrievalError(rpcErr, height)
-              }
+              Log.eitherT[F, WebsocketRpcError].warn(s"parsing block $height, reloading", e) >>
+                self.block(height).leftMap {
+                  case RpcBlockParsingFailed(cause, raw, height) => BlockParsingFailed(cause, Eval.now(raw), height)
+                  case rpcErr => BlockRetrievalError(rpcErr, height)
+                }
           },
         e => log.error(s"parsing block $height", e)
       )
