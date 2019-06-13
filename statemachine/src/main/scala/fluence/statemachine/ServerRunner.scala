@@ -92,7 +92,7 @@ object ServerRunner extends IOApp with LazyLogging {
           case Left(err) ⇒
             val exception = err.causedBy match {
               case Some(caused) => new RuntimeException("Building ABCI handler failed: " + err, caused)
-              case None => new RuntimeException("Building ABCI handler failed: " + err)
+              case None         => new RuntimeException("Building ABCI handler failed: " + err)
             }
             IO.raiseError(exception)
         }.flatMap { handler ⇒
@@ -158,10 +158,10 @@ object ServerRunner extends IOApp with LazyLogging {
    */
   private def convertLogLevel(logLevel: String): LogLevel =
     logLevel.toUpperCase match {
-      case "OFF" => LogLevel.OFF
+      case "OFF"   => LogLevel.OFF
       case "ERROR" => LogLevel.ERROR
-      case "WARN" => LogLevel.WARN
-      case "INFO" => LogLevel.INFO
+      case "WARN"  => LogLevel.WARN
+      case "INFO"  => LogLevel.INFO
       case "DEBUG" => LogLevel.DEBUG
       case "TRACE" => LogLevel.TRACE
       case _ =>
