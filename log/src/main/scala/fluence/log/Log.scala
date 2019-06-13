@@ -185,6 +185,7 @@ object Log {
   case object Info extends Level(2, "info ", Console.BLUE)
   case object Warn extends Level(3, "warn ", Console.RED)
   case object Error extends Level(4, "error", Console.RED + Console.BOLD)
+  case object Off extends Level(43, "off", "")
 
   implicit val LevelOrder: Order[Level] =
     Order.by[Level, Int](_.flag)(Order.fromOrdering[Int])

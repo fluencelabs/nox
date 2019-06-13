@@ -81,7 +81,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
     val response = abciHandler.requestQuery(builtQuery)
     response.getCode match {
       case CodeType.OK => Right(ByteVector(response.getValue.toByteArray).toHex)
-      case _ => Left((response.getCode, response.getInfo))
+      case _           => Left((response.getCode, response.getInfo))
     }
   }
 

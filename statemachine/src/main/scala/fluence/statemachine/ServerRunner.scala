@@ -27,6 +27,7 @@ import com.github.jtendermint.jabci.socket.TSocket
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
 import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.log.LogFactory
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.control.{ControlServer, ControlSignals}
 import fluence.statemachine.error.StateMachineError
@@ -49,10 +50,14 @@ object ServerRunner extends IOApp with LazyLogging {
   private val sttpResource: Resource[IO, SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]] =
     Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
+  private implicit val logFactory = LogFactory.forPrintln[IO]()
+
   override def run(args: List[String]): IO[ExitCode] = {
     for {
       config <- StateMachineConfig.load[IO]()
       _ = configureLogging(convertLogLevel(config.logLevel))
+
+      log ← logFactory.init("server")
 
       _ = logger.info("Building State Machine ABCI handler")
       _ <- (
@@ -63,6 +68,7 @@ object ServerRunner extends IOApp with LazyLogging {
 
           tendermintRpc ← {
             implicit val s = sttp
+            implicit val l = log
             TendermintRpc.make[IO](config.tendermintRpc.host, config.tendermintRpc.port)
           }
 

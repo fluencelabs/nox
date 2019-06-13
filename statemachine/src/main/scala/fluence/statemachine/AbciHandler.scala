@@ -30,13 +30,14 @@ import com.google.protobuf.ByteString
 import fluence.effects.tendermint.block.TendermintBlock
 import fluence.effects.tendermint.block.errors.Errors._
 import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.log.{Log, LogFactory}
 import fluence.statemachine.control.{ControlSignals, DropPeer}
 import io.circe.{Json, ParsingFailure}
 
 import scala.language.higherKinds
 import scala.util.Try
 
-class AbciHandler[F[_]: Effect](
+class AbciHandler[F[_]: Effect: LogFactory](
   service: AbciService[F],
   controlSignals: ControlSignals[F],
   tendermintRpc: TendermintRpc[F],
@@ -45,8 +46,8 @@ class AbciHandler[F[_]: Effect](
 ) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock
     with slogging.LazyLogging {
 
-  private def checkBlock(height: Long): Unit = {
-    val log: String ⇒ Unit = s ⇒ logger.info(Console.YELLOW + s + Console.RESET)
+  private def checkBlock(height: Long)(implicit log: Log[F]): Unit = {
+    val _log: String ⇒ Unit = s ⇒ logger.info(Console.YELLOW + s + Console.RESET)
     val logBad: String ⇒ Unit = s ⇒ logger.info(Console.RED + s + Console.RESET)
 
     tendermintRpc
@@ -61,7 +62,7 @@ class AbciHandler[F[_]: Effect](
               .leftTap(e => logBad(s"Failed to decode tendermint block from JSON: $e ${e.getCause}"))
             _ = logger.info(s"RPC Block[$height] => height = ${block.block.header.height}")
             _ <- block.validateHashes().leftTap(e => logBad(s"Block at height $height is invalid: $e ${e.getCause}"))
-          } yield log(s"Block at height $height is valid")
+          } yield _log(s"Block at height $height is valid")
       )
       .unsafeRunAsyncAndForget()
   }
@@ -70,6 +71,9 @@ class AbciHandler[F[_]: Effect](
     req: RequestBeginBlock
   ): ResponseBeginBlock = {
     val height = req.getHeader.getHeight
+
+    implicit val log: Log[F] = LogFactory[F].init("abci", "beginBlock").toIO.unsafeRunSync()
+
     checkBlock(height)
 
     ResponseBeginBlock.newBuilder().build()
