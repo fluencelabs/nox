@@ -18,26 +18,32 @@ package fluence.effects.ethclient
 
 import java.io.File
 
-import cats.Parallel
+import cats.{~>, Id, Parallel}
 import cats.effect.concurrent.{Deferred, MVar}
 import cats.effect.{ContextShift, IO, Timer}
 import fluence.effects.ethclient.data.Log
 import fluence.effects.ethclient.syntax._
 import fluence.effects.ethclient.helpers.Web3jConverters._
+import fluence.log.LogFactory
 import org.scalatest.{BeforeAndAfterAll, FlatSpec, Matchers}
 import org.web3j.abi.datatypes.generated.{Bytes32, Uint16, Uint8}
 import org.web3j.abi.datatypes.{Bool, DynamicArray}
-import slogging.LazyLogging
 
 import scala.collection.JavaConverters._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.sys.process.{Process, ProcessLogger}
 import scala.util.Random
 
-class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with BeforeAndAfterAll {
+class ClusterContractSpec extends FlatSpec with Matchers with BeforeAndAfterAll {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
+
+  private implicit val log: fluence.log.Log[IO] =
+    LogFactory.forPrintln[IO]().init("ClusterContractSpec").unsafeRunSync()
+  private val logId = log.mapK[Id](new (IO ~> Id) {
+    override def apply[A](fa: IO[A]): Id[A] = fa.unsafeRunSync()
+  })
 
   private val url = sys.props.get("ethereum.url")
   private val client = EthClient.make[IO](url)
@@ -46,18 +52,18 @@ class ClusterContractSpec extends FlatSpec with LazyLogging with Matchers with B
   def runBackground(cmd: String): Unit = Process(cmd, dir).run(ProcessLogger(_ => ()))
 
   override protected def beforeAll(): Unit = {
-    logger.info("bootstrapping npm")
+    logId.info("bootstrapping npm")
     run("npm install")
 
-    logger.info("starting Ganache")
+    logId.info("starting Ganache")
     runBackground("npm run ganache")
 
-    logger.info("deploying contracts to Ganache")
+    logId.info("deploying contracts to Ganache")
     run("npm run migrate")
   }
 
   override protected def afterAll(): Unit = {
-    logger.info("killing ganache")
+    logId.info("killing ganache")
     run("pkill -f ganache")
   }
 
