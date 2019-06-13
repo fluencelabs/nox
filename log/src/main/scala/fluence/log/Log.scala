@@ -57,7 +57,7 @@ abstract class Log[F[_]: Monad: Clock](val ctx: Context) {
    * @tparam A Return type
    * @return What the inner function returns
    */
-  def scope[A](modContext: Context ⇒ Context)(fn: Log[F] ⇒ F[A]): F[A] =
+  def scope[G[_], A](modContext: Context ⇒ Context)(fn: Log[F] ⇒ G[A]): G[A] =
     fn(getScoped(modContext))
 
   /**
@@ -68,7 +68,7 @@ abstract class Log[F[_]: Monad: Clock](val ctx: Context) {
    * @tparam A Return type
    * @return What the inner function returns
    */
-  def scope[A](kvs: (String, String)*)(fn: Log[F] ⇒ F[A]): F[A] =
+  def scope[G[_], A](kvs: (String, String)*)(fn: Log[F] ⇒ G[A]): G[A] =
     scope(_.scope(kvs: _*))(fn)
 
   /**
@@ -79,7 +79,7 @@ abstract class Log[F[_]: Monad: Clock](val ctx: Context) {
    * @tparam A Return type
    * @return What the inner function returns
    */
-  def scope[A](k: String)(fn: Log[F] ⇒ F[A]): F[A] =
+  def scope[G[_], A](k: String)(fn: Log[F] ⇒ G[A]): G[A] =
     scope(_.scope(k -> ""))(fn)
 
   def getScoped(modContext: Context ⇒ Context): Log.Aux[F, Appender] =

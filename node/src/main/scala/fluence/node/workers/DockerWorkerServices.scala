@@ -93,7 +93,9 @@ object DockerWorkerServices {
     for {
       _ ← Log.resource[F].debug(s"Creating docker network ${dockerNetworkName(params)} for $params")
       network <- DockerNetwork.make(dockerNetworkName(params))
-      _ <- params.masterNodeContainerId.map(DockerContainer).fold(Resource.pure(()))(DockerNetwork.join(_, network))
+      _ <- params.masterNodeContainerId
+        .map(DockerContainer(_, None))
+        .fold(Resource.pure(()))(DockerNetwork.join(_, network))
     } yield network
 
   /**

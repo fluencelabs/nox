@@ -38,6 +38,10 @@ class DockerIO[F[_]: Monad: LiftIO: ContextShift: Defer](
   ctx: ExecutionContext,
   defaultStopTimeout: Int
 ) {
+  import DockerIO.{ContainerIdScope, ContainerNameScope, NetworkScope}
+
+  private def containerScope(container: DockerContainer): Seq[(String, String)] =
+    container.name.map(ContainerNameScope -> _).toSeq :+ (ContainerIdScope -> container.containerId)
 
   private val liftCtx: IO ~> F = new (IO ~> F) {
     override def apply[A](fa: IO[A]): F[A] = ContextShift[F].evalOn(ctx)(fa.to[F])
@@ -90,6 +94,31 @@ class DockerIO[F[_]: Monad: LiftIO: ContextShift: Defer](
         .leftMap[DockerError](DockerCommandError(params.command.mkString(" "), _))
         .mapK(liftCtx)
 
+  private def tryStopContainer(stopTimeout: Int, dockerId: String, exitCase: ExitCase[Throwable])(
+    implicit log: Log[F]
+  ): F[Try[Int]] =
+    Log[F].info(s"Going to stop container, exit case: $exitCase") >>
+      liftCtx(IO(Try(s"docker stop -t $stopTimeout $dockerId".!))) >>=
+      (t ⇒ Log[F].debug(s"Stop result: $t").as(t)) // TODO should we `docker kill` if Cancel is triggered while stopping?
+
+  private def rmOnGracefulStop(dockerId: String)(
+    implicit log: Log[F]
+  ): F[Unit] =
+    Log[F].info(s"Container stopped gracefully, going to rm -v it") >>
+      liftCtx(IO(s"docker rm -v $dockerId".!).void)
+
+  private def forceRmWhenCannotStop(dockerId: String, err: Throwable)(
+    implicit log: Log[F]
+  ): F[Unit] =
+    Log[F].warn(s"Stopping docker container errored due to $err, going to rm -v -f it", err) >>
+      liftCtx(IO(s"docker rm -v -f $dockerId".!).void)
+
+  private def forceRmWhenStopNonZero(dockerId: String, code: Int)(
+    implicit log: Log[F]
+  ): F[Unit] =
+    Log[F].warn(s"Stopping docker container failed, exit code = $code, going to rm -v -f it") >>
+      liftCtx(IO(s"docker rm -v -f $dockerId".!).void)
+
   /**
    * Runs a daemonized docker container, providing a single String with the container ID.
    * Calls `docker rm -f` on that ID when stream is over.
@@ -100,70 +129,46 @@ class DockerIO[F[_]: Monad: LiftIO: ContextShift: Defer](
    */
   def run(params: DockerParams.DaemonParams, stopTimeout: Int = defaultStopTimeout)(
     implicit log: Log[F]
-  ): Resource[F, DockerContainer] = {
-    val runContainer: F[Either[Throwable, String]] =
-      Log[F].info(s"Running docker daemon: ${params.command.mkString(" ")}") *>
-        IO(params.process.!!)
-          .map(_.trim)
-          .attemptT
-          .mapK(liftCtx)
-          .leftSemiflatMap { err ⇒
-            Log[F].warn("Cannot run docker container: " + err, err) as err
-          }
-          .value
+  ): Resource[F, DockerContainer] =
+    log.scope(params.name.map(ContainerNameScope -> _).toSeq: _*) { implicit log: Log[F] ⇒
+      val runContainer: F[Either[Throwable, String]] =
+        Log[F].info(s"Running docker daemon: ${params.command.mkString(" ")}") *>
+          IO(params.process.!!)
+            .map(_.trim)
+            .attemptT
+            .mapK(liftCtx)
+            .leftSemiflatMap { err ⇒
+              Log[F].warn("Cannot run docker container: " + err, err) as err
+            }
+            .value
 
-    def tryStopContainer(name: String, dockerId: String, exitCase: ExitCase[Throwable]): F[Try[Int]] =
-      Log[F].info(s"Going to stop container $name $dockerId, exit case: $exitCase") >>
-        liftCtx(IO(Try(s"docker stop -t $stopTimeout $dockerId".!))) >>=
-        (t ⇒ Log[F].debug(s"Stop result: $t").as(t)) // TODO should we `docker kill` if Cancel is triggered while stopping?
-
-    def rmOnGracefulStop(name: String, dockerId: String): F[Unit] =
-      Log[F].info(s"Container $dockerId with name $name stopped gracefully, going to rm -v it") >>
-        liftCtx(IO(s"docker logs --tail 100 $dockerId".!!.replaceAll("(?m)^", s"$name  "))).flatMap { containerLogs ⇒
-          if (containerLogs.trim.nonEmpty)
-            Log[F].info(Console.CYAN + containerLogs + Console.RESET)
-          else
-            Log[F].info(Console.CYAN + s"$name: empty logs." + Console.RESET)
-        } >>
-        liftCtx(IO(s"docker rm -v $dockerId".!).void)
-
-    def forceRmWhenCannotStop(name: String, dockerId: String, err: Throwable): F[Unit] =
-      Log[F].warn(s"Stopping docker container $name $dockerId errored due to $err, going to rm -v -f it", err) >>
-        liftCtx(IO(s"docker rm -v -f $dockerId".!).void)
-
-    def forceRmWhenStopNonZero(name: String, dockerId: String, code: Int): F[Unit] =
-      Log[F].warn(s"Stopping docker container $name $dockerId failed, exit code = $code, going to rm -v -f it") >>
-        liftCtx(IO(s"docker rm -v -f $dockerId".!).void)
-
-    Resource
-      .makeCase(runContainer) {
-        case (Right(dockerId), exitCase) ⇒
-          getName(DockerContainer(dockerId))
-            .getOrElse("(name is unknown)")
-            .flatMap { name ⇒
-              tryStopContainer(name, dockerId, exitCase).flatMap {
+      Resource
+        .makeCase(runContainer) {
+          case (Right(dockerId), exitCase) ⇒
+            log.scope(ContainerIdScope -> dockerId) { implicit log: Log[F] ⇒
+              tryStopContainer(stopTimeout, dockerId, exitCase).flatMap {
                 case Success(0) ⇒
-                  rmOnGracefulStop(name, dockerId)
+                  rmOnGracefulStop(dockerId)
 
                 case Failure(err) ⇒
-                  forceRmWhenCannotStop(name, dockerId, err)
+                  forceRmWhenCannotStop(dockerId, err)
 
                 case Success(x) ⇒
-                  forceRmWhenStopNonZero(name, dockerId, x)
+                  forceRmWhenStopNonZero(dockerId, x)
               }
             }
 
-        case (Left(err), _) ⇒
-          Log[F].warn(s"Cannot cleanup the docker container as it's failed to launch: $err", err)
-      }
-      .flatMap[DockerContainer] {
-        case Right(dockerId) ⇒
-          Resource.pure(DockerContainer(dockerId))
-        case Left(err) ⇒
-          Log.resource[F].warn(s"Resource cannot be acquired, error raised $err", err) *>
-            Resource.liftF(IO.raiseError[DockerContainer](err).to[F])
-      }
-  }
+          case (Left(err), _) ⇒
+            Log[F].warn(s"Cannot cleanup the docker container as it's failed to launch: $err", err)
+        }
+        .flatMap[DockerContainer] {
+          case Right(dockerId) ⇒
+            Resource.pure(DockerContainer(dockerId, params.name))
+          case Left(err) ⇒
+            Log.resource[F].warn(s"Cannot create Docker Container, error raised", err) *>
+              Resource.liftF(IO.raiseError[DockerContainer](err).to[F])
+        }
+    }
 
   /**
    * Inspect the docker container to find out its running status
@@ -171,55 +176,67 @@ class DockerIO[F[_]: Monad: LiftIO: ContextShift: Defer](
    * @param container Docker container
    * @return DockerRunning or any error found on the way
    */
-  def checkContainer(container: DockerContainer)(implicit log: Log[F]): EitherT[F, DockerError, DockerRunning] = {
-    import java.time.format.DateTimeFormatter
-    val format = DateTimeFormatter.ISO_DATE_TIME
-    val dockerId = container.containerId
-    for {
-      status ← runShell(s"docker inspect -f {{.State.Running}},{{.State.StartedAt}} $dockerId")
-      timeIsRunning ← IO {
-        val running :: started :: Nil = status.trim.split(',').toList
+  def checkContainer(container: DockerContainer)(implicit log: Log[F]): EitherT[F, DockerError, DockerRunning] =
+    log
+      .scope(containerScope(container): _*) { implicit log: Log[F] ⇒
+        import java.time.format.DateTimeFormatter
+        val format = DateTimeFormatter.ISO_DATE_TIME
+        val dockerId = container.containerId
+        for {
+          status ← runShell(s"docker inspect -f {{.State.Running}},{{.State.StartedAt}} $dockerId")
+          timeIsRunning ← IO {
+            val running :: started :: Nil = status.trim.split(',').toList
 
-        Instant.from(format.parse(started)).getEpochSecond → running.contains("true")
-      }.attemptT
-        .mapK(liftCtx)
-        .flatTap {
-          case (time, running) ⇒
-            // TODO get any reason of why container is stopped
-            Log.eitherT[F, Throwable].debug(s"Docker container $dockerId  status = [$running], time = [$time]")
-        }
-        .leftMap(DockerException(s"Cannot parse container status: $status", _): DockerError)
-    } yield timeIsRunning
-  }.subflatMap {
-    case (time, true) ⇒ Right(DockerRunning(time))
-    case (time, false) ⇒ Left(DockerContainerStopped(time))
-  }
+            Instant.from(format.parse(started)).getEpochSecond → running.contains("true")
+          }.attemptT
+            .mapK(liftCtx)
+            .flatTap {
+              case (time, running) ⇒
+                // TODO get any reason of why container is stopped
+                Log.eitherT[F, Throwable].debug(s"Docker container status = [$running], time = [$time]")
+            }
+            .leftMap(DockerException(s"Cannot parse container status: $status", _): DockerError)
+        } yield timeIsRunning
+      }
+      .subflatMap {
+        case (time, true) ⇒ Right(DockerRunning(time))
+        case (time, false) ⇒ Left(DockerContainerStopped(time))
+      }
 
   /**
    *  Create docker network as a resource. Network is deleted after resource is used.
    */
   def makeNetwork(name: String)(implicit log: Log[F]): Resource[F, DockerNetwork] =
-    Resource
-      .make(runShellVoid(s"docker network create $name").as(DockerNetwork(name))) {
-        case DockerNetwork(n) =>
-          Log[F].info(s"removing network $n") >>
-            runShellVoid(s"docker network rm $n")
-      }
+    log.scope(NetworkScope -> name) { implicit log: Log[F] ⇒
+      Resource
+        .make(runShellVoid(s"docker network create $name").as(DockerNetwork(name))) {
+          case DockerNetwork(n) =>
+            Log[F].info(s"removing network $n") >>
+              runShellVoid(s"docker network rm $n")
+        }
+    }
 
   /**
    * Join (connect to) docker network as a resource. Container will be disconnected from network after resource is used.
    */
   def joinNetwork(container: DockerContainer, network: DockerNetwork)(implicit log: Log[F]): Resource[F, Unit] =
-    Resource
-      .make(runShellVoid(s"docker network connect ${network.name} ${container.containerId}"))(
-        _ =>
-          Log[F].info(s"disconnecting container ${container.containerId} from network ${network.name} ")
-            >> runShellVoid(s"docker network disconnect ${network.name} ${container.containerId}")
-      )
+    log.scope(containerScope(container) :+ (NetworkScope -> network.name): _*) { implicit log: Log[F] ⇒
+      Resource
+        .make(runShellVoid(s"docker network connect ${network.name} ${container.containerId}"))(
+          _ =>
+            Log[F].info(s"disconnecting container ${container.containerId} from network ${network.name} ")
+              >> runShellVoid(s"docker network disconnect ${network.name} ${container.containerId}")
+        )
+    }
 
 }
 
 object DockerIO {
+
+  // Used for log scopes
+  val ContainerIdScope = "container"
+  val ContainerNameScope = "docker"
+  val NetworkScope = "network"
 
   def apply[F[_]](implicit dio: DockerIO[F]): DockerIO[F] = dio
 
