@@ -20,9 +20,11 @@ import cats.Functor
 import cats.data.EitherT
 import cats.effect.{Resource, Sync}
 import cats.syntax.apply._
+import cats.syntax.functor._
 import cats.syntax.either._
 import com.softwaremill.sttp._
 import fluence.effects.tendermint.rpc.response.{Response, TendermintStatus}
+import fluence.log.Log
 import io.circe.Json
 import io.circe.parser.decode
 
@@ -39,24 +41,23 @@ case class TendermintRpc[F[_]: Sync](
   host: String,
   port: Int
 )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing])
-    extends WebsocketTendermintRpc with slogging.LazyLogging {
+    extends WebsocketTendermintRpc {
 
-  val RpcUri = uri"http://$host:$port"
-  logger.info(s"TendermintRpc created, uri: $RpcUri")
+  val rpcUri = uri"http://$host:$port"
 
   /** Get status as string */
-  val status: EitherT[F, RpcError, String] =
+  def status(implicit log: Log[F]): EitherT[F, RpcError, String] =
     get("status")
 
   /** Get status, parse it to [[TendermintStatus]] */
-  def statusParsed(implicit F: Functor[F]): EitherT[F, RpcError, TendermintStatus] =
+  def statusParsed(implicit F: Functor[F], log: Log[F]): EitherT[F, RpcError, TendermintStatus] =
     status
       .map(decode[Response[TendermintStatus]])
       .subflatMap[RpcError, TendermintStatus](
         _.map(_.result).leftMap(RpcBodyMalformed)
       )
 
-  def block(height: Long, id: String = "dontcare"): EitherT[F, RpcError, String] =
+  def block(height: Long, id: String = "dontcare")(implicit log: Log[F]): EitherT[F, RpcError, String] =
     post(
       RpcRequest(
         method = "block",
@@ -65,7 +66,7 @@ case class TendermintRpc[F[_]: Sync](
       )
     )
 
-  def commit(height: Long, id: String = "dontcare"): EitherT[F, RpcError, String] =
+  def commit(height: Long, id: String = "dontcare")(implicit log: Log[F]): EitherT[F, RpcError, String] =
     post(
       RpcRequest(
         method = "commit",
@@ -83,7 +84,7 @@ case class TendermintRpc[F[_]: Sync](
    * @param tx Transaction body
    * @param id Tracking ID, you may omit it
    */
-  def broadcastTxSync(tx: String, id: String): EitherT[F, RpcError, String] =
+  def broadcastTxSync(tx: String, id: String)(implicit log: Log[F]): EitherT[F, RpcError, String] =
     post(
       RpcRequest(
         method = "broadcast_tx_sync",
@@ -92,7 +93,9 @@ case class TendermintRpc[F[_]: Sync](
       )
     )
 
-  def unsafeDialPeers(peers: Seq[String], persistent: Boolean, id: String = "dontcare"): EitherT[F, RpcError, String] =
+  def unsafeDialPeers(peers: Seq[String], persistent: Boolean, id: String = "dontcare")(
+    implicit log: Log[F]
+  ): EitherT[F, RpcError, String] =
     post(
       RpcRequest(
         method = "dial_peers",
@@ -109,7 +112,7 @@ case class TendermintRpc[F[_]: Sync](
     height: Long = 0,
     prove: Boolean = false,
     id: String
-  ): EitherT[F, RpcError, String] =
+  )(implicit log: Log[F]): EitherT[F, RpcError, String] =
     post(
       RpcRequest(
         method = "abci_query",
@@ -124,39 +127,41 @@ case class TendermintRpc[F[_]: Sync](
   /** Perform the request, and lift the errors to EitherT */
   private def sendHandlingErrors(
     reqT: RequestT[Id, String, Nothing]
-  )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]): EitherT[F, RpcError, String] =
+  )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing], log: Log[F]): EitherT[F, RpcError, String] =
     reqT
       .send()
       .leftMap[RpcError](RpcRequestFailed)
-      .subflatMap[RpcError, String] { resp ⇒
+      .flatMap[RpcError, String] { resp ⇒
         val eitherResp = resp.body
           .leftMap[RpcError](RpcRequestErrored(resp.code, _))
 
         // Print just the first line of response
-        logger.debug(s"TendermintRpc ${reqT.method.m} response code ${resp.code}")
-        logger.trace(s"TendermintRpc ${reqT.method.m} full response: $eitherResp")
-        eitherResp
+        Log.eitherT[F, RpcError].debug(s"TendermintRpc ${reqT.method.m} response code ${resp.code}") *>
+          Log.eitherT[F, RpcError].trace(s"TendermintRpc ${reqT.method.m} full response: $eitherResp") *>
+          EitherT.fromEither(eitherResp)
       }
 
-  private def logPost(req: RpcRequest): EitherT[F, RpcError, Unit] =
-    EitherT.pure[F, RpcError](logger.debug(s"TendermintRpc POST method=${req.method}"))
+  private def logPost(req: RpcRequest)(implicit log: Log[F]): EitherT[F, RpcError, Unit] =
+    Log.eitherT[F, RpcError].debug(s"TendermintRpc POST method=${req.method}")
 
-  private def logGet(path: String): EitherT[F, RpcError, Unit] =
-    EitherT.pure[F, RpcError](logger.debug(s"TendermintRpc GET path=$path"))
+  private def logGet(path: String)(implicit log: Log[F]): EitherT[F, RpcError, Unit] =
+    Log.eitherT[F, RpcError].debug(s"TendermintRpc GET path=$path")
 
   /**
    * Performs a Get request for the given path
    */
-  private def get(path: String) = logGet(path) *> sendHandlingErrors(sttp.get(RpcUri.path(path)))
+  private def get(path: String)(implicit log: Log[F]) =
+    logGet(path) *> sendHandlingErrors(sttp.get(rpcUri.path(path)))
 
   /**
    * Performs a Post request, sending the given [[RpcRequest]]
    */
-  private def post(req: RpcRequest) = logPost(req) *> sendHandlingErrors(sttp.post(RpcUri).body(req.toJsonString))
+  private def post(req: RpcRequest)(implicit log: Log[F]) =
+    logPost(req) *> sendHandlingErrors(sttp.post(rpcUri).body(req.toJsonString))
 
 }
 
-object TendermintRpc extends slogging.LazyLogging {
+object TendermintRpc {
 
   /**
    * Runs a WorkerRpc with F effect, acquiring some resources for it
@@ -167,12 +172,12 @@ object TendermintRpc extends slogging.LazyLogging {
    * @tparam F Concurrent effect
    * @return Worker RPC instance. Note that it should be stopped at some point, and can't be used after it's stopped
    */
-  def make[F[_]: Sync](
+  def make[F[_]: Sync: Log](
     hostName: String,
     port: Short
-  )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]): Resource[F, TendermintRpc[F]] = {
-    Resource.pure(
-      new TendermintRpc[F](hostName, port)
-    )
-  }
+  )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]): Resource[F, TendermintRpc[F]] =
+    Resource.liftF {
+      val rpc = new TendermintRpc[F](hostName, port)
+      Log[F].info(s"TendermintRpc created, uri: ${rpc.rpcUri}") as rpc
+    }
 }

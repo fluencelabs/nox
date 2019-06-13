@@ -98,7 +98,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
       _ ← IO(Files.createDirectories(vmCodePath)).to[F]
     } yield vmCodePath
 
-  def prepareWorkerParams(app: eth.state.App): F[WorkerParams] =
+  def prepareWorkerParams(app: eth.state.App)(implicit log: Log[F]): F[WorkerParams] =
     for {
       appPath ← resolveAppPath(app)
       tendermintPath ← makeTendermintPath(appPath)
