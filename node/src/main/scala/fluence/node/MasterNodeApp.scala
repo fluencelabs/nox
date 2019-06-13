@@ -25,7 +25,7 @@ import cats.syntax.apply._
 import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
-import fluence.crypto.ecdsa.Ed25519
+import fluence.crypto.eddsa.Ed25519
 import fluence.effects.docker.DockerIO
 import fluence.kad.http.UriContact
 import fluence.log.{Log, LogFactory}

@@ -108,11 +108,10 @@ object SbtCommons {
   val pureConfig = "com.github.pureconfig" %% "pureconfig" % "0.10.2"
   val ficus = "com.iheart"                 %% "ficus"      % "1.4.5"
 
-  val cryptoVersion = "0.0.5"
+  val cryptoVersion = "0.0.6"
   val cryptoHashsign = "one.fluence" %% "crypto-hashsign" % cryptoVersion
   val cryptoJwt = "one.fluence"      %% "crypto-jwt"      % cryptoVersion
   val cryptoCipher = "one.fluence"   %% "crypto-cipher"   % cryptoVersion
-  val cryptoKeyStore = "one.fluence" %% "crypto-keystore" % cryptoVersion
   val codecCore = "one.fluence"      %% "codec-core"      % cryptoVersion
 
   val sttpVersion = "1.5.17"
