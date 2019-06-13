@@ -21,9 +21,9 @@ import cats.data.EitherT
 import fluence.crypto.Crypto.Hasher
 import fluence.effects.swarm.crypto.Secp256k1Signer.Signer
 import fluence.effects.swarm._
+import fluence.log.Log
 import scodec.bits.ByteVector
 
-import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
 /**
@@ -54,7 +54,7 @@ object Metadata {
    * @param data content the Mutable Resource will be initialized with
    * @return aggregated metadata
    */
-  def generateMetadata[F[_]: Monad](
+  def generateMetadata[F[_]: Monad: Log](
     id: MutableResourceIdentifier,
     period: Int,
     version: Int,

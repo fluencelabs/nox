@@ -193,7 +193,6 @@ lazy val `swarm` = (project in file("effects/swarm"))
       sttpCirce,
       sttpCatsBackend % Test,
       sttpFs2Backend % Test,
-      slogging,
       circeCore,
       circeGeneric,
       circeGenericExtras,
