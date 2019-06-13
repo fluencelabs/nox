@@ -82,15 +82,30 @@ abstract class Log[F[_]: Monad: Clock](val ctx: Context) {
   def scope[G[_], A](k: String)(fn: Log[F] ⇒ G[A]): G[A] =
     scope(_.scope(k -> ""))(fn)
 
+  /**
+   * Returns an instance of Log with the same adapter and modified context
+   *
+   * @param modContext Context modification
+   */
   def getScoped(modContext: Context ⇒ Context): Log.Aux[F, Appender] =
     new Log(modContext(ctx)) {
       override type Appender = self.Appender
       override val appender: Appender = self.appender
     }
 
+  /**
+   * Returns an instance of Log with the same adapter and modified context
+   *
+   * @param kvs Key-value pairs to modify the context
+   */
   def getScoped(kvs: (String, String)*): Log.Aux[F, Appender] =
     getScoped(_.scope(kvs: _*))
 
+  /**
+   * Returns an instance of Log with the same adapter and modified context
+   *
+   * @param k Key to modify the context (value will be empty)
+   */
   def getScoped(k: String): Log.Aux[F, Appender] =
     getScoped(k -> "")
 
