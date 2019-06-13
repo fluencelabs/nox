@@ -90,12 +90,12 @@ final case class WasmModuleMemory private (memory: MemoryBuffer, memoryHasher: M
 
 object WasmModuleMemory {
 
-  def apply(
+  def apply[F[_]: Monad](
     memory: MemoryBuffer,
-    memoryHasher: MemoryHasher.Builder
-  ): Either[GetVmStateError, WasmModuleMemory] = {
+    memoryHasher: MemoryHasher.Builder[F]
+  ): EitherT[F, GetVmStateError, WasmModuleMemory] =
     for {
       memoryHasher <- memoryHasher(memory)
     } yield new WasmModuleMemory(memory, memoryHasher)
-  }
+
 }

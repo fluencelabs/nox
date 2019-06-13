@@ -30,8 +30,7 @@ lazy val `vm` = (project in file("vm"))
       cryptoHashsign,
       scalaTest,
       scalaIntegrationTest,
-      mockito,
-      slogging
+      mockito
     ),
     test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(compile in `vm-counter`)
@@ -39,7 +38,7 @@ lazy val `vm` = (project in file("vm"))
       .dependsOn(compile in `vm-llamadb`)
       .value
   )
-  .dependsOn(`merkelized-bytebuffer`)
+  .dependsOn(`merkelized-bytebuffer`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
 
 /**

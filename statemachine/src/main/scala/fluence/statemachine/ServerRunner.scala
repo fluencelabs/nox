@@ -23,6 +23,7 @@ import cats.data.{EitherT, NonEmptyList}
 import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect.concurrent.Ref
 import cats.effect.{ExitCode, IO, IOApp, Resource}
+import cats.syntax.flatMap._
 import com.github.jtendermint.jabci.socket.TSocket
 import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
@@ -33,6 +34,7 @@ import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.control.{ControlServer, ControlSignals}
 import fluence.statemachine.error.StateMachineError
 import fluence.vm.WasmVm
+import fluence.vm.wasm.MemoryHasher
 import io.circe.Json
 
 import scala.language.higherKinds
@@ -142,6 +144,6 @@ object ServerRunner extends IOApp {
    *
    * @param moduleFiles module filenames with VM code
    */
-  private def buildVm[F[_]: Monad](moduleFiles: NonEmptyList[String]): EitherT[F, StateMachineError, WasmVm] =
-    WasmVm[F](moduleFiles).leftMap(VmOperationInvoker.convertToStateMachineError)
+  private def buildVm[F[_]: Monad: Log](moduleFiles: NonEmptyList[String]): EitherT[F, StateMachineError, WasmVm] =
+    WasmVm[F](moduleFiles, MemoryHasher[F]).leftMap(VmOperationInvoker.convertToStateMachineError)
 }
