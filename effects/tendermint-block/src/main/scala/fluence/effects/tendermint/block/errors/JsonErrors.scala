@@ -41,7 +41,7 @@ trait JsonErrors {
   implicit object LiftProtobufJsonError
       extends ConvertError[Throwable, ProtobufJsonError]({
         case c: JsonFormatException => ProtobufJsonFormatError(c)
-        case c: Throwable => ProtobufJsonUnknownError(c)
+        case c: Throwable           => ProtobufJsonUnknownError(c)
       })
 
 }

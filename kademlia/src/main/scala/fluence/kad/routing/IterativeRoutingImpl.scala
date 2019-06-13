@@ -146,8 +146,9 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C]
             }
           }
 
-        def iterate(collected: SortedSet[Node[C]], probed: Set[Key], data: Stream[SortedSet[Node[C]]])
-          : F[Seq[Node[C]]] =
+        def iterate(collected: SortedSet[Node[C]],
+                    probed: Set[Key],
+                    data: Stream[SortedSet[Node[C]]]): F[Seq[Node[C]]] =
           if (data.isEmpty) collected.toSeq.pure[F]
           else {
             val d #:: tail = data

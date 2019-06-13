@@ -235,7 +235,7 @@ object MasterNode {
       val ipfsStore = IpfsStore[F](config.ipfs.address)
       val polyStore = new PolyStore[F]({
         case StorageType.Swarm => swarmStore
-        case StorageType.Ipfs => ipfsStore
+        case StorageType.Ipfs  => ipfsStore
       })
       new RemoteCodeCarrier[F](polyStore)
     } else {
