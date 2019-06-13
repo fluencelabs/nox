@@ -15,6 +15,7 @@
  */
 
 package fluence.node.config
+import fluence.log.Log
 import io.circe.{Decoder, Encoder}
 
 import scala.language.implicitConversions
@@ -29,14 +30,14 @@ object LogLevel extends Enumeration {
   val DEBUG = Value("DEBUG")
   val TRACE = Value("TRACE")
 
-  implicit def toSlogging(l: LogLevel): slogging.LogLevel = {
+  implicit def toLogLevel(l: LogLevel): Log.Level = {
     l match {
-      case `OFF`   => slogging.LogLevel.OFF
-      case `ERROR` => slogging.LogLevel.ERROR
-      case `WARN`  => slogging.LogLevel.WARN
-      case `INFO`  => slogging.LogLevel.INFO
-      case `DEBUG` => slogging.LogLevel.DEBUG
-      case `TRACE` => slogging.LogLevel.TRACE
+      case `OFF`   => Log.Off
+      case `ERROR` => Log.Error
+      case `WARN`  => Log.Warn
+      case `INFO`  => Log.Info
+      case `DEBUG` => Log.Debug
+      case `TRACE` => Log.Trace
     }
   }
 
