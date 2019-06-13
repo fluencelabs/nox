@@ -134,7 +134,6 @@ lazy val `statemachine` = (project in file("statemachine"))
     kindProjector,
     libraryDependencies ++= Seq(
       pureConfig,
-      slogging,
       scodecBits,
       "com.github.jtendermint" % "jabci" % "0.26.0",
       scalaTest
@@ -281,6 +280,7 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
   .dependsOn(`effects`, `sttpEitherT`, `tendermint-block` % "test")
   .enablePlugins(AutomateHeaderPlugin)
 
+// TODO remove from effects to history
 lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
   .settings(
     commons,
@@ -289,7 +289,6 @@ lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
       circeGeneric,
       circeParser,
       circeGenericExtras,
-      slogging,
       protobuf,
       protobufUtil,
       scodecBits,
@@ -301,12 +300,12 @@ lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
   .dependsOn(`effects`)
   .enablePlugins(AutomateHeaderPlugin)
 
+// TODO remove from effects to history
 lazy val `tendermint-block-history` = (project in file("effects/tendermint-block-history"))
   .settings(
     commons,
     kindProjector,
     libraryDependencies ++= Seq(
-      slogging,
       cats,
       catsEffect,
       sttp,
@@ -323,6 +322,7 @@ lazy val `tendermint-block-history` = (project in file("effects/tendermint-block
   .dependsOn(`effects`, `tendermint-block`, `ipfs`)
   .enablePlugins(AutomateHeaderPlugin)
 
+// TODO remove from effects to history
 lazy val `receipt-storage` = (project in file("effects/receipt-storage"))
   .settings(
     commons,

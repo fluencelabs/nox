@@ -25,10 +25,10 @@ import com.github.jtendermint.jabci.api.CodeType
 import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
+import fluence.log.Log
 import fluence.statemachine.control.ControlSignals
 import fluence.statemachine.state.AbciState
 import scodec.bits.ByteVector
-import slogging.LazyLogging
 
 import scala.language.higherKinds
 
@@ -43,8 +43,7 @@ class AbciService[F[_]: Monad](
   state: Ref[F, AbciState],
   vm: VmOperationInvoker[F],
   controlSignals: ControlSignals[F]
-)(implicit hasher: Hasher[ByteVector, ByteVector])
-    extends LazyLogging {
+)(implicit hasher: Hasher[ByteVector, ByteVector]) {
 
   import AbciService._
 
@@ -53,7 +52,7 @@ class AbciService[F[_]: Monad](
    *
    * @return App (VM) Hash
    */
-  def commit: F[ByteVector] =
+  def commit(implicit log: Log[F]): F[ByteVector] =
     for {
       // Get current state
       s ← state.get
@@ -67,7 +66,7 @@ class AbciService[F[_]: Monad](
           vm.invoke(tx.data.value)
             // Save the tx response to AbciState
             .semiflatMap(value ⇒ AbciState.putResponse[F](tx.head, value).map(_ ⇒ txs).run(st).map(Left(_)))
-            .leftMap(err ⇒ logger.error(s"VM invoke failed: $err for tx: $tx"))
+            .leftSemiflatMap(err ⇒ Log[F].error(s"VM invoke failed: $err for tx: $tx").as(err))
             .getOrElse(Right(st)) // TODO do not ignore vm error
 
         case (st, Nil) ⇒
@@ -77,7 +76,7 @@ class AbciService[F[_]: Monad](
       // Get the VM hash
       vmHash ← vm
         .vmStateHash()
-        .leftMap(err ⇒ logger.error(s"VM is unable to compute state hash: $err"))
+        .leftSemiflatMap(err ⇒ Log[F].error(s"VM is unable to compute state hash: $err").as(err))
         .getOrElse(ByteVector.empty) // TODO do not ignore vm error
 
       appHash = vmHash // TODO: concatenate with controlSignals.receipt
@@ -142,8 +141,8 @@ class AbciService[F[_]: Monad](
    *
    * @param data Incoming transaction
    */
-  def deliverTx(data: Array[Byte]): F[TxResponse] =
-    Tx.readTx(data) match {
+  def deliverTx(data: Array[Byte])(implicit log: Log[F]): F[TxResponse] =
+    Tx.readTx(data).value.flatMap {
       case Some(tx) ⇒
         // TODO we have different logic in checkTx and deliverTx, as only in deliverTx tx might be dropped due to pending txs overflow
         state
@@ -162,8 +161,8 @@ class AbciService[F[_]: Monad](
    *
    * @param data Incoming transaction
    */
-  def checkTx(data: Array[Byte]): F[TxResponse] =
-    Tx.readTx(data) match {
+  def checkTx(data: Array[Byte])(implicit log: Log[F]): F[TxResponse] =
+    Tx.readTx(data).value.flatMap {
       case Some(tx) ⇒
         state.get
           .map(
