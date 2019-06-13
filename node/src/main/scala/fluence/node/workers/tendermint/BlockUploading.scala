@@ -81,7 +81,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: Log](history: BlockHistory[F
     Block(blockJson) match {
       case Left(e) =>
         // TODO: load block through TendermintRPC (not WRPC) again
-        Log[F].error(s"BlockUploading: app $appId failed to parse Tendermint block: $e", e)
+        Log[F].error(s"BlockUploading: failed to parse Tendermint block", e)
 
       case Right(block) =>
         val processF = for {
@@ -98,10 +98,9 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: Log](history: BlockHistory[F
         Backoff.default
           .retry(
             processF,
-            (e: EffectError) =>
-              Log[F].error(s"BlockUploading: app $appId error uploading block ${block.header.height}: $e", e)
+            (e: EffectError) => Log[F].error(s"BlockUploading: error uploading block ${block.header.height}", e)
           ) *>
-          Log[F].info(s"BlockUploading: app $appId block ${block.header.height} uploaded")
+          Log[F].info(s"BlockUploading: block ${block.header.height} uploaded")
 
     }
   }

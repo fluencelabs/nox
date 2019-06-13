@@ -59,15 +59,15 @@ object WorkersHttp {
                   Ok(result)
 
               case Left(RpcRequestFailed(err)) ⇒
-                log.warn(s"RPC request failed: $err", err) *>
+                log.warn(s"RPC request failed", err) *>
                   InternalServerError(err.getMessage)
 
               case Left(err: RpcRequestErrored) ⇒
-                log.warn(s"RPC request errored: $err", err) *>
+                log.warn(s"RPC request errored", err) *>
                   InternalServerError(err.error)
 
               case Left(RpcBodyMalformed(err)) ⇒
-                log.debug(s"RPC body malformed: $err") *>
+                log.warn(s"RPC body malformed", err) *>
                   BadRequest(err.getMessage)
             }
         }
@@ -104,8 +104,10 @@ object WorkersHttp {
       case req @ POST -> Root / LongVar(appId) / "tx" :? QueryId(id) ⇒
         LogFactory[F].init("http", "tx") >>= { implicit log ⇒
           req.decode[String] { tx ⇒
-            log.debug(s"TendermintRpc broadcastTxSync request: \ntx: $tx,\n id: $id")
-            withTendermint(appId)(_.broadcastTxSync(tx, id.getOrElse("dontcare")))
+            log.scope("tx.id" -> tx) { implicit log ⇒
+              log.debug(s"TendermintRpc broadcastTxSync request, id: $id")
+              withTendermint(appId)(_.broadcastTxSync(tx, id.getOrElse("dontcare")))
+            }
           }
         }
     }

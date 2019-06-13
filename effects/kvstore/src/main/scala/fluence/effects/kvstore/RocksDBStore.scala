@@ -164,7 +164,7 @@ object RocksDBStore {
         opts ⇒
           IO(opts.close()).attempt.to[F].flatMap {
             case Left(NonFatal(err)) ⇒
-              Log[F].error(s"Cannot close Options object during cleanup: $err", err)
+              Log[F].error(s"Cannot close Options object during cleanup", err)
 
             case Right(_) ⇒
               Applicative[F].unit
@@ -183,7 +183,7 @@ object RocksDBStore {
         data ⇒
           IO(data.close()).attempt.to[F].flatMap {
             case Left(NonFatal(err)) ⇒
-              Log[F].error(s"Cannot close RocksDB object during cleanup: $err", err)
+              Log[F].error(s"Cannot close RocksDB object during cleanup", err)
             case Right(_) ⇒
               Applicative[F].unit
         }
@@ -196,7 +196,7 @@ object RocksDBStore {
         rOpts ⇒
           IO(rOpts.close()).attempt.to[F].flatMap {
             case Left(NonFatal(err)) ⇒
-              Log[F].error(s"Cannot close RocksDB object during cleanup: $err", err)
+              Log[F].error(s"Cannot close RocksDB object during cleanup", err)
             case Right(_) ⇒
               Applicative[F].unit
         }

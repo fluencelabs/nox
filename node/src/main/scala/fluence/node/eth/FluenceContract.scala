@@ -169,7 +169,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
       case ExitCase.Completed =>
         Log[F].info("Got all the previously prepared clusters. Now switching to the new clusters.")
       case ExitCase.Error(err) =>
-        Log[F].warn(s"Error on getting all previously clusters: $err.", err)
+        Log[F].warn(s"Error on getting all previously prepared clusters.", err)
     }.scope ++ getNodeAppDeployed(validatorKey)
 
   // TODO: on reconnect, do getApps again and remove all apps that are running on this node but not in getApps list
