@@ -60,7 +60,7 @@ object MasterStatus {
   private implicit val encodeApp: Encoder[fluence.node.eth.state.App] = deriveEncoder
   private implicit val encodeStorageRef: Encoder[fluence.node.eth.state.StorageRef] = deriveEncoder
   private implicit val keyEncoderByteVector: KeyEncoder[ByteVector] = KeyEncoder.instance(_.toHex)
-  private implicit val encodeNodeEthState: Encoder[NodeEthState] = deriveEncoder
+  implicit val encodeNodeEthState: Encoder[NodeEthState] = deriveEncoder
   implicit val encodeMasterState: Encoder[MasterStatus] = deriveEncoder
 
 // Used for tests
@@ -77,6 +77,6 @@ object MasterStatus {
   private implicit val decodeApp: Decoder[fluence.node.eth.state.App] = deriveDecoder
   private implicit val decodeStorageRef: Decoder[fluence.node.eth.state.StorageRef] = deriveDecoder
   private implicit val keyDecoderByteVector: KeyDecoder[ByteVector] = KeyDecoder.instance(ByteVector.fromHex(_))
-  private implicit val decodeNodeEthState: Decoder[NodeEthState] = deriveDecoder
+  implicit val decodeNodeEthState: Decoder[NodeEthState] = deriveDecoder
   implicit val decodeMasterState: Decoder[MasterStatus] = deriveDecoder
 }

@@ -155,7 +155,10 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
           .void
 
       case NewBlockReceived(_) ⇒
-        ().pure[F]
+        Applicative[F].unit
+
+      case ContractAppsLoaded ⇒
+        Applicative[F].unit
     }
 
   /**

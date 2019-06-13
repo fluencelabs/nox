@@ -24,6 +24,7 @@ import cats.instances.list._
 import fluence.log.Log
 import fluence.node.MasterNode
 import fluence.node.config.MasterConfig
+import fluence.node.eth.NodeEthState
 
 import scala.concurrent.duration._
 import scala.language.higherKinds
@@ -61,6 +62,12 @@ case class StatusAggregator[F[_]: Monad: Clock](
         config,
         ethState
       )
+
+  /**
+   * Just an expected Ethereum state -- a granular accessor
+   */
+  def expectedEthState: F[NodeEthState] =
+    masterNode.nodeEth.expectedState
 }
 
 object StatusAggregator {

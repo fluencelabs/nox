@@ -65,6 +65,22 @@ object StatusHttp {
             case (_, _, Right(json)) ⇒
               Ok(json)
           }
+
+        case GET -> Root / "eth" ⇒
+          import MasterStatus.encodeNodeEthState
+
+          (for {
+            implicit0(log: Log[F]) ← LogFactory[F].init("http", "status/eth")
+            status ← sm.expectedEthState
+            maybeJson ← Sync[F].delay(status.asJson.spaces2).attempt
+          } yield (log, status, maybeJson)).flatMap {
+            case (log, status, Left(e)) ⇒
+              log.error(s"Status cannot be serialized to JSON. Status: $status", e) *>
+                InternalServerError("JSON generation errored, please try again")
+
+            case (_, _, Right(json)) ⇒
+              Ok(json)
+          }
       }
   }
 }

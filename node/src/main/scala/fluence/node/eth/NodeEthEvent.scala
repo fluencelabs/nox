@@ -28,3 +28,5 @@ case class RemoveAppWorker(appId: Long) extends NodeEthEvent
 case class DropPeerWorker(appId: Long, validatorKey: ByteVector) extends NodeEthEvent
 
 case class NewBlockReceived(block: Block) extends NodeEthEvent
+
+case object ContractAppsLoaded extends NodeEthEvent

@@ -23,7 +23,7 @@ import com.softwaremill.sttp.asynchttpclient.fs2.AsyncHttpClientFs2Backend
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
 import fluence.effects.ethclient.EthClient
-import fluence.node.eth.FluenceContract
+import fluence.node.eth.{FluenceContract, NodeEthState}
 import fluence.node.status.MasterStatus
 import fluence.node.workers.status.WorkerStatus
 import org.scalatest.{Timer ⇒ _, _}
@@ -75,25 +75,27 @@ class MasterNodeIntegrationSpec
     }
   }
 
-  //TODO: change check to Master's HTTP API
-  def checkMasterRunning(containerId: String): IO[Unit] =
-    IO {
-      var line = ""
-      scala.sys.process
-        .Process(s"docker logs $containerId")
-        .!!(ProcessLogger(o => line += s"$o\n", o => line += s"$o\n"))
-      line
-    }.map(line => line should include("switching to the new clusters"))
+  def getEthState(statusPort: Short)(implicit sttpBackend: Sttp): IO[NodeEthState] = {
+    import MasterStatus._
+    for {
+      resp <- sttp.response(asJson[NodeEthState]).get(uri"http://127.0.0.1:$statusPort/status/eth").send()
+    } yield {
+      resp.unsafeBody.right.get
+    }
+  }
 
-  def runTwoMasters(basePort: Short): Resource[IO, Seq[String]] = {
+  def checkMasterRunning(statusPort: Short)(implicit sttpBackend: Sttp): IO[Unit] =
+    getEthState(statusPort).map(_.contractAppsLoaded shouldBe true)
+
+  def runTwoMasters(basePort: Short)(implicit sttpBackend: Sttp): Resource[IO, Seq[String]] = {
     val master1Port: Short = basePort
     val master2Port: Short = (basePort + 1).toShort
     for {
       master1 <- runMaster(master1Port, "master1", n = 1)
       master2 <- runMaster(master2Port, "master2", n = 2)
 
-      _ <- Resource liftF eventually[IO](checkMasterRunning(master1), maxWait = 30.seconds) // TODO: 30 seconds is a bit too much for startup
-      _ <- Resource liftF eventually[IO](checkMasterRunning(master2), maxWait = 30.seconds) // TODO: investigate and reduce timeout
+      _ <- Resource liftF eventually[IO](checkMasterRunning(master1Port), maxWait = 30.seconds) // TODO: 30 seconds is a bit too much for startup
+      _ <- Resource liftF eventually[IO](checkMasterRunning(master1Port), maxWait = 30.seconds) // TODO: investigate and reduce timeout
 
     } yield Seq(master1, master2)
   }
@@ -115,7 +117,7 @@ class MasterNodeIntegrationSpec
   def withEthSttpAndTwoMasters(basePort: Short): Resource[IO, (EthClient, Sttp)] =
     for {
       ethClient <- EthClient.make[IO]()
-      sttp <- sttpResource
+      implicit0(sttp: Sttp) <- sttpResource
       _ <- runTwoMasters(basePort)
     } yield (ethClient, sttp)
 

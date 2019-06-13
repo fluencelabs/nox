@@ -46,7 +46,7 @@ object MakeResource {
           streamFiber ← Concurrent[F].start(
             stream.interruptWhen(stopDef).compile.drain
           )
-        } yield (stopDef, streamFiber, Log[F].scoped(name))
+        } yield (stopDef, streamFiber, Log[F].getScoped(name))
       ) {
         case ((stopDef, streamFiber, log), exitCase) ⇒
           (exitCase match {

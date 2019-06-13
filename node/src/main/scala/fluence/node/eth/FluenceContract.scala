@@ -18,6 +18,7 @@ package fluence.node.eth
 
 import cats.{Applicative, Apply, Functor, Monad, Traverse}
 import cats.effect._
+import cats.effect.concurrent.Deferred
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.apply._
@@ -162,15 +163,20 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of [[App]]s
    */
-  private[eth] def getAllNodeApps[F[_]: ConcurrentEffect: Timer: Log](validatorKey: Bytes32): fs2.Stream[F, state.App] =
-    getNodeApps[F](validatorKey).onFinalizeCase {
-      case ExitCase.Canceled =>
-        Log[F].info("Getting all previously prepared clusters canceled.")
-      case ExitCase.Completed =>
-        Log[F].info("Got all the previously prepared clusters. Now switching to the new clusters.")
-      case ExitCase.Error(err) =>
-        Log[F].warn(s"Error on getting all previously prepared clusters.", err)
-    }.scope ++ getNodeAppDeployed(validatorKey)
+  private[eth] def getAllNodeApps[F[_]: ConcurrentEffect: Timer: Log](
+    validatorKey: Bytes32
+  ): F[(fs2.Stream[F, state.App], F[Unit])] =
+    Deferred[F, Unit].map { switchedToNewApps ⇒
+      (getNodeApps[F](validatorKey).onFinalizeCase {
+        case ExitCase.Canceled =>
+          Log[F].info("Getting all previously prepared clusters canceled.")
+        case ExitCase.Completed =>
+          switchedToNewApps.complete(()) *>
+            Log[F].info("Got all the previously prepared clusters. Now switching to the new clusters.")
+        case ExitCase.Error(err) =>
+          Log[F].warn(s"Error on getting all previously prepared clusters.", err)
+      }.scope ++ getNodeAppDeployed(validatorKey)) -> switchedToNewApps.get
+    }
 
   // TODO: on reconnect, do getApps again and remove all apps that are running on this node but not in getApps list
   // this may happen if we missed some events due to network outage or the like
