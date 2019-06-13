@@ -116,7 +116,6 @@ lazy val `statemachine-control` = (project in file("statemachine/control"))
       catsEffect,
       circeGeneric,
       circeParser,
-      slogging,
       http4sDsl,
       http4sServer,
       http4sCirce,
@@ -218,7 +217,6 @@ lazy val `ipfs` = (project in file("effects/ipfs"))
       sttpCirce,
       circeGeneric,
       circeFs2,
-      slogging,
       scodecBits,
       scodecCore,
       scalaTest
@@ -258,7 +256,7 @@ lazy val `dockerio` = (project in file("effects/docker"))
   .settings(
     commons
   )
-  .dependsOn(`effects`, `log`)
+  .dependsOn(`effects`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
