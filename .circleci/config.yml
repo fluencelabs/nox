@@ -88,7 +88,7 @@ jobs:
           paths:
             - ~/.cargo
             - ~/.rustup
-            - bootstrap/node_modules
+#            - bootstrap/node_modules
           key: cli--{{ checksum "cli/Cargo.lock" }}
 
   backend sdk:
