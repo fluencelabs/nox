@@ -252,7 +252,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
     "raise an error" when {
       "getting inner state for module failed" in {
         val counterTestFile = getClass.getResource("/wast/counter.wast").getPath
-        val badHasher: MemoryHasher.Builder[IO] = (v1: MemoryBuffer) => EitherT.leftT(CryptoError("error"))
+        val badHasher: MemoryHasher.Builder[IO] = (v1: MemoryBuffer) => EitherT.leftT(InternalVmError("error"))
 
         val res = for {
           vm ← WasmVm[IO](NonEmptyList.one(counterTestFile), badHasher)

@@ -53,7 +53,9 @@ class ControlRpcSpec extends WordSpec with Matchers with OptionValues {
   "ControlRpc" should {
     implicit val ioTimer: Timer[IO] = IO.timer(global)
     implicit val ioShift: ContextShift[IO] = IO.contextShift(global)
-    implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init(getClass.getSimpleName).unsafeRunSync()
+
+    implicit val logFactory = LogFactory.forPrintln[IO]()
+    implicit val log: Log[IO] = LogFactory[IO].init(getClass.getSimpleName).unsafeRunSync()
 
     val config = ControlServerConfig("localhost", 26662)
     val serverR = ControlServer.make[IO](config)
