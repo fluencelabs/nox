@@ -21,7 +21,7 @@ import java.nio.ByteBuffer
 import asmble.compile.jvm.{MemoryBuffer, MemoryByteBuffer}
 import asmble.run.jvm.Module.Compiled
 import asmble.run.jvm.ScriptContext
-import cats.{Id, Monad, ~>}
+import cats.{~>, Id, Monad}
 import cats.data.EitherT
 import cats.effect.{IO, Timer}
 import fluence.crypto.Crypto.Hasher
@@ -41,7 +41,7 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
 
   implicit val ioTimer: Timer[IO] = IO.timer(ExecutionContext.global)
   implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init(getClass.getSimpleName).unsafeRunSync()
-  implicit val logId: Log[Id] = log.mapK(new (IO ~> Id){
+  implicit val logId: Log[Id] = log.mapK(new (IO ~> Id) {
     override def apply[A](fa: IO[A]): Id[A] = fa.unsafeRunSync()
   })
 
