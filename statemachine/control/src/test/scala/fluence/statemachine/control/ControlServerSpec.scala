@@ -18,6 +18,7 @@ package fluence.statemachine.control
 import cats.effect.{ContextShift, IO, Resource, Timer}
 import cats.implicits._
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
+import fluence.log.{Log, LogFactory}
 import fluence.statemachine.control.ControlServer.ControlServerConfig
 import io.circe.Encoder
 import org.scalatest.{EitherValues, Matchers, OptionValues, WordSpec}
@@ -48,6 +49,7 @@ class ControlServerSpec extends WordSpec with Matchers with ControlServerOps {
   "ControlServer" should {
     implicit val ioTimer: Timer[IO] = IO.timer(global)
     implicit val ioShift: ContextShift[IO] = IO.contextShift(global)
+    implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init(getClass.getSimpleName).unsafeRunSync()
 
     val server = ControlServer.make[IO](config)
     val sttp = Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))

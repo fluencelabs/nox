@@ -18,6 +18,7 @@ package fluence.vm
 
 import java.nio.{ByteBuffer, ByteOrder}
 
+import asmble.compile.jvm.MemoryBuffer
 import cats.Monad
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.{IO, Timer}
@@ -251,12 +252,10 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
     "raise an error" when {
       "getting inner state for module failed" in {
         val counterTestFile = getClass.getResource("/wast/counter.wast").getPath
-        val badHasher = new Crypto.Hasher[Array[Byte], Array[Byte]] {
-          override def apply[F[_]: Monad](input: Array[Byte]): EitherT[F, CryptoError, Array[Byte]] =
-            EitherT.leftT(CryptoError("error!"))
-        }
+        val badHasher: MemoryHasher.Builder[IO] = (v1: MemoryBuffer) => EitherT.leftT(CryptoError("error"))
+
         val res = for {
-          vm ← WasmVm[IO](NonEmptyList.one(counterTestFile),  badHasher)
+          vm ← WasmVm[IO](NonEmptyList.one(counterTestFile), badHasher)
           state ← vm.getVmState[IO].toVmError
         } yield state
 
