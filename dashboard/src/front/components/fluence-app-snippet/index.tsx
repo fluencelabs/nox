@@ -123,7 +123,7 @@ class FluenceAppSnippet extends React.Component<Props, State> {
         const defaultText = (defaultQueries) ? defaultQueries.join('\n') : '';
 
         let parser: (s: string) => string;
-        if (shortName === 'llamadb') {
+        if (shortName.toLowerCase() === 'llamadb') {
             parser = function (s: string): string {
                 return s.replace('_0\n', '');
             };
@@ -173,12 +173,6 @@ class FluenceAppSnippet extends React.Component<Props, State> {
 
     renderAppSnippets(): React.ReactNode[] {
         return ([
-            <button type="button"
-                    onClick={e => window.open(`http://sql.fluence.network?appId=${this.props.appId}&privateKey=${llamaPrivateKey}`, '_blank')}
-                    className="btn btn-block btn-link">
-                <i className="fa fa-external-link margin-r-5"/> <b>Open SQL DB web interface</b>
-            </button>,
-            <hr/>,
             this.renderTrxHashBlock(),
             <p>
                 <b>
@@ -275,11 +269,7 @@ session.request("${requestForResult}").result().then((r) => {
                             this.renderInteractiveSnippet(Number(this.props.appId), this.app.shortName, this.app.requestExamples || [])
                         }
                         <hr/>
-                        {(this.app.shortName === 'LlamaDB') ? this.renderAppSnippets() : this.renderUploadedAppSnippets(this.app.shortName) }
-
-                        <hr/>
-                        <p><strong><i className="fa fa-bullseye margin-r-5"/>Check your app's health:</strong></p>
-                        {appInfo && <FluenceCluster appId={this.props.appId} cluster={appInfo.cluster}/>}
+                        {(this.app.shortName.toLowerCase() === 'llamadb') ? this.renderAppSnippets() : this.renderUploadedAppSnippets(this.app.shortName) }
                     </div>
                 </div>
             </div>
