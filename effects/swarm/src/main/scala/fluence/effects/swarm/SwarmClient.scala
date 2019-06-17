@@ -21,7 +21,11 @@ import java.nio.ByteBuffer
 import cats.Monad
 import cats.data.EitherT
 import cats.effect.IO
-import cats.syntax.applicativeError._
+import cats.syntax.apply._
+import cats.syntax.applicative._
+import cats.syntax.functor._
+import cats.syntax.either._
+import cats.syntax.flatMap._
 import com.softwaremill.sttp._
 import com.softwaremill.sttp.circe._
 import fluence.crypto.Crypto.Hasher
@@ -29,6 +33,7 @@ import fluence.effects.swarm.crypto.Keccak256Hasher
 import fluence.effects.swarm.crypto.Secp256k1Signer.Signer
 import fluence.effects.swarm.requests._
 import fluence.effects.swarm.responses.Manifest
+import fluence.log.Log
 import io.circe.syntax._
 import io.circe.{Json, Printer}
 import scodec.bits.ByteVector
@@ -52,7 +57,7 @@ import scala.language.higherKinds
 class SwarmClient[F[_]: Monad](swarmUri: Uri)(
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
   hasher: Hasher[ByteVector, ByteVector]
-) extends slogging.LazyLogging {
+) {
 
   import BzzProtocol._
   import fluence.effects.swarm.helpers.ResponseOps._
@@ -83,40 +88,42 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri)(
    * @param hash Hash of resource (file, metadata, manifest) or address from ENS.
    *
    */
-  def download(hash: String): EitherT[F, SwarmError, Array[Byte]] = {
+  def download(hash: String)(implicit log: Log[F]): EitherT[F, SwarmError, Array[Byte]] = {
     val downloadURI = uri(Bzz, hash)
-    logger.debug(s"Swarm download started $downloadURI")
-    sttp
-      .response(asByteArray)
-      .get(downloadURI)
-      .send()
-      .toEitherT { er =>
-        val errorMessage = s"Swarm download error $downloadURI: $er"
-        logger.error(errorMessage)
-        SwarmError(errorMessage)
-      }
-      .map { r =>
-        logger.debug(s"Swarm download finished $downloadURI [${r.length}] bytes")
-        r
-      }
+    Log.eitherT[F, SwarmError].debug(s"Swarm download started $downloadURI") *>
+      sttp
+        .response(asByteArray)
+        .get(downloadURI)
+        .send()
+        .toEitherT { er =>
+          SwarmError(s"Swarm download error $downloadURI: $er")
+        }
+        .leftSemiflatMap {
+          case e @ SwarmError(errorMessage, _) ⇒
+            Log[F].error(errorMessage) as e
+        }
+        .flatTap { r =>
+          Log.eitherT[F, SwarmError].debug(s"Swarm download finished $downloadURI [${r.length}] bytes")
+        }
   }
 
-  def fetch(target: String): EitherT[F, SwarmError, fs2.Stream[F, ByteBuffer]] = {
+  def fetch(target: String)(implicit log: Log[F]): EitherT[F, SwarmError, fs2.Stream[F, ByteBuffer]] = {
     val downloadURI = uri(Bzz, target)
-    logger.debug(s"Swarm download started $downloadURI")
-    sttp
-      .response(asStream[fs2.Stream[F, ByteBuffer]])
-      .get(downloadURI)
-      .send()
-      .toEitherT { er ⇒
-        val errorMessage = s"Error on downloading from $downloadURI. $er"
-        logger.error(errorMessage)
-        SwarmError(errorMessage)
-      }
-      .map { r =>
-        logger.debug(s"Swarm download finished $downloadURI")
-        r
-      }
+    Log.eitherT[F, SwarmError].debug(s"Swarm download started $downloadURI") *>
+      sttp
+        .response(asStream[fs2.Stream[F, ByteBuffer]])
+        .get(downloadURI)
+        .send()
+        .toEitherT { er ⇒
+          SwarmError(s"Error on downloading from $downloadURI. $er")
+        }
+        .leftSemiflatMap {
+          case e @ SwarmError(errorMessage, _) ⇒
+            Log[F].error(errorMessage) as e
+        }
+        .flatTap { r =>
+          Log.eitherT[F, SwarmError].debug(s"Swarm download finished $downloadURI")
+        }
   }
 
   /**
@@ -125,7 +132,7 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri)(
    * @see https://swarm-guide.readthedocs.io/en/latest/up-and-download.html
    * @return hash of resource (address in Swarm)
    */
-  def upload(data: Array[Byte]): EitherT[F, SwarmError, String] = {
+  def upload(data: Array[Byte])(implicit log: Log[F]): EitherT[F, SwarmError, String] = {
     upload(ByteVector(data))
   }
 
@@ -135,20 +142,19 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri)(
    * @see https://swarm-guide.readthedocs.io/en/latest/up-and-download.html
    * @return hash of resource (address in Swarm)
    */
-  def upload(data: ByteVector): EitherT[F, SwarmError, String] = {
+  def upload(data: ByteVector)(implicit log: Log[F]): EitherT[F, SwarmError, String] = {
     val uploadURI = uri(Bzz)
-    logger.info(s"Upload request. Data: $data")
-    sttp
-      .response(asString)
-      .post(uploadURI)
-      .body(data.toArray)
-      .send()
-      .toEitherT(er => SwarmError(s"Error on uploading to $uploadURI. $er"))
-      .map { r =>
-        logger.info(s"The resource has been uploaded.")
-        logger.debug(s"Resource size: ${r.length} bytes.")
-        r
-      }
+    Log.eitherT[F, SwarmError].info(s"Upload request. Data: $data") *>
+      sttp
+        .response(asString)
+        .post(uploadURI)
+        .body(data.toArray)
+        .send()
+        .toEitherT(er => SwarmError(s"Error on uploading to $uploadURI. $er"))
+        .flatTap { r =>
+          Log.eitherT[F, SwarmError].info(s"The resource has been uploaded.") *>
+            Log.eitherT[F, SwarmError].debug(s"Resource size: ${r.length} bytes.")
+        }
   }
 
   /**
@@ -158,23 +164,25 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri)(
    * @param target hash of resource (file, metadata, manifest) or address from ENS
    *
    */
-  def downloadRaw(target: String): EitherT[F, SwarmError, Manifest] = {
+  def downloadRaw(target: String)(implicit log: Log[F]): EitherT[F, SwarmError, Manifest] = {
     val downloadURI = uri(BzzRaw, target)
-    logger.info(s"Download manifest request. Target: $target")
-    sttp
-      .response(asJson[Manifest])
-      .get(downloadURI)
-      .send()
-      .toEitherT(er => SwarmError(s"Error on downloading manifest from $downloadURI. $er"))
-      .subflatMap(_.left.map { er =>
-        logger.error(s"Deserialization error: $er")
-        SwarmError(s"Deserialization error on request to $downloadURI.", Some(er.error))
-      })
-      .map { r =>
-        logger.info(s"A manifest has been downloaded.")
-        logger.debug(s"A raw manifest response: ${r.asJson}.")
-        r
-      }
+    Log.eitherT[F, SwarmError].info(s"Download manifest request. Target: $target") *>
+      sttp
+        .response(asJson[Manifest])
+        .get(downloadURI)
+        .send()
+        .toEitherT(er => SwarmError(s"Error on downloading manifest from $downloadURI. $er"))
+        .flatMapF {
+          case Left(er) ⇒
+            Log[F].error(s"Deserialization error: $er") as
+              SwarmError(s"Deserialization error on request to $downloadURI.", Some(er.error)).asLeft[Manifest]
+          case Right(r) ⇒
+            r.asRight[SwarmError].pure[F]
+        }
+        .flatTap { r =>
+          Log.eitherT[F, SwarmError].info(s"A manifest has been downloaded.") *>
+            Log.eitherT[F, SwarmError].debug(s"A raw manifest response: ${r.asJson}.")
+        }
   }
 
   /**
@@ -188,18 +196,19 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri)(
   def downloadMutableResource(
     target: String,
     param: Option[DownloadResourceParam] = None
-  ): EitherT[F, SwarmError, ByteVector] = {
+  )(implicit log: Log[F]): EitherT[F, SwarmError, ByteVector] = {
     val downloadURI = uri(BzzResource, target, param.map(_.toParams).getOrElse(Nil))
-    logger.info(s"Download a mutable resource request. Target: $target, param: ${param.getOrElse("<null>")}")
-    sttp
-      .response(asByteArray.map(ByteVector(_)))
-      .get(downloadURI)
-      .send()
-      .toEitherT(er => SwarmError(s"Error on downloading raw from $downloadURI. $er"))
-      .map { r =>
-        logger.info(s"A mutable resource has been downladed. Size: ${r.size} bytes.")
-        r
-      }
+    Log
+      .eitherT[F, SwarmError]
+      .info(s"Download a mutable resource request. Target: $target, param: ${param.getOrElse("<null>")}") *>
+      sttp
+        .response(asByteArray.map(ByteVector(_)))
+        .get(downloadURI)
+        .send()
+        .toEitherT(er => SwarmError(s"Error on downloading raw from $downloadURI. $er"))
+        .flatTap { r =>
+          Log.eitherT[F, SwarmError].info(s"A mutable resource has been downladed. Size: ${r.size} bytes.")
+        }
   }
 
   /**
@@ -219,14 +228,16 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri)(
     data: ByteVector,
     multiHash: Boolean,
     signer: Signer[ByteVector, ByteVector]
-  ): EitherT[F, SwarmError, String] = {
-    logger.info(
-      s"Initialize a mutable resource. " +
-        mutableResourceId.toString +
-        s", data: ${data.size} bytes, " +
-        s"multiHash: $multiHash"
-    )
+  )(implicit log: Log[F]): EitherT[F, SwarmError, String] =
     for {
+      _ ← Log
+        .eitherT[F, SwarmError]
+        .info(
+          s"Initialize a mutable resource. " +
+            mutableResourceId.toString +
+            s", data: ${data.size} bytes, " +
+            s"multiHash: $multiHash"
+        )
       req <- InitializeMutableResourceRequest(
         mutableResourceId,
         data,
@@ -234,16 +245,15 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri)(
         signer
       )
       json = req.asJson
-      _ = logger.debug(s"InitializeMutableResourceRequest: $json")
+      _ <- Log.eitherT[F, SwarmError].debug(s"InitializeMutableResourceRequest: $json")
       resp <- sttp
         .response(asString.map(_.filter(_ != '"')))
         .post(uri(BzzResource))
         .body(jsonToBytes(json))
         .send()
         .toEitherT(er => SwarmError(s"Error on initializing a mutable resource. $er"))
-      _ = logger.info(s"A mutable resource has been initialized. Hash: $resp")
+      _ ← Log.eitherT[F, SwarmError].info(s"A mutable resource has been initialized. Hash: $resp")
     } yield resp
-  }
 
   /**
    * Upload a metafile for future use.
@@ -254,21 +264,19 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri)(
    */
   def uploadMutableResource(
     mutableResourceId: MutableResourceIdentifier
-  ): EitherT[F, SwarmError, String] = {
-
+  )(implicit log: Log[F]): EitherT[F, SwarmError, String] = {
     val req = UploadMutableResourceRequest(mutableResourceId)
     val json = req.asJson
-    logger.debug(s"UpdateMutableResourceRequest: $json")
-    sttp
-      .post(uri(BzzResource))
-      .response(asString)
-      .body(jsonToBytes(req.asJson))
-      .send()
-      .toEitherT(er => SwarmError(s"Error on uploading a mutable resource. $er"))
-      .map { r =>
-        logger.info(s"A metafile of a mutable resource has been uploaded. Hash: $r.")
-        r
-      }
+    Log.eitherT[F, SwarmError].debug(s"UpdateMutableResourceRequest: $json") *>
+      sttp
+        .post(uri(BzzResource))
+        .response(asString)
+        .body(jsonToBytes(req.asJson))
+        .send()
+        .toEitherT(er => SwarmError(s"Error on uploading a mutable resource. $er"))
+        .flatTap { r =>
+          Log.eitherT[F, SwarmError].info(s"A metafile of a mutable resource has been uploaded. Hash: $r.")
+        }
   }
 
   /**
@@ -292,16 +300,18 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri)(
     period: Int,
     version: Int,
     signer: Signer[ByteVector, ByteVector]
-  ): EitherT[F, SwarmError, Unit] = {
-    logger.info(
-      s"Update a mutable resource. " +
-        s"$mutableResourceId, " +
-        s"data: ${data.size} bytes, " +
-        s"multiHash: $multiHash, " +
-        s"period: $period, " +
-        s"version: $version"
-    )
+  )(implicit log: Log[F]): EitherT[F, SwarmError, Unit] =
     for {
+      _ ← Log
+        .eitherT[F, SwarmError]
+        .info(
+          s"Update a mutable resource. " +
+            s"$mutableResourceId, " +
+            s"data: ${data.size} bytes, " +
+            s"multiHash: $multiHash, " +
+            s"period: $period, " +
+            s"version: $version"
+        )
       req <- UpdateMutableResourceRequest(
         mutableResourceId,
         data,
@@ -311,7 +321,7 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri)(
         signer
       )
       json = req.asJson
-      _ = logger.debug(s"UpdateMutableResourceRequest: $json")
+      _ ← Log.eitherT[F, SwarmError].debug(s"UpdateMutableResourceRequest: $json")
       updateURI = uri(BzzResource)
       response <- sttp
         .response(ignore)
@@ -319,10 +329,9 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri)(
         .body(jsonToBytes(json))
         .send()
         .toEitherT(er => SwarmError(s"Error on sending request to $updateURI. $er"))
-      _ = logger.info("A mutable resource has been updated.")
+      _ ← Log.eitherT[F, SwarmError].info("A mutable resource has been updated.")
     } yield response
 
-  }
 }
 
 object SwarmClient {
@@ -340,8 +349,10 @@ object SwarmClient {
 
   implicit class UnsafeClient(client: SwarmClient[IO]) {
 
-    def uploadUnsafe(data: Array[Byte]): String = client.upload(data).value.unsafeRunSync().right.get
+    def uploadUnsafe(data: Array[Byte])(implicit log: Log[IO]): String =
+      client.upload(data).value.unsafeRunSync().right.get
 
-    def downloadUnsafe(target: String): Array[Byte] = client.download(target).value.unsafeRunSync().right.get
+    def downloadUnsafe(target: String)(implicit log: Log[IO]): Array[Byte] =
+      client.download(target).value.unsafeRunSync().right.get
   }
 }

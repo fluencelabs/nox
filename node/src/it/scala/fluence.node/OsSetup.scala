@@ -18,8 +18,6 @@ package fluence.node
 import java.io.File
 import java.net.InetAddress
 
-import cats.syntax.functor._
-
 import scala.language.higherKinds
 import scala.sys.process.{Process, ProcessLogger}
 

@@ -14,19 +14,21 @@
  * limitations under the License.
  */
 
-import cats.{ApplicativeError, Monad, MonadError}
+import cats.MonadError
 import cats.effect.concurrent.Ref
 import cats.effect.{ContextShift, Timer}
 import cats.syntax.applicative._
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.log.Log
 
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-case class TxOrder[F[_]: ContextShift: Timer](txIds: Ref[F, Map[String, Int]])(implicit F: MonadError[F, Throwable])
-    extends slogging.LazyLogging {
+case class TxOrder[F[_]: ContextShift: Timer: Log](txIds: Ref[F, Map[String, Int]])(
+  implicit F: MonadError[F, Throwable]
+) {
 
   /**
    * Wait until `id` becomes next to latest processed request
@@ -39,9 +41,9 @@ case class TxOrder[F[_]: ContextShift: Timer](txIds: Ref[F, Map[String, Int]])(i
         ().pure[F]
       } else {
         if (last == -1) {
-          logger.warn(s"First request should start with counter = 0, was ${id.count} (${id.session})")
-          // TODO don't spam with logs
-          ContextShift[F].shift *> Timer[F].sleep(1000.millis) *> waitOrder(id)
+          Log[F].warn(s"First request should start with counter = 0, was ${id.count} (${id.session})") *>
+            // TODO don't spam with logs
+            ContextShift[F].shift *> Timer[F].sleep(1000.millis) *> waitOrder(id)
         } else if (id.count <= last) {
           F.raiseError[Unit](
             new RuntimeException(s"Counter should be bigger than $last, was ${id.count} (${id.session})")

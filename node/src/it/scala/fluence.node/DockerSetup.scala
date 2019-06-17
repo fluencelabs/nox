@@ -21,6 +21,7 @@ import java.nio.file.{Files, Paths}
 import cats.effect._
 import fluence.effects.docker.DockerIO
 import fluence.effects.docker.params.{DockerImage, DockerParams}
+import fluence.log.Log
 
 import scala.language.higherKinds
 
@@ -53,7 +54,7 @@ trait DockerSetup extends OsSetup {
     )
   }
 
-  protected def runMaster[F[_]: ContextShift: Async](
+  protected def runMaster[F[_]: ContextShift: Async: Log](
     apiPort: Short,
     name: String,
     n: Int,

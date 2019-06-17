@@ -10,6 +10,7 @@ import fluence.codec.{CodecError, PureCodec}
 import fluence.effects.kvstore.{KVStore, RocksDBStore}
 import fluence.effects.tendermint.block.history.Receipt
 import cats.syntax.either._
+import fluence.log.Log
 
 import scala.language.higherKinds
 import scala.util.Try
@@ -68,7 +69,7 @@ object KVReceiptStorage {
   implicit val longCodec: PureCodec[Long, Array[Byte]] =
     PureCodec[Long, String] >>> PureCodec[String, Array[Byte]]
 
-  def make[F[_]: Sync: LiftIO: ContextShift](appId: Long, storagePath: Path): Resource[F, KVReceiptStorage[F]] =
+  def make[F[_]: Sync: LiftIO: ContextShift: Log](appId: Long, storagePath: Path): Resource[F, KVReceiptStorage[F]] =
     for {
       path <- Resource.liftF(Sync[F].catchNonFatal(storagePath.resolve(ReceiptStoragePath).resolve(appId.toString)))
       store <- RocksDBStore.make[F, Long, Receipt](path.toAbsolutePath.toString)

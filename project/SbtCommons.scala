@@ -91,9 +91,6 @@ object SbtCommons {
 
   val asmble = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.7-fl"
 
-  @deprecated("Migrate to fluence.log.Log facade", "20.05.2019")
-  val slogging = "biz.enef" %% "slogging" % "0.6.1"
-
   val catsVersion = "1.6.0"
   val cats = "org.typelevel"       %% "cats-core"   % catsVersion
   val catsEffect = "org.typelevel" %% "cats-effect" % "1.3.0"
@@ -108,12 +105,13 @@ object SbtCommons {
   val pureConfig = "com.github.pureconfig" %% "pureconfig" % "0.10.2"
   val ficus = "com.iheart"                 %% "ficus"      % "1.4.5"
 
-  val cryptoVersion = "0.0.5"
+  val codecVersion = "0.0.5"
+  val cryptoVersion = "0.0.6"
   val cryptoHashsign = "one.fluence" %% "crypto-hashsign" % cryptoVersion
   val cryptoJwt = "one.fluence"      %% "crypto-jwt"      % cryptoVersion
   val cryptoCipher = "one.fluence"   %% "crypto-cipher"   % cryptoVersion
-  val cryptoKeyStore = "one.fluence" %% "crypto-keystore" % cryptoVersion
-  val codecCore = "one.fluence"      %% "codec-core"      % cryptoVersion
+  
+  val codecCore = "one.fluence"      %% "codec-core"      % codecVersion
 
   val sttpVersion = "1.5.17"
   val sttp = "com.softwaremill.sttp"            %% "core"                           % sttpVersion

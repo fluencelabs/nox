@@ -16,14 +16,14 @@
 
 package fluence.effects.tendermint.rpc
 
-import cats.Applicative
+import cats.{~>, Id}
 import cats.data.EitherT
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.syntax.effect._
 import cats.syntax.applicativeError._
-import cats.syntax.compose._
 import cats.syntax.either._
+import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.JavaFutureConversion._
@@ -31,6 +31,7 @@ import fluence.effects.syntax.backoff._
 import fluence.effects.syntax.eitherT._
 import fluence.effects.tendermint.rpc.helpers.NettyFutureConversion._
 import fluence.effects.{Backoff, EffectError}
+import fluence.log.Log
 import fs2.concurrent.Queue
 import io.circe.Json
 import org.asynchttpclient.Dsl._
@@ -43,7 +44,7 @@ import scala.language.higherKinds
  * Implementation of Tendermint RPC Subscribe call
  * Details: https://tendermint.com/rpc/#subscribe
  */
-trait WebsocketTendermintRpc extends slogging.LazyLogging {
+trait WebsocketTendermintRpc {
 
   val host: String
   val port: Int
@@ -53,11 +54,10 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
   /**
    * Subscribe on new blocks from Tendermint
    */
-  def subscribeNewBlock[F[_]: ConcurrentEffect: Timer]: fs2.Stream[F, Json] = {
+  def subscribeNewBlock[F[_]: ConcurrentEffect: Timer: Log]: fs2.Stream[F, Json] =
     subscribe("NewBlock")
-  }
 
-  private def subscribe[F[_]: ConcurrentEffect: Timer](
+  private def subscribe[F[_]: ConcurrentEffect: Timer: Log](
     event: String
   ): fs2.Stream[F, Json] = {
     def subscribe(ws: WebSocket) = ws.sendTextFrame(request(event)).asAsync.void
@@ -93,34 +93,39 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
    * @param queue Queue to send events to
    * @param onConnect Will be executed on each successful connection
    */
-  private def connect[F[_]: ConcurrentEffect: Timer](
+  private def connect[F[_]: ConcurrentEffect: Timer: Log](
     queue: Queue[F, Json],
     onConnect: WebSocket => F[Unit]
   )(implicit bf: Backoff[WebsocketRpcError] = Backoff.default): F[Unit] = {
     def logConnectionError(e: EffectError) =
-      Applicative[F].pure(logger.error(s"Tendermint WRPC: $wsUrl error connecting: ${e.getMessage}"))
+      Log[F].error(s"Tendermint WRPC: $wsUrl error connecting: ${e.getMessage}")
 
-    def close(ws: NettyWebSocket) = ws.sendCloseFrame().asAsync.attempt.void
+    def close(ws: NettyWebSocket) =
+      ws.sendCloseFrame().asAsync.attempt.void
 
     (for {
       // Ref to accumulate payload frames (websocket allows to split single message into several)
       ref <- Ref.of[F, String]("")
+
       // promise will be completed by exception when socket is disconnected
       promise <- Deferred[F, WebsocketRpcError]
+
       // keep connecting until success
       websocket <- Backoff.default.retry(socket(wsHandler(ref, queue, promise)), logConnectionError)
       _ <- onConnect(websocket)
+
       // wait until socket disconnects (it may never do)
       error <- promise.get
+
       // try to signal tendermint ws is closing ; TODO: will that ever succeed?
       _ <- close(websocket)
-      _ = logger.info(s"Tendermint WRPC: $wsUrl will reconnect: ${error.getMessage}")
+      _ ← Log[F].info(s"Tendermint WRPC: $wsUrl will reconnect: ${error.getMessage}")
     } yield error.asLeft[Unit]).eitherT.backoff.void
   }
 
   private def socket[F[_]: Async](handler: WebSocketUpgradeHandler) =
     EitherT(
-      Async[F]
+      Sync[F]
         .delay(
           asyncHttpClient()
             .prepareGet(wsUrl)
@@ -132,7 +137,7 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
         .flatten
     ).leftMap[EffectError](ConnectionFailed)
 
-  private def wsHandler[F[_]: ConcurrentEffect](
+  private def wsHandler[F[_]: ConcurrentEffect: Log](
     ref: Ref[F, String],
     queue: Queue[F, Json],
     disconnected: Deferred[F, WebsocketRpcError]
@@ -141,6 +146,8 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
       .addWebSocketListener(
         new WebSocketListener {
           private val websocketP = Deferred.unsafe[F, WebSocket]
+
+          private val logger: Log[Id] = Log[F].mapK[Id](Lambda[F ~> Id](_.toIO.unsafeRunSync()))
 
           override def onOpen(websocket: WebSocket): Unit = {
             logger.info(s"Tendermint WRPC: $wsUrl connected")
@@ -167,10 +174,8 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
                 .map(s => asJson(s.concat(payload)))
                 .flatMap {
                   case Left(e) =>
-                    Applicative[F].pure {
-                      logger.error(s"Tendermint WRPC: $wsUrl $e")
-                      logger.debug(s"Tendermint WRPC: $wsUrl $e err payload:\n" + payload)
-                    }
+                    Log[F].error(s"Tendermint WRPC: $wsUrl $e") *>
+                      Log[F].debug(s"Tendermint WRPC: $wsUrl $e err payload:\n" + payload)
                   case Right(json) => queue.enqueue1(json)
                 } >> ref.set("")
 

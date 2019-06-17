@@ -23,17 +23,19 @@ import cats.data.{EitherT, NonEmptyList}
 import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect.concurrent.Ref
 import cats.effect.{ExitCode, IO, IOApp, Resource}
+import cats.syntax.flatMap._
 import com.github.jtendermint.jabci.socket.TSocket
+import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
 import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.log.{Log, LogFactory}
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.control.{ControlServer, ControlSignals}
 import fluence.statemachine.error.StateMachineError
 import fluence.vm.WasmVm
+import fluence.vm.wasm.MemoryHasher
 import io.circe.Json
-import slogging.MessageFormatter.DefaultPrefixFormatter
-import slogging._
 
 import scala.language.higherKinds
 
@@ -44,17 +46,20 @@ import scala.language.higherKinds
  * jTendermint implements RPC layer, provides dedicated threads (`Consensus`, `Mempool` and `Query` thread
  * according to Tendermint specification) and sends ABCI requests to `ABCIHandler`.
  */
-object ServerRunner extends IOApp with LazyLogging {
+object ServerRunner extends IOApp {
 
   private val sttpResource: Resource[IO, SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]] =
     Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
+  private implicit val logFactory = LogFactory.forPrintln[IO]()
+
   override def run(args: List[String]): IO[ExitCode] = {
     for {
       config <- StateMachineConfig.load[IO]()
-      _ = configureLogging(convertLogLevel(config.logLevel))
 
-      _ = logger.info("Building State Machine ABCI handler")
+      implicit0(log: Log[IO]) ← logFactory.init("server")
+
+      _ ← log.info("Building State Machine ABCI handler")
       _ <- (
         for {
           control ← ControlServer.make[IO](config.control)
@@ -72,11 +77,11 @@ object ServerRunner extends IOApp with LazyLogging {
     } yield ExitCode.Success
   }.guaranteeCase {
     case Canceled =>
-      IO(logger.error("StateMachine was canceled"))
+      logFactory.init("server", "shutdown") >>= (_.error("StateMachine was canceled"))
     case Error(e) =>
-      IO(logger.error("StateMachine stopped with error: {}", e)).map(_ => e.printStackTrace(System.err))
+      logFactory.init("server", "shutdown") >>= (_.error("StateMachine stopped with error", e))
     case Completed =>
-      IO(logger.info("StateMachine exited gracefully"))
+      logFactory.init("server", "shutdown") >>= (_.info("StateMachine exited gracefully"))
   }
 
   private def abciHandlerResource(
@@ -84,7 +89,7 @@ object ServerRunner extends IOApp with LazyLogging {
     config: StateMachineConfig,
     controlServer: ControlServer[IO],
     tendermintRpc: TendermintRpc[IO]
-  ): Resource[IO, Unit] =
+  )(implicit log: Log[IO]): Resource[IO, Unit] =
     Resource
       .make(
         buildAbciHandler(config, controlServer.signals, tendermintRpc).value.flatMap {
@@ -96,19 +101,19 @@ object ServerRunner extends IOApp with LazyLogging {
             }
             IO.raiseError(exception)
         }.flatMap { handler ⇒
-          IO {
-            logger.info("Starting State Machine ABCI handler")
-            val socket = new TSocket
-            socket.registerListener(handler)
+          Log[IO].info("Starting State Machine ABCI handler") >>
+            IO {
+              val socket = new TSocket
+              socket.registerListener(handler)
 
-            val socketThread = new Thread(() => socket.start(abciPort))
-            socketThread.setName("AbciSocket")
-            socketThread.start()
-            socketThread
-          }
+              val socketThread = new Thread(() => socket.start(abciPort))
+              socketThread.setName("AbciSocket")
+              socketThread.start()
+              socketThread
+            }
         }
       )(socketThread ⇒ IO(if (socketThread.isAlive) socketThread.interrupt()))
-      .map(_ ⇒ logger.info("State Machine ABCI handler started successfully"))
+      .flatMap(_ ⇒ Log.resource[IO].info("State Machine ABCI handler started successfully"))
 
   /**
    * Builds [[AbciHandler]], used to serve all Tendermint requests.
@@ -119,13 +124,13 @@ object ServerRunner extends IOApp with LazyLogging {
     config: StateMachineConfig,
     controlSignals: ControlSignals[IO],
     tendermintRpc: TendermintRpc[IO]
-  ): EitherT[IO, StateMachineError, AbciHandler[IO]] =
+  )(implicit log: Log[IO]): EitherT[IO, StateMachineError, AbciHandler[IO]] =
     for {
       moduleFilenames <- config.collectModuleFiles[IO]
-      _ = logger.info("Loading VM modules from " + moduleFilenames)
+      _ ← Log.eitherT[IO, StateMachineError].info("Loading VM modules from " + moduleFilenames)
       vm <- buildVm[IO](moduleFilenames)
 
-      _ = logger.info("VM instantiated")
+      _ ← Log.eitherT[IO, StateMachineError].info("VM instantiated")
 
       vmInvoker = new VmOperationInvoker[IO](vm)
 
@@ -139,34 +144,6 @@ object ServerRunner extends IOApp with LazyLogging {
    *
    * @param moduleFiles module filenames with VM code
    */
-  private def buildVm[F[_]: Monad](moduleFiles: NonEmptyList[String]): EitherT[F, StateMachineError, WasmVm] =
-    WasmVm[F](moduleFiles).leftMap(VmOperationInvoker.convertToStateMachineError)
-
-  /**
-   * Configures `slogging` logger.
-   */
-  private def configureLogging(level: LogLevel): Unit = {
-    PrintLoggerFactory.formatter = new DefaultPrefixFormatter(true, true, true)
-    LoggerConfig.factory = PrintLoggerFactory()
-    LoggerConfig.level = level
-  }
-
-  /**
-   * Converts String to `slogging` log level.
-   *
-   * @param logLevel level of logging
-   */
-  private def convertLogLevel(logLevel: String): LogLevel =
-    logLevel.toUpperCase match {
-      case "OFF"   => LogLevel.OFF
-      case "ERROR" => LogLevel.ERROR
-      case "WARN"  => LogLevel.WARN
-      case "INFO"  => LogLevel.INFO
-      case "DEBUG" => LogLevel.DEBUG
-      case "TRACE" => LogLevel.TRACE
-      case _ =>
-        logger.warn(s"Unknown log level `$logLevel`; falling back to INFO")
-        LogLevel.INFO
-    }
-
+  private def buildVm[F[_]: Monad: Log](moduleFiles: NonEmptyList[String]): EitherT[F, StateMachineError, WasmVm] =
+    WasmVm[F](moduleFiles, MemoryHasher[F]).leftMap(VmOperationInvoker.convertToStateMachineError)
 }

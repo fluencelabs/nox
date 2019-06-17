@@ -18,6 +18,7 @@ package fluence.node.code
 
 import java.nio.file.Path
 
+import fluence.log.Log
 import fluence.node.eth.state.StorageRef
 
 import scala.language.higherKinds
@@ -31,5 +32,5 @@ trait CodeCarrier[F[_]] {
    * @param storagePath A path where to put the code
    * @return Path to the copied code inside storagePath
    */
-  def carryCode(ref: StorageRef, storagePath: Path): F[Path]
+  def carryCode(ref: StorageRef, storagePath: Path)(implicit log: Log[F]): F[Path]
 }

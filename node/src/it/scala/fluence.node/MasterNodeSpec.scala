@@ -40,15 +40,13 @@ import fluence.node.eth.FluenceContractTestOps._
 import fluence.node.status.{MasterStatus, StatusAggregator}
 import fluence.node.workers.tendermint.ValidatorPublicKey
 import org.scalatest.{Timer ⇒ _, _}
-import slogging.MessageFormatter.DefaultPrefixFormatter
-import slogging.{LazyLogging, LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
 class MasterNodeSpec
-    extends WordSpec with LazyLogging with Matchers with BeforeAndAfterAll with OptionValues with Integration
+    extends WordSpec with Matchers with BeforeAndAfterAll with OptionValues with Integration
     with GanacheSetup {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
@@ -123,15 +121,11 @@ class MasterNodeSpec
     }
 
   "MasterNode" should {
-    PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, true)
-    LoggerConfig.factory = PrintLoggerFactory()
-    LoggerConfig.level = LogLevel.ERROR
-
     "provide status" in {
       runningNode.use {
         case (sttpB, node) ⇒
           implicit val s = sttpB
-          logger.debug("Going to run the node")
+          log.debug("Going to run the node").unsafeRunSync()
 
           eventually[IO](
             for {

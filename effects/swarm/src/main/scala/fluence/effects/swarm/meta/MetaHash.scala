@@ -21,12 +21,12 @@ import cats.data.EitherT
 import fluence.crypto.Crypto.Hasher
 import fluence.effects.swarm.helpers.ByteVectorJsonCodec
 import fluence.effects.swarm.{MutableResourceIdentifier, SwarmConstants, SwarmError}
+import fluence.log.Log
 import io.circe.Encoder
 import scodec.bits.ByteVector
 import scodec.codecs.{bytes, constant, longL, _}
 import shapeless.HList
 
-import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
 /**
@@ -38,7 +38,7 @@ import scala.language.higherKinds
  */
 case class MetaHash private (hash: ByteVector)
 
-object MetaHash extends slogging.LazyLogging {
+object MetaHash {
   import SwarmConstants._
   import fluence.effects.swarm.helpers.AttemptOps._
 
@@ -52,7 +52,7 @@ object MetaHash extends slogging.LazyLogging {
    * @param id parameters that describe the mutable resource and required for searching updates of the mutable resource
    * @return generated hash from the input
    */
-  def apply[F[_]](id: MutableResourceIdentifier)(
+  def apply[F[_]: Log](id: MutableResourceIdentifier)(
     implicit F: Monad[F],
     hasher: Hasher[ByteVector, ByteVector]
   ): EitherT[F, SwarmError, MetaHash] =
@@ -84,10 +84,12 @@ object MetaHash extends slogging.LazyLogging {
       hash <- hasher(bytes)
         .leftMap(er => SwarmError("Error on calculating hash for metadata.", Some(er)))
 
-      _ = logger.debug(
-        s"Generate metadata hash of " +
-          id.toString +
-          s", Hash: $hash"
-      )
+      _ ← Log
+        .eitherT[F, SwarmError]
+        .debug(
+          s"Generate metadata hash of " +
+            id.toString +
+            s", Hash: $hash"
+        )
     } yield MetaHash(hash)
 }

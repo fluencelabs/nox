@@ -26,7 +26,7 @@ import scala.sys.process._
  *
  * @param params Current command' params
  */
-case class DockerParams private (params: Queue[String]) {
+case class DockerParams private (params: Queue[String], name: Option[String] = None) {
 
   /**
    * Adds a single param to command.
@@ -45,9 +45,16 @@ case class DockerParams private (params: Queue[String]) {
   def option(optionName: String, optionValue: String): DockerParams =
     add(optionName).add(optionValue)
 
-  def option(optionName: String, optionValue: Option[String]): DockerParams = {
+  def option(optionName: String, optionValue: Option[String]): DockerParams =
     optionValue.fold(this)(v => add(optionName).add(v))
-  }
+
+  /**
+   * Set the container name
+   *
+   * @param containerName Container name
+   */
+  def name(containerName: String): DockerParams =
+    option("--name", containerName).copy(name = Some(containerName))
 
   /**
    * Adds a port mapping.
@@ -120,7 +127,7 @@ case class DockerParams private (params: Queue[String]) {
    * @param image Container image
    */
   def prepared(image: DockerImage): DockerParams.Prepared =
-    DockerParams.Prepared(params, image)
+    DockerParams.Prepared(params, image, name)
 }
 
 object DockerParams {
@@ -131,7 +138,7 @@ object DockerParams {
   }
 
   // Represents a command for daemonized container run, i.e., anything with "docker run -d"
-  case class DaemonParams(command: Seq[String]) extends SealedParams
+  case class DaemonParams(command: Seq[String], name: Option[String]) extends SealedParams
 
   // Represents a command for a single command execution, presumably with `--rm` flag
   case class ExecParams(command: Seq[String]) extends SealedParams
@@ -140,7 +147,7 @@ object DockerParams {
   private val runParams = Seq("docker", "run", "--user", "", "--rm", "-i")
 
   // Represents a docker run command with specified image name, ready to be specialized to Daemon or Exec params
-  case class Prepared(params: Seq[String], image: DockerImage) {
+  case class Prepared(params: Seq[String], image: DockerImage, name: Option[String]) {
 
     /**
      * Builds a command starting with `docker run -d` wrapped in DaemonParams, so
@@ -149,7 +156,7 @@ object DockerParams {
      * @param cmd Command to run inside the container. If not present, the default command will be executed
      */
     def daemonRun(cmd: String = null): DaemonParams =
-      DaemonParams(Option(cmd).foldLeft(daemonParams ++ params :+ image.imageName)(_ :+ _))
+      DaemonParams(Option(cmd).foldLeft(daemonParams ++ params :+ image.imageName)(_ :+ _), name)
 
     /**
      * Builds a `docker run` command running custom executable.

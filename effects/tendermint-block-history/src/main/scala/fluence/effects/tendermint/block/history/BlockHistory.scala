@@ -22,6 +22,7 @@ import cats.{Monad, Traverse}
 import fluence.effects.ipfs.IpfsClient
 import fluence.effects.ipfs.IpfsData._
 import fluence.effects.tendermint.block.data.Block
+import fluence.log.Log
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -40,7 +41,7 @@ class BlockHistory[F[_]: Monad](ipfs: IpfsClient[F]) {
     block: Block,
     vmHash: ByteVector,
     previousManifestReceipt: Option[Receipt]
-  ): EitherT[F, BlockHistoryError, Receipt] = {
+  )(implicit log: Log[F]): EitherT[F, BlockHistoryError, Receipt] = {
     val txs = block.data.txs.map(_.map(_.bv))
     val votes = block.last_commit.precommits.flatten
     val height = block.header.height
@@ -51,13 +52,15 @@ class BlockHistory[F[_]: Monad](ipfs: IpfsClient[F]) {
     } yield receipt
   }
 
-  private def uploadTxs(height: Long, txs: List[ByteVector]): EitherT[F, BlockHistoryError, Receipt] =
+  private def uploadTxs(height: Long,
+                        txs: List[ByteVector])(implicit log: Log[F]): EitherT[F, BlockHistoryError, Receipt] =
     ipfs
       .upload(txs)
       .map(Receipt(_))
       .leftMap(se => TxsUploadingError(height, txs.size, se): BlockHistoryError)
 
-  private def uploadManifest(height: Long, manifest: BlockManifest): EitherT[F, BlockHistoryError, Receipt] =
+  private def uploadManifest(height: Long,
+                             manifest: BlockManifest)(implicit log: Log[F]): EitherT[F, BlockHistoryError, Receipt] =
     ipfs
       .upload(manifest.bytes())
       .map(Receipt(_))

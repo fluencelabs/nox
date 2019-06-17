@@ -34,7 +34,7 @@ private[routing] class LocalRoutingImpl[F[_]: Monad, P[_], C](
   buckets: Int ⇒ F[Bucket[C]]
 )(
   implicit P: Parallel[F, P]
-) extends LocalRouting[F, C] with slogging.LazyLogging {
+) extends LocalRouting[F, C] {
 
   override def find(key: Key): F[Option[Node[C]]] =
     if (key === nodeKey)

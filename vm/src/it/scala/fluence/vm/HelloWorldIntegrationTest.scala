@@ -17,13 +17,19 @@
 package fluence.vm
 
 import cats.data.NonEmptyList
-import cats.effect.IO
+import cats.effect.{IO, Timer}
+import fluence.log.{Log, LogFactory}
+import fluence.vm.wasm.MemoryHasher
 import org.scalatest.EitherValues
 
+import scala.concurrent.ExecutionContext
 import scala.language.{higherKinds, implicitConversions}
 
 // TODO: to run this test from IDE It needs to build vm-hello-world project explicitly at first
 class HelloWorldIntegrationTest extends AppIntegrationTest with EitherValues {
+
+  private implicit val timer: Timer[IO] = IO.timer(ExecutionContext.global)
+  private implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init(getClass.getSimpleName).unsafeRunSync()
 
   private val helloWorldFilePath =
     getModuleDirPrefix() + "/src/it/resources/test-cases/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm"
@@ -32,7 +38,7 @@ class HelloWorldIntegrationTest extends AppIntegrationTest with EitherValues {
 
     "be able to instantiate" in {
       (for {
-        vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath), "fluence.vm.client.4Mb")
+        vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath), MemoryHasher[IO], "fluence.vm.client.4Mb")
         state ← vm.getVmState[IO].toVmError
 
       } yield {
@@ -44,7 +50,7 @@ class HelloWorldIntegrationTest extends AppIntegrationTest with EitherValues {
 
     "greets John correctly" in {
       (for {
-        vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath), "fluence.vm.client.4Mb")
+        vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath), MemoryHasher[IO], "fluence.vm.client.4Mb")
         greetingResult ← vm.invoke[IO](None, "John".getBytes())
         state ← vm.getVmState[IO].toVmError
 
@@ -56,7 +62,7 @@ class HelloWorldIntegrationTest extends AppIntegrationTest with EitherValues {
 
     "operates correctly with empty input" in {
       (for {
-        vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath), "fluence.vm.client.4Mb")
+        vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath), MemoryHasher[IO], "fluence.vm.client.4Mb")
         greetingResult ← vm.invoke[IO](None)
         state ← vm.getVmState[IO].toVmError
 

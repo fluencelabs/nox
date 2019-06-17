@@ -24,30 +24,28 @@ import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
 import fluence.effects.tendermint.block.data.Block
+import fluence.log.{Log, LogFactory}
 import io.circe.Json
 import org.http4s.websocket.WebSocketFrame.Text
 import org.scalatest.{Matchers, WordSpec}
-import slogging.MessageFormatter.DefaultPrefixFormatter
-import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.higherKinds
 
-class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging {
+class WebsocketRpcSpec extends WordSpec with Matchers {
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
+
+  implicit private val log: Log[IO] = LogFactory.forPrintln[IO]().init("WebsocketRpcSpec").unsafeRunSync()
 
   type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
   implicit private val sttpResource: STTP = EitherTSttpBackend[IO]()
 
-  "WebsocketRPC" should {
-    PrintLoggerFactory.formatter = new DefaultPrefixFormatter(false, false, true)
-    LoggerConfig.factory = PrintLoggerFactory()
-    LoggerConfig.level = LogLevel.ERROR
+  "WebsocketRpc" should {
 
     val resourcesF = for {
       server <- WebsocketServer.make[IO]
-      wrpc <- TendermintRpc.make[IO]("127.0.0.1", 8080)
+      wrpc <- TendermintRpc.make[IO]("127.0.0.1", 18080)
       blocks = wrpc.subscribeNewBlock[IO]
     } yield (server, blocks)
 
@@ -126,19 +124,18 @@ class WebsocketRPCSpec extends WordSpec with Matchers with slogging.LazyLogging 
       val msg = "correct"
 
       // To hide error about incorrect msg
-      LoggerConfig.level = LogLevel.OFF
+      val events = log.scope(_.level(Log.Off)) { implicit log: Log[IO] ⇒
+        resourcesF.use {
+          case (server, events) =>
+            for {
+              _ <- server.send(Text(incorrectMsg))
+              _ <- server.send(text(msg))
+              result <- events.take(1).compile.toList
+              _ <- server.close()
+            } yield result
+        }.unsafeRunSync()
 
-      val events = resourcesF.use {
-        case (server, events) =>
-          for {
-            _ <- server.send(Text(incorrectMsg))
-            _ <- server.send(text(msg))
-            result <- events.take(1).compile.toList
-            _ <- server.close()
-          } yield result
-      }.unsafeRunSync()
-
-      LoggerConfig.level = LogLevel.ERROR
+      }
 
       events.size shouldBe 1
       asString(events.head) shouldBe msg

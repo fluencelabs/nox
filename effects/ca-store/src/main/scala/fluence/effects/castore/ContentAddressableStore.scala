@@ -19,6 +19,7 @@ package fluence.effects.castore
 import java.nio.ByteBuffer
 
 import cats.data.EitherT
+import fluence.log.Log
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -31,7 +32,7 @@ trait ContentAddressableStore[F[_]] {
    *
    * @param hash Content's hash
    */
-  def fetch(hash: ByteVector): EitherT[F, StoreError, fs2.Stream[F, ByteBuffer]]
+  def fetch(hash: ByteVector)(implicit log: Log[F]): EitherT[F, StoreError, fs2.Stream[F, ByteBuffer]]
 
   /**
    * Returns hash of files from a directory.
@@ -39,5 +40,5 @@ trait ContentAddressableStore[F[_]] {
    *
    * @param hash Content's hash
    */
-  def ls(hash: ByteVector): EitherT[F, StoreError, List[ByteVector]]
+  def ls(hash: ByteVector)(implicit log: Log[F]): EitherT[F, StoreError, List[ByteVector]]
 }

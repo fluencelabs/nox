@@ -20,6 +20,7 @@ import java.nio.file.{Path, Paths}
 
 import cats.effect.Sync
 import cats.syntax.functor._
+import fluence.log.Log
 import fluence.node.eth.state.StorageRef
 
 import scala.language.higherKinds
@@ -32,7 +33,7 @@ class LocalCodeCarrier[F[_]](implicit F: Sync[F]) extends CodeCarrier[F] {
   override def carryCode(
     ref: StorageRef,
     notUsed: Path
-  ): F[Path] =
+  )(implicit log: Log[F]): F[Path] =
     F.fromEither(ref.storageHash.decodeUtf8.map(_.trim))
       .map(p => Paths.get("/master/vmcode/vmcode-" + p)) // preloaded code in master's docker container
 

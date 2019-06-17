@@ -30,8 +30,7 @@ lazy val `vm` = (project in file("vm"))
       cryptoHashsign,
       scalaTest,
       scalaIntegrationTest,
-      mockito,
-      slogging
+      mockito
     ),
     test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(compile in `vm-counter`)
@@ -39,7 +38,7 @@ lazy val `vm` = (project in file("vm"))
       .dependsOn(compile in `vm-llamadb`)
       .value
   )
-  .dependsOn(`merkelized-bytebuffer`)
+  .dependsOn(`merkelized-bytebuffer`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
 
 /**
@@ -116,7 +115,6 @@ lazy val `statemachine-control` = (project in file("statemachine/control"))
       catsEffect,
       circeGeneric,
       circeParser,
-      slogging,
       http4sDsl,
       http4sServer,
       http4sCirce,
@@ -135,7 +133,6 @@ lazy val `statemachine` = (project in file("statemachine"))
     kindProjector,
     libraryDependencies ++= Seq(
       pureConfig,
-      slogging,
       scodecBits,
       "com.github.jtendermint" % "jabci" % "0.26.0",
       scalaTest
@@ -157,6 +154,7 @@ lazy val `effects` = project
       catsEffect
     )
   )
+  .dependsOn(`log`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `sttpEitherT` = (project in file("effects/sttpEitherT"))
@@ -193,7 +191,6 @@ lazy val `swarm` = (project in file("effects/swarm"))
       sttpCirce,
       sttpCatsBackend % Test,
       sttpFs2Backend % Test,
-      slogging,
       circeCore,
       circeGeneric,
       circeGenericExtras,
@@ -217,7 +214,6 @@ lazy val `ipfs` = (project in file("effects/ipfs"))
       sttpCirce,
       circeGeneric,
       circeFs2,
-      slogging,
       scodecBits,
       scodecCore,
       scalaTest
@@ -231,7 +227,6 @@ lazy val `ethclient` = (project in file("effects/ethclient"))
     commons,
     libraryDependencies ++= Seq(
       web3jCore,
-      slogging,
       scodecBits,
       fs2,
       fs2rx,
@@ -245,22 +240,18 @@ lazy val `kvstore` = (project in file("effects/kvstore"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      slogging,
       codecCore,
       fs2,
       rocksDb,
       scalaTest
     )
   )
-  .dependsOn(`effects`)
+  .dependsOn(`effects`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `dockerio` = (project in file("effects/docker"))
   .settings(
-    commons,
-    libraryDependencies ++= Seq(
-      slogging
-    )
+    commons
   )
   .dependsOn(`effects`)
   .enablePlugins(AutomateHeaderPlugin)
@@ -274,7 +265,6 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
       circeGeneric,
       circeParser,
       circeGenericExtras,
-      slogging,
       fs2,
       fs2io,
       asyncHttpClient,
@@ -289,6 +279,7 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
   .dependsOn(`effects`, `sttpEitherT`, `tendermint-block` % "test")
   .enablePlugins(AutomateHeaderPlugin)
 
+// TODO remove from effects to history
 lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
   .settings(
     commons,
@@ -297,7 +288,6 @@ lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
       circeGeneric,
       circeParser,
       circeGenericExtras,
-      slogging,
       protobuf,
       protobufUtil,
       scodecBits,
@@ -309,19 +299,18 @@ lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
   .dependsOn(`effects`)
   .enablePlugins(AutomateHeaderPlugin)
 
+// TODO remove from effects to history
 lazy val `tendermint-block-history` = (project in file("effects/tendermint-block-history"))
   .settings(
     commons,
     kindProjector,
     libraryDependencies ++= Seq(
-      slogging,
       cats,
       catsEffect,
       sttp,
       circeGeneric,
       circeParser,
       circeGenericExtras,
-      slogging,
       scodecBits,
       http4sDsl,
       http4sServer,
@@ -332,6 +321,7 @@ lazy val `tendermint-block-history` = (project in file("effects/tendermint-block
   .dependsOn(`effects`, `tendermint-block`, `ipfs`)
   .enablePlugins(AutomateHeaderPlugin)
 
+// TODO remove from effects to history
 lazy val `receipt-storage` = (project in file("effects/receipt-storage"))
   .settings(
     commons,

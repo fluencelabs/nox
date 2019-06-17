@@ -18,6 +18,7 @@ package fluence.node.eth
 
 import cats.{Applicative, Monad}
 import cats.data.StateT
+import cats.syntax.functor._
 import fluence.effects.ethclient.data.Block
 import scodec.bits.ByteVector
 import state.App
@@ -36,7 +37,8 @@ case class NodeEthState(
   validatorKey: ByteVector,
   apps: Map[Long, App] = Map.empty,
   nodesToApps: Map[ByteVector, Set[Long]] = Map.empty,
-  lastBlock: Option[Block] = None
+  lastBlock: Option[Block] = None,
+  contractAppsLoaded: Boolean = false
 )
 
 object NodeEthState {
@@ -76,7 +78,13 @@ object NodeEthState {
             case (acc, nodeId) ⇒ acc.updated(nodeId, acc.getOrElse(nodeId, Set.empty) + app.id)
           }
       )
-    ).map(_ ⇒ RunAppWorker(app) :: Nil)
+    ).as(RunAppWorker(app) :: Nil)
+
+  /**
+   * Contract apps loaded, switching to new apps
+   */
+  def onContractAppsLoaded[F[_]: Monad](cal: ContractAppsLoaded.type): State[F] =
+    modify[F](_.copy(contractAppsLoaded = true)).as(Nil)
 
   /**
    * Expresses the state change that should be applied when an App is deleted
@@ -102,7 +110,7 @@ object NodeEthState {
                   }
               }
             )
-          ).map(_ ⇒ RemoveAppWorker(appId) :: Nil)
+          ).as(RemoveAppWorker(appId) :: Nil)
         }
     }
 
@@ -115,7 +123,7 @@ object NodeEthState {
       case s if s.validatorKey === nodeId ⇒
         // Emptying the node itself
         set(s.copy(apps = Map.empty, nodesToApps = Map.empty))
-          .map(_ ⇒ s.apps.keys.map(appId ⇒ RemoveAppWorker(appId)).toSeq)
+          .as(s.apps.keys.map(appId ⇒ RemoveAppWorker(appId)).toSeq)
 
       case s ⇒
         s.nodesToApps.get(nodeId).fold(pure()) { appIds ⇒
@@ -155,7 +163,7 @@ object NodeEthState {
                         (st.copy(apps = st.apps.updated(appId, app)), DropPeerWorker(appId, nodeId) :: evs)
                     }
               }
-          set(state).map(_ ⇒ events)
+          set(state).as(events)
         }
     }
 }
