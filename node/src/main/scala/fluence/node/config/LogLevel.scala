@@ -31,10 +31,10 @@ object LogLevel extends Enumeration {
 
   implicit def toSlogging(l: LogLevel): slogging.LogLevel = {
     l match {
-      case `OFF` => slogging.LogLevel.OFF
+      case `OFF`   => slogging.LogLevel.OFF
       case `ERROR` => slogging.LogLevel.ERROR
-      case `WARN` => slogging.LogLevel.WARN
-      case `INFO` => slogging.LogLevel.INFO
+      case `WARN`  => slogging.LogLevel.WARN
+      case `INFO`  => slogging.LogLevel.INFO
       case `DEBUG` => slogging.LogLevel.DEBUG
       case `TRACE` => slogging.LogLevel.TRACE
     }

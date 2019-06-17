@@ -65,7 +65,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
       map <- workers.get
       oldWorker = map.get(appId)
       healthy <- oldWorker match {
-        case None => F.pure(false)
+        case None         => F.pure(false)
         case Some(worker) => worker.isHealthy(healthyWorkerTimeout)
       }
     } yield (healthy, oldWorker)

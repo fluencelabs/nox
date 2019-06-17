@@ -58,8 +58,8 @@ object Main extends IOApp with slogging.LazyLogging {
   def getFilesToRun(language: Option[String]): IO[NonEmptyList[String]] =
     language.map(_.toLowerCase) match {
       case None | Some("wasm") | Some("webassembly") => getWasmFiles(WasmCodeDirectory)
-      case Some("rust") => Rust.compile()
-      case Some(lang) => IO.raiseError(UnknownLanguage(lang))
+      case Some("rust")                              => Rust.compile()
+      case Some(lang)                                => IO.raiseError(UnknownLanguage(lang))
     }
 
   override def run(args: List[String]): IO[ExitCode] = {

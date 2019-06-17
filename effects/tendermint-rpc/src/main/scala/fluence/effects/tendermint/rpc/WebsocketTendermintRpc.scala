@@ -186,7 +186,7 @@ trait WebsocketTendermintRpc extends slogging.LazyLogging {
           override def onPingFrame(payload: Array[Byte]): Unit = {
             websocketP.get.flatMap(_.sendPongFrame().asAsync.void).toIO.unsafeRunAsync {
               case Left(e) => logger.error(s"Tendermint WRPC: $wsUrl ping failed: $e")
-              case _ =>
+              case _       =>
             }
           }
 

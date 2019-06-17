@@ -72,7 +72,7 @@ object Rust {
 
     val processIO = cmds.toList match {
       case head :: tail => IO(tail.foldLeft(Process(head)) { case (pb, next) => pb #| next })
-      case Nil => IO.raiseError(new RuntimeException("exec was called with empty argument list"))
+      case Nil          => IO.raiseError(new RuntimeException("exec was called with empty argument list"))
     }
 
     for {
