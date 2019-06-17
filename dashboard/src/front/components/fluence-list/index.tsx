@@ -99,7 +99,7 @@ class FluenceList extends React.Component<Props, State> {
         options = options || {};
         const filter = options.filter || (() => true);
         const urlPrefix = options.urlPrefix || '';
-        const appRefs =  this.props.appRefs.filter(filter);
+        const appRefs =  this.props.appRefs.filter(filter).sort((refA, refB) => parseInt(refA.app_id) - parseInt(refB.app_id));
         return [
             <li className="header">Applications</li>,
             ...appRefs.map(appRef => (
