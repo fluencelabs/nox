@@ -48,7 +48,10 @@ impl ParsedType {
             // converts T to syn::Type
             let arg_type = match arg_val {
                 syn::GenericArgument::Type(ty) => Ok(ty),
-                _ => Err(Error::new(arg_val.span(), "Unsuitable type in Vec brackets - only Vec<u8> is supported")),
+                _ => Err(Error::new(
+                    arg_val.span(),
+                    "Unsuitable type in Vec brackets - only Vec<u8> is supported",
+                )),
             }?;
 
             // converts T to syn::path

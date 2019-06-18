@@ -139,15 +139,16 @@ fn invoke_handler_impl(
         return Err(e);
     }
 
-    let input_type =
-        match decl.inputs.len() {
-            0 => ParsedType::Empty,
-            1 => ParsedType::from_fn_arg(decl.inputs.first().unwrap().into_value())?,
-            _ => return Err(Error::new(
+    let input_type = match decl.inputs.len() {
+        0 => ParsedType::Empty,
+        1 => ParsedType::from_fn_arg(decl.inputs.first().unwrap().into_value())?,
+        _ => {
+            return Err(Error::new(
                 decl.inputs.span(),
                 "The invocation handler shouldn't have more than one argument",
-            )),
-        };
+            ))
+        },
+    };
     let output_type = ParsedType::from_return_type(&decl.output)?;
     if output_type == ParsedType::Empty {
         return Err(Error::new(
