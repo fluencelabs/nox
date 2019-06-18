@@ -40,7 +40,7 @@ impl ParsedType {
             let arg = generic_arg.args.first().ok_or_else(|| {
                 Error::new(
                     generic_arg.span(),
-                    "It has to be a valid generic value in Vec brackets",
+                    "Unsuitable type in Vec brackets - only Vec<u8> is supported",
                 )
             })?;
             let arg_val = arg.value();
@@ -48,7 +48,7 @@ impl ParsedType {
             // converts T to syn::Type
             let arg_type = match arg_val {
                 syn::GenericArgument::Type(ty) => Ok(ty),
-                _ => Err(Error::new(arg_val.span(), "Incorrect type in Vec brackets")),
+                _ => Err(Error::new(arg_val.span(), "Unsuitable type in Vec brackets - only Vec<u8> is supported")),
             }?;
 
             // converts T to syn::path
@@ -60,8 +60,8 @@ impl ParsedType {
                 )),
             }?;
 
-            // There could be situations like Vec<some_crate::some_module::u8>
-            // that why we check segments count
+            // There could be cases like Vec<some_crate::some_module::u8>
+            // that why this segments count check is needed
             if arg_path.segments.len() != 1 {
                 return Err(Error::new(
                     arg_path.span(),
@@ -73,7 +73,7 @@ impl ParsedType {
             let arg_segment = arg_path.segments.first().ok_or_else(|| {
                 Error::new(
                     arg_path.span(),
-                    "It has to be a valid generic value in Vec brackets",
+                    "Unsuitable type in Vec brackets - only Vec<u8> is supported",
                 )
             })?;
             let arg_segment = arg_segment.value();
@@ -97,7 +97,7 @@ impl ParsedType {
             .ok_or_else(|| {
                 Error::new(
                     path.span(),
-                    "It has to have a non-empty input argument type",
+                    "The invocation handler should have a non-empty input argument type",
                 )
             })?;
         let type_segment = type_segment.value();
@@ -148,18 +148,17 @@ impl InputTypeGenerator for ParsedType {
     fn generate_fn_prolog(&self) -> proc_macro2::TokenStream {
         match self {
             ParsedType::Utf8String => quote! {
-                let arg = memory::read_input_from_mem(ptr, len);
-                // unwrap is possible here since after compilation by Asmble it transforms to
-                // exception that will than catched.
+                let arg = memory::read_request_from_mem(ptr, len);
+                // TODO: it should be changed to more accurate check
                 let arg = String::from_utf8(arg).unwrap();
             },
             ParsedType::ByteVector => quote! {
-                let arg = memory::read_input_from_mem(ptr, len);
+                let arg = memory::read_request_from_mem(ptr, len);
             },
             ParsedType::Empty => quote! {
                 // it is needed to delete memory occupied by the input argument
                 // this way does it without any additional imports of the export allocator module
-                let arg = memory::read_input_from_mem(ptr, len);
+                let arg = memory::read_request_from_mem(ptr, len);
             },
         }
     }
@@ -169,13 +168,13 @@ impl ReturnTypeGenerator for ParsedType {
     fn generate_fn_epilog(&self) -> proc_macro2::TokenStream {
         match self {
             ParsedType::Utf8String => quote! {
-                memory::write_result_to_mem(
+                memory::write_response_to_mem(
                     result.as_bytes()
                 )
                 .expect("Putting result string to memory has failed")
             },
             ParsedType::ByteVector => quote! {
-                memory::write_result_to_mem(&result[..])
+                memory::write_response_to_mem(&result[..])
                     .expect("Putting result vector to memory has failed")
             },
             ParsedType::Empty => quote! {},
