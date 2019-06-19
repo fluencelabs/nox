@@ -14,23 +14,8 @@
  * limitations under the License.
  */
 
-//! This module defines an `invocation_handler` attribute procedural macro. It can simplify the main
-//! module invocation handler signature. Let's review the example of simple 'Hello world' app for
-//! Fluence:
-//!
-//! ```
-//! #[no_mangle]
-//! pub unsafe fn invoke(ptr: *mut u8, len: usize) -> NonNull<u8> {
-//!    let user_name = fluence::memory::read_request_from_mem(ptr, len);
-//!    let user_name: String = String::from_utf8(user_name).unwrap();
-//!
-//!    // return a pointer to the result in memory
-//!    fluence::memory::write_response_to_mem(format!("Hello from Fluence to {}", user_name).as_bytes())
-//!        .expect("Putting result string to the memory was failed.")
-//! }
-//! ```
-//!
-//! We can use a simpler way instead with `#[invocation_handler]`:
+//! This module defines an `invocation_handler` attribute procedural macro. It can be used to
+//! simplify the signature of the main module invocation handler:
 //!
 //! ```
 //! use fluence::sdk::*;

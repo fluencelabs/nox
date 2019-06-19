@@ -54,7 +54,7 @@ impl Parse for HandlerAttrs {
         // trying to parse the `init_fn` token
         let attr = input.step(|cursor| match cursor.ident() {
             Some((ident, rem)) => Ok((ident, rem)),
-            None => Err(cursor.error("expected a valid ident")),
+            None => Err(cursor.error("Expected a valid ident")),
         })?;
 
         let init_fn_name = match attr.to_string().as_str() {
@@ -65,12 +65,12 @@ impl Parse for HandlerAttrs {
                 // trying to parse a init function name
                 match input.parse::<syn::Ident>() {
                     Ok(init_fn_name) => Ok(init_fn_name.to_string()),
-                    Err(_) => Err(syn::Error::new(attr.span(), "expected a function name")),
+                    Err(_) => Err(syn::Error::new(attr.span(), "Expected a function name")),
                 }
             },
             _ => Err(syn::Error::new(
                 attr.span(),
-                "expected a `init_fn` token in invocation_handler macros attributes",
+                "Expected a `init_fn` token in invocation_handler macros attributes",
             )),
         }?;
 
