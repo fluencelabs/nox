@@ -155,7 +155,7 @@ class FluenceAppSnippet extends React.Component<Props, State> {
         return ([
             <p>
                 <label htmlFor={queryId}>Type queries:</label>
-                <textarea className="form-control" rows={4} id={queryId} defaultValue={defaultText}></textarea>
+                <textarea className="form-control" rows={4} id={queryId} key={queryId} defaultValue={defaultText}></textarea>
             </p>,
             <p>
                 <button type="button" value="Submit query" id={buttonId}
