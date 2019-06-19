@@ -184,7 +184,7 @@ class DashboardApp extends React.Component<Props, State> {
                     <strong><a href="https://discordapp.com/invite/AjfbDKQ">Discord&nbsp;&nbsp;</a>|&nbsp;&nbsp;</strong>
                     <strong><a href="https://github.com/fluencelabs/fluence">GitHub&nbsp;&nbsp;</a>|&nbsp;&nbsp;</strong>
                     <strong><a href="https://github.com/fluencelabs/tutorials">Tutorials&nbsp;&nbsp;</a>|&nbsp;&nbsp;</strong>
-                    <strong><a href="https://fluence.network/docs">Documentation</a></strong>
+                    <strong><a href="https://fluence.dev/">Documentation</a></strong>
                 </footer>
 
                 <FluenceModal />
