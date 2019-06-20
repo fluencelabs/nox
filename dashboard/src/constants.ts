@@ -4,7 +4,7 @@ export const dashboardContractAddress: string = '0x7392838158bA5E862BbDc679cD849
 export const rootTagId: string = 'root';
 
 export const fluenceNodeAddr = 'http://geth.fluence.one:8545';
-export const fluenceIpfsAddr = 'http://ipfs.fluence.one:8545';
+export const fluenceIpfsAddr = 'http://ipfs.fluence.one:5001';
 
 export const appUploadUrl = fluenceIpfsAddr + '/api/v0/add?pin=true';
 export const ipfsDownloadUrl = fluenceIpfsAddr + '/api/v0/cat?arg=';
