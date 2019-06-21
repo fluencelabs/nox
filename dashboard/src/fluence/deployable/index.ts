@@ -80,7 +80,7 @@ export const deployableApps: { [key: string]: DeployableApp } = {
                           'SADD B 20',
                           'GET A',
                           'SMEMBERS B',
-                          `eval "return {{1,'Hello World!'},2,3}" 0`]
+                          `eval "redis.call('incr', 'A') return redis.call('get', 'A') * 8 + 5"  0`]
     }
 };
 
