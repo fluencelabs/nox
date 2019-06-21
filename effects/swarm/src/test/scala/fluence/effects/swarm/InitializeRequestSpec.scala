@@ -17,12 +17,15 @@
 package fluence.effects.swarm
 import java.math.BigInteger
 
+import cats.effect.{IO, Timer}
 import fluence.effects.swarm.crypto.{Keccak256Hasher, Secp256k1Signer}
 import fluence.effects.swarm.requests.InitializeMutableResourceRequest
+import fluence.log.{Log, LogFactory}
 import org.scalatest.{FlatSpec, Matchers}
 import org.web3j.crypto.{ECKeyPair, Keys, Sign}
 import scodec.bits.ByteVector
 
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
@@ -30,6 +33,10 @@ import scala.language.postfixOps
 class InitializeRequestSpec extends FlatSpec with Matchers {
 
   implicit val hasher = Keccak256Hasher.hasher
+
+  private implicit val ioTimer: Timer[IO] = IO.timer(global)
+
+  private implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init("swarm-it").unsafeRunSync()
 
   "Metadata" should "be correct" in {
     val name = "a good resource name"
@@ -57,7 +64,7 @@ class InitializeRequestSpec extends FlatSpec with Matchers {
     val checkedSign =
       "0x8adc0dc4dd464f874da5f524ed0a2ebac02185fed3e862cc130d3514ffb570f470abebbbb4ec3d96397fc46c5f87def63f56db7b4199e51a9caabda4ef6899f100"
 
-    val req = InitializeMutableResourceRequest(id, data, false, signer).value.right.get
+    val req = InitializeMutableResourceRequest[IO](id, data, false, signer).value.unsafeRunSync().right.get
 
     "0x" + req.data.toHex shouldBe checkedData
     "0x" + req.metaHash.hash.toHex shouldBe checkedMetaHash

@@ -17,14 +17,18 @@
 package fluence.statemachine
 
 import cats.effect.Sync
-import cats.{Applicative, Monad}
-import cats.syntax.functor._
-import cats.syntax.flatMap._
 import cats.effect.concurrent.Ref
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.{Applicative, Monad}
 import com.github.jtendermint.jabci.api.CodeType
+import fluence.crypto.Crypto
+import fluence.crypto.Crypto.Hasher
+import fluence.crypto.hash.JdkCryptoHasher
+import fluence.log.Log
+import fluence.statemachine.control.ControlSignals
 import fluence.statemachine.state.AbciState
 import scodec.bits.ByteVector
-import slogging.LazyLogging
 
 import scala.language.higherKinds
 
@@ -33,11 +37,13 @@ import scala.language.higherKinds
  *
  * @param state See [[AbciState]]
  * @param vm Virtual machine invoker
+ * @param controlSignals Communication channel with master node
  */
 class AbciService[F[_]: Monad](
   state: Ref[F, AbciState],
-  vm: VmOperationInvoker[F]
-) extends LazyLogging {
+  vm: VmOperationInvoker[F],
+  controlSignals: ControlSignals[F]
+)(implicit hasher: Hasher[ByteVector, ByteVector]) {
 
   import AbciService._
 
@@ -46,7 +52,7 @@ class AbciService[F[_]: Monad](
    *
    * @return App (VM) Hash
    */
-  def commit: F[ByteVector] =
+  def commit(implicit log: Log[F]): F[ByteVector] =
     for {
       // Get current state
       s ← state.get
@@ -60,7 +66,7 @@ class AbciService[F[_]: Monad](
           vm.invoke(tx.data.value)
             // Save the tx response to AbciState
             .semiflatMap(value ⇒ AbciState.putResponse[F](tx.head, value).map(_ ⇒ txs).run(st).map(Left(_)))
-            .leftMap(err ⇒ logger.error(s"VM invoke failed: $err for tx: $tx"))
+            .leftSemiflatMap(err ⇒ Log[F].error(s"VM invoke failed: $err for tx: $tx").as(err))
             .getOrElse(Right(st)) // TODO do not ignore vm error
 
         case (st, Nil) ⇒
@@ -68,17 +74,21 @@ class AbciService[F[_]: Monad](
       }
 
       // Get the VM hash
-      hash ← vm
+      vmHash ← vm
         .vmStateHash()
-        .leftMap(err ⇒ logger.error(s"VM is unable to compute state hash: $err"))
+        .leftSemiflatMap(err ⇒ Log[F].error(s"VM is unable to compute state hash: $err").as(err))
         .getOrElse(ByteVector.empty) // TODO do not ignore vm error
 
+      appHash = vmHash // TODO: concatenate with controlSignals.receipt
+
       // Push hash to AbciState, increment block number
-      newState ← AbciState.setAppHash(hash).runS(st)
+      newState ← AbciState.setAppHash(appHash).runS(st)
 
       // Store updated state in the Ref (the changes were transient for readers before this step)
       _ ← state.set(newState)
-    } yield hash
+
+      // TODO: Store vmHash, so master node could retrieve it
+    } yield appHash
 
   /**
    * Queries the storage for sessionId/nonce result, or for sessionId status.
@@ -131,8 +141,8 @@ class AbciService[F[_]: Monad](
    *
    * @param data Incoming transaction
    */
-  def deliverTx(data: Array[Byte]): F[TxResponse] =
-    Tx.readTx(data) match {
+  def deliverTx(data: Array[Byte])(implicit log: Log[F]): F[TxResponse] =
+    Tx.readTx(data).value.flatMap {
       case Some(tx) ⇒
         // TODO we have different logic in checkTx and deliverTx, as only in deliverTx tx might be dropped due to pending txs overflow
         state
@@ -151,8 +161,8 @@ class AbciService[F[_]: Monad](
    *
    * @param data Incoming transaction
    */
-  def checkTx(data: Array[Byte]): F[TxResponse] =
-    Tx.readTx(data) match {
+  def checkTx(data: Array[Byte])(implicit log: Log[F]): F[TxResponse] =
+    Tx.readTx(data).value.flatMap {
       case Some(tx) ⇒
         state.get
           .map(
@@ -208,9 +218,26 @@ object AbciService {
    * @tparam F Sync for Ref
    * @return Brand new AbciService instance
    */
-  def apply[F[_]: Sync](vm: VmOperationInvoker[F]): F[AbciService[F]] =
+  def apply[F[_]: Sync](
+    vm: VmOperationInvoker[F],
+    controlSignals: ControlSignals[F]
+  ): F[AbciService[F]] = {
+    import cats.syntax.compose._
+    import scodec.bits.ByteVector
+
+    import scala.language.higherKinds
+
     for {
       state ← Ref.of[F, AbciState](AbciState())
-    } yield new AbciService[F](state, vm)
+    } yield {
+
+      val bva = Crypto.liftFunc[ByteVector, Array[Byte]](_.toArray)
+      val abv = Crypto.liftFunc[Array[Byte], ByteVector](ByteVector(_))
+      implicit val hasher: Crypto.Hasher[ByteVector, ByteVector] =
+        bva.andThen[Array[Byte]](JdkCryptoHasher.Sha256).andThen(abv)
+
+      new AbciService[F](state, vm, controlSignals)
+    }
+  }
 
 }

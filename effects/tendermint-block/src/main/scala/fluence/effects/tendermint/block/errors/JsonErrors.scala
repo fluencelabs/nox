@@ -16,19 +16,24 @@
 
 package fluence.effects.tendermint.block.errors
 
+import fluence.effects.WithCause
 import io.circe.{DecodingFailure, ParsingFailure}
 import scalapb_json.JsonFormatException
 
 trait JsonErrors {
   case class FixBytesError(msg: String) extends TendermintBlockError
 
-  case class JsonDecodingError private (cause: DecodingFailure) extends WithCause[DecodingFailure]
+  case class JsonDecodingError private (cause: DecodingFailure)
+      extends TendermintBlockError with WithCause[DecodingFailure]
 
-  case class JsonParsingError private (cause: ParsingFailure) extends WithCause[ParsingFailure]
+  case class JsonParsingError private (cause: ParsingFailure)
+      extends TendermintBlockError with WithCause[ParsingFailure]
 
   trait ProtobufJsonError extends TendermintBlockError
+
   case class ProtobufJsonFormatError(cause: JsonFormatException)
       extends ProtobufJsonError with WithCause[JsonFormatException]
+
   case class ProtobufJsonUnknownError(cause: Throwable) extends ProtobufJsonError with WithCause[Throwable]
 
   implicit object LiftDecodingFailure extends ConvertError[DecodingFailure, JsonDecodingError](JsonDecodingError.apply)
@@ -36,7 +41,7 @@ trait JsonErrors {
   implicit object LiftProtobufJsonError
       extends ConvertError[Throwable, ProtobufJsonError]({
         case c: JsonFormatException => ProtobufJsonFormatError(c)
-        case c: Throwable => ProtobufJsonUnknownError(c)
+        case c: Throwable           => ProtobufJsonUnknownError(c)
       })
 
 }

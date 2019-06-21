@@ -15,18 +15,18 @@
  */
 
 package fluence.vm.wasm
-import java.nio.{ByteBuffer, ByteOrder}
+import java.nio.ByteOrder
 
+import asmble.compile.jvm.MemoryBuffer
 import fluence.vm.utils.safelyRunThrowable
 import cats.Monad
 import cats.data.EitherT
-import fluence.crypto.CryptoError
-import fluence.vm.VmError.{InternalVmError, VmMemoryError}
+import fluence.vm.VmError.VmMemoryError
 import fluence.vm.VmError.WasmVmError.GetVmStateError
 
 import scala.language.higherKinds
 
-final case class WasmModuleMemory(memory: ByteBuffer) {
+final case class WasmModuleMemory private (memory: MemoryBuffer, memoryHasher: MemoryHasher) {
 
   /**
    * Reads [offset, offset+size) region from the memory.
@@ -83,17 +83,19 @@ final case class WasmModuleMemory(memory: ByteBuffer) {
   /**
    * Computes and returns hash of memory.
    *
-   * @param hashFn a hash function
    */
-  def computeMemoryHash[F[_]: Monad](
-    hashFn: Array[Byte] ⇒ EitherT[F, CryptoError, Array[Byte]]
-  ): EitherT[F, GetVmStateError, Array[Byte]] =
-    for {
-      memoryAsArray ← readBytes(0, memory.capacity())
+  def computeMemoryHash[F[_]: Monad](): EitherT[F, GetVmStateError, Array[Byte]] = memoryHasher.computeMemoryHash()
 
-      vmStateAsHash ← hashFn(memoryAsArray).leftMap { e ⇒
-        InternalVmError(s"Computing wasm memory hash failed", Some(e)): GetVmStateError
-      }
-    } yield vmStateAsHash
+}
+
+object WasmModuleMemory {
+
+  def apply[F[_]: Monad](
+    memory: MemoryBuffer,
+    memoryHasher: MemoryHasher.Builder[F]
+  ): EitherT[F, GetVmStateError, WasmModuleMemory] =
+    for {
+      memoryHasher <- memoryHasher(memory)
+    } yield new WasmModuleMemory(memory, memoryHasher)
 
 }

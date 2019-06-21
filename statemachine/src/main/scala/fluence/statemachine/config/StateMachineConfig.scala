@@ -105,11 +105,8 @@ object StateMachineConfig {
    */
   def listFiles(path: String): IO[List[File]] = IO {
     val pathName = new File(path)
-    println(
-      s"file is $pathName ${pathName.isFile} ${pathName.isDirectory} ${pathName.exists()} ${pathName.getAbsolutePath}"
-    )
     pathName match {
-      case file if pathName.isFile => file :: Nil
+      case file if pathName.isFile     => file :: Nil
       case dir if pathName.isDirectory => Option(dir.listFiles).fold(List.empty[File])(_.toList)
     }
   }

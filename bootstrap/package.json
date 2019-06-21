@@ -25,7 +25,7 @@
     "openzeppelin-solidity": "2.2.0",
     "truffle": "5.0.13",
     "truffle-assertions": "0.8.2",
-    "solc": "0.5.7",
+    "solc": "0.5.8",
     "openzeppelin-test-helpers": "0.3.0"
   },
   "dependencies": {

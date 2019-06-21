@@ -17,7 +17,7 @@ onLoad in Global := (onLoad in Global).value.andThen { state ⇒
 
 /* Projects */
 
-lazy val vm = (project in file("vm"))
+lazy val `vm` = (project in file("vm"))
   .configs(IntegrationTest)
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
   .settings(
@@ -27,11 +27,10 @@ lazy val vm = (project in file("vm"))
       cats,
       catsEffect,
       pureConfig,
-      cryptoHashing,
+      cryptoHashsign,
       scalaTest,
       scalaIntegrationTest,
-      mockito,
-      slogging
+      mockito
     ),
     test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(compile in `vm-counter`)
@@ -39,12 +38,13 @@ lazy val vm = (project in file("vm"))
       .dependsOn(compile in `vm-llamadb`)
       .value
   )
+  .dependsOn(`merkelized-bytebuffer`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
 
 /**
  * Wasm VM docker runner for easy Wasm app debugging
  */
-lazy val flrun = (project in file("vm/flrun"))
+lazy val `frun` = (project in file("vm/frun"))
     .settings(
       commons,
       libraryDependencies ++= Seq(
@@ -57,38 +57,17 @@ lazy val flrun = (project in file("vm/flrun"))
         http4sDsl,
         http4sServer,
       ),
-      assemblyMergeStrategy in assembly := {
-        // a module definition fails compilation for java 8, just skip it
-        case PathList("module-info.class", xs @ _*) => MergeStrategy.first
-        case "META-INF/io.netty.versions.properties" =>
-          MergeStrategy.first
-        case x =>
-          val oldStrategy = (assemblyMergeStrategy in assembly).value
-          oldStrategy(x)
-      },
-      imageNames in docker := Seq(ImageName("fluencelabs/frun")),
-      dockerfile in docker := {
-        // Run `sbt docker` to create image
-
-        val artifact = assembly.value
-        val artifactTargetPath = s"/${artifact.name}"
-
-        val port = 30000
-
-        new Dockerfile {
-          from("openjdk:8-jre-alpine")
-
-          expose(port)
-
-          copy((resourceDirectory in Compile).value / "reference.conf", "/reference.conf")
-          copy(artifact, artifactTargetPath)
-
-          entryPoint("java", "-jar", "-Dconfig.file=/reference.conf", "-Xmx2G", artifactTargetPath)
-        }
-      }
+      assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
+      imageNames in docker := Seq(ImageName(DockerContainers.Frun)),
+      dockerfile in docker := DockerContainers.frun(assembly.value, (resourceDirectory in Compile).value)
     )
-    .dependsOn(vm, statemachine)
+    .dependsOn(`vm`, `statemachine`)
     .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
+
+lazy val `frun-rust` = project.in(frun.base / "rust").settings(
+  imageNames in docker := Seq(ImageName(DockerContainers.FrunRust)),
+  dockerfile in docker := DockerContainers.frunRust((assembly in `frun`).value, (resourceDirectory in `frun` in Compile).value)
+).dependsOn(`frun`).enablePlugins(DockerPlugin)
 
 lazy val `vm-counter` = (project in file("vm/src/it/resources/test-cases/counter"))
   .settings(
@@ -112,12 +91,21 @@ lazy val `vm-hello-world-runner` = (project in file("vm/src/it/resources/test-ca
       asmble,
       cats,
       catsEffect,
-      pureConfig,
-      cryptoHashing,
+      pureConfig
     )
   )
-  .dependsOn(vm, `vm-hello-world`)
+  .dependsOn(`vm`, `vm-hello-world`)
   .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `merkelized-bytebuffer` = (project in file("vm/merkelized-bytebuffer"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      asmble,
+      cryptoHashsign,
+      scalaTest
+    )
+  )
 
 lazy val `statemachine-control` = (project in file("statemachine/control"))
   .settings(
@@ -127,7 +115,6 @@ lazy val `statemachine-control` = (project in file("statemachine/control"))
       catsEffect,
       circeGeneric,
       circeParser,
-      slogging,
       http4sDsl,
       http4sServer,
       http4sCirce,
@@ -137,64 +124,29 @@ lazy val `statemachine-control` = (project in file("statemachine/control"))
       sttpCatsBackend % Test
     )
   )
+  .dependsOn(`tendermint-block-history`)
+  .enablePlugins(AutomateHeaderPlugin)
 
-lazy val statemachine = (project in file("statemachine"))
+lazy val `statemachine` = (project in file("statemachine"))
   .settings(
     commons,
     kindProjector,
     libraryDependencies ++= Seq(
       pureConfig,
-      slogging,
       scodecBits,
       "com.github.jtendermint" % "jabci" % "0.26.0",
       scalaTest
     ),
     assemblyJarName in assembly := "statemachine.jar",
-    assemblyMergeStrategy in assembly := {
-      // a module definition fails compilation for java 8, just skip it
-      case PathList("module-info.class", xs @ _*) => MergeStrategy.first
-      case "META-INF/io.netty.versions.properties" =>
-        MergeStrategy.first
-      case x =>
-        val oldStrategy = (assemblyMergeStrategy in assembly).value
-        oldStrategy(x)
-    },
+    assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
     test in assembly     := {},
-    imageNames in docker := Seq(ImageName("fluencelabs/worker")),
-    dockerfile in docker := {
-      // Run `sbt docker` to create image
-
-      // The assembly task generates a fat JAR file
-      val artifact = assembly.value
-      val artifactTargetPath = s"/${artifact.name}"
-
-      // State machine constants
-      val workerDataRoot = "/worker"
-      val workerRunScript = s"$workerDataRoot/run.sh"
-      val abciHandlerPort = 26658
-
-      val vmDataRoot = "/vmcode"
-
-      new Dockerfile {
-        from("openjdk:8-jre-alpine")
-
-        expose(abciHandlerPort)
-
-        volume(vmDataRoot)
-
-        // includes worker run script
-        copy(baseDirectory.value / "docker" / "worker", workerDataRoot)
-
-        copy(artifact, artifactTargetPath)
-
-        entryPoint("sh", workerRunScript, artifactTargetPath)
-      }
-    }
+    imageNames in docker := Seq(ImageName(DockerContainers.Worker)),
+    dockerfile in docker := DockerContainers.worker(assembly.value, baseDirectory.value)
   )
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(vm, `statemachine-control`, `tendermint-rpc`, sttpEitherT, `tendermint-block`)
+  .dependsOn(`vm`, `statemachine-control`, `tendermint-rpc`, `sttpEitherT`, `tendermint-block`)
 
-lazy val effects = project
+lazy val `effects` = project
   .settings(
     commons,
     libraryDependencies ++= Seq(
@@ -202,9 +154,10 @@ lazy val effects = project
       catsEffect
     )
   )
+  .dependsOn(`log`)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val sttpEitherT = (project in file("effects/sttpEitherT"))
+lazy val `sttpEitherT` = (project in file("effects/sttpEitherT"))
   .settings(
     commons,
     kindProjector,
@@ -226,10 +179,10 @@ lazy val `ca-store` = (project in file("effects/ca-store"))
       fs2io
     )
   )
-  .dependsOn(effects)
+  .dependsOn(`effects`)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val swarm = (project in file("effects/swarm"))
+lazy val `swarm` = (project in file("effects/swarm"))
   .settings(
     commons,
     kindProjector,
@@ -238,7 +191,6 @@ lazy val swarm = (project in file("effects/swarm"))
       sttpCirce,
       sttpCatsBackend % Test,
       sttpFs2Backend % Test,
-      slogging,
       circeCore,
       circeGeneric,
       circeGenericExtras,
@@ -246,14 +198,14 @@ lazy val swarm = (project in file("effects/swarm"))
       scodecBits,
       scodecCore,
       web3jCrypto,
-      cryptoHashing,
+      cryptoHashsign,
       scalaTest
     )
   )
-  .dependsOn(`ca-store`, sttpEitherT % "test->test;compile->compile")
+  .dependsOn(`ca-store`, `sttpEitherT` % "test->test;compile->compile")
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val ipfs = (project in file("effects/ipfs"))
+lazy val `ipfs` = (project in file("effects/ipfs"))
   .settings(
     commons,
     kindProjector,
@@ -262,52 +214,46 @@ lazy val ipfs = (project in file("effects/ipfs"))
       sttpCirce,
       circeGeneric,
       circeFs2,
-      slogging,
       scodecBits,
       scodecCore,
       scalaTest
     )
   )
-  .dependsOn(`ca-store`, sttpEitherT % "test->test;compile->compile")
+  .dependsOn(`ca-store`, `sttpEitherT` % "test->test;compile->compile")
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val ethclient = (project in file("effects/ethclient"))
+lazy val `ethclient` = (project in file("effects/ethclient"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
       web3jCore,
-      slogging,
       scodecBits,
       fs2,
       fs2rx,
       scalaTest
     ),
   )
-  .dependsOn(effects)
+  .dependsOn(`effects`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kvstore` = (project in file("effects/kvstore"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      slogging,
       codecCore,
       fs2,
       rocksDb,
       scalaTest
     )
   )
-  .dependsOn(effects)
+  .dependsOn(`effects`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `dockerio` = (project in file("effects/docker"))
   .settings(
-    commons,
-    libraryDependencies ++= Seq(
-      slogging
-    )
+    commons
   )
-  .dependsOn(effects)
+  .dependsOn(`effects`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
@@ -319,12 +265,21 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
       circeGeneric,
       circeParser,
       circeGenericExtras,
-      slogging
+      fs2,
+      fs2io,
+      asyncHttpClient,
+      scalaTest,
+      http4sDsl % Test,
+      http4sServer % Test,
+      sttp % Test,
+      sttpCirce % Test,
+      sttpCatsBackend % Test
     )
   )
-  .dependsOn(effects)
+  .dependsOn(`effects`, `sttpEitherT`, `tendermint-block` % "test")
   .enablePlugins(AutomateHeaderPlugin)
 
+// TODO remove from effects to history
 lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
   .settings(
     commons,
@@ -333,19 +288,105 @@ lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
       circeGeneric,
       circeParser,
       circeGenericExtras,
-      slogging,
       protobuf,
       protobufUtil,
       scodecBits,
-      cryptoHashing,
+      cryptoHashsign,
       scalaTest,
       bouncyCastle
     )
   )
-  .dependsOn(effects)
+  .dependsOn(`effects`)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val node = project
+// TODO remove from effects to history
+lazy val `tendermint-block-history` = (project in file("effects/tendermint-block-history"))
+  .settings(
+    commons,
+    kindProjector,
+    libraryDependencies ++= Seq(
+      cats,
+      catsEffect,
+      sttp,
+      circeGeneric,
+      circeParser,
+      circeGenericExtras,
+      scodecBits,
+      http4sDsl,
+      http4sServer,
+      http4sCirce,
+      scalaTest,
+    )
+  )
+  .dependsOn(`effects`, `tendermint-block`, `ipfs`)
+  .enablePlugins(AutomateHeaderPlugin)
+
+// TODO remove from effects to history
+lazy val `receipt-storage` = (project in file("effects/receipt-storage"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      fs2,
+      fs2io,
+      cats,
+      catsEffect,
+      scalaTest,
+    )
+  ).dependsOn(`log`, `kvstore`, `tendermint-block-history`)
+
+lazy val `kademlia` = (project in file("kademlia"))
+  .settings(
+    commons,
+    kindProjector,
+    libraryDependencies ++= Seq(
+      cats,
+      catsEffect,
+      codecCore,
+      cryptoHashsign,
+      catsTestkit,
+      scalaTest,
+      scalacheckShapeless
+    )
+  )
+  .dependsOn(`kvstore`, `log`)
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `kademlia-http` = (project in file("kademlia/http"))
+  .settings(
+    commons,
+    kindProjector,
+    libraryDependencies ++= Seq(
+      sttp,
+      circeGeneric,
+      circeParser,
+      http4sDsl,
+      scalaTest
+    )
+  ).dependsOn(`kademlia`, `kademlia-testkit` % Test)
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `kademlia-testkit` = (project in file("kademlia/testkit"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      scalaTest
+    )
+  ).dependsOn(`kademlia`)
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `log` = (project in file("log"))
+  .settings(
+    commons,
+    kindProjector,
+    libraryDependencies ++= Seq(
+      cats,
+      catsEffect,
+      scalaTest
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `node` = project
   .configs(IntegrationTest)
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
   .settings(
@@ -362,61 +403,36 @@ lazy val node = project
       scalaIntegrationTest,
       scalaTest
     ),
-    assemblyMergeStrategy in assembly := {
-      // a module definition fails compilation for java 8, just skip it
-      case PathList("module-info.class", xs @ _*) => MergeStrategy.first
-      case "META-INF/io.netty.versions.properties" =>
-        MergeStrategy.first
-      case x =>
-        val oldStrategy = (assemblyMergeStrategy in assembly).value
-        oldStrategy(x)
-    },
+    assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
+    testOnly in IntegrationTest := (testOnly in IntegrationTest)
+      .dependsOn(docker)
+      .dependsOn(docker in `statemachine`)
+      .dependsOn(compile in `vm-llamadb`)
+      .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
+      .evaluated,
     test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(docker)
-      .dependsOn(docker in statemachine)
+      .dependsOn(docker in `statemachine`)
       .dependsOn(compile in `vm-llamadb`)
       .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
       .value,
     mainClass in assembly       := Some("fluence.node.MasterNodeApp"),
     assemblyJarName in assembly := "master-node.jar",
     test in assembly            := {},
-    imageNames in docker        := Seq(ImageName("fluencelabs/node")),
-    dockerfile in docker := {
-      // The assembly task generates a fat JAR file
-      val artifact: File = assembly.value
-      val artifactTargetPath = s"/${artifact.name}"
-
-      new Dockerfile {
-        // docker is needed in image so it can connect to host's docker.sock and run workers on host
-        val dockerBinary = "https://download.docker.com/linux/static/stable/x86_64/docker-18.06.1-ce.tgz"
-        from("openjdk:8-jre-alpine")
-        runRaw(s"wget -q $dockerBinary -O- | tar -C /usr/bin/ -zxv docker/docker --strip-components=1")
-
-        // this is needed for some binaries (e.g. rocksdb) to run properly on alpine linux since they need libc and
-        // alpine use musl
-        runRaw("ln -sf /lib/libc.musl-x86_64.so.1 /usr/lib/ld-linux-x86-64.so.2")
-
-        volume("/master") // anonymous volume to store all data
-
-        // p2p ports range
-        env("MIN_PORT", "10000")
-        env("MAX_PORT", "11000")
-
-        /*
-         * The following directory structure is assumed in node/src/main/resources:
-         *    docker/
-         *      entrypoint.sh
-         *      application.conf
-         */
-        copy((resourceDirectory in Compile).value / "docker", "/")
-
-        copy(artifact, artifactTargetPath)
-
-        cmd("java", "-jar", "-Dconfig.file=/master/application.conf", artifactTargetPath)
-        entryPoint("sh", "/entrypoint.sh")
-      }
-    }
+    imageNames in docker        := Seq(ImageName(DockerContainers.Node)),
+    dockerfile in docker := DockerContainers.node(assembly.value, (resourceDirectory in Compile).value)
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(ethclient, swarm, ipfs, `statemachine-control`, `kvstore`, `dockerio`, `tendermint-rpc`, sttpEitherT)
+  .dependsOn(
+    `ethclient`, 
+    `swarm`, 
+    `ipfs`, 
+    `statemachine-control`, 
+    `kvstore`, 
+    `dockerio`, 
+    `tendermint-rpc`, 
+    `sttpEitherT`, 
+    `kademlia-http`,
+    `kademlia-testkit` % Test
+  )

@@ -15,9 +15,14 @@
  */
 
 package fluence.statemachine
-import slogging.LazyLogging
+
+import cats.Monad
+import cats.data.OptionT
+import cats.syntax.flatMap._
+import fluence.log.Log
 
 import scala.util.Try
+import scala.language.higherKinds
 
 /**
  * Represents Tendermint transaction with ordering data
@@ -27,7 +32,7 @@ import scala.util.Try
  */
 case class Tx(head: Tx.Head, data: Tx.Data)
 
-object Tx extends LazyLogging {
+object Tx {
 
   /**
    * Ordering info.
@@ -62,18 +67,19 @@ object Tx extends LazyLogging {
    *
    * @param tx Binary transaction, how it cames from Tendermint
    */
-  def readTx(tx: Array[Byte]): Option[Tx] = {
+  def readTx[F[_]: Monad: Log](tx: Array[Byte]): OptionT[F, Tx] = {
     val headIndex = tx.indexWhere(_.toChar == '\n')
     if (headIndex <= 0) {
-      None
+      OptionT.none[F, Tx]
     } else {
       val (head, tail) = tx.splitAt(headIndex)
-      readHead(new String(head)).flatMap { h ⇒
-        val t = Try(
+      OptionT.fromOption[F](readHead(new String(head))).flatMap { h ⇒
+        Try(
           Tx(h, Data(tail.drop(1)))
+        ).toEither.fold(
+          err ⇒ OptionT.liftF(Log[F].error("Cannot parse tx", err)) >> OptionT.none[F, Tx],
+          OptionT.pure[F](_)
         )
-        t.failed.foreach(err ⇒ logger.error(s"Cannot parse tx: $err", err))
-        t.toOption
       }
     }
   }

@@ -22,6 +22,7 @@ import fluence.crypto.Crypto.Hasher
 import fluence.effects.swarm.crypto.Secp256k1Signer.Signer
 import fluence.effects.swarm._
 import fluence.effects.swarm.meta.{MetaHash, Metadata, RootAddr, Signature}
+import fluence.log.Log
 import io.circe.Encoder
 import io.circe.generic.semiauto.deriveEncoder
 import scodec.bits.ByteVector
@@ -58,7 +59,7 @@ object UpdateMutableResourceRequest {
 
   implicit val updateRequestEncoder: Encoder[UpdateMutableResourceRequest] = deriveEncoder
 
-  def apply[F[_]: Monad](
+  def apply[F[_]: Monad: Log](
     id: MutableResourceIdentifier,
     data: ByteVector,
     multiHash: Boolean,

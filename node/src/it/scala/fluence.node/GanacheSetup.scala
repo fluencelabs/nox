@@ -15,25 +15,28 @@
  */
 
 package fluence.node
-import cats.syntax.functor._
+import cats.{Id, ~>}
+import cats.effect.IO
+import fluence.log.Log
 
 import scala.language.higherKinds
 
-trait GanacheSetup extends OsSetup with slogging.LazyLogging {
+trait GanacheSetup extends OsSetup {
 
-  def wireupContract(): Unit = {
-    logger.info("bootstrapping npm")
+  def wireupContract()(implicit log: Log[IO]): Unit = {
+    val l = log.mapK[Id](Lambda[IO ~> Id](_.unsafeRunSync()))
+    l.info("bootstrapping npm")
     runCmd("npm install")
 
-    logger.info("starting Ganache")
+    l.info("starting Ganache")
     runBackground("npm run ganache")
 
-    logger.info("deploying contract to Ganache")
+    l.info("deploying contract to Ganache")
     runCmd("npm run migrate")
   }
 
-  def killGanache(): Unit = {
-    logger.info("killing ganache")
+  def killGanache()(implicit log: Log[IO]): Unit = {
+    log.info("killing ganache").unsafeRunSync()
     runCmd("pkill -f ganache")
   }
 }

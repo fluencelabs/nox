@@ -17,18 +17,19 @@
 package fluence.node.workers.tendermint
 import java.nio.file.Path
 
+import cats.Monad
 import cats.data.EitherT
-import cats.{Applicative, Monad}
 import cats.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
-import fluence.node.config.DockerConfig
-import fluence.node.workers.WorkerParams
-import fluence.node.workers.status.{HttpCheckFailed, HttpCheckNotPerformed, HttpCheckStatus, HttpStatus, ServiceStatus}
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.response.TendermintStatus
+import fluence.log.Log
+import fluence.node.config.DockerConfig
+import fluence.node.workers.WorkerParams
+import fluence.node.workers.status._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -47,7 +48,7 @@ case class DockerTendermint(
   /**
    * Service status for this docker + wrapped Tendermint Http service
    */
-  def status[F[_]: Concurrent: Timer: DockerIO](
+  def status[F[_]: Concurrent: Timer: DockerIO: Log](
     rpc: TendermintRpc[F],
     timeout: FiniteDuration
   ): F[ServiceStatus[TendermintStatus]] =
@@ -83,7 +84,7 @@ object DockerTendermint {
    * @tparam F Effect
    * @return String output of the command execution
    */
-  def execCmd[F[_]: DockerIO](
+  def execCmd[F[_]: DockerIO: Log](
     tmDockerConfig: DockerConfig,
     tendermintDir: Path,
     masterContainerId: Option[String],
@@ -155,7 +156,7 @@ object DockerTendermint {
    * @param stopTimeout Seconds to wait for graceful stop of the Tendermint container before killing it
    * @return Running container
    */
-  def make[F[_]: DockerIO: LiftIO: Monad](
+  def make[F[_]: DockerIO: LiftIO: Monad: Log](
     params: WorkerParams,
     p2pPort: Short,
     workerName: String,

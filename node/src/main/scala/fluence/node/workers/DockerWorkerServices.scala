@@ -17,19 +17,17 @@
 package fluence.node.workers
 
 import cats.data.EitherT
-import cats.{Applicative, Apply, Monad}
 import cats.effect._
 import cats.syntax.functor._
-import cats.syntax.apply._
-import cats.syntax.flatMap._
+import cats.{Apply, Monad}
 import com.softwaremill.sttp._
 import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
+import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.log.Log
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
 import fluence.node.workers.tendermint.DockerTendermint
-import fluence.effects.tendermint.rpc.TendermintRpc
-import slogging.LazyLogging
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -54,7 +52,7 @@ case class DockerWorkerServices[F[_]] private (
   override def status(timeout: FiniteDuration): F[WorkerStatus] = statusCall(timeout)
 }
 
-object DockerWorkerServices extends LazyLogging {
+object DockerWorkerServices {
   val ControlRpcPort: Short = 26662
 
   private def dockerCommand(params: WorkerParams, network: DockerNetwork): DockerParams.DaemonParams = {
@@ -91,13 +89,14 @@ object DockerWorkerServices extends LazyLogging {
    * @return Resource of docker network and node connection.
    *         On release node will be disconnected, network will be removed.
    */
-  private def makeNetwork[F[_]: DockerIO: Monad](params: WorkerParams): Resource[F, DockerNetwork] = {
-    logger.debug(s"Creating docker network ${dockerNetworkName(params)} for $params")
+  private def makeNetwork[F[_]: DockerIO: Monad: Log](params: WorkerParams): Resource[F, DockerNetwork] =
     for {
+      _ ← Log.resource[F].debug(s"Creating docker network ${dockerNetworkName(params)} for $params")
       network <- DockerNetwork.make(dockerNetworkName(params))
-      _ <- params.masterNodeContainerId.map(DockerContainer).fold(Resource.pure(()))(DockerNetwork.join(_, network))
+      _ <- params.masterNodeContainerId
+        .map(DockerContainer(_, None))
+        .fold(Resource.pure(()))(DockerNetwork.join(_, network))
     } yield network
-  }
 
   /**
    * Makes a single worker that runs once resource is in use
@@ -109,7 +108,7 @@ object DockerWorkerServices extends LazyLogging {
    * @param sttpBackend Sttp Backend to launch HTTP healthchecks and RPC endpoints
    * @return the [[WorkerServices]] instance
    */
-  def make[F[_]: DockerIO: Timer](
+  def make[F[_]: DockerIO: Timer: Log](
     params: WorkerParams,
     p2pPort: Short,
     stopTimeout: Int

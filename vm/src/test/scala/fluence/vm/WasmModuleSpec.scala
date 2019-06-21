@@ -18,20 +18,32 @@ package fluence.vm
 import java.lang.reflect.InvocationTargetException
 import java.nio.ByteBuffer
 
+import asmble.compile.jvm.{MemoryBuffer, MemoryByteBuffer}
 import asmble.run.jvm.Module.Compiled
 import asmble.run.jvm.ScriptContext
+import cats.{~>, Id, Monad}
 import cats.data.EitherT
-import fluence.vm.TestUtils._
-import fluence.vm.VmError._
+import cats.effect.{IO, Timer}
+import fluence.crypto.Crypto.Hasher
 import fluence.crypto.CryptoError
+import fluence.log.{Log, LogFactory}
 import fluence.vm.VmError.{InitializationError, InternalVmError}
-import fluence.vm.wasm.WasmModule
+import fluence.vm.wasm.{MemoryHasher, WasmModule}
 import org.mockito.Mockito
 import org.mockito.stubbing.OngoingStubbing
 import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{Matchers, WordSpec}
 
+import scala.concurrent.ExecutionContext
+import scala.language.higherKinds
+
 class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
+
+  implicit val ioTimer: Timer[IO] = IO.timer(ExecutionContext.global)
+  implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init(getClass.getSimpleName).unsafeRunSync()
+  implicit val logId: Log[Id] = log.mapK(new (IO ~> Id) {
+    override def apply[A](fa: IO[A]): Id[A] = fa.unsafeRunSync()
+  })
 
   "apply" should {
     "returns an error" when {
@@ -42,7 +54,7 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
         Mockito.when(module.instance(scriptCtx)).thenThrow(new RuntimeException("boom!"))
         addClsStubbing(module)
 
-        WasmModule(module, scriptCtx, "", "", "") match {
+        WasmModule(module, scriptCtx, "", "", "", MemoryHasher.apply).value match {
           case Right(_) ⇒
             fail("Should be error appeared")
           case Left(e) ⇒
@@ -60,7 +72,7 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
         Mockito.when(module.instance(scriptCtx)).thenReturn(instance, null)
         addClsStubbing(module)
 
-        WasmModule(module, scriptCtx, "", "", "") match {
+        WasmModule(module, scriptCtx, "", "", "", MemoryHasher.apply).value match {
           case Right(_) ⇒
             fail("Should be error appeared")
           case Left(e) ⇒
@@ -80,34 +92,24 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
         Mockito.when(module.instance(scriptCtx)).thenReturn(instance, null)
         addClsStubbing(module)
 
-        WasmModule(module, scriptCtx, "", "", "") match {
-          case Right(moduleInstance) ⇒
-            val res = for {
-              result <- moduleInstance.readMemory(0, 0)
-            } yield result
-
-            res.isLeft shouldBe true
-
-          case Left(_) ⇒
-            fail("Error shouldn't appears.")
-        }
+        WasmModule(module, scriptCtx, "", "", "", MemoryHasher.apply).isLeft shouldBe true
       }
 
       "module has a memory" in {
-        val instance = new { def getMemory: ByteBuffer = ByteBuffer.wrap(Array[Byte](1, 2, 3)) }
+        val instance = new { def getMemory: MemoryBuffer = new MemoryByteBuffer(ByteBuffer.wrap(Array[Byte](1, 2, 3))) }
         val module = mock[Compiled]
         Mockito.when(module.getName).thenReturn("test-module-name")
         val scriptCtx = mock[ScriptContext]
         Mockito.when(module.instance(scriptCtx)).thenReturn(instance, null)
         addClsStubbing(module)
 
-        WasmModule(module, scriptCtx, "", "", "") match {
+        WasmModule(module, scriptCtx, "", "", "", MemoryHasher.apply).value match {
           case Right(moduleInstance) ⇒
             for {
               memoryRegion <- moduleInstance.readMemory(0, 3)
             } yield memoryRegion should contain allOf (1, 2, 3)
-          case Left(_) ⇒
-            fail("Error shouldn't appears.")
+          case Left(e) ⇒
+            fail(s"Error shouldn't appears. $e")
         }
       }
     }
@@ -116,9 +118,14 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
   "innerState" should {
     "returns an error" when {
       "hasher returns an error" in {
-        val instance = new { def getMemory: ByteBuffer = ByteBuffer.wrap(Array[Byte](1, 2, 3)) }
+        val instance = new { def getMemory: MemoryBuffer = new MemoryByteBuffer(ByteBuffer.wrap(Array[Byte](1, 2, 3))) }
+        val badHasher: Hasher[ByteBuffer, Array[Byte]] = new Hasher[ByteBuffer, Array[Byte]] {
+          override def apply[F[_]](input: ByteBuffer)(
+            implicit evidence$2: Monad[F]
+          ): EitherT[F, CryptoError, Array[Byte]] = EitherT.fromEither(Left(CryptoError("test error")))
+        }
         val result =
-          createWasmModule(instance).computeStateHash(arr ⇒ EitherT.leftT(CryptoError("error!"))).value.left.get
+          createWasmModuleFull(instance, MemoryHasher.plainHasherBuilder(badHasher)).computeStateHash().value.left.get
 
         result.getMessage shouldBe "Computing wasm memory hash failed"
         result.getCause shouldBe a[CryptoError]
@@ -126,23 +133,12 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
       }
     }
 
-    "returns empty array of bytes" when {
-      "memory isn't present in a module" in {
-        val result = createWasmModule(new {}).computeStateHash(arr ⇒ EitherT.rightT(arr)).value.right.get
-        result shouldBe Array.emptyByteArray
-      }
-
-      "getMemory returns" in {
-        val instance = new { def getMemory: ByteBuffer = null }
-        val result = createWasmModule(instance).computeStateHash(arr ⇒ EitherT.rightT(arr)).value.right.get
-        result shouldBe Array.emptyByteArray
-      }
-    }
-
     "returns hash of VM's state" when {
       "memory is present in a module" in {
-        val instance = new { def getMemory: ByteBuffer = ByteBuffer.wrap(Array[Byte](1, 2, 3)) }
-        val result = createWasmModule(instance).computeStateHash(arr ⇒ EitherT.rightT(arr)).value.right.get
+        val instance = new {
+          def getMemory: MemoryByteBuffer = new MemoryByteBuffer(ByteBuffer.wrap(Array[Byte](1, 2, 3)))
+        }
+        val result = createWasmModulePlainHasher(instance).computeStateHash().value.right.get
         result should contain allOf (1, 2, 3)
       }
     }
@@ -150,7 +146,7 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
     "getting inner state should be idempotent for VM inner state" in {
       // create a memory, set ByteBuffer position to 1, after getting state buffer
       // should be completely the same that was before.
-      val memoryBuffer = ByteBuffer.wrap(Array[Byte](1, 2, 3))
+      val memoryBuffer = new MemoryByteBuffer(ByteBuffer.wrap(Array[Byte](1, 2, 3)))
       memoryBuffer.position(1)
       val expected = memoryBuffer.duplicate()
 
@@ -163,8 +159,8 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
       memoryBuffer.position(1)
       memoryBuffer shouldBe expected
       // getting inner VM state
-      val instance = new { def getMemory: ByteBuffer = memoryBuffer }
-      val result = createWasmModule(instance).computeStateHash(arr ⇒ EitherT.rightT(arr)).value.right.get
+      val instance = new { def getMemory: MemoryByteBuffer = memoryBuffer }
+      val result = createWasmModulePlainHasher(instance).computeStateHash().value.right.get
       // checks that result is correct
       result should contain allOf (1, 2, 3)
       // checks that 'memoryBuffer' wasn't change
@@ -179,7 +175,24 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
     whenStubbing.thenReturn(module.getClass, null)
   }
 
-  private def createWasmModule(instance: AnyRef): WasmModule = {
+  private def createWasmModulePlainHasher(instance: AnyRef): WasmModule = {
+    val plainHasher = new Hasher[ByteBuffer, Array[Byte]] {
+      override def apply[F[_]](input: ByteBuffer)(
+        implicit evidence$2: Monad[F]
+      ): EitherT[F, CryptoError, Array[Byte]] = {
+        val arr = new Array[Byte](input.capacity())
+        val dup = input.duplicate()
+        dup.clear()
+        dup.get(arr)
+        EitherT.pure(arr)
+      }
+    }
+
+    createWasmModuleFull(instance, (m: MemoryBuffer) => EitherT.rightT(MemoryHasher.plainMemoryHasher(m, plainHasher)))
+  }
+  private def createWasmModule(instance: AnyRef): WasmModule = createWasmModuleFull(instance, MemoryHasher.apply)
+
+  private def createWasmModuleFull(instance: AnyRef, builder: MemoryHasher.Builder[Id]): WasmModule = {
     val module = mock[Compiled]
     Mockito.when(module.getName).thenReturn("test-module-name")
     val scriptCtx = mock[ScriptContext]
@@ -187,7 +200,11 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
 
     addClsStubbing(module)
 
-    WasmModule(module, scriptCtx, "", "", "").right.get
+    WasmModule(module, scriptCtx, "", "", "", builder).value.right.get
   }
 
+}
+
+class TestClass {
+  val getMemory: MemoryBuffer = new MemoryByteBuffer(ByteBuffer.wrap(Array[Byte](1, 2, 3)))
 }

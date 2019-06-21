@@ -27,7 +27,7 @@ object StorageType extends Enumeration {
 
   def toByte(storageType: StorageType): Byte = storageType match {
     case StorageType.Swarm => 0
-    case StorageType.Ipfs => 1
+    case StorageType.Ipfs  => 1
   }
 
   implicit val decoder: Decoder[StorageType] = Decoder.enumDecoder(StorageType)

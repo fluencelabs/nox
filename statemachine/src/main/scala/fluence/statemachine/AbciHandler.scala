@@ -17,48 +17,59 @@
 package fluence.statemachine
 
 import cats.Applicative
-import cats.effect.Effect
+import cats.data.EitherT
+import cats.effect.concurrent.Ref
 import cats.effect.syntax.effect._
+import cats.effect.Effect
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import com.github.jtendermint.jabci.api._
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
 import fluence.effects.tendermint.block.TendermintBlock
-import fluence.effects.tendermint.block.errors.Errors._
 import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.log.{Log, LogFactory}
 import fluence.statemachine.control.{ControlSignals, DropPeer}
+import io.circe.Json
 
 import scala.language.higherKinds
 
-class AbciHandler[F[_]: Effect](
+class AbciHandler[F[_]: Effect: LogFactory](
   service: AbciService[F],
   controlSignals: ControlSignals[F],
-  rpc: TendermintRpc[F]
-) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock
-    with slogging.LazyLogging {
+  tendermintRpc: TendermintRpc[F],
+  blocks: Ref[F, Map[Long, (String, Json)]],
+  commits: Ref[F, Map[Long, (String, Json)]]
+) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock {
 
-  private def checkBlock(height: Long): Unit = {
-    val log: String ⇒ Unit = s ⇒ logger.info(Console.YELLOW + s + Console.RESET)
-    val logBad: String ⇒ Unit = s ⇒ logger.info(Console.RED + s + Console.RESET)
+  private def checkBlock(height: Long)(implicit log: Log[F]): Unit =
+    (for {
+      str ← tendermintRpc
+        .block(height)
+        .leftSemiflatMap(e ⇒ Log[F].warn(s"RPC Block[$height] failed", e))
 
-    rpc
-      .block(height)
-      .value
-      .toIO
-      .map(
-        res =>
-          for {
-            str <- res.leftTap(e => logger.warn(s"RPC Block[$height] failed: $e"))
-            block <- TendermintBlock(str).leftTap(e => logBad(s"Failed to decode tendermint block from JSON: $e"))
-            _ <- block.validateHashes().leftTap(e => logBad(s"Block at height $height is invalid: $e"))
-          } yield log(s"Block at height $height is valid")
-      )
+      block ← EitherT
+        .fromEither[F](TendermintBlock(str))
+        .leftSemiflatMap(e ⇒ Log[F].warn("Failed to decode tendermint block from JSON", e))
+
+      _ ← Log.eitherT[F, Unit].info(s"RPC Block[$height] => height = ${block.block.header.height}")
+
+      _ ← EitherT
+        .fromEither[F](block.validateHashes())
+        .leftSemiflatMap(e ⇒ Log[F].warn(s"Block at height $height is invalid", e))
+
+      _ ← Log.eitherT[F, Unit].info(s"Block at height $height is valid")
+
+    } yield ()).value.void.toIO
       .unsafeRunAsyncAndForget()
-  }
 
   override def requestBeginBlock(
     req: RequestBeginBlock
   ): ResponseBeginBlock = {
     val height = req.getHeader.getHeight
+
+    implicit val log: Log[F] = LogFactory[F].init("abci", "beginBlock").toIO.unsafeRunSync()
+
     checkBlock(height)
 
     ResponseBeginBlock.newBuilder().build()
@@ -66,7 +77,9 @@ class AbciHandler[F[_]: Effect](
 
   override def requestCheckTx(
     req: RequestCheckTx
-  ): ResponseCheckTx =
+  ): ResponseCheckTx = {
+    implicit val log: Log[F] = LogFactory[F].init("abci", "requestCheckTx").toIO.unsafeRunSync()
+
     service
       .checkTx(req.getTx.toByteArray)
       .toIO
@@ -80,10 +93,13 @@ class AbciHandler[F[_]: Effect](
             .build
       }
       .unsafeRunSync()
+  }
 
   override def receivedDeliverTx(
     req: RequestDeliverTx
-  ): ResponseDeliverTx =
+  ): ResponseDeliverTx = {
+    implicit val log: Log[F] = LogFactory[F].init("abci", "receivedDeliverTx").toIO.unsafeRunSync()
+
     service
       .deliverTx(req.getTx.toByteArray)
       .toIO
@@ -97,16 +113,20 @@ class AbciHandler[F[_]: Effect](
             .build
       }
       .unsafeRunSync()
+  }
 
   override def requestCommit(
     requestCommit: RequestCommit
-  ): ResponseCommit =
+  ): ResponseCommit = {
+    implicit val log: Log[F] = LogFactory[F].init("abci", "requestCommit").toIO.unsafeRunSync()
+
     ResponseCommit
       .newBuilder()
       .setData(
         ByteString.copyFrom(service.commit.toIO.unsafeRunSync().toArray)
       )
       .build()
+  }
 
   override def requestQuery(
     req: RequestQuery

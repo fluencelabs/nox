@@ -1,0 +1,24 @@
+version: '3'
+
+services:
+  caddy:
+    image: abiosoft/caddy
+    container_name: caddy
+    restart: always
+    ports:
+      - 80:80
+    volumes:
+      - /root/Caddyfile:/etc/Caddyfile
+      - /root/.local/caddy:/root/.caddy
+      - /root/web:/root/web
+      - /root/fluence/dashboard/:/root/dashboard
+      - /root/fluence_old_dashboard/dashboard:/root/old_dashboard
+    networks:
+      - caddy
+    external_links:
+      - nagios:nagios
+    environment:
+      ACME_AGREE: 'true'
+
+networks:
+  caddy:

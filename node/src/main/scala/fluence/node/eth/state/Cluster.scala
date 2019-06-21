@@ -48,7 +48,7 @@ object Cluster {
     validatorKeys: DynamicArray[Bytes32],
     nodeAddresses: DynamicArray[Bytes24],
     ports: DynamicArray[Uint16],
-    currentValidatorKey: Bytes32,
+    currentValidatorKey: Bytes32
   ): Option[Cluster] = {
     val timestamp = (time.getValue.longValue() * 1000).millis
     val keys = validatorKeys.getValue.asScala

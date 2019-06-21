@@ -32,33 +32,41 @@ package fluence.node
  * limitations under the License.
  */
 
+import java.nio.ByteBuffer
+
+import cats.data.EitherT
 import cats.effect.{ContextShift, IO, Resource, Timer}
+import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
+import fluence.effects.tendermint.block.history.Receipt
+import fluence.log.{Log, LogFactory}
 import fluence.node.workers.control.ControlRpc
-import fluence.statemachine.control.{ControlServer, DropPeer}
 import fluence.statemachine.control.ControlServer.ControlServerConfig
-import org.scalatest.{Matchers, WordSpec}
+import fluence.statemachine.control.{ControlServer, DropPeer}
+import org.scalatest.{Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
 
-import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 
-class ControlRpcSpec extends WordSpec with Matchers {
+class ControlRpcSpec extends WordSpec with Matchers with OptionValues {
   "ControlRpc" should {
     implicit val ioTimer: Timer[IO] = IO.timer(global)
     implicit val ioShift: ContextShift[IO] = IO.contextShift(global)
 
+    implicit val logFactory = LogFactory.forPrintln[IO]()
+    implicit val log: Log[IO] = LogFactory[IO].init(getClass.getSimpleName).unsafeRunSync()
+
     val config = ControlServerConfig("localhost", 26662)
     val serverR = ControlServer.make[IO](config)
 
-    val sttp = Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
+    type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
+    val sttp: Resource[IO, STTP] = Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
+
     val resources = for {
       server <- serverR
-      s <- sttp
-      rpc = {
-        implicit val b = s
-        ControlRpc[IO](config.host, config.port)
-      }
+      implicit0(s: STTP) <- sttp
+      rpc = ControlRpc[IO](config.host, config.port)
     } yield (server, rpc)
 
     "return OK on status" in {
@@ -70,7 +78,7 @@ class ControlRpcSpec extends WordSpec with Matchers {
         case (server, rpc) =>
           for {
             key <- IO.pure(ByteVector.fill(32)(1))
-            _ <- rpc.dropPeer(key)
+            _ <- rpc.dropPeer(key).value.flatMap(IO.fromEither)
             received <- server.signals.dropPeers.use(IO.pure)
           } yield {
             received.size shouldBe 1
@@ -84,11 +92,41 @@ class ControlRpcSpec extends WordSpec with Matchers {
         case (server, rpc) =>
           for {
             before <- IO.pure(server.signals.stop.unsafeRunTimed(0.seconds))
-            _ <- rpc.stop
+            _ <- rpc.stop.value.flatMap(IO.fromEither)
             after <- IO.pure(server.signals.stop.unsafeRunTimed(0.seconds))
           } yield {
             before should not be defined
             after shouldBe defined
+          }
+      }.unsafeRunSync()
+    }
+
+    "send blockReceipt" in {
+      val receipt = Receipt(ByteVector(1, 2, 3))
+      resources.use {
+        case (server, rpc) =>
+          for {
+            before <- server.signals.receipt
+            _ <- rpc.sendBlockReceipt(receipt).value.flatMap(IO.fromEither)
+            after <- server.signals.receipt
+          } yield {
+            before should not be defined
+            after shouldBe defined
+            after.value shouldBe receipt
+          }
+      }.unsafeRunSync()
+    }
+
+    "get vmHash" in {
+      val vmHash = ByteVector(1, 2, 3)
+      resources.use {
+        case (server, rpc) =>
+          for {
+            _ <- server.signals.putVmHash(vmHash)
+            after <- IO.pure(rpc.getVmHash.value.flatMap(IO.fromEither).unsafeRunTimed(1.seconds))
+          } yield {
+            after shouldBe defined
+            after.value shouldBe vmHash
           }
       }.unsafeRunSync()
     }

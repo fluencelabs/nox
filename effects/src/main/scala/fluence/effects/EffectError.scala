@@ -18,3 +18,9 @@ package fluence.effects
 import scala.util.control.NoStackTrace
 
 trait EffectError extends Throwable with NoStackTrace
+
+trait WithCause[E <: Throwable] extends EffectError {
+  def cause: E
+
+  initCause(cause)
+}

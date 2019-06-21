@@ -17,16 +17,22 @@
 package fluence.vm
 
 import cats.data.{EitherT, NonEmptyList}
-import cats.effect.IO
+import cats.effect.{IO, Timer}
+import fluence.log.{Log, LogFactory}
 import fluence.vm.VmError._
 import fluence.vm.TestUtils._
+import fluence.vm.wasm.MemoryHasher
 import org.scalatest.{Matchers, WordSpec}
 
+import scala.concurrent.ExecutionContext
 import scala.language.implicitConversions
 
 class WasmVmSpec extends WordSpec with Matchers {
 
   implicit def error[E](either: EitherT[IO, E, _]): E = either.value.unsafeRunSync().left.get
+
+  private implicit val timer: Timer[IO] = IO.timer(ExecutionContext.global)
+  private implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init(getClass.getSimpleName).unsafeRunSync()
 
   "apply" should {
 
@@ -34,7 +40,7 @@ class WasmVmSpec extends WordSpec with Matchers {
 
       "config error" in {
         val res = for {
-          vm <- WasmVm[IO](NonEmptyList.one("unknown file"), "wrong config namespace")
+          vm <- WasmVm[IO](NonEmptyList.one("unknown file"), MemoryHasher[IO], "wrong config namespace")
         } yield vm
 
         val error = res.failed()
@@ -44,7 +50,7 @@ class WasmVmSpec extends WordSpec with Matchers {
 
       "file not found" in {
         val res = for {
-          vm <- WasmVm[IO](NonEmptyList.one("unknown file"))
+          vm <- WasmVm[IO](NonEmptyList.one("unknown file"), MemoryHasher[IO])
         } yield vm
 
         val error = res.failed()
@@ -61,24 +67,24 @@ class WasmVmSpec extends WordSpec with Matchers {
     "with one file" in {
       val sumFile = getClass.getResource("/wast/sum.wast").getPath
 
-      WasmVm[IO](NonEmptyList.one(sumFile)).success()
+      WasmVm[IO](NonEmptyList.one(sumFile), MemoryHasher[IO]).success()
     }
 
     "with two files with different module name" in {
       val sumFile = getClass.getResource("/wast/sum.wast").getPath
       val mulFile = getClass.getResource("/wast/mul.wast").getPath
 
-      WasmVm[IO](NonEmptyList.of(mulFile, sumFile)).success()
+      WasmVm[IO](NonEmptyList.of(mulFile, sumFile), MemoryHasher[IO]).success()
     }
 
     "two modules have function with the same names" in {
       // module without name and with some functions with the same name ("allocate", "deallocate", "invoke", ...)
-      val sum1File = getClass.getResource("/wast/no-getMemory.wast").getPath
+      val sum1File = getClass.getResource("/wast/counter.wast").getPath
       // module without name and with some functions with the same name ("allocate", "deallocate", "invoke", ...)
       val sum2File = getClass.getResource("/wast/bad-allocation-function-i64.wast").getPath
 
       val res = for {
-        vm <- WasmVm[IO](NonEmptyList.of(sum1File, sum2File))
+        vm <- WasmVm[IO](NonEmptyList.of(sum1File, sum2File), MemoryHasher[IO])
       } yield vm
 
       res.success()

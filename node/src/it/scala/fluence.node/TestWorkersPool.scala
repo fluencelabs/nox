@@ -24,6 +24,7 @@ import cats.syntax.functor._
 import cats.syntax.applicative._
 import fluence.effects.docker.DockerContainerStopped
 import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.log.Log
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus, WorkerStatus}
 import fluence.node.workers.{Worker, WorkerParams, WorkerServices, WorkersPool}
@@ -39,7 +40,7 @@ class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]]) 
    * @param params Worker's description
    * @return Whether worker run or not
    */
-  override def run(appId: Long, params: F[WorkerParams]): F[WorkersPool.RunResult] =
+  override def run(appId: Long, params: F[WorkerParams])(implicit log: Log[F]): F[WorkersPool.RunResult] =
     workers.take.flatMap {
       case m if m.contains(appId) ⇒ workers.put(m).as(WorkersPool.AlreadyRunning)
       case m ⇒

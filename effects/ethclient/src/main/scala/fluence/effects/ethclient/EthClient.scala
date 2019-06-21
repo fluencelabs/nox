@@ -23,12 +23,11 @@ import cats.effect._
 import cats.syntax.apply._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
-import cats.syntax.either._
 import cats.syntax.applicativeError._
 import cats.{~>, Applicative, Functor, Monad}
 import fluence.effects.Backoff
 import fluence.effects.ethclient.data.{Block, Log}
-import fluence.effects.ethclient.helpers.JavaFutureConversion._
+import fluence.effects.JavaFutureConversion._
 import fluence.effects.ethclient.syntax._
 import org.web3j.abi.EventEncoder
 import org.web3j.protocol.core._
@@ -38,7 +37,6 @@ import org.web3j.protocol.http.HttpService
 import org.web3j.protocol.{Web3j, Web3jService}
 import org.web3j.tx.{ClientTransactionManager, TransactionManager}
 import org.web3j.tx.gas.{ContractGasProvider, DefaultGasProvider}
-import slogging._
 import okhttp3.OkHttpClient
 import org.web3j.abi.datatypes.Event
 
@@ -56,7 +54,7 @@ import scala.util.Try
  *
  * @param web3 Underlying Web3j instance
  */
-class EthClient private (private val web3: Web3j) extends LazyLogging {
+class EthClient private (private val web3: Web3j) {
   type ContractLoader[T] = (String, Web3j, TransactionManager, ContractGasProvider) => T
 
   import EthClient.ioToF
@@ -78,7 +76,7 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
     request(_.ethBlockNumber()).map(_.getBlockNumber).map(BigInt(_))
 
   /**
-   * Checking if ethereum node is syncing or not.
+   * Checking if Ethereum node is syncing or not.
    */
   def isSyncing[F[_]: LiftIO: Functor]: EitherT[F, EthRequestError, EthSyncing.Result] =
     request(_.ethSyncing()).map(_.getResult)
@@ -86,17 +84,19 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
   /**
    * Checks node for syncing status every `checkPeriod` until node is synchronized.
    */
-  private def waitEthSyncing[F[_]: LiftIO: Monad: Timer](checkPeriod: FiniteDuration): F[Unit] =
+  private def waitEthSyncing[F[_]: LiftIO: Monad: Timer](
+    checkPeriod: FiniteDuration
+  )(implicit log: fluence.log.Log[F]): F[Unit] =
     isSyncing[F].value.flatMap {
       case Right(resp: EthSyncing.Syncing) if resp.isSyncing =>
-        logger.info(
+        log.info(
           s"Ethereum node is syncing. Current block: ${resp.getCurrentBlock}, highest block: ${resp.getHighestBlock}"
-        )
-        logger.info(s"Waiting ${checkPeriod.toSeconds} seconds for next attempt.")
-        Timer[F].sleep(checkPeriod) *> waitEthSyncing(checkPeriod)
+        ) *>
+          log.info(s"Waiting ${checkPeriod.toSeconds} seconds for next attempt.") *>
+          Timer[F].sleep(checkPeriod) *>
+          waitEthSyncing(checkPeriod)
       case _ ⇒
-        logger.info(s"Ethereum node is synced up, stop waiting")
-        Applicative[F].unit
+        log.info(s"Ethereum node is synced up, stop waiting")
     }
 
   /**
@@ -112,7 +112,7 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
     contractAddress: String,
     topic: Event,
     onErrorRetryAfter: FiniteDuration = 1.second
-  ): fs2.Stream[F, Log] =
+  )(implicit log: fluence.log.Log[F]): fs2.Stream[F, Log] =
     web3
       .ethLogFlowable(
         new SingleAddressEthFilter(
@@ -136,7 +136,7 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
   def blockStream[F[_]: ConcurrentEffect: Timer](
     onErrorRetryAfter: FiniteDuration = Backoff.default.delayPeriod,
     fullTransactionObjects: Boolean = false
-  ): fs2.Stream[F, (Option[String], Block)] =
+  )(implicit log: fluence.log.Log[F]): fs2.Stream[F, (Option[String], Block)] =
     web3
       .blockFlowable(fullTransactionObjects)
       .toStreamRetrying(onErrorRetryAfter)
@@ -146,10 +146,9 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
       .evalTap[F](
         either =>
           // log error
-          Sync[F].delay(either.leftMap { e =>
-            logger.error(s"Cannot encode block from ethereum: $e")
-            e.printStackTrace()
-          })
+          either.left.toOption.fold(Applicative[F].unit) { e =>
+            log.error(s"Cannot decode block from Ethereum", e)
+        }
       )
       .collect {
         case Right(v) => v
@@ -200,7 +199,7 @@ class EthClient private (private val web3: Web3j) extends LazyLogging {
 
 }
 
-object EthClient extends LazyLogging {
+object EthClient {
 
   private[ethclient] implicit def ioToF[F[_]: LiftIO]: IO ~> F = new (IO ~> F) {
     override def apply[A](fa: IO[A]): F[A] = fa.to[F]
@@ -230,12 +229,13 @@ object EthClient extends LazyLogging {
     url: Option[String] = None,
     includeRaw: Boolean = false,
     checkSyncPeriod: FiniteDuration = 3.seconds
-  ): Resource[F, EthClient] = {
+  )(implicit log: fluence.log.Log[F]): Resource[F, EthClient] = {
     val ethUrl = url.getOrElse(HttpService.DEFAULT_URL)
-    logger.info(s"Starting ethereum client on: $ethUrl")
-    makeResource(new HttpService(ethUrl, createOkHttpClient, includeRaw)).evalMap { client ⇒
-      client.waitEthSyncing(checkSyncPeriod).map(_ ⇒ client)
-    }
+
+    fluence.log.Log.resource[F].info(s"Starting ethereum client on: $ethUrl") *>
+      makeResource(new HttpService(ethUrl, createOkHttpClient, includeRaw)).evalMap { client ⇒
+        client.waitEthSyncing(checkSyncPeriod).map(_ ⇒ client)
+      }
   }
 
   /**

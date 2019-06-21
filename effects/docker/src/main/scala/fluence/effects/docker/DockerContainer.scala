@@ -21,4 +21,4 @@ package fluence.effects.docker
  *
  * @param containerId Running Container ID
  */
-case class DockerContainer(containerId: String) extends AnyVal
+case class DockerContainer(containerId: String, name: Option[String])

@@ -19,12 +19,15 @@ import cats.data.Kleisli
 import cats.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.effects.tendermint.block.history.helpers
+import fluence.log.{Log, LogFactory}
 import org.http4s._
 import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
 import org.http4s.implicits._
 import org.http4s.server.Server
 import org.http4s.server.blaze._
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
@@ -36,7 +39,7 @@ import scala.language.higherKinds
  */
 case class ControlServer[F[_]](signals: ControlSignals[F], http: Server[F])
 
-object ControlServer extends slogging.LazyLogging {
+object ControlServer {
 
   /** Settings for [[ControlServer]]
    * @param host host to listen on
@@ -50,37 +53,65 @@ object ControlServer extends slogging.LazyLogging {
    * @tparam F Effect
    * @return
    */
-  private def controlService[F[_]: Concurrent](
+  private def controlService[F[_]: Concurrent: LogFactory](
     signals: ControlSignals[F]
   )(implicit dsl: Http4sDsl[F]): Kleisli[F, Request[F], Response[F]] = {
     import dsl._
+    import helpers.ByteVectorJsonCodec._
 
-    implicit val decoder: EntityDecoder[F, DropPeer] = jsonOf[F, DropPeer]
+    implicit val dpdec: EntityDecoder[F, DropPeer] = jsonOf[F, DropPeer]
+    implicit val bpdec: EntityDecoder[F, BlockReceipt] = jsonOf[F, BlockReceipt]
+    implicit val bvenc: EntityEncoder[F, ByteVector] = jsonEncoderOf[F, ByteVector]
+
+    def logReq(req: Request[F]): F[Log[F]] =
+      LogFactory[F]
+        .init("ctrl", req.pathInfo)
+        .flatTap(_.info(s"RPC REQ: $req"))
+        .widen[Log[F]]
 
     val route: PartialFunction[Request[F], F[Response[F]]] = {
       case req @ POST -> Root / "control" / "dropPeer" =>
         for {
+          implicit0(log: Log[F]) ← logReq(req)
           drop <- req.as[DropPeer]
           _ <- signals.dropPeer(drop)
           ok <- Ok()
         } yield ok
 
-      case POST -> Root / "control" / "stop" =>
-        signals.stopWorker().flatMap(_ => Ok())
+      case req @ POST -> Root / "control" / "stop" =>
+        for {
+          implicit0(log: Log[F]) ← logReq(req)
+          _ ← signals.stopWorker()
+          ok ← Ok()
+        } yield ok
 
-      case (GET | POST) -> Root / "control" / "status" => Ok()
+      case (GET | POST) -> Root / "control" / "status" =>
+        Ok()
 
-      case _ => Sync[F].pure(Response.notFound)
-    }
+      case req @ POST -> Root / "control" / "blockReceipt" =>
+        for {
+          implicit0(log: Log[F]) ← logReq(req)
+          receipt <- req.as[BlockReceipt].map(_.receipt)
+          _ <- signals.putReceipt(receipt)
+          ok <- Ok()
+        } yield ok
 
-    val log: PartialFunction[Request[F], Request[F]] = {
+      case req @ (GET | POST) -> Root / "control" / "vmHash" =>
+        for {
+          implicit0(log: Log[F]) ← logReq(req)
+          vmHash <- signals.vmHash
+          ok <- Ok(vmHash)
+        } yield ok
+
       case req =>
-        logger.info(s"RPC REQ: [${req.pathInfo}] $req")
-        req
+        for {
+          implicit0(log: Log[F]) ← logReq(req)
+          _ ← Log[F].warn(s"RPC: unexpected request: ${req.method}")
+        } yield Response.notFound
     }
 
     HttpRoutes
-      .of[F] { log.andThen(route) }
+      .of[F](route)
       .orNotFound
   }
 
@@ -90,7 +121,7 @@ object ControlServer extends slogging.LazyLogging {
    * @tparam F Effect
    * @return
    */
-  def make[F[_]: ConcurrentEffect: Timer](config: ControlServerConfig): Resource[F, ControlServer[F]] = {
+  def make[F[_]: ConcurrentEffect: Timer: LogFactory](config: ControlServerConfig): Resource[F, ControlServer[F]] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
     for {

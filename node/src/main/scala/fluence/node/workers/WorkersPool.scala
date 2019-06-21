@@ -19,6 +19,7 @@ package fluence.node.workers
 import cats.{Applicative, Monad}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.log.Log
 
 import scala.language.higherKinds
 
@@ -36,7 +37,7 @@ trait WorkersPool[F[_]] {
    * @param params Worker's description
    * @return Whether worker run or not
    */
-  def run(appId: Long, params: F[WorkerParams]): F[WorkersPool.RunResult]
+  def run(appId: Long, params: F[WorkerParams])(implicit log: Log[F]): F[WorkersPool.RunResult]
 
   /**
    * Get a Worker by its appId, if it's present

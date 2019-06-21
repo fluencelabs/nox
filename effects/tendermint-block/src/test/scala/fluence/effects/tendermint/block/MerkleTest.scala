@@ -16,13 +16,13 @@
 
 package fluence.effects.tendermint.block
 
-import fluence.effects.tendermint.block.protobuf.ProtobufJson
+import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.signature.Merkle
 import org.scalatest.{FunSpec, Matchers, OptionValues}
 import scodec.bits.ByteVector
 
 class MerkleTest extends FunSpec with Matchers with OptionValues {
-  val block = ProtobufJson.block(TestData.blockResponse).right.get
+  val block = Block(TestData.blockResponse).right.get
   def toHex(ba: Array[Byte]) = ByteVector(ba).toHex
   def checkHex(scalaHex: String, goHex: String) = scalaHex.toLowerCase shouldBe goHex.toLowerCase
 
@@ -61,7 +61,7 @@ class MerkleTest extends FunSpec with Matchers with OptionValues {
   }
 
   describe("block with data = null") {
-    val blockEmpty = ProtobufJson.block(TestData.blockDataNullResponse).right.get
+    val blockEmpty = Block(TestData.blockDataNullResponse).right.get
 
     it("block parts merkle hash") {
       val scalaHex = toHex(blockEmpty.partsHash().hash)

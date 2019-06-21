@@ -22,15 +22,17 @@ import cats.Monad
 import cats.data.EitherT
 import com.softwaremill.sttp.{SttpBackend, Uri}
 import fluence.effects.castore.{ContentAddressableStore, StoreError}
+import fluence.log.Log
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
 class SwarmStore[F[_]](client: SwarmClient[F])(implicit F: cats.Monad[F]) extends ContentAddressableStore[F] {
-  override def fetch(hash: ByteVector): EitherT[F, StoreError, fs2.Stream[F, ByteBuffer]] =
+  override def fetch(hash: ByteVector)(implicit log: Log[F]): EitherT[F, StoreError, fs2.Stream[F, ByteBuffer]] =
     client.fetch(hash.toHex).leftMap(identity[StoreError])
 
-  override def ls(hash: ByteVector): EitherT[F, StoreError, List[ByteVector]] = EitherT.pure(List(hash))
+  override def ls(hash: ByteVector)(implicit log: Log[F]): EitherT[F, StoreError, List[ByteVector]] =
+    EitherT.pure(List(hash))
 }
 
 object SwarmStore {

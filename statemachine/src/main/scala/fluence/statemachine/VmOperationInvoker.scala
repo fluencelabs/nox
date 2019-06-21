@@ -30,7 +30,7 @@ import scala.language.higherKinds
  *
  * @param vm VM instance used to make function calls and to retrieve state
  */
-class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) extends slogging.LazyLogging {
+class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) {
 
   /**
    * Invokes the provided invocation description using the underlying VM.

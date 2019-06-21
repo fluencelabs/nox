@@ -15,9 +15,8 @@
  */
 
 package fluence.effects.swarm.responses
-import io.circe.generic.extras.{ConfiguredJsonCodec, JsonKey}
-import io.circe.{Decoder, Encoder, HCursor, Json}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.{Decoder, Encoder, HCursor, Json}
 
 /**
  * One file in the manifest with additional information.

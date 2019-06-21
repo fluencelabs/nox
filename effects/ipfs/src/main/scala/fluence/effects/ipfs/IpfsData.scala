@@ -18,38 +18,51 @@ package fluence.effects.ipfs
 
 import java.nio.file.{Files, Path}
 
-import cats.{Applicative, Monad}
+import cats.Monad
 import cats.data.EitherT
-import com.softwaremill.sttp.Multipart
-import com.softwaremill.sttp._
-import fluence.effects.castore.StoreError
+import com.softwaremill.sttp.{Multipart, _}
+import fluence.effects.ipfs.IpfsClient.assert
 import scodec.bits.ByteVector
 
 import scala.collection.immutable
 import scala.language.higherKinds
 
-trait IpfsData[F[_]] {
-  def toMultipart: EitherT[F, IpfsError, immutable.Seq[Multipart]]
-  def canBeMultiple: Boolean
+trait IpfsData[A] {
+  def toMultipart[F[_]: Monad](data: A): EitherT[F, IpfsError, immutable.Seq[Multipart]]
+  val wrapInDirectory: Boolean
 }
 
 object IpfsData {
 
-  def apply[F[_]: Applicative](bytes: ByteVector): IpfsData[F] = new IpfsData[F] {
-    override def toMultipart: EitherT[F, IpfsError, immutable.Seq[Multipart]] =
-      EitherT.pure(immutable.Seq(multipart("", ByteArrayBody(bytes.toArray))))
+  implicit val chunksData: IpfsData[List[ByteVector]] = new IpfsData[List[ByteVector]] {
 
-    override def canBeMultiple: Boolean = false
+    def toMultipart[F[_]: Monad](data: List[ByteVector]): EitherT[F, IpfsError, immutable.Seq[Multipart]] = {
+      EitherT.pure(data.zipWithIndex.map {
+        case (chunk, idx) =>
+          multipart(idx.toString, ByteArrayBody(chunk.toArray))
+      })
+    }
+
+    override val wrapInDirectory: Boolean = true
   }
 
-  def apply[F[_]: Monad](path: Path): IpfsData[F] = new IpfsData[F] {
-    import IpfsClient._
+  implicit val bytesData: IpfsData[ByteVector] = new IpfsData[ByteVector] {
+    override def toMultipart[F[_]: Monad](data: ByteVector): EitherT[F, IpfsError, immutable.Seq[Multipart]] =
+      EitherT.pure(immutable.Seq(multipart("", ByteArrayBody(data.toArray))))
+
+    override val wrapInDirectory: Boolean = false
+  }
+
+  /**
+   * Uploads files to IPFS node. Supports only one file or files in one directory, without nested directories.
+   */
+  implicit val pathData: IpfsData[Path] = new IpfsData[Path] {
 
     /**
      * Returns incoming path if it is a file, return a list of files, if the incoming path is a directory.
      * Validates if the directory doesn't have nested directories.
      */
-    private def listPaths(path: Path): EitherT[F, IpfsError, immutable.Seq[Path]] = {
+    private def listPaths[F[_]: Monad](path: Path): EitherT[F, IpfsError, immutable.Seq[Path]] = {
       import scala.collection.JavaConverters._
       if (Files.isDirectory(path)) {
         val allFiles = Files.list(path).iterator().asScala.to[immutable.Seq]
@@ -61,14 +74,17 @@ object IpfsData {
       } else EitherT.pure(immutable.Seq(path))
     }
 
-    override def toMultipart: EitherT[F, IpfsError, immutable.Seq[Multipart]] =
+    override def toMultipart[F[_]: Monad](path: Path): EitherT[F, IpfsError, immutable.Seq[Multipart]] = {
       for {
         _ <- assert(Files.exists(path), s"IPFS 'add' error: file '${path.getFileName}' does not exist")
         pathsList <- listPaths(path)
         parts = pathsList.map(p => multipartFile("", p))
         _ <- assert(parts.nonEmpty, s"IPFS 'add' error: directory ${path.getFileName} is empty")
       } yield parts
+    }
 
-    override def canBeMultiple: Boolean = true
+    override val wrapInDirectory: Boolean = true
   }
+
+  def apply[A](implicit id: IpfsData[A]): IpfsData[A] = id
 }

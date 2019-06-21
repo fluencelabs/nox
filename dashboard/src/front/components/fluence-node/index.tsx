@@ -1,7 +1,9 @@
 import * as React from 'react';
 import {connect} from 'react-redux';
+import {Link} from "react-router-dom";
 import {cutId} from '../../../utils';
 import {
+    deleteNode,
     displayLoading,
     hideLoading,
     retrieveNode,
@@ -9,8 +11,10 @@ import {
 } from '../../actions';
 import {NodeId, Node, NodeInfo} from "../../../fluence";
 import {Action} from "redux";
+import {History} from "history";
 
 interface State {
+    deleting: boolean;
 }
 
 interface Props {
@@ -22,13 +26,18 @@ interface Props {
         [key: string]: NodeInfo
     },
     retrieveNode: (nodeId: NodeId) => Promise<Action>,
+    deleteNode: (nodeId: NodeId, history: History) => Promise<Action>;
     retrieveNodeStatus: (node: Node) => Promise<Action>,
     displayLoading: typeof displayLoading,
     hideLoading: typeof hideLoading,
+    history: History;
+    userAddress: string;
 }
 
 class FluenceNode extends React.Component<Props, State> {
-    state: State = {};
+    state: State = {
+        deleting: false,
+    };
 
     loadData(): void {
         this.props.displayLoading();
@@ -51,6 +60,21 @@ class FluenceNode extends React.Component<Props, State> {
             this.loadData();
         }
     }
+
+    deleteNode = (): void => {
+        if (!confirm('Are you sure you want to delete this node?')) return;
+
+        this.props.displayLoading();
+        this.setState({
+            deleting: true
+        });
+        this.props.deleteNode(this.props.nodeId, this.props.history).finally(() => {
+            this.props.hideLoading();
+            this.setState({
+                deleting: false
+            });
+        });
+    };
 
     renderNodeStatus(nodeStatus: NodeInfo): React.ReactNode {
         if (nodeStatus.status) {
@@ -105,9 +129,23 @@ class FluenceNode extends React.Component<Props, State> {
                     <hr/>
 
                     <strong><i className="fa fa-bullseye margin-r-5"></i>Cluster</strong>
-                    <p className="text-muted">{node.clusters_ids.join(', ')}</p>
+                    <p className="text-muted">
+                        {node.clusters_ids.map((appId, i, a) => {
+                            return <span><Link to={`/app/${appId}`}>{appId}</Link>{i+1 < a.length && ', '}</span>;
+                        })}
+                    </p>
 
                     {nodeStatus && this.renderNodeStatus(nodeStatus)}
+
+                    <hr/>
+                    <button type="button"
+                            onClick={this.deleteNode}
+                            style={{display: node.owner.toUpperCase() === this.props.userAddress.toUpperCase() ? 'block' : 'none'}}
+                            disabled={this.state.deleting}
+                            className="btn btn-block btn-danger"
+                    >
+                        Delete node <i style={{display: (this.state.deleting) ? 'inline-block' : 'none'}} className="fa fa-refresh fa-spin"/>
+                    </button>
                 </div>
             </div>
         );
@@ -117,19 +155,17 @@ class FluenceNode extends React.Component<Props, State> {
         const node = this.props.nodes[this.props.nodeId];
         const nodeStatus = this.props.nodesStatus[this.props.nodeId];
         return (
-            <div className="col-md-4 col-xs-12">
-                <div className="box box-widget widget-user-2">
-                    <div className="widget-user-header bg-fluence-blue-gradient">
-                        <div className="widget-user-image">
-                            <span className="entity-info-box-icon"><i
-                                className={node && nodeStatus ? 'ion ion-android-laptop' : 'fa fa-refresh fa-spin'}></i></span>
-                        </div>
-                        <h3 className="widget-user-username">Node</h3>
-                        <h5 className="widget-user-desc"
-                            title={this.props.nodeId}>ID:&nbsp;{cutId(this.props.nodeId)}</h5>
+            <div className="box box-widget widget-user-2">
+                <div className="widget-user-header bg-fluence-blue-gradient">
+                    <div className="widget-user-image">
+                        <span className="entity-info-box-icon"><i
+                            className={node && nodeStatus ? 'ion ion-android-laptop' : 'fa fa-refresh fa-spin'}></i></span>
                     </div>
-                    {node && this.renderNodeInfo(node, nodeStatus)}
+                    <h3 className="widget-user-username">Node</h3>
+                    <h5 className="widget-user-desc"
+                        title={this.props.nodeId}>ID:&nbsp;{cutId(this.props.nodeId)}</h5>
                 </div>
+                {node && this.renderNodeInfo(node, nodeStatus)}
             </div>
         );
     }
@@ -138,13 +174,15 @@ class FluenceNode extends React.Component<Props, State> {
 const mapStateToProps = (state: any) => ({
     nodes: state.nodes,
     nodesStatus: state.nodesStatus,
+    userAddress: state.ethereumConnection.userAddress,
 });
 
 const mapDispatchToProps = {
     displayLoading,
     hideLoading,
     retrieveNode,
-    retrieveNodeStatus
+    retrieveNodeStatus,
+    deleteNode
 };
 
 export default connect(mapStateToProps, mapDispatchToProps)(FluenceNode);

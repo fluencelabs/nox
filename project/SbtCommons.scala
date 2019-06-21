@@ -2,7 +2,9 @@ import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.headerLicense
 import de.heikoseeberger.sbtheader.License
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys._
-import sbt.{Def, _}
+import sbt.{Def, addCompilerPlugin, _}
+import sbtassembly.AssemblyPlugin.autoImport.assemblyMergeStrategy
+import sbtassembly.{MergeStrategy, PathList}
 import sbtdocker.DockerPlugin.autoImport.docker
 
 import scala.sys.process._
@@ -26,13 +28,24 @@ object SbtCommons {
     resolvers += Resolver.bintrayRepo("fluencelabs", "releases"),
     scalafmtOnCompile := true,
     // see good explanation https://gist.github.com/djspiewak/7a81a395c461fd3a09a6941d4cd040f2
-    scalacOptions ++= Seq("-Ypartial-unification", "-deprecation")
+    scalacOptions ++= Seq("-Ypartial-unification", "-deprecation"),
+    addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0")
   )
 
   val kindProjector = Seq(
     resolvers += Resolver.sonatypeRepo("releases"),
-    addCompilerPlugin("org.spire-math" %% "kind-projector" % "0.9.9")
+    addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.0")
   )
+
+  val mergeStrategy = Def.setting[String => MergeStrategy]({
+    // a module definition fails compilation for java 8, just skip it
+    case PathList("module-info.class", xs @ _*) => MergeStrategy.first
+    case "META-INF/io.netty.versions.properties" => MergeStrategy.first
+    case x =>
+      import sbtassembly.AssemblyPlugin.autoImport.assembly
+      val oldStrategy = (assemblyMergeStrategy in assembly).value
+      oldStrategy(x)
+  }: String => MergeStrategy)
 
   def rustVmTest(testName: String): Seq[Def.Setting[_]] =
     Seq(
@@ -76,66 +89,71 @@ object SbtCommons {
 
   /* Common deps */
 
-  val asmble                = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.4-fl"
+  val asmble = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.7-fl"
 
-  val slogging              = "biz.enef"       %% "slogging"    % "0.6.1"
-  val cats                  = "org.typelevel"  %% "cats-core"   % "1.5.0"
-  val catsEffect            = "org.typelevel"  %% "cats-effect" % "1.2.0"
+  val catsVersion = "1.6.0"
+  val cats = "org.typelevel"       %% "cats-core"   % catsVersion
+  val catsEffect = "org.typelevel" %% "cats-effect" % "1.3.0"
 
-  val fs2Version            = "1.0.4"
-  val fs2                   = "co.fs2" %% "fs2-core"             % fs2Version
-  val fs2rx                 = "co.fs2" %% "fs2-reactive-streams" % fs2Version
-  val fs2io                 = "co.fs2" %% "fs2-io"               % fs2Version
+  val fs2Version = "1.0.4"
+  val fs2 = "co.fs2"   %% "fs2-core"             % fs2Version
+  val fs2rx = "co.fs2" %% "fs2-reactive-streams" % fs2Version
+  val fs2io = "co.fs2" %% "fs2-io"               % fs2Version
 
   // functional wrapper around 'lightbend/config'
-//  @deprecated("pureConfig is known to cause mindblowing failures on compile time, let's drop it away", "29.03.2019")
-  val pureConfig            = "com.github.pureconfig" %% "pureconfig" % "0.10.2"
-  val ficus                 = "com.iheart"            %% "ficus"      % "1.4.5"
+  @deprecated("pureConfig is known to cause mindblowing failures on compile time, let's drop it away", "29.03.2019")
+  val pureConfig = "com.github.pureconfig" %% "pureconfig" % "0.10.2"
+  val ficus = "com.iheart"                 %% "ficus"      % "1.4.5"
 
-  val cryptoVersion         = "0.0.4"
-  val cryptoHashing         = "one.fluence" %% "crypto-hashsign" % cryptoVersion
-  val cryptoCipher          = "one.fluence" %% "crypto-cipher"   % cryptoVersion
-  val cryptoKeyStore        = "one.fluence" %% "crypto-keystore" % cryptoVersion
-  val codecCore             = "one.fluence" %% "codec-core"      % "0.0.4"
+  val codecVersion = "0.0.5"
+  val cryptoVersion = "0.0.6"
+  val cryptoHashsign = "one.fluence" %% "crypto-hashsign" % cryptoVersion
+  val cryptoJwt = "one.fluence"      %% "crypto-jwt"      % cryptoVersion
+  val cryptoCipher = "one.fluence"   %% "crypto-cipher"   % cryptoVersion
+  
+  val codecCore = "one.fluence"      %% "codec-core"      % codecVersion
 
-  val sttpVersion           = "1.5.12"
-  val sttp                  = "com.softwaremill.sttp" %% "core"                           % sttpVersion
-  val sttpCirce             = "com.softwaremill.sttp" %% "circe"                          % sttpVersion
-  val sttpFs2Backend        = "com.softwaremill.sttp" %% "async-http-client-backend-fs2"  % sttpVersion
-  val sttpCatsBackend       = "com.softwaremill.sttp" %% "async-http-client-backend-cats" % sttpVersion
+  val sttpVersion = "1.5.17"
+  val sttp = "com.softwaremill.sttp"            %% "core"                           % sttpVersion
+  val sttpCirce = "com.softwaremill.sttp"       %% "circe"                          % sttpVersion
+  val sttpFs2Backend = "com.softwaremill.sttp"  %% "async-http-client-backend-fs2"  % sttpVersion
+  val sttpCatsBackend = "com.softwaremill.sttp" %% "async-http-client-backend-cats" % sttpVersion
 
-  val http4sVersion         = "0.20.0-M7"
-  val http4sDsl             = "org.http4s" %% "http4s-dsl"          % http4sVersion
-  val http4sServer          = "org.http4s" %% "http4s-blaze-server" % http4sVersion
-  val http4sCirce           = "org.http4s" %% "http4s-circe"        % http4sVersion
+  val http4sVersion = "0.20.0-M7"
+  val http4sDsl = "org.http4s"    %% "http4s-dsl"          % http4sVersion
+  val http4sServer = "org.http4s" %% "http4s-blaze-server" % http4sVersion
+  val http4sCirce = "org.http4s"  %% "http4s-circe"        % http4sVersion
 
-  val circeVersion          = "0.11.1"
-  val circeCore             = "io.circe" %% "circe-core"           % circeVersion
-  val circeGeneric          = "io.circe" %% "circe-generic"        % circeVersion
-  val circeGenericExtras    = "io.circe" %% "circe-generic-extras" % circeVersion
-  val circeParser           = "io.circe" %% "circe-parser"         % circeVersion
-  val circeFs2              = "io.circe" %% "circe-fs2"            % "0.11.0"
+  val circeVersion = "0.11.1"
+  val circeCore = "io.circe"          %% "circe-core"           % circeVersion
+  val circeGeneric = "io.circe"       %% "circe-generic"        % circeVersion
+  val circeGenericExtras = "io.circe" %% "circe-generic-extras" % circeVersion
+  val circeParser = "io.circe"        %% "circe-parser"         % circeVersion
+  val circeFs2 = "io.circe"           %% "circe-fs2"            % "0.11.0"
 
-  val scodecBits            = "org.scodec" %% "scodec-bits" % "1.1.9"
-  val scodecCore            = "org.scodec" %% "scodec-core" % "1.11.3"
+  val scodecBits = "org.scodec" %% "scodec-bits" % "1.1.9"
+  val scodecCore = "org.scodec" %% "scodec-core" % "1.11.3"
 
-  val web3jVersion          = "4.2.0"
-  val web3jCrypto           = "org.web3j" % "crypto" % web3jVersion
-  val web3jCore             = "org.web3j" % "core"   % web3jVersion
+  val web3jVersion = "4.2.0"
+  val web3jCrypto = "org.web3j" % "crypto" % web3jVersion
+  val web3jCore = "org.web3j"   % "core"   % web3jVersion
 
-  val toml                  = "com.electronwill.night-config" % "toml" % "3.4.2"
+  val toml = "com.electronwill.night-config" % "toml" % "3.4.2"
 
-  val rocksDb               = "org.rocksdb" % "rocksdbjni" % "5.17.2"
+  val rocksDb = "org.rocksdb" % "rocksdbjni" % "5.17.2"
 
-  val protobuf              = "io.github.scalapb-json" %% "scalapb-circe" % "0.4.3"
-  val protobufUtil          = "com.google.protobuf" % "protobuf-java-util" % "3.7.1"
+  val protobuf = "io.github.scalapb-json"  %% "scalapb-circe"     % "0.4.3"
+  val protobufUtil = "com.google.protobuf" % "protobuf-java-util" % "3.7.1"
 
-  val bouncyCastle          = "org.bouncycastle" % "bcprov-jdk15on" % "1.61"
+  val bouncyCastle = "org.bouncycastle" % "bcprov-jdk15on" % "1.61"
 
+  val asyncHttpClient = "org.asynchttpclient" % "async-http-client" % "2.8.1"
 
   /* Test deps*/
+  val scalacheckShapeless = "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % "1.1.8"     % Test
+  val catsTestkit = "org.typelevel"                      %% "cats-testkit"              % catsVersion % Test
 
-  val scalaTest             = "org.scalatest" %% "scalatest"   % "3.0.5"  % Test
-  val scalaIntegrationTest  = "org.scalatest" %% "scalatest"   % "3.0.5"  % IntegrationTest
-  val mockito               = "org.mockito"   % "mockito-core" % "2.21.0" % Test
+  val scalaTest = "org.scalatest"            %% "scalatest"   % "3.0.5"  % Test
+  val scalaIntegrationTest = "org.scalatest" %% "scalatest"   % "3.0.5"  % IntegrationTest
+  val mockito = "org.mockito"                % "mockito-core" % "2.21.0" % Test
 }

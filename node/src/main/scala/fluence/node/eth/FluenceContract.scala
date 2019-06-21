@@ -18,6 +18,7 @@ package fluence.node.eth
 
 import cats.{Applicative, Apply, Functor, Monad, Traverse}
 import cats.effect._
+import cats.effect.concurrent.Deferred
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.apply._
@@ -31,11 +32,12 @@ import fluence.effects.ethclient.Network.{
 }
 import fluence.effects.ethclient.{EthClient, EthRequestError, Network}
 import fluence.effects.ethclient.syntax._
+import fluence.log.Log
 import fluence.node.config.FluenceContractConfig
 import fluence.node.eth.state.{App, Cluster}
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.generated._
-import org.web3j.abi.datatypes.{Address, DynamicArray, Event}
+import org.web3j.abi.datatypes.{DynamicArray, Event}
 import org.web3j.protocol.core.methods.request.{EthFilter, SingleAddressEthFilter}
 import org.web3j.protocol.core.{DefaultBlockParameter, DefaultBlockParameterName}
 
@@ -50,7 +52,7 @@ import scala.language.higherKinds
  */
 class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val contract: Network)(
   implicit backoff: Backoff[EthRequestError] = Backoff.default
-) extends slogging.LazyLogging {
+) {
 
   /**
    * Builds a filter for specified event. Filter is to be used in eth_newFilter
@@ -78,18 +80,19 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @param validatorKey Tendermint validator key identifying this node
    * @tparam F Effect
    */
-  private def getNodeAppIds[F[_]: LiftIO: Timer: Monad](validatorKey: Bytes32): F[List[Uint256]] =
+  private def getNodeAppIds[F[_]: LiftIO: Timer: Monad: Log](validatorKey: Bytes32): F[List[Uint256]] =
     contract
       .getNodeApps(validatorKey)
       .callUntilSuccess[F]
       .flatMap {
         case arr if arr != null && arr.getValue != null => Applicative[F].point(arr.getValue.asScala.toList)
         case r =>
-          logger.error(
+          Log[F].error(
             s"Cannot get node apps from the smart contract. Got result '$r'. " +
               s"Are you sure the contract address is correct?"
-          )
-          Timer[F].sleep(Backoff.default.maxDelay) *> getNodeAppIds(validatorKey)
+          ) >>
+            Timer[F].sleep(Backoff.default.maxDelay) >>
+            getNodeAppIds(validatorKey)
       }
 
   /**
@@ -98,7 +101,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @param validatorKey Tendermint Validator key of the current node, used to filter out apps which aren't related to current node
    * @tparam F Effect
    */
-  private def getNodeApps[F[_]: LiftIO: Timer: Monad](validatorKey: Bytes32): fs2.Stream[F, state.App] = {
+  private def getNodeApps[F[_]: LiftIO: Timer: Monad: Log](validatorKey: Bytes32): fs2.Stream[F, state.App] = {
     import org.web3j.tuples.generated.{Tuple2, Tuple8}
     def mapApp(tuple: Tuple8[Bytes32, _, Bytes32, _, _, _, Uint256, DynamicArray[Bytes32]]) = {
       import tuple._
@@ -145,7 +148,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of [[App]]s
    */
-  private def getNodeAppDeployed[F[_]: ConcurrentEffect: Timer](validatorKey: Bytes32): fs2.Stream[F, state.App] =
+  private def getNodeAppDeployed[F[_]: ConcurrentEffect: Timer: Log](validatorKey: Bytes32): fs2.Stream[F, state.App] =
     fs2.Stream
       .eval(eventFilter[F](APPDEPLOYED_EVENT))
       .flatMap(filter ⇒ contract.appDeployedEventFlowable(filter).toStreamRetrying[F]()) // It's checked that current node participates in a cluster there
@@ -160,17 +163,20 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of [[App]]s
    */
-  private[eth] def getAllNodeApps[F[_]: ConcurrentEffect: Timer](validatorKey: Bytes32): fs2.Stream[F, state.App] =
-    getNodeApps[F](validatorKey).onFinalizeCase {
-      case ExitCase.Canceled =>
-        Sync[F].delay(logger.info("Getting all previously prepared clusters canceled."))
-      case ExitCase.Completed =>
-        Sync[F].delay(logger.info("Got all the previously prepared clusters. Now switching to the new clusters."))
-      case ExitCase.Error(err) =>
-        Sync[F]
-          .delay(logger.info(s"Error on getting all previously clusters: $err."))
-          .map(_ => err.printStackTrace())
-    }.scope ++ getNodeAppDeployed(validatorKey)
+  private[eth] def getAllNodeApps[F[_]: ConcurrentEffect: Timer: Log](
+    validatorKey: Bytes32
+  ): F[(fs2.Stream[F, state.App], F[Unit])] =
+    Deferred[F, Unit].map { switchedToNewApps ⇒
+      (getNodeApps[F](validatorKey).onFinalizeCase {
+        case ExitCase.Canceled =>
+          Log[F].info("Getting all previously prepared clusters canceled.")
+        case ExitCase.Completed =>
+          switchedToNewApps.complete(()) *>
+            Log[F].info("Got all the previously prepared clusters. Now switching to the new clusters.")
+        case ExitCase.Error(err) =>
+          Log[F].warn(s"Error on getting all previously prepared clusters.", err)
+      }.scope ++ getNodeAppDeployed(validatorKey)) -> switchedToNewApps.get
+    }
 
   // TODO: on reconnect, do getApps again and remove all apps that are running on this node but not in getApps list
   // this may happen if we missed some events due to network outage or the like
@@ -180,7 +186,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of AppDeleted events
    */
-  private[eth] def getAppDeleted[F[_]: ConcurrentEffect: Timer]: fs2.Stream[F, Uint256] =
+  private[eth] def getAppDeleted[F[_]: ConcurrentEffect: Timer: Log]: fs2.Stream[F, Uint256] =
     fs2.Stream
       .eval(eventFilter[F](APPDELETED_EVENT))
       .flatMap(filter ⇒ contract.appDeletedEventFlowable(filter).toStreamRetrying[F]())
@@ -192,7 +198,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of NodeDeleted events
    */
-  private[eth] def getNodeDeleted[F[_]: ConcurrentEffect: Timer]: fs2.Stream[F, Bytes32] =
+  private[eth] def getNodeDeleted[F[_]: ConcurrentEffect: Timer: Log]: fs2.Stream[F, Bytes32] =
     fs2.Stream
       .eval(eventFilter[F](NODEDELETED_EVENT))
       .flatMap(filter ⇒ contract.nodeDeletedEventFlowable(filter).toStreamRetrying[F]())

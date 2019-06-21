@@ -26,6 +26,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.Backoff
 import fluence.effects.castore.StoreError
+import fluence.log.Log
 import fluence.node.eth.state.StorageRef
 
 import scala.language.higherKinds
@@ -40,7 +41,7 @@ class RemoteCodeCarrier[F[_]: Timer: LiftIO: Monad](store: PolyStore[F])(
    * @param ref Reference to a code in a content addressable storage
    * @param filePath A path to store code at
    */
-  private def downloadToFile(ref: StorageRef, filePath: Path): F[Unit] =
+  private def downloadToFile(ref: StorageRef, filePath: Path)(implicit log: Log[F]): F[Unit] =
     backoff(store.fetchTo(ref, filePath))
 
   /**
@@ -54,7 +55,7 @@ class RemoteCodeCarrier[F[_]: Timer: LiftIO: Monad](store: PolyStore[F])(
     workerPath: Path,
     dirPath: Path,
     ref: StorageRef
-  ): F[Unit] =
+  )(implicit log: Log[F]): F[Unit] =
     // TODO handle fail system errors properly?
     for {
       //TODO check if file's storage hash corresponds to the address
@@ -76,7 +77,7 @@ class RemoteCodeCarrier[F[_]: Timer: LiftIO: Monad](store: PolyStore[F])(
    * @param workerPath a path to a worker's working directory
    * @return
    */
-  override def carryCode(ref: StorageRef, workerPath: Path): F[Path] =
+  override def carryCode(ref: StorageRef, workerPath: Path)(implicit log: Log[F]): F[Path] =
     for {
       // TODO move vmcode to a config file
       dirPath ← IO(workerPath.resolve("vmcode")).to[F]

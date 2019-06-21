@@ -19,13 +19,15 @@ package fluence.effects.kvstore
 import java.io.File
 import java.util.concurrent.{ExecutorService, Executors}
 
-import cats.{~>, Defer, Monad}
+import cats.{~>, Applicative, Defer, Monad}
 import cats.data.EitherT
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import cats.effect.{ContextShift, IO, LiftIO, Resource}
 import org.rocksdb.{Options, ReadOptions, RocksDB, RocksIterator}
 import cats.syntax.applicativeError._
 import fluence.codec.PureCodec
-import slogging.LazyLogging
+import fluence.log.Log
 
 import scala.concurrent.ExecutionContext
 import scala.language.higherKinds
@@ -39,11 +41,11 @@ import scala.util.control.NonFatal
  * @param ctx Execution context for RocksDB IO operations
  * @tparam F Effect
  */
-class RocksDBStore[F[_]: Monad: LiftIO: ContextShift] private (
+class RocksDBStore[F[_]: Monad: LiftIO: ContextShift: Log] private (
   data: RocksDB,
   readOptions: ReadOptions,
   ctx: ExecutionContext
-) extends KVStore[F, Array[Byte], Array[Byte]] with LazyLogging {
+) extends KVStore[F, Array[Byte], Array[Byte]] {
 
   private val ioToF = new (IO ~> F) {
     override def apply[A](fa: IO[A]): F[A] = ContextShift[F].evalOn(ctx)(fa.to[F])
@@ -76,11 +78,12 @@ class RocksDBStore[F[_]: Monad: LiftIO: ContextShift] private (
       )(
         it ⇒
           // Iterator is a c++ structure, so it must be closed
-          ioToF(IO(it.close()).handleError {
-            case NonFatal(err) ⇒
-              err.printStackTrace()
-              logger.error(s"Cannot close RocksDB iterator: $err", err)
-          })
+          ioToF(IO(it.close()).attempt).flatMap {
+            case Left(NonFatal(err)) ⇒
+              Log[F].error(s"Cannot close RocksDB iterator: $err", err)
+            case Right(_) ⇒
+              Applicative[F].unit
+        }
       )
       .flatMap { it ⇒
         // Start iterator
@@ -97,7 +100,7 @@ class RocksDBStore[F[_]: Monad: LiftIO: ContextShift] private (
       }
 }
 
-object RocksDBStore extends LazyLogging {
+object RocksDBStore {
 
   /**
    * Makes RocksDB KVStore with user-friendly key and value types, taking codecs into account.
@@ -111,7 +114,7 @@ object RocksDBStore extends LazyLogging {
    * @tparam K Keys type
    * @tparam V Values type
    */
-  def make[F[_]: Monad: Defer: LiftIO: ContextShift, K, V](
+  def make[F[_]: Monad: Defer: LiftIO: ContextShift: Log, K, V](
     folder: String,
     createIfMissing: Boolean = true,
     ex: ⇒ ExecutorService = Executors.newCachedThreadPool()
@@ -131,7 +134,7 @@ object RocksDBStore extends LazyLogging {
    * @param ex Executor service to build ExecutionContext for RocksDB operations
    * @tparam F Defer for Resource, LiftIO for IO, ContextShift to return execution back to the pool
    */
-  def makeRaw[F[_]: Monad: Defer: LiftIO: ContextShift](
+  def makeRaw[F[_]: Monad: Defer: LiftIO: ContextShift: Log](
     folder: String,
     createIfMissing: Boolean = true,
     ex: ⇒ ExecutorService = Executors.newSingleThreadExecutor()
@@ -142,28 +145,33 @@ object RocksDBStore extends LazyLogging {
         ctx ⇒ IO(ctx.shutdown()).to[F]
       )
 
-      _ = logger.trace("we have created ctx")
+      _ ← Log.resource[F].trace("we have created ctx")
 
       cs = ContextShift[F]
 
       // Database options
-      opts ← Resource.make(cs.evalOn(ctx)(IO {
-        logger.trace(s"Creating options")
-        val options = new Options()
-        logger.trace(s"Here we have options: " + options)
-        options.setCreateIfMissing(createIfMissing)
-        logger.trace(s"With a flag: " + options)
-        options
-      }.to[F]))(
+      opts ← Resource.make(
+        cs.evalOn(ctx)(
+          for {
+            _ ← Log[F].trace(s"Creating options")
+            options ← IO(new Options()).to[F]
+            _ ← Log[F].trace(s"Here we have options: " + options)
+            _ ← IO(options.setCreateIfMissing(createIfMissing)).to[F]
+            _ ← Log[F].trace(s"With a flag: " + options)
+          } yield options
+        )
+      )(
         opts ⇒
-          IO(opts.close()).handleError {
-            case NonFatal(err) ⇒
-              err.printStackTrace()
-              logger.error(s"Cannot close Options object during cleanup: $err", err)
-          }.to[F]
+          IO(opts.close()).attempt.to[F].flatMap {
+            case Left(NonFatal(err)) ⇒
+              Log[F].error(s"Cannot close Options object during cleanup", err)
+
+            case Right(_) ⇒
+              Applicative[F].unit
+        }
       )
 
-      _ = logger.trace("Created opts...")
+      _ ← Log.resource[F].trace("Created opts...")
 
       // Database itself
       data ← Resource.make(cs.evalOn(ctx)(IO {
@@ -173,26 +181,28 @@ object RocksDBStore extends LazyLogging {
         RocksDB.open(opts, folder)
       }.to[F]))(
         data ⇒
-          IO(data.close()).handleError {
-            case NonFatal(err) ⇒
-              err.printStackTrace()
-              logger.error(s"Cannot close RocksDB object during cleanup: $err", err)
-          }.to[F]
+          IO(data.close()).attempt.to[F].flatMap {
+            case Left(NonFatal(err)) ⇒
+              Log[F].error(s"Cannot close RocksDB object during cleanup", err)
+            case Right(_) ⇒
+              Applicative[F].unit
+        }
       )
 
-      _ = logger.debug("Created rocksdb...")
+      _ ← Log.resource[F].debug("Created rocksdb...")
 
       // Read options -- could be used for optimizations later, e.g. snapshots
       readOptions ← Resource.make(cs.evalOn(ctx)(IO(new ReadOptions()).to[F]))(
         rOpts ⇒
-          IO(rOpts.close()).handleError {
-            case NonFatal(err) ⇒
-              err.printStackTrace()
-              logger.error(s"Cannot close RocksDB object during cleanup: $err", err)
-          }.to[F]
+          IO(rOpts.close()).attempt.to[F].flatMap {
+            case Left(NonFatal(err)) ⇒
+              Log[F].error(s"Cannot close RocksDB object during cleanup", err)
+            case Right(_) ⇒
+              Applicative[F].unit
+        }
       )
 
-      _ = logger.trace("Created readOpts... going to return kvstore")
+      _ ← Log.resource[F].trace("Created readOpts... going to return kvstore")
 
     } yield new RocksDBStore[F](data, readOptions, ctx): KVStore[F, Array[Byte], Array[Byte]]
 

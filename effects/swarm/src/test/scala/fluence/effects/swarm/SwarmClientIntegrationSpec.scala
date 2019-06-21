@@ -24,6 +24,7 @@ import com.softwaremill.sttp._
 import fluence.EitherTSttpBackend
 import fluence.effects.swarm.crypto.Secp256k1Signer
 import fluence.effects.swarm.crypto.Secp256k1Signer.Signer
+import fluence.log.{Log, LogFactory}
 import org.scalatest.{EitherValues, FlatSpec, Ignore, Matchers}
 import org.web3j.crypto.{ECKeyPair, Keys}
 import scodec.bits.ByteVector
@@ -47,6 +48,8 @@ class SwarmClientIntegrationSpec extends FlatSpec with Matchers with EitherValue
   private implicit val ioShift: ContextShift[IO] = IO.contextShift(global)
   private implicit val sttpBackend: SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]] =
     EitherTSttpBackend[IO]()
+
+  private implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init("swarm-it").unsafeRunSync()
 
   val api = SwarmClient[IO](uri"http://localhost:8500")
 

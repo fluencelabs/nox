@@ -16,17 +16,17 @@
 
 package fluence.effects.ipfs
 
-import java.io.File
 import java.nio.ByteBuffer
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.Paths
 
 import cats.data.EitherT
 import cats.effect.{ContextShift, IO, Timer}
-import com.softwaremill.sttp.{MonadError => _, _}
+import com.softwaremill.sttp.{MonadError ⇒ _, _}
 
 import scala.language.{higherKinds, implicitConversions}
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
+import fluence.log.{Log, LogFactory}
 import fs2.RaiseThrowable
 import io.circe.fs2.stringStreamParser
 import scodec.bits.ByteVector
@@ -40,6 +40,8 @@ object IpfsExample extends App {
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
+  implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init("ipfs", "example").unsafeRunSync()
+
   implicit val sttp: SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]] = EitherTSttpBackend[IO]()
 
   implicit val rt = new RaiseThrowable[fs2.Pure] {}
@@ -47,7 +49,7 @@ object IpfsExample extends App {
   println(k)
 
   val data = ByteVector(Array[Byte](1, 2, 3, 4))
-  val store = new IpfsClient[IO](uri"http://data.fluence.one:5001")
+  val store = new IpfsClient[IO](uri"http://ipfs.fluence.one:5001")
 
   val home = System.getProperty("user.home")
 

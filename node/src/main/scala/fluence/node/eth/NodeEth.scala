@@ -21,11 +21,11 @@ import cats.effect.{ConcurrentEffect, Resource, Timer}
 import cats.syntax.apply._
 import fluence.effects.ethclient.EthClient
 import fluence.effects.ethclient.data.Block
+import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.node.config.FluenceContractConfig
 import org.web3j.abi.datatypes.generated.Bytes32
 import scodec.bits.ByteVector
-import slogging.LazyLogging
 
 import scala.language.higherKinds
 
@@ -55,7 +55,7 @@ trait NodeEth[F[_]] {
 
 }
 
-object NodeEth extends LazyLogging {
+object NodeEth {
 
   /**
    * Provides the default NodeEth instance
@@ -67,7 +67,7 @@ object NodeEth extends LazyLogging {
   def apply[F[_]: ConcurrentEffect: Timer](
     validatorKey: ByteVector,
     contract: FluenceContract
-  ): Resource[F, NodeEth[F]] = {
+  )(implicit log: Log[F]): Resource[F, NodeEth[F]] = {
     val initialState = NodeEthState(validatorKey)
 
     for {
@@ -80,50 +80,62 @@ object NodeEth extends LazyLogging {
         )
     } yield
       new NodeEth[F] {
-        override val nodeEvents: fs2.Stream[F, NodeEthEvent] = {
-          // TODO: make one filter for all kinds of events, instead of making several separate requests https://github.com/fluencelabs/fluence/issues/463
+        override val nodeEvents: fs2.Stream[F, NodeEthEvent] = fs2.Stream
+          .eval(
+            contract
+              .getAllNodeApps[F](new Bytes32(validatorKey.toArray))
+          )
+          .flatMap {
+            case (allNodeApps, contractAppsLoaded) ⇒
+              // TODO: make one filter for all kinds of events, instead of making several separate requests https://github.com/fluencelabs/fluence/issues/463
 
-          // State changes on a new recognized App that should be deployed on this Node
-          val onNodeAppS = contract
-            .getAllNodeApps[F](new Bytes32(validatorKey.toArray))
-            .map(NodeEthState.onNodeApp[F])
+              // State changes on a new recognized App that should be deployed on this Node
+              val onNodeAppS = allNodeApps
+                .map(NodeEthState.onNodeApp[F])
 
-          // State changes on App Deleted event
-          val onAppDeletedS = contract
-            .getAppDeleted[F]
-            .map(_.getValue.longValue())
-            .map(NodeEthState.onAppDeleted[F])
+              // State changes on App Deleted event
+              val onAppDeletedS = contract
+                .getAppDeleted[F]
+                .map(_.getValue.longValue())
+                .map(NodeEthState.onAppDeleted[F])
 
-          // State changes on Node Deleted event
-          val onNodeDeletedS = contract.getNodeDeleted
-            .map(_.getValue)
-            .map(ByteVector(_))
-            .map(NodeEthState.onNodeDeleted[F])
+              // State changes on Node Deleted event
+              val onNodeDeletedS = contract.getNodeDeleted
+                .map(_.getValue)
+                .map(ByteVector(_))
+                .map(NodeEthState.onNodeDeleted[F])
 
-          // State changes on New Block
-          val onNewBlockS = blockQueue.dequeue.map { case (_, block) => block }
-            .map(NodeEthState.onNewBlock[F])
+              // State changes on New Block
+              val onNewBlockS = blockQueue.dequeue.map { case (_, block) => block }
+                .map(NodeEthState.onNewBlock[F])
 
-          // State changes for all kinds of Ethereum events regarding this node
-          val stream: fs2.Stream[F, StateT[F, NodeEthState, Seq[NodeEthEvent]]] =
-            onNodeAppS merge onAppDeletedS merge onNodeDeletedS merge onNewBlockS
+              // State changes on switch from Apps already stored in the contract to App events
+              val onContractAppsLoaded =
+                fs2.Stream
+                  .eval(contractAppsLoaded)
+                  .as(ContractAppsLoaded)
+                  .map(NodeEthState.onContractAppsLoaded[F])
 
-          // Note: state is never being read from the Ref,
-          // so no other channels of modifications are allowed
-          // TODO handle reorgs
-          stream
-            .evalMapAccumulate(initialState) {
-              case (state, mod) ⇒
-                // Get the new state and a sequence of events, put them to fs2 stream
-                mod.run(state)
-            }
-            .flatMap {
-              case (state, events) ⇒
-                // Save the state to the ref and flatten the events to match the response type
-                fs2.Stream.eval(stateRef.set(state)) *>
-                  fs2.Stream.chunk(fs2.Chunk.seq(events))
-            }
-        }
+              // State changes for all kinds of Ethereum events regarding this node
+              val stream: fs2.Stream[F, StateT[F, NodeEthState, Seq[NodeEthEvent]]] =
+                onNodeAppS merge onAppDeletedS merge onNodeDeletedS merge onNewBlockS merge onContractAppsLoaded
+
+              // Note: state is never being read from the Ref,
+              // so no other channels of modifications are allowed
+              // TODO handle reorgs
+              stream
+                .evalMapAccumulate(initialState) {
+                  case (state, mod) ⇒
+                    // Get the new state and a sequence of events, put them to fs2 stream
+                    mod.run(state)
+                }
+                .flatMap {
+                  case (state, events) ⇒
+                    // Save the state to the ref and flatten the events to match the response type
+                    fs2.Stream.eval(stateRef.set(state)) *>
+                      fs2.Stream.chunk(fs2.Chunk.seq(events))
+                }
+          }
 
         /**
          * Returns the expected node state, how it's built with received Ethereum data
@@ -147,7 +159,7 @@ object NodeEth extends LazyLogging {
    * @param config To lookup addresses
    * @return FluenceContract instance with web3j contract inside
    */
-  def apply[F[_]: ConcurrentEffect: Timer](
+  def apply[F[_]: ConcurrentEffect: Timer: Log](
     validatorKey: ByteVector,
     ethClient: EthClient,
     config: FluenceContractConfig
