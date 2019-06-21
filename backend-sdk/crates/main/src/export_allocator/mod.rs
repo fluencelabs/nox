@@ -17,9 +17,6 @@
 //! This module provides default implementations of [`allocate`] and [`deallocate`] functions that
 //! can be used for array passing and returning.
 //!
-//! This module is enabled by default, to disable it please import this crate with
-//! `default-features = false`.
-//!
 //! [`allocate`]: fn.allocate.html
 //! [`deallocate`]: fn.deallocate.html
 

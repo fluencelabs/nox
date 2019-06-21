@@ -14,18 +14,17 @@
  * limitations under the License.
  */
 
-//! The main part of Fluence backend SDK. Contains `export_allocator` (that can be disabled by
-//! using `no_export_allocator` feature), `logger` (enabled by `wasm_logger`) and `memory` modules.
+//! The main part of Fluence backend SDK. Contains `export_allocator` (is turned on by the
+//! `export_allocator` feature), `logger` (is turned on by the `wasm_logger` feature), and `memory`
+//! modules.
 
-#![doc(html_root_url = "https://docs.rs/fluence-sdk-main/0.1.4")]
+#![doc(html_root_url = "https://docs.rs/fluence-sdk-main/0.1.5")]
 #![feature(allocator_api)]
 
 extern crate core;
 
 pub mod memory;
 
-// wasm_logger feature should be used only for debugging purposes since the Fluence network doesn't
-// support writing messages to a log.
 #[cfg(feature = "wasm_logger")]
 pub mod logger;
 

@@ -14,23 +14,8 @@
  * limitations under the License.
  */
 
-//! This module defines `invocation_handler` attribute procedural macro. It can simplify main module
-//! invocation handler signature. According to Fluence backend convensions this handler can look
-//! like this:
-//!
-//! ```
-//! #[no_mangle]
-//! pub unsafe fn invoke(ptr: *mut u8, len: usize) -> NonNull<u8> {
-//!    let user_name = fluence::memory::read_input_from_mem(ptr, len);
-//!    let user_name: String = String::from_utf8(user_name).unwrap();
-//!
-//!    // return a pointer to the result in memory
-//!    fluence::memory::write_result_to_mem(format!("Hello from Fluence to {}", user_name).as_bytes())
-//!        .expect("Putting result string to the memory was failed.")
-//! }
-//! ```
-//!
-//! We can use a neater way instead with `#[invocation_handler]`:
+//! This module defines an `invocation_handler` attribute procedural macro. It can be used to
+//! simplify the signature of the main module invocation handler:
 //!
 //! ```
 //! use fluence::sdk::*;
@@ -42,22 +27,22 @@
 //! ```
 //!
 //! To use this macro with a function `f` certain conditions must be met:
-//! 1. `f` mustn't have more than one input argument.
-//! 2. `f` mustn't be `unsafe`, `const`, generic, have custom abi linkage or variadic param.
-//! 3. The type of `f` input (if it present) and output parameters must be one from
+//! 1. `f` shouldn't have more than one input argument.
+//! 2. `f` shouldn't be `unsafe`, `const`, generic, have custom ABI linkage or variadic param.
+//! 3. The type of `f` input (if it presents) and output parameters should be one from
 //!    {String, Vec<u8>} set.
-//! 4. `f` mustn't have the name `invoke`.
+//! 4. `f` shouldn't have the name `invoke`.
 //!
 //! For troubleshooting and macros debugging [cargo expand](https://github.com/dtolnay/cargo-expand)
 //! can be used.
 //!
-//! Internally this macros creates a new function `invoke` that converts a raw argument to
-//! a appropriate format, calls `f` and then write `f` result via `memory::write_result_to_mem` to
+//! Internally this macro creates a new function `invoke` that converts a raw argument to the
+//! appropriate format, calls `f` and then writes `f` result via `memory::write_response_to_mem` to
 //! module memory. So to use this crate apart from `fluence` `fluence_sdk_main` has to be imported.
 //!
 //! The macro also has an `init_fn` attribute that can be used for specifying initialization
-//! function name. This function will be called only in the first invoke function call. It can be
-//! used like this:
+//! function name. This function is called only once at the first call of the invoke function. It
+//! can be used like this:
 //!
 //! ```
 //! use fluence::sdk::*;
@@ -75,11 +60,9 @@
 //!
 //! # Examples
 //!
-//! Please find more examples [`here`].
-//!
-//! ['here']: https://github.com/fluencelabs/tutorials
+//! Please find more examples [here](https://github.com/fluencelabs/tutorials).
 
-#![doc(html_root_url = "https://docs.rs/fluence-sdk-macro/0.1.4")]
+#![doc(html_root_url = "https://docs.rs/fluence-sdk-macro/0.1.5")]
 
 extern crate proc_macro;
 mod macro_attr_parser;
@@ -109,31 +92,31 @@ fn invoke_handler_impl(
         if let Some(constness) = constness {
             return Err(Error::new(
                 constness.span,
-                "Please do not make the main module invocation handler constant",
+                "The invocation handler shouldn't be constant",
             ));
         }
         if let Some(unsafety) = unsafety {
             return Err(Error::new(
                 unsafety.span,
-                "Please do not make the main module invocation handler unsafe",
+                "The invocation handler shouldn't be unsage",
             ));
         }
         if let Some(abi) = abi {
             return Err(Error::new(
                 abi.extern_token.span,
-                "Please do not use any custom linkage with the main module invocation handler",
+                "The invocation handler shouldn't have any custom linkage",
             ));
         }
         if !decl.generics.params.is_empty() || decl.generics.where_clause.is_some() {
             return Err(Error::new(
                 decl.fn_token.span,
-                "Please do not use template parameters with the main module invocation handler",
+                "The invocation handler shouldn't use template parameters",
             ));
         }
         if let Some(variadic) = decl.variadic {
             return Err(Error::new(
                 variadic.spans[0],
-                "Please do not use variadic interface with the main module invocation handler",
+                "The invocation handler shouldn't use variadic interface",
             ));
         }
         Ok(())
@@ -141,20 +124,21 @@ fn invoke_handler_impl(
         return Err(e);
     }
 
-    let input_type =
-        match decl.inputs.len() {
-            0 => ParsedType::Empty,
-            1 => ParsedType::from_fn_arg(decl.inputs.first().unwrap().into_value())?,
-            _ => return Err(Error::new(
+    let input_type = match decl.inputs.len() {
+        0 => ParsedType::Empty,
+        1 => ParsedType::from_fn_arg(decl.inputs.first().unwrap().into_value())?,
+        _ => {
+            return Err(Error::new(
                 decl.inputs.span(),
-                "Please do not use more than one argument in the main module invocation handler",
-            )),
-        };
+                "The invocation handler shouldn't have more than one argument",
+            ))
+        },
+    };
     let output_type = ParsedType::from_return_type(&decl.output)?;
     if output_type == ParsedType::Empty {
         return Err(Error::new(
             decl.output.span(),
-            "The main module invocation handler has to has a return value",
+            "The invocation handler should have the return value",
         ));
     }
 
