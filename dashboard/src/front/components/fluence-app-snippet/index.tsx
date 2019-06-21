@@ -171,7 +171,7 @@ class FluenceAppSnippet extends React.Component<Props, State> {
         ]);
     }
 
-    renderAppSnippets(): React.ReactNode[] {
+    renderLlamadbSnippets(): React.ReactNode[] {
         return ([
             this.renderTrxHashBlock(),
             <p>
@@ -214,9 +214,42 @@ session.request("SELECT AVG(age) FROM users").result().then((r) => {
         ]);
     }
 
+    renderRedisSnippets(): React.ReactNode[] {
+        const request = 'SET A 10';
+        const requestForResult = 'GET A';
+        return ([
+            this.renderTrxHashBlock(),
+            <p>
+                <b>
+                    Or connect to {this.app && this.app.shortName} directly in the browser console.
+                </b>
+            </p>,
+            <p> Open Developer Tools, and paste:</p>,
+            <pre>{`let contract = "${defaultContractAddress}";                         // Fluence contract address
+let appId = ${this.props.appId};                                                                      // Deployed database id
+let ethereumUrl = "${fluenceNodeAddr}";                                    // Ethereum light node URL
+
+// Connect to your app
+fluence.connect(contract, appId, ethereumUrl).then((s) => {
+    console.log("Session created");
+    window.session = s;
+});`}
+            </pre>,
+            <p>Execute some queries:</p>,
+            <pre>{`// Send a request
+session.request("${request}");
+
+// Send a request, and read its result
+session.request("${requestForResult}").result().then((r) => {
+    console.log("Result: " + r.asString());
+});`}
+            </pre>,
+        ]);
+    }
+
     renderUploadedAppSnippets(shortName: string): React.ReactNode[] {
-        const request = (shortName === 'Redis') ? 'SET A 10' : '<enter your request here>';
-        const requestForResult = (shortName === 'Redis') ? 'GET A' : '<enter your request here>';
+        const request = '<enter your request here>';
+        const requestForResult = '<enter your request here>';
 
         return ([
             this.renderTrxHashBlock(),
@@ -246,6 +279,20 @@ session.request("${requestForResult}").result().then((r) => {
         ]);
     }
 
+    renderAppSnippets(): React.ReactNode | React.ReactNode[] {
+        switch (this.app.shortName.toLowerCase()) {
+            case 'llamadb': {
+                return this.renderLlamadbSnippets();
+            }
+            case 'redis': {
+                return this.renderRedisSnippets();
+            }
+            default: {
+                return this.renderUploadedAppSnippets(this.app.shortName);
+            }
+        }
+    }
+
     render(): React.ReactNode {
         const appInfo = this.props.apps[this.props.appId];
 
@@ -269,7 +316,7 @@ session.request("${requestForResult}").result().then((r) => {
                             this.renderInteractiveSnippet(Number(this.props.appId), this.app.shortName, this.app.requestExamples || [])
                         }
                         <hr/>
-                        {(this.app.shortName.toLowerCase() === 'llamadb') ? this.renderAppSnippets() : this.renderUploadedAppSnippets(this.app.shortName) }
+                        {this.renderAppSnippets()}
                     </div>
                 </div>
             </div>
