@@ -48,7 +48,7 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - cli-{{ checksum "cli/Cargo.lock" }}
+            - cli-{{ checksum "cli/Cargo.lock" }}-{{ checksum "bootstrap/package-lock.json" }}
       - run:
           name: cargo fmt
           command: |
@@ -88,8 +88,8 @@ jobs:
           paths:
             - ~/.cargo
             - ~/.rustup
-            - bootstrap/node_modules
-          key: cli-{{ checksum "cli/Cargo.lock" }}
+#            - bootstrap/node_modules
+          key: cli-{{ checksum "cli/Cargo.lock" }}-{{ checksum "bootstrap/package-lock.json" }}
 
   backend sdk:
     docker:
