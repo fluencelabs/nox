@@ -73,7 +73,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         } yield result
         val error = res.failed()
         error shouldBe a[NoSuchFnError]
-        error.getMessage should startWith("Unable to find a function in module with name")
+        error.getMessage should startWith("Unable to find the invoke function in module with name")
       }
 
       "trying to use Wasm memory when getMemory function isn't defined" in {
