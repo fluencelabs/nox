@@ -307,7 +307,7 @@ session.request("${requestForResult}").result().then((r) => {
                             <i className="ion ion-ios-checkmark-outline"/>
                         </span>
                     </div>
-                    <h3 className="widget-user-username">Console</h3>
+                    <h3 className="widget-user-username">Application console</h3>
                     <h3 className="widget-user-desc">appID: <b>{this.props.appId}</b></h3>
                 </div>
                 <div className="box-footer no-padding">
