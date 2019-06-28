@@ -24,14 +24,13 @@ class FluenceText extends React.Component<Props, State> {
                             <h3 className="box-title">Instant Deploy</h3>
                         </div>
                         <div className="box-body">
-                            <p>Fluence allows to create fully decentralized applications meaning you can host your app’s
-                                frontend on IPFS and backend with database on Fluence.</p>
+                            <p>Fluence allows to create fully decentralized applications which means you can host your application
+                                frontend on IPFS and deploy its backend to Fluence.</p>
 
-                            <p>We already have a production-grade NoSQL database — Redis (including Lua support, which
-                                allows you to have stored procedures, for example). Or you could play around with an SQL
-                                DB written in Rust.</p>
+                            <p>We have adapted a fork of the production-grade NoSQL database Redis to run on WebAssembly.
+                                Or, you can play around with a simple SQL DB.</p>
 
-                            <p>Uploading your own code would require compiling it into Wasm — <a
+                            <p>To upload your own code you need to compile it to WebAssembly—<a
                                 href="https://fluence.dev/docs/quick-publish" target="_blank">follow this guide</a> for
                                 the instructions.</p>
                         </div>
@@ -94,7 +93,7 @@ class FluenceText extends React.Component<Props, State> {
 
                                 <ul>
                                     <li>go to “Instant Deploy”</li>
-                                    <li>pick Redis.</li>
+                                    <li>pick “Redis fork”.</li>
                                     <li>punch the big green Deploy button</li>
                                     <li>done! You can find your app in the Applications section using its app ID.</li>
                                 </ul>

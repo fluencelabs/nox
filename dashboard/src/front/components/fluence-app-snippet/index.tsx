@@ -84,7 +84,7 @@ class FluenceAppSnippet extends React.Component<Props, State> {
         let session: AppSession;
 
         let auth = undefined;
-        if (shortName.toLowerCase() === 'llamadb') {
+        if (shortName.toLowerCase() === 'llamadb fork') {
             auth = llamaPrivateKey;
         }
 
@@ -123,11 +123,11 @@ class FluenceAppSnippet extends React.Component<Props, State> {
         const defaultText = (defaultQueries) ? defaultQueries.join('\n') : '';
 
         let parser: (s: string) => string;
-        if (shortName.toLowerCase() === 'llamadb') {
+        if (shortName.toLowerCase() === 'llamadb fork') {
             parser = function (s: string): string {
                 return s.replace('_0\n', '');
             };
-        } else if (shortName === 'Redis') {
+        } else if (shortName.toLowerCase() === 'redis fork') {
             parser = function (s: string): string {
                 let res = s;
                 if (s.startsWith(':')) {
@@ -176,7 +176,7 @@ class FluenceAppSnippet extends React.Component<Props, State> {
             this.renderTrxHashBlock(),
             <p>
                 <b>
-                    Or connect to {this.app && this.app.shortName} directly in the browser console.
+                    Or connect to the application directly in the browser console.
                 </b>
             </p>,
             <p> Open Developer Tools, and paste:</p>,
@@ -221,7 +221,7 @@ session.request("SELECT AVG(age) FROM users").result().then((r) => {
             this.renderTrxHashBlock(),
             <p>
                 <b>
-                    Or connect to {this.app && this.app.shortName} directly in the browser console.
+                    Or connect to the application directly in the browser console.
                 </b>
             </p>,
             <p> Open Developer Tools, and paste:</p>,
@@ -255,7 +255,7 @@ session.request("${requestForResult}").result().then((r) => {
             this.renderTrxHashBlock(),
             <p>
                 <b>
-                    Connect to {shortName} directly in the browser console.
+                    Connect to the application directly in the browser console.
                 </b>
             </p>,
             <pre>{`let contract = "${defaultContractAddress}";                         // Fluence contract address
@@ -281,10 +281,10 @@ session.request("${requestForResult}").result().then((r) => {
 
     renderAppSnippets(): React.ReactNode | React.ReactNode[] {
         switch (this.app.shortName.toLowerCase()) {
-            case 'llamadb': {
+            case 'llamadb fork': {
                 return this.renderLlamadbSnippets();
             }
-            case 'redis': {
+            case 'redis fork': {
                 return this.renderRedisSnippets();
             }
             default: {
@@ -307,7 +307,7 @@ session.request("${requestForResult}").result().then((r) => {
                             <i className="ion ion-ios-checkmark-outline"/>
                         </span>
                     </div>
-                    <h3 className="widget-user-username">Try {this.app.shortName}</h3>
+                    <h3 className="widget-user-username">Application console</h3>
                     <h3 className="widget-user-desc">appID: <b>{this.props.appId}</b></h3>
                 </div>
                 <div className="box-footer no-padding">
