@@ -116,7 +116,7 @@ class WasmModule(
   ): EitherT[F, InvokeError, Int] =
     wasmFn.fold(
       EitherT.leftT[F, Int](
-        NoSuchFnError(s"Unable to find a function in module with name=$this"): InvokeError
+        NoSuchFnError(s"Unable to find the invoke function in module with name=$this"): InvokeError
       )
     )(
       fn ⇒
