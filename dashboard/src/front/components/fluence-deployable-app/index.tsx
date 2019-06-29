@@ -138,6 +138,16 @@ class FluenceDeployableApp extends React.Component<Props, State> {
         return block;
     }
 
+    renderRepoLinkBlock(app: DeployableApp): React.ReactNode[] {
+        return [
+            <strong><i className="fa fa-bullseye margin-r-5"/>GitHub repo</strong>,
+            <p className="text-muted"><a
+                href={app.repoLink}
+                title={app.repoLink}
+                target="_blank">{app.repoLink}</a></p>
+        ]
+    }
+
     renderUploadBlock(): React.ReactNode[] {
         return ([
             <strong><i className="fa fa-bullseye margin-r-5"/>Upload *.wasm file</strong>,
@@ -164,6 +174,8 @@ class FluenceDeployableApp extends React.Component<Props, State> {
 
                     <strong><i className="fa fa-bullseye margin-r-5"/>Cluster Size</strong>
                     <p className="text-muted">{app.clusterSize} nodes</p>
+
+                    {app.repoLink && this.renderRepoLinkBlock(app)}
                     <hr/>
 
                     <p>
