@@ -12,7 +12,6 @@ import {
     MetamaskEvent,
 } from '../../../fluence/contract';
 import { updateEthereumConnectionState, showModal } from '../../actions';
-import { cutId } from '../../../utils';
 import FluenceApp from '../fluence-app';
 import FluenceNode from '../fluence-node';
 import FluenceDeployableApp from '../fluence-deployable-app';
@@ -21,6 +20,7 @@ import FluenceMenu from '../fluence-menu';
 import FluenceList from '../fluence-list';
 import FluenceModal from '../fluence-modal';
 import FluenceText from '../fluence-text';
+import FluenceId from '../fluence-id';
 
 import * as fluence from 'fluence';
 
@@ -148,9 +148,9 @@ class DashboardApp extends React.Component<Props, State> {
                                     }
                                 </li>
                                 <li>
-                                    <span className="fluence-header-label">Network contract: <a
+                                    <span className="fluence-header-label">Network contract: <FluenceId
                                         href={'https://rinkeby.etherscan.io/address/' + contractAddress}
-                                        title={contractAddress} target="_blank">{cutId(contractAddress)}</a></span>
+                                        isLink={true} target="_blank" entityId={contractAddress}/></span>
                                 </li>
                                 <li style={{visibility: this.props.loading ? 'visible' : 'hidden'}}>
                                     <a href="#"><i className="fa fa-refresh fa-spin"></i></a>

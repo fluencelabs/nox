@@ -1,7 +1,7 @@
 import * as React from 'react';
 import {connect} from 'react-redux';
 import {Link} from "react-router-dom";
-import {cutId} from '../../../utils';
+import FluenceId from '../fluence-id';
 import {
     deleteNode,
     displayLoading,
@@ -103,7 +103,7 @@ class FluenceNode extends React.Component<Props, State> {
             <div className="box-footer no-padding">
                 <div className="box-body">
                     <strong><i className="fa fa-bullseye margin-r-5"></i>Tendermint Key</strong>
-                    <p className="text-muted" title={node.tendermint_key}>{cutId(node.tendermint_key)}</p>
+                    <p className="text-muted"><FluenceId entityId={node.tendermint_key}/></p>
                     <hr/>
 
                     <strong><i className="fa fa-bullseye margin-r-5"></i>Ip Address</strong>
@@ -119,9 +119,14 @@ class FluenceNode extends React.Component<Props, State> {
                     <hr/>
 
                     <strong><i className="fa fa-bullseye margin-r-5"></i>Owner</strong>
-                    <p className="text-muted" title={node.owner}><a
-                        href={'https://rinkeby.etherscan.io/address/' + node.owner} title={node.owner}
-                        className="etherscan-link" target="_blank">{cutId(node.owner)}</a></p>
+                    <p className="text-muted">
+                        <FluenceId
+                            entityId={node.owner}
+                            isLink={true}
+                            href={'https://rinkeby.etherscan.io/address/' + node.owner}
+                            className="etherscan-link"
+                            target="_blank"/>
+                    </p>
                     <hr/>
 
                     <strong><i className="fa fa-bullseye margin-r-5"></i>Is Private</strong>
@@ -162,8 +167,7 @@ class FluenceNode extends React.Component<Props, State> {
                             className={node && nodeStatus ? 'ion ion-android-laptop' : 'fa fa-refresh fa-spin'}></i></span>
                     </div>
                     <h3 className="widget-user-username">Node</h3>
-                    <h5 className="widget-user-desc"
-                        title={this.props.nodeId}>ID:&nbsp;{cutId(this.props.nodeId)}</h5>
+                    <h5 className="widget-user-desc">ID:&nbsp; <FluenceId entityId={this.props.nodeId}/></h5>
                 </div>
                 {node && this.renderNodeInfo(node, nodeStatus)}
             </div>
