@@ -20,6 +20,7 @@ export interface DeployableApp {
     storageHash: string;
     storageType: StorageType;
     clusterSize: number;
+    repoLink?: string;
     selfUpload?: boolean;
     requestExamples?: string[];
 }
@@ -33,6 +34,7 @@ export const deployableApps: { [key: string]: DeployableApp } = {
         storageHash: '0x090A9B7CCA9D55A9632BBCC3A30A57F2DB1D1FD688659CFF95AB8D1F904AD74B',
         storageType: StorageType.Ipfs,
         clusterSize: 4,
+        repoLink: 'https://github.com/nukep/llamadb/compare/master...fluencelabs:master',
         requestExamples: ['CREATE TABLE users(id int, name varchar(128), age int)',
                           'INSERT INTO users VALUES(1, \'Sara\', 23), (2, \'Bob\', 19), (3, \'Caroline\', 31), (4, \'Max\', 27)',
                           'SELECT AVG(age) FROM users']
@@ -69,13 +71,14 @@ export const deployableApps: { [key: string]: DeployableApp } = {
         clusterSize: 4,
         selfUpload: true
     },
-    // {"Name":"redis_0.4.wasm","Hash":"QmbGTYVHDgJQHcR1etz78CcKT8Q4f833yTfMCennKEAqk5","Size":"597740"}
+    // {"Name":"redis_0.5.wasm","Hash":"QmYmpLNRaWEat3pUXxohYyceDCnLAvQGDZrM6hA26VxUbf","Size":"597690"}
     redis: {
         name: 'Redis fork (nosql, wasm v0.4)',
         shortName: 'Redis fork',
-        storageHash: '0xC014FB47847D9150B935AE74BCFFFFFD9411614E45C60A8D336C4CC92C2CEFBA',
+        storageHash: '0x9B0745D4B2D9292D6986453C79EA75E7385AB0AF128E0E65DBB7C478218709DE',
         storageType: StorageType.Ipfs,
         clusterSize: 4,
+        repoLink: 'https://github.com/fluencelabs/redis/compare/5.0...fluencelabs:wasm',
         requestExamples: ['SET A 10',
                           'SADD B 20',
                           'GET A',
