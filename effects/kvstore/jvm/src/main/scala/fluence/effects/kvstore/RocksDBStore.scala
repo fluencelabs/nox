@@ -19,15 +19,15 @@ package fluence.effects.kvstore
 import java.io.File
 import java.util.concurrent.{ExecutorService, Executors}
 
-import cats.{~>, Applicative, Defer, Monad}
 import cats.data.EitherT
+import cats.effect.{ContextShift, IO, LiftIO, Resource}
+import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.effect.{ContextShift, IO, LiftIO, Resource}
-import org.rocksdb.{Options, ReadOptions, RocksDB, RocksIterator}
-import cats.syntax.applicativeError._
+import cats.{~>, Applicative, Defer, Monad}
 import fluence.codec.PureCodec
 import fluence.log.Log
+import org.rocksdb.{Options, ReadOptions, RocksDB, RocksIterator}
 
 import scala.concurrent.ExecutionContext
 import scala.language.higherKinds

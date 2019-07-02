@@ -15,6 +15,7 @@
  */
 
 package fluence.effects.kvstore
+
 import cats.effect.{IO, Resource}
 import org.scalatest.{Matchers, WordSpec}
 
