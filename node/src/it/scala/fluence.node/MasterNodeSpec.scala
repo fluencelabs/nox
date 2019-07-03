@@ -20,6 +20,7 @@ import java.nio.ByteBuffer
 import java.nio.file.Files
 import java.util.Base64
 
+import cats.Apply
 import cats.data.EitherT
 import cats.effect._
 import cats.syntax.apply._
@@ -28,18 +29,19 @@ import cats.syntax.flatMap._
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
 import fluence.EitherTSttpBackend
-import fluence.crypto.{DumbCrypto, KeyPair}
+import fluence.crypto.eddsa.Ed25519
 import fluence.effects.docker.DockerIO
 import fluence.effects.ethclient.EthClient
 import fluence.kad.RoutingConf
 import fluence.kad.http.UriContact
-import fluence.log.LogFactory
+import fluence.log.{Log, LogFactory}
 import fluence.node.config.{FluenceContractConfig, KademliaConfig, MasterConfig, NodeConfig}
 import fluence.node.eth.FluenceContract
 import fluence.node.eth.FluenceContractTestOps._
 import fluence.node.status.{MasterStatus, StatusAggregator}
 import fluence.node.workers.tendermint.ValidatorPublicKey
 import org.scalatest.{Timer ⇒ _, _}
+import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -51,8 +53,7 @@ class MasterNodeSpec
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
-  implicit private val logFactory = LogFactory.forChains[IO]()
-  implicit private val log = logFactory.init("master-node-spec").unsafeRunSync()
+  implicit private val logFactory = LogFactory.forPrintln[IO]()
 
   type Sttp = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
 
@@ -60,10 +61,12 @@ class MasterNodeSpec
     Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
   override protected def beforeAll(): Unit = {
+    implicit val log = logFactory.init("before").unsafeRunSync()
     wireupContract()
   }
 
   override protected def afterAll(): Unit = {
+    implicit val log = logFactory.init("after").unsafeRunSync()
     killGanache()
   }
 
@@ -79,18 +82,18 @@ class MasterNodeSpec
     .unsafeRunSync()
     .copy(rootPath = Files.createTempDirectory("masternodespec").toString)
 
-  private val nodeResource: Resource[IO, (Sttp, MasterNode[IO, UriContact])] = for {
+  private def nodeResource(port: Short = 5789, seeds: Seq[String] = Seq.empty)(implicit log: Log[IO]): Resource[IO, (Sttp, MasterNode[IO, UriContact])] = for {
     implicit0(sttpB: Sttp) ← sttpResource
     implicit0(dockerIO: DockerIO[IO]) ← DockerIO.make[IO]()
 
     kad ← KademliaNode.make[IO, IO.Par](
       KademliaConfig(
         RoutingConf(1, 1, 4, 5.seconds),
-        KademliaConfig.Advertize("127.0.0.1", 5789),
-        KademliaConfig.Join(Nil, 0),
+        KademliaConfig.Advertize("127.0.0.1", port),
+        KademliaConfig.Join(seeds, 4),
       ),
-      DumbCrypto.signAlgo,
-      KeyPair.fromBytes(Array.emptyByteArray, Array.emptyByteArray)
+      Ed25519.tendermintAlgo,
+      Ed25519.tendermintAlgo.generateKeyPair.unsafe(Some(ByteVector.fromShort(port).toArray))
     )
 
     pool ← TestWorkersPool.make[IO]
@@ -105,20 +108,22 @@ class MasterNodeSpec
     node ← MasterNode.make[IO, UriContact](masterConf, nodeConf, pool, kad.kademlia)
 
     agg ← StatusAggregator.make[IO](masterConf, node)
-    _ ← MasterHttp.make("127.0.0.1", 5678, agg, node.pool, kad.http)
+    _ ← MasterHttp.make("127.0.0.1", port, agg, node.pool, kad.http)
   } yield (sttpB, node)
 
-  def fiberResource[F[_]: Concurrent, A](f: F[A]): Resource[F, Unit] =
+  def fiberResource[F[_]: Concurrent: Log, A](f: F[A]): Resource[F, Unit] =
     Resource.make(Concurrent[F].start(f))(_.cancel).void
 
-  val runningNode =
-    nodeResource.flatMap {
+  def runningNode(port: Short = 5789, seeds: Seq[String] = Seq.empty)(implicit log: Log[IO]) =
+    nodeResource(port, seeds).flatMap {
       case res @ (_, n) ⇒ fiberResource(n.run).as(res)
     }
 
   "MasterNode" should {
     "provide status" in {
-      runningNode.use {
+      implicit val log: Log[IO] = logFactory.init("spec", "status").unsafeRunSync()
+
+      runningNode().use {
         case (sttpB, _) ⇒
           implicit val s = sttpB
           log.debug("Going to run the node").unsafeRunSync()
@@ -137,7 +142,9 @@ class MasterNodeSpec
     }
 
     "run and delete apps properly" in {
-      (runningNode, EthClient.make[IO]()).tupled.use {
+      implicit val log: Log[IO] = logFactory.init("spec", "apps").unsafeRunSync()
+
+      (runningNode(), EthClient.make[IO]()).tupled.use {
         case ((sttpB, node), ethClient) ⇒
           implicit val s = sttpB
 
@@ -182,6 +189,32 @@ class MasterNodeSpec
             _ ← eventually[IO](node.pool.getAll.map(_.size shouldBe 7), 100.millis, 15.seconds)
 
           } yield ()
+      }.unsafeRunSync()
+    }
+
+    "form a kad network" in {
+      implicit val log: Log[IO] = logFactory.init("spec", "kad", Log.Trace).unsafeRunSync()
+
+      runningNode().flatMap {
+        case (s, mn) ⇒
+        val seed = mn.kademlia.ownContact.map(_.contact.toString).unsafeRunSync()
+
+          implicit val ss = s
+          eventually[IO](sttp.get(uri"http://127.0.0.1:5789/kad/ping").send().getOrElse(???).map(_.body.right.get shouldBe seed))
+
+        runningNode(5679, seed :: Nil).map(_._2 -> mn)
+      }.use {
+        case (mn1, mn0) ⇒
+          eventually(
+            Apply[IO].map2(
+              mn1.kademlia.findNode(mn0.kademlia.nodeKey, 2),
+              mn0.kademlia.findNode(mn1.kademlia.nodeKey, 2)
+            ){
+              case (f1, f0) ⇒
+                f1 should be('defined)
+                f0 should be('defined)
+            }
+          )
       }.unsafeRunSync()
     }
   }
