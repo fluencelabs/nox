@@ -15,7 +15,7 @@ object SbtCommons {
 
   val commons = Seq(
     scalaV,
-    version                              := "0.1.5",
+    version                              := "0.2.0",
     fork in Test                         := true,
     parallelExecution in Test            := false,
     fork in IntegrationTest              := true,
@@ -39,7 +39,7 @@ object SbtCommons {
 
   val mergeStrategy = Def.setting[String => MergeStrategy]({
     // a module definition fails compilation for java 8, just skip it
-    case PathList("module-info.class", xs @ _*) => MergeStrategy.first
+    case PathList("module-info.class", xs @ _*)  => MergeStrategy.first
     case "META-INF/io.netty.versions.properties" => MergeStrategy.first
     case x =>
       import sbtassembly.AssemblyPlugin.autoImport.assembly
@@ -110,8 +110,8 @@ object SbtCommons {
   val cryptoHashsign = "one.fluence" %% "crypto-hashsign" % cryptoVersion
   val cryptoJwt = "one.fluence"      %% "crypto-jwt"      % cryptoVersion
   val cryptoCipher = "one.fluence"   %% "crypto-cipher"   % cryptoVersion
-  
-  val codecCore = "one.fluence"      %% "codec-core"      % codecVersion
+
+  val codecCore = "one.fluence" %% "codec-core" % codecVersion
 
   val sttpVersion = "1.5.17"
   val sttp = "com.softwaremill.sttp"            %% "core"                           % sttpVersion
