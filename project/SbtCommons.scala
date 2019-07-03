@@ -106,7 +106,7 @@ object SbtCommons {
   val ficus = "com.iheart" %% "ficus" % "1.4.5"
 
   val codecVersion = "0.0.5"
-  val cryptoVersion = "0.0.7"
+  val cryptoVersion = "0.0.8"
   val cryptoHashsign = "one.fluence" %% "crypto-hashsign" % cryptoVersion
   val cryptoJwt = "one.fluence" %% "crypto-jwt" % cryptoVersion
   val cryptoCipher = "one.fluence" %% "crypto-cipher" % cryptoVersion

@@ -371,10 +371,17 @@ lazy val `kademlia` = crossProject(JVMPlatform, JSPlatform)
       "com.github.alexarchambault" %%% "scalacheck-shapeless_1.13" % "1.1.8" % Test
     )
   )
+  .jsSettings(
+    npmDependencies in Compile ++= Seq(
+      "hash.js" -> "1.1.7"
+    ),
+    //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
+    fork in Test                  := false
+  )
   .dependsOn(`kvstore`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `kademlia-js` = `kademlia`.js
+lazy val `kademlia-js` = `kademlia`.js.enablePlugins(ScalaJSBundlerPlugin)
 lazy val `kademlia-jvm` = `kademlia`.jvm
 
 lazy val `kademlia-http` = (project in file("kademlia/http"))
