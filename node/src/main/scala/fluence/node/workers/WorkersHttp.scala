@@ -77,22 +77,22 @@ object WorkersHttp {
     HttpRoutes.of {
       case GET -> Root / LongVar(appId) / "query" :? QueryPath(path) +& QueryData(data) +& QueryId(id) ⇒
         LogFactory[F].init("http" -> "query", "app" -> appId.toString) >>= { implicit log =>
-          log.debug(s"TendermintRpc query request. appId: $appId, path: $path, data: $data") *>
+          log.debug(s"TendermintRpc query request. path: $path, data: $data") *>
             withTendermint(appId)(_.query(path, data.getOrElse(""), id = id.getOrElse("dontcare")))
         }
 
       case GET -> Root / LongVar(appId) / "status" ⇒
         LogFactory[F].init("http" -> "status", "app" -> appId.toString) >>= { implicit log =>
-          log.trace(s"TendermintRpc status. appId: $appId") *>
+          log.trace(s"TendermintRpc status") *>
             withTendermint(appId)(_.status)
         }
 
       case GET -> Root / LongVar(appId) / "p2pPort" ⇒
         LogFactory[F].init("http" -> "p2pPort", "app" -> appId.toString) >>= { implicit log =>
-          log.debug(s"Worker p2pPort. appId: $appId") *>
+          log.debug(s"Worker p2pPort") *>
             pool.get(appId).flatMap {
               case Some(worker) ⇒
-                log.debug(s"Worker p2pPort = ${worker.p2pPort}. appId: $appId") *>
+                log.debug(s"Worker p2pPort = ${worker.p2pPort}") *>
                   Ok(worker.p2pPort.toString)
 
               case None ⇒

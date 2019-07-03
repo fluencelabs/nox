@@ -112,9 +112,9 @@ object TendermintConfig {
   // config.toml properties common for all tendermints
   private val ConfigConstants = Map(
     // default is 127.0.0.1, so set to 0.0.0.0 to work inside docker container
-    "laddr" -> s"tcp://0.0.0.0:${DockerTendermint.RpcPort}",
+    "rpc.laddr" -> s"tcp://0.0.0.0:${DockerTendermint.RpcPort}",
     // 0.32.0 removed default leveldb, so change it to goleveldb
-    "dbbackend" -> "goleveldb"
+    "db_backend" -> "goleveldb"
   )
 
   implicit val enc: Encoder[TendermintConfig] = deriveEncoder
