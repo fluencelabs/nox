@@ -71,11 +71,11 @@ export const deployableApps: { [key: string]: DeployableApp } = {
         clusterSize: 4,
         selfUpload: true
     },
-    // {"Name":"redis_0.4.wasm","Hash":"QmbGTYVHDgJQHcR1etz78CcKT8Q4f833yTfMCennKEAqk5","Size":"597740"}
+    // {"Name":"redis_0.5.wasm","Hash":"QmYmpLNRaWEat3pUXxohYyceDCnLAvQGDZrM6hA26VxUbf","Size":"597690"}
     redis: {
         name: 'Redis fork (nosql, wasm v0.4)',
         shortName: 'Redis fork',
-        storageHash: '0xC014FB47847D9150B935AE74BCFFFFFD9411614E45C60A8D336C4CC92C2CEFBA',
+        storageHash: '0x9B0745D4B2D9292D6986453C79EA75E7385AB0AF128E0E65DBB7C478218709DE',
         storageType: StorageType.Ipfs,
         clusterSize: 4,
         repoLink: 'https://github.com/fluencelabs/redis/compare/5.0...fluencelabs:wasm',
