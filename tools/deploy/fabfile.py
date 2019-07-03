@@ -155,6 +155,7 @@ def deploy():
                            ETHEREUM_SERVICE="provided",
                            ETHEREUM_IP=ethereum_ip,
                            LOCAL_IPFS_ENABLED="false",
+                           LOCAL_SWARM_ENABLED="false",
                            IMAGE_TAG=image_tag):
                 run('chmod +x compose.sh')
                 # the script will return command with arguments that will register node in Fluence contract

@@ -15,19 +15,18 @@
 #!/bin/bash
 
 ###
-# This script is an entrypoint of the Master docker container.
-# It first checks that $TENDERMINT_IP and $PORTS are defined,
-# if /var/run/docker.sock is passed as a volume, and
-# then if running master-node.jar, generate application.conf,
+# This script is an entrypoint of the Fluence Node docker container.
+# It first checks that $EXTERNAL_IP is defined,
+# if /var/run/docker.sock is passed as a volume,
 # and run whatever command is passed as arguments (usually it's CMD from Dockerfile).
 ###
 
 # set to fail fast
 set -eo pipefail
 
-if [ -z "$TENDERMINT_IP" ]; then
+if [ -z "$EXTERNAL_IP" ]; then
   cat >&2 <<EOF
-error: \`-e "TENDERMINT_IP=your_external_ip"\` was not specified.
+error: \`-e "EXTERNAL_IP=your_external_ip"\` was not specified.
 It is required so Tendermint instance can advertise its address to cluster participants
 EOF
   exit 1

@@ -46,8 +46,7 @@ import scala.concurrent.duration._
 import scala.language.higherKinds
 
 class MasterNodeSpec
-    extends WordSpec with Matchers with BeforeAndAfterAll with OptionValues with Integration
-    with GanacheSetup {
+    extends WordSpec with Matchers with BeforeAndAfterAll with OptionValues with Integration with GanacheSetup {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
@@ -75,14 +74,14 @@ class MasterNodeSpec
     } yield resp.unsafeBody.right.get).value.map(_.right.get)
   }
 
+  private val masterConf = MasterConfig
+    .load()
+    .unsafeRunSync()
+    .copy(rootPath = Files.createTempDirectory("masternodespec").toString)
+
   private val nodeResource: Resource[IO, (Sttp, MasterNode[IO, UriContact])] = for {
     implicit0(sttpB: Sttp) ← sttpResource
     implicit0(dockerIO: DockerIO[IO]) ← DockerIO.make[IO]()
-
-    masterConf = MasterConfig
-      .load()
-      .unsafeRunSync()
-      .copy(rootPath = Files.createTempDirectory("masternodespec").toString)
 
     kad ← KademliaNode.make[IO, IO.Par](
       KademliaConfig(
@@ -94,19 +93,16 @@ class MasterNodeSpec
       KeyPair.fromBytes(Array.emptyByteArray, Array.emptyByteArray)
     )
 
-    pool ← TestWorkersPool
-      .make[IO]
+    pool ← TestWorkersPool.make[IO]
 
     nodeConf = NodeConfig(
-      masterConf.endpoints,
       ValidatorPublicKey("", Base64.getEncoder.encodeToString(Array.fill(32)(5))),
       "vAs+M0nQVqntR6jjPqTsHpJ4bsswA3ohx05yorqveyc=",
       masterConf.worker,
       masterConf.tendermint
     )
 
-    node ← MasterNode
-      .make[IO, UriContact](masterConf, nodeConf, pool, kad.kademlia)
+    node ← MasterNode.make[IO, UriContact](masterConf, nodeConf, pool, kad.kademlia)
 
     agg ← StatusAggregator.make[IO](masterConf, node)
     _ ← MasterHttp.make("127.0.0.1", 5678, agg, node.pool, kad.http)
@@ -123,7 +119,7 @@ class MasterNodeSpec
   "MasterNode" should {
     "provide status" in {
       runningNode.use {
-        case (sttpB, node) ⇒
+        case (sttpB, _) ⇒
           implicit val s = sttpB
           log.debug("Going to run the node").unsafeRunSync()
 
@@ -153,7 +149,7 @@ class MasterNodeSpec
           val contract = FluenceContract(ethClient, contractConfig)
 
           for {
-            _ ← contract.addNode[IO](node.nodeConfig, 10, 10)
+            _ ← contract.addNode[IO](node.nodeConfig, masterConf.endpoints.ip.getHostAddress, 10, 10)
             _ ← contract.addApp[IO]("llamadb", clusterSize = 1)
             _ ← eventually[IO](node.pool.getAll.map(_.size shouldBe 1), 100.millis, 15.seconds)
 

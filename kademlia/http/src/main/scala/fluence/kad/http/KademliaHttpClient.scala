@@ -58,7 +58,7 @@ class KademliaHttpClient[F[_]: Effect, C](hostname: String, port: Short, auth: S
   /**
    * Ping the contact, get its actual Node status, or fail.
    */
-  override def ping()(implicit log: Log[F]) =
+  override def ping()(implicit log: Log[F]): EitherT[F, KadRpcError, Node[C]] =
     call[Node[C]](_.post, uri"http://$hostname:$port/kad/ping")
 
   /**
@@ -66,7 +66,7 @@ class KademliaHttpClient[F[_]: Effect, C](hostname: String, port: Short, auth: S
    *
    * @param key Key to lookup
    */
-  override def lookup(key: Key, neighbors: StatusCode)(implicit log: Log[F]) =
+  override def lookup(key: Key, neighbors: StatusCode)(implicit log: Log[F]): EitherT[F, KadRpcError, Seq[Node[C]]] =
     call[Seq[Node[C]]](_.post, uri"http://$hostname:$port/kad/lookup?key=${key.asBase58}&n=$neighbors")
 
   /**
@@ -74,7 +74,9 @@ class KademliaHttpClient[F[_]: Effect, C](hostname: String, port: Short, auth: S
    *
    * @param key Key to lookup
    */
-  override def lookupAway(key: Key, moveAwayFrom: Key, neighbors: StatusCode)(implicit log: Log[F]) =
+  override def lookupAway(key: Key, moveAwayFrom: Key, neighbors: StatusCode)(
+    implicit log: Log[F]
+  ): EitherT[F, KadRpcError, Seq[Node[C]]] =
     call[Seq[Node[C]]](
       _.get,
       uri"http://$hostname:$port/kad/lookup?key=${key.asBase58}&n=$neighbors&awayFrom=${moveAwayFrom.asBase58}"
