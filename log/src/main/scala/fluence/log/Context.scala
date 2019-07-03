@@ -37,9 +37,6 @@ case class Context(data: Map[String, String] = Map.empty, loggingLevel: Log.Leve
 
 object Context {
 
-  def init(k: String, v: String = "", level: Log.Level = Log.Info): Context =
-    Context(Map(k -> v), level)
-
   def init(kv: (String, String)*)(level: Log.Level = Log.Info): Context =
     Context(kv.toMap, level)
 
