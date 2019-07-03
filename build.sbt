@@ -155,7 +155,7 @@ lazy val `effects` = crossProject(JVMPlatform, JSPlatform)
     fork in Test := false,
     libraryDependencies ++= Seq(
       "org.typelevel"       %%% "cats-core"   % catsVersion,
-      "org.typelevel" %%% "cats-effect" % "1.3.0"
+      "org.typelevel" %%% "cats-effect" % catsEffectVersion
     )
   )
   .dependsOn(`log`)
@@ -252,9 +252,9 @@ lazy val `kvstore` =
       commons,
       fork in Test := false,
       libraryDependencies ++= Seq(
-        "one.fluence"      %%% "codec-core"      % codecVersion,
-        "co.fs2"   %%% "fs2-core"             % fs2Version,
-        "org.scalatest"            %%% "scalatest"   % "3.0.5"  % Test
+        "one.fluence" %%% "codec-core" % codecVersion,
+        "co.fs2" %%% "fs2-core" % fs2Version,
+        "org.scalatest" %%% "scalatest" % "3.0.5" % Test
       )
     )
     .jvmSettings(
@@ -359,11 +359,10 @@ lazy val `kademlia` = crossProject(JVMPlatform, JSPlatform)
   .in(file("kademlia"))
   .settings(
     commons,
-    fork in Test := false,
     kindProjector,
     libraryDependencies ++= Seq(
       "org.typelevel" %%% "cats-core" % catsVersion,
-      "org.typelevel" %%% "cats-effect" % "1.3.0",
+      "org.typelevel" %%% "cats-effect" % catsEffectVersion,
       "one.fluence" %%% "codec-core" % codecVersion,
       "one.fluence" %%% "crypto-hashsign" % cryptoVersion,
       "org.typelevel" %%% "cats-testkit" % catsVersion % Test,
@@ -372,8 +371,7 @@ lazy val `kademlia` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
-    //all JavaScript dependencies will be concatenated to a single file *-jsdeps.js
-    fork in Test                  := false
+    fork in Test := false
   )
   .dependsOn(`kvstore`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
@@ -413,9 +411,9 @@ lazy val `log` = crossProject(JVMPlatform, JSPlatform)
     fork in Test := false,
     kindProjector,
     libraryDependencies ++= Seq(
-      "org.typelevel"       %%% "cats-core"   % catsVersion,
-      "org.typelevel" %%% "cats-effect" % "1.3.0",
-      "org.scalatest"            %%% "scalatest"   % "3.0.5"  % Test
+      "org.typelevel" %%% "cats-core" % catsVersion,
+      "org.typelevel" %%% "cats-effect" % catsEffectVersion,
+      "org.scalatest" %%% "scalatest" % "3.0.5"  % Test
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
