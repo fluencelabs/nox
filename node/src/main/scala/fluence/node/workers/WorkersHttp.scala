@@ -76,37 +76,45 @@ object WorkersHttp {
     // Routes comes there
     HttpRoutes.of {
       case GET -> Root / LongVar(appId) / "query" :? QueryPath(path) +& QueryData(data) +& QueryId(id) ⇒
-        LogFactory[F].init("http", "query") >>= { implicit log ⇒
-          log.debug(s"TendermintRpc query request. appId: $appId, path: $path, data: $data") *>
-            withTendermint(appId)(_.query(path, data.getOrElse(""), id = id.getOrElse("dontcare")))
+        LogFactory[F].init("http", "query") >>= {
+          _.scope("app" -> appId.toString) { implicit log =>
+            log.debug(s"TendermintRpc query request. appId: $appId, path: $path, data: $data") *>
+              withTendermint(appId)(_.query(path, data.getOrElse(""), id = id.getOrElse("dontcare")))
+          }
         }
 
       case GET -> Root / LongVar(appId) / "status" ⇒
-        LogFactory[F].init("http", "status") >>= { implicit log ⇒
-          log.trace(s"TendermintRpc status. appId: $appId") *>
-            withTendermint(appId)(_.status)
+        LogFactory[F].init("http", "status") >>= {
+          _.scope("app" -> appId.toString) { implicit log =>
+            log.trace(s"TendermintRpc status. appId: $appId") *>
+              withTendermint(appId)(_.status)
+          }
         }
 
       case GET -> Root / LongVar(appId) / "p2pPort" ⇒
-        LogFactory[F].init("http", "p2pPort") >>= { implicit log ⇒
-          log.debug(s"Worker p2pPort. appId: $appId") *>
-            pool.get(appId).flatMap {
-              case Some(worker) ⇒
-                log.debug(s"Worker p2pPort = ${worker.p2pPort}. appId: $appId") *>
-                  Ok(worker.p2pPort.toString)
+        LogFactory[F].init("http", "p2pPort") >>= {
+          _.scope("app" -> appId.toString) { implicit log =>
+            log.debug(s"Worker p2pPort. appId: $appId") *>
+              pool.get(appId).flatMap {
+                case Some(worker) ⇒
+                  log.debug(s"Worker p2pPort = ${worker.p2pPort}. appId: $appId") *>
+                    Ok(worker.p2pPort.toString)
 
-              case None ⇒
-                log.debug(s"Requested app $appId, but there's no such worker in the pool") *>
-                  NotFound("App not found on the node")
-            }
+                case None ⇒
+                  log.debug(s"Requested app $appId, but there's no such worker in the pool") *>
+                    NotFound("App not found on the node")
+              }
+          }
         }
 
       case req @ POST -> Root / LongVar(appId) / "tx" :? QueryId(id) ⇒
-        LogFactory[F].init("http", "tx") >>= { implicit log ⇒
-          req.decode[String] { tx ⇒
-            log.scope("tx.id" -> tx) { implicit log ⇒
-              log.debug(s"TendermintRpc broadcastTxSync request, id: $id")
-              withTendermint(appId)(_.broadcastTxSync(tx, id.getOrElse("dontcare")))
+        LogFactory[F].init("http", "tx") >>= {
+          _.scope("app" -> appId.toString) { implicit log =>
+            req.decode[String] { tx ⇒
+              log.scope("tx.id" -> tx) { implicit log ⇒
+                log.debug(s"TendermintRpc broadcastTxSync request, id: $id")
+                withTendermint(appId)(_.broadcastTxSync(tx, id.getOrElse("dontcare")))
+              }
             }
           }
         }

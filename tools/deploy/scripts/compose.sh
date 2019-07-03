@@ -343,7 +343,6 @@ function deploy()
 
     if [ -z "$PROD_DEPLOY" ]; then
         check_fluence_installed
-        export REMOTE_STORAGE_ENABLED="true"
         export SWARM_ADDRESS="http://$HOST_IP:8500"
         export IPFS_ADDRESS="http://$HOST_IP:5001"
     fi
