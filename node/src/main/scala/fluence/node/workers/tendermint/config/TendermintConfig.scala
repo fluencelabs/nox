@@ -19,6 +19,7 @@ import java.nio.file.{Files, Path, StandardCopyOption}
 
 import cats.effect.Sync
 import com.electronwill.nightconfig.core.file.FileConfig
+import fluence.node.workers.tendermint.DockerTendermint
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 
@@ -84,7 +85,7 @@ case class TendermintConfig(
       "proxy_app" -> s"tcp://$abciHost:$abciPort",
       "moniker" -> s"${appId}_$workerIndex",
       "p2p.external_address" -> workerPeerAddress
-    ) ++ mapping
+    ) ++ mapping ++ TendermintConfig.ConfigConstants
 
     val tmp = Files.copy(src, Files.createTempFile("config", ".toml"), StandardCopyOption.REPLACE_EXISTING)
     val config = FileConfig.of(tmp)
@@ -108,6 +109,14 @@ case class TendermintConfig(
 }
 
 object TendermintConfig {
+  // config.toml properties common for all tendermints
+  private val ConfigConstants = Map(
+    // default is 127.0.0.1, so set to 0.0.0.0 to work inside docker container
+    "laddr" -> s"tcp://0.0.0.0:${DockerTendermint.RpcPort}",
+    // 0.32.0 removed default leveldb, so change it to goleveldb
+    "dbbackend" -> "goleveldb"
+  )
+
   implicit val enc: Encoder[TendermintConfig] = deriveEncoder
   implicit val dec: Decoder[TendermintConfig] = deriveDecoder
 }
