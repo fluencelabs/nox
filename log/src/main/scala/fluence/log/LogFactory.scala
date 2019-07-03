@@ -42,6 +42,8 @@ abstract class LogFactory[F[_]: Monad: Clock](defaultLoggingLevel: Log.Level) {
   def init(k: String, v: String = "", level: Log.Level = defaultLoggingLevel): F[Log.Aux[F, Appender]] =
     forCtx(Context.init(k, v, level))
 
+  def init(kv: (String, String)*)(level: Log.Level = defaultLoggingLevel): F[Log.Aux[F, Appender]] =
+    forCtx(Context.init(kv: _*)(level))
 }
 
 object LogFactory {

@@ -40,6 +40,9 @@ object Context {
   def init(k: String, v: String = "", level: Log.Level = Log.Info): Context =
     Context(Map(k -> v), level)
 
+  def init(kv: (String, String)*)(level: Log.Level = Log.Info): Context =
+    Context(kv.toMap, level)
+
   implicit def fromLog[F[_]: Log]: Context =
     Log[F].ctx
 }
