@@ -16,7 +16,7 @@ object SbtCommons {
   val commons = Seq(
     scalaV,
     version := "0.1.5",
-    fork in Test := false,
+    fork in Test := true,
     parallelExecution in Test := false,
     fork in IntegrationTest := true,
     parallelExecution in IntegrationTest := false,

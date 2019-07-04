@@ -371,7 +371,8 @@ lazy val `kademlia` = crossProject(JVMPlatform, JSPlatform)
     )
   )
   .jsSettings(
-    fork in Test := false
+    fork in Test := false,
+    test in Test := {}
   )
   .dependsOn(`kvstore`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
