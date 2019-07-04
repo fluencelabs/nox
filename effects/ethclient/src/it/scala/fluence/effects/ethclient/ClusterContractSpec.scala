@@ -53,13 +53,13 @@ class ClusterContractSpec extends FlatSpec with Matchers with BeforeAndAfterAll 
 
   override protected def beforeAll(): Unit = {
     logId.info("bootstrapping npm")
-    run("/usr/bin/npm install")
+    run("npm install")
 
     logId.info("starting Ganache")
     runBackground("npm run ganache")
 
     logId.info("deploying contracts to Ganache")
-    run("/usr/bin/npm run migrate")
+    run("npm run migrate")
   }
 
   override protected def afterAll(): Unit = {
