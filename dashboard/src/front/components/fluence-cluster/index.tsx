@@ -7,7 +7,7 @@ import {
     hideLoading,
     retrieveNodesAppStatus,
 } from '../../actions';
-import {cutId} from '../../../utils';
+import FluenceId from '../fluence-id';
 import {App, AppId, NodeId} from "../../../fluence";
 import {Option} from 'ts-option';
 import {Cluster} from "../../../fluence/apps";
@@ -66,7 +66,7 @@ class FluenceCluster extends React.Component<Props, State> {
         return (
             <li>
                 <Link to={`/node/${id}`}>
-                    {cutId(id)} {this.renderClusterMemberBadge(id)}
+                    <FluenceId entityId={id}/> {this.renderClusterMemberBadge(id)}
                 </Link>
             </li>
         );

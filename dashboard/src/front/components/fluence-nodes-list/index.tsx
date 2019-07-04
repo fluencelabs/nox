@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { connect} from 'react-redux';
 import { Link } from "react-router-dom";
-import { cutId } from "../../../utils";
+import FluenceId from '../fluence-id';
 import { displayLoading, hideLoading, retrieveNodeRefs } from "../../actions";
 import { Action } from "redux";
 import {NodeRef} from "../../../fluence";
@@ -64,8 +64,7 @@ class FluenceNodesList extends React.Component<Props, State> {
                         <Link to={`/node/${nodeRef.node_id}`}>
                             <div className="box-body">
                                 <strong>
-                                    <i className="fa fa-bullseye margin-r-5"></i> Node <span
-                                    title={nodeRef.node_id}>{cutId(nodeRef.node_id)}</span>
+                                    <i className="fa fa-bullseye margin-r-5"></i> Node <FluenceId entityId={nodeRef.node_id}/>
                                 </strong>
                             </div>
                         </Link>

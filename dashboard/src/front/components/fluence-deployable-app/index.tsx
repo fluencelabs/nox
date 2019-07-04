@@ -4,7 +4,8 @@ import {withRouter} from "react-router";
 import {DeployableApp, DeployableAppId, deployableApps, StorageType} from "../../../fluence/deployable";
 import {deploy, deployUpload, showModal} from "../../actions";
 import {Action} from "redux";
-import {cutId, remove0x, toIpfsHash} from "../../../utils";
+import {remove0x, toIpfsHash} from "../../../utils";
+import FluenceId from '../fluence-id';
 import {History} from "history";
 import {ipfsDownloadUrl} from "../../../constants";
 
@@ -119,19 +120,21 @@ class FluenceDeployableApp extends React.Component<Props, State> {
         } else if (app.storageType == StorageType.Ipfs) {
             let storageHash = app.selfUpload ? this.props.upload.storageHash : app.storageHash;
             block.push(
-                <p className="text-muted" title={storageHash}><a
+                <p className="text-muted"><FluenceId
+                    isLink={true}
+                    entityId={storageHash}
                     href={ipfsDownloadUrl + toIpfsHash(storageHash)}
-                    title={storageHash}
                     target="_blank"
                     rel="noreferrer"
-                    download>{cutId(storageHash)}</a></p>
+                    download/></p>
             );
         } else {
             block.push(
-                <p className="text-muted" title={app.storageHash}><a
+                <p className="text-muted"><FluenceId
+                    entityId={app.storageHash}
+                    isLink={true}
                     href={'https://swarm-gateways.net/bzz:/' + remove0x(app.storageHash) + '/' + app.name + '.wasm'}
-                    title={app.storageHash}
-                    target="_blank">{cutId(app.storageHash)}</a></p>
+                    target="_blank"/></p>
             );
         }
 
