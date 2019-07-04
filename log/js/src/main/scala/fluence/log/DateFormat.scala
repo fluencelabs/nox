@@ -20,7 +20,13 @@ import java.util.Date
 
 import scala.scalajs.js
 
-object DateFormat extends DateFormat {
+/**
+ * JS and JVM have work\ different with date formatting.
+ */
+object DateFormat {
 
+  /**
+   * Formats date to string.
+   */
   def format(date: Date): String = new js.Date(date.getTime.toDouble).toISOString()
 }
