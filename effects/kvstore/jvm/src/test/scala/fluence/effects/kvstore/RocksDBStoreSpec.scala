@@ -18,8 +18,8 @@ package fluence.effects.kvstore
 
 import java.nio.file.Files
 
-import cats.syntax.compose._
 import cats.effect.{ContextShift, IO, Resource, Timer}
+import cats.syntax.compose._
 import fluence.codec.PureCodec
 import fluence.log.{Log, LogFactory}
 
