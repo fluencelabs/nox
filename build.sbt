@@ -371,6 +371,9 @@ lazy val `kademlia` = crossProject(JVMPlatform, JSPlatform)
       "com.github.alexarchambault" %%% "scalacheck-shapeless_1.13" % "1.1.8" % Test
     )
   )
+  .jsSettings(
+    test in Test := {}
+  )
   .dependsOn(`kvstore`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
 
