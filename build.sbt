@@ -232,7 +232,6 @@ lazy val `ipfs` = (project in file("effects/ipfs"))
 lazy val `ethclient` = (project in file("effects/ethclient"))
   .settings(
     commons,
-    fork in Test := true,
     libraryDependencies ++= Seq(
       web3jCore,
       scodecBits,
@@ -369,8 +368,7 @@ lazy val `kademlia` = crossProject(JVMPlatform, JSPlatform)
       "org.typelevel" %%% "cats-testkit" % catsVersion % Test,
       "org.scalatest" %%% "scalatest" % "3.0.5"  % Test,
       "com.github.alexarchambault" %%% "scalacheck-shapeless_1.13" % "1.1.8" % Test
-    ),
-    javacOptions += "-Xmx1G"
+    )
   )
   .jsSettings(
     test in Test := {}
