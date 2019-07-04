@@ -3,10 +3,9 @@ import { connect } from 'react-redux';
 import {DeployableApp, findDeployableAppByStorageHash, deployableApps} from '../../../fluence/deployable';
 import { defaultContractAddress, fluenceNodeAddr, llamaPrivateKey } from '../../../constants';
 import { displayLoading, hideLoading, retrieveApp, } from '../../actions';
-import FluenceCluster from '../fluence-cluster';
 import { App, AppId } from '../../../fluence';
 import { Action } from 'redux';
-import { cutId } from '../../../utils';
+import FluenceId from '../fluence-id';
 import * as fluence from 'fluence';
 import { AppSession } from 'fluence/dist/AppSession';
 
@@ -53,9 +52,9 @@ class FluenceAppSnippet extends React.Component<Props, State> {
         if (this.props.trxHash) {
             return (
                 <p>
-                    Transaction hash: <a href={'https://rinkeby.etherscan.io/tx/' + this.props.trxHash}
-                                         title={this.props.trxHash} className="etherscan-link"
-                                         target="_blank">{cutId(this.props.trxHash)}</a>
+                    Transaction hash: <FluenceId href={'https://rinkeby.etherscan.io/tx/' + this.props.trxHash}
+                                         entityId={this.props.trxHash} className="etherscan-link"
+                                         isLink={true} target="_blank"/>
                 </p>
             );
         }
