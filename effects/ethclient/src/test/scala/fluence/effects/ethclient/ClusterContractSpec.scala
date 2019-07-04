@@ -74,8 +74,7 @@ class ClusterContractSpec extends FlatSpec with Matchers with BeforeAndAfterAll 
     val owner = "0x4180FC65D613bA7E1a385181a219F1DBfE7Bf11d"
 
     client.use { ethClient =>
-
-    logId.info(s"Using client: $ethClient")
+      logId.info(s"Using client: $ethClient")
 
       val par = Parallel[IO, IO.Par]
 

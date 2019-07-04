@@ -116,9 +116,9 @@ object UriContact {
     val writePks: PureCodec.Func[UriContact, String] =
       pkWithSignatureCodec.inverse.rmap(pks ⇒ s"${pks._1}:${pks._2}").lmap[UriContact](_.signature)
 
-    PureCodec.liftFunc((c: UriContact) ⇒ (c, c)) >>> (writePks split PureCodec.liftFunc(identity[UriContact])).rmap {
-      case (ui, uc) ⇒ s"fluence://$ui@${uc.host}:${uc.port}"
-    }
+    PureCodec.liftFuncPoint(
+      (c: UriContact) => writePks.pointAt(c).map(signature => s"fluence://$signature@${c.host}:${c.port}")
+    )
   }
 
   /**

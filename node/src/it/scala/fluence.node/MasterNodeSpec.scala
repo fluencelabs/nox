@@ -82,34 +82,37 @@ class MasterNodeSpec
     .unsafeRunSync()
     .copy(rootPath = Files.createTempDirectory("masternodespec").toString)
 
-  private def nodeResource(port: Short = 5789, seeds: Seq[String] = Seq.empty)(implicit log: Log[IO]): Resource[IO, (Sttp, MasterNode[IO, UriContact])] = for {
-    implicit0(sttpB: Sttp) ← sttpResource
-    implicit0(dockerIO: DockerIO[IO]) ← DockerIO.make[IO]()
+  private def nodeResource(port: Short = 5789, seeds: Seq[String] = Seq.empty)(
+    implicit log: Log[IO]
+  ): Resource[IO, (Sttp, MasterNode[IO, UriContact])] =
+    for {
+      implicit0(sttpB: Sttp) ← sttpResource
+      implicit0(dockerIO: DockerIO[IO]) ← DockerIO.make[IO]()
 
-    kad ← KademliaNode.make[IO, IO.Par](
-      KademliaConfig(
-        RoutingConf(1, 1, 4, 5.seconds),
-        KademliaConfig.Advertize("127.0.0.1", port),
-        KademliaConfig.Join(seeds, 4),
-      ),
-      Ed25519.tendermintAlgo,
-      Ed25519.tendermintAlgo.generateKeyPair.unsafe(Some(ByteVector.fromShort(port).toArray))
-    )
+      kad ← KademliaNode.make[IO, IO.Par](
+        KademliaConfig(
+          RoutingConf(1, 1, 4, 5.seconds),
+          KademliaConfig.Advertize("127.0.0.1", port),
+          KademliaConfig.Join(seeds, 4),
+        ),
+        Ed25519.tendermintAlgo,
+        Ed25519.tendermintAlgo.generateKeyPair.unsafe(Some(ByteVector.fromShort(port).toArray))
+      )
 
-    pool ← TestWorkersPool.make[IO]
+      pool ← TestWorkersPool.make[IO]
 
-    nodeConf = NodeConfig(
-      ValidatorPublicKey("", Base64.getEncoder.encodeToString(Array.fill(32)(5))),
-      "vAs+M0nQVqntR6jjPqTsHpJ4bsswA3ohx05yorqveyc=",
-      masterConf.worker,
-      masterConf.tendermint
-    )
+      nodeConf = NodeConfig(
+        ValidatorPublicKey("", Base64.getEncoder.encodeToString(Array.fill(32)(5))),
+        "vAs+M0nQVqntR6jjPqTsHpJ4bsswA3ohx05yorqveyc=",
+        masterConf.worker,
+        masterConf.tendermint
+      )
 
-    node ← MasterNode.make[IO, UriContact](masterConf, nodeConf, pool, kad.kademlia)
+      node ← MasterNode.make[IO, UriContact](masterConf, nodeConf, pool, kad.kademlia)
 
-    agg ← StatusAggregator.make[IO](masterConf, node)
-    _ ← MasterHttp.make("127.0.0.1", port, agg, node.pool, kad.http)
-  } yield (sttpB, node)
+      agg ← StatusAggregator.make[IO](masterConf, node)
+      _ ← MasterHttp.make("127.0.0.1", port, agg, node.pool, kad.http)
+    } yield (sttpB, node)
 
   def fiberResource[F[_]: Concurrent: Log, A](f: F[A]): Resource[F, Unit] =
     Resource.make(Concurrent[F].start(f))(_.cancel).void
@@ -192,24 +195,26 @@ class MasterNodeSpec
       }.unsafeRunSync()
     }
 
-    "form a kad network" in {
+    "form a kademlia network" in {
       implicit val log: Log[IO] = logFactory.init("spec", "kad", Log.Trace).unsafeRunSync()
 
       runningNode().flatMap {
         case (s, mn) ⇒
-        val seed = mn.kademlia.ownContact.map(_.contact.toString).unsafeRunSync()
+          val seed = mn.kademlia.ownContact.map(_.contact.toString).unsafeRunSync()
 
           implicit val ss = s
-          eventually[IO](sttp.get(uri"http://127.0.0.1:5789/kad/ping").send().getOrElse(???).map(_.body.right.get shouldBe seed))
+          eventually[IO](
+            sttp.get(uri"http://127.0.0.1:5789/kad/ping").send().value.map(_.flatMap(_.body).right.get shouldBe seed)
+          )
 
-        runningNode(5679, seed :: Nil).map(_._2 -> mn)
+          runningNode(5679, seed :: Nil).map(_._2 -> mn)
       }.use {
         case (mn1, mn0) ⇒
           eventually(
             Apply[IO].map2(
               mn1.kademlia.findNode(mn0.kademlia.nodeKey, 2),
               mn0.kademlia.findNode(mn1.kademlia.nodeKey, 2)
-            ){
+            ) {
               case (f1, f0) ⇒
                 f1 should be('defined)
                 f0 should be('defined)

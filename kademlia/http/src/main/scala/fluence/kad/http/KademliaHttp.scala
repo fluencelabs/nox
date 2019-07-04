@@ -81,7 +81,7 @@ class KademliaHttp[F[_]: Sync, C](
 
           }
 
-        case req @ POST -> Root / "ping" ⇒
+        case req @ (POST | GET) -> Root / "ping" ⇒
           LogFactory[F].init("kad-http", "ping") >>= { implicit log: Log[F] ⇒
             updateOnReq(req) *>
               handleRPC
