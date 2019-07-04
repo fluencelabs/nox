@@ -20,7 +20,7 @@ import java.util.Date
 
 import scala.scalajs.js
 
-object DateFormat {
+object DateFormat extends DateFormat {
 
   def format(date: Date): String = new js.Date(date.getTime.toDouble).toISOString()
 }

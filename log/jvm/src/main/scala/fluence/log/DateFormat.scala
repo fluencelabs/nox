@@ -19,7 +19,7 @@ package fluence.log
 import java.text.SimpleDateFormat
 import java.util.Date
 
-object DateFormat {
+object DateFormat extends DateFormat {
   private val dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
 
   def format(date: Date): String = dateFormat.format(date)
