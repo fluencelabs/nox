@@ -16,7 +16,6 @@
 
 package fluence.log
 
-import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.concurrent.TimeUnit
 
@@ -184,10 +183,8 @@ object Log {
   )(implicit log: Log[F]): Resource[F, Log[Resource[F, ?]]] =
     Resource.liftF(log.scope(modContext)(_.mapK(λ[F ~> Resource[F, ?]](f ⇒ Resource.liftF(f))).pure[F]))
 
-  private val dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-
   case class Msg(timestamp: Long, level: Level, ctx: Context, msg: Eval[String], cause: Option[Throwable]) {
-    private def date = dateFormat.format(new Date(timestamp))
+    private def date = DateFormat.format(new Date(timestamp))
 
     override def toString: String =
       s"${Console.WHITE}$date${Console.RESET} ${level.color}${level.name}${Console.RESET} $ctx\t${msg.value}" +

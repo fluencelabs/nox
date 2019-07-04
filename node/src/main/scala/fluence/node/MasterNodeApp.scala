@@ -72,7 +72,7 @@ object MasterNodeApp extends IOApp {
               keyPair <- Resource.liftF(Configuration.readTendermintKeyPair(masterConf.rootPath))
               kad ← KademliaNode.make[IO, IO.Par](
                 masterConf.kademlia,
-                Ed25519.tendermintAlgo,
+                Ed25519.signAlgo,
                 keyPair
               )
               node <- MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
