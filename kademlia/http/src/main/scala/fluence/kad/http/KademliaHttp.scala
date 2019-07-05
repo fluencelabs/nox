@@ -17,24 +17,23 @@
 package fluence.kad.http
 
 import cats.Id
-import io.circe.syntax._
-import io.circe.Encoder
-import io.circe.Json
 import cats.data.{NonEmptyList, Validated, ValidatedNel}
 import cats.effect.Sync
-import fluence.kad.protocol.{Key, Node}
-import cats.syntax.functor._
-import cats.syntax.apply._
 import cats.syntax.applicative._
+import cats.syntax.apply._
 import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fluence.codec.PureCodec
 import fluence.crypto.Crypto
 import fluence.kad.Kademlia
+import fluence.kad.protocol.{Key, Node}
 import fluence.log.{Log, LogFactory}
-import org.http4s.{AuthScheme, Credentials, HttpRoutes, ParseFailure, QueryParamDecoder, QueryParameterValue, Request}
+import io.circe.{Encoder, Json}
+import io.circe.syntax._
 import org.http4s.dsl._
 import org.http4s.headers.Authorization
 import org.http4s.syntax.string._
+import org.http4s.{AuthScheme, Credentials, HttpRoutes, ParseFailure, QueryParamDecoder, QueryParameterValue, Request}
 
 import scala.language.higherKinds
 
@@ -67,7 +66,7 @@ class KademliaHttp[F[_]: Sync, C](
 
     HttpRoutes
       .of[F] {
-        case req @ GET -> Root / "lookup" :? KeyQ(key) & LookupAwayQ(awayOpt) & NeighborsQ(n) ⇒
+        case req @ GET -> Root / "lookup" :? KeyQ(key) +& LookupAwayQ(awayOpt) +& NeighborsQ(n) ⇒
           // Fallback to default 8 for number of neighbors to lookup
           val neighbors = n.getOrElse(8)
 

@@ -67,7 +67,7 @@ class KademliaHttpClient[F[_]: Effect, C](hostname: String, port: Short, auth: S
    * @param key Key to lookup
    */
   override def lookup(key: Key, neighbors: StatusCode)(implicit log: Log[F]): EitherT[F, KadRpcError, Seq[Node[C]]] =
-    call[Seq[Node[C]]](_.post, uri"http://$hostname:$port/kad/lookup?key=${key.asBase58}&n=$neighbors")
+    call[Seq[Node[C]]](_.get, uri"http://$hostname:$port/kad/lookup?key=${key.asBase58}&n=$neighbors")
 
   /**
    * Perform a local lookup for a key, return K closest known nodes, going away from the second key.

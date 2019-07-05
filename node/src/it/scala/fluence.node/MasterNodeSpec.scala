@@ -74,7 +74,7 @@ class MasterNodeSpec
     import MasterStatus._
     (for {
       resp <- sttp.response(asJson[MasterStatus]).get(uri"http://127.0.0.1:$statusPort/status").send()
-    } yield resp.unsafeBody.right.get).value.map(_.right.get)
+    } yield resp.unsafeBody).value.flatMap(r => IO.fromEither(r.flatMap(_.left.map(_.error))))
   }
 
   private val masterConf = MasterConfig
@@ -87,7 +87,6 @@ class MasterNodeSpec
   ): Resource[IO, (Sttp, MasterNode[IO, UriContact])] =
     for {
       implicit0(sttpB: Sttp) ← sttpResource
-      implicit0(dockerIO: DockerIO[IO]) ← DockerIO.make[IO]()
 
       kad ← KademliaNode.make[IO, IO.Par](
         KademliaConfig(
@@ -112,6 +111,7 @@ class MasterNodeSpec
 
       agg ← StatusAggregator.make[IO](masterConf, node)
       _ ← MasterHttp.make("127.0.0.1", port, agg, node.pool, kad.http)
+      _ <- Log.resource[IO].info(s"Started MasterHttp")
     } yield (sttpB, node)
 
   def fiberResource[F[_]: Concurrent: Log, A](f: F[A]): Resource[F, Unit] =
@@ -133,7 +133,7 @@ class MasterNodeSpec
 
           eventually[IO](
             for {
-              status <- getStatus(5678)
+              status <- getStatus(5789)
               _ = (Math.abs(status.uptime) > 0) shouldBe true
             } yield (),
             100.millis,
@@ -216,9 +216,10 @@ class MasterNodeSpec
               mn0.kademlia.findNode(mn1.kademlia.nodeKey, 2)
             ) {
               case (f1, f0) ⇒
-                f1 should be('defined)
-                f0 should be('defined)
-            }
+                f1 shouldBe defined
+                f0 shouldBe defined
+            },
+            maxWait = 10.seconds
           )
       }.unsafeRunSync()
     }
