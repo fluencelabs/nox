@@ -57,6 +57,8 @@ object LogFactory {
 
       override def newAppender(): F[ChainLogAppender[F]] =
         ChainLogAppender[F]()
+
+      override def toString: String = s"LogFactory.forChains($level)"
     }
 
   def forPrintln[F[_]: Clock: Sync](level: Log.Level = Log.Info): LogFactory.Aux[F, PrintlnLogAppender[F]] =
@@ -65,5 +67,7 @@ object LogFactory {
 
       override def newAppender(): F[PrintlnLogAppender[F]] =
         PrintlnLogAppender[F]()
+
+      override def toString: String = s"LogFactory.forPrintln($level)"
     }
 }

@@ -27,6 +27,7 @@ import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import fluence.log.Log
 import io.circe.{Decoder, DecodingFailure}
 import io.circe.parser._
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
@@ -34,6 +35,8 @@ class KademliaHttpClient[F[_]: Effect, C](hostname: String, port: Short, auth: S
   implicit s: SttpBackend[EitherT[F, Throwable, ?], Nothing],
   readNode: Crypto.Func[String, Node[C]]
 ) extends KademliaRpc[F, C] {
+
+  private val authB64 = "fluence " + ByteVector(auth.getBytes).toBase64
 
   // TODO: do not drop cause
   private implicit val decodeNode: Decoder[Node[C]] =
@@ -45,7 +48,7 @@ class KademliaHttpClient[F[_]: Effect, C](hostname: String, port: Short, auth: S
     for {
       _ ← Log.eitherT[F, KadRpcError].trace(s"Calling Remote: $uri")
       value <- call(sttp)(uri)
-        .header(HeaderNames.Authorization, auth)
+        .header(HeaderNames.Authorization, authB64)
         .send()
         .map(_.body.leftMap(new RuntimeException(_)))
         .subflatMap(identity)

@@ -30,7 +30,6 @@ import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
 import fluence.EitherTSttpBackend
 import fluence.crypto.eddsa.Ed25519
-import fluence.effects.docker.DockerIO
 import fluence.effects.ethclient.EthClient
 import fluence.kad.RoutingConf
 import fluence.kad.http.UriContact
@@ -53,7 +52,7 @@ class MasterNodeSpec
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
-  implicit private val logFactory = LogFactory.forPrintln[IO]()
+  implicit private val logFactory = LogFactory.forPrintln[IO](Log.Trace)
 
   type Sttp = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
 
@@ -204,7 +203,7 @@ class MasterNodeSpec
 
           implicit val ss = s
           eventually[IO](
-            sttp.get(uri"http://127.0.0.1:5789/kad/ping").send().value.map(_.flatMap(_.body).right.get shouldBe seed)
+            sttp.post(uri"http://127.0.0.1:5789/kad/ping").send().value.map(_.flatMap(_.body).right.get shouldBe seed)
           )
 
           runningNode(5679, seed :: Nil).map(_._2 -> mn)
