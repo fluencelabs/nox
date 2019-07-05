@@ -47,7 +47,7 @@ object Main extends IOApp {
       logFactory.init("apps/tx").flatMap { implicit log: Log[IO] ⇒
         log.info(s"Tx request. appId: $appId") *>
           req.decode[String] { input ⇒
-            val Array(path, tx) = input.split('\n')
+            val (path, tx) = input.splitAt(input.indexOf('\n'))
             log.info(s"Tx: '$tx'") *>
               handler.processTx(Tx(appId, path, tx)).handleErrorWith(e => BadRequest(e.getMessage))
           }
