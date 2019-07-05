@@ -95,8 +95,8 @@ class MasterNodeSpec
           KademliaConfig.Advertize("127.0.0.1", port),
           KademliaConfig.Join(seeds, 4),
         ),
-        Ed25519.tendermintAlgo,
-        Ed25519.tendermintAlgo.generateKeyPair.unsafe(Some(ByteVector.fromShort(port).toArray))
+        Ed25519.signAlgo,
+        Ed25519.signAlgo.generateKeyPair.unsafe(Some(ByteVector.fromShort(port).toArray))
       )
 
       pool ← TestWorkersPool.make[IO]
