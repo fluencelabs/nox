@@ -21,7 +21,7 @@ object SbtCommons {
     fork in IntegrationTest              := true,
     parallelExecution in IntegrationTest := false,
     organizationName                     := "Fluence Labs Limited",
-    organizationHomepage                 := Some(new URL("https://fluence.one")),
+    organizationHomepage                 := Some(new URL("https://fluence.network")),
     startYear                            := Some(2018),
     licenses += ("Apache-2.0", new URL("https://www.apache.org/licenses/LICENSE-2.0.txt")),
     headerLicense := Some(License.ALv2("2018", organizationName.value)),
@@ -106,16 +106,12 @@ object SbtCommons {
   val pureConfig = "com.github.pureconfig" %% "pureconfig" % "0.10.2"
   val ficus = "com.iheart"                 %% "ficus"      % "1.4.5"
 
-  val codecVersion = "0.0.5"
   val cryptoVersion = "0.0.9"
   val cryptoHashsign = "one.fluence" %% "crypto-hashsign" % cryptoVersion
   val cryptoJwt = "one.fluence"      %% "crypto-jwt"      % cryptoVersion
   val cryptoCipher = "one.fluence"   %% "crypto-cipher"   % cryptoVersion
 
-  val codecCore = "one.fluence"    %% "codec-core"    % codecVersion
-  val cryptoJwt = "one.fluence"    %% "crypto-jwt"    % cryptoVersion
-  val cryptoCipher = "one.fluence" %% "crypto-cipher" % cryptoVersion
-
+  val codecVersion = "0.0.5"
   val codecCore = "one.fluence" %% "codec-core" % codecVersion
 
   val sttpVersion = "1.5.17"
