@@ -56,9 +56,9 @@ class KadUriContractSpec extends WordSpec with EitherValues with Matchers {
         "fluence://Df3bFWKN6tb2ejyPKfUceA57i6RwMvLfoi5NA3QZ3aSi:4zGZc3BSeyWsEiB6BuHN7gBheu1uAQn3cFpTTYZy6L43v9wUj9qgMuWtAAVg5LNV8B8xxLqPagVFU39YsbrpQQhT@207.154.210.117:25000"
 
       val contact = (for {
-        node <- UriContact.buildNode(host, port, Ed25519.tendermintAlgo.signer(keyPair))
+        node <- UriContact.buildNode(host, port, Ed25519.signAlgo.signer(keyPair))
         contactStr <- Crypto.fromOtherFunc(UriContact.writeNode).pointAt(node)
-        _ <- UriContact.readAndCheckContact(Ed25519.tendermintAlgo.checker).pointAt(contactStr)
+        _ <- UriContact.readAndCheckContact(Ed25519.signAlgo.checker).pointAt(contactStr)
       } yield contactStr).runF[Either[Throwable, ?]](())
 
       contact.left.map(e => println(s"Failed to check contact: $e ${e.printStackTrace()}"))
