@@ -1,6 +1,5 @@
 import * as React from 'react';
 import { connect } from 'react-redux';
-import { cutId } from '../../../utils';
 import {
     displayLoading,
     hideLoading,
@@ -9,6 +8,7 @@ import {
 } from '../../actions';
 import { findDeployableAppByStorageHash } from "../../../fluence/deployable";
 import FluenceCluster from '../fluence-cluster';
+import FluenceId from '../fluence-id';
 import {AppId, App} from '../../../fluence';
 import { Action } from 'redux';
 import {History} from "history";
@@ -71,11 +71,11 @@ class FluenceApp extends React.Component<Props, State> {
             <div className="box-footer no-padding">
                 <div className="box-body">
                     <strong><i className="fa fa-bullseye margin-r-5"/>Storage Hash</strong>
-                    <p className="text-muted" title={app.storage_hash}>{cutId(app.storage_hash)}</p>
+                    <p className="text-muted"><FluenceId entityId={app.storage_hash}/></p>
                     <hr/>
 
                     <strong><i className="fa fa-bullseye margin-r-5"/>Storage Receipt</strong>
-                    <p className="text-muted" title={app.storage_receipt}>{cutId(app.storage_receipt)}</p>
+                    <p className="text-muted"><FluenceId entityId={app.storage_receipt}/></p>
                     <hr/>
 
                     <strong><i className="fa fa-bullseye margin-r-5"/>Cluster Size</strong>
@@ -83,7 +83,14 @@ class FluenceApp extends React.Component<Props, State> {
                     <hr/>
 
                     <strong><i className="fa fa-bullseye margin-r-5"/>Owner</strong>
-                    <p className="text-muted" title={app.owner}><a href={'https://rinkeby.etherscan.io/address/' + app.owner} title={app.owner} className="etherscan-link" target="_blank">{cutId(app.owner)}</a></p>
+                    <p className="text-muted">
+                        <FluenceId
+                            entityId={app.owner}
+                            isLink={true}
+                            href={'https://rinkeby.etherscan.io/address/' + app.owner}
+                            className="etherscan-link"
+                            target="_blank"/>
+                    </p>
                     <hr/>
 
                     <strong><i className="fa fa-bullseye margin-r-5"></i>Cluster</strong>

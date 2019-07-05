@@ -18,7 +18,7 @@ package fluence.kad
 
 import java.nio.ByteBuffer
 
-import cats.kernel.{Eq, Monoid}
+import cats.kernel.Monoid
 import org.scalatest.{Matchers, WordSpec}
 import cats.syntax.monoid._
 import cats.syntax.order._

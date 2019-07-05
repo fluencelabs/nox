@@ -16,7 +16,7 @@ object SbtCommons {
   val commons = Seq(
     scalaV,
     version                              := "0.2.0",
-    fork in Test                         := true,
+    fork in Test                         := false,
     parallelExecution in Test            := false,
     fork in IntegrationTest              := true,
     parallelExecution in IntegrationTest := false,
@@ -92,8 +92,9 @@ object SbtCommons {
   val asmble = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.7-fl"
 
   val catsVersion = "1.6.0"
-  val cats = "org.typelevel"       %% "cats-core"   % catsVersion
-  val catsEffect = "org.typelevel" %% "cats-effect" % "1.3.0"
+  val cats = "org.typelevel" %% "cats-core" % catsVersion
+  val catsEffectVersion = "1.3.0"
+  val catsEffect = "org.typelevel" %% "cats-effect" % catsEffectVersion
 
   val fs2Version = "1.0.4"
   val fs2 = "co.fs2"   %% "fs2-core"             % fs2Version
@@ -106,10 +107,14 @@ object SbtCommons {
   val ficus = "com.iheart"                 %% "ficus"      % "1.4.5"
 
   val codecVersion = "0.0.5"
-  val cryptoVersion = "0.0.6"
+  val cryptoVersion = "0.0.9"
   val cryptoHashsign = "one.fluence" %% "crypto-hashsign" % cryptoVersion
   val cryptoJwt = "one.fluence"      %% "crypto-jwt"      % cryptoVersion
   val cryptoCipher = "one.fluence"   %% "crypto-cipher"   % cryptoVersion
+
+  val codecCore = "one.fluence"    %% "codec-core"    % codecVersion
+  val cryptoJwt = "one.fluence"    %% "crypto-jwt"    % cryptoVersion
+  val cryptoCipher = "one.fluence" %% "crypto-cipher" % cryptoVersion
 
   val codecCore = "one.fluence" %% "codec-core" % codecVersion
 
