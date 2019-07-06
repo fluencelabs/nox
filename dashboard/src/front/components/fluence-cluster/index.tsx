@@ -13,6 +13,7 @@ import {Option} from 'ts-option';
 import {Cluster} from "../../../fluence/apps";
 import {NodeAppStatus} from "../../../fluence/nodes";
 import {Action} from "redux";
+import { ReduxState } from '../../app';
 
 interface State {
     clusterIsLoading: boolean,
@@ -102,7 +103,7 @@ class FluenceCluster extends React.Component<Props, State> {
     }
 }
 
-const mapStateToProps = (state: any) => ({
+const mapStateToProps = (state: ReduxState) => ({
     nodesAppStatus: state.nodesAppStatus
 });
 
