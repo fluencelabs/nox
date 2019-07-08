@@ -16,6 +16,7 @@
 
 package fluence.statemachine
 
+import cats.data.EitherT
 import cats.effect.Effect
 import cats.effect.concurrent.Ref
 import cats.effect.syntax.effect._
@@ -29,11 +30,9 @@ import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.effects.tendermint.block.TendermintBlock
-import fluence.effects.tendermint.block.errors.Errors._
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
-import fluence.statemachine.control.{BlockReceipt, ControlSignals, ReceiptType}
 import fluence.log.Log
-import fluence.statemachine.control.ControlSignals
+import fluence.statemachine.control.{BlockReceipt, ControlSignals, ReceiptType}
 import fluence.statemachine.state.AbciState
 import scodec.bits.ByteVector
 
@@ -51,30 +50,25 @@ class AbciService[F[_]: Monad: Effect](
   vm: VmOperationInvoker[F],
   controlSignals: ControlSignals[F],
   tendermintRpc: TendermintHttpRpc[F]
-)(implicit hasher: Hasher[ByteVector, ByteVector]) {
+)(implicit hasher: Hasher[ByteVector, ByteVector], log: Log[F]) {
 
   import AbciService._
 
-  private def checkBlock(height: Long): Unit = {
-    val log: String ⇒ Unit = s ⇒ logger.info(Console.YELLOW + s + Console.RESET)
-    val logBad: String ⇒ Unit = s ⇒ logger.info(Console.RED + s + Console.RESET)
+  private def checkBlock(height: Long)(implicit log: Log[F]): Unit =
+    (for {
+      block ← tendermintRpc
+        .block(height)
+        .leftSemiflatMap(e ⇒ Log[F].warn(s"RPC Block[$height] failed", e))
 
-    tendermintRpc
-      .block(height)
-      .value
-      .toIO
-      .map(
-        blockE =>
-          for {
-            block <- blockE.leftTap(e => logger.warn(s"RPC Block[$height] failed: $e ${e.getCause}"))
-            _ = logger.info(s"RPC Block[$height] => height = ${block.header.height}")
-            _ <- TendermintBlock(block)
-              .validateHashes()
-              .leftTap(e => logBad(s"Block at height $height is invalid: $e ${e.getCause}"))
-          } yield log(s"Block at height $height is valid")
-      )
-      .unsafeRunAsyncAndForget()
-  }
+      _ ← Log.eitherT[F, Unit].info(s"RPC Block[$height] => height = ${block.header.height}")
+
+      _ ← EitherT
+        .fromEither[F](TendermintBlock(block).validateHashes())
+        .leftSemiflatMap(e ⇒ Log[F].warn(s"Block at height $height is invalid", e))
+
+      _ ← Log.eitherT[F, Unit].info(s"Block at height $height is valid")
+
+    } yield ()).value.void.toIO.unsafeRunAsyncAndForget()
 
   /**
    * Take all the transactions we're able to process, and pass them to VM one by one.
@@ -113,7 +107,7 @@ class AbciService[F[_]: Monad: Effect](
       _ = receipt.foreach(
         b =>
           if (b.receipt.height != st.height)
-            logger.error(s"Got wrong receipt height. st.height: ${st.height}, receipt: ${b.receipt.height}")
+            log.error(s"Got wrong receipt height. st.height: ${st.height}, receipt: ${b.receipt.height}")
       )
 
       // Check block for correctness, for debugging purposes
@@ -126,7 +120,7 @@ class AbciService[F[_]: Monad: Effect](
       appHash <- receipt.filter(_ => transactions.nonEmpty).fold(vmHash.pure[F]) {
         case BlockReceipt(r, _) =>
           hasher(vmHash ++ r.bytes())
-            .leftMap(err => logger.error(s"Error on hashing vmHash + receipt: $err"))
+            .leftMap(err => log.error(s"Error on hashing vmHash + receipt: $err"))
             .getOrElse(vmHash) // TODO: that's awful; don't ignore errors
       }
 
@@ -137,14 +131,14 @@ class AbciService[F[_]: Monad: Effect](
       _ ← state.set(newState)
 
       // Store vmHash, so master node could retrieve it
-      _ <- receipt.map(_.`type`) match {
+      _ ← receipt.map(_.`type`) match {
         // Most common case. Receipt for a previous block; None means block was either empty or the very first one
         case Some(ReceiptType.New) | None => controlSignals.putVmHash(vmHash)
         // After-restart case. Node has stored receipts, and replaying them. There will be no demand for vmHash, so skip it
         case Some(ReceiptType.Stored) => Applicative[F].unit
         // After-restart case. Last of the stored receipts, so vmHash is new, and will be required for the next block manifest
         case Some(ReceiptType.LastStored) => controlSignals.setVmHash(vmHash)
-        case unknown                      => logger.error(s"Unknown receipt kind: $unknown").pure[F]
+        case unknown                      => log.error(s"Unknown receipt kind: $unknown")
       }
     } yield appHash
 
@@ -276,7 +270,7 @@ object AbciService {
    * @tparam F Sync for Ref
    * @return Brand new AbciService instance
    */
-  def apply[F[_]: Effect](
+  def apply[F[_]: Effect: Log](
     vm: VmOperationInvoker[F],
     controlSignals: ControlSignals[F],
     tendermintRpc: TendermintHttpRpc[F]
