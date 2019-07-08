@@ -2,6 +2,7 @@ import * as React from "react";
 import {connect} from "react-redux";
 import {FluenceEntityType} from "../app";
 import {AppRef, NodeRef} from "../../../fluence";
+import { ReduxState } from '../../app';
 
 interface State {}
 
@@ -181,7 +182,7 @@ class FluenceText extends React.Component<Props, State> {
     }
 }
 
-const mapStateToProps = (state: any) => ({
+const mapStateToProps = (state: ReduxState) => ({
     nodeRefs: state.nodeRefs,
     appRefs: state.appRefs,
     userAddress: state.ethereumConnection.userAddress,

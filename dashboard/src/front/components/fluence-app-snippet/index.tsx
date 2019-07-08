@@ -8,6 +8,7 @@ import { Action } from 'redux';
 import FluenceId from '../fluence-id';
 import * as fluence from 'fluence';
 import { AppSession } from 'fluence/dist/AppSession';
+import { ReduxState } from '../../app';
 
 interface State {
     requestSending: Boolean;
@@ -324,11 +325,9 @@ session.request("${requestForResult}").result().then((r) => {
     }
 }
 
-const mapStateToProps = (state: any) => {
-    return {
+const mapStateToProps = (state: ReduxState) => ({
         apps: state.apps,
-    };
-};
+});
 
 const mapDispatchToProps = {
     displayLoading,

@@ -2,6 +2,7 @@ import * as React from 'react';
 import {connect} from 'react-redux';
 import {Link} from "react-router-dom";
 import {DeployableAppId, deployableAppIds, deployableApps} from '../../../fluence/deployable';
+import { ReduxState } from '../../app';
 
 interface State {
     deployableAppIdsVisible: boolean,
@@ -56,7 +57,7 @@ class FluenceDeployList extends React.Component<Props, State> {
     }
 }
 
-const mapStateToProps = (state: any) => ({});
+const mapStateToProps = (state: ReduxState) => ({});
 
 const mapDispatchToProps = {};
 

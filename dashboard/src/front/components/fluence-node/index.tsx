@@ -12,24 +12,25 @@ import {
 import {NodeId, Node, NodeInfo} from "../../../fluence";
 import {Action} from "redux";
 import {History} from "history";
+import { ReduxState } from '../../app';
 
 interface State {
     deleting: boolean;
 }
 
 interface Props {
-    nodeId: NodeId,
+    nodeId: NodeId;
     nodes: {
-        [key: string]: Node
-    },
+        [key: string]: Node;
+    };
     nodesStatus: {
-        [key: string]: NodeInfo
-    },
-    retrieveNode: (nodeId: NodeId) => Promise<Action>,
+        [key: string]: NodeInfo;
+    };
+    retrieveNode: (nodeId: NodeId) => Promise<Action>;
     deleteNode: (nodeId: NodeId, history: History) => Promise<Action>;
-    retrieveNodeStatus: (node: Node) => Promise<Action>,
-    displayLoading: typeof displayLoading,
-    hideLoading: typeof hideLoading,
+    retrieveNodeStatus: (node: Node) => Promise<Action>;
+    displayLoading: typeof displayLoading;
+    hideLoading: typeof hideLoading;
     history: History;
     userAddress: string;
 }
@@ -175,7 +176,7 @@ class FluenceNode extends React.Component<Props, State> {
     }
 }
 
-const mapStateToProps = (state: any) => ({
+const mapStateToProps = (state: ReduxState) => ({
     nodes: state.nodes,
     nodesStatus: state.nodesStatus,
     userAddress: state.ethereumConnection.userAddress,

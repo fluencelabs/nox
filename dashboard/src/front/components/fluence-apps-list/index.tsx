@@ -5,6 +5,7 @@ import { displayLoading, hideLoading, retrieveAppRefs } from '../../actions';
 import { Action } from 'redux';
 import {AppRef} from '../../../fluence';
 import {findDeployableAppByStorageHash} from "../../../fluence/deployable";
+import { ReduxState } from '../../app';
 
 interface State {
     appIdsLoading: boolean;
@@ -82,7 +83,7 @@ class FluenceAppsList extends React.Component<Props, State> {
     }
 }
 
-const mapStateToProps = (state: any) => ({
+const mapStateToProps = (state: ReduxState) => ({
     appRefs: state.appRefs,
 });
 
