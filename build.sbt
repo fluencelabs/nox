@@ -7,11 +7,12 @@ name := "fluence"
 commons
 
 Global / concurrentRestrictions := Seq(
-//  Tags.limit(Tags.CPU, 2),
-//  Tags.limit(Tags.Network, 10),
-//  Tags.limit(Tags.Test, 1),
   Tags.limitAll( 1 )
-)
+).filter { _ =>
+  val isCI = sys.env.get("CI")
+  println(s"isCI: $isCI")
+  isCI.contains("CI")
+}
 
 onLoad in Global := (onLoad in Global).value.andThen { state ⇒
   val requiredVersion = "1.8" // Asmble works only on Java 8.
