@@ -24,7 +24,7 @@ import io.circe.{Decoder, Encoder}
  * Information about a node possible endpoints (IP and ports) that will be used as addresses
  * for requests after a cluster will be formed
  *
- * @param ip P2p host IP
+ * @param ip External IP of the node
   **/
 case class EndpointsConfig(ip: InetAddress)
 
