@@ -31,7 +31,6 @@ version: 2
 jobs:
   sbt all tests:
     <<: *jdk_image
-    resource_class: large
     steps:
       - checkout
       - <<: *rc
