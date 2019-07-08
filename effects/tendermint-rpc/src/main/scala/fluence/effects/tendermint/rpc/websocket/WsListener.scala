@@ -16,16 +16,17 @@
 
 package fluence.effects.tendermint.rpc.websocket
 
-import cats.Applicative
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.syntax.effect._
 import cats.syntax.applicativeError._
+import cats.syntax.apply._
 import cats.syntax.compose._
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.tendermint.rpc.helpers.NettyFutureConversion._
+import fluence.log.Log
 import fs2.concurrent.Queue
 import org.asynchttpclient.ws.{WebSocket, WebSocketListener}
 
@@ -36,27 +37,28 @@ class WsListener[F[_]: ConcurrentEffect](
   ref: Ref[F, String],
   queue: Queue[F, Event],
   disconnected: Deferred[F, WebsocketRpcError]
-) extends WebSocketListener with slogging.LazyLogging {
+)(implicit log: Log[F])
+    extends WebSocketListener {
   private val websocketP = Deferred.unsafe[F, WebSocket]
 
   override def onOpen(websocket: WebSocket): Unit = {
-    logger.info(s"Tendermint WRPC: $wsUrl connected")
-    (queue.enqueue1(Reconnect) >> websocketP.complete(websocket)).toIO.unsafeRunSync()
+    (log.info(s"Tendermint WRPC: $wsUrl connected") *>
+      queue.enqueue1(Reconnect) >> websocketP.complete(websocket)).toIO.unsafeRunSync()
   }
 
   override def onClose(websocket: WebSocket, code: Int, reason: String): Unit = {
-    logger.warn(s"Tendermint WRPC: $wsUrl closed $code $reason")
-    disconnected.complete(Disconnected(code, reason)).attempt.void.toIO.unsafeRunSync()
+    (log.warn(s"Tendermint WRPC: $wsUrl closed $code $reason") *>
+      disconnected.complete(Disconnected(code, reason)).attempt.void).toIO.unsafeRunSync()
   }
 
   override def onError(t: Throwable): Unit = {
-    logger.error(s"Tendermint WRPC: $wsUrl $t")
-    disconnected.complete(DisconnectedWithError(t)).attempt.void.toIO.unsafeRunSync()
+    (log.error(s"Tendermint WRPC: $wsUrl $t") *>
+      disconnected.complete(DisconnectedWithError(t)).attempt.void).toIO.unsafeRunSync()
   }
 
   override def onTextFrame(payload: String, finalFragment: Boolean, rsv: Int): Unit = {
 
-    logger.trace(s"Tendermint WRPC: text $payload")
+    log.trace(s"Tendermint WRPC: text $payload")
     if (!finalFragment) {
       ref.update(_.concat(payload)).toIO.unsafeRunSync()
     } else {
@@ -64,10 +66,8 @@ class WsListener[F[_]: ConcurrentEffect](
         .map(s => asJson(s.concat(payload)))
         .flatMap {
           case Left(e) =>
-            Applicative[F].pure {
-              logger.error(s"Tendermint WRPC: $wsUrl $e")
-              logger.debug(s"Tendermint WRPC: $wsUrl $e err payload:\n" + payload)
-            }
+            log.error(s"Tendermint WRPC: $wsUrl $e") *>
+              log.debug(s"Tendermint WRPC: $wsUrl $e err payload:\n" + payload)
           case Right(json) => queue.enqueue1(JsonEvent(json))
         } >> ref.set("")
 
@@ -77,14 +77,18 @@ class WsListener[F[_]: ConcurrentEffect](
   }
 
   override def onBinaryFrame(payload: Array[Byte], finalFragment: Boolean, rsv: Int): Unit = {
-    logger.warn(s"UNIMPLEMENTED: Tendermint WRPC: $wsUrl unexpected binary frame")
+    log.warn(s"UNIMPLEMENTED: Tendermint WRPC: $wsUrl unexpected binary frame").toIO.unsafeRunSync()
   }
 
   override def onPingFrame(payload: Array[Byte]): Unit = {
-    websocketP.get.flatMap(_.sendPongFrame().asAsync.void).toIO.unsafeRunAsync {
-      case Left(e) => logger.error(s"Tendermint WRPC: $wsUrl ping failed: $e")
-      case _ =>
-    }
+    websocketP.get
+      .flatMap(_.sendPongFrame().asAsync.void)
+      .toIO
+      .runAsync {
+        case Left(e) => log.error(s"Tendermint WRPC: $wsUrl ping failed: $e").toIO
+        case _       => IO.unit
+      }
+      .unsafeRunSync()
   }
 
   private def asJson(payload: String) = {

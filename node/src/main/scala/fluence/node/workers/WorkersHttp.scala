@@ -74,53 +74,54 @@ object WorkersHttp {
                 log.warn(s"RPC request errored", err) *>
                   InternalServerError(err.error)
 
-            case Left(RpcBodyMalformed(err)) ⇒
-              log.warn(s"RPC body malformed: $err", err)
-              BadRequest(err.getMessage)
+              case Left(RpcBodyMalformed(err)) ⇒
+                log.warn(s"RPC body malformed: $err", err)
+                BadRequest(err.getMessage)
 
-            case Left(err: RpcBlockParsingFailed) =>
-              log.warn(s"RPC $err", err)
-              InternalServerError(err.getMessage)
-          }
+              case Left(err: RpcBlockParsingFailed) =>
+                log.warn(s"RPC $err", err)
+                InternalServerError(err.getMessage)
+            }
+        }
       }
 
     // Routes comes there
-        HttpRoutes.of {
-          case GET -> Root / LongVar(appId) / "query" :? QueryPath(path) +& QueryData(data) +& QueryId(id) ⇒
-            LogFactory[F].init("http" -> "query", "app" -> appId.toString) >>= { implicit log =>
-              log.debug(s"TendermintRpc query request. path: $path, data: $data") *>
-              withTendermint(appId)(_.query(path, data.getOrElse(""), id = id.getOrElse("dontcare")))
-            }
+    HttpRoutes.of {
+      case GET -> Root / LongVar(appId) / "query" :? QueryPath(path) +& QueryData(data) +& QueryId(id) ⇒
+        LogFactory[F].init("http" -> "query", "app" -> appId.toString) >>= { implicit log =>
+          log.debug(s"TendermintRpc query request. path: $path, data: $data") *>
+            withTendermint(appId)(_.query(path, data.getOrElse(""), id = id.getOrElse("dontcare")))
+        }
 
-          case GET -> Root / LongVar(appId) / "status" ⇒
-            LogFactory[F].init("http" -> "status", "app" -> appId.toString) >>= { implicit log =>
-              log.trace(s"TendermintRpc status") *>
-              withTendermint(appId)(_.status)
-            }
+      case GET -> Root / LongVar(appId) / "status" ⇒
+        LogFactory[F].init("http" -> "status", "app" -> appId.toString) >>= { implicit log =>
+          log.trace(s"TendermintRpc status") *>
+            withTendermint(appId)(_.status)
+        }
 
-          case GET -> Root / LongVar(appId) / "p2pPort" ⇒
-            LogFactory[F].init("http" -> "p2pPort", "app" -> appId.toString) >>= { implicit log =>
-              log.debug(s"Worker p2pPort") *>
-              pool.get(appId).flatMap {
-                case Some(worker) ⇒
-                  log.debug(s"Worker p2pPort = ${worker.p2pPort}") *>
+      case GET -> Root / LongVar(appId) / "p2pPort" ⇒
+        LogFactory[F].init("http" -> "p2pPort", "app" -> appId.toString) >>= { implicit log =>
+          log.debug(s"Worker p2pPort") *>
+            pool.get(appId).flatMap {
+              case Some(worker) ⇒
+                log.debug(s"Worker p2pPort = ${worker.p2pPort}") *>
                   Ok(worker.p2pPort.toString)
 
-                case None ⇒
-                  log.debug(s"Requested app $appId, but there's no such worker in the pool") *>
+              case None ⇒
+                log.debug(s"Requested app $appId, but there's no such worker in the pool") *>
                   NotFound("App not found on the node")
-              }
             }
+        }
 
-          case req @ POST -> Root / LongVar(appId) / "tx" :? QueryId(id) ⇒
-            LogFactory[F].init("http" -> "tx", "app" -> appId.toString) >>= { implicit log =>
-              req.decode[String] { tx ⇒
-                log.scope("tx.id" -> tx) { implicit log ⇒
-                  log.debug(s"TendermintRpc broadcastTxSync request, id: $id")
-                  withTendermint(appId)(_.broadcastTxSync(tx, id.getOrElse("dontcare")))
-                }
-              }
+      case req @ POST -> Root / LongVar(appId) / "tx" :? QueryId(id) ⇒
+        LogFactory[F].init("http" -> "tx", "app" -> appId.toString) >>= { implicit log =>
+          req.decode[String] { tx ⇒
+            log.scope("tx.id" -> tx) { implicit log ⇒
+              log.debug(s"TendermintRpc broadcastTxSync request, id: $id") *>
+                withTendermint(appId)(_.broadcastTxSync(tx, id.getOrElse("dontcare")))
             }
+          }
+        }
     }
   }
 }

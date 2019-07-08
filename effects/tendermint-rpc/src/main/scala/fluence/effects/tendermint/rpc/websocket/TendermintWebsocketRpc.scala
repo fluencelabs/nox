@@ -43,5 +43,5 @@ trait TendermintWebsocketRpc[F[_]] {
 
   protected def subscribe(
     event: String,
-  )(implicit backoff: Backoff[EffectError]): Resource[F, Queue[F, Event]]
+  )(implicit log: Log[F], backoff: Backoff[EffectError]): Resource[F, Queue[F, Event]]
 }

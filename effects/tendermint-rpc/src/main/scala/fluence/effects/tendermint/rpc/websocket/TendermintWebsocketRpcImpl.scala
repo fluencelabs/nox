@@ -51,8 +51,7 @@ private[websocket] case object Reconnect extends Event
  * Implementation of Tendermint RPC Subscribe call
  * Details: https://tendermint.com/rpc/#subscribe
  */
-abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad]
-    extends TendermintWebsocketRpc[F] with slogging.LazyLogging {
+abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] extends TendermintWebsocketRpc[F] {
   self: TendermintHttpRpc[F] =>
 
   val host: String
@@ -87,7 +86,7 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad]
               Log.eitherT[F, WebsocketRpcError].warn(s"parsing block $height, reloading", e) >>
                 self.block(height).leftMap {
                   case RpcBlockParsingFailed(cause, raw, height) => BlockParsingFailed(cause, Eval.now(raw), height)
-                  case rpcErr => BlockRetrievalError(rpcErr, height)
+                  case rpcErr                                    => BlockRetrievalError(rpcErr, height)
                 }
           },
         e => log.error(s"parsing block $height", e)
@@ -134,7 +133,7 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad]
 
   protected def subscribe(
     event: String,
-  )(implicit backoff: Backoff[EffectError]): Resource[F, Queue[F, Event]] = {
+  )(implicit log: Log[F], backoff: Backoff[EffectError]): Resource[F, Queue[F, Event]] = {
     def subscribe(ws: WebSocket) = ws.sendTextFrame(request(event)).asAsync.void
 
     Resource
@@ -171,9 +170,9 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad]
   private def connect(
     queue: Queue[F, Event],
     onConnect: WebSocket => F[Unit]
-  )(implicit backoff: Backoff[EffectError]): F[Unit] = {
+  )(implicit backoff: Backoff[EffectError], log: Log[F]): F[Unit] = {
     def logConnectionError(e: EffectError) =
-      Applicative[F].pure(logger.error(s"Tendermint WRPC: $wsUrl error connecting: ${e.getMessage}"))
+      log.error(s"Tendermint WRPC: $wsUrl error connecting: ${e.getMessage}")
 
     def close(ws: NettyWebSocket) = ws.sendCloseFrame().asAsync.attempt.void
 
@@ -189,7 +188,7 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad]
       error <- promise.get
       // try to signal tendermint ws is closing ; TODO: will that ever succeed?
       _ <- close(websocket)
-      _ = logger.info(s"Tendermint WRPC: $wsUrl will reconnect: ${error.getMessage}")
+      _ <- log.info(s"Tendermint WRPC: $wsUrl will reconnect: ${error.getMessage}")
     } yield (error: EffectError).asLeft[Unit]).eitherT.backoff.void
   }
 
@@ -211,7 +210,7 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad]
     ref: Ref[F, String],
     queue: Queue[F, Event],
     disconnected: Deferred[F, WebsocketRpcError]
-  ) =
+  )(implicit log: Log[F]) =
     new WebSocketUpgradeHandler.Builder()
       .addWebSocketListener(new WsListener[F](wsUrl, ref, queue, disconnected))
       .build()

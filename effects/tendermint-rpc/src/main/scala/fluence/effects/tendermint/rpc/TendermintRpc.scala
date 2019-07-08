@@ -22,12 +22,13 @@ import cats.effect.{ConcurrentEffect, Resource, Timer}
 import com.softwaremill.sttp.SttpBackend
 import fluence.effects.tendermint.rpc.http.{TendermintHttpRpc, TendermintHttpRpcImpl}
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
+import fluence.log.Log
 
 import scala.language.higherKinds
 
 trait TendermintRpc[F[_]] extends TendermintHttpRpc[F] with TendermintWebsocketRpc[F]
 
-object TendermintRpc extends slogging.LazyLogging {
+object TendermintRpc {
 
   /**
    * Runs a WorkerRpc with F effect, acquiring some resources for it
@@ -38,7 +39,7 @@ object TendermintRpc extends slogging.LazyLogging {
    * @tparam F Concurrent effect
    * @return Worker RPC instance. Note that it should be stopped at some point, and can't be used after it's stopped
    */
-  def make[F[_]: ConcurrentEffect: Timer: Monad](
+  def make[F[_]: ConcurrentEffect: Timer: Monad: Log](
     hostName: String,
     port: Short
   )(

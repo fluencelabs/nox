@@ -19,6 +19,7 @@ package fluence.node.workers.tendermint
 import java.nio.ByteBuffer
 import java.nio.file.Path
 
+import cats.Applicative
 import cats.data.{Chain, EitherT}
 import cats.effect._
 import cats.effect.concurrent.MVar
@@ -48,8 +49,7 @@ import scala.language.{higherKinds, postfixOps}
  *
  * @param history Description of how to store blocks
  */
-class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift: Log](history: BlockHistory[F])
-    extends slogging.LazyLogging {
+class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: BlockHistory[F], rootPath: Path) {
 
   /**
    * Subscribe on new blocks from tendermint and upload them one by one to the decentralized storage
@@ -169,7 +169,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift: Log](history: 
         _ <- log.debug(s"started")
         lastReceipt <- lastManifestReceipt.take
         vmHash <- backoff.retry(control.getVmHash, logError)
-        receipt <- backoff.retry(history.upload(block, vmHash, lastReceipt, emptiesReceipts.toList), logError)
+        receipt <- backoff.retry(history.upload(block, vmHash, lastReceipt, emptiesReceipts.toList)(log), logError)
         _ <- backoff.retry(receiptStorage.put(block.header.height, receipt), logError)
         _ <- lastManifestReceipt.put(Some(receipt))
         _ <- log.debug(s"finished")

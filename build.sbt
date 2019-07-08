@@ -307,7 +307,7 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
       sttpCatsBackend % Test
     )
   )
-  .dependsOn(`effects-jvm`, `sttpEitherT`, `tendermint-block`, `log`)
+  .dependsOn(`effects-jvm`, `sttpEitherT`, `tendermint-block`, `log-jvm`)
   .enablePlugins(AutomateHeaderPlugin)
 
 // TODO remove from effects to history
@@ -484,7 +484,7 @@ lazy val `node` = project
     `tendermint-rpc`,
     `sttpEitherT`,
     `receipt-storage`,
-    `log`,
+    `log-jvm`,
     `kademlia-http`,
     `kademlia-testkit` % Test
   )

@@ -26,6 +26,7 @@ import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.response.{Response, TendermintStatus}
 import fluence.effects.tendermint.rpc.websocket.{TendermintWebsocketRpc, TendermintWebsocketRpcImpl}
+import fluence.log.Log
 import io.circe.Json
 import io.circe.parser.decode
 
@@ -41,12 +42,11 @@ import scala.language.higherKinds
 case class TendermintHttpRpcImpl[F[_]: ConcurrentEffect: Timer: Monad](
   host: String,
   port: Int
-)(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing])
-    extends TendermintWebsocketRpcImpl with TendermintHttpRpc[F] with TendermintWebsocketRpc[F] with TendermintRpc[F]
-    with slogging.LazyLogging {
+)(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing], log: Log[F])
+    extends TendermintWebsocketRpcImpl with TendermintHttpRpc[F] with TendermintWebsocketRpc[F] with TendermintRpc[F] {
 
   val RpcUri = uri"http://$host:$port"
-  logger.info(s"TendermintRpc created, uri: $RpcUri")
+  log.info(s"TendermintRpc created, uri: $RpcUri")
 
   /** Gets status as a string */
   val status: EitherT[F, RpcError, String] =
@@ -147,16 +147,16 @@ case class TendermintHttpRpcImpl[F[_]: ConcurrentEffect: Timer: Monad](
           .leftMap[RpcError](RpcRequestErrored(resp.code, _))
 
         // Print just the first line of response
-        logger.debug(s"TendermintRpc ${reqT.method.m} response code ${resp.code}")
-        logger.trace(s"TendermintRpc ${reqT.method.m} full response: $eitherResp")
+        log.debug(s"TendermintRpc ${reqT.method.m} response code ${resp.code}")
+        log.trace(s"TendermintRpc ${reqT.method.m} full response: $eitherResp")
         eitherResp
       }
 
   private def logPost(req: RpcRequest): EitherT[F, RpcError, Unit] =
-    EitherT.pure[F, RpcError](logger.debug(s"TendermintRpc POST method=${req.method}"))
+    Log.eitherT[F, RpcError].debug(s"TendermintRpc POST method=${req.method}")
 
   private def logGet(path: String): EitherT[F, RpcError, Unit] =
-    EitherT.pure[F, RpcError](logger.debug(s"TendermintRpc GET path=$path"))
+    Log.eitherT[F, RpcError].debug(s"TendermintRpc GET path=$path")
 
   /**
    * Performs a Get request for the given path
