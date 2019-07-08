@@ -43,17 +43,19 @@ import scala.sys.process._
  * - Successful cluster formation and starting blocks creation
  */
 class MasterNodeIntegrationSpec
-    extends WordSpec with Matchers with BeforeAndAfterAll with OptionValues with Integration
-    with TendermintSetup with GanacheSetup with DockerSetup {
+    extends WordSpec with Matchers with BeforeAndAfterAll with OptionValues with Integration with TendermintSetup
+    with GanacheSetup with DockerSetup {
 
   type Sttp = SttpBackend[IO, fs2.Stream[IO, ByteBuffer]]
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
-  implicit private val log: Log[IO] = LogFactory.forPrintln[IO](Log.Error).init("MasterNodeIntegrationSpec").unsafeRunSync()
+  implicit private val log: Log[IO] =
+    LogFactory.forPrintln[IO](Log.Error).init("MasterNodeIntegrationSpec").unsafeRunSync()
 
-  private val sttpResource: Resource[IO, SttpBackend[IO, fs2.Stream[IO, ByteBuffer]]] = Resource.make(IO(AsyncHttpClientFs2Backend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
+  private val sttpResource: Resource[IO, SttpBackend[IO, fs2.Stream[IO, ByteBuffer]]] =
+    Resource.make(IO(AsyncHttpClientFs2Backend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
   // TODO integrate with CLI, get app id from tx
   @volatile private var lastAppId = 1l
@@ -136,8 +138,8 @@ class MasterNodeIntegrationSpec
         status1 <- getStatus(basePort)
         status2 <- getStatus(master2Port)
 
-        _ <- contract.addNode[IO](status1.nodeConfig, basePort, 1).attempt
-        _ <- contract.addNode[IO](status2.nodeConfig, master2Port, 1).attempt
+        _ <- contract.addNode[IO](status1.nodeConfig, status1.ip, basePort, 1).attempt
+        _ <- contract.addNode[IO](status2.nodeConfig, status2.ip, master2Port, 1).attempt
         blockNumber <- contract.addApp[IO]("llamadb", clusterSize = 2)
 
         _ ← log.info("Added App at block: " + blockNumber + ", now going to wait for two workers")

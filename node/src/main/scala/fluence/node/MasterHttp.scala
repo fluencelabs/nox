@@ -17,6 +17,7 @@
 package fluence.node
 
 import cats.Parallel
+import cats.data.Kleisli
 import fluence.node.status.{StatusAggregator, StatusHttp}
 import cats.effect._
 import fluence.codec.PureCodec
@@ -25,7 +26,7 @@ import fluence.kad.protocol.Node
 import fluence.log.LogFactory
 import fluence.node.workers.{WorkersHttp, WorkersPool}
 import org.http4s.dsl.Http4sDsl
-import org.http4s.{HttpApp, HttpRoutes}
+import org.http4s.{HttpApp, HttpRoutes, Request, Response, Status}
 import org.http4s.implicits._
 import org.http4s.server.{Router, Server}
 import org.http4s.server.blaze._
@@ -66,7 +67,17 @@ object MasterHttp {
       "/kad" -> kad.routes()
     )
 
-    val app: HttpApp[F] = CORS[F, F](routes.orNotFound, corsConfig)
+    val routesOrNotFound: Kleisli[F, Request[F], Response[F]] = Kleisli(
+      a =>
+        routes
+          .run(a)
+          .getOrElse(
+            Response(Status.NotFound)
+              .withEntity(s"Route for ${a.method} ${a.pathInfo} ${a.params.mkString("&")} not found")
+        )
+    )
+
+    val app: HttpApp[F] = CORS[F, F](routesOrNotFound, corsConfig)
 
     BlazeServerBuilder[F]
       .bindHttp(port, host)

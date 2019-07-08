@@ -4,11 +4,10 @@ import ReduxThunk from 'redux-thunk';
 import { compose, createStore, combineReducers, applyMiddleware } from 'redux';
 import { createBrowserHistory } from 'history';
 import { connectRouter, routerMiddleware, ConnectedRouter } from 'connected-react-router';
-import { BrowserRouter as Router, Route } from "react-router-dom";
+import { BrowserRouter as Router, Route } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { rootTagId } from '../constants';
 import { reducers } from './actions';
-import initialState from './initial-state';
 import DashboardApp from './components/app';
 
 const composeEnhancers = (window as any)['__REDUX_DEVTOOLS_EXTENSION_COMPOSE__'] as typeof compose || compose;
@@ -20,12 +19,15 @@ const middlewares = [
     ReduxThunk
 ];
 
+const rootReducer = combineReducers({
+    router: connectRouter(history),
+    ...reducers
+});
+
+export type ReduxState = ReturnType<typeof rootReducer>;
+
 const store = createStore(
-    combineReducers({
-        router: connectRouter(history),
-        ...reducers
-    }),
-    initialState,
+    rootReducer,
     composeEnhancers(
         applyMiddleware(...middlewares),
     ),

@@ -32,7 +32,7 @@ import scala.language.postfixOps
 /**
  * Master node status.
  *
- * @param ip master node ip address
+ * @param ip master node external ip address
  * @param uptime working time of master node
  * @param numberOfWorkers number of registered workers
  * @param workers info about workers
