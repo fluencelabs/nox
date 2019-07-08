@@ -10,15 +10,18 @@ services:
     volumes:
       - /root/Caddyfile:/etc/Caddyfile
       - /root/.local/caddy:/root/.caddy
-      - /root/web:/root/web
-      - /root/fluence/dashboard/:/root/dashboard
-      - /root/fluence_old_dashboard/dashboard:/root/old_dashboard
     networks:
       - caddy
     external_links:
       - nagios:nagios
     environment:
       ACME_AGREE: 'true'
+  dashboard:
+    image: fluencelabs/dashboard
+    container_name: dashboard
+    restart: always
+    networks:
+      - caddy
 
 networks:
   caddy:
