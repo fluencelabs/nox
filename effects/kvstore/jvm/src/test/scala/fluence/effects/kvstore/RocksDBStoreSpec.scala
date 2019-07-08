@@ -18,14 +18,17 @@ package fluence.effects.kvstore
 
 import java.nio.file.Files
 
+import cats.effect.{ContextShift, IO, Resource, Timer}
 import cats.syntax.compose._
-import cats.effect.{ContextShift, IO, Resource}
 import fluence.codec.PureCodec
+import fluence.log.{Log, LogFactory}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class RocksDBStoreSpec extends KVStoreTestKit {
   implicit val shift: ContextShift[IO] = IO.contextShift(global)
+
+  implicit val timer: Timer[IO] = IO.timer(global)
 
   implicit val stringCodec: PureCodec[String, Array[Byte]] =
     PureCodec.liftB(_.getBytes(), bs ⇒ new String(bs))
@@ -33,6 +36,8 @@ class RocksDBStoreSpec extends KVStoreTestKit {
   implicit val longCodec: PureCodec[Array[Byte], Long] =
     PureCodec[Array[Byte], String] andThen PureCodec
       .liftB[String, Long](_.toLong, _.toString)
+
+  implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init("rocksDbSpec").unsafeRunSync()
 
   override def storeMaker: Resource[IO, KVStore[IO, Long, String]] =
     RocksDBStore.make[IO, Long, String](Files.createTempDirectory("rocksdbspec").toString)

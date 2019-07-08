@@ -32,9 +32,10 @@ import fluence.effects.tendermint.block.TendermintBlock
 import fluence.effects.tendermint.block.errors.Errors._
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.statemachine.control.{BlockReceipt, ControlSignals, ReceiptType}
+import fluence.log.Log
+import fluence.statemachine.control.ControlSignals
 import fluence.statemachine.state.AbciState
 import scodec.bits.ByteVector
-import slogging.LazyLogging
 
 import scala.language.higherKinds
 
@@ -50,8 +51,7 @@ class AbciService[F[_]: Monad: Effect](
   vm: VmOperationInvoker[F],
   controlSignals: ControlSignals[F],
   tendermintRpc: TendermintHttpRpc[F]
-)(implicit hasher: Hasher[ByteVector, ByteVector])
-    extends LazyLogging {
+)(implicit hasher: Hasher[ByteVector, ByteVector]) {
 
   import AbciService._
 
@@ -81,7 +81,7 @@ class AbciService[F[_]: Monad: Effect](
    *
    * @return App (VM) Hash
    */
-  def commit: F[ByteVector] =
+  def commit(implicit log: Log[F]): F[ByteVector] =
     for {
       // Get current state
       s ← state.get
@@ -95,7 +95,7 @@ class AbciService[F[_]: Monad: Effect](
           vm.invoke(tx.data.value)
             // Save the tx response to AbciState
             .semiflatMap(value ⇒ AbciState.putResponse[F](tx.head, value).map(_ ⇒ txs).run(st).map(Left(_)))
-            .leftMap(err ⇒ logger.error(s"VM invoke failed: $err for tx: $tx"))
+            .leftSemiflatMap(err ⇒ Log[F].error(s"VM invoke failed: $err for tx: $tx").as(err))
             .getOrElse(Right(st)) // TODO do not ignore vm error
 
         case (st, Nil) ⇒
@@ -105,7 +105,7 @@ class AbciService[F[_]: Monad: Effect](
       // Get the VM hash
       vmHash ← vm
         .vmStateHash()
-        .leftMap(err ⇒ logger.error(s"VM is unable to compute state hash: $err"))
+        .leftSemiflatMap(err ⇒ Log[F].error(s"VM is unable to compute state hash: $err").as(err))
         .getOrElse(ByteVector.empty) // TODO do not ignore vm error
 
       // Do not wait for receipt on the very first block
@@ -144,7 +144,7 @@ class AbciService[F[_]: Monad: Effect](
         case Some(ReceiptType.Stored) => Applicative[F].unit
         // After-restart case. Last of the stored receipts, so vmHash is new, and will be required for the next block manifest
         case Some(ReceiptType.LastStored) => controlSignals.setVmHash(vmHash)
-        case unknown => logger.error(s"Unknown receipt kind: $unknown").pure[F]
+        case unknown                      => logger.error(s"Unknown receipt kind: $unknown").pure[F]
       }
     } yield appHash
 
@@ -199,8 +199,8 @@ class AbciService[F[_]: Monad: Effect](
    *
    * @param data Incoming transaction
    */
-  def deliverTx(data: Array[Byte]): F[TxResponse] =
-    Tx.readTx(data) match {
+  def deliverTx(data: Array[Byte])(implicit log: Log[F]): F[TxResponse] =
+    Tx.readTx(data).value.flatMap {
       case Some(tx) ⇒
         // TODO we have different logic in checkTx and deliverTx, as only in deliverTx tx might be dropped due to pending txs overflow
         state
@@ -219,8 +219,8 @@ class AbciService[F[_]: Monad: Effect](
    *
    * @param data Incoming transaction
    */
-  def checkTx(data: Array[Byte]): F[TxResponse] =
-    Tx.readTx(data) match {
+  def checkTx(data: Array[Byte])(implicit log: Log[F]): F[TxResponse] =
+    Tx.readTx(data).value.flatMap {
       case Some(tx) ⇒
         state.get
           .map(

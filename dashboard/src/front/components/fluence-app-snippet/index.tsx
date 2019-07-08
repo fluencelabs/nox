@@ -3,10 +3,9 @@ import { connect } from 'react-redux';
 import {DeployableApp, findDeployableAppByStorageHash, deployableApps} from '../../../fluence/deployable';
 import { defaultContractAddress, fluenceNodeAddr, llamaPrivateKey } from '../../../constants';
 import { displayLoading, hideLoading, retrieveApp, } from '../../actions';
-import FluenceCluster from '../fluence-cluster';
 import { App, AppId } from '../../../fluence';
 import { Action } from 'redux';
-import { cutId } from '../../../utils';
+import FluenceId from '../fluence-id';
 import * as fluence from 'fluence';
 import { AppSession } from 'fluence/dist/AppSession';
 
@@ -53,9 +52,9 @@ class FluenceAppSnippet extends React.Component<Props, State> {
         if (this.props.trxHash) {
             return (
                 <p>
-                    Transaction hash: <a href={'https://rinkeby.etherscan.io/tx/' + this.props.trxHash}
-                                         title={this.props.trxHash} className="etherscan-link"
-                                         target="_blank">{cutId(this.props.trxHash)}</a>
+                    Transaction hash: <FluenceId href={'https://rinkeby.etherscan.io/tx/' + this.props.trxHash}
+                                         entityId={this.props.trxHash} className="etherscan-link"
+                                         isLink={true} target="_blank"/>
                 </p>
             );
         }
@@ -84,7 +83,7 @@ class FluenceAppSnippet extends React.Component<Props, State> {
         let session: AppSession;
 
         let auth = undefined;
-        if (shortName.toLowerCase() === 'llamadb') {
+        if (shortName.toLowerCase() === 'llamadb fork') {
             auth = llamaPrivateKey;
         }
 
@@ -123,11 +122,11 @@ class FluenceAppSnippet extends React.Component<Props, State> {
         const defaultText = (defaultQueries) ? defaultQueries.join('\n') : '';
 
         let parser: (s: string) => string;
-        if (shortName === 'llamadb') {
+        if (shortName.toLowerCase() === 'llamadb fork') {
             parser = function (s: string): string {
                 return s.replace('_0\n', '');
             };
-        } else if (shortName === 'Redis') {
+        } else if (shortName.toLowerCase() === 'redis fork') {
             parser = function (s: string): string {
                 let res = s;
                 if (s.startsWith(':')) {
@@ -155,7 +154,7 @@ class FluenceAppSnippet extends React.Component<Props, State> {
         return ([
             <p>
                 <label htmlFor={queryId}>Type queries:</label>
-                <textarea className="form-control" rows={4} id={queryId} defaultValue={defaultText}></textarea>
+                <textarea className="form-control" rows={4} id={queryId} key={queryId} defaultValue={defaultText}></textarea>
             </p>,
             <p>
                 <button type="button" value="Submit query" id={buttonId}
@@ -171,18 +170,12 @@ class FluenceAppSnippet extends React.Component<Props, State> {
         ]);
     }
 
-    renderAppSnippets(): React.ReactNode[] {
+    renderLlamadbSnippets(): React.ReactNode[] {
         return ([
-            <button type="button"
-                    onClick={e => window.open(`http://sql.fluence.network?appId=${this.props.appId}&privateKey=${llamaPrivateKey}`, '_blank')}
-                    className="btn btn-block btn-link">
-                <i className="fa fa-external-link margin-r-5"/> <b>Open SQL DB web interface</b>
-            </button>,
-            <hr/>,
             this.renderTrxHashBlock(),
             <p>
                 <b>
-                    Or connect to {this.app && this.app.shortName} directly in the browser console.
+                    Or connect to the application directly in the browser console.
                 </b>
             </p>,
             <p> Open Developer Tools, and paste:</p>,
@@ -220,15 +213,48 @@ session.request("SELECT AVG(age) FROM users").result().then((r) => {
         ]);
     }
 
+    renderRedisSnippets(): React.ReactNode[] {
+        const request = 'SET A 10';
+        const requestForResult = 'GET A';
+        return ([
+            this.renderTrxHashBlock(),
+            <p>
+                <b>
+                    Or connect to the application directly in the browser console.
+                </b>
+            </p>,
+            <p> Open Developer Tools, and paste:</p>,
+            <pre>{`let contract = "${defaultContractAddress}";                         // Fluence contract address
+let appId = ${this.props.appId};                                                                      // Deployed database id
+let ethereumUrl = "${fluenceNodeAddr}";                                    // Ethereum light node URL
+
+// Connect to your app
+fluence.connect(contract, appId, ethereumUrl).then((s) => {
+    console.log("Session created");
+    window.session = s;
+});`}
+            </pre>,
+            <p>Execute some queries:</p>,
+            <pre>{`// Send a request
+session.request("${request}");
+
+// Send a request, and read its result
+session.request("${requestForResult}").result().then((r) => {
+    console.log("Result: " + r.asString());
+});`}
+            </pre>,
+        ]);
+    }
+
     renderUploadedAppSnippets(shortName: string): React.ReactNode[] {
-        const request = (shortName === 'Redis') ? 'SET A 10' : '<enter your request here>';
-        const requestForResult = (shortName === 'Redis') ? 'GET A' : '<enter your request here>';
+        const request = '<enter your request here>';
+        const requestForResult = '<enter your request here>';
 
         return ([
             this.renderTrxHashBlock(),
             <p>
                 <b>
-                    Connect to {shortName} directly in the browser console.
+                    Connect to the application directly in the browser console.
                 </b>
             </p>,
             <pre>{`let contract = "${defaultContractAddress}";                         // Fluence contract address
@@ -252,6 +278,20 @@ session.request("${requestForResult}").result().then((r) => {
         ]);
     }
 
+    renderAppSnippets(): React.ReactNode | React.ReactNode[] {
+        switch (this.app.shortName.toLowerCase()) {
+            case 'llamadb fork': {
+                return this.renderLlamadbSnippets();
+            }
+            case 'redis fork': {
+                return this.renderRedisSnippets();
+            }
+            default: {
+                return this.renderUploadedAppSnippets(this.app.shortName);
+            }
+        }
+    }
+
     render(): React.ReactNode {
         const appInfo = this.props.apps[this.props.appId];
 
@@ -266,7 +306,7 @@ session.request("${requestForResult}").result().then((r) => {
                             <i className="ion ion-ios-checkmark-outline"/>
                         </span>
                     </div>
-                    <h3 className="widget-user-username">Try {this.app.shortName}</h3>
+                    <h3 className="widget-user-username">Application console</h3>
                     <h3 className="widget-user-desc">appID: <b>{this.props.appId}</b></h3>
                 </div>
                 <div className="box-footer no-padding">
@@ -275,11 +315,7 @@ session.request("${requestForResult}").result().then((r) => {
                             this.renderInteractiveSnippet(Number(this.props.appId), this.app.shortName, this.app.requestExamples || [])
                         }
                         <hr/>
-                        {(this.app.shortName === 'LlamaDB') ? this.renderAppSnippets() : this.renderUploadedAppSnippets(this.app.shortName) }
-
-                        <hr/>
-                        <p><strong><i className="fa fa-bullseye margin-r-5"/>Check your app's health:</strong></p>
-                        {appInfo && <FluenceCluster appId={this.props.appId} cluster={appInfo.cluster}/>}
+                        {this.renderAppSnippets()}
                     </div>
                 </div>
             </div>

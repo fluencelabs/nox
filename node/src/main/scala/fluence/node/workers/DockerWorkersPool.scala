@@ -27,6 +27,7 @@ import cats.syntax.applicativeError._
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.compose._
 import cats.{Applicative, Apply, Parallel}
 import com.softwaremill.sttp.SttpBackend
 import fluence.codec.PureCodec
@@ -36,7 +37,6 @@ import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.workers.tendermint.BlockUploading
-import slogging.LazyLogging
 
 import scala.concurrent.duration._
 import scala.language.higherKinds
@@ -56,7 +56,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
   F: ConcurrentEffect[F],
   P: Parallel[F, G]
-) extends WorkersPool[F] with LazyLogging {
+) extends WorkersPool[F] {
 
   /**
    * Returns true if the worker is in the pool and healthy, and false otherwise. Also returns worker instance.
@@ -66,7 +66,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
       map <- workers.get
       oldWorker = map.get(appId)
       healthy <- oldWorker match {
-        case None => F.pure(false)
+        case None         => F.pure(false)
         case Some(worker) => worker.isHealthy(healthyWorkerTimeout)
       }
     } yield (healthy, oldWorker)
@@ -77,15 +77,15 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
    *
    * @param worker Worker to register in the pool
    */
-  private def registeredWorker(worker: Worker[F]): Resource[F, Unit] =
+  private def registeredWorker(worker: Worker[F])(implicit log: Log[F]): Resource[F, Unit] =
     Resource
       .make(
         workers.update(_ + (worker.appId -> worker)) *>
-          Sync[F].delay(logger.info(s"Added worker ($worker) to the pool"))
+          log.info(s"Added worker ($worker) to the pool")
       )(
         _ ⇒
           workers.update(_ - worker.appId) *>
-            Sync[F].delay(logger.info(s"Removing worker ($worker) from the pool"))
+            log.info(s"Removing worker ($worker) from the pool")
       )
       .void
 
@@ -184,8 +184,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
             else WorkersPool.Starting
 
         case ((true, oldWorker), _) ⇒
-          logger.info(s"Worker for app $appId was already ran as $oldWorker")
-          Applicative[F].pure(WorkersPool.AlreadyRunning)
+          log.info(s"Worker for app $appId was already ran as $oldWorker") as WorkersPool.AlreadyRunning
 
         // Cannot allocate port
         case (_, Left(err)) ⇒
@@ -199,15 +198,15 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
    * @param worker Worker to stop
    * @return Unit, no failures are possible
    */
-  private def stop(worker: Worker[F]): F[Unit] =
-    worker.stop.attempt.map(stopped ⇒ logger.info(s"Stopped: ${worker.description} => $stopped"))
+  private def stop(worker: Worker[F])(implicit log: Log[F]): F[Unit] =
+    worker.stop.attempt >>= (stopped ⇒ log.info(s"Stopped: ${worker.description} => $stopped"))
 
   /**
    * Stops all the registered workers. They should unregister themselves.
    *
    * @return F that resolves when all workers are stopped
    */
-  def stopAll(): F[Unit] =
+  def stopAll()(implicit log: Log[F]): F[Unit] =
     for {
       workers ← getAll
 
@@ -220,7 +219,8 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
       //_ = logger.debug(s"Having to wait for ${notStopped.size} workers to stop themselves...")
 
       //_ ← Parallel.parTraverse_(notStopped.values.toList)(identity)
-    } yield logger.info(s"Stopped: ${workers.map(_.description) zip stops}")
+      _ ← Log[F].info(s"Stopped: ${workers.map(_.description) zip stops}")
+    } yield ()
 
   /**
    * Get a Worker by its appId, if it's present
@@ -241,14 +241,14 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
 
 }
 
-object DockerWorkersPool extends LazyLogging {
+object DockerWorkersPool {
 
   private val P2pPortsDbFolder: String = "p2p-ports-db"
 
   /**
    * Build a new [[DockerWorkersPool]]. All workers will be stopped when the pool is released
    */
-  def make[F[_]: DockerIO: ContextShift: Timer, G[_]](
+  def make[F[_]: DockerIO: ContextShift: Timer: Log, G[_]](
     minPort: Short,
     maxPort: Short,
     rootPath: Path,
@@ -270,32 +270,31 @@ object DockerWorkersPool extends LazyLogging {
       }(_.stopAll())
     } yield pool: WorkersPool[F]
 
-  private def makePorts[F[_]: Concurrent: LiftIO: ContextShift](
+  private def makePorts[F[_]: Concurrent: LiftIO: ContextShift: Log](
     minPort: Short,
     maxPort: Short,
     rootPath: Path
-  ): Resource[F, WorkersPorts[F]] = {
-    import cats.syntax.compose._
+  ): Resource[F, WorkersPorts[F]] =
+    for {
+      _ <- Log.resource[F].debug("Making ports for a WorkersPool, first prepare RocksDBStore")
 
-    logger.debug("Making ports for a WorkersPool, first prepare RocksDBStore")
+      // TODO use better serialization, check for errors
+      implicit0(stringCodec: PureCodec[String, Array[Byte]]) = PureCodec
+        .liftB[String, Array[Byte]](_.getBytes(), bs ⇒ new String(bs))
 
-    // TODO use better serialization, check for errors
-    implicit val stringCodec: PureCodec[String, Array[Byte]] =
-      PureCodec.liftB(_.getBytes(), bs ⇒ new String(bs))
-
-    implicit val longCodec: PureCodec[Array[Byte], Long] =
-      PureCodec[Array[Byte], String] andThen PureCodec
+      implicit0(longCodec: PureCodec[Array[Byte], Long]) = PureCodec[Array[Byte], String] andThen PureCodec
         .liftB[String, Long](_.toLong, _.toString)
 
-    implicit val shortCodec: PureCodec[Array[Byte], Short] =
-      PureCodec[Array[Byte], String] andThen PureCodec
+      implicit0(shortCodec: PureCodec[Array[Byte], Short]) = PureCodec[Array[Byte], String] andThen PureCodec
         .liftB[String, Short](_.toShort, _.toString)
 
-    // TODO: handle exception
-    val path = rootPath.resolve(P2pPortsDbFolder)
+      // TODO: handle exception
+      path = rootPath.resolve(P2pPortsDbFolder)
 
-    logger.debug(s"Ports db: $path")
+      _ <- Log.resource[F].debug(s"Ports db: $path")
 
-    RocksDBStore.make[F, Long, Short](path.toString)
-  }.flatMap(WorkersPorts.make(minPort, maxPort, _))
+      store <- RocksDBStore.make[F, Long, Short](path.toString)
+
+      ports ← WorkersPorts.make(minPort, maxPort, store)
+    } yield ports
 }

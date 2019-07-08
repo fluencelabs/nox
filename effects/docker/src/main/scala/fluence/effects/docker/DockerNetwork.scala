@@ -16,6 +16,7 @@
 
 package fluence.effects.docker
 import cats.effect.Resource
+import fluence.log.Log
 
 import scala.language.higherKinds
 
@@ -24,17 +25,17 @@ import scala.language.higherKinds
  */
 case class DockerNetwork(name: String) extends AnyVal
 
-object DockerNetwork extends slogging.LazyLogging {
+object DockerNetwork {
 
   /**
    *  Create docker network as a resource. Network is deleted after resource is used.
    */
-  def make[F[_]: DockerIO](name: String): Resource[F, DockerNetwork] =
+  def make[F[_]: DockerIO: Log](name: String): Resource[F, DockerNetwork] =
     DockerIO[F].makeNetwork(name)
 
   /**
    * Join (connect to) docker network as a resource. Container will be disconnected from network after resource is used.
    */
-  def join[F[_]: DockerIO](container: DockerContainer, network: DockerNetwork): Resource[F, Unit] =
+  def join[F[_]: DockerIO: Log](container: DockerContainer, network: DockerNetwork): Resource[F, Unit] =
     DockerIO[F].joinNetwork(container, network)
 }

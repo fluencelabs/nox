@@ -22,6 +22,7 @@ import cats.syntax.applicative._
 import cats.syntax.eq._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.apply._
 import cats.instances.list._
 import cats.effect.{Clock, LiftIO}
 import fluence.kad.{CantJoinAnyNode, JoinError}
@@ -146,8 +147,9 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C]
             }
           }
 
-        def iterate(collected: SortedSet[Node[C]], probed: Set[Key], data: Stream[SortedSet[Node[C]]])
-          : F[Seq[Node[C]]] =
+        def iterate(collected: SortedSet[Node[C]],
+                    probed: Set[Key],
+                    data: Stream[SortedSet[Node[C]]]): F[Seq[Node[C]]] =
           if (data.isEmpty) collected.toSeq.pure[F]
           else {
             val d #:: tail = data
@@ -364,32 +366,32 @@ private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C]
             peer: C ⇒
               // For each peer
               // Try to ping the peer, and collect its neighbours; if no pings are performed, join is failed
-              Log[F].trace("Join: Going to ping Peer to join: " + peer) >> ContactAccess[F, C]
+              Log[F].trace("Going to ping Peer to join: " + peer) >> ContactAccess[F, C]
                 .rpc(peer)
                 .ping()
                 .value
                 .flatMap[Option[(Node[C], List[Node[C]])]] {
 
                   case Right(peerNode) if peerNode.key === localRouting.nodeKey ⇒
-                    Log[F].debug(s"Join: Can't initialize from myself (${localRouting.nodeKey})") >>
+                    Log[F].debug(s"Can't initialize from myself (${localRouting.nodeKey})") >>
                       Option.empty[(Node[C], List[Node[C]])].pure[F]
 
                   case Right(peerNode)
                       if peerNode.key =!= localRouting.nodeKey ⇒ // Ping successful, lookup node's neighbors
-                    Log[F].info("Join: PeerPing successful to " + peerNode.key) >> ContactAccess[F, C]
+                    Log[F].info("PeerPing successful to " + peerNode.key) >> ContactAccess[F, C]
                       .rpc(peer)
                       .lookup(localRouting.nodeKey, numberOfNodes)
                       .value
                       .flatMap {
                         case Right(neighbors) if neighbors.isEmpty ⇒
-                          Log[F].info("Join: Neighbors list is empty for peer " + peerNode.key) as
+                          Log[F].info("Neighbors list is empty for peer " + peerNode.key) as
                             Option(peerNode -> Nil)
 
                         case Right(neighbors) ⇒
                           Option(peerNode -> neighbors.toList).pure[F]
 
                         case Left(e) ⇒
-                          Log[F].warn(s"Join: Can't perform lookup for $peer during join", e) as
+                          Log[F].warn(s"Can't perform lookup for $peer during join", e) as
                             Option(peerNode -> Nil)
                       }
 

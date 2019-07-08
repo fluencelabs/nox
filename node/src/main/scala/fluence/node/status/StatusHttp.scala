@@ -20,17 +20,18 @@ import cats.Parallel
 import cats.effect.Sync
 import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.apply._
 import org.http4s.HttpRoutes
 import cats.syntax.applicativeError._
+import fluence.log.{Log, LogFactory}
 import io.circe.syntax._
 import org.http4s.dsl._
 import org.http4s.dsl.impl.OptionalQueryParamDecoderMatcher
-import slogging.LazyLogging
 
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-object StatusHttp extends LazyLogging {
+object StatusHttp {
 
   // Timeout in seconds
   object Timeout extends OptionalQueryParamDecoderMatcher[Int]("timeout")
@@ -41,7 +42,7 @@ object StatusHttp extends LazyLogging {
    * @param sm Status aggregator
    * @param dsl Http4s DSL to build routes with
    */
-  def routes[F[_]: Sync, G[_]](
+  def routes[F[_]: Sync: LogFactory, G[_]](
     sm: StatusAggregator[F],
     defaultTimeout: FiniteDuration = 5.seconds
   )(implicit dsl: Http4sDsl[F], P: Parallel[F, G]): HttpRoutes[F] = {
@@ -53,15 +54,31 @@ object StatusHttp extends LazyLogging {
       .of[F] {
         case GET -> Root :? Timeout(t) =>
           (for {
+            implicit0(log: Log[F]) ← LogFactory[F].init("http", "status")
             status <- sm.getStatus(t.map(_.seconds).filter(_ < maxTimeout).getOrElse(defaultTimeout))
             maybeJson <- Sync[F].delay(status.asJson.spaces2).attempt
-          } yield (status, maybeJson)).flatMap {
-            case (status, Left(e)) ⇒
-              logger.error(s"Status cannot be serialized to JSON. Status: $status", e)
-              e.printStackTrace()
-              InternalServerError("JSON generation errored, please try again")
+          } yield (log, status, maybeJson)).flatMap {
+            case (log, status, Left(e)) ⇒
+              log.error(s"Status cannot be serialized to JSON. Status: $status", e) *>
+                InternalServerError("JSON generation errored, please try again")
 
-            case (_, Right(json)) ⇒
+            case (_, _, Right(json)) ⇒
+              Ok(json)
+          }
+
+        case GET -> Root / "eth" ⇒
+          import MasterStatus.encodeNodeEthState
+
+          (for {
+            implicit0(log: Log[F]) ← LogFactory[F].init("http", "status/eth")
+            status ← sm.expectedEthState
+            maybeJson ← Sync[F].delay(status.asJson.spaces2).attempt
+          } yield (log, status, maybeJson)).flatMap {
+            case (log, status, Left(e)) ⇒
+              log.error(s"Status cannot be serialized to JSON. Status: $status", e) *>
+                InternalServerError("JSON generation errored, please try again")
+
+            case (_, _, Right(json)) ⇒
               Ok(json)
           }
       }

@@ -17,13 +17,19 @@
 package fluence.vm
 
 import cats.data.NonEmptyList
-import cats.effect.IO
+import cats.effect.{IO, Timer}
+import fluence.log.{Log, LogFactory}
+import fluence.vm.wasm.MemoryHasher
 import org.scalatest.EitherValues
 
+import scala.concurrent.ExecutionContext
 import scala.language.{higherKinds, implicitConversions}
 
 // TODO: to run this test from IDE It needs to build vm-counter project explicitly at first
 class CounterIntegrationTest extends AppIntegrationTest with EitherValues {
+
+  private implicit val timer: Timer[IO] = IO.timer(ExecutionContext.global)
+  private implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init(getClass.getSimpleName).unsafeRunSync()
 
   private val counterFilePath =
     getModuleDirPrefix() + "/src/it/resources/test-cases/counter/target/wasm32-unknown-unknown/release/counter.wasm"
@@ -32,7 +38,7 @@ class CounterIntegrationTest extends AppIntegrationTest with EitherValues {
 
     "be able to instantiate" in {
       (for {
-        vm ← WasmVm[IO](NonEmptyList.one(counterFilePath))
+        vm ← WasmVm[IO](NonEmptyList.one(counterFilePath), MemoryHasher[IO])
         state ← vm.getVmState[IO].toVmError
 
       } yield {
@@ -44,7 +50,7 @@ class CounterIntegrationTest extends AppIntegrationTest with EitherValues {
 
     "increment counter and returns its state" in {
       (for {
-        vm ← WasmVm[IO](NonEmptyList.one(counterFilePath))
+        vm ← WasmVm[IO](NonEmptyList.one(counterFilePath), MemoryHasher[IO])
         _ ← vm.invoke[IO]()
         getResult1 ← vm.invoke[IO]()
         _ ← vm.invoke[IO]()

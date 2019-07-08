@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 
-import Settings.WasmCodeDirectory
 import cats.effect.IO
 import cats.syntax.list._
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.error.VmModuleLocationError
-import slogging.MessageFormatter.DefaultPrefixFormatter
-import slogging.{LogLevel, LoggerConfig, PrintLoggerFactory}
 
 object Utils {
 
@@ -36,10 +33,4 @@ object Utils {
       )
       .flatMap(IO.fromEither)
 
-  def configureLogging(level: LogLevel): Unit = {
-    PrintLoggerFactory.formatter =
-      new DefaultPrefixFormatter(printLevel = true, printName = true, printTimestamp = true)
-    LoggerConfig.factory = PrintLoggerFactory()
-    LoggerConfig.level = level
-  }
 }

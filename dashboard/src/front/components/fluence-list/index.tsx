@@ -1,6 +1,7 @@
 import * as React from "react";
 import {connect} from "react-redux";
 import {Link} from "react-router-dom";
+import FluenceId from '../fluence-id';
 import {FluenceEntityType} from "../app";
 import {
     DeployableAppId,
@@ -11,7 +12,6 @@ import {
 import {displayLoading, hideLoading, retrieveNodeRefs, retrieveAppRefs, showModal} from "../../actions";
 import {AppRef, NodeRef} from "../../../fluence";
 import {Action} from "redux";
-import {cutId} from "../../../utils";
 
 interface State {
     loading: boolean;
@@ -99,7 +99,7 @@ class FluenceList extends React.Component<Props, State> {
         options = options || {};
         const filter = options.filter || (() => true);
         const urlPrefix = options.urlPrefix || '';
-        const appRefs =  this.props.appRefs.filter(filter);
+        const appRefs =  this.props.appRefs.filter(filter).sort((refA, refB) => parseInt(refA.app_id) - parseInt(refB.app_id));
         return [
             <li className="header">Applications</li>,
             ...appRefs.map(appRef => (
@@ -124,7 +124,7 @@ class FluenceList extends React.Component<Props, State> {
                 <li className={this.props.entityId == nodeRef.node_id ? 'active' : ''}>
                     <Link to={`${urlPrefix}/node/${nodeRef.node_id}`}>
                         <i className="ion ion-android-laptop"></i>
-                        Node <span title={nodeRef.node_id}>{cutId(nodeRef.node_id)}</span>
+                        Node <FluenceId entityId={nodeRef.node_id}/>
                         <span className="node-details">Capacity: {nodeRef.capacity}</span>
                         {nodeRef.is_private && <span className="node-details">private</span>}
                     </Link>

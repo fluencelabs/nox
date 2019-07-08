@@ -38,58 +38,58 @@ jobs:
       - run: PATH="$PATH:$HOME/.cargo/bin:" SBT_OPTS="-Xms2048M -Xmx2048M -Xss6M" sbt -mem 2048 test
       - <<: *sc
 
-  cli:
-    docker:
-      - image: circleci/rust:latest-node
-    environment:
-      RUST_BACKTRACE: 1
-      RUST_TEST_THREADS: 1
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - cli-{{ checksum "cli/Cargo.lock" }}
-      - run:
-          name: cargo fmt
-          command: |
-            cd cli
-            rustup component add rustfmt
-            cargo fmt --all -- --check --color always
-      - run:
-          name: clippy
-          command: |
-            cd cli
-            rustup component add clippy
-            cargo clippy -v || true
-      - run:
-          name: npm run compile-sol
-          command: |
-            cd bootstrap
-            npm install
-            npm run compile-sol
-      - run: cd cli; cargo build
-      - run: 
-          name: Ganache, Swarm, Test
-          command: |
-            cd bootstrap
+#  cli:
+#    docker:
+#      - image: circleci/rust:latest-node
+#    environment:
+#      RUST_BACKTRACE: 1
+#      RUST_TEST_THREADS: 1
+#    steps:
+#      - checkout
+#      - restore_cache:
+#          keys:
+#            - cli-{{ checksum "cli/Cargo.lock" }}-{{ checksum "bootstrap/package-lock.json" }}
+#      - run:
+#          name: cargo fmt
+#          command: |
+#            cd cli
+#            rustup component add rustfmt
+#            cargo fmt --all -- --check --color always
+#      - run:
+#          name: clippy
+#          command: |
+#            cd cli
+#            rustup component add clippy
+#            cargo clippy -v || true
+#      - run:
+#          name: npm run compile-sol
+#          command: |
+#            cd bootstrap
+#            npm install
+#            npm run compile-sol
+#      - run: cd cli; cargo build
+#      - run:
+#          name: Ganache, Swarm, Test
+#          command: |
+#            cd bootstrap
 
-            npm run ganache
-            npm run swarm-simulation
-            
-            sleep 1
-            npm run migrate 
-            
-            dockerize -wait tcp://127.0.0.1:8545 -timeout 30s
-            dockerize -wait tcp://127.0.0.1:8500 -timeout 30s
-              
-            cd ../cli
-            cargo test
-      - save_cache:
-          paths:
-            - ~/.cargo
-            - ~/.rustup
-            - bootstrap/node_modules
-          key: cli-{{ checksum "cli/Cargo.lock" }}
+#            npm run ganache
+#            npm run swarm-simulation
+
+#            sleep 1
+#            npm run migrate
+
+#            dockerize -wait tcp://127.0.0.1:8545 -timeout 30s
+#            dockerize -wait tcp://127.0.0.1:8500 -timeout 30s
+
+#            cd ../cli
+#            cargo test
+#      - save_cache:
+#          paths:
+#            - ~/.cargo
+#            - ~/.rustup
+##            - bootstrap/node_modules
+#          key: cli-{{ checksum "cli/Cargo.lock" }}-{{ checksum "bootstrap/package-lock.json" }}
 
   backend sdk:
     docker:
@@ -184,7 +184,7 @@ workflows:
     jobs:
       - sbt all tests
 #      - sbt integration tests
-      - cli
+#      - cli
       - smart contract
       - deploy scripts
       - js sdk

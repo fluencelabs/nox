@@ -20,6 +20,7 @@ export interface DeployableApp {
     storageHash: string;
     storageType: StorageType;
     clusterSize: number;
+    repoLink?: string;
     selfUpload?: boolean;
     requestExamples?: string[];
 }
@@ -28,11 +29,12 @@ export const deployableAppIds: DeployableAppId[] = ['redis', 'llamadb', 'upload'
 
 export const deployableApps: { [key: string]: DeployableApp } = {
     llamadb: {
-        name: 'LlamaDB (sql, wasm v0.1.2)',
-        shortName: 'LlamaDB',
+        name: 'LlamaDB fork (sql, wasm v0.1.2)',
+        shortName: 'LlamaDB fork',
         storageHash: '0x090A9B7CCA9D55A9632BBCC3A30A57F2DB1D1FD688659CFF95AB8D1F904AD74B',
         storageType: StorageType.Ipfs,
         clusterSize: 4,
+        repoLink: 'https://github.com/nukep/llamadb/compare/master...fluencelabs:master',
         requestExamples: ['CREATE TABLE users(id int, name varchar(128), age int)',
                           'INSERT INTO users VALUES(1, \'Sara\', 23), (2, \'Bob\', 19), (3, \'Caroline\', 31), (4, \'Max\', 27)',
                           'SELECT AVG(age) FROM users']
@@ -69,18 +71,19 @@ export const deployableApps: { [key: string]: DeployableApp } = {
         clusterSize: 4,
         selfUpload: true
     },
-    // {"Name":"redis9.wasm","Hash":"QmP3efHaEXp5wSuZDZ6dBuCnWMPTATyFjUKdnhncdnSnFi","Size":"780180"}
+    // {"Name":"redis_0.5.wasm","Hash":"QmYmpLNRaWEat3pUXxohYyceDCnLAvQGDZrM6hA26VxUbf","Size":"597690"}
     redis: {
-        name: 'Redis (nosql, wasm v0.3)',
-        shortName: 'Redis',
-        storageHash: '0x0A80C2190F2F13AE30386132F9209F649B8954F56FA96A63559DD865912CD421',
+        name: 'Redis fork (nosql, wasm v0.4)',
+        shortName: 'Redis fork',
+        storageHash: '0x9B0745D4B2D9292D6986453C79EA75E7385AB0AF128E0E65DBB7C478218709DE',
         storageType: StorageType.Ipfs,
         clusterSize: 4,
+        repoLink: 'https://github.com/fluencelabs/redis/compare/5.0...fluencelabs:wasm',
         requestExamples: ['SET A 10',
                           'SADD B 20',
                           'GET A',
                           'SMEMBERS B',
-                          `eval "return {{1,'Hello World!'},2,3}" 0`]
+                          `eval "redis.call('incr', 'A') return redis.call('get', 'A') * 8 + 5"  0`]
     }
 };
 

@@ -17,7 +17,6 @@
 package fluence.vm.wasm
 
 import java.lang.reflect.Modifier
-import java.nio.ByteBuffer
 
 import asmble.compile.jvm.MemoryBuffer
 import asmble.run.jvm.Module.Compiled
@@ -26,7 +25,6 @@ import cats.data.EitherT
 import cats.effect.LiftIO
 import cats.Monad
 import cats.syntax.either._
-import fluence.crypto.Crypto.Hasher
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
 import fluence.vm.VmError.{InitializationError, NoSuchFnError, VmMemoryError}
 
@@ -118,7 +116,7 @@ class WasmModule(
   ): EitherT[F, InvokeError, Int] =
     wasmFn.fold(
       EitherT.leftT[F, Int](
-        NoSuchFnError(s"Unable to find a function in module with name=$this"): InvokeError
+        NoSuchFnError(s"Unable to find the invoke function in module with name=$this"): InvokeError
       )
     )(
       fn ⇒
@@ -150,27 +148,27 @@ object WasmModule {
    * @param deallocationFunctionName a name of function that will be used for deallocation
    * @param invokeFunctionName a name of main module handler function
    */
-  def apply(
+  def apply[F[_]: Monad](
     moduleDescription: Compiled,
     scriptContext: ScriptContext,
     allocationFunctionName: String,
     deallocationFunctionName: String,
     invokeFunctionName: String,
-    memoryHasher: MemoryHasher.Builder
-  ): Either[ApplyError, WasmModule] =
+    memoryHasher: MemoryHasher.Builder[F]
+  ): EitherT[F, ApplyError, WasmModule] =
     for {
 
-      moduleInstance ← Try(moduleDescription.instance(scriptContext)).toEither.left.map { e ⇒
+      moduleInstance ← EitherT.fromEither[F](Try(moduleDescription.instance(scriptContext)).toEither.left.map { e ⇒
         // TODO: method 'instance' can throw both an initialization error and a
         // Trap error, but now they can't be separated
         InitializationError(
           s"Unable to initialize module=${moduleDescription.getName}",
           Some(e)
         )
-      }
+      })
 
       // TODO: patch Asmble to create `getMemory` method in all cases
-      memory ← Try {
+      memory ← EitherT.fromEither[F](Try {
         val getMemoryMethod = moduleInstance.getClass.getMethod("getMemory")
         getMemoryMethod.invoke(moduleInstance).asInstanceOf[MemoryBuffer]
       }.toEither.leftMap { e ⇒
@@ -178,7 +176,8 @@ object WasmModule {
           s"Unable to get memory from module=${Option(moduleDescription.getName).getOrElse("<no-name>")}",
           Some(e)
         ): ApplyError
-      }
+      })
+
       moduleMemory ← WasmModuleMemory(memory, memoryHasher).leftMap(
         e ⇒
           InitializationError(

@@ -134,8 +134,7 @@ def deploy():
 
 
             if not hasattr(env, 'image_tag'):
-                print "using default tag v0.1.6"
-                image_tag = "v0.1.6"
+                image_tag = "v0.2.0"
             else:
                 image_tag = env.image_tag
 

@@ -25,8 +25,8 @@ import cats.effect.{Concurrent, Fiber, Resource, Timer}
 import cats.instances.vector._
 import com.softwaremill.sttp.{SttpBackend, sttp, _}
 import fluence.effects.{Backoff, EffectError}
+import fluence.log.Log
 import fluence.node.eth.state.WorkerPeer
-import slogging.LazyLogging
 
 import scala.language.higherKinds
 import scala.util.Try
@@ -34,7 +34,7 @@ import scala.util.Try
 /**
  * Connects a worker to other peers of the cluster
  */
-object WorkerP2pConnectivity extends LazyLogging {
+object WorkerP2pConnectivity {
 
   /**
    * Ping peers to get theirs p2p port for the app, then pass that port to Worker's TendermintRPC to dial.
@@ -48,7 +48,7 @@ object WorkerP2pConnectivity extends LazyLogging {
    * @tparam G F.Par
    * @return Fiber for concurrent job of inquiring peers and putting their addresses to Tendermint
    */
-  def join[F[_]: Concurrent: Timer, G[_]](
+  def join[F[_]: Concurrent: Timer: Log, G[_]](
     worker: Worker[F],
     peers: Vector[WorkerPeer],
     backoff: Backoff[EffectError] = Backoff.default
@@ -58,8 +58,6 @@ object WorkerP2pConnectivity extends LazyLogging {
   ): F[Fiber[F, Unit]] =
     Concurrent[F].start(
       Parallel.parTraverse_(peers) { p ⇒
-        logger.debug(s"Peer API address: ${p.ip.getHostAddress}:${p.apiPort}")
-
         // Get p2p port for an app
         val getPort: EitherT[F, EffectError, Short] = sttp
           .get(uri"http://${p.ip.getHostAddress}:${p.apiPort}/apps/${worker.appId}/p2pPort")
@@ -74,21 +72,21 @@ object WorkerP2pConnectivity extends LazyLogging {
             )
           }
 
-        // Get p2p port, pass it to worker's tendermint
-        backoff(getPort).flatMap { p2pPort ⇒
-          logger.debug(s"Got Peer p2p port: ${p.peerAddress(p2pPort)}")
-
-          backoff(
-            EitherT(
-              worker.withServices(_.tendermint)(
-                _.unsafeDialPeers(p.peerAddress(p2pPort) :: Nil, persistent = true).value.map { res ⇒
-                  logger.debug(s"dial_peers replied: $res")
-                  res
-                }
+        Log[F].debug(s"Peer API address: ${p.ip.getHostAddress}:${p.apiPort}") >>
+          // Get p2p port, pass it to worker's tendermint
+          backoff(getPort).flatMap { p2pPort ⇒
+            Log[F].debug(s"Got Peer p2p port: ${p.peerAddress(p2pPort)}") >>
+              backoff(
+                EitherT(
+                  worker.withServices(_.tendermint)(
+                    _.unsafeDialPeers(p.peerAddress(p2pPort) :: Nil, persistent = true).value >>= { res ⇒
+                      Log[F].debug(s"dial_peers replied: $res") as
+                        res
+                    }
+                  )
+                )
               )
-            )
-          )
-        }
+          }
       }
     )
 
@@ -104,7 +102,7 @@ object WorkerP2pConnectivity extends LazyLogging {
    * @tparam F Concurrent to make a fiber so that you can cancel the joining job, Timer to make retries
    * @tparam G F.Par
    */
-  def make[F[_]: Concurrent: Timer, G[_]](
+  def make[F[_]: Concurrent: Timer: Log, G[_]](
     worker: Worker[F],
     peers: Vector[WorkerPeer],
     backoff: Backoff[EffectError] = Backoff.default

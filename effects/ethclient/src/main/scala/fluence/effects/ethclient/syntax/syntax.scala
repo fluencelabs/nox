@@ -21,7 +21,6 @@ import cats.effect._
 import cats.syntax.applicativeError._
 import fluence.effects.Backoff
 import io.reactivex.Flowable
-import slogging.LazyLogging
 import fs2.interop.reactivestreams._
 import fluence.effects.JavaFutureConversion._
 import org.web3j.protocol.core.RemoteCall
@@ -38,15 +37,15 @@ package object syntax {
    * @param flowable RX Flowable
    * @tparam T Value type
    */
-  implicit class FlowableToStreamOps[T](flowable: Flowable[T]) extends LazyLogging {
+  implicit class FlowableToStreamOps[T](flowable: Flowable[T]) {
 
     def toStreamRetrying[F[_]: ConcurrentEffect: Timer](
       onErrorRetryAfter: FiniteDuration = Backoff.default.delayPeriod
-    ): fs2.Stream[F, T] =
+    )(implicit log: fluence.log.Log[F]): fs2.Stream[F, T] =
       flowable.toStream[F]().handleErrorWith {
         case NonFatal(err) ⇒
-          logger.error(s"Flowable.toStreamRetrying errored with $err", err)
-          toStreamRetrying(onErrorRetryAfter).delayBy(onErrorRetryAfter)
+          fs2.Stream.eval_(log.error(s"Flowable.toStreamRetrying errored with $err", err)) ++
+            toStreamRetrying(onErrorRetryAfter).delayBy(onErrorRetryAfter)
       }
   }
 

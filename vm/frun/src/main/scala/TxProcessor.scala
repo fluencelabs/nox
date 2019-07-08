@@ -22,6 +22,7 @@ import cats.syntax.apply._
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.log.Log
 import fluence.vm.WasmVm
 import org.http4s.Response
 import org.http4s.dsl.Http4sDsl
@@ -56,14 +57,14 @@ case class TxId(session: String, count: Int)
  * @param mutex     Lock for responses map
  * @param order     Txs ordering mechanism
  */
-case class TxProcessor[F[_]: Sync: Monad: LiftIO] private (
+case class TxProcessor[F[_]: Sync: Monad: LiftIO: Log] private (
   vm: WasmVm,
   responses: Ref[F, Map[String, String]],
   mutex: MVar[F, Unit],
   order: TxOrder[F]
 )(
   implicit dsl: Http4sDsl[F]
-) extends slogging.LazyLogging {
+) {
 
   import dsl._
 
@@ -115,12 +116,7 @@ case class TxProcessor[F[_]: Sync: Monad: LiftIO] private (
 
     for {
       result <- responses.get.map(_.get(path)).map(_.getOrElse("not found"))
-      _ = {
-        ByteVector.fromBase64Descriptive(result).foreach { bv =>
-          val strResult = new String(bv.toArray)
-          logger.info("Queried result: " + strResult)
-        }
-      }
+      _ ← Log[F].info("Queried result: " + ByteVector.fromBase64Descriptive(result).map(bv ⇒ new String(bv.toArray)))
       json = s"""
                 | {
                 |   "jsonrpc": "2.0",
@@ -145,7 +141,7 @@ object TxProcessor {
 
   type ME[F[_]] = MonadError[F, Throwable]
 
-  def apply[F[_]: ContextShift: Concurrent: Timer: Sync: ME](vm: WasmVm)(
+  def apply[F[_]: ContextShift: Concurrent: Timer: Sync: ME: Log](vm: WasmVm)(
     implicit dsl: Http4sDsl[F]
   ): F[TxProcessor[F]] = {
     for {

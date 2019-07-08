@@ -22,9 +22,11 @@ import asmble.run.jvm.ScriptContext
 import asmble.util.Logger
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.LiftIO
-import cats.{Applicative, Monad}
+import cats.{Monad, Traverse}
+import cats.instances.list._
 import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
+import fluence.log.Log
 import fluence.merkle.TrackingMemoryBuffer
 import fluence.vm.VmError.{InitializationError, InternalVmError}
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
@@ -35,7 +37,6 @@ import fluence.vm.config.VmConfig.ConfigError
 import fluence.vm.utils.safelyRunThrowable
 import scodec.bits.ByteVector
 import pureconfig.generic.auto._
-import slogging.LazyLogging
 
 import scala.collection.convert.ImplicitConversionsToJava.`seq AsJavaList`
 import scala.collection.convert.ImplicitConversionsToScala.`list asScalaBuffer`
@@ -73,7 +74,7 @@ trait WasmVm {
 
 }
 
-object WasmVm extends LazyLogging {
+object WasmVm {
 
   type ModuleIndex = Map[Option[String], WasmModule]
 
@@ -86,41 +87,41 @@ object WasmVm extends LazyLogging {
    * @param memoryHasher a hash function provider for calculating memory's hash
    * @param cryptoHasher a hash function provider for module state hash calculation
    */
-  def apply[F[_]: Monad](
+  def apply[F[_]: Monad: Log](
     inFiles: NonEmptyList[String],
+    memoryHasher: MemoryHasher.Builder[F],
     configNamespace: String = "fluence.vm.client",
-    memoryHasher: MemoryHasher.Builder = MemoryHasher.apply,
     cryptoHasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256,
   ): EitherT[F, ApplyError, WasmVm] =
     for {
       // reading config
       config ← EitherT
-        .fromEither(pureconfig.loadConfig[VmConfig](configNamespace))
+        .fromEither[F](pureconfig.loadConfig[VmConfig](configNamespace))
         .leftMap { e ⇒
           InternalVmError(
             s"Unable to read a config for the namespace=$configNamespace",
             Some(ConfigError(e))
-          )
+          ): ApplyError
         }
 
-      _ = logger.info("WasmVm: configs read...")
+      _ ← Log.eitherT[F, ApplyError].info("WasmVm: configs read...")
 
       // Compiling Wasm modules to JVM bytecode and registering derived classes
       // in the Asmble engine. Every Wasm module is compiled to exactly one JVM class.
-      scriptCxt ← safelyRunThrowable(
+      scriptCxt ← safelyRunThrowable[F, ScriptContext, ApplyError](
         prepareContext(inFiles, config),
         err ⇒
           InitializationError(
             s"Preparing execution context before execution was failed for $inFiles.",
             Some(err)
-        )
+          ): ApplyError
       )
 
-      _ = logger.info("WasmVm: scriptCtx prepared...")
+      _ ← Log.eitherT[F, ApplyError].info("WasmVm: scriptCtx prepared...")
 
       modules ← initializeModules(scriptCxt, config, memoryHasher)
 
-      _ = logger.info("WasmVm: modules initialized")
+      _ ← Log.eitherT[F, ApplyError].info("WasmVm: modules initialized")
     } yield
       new AsmbleWasmVm(
         modules,
@@ -159,33 +160,26 @@ object WasmVm extends LazyLogging {
    * string "Some(moduleName)" and value is a [[WasmFunction]] instance. Module name can be "None" if the module
    * name wasn't specified (note that it also can be empty).
    */
-  private def initializeModules[F[_]: Applicative](
+  private def initializeModules[F[_]: Monad](
     scriptCxt: ScriptContext,
     config: VmConfig,
-    memoryHasher: MemoryHasher.Builder
-  ): EitherT[F, ApplyError, ModuleIndex] = {
-    val emptyIndex: Either[ApplyError, ModuleIndex] = Right(Map[Option[String], WasmModule]())
+    memoryHasher: MemoryHasher.Builder[F]
+  ): EitherT[F, ApplyError, ModuleIndex] =
+    Traverse[List].foldLeftM(
+      scriptCxt.getModules.toList,
+      Map[Option[String], WasmModule]()
+    ) {
+      case (acc, moduleDescription) ⇒
+        for {
+          wasmModule ← WasmModule(
+            moduleDescription,
+            scriptCxt,
+            config.allocateFunctionName,
+            config.deallocateFunctionName,
+            config.invokeFunctionName,
+            memoryHasher
+          )
 
-    val moduleIndex = scriptCxt.getModules
-      .foldLeft(emptyIndex) {
-        case (error @ Left(_), _) ⇒
-          error
-
-        case (Right(acc), moduleDescription) ⇒
-          for {
-            wasmModule ← WasmModule(
-              moduleDescription,
-              scriptCxt,
-              config.allocateFunctionName,
-              config.deallocateFunctionName,
-              config.invokeFunctionName,
-              memoryHasher
-            )
-
-          } yield acc + (wasmModule.getName → wasmModule)
-      }
-
-    EitherT.fromEither[F](moduleIndex)
-  }
-
+        } yield acc + (wasmModule.getName → wasmModule)
+    }
 }

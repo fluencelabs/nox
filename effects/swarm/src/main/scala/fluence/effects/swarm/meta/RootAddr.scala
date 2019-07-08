@@ -18,9 +18,11 @@ package fluence.effects.swarm.meta
 
 import cats.Monad
 import cats.data.EitherT
+import cats.syntax.flatMap._
 import fluence.crypto.Crypto.Hasher
 import fluence.effects.swarm.SwarmError
 import fluence.effects.swarm.helpers.ByteVectorJsonCodec
+import fluence.log.Log
 import io.circe.Encoder
 import scodec.bits.ByteVector
 
@@ -35,7 +37,7 @@ import scala.language.higherKinds
  */
 case class RootAddr private (addr: ByteVector)
 
-object RootAddr extends slogging.LazyLogging {
+object RootAddr {
   implicit val rootAddrEncoder: Encoder[RootAddr] = ByteVectorJsonCodec.encodeByteVector.contramap(_.addr)
 
   /**
@@ -47,16 +49,17 @@ object RootAddr extends slogging.LazyLogging {
    * @param ownerAddr Swarm address (Ethereum wallet address)
    * @return generated rootAddr
    */
-  def apply[F[_]: Monad](metaHash: MetaHash, ownerAddr: ByteVector)(
+  def apply[F[_]: Monad: Log](metaHash: MetaHash, ownerAddr: ByteVector)(
     implicit hasher: Hasher[ByteVector, ByteVector]
   ): EitherT[F, SwarmError, RootAddr] =
     hasher(metaHash.hash ++ ownerAddr)
       .map(RootAddr.apply)
       .leftMap(er => SwarmError("Error on generating root address.", Some(er)))
-      .map { rootAddr =>
-        logger.debug(
-          s"Generate rootAddr hash of metaHash: ${metaHash.hash} and ownerAddr: $ownerAddr. Hash: ${rootAddr.addr}"
-        )
-        rootAddr
+      .flatTap { rootAddr =>
+        Log
+          .eitherT[F, SwarmError]
+          .debug(
+            s"Generate rootAddr hash of metaHash: ${metaHash.hash} and ownerAddr: $ownerAddr. Hash: ${rootAddr.addr}"
+          )
       }
 }

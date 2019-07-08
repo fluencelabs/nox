@@ -21,6 +21,7 @@ import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
 import cats.instances.list._
+import cats.instances.option._
 import cats.{Monad, MonadError, Parallel, Traverse}
 import cats.effect.{Clock, Concurrent, ConcurrentEffect, Resource}
 import com.softwaremill.sttp.SttpBackend
@@ -92,7 +93,16 @@ object KademliaNode {
         Traverse[List]
           .traverse(
             conf.join.seeds.toList
-          )(s ⇒ UriContact.readAndCheckContact(signAlgo.checker).runEither[F](s))
+          )(
+            s ⇒
+              UriContact
+                .readAndCheckContact(signAlgo.checker)
+                .runEither[F](s)
+                .flatTap(
+                  r =>
+                    Traverse[Option].traverse(r.left.toOption)(e => Log[F].info(s"Filtered out kademlia seed $s: $e"))
+              )
+          )
           .map(_.collect {
             case Right(c) ⇒ c
           })

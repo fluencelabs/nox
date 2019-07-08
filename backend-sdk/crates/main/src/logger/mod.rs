@@ -14,25 +14,22 @@
  * limitations under the License.
  */
 
-//! This module enables log messages from the Wasm side. Internally this module can be viewed as a
-//! client for the `Logger` Module of Asmble. `Logger` module provides methods that can print out
-//! logs to stdout (destination can differ and really depends only on WasmVm implementation).
+//! This module enables log messages from the Wasm side. It is implemented as a logging facade for
+//! crate [`log`]. To enable this module in your project please specify `wasm_logger` feature of
+//! `fluence_sdk`.
 //!
-//! This module is implemented as a logging facade for crate [`log`]. To enable this module in
-//! your project please specify `wasm_logger` feature of `fluence_sdk`.
+//! Note that this module works only for the Wasm environments and Fluence `WasmVm` - with this
+//! feature set it is possible to compile applications only for Wasm targets such as
+//! `wasm32-unknown-unknown`, `wasm32-wasi`. (please refer to the first example to find out a way
+//! to avoid it).
 //!
-//! Note that this module works only for the Wasm environment and Fluence `WasmVm` - by specifying
-//! this feature it is possible to compile application for the `wasm32-unknown-unknown` target.
-//! (please refer to the first example to find out a way to avoid it).
-//!
-//! The logging ability is disabled in `WasmVm` by default so this feature should be used only for
-//! debugging purposes. Please refer to [`backend app debugging`] section of the Fluence book to find
-//! more information about it.
+//! This feature should be used only for debugging purposes, you can find more info in the
+//! [`backend app debugging`] section of the Fluence guide.
 //!
 //! # Examples
 //!
 //! This example initializes [`WasmLogger`] if target arch is Wasm and [`simple_logger`] otherwise.
-//! Macroses from crate [`log`] used as a logging facade.
+//! Macros from crate [`log`] are used as a logging facade.
 //!
 //! ```
 //!     use fluence::sdk::*;
@@ -52,7 +49,7 @@
 //!
 //! ```
 //!
-//! This example provides method for initialization [`WasmLogger`] only for Wasm target without
+//! This example provides methods for [`WasmLogger`] initialization only for Wasm target without
 //! specifying logger level:
 //!
 //! ```
@@ -73,8 +70,8 @@
 //! [`log`]: https://docs.rs/log
 //! [`simple_logger`]: https://docs.rs/simple_logger
 //! [`static_lazy`]: https://docs.rs/lazy_static
-//! [`lazy_static::initialize()`]: https://docs.rs/lazy_static/1.2.0/lazy_static/fn.initialize.html
-//! [`backend app debugging`]: https://fluence.network/fluence/docs/book/backend/app_debugging.html
+//! [`lazy_static::initialize()`]: https://docs.rs/lazy_static/1.3.0/lazy_static/fn.initialize.html
+//! [`backend app debugging`]: https://fluence.dev/docs/debugging
 
 extern crate log;
 
@@ -172,13 +169,13 @@ impl log::Log for WasmLogger {
     }
 }
 
-/// logger is a module provided by Asmble that can do with log messages.
+/// logger is a module provided by Asmble that can process log messages.
 #[link(wasm_import_module = "logger")]
 extern "C" {
 
     /// Writes one byte to the logger inner state.
     fn write(byte: i32);
 
-    /// Flush all logger inner state to a log.
+    /// Flush logger inner state to a log.
     fn flush();
 }

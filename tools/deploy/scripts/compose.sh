@@ -39,7 +39,7 @@ function generate_json()
     # printing the command in the last line to parse it from a control script
     DATA=$(cat <<EOF
 {
-    "node_ip": "$EXTERNAL_HOST_IP",
+    "node_ip": "$EXTERNAL_IP",
     "ethereum_address": "$ETHEREUM_ADDRESS",
     "tendermint_key": "$TENDERMINT_KEY",
     "tendermint_node_id": "$TENDERMINT_NODE_ID",
@@ -58,7 +58,7 @@ EOF
 function generate_command()
 {
     echo "./fluence register \
-            --node_ip            $EXTERNAL_HOST_IP \
+            --node_ip            $EXTERNAL_IP \
             --tendermint_key     $TENDERMINT_KEY \
             --tendermint_node_id $TENDERMINT_NODE_ID \
             --contract_address   $CONTRACT_ADDRESS \
@@ -136,19 +136,6 @@ function container_update()
     echo 'Containers are updated.'
 }
 
-# getting node's docker IP address
-function get_docker_ip_address()
-{
-    case "$(uname -s)" in
-       Darwin)
-         export DOCKER_IP=host.docker.internal
-         ;;
-
-       Linux)
-         export DOCKER_IP=$(ifconfig docker0 | grep 'inet ' | awk '{print $2}' | grep -Po "[0-9\.]+")
-         ;;
-    esac
-}
 
 # get IP used for external calls
 function get_external_ip()
@@ -156,7 +143,7 @@ function get_external_ip()
     # use exported external ip address or get it from OS
     # todo rewrite this
     if [ -z "$PROD_DEPLOY" ]; then
-        EXTERNAL_HOST_IP="127.0.0.1"
+        export EXTERNAL_IP="127.0.0.1"
         case "$(uname -s)" in
            Darwin)
              export HOST_IP=host.docker.internal
@@ -167,7 +154,7 @@ function get_external_ip()
              ;;
         esac
     else
-        EXTERNAL_HOST_IP=$HOST_IP
+        export EXTERNAL_IP=$HOST_IP
     fi
 }
 
@@ -334,8 +321,6 @@ function deploy()
     # disables docker-compose warnings about orphan services
     export COMPOSE_IGNORE_ORPHANS=True
 
-    get_docker_ip_address
-
     get_external_ip
 
     # exports initial arguments to global scope for `docker-compose` files
@@ -375,7 +360,7 @@ function deploy()
     CONTRACT_ADDRESS=$CONTRACT_ADDRESS
     NAME=$NAME
     HOST_IP=$HOST_IP
-    EXTERNAL_HOST_IP=$EXTERNAL_HOST_IP
+    EXTERNAL_IP=$EXTERNAL_IP
     OWNER_ADDRESS=$OWNER_ADDRESS
     SWARM_ADDRESS=$SWARM_ADDRESS
     ETHEREUM_ADDRESS=$ETHEREUM_ADDRESS

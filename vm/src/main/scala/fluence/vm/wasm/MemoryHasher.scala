@@ -20,11 +20,13 @@ import java.nio.{ByteBuffer, ByteOrder}
 import java.security.MessageDigest
 
 import asmble.compile.jvm.{MemoryBuffer, MemoryByteBuffer}
-import cats.Monad
+import cats.{Applicative, Monad}
 import cats.syntax.either._
+import cats.syntax.apply._
 import cats.data.EitherT
 import fluence.crypto.{Crypto, CryptoError}
 import fluence.crypto.Crypto.Hasher
+import fluence.log.Log
 import fluence.merkle.{BinaryMerkleTree, TrackingMemoryBuffer, TreeHasher}
 import fluence.vm.VmError.{InternalVmError, VmMemoryError}
 import fluence.vm.VmError.WasmVmError.GetVmStateError
@@ -37,11 +39,11 @@ trait MemoryHasher {
   def computeMemoryHash[F[_]: Monad](): EitherT[F, GetVmStateError, Array[Byte]]
 }
 
-object MemoryHasher extends slogging.LazyLogging {
+object MemoryHasher {
 
   val SHA_256 = "SHA-256"
 
-  type Builder = MemoryBuffer => Either[GetVmStateError, MemoryHasher]
+  type Builder[F[_]] = MemoryBuffer => EitherT[F, GetVmStateError, MemoryHasher]
 
   /**
    * Builds memory hasher based on Merkle Tree with SHA-256 hash algorithm.
@@ -74,22 +76,17 @@ object MemoryHasher extends slogging.LazyLogging {
    * Instantiates default hasher for different types of MemoryBuffer.
    *
    */
-  def apply(
-    memory: MemoryBuffer
-  ): Either[GetVmStateError, MemoryHasher] = {
-    memory match {
-      case m: TrackingMemoryBuffer =>
-        logger.info("TrackingMemoryBuffer with MerkleTree hasher will be used.")
-        buildMerkleTreeHasher(m)
-      case m =>
-        logger.info("Plain hasher will be used.")
-        Either.right(buildPlainHasher(m))
-    }
+  def apply[F[_]: Monad: Log]: Builder[F] = {
+    case m: TrackingMemoryBuffer =>
+      Log.eitherT[F, GetVmStateError].info("TrackingMemoryBuffer with MerkleTree hasher will be used.") *>
+        EitherT.fromEither[F](buildMerkleTreeHasher(m))
+    case m =>
+      Log.eitherT[F, GetVmStateError].info("Plain hasher will be used.") *>
+        EitherT.rightT(buildPlainHasher(m))
   }
 
-  def plainHasherBuilder(hasher: Hasher[ByteBuffer, Array[Byte]]): Builder = m => {
-    Right(plainMemoryHasher(m, hasher))
-  }
+  def plainHasherBuilder[F[_]: Applicative](hasher: Hasher[ByteBuffer, Array[Byte]]): Builder[F] =
+    m => EitherT.rightT[F, GetVmStateError](plainMemoryHasher(m, hasher))
 
   /**
    * Instantiates the class, that get all memory and hash it with `hasher` function on call.

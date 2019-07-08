@@ -15,13 +15,13 @@ object SbtCommons {
 
   val commons = Seq(
     scalaV,
-    version                              := "0.1.5",
-    fork in Test                         := true,
+    version                              := "0.2.0",
+    fork in Test                         := false,
     parallelExecution in Test            := false,
     fork in IntegrationTest              := true,
     parallelExecution in IntegrationTest := false,
     organizationName                     := "Fluence Labs Limited",
-    organizationHomepage                 := Some(new URL("https://fluence.one")),
+    organizationHomepage                 := Some(new URL("https://fluence.network")),
     startYear                            := Some(2018),
     licenses += ("Apache-2.0", new URL("https://www.apache.org/licenses/LICENSE-2.0.txt")),
     headerLicense := Some(License.ALv2("2018", organizationName.value)),
@@ -39,7 +39,7 @@ object SbtCommons {
 
   val mergeStrategy = Def.setting[String => MergeStrategy]({
     // a module definition fails compilation for java 8, just skip it
-    case PathList("module-info.class", xs @ _*) => MergeStrategy.first
+    case PathList("module-info.class", xs @ _*)  => MergeStrategy.first
     case "META-INF/io.netty.versions.properties" => MergeStrategy.first
     case x =>
       import sbtassembly.AssemblyPlugin.autoImport.assembly
@@ -91,12 +91,10 @@ object SbtCommons {
 
   val asmble = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.7-fl"
 
-  @deprecated("Migrate to fluence.log.Log facade", "20.05.2019")
-  val slogging = "biz.enef" %% "slogging" % "0.6.1"
-
   val catsVersion = "1.6.0"
-  val cats = "org.typelevel"       %% "cats-core"   % catsVersion
-  val catsEffect = "org.typelevel" %% "cats-effect" % "1.3.0"
+  val cats = "org.typelevel" %% "cats-core" % catsVersion
+  val catsEffectVersion = "1.3.0"
+  val catsEffect = "org.typelevel" %% "cats-effect" % catsEffectVersion
 
   val fs2Version = "1.0.4"
   val fs2 = "co.fs2"   %% "fs2-core"             % fs2Version
@@ -108,12 +106,13 @@ object SbtCommons {
   val pureConfig = "com.github.pureconfig" %% "pureconfig" % "0.10.2"
   val ficus = "com.iheart"                 %% "ficus"      % "1.4.5"
 
-  val cryptoVersion = "0.0.5"
+  val cryptoVersion = "0.0.9"
   val cryptoHashsign = "one.fluence" %% "crypto-hashsign" % cryptoVersion
   val cryptoJwt = "one.fluence"      %% "crypto-jwt"      % cryptoVersion
   val cryptoCipher = "one.fluence"   %% "crypto-cipher"   % cryptoVersion
-  val cryptoKeyStore = "one.fluence" %% "crypto-keystore" % cryptoVersion
-  val codecCore = "one.fluence"      %% "codec-core"      % cryptoVersion
+
+  val codecVersion = "0.0.5"
+  val codecCore = "one.fluence" %% "codec-core" % codecVersion
 
   val sttpVersion = "1.5.17"
   val sttp = "com.softwaremill.sttp"            %% "core"                           % sttpVersion

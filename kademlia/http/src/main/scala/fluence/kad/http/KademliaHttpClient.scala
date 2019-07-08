@@ -27,6 +27,7 @@ import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import fluence.log.Log
 import io.circe.{Decoder, DecodingFailure}
 import io.circe.parser._
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
@@ -34,6 +35,8 @@ class KademliaHttpClient[F[_]: Effect, C](hostname: String, port: Short, auth: S
   implicit s: SttpBackend[EitherT[F, Throwable, ?], Nothing],
   readNode: Crypto.Func[String, Node[C]]
 ) extends KademliaRpc[F, C] {
+
+  private val authB64 = "fluence " + ByteVector(auth.getBytes).toBase64
 
   // TODO: do not drop cause
   private implicit val decodeNode: Decoder[Node[C]] =
@@ -45,7 +48,7 @@ class KademliaHttpClient[F[_]: Effect, C](hostname: String, port: Short, auth: S
     for {
       _ ← Log.eitherT[F, KadRpcError].trace(s"Calling Remote: $uri")
       value <- call(sttp)(uri)
-        .header(HeaderNames.Authorization, auth)
+        .header(HeaderNames.Authorization, authB64)
         .send()
         .map(_.body.leftMap(new RuntimeException(_)))
         .subflatMap(identity)
@@ -58,7 +61,7 @@ class KademliaHttpClient[F[_]: Effect, C](hostname: String, port: Short, auth: S
   /**
    * Ping the contact, get its actual Node status, or fail.
    */
-  override def ping()(implicit log: Log[F]) =
+  override def ping()(implicit log: Log[F]): EitherT[F, KadRpcError, Node[C]] =
     call[Node[C]](_.post, uri"http://$hostname:$port/kad/ping")
 
   /**
@@ -66,15 +69,17 @@ class KademliaHttpClient[F[_]: Effect, C](hostname: String, port: Short, auth: S
    *
    * @param key Key to lookup
    */
-  override def lookup(key: Key, neighbors: StatusCode)(implicit log: Log[F]) =
-    call[Seq[Node[C]]](_.post, uri"http://$hostname:$port/kad/lookup?key=${key.asBase58}&n=$neighbors")
+  override def lookup(key: Key, neighbors: StatusCode)(implicit log: Log[F]): EitherT[F, KadRpcError, Seq[Node[C]]] =
+    call[Seq[Node[C]]](_.get, uri"http://$hostname:$port/kad/lookup?key=${key.asBase58}&n=$neighbors")
 
   /**
    * Perform a local lookup for a key, return K closest known nodes, going away from the second key.
    *
    * @param key Key to lookup
    */
-  override def lookupAway(key: Key, moveAwayFrom: Key, neighbors: StatusCode)(implicit log: Log[F]) =
+  override def lookupAway(key: Key, moveAwayFrom: Key, neighbors: StatusCode)(
+    implicit log: Log[F]
+  ): EitherT[F, KadRpcError, Seq[Node[C]]] =
     call[Seq[Node[C]]](
       _.get,
       uri"http://$hostname:$port/kad/lookup?key=${key.asBase58}&n=$neighbors&awayFrom=${moveAwayFrom.asBase58}"

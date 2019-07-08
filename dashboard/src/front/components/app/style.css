@@ -41,6 +41,17 @@ html,body {
     min-width: 460px;
 }
 
+/* Fix for disappearing menu */
+@media (max-width: 767px) {
+    .main-sidebar {
+        -webkit-transform: none;
+        -ms-transform: none;
+        -o-transform: none;
+        transform: none;
+        padding-top: 100px;
+    }
+}
+
 .content-wrapper {
     flex: 1 1 auto;
     margin-left: 460px;

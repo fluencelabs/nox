@@ -29,8 +29,8 @@ use std::ptr::{self, NonNull};
 /// Result type for this module.
 pub type MemResult<T> = ::std::result::Result<T, MemError>;
 
-/// Count of bytes that length of resulted array occupies.
-pub const RESULT_SIZE_BYTES: usize = 4;
+/// Bytes count occupied by a length of resulted array.
+pub const RESPONSE_SIZE_BYTES: usize = 4;
 
 /// Allocates memory area of specified size and returns its address. Actually is just a wrapper for
 /// [`GlobalAlloc::alloc`].
@@ -61,23 +61,23 @@ pub unsafe fn dealloc(ptr: NonNull<u8>, size: NonZeroUsize) -> MemResult<()> {
     Ok(())
 }
 
-/// Allocates 'RESULT_SIZE_BYTES + result.len()' bytes and writes length of the result as little
-/// endianes RESULT_SIZE_BYTES bytes and then writes content of 'result'. So the final layout of
+/// Allocates 'RESPONSE_SIZE_BYTES + result.len()' bytes, writes length of the result as little
+/// endian RESPONSE_SIZE_BYTES bytes, and finally writes content of 'result'. So the final layout of
 /// the result in memory is following:
 /// `
-///     | array_length: RESULT_SIZE_BYTES bytes (little-endian) | array: $array_length bytes |
+///     | array_length: RESPONSE_SIZE_BYTES bytes (little-endian) | array: $array_length bytes |
 /// `
-/// This function should normally be used for returning result of `invoke` function. Vm wrapper
+/// This function should normally be used to return result of `invoke` function. Vm wrapper
 /// expects result in this format.
 ///
-pub unsafe fn write_result_to_mem(result: &[u8]) -> MemResult<NonNull<u8>> {
+pub unsafe fn write_response_to_mem(result: &[u8]) -> MemResult<NonNull<u8>> {
     let result_len = result.len();
     let total_len = result_len
-        .checked_add(RESULT_SIZE_BYTES)
+        .checked_add(RESPONSE_SIZE_BYTES)
         .ok_or_else(|| MemError::new("usize overflow occurred"))?;
 
     // converts array size to bytes in little-endian
-    let len_as_bytes: [u8; RESULT_SIZE_BYTES] = mem::transmute((result_len as u32).to_le());
+    let len_as_bytes: [u8; RESPONSE_SIZE_BYTES] = mem::transmute((result_len as u32).to_le());
 
     // allocates a new memory region for the result
     let result_ptr = alloc(NonZeroUsize::new_unchecked(total_len))?;
@@ -86,36 +86,36 @@ pub unsafe fn write_result_to_mem(result: &[u8]) -> MemResult<NonNull<u8>> {
     ptr::copy_nonoverlapping(
         len_as_bytes.as_ptr(),
         result_ptr.as_ptr(),
-        RESULT_SIZE_BYTES,
+        RESPONSE_SIZE_BYTES,
     );
 
     // copies array to memory
     ptr::copy_nonoverlapping(
         result.as_ptr(),
-        result_ptr.as_ptr().add(RESULT_SIZE_BYTES),
+        result_ptr.as_ptr().add(RESPONSE_SIZE_BYTES),
         result_len,
     );
 
     Ok(result_ptr)
 }
 
-/// Reads array of bytes from a given `ptr` that has to have `len` bytes size.
+/// Reads array of bytes from a given `ptr` that must to have `len` bytes size.
 ///
 /// # Safety
 ///
 /// The ownership of `ptr` is effectively (without additional allocation) transferred to the
 /// resulted `Vec` which can be then safely deallocated, reallocated or so on.
-/// **There have to the only one instance of `Vec` constructed from one such pointer since
-/// there aren't any memory copying.**
+/// **There have to be only one instance of `Vec` constructed from one of such pointer since
+/// there isn't any memory copied.**
 ///
-pub unsafe fn read_input_from_mem(ptr: *mut u8, len: usize) -> Vec<u8> {
+pub unsafe fn read_request_from_mem(ptr: *mut u8, len: usize) -> Vec<u8> {
     Vec::from_raw_parts(ptr, len, len)
 }
 
 /// Reads `u32` (assuming that it is given in little endianness order) from a specified pointer.
 pub unsafe fn read_len(ptr: *mut u8) -> u32 {
-    let mut len_as_bytes: [u8; RESULT_SIZE_BYTES] = [0; RESULT_SIZE_BYTES];
-    ptr::copy_nonoverlapping(ptr, len_as_bytes.as_mut_ptr(), RESULT_SIZE_BYTES);
+    let mut len_as_bytes: [u8; RESPONSE_SIZE_BYTES] = [0; RESPONSE_SIZE_BYTES];
+    ptr::copy_nonoverlapping(ptr, len_as_bytes.as_mut_ptr(), RESPONSE_SIZE_BYTES);
     mem::transmute(len_as_bytes)
 }
 
@@ -128,17 +128,17 @@ pub mod test {
         // read string length from current pointer
         let input_len = super::read_len(ptr.as_ptr()) as usize;
 
-        let total_len = RESULT_SIZE_BYTES
+        let total_len = RESPONSE_SIZE_BYTES
             .checked_add(input_len)
             .ok_or_else(|| MemError::new("usize overflow occurred"))?;
 
         // creates object from raw bytes
         let mut input = Vec::from_raw_parts(ptr.as_ptr(), total_len, total_len);
 
-        // drains RESULT_SIZE_BYTES from the beginning of created vector, it allows to effectively
+        // drains RESPONSE_SIZE_BYTES from the beginning of created vector, it allows to effectively
         // skips (without additional allocations) length of the result.
         {
-            input.drain(0..RESULT_SIZE_BYTES);
+            input.drain(0..RESPONSE_SIZE_BYTES);
         }
 
         Ok(input)
@@ -158,14 +158,14 @@ pub mod test {
         unsafe {
             let src_str = "some string Ω";
 
-            let ptr = write_result_to_mem(src_str.as_bytes()).unwrap();
+            let ptr = write_response_to_mem(src_str.as_bytes()).unwrap();
             let result_array = read_result_from_mem(ptr).unwrap();
             let result_str = String::from_utf8(result_array).unwrap();
             assert_eq!(src_str, result_str);
         }
     }
 
-    /// Creates a big string like: "Q..Q" with specified length.
+    /// Creates a big string with pattern "Q..Q" of the specified length.
     fn create_big_str(len: usize) -> String {
         unsafe { String::from_utf8_unchecked(vec!['Q' as u8; len]) }
     }
@@ -177,7 +177,7 @@ pub mod test {
 
             // writes and read 1mb string (takes several seconds)
             for _ in 1..10_000 {
-                let ptr = write_result_to_mem(mb_str.as_bytes()).unwrap();
+                let ptr = write_response_to_mem(mb_str.as_bytes()).unwrap();
                 let result_array = read_result_from_mem(ptr).unwrap();
                 let result_str = String::from_utf8(result_array).unwrap();
                 assert_eq!(mb_str, result_str);

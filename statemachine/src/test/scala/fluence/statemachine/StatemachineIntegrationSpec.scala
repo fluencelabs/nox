@@ -25,7 +25,8 @@ import com.github.jtendermint.jabci.types.{RequestCheckTx, RequestCommit, Reques
 import com.google.protobuf.ByteString
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
-import fluence.effects.tendermint.rpc.http.{TendermintHttpRpc, TendermintHttpRpcImpl}
+import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.log.{Log, LogFactory}
 import fluence.statemachine.config.{StateMachineConfig, TendermintRpcConfig}
 import fluence.statemachine.control.ControlServer.ControlServerConfig
 import fluence.statemachine.control.{ControlSignals, MockedControlSignals}
@@ -38,6 +39,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
+  implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init(getClass.getSimpleName).unsafeRunSync()
   implicit private val sttp: SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]] =
     EitherTSttpBackend[IO]()
 
@@ -82,7 +84,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
     val response = abciHandler.requestQuery(builtQuery)
     response.getCode match {
       case CodeType.OK => Right(ByteVector(response.getValue.toByteArray).toHex)
-      case _ => Left((response.getCode, response.getInfo))
+      case _           => Left((response.getCode, response.getInfo))
     }
   }
 

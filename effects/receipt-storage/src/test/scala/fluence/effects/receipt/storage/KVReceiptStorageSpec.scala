@@ -1,14 +1,13 @@
 package fluence.effects.receipt.storage
 
-import java.nio.file.{Files, Paths}
+import java.nio.file.Files
 
 import cats.effect.{ContextShift, IO, Timer}
 import fluence.effects.tendermint.block.history.Receipt
 import org.scalatest.{Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
-import cats.syntax.functor._
 import cats.syntax.apply._
-import cats.syntax.applicative._
+import fluence.log.{Log, LogFactory}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.postfixOps
@@ -16,6 +15,8 @@ import scala.language.postfixOps
 class KVReceiptStorageSpec extends WordSpec with Matchers with OptionValues {
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
+
+  implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init("KVReceiptStorageSpec").unsafeRunSync()
 
   private val appId = 123L
   private val storagePath = Files.createTempDirectory("KVReceiptStorageSpec")

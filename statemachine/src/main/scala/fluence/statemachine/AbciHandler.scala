@@ -20,20 +20,23 @@ import cats.Applicative
 import cats.effect.Effect
 import cats.effect.concurrent.Ref
 import cats.effect.syntax.effect._
+import cats.effect.Effect
 import cats.syntax.flatMap._
 import com.github.jtendermint.jabci.api._
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
+import fluence.effects.tendermint.block.TendermintBlock
+import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.log.{Log, LogFactory}
 import fluence.statemachine.control.{ControlSignals, DropPeer}
 import io.circe.Json
 
 import scala.language.higherKinds
 
-class AbciHandler[F[_]: Effect](
+class AbciHandler[F[_]: Effect: LogFactory](
   service: AbciService[F],
   controlSignals: ControlSignals[F],
-) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock
-    with slogging.LazyLogging {
+) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock {
 
   override def requestBeginBlock(
     req: RequestBeginBlock
@@ -41,7 +44,9 @@ class AbciHandler[F[_]: Effect](
 
   override def requestCheckTx(
     req: RequestCheckTx
-  ): ResponseCheckTx =
+  ): ResponseCheckTx = {
+    implicit val log: Log[F] = LogFactory[F].init("abci", "requestCheckTx").toIO.unsafeRunSync()
+
     service
       .checkTx(req.getTx.toByteArray)
       .toIO
@@ -55,10 +60,13 @@ class AbciHandler[F[_]: Effect](
             .build
       }
       .unsafeRunSync()
+  }
 
   override def receivedDeliverTx(
     req: RequestDeliverTx
-  ): ResponseDeliverTx =
+  ): ResponseDeliverTx = {
+    implicit val log: Log[F] = LogFactory[F].init("abci", "receivedDeliverTx").toIO.unsafeRunSync()
+
     service
       .deliverTx(req.getTx.toByteArray)
       .toIO
@@ -72,16 +80,20 @@ class AbciHandler[F[_]: Effect](
             .build
       }
       .unsafeRunSync()
+  }
 
   override def requestCommit(
     requestCommit: RequestCommit
-  ): ResponseCommit =
+  ): ResponseCommit = {
+    implicit val log: Log[F] = LogFactory[F].init("abci", "requestCommit").toIO.unsafeRunSync()
+
     ResponseCommit
       .newBuilder()
       .setData(
         ByteString.copyFrom(service.commit.toIO.unsafeRunSync().toArray)
       )
       .build()
+  }
 
   override def requestQuery(
     req: RequestQuery

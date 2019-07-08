@@ -25,7 +25,7 @@ import cats.effect.concurrent.MVar
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{Applicative, Monad}
+import cats.syntax.apply._
 import com.softwaremill.sttp.SttpBackend
 import fluence.effects.ipfs.IpfsClient
 import fluence.effects.receipt.storage.KVReceiptStorage
@@ -48,7 +48,7 @@ import scala.language.{higherKinds, postfixOps}
  *
  * @param history Description of how to store blocks
  */
-class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: BlockHistory[F], rootPath: Path)
+class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift: Log](history: BlockHistory[F])
     extends slogging.LazyLogging {
 
   /**
@@ -116,7 +116,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
     // TODO: maybe it is possible to avoid loading first block manually? Pass lastKnownHeight = 0, and go with it...?
     //  In other words, is there still a race condition? Or was it fixed by new algorithm in WRPC.subscribeNewBlock?
     val lastOrFirstBlock = storedReceipts.last.flatMap {
-      case None => fs2.Stream.eval(loadFirstBlock(rpc))
+      case None              => fs2.Stream.eval(loadFirstBlock(rpc))
       case Some((height, _)) => fs2.Stream.eval(loadLastBlock(height + 1, rpc)).unNone
     }
 
@@ -131,15 +131,15 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
       .evalTap(b => log.info(s"processing block ${b.header.height}"))
       .evalScan[F, Either[Chain[Receipt], (Chain[Receipt], Block)]](Left(Chain.empty)) {
         case (Left(empties), block) if emptyBlock(block) => uploadEmpty(block).map(r => Left(empties :+ r))
-        case (Left(empties), block) => F.pure((empties -> block).asRight)
-        case (Right(_), block) if emptyBlock(block) => uploadEmpty(block).map(r => Left(Chain(r)))
-        case (Right(_), block) => F.pure((Chain.empty -> block).asRight)
+        case (Left(empties), block)                      => F.pure((empties -> block).asRight)
+        case (Right(_), block) if emptyBlock(block)      => uploadEmpty(block).map(r => Left(Chain(r)))
+        case (Right(_), block)                           => F.pure((Chain.empty -> block).asRight)
       }
 
     // Receipts from the new blocks (as opposed to stored receipts)
     val newReceipts = grouped.flatMap {
       // Emit receipts for the empty blocks
-      case Left(empties) => fs2.Stream.emits(empties.toList.takeRight(1))
+      case Left(empties)           => fs2.Stream.emits(empties.toList.takeRight(1))
       case Right((empties, block)) => fs2.Stream.eval(upload(empties, block))
     }.map(_ -> ReceiptType.New)
 
@@ -191,7 +191,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
 
 object BlockUploading {
 
-  def make[F[_]: Monad: ConcurrentEffect: Timer: ContextShift: Clock](
+  def make[F[_]: Log: ConcurrentEffect: Timer: ContextShift: Clock](
     remoteStorageConfig: RemoteStorageConfig,
     rootPath: Path
   )(

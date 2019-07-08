@@ -16,7 +16,9 @@
 
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.{ExitCode, IO, IOApp}
+import fluence.log.{Log, LogFactory}
 import fluence.vm.VmError.InternalVmError
+import fluence.vm.wasm.MemoryHasher
 import fluence.vm.{VmError, WasmVm}
 
 import scala.language.higherKinds
@@ -29,12 +31,14 @@ import scala.language.higherKinds
  */
 object HelloWorldRunner extends IOApp {
 
+  private implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init("helloworld").unsafeRunSync()
+
   override def run(args: List[String]): IO[ExitCode] = {
 
     val program: EitherT[IO, VmError, String] = for {
       inputFile <- EitherT(getWasmFilePath(args).attempt)
         .leftMap(e => InternalVmError(e.getMessage, Some(e)))
-      vm ← WasmVm[IO](NonEmptyList.one(inputFile), "fluence.vm.debugger")
+      vm ← WasmVm[IO](NonEmptyList.one(inputFile), MemoryHasher[IO], "fluence.vm.debugger")
       initState ← vm.getVmState[IO]
 
       result1 ← vm.invoke[IO](None, "John".getBytes())

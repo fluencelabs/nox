@@ -24,7 +24,7 @@ import cats.data.EitherT
 import cats.effect.{Concurrent, Resource}
 import cats.effect.concurrent.MVar
 import fluence.effects.kvstore.{KVStore, KVStoreError}
-import slogging.LazyLogging
+import fluence.log.Log
 
 import scala.collection.immutable.SortedSet
 import scala.language.higherKinds
@@ -137,7 +137,7 @@ class WorkersPorts[F[_]: Monad] private (
 
 }
 
-object WorkersPorts extends LazyLogging {
+object WorkersPorts {
 
   sealed trait Error extends Throwable with NoStackTrace
 
@@ -156,16 +156,16 @@ object WorkersPorts extends LazyLogging {
    * @tparam F Concurrent for MVars
    * @return Prepared WorkersPorts instance
    */
-  def make[F[_]: Concurrent](
+  def make[F[_]: Concurrent: Log](
     minPort: Short,
     maxPort: Short,
     store: KVStore[F, Long, Short]
   ): Resource[F, WorkersPorts[F]] =
     Resource.liftF(
       for {
-        _ ← Concurrent[F].delay(logger.debug("Going to make WorkerPorts resource: getting the stream..."))
+        _ ← Log[F].debug("Going to make WorkerPorts resource: getting the stream...")
         data ← store.stream.compile.toList.map(_.toMap)
-        _ ← Concurrent[F].delay(logger.debug(s"Stream loaded to data: $data"))
+        _ ← Log[F].debug(s"Stream loaded to data: $data")
         mapping ← MVar.of(data)
         available ← MVar.of(
           SortedSet.empty[Short] ++

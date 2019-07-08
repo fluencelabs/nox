@@ -21,20 +21,21 @@ import java.nio.file.{Files, Paths}
 import cats.effect._
 import fluence.effects.docker.DockerIO
 import fluence.effects.docker.params.{DockerImage, DockerParams}
+import fluence.log.Log
 
 import scala.language.higherKinds
 
 trait DockerSetup extends OsSetup {
   protected val dockerHost: String = getOS match {
     case "linux" => ifaceIP("docker0")
-    case "mac" => "host.docker.internal"
-    case os => throw new RuntimeException(s"$os isn't supported")
+    case "mac"   => "host.docker.internal"
+    case os      => throw new RuntimeException(s"$os isn't supported")
   }
 
   protected val ethereumHost: String = getOS match {
     case "linux" => linuxHostIP.get
-    case "mac" => "host.docker.internal"
-    case os => throw new RuntimeException(s"$os isn't supported")
+    case "mac"   => "host.docker.internal"
+    case os      => throw new RuntimeException(s"$os isn't supported")
   }
 
   private def tempDirectory[F[_]: Sync]: Resource[F, String] = {
@@ -42,7 +43,7 @@ trait DockerSetup extends OsSetup {
     // https://docs.docker.com/docker-for-mac/osxfs/#namespaces
     def macOsHack(path: String): String = getOS match {
       case "mac" => path.replaceFirst("^/var/folder", "/private/var/folder")
-      case _ => path
+      case _     => path
     }
 
     Resource.make(
@@ -53,38 +54,39 @@ trait DockerSetup extends OsSetup {
     )
   }
 
-  protected def runMaster[F[_]: ContextShift: Async](
+  protected def runMaster[F[_]: ContextShift: Async: Log](
     apiPort: Short,
     name: String,
     n: Int,
     capacity: Short = 1
   ): Resource[F, String] =
     tempDirectory.flatMap { masterDir =>
-    DockerIO.make[F]().flatMap{dio ⇒
-      dio.run(
-          DockerParams
-            .build()
-            .option("-e", s"TENDERMINT_IP=$dockerHost")
-            .option("-e", s"ETHEREUM_IP=$ethereumHost")
-            .option("-e", s"MIN_PORT=${apiPort+n*1000}")
-            .option("-e", s"MAX_PORT=${apiPort+n*1000+capacity-1}")
-            .option("-e", s"REMOTE_STORAGE_ENABLED=false")
-            .port(apiPort, 5678)
-            .option("--name", name)
-            .volume(masterDir, "/master")
-            .volume("/var/run/docker.sock", "/var/run/docker.sock")
-            // statemachine expects wasm binaries in /vmcode folder
-            .volume(
-              // TODO: by defaults, user.dir in sbt points to a submodule directory while in Idea to the project root
-              System.getProperty("user.dir")
-                + "/../vm/src/it/resources/test-cases/llamadb/target/wasm32-unknown-unknown/release",
-              "/master/vmcode/vmcode-llamadb"
-            )
-            .prepared(DockerImage("fluencelabs/node", "latest"))
-            .daemonRun(),
-          20
-        )
-        .map(_.containerId)
+      DockerIO.make[F]().flatMap { dio ⇒
+        dio
+          .run(
+            DockerParams
+              .build()
+              .option("-e", s"EXTERNAL_IP=$dockerHost")
+              .option("-e", s"ETHEREUM_IP=$ethereumHost")
+              .option("-e", s"MIN_PORT=${apiPort + n * 1000}")
+              .option("-e", s"MAX_PORT=${apiPort + n * 1000 + capacity - 1}")
+              .option("-e", s"REMOTE_STORAGE_ENABLED=false")
+              .port(apiPort, 5678)
+              .option("--name", name)
+              .volume(masterDir, "/master")
+              .volume("/var/run/docker.sock", "/var/run/docker.sock")
+              // statemachine expects wasm binaries in /vmcode folder
+              .volume(
+                // TODO: by defaults, user.dir in sbt points to a submodule directory while in Idea to the project root
+                System.getProperty("user.dir")
+                  + "/../vm/src/it/resources/test-cases/llamadb/target/wasm32-unknown-unknown/release",
+                "/master/vmcode/vmcode-llamadb"
+              )
+              .prepared(DockerImage("fluencelabs/node", "latest"))
+              .daemonRun(),
+            20
+          )
+          .map(_.containerId)
       }
     }
 }

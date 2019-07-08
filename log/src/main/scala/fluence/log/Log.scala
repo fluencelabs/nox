@@ -16,7 +16,6 @@
 
 package fluence.log
 
-import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.concurrent.TimeUnit
 
@@ -57,11 +56,8 @@ abstract class Log[F[_]: Monad: Clock](val ctx: Context) {
    * @tparam A Return type
    * @return What the inner function returns
    */
-  def scope[A](modContext: Context ⇒ Context)(fn: Log[F] ⇒ F[A]): F[A] =
-    fn(new Log(modContext(ctx)) {
-      override type Appender = self.Appender
-      override val appender: Appender = self.appender
-    })
+  def scope[G[_], A](modContext: Context ⇒ Context)(fn: Log[F] ⇒ G[A]): G[A] =
+    fn(getScoped(modContext))
 
   /**
    * Provide a logger with modified context
@@ -71,7 +67,7 @@ abstract class Log[F[_]: Monad: Clock](val ctx: Context) {
    * @tparam A Return type
    * @return What the inner function returns
    */
-  def scope[A](kvs: (String, String)*)(fn: Log[F] ⇒ F[A]): F[A] =
+  def scope[G[_], A](kvs: (String, String)*)(fn: Log[F] ⇒ G[A]): G[A] =
     scope(_.scope(kvs: _*))(fn)
 
   /**
@@ -82,8 +78,35 @@ abstract class Log[F[_]: Monad: Clock](val ctx: Context) {
    * @tparam A Return type
    * @return What the inner function returns
    */
-  def scope[A](k: String)(fn: Log[F] ⇒ F[A]): F[A] =
+  def scope[G[_], A](k: String)(fn: Log[F] ⇒ G[A]): G[A] =
     scope(_.scope(k -> ""))(fn)
+
+  /**
+   * Returns an instance of Log with the same adapter and modified context
+   *
+   * @param modContext Context modification
+   */
+  def getScoped(modContext: Context ⇒ Context): Log.Aux[F, Appender] =
+    new Log(modContext(ctx)) {
+      override type Appender = self.Appender
+      override val appender: Appender = self.appender
+    }
+
+  /**
+   * Returns an instance of Log with the same adapter and modified context
+   *
+   * @param kvs Key-value pairs to modify the context
+   */
+  def getScoped(kvs: (String, String)*): Log.Aux[F, Appender] =
+    getScoped(_.scope(kvs: _*))
+
+  /**
+   * Returns an instance of Log with the same adapter and modified context
+   *
+   * @param k Key to modify the context (value will be empty)
+   */
+  def getScoped(k: String): Log.Aux[F, Appender] =
+    getScoped(k -> "")
 
   def trace(msg: ⇒ String): F[Unit] =
     if (loggingLevel <= Log.Trace) append(Log.Trace, Eval.later(msg), None) else unit
@@ -160,10 +183,8 @@ object Log {
   )(implicit log: Log[F]): Resource[F, Log[Resource[F, ?]]] =
     Resource.liftF(log.scope(modContext)(_.mapK(λ[F ~> Resource[F, ?]](f ⇒ Resource.liftF(f))).pure[F]))
 
-  private val dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
-
   case class Msg(timestamp: Long, level: Level, ctx: Context, msg: Eval[String], cause: Option[Throwable]) {
-    private def date = dateFormat.format(new Date(timestamp))
+    private def date = DateFormat.format(new Date(timestamp))
 
     override def toString: String =
       s"${Console.WHITE}$date${Console.RESET} ${level.color}${level.name}${Console.RESET} $ctx\t${msg.value}" +
@@ -176,6 +197,7 @@ object Log {
   case object Info extends Level(2, "info ", Console.BLUE)
   case object Warn extends Level(3, "warn ", Console.RED)
   case object Error extends Level(4, "error", Console.RED + Console.BOLD)
+  case object Off extends Level(43, "off", "")
 
   implicit val LevelOrder: Order[Level] =
     Order.by[Level, Int](_.flag)(Order.fromOrdering[Int])

@@ -22,6 +22,7 @@ import fluence.crypto.Crypto.Hasher
 import fluence.effects.swarm.crypto.Secp256k1Signer.Signer
 import fluence.effects.swarm.helpers.ByteVectorJsonCodec
 import fluence.effects.swarm.{SwarmConstants, SwarmError}
+import fluence.log.Log
 import io.circe.Encoder
 import scodec.bits.ByteVector
 import scodec.codecs._
@@ -42,7 +43,7 @@ import scala.language.{higherKinds, implicitConversions}
  */
 case class Signature private (signature: ByteVector)
 
-object Signature extends slogging.LazyLogging {
+object Signature {
 
   import SwarmConstants._
   import fluence.effects.swarm.helpers.AttemptOps._
@@ -61,7 +62,7 @@ object Signature extends slogging.LazyLogging {
    * @param data is the plain data byte array
    * @return digest signature
    */
-  def apply[F[_]: Monad](
+  def apply[F[_]: Monad: Log](
     period: Int,
     version: Int,
     rootAddr: RootAddr,
@@ -87,20 +88,22 @@ object Signature extends slogging.LazyLogging {
         .map(_.toByteVector)
         .toEitherT(er => SwarmError(s"Error on encoding signature. ${er.messageWithContext}"))
 
-      _ = logger.debug(
-        s"Generate signature of period: $period, " +
-          s"version: $version, " +
-          s"rootAddr: ${rootAddr.addr}," +
-          s"metaHash: ${metaHash.hash}, " +
-          s"multiHash: $multiHash, data: $data"
-      )
+      _ ← Log
+        .eitherT[F, SwarmError]
+        .debug(
+          s"Generate signature of period: $period, " +
+            s"version: $version, " +
+            s"rootAddr: ${rootAddr.addr}," +
+            s"metaHash: ${metaHash.hash}, " +
+            s"multiHash: $multiHash, data: $data"
+        )
 
       digestHash <- hasher(bytes).leftMap(er => SwarmError("Error on hashing signature.", Some(er)))
 
-      _ = logger.debug(s"Digest hash on generating signature: $digestHash")
+      _ ← Log.eitherT[F, SwarmError].debug(s"Digest hash on generating signature: $digestHash")
 
       signature <- signer(digestHash).leftMap(er => SwarmError("Error on signing.", Some(er)))
 
-      _ = logger.debug(s"Generated signature: $signature")
+      _ ← Log.eitherT[F, SwarmError].debug(s"Generated signature: $signature")
     } yield Signature(signature)
 }
