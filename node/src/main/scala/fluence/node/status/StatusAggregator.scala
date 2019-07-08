@@ -54,7 +54,7 @@ case class StatusAggregator[F[_]: Monad: Clock](
       ethState ← masterNode.nodeEth.expectedState
     } yield
       MasterStatus(
-        config.endpoints.ip.getHostName,
+        config.endpoints.ip.getHostAddress,
         currentTime - startTimeMillis,
         masterNode.nodeConfig,
         workerInfos.size,
