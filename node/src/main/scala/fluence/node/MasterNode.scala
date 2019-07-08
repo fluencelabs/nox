@@ -122,13 +122,12 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
    *
    * @param app App description
    */
-  def runAppWorker(app: eth.state.App): F[Unit] = Log[F].scope("app" -> app.id.toString) { log =>
+  def runAppWorker(app: eth.state.App): F[Unit] =
     for {
       implicit0(log: Log[F]) ← LogFactory[F].init("app", app.id.toString)
       _ ← log.info("Running worker")
       _ <- pool.run(app.id, prepareWorkerParams(app))
     } yield ()
-  }
 
   /**
    * Runs the appropriate effect for each incoming NodeEthEvent, keeping it untouched
