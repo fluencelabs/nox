@@ -26,6 +26,7 @@ import com.google.protobuf.ByteString
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
 import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.http.{TendermintHttpRpc, TendermintHttpRpcImpl}
 import fluence.log.{Log, LogFactory}
 import fluence.statemachine.config.{StateMachineConfig, TendermintRpcConfig}
 import fluence.statemachine.control.ControlServer.ControlServerConfig

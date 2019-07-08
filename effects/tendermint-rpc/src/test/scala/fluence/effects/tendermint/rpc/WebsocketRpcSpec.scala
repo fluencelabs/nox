@@ -40,8 +40,6 @@ class WebsocketRpcSpec extends WordSpec with Matchers {
 
   type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
   implicit private val sttpResource: STTP = EitherTSttpBackend[IO]()
-  implicit val logFactory: LogFactory[IO] = LogFactory.forPrintln[IO]()
-  implicit val log: Aux[IO, logFactory.Appender] = logFactory.init("WebsocketRPCSpec").unsafeRunSync()
 
   val Port: Int = 18080
 
