@@ -5,7 +5,9 @@ services:
     container_name: $NAME
     image: fluencelabs/node:$IMAGE_TAG
     environment:
-      - TENDERMINT_IP=$DOCKER_IP
+      - LOG_LEVEL=DEBUG
+      - EXTERNAL_IP=$EXTERNAL_IP
+      - API_PORT=$API_PORT
       - ETHEREUM_IP=$ETHEREUM_IP
       - SWARM_ADDRESS=$SWARM_ADDRESS
       - IPFS_ADDRESS=$IPFS_ADDRESS

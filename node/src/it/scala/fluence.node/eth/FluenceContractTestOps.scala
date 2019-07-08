@@ -19,7 +19,7 @@ package fluence.node.eth
 import cats.Monad
 import cats.effect.{LiftIO, Timer}
 import cats.syntax.functor._
-import fluence.effects.ethclient.helpers.Web3jConverters.stringToBytes32
+import fluence.effects.ethclient.helpers.Web3jConverters.{nodeAddressToBytes24, stringToBytes32}
 import fluence.effects.ethclient.syntax._
 import fluence.node.config.NodeConfig
 import fluence.node.eth.state.StorageType
@@ -30,18 +30,6 @@ import org.web3j.abi.datatypes.{Bool, DynamicArray}
 import scala.language.higherKinds
 
 object FluenceContractTestOps {
-  implicit class NodeConfigEthOps(nodeConfig: NodeConfig) {
-    import fluence.effects.ethclient.helpers.Web3jConverters.nodeAddressToBytes24
-    import nodeConfig._
-
-    /**
-     * Returns node's address information (host, Tendermint p2p key) in format ready to pass to the contract.
-     */
-    def addressBytes24: Bytes24 = nodeAddressToBytes24(endpoints.ip.getHostAddress, nodeAddress)
-
-    def isPrivateBool: Bool = new Bool(isPrivate)
-  }
-
   implicit class RichFluenceContract(fc: FluenceContract) {
     import fc.contract
 
@@ -53,14 +41,17 @@ object FluenceContractTestOps {
      * @tparam F Effect
      * @return The block number where transaction has been mined
      */
-    def addNode[F[_]: LiftIO: Timer: Monad](nodeConfig: NodeConfig, apiPort: Short, capacity: Short): F[BigInt] =
+    def addNode[F[_]: LiftIO: Timer: Monad](nodeConfig: NodeConfig,
+                                            nodeIP: String,
+                                            apiPort: Short,
+                                            capacity: Short): F[BigInt] =
       contract
         .addNode(
           nodeConfig.validatorKey.toBytes32,
-          nodeConfig.addressBytes24,
+          nodeAddressToBytes24(nodeIP, nodeConfig.nodeAddress),
           new Uint16(apiPort),
           new Uint16(capacity),
-          nodeConfig.isPrivateBool
+          new Bool(nodeConfig.isPrivate)
         )
         .callUntilSuccess[F]
         .map(_.getBlockNumber)

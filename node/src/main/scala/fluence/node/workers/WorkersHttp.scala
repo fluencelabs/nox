@@ -76,23 +76,23 @@ object WorkersHttp {
     // Routes comes there
     HttpRoutes.of {
       case GET -> Root / LongVar(appId) / "query" :? QueryPath(path) +& QueryData(data) +& QueryId(id) ⇒
-        LogFactory[F].init("http", "query") >>= { implicit log ⇒
-          log.debug(s"TendermintRpc query request. appId: $appId, path: $path, data: $data") *>
+        LogFactory[F].init("http" -> "query", "app" -> appId.toString) >>= { implicit log =>
+          log.debug(s"TendermintRpc query request. path: $path, data: $data") *>
             withTendermint(appId)(_.query(path, data.getOrElse(""), id = id.getOrElse("dontcare")))
         }
 
       case GET -> Root / LongVar(appId) / "status" ⇒
-        LogFactory[F].init("http", "status") >>= { implicit log ⇒
-          log.trace(s"TendermintRpc status. appId: $appId") *>
+        LogFactory[F].init("http" -> "status", "app" -> appId.toString) >>= { implicit log =>
+          log.trace(s"TendermintRpc status") *>
             withTendermint(appId)(_.status)
         }
 
       case GET -> Root / LongVar(appId) / "p2pPort" ⇒
-        LogFactory[F].init("http", "p2pPort") >>= { implicit log ⇒
-          log.debug(s"Worker p2pPort. appId: $appId") *>
+        LogFactory[F].init("http" -> "p2pPort", "app" -> appId.toString) >>= { implicit log =>
+          log.debug(s"Worker p2pPort") *>
             pool.get(appId).flatMap {
               case Some(worker) ⇒
-                log.debug(s"Worker p2pPort = ${worker.p2pPort}. appId: $appId") *>
+                log.debug(s"Worker p2pPort = ${worker.p2pPort}") *>
                   Ok(worker.p2pPort.toString)
 
               case None ⇒
@@ -102,7 +102,7 @@ object WorkersHttp {
         }
 
       case req @ POST -> Root / LongVar(appId) / "tx" :? QueryId(id) ⇒
-        LogFactory[F].init("http", "tx") >>= { implicit log ⇒
+        LogFactory[F].init("http" -> "tx", "app" -> appId.toString) >>= { implicit log =>
           req.decode[String] { tx ⇒
             log.scope("tx.id" -> tx) { implicit log ⇒
               log.debug(s"TendermintRpc broadcastTxSync request, id: $id")

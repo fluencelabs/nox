@@ -16,32 +16,45 @@
 
 package fluence.node
 
-import fluence.node.workers.tendermint.TendermintPrivateKey
-import io.circe.parser.decode
-import scodec.bits.ByteVector
+import cats.effect.{IO, IOApp, _}
+import cats.syntax.applicative._
+import cats.syntax.flatMap._
+import org.http4s.dsl.{Http4sDsl, _}
+import org.http4s.implicits._
+import org.http4s.server.blaze.BlazeServerBuilder
+import org.http4s.{HttpApp, HttpRoutes, Response}
 
-object SomeApp extends App {
+import scala.language.higherKinds
 
-  val a =
-    """
-      |{
-      |          "address": "C08269A8AACD53C3488F16F285821DAC77CF5DEF",
-      |          "pub_key": {
-      |            "type": "tendermint/PubKeyEd25519",
-      |            "value": "FWB5lXZ/TT2132+jXp/8aQzNwISwp9uuFz4z0TXDdxY="
-      |          },
-      |          "priv_key": {
-      |            "type": "tendermint/PrivKeyEd25519",
-      |            "value": "P6jw9q/Rytdxpv5Wxs1aYA8w82uS0x3CpmS9+GpaMGIVYHmVdn9NPbXfb6Nen/xpDM3AhLCn264XPjPRNcN3Fg=="
-      |          }
-      |        }
-      |""".stripMargin
-  val parsed = decode[TendermintPrivateKey](a).right.get
-  val keys = TendermintPrivateKey.getKeyPair(parsed).right.get
+object SomeApp extends IOApp {
 
-  val b58 = "HYAXgtDyiuLzeGR4A7j5g8gYX4Poezt845PbanxeF32H"
-  val pubKeySome = ByteVector.fromBase58Descriptive(b58).right.get
-  println(pubKeySome.toBase64)
+  override def run(args: List[String]): IO[ExitCode] = {
 
-  println(keys)
+    implicit val dsl: Http4sDsl[IO] = new Http4sDsl[IO] {}
+
+    import dsl._
+
+    object KeyQ extends QueryParamDecoderMatcher[String]("key")
+    object NeighborsQ extends OptionalQueryParamDecoderMatcher[Int]("cyka")
+
+    object PositionXParam extends QueryParamDecoderMatcher[String]("x")
+    object PositionYParam extends QueryParamDecoderMatcher[String]("y")
+    object TimestampParam extends QueryParamDecoderMatcher[String]("timestamp")
+
+    val routes = HttpRoutes.of[IO] {
+      case req @ GET -> Root / "kad" / "lookup" :? KeyQ(key) +& NeighborsQ(n) ⇒
+        Response[IO](Ok).withEntity("KAK DELA").pure[IO]
+
+      case GET -> Root / "lines" :? PositionXParam(x) +& PositionYParam(y) +& TimestampParam(time) =>
+        Response[IO](Ok).withEntity("LINES LINES LINES").pure[IO]
+    }
+
+    val app: HttpApp[IO] = routes.orNotFound
+    BlazeServerBuilder[IO]
+      .bindHttp(5678, "localhost")
+      .withHttpApp(app)
+      .resource
+      .use(_ => IO.never)
+      .map(_ => ExitCode.Success)
+  }
 }

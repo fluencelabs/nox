@@ -40,8 +40,10 @@ abstract class LogFactory[F[_]: Monad: Clock](defaultLoggingLevel: Log.Level) {
     )
 
   def init(k: String, v: String = "", level: Log.Level = defaultLoggingLevel): F[Log.Aux[F, Appender]] =
-    forCtx(Context.init(k, v, level))
+    forCtx(Context.init(k -> v)(level))
 
+  def init(kv: (String, String)*): F[Log.Aux[F, Appender]] =
+    forCtx(Context.init(kv: _*)(defaultLoggingLevel))
 }
 
 object LogFactory {
@@ -55,6 +57,8 @@ object LogFactory {
 
       override def newAppender(): F[ChainLogAppender[F]] =
         ChainLogAppender[F]()
+
+      override def toString: String = s"LogFactory.forChains($level)"
     }
 
   def forPrintln[F[_]: Clock: Sync](level: Log.Level = Log.Info): LogFactory.Aux[F, PrintlnLogAppender[F]] =
@@ -63,5 +67,7 @@ object LogFactory {
 
       override def newAppender(): F[PrintlnLogAppender[F]] =
         PrintlnLogAppender[F]()
+
+      override def toString: String = s"LogFactory.forPrintln($level)"
     }
 }

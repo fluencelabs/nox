@@ -134,7 +134,7 @@ def deploy():
 
 
             if not hasattr(env, 'image_tag'):
-                image_tag = "v0.1.6"
+                image_tag = "v0.2.0"
             else:
                 image_tag = env.image_tag
 
@@ -155,6 +155,7 @@ def deploy():
                            ETHEREUM_SERVICE="provided",
                            ETHEREUM_IP=ethereum_ip,
                            LOCAL_IPFS_ENABLED="false",
+                           LOCAL_SWARM_ENABLED="false",
                            IMAGE_TAG=image_tag):
                 run('chmod +x compose.sh')
                 # the script will return command with arguments that will register node in Fluence contract

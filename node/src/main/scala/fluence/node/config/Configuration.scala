@@ -46,7 +46,6 @@ object Configuration {
       rootPath <- IO(Paths.get(masterConfig.rootPath).toAbsolutePath).to[F]
       (nodeId, validatorKey) <- tendermintInit(masterConfig.masterContainerId, rootPath, masterConfig.tendermint)
       nodeConfig = NodeConfig(
-        masterConfig.endpoints,
         validatorKey,
         nodeId,
         masterConfig.worker,

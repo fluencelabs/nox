@@ -6,11 +6,18 @@ name := "fluence"
 
 commons
 
+// Limit all tasks parallelism to 1, to lower memory consumption on CI
+// Reason: CircleCI provides 4Gb instances, and with concurrent compilations (Scala + Rust) and tests it runs out of memory limit
+// TODO: limits should be more granular. E.g., there's no reason to limit network tasks
+Global / concurrentRestrictions := Seq(
+  Tags.limitAll(1)
+).filter(_ => sys.env.get("CI").contains("true"))
+
 onLoad in Global := (onLoad in Global).value.andThen { state ⇒
   val requiredVersion = "1.8" // Asmble works only on Java 8.
   val currentVersion = sys.props("java.specification.version")
   assert(currentVersion == requiredVersion,
-    s"Unsupported $currentVersion JDK version, please use $requiredVersion JDK version instead.")
+         s"Unsupported $currentVersion JDK version, please use $requiredVersion JDK version instead.")
 
   state
 }
@@ -45,29 +52,34 @@ lazy val `vm` = (project in file("vm"))
  * Wasm VM docker runner for easy Wasm app debugging
  */
 lazy val `frun` = (project in file("vm/frun"))
-    .settings(
-      commons,
-      libraryDependencies ++= Seq(
-        asmble,
-        cats,
-        catsEffect,
-        sttp,
-        sttpCirce,
-        sttpCatsBackend,
-        http4sDsl,
-        http4sServer,
-      ),
-      assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
-      imageNames in docker := Seq(ImageName(DockerContainers.Frun)),
-      dockerfile in docker := DockerContainers.frun(assembly.value, (resourceDirectory in Compile).value)
-    )
-    .dependsOn(`vm`, `statemachine`)
-    .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      asmble,
+      cats,
+      catsEffect,
+      sttp,
+      sttpCirce,
+      sttpCatsBackend,
+      http4sDsl,
+      http4sServer,
+    ),
+    assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
+    imageNames in docker              := Seq(ImageName(DockerContainers.Frun)),
+    dockerfile in docker              := DockerContainers.frun(assembly.value, (resourceDirectory in Compile).value)
+  )
+  .dependsOn(`vm`, `statemachine`)
+  .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
 
-lazy val `frun-rust` = project.in(frun.base / "rust").settings(
-  imageNames in docker := Seq(ImageName(DockerContainers.FrunRust)),
-  dockerfile in docker := DockerContainers.frunRust((assembly in `frun`).value, (resourceDirectory in `frun` in Compile).value)
-).dependsOn(`frun`).enablePlugins(DockerPlugin)
+lazy val `frun-rust` = project
+  .in(frun.base / "rust")
+  .settings(
+    imageNames in docker := Seq(ImageName(DockerContainers.FrunRust)),
+    dockerfile in docker := DockerContainers.frunRust((assembly in `frun`).value,
+                                                      (resourceDirectory in `frun` in Compile).value)
+  )
+  .dependsOn(`frun`)
+  .enablePlugins(DockerPlugin)
 
 lazy val `vm-counter` = (project in file("vm/src/it/resources/test-cases/counter"))
   .settings(
@@ -119,8 +131,8 @@ lazy val `statemachine-control` = (project in file("statemachine/control"))
       http4sServer,
       http4sCirce,
       scalaTest,
-      sttp % Test,
-      sttpCirce % Test,
+      sttp            % Test,
+      sttpCirce       % Test,
       sttpCatsBackend % Test
     )
   )
@@ -137,11 +149,11 @@ lazy val `statemachine` = (project in file("statemachine"))
       "com.github.jtendermint" % "jabci" % "0.26.0",
       scalaTest
     ),
-    assemblyJarName in assembly := "statemachine.jar",
+    assemblyJarName in assembly       := "statemachine.jar",
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
-    test in assembly     := {},
-    imageNames in docker := Seq(ImageName(DockerContainers.Worker)),
-    dockerfile in docker := DockerContainers.worker(assembly.value, baseDirectory.value)
+    test in assembly                  := {},
+    imageNames in docker              := Seq(ImageName(DockerContainers.Worker)),
+    dockerfile in docker              := DockerContainers.worker(assembly.value, baseDirectory.value)
   )
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
   .dependsOn(`vm`, `statemachine-control`, `tendermint-rpc`, `sttpEitherT`, `tendermint-block`)
@@ -154,7 +166,7 @@ lazy val `effects` = crossProject(JVMPlatform, JSPlatform)
     commons,
     fork in Test := false,
     libraryDependencies ++= Seq(
-      "org.typelevel"       %%% "cats-core"   % catsVersion,
+      "org.typelevel" %%% "cats-core"   % catsVersion,
       "org.typelevel" %%% "cats-effect" % catsEffectVersion
     )
   )
@@ -197,7 +209,7 @@ lazy val `swarm` = (project in file("effects/swarm"))
       sttp,
       sttpCirce,
       sttpCatsBackend % Test,
-      sttpFs2Backend % Test,
+      sttpFs2Backend  % Test,
       circeCore,
       circeGeneric,
       circeGenericExtras,
@@ -252,9 +264,9 @@ lazy val `kvstore` =
       commons,
       fork in Test := false,
       libraryDependencies ++= Seq(
-        "one.fluence" %%% "codec-core" % codecVersion,
-        "co.fs2" %%% "fs2-core" % fs2Version,
-        "org.scalatest" %%% "scalatest" % "3.0.5" % Test
+        "one.fluence"   %%% "codec-core" % codecVersion,
+        "co.fs2"        %%% "fs2-core"   % fs2Version,
+        "org.scalatest" %%% "scalatest"  % "3.0.5" % Test
       )
     )
     .jvmSettings(
@@ -288,10 +300,10 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
       fs2io,
       asyncHttpClient,
       scalaTest,
-      http4sDsl % Test,
-      http4sServer % Test,
-      sttp % Test,
-      sttpCirce % Test,
+      http4sDsl       % Test,
+      http4sServer    % Test,
+      sttp            % Test,
+      sttpCirce       % Test,
       sttpCatsBackend % Test
     )
   )
@@ -351,7 +363,8 @@ lazy val `receipt-storage` = (project in file("effects/receipt-storage"))
       catsEffect,
       scalaTest,
     )
-  ).dependsOn(`log-jvm`, `kvstore-jvm`, `tendermint-block-history`)
+  )
+  .dependsOn(`log-jvm`, `kvstore-jvm`, `tendermint-block-history`)
 
 lazy val `kademlia` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -361,12 +374,12 @@ lazy val `kademlia` = crossProject(JVMPlatform, JSPlatform)
     commons,
     kindProjector,
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core" % catsVersion,
-      "org.typelevel" %%% "cats-effect" % catsEffectVersion,
-      "one.fluence" %%% "codec-core" % codecVersion,
-      "one.fluence" %%% "crypto-hashsign" % cryptoVersion,
-      "org.typelevel" %%% "cats-testkit" % catsVersion % Test,
-      "org.scalatest" %%% "scalatest" % "3.0.5"  % Test,
+      "org.typelevel"              %%% "cats-core"                 % catsVersion,
+      "org.typelevel"              %%% "cats-effect"               % catsEffectVersion,
+      "one.fluence"                %%% "codec-core"                % codecVersion,
+      "one.fluence"                %%% "crypto-hashsign"           % cryptoVersion,
+      "org.typelevel"              %%% "cats-testkit"              % catsVersion % Test,
+      "org.scalatest"              %%% "scalatest"                 % "3.0.5" % Test,
       "com.github.alexarchambault" %%% "scalacheck-shapeless_1.13" % "1.1.8" % Test
     )
   )
@@ -390,7 +403,8 @@ lazy val `kademlia-http` = (project in file("kademlia/http"))
       http4sDsl,
       scalaTest
     )
-  ).dependsOn(`kademlia-jvm`, `kademlia-testkit` % Test)
+  )
+  .dependsOn(`kademlia-jvm`, `kademlia-testkit` % Test)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kademlia-testkit` = (project in file("kademlia/testkit"))
@@ -399,7 +413,8 @@ lazy val `kademlia-testkit` = (project in file("kademlia/testkit"))
     libraryDependencies ++= Seq(
       scalaTest
     )
-  ).dependsOn(`kademlia-jvm`)
+  )
+  .dependsOn(`kademlia-jvm`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `log` = crossProject(JVMPlatform, JSPlatform)
@@ -411,9 +426,9 @@ lazy val `log` = crossProject(JVMPlatform, JSPlatform)
     fork in Test := false,
     kindProjector,
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core" % catsVersion,
+      "org.typelevel" %%% "cats-core"   % catsVersion,
       "org.typelevel" %%% "cats-effect" % catsEffectVersion,
-      "org.scalatest" %%% "scalatest" % "3.0.5"  % Test
+      "org.scalatest" %%% "scalatest"   % "3.0.5" % Test
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
@@ -455,19 +470,19 @@ lazy val `node` = project
     assemblyJarName in assembly := "master-node.jar",
     test in assembly            := {},
     imageNames in docker        := Seq(ImageName(DockerContainers.Node)),
-    dockerfile in docker := DockerContainers.node(assembly.value, (resourceDirectory in Compile).value)
+    dockerfile in docker        := DockerContainers.node(assembly.value, (resourceDirectory in Compile).value)
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
   .dependsOn(
-    `ethclient`, 
-    `swarm`, 
-    `ipfs`, 
-    `statemachine-control`, 
+    `ethclient`,
+    `swarm`,
+    `ipfs`,
+    `statemachine-control`,
     `kvstore-jvm`,
-    `dockerio`, 
-    `tendermint-rpc`, 
-    `sttpEitherT`, 
+    `dockerio`,
+    `tendermint-rpc`,
+    `sttpEitherT`,
     `kademlia-http`,
     `kademlia-testkit` % Test
   )
