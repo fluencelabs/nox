@@ -26,14 +26,12 @@ import cats.effect.concurrent.MVar
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.syntax.apply._
 import com.softwaremill.sttp.SttpBackend
-import fluence.effects.ipfs.IpfsClient
+import fluence.effects.ipfs.{IpfsClient, IpfsUploader}
 import fluence.effects.receipt.storage.KVReceiptStorage
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
 import fluence.effects.tendermint.rpc.TendermintRpc
-import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.MakeResource
@@ -94,18 +92,6 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
 
     def emptyBlock(b: Block) = b.data.txs.forall(_.isEmpty)
 
-    /*
-     * There are 2 problems solved by `lastOrFirstBlock`:
-     *
-     * 1. If stored receipts are empty, then we're still on a 1st block
-     *    In that case, `subscribeNewBlock` might miss 1st block (it's a race), so we're load it via `loadFirstBlock`,
-     *    and send its receipt as a first one.
-     *
-     * 2. Otherwise, we already had processed some blocks
-     *    But it is possible that we had failed to upload and/or store last block. In that case,
-     *    we need to load it via `loadLastBlock(lastReceipt.height + 1)`, and send its receipt after all stored receipts
-     */
-
     // TODO: storedReceipts got calculated 4 times. How to memoize that?
     val storedReceipts =
       fs2.Stream.eval(log.info("will start loading stored receipts")) >>
@@ -113,21 +99,15 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
           .retrieve()
           .evalTap(t => log.info(s"stored receipt ${t._1}"))
 
-    // TODO: maybe it is possible to avoid loading first block manually? Pass lastKnownHeight = 0, and go with it...?
-    //  In other words, is there still a race condition? Or was it fixed by new algorithm in WRPC.subscribeNewBlock?
-    val lastOrFirstBlock = storedReceipts.last.flatMap {
-      case None              => fs2.Stream.eval(loadFirstBlock(rpc))
-      case Some((height, _)) => fs2.Stream.eval(loadLastBlock(height + 1, rpc)).unNone
-    }
-
     // Either height of the last stored receipt + 1, or the 1st block. 1st because we will load it manually.
-    val lastKnownHeight = storedReceipts.last.map(_.map(_._1 + 1).getOrElse(1L))
+    val lastKnownHeight = storedReceipts.last.map(_.map(_._1 + 1).getOrElse(0L))
 
     // Skip first block due to race condition (see details above)
     val subscriptionBlocks = lastKnownHeight >>= (rpc.subscribeNewBlock(_).dropWhile(_.header.height < 2))
 
     // Group empty blocks with the first non-empty block; upload empty blocks right away
-    val grouped = (lastOrFirstBlock ++ subscriptionBlocks)
+    // TODO: zip each block with an according vmHash, so the connection between them is more visible and straightforward
+    val grouped = subscriptionBlocks
       .evalTap(b => log.info(s"processing block ${b.header.height}"))
       .evalScan[F, Either[Chain[Receipt], (Chain[Receipt], Block)]](Left(Chain.empty)) {
         case (Left(empties), block) if emptyBlock(block) => uploadEmpty(block).map(r => Left(empties :+ r))
@@ -159,6 +139,8 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
     emptiesReceipts: Chain[Receipt] = Chain.empty,
     appId: Long,
     lastManifestReceipt: MVar[F, Option[Receipt]],
+    // TODO: pass here vmHash instead of ControlRpc - arguments should all be data (except for mvar and storage)
+    // TODO: zip each block with an according vmHash, so the connection between them is more visible and straightforward
     control: ControlRpc[F],
     receiptStorage: KVReceiptStorage[F]
   )(implicit backoff: Backoff[EffectError], log: Log[F]) =
@@ -175,31 +157,18 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
         _ <- log.debug(s"finished")
       } yield receipt
     }
-
-  private def loadFirstBlock(rpc: TendermintRpc[F])(implicit backoff: Backoff[EffectError], log: Log[F]): F[Block] =
-    backoff.retry(
-      rpc.block(1),
-      (e: RpcError) => log.error(s"load first block: $e")
-    )
-
-  private def loadLastBlock(lastSavedReceiptHeight: Long, rpc: TendermintRpc[F])(
-    implicit log: Log[F]
-  ): F[Option[Block]] =
-    // TODO: retry on all errors except 'this block doesn't exist'
-    rpc.block(lastSavedReceiptHeight).value.map(_.toOption)
 }
 
 object BlockUploading {
 
   def make[F[_]: Log: ConcurrentEffect: Timer: ContextShift: Clock](
-    remoteStorageConfig: RemoteStorageConfig,
+    ipfs: IpfsUploader[F],
     rootPath: Path
   )(
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
     backoff: Backoff[EffectError] = Backoff.default
   ): BlockUploading[F] = {
     // TODO: should I handle remoteStorageConfig.enabled = false?
-    val ipfs = new IpfsClient[F](remoteStorageConfig.ipfs.address)
     val history = new BlockHistory[F](ipfs)
     new BlockUploading[F](history, rootPath)
   }

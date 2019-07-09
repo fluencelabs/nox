@@ -19,7 +19,7 @@ package fluence.effects.tendermint.block.history
 import cats.data.EitherT
 import cats.instances.option._
 import cats.{Monad, Traverse}
-import fluence.effects.ipfs.IpfsClient
+import fluence.effects.ipfs.{IpfsClient, IpfsUploader}
 import fluence.effects.ipfs.IpfsData._
 import fluence.effects.tendermint.block.data.Block
 import fluence.log.Log
@@ -35,7 +35,7 @@ import scala.language.higherKinds
  *
  * @param ipfs Decentralized storage, currently IPFS
  */
-class BlockHistory[F[_]: Monad](ipfs: IpfsClient[F]) {
+class BlockHistory[F[_]: Monad](ipfs: IpfsUploader[F]) {
 
   /**
    * Uploads block manifest.

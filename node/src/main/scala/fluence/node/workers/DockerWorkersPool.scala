@@ -252,7 +252,7 @@ object DockerWorkersPool {
     minPort: Short,
     maxPort: Short,
     rootPath: Path,
-    remoteStorageConfig: RemoteStorageConfig
+    blockUploading: BlockUploading[F]
   )(
     implicit
     sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
@@ -261,7 +261,6 @@ object DockerWorkersPool {
     P: Parallel[F, G]
   ): Resource[F, WorkersPool[F]] =
     for {
-      blockUploading <- Resource.pure[F, BlockUploading[F]](BlockUploading.make(remoteStorageConfig, rootPath))
       ports ← makePorts(minPort, maxPort, rootPath)
       pool ← Resource.make {
         for {
