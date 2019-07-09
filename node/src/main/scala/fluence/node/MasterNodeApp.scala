@@ -28,9 +28,8 @@ import fluence.EitherTSttpBackend
 import fluence.crypto.eddsa.Ed25519
 import fluence.effects.docker.DockerIO
 import fluence.effects.ipfs.IpfsClient
+import fluence.effects.receipt.storage.KVReceiptStorage
 import fluence.kad.http.UriContact
-import fluence.log.Log.Aux
-import fluence.log.appender.PrintlnLogAppender
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
@@ -68,7 +67,7 @@ object MasterNodeApp extends IOApp {
               implicit0(dockerIO: DockerIO[IO]) <- DockerIO.make[IO]()
               conf <- Resource.liftF(Configuration.init[IO](masterConf))
               ipfsClient = new IpfsClient[IO](masterConf.remoteStorage.ipfs.address)
-              blockUploading = BlockUploading.make(ipfsClient, conf.rootPath)
+              blockUploading = BlockUploading.make(ipfsClient, appId => KVReceiptStorage.make[IO](appId, conf.rootPath))
               pool <- DockerWorkersPool.make(
                 masterConf.ports.minPort,
                 masterConf.ports.maxPort,
@@ -102,7 +101,7 @@ object MasterNodeApp extends IOApp {
               case Canceled =>
                 log.error("MasterNodeApp was canceled")
               case Error(e) =>
-                log.error("MasterNodeApp stopped with error: {}", e).map(_ => e.printStackTrace(System.err))
+                log.error("MasterNodeApp stopped with error: {}", e)
               case Completed =>
                 log.info("MasterNodeApp exited gracefully")
             }

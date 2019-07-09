@@ -43,8 +43,8 @@ trait Integration {
       .last
       .map {
         case Some(Right(_)) =>
-        case Some(Left(e)) => throw e
-        case _ => throw new RuntimeException(s"eventually timed out after $maxWait")
+        case Some(Left(e))  => throw e
+        case _              => throw new RuntimeException(s"eventually timed out after $maxWait")
       }
       .adaptError {
         case e: TestFailedException =>

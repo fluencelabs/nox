@@ -482,6 +482,8 @@ lazy val `node` = project
     `kvstore-jvm`,
     `dockerio`,
     `tendermint-rpc`,
+    `tendermint-rpc` % "test->test",
+    `tendermint-block` % "test->test",
     `sttpEitherT`,
     `receipt-storage`,
     `log-jvm`,

@@ -59,7 +59,7 @@ object KVReceiptStorage {
   implicit val longBytesCodec: PureCodec[Long, Array[Byte]] =
     PureCodec.liftB(ByteBuffer.allocate(8).putLong(_).array(), ByteBuffer.wrap(_).getLong)
 
-  def make[F[_]: Sync: LiftIO: ContextShift: Log](appId: Long, storagePath: Path): Resource[F, KVReceiptStorage[F]] =
+  def make[F[_]: Sync: LiftIO: ContextShift: Log](appId: Long, storagePath: Path): Resource[F, ReceiptStorage[F]] =
     for {
       path <- Resource.liftF(Sync[F].catchNonFatal(storagePath.resolve(ReceiptStoragePath).resolve(appId.toString)))
       store <- RocksDBStore.make[F, Long, Receipt](path.toAbsolutePath.toString)

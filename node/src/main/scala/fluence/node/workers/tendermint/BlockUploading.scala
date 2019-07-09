@@ -28,7 +28,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
 import fluence.effects.ipfs.{IpfsClient, IpfsUploader}
-import fluence.effects.receipt.storage.KVReceiptStorage
+import fluence.effects.receipt.storage.{KVReceiptStorage, ReceiptStorage}
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
 import fluence.effects.tendermint.rpc.TendermintRpc
@@ -47,7 +47,10 @@ import scala.language.{higherKinds, postfixOps}
  *
  * @param history Description of how to store blocks
  */
-class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: BlockHistory[F], rootPath: Path) {
+class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
+  history: BlockHistory[F],
+  receiptStorage: (Long) => Resource[F, ReceiptStorage[F]]
+) {
 
   /**
    * Subscribe on new blocks from tendermint and upload them one by one to the decentralized storage
@@ -61,7 +64,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
     worker: Worker[F]
   )(implicit log: Log[F], backoff: Backoff[EffectError] = Backoff.default): Resource[F, Unit] = {
     for {
-      receiptStorage <- KVReceiptStorage.make[F](worker.appId, rootPath)
+      receiptStorage <- receiptStorage(worker.appId)
       // Storage for a previous manifest
       lastManifestReceipt <- Resource.liftF(MVar.of[F, Option[Receipt]](None))
       _ <- pushReceipts(
@@ -77,7 +80,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
   private def pushReceipts(
     appId: Long,
     lastManifestReceipt: MVar[F, Option[Receipt]],
-    storage: KVReceiptStorage[F],
+    storage: ReceiptStorage[F],
     rpc: TendermintRpc[F],
     control: ControlRpc[F]
   )(implicit backoff: Backoff[EffectError], F: Applicative[F], log: Log[F]) = {
@@ -103,7 +106,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
     val lastKnownHeight = storedReceipts.last.map(_.map(_._1 + 1).getOrElse(0L))
 
     // Skip first block due to race condition (see details above)
-    val subscriptionBlocks = lastKnownHeight >>= (rpc.subscribeNewBlock(_).dropWhile(_.header.height < 2))
+    val subscriptionBlocks = lastKnownHeight >>= rpc.subscribeNewBlock
 
     // Group empty blocks with the first non-empty block; upload empty blocks right away
     // TODO: zip each block with an according vmHash, so the connection between them is more visible and straightforward
@@ -142,7 +145,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](history: Block
     // TODO: pass here vmHash instead of ControlRpc - arguments should all be data (except for mvar and storage)
     // TODO: zip each block with an according vmHash, so the connection between them is more visible and straightforward
     control: ControlRpc[F],
-    receiptStorage: KVReceiptStorage[F]
+    receiptStorage: ReceiptStorage[F]
   )(implicit backoff: Backoff[EffectError], log: Log[F]) =
     log.scope("block" -> block.header.height.toString, "upload block" -> "") { log =>
       def logError[E <: EffectError](e: E) = log.error("", e)
@@ -163,13 +166,13 @@ object BlockUploading {
 
   def make[F[_]: Log: ConcurrentEffect: Timer: ContextShift: Clock](
     ipfs: IpfsUploader[F],
-    rootPath: Path
+    receiptStorage: (Long) => Resource[F, ReceiptStorage[F]]
   )(
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
     backoff: Backoff[EffectError] = Backoff.default
   ): BlockUploading[F] = {
     // TODO: should I handle remoteStorageConfig.enabled = false?
     val history = new BlockHistory[F](ipfs)
-    new BlockUploading[F](history, rootPath)
+    new BlockUploading[F](history, receiptStorage)
   }
 }
