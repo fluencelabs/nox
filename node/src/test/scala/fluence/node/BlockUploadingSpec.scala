@@ -57,7 +57,7 @@ import scala.concurrent.duration._
 class BlockUploadingSpec extends WordSpec with Matchers with Integration {
   implicit private val timer = IO.timer(global)
   implicit private val shift = IO.contextShift(global)
-  implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec").unsafeRunSync()
+  implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec", level = Log.Info).unsafeRunSync()
   implicit private val sttp = EitherTSttpBackend[IO]()
 
   private val rmc =
@@ -78,13 +78,13 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration {
 
   val dockerIO = DockerIO.make[IO]()
 
-  case class UploadingState(uploads: Int = 0, vmHashGet: Int = 0, sendBlock: Int = 0) {
+  case class UploadingState(uploads: Int = 0, vmHashGet: Int = 0, receipts: Map[ReceiptType.Value, Int] = Map.empty) {
     def upload() = copy(uploads = uploads + 1)
     def vmHash() = copy(vmHashGet = vmHashGet + 1)
-    def send() = copy(sendBlock = sendBlock + 1)
+    def receipt(rt: ReceiptType.Value) = copy(receipts = receipts.updated(rt, receipts.getOrElse(rt, 0) + 1))
   }
 
-  def startUploading(blocks: Seq[Block]) = {
+  private def startUploading(blocks: Seq[Block] = Nil, storedReceipts: Seq[Receipt] = Nil) = {
     Resource
       .liftF(Ref.of[IO, UploadingState](UploadingState()))
       .map { state =>
@@ -97,7 +97,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration {
             override def get(height: Long): EitherT[IO, ReceiptStorageError, Option[Receipt]] = EitherT.pure(None)
 
             override def retrieve(from: Option[Long], to: Option[Long]): fs2.Stream[IO, (Long, Receipt)] =
-              fs2.Stream.empty
+              fs2.Stream.emits(storedReceipts.map(r => r.height -> r))
           })
 
         val ipfs = new IpfsUploader[IO] {
@@ -118,7 +118,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration {
 
             override def sendBlockReceipt(receipt: Receipt,
                                           rType: ReceiptType.Value): EitherT[IO, ControlRpcError, Unit] =
-              EitherT.liftF(state.update(_.send()).void)
+              EitherT.liftF(state.update(_.receipt(rType)).void)
 
             override def getVmHash: EitherT[IO, ControlRpcError, ByteVector] =
               EitherT.liftF(state.update(_.vmHash()).map(_ => ByteVector.empty))
@@ -139,24 +139,66 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration {
       }
   }
 
-  def singleBlock(height: Long) = {
+  private def singleBlock(height: Long) = {
     val blockJson =
       parse(TestData.block(height)).right.get.hcursor.downField("result").downField("data").get[Json]("value").right.get
     Block(blockJson).right.get
   }
 
+  private def uploadNBlocks(blocks: Int, storedReceipts: Int = 0) = {
+    val receipts = (1 to storedReceipts).map(h => Receipt(h, ByteVector.fromInt(h)))
+    val bs = (storedReceipts + 1 to storedReceipts + blocks).map(singleBlock(_))
+
+    startUploading(bs, receipts).use { ref =>
+      eventually[IO](
+        ref.get.map { state =>
+          state.uploads shouldBe blocks * 2
+          state.vmHashGet shouldBe blocks
+          if (storedReceipts == 0) {
+            state.receipts.get(ReceiptType.Stored) should not be defined
+            state.receipts.get(ReceiptType.LastStored) should not be defined
+          } else {
+            state.receipts.getOrElse(ReceiptType.Stored, 0) shouldBe storedReceipts - 1
+            state.receipts.getOrElse(ReceiptType.LastStored, 0) shouldBe 1
+          }
+
+          state.receipts.getOrElse(ReceiptType.New, 0) shouldBe blocks
+        },
+        period = 10.millis,
+        maxWait = 1.second
+      )
+    }.unsafeRunSync()
+  }
+
   "block uploading" should {
-    "upload single block" in {
-      startUploading(Seq(singleBlock(1L))).use { ref =>
-        eventually[IO](
-          ref.get.map { state =>
-            state.uploads shouldBe 2
-            state.vmHashGet shouldBe 1
-            state.sendBlock shouldBe 1
-          },
-          maxWait = 1.minute
-        )
-      }.unsafeRunSync()
+    "upload a single block" in {
+      uploadNBlocks(1)
+    }
+
+    "upload 10 blocks" in {
+      uploadNBlocks(10)
+    }
+
+    "upload 33 blocks" in {
+      uploadNBlocks(33)
+    }
+
+    "upload 337 blocks" in {
+      uploadNBlocks(337)
+    }
+  }
+
+  "blocks + stored receipts" should {
+    "upload 1 + 1" in {
+      uploadNBlocks(1, 1)
+    }
+
+    "upload 13 + 17" in {
+      uploadNBlocks(13, 17)
+    }
+
+    "upload 12 + 16" in {
+      uploadNBlocks(12, 16)
     }
   }
 }
