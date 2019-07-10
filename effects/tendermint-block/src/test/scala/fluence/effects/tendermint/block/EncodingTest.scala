@@ -358,7 +358,7 @@ class EncodingTest extends FunSpec with Matchers with OptionValues {
   }
 
   describe("amino block with data = null") {
-    val blockEmpty = Block(TestData.blockDataNullResponse).right.get
+    val blockEmpty = Block(TestData.blockWithNullTxsResponse).right.get
 
     it("encode data") {
       val simpleBytes = Protobuf.encode(ProtobufConverter.toProtobuf(blockEmpty.data))

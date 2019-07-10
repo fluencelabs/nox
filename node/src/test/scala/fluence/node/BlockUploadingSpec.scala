@@ -33,7 +33,9 @@ import fluence.effects.receipt.storage.{ReceiptStorage, ReceiptStorageError}
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.effects.tendermint.rpc.websocket.TestTendermintRpc
-import fluence.effects.tendermint.rpc.{TendermintRpc, TestData}
+import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc
+import fluence.effects.tendermint.block
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
@@ -80,12 +82,17 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
 
   case class UploadingState(uploads: Int = 0,
                             vmHashGet: Int = 0,
-                            receipts: Map[ReceiptType.Value, Int] = Map.empty,
+                            receipts: Seq[(Receipt, ReceiptType.Value)] = Nil,
                             lastKnownHeight: Option[Long] = None) {
     def upload() = copy(uploads = uploads + 1)
     def vmHash() = copy(vmHashGet = vmHashGet + 1)
-    def receipt(rt: ReceiptType.Value) = copy(receipts = receipts.updated(rt, receipts.getOrElse(rt, 0) + 1))
+
+    def receipt(receipt: Receipt, rt: ReceiptType.Value) =
+      copy(receipts = receipts :+ (receipt, rt))
+
     def subscribe(lastKnownHeight: Long) = copy(lastKnownHeight = Some(lastKnownHeight))
+
+    def receiptTypes: Map[ReceiptType.Value, Int] = receipts.groupBy(_._2).mapValues(_.length)
   }
 
   private def startUploading(blocks: Seq[Block] = Nil, storedReceipts: Seq[Receipt] = Nil) = {
@@ -97,9 +104,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
             override val appId: Long = id
 
             override def put(height: Long, receipt: Receipt): EitherT[IO, ReceiptStorageError, Unit] = EitherT.pure(())
-
             override def get(height: Long): EitherT[IO, ReceiptStorageError, Option[Receipt]] = EitherT.pure(None)
-
             override def retrieve(from: Option[Long], to: Option[Long]): fs2.Stream[IO, (Long, Receipt)] =
               fs2.Stream.emits(storedReceipts.map(r => r.height -> r))
           })
@@ -116,14 +121,13 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
               lastKnownHeight: Long
             )(implicit log: Log[IO], backoff: Backoff[EffectError]): fs2.Stream[IO, Block] =
               fs2.Stream.eval(state.update(_.subscribe(lastKnownHeight))) >> fs2.Stream.emits(blocks)
-
           }
 
           override def control: ControlRpc[IO] = new TestControlRpc[IO] {
 
             override def sendBlockReceipt(receipt: Receipt,
                                           rType: ReceiptType.Value): EitherT[IO, ControlRpcError, Unit] =
-              EitherT.liftF(state.update(_.receipt(rType)).void)
+              EitherT.liftF(state.update(_.receipt(receipt, rType)).void)
 
             override def getVmHash: EitherT[IO, ControlRpcError, ByteVector] =
               EitherT.liftF(state.update(_.vmHash()).map(_ => ByteVector.empty))
@@ -146,8 +150,32 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
 
   private def singleBlock(height: Long) = {
     val blockJson =
-      parse(TestData.block(height)).right.get.hcursor.downField("result").downField("data").get[Json]("value").right.get
+      parse(rpc.TestData.block(height)).right.get.hcursor
+        .downField("result")
+        .downField("data")
+        .get[Json]("value")
+        .right
+        .get
     Block(blockJson).right.get
+  }
+
+  private def emptyBlock(height: Long) = Block(block.TestData.blockWithNullTxsResponse(height)).right.get
+
+  private def checkUploadState(state: UploadingState, blocks: Int, storedReceipts: Int) = {
+    // For each block, we first upload txs, then upload the manifest, so 2 uploads for a block
+    state.uploads shouldBe blocks * 2
+    state.vmHashGet shouldBe blocks
+    if (storedReceipts == 0) {
+      state.lastKnownHeight.value shouldBe 0L
+      state.receiptTypes.get(ReceiptType.Stored) should not be defined
+      state.receiptTypes.get(ReceiptType.LastStored) should not be defined
+    } else {
+      state.lastKnownHeight.value shouldBe storedReceipts
+      state.receiptTypes.getOrElse(ReceiptType.Stored, 0) shouldBe storedReceipts - 1
+      state.receiptTypes.getOrElse(ReceiptType.LastStored, 0) shouldBe 1
+    }
+
+    state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe blocks
   }
 
   private def uploadNBlocks(blocks: Int, storedReceipts: Int = 0) = {
@@ -157,24 +185,29 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
     startUploading(bs, receipts).use { ref =>
       eventually[IO](
         ref.get.map { state =>
-          state.uploads shouldBe blocks * 2
-          state.vmHashGet shouldBe blocks
-          if (storedReceipts == 0) {
-            state.lastKnownHeight.value shouldBe 0L
-            state.receipts.get(ReceiptType.Stored) should not be defined
-            state.receipts.get(ReceiptType.LastStored) should not be defined
-          } else {
-            state.lastKnownHeight.value shouldBe storedReceipts
-            state.receipts.getOrElse(ReceiptType.Stored, 0) shouldBe storedReceipts - 1
-            state.receipts.getOrElse(ReceiptType.LastStored, 0) shouldBe 1
-          }
-
-          state.receipts.getOrElse(ReceiptType.New, 0) shouldBe blocks
+          checkUploadState(state, blocks, storedReceipts)
         },
         period = 10.millis,
         maxWait = 1.second
       )
     }.unsafeRunSync()
+  }
+
+  private def uploadBlockWithEmpties(blocks: Int, emptyBlocks: Int) = {
+    val empties = (1 to emptyBlocks).map(emptyBlock(_))
+    val bs = (emptyBlocks + 1 to emptyBlocks + blocks).map(singleBlock(_))
+
+    startUploading(empties ++ bs).use { ref =>
+      eventually[IO](
+        ref.get.map { state =>
+          checkUploadState(state, blocks + emptyBlocks, 0)
+
+        }
+      )
+    }
+
+    // TODO: check uploaded BlockManifest content, it should contain empty blocks
+    // TODO: interleave empty blocks with non-empty
   }
 
   "block uploading" should {
