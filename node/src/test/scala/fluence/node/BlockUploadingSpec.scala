@@ -47,14 +47,14 @@ import fluence.node.workers.{Worker, WorkerParams, WorkerServices}
 import fluence.statemachine.control.ReceiptType
 import io.circe.Json
 import io.circe.parser.parse
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
 
 import scala.compat.Platform.currentTime
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
-class BlockUploadingSpec extends WordSpec with Matchers with Integration {
+class BlockUploadingSpec extends WordSpec with Matchers with Integration with OptionValues {
   implicit private val timer = IO.timer(global)
   implicit private val shift = IO.contextShift(global)
   implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec", level = Log.Info).unsafeRunSync()
@@ -78,10 +78,14 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration {
 
   val dockerIO = DockerIO.make[IO]()
 
-  case class UploadingState(uploads: Int = 0, vmHashGet: Int = 0, receipts: Map[ReceiptType.Value, Int] = Map.empty) {
+  case class UploadingState(uploads: Int = 0,
+                            vmHashGet: Int = 0,
+                            receipts: Map[ReceiptType.Value, Int] = Map.empty,
+                            lastKnownHeight: Option[Long] = None) {
     def upload() = copy(uploads = uploads + 1)
     def vmHash() = copy(vmHashGet = vmHashGet + 1)
     def receipt(rt: ReceiptType.Value) = copy(receipts = receipts.updated(rt, receipts.getOrElse(rt, 0) + 1))
+    def subscribe(lastKnownHeight: Long) = copy(lastKnownHeight = Some(lastKnownHeight))
   }
 
   private def startUploading(blocks: Seq[Block] = Nil, storedReceipts: Seq[Receipt] = Nil) = {
@@ -111,7 +115,8 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration {
             override def subscribeNewBlock(
               lastKnownHeight: Long
             )(implicit log: Log[IO], backoff: Backoff[EffectError]): fs2.Stream[IO, Block] =
-              fs2.Stream.emits(blocks)
+              fs2.Stream.eval(state.update(_.subscribe(lastKnownHeight))) >> fs2.Stream.emits(blocks)
+
           }
 
           override def control: ControlRpc[IO] = new TestControlRpc[IO] {
@@ -155,9 +160,11 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration {
           state.uploads shouldBe blocks * 2
           state.vmHashGet shouldBe blocks
           if (storedReceipts == 0) {
+            state.lastKnownHeight.value shouldBe 0L
             state.receipts.get(ReceiptType.Stored) should not be defined
             state.receipts.get(ReceiptType.LastStored) should not be defined
           } else {
+            state.lastKnownHeight.value shouldBe storedReceipts
             state.receipts.getOrElse(ReceiptType.Stored, 0) shouldBe storedReceipts - 1
             state.receipts.getOrElse(ReceiptType.LastStored, 0) shouldBe 1
           }

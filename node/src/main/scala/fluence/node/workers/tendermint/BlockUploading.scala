@@ -102,8 +102,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
           .retrieve()
           .evalTap(t => log.info(s"stored receipt ${t._1}"))
 
-    // Either height of the last stored receipt + 1, or the 1st block. 1st because we will load it manually.
-    val lastKnownHeight = storedReceipts.last.map(_.map(_._1 + 1).getOrElse(0L))
+    val lastKnownHeight = storedReceipts.last.map(_.map(_._1).getOrElse(0L))
 
     // Skip first block due to race condition (see details above)
     val subscriptionBlocks = lastKnownHeight >>= rpc.subscribeNewBlock
