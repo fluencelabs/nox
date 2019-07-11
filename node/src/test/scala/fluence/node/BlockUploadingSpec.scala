@@ -21,9 +21,8 @@ import java.nio.file.Paths
 
 import cats.data.EitherT
 import cats.effect.concurrent.Ref
-import cats.syntax.functor._
 import cats.effect.{IO, Resource}
-import com.softwaremill.sttp._
+import cats.syntax.functor._
 import fluence.EitherTSttpBackend
 import fluence.effects.castore.StoreError
 import fluence.effects.docker.DockerIO
@@ -32,14 +31,12 @@ import fluence.effects.ipfs.{IpfsData, IpfsUploader}
 import fluence.effects.receipt.storage.{ReceiptStorage, ReceiptStorageError}
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockManifest, Receipt}
-import fluence.effects.tendermint.rpc.websocket.TestTendermintRpc
+import fluence.effects.tendermint.{block, rpc}
 import fluence.effects.tendermint.rpc.TendermintRpc
-import fluence.effects.tendermint.rpc
-import fluence.effects.tendermint.block
+import fluence.effects.tendermint.rpc.websocket.TestTendermintRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
-import fluence.node.config.storage.{IpfsConfig, RemoteStorageConfig, SwarmConfig}
 import fluence.node.eth.state._
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 import fluence.node.workers.status.WorkerStatus
@@ -62,8 +59,6 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
   implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec", level = Log.Warn).unsafeRunSync()
   implicit private val sttp = EitherTSttpBackend[IO]()
 
-  private val rmc =
-    RemoteStorageConfig(true, SwarmConfig(uri"http://swarmhost:11234"), IpfsConfig(uri"http://ipfshost:44321"))
   private val rootPath = Paths.get("/tmp")
 
   val appId = 1L
@@ -106,6 +101,9 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
     def receiptTypes: Map[ReceiptType.Value, Int] = receipts.groupBy(_._2).mapValues(_.length)
   }
 
+  /**
+   * Starts BlockUploading for a given sequence on blocks and a given sequence of storedReceipts
+   */
   private def startUploading(blocks: Seq[Block] = Nil, storedReceipts: Seq[Receipt] = Nil) = {
     Resource
       .liftF(Ref.of[IO, UploadingState](UploadingState()))
@@ -189,6 +187,9 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
     state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe blocks
   }
 
+  /**
+   * Simulates a situation where there is a given number of stored receipts followed by non-empty blocks
+   */
   private def uploadNBlocks(blocks: Int, storedReceipts: Int = 0) = {
     val receipts = (1 to storedReceipts).map(h => Receipt(h, ByteVector.fromInt(h)))
     val bs = (storedReceipts + 1 to storedReceipts + blocks).map(singleBlock(_))
@@ -204,6 +205,11 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
     }.unsafeRunSync()
   }
 
+  /**
+   * Generates and uploads a sequence of blocks starting with a number of empty blocks followed by non-empty blocks
+   * @param blocks Number of non-empty blocks
+   * @param emptyBlocks Number of empty-blocks
+   */
   private def uploadBlockWithEmpties(blocks: Int, emptyBlocks: Int) = {
     val empties = (1 to emptyBlocks).map(emptyBlock(_))
     val bs = (emptyBlocks + 1 to emptyBlocks + blocks).map(singleBlock(_))
@@ -225,12 +231,10 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
         }
       )
     }.unsafeRunSync()
-
-    // TODO: interleave empty blocks with non-empty
   }
 
   /**
-   * Generates sequence of empty and non-empty blocks in which for each non-empty blocks there are number of emptyBlocks
+   * Generates and uploads a sequence of empty and non-empty blocks in which for each non-empty blocks there are number of emptyBlocks
    * @param blocks How much non-empty blocks there should be in the sequence
    * @param emptyBlocks Number of empty blocks before each non-empty block
    */
