@@ -286,6 +286,8 @@ object TestData {
       |}
     """.stripMargin
 
+  val blockNullTxsResponse = blockWithNullTxsResponse(19L)
+
   def blockWithNullTxsResponse(height: Long) =
     s"""
        |{

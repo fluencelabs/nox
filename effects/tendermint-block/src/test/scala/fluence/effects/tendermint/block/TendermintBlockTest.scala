@@ -27,7 +27,7 @@ class TendermintBlockTest extends FunSpec with Matchers with OptionValues with E
   }
 
   it("verify block response where data.txs = null") {
-    val block = TendermintBlock(TestData.blockWithNullTxsResponse).right.value
+    val block = TendermintBlock(TestData.blockNullTxsResponse).right.value
     val valid = block.validateHashes()
     valid.isRight shouldBe true
   }

@@ -31,7 +31,7 @@ import fluence.effects.docker.params.{DockerImage, DockerLimits}
 import fluence.effects.ipfs.{IpfsData, IpfsUploader}
 import fluence.effects.receipt.storage.{ReceiptStorage, ReceiptStorageError}
 import fluence.effects.tendermint.block.data.Block
-import fluence.effects.tendermint.block.history.Receipt
+import fluence.effects.tendermint.block.history.{BlockManifest, Receipt}
 import fluence.effects.tendermint.rpc.websocket.TestTendermintRpc
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc
@@ -59,7 +59,7 @@ import scala.concurrent.duration._
 class BlockUploadingSpec extends WordSpec with Matchers with Integration with OptionValues {
   implicit private val timer = IO.timer(global)
   implicit private val shift = IO.contextShift(global)
-  implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec", level = Log.Info).unsafeRunSync()
+  implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec", level = Log.Warn).unsafeRunSync()
   implicit private val sttp = EitherTSttpBackend[IO]()
 
   private val rmc =
@@ -83,8 +83,19 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
   case class UploadingState(uploads: Int = 0,
                             vmHashGet: Int = 0,
                             receipts: Seq[(Receipt, ReceiptType.Value)] = Nil,
-                            lastKnownHeight: Option[Long] = None) {
-    def upload() = copy(uploads = uploads + 1)
+                            lastKnownHeight: Option[Long] = None,
+                            blockManifests: Seq[BlockManifest] = Nil) {
+
+    def upload[A: IpfsData](data: A) = {
+      data match {
+        case d: ByteVector =>
+          val manifests = BlockManifest.fromBytes(d).fold(_ => blockManifests, blockManifests :+ _)
+          copy(uploads = uploads + 1, blockManifests = manifests)
+        case _ =>
+          copy(uploads = uploads + 1)
+      }
+    }
+
     def vmHash() = copy(vmHashGet = vmHashGet + 1)
 
     def receipt(receipt: Receipt, rt: ReceiptType.Value) =
@@ -111,7 +122,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
 
         val ipfs = new IpfsUploader[IO] {
           override def upload[A: IpfsData](data: A)(implicit log: Log[IO]): EitherT[IO, StoreError, ByteVector] = {
-            EitherT.liftF(state.update(_.upload()).map(_ => ByteVector.empty))
+            EitherT.liftF(state.update(_.upload(data)).map(_ => ByteVector.empty))
           }
         }
 
@@ -200,11 +211,20 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
     startUploading(empties ++ bs).use { ref =>
       eventually[IO](
         ref.get.map { state =>
-          checkUploadState(state, blocks + emptyBlocks, 0)
+//          checkUploadState(state, blocks + emptyBlocks, 0)
 
+          state.uploads shouldBe (blocks * 2 + emptyBlocks)
+          state.vmHashGet shouldBe blocks + emptyBlocks
+          state.lastKnownHeight.value shouldBe 0L
+          state.receiptTypes.get(ReceiptType.Stored) should not be defined
+          state.receiptTypes.get(ReceiptType.LastStored) should not be defined
+          state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe (blocks + emptyBlocks)
+
+          state.blockManifests.length shouldBe blocks
+          state.blockManifests.head.emptyBlocksReceipts.length shouldBe emptyBlocks
         }
       )
-    }
+    }.unsafeRunSync()
 
     // TODO: check uploaded BlockManifest content, it should contain empty blocks
     // TODO: interleave empty blocks with non-empty
@@ -239,6 +259,12 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
 
     "upload 12 + 16" in {
       uploadNBlocks(12, 16)
+    }
+  }
+
+  "empty blocks" should {
+    "be uploaded with an non-empty block" in {
+      uploadBlockWithEmpties(10, 10)
     }
   }
 }

@@ -16,17 +16,8 @@
 
 package fluence.effects.tendermint.block.data
 
-import io.circe.generic.extras.semiauto.{deriveDecoder, deriveEncoder}
-import io.circe.{Decoder, Encoder}
 import proto3.tendermint.BlockID
 import scodec.bits.ByteVector
-
-private[block] object Header {
-  import JsonCodecs._
-
-  implicit final val headerDecoder: Decoder[Header] = deriveDecoder[Header]
-  implicit final val headerEncoder: Encoder[Header] = deriveEncoder[Header]
-}
 
 /**
  * Scala representation of Tendermint's block header

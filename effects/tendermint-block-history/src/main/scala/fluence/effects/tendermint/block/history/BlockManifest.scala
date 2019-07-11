@@ -16,13 +16,16 @@
 
 package fluence.effects.tendermint.block.history
 
+import java.nio.charset.Charset
+
 import fluence.effects.tendermint.block.data.Header
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import proto3.tendermint.Vote
 import scodec.bits.ByteVector
 import fluence.effects.tendermint.block.history.helpers.ByteVectorJsonCodec
-import fluence.effects.tendermint.block.data.JsonCodecs
+import fluence.effects.tendermint.block.data.ReencodingJsonCodecs
+import io.circe.Decoder.Result
 
 /**
  * Manifest of the block, as described in Fluence paper
@@ -51,9 +54,31 @@ case class BlockManifest(
 
 object BlockManifest {
   import ByteVectorJsonCodec._
-  import JsonCodecs.{messageEncoder, voteDecoder}
-  import Header.{headerDecoder, headerEncoder}
+  import fluence.effects.tendermint.block.data.SimpleJsonCodecs.{messageEncoder, voteDecoder}
 
   implicit val dec: Decoder[BlockManifest] = deriveDecoder[BlockManifest]
   implicit val enc: Encoder[BlockManifest] = deriveEncoder[BlockManifest]
+
+  def fromBytes(bytes: ByteVector): Either[Exception, BlockManifest] = {
+    import io.circe.parser._
+
+    try {
+      bytes
+        .decodeString(Charset.defaultCharset())
+        .flatMap { str =>
+          println(s"decoded str: $str")
+          parse(str)
+        }
+        .flatMap(_.as[BlockManifest])
+        .left
+        .map { e =>
+          println(s"unable to decode manifest: $e")
+          e
+        }
+    } catch {
+      case e: Exception =>
+        println(s"blockmanifest error: $e")
+        Left(e)
+    }
+  }
 }
