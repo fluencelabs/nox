@@ -81,14 +81,12 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
                             lastKnownHeight: Option[Long] = None,
                             blockManifests: Seq[BlockManifest] = Nil) {
 
-    def upload[A: IpfsData](data: A) = {
-      data match {
-        case d: ByteVector =>
-          val manifests = BlockManifest.fromBytes(d).fold(_ => blockManifests, blockManifests :+ _)
-          copy(uploads = uploads + 1, blockManifests = manifests)
-        case _ =>
-          copy(uploads = uploads + 1)
-      }
+    def upload[A: IpfsData](data: A) = data match {
+      case d: ByteVector =>
+        val manifests = BlockManifest.fromBytes(d).fold(_ => blockManifests, blockManifests :+ _)
+        copy(uploads = uploads + 1, blockManifests = manifests)
+      case _ =>
+        copy(uploads = uploads + 1)
     }
 
     def vmHash() = copy(vmHashGet = vmHashGet + 1)
