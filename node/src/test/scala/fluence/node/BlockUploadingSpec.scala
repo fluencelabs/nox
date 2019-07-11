@@ -211,16 +211,14 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
     startUploading(empties ++ bs).use { ref =>
       eventually[IO](
         ref.get.map { state =>
-//          checkUploadState(state, blocks + emptyBlocks, 0)
-
-          state.uploads shouldBe (blocks * 2 + emptyBlocks)
+          state.uploads shouldBe blocks * 2 + emptyBlocks
           state.vmHashGet shouldBe blocks + emptyBlocks
           state.lastKnownHeight.value shouldBe 0L
           state.receiptTypes.get(ReceiptType.Stored) should not be defined
           state.receiptTypes.get(ReceiptType.LastStored) should not be defined
-          state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe (blocks + emptyBlocks)
+          state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe blocks + emptyBlocks
 
-          state.blockManifests.length shouldBe (blocks + emptyBlocks)
+          state.blockManifests.length shouldBe blocks + emptyBlocks
           state.blockManifests.count(_.txsReceipt.isDefined) shouldBe blocks
           state.blockManifests.count(_.txsReceipt.isEmpty) shouldBe emptyBlocks
           state.blockManifests.find(_.txsReceipt.isDefined).value.emptyBlocksReceipts.length shouldBe emptyBlocks
@@ -228,8 +226,42 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
       )
     }.unsafeRunSync()
 
-    // TODO: check uploaded BlockManifest content, it should contain empty blocks
     // TODO: interleave empty blocks with non-empty
+  }
+
+  /**
+   * Generates sequence of empty and non-empty blocks in which for each non-empty blocks there are number of emptyBlocks
+   * @param blocks How much non-empty blocks there should be in the sequence
+   * @param emptyBlocks Number of empty blocks before each non-empty block
+   */
+  private def uploadBlocksWithEmptiesInterleaved(blocks: Int, emptyBlocks: Int) = {
+    val emptyBlocksTotal = blocks * emptyBlocks
+    val blocksTotal = emptyBlocksTotal + blocks
+
+    val bs = (1 to blocksTotal).map { h =>
+      // insert `emptyBlocks` empty blocks before each non-empty block
+      if (h % (emptyBlocks + 1) == 0) singleBlock(h)
+      else emptyBlock(h)
+    }
+
+    startUploading(bs).use { ref =>
+      eventually[IO](
+        ref.get.map { state =>
+          state.uploads shouldBe (blocks * 2 + emptyBlocksTotal)
+          state.vmHashGet shouldBe blocksTotal
+          state.lastKnownHeight.value shouldBe 0L
+          state.receiptTypes.get(ReceiptType.Stored) should not be defined
+          state.receiptTypes.get(ReceiptType.LastStored) should not be defined
+          state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe blocksTotal
+
+          state.blockManifests.length shouldBe blocksTotal
+          state.blockManifests.count(_.txsReceipt.isDefined) shouldBe blocks
+          state.blockManifests.count(_.txsReceipt.isEmpty) shouldBe emptyBlocksTotal
+
+          state.blockManifests.filter(_.txsReceipt.isDefined).foreach(_.emptyBlocksReceipts.length shouldBe emptyBlocks)
+        }
+      )
+    }.unsafeRunSync()
   }
 
   "block uploading" should {
@@ -251,8 +283,8 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
   }
 
   "blocks + stored receipts" should {
-    "upload 1 + 1" in {
-      uploadNBlocks(1, 1)
+    "upload 1 + 2" in {
+      uploadNBlocks(1, 2)
     }
 
     "upload 13 + 17" in {
@@ -265,8 +297,34 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
   }
 
   "empty blocks" should {
-    "be uploaded with an non-empty block" in {
-      uploadBlockWithEmpties(10, 10)
+    "be uploaded with an non-empty block (10 + 9)" in {
+      uploadBlockWithEmpties(10, 9)
+    }
+
+    "1 + 2" in {
+      uploadBlockWithEmpties(1, 2)
+    }
+
+    "13 + 17" in {
+      uploadBlockWithEmpties(13, 17)
+    }
+
+    "12 + 16" in {
+      uploadBlockWithEmpties(12, 16)
+    }
+  }
+
+  "empty blocks interleaved" should {
+    "be uploaded with non-empty blocks" in {
+      uploadBlocksWithEmptiesInterleaved(10, 2)
+    }
+
+    "9 blocks with 3 empties before each" in {
+      uploadBlocksWithEmptiesInterleaved(9, 3)
+    }
+
+    "33 blocks with 5 empties before each" in {
+      uploadBlocksWithEmptiesInterleaved(33, 5)
     }
   }
 }
