@@ -220,8 +220,10 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
           state.receiptTypes.get(ReceiptType.LastStored) should not be defined
           state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe (blocks + emptyBlocks)
 
-          state.blockManifests.length shouldBe blocks
-          state.blockManifests.head.emptyBlocksReceipts.length shouldBe emptyBlocks
+          state.blockManifests.length shouldBe (blocks + emptyBlocks)
+          state.blockManifests.count(_.txsReceipt.isDefined) shouldBe blocks
+          state.blockManifests.count(_.txsReceipt.isEmpty) shouldBe emptyBlocks
+          state.blockManifests.find(_.txsReceipt.isDefined).value.emptyBlocksReceipts.length shouldBe emptyBlocks
         }
       )
     }.unsafeRunSync()

@@ -38,9 +38,15 @@ object SimpleJsonCodecs {
     implicit def messageEncoder[A <: GeneratedMessage]: Encoder[A] = Encoder.instance(JsonFormat.toJson)
 
     implicit final val byteVectorEncoder: Encoder[ByteVector] = Encoder.encodeString.contramap(_.toHex)
-    implicit final val headerEncoder: Encoder[Header] = deriveEncoder[Header]
+
+    implicit final val base64ByteVectorEncoder: Encoder[Base64ByteVector] = byteVectorEncoder.contramap(_.bv)
 
     implicit final val lastCommitEncoder: Encoder[LastCommit] = deriveEncoder
+
+    implicit final val dataEncoder: Encoder[Data] = deriveEncoder
+
+    implicit final val headerEncoder: Encoder[Header] = deriveEncoder[Header]
+
     implicit final val blockEncoder: Encoder[Block] = deriveEncoder
   }
 

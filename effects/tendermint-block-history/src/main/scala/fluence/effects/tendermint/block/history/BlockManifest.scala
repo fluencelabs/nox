@@ -53,8 +53,12 @@ case class BlockManifest(
 }
 
 object BlockManifest {
-  import ByteVectorJsonCodec._
-  import fluence.effects.tendermint.block.data.SimpleJsonCodecs.{messageEncoder, voteDecoder}
+  import fluence.effects.tendermint.block.data.SimpleJsonCodecs.Encoders.{
+    byteVectorEncoder,
+    headerEncoder,
+    messageEncoder
+  }
+  import fluence.effects.tendermint.block.data.SimpleJsonCodecs.Decoders.{byteVectorDecoder, headerDecoder, voteDecoder}
 
   implicit val dec: Decoder[BlockManifest] = deriveDecoder[BlockManifest]
   implicit val enc: Encoder[BlockManifest] = deriveEncoder[BlockManifest]
@@ -65,20 +69,10 @@ object BlockManifest {
     try {
       bytes
         .decodeString(Charset.defaultCharset())
-        .flatMap { str =>
-          println(s"decoded str: $str")
-          parse(str)
-        }
+        .flatMap(parse)
         .flatMap(_.as[BlockManifest])
-        .left
-        .map { e =>
-          println(s"unable to decode manifest: $e")
-          e
-        }
     } catch {
-      case e: Exception =>
-        println(s"blockmanifest error: $e")
-        Left(e)
+      case e: Exception => Left(e)
     }
   }
 }
