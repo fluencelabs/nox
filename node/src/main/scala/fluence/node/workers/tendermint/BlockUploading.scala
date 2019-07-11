@@ -17,30 +17,35 @@
 package fluence.node.workers.tendermint
 
 import java.nio.ByteBuffer
-import java.nio.file.Path
 
-import cats.Applicative
 import cats.data.{Chain, EitherT}
 import cats.effect._
 import cats.effect.concurrent.MVar
+import cats.instances.list._
+import cats.syntax.applicative._
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.{Applicative, Traverse}
 import com.softwaremill.sttp.SttpBackend
-import fluence.effects.ipfs.{IpfsClient, IpfsUploader}
-import fluence.effects.receipt.storage.{KVReceiptStorage, ReceiptStorage}
+import fluence.effects.ipfs.IpfsUploader
+import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.MakeResource
-import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.workers.Worker
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 import fluence.statemachine.control.ReceiptType
+import scodec.bits.ByteVector
 
 import scala.language.{higherKinds, postfixOps}
+
+private[tendermint] case class BlockUpload(block: Block,
+                                           vmHash: ByteVector,
+                                           emptyBlocks: Option[Chain[BlockUpload]] = None)
 
 /**
  * Implements continuous uploading process of Tendermint's blocks
@@ -84,9 +89,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
     rpc: TendermintRpc[F],
     control: ControlRpc[F]
   )(implicit backoff: Backoff[EffectError], F: Applicative[F], log: Log[F]) = {
-    def upload(empties: Chain[Receipt], block: Block) =
-      uploadBlock(block, empties, appId, lastManifestReceipt, control, storage)
-    def uploadEmpty(block: Block) = upload(Chain.empty, block)
+    def upload(b: BlockUpload) = uploadBlock(b, appId, lastManifestReceipt, storage)
 
     def sendReceipt(receipt: Receipt, rType: ReceiptType.Value)(implicit log: Log[F]) = backoff.retry(
       control.sendBlockReceipt(receipt, rType),
@@ -107,23 +110,26 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
     // Skip first block due to race condition (see details above)
     val subscriptionBlocks = lastKnownHeight >>= rpc.subscribeNewBlock
 
-    // Group empty blocks with the first non-empty block; upload empty blocks right away
-    // TODO: zip each block with an according vmHash, so the connection between them is more visible and straightforward
-    val grouped = subscriptionBlocks
-      .evalTap(b => log.info(s"processing block ${b.header.height}"))
-      .evalScan[F, Either[Chain[Receipt], (Chain[Receipt], Block)]](Left(Chain.empty)) {
-        case (Left(empties), block) if emptyBlock(block) => uploadEmpty(block).map(r => Left(empties :+ r))
-        case (Left(empties), block)                      => F.pure((empties -> block).asRight)
-        case (Right(_), block) if emptyBlock(block)      => uploadEmpty(block).map(r => Left(Chain(r)))
-        case (Right(_), block)                           => F.pure((Chain.empty -> block).asRight)
+    val blocksWithVmHash = subscriptionBlocks.evalMap(
+      block =>
+        backoff
+          .retry(control.getVmHash,
+                 (e: ControlRpcError) => log.error(s"error retrieving vmHash on height ${block.header.height}: $e"))
+          .map(BlockUpload(block, _))
+    )
+
+    val blocksToUpload = blocksWithVmHash
+      .scan[Either[Chain[BlockUpload], BlockUpload]](Left(Chain.empty)) {
+        case (Left(empties), block) if emptyBlock(block.block) => (empties :+ block).asLeft
+        case (Left(empties), block)                            => block.copy(emptyBlocks = Some(empties)).asRight
+        case (Right(_), block) if emptyBlock(block.block)      => Chain(block).asLeft
+        case (Right(_), block)                                 => block.asRight
+      }
+      .collect {
+        case Right(block) => block
       }
 
-    // Receipts from the new blocks (as opposed to stored receipts)
-    val newReceipts = grouped.flatMap {
-      // Emit receipts for the empty blocks
-      case Left(empties)           => fs2.Stream.emits(empties.toList.takeRight(1))
-      case Right((empties, block)) => fs2.Stream.eval(upload(empties, block))
-    }.map(_ -> ReceiptType.New)
+    val newReceipts = blocksToUpload.evalMap(upload).flatMap(fs2.Stream.emits).map(_ -> ReceiptType.New)
 
     // Receipts from storage; last one will be treated differently, see AbciService for details
     val storedTypedReceipts =
@@ -137,27 +143,32 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
   }
 
   private def uploadBlock(
-    block: Block,
-    emptiesReceipts: Chain[Receipt] = Chain.empty,
+    block: BlockUpload,
     appId: Long,
     lastManifestReceipt: MVar[F, Option[Receipt]],
-    // TODO: pass here vmHash instead of ControlRpc - arguments should all be data (except for mvar and storage)
-    // TODO: zip each block with an according vmHash, so the connection between them is more visible and straightforward
-    control: ControlRpc[F],
     receiptStorage: ReceiptStorage[F]
-  )(implicit backoff: Backoff[EffectError], log: Log[F]) =
-    log.scope("block" -> block.header.height.toString, "upload block" -> "") { log =>
+  )(implicit backoff: Backoff[EffectError], log: Log[F]): F[List[Receipt]] =
+    log.scope("block" -> block.block.header.height.toString, "upload block" -> "") { log =>
       def logError[E <: EffectError](e: E) = log.error("", e)
+
+      def upload(b: BlockUpload, empties: List[Receipt], r: Option[Receipt]) =
+        backoff.retry(history.upload(b.block, b.vmHash, r, empties)(log), logError)
+
+      def uploadEmpty(b: BlockUpload) = upload(b, Nil, None)
+
+      def uploadEmpties(bs: Chain[BlockUpload]) = Traverse[List].sequence[F, Receipt](bs.map(uploadEmpty).toList)
+
+      def storeReceipt(height: Long, receipt: Receipt) = backoff.retry(receiptStorage.put(height, receipt), logError)
 
       for {
         _ <- log.debug(s"started")
         lastReceipt <- lastManifestReceipt.take
-        vmHash <- backoff.retry(control.getVmHash, logError)
-        receipt <- backoff.retry(history.upload(block, vmHash, lastReceipt, emptiesReceipts.toList)(log), logError)
-        _ <- backoff.retry(receiptStorage.put(block.header.height, receipt), logError)
+        empties <- block.emptyBlocks.fold(List.empty[Receipt].pure[F])(uploadEmpties)
+        receipt <- upload(block, empties, lastReceipt)
+        _ <- storeReceipt(block.block.header.height, receipt)
         _ <- lastManifestReceipt.put(Some(receipt))
         _ <- log.debug(s"finished")
-      } yield receipt
+      } yield (empties :+ receipt)
     }
 }
 
