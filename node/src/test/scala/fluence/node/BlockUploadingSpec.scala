@@ -131,7 +131,6 @@ class BlockUploadingSpec extends WordSpec with Matchers with Integration with Op
           }
 
           override def control: ControlRpc[IO] = new TestControlRpc[IO] {
-
             override def sendBlockReceipt(receipt: Receipt,
                                           rType: ReceiptType.Value): EitherT[IO, ControlRpcError, Unit] =
               EitherT.liftF(state.update(_.receipt(receipt, rType)).void)

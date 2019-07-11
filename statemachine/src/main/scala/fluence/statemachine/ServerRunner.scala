@@ -21,10 +21,9 @@ import java.nio.ByteBuffer
 import cats.Monad
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.ExitCase.{Canceled, Completed, Error}
-import cats.effect.concurrent.Ref
 import cats.effect.{ExitCode, IO, IOApp, Resource}
-import com.github.jtendermint.jabci.socket.TSocket
 import cats.syntax.flatMap._
+import com.github.jtendermint.jabci.socket.TSocket
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
 import fluence.effects.tendermint.rpc.TendermintRpc
@@ -33,9 +32,9 @@ import fluence.log.{Log, LogFactory}
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.control.{ControlServer, ControlSignals}
 import fluence.statemachine.error.StateMachineError
+import fluence.statemachine.vm.{VmOperationInvoker, WasmVmOperationInvoker}
 import fluence.vm.WasmVm
 import fluence.vm.wasm.MemoryHasher
-import io.circe.Json
 
 import scala.language.higherKinds
 
@@ -132,7 +131,7 @@ object ServerRunner extends IOApp {
 
       _ ← Log.eitherT[IO, StateMachineError].info("VM instantiated")
 
-      vmInvoker = new VmOperationInvoker[IO](vm)
+      vmInvoker = new WasmVmOperationInvoker[IO](vm)
 
       service <- EitherT.right(AbciService[IO](vmInvoker, controlSignals, tendermintRpc))
     } yield new AbciHandler[IO](service, controlSignals)

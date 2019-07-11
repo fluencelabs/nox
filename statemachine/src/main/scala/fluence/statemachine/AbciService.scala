@@ -34,6 +34,7 @@ import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.Log
 import fluence.statemachine.control.{BlockReceipt, ControlSignals, ReceiptType}
 import fluence.statemachine.state.AbciState
+import fluence.statemachine.vm.VmOperationInvoker
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
