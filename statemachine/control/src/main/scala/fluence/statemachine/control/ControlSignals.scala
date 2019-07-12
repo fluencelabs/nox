@@ -30,7 +30,8 @@ trait ControlSignals[F[_]] {
   /**
    * Add a new DropPeer event
    */
-  private[control] def dropPeer(drop: DropPeer): F[Unit]
+  // TODO: move that method to a separate interface
+  def dropPeer(drop: DropPeer): F[Unit]
 
   /**
    * Move list of current DropPeer events from ControlSignals to call-site
@@ -44,7 +45,8 @@ trait ControlSignals[F[_]] {
   /**
    * Orders the worker to stop
    */
-  private[control] def stopWorker(): F[Unit]
+  // TODO: move that method to a separate interface
+  def stopWorker(): F[Unit]
 
   /**
    * Will evaluate once the worker should stop
@@ -57,7 +59,8 @@ trait ControlSignals[F[_]] {
    *
    * @param receipt Receipt to store
    */
-  private[control] def putReceipt(receipt: BlockReceipt): F[Unit]
+  // TODO: move that method to a separate interface
+  def putReceipt(receipt: BlockReceipt): F[Unit]
 
   /**
    * Retrieves block receipt, async blocks until there's a receipt
@@ -74,7 +77,8 @@ trait ControlSignals[F[_]] {
   /**
    * Retrieves stored vm hash. Called by node on block manifest uploading
    */
-  private[control] val vmHash: F[ByteVector]
+  // TODO: move that method to a separate interface
+  val vmHash: F[ByteVector]
 }
 
 object ControlSignals {

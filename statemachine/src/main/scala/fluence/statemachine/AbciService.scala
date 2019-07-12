@@ -122,7 +122,7 @@ class AbciService[F[_]: Monad: Effect](
         case BlockReceipt(r, _) =>
           hasher(vmHash ++ r.bytes())
             .leftMap(err => log.error(s"Error on hashing vmHash + receipt: $err"))
-            .getOrElse(vmHash) // TODO: that's awful; don't ignore errors
+            .getOrElse(vmHash) // TODO: don't ignore errors
       }
 
       // Push hash to AbciState, increment block number

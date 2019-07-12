@@ -142,5 +142,5 @@ object ServerRunner extends IOApp {
    * @param moduleFiles module filenames with VM code
    */
   private def buildVm[F[_]: Monad: Log](moduleFiles: NonEmptyList[String]): EitherT[F, StateMachineError, WasmVm] =
-    WasmVm[F](moduleFiles, MemoryHasher[F]).leftMap(VmOperationInvoker.convertToStateMachineError)
+    WasmVm[F](moduleFiles, MemoryHasher[F]).leftMap(WasmVmOperationInvoker.convertToStateMachineError)
 }

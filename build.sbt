@@ -156,7 +156,15 @@ lazy val `statemachine` = (project in file("statemachine"))
     dockerfile in docker              := DockerContainers.worker(assembly.value, baseDirectory.value)
   )
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(`vm`, `statemachine-control`, `statemachine-control` % "test", `tendermint-rpc`, `sttpEitherT`, `tendermint-block`)
+  .dependsOn(
+    `vm`,
+    `statemachine-control`,
+    `statemachine-control` % "test",
+    `tendermint-rpc`,
+    `sttpEitherT`,
+    `tendermint-block`,
+    `tendermint-block` % "test->test"
+  )
 
 lazy val `effects` = crossProject(JVMPlatform, JSPlatform)
   .withoutSuffixFor(JVMPlatform)
@@ -482,7 +490,7 @@ lazy val `node` = project
     `kvstore-jvm`,
     `dockerio`,
     `tendermint-rpc`,
-    `tendermint-rpc` % "test->test",
+    `tendermint-rpc`   % "test->test",
     `tendermint-block` % "test->test",
     `sttpEitherT`,
     `receipt-storage`,

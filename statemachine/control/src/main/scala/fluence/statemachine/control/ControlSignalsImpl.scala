@@ -32,7 +32,7 @@ import scala.language.higherKinds
  * @param stopRef Deferred holding stop signal, completed when the worker should stop
  * @tparam F Effect
  */
-class ControlSignalsImpl[F[_]: FlatMap] private[control] (
+class ControlSignalsImpl[F[_]: FlatMap](
   private val dropPeersRef: MVar[F, Set[DropPeer]],
   private val stopRef: Deferred[F, Unit],
   private val receiptRef: MVar[F, BlockReceipt],
@@ -42,7 +42,7 @@ class ControlSignalsImpl[F[_]: FlatMap] private[control] (
   /**
    * Add a new DropPeer event
    */
-  private[control] def dropPeer(drop: DropPeer): F[Unit] =
+  def dropPeer(drop: DropPeer): F[Unit] =
     for {
       changes <- dropPeersRef.take
       _ <- dropPeersRef.put(changes + drop)
@@ -61,7 +61,7 @@ class ControlSignalsImpl[F[_]: FlatMap] private[control] (
   /**
    * Orders the worker to stop
    */
-  private[control] def stopWorker(): F[Unit] = stopRef.complete(())
+  def stopWorker(): F[Unit] = stopRef.complete(())
 
   /**
    * Will evaluate once the worker should stop
@@ -74,7 +74,7 @@ class ControlSignalsImpl[F[_]: FlatMap] private[control] (
    *
    * @param receipt Receipt to store
    */
-  private[control] def putReceipt(receipt: BlockReceipt): F[Unit] = receiptRef.put(receipt)
+  def putReceipt(receipt: BlockReceipt): F[Unit] = receiptRef.put(receipt)
 
   /**
    * Retrieves block receipt, async blocks until there's a receipt
@@ -91,5 +91,5 @@ class ControlSignalsImpl[F[_]: FlatMap] private[control] (
   /**
    * Retrieves stored vm hash. Called by node on block manifest uploading
    */
-  private[control] val vmHash: F[ByteVector] = hashRef.take
+  val vmHash: F[ByteVector] = hashRef.take
 }
