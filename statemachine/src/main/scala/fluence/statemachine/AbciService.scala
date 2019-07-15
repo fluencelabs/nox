@@ -103,8 +103,17 @@ class AbciService[F[_]: Monad: Effect](
         .leftSemiflatMap(err ⇒ Log[F].error(s"VM is unable to compute state hash: $err").as(err))
         .getOrElse(ByteVector.empty) // TODO do not ignore vm error
 
+      _ <- log.info(Console.YELLOW + "BUD: got vmHash; st.height ${st.height}" + Console.RESET)
+
       // Do not wait for receipt on the very first block
       receipt <- if (st.height > 0) controlSignals.receipt.map(_.some) else none[BlockReceipt].pure[F]
+
+      _ <- log.info(
+        Console.YELLOW +
+          s"BUD: got receipt ${receipt.map(r => s"${r.`type`}  ${r.receipt.height}")}; transactions count: ${transactions.length}" +
+          Console.RESET
+      )
+
       _ = receipt.foreach(
         b =>
           if (b.receipt.height != st.height)
@@ -131,6 +140,8 @@ class AbciService[F[_]: Monad: Effect](
       // Store updated state in the Ref (the changes were transient for readers before this step)
       _ ← state.set(newState)
 
+      _ <- log.info(Console.YELLOW + "BUD: state.set done" + Console.RESET)
+
       // Store vmHash, so master node could retrieve it
       _ ← receipt.map(_.`type`) match {
         // Most common case. Receipt for a previous block; None means block was either empty or the very first one
@@ -141,6 +152,7 @@ class AbciService[F[_]: Monad: Effect](
         case Some(ReceiptType.LastStored) => controlSignals.setVmHash(vmHash)
         case unknown                      => log.error(s"Unknown receipt kind: $unknown")
       }
+      _ <- log.info(Console.YELLOW + "BUD: end of commit" + Console.RESET)
     } yield appHash
 
   /**

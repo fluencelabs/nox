@@ -140,8 +140,6 @@ class AbciServiceSpec extends WordSpec with Matchers {
           val check = checkCommit(abci, ref, abciState, _, _)
           val clear = ref.update(_.clearActions())
 
-          // TODO: does BlockUploading retrieve the vmHash of the first block even if there are stored receipts?
-          // TODO: I guess no. That's a critical bug, it must be fixed.
           makeCommit *> check(List(GetVmStateHash, PutVmHash), 1) *> clear *>
             makeCommit *> check(List(GetVmStateHash, GetReceipt), 2) *> clear *>
             makeCommit *> check(List(GetVmStateHash, GetReceipt, SetVmHash), 3) *> clear *>

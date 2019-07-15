@@ -224,7 +224,11 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
           state.blockManifests.length shouldBe blocks + emptyBlocks
           state.blockManifests.count(_.txsReceipt.isDefined) shouldBe blocks
           state.blockManifests.count(_.txsReceipt.isEmpty) shouldBe emptyBlocks
-          state.blockManifests.find(_.txsReceipt.isDefined).value.emptyBlocksReceipts.length shouldBe emptyBlocks
+          if (blocks > 0) {
+            state.blockManifests.find(_.txsReceipt.isDefined).value.emptyBlocksReceipts.length shouldBe emptyBlocks
+          } else {
+            state.blockManifests.find(_.txsReceipt.isDefined) should not be defined
+          }
         }
       )
     }.unsafeRunSync()
@@ -285,47 +289,55 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
 
   "blocks + stored receipts" should {
     "upload 1 + 2" in {
-      uploadNBlocks(1, 2)
+      uploadNBlocks(blocks = 1, storedReceipts = 2)
     }
 
     "upload 13 + 17" in {
-      uploadNBlocks(13, 17)
+      uploadNBlocks(blocks = 13, storedReceipts = 17)
     }
 
     "upload 12 + 16" in {
-      uploadNBlocks(12, 16)
+      uploadNBlocks(blocks = 12, storedReceipts = 16)
     }
   }
 
   "empty blocks" should {
     "be uploaded with an non-empty block (10 + 9)" in {
-      uploadBlockWithEmpties(10, 9)
+      uploadBlockWithEmpties(blocks = 10, emptyBlocks = 9)
+    }
+
+    "0 + 2" in {
+      uploadBlockWithEmpties(blocks = 0, emptyBlocks = 2)
     }
 
     "1 + 2" in {
-      uploadBlockWithEmpties(1, 2)
+      uploadBlockWithEmpties(blocks = 1, emptyBlocks = 2)
     }
 
     "13 + 17" in {
-      uploadBlockWithEmpties(13, 17)
+      uploadBlockWithEmpties(blocks = 13, emptyBlocks = 17)
     }
 
     "12 + 16" in {
-      uploadBlockWithEmpties(12, 16)
+      uploadBlockWithEmpties(blocks = 12, emptyBlocks = 16)
     }
   }
 
   "empty blocks interleaved" should {
     "be uploaded with non-empty blocks" in {
-      uploadBlocksWithEmptiesInterleaved(10, 2)
+      uploadBlocksWithEmptiesInterleaved(blocks = 10, emptyBlocks = 2)
     }
 
     "9 blocks with 3 empties before each" in {
-      uploadBlocksWithEmptiesInterleaved(9, 3)
+      uploadBlocksWithEmptiesInterleaved(blocks = 9, emptyBlocks = 3)
     }
 
     "33 blocks with 5 empties before each" in {
-      uploadBlocksWithEmptiesInterleaved(33, 5)
+      uploadBlocksWithEmptiesInterleaved(blocks = 33, emptyBlocks = 5)
     }
+  }
+
+  "rpc calls order" should {
+    "be strict" in {}
   }
 }
