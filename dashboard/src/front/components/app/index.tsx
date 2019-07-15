@@ -2,8 +2,6 @@ import * as React from 'react';
 import { connect } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { match, withRouter } from 'react-router';
-import { Action } from 'redux';
-import { History } from 'history';
 import {
     contractAddress,
     getDashboardContract,
@@ -31,6 +29,7 @@ import 'admin-lte/bower_components/Ionicons/css/ionicons.min.css';
 import 'admin-lte/dist/css/AdminLTE.css';
 import 'admin-lte/dist/css/skins/skin-blue.css';
 import './style.css';
+import { ReduxState } from '../../app';
 
 export enum FluenceEntityType {
     None = -1,
@@ -193,7 +192,7 @@ class DashboardApp extends React.Component<Props, State> {
     }
 }
 
-const mapStateToProps = (state: any) => ({
+const mapStateToProps = (state: ReduxState) => ({
     loading: state.loading.isLoading,
     isMetamaskActive: state.ethereumConnection.isMetamaskProviderActive,
 });

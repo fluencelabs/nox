@@ -1,11 +1,21 @@
-import {getNode, getNodeAppStatus, NodeId, AppId} from '../../../fluence';
+import { ThunkAction } from 'redux-thunk';
+import { getNode, getNodeAppStatus, NodeId, AppId } from '../../../fluence';
 import { getContract } from '../../../fluence/contract';
 import { Dispatch, Action } from 'redux';
-import {NodeAppStatusInfo} from "../../../fluence/nodes";
+import { NodeAppStatus, NodeAppStatusInfo } from '../../../fluence/nodes';
+import { ReduxState } from '../../app';
+
+export type NodesAppStatusState = {
+    [key: string]: {
+        [key: string]: NodeAppStatus|null;
+    };
+};
+
+const initialState: NodesAppStatusState = {};
 
 export const GET_NODES_APP_STATUS_RECEIVE = 'GET_NODES_APP_STATUS_RECEIVE';
 
-export const retrieveNodesAppStatus = (nodeIds: NodeId[], appId: AppId) => {
+export const retrieveNodesAppStatus = (nodeIds: NodeId[], appId: AppId): ThunkAction<void, ReduxState, void, Action<string>> => {
     return async (dispatch: Dispatch): Promise<Action> => {
         const nodes = await Promise.all(
             nodeIds.map(nodeId => getNode(getContract(), nodeId))
@@ -26,13 +36,14 @@ export const retrieveNodesAppStatus = (nodeIds: NodeId[], appId: AppId) => {
 /*
  * Reducer
  */
-export default (state = {}, action: any) => {
+export default (state = initialState, action: any): NodesAppStatusState => {
     switch (action.type) {
         case GET_NODES_APP_STATUS_RECEIVE: {
             return {
                 ...state,
                 [action.appId]: action.nodesAppStatus.reduce((hash: any, nodeAppStatus: NodeAppStatusInfo) => {
                     hash[nodeAppStatus.nodeInfo.id] = nodeAppStatus.status;
+
                     return hash;
                 }, {})
             };

@@ -178,11 +178,8 @@ pub fn with_ethereum_args<'a, 'b>(args: &[Arg<'a, 'b>]) -> Vec<Arg<'a, 'b>> {
     // append args
     eth_args.extend_from_slice(args);
 
-    // sort so positional arguments are always at the end, to reverse them later (clap nuance)
-    eth_args.sort_unstable_by_key(|a| a.index);
-
-    // reverse so positional arguments are always at the beginning (clap nuance)
-    eth_args.reverse();
+    // sort so positional arguments are always at the beginning (clap nuance)
+    eth_args.sort_unstable_by_key(|arg| std::cmp::Reverse(arg.index))
 
     eth_args
 }
