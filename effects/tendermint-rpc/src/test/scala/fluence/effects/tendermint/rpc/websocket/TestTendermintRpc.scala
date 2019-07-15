@@ -30,27 +30,27 @@ import fs2.concurrent.Queue
 import scala.language.higherKinds
 
 trait TestTendermintRpc[F[_]] extends TendermintWebsocketRpc[F] with TendermintRpc[F] {
-  override def status: EitherT[F, RpcError, String] = throw new NotImplementedError("val status")
+  def status: EitherT[F, RpcError, String] = throw new NotImplementedError("val status")
 
-  override def statusParsed(implicit F: Functor[F]): EitherT[F, RpcError, TendermintStatus] =
+  def statusParsed(implicit F: Functor[F]): EitherT[F, RpcError, TendermintStatus] =
     throw new NotImplementedError("def statusParsed")
 
-  override def block(height: Long, id: String): EitherT[F, RpcError, Block] =
+  def block(height: Long, id: String): EitherT[F, RpcError, Block] =
     throw new NotImplementedError("def block")
 
-  override def commit(height: Long, id: String): EitherT[F, RpcError, String] =
+  def commit(height: Long, id: String): EitherT[F, RpcError, String] =
     throw new NotImplementedError("def commit")
 
-  override def consensusHeight(id: String): EitherT[F, RpcError, Long] =
+  def consensusHeight(id: String): EitherT[F, RpcError, Long] =
     throw new NotImplementedError("def consensusHeight")
 
-  override def broadcastTxSync(tx: String, id: String): EitherT[F, RpcError, String] =
+  def broadcastTxSync(tx: String, id: String): EitherT[F, RpcError, String] =
     throw new NotImplementedError("def broadcastTxSync")
 
-  override def unsafeDialPeers(peers: Seq[String], persistent: Boolean, id: String): EitherT[F, RpcError, String] =
+  def unsafeDialPeers(peers: Seq[String], persistent: Boolean, id: String): EitherT[F, RpcError, String] =
     throw new NotImplementedError("def unsafeDialPeers")
 
-  override def query(
+  def query(
     path: String,
     data: String,
     height: Long,
@@ -58,11 +58,11 @@ trait TestTendermintRpc[F[_]] extends TendermintWebsocketRpc[F] with TendermintR
     id: String
   ): EitherT[F, RpcError, String] = throw new NotImplementedError("def query")
 
-  override def subscribeNewBlock(lastKnownHeight: Long)(implicit log: Log[F],
-                                                        backoff: Backoff[EffectError]): fs2.Stream[F, Block] =
+  def subscribeNewBlock(lastKnownHeight: Long)(implicit log: Log[F],
+                                               backoff: Backoff[EffectError]): fs2.Stream[F, Block] =
     throw new NotImplementedError("def subscribeNewBlock")
 
-  override protected def subscribe(event: String)(implicit log: Log[F],
-                                                  backoff: Backoff[EffectError]): Resource[F, Queue[F, Event]] =
+  protected def subscribe(event: String)(implicit log: Log[F],
+                                         backoff: Backoff[EffectError]): Resource[F, Queue[F, Event]] =
     throw new NotImplementedError("def subscribe")
 }

@@ -16,27 +16,50 @@
 
 package fluence.effects.tendermint.rpc
 
-import cats.Monad
 import cats.data.EitherT
 import cats.effect.concurrent.Deferred
 import cats.effect.{Concurrent, ConcurrentEffect, Timer}
-import cats.syntax.either._
-import fluence.effects.tendermint.block.data.Block
-import fluence.effects.tendermint.rpc.http.RpcError
-import fluence.effects.tendermint.rpc.websocket.{TendermintWebsocketRpcImpl, TestTendermintRpc}
-import fluence.effects.{Backoff, EffectError}
-import fluence.log.Log
 import cats.syntax.applicative._
 import cats.syntax.either._
-import fluence.effects.syntax._
+import cats.{Functor, Monad}
+import fluence.effects.syntax.eitherT._
+import fluence.effects.tendermint.block.data.Block
+import fluence.effects.tendermint.rpc.http.RpcError
+import fluence.effects.tendermint.rpc.response.TendermintStatus
+import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpcImpl
+import fluence.effects.{Backoff, EffectError}
+import fluence.log.Log
 
 import scala.language.higherKinds
 
 class TestWRpc[F[_]: ConcurrentEffect: Timer: Monad](override val host: String, override val port: Int)
-    extends TendermintWebsocketRpcImpl[F] with TestTendermintRpc[F] {
+    extends TendermintWebsocketRpcImpl[F] with TendermintRpc[F] {
+  override def status: EitherT[F, RpcError, String] = throw new NotImplementedError("val status")
 
-  override def consensusHeight(id: String): EitherT[F, RpcError, Long] =
-    EitherT(0L.asRight[RpcError].pure[F])
+  override def statusParsed(implicit F: Functor[F]): EitherT[F, RpcError, TendermintStatus] =
+    throw new NotImplementedError("def statusParsed")
+
+  override def block(height: Long, id: String): EitherT[F, RpcError, Block] =
+    throw new NotImplementedError("def block")
+
+  override def commit(height: Long, id: String): EitherT[F, RpcError, String] =
+    throw new NotImplementedError("def commit")
+
+  override def consensusHeight(id: String): EitherT[F, RpcError, Long] = 0L.asRight[RpcError].pure[F].eitherT
+
+  override def broadcastTxSync(tx: String, id: String): EitherT[F, RpcError, String] =
+    throw new NotImplementedError("def broadcastTxSync")
+
+  override def unsafeDialPeers(peers: Seq[String], persistent: Boolean, id: String): EitherT[F, RpcError, String] =
+    throw new NotImplementedError("def unsafeDialPeers")
+
+  override def query(
+    path: String,
+    data: String,
+    height: Long,
+    prove: Boolean,
+    id: String
+  ): EitherT[F, RpcError, String] = throw new NotImplementedError("def query")
 
   /**
    * Subscribe on new blocks from Tendermint, retrieves missing blocks and keeps them in order

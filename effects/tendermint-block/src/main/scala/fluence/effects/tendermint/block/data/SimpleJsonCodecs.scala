@@ -39,7 +39,8 @@ object SimpleJsonCodecs {
 
     implicit final val byteVectorEncoder: Encoder[ByteVector] = Encoder.encodeString.contramap(_.toHex)
 
-    implicit final val base64ByteVectorEncoder: Encoder[Base64ByteVector] = byteVectorEncoder.contramap(_.bv)
+    implicit final val base64ByteVectorEncoder: Encoder[Base64ByteVector] =
+      Encoder.encodeString.contramap(_.bv.toBase64)
 
     implicit final val lastCommitEncoder: Encoder[LastCommit] = deriveEncoder
 
