@@ -8,6 +8,7 @@ import {remove0x, toIpfsHash} from "../../../utils";
 import FluenceId from '../fluence-id';
 import {History} from "history";
 import {ipfsDownloadUrl} from "../../../constants";
+import { ReduxState } from '../../app';
 
 interface State {
     loading: boolean,
@@ -215,10 +216,9 @@ class FluenceDeployableApp extends React.Component<Props, State> {
     }
 }
 
-const mapStateToProps = (state: any) => ({
+const mapStateToProps = (state: ReduxState) => ({
     upload: state.deploy.upload,
     deployState: state.deploy.deployState,
-    trxHash: state.deploy.trxHash,
     modal: state.modal,
     isMetamaskActive: state.ethereumConnection.isMetamaskProviderActive,
 });

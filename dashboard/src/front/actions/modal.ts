@@ -1,23 +1,34 @@
+import { AnyAction } from 'redux';
 
-export interface ModalOptions {
-    once?: boolean,
-    okCallback?: () => void,
-    cancelCallback?: () => void,
-    resetOnce?: boolean,
-    deployText?: boolean,
+export interface ModalState {
+    modalIsOpen: boolean;
+    alreadyOpened?: boolean;
+    okCallback?: () => void;
+    cancelCallback?: () => void;
+    once?: boolean;
+    deployText?: string;
 }
 
+export interface ModalOptions {
+    once?: boolean;
+    okCallback?: () => void;
+    cancelCallback?: () => void;
+    resetOnce?: boolean;
+    deployText?: boolean;
+}
+
+const initialState: ModalState = { modalIsOpen: false };
+
 export const SHOW_MODAL = 'SHOW_MODAL';
-export const showModal = (options?: ModalOptions) => {
+export const showModal = (options?: ModalOptions): AnyAction => {
     return {
         type: SHOW_MODAL,
         options: options || {},
     };
 };
 
-
 export const CLOSE_MODAL = 'CLOSE_MODAL';
-export const closeModal = (options?: ModalOptions) => {
+export const closeModal = (options?: ModalOptions): AnyAction => {
     return {
         type: CLOSE_MODAL,
         options: options || {},
@@ -27,13 +38,13 @@ export const closeModal = (options?: ModalOptions) => {
 /*
  * Reducer
  */
-export default (state = <any>{}, action: any) => {
+export default (state = initialState, action: any): ModalState => {
     switch (action.type) {
         case SHOW_MODAL: {
             let modalIsOpen = true;
             let alreadyOpened = state.alreadyOpened ? state.alreadyOpened : false;
 
-            if(action.options.once && !alreadyOpened) {
+            if (action.options.once && !alreadyOpened) {
                 alreadyOpened = true;
             } else if (action.options.once && alreadyOpened) {
                 modalIsOpen = false;
@@ -51,6 +62,7 @@ export default (state = <any>{}, action: any) => {
         }
         case CLOSE_MODAL: {
             const alreadyOpened = action.options.resetOnce ? false : state.alreadyOpened;
+
             return {
                 ...state,
                 modalIsOpen: false,

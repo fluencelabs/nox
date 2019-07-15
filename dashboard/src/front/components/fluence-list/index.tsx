@@ -12,6 +12,7 @@ import {
 import {displayLoading, hideLoading, retrieveNodeRefs, retrieveAppRefs, showModal} from "../../actions";
 import {AppRef, NodeRef} from "../../../fluence";
 import {Action} from "redux";
+import { ReduxState } from '../../app';
 
 interface State {
     loading: boolean;
@@ -167,7 +168,7 @@ class FluenceList extends React.Component<Props, State> {
     }
 }
 
-const mapStateToProps = (state: any) => ({
+const mapStateToProps = (state: ReduxState) => ({
     nodeRefs: state.nodeRefs,
     appRefs: state.appRefs,
     userAddress: state.ethereumConnection.userAddress,

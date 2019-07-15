@@ -1,13 +1,24 @@
+import { Action } from 'redux';
+
+export interface LoadingState {
+    isLoading: boolean;
+    counter: number;
+}
+
+const initialState: LoadingState = {
+    isLoading: false,
+    counter: 0,
+};
 
 export const DISPLAY_LOADING = 'DISPLAY_LOADING';
-export const displayLoading = () => {
+export const displayLoading = (): Action => {
     return {
         type: DISPLAY_LOADING,
     };
 };
 
 export const HIDE_LOADING = 'HIDE_LOADING';
-export const hideLoading = () => {
+export const hideLoading = (): Action => {
     return {
         type: HIDE_LOADING,
     };
@@ -16,7 +27,7 @@ export const hideLoading = () => {
 /*
  * Reducer
  */
-export default (state = { isLoading: false, counter: 0 }, action: any) => {
+export default (state = initialState, action: any): LoadingState => {
     switch (action.type) {
         case DISPLAY_LOADING: {
             return {
@@ -27,6 +38,7 @@ export default (state = { isLoading: false, counter: 0 }, action: any) => {
         }
         case HIDE_LOADING: {
             const newCounter = state.counter - 1;
+
             return {
                 ...state,
                 counter: newCounter >= 0 ? newCounter : 0,

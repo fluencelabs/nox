@@ -1,4 +1,9 @@
-import {getContract, getUserAddress, isMetamaskActive} from '../../../fluence/contract';
+import { Action, Dispatch } from 'redux';
+import { ThunkAction, ThunkDispatch } from 'redux-thunk';
+import { History } from 'history';
+import axios from 'axios';
+import EthereumTx from 'ethereumjs-tx';
+import { getContract, getUserAddress, isMetamaskActive } from '../../../fluence/contract';
 import {
     checkLogs,
     DeployableApp,
@@ -6,16 +11,12 @@ import {
     txParams,
     DeployedAppState,
     sendUnsigned
-} from "../../../fluence/deployable";
-import {History} from 'history';
-import {privateKey, appUploadUrl} from "../../../constants";
-import {Action, Dispatch} from "redux";
-import axios from 'axios';
-import EthereumTx from "ethereumjs-tx";
-import {getApp, getNode, getNodeAppStatus} from "../../../fluence";
-import {fromIpfsHash, storageToString32} from "../../../utils";
-import {retrieveAppRefs} from "..";
-import {ThunkDispatch} from "redux-thunk";
+} from '../../../fluence/deployable';
+import { privateKey, appUploadUrl } from '../../../constants';
+import { getApp, getNode, getNodeAppStatus } from '../../../fluence';
+import { fromIpfsHash, storageToString32 } from '../../../utils';
+import { retrieveAppRefs } from '..';
+import { ReduxState } from '../../app';
 
 export const DEPLOY_CLEAR_STATE = 'DEPLOY_CLEAR_STATE';
 export const DEPLOY_STATE_PREPARE = 'DEPLOY_STATE_PREPARE';
@@ -27,7 +28,35 @@ export const APP_DEPLOYED = 'APP_DEPLOYED';
 export const APP_ENQUEUED = 'APP_ENQUEUED';
 export const APP_DEPLOY_FAILED = 'APP_DEPLOY_FAILED';
 
-export const deploy = (app: DeployableApp, appTypeId: string, storageHashOverload: string, history: History) => {
+export interface DeployState {
+    upload: {
+        uploaded: boolean;
+        uploading: boolean;
+        data: any;
+        storageHash: string;
+        error?: any;
+    };
+    deployState?: {
+        state: 'prepare'|'trx'|'enqueued'|'check_cluster';
+        note?: string;
+    };
+}
+
+const initialState: DeployState = {
+    upload: {
+        uploaded: false,
+        uploading: false,
+        data: {},
+        storageHash: '',
+    }
+};
+
+export const deploy = (
+    app: DeployableApp,
+    appTypeId: string,
+    storageHashOverload: string,
+    history: History
+): ThunkAction<void, ReduxState, void, Action<string>> => {
     return async (dispatch: ThunkDispatch<any, void, Action>): Promise<Action> => {
 
         dispatch({type: DEPLOY_CLEAR_STATE});
@@ -35,7 +64,7 @@ export const deploy = (app: DeployableApp, appTypeId: string, storageHashOverloa
 
         let storageHash = app.selfUpload && storageHashOverload ? storageHashOverload : app.storageHash;
         let storageType = storageToString32(app.storageType);
-        let txData = getContract().methods.addApp(storageHash, "0x0", storageType, app.clusterSize, []).encodeABI();
+        let txData = getContract().methods.addApp(storageHash, '0x0', storageType, app.clusterSize, []).encodeABI();
 
         dispatch({type: DEPLOY_STATE_TRX});
 
@@ -118,7 +147,7 @@ export const deploy = (app: DeployableApp, appTypeId: string, storageHashOverloa
 export const DEPLOY_UPLOAD_STARTED = 'DEPLOY_UPLOAD_STARTED';
 export const DEPLOY_UPLOAD_FINISHED = 'DEPLOY_UPLOAD_FINISHED';
 export const DEPLOY_UPLOAD_FAILED = 'DEPLOY_UPLOAD_FAILED';
-export const deployUpload = (form: FormData) => {
+export const deployUpload = (form: FormData): ThunkAction<void, ReduxState, void, Action<string>> => {
     return async (dispatch: Dispatch): Promise<Action> => {
 
         dispatch({type: DEPLOY_UPLOAD_STARTED});
@@ -138,22 +167,10 @@ export const deployUpload = (form: FormData) => {
     };
 };
 
-export default (state = {
-    upload: {
-        uploaded: false,
-        uploading: false,
-        data: {},
-        storageHash: '',
-    }
-}, action: any) => {
+export default ( state = initialState, action: any): DeployState => {
     switch (action.type) {
         case DEPLOY_CLEAR_STATE: {
-            return {
-                ...state,
-                app: undefined,
-                appId: undefined,
-                trxHash: undefined
-            };
+            return initialState;
         }
         case DEPLOY_STATE_PREPARE: {
             return {
@@ -190,14 +207,7 @@ export default (state = {
         }
         case APP_DEPLOYED:
         case APP_ENQUEUED: {
-            return {
-                ...state,
-                deployState: undefined,
-                app: undefined,
-                appId: undefined,
-                trxHash: undefined,
-                upload: {},
-            };
+            return initialState;
         }
         case DEPLOY_UPLOAD_STARTED: {
             return {
