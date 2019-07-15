@@ -474,11 +474,13 @@ lazy val `node` = project
       .dependsOn(compile in `vm-llamadb`)
       .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
       .value,
-    mainClass in assembly       := Some("fluence.node.MasterNodeApp"),
-    assemblyJarName in assembly := "master-node.jar",
-    test in assembly            := {},
-    imageNames in docker        := Seq(ImageName(DockerContainers.Node)),
-    dockerfile in docker        := DockerContainers.node(assembly.value, (resourceDirectory in Compile).value)
+    // add classes from Test to dependencyClasspath of IntegrationTest, so it is possible to share Eventually trait
+    dependencyClasspath in IntegrationTest := (dependencyClasspath in IntegrationTest).value ++ (exportedProducts in Test).value,
+    mainClass in assembly                  := Some("fluence.node.MasterNodeApp"),
+    assemblyJarName in assembly            := "master-node.jar",
+    test in assembly                       := {},
+    imageNames in docker                   := Seq(ImageName(DockerContainers.Node)),
+    dockerfile in docker                   := DockerContainers.node(assembly.value, (resourceDirectory in Compile).value)
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)

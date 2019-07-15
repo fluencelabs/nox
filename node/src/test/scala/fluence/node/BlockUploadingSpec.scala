@@ -53,7 +53,7 @@ import scala.compat.Platform.currentTime
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
-class BlockUploadingSpec extends WordSpec with Matchers with Integration with OptionValues {
+class BlockUploadingSpec extends WordSpec with Matchers with Eventually with OptionValues {
   implicit private val timer = IO.timer(global)
   implicit private val shift = IO.contextShift(global)
   implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec", level = Log.Warn).unsafeRunSync()

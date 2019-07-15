@@ -27,7 +27,7 @@ import org.scalatest.{Timer => _}
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-trait Integration {
+trait Eventually {
 
   protected def eventually[F[_]: Sync: Timer](
     p: => F[Unit],

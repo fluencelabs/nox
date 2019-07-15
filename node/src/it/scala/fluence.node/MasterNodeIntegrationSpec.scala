@@ -43,7 +43,7 @@ import scala.sys.process._
  * - Successful cluster formation and starting blocks creation
  */
 class MasterNodeIntegrationSpec
-    extends WordSpec with Matchers with BeforeAndAfterAll with OptionValues with Integration with TendermintSetup
+    extends WordSpec with Matchers with BeforeAndAfterAll with OptionValues with Eventually with TendermintSetup
     with GanacheSetup with DockerSetup {
 
   type Sttp = SttpBackend[IO, fs2.Stream[IO, ByteBuffer]]

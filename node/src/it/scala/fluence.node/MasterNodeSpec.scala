@@ -47,7 +47,7 @@ import scala.concurrent.duration._
 import scala.language.higherKinds
 
 class MasterNodeSpec
-    extends WordSpec with Matchers with BeforeAndAfterAll with OptionValues with Integration with GanacheSetup {
+    extends WordSpec with Matchers with BeforeAndAfterAll with OptionValues with Eventually with GanacheSetup {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
