@@ -1,9 +1,18 @@
-import {getNodeStatus, Node} from '../../../fluence';
+import { ThunkAction } from 'redux-thunk';
+import { getNodeStatus, Node } from '../../../fluence';
 import { Dispatch, Action } from 'redux';
+import { NodeInfo } from '../../../fluence/nodes';
+import { ReduxState } from '../../app';
+
+export type NodesStatusState = {
+    [key: string]: NodeInfo;
+};
+
+const initialState: NodesStatusState = {};
 
 export const GET_NODE_STATUS_RECEIVE = 'GET_NODE_STATUS_RECEIVE';
 
-export const retrieveNodeStatus = (node: Node) => {
+export const retrieveNodeStatus = (node: Node): ThunkAction<void, ReduxState, void, Action<string>> => {
     return async (dispatch: Dispatch): Promise<Action> => {
         const nodeStatus = await getNodeStatus(node);
 
@@ -17,7 +26,7 @@ export const retrieveNodeStatus = (node: Node) => {
 /*
  * Reducer
  */
-export default (state = {}, action: any) => {
+export default (state = initialState, action: any): NodesStatusState => {
     switch (action.type) {
         case GET_NODE_STATUS_RECEIVE: {
             return {

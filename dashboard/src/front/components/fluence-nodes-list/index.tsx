@@ -5,6 +5,7 @@ import FluenceId from '../fluence-id';
 import { displayLoading, hideLoading, retrieveNodeRefs } from "../../actions";
 import { Action } from "redux";
 import {NodeRef} from "../../../fluence";
+import { ReduxState } from '../../app';
 
 
 interface State {
@@ -75,7 +76,7 @@ class FluenceNodesList extends React.Component<Props, State> {
     }
 }
 
-const mapStateToProps = (state: any) => ({
+const mapStateToProps = (state: ReduxState) => ({
     nodeRefs: state.nodeRefs,
 });
 

@@ -13,6 +13,7 @@ import {AppId, App} from '../../../fluence';
 import { Action } from 'redux';
 import {History} from "history";
 import {withRouter} from "react-router";
+import { ReduxState } from '../../app';
 
 interface State {
     deleting: boolean;
@@ -135,7 +136,7 @@ class FluenceApp extends React.Component<Props, State> {
     }
 }
 
-const mapStateToProps = (state: any) => ({
+const mapStateToProps = (state: ReduxState) => ({
     apps: state.apps,
     userAddress: state.ethereumConnection.userAddress,
 });

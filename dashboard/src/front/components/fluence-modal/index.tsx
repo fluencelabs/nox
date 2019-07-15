@@ -2,6 +2,7 @@ import * as React from "react";
 import {connect} from "react-redux";
 import ReactModal from 'react-modal';
 import {closeModal} from "../../actions";
+import { ReduxState } from '../../app';
 
 interface State {}
 
@@ -84,7 +85,7 @@ class FluenceModal extends React.Component<Props, State> {
     }
 }
 
-const mapStateToProps = (state: any) => ({
+const mapStateToProps = (state: ReduxState) => ({
     modal: state.modal
 });
 

@@ -31,7 +31,7 @@ export {
     updateEthereumConnectionState,
     showModal,
     closeModal,
-}
+};
 
 export const reducers = {
     loading,
