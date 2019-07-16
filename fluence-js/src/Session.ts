@@ -26,6 +26,18 @@ import * as randomstring from "randomstring";
 const detailedDebug = debug("request-detailed");
 const txDebug = debug("broadcast-request");
 
+export enum RequestStatus {
+    OK = 0,
+    E_SESSION_CLOSED,
+    E_REQUEST,
+}
+
+interface RequestState {
+    status: RequestStatus;
+    result?: ResultPromise;
+    error?: ErrorResponse;
+}
+
 /**
  * It is an identifier around which client can build a queue of requests.
  */
@@ -77,16 +89,10 @@ export class Session {
     }
 
     /**
-     * Increments current counter or sets it to the `counter` passed as argument
-     * @param counter Optional external counter. External overrides local if external is bigger, so session is usable
+     * Increments current internal counter
      */
-    private getCounterAndIncrement(counter?: number) {
-        if (counter == undefined || counter <= this.counter) {
-            return this.counter++;
-        } else {
-            this.counter = counter + 1;
-            return counter;
-        }
+    private getCounterAndIncrement() {
+        return this.counter++;
     }
 
     /**
@@ -96,10 +102,13 @@ export class Session {
      * @param privateKey Optional private key to sign requests
      * @param counter Optional counter, overrides current counter
      */
-    request(payload: string, privateKey?: PrivateKey, counter?: number): ResultPromise {
+    async request(payload: string, privateKey?: PrivateKey, counter?: number): Promise<RequestState> {
         // throws an error immediately if the session is closed
         if (this.closed) {
-            return new ResultError(`The session was closed. Cause: ${this.closedStatus}`)
+            return {
+                status: RequestStatus.E_SESSION_CLOSED,
+                error: error(`The session was closed. Cause: ${this.closedStatus}`)
+            };
         }
 
         if (this.closing) {
@@ -109,36 +118,50 @@ export class Session {
         detailedDebug("start request");
 
         // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
-        let currentCounter = this.getCounterAndIncrement(counter);
+        let currentCounter = counter ? counter : this.getCounterAndIncrement();
 
         let signed = withSignature(payload, currentCounter, privateKey);
         let tx = `${this.session}/${currentCounter}\n${signed}`;
 
         // send transaction
         txDebug("send broadcastTxSync");
-        let broadcastRequestPromise: Promise<void> = this.tm.broadcastTxSync(tx).then((resp: any) => {
-            detailedDebug("broadCastTxSync response received");
-            txDebug("broadCastTxSync response received");
-            // close session if some error on sending transaction occurred
-            if (resp.code !== 0) {
-                let cause = `The session was closed after response with an error. Request payload: ${payload}, response: ${JSON.stringify(resp)}`;
-                this.markSessionAsClosed(cause);
-                throw error(cause)
+        let broadcastTxResult;
+        try {
+            broadcastTxResult = await this.tm.broadcastTxSync(tx);
+        } catch (err) {
+            return {
+                status: RequestStatus.E_REQUEST,
+                error: error(`Request error on broadcastTx occured. Request payload: ${payload}, error: ${JSON.stringify(err)}`),
             }
-        });
+        }
 
-        let targetKey = this.targetKey(currentCounter);
+        detailedDebug("broadCastTxSync response received");
+        txDebug("broadCastTxSync response received");
 
-        let callback = (err: ErrorResponse) => {
+        // close session if some error on sending transaction occurred
+        if (broadcastTxResult.code !== 0) {
+            const cause = `The session was closed after response with an error. Request payload: ${payload}, response: ${JSON.stringify(broadcastTxResult)}`;
+            this.markSessionAsClosed(cause);
+            return {
+                status: RequestStatus.E_SESSION_CLOSED,
+                error: error(cause),
+            }
+        }
+
+        const targetKey = this.targetKey(currentCounter);
+
+        const callback = (err: ErrorResponse) => {
             // close session on error
             this.markSessionAsClosed(err.error)
         };
 
-        let resultAwait = new ResultAwait(this.tm, this.config, targetKey, this.session,
-            broadcastRequestPromise, callback);
+        const resultAwait = new ResultAwait(this.tm, this.config, targetKey, this.session, callback);
         this.lastResult = resultAwait;
 
-        return resultAwait;
+        return {
+            status: RequestStatus.OK,
+            result: resultAwait,
+        };
     }
 
     /**
