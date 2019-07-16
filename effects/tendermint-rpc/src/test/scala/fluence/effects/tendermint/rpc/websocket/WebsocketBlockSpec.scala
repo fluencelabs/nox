@@ -137,8 +137,7 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
       // and consensusHeight = 2
       // it should
       // loadBlock(2)
-      // emit block = 3
-      // emit block = 4
+      // emit blocks 3, 4
 
       val lastKnownHeight = 1
       val consensusHeight = 2
@@ -158,9 +157,7 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
       // emit reconnect
       // consensusHeight = 4
       // loadBlock(4)
-      // emit block 4
-      // emit block 4
-      // emit block 5
+      // emit blocks 4, 4, 5
 
       val lastKnownHeight = 1
       val consensusHeights = List(2L, 4L)
