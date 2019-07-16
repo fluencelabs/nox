@@ -52,7 +52,6 @@ export class ResultAwait implements ResultPromise {
     private canceledReason: string;
     private requestResult: Promise<Result>;
     private onError: (err: ErrorResponse) => any;
-    private broadcastRequest: Promise<void>;
 
     /**
      *
@@ -60,16 +59,14 @@ export class ResultAwait implements ResultPromise {
      * @param _config
      * @param _targetKey key to check restul from cluster
      * @param _summaryKey key to check session info from cluster
-     * @param _broadcastRequest will check for result only after this request will happen
      * @param _onError callback on error
      */
     constructor(_tm: TendermintClient, _config: SessionConfig, _targetKey: string,
-                _summaryKey: string, _broadcastRequest: Promise<void>, _onError: (err: ErrorResponse) => void) {
+                _summaryKey: string, _onError: (err: ErrorResponse) => void) {
         this.tm = _tm;
         this.config = _config;
         this.targetKey = _targetKey;
         this.summaryKey = _summaryKey;
-        this.broadcastRequest = _broadcastRequest;
         this.onError = _onError;
         this.canceled = false;
     }
@@ -93,7 +90,6 @@ export class ResultAwait implements ResultPromise {
         d("start to get result");
 
         if (this.requestResult === undefined) {
-            await this.broadcastRequest;
 
             const path = this.targetKey;
 

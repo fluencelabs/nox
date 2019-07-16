@@ -23,7 +23,7 @@ import {toByteArray} from "base64-js";
 
 const d = debug("tendermintClient");
 
-interface BroadcastTxSyncResponse {
+export interface BroadcastTxSyncResponse {
     code: number
     data: string
     log: string
@@ -32,7 +32,7 @@ interface BroadcastTxSyncResponse {
 
 function parseResponse(res: any): BroadcastTxSyncResponse {
      try {
-         let bResponse = <BroadcastTxSyncResponse> res.data.result;
+         const bResponse = res.data.result;
          bResponse.data = fromHex(bResponse.data);
          return bResponse;
      } catch (e) {
@@ -58,11 +58,7 @@ export class TendermintClient {
     broadcastTxSync(payload: string): Promise<BroadcastTxSyncResponse> {
         d("broadCastTxSync request");
         return this.client.broadcastTxSync(payload)
-            .then((res: any) => {
-                return parseResponse(res);
-            }).catch((err: any) => {
-                return parseResponse(err);
-            });
+            .then(parseResponse);
     }
 
     /**
@@ -74,15 +70,25 @@ export class TendermintClient {
     async abciQuery(path: string): Promise<Option<Result>> {
         d("abciQuery request");
 
-        let response: QueryResponse = (await this.client.abciQuery(path)).data.result.response;
+        const abciQueryResult = await this.client.abciQuery(path);
+
+        if (!abciQueryResult.data || !abciQueryResult.data.result || !abciQueryResult.data.result.response) {
+            throw error(`Malformed response: ${JSON.stringify(abciQueryResult.data)}`);
+        }
+
+        const response = abciQueryResult.data.result.response;
 
         switch (response.code) {
             case undefined:
             case 0: {
+                if (!response.value) {
+                    throw error(`Error: no value on response: ${JSON.stringify(response)}`);
+                }
+
                 try {
                     return some(new Result(toByteArray(response.value)));
                 } catch (e) {
-                    throw error("error on parsing value from response: " + JSON.stringify(response) + " err: " + e);
+                    throw error(`Error on parsing value from response: ${JSON.stringify(response)} err:  ${e}`);
                 }
             }
             case 1: {
