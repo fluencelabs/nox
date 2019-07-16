@@ -19,7 +19,10 @@ package fluence.effects.tendermint.rpc.websocket
 import cats.data.EitherT
 import cats.effect.concurrent.Ref
 import cats.effect.{IO, Resource}
+import cats.syntax.either._
+import cats.syntax.functor._
 import fluence.EitherTSttpBackend
+import fluence.effects.syntax.eitherT._
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc
 import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestFailed}
@@ -29,13 +32,6 @@ import fs2.concurrent.Queue
 import io.circe.Json
 import io.circe.parser.parse
 import org.scalatest.{Matchers, OptionValues, WordSpec}
-import cats.syntax.either._
-import cats.syntax.applicative._
-import cats.syntax.apply._
-import cats.syntax.functor._
-import cats.syntax.option._
-import cats.syntax.either._
-import fluence.effects.syntax.eitherT._
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -125,6 +121,7 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
       case Some((blocks, state)) =>
         blocks.map(_.header.height) should contain theSameElementsInOrderAs expectedBlocks
         state.actions should contain theSameElementsInOrderAs expectedActions
+        state.actions.count(_ == GetConsensusHeight) shouldBe consensusHeights.length
     }
   }
 
@@ -192,7 +189,7 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
       def blockx3(height: Long) = (1 to 3).map(_ => block(height))
 
       val lastKnownHeight = 0
-      val consensusHeights = List(2L, 3L)
+      val consensusHeights = List(0L)
       val blocks = blockx3(1) ++ (blockx3(2) :+ block(3)) ++ blockx3(2) ++ blockx3(3) ++ (1L to 4L).reverse.map(block)
       val events: List[Event] = Reconnect +: blocks toList
       val expectedBlocks = List(1L, 2L, 3L, 4L)
@@ -201,12 +198,39 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
       emitBlocks(lastKnownHeight, consensusHeights, events, expectedBlocks, expectedActions)
     }
 
-    "load missed blocks" in {
-      // TODO: after implementing multiple blocks loading
-      // emit block 4
-      // emit block 7
-      // loadBlock(5)
-      // loadBlock(6)
+    "load missing blocks" in {
+      val lastKnownHeight = 0
+      val consensusHeights = List(3L, 7L)
+      val events = List(
+        // start and load blocks from 1 to 3
+        Reconnect,
+        // blocks 2 and 3 will be ignored
+        block(2),
+        block(3),
+        // ordinary blocks
+        block(4),
+        block(5),
+        // load blocks 6 and 7
+        Reconnect,
+        // ordinary blocks
+        block(7),
+        block(8)
+      )
+      val expectedBlocks = List(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L)
+      val expectedActions =
+        List(GetConsensusHeight, GetBlock(1), GetBlock(2), GetBlock(3), GetConsensusHeight, GetBlock(6), GetBlock(7))
+
+      emitBlocks(lastKnownHeight, consensusHeights, events, expectedBlocks, expectedActions)
+    }
+
+    "load missing blocks without reconnect" in {
+      val lastKnownHeight = 0
+      val consensusHeights = List(0L)
+      val events = List(Reconnect, block(3), block(4), block(7))
+      val expectedBlocks = (1L to 7L).toList
+      val expectedActions = List(GetConsensusHeight, GetBlock(1), GetBlock(2), GetBlock(5), GetBlock(6))
+
+      emitBlocks(lastKnownHeight, consensusHeights, events, expectedBlocks, expectedActions)
     }
   }
 }

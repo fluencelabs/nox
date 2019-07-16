@@ -19,16 +19,15 @@ package fluence.effects.tendermint.rpc.websocket
 import cats.data.EitherT
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
+import cats.instances.list._
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
+import cats.syntax.apply._
 import cats.syntax.compose._
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.syntax.apply._
-import cats.syntax.applicative._
-import cats.syntax.option._
-import cats.{Applicative, Eval, Monad}
+import cats.{Eval, Monad, Traverse}
 import fluence.effects.JavaFutureConversion._
 import fluence.effects.syntax.backoff._
 import fluence.effects.syntax.eitherT._
@@ -94,14 +93,17 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
         e => log.error(s"parsing block $height", e)
       )
 
+      def loadBlocks(from: Long, to: Long) =
+        Traverse[List]
+          .sequence((from to to).map(loadBlock).toList)
+
+      val bNil: List[Block] = Nil
+
       fs2.Stream
         .eval(log.info(Console.YELLOW + s"BUD: subscribed on NewBlock. startFrom: $startFrom" + Console.RESET)) *>
         queue.dequeue
           .evalMapAccumulate(startFrom) {
-            // new block
-            // the assumption here is that we never have `curHeight < parse(json).header.height`
-            // all other cases are possible though. This should be guaranteed by block processing latching
-            // (i.e., statemachine doesn't commit the next block until previous was processed)
+            // receiving new block
             case (curHeight, JsonEvent(json)) =>
               parseBlock(json, curHeight)
                 .flatTap(
@@ -112,40 +114,43 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
                 .flatMap(
                   b =>
                     if (b.header.height < curHeight) {
-                      // It could be only that `b.h.height == curHeight - 1`, so warn otherwise, to signal algorithm is broken
-                      val warnLog =
-                        if (b.header.height != curHeight - 1)
-                          log.warn(s"unexpected block height ${b.header.height} curHeight $curHeight")
-                        else Applicative[F].unit
-
-                      warnLog as curHeight -> none[Block]
-                      // TODO: implement case when block is missed, but reconnect didn't happen
-                      // e.g., curHeight = 7, b.height = 8
-                      // also, for multiple block downloading: curHeight = 7, b.height = 10
-                    } else (b.header.height + 1, b.some).pure[F]
+                      // received an old block, ignoring
+                      log.warn(s"ignoring block ${b.header.height} as too old, current height is $curHeight") as
+                        curHeight -> bNil
+                    } else if (b.header.height > curHeight) {
+                      // we've missed some blocks, so catching up (this happened without reconnect, so it might be Tendermint's error)
+                      log.warn(s"missed some blocks. expected $curHeight, got ${b.header.height}. catching up") *>
+                        loadBlocks(curHeight, b.header.height - 1).map(bs => (b.header.height + 1, bs :+ b))
+                    } else (b.header.height + 1, List(b)).pure[F]
                 )
 
             // reconnnect (it's always the first event in the queue)
             case (startHeight, Reconnect) =>
               for {
+                // retrieve height from Tendermint
                 consensusHeight <- backoff.retry(self.consensusHeight(),
                                                  e => log.error("retrieving consensus height", e))
                 _ <- log
                   .info(
                     Console.YELLOW + s"BUD: reconnect. startHeight $startHeight consensusHeight $consensusHeight cond1: ${consensusHeight == startHeight}, cond2: ${startHeight == consensusHeight - 1}" + Console.RESET
                   )
-                // since we're always maximum only 1 block behind (due to latching, see above), there're only 2 cases:
-                (height, block) <- if (consensusHeight == startHeight)
-                  // 1. startHeight == consensusHeight => lastKnownHeight == consensusHeight - 1, so we've missed 1 block
-                  loadBlock(startHeight).map(b => (b.header.height + 1, b.some))
-                else
-                  // 2. startHeight == consensusHeight - 1 => lastKnownHeight == consensusHeight,
-                  // so we're all caught up, and can start waiting for a new block (i.e., JsonEvent)
-                  (startHeight, none[Block]).pure[F]
+                (height, block) <- if (consensusHeight >= startHeight) {
+                  // we're behind last block, load all blocks up to it
+                  loadBlocks(startHeight, consensusHeight).map(bs => (consensusHeight + 1, bs))
+                } else {
+                  val warnLog =
+                    if (startHeight > consensusHeight + 1)
+                      // shouldn't happen, could mean that we have invalid blocks saved in storage
+                      log.warn(
+                        s"unexpected state: startHeight $startHeight > consensusHeight $consensusHeight + 1. Consensus travelled back in time?"
+                      )
+                    else ().pure[F]
+                  // we're all caught up, start waiting for a new block (i.e., JsonEvent)
+                  warnLog as (startHeight, bNil)
+                }
               } yield (height, block)
           }
-          .map(_._2)
-          .unNone
+          .flatMap(r => fs2.Stream.emits(r._2))
     }
   }
 
