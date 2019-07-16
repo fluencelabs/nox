@@ -27,17 +27,32 @@ export class AppSession {
         this.privateKey = privateKey;
     }
 
+    private getNextWorkerSession(): WorkerSession {
+        let workerSession;
+        let counter = 0;
+        do {
+            if (counter++ >= this.workerSessions.length) {
+                throw new Error('All sessions was banned, no free connection to use.');
+            }
+
+            const nextWorker = this.workerCounter++ % this.workerSessions.length;
+            workerSession = this.workerSessions[nextWorker];
+        } while(workerSession.session.isBanned());
+
+        return workerSession;
+    }
+
     // selects next worker and calls `request` on that worker
     async request(payload: string): Promise<ResultPromise> {
         const currentCounter = this.counter++;
         const performRequest = async (retryCount: number = 0): Promise<ResultPromise> => {
-            const nextWorker = this.workerCounter++ % this.workerSessions.length;
-            let session = this.workerSessions[nextWorker].session;
+            const { session } = this.getNextWorkerSession();
 
             const { status, result, error } = await session.request(payload, this.privateKey, currentCounter);
 
             if (status !== RequestStatus.OK) {
                 if (status === RequestStatus.E_REQUEST && retryCount < this.workerSessions.length) {
+                    session.ban();
                     return performRequest(retryCount + 1);
                 }
 
