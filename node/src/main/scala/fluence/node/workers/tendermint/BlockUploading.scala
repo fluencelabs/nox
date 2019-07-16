@@ -100,10 +100,10 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
 
     // TODO: storedReceipts is calculated 3 times. How to memoize that?
     val storedReceipts =
-      fs2.Stream.eval(log.info("will start loading stored receipts")) >>
+      fs2.Stream.eval(log.info(Console.YELLOW + "BUD: will start loading stored receipts" + Console.RESET)) >>
         storage
           .retrieve()
-          .evalTap(t => log.info(s"stored receipt ${t._1}"))
+          .evalTap(t => log.info(Console.YELLOW + s"BUD: stored receipt ${t._1}" + Console.RESET))
 
     val lastKnownHeight = storedReceipts.last.map(_.map(_._1).getOrElse(0L))
 

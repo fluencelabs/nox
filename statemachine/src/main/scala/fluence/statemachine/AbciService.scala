@@ -16,7 +16,7 @@
 
 package fluence.statemachine
 
-import cats.data.EitherT
+import cats.data.{EitherT, IndexedStateT, StateT}
 import cats.effect.Effect
 import cats.effect.concurrent.Ref
 import cats.effect.syntax.effect._
@@ -24,7 +24,7 @@ import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.option._
-import cats.{Applicative, Monad}
+import cats.{Applicative, Eval, Id, Monad}
 import com.github.jtendermint.jabci.api.CodeType
 import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
@@ -103,7 +103,7 @@ class AbciService[F[_]: Monad: Effect](
         .leftSemiflatMap(err ⇒ Log[F].error(s"VM is unable to compute state hash: $err").as(err))
         .getOrElse(ByteVector.empty) // TODO do not ignore vm error
 
-      _ <- log.info(Console.YELLOW + "BUD: got vmHash; st.height ${st.height}" + Console.RESET)
+      _ <- log.info(Console.YELLOW + s"BUD: got vmHash; height ${st.height + 1}" + Console.RESET)
 
       // Do not wait for receipt on the very first block
       receipt <- if (st.height > 0) controlSignals.receipt.map(_.some) else none[BlockReceipt].pure[F]
@@ -117,7 +117,7 @@ class AbciService[F[_]: Monad: Effect](
       _ = receipt.foreach(
         b =>
           if (b.receipt.height != st.height)
-            log.error(s"Got wrong receipt height. st.height: ${st.height}, receipt: ${b.receipt.height}")
+            log.error(s"Got wrong receipt height. height: ${st.height + 1}, receipt: ${b.receipt.height}")
       )
 
       // Check block for correctness, for debugging purposes
@@ -152,7 +152,7 @@ class AbciService[F[_]: Monad: Effect](
         case Some(ReceiptType.LastStored) => controlSignals.setVmHash(vmHash)
         case unknown                      => log.error(s"Unknown receipt kind: $unknown")
       }
-      _ <- log.info(Console.YELLOW + "BUD: end of commit" + Console.RESET)
+      _ <- log.info(Console.YELLOW + s"BUD: end of commit ${st.height + 1}" + Console.RESET)
     } yield appHash
 
   /**
@@ -201,6 +201,19 @@ class AbciService[F[_]: Monad: Effect](
         }
     }
 
+  class Wtf[G[_]: Effect: Monad] {
+    import cats.data._
+    import cats.instances._
+    import cats.implicits._
+
+    case class Good(a: Int)
+    case class Ugly[H[_]](b: Int)
+
+    val stateTGood: StateT[F, Good, Boolean] = StateT.apply(a => (a, true).pure[F])
+    val stateGood: StateT[Eval, Good, Boolean] = stateTGood
+    val cyka = AbciState.addTx[F](???)
+  }
+
   /**
    * Push incoming transaction to be processed on [[commit]].
    *
@@ -210,6 +223,12 @@ class AbciService[F[_]: Monad: Effect](
     Tx.readTx(data).value.flatMap {
       case Some(tx) ⇒
         // TODO we have different logic in checkTx and deliverTx, as only in deliverTx tx might be dropped due to pending txs overflow
+        val wtf: cats.data.StateT[Eval, AbciState, Boolean] = AbciState.addTx(tx)
+        val wtf2: StateT[F, AbciState, Boolean] = wtf
+        val wtf3: StateT[F, AbciState, Boolean] = StateT.apply[F, AbciState, Boolean](s => (s, true).pure[F])
+        val wtf4: cats.data.StateT[Eval, AbciState, Boolean] = wtf3
+
+        val cyka = StateT.empty[F, AbciState, Boolean]
         state
         // Update the state with a new tx
           .modifyState(AbciState.addTx(tx))

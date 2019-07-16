@@ -94,47 +94,50 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
         e => log.error(s"parsing block $height", e)
       )
 
-      queue.dequeue
-        .evalMapAccumulate(startFrom) {
-          // new block
-          // the assumption here is that we never have `curHeight < parse(json).header.height`
-          // all other cases are possible though. This should be guaranteed by block processing latching
-          // (i.e., statemachine doesn't commit the next block until previous was processed)
-          case (curHeight, JsonEvent(json)) =>
-            log.info(Console.YELLOW + s"BUD: new block. curHeight $curHeight" + Console.RESET) *>
-              parseBlock(json, curHeight).flatMap(
-                b =>
-                  if (b.header.height < curHeight) {
-                    // It could be only that `b.h.height == curHeight - 1`, so warn otherwise, to signal algorithm is broken
-                    val warnLog =
-                      if (b.header.height != curHeight - 1)
-                        log.warn(s"unexpected block height ${b.header.height} curHeight $curHeight")
-                      else Applicative[F].unit
+      fs2.Stream
+        .eval(log.info(Console.YELLOW + s"BUD: subscribed on NewBlock. startFrom: $startFrom" + Console.RESET)) *>
+        queue.dequeue
+          .evalMapAccumulate(startFrom) {
+            // new block
+            // the assumption here is that we never have `curHeight < parse(json).header.height`
+            // all other cases are possible though. This should be guaranteed by block processing latching
+            // (i.e., statemachine doesn't commit the next block until previous was processed)
+            case (curHeight, JsonEvent(json)) =>
+              log.info(Console.YELLOW + s"BUD: new block. curHeight $curHeight" + Console.RESET) *>
+                parseBlock(json, curHeight).flatMap(
+                  b =>
+                    if (b.header.height < curHeight) {
+                      // It could be only that `b.h.height == curHeight - 1`, so warn otherwise, to signal algorithm is broken
+                      val warnLog =
+                        if (b.header.height != curHeight - 1)
+                          log.warn(s"unexpected block height ${b.header.height} curHeight $curHeight")
+                        else Applicative[F].unit
 
-                    warnLog as curHeight -> none[Block]
-                  } else (b.header.height + 1, b.some).pure[F]
-              )
-
-          // reconnnect (it's always the first event in the queue)
-          case (startHeight, Reconnect) =>
-            for {
-              consensusHeight <- backoff.retry(self.consensusHeight(), e => log.error("retrieving consensus height", e))
-              _ <- log
-                .info(
-                  Console.YELLOW + s"BUD: reconnect. startHeight $startHeight consensusHeight $consensusHeight cond1: ${consensusHeight == startHeight}, cond2: ${startHeight == consensusHeight - 1}" + Console.RESET
+                      warnLog as curHeight -> none[Block]
+                    } else (b.header.height + 1, b.some).pure[F]
                 )
-              // since we're always maximum only 1 block behind (due to latching, see above), there're only 2 cases:
-              (height, block) <- if (consensusHeight == startHeight)
-                // 1. startHeight == consensusHeight => lastKnownHeight == consensusHeight - 1, so we've missed 1 block
-                loadBlock(startHeight).map(b => (b.header.height + 1, b.some))
-              else
-                // 2. startHeight == consensusHeight - 1 => lastKnownHeight == consensusHeight,
-                // so we're all caught up, and can start waiting for a new block (i.e., JsonEvent)
-                (startHeight, none[Block]).pure[F]
-            } yield (height, block)
-        }
-        .map(_._2)
-        .unNone
+
+            // reconnnect (it's always the first event in the queue)
+            case (startHeight, Reconnect) =>
+              for {
+                consensusHeight <- backoff.retry(self.consensusHeight(),
+                                                 e => log.error("retrieving consensus height", e))
+                _ <- log
+                  .info(
+                    Console.YELLOW + s"BUD: reconnect. startHeight $startHeight consensusHeight $consensusHeight cond1: ${consensusHeight == startHeight}, cond2: ${startHeight == consensusHeight - 1}" + Console.RESET
+                  )
+                // since we're always maximum only 1 block behind (due to latching, see above), there're only 2 cases:
+                (height, block) <- if (consensusHeight == startHeight)
+                  // 1. startHeight == consensusHeight => lastKnownHeight == consensusHeight - 1, so we've missed 1 block
+                  loadBlock(startHeight).map(b => (b.header.height + 1, b.some))
+                else
+                  // 2. startHeight == consensusHeight - 1 => lastKnownHeight == consensusHeight,
+                  // so we're all caught up, and can start waiting for a new block (i.e., JsonEvent)
+                  (startHeight, none[Block]).pure[F]
+              } yield (height, block)
+          }
+          .map(_._2)
+          .unNone
     }
   }
 
