@@ -201,19 +201,6 @@ class AbciService[F[_]: Monad: Effect](
         }
     }
 
-  class Wtf[G[_]: Effect: Monad] {
-    import cats.data._
-    import cats.instances._
-    import cats.implicits._
-
-    case class Good(a: Int)
-    case class Ugly[H[_]](b: Int)
-
-    val stateTGood: StateT[F, Good, Boolean] = StateT.apply(a => (a, true).pure[F])
-    val stateGood: StateT[Eval, Good, Boolean] = stateTGood
-    val cyka = AbciState.addTx[F](???)
-  }
-
   /**
    * Push incoming transaction to be processed on [[commit]].
    *
@@ -223,12 +210,6 @@ class AbciService[F[_]: Monad: Effect](
     Tx.readTx(data).value.flatMap {
       case Some(tx) ⇒
         // TODO we have different logic in checkTx and deliverTx, as only in deliverTx tx might be dropped due to pending txs overflow
-        val wtf: cats.data.StateT[Eval, AbciState, Boolean] = AbciState.addTx(tx)
-        val wtf2: StateT[F, AbciState, Boolean] = wtf
-        val wtf3: StateT[F, AbciState, Boolean] = StateT.apply[F, AbciState, Boolean](s => (s, true).pure[F])
-        val wtf4: cats.data.StateT[Eval, AbciState, Boolean] = wtf3
-
-        val cyka = StateT.empty[F, AbciState, Boolean]
         state
         // Update the state with a new tx
           .modifyState(AbciState.addTx(tx))
