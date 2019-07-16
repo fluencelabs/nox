@@ -45,7 +45,7 @@ import scala.language.{higherKinds, postfixOps}
 
 private[tendermint] case class BlockUpload(block: Block,
                                            vmHash: ByteVector,
-                                           emptyReceipts: Option[Chain[Receipt]] = None)
+                                           emptyBlocks: Option[Chain[BlockUpload]] = None)
 
 /**
  * Implements continuous uploading process of Tendermint's blocks
@@ -122,21 +122,19 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
       )
       .evalTap(b => log.info(Console.YELLOW + s"BUD: got vmHash ${b.block.header.height}" + Console.RESET))
 
-    // Group empty blocks with the first non-empty block; upload empty blocks right away
-    val grouped = blocksWithVmHash
-      .evalScan[F, Either[Chain[Receipt], BlockUpload]](Left(Chain.empty)) {
-        case (Left(empties), block) if emptyBlock(block.block) => upload(block).map(r => Left(empties :+ r))
-        case (Left(empties), block)                            => F.pure(block.copy(emptyReceipts = Some(empties)).asRight)
-        case (Right(_), block) if emptyBlock(block.block)      => upload(block).map(r => Left(Chain(r)))
-        case (Right(_), block)                                 => F.pure(block.asRight)
+    // Group empty blocks with non-empty ones
+    val blocksToUpload = blocksWithVmHash
+      .scan[Either[Chain[BlockUpload], BlockUpload]](Left(Chain.empty)) {
+        case (Left(empties), block) if emptyBlock(block.block) => (empties :+ block).asLeft
+        case (Left(empties), block)                            => block.copy(emptyBlocks = Some(empties)).asRight
+        case (Right(_), block) if emptyBlock(block.block)      => Chain(block).asLeft
+        case (Right(_), block)                                 => block.asRight
+      }
+      .collect {
+        case Right(block) => block
       }
 
-    // Receipts from the new blocks (as opposed to stored receipts)
-    val newReceipts = grouped.flatMap {
-      // Emit receipts for the empty blocks
-      case Left(empties) => fs2.Stream.emits(empties.toList.takeRight(1))
-      case Right(block)  => fs2.Stream.eval(upload(block))
-    }.map(_ -> ReceiptType.New)
+    val newReceipts = blocksToUpload.evalMap(upload).flatMap(fs2.Stream.emits).map(_ -> ReceiptType.New)
 
     // Receipts from storage; last one will be treated differently, see AbciService for details
     val storedTypedReceipts =
@@ -154,26 +152,28 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
     appId: Long,
     lastManifestReceipt: MVar[F, Option[Receipt]],
     receiptStorage: ReceiptStorage[F]
-  )(implicit backoff: Backoff[EffectError], log: Log[F]): F[Receipt] =
-    log.scope("block" -> block.block.header.height.toString,
-              "upload block" -> block.emptyReceipts.fold("empty")(_ => "non empty")) { log =>
+  )(implicit backoff: Backoff[EffectError], log: Log[F]): F[List[Receipt]] =
+    log.scope("block" -> block.block.header.height.toString, "upload block" -> "") { log =>
       def logError[E <: EffectError](e: E) = log.error("", e)
 
-      def upload(b: BlockUpload, r: Option[Receipt]) = backoff.retry(
-        history.upload(b.block, b.vmHash, r, block.emptyReceipts.map(_.toList).getOrElse(Nil))(log),
-        logError
-      )
+      def upload(b: BlockUpload, empties: List[Receipt], r: Option[Receipt]) =
+        backoff.retry(history.upload(b.block, b.vmHash, r, empties)(log), logError)
+
+      def uploadEmpty(b: BlockUpload) = upload(b, Nil, None)
+
+      def uploadEmpties(bs: Chain[BlockUpload]) = Traverse[List].sequence[F, Receipt](bs.map(uploadEmpty).toList)
 
       def storeReceipt(height: Long, receipt: Receipt) = backoff.retry(receiptStorage.put(height, receipt), logError)
 
       for {
         _ <- log.debug(s"started")
         lastReceipt <- lastManifestReceipt.take
-        receipt <- upload(block, lastReceipt)
+        empties <- block.emptyBlocks.fold(List.empty[Receipt].pure[F])(uploadEmpties)
+        receipt <- upload(block, empties, lastReceipt)
         _ <- storeReceipt(block.block.header.height, receipt)
         _ <- lastManifestReceipt.put(Some(receipt))
         _ <- log.debug(s"finished")
-      } yield receipt
+      } yield (empties :+ receipt)
     }
 }
 

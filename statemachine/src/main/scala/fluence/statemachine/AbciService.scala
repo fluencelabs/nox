@@ -128,8 +128,8 @@ class AbciService[F[_]: Monad: Effect](
 
       _ <- log.info(Console.YELLOW + s"BUD: got vmHash; height ${st.height + 1}" + Console.RESET)
 
-      // Do not wait for receipt on the blocks 1 and 2, since these blocks are always empty
-      receipt <- if (blockHeight > 2) controlSignals.receipt.map(_.some) else none[BlockReceipt].pure[F]
+      // Do not wait for receipt on empty blocks
+      receipt <- if (transactions.nonEmpty) controlSignals.receipt.map(_.some) else none[BlockReceipt].pure[F]
 
       _ <- log.info(
         Console.YELLOW +
