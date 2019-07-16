@@ -44,7 +44,7 @@ import scala.language.postfixOps
 class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
   implicit private val timer = IO.timer(global)
   implicit private val shift = IO.contextShift(global)
-  implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec", level = Log.Warn).unsafeRunSync()
+  implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec", level = Log.Error).unsafeRunSync()
   implicit private val sttp = EitherTSttpBackend[IO]()
 
   sealed trait Action
@@ -105,41 +105,49 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
     } yield (w, state)
   }
 
-  def emitBlocks(lastKnownHeight: Long,
-                 events: List[Event],
-                 expectedBlocks: List[Long],
-                 expectedActions: List[Action],
-                 timeout: Duration = 10.seconds) = {
-    val result = (websocket(List(2), events).flatMap {
+  private def emitBlocks(lastKnownHeight: Long,
+                         consensusHeights: List[Long],
+                         events: List[Event],
+                         expectedBlocks: List[Long],
+                         expectedActions: List[Action],
+                         timeout: Duration = 10.seconds) = {
+    val result = (websocket(consensusHeights, events).flatMap {
       case (ws, state) =>
-        ws.subscribeNewBlock(lastKnownHeight).take(3).compile.toList.flatMap(bs => state.get.map(bs -> _))
+        ws.subscribeNewBlock(lastKnownHeight)
+          .take(expectedBlocks.length)
+          .compile
+          .toList
+          .flatMap(bs => state.get.map(bs -> _))
     }).unsafeRunTimed(timeout)
 
     result match {
       case None => fail(s"Test timed out after $timeout")
       case Some((blocks, state)) =>
-        blocks.length shouldBe expectedBlocks.length
         blocks.map(_.header.height) should contain theSameElementsInOrderAs expectedBlocks
-
-        state.actions.length shouldBe expectedActions.length
         state.actions should contain theSameElementsInOrderAs expectedActions
     }
   }
 
+  def block(height: Long) = JsonEvent(blockJson(height))
+
   "websocket" should {
+
     "yield blocks in order" in {
-      // lastKnownHeight = 1
-      // consensusHeight = 2
+      // given lastKnownHeight = 1
+      // and consensusHeight = 2
+      // it should
       // loadBlock(2)
       // emit block = 3
       // emit block = 4
 
+      val lastKnownHeight = 1
+      val consensusHeight = 2
       val blocks = (3 to 4).map(blockJson(_)) toList
       val events = Reconnect +: blocks.map(JsonEvent)
       val expectedBlocks = List(2L, 3L, 4L)
       val expectedActions = List(GetConsensusHeight, GetBlock(2))
 
-      emitBlocks(1, events, expectedBlocks, expectedActions)
+      emitBlocks(lastKnownHeight, List(consensusHeight), events, expectedBlocks, expectedActions)
     }
 
     "load block after reconnect" in {
@@ -153,6 +161,14 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
       // emit block 4
       // emit block 4
       // emit block 5
+
+      val lastKnownHeight = 1
+      val consensusHeights = List(2L, 4L)
+      val events = List(Reconnect, block(3), Reconnect, block(4), block(4), block(5))
+      val expectedBlocks = List(2L, 3L, 4L, 5L)
+      val expectedActions = List(GetConsensusHeight, GetBlock(2), GetConsensusHeight, GetBlock(4))
+
+      emitBlocks(lastKnownHeight, consensusHeights, events, expectedBlocks, expectedActions)
     }
 
     "not load block after reconnect" in {
@@ -163,17 +179,33 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
       // emit reconnect
       // consensusHeight = 3
       // emit block = 4
+
+      val lastKnownHeight = 1
+      val consensusHeights = List(2L, 3L)
+      val events = List(Reconnect, block(3), Reconnect, block(4))
+      val expectedBlocks = List(2L, 3L, 4L)
+      val expectedActions = List(GetConsensusHeight, GetBlock(2), GetConsensusHeight)
+
+      emitBlocks(lastKnownHeight, consensusHeights, events, expectedBlocks, expectedActions)
     }
 
     "ignore old blocks" in {
-      // emit block 4
-      // emit block 4
-      // emit block 5
-      // emit block 5
-      // emit block 6
+      // emit blocks 1 x3, 2 x3, 3, 2 x3, 3 x3, 4, 3, 2, 1
+
+      def blockx3(height: Long) = (1 to 3).map(_ => block(height))
+
+      val lastKnownHeight = 0
+      val consensusHeights = List(2L, 3L)
+      val blocks = blockx3(1) ++ (blockx3(2) :+ block(3)) ++ blockx3(2) ++ blockx3(3) ++ (1L to 4L).reverse.map(block)
+      val events: List[Event] = Reconnect +: blocks toList
+      val expectedBlocks = List(1L, 2L, 3L, 4L)
+      val expectedActions = List(GetConsensusHeight)
+
+      emitBlocks(lastKnownHeight, consensusHeights, events, expectedBlocks, expectedActions)
     }
 
     "load missed blocks" in {
+      // TODO: after implementing multiple blocks loading
       // emit block 4
       // emit block 7
       // loadBlock(5)

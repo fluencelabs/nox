@@ -103,8 +103,13 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
             // all other cases are possible though. This should be guaranteed by block processing latching
             // (i.e., statemachine doesn't commit the next block until previous was processed)
             case (curHeight, JsonEvent(json)) =>
-              log.info(Console.YELLOW + s"BUD: new block. curHeight $curHeight" + Console.RESET) *>
-                parseBlock(json, curHeight).flatMap(
+              parseBlock(json, curHeight)
+                .flatTap(
+                  b =>
+                    log
+                      .info(Console.YELLOW + s"BUD: new block ${b.header.height}. curHeight $curHeight" + Console.RESET)
+                )
+                .flatMap(
                   b =>
                     if (b.header.height < curHeight) {
                       // It could be only that `b.h.height == curHeight - 1`, so warn otherwise, to signal algorithm is broken
