@@ -72,16 +72,37 @@ class AbciService[F[_]: Monad: Effect](
     } yield ()).value.void.toIO.unsafeRunAsyncAndForget()
 
   /**
+   * Forms a block from current state if current height is more than 2
+   *
+   * Blocks 1 and 2 should be always empty, so receipts for these two blocks aren't used in appHash.
+   * This is required to avoid waiting for receipts and thus avoid blocking commit for the second block.
+   *
+   * @return State after block formation, and ordered transactions list
+   */
+  private def formBlock(): F[(AbciState, List[Tx])] =
+    for {
+      // Get current state
+      currentState <- state.get
+      height = currentState.height + 1
+      sTxs <- {
+        if (height > 2)
+          // Form block starting with block 3
+          AbciState.formBlock[F].run(currentState)
+        else
+          // Keep blocks 1 and 2 empty
+          (currentState, List.empty[Tx]).pure[F]
+      }
+    } yield sTxs
+
+  /**
    * Take all the transactions we're able to process, and pass them to VM one by one.
    *
    * @return App (VM) Hash
    */
   def commit(implicit log: Log[F]): F[ByteVector] =
     for {
-      // Get current state
-      s ← state.get
       // Form a block: take ordered txs from AbciState
-      sTxs @ (_, transactions) ← AbciState.formBlock[F].run(s)
+      sTxs @ (_, transactions) ← formBlock()
 
       // Process txs one by one
       st ← Monad[F].tailRecM[(AbciState, List[Tx]), AbciState](sTxs) {
@@ -97,6 +118,8 @@ class AbciService[F[_]: Monad: Effect](
           Applicative[F].pure(Right(st))
       }
 
+      blockHeight = st.height + 1
+
       // Get the VM hash
       vmHash ← vm
         .vmStateHash()
@@ -105,8 +128,8 @@ class AbciService[F[_]: Monad: Effect](
 
       _ <- log.info(Console.YELLOW + s"BUD: got vmHash; height ${st.height + 1}" + Console.RESET)
 
-      // Do not wait for receipt on the very first block
-      receipt <- if (st.height > 0) controlSignals.receipt.map(_.some) else none[BlockReceipt].pure[F]
+      // Do not wait for receipt on the blocks 1 and 2, since these blocks are always empty
+      receipt <- if (blockHeight > 2) controlSignals.receipt.map(_.some) else none[BlockReceipt].pure[F]
 
       _ <- log.info(
         Console.YELLOW +
@@ -116,12 +139,12 @@ class AbciService[F[_]: Monad: Effect](
 
       _ = receipt.foreach(
         b =>
-          if (b.receipt.height != st.height)
-            log.error(s"Got wrong receipt height. height: ${st.height + 1}, receipt: ${b.receipt.height}")
+          if (b.receipt.height != blockHeight)
+            log.error(s"Got wrong receipt height. height: $blockHeight, receipt: ${b.receipt.height}")
       )
 
-      // Check block for correctness, for debugging purposes
-      _ = if (st.height > 0 && receipt.forall(_.`type` == ReceiptType.New)) checkBlock(st.height)
+      // Check previous block for correctness, for debugging purposes
+      _ = if (blockHeight > 1 && receipt.forall(_.`type` == ReceiptType.New)) checkBlock(blockHeight - 1)
 
       // Do not use receipt in app hash if there's no txs in a block, so empty blocks have the same appHash as
       // previous non-empty ones. This is because Tendermint stops producing empty blocks only after
@@ -152,7 +175,7 @@ class AbciService[F[_]: Monad: Effect](
         case Some(ReceiptType.LastStored) => controlSignals.setVmHash(vmHash)
         case unknown                      => log.error(s"Unknown receipt kind: $unknown")
       }
-      _ <- log.info(Console.YELLOW + s"BUD: end of commit ${st.height + 1}" + Console.RESET)
+      _ <- log.info(Console.YELLOW + s"BUD: end of commit $blockHeight" + Console.RESET)
     } yield appHash
 
   /**

@@ -33,7 +33,7 @@ import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockManifest, Receipt}
 import fluence.effects.tendermint.{block, rpc}
 import fluence.effects.tendermint.rpc.TendermintRpc
-import fluence.effects.tendermint.rpc.websocket.TestTendermintRpc
+import fluence.effects.tendermint.rpc.websocket.TestTendermintWebsocketRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
@@ -123,7 +123,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
         }
 
         val workerServices = new WorkerServices[IO] {
-          override def tendermint: TendermintRpc[IO] = new TestTendermintRpc[IO] {
+          override def tendermint: TendermintRpc[IO] = new TestTendermintWebsocketRpc[IO] {
             override def subscribeNewBlock(
               lastKnownHeight: Long
             )(implicit log: Log[IO], backoff: Backoff[EffectError]): fs2.Stream[IO, Block] =

@@ -114,6 +114,9 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
                         else Applicative[F].unit
 
                       warnLog as curHeight -> none[Block]
+                      // TODO: implement case when block is missed, but reconnect didn't happen
+                      // e.g., curHeight = 7, b.height = 8
+                      // also, for multiple block downloading: curHeight = 7, b.height = 10
                     } else (b.header.height + 1, b.some).pure[F]
                 )
 
