@@ -2,6 +2,7 @@ import {WorkerSession} from "./fluence";
 import {ResultPromise} from "./ResultAwait";
 import {PrivateKey} from "./utils";
 import {getWorkerStatus} from "fluence-monitoring"
+import {RequestStatus} from "./Session";
 
 // All sessions with workers from an app
 export class AppSession {
@@ -27,10 +28,26 @@ export class AppSession {
     }
 
     // selects next worker and calls `request` on that worker
-    request(payload: string): ResultPromise {
-        let nextWorker = this.workerCounter++ % this.workerSessions.length;
-        let session = this.workerSessions[nextWorker].session;
-        return session.request(payload, this.privateKey, this.counter++);
+    async request(payload: string): Promise<ResultPromise> {
+        const currentCounter = this.counter++;
+        const performRequest = async (retryCount: number = 0): Promise<ResultPromise> => {
+            const nextWorker = this.workerCounter++ % this.workerSessions.length;
+            let session = this.workerSessions[nextWorker].session;
+
+            const { status, result, error } = await session.request(payload, this.privateKey, currentCounter);
+
+            if (status !== RequestStatus.OK) {
+                if (status === RequestStatus.E_REQUEST && retryCount < this.workerSessions.length) {
+                    return performRequest(retryCount + 1);
+                }
+
+                throw error;
+            }
+
+            return result as ResultPromise;
+        };
+
+        return performRequest();
     }
 
     // gets info about all workers in the cluster

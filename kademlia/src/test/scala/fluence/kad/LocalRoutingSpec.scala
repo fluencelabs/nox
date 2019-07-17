@@ -18,15 +18,15 @@ package fluence.kad
 
 import cats.data.EitherT
 import cats.effect.{ContextShift, IO, Timer}
-import fluence.kad.routing.LocalRouting
 import fluence.kad.protocol.{ContactAccess, KademliaRpc, Key, Node}
+import fluence.kad.routing.LocalRouting
 import fluence.kad.state.RoutingState
 import fluence.log.{Log, LogFactory}
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
 
-import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.global
+import scala.concurrent.duration._
 import scala.language.implicitConversions
 
 class LocalRoutingSpec extends WordSpec with Matchers {

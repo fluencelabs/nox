@@ -19,8 +19,8 @@
  */
 export interface QueryResponse {
     height: string;
-    value: string;
-    code: number;
+    value?: string;
+    code?: number;
     info: string;
 }
 

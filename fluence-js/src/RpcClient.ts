@@ -15,6 +15,18 @@
  */
 
 import axios, {AxiosPromise} from 'axios';
+import {QueryResponse} from './Result';
+import {BroadcastTxSyncResponse} from './TendermintClient';
+
+interface TendermintJsonRpcResponse<T = any> {
+    id: any;
+    jsonrpc: string;
+    result: T;
+}
+
+interface AbciQueryResult {
+    response: QueryResponse;
+}
 
 // Client to interaction with tendermint client through master node proxy
 export class RpcClient {
@@ -25,12 +37,12 @@ export class RpcClient {
         this.url = `${addr}/apps/${appId}`;
     }
 
-    broadcastTxSync(tx: string): AxiosPromise<any> {
+    broadcastTxSync(tx: string): AxiosPromise<TendermintJsonRpcResponse<BroadcastTxSyncResponse>> {
         let url = `${this.url}/tx`;
         return axios.post(url, tx)
     }
 
-    abciQuery(path: string): AxiosPromise<any> {
+    abciQuery(path: string): AxiosPromise<TendermintJsonRpcResponse<AbciQueryResult>> {
         return axios.get(`${this.url}/query`, {
             params: {
                 path: path,

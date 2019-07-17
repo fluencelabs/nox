@@ -1,6 +1,4 @@
 import SbtCommons._
-import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
-import sbtcrossproject.CrossPlugin.autoImport.crossProject
 
 name := "fluence"
 
@@ -45,7 +43,7 @@ lazy val `vm` = (project in file("vm"))
       .dependsOn(compile in `vm-llamadb`)
       .value
   )
-  .dependsOn(`merkelized-bytebuffer`, `log-jvm`)
+  .dependsOn(`merkelized-bytebuffer`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
 
 /**
@@ -166,23 +164,17 @@ lazy val `statemachine` = (project in file("statemachine"))
     `tendermint-block` % "test->test"
   )
 
-lazy val `effects` = crossProject(JVMPlatform, JSPlatform)
-  .withoutSuffixFor(JVMPlatform)
-  .crossType(FluenceCrossType)
-  .in(file("effects"))
+lazy val `effects` = project.in(file("effects"))
   .settings(
     commons,
     fork in Test := false,
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core"   % catsVersion,
-      "org.typelevel" %%% "cats-effect" % catsEffectVersion
+      cats,
+      catsEffect
     )
   )
   .dependsOn(`log`)
   .enablePlugins(AutomateHeaderPlugin)
-
-lazy val `effects-js` = `effects`.js
-lazy val `effects-jvm` = `effects`.jvm
 
 lazy val `sttpEitherT` = (project in file("effects/sttpEitherT"))
   .settings(
@@ -206,7 +198,7 @@ lazy val `ca-store` = (project in file("effects/ca-store"))
       fs2io
     )
   )
-  .dependsOn(`effects-jvm`)
+  .dependsOn(`effects`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `swarm` = (project in file("effects/swarm"))
@@ -260,39 +252,29 @@ lazy val `ethclient` = (project in file("effects/ethclient"))
       scalaTest
     ),
   )
-  .dependsOn(`effects-jvm`)
+  .dependsOn(`effects`)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `kvstore` =
-  crossProject(JVMPlatform, JSPlatform)
-    .withoutSuffixFor(JVMPlatform)
-    .crossType(FluenceCrossType)
+lazy val `kvstore` = project
     .in(file("effects/kvstore"))
     .settings(
       commons,
       fork in Test := false,
       libraryDependencies ++= Seq(
-        "one.fluence"   %%% "codec-core" % codecVersion,
-        "co.fs2"        %%% "fs2-core"   % fs2Version,
-        "org.scalatest" %%% "scalatest"  % "3.0.5" % Test
-      )
-    )
-    .jvmSettings(
-      libraryDependencies ++= Seq(
+        codecCore,
+        fs2,
+        scalaTest,
         rocksDb
       )
     )
     .dependsOn(`effects`, `log`)
     .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `kvstore-js` = `kvstore`.js
-lazy val `kvstore-jvm` = `kvstore`.jvm
-
 lazy val `dockerio` = (project in file("effects/docker"))
   .settings(
     commons
   )
-  .dependsOn(`effects-jvm`)
+  .dependsOn(`effects`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
@@ -315,7 +297,7 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
       sttpCatsBackend % Test
     )
   )
-  .dependsOn(`effects-jvm`, `sttpEitherT`, `tendermint-block`, `log-jvm`)
+  .dependsOn(`effects`, `sttpEitherT`, `tendermint-block`, `log-jvm`)
   .enablePlugins(AutomateHeaderPlugin)
 
 // TODO remove from effects to history
@@ -335,7 +317,7 @@ lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
       bouncyCastle
     )
   )
-  .dependsOn(`effects-jvm`)
+  .dependsOn(`effects`)
   .enablePlugins(AutomateHeaderPlugin)
 
 // TODO remove from effects to history
@@ -357,7 +339,7 @@ lazy val `tendermint-block-history` = (project in file("effects/tendermint-block
       scalaTest,
     )
   )
-  .dependsOn(`effects-jvm`, `tendermint-block`, `ipfs`)
+  .dependsOn(`effects`, `tendermint-block`, `ipfs`)
   .enablePlugins(AutomateHeaderPlugin)
 
 // TODO remove from effects to history
@@ -372,33 +354,25 @@ lazy val `receipt-storage` = (project in file("effects/receipt-storage"))
       scalaTest,
     )
   )
-  .dependsOn(`log-jvm`, `kvstore-jvm`, `tendermint-block-history`)
+  .dependsOn(`log`, `kvstore`, `tendermint-block-history`)
 
-lazy val `kademlia` = crossProject(JVMPlatform, JSPlatform)
-  .withoutSuffixFor(JVMPlatform)
-  .crossType(FluenceCrossType)
+lazy val `kademlia` = project
   .in(file("kademlia"))
   .settings(
     commons,
     kindProjector,
     libraryDependencies ++= Seq(
-      "org.typelevel"              %%% "cats-core"                 % catsVersion,
-      "org.typelevel"              %%% "cats-effect"               % catsEffectVersion,
-      "one.fluence"                %%% "codec-core"                % codecVersion,
-      "one.fluence"                %%% "crypto-hashsign"           % cryptoVersion,
-      "org.typelevel"              %%% "cats-testkit"              % catsVersion % Test,
-      "org.scalatest"              %%% "scalatest"                 % "3.0.5" % Test,
-      "com.github.alexarchambault" %%% "scalacheck-shapeless_1.13" % "1.1.8" % Test
+      cats,
+      catsEffect,
+      codecCore,
+      cryptoHashsign,
+      catsTestkit,
+      scalaTest,
+      "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % "1.1.8" % Test
     )
-  )
-  .jsSettings(
-    test in Test := {}
   )
   .dependsOn(`kvstore`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
-
-lazy val `kademlia-js` = `kademlia`.js.enablePlugins(ScalaJSBundlerPlugin)
-lazy val `kademlia-jvm` = `kademlia`.jvm
 
 lazy val `kademlia-http` = (project in file("kademlia/http"))
   .settings(
@@ -412,7 +386,7 @@ lazy val `kademlia-http` = (project in file("kademlia/http"))
       scalaTest
     )
   )
-  .dependsOn(`kademlia-jvm`, `kademlia-testkit` % Test)
+  .dependsOn(`kademlia`, `kademlia-testkit` % Test)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kademlia-testkit` = (project in file("kademlia/testkit"))
@@ -422,27 +396,21 @@ lazy val `kademlia-testkit` = (project in file("kademlia/testkit"))
       scalaTest
     )
   )
-  .dependsOn(`kademlia-jvm`)
+  .dependsOn(`kademlia`)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `log` = crossProject(JVMPlatform, JSPlatform)
-  .withoutSuffixFor(JVMPlatform)
-  .crossType(FluenceCrossType)
-  .in(file("log"))
+lazy val `log` = project.in(file("log"))
   .settings(
     commons,
     fork in Test := false,
     kindProjector,
     libraryDependencies ++= Seq(
-      "org.typelevel" %%% "cats-core"   % catsVersion,
-      "org.typelevel" %%% "cats-effect" % catsEffectVersion,
-      "org.scalatest" %%% "scalatest"   % "3.0.5" % Test
+      cats,
+      catsEffect,
+      scalaTest
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
-
-lazy val `log-js` = `log`.js
-lazy val `log-jvm` = `log`.jvm
 
 lazy val `node` = project
   .configs(IntegrationTest)
@@ -489,7 +457,7 @@ lazy val `node` = project
     `swarm`,
     `ipfs`,
     `statemachine-control`,
-    `kvstore-jvm`,
+    `kvstore`,
     `dockerio`,
     `tendermint-rpc`,
     `tendermint-rpc`   % "test->test",
