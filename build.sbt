@@ -154,9 +154,18 @@ lazy val `statemachine` = (project in file("statemachine"))
     dockerfile in docker              := DockerContainers.worker(assembly.value, baseDirectory.value)
   )
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(`vm`, `statemachine-control`, `tendermint-rpc`, `sttpEitherT`, `tendermint-block`)
+  .dependsOn(
+    `vm`,
+    `statemachine-control`,
+    `statemachine-control` % "test",
+    `tendermint-rpc`,
+    `sttpEitherT`,
+    `tendermint-block`,
+    `tendermint-block` % "test->test"
+  )
 
-lazy val `effects` = project.in(file("effects"))
+lazy val `effects` = project
+  .in(file("effects"))
   .settings(
     commons,
     fork in Test := false,
@@ -248,19 +257,19 @@ lazy val `ethclient` = (project in file("effects/ethclient"))
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kvstore` = project
-    .in(file("effects/kvstore"))
-    .settings(
-      commons,
-      fork in Test := false,
-      libraryDependencies ++= Seq(
-        codecCore,
-        fs2,
-        scalaTest,
-        rocksDb
-      )
+  .in(file("effects/kvstore"))
+  .settings(
+    commons,
+    fork in Test := false,
+    libraryDependencies ++= Seq(
+      codecCore,
+      fs2,
+      scalaTest,
+      rocksDb
     )
-    .dependsOn(`effects`, `log`)
-    .enablePlugins(AutomateHeaderPlugin)
+  )
+  .dependsOn(`effects`, `log`)
+  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `dockerio` = (project in file("effects/docker"))
   .settings(
@@ -289,7 +298,7 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
       sttpCatsBackend % Test
     )
   )
-  .dependsOn(`effects`, `sttpEitherT`, `tendermint-block` % "test")
+  .dependsOn(`effects`, `sttpEitherT`, `tendermint-block`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
 
 // TODO remove from effects to history
@@ -391,7 +400,8 @@ lazy val `kademlia-testkit` = (project in file("kademlia/testkit"))
   .dependsOn(`kademlia`)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `log` = project.in(file("log"))
+lazy val `log` = project
+  .in(file("log"))
   .settings(
     commons,
     fork in Test := false,
@@ -434,11 +444,13 @@ lazy val `node` = project
       .dependsOn(compile in `vm-llamadb`)
       .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
       .value,
-    mainClass in assembly       := Some("fluence.node.MasterNodeApp"),
-    assemblyJarName in assembly := "master-node.jar",
-    test in assembly            := {},
-    imageNames in docker        := Seq(ImageName(DockerContainers.Node)),
-    dockerfile in docker        := DockerContainers.node(assembly.value, (resourceDirectory in Compile).value)
+    // add classes from Test to dependencyClasspath of IntegrationTest, so it is possible to share Eventually trait
+    dependencyClasspath in IntegrationTest := (dependencyClasspath in IntegrationTest).value ++ (exportedProducts in Test).value,
+    mainClass in assembly                  := Some("fluence.node.MasterNodeApp"),
+    assemblyJarName in assembly            := "master-node.jar",
+    test in assembly                       := {},
+    imageNames in docker                   := Seq(ImageName(DockerContainers.Node)),
+    dockerfile in docker                   := DockerContainers.node(assembly.value, (resourceDirectory in Compile).value)
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
@@ -450,7 +462,11 @@ lazy val `node` = project
     `kvstore`,
     `dockerio`,
     `tendermint-rpc`,
+    `tendermint-rpc`   % "test->test",
+    `tendermint-block` % "test->test",
     `sttpEitherT`,
+    `receipt-storage`,
+    `log`,
     `kademlia-http`,
     `kademlia-testkit` % Test
   )
