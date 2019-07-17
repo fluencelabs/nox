@@ -26,12 +26,6 @@ import proto3.tendermint.Vote
 import scodec.bits.ByteVector
 
 object Block {
-  /* JSON decoders */
-  import Header.{headerDecoder, headerEncoder}
-  import JsonCodecs._
-
-  implicit final val blockDecoder: Decoder[Block] = deriveDecoder
-
   /* Definitions */
   type Parts = List[Array[Byte]]
   type Hash = Array[Byte]

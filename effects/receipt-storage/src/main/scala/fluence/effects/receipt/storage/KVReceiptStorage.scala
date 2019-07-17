@@ -1,19 +1,19 @@
 package fluence.effects.receipt.storage
 
+import java.nio.ByteBuffer
 import java.nio.file.Path
 
 import cats.data.EitherT
 import cats.effect.{ContextShift, LiftIO, Resource, Sync}
 import cats.syntax.flatMap._
 import fluence.codec
-import fluence.codec.{CodecError, PureCodec}
+import fluence.codec.PureCodec
 import fluence.effects.kvstore.{KVStore, RocksDBStore}
 import fluence.effects.tendermint.block.history.Receipt
 import cats.syntax.either._
 import fluence.log.Log
 
 import scala.language.higherKinds
-import scala.util.Try
 
 /**
  * Implementation of ReceiptStorage with KVStore
@@ -56,20 +56,10 @@ object KVReceiptStorage {
   private implicit val receiptCodec: codec.PureCodec[Array[Byte], Receipt] =
     codec.PureCodec.liftB(Receipt.fromBytesCompact, _.bytesCompact())
 
-  implicit val stringCodec: PureCodec[String, Array[Byte]] = PureCodec.liftEitherB[String, Array[Byte]](
-    str ⇒ Try(str.getBytes()).toEither.leftMap(t ⇒ CodecError("Cannot serialize string to bytes", Some(t))),
-    bs ⇒ Try(new String(bs)).toEither.leftMap(t ⇒ CodecError("Cannot parse bytes to string", Some(t)))
-  )
+  implicit val longBytesCodec: PureCodec[Long, Array[Byte]] =
+    PureCodec.liftB(ByteBuffer.allocate(8).putLong(_).array(), ByteBuffer.wrap(_).getLong)
 
-  implicit val longStringCodec: PureCodec[Long, String] = PureCodec.liftEitherB[Long, String](
-    _.toString.asRight,
-    str ⇒ Try(str.toLong).toEither.leftMap(t ⇒ CodecError("Cannot parse string to long", Some(t)))
-  )
-
-  implicit val longCodec: PureCodec[Long, Array[Byte]] =
-    PureCodec[Long, String] >>> PureCodec[String, Array[Byte]]
-
-  def make[F[_]: Sync: LiftIO: ContextShift: Log](appId: Long, storagePath: Path): Resource[F, KVReceiptStorage[F]] =
+  def make[F[_]: Sync: LiftIO: ContextShift: Log](appId: Long, storagePath: Path): Resource[F, ReceiptStorage[F]] =
     for {
       path <- Resource.liftF(Sync[F].catchNonFatal(storagePath.resolve(ReceiptStoragePath).resolve(appId.toString)))
       store <- RocksDBStore.make[F, Long, Receipt](path.toAbsolutePath.toString)

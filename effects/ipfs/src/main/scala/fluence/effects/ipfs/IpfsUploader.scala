@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-package fluence.effects.tendermint.block.data
+package fluence.effects.ipfs
 
-import proto3.tendermint.{BlockID, Vote}
+import cats.data.EitherT
+import fluence.effects.castore.StoreError
+import fluence.log.Log
+import scodec.bits.ByteVector
 
-/**
- * Commits for a previous Block
- *
- * @param block_id Previous block's id (hashes)
- * @param precommits List of commits (votes)
- */
-case class LastCommit(block_id: BlockID, precommits: List[Option[Vote]] = List.empty)
+import scala.language.higherKinds
+
+trait IpfsUploader[F[_]] {
+  def upload[A: IpfsData](data: A)(implicit log: Log[F]): EitherT[F, StoreError, ByteVector]
+}

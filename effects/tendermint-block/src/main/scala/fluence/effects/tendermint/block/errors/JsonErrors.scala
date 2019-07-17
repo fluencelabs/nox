@@ -21,7 +21,9 @@ import io.circe.{DecodingFailure, ParsingFailure}
 import scalapb_json.JsonFormatException
 
 trait JsonErrors {
-  case class FixBytesError(msg: String) extends TendermintBlockError
+  case class ReencodeError(msg: String) extends TendermintBlockError {
+    override def toString: String = s"Error while reencoding protobuf bytes: $msg"
+  }
 
   case class JsonDecodingError private (cause: DecodingFailure)
       extends TendermintBlockError with WithCause[DecodingFailure]
@@ -34,7 +36,9 @@ trait JsonErrors {
   case class ProtobufJsonFormatError(cause: JsonFormatException)
       extends ProtobufJsonError with WithCause[JsonFormatException]
 
-  case class ProtobufJsonUnknownError(cause: Throwable) extends ProtobufJsonError with WithCause[Throwable]
+  case class ProtobufJsonUnknownError(cause: Throwable) extends ProtobufJsonError with WithCause[Throwable] {
+    override def toString: String = s"Unknown error while decoding protobuf json: $cause"
+  }
 
   implicit object LiftDecodingFailure extends ConvertError[DecodingFailure, JsonDecodingError](JsonDecodingError.apply)
   implicit object LiftParsingFailure extends ConvertError[ParsingFailure, JsonParsingError](JsonParsingError.apply)
