@@ -40,7 +40,7 @@ class TestWRpc[F[_]: ConcurrentEffect: Timer: Monad](override val host: String, 
     throw new NotImplementedError("def statusParsed")
 
   override def block(height: Long, id: String): EitherT[F, RpcError, Block] =
-    throw new NotImplementedError("def block")
+    throw new NotImplementedError(s"def block $height")
 
   override def commit(height: Long, id: String): EitherT[F, RpcError, String] =
     throw new NotImplementedError("def commit")

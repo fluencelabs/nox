@@ -36,7 +36,7 @@ class WebsocketRpcSpec extends WordSpec with Matchers {
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
-  implicit private val log: Log[IO] = LogFactory.forPrintln[IO]().init("WebsocketRpcSpec").unsafeRunSync()
+  implicit private val log: Log[IO] = LogFactory.forPrintln[IO](Log.Error).init("WebsocketRpcSpec").unsafeRunSync()
 
   type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
   implicit private val sttpResource: STTP = EitherTSttpBackend[IO]()
@@ -73,7 +73,7 @@ class WebsocketRpcSpec extends WordSpec with Matchers {
     }
 
     "receive message after reconnect" in {
-      val height = 123L
+      val height = 1L
       val events = resourcesF.use {
         case (server, events) =>
           for {
@@ -90,7 +90,7 @@ class WebsocketRpcSpec extends WordSpec with Matchers {
 
     "ignore incorrect json messages" in {
       val incorrectMsg = "incorrect"
-      val height = 345L
+      val height = 1L
 
       val events = resourcesF.use {
         case (server, events) =>
