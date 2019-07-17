@@ -25,6 +25,8 @@ import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.log.Log
+import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
 import fluence.node.workers.tendermint.DockerTendermint
@@ -108,7 +110,7 @@ object DockerWorkerServices {
    * @param sttpBackend Sttp Backend to launch HTTP healthchecks and RPC endpoints
    * @return the [[WorkerServices]] instance
    */
-  def make[F[_]: DockerIO: Timer: Log](
+  def make[F[_]: DockerIO: Timer: ConcurrentEffect: Log](
     params: WorkerParams,
     p2pPort: Short,
     stopTimeout: Int

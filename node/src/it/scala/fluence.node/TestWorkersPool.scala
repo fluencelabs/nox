@@ -24,6 +24,7 @@ import cats.syntax.functor._
 import cats.syntax.applicative._
 import fluence.effects.docker.DockerContainerStopped
 import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.Log
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus, WorkerStatus}
@@ -46,30 +47,33 @@ class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]]) 
       case m ⇒
         for {
           p ← params
-          w ← Worker.make[F](
-            appId,
-            0: Short,
-            s"Test worker for appId $appId",
-            new WorkerServices[F] {
-              override def tendermint: TendermintRpc[F] = ???
+          w ← Worker
+            .make[F](
+              appId,
+              0: Short,
+              s"Test worker for appId $appId",
+              new WorkerServices[F] {
+                override def tendermint: TendermintRpc[F] = ???
 
-              override def control: ControlRpc[F] = ???
+                override def control: ControlRpc[F] = ???
 
-              override def status(timeout: FiniteDuration): F[WorkerStatus] =
-                WorkerStatus(
-                  isHealthy = true,
-                  appId = appId,
-                  ServiceStatus(Left(DockerContainerStopped(0)), HttpCheckNotPerformed("dumb")),
-                  ServiceStatus(Left(DockerContainerStopped(0)), HttpCheckNotPerformed("dumb"))
-                ).pure[F]
-            },
-            identity,
-            for {
-              ws ← workers.take
-              _ ← workers.put(ws - appId)
-            } yield (),
-            Applicative[F].unit
-          ).allocated.map(_._1)
+                override def status(timeout: FiniteDuration): F[WorkerStatus] =
+                  WorkerStatus(
+                    isHealthy = true,
+                    appId = appId,
+                    ServiceStatus(Left(DockerContainerStopped(0)), HttpCheckNotPerformed("dumb")),
+                    ServiceStatus(Left(DockerContainerStopped(0)), HttpCheckNotPerformed("dumb"))
+                  ).pure[F]
+              },
+              identity,
+              for {
+                ws ← workers.take
+                _ ← workers.put(ws - appId)
+              } yield (),
+              Applicative[F].unit
+            )
+            .allocated
+            .map(_._1)
           _ ← workers.put(m + (appId -> w))
         } yield WorkersPool.Starting
     }

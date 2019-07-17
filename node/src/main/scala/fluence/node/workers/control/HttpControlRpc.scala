@@ -23,7 +23,7 @@ import com.softwaremill.sttp.circe._
 import com.softwaremill.sttp.{SttpBackend, sttp, _}
 import fluence.effects.tendermint.block.history.{helpers, Receipt}
 import fluence.node.workers.status.{HttpCheckFailed, HttpCheckStatus, HttpStatus}
-import fluence.statemachine.control.{BlockReceipt, DropPeer, GetStatus, Stop}
+import fluence.statemachine.control.{BlockReceipt, DropPeer, GetStatus, ReceiptType, Stop}
 import io.circe.Encoder
 import scodec.bits.ByteVector
 
@@ -71,8 +71,8 @@ class HttpControlRpc[F[_]: Monad](hostname: String, port: Short)(
   override val stop: EitherT[F, ControlRpcError, Unit] =
     send(Stop(), "stop").void.leftMap(WorkerStatusError)
 
-  override def sendBlockReceipt(receipt: Receipt): EitherT[F, ControlRpcError, Unit] =
-    send(BlockReceipt(receipt), "blockReceipt").void.leftMap(SendBlockReceiptError(receipt, _))
+  override def sendBlockReceipt(receipt: Receipt, rType: ReceiptType.Value): EitherT[F, ControlRpcError, Unit] =
+    send(BlockReceipt(receipt, rType), "blockReceipt").void.leftMap(SendBlockReceiptError(receipt, _))
 
   override def getVmHash: EitherT[F, ControlRpcError, ByteVector] = {
     import helpers.ByteVectorJsonCodec._
