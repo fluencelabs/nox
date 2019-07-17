@@ -23,6 +23,8 @@ import cats.effect.syntax.effect._
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.applicative._
+import cats.syntax.apply._
 import cats.syntax.option._
 import cats.{Applicative, Eval, Id, Monad}
 import com.github.jtendermint.jabci.api.CodeType
@@ -129,11 +131,18 @@ class AbciService[F[_]: Monad: Effect](
       _ <- log.info(Console.YELLOW + s"BUD: got vmHash; height ${st.height + 1}" + Console.RESET)
 
       // Do not wait for receipt on empty blocks
-      receipt <- if (transactions.nonEmpty) controlSignals.receipt.map(_.some) else none[BlockReceipt].pure[F]
+      receipt <- if (transactions.nonEmpty) {
+        log.info(Console.YELLOW + s"BUD: retrieving receipt on height $blockHeight" + Console.RESET) *>
+          controlSignals.receipt.map(_.some)
+      } else {
+        log.info(Console.YELLOW + s"BUD: WON'T retrieve receipt on height $blockHeight" + Console.RESET) *>
+          none[BlockReceipt].pure[F]
+      }
 
       _ <- log.info(
         Console.YELLOW +
-          s"BUD: got receipt ${receipt.map(r => s"${r.`type`}  ${r.receipt.height}")}; transactions count: ${transactions.length}" +
+          s"BUD: got receipt ${receipt
+            .map(r => s"${r.`type`}  ${r.receipt.height}")}; transactions count: ${transactions.length} ${transactions.nonEmpty}" +
           Console.RESET
       )
 
@@ -150,7 +159,7 @@ class AbciService[F[_]: Monad: Effect](
       // previous non-empty ones. This is because Tendermint stops producing empty blocks only after
       // at least 2 blocks have the same appHash. Otherwise, empty blocks would be produced indefinitely.
       // TODO: use appHash for the previous block instead of vmHash.pure[F]
-      appHash <- receipt.filter(_ => transactions.nonEmpty).fold(vmHash.pure[F]) {
+      appHash <- receipt.fold(vmHash.pure[F]) {
         case BlockReceipt(r, _) =>
           hasher(vmHash ++ r.bytes())
             .leftMap(err => log.error(s"Error on hashing vmHash + receipt: $err"))
@@ -166,15 +175,7 @@ class AbciService[F[_]: Monad: Effect](
       _ <- log.info(Console.YELLOW + "BUD: state.set done" + Console.RESET)
 
       // Store vmHash, so master node could retrieve it
-      _ ← receipt.map(_.`type`) match {
-        // Most common case. Receipt for a previous block; None means block was either empty or the very first one
-        case Some(ReceiptType.New) | None => controlSignals.putVmHash(vmHash)
-        // After-restart case. Node has stored receipts, and replaying them. There will be no demand for vmHash, so skip it
-        case Some(ReceiptType.Stored) => Applicative[F].unit
-        // After-restart case. Last of the stored receipts, so vmHash is new, and will be required for the next block manifest
-        case Some(ReceiptType.LastStored) => controlSignals.setVmHash(vmHash)
-        case unknown                      => log.error(s"Unknown receipt kind: $unknown")
-      }
+      _ <- controlSignals.enqueueVmHash(blockHeight, vmHash)
       _ <- log.info(Console.YELLOW + s"BUD: end of commit $blockHeight" + Console.RESET)
     } yield appHash
 

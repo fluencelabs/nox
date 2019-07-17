@@ -61,7 +61,10 @@ object ControlServer {
 
     implicit val dpdec: EntityDecoder[F, DropPeer] = jsonOf[F, DropPeer]
     implicit val bpdec: EntityDecoder[F, BlockReceipt] = jsonOf[F, BlockReceipt]
-    implicit val bvenc: EntityEncoder[F, ByteVector] = jsonEncoderOf[F, ByteVector]
+    implicit val gvdec: EntityDecoder[F, GetVmHash] = jsonOf[F, GetVmHash]
+    implicit val vhenc: EntityEncoder[F, VmHash] = jsonEncoderOf[F, VmHash]
+
+    object BlockHeight extends QueryParamDecoderMatcher[Long]("height")
 
     def logReq(req: Request[F]): F[Log[F]] =
       LogFactory[F]
@@ -99,7 +102,8 @@ object ControlServer {
       case req @ (GET | POST) -> Root / "control" / "vmHash" =>
         for {
           implicit0(log: Log[F]) ← logReq(req)
-          vmHash <- signals.vmHash
+          GetVmHash(height) <- req.as[GetVmHash]
+          vmHash <- signals.getVmHash(height)
           ok <- Ok(vmHash)
         } yield ok
 

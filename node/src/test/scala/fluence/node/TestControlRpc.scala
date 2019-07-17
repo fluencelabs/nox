@@ -20,7 +20,7 @@ import cats.data.EitherT
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 import fluence.node.workers.status.HttpStatus
-import fluence.statemachine.control.ReceiptType
+import fluence.statemachine.control.{ReceiptType, VmHash}
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -56,5 +56,6 @@ trait TestControlRpc[F[_]] extends ControlRpc[F] {
   /**
    * Retrieves vm hash from state machine, required for block manifest uploading
    */
-  override def getVmHash: EitherT[F, ControlRpcError, ByteVector] = throw new NotImplementedError("def getVmHash")
+  override def getVmHash(height: Long): EitherT[F, ControlRpcError, ByteVector] =
+    throw new NotImplementedError(s"def getVmHash $height")
 }

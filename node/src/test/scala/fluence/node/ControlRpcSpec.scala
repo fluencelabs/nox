@@ -117,11 +117,12 @@ class ControlRpcSpec extends WordSpec with Matchers with OptionValues {
 
     "get vmHash" in {
       val vmHash = ByteVector(1, 2, 3)
+      val height = 123L
       resources.use {
         case (server, rpc) =>
           for {
-            _ <- server.signals.putVmHash(vmHash)
-            after <- IO.pure(rpc.getVmHash.value.flatMap(IO.fromEither).unsafeRunTimed(1.seconds))
+            _ <- server.signals.enqueueVmHash(height, vmHash)
+            after <- IO.pure(rpc.getVmHash(height).value.flatMap(IO.fromEither).unsafeRunTimed(1.seconds))
           } yield {
             after shouldBe defined
             after.value shouldBe vmHash

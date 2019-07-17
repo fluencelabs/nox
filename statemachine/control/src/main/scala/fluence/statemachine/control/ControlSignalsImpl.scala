@@ -17,7 +17,7 @@
 package fluence.statemachine.control
 
 import cats.FlatMap
-import cats.effect.Resource
+import cats.effect.{Resource, Sync}
 import cats.effect.concurrent.{Deferred, MVar}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -32,11 +32,11 @@ import scala.language.higherKinds
  * @param stopRef Deferred holding stop signal, completed when the worker should stop
  * @tparam F Effect
  */
-class ControlSignalsImpl[F[_]: FlatMap](
+class ControlSignalsImpl[F[_]: FlatMap: Sync](
   private val dropPeersRef: MVar[F, Set[DropPeer]],
   private val stopRef: Deferred[F, Unit],
   private val receiptRef: MVar[F, BlockReceipt],
-  private val hashRef: MVar[F, ByteVector]
+  private val hashQueue: fs2.concurrent.Queue[F, VmHash]
 ) extends ControlSignals[F] {
 
   /**
@@ -82,14 +82,16 @@ class ControlSignalsImpl[F[_]: FlatMap](
   val receipt: F[BlockReceipt] = receiptRef.take
 
   /**
-   * Stores vm hash to memory, so node can retrieve it for block manifest uploading
+   * Adds vm hash to queue, so node can retrieve it for block manifest uploading
    */
-  def putVmHash(hash: ByteVector): F[Unit] = hashRef.put(hash)
-
-  def setVmHash(hash: ByteVector): F[Unit] = hashRef.tryTake >> hashRef.put(hash)
+  override def enqueueVmHash(height: Long, hash: ByteVector): F[Unit] = hashQueue.enqueue1(VmHash(height, hash))
 
   /**
-   * Retrieves stored vm hash. Called by node on block manifest uploading
+   * Retrieves a single vm hash from queue. Called by node on block manifest uploading
    */
-  val vmHash: F[ByteVector] = hashRef.take
+  override def getVmHash(height: Long): F[VmHash] =
+    // Filter here because after blocks replay (on restart) there would be extraneous vm hashes for empty blocks
+    // It's ok to have map(_.head) here since we know it will never complete with an empty sequence
+    // TODO: use tailRecM, get rid of F: Sync
+    hashQueue.dequeue.filter(_.height < height).head.compile.toList.map(_.head)
 }

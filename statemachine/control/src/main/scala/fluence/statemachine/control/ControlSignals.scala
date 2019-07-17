@@ -68,17 +68,15 @@ trait ControlSignals[F[_]] {
   val receipt: F[BlockReceipt]
 
   /**
-   * Stores vm hash to memory, so node can retrieve it for block manifest uploading
+   * Adds vm hash to queue, so node can retrieve it for block manifest uploading
    */
-  def putVmHash(hash: ByteVector): F[Unit]
-
-  def setVmHash(hash: ByteVector): F[Unit]
+  def enqueueVmHash(height: Long, hash: ByteVector): F[Unit]
 
   /**
-   * Retrieves stored vm hash. Called by node on block manifest uploading
+   * Retrieves a single vm hash from queue. Called by node on block manifest uploading
    */
   // TODO: move that method to a separate interface
-  val vmHash: F[ByteVector]
+  def getVmHash(height: Long): F[VmHash]
 }
 
 object ControlSignals {
@@ -95,8 +93,8 @@ object ControlSignals {
         dropPeersRef ← MVar[F].of[Set[DropPeer]](Set.empty)
         stopRef ← Deferred[F, Unit]
         receiptRef <- MVar[F].empty[BlockReceipt]
-        hashRef <- MVar[F].empty[ByteVector]
-        instance = new ControlSignalsImpl[F](dropPeersRef, stopRef, receiptRef, hashRef)
+        hashQueue <- fs2.concurrent.Queue.unbounded[F, VmHash]
+        instance = new ControlSignalsImpl[F](dropPeersRef, stopRef, receiptRef, hashQueue)
       } yield instance: ControlSignals[F]
     ) { s =>
       Sync[F].suspend(

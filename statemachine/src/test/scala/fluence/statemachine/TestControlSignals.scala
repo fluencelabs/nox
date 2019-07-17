@@ -18,7 +18,7 @@ package fluence.statemachine
 
 import cats.effect.{IO, Resource}
 import fluence.effects.tendermint.block.history.Receipt
-import fluence.statemachine.control.{BlockReceipt, ControlSignals, DropPeer, ReceiptType}
+import fluence.statemachine.control.{BlockReceipt, ControlSignals, DropPeer, ReceiptType, VmHash}
 import scodec.bits.ByteVector
 
 trait TestControlSignals extends ControlSignals[IO] {
@@ -26,10 +26,10 @@ trait TestControlSignals extends ControlSignals[IO] {
     Resource.liftF(IO(throw new NotImplementedError("val dropPeers")))
   override val stop: IO[Unit] = IO(throw new NotImplementedError("val stop"))
   override val receipt: IO[BlockReceipt] = IO(throw new NotImplementedError("val receipt"))
-  override def putVmHash(hash: ByteVector): IO[Unit] = IO(throw new NotImplementedError("df putVmHash"))
-  override def setVmHash(hash: ByteVector): IO[Unit] = IO(throw new NotImplementedError("def setVmHash"))
   override def dropPeer(drop: DropPeer): IO[Unit] = IO(throw new NotImplementedError("def dropPeer"))
   override def stopWorker(): IO[Unit] = IO(throw new NotImplementedError("def stopWorker"))
   override def putReceipt(receipt: BlockReceipt): IO[Unit] = IO(throw new NotImplementedError("def putReceipt"))
-  override val vmHash: IO[ByteVector] = IO(throw new NotImplementedError("val vmHash"))
+  override def enqueueVmHash(height: Long, hash: ByteVector): IO[Unit] =
+    IO(throw new NotImplementedError("def enqueueVmHash"))
+  override def getVmHash(height: Long): IO[VmHash] = IO(throw new NotImplementedError("def getVmHash"))
 }

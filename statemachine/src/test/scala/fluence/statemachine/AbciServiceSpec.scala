@@ -22,13 +22,14 @@ import cats.effect.IO
 import cats.effect.concurrent.Ref
 import cats.syntax.apply._
 import cats.syntax.compose._
+import cats.syntax.flatMap._
 import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestErrored}
 import fluence.log.{Log, LogFactory}
-import fluence.statemachine.control.{BlockReceipt, ReceiptType}
+import fluence.statemachine.control.{BlockReceipt, ReceiptType, VmHash}
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
@@ -41,20 +42,18 @@ import scala.language.higherKinds
 sealed trait Action
 case object GetVmStateHash extends Action
 case object GetReceipt extends Action
-case object PutVmHash extends Action
-case object SetVmHash extends Action
+case class EnqueueVmHash(height: Long) extends Action
 case class ExecutionState(actions: List[(Int, Action)] = Nil, counter: Int = 0) {
   def getVmStateHash() = copy(actions = actions :+ (counter, GetVmStateHash), counter = counter + 1)
   def getReceipt() = copy(actions = actions :+ (counter, GetReceipt), counter = counter + 1)
-  def putVmHash() = copy(actions = actions :+ (counter, PutVmHash), counter = counter + 1)
-  def setVmHash() = copy(actions = actions :+ (counter, SetVmHash), counter = counter + 1)
+  def enqueueVmHash(height: Long) = copy(actions = actions :+ (counter, EnqueueVmHash(height)), counter = counter + 1)
   def clearActions() = copy(actions = Nil)
 }
 
 class AbciServiceSpec extends WordSpec with Matchers {
   implicit private val timer = IO.timer(global)
   implicit private val shift = IO.contextShift(global)
-  implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec", level = Log.Warn).unsafeRunSync()
+  implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec", level = Log.Info).unsafeRunSync()
 
   val tendermintRpc = new TestTendermintRpc {
     override def block(height: Long, id: String): EitherT[IO, RpcError, Block] = {
@@ -84,14 +83,14 @@ class AbciServiceSpec extends WordSpec with Matchers {
             .update(_.getReceipt())
             .flatMap(_ => receipts.modify(l => (l.tail, l.head)))
 
-          override def putVmHash(hash: ByteVector): IO[Unit] = ref.update(_.putVmHash())
-          override def setVmHash(hash: ByteVector): IO[Unit] = ref.update(_.setVmHash())
+          override def enqueueVmHash(height: Long, hash: ByteVector): IO[Unit] = ref.update(_.enqueueVmHash(height))
         }
 
         for {
           state ← Ref.of[IO, AbciState](AbciState())
+          txCounter <- Ref.of[IO, Int](0)
           abci = new AbciService[IO](state, vmInvoker, controlSignals, tendermintRpc)
-        } yield (abci, ref, state)
+        } yield (abci, ref, state, txCounter)
       }
       .flatMap(identity)
   }
@@ -114,37 +113,43 @@ class AbciServiceSpec extends WordSpec with Matchers {
 
   "Abci Service" should {
     "retrieve receipts and store vmHash in order" in {
-      val receipts = List(receipt(1, ReceiptType.New))
+      val receipts = List(receipt(3, ReceiptType.New))
       abciService(receipts).flatMap {
-        case (abci, ref, abciState) =>
+        case (abci, ref, abciState, txCounter) =>
           val makeCommit = abci.commit
+          val incrementTx = txCounter.modify(c => (c + 1, c))
+          val deliverTx = incrementTx.flatMap(i => abci.deliverTx(s"session/$i\ntxBody".getBytes()))
           val check = checkCommit(abci, ref, abciState, _, _)
           val clear = ref.update(_.clearActions())
 
-          makeCommit *> check(List(GetVmStateHash, PutVmHash), 1) *> clear *>
-            makeCommit *> check(List(GetVmStateHash, GetReceipt, PutVmHash), 2)
+          makeCommit *> check(List(GetVmStateHash, EnqueueVmHash(1)), 1) *> clear *>
+            makeCommit *> check(List(GetVmStateHash, EnqueueVmHash(2)), 2) *> clear *>
+            deliverTx *> makeCommit *> check(List(GetVmStateHash, GetReceipt, EnqueueVmHash(3)), 3)
       }.unsafeRunSync()
     }
 
     "work with stored receipts" in {
+      // Receipts are sent only for non-empty blocks (and first 2 blocks always empty)
       val receipts = List(
-        receipt(1, ReceiptType.Stored),
-        receipt(2, ReceiptType.LastStored),
-        receipt(3, ReceiptType.New),
-        receipt(4, ReceiptType.New)
+        receipt(3, ReceiptType.Stored),
+        receipt(4, ReceiptType.LastStored),
+        receipt(6, ReceiptType.New)
       )
 
       abciService(receipts).flatMap {
-        case (abci, ref, abciState) =>
+        case (abci, ref, abciState, txCounter) =>
           val makeCommit = abci.commit
+          val incrementTx = txCounter.modify(c => (c + 1, c))
+          val deliverTx = incrementTx.flatMap(i => abci.deliverTx(s"session/$i\ntxBody".getBytes()))
           val check = checkCommit(abci, ref, abciState, _, _)
           val clear = ref.update(_.clearActions())
 
-          makeCommit *> check(List(GetVmStateHash, PutVmHash), 1) *> clear *>
-            makeCommit *> check(List(GetVmStateHash, GetReceipt), 2) *> clear *>
-            makeCommit *> check(List(GetVmStateHash, GetReceipt, SetVmHash), 3) *> clear *>
-            makeCommit *> check(List(GetVmStateHash, GetReceipt, PutVmHash), 4) *> clear *>
-            makeCommit *> check(List(GetVmStateHash, GetReceipt, PutVmHash), 5)
+          makeCommit *> check(List(GetVmStateHash, EnqueueVmHash(1)), 1) *> clear *>
+            makeCommit *> check(List(GetVmStateHash, EnqueueVmHash(1)), 2) *> clear *>
+            deliverTx *> makeCommit *> check(List(GetVmStateHash, GetReceipt, EnqueueVmHash(1)), 3) *> clear *>
+            deliverTx *> makeCommit *> check(List(GetVmStateHash, GetReceipt, EnqueueVmHash(4)), 4) *> clear *>
+            makeCommit *> check(List(GetVmStateHash, EnqueueVmHash(5), EnqueueVmHash(1)), 5) *> clear *>
+            deliverTx *> makeCommit *> check(List(GetVmStateHash, GetReceipt, EnqueueVmHash(6)), 6)
       }.unsafeRunSync()
     }
   }

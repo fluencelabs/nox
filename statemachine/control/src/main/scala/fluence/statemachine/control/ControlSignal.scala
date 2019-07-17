@@ -80,3 +80,10 @@ object BlockReceipt {
   implicit val dec: Decoder[BlockReceipt] = deriveDecoder[BlockReceipt]
   implicit val enc: Encoder[BlockReceipt] = deriveEncoder[BlockReceipt]
 }
+
+case class GetVmHash(height: Long) extends ControlSignal
+
+object GetVmHash {
+  implicit val dec: Decoder[GetVmHash] = deriveDecoder
+  implicit val enc: Encoder[GetVmHash] = deriveEncoder
+}

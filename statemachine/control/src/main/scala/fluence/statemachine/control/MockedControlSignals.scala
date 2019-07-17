@@ -31,10 +31,9 @@ class MockedControlSignals extends ControlSignals[IO] {
     height += 1
     IO.pure(BlockReceipt(Receipt(height, ByteVector.empty), ReceiptType.New))
   }
-  override def putVmHash(hash: ByteVector): IO[Unit] = IO.unit
-  override def setVmHash(hash: ByteVector): IO[Unit] = IO.unit
   override def dropPeer(drop: DropPeer): IO[Unit] = IO.unit
   override def stopWorker(): IO[Unit] = IO.unit
   override def putReceipt(receipt: BlockReceipt): IO[Unit] = IO.unit
-  override val vmHash: IO[ByteVector] = IO.pure(ByteVector.empty)
+  override def enqueueVmHash(height: Long, hash: ByteVector): IO[Unit] = IO.unit
+  override def getVmHash(height: Long): IO[VmHash] = IO.pure(VmHash(-1, ByteVector.empty))
 }

@@ -135,7 +135,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
                                           rType: ReceiptType.Value): EitherT[IO, ControlRpcError, Unit] =
               EitherT.liftF(state.update(_.receipt(receipt, rType)).void)
 
-            override def getVmHash: EitherT[IO, ControlRpcError, ByteVector] =
+            override def getVmHash(height: Long): EitherT[IO, ControlRpcError, ByteVector] =
               EitherT.liftF(state.update(_.vmHash()).map(_ => ByteVector.empty))
           }
 

@@ -38,7 +38,7 @@ import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.node.workers.Worker
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
-import fluence.statemachine.control.ReceiptType
+import fluence.statemachine.control.{ReceiptType, VmHash}
 import scodec.bits.ByteVector
 
 import scala.language.{higherKinds, postfixOps}
@@ -116,7 +116,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
       .evalMap(
         block =>
           backoff
-            .retry(control.getVmHash,
+            .retry(control.getVmHash(block.header.height),
                    (e: ControlRpcError) => log.error(s"error retrieving vmHash on height ${block.header.height}: $e"))
             .map(BlockUpload(block, _))
       )

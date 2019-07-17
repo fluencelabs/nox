@@ -57,7 +57,7 @@ abstract class ControlRpc[F[_]] {
   /**
    * Retrieves vm hash from state machine, required for block manifest uploading
    */
-  def getVmHash: EitherT[F, ControlRpcError, ByteVector]
+  def getVmHash(height: Long): EitherT[F, ControlRpcError, ByteVector]
 }
 
 object ControlRpc {
