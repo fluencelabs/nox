@@ -50,6 +50,9 @@ export class Session {
     private closing: boolean;
     private closed: boolean;
     private closedStatus: string;
+    private readonly defaultBanTime: number;
+    private lastBanTime: number;
+    private bannedTill: number;
 
     static genSessionId(): string {
         return randomstring.generate(12);
@@ -69,6 +72,9 @@ export class Session {
         this.counter = 0;
         this.closed = false;
         this.closing = false;
+        this.defaultBanTime = 60000; // 60 sec by default
+        this.lastBanTime = this.defaultBanTime;
+        this.bannedTill = 0;
     }
 
     /**
@@ -93,6 +99,37 @@ export class Session {
      */
     private getCounterAndIncrement() {
         return this.counter++;
+    }
+
+    /**
+     * Ban session for usage for some time
+     *
+     * @param banTimeMs Milliseconds to ban for
+     */
+    ban(banTimeMs?: number): void {
+        if (banTimeMs) {
+            this.lastBanTime = banTimeMs;
+            this.bannedTill = Date.now() + banTimeMs;
+        } else {
+            if (this.bannedTill > Date.now()) {
+                return;
+            }
+
+            if (Date.now() < this.bannedTill + this.lastBanTime) {
+                this.lastBanTime *= 2;
+            } else {
+                this.lastBanTime = this.defaultBanTime;
+            }
+
+            this.bannedTill = Date.now() + this.lastBanTime;
+        }
+    }
+
+    /**
+     * Checks if session banned for usage
+     */
+    isBanned(): boolean {
+        return this.bannedTill >= Date.now();
     }
 
     /**
