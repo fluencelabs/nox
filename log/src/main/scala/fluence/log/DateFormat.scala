@@ -16,17 +16,14 @@
 
 package fluence.log
 
+import java.text.SimpleDateFormat
 import java.util.Date
 
-import scala.scalajs.js
-
-/**
- * JS and JVM have work\ different with date formatting.
- */
-object DateFormat {
+private[log] object DateFormat {
+  private val dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
 
   /**
    * Formats date to string.
    */
-  def format(date: Date): String = new js.Date(date.getTime.toDouble).toISOString()
+  def format(date: Date): String = dateFormat.format(date)
 }
