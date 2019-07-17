@@ -164,7 +164,8 @@ lazy val `statemachine` = (project in file("statemachine"))
     `tendermint-block` % "test->test"
   )
 
-lazy val `effects` = project.in(file("effects"))
+lazy val `effects` = project
+  .in(file("effects"))
   .settings(
     commons,
     fork in Test := false,
@@ -256,19 +257,19 @@ lazy val `ethclient` = (project in file("effects/ethclient"))
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kvstore` = project
-    .in(file("effects/kvstore"))
-    .settings(
-      commons,
-      fork in Test := false,
-      libraryDependencies ++= Seq(
-        codecCore,
-        fs2,
-        scalaTest,
-        rocksDb
-      )
+  .in(file("effects/kvstore"))
+  .settings(
+    commons,
+    fork in Test := false,
+    libraryDependencies ++= Seq(
+      codecCore,
+      fs2,
+      scalaTest,
+      rocksDb
     )
-    .dependsOn(`effects`, `log`)
-    .enablePlugins(AutomateHeaderPlugin)
+  )
+  .dependsOn(`effects`, `log`)
+  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `dockerio` = (project in file("effects/docker"))
   .settings(
@@ -297,7 +298,7 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
       sttpCatsBackend % Test
     )
   )
-  .dependsOn(`effects`, `sttpEitherT`, `tendermint-block`, `log-jvm`)
+  .dependsOn(`effects`, `sttpEitherT`, `tendermint-block`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
 
 // TODO remove from effects to history
@@ -399,7 +400,8 @@ lazy val `kademlia-testkit` = (project in file("kademlia/testkit"))
   .dependsOn(`kademlia`)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `log` = project.in(file("log"))
+lazy val `log` = project
+  .in(file("log"))
   .settings(
     commons,
     fork in Test := false,
@@ -464,7 +466,7 @@ lazy val `node` = project
     `tendermint-block` % "test->test",
     `sttpEitherT`,
     `receipt-storage`,
-    `log-jvm`,
+    `log`,
     `kademlia-http`,
     `kademlia-testkit` % Test
   )
