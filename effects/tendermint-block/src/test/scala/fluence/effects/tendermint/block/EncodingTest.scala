@@ -16,17 +16,18 @@
 
 package fluence.effects.tendermint.block
 
-import fluence.effects.tendermint.block.data.Block
+import fluence.effects.tendermint.block.data.{Block, Header}
 import fluence.effects.tendermint.block.protobuf.{Protobuf, ProtobufConverter, ProtobufJson}
 import fluence.effects.tendermint.block.signature.Canonical
 import io.circe.parser._
 import org.scalatest.{FunSpec, Matchers, OptionValues}
+import proto3.tendermint.{BlockID, Vote}
 import scodec.bits.ByteVector
 
 class EncodingTest extends FunSpec with Matchers with OptionValues {
 
   val block = Block(TestData.blockResponse).right.get
-  val vote = parse(TestData.vote).flatMap(ProtobufJson.vote).right.get
+  val vote = parse(TestData.vote).flatMap(ProtobufJson.voteReencoded).right.get
 
   def toHex(ba: Array[Byte]) = ByteVector(ba).toHex
   def checkHex(scalaHex: String, goHex: String) = scalaHex.toLowerCase shouldBe goHex.toLowerCase
@@ -358,7 +359,7 @@ class EncodingTest extends FunSpec with Matchers with OptionValues {
   }
 
   describe("amino block with data = null") {
-    val blockEmpty = Block(TestData.blockDataNullResponse).right.get
+    val blockEmpty = Block(TestData.blockNullTxsResponse).right.get
 
     it("encode data") {
       val simpleBytes = Protobuf.encode(ProtobufConverter.toProtobuf(blockEmpty.data))
@@ -418,6 +419,39 @@ class EncodingTest extends FunSpec with Matchers with OptionValues {
       val goHex =
         "67080211100000000000000022480A201E56CF404964AA6B0768E67AD9CBACABCEBCD6A84DC0FC924F1C0AF9043C018812240A20D0A00D1902638E1F4FD625568D4A4A7D9FC49E8F3586F257535FC835E7B0B78510012A0C08DBD4DCE50510F7E6E0FF0132023130"
       checkHex(scalaHex, goHex)
+    }
+  }
+
+  describe("encode-decode") {
+    import io.circe.syntax._, io.circe.parser._
+    import fluence.effects.tendermint.block.data.SimpleJsonCodecs.Encoders._
+    import fluence.effects.tendermint.block.data.SimpleJsonCodecs.Decoders._
+
+    it("block id") {
+      val blockId = block.header.last_block_id.value
+      val json = blockId.asJson.spaces2
+      val decoded = parse(json).flatMap(_.as[BlockID])
+
+      decoded.left.map(e => println(s"unable to decode blockID: $e"))
+      decoded.right.get shouldBe blockId
+    }
+
+    it("vote") {
+      val json = vote.asJson.spaces2
+      val decoded = parse(json).flatMap(_.as[Vote])
+      decoded.right.get shouldBe vote
+    }
+
+    it("header") {
+      val json = block.header.asJson.spaces2
+      val decoded = parse(json).flatMap(_.as[Header])
+      decoded.right.get shouldBe block.header
+    }
+
+    it("block") {
+      val json = block.asJson.spaces2
+      val decoded = parse(json).flatMap(_.as[Block])
+      decoded.right.get shouldBe block
     }
   }
 }

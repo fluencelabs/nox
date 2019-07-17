@@ -24,7 +24,7 @@ class KVReceiptStorageSpec extends WordSpec with Matchers with OptionValues {
 
   "kv storage" should {
     "store and retrieve a receipt" in {
-      val receipt = Receipt(ByteVector(1, 2, 3))
+      val receipt = Receipt(0, ByteVector(1, 2, 3))
 
       val stored = storage.use { storage =>
         storage.put(1L, receipt) *> storage.get(1L) value

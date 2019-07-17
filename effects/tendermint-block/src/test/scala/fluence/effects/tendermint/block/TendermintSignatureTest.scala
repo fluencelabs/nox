@@ -30,7 +30,7 @@ class TendermintSignatureTest extends FunSpec with Matchers with OptionValues {
 
   it("verify vote") {
     val chainID = "10"
-    val vote = parse(TestData.vote).flatMap(ProtobufJson.vote).right.get
+    val vote = parse(TestData.vote).flatMap(ProtobufJson.voteReencoded).right.get
     val validator = TestData.validators(vote.validatorIndex).toArray
     TendermintSignature.verifyVote(vote, chainID, validator) shouldBe true
   }
