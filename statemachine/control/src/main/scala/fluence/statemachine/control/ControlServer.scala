@@ -91,7 +91,7 @@ object ControlServer {
       case req @ POST -> Root / "control" / "blockReceipt" =>
         for {
           implicit0(log: Log[F]) ← logReq(req)
-          receipt <- req.as[BlockReceipt].map(_.receipt)
+          receipt <- req.as[BlockReceipt]
           _ <- signals.putReceipt(receipt)
           ok <- Ok()
         } yield ok

@@ -17,12 +17,11 @@
 package fluence.statemachine
 
 import cats.Applicative
-import cats.data.EitherT
+import cats.effect.Effect
 import cats.effect.concurrent.Ref
 import cats.effect.syntax.effect._
 import cats.effect.Effect
 import cats.syntax.flatMap._
-import cats.syntax.functor._
 import com.github.jtendermint.jabci.api._
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
@@ -37,43 +36,11 @@ import scala.language.higherKinds
 class AbciHandler[F[_]: Effect: LogFactory](
   service: AbciService[F],
   controlSignals: ControlSignals[F],
-  tendermintRpc: TendermintRpc[F],
-  blocks: Ref[F, Map[Long, (String, Json)]],
-  commits: Ref[F, Map[Long, (String, Json)]]
 ) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock {
-
-  private def checkBlock(height: Long)(implicit log: Log[F]): Unit =
-    (for {
-      str ← tendermintRpc
-        .block(height)
-        .leftSemiflatMap(e ⇒ Log[F].warn(s"RPC Block[$height] failed", e))
-
-      block ← EitherT
-        .fromEither[F](TendermintBlock(str))
-        .leftSemiflatMap(e ⇒ Log[F].warn("Failed to decode tendermint block from JSON", e))
-
-      _ ← Log.eitherT[F, Unit].info(s"RPC Block[$height] => height = ${block.block.header.height}")
-
-      _ ← EitherT
-        .fromEither[F](block.validateHashes())
-        .leftSemiflatMap(e ⇒ Log[F].warn(s"Block at height $height is invalid", e))
-
-      _ ← Log.eitherT[F, Unit].info(s"Block at height $height is valid")
-
-    } yield ()).value.void.toIO
-      .unsafeRunAsyncAndForget()
 
   override def requestBeginBlock(
     req: RequestBeginBlock
-  ): ResponseBeginBlock = {
-    val height = req.getHeader.getHeight
-
-    implicit val log: Log[F] = LogFactory[F].init("abci", "beginBlock").toIO.unsafeRunSync()
-
-    checkBlock(height)
-
-    ResponseBeginBlock.newBuilder().build()
-  }
+  ): ResponseBeginBlock = ResponseBeginBlock.newBuilder().build()
 
   override def requestCheckTx(
     req: RequestCheckTx
