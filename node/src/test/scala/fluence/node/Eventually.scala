@@ -29,6 +29,9 @@ import scala.language.higherKinds
 
 trait Eventually {
 
+  /**
+   * Executes `p` every `period` until it either succeeds or `maxWait` timeout passes
+   */
   protected def eventually[F[_]: Sync: Timer](
     p: => F[Unit],
     period: FiniteDuration = 1.second,

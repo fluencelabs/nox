@@ -157,7 +157,6 @@ lazy val `statemachine` = (project in file("statemachine"))
   .dependsOn(
     `vm`,
     `statemachine-control`,
-    `statemachine-control` % "test",
     `tendermint-rpc`,
     `sttpEitherT`,
     `tendermint-block`,

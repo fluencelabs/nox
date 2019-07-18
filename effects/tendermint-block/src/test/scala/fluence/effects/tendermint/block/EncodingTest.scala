@@ -20,11 +20,11 @@ import fluence.effects.tendermint.block.data.{Block, Header}
 import fluence.effects.tendermint.block.protobuf.{Protobuf, ProtobufConverter, ProtobufJson}
 import fluence.effects.tendermint.block.signature.Canonical
 import io.circe.parser._
-import org.scalatest.{FunSpec, Matchers, OptionValues}
+import org.scalatest.{AppendedClues, EitherValues, FunSpec, Matchers, OptionValues}
 import proto3.tendermint.{BlockID, Vote}
 import scodec.bits.ByteVector
 
-class EncodingTest extends FunSpec with Matchers with OptionValues {
+class EncodingTest extends FunSpec with Matchers with OptionValues with EitherValues with AppendedClues {
 
   val block = Block(TestData.blockResponse).right.get
   val vote = parse(TestData.vote).flatMap(ProtobufJson.voteReencoded).right.get
@@ -429,11 +429,12 @@ class EncodingTest extends FunSpec with Matchers with OptionValues {
 
     it("block id") {
       val blockId = block.header.last_block_id.value
-      val json = blockId.asJson.spaces2
+      val json = blockId.asJson.spaces2 + "abcdefg"
       val decoded = parse(json).flatMap(_.as[BlockID])
 
-      decoded.left.map(e => println(s"unable to decode blockID: $e"))
-      decoded.right.get shouldBe blockId
+      {
+        decoded.right.value shouldBe blockId
+      } withClue s"unable to decode blockID: ${decoded.left.getOrElse("")}"
     }
 
     it("vote") {
