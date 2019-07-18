@@ -140,9 +140,10 @@ class AbciService[F[_]: Monad: Effect](
       // TODO: use appHash for the previous block instead of vmHash.pure[F]
       appHash <- receipt.fold(vmHash.pure[F]) {
         case BlockReceipt(r, _) =>
-          hasher(vmHash ++ r.jsonBytes())
-            .leftMap(err => log.error(s"Error on hashing vmHash + receipt: $err"))
-            .getOrElse(vmHash) // TODO: don't ignore errors
+          log.info(Console.YELLOW + s"BUD: appHash = hash(${vmHash.toHex} ++ ${r.jsonBytes().toHex})" + Console.RESET) *>
+            hasher(vmHash ++ r.jsonBytes())
+              .leftMap(err => log.error(s"Error on hashing vmHash + receipt: $err"))
+              .getOrElse(vmHash) // TODO: don't ignore errors
       }
 
       // Push hash to AbciState, increment block number

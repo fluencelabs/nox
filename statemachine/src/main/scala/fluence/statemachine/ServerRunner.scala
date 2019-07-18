@@ -22,9 +22,9 @@ import cats.Monad
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect.{ExitCode, IO, IOApp, Resource}
-import cats.syntax.flatMap._
 import cats.syntax.apply._
-import com.github.jtendermint.jabci.socket.{MyTSocket, TSocket}
+import cats.syntax.flatMap._
+import com.github.jtendermint.jabci.socket.TSocket
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
 import fluence.effects.tendermint.rpc.TendermintRpc
@@ -33,10 +33,9 @@ import fluence.log.{Log, LogFactory}
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.control.{ControlServer, ControlSignals}
 import fluence.statemachine.error.StateMachineError
-import fluence.statemachine.vm.{VmOperationInvoker, WasmVmOperationInvoker}
+import fluence.statemachine.vm.WasmVmOperationInvoker
 import fluence.vm.WasmVm
 import fluence.vm.wasm.MemoryHasher
-import org.slf4j.{Logger, LoggerFactory}
 
 import scala.language.higherKinds
 
@@ -104,7 +103,7 @@ object ServerRunner extends IOApp {
         }.flatMap { handler ⇒
           Log[IO].info("Starting State Machine ABCI handler") >>
             IO {
-              val socket = new MyTSocket
+              val socket = new TSocket
               socket.registerListener(handler)
 
               val socketThread = new Thread(() => socket.start(abciPort))

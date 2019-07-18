@@ -16,13 +16,15 @@
 
 package fluence.statemachine.control
 
+import cats.effect.Resource
 import cats.effect.concurrent.{Deferred, MVar}
-import cats.effect.{Resource, Sync}
 import cats.syntax.applicative._
+import cats.syntax.apply._
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{FlatMap, Monad}
+import fluence.log.Log
 import fluence.statemachine.control.HasHeight.syntax._
 import scodec.bits.ByteVector
 
@@ -35,12 +37,14 @@ import scala.language.higherKinds
  * @param stopRef Deferred holding stop signal, completed when the worker should stop
  * @tparam F Effect
  */
-class ControlSignalsImpl[F[_]: FlatMap: Sync](
+class ControlSignalsImpl[F[_]: Monad: Log](
   private val dropPeersRef: MVar[F, Set[DropPeer]],
   private val stopRef: Deferred[F, Unit],
   private val receiptQueue: fs2.concurrent.Queue[F, BlockReceipt],
   private val hashQueue: fs2.concurrent.Queue[F, VmHash]
 ) extends ControlSignals[F] {
+
+  private def log(msg: String) = Log[F].info(Console.YELLOW + "BUD: " + msg + Console.RESET)
 
   /**
    * Add a new DropPeer event
@@ -77,27 +81,30 @@ class ControlSignalsImpl[F[_]: FlatMap: Sync](
    *
    * @param receipt Receipt to store
    */
-  def enqueueReceipt(receipt: BlockReceipt): F[Unit] = receiptQueue.enqueue1(receipt)
+  def enqueueReceipt(receipt: BlockReceipt): F[Unit] =
+    log(s"enqueueReceipt ${receipt.receipt.height} ${receipt.`type`}") *> receiptQueue.enqueue1(receipt)
 
   /**
    * Retrieves block receipt, async blocks until there's a receipt
    */
-  def getReceipt(height: Long): F[BlockReceipt] = dequeueByHeight(receiptQueue, height)
+  def getReceipt(height: Long): F[BlockReceipt] =
+    log(s"getReceipt $height") *> dequeueByHeight(receiptQueue, height)
 
   /**
    * Adds vm hash to queue, so node can retrieve it for block manifest uploading
    */
-  override def enqueueVmHash(height: Long, hash: ByteVector): F[Unit] = hashQueue.enqueue1(VmHash(height, hash))
+  override def enqueueVmHash(height: Long, hash: ByteVector): F[Unit] =
+    log(s"enqueueVmHash $height") *> hashQueue.enqueue1(VmHash(height, hash))
 
   /**
    * Retrieves a single vm hash from queue. Called by node on block manifest uploading
    */
   override def getVmHash(height: Long): F[VmHash] =
     // Filter here because after blocks replay (on restart) there would be extraneous vm hashes for empty blocks
-    dequeueByHeight(hashQueue, height)
+    log(s"getVmHash $height") *> dequeueByHeight(hashQueue, height)
 
   private def dequeueByHeight[A: HasHeight](queue: fs2.concurrent.Queue[F, A], height: Long): F[A] =
-    Monad[F].tailRecM(queue) { q =>
+    FlatMap[F].tailRecM(queue) { q =>
       q.dequeue1.flatMap { elem =>
         if (elem.height < height) {
           // keep looking

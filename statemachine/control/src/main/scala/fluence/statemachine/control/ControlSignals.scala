@@ -21,6 +21,7 @@ import cats.effect.{Concurrent, Resource, Sync}
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.log.Log
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -87,7 +88,7 @@ object ControlSignals {
    * @tparam F Effect
    * @return Resource holding a ControlSignals instance
    */
-  def apply[F[_]: Concurrent](): Resource[F, ControlSignals[F]] =
+  def apply[F[_]: Concurrent: Log](): Resource[F, ControlSignals[F]] =
     Resource.make(
       for {
         dropPeersRef ← MVar[F].of[Set[DropPeer]](Set.empty)

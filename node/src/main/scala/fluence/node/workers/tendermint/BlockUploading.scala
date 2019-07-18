@@ -101,7 +101,11 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
     // TODO: what if we have lost all data in receipt storage? Node will need to sync it from the decentralized storage
 
     // TODO: storedReceipts is calculated 3 times. How to memoize that?
-    val storedReceipts = storage.retrieve()
+    val storedReceipts =
+      fs2.Stream.eval(log.info(Console.YELLOW + "BUD: will start loading stored receipts" + Console.RESET)) >>
+        storage
+          .retrieve()
+          .evalTap(t => log.info(Console.YELLOW + s"BUD: stored receipt ${t._1}" + Console.RESET))
 
     val lastKnownHeight = storedReceipts.last.map(_.map(_._1).getOrElse(0L))
 
@@ -109,13 +113,16 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
     val blocks = lastKnownHeight >>= rpc.subscribeNewBlock
 
     // Retrieve vm hash for every block
-    val blocksWithVmHash = blocks.evalMap(
-      block =>
-        backoff
-          .retry(control.getVmHash(block.header.height),
-                 (e: ControlRpcError) => log.error(s"error retrieving vmHash on height ${block.header.height}: $e"))
-          .map(BlockUpload(block, _))
-    )
+    val blocksWithVmHash = blocks
+      .evalTap(b => log.info(Console.YELLOW + s"BUD: got block ${b.header.height}" + Console.RESET))
+      .evalMap(
+        block =>
+          backoff
+            .retry(control.getVmHash(block.header.height),
+                   (e: ControlRpcError) => log.error(s"error retrieving vmHash on height ${block.header.height}: $e"))
+            .map(BlockUpload(block, _))
+      )
+      .evalTap(b => log.info(Console.YELLOW + s"BUD: got vmHash ${b.block.header.height}" + Console.RESET))
 
     // Group empty blocks with the first non-empty block; upload empty blocks right away
     val grouped = blocksWithVmHash
