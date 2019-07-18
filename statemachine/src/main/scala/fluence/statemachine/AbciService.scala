@@ -23,10 +23,11 @@ import cats.effect.syntax.effect._
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.instances.option._
 import cats.syntax.apply._
 import cats.syntax.applicative._
 import cats.syntax.option._
-import cats.{Applicative, Monad}
+import cats.{Applicative, Monad, Traverse}
 import com.github.jtendermint.jabci.api.CodeType
 import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
@@ -125,10 +126,11 @@ class AbciService[F[_]: Monad: Effect](
           Console.RESET
       )
 
-      _ = receipt.foreach(
+      _ <- Traverse[Option].traverse(receipt.filter(_.receipt.height != blockHeight - 1))(
         b =>
-          if (b.receipt.height != blockHeight)
-            log.error(s"Got wrong receipt height. height: $blockHeight, receipt: ${b.receipt.height}")
+          log.error(
+            s"Got wrong receipt height. current height: $blockHeight, receipt: ${b.receipt.height} (expected ${blockHeight - 1})"
+        )
       )
 
       // Check previous block for correctness, for debugging purposes
@@ -137,8 +139,7 @@ class AbciService[F[_]: Monad: Effect](
       // Do not use receipt in app hash if there's no txs in a block, so empty blocks have the same appHash as
       // previous non-empty ones. This is because Tendermint stops producing empty blocks only after
       // at least 2 blocks have the same appHash. Otherwise, empty blocks would be produced indefinitely.
-      // TODO: use appHash for the previous block instead of vmHash.pure[F]
-      appHash <- receipt.fold(vmHash.pure[F]) {
+      appHash <- receipt.fold(currentState.appHash.pure[F]) {
         case BlockReceipt(r, _) =>
           log.info(Console.YELLOW + s"BUD: appHash = hash(${vmHash.toHex} ++ ${r.jsonBytes().toHex})" + Console.RESET) *>
             hasher(vmHash ++ r.jsonBytes())
