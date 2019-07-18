@@ -112,7 +112,7 @@ class AbciService[F[_]: Monad: Effect](
       // Do not wait for receipt on empty blocks
       receipt <- if (transactions.nonEmpty) {
         log.info(Console.YELLOW + s"BUD: retrieving receipt on height $blockHeight" + Console.RESET) *>
-          controlSignals.receipt(blockHeight - 1).map(_.some)
+          controlSignals.getReceipt(blockHeight - 1).map(_.some)
       } else {
         log.info(Console.YELLOW + s"BUD: WON'T retrieve receipt on height $blockHeight" + Console.RESET) *>
           none[BlockReceipt].pure[F]

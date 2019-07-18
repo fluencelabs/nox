@@ -79,7 +79,7 @@ class AbciServiceSpec extends WordSpec with Matchers {
         }
 
         val controlSignals = new TestControlSignals {
-          override def receipt(height: Long): IO[BlockReceipt] =
+          override def getReceipt(height: Long): IO[BlockReceipt] =
             ref
               .update(_.getReceipt())
               .flatMap(_ => receipts.modify(l => (l.tail, l.head)))

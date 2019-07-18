@@ -54,18 +54,18 @@ trait ControlSignals[F[_]] {
   val stop: F[Unit]
 
   /**
-   * Stores block receipt in memory, async blocks if previous receipt is still there
+   * Puts block receipt to a queue
    * Receipt comes from node through control rpc
    *
    * @param receipt Receipt to store
    */
   // TODO: move that method to a separate interface
-  def putReceipt(receipt: BlockReceipt): F[Unit]
+  def enqueueReceipt(receipt: BlockReceipt): F[Unit]
 
   /**
    * Retrieves block receipt for a given height, async-ly blocks until there's a receipt
    */
-  def receipt(height: Long): F[BlockReceipt]
+  def getReceipt(height: Long): F[BlockReceipt]
 
   /**
    * Adds vm hash to queue, so node can retrieve it for block manifest uploading
@@ -92,7 +92,6 @@ object ControlSignals {
       for {
         dropPeersRef ← MVar[F].of[Set[DropPeer]](Set.empty)
         stopRef ← Deferred[F, Unit]
-        receiptRef <- MVar[F].empty[BlockReceipt]
         hashQueue <- fs2.concurrent.Queue.unbounded[F, VmHash]
         receiptQueue <- fs2.concurrent.Queue.unbounded[F, BlockReceipt]
         instance = new ControlSignalsImpl[F](dropPeersRef, stopRef, receiptQueue, hashQueue)

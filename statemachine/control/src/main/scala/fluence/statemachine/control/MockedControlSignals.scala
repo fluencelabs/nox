@@ -25,13 +25,13 @@ import scodec.bits.ByteVector
 class MockedControlSignals extends ControlSignals[IO] {
   override val dropPeers: Resource[IO, Set[DropPeer]] = Resource.pure(Set.empty)
   override val stop: IO[Unit] = IO.unit
-  override def receipt(height: Long): IO[BlockReceipt] = {
+  override def getReceipt(height: Long): IO[BlockReceipt] = {
     IO.pure(BlockReceipt(Receipt(height, ByteVector.empty), ReceiptType.New))
   }
 
   override def dropPeer(drop: DropPeer): IO[Unit] = IO.unit
   override def stopWorker(): IO[Unit] = IO.unit
-  override def putReceipt(receipt: BlockReceipt): IO[Unit] = IO.unit
+  override def enqueueReceipt(receipt: BlockReceipt): IO[Unit] = IO.unit
   override def enqueueVmHash(height: Long, hash: ByteVector): IO[Unit] = IO.unit
   override def getVmHash(height: Long): IO[VmHash] = IO.pure(VmHash(-1, ByteVector.empty))
 }

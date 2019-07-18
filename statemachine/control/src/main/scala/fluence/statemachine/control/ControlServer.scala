@@ -95,7 +95,7 @@ object ControlServer {
         for {
           implicit0(log: Log[F]) ← logReq(req)
           receipt <- req.as[BlockReceipt]
-          _ <- signals.putReceipt(receipt)
+          _ <- signals.enqueueReceipt(receipt)
           ok <- Ok()
         } yield ok
 

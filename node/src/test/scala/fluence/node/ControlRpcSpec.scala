@@ -107,7 +107,7 @@ class ControlRpcSpec extends WordSpec with Matchers with OptionValues {
         case (server, rpc) =>
           for {
             _ <- rpc.sendBlockReceipt(receipt, ReceiptType.New).value.flatMap(IO.fromEither)
-            after <- IO.pure(server.signals.receipt(1).unsafeRunTimed(1.second))
+            after <- IO.pure(server.signals.getReceipt(1).unsafeRunTimed(1.second))
           } yield {
             after shouldBe defined
             after.value.receipt shouldBe receipt

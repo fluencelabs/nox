@@ -16,18 +16,16 @@
 
 package fluence.statemachine.control
 
-import cats.{FlatMap, Monad}
+import cats.effect.concurrent.{Deferred, MVar}
 import cats.effect.{Resource, Sync}
-import cats.effect.concurrent.{Deferred, MVar, Ref}
-import cats.syntax.flatMap._
-import cats.syntax.functor._
 import cats.syntax.applicative._
 import cats.syntax.either._
-import cats.syntax.apply._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.{FlatMap, Monad}
+import fluence.statemachine.control.HasHeight.syntax._
 import scodec.bits.ByteVector
-import HasHeight.syntax._
 
-import scala.collection.immutable
 import scala.language.higherKinds
 
 /**
@@ -79,12 +77,12 @@ class ControlSignalsImpl[F[_]: FlatMap: Sync](
    *
    * @param receipt Receipt to store
    */
-  def putReceipt(receipt: BlockReceipt): F[Unit] = receiptQueue.enqueue1(receipt)
+  def enqueueReceipt(receipt: BlockReceipt): F[Unit] = receiptQueue.enqueue1(receipt)
 
   /**
    * Retrieves block receipt, async blocks until there's a receipt
    */
-  def receipt(height: Long): F[BlockReceipt] = dequeueByHeight(receiptQueue, height)
+  def getReceipt(height: Long): F[BlockReceipt] = dequeueByHeight(receiptQueue, height)
 
   /**
    * Adds vm hash to queue, so node can retrieve it for block manifest uploading
