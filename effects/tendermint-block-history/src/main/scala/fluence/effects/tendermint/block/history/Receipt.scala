@@ -32,7 +32,7 @@ import scala.language.higherKinds
  */
 case class Receipt(height: Long, hash: ByteVector) {
 
-  def bytes(): ByteVector = {
+  def jsonBytes(): ByteVector = {
     import io.circe.syntax._
     ByteVector((this: Receipt).asJson.noSpaces.getBytes())
   }

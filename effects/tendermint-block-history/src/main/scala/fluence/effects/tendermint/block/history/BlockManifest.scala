@@ -35,6 +35,7 @@ import io.circe.Decoder.Result
  * @param txsReceipt Storage receipt on txs for the current block
  * @param header Block header
  * @param votes Votes (commits) on the previous blockID
+ * @param emptyBlocksReceipts TODO
  */
 case class BlockManifest(
   vmHash: ByteVector,
@@ -46,7 +47,7 @@ case class BlockManifest(
 ) {
 
   // TODO: Avoid using JSON since it's not a stable serialization. Maybe use protobuf? Or something custom.
-  def bytes(): ByteVector = {
+  def jsonBytes(): ByteVector = {
     import io.circe.syntax._
     ByteVector((this: BlockManifest).asJson.noSpaces.getBytes())
   }

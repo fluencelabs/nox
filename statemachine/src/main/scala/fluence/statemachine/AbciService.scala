@@ -16,17 +16,17 @@
 
 package fluence.statemachine
 
-import cats.data.{EitherT, IndexedStateT, StateT}
+import cats.data.EitherT
 import cats.effect.Effect
 import cats.effect.concurrent.Ref
 import cats.effect.syntax.effect._
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.syntax.applicative._
 import cats.syntax.apply._
+import cats.syntax.applicative._
 import cats.syntax.option._
-import cats.{Applicative, Eval, Id, Monad}
+import cats.{Applicative, Monad}
 import com.github.jtendermint.jabci.api.CodeType
 import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
@@ -74,37 +74,16 @@ class AbciService[F[_]: Monad: Effect](
     } yield ()).value.void.toIO.unsafeRunAsyncAndForget()
 
   /**
-   * Forms a block from current state if current height is more than 2
-   *
-   * Blocks 1 and 2 should be always empty, so receipts for these two blocks aren't used in appHash.
-   * This is required to avoid waiting for receipts and thus avoid blocking commit for the second block.
-   *
-   * @return State after block formation, and ordered transactions list
-   */
-  private def formBlock(): F[(AbciState, List[Tx])] =
-    for {
-      // Get current state
-      currentState <- state.get
-      height = currentState.height + 1
-      sTxs <- {
-        if (height > 2)
-          // Form block starting with block 3
-          AbciState.formBlock[F].run(currentState)
-        else
-          // Keep blocks 1 and 2 empty
-          (currentState, List.empty[Tx]).pure[F]
-      }
-    } yield sTxs
-
-  /**
    * Take all the transactions we're able to process, and pass them to VM one by one.
    *
    * @return App (VM) Hash
    */
   def commit(implicit log: Log[F]): F[ByteVector] =
     for {
+      // Get current state
+      currentState <- state.get
       // Form a block: take ordered txs from AbciState
-      sTxs @ (_, transactions) ← formBlock()
+      sTxs @ (_, transactions) ← AbciState.formBlock[F].run(currentState)
 
       // Process txs one by one
       st ← Monad[F].tailRecM[(AbciState, List[Tx]), AbciState](sTxs) {
@@ -133,7 +112,7 @@ class AbciService[F[_]: Monad: Effect](
       // Do not wait for receipt on empty blocks
       receipt <- if (transactions.nonEmpty) {
         log.info(Console.YELLOW + s"BUD: retrieving receipt on height $blockHeight" + Console.RESET) *>
-          controlSignals.receipt.map(_.some)
+          controlSignals.receipt(blockHeight - 1).map(_.some)
       } else {
         log.info(Console.YELLOW + s"BUD: WON'T retrieve receipt on height $blockHeight" + Console.RESET) *>
           none[BlockReceipt].pure[F]
@@ -161,7 +140,7 @@ class AbciService[F[_]: Monad: Effect](
       // TODO: use appHash for the previous block instead of vmHash.pure[F]
       appHash <- receipt.fold(vmHash.pure[F]) {
         case BlockReceipt(r, _) =>
-          hasher(vmHash ++ r.bytes())
+          hasher(vmHash ++ r.jsonBytes())
             .leftMap(err => log.error(s"Error on hashing vmHash + receipt: $err"))
             .getOrElse(vmHash) // TODO: don't ignore errors
       }

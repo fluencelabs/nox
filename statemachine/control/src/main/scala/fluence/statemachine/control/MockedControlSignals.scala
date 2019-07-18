@@ -23,14 +23,12 @@ import scodec.bits.ByteVector
 // TODO: move to tests
 
 class MockedControlSignals extends ControlSignals[IO] {
-  @volatile private var height: Int = 0
-
   override val dropPeers: Resource[IO, Set[DropPeer]] = Resource.pure(Set.empty)
   override val stop: IO[Unit] = IO.unit
-  override val receipt: IO[BlockReceipt] = {
-    height += 1
+  override def receipt(height: Long): IO[BlockReceipt] = {
     IO.pure(BlockReceipt(Receipt(height, ByteVector.empty), ReceiptType.New))
   }
+
   override def dropPeer(drop: DropPeer): IO[Unit] = IO.unit
   override def stopWorker(): IO[Unit] = IO.unit
   override def putReceipt(receipt: BlockReceipt): IO[Unit] = IO.unit

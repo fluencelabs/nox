@@ -63,9 +63,9 @@ trait ControlSignals[F[_]] {
   def putReceipt(receipt: BlockReceipt): F[Unit]
 
   /**
-   * Retrieves block receipt, async blocks until there's a receipt
+   * Retrieves block receipt for a given height, async-ly blocks until there's a receipt
    */
-  val receipt: F[BlockReceipt]
+  def receipt(height: Long): F[BlockReceipt]
 
   /**
    * Adds vm hash to queue, so node can retrieve it for block manifest uploading
@@ -94,7 +94,8 @@ object ControlSignals {
         stopRef ← Deferred[F, Unit]
         receiptRef <- MVar[F].empty[BlockReceipt]
         hashQueue <- fs2.concurrent.Queue.unbounded[F, VmHash]
-        instance = new ControlSignalsImpl[F](dropPeersRef, stopRef, receiptRef, hashQueue)
+        receiptQueue <- fs2.concurrent.Queue.unbounded[F, BlockReceipt]
+        instance = new ControlSignalsImpl[F](dropPeersRef, stopRef, receiptQueue, hashQueue)
       } yield instance: ControlSignals[F]
     ) { s =>
       Sync[F].suspend(

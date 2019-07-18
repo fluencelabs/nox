@@ -16,13 +16,18 @@
 
 package fluence.statemachine.control
 
-import cats.FlatMap
+import cats.{FlatMap, Monad}
 import cats.effect.{Resource, Sync}
-import cats.effect.concurrent.{Deferred, MVar}
+import cats.effect.concurrent.{Deferred, MVar, Ref}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.applicative._
+import cats.syntax.either._
+import cats.syntax.apply._
 import scodec.bits.ByteVector
+import HasHeight.syntax._
 
+import scala.collection.immutable
 import scala.language.higherKinds
 
 /**
@@ -35,7 +40,7 @@ import scala.language.higherKinds
 class ControlSignalsImpl[F[_]: FlatMap: Sync](
   private val dropPeersRef: MVar[F, Set[DropPeer]],
   private val stopRef: Deferred[F, Unit],
-  private val receiptRef: MVar[F, BlockReceipt],
+  private val receiptQueue: fs2.concurrent.Queue[F, BlockReceipt],
   private val hashQueue: fs2.concurrent.Queue[F, VmHash]
 ) extends ControlSignals[F] {
 
@@ -74,12 +79,12 @@ class ControlSignalsImpl[F[_]: FlatMap: Sync](
    *
    * @param receipt Receipt to store
    */
-  def putReceipt(receipt: BlockReceipt): F[Unit] = receiptRef.put(receipt)
+  def putReceipt(receipt: BlockReceipt): F[Unit] = receiptQueue.enqueue1(receipt)
 
   /**
    * Retrieves block receipt, async blocks until there's a receipt
    */
-  val receipt: F[BlockReceipt] = receiptRef.take
+  def receipt(height: Long): F[BlockReceipt] = dequeueByHeight(receiptQueue, height)
 
   /**
    * Adds vm hash to queue, so node can retrieve it for block manifest uploading
@@ -91,7 +96,21 @@ class ControlSignalsImpl[F[_]: FlatMap: Sync](
    */
   override def getVmHash(height: Long): F[VmHash] =
     // Filter here because after blocks replay (on restart) there would be extraneous vm hashes for empty blocks
-    // It's ok to have map(_.head) here since we know it will never complete with an empty sequence
-    // TODO: use tailRecM, get rid of F: Sync
-    hashQueue.dequeue.filter(_.height < height).head.compile.toList.map(_.head)
+    dequeueByHeight(hashQueue, height)
+
+  private def dequeueByHeight[A: HasHeight](queue: fs2.concurrent.Queue[F, A], height: Long): F[A] =
+    Monad[F].tailRecM(queue) { q =>
+      q.dequeue1.flatMap { elem =>
+        if (elem.height < height) {
+          // keep looking
+          q.asLeft[A].pure[F]
+        } else if (elem.height > height) {
+          // corner case: elements aren't in order, try to reorder them
+          q.enqueue1(elem).as(q.asLeft)
+        } else {
+          // got it!
+          elem.asRight[fs2.concurrent.Queue[F, A]].pure[F]
+        }
+      }
+    }
 }

@@ -25,7 +25,7 @@ trait TestControlSignals extends ControlSignals[IO] {
   override val dropPeers: Resource[IO, Set[DropPeer]] =
     Resource.liftF(IO(throw new NotImplementedError("val dropPeers")))
   override val stop: IO[Unit] = IO(throw new NotImplementedError("val stop"))
-  override val receipt: IO[BlockReceipt] = IO(throw new NotImplementedError("val receipt"))
+  override def receipt(height: Long): IO[BlockReceipt] = IO(throw new NotImplementedError(s"def receipt $height"))
   override def dropPeer(drop: DropPeer): IO[Unit] = IO(throw new NotImplementedError("def dropPeer"))
   override def stopWorker(): IO[Unit] = IO(throw new NotImplementedError("def stopWorker"))
   override def putReceipt(receipt: BlockReceipt): IO[Unit] = IO(throw new NotImplementedError("def putReceipt"))

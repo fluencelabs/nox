@@ -72,7 +72,7 @@ class BlockHistory[F[_]: Monad](ipfs: IpfsUploader[F]) {
   private def uploadManifest(height: Long,
                              manifest: BlockManifest)(implicit log: Log[F]): EitherT[F, BlockHistoryError, Receipt] =
     ipfs
-      .upload(manifest.bytes())
+      .upload(manifest.jsonBytes())
       .map(Receipt(height, _))
       .leftMap(se => ManifestUploadingError(height, se): BlockHistoryError)
 }

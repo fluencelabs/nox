@@ -45,7 +45,7 @@ import scala.language.{higherKinds, postfixOps}
 
 private[tendermint] case class BlockUpload(block: Block,
                                            vmHash: ByteVector,
-                                           emptyBlocks: Option[Chain[BlockUpload]] = None)
+                                           emptyReceipts: Option[Chain[Receipt]] = None)
 
 /**
  * Implements continuous uploading process of Tendermint's blocks
@@ -96,14 +96,12 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
       (e: ControlRpcError) => log.error(s"error sending receipt: $e")
     )
 
-    def emptyBlock(b: Block) = b.data.txs.forall(_.isEmpty)
+    def emptyBlock(b: BlockUpload) = b.block.data.txs.forall(_.isEmpty)
+
+    // TODO: what if we have lost all data in receipt storage? Node will need to sync it from the decentralized storage
 
     // TODO: storedReceipts is calculated 3 times. How to memoize that?
-    val storedReceipts =
-      fs2.Stream.eval(log.info(Console.YELLOW + "BUD: will start loading stored receipts" + Console.RESET)) >>
-        storage
-          .retrieve()
-          .evalTap(t => log.info(Console.YELLOW + s"BUD: stored receipt ${t._1}" + Console.RESET))
+    val storedReceipts = storage.retrieve()
 
     val lastKnownHeight = storedReceipts.last.map(_.map(_._1).getOrElse(0L))
 
@@ -111,30 +109,31 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
     val blocks = lastKnownHeight >>= rpc.subscribeNewBlock
 
     // Retrieve vm hash for every block
-    val blocksWithVmHash = blocks
-      .evalTap(b => log.info(Console.YELLOW + s"BUD: got block ${b.header.height}" + Console.RESET))
-      .evalMap(
-        block =>
-          backoff
-            .retry(control.getVmHash(block.header.height),
-                   (e: ControlRpcError) => log.error(s"error retrieving vmHash on height ${block.header.height}: $e"))
-            .map(BlockUpload(block, _))
-      )
-      .evalTap(b => log.info(Console.YELLOW + s"BUD: got vmHash ${b.block.header.height}" + Console.RESET))
+    val blocksWithVmHash = blocks.evalMap(
+      block =>
+        backoff
+          .retry(control.getVmHash(block.header.height),
+                 (e: ControlRpcError) => log.error(s"error retrieving vmHash on height ${block.header.height}: $e"))
+          .map(BlockUpload(block, _))
+    )
 
-    // Group empty blocks with non-empty ones
-    val blocksToUpload = blocksWithVmHash
-      .scan[Either[Chain[BlockUpload], BlockUpload]](Left(Chain.empty)) {
-        case (Left(empties), block) if emptyBlock(block.block) => (empties :+ block).asLeft
-        case (Left(empties), block)                            => block.copy(emptyBlocks = Some(empties)).asRight
-        case (Right(_), block) if emptyBlock(block.block)      => Chain(block).asLeft
-        case (Right(_), block)                                 => block.asRight
-      }
-      .collect {
-        case Right(block) => block
+    // Group empty blocks with the first non-empty block; upload empty blocks right away
+    val grouped = blocksWithVmHash
+      .evalTap(b => log.info(s"processing block ${b.block.header.height}"))
+      .evalScan[F, Either[Chain[Receipt], BlockUpload]](Left(Chain.empty)) {
+        case (Left(empties), block) if emptyBlock(block) => upload(block).map(r => Left(empties :+ r))
+        case (Left(empties), block)                      => F.pure(block.copy(emptyReceipts = Some(empties)).asRight)
+        case (Right(_), block) if emptyBlock(block)      => upload(block).map(r => Left(Chain(r)))
+        case (Right(_), block)                           => F.pure(block.asRight)
       }
 
-    val newReceipts = blocksToUpload.evalMap(upload).map(_ -> ReceiptType.New)
+    // TODO: send these receipts to Kademlia
+    // Receipts from the new blocks (as opposed to stored receipts)
+    val newReceipts = grouped.flatMap {
+      // Emit receipts for the empty blocks
+      case Left(empties) => fs2.Stream.emits(empties.toList.takeRight(1))
+      case Right(block)  => fs2.Stream.eval(upload(block))
+    }.map(_ -> ReceiptType.New)
 
     // Receipts from storage; last one will be treated differently, see AbciService for details
     val storedTypedReceipts =
@@ -156,20 +155,15 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
     log.scope("block" -> block.block.header.height.toString, "upload block" -> "") { log =>
       def logError[E <: EffectError](e: E) = log.error("", e)
 
-      def upload(b: BlockUpload, empties: List[Receipt], r: Option[Receipt]) =
-        backoff.retry(history.upload(b.block, b.vmHash, r, empties)(log), logError)
-
-      def uploadEmpty(b: BlockUpload) = upload(b, Nil, None)
-
-      def uploadEmpties(bs: Chain[BlockUpload]) = Traverse[List].sequence[F, Receipt](bs.map(uploadEmpty).toList)
+      def upload(b: BlockUpload, r: Option[Receipt]) =
+        backoff.retry(history.upload(b.block, b.vmHash, r, b.emptyReceipts.map(_.toList).getOrElse(Nil))(log), logError)
 
       def storeReceipt(height: Long, receipt: Receipt) = backoff.retry(receiptStorage.put(height, receipt), logError)
 
       for {
         _ <- log.debug(s"started")
         lastReceipt <- lastManifestReceipt.take
-        empties <- block.emptyBlocks.fold(List.empty[Receipt].pure[F])(uploadEmpties)
-        receipt <- upload(block, empties, lastReceipt)
+        receipt <- upload(block, lastReceipt)
         _ <- storeReceipt(block.block.header.height, receipt)
         _ <- lastManifestReceipt.put(Some(receipt))
         _ <- log.debug(s"finished")

@@ -171,6 +171,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
     // For each block, we first upload txs, then upload the manifest, so 2 uploads for a block
     state.uploads shouldBe blocks * 2
     state.vmHashGet should contain theSameElementsInOrderAs (storedReceipts + 1 to blocks + storedReceipts)
+
     if (storedReceipts == 0) {
       state.lastKnownHeight.value shouldBe 0L
       state.receiptTypes.get(ReceiptType.Stored) should not be defined
@@ -215,31 +216,29 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
     startUploading(allBlocks).use { ref =>
       eventually[IO](
         ref.get.map { state =>
-          if (blocks == 0) {
-            // empty blocks are uploaded only with non-empty ones. No non-empty blocks => no uploads.
-            state.uploads shouldBe 0
-            // ..., and also no block manifests
-            state.blockManifests.length shouldBe 0
-            state.blockManifests.find(_.txsReceipt.isDefined) should not be defined
-          } else {
-            // for each non-empty block: upload txs + upload receipt; empty: upload receipt
-            state.uploads shouldBe blocks * 2 + emptyBlocks
-            // a single manifest for each block
-            state.blockManifests.length shouldBe blocks + emptyBlocks
-            // check that number of manifests for empty blocks is correct
-            state.blockManifests.count(_.txsReceipt.isEmpty) shouldBe emptyBlocks
-            // check that number of manifests for non-empty blocks is also correct
-            state.blockManifests.count(_.txsReceipt.isDefined) shouldBe blocks
+          // for each non-empty block: upload txs + upload receipt; empty: upload receipt
+          state.uploads shouldBe blocks * 2 + emptyBlocks
+
+          // a single manifest for each block
+          state.blockManifests.length shouldBe blocks + emptyBlocks
+          // check that number of manifests for empty blocks is correct
+          state.blockManifests.count(_.txsReceipt.isEmpty) shouldBe emptyBlocks
+          // check that number of manifests for non-empty blocks is also correct
+          state.blockManifests.count(_.txsReceipt.isDefined) shouldBe blocks
+          if (blocks > 0) {
             // first non-empty block's manifest should contain receipts for the previous empty blocks
             state.blockManifests.find(_.txsReceipt.isDefined).value.emptyBlocksReceipts.length shouldBe emptyBlocks
+          } else {
+            state.blockManifests.find(_.txsReceipt.isDefined) should not be defined
           }
+
           // vm hash should be retrieved for every block
           state.vmHashGet should contain theSameElementsInOrderAs allBlocks.map(_.header.height)
           // we've started subscription from the very beginning
           state.lastKnownHeight.value shouldBe 0L
 
           // only receipts for non-empty blocks are sent
-          state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe blocks
+          state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe blocks + emptyBlocks
           state.receiptTypes.get(ReceiptType.Stored) should not be defined
           state.receiptTypes.get(ReceiptType.LastStored) should not be defined
         },
@@ -275,16 +274,16 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
     startUploading(bs).use { ref =>
       eventually[IO](
         ref.get.map { state =>
-          state.uploads shouldBe (blocks * 2 + emptyBlocksFollowedByNonEmpty)
+          state.uploads shouldBe (blocks * 2 + emptyBlocksTotal)
           state.vmHashGet should contain theSameElementsInOrderAs (1 to blocksTotal)
           state.lastKnownHeight.value shouldBe 0L
           state.receiptTypes.get(ReceiptType.Stored) should not be defined
           state.receiptTypes.get(ReceiptType.LastStored) should not be defined
-          state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe blocks
+          state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe blocksTotal
 
           state.blockManifests.length shouldBe blocksTotal
           state.blockManifests.count(_.txsReceipt.isDefined) shouldBe blocks
-          state.blockManifests.count(_.txsReceipt.isEmpty) shouldBe emptyBlocksFollowedByNonEmpty
+          state.blockManifests.count(_.txsReceipt.isEmpty) shouldBe emptyBlocksTotal
 
           // check that all manifests for non-empty blocks were uploaded with N empty blocks; N = emptyBlocks
           state.blockManifests.filter(_.txsReceipt.isDefined).foreach(_.emptyBlocksReceipts.length shouldBe emptyBlocks)
