@@ -1,0 +1,10 @@
+# Disallow all files
+*
+
+# Allow specific directories
+!dashboard/
+!bootstrap/
+
+# Disallow node_modules
+dashboard/node_modules/
+bootstrap/node_modules/

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import axios, {AxiosPromise} from 'axios';
+import axios, {AxiosPromise, AxiosRequestConfig} from 'axios';
 import {QueryResponse} from './Result';
 import {BroadcastTxSyncResponse} from './TendermintClient';
 
@@ -32,18 +32,23 @@ interface AbciQueryResult {
 export class RpcClient {
 
     url: string;
+    private config: AxiosRequestConfig;
 
     constructor(addr: string, appId: string) {
         this.url = `${addr}/apps/${appId}`;
+        this.config = {
+            timeout: 5000, // 5 sec timeout by default
+        };
     }
 
     broadcastTxSync(tx: string): AxiosPromise<TendermintJsonRpcResponse<BroadcastTxSyncResponse>> {
         let url = `${this.url}/tx`;
-        return axios.post(url, tx)
+        return axios.post(url, tx, this.config)
     }
 
     abciQuery(path: string): AxiosPromise<TendermintJsonRpcResponse<AbciQueryResult>> {
         return axios.get(`${this.url}/query`, {
+            ...this.config,
             params: {
                 path: path,
                 data: ""
