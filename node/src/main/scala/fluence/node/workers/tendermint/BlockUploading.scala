@@ -134,7 +134,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
         case Right(block) => block
       }
 
-    val newReceipts = blocksToUpload.evalMap(upload).flatMap(fs2.Stream.emits).map(_ -> ReceiptType.New)
+    val newReceipts = blocksToUpload.evalMap(upload).map(_ -> ReceiptType.New)
 
     // Receipts from storage; last one will be treated differently, see AbciService for details
     val storedTypedReceipts =
@@ -152,7 +152,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
     appId: Long,
     lastManifestReceipt: MVar[F, Option[Receipt]],
     receiptStorage: ReceiptStorage[F]
-  )(implicit backoff: Backoff[EffectError], log: Log[F]): F[List[Receipt]] =
+  )(implicit backoff: Backoff[EffectError], log: Log[F]): F[Receipt] =
     log.scope("block" -> block.block.header.height.toString, "upload block" -> "") { log =>
       def logError[E <: EffectError](e: E) = log.error("", e)
 
@@ -173,7 +173,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
         _ <- storeReceipt(block.block.header.height, receipt)
         _ <- lastManifestReceipt.put(Some(receipt))
         _ <- log.debug(s"finished")
-      } yield (empties :+ receipt)
+      } yield receipt
     }
 }
 

@@ -76,7 +76,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
   val dockerIO = DockerIO.make[IO]()
 
   case class UploadingState(uploads: Int = 0,
-                            vmHashGet: Int = 0,
+                            vmHashGet: Seq[Long] = Nil,
                             receipts: Seq[(Receipt, ReceiptType.Value)] = Nil,
                             lastKnownHeight: Option[Long] = None,
                             blockManifests: Seq[BlockManifest] = Nil) {
@@ -89,7 +89,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
         copy(uploads = uploads + 1)
     }
 
-    def vmHash() = copy(vmHashGet = vmHashGet + 1)
+    def vmHash(height: Long) = copy(vmHashGet = vmHashGet :+ height)
 
     def receipt(receipt: Receipt, rt: ReceiptType.Value) =
       copy(receipts = receipts :+ (receipt, rt))
@@ -136,7 +136,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
               EitherT.liftF(state.update(_.receipt(receipt, rType)).void)
 
             override def getVmHash(height: Long): EitherT[IO, ControlRpcError, ByteVector] =
-              EitherT.liftF(state.update(_.vmHash()).map(_ => ByteVector.empty))
+              EitherT.liftF(state.update(_.vmHash(height)).map(_ => ByteVector.empty))
           }
 
           override def status(timeout: FiniteDuration): IO[WorkerStatus] =
@@ -170,7 +170,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
   private def checkUploadState(state: UploadingState, blocks: Int, storedReceipts: Int) = {
     // For each block, we first upload txs, then upload the manifest, so 2 uploads for a block
     state.uploads shouldBe blocks * 2
-    state.vmHashGet shouldBe blocks
+    state.vmHashGet should contain theSameElementsInOrderAs (storedReceipts + 1 to blocks + storedReceipts)
     if (storedReceipts == 0) {
       state.lastKnownHeight.value shouldBe 0L
       state.receiptTypes.get(ReceiptType.Stored) should not be defined
@@ -210,26 +210,41 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
   private def uploadBlockWithEmpties(blocks: Int, emptyBlocks: Int) = {
     val empties = (1 to emptyBlocks).map(emptyBlock(_))
     val bs = (emptyBlocks + 1 to emptyBlocks + blocks).map(singleBlock(_))
+    val allBlocks = empties ++ bs
 
-    startUploading(empties ++ bs).use { ref =>
+    startUploading(allBlocks).use { ref =>
       eventually[IO](
         ref.get.map { state =>
-          state.uploads shouldBe blocks * 2 + emptyBlocks
-          state.vmHashGet shouldBe blocks + emptyBlocks
+          if (blocks == 0) {
+            // empty blocks are uploaded only with non-empty ones. No non-empty blocks => no uploads.
+            state.uploads shouldBe 0
+            // ..., and also no block manifests
+            state.blockManifests.length shouldBe 0
+            state.blockManifests.find(_.txsReceipt.isDefined) should not be defined
+          } else {
+            // for each non-empty block: upload txs + upload receipt; empty: upload receipt
+            state.uploads shouldBe blocks * 2 + emptyBlocks
+            // a single manifest for each block
+            state.blockManifests.length shouldBe blocks + emptyBlocks
+            // check that number of manifests for empty blocks is correct
+            state.blockManifests.count(_.txsReceipt.isEmpty) shouldBe emptyBlocks
+            // check that number of manifests for non-empty blocks is also correct
+            state.blockManifests.count(_.txsReceipt.isDefined) shouldBe blocks
+            // first non-empty block's manifest should contain receipts for the previous empty blocks
+            state.blockManifests.find(_.txsReceipt.isDefined).value.emptyBlocksReceipts.length shouldBe emptyBlocks
+          }
+          // vm hash should be retrieved for every block
+          state.vmHashGet should contain theSameElementsInOrderAs allBlocks.map(_.header.height)
+          // we've started subscription from the very beginning
           state.lastKnownHeight.value shouldBe 0L
+
+          // only receipts for non-empty blocks are sent
+          state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe blocks
           state.receiptTypes.get(ReceiptType.Stored) should not be defined
           state.receiptTypes.get(ReceiptType.LastStored) should not be defined
-          state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe blocks + emptyBlocks
-
-          state.blockManifests.length shouldBe blocks + emptyBlocks
-          state.blockManifests.count(_.txsReceipt.isDefined) shouldBe blocks
-          state.blockManifests.count(_.txsReceipt.isEmpty) shouldBe emptyBlocks
-          if (blocks > 0) {
-            state.blockManifests.find(_.txsReceipt.isDefined).value.emptyBlocksReceipts.length shouldBe emptyBlocks
-          } else {
-            state.blockManifests.find(_.txsReceipt.isDefined) should not be defined
-          }
-        }
+        },
+        period = 10.millis,
+        maxWait = 1.second
       )
     }.unsafeRunSync()
   }
@@ -244,25 +259,34 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
     val blocksTotal = emptyBlocksTotal + blocks
 
     val bs = (1 to blocksTotal).map { h =>
-      // insert `emptyBlocks` empty blocks before each non-empty block
+      // insert N empty blocks before each non-empty block, where N = emptyBlocks
       if (h % (emptyBlocks + 1) == 0) singleBlock(h)
       else emptyBlock(h)
     }
 
+    val emptyBlocksFollowedByNonEmpty =
+      if (blocksTotal != 0 && bs.last.data.txs.exists(_.nonEmpty))
+        // if last block is non-empty, all empty blocks are followed by non-empty ones
+        emptyBlocksTotal
+      else
+        // if last block is empty, last N empty blocks aren't followed by non-empty; N = emptyBlocks
+        emptyBlocksTotal - emptyBlocks
+
     startUploading(bs).use { ref =>
       eventually[IO](
         ref.get.map { state =>
-          state.uploads shouldBe (blocks * 2 + emptyBlocksTotal)
-          state.vmHashGet shouldBe blocksTotal
+          state.uploads shouldBe (blocks * 2 + emptyBlocksFollowedByNonEmpty)
+          state.vmHashGet should contain theSameElementsInOrderAs (1 to blocksTotal)
           state.lastKnownHeight.value shouldBe 0L
           state.receiptTypes.get(ReceiptType.Stored) should not be defined
           state.receiptTypes.get(ReceiptType.LastStored) should not be defined
-          state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe blocksTotal
+          state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe blocks
 
           state.blockManifests.length shouldBe blocksTotal
           state.blockManifests.count(_.txsReceipt.isDefined) shouldBe blocks
-          state.blockManifests.count(_.txsReceipt.isEmpty) shouldBe emptyBlocksTotal
+          state.blockManifests.count(_.txsReceipt.isEmpty) shouldBe emptyBlocksFollowedByNonEmpty
 
+          // check that all manifests for non-empty blocks were uploaded with N empty blocks; N = emptyBlocks
           state.blockManifests.filter(_.txsReceipt.isDefined).foreach(_.emptyBlocksReceipts.length shouldBe emptyBlocks)
         }
       )
@@ -288,56 +312,52 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
   }
 
   "blocks + stored receipts" should {
-    "upload 1 + 2" in {
+    "upload 1 blocks + 2 stored receipts" in {
       uploadNBlocks(blocks = 1, storedReceipts = 2)
     }
 
-    "upload 13 + 17" in {
+    "upload 13 blocks + 17 stored receipts" in {
       uploadNBlocks(blocks = 13, storedReceipts = 17)
     }
 
-    "upload 12 + 16" in {
+    "upload 12 blocks + 16 stored receipts" in {
       uploadNBlocks(blocks = 12, storedReceipts = 16)
     }
   }
 
-  "empty blocks" should {
-    "be uploaded with an non-empty block (10 + 9)" in {
+  "empty blocks + non-empty blocks" should {
+    "be uploaded: 10 blocks + 9 empty blocks" in {
       uploadBlockWithEmpties(blocks = 10, emptyBlocks = 9)
     }
 
-    "0 + 2" in {
+    "be uploaded: 0 blocks + 2 empty blocks" in {
       uploadBlockWithEmpties(blocks = 0, emptyBlocks = 2)
     }
 
-    "1 + 2" in {
+    "be uploaded: 1 blocks + 2 empty blocks" in {
       uploadBlockWithEmpties(blocks = 1, emptyBlocks = 2)
     }
 
-    "13 + 17" in {
+    "be uploaded: 13 blocks + 17 empty blocks" in {
       uploadBlockWithEmpties(blocks = 13, emptyBlocks = 17)
     }
 
-    "12 + 16" in {
+    "be uploaded: 12 blocks + 16 empty blocks" in {
       uploadBlockWithEmpties(blocks = 12, emptyBlocks = 16)
     }
   }
 
-  "empty blocks interleaved" should {
-    "be uploaded with non-empty blocks" in {
+  "empty blocks interleaved with non-empty blocks" should {
+    "be uploaded: 10 blocks, 2 empty blocks" in {
       uploadBlocksWithEmptiesInterleaved(blocks = 10, emptyBlocks = 2)
     }
 
-    "9 blocks with 3 empties before each" in {
+    "be uploaded: 9 blocks, 3 empty blocks" in {
       uploadBlocksWithEmptiesInterleaved(blocks = 9, emptyBlocks = 3)
     }
 
-    "33 blocks with 5 empties before each" in {
+    "be uploaded: 33 blocks, 5 empty blocks" in {
       uploadBlocksWithEmptiesInterleaved(blocks = 33, emptyBlocks = 5)
     }
-  }
-
-  "rpc calls order" should {
-    "be strict" in {}
   }
 }
