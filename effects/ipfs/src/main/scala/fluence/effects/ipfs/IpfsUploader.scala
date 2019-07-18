@@ -23,6 +23,13 @@ import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
+/**
+ * Algebra for uploading to IPFS
+ */
 trait IpfsUploader[F[_]] {
+
+  /**
+   * Uploads given data to IPFS
+   */
   def upload[A: IpfsData](data: A)(implicit log: Log[F]): EitherT[F, StoreError, ByteVector]
 }

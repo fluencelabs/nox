@@ -32,6 +32,13 @@ import org.asynchttpclient.ws.{WebSocket, WebSocketListener}
 
 import scala.language.higherKinds
 
+/**
+ * Listener for asynchttpclient's Websocket
+ * @param wsUrl Websocket url, used for logging
+ * @param ref Ref to collect message fragments
+ * @param queue Queue to send resulting events to
+ * @param disconnected Promise, will be completed when websocket signals disconnection
+ */
 class WsListener[F[_]: ConcurrentEffect](
   wsUrl: String,
   ref: Ref[F, String],
@@ -41,21 +48,36 @@ class WsListener[F[_]: ConcurrentEffect](
     extends WebSocketListener {
   private val websocketP = Deferred.unsafe[F, WebSocket]
 
+  /**
+   * Callback for websocket opening, puts a Reconnect event to the queue
+   */
   override def onOpen(websocket: WebSocket): Unit = {
     (log.info(s"Tendermint WRPC: $wsUrl connected") *>
       queue.enqueue1(Reconnect) >> websocketP.complete(websocket)).toIO.unsafeRunSync()
   }
 
+  /**
+   * Callback for websocket close, completes `disconnected` promise
+   */
   override def onClose(websocket: WebSocket, code: Int, reason: String): Unit = {
     (log.warn(s"Tendermint WRPC: $wsUrl closed $code $reason") *>
       disconnected.complete(Disconnected(code, reason)).attempt.void).toIO.unsafeRunSync()
   }
 
+  /**
+   * Callback for errors, completes `disconnected` promise
+   */
   override def onError(t: Throwable): Unit = {
     (log.error(s"Tendermint WRPC: $wsUrl $t") *>
       disconnected.complete(DisconnectedWithError(t)).attempt.void).toIO.unsafeRunSync()
   }
 
+  /**
+   * Callback for receiving text payloads
+   * @param payload Payload itself, could be just a fragment of a message
+   * @param finalFragment Whether the payload is a final fragment of a message
+   * @param rsv extension bits, not used here
+   */
   override def onTextFrame(payload: String, finalFragment: Boolean, rsv: Int): Unit = {
 
     log.trace(s"Tendermint WRPC: text $payload")
@@ -80,6 +102,10 @@ class WsListener[F[_]: ConcurrentEffect](
     log.warn(s"UNIMPLEMENTED: Tendermint WRPC: $wsUrl unexpected binary frame").toIO.unsafeRunSync()
   }
 
+  /**
+   * Callback for pings, sends back a Pong message
+   * @param payload Ping payload
+   */
   override def onPingFrame(payload: Array[Byte]): Unit = {
     websocketP.get
       .flatMap(_.sendPongFrame().asAsync.void)
