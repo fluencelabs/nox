@@ -31,5 +31,11 @@ case class RoutingConf(
   maxBucketSize: Int,
   maxSiblingsSize: Int,
   parallelism: Int,
-  pingExpiresIn: Duration
+  pingExpiresIn: Duration,
+  refreshing: Option[RoutingConf.Refreshing],
+  store: Option[String]
 )
+
+object RoutingConf {
+  case class Refreshing(period: Duration, neighbors: Int)
+}

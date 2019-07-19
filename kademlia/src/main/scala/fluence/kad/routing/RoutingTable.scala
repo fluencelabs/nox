@@ -111,27 +111,26 @@ object RoutingTable {
     nodeKey: Key,
     siblingsSize: Int,
     maxBucketSize: Int,
-    extensions: Extension[F, C]*
+    extensions: List[Extension[F, C]] = Nil
   )(implicit P: Parallel[F, P], ca: ContactAccess[F, C]): F[RoutingTable[F, C]] =
     for {
       // Build a plain in-memory routing state
       st ← RoutingState.inMemory[F, P, C](nodeKey, siblingsSize, maxBucketSize)
 
       // Apply extensions to the state, use extended version then
-      exts = extensions.toList
-      state ← Traverse[List].foldLeftM(exts, st) {
+      state ← Traverse[List].foldLeftM(extensions, st) {
         case (s, ext) ⇒ ext.modifyState(s)
       }
 
       // Extend local routing, using extended state
       loc = LocalRouting(state.nodeKey, state.siblings, state.bucket)
-      local ← Traverse[List].foldLeftM(exts, loc) {
+      local ← Traverse[List].foldLeftM(extensions, loc) {
         case (l, ext) ⇒ ext.modifyLocal(l)
       }
 
       // Extend iterative routing, using extended local routing and state
       it = IterativeRouting(local, state)
-      iterative ← Traverse[List].foldLeftM(exts, it) {
+      iterative ← Traverse[List].foldLeftM(extensions, it) {
         case (i, ext) ⇒ ext.modifyIterative(i)
       }
 

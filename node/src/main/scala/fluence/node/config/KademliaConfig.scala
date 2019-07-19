@@ -22,7 +22,11 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 
 import scala.concurrent.duration._
 
-case class KademliaConfig(routing: RoutingConf, advertize: KademliaConfig.Advertize, join: KademliaConfig.Join)
+case class KademliaConfig(
+  routing: RoutingConf,
+  advertize: KademliaConfig.Advertize,
+  join: KademliaConfig.Join
+)
 
 object KademliaConfig {
   case class Advertize(host: String, port: Short)
@@ -37,7 +41,11 @@ object KademliaConfig {
 
   implicit val encodeDuration: Encoder[Duration] =
     Encoder.encodeDuration.contramap(d ⇒ java.time.Duration.ofMillis(d.toMillis))
-  implicit val decodeDuration: Decoder[Duration] = Decoder.decodeDuration.map(_.toMillis.millis)
+  implicit val decodeDuration: Decoder[Duration] =
+    Decoder.decodeDuration.map(_.toMillis.millis)
+
+  implicit val encodeRoutingRefreshingConf: Encoder[RoutingConf.Refreshing] = deriveEncoder
+  implicit val decodeRoutingRefreshingConf: Decoder[RoutingConf.Refreshing] = deriveDecoder
 
   implicit val encodeRoutingConf: Encoder[RoutingConf] = deriveEncoder
   implicit val decodeRoutingConf: Decoder[RoutingConf] = deriveDecoder

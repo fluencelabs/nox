@@ -83,7 +83,7 @@ object TestKademlia {
     )
 
     RoutingTable[F, P, C](nodeId, k, k)
-      .map(Kademlia[F, P, C](_, ownContactValue.pure[F], RoutingConf(k, k, alpha, pingExpiresIn)))
+      .map(Kademlia[F, P, C](_, ownContactValue.pure[F], RoutingConf(k, k, alpha, pingExpiresIn, None, None)))
 
   }
 

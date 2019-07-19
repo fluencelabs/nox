@@ -17,7 +17,7 @@
 package fluence.node
 
 import java.nio.ByteBuffer
-import java.nio.file.Files
+import java.nio.file.{Files, Paths}
 import java.util.Base64
 
 import cats.Apply
@@ -89,12 +89,13 @@ class MasterNodeSpec
 
       kad ← KademliaNode.make[IO, IO.Par](
         KademliaConfig(
-          RoutingConf(1, 1, 4, 5.seconds),
+          RoutingConf(1, 1, 4, 5.seconds, None, None),
           KademliaConfig.Advertize("127.0.0.1", port),
           KademliaConfig.Join(seeds, 4),
         ),
         Ed25519.signAlgo,
-        Ed25519.signAlgo.generateKeyPair.unsafe(Some(ByteVector.fromShort(port).toArray))
+        Ed25519.signAlgo.generateKeyPair.unsafe(Some(ByteVector.fromShort(port).toArray)),
+        Paths.get(masterConf.rootPath)
       )
 
       pool ← TestWorkersPool.make[IO]

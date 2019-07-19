@@ -73,7 +73,8 @@ object MasterNodeApp extends IOApp {
               kad ← KademliaNode.make[IO, IO.Par](
                 masterConf.kademlia,
                 Ed25519.signAlgo,
-                keyPair
+                keyPair,
+                conf.rootPath
               )
               node <- MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
             } yield (kad.http, node)).use {
