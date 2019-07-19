@@ -165,5 +165,19 @@ class LocalRoutingSpec extends WordSpec with Matchers {
 
       up.siblings.unsafeRunSync().nodes.toList.map(_.contact) shouldBe (1L to 10L).toList
     }
+
+    "update contacts" in {
+      val (up, rt) = routing(0L, maxSiblingsSize = 10)
+
+      import successCA._
+
+      up.update(Node(1L, 123)).unsafeRunSync()
+      rt.find(1L).unsafeRunSync() shouldBe Some(Node(1L, 123))
+      rt.lookup(1L, 2, _.key === (1L: Key)).unsafeRunSync() shouldBe Seq(Node(1L, 123))
+
+      up.update(Node(1L, 321)).unsafeRunSync()
+      rt.find(1L).unsafeRunSync() shouldBe Some(Node(1L, 321))
+      rt.lookup(1L, 2, _.key === (1L: Key)).unsafeRunSync() shouldBe Seq(Node(1L, 321))
+    }
   }
 }
