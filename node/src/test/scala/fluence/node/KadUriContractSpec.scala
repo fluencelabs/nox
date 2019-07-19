@@ -126,10 +126,10 @@ class KadUriContractSpec extends WordSpec with EitherValues with Matchers {
       lr.find(node1.key).unsafeRunSync() should be('empty)
 
       rs.update(node1).unsafeRunSync()
-      lr.find(node1.key).unsafeRunSync() should be(node1)
+      lr.find(node1.key).unsafeRunSync() should be(Some(node1))
 
       rs.update(node2).unsafeRunSync()
-      lr.find(node1.key).unsafeRunSync() should be(node2)
+      lr.find(node1.key).unsafeRunSync() should be(Some(node2))
 
     }
   }
