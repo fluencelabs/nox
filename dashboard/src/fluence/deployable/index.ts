@@ -92,7 +92,7 @@ export const deployableApps: { [key: string]: DeployableApp } = {
         storageHash: '0x31FCFC2C6A5847482E6827FEA7674F3C878B18E5F9647F6496EA0FE8DC1F2DE1',
         storageType: StorageType.Ipfs,
         clusterSize: 4,
-        repoLink: 'https://github.com/fluencelabs/redis/compare/5.0...fluencelabs:wasm',
+        repoLink: 'https://github.com/fluencelabs/sqlite/compare/original...master',
         requestExamples: ['CREATE VIRTUAL TABLE users USING FTS5(body)',
                           'INSERT INTO posts(body) VALUES(\'AB\'), (\'BC\'), (\'CD\'), (\'DE\')',
                           'SELECT * FROM posts WHERE posts MATCH \'A* OR B*\'']
