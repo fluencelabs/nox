@@ -25,7 +25,7 @@ export interface DeployableApp {
     requestExamples?: string[];
 }
 
-export const deployableAppIds: DeployableAppId[] = ['redis', 'llamadb', 'upload']; // 'dice, guess, tictactoe' are hidden intentionally
+export const deployableAppIds: DeployableAppId[] = ['sqlite', 'redis', 'llamadb', 'upload']; // 'dice, guess, tictactoe' are hidden intentionally
 
 export const deployableApps: { [key: string]: DeployableApp } = {
     llamadb: {
@@ -84,6 +84,18 @@ export const deployableApps: { [key: string]: DeployableApp } = {
                           'GET A',
                           'SMEMBERS B',
                           `eval "redis.call('incr', 'A') return redis.call('get', 'A') * 8 + 5"  0`]
+    }
+    // {"Name":"sqlite3_0.1.wasm","Hash":"QmRhnRn1se9DxQF9kX8AScfZS1buv2qzLdtL2scGTJXKEg","Size":"930913"}
+    sqlite: {
+        name: 'SQLite fork (sql, wasm v0.1)',
+        shortName: 'SQLite fork',
+        storageHash: '0x31FCFC2C6A5847482E6827FEA7674F3C878B18E5F9647F6496EA0FE8DC1F2DE1',
+        storageType: StorageType.Ipfs,
+        clusterSize: 4,
+        repoLink: 'https://github.com/fluencelabs/redis/compare/5.0...fluencelabs:wasm',
+        requestExamples: ['CREATE VIRTUAL TABLE users USING FTS5(body)',
+                          'INSERT INTO posts(body) VALUES(\'AB\'), (\'BC\'), (\'CD\'), (\'DE\')',
+                          'SELECT * FROM posts WHERE posts MATCH \'A* OR B*\'']
     }
 };
 
