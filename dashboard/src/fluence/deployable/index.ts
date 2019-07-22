@@ -84,7 +84,7 @@ export const deployableApps: { [key: string]: DeployableApp } = {
                           'GET A',
                           'SMEMBERS B',
                           `eval "redis.call('incr', 'A') return redis.call('get', 'A') * 8 + 5"  0`]
-    }
+    },
     // {"Name":"sqlite3_0.1.wasm","Hash":"QmRhnRn1se9DxQF9kX8AScfZS1buv2qzLdtL2scGTJXKEg","Size":"930913"}
     sqlite: {
         name: 'SQLite fork (sql, wasm v0.1)',
