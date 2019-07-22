@@ -93,9 +93,9 @@ export const deployableApps: { [key: string]: DeployableApp } = {
         storageType: StorageType.Ipfs,
         clusterSize: 4,
         repoLink: 'https://github.com/fluencelabs/sqlite/compare/original...master',
-        requestExamples: ['CREATE VIRTUAL TABLE posts USING FTS5(body)',
-                          'INSERT INTO posts(body) VALUES(\'AB\'), (\'BC\'), (\'CD\'), (\'DE\')',
-                          'SELECT * FROM posts WHERE posts MATCH \'A* OR B*\'']
+        requestExamples: ['CREATE VIRTUAL TABLE users USING FTS5(body)',
+                          'INSERT INTO users(body) VALUES(\'AB\'), (\'BC\'), (\'CD\'), (\'DE\')',
+                          'SELECT * FROM users WHERE users MATCH \'A* OR B*\'']
     }
 };
 
