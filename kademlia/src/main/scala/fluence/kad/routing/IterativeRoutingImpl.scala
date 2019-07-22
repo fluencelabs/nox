@@ -25,8 +25,9 @@ import cats.syntax.functor._
 import cats.syntax.apply._
 import cats.instances.list._
 import cats.effect.{Clock, LiftIO}
+import fluence.kad.contact.ContactAccess
 import fluence.kad.{CantJoinAnyNode, JoinError}
-import fluence.kad.protocol.{ContactAccess, Key, Node}
+import fluence.kad.protocol.{Key, Node}
 import fluence.kad.state.RoutingState
 import fluence.log.Log
 

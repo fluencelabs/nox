@@ -31,10 +31,10 @@ import com.softwaremill.sttp.{SttpBackend, _}
 import fluence.EitherTSttpBackend
 import fluence.crypto.eddsa.Ed25519
 import fluence.effects.ethclient.EthClient
-import fluence.kad.RoutingConf
-import fluence.kad.http.UriContact
+import fluence.kad.conf.{KademliaConfig, RoutingConf}
+import fluence.kad.contact.UriContact
 import fluence.log.{Log, LogFactory}
-import fluence.node.config.{FluenceContractConfig, KademliaConfig, MasterConfig, NodeConfig}
+import fluence.node.config.{FluenceContractConfig, MasterConfig, NodeConfig}
 import fluence.node.eth.FluenceContract
 import fluence.node.eth.FluenceContractTestOps._
 import fluence.node.status.{MasterStatus, StatusAggregator}
@@ -87,9 +87,9 @@ class MasterNodeSpec
     for {
       implicit0(sttpB: Sttp) ← sttpResource
 
-      kad ← KademliaNode.make[IO, IO.Par](
+      kad ← KademliaHttpNode.make[IO, IO.Par](
         KademliaConfig(
-          RoutingConf(1, 1, 4, 5.seconds, None, None),
+          RoutingConf(1, 1, 4, 5.seconds),
           KademliaConfig.Advertize("127.0.0.1", port),
           KademliaConfig.Join(seeds, 4),
         ),

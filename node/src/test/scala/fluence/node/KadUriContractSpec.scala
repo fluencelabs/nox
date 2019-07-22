@@ -26,10 +26,11 @@ import fluence.crypto.Crypto
 import fluence.crypto.Crypto.liftCodecErrorToCrypto
 import fluence.crypto.eddsa.Ed25519
 import fluence.kad.KadRpcError
-import fluence.kad.http.UriContact
-import fluence.kad.protocol.{ContactAccess, KademliaRpc, Key, Node}
-import fluence.kad.routing.{LocalRouting, RoutingTable}
-import fluence.kad.state.{RoutingState, SiblingsState}
+import fluence.kad.conf.AdvertizeConf
+import fluence.kad.contact.{ContactAccess, UriContact}
+import fluence.kad.protocol.{KademliaRpc, Key, Node}
+import fluence.kad.routing.LocalRouting
+import fluence.kad.state.RoutingState
 import fluence.log.{Log, LogFactory}
 import fluence.node.workers.tendermint.TendermintPrivateKey
 import io.circe.parser._
@@ -63,11 +64,12 @@ class KadUriContractSpec extends WordSpec with EitherValues with Matchers {
     "generate and check (Tendermint keys)" in {
       val port = 25000.toShort
       val host = "207.154.210.117"
+      val adv = AdvertizeConf(host, port)
       val expectedContact =
         "fluence://Df3bFWKN6tb2ejyPKfUceA57i6RwMvLfoi5NA3QZ3aSi:4zGZc3BSeyWsEiB6BuHN7gBheu1uAQn3cFpTTYZy6L43v9wUj9qgMuWtAAVg5LNV8B8xxLqPagVFU39YsbrpQQhT@207.154.210.117:25000"
 
       val contact = (for {
-        node <- UriContact.buildNode(host, port, Ed25519.signAlgo.signer(keyPair))
+        node <- UriContact.buildNode(adv, Ed25519.signAlgo.signer(keyPair))
         contactStr <- Crypto.fromOtherFunc(UriContact.writeNode).pointAt(node)
         _ <- UriContact.readAndCheckContact(Ed25519.signAlgo.checker).pointAt(contactStr)
       } yield contactStr).runF[Either[Throwable, ?]](())
@@ -79,8 +81,8 @@ class KadUriContractSpec extends WordSpec with EitherValues with Matchers {
     }
 
     "update contacts" in {
-      val node1 = UriContact.buildNode("localhost", 25000.toShort, Ed25519.signAlgo.signer(keyPair)).unsafe(())
-      val node2 = UriContact.buildNode("127.0.0.1", 2500.toShort, Ed25519.signAlgo.signer(keyPair)).unsafe(())
+      val node1 = UriContact.buildNode(AdvertizeConf("localhost", 25000), Ed25519.signAlgo.signer(keyPair)).unsafe(())
+      val node2 = UriContact.buildNode(AdvertizeConf("127.0.0.1", 2500), Ed25519.signAlgo.signer(keyPair)).unsafe(())
 
       Eq[Key].eqv(node1.key, node2.key) shouldBe true
 

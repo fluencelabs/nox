@@ -17,10 +17,17 @@
 package fluence.kad
 
 import cats.data.EitherT
-import cats.effect.Clock
-import cats.{Monad, Parallel}
+import cats.effect.{Clock, Concurrent, Resource}
+import cats.{Monad, Parallel, Traverse}
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.instances.list._
+import cats.instances.option._
+import fluence.crypto.Crypto
+import fluence.kad.conf.{JoinConf, RoutingConf}
+import fluence.kad.contact.ContactAccess
 import fluence.kad.routing.{IterativeRouting, RoutingTable}
-import fluence.kad.protocol.{ContactAccess, KademliaRpc, Key, Node}
+import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import fluence.log.Log
 
 import scala.language.higherKinds
@@ -113,4 +120,48 @@ object Kademlia {
   )(implicit P: Parallel[F, P], ca: ContactAccess[F, C]): Kademlia[F, C] =
     new KademliaImpl(routing.nodeKey, conf.parallelism, ownContactGetter, routing)
 
+  /**
+   * Join the Kademlia network with a list of known peers in background fiber
+   *
+   * @param kad Kademlia instance
+   * @param conf Kademlia's Join configuration
+   * @param readContact Deserializer for peer contacts
+   * @tparam F Effect type
+   * @tparam C Contact type
+   * @return Resource that contains a fiber inside, which is cancelled when resource is released
+   */
+  def joinConcurrently[F[_]: Concurrent: Log, C](kad: Kademlia[F, C],
+                                                 conf: JoinConf,
+                                                 readContact: Crypto.Func[String, C]): Resource[F, Unit] =
+    Resource
+      .make(
+        Concurrent[F].start(
+          Traverse[List]
+            .traverse(conf.seeds.toList)(
+              s ⇒
+                readContact
+                  .runEither[F](s)
+                  .flatTap(
+                    r =>
+                      Traverse[Option].traverse(r.left.toOption)(e => Log[F].info(s"Filtered out kademlia seed $s: $e"))
+                )
+            )
+            .map(_.collect {
+              case Right(c) ⇒ c
+            })
+            .flatMap(
+              seedNodes ⇒
+                Log[F].scope("kad" -> "join")(
+                  log ⇒
+                    kad.join(seedNodes, conf.numOfNodes)(log).flatMap {
+                      case true ⇒
+                        log.info("Joined")
+                      case false ⇒
+                        log.warn("Unable to join any Kademlia seed")
+                  }
+              )
+            )
+        )
+      )(_.cancel)
+      .void
 }

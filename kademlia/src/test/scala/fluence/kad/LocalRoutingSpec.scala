@@ -18,7 +18,8 @@ package fluence.kad
 
 import cats.data.EitherT
 import cats.effect.{ContextShift, IO, Timer}
-import fluence.kad.protocol.{ContactAccess, KademliaRpc, Key, Node}
+import fluence.kad.contact.ContactAccess
+import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import fluence.kad.routing.LocalRouting
 import fluence.kad.state.RoutingState
 import fluence.log.{Log, LogFactory}
