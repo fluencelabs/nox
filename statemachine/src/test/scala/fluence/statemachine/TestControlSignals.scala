@@ -17,8 +17,7 @@
 package fluence.statemachine
 
 import cats.effect.{IO, Resource}
-import fluence.effects.tendermint.block.history.Receipt
-import fluence.statemachine.control.{BlockReceipt, ControlSignals, DropPeer, ReceiptType, VmHash}
+import fluence.statemachine.control.{BlockReceipt, ControlSignals, DropPeer, VmHash}
 import scodec.bits.ByteVector
 
 trait TestControlSignals extends ControlSignals[IO] {

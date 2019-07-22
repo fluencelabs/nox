@@ -142,13 +142,13 @@ class AbciService[F[_]: Monad: Effect](
       appHash <- receipt.fold(currentState.appHash.pure[F]) {
         case BlockReceipt(r, _) =>
           log.info(Console.YELLOW + s"BUD: appHash = hash(${vmHash.toHex} ++ ${r.jsonBytes().toHex})" + Console.RESET) *>
-            hasher(vmHash ++ r.jsonBytes())
+            hasher[F](vmHash ++ r.jsonBytes())
               .leftMap(err => log.error(s"Error on hashing vmHash + receipt: $err"))
               .getOrElse(vmHash) // TODO: don't ignore errors
       }
 
       // Push hash to AbciState, increment block number
-      newState ← AbciState.setAppHash(appHash).runS(st)
+      newState ← AbciState.setAppHash[F](appHash).runS(st)
 
       // Store updated state in the Ref (the changes were transient for readers before this step)
       _ ← state.set(newState)
@@ -212,7 +212,7 @@ class AbciService[F[_]: Monad: Effect](
    * @param data Incoming transaction
    */
   def deliverTx(data: Array[Byte])(implicit log: Log[F]): F[TxResponse] =
-    Tx.readTx(data).value.flatMap {
+    Tx.readTx[F](data).value.flatMap {
       case Some(tx) ⇒
         // TODO we have different logic in checkTx and deliverTx, as only in deliverTx tx might be dropped due to pending txs overflow
         state
@@ -232,7 +232,7 @@ class AbciService[F[_]: Monad: Effect](
    * @param data Incoming transaction
    */
   def checkTx(data: Array[Byte])(implicit log: Log[F]): F[TxResponse] =
-    Tx.readTx(data).value.flatMap {
+    Tx.readTx[F](data).value.flatMap {
       case Some(tx) ⇒
         state.get
           .map(

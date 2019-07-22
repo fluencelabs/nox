@@ -124,16 +124,15 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
                     } else (b.header.height + 1, List(b)).pure[F]
                 )
 
-            // reconnnect (it's always the first event in the queue)
+            // reconnect (it's always the first event in the queue)
             case (startHeight, Reconnect) =>
               for {
                 // retrieve height from Tendermint
                 consensusHeight <- backoff.retry(self.consensusHeight(),
                                                  e => log.error("retrieving consensus height", e))
-                _ <- log
-                  .info(
-                    Console.YELLOW + s"BUD: reconnect. startHeight $startHeight consensusHeight $consensusHeight cond1: ${consensusHeight == startHeight}, cond2: ${startHeight == consensusHeight - 1}" + Console.RESET
-                  )
+                _ <- log.info(
+                  Console.YELLOW + s"BUD: reconnect. startHeight $startHeight consensusHeight $consensusHeight cond1: ${consensusHeight == startHeight}, cond2: ${startHeight == consensusHeight - 1}" + Console.RESET
+                )
                 (height, block) <- if (consensusHeight >= startHeight) {
                   // we're behind last block, load all blocks up to it
                   loadBlocks(startHeight, consensusHeight).map(bs => (consensusHeight + 1, bs))

@@ -88,12 +88,16 @@ class ControlSignalsImpl[F[_]: Monad: Log](
    * Retrieves block receipt, async blocks until there's a receipt
    */
   def getReceipt(height: Long): F[BlockReceipt] =
+    // TODO: this doesn't work with backoff.retry because element is dequeued
+    // TODO: so maybe use Map
     log(s"getReceipt $height") *> dequeueByHeight(receiptQueue, height)
 
   /**
    * Adds vm hash to queue, so node can retrieve it for block manifest uploading
    */
   override def enqueueVmHash(height: Long, hash: ByteVector): F[Unit] =
+    // TODO: this doesn't work with backoff.retry because element is dequeued
+    // TODO: so maybe use Map
     log(s"enqueueVmHash $height") *> hashQueue.enqueue1(VmHash(height, hash))
 
   /**
