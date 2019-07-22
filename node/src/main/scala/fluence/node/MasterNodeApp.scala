@@ -27,7 +27,7 @@ import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
 import fluence.crypto.eddsa.Ed25519
 import fluence.effects.docker.DockerIO
-import fluence.effects.ipfs.{IpfsClient, IpfsUploader}
+import fluence.effects.ipfs.IpfsUploader
 import fluence.effects.receipt.storage.KVReceiptStorage
 import fluence.kad.contact.UriContact
 import fluence.kad.http.KademliaHttpNode
