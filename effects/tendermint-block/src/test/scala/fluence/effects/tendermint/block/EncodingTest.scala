@@ -429,7 +429,7 @@ class EncodingTest extends FunSpec with Matchers with OptionValues with EitherVa
 
     it("block id") {
       val blockId = block.header.last_block_id.value
-      val json = blockId.asJson.spaces2 + "abcdefg"
+      val json = blockId.asJson.spaces2
       val decoded = parse(json).flatMap(_.as[BlockID])
 
       {
