@@ -85,11 +85,11 @@ export const deployableApps: { [key: string]: DeployableApp } = {
                           'SMEMBERS B',
                           `eval "redis.call('incr', 'A') return redis.call('get', 'A') * 8 + 5"  0`]
     },
-    // {"Name":"sqlite3_0.1.wasm","Hash":"QmRhnRn1se9DxQF9kX8AScfZS1buv2qzLdtL2scGTJXKEg","Size":"930913"}
+    // {"Name":"sqlite3_0.1.wasm","Hash":"QmcnVd4qfcy3QA6RfCJdxtiMxafYjm6yTLAdk7N5qHCQA6","Size":"965949"}
     sqlite: {
         name: 'SQLite fork (sql, wasm v0.1)',
         shortName: 'SQLite fork',
-        storageHash: '0x31FCFC2C6A5847482E6827FEA7674F3C878B18E5F9647F6496EA0FE8DC1F2DE1',
+        storageHash: '0xD6A2718452E0BE637826D97702953FC6F4F2226B23E724920926F98783A41083',
         storageType: StorageType.Ipfs,
         clusterSize: 4,
         repoLink: 'https://github.com/fluencelabs/sqlite/compare/original...master',
