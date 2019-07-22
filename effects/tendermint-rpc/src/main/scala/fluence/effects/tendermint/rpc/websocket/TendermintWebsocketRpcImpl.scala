@@ -100,16 +100,14 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
       val bNil: List[Block] = Nil
 
       fs2.Stream
-        .eval(log.info(Console.YELLOW + s"BUD: subscribed on NewBlock. startFrom: $startFrom" + Console.RESET)) *>
+        .eval(traceBU(s"subscribed on NewBlock. startFrom: $startFrom")) *>
         queue.dequeue
           .evalMapAccumulate(startFrom) {
             // receiving new block
             case (curHeight, JsonEvent(json)) =>
               parseBlock(json, curHeight)
                 .flatTap(
-                  b =>
-                    log
-                      .info(Console.YELLOW + s"BUD: new block ${b.header.height}. curHeight $curHeight" + Console.RESET)
+                  b => traceBU(s"new block ${b.header.height}. curHeight $curHeight")
                 )
                 .flatMap(
                   b =>
@@ -130,8 +128,8 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
                 // retrieve height from Tendermint
                 consensusHeight <- backoff.retry(self.consensusHeight(),
                                                  e => log.error("retrieving consensus height", e))
-                _ <- log.info(
-                  Console.YELLOW + s"BUD: reconnect. startHeight $startHeight consensusHeight $consensusHeight cond1: ${consensusHeight == startHeight}, cond2: ${startHeight == consensusHeight - 1}" + Console.RESET
+                _ <- traceBU(
+                  s"reconnect. startHeight $startHeight consensusHeight $consensusHeight cond1: ${consensusHeight == startHeight}, cond2: ${startHeight == consensusHeight - 1}"
                 )
                 (height, block) <- if (consensusHeight >= startHeight) {
                   // we're behind last block, load all blocks up to it
@@ -236,4 +234,8 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
     new WebSocketUpgradeHandler.Builder()
       .addWebSocketListener(new WsListener[F](wsUrl, payloadAccumulator, queue, disconnected))
       .build()
+
+  // Writes a trace log about block uploading
+  private def traceBU(msg: String)(implicit log: Log[F]) =
+    log.trace(Console.YELLOW + s"BUD: $msg" + Console.RESET)
 }

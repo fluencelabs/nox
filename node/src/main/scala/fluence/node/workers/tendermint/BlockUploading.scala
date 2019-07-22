@@ -18,15 +18,13 @@ package fluence.node.workers.tendermint
 
 import java.nio.ByteBuffer
 
+import cats.Applicative
 import cats.data.{Chain, EitherT}
 import cats.effect._
 import cats.effect.concurrent.MVar
-import cats.instances.list._
-import cats.syntax.applicative._
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{Applicative, Traverse}
 import com.softwaremill.sttp.SttpBackend
 import fluence.effects.ipfs.IpfsUploader
 import fluence.effects.receipt.storage.ReceiptStorage
@@ -38,7 +36,7 @@ import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.node.workers.Worker
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
-import fluence.statemachine.control.{ReceiptType, VmHash}
+import fluence.statemachine.control.ReceiptType
 import scodec.bits.ByteVector
 
 import scala.language.{higherKinds, postfixOps}
@@ -102,10 +100,10 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
 
     // TODO: storedReceipts is calculated 3 times. How to memoize that?
     val storedReceipts =
-      fs2.Stream.eval(log.info(Console.YELLOW + "BUD: will start loading stored receipts" + Console.RESET)) >>
+      fs2.Stream.eval(traceBU(s"will start loading stored receipts")) >>
         storage
           .retrieve()
-          .evalTap(t => log.info(Console.YELLOW + s"BUD: stored receipt ${t._1}" + Console.RESET))
+          .evalTap(t => traceBU(s"stored receipt ${t._1}"))
 
     val lastKnownHeight = storedReceipts.last.map(_.map(_._1).getOrElse(0L))
 
@@ -114,7 +112,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
 
     // Retrieve vm hash for every block
     val blocksWithVmHash = blocks
-      .evalTap(b => log.info(Console.YELLOW + s"BUD: got block ${b.header.height}" + Console.RESET))
+      .evalTap(b => traceBU(s"got block ${b.header.height}"))
       .evalMap(
         block =>
           backoff
@@ -122,7 +120,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
                    (e: ControlRpcError) => log.error(s"error retrieving vmHash on height ${block.header.height}: $e"))
             .map(BlockUpload(block, _))
       )
-      .evalTap(b => log.info(Console.YELLOW + s"BUD: got vmHash ${b.block.header.height}" + Console.RESET))
+      .evalTap(b => traceBU(s"got vmHash ${b.block.header.height}"))
 
     // Group empty blocks with the first non-empty block; upload empty blocks right away
     val grouped = blocksWithVmHash
@@ -176,6 +174,11 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
         _ <- log.debug(s"finished")
       } yield receipt
     }
+
+  // Writes a trace log about block uploading
+  private def traceBU(msg: String)(implicit log: Log[F]) =
+    log.trace(Console.YELLOW + s"BUD: $msg" + Console.RESET)
+
 }
 
 object BlockUploading {

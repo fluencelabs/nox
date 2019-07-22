@@ -16,26 +16,22 @@
 
 package fluence.statemachine
 
-import cats.data.EitherT
 import cats.effect.Effect
 import cats.effect.concurrent.Ref
-import cats.effect.syntax.effect._
+import cats.instances.option._
 import cats.syntax.applicative._
+import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.instances.option._
-import cats.syntax.apply._
-import cats.syntax.applicative._
 import cats.syntax.option._
 import cats.{Applicative, Monad, Traverse}
 import com.github.jtendermint.jabci.api.CodeType
 import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
-import fluence.effects.tendermint.block.TendermintBlock
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.Log
-import fluence.statemachine.control.{BlockReceipt, ControlSignals, ReceiptType}
+import fluence.statemachine.control.{BlockReceipt, ControlSignals}
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
 import scodec.bits.ByteVector
@@ -58,21 +54,9 @@ class AbciService[F[_]: Monad: Effect](
 
   import AbciService._
 
-  private def checkBlock(height: Long)(implicit log: Log[F]): Unit =
-    (for {
-      block ← tendermintRpc
-        .block(height)
-        .leftSemiflatMap(e ⇒ Log[F].warn(s"RPC Block[$height] failed", e))
-
-      _ ← Log.eitherT[F, Unit].info(s"RPC Block[$height] => height = ${block.header.height}")
-
-      _ ← EitherT
-        .fromEither[F](TendermintBlock(block).validateHashes())
-        .leftSemiflatMap(e ⇒ Log[F].warn(s"Block at height $height is invalid", e))
-
-      _ ← Log.eitherT[F, Unit].info(s"Block at height $height is valid")
-
-    } yield ()).value.void.toIO.unsafeRunAsyncAndForget()
+  // Writes a trace log about block uploading
+  private def traceBU(msg: String)(implicit log: Log[F]) =
+    log.trace(Console.YELLOW + s"BUD: $msg" + Console.RESET)
 
   /**
    * Take all the transactions we're able to process, and pass them to VM one by one.
@@ -108,20 +92,20 @@ class AbciService[F[_]: Monad: Effect](
         .leftSemiflatMap(err ⇒ Log[F].error(s"VM is unable to compute state hash: $err").as(err))
         .getOrElse(ByteVector.empty) // TODO do not ignore vm error
 
-      _ <- log.info(Console.YELLOW + s"BUD: got vmHash; height ${st.height + 1}" + Console.RESET)
+      _ <- traceBU(s"got vmHash; height ${st.height + 1}" + Console.RESET)
 
       // Do not wait for receipt on empty blocks
       receipt <- if (transactions.nonEmpty) {
-        log.info(Console.YELLOW + s"BUD: retrieving receipt on height $blockHeight" + Console.RESET) *>
+        traceBU(s"retrieving receipt on height $blockHeight" + Console.RESET) *>
           controlSignals.getReceipt(blockHeight - 1).map(_.some)
       } else {
-        log.info(Console.YELLOW + s"BUD: WON'T retrieve receipt on height $blockHeight" + Console.RESET) *>
+        traceBU(s"WON'T retrieve receipt on height $blockHeight" + Console.RESET) *>
           none[BlockReceipt].pure[F]
       }
 
       _ <- log.info(
         Console.YELLOW +
-          s"BUD: got receipt ${receipt
+          s"got receipt ${receipt
             .map(r => s"${r.`type`}  ${r.receipt.height}")}; transactions count: ${transactions.length} ${transactions.nonEmpty}" +
           Console.RESET
       )
@@ -133,15 +117,12 @@ class AbciService[F[_]: Monad: Effect](
         )
       )
 
-      // Check previous block for correctness, for debugging purposes
-      _ = if (blockHeight > 1 && receipt.forall(_.`type` == ReceiptType.New)) checkBlock(blockHeight - 1)
-
       // Do not use receipt in app hash if there's no txs in a block, so empty blocks have the same appHash as
       // previous non-empty ones. This is because Tendermint stops producing empty blocks only after
       // at least 2 blocks have the same appHash. Otherwise, empty blocks would be produced indefinitely.
       appHash <- receipt.fold(currentState.appHash.pure[F]) {
         case BlockReceipt(r, _) =>
-          log.info(Console.YELLOW + s"BUD: appHash = hash(${vmHash.toHex} ++ ${r.jsonBytes().toHex})" + Console.RESET) *>
+          traceBU(s"appHash = hash(${vmHash.toHex} ++ ${r.jsonBytes().toHex})" + Console.RESET) *>
             hasher[F](vmHash ++ r.jsonBytes())
               .leftMap(err => log.error(s"Error on hashing vmHash + receipt: $err"))
               .getOrElse(vmHash) // TODO: don't ignore errors
@@ -153,11 +134,11 @@ class AbciService[F[_]: Monad: Effect](
       // Store updated state in the Ref (the changes were transient for readers before this step)
       _ ← state.set(newState)
 
-      _ <- log.info(Console.YELLOW + "BUD: state.set done" + Console.RESET)
+      _ <- traceBU("state.set done" + Console.RESET)
 
       // Store vmHash, so master node could retrieve it
       _ <- controlSignals.enqueueVmHash(blockHeight, vmHash)
-      _ <- log.info(Console.YELLOW + s"BUD: end of commit $blockHeight" + Console.RESET)
+      _ <- traceBU(s"end of commit $blockHeight" + Console.RESET)
     } yield appHash
 
   /**
