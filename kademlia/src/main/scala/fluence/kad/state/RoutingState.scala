@@ -21,7 +21,8 @@ import cats.syntax.apply._
 import cats.syntax.functor._
 import cats.Parallel
 import fluence.effects.kvstore.KVStore
-import fluence.kad.protocol.{ContactAccess, Key, Node}
+import fluence.kad.contact.ContactAccess
+import fluence.kad.protocol.{Key, Node}
 import fluence.log.Log
 
 import scala.language.higherKinds

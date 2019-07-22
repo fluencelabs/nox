@@ -16,14 +16,21 @@
 
 package fluence.kad.routing
 
-import cats.effect.{Async, Clock, Concurrent, LiftIO, Timer}
-import cats.{Parallel, Traverse}
+import java.nio.file.Path
+
+import cats.effect.{Async, Clock, Concurrent, ContextShift, LiftIO, Resource, Timer}
+import cats.{Defer, Monad, Parallel, Traverse}
 import cats.instances.list._
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
 import cats.syntax.functor._
-import fluence.effects.kvstore.KVStore
-import fluence.kad.protocol.{ContactAccess, Key, Node}
+import cats.syntax.compose._
+import fluence.codec.{CodecError, PureCodec}
+import fluence.crypto.Crypto
+import fluence.effects.kvstore.{KVStore, RocksDBStore}
+import fluence.kad.conf.RoutingConf
+import fluence.kad.contact.ContactAccess
+import fluence.kad.protocol.{Key, Node}
 import fluence.kad.state.RoutingState
 import fluence.log.Log
 
@@ -99,6 +106,64 @@ object RoutingTable {
     )
 
   /**
+   * Builds a Refreshing extension, if it's enabled in [[RoutingConf]]
+   *
+   * @param conf Routing configuration, see [[RoutingConf.refreshing]]
+   */
+  def refreshingOpt[F[_]: Concurrent: Timer: Log, C](
+    conf: RoutingConf
+  ): Option[Extension[F, C]] =
+    conf.refreshing
+      .filter(_.period.isFinite())
+      .fold[Option[Extension[F, C]]](None)(
+        r ⇒
+          Some(
+            refreshing[F, C](
+              r.period.asInstanceOf[FiniteDuration], // Checked with .filter
+              r.neighbors,
+              conf.parallelism
+            )
+        )
+      )
+
+  /**
+   * Prepare Kademlia Cache Store extension, using Rocksdb as a backend, if it's enabled in [[RoutingConf]]
+   *
+   * @param conf Routing config
+   * @param rootPath RocksDB storage root path
+   * @param ca Contact access
+   * @param writeNode Serialize Node to string
+   * @param readNode Parse Node from string, checking all the signatures on the way
+   * @tparam F Effect
+   * @tparam C Contact
+   * @return Extension resource
+   */
+  def rocksdbStoreExtResource[F[_]: LiftIO: ContextShift: Log: Concurrent: Clock, C](
+    conf: RoutingConf,
+    rootPath: Path
+  )(implicit
+    ca: ContactAccess[F, C],
+    writeNode: PureCodec.Func[Node[C], String],
+    readNode: Crypto.Func[String, Node[C]]): Resource[F, Option[Extension[F, C]]] =
+    conf.store
+      .fold(Resource.pure[F, Option[Extension[F, C]]](None)) { cachePath ⇒
+        val nodeCodec: PureCodec[String, Node[C]] =
+          PureCodec.build(
+            PureCodec.fromOtherFunc(readNode)(ee ⇒ CodecError("Cannot decode Node due to Crypto error", Some(ee))),
+            writeNode
+          )
+
+        implicit val nodeBytesCodec: PureCodec[Array[Byte], Node[C]] =
+          nodeCodec compose PureCodec
+            .liftB[Array[Byte], String](bs ⇒ new String(bs), _.getBytes())
+
+        RocksDBStore
+          .make[F, Key, Node[C]](rootPath.resolve(cachePath).toAbsolutePath.toString)
+          .map(bootstrapWithStore[F, C](_))
+          .map(Some(_))
+      }
+
+  /**
    * Build an in-memory Kademlia state, apply extensions on it
    *
    * @param nodeKey Current node's key
@@ -111,27 +176,26 @@ object RoutingTable {
     nodeKey: Key,
     siblingsSize: Int,
     maxBucketSize: Int,
-    extensions: Extension[F, C]*
+    extensions: List[Extension[F, C]] = Nil
   )(implicit P: Parallel[F, P], ca: ContactAccess[F, C]): F[RoutingTable[F, C]] =
     for {
       // Build a plain in-memory routing state
       st ← RoutingState.inMemory[F, P, C](nodeKey, siblingsSize, maxBucketSize)
 
       // Apply extensions to the state, use extended version then
-      exts = extensions.toList
-      state ← Traverse[List].foldLeftM(exts, st) {
+      state ← Traverse[List].foldLeftM(extensions, st) {
         case (s, ext) ⇒ ext.modifyState(s)
       }
 
       // Extend local routing, using extended state
       loc = LocalRouting(state.nodeKey, state.siblings, state.bucket)
-      local ← Traverse[List].foldLeftM(exts, loc) {
+      local ← Traverse[List].foldLeftM(extensions, loc) {
         case (l, ext) ⇒ ext.modifyLocal(l)
       }
 
       // Extend iterative routing, using extended local routing and state
       it = IterativeRouting(local, state)
-      iterative ← Traverse[List].foldLeftM(exts, it) {
+      iterative ← Traverse[List].foldLeftM(extensions, it) {
         case (i, ext) ⇒ ext.modifyIterative(i)
       }
 

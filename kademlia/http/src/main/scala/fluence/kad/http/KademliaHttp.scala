@@ -29,6 +29,7 @@ import fluence.codec.PureCodec
 import fluence.codec.bits.BitsCodecs
 import fluence.crypto.Crypto
 import fluence.kad.Kademlia
+import fluence.kad.contact.UriContact
 import fluence.kad.protocol.{Key, Node}
 import fluence.log.{Log, LogFactory}
 import io.circe.{Encoder, Json}
@@ -54,7 +55,7 @@ class KademliaHttp[F[_]: Sync, C](
         .leftMap(err ⇒ NonEmptyList.one(ParseFailure(err.message, "Key codec failure")))
   }
 
-  val FluenceAuthScheme: AuthScheme = "fluence".ci
+  val FluenceAuthScheme: AuthScheme = UriContact.Schema.ci
 
   private val readNodeFromToken: Crypto.Func[String, Node[C]] =
     Crypto.fromOtherFunc(

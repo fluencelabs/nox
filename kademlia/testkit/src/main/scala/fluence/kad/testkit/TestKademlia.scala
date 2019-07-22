@@ -25,8 +25,10 @@ import cats.data.EitherT
 import cats.instances.stream._
 import fluence.crypto.KeyPair
 import fluence.crypto.signature.Signer
-import fluence.kad.{KadRpcError, Kademlia, RoutingConf}
-import fluence.kad.protocol.{ContactAccess, KademliaRpc, Key, Node}
+import fluence.kad.conf.RoutingConf
+import fluence.kad.contact.ContactAccess
+import fluence.kad.{KadRpcError, Kademlia}
+import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import fluence.kad.routing.RoutingTable
 import fluence.log.Log
 

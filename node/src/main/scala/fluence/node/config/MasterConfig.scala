@@ -17,6 +17,7 @@
 package fluence.node.config
 
 import cats.effect.IO
+import fluence.kad.conf.KademliaConfig
 import fluence.node.config.LogLevel.LogLevel
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.workers.tendermint.config.TendermintConfig
@@ -24,7 +25,7 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import net.ceedubs.ficus.readers.ValueReader
 
-import scala.util.Try
+import scala.concurrent.duration._
 
 /**
  * Main config class for master node.
@@ -59,6 +60,12 @@ object MasterConfig {
   import net.ceedubs.ficus.readers.EnumerationReader._
   import net.ceedubs.ficus.Ficus._
   import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+  import io.circe.generic.auto._
+
+  implicit val encodeDuration: Encoder[Duration] =
+    Encoder.encodeDuration.contramap(d ⇒ java.time.Duration.ofMillis(d.toMillis))
+  implicit val decodeDuration: Decoder[Duration] =
+    Decoder.decodeDuration.map(_.toMillis.millis)
 
   implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder
   implicit val decodeMasterConfig: Decoder[MasterConfig] = deriveDecoder

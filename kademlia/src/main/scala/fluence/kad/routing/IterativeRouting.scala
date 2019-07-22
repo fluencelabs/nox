@@ -20,7 +20,8 @@ import cats.{Monad, Parallel}
 import cats.data.EitherT
 import cats.effect.{Clock, LiftIO}
 import fluence.kad.JoinError
-import fluence.kad.protocol.{ContactAccess, Key, Node}
+import fluence.kad.contact.ContactAccess
+import fluence.kad.protocol.{Key, Node}
 import fluence.kad.state.RoutingState
 import fluence.log.Log
 

@@ -29,7 +29,8 @@ import fluence.crypto.eddsa.Ed25519
 import fluence.effects.docker.DockerIO
 import fluence.effects.ipfs.{IpfsClient, IpfsUploader}
 import fluence.effects.receipt.storage.KVReceiptStorage
-import fluence.kad.http.UriContact
+import fluence.kad.contact.UriContact
+import fluence.kad.http.KademliaHttpNode
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
@@ -76,10 +77,11 @@ object MasterNodeApp extends IOApp {
                 blockUploading
               )
               keyPair <- Resource.liftF(Configuration.readTendermintKeyPair(masterConf.rootPath))
-              kad ← KademliaNode.make[IO, IO.Par](
+              kad ← KademliaHttpNode.make[IO, IO.Par](
                 masterConf.kademlia,
                 Ed25519.signAlgo,
-                keyPair
+                keyPair,
+                conf.rootPath
               )
               node <- MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
             } yield (kad.http, node)).use {

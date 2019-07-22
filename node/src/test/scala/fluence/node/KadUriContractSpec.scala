@@ -16,16 +16,28 @@
 
 package fluence.node
 
+import cats.data.EitherT
+import cats.effect.{ContextShift, IO, Timer}
 import cats.instances.either._
+import cats.kernel.{Eq, Monoid}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.crypto.Crypto
 import fluence.crypto.Crypto.liftCodecErrorToCrypto
 import fluence.crypto.eddsa.Ed25519
-import fluence.kad.http.UriContact
+import fluence.kad.KadRpcError
+import fluence.kad.conf.AdvertizeConf
+import fluence.kad.contact.{ContactAccess, UriContact}
+import fluence.kad.protocol.{KademliaRpc, Key, Node}
+import fluence.kad.routing.LocalRouting
+import fluence.kad.state.RoutingState
+import fluence.log.{Log, LogFactory}
 import fluence.node.workers.tendermint.TendermintPrivateKey
 import io.circe.parser._
 import org.scalatest.{EitherValues, Matchers, WordSpec}
+
+import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.Duration
 
 class KadUriContractSpec extends WordSpec with EitherValues with Matchers {
   private val stage04Validator =
@@ -49,14 +61,15 @@ class KadUriContractSpec extends WordSpec with EitherValues with Matchers {
   }
 
   "contact" should {
-    "generated and checked (Tendermint keys)" in {
+    "generate and check (Tendermint keys)" in {
       val port = 25000.toShort
       val host = "207.154.210.117"
+      val adv = AdvertizeConf(host, port)
       val expectedContact =
         "fluence://Df3bFWKN6tb2ejyPKfUceA57i6RwMvLfoi5NA3QZ3aSi:4zGZc3BSeyWsEiB6BuHN7gBheu1uAQn3cFpTTYZy6L43v9wUj9qgMuWtAAVg5LNV8B8xxLqPagVFU39YsbrpQQhT@207.154.210.117:25000"
 
       val contact = (for {
-        node <- UriContact.buildNode(host, port, Ed25519.signAlgo.signer(keyPair))
+        node <- UriContact.buildNode(adv, Ed25519.signAlgo.signer(keyPair))
         contactStr <- Crypto.fromOtherFunc(UriContact.writeNode).pointAt(node)
         _ <- UriContact.readAndCheckContact(Ed25519.signAlgo.checker).pointAt(contactStr)
       } yield contactStr).runF[Either[Throwable, ?]](())
@@ -65,6 +78,61 @@ class KadUriContractSpec extends WordSpec with EitherValues with Matchers {
 
       contact.isRight shouldBe true
       contact.right.value shouldBe expectedContact
+    }
+
+    "update contacts" in {
+      val node1 = UriContact.buildNode(AdvertizeConf("localhost", 25000), Ed25519.signAlgo.signer(keyPair)).unsafe(())
+      val node2 = UriContact.buildNode(AdvertizeConf("127.0.0.1", 2500), Ed25519.signAlgo.signer(keyPair)).unsafe(())
+
+      Eq[Key].eqv(node1.key, node2.key) shouldBe true
+
+      implicit val cs: ContextShift[IO] = IO.contextShift(ExecutionContext.global)
+      implicit val timer: Timer[IO] = IO.timer(ExecutionContext.global)
+      implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init("kad").unsafeRunSync()
+
+      implicit val contactAccess: ContactAccess[IO, UriContact] = new ContactAccess[IO, UriContact](
+        Duration.Inf,
+        _ ⇒ IO(true),
+        c ⇒
+          new KademliaRpc[IO, UriContact] {
+
+            /**
+             * Ping the contact, get its actual Node status, or fail.
+             */
+            override def ping()(implicit log: Log[IO]): EitherT[IO, KadRpcError, Node[UriContact]] =
+              EitherT.rightT(Node(Key.fromPublicKey.unsafe(c.signature.publicKey), c))
+
+            /**
+             * Perform a local lookup for a key, return K closest known nodes.
+             *
+             * @param key Key to lookup
+             */
+            override def lookup(key: Key, neighbors: Int)(
+              implicit log: Log[IO]
+            ): EitherT[IO, KadRpcError, Seq[Node[UriContact]]] = ???
+
+            /**
+             * Perform a local lookup for a key, return K closest known nodes, going away from the second key.
+             *
+             * @param key Key to lookup
+             */
+            override def lookupAway(key: Key, moveAwayFrom: Key, neighbors: Int)(
+              implicit log: Log[IO]
+            ): EitherT[IO, KadRpcError, Seq[Node[UriContact]]] = ???
+        }
+      )
+
+      val rs = RoutingState.inMemory[IO, IO.Par, UriContact](Monoid[Key].empty, 3, 2).unsafeRunSync()
+      val lr = LocalRouting(Monoid[Key].empty, rs.siblings, rs.bucket)
+
+      lr.find(node1.key).unsafeRunSync() should be('empty)
+
+      rs.update(node1).unsafeRunSync()
+      lr.find(node1.key).unsafeRunSync() should be(Some(node1))
+
+      rs.update(node2).unsafeRunSync()
+      lr.find(node1.key).unsafeRunSync() should be(Some(node2))
+
     }
   }
 }

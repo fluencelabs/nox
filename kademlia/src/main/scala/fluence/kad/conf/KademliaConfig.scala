@@ -14,22 +14,10 @@
  * limitations under the License.
  */
 
-package fluence.kad
+package fluence.kad.conf
 
-import fluence.kad.state.Bucket
-
-import scala.concurrent.duration.Duration
-
-/**
- *
- * @param maxSiblingsSize Maximum number of siblings to store, e.g. K * Alpha
- * @param maxBucketSize   Maximum size of a bucket, usually K
- * @param parallelism     Parallelism factor (named Alpha in paper)
- * @param pingExpiresIn   Duration to avoid too frequent ping requests, used in [[Bucket.update]]
- */
-case class RoutingConf(
-  maxBucketSize: Int,
-  maxSiblingsSize: Int,
-  parallelism: Int,
-  pingExpiresIn: Duration
+case class KademliaConfig(
+  routing: RoutingConf,
+  advertize: AdvertizeConf,
+  join: JoinConf
 )

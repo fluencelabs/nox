@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
-package fluence.kad.protocol
+package fluence.kad.contact
+
+import fluence.kad.protocol.{KademliaRpc, Node}
 
 import scala.concurrent.duration.Duration
 import scala.language.higherKinds

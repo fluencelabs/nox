@@ -22,6 +22,7 @@ import cats.syntax.either._
 import cats.syntax.functor._
 import com.softwaremill.sttp._
 import fluence.crypto.Crypto
+import fluence.kad.contact.UriContact
 import fluence.kad.{KadRemoteError, KadRpcError}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import fluence.log.Log
@@ -36,7 +37,7 @@ class KademliaHttpClient[F[_]: Effect, C](hostname: String, port: Short, auth: S
   readNode: Crypto.Func[String, Node[C]]
 ) extends KademliaRpc[F, C] {
 
-  private val authB64 = "fluence " + ByteVector(auth.getBytes).toBase64
+  private val authB64 = UriContact.Schema + " " + ByteVector(auth.getBytes).toBase64
 
   // TODO: do not drop cause
   private implicit val decodeNode: Decoder[Node[C]] =
