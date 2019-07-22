@@ -26,7 +26,8 @@ import cats.syntax.functor._
 import cats.syntax.monoid._
 import cats.syntax.order._
 import cats.syntax.semigroupk._
-import fluence.kad.protocol.{ContactAccess, Key, Node}
+import fluence.kad.contact.ContactAccess
+import fluence.kad.protocol.{Key, Node}
 import fluence.log.Log
 
 import scala.annotation.tailrec

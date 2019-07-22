@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-package fluence.kad.http
+package fluence.kad.contact
 
 import cats.Eval
 import fluence.crypto.ecdsa.Ecdsa
+import fluence.kad.conf.AdvertizeConf
 import org.scalatest.{Matchers, WordSpec}
 
 class UriContactSpec extends WordSpec with Matchers {
@@ -26,7 +27,7 @@ class UriContactSpec extends WordSpec with Matchers {
       val algo = Ecdsa.signAlgo
       val kp = algo.generateKeyPair.unsafe(None)
 
-      val uriContact = UriContact.buildContact("localhost", 2550, algo.signer(kp)).unsafe(())
+      val uriContact = UriContact.buildContact(AdvertizeConf("localhost", 2550), algo.signer(kp)).unsafe(())
 
       UriContact.readAndCheckContact(algo.checker).unsafe(uriContact.toString) should be(uriContact)
     }
@@ -35,7 +36,7 @@ class UriContactSpec extends WordSpec with Matchers {
       val algo = Ecdsa.signAlgo
       val kp = algo.generateKeyPair.unsafe(None)
 
-      val uriContact = UriContact.buildContact("localhost", 2550, algo.signer(kp)).unsafe(())
+      val uriContact = UriContact.buildContact(AdvertizeConf("localhost", 2550), algo.signer(kp)).unsafe(())
       val wrong = uriContact.copy(host = "otherhost")
 
       UriContact.readAndCheckContact(algo.checker).runEither[Eval](wrong.toString).value should be.leftSide

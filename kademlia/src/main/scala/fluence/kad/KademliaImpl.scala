@@ -23,7 +23,8 @@ import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.eq._
 import cats.effect.Clock
-import fluence.kad.protocol.{ContactAccess, KademliaRpc, Key, Node}
+import fluence.kad.contact.ContactAccess
+import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import fluence.kad.routing.RoutingTable
 import fluence.log.Log
 

@@ -14,31 +14,31 @@
  * limitations under the License.
  */
 
-package fluence.kad.http
+package fluence.kad.contact
+
+import java.net.URI
 
 import cats.Monad
 import cats.data.EitherT
-import fluence.codec.{CodecError, PureCodec}
-import fluence.crypto.{Crypto, CryptoError, KeyPair}
-import fluence.crypto.signature.{PubKeyAndSignature, Signature, Signer}
-import cats.syntax.compose._
 import cats.syntax.arrow._
-import cats.syntax.flatMap._
-import cats.syntax.profunctor._
+import cats.syntax.compose._
 import cats.syntax.either._
+import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.profunctor._
 import cats.instances.option._
-import fluence.codec.bits.BitsCodecs
+import fluence.codec.bits.BitsCodecs.Base58.base58ToVector
+import fluence.codec.{CodecError, PureCodec}
 import fluence.crypto.signature.SignAlgo.CheckerFn
+import fluence.crypto.signature.{PubKeyAndSignature, Signature, Signer}
+import fluence.crypto.{Crypto, CryptoError, KeyPair}
+import fluence.kad.conf.AdvertizeConf
 import fluence.kad.protocol.{Key, Node}
-import org.http4s.Uri
 import scodec.bits.ByteVector
-import BitsCodecs.Base58.base58ToVector
 import PureCodec.{liftFuncEither ⇒ liftFE}
 import Crypto.liftCodecErrorToCrypto
 
-import scala.language.higherKinds
-import scala.language.implicitConversions
+import scala.language.{higherKinds, implicitConversions}
 import scala.util.Try
 
 /**
@@ -51,25 +51,27 @@ import scala.util.Try
  */
 case class UriContact private (host: String, port: Short, signature: PubKeyAndSignature) {
   override def toString =
-    s"fluence://${signature.publicKey.value.toBase58}:${signature.signature.sign.toBase58}@$host:$port"
+    s"${UriContact.Schema}://${signature.publicKey.value.toBase58}:${signature.signature.sign.toBase58}@$host:$port"
 
   // What's to be signed TODO build it only during signature checking, drop after that
-  private[http] lazy val msg: ByteVector =
+  private[contact] lazy val msg: ByteVector =
     signature.publicKey.value ++ ByteVector(host.getBytes) ++ ByteVector.fromInt(port)
 }
 
 object UriContact {
+  val Schema = "fluence"
+
   type ~~>[A, B] = PureCodec.Func[A, B]
   type <~>[A, B] = PureCodec[A, B]
 
   /**
    * Build a contact with the given params
    *
-   * @param host Host
-   * @param port Port
+   * @param advertize Contact info to advertize through Kademlia network
    * @param signer Signer associated with this node's keypair
    */
-  def buildContact(host: String, port: Short, signer: Signer): Crypto.Point[UriContact] = {
+  def buildContact(advertize: AdvertizeConf, signer: Signer): Crypto.Point[UriContact] = {
+    import advertize.{host, port}
     val msg = signer.publicKey.value ++ ByteVector(host.getBytes) ++ ByteVector.fromInt(port)
     signer.signWithPK.pointAt(msg).rmap(UriContact(host, port, _))
   }
@@ -77,13 +79,12 @@ object UriContact {
   /**
    * Build a node with the given params
    *
-   * @param host Host
-   * @param port Port
+   * @param advertize Contact info to advertize through Kademlia network
    * @param signer Signer associated with this node's keypair
    */
-  def buildNode(host: String, port: Short, signer: Signer): Crypto.Point[Node[UriContact]] =
+  def buildNode(advertize: AdvertizeConf, signer: Signer): Crypto.Point[Node[UriContact]] =
     for {
-      c ← buildContact(host, port, signer)
+      c ← buildContact(advertize, signer)
       k ← Crypto.fromOtherFunc(Key.fromPublicKey).pointAt(signer.publicKey)
     } yield Node(k, c)
 
@@ -117,7 +118,7 @@ object UriContact {
       pkWithSignatureCodec.inverse.rmap(pks ⇒ s"${pks._1}:${pks._2}").lmap[UriContact](_.signature)
 
     PureCodec.liftFuncPoint(
-      (c: UriContact) => writePks.pointAt(c).map(signature => s"fluence://$signature@${c.host}:${c.port}")
+      (c: UriContact) => writePks.pointAt(c).map(signature => s"${UriContact.Schema}://$signature@${c.host}:${c.port}")
     )
   }
 
@@ -148,28 +149,29 @@ object UriContact {
    * Read the contact, performing all the formal validations on the way. Note that signature is not checked
    */
   private val readContact: String ~~> UriContact = {
-    val readUri: String ~~> Uri =
-      liftFE[String, Uri](Uri.fromString(_).leftMap(pf ⇒ CodecError("Cannot parse string as Uri", Some(pf))))
+    val readUri: String ~~> URI =
+      liftFE[String, URI](
+        s ⇒ Try(URI.create(s)).toEither.leftMap(pf ⇒ CodecError("Cannot parse string as Uri", Some(pf)))
+      )
 
-    val readHost: Uri ~~> String = (uri: Uri) ⇒
-      Either.fromOption(uri.host, CodecError("Host not provided")).map(_.value)
+    val readHost: URI ~~> String = (uri: URI) ⇒ Either.fromOption(Option(uri.getHost), CodecError("Host not provided"))
 
-    val readPort: Uri ~~> Short = (uri: Uri) ⇒
+    val readPort: URI ~~> Short = (uri: URI) ⇒
       Either
-        .fromOption(uri.port, CodecError("Port not provided"))
+        .fromOption(Option(uri.getPort).filter(_ > 0), CodecError("Port not provided"))
         .flatMap(p ⇒ Try(p.toShort).toEither.left.map(t ⇒ CodecError(s"Port is not convertible to Short: $p", Some(t))))
 
-    val checkScheme: Uri ~~> Unit =
-      (uri: Uri) ⇒
+    val checkScheme: URI ~~> Unit =
+      (uri: URI) ⇒
         Either.fromOption(
-          uri.scheme.filter(_.value.equalsIgnoreCase("fluence")).void,
-          CodecError("Uri must start with fluence://")
+          Option(uri.getScheme).filter(_.equalsIgnoreCase(UriContact.Schema)).void,
+          CodecError(s"Uri must start with ${UriContact.Schema}://")
       )
 
     // PubKey and Signature are encoded as base58 in userInfo part of URI
-    val readPks: Uri ~~> PubKeyAndSignature = liftFE[Uri, (String, String)](
+    val readPks: URI ~~> PubKeyAndSignature = liftFE[URI, (String, String)](
       uri ⇒
-        Either.fromOption(uri.userInfo, CodecError("User info must be provided")).map(_.split(':')).flatMap {
+        Either.fromOption(Option(uri.getUserInfo), CodecError("User info must be provided")).map(_.split(':')).flatMap {
           case Array(a, b) ⇒ Right((a, b))
           case _ ⇒ Left(CodecError("User info must be in pk:sign form"))
       }
