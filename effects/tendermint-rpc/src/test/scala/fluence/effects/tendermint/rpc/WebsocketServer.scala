@@ -16,6 +16,7 @@
 
 package fluence.effects.tendermint.rpc
 
+import cats.Applicative
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.syntax.flatMap._
@@ -24,7 +25,7 @@ import cats.syntax.functor._
 import fluence.effects.{Backoff, WithCause}
 import fs2.concurrent.{Queue, SignallingRef}
 import fs2.{Pipe, Stream}
-import org.http4s.HttpRoutes
+import org.http4s.{HttpRoutes, Response}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.implicits._
 import org.http4s.server.blaze.BlazeServerBuilder
@@ -50,11 +51,11 @@ case class WebsocketServer[F[_]: ConcurrentEffect: Timer](
   def send(frame: WebSocketFrame): F[Unit] = toClient.enqueue1(frame)
   def close(): F[Unit] = toClient.enqueue1(Close()) >> signal.set(true)
 
-  def start(): Stream[F, ExitCode] =
+  def start(port: Int): Stream[F, ExitCode] =
     for {
       exitCode <- Stream.eval(Ref[F].of(ExitCode.Success))
       server <- BlazeServerBuilder[F]
-        .bindHttp(18080)
+        .bindHttp(port)
         .withHttpApp(routes(toClient.dequeue, fromClient.enqueue).orNotFound)
         .serveWhile(signal, exitCode)
     } yield server
@@ -62,7 +63,7 @@ case class WebsocketServer[F[_]: ConcurrentEffect: Timer](
 
 object WebsocketServer {
 
-  def make[F[_]: Timer]()(implicit F: ConcurrentEffect[F]): Resource[F, WebsocketServer[F]] =
+  def make[F[_]: Timer](port: Int)(implicit F: ConcurrentEffect[F]): Resource[F, WebsocketServer[F]] =
     Resource.make(
       for {
         to <- Queue.unbounded[F, WebSocketFrame]
@@ -71,7 +72,7 @@ object WebsocketServer {
         server = WebsocketServer(to, from, signal)
         _ <- Concurrent[F].start(Backoff.default {
           server
-            .start()
+            .start(port)
             .compile
             .drain
             .attemptT

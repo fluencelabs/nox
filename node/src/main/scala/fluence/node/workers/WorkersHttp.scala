@@ -21,6 +21,14 @@ import cats.syntax.flatMap._
 import cats.syntax.apply._
 import cats.effect.Sync
 import fluence.effects.tendermint.rpc._
+import fluence.effects.tendermint.rpc.http.{
+  RpcBlockParsingFailed,
+  RpcBodyMalformed,
+  RpcError,
+  RpcRequestErrored,
+  RpcRequestFailed,
+  TendermintHttpRpc
+}
 import fluence.log.{Log, LogFactory}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{HttpRoutes, Response}
@@ -45,7 +53,7 @@ object WorkersHttp {
     /** Helper: runs a function iff a worker is in a pool, unwraps EitherT into different response types, renders errors */
     def withTendermint(
       appId: Long
-    )(fn: TendermintRpc[F] ⇒ EitherT[F, RpcError, String])(implicit log: Log[F]): F[Response[F]] =
+    )(fn: TendermintHttpRpc[F] ⇒ EitherT[F, RpcError, String])(implicit log: Log[F]): F[Response[F]] =
       log.scope("app" -> appId.toString) { implicit log ⇒
         pool.withWorker(appId, _.withServices(_.tendermint)(fn(_).value)).flatMap {
           case None ⇒
@@ -67,8 +75,12 @@ object WorkersHttp {
                   InternalServerError(err.error)
 
               case Left(RpcBodyMalformed(err)) ⇒
-                log.warn(s"RPC body malformed", err) *>
-                  BadRequest(err.getMessage)
+                log.warn(s"RPC body malformed: $err", err)
+                BadRequest(err.getMessage)
+
+              case Left(err: RpcBlockParsingFailed) =>
+                log.warn(s"RPC $err", err)
+                InternalServerError(err.getMessage)
             }
         }
       }
@@ -105,8 +117,8 @@ object WorkersHttp {
         LogFactory[F].init("http" -> "tx", "app" -> appId.toString) >>= { implicit log =>
           req.decode[String] { tx ⇒
             log.scope("tx.id" -> tx) { implicit log ⇒
-              log.debug(s"TendermintRpc broadcastTxSync request, id: $id")
-              withTendermint(appId)(_.broadcastTxSync(tx, id.getOrElse("dontcare")))
+              log.debug(s"TendermintRpc broadcastTxSync request, id: $id") *>
+                withTendermint(appId)(_.broadcastTxSync(tx, id.getOrElse("dontcare")))
             }
           }
         }

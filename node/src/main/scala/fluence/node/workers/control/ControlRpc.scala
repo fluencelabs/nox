@@ -20,6 +20,7 @@ import cats.effect.Sync
 import com.softwaremill.sttp._
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.node.workers.status.HttpStatus
+import fluence.statemachine.control.ReceiptType
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -51,12 +52,12 @@ abstract class ControlRpc[F[_]] {
   /**
    * Send block manifest receipt, so state machine can use it for app hash calculation
    */
-  def sendBlockReceipt(receipt: Receipt): EitherT[F, ControlRpcError, Unit]
+  def sendBlockReceipt(receipt: Receipt, rType: ReceiptType.Value): EitherT[F, ControlRpcError, Unit]
 
   /**
    * Retrieves vm hash from state machine, required for block manifest uploading
    */
-  def getVmHash: EitherT[F, ControlRpcError, ByteVector]
+  def getVmHash(height: Long): EitherT[F, ControlRpcError, ByteVector]
 }
 
 object ControlRpc {

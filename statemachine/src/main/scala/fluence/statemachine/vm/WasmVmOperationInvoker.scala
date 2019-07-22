@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.statemachine
+package fluence.statemachine.vm
 
 import cats.Monad
 import cats.data.EitherT
@@ -30,7 +30,7 @@ import scala.language.higherKinds
  *
  * @param vm VM instance used to make function calls and to retrieve state
  */
-class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) {
+class WasmVmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) extends VmOperationInvoker[F] {
 
   /**
    * Invokes the provided invocation description using the underlying VM.
@@ -42,17 +42,17 @@ class VmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) {
     vm
     // by our name conventional a master Wasm module in VM doesn't have name
       .invoke(None, arg)
-      .leftMap(VmOperationInvoker.convertToStateMachineError)
+      .leftMap(WasmVmOperationInvoker.convertToStateMachineError)
 
   /**
    * Obtains the current state hash of VM.
    *
    */
   def vmStateHash(): EitherT[F, StateMachineError, ByteVector] =
-    vm.getVmState.leftMap(VmOperationInvoker.convertToStateMachineError)
+    vm.getVmState.leftMap(WasmVmOperationInvoker.convertToStateMachineError)
 }
 
-object VmOperationInvoker {
+object WasmVmOperationInvoker {
 
   /**
    * Converts [[VmError]] to [[StateMachineError]]

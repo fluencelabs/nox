@@ -41,7 +41,7 @@ object TendermintStatus {
   case class SyncInfo(
     latest_block_hash: String,
     latest_app_hash: String,
-    latest_block_height: Int,
+    latest_block_height: Long,
     latest_block_time: String,
     catching_up: Boolean
   )

@@ -134,6 +134,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
       // Once the worker is created, run background job to connect it to all the peers
       _ ← WorkerP2pConnectivity.make(worker, ps.app.cluster.workers)
 
+      // TODO: pass promise from WorkerP2pConnectivity to blockUploading.start
       // Start uploading tendermint blocks and send receipts to statemachine
       _ <- blockUploading.start(worker)
 
@@ -252,7 +253,7 @@ object DockerWorkersPool {
     minPort: Short,
     maxPort: Short,
     rootPath: Path,
-    remoteStorageConfig: RemoteStorageConfig
+    blockUploading: BlockUploading[F]
   )(
     implicit
     sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
@@ -261,7 +262,6 @@ object DockerWorkersPool {
     P: Parallel[F, G]
   ): Resource[F, WorkersPool[F]] =
     for {
-      blockUploading <- Resource.pure[F, BlockUploading[F]](BlockUploading.make(remoteStorageConfig))
       ports ← makePorts(minPort, maxPort, rootPath)
       pool ← Resource.make {
         for {

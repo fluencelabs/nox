@@ -16,13 +16,16 @@
 
 package fluence.effects.tendermint.block.history
 
+import java.nio.charset.Charset
+
 import fluence.effects.tendermint.block.data.Header
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import proto3.tendermint.Vote
 import scodec.bits.ByteVector
 import fluence.effects.tendermint.block.history.helpers.ByteVectorJsonCodec
-import fluence.effects.tendermint.block.data.JsonCodecs
+import fluence.effects.tendermint.block.data.ReencodingJsonCodecs
+import io.circe.Decoder.Result
 
 /**
  * Manifest of the block, as described in Fluence paper
@@ -32,27 +35,45 @@ import fluence.effects.tendermint.block.data.JsonCodecs
  * @param txsReceipt Storage receipt on txs for the current block
  * @param header Block header
  * @param votes Votes (commits) on the previous blockID
+ * @param emptyBlocksReceipts TODO
  */
 case class BlockManifest(
   vmHash: ByteVector,
   previousManifestReceipt: Option[Receipt],
   txsReceipt: Option[Receipt],
   header: Header,
-  votes: List[Vote]
+  votes: List[Vote],
+  emptyBlocksReceipts: List[Receipt]
 ) {
 
   // TODO: Avoid using JSON since it's not a stable serialization. Maybe use protobuf? Or something custom.
-  def bytes(): ByteVector = {
+  def jsonBytes(): ByteVector = {
     import io.circe.syntax._
     ByteVector((this: BlockManifest).asJson.noSpaces.getBytes())
   }
 }
 
 object BlockManifest {
-  import ByteVectorJsonCodec._
-  import JsonCodecs.{messageEncoder, voteDecoder}
-  import Header.{headerDecoder, headerEncoder}
+  import fluence.effects.tendermint.block.data.SimpleJsonCodecs.Encoders.{
+    byteVectorEncoder,
+    headerEncoder,
+    messageEncoder
+  }
+  import fluence.effects.tendermint.block.data.SimpleJsonCodecs.Decoders.{byteVectorDecoder, headerDecoder, voteDecoder}
 
   implicit val dec: Decoder[BlockManifest] = deriveDecoder[BlockManifest]
   implicit val enc: Encoder[BlockManifest] = deriveEncoder[BlockManifest]
+
+  def fromBytes(bytes: ByteVector): Either[Exception, BlockManifest] = {
+    import io.circe.parser._
+
+    try {
+      bytes
+        .decodeString(Charset.defaultCharset())
+        .flatMap(parse)
+        .flatMap(_.as[BlockManifest])
+    } catch {
+      case e: Exception => Left(e)
+    }
+  }
 }

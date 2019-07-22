@@ -19,7 +19,7 @@ package fluence.effects.tendermint.block.history
 import cats.data.EitherT
 import cats.instances.option._
 import cats.{Monad, Traverse}
-import fluence.effects.ipfs.IpfsClient
+import fluence.effects.ipfs.{IpfsClient, IpfsUploader}
 import fluence.effects.ipfs.IpfsData._
 import fluence.effects.tendermint.block.data.Block
 import fluence.log.Log
@@ -35,19 +35,29 @@ import scala.language.higherKinds
  *
  * @param ipfs Decentralized storage, currently IPFS
  */
-class BlockHistory[F[_]: Monad](ipfs: IpfsClient[F]) {
+class BlockHistory[F[_]: Monad](ipfs: IpfsUploader[F]) {
 
+  /**
+   * Uploads block manifest.
+   *
+   * @param block The block to upload
+   * @param vmHash Hash of the VM state after this block
+   * @param previousManifestReceipt Receipt of the manifest for previous block
+   * @param emptyBlocksReceipts Receipts for empty blocks preceding the current `block`
+   * @return Block manifest receipt
+   */
   def upload(
     block: Block,
     vmHash: ByteVector,
-    previousManifestReceipt: Option[Receipt]
+    previousManifestReceipt: Option[Receipt],
+    emptyBlocksReceipts: List[Receipt]
   )(implicit log: Log[F]): EitherT[F, BlockHistoryError, Receipt] = {
-    val txs = block.data.txs.map(_.map(_.bv))
+    val txs = block.data.txs.filter(_.nonEmpty).map(_.map(_.bv))
     val votes = block.last_commit.precommits.flatten
     val height = block.header.height
     for {
       txsReceipt <- Traverse[Option].sequence(txs.map(uploadTxs(height, _)))
-      manifest = BlockManifest(vmHash, previousManifestReceipt, txsReceipt, block.header, votes)
+      manifest = BlockManifest(vmHash, previousManifestReceipt, txsReceipt, block.header, votes, emptyBlocksReceipts)
       receipt <- uploadManifest(height, manifest)
     } yield receipt
   }
@@ -56,13 +66,13 @@ class BlockHistory[F[_]: Monad](ipfs: IpfsClient[F]) {
                         txs: List[ByteVector])(implicit log: Log[F]): EitherT[F, BlockHistoryError, Receipt] =
     ipfs
       .upload(txs)
-      .map(Receipt(_))
+      .map(Receipt(height, _))
       .leftMap(se => TxsUploadingError(height, txs.size, se): BlockHistoryError)
 
   private def uploadManifest(height: Long,
                              manifest: BlockManifest)(implicit log: Log[F]): EitherT[F, BlockHistoryError, Receipt] =
     ipfs
-      .upload(manifest.bytes())
-      .map(Receipt(_))
+      .upload(manifest.jsonBytes())
+      .map(Receipt(height, _))
       .leftMap(se => ManifestUploadingError(height, se): BlockHistoryError)
 }
