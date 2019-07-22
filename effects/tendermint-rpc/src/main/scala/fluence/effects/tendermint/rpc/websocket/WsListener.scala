@@ -35,13 +35,13 @@ import scala.language.higherKinds
 /**
  * Listener for asynchttpclient's Websocket
  * @param wsUrl Websocket url, used for logging
- * @param ref Ref to collect message fragments
+ * @param payloadAccumulator Ref to collect message fragments
  * @param queue Queue to send resulting events to
  * @param disconnected Promise, will be completed when websocket signals disconnection
  */
 class WsListener[F[_]: ConcurrentEffect](
   wsUrl: String,
-  ref: Ref[F, String],
+  payloadAccumulator: Ref[F, String],
   queue: Queue[F, Event],
   disconnected: Deferred[F, WebsocketRpcError]
 )(implicit log: Log[F])
@@ -82,16 +82,16 @@ class WsListener[F[_]: ConcurrentEffect](
 
     log.trace(s"Tendermint WRPC: text $payload")
     if (!finalFragment) {
-      ref.update(_.concat(payload)).toIO.unsafeRunSync()
+      payloadAccumulator.update(_.concat(payload)).toIO.unsafeRunSync()
     } else {
-      val processF = ref.get
+      val processF = payloadAccumulator.get
         .map(s => asJson(s.concat(payload)))
         .flatMap {
           case Left(e) =>
             log.error(s"Tendermint WRPC: $wsUrl $e") *>
               log.debug(s"Tendermint WRPC: $wsUrl $e err payload:\n" + payload)
           case Right(json) => queue.enqueue1(JsonEvent(json))
-        } >> ref.set("")
+        } >> payloadAccumulator.set("")
 
       // TODO: run sync or async? which is better here? In examples, they do it async, but does it matter?
       processF.toIO.unsafeRunSync()

@@ -7,7 +7,7 @@ import cats.data.EitherT
 import cats.effect.{ContextShift, LiftIO, Resource, Sync}
 import cats.syntax.flatMap._
 import fluence.codec
-import fluence.codec.PureCodec
+import fluence.codec.{CodecError, PureCodec}
 import fluence.effects.kvstore.{KVStore, RocksDBStore}
 import fluence.effects.tendermint.block.history.Receipt
 import cats.syntax.either._
@@ -54,7 +54,10 @@ object KVReceiptStorage {
   private val ReceiptStoragePath = "receipt-storage"
 
   private implicit val receiptCodec: codec.PureCodec[Array[Byte], Receipt] =
-    codec.PureCodec.liftB(Receipt.fromBytesCompact, _.bytesCompact())
+    codec.PureCodec.liftEitherB(
+      Receipt.fromBytesCompact(_).leftMap(e => CodecError("deserializing receipt via fromBytesCompact", Some(e))),
+      _.bytesCompact().asRight
+    )
 
   implicit val longBytesCodec: PureCodec[Long, Array[Byte]] =
     PureCodec.liftB(ByteBuffer.allocate(8).putLong(_).array(), ByteBuffer.wrap(_).getLong)

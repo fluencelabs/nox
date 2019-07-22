@@ -229,11 +229,11 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
     ).leftMap(ConnectionFailed)
 
   private def wsHandler(
-    ref: Ref[F, String],
+    payloadAccumulator: Ref[F, String],
     queue: Queue[F, Event],
     disconnected: Deferred[F, WebsocketRpcError]
   )(implicit log: Log[F]) =
     new WebSocketUpgradeHandler.Builder()
-      .addWebSocketListener(new WsListener[F](wsUrl, ref, queue, disconnected))
+      .addWebSocketListener(new WsListener[F](wsUrl, payloadAccumulator, queue, disconnected))
       .build()
 }

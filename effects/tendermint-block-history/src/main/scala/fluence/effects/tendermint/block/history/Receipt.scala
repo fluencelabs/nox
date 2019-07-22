@@ -24,6 +24,7 @@ import scodec.bits.ByteVector
 import fluence.effects.tendermint.block.history.helpers.ByteVectorJsonCodec._
 
 import scala.language.higherKinds
+import scala.util.Try
 
 /**
  * Decentralized storage receipt
@@ -42,10 +43,9 @@ case class Receipt(height: Long, hash: ByteVector) {
 
 object Receipt {
 
-  def fromBytesCompact(bytes: Array[Byte]): Receipt = {
+  def fromBytesCompact(bytes: Array[Byte]): Either[Throwable, Receipt] = {
     val (height, hash) = bytes.splitAt(8)
-    // TODO: handle error?
-    Receipt(ByteBuffer.wrap(height).getLong, ByteVector(hash))
+    Try(ByteBuffer.wrap(height).getLong).toEither.map(Receipt(_, ByteVector(hash)))
   }
 
   implicit val dec: Decoder[Receipt] = deriveDecoder[Receipt]
