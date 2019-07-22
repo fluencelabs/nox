@@ -31,8 +31,9 @@ import com.softwaremill.sttp.{SttpBackend, _}
 import fluence.EitherTSttpBackend
 import fluence.crypto.eddsa.Ed25519
 import fluence.effects.ethclient.EthClient
-import fluence.kad.conf.{KademliaConfig, RoutingConf}
+import fluence.kad.conf.{AdvertizeConf, JoinConf, KademliaConfig, RoutingConf}
 import fluence.kad.contact.UriContact
+import fluence.kad.http.KademliaHttpNode
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.{FluenceContractConfig, MasterConfig, NodeConfig}
 import fluence.node.eth.FluenceContract
@@ -90,8 +91,8 @@ class MasterNodeSpec
       kad ← KademliaHttpNode.make[IO, IO.Par](
         KademliaConfig(
           RoutingConf(1, 1, 4, 5.seconds),
-          KademliaConfig.Advertize("127.0.0.1", port),
-          KademliaConfig.Join(seeds, 4),
+          AdvertizeConf("127.0.0.1", port),
+          JoinConf(seeds, 4),
         ),
         Ed25519.signAlgo,
         Ed25519.signAlgo.generateKeyPair.unsafe(Some(ByteVector.fromShort(port).toArray)),

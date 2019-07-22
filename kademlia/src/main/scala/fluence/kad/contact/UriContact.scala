@@ -158,7 +158,7 @@ object UriContact {
 
     val readPort: URI ~~> Short = (uri: URI) ⇒
       Either
-        .fromOption(Option(uri.getPort), CodecError("Port not provided"))
+        .fromOption(Option(uri.getPort).filter(_ > 0), CodecError("Port not provided"))
         .flatMap(p ⇒ Try(p.toShort).toEither.left.map(t ⇒ CodecError(s"Port is not convertible to Short: $p", Some(t))))
 
     val checkScheme: URI ~~> Unit =
