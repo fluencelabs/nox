@@ -103,11 +103,9 @@ class AbciService[F[_]: Monad: Effect](
           none[BlockReceipt].pure[F]
       }
 
-      _ <- log.info(
-        Console.YELLOW +
-          s"got receipt ${receipt
-            .map(r => s"${r.`type`}  ${r.receipt.height}")}; transactions count: ${transactions.length} ${transactions.nonEmpty}" +
-          Console.RESET
+      _ <- traceBU(
+        s"got receipt ${receipt
+          .map(r => s"${r.`type`}  ${r.receipt.height}")}; transactions count: ${transactions.length} ${transactions.nonEmpty}"
       )
 
       _ <- Traverse[Option].traverse(receipt.filter(_.receipt.height != blockHeight - 1))(
@@ -120,7 +118,13 @@ class AbciService[F[_]: Monad: Effect](
       // Do not use receipt in app hash if there's no txs in a block, so empty blocks have the same appHash as
       // previous non-empty ones. This is because Tendermint stops producing empty blocks only after
       // at least 2 blocks have the same appHash. Otherwise, empty blocks would be produced indefinitely.
-      appHash <- receipt.fold(currentState.appHash.pure[F]) {
+      appHash <- receipt.fold {
+        if (blockHeight == 1)
+          // To save initial state of VM in a block chain and also to make it produce 2 blocks on the start
+          vmHash.pure[F]
+        else
+          currentState.appHash.pure[F]
+      } {
         case BlockReceipt(r, _) =>
           traceBU(s"appHash = hash(${vmHash.toHex} ++ ${r.jsonBytes().toHex})" + Console.RESET) *>
             hasher[F](vmHash ++ r.jsonBytes())
@@ -282,7 +286,6 @@ object AbciService {
     for {
       state ← Ref.of[F, AbciState](AbciState())
     } yield {
-
       val bva = Crypto.liftFunc[ByteVector, Array[Byte]](_.toArray)
       val abv = Crypto.liftFunc[Array[Byte], ByteVector](ByteVector(_))
       implicit val hasher: Crypto.Hasher[ByteVector, ByteVector] =

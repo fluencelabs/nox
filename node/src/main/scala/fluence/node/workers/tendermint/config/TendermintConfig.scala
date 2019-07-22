@@ -114,7 +114,8 @@ object TendermintConfig {
     // default is 127.0.0.1, so set to 0.0.0.0 to work inside docker container
     "rpc.laddr" -> s"tcp://0.0.0.0:${DockerTendermint.RpcPort}",
     // 0.32.0 removed default leveldb, so change it to goleveldb
-    "db_backend" -> "goleveldb"
+    "db_backend" -> "goleveldb",
+    "p2p.addr_book_strict" -> "false"
   )
 
   implicit val enc: Encoder[TendermintConfig] = deriveEncoder

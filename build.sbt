@@ -235,6 +235,7 @@ lazy val `ipfs` = (project in file("effects/ipfs"))
       circeFs2,
       scodecBits,
       scodecCore,
+      cryptoHashsign,
       scalaTest
     )
   )

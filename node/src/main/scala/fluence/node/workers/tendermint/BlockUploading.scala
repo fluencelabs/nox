@@ -190,7 +190,6 @@ object BlockUploading {
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
     backoff: Backoff[EffectError] = Backoff.default
   ): BlockUploading[F] = {
-    // TODO: should I handle remoteStorageConfig.enabled = false?
     val history = new BlockHistory[F](ipfs)
     new BlockUploading[F](history, receiptStorage)
   }

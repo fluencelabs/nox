@@ -15,39 +15,29 @@
  */
 
 package fluence.effects.ipfs
+import java.nio.file.Paths
 
-import java.nio.ByteBuffer
-
-import cats.Monad
+import cats.{Applicative, Monad}
 import cats.data.EitherT
-import com.softwaremill.sttp.{SttpBackend, Uri}
-import fluence.effects.castore.StoreError
+import fluence.effects.castore.{StorageToFileFailed, StoreError}
 import fluence.log.Log
 import scodec.bits.ByteVector
+import fluence.crypto.hash.JdkCryptoHasher
 
 import scala.language.higherKinds
 
 /**
- * Algebra for uploading to IPFS
+ * Mock of IpfsUploader, returns hashCode of an argument in a ByteVector
  */
-trait IpfsUploader[F[_]] {
-
-  /**
-   * Uploads given data to IPFS
-   */
-  def upload[A: IpfsData](data: A)(implicit log: Log[F]): EitherT[F, StoreError, ByteVector]
-}
-
-object IpfsUploader {
-
-  /**
-   * If enabled == true, instantiates an IPFS client for production use and mock otherwise
-   */
-  def apply[F[_]: Monad](ipfsUri: Uri, enabled: Boolean)(
-    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]
-  ): IpfsUploader[F] =
-    if (enabled)
-      new IpfsClient[F](ipfsUri)
-    else
-      new IpfsUploaderMock[F]
+class IpfsUploaderMock[F[_]: Applicative: Monad] extends IpfsUploader[F] {
+  override def upload[A: IpfsData](data: A)(implicit log: Log[F]): EitherT[F, StoreError, ByteVector] =
+    JdkCryptoHasher
+      .Sha256[F](
+        (data match {
+          case bv: ByteVector        => bv
+          case bvs: List[ByteVector] => bvs.fold(ByteVector.empty)((l, r) => l ++ r)
+        }).toArray
+      )
+      .leftMap(e => StorageToFileFailed(ByteVector.empty, Paths.get("/"), e): StoreError)
+      .map(ByteVector(_))
 }
