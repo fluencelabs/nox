@@ -83,6 +83,7 @@ object MasterNodeApp extends IOApp {
                 keyPair,
                 conf.rootPath
               )
+
               node <- MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
             } yield (kad.http, node)).use {
               case (kadHttp, node) ⇒

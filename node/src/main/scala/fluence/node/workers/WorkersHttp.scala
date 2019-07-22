@@ -16,10 +16,13 @@
 
 package fluence.node.workers
 
+import cats.Monad
 import cats.data.EitherT
-import cats.syntax.flatMap._
 import cats.syntax.apply._
-import cats.effect.Sync
+import cats.syntax.functor._
+import cats.syntax.flatMap._
+import cats.effect.{Concurrent, Sync}
+import cats.effect.concurrent.Deferred
 import fluence.effects.tendermint.rpc._
 import fluence.effects.tendermint.rpc.http.{
   RpcBlockParsingFailed,
@@ -30,6 +33,7 @@ import fluence.effects.tendermint.rpc.http.{
   TendermintHttpRpc
 }
 import fluence.log.{Log, LogFactory}
+import fluence.node.RequestSubscriber
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{HttpRoutes, Response}
 
@@ -37,66 +41,91 @@ import scala.language.higherKinds
 
 object WorkersHttp {
 
+  def withTendermintRaw[F[_]: Monad](
+    pool: WorkersPool[F],
+    appId: Long
+  )(
+    fn: TendermintRpc[F] ⇒ EitherT[F, RpcError, String]
+  )(implicit log: Log[F]): EitherT[F, RpcError, Option[String]] =
+    EitherT(
+      pool
+        .withWorker(appId, _.withServices(_.tendermint)(fn(_).value))
+        .map(_.fold[Either[RpcError, Option[String]]](Right(None))(_.map(Some(_))))
+    )
+
+  def rpcErrorToResponse[F[_]: Monad](error: RpcError)(implicit log: Log[F], dsl: Http4sDsl[F]): F[Response[F]] = {
+    import dsl._
+    error match {
+      case RpcRequestFailed(err) ⇒
+        log.warn(s"RPC request failed", err) *>
+          InternalServerError(err.getMessage)
+
+      case err: RpcRequestErrored ⇒
+        log.warn(s"RPC request errored", err) *>
+          InternalServerError(err.error)
+
+      case RpcBodyMalformed(err) ⇒
+        log.warn(s"RPC body malformed: $err", err)
+        BadRequest(err.getMessage)
+
+      case err: RpcBlockParsingFailed =>
+        log.warn(s"RPC $err", err)
+        InternalServerError(err.getMessage)
+    }
+  }
+
+  /** Helper: runs a function if a worker is in a pool, unwraps EitherT into different response types, renders errors */
+  def withTendermint[F[_]: Monad](
+    pool: WorkersPool[F],
+    appId: Long
+  )(fn: TendermintRpc[F] ⇒ EitherT[F, RpcError, String])(implicit log: Log[F], dsl: Http4sDsl[F]): F[Response[F]] = {
+    import dsl._
+    log.scope("app" -> appId.toString) { implicit log ⇒
+      pool.withWorker(appId, _.withServices(_.tendermint)(fn(_).value)).flatMap {
+        case None ⇒
+          log.debug(s"RPC Requested app $appId, but there's no such worker in the pool") *>
+            NotFound("App not found on the node")
+
+        case Some(res) ⇒
+          res match {
+            case Right(result) ⇒
+              log.trace(s"RPC responding with OK: $result") *>
+                Ok(result)
+
+            case Left(err) ⇒
+              rpcErrorToResponse(err)
+          }
+      }
+    }
+  }
+
   /**
    * Routes for Workers API.
    *
    * @param pool Workers pool to get workers from
    * @param dsl Http4s DSL to build routes with
    */
-  def routes[F[_]: Sync: LogFactory](pool: WorkersPool[F])(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
+  def routes[F[_]: Sync: LogFactory: Concurrent](pool: WorkersPool[F], requestSubscriber: RequestSubscriber[F])(
+    implicit dsl: Http4sDsl[F]
+  ): HttpRoutes[F] = {
     import dsl._
 
     object QueryPath extends QueryParamDecoderMatcher[String]("path")
     object QueryData extends OptionalQueryParamDecoderMatcher[String]("data")
     object QueryId extends OptionalQueryParamDecoderMatcher[String]("id")
 
-    /** Helper: runs a function iff a worker is in a pool, unwraps EitherT into different response types, renders errors */
-    def withTendermint(
-      appId: Long
-    )(fn: TendermintHttpRpc[F] ⇒ EitherT[F, RpcError, String])(implicit log: Log[F]): F[Response[F]] =
-      log.scope("app" -> appId.toString) { implicit log ⇒
-        pool.withWorker(appId, _.withServices(_.tendermint)(fn(_).value)).flatMap {
-          case None ⇒
-            log.debug(s"RPC Requested app $appId, but there's no such worker in the pool") *>
-              NotFound("App not found on the node")
-
-          case Some(res) ⇒
-            res match {
-              case Right(result) ⇒
-                log.trace(s"RPC responding with OK: $result") *>
-                  Ok(result)
-
-              case Left(RpcRequestFailed(err)) ⇒
-                log.warn(s"RPC request failed", err) *>
-                  InternalServerError(err.getMessage)
-
-              case Left(err: RpcRequestErrored) ⇒
-                log.warn(s"RPC request errored", err) *>
-                  InternalServerError(err.error)
-
-              case Left(RpcBodyMalformed(err)) ⇒
-                log.warn(s"RPC body malformed: $err", err)
-                BadRequest(err.getMessage)
-
-              case Left(err: RpcBlockParsingFailed) =>
-                log.warn(s"RPC $err", err)
-                InternalServerError(err.getMessage)
-            }
-        }
-      }
-
     // Routes comes there
     HttpRoutes.of {
       case GET -> Root / LongVar(appId) / "query" :? QueryPath(path) +& QueryData(data) +& QueryId(id) ⇒
         LogFactory[F].init("http" -> "query", "app" -> appId.toString) >>= { implicit log =>
           log.debug(s"TendermintRpc query request. path: $path, data: $data") *>
-            withTendermint(appId)(_.query(path, data.getOrElse(""), id = id.getOrElse("dontcare")))
+            withTendermint(pool, appId)(_.query(path, data.getOrElse(""), id = id.getOrElse("dontcare")))
         }
 
       case GET -> Root / LongVar(appId) / "status" ⇒
         LogFactory[F].init("http" -> "status", "app" -> appId.toString) >>= { implicit log =>
           log.trace(s"TendermintRpc status") *>
-            withTendermint(appId)(_.status)
+            withTendermint(pool, appId)(_.status)
         }
 
       case GET -> Root / LongVar(appId) / "p2pPort" ⇒
@@ -118,7 +147,22 @@ object WorkersHttp {
           req.decode[String] { tx ⇒
             log.scope("tx.id" -> tx) { implicit log ⇒
               log.debug(s"TendermintRpc broadcastTxSync request, id: $id") *>
-                withTendermint(appId)(_.broadcastTxSync(tx, id.getOrElse("dontcare")))
+                withTendermint(pool, appId)(_.broadcastTxSync(tx, id.getOrElse("dontcare")))
+            }
+          }
+        }
+
+      case req @ POST -> Root / LongVar(appId) / "txWaitResponse" :? QueryId(id) ⇒
+        LogFactory[F].init("http" -> "txWaitResponse", "app" -> appId.toString) >>= { implicit log =>
+          req.decode[String] { tx ⇒
+            log.scope("txWaitResponse.id" -> tx) { implicit log ⇒
+              log.debug(s"TendermintRpc broadcastTxSync in txWaitResponse request, id: $id")
+              for {
+                responsePromise <- Deferred[F, String]
+                response <- withTendermint(pool, appId)(
+                  _.broadcastTxAndQuery(tx, id.getOrElse("dontcare"), responsePromise)
+                )
+              } yield ()
             }
           }
         }

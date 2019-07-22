@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-package fluence.statemachine
+package fluence.statemachine.data
 
 import cats.Monad
 import cats.data.OptionT
 import cats.syntax.flatMap._
 import fluence.log.Log
 
-import scala.util.Try
 import scala.language.higherKinds
+import scala.util.Try
 
 /**
  * Represents Tendermint transaction with ordering data

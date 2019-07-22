@@ -18,7 +18,7 @@ package fluence.statemachine.state
 
 import cats.data.StateT
 import cats.{Applicative, Functor, Monad}
-import fluence.statemachine.Tx
+import fluence.statemachine.data.Tx
 import scodec.bits.ByteVector
 
 import scala.collection.immutable.Queue
