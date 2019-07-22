@@ -54,7 +54,7 @@ object ResponseOps {
 
 class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]
-) {
+) extends IpfsUploader[F] {
 
   import IpfsClient._
   import IpfsLsResponse._

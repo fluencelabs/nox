@@ -27,8 +27,11 @@ import org.scalatest.{Timer => _}
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-trait Integration {
+trait Eventually {
 
+  /**
+   * Executes `p` every `period` until it either succeeds or `maxWait` timeout passes
+   */
   protected def eventually[F[_]: Sync: Timer](
     p: => F[Unit],
     period: FiniteDuration = 1.second,
@@ -43,8 +46,8 @@ trait Integration {
       .last
       .map {
         case Some(Right(_)) =>
-        case Some(Left(e)) => throw e
-        case _ => throw new RuntimeException(s"eventually timed out after $maxWait")
+        case Some(Left(e))  => throw e
+        case _              => throw new RuntimeException(s"eventually timed out after $maxWait")
       }
       .adaptError {
         case e: TestFailedException =>

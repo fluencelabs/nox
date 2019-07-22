@@ -42,7 +42,7 @@ import fluence.node.workers._
 import fluence.node.workers.control.DropPeerError
 import fluence.node.workers.tendermint.config.ConfigTemplate
 
-import scala.language.higherKinds
+import scala.language.{higherKinds, postfixOps}
 
 /**
  * Represents a MasterNode process. Takes cluster forming events from Ethereum, and spawns new Workers to serve them.
@@ -141,18 +141,18 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
         pool.withWorker(appId, _.remove).void
 
       case DropPeerWorker(appId, vk) ⇒
-        pool
-          .withWorker(
-            appId,
-            _.withServices_(_.control)(_.dropPeer(vk).value.flatMap {
-              case Right(_) => Applicative[F].unit
-              case Left(e: DropPeerError) =>
-                log.error(s"Error while dropping peer appId=$appId: ${e.getMessage}", e)
-              case Left(e) =>
-                log.error(s"Unexpected error while dropping peer appId=$appId key=${vk.toHex}: ${e.getMessage}", e)
-            })
-          )
-          .void
+        Log[F].scope("app" -> appId.toString, "key" -> vk.toHex) { log =>
+          pool
+            .withWorker(
+              appId,
+              _.withServices_(_.control)(_.dropPeer(vk).value.flatMap {
+                case Right(_)               => Applicative[F].unit
+                case Left(e: DropPeerError) => log.error(s"Error while dropping peer", e)
+                case Left(e)                => log.error(s"Unexpected error while dropping peer", e)
+              })
+            )
+            .void
+        }
 
       case NewBlockReceived(_) ⇒
         Applicative[F].unit
@@ -175,14 +175,10 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
       .attempt
       .flatMap {
         case Left(err) ⇒
-          log.error("Execution failed").toIO as {
-            err.printStackTrace(System.err)
-            ExitCode.Error
-          }
+          log.error("Execution failed", err) as ExitCode.Error toIO
 
         case Right(_) ⇒
-          log.info("Execution finished").toIO as
-            ExitCode.Success
+          log.info("Execution finished") as ExitCode.Success toIO
       }
 }
 

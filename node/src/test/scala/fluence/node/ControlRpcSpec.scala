@@ -42,7 +42,7 @@ import fluence.effects.tendermint.block.history.Receipt
 import fluence.log.{Log, LogFactory}
 import fluence.node.workers.control.ControlRpc
 import fluence.statemachine.control.ControlServer.ControlServerConfig
-import fluence.statemachine.control.{ControlServer, DropPeer}
+import fluence.statemachine.control.{ControlServer, DropPeer, ReceiptType}
 import org.scalatest.{Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
 
@@ -102,28 +102,27 @@ class ControlRpcSpec extends WordSpec with Matchers with OptionValues {
     }
 
     "send blockReceipt" in {
-      val receipt = Receipt(ByteVector(1, 2, 3))
+      val receipt = Receipt(1, ByteVector(1, 2, 3))
       resources.use {
         case (server, rpc) =>
           for {
-            before <- server.signals.receipt
-            _ <- rpc.sendBlockReceipt(receipt).value.flatMap(IO.fromEither)
-            after <- server.signals.receipt
+            _ <- rpc.sendBlockReceipt(receipt, ReceiptType.New).value.flatMap(IO.fromEither)
+            after <- IO.pure(server.signals.getReceipt(1).unsafeRunTimed(1.second))
           } yield {
-            before should not be defined
             after shouldBe defined
-            after.value shouldBe receipt
+            after.value.receipt shouldBe receipt
           }
       }.unsafeRunSync()
     }
 
     "get vmHash" in {
       val vmHash = ByteVector(1, 2, 3)
+      val height = 123L
       resources.use {
         case (server, rpc) =>
           for {
-            _ <- server.signals.putVmHash(vmHash)
-            after <- IO.pure(rpc.getVmHash.value.flatMap(IO.fromEither).unsafeRunTimed(1.seconds))
+            _ <- server.signals.enqueueVmHash(height, vmHash)
+            after <- IO.pure(rpc.getVmHash(height).value.flatMap(IO.fromEither).unsafeRunTimed(1.seconds))
           } yield {
             after shouldBe defined
             after.value shouldBe vmHash

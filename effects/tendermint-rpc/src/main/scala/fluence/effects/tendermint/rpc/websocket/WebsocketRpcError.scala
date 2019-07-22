@@ -14,8 +14,11 @@
  * limitations under the License.
  */
 
-package fluence.effects.tendermint.rpc
+package fluence.effects.tendermint.rpc.websocket
 
+import cats.Eval
+import fluence.effects.tendermint.block.errors.TendermintBlockError
+import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.effects.{EffectError, WithCause}
 import io.circe.{DecodingFailure, ParsingFailure}
 
@@ -41,4 +44,15 @@ private[rpc] case class InvalidJsonResponse(cause: ParsingFailure)
 private[rpc] case class InvalidJsonStructure(cause: DecodingFailure)
     extends WebsocketRpcError with WithCause[DecodingFailure] {
   override def getMessage: String = s"can't find required fields in json: $cause"
+}
+
+private[rpc] case class BlockParsingFailed(cause: TendermintBlockError, rawBlock: Eval[String], height: Long)
+    extends WebsocketRpcError with WithCause[TendermintBlockError] {
+  override def getMessage: String =
+    s"Websocket TendermintRPC failed to parse block $height: $cause\n" + Console.RED + rawBlock.value + Console.RESET
+}
+
+private[rpc] case class BlockRetrievalError(cause: RpcError, height: Long)
+    extends WebsocketRpcError with WithCause[RpcError] {
+  override def getMessage: String = s"error retrieving block $height from rpc: $cause"
 }

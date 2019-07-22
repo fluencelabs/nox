@@ -36,43 +36,29 @@ class WebsocketRpcSpec extends WordSpec with Matchers {
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
-  implicit private val log: Log[IO] = LogFactory.forPrintln[IO]().init("WebsocketRpcSpec").unsafeRunSync()
+  implicit private val log: Log[IO] = LogFactory.forPrintln[IO](Log.Error).init("WebsocketRpcSpec").unsafeRunSync()
 
   type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
   implicit private val sttpResource: STTP = EitherTSttpBackend[IO]()
 
+  val Port: Int = 18080
+
   "WebsocketRpc" should {
 
     val resourcesF = for {
-      server <- WebsocketServer.make[IO]
-      wrpc <- TendermintRpc.make[IO]("127.0.0.1", 18080)
-      blocks = wrpc.subscribeNewBlock[IO]
+      server <- WebsocketServer.make[IO](Port)
+      wrpc = new TestWRpc[IO]("127.0.0.1", Port)
+      blocks = wrpc.subscribeNewBlock(0)
     } yield (server, blocks)
 
-    def text(text: String) = Text(
-      s"""
-         |{
-         |  "jsonrpc": "2.0",
-         |  "id": "1#event",
-         |  "result": {
-         |    "query": "tm.event = 'NewBlock'",
-         |    "data": {
-         |      "type": "tendermint/event/NewBlock",
-         |      "value": "$text"
-         |    }
-         |  }
-         |}
-      """.stripMargin
-    )
-
-    def asString(json: Json) = json.as[String].right.get
+    def block(height: Long) = Text(TestData.block(height))
 
     "subscribe and receive messages" in {
       val (events, requests) = resourcesF.use {
         case (server, events) =>
           for {
-            _ <- server.send(text("first"))
-            _ <- server.send(text("second"))
+            _ <- server.send(block(1))
+            _ <- server.send(block(2))
             result <- events.take(2).compile.toList
             _ <- server.close()
             requests <- server.requests().compile.toList
@@ -82,63 +68,42 @@ class WebsocketRpcSpec extends WordSpec with Matchers {
       requests.size shouldBe 1
 
       events.size shouldBe 2
-      asString(events.head) shouldBe "first"
-      asString(events.tail.head) shouldBe "second"
+      events.head.header.height shouldBe 1L
+      events.tail.head.header.height shouldBe 2L
     }
 
-    "parse block json correctly" in {
+    "receive message after reconnect" in {
+      val height = 1L
       val events = resourcesF.use {
         case (server, events) =>
           for {
-            _ <- server.send(Text(TestData.block))
+            _ <- server.close()
+            result <- WebsocketServer.make[IO](Port).use { newServer =>
+              newServer.send(block(height)) >> events.take(1).compile.toList
+            }
+          } yield result
+      }.unsafeRunSync()
+
+      events.size shouldBe 1
+      events.head.header.height shouldBe height
+    }
+
+    "ignore incorrect json messages" in {
+      val incorrectMsg = "incorrect"
+      val height = 1L
+
+      val events = resourcesF.use {
+        case (server, events) =>
+          for {
+            _ <- server.send(Text(incorrectMsg))
+            _ <- server.send(block(height))
             result <- events.take(1).compile.toList
             _ <- server.close()
           } yield result
       }.unsafeRunSync()
 
       events.size shouldBe 1
-
-      val block = Block(events.head)
-      block.left.foreach(throw _)
-      block.isRight shouldBe true
-    }
-
-    "receive message after reconnect" in {
-      val msg = "yo"
-      val events = resourcesF.use {
-        case (server, events) =>
-          for {
-            _ <- server.close()
-            result <- WebsocketServer.make[IO].use { newServer =>
-              newServer.send(text(msg)) >> events.take(1).compile.toList
-            }
-          } yield result
-      }.unsafeRunSync()
-
-      events.size shouldBe 1
-      asString(events.head) shouldBe msg
-    }
-
-    "ignore incorrect json messages" in {
-      val incorrectMsg = "incorrect"
-      val msg = "correct"
-
-      // To hide error about incorrect msg
-      val events = log.scope(_.level(Log.Off)) { implicit log: Log[IO] ⇒
-        resourcesF.use {
-          case (server, events) =>
-            for {
-              _ <- server.send(Text(incorrectMsg))
-              _ <- server.send(text(msg))
-              result <- events.take(1).compile.toList
-              _ <- server.close()
-            } yield result
-        }.unsafeRunSync()
-
-      }
-
-      events.size shouldBe 1
-      asString(events.head) shouldBe msg
+      events.head.header.height shouldBe height
     }
   }
 }

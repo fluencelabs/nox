@@ -16,18 +16,24 @@
 
 package fluence.statemachine
 
-import cats.effect.Sync
+import cats.effect.Effect
 import cats.effect.concurrent.Ref
+import cats.instances.option._
+import cats.syntax.applicative._
+import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{Applicative, Monad}
+import cats.syntax.option._
+import cats.{Applicative, Monad, Traverse}
 import com.github.jtendermint.jabci.api.CodeType
 import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.Log
-import fluence.statemachine.control.ControlSignals
+import fluence.statemachine.control.{BlockReceipt, ControlSignals}
 import fluence.statemachine.state.AbciState
+import fluence.statemachine.vm.VmOperationInvoker
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -39,13 +45,18 @@ import scala.language.higherKinds
  * @param vm Virtual machine invoker
  * @param controlSignals Communication channel with master node
  */
-class AbciService[F[_]: Monad](
+class AbciService[F[_]: Monad: Effect](
   state: Ref[F, AbciState],
   vm: VmOperationInvoker[F],
-  controlSignals: ControlSignals[F]
-)(implicit hasher: Hasher[ByteVector, ByteVector]) {
+  controlSignals: ControlSignals[F],
+  tendermintRpc: TendermintHttpRpc[F]
+)(implicit hasher: Hasher[ByteVector, ByteVector], log: Log[F]) {
 
   import AbciService._
+
+  // Writes a trace log about block uploading
+  private def traceBU(msg: String)(implicit log: Log[F]) =
+    log.trace(Console.YELLOW + s"BUD: $msg" + Console.RESET)
 
   /**
    * Take all the transactions we're able to process, and pass them to VM one by one.
@@ -55,9 +66,9 @@ class AbciService[F[_]: Monad](
   def commit(implicit log: Log[F]): F[ByteVector] =
     for {
       // Get current state
-      s ← state.get
+      currentState <- state.get
       // Form a block: take ordered txs from AbciState
-      sTxs ← AbciState.formBlock[F].run(s)
+      sTxs @ (_, transactions) ← AbciState.formBlock[F].run(currentState)
 
       // Process txs one by one
       st ← Monad[F].tailRecM[(AbciState, List[Tx]), AbciState](sTxs) {
@@ -73,21 +84,65 @@ class AbciService[F[_]: Monad](
           Applicative[F].pure(Right(st))
       }
 
+      blockHeight = st.height + 1
+
       // Get the VM hash
       vmHash ← vm
         .vmStateHash()
         .leftSemiflatMap(err ⇒ Log[F].error(s"VM is unable to compute state hash: $err").as(err))
         .getOrElse(ByteVector.empty) // TODO do not ignore vm error
 
-      appHash = vmHash // TODO: concatenate with controlSignals.receipt
+      _ <- traceBU(s"got vmHash; height ${st.height + 1}" + Console.RESET)
+
+      // Do not wait for receipt on empty blocks
+      receipt <- if (transactions.nonEmpty) {
+        traceBU(s"retrieving receipt on height $blockHeight" + Console.RESET) *>
+          controlSignals.getReceipt(blockHeight - 1).map(_.some)
+      } else {
+        traceBU(s"WON'T retrieve receipt on height $blockHeight" + Console.RESET) *>
+          none[BlockReceipt].pure[F]
+      }
+
+      _ <- traceBU(
+        s"got receipt ${receipt
+          .map(r => s"${r.`type`}  ${r.receipt.height}")}; transactions count: ${transactions.length} ${transactions.nonEmpty}"
+      )
+
+      _ <- Traverse[Option].traverse(receipt.filter(_.receipt.height != blockHeight - 1))(
+        b =>
+          log.error(
+            s"Got wrong receipt height. current height: $blockHeight, receipt: ${b.receipt.height} (expected ${blockHeight - 1})"
+        )
+      )
+
+      // Do not use receipt in app hash if there's no txs in a block, so empty blocks have the same appHash as
+      // previous non-empty ones. This is because Tendermint stops producing empty blocks only after
+      // at least 2 blocks have the same appHash. Otherwise, empty blocks would be produced indefinitely.
+      appHash <- receipt.fold {
+        if (blockHeight == 1)
+          // To save initial state of VM in a block chain and also to make it produce 2 blocks on the start
+          vmHash.pure[F]
+        else
+          currentState.appHash.pure[F]
+      } {
+        case BlockReceipt(r, _) =>
+          traceBU(s"appHash = hash(${vmHash.toHex} ++ ${r.jsonBytes().toHex})" + Console.RESET) *>
+            hasher[F](vmHash ++ r.jsonBytes())
+              .leftMap(err => log.error(s"Error on hashing vmHash + receipt: $err"))
+              .getOrElse(vmHash) // TODO: don't ignore errors
+      }
 
       // Push hash to AbciState, increment block number
-      newState ← AbciState.setAppHash(appHash).runS(st)
+      newState ← AbciState.setAppHash[F](appHash).runS(st)
 
       // Store updated state in the Ref (the changes were transient for readers before this step)
       _ ← state.set(newState)
 
-      // TODO: Store vmHash, so master node could retrieve it
+      _ <- traceBU("state.set done" + Console.RESET)
+
+      // Store vmHash, so master node could retrieve it
+      _ <- controlSignals.enqueueVmHash(blockHeight, vmHash)
+      _ <- traceBU(s"end of commit $blockHeight" + Console.RESET)
     } yield appHash
 
   /**
@@ -142,7 +197,7 @@ class AbciService[F[_]: Monad](
    * @param data Incoming transaction
    */
   def deliverTx(data: Array[Byte])(implicit log: Log[F]): F[TxResponse] =
-    Tx.readTx(data).value.flatMap {
+    Tx.readTx[F](data).value.flatMap {
       case Some(tx) ⇒
         // TODO we have different logic in checkTx and deliverTx, as only in deliverTx tx might be dropped due to pending txs overflow
         state
@@ -162,7 +217,7 @@ class AbciService[F[_]: Monad](
    * @param data Incoming transaction
    */
   def checkTx(data: Array[Byte])(implicit log: Log[F]): F[TxResponse] =
-    Tx.readTx(data).value.flatMap {
+    Tx.readTx[F](data).value.flatMap {
       case Some(tx) ⇒
         state.get
           .map(
@@ -218,9 +273,10 @@ object AbciService {
    * @tparam F Sync for Ref
    * @return Brand new AbciService instance
    */
-  def apply[F[_]: Sync](
+  def apply[F[_]: Effect: Log](
     vm: VmOperationInvoker[F],
-    controlSignals: ControlSignals[F]
+    controlSignals: ControlSignals[F],
+    tendermintRpc: TendermintHttpRpc[F]
   ): F[AbciService[F]] = {
     import cats.syntax.compose._
     import scodec.bits.ByteVector
@@ -230,13 +286,12 @@ object AbciService {
     for {
       state ← Ref.of[F, AbciState](AbciState())
     } yield {
-
       val bva = Crypto.liftFunc[ByteVector, Array[Byte]](_.toArray)
       val abv = Crypto.liftFunc[Array[Byte], ByteVector](ByteVector(_))
       implicit val hasher: Crypto.Hasher[ByteVector, ByteVector] =
         bva.andThen[Array[Byte]](JdkCryptoHasher.Sha256).andThen(abv)
 
-      new AbciService[F](state, vm, controlSignals)
+      new AbciService[F](state, vm, controlSignals, tendermintRpc)
     }
   }
 

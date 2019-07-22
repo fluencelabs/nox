@@ -61,6 +61,7 @@ object ControlServer {
 
     implicit val dpdec: EntityDecoder[F, DropPeer] = jsonOf[F, DropPeer]
     implicit val bpdec: EntityDecoder[F, BlockReceipt] = jsonOf[F, BlockReceipt]
+    implicit val gvdec: EntityDecoder[F, GetVmHash] = jsonOf[F, GetVmHash]
     implicit val bvenc: EntityEncoder[F, ByteVector] = jsonEncoderOf[F, ByteVector]
 
     def logReq(req: Request[F]): F[Log[F]] =
@@ -91,16 +92,17 @@ object ControlServer {
       case req @ POST -> Root / "control" / "blockReceipt" =>
         for {
           implicit0(log: Log[F]) ← logReq(req)
-          receipt <- req.as[BlockReceipt].map(_.receipt)
-          _ <- signals.putReceipt(receipt)
+          receipt <- req.as[BlockReceipt]
+          _ <- signals.enqueueReceipt(receipt)
           ok <- Ok()
         } yield ok
 
       case req @ (GET | POST) -> Root / "control" / "vmHash" =>
         for {
           implicit0(log: Log[F]) ← logReq(req)
-          vmHash <- signals.vmHash
-          ok <- Ok(vmHash)
+          GetVmHash(height) <- req.as[GetVmHash]
+          vmHash <- signals.getVmHash(height)
+          ok <- Ok(vmHash.hash)
         } yield ok
 
       case req =>
@@ -121,7 +123,9 @@ object ControlServer {
    * @tparam F Effect
    * @return
    */
-  def make[F[_]: ConcurrentEffect: Timer: LogFactory](config: ControlServerConfig): Resource[F, ControlServer[F]] = {
+  def make[F[_]: ConcurrentEffect: Timer: LogFactory: Log](
+    config: ControlServerConfig
+  ): Resource[F, ControlServer[F]] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
     for {

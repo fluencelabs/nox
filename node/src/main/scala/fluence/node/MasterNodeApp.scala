@@ -27,12 +27,15 @@ import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
 import fluence.crypto.eddsa.Ed25519
 import fluence.effects.docker.DockerIO
+import fluence.effects.ipfs.IpfsUploader
+import fluence.effects.receipt.storage.KVReceiptStorage
 import fluence.kad.contact.UriContact
 import fluence.kad.http.KademliaHttpNode
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
 import fluence.node.workers.DockerWorkersPool
+import fluence.node.workers.tendermint.BlockUploading
 
 import scala.language.higherKinds
 
@@ -64,11 +67,14 @@ object MasterNodeApp extends IOApp {
               implicit0(sttp: STTP) <- sttpResource
               implicit0(dockerIO: DockerIO[IO]) <- DockerIO.make[IO]()
               conf <- Resource.liftF(Configuration.init[IO](masterConf))
+              // TODO: use generic decentralized storage
+              ipfs = IpfsUploader[IO](masterConf.remoteStorage.ipfs.address, masterConf.remoteStorage.enabled)
+              blockUploading = BlockUploading.make(ipfs, appId => KVReceiptStorage.make[IO](appId, conf.rootPath))
               pool <- DockerWorkersPool.make(
                 masterConf.ports.minPort,
                 masterConf.ports.maxPort,
                 conf.rootPath,
-                masterConf.remoteStorage
+                blockUploading
               )
               keyPair <- Resource.liftF(Configuration.readTendermintKeyPair(masterConf.rootPath))
               kad ← KademliaHttpNode.make[IO, IO.Par](
@@ -98,7 +104,7 @@ object MasterNodeApp extends IOApp {
               case Canceled =>
                 log.error("MasterNodeApp was canceled")
               case Error(e) =>
-                log.error("MasterNodeApp stopped with error: {}", e).map(_ => e.printStackTrace(System.err))
+                log.error("MasterNodeApp stopped with error: {}", e)
               case Completed =>
                 log.info("MasterNodeApp exited gracefully")
             }

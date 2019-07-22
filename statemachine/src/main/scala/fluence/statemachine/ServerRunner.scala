@@ -21,21 +21,21 @@ import java.nio.ByteBuffer
 import cats.Monad
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.ExitCase.{Canceled, Completed, Error}
-import cats.effect.concurrent.Ref
 import cats.effect.{ExitCode, IO, IOApp, Resource}
+import cats.syntax.apply._
 import cats.syntax.flatMap._
 import com.github.jtendermint.jabci.socket.TSocket
-import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
 import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.{Log, LogFactory}
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.control.{ControlServer, ControlSignals}
 import fluence.statemachine.error.StateMachineError
+import fluence.statemachine.vm.WasmVmOperationInvoker
 import fluence.vm.WasmVm
 import fluence.vm.wasm.MemoryHasher
-import io.circe.Json
 
 import scala.language.higherKinds
 
@@ -109,10 +109,18 @@ object ServerRunner extends IOApp {
               val socketThread = new Thread(() => socket.start(abciPort))
               socketThread.setName("AbciSocket")
               socketThread.start()
-              socketThread
+
+              (socketThread, socket)
             }
         }
-      )(socketThread ⇒ IO(if (socketThread.isAlive) socketThread.interrupt()))
+      ) {
+        case (socketThread, socket) ⇒
+          log.info(s"Stopping TSocket and its thread") *>
+            IO {
+              socket.stop()
+              if (socketThread.isAlive) socketThread.interrupt()
+            }
+      }
       .flatMap(_ ⇒ Log.resource[IO].info("State Machine ABCI handler started successfully"))
 
   /**
@@ -123,7 +131,7 @@ object ServerRunner extends IOApp {
   private[statemachine] def buildAbciHandler(
     config: StateMachineConfig,
     controlSignals: ControlSignals[IO],
-    tendermintRpc: TendermintRpc[IO]
+    tendermintRpc: TendermintHttpRpc[IO]
   )(implicit log: Log[IO]): EitherT[IO, StateMachineError, AbciHandler[IO]] =
     for {
       moduleFilenames <- config.collectModuleFiles[IO]
@@ -132,12 +140,10 @@ object ServerRunner extends IOApp {
 
       _ ← Log.eitherT[IO, StateMachineError].info("VM instantiated")
 
-      vmInvoker = new VmOperationInvoker[IO](vm)
+      vmInvoker = new WasmVmOperationInvoker[IO](vm)
 
-      service <- EitherT.right(AbciService[IO](vmInvoker, controlSignals))
-      blocks <- EitherT.liftF(Ref.of[IO, Map[Long, (String, Json)]](Map.empty))
-      commits <- EitherT.liftF(Ref.of[IO, Map[Long, (String, Json)]](Map.empty))
-    } yield new AbciHandler[IO](service, controlSignals, tendermintRpc, blocks, commits)
+      service <- EitherT.right(AbciService[IO](vmInvoker, controlSignals, tendermintRpc))
+    } yield new AbciHandler[IO](service, controlSignals)
 
   /**
    * Builds a VM instance used to perform function calls from the clients.
@@ -145,5 +151,5 @@ object ServerRunner extends IOApp {
    * @param moduleFiles module filenames with VM code
    */
   private def buildVm[F[_]: Monad: Log](moduleFiles: NonEmptyList[String]): EitherT[F, StateMachineError, WasmVm] =
-    WasmVm[F](moduleFiles, MemoryHasher[F]).leftMap(VmOperationInvoker.convertToStateMachineError)
+    WasmVm[F](moduleFiles, MemoryHasher[F]).leftMap(WasmVmOperationInvoker.convertToStateMachineError)
 }

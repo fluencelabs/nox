@@ -61,7 +61,7 @@ class MerkleTest extends FunSpec with Matchers with OptionValues {
   }
 
   describe("block with data = null") {
-    val blockEmpty = Block(TestData.blockDataNullResponse).right.get
+    val blockEmpty = Block(TestData.blockNullTxsResponse).right.get
 
     it("block parts merkle hash") {
       val scalaHex = toHex(blockEmpty.partsHash().hash)

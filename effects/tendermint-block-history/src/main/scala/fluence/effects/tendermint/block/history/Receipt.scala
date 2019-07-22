@@ -16,30 +16,37 @@
 
 package fluence.effects.tendermint.block.history
 
+import java.nio.ByteBuffer
+
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import scodec.bits.ByteVector
 import fluence.effects.tendermint.block.history.helpers.ByteVectorJsonCodec._
 
 import scala.language.higherKinds
+import scala.util.Try
 
 /**
  * Decentralized storage receipt
  *
  * @param hash Hash of the stored data
  */
-case class Receipt(hash: ByteVector) {
+case class Receipt(height: Long, hash: ByteVector) {
 
-  def bytes(): ByteVector = {
+  def jsonBytes(): ByteVector = {
     import io.circe.syntax._
     ByteVector((this: Receipt).asJson.noSpaces.getBytes())
   }
 
-  def bytesCompact(): Array[Byte] = hash.toArray
+  def bytesCompact(): Array[Byte] = ByteBuffer.allocate(8).putLong(height).array() ++ hash.toArray
 }
 
 object Receipt {
-  def fromBytesCompact(bytes: Array[Byte]) = Receipt(ByteVector(bytes))
+
+  def fromBytesCompact(bytes: Array[Byte]): Either[Throwable, Receipt] = {
+    val (height, hash) = bytes.splitAt(8)
+    Try(ByteBuffer.wrap(height).getLong).toEither.map(Receipt(_, ByteVector(hash)))
+  }
 
   implicit val dec: Decoder[Receipt] = deriveDecoder[Receipt]
   implicit val enc: Encoder[Receipt] = deriveEncoder[Receipt]

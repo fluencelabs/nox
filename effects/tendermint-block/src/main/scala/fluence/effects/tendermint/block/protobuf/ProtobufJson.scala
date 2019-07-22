@@ -20,7 +20,7 @@ import com.google.protobuf.ByteString
 import com.google.protobuf.timestamp.Timestamp
 import fluence.effects.tendermint.block.data.{Block, Commit}
 import fluence.effects.tendermint.block.errors.Errors._
-import fluence.effects.tendermint.block.errors.TendermintBlockError
+import fluence.effects.tendermint.block.errors.{Errors, TendermintBlockError}
 import io.circe.Json
 import io.circe.parser._
 import proto3.tendermint.{BlockID, Version, Vote}
@@ -42,7 +42,7 @@ private[block] object ProtobufJson {
    *
    * @return List of lenses that reencode hashes in a BlockID
    */
-  private val fixBlockId: List[Lens[BlockID, BlockID] => Mutation[BlockID]] = {
+  private val reencodeBlockId: List[Lens[BlockID, BlockID] => Mutation[BlockID]] = {
     val hash: Lens[BlockID, BlockID] => Mutation[BlockID] = _.hash.modify(reencode)
     val parts: Lens[BlockID, BlockID] => Mutation[BlockID] = _.parts.update(_.hash.modify(reencode))
 
@@ -63,8 +63,11 @@ private[block] object ProtobufJson {
     } yield block
   }
 
-  def block(blockJson: Json): Either[TendermintBlockError, Block] =
+  def block(blockJson: Json): Either[TendermintBlockError, Block] = {
+    import fluence.effects.tendermint.block.data.ReencodingJsonCodecs.blockDecoder
+
     blockJson.hcursor.get[Block]("block").convertError
+  }
 
   /**
    * Parses commit from Tendermint's RPC "Commit" response
@@ -86,13 +89,18 @@ private[block] object ProtobufJson {
    * @param json Json value, parsed by circe
    * @return Either an error or protobuf Vote
    */
-  def vote(json: Json): Either[ProtobufJsonError, Vote] = {
-    Try(parser.fromJson[Vote](json)).toEither.convertError.map(
-      _.update(
-        _.blockId.update(fixBlockId: _*),
-        _.validatorAddress.modify(reencode)
+  def voteReencoded(json: Json): Either[ProtobufJsonError, Vote] = {
+    voteSimple(json)
+      .map(
+        _.update(
+          _.blockId.update(reencodeBlockId: _*),
+          _.validatorAddress.modify(reencode)
+        )
       )
-    )
+  }
+
+  def voteSimple(json: Json): Either[Errors.ProtobufJsonError, Vote] = {
+    Try(parser.fromJson[Vote](json)).toEither.convertError
   }
 
   /**
@@ -121,7 +129,7 @@ private[block] object ProtobufJson {
       }
       // Throwing an exception here, because `reencode` is used
       // with ScalaPB lenses, and they don't work with Either
-      .fold(e => throw FixBytesError(e), identity) // TODO: don't throw exception, find a better way
+      .fold(e => throw ReencodeError(e), identity) // TODO: don't throw exception, find a better way
   }
 
   /**
@@ -150,7 +158,9 @@ private[block] object ProtobufJson {
    * @param json Json value, parsed by circe
    * @return Either an error or protobuf BlockID
    */
-  def blockId(json: Json): Either[ProtobufJsonError, BlockID] = {
-    Try(parser.fromJson[BlockID](json).update(fixBlockId: _*)).toEither.convertError
-  }
+  def blockIdReencoded(json: Json): Either[ProtobufJsonError, BlockID] =
+    blockIdSimple(json).flatMap(b => Try(b.update(reencodeBlockId: _*)).toEither.convertError)
+
+  def blockIdSimple(json: Json): Either[Errors.ProtobufJsonError, BlockID] =
+    Try(parser.fromJson[BlockID](json)).toEither.convertError
 }
