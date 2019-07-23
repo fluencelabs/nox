@@ -132,9 +132,9 @@ class AbciServiceSpec extends WordSpec with Matchers {
     "work with stored receipts" in {
       // Receipts are retrieved only for non-empty blocks (and first 2 blocks always empty)
       val receipts = List(
+        receipt(2, ReceiptType.New),
         receipt(3, ReceiptType.New),
-        receipt(4, ReceiptType.New),
-        receipt(6, ReceiptType.New)
+        receipt(5, ReceiptType.New)
       )
 
       abciService(receipts).flatMap {
