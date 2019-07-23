@@ -62,10 +62,10 @@ object MasterHttp {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
     for {
-      requestSubscriber <- Resource.liftF(RequestSubscriber())
+      requestSubscriber <- Resource.liftF(RequestResponder(pool))
       routes = Router[F](
         "/status" -> StatusHttp.routes[F, G](agg),
-        "/apps" -> WorkersHttp.routes[F](pool, requestSubscriber),
+        "/apps" -> WorkersHttp.routes[F, G](pool, requestSubscriber),
         "/kad" -> kad.routes()
       )
       routesOrNotFound = Kleisli[F, Request[F], Response[F]](

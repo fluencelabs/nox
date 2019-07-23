@@ -16,7 +16,7 @@
 
 package fluence.node.workers
 
-import cats.Monad
+import cats.{Monad, Parallel}
 import cats.data.EitherT
 import cats.syntax.apply._
 import cats.syntax.functor._
@@ -29,11 +29,10 @@ import fluence.effects.tendermint.rpc.http.{
   RpcBodyMalformed,
   RpcError,
   RpcRequestErrored,
-  RpcRequestFailed,
-  TendermintHttpRpc
+  RpcRequestFailed
 }
 import fluence.log.{Log, LogFactory}
-import fluence.node.RequestSubscriber
+import fluence.node.RequestResponder
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{HttpRoutes, Response}
 
@@ -105,8 +104,9 @@ object WorkersHttp {
    * @param pool Workers pool to get workers from
    * @param dsl Http4s DSL to build routes with
    */
-  def routes[F[_]: Sync: LogFactory: Concurrent](pool: WorkersPool[F], requestSubscriber: RequestSubscriber[F])(
-    implicit dsl: Http4sDsl[F]
+  def routes[F[_]: Sync: LogFactory: Concurrent, G[_]](pool: WorkersPool[F], requestSubscriber: RequestResponder[F, G])(
+    implicit dsl: Http4sDsl[F],
+    P: Parallel[F, G]
   ): HttpRoutes[F] = {
     import dsl._
 
@@ -158,10 +158,13 @@ object WorkersHttp {
             log.scope("txWaitResponse.id" -> tx) { implicit log ⇒
               log.debug(s"TendermintRpc broadcastTxSync in txWaitResponse request, id: $id")
               for {
-                responsePromise <- Deferred[F, String]
                 response <- withTendermint(pool, appId)(
-                  _.broadcastTxAndQuery(tx, id.getOrElse("dontcare"), responsePromise)
+                  _.broadcastTxSync(tx, id.getOrElse("dontcare"))
                 )
+                _ = {
+                  response.status.code
+                }
+                responsePromise <- Deferred[F, String]
               } yield ()
             }
           }
