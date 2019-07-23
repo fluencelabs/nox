@@ -25,6 +25,7 @@ import fluence.effects.castore.StoreError
 import fluence.log.Log
 import scodec.bits.ByteVector
 
+import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
 /**
@@ -43,11 +44,11 @@ object IpfsUploader {
   /**
    * If enabled == true, instantiates an IPFS client for production use and mock otherwise
    */
-  def apply[F[_]: Monad](ipfsUri: Uri, enabled: Boolean)(
+  def apply[F[_]: Monad](ipfsUri: Uri, enabled: Boolean, readTimeout: FiniteDuration)(
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]
   ): IpfsUploader[F] =
     if (enabled)
-      new IpfsClient[F](ipfsUri)
+      new IpfsClient[F](ipfsUri, readTimeout)
     else
       new IpfsUploaderMock[F]
 }

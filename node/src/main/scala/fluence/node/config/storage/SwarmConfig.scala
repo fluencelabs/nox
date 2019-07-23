@@ -21,6 +21,7 @@ import com.softwaremill.sttp._
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 
+import scala.concurrent.duration.FiniteDuration
 import scala.util.Try
 
 /**
@@ -28,9 +29,11 @@ import scala.util.Try
  *
  * @param address URI of a Swarm node
  */
-case class SwarmConfig(address: Uri)
+case class SwarmConfig(address: Uri, readTimeout: FiniteDuration)
 
 object SwarmConfig {
+  import fluence.node.config.MasterConfig.{decodeDuration, encodeDuration}
+
   implicit val uriEncoder: Encoder[Uri] = Encoder.encodeString.contramap[Uri](_.toString)
   implicit val decodeUri: Decoder[Uri] =
     Decoder.decodeString.emap { str =>

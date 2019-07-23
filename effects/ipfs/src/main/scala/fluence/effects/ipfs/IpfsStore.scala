@@ -24,6 +24,7 @@ import fluence.effects.castore.{ContentAddressableStore, StoreError}
 import fluence.log.Log
 import scodec.bits.ByteVector
 
+import scala.concurrent.duration._
 import scala.language.higherKinds
 
 /**
@@ -49,7 +50,8 @@ class IpfsStore[F[_]](client: IpfsClient[F]) extends ContentAddressableStore[F] 
 object IpfsStore {
 
   def apply[F[_]](
-    address: Uri
+    address: Uri,
+    readTimeout: FiniteDuration
   )(implicit F: Monad[F], sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]): IpfsStore[F] =
-    new IpfsStore(new IpfsClient[F](address))
+    new IpfsStore(new IpfsClient[F](address, readTimeout))
 }
