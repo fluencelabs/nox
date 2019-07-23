@@ -197,19 +197,24 @@ class AbciService[F[_]: Monad: Effect](
    * @param data Incoming transaction
    */
   def deliverTx(data: Array[Byte])(implicit log: Log[F]): F[TxResponse] =
-    Tx.readTx[F](data).value.flatMap {
-      case Some(tx) ⇒
+    Tx.readTx[F](data)
+      .semiflatMap { tx =>
         // TODO we have different logic in checkTx and deliverTx, as only in deliverTx tx might be dropped due to pending txs overflow
-        state
         // Update the state with a new tx
-          .modifyState(AbciState.addTx(tx))
-          .map {
-            case true ⇒ TxResponse(CodeType.OK, s"Delivered\n${tx.head}")
-            case false ⇒ TxResponse(CodeType.BadNonce, s"Dropped\n${tx.head}")
+        state.modifyState(AbciState.addTx(tx)).map(_ -> tx)
+      }
+      .fold(TxResponse(TxCode.BAD, s"Cannot parse transaction header")) {
+        case (code, tx) =>
+          val infoMessage = code match {
+            case TxCode.OK ⇒ s"Delivered"
+            case TxCode.QueueDropped ⇒ s"Queue dropped due to being full with pending txs; next nonce should be 0"
+            case TxCode.AlreadyProcessed ⇒ s"Tx is already processed, ignoring"
+            case TxCode.BadNonce ⇒ s"Bad nonce: tx is out of order"
+            case TxCode.BAD ⇒ s"Cannot parse transaction"
           }
-      case None ⇒
-        Applicative[F].pure(TxResponse(CodeType.BAD, s"Cannot parse transaction header"))
-    }
+
+          TxResponse(code, s"$infoMessage\n${tx.head}")
+      }
 
   /**
    * Check if transaction is well-formed: [[Tx.readTx()]] must return Some
@@ -228,13 +233,13 @@ class AbciService[F[_]: Monad: Effect](
           .map {
             case true ⇒
               // Session is unknown, or nonce is valid
-              TxResponse(CodeType.OK, s"Parsed transaction head: ${tx.head}")
+              TxResponse(TxCode.OK, s"Parsed transaction head\n${tx.head}")
             case false ⇒
               // Invalid nonce -- misorder
-              TxResponse(CodeType.BadNonce, s"Misordered\n${tx.head}")
+              TxResponse(TxCode.AlreadyProcessed, s"Transaction is already processed\n${tx.head}")
           }
       case None ⇒
-        Applicative[F].pure(TxResponse(CodeType.BAD, s"Cannot parse transaction header"))
+        Applicative[F].pure(TxResponse(TxCode.BAD, s"Cannot parse transaction header"))
     }
 }
 
@@ -264,7 +269,7 @@ object AbciService {
    * @param code response code
    * @param info response message
    */
-  case class TxResponse(code: Int, info: String)
+  case class TxResponse(code: TxCode.Value, info: String)
 
   /**
    * Build an empty AbciService for the vm. App hash is empty!
