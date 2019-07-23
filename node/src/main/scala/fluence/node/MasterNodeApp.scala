@@ -17,6 +17,7 @@
 package fluence.node
 
 import java.nio.ByteBuffer
+import java.nio.file.Path
 
 import cats.data.EitherT
 import cats.effect.ExitCase.{Canceled, Completed, Error}
@@ -29,10 +30,12 @@ import fluence.crypto.eddsa.Ed25519
 import fluence.effects.docker.DockerIO
 import fluence.effects.ipfs.IpfsUploader
 import fluence.effects.receipt.storage.KVReceiptStorage
+import fluence.kad.conf.KademliaConfig
 import fluence.kad.contact.UriContact
-import fluence.kad.http.KademliaHttpNode
+import fluence.kad.http.{KademliaHttp, KademliaHttpNode}
 import fluence.log.{Log, LogFactory}
-import fluence.node.config.{Configuration, MasterConfig}
+import fluence.node.config.storage.RemoteStorageConfig
+import fluence.node.config.{Configuration, HttpApiConfig, MasterConfig}
 import fluence.node.status.StatusAggregator
 import fluence.node.workers.DockerWorkersPool
 import fluence.node.workers.tendermint.BlockUploading
@@ -40,7 +43,9 @@ import fluence.node.workers.tendermint.BlockUploading
 import scala.language.higherKinds
 
 object MasterNodeApp extends IOApp {
-  private val sttpResource: Resource[IO, SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]] =
+  type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
+
+  private val sttpResource: Resource[IO, STTP] =
     Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
   /**
@@ -53,7 +58,6 @@ object MasterNodeApp extends IOApp {
    * - Starts HTTP API serving status information
    */
   override def run(args: List[String]): IO[ExitCode] = {
-    type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
 
     MasterConfig
       .load()
@@ -64,41 +68,20 @@ object MasterNodeApp extends IOApp {
           logFactory.init("node", "run") >>= { implicit log: Log[IO] ⇒
             // Run master node and status server
             (for {
-              implicit0(sttp: STTP) <- sttpResource
-              implicit0(dockerIO: DockerIO[IO]) <- DockerIO.make[IO]()
-              conf <- Resource.liftF(Configuration.init[IO](masterConf))
-              // TODO: use generic decentralized storage
-              ipfs = IpfsUploader[IO](masterConf.remoteStorage.ipfs.address, masterConf.remoteStorage.enabled)
-              blockUploading = BlockUploading.make(ipfs, appId => KVReceiptStorage.make[IO](appId, conf.rootPath))
-              pool <- DockerWorkersPool.make(
-                masterConf.ports.minPort,
-                masterConf.ports.maxPort,
-                conf.rootPath,
-                blockUploading
-              )
-              keyPair <- Resource.liftF(Configuration.readTendermintKeyPair(masterConf.rootPath))
-              kad ← KademliaHttpNode.make[IO, IO.Par](
-                masterConf.kademlia,
-                Ed25519.signAlgo,
-                keyPair,
-                conf.rootPath
-              )
-              node <- MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
+              implicit0(sttp: STTP) ← sttpResource
+              implicit0(dockerIO: DockerIO[IO]) ← DockerIO.make[IO]()
+
+              conf ← Resource.liftF(Configuration.init[IO](masterConf))
+              kad ← kademlia(conf.rootPath, masterConf.kademlia)
+              pool ← dockerWorkersPool(conf.rootPath, masterConf)
+              node ← MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
             } yield (kad.http, node)).use {
               case (kadHttp, node) ⇒
                 (for {
-                  _ ← Log.resource[IO].debug(s"eth config ${masterConf.contract}")
-                  st ← StatusAggregator.make(masterConf, node)
-                  server ← MasterHttp.make[IO, IO.Par, UriContact](
-                    "0.0.0.0",
-                    masterConf.httpApi.port.toShort,
-                    st,
-                    node.pool,
-                    kadHttp
-                  )
+                  _ ← Log.resource[IO].debug(s"Eth contract config: ${masterConf.contract}")
+                  server ← masterHttp(masterConf, node, kadHttp)
                 } yield server).use { server =>
-                  log.info("Http api server has started on: " + server.address) *>
-                    node.run
+                  log.info("Http api server has started on: " + server.address) *> node.run
                 }
             }.guaranteeCase {
               case Canceled =>
@@ -111,4 +94,46 @@ object MasterNodeApp extends IOApp {
           }
       }
   }
+
+  private def ipfsUploader(conf: RemoteStorageConfig)(implicit sttp: STTP) =
+    IpfsUploader[IO](conf.ipfs.address, conf.enabled, conf.ipfs.readTimeout)
+
+  private def dockerWorkersPool(rootPath: Path,
+                                conf: MasterConfig)(implicit sttp: STTP, log: Log[IO], dio: DockerIO[IO]) =
+    DockerWorkersPool.make(
+      conf.ports.minPort,
+      conf.ports.maxPort,
+      rootPath,
+      // TODO: use generic decentralized storage for block uploading instead of IpfsUploader
+      BlockUploading.make(ipfsUploader(conf.remoteStorage), appId => KVReceiptStorage.make[IO](appId, rootPath))
+    )
+
+  private def kademlia(rootPath: Path, conf: KademliaConfig)(implicit sttp: STTP, log: Log[IO]) =
+    Resource
+      .liftF(Configuration.readTendermintKeyPair(rootPath))
+      .flatMap(
+        keyPair =>
+          KademliaHttpNode.make[IO, IO.Par](
+            conf,
+            Ed25519.signAlgo,
+            keyPair,
+            rootPath
+        )
+      )
+
+  private def masterHttp(masterConf: MasterConfig,
+                         node: MasterNode[IO, UriContact],
+                         kademliaHttp: KademliaHttp[IO, UriContact])(implicit log: Log[IO], lf: LogFactory[IO]) =
+    StatusAggregator
+      .make(masterConf, node)
+      .flatMap(
+        statusAggregator =>
+          MasterHttp.make[IO, IO.Par, UriContact](
+            "0.0.0.0",
+            masterConf.httpApi.port.toShort,
+            statusAggregator,
+            node.pool,
+            kademliaHttp
+        )
+      )
 }
