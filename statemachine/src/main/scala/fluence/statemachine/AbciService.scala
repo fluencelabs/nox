@@ -25,13 +25,13 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.option._
 import cats.{Applicative, Monad, Traverse}
-import com.github.jtendermint.jabci.api.CodeType
 import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.Log
 import fluence.statemachine.control.{BlockReceipt, ControlSignals}
+import fluence.statemachine.data.{Tx, TxCode}
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
 import scodec.bits.ByteVector

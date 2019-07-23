@@ -16,7 +16,7 @@
 
 package fluence.node.workers
 
-import cats.{Monad, Parallel}
+import cats.{Functor, Monad, Parallel}
 import cats.data.EitherT
 import cats.syntax.apply._
 import cats.syntax.functor._
@@ -33,6 +33,8 @@ import fluence.effects.tendermint.rpc.http.{
 }
 import fluence.log.{Log, LogFactory}
 import fluence.node.RequestResponder
+import fluence.statemachine.data.Tx
+import io.circe.parser.decode
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{HttpRoutes, Response}
 
@@ -104,7 +106,7 @@ object WorkersHttp {
    * @param pool Workers pool to get workers from
    * @param dsl Http4s DSL to build routes with
    */
-  def routes[F[_]: Sync: LogFactory: Concurrent, G[_]](pool: WorkersPool[F], requestSubscriber: RequestResponder[F, G])(
+  def routes[F[_]: Sync: LogFactory: Concurrent, G[_]](pool: WorkersPool[F], requestResponder: RequestResponder[F, G])(
     implicit dsl: Http4sDsl[F],
     P: Parallel[F, G]
   ): HttpRoutes[F] = {
@@ -158,17 +160,35 @@ object WorkersHttp {
             log.scope("txWaitResponse.id" -> tx) { implicit log ⇒
               log.debug(s"TendermintRpc broadcastTxSync in txWaitResponse request, id: $id")
               for {
-                response <- withTendermint(pool, appId)(
+                response <- withTendermintRaw(pool, appId)(
                   _.broadcastTxSync(tx, id.getOrElse("dontcare"))
-                )
-                _ = {
-                  response.status.code
-                }
-                responsePromise <- Deferred[F, String]
+                ).leftMap(RpcTxAwaitError(_): TxAwaitErrorT)
+                _ <- checkResponse(response)
+                responsePromise <- EitherT.liftF(Deferred[F, String])
               } yield ()
             }
           }
         }
     }
+  }
+
+  trait TxAwaitResponse
+  trait TxAwaitErrorT
+  case class RpcTxAwaitError(rpcError: RpcError) extends TxAwaitErrorT
+  case class TxAwaitError(msg: String, responseBody: String) extends TxAwaitErrorT
+
+  def checkResponse[F[_]](responseOp: Option[String])(implicit F: Monad[F]): EitherT[F, TxAwaitErrorT, Tx] = {
+    for {
+      _ <- if (responseOp.isEmpty)
+        EitherT.left(F.pure(TxAwaitError("There is no worker with such appId", ""): TxAwaitErrorT))
+      else EitherT.pure[F, TxAwaitErrorT](())
+      response = responseOp.get
+      code <- EitherT
+        .fromEither[F](decode[TxResponseCode](response))
+        .leftMap(err => RpcTxAwaitError(RpcBodyMalformed(err)): TxAwaitErrorT)
+        .map(_.code)
+      _ <- if (code != 0) EitherT.left(F.pure(TxAwaitError("Transaction is not ok", response): TxAwaitErrorT))
+      else Tx.readTx(response.getBytes())
+    } yield ()
   }
 }
