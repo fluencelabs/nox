@@ -207,7 +207,7 @@ class AbciService[F[_]: Monad: Effect](
         case (code, tx) =>
           val infoMessage = code match {
             case TxCode.OK ⇒ s"Delivered"
-            case TxCode.QueueDropped ⇒ s"Queue dropped due being full with pending txs; next nonce should be 0"
+            case TxCode.QueueDropped ⇒ s"Queue dropped due to being full with pending txs; next nonce should be 0"
             case TxCode.AlreadyProcessed ⇒ s"Tx is already processed, ignoring"
             case TxCode.BadNonce ⇒ s"Bad nonce: tx is out of order"
             case TxCode.BAD ⇒ s"Cannot parse transaction"
