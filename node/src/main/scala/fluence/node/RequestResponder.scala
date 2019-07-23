@@ -31,12 +31,12 @@ import fluence.statemachine.data.Tx
 
 import scala.language.higherKinds
 
-case class ResponsePromise[F](id: Tx.Head, promise: Deferred[F, TendermintResponse], tries: Int = 0)
+case class ResponsePromise[F](id: Tx.Head, promise: Deferred[F, TendermintQueryResponse], tries: Int = 0)
 
-trait TendermintResponse
-case class OkResponse(id: Tx.Head, r: Option[String]) extends TendermintResponse
-case class RpcErrorResponse(id: Tx.Head, r: RpcError) extends TendermintResponse
-case class PendingResponse(id: Tx.Head, r: String) extends TendermintResponse
+trait TendermintQueryResponse
+case class OkResponse(id: Tx.Head, r: Option[String]) extends TendermintQueryResponse
+case class RpcErrorResponse(id: Tx.Head, r: RpcError) extends TendermintQueryResponse
+case class PendingResponse(id: Tx.Head, r: String) extends TendermintQueryResponse
 
 class RequestResponder[F[_]: LogFactory: Functor, G[_]](
   subscribesRef: Ref[F, Map[Long, NonEmptyList[ResponsePromise[F]]]],
@@ -49,7 +49,7 @@ class RequestResponder[F[_]: LogFactory: Functor, G[_]](
 
   import io.circe.parser._
 
-  def parseResponse(id: Tx.Head, response: String): EitherT[F, RpcError, TendermintResponse] = {
+  def parseResponse(id: Tx.Head, response: String): EitherT[F, RpcError, TendermintQueryResponse] = {
     for {
       code <- EitherT
         .fromEither(decode[QueryResponseCode](response))
@@ -66,7 +66,7 @@ class RequestResponder[F[_]: LogFactory: Functor, G[_]](
     }
   }
 
-  def queryResponses(appId: Long, promises: NonEmptyList[ResponsePromise[F]]): F[List[TendermintResponse]] = {
+  def queryResponses(appId: Long, promises: NonEmptyList[ResponsePromise[F]]): F[List[TendermintQueryResponse]] = {
     import cats.syntax.parallel._
     LogFactory[F].init("requestResponder" -> "queryResponses", "app" -> appId.toString) >>= { implicit log =>
       promises.map { responsePromise =>
@@ -75,22 +75,22 @@ class RequestResponder[F[_]: LogFactory: Functor, G[_]](
             _.query(responsePromise.id.toString, "", id = "dontcare")
           )
           response <- responseOpt match {
-            case Some(res) => parseResponse(responsePromise.id, responseOpt.get)
-            case None      => EitherT.pure[F, RpcError](OkResponse(responsePromise.id, None): TendermintResponse)
+            case Some(res) => parseResponse(responsePromise.id, res)
+            case None      => EitherT.pure[F, RpcError](OkResponse(responsePromise.id, None): TendermintQueryResponse)
           }
         } yield response).leftMap(err => (responsePromise.id, err))
       }.map(_.value)
         .parSequence
         .map(_.collect {
           case Right(r)  => r
-          case Left(err) => RpcErrorResponse(err._1, err._2): TendermintResponse
+          case Left(err) => RpcErrorResponse(err._1, err._2): TendermintQueryResponse
         })
     }
   }
 
   def checkResponseCompletion(subs: Map[Tx.Head, ResponsePromise[F]],
                               id: Tx.Head,
-                              response: TendermintResponse,
+                              response: TendermintQueryResponse,
                               taskList: List[F[Unit]]): (List[F[Unit]], Map[Tx.Head, ResponsePromise[F]]) = {
     subs
       .get(id)
@@ -103,7 +103,7 @@ class RequestResponder[F[_]: LogFactory: Functor, G[_]](
 
   import cats.instances.list._
 
-  def updateSubscribesByResult(appId: Long, result: List[TendermintResponse]): F[Unit] =
+  def updateSubscribesByResult(appId: Long, result: List[TendermintQueryResponse]): F[Unit] =
     for {
       completionList <- subscribesRef.modify { m =>
         val subMap = m(appId).toList.map(v => v.id -> v).toMap
@@ -140,9 +140,9 @@ class RequestResponder[F[_]: LogFactory: Functor, G[_]](
       }
     } yield ()
 
-  def subscribe(appId: Long, id: Tx.Head): F[Deferred[F, TendermintResponse]] =
+  def subscribe(appId: Long, id: Tx.Head): F[Deferred[F, TendermintQueryResponse]] =
     for {
-      responsePromise <- Deferred[F, TendermintResponse]
+      responsePromise <- Deferred[F, TendermintQueryResponse]
       _ <- subscribesRef.update { m =>
         val newPromise = ResponsePromise(id, responsePromise)
         m.updated(appId, m.get(appId).map(_ :+ newPromise).getOrElse(NonEmptyList(newPromise, Nil)))

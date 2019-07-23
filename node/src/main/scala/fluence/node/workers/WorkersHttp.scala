@@ -16,13 +16,12 @@
 
 package fluence.node.workers
 
-import cats.{Functor, Monad, Parallel}
+import cats.{Monad, Parallel}
 import cats.data.EitherT
 import cats.syntax.apply._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.effect.{Concurrent, Sync}
-import cats.effect.concurrent.Deferred
 import fluence.effects.tendermint.rpc._
 import fluence.effects.tendermint.rpc.http.{
   RpcBlockParsingFailed,
@@ -32,7 +31,7 @@ import fluence.effects.tendermint.rpc.http.{
   RpcRequestFailed
 }
 import fluence.log.{Log, LogFactory}
-import fluence.node.RequestResponder
+import fluence.node.{OkResponse, PendingResponse, RequestResponder, RpcErrorResponse}
 import fluence.statemachine.data.Tx
 import io.circe.parser.decode
 import org.http4s.dsl.Http4sDsl
@@ -159,37 +158,53 @@ object WorkersHttp {
           req.decode[String] { tx ⇒
             log.scope("txWaitResponse.id" -> tx) { implicit log ⇒
               log.debug(s"TendermintRpc broadcastTxSync in txWaitResponse request, id: $id")
-              for {
+              (for {
                 response <- withTendermintRaw(pool, appId)(
                   _.broadcastTxSync(tx, id.getOrElse("dontcare"))
-                ).leftMap(RpcTxAwaitError(_): TxAwaitErrorT)
+                ).leftMap(RpcTxSyncError(_): TxSyncErrorT)
                 tx <- parseResponse(response)
-                responsePromise <- EitherT.liftF(Deferred[F, String])
-                _ <- requestResponder.subscribe(appId, tx.head)
-              } yield ()
+                promise <- EitherT.liftF(requestResponder.subscribe(appId, tx.head))
+                response <- EitherT.liftF(promise.get)
+              } yield response).value.flatMap {
+                case Right(queryResponse) =>
+                  queryResponse match {
+                    case OkResponse(_, responseOp) =>
+                      responseOp match {
+                        case Some(response) => Ok(response)
+                        case None           => NotFound("App not found on the node")
+                      }
+                    case RpcErrorResponse(_, r) => rpcErrorToResponse(r)
+                    case PendingResponse(id, r) =>
+                      BadRequest("Too long time to process this query. Start a new session.")
+                  }
+                case Left(err) =>
+                  err match {
+                    case RpcTxSyncError(rpcError) => rpcErrorToResponse(rpcError)
+                  }
+              }
             }
           }
         }
     }
   }
 
-  trait TxAwaitResponse
-  trait TxAwaitErrorT
-  case class RpcTxAwaitError(rpcError: RpcError) extends TxAwaitErrorT
-  case class TxAwaitError(msg: String, responseBody: String) extends TxAwaitErrorT
+  trait TxSyncResponse
+  trait TxSyncErrorT
+  case class RpcTxSyncError(rpcError: RpcError) extends TxSyncErrorT
+  case class TxSyncError(msg: String, responseBody: String) extends TxSyncErrorT
 
-  def parseResponse[F[_]: Log](responseOp: Option[String])(implicit F: Monad[F]): EitherT[F, TxAwaitErrorT, Tx] = {
+  def parseResponse[F[_]: Log](responseOp: Option[String])(implicit F: Monad[F]): EitherT[F, TxSyncErrorT, Tx] = {
     for {
       _ <- if (responseOp.isEmpty)
-        EitherT.left(F.pure(TxAwaitError("There is no worker with such appId", ""): TxAwaitErrorT))
-      else EitherT.pure[F, TxAwaitErrorT](())
+        EitherT.left(F.pure(TxSyncError("There is no worker with such appId", ""): TxSyncErrorT))
+      else EitherT.pure[F, TxSyncErrorT](())
       response = responseOp.get
       code <- EitherT
         .fromEither[F](decode[TxResponseCode](response))
-        .leftMap(err => RpcTxAwaitError(RpcBodyMalformed(err)): TxAwaitErrorT)
+        .leftMap(err => RpcTxSyncError(RpcBodyMalformed(err)): TxSyncErrorT)
         .map(_.code)
-      tx <- if (code != 0) EitherT.left(F.pure(TxAwaitError("Transaction is not ok", response): TxAwaitErrorT))
-      else EitherT.fromOptionF(Tx.readTx(response.getBytes()).value, TxAwaitError("", ""): TxAwaitErrorT)
+      tx <- if (code != 0) EitherT.left(F.pure(TxSyncError("Transaction is not ok", response): TxSyncErrorT))
+      else EitherT.fromOptionF(Tx.readTx(response.getBytes()).value, TxSyncError("", ""): TxSyncErrorT)
     } yield tx
   }
 }
