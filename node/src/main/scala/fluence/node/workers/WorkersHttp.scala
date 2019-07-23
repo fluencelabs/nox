@@ -163,8 +163,9 @@ object WorkersHttp {
                 response <- withTendermintRaw(pool, appId)(
                   _.broadcastTxSync(tx, id.getOrElse("dontcare"))
                 ).leftMap(RpcTxAwaitError(_): TxAwaitErrorT)
-                _ <- checkResponse(response)
+                tx <- parseResponse(response)
                 responsePromise <- EitherT.liftF(Deferred[F, String])
+                _ <- requestResponder.subscribe(appId, tx.head)
               } yield ()
             }
           }
@@ -177,7 +178,7 @@ object WorkersHttp {
   case class RpcTxAwaitError(rpcError: RpcError) extends TxAwaitErrorT
   case class TxAwaitError(msg: String, responseBody: String) extends TxAwaitErrorT
 
-  def checkResponse[F[_]](responseOp: Option[String])(implicit F: Monad[F]): EitherT[F, TxAwaitErrorT, Tx] = {
+  def parseResponse[F[_]: Log](responseOp: Option[String])(implicit F: Monad[F]): EitherT[F, TxAwaitErrorT, Tx] = {
     for {
       _ <- if (responseOp.isEmpty)
         EitherT.left(F.pure(TxAwaitError("There is no worker with such appId", ""): TxAwaitErrorT))
@@ -187,8 +188,8 @@ object WorkersHttp {
         .fromEither[F](decode[TxResponseCode](response))
         .leftMap(err => RpcTxAwaitError(RpcBodyMalformed(err)): TxAwaitErrorT)
         .map(_.code)
-      _ <- if (code != 0) EitherT.left(F.pure(TxAwaitError("Transaction is not ok", response): TxAwaitErrorT))
-      else Tx.readTx(response.getBytes())
-    } yield ()
+      tx <- if (code != 0) EitherT.left(F.pure(TxAwaitError("Transaction is not ok", response): TxAwaitErrorT))
+      else EitherT.fromOptionF(Tx.readTx(response.getBytes()).value, TxAwaitError("", ""): TxAwaitErrorT)
+    } yield tx
   }
 }

@@ -27,18 +27,16 @@ import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError}
 import fluence.effects.tendermint.rpc.{QueryResponseCode, TendermintRpc}
 import fluence.log.{Log, LogFactory}
 import fluence.node.workers.{WorkersHttp, WorkersPool}
+import fluence.statemachine.data.Tx
 
 import scala.language.higherKinds
 
-case class RequestId(session: String, nonce: Long) {
-  override def toString: String = s"$session/$nonce"
-}
-case class ResponsePromise[F](id: RequestId, promise: Deferred[F, TendermintResponse], tries: Int = 0)
+case class ResponsePromise[F](id: Tx.Head, promise: Deferred[F, TendermintResponse], tries: Int = 0)
 
 trait TendermintResponse
-case class OkResponse(id: RequestId, r: Option[String]) extends TendermintResponse
-case class RpcErrorResponse(id: RequestId, r: RpcError) extends TendermintResponse
-case class PendingResponse(id: RequestId, r: String) extends TendermintResponse
+case class OkResponse(id: Tx.Head, r: Option[String]) extends TendermintResponse
+case class RpcErrorResponse(id: Tx.Head, r: RpcError) extends TendermintResponse
+case class PendingResponse(id: Tx.Head, r: String) extends TendermintResponse
 
 class RequestResponder[F[_]: LogFactory: Functor, G[_]](
   subscribesRef: Ref[F, Map[Long, NonEmptyList[ResponsePromise[F]]]],
@@ -51,7 +49,7 @@ class RequestResponder[F[_]: LogFactory: Functor, G[_]](
 
   import io.circe.parser._
 
-  def parseResponse(id: RequestId, response: String): EitherT[F, RpcError, TendermintResponse] = {
+  def parseResponse(id: Tx.Head, response: String): EitherT[F, RpcError, TendermintResponse] = {
     for {
       code <- EitherT
         .fromEither(decode[QueryResponseCode](response))
@@ -90,10 +88,10 @@ class RequestResponder[F[_]: LogFactory: Functor, G[_]](
     }
   }
 
-  def checkResponseCompletion(subs: Map[RequestId, ResponsePromise[F]],
-                              id: RequestId,
+  def checkResponseCompletion(subs: Map[Tx.Head, ResponsePromise[F]],
+                              id: Tx.Head,
                               response: TendermintResponse,
-                              taskList: List[F[Unit]]): (List[F[Unit]], Map[RequestId, ResponsePromise[F]]) = {
+                              taskList: List[F[Unit]]): (List[F[Unit]], Map[Tx.Head, ResponsePromise[F]]) = {
     subs
       .get(id)
       .map { rp =>
@@ -142,7 +140,7 @@ class RequestResponder[F[_]: LogFactory: Functor, G[_]](
       }
     } yield ()
 
-  def subscribe(appId: Long, id: RequestId): F[Deferred[F, TendermintResponse]] =
+  def subscribe(appId: Long, id: Tx.Head): F[Deferred[F, TendermintResponse]] =
     for {
       responsePromise <- Deferred[F, TendermintResponse]
       _ <- subscribesRef.update { m =>
