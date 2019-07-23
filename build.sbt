@@ -484,3 +484,15 @@ lazy val `node` = project
     `kademlia-http`,
     `kademlia-testkit` % Test
   )
+
+lazy val `node-testkit` = (project in file("node/testkit"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      scalaTest
+    )
+  )
+  .dependsOn(`node` % "test->test")
+  .dependsOn(`statemachine` % "test->test")
+  .dependsOn(`tendermint-rpc` % "test->test")
+  .enablePlugins(AutomateHeaderPlugin)

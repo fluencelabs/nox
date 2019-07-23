@@ -17,7 +17,7 @@
 package fluence.statemachine.state
 import cats.Monad
 import cats.data.StateT
-import fluence.statemachine.data.Tx
+import fluence.statemachine.{Tx, TxCode}
 
 import scala.collection.immutable.{Queue, TreeMap}
 import scala.language.higherKinds
@@ -92,7 +92,7 @@ object Sessions {
    * @param maxPending Number of max pending transactions per one session
    * @return Whether this Tx was stored or not
    */
-  def addTx[F[_]: Monad](tx: Tx, maxPending: Int): StateT[F, Sessions, Boolean] =
+  def addTx[F[_]: Monad](tx: Tx, maxPending: Int): StateT[F, Sessions, TxCode.Value] =
     StateT.get[F, Sessions].flatMap {
       case sessions @ Sessions(num, queue, data) ⇒
         import tx.head._
@@ -101,19 +101,19 @@ object Sessions {
         data.get(session) match {
           case Some(Session(lastNonce, _)) if lastNonce > nonce ⇒
             // If this tx is already processed, ignore it
-            StateT.pure(false)
+            StateT.pure(TxCode.AlreadyProcessed)
 
           case Some(Session(lastNonce, pendingTxs)) ⇒
             // If this session is too big already, drop it
             if (pendingTxs.size >= maxPending)
-              drop(session).map(_ ⇒ false)
+              drop(session).map(_ ⇒ TxCode.QueueDropped)
             else
               // Add a pending tx to existing session
               StateT
                 .set(
                   sessions.copy(data = data + (session -> Session(lastNonce, pendingTxs + (nonce -> tx.data))))
                 )
-                .map(_ ⇒ true)
+                .map(_ ⇒ TxCode.OK)
 
           case None ⇒
             // Create a new session with a single pending tx
@@ -125,7 +125,7 @@ object Sessions {
                   data + (tx.head.session -> Session(0, TreeMap(tx.head.nonce -> tx.data)))
                 )
               )
-              .map(_ ⇒ true)
+              .map(_ ⇒ TxCode.OK)
         }
     }
 
