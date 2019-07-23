@@ -32,7 +32,7 @@ import scala.util.Try
 case class SwarmConfig(address: Uri, readTimeout: FiniteDuration)
 
 object SwarmConfig {
-  import fluence.node.config.MasterConfig.{decodeDuration, encodeDuration}
+  import fluence.node.config.DurationCodecs._
 
   implicit val uriEncoder: Encoder[Uri] = Encoder.encodeString.contramap[Uri](_.toString)
   implicit val decodeUri: Decoder[Uri] =
