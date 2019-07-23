@@ -17,11 +17,12 @@
 package fluence.node
 
 import cats.data.{EitherT, NonEmptyList}
-import cats.{Functor, Parallel}
+import cats.{Functor, Parallel, Traverse}
 import cats.effect.Concurrent
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.list._
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError}
 import fluence.effects.tendermint.rpc.{QueryResponseCode, TendermintRpc}
 import fluence.log.Log
@@ -32,12 +33,12 @@ import scala.language.higherKinds
 case class RequestId(session: String, nonce: Long) {
   override def toString: String = s"$session/$nonce"
 }
-case class ResponsePromise[F](id: RequestId, promise: Deferred[F, Option[String]], tries: Int = 0)
+case class ResponsePromise[F](id: RequestId, promise: Deferred[F, TendermintResponse], tries: Int = 0)
 
 trait TendermintResponse
 case class OkResponse(id: RequestId, r: Option[String]) extends TendermintResponse
 case class RpcErrorResponse(id: RequestId, r: RpcError) extends TendermintResponse
-case class PendingResponse(id: RequestId) extends TendermintResponse
+case class PendingResponse(id: RequestId, r: String) extends TendermintResponse
 
 class RequestSubscriber[F[_]: Concurrent](
   subscribesRef: Ref[F, Map[Long, Map[RequestId, ResponsePromise[F]]]]
@@ -45,7 +46,7 @@ class RequestSubscriber[F[_]: Concurrent](
 
   def subscribe(appId: Long, id: RequestId): F[Deferred[F, Option[String]]] =
     for {
-      responsePromise <- Deferred[F, Option[String]]
+      responsePromise <- Deferred[F, TendermintResponse]
       _ <- subscribesRef.update { m =>
         val newPromise = ResponsePromise(id, responsePromise)
         m.updated(appId, m.get(appId).map(_ + (newPromise.id -> newPromise)).getOrElse(Map((newPromise, Nil))))
@@ -89,7 +90,7 @@ class Responder[F[_]: Log: Functor, G[_]](subscribesRef: Ref[F, Map[Long, NonEmp
       if (code == 0 || (code != 3 && code != 4)) {
         OkResponse(id, Option(response))
       } else {
-        PendingResponse(id)
+        PendingResponse(id, response)
       }
     }
   }
@@ -97,7 +98,6 @@ class Responder[F[_]: Log: Functor, G[_]](subscribesRef: Ref[F, Map[Long, NonEmp
   def queryResponses(appId: Long, promises: NonEmptyList[ResponsePromise[F]]): F[List[TendermintResponse]] = {
     import cats.syntax.parallel._
 
-    import cats.syntax.list._
     promises.map { responsePromise =>
       (for {
         responseOpt <- WorkersHttp.withTendermintRaw(pool, appId)(
@@ -116,18 +116,46 @@ class Responder[F[_]: Log: Functor, G[_]](subscribesRef: Ref[F, Map[Long, NonEmp
       })
   }
 
-  def updateSubscribesByResult(appId: Long, result: List[TendermintResponse]) =
-    for {
-      _ <- subscribesRef.get
-      _ <- subscribesRef.update { m =>
-        m.get(appId).map { promises =>
-          }
-        result.foreach {
-          case OkResponse(id, r)       => m
-          case RpcErrorResponse(id, r) =>
-          case PendingResponse(id)     =>
-        }
+  def checkResponseCompletion(subs: Map[RequestId, ResponsePromise[F]],
+                              id: RequestId,
+                              response: TendermintResponse,
+                              taskList: List[F[Unit]]): (List[F[Unit]], Map[RequestId, ResponsePromise[F]]) = {
+    subs
+      .get(id)
+      .map { rp =>
+        if (rp.tries + 1 >= maxBlocksTries) (taskList :+ rp.promise.complete(response), subs - id)
+        else (taskList, subs + (id -> rp.copy(tries = rp.tries + 1)))
       }
+      .getOrElse((taskList, subs))
+  }
+
+  import cats.instances.list._
+
+  def updateSubscribesByResult(appId: Long, result: List[TendermintResponse]): F[Unit] =
+    for {
+      completionList <- subscribesRef.modify { m =>
+        val subMap = m(appId).toList.map(v => v.id -> v).toMap
+        val emptyTaskList = List.empty[F[Unit]]
+        val updatedMap = result.foldLeft((emptyTaskList, subMap)) {
+          case ((taskList, subs), response) =>
+            response match {
+              case r @ OkResponse(id, _) =>
+                (subs
+                   .get(id)
+                   .map { rp =>
+                     taskList :+ rp.promise.complete(r)
+                   }
+                   .getOrElse(taskList),
+                 subs - id)
+              case r @ RpcErrorResponse(id, _) =>
+                checkResponseCompletion(subs, id, r, taskList)
+              case r @ PendingResponse(id, _) =>
+                checkResponseCompletion(subs, id, r, taskList)
+            }
+        }
+        (updatedMap._2.values.toList.toNel.map(um => m + (appId -> um)).getOrElse(m - appId), updatedMap._1)
+      }
+      _ <- Traverse[List].traverse(completionList)(identity)
     } yield ()
 
   def poll(appId: Long): F[Unit] =
@@ -135,14 +163,14 @@ class Responder[F[_]: Log: Functor, G[_]](subscribesRef: Ref[F, Map[Long, NonEmp
       subscribed <- getSubscribed(appId)
       _ <- subscribed match {
         case Some(responsePromises) =>
-          queryResponses(appId, responsePromises).map
+          queryResponses(appId, responsePromises).flatMap(updateSubscribesByResult(appId, _))
         case None => F.unit
       }
     } yield ()
 
-  def subscribe(appId: Long, id: RequestId): F[Deferred[F, String]] =
+  def subscribe(appId: Long, id: RequestId): F[Deferred[F, TendermintResponse]] =
     for {
-      responsePromise <- Deferred[F, String]
+      responsePromise <- Deferred[F, TendermintResponse]
       _ <- subscribesRef.update { m =>
         val newPromise = ResponsePromise(id, responsePromise)
         m.updated(appId, m.get(appId).map(_ :+ newPromise).getOrElse(NonEmptyList(newPromise, Nil)))
