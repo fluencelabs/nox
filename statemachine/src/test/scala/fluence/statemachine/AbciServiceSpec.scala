@@ -53,7 +53,7 @@ case class ExecutionState(actions: List[(Int, Action)] = Nil, counter: Int = 0) 
 class AbciServiceSpec extends WordSpec with Matchers {
   implicit private val timer = IO.timer(global)
   implicit private val shift = IO.contextShift(global)
-  implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec", level = Log.Error).unsafeRunSync()
+  implicit private val log = LogFactory.forPrintln[IO]().init("AbciServiceSpec", level = Log.Error).unsafeRunSync()
 
   val tendermintRpc = new TestTendermintRpc {
     override def block(height: Long, id: String): EitherT[IO, RpcError, Block] = {

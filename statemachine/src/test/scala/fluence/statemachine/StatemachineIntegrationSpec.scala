@@ -20,12 +20,10 @@ import java.nio.ByteBuffer
 
 import cats.data.EitherT
 import cats.effect.{ContextShift, IO, Timer}
-import com.github.jtendermint.jabci.api.CodeType
 import com.github.jtendermint.jabci.types.{RequestCheckTx, RequestCommit, RequestDeliverTx, RequestQuery}
 import com.google.protobuf.ByteString
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
-import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.http.{TendermintHttpRpc, TendermintHttpRpcImpl}
 import fluence.log.{Log, LogFactory}
 import fluence.statemachine.config.{StateMachineConfig, TendermintRpcConfig}
@@ -40,7 +38,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
-  implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init(getClass.getSimpleName).unsafeRunSync()
+  implicit val log: Log[IO] = LogFactory.forPrintln[IO](Log.Error).init(getClass.getSimpleName).unsafeRunSync()
   implicit private val sttp: SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]] =
     EitherTSttpBackend[IO]()
 
@@ -84,8 +82,8 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
     val builtQuery = RequestQuery.newBuilder().setHeight(height).setPath(query).setProve(false).build()
     val response = abciHandler.requestQuery(builtQuery)
     response.getCode match {
-      case CodeType.OK => Right(ByteVector(response.getValue.toByteArray).toHex)
-      case _           => Left((response.getCode, response.getInfo))
+      case code if code == TxCode.OK.id => Right(ByteVector(response.getValue.toByteArray).toHex)
+      case _                            => Left((response.getCode, response.getInfo))
     }
   }
 
@@ -180,14 +178,14 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendCommit()
       sendCommit()
 
-      sendCheckTx(tx0)._1 shouldBe CodeType.OK
-      sendDeliverTx(tx0)._1 shouldBe CodeType.OK
+      sendCheckTx(tx0)._1 shouldBe TxCode.OK.id
+      sendDeliverTx(tx0)._1 shouldBe TxCode.OK.id
       // Mempool state updated only on commit!
-      sendCheckTx(tx0)._1 shouldBe CodeType.OK
+      sendCheckTx(tx0)._1 shouldBe TxCode.OK.id
       sendCommit()
 
-      sendCheckTx(tx0)._1 shouldBe CodeType.BadNonce
-      sendDeliverTx(tx0)._1 shouldBe CodeType.BadNonce
+      sendCheckTx(tx0)._1 shouldBe TxCode.AlreadyProcessed.id
+      sendDeliverTx(tx0)._1 shouldBe TxCode.AlreadyProcessed.id
     }
 
     "process Query method correctly" in {
