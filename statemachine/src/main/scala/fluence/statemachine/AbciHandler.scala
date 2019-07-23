@@ -53,7 +53,7 @@ class AbciHandler[F[_]: Effect: LogFactory](
       .map {
         case AbciService.TxResponse(code, info) ⇒
           ResponseCheckTx.newBuilder
-            .setCode(code)
+            .setCode(code.id)
             .setInfo(info)
             // TODO where it goes?
             .setData(ByteString.copyFromUtf8(info))
@@ -73,7 +73,7 @@ class AbciHandler[F[_]: Effect: LogFactory](
       .map {
         case AbciService.TxResponse(code, info) ⇒
           ResponseDeliverTx.newBuilder
-            .setCode(code)
+            .setCode(code.id)
             .setInfo(info)
             // TODO where it goes?
             .setData(ByteString.copyFromUtf8(info))

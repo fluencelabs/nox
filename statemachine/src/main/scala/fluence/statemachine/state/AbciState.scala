@@ -18,7 +18,7 @@ package fluence.statemachine.state
 
 import cats.data.StateT
 import cats.{Applicative, Functor, Monad}
-import fluence.statemachine.Tx
+import fluence.statemachine.{Tx, TxCode}
 import scodec.bits.ByteVector
 
 import scala.collection.immutable.Queue
@@ -57,17 +57,17 @@ object AbciState {
    * @param maxPendingTxs The upper bound for the number of cached pending txs for a single session
    * @return Whether tx was stored in AbciState or is ignored
    */
-  def addTx[F[_]: Monad](tx: Tx, maxSessions: Int = 128, maxPendingTxs: Int = 24): StateT[F, AbciState, Boolean] =
+  def addTx[F[_]: Monad](tx: Tx, maxSessions: Int = 128, maxPendingTxs: Int = 24): StateT[F, AbciState, TxCode.Value] =
     for {
       // Add tx to sessions
-      added ← Sessions.addTx(tx, maxPendingTxs).toAbciState
+      code ← Sessions.addTx(tx, maxPendingTxs).toAbciState
       // Drop sessions
       _ ← Sessions.bound(maxSessions).toAbciState
       // If this tx was added, keep it in blockSessions
       _ ← StateT.modify[F, AbciState](
-        st ⇒ st.copy(blockSessions = if (added) st.blockSessions + tx.head.session else st.blockSessions)
+        st ⇒ st.copy(blockSessions = if (code == TxCode.OK) st.blockSessions + tx.head.session else st.blockSessions)
       )
-    } yield added
+    } yield code
 
   /**
    * Apply the bound for responses -- drop the oldest ones.
