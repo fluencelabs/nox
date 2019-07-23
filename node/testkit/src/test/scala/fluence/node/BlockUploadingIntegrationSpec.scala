@@ -20,50 +20,48 @@ import java.net.InetAddress
 import java.nio.charset.Charset
 import java.nio.file.Paths
 
-import cats.{Apply, Traverse}
-import cats.data.EitherT
-import cats.effect.{IO, Resource}
+import cats.data.{EitherT, OptionT}
 import cats.effect.concurrent.Ref
-import cats.syntax.compose._
+import cats.effect.{IO, Resource}
 import cats.instances.list._
-import cats.syntax.flatMap._
-import cats.syntax.functor._
-import cats.syntax.applicative._
 import cats.syntax.apply._
+import cats.syntax.compose._
+import cats.syntax.flatMap._
+import cats.syntax.traverse._
 import fluence.EitherTSttpBackend
 import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.effects.castore.StoreError
-import fluence.effects.{Backoff, EffectError}
 import fluence.effects.docker.DockerIO
 import fluence.effects.docker.params.{DockerImage, DockerLimits}
 import fluence.effects.ipfs.{IpfsData, IpfsUploader}
 import fluence.effects.receipt.storage.{ReceiptStorage, ReceiptStorageError}
-import fluence.effects.tendermint.{block, rpc}
-import fluence.effects.tendermint.block.data.Block
+import fluence.effects.tendermint.block.data.{Base64ByteVector, Block}
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestErrored}
 import fluence.effects.tendermint.rpc.websocket.TestTendermintWebsocketRpc
+import fluence.effects.tendermint.{block, rpc}
+import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
 import fluence.node.eth.state._
-import fluence.node.workers.{Worker, WorkerParams, WorkerServices}
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 import fluence.node.workers.status.WorkerStatus
 import fluence.node.workers.tendermint.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
-import fluence.statemachine.control.{BlockReceipt, ControlSignals, ReceiptType, VmHash}
+import fluence.node.workers.{Worker, WorkerParams, WorkerServices}
+import fluence.statemachine.AbciService.TxResponse
+import fluence.statemachine.control.{BlockReceipt, ControlSignals, ReceiptType}
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
-import fluence.statemachine.{AbciService, TestTendermintRpc}
+import fluence.statemachine.{AbciService, TestTendermintRpc, Tx, TxCode}
+import fs2.concurrent.Queue
 import io.circe.Json
 import io.circe.parser.parse
 import org.scalatest.{EitherValues, Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
-import fluence.effects.tendermint.block.data.Base64ByteVector
-import fs2.concurrent.Queue
 
 import scala.compat.Platform.currentTime
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -190,12 +188,11 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
   private def generateTx(session: String, count: Int) =
     ByteVector
       .encodeString(
-        s"""
-           |$session/$count
-           |this_should_be_a_llamadb_signature_but_it_doesnt_matter_for_this_test
-           |1
-           |INSERT INTO users VALUES(1, 'Sara', 23), (2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 27)
-           |""".stripMargin
+        s"""|$session/$count
+            |this_should_be_a_llamadb_signature_but_it_doesnt_matter_for_this_test
+            |1
+            |INSERT INTO users VALUES(1, 'Sara', 23), (2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 27)
+            |""".stripMargin
       )(Charset.defaultCharset())
       .right
       .value
@@ -212,23 +209,36 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
     "process blocks" in {
       val session = "folexshmolex"
       val emptyBlocks = (1L to 2).map(emptyBlock)
-      val blocks = (3 to 10).map {
-        val txs = (1 to 3).map(generateTx(session, _)).toList
-        singleBlock(_, txs)
+      var txCounter = 0
+      def nextCount = { txCounter += 1; txCounter - 1 }
+      val blocks = (3 to 10).map { h =>
+        val txs = (1 to 3).map(_ => generateTx(session, nextCount)).toList
+        singleBlock(h, txs)
       }
 
       val allBlocks = (emptyBlocks ++ blocks).toList
 
       start().use {
         case (abciService, abciState, blocksQ) =>
-          Traverse[List].traverse(allBlocks) { block =>
-            val deliverTxs =
-              Traverse[List].traverse(block.data.txs.getOrElse(List.empty))(tx => abciService.deliverTx(tx.bv.toArray))
+          allBlocks.traverse { block =>
+            val checkResponses = (_: List[TxResponse]).foreach(_.code shouldBe TxCode.OK)
+            val txs = block.data.txs.getOrElse(List.empty)
+            val deliverTxs = txs.traverse(tx => abciService.deliverTx(tx.bv.toArray)).map(checkResponses)
             val commitBlock = deliverTxs *> abciService.commit
             val sendBlockToSubscription = blocksQ.enqueue1(block)
-            val checkState = eventually[IO] {
-              abciState.get.map { state =>
-                state.height shouldBe block.header.height
+
+            val lastTx = OptionT.fromOption[IO](txs.lastOption).flatMap(tx => Tx.readTx[IO](tx.bv.toArray)).value
+            val checkState = lastTx.flatMap { lastTx =>
+              eventually[IO] {
+                abciState.get.map { state =>
+                  state.height shouldBe block.header.height
+
+                  if (block.header.height > emptyBlocks.length) {
+                    state.sessions.num shouldBe 1
+                    lastTx shouldBe defined
+                    state.sessions.data(session).nextNonce shouldBe lastTx.value.head.nonce + 1
+                  }
+                }
               }
             }
 
