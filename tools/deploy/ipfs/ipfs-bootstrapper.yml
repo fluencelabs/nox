@@ -1,0 +1,27 @@
+version: '3.4'
+
+services:
+  ipfs:
+    container_name: ipfs
+    image: ipfs/go-ipfs:release
+    ports:
+          - "4001:4001" # ipfs swarm
+#         - "5001:5001" # expose if needed/wanted
+#         - "8080:8080" # exposes if needed/wanted
+    volumes:
+      - ./.ipfs-cluster/ipfs:/data/ipfs
+      
+  ipfs-cluster:
+    container_name: ipfs-cluster
+    image: ipfs/ipfs-cluster:latest
+    depends_on:
+      - ipfs
+    environment:
+      CLUSTER_SECRET: ${CLUSTER_SECRET} # From shell variable
+      IPFS_API: /dns4/ipfs/tcp/5001
+    ports:
+          - "9094:9094" # API
+          - "9096:9096" # Cluster IPFS Proxy endpoint
+    volumes:
+      - ./.ipfs-cluster/cluster:/data/ipfs-cluster
+
