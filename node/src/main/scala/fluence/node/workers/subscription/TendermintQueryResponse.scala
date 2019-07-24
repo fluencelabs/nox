@@ -14,24 +14,12 @@
  * limitations under the License.
  */
 
-package fluence.node.workers
+package fluence.node.workers.subscription
 
-import fluence.effects.tendermint.rpc.TendermintRpc
-import fluence.node.workers.control.ControlRpc
-import fluence.node.workers.status.WorkerStatus
-import fluence.node.workers.subscription.RequestResponder
+import fluence.effects.tendermint.rpc.http.RpcError
+import fluence.statemachine.data.Tx
 
-import scala.concurrent.duration.FiniteDuration
-import scala.language.higherKinds
-
-// Algebra for WorkerServices
-trait WorkerServices[F[_]] {
-  // RPC connection to tendermint
-  def tendermint: TendermintRpc[F]
-
-  // RPC connection to worker
-  def control: ControlRpc[F]
-
-  // Retrieves worker's health
-  def status(timeout: FiniteDuration): F[WorkerStatus]
-}
+trait TendermintQueryResponse
+case class OkResponse(id: Tx.Head, r: Option[String]) extends TendermintQueryResponse
+case class RpcErrorResponse(id: Tx.Head, r: RpcError) extends TendermintQueryResponse
+case class PendingResponse(id: Tx.Head, r: String) extends TendermintQueryResponse

@@ -14,24 +14,19 @@
  * limitations under the License.
  */
 
-package fluence.node.workers
+package fluence.node.workers.subscription
 
 import fluence.effects.tendermint.rpc.TendermintRpc
-import fluence.node.workers.control.ControlRpc
-import fluence.node.workers.status.WorkerStatus
-import fluence.node.workers.subscription.RequestResponder
 
-import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
-// Algebra for WorkerServices
-trait WorkerServices[F[_]] {
-  // RPC connection to tendermint
-  def tendermint: TendermintRpc[F]
+trait RequestResponder[F[_]] {
 
-  // RPC connection to worker
-  def control: ControlRpc[F]
-
-  // Retrieves worker's health
-  def status(timeout: FiniteDuration): F[WorkerStatus]
+  /**
+   * Gets all request subscribes for appId and trying to poll service for responses.
+   *
+   * @param appId
+   * @return
+   */
+  def pollResponses(appId: Long, tendermintRpc: TendermintRpc[F]): F[Unit]
 }

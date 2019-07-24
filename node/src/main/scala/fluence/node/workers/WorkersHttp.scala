@@ -16,10 +16,9 @@
 
 package fluence.node.workers
 
-import cats.{Monad, Parallel}
+import cats.Monad
 import cats.data.EitherT
 import cats.syntax.apply._
-import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.effect.{Concurrent, Sync}
 import fluence.effects.tendermint.rpc._
@@ -31,9 +30,13 @@ import fluence.effects.tendermint.rpc.http.{
   RpcRequestFailed
 }
 import fluence.log.{Log, LogFactory}
-import fluence.node.{OkResponse, PendingResponse, RequestResponder, RpcErrorResponse}
-import fluence.statemachine.data.Tx
-import io.circe.parser.decode
+import fluence.node.workers.subscription.{
+  OkResponse,
+  PendingResponse,
+  RequestResponder,
+  RequestSubscriber,
+  RpcErrorResponse
+}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{HttpRoutes, Response}
 
@@ -41,17 +44,27 @@ import scala.language.higherKinds
 
 object WorkersHttp {
 
-  def withTendermintRaw[F[_]: Monad](
-    pool: WorkersPool[F],
-    appId: Long
-  )(
-    fn: TendermintRpc[F] ⇒ EitherT[F, RpcError, String]
-  )(implicit log: Log[F]): EitherT[F, RpcError, Option[String]] =
-    EitherT(
-      pool
-        .withWorker(appId, _.withServices(_.tendermint)(fn(_).value))
-        .map(_.fold[Either[RpcError, Option[String]]](Right(None))(_.map(Some(_))))
-    )
+  def tendermintResponsetoHttp[F[_]: Monad](
+    appId: Long,
+    response: Option[Either[RpcError, String]]
+  )(implicit log: Log[F], dsl: Http4sDsl[F]): F[Response[F]] = {
+    import dsl._
+    response match {
+      case None ⇒
+        log.debug(s"RPC Requested app $appId, but there's no such worker in the pool") *>
+          NotFound("App not found on the node")
+
+      case Some(res) ⇒
+        res match {
+          case Right(result) ⇒
+            log.trace(s"RPC responding with OK: $result") *>
+              Ok(result)
+
+          case Left(err) ⇒
+            rpcErrorToResponse(err)
+        }
+    }
+  }
 
   def rpcErrorToResponse[F[_]: Monad](error: RpcError)(implicit log: Log[F], dsl: Http4sDsl[F]): F[Response[F]] = {
     import dsl._
@@ -79,23 +92,8 @@ object WorkersHttp {
     pool: WorkersPool[F],
     appId: Long
   )(fn: TendermintRpc[F] ⇒ EitherT[F, RpcError, String])(implicit log: Log[F], dsl: Http4sDsl[F]): F[Response[F]] = {
-    import dsl._
     log.scope("app" -> appId.toString) { implicit log ⇒
-      pool.withWorker(appId, _.withServices(_.tendermint)(fn(_).value)).flatMap {
-        case None ⇒
-          log.debug(s"RPC Requested app $appId, but there's no such worker in the pool") *>
-            NotFound("App not found on the node")
-
-        case Some(res) ⇒
-          res match {
-            case Right(result) ⇒
-              log.trace(s"RPC responding with OK: $result") *>
-                Ok(result)
-
-            case Left(err) ⇒
-              rpcErrorToResponse(err)
-          }
-      }
+      pool.withWorker(appId, _.withServices(_.tendermint)(fn(_).value)).flatMap(tendermintResponsetoHttp(appId, _))
     }
   }
 
@@ -105,9 +103,8 @@ object WorkersHttp {
    * @param pool Workers pool to get workers from
    * @param dsl Http4s DSL to build routes with
    */
-  def routes[F[_]: Sync: LogFactory: Concurrent, G[_]](pool: WorkersPool[F], requestResponder: RequestResponder[F, G])(
-    implicit dsl: Http4sDsl[F],
-    P: Parallel[F, G]
+  def routes[F[_]: Sync: LogFactory: Concurrent](pool: WorkersPool[F], requestSubscriber: RequestSubscriber[F])(
+    implicit dsl: Http4sDsl[F]
   ): HttpRoutes[F] = {
     import dsl._
 
@@ -119,20 +116,18 @@ object WorkersHttp {
     HttpRoutes.of {
       case GET -> Root / LongVar(appId) / "query" :? QueryPath(path) +& QueryData(data) +& QueryId(id) ⇒
         LogFactory[F].init("http" -> "query", "app" -> appId.toString) >>= { implicit log =>
-          log.debug(s"TendermintRpc query request. path: $path, data: $data") *>
-            withTendermint(pool, appId)(_.query(path, data.getOrElse(""), id = id.getOrElse("dontcare")))
+          WorkersApi.query(pool, appId, data, path, id).flatMap(tendermintResponsetoHttp(appId, _))
         }
 
       case GET -> Root / LongVar(appId) / "status" ⇒
         LogFactory[F].init("http" -> "status", "app" -> appId.toString) >>= { implicit log =>
-          log.trace(s"TendermintRpc status") *>
-            withTendermint(pool, appId)(_.status)
+          WorkersApi.status(pool, appId).flatMap(tendermintResponsetoHttp(appId, _))
         }
 
       case GET -> Root / LongVar(appId) / "p2pPort" ⇒
         LogFactory[F].init("http" -> "p2pPort", "app" -> appId.toString) >>= { implicit log =>
           log.debug(s"Worker p2pPort") *>
-            pool.get(appId).flatMap {
+            WorkersApi.p2pPort(pool, appId).flatMap {
               case Some(worker) ⇒
                 log.debug(s"Worker p2pPort = ${worker.p2pPort}") *>
                   Ok(worker.p2pPort.toString)
@@ -146,65 +141,32 @@ object WorkersHttp {
       case req @ POST -> Root / LongVar(appId) / "tx" :? QueryId(id) ⇒
         LogFactory[F].init("http" -> "tx", "app" -> appId.toString) >>= { implicit log =>
           req.decode[String] { tx ⇒
-            log.scope("tx.id" -> tx) { implicit log ⇒
-              log.debug(s"TendermintRpc broadcastTxSync request, id: $id") *>
-                withTendermint(pool, appId)(_.broadcastTxSync(tx, id.getOrElse("dontcare")))
-            }
+            WorkersApi.txSync(pool, appId, tx, id).flatMap(tendermintResponsetoHttp(appId, _))
           }
         }
 
       case req @ POST -> Root / LongVar(appId) / "txWaitResponse" :? QueryId(id) ⇒
         LogFactory[F].init("http" -> "txWaitResponse", "app" -> appId.toString) >>= { implicit log =>
           req.decode[String] { tx ⇒
-            log.scope("txWaitResponse.id" -> tx) { implicit log ⇒
-              log.debug(s"TendermintRpc broadcastTxSync in txWaitResponse request, id: $id")
-              (for {
-                response <- withTendermintRaw(pool, appId)(
-                  _.broadcastTxSync(tx, id.getOrElse("dontcare"))
-                ).leftMap(RpcTxSyncError(_): TxSyncErrorT)
-                tx <- parseResponse(response)
-                promise <- EitherT.liftF(requestResponder.subscribe(appId, tx.head))
-                response <- EitherT.liftF(promise.get)
-              } yield response).value.flatMap {
-                case Right(queryResponse) =>
-                  queryResponse match {
-                    case OkResponse(_, responseOp) =>
-                      responseOp match {
-                        case Some(response) => Ok(response)
-                        case None           => NotFound("App not found on the node")
-                      }
-                    case RpcErrorResponse(_, r) => rpcErrorToResponse(r)
-                    case PendingResponse(id, r) =>
-                      BadRequest("Too long time to process this query. Start a new session.")
-                  }
-                case Left(err) =>
-                  err match {
-                    case RpcTxSyncError(rpcError) => rpcErrorToResponse(rpcError)
-                  }
-              }
+            WorkersApi.txWaitResponse(pool, requestSubscriber, appId, tx, id).flatMap {
+              case Right(queryResponse) =>
+                queryResponse match {
+                  case OkResponse(_, responseOp) =>
+                    responseOp match {
+                      case Some(response) => Ok(response)
+                      case None           => NotFound("App not found on the node")
+                    }
+                  case RpcErrorResponse(_, r) => rpcErrorToResponse(r)
+                  case PendingResponse(_, _) =>
+                    BadRequest("Too long time to process this query. Start a new session.")
+                }
+              case Left(err) =>
+                err match {
+                  case RpcTxSyncError(rpcError) => rpcErrorToResponse(rpcError)
+                }
             }
           }
         }
     }
-  }
-
-  trait TxSyncResponse
-  trait TxSyncErrorT
-  case class RpcTxSyncError(rpcError: RpcError) extends TxSyncErrorT
-  case class TxSyncError(msg: String, responseBody: String) extends TxSyncErrorT
-
-  def parseResponse[F[_]: Log](responseOp: Option[String])(implicit F: Monad[F]): EitherT[F, TxSyncErrorT, Tx] = {
-    for {
-      _ <- if (responseOp.isEmpty)
-        EitherT.left(F.pure(TxSyncError("There is no worker with such appId", ""): TxSyncErrorT))
-      else EitherT.pure[F, TxSyncErrorT](())
-      response = responseOp.get
-      code <- EitherT
-        .fromEither[F](decode[TxResponseCode](response))
-        .leftMap(err => RpcTxSyncError(RpcBodyMalformed(err)): TxSyncErrorT)
-        .map(_.code)
-      tx <- if (code != 0) EitherT.left(F.pure(TxSyncError("Transaction is not ok", response): TxSyncErrorT))
-      else EitherT.fromOptionF(Tx.readTx(response.getBytes()).value, TxSyncError("", ""): TxSyncErrorT)
-    } yield tx
   }
 }

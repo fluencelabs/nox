@@ -24,10 +24,10 @@ import fluence.codec.PureCodec
 import fluence.kad.http.KademliaHttp
 import fluence.kad.protocol.Node
 import fluence.log.LogFactory
+import fluence.node.workers.subscription.{RequestResponderImpl, RequestSubscriber}
 import fluence.node.workers.{WorkersHttp, WorkersPool}
 import org.http4s.dsl.Http4sDsl
-import org.http4s.{HttpApp, HttpRoutes, Request, Response, Status}
-import org.http4s.implicits._
+import org.http4s.{HttpApp, Request, Response, Status}
 import org.http4s.server.{Router, Server}
 import org.http4s.server.blaze._
 import org.http4s.server.middleware.{CORS, CORSConfig}
@@ -57,33 +57,31 @@ object MasterHttp {
     port: Short,
     agg: StatusAggregator[F],
     pool: WorkersPool[F],
-    kad: KademliaHttp[F, C]
+    kad: KademliaHttp[F, C],
+    requestSubscriber: RequestSubscriber[F]
   )(implicit P: Parallel[F, G], writeNode: PureCodec.Func[Node[C], String]): Resource[F, Server[F]] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
-    for {
-      requestSubscriber <- Resource.liftF(RequestResponder(pool))
-      routes = Router[F](
-        "/status" -> StatusHttp.routes[F, G](agg),
-        "/apps" -> WorkersHttp.routes[F, G](pool, requestSubscriber),
-        "/kad" -> kad.routes()
-      )
-      routesOrNotFound = Kleisli[F, Request[F], Response[F]](
-        a =>
-          routes
-            .run(a)
-            .getOrElse(
-              Response(Status.NotFound)
-                .withEntity(s"Route for ${a.method} ${a.pathInfo} ${a.params.mkString("&")} not found")
-          )
-      )
-      app: HttpApp[F] = CORS[F, F](routesOrNotFound, corsConfig)
-      server <- BlazeServerBuilder[F]
-        .bindHttp(port, host)
-        .withHttpApp(app)
-        .resource
-    } yield server
+    val routes = Router[F](
+      "/status" -> StatusHttp.routes[F, G](agg),
+      "/apps" -> WorkersHttp.routes[F](pool, requestSubscriber),
+      "/kad" -> kad.routes()
+    )
+    val routesOrNotFound = Kleisli[F, Request[F], Response[F]](
+      a =>
+        routes
+          .run(a)
+          .getOrElse(
+            Response(Status.NotFound)
+              .withEntity(s"Route for ${a.method} ${a.pathInfo} ${a.params.mkString("&")} not found")
+        )
+    )
+    val app: HttpApp[F] = CORS[F, F](routesOrNotFound, corsConfig)
 
+    BlazeServerBuilder[F]
+      .bindHttp(port, host)
+      .withHttpApp(app)
+      .resource
   }
 
 }

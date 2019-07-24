@@ -37,6 +37,7 @@ import fluence.effects.kvstore.RocksDBStore
 import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.node.config.storage.RemoteStorageConfig
+import fluence.node.workers.subscription.RequestResponderImpl
 import fluence.node.workers.tendermint.BlockUploading
 
 import scala.concurrent.duration._

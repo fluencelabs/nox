@@ -18,9 +18,10 @@ package fluence.node
 
 import java.nio.ByteBuffer
 
-import cats.data.EitherT
+import cats.data.{EitherT, NonEmptyList}
 import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect._
+import cats.effect.concurrent.{Deferred, Ref}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
@@ -35,6 +36,7 @@ import fluence.log.{Log, LogFactory}
 import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
 import fluence.node.workers.DockerWorkersPool
+import fluence.node.workers.subscription.{RequestResponderImpl, RequestSubscriber, ResponsePromise}
 import fluence.node.workers.tendermint.BlockUploading
 
 import scala.language.higherKinds
@@ -70,6 +72,12 @@ object MasterNodeApp extends IOApp {
               // TODO: use generic decentralized storage
               ipfs = IpfsUploader[IO](masterConf.remoteStorage.ipfs.address, masterConf.remoteStorage.enabled)
               blockUploading = BlockUploading.make(ipfs, appId => KVReceiptStorage.make[IO](appId, conf.rootPath))
+              ref <- Resource.liftF(
+                Ref.of[IO, Map[Long, NonEmptyList[ResponsePromise[IO]]]](
+                  Map.empty[Long, NonEmptyList[ResponsePromise[IO]]]
+                )
+              )
+              requestSubscriber = RequestSubscriber(ref)
               pool <- DockerWorkersPool.make(
                 masterConf.ports.minPort,
                 masterConf.ports.maxPort,
@@ -85,8 +93,8 @@ object MasterNodeApp extends IOApp {
               )
 
               node <- MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
-            } yield (kad.http, node)).use {
-              case (kadHttp, node) ⇒
+            } yield (kad.http, node, requestSubscriber)).use {
+              case (kadHttp, node, requestSubscriber) ⇒
                 (for {
                   _ ← Log.resource[IO].debug(s"eth config ${masterConf.contract}")
                   st ← StatusAggregator.make(masterConf, node)
@@ -95,7 +103,8 @@ object MasterNodeApp extends IOApp {
                     masterConf.httpApi.port.toShort,
                     st,
                     node.pool,
-                    kadHttp
+                    kadHttp,
+                    requestSubscriber
                   )
                 } yield server).use { server =>
                   log.info("Http api server has started on: " + server.address) *>
