@@ -16,7 +16,7 @@
 
 package fluence.node.workers.subscription
 
-import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 
 import scala.language.higherKinds
 
@@ -28,5 +28,5 @@ trait RequestResponder[F[_]] {
    * @param appId
    * @return
    */
-  def pollResponses(appId: Long, tendermintRpc: TendermintRpc[F]): F[Unit]
+  def pollResponses(appId: Long, tendermintRpc: TendermintHttpRpc[F]): F[Unit]
 }

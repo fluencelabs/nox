@@ -24,16 +24,14 @@ import cats.syntax.functor._
 import cats.syntax.list._
 import cats.{Functor, Parallel, Traverse}
 import fluence.effects.tendermint.rpc.{QueryResponseCode, TendermintRpc}
-import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError}
+import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError, TendermintHttpRpc}
 import fluence.log.LogFactory
-import fluence.node.workers.WorkersPool
 import fluence.statemachine.data.Tx
 
 import scala.language.higherKinds
 
 class RequestResponderImpl[F[_]: LogFactory: Functor, G[_]](
   subscribesRef: Ref[F, Map[Long, NonEmptyList[ResponsePromise[F]]]],
-  pool: WorkersPool[F],
   maxBlocksTries: Int = 3
 )(
   implicit F: Concurrent[F],
@@ -61,7 +59,7 @@ class RequestResponderImpl[F[_]: LogFactory: Functor, G[_]](
 
   def queryResponses(appId: Long,
                      promises: NonEmptyList[ResponsePromise[F]],
-                     tendermint: TendermintRpc[F]): F[List[TendermintQueryResponse]] = {
+                     tendermint: TendermintHttpRpc[F]): F[List[TendermintQueryResponse]] = {
     import cats.syntax.parallel._
     LogFactory[F].init("requestResponder" -> "queryResponses", "app" -> appId.toString) >>= { implicit log =>
       promises.map { responsePromise =>
@@ -120,7 +118,7 @@ class RequestResponderImpl[F[_]: LogFactory: Functor, G[_]](
     } yield ()
   }
 
-  def pollResponses(appId: Long, tendermintRpc: TendermintRpc[F]): F[Unit] =
+  def pollResponses(appId: Long, tendermintRpc: TendermintHttpRpc[F]): F[Unit] =
     for {
       subscribed <- getSubscribed(appId)
       _ <- subscribed match {
@@ -136,10 +134,9 @@ class RequestResponderImpl[F[_]: LogFactory: Functor, G[_]](
 
 object RequestResponderImpl {
 
-  def apply[F[_]: LogFactory: Concurrent, G[_]](pool: WorkersPool[F],
-                                                subscribesRef: Ref[F, Map[Long, NonEmptyList[ResponsePromise[F]]]],
+  def apply[F[_]: LogFactory: Concurrent, G[_]](subscribesRef: Ref[F, Map[Long, NonEmptyList[ResponsePromise[F]]]],
                                                 maxBlocksTries: Int = 3)(
     implicit P: Parallel[F, G]
   ): RequestResponderImpl[F, G] =
-    new RequestResponderImpl(subscribesRef, pool, maxBlocksTries)
+    new RequestResponderImpl(subscribesRef, maxBlocksTries)
 }

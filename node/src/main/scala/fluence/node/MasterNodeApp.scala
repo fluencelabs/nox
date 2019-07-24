@@ -21,12 +21,13 @@ import java.nio.ByteBuffer
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect._
-import cats.effect.concurrent.{Deferred, Ref}
+import cats.effect.concurrent.Ref
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
 import fluence.crypto.eddsa.Ed25519
+import fluence.effects.{Backoff, EffectError}
 import fluence.effects.docker.DockerIO
 import fluence.effects.ipfs.IpfsUploader
 import fluence.effects.receipt.storage.KVReceiptStorage
@@ -57,6 +58,8 @@ object MasterNodeApp extends IOApp {
   override def run(args: List[String]): IO[ExitCode] = {
     type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
 
+    implicit val b: Backoff[EffectError] = Backoff.default
+
     MasterConfig
       .load()
       .map(mc ⇒ mc -> LogFactory.forPrintln[IO](mc.logLevel))
@@ -78,11 +81,13 @@ object MasterNodeApp extends IOApp {
                 )
               )
               requestSubscriber = RequestSubscriber(ref)
+              requestResponder = RequestResponderImpl(ref)
               pool <- DockerWorkersPool.make(
                 masterConf.ports.minPort,
                 masterConf.ports.maxPort,
                 conf.rootPath,
-                blockUploading
+                blockUploading,
+                requestResponder
               )
               keyPair <- Resource.liftF(Configuration.readTendermintKeyPair(masterConf.rootPath))
               kad ← KademliaHttpNode.make[IO, IO.Par](

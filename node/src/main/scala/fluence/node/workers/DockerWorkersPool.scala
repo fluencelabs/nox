@@ -32,12 +32,12 @@ import cats.syntax.compose._
 import cats.{Applicative, Apply, Parallel}
 import com.softwaremill.sttp.SttpBackend
 import fluence.codec.PureCodec
+import fluence.effects.{Backoff, EffectError}
 import fluence.effects.docker.DockerIO
 import fluence.effects.kvstore.RocksDBStore
 import fluence.log.Log
 import fluence.node.MakeResource
-import fluence.node.config.storage.RemoteStorageConfig
-import fluence.node.workers.subscription.RequestResponderImpl
+import fluence.node.workers.subscription.RequestResponder
 import fluence.node.workers.tendermint.BlockUploading
 
 import scala.concurrent.duration._
@@ -53,11 +53,13 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
   workers: Ref[F, Map[Long, Worker[F]]],
   // TODO: it's not OK to have blockUploading here, it should be moved somewhere else
   blockUploading: BlockUploading[F],
+  requestResponder: RequestResponder[F],
   healthyWorkerTimeout: FiniteDuration = 1.second
 )(
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
   F: ConcurrentEffect[F],
-  P: Parallel[F, G]
+  P: Parallel[F, G],
+  backoff: Backoff[EffectError]
 ) extends WorkersPool[F] {
 
   /**
@@ -138,11 +140,25 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
       // TODO: pass promise from WorkerP2pConnectivity to blockUploading.start
       // Start uploading tendermint blocks and send receipts to statemachine
       _ <- blockUploading.start(worker)
+      _ <- subscribeForWaitingRequests(worker)
 
       // Finally, register the worker in the pool
       _ ← registeredWorker(worker)
 
     } yield worker
+
+  private def subscribeForWaitingRequests(worker: Worker[F])(implicit log: Log[F]): Resource[F, Unit] = {
+    for {
+      lastHeight <- Resource.liftF(
+        backoff.retry(worker.services.tendermint.consensusHeight(), e => log.error("retrieving consensus height", e))
+      )
+      blockStream = worker.services.tendermint.subscribeNewBlock(lastHeight)
+      pollingStream = blockStream.evalMap { _ =>
+        requestResponder.pollResponses(worker.appId, worker.services.tendermint)
+      }
+      _ <- MakeResource.concurrentStream(pollingStream)
+    } yield ()
+  }
 
   /**
    * Runs a worker concurrently, registers it in the `workers` map
@@ -254,20 +270,22 @@ object DockerWorkersPool {
     minPort: Short,
     maxPort: Short,
     rootPath: Path,
-    blockUploading: BlockUploading[F]
+    blockUploading: BlockUploading[F],
+    requestResponder: RequestResponder[F]
   )(
     implicit
     sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
     sttpBackendStreaming: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
     F: ConcurrentEffect[F],
-    P: Parallel[F, G]
+    P: Parallel[F, G],
+    backoff: Backoff[EffectError]
   ): Resource[F, WorkersPool[F]] =
     for {
       ports ← makePorts(minPort, maxPort, rootPath)
       pool ← Resource.make {
         for {
           workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
-        } yield new DockerWorkersPool[F, G](ports, workers, blockUploading)
+        } yield new DockerWorkersPool[F, G](ports, workers, blockUploading, requestResponder)
       }(_.stopAll())
     } yield pool: WorkersPool[F]
 
