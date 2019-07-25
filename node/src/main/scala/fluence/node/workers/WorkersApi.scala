@@ -24,7 +24,7 @@ import cats.syntax.flatMap._
 import fluence.effects.tendermint.rpc.{TendermintRpc, TxResponseCode}
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError}
 import fluence.log.Log
-import fluence.node.workers.subscription.{RequestSubscriber, TendermintQueryResponse}
+import fluence.node.workers.subscription.{RequestResponder, TendermintQueryResponse}
 import fluence.statemachine.data.Tx
 import io.circe.parser.decode
 
@@ -74,7 +74,7 @@ object WorkersApi {
     }
 
   def txWaitResponse[F[_]: Monad, G[_]](pool: WorkersPool[F],
-                                        requestSubscriber: RequestSubscriber[F],
+                                        requestResponder: RequestResponder[F],
                                         appId: Long,
                                         tx: String,
                                         id: Option[String])(
@@ -88,7 +88,7 @@ object WorkersApi {
         ).leftMap(RpcTxSyncError(_): TxSyncErrorT)
         tx <- checkResponseParseRequest(response, tx)
         response <- EitherT.liftF[F, TxSyncErrorT, TendermintQueryResponse](
-          requestSubscriber.subscribe(appId, tx.head).flatMap(_.get)
+          requestResponder.subscribe(appId, tx.head).flatMap(_.get)
         )
       } yield response).value
     }

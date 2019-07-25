@@ -40,7 +40,7 @@ import fluence.node.config.{FluenceContractConfig, MasterConfig, NodeConfig}
 import fluence.node.eth.FluenceContract
 import fluence.node.eth.FluenceContractTestOps._
 import fluence.node.status.{MasterStatus, StatusAggregator}
-import fluence.node.workers.subscription.{RequestSubscriber, ResponsePromise}
+import fluence.node.workers.subscription.RequestResponderImpl
 import fluence.node.workers.tendermint.ValidatorPublicKey
 import org.scalatest.{Timer => _, _}
 import scodec.bits.ByteVector
@@ -86,10 +86,7 @@ class MasterNodeSpec
     .unsafeRunSync()
     .copy(rootPath = Files.createTempDirectory("masternodespec").toString)
 
-  val ref = Ref.unsafe[IO, Map[Long, NonEmptyList[ResponsePromise[IO]]]](
-    Map.empty[Long, NonEmptyList[ResponsePromise[IO]]]
-  )
-  val requestSubscriber = RequestSubscriber(ref)
+  val requestResponder = RequestResponderImpl().unsafeRunSync()
 
   private def nodeResource(port: Short = 5789, seeds: Seq[String] = Seq.empty)(
     implicit log: Log[IO]
@@ -120,7 +117,7 @@ class MasterNodeSpec
       node ← MasterNode.make[IO, UriContact](masterConf, nodeConf, pool, kad.kademlia)
 
       agg ← StatusAggregator.make[IO](masterConf, node)
-      _ ← MasterHttp.make("127.0.0.1", port, agg, node.pool, kad.http, requestSubscriber)
+      _ ← MasterHttp.make("127.0.0.1", port, agg, node.pool, kad.http, requestResponder)
       _ <- Log.resource[IO].info(s"Started MasterHttp")
     } yield (sttpB, node)
 

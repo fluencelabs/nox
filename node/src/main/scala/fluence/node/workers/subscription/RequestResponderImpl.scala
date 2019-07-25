@@ -18,7 +18,7 @@ package fluence.node.workers.subscription
 
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.{Concurrent, Resource, Timer}
-import cats.effect.concurrent.Ref
+import cats.effect.concurrent.{Deferred, Ref}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.list._
@@ -44,6 +44,15 @@ class RequestResponderImpl[F[_]: Functor: Timer, G[_]](
 ) extends RequestResponder[F] {
 
   import io.circe.parser._
+
+  def subscribe(appId: Long, id: Tx.Head): F[Deferred[F, TendermintQueryResponse]] =
+    for {
+      responsePromise <- Deferred[F, TendermintQueryResponse]
+      _ <- subscribesRef.update { m =>
+        val newPromise = ResponsePromise(id, responsePromise)
+        m.updated(appId, m.get(appId).map(_ :+ newPromise).getOrElse(NonEmptyList(newPromise, Nil)))
+      }
+    } yield responsePromise
 
   def parseResponse(id: Tx.Head, response: String): EitherT[F, RpcError, TendermintQueryResponse] = {
     for {
@@ -158,10 +167,14 @@ class RequestResponderImpl[F[_]: Functor: Timer, G[_]](
 object RequestResponderImpl {
 
   def apply[F[_]: LogFactory: Concurrent: Timer, G[_]](
-    subscribesRef: Ref[F, Map[Long, NonEmptyList[ResponsePromise[F]]]],
     maxBlocksTries: Int = 3
   )(
     implicit P: Parallel[F, G]
-  ): RequestResponderImpl[F, G] =
-    new RequestResponderImpl(subscribesRef, maxBlocksTries)
+  ): F[RequestResponderImpl[F, G]] =
+    Ref
+      .of[F, Map[Long, NonEmptyList[ResponsePromise[F]]]](
+        Map.empty[Long, NonEmptyList[ResponsePromise[F]]]
+      )
+      .map(r => new RequestResponderImpl(r, maxBlocksTries))
+
 }

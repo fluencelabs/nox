@@ -13,8 +13,8 @@ import fluence.node.config.DockerConfig
 import fluence.node.eth.state.{App, Cluster, StorageRef, StorageType, WorkerPeer}
 import fluence.node.workers.{TxSyncErrorT, WorkerParams, WorkersApi, WorkersPool}
 import fluence.node.workers.subscription.{
+  RequestResponder,
   RequestResponderImpl,
-  RequestSubscriber,
   ResponsePromise,
   TendermintQueryResponse
 }
@@ -37,8 +37,7 @@ class RequestResponseSpec extends WordSpec with Matchers with BeforeAndAfterAll 
     val ref = Ref.unsafe[IO, Map[Long, NonEmptyList[ResponsePromise[IO]]]](
       Map.empty[Long, NonEmptyList[ResponsePromise[IO]]]
     )
-    val requestSubscriber = RequestSubscriber(ref)
-    val requestResponder = RequestResponderImpl[IO, IO.Par](ref, 3)
+    val requestResponder = RequestResponderImpl[IO, IO.Par]().unsafeRunSync()
 
     val rootPath = Paths.get("/tmp")
 
@@ -57,7 +56,7 @@ class RequestResponseSpec extends WordSpec with Matchers with BeforeAndAfterAll 
       pool <- Resource.liftF(TestWorkersPool.some[IO])
       _ <- Resource.liftF(pool.run(appId, IO(params)))
       _ <- requestResponder.subscribeForWaitingRequests(pool.get(1).unsafeRunSync().get)
-    } yield (pool, requestSubscriber, log, ioShift)
+    } yield (pool, requestResponder, log, ioShift, ioTimer)
   }
 
   def tx(nonce: Int) = {
@@ -68,7 +67,7 @@ class RequestResponseSpec extends WordSpec with Matchers with BeforeAndAfterAll 
         |""".stripMargin
   }
 
-  def requests(to: Int, pool: WorkersPool[IO], requestSubscriber: RequestSubscriber[IO])(
+  def requests(to: Int, pool: WorkersPool[IO], requestSubscriber: RequestResponder[IO])(
     implicit P: Parallel[IO, IO.Par],
     log: Log[IO]
   ): IO[List[Either[TxSyncErrorT, TendermintQueryResponse]]] = {
@@ -84,10 +83,17 @@ class RequestResponseSpec extends WordSpec with Matchers with BeforeAndAfterAll 
     "sync their workers with contract clusters" in {
 
       start().use {
-        case (pool, requestSubscriber, log, ioShift) =>
+        case (pool, requestSubscriber, log, ioShift, ioTimer) =>
           implicit val io = ioShift
+          implicit val timer = ioTimer
           implicit val l = log
-          requests(20, pool, requestSubscriber).map(r => println(r.mkString("\n")))
+          for {
+            _ <- requests(40, pool, requestSubscriber).map(r => println(r.count(_.isRight)))
+            _ <- IO.sleep(700.millis)
+            _ <- requests(30, pool, requestSubscriber).map(r => println(r.count(_.isRight)))
+            _ <- IO.sleep(500.millis)
+            _ <- requests(70, pool, requestSubscriber).map(r => println(r.count(_.isRight)))
+          } yield ()
       }.unsafeRunSync()
     }
   }

@@ -24,7 +24,7 @@ import fluence.codec.PureCodec
 import fluence.kad.http.KademliaHttp
 import fluence.kad.protocol.Node
 import fluence.log.LogFactory
-import fluence.node.workers.subscription.{RequestResponderImpl, RequestSubscriber}
+import fluence.node.workers.subscription.RequestResponder
 import fluence.node.workers.{WorkersHttp, WorkersPool}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{HttpApp, Request, Response, Status}
@@ -58,13 +58,13 @@ object MasterHttp {
     agg: StatusAggregator[F],
     pool: WorkersPool[F],
     kad: KademliaHttp[F, C],
-    requestSubscriber: RequestSubscriber[F]
+    requestResponder: RequestResponder[F]
   )(implicit P: Parallel[F, G], writeNode: PureCodec.Func[Node[C], String]): Resource[F, Server[F]] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
     val routes = Router[F](
       "/status" -> StatusHttp.routes[F, G](agg),
-      "/apps" -> WorkersHttp.routes[F](pool, requestSubscriber),
+      "/apps" -> WorkersHttp.routes[F](pool, requestResponder),
       "/kad" -> kad.routes()
     )
     val routesOrNotFound = Kleisli[F, Request[F], Response[F]](

@@ -30,13 +30,7 @@ import fluence.effects.tendermint.rpc.http.{
   RpcRequestFailed
 }
 import fluence.log.{Log, LogFactory}
-import fluence.node.workers.subscription.{
-  OkResponse,
-  PendingResponse,
-  RequestResponder,
-  RequestSubscriber,
-  RpcErrorResponse
-}
+import fluence.node.workers.subscription.{OkResponse, PendingResponse, RequestResponder, RpcErrorResponse}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{HttpRoutes, Response}
 
@@ -103,7 +97,7 @@ object WorkersHttp {
    * @param pool Workers pool to get workers from
    * @param dsl Http4s DSL to build routes with
    */
-  def routes[F[_]: Sync: LogFactory: Concurrent](pool: WorkersPool[F], requestSubscriber: RequestSubscriber[F])(
+  def routes[F[_]: Sync: LogFactory: Concurrent](pool: WorkersPool[F], requestResponder: RequestResponder[F])(
     implicit dsl: Http4sDsl[F]
   ): HttpRoutes[F] = {
     import dsl._
@@ -148,7 +142,7 @@ object WorkersHttp {
       case req @ POST -> Root / LongVar(appId) / "txWaitResponse" :? QueryId(id) ⇒
         LogFactory[F].init("http" -> "txWaitResponse", "app" -> appId.toString) >>= { implicit log =>
           req.decode[String] { tx ⇒
-            WorkersApi.txWaitResponse(pool, requestSubscriber, appId, tx, id).flatMap {
+            WorkersApi.txWaitResponse(pool, requestResponder, appId, tx, id).flatMap {
               case Right(queryResponse) =>
                 queryResponse match {
                   case OkResponse(_, responseOp) =>

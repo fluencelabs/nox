@@ -17,11 +17,15 @@
 package fluence.node.workers.subscription
 
 import cats.effect.Resource
+import cats.effect.concurrent.Deferred
 import fluence.node.workers.Worker
+import fluence.statemachine.data.Tx
 
 import scala.language.higherKinds
 
 trait RequestResponder[F[_]] {
+
+  def subscribe(appId: Long, id: Tx.Head): F[Deferred[F, TendermintQueryResponse]]
 
   /**
    * Gets all request subscribes for appId and trying to poll service for responses.
