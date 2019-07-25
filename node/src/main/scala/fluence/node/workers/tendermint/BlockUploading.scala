@@ -79,6 +79,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
     } yield ()
   }
 
+  // TODO write docs
   private def pushReceipts(
     appId: Long,
     lastManifestReceipt: MVar[F, Option[Receipt]],
@@ -151,6 +152,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
     MakeResource.concurrentStream(receipts, name = "BlockUploadingStream")
   }
 
+  // TODO write docs
   private def uploadBlock(
     block: BlockUpload,
     appId: Long,
@@ -159,6 +161,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
     onManifestUploaded: (BlockManifest, Receipt) ⇒ F[Unit]
   )(implicit backoff: Backoff[EffectError], log: Log[F]): F[Receipt] =
     log.scope("block" -> block.block.header.height.toString, "upload block" -> "") { log =>
+    // TODO write docs; why do we need this?
       def logError[E <: EffectError](e: E) = log.error("", e)
 
       def upload(b: BlockUpload, r: Option[Receipt]) =
