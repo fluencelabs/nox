@@ -74,6 +74,7 @@ object MasterNodeApp extends IOApp {
                 masterConf.ports.minPort,
                 masterConf.ports.maxPort,
                 conf.rootPath,
+                masterConf.logLevel,
                 blockUploading
               )
               keyPair <- Resource.liftF(Configuration.readTendermintKeyPair(masterConf.rootPath))

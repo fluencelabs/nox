@@ -243,19 +243,21 @@ def install_docker():
         run("""curl -L "https://github.com/docker/compose/releases/download/1.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose """)
         run("chmod +x /usr/local/bin/docker-compose")
 
-# example: fab -H 207.154.210.151 --set secret=deadf00ddeadf00ddeadf00ddeadf00ddeadf00ddeadf00ddeadf00ddeadf00d ipfs_bootstrapper
+# example: fab -H 46.101.151.125 --set secret=deadf00ddeadf00ddeadf00ddeadf00ddeadf00ddeadf00ddeadf00ddeadf00d ipfs_bootstrapper
 def ipfs_bootstrapper():
-    # require env.secret to be passed via --set
-    require("secret")
+    with hide('running', 'output'):
+        # require env.secret to be passed via --set
+        require("secret")
 
-    put('ipfs/ipfs-bootstrapper.yml', './')
-    run('CLUSTER_SECRET=%s docker-compose -f ./ipfs-bootstrapper.yml up -d' % env.secret)
+        put('ipfs/ipfs-bootstrapper.yml', './')
+        run('CLUSTER_SECRET=%s docker-compose -f ./ipfs-bootstrapper.yml up -d' % env.secret)
 
 # example: fab -x 207.154.210.151 --set bootstrapper=207.154.210.151,secret=deadf00ddeadf00ddeadf00ddeadf00ddeadf00ddeadf00ddeadf00ddeadf00d,environment=stage ipfs_nodes
 @parallel
 def ipfs_nodes():
-    # require env.secret & env.bootstrapper to be passed via --set
-    require("secret","bootstrapper")
+    with hide('running', 'output'):
+        # require env.secret & env.bootstrapper to be passed via --set
+        require("secret","bootstrapper")
 
-    put('ipfs/ipfs-node.yml', './')
-    run('CLUSTER_SECRET=%s IPFS_BOOTSTRAPPER_ADDR=%s docker-compose -f ./ipfs-node.yml up -d' % (env.secret, env.bootstrapper))
+        put('ipfs/ipfs-node.yml', './')
+        run('CLUSTER_SECRET=%s IPFS_BOOTSTRAPPER_ADDR=%s docker-compose -f ./ipfs-node.yml up -d' % (env.secret, env.bootstrapper))

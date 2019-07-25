@@ -27,6 +27,7 @@ import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.log.Log
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
+import fluence.log.LogLevel.LogLevel
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
 import fluence.node.workers.tendermint.DockerTendermint
@@ -57,7 +58,9 @@ case class DockerWorkerServices[F[_]] private (
 object DockerWorkerServices {
   val ControlRpcPort: Short = 26662
 
-  private def dockerCommand(params: WorkerParams, network: DockerNetwork): DockerParams.DaemonParams = {
+  private def dockerCommand(params: WorkerParams,
+                            network: DockerNetwork,
+                            logLevel: LogLevel): DockerParams.DaemonParams = {
     import params._
 
     // Set worker's Xmx to mem * 0.75, so there's a gap between JVM heap and cgroup memory limit
@@ -66,6 +69,7 @@ object DockerWorkerServices {
     DockerParams
       .build()
       .option("-e", s"""CODE_DIR=$vmCodePath""")
+      .option("-e", s"LOG_LEVEL=$logLevel")
       .option("-e", s"TM_RPC_PORT=${DockerTendermint.RpcPort}")
       .option("-e", s"TM_RPC_HOST=${DockerTendermint.containerName(params)}")
       .option("-e", internalMem.map(mem => s"WORKER_MEMORY_LIMIT=$mem"))
@@ -113,7 +117,8 @@ object DockerWorkerServices {
   def make[F[_]: DockerIO: Timer: ConcurrentEffect: Log](
     params: WorkerParams,
     p2pPort: Short,
-    stopTimeout: Int
+    stopTimeout: Int,
+    logLevel: LogLevel
   )(
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
     F: Concurrent[F]
@@ -121,7 +126,7 @@ object DockerWorkerServices {
     for {
       network ← makeNetwork(params)
 
-      worker ← DockerIO[F].run(dockerCommand(params, network), stopTimeout)
+      worker ← DockerIO[F].run(dockerCommand(params, network, logLevel), stopTimeout)
 
       tendermint ← DockerTendermint.make[F](params, p2pPort, containerName(params), network, stopTimeout)
 

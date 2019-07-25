@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package fluence.node.config
-import fluence.log.Log
-import io.circe.{Decoder, Encoder}
+package fluence.log
+
+import fluence.log
 
 import scala.language.implicitConversions
 
@@ -30,6 +30,8 @@ object LogLevel extends Enumeration {
   val DEBUG = Value("DEBUG")
   val TRACE = Value("TRACE")
 
+  def fromString(s: String): Option[log.LogLevel.Value] = values.find(_.toString.equalsIgnoreCase(s))
+
   implicit def toLogLevel(l: LogLevel): Log.Level = {
     l match {
       case `OFF`   => Log.Off
@@ -40,7 +42,4 @@ object LogLevel extends Enumeration {
       case `TRACE` => Log.Trace
     }
   }
-
-  implicit val dec: Decoder[LogLevel.Value] = Decoder.enumDecoder(LogLevel)
-  implicit val enc: Encoder[LogLevel.Value] = Encoder.enumEncoder(LogLevel)
 }

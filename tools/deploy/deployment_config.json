@@ -1,6 +1,5 @@
 {
   "stage": {
-    "ipfs": "http://ipfs.fluence.one:5001",
     "ethereum_ip": "geth.fluence.one",
     "contract": "0xe01690f60E08207Fa29F9ef98fA35e7fB7A12A96",
     "nodes": {
