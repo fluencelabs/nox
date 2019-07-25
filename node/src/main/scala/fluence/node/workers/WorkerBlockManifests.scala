@@ -30,7 +30,7 @@ import fluence.log.Log
 import scala.language.higherKinds
 
 /**
- * Worker's block manifests service
+ * Service for Worker's block manifests storage, replication, and retrieval
  *
  * @param receiptStorage Receipt storage
  * @param lastManifestRef Last stored manifest, could be empty

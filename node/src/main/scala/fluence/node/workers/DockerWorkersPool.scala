@@ -53,7 +53,8 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
   // TODO: it's not OK to have blockUploading here, it should be moved somewhere else
   blockUploading: BlockUploading[F],
   rootPath: Path,
-  healthyWorkerTimeout: FiniteDuration = 1.second
+  healthyWorkerTimeout: FiniteDuration = 1.second,
+  stopTimeoutSeconds: Int = 5
 )(
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
   F: ConcurrentEffect[F],
@@ -183,7 +184,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
             // stop the old worker
             _ ← oldWorker.fold(().pure[F])(stop)
 
-            _ ← runWorker(p2pPort, params, 5, rootPath)
+            _ ← runWorker(p2pPort, params, stopTimeoutSeconds, rootPath)
 
           } yield
             if (oldWorker.isDefined) WorkersPool.Restarting
