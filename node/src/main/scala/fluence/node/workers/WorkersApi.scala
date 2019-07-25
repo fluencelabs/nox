@@ -86,7 +86,7 @@ object WorkersApi {
         response <- withTendermintRaw(pool, appId)(
           _.broadcastTxSync(tx, id.getOrElse("dontcare"))
         ).leftMap(RpcTxSyncError(_): TxSyncErrorT)
-        tx <- parseResponse(response)
+        tx <- checkResponseParseRequest(response, tx)
         response <- EitherT.liftF[F, TxSyncErrorT, TendermintQueryResponse](
           requestSubscriber.subscribe(appId, tx.head).flatMap(_.get)
         )
@@ -105,8 +105,9 @@ object WorkersApi {
         .map(_.fold[Either[RpcError, Option[String]]](Right(None))(_.map(Some(_))))
     )
 
-  private def parseResponse[F[_]: Log](
-    responseOp: Option[String]
+  private def checkResponseParseRequest[F[_]: Log](
+    responseOp: Option[String],
+    request: String
   )(implicit F: Monad[F]): EitherT[F, TxSyncErrorT, Tx] = {
     for {
       _ <- if (responseOp.isEmpty)
@@ -118,7 +119,9 @@ object WorkersApi {
         .leftMap(err => RpcTxSyncError(RpcBodyMalformed(err)): TxSyncErrorT)
         .map(_.code)
       tx <- if (code != 0) EitherT.left(F.pure(TxSyncError("Transaction is not ok", response): TxSyncErrorT))
-      else EitherT.fromOptionF(Tx.readTx(response.getBytes()).value, TxSyncError("", ""): TxSyncErrorT)
+      else
+        EitherT
+          .fromOptionF(Tx.readTx(request.getBytes()).value, TxSyncError("Cannot parse tx", response): TxSyncErrorT)
     } yield tx
   }
 }

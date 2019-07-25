@@ -21,16 +21,16 @@ import java.nio.file.{Files, Paths}
 import java.util.Base64
 
 import cats.Apply
-import cats.data.EitherT
+import cats.data.{EitherT, NonEmptyList}
 import cats.effect._
+import cats.effect.concurrent.Ref
 import cats.syntax.apply._
 import cats.syntax.functor._
-import cats.syntax.flatMap._
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
 import fluence.EitherTSttpBackend
 import fluence.crypto.eddsa.Ed25519
-import fluence.effects.Backoff
+import fluence.effects.{Backoff, EffectError}
 import fluence.effects.ethclient.EthClient
 import fluence.kad.conf.{AdvertizeConf, JoinConf, KademliaConfig, RoutingConf}
 import fluence.kad.contact.UriContact
@@ -40,6 +40,7 @@ import fluence.node.config.{FluenceContractConfig, MasterConfig, NodeConfig}
 import fluence.node.eth.FluenceContract
 import fluence.node.eth.FluenceContractTestOps._
 import fluence.node.status.{MasterStatus, StatusAggregator}
+import fluence.node.workers.subscription.{RequestSubscriber, ResponsePromise}
 import fluence.node.workers.tendermint.ValidatorPublicKey
 import org.scalatest.{Timer => _, _}
 import scodec.bits.ByteVector
@@ -56,7 +57,7 @@ class MasterNodeSpec
 
   implicit private val logFactory = LogFactory.forPrintln[IO](Log.Trace)
 
-  implicit private val backoff = Backoff.default
+  implicit private val backoff: Backoff[EffectError] = Backoff.default
 
   type Sttp = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
 
@@ -84,6 +85,11 @@ class MasterNodeSpec
     .load()
     .unsafeRunSync()
     .copy(rootPath = Files.createTempDirectory("masternodespec").toString)
+
+  val ref = Ref.unsafe[IO, Map[Long, NonEmptyList[ResponsePromise[IO]]]](
+    Map.empty[Long, NonEmptyList[ResponsePromise[IO]]]
+  )
+  val requestSubscriber = RequestSubscriber(ref)
 
   private def nodeResource(port: Short = 5789, seeds: Seq[String] = Seq.empty)(
     implicit log: Log[IO]
@@ -114,7 +120,7 @@ class MasterNodeSpec
       node ← MasterNode.make[IO, UriContact](masterConf, nodeConf, pool, kad.kademlia)
 
       agg ← StatusAggregator.make[IO](masterConf, node)
-      _ ← MasterHttp.make("127.0.0.1", port, agg, node.pool, kad.http)
+      _ ← MasterHttp.make("127.0.0.1", port, agg, node.pool, kad.http, requestSubscriber)
       _ <- Log.resource[IO].info(s"Started MasterHttp")
     } yield (sttpB, node)
 

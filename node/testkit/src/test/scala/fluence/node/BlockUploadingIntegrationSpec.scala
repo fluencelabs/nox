@@ -53,10 +53,11 @@ import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerParams, WorkerServices}
 import fluence.statemachine.AbciService.TxResponse
 import fluence.statemachine.control.{BlockReceipt, ControlSignals, ReceiptType}
+import fluence.statemachine.data.{Tx, TxCode}
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
-import fluence.statemachine.{AbciService, TestTendermintRpc, Tx, TxCode}
+import fluence.statemachine.{AbciService, TestTendermintRpc}
 import fs2.concurrent.Queue
 import io.circe.Json
 import io.circe.parser.parse

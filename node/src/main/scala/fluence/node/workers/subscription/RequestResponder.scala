@@ -16,7 +16,8 @@
 
 package fluence.node.workers.subscription
 
-import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
+import cats.effect.Resource
+import fluence.node.workers.Worker
 
 import scala.language.higherKinds
 
@@ -25,8 +26,7 @@ trait RequestResponder[F[_]] {
   /**
    * Gets all request subscribes for appId and trying to poll service for responses.
    *
-   * @param appId
    * @return
    */
-  def pollResponses(appId: Long, tendermintRpc: TendermintHttpRpc[F]): F[Unit]
+  def subscribeForWaitingRequests(worker: Worker[F]): Resource[F, Unit]
 }

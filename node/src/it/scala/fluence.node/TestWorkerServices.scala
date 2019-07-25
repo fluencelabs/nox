@@ -55,7 +55,22 @@ object TestWorkerServices {
           EitherT.pure(0)
 
         override def broadcastTxSync(tx: String, id: String): EitherT[F, RpcError, String] =
-          EitherT.pure("")
+          EitherT.pure("""
+                         |{
+                         |
+                         |
+                         |    "error": "",
+                         |    "result": {
+                         |        "hash": "2B8EC32BA2579B3B8606E42C06DE2F7AFA2556EF",
+                         |        "log": "",
+                         |        "data": "",
+                         |        "code": "0"
+                         |    },
+                         |    "id": "",
+                         |    "jsonrpc": "2.0"
+                         |
+                         |}
+                         |""".stripMargin)
 
         override def query(
           path: String,
@@ -63,7 +78,26 @@ object TestWorkerServices {
           height: Long,
           prove: Boolean,
           id: String
-        ): EitherT[F, RpcError, String] = EitherT.pure("")
+        ): EitherT[F, RpcError, String] = EitherT.pure("""
+                                                         |{
+                                                         |
+                                                         |
+                                                         |    "error": "",
+                                                         |    "result": {
+                                                         |        "response": {
+                                                         |            "log": "exists",
+                                                         |            "height": "0",
+                                                         |            "value": "61626364",
+                                                         |            "key": "61626364",
+                                                         |            "index": "-1",
+                                                         |            "code": "0"
+                                                         |        }
+                                                         |    },
+                                                         |    "id": "",
+                                                         |    "jsonrpc": "2.0"
+                                                         |
+                                                         |}
+                                                         |""".stripMargin)
       }
 
       override def control: ControlRpc[F] = ???

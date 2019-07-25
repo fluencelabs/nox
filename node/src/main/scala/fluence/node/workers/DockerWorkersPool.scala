@@ -140,25 +140,12 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
       // TODO: pass promise from WorkerP2pConnectivity to blockUploading.start
       // Start uploading tendermint blocks and send receipts to statemachine
       _ <- blockUploading.start(worker)
-      _ <- subscribeForWaitingRequests(worker)
+      _ <- requestResponder.subscribeForWaitingRequests(worker)
 
       // Finally, register the worker in the pool
       _ ← registeredWorker(worker)
 
     } yield worker
-
-  private def subscribeForWaitingRequests(worker: Worker[F])(implicit log: Log[F]): Resource[F, Unit] = {
-    for {
-      lastHeight <- Resource.liftF(
-        backoff.retry(worker.services.tendermint.consensusHeight(), e => log.error("retrieving consensus height", e))
-      )
-      blockStream = worker.services.tendermint.subscribeNewBlock(lastHeight)
-      pollingStream = blockStream.evalMap { _ =>
-        requestResponder.pollResponses(worker.appId, worker.services.tendermint)
-      }
-      _ <- MakeResource.concurrentStream(pollingStream)
-    } yield ()
-  }
 
   /**
    * Runs a worker concurrently, registers it in the `workers` map

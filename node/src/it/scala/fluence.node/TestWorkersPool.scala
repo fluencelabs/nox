@@ -89,12 +89,12 @@ class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]],
 object TestWorkersPool {
 
   def some[F[_]: Concurrent: Timer]: F[TestWorkersPool[F]] = {
-    val builder = TestWorkerServices.workerServiceTestRequestResponse[F]
+    val builder = TestWorkerServices.workerServiceTestRequestResponse[F] _
     MVar.of(Map.empty[Long, Worker[F]]).map(new TestWorkersPool(_, builder))
   }
 
   def apply[F[_]: Concurrent]: F[TestWorkersPool[F]] = {
-    val builder = TestWorkerServices.emptyWorkerService[F]
+    val builder = TestWorkerServices.emptyWorkerService[F] _
     MVar.of(Map.empty[Long, Worker[F]]).map(new TestWorkersPool(_, builder))
   }
 

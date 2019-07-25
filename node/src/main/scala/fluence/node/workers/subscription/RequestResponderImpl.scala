@@ -17,25 +17,30 @@
 package fluence.node.workers.subscription
 
 import cats.data.{EitherT, NonEmptyList}
-import cats.effect.Concurrent
+import cats.effect.{Concurrent, Resource, Timer}
 import cats.effect.concurrent.Ref
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.list._
 import cats.{Functor, Parallel, Traverse}
+import fluence.effects.{Backoff, EffectError}
 import fluence.effects.tendermint.rpc.{QueryResponseCode, TendermintRpc}
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError, TendermintHttpRpc}
-import fluence.log.LogFactory
+import fluence.log.{Log, LogFactory}
+import fluence.node.MakeResource
+import fluence.node.workers.Worker
 import fluence.statemachine.data.Tx
 
 import scala.language.higherKinds
 
-class RequestResponderImpl[F[_]: LogFactory: Functor, G[_]](
+class RequestResponderImpl[F[_]: Functor: Timer, G[_]](
   subscribesRef: Ref[F, Map[Long, NonEmptyList[ResponsePromise[F]]]],
   maxBlocksTries: Int = 3
 )(
   implicit F: Concurrent[F],
-  P: Parallel[F, G]
+  P: Parallel[F, G],
+  logFactory: LogFactory[F],
+  backoff: Backoff[EffectError] = Backoff.default[EffectError]
 ) extends RequestResponder[F] {
 
   import io.circe.parser._
@@ -118,24 +123,44 @@ class RequestResponderImpl[F[_]: LogFactory: Functor, G[_]](
     } yield ()
   }
 
-  def pollResponses(appId: Long, tendermintRpc: TendermintHttpRpc[F]): F[Unit] =
+  def pollResponses(appId: Long, tendermintRpc: TendermintHttpRpc[F]): F[Unit] = {
+    println(s"polling $appId")
     for {
       subscribed <- getSubscribed(appId)
+      _ = println(s"subscribed $subscribed")
       _ <- subscribed match {
         case Some(responsePromises) =>
           queryResponses(appId, responsePromises, tendermintRpc).flatMap(updateSubscribesByResult(appId, _))
         case None => F.unit
       }
     } yield ()
+  }
 
   def getSubscribed(appId: Long): F[Option[NonEmptyList[ResponsePromise[F]]]] =
     subscribesRef.get.map(_.get(appId))
+
+  override def subscribeForWaitingRequests(worker: Worker[F]): Resource[F, Unit] =
+    for {
+      implicit0(log: Log[F]) <- Resource.liftF(logFactory.init(("requestResponder", "subscribeForWaitingRequests")))
+      _ = println("hi")
+      lastHeight <- Resource.liftF(
+        backoff.retry(worker.services.tendermint.consensusHeight(), e => log.error("retrieving consensus height", e))
+      )
+      _ = println("last height: " + lastHeight)
+      blockStream = worker.services.tendermint.subscribeNewBlock(lastHeight)
+      pollingStream = blockStream.evalMap { _ =>
+        pollResponses(worker.appId, worker.services.tendermint)
+      }
+      _ <- MakeResource.concurrentStream(pollingStream)
+    } yield ()
 }
 
 object RequestResponderImpl {
 
-  def apply[F[_]: LogFactory: Concurrent, G[_]](subscribesRef: Ref[F, Map[Long, NonEmptyList[ResponsePromise[F]]]],
-                                                maxBlocksTries: Int = 3)(
+  def apply[F[_]: LogFactory: Concurrent: Timer, G[_]](
+    subscribesRef: Ref[F, Map[Long, NonEmptyList[ResponsePromise[F]]]],
+    maxBlocksTries: Int = 3
+  )(
     implicit P: Parallel[F, G]
   ): RequestResponderImpl[F, G] =
     new RequestResponderImpl(subscribesRef, maxBlocksTries)
