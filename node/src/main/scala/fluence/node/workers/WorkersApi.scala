@@ -30,13 +30,20 @@ import io.circe.parser.decode
 
 import scala.language.higherKinds
 
-trait TxSyncResponse
-trait TxSyncErrorT
-case class RpcTxSyncError(rpcError: RpcError) extends TxSyncErrorT
-case class TxSyncError(msg: String, responseBody: String) extends TxSyncErrorT
+trait TxAwaitError
+case class RpcTxAwaitError(rpcError: RpcError) extends TxAwaitError
+case class TxSyncError(msg: String, responseBody: String) extends TxAwaitError
 
 object WorkersApi {
 
+  /**
+   * Sends `query` request to tendermint.
+   *
+   * @param pool list of started workers
+   * @param appId app id for which the request is intended
+   * @param data body of the request
+   * @param path id of a response
+   */
   def query[F[_]: Monad](
     pool: WorkersPool[F],
     appId: Long,
@@ -50,6 +57,12 @@ object WorkersApi {
         _.withServices(_.tendermint)(_.query(path, data.getOrElse(""), id = id.getOrElse("dontcare")).value)
       )
 
+  /**
+   * Gets a status of a tendermint node.
+   *
+   * @param pool list of started workers
+   * @param appId app id for which the request is intended
+   */
   def status[F[_]: Monad](pool: WorkersPool[F],
                           appId: Long)(implicit log: Log[F]): F[Option[Either[RpcError, String]]] =
     log.trace(s"TendermintRpc status") *>
@@ -58,10 +71,23 @@ object WorkersApi {
         _.withServices(_.tendermint)(_.status.value)
       )
 
+  /**
+   * Gets a p2p port of tendermint.
+   *
+   * @param pool list of started workers
+   * @param appId app id for which the request is intended
+   */
   def p2pPort[F[_]: Apply](pool: WorkersPool[F], appId: Long)(implicit log: Log[F]): F[Option[Worker[F]]] =
     log.debug(s"Worker p2pPort") *>
       pool.get(appId)
 
+  /**
+   * Sends transaction to tendermint.
+   *
+   * @param pool list of started workers
+   * @param appId app id for which the request is intended
+   * @param tx transaction to process
+   */
   def txSync[F[_]: Monad](pool: WorkersPool[F], appId: Long, tx: String, id: Option[String])(
     implicit log: Log[F]
   ): F[Option[Either[RpcError, String]]] =
@@ -73,24 +99,49 @@ object WorkersApi {
         )
     }
 
+  /**
+   * Sends the transaction to tendermint and then query for a response after each block.
+   *
+   * @param pool list of started workers
+   * @param requestResponder service that creates request subscriptions and completes them after a response is ready
+   * @param appId app id for which the request is intended
+   * @param tx transaction to process
+   */
   def txWaitResponse[F[_]: Monad, G[_]](pool: WorkersPool[F],
                                         requestResponder: RequestResponder[F],
                                         appId: Long,
                                         tx: String,
                                         id: Option[String])(
     implicit log: Log[F]
-  ): F[Either[TxSyncErrorT, TendermintQueryResponse]] =
-    log.scope("txWaitResponse.id" -> tx) { implicit log ⇒
-      log.debug(s"TendermintRpc broadcastTxSync in txWaitResponse request, id: $id")
+  ): F[Either[TxAwaitError, TendermintQueryResponse]] =
+    log.scope("txWaitResponse.appId" -> appId.toString) { implicit log ⇒
       (for {
-        response <- withTendermintRaw(pool, appId)(
+        _ <- EitherT.right(log.debug(s"TendermintRpc broadcastTxSync in txWaitResponse request"))
+        txSyncResponse <- withTendermintRaw(pool, appId)(
           _.broadcastTxSync(tx, id.getOrElse("dontcare"))
-        ).leftMap(RpcTxSyncError(_): TxSyncErrorT)
-        tx <- checkResponseParseRequest(response, tx)
-        response <- EitherT.liftF[F, TxSyncErrorT, TendermintQueryResponse](
+        ).leftMap(RpcTxAwaitError(_): TxAwaitError)
+        _ <- checkTxResponse(txSyncResponse)
+        tx <- EitherT
+          .fromOptionF(Tx.readTx(tx.getBytes()).value, TxSyncError("Cannot parse tx", txSyncResponse.get): TxAwaitError)
+        response <- waitResponse(requestResponder, appId, tx)
+      } yield response).value
+    }
+
+  private def waitResponse[F[_]: Monad](requestResponder: RequestResponder[F], appId: Long, tx: Tx)(
+    implicit log: Log[F]
+  ): EitherT[F, TxAwaitError, TendermintQueryResponse] =
+    log.scope("txWaitResponse.requestId" -> tx.head.toString) { implicit log =>
+      for {
+        _ <- EitherT.right(
+          log.debug(s"TendermintRpc broadcastTxSync is ok. Id: ${tx.head}. Waiting for response")
+        )
+        response <- EitherT.liftF[F, TxAwaitError, TendermintQueryResponse](
           requestResponder.subscribe(appId, tx.head).flatMap(_.get)
         )
-      } yield response).value
+        _ <- EitherT.right(
+          log.debug(s"Response received")
+        )
+      } yield response
     }
 
   private def withTendermintRaw[F[_]: Monad](
@@ -105,23 +156,20 @@ object WorkersApi {
         .map(_.fold[Either[RpcError, Option[String]]](Right(None))(_.map(Some(_))))
     )
 
-  private def checkResponseParseRequest[F[_]: Log](
-    responseOp: Option[String],
-    request: String
-  )(implicit F: Monad[F]): EitherT[F, TxSyncErrorT, Tx] = {
+  private def checkTxResponse[F[_]: Log](
+    responseOp: Option[String]
+  )(implicit F: Monad[F]): EitherT[F, TxAwaitError, Unit] = {
     for {
       _ <- if (responseOp.isEmpty)
-        EitherT.left(F.pure(TxSyncError("There is no worker with such appId", ""): TxSyncErrorT))
-      else EitherT.pure[F, TxSyncErrorT](())
+        EitherT.left(F.pure(TxSyncError("There is no worker with such appId", ""): TxAwaitError))
+      else EitherT.pure[F, TxAwaitError](())
       response = responseOp.get
       code <- EitherT
         .fromEither[F](decode[TxResponseCode](response))
-        .leftMap(err => RpcTxSyncError(RpcBodyMalformed(err)): TxSyncErrorT)
+        .leftMap(err => RpcTxAwaitError(RpcBodyMalformed(err)): TxAwaitError)
         .map(_.code)
-      tx <- if (code != 0) EitherT.left(F.pure(TxSyncError("Transaction is not ok", response): TxSyncErrorT))
-      else
-        EitherT
-          .fromOptionF(Tx.readTx(request.getBytes()).value, TxSyncError("Cannot parse tx", response): TxSyncErrorT)
-    } yield tx
+      _ <- if (code != 0) EitherT.left(F.pure(TxSyncError("Transaction is not ok", response): TxAwaitError))
+      else EitherT.right[TxAwaitError](F.pure(()))
+    } yield ()
   }
 }

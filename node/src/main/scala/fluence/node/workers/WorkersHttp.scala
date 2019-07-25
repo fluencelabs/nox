@@ -145,18 +145,15 @@ object WorkersHttp {
             WorkersApi.txWaitResponse(pool, requestResponder, appId, tx, id).flatMap {
               case Right(queryResponse) =>
                 queryResponse match {
-                  case OkResponse(_, responseOp) =>
-                    responseOp match {
-                      case Some(response) => Ok(response)
-                      case None           => NotFound("App not found on the node")
-                    }
+                  case OkResponse(_, response) =>
+                    Ok(response)
                   case RpcErrorResponse(_, r) => rpcErrorToResponse(r)
                   case PendingResponse(_, _) =>
                     BadRequest("Too long time to process this query. Start a new session.")
                 }
               case Left(err) =>
                 err match {
-                  case RpcTxSyncError(rpcError) => rpcErrorToResponse(rpcError)
+                  case RpcTxAwaitError(rpcError) => rpcErrorToResponse(rpcError)
                 }
             }
           }

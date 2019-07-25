@@ -19,7 +19,23 @@ package fluence.node.workers.subscription
 import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.statemachine.data.Tx
 
+// possible variants of responses from tendermint's `query` method
 trait TendermintQueryResponse
-case class OkResponse(id: Tx.Head, r: Option[String]) extends TendermintQueryResponse
-case class RpcErrorResponse(id: Tx.Head, r: RpcError) extends TendermintQueryResponse
-case class PendingResponse(id: Tx.Head, r: String) extends TendermintQueryResponse
+
+/**
+ * Response that is ok for client. Master node must return it right away.
+ *
+ */
+case class OkResponse(id: Tx.Head, body: String) extends TendermintQueryResponse
+
+/**
+ * Transport error in Tendermint RPC.
+ *
+ */
+case class RpcErrorResponse(id: Tx.Head, body: RpcError) extends TendermintQueryResponse
+
+/**
+ * Response is not ready yet in state machine.
+ *
+ */
+case class PendingResponse(id: Tx.Head, body: String) extends TendermintQueryResponse

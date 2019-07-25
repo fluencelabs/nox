@@ -11,7 +11,7 @@ import fluence.effects.docker.params.{DockerImage, DockerLimits}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
 import fluence.node.eth.state.{App, Cluster, StorageRef, StorageType, WorkerPeer}
-import fluence.node.workers.{TxSyncErrorT, WorkerParams, WorkersApi, WorkersPool}
+import fluence.node.workers.{TxAwaitError, WorkerParams, WorkersApi, WorkersPool}
 import fluence.node.workers.subscription.{
   RequestResponder,
   RequestResponderImpl,
@@ -70,7 +70,7 @@ class RequestResponseSpec extends WordSpec with Matchers with BeforeAndAfterAll 
   def requests(to: Int, pool: WorkersPool[IO], requestSubscriber: RequestResponder[IO])(
     implicit P: Parallel[IO, IO.Par],
     log: Log[IO]
-  ): IO[List[Either[TxSyncErrorT, TendermintQueryResponse]]] = {
+  ): IO[List[Either[TxAwaitError, TendermintQueryResponse]]] = {
     import cats.instances.list._
     import cats.syntax.parallel._
 

@@ -69,7 +69,7 @@ class RequestResponderImpl[F[_]: Functor: Timer, G[_]](
       lastHeight <- Resource.liftF(
         backoff.retry(worker.services.tendermint.consensusHeight(), e => log.error("retrieving consensus height", e))
       )
-      _ = println("last height: " + lastHeight)
+      _ <- Resource.liftF(log.info("Creating subscription for tendermint blocks"))
       blockStream = worker.services.tendermint.subscribeNewBlock(lastHeight)
       pollingStream = blockStream.evalMap { _ =>
         pollResponses(worker.appId, worker.services.tendermint)
@@ -92,7 +92,7 @@ class RequestResponderImpl[F[_]: Functor: Timer, G[_]](
       // if code is not 0, 3 or 4 - it is an tendermint error, so we need to return it as is
       // 3, 4 - is a code for pending result
       if (code == 0 || (code != 3 && code != 4)) {
-        OkResponse(id, Option(response))
+        OkResponse(id, response)
       } else {
         PendingResponse(id, response)
       }
@@ -113,7 +113,7 @@ class RequestResponderImpl[F[_]: Functor: Timer, G[_]](
       log.trace(s"Polling ${promises.size} promises") *>
         promises.map { responsePromise =>
           tendermint
-            .query(responsePromise.id.toString, "", id = "dontcare")
+            .query(responsePromise.id.toString, id = "dontcare")
             .flatMap(parseResponse(responsePromise.id, _))
             .leftMap(err => (responsePromise.id, err))
         }.map(_.value)
