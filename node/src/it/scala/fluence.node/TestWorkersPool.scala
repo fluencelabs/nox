@@ -23,12 +23,13 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.applicative._
 import fluence.effects.docker.DockerContainerStopped
+import fluence.effects.receipt.storage.KVReceiptStorage
+import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.TendermintRpc
-import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.Log
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus, WorkerStatus}
-import fluence.node.workers.{Worker, WorkerParams, WorkerServices, WorkersPool}
+import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices, WorkersPool}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -47,6 +48,10 @@ class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]]) 
       case m ⇒
         for {
           p ← params
+
+          bref ← MVar.empty[F, BlockManifest]
+          bstore ← KVReceiptStorage.makeInMemory(appId).allocated.map(_._1)
+
           w ← Worker
             .make[F](
               appId,
@@ -64,6 +69,9 @@ class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]]) 
                     ServiceStatus(Left(DockerContainerStopped(0)), HttpCheckNotPerformed("dumb")),
                     ServiceStatus(Left(DockerContainerStopped(0)), HttpCheckNotPerformed("dumb"))
                   ).pure[F]
+
+                override def blockManifests: WorkerBlockManifests[F] =
+          new WorkerBlockManifests(bstore, bref)
               },
               identity,
               for {

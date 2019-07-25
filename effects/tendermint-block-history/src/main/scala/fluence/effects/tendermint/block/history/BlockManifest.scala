@@ -47,9 +47,12 @@ case class BlockManifest(
 ) {
 
   // TODO: Avoid using JSON since it's not a stable serialization. Maybe use protobuf? Or something custom.
-  def jsonBytes(): ByteVector = {
+  def jsonBytes(): ByteVector =
+    ByteVector(jsonString.getBytes())
+
+  lazy val jsonString: String = {
     import io.circe.syntax._
-    ByteVector((this: BlockManifest).asJson.noSpaces.getBytes())
+    (this: BlockManifest).asJson.noSpaces
   }
 }
 

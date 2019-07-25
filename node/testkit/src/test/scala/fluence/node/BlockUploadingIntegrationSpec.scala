@@ -21,7 +21,7 @@ import java.nio.charset.Charset
 import java.nio.file.Paths
 
 import cats.data.{EitherT, OptionT}
-import cats.effect.concurrent.Ref
+import cats.effect.concurrent.{MVar, Ref}
 import cats.effect.{IO, Resource}
 import cats.instances.list._
 import cats.syntax.apply._
@@ -37,7 +37,7 @@ import fluence.effects.docker.params.{DockerImage, DockerLimits}
 import fluence.effects.ipfs.{IpfsData, IpfsUploader}
 import fluence.effects.receipt.storage.{ReceiptStorage, ReceiptStorageError}
 import fluence.effects.tendermint.block.data.{Base64ByteVector, Block}
-import fluence.effects.tendermint.block.history.Receipt
+import fluence.effects.tendermint.block.history.{BlockManifest, Receipt}
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestErrored}
 import fluence.effects.tendermint.rpc.websocket.TestTendermintWebsocketRpc
@@ -50,7 +50,7 @@ import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 import fluence.node.workers.status.WorkerStatus
 import fluence.node.workers.tendermint.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
-import fluence.node.workers.{Worker, WorkerParams, WorkerServices}
+import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
 import fluence.statemachine.AbciService.TxResponse
 import fluence.statemachine.control.{BlockReceipt, ControlSignals, ReceiptType}
 import fluence.statemachine.error.StateMachineError
@@ -135,14 +135,14 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
                                   blocksQ: fs2.concurrent.Queue[IO, Block],
                                   storedReceipts: Seq[Receipt] = Nil): Resource[IO, Unit] = {
     def receiptStorage(id: Long) =
-      Resource.pure[IO, ReceiptStorage[IO]](new ReceiptStorage[IO] {
+      new ReceiptStorage[IO] {
         override val appId: Long = id
 
         override def put(height: Long, receipt: Receipt): EitherT[IO, ReceiptStorageError, Unit] = EitherT.pure(())
         override def get(height: Long): EitherT[IO, ReceiptStorageError, Option[Receipt]] = EitherT.pure(None)
         override def retrieve(from: Option[Long], to: Option[Long]): fs2.Stream[IO, (Long, Receipt)] =
           fs2.Stream.emits(storedReceipts.map(r => r.height -> r))
-      })
+      }
 
     val ipfs = new IpfsUploader[IO] {
       override def upload[A: IpfsData](data: A)(implicit log: Log[IO]): EitherT[IO, StoreError, ByteVector] = {
@@ -150,7 +150,7 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
       }
     }
 
-    val workerServices = new WorkerServices[IO] {
+    val workerServices: WorkerServices[IO] = new WorkerServices[IO] {
       override def tendermint: TendermintRpc[IO] = new TestTendermintWebsocketRpc[IO] {
         override def subscribeNewBlock(
           lastKnownHeight: Long
@@ -162,12 +162,15 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
 
       override def status(timeout: FiniteDuration): IO[WorkerStatus] =
         IO.raiseError(new NotImplementedError("def status worker status"))
+
+      override def blockManifests: WorkerBlockManifests[IO] =
+        new WorkerBlockManifests[IO](receiptStorage(appId), MVar.empty[IO, BlockManifest].unsafeRunSync)
     }
 
     val worker: Resource[IO, Worker[IO]] =
       Worker.make[IO](appId, p2pPort, description, workerServices, (_: IO[Unit]) => IO.unit, IO.unit, IO.unit)
 
-    worker.flatMap(BlockUploading.make[IO](ipfs, receiptStorage).start)
+    worker.flatMap(BlockUploading[IO](ipfs).start)
   }
 
   private def singleBlock(height: Long, txs: List[ByteVector]) = {

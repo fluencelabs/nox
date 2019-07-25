@@ -20,7 +20,7 @@ import java.net.InetAddress
 import java.nio.file.Paths
 
 import cats.data.EitherT
-import cats.effect.concurrent.Ref
+import cats.effect.concurrent.{MVar, Ref}
 import cats.effect.{IO, Resource}
 import cats.syntax.functor._
 import fluence.EitherTSttpBackend
@@ -42,7 +42,7 @@ import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 import fluence.node.workers.status.WorkerStatus
 import fluence.node.workers.tendermint.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
-import fluence.node.workers.{Worker, WorkerParams, WorkerServices}
+import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
 import fluence.statemachine.control.ReceiptType
 import io.circe.Json
 import io.circe.parser.parse
@@ -107,14 +107,14 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
       .liftF(Ref.of[IO, UploadingState](UploadingState()))
       .map { state =>
         def receiptStorage(id: Long) =
-          Resource.pure[IO, ReceiptStorage[IO]](new ReceiptStorage[IO] {
+          new ReceiptStorage[IO] {
             override val appId: Long = id
 
             override def put(height: Long, receipt: Receipt): EitherT[IO, ReceiptStorageError, Unit] = EitherT.pure(())
             override def get(height: Long): EitherT[IO, ReceiptStorageError, Option[Receipt]] = EitherT.pure(None)
             override def retrieve(from: Option[Long], to: Option[Long]): fs2.Stream[IO, (Long, Receipt)] =
               fs2.Stream.emits(storedReceipts.map(r => r.height -> r))
-          })
+          }
 
         val ipfs = new IpfsUploader[IO] {
           override def upload[A: IpfsData](data: A)(implicit log: Log[IO]): EitherT[IO, StoreError, ByteVector] = {
@@ -141,16 +141,19 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
 
           override def status(timeout: FiniteDuration): IO[WorkerStatus] =
             IO.raiseError(new NotImplementedError("def status worker status"))
+
+          override def blockManifests: WorkerBlockManifests[IO] =
+            new WorkerBlockManifests[IO](receiptStorage(appId), MVar.empty[IO, BlockManifest].unsafeRunSync())
         }
 
-        (state, ipfs, workerServices, receiptStorage _)
+        (state, ipfs, workerServices)
       }
       .flatMap {
-        case (state, ipfs, workerServices, receiptStorage) =>
+        case (state, ipfs, workerServices) =>
           val worker: Resource[IO, Worker[IO]] =
             Worker.make[IO](appId, p2pPort, description, workerServices, (_: IO[Unit]) => IO.unit, IO.unit, IO.unit)
 
-          worker.flatMap(BlockUploading.make[IO](ipfs, receiptStorage).start).map(_ => state)
+          worker.flatMap(BlockUploading[IO](ipfs).start).map(_ => state)
       }
   }
 

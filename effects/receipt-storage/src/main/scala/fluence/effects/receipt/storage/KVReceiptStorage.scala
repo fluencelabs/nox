@@ -4,11 +4,11 @@ import java.nio.ByteBuffer
 import java.nio.file.Path
 
 import cats.data.EitherT
-import cats.effect.{ContextShift, LiftIO, Resource, Sync}
+import cats.effect.{Concurrent, ContextShift, LiftIO, Resource, Sync}
 import cats.syntax.flatMap._
 import fluence.codec
 import fluence.codec.{CodecError, PureCodec}
-import fluence.effects.kvstore.{KVStore, RocksDBStore}
+import fluence.effects.kvstore.{KVStore, MVarKVStore, RocksDBStore}
 import fluence.effects.tendermint.block.history.Receipt
 import cats.syntax.either._
 import fluence.log.Log
@@ -48,8 +48,6 @@ class KVReceiptStorage[F[_]: Sync](val appId: Long, store: KVStore[F, Long, Rece
 }
 
 object KVReceiptStorage {
-  import cats.syntax.compose._
-  import cats.syntax.flatMap._
 
   private val ReceiptStoragePath = "receipt-storage"
 
@@ -67,4 +65,7 @@ object KVReceiptStorage {
       path <- Resource.liftF(Sync[F].catchNonFatal(storagePath.resolve(ReceiptStoragePath).resolve(appId.toString)))
       store <- RocksDBStore.make[F, Long, Receipt](path.toAbsolutePath.toString)
     } yield new KVReceiptStorage[F](appId, store)
+
+  def makeInMemory[F[_]: Concurrent](appId: Long): Resource[F, ReceiptStorage[F]] =
+    MVarKVStore.make[F, Long, Receipt]().map(s ⇒ new KVReceiptStorage[F](appId, s))
 }

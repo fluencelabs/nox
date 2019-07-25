@@ -29,7 +29,7 @@ import com.softwaremill.sttp.SttpBackend
 import fluence.effects.ipfs.IpfsUploader
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.data.Block
-import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
+import fluence.effects.tendermint.block.history.{BlockHistory, BlockManifest, Receipt}
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
@@ -51,8 +51,7 @@ private[tendermint] case class BlockUpload(block: Block,
  * @param history Description of how to store blocks
  */
 class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
-  history: BlockHistory[F],
-  receiptStorage: (Long) => Resource[F, ReceiptStorage[F]]
+  history: BlockHistory[F]
 ) {
 
   /**
@@ -67,15 +66,15 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
     worker: Worker[F]
   )(implicit log: Log[F], backoff: Backoff[EffectError] = Backoff.default): Resource[F, Unit] = {
     for {
-      receiptStorage <- receiptStorage(worker.appId)
       // Storage for a previous manifest
       lastManifestReceipt <- Resource.liftF(MVar.of[F, Option[Receipt]](None))
       _ <- pushReceipts(
         worker.appId,
         lastManifestReceipt,
-        receiptStorage,
+        worker.services.blockManifests.receiptStorage,
         worker.services.tendermint,
-        worker.services.control
+        worker.services.control,
+        worker.services.blockManifests.onUploaded
       )
     } yield ()
   }
@@ -85,9 +84,10 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
     lastManifestReceipt: MVar[F, Option[Receipt]],
     storage: ReceiptStorage[F],
     rpc: TendermintRpc[F],
-    control: ControlRpc[F]
+    control: ControlRpc[F],
+    onManifestUploaded: (BlockManifest, Receipt) ⇒ F[Unit]
   )(implicit backoff: Backoff[EffectError], F: Applicative[F], log: Log[F]) = {
-    def upload(b: BlockUpload) = uploadBlock(b, appId, lastManifestReceipt, storage)
+    def upload(b: BlockUpload) = uploadBlock(b, appId, lastManifestReceipt, storage, onManifestUploaded)
 
     def sendReceipt(receipt: Receipt, rType: ReceiptType.Value)(implicit log: Log[F]) = backoff.retry(
       control.sendBlockReceipt(receipt, rType),
@@ -155,13 +155,17 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
     block: BlockUpload,
     appId: Long,
     lastManifestReceipt: MVar[F, Option[Receipt]],
-    receiptStorage: ReceiptStorage[F]
+    receiptStorage: ReceiptStorage[F],
+    onManifestUploaded: (BlockManifest, Receipt) ⇒ F[Unit]
   )(implicit backoff: Backoff[EffectError], log: Log[F]): F[Receipt] =
     log.scope("block" -> block.block.header.height.toString, "upload block" -> "") { log =>
       def logError[E <: EffectError](e: E) = log.error("", e)
 
       def upload(b: BlockUpload, r: Option[Receipt]) =
-        backoff.retry(history.upload(b.block, b.vmHash, r, b.emptyReceipts.map(_.toList).getOrElse(Nil))(log), logError)
+        backoff.retry(
+          history.upload(b.block, b.vmHash, r, b.emptyReceipts.map(_.toList).getOrElse(Nil), onManifestUploaded)(log),
+          logError
+        )
 
       def storeReceipt(height: Long, receipt: Receipt) = backoff.retry(receiptStorage.put(height, receipt), logError)
 
@@ -183,14 +187,13 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
 
 object BlockUploading {
 
-  def make[F[_]: Log: ConcurrentEffect: Timer: ContextShift: Clock](
-    ipfs: IpfsUploader[F],
-    receiptStorage: (Long) => Resource[F, ReceiptStorage[F]]
+  def apply[F[_]: Log: ConcurrentEffect: Timer: ContextShift: Clock](
+    ipfs: IpfsUploader[F]
   )(
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
     backoff: Backoff[EffectError] = Backoff.default
   ): BlockUploading[F] = {
     val history = new BlockHistory[F](ipfs)
-    new BlockUploading[F](history, receiptStorage)
+    new BlockUploading[F](history)
   }
 }
