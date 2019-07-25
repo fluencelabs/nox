@@ -27,7 +27,7 @@ import fluence.statemachine.data.Tx
 
 import scala.language.higherKinds
 
-class RequestSubscriber[F[_]: LogFactory: Functor: Concurrent](
+class RequestSubscriber[F[_]: Functor: Concurrent](
   subscribesRef: Ref[F, Map[Long, NonEmptyList[ResponsePromise[F]]]]
 ) {
 
@@ -43,7 +43,7 @@ class RequestSubscriber[F[_]: LogFactory: Functor: Concurrent](
 
 object RequestSubscriber {
 
-  def apply[F[_]: LogFactory: Functor: Concurrent](
+  def apply[F[_]: Functor: Concurrent](
     subscribesRef: Ref[F, Map[Long, NonEmptyList[ResponsePromise[F]]]]
   ): RequestSubscriber[F] = new RequestSubscriber(subscribesRef)
 }

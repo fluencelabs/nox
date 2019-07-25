@@ -30,6 +30,7 @@ import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
 import fluence.EitherTSttpBackend
 import fluence.crypto.eddsa.Ed25519
+import fluence.effects.Backoff
 import fluence.effects.ethclient.EthClient
 import fluence.kad.conf.{AdvertizeConf, JoinConf, KademliaConfig, RoutingConf}
 import fluence.kad.contact.UriContact
@@ -40,7 +41,7 @@ import fluence.node.eth.FluenceContract
 import fluence.node.eth.FluenceContractTestOps._
 import fluence.node.status.{MasterStatus, StatusAggregator}
 import fluence.node.workers.tendermint.ValidatorPublicKey
-import org.scalatest.{Timer ⇒ _, _}
+import org.scalatest.{Timer => _, _}
 import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -54,6 +55,8 @@ class MasterNodeSpec
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
   implicit private val logFactory = LogFactory.forPrintln[IO](Log.Trace)
+
+  implicit private val backoff = Backoff.default
 
   type Sttp = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
 

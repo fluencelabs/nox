@@ -73,8 +73,6 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
   val configTemplate = ConfigTemplate[IO](rootPath, tmConfig).unsafeRunSync()
   val params = WorkerParams(app, rootPath, rootPath, None, dockerConfig, tmDockerConfig, configTemplate)
 
-  val dockerIO = DockerIO.make[IO]()
-
   case class UploadingState(uploads: Int = 0,
                             vmHashGet: Seq[Long] = Nil,
                             receipts: Seq[(Receipt, ReceiptType.Value)] = Nil,

@@ -16,9 +16,9 @@
 
 package fluence.node
 
-import cats.Applicative
+import cats.{Applicative, Id}
 import cats.effect.concurrent.MVar
-import cats.effect.{Concurrent, Resource}
+import cats.effect.{Concurrent, Resource, Timer}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.applicative._
@@ -33,7 +33,9 @@ import fluence.node.workers.{Worker, WorkerParams, WorkerServices, WorkersPool}
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
-class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]]) extends WorkersPool[F] {
+class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]],
+                                        servicesBuilder: Long => WorkerServices[F])
+    extends WorkersPool[F] {
 
   /**
    * Run or restart a worker
@@ -52,19 +54,7 @@ class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]]) 
               appId,
               0: Short,
               s"Test worker for appId $appId",
-              new WorkerServices[F] {
-                override def tendermint: TendermintRpc[F] = ???
-
-                override def control: ControlRpc[F] = ???
-
-                override def status(timeout: FiniteDuration): F[WorkerStatus] =
-                  WorkerStatus(
-                    isHealthy = true,
-                    appId = appId,
-                    ServiceStatus(Left(DockerContainerStopped(0)), HttpCheckNotPerformed("dumb")),
-                    ServiceStatus(Left(DockerContainerStopped(0)), HttpCheckNotPerformed("dumb"))
-                  ).pure[F]
-              },
+              servicesBuilder(appId),
               identity,
               for {
                 ws ← workers.take
@@ -98,8 +88,15 @@ class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]]) 
 
 object TestWorkersPool {
 
-  def apply[F[_]: Concurrent]: F[TestWorkersPool[F]] =
-    MVar.of(Map.empty[Long, Worker[F]]).map(new TestWorkersPool(_))
+  def some[F[_]: Concurrent: Timer]: F[TestWorkersPool[F]] = {
+    val builder = TestWorkerServices.workerServiceTestRequestResponse[F]
+    MVar.of(Map.empty[Long, Worker[F]]).map(new TestWorkersPool(_, builder))
+  }
+
+  def apply[F[_]: Concurrent]: F[TestWorkersPool[F]] = {
+    val builder = TestWorkerServices.emptyWorkerService[F]
+    MVar.of(Map.empty[Long, Worker[F]]).map(new TestWorkersPool(_, builder))
+  }
 
   def make[F[_]: Concurrent]: Resource[F, TestWorkersPool[F]] =
     Resource.liftF(apply[F])
