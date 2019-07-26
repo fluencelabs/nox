@@ -133,7 +133,6 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
         case (Right(_), block)                           => F.pure(block.asRight)
       }
 
-    // TODO: send these receipts to Kademlia
     // Receipts from the new blocks (as opposed to stored receipts)
     val newReceipts = grouped.flatMap {
       // Emit receipts for the empty blocks

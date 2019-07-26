@@ -57,15 +57,26 @@ object KVReceiptStorage {
       _.bytesCompact().asRight
     )
 
-  implicit val longBytesCodec: PureCodec[Long, Array[Byte]] =
+  private implicit val longBytesCodec: PureCodec[Long, Array[Byte]] =
     PureCodec.liftB(ByteBuffer.allocate(8).putLong(_).array(), ByteBuffer.wrap(_).getLong)
 
+  /**
+   * Makes a persistent, RocksDB-backed ReceiptStorage
+   *
+   * @param appId Application ID
+   * @param storagePath Data is stored in storagePath/`ReceiptStoragePath`/`appId`
+   */
   def make[F[_]: Sync: LiftIO: ContextShift: Log](appId: Long, storagePath: Path): Resource[F, ReceiptStorage[F]] =
     for {
       path <- Resource.liftF(Sync[F].catchNonFatal(storagePath.resolve(ReceiptStoragePath).resolve(appId.toString)))
       store <- RocksDBStore.make[F, Long, Receipt](path.toAbsolutePath.toString)
     } yield new KVReceiptStorage[F](appId, store)
 
+  /**
+   * Makes an in-memory (not persistent) ReceiptStorage, suitable for testing.
+   *
+   * @param appId Application ID
+   */
   def makeInMemory[F[_]: Concurrent](appId: Long): Resource[F, ReceiptStorage[F]] =
     MVarKVStore.make[F, Long, Receipt]().map(s ⇒ new KVReceiptStorage[F](appId, s))
 }
