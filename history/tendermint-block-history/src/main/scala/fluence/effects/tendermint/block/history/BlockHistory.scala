@@ -18,8 +18,8 @@ package fluence.effects.tendermint.block.history
 
 import cats.data.EitherT
 import cats.instances.option._
-import cats.{Monad, Traverse}
-import fluence.effects.ipfs.{IpfsClient, IpfsUploader}
+import cats.{Applicative, Monad, Traverse}
+import fluence.effects.ipfs.IpfsUploader
 import fluence.effects.ipfs.IpfsData._
 import fluence.effects.tendermint.block.data.Block
 import fluence.log.Log
@@ -44,13 +44,15 @@ class BlockHistory[F[_]: Monad](ipfs: IpfsUploader[F]) {
    * @param vmHash Hash of the VM state after this block
    * @param previousManifestReceipt Receipt of the manifest for previous block
    * @param emptyBlocksReceipts Receipts for empty blocks preceding the current `block`
+   * @param onManifestUploaded Hook to trigger once a new manifest is uploaded
    * @return Block manifest receipt
    */
   def upload(
     block: Block,
     vmHash: ByteVector,
     previousManifestReceipt: Option[Receipt],
-    emptyBlocksReceipts: List[Receipt]
+    emptyBlocksReceipts: List[Receipt],
+    onManifestUploaded: (BlockManifest, Receipt) ⇒ F[Unit] = (_, _) ⇒ Applicative[F].unit
   )(implicit log: Log[F]): EitherT[F, BlockHistoryError, Receipt] = {
     val txs = block.data.txs.filter(_.nonEmpty).map(_.map(_.bv))
     val votes = block.last_commit.precommits.flatten
@@ -59,9 +61,11 @@ class BlockHistory[F[_]: Monad](ipfs: IpfsUploader[F]) {
       txsReceipt <- Traverse[Option].sequence(txs.map(uploadTxs(height, _)))
       manifest = BlockManifest(vmHash, previousManifestReceipt, txsReceipt, block.header, votes, emptyBlocksReceipts)
       receipt <- uploadManifest(height, manifest)
+      _ ← EitherT.right(onManifestUploaded(manifest, receipt))
     } yield receipt
   }
 
+  // TODO write docs
   private def uploadTxs(height: Long,
                         txs: List[ByteVector])(implicit log: Log[F]): EitherT[F, BlockHistoryError, Receipt] =
     ipfs
@@ -69,6 +73,7 @@ class BlockHistory[F[_]: Monad](ipfs: IpfsUploader[F]) {
       .map(Receipt(height, _))
       .leftMap(se => TxsUploadingError(height, txs.size, se): BlockHistoryError)
 
+  // TODO write docs; why do we need height here?
   private def uploadManifest(height: Long,
                              manifest: BlockManifest)(implicit log: Log[F]): EitherT[F, BlockHistoryError, Receipt] =
     ipfs

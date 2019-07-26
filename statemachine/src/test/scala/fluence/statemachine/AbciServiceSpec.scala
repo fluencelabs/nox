@@ -29,7 +29,7 @@ import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestErrored}
 import fluence.log.{Log, LogFactory}
-import fluence.statemachine.control.{BlockReceipt, ReceiptType, VmHash}
+import fluence.statemachine.control.{BlockReceipt, VmHash}
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
@@ -110,11 +110,11 @@ class AbciServiceSpec extends WordSpec with Matchers {
     }
   }
 
-  def receipt(h: Long, t: ReceiptType.Value) = BlockReceipt(Receipt(h, ByteVector.fromLong(h)), t)
+  def receipt(h: Long) = BlockReceipt(Receipt(h, ByteVector.fromLong(h)))
 
   "Abci Service" should {
     "retrieve receipts and store vmHash in order" in {
-      val receipts = List(receipt(3, ReceiptType.New))
+      val receipts = List(receipt(3))
       abciService(receipts).flatMap {
         case (abci, ref, abciState, txCounter) =>
           val makeCommit = abci.commit
@@ -132,9 +132,9 @@ class AbciServiceSpec extends WordSpec with Matchers {
     "work with stored receipts" in {
       // Receipts are retrieved only for non-empty blocks (and first 2 blocks always empty)
       val receipts = List(
-        receipt(2, ReceiptType.New),
-        receipt(3, ReceiptType.New),
-        receipt(5, ReceiptType.New)
+        receipt(2),
+        receipt(3),
+        receipt(5)
       )
 
       abciService(receipts).flatMap {
