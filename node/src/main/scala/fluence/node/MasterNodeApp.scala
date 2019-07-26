@@ -105,7 +105,7 @@ object MasterNodeApp extends IOApp {
       conf.ports.maxPort,
       rootPath,
       // TODO: use generic decentralized storage for block uploading instead of IpfsUploader
-      BlockUploading.make(ipfsUploader(conf.remoteStorage), appId => KVReceiptStorage.make[IO](appId, rootPath))
+      BlockUploading(ipfsUploader(conf.remoteStorage))
     )
 
   private def kademlia(rootPath: Path, conf: KademliaConfig)(implicit sttp: STTP, log: Log[IO]) =
