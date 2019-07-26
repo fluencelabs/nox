@@ -73,7 +73,7 @@ object KVReceiptStorage {
     } yield new KVReceiptStorage[F](appId, store)
 
   /**
-   * Makes an in-memory (not persistent) ReceiptStorage, suitable for testing.
+   * Makes an in-memory (not persistent) ReceiptStorage, suitable for testing
    *
    * @param appId Application ID
    */

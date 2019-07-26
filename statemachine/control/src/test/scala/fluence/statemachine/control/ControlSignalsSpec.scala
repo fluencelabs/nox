@@ -32,7 +32,7 @@ class ControlSignalsSpec extends WordSpec with Matchers with OptionValues {
   implicit private val shift = IO.contextShift(global)
   implicit private val log = LogFactory.forPrintln[IO]().init("control signals spec", level = Log.Error).unsafeRunSync()
 
-  def receipt(height: Long) = BlockReceipt(Receipt(height, ByteVector.fromLong(height)), ReceiptType.New)
+  def receipt(height: Long) = BlockReceipt(Receipt(height, ByteVector.fromLong(height)))
 
   def checkReceipts(receipts: List[BlockReceipt], targetHeight: Long) = {
     ControlSignals

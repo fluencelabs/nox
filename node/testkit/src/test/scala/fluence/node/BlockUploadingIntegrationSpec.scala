@@ -52,7 +52,7 @@ import fluence.node.workers.tendermint.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
 import fluence.statemachine.AbciService.TxResponse
-import fluence.statemachine.control.{BlockReceipt, ControlSignals, ReceiptType}
+import fluence.statemachine.control.{BlockReceipt, ControlSignals}
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
@@ -105,8 +105,8 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
   def control(): Resource[IO, (TestControlRpc[IO], ControlSignals[IO])] = {
     ControlSignals[IO]().map { signals =>
       val controlRpc = new TestControlRpc[IO] {
-        override def sendBlockReceipt(receipt: Receipt, rType: ReceiptType.Value): EitherT[IO, ControlRpcError, Unit] =
-          EitherT.liftF(signals.enqueueReceipt(BlockReceipt(receipt, rType)))
+        override def sendBlockReceipt(receipt: Receipt): EitherT[IO, ControlRpcError, Unit] =
+          EitherT.liftF(signals.enqueueReceipt(BlockReceipt(receipt)))
 
         override def getVmHash(height: Long): EitherT[IO, ControlRpcError, ByteVector] =
           EitherT.liftF(signals.getVmHash(height).map(_.hash))

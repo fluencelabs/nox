@@ -20,7 +20,7 @@ import java.net.InetAddress
 import java.nio.file.Paths
 
 import cats.data.EitherT
-import cats.effect.concurrent.{MVar, Ref}
+import cats.effect.concurrent.Ref
 import cats.effect.{IO, Resource}
 import cats.syntax.functor._
 import cats.syntax.apply._
@@ -44,7 +44,6 @@ import fluence.node.workers.status.WorkerStatus
 import fluence.node.workers.tendermint.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
-import fluence.statemachine.control.ReceiptType
 import io.circe.Json
 import io.circe.parser.parse
 import org.scalatest.{Matchers, OptionValues, WordSpec}
@@ -78,7 +77,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
 
   case class UploadingState(uploads: Int = 0,
                             vmHashGet: Seq[Long] = Nil,
-                            receipts: Seq[(Receipt, ReceiptType.Value)] = Nil,
+                            receipts: Seq[Receipt] = Vector.empty,
                             lastKnownHeight: Option[Long] = None,
                             blockManifests: Seq[BlockManifest] = Nil) {
 
@@ -92,12 +91,11 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
 
     def vmHash(height: Long) = copy(vmHashGet = vmHashGet :+ height)
 
-    def receipt(receipt: Receipt, rt: ReceiptType.Value) =
-      copy(receipts = receipts :+ (receipt, rt))
+    def receipt(receipt: Receipt) =
+      copy(receipts = receipts :+ receipt)
 
     def subscribe(lastKnownHeight: Long) = copy(lastKnownHeight = Some(lastKnownHeight))
 
-    def receiptTypes: Map[ReceiptType.Value, Int] = receipts.groupBy(_._2).mapValues(_.length)
   }
 
   /**
@@ -139,9 +137,8 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
             }
 
             override def control: ControlRpc[IO] = new TestControlRpc[IO] {
-              override def sendBlockReceipt(receipt: Receipt,
-                                            rType: ReceiptType.Value): EitherT[IO, ControlRpcError, Unit] =
-                EitherT.liftF(state.update(_.receipt(receipt, rType)).void)
+              override def sendBlockReceipt(receipt: Receipt): EitherT[IO, ControlRpcError, Unit] =
+                EitherT.liftF(state.update(_.receipt(receipt)).void)
 
               override def getVmHash(height: Long): EitherT[IO, ControlRpcError, ByteVector] =
                 EitherT.liftF(state.update(_.vmHash(height)).map(_ => ByteVector.empty))
@@ -185,15 +182,11 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
 
     if (storedReceipts == 0) {
       state.lastKnownHeight.value shouldBe 0L
-      state.receiptTypes.get(ReceiptType.Stored) should not be defined
-      state.receiptTypes.get(ReceiptType.LastStored) should not be defined
     } else {
       state.lastKnownHeight.value shouldBe storedReceipts
-      state.receiptTypes.getOrElse(ReceiptType.Stored, 0) shouldBe storedReceipts - 1
-      state.receiptTypes.getOrElse(ReceiptType.LastStored, 0) shouldBe 1
     }
 
-    state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe blocks
+    state.receipts.length shouldBe blocks
   }
 
   /**
@@ -249,9 +242,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
           state.lastKnownHeight.value shouldBe 0L
 
           // only receipts for non-empty blocks are sent
-          state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe blocks + emptyBlocks
-          state.receiptTypes.get(ReceiptType.Stored) should not be defined
-          state.receiptTypes.get(ReceiptType.LastStored) should not be defined
+          state.receipts.length shouldBe blocks + emptyBlocks
         },
         period = 10.millis,
         maxWait = 1.second
@@ -288,9 +279,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
           state.uploads shouldBe (blocks * 2 + emptyBlocksTotal)
           state.vmHashGet should contain theSameElementsInOrderAs (1 to blocksTotal)
           state.lastKnownHeight.value shouldBe 0L
-          state.receiptTypes.get(ReceiptType.Stored) should not be defined
-          state.receiptTypes.get(ReceiptType.LastStored) should not be defined
-          state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe blocksTotal
+          state.receipts.length shouldBe blocksTotal
 
           state.blockManifests.length shouldBe blocksTotal
           state.blockManifests.count(_.txsReceipt.isDefined) shouldBe blocks

@@ -69,14 +69,9 @@ object DropPeer {
   private implicit val encbc: Encoder[ByteVector] = Encoder.encodeString.contramap(_.toHex)
 }
 
-object ReceiptType extends Enumeration { val New, Stored, LastStored = Value }
-
-case class BlockReceipt(receipt: Receipt, `type`: ReceiptType.Value) extends ControlSignal
+case class BlockReceipt(receipt: Receipt) extends ControlSignal
 
 object BlockReceipt {
-  implicit val edec: Decoder[ReceiptType.Value] = Decoder.enumDecoder(ReceiptType)
-  implicit val eenc: Encoder[ReceiptType.Value] = Encoder.enumEncoder(ReceiptType)
-
   implicit val dec: Decoder[BlockReceipt] = deriveDecoder[BlockReceipt]
   implicit val enc: Encoder[BlockReceipt] = deriveEncoder[BlockReceipt]
 }

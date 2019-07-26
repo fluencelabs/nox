@@ -36,7 +36,6 @@ import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.node.workers.Worker
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
-import fluence.statemachine.control.ReceiptType
 import scodec.bits.ByteVector
 
 import scala.language.{higherKinds, postfixOps}
@@ -90,8 +89,8 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
   )(implicit backoff: Backoff[EffectError], F: Applicative[F], log: Log[F]) = {
     def upload(b: BlockUpload) = uploadBlock(b, appId, lastManifestReceipt, storage, onManifestUploaded)
 
-    def sendReceipt(receipt: Receipt, rType: ReceiptType.Value)(implicit log: Log[F]) = backoff.retry(
-      control.sendBlockReceipt(receipt, rType),
+    def sendReceipt(receipt: Receipt)(implicit log: Log[F]) = backoff.retry(
+      control.sendBlockReceipt(receipt),
       (e: ControlRpcError) => log.error(s"error sending receipt: $e")
     )
 
@@ -138,15 +137,15 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
       // Emit receipts for the empty blocks
       case Left(empties) => fs2.Stream.emits(empties.toList.takeRight(1))
       case Right(block)  => fs2.Stream.eval(upload(block))
-    }.map(_ -> ReceiptType.New)
+    }
 
     // Receipts from storage; last one will be treated differently, see AbciService for details
     val storedTypedReceipts =
-      storedReceipts.dropLast.map(_._2 -> ReceiptType.Stored) ++
-        storedReceipts.takeRight(1).map(_._2 -> ReceiptType.LastStored)
+      storedReceipts.dropLast.map(_._2) ++
+        storedReceipts.takeRight(1).map(_._2)
 
     // Send receipts to the state machine (worker)
-    val receipts = (storedTypedReceipts ++ newReceipts).evalMap(sendReceipt _ tupled)
+    val receipts = (storedTypedReceipts ++ newReceipts).evalMap(sendReceipt _)
 
     MakeResource.concurrentStream(receipts, name = "BlockUploadingStream")
   }
