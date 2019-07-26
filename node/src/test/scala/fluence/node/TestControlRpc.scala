@@ -20,7 +20,6 @@ import cats.data.EitherT
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 import fluence.node.workers.status.HttpStatus
-import fluence.statemachine.control.{ReceiptType, VmHash}
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -50,7 +49,7 @@ trait TestControlRpc[F[_]] extends ControlRpc[F] {
   /**
    * Send block manifest receipt, so state machine can use it for app hash calculation
    */
-  override def sendBlockReceipt(receipt: Receipt, rType: ReceiptType.Value): EitherT[F, ControlRpcError, Unit] =
+  override def sendBlockReceipt(receipt: Receipt): EitherT[F, ControlRpcError, Unit] =
     throw new NotImplementedError("def sendBlockReceipt")
 
   /**
