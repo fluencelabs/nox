@@ -23,6 +23,7 @@ import cats.data.EitherT
 import cats.effect.concurrent.Ref
 import cats.effect.{IO, Resource}
 import cats.syntax.functor._
+import cats.syntax.apply._
 import fluence.EitherTSttpBackend
 import fluence.effects.castore.StoreError
 import fluence.effects.docker.DockerIO
@@ -42,8 +43,7 @@ import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 import fluence.node.workers.status.WorkerStatus
 import fluence.node.workers.tendermint.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
-import fluence.node.workers.{Worker, WorkerParams, WorkerServices}
-import fluence.statemachine.control.ReceiptType
+import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
 import io.circe.Json
 import io.circe.parser.parse
 import org.scalatest.{Matchers, OptionValues, WordSpec}
@@ -75,7 +75,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
 
   case class UploadingState(uploads: Int = 0,
                             vmHashGet: Seq[Long] = Nil,
-                            receipts: Seq[(Receipt, ReceiptType.Value)] = Nil,
+                            receipts: Seq[Receipt] = Vector.empty,
                             lastKnownHeight: Option[Long] = None,
                             blockManifests: Seq[BlockManifest] = Nil) {
 
@@ -89,12 +89,11 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
 
     def vmHash(height: Long) = copy(vmHashGet = vmHashGet :+ height)
 
-    def receipt(receipt: Receipt, rt: ReceiptType.Value) =
-      copy(receipts = receipts :+ (receipt, rt))
+    def receipt(receipt: Receipt) =
+      copy(receipts = receipts :+ receipt)
 
     def subscribe(lastKnownHeight: Long) = copy(lastKnownHeight = Some(lastKnownHeight))
 
-    def receiptTypes: Map[ReceiptType.Value, Int] = receipts.groupBy(_._2).mapValues(_.length)
   }
 
   /**
@@ -102,53 +101,62 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
    */
   private def startUploading(blocks: Seq[Block] = Nil, storedReceipts: Seq[Receipt] = Nil) = {
     Resource
-      .liftF(Ref.of[IO, UploadingState](UploadingState()))
-      .map { state =>
-        def receiptStorage(id: Long) =
-          Resource.pure[IO, ReceiptStorage[IO]](new ReceiptStorage[IO] {
-            override val appId: Long = id
+      .liftF(
+        (
+          Ref.of[IO, UploadingState](UploadingState()),
+          Ref.of[IO, Option[BlockManifest]](None)
+        ).tupled
+      )
+      .map {
+        case (state, manifestRef) =>
+          def receiptStorage(id: Long) =
+            new ReceiptStorage[IO] {
+              override val appId: Long = id
 
-            override def put(height: Long, receipt: Receipt): EitherT[IO, ReceiptStorageError, Unit] = EitherT.pure(())
-            override def get(height: Long): EitherT[IO, ReceiptStorageError, Option[Receipt]] = EitherT.pure(None)
-            override def retrieve(from: Option[Long], to: Option[Long]): fs2.Stream[IO, (Long, Receipt)] =
-              fs2.Stream.emits(storedReceipts.map(r => r.height -> r))
-          })
+              override def put(height: Long, receipt: Receipt): EitherT[IO, ReceiptStorageError, Unit] =
+                EitherT.pure(())
+              override def get(height: Long): EitherT[IO, ReceiptStorageError, Option[Receipt]] = EitherT.pure(None)
+              override def retrieve(from: Option[Long], to: Option[Long]): fs2.Stream[IO, (Long, Receipt)] =
+                fs2.Stream.emits(storedReceipts.map(r => r.height -> r))
+            }
 
-        val ipfs = new IpfsUploader[IO] {
-          override def upload[A: IpfsData](data: A)(implicit log: Log[IO]): EitherT[IO, StoreError, ByteVector] = {
-            EitherT.liftF(state.update(_.upload(data)).map(_ => ByteVector.empty))
-          }
-        }
-
-        val workerServices = new WorkerServices[IO] {
-          override def tendermint: TendermintRpc[IO] = new TestTendermintWebsocketRpc[IO] {
-            override def subscribeNewBlock(
-              lastKnownHeight: Long
-            )(implicit log: Log[IO], backoff: Backoff[EffectError]): fs2.Stream[IO, Block] =
-              fs2.Stream.eval(state.update(_.subscribe(lastKnownHeight))) >> fs2.Stream.emits(blocks)
-          }
-
-          override def control: ControlRpc[IO] = new TestControlRpc[IO] {
-            override def sendBlockReceipt(receipt: Receipt,
-                                          rType: ReceiptType.Value): EitherT[IO, ControlRpcError, Unit] =
-              EitherT.liftF(state.update(_.receipt(receipt, rType)).void)
-
-            override def getVmHash(height: Long): EitherT[IO, ControlRpcError, ByteVector] =
-              EitherT.liftF(state.update(_.vmHash(height)).map(_ => ByteVector.empty))
+          val ipfs = new IpfsUploader[IO] {
+            override def upload[A: IpfsData](data: A)(implicit log: Log[IO]): EitherT[IO, StoreError, ByteVector] = {
+              EitherT.liftF(state.update(_.upload(data)).map(_ => ByteVector.empty))
+            }
           }
 
-          override def status(timeout: FiniteDuration): IO[WorkerStatus] =
-            IO.raiseError(new NotImplementedError("def status worker status"))
-        }
+          val workerServices = new WorkerServices[IO] {
+            override def tendermint: TendermintRpc[IO] = new TestTendermintWebsocketRpc[IO] {
+              override def subscribeNewBlock(
+                lastKnownHeight: Long
+              )(implicit log: Log[IO], backoff: Backoff[EffectError]): fs2.Stream[IO, Block] =
+                fs2.Stream.eval(state.update(_.subscribe(lastKnownHeight))) >> fs2.Stream.emits(blocks)
+            }
 
-        (state, ipfs, workerServices, receiptStorage _)
+            override def control: ControlRpc[IO] = new TestControlRpc[IO] {
+              override def sendBlockReceipt(receipt: Receipt): EitherT[IO, ControlRpcError, Unit] =
+                EitherT.liftF(state.update(_.receipt(receipt)).void)
+
+              override def getVmHash(height: Long): EitherT[IO, ControlRpcError, ByteVector] =
+                EitherT.liftF(state.update(_.vmHash(height)).map(_ => ByteVector.empty))
+            }
+
+            override def status(timeout: FiniteDuration): IO[WorkerStatus] =
+              IO.raiseError(new NotImplementedError("def status worker status"))
+
+            override def blockManifests: WorkerBlockManifests[IO] =
+              new WorkerBlockManifests[IO](receiptStorage(appId), manifestRef)
+          }
+
+          (state, ipfs, workerServices)
       }
       .flatMap {
-        case (state, ipfs, workerServices, receiptStorage) =>
+        case (state, ipfs, workerServices) =>
           val worker: Resource[IO, Worker[IO]] =
             Worker.make[IO](appId, p2pPort, description, workerServices, (_: IO[Unit]) => IO.unit, IO.unit, IO.unit)
 
-          worker.flatMap(BlockUploading.make[IO](ipfs, receiptStorage).start).map(_ => state)
+          worker.flatMap(BlockUploading[IO](ipfs).start).map(_ => state)
       }
   }
 
@@ -172,15 +180,11 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
 
     if (storedReceipts == 0) {
       state.lastKnownHeight.value shouldBe 0L
-      state.receiptTypes.get(ReceiptType.Stored) should not be defined
-      state.receiptTypes.get(ReceiptType.LastStored) should not be defined
     } else {
       state.lastKnownHeight.value shouldBe storedReceipts
-      state.receiptTypes.getOrElse(ReceiptType.Stored, 0) shouldBe storedReceipts - 1
-      state.receiptTypes.getOrElse(ReceiptType.LastStored, 0) shouldBe 1
     }
 
-    state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe blocks
+    state.receipts.length shouldBe blocks + storedReceipts
   }
 
   /**
@@ -236,9 +240,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
           state.lastKnownHeight.value shouldBe 0L
 
           // only receipts for non-empty blocks are sent
-          state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe blocks + emptyBlocks
-          state.receiptTypes.get(ReceiptType.Stored) should not be defined
-          state.receiptTypes.get(ReceiptType.LastStored) should not be defined
+          state.receipts.length shouldBe blocks + emptyBlocks
         },
         period = 10.millis,
         maxWait = 1.second
@@ -275,9 +277,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
           state.uploads shouldBe (blocks * 2 + emptyBlocksTotal)
           state.vmHashGet should contain theSameElementsInOrderAs (1 to blocksTotal)
           state.lastKnownHeight.value shouldBe 0L
-          state.receiptTypes.get(ReceiptType.Stored) should not be defined
-          state.receiptTypes.get(ReceiptType.LastStored) should not be defined
-          state.receiptTypes.getOrElse(ReceiptType.New, 0) shouldBe blocksTotal
+          state.receipts.length shouldBe blocksTotal
 
           state.blockManifests.length shouldBe blocksTotal
           state.blockManifests.count(_.txsReceipt.isDefined) shouldBe blocks

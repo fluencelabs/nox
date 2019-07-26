@@ -48,13 +48,15 @@ import scala.language.higherKinds
  *
  * @param workers a storage for running [[Worker]]s, indexed by appIds
  */
-class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
+class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
   ports: WorkersPorts[F],
   workers: Ref[F, Map[Long, Worker[F]]],
   // TODO: it's not OK to have blockUploading here, it should be moved somewhere else
   blockUploading: BlockUploading[F],
   requestResponder: RequestResponder[F],
-  healthyWorkerTimeout: FiniteDuration = 1.second
+  rootPath: Path,
+  healthyWorkerTimeout: FiniteDuration = 1.second,
+  stopTimeoutSeconds: Int = 5
 )(
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
   F: ConcurrentEffect[F],
@@ -106,7 +108,8 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
     onStop: F[Unit],
     params: F[WorkerParams],
     p2pPort: Short,
-    stopTimeout: Int
+    stopTimeout: Int,
+    storageRoot: Path
   )(implicit log: Log[F]): Resource[F, Worker[F]] =
     for {
       // Order events in the Worker context
@@ -122,7 +125,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
       )
 
       services ← DockerWorkerServices
-        .make[F](ps, p2pPort, stopTimeout)
+        .make[F](ps, p2pPort, stopTimeout, storageRoot)
 
       worker ← Worker.make(
         ps.appId,
@@ -156,13 +159,16 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
    *                    It might take up to 2*`stopTimeout` seconds to gracefully stop the worker, as 2 containers involved.
    * @return Unit; no failures are expected
    */
-  def runWorker(p2pPort: Short, params: F[WorkerParams], stopTimeout: Int = 5)(implicit log: Log[F]): F[Unit] =
+  def runWorker(p2pPort: Short, params: F[WorkerParams], stopTimeout: Int, rootPath: Path)(
+    implicit log: Log[F]
+  ): F[Unit] =
     MakeResource.useConcurrently[F](
       workerResource(
         _,
         params,
         p2pPort,
-        stopTimeout
+        stopTimeout,
+        rootPath
       )
     )
 
@@ -182,7 +188,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer, G[_]](
             // stop the old worker
             _ ← oldWorker.fold(().pure[F])(stop)
 
-            _ ← runWorker(p2pPort, params)
+            _ ← runWorker(p2pPort, params, stopTimeoutSeconds, rootPath)
 
           } yield
             if (oldWorker.isDefined) WorkersPool.Restarting
@@ -261,8 +267,7 @@ object DockerWorkersPool {
     requestResponder: RequestResponder[F]
   )(
     implicit
-    sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
-    sttpBackendStreaming: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
+    sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
     F: ConcurrentEffect[F],
     P: Parallel[F, G],
     backoff: Backoff[EffectError]
@@ -272,7 +277,7 @@ object DockerWorkersPool {
       pool ← Resource.make {
         for {
           workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
-        } yield new DockerWorkersPool[F, G](ports, workers, blockUploading, requestResponder)
+        } yield new DockerWorkersPool[F, G](ports, workers, blockUploading, requestResponder, rootPath)
       }(_.stopAll())
     } yield pool: WorkersPool[F]
 

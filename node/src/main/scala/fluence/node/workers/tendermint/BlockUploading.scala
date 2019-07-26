@@ -29,14 +29,13 @@ import com.softwaremill.sttp.SttpBackend
 import fluence.effects.ipfs.IpfsUploader
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.data.Block
-import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
+import fluence.effects.tendermint.block.history.{BlockHistory, BlockManifest, Receipt}
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.node.workers.Worker
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
-import fluence.statemachine.control.ReceiptType
 import scodec.bits.ByteVector
 
 import scala.language.{higherKinds, postfixOps}
@@ -51,8 +50,7 @@ private[tendermint] case class BlockUpload(block: Block,
  * @param history Description of how to store blocks
  */
 class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
-  history: BlockHistory[F],
-  receiptStorage: (Long) => Resource[F, ReceiptStorage[F]]
+  history: BlockHistory[F]
 ) {
 
   /**
@@ -67,30 +65,32 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
     worker: Worker[F]
   )(implicit log: Log[F], backoff: Backoff[EffectError] = Backoff.default): Resource[F, Unit] = {
     for {
-      receiptStorage <- receiptStorage(worker.appId)
       // Storage for a previous manifest
       lastManifestReceipt <- Resource.liftF(MVar.of[F, Option[Receipt]](None))
       _ <- pushReceipts(
         worker.appId,
         lastManifestReceipt,
-        receiptStorage,
+        worker.services.blockManifests.receiptStorage,
         worker.services.tendermint,
-        worker.services.control
+        worker.services.control,
+        worker.services.blockManifests.onUploaded
       )
     } yield ()
   }
 
+  // TODO write docs
   private def pushReceipts(
     appId: Long,
     lastManifestReceipt: MVar[F, Option[Receipt]],
     storage: ReceiptStorage[F],
     rpc: TendermintRpc[F],
-    control: ControlRpc[F]
+    control: ControlRpc[F],
+    onManifestUploaded: (BlockManifest, Receipt) ⇒ F[Unit]
   )(implicit backoff: Backoff[EffectError], F: Applicative[F], log: Log[F]) = {
-    def upload(b: BlockUpload) = uploadBlock(b, appId, lastManifestReceipt, storage)
+    def upload(b: BlockUpload) = uploadBlock(b, appId, lastManifestReceipt, storage, onManifestUploaded)
 
-    def sendReceipt(receipt: Receipt, rType: ReceiptType.Value)(implicit log: Log[F]) = backoff.retry(
-      control.sendBlockReceipt(receipt, rType),
+    def sendReceipt(receipt: Receipt)(implicit log: Log[F]) = backoff.retry(
+      control.sendBlockReceipt(receipt),
       (e: ControlRpcError) => log.error(s"error sending receipt: $e")
     )
 
@@ -132,36 +132,36 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
         case (Right(_), block)                           => F.pure(block.asRight)
       }
 
-    // TODO: send these receipts to Kademlia
     // Receipts from the new blocks (as opposed to stored receipts)
     val newReceipts = grouped.flatMap {
       // Emit receipts for the empty blocks
       case Left(empties) => fs2.Stream.emits(empties.toList.takeRight(1))
       case Right(block)  => fs2.Stream.eval(upload(block))
-    }.map(_ -> ReceiptType.New)
-
-    // Receipts from storage; last one will be treated differently, see AbciService for details
-    val storedTypedReceipts =
-      storedReceipts.dropLast.map(_._2 -> ReceiptType.Stored) ++
-        storedReceipts.takeRight(1).map(_._2 -> ReceiptType.LastStored)
+    }
 
     // Send receipts to the state machine (worker)
-    val receipts = (storedTypedReceipts ++ newReceipts).evalMap(sendReceipt _ tupled)
+    val receipts = (storedReceipts.map(_._2) ++ newReceipts).evalMap(sendReceipt)
 
     MakeResource.concurrentStream(receipts, name = "BlockUploadingStream")
   }
 
+  // TODO write docs
   private def uploadBlock(
     block: BlockUpload,
     appId: Long,
     lastManifestReceipt: MVar[F, Option[Receipt]],
-    receiptStorage: ReceiptStorage[F]
+    receiptStorage: ReceiptStorage[F],
+    onManifestUploaded: (BlockManifest, Receipt) ⇒ F[Unit]
   )(implicit backoff: Backoff[EffectError], log: Log[F]): F[Receipt] =
     log.scope("block" -> block.block.header.height.toString, "upload block" -> "") { log =>
+      // TODO write docs; why do we need this?
       def logError[E <: EffectError](e: E) = log.error("", e)
 
       def upload(b: BlockUpload, r: Option[Receipt]) =
-        backoff.retry(history.upload(b.block, b.vmHash, r, b.emptyReceipts.map(_.toList).getOrElse(Nil))(log), logError)
+        backoff.retry(
+          history.upload(b.block, b.vmHash, r, b.emptyReceipts.map(_.toList).getOrElse(Nil), onManifestUploaded)(log),
+          logError
+        )
 
       def storeReceipt(height: Long, receipt: Receipt) = backoff.retry(receiptStorage.put(height, receipt), logError)
 
@@ -183,14 +183,13 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
 
 object BlockUploading {
 
-  def make[F[_]: Log: ConcurrentEffect: Timer: ContextShift: Clock](
-    ipfs: IpfsUploader[F],
-    receiptStorage: (Long) => Resource[F, ReceiptStorage[F]]
+  def apply[F[_]: Log: ConcurrentEffect: Timer: ContextShift: Clock](
+    ipfs: IpfsUploader[F]
   )(
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
     backoff: Backoff[EffectError] = Backoff.default
   ): BlockUploading[F] = {
     val history = new BlockHistory[F](ipfs)
-    new BlockUploading[F](history, receiptStorage)
+    new BlockUploading[F](history)
   }
 }

@@ -105,7 +105,7 @@ class AbciService[F[_]: Monad: Effect](
 
       _ <- traceBU(
         s"got receipt ${receipt
-          .map(r => s"${r.`type`}  ${r.receipt.height}")}; transactions count: ${transactions.length} ${transactions.nonEmpty}"
+          .map(r => s"${r.receipt.height}")}; transactions count: ${transactions.length} ${transactions.nonEmpty}"
       )
 
       _ <- Traverse[Option].traverse(receipt.filter(_.receipt.height != blockHeight - 1))(
@@ -125,7 +125,7 @@ class AbciService[F[_]: Monad: Effect](
         else
           currentState.appHash.pure[F]
       } {
-        case BlockReceipt(r, _) =>
+        case BlockReceipt(r) =>
           traceBU(s"appHash = hash(${vmHash.toHex} ++ ${r.jsonBytes().toHex})" + Console.RESET) *>
             hasher[F](vmHash ++ r.jsonBytes())
               .leftMap(err => log.error(s"Error on hashing vmHash + receipt: $err"))

@@ -72,9 +72,10 @@ object MasterNodeApp extends IOApp {
               implicit0(sttp: STTP) <- sttpResource
               implicit0(dockerIO: DockerIO[IO]) <- DockerIO.make[IO]()
               conf <- Resource.liftF(Configuration.init[IO](masterConf))
+
               // TODO: use generic decentralized storage
               ipfs = IpfsUploader[IO](masterConf.remoteStorage.ipfs.address, masterConf.remoteStorage.enabled)
-              blockUploading = BlockUploading.make(ipfs, appId => KVReceiptStorage.make[IO](appId, conf.rootPath))
+              blockUploading = BlockUploading(ipfs)
               requestResponder <- Resource.liftF(RequestResponderImpl())
               pool <- DockerWorkersPool.make(
                 masterConf.ports.minPort,
@@ -83,6 +84,7 @@ object MasterNodeApp extends IOApp {
                 blockUploading,
                 requestResponder
               )
+
               keyPair <- Resource.liftF(Configuration.readTendermintKeyPair(masterConf.rootPath))
               kad ← KademliaHttpNode.make[IO, IO.Par](
                 masterConf.kademlia,

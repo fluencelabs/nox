@@ -26,7 +26,7 @@ class MockedControlSignals extends ControlSignals[IO] {
   override val dropPeers: Resource[IO, Set[DropPeer]] = Resource.pure(Set.empty)
   override val stop: IO[Unit] = IO.unit
   override def getReceipt(height: Long): IO[BlockReceipt] = {
-    IO.pure(BlockReceipt(Receipt(height, ByteVector.empty), ReceiptType.New))
+    IO.pure(BlockReceipt(Receipt(height, ByteVector.empty)))
   }
 
   override def dropPeer(drop: DropPeer): IO[Unit] = IO.unit

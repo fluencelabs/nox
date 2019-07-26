@@ -114,7 +114,7 @@ object SbtCommons {
   val codecVersion = "0.0.5"
   val codecCore = "one.fluence" %% "codec-core" % codecVersion
 
-  val sttpVersion = "1.5.17"
+  val sttpVersion = "1.6.3"
   val sttp = "com.softwaremill.sttp"            %% "core"                           % sttpVersion
   val sttpCirce = "com.softwaremill.sttp"       %% "circe"                          % sttpVersion
   val sttpFs2Backend = "com.softwaremill.sttp"  %% "async-http-client-backend-fs2"  % sttpVersion

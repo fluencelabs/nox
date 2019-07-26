@@ -82,7 +82,7 @@ class ControlSignalsImpl[F[_]: Monad: Log](
    * @param receipt Receipt to store
    */
   def enqueueReceipt(receipt: BlockReceipt): F[Unit] =
-    traceBU(s"enqueueReceipt ${receipt.receipt.height} ${receipt.`type`}") *> receiptQueue.enqueue1(receipt)
+    traceBU(s"enqueueReceipt ${receipt.receipt.height}") *> receiptQueue.enqueue1(receipt)
 
   /**
    * Retrieves block receipt, async blocks until there's a receipt
