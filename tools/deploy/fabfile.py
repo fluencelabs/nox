@@ -243,21 +243,38 @@ def install_docker():
         run("""curl -L "https://github.com/docker/compose/releases/download/1.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose """)
         run("chmod +x /usr/local/bin/docker-compose")
 
-# example: fab -H 46.101.151.125 --set secret=deadf00ddeadf00ddeadf00ddeadf00ddeadf00ddeadf00ddeadf00ddeadf00d ipfs_bootstrapper
-def ipfs_bootstrapper():
-    with hide('running', 'output'):
-        # require env.secret to be passed via --set
-        require("secret")
-
-        put('ipfs/ipfs-bootstrapper.yml', './')
-        run('CLUSTER_SECRET=%s docker-compose -f ./ipfs-bootstrapper.yml up -d' % env.secret)
-
-# example: fab -x 207.154.210.151 --set bootstrapper=207.154.210.151,secret=deadf00ddeadf00ddeadf00ddeadf00ddeadf00ddeadf00ddeadf00ddeadf00d,environment=stage ipfs_nodes
+@task
 @parallel
-def ipfs_nodes():
+def do_deploy_ipfs():
     with hide('running', 'output'):
-        # require env.secret & env.bootstrapper to be passed via --set
-        require("secret","bootstrapper")
+        put('ipfs/ipfs.yml', './')
+        run('docker-compose -f ./ipfs.yml up -d')
+        output = run('docker-compose -f ./ipfs.yml exec ipfs ipfs id')
+        ipfs_addresses = json.loads(output)['Addresses']
+        return ipfs_addresses
 
-        put('ipfs/ipfs-node.yml', './')
-        run('CLUSTER_SECRET=%s IPFS_BOOTSTRAPPER_ADDR=%s docker-compose -f ./ipfs-node.yml up -d' % (env.secret, env.bootstrapper))
+@task
+@parallel
+def connect_ipfs_nodes():
+    with hide('running', 'output'):
+        for addr in env.ipfs_addresses:
+            run('docker-compose -f ./ipfs.yml exec ipfs ipfs bootstrap add %s' % addr)
+
+@task
+@runs_once
+# example: fab --set environment=stage deploy_ipfs
+def deploy_ipfs():
+    with hide('running', 'output'):
+        print "IPFS: deploying..."
+        results = execute(do_deploy_ipfs)
+        print "IPFS: deployed"
+        print "IPFS: interconnecting nodes"
+        external_addresses = []
+        for ip, addrs in results.items():
+            external_addresses += list(a for a in addrs if ip in a)
+
+        env.ipfs_addresses = external_addresses
+
+        execute(connect_ipfs_nodes)
+        print "IPFS: bootstrap nodes added"
+

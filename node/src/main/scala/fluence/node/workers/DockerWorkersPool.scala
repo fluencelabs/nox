@@ -26,18 +26,17 @@ import cats.instances.list._
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
 import cats.syntax.apply._
+import cats.syntax.compose._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.syntax.compose._
 import cats.{Applicative, Apply, Parallel}
 import com.softwaremill.sttp.SttpBackend
 import fluence.codec.PureCodec
 import fluence.effects.docker.DockerIO
 import fluence.effects.kvstore.RocksDBStore
 import fluence.log.Log
-import fluence.node.MakeResource
 import fluence.log.LogLevel.LogLevel
-import fluence.node.config.storage.RemoteStorageConfig
+import fluence.node.MakeResource
 import fluence.node.workers.tendermint.BlockUploading
 
 import scala.concurrent.duration._

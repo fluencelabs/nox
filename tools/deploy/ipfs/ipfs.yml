@@ -1,13 +1,12 @@
 version: '3.4'
 services:
   ipfs:
-    image: "ipfs/go-ipfs:latest"
+    container_name: ipfs
+    image: ipfs/go-ipfs:release
     restart: always
-    container_name: "ipfs"
     volumes:
-      - /root/.ipfs/staging:/export
       - /root/.ipfs/data:/data/ipfs
     ports:
-      - 4001:4001
-      - 8080:8080
-      - 5001:5001
+      - 4001:4001 # IPFS swarm
+      - 8080:8080 # HTTP endpoint
+      - 5001:5001 # IPFS API
