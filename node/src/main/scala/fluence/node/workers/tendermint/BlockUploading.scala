@@ -139,13 +139,8 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
       case Right(block)  => fs2.Stream.eval(upload(block))
     }
 
-    // Receipts from storage; last one will be treated differently, see AbciService for details
-    val storedTypedReceipts =
-      storedReceipts.dropLast.map(_._2) ++
-        storedReceipts.takeRight(1).map(_._2)
-
     // Send receipts to the state machine (worker)
-    val receipts = (storedTypedReceipts ++ newReceipts).evalMap(sendReceipt _)
+    val receipts = (storedReceipts.map(_._2) ++ newReceipts).evalMap(sendReceipt)
 
     MakeResource.concurrentStream(receipts, name = "BlockUploadingStream")
   }
