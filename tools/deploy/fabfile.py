@@ -269,7 +269,10 @@ def deploy_ipfs():
         results = execute(do_deploy_ipfs)
         print "IPFS: deployed"
         print "IPFS: interconnecting nodes"
-        external_addresses = []
+        external_addresses = [
+            "/dns4/ipfs1.fluence.one/tcp/1036/ipfs/QmQodFqzJgqHyRDEG4abmMgHEV59AgXJ8foBeKgkazchNL",
+            "/dns4/ipfs2.fluence.one/tcp/4001/ipfs/QmT2XFSBkLHPBFyae3o716Hs3qZidFhQrBHvfrMpZwgX7R"
+        ]
         for ip, addrs in results.items():
             external_addresses += list(a for a in addrs if ip in a)
 
