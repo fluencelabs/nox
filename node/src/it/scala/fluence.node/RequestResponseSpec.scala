@@ -3,12 +3,14 @@ package fluence.node
 import java.net.InetAddress
 import java.nio.file.Paths
 
-import cats.Parallel
+import cats.{effect, Parallel}
 import cats.data.NonEmptyList
 import cats.effect.concurrent.Ref
 import cats.effect.{ContextShift, IO, Resource, Timer}
 import fluence.effects.docker.params.{DockerImage, DockerLimits}
 import fluence.log.{Log, LogFactory}
+import cats.syntax.applicative._
+import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.node.config.DockerConfig
 import fluence.node.eth.state.{App, Cluster, StorageRef, StorageType, WorkerPeer}
 import fluence.node.workers.{TxAwaitError, WorkerParams, WorkersApi, WorkersPool}
@@ -37,7 +39,6 @@ class RequestResponseSpec extends WordSpec with Matchers with BeforeAndAfterAll 
     val ref = Ref.unsafe[IO, Map[Long, NonEmptyList[ResponsePromise[IO]]]](
       Map.empty[Long, NonEmptyList[ResponsePromise[IO]]]
     )
-    val requestResponder = RequestResponderImpl[IO, IO.Par]().unsafeRunSync()
 
     val rootPath = Paths.get("/tmp")
 
@@ -53,9 +54,13 @@ class RequestResponseSpec extends WordSpec with Matchers with BeforeAndAfterAll 
     val params = WorkerParams(app, rootPath, rootPath, None, dockerConfig, tmDockerConfig, configTemplate)
 
     for {
-      pool <- Resource.liftF(TestWorkersPool.some[IO])
+      tendermint <- Resource.liftF(IO(TendermintTest.requestResponderTendermint[IO]()))
+      requestResponder <- Resource
+        .liftF[IO, RequestResponderImpl[IO, effect.IO.Par]](RequestResponderImpl[IO, IO.Par](tendermint, appId))
+      pool <- Resource.liftF(TestWorkersPool.some[IO](requestResponder, tendermint))
       _ <- Resource.liftF(pool.run(appId, IO(params)))
-      _ <- requestResponder.subscribeForWaitingRequests(pool.get(1).unsafeRunSync().get)
+      worker <- Resource.liftF(pool.get(appId))
+      _ <- requestResponder.subscribeForWaitingRequests()
     } yield (pool, requestResponder, log, ioShift, ioTimer)
   }
 
@@ -75,7 +80,7 @@ class RequestResponseSpec extends WordSpec with Matchers with BeforeAndAfterAll 
     import cats.syntax.parallel._
 
     Range(0, to).toList.map { nonce =>
-      WorkersApi.txWaitResponse[IO, IO.Par](pool, requestSubscriber, 1, tx(nonce), None)
+      WorkersApi.txWaitResponse[IO, IO.Par](pool, 1, tx(nonce), None)
     }.parSequence
   }
 

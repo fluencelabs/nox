@@ -32,6 +32,8 @@ import fluence.EitherTSttpBackend
 import fluence.crypto.eddsa.Ed25519
 import fluence.effects.{Backoff, EffectError}
 import fluence.effects.ethclient.EthClient
+import fluence.effects.receipt.storage.KVReceiptStorage
+import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.kad.conf.{AdvertizeConf, JoinConf, KademliaConfig, RoutingConf}
 import fluence.kad.contact.UriContact
 import fluence.kad.http.KademliaHttpNode
@@ -86,8 +88,6 @@ class MasterNodeSpec
     .unsafeRunSync()
     .copy(rootPath = Files.createTempDirectory("masternodespec").toString)
 
-  val requestResponder = RequestResponderImpl().unsafeRunSync()
-
   private def nodeResource(port: Short = 5789, seeds: Seq[String] = Seq.empty)(
     implicit log: Log[IO]
   ): Resource[IO, (Sttp, MasterNode[IO, UriContact])] =
@@ -105,7 +105,10 @@ class MasterNodeSpec
         Paths.get(masterConf.rootPath)
       )
 
-      pool ← TestWorkersPool.make[IO]
+      bref ← Resource.liftF(Ref.of[IO, Option[BlockManifest]](None))
+      bstore ← Resource.liftF(KVReceiptStorage.makeInMemory[IO](1).allocated.map(_._1))
+
+      pool ← TestWorkersPool.make[IO](bref, bstore)
 
       nodeConf = NodeConfig(
         ValidatorPublicKey("", Base64.getEncoder.encodeToString(Array.fill(32)(5))),
@@ -117,7 +120,7 @@ class MasterNodeSpec
       node ← MasterNode.make[IO, UriContact](masterConf, nodeConf, pool, kad.kademlia)
 
       agg ← StatusAggregator.make[IO](masterConf, node)
-      _ ← MasterHttp.make("127.0.0.1", port, agg, node.pool, kad.http, requestResponder)
+      _ ← MasterHttp.make("127.0.0.1", port, agg, node.pool, kad.http)
       _ <- Log.resource[IO].info(s"Started MasterHttp")
     } yield (sttpB, node)
 

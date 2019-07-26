@@ -22,25 +22,25 @@ import cats.effect.concurrent.{Deferred, Ref}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.apply._
-import cats.syntax.list._
 import cats.{Functor, Parallel, Traverse}
 import fluence.effects.{Backoff, EffectError}
-import fluence.effects.tendermint.rpc.QueryResponseCode
+import fluence.effects.tendermint.rpc.{QueryResponseCode, TendermintRpc}
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError, TendermintHttpRpc}
-import fluence.log.{Log, LogFactory}
+import fluence.log.Log
 import fluence.node.MakeResource
-import fluence.node.workers.Worker
 import fluence.statemachine.data.Tx
 
 import scala.language.higherKinds
 
 class RequestResponderImpl[F[_]: Functor: Timer, G[_]](
-  subscribesRef: Ref[F, Map[Long, NonEmptyList[ResponsePromise[F]]]],
+  subscribesRef: Ref[F, List[ResponsePromise[F]]],
+  tendermint: TendermintRpc[F],
+  appId: Long,
   maxBlocksTries: Int = 3
 )(
   implicit F: Concurrent[F],
   P: Parallel[F, G],
-  logFactory: LogFactory[F],
+  log: Log[F],
   backoff: Backoff[EffectError] = Backoff.default[EffectError]
 ) extends RequestResponder[F] {
 
@@ -50,12 +50,12 @@ class RequestResponderImpl[F[_]: Functor: Timer, G[_]](
    * Adds a request to query for a response after a block is generated.
    *
    */
-  def subscribe(appId: Long, id: Tx.Head): F[Deferred[F, TendermintQueryResponse]] =
+  def subscribe(id: Tx.Head): F[Deferred[F, TendermintQueryResponse]] =
     for {
       responsePromise <- Deferred[F, TendermintQueryResponse]
-      _ <- subscribesRef.update { m =>
+      _ <- subscribesRef.update { list =>
         val newPromise = ResponsePromise(id, responsePromise)
-        m.updated(appId, m.get(appId).map(_ :+ newPromise).getOrElse(NonEmptyList(newPromise, Nil)))
+        list :+ newPromise
       }
     } yield responsePromise
 
@@ -63,19 +63,20 @@ class RequestResponderImpl[F[_]: Functor: Timer, G[_]](
    * Subscribes a worker to process subscriptions after each received block.
    *
    */
-  override def subscribeForWaitingRequests(worker: Worker[F]): Resource[F, Unit] =
-    for {
-      implicit0(log: Log[F]) <- Resource.liftF(logFactory.init(("requestResponder", "subscribeForWaitingRequests")))
-      lastHeight <- Resource.liftF(
-        backoff.retry(worker.services.tendermint.consensusHeight(), e => log.error("retrieving consensus height", e))
-      )
-      _ <- Resource.liftF(log.info("Creating subscription for tendermint blocks"))
-      blockStream = worker.services.tendermint.subscribeNewBlock(lastHeight)
-      pollingStream = blockStream.evalMap { _ =>
-        pollResponses(worker.appId, worker.services.tendermint)
-      }
-      _ <- MakeResource.concurrentStream(pollingStream)
-    } yield ()
+  override def subscribeForWaitingRequests(): Resource[F, Unit] =
+    log.scope(("requestResponder", "subscribeForWaitingRequests")) { implicit log =>
+      for {
+        lastHeight <- Resource.liftF(
+          backoff.retry(tendermint.consensusHeight(), e => log.error("retrieving consensus height", e))
+        )
+        _ <- Resource.liftF(log.info("Creating subscription for tendermint blocks"))
+        blockStream = tendermint.subscribeNewBlock(lastHeight)
+        pollingStream = blockStream.evalMap { _ =>
+          pollResponses(tendermint)
+        }
+        _ <- MakeResource.concurrentStream(pollingStream)
+      } yield ()
+    }
 
   /**
    * Deserializes response and check if they are `ok` or not.
@@ -105,23 +106,40 @@ class RequestResponderImpl[F[_]: Functor: Timer, G[_]](
    * @param promises list of subscriptions
    * @return all queried responses
    */
-  private def queryResponses(appId: Long,
-                             promises: NonEmptyList[ResponsePromise[F]],
+  private def queryResponses(promises: List[ResponsePromise[F]],
                              tendermint: TendermintHttpRpc[F]): F[List[TendermintQueryResponse]] = {
     import cats.syntax.parallel._
-    LogFactory[F].init("requestResponder" -> "queryResponses", "app" -> appId.toString) >>= { implicit log =>
+    import cats.syntax.list._
+    println("polling " + promises.size)
+    log.scope("requestResponder" -> "queryResponses", "app" -> appId.toString) { implicit log =>
       log.trace(s"Polling ${promises.size} promises") *>
         promises.map { responsePromise =>
-          tendermint
+          println("aaaaaaaa")
+          val r = tendermint
             .query(responsePromise.id.toString, id = "dontcare")
-            .flatMap(parseResponse(responsePromise.id, _))
+            .flatMap(a => {
+              println(a)
+              parseResponse(responsePromise.id, a)
+            })
             .leftMap(err => (responsePromise.id, err))
+          println("bbbbbbbbbbb")
+          r
         }.map(_.value)
-          .parSequence
-          .map(_.collect {
-            case Right(r)  => r
-            case Left(err) => RpcErrorResponse(err._1, err._2): TendermintQueryResponse
-          })
+          .toNel
+          .map(
+            _.parSequence
+              .map(
+                _.collect {
+                  case Right(r) =>
+                    println(r)
+                    r
+                  case Left(err) =>
+                    println(err)
+                    RpcErrorResponse(err._1, err._2): TendermintQueryResponse
+                }
+              )
+          )
+          .getOrElse(F.pure(List.empty))
     }
   }
 
@@ -154,11 +172,11 @@ class RequestResponderImpl[F[_]: Functor: Timer, G[_]](
    * updates state of promises.
    *
    */
-  private def updateSubscribesByResult(appId: Long, responses: List[TendermintQueryResponse]): F[Unit] = {
+  private def updateSubscribesByResult(responses: List[TendermintQueryResponse]): F[Unit] = {
     import cats.instances.list._
     for {
       completionList <- subscribesRef.modify { m =>
-        val subsMap = m(appId).toList.map(v => v.id -> v).toMap
+        val subsMap = m.map(v => v.id -> v).toMap
         val emptyTaskList = List.empty[F[Unit]]
         val updatedMap = responses.foldLeft((emptyTaskList, subsMap)) {
           case ((taskList, subs), response) =>
@@ -177,7 +195,7 @@ class RequestResponderImpl[F[_]: Functor: Timer, G[_]](
                 checkResponseCompletion(subs, id, r, taskList)
             }
         }
-        (updatedMap._2.values.toList.toNel.map(um => m + (appId -> um)).getOrElse(m - appId), updatedMap._1)
+        (updatedMap._2.values.toList, updatedMap._1)
       }
       _ <- Traverse[List].traverse(completionList)(identity)
     } yield ()
@@ -186,30 +204,26 @@ class RequestResponderImpl[F[_]: Functor: Timer, G[_]](
   /**
    * Get all subscriptions for an app by `appId`, queries responses from tendermint.
    */
-  private def pollResponses(appId: Long, tendermintRpc: TendermintHttpRpc[F]): F[Unit] = {
-    println(s"polling $appId")
+  private def pollResponses(tendermintRpc: TendermintHttpRpc[F]): F[Unit] = {
     for {
-      subscribed <- subscribesRef.get.map(_.get(appId))
-      _ <- subscribed match {
-        case Some(responsePromises) =>
-          queryResponses(appId, responsePromises, tendermintRpc).flatMap(updateSubscribesByResult(appId, _))
-        case None => F.unit
-      }
-    } yield ()
+      responsePromises <- subscribesRef.get
+    } yield queryResponses(responsePromises, tendermintRpc).flatMap(updateSubscribesByResult)
   }
 }
 
 object RequestResponderImpl {
 
-  def apply[F[_]: LogFactory: Concurrent: Timer, G[_]](
+  def apply[F[_]: Log: Concurrent: Timer, G[_]](
+    tendermint: TendermintRpc[F],
+    appId: Long,
     maxBlocksTries: Int = 3
   )(
     implicit P: Parallel[F, G]
   ): F[RequestResponderImpl[F, G]] =
     Ref
-      .of[F, Map[Long, NonEmptyList[ResponsePromise[F]]]](
-        Map.empty[Long, NonEmptyList[ResponsePromise[F]]]
+      .of[F, List[ResponsePromise[F]]](
+        List.empty[ResponsePromise[F]]
       )
-      .map(r => new RequestResponderImpl(r, maxBlocksTries))
+      .map(r => new RequestResponderImpl(r, tendermint, appId, maxBlocksTries))
 
 }

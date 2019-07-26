@@ -29,6 +29,7 @@ import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.log.Log
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus, WorkerStatus}
+import fluence.node.workers.subscription.RequestResponder
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices, WorkersPool}
 
 import scala.concurrent.duration.FiniteDuration
@@ -50,10 +51,6 @@ class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]],
       case m ⇒
         for {
           p ← params
-
-          bref ← Ref.of[F, Option[BlockManifest]](None)
-          bstore ← KVReceiptStorage.makeInMemory(appId).allocated.map(_._1)
-
           w ← Worker
             .make[F](
               appId,
@@ -93,8 +90,9 @@ class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]],
 
 object TestWorkersPool {
 
-  def some[F[_]: Concurrent: Timer]: F[TestWorkersPool[F]] = {
-    val builder = TestWorkerServices.workerServiceTestRequestResponse[F] _
+  def some[F[_]: Concurrent: Timer](requestResponder: RequestResponder[F],
+                                    tendermintRpc: TendermintRpc[F]): F[TestWorkersPool[F]] = {
+    val builder = TestWorkerServices.workerServiceTestRequestResponse[F](tendermintRpc, requestResponder) _
     MVar.of(Map.empty[Long, Worker[F]]).map(new TestWorkersPool(_, builder))
   }
 
@@ -103,6 +101,7 @@ object TestWorkersPool {
     MVar.of(Map.empty[Long, Worker[F]]).map(new TestWorkersPool(_, builder))
   }
 
-  def make[F[_]: Concurrent]: Resource[F, TestWorkersPool[F]] =
-    Resource.liftF(apply[F])
+  def make[F[_]: Concurrent](bref: Ref[F, Option[BlockManifest]],
+                             bstore: ReceiptStorage[F]): Resource[F, TestWorkersPool[F]] =
+    Resource.liftF(apply[F](bref, bstore))
 }

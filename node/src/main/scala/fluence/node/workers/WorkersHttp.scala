@@ -98,7 +98,7 @@ object WorkersHttp {
    * @param pool Workers pool to get workers from
    * @param dsl Http4s DSL to build routes with
    */
-  def routes[F[_]: Sync: LogFactory: Concurrent](pool: WorkersPool[F], requestResponder: RequestResponder[F])(
+  def routes[F[_]: Sync: LogFactory: Concurrent](pool: WorkersPool[F])(
     implicit dsl: Http4sDsl[F]
   ): HttpRoutes[F] = {
     import dsl._
@@ -135,9 +135,9 @@ object WorkersHttp {
 
       case GET -> Root / LongVar(appId) / "lastManifest" ⇒
         LogFactory[F].init("http" -> "lastManifest", "app" -> appId.toString) >>= { implicit log =>
-          pool.get(appId).flatMap {
+          WorkersApi.lastManifest(pool, appId).flatMap {
             case Some(worker) ⇒
-              worker.withServices(_.blockManifests)(_.lastManifestOpt).flatMap {
+              worker match {
                 case Some(m) ⇒ Ok(m.jsonString)
                 case None ⇒
                   log.debug("There's no available manifest yet") *>
@@ -161,7 +161,7 @@ object WorkersHttp {
       case req @ POST -> Root / LongVar(appId) / "txWaitResponse" :? QueryId(id) ⇒
         LogFactory[F].init("http" -> "txWaitResponse", "app" -> appId.toString) >>= { implicit log =>
           req.decode[String] { tx ⇒
-            WorkersApi.txWaitResponse(pool, requestResponder, appId, tx, id).flatMap {
+            WorkersApi.txWaitResponse(pool, appId, tx, id).flatMap {
               case Right(queryResponse) =>
                 queryResponse match {
                   case OkResponse(_, response) =>

@@ -53,7 +53,6 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
   workers: Ref[F, Map[Long, Worker[F]]],
   // TODO: it's not OK to have blockUploading here, it should be moved somewhere else
   blockUploading: BlockUploading[F],
-  requestResponder: RequestResponder[F],
   rootPath: Path,
   healthyWorkerTimeout: FiniteDuration = 1.second,
   stopTimeoutSeconds: Int = 5
@@ -125,7 +124,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
       )
 
       services ← DockerWorkerServices
-        .make[F](ps, p2pPort, stopTimeout, storageRoot)
+        .make[F, G](ps, p2pPort, stopTimeout, storageRoot)
 
       worker ← Worker.make(
         ps.appId,
@@ -143,7 +142,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
       // TODO: pass promise from WorkerP2pConnectivity to blockUploading.start
       // Start uploading tendermint blocks and send receipts to statemachine
       _ <- blockUploading.start(worker)
-      _ <- requestResponder.subscribeForWaitingRequests(worker)
+      _ <- worker.services.requestResponder.subscribeForWaitingRequests()
 
       // Finally, register the worker in the pool
       _ ← registeredWorker(worker)
@@ -263,8 +262,7 @@ object DockerWorkersPool {
     minPort: Short,
     maxPort: Short,
     rootPath: Path,
-    blockUploading: BlockUploading[F],
-    requestResponder: RequestResponder[F]
+    blockUploading: BlockUploading[F]
   )(
     implicit
     sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
@@ -277,7 +275,7 @@ object DockerWorkersPool {
       pool ← Resource.make {
         for {
           workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
-        } yield new DockerWorkersPool[F, G](ports, workers, blockUploading, requestResponder, rootPath)
+        } yield new DockerWorkersPool[F, G](ports, workers, blockUploading, rootPath)
       }(_.stopAll())
     } yield pool: WorkersPool[F]
 

@@ -76,13 +76,11 @@ object MasterNodeApp extends IOApp {
               // TODO: use generic decentralized storage
               ipfs = IpfsUploader[IO](masterConf.remoteStorage.ipfs.address, masterConf.remoteStorage.enabled)
               blockUploading = BlockUploading(ipfs)
-              requestResponder <- Resource.liftF(RequestResponderImpl())
               pool <- DockerWorkersPool.make(
                 masterConf.ports.minPort,
                 masterConf.ports.maxPort,
                 conf.rootPath,
-                blockUploading,
-                requestResponder
+                blockUploading
               )
 
               keyPair <- Resource.liftF(Configuration.readTendermintKeyPair(masterConf.rootPath))
@@ -94,8 +92,8 @@ object MasterNodeApp extends IOApp {
               )
 
               node <- MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
-            } yield (kad.http, node, requestResponder)).use {
-              case (kadHttp, node, requestResponder) ⇒
+            } yield (kad.http, node)).use {
+              case (kadHttp, node) ⇒
                 (for {
                   _ ← Log.resource[IO].debug(s"eth config ${masterConf.contract}")
                   st ← StatusAggregator.make(masterConf, node)
@@ -104,8 +102,7 @@ object MasterNodeApp extends IOApp {
                     masterConf.httpApi.port.toShort,
                     st,
                     node.pool,
-                    kadHttp,
-                    requestResponder
+                    kadHttp
                   )
                 } yield server).use { server =>
                   log.info("Http api server has started on: " + server.address) *>

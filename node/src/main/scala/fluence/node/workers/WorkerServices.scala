@@ -37,4 +37,8 @@ trait WorkerServices[F[_]] {
 
   // Block manifests services: uploading, retrieving
   def blockManifests: WorkerBlockManifests[F]
+
+  // Service to subscribe for events
+  def requestResponder: RequestResponder[F]
+
 }
