@@ -477,6 +477,7 @@ lazy val `node` = project
     `tendermint-rpc`,
     `tendermint-rpc`   % "test->test",
     `tendermint-block` % "test->test",
+    `tendermint-block-history` % "test->test",
     `sttpEitherT`,
     `receipt-storage`,
     `log`,

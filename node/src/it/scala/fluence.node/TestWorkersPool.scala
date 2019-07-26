@@ -23,7 +23,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.applicative._
 import fluence.effects.docker.DockerContainerStopped
-import fluence.effects.receipt.storage.KVReceiptStorage
+import fluence.effects.receipt.storage.{KVReceiptStorage, ReceiptStorage}
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.log.Log
@@ -98,8 +98,8 @@ object TestWorkersPool {
     MVar.of(Map.empty[Long, Worker[F]]).map(new TestWorkersPool(_, builder))
   }
 
-  def apply[F[_]: Concurrent]: F[TestWorkersPool[F]] = {
-    val builder = TestWorkerServices.emptyWorkerService[F] _
+  def apply[F[_]: Concurrent](bref: Ref[F, Option[BlockManifest]], bstore: ReceiptStorage[F]): F[TestWorkersPool[F]] = {
+    val builder = TestWorkerServices.emptyWorkerService[F](bref, bstore) _
     MVar.of(Map.empty[Long, Worker[F]]).map(new TestWorkersPool(_, builder))
   }
 

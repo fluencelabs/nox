@@ -1,32 +1,32 @@
 package fluence.node
 
 import cats.data.EitherT
+import cats.effect.concurrent.Ref
 import cats.effect.{Resource, Timer}
-import cats.{Applicative, Functor}
+import cats.{Applicative, Functor, Monad}
 import fluence.effects.docker.DockerContainerStopped
 import fluence.effects.tendermint.rpc.TendermintRpc
-import fluence.node.workers.WorkerServices
+import fluence.node.workers.{WorkerBlockManifests, WorkerServices}
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus, WorkerStatus}
 import cats.syntax.applicative._
-import fluence.effects.tendermint.block
+import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.TestData
 import fluence.effects.tendermint.block.data.Block
+import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.{Backoff, EffectError}
 import fluence.effects.tendermint.rpc.http.RpcError
-import fluence.effects.tendermint.rpc.response.TendermintStatus
 import fluence.effects.tendermint.rpc.websocket.{Event, TestTendermintRpc, TestTendermintWebsocketRpc}
 import fluence.log.Log
 
 import scala.concurrent.duration._
-import fs2.concurrent.Queue
-
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
 object TestWorkerServices {
 
-  def emptyWorkerService[F[_]: Applicative](appId: Long): WorkerServices[F] = {
+  def emptyWorkerService[F[_]: Monad](bref: Ref[F, Option[BlockManifest]],
+                                      bstore: ReceiptStorage[F])(appId: Long): WorkerServices[F] = {
     new WorkerServices[F] {
       override def tendermint: TendermintRpc[F] = ???
 
@@ -39,6 +39,8 @@ object TestWorkerServices {
           ServiceStatus(Left(DockerContainerStopped(0)), HttpCheckNotPerformed("dumb")),
           ServiceStatus(Left(DockerContainerStopped(0)), HttpCheckNotPerformed("dumb"))
         ).pure[F]
+
+      override def blockManifests: WorkerBlockManifests[F] = new WorkerBlockManifests(bstore, bref)
     }
   }
 
@@ -109,6 +111,8 @@ object TestWorkerServices {
           ServiceStatus(Left(DockerContainerStopped(0)), HttpCheckNotPerformed("dumb")),
           ServiceStatus(Left(DockerContainerStopped(0)), HttpCheckNotPerformed("dumb"))
         ).pure[F]
+
+      override def blockManifests: WorkerBlockManifests[F] = ???
     }
   }
 }
