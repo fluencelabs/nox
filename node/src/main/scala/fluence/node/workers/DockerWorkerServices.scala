@@ -113,6 +113,8 @@ object DockerWorkerServices {
    * @param p2pPort Tendermint p2p port
    * @param stopTimeout Timeout in seconds to allow graceful stopping of running containers.
    *                    It might take up to 2*`stopTimeout` seconds to gracefully stop the worker, as 2 containers involved.
+   * @param logLevel Logging level passed to the worker
+   * @param storageRootPath Storage root, to be used with [[KVReceiptStorage.make]]
    * @param sttpBackend Sttp Backend to launch HTTP healthchecks and RPC endpoints
    * @return the [[WorkerServices]] instance
    */
@@ -120,7 +122,7 @@ object DockerWorkerServices {
     params: WorkerParams,
     p2pPort: Short,
     stopTimeout: Int,
-    logLevel: LogLevel
+    logLevel: LogLevel,
     storageRootPath: Path
   )(
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],

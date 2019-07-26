@@ -123,8 +123,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
         } yield p
       )
 
-      services ← DockerWorkerServices
-        .make[F](ps, p2pPort, stopTimeout, logLevel, storageRoot)
+      services ← DockerWorkerServices.make[F](ps, p2pPort, stopTimeout, logLevel, storageRoot)
 
       worker ← Worker.make(
         ps.appId,
