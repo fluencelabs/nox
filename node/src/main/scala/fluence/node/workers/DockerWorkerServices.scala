@@ -16,6 +16,8 @@
 
 package fluence.node.workers
 
+import java.nio.file.Path
+
 import cats.data.EitherT
 import cats.effect._
 import cats.syntax.functor._
@@ -23,7 +25,6 @@ import cats.{Apply, Monad}
 import com.softwaremill.sttp._
 import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
-import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.log.Log
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
@@ -50,6 +51,7 @@ case class DockerWorkerServices[F[_]] private (
   appId: Long,
   tendermint: TendermintRpc[F],
   control: ControlRpc[F],
+  blockManifests: WorkerBlockManifests[F],
   statusCall: FiniteDuration ⇒ F[WorkerStatus]
 ) extends WorkerServices[F] {
   override def status(timeout: FiniteDuration): F[WorkerStatus] = statusCall(timeout)
@@ -114,11 +116,12 @@ object DockerWorkerServices {
    * @param sttpBackend Sttp Backend to launch HTTP healthchecks and RPC endpoints
    * @return the [[WorkerServices]] instance
    */
-  def make[F[_]: DockerIO: Timer: ConcurrentEffect: Log](
+  def make[F[_]: DockerIO: Timer: ConcurrentEffect: Log: ContextShift](
     params: WorkerParams,
     p2pPort: Short,
     stopTimeout: Int,
     logLevel: LogLevel
+    storageRootPath: Path
   )(
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
     F: Concurrent[F]
@@ -131,6 +134,8 @@ object DockerWorkerServices {
       tendermint ← DockerTendermint.make[F](params, p2pPort, containerName(params), network, stopTimeout)
 
       rpc ← TendermintRpc.make[F](tendermint.name, DockerTendermint.RpcPort)
+
+      blockManifests ← WorkerBlockManifests.make[F](params.appId, storageRootPath)
 
       control = ControlRpc[F](containerName(params), ControlRpcPort)
 
@@ -154,6 +159,6 @@ object DockerWorkerServices {
           )
       }
 
-    } yield new DockerWorkerServices[F](p2pPort, params.appId, rpc, control, status)
+    } yield new DockerWorkerServices[F](p2pPort, params.appId, rpc, control, blockManifests, status)
 
 }

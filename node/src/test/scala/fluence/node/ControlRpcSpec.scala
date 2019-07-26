@@ -42,7 +42,7 @@ import fluence.effects.tendermint.block.history.Receipt
 import fluence.log.{Log, LogFactory}
 import fluence.node.workers.control.ControlRpc
 import fluence.statemachine.control.ControlServer.ControlServerConfig
-import fluence.statemachine.control.{ControlServer, DropPeer, ReceiptType}
+import fluence.statemachine.control.{ControlServer, DropPeer}
 import org.scalatest.{Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
 
@@ -106,7 +106,7 @@ class ControlRpcSpec extends WordSpec with Matchers with OptionValues {
       resources.use {
         case (server, rpc) =>
           for {
-            _ <- rpc.sendBlockReceipt(receipt, ReceiptType.New).value.flatMap(IO.fromEither)
+            _ <- rpc.sendBlockReceipt(receipt).value.flatMap(IO.fromEither)
             after <- IO.pure(server.signals.getReceipt(1).unsafeRunTimed(1.second))
           } yield {
             after shouldBe defined

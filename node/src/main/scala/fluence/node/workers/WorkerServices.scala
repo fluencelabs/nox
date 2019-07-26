@@ -34,4 +34,6 @@ trait WorkerServices[F[_]] {
   // Retrieves worker's health
   def status(timeout: FiniteDuration): F[WorkerStatus]
 
+  // Block manifests services: uploading, retrieving
+  def blockManifests: WorkerBlockManifests[F]
 }

@@ -176,6 +176,7 @@ lazy val `effects` = project
   .dependsOn(`log`)
   .enablePlugins(AutomateHeaderPlugin)
 
+// TODO this is not an `effect`
 lazy val `sttpEitherT` = (project in file("effects/sttpEitherT"))
   .settings(
     commons,
@@ -188,6 +189,7 @@ lazy val `sttpEitherT` = (project in file("effects/sttpEitherT"))
       sttpCatsBackend
     )
   )
+  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `ca-store` = (project in file("effects/ca-store"))
   .settings(
@@ -301,8 +303,7 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
   .dependsOn(`effects`, `sttpEitherT`, `tendermint-block`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
 
-// TODO remove from effects to history
-lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
+lazy val `tendermint-block` = (project in file("history/tendermint-block"))
   .settings(
     commons,
     kindProjector,
@@ -321,8 +322,7 @@ lazy val `tendermint-block` = (project in file("effects/tendermint-block"))
   .dependsOn(`effects`)
   .enablePlugins(AutomateHeaderPlugin)
 
-// TODO remove from effects to history
-lazy val `tendermint-block-history` = (project in file("effects/tendermint-block-history"))
+lazy val `tendermint-block-history` = (project in file("history/tendermint-block-history"))
   .settings(
     commons,
     kindProjector,
@@ -343,8 +343,7 @@ lazy val `tendermint-block-history` = (project in file("effects/tendermint-block
   .dependsOn(`effects`, `tendermint-block`, `ipfs`)
   .enablePlugins(AutomateHeaderPlugin)
 
-// TODO remove from effects to history
-lazy val `receipt-storage` = (project in file("effects/receipt-storage"))
+lazy val `receipt-storage` = (project in file("history/receipt-storage"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
