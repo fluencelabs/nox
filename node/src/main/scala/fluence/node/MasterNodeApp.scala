@@ -29,7 +29,6 @@ import fluence.EitherTSttpBackend
 import fluence.crypto.eddsa.Ed25519
 import fluence.effects.docker.DockerIO
 import fluence.effects.ipfs.IpfsUploader
-import fluence.effects.receipt.storage.KVReceiptStorage
 import fluence.kad.conf.KademliaConfig
 import fluence.kad.contact.UriContact
 import fluence.kad.http.{KademliaHttp, KademliaHttpNode}
