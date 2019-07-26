@@ -23,6 +23,7 @@ import cats.data.EitherT
 import cats.effect.concurrent.{MVar, Ref}
 import cats.effect.{IO, Resource}
 import cats.syntax.functor._
+import cats.syntax.apply._
 import fluence.EitherTSttpBackend
 import fluence.effects.castore.StoreError
 import fluence.effects.docker.DockerIO
@@ -104,49 +105,56 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
    */
   private def startUploading(blocks: Seq[Block] = Nil, storedReceipts: Seq[Receipt] = Nil) = {
     Resource
-      .liftF(Ref.of[IO, UploadingState](UploadingState()))
-      .map { state =>
-        def receiptStorage(id: Long) =
-          new ReceiptStorage[IO] {
-            override val appId: Long = id
+      .liftF(
+        (
+          Ref.of[IO, UploadingState](UploadingState()),
+          Ref.of[IO, Option[BlockManifest]](None)
+        ).tupled
+      )
+      .map {
+        case (state, manifestRef) =>
+          def receiptStorage(id: Long) =
+            new ReceiptStorage[IO] {
+              override val appId: Long = id
 
-            override def put(height: Long, receipt: Receipt): EitherT[IO, ReceiptStorageError, Unit] = EitherT.pure(())
-            override def get(height: Long): EitherT[IO, ReceiptStorageError, Option[Receipt]] = EitherT.pure(None)
-            override def retrieve(from: Option[Long], to: Option[Long]): fs2.Stream[IO, (Long, Receipt)] =
-              fs2.Stream.emits(storedReceipts.map(r => r.height -> r))
+              override def put(height: Long, receipt: Receipt): EitherT[IO, ReceiptStorageError, Unit] =
+                EitherT.pure(())
+              override def get(height: Long): EitherT[IO, ReceiptStorageError, Option[Receipt]] = EitherT.pure(None)
+              override def retrieve(from: Option[Long], to: Option[Long]): fs2.Stream[IO, (Long, Receipt)] =
+                fs2.Stream.emits(storedReceipts.map(r => r.height -> r))
+            }
+
+          val ipfs = new IpfsUploader[IO] {
+            override def upload[A: IpfsData](data: A)(implicit log: Log[IO]): EitherT[IO, StoreError, ByteVector] = {
+              EitherT.liftF(state.update(_.upload(data)).map(_ => ByteVector.empty))
+            }
           }
 
-        val ipfs = new IpfsUploader[IO] {
-          override def upload[A: IpfsData](data: A)(implicit log: Log[IO]): EitherT[IO, StoreError, ByteVector] = {
-            EitherT.liftF(state.update(_.upload(data)).map(_ => ByteVector.empty))
+          val workerServices = new WorkerServices[IO] {
+            override def tendermint: TendermintRpc[IO] = new TestTendermintWebsocketRpc[IO] {
+              override def subscribeNewBlock(
+                lastKnownHeight: Long
+              )(implicit log: Log[IO], backoff: Backoff[EffectError]): fs2.Stream[IO, Block] =
+                fs2.Stream.eval(state.update(_.subscribe(lastKnownHeight))) >> fs2.Stream.emits(blocks)
+            }
+
+            override def control: ControlRpc[IO] = new TestControlRpc[IO] {
+              override def sendBlockReceipt(receipt: Receipt,
+                                            rType: ReceiptType.Value): EitherT[IO, ControlRpcError, Unit] =
+                EitherT.liftF(state.update(_.receipt(receipt, rType)).void)
+
+              override def getVmHash(height: Long): EitherT[IO, ControlRpcError, ByteVector] =
+                EitherT.liftF(state.update(_.vmHash(height)).map(_ => ByteVector.empty))
+            }
+
+            override def status(timeout: FiniteDuration): IO[WorkerStatus] =
+              IO.raiseError(new NotImplementedError("def status worker status"))
+
+            override def blockManifests: WorkerBlockManifests[IO] =
+              new WorkerBlockManifests[IO](receiptStorage(appId), manifestRef)
           }
-        }
 
-        val workerServices = new WorkerServices[IO] {
-          override def tendermint: TendermintRpc[IO] = new TestTendermintWebsocketRpc[IO] {
-            override def subscribeNewBlock(
-              lastKnownHeight: Long
-            )(implicit log: Log[IO], backoff: Backoff[EffectError]): fs2.Stream[IO, Block] =
-              fs2.Stream.eval(state.update(_.subscribe(lastKnownHeight))) >> fs2.Stream.emits(blocks)
-          }
-
-          override def control: ControlRpc[IO] = new TestControlRpc[IO] {
-            override def sendBlockReceipt(receipt: Receipt,
-                                          rType: ReceiptType.Value): EitherT[IO, ControlRpcError, Unit] =
-              EitherT.liftF(state.update(_.receipt(receipt, rType)).void)
-
-            override def getVmHash(height: Long): EitherT[IO, ControlRpcError, ByteVector] =
-              EitherT.liftF(state.update(_.vmHash(height)).map(_ => ByteVector.empty))
-          }
-
-          override def status(timeout: FiniteDuration): IO[WorkerStatus] =
-            IO.raiseError(new NotImplementedError("def status worker status"))
-
-          override def blockManifests: WorkerBlockManifests[IO] =
-            new WorkerBlockManifests[IO](receiptStorage(appId), MVar.empty[IO, BlockManifest].unsafeRunSync())
-        }
-
-        (state, ipfs, workerServices)
+          (state, ipfs, workerServices)
       }
       .flatMap {
         case (state, ipfs, workerServices) =>

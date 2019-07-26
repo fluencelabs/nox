@@ -21,7 +21,7 @@ import java.nio.charset.Charset
 import java.nio.file.Paths
 
 import cats.data.{EitherT, OptionT}
-import cats.effect.concurrent.{MVar, Ref}
+import cats.effect.concurrent.Ref
 import cats.effect.{IO, Resource}
 import cats.instances.list._
 import cats.syntax.apply._
@@ -133,45 +133,46 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
 
   private def startBlockUploading(controlRpc: ControlRpc[IO],
                                   blocksQ: fs2.concurrent.Queue[IO, Block],
-                                  storedReceipts: Seq[Receipt] = Nil): Resource[IO, Unit] = {
-    def receiptStorage(id: Long) =
-      new ReceiptStorage[IO] {
-        override val appId: Long = id
+                                  storedReceipts: Seq[Receipt] = Nil): Resource[IO, Unit] =
+    Resource.liftF(Ref.of[IO, Option[BlockManifest]](None)).flatMap { manifestRef ⇒
+      def receiptStorage(id: Long) =
+        new ReceiptStorage[IO] {
+          override val appId: Long = id
 
-        override def put(height: Long, receipt: Receipt): EitherT[IO, ReceiptStorageError, Unit] = EitherT.pure(())
-        override def get(height: Long): EitherT[IO, ReceiptStorageError, Option[Receipt]] = EitherT.pure(None)
-        override def retrieve(from: Option[Long], to: Option[Long]): fs2.Stream[IO, (Long, Receipt)] =
-          fs2.Stream.emits(storedReceipts.map(r => r.height -> r))
+          override def put(height: Long, receipt: Receipt): EitherT[IO, ReceiptStorageError, Unit] = EitherT.pure(())
+          override def get(height: Long): EitherT[IO, ReceiptStorageError, Option[Receipt]] = EitherT.pure(None)
+          override def retrieve(from: Option[Long], to: Option[Long]): fs2.Stream[IO, (Long, Receipt)] =
+            fs2.Stream.emits(storedReceipts.map(r => r.height -> r))
+        }
+
+      val ipfs = new IpfsUploader[IO] {
+        override def upload[A: IpfsData](data: A)(implicit log: Log[IO]): EitherT[IO, StoreError, ByteVector] = {
+          EitherT.pure(ByteVector.empty)
+        }
       }
 
-    val ipfs = new IpfsUploader[IO] {
-      override def upload[A: IpfsData](data: A)(implicit log: Log[IO]): EitherT[IO, StoreError, ByteVector] = {
-        EitherT.pure(ByteVector.empty)
+      val workerServices: WorkerServices[IO] = new WorkerServices[IO] {
+        override def tendermint: TendermintRpc[IO] = new TestTendermintWebsocketRpc[IO] {
+          override def subscribeNewBlock(
+            lastKnownHeight: Long
+          )(implicit log: Log[IO], backoff: Backoff[EffectError]): fs2.Stream[IO, Block] =
+            blocksQ.dequeue
+        }
+
+        override val control: ControlRpc[IO] = controlRpc
+
+        override def status(timeout: FiniteDuration): IO[WorkerStatus] =
+          IO.raiseError(new NotImplementedError("def status worker status"))
+
+        override def blockManifests: WorkerBlockManifests[IO] =
+          new WorkerBlockManifests[IO](receiptStorage(appId), manifestRef)
       }
+
+      val worker: Resource[IO, Worker[IO]] =
+        Worker.make[IO](appId, p2pPort, description, workerServices, (_: IO[Unit]) => IO.unit, IO.unit, IO.unit)
+
+      worker.flatMap(BlockUploading[IO](ipfs).start)
     }
-
-    val workerServices: WorkerServices[IO] = new WorkerServices[IO] {
-      override def tendermint: TendermintRpc[IO] = new TestTendermintWebsocketRpc[IO] {
-        override def subscribeNewBlock(
-          lastKnownHeight: Long
-        )(implicit log: Log[IO], backoff: Backoff[EffectError]): fs2.Stream[IO, Block] =
-          blocksQ.dequeue
-      }
-
-      override val control: ControlRpc[IO] = controlRpc
-
-      override def status(timeout: FiniteDuration): IO[WorkerStatus] =
-        IO.raiseError(new NotImplementedError("def status worker status"))
-
-      override def blockManifests: WorkerBlockManifests[IO] =
-        new WorkerBlockManifests[IO](receiptStorage(appId), MVar.empty[IO, BlockManifest].unsafeRunSync)
-    }
-
-    val worker: Resource[IO, Worker[IO]] =
-      Worker.make[IO](appId, p2pPort, description, workerServices, (_: IO[Unit]) => IO.unit, IO.unit, IO.unit)
-
-    worker.flatMap(BlockUploading[IO](ipfs).start)
-  }
 
   private def singleBlock(height: Long, txs: List[ByteVector]) = {
     val blockJson =

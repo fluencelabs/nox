@@ -17,7 +17,7 @@
 package fluence.node
 
 import cats.Applicative
-import cats.effect.concurrent.MVar
+import cats.effect.concurrent.{MVar, Ref}
 import cats.effect.{Concurrent, Resource}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -49,7 +49,7 @@ class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]]) 
         for {
           p ← params
 
-          bref ← MVar.empty[F, BlockManifest]
+          bref ← Ref.of[F, Option[BlockManifest]](None)
           bstore ← KVReceiptStorage.makeInMemory(appId).allocated.map(_._1)
 
           w ← Worker

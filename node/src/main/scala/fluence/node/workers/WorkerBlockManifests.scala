@@ -18,11 +18,9 @@ package fluence.node.workers
 
 import java.nio.file.Path
 
-import cats.effect.concurrent.MVar
-import cats.effect.{Concurrent, ContextShift, LiftIO, Resource}
-import cats.syntax.flatMap._
-import cats.syntax.functor._
-import cats.{Applicative, Monad}
+import cats.effect.concurrent.Ref
+import cats.effect.{ContextShift, LiftIO, Resource, Sync}
+import cats.Monad
 import fluence.effects.receipt.storage.{KVReceiptStorage, ReceiptStorage}
 import fluence.effects.tendermint.block.history.{BlockManifest, Receipt}
 import fluence.log.Log
@@ -37,23 +35,14 @@ import scala.language.higherKinds
  */
 class WorkerBlockManifests[F[_]: Monad](
   val receiptStorage: ReceiptStorage[F],
-  lastManifestRef: MVar[F, BlockManifest]
+  lastManifestRef: Ref[F, Option[BlockManifest]]
 ) {
-
-  /**
-   * Returns the last known manifest, blocks until there's any
-   */
-  def lastManifest: F[BlockManifest] =
-    lastManifestRef.read
 
   /**
    * Returns the last known manifest, if any
    */
   def lastManifestOpt: F[Option[BlockManifest]] =
-    lastManifestRef.tryTake.flatMap {
-      case r @ Some(m) ⇒ lastManifestRef.put(m) as r
-      case None ⇒ Applicative[F].pure(None)
-    }
+    lastManifestRef.get
 
   /**
    * Updates the last known manifest
@@ -63,7 +52,7 @@ class WorkerBlockManifests[F[_]: Monad](
    * @param receipt This block manifest's receipt
    */
   def onUploaded(manifest: BlockManifest, receipt: Receipt): F[Unit] =
-    lastManifestRef.tryTake >> lastManifestRef.put(manifest)
+    lastManifestRef.set(Some(manifest))
 }
 
 object WorkerBlockManifests {
@@ -74,10 +63,10 @@ object WorkerBlockManifests {
    * @param appId Worker's application id
    * @param storageRoot Storage root, to be used with [[KVReceiptStorage.make]]
    */
-  def make[F[_]: Concurrent: LiftIO: Log: ContextShift](appId: Long,
-                                                        storageRoot: Path): Resource[F, WorkerBlockManifests[F]] =
+  def make[F[_]: Sync: LiftIO: Log: ContextShift](appId: Long,
+                                                  storageRoot: Path): Resource[F, WorkerBlockManifests[F]] =
     for {
       receiptStorage ← KVReceiptStorage.make[F](appId, storageRoot)
-      lastManifestRef ← Resource.liftF(MVar.empty[F, BlockManifest])
+      lastManifestRef ← Resource.liftF(Ref.of(Option.empty[BlockManifest]))
     } yield new WorkerBlockManifests[F](receiptStorage, lastManifestRef)
 }
