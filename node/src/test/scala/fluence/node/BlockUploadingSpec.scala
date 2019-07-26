@@ -186,7 +186,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
       state.lastKnownHeight.value shouldBe storedReceipts
     }
 
-    state.receipts.length shouldBe blocks
+    state.receipts.length shouldBe blocks + storedReceipts
   }
 
   /**
