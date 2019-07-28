@@ -54,14 +54,15 @@ class RequestResponseSpec extends WordSpec with Matchers with BeforeAndAfterAll 
     val params = WorkerParams(app, rootPath, rootPath, None, dockerConfig, tmDockerConfig, configTemplate)
 
     for {
-      tendermint <- Resource.liftF(IO(TendermintTest.requestResponderTendermint[IO]()))
+      tendermint <- Resource.liftF(TendermintTest[IO]())
       requestResponder <- Resource
-        .liftF[IO, RequestResponderImpl[IO, effect.IO.Par]](RequestResponderImpl[IO, IO.Par](tendermint, appId))
-      pool <- Resource.liftF(TestWorkersPool.some[IO](requestResponder, tendermint))
+        .liftF[IO, RequestResponderImpl[IO, effect.IO.Par]](
+          RequestResponderImpl[IO, IO.Par](tendermint.tendermint, appId)
+        )
+      pool <- Resource.liftF(TestWorkersPool.some[IO](requestResponder, tendermint.tendermint))
       _ <- Resource.liftF(pool.run(appId, IO(params)))
-      worker <- Resource.liftF(pool.get(appId))
       _ <- requestResponder.subscribeForWaitingRequests()
-    } yield (pool, requestResponder, log, ioShift, ioTimer)
+    } yield (pool, requestResponder, log, ioShift, ioTimer, tendermint)
   }
 
   def tx(nonce: Int) = {
@@ -88,7 +89,7 @@ class RequestResponseSpec extends WordSpec with Matchers with BeforeAndAfterAll 
     "sync their workers with contract clusters" in {
 
       start().use {
-        case (pool, requestSubscriber, log, ioShift, ioTimer) =>
+        case (pool, requestSubscriber, log, ioShift, ioTimer, tendermintTest) =>
           implicit val io = ioShift
           implicit val timer = ioTimer
           implicit val l = log
