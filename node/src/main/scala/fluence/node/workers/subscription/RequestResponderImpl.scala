@@ -201,12 +201,11 @@ class RequestResponderImpl[F[_]: Functor: Timer, G[_]](
   /**
    * Get all subscriptions for an app by `appId`, queries responses from tendermint.
    */
-  private def pollResponses(tendermintRpc: TendermintHttpRpc[F]): F[Unit] = {
+  private def pollResponses(tendermintRpc: TendermintHttpRpc[F]): F[Unit] =
     for {
       responsePromises <- subscribesRef.get
       _ <- queryResponses(responsePromises, tendermintRpc).flatMap(updateSubscribesByResult)
     } yield ()
-  }
 }
 
 object RequestResponderImpl {
