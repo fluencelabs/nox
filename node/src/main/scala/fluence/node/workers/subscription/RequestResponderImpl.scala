@@ -114,16 +114,13 @@ class RequestResponderImpl[F[_]: Functor: Timer, G[_]](
     log.scope("requestResponder" -> "queryResponses", "app" -> appId.toString) { implicit log =>
       log.trace(s"Polling ${promises.size} promises") *>
         promises.map { responsePromise =>
-          println("aaaaaaaa")
-          val r = tendermint
+          tendermint
             .query(responsePromise.id.toString, id = "dontcare")
             .flatMap(a => {
               println(a)
               parseResponse(responsePromise.id, a)
             })
             .leftMap(err => (responsePromise.id, err))
-          println("bbbbbbbbbbb")
-          r
         }.map(_.value)
           .toNel
           .map(
@@ -207,7 +204,8 @@ class RequestResponderImpl[F[_]: Functor: Timer, G[_]](
   private def pollResponses(tendermintRpc: TendermintHttpRpc[F]): F[Unit] = {
     for {
       responsePromises <- subscribesRef.get
-    } yield queryResponses(responsePromises, tendermintRpc).flatMap(updateSubscribesByResult)
+      _ <- queryResponses(responsePromises, tendermintRpc).flatMap(updateSubscribesByResult)
+    } yield ()
   }
 }
 
