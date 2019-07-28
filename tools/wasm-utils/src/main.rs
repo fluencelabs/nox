@@ -31,9 +31,9 @@ const MODULE_PATH: &str = "module_path";
 fn prepare_wasm_file<'a, 'b>() -> App<'a, 'b> {
     let arg = &[
         Arg::with_name(MODULE_PATH)
-        .required(true)
-        .takes_value(true)
-        .help("path to the wasm file")
+            .required(true)
+            .takes_value(true)
+            .help("path to the wasm file"),
     ];
 
     SubCommand::with_name("prepare")
@@ -54,14 +54,17 @@ fn main() -> Result<(), ExitFailure> {
         ("prepare", Some(arg)) => {
             let module_path = arg.value_of(MODULE_PATH).unwrap();
 
-            let module = parity_wasm::deserialize_file(module_path).expect("Error while deserializing file");
+            let module =
+                parity_wasm::deserialize_file(module_path).expect("Error while deserializing file");
             let gas_rules = rules::Set::new(1, Default::default());
 
-            let module = pwasm_utils::inject_gas_counter(module, &gas_rules).expect("Error while deserializing file file");
-            parity_wasm::serialize_to_file(module_path, module).expect("Error while serializing file");
+            let module = pwasm_utils::inject_gas_counter(module, &gas_rules)
+                .expect("Error while deserializing file file");
+            parity_wasm::serialize_to_file(module_path, module)
+                .expect("Error while serializing file");
 
             Ok(())
-        },
+        }
 
         c => Err(err_msg(format!("Unexpected command: {}", c.0)))?,
     }
