@@ -27,18 +27,13 @@ const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 
 const MODULE_PATH: &str = "module_path";
-const PREPARED_MODULE_NAME: &str = "new_module_name";
 
 fn prepare_wasm_file<'a, 'b>() -> App<'a, 'b> {
     let arg = &[
         Arg::with_name(MODULE_PATH)
         .required(true)
         .takes_value(true)
-        .help("path to the wasm file"),
-    Arg::with_name(PREPARED_MODULE_NAME)
-        .required(true)
-        .takes_value(true)
-        .help("a module name after preparation"),
+        .help("path to the wasm file")
     ];
 
     SubCommand::with_name("prepare")
@@ -58,7 +53,6 @@ fn main() -> Result<(), ExitFailure> {
         // TODO: change name after adding EIC instrumentation
         ("prepare", Some(arg)) => {
             let module_path = arg.value_of(MODULE_PATH).unwrap();
-            let prepared_module_name = arg.value_of(PREPARED_MODULE_NAME).unwrap();
 
             let module = parity_wasm::deserialize_file(module_path).expect("Error while deserializing file");
             let gas_rules = rules::Set::new(1, Default::default());
