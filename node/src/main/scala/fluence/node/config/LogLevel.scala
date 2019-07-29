@@ -20,6 +20,7 @@ import io.circe.{Decoder, Encoder}
 
 import scala.language.implicitConversions
 
+// TODO: Remove this loglevel, use Log.Level from fluence.log everywhere
 object LogLevel extends Enumeration {
   type LogLevel = Value
 
