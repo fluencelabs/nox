@@ -104,8 +104,8 @@ class AbciService[F[_]: Monad: Effect](
       }
 
       _ <- traceBU(
-        s"got receipt ${receipt
-          .map(r => s"${r.receipt.height}")}; transactions count: ${transactions.length} ${transactions.nonEmpty}"
+        s"got receipt ${receipt.map(r => s"${r.receipt.height}")}; " +
+          s"transactions count: ${transactions.length}"
       )
 
       _ <- Traverse[Option].traverse(receipt.filter(_.receipt.height != blockHeight - 1))(
@@ -126,7 +126,7 @@ class AbciService[F[_]: Monad: Effect](
           currentState.appHash.pure[F]
       } {
         case BlockReceipt(r) =>
-          traceBU(s"appHash = hash(${vmHash.toHex} ++ ${r.jsonBytes().toHex})" + Console.RESET) *>
+          traceBU(s"appHash = hash(${vmHash.toHex} ++ ${r.jsonBytes().toHex})") *>
             hasher[F](vmHash ++ r.jsonBytes())
               .leftMap(err => log.error(s"Error on hashing vmHash + receipt: $err"))
               .getOrElse(vmHash) // TODO: don't ignore errors
@@ -138,11 +138,11 @@ class AbciService[F[_]: Monad: Effect](
       // Store updated state in the Ref (the changes were transient for readers before this step)
       _ ← state.set(newState)
 
-      _ <- traceBU("state.set done" + Console.RESET)
+      _ <- traceBU("state.set done")
 
       // Store vmHash, so master node could retrieve it
       _ <- controlSignals.enqueueVmHash(blockHeight, vmHash)
-      _ <- traceBU(s"end of commit $blockHeight" + Console.RESET)
+      _ <- traceBU(s"$blockHeight commit end")
     } yield appHash
 
   /**

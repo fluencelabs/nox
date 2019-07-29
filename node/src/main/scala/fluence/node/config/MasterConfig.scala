@@ -18,7 +18,8 @@ package fluence.node.config
 
 import cats.effect.IO
 import fluence.kad.conf.KademliaConfig
-import fluence.node.config.LogLevel.LogLevel
+import fluence.log.LogLevel
+import fluence.log.LogLevel.LogLevel
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.workers.tendermint.config.TendermintConfig
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
@@ -66,6 +67,9 @@ object MasterConfig {
   implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder
   implicit val decodeMasterConfig: Decoder[MasterConfig] = deriveDecoder
   implicit val shortReader: ValueReader[Short] = ValueReader[Int].map(_.toShort)
+
+  implicit val lldec: Decoder[LogLevel.Value] = Decoder.enumDecoder(LogLevel)
+  implicit val llenc: Encoder[LogLevel.Value] = Encoder.enumEncoder(LogLevel)
 
   def load(): IO[MasterConfig] =
     ConfigOps.loadConfigAs[MasterConfig]()

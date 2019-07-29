@@ -74,6 +74,7 @@ object MasterNodeApp extends IOApp {
               kad ← kademlia(conf.rootPath, masterConf.kademlia)
               pool ← dockerWorkersPool(conf.rootPath, masterConf)
               node ← MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
+
             } yield (kad.http, node)).use {
               case (kadHttp, node) ⇒
                 (for {
@@ -103,6 +104,7 @@ object MasterNodeApp extends IOApp {
       conf.ports.minPort,
       conf.ports.maxPort,
       rootPath,
+      conf.logLevel,
       // TODO: use generic decentralized storage for block uploading instead of IpfsUploader
       BlockUploading(ipfsUploader(conf.remoteStorage))
     )

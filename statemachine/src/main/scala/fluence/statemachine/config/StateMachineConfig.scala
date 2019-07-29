@@ -23,7 +23,11 @@ import cats.effect.{IO, LiftIO, Sync}
 import cats.instances.list._
 import cats.syntax.flatMap._
 import cats.syntax.list._
+import cats.syntax.monadError._
+import cats.syntax.functor._
+import cats.syntax.applicativeError._
 import cats.{Monad, Traverse}
+import fluence.log.LogLevel.LogLevel
 import fluence.statemachine.control.ControlServer.ControlServerConfig
 import fluence.statemachine.error.{StateMachineError, VmModuleLocationError}
 
@@ -88,6 +92,8 @@ object StateMachineConfig {
       .delay(
         pureconfig.loadConfig[StateMachineConfig]
       )
+      .attempt
+      .map(_.flatMap(identity))
       .flatMap {
         case Left(err) ⇒
           Sync[F].raiseError(new RuntimeException("Unable to parse StateMachineConfig: " + err))
