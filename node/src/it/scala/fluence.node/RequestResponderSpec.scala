@@ -60,53 +60,54 @@ class RequestResponderSpec extends WordSpec with Matchers with BeforeAndAfterAll
     } yield (pool, requestResponder, tendermint)
   }
 
-  def tx(nonce: Int) = {
+  def tx(nonce: Int) =
     s"""|asdf/$nonce
         |this_should_be_a_llamadb_signature_but_it_doesnt_matter_for_this_test
         |1
         |INSERT INTO users VALUES(1, 'Sara', 23), (2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 27)
         |""".stripMargin
-  }
 
-  def txResponse(code: Int) = s"""
-                                 |{
-                                 |
-                                 |
-                                 |    "error": "",
-                                 |    "result": {
-                                 |        "hash": "2B8EC32BA2579B3B8606E42C06DE2F7AFA2556EF",
-                                 |        "log": "",
-                                 |        "data": "",
-                                 |        "code": "$code"
-                                 |    },
-                                 |    "id": "",
-                                 |    "jsonrpc": "2.0"
-                                 |
-                                 |}
-                                 |""".stripMargin
+  def txResponse(code: Int) =
+    s"""
+       |{
+       |
+       |
+       |    "error": "",
+       |    "result": {
+       |        "hash": "2B8EC32BA2579B3B8606E42C06DE2F7AFA2556EF",
+       |        "log": "",
+       |        "data": "",
+       |        "code": "$code"
+       |    },
+       |    "id": "",
+       |    "jsonrpc": "2.0"
+       |
+       |}
+       |""".stripMargin
 
   private val correctTxResponse = txResponse(0)
 
-  private def queryResponse(code: Int) = s"""
-                                            |{
-                                            |
-                                            |
-                                            |    "error": "",
-                                            |    "result": {
-                                            |        "response": {
-                                            |            "log": "exists",
-                                            |            "height": "0",
-                                            |            "value": "61626364",
-                                            |            "key": "61626364",
-                                            |            "index": "-1",
-                                            |            "code": "$code"
-                                            |        }
-                                            |    },
-                                            |    "id": "",
-                                            |    "jsonrpc": "2.0"
-                                            |
-                                            |}
-                                            |""".stripMargin
+  private def queryResponse(code: Int) =
+    s"""
+       |{
+       |
+       |
+       |    "error": "",
+       |    "result": {
+       |        "response": {
+       |            "log": "exists",
+       |            "height": "0",
+       |            "value": "61626364",
+       |            "key": "61626364",
+       |            "index": "-1",
+       |            "code": "$code"
+       |        }
+       |    },
+       |    "id": "",
+       |    "jsonrpc": "2.0"
+       |
+       |}
+       |""".stripMargin
 
   private val correctQueryResponse = queryResponse(0)
   private val pendingQueryResponse = queryResponse(3)
@@ -147,8 +148,7 @@ class RequestResponderSpec extends WordSpec with Matchers with BeforeAndAfterAll
       error.rpcError shouldBe a[RpcRequestFailed]
     }
 
-    "return an mailformed error if tx response from tendermint is incorrect" in {
-
+    "return an malformed error if tx response from tendermint is incorrect" in {
       val result = start().use {
         case (pool, requestSubscriber, tendermintTest) =>
           for {
