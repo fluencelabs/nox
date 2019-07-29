@@ -51,7 +51,7 @@ class SwarmClientIntegrationSpec extends FlatSpec with Matchers with EitherValue
 
   private implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init("swarm-it").unsafeRunSync()
 
-  val api = SwarmClient[IO](uri"http://localhost:8500")
+  val api = SwarmClient[IO](uri"http://localhost:8500", 5.seconds)
 
   val ethAddress: ByteVector = ByteVector.fromHex(Keys.getAddress(randomKeys)).get
 

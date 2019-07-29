@@ -177,13 +177,12 @@ object Configuration {
    * Reads KeyPair from priv_validator_key.json file in tendermint path.
    *
    */
-  def readTendermintKeyPair(rootPath: String): IO[KeyPair] = {
+  def readTendermintKeyPair(rootPath: Path): IO[KeyPair] = {
     for {
       validatorKeyString <- IO(
         new String(
           Files.readAllBytes(
-            Paths
-              .get(rootPath)
+            rootPath
               .resolve("tendermint")
               .resolve("config")
               .resolve("priv_validator_key.json")
