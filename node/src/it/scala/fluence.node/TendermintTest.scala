@@ -52,7 +52,7 @@ object TendermintTest {
 
   def apply[F[_]: Monad: Timer: Sync](): F[TendermintTest[F]] = {
     val rpcError = Left(RpcRequestFailed(new RuntimeException("unimplemented"))): Either[RpcError, String]
-    val rpcErrorC = Left(RpcRequestFailed(new RuntimeException("unimplemented"))): Either[RpcError, Long]
+    val rpcErrorC = Right(0): Either[RpcError, Long]
     for {
       txRef <- Ref.of(rpcError)
       queryRef <- Ref.of(rpcError)

@@ -103,8 +103,10 @@ object MasterNodeApp extends IOApp {
   private def ipfsUploader(conf: RemoteStorageConfig)(implicit sttp: STTP) =
     IpfsUploader[IO](conf.ipfs.address, conf.enabled, conf.ipfs.readTimeout)
 
-  private def dockerWorkersPool(rootPath: Path,
-                                conf: MasterConfig)(implicit sttp: STTP, log: Log[IO], dio: DockerIO[IO]) =
+  private def dockerWorkersPool(
+    rootPath: Path,
+    conf: MasterConfig
+  )(implicit sttp: STTP, log: Log[IO], dio: DockerIO[IO], backoff: Backoff[EffectError]) =
     DockerWorkersPool.make(
       conf.ports.minPort,
       conf.ports.maxPort,
