@@ -16,8 +16,6 @@
 
 package fluence.log
 
-import fluence.log
-
 import scala.language.implicitConversions
 
 object LogLevel extends Enumeration {
@@ -30,7 +28,7 @@ object LogLevel extends Enumeration {
   val DEBUG = Value("DEBUG")
   val TRACE = Value("TRACE")
 
-  def fromString(s: String): Option[log.LogLevel.Value] = values.find(_.toString.equalsIgnoreCase(s))
+  def fromString(s: String): Option[Value] = values.find(_.toString.equalsIgnoreCase(s))
 
   implicit def toLogLevel(l: LogLevel): Log.Level = {
     l match {
