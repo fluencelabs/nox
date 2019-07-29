@@ -19,14 +19,12 @@ package fluence.node.workers
 import cats.data.EitherT
 import cats.{Apply, Monad}
 import cats.syntax.apply._
-import cats.syntax.functor._
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import fluence.effects.tendermint.block.history.BlockManifest
-import fluence.effects.tendermint.rpc.{TendermintRpc, TxResponseCode}
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError}
 import fluence.log.Log
-import fluence.node.workers.subscription.{RequestResponder, TendermintQueryResponse}
+import fluence.node.workers.subscription.{TendermintQueryResponse, TxResponseCode}
 import fluence.statemachine.data.Tx
 import io.circe.parser.decode
 

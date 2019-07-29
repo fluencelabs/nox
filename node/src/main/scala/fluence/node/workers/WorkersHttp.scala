@@ -168,7 +168,7 @@ object WorkersHttp {
                     Ok(response)
                   case RpcErrorResponse(_, r) => rpcErrorToResponse(r)
                   case PendingResponse(_, _) =>
-                    BadRequest("Too long time to process this query. Start a new session.")
+                    BadRequest("Too long time this query is processing. Must start a new session to continue.")
                 }
               case Left(err) =>
                 err match {

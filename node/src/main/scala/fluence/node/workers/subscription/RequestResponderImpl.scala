@@ -24,7 +24,7 @@ import cats.syntax.functor._
 import cats.syntax.apply._
 import cats.{Functor, Parallel, Traverse}
 import fluence.effects.{Backoff, EffectError}
-import fluence.effects.tendermint.rpc.{QueryResponseCode, TendermintRpc}
+import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError, TendermintHttpRpc}
 import fluence.log.Log
 import fluence.node.MakeResource
@@ -110,16 +110,12 @@ class RequestResponderImpl[F[_]: Functor: Timer, G[_]](
                              tendermint: TendermintHttpRpc[F]): F[List[TendermintQueryResponse]] = {
     import cats.syntax.parallel._
     import cats.syntax.list._
-    println("polling " + promises.size)
     log.scope("requestResponder" -> "queryResponses", "app" -> appId.toString) { implicit log =>
       log.trace(s"Polling ${promises.size} promises") *>
         promises.map { responsePromise =>
           tendermint
             .query(responsePromise.id.toString, id = "dontcare")
-            .flatMap(a => {
-              println(a)
-              parseResponse(responsePromise.id, a)
-            })
+            .flatMap(parseResponse(responsePromise.id, _))
             .leftMap(err => (responsePromise.id, err))
         }.map(_.value)
           .toNel
@@ -127,11 +123,8 @@ class RequestResponderImpl[F[_]: Functor: Timer, G[_]](
             _.parSequence
               .map(
                 _.collect {
-                  case Right(r) =>
-                    println(r)
-                    r
+                  case Right(r) => r
                   case Left(err) =>
-                    println(err)
                     RpcErrorResponse(err._1, err._2): TendermintQueryResponse
                 }
               )

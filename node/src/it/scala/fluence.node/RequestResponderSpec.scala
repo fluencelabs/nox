@@ -4,22 +4,18 @@ import java.net.InetAddress
 import java.nio.file.Paths
 
 import cats.{effect, Parallel}
-import cats.data.NonEmptyList
-import cats.effect.concurrent.Ref
 import cats.effect.{ContextShift, IO, Resource, Timer}
 import fluence.effects.docker.params.{DockerImage, DockerLimits}
 import fluence.log.{Log, LogFactory}
-import cats.syntax.applicative._
-import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcRequestFailed}
 import fluence.node.config.DockerConfig
 import fluence.node.eth.state.{App, Cluster, StorageRef, StorageType, WorkerPeer}
 import fluence.node.workers.{RpcTxAwaitError, TxAwaitError, TxSyncError, WorkerParams, WorkersApi, WorkersPool}
 import fluence.node.workers.subscription.{
   OkResponse,
+  PendingResponse,
   RequestResponder,
   RequestResponderImpl,
-  ResponsePromise,
   RpcErrorResponse,
   TendermintQueryResponse
 }
@@ -31,7 +27,7 @@ import scala.concurrent.duration._
 import scala.compat.Platform.currentTime
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class RequestResponseSpec extends WordSpec with Matchers with BeforeAndAfterAll {
+class RequestResponderSpec extends WordSpec with Matchers with BeforeAndAfterAll {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
@@ -72,43 +68,48 @@ class RequestResponseSpec extends WordSpec with Matchers with BeforeAndAfterAll 
         |""".stripMargin
   }
 
-  val correctTxResponse = """
-                            |{
-                            |
-                            |
-                            |    "error": "",
-                            |    "result": {
-                            |        "hash": "2B8EC32BA2579B3B8606E42C06DE2F7AFA2556EF",
-                            |        "log": "",
-                            |        "data": "",
-                            |        "code": "0"
-                            |    },
-                            |    "id": "",
-                            |    "jsonrpc": "2.0"
-                            |
-                            |}
-                            |""".stripMargin
+  def txResponse(code: Int) = s"""
+                                 |{
+                                 |
+                                 |
+                                 |    "error": "",
+                                 |    "result": {
+                                 |        "hash": "2B8EC32BA2579B3B8606E42C06DE2F7AFA2556EF",
+                                 |        "log": "",
+                                 |        "data": "",
+                                 |        "code": "$code"
+                                 |    },
+                                 |    "id": "",
+                                 |    "jsonrpc": "2.0"
+                                 |
+                                 |}
+                                 |""".stripMargin
 
-  val correctQueryResponse = """
-                               |{
-                               |
-                               |
-                               |    "error": "",
-                               |    "result": {
-                               |        "response": {
-                               |            "log": "exists",
-                               |            "height": "0",
-                               |            "value": "61626364",
-                               |            "key": "61626364",
-                               |            "index": "-1",
-                               |            "code": "0"
-                               |        }
-                               |    },
-                               |    "id": "",
-                               |    "jsonrpc": "2.0"
-                               |
-                               |}
-                               |""".stripMargin
+  private val correctTxResponse = txResponse(0)
+
+  private def queryResponse(code: Int) = s"""
+                                            |{
+                                            |
+                                            |
+                                            |    "error": "",
+                                            |    "result": {
+                                            |        "response": {
+                                            |            "log": "exists",
+                                            |            "height": "0",
+                                            |            "value": "61626364",
+                                            |            "key": "61626364",
+                                            |            "index": "-1",
+                                            |            "code": "$code"
+                                            |        }
+                                            |    },
+                                            |    "id": "",
+                                            |    "jsonrpc": "2.0"
+                                            |
+                                            |}
+                                            |""".stripMargin
+
+  private val correctQueryResponse = queryResponse(0)
+  private val pendingQueryResponse = queryResponse(3)
 
   def request(pool: WorkersPool[IO], requestSubscriber: RequestResponder[IO], txCustom: Option[String] = None)(
     implicit P: Parallel[IO, IO.Par],
@@ -210,6 +211,24 @@ class RequestResponseSpec extends WordSpec with Matchers with BeforeAndAfterAll 
 
       val error = result.right.get.asInstanceOf[RpcErrorResponse]
       error.body shouldBe a[RpcBodyMalformed]
+    }
+
+    "return a pending response, if tendermint cannot return response after some amount of blocks" in {
+
+      val result = start().use {
+        case (pool, requestSubscriber, tendermintTest) =>
+          for {
+            _ <- tendermintTest.setTxResponse(Right(correctTxResponse))
+            _ <- tendermintTest.setQueryResponse(Right(pendingQueryResponse))
+            response <- request(pool, requestSubscriber)
+          } yield response
+      }.unsafeRunSync()
+
+      result should be('right)
+      result.right.get shouldBe a[PendingResponse]
+
+      val error = result.right.get.asInstanceOf[PendingResponse]
+      error.body shouldBe pendingQueryResponse
     }
 
     "return OK result if tendermint is responded ok" in {
