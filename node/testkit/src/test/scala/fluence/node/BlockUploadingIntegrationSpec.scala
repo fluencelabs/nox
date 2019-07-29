@@ -170,7 +170,7 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
           new WorkerBlockManifests[IO](receiptStorage(appId), manifestRef)
 
         override def responseSubscriber: ResponseSubscriber[IO] =
-          IO.raiseError(new NotImplementedError("def requestResponder"))
+          throw new NotImplementedError("def requestResponder")
       }
 
       val worker: Resource[IO, Worker[IO]] =
