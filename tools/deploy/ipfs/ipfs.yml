@@ -1,4 +1,4 @@
-version: '3.4'
+version: '3.5'
 services:
   ipfs:
     container_name: ipfs
@@ -10,3 +10,10 @@ services:
       - 4001:4001 # IPFS swarm
       - 8080:8080 # HTTP endpoint
       - 5001:5001 # IPFS API
+    networks:
+      # connects Fluence Node and IPFS containers
+      - decentralized_storage_network
+
+networks:
+  decentralized_storage_network:
+    name: decentralized_storage_network

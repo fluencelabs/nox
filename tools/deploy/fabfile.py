@@ -81,12 +81,13 @@ def copy_resources():
 
 # tests connection to all nodes
 # usage as follows: fab test_connections
+@task
 @parallel
 def test_connections():
     run("uname -a")
 
 
-# comment this annotation to deploy sequentially
+@task
 @parallel
 def deploy():
     with hide('running'):
@@ -125,7 +126,8 @@ def deploy():
                 swarm = env.swarm
 
             if env.ipfs is None:
-                ipfs = "http://%s:5001" % current_host
+                # Node and IPFS are connected via 'decentralized_storage_network' network, see node.yml & ipfs.yml
+                ipfs = "http://ipfs:5001"
                 remote_storage_enabled = "true"
             else:
                 ipfs = env.ipfs
@@ -176,6 +178,7 @@ def deploy():
 
 
 # usage: fab --set environment=stage,caddy_login=LOGIN,caddy_password=PASSWORD,role=slave deploy_netdata
+@task
 @parallel
 def deploy_netdata():
     from fabric.contrib.files import upload_template
@@ -268,13 +271,14 @@ def deploy_ipfs():
         print "IPFS: deploying..."
         results = execute(do_deploy_ipfs)
         print "IPFS: deployed"
-        print "IPFS: interconnecting nodes"
+        print "IPFS: interconnecting nodes..."
         external_addresses = [
             "/dns4/ipfs1.fluence.one/tcp/1036/ipfs/QmQodFqzJgqHyRDEG4abmMgHEV59AgXJ8foBeKgkazchNL",
             "/dns4/ipfs2.fluence.one/tcp/4001/ipfs/QmT2XFSBkLHPBFyae3o716Hs3qZidFhQrBHvfrMpZwgX7R"
         ]
         for ip, addrs in results.items():
-            external_addresses += list(a for a in addrs if ip in a)
+            # filtering external addresses
+            external_addresses += list(addr for addr in addrs if ip in addr)
 
         env.ipfs_addresses = external_addresses
 
