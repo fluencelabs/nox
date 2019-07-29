@@ -134,6 +134,7 @@ class RequestResponderSpec extends WordSpec with Matchers with BeforeAndAfterAll
 
   "MasterNode API" should {
     "return an RPC error, if broadcastTx returns an error" in {
+
       val result = start().use {
         case (pool, requestSubscriber, _) =>
           for {
@@ -149,6 +150,7 @@ class RequestResponderSpec extends WordSpec with Matchers with BeforeAndAfterAll
     }
 
     "return an malformed error if tx response from tendermint is incorrect" in {
+
       val result = start().use {
         case (pool, requestSubscriber, tendermintTest) =>
           for {
