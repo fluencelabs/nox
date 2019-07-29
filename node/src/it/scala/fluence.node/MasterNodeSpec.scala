@@ -42,7 +42,7 @@ import fluence.node.config.{FluenceContractConfig, MasterConfig, NodeConfig}
 import fluence.node.eth.FluenceContract
 import fluence.node.eth.FluenceContractTestOps._
 import fluence.node.status.{MasterStatus, StatusAggregator}
-import fluence.node.workers.subscription.RequestResponderImpl
+import fluence.node.workers.subscription.ResponseSubscriberImpl
 import fluence.node.workers.tendermint.ValidatorPublicKey
 import org.scalatest.{Timer => _, _}
 import scodec.bits.ByteVector

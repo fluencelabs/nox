@@ -38,7 +38,7 @@ import fluence.effects.kvstore.RocksDBStore
 import fluence.log.Log
 import fluence.log.LogLevel.LogLevel
 import fluence.node.MakeResource
-import fluence.node.workers.subscription.RequestResponder
+import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.BlockUploading
 
 import scala.concurrent.duration._
@@ -143,7 +143,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
       // TODO: pass promise from WorkerP2pConnectivity to blockUploading.start
       // Start uploading tendermint blocks and send receipts to statemachine
       _ <- blockUploading.start(worker)
-      _ <- worker.services.requestResponder.subscribeForWaitingRequests()
+      _ <- worker.services.responseSubscriber.start()
 
       // Finally, register the worker in the pool
       _ ← registeredWorker(worker)

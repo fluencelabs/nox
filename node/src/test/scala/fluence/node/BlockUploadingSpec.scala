@@ -41,7 +41,7 @@ import fluence.node.config.DockerConfig
 import fluence.node.eth.state._
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 import fluence.node.workers.status.WorkerStatus
-import fluence.node.workers.subscription.RequestResponder
+import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
@@ -149,7 +149,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
             override def blockManifests: WorkerBlockManifests[IO] =
               new WorkerBlockManifests[IO](receiptStorage(appId), manifestRef)
 
-            override def requestResponder: RequestResponder[IO] = ???
+            override def responseSubscriber: ResponseSubscriber[IO] = ???
           }
 
           (state, ipfs, workerServices)

@@ -18,7 +18,7 @@ import fluence.effects.{Backoff, EffectError}
 import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.effects.tendermint.rpc.websocket.{Event, TestTendermintRpc, TestTendermintWebsocketRpc}
 import fluence.log.Log
-import fluence.node.workers.subscription.RequestResponder
+import fluence.node.workers.subscription.ResponseSubscriber
 
 import scala.concurrent.duration._
 import scala.concurrent.duration.FiniteDuration
@@ -29,9 +29,9 @@ object TestWorkerServices {
   def emptyWorkerService[F[_]: Monad](bref: Ref[F, Option[BlockManifest]],
                                       bstore: ReceiptStorage[F])(appId: Long): WorkerServices[F] = {
     new WorkerServices[F] {
-      override def tendermint: TendermintRpc[F] = ???
+      override def tendermint: TendermintRpc[F] = throw new NotImplementedError("def tendermint")
 
-      override def control: ControlRpc[F] = ???
+      override def control: ControlRpc[F] = throw new NotImplementedError("def control")
 
       override def status(timeout: FiniteDuration): F[WorkerStatus] =
         WorkerStatus(
@@ -43,18 +43,18 @@ object TestWorkerServices {
 
       override def blockManifests: WorkerBlockManifests[F] = new WorkerBlockManifests(bstore, bref)
 
-      override def requestResponder: RequestResponder[F] = ???
+      override def responseSubscriber: ResponseSubscriber[F] = throw new NotImplementedError("def requestResponder")
     }
   }
 
   def workerServiceTestRequestResponse[F[_]: Applicative: Timer](
     tendermintRpc: TendermintRpc[F],
-    requestResponderImpl: RequestResponder[F]
+    requestResponderImpl: ResponseSubscriber[F]
   )(appId: Long): WorkerServices[F] = {
     new WorkerServices[F] {
       override def tendermint: TendermintRpc[F] = tendermintRpc
 
-      override def control: ControlRpc[F] = ???
+      override def control: ControlRpc[F] = throw new NotImplementedError("def control")
 
       override def status(timeout: FiniteDuration): F[WorkerStatus] =
         WorkerStatus(
@@ -64,9 +64,9 @@ object TestWorkerServices {
           ServiceStatus(Left(DockerContainerStopped(0)), HttpCheckNotPerformed("dumb"))
         ).pure[F]
 
-      override def blockManifests: WorkerBlockManifests[F] = ???
+      override def blockManifests: WorkerBlockManifests[F] = throw new NotImplementedError("def blockManifest")
 
-      override def requestResponder: RequestResponder[F] = requestResponderImpl
+      override def responseSubscriber: ResponseSubscriber[F] = requestResponderImpl
     }
   }
 }

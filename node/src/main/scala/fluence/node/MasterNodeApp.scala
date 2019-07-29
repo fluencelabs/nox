@@ -39,7 +39,7 @@ import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.config.{Configuration, HttpApiConfig, MasterConfig}
 import fluence.node.status.StatusAggregator
 import fluence.node.workers.DockerWorkersPool
-import fluence.node.workers.subscription.RequestResponderImpl
+import fluence.node.workers.subscription.ResponseSubscriberImpl
 import fluence.node.workers.tendermint.BlockUploading
 
 import scala.language.higherKinds

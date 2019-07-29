@@ -24,7 +24,7 @@ import fluence.codec.PureCodec
 import fluence.kad.http.KademliaHttp
 import fluence.kad.protocol.Node
 import fluence.log.LogFactory
-import fluence.node.workers.subscription.RequestResponder
+import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.{WorkersHttp, WorkersPool}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{HttpApp, Request, Response, Status}

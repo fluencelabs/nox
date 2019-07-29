@@ -10,14 +10,15 @@ import fluence.log.{Log, LogFactory}
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcRequestFailed}
 import fluence.node.config.DockerConfig
 import fluence.node.eth.state.{App, Cluster, StorageRef, StorageType, WorkerPeer}
-import fluence.node.workers.{RpcTxAwaitError, TxAwaitError, TxSyncError, WorkerParams, WorkersApi, WorkersPool}
+import fluence.node.workers.WorkersApi.{RpcTxAwaitError, TxAwaitError, TxParsingError}
+import fluence.node.workers.{WorkerParams, WorkersApi, WorkersPool}
 import fluence.node.workers.subscription.{
   OkResponse,
-  PendingResponse,
-  RequestResponder,
-  RequestResponderImpl,
+  ResponseSubscriber,
+  ResponseSubscriberImpl,
   RpcErrorResponse,
-  TendermintQueryResponse
+  TendermintQueryResponse,
+  TimedOutResponse
 }
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
@@ -27,7 +28,7 @@ import scala.concurrent.duration._
 import scala.compat.Platform.currentTime
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class RequestResponderSpec extends WordSpec with Matchers with BeforeAndAfterAll {
+class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterAll {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
@@ -51,12 +52,12 @@ class RequestResponderSpec extends WordSpec with Matchers with BeforeAndAfterAll
     for {
       tendermint <- Resource.liftF(TendermintTest[IO]())
       requestResponder <- Resource
-        .liftF[IO, RequestResponderImpl[IO, effect.IO.Par]](
-          RequestResponderImpl[IO, IO.Par](tendermint.tendermint, appId)
+        .liftF[IO, ResponseSubscriberImpl[IO, effect.IO.Par]](
+          ResponseSubscriberImpl[IO, IO.Par](tendermint.tendermint, appId)
         )
       pool <- Resource.liftF(TestWorkersPool.some[IO](requestResponder, tendermint.tendermint))
       _ <- Resource.liftF(pool.run(appId, IO(params)))
-      _ <- requestResponder.subscribeForWaitingRequests()
+      _ <- requestResponder.start()
     } yield (pool, requestResponder, tendermint)
   }
 
@@ -112,14 +113,14 @@ class RequestResponderSpec extends WordSpec with Matchers with BeforeAndAfterAll
   private val correctQueryResponse = queryResponse(0)
   private val pendingQueryResponse = queryResponse(3)
 
-  def request(pool: WorkersPool[IO], requestSubscriber: RequestResponder[IO], txCustom: Option[String] = None)(
+  def request(pool: WorkersPool[IO], requestSubscriber: ResponseSubscriber[IO], txCustom: Option[String] = None)(
     implicit P: Parallel[IO, IO.Par],
     log: Log[IO]
   ): IO[Either[TxAwaitError, TendermintQueryResponse]] = requests(1, pool, requestSubscriber, txCustom).map(_.head)
 
   def requests(to: Int,
                pool: WorkersPool[IO],
-               requestSubscriber: RequestResponder[IO],
+               requestSubscriber: ResponseSubscriber[IO],
                txCustom: Option[String] = None)(
     implicit P: Parallel[IO, IO.Par],
     log: Log[IO]
@@ -128,7 +129,7 @@ class RequestResponderSpec extends WordSpec with Matchers with BeforeAndAfterAll
     import cats.syntax.parallel._
 
     Range(0, to).toList.map { nonce =>
-      WorkersApi.txWaitResponse[IO, IO.Par](pool, 1, txCustom.getOrElse(tx(nonce)), None)
+      WorkersApi.txAwaitResponse[IO, IO.Par](pool, 1, txCustom.getOrElse(tx(nonce)), None)
     }.parSequence
   }
 
@@ -166,21 +167,20 @@ class RequestResponderSpec extends WordSpec with Matchers with BeforeAndAfterAll
       error.rpcError shouldBe a[RpcBodyMalformed]
     }
 
-    "return an error if query API in tendermint responses with an error" in {
+    "return an error if tx is incorrect" in {
 
       val result = start().use {
         case (pool, requestSubscriber, tendermintTest) =>
           for {
-            _ <- tendermintTest.setTxResponse(Right(correctTxResponse))
             response <- request(pool, requestSubscriber, Some("failed"))
           } yield response
       }.unsafeRunSync()
 
       result should be('left)
-      result.left.get shouldBe a[TxSyncError]
+      result.left.get shouldBe a[TxParsingError]
     }
 
-    "return an error as ok response if query API from tendermint is not responded" in {
+    "return an error if query API from tendermint is not responded" in {
 
       val result = start().use {
         case (pool, requestSubscriber, tendermintTest) =>
@@ -194,7 +194,7 @@ class RequestResponderSpec extends WordSpec with Matchers with BeforeAndAfterAll
       result.right.get shouldBe a[RpcErrorResponse]
 
       val error = result.right.get.asInstanceOf[RpcErrorResponse]
-      error.body shouldBe a[RpcRequestFailed]
+      error.error shouldBe a[RpcRequestFailed]
     }
 
     "return an error if query API returns incorrect response" in {
@@ -212,7 +212,7 @@ class RequestResponderSpec extends WordSpec with Matchers with BeforeAndAfterAll
       result.right.get shouldBe a[RpcErrorResponse]
 
       val error = result.right.get.asInstanceOf[RpcErrorResponse]
-      error.body shouldBe a[RpcBodyMalformed]
+      error.error shouldBe a[RpcBodyMalformed]
     }
 
     "return a pending response, if tendermint cannot return response after some amount of blocks" in {
@@ -227,9 +227,9 @@ class RequestResponderSpec extends WordSpec with Matchers with BeforeAndAfterAll
       }.unsafeRunSync()
 
       result should be('right)
-      result.right.get shouldBe a[PendingResponse]
+      result.right.get shouldBe a[TimedOutResponse]
 
-      val error = result.right.get.asInstanceOf[PendingResponse]
+      val error = result.right.get.asInstanceOf[TimedOutResponse]
       error.body shouldBe pendingQueryResponse
     }
 

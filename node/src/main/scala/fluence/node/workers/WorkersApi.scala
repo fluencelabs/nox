@@ -30,10 +30,6 @@ import io.circe.parser.decode
 
 import scala.language.higherKinds
 
-trait TxAwaitError
-case class RpcTxAwaitError(rpcError: RpcError) extends TxAwaitError
-case class TxSyncError(msg: String, responseBody: String) extends TxAwaitError
-
 object WorkersApi {
 
   /**
@@ -88,7 +84,7 @@ object WorkersApi {
    * @param appId app id for which the request is intended
    * @param tx transaction to process
    */
-  def txSync[F[_]: Monad](pool: WorkersPool[F], appId: Long, tx: String, id: Option[String])(
+  def broadcastTx[F[_]: Monad](pool: WorkersPool[F], appId: Long, tx: String, id: Option[String])(
     implicit log: Log[F]
   ): F[Option[Either[RpcError, String]]] =
     log.scope("tx.id" -> tx) { implicit log ⇒
@@ -99,8 +95,21 @@ object WorkersApi {
         )
     }
 
+  /**
+   * Returns the last manifest of a worker.
+   *
+   */
   def lastManifest[F[_]: Monad](pool: WorkersPool[F], appId: Long): F[Option[Option[BlockManifest]]] =
     pool.withWorker(appId, _.withServices(_.blockManifests)(_.lastManifestOpt))
+
+  /**
+   * Errors for `txAwait` API
+   */
+  trait TxAwaitError
+  case class RpcTxAwaitError(rpcError: RpcError) extends TxAwaitError
+  case class TxParsingError(msg: String, tx: String) extends TxAwaitError
+  case class AppNotFoundError(msg: String) extends TxAwaitError
+  case class TxInvalidError(msg: String) extends TxAwaitError
 
   /**
    * Sends the transaction to tendermint and then query for a response after each block.
@@ -109,7 +118,7 @@ object WorkersApi {
    * @param appId app id for which the request is intended
    * @param tx transaction to process
    */
-  def txWaitResponse[F[_]: Monad, G[_]](pool: WorkersPool[F], appId: Long, tx: String, id: Option[String])(
+  def txAwaitResponse[F[_]: Monad, G[_]](pool: WorkersPool[F], appId: Long, tx: String, id: Option[String])(
     implicit log: Log[F]
   ): F[Either[TxAwaitError, TendermintQueryResponse]] =
     log.scope("txWaitResponse.appId" -> appId.toString) { implicit log ⇒
@@ -117,32 +126,37 @@ object WorkersApi {
         case Some(worker) =>
           (for {
             _ <- EitherT.right(log.debug(s"TendermintRpc broadcastTxSync in txWaitResponse request"))
-            txSyncResponse <- worker.services.tendermint
+            txParsed <- EitherT
+              .fromOptionF(Tx.readTx(tx.getBytes()).value,
+                           TxParsingError("Incorrect transaction format.", tx): TxAwaitError)
+            txBroadcastResponse <- worker.services.tendermint
               .broadcastTxSync(tx, id.getOrElse("dontcare"))
               .leftMap(RpcTxAwaitError(_): TxAwaitError)
-            _ <- checkTxResponse(txSyncResponse)
-            tx <- EitherT
-              .fromOptionF(Tx.readTx(tx.getBytes()).value, TxSyncError("Cannot parse tx", txSyncResponse): TxAwaitError)
-            response <- waitResponse(worker, tx)
+            _ <- checkTxResponse(txBroadcastResponse)
+            response <- waitResponse(worker, txParsed)
           } yield response).value
         case None =>
-          (Left(TxSyncError("There is no worker with such appId", ""): TxAwaitError): Either[TxAwaitError,
-                                                                                             TendermintQueryResponse])
-            .pure[F]
+          (Left(AppNotFoundError(s"There is no worker with such appId: $appId"): TxAwaitError): Either[
+            TxAwaitError,
+            TendermintQueryResponse
+          ]).pure[F]
       }
-
     }
 
+  /**
+   * Creates a subscription for response and waits when it will be completed.
+   *
+   */
   private def waitResponse[F[_]: Monad](worker: Worker[F], tx: Tx)(
     implicit log: Log[F]
   ): EitherT[F, TxAwaitError, TendermintQueryResponse] =
     log.scope("txWaitResponse.requestId" -> tx.head.toString) { implicit log =>
       for {
         _ <- EitherT.right(
-          log.debug(s"TendermintRpc broadcastTxSync is ok. Id: ${tx.head}. Waiting for response")
+          log.debug(s"TendermintRpc broadcastTxSync is ok. Waiting for response")
         )
         response <- EitherT.liftF[F, TxAwaitError, TendermintQueryResponse](
-          worker.services.requestResponder.subscribe(tx.head).flatMap(_.get)
+          worker.services.responseSubscriber.subscribe(tx.head).flatMap(_.get)
         )
         _ <- EitherT.right(
           log.debug(s"Response received")
@@ -150,15 +164,24 @@ object WorkersApi {
       } yield response
     }
 
+  /**
+   * Checks if a response is correct and code value is `ok`. Returns an error otherwise.
+   */
   private def checkTxResponse[F[_]: Log](
     response: String
   )(implicit F: Monad[F]): EitherT[F, TxAwaitError, Unit] = {
     for {
-      code <- EitherT
+      txResponse <- EitherT
         .fromEither[F](decode[TxResponseCode](response))
         .leftMap(err => RpcTxAwaitError(RpcBodyMalformed(err)): TxAwaitError)
-        .map(_.code)
-      _ <- if (code != 0) EitherT.left(F.pure(TxSyncError("Transaction is not ok", response): TxAwaitError))
+      _ <- if (txResponse.code != 0)
+        EitherT.left(
+          F.pure(
+            TxInvalidError(
+              s"Response code for transaction is not ok. Code: ${txResponse.code}, info: ${txResponse.info}"
+            ): TxAwaitError
+          )
+        )
       else EitherT.right[TxAwaitError](F.pure(()))
     } yield ()
   }

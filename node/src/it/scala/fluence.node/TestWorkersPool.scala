@@ -25,7 +25,7 @@ import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.log.Log
-import fluence.node.workers.subscription.RequestResponder
+import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.{Worker, WorkerParams, WorkerServices, WorkersPool}
 
 import scala.language.higherKinds
@@ -85,7 +85,7 @@ class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]],
 
 object TestWorkersPool {
 
-  def some[F[_]: Concurrent: Timer](requestResponder: RequestResponder[F],
+  def some[F[_]: Concurrent: Timer](requestResponder: ResponseSubscriber[F],
                                     tendermintRpc: TendermintRpc[F]): F[TestWorkersPool[F]] = {
     val builder = TestWorkerServices.workerServiceTestRequestResponse[F](tendermintRpc, requestResponder) _
     MVar.of(Map.empty[Long, Worker[F]]).map(new TestWorkersPool(_, builder))

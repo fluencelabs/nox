@@ -22,14 +22,20 @@ import fluence.statemachine.data.Tx
 
 import scala.language.higherKinds
 
-trait RequestResponder[F[_]] {
+trait ResponseSubscriber[F[_]] {
 
+  /**
+   * Makes a subscription by transaction id.
+   * The master node will query state machine for response by this subscription each generated block.
+   *
+   * @param id transaction id: sessionId/nonce
+   * @return a promise that will be completed after response will be received
+   */
   def subscribe(id: Tx.Head): F[Deferred[F, TendermintQueryResponse]]
 
   /**
    * Gets all request subscribes for appId and trying to poll service for responses.
    *
-   * @return
    */
-  def subscribeForWaitingRequests(): Resource[F, Unit]
+  def start(): Resource[F, Unit]
 }

@@ -31,7 +31,8 @@ import fluence.effects.tendermint.rpc.http.{
   RpcRequestFailed
 }
 import fluence.log.{Log, LogFactory}
-import fluence.node.workers.subscription.{OkResponse, PendingResponse, RequestResponder, RpcErrorResponse}
+import fluence.node.workers.WorkersApi.{AppNotFoundError, RpcTxAwaitError, TxInvalidError, TxParsingError}
+import fluence.node.workers.subscription.{OkResponse, ResponseSubscriber, RpcErrorResponse, TimedOutResponse}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{HttpRoutes, Response}
 
@@ -39,7 +40,11 @@ import scala.language.higherKinds
 
 object WorkersHttp {
 
-  def tendermintResponsetoHttp[F[_]: Monad](
+  /**
+   * Encodes a tendermint response to HTTP format.
+   *
+   */
+  def tendermintResponseToHttp[F[_]: Monad](
     appId: Long,
     response: Option[Either[RpcError, String]]
   )(implicit log: Log[F], dsl: Http4sDsl[F]): F[Response[F]] = {
@@ -61,6 +66,10 @@ object WorkersHttp {
     }
   }
 
+  /**
+   * Encodes errors to HTTP format.
+   *
+   */
   def rpcErrorToResponse[F[_]: Monad](error: RpcError)(implicit log: Log[F], dsl: Http4sDsl[F]): F[Response[F]] = {
     import dsl._
     error match {
@@ -79,16 +88,6 @@ object WorkersHttp {
       case err: RpcBlockParsingFailed =>
         log.warn(s"RPC $err", err)
         InternalServerError(err.getMessage)
-    }
-  }
-
-  /** Helper: runs a function if a worker is in a pool, unwraps EitherT into different response types, renders errors */
-  def withTendermint[F[_]: Monad](
-    pool: WorkersPool[F],
-    appId: Long
-  )(fn: TendermintRpc[F] ⇒ EitherT[F, RpcError, String])(implicit log: Log[F], dsl: Http4sDsl[F]): F[Response[F]] = {
-    log.scope("app" -> appId.toString) { implicit log ⇒
-      pool.withWorker(appId, _.withServices(_.tendermint)(fn(_).value)).flatMap(tendermintResponsetoHttp(appId, _))
     }
   }
 
@@ -111,12 +110,12 @@ object WorkersHttp {
     HttpRoutes.of {
       case GET -> Root / LongVar(appId) / "query" :? QueryPath(path) +& QueryData(data) +& QueryId(id) ⇒
         LogFactory[F].init("http" -> "query", "app" -> appId.toString) >>= { implicit log =>
-          WorkersApi.query(pool, appId, data, path, id).flatMap(tendermintResponsetoHttp(appId, _))
+          WorkersApi.query(pool, appId, data, path, id).flatMap(tendermintResponseToHttp(appId, _))
         }
 
       case GET -> Root / LongVar(appId) / "status" ⇒
         LogFactory[F].init("http" -> "status", "app" -> appId.toString) >>= { implicit log =>
-          WorkersApi.status(pool, appId).flatMap(tendermintResponsetoHttp(appId, _))
+          WorkersApi.status(pool, appId).flatMap(tendermintResponseToHttp(appId, _))
         }
 
       case GET -> Root / LongVar(appId) / "p2pPort" ⇒
@@ -129,7 +128,7 @@ object WorkersHttp {
 
               case None ⇒
                 log.debug(s"Requested app $appId, but there's no such worker in the pool") *>
-                  NotFound("App not found on the node")
+                  NotFound(s"App $appId not found on the node")
             }
         }
 
@@ -154,25 +153,28 @@ object WorkersHttp {
       case req @ POST -> Root / LongVar(appId) / "tx" :? QueryId(id) ⇒
         LogFactory[F].init("http" -> "tx", "app" -> appId.toString) >>= { implicit log =>
           req.decode[String] { tx ⇒
-            WorkersApi.txSync(pool, appId, tx, id).flatMap(tendermintResponsetoHttp(appId, _))
+            WorkersApi.broadcastTx(pool, appId, tx, id).flatMap(tendermintResponseToHttp(appId, _))
           }
         }
 
       case req @ POST -> Root / LongVar(appId) / "txWaitResponse" :? QueryId(id) ⇒
-        LogFactory[F].init("http" -> "txWaitResponse", "app" -> appId.toString) >>= { implicit log =>
+        LogFactory[F].init("http" -> "txAwaitResponse", "app" -> appId.toString) >>= { implicit log =>
           req.decode[String] { tx ⇒
-            WorkersApi.txWaitResponse(pool, appId, tx, id).flatMap {
+            WorkersApi.txAwaitResponse(pool, appId, tx, id).flatMap {
               case Right(queryResponse) =>
                 queryResponse match {
                   case OkResponse(_, response) =>
                     Ok(response)
                   case RpcErrorResponse(_, r) => rpcErrorToResponse(r)
-                  case PendingResponse(_, _) =>
-                    BadRequest("Too long time this query is processing. Must start a new session to continue.")
+                  case TimedOutResponse(id, _) =>
+                    RequestTimeout(s"Request $id is processing too long. A new session should be started to continue.")
                 }
               case Left(err) =>
                 err match {
                   case RpcTxAwaitError(rpcError) => rpcErrorToResponse(rpcError)
+                  case TxParsingError(msg, tx)   => BadRequest(msg)
+                  case AppNotFoundError(msg)     => BadRequest(msg)
+                  case TxInvalidError(msg)       => InternalServerError(msg)
                 }
             }
           }

@@ -31,7 +31,7 @@ import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.LogLevel.LogLevel
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
-import fluence.node.workers.subscription.{RequestResponder, RequestResponderImpl}
+import fluence.node.workers.subscription.{ResponseSubscriber, ResponseSubscriberImpl}
 import fluence.node.workers.tendermint.DockerTendermint
 
 import scala.concurrent.duration.FiniteDuration
@@ -53,7 +53,7 @@ case class DockerWorkerServices[F[_]] private (
   tendermint: TendermintRpc[F],
   control: ControlRpc[F],
   blockManifests: WorkerBlockManifests[F],
-  requestResponder: RequestResponder[F],
+  responseSubscriber: ResponseSubscriber[F],
   statusCall: FiniteDuration ⇒ F[WorkerStatus]
 ) extends WorkerServices[F] {
   override def status(timeout: FiniteDuration): F[WorkerStatus] = statusCall(timeout)
@@ -142,7 +142,7 @@ object DockerWorkerServices {
 
       blockManifests ← WorkerBlockManifests.make[F](params.appId, storageRootPath)
 
-      requestResponder <- Resource.liftF(RequestResponderImpl(rpc, params.appId))
+      requestResponder <- Resource.liftF(ResponseSubscriberImpl(rpc, params.appId))
 
       control = ControlRpc[F](containerName(params), ControlRpcPort)
 

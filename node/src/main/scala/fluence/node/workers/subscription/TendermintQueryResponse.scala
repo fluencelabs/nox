@@ -20,7 +20,9 @@ import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.statemachine.data.Tx
 
 // possible variants of responses from tendermint's `query` method
-trait TendermintQueryResponse
+trait TendermintQueryResponse {
+  def id: Tx.Head
+}
 
 /**
  * Response that is ok for client. Master node must return it right away.
@@ -32,10 +34,10 @@ case class OkResponse(id: Tx.Head, body: String) extends TendermintQueryResponse
  * Transport error in Tendermint RPC.
  *
  */
-case class RpcErrorResponse(id: Tx.Head, body: RpcError) extends TendermintQueryResponse
+case class RpcErrorResponse(id: Tx.Head, error: RpcError) extends TendermintQueryResponse
 
 /**
  * Response is not ready yet in state machine.
  *
  */
-case class PendingResponse(id: Tx.Head, body: String) extends TendermintQueryResponse
+case class TimedOutResponse(id: Tx.Head, body: String) extends TendermintQueryResponse
