@@ -27,6 +27,8 @@ import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
 import fluence.log.Log
 import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
+import fluence.log.LogLevel.LogLevel
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
 import fluence.node.workers.subscription.{RequestResponder, RequestResponderImpl}
@@ -60,7 +62,9 @@ case class DockerWorkerServices[F[_]] private (
 object DockerWorkerServices {
   val ControlRpcPort: Short = 26662
 
-  private def dockerCommand(params: WorkerParams, network: DockerNetwork): DockerParams.DaemonParams = {
+  private def dockerCommand(params: WorkerParams,
+                            network: DockerNetwork,
+                            logLevel: LogLevel): DockerParams.DaemonParams = {
     import params._
 
     // Set worker's Xmx to mem * 0.75, so there's a gap between JVM heap and cgroup memory limit
@@ -69,6 +73,7 @@ object DockerWorkerServices {
     DockerParams
       .build()
       .option("-e", s"""CODE_DIR=$vmCodePath""")
+      .option("-e", s"LOG_LEVEL=$logLevel")
       .option("-e", s"TM_RPC_PORT=${DockerTendermint.RpcPort}")
       .option("-e", s"TM_RPC_HOST=${DockerTendermint.containerName(params)}")
       .option("-e", internalMem.map(mem => s"WORKER_MEMORY_LIMIT=$mem"))
@@ -110,6 +115,8 @@ object DockerWorkerServices {
    * @param p2pPort Tendermint p2p port
    * @param stopTimeout Timeout in seconds to allow graceful stopping of running containers.
    *                    It might take up to 2*`stopTimeout` seconds to gracefully stop the worker, as 2 containers involved.
+   * @param logLevel Logging level passed to the worker
+   * @param storageRootPath Storage root, to be used with [[KVReceiptStorage.make]]
    * @param sttpBackend Sttp Backend to launch HTTP healthchecks and RPC endpoints
    * @return the [[WorkerServices]] instance
    */
@@ -117,7 +124,8 @@ object DockerWorkerServices {
     params: WorkerParams,
     p2pPort: Short,
     stopTimeout: Int,
-    storageRootPath: Path,
+    logLevel: LogLevel,
+    storageRootPath: Path
   )(
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
     F: Concurrent[F],
@@ -126,7 +134,7 @@ object DockerWorkerServices {
     for {
       network ← makeNetwork(params)
 
-      worker ← DockerIO[F].run(dockerCommand(params, network), stopTimeout)
+      worker ← DockerIO[F].run(dockerCommand(params, network, logLevel), stopTimeout)
 
       tendermint ← DockerTendermint.make[F](params, p2pPort, containerName(params), network, stopTimeout)
 

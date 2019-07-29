@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-package fluence.node.config
-import fluence.log.Log
-import io.circe.{Decoder, Encoder}
+package fluence.log
 
 import scala.language.implicitConversions
 
+// TODO: Remove this loglevel, use Log.Level from fluence.log everywhere
 object LogLevel extends Enumeration {
   type LogLevel = Value
 
@@ -29,6 +28,8 @@ object LogLevel extends Enumeration {
   val INFO = Value("INFO")
   val DEBUG = Value("DEBUG")
   val TRACE = Value("TRACE")
+
+  def fromString(s: String): Option[Value] = values.find(_.toString.equalsIgnoreCase(s))
 
   implicit def toLogLevel(l: LogLevel): Log.Level = {
     l match {
@@ -40,7 +41,4 @@ object LogLevel extends Enumeration {
       case `TRACE` => Log.Trace
     }
   }
-
-  implicit val dec: Decoder[LogLevel.Value] = Decoder.enumDecoder(LogLevel)
-  implicit val enc: Encoder[LogLevel.Value] = Encoder.enumEncoder(LogLevel)
 }

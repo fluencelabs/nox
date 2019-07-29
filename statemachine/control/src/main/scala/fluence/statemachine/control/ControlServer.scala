@@ -66,8 +66,8 @@ object ControlServer {
 
     def logReq(req: Request[F]): F[Log[F]] =
       LogFactory[F]
-        .init("ctrl", req.pathInfo)
-        .flatTap(_.info(s"RPC REQ: $req"))
+        .init("method" -> req.method.toString(), "ctrl" -> req.pathInfo)
+        .flatTap(_.info(s"request"))
         .widen[Log[F]]
 
     val route: PartialFunction[Request[F], F[Response[F]]] = {

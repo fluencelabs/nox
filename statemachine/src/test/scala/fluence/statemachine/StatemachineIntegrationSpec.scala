@@ -39,7 +39,8 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
-  implicit val log: Log[IO] = LogFactory.forPrintln[IO](Log.Error).init(getClass.getSimpleName).unsafeRunSync()
+  implicit val lf: LogFactory[IO] = LogFactory.forPrintln(Log.Error)
+  implicit val log: Log[IO] = lf.init(getClass.getSimpleName).unsafeRunSync()
   implicit private val sttp: SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]] =
     EitherTSttpBackend[IO]()
 

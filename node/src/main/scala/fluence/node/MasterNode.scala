@@ -230,8 +230,8 @@ object MasterNode {
   )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]): CodeCarrier[F] =
     if (config.enabled) {
       implicit val b: Backoff[StoreError] = Backoff.default
-      val swarmStore = SwarmStore[F](config.swarm.address)
-      val ipfsStore = IpfsStore[F](config.ipfs.address)
+      val swarmStore = SwarmStore[F](config.swarm.address, config.swarm.readTimeout)
+      val ipfsStore = IpfsStore[F](config.ipfs.address, config.ipfs.readTimeout)
       val polyStore = new PolyStore[F]({
         case StorageType.Swarm => swarmStore
         case StorageType.Ipfs  => ipfsStore

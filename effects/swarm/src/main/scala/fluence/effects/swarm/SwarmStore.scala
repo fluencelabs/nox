@@ -25,6 +25,7 @@ import fluence.effects.castore.{ContentAddressableStore, StoreError}
 import fluence.log.Log
 import scodec.bits.ByteVector
 
+import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
 class SwarmStore[F[_]](client: SwarmClient[F])(implicit F: cats.Monad[F]) extends ContentAddressableStore[F] {
@@ -37,9 +38,9 @@ class SwarmStore[F[_]](client: SwarmClient[F])(implicit F: cats.Monad[F]) extend
 
 object SwarmStore {
 
-  def apply[F[_]](address: Uri)(
+  def apply[F[_]](address: Uri, readTimeout: FiniteDuration)(
     implicit F: Monad[F],
     sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]
   ): SwarmStore[F] =
-    new SwarmStore(SwarmClient[F](address))
+    new SwarmStore(SwarmClient[F](address, readTimeout))
 }

@@ -29,7 +29,7 @@ import cats.syntax.functor._
 import cats.{Applicative, Monad}
 import com.softwaremill.sttp.Uri.QueryFragment.KeyValue
 import com.softwaremill.sttp.circe.asJson
-import com.softwaremill.sttp.{Multipart, SttpBackend, Uri, asStream, sttp, _}
+import com.softwaremill.sttp.{Multipart, SttpBackend, Uri, asStream, _}
 import fluence.effects.castore.StoreError
 import fluence.log.Log
 import fs2.RaiseThrowable
@@ -37,6 +37,7 @@ import io.circe.{Decoder, DecodingFailure}
 import scodec.bits.ByteVector
 
 import scala.collection.immutable
+import scala.concurrent.duration._
 import scala.language.higherKinds
 
 // TODO move somewhere else
@@ -52,7 +53,7 @@ object ResponseOps {
   }
 }
 
-class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
+class IpfsClient[F[_]: Monad](ipfsUri: Uri, readTimeout: FiniteDuration = 5.seconds)(
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]
 ) extends IpfsUploader[F] {
 
@@ -64,6 +65,8 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri)(
     // https://github.com/multiformats/multicodec/blob/master/table.csv
     val SHA256 = ByteVector(0x12, 32) // 0x12 => SHA256; 32 = 256 bits in bytes
   }
+
+  private val sttp = com.softwaremill.sttp.sttp.readTimeout(readTimeout)
 
   // URI for downloading data
   private val CatUri = ipfsUri.path("/api/v0/cat")
