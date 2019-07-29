@@ -61,11 +61,7 @@ object MasterConfig {
   import net.ceedubs.ficus.Ficus._
   import net.ceedubs.ficus.readers.ArbitraryTypeReader._
   import io.circe.generic.auto._
-
-  implicit val encodeDuration: Encoder[Duration] =
-    Encoder.encodeDuration.contramap(d ⇒ java.time.Duration.ofMillis(d.toMillis))
-  implicit val decodeDuration: Decoder[Duration] =
-    Decoder.decodeDuration.map(_.toMillis.millis)
+  import DurationCodecs._
 
   implicit val encodeMasterConfig: Encoder[MasterConfig] = deriveEncoder
   implicit val decodeMasterConfig: Decoder[MasterConfig] = deriveDecoder
