@@ -26,17 +26,17 @@ import cats.instances.list._
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
 import cats.syntax.apply._
+import cats.syntax.compose._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.syntax.compose._
 import cats.{Applicative, Apply, Parallel}
 import com.softwaremill.sttp.SttpBackend
 import fluence.codec.PureCodec
 import fluence.effects.docker.DockerIO
 import fluence.effects.kvstore.RocksDBStore
 import fluence.log.Log
+import fluence.log.LogLevel.LogLevel
 import fluence.node.MakeResource
-import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.workers.tendermint.BlockUploading
 
 import scala.concurrent.duration._
@@ -50,6 +50,7 @@ import scala.language.higherKinds
 class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
   ports: WorkersPorts[F],
   workers: Ref[F, Map[Long, Worker[F]]],
+  logLevel: LogLevel,
   // TODO: it's not OK to have blockUploading here, it should be moved somewhere else
   blockUploading: BlockUploading[F],
   rootPath: Path,
@@ -121,8 +122,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
         } yield p
       )
 
-      services ← DockerWorkerServices
-        .make[F](ps, p2pPort, stopTimeout, storageRoot)
+      services ← DockerWorkerServices.make[F](ps, p2pPort, stopTimeout, logLevel, storageRoot)
 
       worker ← Worker.make(
         ps.appId,
@@ -259,6 +259,7 @@ object DockerWorkersPool {
     minPort: Short,
     maxPort: Short,
     rootPath: Path,
+    workerLogLevel: LogLevel,
     blockUploading: BlockUploading[F]
   )(
     implicit
@@ -271,7 +272,7 @@ object DockerWorkersPool {
       pool ← Resource.make {
         for {
           workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
-        } yield new DockerWorkersPool[F, G](ports, workers, blockUploading, rootPath)
+        } yield new DockerWorkersPool[F, G](ports, workers, workerLogLevel, blockUploading, rootPath)
       }(_.stopAll())
     } yield pool: WorkersPool[F]
 

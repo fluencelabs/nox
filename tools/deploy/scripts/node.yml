@@ -1,4 +1,4 @@
-version: '3.4'
+version: '3.5'
 
 services:
   fluence-node-1:
@@ -21,6 +21,9 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - $FLUENCE_STORAGE:/master
+    networks:
+      # connects Fluence Node and IPFS containers
+      - decentralized_storage_network
     deploy:
       resources:
         limits:
@@ -28,3 +31,8 @@ services:
           memory: 350M
         reservations:
           memory: 300M
+
+networks:
+  decentralized_storage_network:
+    external:
+      name: decentralized_storage_network
