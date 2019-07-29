@@ -26,7 +26,7 @@ import cats.syntax.applicative._
 import cats.syntax.functor._
 import cats.syntax.either._
 import cats.syntax.flatMap._
-import com.softwaremill.sttp._
+import com.softwaremill.sttp.{Multipart, SttpBackend, Uri, asStream, _}
 import com.softwaremill.sttp.circe._
 import fluence.crypto.Crypto.Hasher
 import fluence.effects.swarm.crypto.Keccak256Hasher
@@ -38,6 +38,7 @@ import io.circe.syntax._
 import io.circe.{Json, Printer}
 import scodec.bits.ByteVector
 
+import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
 // TODO use pureConfig for parameters
@@ -54,7 +55,7 @@ import scala.language.higherKinds
  * @param sttpBackend way to represent the backend implementation.
  *                    Can be sync or async, with effects or not depending on the `F`
  */
-class SwarmClient[F[_]: Monad](swarmUri: Uri)(
+class SwarmClient[F[_]: Monad](swarmUri: Uri, readTimeout: FiniteDuration)(
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
   hasher: Hasher[ByteVector, ByteVector]
 ) {
@@ -64,6 +65,8 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri)(
 
   // unpretty printer for http requests
   private val printer = Printer.noSpaces.copy(dropNullValues = true)
+
+  private val sttp = com.softwaremill.sttp.sttp.readTimeout(readTimeout)
 
   // generate body from json for http requests
   private def jsonToBytes(json: Json) = printer.pretty(json).getBytes
@@ -337,14 +340,15 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri)(
 object SwarmClient {
 
   def apply[F[_]: Monad](
-    swarmUri: Uri
+    swarmUri: Uri,
+    readTimeout: FiniteDuration
   )(
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]
   ): SwarmClient[F] = {
 
     implicit val _: Hasher[ByteVector, ByteVector] = Keccak256Hasher.hasher
 
-    new SwarmClient[F](swarmUri)
+    new SwarmClient[F](swarmUri, readTimeout)
   }
 
   implicit class UnsafeClient(client: SwarmClient[IO]) {
