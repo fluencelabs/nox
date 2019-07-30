@@ -29,7 +29,7 @@ import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError, RpcRequestErrored, TendermintHttpRpc}
 import fluence.log.Log
 import fluence.node.MakeResource
-import fluence.statemachine.data.Tx
+import fluence.statemachine.data.{AbciServiceCodes, Tx}
 
 import scala.language.higherKinds
 
@@ -88,12 +88,17 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
     for {
       code <- EitherT
         .fromEither(decode[QueryResponseCode](response))
-        .leftMap(err => RpcBodyMalformed(err): RpcError)
+        .leftSemiflatMap(
+          err =>
+            log
+              .error(s"Query response from tendermint is malformed: $response")
+              .map(_ => RpcBodyMalformed(err): RpcError)
+        )
         .map(_.code)
     } yield {
       // if code is not 0, 3 or 4 - it is an tendermint error, so we need to return it as is
       // 3, 4 - is a code for pending result
-      if (code == 0 || (code != 3 && code != 4)) {
+      if (code == AbciServiceCodes.Ok || (code != AbciServiceCodes.Pending && code != AbciServiceCodes.NotFound)) {
         OkResponse(id, response)
       } else {
         TimedOutResponse(id, response)
@@ -107,8 +112,10 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
    * @param promises list of subscriptions
    * @return all queried responses
    */
-  private def queryResponses(promises: List[ResponsePromise[F]],
-                             tendermint: TendermintHttpRpc[F]): F[List[TendermintQueryResponse]] = {
+  private def queryResponses(
+    promises: List[ResponsePromise[F]],
+    tendermint: TendermintHttpRpc[F]
+  ): F[List[(ResponsePromise[F], TendermintQueryResponse)]] = {
     import cats.syntax.parallel._
     import cats.syntax.list._
     log.scope("requestResponder" -> "queryResponses", "app" -> appId.toString) { implicit log =>
@@ -117,7 +124,8 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
           tendermint
             .query(responsePromise.id.toString, id = "dontcare")
             .flatMap(parseResponse(responsePromise.id, _))
-            .leftMap(err => (responsePromise.id, err))
+            .map(r => (responsePromise, r))
+            .leftMap(err => (responsePromise, err))
         }.map(_.value)
           .toNel
           .map(
@@ -125,10 +133,10 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
               .map(
                 _.collect {
                   case Right(r) => r
-                  case Left((txHead, err: RpcRequestErrored)) =>
-                    OkResponse(txHead, err.error)
-                  case Left((txHead, rpcError)) =>
-                    RpcErrorResponse(txHead, rpcError): TendermintQueryResponse
+                  case Left((responsePromise, err: RpcRequestErrored)) =>
+                    (responsePromise, OkResponse(responsePromise.id, err.error))
+                  case Left((responsePromise, rpcError)) =>
+                    (responsePromise, RpcErrorResponse(responsePromise.id, rpcError): TendermintQueryResponse)
                 }
               )
           )
@@ -141,27 +149,18 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
    * updates state of promises.
    *
    */
-  private def updateSubscribesByResult(responses: List[TendermintQueryResponse]): F[Unit] = {
+  private def updateSubscribesByResult(responses: List[(ResponsePromise[F], TendermintQueryResponse)]): F[Unit] = {
     import cats.instances.list._
     for {
       completionList <- subscribesRef.modify { subsMap =>
         val (taskList, updatedSubs) = responses.foldLeft((List.empty[F[Unit]], subsMap)) {
           case ((taskList, subs), response) =>
             response match {
-              case r @ OkResponse(id, _) =>
-                (subs
-                   .get(id)
-                   .map(rp => taskList :+ rp.promise.complete(r))
-                   .getOrElse(taskList),
-                 subs - id)
-              case r @ (RpcErrorResponse(_, _) | TimedOutResponse(_, _)) =>
-                subs
-                  .get(r.id)
-                  .map { rp =>
-                    if (rp.tries + 1 >= maxBlocksTries) (taskList :+ rp.promise.complete(response), subs - r.id)
-                    else (taskList, subs + (r.id -> rp.copy(tries = rp.tries + 1)))
-                  }
-                  .getOrElse((taskList, subs))
+              case (promise, r @ OkResponse(id, _)) =>
+                (promise.promise.complete(r) :: taskList, subs - promise.id)
+              case (promise, r @ (RpcErrorResponse(_, _) | TimedOutResponse(_, _))) =>
+                if (promise.tries + 1 >= maxBlocksTries) (promise.promise.complete(r) :: taskList, subs - r.id)
+                else (taskList, subs + (r.id -> promise.copy(tries = promise.tries + 1)))
             }
         }
         (updatedSubs, taskList)

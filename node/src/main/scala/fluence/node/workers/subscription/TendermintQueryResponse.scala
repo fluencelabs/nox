@@ -28,7 +28,7 @@ trait TendermintQueryResponse {
  * Response that is ok for client. Master node must return it right away.
  *
  */
-case class OkResponse(id: Tx.Head, body: String) extends TendermintQueryResponse
+case class OkResponse(id: Tx.Head, response: String) extends TendermintQueryResponse
 
 /**
  * Transport error in Tendermint RPC.
@@ -38,6 +38,7 @@ case class RpcErrorResponse(id: Tx.Head, error: RpcError) extends TendermintQuer
 
 /**
  * Response is not ready yet in state machine.
+ * It will be returned after some several tries to get a response from tendermint.
  *
  */
-case class TimedOutResponse(id: Tx.Head, body: String) extends TendermintQueryResponse
+case class TimedOutResponse(id: Tx.Head, lastResponse: String) extends TendermintQueryResponse

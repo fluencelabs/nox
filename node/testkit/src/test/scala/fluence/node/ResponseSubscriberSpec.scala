@@ -258,7 +258,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
       result.right.get shouldBe a[TimedOutResponse]
 
       val error = result.right.get.asInstanceOf[TimedOutResponse]
-      error.body shouldBe pendingQueryResponse
+      error.lastResponse shouldBe pendingQueryResponse
     }
 
     "return OK result if tendermint is responded ok" in {
@@ -275,7 +275,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
       result.right.get shouldBe a[OkResponse]
 
       val ok = result.right.get.asInstanceOf[OkResponse]
-      ok.body shouldBe correctQueryResponse
+      ok.response shouldBe correctQueryResponse
     }
   }
 }

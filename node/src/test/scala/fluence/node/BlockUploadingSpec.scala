@@ -149,7 +149,8 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
             override def blockManifests: WorkerBlockManifests[IO] =
               new WorkerBlockManifests[IO](receiptStorage(appId), manifestRef)
 
-            override def responseSubscriber: ResponseSubscriber[IO] = ???
+            override def responseSubscriber: ResponseSubscriber[IO] =
+              throw new NotImplementedError("def responseSubscriber")
           }
 
           (state, ipfs, workerServices)

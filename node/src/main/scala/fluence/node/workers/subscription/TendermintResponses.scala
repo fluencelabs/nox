@@ -17,6 +17,7 @@
 package fluence.node.workers.subscription
 
 import io.circe.{Decoder, HCursor}
+import io.circe.generic.semiauto.deriveDecoder
 
 /**
  * Represents response code for broadcastTxSync.
@@ -25,14 +26,10 @@ import io.circe.{Decoder, HCursor}
 case class TxResponseCode(code: Int, info: Option[String])
 
 object TxResponseCode {
+
   implicit val decodeTxResponseCode: Decoder[TxResponseCode] = new Decoder[TxResponseCode] {
     final def apply(c: HCursor): Decoder.Result[TxResponseCode] =
-      for {
-        code <- c.downField("result").downField("code").as[Int]
-        info <- c.downField("result").downField("info").as[Option[String]]
-      } yield {
-        new TxResponseCode(code, info)
-      }
+      c.downField("result").as[TxResponseCode](deriveDecoder[TxResponseCode])
   }
 }
 
@@ -45,11 +42,6 @@ case class QueryResponseCode(code: Int, info: Option[String])
 object QueryResponseCode {
   implicit val decodeQueryResponseCode: Decoder[QueryResponseCode] = new Decoder[QueryResponseCode] {
     final def apply(c: HCursor): Decoder.Result[QueryResponseCode] =
-      for {
-        code <- c.downField("result").downField("response").downField("code").as[Int]
-        info <- c.downField("result").downField("response").downField("info").as[Option[String]]
-      } yield {
-        new QueryResponseCode(code, info)
-      }
+      c.downField("result").downField("response").as[QueryResponseCode](deriveDecoder[QueryResponseCode])
   }
 }

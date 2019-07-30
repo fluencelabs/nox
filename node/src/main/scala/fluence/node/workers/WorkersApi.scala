@@ -158,9 +158,7 @@ object WorkersApi {
         response <- EitherT.liftF[F, TxAwaitError, TendermintQueryResponse](
           worker.services.responseSubscriber.subscribe(tx.head).flatMap(_.get)
         )
-        _ <- EitherT.right(
-          log.debug(s"Response received")
-        )
+        _ <- Log.eitherT[F, TxAwaitError].trace(s"Response received: $response")
       } yield response
     }
 

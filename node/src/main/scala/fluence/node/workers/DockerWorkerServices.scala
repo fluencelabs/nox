@@ -142,7 +142,7 @@ object DockerWorkerServices {
 
       blockManifests ← WorkerBlockManifests.make[F](params.appId, storageRootPath)
 
-      requestResponder <- Resource.liftF(ResponseSubscriberImpl(rpc, params.appId))
+      responseSubscriber <- Resource.liftF(ResponseSubscriberImpl(rpc, params.appId))
 
       control = ControlRpc[F](containerName(params), ControlRpcPort)
 
@@ -166,6 +166,6 @@ object DockerWorkerServices {
           )
       }
 
-    } yield new DockerWorkerServices[F](p2pPort, params.appId, rpc, control, blockManifests, requestResponder, status)
+    } yield new DockerWorkerServices[F](p2pPort, params.appId, rpc, control, blockManifests, responseSubscriber, status)
 
 }

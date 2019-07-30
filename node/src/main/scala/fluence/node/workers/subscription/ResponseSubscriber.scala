@@ -22,6 +22,9 @@ import fluence.statemachine.data.Tx
 
 import scala.language.higherKinds
 
+/**
+ * Interface that describes how a client can subscribe for responses from tendermint.
+ */
 trait ResponseSubscriber[F[_]] {
 
   /**

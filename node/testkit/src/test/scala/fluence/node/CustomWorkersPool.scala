@@ -53,10 +53,7 @@ class CustomWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]]
               s"Test worker for appId $appId",
               servicesBuilder(appId),
               identity,
-              for {
-                ws ← workers.take
-                _ ← workers.put(ws - appId)
-              } yield (),
+              workers.take.flatMap(ws => workers.put(ws - appId)),
               Applicative[F].unit
             )
             .allocated
