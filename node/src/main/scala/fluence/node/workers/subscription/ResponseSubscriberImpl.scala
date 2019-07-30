@@ -74,9 +74,7 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
         )
         _ <- Log.resource.info("Creating subscription for tendermint blocks")
         blockStream = tendermint.subscribeNewBlock(lastHeight)
-        pollingStream = blockStream.evalMap { _ =>
-          pollResponses(tendermint)
-        }
+        pollingStream = blockStream.evalMap(_ => pollResponses(tendermint))
         _ <- MakeResource.concurrentStream(pollingStream)
       } yield ()
     }
@@ -153,9 +151,7 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
               case r @ OkResponse(id, _) =>
                 (subs
                    .get(id)
-                   .map { rp =>
-                     taskList :+ rp.promise.complete(r)
-                   }
+                   .map(rp => taskList :+ rp.promise.complete(r))
                    .getOrElse(taskList),
                  subs - id)
               case r @ (RpcErrorResponse(_, _) | TimedOutResponse(_, _)) =>
