@@ -386,7 +386,15 @@ lazy val `kademlia-http` = (project in file("kademlia/http"))
       scalaTest
     )
   )
-  .dependsOn(`kademlia`, `kademlia-testkit` % Test)
+  .dependsOn(`kademlia`, `kademlia-dht`, `kademlia-testkit` % Test)
+  .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `kademlia-dht` = (project in file("kademlia/dht"))
+  .settings(
+    commons,
+    kindProjector
+  )
+  .dependsOn(`kademlia`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kademlia-testkit` = (project in file("kademlia/testkit"))

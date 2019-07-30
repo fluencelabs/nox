@@ -17,7 +17,6 @@
 package fluence.kad.http
 
 import cats.Id
-import cats.data.{NonEmptyList, Validated, ValidatedNel}
 import cats.effect.Sync
 import cats.syntax.applicative._
 import cats.syntax.apply._
@@ -37,7 +36,7 @@ import io.circe.syntax._
 import org.http4s.dsl._
 import org.http4s.headers.Authorization
 import org.http4s.syntax.string._
-import org.http4s.{AuthScheme, Credentials, HttpRoutes, ParseFailure, QueryParamDecoder, QueryParameterValue, Request}
+import org.http4s.{AuthScheme, Credentials, HttpRoutes, Request}
 
 import scala.language.higherKinds
 
@@ -46,14 +45,7 @@ class KademliaHttp[F[_]: Sync, C](
   readNode: Crypto.Func[String, Node[C]],
   writeNode: PureCodec.Func[Node[C], String]
 ) {
-  private implicit object KeyDecoder extends QueryParamDecoder[Key] {
-    override def decode(value: QueryParameterValue): ValidatedNel[ParseFailure, Key] =
-      Validated
-        .fromEither(
-          Key.fromB58[Id](value.value).value
-        )
-        .leftMap(err ⇒ NonEmptyList.one(ParseFailure(err.message, "Key codec failure")))
-  }
+  import KeyDecoder._
 
   val FluenceAuthScheme: AuthScheme = UriContact.Schema.ci
 
