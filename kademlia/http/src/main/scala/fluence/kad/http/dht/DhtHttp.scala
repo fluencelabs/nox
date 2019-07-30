@@ -21,7 +21,7 @@ import cats.syntax.flatMap._
 import cats.syntax.apply._
 import fluence.codec.PureCodec
 import fluence.effects.kvstore.KVStore
-import fluence.kad.http.KeyDecoder
+import fluence.kad.http.KeyHttp
 import fluence.kad.protocol.Key
 import fluence.log.LogFactory
 import org.http4s.HttpRoutes
@@ -30,16 +30,16 @@ import org.http4s.dsl.Http4sDsl
 import scala.language.higherKinds
 
 class DhtHttp[F[_]: Sync](
-  prefix: String,
+  val prefix: String,
   store: KVStore[F, Key, Array[Byte]]
 ) {
-  import KeyDecoder._
+  import KeyHttp._
 
   def routes()(implicit dsl: Http4sDsl[F], lf: LogFactory[F]): HttpRoutes[F] = {
     import dsl._
 
     HttpRoutes.of[F] {
-      case GET -> Root / `prefix` / KeyVar(key) ⇒
+      case GET -> Root / KeyVar(key) ⇒
         LogFactory[F].init("dht-http" -> s"$prefix/get", "key" -> key.asBase58) >>= { implicit log ⇒
           store.get(key).value.flatMap {
             case Left(err) ⇒
@@ -52,7 +52,7 @@ class DhtHttp[F[_]: Sync](
           }
         }
 
-      case req @ PUT -> Root / `prefix` / KeyVar(key) ⇒
+      case req @ PUT -> Root / KeyVar(key) ⇒
         LogFactory[F].init("dht-http" -> s"$prefix/put", "key" -> key.asBase58) >>= { implicit log ⇒
           req.body.compile
             .foldChunks(Array.emptyByteArray) {
@@ -60,7 +60,7 @@ class DhtHttp[F[_]: Sync](
                 // TODO optimize
                 Array.concat(acc, chunk.toArray)
             }
-          // TODO check authentication somehow?
+            // TODO check authentication somehow?
             .flatMap(store.put(key, _).value)
             .flatMap {
               case Right(_) ⇒

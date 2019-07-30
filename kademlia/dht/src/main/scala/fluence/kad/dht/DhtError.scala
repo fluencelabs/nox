@@ -26,3 +26,5 @@ case class DhtLocalStoreError(cause: KVStoreError) extends DhtError
 case class DhtValueNotFound(key: Key) extends DhtError
 
 case class DhtCannotStoreValue(key: Key) extends DhtError
+
+case class DhtRemoteError(message: String, cause: Option[Throwable]) extends DhtError

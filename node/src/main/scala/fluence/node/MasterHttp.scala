@@ -22,6 +22,7 @@ import fluence.node.status.{StatusAggregator, StatusHttp}
 import cats.effect._
 import fluence.codec.PureCodec
 import fluence.kad.http.KademliaHttp
+import fluence.kad.http.dht.DhtHttp
 import fluence.kad.protocol.Node
 import fluence.log.LogFactory
 import fluence.node.workers.{WorkersHttp, WorkersPool}
@@ -57,14 +58,16 @@ object MasterHttp {
     port: Short,
     agg: StatusAggregator[F],
     pool: WorkersPool[F],
-    kad: KademliaHttp[F, C]
+    kad: KademliaHttp[F, C],
+    dht: List[DhtHttp[F]] = Nil
   )(implicit P: Parallel[F, G], writeNode: PureCodec.Func[Node[C], String]): Resource[F, Server[F]] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
     val routes: HttpRoutes[F] = Router[F](
-      "/status" -> StatusHttp.routes[F, G](agg),
-      "/apps" -> WorkersHttp.routes[F](pool),
-      "/kad" -> kad.routes()
+      ("/status" -> StatusHttp.routes[F, G](agg)) ::
+        ("/apps" -> WorkersHttp.routes[F](pool)) ::
+        ("/kad" -> kad.routes()) ::
+        dht.map(dhtHttp ⇒ dhtHttp.prefix -> dhtHttp.routes()): _*
     )
 
     val routesOrNotFound: Kleisli[F, Request[F], Response[F]] = Kleisli(

@@ -45,7 +45,7 @@ object Dht {
   def apply[F[_]: Monad, V: Semigroup, C](
     kad: Kademlia[F, C],
     rpc: C ⇒ Dht[F, V],
-    conf: Conf = Conf()
+    conf: Conf
   ): Dht[F, V] =
     new Impl(kad, rpc, conf)
 

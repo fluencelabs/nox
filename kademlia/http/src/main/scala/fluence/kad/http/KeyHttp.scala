@@ -21,7 +21,7 @@ import cats.data.{NonEmptyList, Validated, ValidatedNel}
 import fluence.kad.protocol.Key
 import org.http4s.{ParseFailure, QueryParamDecoder, QueryParameterValue}
 
-private[http] object KeyDecoder {
+private[http] object KeyHttp {
 
   implicit object KeyDecoder extends QueryParamDecoder[Key] {
     override def decode(value: QueryParameterValue): ValidatedNel[ParseFailure, Key] =

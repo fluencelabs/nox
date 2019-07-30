@@ -45,7 +45,7 @@ class KademliaHttp[F[_]: Sync, C](
   readNode: Crypto.Func[String, Node[C]],
   writeNode: PureCodec.Func[Node[C], String]
 ) {
-  import KeyDecoder._
+  import KeyHttp._
 
   val FluenceAuthScheme: AuthScheme = UriContact.Schema.ci
 
