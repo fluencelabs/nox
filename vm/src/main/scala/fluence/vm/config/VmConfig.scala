@@ -27,8 +27,8 @@ import scala.util.control.NoStackTrace
  *
  * @param defaultMaxMemPages the maximum count of memory pages when a module doesn't say
  * @param specTestRegister if true, registers the spec test harness as 'spectest'
- * @param loggerRegister if > 0, registers the logger Wasm module as 'logger'
- *                       with specified count of memory pages
+ * @param loggerModuleEnabled if set, registers the logger Wasm module as 'logger'
+ * @param envModuleEnabled if set, registers the special module for gas metering Wasm module as 'env'
  * @param allocateFunctionName name of a function that should be called for allocation memory
  *                             (used for passing complex data structures)
  * @param deallocateFunctionName name of a function that should be called for deallocation
@@ -38,11 +38,13 @@ import scala.util.control.NoStackTrace
 case class VmConfig(
   defaultMaxMemPages: Int,
   specTestRegister: Boolean,
-  loggerRegister: Int,
+  loggerModuleEnabled: Boolean,
+  envModuleEnabled: Boolean,
   chunkSize: Int,
   allocateFunctionName: String,
   deallocateFunctionName: String,
-  invokeFunctionName: String
+  invokeFunctionName: String,
+  useGasFunctionName: String
 )
 
 object VmConfig {

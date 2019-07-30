@@ -24,10 +24,10 @@ import cats.Monad
 import fluence.crypto.Crypto.Hasher
 import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
 import fluence.vm.VmError.{NoSuchModuleError, _}
-import fluence.vm.wasm.WasmModule
 import fluence.vm.utils.safelyRunThrowable
 import scodec.bits.ByteVector
 import WasmVm._
+import fluence.vm.wasm.module.WasmModule
 
 import scala.language.higherKinds
 

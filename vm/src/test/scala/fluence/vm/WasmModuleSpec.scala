@@ -21,14 +21,15 @@ import java.nio.ByteBuffer
 import asmble.compile.jvm.{MemoryBuffer, MemoryByteBuffer}
 import asmble.run.jvm.Module.Compiled
 import asmble.run.jvm.ScriptContext
-import cats.{~>, Id, Monad}
+import cats.{Id, Monad, ~>}
 import cats.data.EitherT
 import cats.effect.{IO, Timer}
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.CryptoError
 import fluence.log.{Log, LogFactory}
 import fluence.vm.VmError.{InitializationError, InternalVmError}
-import fluence.vm.wasm.{MemoryHasher, WasmModule}
+import fluence.vm.wasm.MemoryHasher
+import fluence.vm.wasm.module.WasmModule
 import org.mockito.Mockito
 import org.mockito.stubbing.OngoingStubbing
 import org.scalatest.mockito.MockitoSugar

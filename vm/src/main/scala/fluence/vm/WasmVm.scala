@@ -30,11 +30,12 @@ import fluence.log.Log
 import fluence.merkle.TrackingMemoryBuffer
 import fluence.vm.VmError.{InitializationError, InternalVmError}
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
-import fluence.vm.wasm.{MemoryHasher, WasmFunction, WasmModule}
+import fluence.vm.wasm.{MemoryHasher, WasmFunction}
 import fluence.vm.config.VmConfig
 import fluence.vm.config.VmConfig._
 import fluence.vm.config.VmConfig.ConfigError
 import fluence.vm.utils.safelyRunThrowable
+import fluence.vm.wasm.module.WasmModule
 import scodec.bits.ByteVector
 import pureconfig.generic.auto._
 
