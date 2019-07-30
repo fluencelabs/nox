@@ -86,8 +86,8 @@ class CustomWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]]
 object CustomWorkersPool {
 
   def withRequestResponder[F[_]: Concurrent: Timer](requestResponder: ResponseSubscriber[F],
-                                                    tendermintRpc: TendermintRpc[F]): F[TestWorkersPool[F]] = {
+                                                    tendermintRpc: TendermintRpc[F]): F[CustomWorkersPool[F]] = {
     val builder = TestWorkerServices.workerServiceTestRequestResponse[F](tendermintRpc, requestResponder) _
-    MVar.of(Map.empty[Long, Worker[F]]).map(new TestWorkersPool(_, builder))
+    MVar.of(Map.empty[Long, Worker[F]]).map(new CustomWorkersPool(_, builder))
   }
 }
