@@ -102,9 +102,7 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
     backoff: Backoff[EffectError]
   ) =
     parseBlock(blockJson, expectedHeight)
-      .flatTap(
-        b => traceBU(s"new block ${b.header.height}. expectedHeight $expectedHeight")
-      )
+      .flatTap(b => traceBU(s"new block ${b.header.height}. expectedHeight $expectedHeight"))
       .flatMap {
         // received an old block, ignoring
         case b if b.header.height < expectedHeight =>
@@ -116,7 +114,8 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
             _ <- log.warn(s"missed some blocks. expected $expectedHeight, got ${b.header.height}. catching up")
             blocks <- loadBlocks(expectedHeight, b.header.height - 1)
           } yield (b.header.height + 1, blocks :+ b)
-        case b => (b.header.height + 1, List(b)).pure[F]
+        case b =>
+          (b.header.height + 1, List(b)).pure[F]
       }
 
   /**
