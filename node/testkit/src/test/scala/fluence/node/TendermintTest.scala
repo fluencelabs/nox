@@ -35,14 +35,16 @@ import scala.language.higherKinds
 
 class TendermintTest[F[_]: Timer: Monad](txRef: Ref[F, Either[RpcError, String]],
                                          consensusHeightRef: Ref[F, Either[RpcError, Long]],
-                                         queryRef: Ref[F, Either[RpcError, String]]) {
+                                         queryRef: Ref[F, Either[RpcError, String]],
+                                         blockStream: fs2.Stream[F, Block]) {
 
   val tendermint: TendermintRpc[F] = new TestTendermintRpc[F] with TestTendermintWebsocketRpc[F] {
     override def subscribeNewBlock(lastKnownHeight: Long)(implicit log: Log[F],
                                                           backoff: Backoff[EffectError]): fs2.Stream[F, Block] =
-      fs2.Stream
+      blockStream
+    /*fs2.Stream
         .awakeEvery[F](50.milliseconds)
-        .map(_ => Block(TestData.blockWithNullTxsResponse(1)).right.get)
+        .map(_ => Block(TestData.blockWithNullTxsResponse(1)).right.get)*/
 
     override def consensusHeight(id: String): EitherT[F, RpcError, Long] =
       EitherT(consensusHeightRef.get)
@@ -66,13 +68,13 @@ class TendermintTest[F[_]: Timer: Monad](txRef: Ref[F, Either[RpcError, String]]
 
 object TendermintTest {
 
-  def apply[F[_]: Monad: Timer: Sync](): F[TendermintTest[F]] = {
+  def apply[F[_]: Monad: Timer: Sync](blockStream: fs2.Stream[F, Block]): F[TendermintTest[F]] = {
     val rpcError = Left(RpcRequestFailed(new RuntimeException("unimplemented"))): Either[RpcError, String]
     val rpcErrorC = Right(0): Either[RpcError, Long]
     for {
       txRef <- Ref.of(rpcError)
       queryRef <- Ref.of(rpcError)
       consensusRef <- Ref.of(rpcErrorC)
-    } yield new TendermintTest[F](txRef, consensusRef, queryRef)
+    } yield new TendermintTest[F](txRef, consensusRef, queryRef, blockStream)
   }
 }
