@@ -105,18 +105,19 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
       .flatTap(
         b => traceBU(s"new block ${b.header.height}. expectedHeight $expectedHeight")
       )
-      .flatMap(
-        b =>
-          if (b.header.height < expectedHeight) {
-            // received an old block, ignoring
-            log.warn(s"ignoring block ${b.header.height} as too old, current height is $expectedHeight") as
-              expectedHeight -> List.empty[Block]
-          } else if (b.header.height > expectedHeight) {
-            // we've missed some blocks, so catching up (this happened without reconnect, so it might be Tendermint's error)
-            log.warn(s"missed some blocks. expected $expectedHeight, got ${b.header.height}. catching up") *>
-              loadBlocks(expectedHeight, b.header.height - 1).map(bs => (b.header.height + 1, bs :+ b))
-          } else (b.header.height + 1, List(b)).pure[F]
-      )
+      .flatMap {
+        // received an old block, ignoring
+        case b if b.header.height < expectedHeight =>
+          log.warn(s"ignoring block ${b.header.height} as too old, current height is $expectedHeight") as
+            expectedHeight -> List.empty[Block]
+        // we've missed some blocks, so catching up (this happened without reconnect, so it might be Tendermint's error)
+        case b if b.header.height > expectedHeight =>
+          for {
+            _ <- log.warn(s"missed some blocks. expected $expectedHeight, got ${b.header.height}. catching up")
+            blocks <- loadBlocks(expectedHeight, b.header.height - 1)
+          } yield (b.header.height + 1, blocks :+ b)
+        case b => (b.header.height + 1, List(b)).pure[F]
+      }
 
   /**
    * Loads missing blocks if there are any
@@ -126,28 +127,30 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
   private def loadMissedBlocks(startHeight: Long)(
     implicit log: Log[F],
     backoff: Backoff[EffectError]
-  ) =
+  ) = {
+    def warnIf(cond: => Boolean, msg: String) = if (cond) log.warn(msg) else ().pure[F]
     for {
       // retrieve height from Tendermint
       consensusHeight <- backoff.retry(self.consensusHeight(), e => log.error("retrieving consensus height", e))
       _ <- traceBU(
-        s"reconnect. startHeight $startHeight consensusHeight $consensusHeight cond1: ${consensusHeight == startHeight}, cond2: ${startHeight == consensusHeight - 1}"
+        s"reconnect. startHeight $startHeight consensusHeight $consensusHeight " +
+          s"cond1: ${consensusHeight == startHeight}, cond2: ${startHeight == consensusHeight - 1}"
       )
       (height, block) <- if (consensusHeight >= startHeight) {
         // we're behind last block, load all blocks up to it
         loadBlocks(startHeight, consensusHeight).map(bs => (consensusHeight + 1, bs))
       } else {
-        val warnLog =
-          if (startHeight > consensusHeight + 1)
-            // shouldn't happen, could mean that we have invalid blocks saved in storage
-            log.warn(
-              s"unexpected state: startHeight $startHeight > consensusHeight $consensusHeight + 1. Consensus travelled back in time?"
-            )
-          else ().pure[F]
-        // we're all caught up, start waiting for a new block (i.e., JsonEvent)
-        warnLog as (startHeight, List.empty[Block])
+        warnIf(
+          // shouldn't happen, could mean that we have invalid blocks saved in storage
+          startHeight > consensusHeight + 1,
+          s"unexpected state: startHeight $startHeight > consensusHeight $consensusHeight + 1. " +
+            s"Consensus travelled back in time?"
+        ) as
+          // we're all caught up, start waiting for a new block (i.e., JsonEvent)
+          (startHeight, List.empty[Block])
       }
     } yield (height, block)
+  }
 
   /**
    * Parses block json. Loads the block at the height if json is incorrect.
