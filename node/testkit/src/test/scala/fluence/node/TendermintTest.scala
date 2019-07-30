@@ -41,7 +41,7 @@ class TendermintTest[F[_]: Timer: Monad](txRef: Ref[F, Either[RpcError, String]]
     override def subscribeNewBlock(lastKnownHeight: Long)(implicit log: Log[F],
                                                           backoff: Backoff[EffectError]): fs2.Stream[F, Block] =
       fs2.Stream
-        .awakeEvery[F](500.milliseconds)
+        .awakeEvery[F](50.milliseconds)
         .map(_ => Block(TestData.blockWithNullTxsResponse(1)).right.get)
 
     override def consensusHeight(id: String): EitherT[F, RpcError, Long] =
