@@ -64,7 +64,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
         .liftF[IO, ResponseSubscriberImpl[IO, effect.IO.Par]](
           ResponseSubscriberImpl[IO, IO.Par](tendermint.tendermint, appId)
         )
-      pool <- Resource.liftF(TestWorkersPool.some[IO](requestResponder, tendermint.tendermint))
+      pool <- Resource.liftF(CustomWorkersPool.withRequestResponder[IO](requestResponder, tendermint.tendermint))
       _ <- Resource.liftF(pool.run(appId, IO(params)))
       _ <- requestResponder.start()
     } yield (pool, requestResponder, tendermint)

@@ -16,22 +16,22 @@
 
 package fluence.node
 
-import cats.{Applicative, Id}
-import cats.effect.concurrent.{MVar, Ref}
+import cats.Applicative
 import cats.effect.{Concurrent, Resource, Timer}
+import cats.effect.concurrent.{MVar, Ref}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.log.Log
-import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.{Worker, WorkerParams, WorkerServices, WorkersPool}
+import fluence.node.workers.subscription.ResponseSubscriber
 
 import scala.language.higherKinds
 
-class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]],
-                                        servicesBuilder: Long => WorkerServices[F])
+class CustomWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]],
+                                          servicesBuilder: Long => WorkerServices[F])
     extends WorkersPool[F] {
 
   /**
@@ -83,20 +83,11 @@ class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]],
     workers.read.map(_.values.toList)
 }
 
-object TestWorkersPool {
+object CustomWorkersPool {
 
   def withRequestResponder[F[_]: Concurrent: Timer](requestResponder: ResponseSubscriber[F],
                                                     tendermintRpc: TendermintRpc[F]): F[TestWorkersPool[F]] = {
     val builder = TestWorkerServices.workerServiceTestRequestResponse[F](tendermintRpc, requestResponder) _
     MVar.of(Map.empty[Long, Worker[F]]).map(new TestWorkersPool(_, builder))
   }
-
-  def apply[F[_]: Concurrent](bref: Ref[F, Option[BlockManifest]], bstore: ReceiptStorage[F]): F[TestWorkersPool[F]] = {
-    val builder = TestWorkerServices.emptyWorkerService[F](bref, bstore) _
-    MVar.of(Map.empty[Long, Worker[F]]).map(new TestWorkersPool(_, builder))
-  }
-
-  def make[F[_]: Concurrent](bref: Ref[F, Option[BlockManifest]],
-                             bstore: ReceiptStorage[F]): Resource[F, TestWorkersPool[F]] =
-    Resource.liftF(apply[F](bref, bstore))
 }
