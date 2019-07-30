@@ -1,9 +1,8 @@
 package fluence.node
 
-import cats.data.EitherT
 import cats.effect.concurrent.Ref
-import cats.effect.{Resource, Timer}
-import cats.{Applicative, Functor, Monad}
+import cats.effect.Timer
+import cats.{Applicative, Monad}
 import fluence.effects.docker.DockerContainerStopped
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.node.workers.{WorkerBlockManifests, WorkerServices}
@@ -11,16 +10,9 @@ import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus, WorkerStatus}
 import cats.syntax.applicative._
 import fluence.effects.receipt.storage.ReceiptStorage
-import fluence.effects.tendermint.block.TestData
-import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.BlockManifest
-import fluence.effects.{Backoff, EffectError}
-import fluence.effects.tendermint.rpc.http.RpcError
-import fluence.effects.tendermint.rpc.websocket.{Event, TestTendermintRpc, TestTendermintWebsocketRpc}
-import fluence.log.Log
 import fluence.node.workers.subscription.ResponseSubscriber
 
-import scala.concurrent.duration._
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 

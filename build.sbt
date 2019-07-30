@@ -160,8 +160,7 @@ lazy val `statemachine` = (project in file("statemachine"))
     `statemachine-data`,
     `tendermint-rpc`,
     `sttpEitherT`,
-    `tendermint-block`,
-    `tendermint-block` % "test->test"
+    `tendermint-block`
   )
 
 lazy val `statemachine-data` = (project in file("statemachine/data"))

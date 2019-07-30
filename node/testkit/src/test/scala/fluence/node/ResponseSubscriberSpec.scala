@@ -1,38 +1,47 @@
+/*
+ * Copyright 2018 Fluence Labs Limited
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package fluence.node
 
 import java.net.InetAddress
 import java.nio.file.Paths
 
-import cats.{effect, Parallel}
 import cats.effect.{ContextShift, IO, Resource, Timer}
+import cats.{effect, Parallel}
 import fluence.effects.docker.params.{DockerImage, DockerLimits}
-import fluence.log.{Log, LogFactory}
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcRequestFailed}
+import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
-import fluence.node.eth.state.{App, Cluster, StorageRef, StorageType, WorkerPeer}
+import fluence.node.eth.state._
 import fluence.node.workers.WorkersApi.{RpcTxAwaitError, TxAwaitError, TxParsingError}
-import fluence.node.workers.{WorkerParams, WorkersApi, WorkersPool}
-import fluence.node.workers.subscription.{
-  OkResponse,
-  ResponseSubscriber,
-  ResponseSubscriberImpl,
-  RpcErrorResponse,
-  TendermintQueryResponse,
-  TimedOutResponse
-}
+import fluence.node.workers.subscription._
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
+import fluence.node.workers.{WorkerParams, WorkersApi, WorkersPool}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 import scodec.bits.ByteVector
 
-import scala.concurrent.duration._
 import scala.compat.Platform.currentTime
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 
 class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterAll {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
-  implicit private val logFactory = LogFactory.forPrintln[IO]()
+  implicit private val logFactory = LogFactory.forPrintln[IO](level = Log.Trace)
   implicit private val log = logFactory.init("RequestResponseSpec", level = Log.Trace).unsafeRunSync()
 
   def start() = {
