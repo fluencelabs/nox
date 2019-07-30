@@ -26,7 +26,7 @@ import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcRequestFailed}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
 import fluence.node.eth.state._
-import fluence.node.workers.WorkersApi.{RpcTxAwaitError, TxAwaitError, TxParsingError}
+import fluence.node.workers.WorkersApi.{AppNotFoundError, RpcTxAwaitError, TxAwaitError, TxParsingError}
 import fluence.node.workers.subscription._
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{WorkerParams, WorkersApi, WorkersPool}
@@ -122,15 +122,20 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
   private val correctQueryResponse = queryResponse(0)
   private val pendingQueryResponse = queryResponse(3)
 
-  def request(pool: WorkersPool[IO], requestSubscriber: ResponseSubscriber[IO], txCustom: Option[String] = None)(
+  def request(pool: WorkersPool[IO],
+              requestSubscriber: ResponseSubscriber[IO],
+              txCustom: Option[String] = None,
+              appId: Int = 1)(
     implicit P: Parallel[IO, IO.Par],
     log: Log[IO]
-  ): IO[Either[TxAwaitError, TendermintQueryResponse]] = requests(1, pool, requestSubscriber, txCustom).map(_.head)
+  ): IO[Either[TxAwaitError, TendermintQueryResponse]] =
+    requests(1, pool, requestSubscriber, txCustom, appId).map(_.head)
 
   def requests(to: Int,
                pool: WorkersPool[IO],
                requestSubscriber: ResponseSubscriber[IO],
-               txCustom: Option[String] = None)(
+               txCustom: Option[String] = None,
+               appId: Int = 1)(
     implicit P: Parallel[IO, IO.Par],
     log: Log[IO]
   ): IO[List[Either[TxAwaitError, TendermintQueryResponse]]] = {
@@ -138,11 +143,25 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
     import cats.syntax.parallel._
 
     Range(0, to).toList.map { nonce =>
-      WorkersApi.txAwaitResponse[IO, IO.Par](pool, 1, txCustom.getOrElse(tx(nonce)), None)
+      WorkersApi.txAwaitResponse[IO, IO.Par](pool, appId, txCustom.getOrElse(tx(nonce)), None)
     }.parSequence
   }
 
   "MasterNode API" should {
+
+    "return an error, if no app with such appId" in {
+
+      val result = start().use {
+        case (pool, requestSubscriber, _) =>
+          for {
+            response <- request(pool, requestSubscriber, appId = 5)
+          } yield response
+      }.unsafeRunSync()
+
+      result should be('left)
+      result.left.get shouldBe a[AppNotFoundError]
+    }
+
     "return an RPC error, if broadcastTx returns an error" in {
 
       val result = start().use {
