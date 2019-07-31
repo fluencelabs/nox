@@ -16,43 +16,33 @@
 
 package fluence.kad.dht
 
-import cats.syntax.compose._
-import cats.syntax.functor._
+import cats.syntax.profunctor._
 import fluence.codec.{CodecError, PureCodec}
 import scodec.bits.ByteVector
 
 import scala.util.Try
 
-case class DhtValue[V](value: V, timestamp: Long)
+/**
+ * Metadata for the given DHT value.
+ *
+ * @param lastUpdated Last updated timetamp (seconds)
+ */
+case class DhtValueMetadata(lastUpdated: Long)
 
-object DhtValue {
+object DhtValueMetadata {
   // Encode timestamp to and from a fixed-size byte array
   private val timestampCodec: PureCodec[Long, Array[Byte]] =
     PureCodec.build(
       PureCodec.liftFuncEither[Long, Array[Byte]](lng ⇒ Right(ByteVector.fromLong(lng).toArray)),
       PureCodec.liftFuncEither[Array[Byte], Long](
-        bts ⇒
-          Try(ByteVector(bts).toLong()).toEither.left.map(e ⇒ CodecError("Cannot decode Kademlia timestamp", Some(e)))
+        bts ⇒ Try(ByteVector(bts).toLong()).toEither.left.map(e ⇒ CodecError("Cannot decode DHT timestamp", Some(e)))
       )
     )
 
-  // Take first 8 bytes and convert to long, or vice versa
-  private val splitTimestampRest: PureCodec[(Long, Array[Byte]), Array[Byte]] =
-    PureCodec.liftPointB(
-      {
-        case (lng, bs) ⇒
-          timestampCodec.direct.pointAt(lng).map(Array.concat(_, bs))
-      }, { bs ⇒
-        val (lng, tail) = bs.splitAt(8)
-        timestampCodec.inverse.pointAt(lng).map(_ -> tail)
-      }
+  // TODO use some upgradeable data scheme
+  implicit val dhtMetadataCodec: PureCodec[DhtValueMetadata, Array[Byte]] =
+    PureCodec.build(
+      timestampCodec.direct.lmap[DhtValueMetadata](_.lastUpdated),
+      timestampCodec.inverse.rmap(DhtValueMetadata(_))
     )
-
-  implicit def dhtValueCodec[V](implicit valueCodec: PureCodec[V, Array[Byte]]): PureCodec[DhtValue[V], Array[Byte]] =
-    PureCodec.liftPointB[DhtValue[V], (Long, Array[Byte])](
-      dv ⇒ valueCodec.direct.pointAt(dv.value).map(dv.timestamp -> _), {
-        case (ts, vb) ⇒
-          valueCodec.inverse.pointAt(vb).map(DhtValue(_, ts))
-      }
-    ) >>> splitTimestampRest
 }

@@ -22,70 +22,121 @@ import cats.kernel.Semigroup
 import cats.syntax.semigroup._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
+import fluence.effects.kvstore.{IOExceptionError, KVReadError, KVStore, KVWriteError, UnsupportedOperationError}
 import fluence.kad.Kademlia
+import fluence.kad.dht.Dht.Conf
 import fluence.kad.protocol.Key
 import fluence.log.Log
 
 import scala.language.higherKinds
 
-trait Dht[F[_], V] {
-  def retrieve(key: Key)(implicit log: Log[F]): EitherT[F, DhtError, V]
+/**
+ * Kademlia DHT access point, provides a [[KVStore]] interface over a distributed hash table.
+ * As Kademlia addresses are always [[Key]], you need to provide some mapping from your custom keys, if any,
+ * into [[Key]]. There's probably no way back, as [[Key]] is usually made with hashing function.
+ * Authentication should be done inside `rpc` function. Values republishing currently is also out of scope of this class.
+ *
+ * TODO provide republishing
+ *
+ * @param kad Kademlia instance to rely on
+ * @param rpc Access to remote RPC endpoints
+ * @param conf Default configuration for [[KVStore]] functions
+ * @tparam F Effect
+ * @tparam V Value; [[Semigroup]] is used to merge several returned values
+ * @tparam C Contact
+ */
+class Dht[F[_]: Monad, V: Semigroup, C](
+  kad: Kademlia[F, C],
+  rpc: C ⇒ DhtRpc[F, V],
+  conf: Conf = Dht.Conf()
+) extends KVStore[F, Key, V] {
 
-  def store(key: Key, value: V)(implicit log: Log[F]): EitherT[F, DhtError, Unit]
+  override def get(key: Key)(implicit log: Log[F]): EitherT[F, KVReadError, Option[V]] =
+    retrieve(key, conf.retrieveResults, conf.maxRetrieveCalls)
+      .map[Option[V]](Some(_))
+      .leftFlatMap[Option[V], KVReadError] {
+        case _: DhtValueNotFound ⇒ EitherT.rightT(None)
+        case err ⇒ EitherT.leftT(IOExceptionError("Unable to retrieve value from DHT", err))
+      }
+
+  override def put(key: Key, value: V)(implicit log: Log[F]): EitherT[F, KVWriteError, Unit] =
+    store(key, value, conf.replicationFactor, conf.maxStoreCalls)
+      .leftMap(err ⇒ IOExceptionError("Unable to store value into DHT", err))
+
+  /**
+   * Unsupported: there's no guarantees to remove a value from DHT
+   *
+   * @param key Key
+   */
+  override def remove(key: Key)(implicit log: Log[F]): EitherT[F, KVWriteError, Unit] =
+    EitherT.leftT(UnsupportedOperationError("Cannot remove from Kademlia DHT"))
+
+  /**
+   * Unsupported: there's no straightforward way to iterate over all DHT values
+   *
+   */
+  override def stream(implicit log: Log[F]): fs2.Stream[F, (Key, V)] =
+    fs2.Stream.empty
+
+  /**
+   * Retrieve a result from DHT: collect up to `results` values, merge them with [[Semigroup]], doing maximum of `maxCalls`
+   * RPC calls. In case no value is found across the network, [[DhtValueNotFound]] is returned.
+   *
+   * @param key Key to retrieve
+   * @param results Number of results to collect and merge
+   * @param maxCalls Maximum number of network calls
+   */
+  def retrieve(key: Key, results: Int, maxCalls: Int)(implicit log: Log[F]): EitherT[F, DhtError, V] =
+    EitherT(
+      kad.callIterative(key, n ⇒ rpc(n.contact).retrieve(key), results, maxCalls).map {
+        case sq if sq.isEmpty ⇒
+          Left(DhtValueNotFound(key))
+        case sq ⇒
+          Right(sq.map(_._2).reduce(_ |+| _))
+      }
+    )
+
+  /**
+   * Stores the value in the DHT, trying to reach the required `replication` factor, making no more then `maxCalls` RPC calls.
+   *
+   * @param key Key
+   * @param value Value
+   * @param replication Replication factor: how many remote nodes should store the value
+   * @param maxCalls The upper bound for an overall number of calls made, see [[Kademlia.callIterative]] for details
+   */
+  def store(key: Key, value: V, replication: Int, maxCalls: Int)(implicit log: Log[F]): EitherT[F, DhtError, Unit] =
+    EitherT(
+      kad
+        .callIterative(key, n ⇒ rpc(n.contact).store(key, value), replication, maxCalls, isIdempotentFn = false)
+        .flatMap {
+          case sq if sq.isEmpty ⇒
+            Applicative[F].pure(Left(DhtCannotStoreValue(key)))
+          case sq ⇒
+            (
+              if (sq.length < replication)
+                Log[F].warn(s"For key $key required replication factor $replication, reached just ${sq.length}")
+              else
+                Applicative[F].unit
+            ).as(Right(()))
+        }
+    )
 }
 
 object Dht {
+
+  /**
+   * Default configuration for [[Dht]] class.
+   *
+   * @param retrieveResults How many results try to retrieve before halting the retrieve operation
+   * @param maxRetrieveCalls How many RPC calls are allowed during retrieve operation
+   * @param replicationFactor How many copies of the value to store
+   * @param maxStoreCalls How many RPC calls are allowed during store operation
+   */
   case class Conf(
-    retrieveResults: Int = 1,
-    maxRetrieveCalls: Int = 8,
+    retrieveResults: Int = 2,
+    maxRetrieveCalls: Int = 16,
     replicationFactor: Int = 4,
-    maxStoreCalls: Int = 8
+    maxStoreCalls: Int = 32
   )
 
-  def apply[F[_]: Monad, V: Semigroup, C](
-    kad: Kademlia[F, C],
-    rpc: C ⇒ Dht[F, V],
-    conf: Conf
-  ): Dht[F, V] =
-    new Impl(kad, rpc, conf)
-
-  class Impl[F[_]: Monad, V: Semigroup, C](
-    kad: Kademlia[F, C],
-    rpc: C ⇒ Dht[F, V],
-    conf: Conf
-  ) extends Dht[F, V] {
-
-    import conf._
-
-    override def retrieve(key: Key)(implicit log: Log[F]): EitherT[F, DhtError, V] =
-      EitherT(
-        kad.callIterative(key, n ⇒ rpc(n.contact).retrieve(key), retrieveResults, maxRetrieveCalls).map {
-          case sq if sq.isEmpty ⇒
-            Left(DhtValueNotFound(key))
-          case sq ⇒
-            Right(sq.map(_._2).reduce(_ |+| _))
-        }
-      )
-
-    override def store(key: Key, value: V)(implicit log: Log[F]): EitherT[F, DhtError, Unit] =
-      EitherT(
-        kad
-          .callIterative(key,
-                         n ⇒ rpc(n.contact).store(key, value),
-                         replicationFactor,
-                         maxStoreCalls,
-                         isIdempotentFn = false)
-          .flatMap {
-            case sq if sq.isEmpty ⇒
-              Applicative[F].pure(Left(DhtCannotStoreValue(key)))
-            case sq ⇒
-              (
-                if (sq.length < replicationFactor)
-                  log.warn(s"For key $key required replication factor $replicationFactor, reached just ${sq.length}")
-                else
-                  Applicative[F].unit
-              ).as(Right(()))
-          }
-      )
-  }
 }

@@ -21,47 +21,54 @@ import cats.effect.Effect
 import cats.syntax.either._
 import cats.syntax.functor._
 import com.softwaremill.sttp._
-import fluence.codec.PureCodec
-import fluence.kad.dht.{Dht, DhtError, DhtRemoteError}
+import fluence.kad.dht.{DhtError, DhtRemoteError, DhtRpc}
 import fluence.kad.protocol.Key
 import fluence.log.Log
+import io.circe.{Decoder, Encoder}
+import io.circe.parser.parse
+import io.circe.syntax._
 
 import scala.language.higherKinds
 
-class DhtHttpClient[F[_]: Effect, V](
+/**
+ * [[DhtRpc]] access to a remote server via HTTP transport.
+ *
+ * @param hostname Remote hostname
+ * @param port Remote port
+ * @param prefix URL prefix
+ * @param sttpBackend STTP backend to use
+ * @tparam F Effect
+ * @tparam V Value
+ */
+class DhtHttpClient[F[_]: Effect, V: Encoder: Decoder](
   hostname: String,
   port: Short,
   prefix: String
 )(implicit
-  sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
-  valueCodec: PureCodec[V, Array[Byte]])
-    extends Dht[F, V] {
+  sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing])
+    extends DhtRpc[F, V] {
 
-  private def uri(key: Key) = uri"http://$hostname:$port/$prefix/${key.asBase58}"
+  private def uri(key: Key) =
+    uri"http://$hostname:$port/$prefix/${key.asBase58}"
 
   override def retrieve(key: Key)(implicit log: Log[F]): EitherT[F, DhtError, V] =
     sttp
-      .response(asByteArray)
       .get(uri(key))
       .send()
       .map(_.body.leftMap[Throwable](new RuntimeException(_)))
-      .subflatMap[Throwable, Array[Byte]](identity)
+      .subflatMap[Throwable, String](identity)
+      .subflatMap(parse)
+      .subflatMap(_.as[V])
+      // TODO handle errors properly
       .leftMap(e ⇒ DhtRemoteError("Retrieve request errored", Some(e)))
-      .flatMap(body ⇒ valueCodec.inverse(body).leftMap(ce ⇒ DhtRemoteError("Invalid response", Some(ce))))
 
   override def store(key: Key, value: V)(implicit log: Log[F]): EitherT[F, DhtError, Unit] =
-    valueCodec
-      .direct(value)
-      .leftMap(ce ⇒ DhtRemoteError("Cannot encode value to store it", Some(ce)))
-      .flatMap(
-        data ⇒
-          sttp
-            .body(data)
-            .put(uri(key))
-            .send()
-            .map(_.body.leftMap[Throwable](new RuntimeException(_)))
-            .subflatMap[Throwable, String](identity)
-            .leftMap(e ⇒ DhtRemoteError("Store request errored", Some(e)): DhtError)
-      )
+    sttp
+      .body(value.asJson.noSpaces)
+      .put(uri(key))
+      .send()
+      .map(_.body.leftMap[Throwable](new RuntimeException(_)))
+      .subflatMap[Throwable, String](identity)
+      .leftMap(e ⇒ DhtRemoteError("Store request errored", Some(e)): DhtError)
       .void
 }

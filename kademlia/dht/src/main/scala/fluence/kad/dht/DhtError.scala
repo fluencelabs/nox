@@ -16,12 +16,13 @@
 
 package fluence.kad.dht
 
+import fluence.effects.{EffectError, WithCause}
 import fluence.effects.kvstore.KVStoreError
 import fluence.kad.protocol.Key
 
-sealed trait DhtError
+sealed trait DhtError extends EffectError
 
-case class DhtLocalStoreError(cause: KVStoreError) extends DhtError
+case class DhtLocalStoreError(cause: KVStoreError) extends DhtError with WithCause[KVStoreError]
 
 case class DhtValueNotFound(key: Key) extends DhtError
 

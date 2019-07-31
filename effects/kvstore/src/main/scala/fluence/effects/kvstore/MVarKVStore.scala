@@ -20,6 +20,7 @@ import cats.syntax.flatMap._
 import cats.data.EitherT
 import cats.effect.{Concurrent, Resource}
 import cats.effect.concurrent.MVar
+import fluence.log.Log
 
 import scala.language.higherKinds
 
@@ -39,22 +40,22 @@ object MVarKVStore {
       )
       .map { data ⇒
         new KVStore[F, K, V] {
-          override def get(key: K): EitherT[F, KVReadError, Option[V]] =
+          override def get(key: K)(implicit log: Log[F]): EitherT[F, KVReadError, Option[V]] =
             EitherT.right(data.read.map(_.get(key)))
 
-          override def put(key: K, value: V): EitherT[F, KVWriteError, Unit] =
+          override def put(key: K, value: V)(implicit log: Log[F]): EitherT[F, KVWriteError, Unit] =
             EitherT.right(for {
               d ← data.take
               _ ← data.put(d + (key -> value))
             } yield ())
 
-          override def remove(key: K): EitherT[F, KVWriteError, Unit] =
+          override def remove(key: K)(implicit log: Log[F]): EitherT[F, KVWriteError, Unit] =
             EitherT.right(for {
               d ← data.take
               _ ← data.put(d - key)
             } yield ())
 
-          override def stream: fs2.Stream[F, (K, V)] =
+          override def stream(implicit log: Log[F]): fs2.Stream[F, (K, V)] =
             fs2.Stream
               .eval(data.read)
               .map(_.toIterator)

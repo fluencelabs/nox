@@ -19,66 +19,80 @@ package fluence.kad.http.dht
 import cats.effect.Sync
 import cats.syntax.flatMap._
 import cats.syntax.apply._
-import fluence.codec.PureCodec
-import fluence.effects.kvstore.KVStore
+import cats.syntax.functor._
+import fluence.kad.dht.{DhtRpc, DhtValueNotFound}
 import fluence.kad.http.KeyHttp
-import fluence.kad.protocol.Key
 import fluence.log.LogFactory
+import io.circe.{Decoder, Encoder}
+import io.circe.syntax._
+import io.circe.parser.parse
 import org.http4s.HttpRoutes
 import org.http4s.dsl.Http4sDsl
 
 import scala.language.higherKinds
 
-class DhtHttp[F[_]: Sync](
-  val prefix: String,
-  store: KVStore[F, Key, Array[Byte]]
-) {
-  import KeyHttp._
-
-  def routes()(implicit dsl: Http4sDsl[F], lf: LogFactory[F]): HttpRoutes[F] = {
-    import dsl._
-
-    HttpRoutes.of[F] {
-      case GET -> Root / KeyVar(key) ⇒
-        LogFactory[F].init("dht-http" -> s"$prefix/get", "key" -> key.asBase58) >>= { implicit log ⇒
-          store.get(key).value.flatMap {
-            case Left(err) ⇒
-              log.error("Getting data errored", err) *>
-                InternalServerError(err.getMessage)
-            case Right(None) ⇒
-              NotFound()
-            case Right(Some(value)) ⇒
-              Ok(value)
-          }
-        }
-
-      case req @ PUT -> Root / KeyVar(key) ⇒
-        LogFactory[F].init("dht-http" -> s"$prefix/put", "key" -> key.asBase58) >>= { implicit log ⇒
-          req.body.compile
-            .foldChunks(Array.emptyByteArray) {
-              case (acc, chunk) ⇒
-                // TODO optimize
-                Array.concat(acc, chunk.toArray)
-            }
-            // TODO check authentication somehow?
-            .flatMap(store.put(key, _).value)
-            .flatMap {
-              case Right(_) ⇒
-                NoContent()
-              case Left(err) ⇒
-                log.error("Storing data errored", err) *>
-                  BadRequest(err.getMessage)
-            }
-        }
-    }
-  }
-
+/**
+ * DHT server implementation.
+ *
+ * @param prefix URL prefix for routes
+ */
+abstract class DhtHttp[F[_]](val prefix: String) {
+  def routes()(implicit dsl: Http4sDsl[F], lf: LogFactory[F]): HttpRoutes[F]
 }
 
 object DhtHttp {
 
-  def apply[F[_]: Sync, V](prefix: String,
-                           store: KVStore[F, Key, V])(implicit valueCodec: PureCodec[V, Array[Byte]]): DhtHttp[F] =
-    new DhtHttp[F](prefix, store.transformValues[Array[Byte]])
+  /**
+   * Builds a new DhtHttp instance
+   *
+   * @param prefix URL prefix
+   * @param local Probably an instance of [[fluence.kad.dht.DhtLocalStore]]
+   * @tparam F Effect
+   * @tparam V Value
+   */
+  def apply[F[_]: Sync, V: Encoder: Decoder](
+    prefix: String,
+    local: DhtRpc[F, V]
+  ): DhtHttp[F] =
+    new DhtHttp[F](prefix) {
+      override def routes()(implicit dsl: Http4sDsl[F], lf: LogFactory[F]): HttpRoutes[F] = {
+        import dsl._
+        import KeyHttp._
+
+        HttpRoutes.of[F] {
+          case GET -> Root / KeyVar(key) ⇒
+            LogFactory[F].init("dht-http" -> s"$prefix/get", "key" -> key.asBase58) >>= { implicit log ⇒
+              local.retrieve(key).value.flatMap {
+                case Left(DhtValueNotFound(_)) ⇒
+                  NotFound()
+
+                case Left(err) ⇒
+                  log.error("Getting data errored", err) *>
+                    InternalServerError(err.getMessage)
+
+                case Right(value) ⇒
+                  Ok(value.asJson.noSpaces)
+              }
+            }
+
+          case req @ PUT -> Root / KeyVar(key) ⇒
+            LogFactory[F].init("dht-http" -> s"$prefix/put", "key" -> key.asBase58) >>= { implicit log ⇒
+              req.as[String].map(parse).map(_.flatMap(_.as[V])).flatMap {
+                case Left(pf) ⇒
+                  BadRequest(s"Cannot parse input: ${pf.getMessage}")
+                case Right(v) ⇒
+                  local.store(key, v).value.flatMap {
+                    case Left(err) ⇒
+                      log.error("Storing data errored", err) *>
+                        InternalServerError(err.getMessage)
+                    case Right(_) ⇒
+                      NoContent()
+                  }
+              }
+
+            }
+        }
+      }
+    }
 
 }
