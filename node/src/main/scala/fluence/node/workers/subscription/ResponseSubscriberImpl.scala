@@ -101,7 +101,7 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
       if (code == AbciServiceCodes.Ok || (code != AbciServiceCodes.Pending && code != AbciServiceCodes.NotFound)) {
         OkResponse(id, response)
       } else {
-        TimedOutResponse(id, response)
+        PendingResponse(id)
       }
     }
   }
@@ -158,9 +158,15 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
             response match {
               case (promise, r @ OkResponse(id, _)) =>
                 (promise.promise.complete(r) :: taskList, subs - promise.id)
-              case (promise, r @ (RpcErrorResponse(_, _) | TimedOutResponse(_, _))) =>
-                if (promise.tries + 1 >= maxBlocksTries) (promise.promise.complete(r) :: taskList, subs - r.id)
-                else (taskList, subs + (r.id -> promise.copy(tries = promise.tries + 1)))
+              case (promise, r @ (RpcErrorResponse(_, _) | PendingResponse(_))) =>
+                if (promise.tries + 1 >= maxBlocksTries) {
+                  // return TimedOutResponse after `tries` PendingResponses
+                  val response = r match {
+                    case PendingResponse(id) => TimedOutResponse(id, promise.tries + 1)
+                    case resp                => resp
+                  }
+                  (promise.promise.complete(response) :: taskList, subs - r.id)
+                } else (taskList, subs + (r.id -> promise.copy(tries = promise.tries + 1)))
             }
         }
         (updatedSubs, taskList)

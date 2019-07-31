@@ -166,8 +166,10 @@ object WorkersHttp {
                   case OkResponse(_, response) =>
                     Ok(response)
                   case RpcErrorResponse(_, r) => rpcErrorToResponse(r)
-                  case TimedOutResponse(id, _) =>
-                    RequestTimeout(s"Request $id is processing too long. A new session should be started to continue.")
+                  case TimedOutResponse(id, tries) =>
+                    RequestTimeout(
+                      s"Request $id couldn't be processed after $tries blocks. Try later or start a new session to continue."
+                    )
                 }
               case Left(err) =>
                 err match {

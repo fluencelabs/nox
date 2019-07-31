@@ -20,7 +20,7 @@ import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.statemachine.data.Tx
 
 // possible variants of responses from tendermint's `query` method
-trait TendermintQueryResponse {
+sealed trait TendermintQueryResponse {
   def id: Tx.Head
 }
 
@@ -37,8 +37,13 @@ case class OkResponse(id: Tx.Head, response: String) extends TendermintQueryResp
 case class RpcErrorResponse(id: Tx.Head, error: RpcError) extends TendermintQueryResponse
 
 /**
- * Response is not ready yet in state machine.
- * It will be returned after some several tries to get a response from tendermint.
+ * The intermediate result shows that the response is not ready yet in the state machine.
+ * It cannot be returned, the node will return TimedOutResponse for a client after several pending responses.
+ */
+case class PendingResponse(id: Tx.Head) extends TendermintQueryResponse
+
+/**
+ * A response cannot be returned after multiple tries (number of blocks).
  *
  */
-case class TimedOutResponse(id: Tx.Head, lastResponse: String) extends TendermintQueryResponse
+case class TimedOutResponse(id: Tx.Head, tries: Int) extends TendermintQueryResponse
