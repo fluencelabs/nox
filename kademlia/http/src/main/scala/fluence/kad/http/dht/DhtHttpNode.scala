@@ -20,7 +20,6 @@ import cats.data.EitherT
 import cats.effect.{Effect, Resource, Sync, Timer}
 import cats.kernel.Semigroup
 import com.softwaremill.sttp.SttpBackend
-import fluence.codec.PureCodec
 import fluence.effects.kvstore.KVStore
 import fluence.kad.Kademlia
 import fluence.kad.contact.UriContact
@@ -46,23 +45,21 @@ object DhtHttpNode {
    * @param metadata Store for the [[DhtValueMetadata]]
    * @param kad Kademlia network
    * @param conf DHT configuration that's going to be used for [[KVStore]] ops; see [[Dht]] for details
-   * @param valueCodec Used for storage
    * @tparam F Effect
    * @tparam V Value: Semigroup to merge several values; Encoder/Decoder for HTTP API serialization
    */
   def make[F[_]: Sync: Effect: Timer: Log, V: Semigroup: Encoder: Decoder](
     prefix: String,
-    store: Resource[F, KVStore[F, Array[Byte], Array[Byte]]],
+    store: Resource[F, KVStore[F, Array[Byte], V]],
     metadata: Resource[F, KVStore[F, Array[Byte], Array[Byte]]],
     kad: Kademlia[F, UriContact],
     conf: Dht.Conf = Dht.Conf()
   )(implicit
-    sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
-    valueCodec: PureCodec[V, Array[Byte]]): Resource[F, DhtHttpNode[F, V]] =
+    sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]): Resource[F, DhtHttpNode[F, V]] =
     for {
       s ← store
       m ← metadata
-      local ← DhtLocalStore.make(s.transform[Key, V], m.transform[Key, DhtValueMetadata])
+      local ← DhtLocalStore.make(s.transformKeys[Key], m.transform[Key, DhtValueMetadata])
     } yield {
       val http = DhtHttp(prefix, local)
 

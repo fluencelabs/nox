@@ -21,7 +21,7 @@ import java.nio.ByteBuffer
 import cats.Applicative
 import cats.data.{Chain, EitherT}
 import cats.effect._
-import cats.effect.concurrent.MVar
+import cats.effect.concurrent.{Deferred, MVar}
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -98,13 +98,14 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
 
     // TODO: what if we have lost all data in receipt storage? Node will need to sync it from the decentralized storage
 
-    // TODO: storedReceipts is calculated 3 times. How to memoize that?
+    // TODO: storedReceipts is calculated 2 times. How to memoize that?
     val storedReceipts =
       fs2.Stream.eval(traceBU(s"will start loading stored receipts")) >>
         storage
           .retrieve()
           .evalTap(t => traceBU(s"stored receipt ${t._1}"))
 
+    // TODO get last known height from the last received receipt
     val lastKnownHeight = storedReceipts.last.map(_.map(_._1).getOrElse(0L))
 
     // Subscribe on blocks, starting with given last known height
