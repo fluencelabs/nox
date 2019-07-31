@@ -153,6 +153,14 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
     }.parSequence
   }
 
+  val block = Block(TestData.blockWithNullTxsResponse(1)).right.get
+
+  def queueBlocks[F[_]: Monad, G[_]](queue: fs2.concurrent.Queue[F, Block], number: Int)(implicit P: Parallel[F, G]) = {
+    import cats.syntax.parallel._
+    import cats.syntax.list._
+    (0 to number).toList.map(_ => queue.enqueue1(block)).toNel.get.parSequence
+  }
+
   "MasterNode API" should {
 
     "return an error, if no app with such appId" in {
@@ -203,23 +211,19 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
 
     "return an error if tx is incorrect" in {
 
+      val tx = "failed"
       val result = start().use {
         case (pool, requestSubscriber, tendermintTest, _) =>
           for {
-            response <- request(pool, requestSubscriber, Some("failed"))
+            response <- request(pool, requestSubscriber, Some(tx))
           } yield response
       }.unsafeRunSync()
 
       result should be('left)
-      result.left.get shouldBe a[TxParsingError]
-    }
 
-    val block = Block(TestData.blockWithNullTxsResponse(1)).right.get
-    def queueBlocks[F[_]: Monad, G[_]](queue: fs2.concurrent.Queue[F, Block],
-                                       number: Int)(implicit P: Parallel[F, G]) = {
-      import cats.syntax.parallel._
-      import cats.syntax.list._
-      (0 to number).toList.map(_ => queue.enqueue1(block)).toNel.get.parSequence
+      val error = result.left.get
+      error shouldBe a[TxParsingError]
+      error.asInstanceOf[TxParsingError].tx shouldBe tx
     }
 
     "return an error if query API from tendermint is not responded" in {
