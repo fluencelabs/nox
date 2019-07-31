@@ -16,14 +16,20 @@
 
 package fluence.vm.wasm.module
 
+import java.lang.reflect.Modifier
+
+import asmble.compile.jvm.MemoryBuffer
+import asmble.run.jvm.Module.Compiled
+import asmble.run.jvm.ScriptContext
 import cats.Monad
 import cats.data.EitherT
 import cats.effect.LiftIO
-import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
-import fluence.vm.VmError.{NoSuchFnError, VmMemoryError}
-import fluence.vm.wasm.{WasmFunction, WasmModuleMemory}
+import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
+import fluence.vm.VmError.{InitializationError, NoSuchFnError, VmMemoryError}
+import fluence.vm.wasm.{MemoryHasher, WasmFunction, WasmModuleMemory, module}
 
 import scala.language.higherKinds
+import scala.util.Try
 
 /**
  * Wrapper of Wasm Module instance compiled by Asmble to Java class. Provides all functionality of Wasm modules
@@ -37,10 +43,11 @@ import scala.language.higherKinds
  * @param invokeFunction a function that represents main handler of Wasm module
  */
 class MainModule(
+  private val module: WasmModule,
   private val allocateFunction: WasmFunction,
   private val deallocateFunction: WasmFunction,
   private val invokeFunction: WasmFunction
-) extends WasmModule {
+) {
 
   /**
    * Allocates a memory region in Wasm module of supplied size by allocateFunction.
@@ -48,7 +55,7 @@ class MainModule(
    * @param size a size of memory that need to be allocated
    */
   def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, Int] =
-    invokeWasmFunction(allocateFunction, Int.box(size) :: Nil)
+    module.invokeWasmFunction(allocateFunction, Int.box(size) :: Nil)
 
   /**
    * Deallocates a previously allocated memory region in Wasm module by deallocateFunction.
@@ -57,7 +64,7 @@ class MainModule(
    * @param size a size of memory region to deallocate
    */
   def deallocate[F[_]: LiftIO: Monad](offset: Int, size: Int): EitherT[F, InvokeError, Unit] =
-    invokeWasmFunction(deallocateFunction, Int.box(offset) :: Int.box(size) :: Nil)
+    module.invokeWasmFunction(deallocateFunction, Int.box(offset) :: Int.box(size) :: Nil)
       .map(_ ⇒ ())
 
   /**
@@ -66,7 +73,7 @@ class MainModule(
    * @param args arguments for invokeFunction
    */
   def invoke[F[_]: LiftIO: Monad](args: List[AnyRef]): EitherT[F, InvokeError, Int] =
-    invokeWasmFunction(invokeFunction, args)
+    module.invokeWasmFunction(invokeFunction, args)
 
   /**
    * Reads [offset, offset+size) region from the module memory.
@@ -75,7 +82,7 @@ class MainModule(
    *  @param size bytes count to read
    */
   def readMemory[F[_]: Monad](offset: Int, size: Int): EitherT[F, VmMemoryError, Array[Byte]] =
-    wasmMemory.readBytes(offset, size)
+    module.wasmMemory.readBytes(offset, size)
 
   /**
    * Writes array of bytes to module memory.
@@ -84,7 +91,53 @@ class MainModule(
    * @param injectedArray an array that should be written into the module memory
    */
   def writeMemory[F[_]: Monad](offset: Int, injectedArray: Array[Byte]): EitherT[F, VmMemoryError, Unit] =
-    wasmMemory.writeBytes(offset, injectedArray)
+    module.wasmMemory.writeBytes(offset, injectedArray)
 
-  override def toString: String = name.getOrElse("<no-name>")
+  override def toString: String = module.name.getOrElse("<no-name>")
+}
+
+object MainModule {
+
+  /**
+    * Creates instance for specified module.
+    *
+    * @param moduleDescription a Asmble description of the module
+    * @param scriptContext a Asmble context for the module operation
+    * @param memoryHasher a hasher used for compute hash if memory
+    */
+  def apply[F[_]: Monad](
+   moduleDescription: Compiled,
+   scriptContext: ScriptContext,
+   memoryHasher: MemoryHasher.Builder[F],
+   allocationFunctionName: String,
+   deallocationFunctionName: String,
+   invokeFunctionName: String
+  ): EitherT[F, ApplyError, MainModule] =
+    for {
+      module <- WasmModule(moduleDescription, scriptContext, memoryHasher)
+
+      (allocMethod, deallocMethod, invokeMethod) = moduleDescription.getCls.getDeclaredMethods.toStream
+        .filter(method ⇒ Modifier.isPublic(method.getModifiers))
+        .map(method ⇒ WasmFunction(method.getName, method))
+        .foldLeft((Option.empty[WasmFunction], Option.empty[WasmFunction], Option.empty[WasmFunction])) {
+          case (acc @ (None, _, _), m @ WasmFunction(`allocationFunctionName`, _)) ⇒
+            acc.copy(_1 = Some(m))
+
+          case (acc @ (_, None, _), m @ WasmFunction(`deallocationFunctionName`, _)) ⇒
+            acc.copy(_2 = Some(m))
+
+          case (acc @ (_, _, None), m @ WasmFunction(`invokeFunctionName`, _)) ⇒
+            acc.copy(_3 = Some(m))
+
+          case (acc, _) ⇒ acc
+        }
+
+    } yield
+      new MainModule(
+        module,
+        allocMethod.get,
+        deallocMethod.get,
+        invokeMethod.get
+      )
+
 }

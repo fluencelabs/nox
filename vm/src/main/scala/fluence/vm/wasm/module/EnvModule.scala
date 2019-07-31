@@ -16,6 +16,8 @@
 
 package fluence.vm.wasm.module
 
+import java.lang.reflect.Modifier
+
 import asmble.compile.jvm.MemoryBuffer
 import asmble.run.jvm.Module.Compiled
 import asmble.run.jvm.ScriptContext
@@ -45,12 +47,10 @@ import scala.util.Try
  * @param invokeFunction a function that represents main handler of Wasm module
  */
 class EnvModule(
-  override val name: Option[String],
-  override val wasmMemory: WasmModuleMemory,
-  override val moduleInstance: Any,
+  private val module: WasmModule,
   private val spentGasFunction: WasmFunction,
   private val setSpentGasFunction: WasmFunction
-) extends WasmModule(name, wasmMemory, moduleInstance) {
+) {
 
   /**
    * Allocates a memory region in Wasm module of supplied size by allocateFunction.
@@ -58,7 +58,7 @@ class EnvModule(
    * @param size a size of memory that need to be allocated
    */
   def getSpentGas[F[_]: LiftIO: Monad](): EitherT[F, InvokeError, Int] =
-    invokeWasmFunction(spentGasFunction, Nil)
+    module.invokeWasmFunction(spentGasFunction, Nil)
 
   /**
    * Deallocates a previously allocated memory region in Wasm module by deallocateFunction.
@@ -67,7 +67,7 @@ class EnvModule(
    * @param size a size of memory region to deallocate
    */
   def clearSpentGas[F[_]: LiftIO: Monad](): EitherT[F, InvokeError, Unit] =
-    invokeWasmFunction(setSpentGasFunction, Int.box(0) :: Nil)
+    module.invokeWasmFunction(setSpentGasFunction, Int.box(0) :: Nil)
       .map(_ ⇒ ())
 
 }
@@ -85,19 +85,30 @@ object EnvModule {
    moduleDescription: Compiled,
    scriptContext: ScriptContext,
    memoryHasher: MemoryHasher.Builder[F],
-   spentGasFunction: WasmFunction,
-   setSpentGasFunction: WasmFunction
-  ): EitherT[F, ApplyError, module.WasmModule] =
+   spentGasFunctionName: String,
+   setSpentGasFunction: String
+  ): EitherT[F, ApplyError, EnvModule] =
     for {
-      wasmModule <- WasmModule(moduleDescription, scriptContext, memoryHasher)
+      module <- WasmModule(moduleDescription, scriptContext, memoryHasher)
 
+      (spentGas, setSpentGas) = moduleDescription.getCls.getDeclaredMethods.toStream
+        .filter(method ⇒ Modifier.isPublic(method.getModifiers))
+        .map(method ⇒ WasmFunction(method.getName, method))
+        .foldLeft((Option.empty[WasmFunction], Option.empty[WasmFunction])) {
+          case (acc @ (None, _), m @ WasmFunction(`spentGasFunctionName`, _)) ⇒
+            acc.copy(_1 = Some(m))
 
+          case (acc @ (_, None), m @ WasmFunction(`setSpentGasFunction`, _)) ⇒
+            acc.copy(_2 = Some(m))
+
+          case (acc, _) ⇒ acc
+        }
 
     } yield
-      new module.WasmModule(
-        Option(moduleDescription.getName),
-        moduleMemory,
-        moduleInstance
+      new EnvModule(
+        module,
+        spentGas.get,
+        setSpentGas.get
       )
 
 }

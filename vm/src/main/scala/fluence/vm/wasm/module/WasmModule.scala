@@ -42,12 +42,10 @@ import scala.util.Try
  * @param moduleInstance a instance of Wasm Module compiled by Asmble
  */
 class WasmModule(
-  protected val name: Option[String],
+  val name: Option[String],
   val wasmMemory: WasmModuleMemory,
-  protected val moduleInstance: Any
+  val moduleInstance: Any
 ) {
-
-  def getName: Option[String] = name
 
   /**
    * Computes hash of all significant inner state of this Module. Now only memory is used for state hash computing;
@@ -58,7 +56,7 @@ class WasmModule(
   def computeStateHash[F[_]: Monad](): EitherT[F, GetVmStateError, Array[Byte]] =
     wasmMemory.computeMemoryHash()
 
-  protected def invokeWasmFunction[F[_]: LiftIO: Monad](
+  def invokeWasmFunction[F[_]: LiftIO: Monad](
     wasmFn: WasmFunction,
     args: List[AnyRef]
   ): EitherT[F, InvokeError, Int] =
@@ -123,7 +121,7 @@ object WasmModule {
       )
 
     } yield
-      new module.WasmModule(
+      new WasmModule(
         Option(moduleDescription.getName),
         moduleMemory,
         moduleInstance
