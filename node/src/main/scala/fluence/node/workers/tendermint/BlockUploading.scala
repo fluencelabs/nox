@@ -21,7 +21,7 @@ import java.nio.ByteBuffer
 import cats.Applicative
 import cats.data.{Chain, EitherT}
 import cats.effect._
-import cats.effect.concurrent.{Deferred, MVar}
+import cats.effect.concurrent.{Deferred, MVar, Ref}
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -86,7 +86,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
     rpc: TendermintRpc[F],
     control: ControlRpc[F],
     onManifestUploaded: (BlockManifest, Receipt) ⇒ F[Unit]
-  )(implicit backoff: Backoff[EffectError], F: Applicative[F], log: Log[F]) = {
+  )(implicit backoff: Backoff[EffectError], F: Applicative[F], log: Log[F]): Resource[F, Unit] = {
     def upload(b: BlockUpload) = uploadBlock(b, appId, lastManifestReceipt, storage, onManifestUploaded)
 
     def sendReceipt(receipt: Receipt)(implicit log: Log[F]) = backoff.retry(

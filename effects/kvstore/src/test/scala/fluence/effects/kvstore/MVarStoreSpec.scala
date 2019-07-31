@@ -16,12 +16,16 @@
 
 package fluence.effects.kvstore
 
-import cats.effect.{ContextShift, IO, Resource}
+import cats.effect.{ContextShift, IO, Resource, Timer}
+import fluence.log.{Log, LogFactory}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
 class MVarStoreSpec extends KVStoreTestKit {
   implicit val shift: ContextShift[IO] = IO.contextShift(global)
+  implicit val timer: Timer[IO] = IO.timer(global)
+
+  override implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init("mvarSpec").unsafeRunSync()
 
   override def storeMaker: Resource[IO, KVStore[IO, Long, String]] =
     MVarKVStore.make[IO, Long, String]()
