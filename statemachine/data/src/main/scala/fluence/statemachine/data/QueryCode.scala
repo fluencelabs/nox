@@ -16,10 +16,6 @@
 
 package fluence.statemachine.data
 
-object AbciServiceCodes {
-  val Ok: Int = 0
-  val CannotParseHeader: Int = 1
-  val Dropped: Int = 2
-  val NotFound: Int = 3
-  val Pending: Int = 4
+object QueryCode extends Enumeration {
+  val Ok, CannotParseHeader, Dropped, NotFound, Pending = Value
 }

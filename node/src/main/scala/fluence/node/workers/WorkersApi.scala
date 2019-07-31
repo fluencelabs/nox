@@ -21,11 +21,12 @@ import cats.{Apply, Monad}
 import cats.syntax.apply._
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError}
 import fluence.log.Log
 import fluence.node.workers.subscription.{TendermintQueryResponse, TxResponseCode}
-import fluence.statemachine.data.Tx
+import fluence.statemachine.data.{Tx, TxCode}
 import io.circe.parser.decode
 
 import scala.language.higherKinds
@@ -128,7 +129,7 @@ object WorkersApi {
             _ <- EitherT.right(log.debug(s"TendermintRpc broadcastTxSync in txWaitResponse request"))
             txParsed <- EitherT
               .fromOptionF(Tx.readTx(tx.getBytes()).value,
-                           TxParsingError("Incorrect transaction format.", tx): TxAwaitError)
+                           TxParsingError("Incorrect transaction format", tx): TxAwaitError)
             txBroadcastResponse <- worker.services.tendermint
               .broadcastTxSync(tx, id.getOrElse("dontcare"))
               .leftMap(RpcTxAwaitError(_): TxAwaitError)
@@ -165,14 +166,19 @@ object WorkersApi {
   /**
    * Checks if a response is correct and code value is `ok`. Returns an error otherwise.
    */
-  private def checkTxResponse[F[_]: Log](
+  private def checkTxResponse[F[_]](
     response: String
-  )(implicit F: Monad[F]): EitherT[F, TxAwaitError, Unit] = {
+  )(implicit F: Monad[F], log: Log[F]): EitherT[F, TxAwaitError, Unit] = {
     for {
       txResponse <- EitherT
         .fromEither[F](decode[TxResponseCode](response))
-        .leftMap(err => RpcTxAwaitError(RpcBodyMalformed(err)): TxAwaitError)
-      _ <- if (txResponse.code != 0)
+        .leftSemiflatMap(
+          err =>
+            log
+              .error(s"txBroadcast response is malformed. Response: $response", err)
+              .as(RpcTxAwaitError(RpcBodyMalformed(err)): TxAwaitError)
+        )
+      _ <- if (txResponse.code.getOrElse(TxCode.OK) != TxCode.OK)
         EitherT.left(
           F.pure(
             TxInvalidError(

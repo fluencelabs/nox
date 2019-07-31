@@ -29,7 +29,7 @@ import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError, RpcRequestErrored, TendermintHttpRpc}
 import fluence.log.Log
 import fluence.node.MakeResource
-import fluence.statemachine.data.{AbciServiceCodes, Tx}
+import fluence.statemachine.data.{QueryCode, Tx}
 
 import scala.language.higherKinds
 
@@ -94,11 +94,11 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
               .error(s"Query response from tendermint is malformed: $response")
               .map(_ => RpcBodyMalformed(err): RpcError)
         )
-        .map(_.code)
+        .map(_.code.getOrElse(QueryCode.Ok))
     } yield {
       // if code is not 0, 3 or 4 - it is an tendermint error, so we need to return it as is
       // 3, 4 - is a code for pending result
-      if (code == AbciServiceCodes.Ok || (code != AbciServiceCodes.Pending && code != AbciServiceCodes.NotFound)) {
+      if (code == QueryCode.Ok || (code != QueryCode.Pending && code != QueryCode.NotFound)) {
         OkResponse(id, response)
       } else {
         PendingResponse(id)
