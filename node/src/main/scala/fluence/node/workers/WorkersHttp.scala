@@ -33,6 +33,7 @@ import fluence.effects.tendermint.rpc.http.{
 import fluence.log.{Log, LogFactory}
 import fluence.node.workers.subscription.{
   OkResponse,
+  PendingResponse,
   RpcErrorResponse,
   RpcTxAwaitError,
   TendermintResponseError,
@@ -170,6 +171,8 @@ object WorkersHttp {
                         RequestTimeout(
                           s"Request $id couldn't be processed after $tries blocks. Try later or start a new session to continue."
                         )
+                      case PendingResponse(_) =>
+                        InternalServerError("PendingResponse is returned. Unexpected error.")
                     }
                   case Left(err) =>
                     err match {

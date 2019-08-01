@@ -43,8 +43,8 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
-  implicit private val logFactory = LogFactory.forPrintln[IO](level = Log.Trace)
-  implicit private val log = logFactory.init("RequestResponseSpec", level = Log.Trace).unsafeRunSync()
+  implicit private val logFactory = LogFactory.forPrintln[IO](level = Log.Error)
+  implicit private val log = logFactory.init("RequestResponseSpec", level = Log.Error).unsafeRunSync()
   val workerApi = WorkerApi()
 
   def start() = {
