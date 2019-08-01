@@ -79,7 +79,7 @@ class DhtReceiptStorage[F[_]: Monad](
    */
   override def retrieve(from: Option[Long], to: Option[Long])(implicit log: Log[F]): fs2.Stream[F, (Long, Receipt)] =
     fs2.Stream
-      .iterate(0l)(_ + 1)
+      .iterate(from.getOrElse(0l))(_ + 1)
       .filter(h ⇒ to.fold(true)(h <= _))
       .evalMap(
         get(_).value

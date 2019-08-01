@@ -56,12 +56,12 @@ class Dht[F[_]: Monad, V: Semigroup, C](
       .map[Option[V]](Some(_))
       .leftFlatMap[Option[V], KVReadError] {
         case _: DhtValueNotFound ⇒ EitherT.rightT(None)
-        case err ⇒ EitherT.leftT(IOExceptionError("Unable to retrieve value from DHT", err))
+        case err ⇒ EitherT.leftT(IOExceptionError(s"Unable to retrieve value from DHT, key = $key", err))
       }
 
   override def put(key: Key, value: V)(implicit log: Log[F]): EitherT[F, KVWriteError, Unit] =
     store(key, value, conf.replicationFactor, conf.maxStoreCalls)
-      .leftMap(err ⇒ IOExceptionError("Unable to store value into DHT", err))
+      .leftMap(err ⇒ IOExceptionError(s"Unable to store value into DHT, key = $key", err))
 
   /**
    * Unsupported: there's no guarantees to remove a value from DHT
@@ -69,14 +69,14 @@ class Dht[F[_]: Monad, V: Semigroup, C](
    * @param key Key
    */
   override def remove(key: Key)(implicit log: Log[F]): EitherT[F, KVWriteError, Unit] =
-    EitherT.leftT(UnsupportedOperationError("Cannot remove from Kademlia DHT"))
+    EitherT.leftT(UnsupportedOperationError(s"Cannot remove from Kademlia DHT, key = $key"))
 
   /**
    * Unsupported: there's no straightforward way to iterate over all DHT values
    *
    */
   override def stream(implicit log: Log[F]): fs2.Stream[F, (Key, V)] =
-    fs2.Stream.empty
+    fs2.Stream.eval_(log.error("Kademlia DHT doesn't support KVStore's streaming"))
 
   /**
    * Retrieve a result from DHT: collect up to `results` values, merge them with [[Semigroup]], doing maximum of `maxCalls`
