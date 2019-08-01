@@ -59,7 +59,7 @@ fn main() -> Result<(), ExitFailure> {
             let gas_rules = rules::Set::new(1, Default::default());
 
             let module = pwasm_utils::inject_gas_counter(module, &gas_rules)
-                .expect("Error while deserializing file file");
+                .expect("Error while deserializing file");
             parity_wasm::serialize_to_file(module_path, module)
                 .expect("Error while serializing file");
 
