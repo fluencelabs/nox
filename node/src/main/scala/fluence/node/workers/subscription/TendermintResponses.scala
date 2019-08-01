@@ -32,7 +32,7 @@ case class TxResponseCode(code: Option[TxCode.Value], info: Option[String])
 object TxResponseCode {
   implicit val codeDecoder: Decoder[TxCode.Value] =
     Decoder.decodeInt.emap(
-      i => Try(TxCode(i)).toEither.leftMap(err => s"Cannot parse code '$i' to QueryCode enum: " + err.getMessage)
+      i => Try(TxCode(i)).toEither.leftMap(err => s"Cannot parse code '$i' to TxCode enum: " + err.getMessage)
     )
   implicit val decodeTxResponseCode: Decoder[TxResponseCode] = new Decoder[TxResponseCode] {
     final def apply(c: HCursor): Decoder.Result[TxResponseCode] =

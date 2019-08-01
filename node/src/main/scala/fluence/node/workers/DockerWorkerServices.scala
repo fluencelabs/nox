@@ -27,11 +27,10 @@ import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
 import fluence.log.Log
 import fluence.effects.tendermint.rpc.TendermintRpc
-import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.LogLevel.LogLevel
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
-import fluence.node.workers.subscription.{ResponseSubscriber, ResponseSubscriberImpl}
+import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.DockerTendermint
 
 import scala.concurrent.duration.FiniteDuration
@@ -142,7 +141,7 @@ object DockerWorkerServices {
 
       blockManifests ← WorkerBlockManifests.make[F](params.appId, storageRootPath)
 
-      responseSubscriber <- Resource.liftF(ResponseSubscriberImpl(rpc, params.appId))
+      responseSubscriber <- ResponseSubscriber.make(rpc, params.appId)
 
       control = ControlRpc[F](containerName(params), ControlRpcPort)
 

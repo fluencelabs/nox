@@ -36,10 +36,9 @@ import fluence.kad.contact.UriContact
 import fluence.kad.http.{KademliaHttp, KademliaHttpNode}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.storage.RemoteStorageConfig
-import fluence.node.config.{Configuration, HttpApiConfig, MasterConfig}
+import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
-import fluence.node.workers.DockerWorkersPool
-import fluence.node.workers.subscription.ResponseSubscriberImpl
+import fluence.node.workers.{DockerWorkersPool, WorkerApi}
 import fluence.node.workers.tendermint.BlockUploading
 
 import scala.language.higherKinds
@@ -84,7 +83,7 @@ object MasterNodeApp extends IOApp {
               case (kadHttp, node) ⇒
                 (for {
                   _ ← Log.resource[IO].debug(s"Eth contract config: ${masterConf.contract}")
-                  server ← masterHttp(masterConf, node, kadHttp)
+                  server ← masterHttp(masterConf, node, kadHttp, WorkerApi())
                 } yield server).use { server =>
                   log.info("Http api server has started on: " + server.address) *> node.run
                 }
@@ -131,7 +130,8 @@ object MasterNodeApp extends IOApp {
 
   private def masterHttp(masterConf: MasterConfig,
                          node: MasterNode[IO, UriContact],
-                         kademliaHttp: KademliaHttp[IO, UriContact])(implicit log: Log[IO], lf: LogFactory[IO]) =
+                         kademliaHttp: KademliaHttp[IO, UriContact],
+                         workerApi: WorkerApi)(implicit log: Log[IO], lf: LogFactory[IO]) =
     StatusAggregator
       .make(masterConf, node)
       .flatMap(
@@ -141,7 +141,8 @@ object MasterNodeApp extends IOApp {
             masterConf.httpApi.port.toShort,
             statusAggregator,
             node.pool,
-            kademliaHttp
+            workerApi,
+            kademliaHttp,
         )
       )
 }

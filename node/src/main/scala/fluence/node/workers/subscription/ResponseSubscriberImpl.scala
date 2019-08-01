@@ -98,10 +98,9 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
     } yield {
       // if code is not 0, 3 or 4 - it is an tendermint error, so we need to return it as is
       // 3, 4 - is a code for pending result
-      if (code == QueryCode.Ok || (code != QueryCode.Pending && code != QueryCode.NotFound)) {
-        OkResponse(id, response)
-      } else {
-        PendingResponse(id)
+      code match {
+        case QueryCode.Pending | QueryCode.NotFound => PendingResponse(id)
+        case QueryCode.Ok | _                       => OkResponse(id, response)
       }
     }
   }

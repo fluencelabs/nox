@@ -16,8 +16,12 @@
 
 package fluence.node.workers.subscription
 
-import cats.effect.Resource
-import cats.effect.concurrent.Deferred
+import cats.Parallel
+import cats.effect.{Concurrent, Resource, Timer}
+import cats.effect.concurrent.{Deferred, Ref}
+import cats.syntax.functor._
+import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.log.Log
 import fluence.statemachine.data.Tx
 
 import scala.language.higherKinds
@@ -41,4 +45,28 @@ trait ResponseSubscriber[F[_]] {
    *
    */
   def start(): Resource[F, Unit]
+}
+
+object ResponseSubscriber {
+
+  def apply[F[_]: Log: Concurrent: Timer, G[_]](
+    tendermint: TendermintRpc[F],
+    appId: Long,
+    maxBlocksTries: Int = 3
+  )(
+    implicit P: Parallel[F, G]
+  ): F[ResponseSubscriber[F]] =
+    Ref
+      .of[F, Map[Tx.Head, ResponsePromise[F]]](
+        Map.empty[Tx.Head, ResponsePromise[F]]
+      )
+      .map(r => new ResponseSubscriberImpl(r, tendermint, appId, maxBlocksTries))
+
+  def make[F[_]: Log: Concurrent: Timer, G[_]](
+    tendermint: TendermintRpc[F],
+    appId: Long,
+    maxBlocksTries: Int = 3
+  )(
+    implicit P: Parallel[F, G]
+  ): Resource[F, ResponseSubscriber[F]] = Resource.liftF(apply(tendermint, appId, maxBlocksTries))
 }
