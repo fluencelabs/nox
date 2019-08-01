@@ -48,15 +48,17 @@ import fluence.node.config.DockerConfig
 import fluence.node.eth.state._
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 import fluence.node.workers.status.WorkerStatus
+import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
 import fluence.statemachine.AbciService.TxResponse
 import fluence.statemachine.control.{BlockReceipt, ControlSignals}
+import fluence.statemachine.data.{Tx, TxCode}
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
-import fluence.statemachine.{AbciService, TestTendermintRpc, Tx, TxCode}
+import fluence.statemachine.{AbciService, TestTendermintRpc}
 import fs2.concurrent.Queue
 import io.circe.Json
 import io.circe.parser.parse
@@ -170,6 +172,9 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
 
         override def blockManifests: WorkerBlockManifests[IO] =
           new WorkerBlockManifests[IO](receiptStorage(appId), manifestRef)
+
+        override def responseSubscriber: ResponseSubscriber[IO] =
+          throw new NotImplementedError("def requestResponder")
       }
 
       val worker: Resource[IO, Worker[IO]] =

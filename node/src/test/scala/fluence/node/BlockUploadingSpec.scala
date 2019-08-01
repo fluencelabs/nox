@@ -41,6 +41,7 @@ import fluence.node.config.DockerConfig
 import fluence.node.eth.state._
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 import fluence.node.workers.status.WorkerStatus
+import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
@@ -72,8 +73,6 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
   val tmConfig = TendermintConfig("info", 0, 0, 0, 0L, false, false, false, p2pPort, Seq.empty)
   val configTemplate = ConfigTemplate[IO](rootPath, tmConfig).unsafeRunSync()
   val params = WorkerParams(app, rootPath, rootPath, None, dockerConfig, tmDockerConfig, configTemplate)
-
-  val dockerIO = DockerIO.make[IO]()
 
   case class UploadingState(uploads: Int = 0,
                             vmHashGet: Seq[Long] = Nil,
@@ -152,6 +151,9 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
 
             override def blockManifests: WorkerBlockManifests[IO] =
               new WorkerBlockManifests[IO](receiptStorage(appId), manifestRef)
+
+            override def responseSubscriber: ResponseSubscriber[IO] =
+              throw new NotImplementedError("def responseSubscriber")
           }
 
           (state, ipfs, workerServices)

@@ -25,10 +25,9 @@ import fluence.kad.http.KademliaHttp
 import fluence.kad.http.dht.DhtHttp
 import fluence.kad.protocol.Node
 import fluence.log.LogFactory
-import fluence.node.workers.{WorkersHttp, WorkersPool}
+import fluence.node.workers.{WorkerApi, WorkersHttp, WorkersPool}
 import org.http4s.dsl.Http4sDsl
-import org.http4s.{HttpApp, HttpRoutes, Request, Response, Status}
-import org.http4s.implicits._
+import org.http4s.{HttpApp, Request, Response, Status}
 import org.http4s.server.{Router, Server}
 import org.http4s.server.blaze._
 import org.http4s.server.middleware.{CORS, CORSConfig}
@@ -58,19 +57,19 @@ object MasterHttp {
     port: Short,
     agg: StatusAggregator[F],
     pool: WorkersPool[F],
+    workerApi: WorkerApi,
     kad: KademliaHttp[F, C],
     dht: List[DhtHttp[F]] = Nil
   )(implicit P: Parallel[F, G], writeNode: PureCodec.Func[Node[C], String]): Resource[F, Server[F]] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
-    val routes: HttpRoutes[F] = Router[F](
+    val routes = Router[F](
       ("/status" -> StatusHttp.routes[F, G](agg)) ::
-        ("/apps" -> WorkersHttp.routes[F](pool)) ::
+        ("/apps" -> WorkersHttp.routes[F](pool, workerApi)) ::
         ("/kad" -> kad.routes()) ::
         dht.map(dhtHttp ⇒ dhtHttp.prefix -> dhtHttp.routes()): _*
     )
-
-    val routesOrNotFound: Kleisli[F, Request[F], Response[F]] = Kleisli(
+    val routesOrNotFound = Kleisli[F, Request[F], Response[F]](
       a =>
         routes
           .run(a)

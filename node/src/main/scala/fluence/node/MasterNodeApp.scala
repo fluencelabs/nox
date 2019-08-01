@@ -19,14 +19,16 @@ package fluence.node
 import java.nio.ByteBuffer
 import java.nio.file.Path
 
-import cats.data.EitherT
+import cats.data.{EitherT, NonEmptyList}
 import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect._
+import cats.effect.concurrent.Ref
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
 import fluence.crypto.eddsa.Ed25519
+import fluence.effects.{Backoff, EffectError}
 import fluence.effects.docker.DockerIO
 import fluence.effects.ipfs.IpfsUploader
 import fluence.effects.kvstore.RocksDBStore
@@ -41,7 +43,7 @@ import fluence.log.{Log, LogFactory}
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
-import fluence.node.workers.DockerWorkersPool
+import fluence.node.workers.{DockerWorkersPool, WorkerApi}
 import fluence.node.workers.tendermint.{BlockUploading, DhtReceiptStorage}
 
 import scala.language.higherKinds
@@ -63,6 +65,8 @@ object MasterNodeApp extends IOApp {
    */
   override def run(args: List[String]): IO[ExitCode] = {
 
+    implicit val b: Backoff[EffectError] = Backoff.default
+
     MasterConfig
       .load()
       .map(mc ⇒ mc -> LogFactory.forPrintln[IO](mc.logLevel))
@@ -82,12 +86,11 @@ object MasterNodeApp extends IOApp {
                                        appId ⇒ Resource.pure(new DhtReceiptStorage(appId, rDht.dht)),
                                        masterConf)
               node ← MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
-
             } yield (kad.http, rDht.http, node)).use {
               case (kadHttp, rDhtHttp, node) ⇒
                 (for {
                   _ ← Log.resource[IO].debug(s"Eth contract config: ${masterConf.contract}")
-                  server ← masterHttp(masterConf, node, kadHttp, rDhtHttp)
+                  server ← masterHttp(masterConf, node, kadHttp, rDhtHttp, WorkerApi())
                 } yield server).use { server =>
                   log.info("Http api server has started on: " + server.address) *> node.run
                 }
@@ -118,9 +121,11 @@ object MasterNodeApp extends IOApp {
       kad,
     )
 
-  private def dockerWorkersPool(rootPath: Path,
+  private def dockerWorkersPool(
+    rootPath: Path,
                                 appReceiptStorage: Long ⇒ Resource[IO, ReceiptStorage[IO]],
-                                conf: MasterConfig)(implicit sttp: STTP, log: Log[IO], dio: DockerIO[IO]) =
+    conf: MasterConfig
+  )(implicit sttp: STTP, log: Log[IO], dio: DockerIO[IO], backoff: Backoff[EffectError]) =
     DockerWorkersPool.make(
       conf.ports.minPort,
       conf.ports.maxPort,
@@ -147,7 +152,8 @@ object MasterNodeApp extends IOApp {
   private def masterHttp(masterConf: MasterConfig,
                          node: MasterNode[IO, UriContact],
                          kademliaHttp: KademliaHttp[IO, UriContact],
-                         receiptDhtHttp: DhtHttp[IO])(implicit log: Log[IO], lf: LogFactory[IO]) =
+                         receiptDhtHttp: DhtHttp[IO],
+                         workerApi: WorkerApi)(implicit log: Log[IO], lf: LogFactory[IO]) =
     StatusAggregator
       .make(masterConf, node)
       .flatMap(
@@ -157,6 +163,7 @@ object MasterNodeApp extends IOApp {
             masterConf.httpApi.port.toShort,
             statusAggregator,
             node.pool,
+            workerApi,
             kademliaHttp,
             receiptDhtHttp :: Nil
         )

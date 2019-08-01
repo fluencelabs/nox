@@ -23,7 +23,8 @@ import fluence.effects.{EffectError, WithCause}
 sealed trait RpcError extends EffectError
 
 /** Request finished with exception */
-case class RpcRequestFailed(cause: Throwable) extends Exception("Tendermint RPC request failed", cause) with RpcError
+case class RpcRequestFailed(cause: Throwable)
+    extends Exception("Tendermint RPC request failed: " + cause.getMessage, cause) with RpcError
 
 /** Request was successfully made, but response status is not ok */
 case class RpcRequestErrored(statusCode: Int, error: String)
