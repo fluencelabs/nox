@@ -31,6 +31,9 @@ import io.circe.parser.decode
 
 import scala.language.higherKinds
 
+/**
+ * API that independent from transports.
+ */
 object WorkersApi {
 
   /**
@@ -74,9 +77,9 @@ object WorkersApi {
    * @param pool list of started workers
    * @param appId app id for which the request is intended
    */
-  def p2pPort[F[_]: Apply](pool: WorkersPool[F], appId: Long)(implicit log: Log[F]): F[Option[Worker[F]]] =
+  def p2pPort[F[_]: Apply](pool: WorkersPool[F], appId: Long)(implicit log: Log[F]): F[Option[Short]] =
     log.debug(s"Worker p2pPort") *>
-      pool.get(appId)
+      pool.get(appId).map(_.map(_.p2pPort))
 
   /**
    * Sends transaction to tendermint.
@@ -107,6 +110,7 @@ object WorkersApi {
    * Errors for `txAwait` API
    */
   trait TxAwaitError
+  case class TendermintResponseError(responseError: String) extends TxAwaitError
   case class RpcTxAwaitError(rpcError: RpcError) extends TxAwaitError
   case class TxParsingError(msg: String, tx: String) extends TxAwaitError
   case class AppNotFoundError(msg: String) extends TxAwaitError
@@ -174,9 +178,11 @@ object WorkersApi {
         .fromEither[F](decode[TxResponseCode](response))
         .leftSemiflatMap(
           err =>
+            // this is because tendermint could return other responses without code,
+            // the node should return this as is to the client
             log
-              .error(s"txBroadcast response is malformed. Response: $response", err)
-              .as(RpcTxAwaitError(RpcBodyMalformed(err)): TxAwaitError)
+              .error(s"txBroadcast response is not ok. Return it as is.", err)
+              .as(TendermintResponseError(response): TxAwaitError)
         )
       _ <- if (txResponse.code.getOrElse(TxCode.OK) != TxCode.OK)
         EitherT.left(

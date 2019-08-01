@@ -31,7 +31,13 @@ import fluence.effects.tendermint.rpc.http.{
   RpcRequestFailed
 }
 import fluence.log.{Log, LogFactory}
-import fluence.node.workers.WorkersApi.{AppNotFoundError, RpcTxAwaitError, TxInvalidError, TxParsingError}
+import fluence.node.workers.WorkersApi.{
+  AppNotFoundError,
+  RpcTxAwaitError,
+  TendermintResponseError,
+  TxInvalidError,
+  TxParsingError
+}
 import fluence.node.workers.subscription.{OkResponse, ResponseSubscriber, RpcErrorResponse, TimedOutResponse}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{HttpRoutes, Response}
@@ -122,9 +128,9 @@ object WorkersHttp {
         LogFactory[F].init("http" -> "p2pPort", "app" -> appId.toString) >>= { implicit log =>
           log.debug(s"Worker p2pPort") *>
             WorkersApi.p2pPort(pool, appId).flatMap {
-              case Some(worker) ⇒
-                log.debug(s"Worker p2pPort = ${worker.p2pPort}") *>
-                  Ok(worker.p2pPort.toString)
+              case Some(p2pPort) ⇒
+                log.debug(s"Worker p2pPort = $p2pPort") *>
+                  Ok(p2pPort.toString)
 
               case None ⇒
                 log.debug(s"Requested app $appId, but there's no such worker in the pool") *>
@@ -173,10 +179,12 @@ object WorkersHttp {
                 }
               case Left(err) =>
                 err match {
-                  case RpcTxAwaitError(rpcError) => rpcErrorToResponse(rpcError)
-                  case TxParsingError(msg, tx)   => BadRequest(msg)
-                  case AppNotFoundError(msg)     => BadRequest(msg)
-                  case TxInvalidError(msg)       => InternalServerError(msg)
+                  // return an error from tendermint as is to the client
+                  case TendermintResponseError(response) => Ok(response)
+                  case RpcTxAwaitError(rpcError)         => rpcErrorToResponse(rpcError)
+                  case TxParsingError(msg, tx)           => BadRequest(msg)
+                  case AppNotFoundError(msg)             => BadRequest(msg)
+                  case TxInvalidError(msg)               => InternalServerError(msg)
                 }
             }
           }

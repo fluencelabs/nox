@@ -30,7 +30,13 @@ import cats.syntax.apply._
 import cats.syntax.applicative._
 import fluence.node.config.DockerConfig
 import fluence.node.eth.state._
-import fluence.node.workers.WorkersApi.{AppNotFoundError, RpcTxAwaitError, TxAwaitError, TxParsingError}
+import fluence.node.workers.WorkersApi.{
+  AppNotFoundError,
+  RpcTxAwaitError,
+  TendermintResponseError,
+  TxAwaitError,
+  TxParsingError
+}
 import fluence.node.workers.subscription._
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{WorkerParams, WorkersApi, WorkersPool}
@@ -192,21 +198,21 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
       error.rpcError shouldBe a[RpcRequestFailed]
     }
 
-    "return an malformed error if tx response from tendermint is incorrect" in {
-
+    "return response from tendermint as is if the node cannot parse it" in {
+      val txResponse = "other response"
       val result = start().use {
         case (pool, requestSubscriber, tendermintTest, _) =>
           for {
-            _ <- tendermintTest.setTxResponse(Right(""))
+            _ <- tendermintTest.setTxResponse(Right(txResponse))
             response <- request(pool, requestSubscriber)
           } yield response
       }.unsafeRunSync()
 
       result should be('left)
-      result.left.get shouldBe a[RpcTxAwaitError]
+      result.left.get shouldBe a[TendermintResponseError]
 
-      val error = result.left.get.asInstanceOf[RpcTxAwaitError]
-      error.rpcError shouldBe a[RpcBodyMalformed]
+      val error = result.left.get.asInstanceOf[TendermintResponseError]
+      error.responseError shouldBe txResponse
     }
 
     "return an error if tx is incorrect" in {
