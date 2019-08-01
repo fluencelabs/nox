@@ -1,0 +1,18 @@
+[package]
+name = "wasm-utils"
+version = "0.0.1"
+edition = "2018"
+description = "Fluence wasm-utils for preparing binary"
+authors = ["Fluence Labs"]
+license = "Apache-2.0"
+maintenance = { status = "actively-developed" }
+
+[package.metadata.docs.rs] # https://docs.rs/about
+all-features = true
+
+[dependencies]
+pwasm-utils = "0.8.1"
+parity-wasm = "0.31.0"
+clap = "2.32.0"
+exitfailure = "0.5.1"
+failure = "0.1.5"
