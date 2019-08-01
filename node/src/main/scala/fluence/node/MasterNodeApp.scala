@@ -123,7 +123,7 @@ object MasterNodeApp extends IOApp {
 
   private def dockerWorkersPool(
     rootPath: Path,
-                                appReceiptStorage: Long ⇒ Resource[IO, ReceiptStorage[IO]],
+    appReceiptStorage: Long ⇒ Resource[IO, ReceiptStorage[IO]],
     conf: MasterConfig
   )(implicit sttp: STTP, log: Log[IO], dio: DockerIO[IO], backoff: Backoff[EffectError]) =
     DockerWorkersPool.make(
