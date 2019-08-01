@@ -14,8 +14,18 @@
  * limitations under the License.
  */
 
-package fluence.statemachine
+package fluence.node.workers.subscription
 
-object TxCode extends Enumeration {
-  val OK, BAD, BadNonce, QueueDropped, AlreadyProcessed = Value
-}
+import cats.effect.concurrent.Deferred
+import fluence.statemachine.data.Tx
+
+import scala.language.higherKinds
+
+/**
+ * Unit to manage subscriptions.
+ *
+ * @param id transaction id: sessionId/nonce
+ * @param promise a promise that will be completed after response will be received
+ * @param tries how many times we already query a state machine
+ */
+case class ResponsePromise[F[_]](id: Tx.Head, promise: Deferred[F, TendermintQueryResponse], tries: Int = 0)

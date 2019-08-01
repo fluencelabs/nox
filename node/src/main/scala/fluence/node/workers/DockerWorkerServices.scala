@@ -21,16 +21,16 @@ import java.nio.file.Path
 import cats.data.EitherT
 import cats.effect._
 import cats.syntax.functor._
-import cats.{Apply, Monad}
+import cats.{Apply, Monad, Parallel}
 import com.softwaremill.sttp._
 import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
 import fluence.log.Log
 import fluence.effects.tendermint.rpc.TendermintRpc
-import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.LogLevel.LogLevel
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
+import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.DockerTendermint
 
 import scala.concurrent.duration.FiniteDuration
@@ -52,6 +52,7 @@ case class DockerWorkerServices[F[_]] private (
   tendermint: TendermintRpc[F],
   control: ControlRpc[F],
   blockManifests: WorkerBlockManifests[F],
+  responseSubscriber: ResponseSubscriber[F],
   statusCall: FiniteDuration ⇒ F[WorkerStatus]
 ) extends WorkerServices[F] {
   override def status(timeout: FiniteDuration): F[WorkerStatus] = statusCall(timeout)
@@ -118,7 +119,7 @@ object DockerWorkerServices {
    * @param sttpBackend Sttp Backend to launch HTTP healthchecks and RPC endpoints
    * @return the [[WorkerServices]] instance
    */
-  def make[F[_]: DockerIO: Timer: ConcurrentEffect: Log: ContextShift](
+  def make[F[_]: DockerIO: Timer: ConcurrentEffect: Log: ContextShift, G[_]](
     params: WorkerParams,
     p2pPort: Short,
     stopTimeout: Int,
@@ -126,7 +127,8 @@ object DockerWorkerServices {
     storageRootPath: Path
   )(
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
-    F: Concurrent[F]
+    F: Concurrent[F],
+    P: Parallel[F, G]
   ): Resource[F, WorkerServices[F]] =
     for {
       network ← makeNetwork(params)
@@ -138,6 +140,8 @@ object DockerWorkerServices {
       rpc ← TendermintRpc.make[F](tendermint.name, DockerTendermint.RpcPort)
 
       blockManifests ← WorkerBlockManifests.make[F](params.appId, storageRootPath)
+
+      responseSubscriber <- ResponseSubscriber.make(rpc, params.appId)
 
       control = ControlRpc[F](containerName(params), ControlRpcPort)
 
@@ -161,6 +165,6 @@ object DockerWorkerServices {
           )
       }
 
-    } yield new DockerWorkerServices[F](p2pPort, params.appId, rpc, control, blockManifests, status)
+    } yield new DockerWorkerServices[F](p2pPort, params.appId, rpc, control, blockManifests, responseSubscriber, status)
 
 }

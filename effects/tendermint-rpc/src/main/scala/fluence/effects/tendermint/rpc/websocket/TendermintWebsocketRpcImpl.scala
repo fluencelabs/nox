@@ -23,7 +23,6 @@ import cats.instances.list._
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
 import cats.syntax.apply._
-import cats.syntax.compose._
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._

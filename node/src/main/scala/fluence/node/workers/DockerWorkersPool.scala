@@ -32,11 +32,13 @@ import cats.syntax.functor._
 import cats.{Applicative, Apply, Parallel}
 import com.softwaremill.sttp.SttpBackend
 import fluence.codec.PureCodec
+import fluence.effects.{Backoff, EffectError}
 import fluence.effects.docker.DockerIO
 import fluence.effects.kvstore.RocksDBStore
 import fluence.log.Log
 import fluence.log.LogLevel.LogLevel
 import fluence.node.MakeResource
+import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.BlockUploading
 
 import scala.concurrent.duration._
@@ -59,7 +61,8 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
 )(
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
   F: ConcurrentEffect[F],
-  P: Parallel[F, G]
+  P: Parallel[F, G],
+  backoff: Backoff[EffectError]
 ) extends WorkersPool[F] {
 
   /**
@@ -122,7 +125,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
         } yield p
       )
 
-      services ← DockerWorkerServices.make[F](ps, p2pPort, stopTimeout, logLevel, storageRoot)
+      services ← DockerWorkerServices.make[F, G](ps, p2pPort, stopTimeout, logLevel, storageRoot)
 
       worker ← Worker.make(
         ps.appId,
@@ -140,6 +143,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
       // TODO: pass promise from WorkerP2pConnectivity to blockUploading.start
       // Start uploading tendermint blocks and send receipts to statemachine
       _ <- blockUploading.start(worker)
+      _ <- worker.services.responseSubscriber.start()
 
       // Finally, register the worker in the pool
       _ ← registeredWorker(worker)
@@ -265,7 +269,8 @@ object DockerWorkersPool {
     implicit
     sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
     F: ConcurrentEffect[F],
-    P: Parallel[F, G]
+    P: Parallel[F, G],
+    backoff: Backoff[EffectError]
   ): Resource[F, WorkersPool[F]] =
     for {
       ports ← makePorts(minPort, maxPort, rootPath)

@@ -157,11 +157,23 @@ lazy val `statemachine` = (project in file("statemachine"))
   .dependsOn(
     `vm`,
     `statemachine-control`,
+    `statemachine-data`,
     `tendermint-rpc`,
     `sttpEitherT`,
-    `tendermint-block`,
-    `tendermint-block` % "test->test"
+    `tendermint-block`
   )
+
+lazy val `statemachine-data` = (project in file("statemachine/data"))
+  .settings(
+    commons,
+    kindProjector,
+    libraryDependencies ++= Seq(
+      scodecBits,
+      cats
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
+  .dependsOn(`log`)
 
 lazy val `effects` = project
   .in(file("effects"))
@@ -458,11 +470,13 @@ lazy val `node` = project
     `swarm`,
     `ipfs`,
     `statemachine-control`,
+    `statemachine-data`,
     `kvstore`,
     `dockerio`,
     `tendermint-rpc`,
     `tendermint-rpc`   % "test->test",
     `tendermint-block` % "test->test",
+    `tendermint-block-history` % "test->test",
     `sttpEitherT`,
     `receipt-storage`,
     `log`,
