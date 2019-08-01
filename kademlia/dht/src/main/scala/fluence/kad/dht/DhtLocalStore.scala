@@ -82,9 +82,9 @@ class DhtLocalStore[F[_]: Monad: Clock, V: Semigroup](
       newValue = oldValueOpt.fold(value)(_ |+| value)
       dhtMetadata = DhtValueMetadata(timestamp)
 
-      _ ← store.put(key, newValue).leftMap(DhtLocalStoreError(_))
-
       _ ← metadata.put(key, dhtMetadata).leftMap(DhtLocalStoreError(_))
+
+      _ ← store.put(key, newValue).leftMap(DhtLocalStoreError(_))
 
       _ ← EitherT.right(scheduleRefresh(key, dhtMetadata))
     } yield ()
