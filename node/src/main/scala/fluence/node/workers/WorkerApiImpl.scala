@@ -28,12 +28,6 @@ import scala.language.higherKinds
  */
 class WorkerApiImpl extends WorkerApi {
 
-  /**
-   * Sends `query` request to tendermint.
-   *
-   * @param data body of the request
-   * @param path id of a response
-   */
   def query[F[_]: Monad](
     worker: Worker[F],
     data: Option[String],
@@ -43,27 +37,17 @@ class WorkerApiImpl extends WorkerApi {
     log.debug(s"TendermintRpc query request. path: $path, data: $data") *>
       worker.withServices(_.tendermint)(_.query(path, data.getOrElse(""), id = id.getOrElse("dontcare")).value)
 
-  /**
-   * Gets a status of a tendermint node.
-   *
-   */
   def status[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Either[RpcError, String]] =
     log.trace(s"TendermintRpc status") *>
       worker.withServices(_.tendermint)(_.status.value)
 
-  /**
-   * Gets a p2p port of tendermint.
-   *
-   */
   def p2pPort[F[_]: Apply](worker: Worker[F])(implicit log: Log[F]): F[Short] =
     log.debug(s"Worker p2pPort") as
       worker.p2pPort
 
-  /**
-   * Sends transaction to tendermint.
-   *
-   * @param tx transaction to process
-   */
+  def lastManifest[F[_]: Monad](worker: Worker[F]): F[Option[BlockManifest]] =
+    worker.withServices(_.blockManifests)(_.lastManifestOpt)
+
   def sendTx[F[_]: Monad](worker: Worker[F], tx: String, id: Option[String])(
     implicit log: Log[F]
   ): F[Either[RpcError, String]] =
@@ -72,18 +56,6 @@ class WorkerApiImpl extends WorkerApi {
         worker.withServices(_.tendermint)(_.broadcastTxSync(tx, id.getOrElse("dontcare")).value)
     }
 
-  /**
-   * Returns the last manifest of a worker.
-   *
-   */
-  def lastManifest[F[_]: Monad](worker: Worker[F]): F[Option[BlockManifest]] =
-    worker.withServices(_.blockManifests)(_.lastManifestOpt)
-
-  /**
-   * Sends the transaction to tendermint and then query for a response after each block.
-   *
-   * @param tx transaction to process
-   */
   def sendTxAwaitResponse[F[_]: Monad, G[_]](worker: Worker[F], tx: String, id: Option[String])(
     implicit log: Log[F]
   ): F[Either[TxAwaitError, TendermintQueryResponse]] =
@@ -121,6 +93,7 @@ class WorkerApiImpl extends WorkerApi {
 
   /**
    * Checks if a response is correct and code value is `ok`. Returns an error otherwise.
+   *
    */
   private def checkTxResponse[F[_]: Monad](
     response: String
