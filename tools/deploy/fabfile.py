@@ -228,6 +228,7 @@ def deploy_netdata():
                 else:
                     run("PGID=%s HOSTNAME=$HOSTNAME docker-compose --compatibility -f ~/netdata/scripts/netdata_caddy.yml -f ~/netdata/scripts/netdata.yml up -d" % pgid)
 
+@task
 @parallel
 def install_docker():
     with hide('running', 'output'):
