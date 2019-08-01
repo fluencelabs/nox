@@ -16,7 +16,6 @@
 
 package fluence.kad.dht
 
-import cats.syntax.profunctor._
 import fluence.codec.{CodecError, PureCodec}
 import scodec.bits.ByteVector
 
@@ -27,22 +26,25 @@ import scala.util.Try
  *
  * @param lastUpdated Last updated timetamp (seconds)
  */
-case class DhtValueMetadata(lastUpdated: Long)
+case class DhtValueMetadata(lastUpdated: Long, hash: ByteVector)
 
 object DhtValueMetadata {
-  // Encode timestamp to and from a fixed-size byte array
-  private val timestampCodec: PureCodec[Long, Array[Byte]] =
-    PureCodec.build(
-      PureCodec.liftFuncEither[Long, Array[Byte]](lng ⇒ Right(ByteVector.fromLong(lng).toArray)),
-      PureCodec.liftFuncEither[Array[Byte], Long](
-        bts ⇒ Try(ByteVector(bts).toLong()).toEither.left.map(e ⇒ CodecError("Cannot decode DHT timestamp", Some(e)))
-      )
-    )
 
   // TODO use some upgradeable data scheme
   implicit val dhtMetadataCodec: PureCodec[DhtValueMetadata, Array[Byte]] =
     PureCodec.build(
-      timestampCodec.direct.lmap[DhtValueMetadata](_.lastUpdated),
-      timestampCodec.inverse.rmap(DhtValueMetadata(_))
+      PureCodec.liftFunc[DhtValueMetadata, Array[Byte]](
+        dvm ⇒ (ByteVector.fromLong(dvm.lastUpdated) ++ dvm.hash).toArray
+      ),
+      PureCodec.liftFuncEither[Array[Byte], DhtValueMetadata](
+        bytes ⇒
+          Try {
+            val (ts, rest) = bytes.splitAt(8)
+            DhtValueMetadata(
+              ByteVector(ts).toLong(),
+              ByteVector(rest)
+            )
+          }.toEither.left.map(e ⇒ CodecError("Cannot decode DHT metadata", Some(e)))
+      )
     )
 }

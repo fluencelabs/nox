@@ -16,6 +16,7 @@
 
 package fluence.kad.dht
 
+import fluence.crypto.CryptoError
 import fluence.effects.{EffectError, WithCause}
 import fluence.effects.kvstore.KVStoreError
 import fluence.kad.protocol.Key
@@ -23,6 +24,8 @@ import fluence.kad.protocol.Key
 sealed trait DhtError extends EffectError
 
 case class DhtLocalStoreError(cause: KVStoreError) extends DhtError with WithCause[KVStoreError]
+
+case class DhtCryptError(cause: CryptoError) extends DhtError with WithCause[CryptoError]
 
 case class DhtValueNotFound(key: Key) extends DhtError
 

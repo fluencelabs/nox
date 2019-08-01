@@ -19,6 +19,7 @@ package fluence.kad.dht
 import cats.data.EitherT
 import fluence.kad.protocol.Key
 import fluence.log.Log
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
@@ -43,4 +44,10 @@ trait DhtRpc[F[_], V] {
    *
    */
   def store(key: Key, value: V)(implicit log: Log[F]): EitherT[F, DhtError, Unit]
+
+  /**
+   * Retrieve hash of the value, if it is stored
+   *
+   */
+  def retrieveHash(key: Key)(implicit log: Log[F]): EitherT[F, DhtError, ByteVector]
 }

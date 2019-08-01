@@ -24,9 +24,12 @@ import cats.effect.{Clock, Resource, Timer}
 import cats.kernel.Semigroup
 import cats.syntax.semigroup._
 import cats.syntax.functor._
-import fluence.effects.kvstore.KVStore
+import fluence.codec.PureCodec
+import fluence.crypto.Crypto
+import fluence.effects.kvstore.{KVStore, ValueCodecError}
 import fluence.kad.protocol.Key
 import fluence.log.Log
+import scodec.bits.ByteVector
 
 import scala.language.{higherKinds, postfixOps}
 
@@ -35,18 +38,21 @@ import scala.language.{higherKinds, postfixOps}
  *
  * @param store Data storage
  * @param metadata Metadata storage
+ * @param hasher Values hasher
  * @param scheduleRefresh Callback to schedule refresh of an updated (touched) value
  * @tparam F Effect
  * @tparam V Value; on update, new value is combined with the old one with [[Semigroup.combine]]
  */
 class DhtLocalStore[F[_]: Monad: Clock, V: Semigroup](
-  store: KVStore[F, Key, V],
+  store: KVStore[F, Key, Array[Byte]],
   metadata: KVStore[F, Key, DhtValueMetadata],
+  hasher: Crypto.Hasher[Array[Byte], ByteVector],
   scheduleRefresh: (Key, DhtValueMetadata) ⇒ F[Unit]
-) extends DhtRpc[F, V] {
+)(implicit codec: PureCodec[V, Array[Byte]])
+    extends DhtRpc[F, V] {
 
   private val timestampT =
-    EitherT.right[DhtError](Clock[F].realTime(TimeUnit.MILLISECONDS))
+    EitherT.right[DhtError](Clock[F].realTime(TimeUnit.SECONDS))
 
   /**
    * Retrieve the value from node's local storage
@@ -54,6 +60,7 @@ class DhtLocalStore[F[_]: Monad: Clock, V: Semigroup](
    */
   override def retrieve(key: Key)(implicit log: Log[F]): EitherT[F, DhtError, V] =
     store
+      .transformValues[V]
       .get(key)
       .leftMap(DhtLocalStoreError(_))
       .subflatMap(
@@ -73,6 +80,7 @@ class DhtLocalStore[F[_]: Monad: Clock, V: Semigroup](
       // Ignore all errors while getting old value
       oldValueOpt ← EitherT.right(
         store
+          .transformValues[V]
           .get(key)
           .value
           .map(_.toOption.flatten)
@@ -80,14 +88,31 @@ class DhtLocalStore[F[_]: Monad: Clock, V: Semigroup](
 
       // If the value for the key was previously stored, combine it with the new one
       newValue = oldValueOpt.fold(value)(_ |+| value)
-      dhtMetadata = DhtValueMetadata(timestamp)
+
+      newBytes ← codec.direct(newValue).leftMap(e ⇒ DhtLocalStoreError(ValueCodecError(e)))
+
+      newHash ← hasher(newBytes).leftMap(DhtCryptError)
+
+      dhtMetadata = DhtValueMetadata(timestamp, newHash)
 
       _ ← metadata.put(key, dhtMetadata).leftMap(DhtLocalStoreError(_))
 
-      _ ← store.put(key, newValue).leftMap(DhtLocalStoreError(_))
+      _ ← store.put(key, newBytes).leftMap(DhtLocalStoreError(_))
 
       _ ← EitherT.right(scheduleRefresh(key, dhtMetadata))
     } yield ()
+
+  /**
+   * Retrieve hash of the value, if it is stored
+   *
+   */
+  override def retrieveHash(key: Key)(implicit log: Log[F]): EitherT[F, DhtError, ByteVector] =
+    metadata
+      .get(key)
+      .leftMap(DhtLocalStoreError)
+      .subflatMap(
+        _.fold[Either[DhtError, ByteVector]](Left(DhtValueNotFound(key)))(m ⇒ Right(m.hash))
+      )
 }
 
 object DhtLocalStore {
@@ -97,13 +122,15 @@ object DhtLocalStore {
    *
    * @param store Local values storage
    * @param metadata Local metadata storage
+   * @param hasher Values hasher
    * @tparam F Effect
    * @tparam V Value
    */
   def make[F[_]: Monad: Timer, V: Semigroup](
-    store: KVStore[F, Key, V],
-    metadata: KVStore[F, Key, DhtValueMetadata]
-  ): Resource[F, DhtLocalStore[F, V]] = {
+    store: KVStore[F, Key, Array[Byte]],
+    metadata: KVStore[F, Key, DhtValueMetadata],
+    hasher: Crypto.Hasher[Array[Byte], ByteVector]
+  )(implicit codec: PureCodec[V, Array[Byte]]): Resource[F, DhtLocalStore[F, V]] = {
 
     // TODO implement refresh scheduling callback
     def scheduleRefresh(key: Key, meta: DhtValueMetadata): F[Unit] =
@@ -111,7 +138,7 @@ object DhtLocalStore {
 
     // TODO schedule refresh for old records by streaming the metadata
 
-    Resource.pure(new DhtLocalStore[F, V](store, metadata, scheduleRefresh))
+    Resource.pure(new DhtLocalStore[F, V](store, metadata, hasher, scheduleRefresh))
 
   }
 }

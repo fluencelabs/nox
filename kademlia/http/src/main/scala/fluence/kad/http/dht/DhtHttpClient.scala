@@ -21,12 +21,13 @@ import cats.effect.Effect
 import cats.syntax.either._
 import cats.syntax.functor._
 import com.softwaremill.sttp._
-import fluence.kad.dht.{DhtError, DhtRemoteError, DhtRpc}
+import fluence.kad.dht.{DhtError, DhtRemoteError, DhtRpc, DhtValueNotFound}
 import fluence.kad.protocol.Key
 import fluence.log.Log
 import io.circe.{Decoder, Encoder}
 import io.circe.parser.parse
 import io.circe.syntax._
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
@@ -59,7 +60,7 @@ class DhtHttpClient[F[_]: Effect, V: Encoder: Decoder](
       .subflatMap[Throwable, String](identity)
       .subflatMap(parse)
       .subflatMap(_.as[V])
-      // TODO handle errors properly
+      // TODO handle errors properly, return DhtValueNotFound on 404
       .leftMap(e ⇒ DhtRemoteError("Retrieve request errored", Some(e)))
 
   override def store(key: Key, value: V)(implicit log: Log[F]): EitherT[F, DhtError, Unit] =
@@ -71,4 +72,24 @@ class DhtHttpClient[F[_]: Effect, V: Encoder: Decoder](
       .subflatMap[Throwable, String](identity)
       .leftMap(e ⇒ DhtRemoteError("Store request errored", Some(e)): DhtError)
       .void
+
+  override def retrieveHash(key: Key)(implicit log: Log[F]): EitherT[F, DhtError, ByteVector] =
+    sttp
+      .head(uri(key))
+      .send()
+      .leftMap(e ⇒ DhtRemoteError("Retrieving hash errored", Some(e)))
+      .subflatMap(
+        resp ⇒
+          if (resp.code == StatusCodes.NotFound) Left(DhtValueNotFound(key))
+          else
+            resp.body
+              .bimap[DhtError, Option[ByteVector]](
+                err ⇒ DhtRemoteError(s"Retrieve hash request failed: $err", None),
+                _ ⇒ resp.header("etag").flatMap(ByteVector.fromBase64(_))
+              )
+              .flatMap(
+                _.fold[Either[DhtError, ByteVector]](Left(DhtValueNotFound(key)))(Right(_))
+            )
+      )
+
 }

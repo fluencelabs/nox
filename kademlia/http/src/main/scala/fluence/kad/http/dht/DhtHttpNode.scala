@@ -19,7 +19,11 @@ package fluence.kad.http.dht
 import cats.data.EitherT
 import cats.effect.{Effect, Resource, Sync, Timer}
 import cats.kernel.Semigroup
+import cats.syntax.profunctor._
 import com.softwaremill.sttp.SttpBackend
+import fluence.codec.PureCodec
+import fluence.crypto.Crypto
+import fluence.crypto.hash.CryptoHashers
 import fluence.effects.kvstore.KVStore
 import fluence.kad.Kademlia
 import fluence.kad.contact.UriContact
@@ -27,6 +31,7 @@ import fluence.kad.dht.{Dht, DhtLocalStore, DhtRpc, DhtValueMetadata}
 import fluence.kad.protocol.Key
 import fluence.log.Log
 import io.circe.{Decoder, Encoder}
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
@@ -44,22 +49,25 @@ object DhtHttpNode {
    * @param store Store for the values
    * @param metadata Store for the [[DhtValueMetadata]]
    * @param kad Kademlia network
+   * @param hasher Values hasher, used to check equivalence over the network
    * @param conf DHT configuration that's going to be used for [[KVStore]] ops; see [[Dht]] for details
    * @tparam F Effect
    * @tparam V Value: Semigroup to merge several values; Encoder/Decoder for HTTP API serialization
    */
   def make[F[_]: Sync: Effect: Timer: Log, V: Semigroup: Encoder: Decoder](
     prefix: String,
-    store: Resource[F, KVStore[F, Array[Byte], V]],
+    store: Resource[F, KVStore[F, Array[Byte], Array[Byte]]],
     metadata: Resource[F, KVStore[F, Array[Byte], Array[Byte]]],
     kad: Kademlia[F, UriContact],
+    hasher: Crypto.Hasher[Array[Byte], ByteVector] = CryptoHashers.Sha1.rmap(ByteVector(_)),
     conf: Dht.Conf = Dht.Conf()
   )(implicit
-    sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]): Resource[F, DhtHttpNode[F, V]] =
+    sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
+    codec: PureCodec[V, Array[Byte]]): Resource[F, DhtHttpNode[F, V]] =
     for {
       s ← store
       m ← metadata
-      local ← DhtLocalStore.make(s.transformKeys[Key], m.transform[Key, DhtValueMetadata])
+      local ← DhtLocalStore.make(s.transformKeys[Key], m.transform[Key, DhtValueMetadata], hasher)
     } yield {
       val http = DhtHttp(prefix, local)
 

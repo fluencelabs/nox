@@ -113,10 +113,9 @@ object MasterNodeApp extends IOApp {
     DhtHttpNode.make[IO, Receipt](
       "dht-receipts",
       RocksDBStore
-        .makeRaw[IO](rootPath.resolve("dht-receipt-data").toAbsolutePath.toString)
-        .map(_.transformValues[Receipt]),
+        .makeRaw[IO](rootPath.resolve("dht-receipt-data").toAbsolutePath.toString),
       RocksDBStore.makeRaw[IO](rootPath.resolve("dht-receipt-meta").toAbsolutePath.toString),
-      kad
+      kad,
     )
 
   private def dockerWorkersPool(rootPath: Path,

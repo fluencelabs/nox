@@ -27,7 +27,9 @@ import io.circe.{Decoder, Encoder}
 import io.circe.syntax._
 import io.circe.parser.parse
 import org.http4s.HttpRoutes
+import org.http4s.headers.{`If-None-Match`, ETag}
 import org.http4s.dsl.Http4sDsl
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
@@ -60,19 +62,43 @@ object DhtHttp {
         import KeyHttp._
 
         HttpRoutes.of[F] {
-          case GET -> Root / KeyVar(key) ⇒
+          case req @ (GET | HEAD) -> Root / KeyVar(key) ⇒
             LogFactory[F].init("dht-http" -> s"$prefix/get", "key" -> key.asBase58) >>= { implicit log ⇒
-              local.retrieve(key).value.flatMap {
+              val tagOpt = for {
+                ifNoneMatch ← req.headers.get(`If-None-Match`)
+                tags ← ifNoneMatch.tags
+                nonEmptyTag ← tags.map(_.tag).filter(_.nonEmpty).headOption
+                tag ← ByteVector.fromBase64(nonEmptyTag)
+              } yield tag
+
+              local.retrieveHash(key).value.flatMap {
                 case Left(DhtValueNotFound(_)) ⇒
                   NotFound()
 
                 case Left(err) ⇒
-                  log.error("Getting data errored", err) *>
+                  log.error("Getting data hash errored", err) *>
                     InternalServerError(err.getMessage)
 
-                case Right(value) ⇒
-                  Ok(value.asJson.noSpaces)
+                case Right(t) if tagOpt.exists(_ === t) ⇒
+                  NotModified().map(_.putHeaders(ETag(t.toBase64)))
+
+                case Right(t) ⇒
+                  if (req.method == HEAD)
+                    NoContent().map(_.putHeaders(ETag(t.toBase64)))
+                  else
+                    local.retrieve(key).value.flatMap {
+                      case Left(DhtValueNotFound(_)) ⇒
+                        NotFound()
+
+                      case Left(err) ⇒
+                        log.error("Getting data errored", err) *>
+                          InternalServerError(err.getMessage)
+
+                      case Right(value) ⇒
+                        Ok(value.asJson.noSpaces).map(_.putHeaders(ETag(t.toBase64)))
+                    }
               }
+
             }
 
           case req @ PUT -> Root / KeyVar(key) ⇒
