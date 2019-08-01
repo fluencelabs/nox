@@ -49,6 +49,9 @@ class MainModule(
   private val invokeFunction: WasmFunction
 ) {
 
+  def computeStateHash[F[_]: Monad](): EitherT[F, GetVmStateError, Array[Byte]] =
+    module.computeStateHash()
+
   /**
    * Allocates a memory region in Wasm module of supplied size by allocateFunction.
    *

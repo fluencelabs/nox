@@ -150,7 +150,7 @@ object WasmVm {
         false, // disableAutoRegister
         config.specTestRegister,
         config.defaultMaxMemPages,
-        config.loggerRegister,
+        config.loggerModuleEnabled,
         (capacity: Int) => TrackingMemoryBuffer.allocateDirect(capacity, config.chunkSize)
       )
     )
