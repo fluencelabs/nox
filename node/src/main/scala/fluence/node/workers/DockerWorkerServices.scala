@@ -16,8 +16,6 @@
 
 package fluence.node.workers
 
-import java.nio.file.Path
-
 import cats.data.EitherT
 import cats.effect._
 import cats.syntax.functor._
@@ -25,6 +23,7 @@ import cats.{Apply, Monad, Parallel}
 import com.softwaremill.sttp._
 import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
+import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.log.Log
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.log.LogLevel.LogLevel
@@ -115,7 +114,7 @@ object DockerWorkerServices {
    * @param stopTimeout Timeout in seconds to allow graceful stopping of running containers.
    *                    It might take up to 2*`stopTimeout` seconds to gracefully stop the worker, as 2 containers involved.
    * @param logLevel Logging level passed to the worker
-   * @param storageRootPath Storage root, to be used with [[KVReceiptStorage.make]]
+   * @param receiptStorage Receipt storage resource for this app
    * @param sttpBackend Sttp Backend to launch HTTP healthchecks and RPC endpoints
    * @return the [[WorkerServices]] instance
    */
@@ -124,7 +123,7 @@ object DockerWorkerServices {
     p2pPort: Short,
     stopTimeout: Int,
     logLevel: LogLevel,
-    storageRootPath: Path
+    receiptStorage: Resource[F, ReceiptStorage[F]]
   )(
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
     F: Concurrent[F],
@@ -139,7 +138,7 @@ object DockerWorkerServices {
 
       rpc ← TendermintRpc.make[F](tendermint.name, DockerTendermint.RpcPort)
 
-      blockManifests ← WorkerBlockManifests.make[F](params.appId, storageRootPath)
+      blockManifests ← WorkerBlockManifests.make[F](receiptStorage)
 
       responseSubscriber <- ResponseSubscriber.make(rpc, params.appId)
 

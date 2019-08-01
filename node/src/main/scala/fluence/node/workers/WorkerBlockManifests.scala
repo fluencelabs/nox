@@ -16,12 +16,10 @@
 
 package fluence.node.workers
 
-import java.nio.file.Path
-
 import cats.effect.concurrent.Ref
 import cats.effect.{ContextShift, LiftIO, Resource, Sync}
 import cats.Monad
-import fluence.effects.receipt.storage.{KVReceiptStorage, ReceiptStorage}
+import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.history.{BlockManifest, Receipt}
 import fluence.log.Log
 
@@ -60,13 +58,13 @@ object WorkerBlockManifests {
   /**
    * Makes new WorkerBlockManifests
    *
-   * @param appId Worker's application id
-   * @param storageRoot Storage root, to be used with [[KVReceiptStorage.make]]
+   * @param receiptStorageResource Makes a new ReceiptStorage for this app
    */
-  def make[F[_]: Sync: LiftIO: Log: ContextShift](appId: Long,
-                                                  storageRoot: Path): Resource[F, WorkerBlockManifests[F]] =
+  def make[F[_]: Sync: LiftIO: Log: ContextShift](
+    receiptStorageResource: Resource[F, ReceiptStorage[F]]
+  ): Resource[F, WorkerBlockManifests[F]] =
     for {
-      receiptStorage ← KVReceiptStorage.make[F](appId, storageRoot)
+      receiptStorage ← receiptStorageResource
       lastManifestRef ← Resource.liftF(Ref.of(Option.empty[BlockManifest]))
     } yield new WorkerBlockManifests[F](receiptStorage, lastManifestRef)
 }
