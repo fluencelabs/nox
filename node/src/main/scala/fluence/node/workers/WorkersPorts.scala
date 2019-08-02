@@ -66,7 +66,7 @@ class WorkersPorts[F[_]: Monad] private (
    * @param appId Application ID
    * @return Left in case of error, or the port
    */
-  def allocate(appId: Long): EitherT[F, WorkersPorts.Error, Short] =
+  def allocate(appId: Long)(implicit log: Log[F]): EitherT[F, WorkersPorts.Error, Short] =
     EitherT(
       // Read the cache, block on it
       cache.take.flatMap(
@@ -114,7 +114,7 @@ class WorkersPorts[F[_]: Monad] private (
    * @param appId Application ID
    * @return Some freed port, if it was allocated
    */
-  def free(appId: Long): EitherT[F, KVStoreError, Option[Short]] =
+  def free(appId: Long)(implicit log: Log[F]): EitherT[F, KVStoreError, Option[Short]] =
     EitherT.right(get(appId)).flatMap {
       case Some(port) ⇒
         store

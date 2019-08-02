@@ -21,10 +21,11 @@ import java.nio.ByteBuffer
 import cats.Applicative
 import cats.data.{Chain, EitherT}
 import cats.effect._
-import cats.effect.concurrent.MVar
+import cats.effect.concurrent.{Deferred, MVar, Ref}
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.apply._
 import com.softwaremill.sttp.SttpBackend
 import fluence.effects.ipfs.IpfsUploader
 import fluence.effects.receipt.storage.ReceiptStorage
@@ -86,64 +87,79 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
     rpc: TendermintRpc[F],
     control: ControlRpc[F],
     onManifestUploaded: (BlockManifest, Receipt) ⇒ F[Unit]
-  )(implicit backoff: Backoff[EffectError], F: Applicative[F], log: Log[F]) = {
-    def upload(b: BlockUpload) = uploadBlock(b, appId, lastManifestReceipt, storage, onManifestUploaded)
+  )(implicit backoff: Backoff[EffectError], F: Applicative[F], log: Log[F]): Resource[F, Unit] =
+    Resource.liftF((Ref.of[F, Long](0), Deferred[F, Long]).tupled).flatMap {
+      case (lastHeightRef, lastHeightDef) ⇒
+        def upload(b: BlockUpload) = uploadBlock(b, appId, lastManifestReceipt, storage, onManifestUploaded)
 
-    def sendReceipt(receipt: Receipt)(implicit log: Log[F]) = backoff.retry(
-      control.sendBlockReceipt(receipt),
-      (e: ControlRpcError) => log.error(s"error sending receipt: $e")
-    )
+        def sendReceipt(receipt: Receipt)(implicit log: Log[F]) = backoff.retry(
+          control.sendBlockReceipt(receipt),
+          (e: ControlRpcError) => log.error(s"error sending receipt: $e")
+        )
 
-    def emptyBlock(b: BlockUpload) = b.block.data.txs.forall(_.isEmpty)
+        def emptyBlock(b: BlockUpload) = b.block.data.txs.forall(_.isEmpty)
 
-    // TODO: what if we have lost all data in receipt storage? Node will need to sync it from the decentralized storage
+        // TODO: what if we have lost all data in receipt storage? Node will need to sync it from the decentralized storage
 
-    // TODO: storedReceipts is calculated 3 times. How to memoize that?
-    val storedReceipts =
-      fs2.Stream.eval(traceBU(s"will start loading stored receipts")) >>
-        storage
-          .retrieve()
-          .evalTap(t => traceBU(s"stored receipt ${t._1}"))
+        val storedReceipts =
+          fs2.Stream.eval(traceBU(s"will start loading stored receipts")) >>
+            storage
+              .retrieve()
+              .evalTap(t => traceBU(s"stored receipt ${t._1}"))
+              .evalTap {
+                case (h, _) ⇒
+                  // For each receipt, store its height into a Ref. Note: we assume that receipts come in order
+                  lastHeightRef.set(h)
+              }
+              .onFinalize(
+                // When stream completed, resolve last height's deferred with the last noticed height
+                lastHeightRef.get >>= lastHeightDef.complete
+              )
+              // Without .scope, onFinalize might be not called in time
+              .scope
+              .map(_._2)
 
-    val lastKnownHeight = storedReceipts.last.map(_.map(_._1).getOrElse(0L))
+        // TODO get last known height from the last received receipt
+        val lastKnownHeight = fs2.Stream.eval(lastHeightDef.get)
 
-    // Subscribe on blocks, starting with given last known height
-    val blocks = lastKnownHeight >>= rpc.subscribeNewBlock
+        // Subscribe on blocks, starting with given last known height
+        val blocks = lastKnownHeight >>= rpc.subscribeNewBlock
 
-    // Retrieve vm hash for every block
-    val blocksWithVmHash = blocks
-      .evalTap(b => traceBU(s"got block ${b.header.height}"))
-      .evalMap(
-        block =>
-          backoff
-            .retry(control.getVmHash(block.header.height),
-                   (e: ControlRpcError) => log.error(s"error retrieving vmHash on height ${block.header.height}: $e"))
-            .map(BlockUpload(block, _))
-      )
-      .evalTap(b => traceBU(s"got vmHash ${b.block.header.height}"))
+        // Retrieve vm hash for every block
+        val blocksWithVmHash = blocks
+          .evalTap(b => traceBU(s"got block ${b.header.height}"))
+          .evalMap(
+            block =>
+              backoff
+                .retry(control.getVmHash(block.header.height),
+                       (e: ControlRpcError) =>
+                         log.error(s"error retrieving vmHash on height ${block.header.height}: $e"))
+                .map(BlockUpload(block, _))
+          )
+          .evalTap(b => traceBU(s"got vmHash ${b.block.header.height}"))
 
-    // Group empty blocks with the first non-empty block; upload empty blocks right away
-    val grouped = blocksWithVmHash
-      .evalTap(b => log.info(s"processing block ${b.block.header.height}"))
-      .evalScan[F, Either[Chain[Receipt], BlockUpload]](Left(Chain.empty)) {
-        case (Left(empties), block) if emptyBlock(block) => upload(block).map(r => Left(empties :+ r))
-        case (Left(empties), block)                      => F.pure(block.copy(emptyReceipts = Some(empties)).asRight)
-        case (Right(_), block) if emptyBlock(block)      => upload(block).map(r => Left(Chain(r)))
-        case (Right(_), block)                           => F.pure(block.asRight)
-      }
+        // Group empty blocks with the first non-empty block; upload empty blocks right away
+        val grouped = blocksWithVmHash
+          .evalTap(b => log.info(s"processing block ${b.block.header.height}"))
+          .evalScan[F, Either[Chain[Receipt], BlockUpload]](Left(Chain.empty)) {
+            case (Left(empties), block) if emptyBlock(block) => upload(block).map(r => Left(empties :+ r))
+            case (Left(empties), block)                      => F.pure(block.copy(emptyReceipts = Some(empties)).asRight)
+            case (Right(_), block) if emptyBlock(block)      => upload(block).map(r => Left(Chain(r)))
+            case (Right(_), block)                           => F.pure(block.asRight)
+          }
 
-    // Receipts from the new blocks (as opposed to stored receipts)
-    val newReceipts = grouped.flatMap {
-      // Emit receipts for the empty blocks
-      case Left(empties) => fs2.Stream.emits(empties.toList.takeRight(1))
-      case Right(block)  => fs2.Stream.eval(upload(block))
+        // Receipts from the new blocks (as opposed to stored receipts)
+        val newReceipts = grouped.flatMap {
+          // Emit receipts for the empty blocks
+          case Left(empties) => fs2.Stream.emits(empties.toList.takeRight(1))
+          case Right(block)  => fs2.Stream.eval(upload(block))
+        }
+
+        // Send receipts to the state machine (worker)
+        val receipts = (storedReceipts ++ newReceipts).evalMap(sendReceipt)
+
+        MakeResource.concurrentStream(receipts, name = "BlockUploadingStream")
     }
-
-    // Send receipts to the state machine (worker)
-    val receipts = (storedReceipts.map(_._2) ++ newReceipts).evalMap(sendReceipt)
-
-    MakeResource.concurrentStream(receipts, name = "BlockUploadingStream")
-  }
 
   // TODO write docs
   private def uploadBlock(
@@ -153,7 +169,7 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
     receiptStorage: ReceiptStorage[F],
     onManifestUploaded: (BlockManifest, Receipt) ⇒ F[Unit]
   )(implicit backoff: Backoff[EffectError], log: Log[F]): F[Receipt] =
-    log.scope("block" -> block.block.header.height.toString, "upload block" -> "") { log =>
+    log.scope("block" -> block.block.header.height.toString, "upload block" -> "") { implicit log: Log[F] =>
       // TODO write docs; why do we need this?
       def logError[E <: EffectError](e: E) = log.error("", e)
 

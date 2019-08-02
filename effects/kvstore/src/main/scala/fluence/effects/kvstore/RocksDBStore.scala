@@ -41,7 +41,7 @@ import scala.util.control.NonFatal
  * @param ctx Execution context for RocksDB IO operations
  * @tparam F Effect
  */
-class RocksDBStore[F[_]: Monad: LiftIO: ContextShift: Log] private (
+class RocksDBStore[F[_]: Monad: LiftIO: ContextShift] private (
   data: RocksDB,
   readOptions: ReadOptions,
   ctx: ExecutionContext
@@ -51,7 +51,7 @@ class RocksDBStore[F[_]: Monad: LiftIO: ContextShift: Log] private (
     override def apply[A](fa: IO[A]): F[A] = ContextShift[F].evalOn(ctx)(fa.to[F])
   }
 
-  override def get(key: Array[Byte]): EitherT[F, KVReadError, Option[Array[Byte]]] =
+  override def get(key: Array[Byte])(implicit log: Log[F]): EitherT[F, KVReadError, Option[Array[Byte]]] =
     IO(Option(data.get(readOptions, key))).attemptT
       .mapK(ioToF)
       .leftMap(IOExceptionError("Cannot get value for a key", _))
@@ -59,19 +59,19 @@ class RocksDBStore[F[_]: Monad: LiftIO: ContextShift: Log] private (
   override def put(
     key: Array[Byte],
     value: Array[Byte]
-  ): EitherT[F, KVWriteError, Unit] =
+  )(implicit log: Log[F]): EitherT[F, KVWriteError, Unit] =
     IO(data.put(key, value)).attemptT
       .mapK(ioToF)
       .leftMap(IOExceptionError("Cannot put value", _))
 
   override def remove(
     key: Array[Byte]
-  ): EitherT[F, KVWriteError, Unit] =
+  )(implicit log: Log[F]): EitherT[F, KVWriteError, Unit] =
     IO(data.delete(key)).attemptT
       .mapK(ioToF)
       .leftMap(IOExceptionError("Cannot remove value for a key", _))
 
-  override def stream: fs2.Stream[F, (Array[Byte], Array[Byte])] =
+  override def stream(implicit log: Log[F]): fs2.Stream[F, (Array[Byte], Array[Byte])] =
     fs2.Stream
       .bracket(
         ioToF(IO(data.newIterator(readOptions)))

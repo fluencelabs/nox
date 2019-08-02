@@ -2,6 +2,7 @@ package fluence.effects.receipt.storage
 
 import cats.data.EitherT
 import fluence.effects.tendermint.block.history.Receipt
+import fluence.log.Log
 
 import scala.language.higherKinds
 
@@ -17,7 +18,7 @@ trait ReceiptStorage[F[_]] {
    * @param height block height for the receipt
    * @param receipt block receipt
    */
-  def put(height: Long, receipt: Receipt): EitherT[F, ReceiptStorageError, Unit]
+  def put(height: Long, receipt: Receipt)(implicit log: Log[F]): EitherT[F, ReceiptStorageError, Unit]
 
   /**
    * Gets a receipt for specified app and height
@@ -25,7 +26,7 @@ trait ReceiptStorage[F[_]] {
    * @param height block height
    * @return receipt if exists
    */
-  def get(height: Long): EitherT[F, ReceiptStorageError, Option[Receipt]]
+  def get(height: Long)(implicit log: Log[F]): EitherT[F, ReceiptStorageError, Option[Receipt]]
 
   /**
    * Retrieves a chain of receipts, starting at block height `from`, until `to`.
@@ -37,5 +38,5 @@ trait ReceiptStorage[F[_]] {
   def retrieve(
     from: Option[Long] = None,
     to: Option[Long] = None
-  ): fs2.Stream[F, (Long, Receipt)]
+  )(implicit log: Log[F]): fs2.Stream[F, (Long, Receipt)]
 }
