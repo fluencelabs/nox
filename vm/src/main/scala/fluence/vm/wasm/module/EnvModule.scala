@@ -21,8 +21,10 @@ import java.lang.reflect.Modifier
 import asmble.compile.jvm.MemoryBuffer
 import asmble.run.jvm.Module.Compiled
 import asmble.run.jvm.ScriptContext
-import cats.Monad
+import cats.{Monad, Traverse}
+import cats.instances.stream._
 import cats.data.EitherT
+import cats.data.Ior
 import cats.effect.LiftIO
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
 import fluence.vm.VmError.{InitializationError, NoSuchFnError, VmMemoryError}
@@ -91,24 +93,29 @@ object EnvModule {
     for {
       module <- WasmModule(moduleDescription, scriptContext, memoryHasher)
 
-      (spentGas, setSpentGas) = moduleDescription.getCls.getDeclaredMethods.toStream
+      moduleMethods: Stream[WasmFunction] = moduleDescription.getCls.getDeclaredMethods.toStream
         .filter(method ⇒ Modifier.isPublic(method.getModifiers))
         .map(method ⇒ WasmFunction(method.getName, method))
-        .foldLeft((Option.empty[WasmFunction], Option.empty[WasmFunction])) {
-          case (acc @ (None, _), m @ WasmFunction(`spentGasFunctionName`, _)) ⇒
-            acc.copy(_1 = Some(m))
 
-          case (acc @ (_, None), m @ WasmFunction(`setSpentGasFunction`, _)) ⇒
-            acc.copy(_2 = Some(m))
-
-          case (acc, _) ⇒ acc
-        }
+      (spentGas, setSpentGas) <- EitherT.fromOption(
+        moduleMethods.scanLeft(Option.empty[Ior[WasmFunction, WasmFunction]]) {
+          case (acc, m @ WasmFunction(`spentGasFunctionName`, _)) =>
+            Some(acc.fold(Ior.left[WasmFunction, WasmFunction](m))(_.putLeft(m)))
+          case (acc, m @ WasmFunction(`setSpentGasFunction`, _)) =>
+            Some(acc.fold(Ior.right[WasmFunction, WasmFunction](m))(_.putRight(m)))
+          case (acc, _) =>
+            acc
+        }.collectFirst {
+          case Some(Ior.Both(m1, m2)) => (m1, m2)
+        },
+        InitializationError(s"The env module must have function with names $spentGasFunctionName, $setSpentGasFunction")
+      )
 
     } yield
       new EnvModule(
         module,
-        spentGas.get,
-        setSpentGas.get
+        spentGas,
+        setSpentGas
       )
 
 }

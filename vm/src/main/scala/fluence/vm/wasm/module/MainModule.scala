@@ -22,7 +22,7 @@ import asmble.compile.jvm.MemoryBuffer
 import asmble.run.jvm.Module.Compiled
 import asmble.run.jvm.ScriptContext
 import cats.Monad
-import cats.data.EitherT
+import cats.data.{EitherT, Ior}
 import cats.effect.LiftIO
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
 import fluence.vm.VmError.{InitializationError, NoSuchFnError, VmMemoryError}
@@ -119,28 +119,40 @@ object MainModule {
     for {
       module <- WasmModule(moduleDescription, scriptContext, memoryHasher)
 
-      (allocMethod, deallocMethod, invokeMethod) = moduleDescription.getCls.getDeclaredMethods.toStream
+      moduleMethods: Stream[WasmFunction] = moduleDescription.getCls.getDeclaredMethods.toStream
         .filter(method ⇒ Modifier.isPublic(method.getModifiers))
         .map(method ⇒ WasmFunction(method.getName, method))
-        .foldLeft((Option.empty[WasmFunction], Option.empty[WasmFunction], Option.empty[WasmFunction])) {
-          case (acc @ (None, _, _), m @ WasmFunction(`allocationFunctionName`, _)) ⇒
-            acc.copy(_1 = Some(m))
 
-          case (acc @ (_, None, _), m @ WasmFunction(`deallocationFunctionName`, _)) ⇒
-            acc.copy(_2 = Some(m))
-
-          case (acc @ (_, _, None), m @ WasmFunction(`invokeFunctionName`, _)) ⇒
-            acc.copy(_3 = Some(m))
-
-          case (acc, _) ⇒ acc
-        }
+      (allocMethod, deallocMethod, invokeMethod) <- EitherT.fromOption(
+        moduleMethods.scanLeft(Option.empty[Ior[WasmFunction, Ior[WasmFunction, WasmFunction]]]) {
+          case (acc, m @ WasmFunction(`allocationFunctionName`, _)) =>
+            Some(acc.fold(Ior.left[WasmFunction, Ior[WasmFunction, WasmFunction]](m))(_.putLeft(m)))
+          case (acc, m @ WasmFunction(`deallocationFunctionName`, _)) =>
+            Some(
+              acc.fold(
+                Ior.right[WasmFunction, Ior[WasmFunction, WasmFunction]](Ior.right[WasmFunction, WasmFunction](m)))
+              (_.putRight(Ior.left[WasmFunction, WasmFunction](m)))
+            )
+          case (acc, m @ WasmFunction(`invokeFunctionName`, _)) =>
+            Some(
+              acc.fold(
+                Ior.right[WasmFunction, Ior[WasmFunction, WasmFunction]](Ior.right[WasmFunction, WasmFunction](m)))
+              (_.putRight(Ior.right[WasmFunction, WasmFunction](m)))
+            )
+          case (acc, _) =>
+            acc
+        }.collectFirst {
+          case Some(Ior.Both(m1, Ior.Both(m2, m3))) => (m1, m2, m3)
+        },
+        InitializationError(s"The main module must have function with $allocationFunctionName, $deallocationFunctionName, $invokeFunctionName") : ApplyError
+      )
 
     } yield
       new MainModule(
         module,
-        allocMethod.get,
-        deallocMethod.get,
-        invokeMethod.get
+        allocMethod,
+        deallocMethod,
+        invokeMethod
       )
 
 }

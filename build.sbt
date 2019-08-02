@@ -27,6 +27,7 @@ lazy val `vm` = (project in file("vm"))
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
   .settings(
     commons,
+    kindProjector,
     libraryDependencies ++= Seq(
       asmble,
       cats,
