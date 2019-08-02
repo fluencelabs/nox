@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": [
+      "node",
+      "jest"
+    ]
+  },
+  "include": [
+    "src/**/*",
+    "./types",
+    "__mocks__"
+  ],
+  "types": [
+    "node",
+    "jest"
+  ],
+  "exclude": [
+    "!src/**/*.spec.ts",
+    "!src/**/__mocks__/*.ts"
+  ]
+}
