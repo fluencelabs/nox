@@ -3,6 +3,7 @@ import {ResultPromise} from "./ResultAwait";
 import {PrivateKey} from "./utils";
 import {getWorkerStatus} from "fluence-monitoring"
 import {RequestStatus} from "./Session";
+import {Result} from "./Result";
 
 // All sessions with workers from an app
 export class AppSession {
@@ -40,6 +41,28 @@ export class AppSession {
         } while(workerSession.session.isBanned());
 
         return workerSession;
+    }
+
+    async sendTransaction(payload: string): Promise<Result> {
+        const currentCounter = this.counter++;
+        const performRequest = async (retryCount: number = 0): Promise<Result> => {
+            const { session } = this.getNextWorkerSession();
+
+            const { status, result, error } = await session.sendTransaction(payload, this.privateKey, currentCounter);
+
+            if (status !== RequestStatus.OK) {
+                if (status === RequestStatus.E_REQUEST && retryCount < this.workerSessions.length) {
+                    session.ban();
+                    return performRequest(retryCount + 1);
+                }
+
+                throw error;
+            }
+
+            return result as Promise<Result>;
+        };
+
+        return performRequest();
     }
 
     // selects next worker and calls `request` on that worker

@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-import {none, Option, some, Some} from "ts-option";
+import {none, Option, some} from "ts-option";
 import {fromHex} from "./utils";
 import * as debug from "debug";
-import {RpcClient} from "./RpcClient";
-import {QueryResponse, error, Result} from "./Result";
+import {AbciQueryResult, RpcClient, TendermintJsonRpcResponse} from "./RpcClient";
+import {error, Result} from "./Result";
 import {toByteArray} from "base64-js";
+import {AxiosResponse} from "axios";
 
 const d = debug("tendermintClient");
 
@@ -62,6 +63,20 @@ export class TendermintClient {
     }
 
     /**
+     * Sends broadcast_tx_sync operation.
+     * @param path query parameter
+     * @param payload transaction payload
+     */
+    async txWaitResponse(path: string, payload: string): Promise<Result> {
+        d("txWaitResponse request");
+
+        const response = await this.client.txWaitResponse(payload);
+
+        const result = await TendermintClient.parseQueryResponse(path, response);
+        return result.get
+    }
+
+    /**
      * Sends an ABCI query.
      * @param path query parameter
      *
@@ -72,11 +87,15 @@ export class TendermintClient {
 
         const abciQueryResult = await this.client.abciQuery(path);
 
-        if (!abciQueryResult.data || !abciQueryResult.data.result || !abciQueryResult.data.result.response) {
-            throw error(`Malformed response: ${JSON.stringify(abciQueryResult.data)}`);
+        return TendermintClient.parseQueryResponse(path, abciQueryResult)
+    }
+
+    static async parseQueryResponse(path: string, unparsedResponse: AxiosResponse<TendermintJsonRpcResponse<AbciQueryResult>>): Promise<Option<Result>> {
+        if (!unparsedResponse.data || !unparsedResponse.data.result || !unparsedResponse.data.result.response) {
+            throw error(`Malformed response: ${JSON.stringify(unparsedResponse.data)}`);
         }
 
-        const response = abciQueryResult.data.result.response;
+        const response = unparsedResponse.data.result.response;
 
         switch (response.code) {
             case undefined:

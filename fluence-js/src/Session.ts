@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {ResultAwait, ResultError, ResultPromise} from "./ResultAwait";
+import {ResultAwait, ResultPromise} from "./ResultAwait";
 import {error, ErrorResponse, Result} from "./Result";
 import {TendermintClient} from "./TendermintClient";
 import {SessionConfig} from "./SessionConfig";
@@ -35,6 +35,12 @@ export enum RequestStatus {
 interface RequestState {
     status: RequestStatus;
     result?: ResultPromise;
+    error?: ErrorResponse;
+}
+
+interface SendTransactionState {
+    status: RequestStatus;
+    result?: Promise<Result>;
     error?: ErrorResponse;
 }
 
@@ -130,6 +136,46 @@ export class Session {
      */
     isBanned(): boolean {
         return this.bannedTill >= Date.now();
+    }
+
+    async sendTransaction(payload: string, privateKey?: PrivateKey, counter?: number): Promise<SendTransactionState> {
+        // throws an error immediately if the session is closed
+        if (this.closed) {
+            return {
+                status: RequestStatus.E_SESSION_CLOSED,
+                error: error(`The session was closed. Cause: ${this.closedStatus}`)
+            };
+        }
+
+        if (this.closing) {
+            this.markSessionAsClosed(this.closedStatus)
+        }
+
+        detailedDebug("start sendTransaction");
+
+        // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
+        let currentCounter = counter ? counter : this.getCounterAndIncrement();
+
+        let signed = withSignature(payload, currentCounter, privateKey);
+        let path = `${this.session}/${currentCounter}`;
+        let tx = `${path}\n${signed}`;
+
+        // send transaction
+        txDebug("send broadcastTxSync");
+        let txSendResult;
+        try {
+            txSendResult = this.tm.txWaitResponse(path, tx);
+        } catch (err) {
+            return {
+                status: RequestStatus.E_REQUEST,
+                error: error(`Request error on broadcastTx occured. Request payload: ${payload}, error: ${JSON.stringify(err)}`),
+            }
+        }
+
+        return {
+            status: RequestStatus.OK,
+            result: txSendResult
+        };
     }
 
     /**
