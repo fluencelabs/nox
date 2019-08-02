@@ -155,8 +155,8 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
         val (taskList, updatedSubs) = responses.foldLeft((List.empty[F[Unit]], subsMap)) {
           case ((taskList, subs), response) =>
             response match {
-              case (promise, r @ OkResponse(id, _)) =>
-                (promise.promise.complete(r) :: taskList, subs - promise.id)
+              case (promise, r @ OkResponse(_, _)) =>
+                (promise.complete(r) :: taskList, subs - promise.id)
               case (promise, r @ (RpcErrorResponse(_, _) | PendingResponse(_))) =>
                 if (promise.tries + 1 >= maxBlocksTries) {
                   // return TimedOutResponse after `tries` PendingResponses
@@ -164,8 +164,11 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
                     case PendingResponse(id) => TimedOutResponse(id, promise.tries + 1)
                     case resp                => resp
                   }
-                  (promise.promise.complete(response) :: taskList, subs - r.id)
+                  (promise.complete(response) :: taskList, subs - r.id)
                 } else (taskList, subs + (r.id -> promise.copy(tries = promise.tries + 1)))
+              case (promise, r @ TimedOutResponse(_, _)) =>
+                (log.error("Unexpected. TimedOutResponse couldn't be here.") *> promise.complete(r) :: taskList,
+                 subs - promise.id)
             }
         }
         (updatedSubs, taskList)
