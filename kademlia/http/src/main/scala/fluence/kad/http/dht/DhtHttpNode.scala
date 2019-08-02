@@ -17,7 +17,7 @@
 package fluence.kad.http.dht
 
 import cats.data.EitherT
-import cats.effect.{Effect, Resource, Sync, Timer}
+import cats.effect.{ConcurrentEffect, Resource, Timer}
 import cats.kernel.Semigroup
 import cats.syntax.profunctor._
 import com.softwaremill.sttp.SttpBackend
@@ -54,7 +54,7 @@ object DhtHttpNode {
    * @tparam F Effect
    * @tparam V Value: Semigroup to merge several values; Encoder/Decoder for HTTP API serialization
    */
-  def make[F[_]: Sync: Effect: Timer: Log, V: Semigroup: Encoder: Decoder](
+  def make[F[_]: ConcurrentEffect: Timer: Log, V: Semigroup: Encoder: Decoder](
     prefix: String,
     store: Resource[F, KVStore[F, Array[Byte], Array[Byte]]],
     metadata: Resource[F, KVStore[F, Array[Byte], Array[Byte]]],
@@ -67,15 +67,17 @@ object DhtHttpNode {
     for {
       s ← store
       m ← metadata
-      local ← DhtLocalStore.make(s.transformKeys[Key], m.transform[Key, DhtValueMetadata], hasher)
+
+      rpc = (contact: UriContact) ⇒
+        new DhtHttpClient[F, V](
+          contact.host,
+          contact.port,
+          prefix
+        ): DhtRpc[F, V]
+
+      local ← DhtLocalStore.make(s.transformKeys[Key], m.transform[Key, DhtValueMetadata], hasher, kad, rpc, conf)
     } yield {
       val http = DhtHttp(prefix, local)
-
-      def rpc(contact: UriContact): DhtRpc[F, V] = new DhtHttpClient[F, V](
-        contact.host,
-        contact.port,
-        prefix
-      )
 
       val dht: KVStore[F, Key, V] = new Dht(kad, rpc, conf)
 
