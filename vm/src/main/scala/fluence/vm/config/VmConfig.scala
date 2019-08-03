@@ -44,7 +44,8 @@ case class VmConfig(
   allocateFunctionName: String,
   deallocateFunctionName: String,
   invokeFunctionName: String,
-  useGasFunctionName: String
+  spentGasFunctionName: String,
+  setSpentGasFunction: String
 )
 
 object VmConfig {

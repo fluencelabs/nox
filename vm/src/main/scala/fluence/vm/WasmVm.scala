@@ -16,26 +16,30 @@
 
 package fluence.vm
 
+import java.lang.reflect.Modifier
+
 import asmble.cli.Invoke
 import asmble.cli.ScriptCommand.ScriptArgs
+import asmble.run.jvm.Module.Compiled
 import asmble.run.jvm.ScriptContext
 import asmble.util.Logger
-import cats.data.{EitherT, NonEmptyList}
+import cats.data.{EitherT, Ior, NonEmptyList}
 import cats.effect.LiftIO
 import cats.{Monad, Traverse}
 import cats.instances.list._
+import cats.instances.option._
 import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.log.Log
 import fluence.merkle.TrackingMemoryBuffer
 import fluence.vm.VmError.{InitializationError, InternalVmError}
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
-import fluence.vm.wasm.{MemoryHasher, WasmFunction}
+import fluence.vm.wasm.{MemoryHasher, WasmFunction, module}
 import fluence.vm.config.VmConfig
 import fluence.vm.config.VmConfig._
 import fluence.vm.config.VmConfig.ConfigError
 import fluence.vm.utils.safelyRunThrowable
-import fluence.vm.wasm.module.WasmModule
+import fluence.vm.wasm.module.{EnvModule, MainModule, WasmModule}
 import scodec.bits.ByteVector
 import pureconfig.generic.auto._
 
@@ -165,22 +169,54 @@ object WasmVm {
     scriptCxt: ScriptContext,
     config: VmConfig,
     memoryHasher: MemoryHasher.Builder[F]
-  ): EitherT[F, ApplyError, ModuleIndex] =
-    Traverse[List].foldLeftM(
-      scriptCxt.getModules.toList,
-      Map[Option[String], WasmModule]()
-    ) {
-      case (acc, moduleDescription) ⇒
-        for {
-          wasmModule ← WasmModule(
-            moduleDescription,
-            scriptCxt,
-            config.allocateFunctionName,
-            config.deallocateFunctionName,
-            config.invokeFunctionName,
-            memoryHasher
-          )
+  ): EitherT[F, ApplyError, (MainModule, EnvModule, Seq[WasmModule])] =
+    Traverse[List].foldLeftM[EitherT[F, ApplyError, ?], Compiled, (Option[MainModule], Option[EnvModule], List[WasmModule])](
+        scriptCxt.getModules.toList,
+        (None, None, Nil)
+      ) {
+        // the main module according to the conventions always has non set module name
+        case (acc, moduleDescription) if moduleDescription.getName == null ⇒
+          for {
+            mainModule ← MainModule(
+              moduleDescription,
+              scriptCxt,
+              memoryHasher,
+              config.allocateFunctionName,
+              config.deallocateFunctionName,
+              config.invokeFunctionName,
+            )
+          } yield acc.copy(_1 = Some(mainModule))
 
-        } yield acc + (wasmModule.getName → wasmModule)
+        // the env module contains utility functions for gas and EIC metering
+        case (acc, moduleDescription) if moduleDescription.getName == "env" ⇒
+          for {
+            envModule ← EnvModule(
+              moduleDescription,
+              scriptCxt,
+              memoryHasher,
+              config.spentGasFunctionName,
+              config.setSpentGasFunction
+            )
+          } yield acc.copy(_2 = Some(envModule))
+
+        // side modules
+        case (acc, moduleDescription) ⇒
+          for {
+            module ← module.WasmModule(
+              moduleDescription,
+              scriptCxt,
+              memoryHasher
+            )
+          } yield acc.copy(_3 = module :: acc._3)
+
+      }.flatMap {
+        case (Some(mainModule), Some(envModule), list) => EitherT.pure[F, ApplyError]((mainModule, envModule, list))
+        case (None, _, _) => EitherT.leftT(
+          InitializationError(s"Please add the main module (module without name section) to the supplied modules") : ApplyError
+        )
+        case (Some(_), None, _) => EitherT.leftT(
+          InitializationError(s"Asmble doesn't provide the environment module (perhaps you are using the old version)") : ApplyError
+        )
     }
+
 }
