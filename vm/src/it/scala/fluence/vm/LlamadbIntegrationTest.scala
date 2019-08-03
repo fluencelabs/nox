@@ -36,9 +36,9 @@ class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
 
   private def executeSql(implicit vm: WasmVm, sql: String): EitherT[IO, VmError, Array[Byte]] =
     for {
-      result ← vm.invoke[IO](None, sql.getBytes())
+      result ← vm.invoke[IO](sql.getBytes())
       _ ← vm.getVmState[IO].toVmError
-    } yield result
+    } yield result.output
 
   private def createTestTable(vm: WasmVm): EitherT[IO, VmError, Array[Byte]] =
     for {

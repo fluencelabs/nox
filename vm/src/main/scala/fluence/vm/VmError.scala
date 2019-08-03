@@ -111,7 +111,7 @@ object VmError {
    * {{{
    *
    *  val vm: fluence.vm.WasmVm = ???
-   *     vm.invoke[IO](None, "fnName", Seq()).leftMap {
+   *     vm.invoke[IO]("fnName", Seq()).leftMap {
    *       case InvalidArgError(message, cause) ⇒  ???
    *       case NoSuchFnError(message, cause) ⇒  ???
    *       case TrapError(message, cause) ⇒ ???
@@ -126,7 +126,7 @@ object VmError {
    *   {{{
    *     Warning:(103, 50) match may not be exhaustive.
    *     It would fail on the following input: InternalVmError(_, _)
-   *     vm.invoke[IO](None, "fnName", Seq()).leftMap {
+   *     vm.invoke[IO]("fnName", Seq()).leftMap {
    *   }}}
    *
    *   This mean that [[InternalVmError]] will not be handled.

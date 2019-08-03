@@ -53,8 +53,6 @@ class EnvModule(
 
   /**
    * Allocates a memory region in Wasm module of supplied size by allocateFunction.
-   *
-   * @param size a size of memory that need to be allocated
    */
   def getSpentGas[F[_]: LiftIO: Monad](): EitherT[F, InvokeError, Int] =
     module.invokeWasmFunction(spentGasFunction, Nil)

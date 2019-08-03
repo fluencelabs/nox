@@ -69,6 +69,8 @@ class AsmbleWasmVm(
 
   override def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector] =
     for {
+      mainModuleHash <- mainModule.computeStateHash()
+
       sideModulesHash <- sideModules
         .foldLeft(EitherT.rightT[F, GetVmStateError](Array[Byte]())) {
           case (acc, module) ⇒
@@ -88,8 +90,11 @@ class AsmbleWasmVm(
             } yield resultHash
         }
 
-      mainModuleHash <- mainModule.computeStateHash()
-    } hasher(Array.concat(sideModulesHash, mainModuleHash))
+      resultHash <- hasher(Array.concat(sideModulesHash, mainModuleHash)).map(ByteVector(_)).leftMap { e ⇒
+        InternalVmError(s"Getting VM state for modules failed", Some(e)): GetVmStateError
+      }
+
+    } yield resultHash
 
   /**
    * Preprocesses Wasm function argument array by injecting it into Wasm module memory and replacing by pointer to

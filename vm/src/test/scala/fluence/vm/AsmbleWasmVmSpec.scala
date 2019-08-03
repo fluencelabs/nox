@@ -81,7 +81,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
         val res = for {
           vm ← WasmVm[IO](NonEmptyList.one(noGetMemoryTestFile), MemoryHasher[IO])
-          result ← vm.invoke[IO](None, "test".getBytes())
+          _ ← vm.invoke[IO]("test".getBytes())
           state ← vm.getVmState[IO].toVmError
         } yield state
 
@@ -108,7 +108,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
         val res = for {
           vm ← WasmVm[IO](NonEmptyList.one(badAllocationFunctionFile), MemoryHasher[IO])
-          result ← vm.invoke[IO](None, "test".getBytes())
+          _ ← vm.invoke[IO]("test".getBytes())
           state ← vm.getVmState[IO].toVmError
         } yield state
 
@@ -122,7 +122,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
         val res = for {
           vm ← WasmVm[IO](NonEmptyList.one(badAllocationFunctionFile), MemoryHasher[IO])
-          result ← vm.invoke[IO](None, "test".getBytes())
+          result ← vm.invoke[IO]("test".getBytes())
           state ← vm.getVmState[IO].toVmError
         } yield state
 
