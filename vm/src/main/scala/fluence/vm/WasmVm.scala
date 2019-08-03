@@ -57,12 +57,10 @@ trait WasmVm {
    *
    * Note that, modules should be registered when VM started!
    *
-   * @param module a name of Wasm module from where handle
    * @param fnArgument a Function arguments
    * @tparam F a monad with an ability to absorb 'IO'
    */
   def invoke[F[_]: LiftIO: Monad](
-    module: Option[String] = None,
     fnArgument: Array[Byte] = Array.emptyByteArray
   ): EitherT[F, InvokeError, Array[Byte]]
 
@@ -80,8 +78,6 @@ trait WasmVm {
 }
 
 object WasmVm {
-
-  type ModuleIndex = Map[Option[String], WasmModule]
 
   /**
    * Main method factory for building VM.
@@ -124,12 +120,14 @@ object WasmVm {
 
       _ ← Log.eitherT[F, ApplyError].info("WasmVm: scriptCtx prepared...")
 
-      modules ← initializeModules(scriptCxt, config, memoryHasher)
+      (mainModule, envModule, sideModules) ← initializeModules(scriptCxt, config, memoryHasher)
 
       _ ← Log.eitherT[F, ApplyError].info("WasmVm: modules initialized")
     } yield
       new AsmbleWasmVm(
-        modules,
+        mainModule,
+        Some(envModule),
+        sideModules,
         cryptoHasher
       )
 
@@ -175,27 +173,27 @@ object WasmVm {
         (None, None, Nil)
       ) {
         // the main module according to the conventions always has non set module name
-        case (acc, moduleDescription) if moduleDescription.getName == null ⇒
+        case (acc, moduleDescription) if moduleDescription.getName == config.mainModule.name ⇒
           for {
             mainModule ← MainModule(
               moduleDescription,
               scriptCxt,
               memoryHasher,
-              config.allocateFunctionName,
-              config.deallocateFunctionName,
-              config.invokeFunctionName,
+              config.mainModule.allocateFunctionName,
+              config.mainModule.deallocateFunctionName,
+              config.mainModule.invokeFunctionName,
             )
           } yield acc.copy(_1 = Some(mainModule))
 
         // the env module contains utility functions for gas and EIC metering
-        case (acc, moduleDescription) if moduleDescription.getName == "env" ⇒
+        case (acc, moduleDescription) if moduleDescription.getName == config.envModule.name ⇒
           for {
             envModule ← EnvModule(
               moduleDescription,
               scriptCxt,
               memoryHasher,
-              config.spentGasFunctionName,
-              config.setSpentGasFunction
+              config.envModule.spentGasFunctionName,
+              config.envModule.setSpentGasFunction
             )
           } yield acc.copy(_2 = Some(envModule))
 

@@ -22,6 +22,20 @@ import pureconfig.generic.ProductHint
 
 import scala.util.control.NoStackTrace
 
+case class MainModuleConfig(
+  name: String,
+  allocateFunctionName: String,
+  deallocateFunctionName: String,
+  invokeFunctionName: String,
+)
+
+case class EnvModuleConfig(
+  envModuleEnabled: Boolean,
+  name: String,
+  spentGasFunctionName: String,
+  setSpentGasFunction: String
+)
+
 /**
  * WasmVm settings.
  *
@@ -39,13 +53,9 @@ case class VmConfig(
   defaultMaxMemPages: Int,
   specTestRegister: Boolean,
   loggerModuleEnabled: Boolean,
-  envModuleEnabled: Boolean,
   chunkSize: Int,
-  allocateFunctionName: String,
-  deallocateFunctionName: String,
-  invokeFunctionName: String,
-  spentGasFunctionName: String,
-  setSpentGasFunction: String
+  mainModule: MainModuleConfig,
+  envModule: EnvModuleConfig
 )
 
 object VmConfig {
