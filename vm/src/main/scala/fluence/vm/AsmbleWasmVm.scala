@@ -42,7 +42,7 @@ import scala.language.higherKinds
  */
 class AsmbleWasmVm(
   private val mainModule: MainModule,
-  private val envModule: Option[EnvModule],
+  private val envModule: EnvModule,
   private val sideModules: Seq[WasmModule],
   private val hasher: Hasher[Array[Byte], Array[Byte]]
 ) extends WasmVm {
@@ -52,40 +52,44 @@ class AsmbleWasmVm(
 
   override def invoke[F[_]: LiftIO: Monad](
     fnArgument: Array[Byte]
-  ): EitherT[F, InvokeError, Array[Byte]] =
+  ): EitherT[F, InvokeError, InvocationResult] =
     for {
       preprocessedArgument ← loadArgToMemory(fnArgument)
       resultOffset ← mainModule.invoke(preprocessedArgument)
+      _ <- envModule.clearSpentGas()
 
       // It is expected that callee (Wasm module) has to clean memory by itself because of otherwise
       // there can be some non-determinism (deterministic execution is very important for verification game
       // and this kind of non-determinism can break all verification game).
       extractedResult ← extractResultFromWasmModule(resultOffset)
 
-    } yield extractedResult
+      spentGas <- envModule.getSpentGas()
 
-  override def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector] = for {
-    sideModulesHash <- sideModules
-      .foldLeft(EitherT.rightT[F, GetVmStateError](Array[Byte]())) {
-        case (acc, module) ⇒
-          for {
-            moduleStateHash ← module.computeStateHash()
+    } yield InvocationResult(extractedResult, spentGas)
 
-            prevModulesHash ← acc
+  override def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector] =
+    for {
+      sideModulesHash <- sideModules
+        .foldLeft(EitherT.rightT[F, GetVmStateError](Array[Byte]())) {
+          case (acc, module) ⇒
+            for {
+              moduleStateHash ← module.computeStateHash()
 
-            concatHashes = Array.concat(moduleStateHash, prevModulesHash)
+              prevModulesHash ← acc
 
-            // TODO : It is known the 2nd preimage attack to such scheme with the same hash function
-            // for leaves and nodes.
-            resultHash ← hasher(concatHashes).leftMap { e ⇒
-              InternalVmError(s"Getting VM state for module=${module.name} failed", Some(e)): GetVmStateError
-            }
+              concatHashes = Array.concat(moduleStateHash, prevModulesHash)
 
-          } yield resultHash
-      }
+              // TODO : It is known the 2nd preimage attack to such scheme with the same hash function
+              // for leaves and nodes.
+              resultHash ← hasher(concatHashes).leftMap { e ⇒
+                InternalVmError(s"Getting VM state for module=${module.name} failed", Some(e)): GetVmStateError
+              }
 
-    mainModuleHash <- mainModule.computeStateHash()
-  } hasher(Array.concat(sideModulesHash, mainModuleHash))
+            } yield resultHash
+        }
+
+      mainModuleHash <- mainModule.computeStateHash()
+    } hasher(Array.concat(sideModulesHash, mainModuleHash))
 
   /**
    * Preprocesses Wasm function argument array by injecting it into Wasm module memory and replacing by pointer to

@@ -21,7 +21,7 @@ import java.nio.ByteBuffer
 import asmble.compile.jvm.{MemoryBuffer, MemoryByteBuffer}
 import asmble.run.jvm.Module.Compiled
 import asmble.run.jvm.ScriptContext
-import cats.{Id, Monad, ~>}
+import cats.{~>, Id, Monad}
 import cats.data.EitherT
 import cats.effect.{IO, Timer}
 import fluence.crypto.Crypto.Hasher

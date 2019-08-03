@@ -16,25 +16,22 @@
 
 package fluence.vm
 
-import java.lang.reflect.Modifier
-
 import asmble.cli.Invoke
 import asmble.cli.ScriptCommand.ScriptArgs
 import asmble.run.jvm.Module.Compiled
 import asmble.run.jvm.ScriptContext
 import asmble.util.Logger
-import cats.data.{EitherT, Ior, NonEmptyList}
+import cats.data.{EitherT, NonEmptyList}
 import cats.effect.LiftIO
 import cats.{Monad, Traverse}
 import cats.instances.list._
-import cats.instances.option._
 import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.log.Log
 import fluence.merkle.TrackingMemoryBuffer
 import fluence.vm.VmError.{InitializationError, InternalVmError}
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
-import fluence.vm.wasm.{MemoryHasher, WasmFunction, module}
+import fluence.vm.wasm.{module, MemoryHasher, WasmFunction}
 import fluence.vm.config.VmConfig
 import fluence.vm.config.VmConfig._
 import fluence.vm.config.VmConfig.ConfigError
@@ -46,6 +43,8 @@ import pureconfig.generic.auto._
 import scala.collection.convert.ImplicitConversionsToJava.`seq AsJavaList`
 import scala.collection.convert.ImplicitConversionsToScala.`list asScalaBuffer`
 import scala.language.higherKinds
+
+case class InvocationResult(output: Array[Byte], spentGas: Long)
 
 /**
  * Virtual Machine api.
@@ -62,7 +61,7 @@ trait WasmVm {
    */
   def invoke[F[_]: LiftIO: Monad](
     fnArgument: Array[Byte] = Array.emptyByteArray
-  ): EitherT[F, InvokeError, Array[Byte]]
+  ): EitherT[F, InvokeError, InvocationResult]
 
   /**
    * Returns hash of all significant inner state of this VM. This function calculates
@@ -126,7 +125,7 @@ object WasmVm {
     } yield
       new AsmbleWasmVm(
         mainModule,
-        Some(envModule),
+        envModule,
         sideModules,
         cryptoHasher
       )
@@ -168,7 +167,8 @@ object WasmVm {
     config: VmConfig,
     memoryHasher: MemoryHasher.Builder[F]
   ): EitherT[F, ApplyError, (MainModule, EnvModule, Seq[WasmModule])] =
-    Traverse[List].foldLeftM[EitherT[F, ApplyError, ?], Compiled, (Option[MainModule], Option[EnvModule], List[WasmModule])](
+    Traverse[List]
+      .foldLeftM[EitherT[F, ApplyError, ?], Compiled, (Option[MainModule], Option[EnvModule], List[WasmModule])](
         scriptCxt.getModules.toList,
         (None, None, Nil)
       ) {
@@ -207,14 +207,19 @@ object WasmVm {
             )
           } yield acc.copy(_3 = module :: acc._3)
 
-      }.flatMap {
+      }
+      .flatMap {
         case (Some(mainModule), Some(envModule), list) => EitherT.pure[F, ApplyError]((mainModule, envModule, list))
-        case (None, _, _) => EitherT.leftT(
-          InitializationError(s"Please add the main module (module without name section) to the supplied modules") : ApplyError
-        )
-        case (Some(_), None, _) => EitherT.leftT(
-          InitializationError(s"Asmble doesn't provide the environment module (perhaps you are using the old version)") : ApplyError
-        )
-    }
+        case (None, _, _) =>
+          EitherT.leftT(
+            InitializationError(s"Please add the main module (module without name section) to the supplied modules"): ApplyError
+          )
+        case (Some(_), None, _) =>
+          EitherT.leftT(
+            InitializationError(
+              s"Asmble doesn't provide the environment module (perhaps you are using the old version)"
+            ): ApplyError
+          )
+      }
 
 }

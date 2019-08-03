@@ -26,7 +26,7 @@ import cats.data.{EitherT, Ior}
 import cats.effect.LiftIO
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
 import fluence.vm.VmError.{InitializationError, NoSuchFnError, VmMemoryError}
-import fluence.vm.wasm.{MemoryHasher, WasmFunction, WasmModuleMemory, module}
+import fluence.vm.wasm.{module, MemoryHasher, WasmFunction, WasmModuleMemory}
 
 import scala.language.higherKinds
 import scala.util.Try
@@ -67,7 +67,8 @@ class MainModule(
    * @param size a size of memory region to deallocate
    */
   def deallocate[F[_]: LiftIO: Monad](offset: Int, size: Int): EitherT[F, InvokeError, Unit] =
-    module.invokeWasmFunction(deallocateFunction, Int.box(offset) :: Int.box(size) :: Nil)
+    module
+      .invokeWasmFunction(deallocateFunction, Int.box(offset) :: Int.box(size) :: Nil)
       .map(_ ⇒ ())
 
   /**
@@ -102,19 +103,19 @@ class MainModule(
 object MainModule {
 
   /**
-    * Creates instance for specified module.
-    *
-    * @param moduleDescription a Asmble description of the module
-    * @param scriptContext a Asmble context for the module operation
-    * @param memoryHasher a hasher used for compute hash if memory
-    */
+   * Creates instance for specified module.
+   *
+   * @param moduleDescription a Asmble description of the module
+   * @param scriptContext a Asmble context for the module operation
+   * @param memoryHasher a hasher used for compute hash if memory
+   */
   def apply[F[_]: Monad](
-   moduleDescription: Compiled,
-   scriptContext: ScriptContext,
-   memoryHasher: MemoryHasher.Builder[F],
-   allocationFunctionName: String,
-   deallocationFunctionName: String,
-   invokeFunctionName: String
+    moduleDescription: Compiled,
+    scriptContext: ScriptContext,
+    memoryHasher: MemoryHasher.Builder[F],
+    allocationFunctionName: String,
+    deallocationFunctionName: String,
+    invokeFunctionName: String
   ): EitherT[F, ApplyError, MainModule] =
     for {
       module <- WasmModule(moduleDescription, scriptContext, memoryHasher)
@@ -124,27 +125,24 @@ object MainModule {
         .map(method ⇒ WasmFunction(method.getName, method))
 
       (allocMethod, deallocMethod, invokeMethod) <- EitherT.fromOption(
-        moduleMethods.scanLeft(Option.empty[Ior[WasmFunction, Ior[WasmFunction, WasmFunction]]]) {
-          case (acc, m @ WasmFunction(`allocationFunctionName`, _)) =>
-            Some(acc.fold(Ior.left[WasmFunction, Ior[WasmFunction, WasmFunction]](m))(_.putLeft(m)))
-          case (acc, m @ WasmFunction(`deallocationFunctionName`, _)) =>
-            Some(
-              acc.fold(
-                Ior.right[WasmFunction, Ior[WasmFunction, WasmFunction]](Ior.right[WasmFunction, WasmFunction](m)))
-              (_.putRight(Ior.left[WasmFunction, WasmFunction](m)))
-            )
-          case (acc, m @ WasmFunction(`invokeFunctionName`, _)) =>
-            Some(
-              acc.fold(
-                Ior.right[WasmFunction, Ior[WasmFunction, WasmFunction]](Ior.right[WasmFunction, WasmFunction](m)))
-              (_.putRight(Ior.right[WasmFunction, WasmFunction](m)))
-            )
-          case (acc, _) =>
-            acc
-        }.collectFirst {
-          case Some(Ior.Both(m1, Ior.Both(m2, m3))) => (m1, m2, m3)
-        },
-        InitializationError(s"The main module must have function with $allocationFunctionName, $deallocationFunctionName, $invokeFunctionName") : ApplyError
+        moduleMethods
+          .scanLeft((Option.empty[WasmFunction], Option.empty[WasmFunction], Option.empty[WasmFunction])) {
+            case (acc, m @ WasmFunction(`allocationFunctionName`, _)) =>
+              acc.copy(_1 = Some(m))
+            case (acc, m @ WasmFunction(`deallocationFunctionName`, _)) =>
+              acc.copy(_2 = Some(m))
+            case (acc, m @ WasmFunction(`invokeFunctionName`, _)) =>
+              acc.copy(_3 = Some(m))
+            case (acc, _) =>
+              acc
+          }
+          .collectFirst {
+            case (Some(allocMethod), Some(deallocMethod), Some(invokeMethod)) =>
+              (allocMethod, deallocMethod, invokeMethod)
+          },
+        NoSuchFnError(
+          s"The main module must have function with $allocationFunctionName, $deallocationFunctionName, $invokeFunctionName"
+        ): ApplyError
       )
 
     } yield
