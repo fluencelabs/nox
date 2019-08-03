@@ -34,6 +34,14 @@ export class Contact {
         return this.pubKey;
     }
 
+    getSignature(): string {
+        return this.signature;
+    }
+
+    asUri(): string {
+        return `fluence://${this.pubKey}:${this.signature}@${this.host}:${this.port}`;
+    }
+
     isSignatureValid(): boolean {
         const binaryPubKey = bs58.decode(this.pubKey);
         const binarySignature = bs58.decode(this.signature);

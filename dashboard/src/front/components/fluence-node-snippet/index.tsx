@@ -1,11 +1,17 @@
 import * as React from 'react';
 import { connect } from 'react-redux';
 import { Action } from 'redux';
-import { Contact, KademliaRpc, KademliaRpcHttpTransport } from 'fluence-kademlia';
+import { KademliaRpc, KademliaRpcHttpTransport } from 'fluence-kademlia';
 import { displayLoading, hideLoading, retrieveNode, } from '../../actions';
 import FluenceId from '../fluence-id';
+import FluenceKademliaContact from '../fluence-kademlia-contact';
 import { ReduxState } from '../../app';
 import { NodeId, Node } from '../../../fluence';
+
+interface State {
+    kademliaPingResponse: string;
+    kademliaLookupResponse: string[];
+}
 
 interface Props {
     nodeId: NodeId;
@@ -17,12 +23,13 @@ interface Props {
     hideLoading: typeof hideLoading;
 }
 
-class FluenceNodeSnippet extends React.Component<Props> {
-
-    kademliaPingResponseField: HTMLTextAreaElement;
+class FluenceNodeSnippet extends React.Component<Props, State> {
+    state: State = {
+        kademliaPingResponse: '',
+        kademliaLookupResponse: [],
+    };
 
     kademliaLookupKeyField: HTMLTextAreaElement;
-    kademliaLookupResponseField: HTMLTextAreaElement;
 
     loadData(): void {
         this.props.displayLoading();
@@ -40,9 +47,11 @@ class FluenceNodeSnippet extends React.Component<Props> {
         if (prevProps.nodeId !== this.props.nodeId) {
             this.loadData();
 
-            this.kademliaPingResponseField.value = '';
             this.kademliaLookupKeyField.value = '';
-            this.kademliaLookupResponseField.value = '';
+            this.setState({
+                kademliaPingResponse: '',
+                kademliaLookupResponse: []
+            });
         }
     }
 
@@ -54,15 +63,12 @@ class FluenceNodeSnippet extends React.Component<Props> {
         try {
             result = await rpc.ping();
         } catch (e) {
-            this.kademliaPingResponseField.value = e;
-
             return;
         }
 
-        const contact = Contact.fromUri(result);
-        const signature = `Signature ${contact.isSignatureValid() ? 'valid' : 'invalid'}`;
-        const kademliaKey =`Kademlia key: ${contact.getKademliaKey()}`;
-        this.kademliaPingResponseField.value = `${result}\n\n${kademliaKey}\n${signature}`;
+        this.setState({
+            kademliaPingResponse: result
+        });
     }
 
     sendKademliaLookupQuery = async (e: React.MouseEvent<HTMLElement>) => {
@@ -73,12 +79,12 @@ class FluenceNodeSnippet extends React.Component<Props> {
         try {
             result = await rpc.lookup(this.kademliaLookupKeyField.value);
         } catch (e) {
-            this.kademliaLookupResponseField.value = e;
-
             return;
         }
 
-        this.kademliaLookupResponseField.value = JSON.stringify(result);
+        this.setState({
+            kademliaLookupResponse: result
+        });
     }
 
     render(): React.ReactNode {
@@ -105,13 +111,14 @@ class FluenceNodeSnippet extends React.Component<Props> {
                                 Send kademlia ping query
                             </button>
                         </p>
-                        <label htmlFor="result">Ping result:</label>
-                        <textarea
-                            className="form-control"
-                            rows={5}
-                            readOnly={true}
-                            ref={(ref: HTMLTextAreaElement): void => { this.kademliaPingResponseField = ref; }}
-                        />
+                        {this.state.kademliaPingResponse && this.state.kademliaPingResponse !== '' ?
+                            <>
+                                <label htmlFor="result">Ping result:</label>
+                                <p>
+                                    <FluenceKademliaContact kademliaContactUri={this.state.kademliaPingResponse}/>
+                                </p>
+                            </> : null
+                        }
                         <hr/>
                         <p>
                             <label>Lookup key:</label>
@@ -131,14 +138,14 @@ class FluenceNodeSnippet extends React.Component<Props> {
                                 Send kademlia lookup query
                             </button>
                         </p>
-                        <label htmlFor="result">Result:</label>
-                        <textarea
-                            className="form-control"
-                            rows={8}
-                            readOnly={true}
-                            ref={(ref: HTMLTextAreaElement): void => { this.kademliaLookupResponseField = ref; }}
-                        />
-
+                        {this.state.kademliaLookupResponse.length > 0 ?
+                            <>
+                                <label htmlFor="result">Result:</label>
+                                <p>
+                                    {this.state.kademliaLookupResponse.map(c => <FluenceKademliaContact kademliaContactUri={c}/>)}
+                                </p>
+                            </> : null
+                        }
                     </div>
                 </div>
             </div>

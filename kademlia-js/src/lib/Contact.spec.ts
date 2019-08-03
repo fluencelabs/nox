@@ -20,6 +20,8 @@ describe('Contact class tests', () => {
         expect(contact).toBeInstanceOf(Contact);
         expect(contact.getHostPort()).toStrictEqual(`${contactHost}:${contactPort}`);
         expect(contact.getPublicKey()).toStrictEqual(contactPublicKey);
+        expect(contact.getSignature()).toStrictEqual(contactSignature);
+        expect(contact.asUri()).toStrictEqual(contactUri);
     });
 
     it('creates Contact instance from uri', function () {
@@ -28,6 +30,8 @@ describe('Contact class tests', () => {
         expect(contact).toBeInstanceOf(Contact);
         expect(contact.getHostPort()).toStrictEqual(`${contactHost}:${contactPort}`);
         expect(contact.getPublicKey()).toStrictEqual(contactPublicKey);
+        expect(contact.getSignature()).toStrictEqual(contactSignature);
+        expect(contact.asUri()).toStrictEqual(contactUri);
     });
 
     it('verifies Contact signature', function () {
