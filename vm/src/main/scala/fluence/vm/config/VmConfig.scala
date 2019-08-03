@@ -30,7 +30,6 @@ case class MainModuleConfig(
 )
 
 case class EnvModuleConfig(
-  envModuleEnabled: Boolean,
   name: String,
   spentGasFunctionName: String,
   setSpentGasFunction: String

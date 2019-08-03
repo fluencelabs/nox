@@ -152,7 +152,6 @@ object WasmVm {
         config.specTestRegister,
         config.defaultMaxMemPages,
         config.loggerModuleEnabled,
-        config.envModule.envModuleEnabled,
         (capacity: Int) => TrackingMemoryBuffer.allocateDirect(capacity, config.chunkSize)
       )
     )
