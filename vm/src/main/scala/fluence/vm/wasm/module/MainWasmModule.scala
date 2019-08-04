@@ -30,11 +30,11 @@ import fluence.vm.wasm._
 import scala.language.higherKinds
 
 /**
- * Wrapper of Wasm Module instance compiled by Asmble to Java class. Provides all functionality of Wasm modules
- * according to the Fluence protocol (invoke, parameter passing, hash computing). TODO: after removing alloc/
- * dealloc should be refactored to two modules types (extends the same trait): "master" (that has invoke method
- * and can routes call from user to "slaves") and "slave" (without invoke method that does only computation).
+ * Wrapper for a Main module instance compiled by Asmble to Java class (please find more info about module types in
+ * WasmModule docs). Provides all functionality of Main Wasm modules according to the Fluence protocol (invoke,
+ * parameter passing, hash computing).
  *
+ * @param module a wasm module used as a container for the module memory and instance
  * @param allocateFunction a function used for allocation of a memory region for parameter passing
  * @param deallocateFunction a function used for deallocation of a memory region previously allocated
  *                          by allocateFunction
@@ -93,7 +93,7 @@ class MainWasmModule(
   def writeMemory[F[_]: Monad](offset: Int, injectedArray: Array[Byte]): EitherT[F, VmMemoryError, Unit] =
     module.wasmMemory.writeBytes(offset, injectedArray)
 
-  override def toString: String = module.name.getOrElse("<no-name>")
+  override def toString: String = module.toString
 }
 
 object MainWasmModule {
@@ -104,6 +104,10 @@ object MainWasmModule {
    * @param moduleDescription a Asmble description of the module
    * @param scriptContext a Asmble context for the module operation
    * @param memoryHasher a hasher used for compute hash if memory
+   * @param allocationFunctionName a name of function used for allocation of a memory region for parameter passing
+   * @param deallocationFunctionName a name of function used for deallocation of a memory region previously allocated
+   *                                 by allocateFunction
+   * @param invokeFunctionName a name of function that represents main handler of Wasm module
    */
   def apply[F[_]: Monad](
     moduleDescription: Compiled,

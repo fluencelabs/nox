@@ -29,10 +29,25 @@ import fluence.vm.wasm.{module, MemoryHasher, WasmModuleMemory}
 import scala.language.higherKinds
 
 /**
- * Wrapper of Wasm Module instance compiled by Asmble to Java class. Provides all functionality of Wasm modules
- * according to the Fluence protocol (invoke, parameter passing, hash computing). TODO: after removing alloc/
- * dealloc should be refactored to two modules types (extends the same trait): "master" (that has invoke method
- * and can routes call from user to "slaves") and "slave" (without invoke method that does only computation).
+ * Asmble has the ramified hierarchy of modules:
+ * interface Module
+ * data class Composite : Module
+ * interface Instance : Module
+ * data class Native : Instance
+ * class Compiled : Instance
+ *
+ * We are dealing with last two types. The first is used to represent a module written on Java inside Asmble.
+ * The second represents a module on Wasm compiled by Asmble. They have some difference such as the first one
+ * doesn't contain memory and name.
+ * At the same time we have our own modules types: Main module that represents the Wasm module able to invoke
+ * Wasm function and Side module represents a Wasm module that can't invoke functions and used to track module
+ * state for further hash computing. These modules are Compiled in terms of Asmble, and we also have Native
+ * modules for auxiliary purposes (such as EnvModule for gas and EIC metering). But on WasmVM they have only
+ * one common feature: EnvModule and MainModule should be able to invoke functions. So we find here aggregation
+ * is more useful then inheritance.
+ *
+ * WasmModule is a wrapper of modules that contains name, memory and instance. We are using as the container
+ * to track state of side modules.
  *
  * @param name an optional module name (according to Wasm specification module name can be empty string (that is also
  *             "valid UTF-8") or even absent)

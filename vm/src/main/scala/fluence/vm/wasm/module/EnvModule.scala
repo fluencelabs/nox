@@ -31,7 +31,8 @@ import fluence.vm.wasm._
 import scala.language.higherKinds
 
 /**
- * Wrapper for Environment module registered by Asmble (in its term it is a Native module).
+ * Wrapper for Environment module registered by Asmble (in its term it is a Native module - please find more info
+ * in WasmModule docs).
  * This module could be used for gas metering.
  *
  * @param instance a instance of Wasm Module compiled by Asmble

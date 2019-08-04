@@ -16,4 +16,7 @@
 
 package fluence.vm.wasm.module
 
+/**
+ * Wrapper module instance comes from Asmble in Any type.
+ */
 case class ModuleInstance(moduleInstance: Any)
