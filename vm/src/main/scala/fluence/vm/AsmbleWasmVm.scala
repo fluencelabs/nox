@@ -36,7 +36,9 @@ import scala.language.higherKinds
  * '''Note!!! This implementation isn't thread-safe. The provision of calls
  * linearization is the task of the caller side.'''
  *
- * @param modules an index of Wasm modules
+ * @param mainModule a main Wasm module which used for function invoking
+ * @param envModule a environment module which used for some auxiliary functions such as gas metering
+ * @param sideModules a list of side modules used in VM state computing
  * @param hasher a hash function provider used for VM state hash computing
  */
 class AsmbleWasmVm(

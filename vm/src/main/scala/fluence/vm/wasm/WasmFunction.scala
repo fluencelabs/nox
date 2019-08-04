@@ -26,9 +26,19 @@ import fluence.vm.wasm.module.ModuleInstance
 
 import scala.language.higherKinds
 
+/**
+ * Represents Wasm modules that could invoke functions.
+ */
 trait WasmFunctionInvoker {
 
-  def invokeWasmFunction[F[_]: LiftIO: Monad](
+  /**
+   * Represent a Wasm function exported from a Wasm module.
+   *
+   * @param moduleInstance a instance of Wasm Module that should run wasmFn.
+   * @param wasmFn a function that should be invoked.
+   * @param args arguments for the function.
+   */
+  protected def invokeWasmFunctionInt[F[_]: LiftIO: Monad](
     moduleInstance: ModuleInstance,
     wasmFn: WasmFunction,
     args: List[AnyRef]

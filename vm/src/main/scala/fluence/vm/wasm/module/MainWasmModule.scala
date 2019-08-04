@@ -45,7 +45,7 @@ class MainWasmModule(
   private val allocateFunction: WasmFunction,
   private val deallocateFunction: WasmFunction,
   private val invokeFunction: WasmFunction
-) extends WasmFunctionInvoker {
+) {
 
   def computeStateHash[F[_]: Monad](): EitherT[F, GetVmStateError, Array[Byte]] =
     module.computeStateHash()
@@ -56,7 +56,7 @@ class MainWasmModule(
    * @param size a size of memory that need to be allocated
    */
   def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, Int] =
-    invokeWasmFunction(module.instance, allocateFunction, Int.box(size) :: Nil)
+    allocateFunction(module.instance, Int.box(size) :: Nil).map(_.get.intValue())
 
   /**
    * Deallocates a previously allocated memory region in Wasm module by deallocateFunction.
@@ -65,8 +65,7 @@ class MainWasmModule(
    * @param size a size of memory region to deallocate
    */
   def deallocate[F[_]: LiftIO: Monad](offset: Int, size: Int): EitherT[F, InvokeError, Unit] =
-    invokeWasmFunction(module.instance, deallocateFunction, Int.box(offset) :: Int.box(size) :: Nil)
-      .map(_ ⇒ ())
+    deallocateFunction(module.instance, Int.box(offset) :: Int.box(size) :: Nil).map(_ ⇒ ())
 
   /**
    * Invokes invokeFunction which exported from Wasm module with provided arguments.
@@ -74,7 +73,7 @@ class MainWasmModule(
    * @param args arguments for invokeFunction
    */
   def invoke[F[_]: LiftIO: Monad](args: List[AnyRef]): EitherT[F, InvokeError, Int] =
-    invokeWasmFunction(module.instance, invokeFunction, args)
+    invokeFunction(module.instance, args).map(_.get.intValue())
 
   /**
    * Reads [offset, offset+size) region from the module memory.

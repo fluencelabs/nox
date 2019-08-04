@@ -162,7 +162,7 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
     whenStubbing.thenReturn(module.getClass, null)
   }
 
-  private def createWasmModulePlainHasher(instance: AnyRef): MainWasmModule = {
+  private def createWasmModulePlainHasher(instance: AnyRef): WasmModule = {
     val plainHasher = new Hasher[ByteBuffer, Array[Byte]] {
       override def apply[F[_]](input: ByteBuffer)(
         implicit evidence$2: Monad[F]

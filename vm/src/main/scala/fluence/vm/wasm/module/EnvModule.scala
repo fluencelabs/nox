@@ -31,19 +31,12 @@ import fluence.vm.wasm._
 import scala.language.higherKinds
 
 /**
- * Wrapper of Wasm Module instance compiled by Asmble to Java class. Provides all functionality of Wasm modules
- * according to the Fluence protocol (invoke, parameter passing, hash computing). TODO: after removing alloc/
- * dealloc should be refactored to two modules types (extends the same trait): "master" (that has invoke method
- * and can routes call from user to "slaves") and "slave" (without invoke method that does only computation).
+ * Wrapper for Environment module registered by Asmble (in its term it is a Native module).
+ * This module could be used for gas metering.
  *
- * @param name an optional module name (according to Wasm specification module name can be empty string (that is also
- *             "valid UTF-8") or even absent)
- * @param wasmMemory the memory of this module (please see comment in apply method to understand why it's optional now)
  * @param instance a instance of Wasm Module compiled by Asmble
- * @param allocateFunction a function used for allocation of a memory region for parameter passing
- * @param deallocateFunction a function used for deallocation of a memory region previously allocated
- *                          by allocateFunction
- * @param invokeFunction a function that represents main handler of Wasm module
+ * @param spentGasFunction a function returns a spent gas count
+ * @param setSpentGasFunction a function sets spent gas count
  */
 class EnvModule(
   private val instance: ModuleInstance,
@@ -52,20 +45,16 @@ class EnvModule(
 ) extends WasmFunctionInvoker {
 
   /**
-   * Allocates a memory region in Wasm module of supplied size by allocateFunction.
+   * Returns spent gas by a Wasm modules.
    */
   def getSpentGas[F[_]: LiftIO: Monad](): EitherT[F, InvokeError, Int] =
-    invokeWasmFunction(instance, spentGasFunction, Nil)
+    spentGasFunction(instance, Nil).map(_.get.intValue())
 
   /**
-   * Deallocates a previously allocated memory region in Wasm module by deallocateFunction.
-   *
-   * @param offset an address of the memory region to deallocate
-   * @param size a size of memory region to deallocate
+   * Clears the spent gas count.
    */
   def clearSpentGas[F[_]: LiftIO: Monad](): EitherT[F, InvokeError, Unit] =
-    invokeWasmFunction(instance, setSpentGasFunction, Int.box(0) :: Nil)
-      .map(_ ⇒ ())
+    setSpentGasFunction(instance, Int.box(0) :: Nil).map(_ ⇒ ())
 
 }
 
@@ -76,7 +65,8 @@ object EnvModule {
    *
    * @param moduleDescription a Asmble description of the module
    * @param scriptContext a Asmble context for the module operation
-   * @param memoryHasher a hasher used for compute hash if memory
+   * @param spentGasFunctionName a name of the function returns a spent gas count
+   * @param setSpentGasFunction a name of the function sets a spent gas count
    */
   def apply[F[_]: Monad](
     moduleDescription: Native,

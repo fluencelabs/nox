@@ -37,7 +37,7 @@ import scala.language.higherKinds
  * @param name an optional module name (according to Wasm specification module name can be empty string (that is also
  *             "valid UTF-8") or even absent)
  * @param wasmMemory the memory of this module (please see comment in apply method to understand why it's optional now)
- * @param instance a instance of Wasm Module compiled by Asmble
+ * @param instance a concrete instance of Wasm Module compiled by Asmble
  */
 class WasmModule(
   val name: Option[String],
