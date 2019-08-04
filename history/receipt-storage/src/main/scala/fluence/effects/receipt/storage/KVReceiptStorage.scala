@@ -23,13 +23,13 @@ class KVReceiptStorage[F[_]: Sync](val appId: Long, store: KVStore[F, Long, Rece
   /**
    * Stores receipt for the specified app at a given height
    */
-  override def put(height: Long, receipt: Receipt): EitherT[F, ReceiptStorageError, Unit] =
+  override def put(height: Long, receipt: Receipt)(implicit log: Log[F]): EitherT[F, ReceiptStorageError, Unit] =
     store.put(height, receipt).leftMap(PutError(appId, height, _))
 
   /**
    * Gets a receipt for specified app and height
    */
-  override def get(height: Long): EitherT[F, ReceiptStorageError, Option[Receipt]] =
+  override def get(height: Long)(implicit log: Log[F]): EitherT[F, ReceiptStorageError, Option[Receipt]] =
     store.get(height).leftMap(GetError(appId, height, _))
 
   /**
@@ -38,7 +38,7 @@ class KVReceiptStorage[F[_]: Sync](val appId: Long, store: KVStore[F, Long, Rece
   override def retrieve(
     from: Option[Long],
     to: Option[Long]
-  ): fs2.Stream[F, (Long, Receipt)] = {
+  )(implicit log: Log[F]): fs2.Stream[F, (Long, Receipt)] = {
 
     val stream = store.stream
     val dropped = from.fold(stream)(from => stream.dropWhile(_._1 < from))

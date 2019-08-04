@@ -19,6 +19,7 @@ package fluence.node.workers
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status.WorkerStatus
+import fluence.node.workers.subscription.ResponseSubscriber
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -36,4 +37,8 @@ trait WorkerServices[F[_]] {
 
   // Block manifests services: uploading, retrieving
   def blockManifests: WorkerBlockManifests[F]
+
+  // Service to subscribe for events
+  def responseSubscriber: ResponseSubscriber[F]
+
 }

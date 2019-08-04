@@ -37,7 +37,7 @@ class RocksDBStoreSpec extends KVStoreTestKit {
     PureCodec[Array[Byte], String] andThen PureCodec
       .liftB[String, Long](_.toLong, _.toString)
 
-  implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init("rocksDbSpec").unsafeRunSync()
+  override implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init("rocksDbSpec").unsafeRunSync()
 
   override def storeMaker: Resource[IO, KVStore[IO, Long, String]] =
     RocksDBStore.make[IO, Long, String](Files.createTempDirectory("rocksdbspec").toString)

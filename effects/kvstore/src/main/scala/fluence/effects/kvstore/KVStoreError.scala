@@ -35,3 +35,5 @@ case class KeyCodecError(error: CodecError) extends KVReadError with KVWriteErro
 case class IOExceptionError(message: String, cause: Throwable) extends KVReadError with KVWriteError {
   override def getCause: Throwable = Option(cause) getOrElse super.getCause
 }
+
+case class UnsupportedOperationError(message: String) extends KVReadError with KVWriteError

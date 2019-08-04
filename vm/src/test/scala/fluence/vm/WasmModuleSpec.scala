@@ -41,7 +41,7 @@ import scala.language.higherKinds
 class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
 
   implicit val ioTimer: Timer[IO] = IO.timer(ExecutionContext.global)
-  implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init(getClass.getSimpleName).unsafeRunSync()
+  implicit val log: Log[IO] = LogFactory.forPrintln[IO](Log.Error).init(getClass.getSimpleName).unsafeRunSync()
   implicit val logId: Log[Id] = log.mapK(new (IO ~> Id) {
     override def apply[A](fa: IO[A]): Id[A] = fa.unsafeRunSync()
   })

@@ -17,10 +17,13 @@
 package fluence.effects.kvstore
 
 import cats.effect.{IO, Resource}
+import fluence.log.Log
 import org.scalatest.{Matchers, WordSpec}
 
 trait KVStoreTestKit extends WordSpec with Matchers {
   def storeMaker: Resource[IO, KVStore[IO, Long, String]]
+
+  implicit val log: Log[IO]
 
   "store" should {
     "save and load" in {

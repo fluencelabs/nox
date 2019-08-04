@@ -25,13 +25,13 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.option._
 import cats.{Applicative, Monad, Traverse}
-import com.github.jtendermint.jabci.api.CodeType
 import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.Log
 import fluence.statemachine.control.{BlockReceipt, ControlSignals}
+import fluence.statemachine.data.{QueryCode, Tx, TxCode}
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
 import scodec.bits.ByteVector
@@ -159,7 +159,7 @@ class AbciService[F[_]: Monad: Effect](
             QueryResponse(
               state.height,
               Array.emptyByteArray,
-              Codes.NotFound,
+              QueryCode.NotFound.id,
               s"Cannot parse query path: $path, must be in `sessionId/nonce` format"
           )
         )
@@ -169,7 +169,7 @@ class AbciService[F[_]: Monad: Effect](
         state.get.map { st ⇒
           st.responses.find(_._1 == head) match {
             case Some((_, data)) ⇒
-              QueryResponse(st.height, data, Codes.Ok, s"Responded for path $path")
+              QueryResponse(st.height, data, QueryCode.Ok.id, s"Responded for path $path")
 
             case _ ⇒
               // Is it pending or unknown?
@@ -177,14 +177,14 @@ class AbciService[F[_]: Monad: Effect](
                 QueryResponse(
                   st.height,
                   Array.emptyByteArray,
-                  Codes.Pending,
+                  QueryCode.Pending.id,
                   s"Transaction is not yet processed: $path"
                 )
               else
                 QueryResponse(
                   st.height,
                   Array.emptyByteArray,
-                  Codes.NotFound,
+                  QueryCode.NotFound.id,
                   s"No response found for path: $path"
                 )
           }

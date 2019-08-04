@@ -32,11 +32,14 @@ import cats.syntax.functor._
 import cats.{Applicative, Apply, Parallel}
 import com.softwaremill.sttp.SttpBackend
 import fluence.codec.PureCodec
+import fluence.effects.{Backoff, EffectError}
 import fluence.effects.docker.DockerIO
 import fluence.effects.kvstore.RocksDBStore
+import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.log.Log
 import fluence.log.LogLevel.LogLevel
 import fluence.node.MakeResource
+import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.BlockUploading
 
 import scala.concurrent.duration._
@@ -53,13 +56,14 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
   logLevel: LogLevel,
   // TODO: it's not OK to have blockUploading here, it should be moved somewhere else
   blockUploading: BlockUploading[F],
-  rootPath: Path,
+  appReceiptStorage: Long ⇒ Resource[F, ReceiptStorage[F]],
   healthyWorkerTimeout: FiniteDuration = 1.second,
   stopTimeoutSeconds: Int = 5
 )(
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
   F: ConcurrentEffect[F],
-  P: Parallel[F, G]
+  P: Parallel[F, G],
+  backoff: Backoff[EffectError]
 ) extends WorkersPool[F] {
 
   /**
@@ -107,7 +111,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
     params: F[WorkerParams],
     p2pPort: Short,
     stopTimeout: Int,
-    storageRoot: Path
+    receiptStorage: Resource[F, ReceiptStorage[F]]
   )(implicit log: Log[F]): Resource[F, Worker[F]] =
     for {
       // Order events in the Worker context
@@ -122,7 +126,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
         } yield p
       )
 
-      services ← DockerWorkerServices.make[F](ps, p2pPort, stopTimeout, logLevel, storageRoot)
+      services ← DockerWorkerServices.make[F, G](ps, p2pPort, stopTimeout, logLevel, receiptStorage)
 
       worker ← Worker.make(
         ps.appId,
@@ -140,6 +144,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
       // TODO: pass promise from WorkerP2pConnectivity to blockUploading.start
       // Start uploading tendermint blocks and send receipts to statemachine
       _ <- blockUploading.start(worker)
+      _ <- worker.services.responseSubscriber.start()
 
       // Finally, register the worker in the pool
       _ ← registeredWorker(worker)
@@ -155,7 +160,10 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
    *                    It might take up to 2*`stopTimeout` seconds to gracefully stop the worker, as 2 containers involved.
    * @return Unit; no failures are expected
    */
-  def runWorker(p2pPort: Short, params: F[WorkerParams], stopTimeout: Int, rootPath: Path)(
+  def runWorker(p2pPort: Short,
+                params: F[WorkerParams],
+                stopTimeout: Int,
+                receiptStorage: Resource[F, ReceiptStorage[F]])(
     implicit log: Log[F]
   ): F[Unit] =
     MakeResource.useConcurrently[F](
@@ -164,7 +172,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
         params,
         p2pPort,
         stopTimeout,
-        rootPath
+        receiptStorage
       )
     )
 
@@ -184,7 +192,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
             // stop the old worker
             _ ← oldWorker.fold(().pure[F])(stop)
 
-            _ ← runWorker(p2pPort, params, stopTimeoutSeconds, rootPath)
+            _ ← runWorker(p2pPort, params, stopTimeoutSeconds, appReceiptStorage(appId))
 
           } yield
             if (oldWorker.isDefined) WorkersPool.Restarting
@@ -259,20 +267,22 @@ object DockerWorkersPool {
     minPort: Short,
     maxPort: Short,
     rootPath: Path,
+    appReceiptStorage: Long ⇒ Resource[F, ReceiptStorage[F]],
     workerLogLevel: LogLevel,
     blockUploading: BlockUploading[F]
   )(
     implicit
     sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
     F: ConcurrentEffect[F],
-    P: Parallel[F, G]
+    P: Parallel[F, G],
+    backoff: Backoff[EffectError]
   ): Resource[F, WorkersPool[F]] =
     for {
       ports ← makePorts(minPort, maxPort, rootPath)
       pool ← Resource.make {
         for {
           workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
-        } yield new DockerWorkersPool[F, G](ports, workers, workerLogLevel, blockUploading, rootPath)
+        } yield new DockerWorkersPool[F, G](ports, workers, workerLogLevel, blockUploading, appReceiptStorage)
       }(_.stopAll())
     } yield pool: WorkersPool[F]
 

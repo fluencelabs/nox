@@ -34,7 +34,7 @@ import scala.language.{higherKinds, implicitConversions}
 class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
   private implicit val timer: Timer[IO] = IO.timer(ExecutionContext.global)
-  private implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init(getClass.getSimpleName).unsafeRunSync()
+  private implicit val log: Log[IO] = LogFactory.forPrintln[IO](Log.Error).init(getClass.getSimpleName).unsafeRunSync()
 
   /**
    * By element comparision of arrays.

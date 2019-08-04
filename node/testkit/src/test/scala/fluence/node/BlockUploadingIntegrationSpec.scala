@@ -48,11 +48,13 @@ import fluence.node.config.DockerConfig
 import fluence.node.eth.state._
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 import fluence.node.workers.status.WorkerStatus
+import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
 import fluence.statemachine.AbciService.TxResponse
 import fluence.statemachine.control.{BlockReceipt, ControlSignals}
+import fluence.statemachine.data.{Tx, TxCode}
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
@@ -140,9 +142,13 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
         new ReceiptStorage[IO] {
           override val appId: Long = id
 
-          override def put(height: Long, receipt: Receipt): EitherT[IO, ReceiptStorageError, Unit] = EitherT.pure(())
-          override def get(height: Long): EitherT[IO, ReceiptStorageError, Option[Receipt]] = EitherT.pure(None)
-          override def retrieve(from: Option[Long], to: Option[Long]): fs2.Stream[IO, (Long, Receipt)] =
+          override def put(height: Long,
+                           receipt: Receipt)(implicit log: Log[IO]): EitherT[IO, ReceiptStorageError, Unit] =
+            EitherT.pure(())
+          override def get(height: Long)(implicit log: Log[IO]): EitherT[IO, ReceiptStorageError, Option[Receipt]] =
+            EitherT.pure(None)
+          override def retrieve(from: Option[Long],
+                                to: Option[Long])(implicit log: Log[IO]): fs2.Stream[IO, (Long, Receipt)] =
             fs2.Stream.emits(storedReceipts.map(r => r.height -> r))
         }
 
@@ -167,6 +173,9 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
 
         override def blockManifests: WorkerBlockManifests[IO] =
           new WorkerBlockManifests[IO](receiptStorage(appId), manifestRef)
+
+        override def responseSubscriber: ResponseSubscriber[IO] =
+          throw new NotImplementedError("def requestResponder")
       }
 
       val worker: Resource[IO, Worker[IO]] =
