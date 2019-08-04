@@ -58,7 +58,7 @@ import fluence.statemachine.data.{Tx, TxCode}
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
-import fluence.statemachine.{AbciService, TestTendermintRpc, Tx, TxCode}
+import fluence.statemachine.{AbciService, TestTendermintRpc}
 import fluence.vm.InvocationResult
 import fs2.concurrent.Queue
 import io.circe.Json
