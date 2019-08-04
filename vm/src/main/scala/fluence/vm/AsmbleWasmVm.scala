@@ -23,10 +23,9 @@ import cats.effect.LiftIO
 import cats.Monad
 import fluence.crypto.Crypto.Hasher
 import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
-import fluence.vm.VmError.{NoSuchModuleError, _}
+import fluence.vm.VmError.{InternalVmError, VmMemoryError}
 import fluence.vm.utils.safelyRunThrowable
 import scodec.bits.ByteVector
-import WasmVm._
 import fluence.vm.wasm.module.{EnvModule, MainWasmModule, WasmModule}
 
 import scala.language.higherKinds

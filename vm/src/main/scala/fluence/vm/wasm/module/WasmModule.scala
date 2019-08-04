@@ -21,13 +21,12 @@ import asmble.run.jvm.Module.Compiled
 import asmble.run.jvm.ScriptContext
 import cats.Monad
 import cats.data.EitherT
-import cats.syntax.either._
-import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
-import fluence.vm.VmError.{InitializationError, NoSuchFnError, VmMemoryError}
-import fluence.vm.wasm.{module, MemoryHasher, WasmFunction, WasmModuleMemory}
+import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError}
+import fluence.vm.VmError.InitializationError
+import fluence.vm.utils.safelyRunThrowable
+import fluence.vm.wasm.{module, MemoryHasher, WasmModuleMemory}
 
 import scala.language.higherKinds
-import scala.util.Try
 
 /**
  * Wrapper of Wasm Module instance compiled by Asmble to Java class. Provides all functionality of Wasm modules
@@ -73,26 +72,25 @@ object WasmModule {
     memoryHasher: MemoryHasher.Builder[F]
   ): EitherT[F, ApplyError, module.WasmModule] =
     for {
-
-      moduleInstance ← EitherT.fromEither[F](Try(moduleDescription.instance(scriptContext)).toEither.left.map { e ⇒
+      moduleInstance ← safelyRunThrowable(
+        moduleDescription.instance(scriptContext),
         // TODO: method 'instance' can throw both an initialization error and a
         // Trap error, but now they can't be separated
-        InitializationError(
-          s"Unable to initialize module=${moduleDescription.getName}",
-          Some(e)
-        )
-      })
+        e ⇒ InitializationError(s"Unable to initialize module=${moduleDescription.getName}", Some(e))
+      )
 
       // TODO: patch Asmble to create `getMemory` method in all cases
-      memory ← EitherT.fromEither[F](Try {
-        val getMemoryMethod = moduleInstance.getClass.getMethod("getMemory")
-        getMemoryMethod.invoke(moduleInstance).asInstanceOf[MemoryBuffer]
-      }.toEither.leftMap { e ⇒
-        InitializationError(
-          s"Unable to get memory from module=${Option(moduleDescription.getName).getOrElse("<no-name>")}",
-          Some(e)
-        ): ApplyError
-      })
+      memory ← safelyRunThrowable(
+        {
+          val getMemoryMethod = moduleInstance.getClass.getMethod("getMemory")
+          getMemoryMethod.invoke(moduleInstance).asInstanceOf[MemoryBuffer]
+        },
+        e ⇒
+          InitializationError(
+            s"Unable to get memory from module=${Option(moduleDescription.getName).getOrElse("<no-name>")}",
+            Some(e)
+          ): ApplyError
+      )
 
       moduleMemory ← WasmModuleMemory(memory, memoryHasher).leftMap(
         e ⇒

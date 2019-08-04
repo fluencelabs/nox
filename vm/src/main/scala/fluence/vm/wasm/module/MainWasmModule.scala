@@ -18,18 +18,16 @@ package fluence.vm.wasm.module
 
 import java.lang.reflect.Modifier
 
-import asmble.compile.jvm.MemoryBuffer
 import asmble.run.jvm.Module.Compiled
 import asmble.run.jvm.ScriptContext
 import cats.Monad
-import cats.data.{EitherT, Ior}
+import cats.data.EitherT
 import cats.effect.LiftIO
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
-import fluence.vm.VmError.{InitializationError, NoSuchFnError, VmMemoryError}
+import fluence.vm.VmError.{NoSuchFnError, VmMemoryError}
 import fluence.vm.wasm._
 
 import scala.language.higherKinds
-import scala.util.Try
 
 /**
  * Wrapper of Wasm Module instance compiled by Asmble to Java class. Provides all functionality of Wasm modules
@@ -140,7 +138,7 @@ object MainWasmModule {
               (allocMethod, deallocMethod, invokeMethod)
           },
         NoSuchFnError(
-          s"The main module must have function with $allocationFunctionName, $deallocationFunctionName, $invokeFunctionName"
+          s"The main module must have functions with names $allocationFunctionName, $deallocationFunctionName, $invokeFunctionName"
         ): ApplyError
       )
 

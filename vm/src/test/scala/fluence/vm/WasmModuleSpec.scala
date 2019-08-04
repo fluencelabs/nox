@@ -48,7 +48,7 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
 
   "apply" should {
     "returns an error" when {
-      "unable to initialize module" in {
+      "unable to initialize main module" in {
         val scriptCtx = mock[ScriptContext]
         val module = mock[Compiled]
         Mockito.when(module.getName).thenReturn("test-module-name")
@@ -56,6 +56,23 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
         addClsStubbing(module)
 
         MainWasmModule(module, scriptCtx, MemoryHasher.apply, "", "", "").value match {
+          case Right(_) ⇒
+            fail("Should be error appeared")
+          case Left(e) ⇒
+            e.getMessage shouldBe "Unable to initialize module=test-module-name"
+            e.getCause shouldBe a[RuntimeException]
+            e shouldBe a[InitializationError]
+        }
+      }
+
+      "unable to initialize side module" in {
+        val scriptCtx = mock[ScriptContext]
+        val module = mock[Compiled]
+        Mockito.when(module.getName).thenReturn("test-module-name")
+        Mockito.when(module.instance(scriptCtx)).thenThrow(new RuntimeException("boom!"))
+        addClsStubbing(module)
+
+        WasmModule(module, scriptCtx, MemoryHasher.apply).value match {
           case Right(_) ⇒
             fail("Should be error appeared")
           case Left(e) ⇒
@@ -73,44 +90,13 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
         Mockito.when(module.instance(scriptCtx)).thenReturn(instance, null)
         addClsStubbing(module)
 
-        MainWasmModule(module, scriptCtx, MemoryHasher.apply, "", "", "").value match {
+        WasmModule(module, scriptCtx, MemoryHasher.apply).value match {
           case Right(_) ⇒
             fail("Should be error appeared")
           case Left(e) ⇒
             e.getMessage shouldBe "Unable to get memory from module=test-module-name"
             e.getCause shouldBe a[InvocationTargetException]
             e shouldBe a[InitializationError]
-        }
-      }
-    }
-
-    "return module instance" when {
-      "there is no module memory" in {
-        val instance = new { val cls: java.lang.Class[_] = this.getClass }
-        val module = mock[Compiled]
-        Mockito.when(module.getName).thenReturn("test-module-name")
-        val scriptCtx = mock[ScriptContext]
-        Mockito.when(module.instance(scriptCtx)).thenReturn(instance, null)
-        addClsStubbing(module)
-
-        MainWasmModule(module, scriptCtx, MemoryHasher.apply, "", "", "").isLeft shouldBe true
-      }
-
-      "module has a memory" in {
-        val instance = new { def getMemory: MemoryBuffer = new MemoryByteBuffer(ByteBuffer.wrap(Array[Byte](1, 2, 3))) }
-        val module = mock[Compiled]
-        Mockito.when(module.getName).thenReturn("test-module-name")
-        val scriptCtx = mock[ScriptContext]
-        Mockito.when(module.instance(scriptCtx)).thenReturn(instance, null)
-        addClsStubbing(module)
-
-        wasm.module.MainWasmModule(module, scriptCtx, MemoryHasher.apply, "", "", "").value match {
-          case Right(moduleInstance) ⇒
-            for {
-              memoryRegion <- moduleInstance.readMemory(0, 3)
-            } yield memoryRegion should contain allOf (1, 2, 3)
-          case Left(e) ⇒
-            fail(s"Error shouldn't appears. $e")
         }
       }
     }
@@ -191,9 +177,9 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
 
     createWasmModuleFull(instance, (m: MemoryBuffer) => EitherT.rightT(MemoryHasher.plainMemoryHasher(m, plainHasher)))
   }
-  private def createWasmModule(instance: AnyRef): MainWasmModule = createWasmModuleFull(instance, MemoryHasher.apply)
+  private def createWasmModule(instance: AnyRef): WasmModule = createWasmModuleFull(instance, MemoryHasher.apply)
 
-  private def createWasmModuleFull(instance: AnyRef, builder: MemoryHasher.Builder[Id]): MainWasmModule = {
+  private def createWasmModuleFull(instance: AnyRef, builder: MemoryHasher.Builder[Id]): WasmModule = {
     val module = mock[Compiled]
     Mockito.when(module.getName).thenReturn("test-module-name")
     val scriptCtx = mock[ScriptContext]
@@ -201,7 +187,7 @@ class WasmModuleSpec extends WordSpec with Matchers with MockitoSugar {
 
     addClsStubbing(module)
 
-    MainWasmModule(module, scriptCtx, builder, "", "", "").value.right.get
+    WasmModule(module, scriptCtx, builder).value.right.get
   }
 
 }

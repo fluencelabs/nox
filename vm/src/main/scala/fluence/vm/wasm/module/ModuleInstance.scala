@@ -16,6 +16,4 @@
 
 package fluence.vm.wasm.module
 
-import scala.language.higherKinds
-
 case class ModuleInstance(moduleInstance: Any)

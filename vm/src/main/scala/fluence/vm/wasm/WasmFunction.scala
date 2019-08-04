@@ -29,9 +29,9 @@ import scala.language.higherKinds
 trait WasmFunctionInvoker {
 
   def invokeWasmFunction[F[_]: LiftIO: Monad](
-                                               moduleInstance: ModuleInstance,
-                                               wasmFn: WasmFunction,
-                                               args: List[AnyRef]
+    moduleInstance: ModuleInstance,
+    wasmFn: WasmFunction,
+    args: List[AnyRef]
   ): EitherT[F, InvokeError, Int] =
     for {
       rawResult ← wasmFn(moduleInstance, args)
@@ -68,8 +68,8 @@ case class WasmFunction(
    * @tparam F a monad with an ability to absorb 'IO'
    */
   def apply[F[_]: Functor: LiftIO](
-                                    module: ModuleInstance,
-                                    args: List[AnyRef]
+    module: ModuleInstance,
+    args: List[AnyRef]
   ): EitherT[F, InvokeError, Option[Number]] =
     EitherT(
       IO(javaMethod.invoke(module.moduleInstance, args: _*))

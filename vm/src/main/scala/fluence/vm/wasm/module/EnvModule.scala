@@ -18,17 +18,17 @@ package fluence.vm.wasm.module
 
 import java.lang.reflect.Modifier
 
-import asmble.run.jvm.Module.{Compiled, Native}
+import asmble.run.jvm.Module.Native
 import asmble.run.jvm.ScriptContext
 import cats.Monad
 import cats.data.EitherT
 import cats.effect.LiftIO
-import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
-import fluence.vm.VmError.{InitializationError, NoSuchFnError, VmMemoryError}
+import fluence.vm.VmError.WasmVmError.{ApplyError, InvokeError}
+import fluence.vm.VmError.{InitializationError, NoSuchFnError}
+import fluence.vm.utils.safelyRunThrowable
 import fluence.vm.wasm._
 
 import scala.language.higherKinds
-import scala.util.Try
 
 /**
  * Wrapper of Wasm Module instance compiled by Asmble to Java class. Provides all functionality of Wasm modules
@@ -85,12 +85,11 @@ object EnvModule {
     setSpentGasFunction: String
   ): EitherT[F, ApplyError, EnvModule] =
     for {
-      moduleInstance ← EitherT.fromEither[F](Try(moduleDescription.instance(scriptContext)).toEither.left.map { e ⇒
-        InitializationError(
-          s"Unable to initialize the environment module",
-          Some(e)
-        )
-      })
+
+      moduleInstance ← safelyRunThrowable(
+        moduleDescription.instance(scriptContext),
+        e ⇒ InitializationError(s"Unable to initialize the environment module", Some(e))
+      )
 
       moduleMethods: Stream[WasmFunction] = moduleDescription.getCls.getDeclaredMethods.toStream
         .filter(method ⇒ Modifier.isPublic(method.getModifiers))
