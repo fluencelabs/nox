@@ -18,14 +18,14 @@ package fluence.vm.wasm.module
 
 import java.lang.reflect.Modifier
 
-import asmble.run.jvm.Module.Compiled
+import asmble.run.jvm.Module.{Compiled, Native}
 import asmble.run.jvm.ScriptContext
 import cats.Monad
 import cats.data.EitherT
 import cats.effect.LiftIO
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
 import fluence.vm.VmError.{InitializationError, NoSuchFnError, VmMemoryError}
-import fluence.vm.wasm.{module, MemoryHasher, WasmFunction, WasmModuleMemory}
+import fluence.vm.wasm._
 
 import scala.language.higherKinds
 import scala.util.Try
@@ -39,23 +39,23 @@ import scala.util.Try
  * @param name an optional module name (according to Wasm specification module name can be empty string (that is also
  *             "valid UTF-8") or even absent)
  * @param wasmMemory the memory of this module (please see comment in apply method to understand why it's optional now)
- * @param moduleInstance a instance of Wasm Module compiled by Asmble
+ * @param instance a instance of Wasm Module compiled by Asmble
  * @param allocateFunction a function used for allocation of a memory region for parameter passing
  * @param deallocateFunction a function used for deallocation of a memory region previously allocated
  *                          by allocateFunction
  * @param invokeFunction a function that represents main handler of Wasm module
  */
 class EnvModule(
-  private val module: WasmModule,
+  private val instance: ModuleInstance,
   private val spentGasFunction: WasmFunction,
   private val setSpentGasFunction: WasmFunction
-) {
+) extends WasmFunctionInvoker {
 
   /**
    * Allocates a memory region in Wasm module of supplied size by allocateFunction.
    */
   def getSpentGas[F[_]: LiftIO: Monad](): EitherT[F, InvokeError, Int] =
-    module.invokeWasmFunction(spentGasFunction, Nil)
+    invokeWasmFunction(instance, spentGasFunction, Nil)
 
   /**
    * Deallocates a previously allocated memory region in Wasm module by deallocateFunction.
@@ -64,8 +64,7 @@ class EnvModule(
    * @param size a size of memory region to deallocate
    */
   def clearSpentGas[F[_]: LiftIO: Monad](): EitherT[F, InvokeError, Unit] =
-    module
-      .invokeWasmFunction(setSpentGasFunction, Int.box(0) :: Nil)
+    invokeWasmFunction(instance, setSpentGasFunction, Int.box(0) :: Nil)
       .map(_ ⇒ ())
 
 }
@@ -80,14 +79,18 @@ object EnvModule {
    * @param memoryHasher a hasher used for compute hash if memory
    */
   def apply[F[_]: Monad](
-    moduleDescription: Compiled,
+    moduleDescription: Native,
     scriptContext: ScriptContext,
-    memoryHasher: MemoryHasher.Builder[F],
     spentGasFunctionName: String,
     setSpentGasFunction: String
   ): EitherT[F, ApplyError, EnvModule] =
     for {
-      module <- WasmModule(moduleDescription, scriptContext, memoryHasher)
+      moduleInstance ← EitherT.fromEither[F](Try(moduleDescription.instance(scriptContext)).toEither.left.map { e ⇒
+        InitializationError(
+          s"Unable to initialize the environment module",
+          Some(e)
+        )
+      })
 
       moduleMethods: Stream[WasmFunction] = moduleDescription.getCls.getDeclaredMethods.toStream
         .filter(method ⇒ Modifier.isPublic(method.getModifiers))
@@ -111,7 +114,7 @@ object EnvModule {
 
     } yield
       new EnvModule(
-        module,
+        ModuleInstance(moduleInstance),
         spentGas,
         setSpentGas
       )

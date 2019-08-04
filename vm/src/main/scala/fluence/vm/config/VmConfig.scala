@@ -23,7 +23,7 @@ import pureconfig.generic.ProductHint
 import scala.util.control.NoStackTrace
 
 case class MainModuleConfig(
-  name: String,
+  name: Option[String],
   allocateFunctionName: String,
   deallocateFunctionName: String,
   invokeFunctionName: String,
@@ -53,8 +53,8 @@ case class VmConfig(
   specTestRegister: Boolean,
   loggerModuleEnabled: Boolean,
   chunkSize: Int,
-  mainModule: MainModuleConfig,
-  envModule: EnvModuleConfig
+  mainModuleConfig: MainModuleConfig,
+  envModuleConfig: EnvModuleConfig
 )
 
 object VmConfig {

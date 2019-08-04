@@ -175,7 +175,8 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         compareArrays(get3.output, Array[Byte](3, 0, 0, 0))
       }
 
-      val tt = res.success()
+      val tt = res.failed()
+      val yy = tt
     }
 
     "run simple test with array passsing" in {

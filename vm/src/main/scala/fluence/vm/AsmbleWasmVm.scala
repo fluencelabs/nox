@@ -27,7 +27,7 @@ import fluence.vm.VmError.{NoSuchModuleError, _}
 import fluence.vm.utils.safelyRunThrowable
 import scodec.bits.ByteVector
 import WasmVm._
-import fluence.vm.wasm.module.{EnvModule, MainModule, WasmModule}
+import fluence.vm.wasm.module.{EnvModule, MainWasmModule, WasmModule}
 
 import scala.language.higherKinds
 
@@ -41,7 +41,7 @@ import scala.language.higherKinds
  * @param hasher a hash function provider used for VM state hash computing
  */
 class AsmbleWasmVm(
-  private val mainModule: MainModule,
+  private val mainModule: MainWasmModule,
   private val envModule: EnvModule,
   private val sideModules: Seq[WasmModule],
   private val hasher: Hasher[Array[Byte], Array[Byte]]

@@ -21,7 +21,6 @@ import asmble.run.jvm.Module.Compiled
 import asmble.run.jvm.ScriptContext
 import cats.Monad
 import cats.data.EitherT
-import cats.effect.LiftIO
 import cats.syntax.either._
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
 import fluence.vm.VmError.{InitializationError, NoSuchFnError, VmMemoryError}
@@ -39,12 +38,12 @@ import scala.util.Try
  * @param name an optional module name (according to Wasm specification module name can be empty string (that is also
  *             "valid UTF-8") or even absent)
  * @param wasmMemory the memory of this module (please see comment in apply method to understand why it's optional now)
- * @param moduleInstance a instance of Wasm Module compiled by Asmble
+ * @param instance a instance of Wasm Module compiled by Asmble
  */
 class WasmModule(
   val name: Option[String],
   val wasmMemory: WasmModuleMemory,
-  val moduleInstance: Any
+  val instance: ModuleInstance
 ) {
 
   /**
@@ -55,23 +54,6 @@ class WasmModule(
    */
   def computeStateHash[F[_]: Monad](): EitherT[F, GetVmStateError, Array[Byte]] =
     wasmMemory.computeMemoryHash()
-
-  def invokeWasmFunction[F[_]: LiftIO: Monad](
-    wasmFn: WasmFunction,
-    args: List[AnyRef]
-  ): EitherT[F, InvokeError, Int] =
-    for {
-      rawResult ← wasmFn(moduleInstance, args)
-
-      // Despite our way of thinking about Wasm function return value type as one of (i32, i64, f32, f64) in
-      // WasmModule context, there we can operate with Int (i32) values. It comes from our conventions about
-      // Wasm modules design: they have to has only one export function as a user interface. It has to receive
-      // and return a byte array, but since array can't be directly returns from Wasm part, It returns pointer
-      // to in memory. And since Webassembly is only 32-bit now, Int(i32) is used as a pointer and return value
-      // type. And after Wasm64 release, there should be additional logic to operate both with 32 and 64-bit
-      // modules. TODO: fold with default value is just a temporary solution - after alloc/dealloc removal it
-      // should be refactored to Either.fromOption
-    } yield rawResult.fold(0)(_.intValue)
 
   override def toString: String = name.getOrElse("<no-name>")
 }
@@ -124,7 +106,7 @@ object WasmModule {
       new WasmModule(
         Option(moduleDescription.getName),
         moduleMemory,
-        moduleInstance
+        ModuleInstance(moduleInstance)
       )
 
 }

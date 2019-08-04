@@ -26,7 +26,7 @@ import cats.data.{EitherT, Ior}
 import cats.effect.LiftIO
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
 import fluence.vm.VmError.{InitializationError, NoSuchFnError, VmMemoryError}
-import fluence.vm.wasm.{module, MemoryHasher, WasmFunction, WasmModuleMemory}
+import fluence.vm.wasm._
 
 import scala.language.higherKinds
 import scala.util.Try
@@ -42,12 +42,12 @@ import scala.util.Try
  *                          by allocateFunction
  * @param invokeFunction a function that represents main handler of Wasm module
  */
-class MainModule(
+class MainWasmModule(
   private val module: WasmModule,
   private val allocateFunction: WasmFunction,
   private val deallocateFunction: WasmFunction,
   private val invokeFunction: WasmFunction
-) {
+) extends WasmFunctionInvoker {
 
   def computeStateHash[F[_]: Monad](): EitherT[F, GetVmStateError, Array[Byte]] =
     module.computeStateHash()
@@ -58,7 +58,7 @@ class MainModule(
    * @param size a size of memory that need to be allocated
    */
   def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, Int] =
-    module.invokeWasmFunction(allocateFunction, Int.box(size) :: Nil)
+    invokeWasmFunction(module.instance, allocateFunction, Int.box(size) :: Nil)
 
   /**
    * Deallocates a previously allocated memory region in Wasm module by deallocateFunction.
@@ -67,8 +67,7 @@ class MainModule(
    * @param size a size of memory region to deallocate
    */
   def deallocate[F[_]: LiftIO: Monad](offset: Int, size: Int): EitherT[F, InvokeError, Unit] =
-    module
-      .invokeWasmFunction(deallocateFunction, Int.box(offset) :: Int.box(size) :: Nil)
+    invokeWasmFunction(module.instance, deallocateFunction, Int.box(offset) :: Int.box(size) :: Nil)
       .map(_ ⇒ ())
 
   /**
@@ -77,7 +76,7 @@ class MainModule(
    * @param args arguments for invokeFunction
    */
   def invoke[F[_]: LiftIO: Monad](args: List[AnyRef]): EitherT[F, InvokeError, Int] =
-    module.invokeWasmFunction(invokeFunction, args)
+    invokeWasmFunction(module.instance, invokeFunction, args)
 
   /**
    * Reads [offset, offset+size) region from the module memory.
@@ -100,7 +99,7 @@ class MainModule(
   override def toString: String = module.name.getOrElse("<no-name>")
 }
 
-object MainModule {
+object MainWasmModule {
 
   /**
    * Creates instance for specified module.
@@ -116,7 +115,7 @@ object MainModule {
     allocationFunctionName: String,
     deallocationFunctionName: String,
     invokeFunctionName: String
-  ): EitherT[F, ApplyError, MainModule] =
+  ): EitherT[F, ApplyError, MainWasmModule] =
     for {
       module <- WasmModule(moduleDescription, scriptContext, memoryHasher)
 
@@ -146,7 +145,7 @@ object MainModule {
       )
 
     } yield
-      new MainModule(
+      new MainWasmModule(
         module,
         allocMethod,
         deallocMethod,
