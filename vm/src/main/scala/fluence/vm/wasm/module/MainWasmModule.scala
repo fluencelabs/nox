@@ -95,12 +95,12 @@ class MainWasmModule(
     module.wasmMemory.writeBytes(offset, injectedArray)
 
   /**
-    * Invokes a given Wasm function on a given module and safely converts a result to int.
-    *
-    * @param moduleInstance a instance of Wasm Module that should run wasmFn.
-    * @param wasmFn a function that should be invoked.
-    * @param args arguments for the function.
-    */
+   * Invokes a given Wasm function on a given module and safely converts a result to int.
+   *
+   * @param moduleInstance a instance of Wasm Module that should run wasmFn.
+   * @param wasmFn a function that should be invoked.
+   * @param args arguments for the function.
+   */
   private def invokeWasmFunctionInt[F[_]: LiftIO: Monad](
     moduleInstance: ModuleInstance,
     wasmFn: WasmFunction,
@@ -111,11 +111,12 @@ class MainWasmModule(
 
       result ← EitherT.fromOption[F](
         rawResult,
-        InternalVmError(s"Function with name=$wasmFn should return value") : InvokeError
+        InternalVmError(s"Function with name=$wasmFn should return value"): InvokeError
       )
 
-      intResult ← safelyRunThrowable(result.intValue(),
-        e ⇒ InternalVmError("Function with name=$wasmFn should return value of integer type", Some(e)) : InvokeError
+      intResult ← safelyRunThrowable(
+        result.intValue(),
+        e ⇒ InternalVmError("Function with name=$wasmFn should return value of integer type", Some(e)): InvokeError
       )
 
     } yield intResult

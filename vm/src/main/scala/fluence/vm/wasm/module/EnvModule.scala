@@ -47,10 +47,10 @@ class EnvModule(
   /**
    * Returns spent gas by Wasm code.
    */
-  def getSpentGas[F[_]: LiftIO: Monad](): EitherT[F, InvokeError, Int] =
+  def getSpentGas[F[_]: LiftIO: Monad](): EitherT[F, InvokeError, Long] =
     // it is known that spent gas function should return value of Integer type
     // and then this value is used only like a number and it is pretty safe to use fold here
-    spentGasFunction(instance, Nil).map(_.fold(0)(_.intValue()))
+    spentGasFunction(instance, Nil).map(_.fold(0L)(_.longValue()))
 
   /**
    * Clears the spent gas count.
