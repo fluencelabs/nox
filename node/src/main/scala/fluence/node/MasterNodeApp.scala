@@ -44,7 +44,8 @@ import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
 import fluence.node.workers.{DockerWorkersPool, WorkerApi}
-import fluence.node.workers.tendermint.{BlockUploading, DhtReceiptStorage}
+import fluence.node.workers.tendermint.DhtReceiptStorage
+import fluence.node.workers.tendermint.block.BlockUploading
 
 import scala.language.higherKinds
 
@@ -126,15 +127,18 @@ object MasterNodeApp extends IOApp {
     appReceiptStorage: Long ⇒ Resource[IO, ReceiptStorage[IO]],
     conf: MasterConfig
   )(implicit sttp: STTP, log: Log[IO], dio: DockerIO[IO], backoff: Backoff[EffectError]) =
-    DockerWorkersPool.make(
-      conf.ports.minPort,
-      conf.ports.maxPort,
-      rootPath,
-      appReceiptStorage,
-      conf.logLevel,
-      // TODO: use generic decentralized storage for block uploading instead of IpfsUploader
-      BlockUploading(ipfsUploader(conf.remoteStorage))
-    )
+    for {
+      blockUploading <- BlockUploading(conf.blockUploadingEnabled, ipfsUploader(conf.remoteStorage))
+      pool <- DockerWorkersPool.make(
+        conf.ports.minPort,
+        conf.ports.maxPort,
+        rootPath,
+        appReceiptStorage,
+        conf.logLevel,
+        // TODO: use generic decentralized storage for block uploading instead of IpfsUploader
+        blockUploading
+      )
+    } yield pool
 
   private def kademlia(rootPath: Path, conf: KademliaConfig)(implicit sttp: STTP, log: Log[IO]) =
     Resource

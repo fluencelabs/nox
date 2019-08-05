@@ -14,20 +14,16 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.tendermint
-
-import java.nio.ByteBuffer
+package fluence.node.workers.tendermint.block
 
 import cats.Applicative
-import cats.data.{Chain, EitherT}
+import cats.data.Chain
 import cats.effect._
 import cats.effect.concurrent.{Deferred, MVar, Ref}
+import cats.syntax.apply._
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.syntax.apply._
-import com.softwaremill.sttp.SttpBackend
-import fluence.effects.ipfs.IpfsUploader
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, BlockManifest, Receipt}
@@ -50,9 +46,9 @@ private[tendermint] case class BlockUpload(block: Block,
  *
  * @param history Description of how to store blocks
  */
-class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
+class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
   history: BlockHistory[F]
-) {
+) extends BlockUploading[F] {
 
   /**
    * Subscribe on new blocks from tendermint and upload them one by one to the decentralized storage
@@ -194,18 +190,4 @@ class BlockUploading[F[_]: ConcurrentEffect: Timer: ContextShift](
   // Writes a trace log about block uploading
   private def traceBU(msg: String)(implicit log: Log[F]) =
     log.trace(Console.YELLOW + s"BUD: $msg" + Console.RESET)
-
-}
-
-object BlockUploading {
-
-  def apply[F[_]: Log: ConcurrentEffect: Timer: ContextShift: Clock](
-    ipfs: IpfsUploader[F]
-  )(
-    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
-    backoff: Backoff[EffectError] = Backoff.default
-  ): BlockUploading[F] = {
-    val history = new BlockHistory[F](ipfs)
-    new BlockUploading[F](history)
-  }
 }
