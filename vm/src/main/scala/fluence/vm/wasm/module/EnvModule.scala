@@ -31,8 +31,7 @@ import fluence.vm.wasm._
 import scala.language.higherKinds
 
 /**
- * Wrapper for Environment module registered by Asmble (in its term it is a Native module - please find more info
- * in WasmModule docs).
+ * Wrapper for Environment module registered by Asmble (please find more info in WasmModule docs).
  * This module could be used for gas metering.
  *
  * @param instance a instance of Wasm Module compiled by Asmble
@@ -46,7 +45,7 @@ class EnvModule(
 ) extends WasmFunctionInvoker {
 
   /**
-   * Returns spent gas by a Wasm modules.
+   * Returns spent gas by Wasm code.
    */
   def getSpentGas[F[_]: LiftIO: Monad](): EitherT[F, InvokeError, Int] =
     spentGasFunction(instance, Nil).map(_.get.intValue())
