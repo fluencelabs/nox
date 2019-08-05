@@ -21,8 +21,10 @@ import cats.data.EitherT
 import cats.syntax.apply._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.applicative._
+import io.circe.parser._
+import io.circe.generic.semiauto.deriveDecoder
 import cats.effect.{Concurrent, Sync}
-import fluence.effects.tendermint.rpc._
 import fluence.effects.tendermint.rpc.http.{
   RpcBlockParsingFailed,
   RpcBodyMalformed,
@@ -41,9 +43,15 @@ import fluence.node.workers.subscription.{
   TxInvalidError,
   TxParsingError
 }
+import fs2.concurrent.Queue
+import io.circe.Decoder
 import org.http4s.dsl.Http4sDsl
+import org.http4s.server.websocket.WebSocketBuilder
+import org.http4s.websocket.WebSocketFrame
+import org.http4s.websocket.WebSocketFrame.Text
 import org.http4s.{HttpRoutes, Response}
 
+import scala.concurrent.duration._
 import scala.language.higherKinds
 
 object WorkersHttp {
@@ -98,8 +106,9 @@ object WorkersHttp {
    * @param pool Workers pool to get workers from
    * @param dsl Http4s DSL to build routes with
    */
-  def routes[F[_]: Sync: LogFactory: Concurrent](pool: WorkersPool[F], workerApi: WorkerApi)(
-    implicit dsl: Http4sDsl[F]
+  def routes[F[_]: Sync: LogFactory](pool: WorkersPool[F], workerApi: WorkerApi)(
+    implicit dsl: Http4sDsl[F],
+    F: Concurrent[F]
   ): HttpRoutes[F] = {
     import dsl._
 
@@ -119,6 +128,40 @@ object WorkersHttp {
 
     // Routes comes there
     HttpRoutes.of {
+      case GET -> Root / LongVar(appId) / "ws" =>
+        LogFactory[F].init("http" -> "websocket", "app" -> appId.toString) >>= { implicit log =>
+          withWorker(appId)(w => {
+            val websocket = new WorkersWebsocket(w, workerApi)
+            val echoReply: fs2.Pipe[F, WebSocketFrame, WebSocketFrame] =
+              _.evalMap {
+                case Text(msg, _) =>
+                  val respF = for {
+                    request <- EitherT.fromEither(parse(msg).flatMap(j => j.as[WebsocketRequest]))
+                    response = websocket.process(request)
+                  } yield {
+                    response
+                  }
+                  respF.value.map {
+                    case Left(err) => Text(err.getMessage)
+                    case Right(ok) =>
+                      ok match {
+                        case Left(err) => Text(err.message)
+                        case Right(ok) => Text(ok)
+                      }
+                  }
+                case _ => Text("Something new").pure[F]
+              }
+
+            Queue
+              .unbounded[F, WebSocketFrame]
+              .flatMap { q =>
+                val d = q.dequeue.through(echoReply)
+                val e = q.enqueue
+                WebSocketBuilder[F].build(d, e)
+              }
+          })
+        }
+
       case GET -> Root / LongVar(appId) / "query" :? QueryPath(path) +& QueryData(data) +& QueryId(id) ⇒
         LogFactory[F].init("http" -> "query", "app" -> appId.toString) >>= { implicit log =>
           withWorker(appId)(w => workerApi.query(w, data, path, id).flatMap(tendermintResponseToHttp(appId, _)))
