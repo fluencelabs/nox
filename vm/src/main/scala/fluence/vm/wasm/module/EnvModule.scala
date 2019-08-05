@@ -87,18 +87,18 @@ object EnvModule {
         .filter(method ⇒ Modifier.isPublic(method.getModifiers))
         .map(method ⇒ WasmFunction(method.getName, method))
 
-      (spentGas: WasmFunction, setSpentGas: WasmFunction) <- EitherT.fromOption(
+      (spentGas: WasmFunction, setSpentGas: WasmFunction) ← EitherT.fromOption(
         moduleMethods
           .scanLeft((Option.empty[WasmFunction], Option.empty[WasmFunction])) {
-            case (acc, m @ WasmFunction(`spentGasFunctionName`, _)) =>
+            case (acc, m @ WasmFunction(`spentGasFunctionName`, _)) ⇒
               acc.copy(_1 = Some(m))
-            case (acc, m @ WasmFunction(`setSpentGasFunction`, _)) =>
+            case (acc, m @ WasmFunction(`setSpentGasFunction`, _)) ⇒
               acc.copy(_2 = Some(m))
-            case (acc, _) =>
+            case (acc, _) ⇒
               acc
           }
           .collectFirst {
-            case (Some(m1), Some(m2)) => (m1, m2)
+            case (Some(m1), Some(m2)) ⇒ (m1, m2)
           },
         NoSuchFnError(s"The env module must have function with names $spentGasFunctionName, $setSpentGasFunction"): ApplyError
       )

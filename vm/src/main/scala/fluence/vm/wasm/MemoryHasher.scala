@@ -43,7 +43,7 @@ object MemoryHasher {
 
   val SHA_256 = "SHA-256"
 
-  type Builder[F[_]] = MemoryBuffer => EitherT[F, GetVmStateError, MemoryHasher]
+  type Builder[F[_]] = MemoryBuffer ⇒ EitherT[F, GetVmStateError, MemoryHasher]
 
   /**
    * Builds memory hasher based on Merkle Tree with SHA-256 hash algorithm.
@@ -77,16 +77,16 @@ object MemoryHasher {
    *
    */
   def apply[F[_]: Monad: Log]: Builder[F] = {
-    case m: TrackingMemoryBuffer =>
+    case m: TrackingMemoryBuffer ⇒
       Log.eitherT[F, GetVmStateError].info("TrackingMemoryBuffer with MerkleTree hasher will be used.") *>
         EitherT.fromEither[F](buildMerkleTreeHasher(m))
-    case m =>
+    case m ⇒
       Log.eitherT[F, GetVmStateError].info("Plain hasher will be used.") *>
         EitherT.rightT(buildPlainHasher(m))
   }
 
   def plainHasherBuilder[F[_]: Applicative](hasher: Hasher[ByteBuffer, Array[Byte]]): Builder[F] =
-    m => EitherT.rightT[F, GetVmStateError](plainMemoryHasher(m, hasher))
+    m ⇒ EitherT.rightT[F, GetVmStateError](plainMemoryHasher(m, hasher))
 
   /**
    * Instantiates the class, that get all memory and hash it with `hasher` function on call.
@@ -98,23 +98,23 @@ object MemoryHasher {
       override def computeMemoryHash[F[_]: Monad](): EitherT[F, GetVmStateError, Array[Byte]] = {
         for {
           // could be overflow
-          memoryArray <- safelyRunThrowable(
+          memoryArray ← safelyRunThrowable(
             {
               memory match {
-                case m: TrackingMemoryBuffer =>
+                case m: TrackingMemoryBuffer ⇒
                   m.duplicate().clear()
                   m.bb
-                case m: MemoryByteBuffer =>
+                case m: MemoryByteBuffer ⇒
                   m.duplicate().clear()
                   m.getBb
-                case m =>
+                case m ⇒
                   val arr = new Array[Byte](memory.capacity())
                   memory.duplicate().order(ByteOrder.LITTLE_ENDIAN).clear().get(arr)
                   ByteBuffer.wrap(arr)
               }
 
             },
-            e =>
+            e ⇒
               VmMemoryError(
                 s"Cannot copy memory with capacity ${memory.capacity()} to an array",
                 Some(e)
@@ -140,18 +140,18 @@ object MemoryHasher {
     treeHasher: TreeHasher
   ): Either[GetVmStateError, MemoryHasher] = {
     for {
-      tree <- Try(
+      tree ← Try(
         BinaryMerkleTree(
           treeHasher,
           memoryBuffer
         )
-      ).toEither.leftMap(e => InternalVmError(s"Cannot create binary Merkle Tree", Some(e)): GetVmStateError)
+      ).toEither.leftMap(e ⇒ InternalVmError(s"Cannot create binary Merkle Tree", Some(e)): GetVmStateError)
     } yield {
       new MemoryHasher {
         override def computeMemoryHash[F[_]: Monad](): EitherT[F, GetVmStateError, Array[Byte]] = {
           safelyRunThrowable(
             tree.recalculateHash(),
-            e => InternalVmError(s"Computing wasm memory hash failed", Some(e)): GetVmStateError
+            e ⇒ InternalVmError(s"Computing wasm memory hash failed", Some(e)): GetVmStateError
           )
         }
       }

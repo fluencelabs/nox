@@ -107,15 +107,15 @@ class MainWasmModule(
     args: List[AnyRef]
   ): EitherT[F, InvokeError, Int] =
     for {
-      rawResult <- wasmFn(module.instance, args)
+      rawResult ← wasmFn(module.instance, args)
 
-      result <- EitherT.fromOption[F](
+      result ← EitherT.fromOption[F](
         rawResult,
         InternalVmError(s"Function with name=$wasmFn should return value") : InvokeError
       )
 
-      intResult <- safelyRunThrowable(result.intValue(),
-        e => InternalVmError("Function with name=$wasmFn should return value of integer type", Some(e)) : InvokeError
+      intResult ← safelyRunThrowable(result.intValue(),
+        e ⇒ InternalVmError("Function with name=$wasmFn should return value of integer type", Some(e)) : InvokeError
       )
 
     } yield intResult
@@ -145,26 +145,26 @@ object MainWasmModule {
     invokeFunctionName: String
   ): EitherT[F, ApplyError, MainWasmModule] =
     for {
-      module <- WasmModule(moduleDescription, scriptContext, memoryHasher)
+      module ← WasmModule(moduleDescription, scriptContext, memoryHasher)
 
       moduleMethods: Stream[WasmFunction] = moduleDescription.getCls.getDeclaredMethods.toStream
         .filter(method ⇒ Modifier.isPublic(method.getModifiers))
         .map(method ⇒ WasmFunction(method.getName, method))
 
-      (allocMethod, deallocMethod, invokeMethod) <- EitherT.fromOption(
+      (allocMethod, deallocMethod, invokeMethod) ← EitherT.fromOption(
         moduleMethods
           .scanLeft((Option.empty[WasmFunction], Option.empty[WasmFunction], Option.empty[WasmFunction])) {
-            case (acc, m @ WasmFunction(`allocationFunctionName`, _)) =>
+            case (acc, m @ WasmFunction(`allocationFunctionName`, _)) ⇒
               acc.copy(_1 = Some(m))
-            case (acc, m @ WasmFunction(`deallocationFunctionName`, _)) =>
+            case (acc, m @ WasmFunction(`deallocationFunctionName`, _)) ⇒
               acc.copy(_2 = Some(m))
-            case (acc, m @ WasmFunction(`invokeFunctionName`, _)) =>
+            case (acc, m @ WasmFunction(`invokeFunctionName`, _)) ⇒
               acc.copy(_3 = Some(m))
-            case (acc, _) =>
+            case (acc, _) ⇒
               acc
           }
           .collectFirst {
-            case (Some(allocMethod), Some(deallocMethod), Some(invokeMethod)) =>
+            case (Some(allocMethod), Some(deallocMethod), Some(invokeMethod)) ⇒
               (allocMethod, deallocMethod, invokeMethod)
           },
         NoSuchFnError(

@@ -155,7 +155,7 @@ object WasmVm {
         config.specTestRegister,
         config.defaultMaxMemPages,
         config.loggerModuleEnabled,
-        (capacity: Int) => TrackingMemoryBuffer.allocateDirect(capacity, config.chunkSize)
+        (capacity: Int) ⇒ TrackingMemoryBuffer.allocateDirect(capacity, config.chunkSize)
       )
     )
   }
@@ -172,7 +172,7 @@ object WasmVm {
   ): EitherT[F, ApplyError, (MainWasmModule, EnvModule, Seq[WasmModule])] =
     for {
 
-      rawEnvModule <- EitherT.fromEither[F](
+      rawEnvModule ← EitherT.fromEither[F](
         Either.cond(
           scriptCxt.getRegistrations.containsKey(config.envModuleConfig.name),
           scriptCxt.getRegistrations.get(config.envModuleConfig.name),
@@ -182,14 +182,14 @@ object WasmVm {
         )
       )
 
-      envModule <- EnvModule[F](
+      envModule ← EnvModule[F](
         rawEnvModule.asInstanceOf[Native],
         scriptCxt,
         config.envModuleConfig.spentGasFunctionName,
         config.envModuleConfig.setSpentGasFunction
       )
 
-      (mainModule, sideModules) <- Traverse[List]
+      (mainModule, sideModules) ← Traverse[List]
         .foldLeftM[EitherT[F, ApplyError, ?], Compiled, (Option[MainWasmModule], List[WasmModule])](
           scriptCxt.getModules.toList,
           (None, Nil)
@@ -219,8 +219,8 @@ object WasmVm {
 
         }
         .flatMap[ApplyError, (MainWasmModule, Seq[WasmModule])] {
-          case (Some(mainModule), sideModules) => EitherT.pure[F, ApplyError]((mainModule, sideModules))
-          case _ =>
+          case (Some(mainModule), sideModules) ⇒ EitherT.pure[F, ApplyError]((mainModule, sideModules))
+          case _ ⇒
             EitherT.leftT(
               InitializationError(s"Please add the main module (module without name section) to the supplied modules"): ApplyError
             )

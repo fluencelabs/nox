@@ -57,22 +57,22 @@ class AsmbleWasmVm(
     for {
       preprocessedArgument ← loadArgToMemory(fnArgument)
       resultOffset ← mainModule.invoke(preprocessedArgument)
-      _ <- envModule.clearSpentGas()
+      _ ← envModule.clearSpentGas()
 
       // It is expected that callee (Wasm module) has to clean memory by itself because of otherwise
       // there can be some non-determinism (deterministic execution is very important for verification game
       // and this kind of non-determinism can break all verification game).
       extractedResult ← extractResultFromWasmModule(resultOffset)
 
-      spentGas <- envModule.getSpentGas()
+      spentGas ← envModule.getSpentGas()
 
     } yield InvocationResult(extractedResult, spentGas)
 
   override def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector] =
     for {
-      mainModuleHash <- mainModule.computeStateHash()
+      mainModuleHash ← mainModule.computeStateHash()
 
-      sideModulesHash <- sideModules
+      sideModulesHash ← sideModules
         .foldLeft(EitherT.rightT[F, GetVmStateError](Array[Byte]())) {
           case (acc, module) ⇒
             for {
@@ -91,7 +91,7 @@ class AsmbleWasmVm(
             } yield resultHash
         }
 
-      resultHash <- hasher(Array.concat(sideModulesHash, mainModuleHash)).map(ByteVector(_)).leftMap { e ⇒
+      resultHash ← hasher(Array.concat(sideModulesHash, mainModuleHash)).map(ByteVector(_)).leftMap { e ⇒
         InternalVmError(s"Getting VM state for modules failed", Some(e)): GetVmStateError
       }
 
