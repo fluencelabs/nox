@@ -27,38 +27,6 @@ import fluence.vm.wasm.module.ModuleInstance
 import scala.language.higherKinds
 
 /**
- * Represents Wasm modules that could invoke functions.
- */
-trait WasmFunctionInvoker {
-
-  /**
-   * Represent a Wasm function exported from a Wasm module.
-   *
-   * @param moduleInstance a instance of Wasm Module that should run wasmFn.
-   * @param wasmFn a function that should be invoked.
-   * @param args arguments for the function.
-   */
-  protected def invokeWasmFunctionInt[F[_]: LiftIO: Monad](
-    moduleInstance: ModuleInstance,
-    wasmFn: WasmFunction,
-    args: List[AnyRef]
-  ): EitherT[F, InvokeError, Int] =
-    for {
-      rawResult ← wasmFn(moduleInstance, args)
-
-      // Despite our way of thinking about Wasm function return value type as one of (i32, i64, f32, f64) in
-      // WasmModule context, there we can operate with Int (i32) values. It comes from our conventions about
-      // Wasm modules design: they have to has only one export function as a user interface. It has to receive
-      // and return a byte array, but since array can't be directly returns from Wasm part, It returns pointer
-      // to in memory. And since Webassembly is only 32-bit now, Int(i32) is used as a pointer and return value
-      // type. And after Wasm64 release, there should be additional logic to operate both with 32 and 64-bit
-      // modules. TODO: fold with default value is just a temporary solution - after alloc/dealloc removal it
-      // should be refactored to Either.fromOption
-    } yield rawResult.fold(0)(_.intValue)
-
-}
-
-/**
  * Represent a Wasm function exported from a Wasm module.
  *
  * @param fnName a name of the function.

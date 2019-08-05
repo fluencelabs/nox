@@ -24,8 +24,9 @@ import cats.Monad
 import cats.data.EitherT
 import cats.effect.LiftIO
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
-import fluence.vm.VmError.{NoSuchFnError, VmMemoryError}
+import fluence.vm.VmError.{InternalVmError, NoSuchFnError, VmMemoryError}
 import fluence.vm.wasm._
+import fluence.vm.utils.safelyRunThrowable
 
 import scala.language.higherKinds
 
@@ -56,7 +57,7 @@ class MainWasmModule(
    * @param size a size of memory that need to be allocated
    */
   def allocate[F[_]: LiftIO: Monad](size: Int): EitherT[F, InvokeError, Int] =
-    allocateFunction(module.instance, Int.box(size) :: Nil).map(_.get.intValue())
+    invokeWasmFunctionInt(module.instance, allocateFunction, Int.box(size) :: Nil)
 
   /**
    * Deallocates a previously allocated memory region in Wasm module by deallocateFunction.
@@ -73,7 +74,7 @@ class MainWasmModule(
    * @param args arguments for invokeFunction
    */
   def invoke[F[_]: LiftIO: Monad](args: List[AnyRef]): EitherT[F, InvokeError, Int] =
-    invokeFunction(module.instance, args).map(_.get.intValue())
+    invokeWasmFunctionInt(module.instance, invokeFunction, args)
 
   /**
    * Reads [offset, offset+size) region from the module memory.
@@ -92,6 +93,32 @@ class MainWasmModule(
    */
   def writeMemory[F[_]: Monad](offset: Int, injectedArray: Array[Byte]): EitherT[F, VmMemoryError, Unit] =
     module.wasmMemory.writeBytes(offset, injectedArray)
+
+  /**
+    * Invokes a given Wasm function on a given module and safely converts a result to int.
+    *
+    * @param moduleInstance a instance of Wasm Module that should run wasmFn.
+    * @param wasmFn a function that should be invoked.
+    * @param args arguments for the function.
+    */
+  private def invokeWasmFunctionInt[F[_]: LiftIO: Monad](
+    moduleInstance: ModuleInstance,
+    wasmFn: WasmFunction,
+    args: List[AnyRef]
+  ): EitherT[F, InvokeError, Int] =
+    for {
+      rawResult <- wasmFn(module.instance, args)
+
+      result <- EitherT.fromOption[F](
+        rawResult,
+        InternalVmError(s"Function with name=$wasmFn should return value") : InvokeError
+      )
+
+      intResult <- safelyRunThrowable(result.intValue(),
+        e => InternalVmError("Function with name=$wasmFn should return value of integer type", Some(e)) : InvokeError
+      )
+
+    } yield intResult
 
   override def toString: String = module.toString
 }
