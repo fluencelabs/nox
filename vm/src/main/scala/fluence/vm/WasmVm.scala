@@ -44,6 +44,9 @@ import scala.collection.convert.ImplicitConversionsToJava.`seq AsJavaList`
 import scala.collection.convert.ImplicitConversionsToScala.`list asScalaBuffer`
 import scala.language.higherKinds
 
+/**
+  * Represents VM execution result.
+  */
 case class InvocationResult(output: Array[Byte], spentGas: Long)
 
 /**
