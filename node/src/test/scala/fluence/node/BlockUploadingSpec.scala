@@ -59,7 +59,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
   implicit private val shift = IO.contextShift(global)
   implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec", level = Log.Warn).unsafeRunSync()
   implicit private val sttp = EitherTSttpBackend[IO]()
-  implicit private val backoff = Backoff.default
+  implicit private val backoff: Backoff[EffectError] = Backoff.default[EffectError]
 
   private val rootPath = Paths.get("/tmp")
 
