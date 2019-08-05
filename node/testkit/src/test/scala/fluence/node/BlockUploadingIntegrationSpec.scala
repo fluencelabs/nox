@@ -129,7 +129,7 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
 
     for {
       state ← Ref.of[IO, AbciState](AbciState())
-      abci = new AbciService[IO](state, vmInvoker, controlSignals, tendermintRpc)
+      abci = new AbciService[IO](state, vmInvoker, controlSignals, blockUploadingEnabled = true)
     } yield (abci, state)
   }
 
@@ -180,7 +180,7 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
       val worker: Resource[IO, Worker[IO]] =
         Worker.make[IO](appId, p2pPort, description, workerServices, (_: IO[Unit]) => IO.unit, IO.unit, IO.unit)
 
-      worker.flatMap(BlockUploading[IO](ipfs).start)
+      worker.flatMap(BlockUploading[IO](enabled = true, ipfs).start)
     }
 
   private def singleBlock(height: Long, txs: List[ByteVector]) = {
