@@ -5,7 +5,6 @@ services:
     container_name: $NAME
     image: fluencelabs/node:$IMAGE_TAG
     environment:
-      - LOG_LEVEL=TRACE
       - EXTERNAL_IP=$EXTERNAL_IP
       - API_PORT=$API_PORT
       - ETHEREUM_IP=$ETHEREUM_IP
