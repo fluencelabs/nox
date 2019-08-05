@@ -16,52 +16,21 @@
 
 package fluence.vm
 
-import cats.data.{EitherT, NonEmptyList}
+import cats.data.NonEmptyList
 import cats.effect.{IO, Timer}
 import fluence.log.{Log, LogFactory}
 import fluence.vm.wasm.MemoryHasher
-import org.scalatest.EitherValues
 
 import scala.concurrent.ExecutionContext
 import scala.language.{higherKinds, implicitConversions}
 
 // TODO: to run this test from IDE It needs to build vm-llamadb project explicitly at first
-class LlamadbIntegrationTest extends AppIntegrationTest with EitherValues {
-
-  private val llamadbFilePath: String = getModuleDirPrefix() +
-    "/src/it/resources/test-cases/llamadb/target/wasm32-unknown-unknown/release/llama_db.wasm"
+class LlamadbIntegrationTest extends LlamadbIntegrationTestInterface {
 
   private implicit val timer: Timer[IO] = IO.timer(ExecutionContext.global)
   private implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init(getClass.getSimpleName).unsafeRunSync()
 
-  private def executeSql(implicit vm: WasmVm, sql: String): EitherT[IO, VmError, Array[Byte]] =
-    for {
-      result ← vm.invoke[IO](sql.getBytes())
-      _ ← vm.getVmState[IO].toVmError
-    } yield result.output
-
-  private def createTestTable(vm: WasmVm): EitherT[IO, VmError, Array[Byte]] =
-    for {
-      _ ← executeSql(vm, "CREATE TABLE Users(id INT, name TEXT, age INT)")
-      insertResult ← executeSql(
-        vm,
-        "INSERT INTO Users VALUES(1, 'Monad', 23)," +
-          "(2, 'Applicative Functor', 19)," +
-          "(3, 'Free Monad', 31)," +
-          "(4, 'Tagless Final', 25)"
-      )
-    } yield insertResult
-
-  // inserts about (recordsCount KiB + const bytes)
-  private def executeInsert(vm: WasmVm, recordsCount: Int): EitherT[IO, VmError, Array[Byte]] =
-    for {
-      result ← executeSql(
-        vm,
-        "INSERT into USERS VALUES(1, 'A', 1)" + (",(1, \'" + "A" * 1024 + "\', 1)") * recordsCount
-      )
-    } yield result
-
-  "llamadb app" should {
+   "llamadb app" should {
 
     "be able to instantiate" in {
       (for {

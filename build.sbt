@@ -42,7 +42,7 @@ lazy val `vm` = (project in file("vm"))
       .dependsOn(compile in `vm-counter`)
       .dependsOn(compile in `vm-hello-world`)
       .dependsOn(compile in `vm-llamadb`)
-      .value
+      .dependsOn(compile in `vm-llamadb2`).value
   )
   .dependsOn(`merkelized-bytebuffer`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
@@ -93,6 +93,11 @@ lazy val `vm-hello-world` = (project in file("vm/src/it/resources/test-cases/hel
 lazy val `vm-llamadb` = (project in file("vm/src/it/resources/test-cases/llamadb"))
   .settings(
     rustVmTest("llamadb")
+  )
+
+lazy val `vm-llamadb2` = project
+  .settings(
+    createInstrumentedLlamadb()
   )
 
 lazy val `vm-hello-world-runner` = (project in file("vm/src/it/resources/test-cases/hello-world/runner"))

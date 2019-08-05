@@ -66,6 +66,44 @@ object SbtCommons {
         .value
     )
 
+  // creates instrumented llamadb in a new folder
+  def createInstrumentedLlamadb(): Seq[Def.Setting[_]] =
+    Seq(
+      publishArtifact := false,
+      test            := (test in Test).dependsOn(compile).value,
+      compile := (compile in Compile)
+        .dependsOn(Def.task {
+          val log = streams.value.log
+          log.info(s"Building the internal tool for instrumentation")
+
+          val projectRoot = file("").getAbsolutePath
+          val toolFolder = s"$projectRoot/tools/wasm-utils/"
+          val compileCmd = s"cargo +nightly-2019-03-10 build --manifest-path $toolFolder/Cargo.toml --release"
+          assert((compileCmd !) == 0, "Compilation of wasm-utils failed")
+
+          val testName = "llamadb"
+          rustVmTest(testName)
+
+          // recreate a new directory and copy compiled file
+          val testFolder = s"$projectRoot/vm/src/it/resources/test-cases/$testName"
+          val rmCmd = s"rm -rf $testFolder/target/wasm32-unknown-unknown/prepared"
+          assert((rmCmd !) == 0, s"$rmCmd failed")
+
+          val mkdirCmd = s"mkdir $testFolder/target/wasm32-unknown-unknown/prepared"
+          assert((mkdirCmd !) == 0, s"$mkdirCmd failed")
+
+          val cpCmd = s"cp $testFolder/target/wasm32-unknown-unknown/release/llama_db.wasm " +
+            s"$testFolder/target/wasm32-unknown-unknown/prepared/"
+          assert((cpCmd !) == 0, s"$cpCmd failed")
+
+          // run wasm-utils to instrument compiled llamadb binary
+          val prepareCmd = s"$toolFolder/target/release/wasm-utils prepare " +
+            s"$testFolder/target/wasm32-unknown-unknown/prepared/llama_db.wasm"
+          assert((prepareCmd !) == 0, s"$prepareCmd failed")
+        })
+        .value
+    )
+
   def buildContractBeforeDocker(): Seq[Def.Setting[_]] =
     Seq(
       docker in docker := (docker in docker)

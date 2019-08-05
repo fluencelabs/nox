@@ -55,7 +55,7 @@ class HelloWorldIntegrationTest extends AppIntegrationTest with EitherValues {
         _ ← vm.getVmState[IO].toVmError
 
       } yield {
-        checkTestResult(greetingResult.output, "Hello, world! From user John")
+        checkTestResult(greetingResult, "Hello, world! From user John")
       }).success()
 
     }
@@ -67,7 +67,7 @@ class HelloWorldIntegrationTest extends AppIntegrationTest with EitherValues {
         _ ← vm.getVmState[IO].toVmError
 
       } yield {
-        checkTestResult(greetingResult.output, "Hello, world! From user")
+        checkTestResult(greetingResult, "Hello, world! From user")
       }).success()
 
     }
