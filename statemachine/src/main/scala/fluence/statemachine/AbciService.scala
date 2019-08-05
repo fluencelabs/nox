@@ -49,7 +49,7 @@ class AbciService[F[_]: Monad: Effect](
   state: Ref[F, AbciState],
   vm: VmOperationInvoker[F],
   controlSignals: ControlSignals[F],
-  tendermintRpc: TendermintHttpRpc[F]
+  blockUploadingEnabled: Boolean
 )(implicit hasher: Hasher[ByteVector, ByteVector], log: Log[F]) {
 
   import AbciService._
@@ -95,7 +95,7 @@ class AbciService[F[_]: Monad: Effect](
       _ <- traceBU(s"got vmHash; height ${st.height + 1}" + Console.RESET)
 
       // Do not wait for receipt on empty blocks
-      receipt <- if (transactions.nonEmpty) {
+      receipt <- if (blockUploadingEnabled && transactions.nonEmpty) {
         traceBU(s"retrieving receipt on height $blockHeight" + Console.RESET) *>
           controlSignals.getReceipt(blockHeight - 1).map(_.some)
       } else {
@@ -119,7 +119,7 @@ class AbciService[F[_]: Monad: Effect](
       // previous non-empty ones. This is because Tendermint stops producing empty blocks only after
       // at least 2 blocks have the same appHash. Otherwise, empty blocks would be produced indefinitely.
       appHash <- receipt.fold {
-        if (blockHeight == 1)
+        if (!blockUploadingEnabled || blockHeight == 1)
           // To save initial state of VM in a block chain and also to make it produce 2 blocks on the start
           vmHash.pure[F]
         else
@@ -141,7 +141,7 @@ class AbciService[F[_]: Monad: Effect](
       _ <- traceBU("state.set done")
 
       // Store vmHash, so master node could retrieve it
-      _ <- controlSignals.enqueueVmHash(blockHeight, vmHash)
+      _ <- if (blockUploadingEnabled) controlSignals.enqueueVmHash(blockHeight, vmHash) else ().pure[F]
       _ <- traceBU(s"$blockHeight commit end")
     } yield appHash
 
@@ -275,13 +275,15 @@ object AbciService {
    * Build an empty AbciService for the vm. App hash is empty!
    *
    * @param vm VM to invoke
+   * @param controlSignals To retrieve receipts and send vm hash
+   * @param blockUploadingEnabled Whether to retrieve receipts and use them in appHash or not
    * @tparam F Sync for Ref
    * @return Brand new AbciService instance
    */
   def apply[F[_]: Effect: Log](
     vm: VmOperationInvoker[F],
     controlSignals: ControlSignals[F],
-    tendermintRpc: TendermintHttpRpc[F]
+    blockUploadingEnabled: Boolean
   ): F[AbciService[F]] = {
     import cats.syntax.compose._
     import scodec.bits.ByteVector
@@ -296,7 +298,7 @@ object AbciService {
       implicit val hasher: Crypto.Hasher[ByteVector, ByteVector] =
         bva.andThen[Array[Byte]](JdkCryptoHasher.Sha256).andThen(abv)
 
-      new AbciService[F](state, vm, controlSignals, tendermintRpc)
+      new AbciService[F](state, vm, controlSignals, blockUploadingEnabled)
     }
   }
 

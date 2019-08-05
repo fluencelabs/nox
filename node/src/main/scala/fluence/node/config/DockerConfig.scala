@@ -26,7 +26,7 @@ import io.circe.{Decoder, Encoder}
  * @param image Docker image
  * @param limits CPU & memory limits for a container
  */
-case class DockerConfig(image: DockerImage, limits: DockerLimits)
+case class DockerConfig(image: DockerImage, limits: DockerLimits, environment: Map[String, String] = Map.empty)
 
 object DockerConfig {
   implicit val encodeDockerImage: Encoder[DockerImage] = deriveEncoder
