@@ -25,7 +25,6 @@ import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.receipt.storage.ReceiptStorage
-import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, BlockManifest, Receipt}
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.{Backoff, EffectError}
@@ -33,13 +32,8 @@ import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.node.workers.Worker
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
-import scodec.bits.ByteVector
 
 import scala.language.{higherKinds, postfixOps}
-
-private[tendermint] case class BlockUpload(block: Block,
-                                           vmHash: ByteVector,
-                                           emptyReceipts: Option[Chain[Receipt]] = None)
 
 /**
  * Implements continuous uploading process of Tendermint's blocks
