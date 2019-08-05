@@ -75,6 +75,7 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
   implicit private val shift = IO.contextShift(global)
   implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec", level = Log.Error).unsafeRunSync()
   implicit private val sttp = EitherTSttpBackend[IO]()
+  implicit private val backoff = Backoff.default[EffectError]
 
   private val rootPath = Paths.get("/tmp")
 
