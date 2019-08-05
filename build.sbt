@@ -42,7 +42,8 @@ lazy val `vm` = (project in file("vm"))
       .dependsOn(compile in `vm-counter`)
       .dependsOn(compile in `vm-hello-world`)
       .dependsOn(compile in `vm-llamadb`)
-      .dependsOn(compile in `vm-instrumented-llamadb`).value
+      .dependsOn(compile in `vm-instrumented-llamadb`)
+      .value
   )
   .dependsOn(`merkelized-bytebuffer`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
