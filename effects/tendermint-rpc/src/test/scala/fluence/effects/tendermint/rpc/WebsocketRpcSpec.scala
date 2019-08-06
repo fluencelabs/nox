@@ -90,20 +90,18 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Eventually {
       val incorrectMsg = "incorrect"
       val height = 1L
 
-      for (i <- 1 to 1000) {
-        eventually[IO](resourcesF.use {
-          case (server, events) =>
-            for {
-              _ <- server.send(Text(incorrectMsg))
-              _ <- server.send(block(height))
-              events <- events.take(1).compile.toList
-              _ <- server.close()
-            } yield {
-              events.size shouldBe 1
-              events.head.header.height shouldBe height
-            }
-        }).unsafeRunSync()
-      }
+      eventually[IO](resourcesF.use {
+        case (server, events) =>
+          for {
+            _ <- server.send(Text(incorrectMsg))
+            _ <- server.send(block(height))
+            events <- events.take(1).compile.toList
+            _ <- server.close()
+          } yield {
+            events.size shouldBe 1
+            events.head.header.height shouldBe height
+          }
+      }).unsafeRunSync()
     }
   }
 }
