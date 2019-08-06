@@ -24,21 +24,12 @@ rustup: &rustup
       ~/.cargo/bin/rustup toolchain install nightly-2019-03-10 # in case some other toolchain was already installed
       ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-03-10
 
-jce_policy: &jce_policy
-  - run: |
-      curl -L --cookie 'oraclelicense=accept-securebackup-cookie;'  http://download.oracle.com/otn-pub/java/jce/8/jce_policy-8.zip -o /tmp/jce_policy.zip
-      unzip -o /tmp/jce_policy.zip -d /tmp
-      sudo mv -f /tmp/UnlimitedJCEPolicyJDK8/US_export_policy.jar $JAVA_HOME/jre/lib/security/US_export_policy.jar
-      sudo mv -f /tmp/UnlimitedJCEPolicyJDK8/local_policy.jar $JAVA_HOME/jre/lib/security/local_policy.jar
-      rm -rf /tmp/UnlimitedJCEPolicyJDK8 /tmp/jce_policy.zip
-
 version: 2
 jobs:
   sbt all tests:
     <<: *jdk_image
     steps:
       - checkout
-      - <<: *jce_policy
       - <<: *rc
       - <<: *rustup
       - run: PATH="$PATH:$HOME/.cargo/bin:" SBT_OPTS="-Xms2048M -Xmx2048M -Xss6M" sbt -mem 2048 test
