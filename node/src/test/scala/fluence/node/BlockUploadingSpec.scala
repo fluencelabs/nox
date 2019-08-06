@@ -24,7 +24,7 @@ import cats.effect.concurrent.Ref
 import cats.effect.{IO, Resource}
 import cats.syntax.functor._
 import cats.syntax.apply._
-import fluence.EitherTSttpBackend
+import fluence.{EitherTSttpBackend, Eventually}
 import fluence.effects.castore.StoreError
 import fluence.effects.docker.DockerIO
 import fluence.effects.docker.params.{DockerImage, DockerLimits}
