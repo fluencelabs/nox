@@ -115,6 +115,13 @@ class DhtLocalStore[F[_]: Monad: Clock, V: Semigroup](
         _.fold[Either[DhtError, ByteVector]](Left(DhtValueNotFound(key)))(m ⇒ Right(m.hash))
       )
 
+  /**
+   * Updates metadata associated with the key, schedules the next refreshing
+   *
+   * @param key Updated key
+   * @param hash Updated value's hash
+   * @param log Log
+   */
   private[dht] def touch(key: Key, hash: ByteVector)(implicit log: Log[F]): EitherT[F, DhtError, Unit] =
     for {
       timestamp ← timestampT
@@ -129,7 +136,20 @@ class DhtLocalStore[F[_]: Monad: Clock, V: Semigroup](
 
 object DhtLocalStore {
 
-  def refresh[F[_]: Monad, V, C](
+  /**
+   * Republishes the value to Kademlia neighborhood of its Key
+   *
+   * @param local Local store that stores the value
+   * @param key Key
+   * @param kad Kademlia, used to determine the neighborhood
+   * @param rpc Access to the DHT RPC for other Kademlia nodes
+   * @param replication Desired replication level
+   * @param maxCalls Maximum number of RPC STORE calls
+   * @tparam F Effect
+   * @tparam V Value
+   * @tparam C Contact
+   */
+  private def refresh[F[_]: Monad, V, C](
     local: DhtLocalStore[F, V],
     key: Key,
     kad: Kademlia[F, C],
@@ -210,8 +230,8 @@ object DhtLocalStore {
                     .map(_ - meta.lastUpdated)
                     .map(conf.refreshPeriod.toSeconds - _)
                     .flatMap {
-                      case l if l > 0 ⇒
-                        Timer[F].sleep(l.seconds)
+                      case sleepSecondsLeft if sleepSecondsLeft > 0 ⇒
+                        Timer[F].sleep(sleepSecondsLeft.seconds)
                       case _ ⇒
                         Applicative[F].unit
                     } >>
