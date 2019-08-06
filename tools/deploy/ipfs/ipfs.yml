@@ -5,7 +5,7 @@ services:
     image: ipfs/go-ipfs:release
     restart: always
     volumes:
-      - /root/.ipfs/data:/data/ipfs
+      - $HOME/.ipfs/data:/data/ipfs
     ports:
       - 4001:4001 # IPFS swarm
 #      - 8080:8080 # HTTP endpoint
