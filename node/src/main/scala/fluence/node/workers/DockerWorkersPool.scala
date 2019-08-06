@@ -40,7 +40,7 @@ import fluence.log.Log
 import fluence.log.LogLevel.LogLevel
 import fluence.node.MakeResource
 import fluence.node.workers.subscription.ResponseSubscriber
-import fluence.node.workers.tendermint.BlockUploading
+import fluence.node.workers.tendermint.block.BlockUploading
 
 import scala.concurrent.duration._
 import scala.language.higherKinds

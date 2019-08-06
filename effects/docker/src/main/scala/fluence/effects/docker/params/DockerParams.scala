@@ -102,7 +102,6 @@ case class DockerParams private (params: Queue[String], name: Option[String] = N
    * Guarantees to allocate at lest this much memory to a container
    *
    * @param megabytes Amount of memory in megabytes
-   * @return
    */
   def memoryReservation(megabytes: Int): DockerParams =
     option("--memory-reservation", s"${megabytes}M")
@@ -120,6 +119,13 @@ case class DockerParams private (params: Queue[String], name: Option[String] = N
     val withMemoryReservation: MutOpt = limits.memoryMb.map(limit => _.memoryReservation(limit))
     Seq(withCpus, withMemory, withMemoryReservation).flatten.foldLeft(this) { case (dp, f) => f(dp) }
   }
+
+  /**
+   * Sets environment variables via -e
+   * @param envs Map with environment variables; keys used as names, values as values
+   */
+  def environment(envs: Map[String, String]): DockerParams =
+    envs.foldLeft(this) { case (params, (k, v)) => params.option("-e", s"$k=$v") }
 
   /**
    * Builds the current command to a representation ready to pass in [[scala.sys.process.Process]].
