@@ -19,10 +19,13 @@ package fluence.statemachine.control
 import cats.Monad
 import cats.effect.Resource
 import cats.effect.concurrent.{Deferred, MVar}
+import cats.instances.long._
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.log.Log
+import fluence.statemachine.control.HasOrderedProperty._
+import fluence.statemachine.control.QueueSyntax._
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -32,12 +35,16 @@ import scala.language.higherKinds
  *
  * @param dropPeersRef Holds a set of DropPeer events. NOTE: since Tendermint 0.30.0 Validator set updates must be unique by pub key.
  * @param stopRef Deferred holding stop signal, completed when the worker should stop
+ * @param receiptQueue Holds a collection of receipts, updated by node, consumed by AbciHandler
+ * @param hashQueue Holds a collection of vm hashes, updated by AbciHandler, consumed by node
  * @tparam F Effect
  */
 class ControlSignalsImpl[F[_]: Monad: Log](
   private val dropPeersRef: MVar[F, Set[DropPeer]],
   private val stopRef: Deferred[F, Unit],
-  private val receiptQueue: LastCachingQueue[F, BlockReceipt, Long],
+  // Using simple queue instead of LastCachingQueue because currently there are no retries on receipts
+  private val receiptQueue: fs2.concurrent.Queue[F, BlockReceipt],
+  // getVmHash may be retried by node, so using LastCachingQueue
   private val hashQueue: LastCachingQueue[F, VmHash, Long]
 ) extends ControlSignals[F] {
 
@@ -82,10 +89,10 @@ class ControlSignalsImpl[F[_]: Monad: Log](
     traceBU(s"enqueueReceipt ${receipt.receipt.height}") *> receiptQueue.enqueue1(receipt)
 
   /**
-   * Retrieves block receipt, async blocks until there's a receipt
+   * Retrieves block receipt, async-ly blocks until there's a receipt with specified height
    */
   def getReceipt(height: Long): F[BlockReceipt] =
-    traceBU(s"getReceipt $height") *> receiptQueue.dequeue(height)
+    traceBU(s"getReceipt $height") *> receiptQueue.dequeueByBoundary(height)
 
   /**
    * Adds vm hash to queue, so node can retrieve it for block manifest uploading
@@ -94,7 +101,8 @@ class ControlSignalsImpl[F[_]: Monad: Log](
     traceBU(s"enqueueVmHash $height") *> hashQueue.enqueue1(VmHash(height, hash))
 
   /**
-   * Retrieves a single vm hash from queue. Called by node on block manifest uploading
+   * Retrieves a single vm hash from queue. Called by node on block manifest uploading.
+   * Async-ly blocks until there's a vmHash with specified height
    */
   override def getVmHash(height: Long): F[VmHash] =
     traceBU(s"getVmHash $height") *> hashQueue.dequeue(height)

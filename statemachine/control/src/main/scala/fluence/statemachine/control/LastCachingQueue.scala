@@ -42,6 +42,7 @@ class LastCachingQueue[F[_]: Monad, A: HasOrderedProperty[*, T], T: Order](
 ) {
 
   import HasOrderedProperty.syntax._
+  import QueueSyntax._
 
   def enqueue1(a: A): F[Unit] = queue.enqueue1(a)
 
@@ -56,24 +57,10 @@ class LastCachingQueue[F[_]: Monad, A: HasOrderedProperty[*, T], T: Order](
   def dequeue(boundary: T): F[A] =
     ref.get.flatMap {
       case Some(elem) if elem.key == boundary => elem.pure[F]
-      case _                                  => dequeueByBoundary(boundary)
+      case _                                  => queue.dequeueByBoundary(boundary).flatTap(cache)
     }
 
-  private def dequeueByBoundary(boundary: T): F[A] =
-    FlatMap[F].tailRecM(queue) { q =>
-      q.dequeue1.flatMap { elem =>
-        if (elem.key < boundary) {
-          // keep looking
-          q.asLeft[A].pure[F]
-        } else if (elem.key > boundary) {
-          // corner case: elements aren't in order, try to reorder them
-          q.enqueue1(elem).as(q.asLeft)
-        } else {
-          // got it!
-          ref.set(Some(elem)).as(elem.asRight[fs2.concurrent.Queue[F, A]])
-        }
-      }
-    }
+  private def cache(a: A) = ref.set(Some(a))
 }
 
 object LastCachingQueue {

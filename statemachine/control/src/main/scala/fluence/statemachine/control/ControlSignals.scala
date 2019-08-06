@@ -94,8 +94,10 @@ object ControlSignals {
       for {
         dropPeersRef ← MVar[F].of[Set[DropPeer]](Set.empty)
         stopRef ← Deferred[F, Unit]
+        // getVmHash may be retried by node, so using LastCachingQueue
         hashQueue <- LastCachingQueue[F, VmHash, Long]
-        receiptQueue <- LastCachingQueue[F, BlockReceipt, Long]
+        // Using simple queue instead of LastCachingQueue because currently there are no retries on receipts
+        receiptQueue <- fs2.concurrent.Queue.unbounded[F, BlockReceipt]
         instance = new ControlSignalsImpl[F](dropPeersRef, stopRef, receiptQueue, hashQueue)
       } yield instance: ControlSignals[F]
     ) { s =>
