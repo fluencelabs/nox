@@ -22,21 +22,19 @@ import cats.data.EitherT
 import cats.effect._
 import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
-import fluence.EitherTSttpBackend
-import fluence.effects.tendermint.block.data.Block
 import fluence.log.{Log, LogFactory}
-import io.circe.Json
+import fluence.{EitherTSttpBackend, Eventually}
 import org.http4s.websocket.WebSocketFrame.Text
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.higherKinds
 
-class WebsocketRpcSpec extends WordSpec with Matchers {
+class WebsocketRpcSpec extends WordSpec with Matchers with Eventually {
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
-  implicit private val log: Log[IO] = LogFactory.forPrintln[IO](Log.Error).init("WebsocketRpcSpec").unsafeRunSync()
+  implicit private val log: Log[IO] = LogFactory.forPrintln[IO](Log.Off).init("WebsocketRpcSpec").unsafeRunSync()
 
   type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
   implicit private val sttpResource: STTP = EitherTSttpBackend[IO]()
@@ -92,18 +90,20 @@ class WebsocketRpcSpec extends WordSpec with Matchers {
       val incorrectMsg = "incorrect"
       val height = 1L
 
-      val events = resourcesF.use {
-        case (server, events) =>
-          for {
-            _ <- server.send(Text(incorrectMsg))
-            _ <- server.send(block(height))
-            result <- events.take(1).compile.toList
-            _ <- server.close()
-          } yield result
-      }.unsafeRunSync()
-
-      events.size shouldBe 1
-      events.head.header.height shouldBe height
+      for (i <- 1 to 1000) {
+        eventually[IO](resourcesF.use {
+          case (server, events) =>
+            for {
+              _ <- server.send(Text(incorrectMsg))
+              _ <- server.send(block(height))
+              events <- events.take(1).compile.toList
+              _ <- server.close()
+            } yield {
+              events.size shouldBe 1
+              events.head.header.height shouldBe height
+            }
+        }).unsafeRunSync()
+      }
     }
   }
 }
