@@ -89,9 +89,9 @@ object SbtCommons {
           val rmCmd = s"rm -rf $testFolder/target/wasm32-unknown-unknown/prepared"
           assert((rmCmd !) == 0, s"$rmCmd failed")
 
-          val cpCmd = s"cp $testFolder/target/wasm32-unknown-unknown/release/llama_db.wasm " +
+          val cpCmd = s"cp -n $testFolder/target/wasm32-unknown-unknown/release/llama_db.wasm " +
             s"$testFolder/target/wasm32-unknown-unknown/release/llama_db_prepared.wasm"
-          cpCmd !
+          assert((cpCmd !) == 0, s"$cpCmd failed")
 
           // run wasm-utils to instrument compiled llamadb binary
           val prepareCmd = s"$toolFolder/target/release/wasm-utils prepare " +
