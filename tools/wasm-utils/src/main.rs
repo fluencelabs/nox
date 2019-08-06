@@ -16,6 +16,7 @@
 
 // TODO: add some docs
 
+mod gas_costs;
 use pwasm_utils::rules;
 
 use clap::{App, AppSettings, Arg, SubCommand};
