@@ -13,6 +13,8 @@ object SbtCommons {
 
   val scalaV = scalaVersion := "2.12.8"
 
+  val bouncyCastle = "org.bouncycastle" % "bcprov-jdk15on" % "1.61"
+
   val commons = Seq(
     scalaV,
     version                              := "0.2.0",
@@ -29,7 +31,7 @@ object SbtCommons {
     scalafmtOnCompile := true,
     // see good explanation https://gist.github.com/djspiewak/7a81a395c461fd3a09a6941d4cd040f2
     scalacOptions ++= Seq("-Ypartial-unification", "-deprecation"),
-    addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0"),
+    addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0")
   )
 
   val kindProjector = Seq(
@@ -148,7 +150,6 @@ object SbtCommons {
 
   val asyncHttpClient = "org.asynchttpclient" % "async-http-client" % "2.8.1"
 
-  val bouncyCastle = "org.bouncycastle"    % "bcprov-jdk15on" % "1.61"
   val bouncyCastleOld = "org.bouncycastle" % "bcprov-jdk15on" % "1.60"
 
   /* Test deps*/

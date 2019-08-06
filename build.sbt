@@ -232,7 +232,7 @@ lazy val `swarm` = (project in file("effects/swarm"))
       scodecCore,
       web3jCrypto,
       cryptoHashsign,
-      scalaTest % Test,
+      scalaTest,
       bouncyCastleOld
     )
   )
