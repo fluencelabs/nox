@@ -5,6 +5,7 @@ services:
     container_name: $NAME
     image: fluencelabs/node:$IMAGE_TAG
     environment:
+      - BLOCK_UPLOADING_ENABLED=false
       - EXTERNAL_IP=$EXTERNAL_IP
       - API_PORT=$API_PORT
       - ETHEREUM_IP=$ETHEREUM_IP

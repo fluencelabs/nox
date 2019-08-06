@@ -54,14 +54,13 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
     "OFF",
     26661,
     ControlServerConfig("localhost", 26662),
-    TendermintRpcConfig("localhost", 26657)
+    TendermintRpcConfig("localhost", 26657),
+    blockUploadingEnabled = true
   )
   private val signals: ControlSignals[IO] = new MockedControlSignals
-  private val rpc: TendermintHttpRpc[IO] =
-    new TendermintHttpRpcImpl[IO](config.tendermintRpc.host, config.tendermintRpc.port)
 
   val abciHandler: AbciHandler[IO] = ServerRunner
-    .buildAbciHandler(config, signals, rpc)
+    .buildAbciHandler(config, signals)
     .valueOr(e => throw new RuntimeException(e.message))
     .unsafeRunSync()
 

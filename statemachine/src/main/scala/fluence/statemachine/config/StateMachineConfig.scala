@@ -43,6 +43,7 @@ import scala.language.higherKinds
  * @param logLevel Level of logging ( OFF / ERROR / WARN / INFO / DEBUG / TRACE )
  * @param abciPort Port to listen for ABCI events
  * @param control Configuration for ControlRPC server
+ * @param blockUploadingEnabled Whether to retrieve block receipts and use them in app hash or not
  */
 case class StateMachineConfig(
   sessionExpirationPeriod: Long,
@@ -50,7 +51,8 @@ case class StateMachineConfig(
   logLevel: String,
   abciPort: Short,
   control: ControlServerConfig,
-  tendermintRpc: TendermintRpcConfig
+  tendermintRpc: TendermintRpcConfig,
+  blockUploadingEnabled: Boolean
 ) {
 
   /**
