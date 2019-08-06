@@ -483,6 +483,7 @@ lazy val `node` = project
     `dockerio`,
     `tendermint-rpc`,
     `tendermint-rpc`           % "test->test",
+    `tendermint-rpc`           % "it->test",
     `tendermint-block`         % "test->test",
     `tendermint-block-history` % "test->test",
     `sttpEitherT`,
