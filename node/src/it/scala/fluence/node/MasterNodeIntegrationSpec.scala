@@ -26,8 +26,9 @@ import fluence.effects.ethclient.EthClient
 import fluence.node.eth.{FluenceContract, NodeEthState}
 import fluence.node.status.MasterStatus
 import fluence.node.workers.status.WorkerStatus
-import org.scalatest.{Timer ⇒ _, _}
+import org.scalatest.{Timer => _, _}
 import eth.FluenceContractTestOps._
+import fluence.Eventually
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.FluenceContractConfig
 
