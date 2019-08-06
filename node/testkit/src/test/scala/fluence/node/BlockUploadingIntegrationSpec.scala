@@ -49,7 +49,7 @@ import fluence.node.eth.state._
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 import fluence.node.workers.status.WorkerStatus
 import fluence.node.workers.subscription.ResponseSubscriber
-import fluence.node.workers.tendermint.BlockUploading
+import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
 import fluence.statemachine.AbciService.TxResponse
@@ -76,6 +76,7 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
   implicit private val shift = IO.contextShift(global)
   implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec", level = Log.Error).unsafeRunSync()
   implicit private val sttp = EitherTSttpBackend[IO]()
+  implicit private val backoff = Backoff.default[EffectError]
 
   private val rootPath = Paths.get("/tmp")
 
@@ -130,7 +131,7 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
 
     for {
       state ← Ref.of[IO, AbciState](AbciState())
-      abci = new AbciService[IO](state, vmInvoker, controlSignals, tendermintRpc)
+      abci = new AbciService[IO](state, vmInvoker, controlSignals, blockUploadingEnabled = true)
     } yield (abci, state)
   }
 
@@ -181,7 +182,7 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
       val worker: Resource[IO, Worker[IO]] =
         Worker.make[IO](appId, p2pPort, description, workerServices, (_: IO[Unit]) => IO.unit, IO.unit, IO.unit)
 
-      worker.flatMap(BlockUploading[IO](ipfs).start)
+      worker.flatMap(worker => BlockUploading[IO](enabled = true, ipfs).flatMap(_.start(worker)))
     }
 
   private def singleBlock(height: Long, txs: List[ByteVector]) = {

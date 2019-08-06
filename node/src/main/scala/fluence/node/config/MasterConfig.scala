@@ -51,7 +51,8 @@ case class MasterConfig(
   ethereum: EthereumRpcConfig,
   tendermintConfig: TendermintConfig,
   kademlia: KademliaConfig,
-  logLevel: LogLevel
+  logLevel: LogLevel,
+  blockUploadingEnabled: Boolean
 )
 
 object MasterConfig {
