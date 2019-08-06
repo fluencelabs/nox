@@ -43,6 +43,7 @@ import fluence.node.workers.subscription.{
   TxInvalidError,
   TxParsingError
 }
+import fluence.node.workers.websocket.WorkersWebsocket
 import fs2.concurrent.Queue
 import io.circe.Decoder
 import org.http4s.dsl.Http4sDsl
@@ -111,8 +112,6 @@ object WorkersHttp {
     F: Concurrent[F]
   ): HttpRoutes[F] = {
     import dsl._
-    import WebsocketRequest._
-    import WebsocketResponse._
 
     object QueryPath extends QueryParamDecoderMatcher[String]("path")
     object QueryData extends OptionalQueryParamDecoderMatcher[String]("data")
@@ -137,17 +136,7 @@ object WorkersHttp {
             val echoReply: fs2.Pipe[F, WebSocketFrame, WebSocketFrame] =
               _.evalMap {
                 case Text(msg, _) =>
-                  val respF = for {
-                    request <- EitherT
-                      .fromEither(parse(msg).flatMap(j => j.as[WebsocketRequest]))
-                    response <- EitherT.liftF[F, io.circe.Error, WebsocketResponse](websocket.process(request))
-                  } yield {
-                    response
-                  }
-                  respF.value.map {
-                    case Left(err) => Text(err.getMessage)
-                    case Right(ok) => Text(ok.asJson.spaces4)
-                  }
+                  websocket.parseAndProcess(msg).map(Text(_))
                 case _ => Text("Something new").pure[F]
               }
 
