@@ -13,8 +13,6 @@ object SbtCommons {
 
   val scalaV = scalaVersion := "2.12.8"
 
-  val bouncyCastle = "org.bouncycastle" % "bcprov-jdk15on" % "1.61"
-
   val commons = Seq(
     scalaV,
     version                              := "0.2.0",
@@ -150,7 +148,8 @@ object SbtCommons {
 
   val asyncHttpClient = "org.asynchttpclient" % "async-http-client" % "2.8.1"
 
-  val bouncyCastleOld = "org.bouncycastle" % "bcprov-jdk15on" % "1.60"
+  val bouncyCastle = "org.bouncycastle"    % "bcprov-jdk15on" % "1.61"
+  val bouncyCastle160 = "org.bouncycastle" % "bcprov-jdk15on" % "1.60"
 
   /* Test deps*/
   val scalacheckShapeless = "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % "1.1.8"     % Test

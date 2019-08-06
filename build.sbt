@@ -233,7 +233,10 @@ lazy val `swarm` = (project in file("effects/swarm"))
       web3jCrypto,
       cryptoHashsign,
       scalaTest,
-      bouncyCastleOld
+    ),
+    dependencyOverrides ++= Seq(
+      // Using bouncycastle 1.60, so there's no clashing between project-wide 1.61 and web3j'a 1.60
+      bouncyCastle160
     )
   )
   .dependsOn(`ca-store`, `sttpEitherT` % "test->test;compile->compile")
