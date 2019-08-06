@@ -232,7 +232,8 @@ lazy val `swarm` = (project in file("effects/swarm"))
       scodecCore,
       web3jCrypto,
       cryptoHashsign,
-      scalaTest
+      scalaTest % Test,
+      bouncyCastleOld
     )
   )
   .dependsOn(`ca-store`, `sttpEitherT` % "test->test;compile->compile")
