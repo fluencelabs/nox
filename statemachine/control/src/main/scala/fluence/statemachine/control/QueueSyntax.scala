@@ -26,7 +26,7 @@ import cats.{FlatMap, Monad, Order}
 import scala.language.higherKinds
 
 object QueueSyntax {
-  implicit class QueueSyntax[F[_]: Monad, A: HasOrderedProperty[*, T], T: Order](queue: fs2.concurrent.Queue[F, A]) {
+  implicit class RichQueue[F[_]: Monad, A: HasOrderedProperty[*, T], T: Order](queue: fs2.concurrent.Queue[F, A]) {
     import HasOrderedProperty.syntax._
 
     /**

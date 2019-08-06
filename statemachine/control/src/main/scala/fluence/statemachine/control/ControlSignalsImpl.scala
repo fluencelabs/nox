@@ -91,8 +91,9 @@ class ControlSignalsImpl[F[_]: Monad: Log](
   /**
    * Retrieves block receipt, async-ly blocks until there's a receipt with specified height
    */
-  def getReceipt(height: Long): F[BlockReceipt] =
+  def getReceipt(height: Long): F[BlockReceipt] = {
     traceBU(s"getReceipt $height") *> receiptQueue.dequeueByBoundary(height)
+  }
 
   /**
    * Adds vm hash to queue, so node can retrieve it for block manifest uploading
