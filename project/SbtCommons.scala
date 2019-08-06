@@ -11,7 +11,7 @@ import scala.sys.process._
 
 object SbtCommons {
 
-  val scalaV = scalaVersion := "2.12.8"
+  val scalaV = scalaVersion := "2.12.9"
 
   val commons = Seq(
     scalaV,
