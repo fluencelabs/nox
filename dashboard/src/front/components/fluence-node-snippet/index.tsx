@@ -63,6 +63,8 @@ class FluenceNodeSnippet extends React.Component<Props, State> {
         try {
             result = await rpc.ping();
         } catch (e) {
+            console.error(`Error on kademlia ping request on ${node.ip_addr}:${node.api_port}`, e);
+
             return;
         }
 
@@ -79,6 +81,8 @@ class FluenceNodeSnippet extends React.Component<Props, State> {
         try {
             result = await rpc.lookup(this.kademliaLookupKeyField.value);
         } catch (e) {
+            console.error(`Error on kademlia lookup request on ${node.ip_addr}:${node.api_port} with key ${this.kademliaLookupKeyField.value}`, e);
+
             return;
         }
 
