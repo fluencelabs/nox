@@ -14,6 +14,7 @@ import FluenceApp from '../fluence-app';
 import FluenceNode from '../fluence-node';
 import FluenceDeployableApp from '../fluence-deployable-app';
 import FluenceAppSnippet from '../fluence-app-snippet';
+import FluenceNodeSnippet from '../fluence-node-snippet';
 import FluenceMenu from '../fluence-menu';
 import FluenceList from '../fluence-list';
 import FluenceModal from '../fluence-modal';
@@ -82,11 +83,14 @@ class DashboardApp extends React.Component<Props, State> {
                     ];
                 }
                 case FluenceEntityType.Node: {
-                    return (
+                    return [
                         <div className="col-md-6 col-xs-12">
                             <FluenceNode nodeId={entityId}/>
-                        </div>
-                    );
+                        </div>,
+                        <div className="col-md-6 col-xs-12">
+                            <FluenceNodeSnippet nodeId={entityId}/>
+                        </div>,
+                    ];
                 }
                 case FluenceEntityType.DeployableApp: {
                     return (
