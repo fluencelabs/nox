@@ -23,7 +23,7 @@ import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
 import io.circe.parser._
-import io.circe.generic.semiauto.deriveDecoder
+import io.circe.syntax._
 import cats.effect.{Concurrent, Sync}
 import fluence.effects.tendermint.rpc.http.{
   RpcBlockParsingFailed,
@@ -111,6 +111,8 @@ object WorkersHttp {
     F: Concurrent[F]
   ): HttpRoutes[F] = {
     import dsl._
+    import WebsocketRequest._
+    import WebsocketResponse._
 
     object QueryPath extends QueryParamDecoderMatcher[String]("path")
     object QueryData extends OptionalQueryParamDecoderMatcher[String]("data")
@@ -136,18 +138,15 @@ object WorkersHttp {
               _.evalMap {
                 case Text(msg, _) =>
                   val respF = for {
-                    request <- EitherT.fromEither(parse(msg).flatMap(j => j.as[WebsocketRequest]))
-                    response = websocket.process(request)
+                    request <- EitherT
+                      .fromEither(parse(msg).flatMap(j => j.as[WebsocketRequest]))
+                    response <- EitherT.liftF[F, io.circe.Error, WebsocketResponse](websocket.process(request))
                   } yield {
                     response
                   }
                   respF.value.map {
                     case Left(err) => Text(err.getMessage)
-                    case Right(ok) =>
-                      ok match {
-                        case Left(err) => Text(err.message)
-                        case Right(ok) => Text(ok)
-                      }
+                    case Right(ok) => Text(ok.asJson.spaces4)
                   }
                 case _ => Text("Something new").pure[F]
               }
