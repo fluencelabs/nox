@@ -52,38 +52,39 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Eventually {
     def block(height: Long) = Text(TestData.block(height))
 
     "subscribe and receive messages" in {
-      val (events, requests) = resourcesF.use {
+      eventually[IO](resourcesF.use {
         case (server, events) =>
           for {
             _ <- server.send(block(1))
             _ <- server.send(block(2))
-            result <- events.take(2).compile.toList
+            events <- events.take(2).compile.toList
             _ <- server.close()
             requests <- server.requests().compile.toList
-          } yield (result, requests)
-      }.unsafeRunSync()
+          } yield {
+            requests.size shouldBe 1
+            events.size shouldBe 2
+            events.head.header.height shouldBe 1L
+            events.tail.head.header.height shouldBe 2L
+          }
+      })
 
-      requests.size shouldBe 1
-
-      events.size shouldBe 2
-      events.head.header.height shouldBe 1L
-      events.tail.head.header.height shouldBe 2L
     }
 
     "receive message after reconnect" in {
       val height = 1L
-      val events = resourcesF.use {
+
+      eventually[IO](resourcesF.use {
         case (server, events) =>
           for {
             _ <- server.close()
-            result <- WebsocketServer.make[IO](Port).use { newServer =>
+            events <- WebsocketServer.make[IO](Port).use { newServer =>
               newServer.send(block(height)) >> events.take(1).compile.toList
             }
-          } yield result
-      }.unsafeRunSync()
-
-      events.size shouldBe 1
-      events.head.header.height shouldBe height
+          } yield {
+            events.size shouldBe 1
+            events.head.header.height shouldBe height
+          }
+      })
     }
 
     "ignore incorrect json messages" in {
