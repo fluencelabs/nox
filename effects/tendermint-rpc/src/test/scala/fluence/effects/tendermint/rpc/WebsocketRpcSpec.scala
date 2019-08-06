@@ -22,21 +22,19 @@ import cats.data.EitherT
 import cats.effect._
 import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
-import fluence.EitherTSttpBackend
-import fluence.effects.tendermint.block.data.Block
 import fluence.log.{Log, LogFactory}
-import io.circe.Json
+import fluence.{EitherTSttpBackend, Eventually}
 import org.http4s.websocket.WebSocketFrame.Text
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.higherKinds
 
-class WebsocketRpcSpec extends WordSpec with Matchers {
+class WebsocketRpcSpec extends WordSpec with Matchers with Eventually {
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
-  implicit private val log: Log[IO] = LogFactory.forPrintln[IO](Log.Error).init("WebsocketRpcSpec").unsafeRunSync()
+  implicit private val log: Log[IO] = LogFactory.forPrintln[IO](Log.Off).init("WebsocketRpcSpec").unsafeRunSync()
 
   type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
   implicit private val sttpResource: STTP = EitherTSttpBackend[IO]()
@@ -54,56 +52,57 @@ class WebsocketRpcSpec extends WordSpec with Matchers {
     def block(height: Long) = Text(TestData.block(height))
 
     "subscribe and receive messages" in {
-      val (events, requests) = resourcesF.use {
+      eventually[IO](resourcesF.use {
         case (server, events) =>
           for {
             _ <- server.send(block(1))
             _ <- server.send(block(2))
-            result <- events.take(2).compile.toList
+            events <- events.take(2).compile.toList
             _ <- server.close()
             requests <- server.requests().compile.toList
-          } yield (result, requests)
-      }.unsafeRunSync()
+          } yield {
+            requests.size shouldBe 1
+            events.size shouldBe 2
+            events.head.header.height shouldBe 1L
+            events.tail.head.header.height shouldBe 2L
+          }
+      })
 
-      requests.size shouldBe 1
-
-      events.size shouldBe 2
-      events.head.header.height shouldBe 1L
-      events.tail.head.header.height shouldBe 2L
     }
 
     "receive message after reconnect" in {
       val height = 1L
-      val events = resourcesF.use {
+
+      eventually[IO](resourcesF.use {
         case (server, events) =>
           for {
             _ <- server.close()
-            result <- WebsocketServer.make[IO](Port).use { newServer =>
+            events <- WebsocketServer.make[IO](Port).use { newServer =>
               newServer.send(block(height)) >> events.take(1).compile.toList
             }
-          } yield result
-      }.unsafeRunSync()
-
-      events.size shouldBe 1
-      events.head.header.height shouldBe height
+          } yield {
+            events.size shouldBe 1
+            events.head.header.height shouldBe height
+          }
+      })
     }
 
     "ignore incorrect json messages" in {
       val incorrectMsg = "incorrect"
       val height = 1L
 
-      val events = resourcesF.use {
+      eventually[IO](resourcesF.use {
         case (server, events) =>
           for {
             _ <- server.send(Text(incorrectMsg))
             _ <- server.send(block(height))
-            result <- events.take(1).compile.toList
+            events <- events.take(1).compile.toList
             _ <- server.close()
-          } yield result
-      }.unsafeRunSync()
-
-      events.size shouldBe 1
-      events.head.header.height shouldBe height
+          } yield {
+            events.size shouldBe 1
+            events.head.header.height shouldBe height
+          }
+      }).unsafeRunSync()
     }
   }
 }

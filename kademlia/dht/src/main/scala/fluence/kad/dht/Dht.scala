@@ -28,6 +28,7 @@ import fluence.kad.dht.Dht.Conf
 import fluence.kad.protocol.Key
 import fluence.log.Log
 
+import scala.concurrent.duration._
 import scala.language.higherKinds
 
 /**
@@ -134,9 +135,10 @@ object Dht {
    */
   case class Conf(
     retrieveResults: Int = 2,
-    maxRetrieveCalls: Int = 16,
+    maxRetrieveCalls: Int = 8,
     replicationFactor: Int = 4,
-    maxStoreCalls: Int = 32
+    maxStoreCalls: Int = 16,
+    refreshPeriod: FiniteDuration = 1.hour
   )
 
 }

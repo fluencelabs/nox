@@ -70,6 +70,7 @@ object DockerWorkerServices {
 
     DockerParams
       .build()
+      .environment(dockerConfig.environment)
       .option("-e", s"""CODE_DIR=$vmCodePath""")
       .option("-e", s"LOG_LEVEL=$logLevel")
       .option("-e", s"TM_RPC_PORT=${DockerTendermint.RpcPort}")

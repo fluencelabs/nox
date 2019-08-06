@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-package fluence.node
+package fluence
+
 import cats.effect._
 import cats.syntax.applicativeError._
 import cats.syntax.functor._

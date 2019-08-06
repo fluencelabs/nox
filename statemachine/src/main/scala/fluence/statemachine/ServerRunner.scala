@@ -95,7 +95,7 @@ object ServerRunner extends IOApp {
   )(implicit log: Log[IO], lf: LogFactory[IO]): Resource[IO, Unit] =
     Resource
       .make(
-        buildAbciHandler(config, controlServer.signals, tendermintRpc).value.flatMap {
+        buildAbciHandler(config, controlServer.signals).value.flatMap {
           case Right(handler) ⇒ IO.pure(handler)
           case Left(err) ⇒
             val exception = err.causedBy match {
@@ -134,7 +134,6 @@ object ServerRunner extends IOApp {
   private[statemachine] def buildAbciHandler(
     config: StateMachineConfig,
     controlSignals: ControlSignals[IO],
-    tendermintRpc: TendermintHttpRpc[IO]
   )(implicit log: Log[IO], lf: LogFactory[IO]): EitherT[IO, StateMachineError, AbciHandler[IO]] =
     for {
       moduleFilenames <- config.collectModuleFiles[IO]
@@ -145,7 +144,7 @@ object ServerRunner extends IOApp {
 
       vmInvoker = new WasmVmOperationInvoker[IO](vm)
 
-      service <- EitherT.right(AbciService[IO](vmInvoker, controlSignals, tendermintRpc))
+      service <- EitherT.right(AbciService[IO](vmInvoker, controlSignals, config.blockUploadingEnabled))
     } yield new AbciHandler[IO](service, controlSignals)
 
   /**

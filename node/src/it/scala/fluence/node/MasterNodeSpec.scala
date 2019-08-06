@@ -28,7 +28,7 @@ import cats.syntax.apply._
 import cats.syntax.functor._
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
-import fluence.EitherTSttpBackend
+import fluence.{EitherTSttpBackend, Eventually}
 import fluence.crypto.eddsa.Ed25519
 import fluence.effects.{Backoff, EffectError}
 import fluence.effects.ethclient.EthClient
