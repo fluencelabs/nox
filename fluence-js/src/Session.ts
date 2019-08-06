@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-import {ResultAwait, ResultPromise} from "./ResultAwait";
 import {error, ErrorResponse, Result} from "./Result";
-import {TendermintClient} from "./TendermintClient";
+import {TendermintClient, TxRequest} from "./TendermintClient";
 import {SessionConfig} from "./SessionConfig";
 
 import * as debug from "debug";
 import {PrivateKey, withSignature} from "./utils";
 import * as randomstring from "randomstring";
+import {Option} from "ts-option";
 
 const detailedDebug = debug("request-detailed");
 const txDebug = debug("broadcast-request");
@@ -32,15 +32,9 @@ export enum RequestStatus {
     E_REQUEST,
 }
 
-interface RequestState {
+export interface RequestState<T> {
     status: RequestStatus;
-    result?: ResultPromise;
-    error?: ErrorResponse;
-}
-
-interface SendTransactionState {
-    status: RequestStatus;
-    result?: Promise<Result>;
+    result?: T;
     error?: ErrorResponse;
 }
 
@@ -52,7 +46,6 @@ export class Session {
     private readonly session: string;
     private readonly config: SessionConfig;
     private counter: number;
-    private lastResult: ResultAwait;
     private closing: boolean;
     private closed: boolean;
     private closedStatus: string;
@@ -138,7 +131,11 @@ export class Session {
         return this.bannedTill >= Date.now();
     }
 
-    async sendTransaction(payload: string, privateKey?: PrivateKey, counter?: number): Promise<SendTransactionState> {
+    /**
+     * Checks if everything ok with the session before a request will be sent.
+     * Builds a request.
+     */
+    private checkPrepareRequest(payload: string, privateKey?: PrivateKey, counter?: number): any {
         // throws an error immediately if the session is closed
         if (this.closed) {
             return {
@@ -151,20 +148,71 @@ export class Session {
             this.markSessionAsClosed(this.closedStatus)
         }
 
-        detailedDebug("start sendTransaction");
-
         // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
         let currentCounter = counter ? counter : this.getCounterAndIncrement();
 
         let signed = withSignature(payload, currentCounter, privateKey);
-        let path = `${this.session}/${currentCounter}`;
+        let path = this.targetKey(currentCounter);
         let tx = `${path}\n${signed}`;
+
+        return  {
+            path: path,
+            payload: tx
+        }
+    }
+
+    async query(path: string): Promise<RequestState<Option<Result>>> {
+        detailedDebug("start query");
+
+        // throws an error immediately if the session is closed
+        if (this.closed) {
+            return {
+                status: RequestStatus.E_SESSION_CLOSED,
+                error: error(`The session was closed. Cause: ${this.closedStatus}`)
+            };
+        }
+
+        if (this.closing) {
+            this.markSessionAsClosed(this.closedStatus)
+        }
+
+        let queryResult;
+        try {
+            queryResult = await this.tm.abciQuery(path);
+        } catch (err) {
+            return {
+                status: RequestStatus.E_REQUEST,
+                error: error(`Request error on query occured. Request path: ${path}, error: ${JSON.stringify(err)}`),
+            }
+        }
+
+        return {
+            status: RequestStatus.OK,
+            result: queryResult
+        };
+    }
+
+    /**
+     * Sends request with payload, returns a response.
+     *
+     * @param payload Either an argument for Wasm VM main handler or a command for the statemachine
+     * @param privateKey Optional private key to sign requests
+     * @param counter Optional counter, overrides current counter
+     */
+    async request(payload: string, privateKey?: PrivateKey, counter?: number): Promise<RequestState<Promise<Result>>> {
+
+        detailedDebug("start request");
+
+        let request: TxRequest;
+        const req = this.checkPrepareRequest(payload, privateKey, counter);
+        if (req.error) return req;
+        else request = req;
 
         // send transaction
         txDebug("send broadcastTxSync");
         let txSendResult;
         try {
-            txSendResult = this.tm.txWaitResponse(path, tx);
+            txSendResult = this.tm.txWaitResponse(request);
         } catch (err) {
             return {
                 status: RequestStatus.E_REQUEST,
@@ -179,38 +227,25 @@ export class Session {
     }
 
     /**
-     * Sends request with payload and wait for a response.
+     * Sends request with payload, returns an id of response.
      *
      * @param payload Either an argument for Wasm VM main handler or a command for the statemachine
      * @param privateKey Optional private key to sign requests
      * @param counter Optional counter, overrides current counter
      */
-    async request(payload: string, privateKey?: PrivateKey, counter?: number): Promise<RequestState> {
-        // throws an error immediately if the session is closed
-        if (this.closed) {
-            return {
-                status: RequestStatus.E_SESSION_CLOSED,
-                error: error(`The session was closed. Cause: ${this.closedStatus}`)
-            };
-        }
+    async requestAsync(payload: string, privateKey?: PrivateKey, counter?: number): Promise<RequestState<string>> {
+        detailedDebug("start requestAsync");
 
-        if (this.closing) {
-            this.markSessionAsClosed(this.closedStatus)
-        }
-
-        detailedDebug("start request");
-
-        // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
-        let currentCounter = counter ? counter : this.getCounterAndIncrement();
-
-        let signed = withSignature(payload, currentCounter, privateKey);
-        let tx = `${this.session}/${currentCounter}\n${signed}`;
+        let request: TxRequest;
+        const req = this.checkPrepareRequest(payload, privateKey, counter);
+        if (req.error) return req;
+        else request = req;
 
         // send transaction
         txDebug("send broadcastTxSync");
         let broadcastTxResult;
         try {
-            broadcastTxResult = await this.tm.broadcastTxSync(tx);
+            broadcastTxResult = await this.tm.broadcastTxSync(request.payload);
         } catch (err) {
             return {
                 status: RequestStatus.E_REQUEST,
@@ -231,26 +266,9 @@ export class Session {
             }
         }
 
-        const targetKey = this.targetKey(currentCounter);
-
-        const callback = (err: ErrorResponse) => {
-            // close session on error
-            this.markSessionAsClosed(err.error)
-        };
-
-        const resultAwait = new ResultAwait(this.tm, this.config, targetKey, this.session, callback);
-        this.lastResult = resultAwait;
-
         return {
             status: RequestStatus.OK,
-            result: resultAwait,
+            result: request.path,
         };
-    }
-
-    /**
-     * Syncs on all pending requests.
-     */
-    async sync(): Promise<Result> {
-        return this.lastResult.result();
     }
 }

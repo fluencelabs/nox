@@ -1,8 +1,7 @@
 import {WorkerSession} from "./fluence";
-import {ResultPromise} from "./ResultAwait";
 import {PrivateKey} from "./utils";
 import {getWorkerStatus} from "fluence-monitoring"
-import {RequestStatus} from "./Session";
+import {RequestState, RequestStatus, Session} from "./Session";
 import {Result} from "./Result";
 
 // All sessions with workers from an app
@@ -43,49 +42,65 @@ export class AppSession {
         return workerSession;
     }
 
-    async sendTransaction(payload: string): Promise<Result> {
-        const currentCounter = this.counter++;
-        const performRequest = async (retryCount: number = 0): Promise<Result> => {
-            const { session } = this.getNextWorkerSession();
+    private async performRequest<T>(call: (session: Session) => Promise<RequestState<T>>, retryCount: number = 0): Promise<T> {
+        const { session } = this.getNextWorkerSession();
 
-            const { status, result, error } = await session.sendTransaction(payload, this.privateKey, currentCounter);
+        const { status, result, error } = await call(session);
 
-            if (status !== RequestStatus.OK) {
-                if (status === RequestStatus.E_REQUEST && retryCount < this.workerSessions.length) {
-                    session.ban();
-                    return performRequest(retryCount + 1);
-                }
-
-                throw error;
+        if (status !== RequestStatus.OK) {
+            if (status === RequestStatus.E_REQUEST && retryCount < this.workerSessions.length) {
+                session.ban();
+                return this.performRequest(call, retryCount + 1);
             }
 
-            return result as Promise<Result>;
-        };
+            throw error;
+        }
 
-        return performRequest();
+        return result as T;
     }
 
-    // selects next worker and calls `request` on that worker
-    async request(payload: string): Promise<ResultPromise> {
+    /**
+     * Sends transaction with payload to the cluster.
+     *
+     * @param payload Either an argument for Wasm VM main handler or a command for the statemachine
+     *
+     * @returns response to a completed request
+     */
+    async request(payload: string): Promise<Result> {
         const currentCounter = this.counter++;
-        const performRequest = async (retryCount: number = 0): Promise<ResultPromise> => {
-            const { session } = this.getNextWorkerSession();
 
-            const { status, result, error } = await session.request(payload, this.privateKey, currentCounter);
+        return this.performRequest((s: Session) => s.request(payload, this.privateKey, currentCounter));
+    }
 
-            if (status !== RequestStatus.OK) {
-                if (status === RequestStatus.E_REQUEST && retryCount < this.workerSessions.length) {
-                    session.ban();
-                    return performRequest(retryCount + 1);
-                }
+    /**
+     * Sends a transaction with a payload to the cluster. Returns a request id of transaction.
+     * Use this method if there is no reason to wait a response.
+     * Use `query` with this request id to get a response.
+     * Or use `request` to get response right after sending a transaction.
+     *
+     * @param payload Either an argument for Wasm VM main handler or a command for the statemachine
+     */
+    async requestAsync(payload: string): Promise<string> {
+        const currentCounter = this.counter++;
 
-                throw error;
-            }
+        return this.performRequest((s: Session) => s.requestAsync(payload, this.privateKey, currentCounter));
+    }
 
-            return result as ResultPromise;
-        };
+    /**
+     * Returns a response by requestId.
+     *
+     * @param requestId id of request
+     *
+     * @returns the result if it is found, or undefined if result is pending or there is no result in the cluster
+     */
+    async query(requestId: string): Promise<Result | undefined> {
+        const result = await this.performRequest((s: Session) => s.query(requestId));
 
-        return performRequest();
+        if (result.isDefined) {
+            return result.get
+        } else {
+            return undefined
+        }
     }
 
     // gets info about all workers in the cluster

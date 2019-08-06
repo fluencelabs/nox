@@ -24,6 +24,11 @@ import {AxiosResponse} from "axios";
 
 const d = debug("tendermintClient");
 
+export interface TxRequest {
+    path: string,
+    payload: string
+}
+
 export interface BroadcastTxSyncResponse {
     code: number
     data: string
@@ -64,15 +69,14 @@ export class TendermintClient {
 
     /**
      * Sends broadcast_tx_sync operation.
-     * @param path query parameter
-     * @param payload transaction payload
+     * @param request a request with a path and a payload
      */
-    async txWaitResponse(path: string, payload: string): Promise<Result> {
+    async txWaitResponse(request: TxRequest): Promise<Result> {
         d("txWaitResponse request");
 
-        const response = await this.client.txWaitResponse(payload);
+        const response = await this.client.txWaitResponse(request.payload);
 
-        const result = await TendermintClient.parseQueryResponse(path, response);
+        const result = await TendermintClient.parseQueryResponse(request.path, response);
         return result.get
     }
 
