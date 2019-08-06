@@ -78,19 +78,18 @@ object SbtCommons {
 
           val projectRoot = file("").getAbsolutePath
           val toolFolder = s"$projectRoot/tools/wasm-utils/"
-          val compileCmd = s"cargo +nightly-2019-03-10 build --manifest-path $toolFolder/Cargo.toml --release"
-          assert((compileCmd !) == 0, "Compilation of wasm-utils failed")
+          val toolCompileCmd = s"cargo +nightly-2019-03-10 build --manifest-path $toolFolder/Cargo.toml --release"
+          assert((toolCompileCmd !) == 0, "Compilation of wasm-utils failed")
 
-          val testName = "llamadb"
-          rustVmTest(testName)
+          val testFolder = s"$projectRoot/vm/src/it/resources/test-cases/llamadb"
+          val testCompileCmd = s"cargo +nightly-2019-03-10 build --manifest-path $testFolder/Cargo.toml " +
+            s"--target wasm32-unknown-unknown --release"
+          assert((testCompileCmd !) == 0, "Rust to Wasm compilation failed")
 
           // make a copy of file
-          val testFolder = s"$projectRoot/vm/src/it/resources/test-cases/$testName"
           val cpCmd = s"cp $testFolder/target/wasm32-unknown-unknown/release/llama_db.wasm " +
             s"$testFolder/target/wasm32-unknown-unknown/release/llama_db_prepared.wasm"
-          // CI could cache this copied file after copying and in this case cp returns some error code > 0.
-          // So this assert with >= 0 is needed to enforce lazy operation and to prevent potential problem with caching.
-          assert((cpCmd !) >= 0, s"$cpCmd failed")
+          assert((cpCmd !) == 0, s"$cpCmd failed")
 
           // run wasm-utils to instrument compiled llamadb binary
           val prepareCmd = s"$toolFolder/target/release/wasm-utils prepare " +
