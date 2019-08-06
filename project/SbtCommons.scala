@@ -84,11 +84,8 @@ object SbtCommons {
           val testName = "llamadb"
           rustVmTest(testName)
 
-          // recreate a new directory and copy compiled file
+          // make a copy of file
           val testFolder = s"$projectRoot/vm/src/it/resources/test-cases/$testName"
-          val rmCmd = s"rm -rf $testFolder/target/wasm32-unknown-unknown/prepared"
-          assert((rmCmd !) == 0, s"$rmCmd failed")
-
           val cpCmd = s"cp -n $testFolder/target/wasm32-unknown-unknown/release/llama_db.wasm " +
             s"$testFolder/target/wasm32-unknown-unknown/release/llama_db_prepared.wasm"
           // CI could cache this copied file after copying and in this case cp returns some error code > 0.
