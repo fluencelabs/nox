@@ -22,11 +22,10 @@ import cats.Applicative
 import cats.data.EitherT
 import cats.effect._
 import cats.effect.syntax.effect._
-import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.softwaremill.sttp.SttpBackend
-import fluence.effects.Backoff
+import fluence.effects.{Backoff, EffectError}
 import fluence.effects.castore.StoreError
 import fluence.effects.ethclient.EthClient
 import fluence.effects.ipfs.IpfsStore
@@ -66,7 +65,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
   rootPath: Path,
   kademlia: Kademlia[F, C],
   masterNodeContainerId: Option[String]
-) {
+)(implicit backoff: Backoff[EffectError]) {
 
   /**
    * All app worker's data is stored here. Currently the folder is never purged
@@ -198,7 +197,8 @@ object MasterNode {
     pool: WorkersPool[F],
     kademlia: Kademlia[F, C]
   )(
-    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]
+    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
+    backoff: Backoff[EffectError]
   ): Resource[F, MasterNode[F, C]] =
     for {
       ethClient ← EthClient.make[F](Some(masterConfig.ethereum.uri))

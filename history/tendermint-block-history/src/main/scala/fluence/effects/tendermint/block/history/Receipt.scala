@@ -16,8 +16,8 @@
 
 package fluence.effects.tendermint.block.history
 
-import java.nio.ByteBuffer
-
+import cats.kernel.Semigroup
+import fluence.codec.{CodecError, PureCodec}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import scodec.bits.ByteVector
@@ -38,16 +38,30 @@ case class Receipt(height: Long, hash: ByteVector) {
     ByteVector((this: Receipt).asJson.noSpaces.getBytes())
   }
 
-  def bytesCompact(): Array[Byte] = ByteBuffer.allocate(8).putLong(height).array() ++ hash.toArray
+  def bytesCompact(): Array[Byte] =
+    (ByteVector.fromLong(height) ++ hash).toArray
 }
 
 object Receipt {
 
   def fromBytesCompact(bytes: Array[Byte]): Either[Throwable, Receipt] = {
     val (height, hash) = bytes.splitAt(8)
-    Try(ByteBuffer.wrap(height).getLong).toEither.map(Receipt(_, ByteVector(hash)))
+    Try(ByteVector(height).toLong()).toEither.map(Receipt(_, ByteVector(hash)))
   }
 
   implicit val dec: Decoder[Receipt] = deriveDecoder[Receipt]
   implicit val enc: Encoder[Receipt] = deriveEncoder[Receipt]
+
+  implicit val pureReceiptCodec: PureCodec[Receipt, Array[Byte]] =
+    PureCodec.build(
+      PureCodec.liftFunc[Receipt, Array[Byte]](
+        _.bytesCompact()
+      ),
+      PureCodec.liftFuncEither[Array[Byte], Receipt](
+        fromBytesCompact(_).left.map(t ⇒ CodecError("Cannot decode receipt from bytes compact", Some(t)))
+      )
+    )
+
+  implicit val ReceiptSemigroup: Semigroup[Receipt] =
+    (x, y) ⇒ if (x.height > y.height) x else y
 }

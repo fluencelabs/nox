@@ -23,6 +23,7 @@ import com.softwaremill.sttp.SttpBackend
 import fluence.effects.tendermint.rpc.http.{TendermintHttpRpc, TendermintHttpRpcImpl}
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.log.Log
+import io.circe.{Decoder, Encoder, HCursor}
 
 import scala.language.higherKinds
 

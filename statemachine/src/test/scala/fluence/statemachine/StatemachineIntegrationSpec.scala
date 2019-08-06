@@ -29,6 +29,7 @@ import fluence.log.{Log, LogFactory}
 import fluence.statemachine.config.{StateMachineConfig, TendermintRpcConfig}
 import fluence.statemachine.control.ControlServer.ControlServerConfig
 import fluence.statemachine.control.{ControlSignals, MockedControlSignals}
+import fluence.statemachine.data.{QueryCode, TxCode}
 import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
 import scodec.bits.ByteVector
 
@@ -53,14 +54,13 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
     "OFF",
     26661,
     ControlServerConfig("localhost", 26662),
-    TendermintRpcConfig("localhost", 26657)
+    TendermintRpcConfig("localhost", 26657),
+    blockUploadingEnabled = true
   )
   private val signals: ControlSignals[IO] = new MockedControlSignals
-  private val rpc: TendermintHttpRpc[IO] =
-    new TendermintHttpRpcImpl[IO](config.tendermintRpc.host, config.tendermintRpc.port)
 
   val abciHandler: AbciHandler[IO] = ServerRunner
-    .buildAbciHandler(config, signals, rpc)
+    .buildAbciHandler(config, signals)
     .valueOr(e => throw new RuntimeException(e.message))
     .unsafeRunSync()
 
@@ -128,7 +128,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendCheckTx(tx1)
       sendCheckTx(tx2)
       sendCheckTx(tx3)
-      sendQuery(tx1Result).left.get._1 shouldBe AbciService.Codes.NotFound
+      sendQuery(tx1Result).left.get._1 shouldBe QueryCode.NotFound.id
       sendDeliverTx(tx0)
       sendCommit()
 //      latestAppHash shouldBe "7b0a908531e5936acdfce3c581ba6b39c2ca185553f47b167440490b13bfa132"
@@ -136,7 +136,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendCheckTx(tx1)
       sendCheckTx(tx2)
       sendCheckTx(tx3)
-      sendQuery(tx1Result).left.get._1 shouldBe AbciService.Codes.Pending
+      sendQuery(tx1Result).left.get._1 shouldBe QueryCode.Pending.id
       sendDeliverTx(tx1)
       sendDeliverTx(tx2)
       sendDeliverTx(tx3)
@@ -161,9 +161,9 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendCommit()
 
       sendQuery(tx0Result) shouldBe Right(littleEndian4ByteHex(1))
-      sendQuery(tx1Result).left.get._1 shouldBe AbciService.Codes.Pending
-      sendQuery(tx2Result).left.get._1 shouldBe AbciService.Codes.Pending
-      sendQuery(tx3Result).left.get._1 shouldBe AbciService.Codes.Pending
+      sendQuery(tx1Result).left.get._1 shouldBe QueryCode.Pending.id
+      sendQuery(tx2Result).left.get._1 shouldBe QueryCode.Pending.id
+      sendQuery(tx3Result).left.get._1 shouldBe QueryCode.Pending.id
 
       sendDeliverTx(tx1)
       sendCommit()

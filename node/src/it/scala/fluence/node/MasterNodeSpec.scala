@@ -21,16 +21,19 @@ import java.nio.file.{Files, Paths}
 import java.util.Base64
 
 import cats.Apply
-import cats.data.EitherT
+import cats.data.{EitherT, NonEmptyList}
 import cats.effect._
+import cats.effect.concurrent.Ref
 import cats.syntax.apply._
 import cats.syntax.functor._
-import cats.syntax.flatMap._
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
-import fluence.EitherTSttpBackend
+import fluence.{EitherTSttpBackend, Eventually}
 import fluence.crypto.eddsa.Ed25519
+import fluence.effects.{Backoff, EffectError}
 import fluence.effects.ethclient.EthClient
+import fluence.effects.receipt.storage.KVReceiptStorage
+import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.kad.conf.{AdvertizeConf, JoinConf, KademliaConfig, RoutingConf}
 import fluence.kad.contact.UriContact
 import fluence.kad.http.KademliaHttpNode
@@ -39,8 +42,9 @@ import fluence.node.config.{FluenceContractConfig, MasterConfig, NodeConfig}
 import fluence.node.eth.FluenceContract
 import fluence.node.eth.FluenceContractTestOps._
 import fluence.node.status.{MasterStatus, StatusAggregator}
+import fluence.node.workers.WorkerApi
 import fluence.node.workers.tendermint.ValidatorPublicKey
-import org.scalatest.{Timer ⇒ _, _}
+import org.scalatest.{Timer => _, _}
 import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -54,6 +58,8 @@ class MasterNodeSpec
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
   implicit private val logFactory = LogFactory.forPrintln[IO](Log.Trace)
+
+  implicit private val backoff: Backoff[EffectError] = Backoff.default
 
   type Sttp = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
 
@@ -99,7 +105,10 @@ class MasterNodeSpec
         Paths.get(masterConf.rootPath)
       )
 
-      pool ← TestWorkersPool.make[IO]
+      bref ← Resource.liftF(Ref.of[IO, Option[BlockManifest]](None))
+      bstore ← Resource.liftF(KVReceiptStorage.makeInMemory[IO](1).allocated.map(_._1))
+
+      pool ← TestWorkersPool.make[IO](bref, bstore)
 
       nodeConf = NodeConfig(
         ValidatorPublicKey("", Base64.getEncoder.encodeToString(Array.fill(32)(5))),
@@ -111,7 +120,7 @@ class MasterNodeSpec
       node ← MasterNode.make[IO, UriContact](masterConf, nodeConf, pool, kad.kademlia)
 
       agg ← StatusAggregator.make[IO](masterConf, node)
-      _ ← MasterHttp.make("127.0.0.1", port, agg, node.pool, kad.http)
+      _ ← MasterHttp.make("127.0.0.1", port, agg, node.pool, WorkerApi(), kad.http)
       _ <- Log.resource[IO].info(s"Started MasterHttp")
     } yield (sttpB, node)
 

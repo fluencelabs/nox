@@ -29,13 +29,14 @@ import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
-import fluence.log.{Log, LogFactory}
+import fluence.log.{Log, LogFactory, LogLevel}
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.control.{ControlServer, ControlSignals}
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.vm.WasmVmOperationInvoker
 import fluence.vm.WasmVm
 import fluence.vm.wasm.MemoryHasher
+import LogLevel.toLogLevel
 
 import scala.language.higherKinds
 
@@ -51,48 +52,50 @@ object ServerRunner extends IOApp {
   private val sttpResource: Resource[IO, SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]] =
     Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
-  private implicit val logFactory = LogFactory.forPrintln[IO]()
-
-  override def run(args: List[String]): IO[ExitCode] = {
-    for {
-      config <- StateMachineConfig.load[IO]()
-
-      implicit0(log: Log[IO]) ← logFactory.init("server")
-
-      _ ← log.info("Building State Machine ABCI handler")
-      _ <- (
+  override def run(args: List[String]): IO[ExitCode] =
+    StateMachineConfig
+      .load[IO]()
+      .flatMap { config =>
+        val logLevel = LogLevel.fromString(config.logLevel).getOrElse(LogLevel.INFO)
+        implicit val logFactory: LogFactory[IO] =
+          LogFactory.forPrintln[IO](logLevel)
         for {
-          control ← ControlServer.make[IO](config.control)
+          implicit0(log: Log[IO]) ← logFactory.init("server")
+          _ ← log.info("Building State Machine ABCI handler")
+          _ <- (
+            for {
+              control ← ControlServer.make[IO](config.control)
 
-          sttp ← sttpResource
+              sttp ← sttpResource
 
-          tendermintRpc ← {
-            implicit val s = sttp
-            TendermintRpc.make[IO](config.tendermintRpc.host, config.tendermintRpc.port)
-          }
+              tendermintRpc ← {
+                implicit val s = sttp
+                TendermintRpc.make[IO](config.tendermintRpc.host, config.tendermintRpc.port)
+              }
 
-          _ ← abciHandlerResource(config.abciPort, config, control, tendermintRpc)
-        } yield control.signals.stop
-      ).use(identity)
-    } yield ExitCode.Success
-  }.guaranteeCase {
-    case Canceled =>
-      logFactory.init("server", "shutdown") >>= (_.error("StateMachine was canceled"))
-    case Error(e) =>
-      logFactory.init("server", "shutdown") >>= (_.error("StateMachine stopped with error", e))
-    case Completed =>
-      logFactory.init("server", "shutdown") >>= (_.info("StateMachine exited gracefully"))
-  }
+              _ ← abciHandlerResource(config.abciPort, config, control, tendermintRpc)
+            } yield control.signals.stop
+          ).use(identity)
+        } yield ExitCode.Success
+      }
+      .guaranteeCase {
+        case Canceled =>
+          LogFactory.forPrintln[IO]().init("server", "shutdown") >>= (_.error("StateMachine was canceled"))
+        case Error(e) =>
+          LogFactory.forPrintln[IO]().init("server", "shutdown") >>= (_.error("StateMachine stopped with error", e))
+        case Completed =>
+          LogFactory.forPrintln[IO]().init("server", "shutdown") >>= (_.info("StateMachine exited gracefully"))
+      }
 
   private def abciHandlerResource(
     abciPort: Int,
     config: StateMachineConfig,
     controlServer: ControlServer[IO],
     tendermintRpc: TendermintRpc[IO]
-  )(implicit log: Log[IO]): Resource[IO, Unit] =
+  )(implicit log: Log[IO], lf: LogFactory[IO]): Resource[IO, Unit] =
     Resource
       .make(
-        buildAbciHandler(config, controlServer.signals, tendermintRpc).value.flatMap {
+        buildAbciHandler(config, controlServer.signals).value.flatMap {
           case Right(handler) ⇒ IO.pure(handler)
           case Left(err) ⇒
             val exception = err.causedBy match {
@@ -131,8 +134,7 @@ object ServerRunner extends IOApp {
   private[statemachine] def buildAbciHandler(
     config: StateMachineConfig,
     controlSignals: ControlSignals[IO],
-    tendermintRpc: TendermintHttpRpc[IO]
-  )(implicit log: Log[IO]): EitherT[IO, StateMachineError, AbciHandler[IO]] =
+  )(implicit log: Log[IO], lf: LogFactory[IO]): EitherT[IO, StateMachineError, AbciHandler[IO]] =
     for {
       moduleFilenames <- config.collectModuleFiles[IO]
       _ ← Log.eitherT[IO, StateMachineError].info("Loading VM modules from " + moduleFilenames)
@@ -142,7 +144,7 @@ object ServerRunner extends IOApp {
 
       vmInvoker = new WasmVmOperationInvoker[IO](vm)
 
-      service <- EitherT.right(AbciService[IO](vmInvoker, controlSignals, tendermintRpc))
+      service <- EitherT.right(AbciService[IO](vmInvoker, controlSignals, config.blockUploadingEnabled))
     } yield new AbciHandler[IO](service, controlSignals)
 
   /**

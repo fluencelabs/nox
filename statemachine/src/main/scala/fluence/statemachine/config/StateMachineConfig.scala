@@ -23,7 +23,11 @@ import cats.effect.{IO, LiftIO, Sync}
 import cats.instances.list._
 import cats.syntax.flatMap._
 import cats.syntax.list._
+import cats.syntax.monadError._
+import cats.syntax.functor._
+import cats.syntax.applicativeError._
 import cats.{Monad, Traverse}
+import fluence.log.LogLevel.LogLevel
 import fluence.statemachine.control.ControlServer.ControlServerConfig
 import fluence.statemachine.error.{StateMachineError, VmModuleLocationError}
 
@@ -39,6 +43,7 @@ import scala.language.higherKinds
  * @param logLevel Level of logging ( OFF / ERROR / WARN / INFO / DEBUG / TRACE )
  * @param abciPort Port to listen for ABCI events
  * @param control Configuration for ControlRPC server
+ * @param blockUploadingEnabled Whether to retrieve block receipts and use them in app hash or not
  */
 case class StateMachineConfig(
   sessionExpirationPeriod: Long,
@@ -46,7 +51,8 @@ case class StateMachineConfig(
   logLevel: String,
   abciPort: Short,
   control: ControlServerConfig,
-  tendermintRpc: TendermintRpcConfig
+  tendermintRpc: TendermintRpcConfig,
+  blockUploadingEnabled: Boolean
 ) {
 
   /**
@@ -88,6 +94,8 @@ object StateMachineConfig {
       .delay(
         pureconfig.loadConfig[StateMachineConfig]
       )
+      .attempt
+      .map(_.flatMap(identity))
       .flatMap {
         case Left(err) ⇒
           Sync[F].raiseError(new RuntimeException("Unable to parse StateMachineConfig: " + err))

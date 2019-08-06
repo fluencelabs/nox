@@ -25,13 +25,13 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.option._
 import cats.{Applicative, Monad, Traverse}
-import com.github.jtendermint.jabci.api.CodeType
 import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.Log
 import fluence.statemachine.control.{BlockReceipt, ControlSignals}
+import fluence.statemachine.data.{QueryCode, Tx, TxCode}
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
 import scodec.bits.ByteVector
@@ -49,7 +49,7 @@ class AbciService[F[_]: Monad: Effect](
   state: Ref[F, AbciState],
   vm: VmOperationInvoker[F],
   controlSignals: ControlSignals[F],
-  tendermintRpc: TendermintHttpRpc[F]
+  blockUploadingEnabled: Boolean
 )(implicit hasher: Hasher[ByteVector, ByteVector], log: Log[F]) {
 
   import AbciService._
@@ -95,7 +95,7 @@ class AbciService[F[_]: Monad: Effect](
       _ <- traceBU(s"got vmHash; height ${st.height + 1}" + Console.RESET)
 
       // Do not wait for receipt on empty blocks
-      receipt <- if (transactions.nonEmpty) {
+      receipt <- if (blockUploadingEnabled && transactions.nonEmpty) {
         traceBU(s"retrieving receipt on height $blockHeight" + Console.RESET) *>
           controlSignals.getReceipt(blockHeight - 1).map(_.some)
       } else {
@@ -104,8 +104,8 @@ class AbciService[F[_]: Monad: Effect](
       }
 
       _ <- traceBU(
-        s"got receipt ${receipt
-          .map(r => s"${r.receipt.height}")}; transactions count: ${transactions.length} ${transactions.nonEmpty}"
+        s"got receipt ${receipt.map(r => s"${r.receipt.height}")}; " +
+          s"transactions count: ${transactions.length}"
       )
 
       _ <- Traverse[Option].traverse(receipt.filter(_.receipt.height != blockHeight - 1))(
@@ -119,14 +119,14 @@ class AbciService[F[_]: Monad: Effect](
       // previous non-empty ones. This is because Tendermint stops producing empty blocks only after
       // at least 2 blocks have the same appHash. Otherwise, empty blocks would be produced indefinitely.
       appHash <- receipt.fold {
-        if (blockHeight == 1)
+        if (!blockUploadingEnabled || blockHeight == 1)
           // To save initial state of VM in a block chain and also to make it produce 2 blocks on the start
           vmHash.pure[F]
         else
           currentState.appHash.pure[F]
       } {
         case BlockReceipt(r) =>
-          traceBU(s"appHash = hash(${vmHash.toHex} ++ ${r.jsonBytes().toHex})" + Console.RESET) *>
+          traceBU(s"appHash = hash(${vmHash.toHex} ++ ${r.jsonBytes().toHex})") *>
             hasher[F](vmHash ++ r.jsonBytes())
               .leftMap(err => log.error(s"Error on hashing vmHash + receipt: $err"))
               .getOrElse(vmHash) // TODO: don't ignore errors
@@ -138,11 +138,11 @@ class AbciService[F[_]: Monad: Effect](
       // Store updated state in the Ref (the changes were transient for readers before this step)
       _ ← state.set(newState)
 
-      _ <- traceBU("state.set done" + Console.RESET)
+      _ <- traceBU("state.set done")
 
       // Store vmHash, so master node could retrieve it
-      _ <- controlSignals.enqueueVmHash(blockHeight, vmHash)
-      _ <- traceBU(s"end of commit $blockHeight" + Console.RESET)
+      _ <- if (blockUploadingEnabled) controlSignals.enqueueVmHash(blockHeight, vmHash) else ().pure[F]
+      _ <- traceBU(s"$blockHeight commit end")
     } yield appHash
 
   /**
@@ -159,7 +159,7 @@ class AbciService[F[_]: Monad: Effect](
             QueryResponse(
               state.height,
               Array.emptyByteArray,
-              Codes.NotFound,
+              QueryCode.NotFound.id,
               s"Cannot parse query path: $path, must be in `sessionId/nonce` format"
           )
         )
@@ -169,7 +169,7 @@ class AbciService[F[_]: Monad: Effect](
         state.get.map { st ⇒
           st.responses.find(_._1 == head) match {
             case Some((_, data)) ⇒
-              QueryResponse(st.height, data, Codes.Ok, s"Responded for path $path")
+              QueryResponse(st.height, data, QueryCode.Ok.id, s"Responded for path $path")
 
             case _ ⇒
               // Is it pending or unknown?
@@ -177,14 +177,14 @@ class AbciService[F[_]: Monad: Effect](
                 QueryResponse(
                   st.height,
                   Array.emptyByteArray,
-                  Codes.Pending,
+                  QueryCode.Pending.id,
                   s"Transaction is not yet processed: $path"
                 )
               else
                 QueryResponse(
                   st.height,
                   Array.emptyByteArray,
-                  Codes.NotFound,
+                  QueryCode.NotFound.id,
                   s"No response found for path: $path"
                 )
           }
@@ -275,13 +275,15 @@ object AbciService {
    * Build an empty AbciService for the vm. App hash is empty!
    *
    * @param vm VM to invoke
+   * @param controlSignals To retrieve receipts and send vm hash
+   * @param blockUploadingEnabled Whether to retrieve receipts and use them in appHash or not
    * @tparam F Sync for Ref
    * @return Brand new AbciService instance
    */
   def apply[F[_]: Effect: Log](
     vm: VmOperationInvoker[F],
     controlSignals: ControlSignals[F],
-    tendermintRpc: TendermintHttpRpc[F]
+    blockUploadingEnabled: Boolean
   ): F[AbciService[F]] = {
     import cats.syntax.compose._
     import scodec.bits.ByteVector
@@ -296,7 +298,7 @@ object AbciService {
       implicit val hasher: Crypto.Hasher[ByteVector, ByteVector] =
         bva.andThen[Array[Byte]](JdkCryptoHasher.Sha256).andThen(abv)
 
-      new AbciService[F](state, vm, controlSignals, tendermintRpc)
+      new AbciService[F](state, vm, controlSignals, blockUploadingEnabled)
     }
   }
 

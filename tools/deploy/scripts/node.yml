@@ -1,10 +1,11 @@
-version: '3.4'
+version: '3.5'
 
 services:
   fluence-node-1:
     container_name: $NAME
     image: fluencelabs/node:$IMAGE_TAG
     environment:
+      - BLOCK_UPLOADING_ENABLED=false
       - EXTERNAL_IP=$EXTERNAL_IP
       - API_PORT=$API_PORT
       - ETHEREUM_IP=$ETHEREUM_IP
@@ -21,6 +22,9 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - $FLUENCE_STORAGE:/master
+    networks:
+      # connects Fluence Node and IPFS containers
+      - decentralized_storage_network
     deploy:
       resources:
         limits:
@@ -28,3 +32,7 @@ services:
           memory: 350M
         reservations:
           memory: 300M
+
+networks:
+  decentralized_storage_network:
+      name: decentralized_storage_network

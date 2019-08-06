@@ -16,25 +16,23 @@
 
 package fluence.node
 
-import cats.Applicative
+import cats.{Applicative, Id}
 import cats.effect.concurrent.{MVar, Ref}
-import cats.effect.{Concurrent, Resource}
+import cats.effect.{Concurrent, Resource, Timer}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.syntax.applicative._
-import fluence.effects.docker.DockerContainerStopped
-import fluence.effects.receipt.storage.KVReceiptStorage
+import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.log.Log
-import fluence.node.workers.control.ControlRpc
-import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus, WorkerStatus}
-import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices, WorkersPool}
+import fluence.node.workers.subscription.ResponseSubscriber
+import fluence.node.workers.{Worker, WorkerParams, WorkerServices, WorkersPool}
 
-import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
-class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]]) extends WorkersPool[F] {
+class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]],
+                                        servicesBuilder: Long => WorkerServices[F])
+    extends WorkersPool[F] {
 
   /**
    * Run or restart a worker
@@ -48,31 +46,12 @@ class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]]) 
       case m ⇒
         for {
           p ← params
-
-          bref ← Ref.of[F, Option[BlockManifest]](None)
-          bstore ← KVReceiptStorage.makeInMemory(appId).allocated.map(_._1)
-
           w ← Worker
             .make[F](
               appId,
               0: Short,
               s"Test worker for appId $appId",
-              new WorkerServices[F] {
-                override def tendermint: TendermintRpc[F] = ???
-
-                override def control: ControlRpc[F] = ???
-
-                override def status(timeout: FiniteDuration): F[WorkerStatus] =
-                  WorkerStatus(
-                    isHealthy = true,
-                    appId = appId,
-                    ServiceStatus(Left(DockerContainerStopped(0)), HttpCheckNotPerformed("dumb")),
-                    ServiceStatus(Left(DockerContainerStopped(0)), HttpCheckNotPerformed("dumb"))
-                  ).pure[F]
-
-                override def blockManifests: WorkerBlockManifests[F] =
-          new WorkerBlockManifests(bstore, bref)
-              },
+              servicesBuilder(appId),
               identity,
               for {
                 ws ← workers.take
@@ -106,9 +85,18 @@ class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]]) 
 
 object TestWorkersPool {
 
-  def apply[F[_]: Concurrent]: F[TestWorkersPool[F]] =
-    MVar.of(Map.empty[Long, Worker[F]]).map(new TestWorkersPool(_))
+  def withRequestResponder[F[_]: Concurrent: Timer](requestResponder: ResponseSubscriber[F],
+                                                    tendermintRpc: TendermintRpc[F]): F[TestWorkersPool[F]] = {
+    val builder = TestWorkerServices.workerServiceTestRequestResponse[F](tendermintRpc, requestResponder) _
+    MVar.of(Map.empty[Long, Worker[F]]).map(new TestWorkersPool(_, builder))
+  }
 
-  def make[F[_]: Concurrent]: Resource[F, TestWorkersPool[F]] =
-    Resource.liftF(apply[F])
+  def apply[F[_]: Concurrent](bref: Ref[F, Option[BlockManifest]], bstore: ReceiptStorage[F]): F[TestWorkersPool[F]] = {
+    val builder = TestWorkerServices.emptyWorkerService[F](bref, bstore) _
+    MVar.of(Map.empty[Long, Worker[F]]).map(new TestWorkersPool(_, builder))
+  }
+
+  def make[F[_]: Concurrent](bref: Ref[F, Option[BlockManifest]],
+                             bstore: ReceiptStorage[F]): Resource[F, TestWorkersPool[F]] =
+    Resource.liftF(apply[F](bref, bstore))
 }

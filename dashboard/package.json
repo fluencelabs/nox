@@ -30,6 +30,7 @@
     "hex-to-array-buffer": "1.1.0",
     "history": "^4.9.0",
     "js-cookie": "^2.2.0",
+    "fluence-kademlia": "0.0.1",
     "moment": "2.19.4",
     "react": "16.5.2",
     "react-dom": "16.5.2",

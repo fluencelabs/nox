@@ -19,25 +19,33 @@ package fluence.node
 import java.nio.ByteBuffer
 import java.nio.file.Path
 
-import cats.data.EitherT
+import cats.data.{EitherT, NonEmptyList}
 import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect._
+import cats.effect.concurrent.Ref
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
 import fluence.crypto.eddsa.Ed25519
+import fluence.effects.{Backoff, EffectError}
 import fluence.effects.docker.DockerIO
 import fluence.effects.ipfs.IpfsUploader
+import fluence.effects.kvstore.RocksDBStore
+import fluence.effects.receipt.storage.ReceiptStorage
+import fluence.effects.tendermint.block.history.Receipt
+import fluence.kad.Kademlia
 import fluence.kad.conf.KademliaConfig
 import fluence.kad.contact.UriContact
+import fluence.kad.http.dht.{DhtHttp, DhtHttpNode}
 import fluence.kad.http.{KademliaHttp, KademliaHttpNode}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.storage.RemoteStorageConfig
-import fluence.node.config.{Configuration, HttpApiConfig, MasterConfig}
+import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
-import fluence.node.workers.DockerWorkersPool
-import fluence.node.workers.tendermint.BlockUploading
+import fluence.node.workers.{DockerWorkersPool, WorkerApi}
+import fluence.node.workers.tendermint.DhtReceiptStorage
+import fluence.node.workers.tendermint.block.BlockUploading
 
 import scala.language.higherKinds
 
@@ -58,6 +66,8 @@ object MasterNodeApp extends IOApp {
    */
   override def run(args: List[String]): IO[ExitCode] = {
 
+    implicit val b: Backoff[EffectError] = Backoff.default
+
     MasterConfig
       .load()
       .map(mc ⇒ mc -> LogFactory.forPrintln[IO](mc.logLevel))
@@ -72,13 +82,16 @@ object MasterNodeApp extends IOApp {
 
               conf ← Resource.liftF(Configuration.init[IO](masterConf))
               kad ← kademlia(conf.rootPath, masterConf.kademlia)
-              pool ← dockerWorkersPool(conf.rootPath, masterConf)
+              rDht ← receiptsDht(conf.rootPath, kad.kademlia)
+              pool ← dockerWorkersPool(conf.rootPath,
+                                       appId ⇒ Resource.pure(new DhtReceiptStorage(appId, rDht.dht)),
+                                       masterConf)
               node ← MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
-            } yield (kad.http, node)).use {
-              case (kadHttp, node) ⇒
+            } yield (kad.http, rDht.http, node)).use {
+              case (kadHttp, rDhtHttp, node) ⇒
                 (for {
                   _ ← Log.resource[IO].debug(s"Eth contract config: ${masterConf.contract}")
-                  server ← masterHttp(masterConf, node, kadHttp)
+                  server ← masterHttp(masterConf, node, kadHttp, rDhtHttp, WorkerApi())
                 } yield server).use { server =>
                   log.info("Http api server has started on: " + server.address) *> node.run
                 }
@@ -97,15 +110,35 @@ object MasterNodeApp extends IOApp {
   private def ipfsUploader(conf: RemoteStorageConfig)(implicit sttp: STTP) =
     IpfsUploader[IO](conf.ipfs.address, conf.enabled, conf.ipfs.readTimeout)
 
-  private def dockerWorkersPool(rootPath: Path,
-                                conf: MasterConfig)(implicit sttp: STTP, log: Log[IO], dio: DockerIO[IO]) =
-    DockerWorkersPool.make(
-      conf.ports.minPort,
-      conf.ports.maxPort,
-      rootPath,
-      // TODO: use generic decentralized storage for block uploading instead of IpfsUploader
-      BlockUploading(ipfsUploader(conf.remoteStorage))
+  private def receiptsDht(
+    rootPath: Path,
+    kad: Kademlia[IO, UriContact]
+  )(implicit sttp: STTP, log: Log[IO]): Resource[IO, DhtHttpNode[IO, Receipt]] =
+    DhtHttpNode.make[IO, Receipt](
+      "dht-receipts",
+      RocksDBStore
+        .makeRaw[IO](rootPath.resolve("dht-receipt-data").toAbsolutePath.toString),
+      RocksDBStore.makeRaw[IO](rootPath.resolve("dht-receipt-meta").toAbsolutePath.toString),
+      kad,
     )
+
+  private def dockerWorkersPool(
+    rootPath: Path,
+    appReceiptStorage: Long ⇒ Resource[IO, ReceiptStorage[IO]],
+    conf: MasterConfig
+  )(implicit sttp: STTP, log: Log[IO], dio: DockerIO[IO], backoff: Backoff[EffectError]) =
+    for {
+      blockUploading <- BlockUploading(conf.blockUploadingEnabled, ipfsUploader(conf.remoteStorage))
+      pool <- DockerWorkersPool.make(
+        conf.ports.minPort,
+        conf.ports.maxPort,
+        rootPath,
+        appReceiptStorage,
+        conf.logLevel,
+        // TODO: use generic decentralized storage for block uploading instead of IpfsUploader
+        blockUploading
+      )
+    } yield pool
 
   private def kademlia(rootPath: Path, conf: KademliaConfig)(implicit sttp: STTP, log: Log[IO]) =
     Resource
@@ -122,7 +155,9 @@ object MasterNodeApp extends IOApp {
 
   private def masterHttp(masterConf: MasterConfig,
                          node: MasterNode[IO, UriContact],
-                         kademliaHttp: KademliaHttp[IO, UriContact])(implicit log: Log[IO], lf: LogFactory[IO]) =
+                         kademliaHttp: KademliaHttp[IO, UriContact],
+                         receiptDhtHttp: DhtHttp[IO],
+                         workerApi: WorkerApi)(implicit log: Log[IO], lf: LogFactory[IO]) =
     StatusAggregator
       .make(masterConf, node)
       .flatMap(
@@ -132,7 +167,9 @@ object MasterNodeApp extends IOApp {
             masterConf.httpApi.port.toShort,
             statusAggregator,
             node.pool,
-            kademliaHttp
+            workerApi,
+            kademliaHttp,
+            receiptDhtHttp :: Nil
         )
       )
 }

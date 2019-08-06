@@ -19,6 +19,7 @@ package fluence.effects.kvstore
 import cats.Monad
 import cats.data.EitherT
 import fluence.codec.PureCodec
+import fluence.log.Log
 
 import scala.language.higherKinds
 
@@ -31,7 +32,7 @@ abstract class KVStore[F[_]: Monad, K, V] {
    * @param key Key
    * @return None if there's no value for the key
    */
-  def get(key: K): EitherT[F, KVReadError, Option[V]]
+  def get(key: K)(implicit log: Log[F]): EitherT[F, KVReadError, Option[V]]
 
   /**
    * Put a value for a key
@@ -39,20 +40,20 @@ abstract class KVStore[F[_]: Monad, K, V] {
    * @param key Key
    * @param value Value
    */
-  def put(key: K, value: V): EitherT[F, KVWriteError, Unit]
+  def put(key: K, value: V)(implicit log: Log[F]): EitherT[F, KVWriteError, Unit]
 
   /**
    * Remove a value for a key. Does nothing if the key is not stored
    *
    * @param key Key
    */
-  def remove(key: K): EitherT[F, KVWriteError, Unit]
+  def remove(key: K)(implicit log: Log[F]): EitherT[F, KVWriteError, Unit]
 
   /**
    * Streams all key-value pairs. Should not block other reads/writes
    *
    */
-  def stream: fs2.Stream[F, (K, V)]
+  def stream(implicit log: Log[F]): fs2.Stream[F, (K, V)]
 
   /**
    * Apply a codec to KVStore values, changing the type
@@ -62,7 +63,7 @@ abstract class KVStore[F[_]: Monad, K, V] {
    * @return Updated KVStore
    */
   def transformValues[VV](implicit codec: PureCodec[V, VV]): KVStore[F, K, VV] = new KVStore[F, K, VV] {
-    override def get(key: K): EitherT[F, KVReadError, Option[VV]] =
+    override def get(key: K)(implicit log: Log[F]): EitherT[F, KVReadError, Option[VV]] =
       self.get(key).flatMap {
         case Some(v) ⇒
           codec
@@ -75,16 +76,16 @@ abstract class KVStore[F[_]: Monad, K, V] {
           EitherT.pure(None)
       }
 
-    override def put(key: K, value: VV): EitherT[F, KVWriteError, Unit] =
+    override def put(key: K, value: VV)(implicit log: Log[F]): EitherT[F, KVWriteError, Unit] =
       codec
         .inverse(value)
         .leftMap(ValueCodecError)
         .flatMap(self.put(key, _))
 
-    override def remove(key: K): EitherT[F, KVWriteError, Unit] =
+    override def remove(key: K)(implicit log: Log[F]): EitherT[F, KVWriteError, Unit] =
       self.remove(key)
 
-    override def stream: fs2.Stream[F, (K, VV)] =
+    override def stream(implicit log: Log[F]): fs2.Stream[F, (K, VV)] =
       self.stream
         .evalMap[F, Either[KVReadError, (K, VV)]] {
           case (key, value) ⇒
@@ -108,25 +109,25 @@ abstract class KVStore[F[_]: Monad, K, V] {
    * @tparam KK New keys type
    */
   def transformKeys[KK](implicit codec: PureCodec[KK, K]): KVStore[F, KK, V] = new KVStore[F, KK, V] {
-    override def get(key: KK): EitherT[F, KVReadError, Option[V]] =
+    override def get(key: KK)(implicit log: Log[F]): EitherT[F, KVReadError, Option[V]] =
       codec
         .direct(key)
         .leftMap(KeyCodecError)
         .flatMap(self.get)
 
-    override def put(key: KK, value: V): EitherT[F, KVWriteError, Unit] =
+    override def put(key: KK, value: V)(implicit log: Log[F]): EitherT[F, KVWriteError, Unit] =
       codec
         .direct(key)
         .leftMap(KeyCodecError)
         .flatMap(self.put(_, value))
 
-    override def remove(key: KK): EitherT[F, KVWriteError, Unit] =
+    override def remove(key: KK)(implicit log: Log[F]): EitherT[F, KVWriteError, Unit] =
       codec
         .direct(key)
         .leftMap(KeyCodecError)
         .flatMap(self.remove)
 
-    override def stream: fs2.Stream[F, (KK, V)] =
+    override def stream(implicit log: Log[F]): fs2.Stream[F, (KK, V)] =
       self.stream
         .evalMap[F, Either[KVReadError, (KK, V)]] {
           case (key, value) ⇒

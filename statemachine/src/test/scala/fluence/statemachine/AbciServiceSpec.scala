@@ -55,12 +55,6 @@ class AbciServiceSpec extends WordSpec with Matchers {
   implicit private val shift = IO.contextShift(global)
   implicit private val log = LogFactory.forPrintln[IO]().init("AbciServiceSpec", level = Log.Error).unsafeRunSync()
 
-  val tendermintRpc = new TestTendermintRpc {
-    override def block(height: Long, id: String): EitherT[IO, RpcError, Block] = {
-      EitherT.leftT(RpcRequestErrored(777, "Block wasn't provided intentionally, for tests purpose"): RpcError)
-    }
-  }
-
   implicit val hasher: Crypto.Hasher[ByteVector, ByteVector] = {
     val bva = Crypto.liftFunc[ByteVector, Array[Byte]](_.toArray)
     val abv = Crypto.liftFunc[Array[Byte], ByteVector](ByteVector(_))
@@ -90,7 +84,7 @@ class AbciServiceSpec extends WordSpec with Matchers {
         for {
           state ← Ref.of[IO, AbciState](AbciState())
           txCounter <- Ref.of[IO, Int](0)
-          abci = new AbciService[IO](state, vmInvoker, controlSignals, tendermintRpc)
+          abci = new AbciService[IO](state, vmInvoker, controlSignals, blockUploadingEnabled = true)
         } yield (abci, ref, state, txCounter)
       }
       .flatMap(identity)

@@ -16,19 +16,20 @@
 
 package fluence.node.workers
 
-import java.nio.file.Path
-
 import cats.data.EitherT
 import cats.effect._
 import cats.syntax.functor._
-import cats.{Apply, Monad}
+import cats.{Apply, Monad, Parallel}
 import com.softwaremill.sttp._
 import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
+import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.log.Log
 import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.log.LogLevel.LogLevel
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
+import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.DockerTendermint
 
 import scala.concurrent.duration.FiniteDuration
@@ -50,6 +51,7 @@ case class DockerWorkerServices[F[_]] private (
   tendermint: TendermintRpc[F],
   control: ControlRpc[F],
   blockManifests: WorkerBlockManifests[F],
+  responseSubscriber: ResponseSubscriber[F],
   statusCall: FiniteDuration ⇒ F[WorkerStatus]
 ) extends WorkerServices[F] {
   override def status(timeout: FiniteDuration): F[WorkerStatus] = statusCall(timeout)
@@ -58,7 +60,9 @@ case class DockerWorkerServices[F[_]] private (
 object DockerWorkerServices {
   val ControlRpcPort: Short = 26662
 
-  private def dockerCommand(params: WorkerParams, network: DockerNetwork): DockerParams.DaemonParams = {
+  private def dockerCommand(params: WorkerParams,
+                            network: DockerNetwork,
+                            logLevel: LogLevel): DockerParams.DaemonParams = {
     import params._
 
     // Set worker's Xmx to mem * 0.75, so there's a gap between JVM heap and cgroup memory limit
@@ -66,7 +70,9 @@ object DockerWorkerServices {
 
     DockerParams
       .build()
+      .environment(dockerConfig.environment)
       .option("-e", s"""CODE_DIR=$vmCodePath""")
+      .option("-e", s"LOG_LEVEL=$logLevel")
       .option("-e", s"TM_RPC_PORT=${DockerTendermint.RpcPort}")
       .option("-e", s"TM_RPC_HOST=${DockerTendermint.containerName(params)}")
       .option("-e", internalMem.map(mem => s"WORKER_MEMORY_LIMIT=$mem"))
@@ -108,28 +114,34 @@ object DockerWorkerServices {
    * @param p2pPort Tendermint p2p port
    * @param stopTimeout Timeout in seconds to allow graceful stopping of running containers.
    *                    It might take up to 2*`stopTimeout` seconds to gracefully stop the worker, as 2 containers involved.
+   * @param logLevel Logging level passed to the worker
+   * @param receiptStorage Receipt storage resource for this app
    * @param sttpBackend Sttp Backend to launch HTTP healthchecks and RPC endpoints
    * @return the [[WorkerServices]] instance
    */
-  def make[F[_]: DockerIO: Timer: ConcurrentEffect: Log: ContextShift](
+  def make[F[_]: DockerIO: Timer: ConcurrentEffect: Log: ContextShift, G[_]](
     params: WorkerParams,
     p2pPort: Short,
     stopTimeout: Int,
-    storageRootPath: Path
+    logLevel: LogLevel,
+    receiptStorage: Resource[F, ReceiptStorage[F]]
   )(
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
-    F: Concurrent[F]
+    F: Concurrent[F],
+    P: Parallel[F, G]
   ): Resource[F, WorkerServices[F]] =
     for {
       network ← makeNetwork(params)
 
-      worker ← DockerIO[F].run(dockerCommand(params, network), stopTimeout)
+      worker ← DockerIO[F].run(dockerCommand(params, network, logLevel), stopTimeout)
 
       tendermint ← DockerTendermint.make[F](params, p2pPort, containerName(params), network, stopTimeout)
 
       rpc ← TendermintRpc.make[F](tendermint.name, DockerTendermint.RpcPort)
 
-      blockManifests ← WorkerBlockManifests.make[F](params.appId, storageRootPath)
+      blockManifests ← WorkerBlockManifests.make[F](receiptStorage)
+
+      responseSubscriber <- ResponseSubscriber.make(rpc, params.appId)
 
       control = ControlRpc[F](containerName(params), ControlRpcPort)
 
@@ -153,6 +165,6 @@ object DockerWorkerServices {
           )
       }
 
-    } yield new DockerWorkerServices[F](p2pPort, params.appId, rpc, control, blockManifests, status)
+    } yield new DockerWorkerServices[F](p2pPort, params.appId, rpc, control, blockManifests, responseSubscriber, status)
 
 }

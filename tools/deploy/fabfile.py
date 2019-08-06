@@ -43,7 +43,10 @@ else:
 
     nodes = json.loads(nodes_json)
 
-env.hosts = nodes.keys()
+if not env.hosts:
+    env.hosts = nodes.keys()
+else:
+    print "will use hosts: %s" % env.hosts
 
 # Set the username
 env.user = "root"
@@ -78,12 +81,13 @@ def copy_resources():
 
 # tests connection to all nodes
 # usage as follows: fab test_connections
+@task
 @parallel
 def test_connections():
     run("uname -a")
 
 
-# comment this annotation to deploy sequentially
+@task
 @parallel
 def deploy():
     with hide('running'):
@@ -122,7 +126,8 @@ def deploy():
                 swarm = env.swarm
 
             if env.ipfs is None:
-                ipfs = "http://%s:5001" % current_host
+                # Node and IPFS are connected via 'decentralized_storage_network' network, see node.yml & ipfs.yml
+                ipfs = "http://ipfs:5001"
                 remote_storage_enabled = "true"
             else:
                 ipfs = env.ipfs
@@ -173,6 +178,7 @@ def deploy():
 
 
 # usage: fab --set environment=stage,caddy_login=LOGIN,caddy_password=PASSWORD,role=slave deploy_netdata
+@task
 @parallel
 def deploy_netdata():
     from fabric.contrib.files import upload_template
@@ -222,6 +228,7 @@ def deploy_netdata():
                 else:
                     run("PGID=%s HOSTNAME=$HOSTNAME docker-compose --compatibility -f ~/netdata/scripts/netdata_caddy.yml -f ~/netdata/scripts/netdata.yml up -d" % pgid)
 
+@task
 @parallel
 def install_docker():
     with hide('running', 'output'):
@@ -239,3 +246,43 @@ def install_docker():
         print "installing docker-compose"
         run("""curl -L "https://github.com/docker/compose/releases/download/1.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose """)
         run("chmod +x /usr/local/bin/docker-compose")
+
+@task
+@parallel
+def do_deploy_ipfs():
+    with hide('running', 'output'):
+        put('ipfs/ipfs.yml', './')
+        run('docker-compose -f ./ipfs.yml up -d')
+        output = run('docker-compose -f ./ipfs.yml exec ipfs ipfs id')
+        ipfs_addresses = json.loads(output)['Addresses']
+        return ipfs_addresses
+
+@task
+@parallel
+def connect_ipfs_nodes():
+    with hide('running', 'output'):
+        for addr in env.ipfs_addresses:
+            run('docker-compose -f ./ipfs.yml exec ipfs ipfs bootstrap add %s' % addr)
+
+@task
+@runs_once
+# example: fab --set environment=stage deploy_ipfs
+def deploy_ipfs():
+    with hide('running', 'output'):
+        print "IPFS: deploying..."
+        results = execute(do_deploy_ipfs)
+        print "IPFS: deployed"
+        print "IPFS: interconnecting nodes..."
+        external_addresses = [
+            "/dns4/ipfs1.fluence.one/tcp/1036/ipfs/QmQodFqzJgqHyRDEG4abmMgHEV59AgXJ8foBeKgkazchNL",
+            "/dns4/ipfs2.fluence.one/tcp/4001/ipfs/QmT2XFSBkLHPBFyae3o716Hs3qZidFhQrBHvfrMpZwgX7R"
+        ]
+        for ip, addrs in results.items():
+            # filtering external addresses
+            external_addresses += list(addr for addr in addrs if ip in addr)
+
+        env.ipfs_addresses = external_addresses
+
+        execute(connect_ipfs_nodes)
+        print "IPFS: bootstrap nodes added"
+
