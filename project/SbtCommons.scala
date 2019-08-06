@@ -91,7 +91,9 @@ object SbtCommons {
 
           val cpCmd = s"cp -n $testFolder/target/wasm32-unknown-unknown/release/llama_db.wasm " +
             s"$testFolder/target/wasm32-unknown-unknown/release/llama_db_prepared.wasm"
-          assert((cpCmd !) == 0, s"$cpCmd failed")
+          // CI could cache this copied file after copying and in this case cp returns some error code > 0.
+          // So this assert withd < 0 is needed to enforce lazy operation and to prevent potential problem with caching.
+          assert((cpCmd !) < 0, s"$cpCmd failed")
 
           // run wasm-utils to instrument compiled llamadb binary
           val prepareCmd = s"$toolFolder/target/release/wasm-utils prepare " +
