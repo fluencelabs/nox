@@ -18,9 +18,7 @@ package fluence.statemachine.control
 
 import cats.effect.concurrent.{Deferred, MVar}
 import cats.effect.{Concurrent, Resource, Sync}
-import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
-import cats.syntax.functor._
 import fluence.log.Log
 import scodec.bits.ByteVector
 
@@ -81,6 +79,7 @@ trait ControlSignals[F[_]] {
 }
 
 object ControlSignals {
+  import cats.implicits._
 
   /**
    * Create a resource holding ControlSignals. Stop ControlSignals after resource is used.
@@ -93,8 +92,8 @@ object ControlSignals {
       for {
         dropPeersRef ← MVar[F].of[Set[DropPeer]](Set.empty)
         stopRef ← Deferred[F, Unit]
-        hashQueue <- fs2.concurrent.Queue.unbounded[F, VmHash]
-        receiptQueue <- fs2.concurrent.Queue.unbounded[F, BlockReceipt]
+        hashQueue <- LastCachingQueue[F, VmHash, Long]
+        receiptQueue <- LastCachingQueue[F, BlockReceipt, Long]
         instance = new ControlSignalsImpl[F](dropPeersRef, stopRef, receiptQueue, hashQueue)
       } yield instance: ControlSignals[F]
     ) { s =>
