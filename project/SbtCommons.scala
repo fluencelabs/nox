@@ -91,7 +91,7 @@ object SbtCommons {
 
           val cpCmd = s"cp $testFolder/target/wasm32-unknown-unknown/release/llama_db.wasm " +
             s"$testFolder/target/wasm32-unknown-unknown/release/llama_db_prepared.wasm"
-          assert((cpCmd !) == 0, s"$cpCmd failed")
+          cpCmd !
 
           // run wasm-utils to instrument compiled llamadb binary
           val prepareCmd = s"$toolFolder/target/release/wasm-utils prepare " +
