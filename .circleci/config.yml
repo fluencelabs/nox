@@ -1,9 +1,6 @@
-jdk: &jdk
-  image: circleci/openjdk:8-jdk-node
-
 just_jdk: &jdk_image
   docker:
-    - *jdk
+    - image: circleci/openjdk:8-jdk-node
 
 rc: &rc
   restore_cache:
@@ -27,12 +24,21 @@ rustup: &rustup
       ~/.cargo/bin/rustup toolchain install nightly-2019-03-10 # in case some other toolchain was already installed
       ~/.cargo/bin/rustup target add wasm32-unknown-unknown --toolchain nightly-2019-03-10
 
+jce_policy: &jce_policy
+  - run: |
+      curl -L --cookie 'oraclelicense=accept-securebackup-cookie;'  http://download.oracle.com/otn-pub/java/jce/8/jce_policy-8.zip -o /tmp/jce_policy.zip
+      unzip -o /tmp/jce_policy.zip -d /tmp
+      sudo mv -f /tmp/UnlimitedJCEPolicyJDK8/US_export_policy.jar $JAVA_HOME/jre/lib/security/US_export_policy.jar
+      sudo mv -f /tmp/UnlimitedJCEPolicyJDK8/local_policy.jar $JAVA_HOME/jre/lib/security/local_policy.jar
+      rm -rf /tmp/UnlimitedJCEPolicyJDK8 /tmp/jce_policy.zip
+
 version: 2
 jobs:
   sbt all tests:
     <<: *jdk_image
     steps:
       - checkout
+      - <<: *jce_policy
       - <<: *rc
       - <<: *rustup
       - run: PATH="$PATH:$HOME/.cargo/bin:" SBT_OPTS="-Xms2048M -Xmx2048M -Xss6M" sbt -mem 2048 test
@@ -165,29 +171,14 @@ jobs:
             - fluence-js/node_modules
           key: fluence-js-{{ checksum "fluence-js/package-lock.json" }}
 
-  fluence book: #TODO: doesn't work, fix
-    docker:
-      - image: circleci/rust:latest
-    steps:
-      - checkout
-      - run: |
-          eval `ssh-agent` && ssh-add ~/.ssh/id_rsa # https://github.com/rust-lang/cargo/issues/2429
-          test -x $HOME/.cargo/bin/cargo-install-update || cargo install cargo-update
-          test -x $HOME/.cargo/bin/mdbook || cargo install --vers "^0.1" mdbook
-          cargo install-update -a
-          cd docs/
-          mdbook build
-
 workflows:
   version: 2
   fluence:
     jobs:
       - sbt all tests
-#      - sbt integration tests
 #      - cli
       - smart contract
       - deploy scripts
       - js sdk
       - backend sdk
-#      - fluence book
 
