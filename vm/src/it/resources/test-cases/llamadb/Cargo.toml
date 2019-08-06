@@ -9,7 +9,9 @@ edition = "2018"
 [profile.release]
 debug = false
 lto = true
-opt-level = "z"
+opt-level = 3
+debug-assertions = false
+overflow-checks = false
 panic = "abort"
 
 [lib]
