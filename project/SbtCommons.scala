@@ -13,7 +13,7 @@ object SbtCommons {
 
   val scalaV = scalaVersion := "2.12.8"
 
-  val bouncyCastle = "org.bouncycastle" % "bcprov-jdk15on" % "1.61"
+  val bouncyCastle = "org.bouncycastle" % "bcprov-jdk15on" % "1.60"
 
   val commons = Seq(
     scalaV,
