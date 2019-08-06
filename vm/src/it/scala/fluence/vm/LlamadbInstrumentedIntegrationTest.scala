@@ -26,7 +26,7 @@ import scala.language.{higherKinds, implicitConversions}
 
 // TODO: to run this test from IDE It needs to build vm-llamadb project explicitly at first
 // this test is separated from the main LlamadbIntegrationTest because gas price for each instruction could be changed
-// and it would be difficult to update it in each test
+// and it would be difficult to update them in each test
 class LlamadbInstrumentedIntegrationTest extends LlamadbIntegrationTestInterface {
 
   override val llamadbFilePath: String = getModuleDirPrefix() +
