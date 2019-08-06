@@ -18,16 +18,16 @@ package fluence.statemachine.control
 
 import cats.Traverse
 import cats.effect.IO
-import org.scalatest.{Matchers, WordSpec}
-import cats.implicits._
-import fluence.EitherTSttpBackend
-import fluence.effects.{Backoff, EffectError}
-import fluence.log.{Log, LogFactory}
-import scodec.bits.ByteVector
+import cats.instances.list._
+import cats.instances.long._
+import cats.syntax.compose._
+import cats.syntax.flatMap._
 import cats.syntax.traverse._
-import cats.syntax.list._
+import org.scalatest.{Matchers, WordSpec}
+import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.language.higherKinds
 
 class LastCachingQueueSpec extends WordSpec with Matchers {
   implicit private val timer = IO.timer(global)
@@ -43,10 +43,10 @@ class LastCachingQueueSpec extends WordSpec with Matchers {
       (for {
         q <- queue
         _ <- q.enqueue1(vmHash(height))
-        elems <- (1L to len).toList.traverse(_ => q.dequeue(height))
+        elems <- Traverse[List].traverse((1L to len).toList)(_ => q.dequeue(height))
       } yield {
         elems.size shouldBe len
-        elems.foreach(_ shouldBe height)
+        elems.foreach(_.height shouldBe height)
       }).unsafeRunSync()
     }
 

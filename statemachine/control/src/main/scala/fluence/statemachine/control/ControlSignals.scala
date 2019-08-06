@@ -18,7 +18,10 @@ package fluence.statemachine.control
 
 import cats.effect.concurrent.{Deferred, MVar}
 import cats.effect.{Concurrent, Resource, Sync}
+import cats.instances.long._
+import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fluence.log.Log
 import scodec.bits.ByteVector
 
@@ -79,7 +82,6 @@ trait ControlSignals[F[_]] {
 }
 
 object ControlSignals {
-  import cats.implicits._
 
   /**
    * Create a resource holding ControlSignals. Stop ControlSignals after resource is used.
