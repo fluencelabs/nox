@@ -97,8 +97,8 @@ class MasterNodeIntegrationSpec
       master1 <- runMaster(master1Port, "master1", n = 1)
       master2 <- runMaster(master2Port, "master2", n = 2)
 
-      _ <- Resource liftF eventually[IO](checkMasterRunning(master1Port), maxWait = 30.seconds) // TODO: 30 seconds is a bit too much for startup
-      _ <- Resource liftF eventually[IO](checkMasterRunning(master1Port), maxWait = 30.seconds) // TODO: investigate and reduce timeout
+      _ <- Resource liftF eventually[IO](checkMasterRunning(master1Port), maxWait = 1.minute) // TODO: 1 minute is a bit too much for startup
+      _ <- Resource liftF eventually[IO](checkMasterRunning(master1Port), maxWait = 1.minute) // TODO: investigate and reduce timeout
 
     } yield Seq(master1, master2)
   }
@@ -155,7 +155,7 @@ class MasterNodeIntegrationSpec
             c1s0.value should be >= 2L
             c1s1.value should be >= 2L
           },
-          maxWait = 5.minutes
+          maxWait = 2.minutes
         )
 
         _ = lastAppId += 1
@@ -170,7 +170,7 @@ class MasterNodeIntegrationSpec
             worker1 shouldBe defined
             worker2 shouldBe defined
           },
-          maxWait = 5.minutes
+          maxWait = 2.minutes
         )
       } yield ()
     }
@@ -211,7 +211,7 @@ class MasterNodeIntegrationSpec
                 s1 should not be defined
                 s2 should not be defined
               },
-              maxWait = 30.seconds
+              maxWait = 1.minute
             )
           } yield ()
       }
