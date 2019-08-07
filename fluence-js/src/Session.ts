@@ -46,7 +46,6 @@ export class Session {
     private readonly session: string;
     private readonly config: SessionConfig;
     private counter: number;
-    private closing: boolean;
     private closed: boolean;
     private closedStatus: string;
     private readonly defaultBanTime: number;
@@ -160,8 +159,8 @@ export class Session {
     async query(path: string): Promise<RequestState<Option<Result>>> {
         detailedDebug("start query");
 
-        const check = this.checkSession();
-        if (check) return check;
+        const sessionClosed = this.checkSession();
+        if (sessionClosed) return sessionClosed;
 
         try {
             const queryResult = await this.tm.abciQuery(path);
@@ -188,8 +187,8 @@ export class Session {
 
         detailedDebug("start request");
 
-        const check = this.checkSession();
-        if (check) return check;
+        const sessionClosed = this.checkSession();
+        if (sessionClosed) return sessionClosed;
 
         const request = this.prepareRequest(payload, privateKey, counter);
 
@@ -220,8 +219,8 @@ export class Session {
     async requestAsync(payload: string, privateKey?: PrivateKey, counter?: number): Promise<RequestState<string>> {
         detailedDebug("start requestAsync");
 
-        const check = this.checkSession();
-        if (check) return check;
+        const sessionClosed = this.checkSession();
+        if (sessionClosed) return sessionClosed;
 
         const request = this.prepareRequest(payload, privateKey, counter);
 
