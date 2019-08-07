@@ -30,7 +30,7 @@ import scala.language.{higherKinds, implicitConversions}
 class LlamadbInstrumentedIntegrationTest extends LlamadbIntegrationTestInterface {
 
   override val llamadbFilePath: String = getModuleDirPrefix() +
-    "/src/it/resources/test-cases/llamadb//target/wasm32-unknown-unknown/release/llama_db_prepared.wasm"
+    "/src/it/resources/test-cases/llamadb/target/wasm32-unknown-unknown/release/llama_db_prepared.wasm"
 
   private implicit val timer: Timer[IO] = IO.timer(ExecutionContext.global)
   private implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init(getClass.getSimpleName).unsafeRunSync()
