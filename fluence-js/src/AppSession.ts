@@ -50,6 +50,7 @@ export class AppSession {
         if (status !== RequestStatus.OK) {
             if (status === RequestStatus.E_REQUEST && retryCount < this.workerSessions.length) {
                 session.ban();
+                console.log(`Worker's session is banned until ${session.banTime()} milliseconds cause of: ${error}`);
                 return this.performRequest(call, retryCount + 1);
             }
 

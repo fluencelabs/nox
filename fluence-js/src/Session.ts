@@ -129,6 +129,11 @@ export class Session {
         return this.bannedTill >= Date.now();
     }
 
+    banTime(): number {
+        if (this.bannedTill === 0 || !this.isBanned()) return 0;
+        else return this.bannedTill - Date.now();
+    }
+
     private checkSession(): RequestState<any> | undefined {
         if (this.closed) {
             return {
