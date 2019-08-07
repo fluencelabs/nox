@@ -185,7 +185,7 @@ object Configuration {
             rootPath
               .resolve("tendermint")
               .resolve("config")
-              .resolve("priv_validator_key.json")
+              .resolve("node_key.json")
           )
         )
       )
