@@ -89,8 +89,8 @@ class LlamadbInstrumentedIntegrationTest extends LlamadbIntegrationTestInterface
 
         createResult.spentGas should equal(128L)
         emptySelectResult.spentGas should equal(128L)
-        selectAllResult.spentGas should equal(77L)
-        explainResult.spentGas should equal(77L)
+        selectAllResult.spentGas should equal(82L)
+        explainResult.spentGas should equal(82L)
 
       }).success()
 
