@@ -95,7 +95,7 @@ export class TendermintClient {
 
     static async parseQueryResponse(path: string, unparsedResponse: AxiosResponse<TendermintJsonRpcResponse<AbciQueryResult>>): Promise<Option<Result>> {
         if (!unparsedResponse.data || !unparsedResponse.data.result || !unparsedResponse.data.result.response) {
-            return Promise.reject(error(`Malformed response: ${JSON.stringify(unparsedResponse.data)}`));
+            return Promise.reject(error(`Malformed response. Head: ${path}, response: ${JSON.stringify(unparsedResponse.data)}`));
         }
 
         const response = unparsedResponse.data.result.response;
