@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import {error, ErrorResponse, Result} from "./Result";
+import {error, ErrorResponse, ErrorType, Result} from "./Result";
 import {TendermintClient, TxRequest} from "./TendermintClient";
 import {SessionConfig} from "./SessionConfig";
 
@@ -138,7 +138,7 @@ export class Session {
         if (this.closed) {
             return {
                 status: RequestStatus.E_SESSION_CLOSED,
-                error: error(`The session was closed. Cause: ${this.closedStatus}`)
+                error: error(ErrorType.SessionClosed, `The session was closed. Cause: ${this.closedStatus}`)
             };
         }
     }
@@ -176,7 +176,7 @@ export class Session {
         } catch (err) {
             return {
                 status: RequestStatus.E_REQUEST,
-                error: error(`Request error on query occured. Request path: ${path}, error: ${JSON.stringify(err)}`),
+                error: err,
             }
         }
     }
@@ -209,7 +209,7 @@ export class Session {
         } catch (err) {
             return {
                 status: RequestStatus.E_REQUEST,
-                error: error(`Request error on broadcastTx occured. Request payload: ${payload}, error: ${JSON.stringify(err)}`),
+                error: err,
             }
         }
     }
@@ -237,7 +237,7 @@ export class Session {
         } catch (err) {
             return {
                 status: RequestStatus.E_REQUEST,
-                error: error(`Request error on broadcastTx occured. Request payload: ${payload}, error: ${JSON.stringify(err)}`),
+                error: err,
             }
         }
 
@@ -250,7 +250,7 @@ export class Session {
             this.markSessionAsClosed(cause);
             return {
                 status: RequestStatus.E_SESSION_CLOSED,
-                error: error(cause),
+                error: error(ErrorType.SessionClosed, cause),
             }
         }
 

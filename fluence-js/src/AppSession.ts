@@ -2,7 +2,7 @@ import {WorkerSession} from "./fluence";
 import {PrivateKey} from "./utils";
 import {getWorkerStatus} from "fluence-monitoring"
 import {RequestState, RequestStatus, Session} from "./Session";
-import {Result} from "./Result";
+import {ErrorType, Result} from "./Result";
 
 // All sessions with workers from an app
 export class AppSession {
@@ -49,6 +49,9 @@ export class AppSession {
 
         if (status !== RequestStatus.OK) {
             if (status === RequestStatus.E_REQUEST && retryCount < this.workerSessions.length) {
+                if (error && error.errorType == ErrorType.TendermintError) {
+                    throw error;
+                }
                 session.ban();
                 console.log(`Worker's session is banned until ${session.banTime()} milliseconds cause of: ${error}`);
                 return this.performRequest(call, retryCount + 1);

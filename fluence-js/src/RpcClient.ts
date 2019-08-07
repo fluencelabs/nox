@@ -22,6 +22,7 @@ export interface TendermintJsonRpcResponse<T = any> {
     id: any;
     jsonrpc: string;
     result: T;
+    error: any;
 }
 
 export interface AbciQueryResult {
