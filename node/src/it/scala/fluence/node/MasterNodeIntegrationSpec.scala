@@ -155,7 +155,7 @@ class MasterNodeIntegrationSpec
             c1s0.value should be >= 2L
             c1s1.value should be >= 2L
           },
-          maxWait = 2.minutes
+          maxWait = 3.minutes
         )
 
         _ = lastAppId += 1
@@ -170,7 +170,7 @@ class MasterNodeIntegrationSpec
             worker1 shouldBe defined
             worker2 shouldBe defined
           },
-          maxWait = 2.minutes
+          maxWait = 3.minutes
         )
       } yield ()
     }
@@ -211,13 +211,13 @@ class MasterNodeIntegrationSpec
                 s1 should not be defined
                 s2 should not be defined
               },
-              maxWait = 1.minute
+              maxWait = 3.minute
             )
           } yield ()
       }
 
     "sync their workers with contract clusters" in {
-      val basePort: Short = 25000
+      val basePort: Short = 20000
 
       withEthSttpAndTwoMasters(basePort).use {
         case (e, s) =>
@@ -231,7 +231,7 @@ class MasterNodeIntegrationSpec
     }
 
     "stop workers on AppDelete event" in {
-      deleteApp(26000).unsafeRunSync()
+      deleteApp(21000).unsafeRunSync()
     }
   }
 }
