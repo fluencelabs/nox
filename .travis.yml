@@ -38,5 +38,5 @@ matrix:
       script:
         - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile
         # Some tests in LlamadbIntegrationTest require 2 Gb RAM
-        - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test
+        - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M "it:testOnly *MasterNodeIntegrationSpec"
       if: branch = master OR type = pull_request
