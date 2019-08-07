@@ -70,7 +70,6 @@ export class Session {
 
         this.counter = 0;
         this.closed = false;
-        this.closing = false;
         this.defaultBanTime = 60000; // 60 sec by default
         this.lastBanTime = this.defaultBanTime;
         this.bannedTill = 0;
@@ -131,24 +130,21 @@ export class Session {
         return this.bannedTill >= Date.now();
     }
 
-    /**
-     * Checks if everything ok with the session before a request will be sent.
-     * Builds a request.
-     */
-    private checkPrepareRequest(payload: string, privateKey?: PrivateKey, counter?: number): any {
-        // throws an error immediately if the session is closed
+    private checkSession(): RequestState<any> | undefined {
         if (this.closed) {
             return {
                 status: RequestStatus.E_SESSION_CLOSED,
                 error: error(`The session was closed. Cause: ${this.closedStatus}`)
             };
         }
+    }
 
-        if (this.closing) {
-            this.markSessionAsClosed(this.closedStatus)
-        }
-
-        // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
+    /**
+     * Checks if everything ok with the session before a request will be sent.
+     * Builds a request.
+     */
+    private prepareRequest(payload: string, privateKey?: PrivateKey, counter?: number): TxRequest {
+                // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
         let currentCounter = counter ? counter : this.getCounterAndIncrement();
 
         let signed = withSignature(payload, currentCounter, privateKey);
@@ -164,32 +160,21 @@ export class Session {
     async query(path: string): Promise<RequestState<Option<Result>>> {
         detailedDebug("start query");
 
-        // throws an error immediately if the session is closed
-        if (this.closed) {
-            return {
-                status: RequestStatus.E_SESSION_CLOSED,
-                error: error(`The session was closed. Cause: ${this.closedStatus}`)
-            };
-        }
+        const check = this.checkSession();
+        if (check) return check;
 
-        if (this.closing) {
-            this.markSessionAsClosed(this.closedStatus)
-        }
-
-        let queryResult;
         try {
-            queryResult = await this.tm.abciQuery(path);
+            const queryResult = await this.tm.abciQuery(path);
+            return {
+                status: RequestStatus.OK,
+                result: queryResult
+            };
         } catch (err) {
             return {
                 status: RequestStatus.E_REQUEST,
                 error: error(`Request error on query occured. Request path: ${path}, error: ${JSON.stringify(err)}`),
             }
         }
-
-        return {
-            status: RequestStatus.OK,
-            result: queryResult
-        };
     }
 
     /**
@@ -199,31 +184,30 @@ export class Session {
      * @param privateKey Optional private key to sign requests
      * @param counter Optional counter, overrides current counter
      */
-    async request(payload: string, privateKey?: PrivateKey, counter?: number): Promise<RequestState<Promise<Result>>> {
+    async request(payload: string, privateKey?: PrivateKey, counter?: number): Promise<RequestState<Option<Result>>> {
 
         detailedDebug("start request");
 
-        let request: TxRequest;
-        const req = this.checkPrepareRequest(payload, privateKey, counter);
-        if (req.error) return req;
-        else request = req;
+        const check = this.checkSession();
+        if (check) return check;
+
+        const request = this.prepareRequest(payload, privateKey, counter);
 
         // send transaction
         txDebug("send broadcastTxSync");
-        let txSendResult;
+
         try {
-            txSendResult = this.tm.txWaitResponse(request);
+            const txSendResult = await this.tm.txWaitResponse(request);
+            return {
+                status: RequestStatus.OK,
+                result: txSendResult
+            };
         } catch (err) {
             return {
                 status: RequestStatus.E_REQUEST,
                 error: error(`Request error on broadcastTx occured. Request payload: ${payload}, error: ${JSON.stringify(err)}`),
             }
         }
-
-        return {
-            status: RequestStatus.OK,
-            result: txSendResult
-        };
     }
 
     /**
@@ -236,10 +220,10 @@ export class Session {
     async requestAsync(payload: string, privateKey?: PrivateKey, counter?: number): Promise<RequestState<string>> {
         detailedDebug("start requestAsync");
 
-        let request: TxRequest;
-        const req = this.checkPrepareRequest(payload, privateKey, counter);
-        if (req.error) return req;
-        else request = req;
+        const check = this.checkSession();
+        if (check) return check;
+
+        const request = this.prepareRequest(payload, privateKey, counter);
 
         // send transaction
         txDebug("send broadcastTxSync");

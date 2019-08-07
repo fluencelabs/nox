@@ -69,7 +69,10 @@ export class AppSession {
     async request(payload: string): Promise<Result> {
         const currentCounter = this.counter++;
 
-        return this.performRequest((s: Session) => s.request(payload, this.privateKey, currentCounter));
+        const result = await this.performRequest((s: Session) => s.request(payload, this.privateKey, currentCounter));
+
+        if (result.isDefined) return result.get;
+        else return Promise.reject("Unexpected. The result is empty.")
     }
 
     /**
