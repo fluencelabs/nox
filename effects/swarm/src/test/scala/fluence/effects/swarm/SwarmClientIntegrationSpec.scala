@@ -41,8 +41,8 @@ import scala.util.Random
 @Ignore
 class SwarmClientIntegrationSpec extends FlatSpec with Matchers with EitherValues {
 
-  val randomKeys: ECKeyPair = Keys.createEcKeyPair()
-  val signer: Signer[ByteVector, ByteVector] = Secp256k1Signer.signer(randomKeys)
+  lazy val randomKeys: ECKeyPair = Keys.createEcKeyPair()
+  lazy val signer: Signer[ByteVector, ByteVector] = Secp256k1Signer.signer(randomKeys)
 
   private implicit val ioTimer: Timer[IO] = IO.timer(global)
   private implicit val ioShift: ContextShift[IO] = IO.contextShift(global)
