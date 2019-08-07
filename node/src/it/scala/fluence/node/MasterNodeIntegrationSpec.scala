@@ -155,7 +155,7 @@ class MasterNodeIntegrationSpec
             c1s0.value should be >= 2L
             c1s1.value should be >= 2L
           },
-          maxWait = 90.seconds
+          maxWait = 5.minutes
         )
 
         _ = lastAppId += 1
@@ -170,7 +170,7 @@ class MasterNodeIntegrationSpec
             worker1 shouldBe defined
             worker2 shouldBe defined
           },
-          maxWait = 90.seconds
+          maxWait = 5.minutes
         )
       } yield ()
     }
