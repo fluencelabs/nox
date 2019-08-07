@@ -14,14 +14,20 @@
  * limitations under the License.
  */
 
-import {none, Option, some, Some} from "ts-option";
+import {none, Option, some} from "ts-option";
 import {fromHex} from "./utils";
 import * as debug from "debug";
-import {RpcClient} from "./RpcClient";
-import {QueryResponse, error, Result} from "./Result";
+import {AbciQueryResult, RpcClient, TendermintJsonRpcResponse} from "./RpcClient";
+import {error, ErrorType, Result} from "./Result";
 import {toByteArray} from "base64-js";
+import {AxiosResponse} from "axios";
 
 const d = debug("tendermintClient");
+
+export interface TxRequest {
+    path: string,
+    payload: string
+}
 
 export interface BroadcastTxSyncResponse {
     code: number
@@ -62,6 +68,18 @@ export class TendermintClient {
     }
 
     /**
+     * Sends broadcast_tx_sync operation.
+     * @param request a request with a path and a payload
+     */
+    async txWaitResponse(request: TxRequest): Promise<Option<Result>> {
+        d("txWaitResponse request. Path: " + request.path);
+
+        const response = await this.client.txWaitResponse(request.payload);
+
+        return await TendermintClient.parseQueryResponse(request.path, response);
+    }
+
+    /**
      * Sends an ABCI query.
      * @param path query parameter
      *
@@ -72,30 +90,37 @@ export class TendermintClient {
 
         const abciQueryResult = await this.client.abciQuery(path);
 
-        if (!abciQueryResult.data || !abciQueryResult.data.result || !abciQueryResult.data.result.response) {
-            throw error(`Malformed response: ${JSON.stringify(abciQueryResult.data)}`);
+        return TendermintClient.parseQueryResponse(path, abciQueryResult)
+    }
+
+    static async parseQueryResponse(path: string, unparsedResponse: AxiosResponse<TendermintJsonRpcResponse<AbciQueryResult>>): Promise<Option<Result>> {
+        if (!unparsedResponse.data || !unparsedResponse.data.result || !unparsedResponse.data.result.response) {
+            if (unparsedResponse.data.error) {
+                return Promise.reject(error(ErrorType.TendermintError, `The cluster returned an error. Head: ${path}, response: ${JSON.stringify(unparsedResponse.data)}`));
+            }
+            return Promise.reject(error(ErrorType.MalformedError, `Cannot find 'response' field in a query response. Head: ${path}, response: ${JSON.stringify(unparsedResponse.data)}`));
         }
 
-        const response = abciQueryResult.data.result.response;
+        const response = unparsedResponse.data.result.response;
 
         switch (response.code) {
             case undefined:
             case 0: {
                 if (!response.value) {
-                    throw error(`Error: no value on response: ${JSON.stringify(response)}`);
+                    return Promise.reject(error(ErrorType.ParsingError, `Error: no value on response: ${JSON.stringify(response)}`));
                 }
 
                 try {
                     return some(new Result(toByteArray(response.value)));
                 } catch (e) {
-                    throw error(`Error on parsing value from response: ${JSON.stringify(response)} err:  ${e}`);
+                    return Promise.reject(error(ErrorType.ParsingError, `Error on parsing value from response: ${JSON.stringify(response)} err:  ${e}`));
                 }
             }
             case 1: {
-                throw error(`Cannot parse headers on path ${path}: ${response.info}`);
+                return Promise.reject(error(ErrorType.ParsingError, `Cannot parse headers on path ${path}: ${response.info}`));
             }
             case 2: {
-                throw error(`Request with path '${path}' is dropped: ${response.info}`);
+                return Promise.reject(error(ErrorType.TendermintError, `Request with path '${path}' is dropped: ${response.info}`));
             }
             case 3:
             case 4: {
@@ -103,7 +128,7 @@ export class TendermintClient {
                 return none;
             }
             default: {
-                throw error(`unknown code ${response.code} response: ${JSON.stringify(response)}`);
+                return Promise.reject(error(ErrorType.InternalError, `unknown code ${response.code} response: ${JSON.stringify(response)}`));
             }
         }
     }
