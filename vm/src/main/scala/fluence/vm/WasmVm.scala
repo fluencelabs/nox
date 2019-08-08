@@ -24,19 +24,17 @@ import cats.data.{EitherT, NonEmptyList}
 import cats.effect.LiftIO
 import cats.{Monad, Traverse}
 import cats.instances.list._
+import com.typesafe.config.{Config, ConfigFactory}
 import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.log.Log
 import fluence.merkle.TrackingMemoryBuffer
-import fluence.vm.VmError.{InitializationError, InternalVmError}
+import fluence.vm.VmError.InitializationError
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
 import fluence.vm.wasm.{MemoryHasher, WasmFunction, WasmModule}
 import fluence.vm.config.VmConfig
-import fluence.vm.config.VmConfig._
-import fluence.vm.config.VmConfig.ConfigError
 import fluence.vm.utils.safelyRunThrowable
 import scodec.bits.ByteVector
-import pureconfig.generic.auto._
 
 import scala.collection.convert.ImplicitConversionsToJava.`seq AsJavaList`
 import scala.collection.convert.ImplicitConversionsToScala.`list asScalaBuffer`
@@ -92,17 +90,11 @@ object WasmVm {
     memoryHasher: MemoryHasher.Builder[F],
     configNamespace: String = "fluence.vm.client",
     cryptoHasher: Crypto.Hasher[Array[Byte], Array[Byte]] = JdkCryptoHasher.Sha256,
+    conf: ⇒ Config = ConfigFactory.load()
   ): EitherT[F, ApplyError, WasmVm] =
     for {
       // reading config
-      config ← EitherT
-        .fromEither[F](pureconfig.loadConfig[VmConfig](configNamespace))
-        .leftMap { e ⇒
-          InternalVmError(
-            s"Unable to read a config for the namespace=$configNamespace",
-            Some(ConfigError(e))
-          ): ApplyError
-        }
+      config ← VmConfig.readT[F](configNamespace, conf)
 
       _ ← Log.eitherT[F, ApplyError].info("WasmVm: configs read...")
 
