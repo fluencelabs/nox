@@ -159,7 +159,7 @@ class AbciService[F[_]: Monad: Effect](
             QueryResponse(
               state.height,
               Array.emptyByteArray,
-              QueryCode.NotFound.id,
+              QueryCode.NotFound,
               s"Cannot parse query path: $path, must be in `sessionId/nonce` format"
           )
         )
@@ -169,7 +169,7 @@ class AbciService[F[_]: Monad: Effect](
         state.get.map { st ⇒
           st.responses.find(_._1 == head) match {
             case Some((_, data)) ⇒
-              QueryResponse(st.height, data, QueryCode.Ok.id, s"Responded for path $path")
+              QueryResponse(st.height, data, QueryCode.Ok, s"Responded for path $path")
 
             case _ ⇒
               // Is it pending or unknown?
@@ -177,14 +177,14 @@ class AbciService[F[_]: Monad: Effect](
                 QueryResponse(
                   st.height,
                   Array.emptyByteArray,
-                  QueryCode.Pending.id,
+                  QueryCode.Pending,
                   s"Transaction is not yet processed: $path"
                 )
               else
                 QueryResponse(
                   st.height,
                   Array.emptyByteArray,
-                  QueryCode.NotFound.id,
+                  QueryCode.NotFound,
                   s"No response found for path: $path"
                 )
           }
@@ -261,7 +261,7 @@ object AbciService {
    * @param code response code
    * @param info response message
    */
-  case class QueryResponse(height: Long, result: Array[Byte], code: Int, info: String)
+  case class QueryResponse(height: Long, result: Array[Byte], code: QueryCode.Value, info: String)
 
   /**
    * A structure for aggregating data specific to building `CheckTx`/`DeliverTx` ABCI response.

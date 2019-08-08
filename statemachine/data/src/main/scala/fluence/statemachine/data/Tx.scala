@@ -19,6 +19,8 @@ package fluence.statemachine.data
 import cats.Monad
 import cats.data.OptionT
 import cats.syntax.flatMap._
+import cats.syntax.option._
+import cats.syntax.functor._
 import fluence.log.Log
 
 import scala.language.higherKinds
@@ -62,25 +64,29 @@ object Tx {
     case _ ⇒ None
   }
 
+  def splitTx(tx: Array[Byte]): Option[(String, Array[Byte])] = {
+    val headIndex = tx.indexWhere(_.toChar == '\n')
+    if (headIndex <= 0) {
+      Option.empty[(String, Array[Byte])]
+    } else {
+      val (head, tail) = tx.splitAt(headIndex)
+      Try(new String(head)).toOption.map(_ -> tail)
+    }
+  }
+
   /**
    * Try to read binary transaction.
    *
    * @param tx Binary transaction, how it cames from Tendermint
    */
   def readTx[F[_]: Monad: Log](tx: Array[Byte]): OptionT[F, Tx] = {
-    val headIndex = tx.indexWhere(_.toChar == '\n')
-    if (headIndex <= 0) {
-      OptionT.none[F, Tx]
-    } else {
-      val (head, tail) = tx.splitAt(headIndex)
-      OptionT.fromOption[F](readHead(new String(head))).flatMap { h ⇒
-        Try(
-          Tx(h, Data(tail.drop(1)))
-        ).toEither.fold(
-          err ⇒ OptionT.liftF(Log[F].error("Cannot parse tx", err)) >> OptionT.none[F, Tx],
-          OptionT.pure[F](_)
-        )
-      }
+    splitTx(tx) match {
+      case Some((head, tail)) =>
+        readHead(head) match {
+          case Some(h) => Tx(h, Data(tail.drop(1))).some.toOptionT
+          case None    => Log.optionT[F].info("Malformed head in tx").widen[Tx]
+        }
+      case None => Log.optionT[F].info("Cannot find head in tx: no newline found").widen[Tx]
     }
   }
 }
