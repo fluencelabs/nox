@@ -144,7 +144,7 @@ object WasmVm {
         inFiles.toList,
         Nil, // registrations
         false, // disableAutoRegister
-        config.specTestRegister,
+        config.specTestEnabled,
         config.defaultMaxMemPages,
         config.loggerModuleEnabled,
         (capacity: Int) ⇒ TrackingMemoryBuffer.allocateDirect(capacity, config.chunkSize)
@@ -165,11 +165,11 @@ object WasmVm {
     for {
 
       rawEnvModule ← EitherT.cond[F](
-          scriptCxt.getRegistrations.containsKey(config.envModuleConfig.name),
-          scriptCxt.getRegistrations.get(config.envModuleConfig.name),
-          NoSuchModuleError(
-            s"Asmble doesn't provide the environment module with name=${config.envModuleConfig.name} (perhaps you are using the old version)"
-          ): ApplyError
+        scriptCxt.getRegistrations.containsKey(config.envModuleConfig.name),
+        scriptCxt.getRegistrations.get(config.envModuleConfig.name),
+        NoSuchModuleError(
+          s"Asmble doesn't provide the environment module with name=${config.envModuleConfig.name} (perhaps you are using the old version)"
+        ): ApplyError
       )
 
       envModule ← EnvModule[F](

@@ -56,7 +56,7 @@ class EnvModule(
    * Clears the spent gas count.
    */
   def clearState[F[_]: LiftIO: Monad](): EitherT[F, InvokeError, Unit] =
-    clearStateFunction(instance).map(_ ⇒ ())
+    clearStateFunction(instance, Nil).map(_ ⇒ ())
 
 }
 

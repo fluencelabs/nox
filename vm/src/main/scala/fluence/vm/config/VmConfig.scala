@@ -35,7 +35,7 @@ import scala.language.higherKinds
  * @param deallocateFunctionName name of a function that should be called for deallocation
  * of previously allocated memory
  * @param invokeFunctionName name of main module handler function
-*/
+ */
 case class MainModuleConfig(
   name: Option[String],
   allocateFunctionName: String,
@@ -60,7 +60,7 @@ case class EnvModuleConfig(
  * WasmVm settings.
  *
  * @param defaultMaxMemPages the maximum count of memory pages when a module doesn't say
- * @param specTestRegister if true, registers the spec test harness as 'spectest'
+ * @param specTestEnabled if true, registers the spec test harness as 'spectest'
  * @param loggerModuleEnabled if set, registers the logger Wasm module as 'logger'
  * @param chunkSize a size of the memory chunks, that memory will be split into
  * @param mainModuleConfig settings for the main module
@@ -68,7 +68,7 @@ case class EnvModuleConfig(
  */
 case class VmConfig(
   defaultMaxMemPages: Int,
-  specTestRegister: Boolean,
+  specTestEnabled: Boolean,
   loggerModuleEnabled: Boolean,
   chunkSize: Int,
   mainModuleConfig: MainModuleConfig,
@@ -84,6 +84,6 @@ object VmConfig {
         InternalVmError(
           s"Unable to read a config for the namespace=$namespace",
           Some(e)
-        )
+      )
     )
 }
