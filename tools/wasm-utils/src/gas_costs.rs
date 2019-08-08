@@ -4,10 +4,9 @@ use std::collections::{HashMap as Map};
 use std::collections::{BTreeMap as Map};
 
 use pwasm_utils::rules::{InstructionType, Metering};
-use std::cell::RefCell;
 
-//thread_local! {
-    static COST_TABLE: RefCell<Map<InstructionType, Metering>> = RefCell::new(vec![
+pub fn gas_cost_table() -> Map<InstructionType, Metering> {
+    vec![
         (InstructionType::Add, Metering::Fixed(3)),
         (InstructionType::Bit, Metering::Fixed(3)),
         (InstructionType::Const, Metering::Fixed(3)),
@@ -30,5 +29,4 @@ use std::cell::RefCell;
         (InstructionType::Store, Metering::Fixed(3)),
         (InstructionType::Unreachable, Metering::Fixed(3))
     ].into_iter().collect()
-);
-//}
+}

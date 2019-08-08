@@ -17,11 +17,13 @@
 // TODO: add some docs
 
 mod gas_costs;
+
 use pwasm_utils::rules;
 
 use clap::{App, AppSettings, Arg, SubCommand};
 use exitfailure::ExitFailure;
 use failure::err_msg;
+use parity_wasm::elements::Module;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
@@ -42,16 +44,19 @@ fn prepare_wasm_file<'a, 'b>() -> App<'a, 'b> {
         .args(arg)
 }
 
-macro_rules! wasm_worker {
-    ($head:ident, $($tail:ident),*) => {{
-        {
-            $head.unwrap_or(true) && opt_and! { $($tail),* }
-        }
-    }};
+pub fn wasm_worker_with<F>(module_path: &str, func: F) -> Result<(), ExitFailure>
+    where
+        F: FnOnce(Module) -> Module,
+{
+    let module =
+        parity_wasm::deserialize_file(module_path).expect("Error while deserializing file");
 
-    ($last:ident) => {{
-        $last.unwrap_or(true)
-    }};
+    let module = func(module);
+
+    parity_wasm::serialize_to_file(module_path, module)
+        .expect("Error while serializing file");
+
+    Ok(())
 }
 
 fn main() -> Result<(), ExitFailure> {
@@ -63,51 +68,46 @@ fn main() -> Result<(), ExitFailure> {
         .subcommand(prepare_wasm_file());
 
     match app.get_matches().subcommand() {
-        // TODO: change name after adding EIC instrumentation
         ("prepare", Some(arg)) => {
-            let module_path = arg.value_of(MODULE_PATH).unwrap();
 
-            let module =
-                parity_wasm::deserialize_file(module_path).expect("Error while deserializing file");
-            let gas_rules = rules::Set::new(1, Default::default());
+            wasm_worker_with(arg.value_of(MODULE_PATH).unwrap(),
+                             |module: Module| {
+                                 // instrument for gas metering
+                                 let gas_rules = rules::Set::new(1, gas_costs::gas_cost_table());
+                                 let module = pwasm_utils::inject_gas_counter(module, &gas_rules)
+                                     .expect("Error while deserializing file");
 
-            let module = pwasm_utils::inject_gas_counter(module, &gas_rules)
-                .expect("Error while deserializing file");
-            parity_wasm::serialize_to_file(module_path, module)
-                .expect("Error while serializing file");
-
+                                 // instrument for EIC metering
+                                 let gas_rules = rules::Set::new(1, Default::default());
+                                 pwasm_utils::inject_gas_counter(module, &gas_rules)
+                                     .expect("Error while deserializing file")
+                             }
+            )?;
             Ok(())
         }
 
         ("eic", Some(arg)) => {
-            let module_path = arg.value_of(MODULE_PATH).unwrap();
-
-            let module =
-                parity_wasm::deserialize_file(module_path).expect("Error while deserializing file");
-            let gas_rules = rules::Set::new(1, Default::default());
-
-            let module = pwasm_utils::inject_gas_counter(module, &gas_rules)
-                .expect("Error while deserializing file");
-            parity_wasm::serialize_to_file(module_path, module)
-                .expect("Error while serializing file");
-
+            wasm_worker_with(arg.value_of(MODULE_PATH).unwrap(),
+                             |module: Module| {
+                                 let gas_rules = rules::Set::new(1, Default::default());
+                                 pwasm_utils::inject_gas_counter(module, &gas_rules)
+                                     .expect("Error while deserializing file")
+                             }
+            )?;
             Ok(())
         }
 
         ("gas", Some(arg)) => {
-            let module_path = arg.value_of(MODULE_PATH).unwrap();
-
-            let module =
-                parity_wasm::deserialize_file(module_path).expect("Error while deserializing file");
-            let gas_rules = rules::Set::new(1, Default::default());
-
-            let module = pwasm_utils::inject_gas_counter(module, &gas_rules)
-                .expect("Error while deserializing file");
-            parity_wasm::serialize_to_file(module_path, module)
-                .expect("Error while serializing file");
-
+            wasm_worker_with(arg.value_of(MODULE_PATH).unwrap(),
+                             |module: Module| {
+                                 let gas_rules = rules::Set::new(1, gas_costs::gas_cost_table());
+                                 pwasm_utils::inject_gas_counter(module, &gas_rules)
+                                     .expect("Error while deserializing file")
+                             }
+            )?;
             Ok(())
         }
+
         c => Err(err_msg(format!("Unexpected command: {}", c.0)))?,
     }
 }
