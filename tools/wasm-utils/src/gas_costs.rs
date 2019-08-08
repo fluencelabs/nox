@@ -5,6 +5,8 @@ use std::collections::HashMap as Map;
 
 use pwasm_utils::rules::{InstructionType, Metering};
 
+// gas costs has been chosen according to
+// https://github.com/ewasm/design/blob/master/determining_wasm_gas_costs.md
 pub fn gas_cost_table() -> Map<InstructionType, Metering> {
     vec![
         (InstructionType::Add, Metering::Fixed(3)),
