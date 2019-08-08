@@ -29,32 +29,74 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
 const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 
-const MODULE_PATH: &str = "module_path";
+const IN_MODULE_PATH: &str = "in_module_path";
+const OUT_MODULE_PATH: &str = "out_module_path";
 
 fn prepare_wasm_file<'a, 'b>() -> App<'a, 'b> {
-    let arg = &[
-        Arg::with_name(MODULE_PATH)
+    let args = &[
+        Arg::with_name(IN_MODULE_PATH)
             .required(true)
             .takes_value(true)
             .help("path to the wasm file"),
+        Arg::with_name(OUT_MODULE_PATH)
+            .required(true)
+            .takes_value(true)
+            .help("path to a result wasm file"),
     ];
 
     SubCommand::with_name("prepare")
-        .about("Prepare wasm file to run on the Fluence network")
-        .args(arg)
+        .about("Prepare a wasm file to run on the Fluence network")
+        .args(args)
 }
 
-pub fn wasm_worker_with<F>(module_path: &str, func: F) -> Result<(), ExitFailure>
-    where
-        F: FnOnce(Module) -> Module,
+fn gas_metering<'a, 'b>() -> App<'a, 'b> {
+    let args = &[
+        Arg::with_name(IN_MODULE_PATH)
+            .required(true)
+            .takes_value(true)
+            .help("path to the wasm file"),
+        Arg::with_name(OUT_MODULE_PATH)
+            .required(true)
+            .takes_value(true)
+            .help("path to a result wasm file"),
+    ];
+
+    SubCommand::with_name("gas_metering")
+        .about("Add gas metering to a wasm file")
+        .args(args)
+}
+
+fn eic_metering<'a, 'b>() -> App<'a, 'b> {
+    let args = &[
+        Arg::with_name(IN_MODULE_PATH)
+            .required(true)
+            .takes_value(true)
+            .help("path to the wasm file"),
+        Arg::with_name(OUT_MODULE_PATH)
+            .required(true)
+            .takes_value(true)
+            .help("path to a result wasm file"),
+    ];
+
+    SubCommand::with_name("eic_metering")
+        .about("Add executed instruction counter metering to a wasm file")
+        .args(args)
+}
+
+pub fn wasm_worker_with<F>(
+    in_module_path: &str,
+    out_module_path: &str,
+    func: F,
+) -> Result<(), ExitFailure>
+where
+    F: FnOnce(Module) -> Module,
 {
     let module =
-        parity_wasm::deserialize_file(module_path).expect("Error while deserializing file");
+        parity_wasm::deserialize_file(in_module_path).expect("Error while deserializing file");
 
     let module = func(module);
 
-    parity_wasm::serialize_to_file(module_path, module)
-        .expect("Error while serializing file");
+    parity_wasm::serialize_to_file(out_module_path, module).expect("Error while serializing file");
 
     Ok(())
 }
@@ -65,45 +107,52 @@ fn main() -> Result<(), ExitFailure> {
         .author(AUTHORS)
         .about(DESCRIPTION)
         .setting(AppSettings::ArgRequiredElseHelp)
-        .subcommand(prepare_wasm_file());
+        .subcommand(prepare_wasm_file())
+        .subcommand(gas_metering())
+        .subcommand(eic_metering());
 
     match app.get_matches().subcommand() {
         ("prepare", Some(arg)) => {
+            wasm_worker_with(
+                arg.value_of(IN_MODULE_PATH).unwrap(),
+                arg.value_of(OUT_MODULE_PATH).unwrap(),
+                |module: Module| {
+                    // instrument for gas metering
+                    let gas_rules = rules::Set::new(1, gas_costs::gas_cost_table());
+                    let module = pwasm_utils::inject_gas_counter(module, &gas_rules)
+                        .expect("Error while deserializing file");
 
-            wasm_worker_with(arg.value_of(MODULE_PATH).unwrap(),
-                             |module: Module| {
-                                 // instrument for gas metering
-                                 let gas_rules = rules::Set::new(1, gas_costs::gas_cost_table());
-                                 let module = pwasm_utils::inject_gas_counter(module, &gas_rules)
-                                     .expect("Error while deserializing file");
-
-                                 // instrument for EIC metering
-                                 let gas_rules = rules::Set::new(1, Default::default());
-                                 pwasm_utils::inject_gas_counter(module, &gas_rules)
-                                     .expect("Error while deserializing file")
-                             }
+                    // instrument for EIC metering
+                    let gas_rules = rules::Set::new(1, Default::default());
+                    pwasm_utils::inject_gas_counter(module, &gas_rules)
+                        .expect("Error while deserializing file")
+                },
             )?;
             Ok(())
         }
 
         ("eic", Some(arg)) => {
-            wasm_worker_with(arg.value_of(MODULE_PATH).unwrap(),
-                             |module: Module| {
-                                 let gas_rules = rules::Set::new(1, Default::default());
-                                 pwasm_utils::inject_gas_counter(module, &gas_rules)
-                                     .expect("Error while deserializing file")
-                             }
+            wasm_worker_with(
+                arg.value_of(IN_MODULE_PATH).unwrap(),
+                arg.value_of(OUT_MODULE_PATH).unwrap(),
+                |module: Module| {
+                    let gas_rules = rules::Set::new(1, Default::default());
+                    pwasm_utils::inject_gas_counter(module, &gas_rules)
+                        .expect("Error while deserializing file")
+                },
             )?;
             Ok(())
         }
 
         ("gas", Some(arg)) => {
-            wasm_worker_with(arg.value_of(MODULE_PATH).unwrap(),
-                             |module: Module| {
-                                 let gas_rules = rules::Set::new(1, gas_costs::gas_cost_table());
-                                 pwasm_utils::inject_gas_counter(module, &gas_rules)
-                                     .expect("Error while deserializing file")
-                             }
+            wasm_worker_with(
+                arg.value_of(IN_MODULE_PATH).unwrap(),
+                arg.value_of(OUT_MODULE_PATH).unwrap(),
+                |module: Module| {
+                    let gas_rules = rules::Set::new(1, gas_costs::gas_cost_table());
+                    pwasm_utils::inject_gas_counter(module, &gas_rules)
+                        .expect("Error while deserializing file")
+                },
             )?;
             Ok(())
         }
