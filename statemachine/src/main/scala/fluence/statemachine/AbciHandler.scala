@@ -46,23 +46,31 @@ class AbciHandler[F[_]: Effect: LogFactory](
 
     val tx = req.getTx.toByteArray
 
-    log.info(
-      Tx.splitTx(tx).fold(s"can't parse head from tx ${Try(new String(tx.take(100)))}") {
-        case (head, _) => s"tx.head: $head"
-      }
-    )
-
     service
-      .checkTx(req.getTx.toByteArray)
+      .checkTx(tx)
       .toIO
-      .map {
-        case AbciService.TxResponse(code, info) ⇒
-          ResponseCheckTx.newBuilder
-            .setCode(code.id)
-            .setInfo(info)
-            // TODO where it goes?
-            .setData(ByteString.copyFromUtf8(info))
-            .build
+      .flatMap {
+        case AbciService.TxResponse(code, info, height) ⇒
+          log
+            .info(
+              Tx.splitTx(tx)
+                .fold(
+                  s"${height.fold("")(h => s"height $height")} can't parse head from tx ${Try(new String(tx.take(100)))}"
+                ) {
+                  case (head, _) =>
+                    s"tx.head: $head -> $code ${info.replace('\n', ' ')} ${height.fold("")(h => s"height $height")}"
+                }
+            )
+            .toIO
+            .map(
+              _ =>
+                ResponseCheckTx.newBuilder
+                  .setCode(code.id)
+                  .setInfo(info)
+                  // TODO where it goes?
+                  .setData(ByteString.copyFromUtf8(info))
+                  .build
+            )
       }
       .unsafeRunSync()
   }
@@ -70,20 +78,24 @@ class AbciHandler[F[_]: Effect: LogFactory](
   override def receivedDeliverTx(
     req: RequestDeliverTx
   ): ResponseDeliverTx = {
-    implicit val log: Log[F] = LogFactory[F].init("abci", "receivedDeliverTx").toIO.unsafeRunSync()
+    implicit val log: Log[F] = LogFactory[F].init("abci", "requestDeliverTx").toIO.unsafeRunSync()
 
     val tx = req.getTx.toByteArray
 
     service
       .deliverTx(tx)
       .toIO
-      .map {
-        case AbciService.TxResponse(code, info) ⇒
+      .flatMap {
+        case AbciService.TxResponse(code, info, height) ⇒
           log
             .info(
-              Tx.splitTx(tx).fold(s"can't parse head from tx ${Try(new String(tx.take(100)))}") {
-                case (head, _) => s"tx.head: $head -> $code $info"
-              }
+              Tx.splitTx(tx)
+                .fold(
+                  s"${height.fold("")(h => s"height $height")} can't parse head from tx ${Try(new String(tx.take(100)))}"
+                ) {
+                  case (head, _) =>
+                    s"tx.head: $head -> $code ${info.replace('\n', ' ')} ${height.fold("")(h => s"height $height")}"
+                }
             )
             .toIO
             .map(
@@ -123,7 +135,7 @@ class AbciHandler[F[_]: Effect: LogFactory](
       .flatMap {
         case AbciService.QueryResponse(height, result, code, info) ⇒
           log
-            .info(s"${req.getPath} height: ${req.getHeight} -> height: $height code: $code $info ${result.size}")
+            .info(s"${req.getPath} -> height: $height code: $code ${info.replace('\n', ' ')} ${result.length}")
             .toIO
             .map(
               _ =>

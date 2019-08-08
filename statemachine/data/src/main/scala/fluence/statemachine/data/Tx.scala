@@ -84,9 +84,9 @@ object Tx {
       case Some((head, tail)) =>
         readHead(head) match {
           case Some(h) => Tx(h, Data(tail.drop(1))).some.toOptionT
-          case None    => Log.optionT[F].info("Malformed head in tx").widen[Tx]
+          case None    => Log.optionT[F].info(s"Malformed head in tx: $head") >> OptionT.none
         }
-      case None => Log.optionT[F].info("Cannot find head in tx: no newline found").widen[Tx]
+      case None => Log.optionT[F].info("Cannot find head in tx: no newline found") >> OptionT.none
     }
   }
 }
