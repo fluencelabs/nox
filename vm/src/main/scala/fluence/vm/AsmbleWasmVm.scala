@@ -57,7 +57,7 @@ class AsmbleWasmVm(
     for {
       preprocessedArgument ← loadArgToMemory(fnArgument)
       resultOffset ← mainModule.invoke(preprocessedArgument)
-      _ ← envModule.clearSpentGas()
+      _ ← envModule.clearState()
 
       // It is expected that callee (Wasm module) has to clean memory by itself because of otherwise
       // there can be some non-determinism (deterministic execution is very important for verification game

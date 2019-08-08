@@ -36,12 +36,12 @@ import scala.language.higherKinds
  *
  * @param instance a instance of Wasm Module compiled by Asmble
  * @param spentGasFunction a function returns a spent gas count
- * @param setSpentGasFunction a function sets spent gas count
+ * @param clearStateFunction a function sets spent gas count
  */
 class EnvModule(
   private val instance: ModuleInstance,
   private val spentGasFunction: WasmFunction,
-  private val setSpentGasFunction: WasmFunction
+  private val clearStateFunction: WasmFunction
 ) {
 
   /**
@@ -55,8 +55,8 @@ class EnvModule(
   /**
    * Clears the spent gas count.
    */
-  def clearSpentGas[F[_]: LiftIO: Monad](): EitherT[F, InvokeError, Unit] =
-    setSpentGasFunction(instance, Int.box(0) :: Nil).map(_ ⇒ ())
+  def clearState[F[_]: LiftIO: Monad](): EitherT[F, InvokeError, Unit] =
+    clearStateFunction(instance).map(_ ⇒ ())
 
 }
 

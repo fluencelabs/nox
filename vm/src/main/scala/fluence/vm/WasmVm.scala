@@ -30,9 +30,9 @@ import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.log.Log
 import fluence.merkle.TrackingMemoryBuffer
-import fluence.vm.VmError.{InitializationError, InternalVmError, NoSuchModuleError}
+import fluence.vm.VmError.{InitializationError, NoSuchModuleError}
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
-import fluence.vm.wasm.{module, MemoryHasher, WasmFunction}
+import fluence.vm.wasm.{module, MemoryHasher}
 import fluence.vm.config.VmConfig
 import fluence.vm.utils.safelyRunThrowable
 import fluence.vm.wasm.module.{EnvModule, MainWasmModule, WasmModule}
@@ -178,7 +178,7 @@ object WasmVm {
         rawEnvModule.asInstanceOf[Native],
         scriptCxt,
         config.envModuleConfig.spentGasFunctionName,
-        config.envModuleConfig.setSpentGasFunction
+        config.envModuleConfig.clearStateFunction
       )
 
       (mainModule, sideModules) ← Traverse[List]
