@@ -94,8 +94,7 @@ object SbtCommons {
           // run wasm-utils to instrument compiled llamadb binary
           val prepareCmd = s"$toolFolder/target/release/wasm-utils prepare " +
             s"$testFolder/target/wasm32-unknown-unknown/release/llama_db_prepared.wasm"
-          assert((prepareCmd !) == 0,
-            s"$prepareCmd failed")
+          assert((prepareCmd !) == 0, s"$prepareCmd failed")
         })
         .value
     )
