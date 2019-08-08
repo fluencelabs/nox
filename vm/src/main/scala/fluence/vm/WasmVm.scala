@@ -164,14 +164,12 @@ object WasmVm {
   ): EitherT[F, ApplyError, (MainWasmModule, EnvModule, Seq[WasmModule])] =
     for {
 
-      rawEnvModule ← EitherT.fromEither[F](
-        Either.cond(
+      rawEnvModule ← EitherT.cond[F](
           scriptCxt.getRegistrations.containsKey(config.envModuleConfig.name),
           scriptCxt.getRegistrations.get(config.envModuleConfig.name),
           NoSuchModuleError(
             s"Asmble doesn't provide the environment module with name=${config.envModuleConfig.name} (perhaps you are using the old version)"
           ): ApplyError
-        )
       )
 
       envModule ← EnvModule[F](
