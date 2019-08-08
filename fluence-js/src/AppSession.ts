@@ -1,6 +1,6 @@
 import {WorkerSession} from "./fluence";
 import {PrivateKey} from "./utils";
-import {getWorkerStatus} from "fluence-monitoring"
+import {getWorkerStatus} from "./contract";
 import {RequestState, RequestStatus, Session} from "./Session";
 import {ErrorType, Result} from "./Result";
 

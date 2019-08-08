@@ -16,13 +16,13 @@
 
 import {none, Option, some} from "ts-option";
 import {fromHex} from "./utils";
-import * as debug from "debug";
+import Debug from "debug";
 import {AbciQueryResult, RpcClient, TendermintJsonRpcResponse} from "./RpcClient";
 import {error, ErrorType, Result} from "./Result";
 import {toByteArray} from "base64-js";
 import {AxiosResponse} from "axios";
 
-const d = debug("tendermintClient");
+const d = Debug("tendermintClient");
 
 export interface TxRequest {
     path: string,
