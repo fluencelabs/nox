@@ -29,6 +29,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import fluence.log.LogLevel.LogLevel
 import fluence.statemachine.control.ControlServer.ControlServerConfig
 import fluence.statemachine.error.{StateMachineError, VmModuleLocationError}
+import net.ceedubs.ficus.readers.ValueReader
 
 import scala.language.higherKinds
 
@@ -92,6 +93,9 @@ object StateMachineConfig {
     import net.ceedubs.ficus.readers.ArbitraryTypeReader._
     import net.ceedubs.ficus.readers.EnumerationReader._
     import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+
+    implicit val shortValueReader: ValueReader[Short] =
+      ValueReader[Long].map(_.toShort)
 
     Sync[F]
       .delay(
