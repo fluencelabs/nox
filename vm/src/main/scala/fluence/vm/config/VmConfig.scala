@@ -16,12 +16,6 @@
 
 package fluence.vm.config
 
-import pureconfig.{CamelCase, ConfigFieldMapping}
-import pureconfig.error.ConfigReaderFailures
-import pureconfig.generic.ProductHint
-
-import scala.util.control.NoStackTrace
-
 /**
  * WasmVm settings.
  *
@@ -44,11 +38,3 @@ case class VmConfig(
   deallocateFunctionName: String,
   invokeFunctionName: String
 )
-
-object VmConfig {
-
-  implicit def hint[T]: ProductHint[T] = ProductHint[T](ConfigFieldMapping(CamelCase, CamelCase))
-
-  case class ConfigError(failures: ConfigReaderFailures) extends NoStackTrace
-
-}

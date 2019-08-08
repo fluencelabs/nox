@@ -23,10 +23,9 @@ import cats.effect.{IO, LiftIO, Sync}
 import cats.instances.list._
 import cats.syntax.flatMap._
 import cats.syntax.list._
-import cats.syntax.monadError._
-import cats.syntax.functor._
 import cats.syntax.applicativeError._
 import cats.{Monad, Traverse}
+import com.typesafe.config.{Config, ConfigFactory}
 import fluence.log.LogLevel.LogLevel
 import fluence.statemachine.control.ControlServer.ControlServerConfig
 import fluence.statemachine.error.{StateMachineError, VmModuleLocationError}
@@ -85,23 +84,26 @@ case class StateMachineConfig(
 object StateMachineConfig {
 
   /**
-   * Loads State machine config using `pureconfig` Scala config loading mechanism.
+   * Loads State machine config using Typesafe Config with Ficus.
    */
-  def load[F[_]: Sync](): F[StateMachineConfig] = {
-    import pureconfig.generic.auto._
+  def load[F[_]: Sync](conf: ⇒ Config = ConfigFactory.load()): F[StateMachineConfig] = {
+    import net.ceedubs.ficus.Ficus._
+    import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
+    import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+    import net.ceedubs.ficus.readers.EnumerationReader._
+    import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 
     Sync[F]
       .delay(
-        pureconfig.loadConfig[StateMachineConfig]
+        conf.as[StateMachineConfig]
       )
       .attempt
-      .map(_.flatMap(identity))
       .flatMap {
         case Left(err) ⇒
           Sync[F].raiseError(new RuntimeException("Unable to parse StateMachineConfig: " + err))
 
-        case Right(conf) ⇒
-          Sync[F].pure(conf)
+        case Right(c) ⇒
+          Sync[F].pure(c)
       }
   }
 
