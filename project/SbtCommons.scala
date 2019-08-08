@@ -102,8 +102,6 @@ object SbtCommons {
   val fs2io = "co.fs2" %% "fs2-io"               % fs2Version
 
   // functional wrapper around 'lightbend/config'
-  @deprecated("pureConfig is known to cause mindblowing failures on compile time, let's drop it away", "29.03.2019")
-  val pureConfig = "com.github.pureconfig" %% "pureconfig" % "0.10.2"
   val ficus = "com.iheart"                 %% "ficus"      % "1.4.5"
 
   val cryptoVersion = "0.0.9"

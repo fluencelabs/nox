@@ -16,11 +16,19 @@
 
 package fluence.vm.config
 
-import pureconfig.{CamelCase, ConfigFieldMapping}
-import pureconfig.error.ConfigReaderFailures
-import pureconfig.generic.ProductHint
+import cats.Monad
+import cats.data.EitherT
+import com.typesafe.config.Config
+import fluence.vm.VmError.InternalVmError
+import fluence.vm.VmError.WasmVmError.ApplyError
+import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
+import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+import net.ceedubs.ficus.readers.EnumerationReader._
+import net.ceedubs.ficus.Ficus._
+import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 
-import scala.util.control.NoStackTrace
+import scala.language.higherKinds
+import scala.util.Try
 
 /**
  * WasmVm settings.
@@ -47,8 +55,18 @@ case class VmConfig(
 
 object VmConfig {
 
-  implicit def hint[T]: ProductHint[T] = ProductHint[T](ConfigFieldMapping(CamelCase, CamelCase))
-
-  case class ConfigError(failures: ConfigReaderFailures) extends NoStackTrace
-
+  def readT[F[_]: Monad](namespace: String, conf: ⇒ Config): EitherT[F, ApplyError, VmConfig] =
+    EitherT
+      .fromEither[F](
+        Try(
+          conf.getConfig(namespace).as[VmConfig]
+        ).toEither
+      )
+      .leftMap(
+        e ⇒
+          InternalVmError(
+            s"Unable to read a config for the namespace=$namespace",
+            Some(e)
+        )
+      )
 }
