@@ -159,31 +159,35 @@ object WorkersHttp {
       case req @ POST -> Root / LongVar(appId) / "txWaitResponse" :? QueryId(id) ⇒
         LogFactory[F].init("http" -> "txAwaitResponse", "app" -> appId.toString) >>= { implicit log =>
           req.decode[String] { tx ⇒
-            withWorker(appId)(
-              w =>
-                workerApi.sendTxAwaitResponse(w, tx, id).flatMap {
-                  case Right(queryResponse) =>
-                    queryResponse match {
-                      case OkResponse(_, response) =>
-                        Ok(response)
-                      case RpcErrorResponse(_, r) => rpcErrorToResponse(r)
-                      case TimedOutResponse(id, tries) =>
-                        RequestTimeout(
-                          s"Request $id couldn't be processed after $tries blocks. Try later or start a new session to continue."
-                        )
-                      case PendingResponse(_) =>
-                        InternalServerError("PendingResponse is returned. Unexpected error.")
-                    }
-                  case Left(err) =>
-                    err match {
-                      // return an error from tendermint as is to the client
-                      case TendermintResponseError(response) => Ok(response)
-                      case RpcTxAwaitError(rpcError)         => rpcErrorToResponse(rpcError)
-                      case TxParsingError(msg, _)            => BadRequest(msg)
-                      case TxInvalidError(msg)               => InternalServerError(msg)
-                    }
-              }
-            )
+            log.info(s"tx: ${tx.takeWhile(_ != '\n')}") >>
+              withWorker(appId)(
+                w =>
+                  workerApi.sendTxAwaitResponse(w, tx, id).flatMap {
+                    case Right(queryResponse) =>
+                      queryResponse match {
+                        case OkResponse(_, response) => Ok(response)
+                        case RpcErrorResponse(txHead, r) =>
+                          log.scope("tx.head" -> txHead.toString)(implicit log => rpcErrorToResponse(r))
+                        case TimedOutResponse(txHead, tries) =>
+                          RequestTimeout(
+                            s"Request $txHead couldn't be processed after $tries blocks. Try later or start a new session to continue."
+                          )
+                        case PendingResponse(txHead) =>
+                          InternalServerError(
+                            s"PendingResponse is returned for tx $txHead. This shouldn't happen and means there's a serious bug, please report."
+                          )
+                      }
+                    case Left(err) =>
+                      err match {
+                        // TODO: add tx.head to these responses, so it is possible to match error with transaction
+                        // return an error from tendermint as is to the client
+                        case TendermintResponseError(response) => Ok(response)
+                        case RpcTxAwaitError(rpcError)         => rpcErrorToResponse(rpcError)
+                        case TxParsingError(msg, _)            => BadRequest(msg)
+                        case TxInvalidError(msg)               => InternalServerError(msg)
+                      }
+                }
+              )
           }
         }
     }
