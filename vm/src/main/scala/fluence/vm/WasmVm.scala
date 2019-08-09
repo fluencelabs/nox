@@ -194,7 +194,8 @@ object WasmVm {
           (None, Nil)
         ) {
           // the main module almost always doesn't have name section (in config it is represented by None)
-          case ((None, sideModules), moduleDescription) if Option(moduleDescription.getName) == config.mainModuleConfig.name ⇒
+          case ((None, sideModules), moduleDescription)
+              if Option(moduleDescription.getName) == config.mainModuleConfig.name ⇒
             for {
               mainModule ← MainWasmModule(
                 moduleDescription,
@@ -204,14 +205,14 @@ object WasmVm {
                 config.mainModuleConfig.deallocateFunctionName,
                 config.mainModuleConfig.invokeFunctionName
               )
-            } yield (mainModule, sideModules)
+            } yield (Some(mainModule), sideModules)
 
           // check for the uniqueness of the main module
           case ((Some(_), _), moduleDescription) if Option(moduleDescription.getName) == config.mainModuleConfig.name ⇒
             EitherT.leftT(
               InitializationError(
                 s"There should be only one main module (main module is a module without name section)"
-              ).asLeft
+              )
             )
 
           // side modules
