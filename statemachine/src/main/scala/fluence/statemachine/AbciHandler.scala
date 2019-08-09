@@ -55,10 +55,10 @@ class AbciHandler[F[_]: Effect: LogFactory](
             .info(
               Tx.splitTx(tx)
                 .fold(
-                  s"${height.fold("")(h => s"height $height")} can't parse head from tx ${Try(new String(tx.take(100)))}"
+                  s"${height.fold("")(h => s"height $h")} can't parse head from tx ${Try(new String(tx.take(100)))}"
                 ) {
                   case (head, _) =>
-                    s"tx.head: $head -> $code ${info.replace('\n', ' ')} ${height.fold("")(h => s"height $height")}"
+                    s"tx.head: $head -> $code ${info.replace('\n', ' ')} ${height.fold("")(h => s"height $h")}"
                 }
             )
             .toIO
@@ -91,10 +91,10 @@ class AbciHandler[F[_]: Effect: LogFactory](
             .info(
               Tx.splitTx(tx)
                 .fold(
-                  s"${height.fold("")(h => s"height $height")} can't parse head from tx ${Try(new String(tx.take(100)))}"
+                  s"${height.fold("")(h => s"height $h")} can't parse head from tx ${Try(new String(tx.take(100)))}"
                 ) {
                   case (head, _) =>
-                    s"tx.head: $head -> $code ${info.replace('\n', ' ')} ${height.fold("")(h => s"height $height")}"
+                    s"tx.head: $head -> $code ${info.replace('\n', ' ')} ${height.fold("")(h => s"height $h")}"
                 }
             )
             .toIO

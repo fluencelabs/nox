@@ -17,12 +17,24 @@
 package fluence.node.workers.subscription
 
 import fluence.effects.tendermint.rpc.http.RpcError
+import io.circe.Decoder
+import io.circe.generic.semiauto.deriveDecoder
+
+import scala.util.control.NoStackTrace
 
 /**
  * Errors for `txAwait` API
  */
 trait TxAwaitError
-case class TendermintResponseError(responseError: String) extends TxAwaitError
+case class TendermintResponseDeserializationError(responseError: String) extends TxAwaitError
 case class RpcTxAwaitError(rpcError: RpcError) extends TxAwaitError
 case class TxParsingError(msg: String, tx: String) extends TxAwaitError
 case class TxInvalidError(msg: String) extends TxAwaitError
+case class TendermintError(code: Int, message: String, data: String) extends TxAwaitError
+
+object TendermintError {
+  implicit val errorDecoder: Decoder[TendermintError] = deriveDecoder
+
+  implicit def eitherDecoder[A: Decoder]: Decoder[Either[TendermintError, A]] =
+    errorDecoder.map(Left(_)) or implicitly[Decoder[A]].map(Right(_))
+}

@@ -182,9 +182,9 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
       }.unsafeRunSync()
 
       result should be('left)
-      result.left.get shouldBe a[TendermintResponseError]
+      result.left.get shouldBe a[TendermintResponseDeserializationError]
 
-      val error = result.left.get.asInstanceOf[TendermintResponseError]
+      val error = result.left.get.asInstanceOf[TendermintResponseDeserializationError]
       error.responseError shouldBe txResponse
     }
 

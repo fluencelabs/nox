@@ -36,7 +36,7 @@ import fluence.node.workers.subscription.{
   PendingResponse,
   RpcErrorResponse,
   RpcTxAwaitError,
-  TendermintResponseError,
+  TendermintResponseDeserializationError,
   TimedOutResponse,
   TxInvalidError,
   TxParsingError
@@ -152,41 +152,62 @@ object WorkersHttp {
       case req @ POST -> Root / LongVar(appId) / "tx" :? QueryId(id) ⇒
         LogFactory[F].init("http" -> "tx", "app" -> appId.toString) >>= { implicit log =>
           req.decode[String] { tx ⇒
-            withWorker(appId)(w => workerApi.sendTx(w, tx, id).flatMap(tendermintResponseToHttp(appId, _)))
+            withWorker(appId)(
+              w =>
+                workerApi
+                  .sendTx(w, tx, id)
+                  .flatTap(r => log.info(s"tx.head: ${tx.takeWhile(_ != '\n')} $r"))
+                  .flatMap(tendermintResponseToHttp(appId, _))
+            )
           }
         }
 
       case req @ POST -> Root / LongVar(appId) / "txWaitResponse" :? QueryId(id) ⇒
         LogFactory[F].init("http" -> "txAwaitResponse", "app" -> appId.toString) >>= { implicit log =>
           req.decode[String] { tx ⇒
-            log.info(s"tx: ${tx.takeWhile(_ != '\n')}") >>
+            log.info(s"tx.head: ${tx.takeWhile(_ != '\n')}") >>
               withWorker(appId)(
                 w =>
-                  workerApi.sendTxAwaitResponse(w, tx, id).flatMap {
-                    case Right(queryResponse) =>
-                      queryResponse match {
-                        case OkResponse(_, response) => Ok(response)
-                        case RpcErrorResponse(txHead, r) =>
-                          log.scope("tx.head" -> txHead.toString)(implicit log => rpcErrorToResponse(r))
-                        case TimedOutResponse(txHead, tries) =>
-                          RequestTimeout(
-                            s"Request $txHead couldn't be processed after $tries blocks. Try later or start a new session to continue."
-                          )
-                        case PendingResponse(txHead) =>
-                          InternalServerError(
-                            s"PendingResponse is returned for tx $txHead. This shouldn't happen and means there's a serious bug, please report."
-                          )
-                      }
-                    case Left(err) =>
-                      err match {
-                        // TODO: add tx.head to these responses, so it is possible to match error with transaction
-                        // return an error from tendermint as is to the client
-                        case TendermintResponseError(response) => Ok(response)
-                        case RpcTxAwaitError(rpcError)         => rpcErrorToResponse(rpcError)
-                        case TxParsingError(msg, _)            => BadRequest(msg)
-                        case TxInvalidError(msg)               => InternalServerError(msg)
-                      }
-                }
+                  workerApi
+                    .sendTxAwaitResponse(w, tx, id)
+                    .flatMap {
+                      case Right(queryResponse) =>
+                        queryResponse match {
+                          case OkResponse(txHead, response) =>
+                            //TODO: make it debug
+                            log.info(s"tx.head: $txHead -> OK $response") >> Ok(response)
+                          case RpcErrorResponse(txHead, r) =>
+                            // TODO ERROR INCONSISTENCY: some errors are returned as 200, others as 500
+                            log.scope("tx.head" -> txHead.toString)(implicit log => rpcErrorToResponse(r))
+                          case TimedOutResponse(txHead, tries) =>
+                            log.warn(s"tx.head: $txHead timed out after $tries") >>
+                              // TODO: ERROR INCONSISTENCY: some errors are returned as 200, others as 500
+                              RequestTimeout(
+                                s"Request $txHead couldn't be processed after $tries blocks. Try later or start a new session to continue."
+                              )
+                          case PendingResponse(txHead) =>
+                            // TODO: ERROR INCONSISTENCY: some errors are returned as 200, others as 500
+                            InternalServerError(
+                              s"PendingResponse is returned for tx $txHead. This shouldn't happen and means there's a serious bug, please report."
+                            )
+                        }
+                      case Left(err) =>
+                        err match {
+                          // TODO: add tx.head to these responses, so it is possible to match error with transaction
+                          // return an error from tendermint as is to the client
+                          case TendermintResponseDeserializationError(response) =>
+                            log.info(s"tx.head: ${tx.takeWhile(_ != '\n')} $response") >> Ok(response)
+                          case RpcTxAwaitError(rpcError) =>
+                            log.info(s"tx.head: ${tx.takeWhile(_ != '\n')} $rpcError") >> rpcErrorToResponse(rpcError)
+                          case TxParsingError(msg, _) =>
+                            // TODO: ERROR INCONSISTENCY: some errors are returned as 200, others as 500
+                            log.info(s"tx.head: ${tx.takeWhile(_ != '\n')} $msg") >> BadRequest(msg)
+                          case TxInvalidError(msg) =>
+                            // TODO: ERROR INCONSISTENCY: some errors are returned as 200, others as 500
+                            log.info(s"tx.head: ${tx.takeWhile(_ != '\n')} $msg") >> InternalServerError(msg)
+                        }
+                    }
+                    .flatTap(r => log.info(s"tx.head: ${tx.takeWhile(_ != '\n')} -> $r"))
               )
           }
         }

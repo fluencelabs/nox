@@ -27,8 +27,9 @@ import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.log.Log
 import fluence.node.workers.subscription.{
   RpcTxAwaitError,
+  TendermintError,
   TendermintQueryResponse,
-  TendermintResponseError,
+  TendermintResponseDeserializationError,
   TxAwaitError,
   TxInvalidError,
   TxParsingError,
@@ -115,16 +116,17 @@ class WorkerApiImpl extends WorkerApi {
     response: String
   )(implicit log: Log[F]): EitherT[F, TxAwaitError, Unit] = {
     for {
-      txResponse <- EitherT
-        .fromEither[F](decode[TxResponseCode](response))
+      txResponseOrError <- EitherT
+        .fromEither[F](decode[Either[TendermintError, TxResponseCode]](response))
         .leftSemiflatMap(
           err =>
             // this is because tendermint could return other responses without code,
             // the node should return this as is to the client
             log
               .error(s"Error on txBroadcastSync response deserialization", err)
-              .as(TendermintResponseError(response): TxAwaitError)
+              .as(TendermintResponseDeserializationError(response): TxAwaitError)
         )
+      txResponse <- EitherT.fromEither[F](txResponseOrError).leftMap(identity[TxAwaitError])
       _ <- if (txResponse.code.exists(_ != TxCode.OK))
         EitherT.left(
           (TxInvalidError(
