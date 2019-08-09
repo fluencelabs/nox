@@ -25,6 +25,7 @@ import cats.data.{EitherT, NonEmptyList}
 import cats.effect.LiftIO
 import cats.{Monad, Traverse}
 import cats.instances.list._
+import cats.syntax.either._
 import com.typesafe.config.{Config, ConfigFactory}
 import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
@@ -172,8 +173,16 @@ object WasmVm {
         ): ApplyError
       )
 
+      nativeModule <- EitherT.fromEither[F](rawEnvModule match {
+        case m: Native => m.asRight
+        case _ =>
+          NoSuchModuleError(
+            s"Environment module ${config.envModuleConfig.name} was found, but it isn't a Native module"
+          ).asLeft
+      })
+
       envModule ← EnvModule[F](
-        rawEnvModule.asInstanceOf[Native],
+        nativeModule,
         scriptCxt,
         config.envModuleConfig.spentGasFunctionName,
         config.envModuleConfig.clearStateFunction
@@ -184,8 +193,8 @@ object WasmVm {
           scriptCxt.getModules.toList,
           (None, Nil)
         ) {
-          // the main module almost always has non set module name
-          case (acc, moduleDescription) if Option(moduleDescription.getName) == config.mainModuleConfig.name ⇒
+          // the main module almost always doesn't have name section (in config it is represented by None)
+          case ((None, sideModules), moduleDescription) if Option(moduleDescription.getName) == config.mainModuleConfig.name ⇒
             for {
               mainModule ← MainWasmModule(
                 moduleDescription,
@@ -193,19 +202,27 @@ object WasmVm {
                 memoryHasher,
                 config.mainModuleConfig.allocateFunctionName,
                 config.mainModuleConfig.deallocateFunctionName,
-                config.mainModuleConfig.invokeFunctionName,
+                config.mainModuleConfig.invokeFunctionName
               )
-            } yield acc.copy(_1 = Some(mainModule))
+            } yield (mainModule, sideModules)
+
+          // check for the uniqueness of the main module
+          case ((Some(_), _), moduleDescription) if Option(moduleDescription.getName) == config.mainModuleConfig.name ⇒
+            EitherT.leftT(
+              InitializationError(
+                s"There should be only one main module (main module is a module without name section)"
+              ).asLeft
+            )
 
           // side modules
-          case (acc, moduleDescription) ⇒
+          case ((mainModule, sideModules), moduleDescription) ⇒
             for {
               module ← module.WasmModule(
                 moduleDescription,
                 scriptCxt,
                 memoryHasher
               )
-            } yield acc.copy(_2 = module :: acc._2)
+            } yield (mainModule, sideModules :+ module)
 
         }
         .flatMap[ApplyError, (MainWasmModule, Seq[WasmModule])] {
