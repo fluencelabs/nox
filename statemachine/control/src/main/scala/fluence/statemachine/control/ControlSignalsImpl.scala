@@ -16,16 +16,16 @@
 
 package fluence.statemachine.control
 
+import cats.Monad
 import cats.effect.Resource
 import cats.effect.concurrent.{Deferred, MVar}
-import cats.syntax.applicative._
+import cats.instances.long._
 import cats.syntax.apply._
-import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{FlatMap, Monad}
 import fluence.log.Log
-import fluence.statemachine.control.HasHeight.syntax._
+import fluence.statemachine.control.HasOrderedProperty._
+import fluence.statemachine.control.QueueSyntax._
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -35,13 +35,17 @@ import scala.language.higherKinds
  *
  * @param dropPeersRef Holds a set of DropPeer events. NOTE: since Tendermint 0.30.0 Validator set updates must be unique by pub key.
  * @param stopRef Deferred holding stop signal, completed when the worker should stop
+ * @param receiptQueue Holds a collection of receipts, updated by node, consumed by AbciHandler
+ * @param hashQueue Holds a collection of vm hashes, updated by AbciHandler, consumed by node
  * @tparam F Effect
  */
 class ControlSignalsImpl[F[_]: Monad: Log](
   private val dropPeersRef: MVar[F, Set[DropPeer]],
   private val stopRef: Deferred[F, Unit],
+  // Using simple queue instead of LastCachingQueue because currently there are no retries on receipts
   private val receiptQueue: fs2.concurrent.Queue[F, BlockReceipt],
-  private val hashQueue: fs2.concurrent.Queue[F, VmHash]
+  // getVmHash may be retried by node, so using LastCachingQueue
+  private val hashQueue: LastCachingQueue[F, VmHash, Long]
 ) extends ControlSignals[F] {
 
   private def traceBU(msg: String) = Log[F].trace(Console.YELLOW + "BUD: " + msg + Console.RESET)
@@ -85,41 +89,22 @@ class ControlSignalsImpl[F[_]: Monad: Log](
     traceBU(s"enqueueReceipt ${receipt.receipt.height}") *> receiptQueue.enqueue1(receipt)
 
   /**
-   * Retrieves block receipt, async blocks until there's a receipt
+   * Retrieves block receipt, async-ly blocks until there's a receipt with specified height
    */
-  def getReceipt(height: Long): F[BlockReceipt] =
-    // TODO: this doesn't work with backoff.retry because element is dequeued
-    // TODO: so maybe use Map
-    traceBU(s"getReceipt $height") *> dequeueByHeight(receiptQueue, height)
+  def getReceipt(height: Long): F[BlockReceipt] = {
+    traceBU(s"getReceipt $height") *> receiptQueue.dequeueByBoundary(height)
+  }
 
   /**
    * Adds vm hash to queue, so node can retrieve it for block manifest uploading
    */
   override def enqueueVmHash(height: Long, hash: ByteVector): F[Unit] =
-    // TODO: this doesn't work with backoff.retry because element is dequeued
-    // TODO: so maybe use Map
     traceBU(s"enqueueVmHash $height") *> hashQueue.enqueue1(VmHash(height, hash))
 
   /**
-   * Retrieves a single vm hash from queue. Called by node on block manifest uploading
+   * Retrieves a single vm hash from queue. Called by node on block manifest uploading.
+   * Async-ly blocks until there's a vmHash with specified height
    */
   override def getVmHash(height: Long): F[VmHash] =
-    // Filter here because after blocks replay (on restart) there would be extraneous vm hashes for empty blocks
-    traceBU(s"getVmHash $height") *> dequeueByHeight(hashQueue, height)
-
-  private def dequeueByHeight[A: HasHeight](queue: fs2.concurrent.Queue[F, A], height: Long): F[A] =
-    FlatMap[F].tailRecM(queue) { q =>
-      q.dequeue1.flatMap { elem =>
-        if (elem.height < height) {
-          // keep looking
-          q.asLeft[A].pure[F]
-        } else if (elem.height > height) {
-          // corner case: elements aren't in order, try to reorder them
-          q.enqueue1(elem).as(q.asLeft)
-        } else {
-          // got it!
-          elem.asRight[fs2.concurrent.Queue[F, A]].pure[F]
-        }
-      }
-    }
+    traceBU(s"getVmHash $height") *> hashQueue.dequeue(height)
 }

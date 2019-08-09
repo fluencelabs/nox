@@ -126,6 +126,7 @@ lazy val `merkelized-bytebuffer` = (project in file("vm/merkelized-bytebuffer"))
 lazy val `statemachine-control` = (project in file("statemachine/control"))
   .settings(
     commons,
+    kindProjector,
     libraryDependencies ++= Seq(
       cats,
       catsEffect,
