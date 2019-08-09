@@ -31,7 +31,7 @@ lazy val `vm` = (project in file("vm"))
       asmble,
       cats,
       catsEffect,
-      pureConfig,
+      ficus,
       cryptoHashsign,
       scalaTest,
       scalaIntegrationTest,
@@ -100,8 +100,7 @@ lazy val `vm-hello-world-runner` = (project in file("vm/src/it/resources/test-ca
     libraryDependencies ++= Seq(
       asmble,
       cats,
-      catsEffect,
-      pureConfig
+      catsEffect
     )
   )
   .dependsOn(`vm`, `vm-hello-world`)
@@ -143,7 +142,6 @@ lazy val `statemachine` = (project in file("statemachine"))
     commons,
     kindProjector,
     libraryDependencies ++= Seq(
-      pureConfig,
       scodecBits,
       "com.github.jtendermint" % "jabci" % "0.26.0",
       scalaTest
@@ -228,7 +226,6 @@ lazy val `swarm` = (project in file("effects/swarm"))
       circeCore,
       circeGeneric,
       circeGenericExtras,
-      pureConfig,
       scodecBits,
       scodecCore,
       web3jCrypto,

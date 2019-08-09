@@ -157,8 +157,11 @@ jobs:
           keys:
             - fluence-js-{{ checksum "fluence-js/package-lock.json" }}
       - run: |
+          cd bootstrap
+          npm install
+          cd ..
           cd fluence-js
-          npm install &>/dev/null
+          npm install
           npm test
       - save_cache:
           paths:

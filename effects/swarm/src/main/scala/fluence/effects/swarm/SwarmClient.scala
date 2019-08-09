@@ -41,7 +41,6 @@ import scodec.bits.ByteVector
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
-// TODO use pureConfig for parameters
 // TODO implement extended swarm functions https://github.com/fluencelabs/dataengine/issues/52
 // TODO split errors from Swarm and internal errors
 // TODO add logs
