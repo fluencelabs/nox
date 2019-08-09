@@ -50,7 +50,7 @@ class ControlServerSpec extends WordSpec with Matchers with ControlServerOps {
     implicit val ioTimer: Timer[IO] = IO.timer(global)
     implicit val ioShift: ContextShift[IO] = IO.contextShift(global)
     implicit val logFactory = LogFactory.forPrintln[IO]()
-    implicit val log: Log[IO] = LogFactory[IO].init(getClass.getSimpleName).unsafeRunSync()
+    implicit val log: Log[IO] = LogFactory[IO].init(getClass.getSimpleName, level = Log.Error).unsafeRunSync()
 
     val server = ControlServer.make[IO](config)
     val sttp = Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
