@@ -18,13 +18,13 @@ import {error, ErrorResponse, ErrorType, Result} from "./Result";
 import {TendermintClient, TxRequest} from "./TendermintClient";
 import {SessionConfig} from "./SessionConfig";
 
-import * as debug from "debug";
+import Debug from "debug";
 import {PrivateKey, withSignature} from "./utils";
 import * as randomstring from "randomstring";
 import {Option} from "ts-option";
 
-const detailedDebug = debug("request-detailed");
-const txDebug = debug("broadcast-request");
+const detailedDebug = Debug("request-detailed");
+const txDebug = Debug("broadcast-request");
 
 export enum RequestStatus {
     OK = 0,
