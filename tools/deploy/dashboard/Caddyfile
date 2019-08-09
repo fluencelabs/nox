@@ -1,4 +1,5 @@
 http://dash.fluence.network, http://dashboard.fluence.network {
+    gzip
     proxy / http://dashboard:3000 {
         transparent
     }

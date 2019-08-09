@@ -19,7 +19,7 @@ import {Engine} from "./Engine";
 import {Session} from "./Session";
 import {SessionConfig} from "./SessionConfig";
 import {Result} from "./Result";
-import {getAppNodes, Node} from "fluence-monitoring"
+import {getAppNodes, Node} from "./contract"
 import {remove0x, secp256k1} from "./utils";
 import {AppSession} from "./AppSession";
 
