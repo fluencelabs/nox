@@ -18,6 +18,7 @@ package fluence.statemachine.vm
 
 import cats.data.EitherT
 import fluence.statemachine.error.StateMachineError
+import fluence.vm.InvocationResult
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -33,7 +34,7 @@ trait VmOperationInvoker[F[_]] {
    * @param arg an argument for Wasm VM module main handler
    * @return either successful invocation's result or failed invocation's error
    */
-  def invoke(arg: Array[Byte]): EitherT[F, StateMachineError, Array[Byte]]
+  def invoke(arg: Array[Byte]): EitherT[F, StateMachineError, InvocationResult]
 
   /**
    * Obtains the current state hash of VM.

@@ -64,24 +64,24 @@ class WasmVmSpec extends WordSpec with Matchers {
   }
 
   "initialize Vm success" when {
-    "with one file" in {
+    "one main module is specified" in {
       val sumFile = getClass.getResource("/wast/sum.wast").getPath
 
       WasmVm[IO](NonEmptyList.one(sumFile), MemoryHasher[IO]).success()
     }
 
-    "with two files with different module name" in {
+    "two modules with different module names are specified" in {
       val sumFile = getClass.getResource("/wast/sum.wast").getPath
       val mulFile = getClass.getResource("/wast/mul.wast").getPath
 
       WasmVm[IO](NonEmptyList.of(mulFile, sumFile), MemoryHasher[IO]).success()
     }
 
-    "two modules have function with the same names" in {
+    "two modules with functions with the same names are specified" in {
       // module without name and with some functions with the same name ("allocate", "deallocate", "invoke", ...)
       val sum1File = getClass.getResource("/wast/counter.wast").getPath
-      // module without name and with some functions with the same name ("allocate", "deallocate", "invoke", ...)
-      val sum2File = getClass.getResource("/wast/bad-allocation-function-i64.wast").getPath
+      // module with name "Sum" and with some functions with the same name ("allocate", "deallocate", "invoke", ...)
+      val sum2File = getClass.getResource("/wast/mul.wast").getPath
 
       val res = for {
         vm <- WasmVm[IO](NonEmptyList.of(sum1File, sum2File), MemoryHasher[IO])
@@ -92,4 +92,22 @@ class WasmVmSpec extends WordSpec with Matchers {
 
   }
 
-}
+  "initialize Vm failed" when {
+    "one side module is specified" in {
+      // Mul modules doesn't have name
+      val sumFile = getClass.getResource("/wast/mul.wast").getPath
+
+      WasmVm[IO](NonEmptyList.one(sumFile), MemoryHasher[IO]).failed()
+    }
+
+    "two main modules specified" in {
+      // these modules both don't contain a name section
+      val sumFile = getClass.getResource("/wast/sum.wast").getPath
+      val mulFile = getClass.getResource("/wast/bad-allocation-function-i64.wast").getPath
+
+      WasmVm[IO](NonEmptyList.of(mulFile, sumFile), MemoryHasher[IO]).failed()
+    }
+
+  }
+
+  }

@@ -95,7 +95,7 @@ object WasmModuleMemory {
     memoryHasher: MemoryHasher.Builder[F]
   ): EitherT[F, GetVmStateError, WasmModuleMemory] =
     for {
-      memoryHasher <- memoryHasher(memory)
+      memoryHasher ← memoryHasher(memory)
     } yield new WasmModuleMemory(memory, memoryHasher)
 
 }

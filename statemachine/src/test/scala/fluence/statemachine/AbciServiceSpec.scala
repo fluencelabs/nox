@@ -33,6 +33,7 @@ import fluence.statemachine.control.{BlockReceipt, VmHash}
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
+import fluence.vm.InvocationResult
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
 
@@ -65,8 +66,8 @@ class AbciServiceSpec extends WordSpec with Matchers {
     Apply[IO]
       .map2(Ref.of[IO, List[BlockReceipt]](rs), Ref.of[IO, ExecutionState](ExecutionState())) { (receipts, ref) =>
         val vmInvoker = new VmOperationInvoker[IO] {
-          override def invoke(arg: Array[Byte]): EitherT[IO, StateMachineError, Array[Byte]] =
-            EitherT.rightT(Array.empty)
+          override def invoke(arg: Array[Byte]): EitherT[IO, StateMachineError, InvocationResult] =
+            EitherT.rightT(InvocationResult(Array.empty, 0))
 
           override def vmStateHash(): EitherT[IO, StateMachineError, ByteVector] =
             EitherT.liftF(ref.update(_.getVmStateHash())).map(_ => ByteVector.empty)
