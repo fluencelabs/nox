@@ -9,7 +9,7 @@ maintenance = { status = "actively-developed" }
 
 [dependencies]
 lazy_static = "1.3.0"
-pwasm-utils = "0.9.0"
+pwasm-utils = { version = "0.9.0", git = "https://github.com/fluencelabs/wasm-utils" }
 parity-wasm = "0.39.0"
 clap = "2.32.0"
 exitfailure = "0.5.1"
