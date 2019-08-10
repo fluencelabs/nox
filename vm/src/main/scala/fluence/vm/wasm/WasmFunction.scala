@@ -17,11 +17,12 @@
 package fluence.vm.wasm
 import java.lang.reflect.Method
 
-import cats.Functor
+import cats.{Functor, Monad}
 import cats.data.EitherT
 import cats.effect.{IO, LiftIO}
 import fluence.vm.VmError.TrapError
 import fluence.vm.VmError.WasmVmError.InvokeError
+import fluence.vm.wasm.module.ModuleInstance
 
 import scala.language.higherKinds
 
@@ -45,11 +46,11 @@ case class WasmFunction(
    * @tparam F a monad with an ability to absorb 'IO'
    */
   def apply[F[_]: Functor: LiftIO](
-    module: Any,
+    module: ModuleInstance,
     args: List[AnyRef]
   ): EitherT[F, InvokeError, Option[Number]] =
     EitherT(
-      IO(javaMethod.invoke(module, args: _*))
+      IO(javaMethod.invoke(module.moduleInstance, args: _*))
         .map(
           result ⇒
             // according to the current version of Wasm specification a Wasm method can return value

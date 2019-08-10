@@ -1,14 +1,16 @@
-import * as React from "react";
-import {connect} from "react-redux";
+import * as React from 'react';
+import { connect } from 'react-redux';
 import ReactModal from 'react-modal';
-import {closeModal} from "../../actions";
+import { closeModal } from '../../actions';
 import { ReduxState } from '../../app';
+import { enableMetamask } from '../../../fluence/contract';
 
 interface State {}
 
 interface Props {
     closeModal: typeof closeModal;
     modal: any;
+    showMetamaskEnableButton: boolean;
 }
 
 class FluenceModal extends React.Component<Props, State> {
@@ -29,17 +31,33 @@ class FluenceModal extends React.Component<Props, State> {
         this.props.closeModal();
     };
 
+    enableMetamaskButtonClicked = () => {
+        enableMetamask().then(() => this.props.closeModal());
+    };
+
     renderButtons(): React.ReactNode[] {
-        if (this.props.modal.okCallback) {
-            return [
-                <button onClick={this.cancelButtonClicked} type="button" className="btn btn-default pull-left" data-dismiss="modal">Cancel</button>,
-                <button onClick={this.okButtonClicked} type="button" className="btn btn-danger">OK</button>
-            ];
+        const buttons = [];
+
+        if (this.props.showMetamaskEnableButton) {
+            buttons.push(
+                <button onClick={this.enableMetamaskButtonClicked} type="button" className="btn btn-success pull-left">Enable Metamask</button>
+            );
         }
 
-        return [
-            <button onClick={this.cancelButtonClicked} type="button" className="btn btn-danger">OK</button>
-        ];
+        if (this.props.modal.okCallback) {
+            buttons.push([
+                <button onClick={this.okButtonClicked} type="button" className="btn btn-danger pull-left">Deploy in DEMO</button>,
+                <button onClick={this.cancelButtonClicked} type="button" className="btn btn-default pull-left" data-dismiss="modal">Cancel</button>,
+            ]);
+
+            return buttons;
+        }
+
+        buttons.push(
+            <button onClick={this.cancelButtonClicked} type="button" className="btn btn-danger pull-left">Stay in DEMO</button>
+        );
+
+        return buttons;
     }
 
     renderModalText(): React.ReactNode | React.ReactNode[] {
@@ -86,7 +104,8 @@ class FluenceModal extends React.Component<Props, State> {
 }
 
 const mapStateToProps = (state: ReduxState) => ({
-    modal: state.modal
+    modal: state.modal,
+    showMetamaskEnableButton: !state.ethereumConnection.isMetamaskProviderActive && state.ethereumConnection.isMetamaskAvailable
 });
 
 const mapDispatchToProps = {

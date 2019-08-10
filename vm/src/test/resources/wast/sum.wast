@@ -1,6 +1,6 @@
 ;; this example compute sum of two given integers
 
-(module $SumModule
+(module
 
     ;; force Asmble to use memory
     (memory $0 20)

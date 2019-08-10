@@ -28,6 +28,7 @@ export interface EthConnectionState {
     contract: Network;
     dashboardContract: Dashboard;
     userAddress: string;
+    isMetamaskAvailable: boolean;
 }
 
 export type MetamaskEventHandler = (eventType: MetamaskEvent, ethConnectionState: EthConnectionState) => void;
@@ -44,6 +45,7 @@ function updateEthConnectionState() {
             ethConnectionState.web3js = new Web3(ethConnectionState.provider);
             ethConnectionState.contract = new ethConnectionState.web3js.eth.Contract(NetworkABI, contractAddress) as Network;
             ethConnectionState.dashboardContract =  new ethConnectionState.web3js.eth.Contract(DashboardABI, dashboardContractAddress) as Dashboard;
+            ethConnectionState.isMetamaskAvailable = true;
 
             return ethConnectionState;
         }
@@ -56,6 +58,7 @@ function updateEthConnectionState() {
     ethConnectionState.web3js = new Web3(ethConnectionState.provider);
     ethConnectionState.contract = new ethConnectionState.web3js.eth.Contract(NetworkABI, contractAddress) as Network;
     ethConnectionState.dashboardContract =  new ethConnectionState.web3js.eth.Contract(DashboardABI, dashboardContractAddress) as Dashboard;
+    ethConnectionState.isMetamaskAvailable = typeof injectedWeb3 !== 'undefined' && injectedWeb3.currentProvider.networkVersion === '4' && injectedWeb3.currentProvider.enable;
 
     return ethConnectionState;
 }
@@ -98,6 +101,18 @@ export function isMetamaskActive(): boolean {
 
 export function getProvider(): any {
     return ethConnectionState.provider;
+}
+
+export function isMetamaskAvailable(): boolean {
+    return ethConnectionState.isMetamaskAvailable;
+}
+
+export async function enableMetamask(): Promise<string[] | false> {
+    if (typeof injectedWeb3 !== 'undefined') {
+        return injectedWeb3.currentProvider.enable();
+    }
+
+    return false;
 }
 
 export function getWeb3Js(): any {

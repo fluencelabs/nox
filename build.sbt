@@ -27,11 +27,12 @@ lazy val `vm` = (project in file("vm"))
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
   .settings(
     commons,
+    kindProjector,
     libraryDependencies ++= Seq(
       asmble,
       cats,
       catsEffect,
-      pureConfig,
+      ficus,
       cryptoHashsign,
       scalaTest,
       scalaIntegrationTest,
@@ -41,6 +42,7 @@ lazy val `vm` = (project in file("vm"))
       .dependsOn(compile in `vm-counter`)
       .dependsOn(compile in `vm-hello-world`)
       .dependsOn(compile in `vm-llamadb`)
+      .dependsOn(compile in `vm-instrumented-llamadb`)
       .value
   )
   .dependsOn(`merkelized-bytebuffer`, `log`)
@@ -94,14 +96,18 @@ lazy val `vm-llamadb` = (project in file("vm/src/it/resources/test-cases/llamadb
     rustVmTest("llamadb")
   )
 
+lazy val `vm-instrumented-llamadb` = (project in file("vm/src/it/resources/test-cases/instrumented-llamadb"))
+  .settings(
+    createInstrumentedLlamadb()
+  )
+
 lazy val `vm-hello-world-runner` = (project in file("vm/src/it/resources/test-cases/hello-world/runner"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
       asmble,
       cats,
-      catsEffect,
-      pureConfig
+      catsEffect
     )
   )
   .dependsOn(`vm`, `vm-hello-world`)
@@ -120,6 +126,7 @@ lazy val `merkelized-bytebuffer` = (project in file("vm/merkelized-bytebuffer"))
 lazy val `statemachine-control` = (project in file("statemachine/control"))
   .settings(
     commons,
+    kindProjector,
     libraryDependencies ++= Seq(
       cats,
       catsEffect,
@@ -142,7 +149,6 @@ lazy val `statemachine` = (project in file("statemachine"))
     commons,
     kindProjector,
     libraryDependencies ++= Seq(
-      pureConfig,
       scodecBits,
       "com.github.jtendermint" % "jabci" % "0.26.0",
       scalaTest
@@ -227,7 +233,6 @@ lazy val `swarm` = (project in file("effects/swarm"))
       circeCore,
       circeGeneric,
       circeGenericExtras,
-      pureConfig,
       scodecBits,
       scodecCore,
       web3jCrypto,

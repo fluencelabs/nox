@@ -76,7 +76,7 @@ class AbciService[F[_]: Monad: Effect](
           // Invoke
           vm.invoke(tx.data.value)
             // Save the tx response to AbciState
-            .semiflatMap(value ⇒ AbciState.putResponse[F](tx.head, value).map(_ ⇒ txs).run(st).map(Left(_)))
+            .semiflatMap(result ⇒ AbciState.putResponse[F](tx.head, result.output).map(_ ⇒ txs).run(st).map(Left(_)))
             .leftSemiflatMap(err ⇒ Log[F].error(s"VM invoke failed: $err for tx: $tx").as(err))
             .getOrElse(Right(st)) // TODO do not ignore vm error
 

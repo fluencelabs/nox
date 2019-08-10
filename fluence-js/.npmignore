@@ -2,6 +2,7 @@
 .gitignore
 node_modules
 bundle
+types
 
 src
 

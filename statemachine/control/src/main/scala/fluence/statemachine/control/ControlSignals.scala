@@ -18,6 +18,7 @@ package fluence.statemachine.control
 
 import cats.effect.concurrent.{Deferred, MVar}
 import cats.effect.{Concurrent, Resource, Sync}
+import cats.instances.long._
 import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -93,7 +94,9 @@ object ControlSignals {
       for {
         dropPeersRef ← MVar[F].of[Set[DropPeer]](Set.empty)
         stopRef ← Deferred[F, Unit]
-        hashQueue <- fs2.concurrent.Queue.unbounded[F, VmHash]
+        // getVmHash may be retried by node, so using LastCachingQueue
+        hashQueue <- LastCachingQueue[F, VmHash, Long]
+        // Using simple queue instead of LastCachingQueue because currently there are no retries on receipts
         receiptQueue <- fs2.concurrent.Queue.unbounded[F, BlockReceipt]
         instance = new ControlSignalsImpl[F](dropPeersRef, stopRef, receiptQueue, hashQueue)
       } yield instance: ControlSignals[F]

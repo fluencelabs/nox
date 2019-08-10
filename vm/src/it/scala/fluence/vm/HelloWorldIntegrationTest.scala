@@ -51,8 +51,8 @@ class HelloWorldIntegrationTest extends AppIntegrationTest with EitherValues {
     "greets John correctly" in {
       (for {
         vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath), MemoryHasher[IO], "fluence.vm.client.4Mb")
-        greetingResult ← vm.invoke[IO](None, "John".getBytes())
-        state ← vm.getVmState[IO].toVmError
+        greetingResult ← vm.invoke[IO]("John".getBytes())
+        _ ← vm.getVmState[IO].toVmError
 
       } yield {
         checkTestResult(greetingResult, "Hello, world! From user John")
@@ -63,8 +63,8 @@ class HelloWorldIntegrationTest extends AppIntegrationTest with EitherValues {
     "operates correctly with empty input" in {
       (for {
         vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath), MemoryHasher[IO], "fluence.vm.client.4Mb")
-        greetingResult ← vm.invoke[IO](None)
-        state ← vm.getVmState[IO].toVmError
+        greetingResult ← vm.invoke[IO]()
+        _ ← vm.getVmState[IO].toVmError
 
       } yield {
         checkTestResult(greetingResult, "Hello, world! From user")
