@@ -86,14 +86,10 @@ object SbtCommons {
             s"--target wasm32-unknown-unknown --release"
           assert((testCompileCmd !) == 0, "Rust to Wasm compilation failed")
 
-          // make a copy of file
-          val cpCmd = s"cp $testFolder/target/wasm32-unknown-unknown/release/llama_db.wasm " +
-            s"$testFolder/target/wasm32-unknown-unknown/release/llama_db_prepared.wasm"
-          assert((cpCmd !) == 0, s"$cpCmd failed")
-
           // run wasm-utils to instrument compiled llamadb binary
           val prepareCmd = s"$toolFolder/target/release/wasm-utils prepare " +
-            s"$testFolder/target/wasm32-unknown-unknown/release/llama_db_prepared.wasm"
+            s"-i $testFolder/target/wasm32-unknown-unknown/release/llama_db.wasm " +
+            s"-o $testFolder/target/wasm32-unknown-unknown/release/llama_db_prepared.wasm"
           assert((prepareCmd !) == 0, s"$prepareCmd failed")
         })
         .value
