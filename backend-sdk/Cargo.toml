@@ -1,6 +1,6 @@
 [package]
 name = "fluence"
-version = "0.1.5"  # remember to update html_root_url
+version = "0.1.6"  # remember to update html_root_url
 description = "Fluence backend SDK for developing backend applications for the Fluence network"
 documentation = "https://docs.rs/fluence/"
 repository = "https://github.com/fluencelabs/fluence/tree/master/backend-sdk"
