@@ -18,8 +18,8 @@ all-features = true
 path = "src/lib.rs"
 
 [dependencies]
-fluence-sdk-macro = { path = "crates/macro", version = "=0.1.5" }
-fluence-sdk-main = { path = "crates/main", version = "=0.1.5" }
+fluence-sdk-macro = { path = "crates/macro", version = "=0.1.6" }
+fluence-sdk-main = { path = "crates/main", version = "=0.1.6" }
 
 [features]
 default = ["export_allocator"]
