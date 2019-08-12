@@ -65,7 +65,7 @@ object Tx {
   }
 
   def splitTx(tx: Array[Byte]): Option[(String, Array[Byte])] = {
-    val headIndex = tx.indexWhere(_.toChar == '\n')
+    val headIndex = tx.indexWhere(_ == '\n'.toByte)
     if (headIndex <= 0) {
       Option.empty[(String, Array[Byte])]
     } else {

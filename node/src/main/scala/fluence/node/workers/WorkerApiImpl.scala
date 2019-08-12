@@ -59,8 +59,7 @@ class WorkerApiImpl extends WorkerApi {
       worker.withServices(_.tendermint)(_.status.value)
 
   def p2pPort[F[_]: Apply](worker: Worker[F])(implicit log: Log[F]): F[Short] =
-    log.debug(s"Worker p2pPort") as
-      worker.p2pPort
+    log.debug(s"Worker p2pPort") as worker.p2pPort
 
   def lastManifest[F[_]: Monad](worker: Worker[F]): F[Option[BlockManifest]] =
     worker.withServices(_.blockManifests)(_.lastManifestOpt)
@@ -68,7 +67,7 @@ class WorkerApiImpl extends WorkerApi {
   def sendTx[F[_]: Monad](worker: Worker[F], tx: String, id: Option[String])(
     implicit log: Log[F]
   ): F[Either[RpcError, String]] =
-    log.scope("tx.id" -> tx) { implicit log ⇒
+    log.scope("tx" -> tx) { implicit log ⇒
       log.debug(s"TendermintRpc broadcastTxSync request, id: $id") *>
         worker.withServices(_.tendermint)(_.broadcastTxSync(tx, id.getOrElse("dontcare")).value)
     }
@@ -83,9 +82,15 @@ class WorkerApiImpl extends WorkerApi {
       txBroadcastResponse <- worker.services.tendermint
         .broadcastTxSync(tx, id.getOrElse("dontcare"))
         .leftMap(RpcTxAwaitError(_): TxAwaitError)
-      response <- log.scope("sessionId" -> txParsed.head.toString) { implicit log =>
+      response <- log.scope("tx.head" -> txParsed.head.toString) { implicit log =>
         for {
-          _ <- checkTxResponse(txBroadcastResponse)
+          _ <- checkTxResponse(txBroadcastResponse).recoverWith {
+            // Transaction was sent twice, but response should be available, so keep waiting
+            case e: TendermintError if e.data.toLowerCase.contains("tx already exists in cache") =>
+              Log
+                .eitherT[F, TxAwaitError]
+                .warn(s"Tx ${txParsed.head} already exists in Tendermint's cache, will wait for response")
+          }
           response <- waitResponse(worker, txParsed)
         } yield response
       }

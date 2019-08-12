@@ -156,7 +156,7 @@ object WorkersHttp {
               w =>
                 workerApi
                   .sendTx(w, tx, id)
-                  .flatTap(r => log.info(s"tx.head: ${tx.takeWhile(_ != '\n')} $r"))
+                  .flatTap(r => log.debug(s"tx.head: ${tx.takeWhile(_ != '\n')} $r"))
                   .flatMap(tendermintResponseToHttp(appId, _))
             )
           }
@@ -165,7 +165,7 @@ object WorkersHttp {
       case req @ POST -> Root / LongVar(appId) / "txWaitResponse" :? QueryId(id) ⇒
         LogFactory[F].init("http" -> "txAwaitResponse", "app" -> appId.toString) >>= { implicit log =>
           req.decode[String] { tx ⇒
-            log.info(s"tx.head: ${tx.takeWhile(_ != '\n')}") >>
+            log.debug(s"tx.head: ${tx.takeWhile(_ != '\n')}") >>
               withWorker(appId)(
                 w =>
                   workerApi
@@ -174,8 +174,7 @@ object WorkersHttp {
                       case Right(queryResponse) =>
                         queryResponse match {
                           case OkResponse(txHead, response) =>
-                            //TODO: make it debug
-                            log.info(s"tx.head: $txHead -> OK $response") >> Ok(response)
+                            log.debug(s"tx.head: $txHead -> OK $response") >> Ok(response)
                           case RpcErrorResponse(txHead, r) =>
                             // TODO ERROR INCONSISTENCY: some errors are returned as 200, others as 500
                             log.scope("tx.head" -> txHead.toString)(implicit log => rpcErrorToResponse(r))
@@ -196,18 +195,18 @@ object WorkersHttp {
                           // TODO: add tx.head to these responses, so it is possible to match error with transaction
                           // return an error from tendermint as is to the client
                           case TendermintResponseDeserializationError(response) =>
-                            log.info(s"tx.head: ${tx.takeWhile(_ != '\n')} $response") >> Ok(response)
+                            log.debug(s"tx.head: ${tx.takeWhile(_ != '\n')} $response") >> Ok(response)
                           case RpcTxAwaitError(rpcError) =>
-                            log.info(s"tx.head: ${tx.takeWhile(_ != '\n')} $rpcError") >> rpcErrorToResponse(rpcError)
+                            log.debug(s"tx.head: ${tx.takeWhile(_ != '\n')} $rpcError") >> rpcErrorToResponse(rpcError)
                           case TxParsingError(msg, _) =>
                             // TODO: ERROR INCONSISTENCY: some errors are returned as 200, others as 500
-                            log.info(s"tx.head: ${tx.takeWhile(_ != '\n')} $msg") >> BadRequest(msg)
+                            log.debug(s"tx.head: ${tx.takeWhile(_ != '\n')} $msg") >> BadRequest(msg)
                           case TxInvalidError(msg) =>
                             // TODO: ERROR INCONSISTENCY: some errors are returned as 200, others as 500
-                            log.info(s"tx.head: ${tx.takeWhile(_ != '\n')} $msg") >> InternalServerError(msg)
+                            log.debug(s"tx.head: ${tx.takeWhile(_ != '\n')} $msg") >> InternalServerError(msg)
                         }
                     }
-                    .flatTap(r => log.info(s"tx.head: ${tx.takeWhile(_ != '\n')} -> $r"))
+                    .flatTap(r => log.trace(s"tx.head: ${tx.takeWhile(_ != '\n')} -> $r"))
               )
           }
         }
