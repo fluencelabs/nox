@@ -404,7 +404,7 @@ lazy val `kademlia-http` = (project in file("kademlia/http"))
       http4sServer % Test
     )
   )
-  .dependsOn(`kademlia`, `kademlia-dht`, `kademlia-testkit` % Test, `sttpEitherT` % Test)
+  .dependsOn(`kademlia`, `kademlia-dht`, `sttpEitherT` % Test)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kademlia-dht` = (project in file("kademlia/dht"))

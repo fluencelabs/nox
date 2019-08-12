@@ -20,6 +20,7 @@ import java.nio.ByteBuffer
 import java.nio.file.Files
 
 import cats.syntax.functor._
+import cats.syntax.compose._
 import cats.{Semigroup, Traverse}
 import cats.data.{EitherT, Kleisli}
 import cats.effect.{ContextShift, IO, Resource, Timer}
@@ -35,6 +36,8 @@ import fluence.crypto.eddsa.Ed25519
 import fluence.effects.kvstore.RocksDBStore
 import fluence.kad.conf.{AdvertizeConf, JoinConf, KademliaConfig, RoutingConf}
 import fluence.kad.http.dht.DhtHttpNode
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto._
 import org.http4s.{Response, Status}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.Router
@@ -64,23 +67,43 @@ class KademliaHttpSpec extends WordSpec with Matchers {
 
     implicit val dsl: Http4sDsl[IO] = new Http4sDsl[IO] {}
 
+    case class VersionedString(version: Int, data: String)
+
     implicit val stringCodec: PureCodec[Array[Byte], String] =
       PureCodec.build(new String(_), _.getBytes())
-    implicit val stringSemigroup: Semigroup[String] =
-      (_, s2) ⇒ s2
+    implicit val versionedStringCodec: PureCodec[Array[Byte], VersionedString] =
+      stringCodec >>> PureCodec.build[String, VersionedString](
+        (s: String) ⇒ {
+          val (v, d) = s.splitAt(s.indexOf(':'))
+          VersionedString(v.toInt, d.drop(1))
+        },
+        (vs: VersionedString) ⇒ {
+          val VersionedString(v, d) = vs
+          s"$v:$d"
+        }
+      )
+    implicit val vsEncoder: Encoder[VersionedString] = deriveEncoder
+    implicit val vsDecoder: Decoder[VersionedString] = deriveDecoder
 
-    def node(port: Short, seeds: Seq[String])(implicit sttpBackend: SttpBackend[EitherT[IO, Throwable, ?], Nothing]) =
+    implicit val versionedStringSemigroup: Semigroup[VersionedString] = {
+      case (vs @ VersionedString(l, _), VersionedString(r, _)) if l >= r ⇒ vs
+      case (_, vs) ⇒ vs
+    }
+
+    def node(port: Int, seeds: Seq[String])(implicit sttpBackend: SttpBackend[EitherT[IO, Throwable, ?], Nothing]) =
       for {
         n ← KademliaHttpNode
           .make[IO, IO.Par](
-            KademliaConfig(RoutingConf(2, 2, 2, 2.seconds), AdvertizeConf("localhost", port), JoinConf(seeds, 2)),
+            KademliaConfig(RoutingConf(2, 2, 2, 2.seconds),
+                           AdvertizeConf("localhost", port.toShort),
+                           JoinConf(seeds, 2)),
             signAlgo,
-            signAlgo.generateKeyPair.unsafe(Some(ByteVector.fromShort(port).toArray)),
+            signAlgo.generateKeyPair.unsafe(Some(ByteVector.fromInt(port).toArray)),
             tmpRoot.resolve(s"kad-$port")
           )
 
         d ← DhtHttpNode
-          .make[IO, String](
+          .make[IO, VersionedString](
             "dht",
             RocksDBStore.makeRaw[IO](tmpRoot.resolve(s"dht-$port-data").toAbsolutePath.toString),
             RocksDBStore.makeRaw[IO](tmpRoot.resolve(s"dht-$port-meta").toAbsolutePath.toString),
@@ -134,19 +157,21 @@ class KademliaHttpSpec extends WordSpec with Matchers {
     }
 
     "store and retrieve dht values" in {
+      val startPort: Short = 3210
+
       (
         for {
           implicit0(sttpBackend: SttpBackend[EitherT[IO, Throwable, ?], Nothing]) ← sttpResource
 
-          (node1, dht1) ← node(3210, Nil)
+          (node1, dht1) ← node(startPort, Nil)
           c1 ← Resource.liftF(node1.kademlia.ownContact.map(_.contact.toString))
 
-          (node2, dht2) ← node(3211, c1 :: Nil)
+          (node2, dht2) ← node(startPort + 1, c1 :: Nil)
           c2 ← Resource.liftF(node2.kademlia.ownContact.map(_.contact.toString))
 
           seeds ← Resource.liftF(node2.joinFiber.join).as(c1 :: c2 :: Nil)
 
-          ns ← Traverse[List].traverse(List.range(3212, 3230).map(_.toShort))(node(_, seeds))
+          ns ← Traverse[List].traverse(List.range(startPort + 2, startPort + 20).map(_.toShort))(node(_, seeds))
           _ ← Traverse[List].traverse(ns.map(_._1.joinFiber))(f ⇒ Resource.liftF(f.join))
 
         } yield (dht1.dht, dht2.dht, ns.head._2.dht, ns.last._2.dht)
@@ -164,27 +189,31 @@ class KademliaHttpSpec extends WordSpec with Matchers {
           def randomDht = r.shuffle(ds).head
 
           for {
-            _ ← randomDht.put(k1, "test value").value
+            _ ← randomDht.put(k1, VersionedString(1, "test value")).value
             v1 ← randomDht.get(k1).value
 
-            _ ← randomDht.put(k2, "test value2").value
+            _ ← randomDht.put(k2, VersionedString(1, "test value2")).value
             v2 ← randomDht.get(k2).value
 
-            _ ← randomDht.put(k3, "test value3").value
+            _ ← randomDht.put(k3, VersionedString(1, "test value3")).value
             v3 ← randomDht.get(k3).value
 
-            _ ← randomDht.put(k4, "test value4").value
+            _ ← randomDht.put(k4, VersionedString(1, "test value4")).value
             v4 ← randomDht.get(k4).value
 
-            _ ← randomDht.put(k4, "updated value4").value
+            _ ← randomDht.put(k4, VersionedString(2, "updated value4")).value
             v4bis ← randomDht.get(k4).value
 
+            _ ← randomDht.put(k1, VersionedString(2, "updated value1")).value
+            v1bis ← randomDht.get(k1).value
+
           } yield {
-            v1 shouldBe Right(Some("test value"))
-            v2 shouldBe Right(Some("test value2"))
-            v3 shouldBe Right(Some("test value3"))
-            v4 shouldBe Right(Some("test value4"))
-            v4bis shouldBe Right(Some("updated value4"))
+            v1 shouldBe Right(Some(VersionedString(1, "test value")))
+            v2 shouldBe Right(Some(VersionedString(1, "test value2")))
+            v3 shouldBe Right(Some(VersionedString(1, "test value3")))
+            v4 shouldBe Right(Some(VersionedString(1, "test value4")))
+            v4bis shouldBe Right(Some(VersionedString(2, "updated value4")))
+            v1bis shouldBe Right(Some(VersionedString(2, "updated value1")))
           }
       }.unsafeRunSync()
     }
