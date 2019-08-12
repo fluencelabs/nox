@@ -82,14 +82,13 @@ class WorkerApiImpl extends WorkerApi {
       txBroadcastResponse <- worker.services.tendermint
         .broadcastTxSync(tx, id.getOrElse("dontcare"))
         .leftMap(RpcTxAwaitError(_): TxAwaitError)
+      _ <- Log.eitherT.debug("TendermintRpc broadcastTxSync is ok.")
       response <- log.scope("tx.head" -> txParsed.head.toString) { implicit log =>
         for {
           _ <- checkTxResponse(txBroadcastResponse).recoverWith {
             // Transaction was sent twice, but response should be available, so keep waiting
             case e: TendermintError if e.data.toLowerCase.contains("tx already exists in cache") =>
-              Log
-                .eitherT[F, TxAwaitError]
-                .warn(s"Tx ${txParsed.head} already exists in Tendermint's cache, will wait for response")
+              Log.eitherT[F, TxAwaitError].warn(s"tx already exists in Tendermint's cache, will wait for response")
           }
           response <- waitResponse(worker, txParsed)
         } yield response
@@ -104,9 +103,7 @@ class WorkerApiImpl extends WorkerApi {
     implicit log: Log[F]
   ): EitherT[F, TxAwaitError, TendermintQueryResponse] =
     for {
-      _ <- EitherT.right(
-        log.debug(s"TendermintRpc broadcastTxSync is ok. Waiting for response")
-      )
+      _ <- EitherT.right(log.debug(s"Waiting for response"))
       response <- EitherT.liftF[F, TxAwaitError, TendermintQueryResponse](
         worker.services.responseSubscriber.subscribe(tx.head).flatMap(_.get)
       )

@@ -71,6 +71,10 @@ export class AppSession {
      * @returns response to a completed request
      */
     async request(payload: string): Promise<Result> {
+        if (this.allSessionsBanned()) {
+            return Promise.reject("All sessions are banned");
+        }
+
         const currentCounter = this.counter++;
 
         const result = await this.performRequest((s: Session) => s.request(payload, this.privateKey, currentCounter));
@@ -88,6 +92,10 @@ export class AppSession {
      * @param payload Either an argument for Wasm VM main handler or a command for the statemachine
      */
     async requestAsync(payload: string): Promise<string> {
+        if (this.allSessionsBanned()) {
+            return Promise.reject("All sessions are banned");
+        }
+
         const currentCounter = this.counter++;
 
         return this.performRequest((s: Session) => s.requestAsync(payload, this.privateKey, currentCounter));
@@ -115,6 +123,10 @@ export class AppSession {
         return Promise.all(this.workerSessions.map((session) => {
             return getWorkerStatus(session.node.ip_addr, session.node.api_port.toString(), parseInt(this.appId));
         }));
+    }
+
+    allSessionsBanned(): Boolean {
+        return this.workerSessions.find((s) => !s.session.isBanned()) === undefined;
     }
 }
 
