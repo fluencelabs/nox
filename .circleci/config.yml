@@ -36,7 +36,7 @@ jobs:
       - checkout
       - <<: *rc
       - <<: *rustup
-      - run: PATH="$PATH:$HOME/.cargo/bin:" SBT_OPTS="-Xms5120M -Xmx5120M -Xss6M" sbt -mem 5120 test
+      - run: PATH="$PATH:$HOME/.cargo/bin:" SBT_OPTS="-XX:MaxMetaspaceSize=512m -Xms5120M -Xmx5120M -Xss6M" sbt -mem 5120 test
       - <<: *sc
 
 #  cli:
