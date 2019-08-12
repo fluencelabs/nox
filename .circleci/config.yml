@@ -8,7 +8,7 @@ just_jdk: &jdk_image
 rc: &rc
   restore_cache:
     keys:
-      - sbtcachenew-{{ checksum "build.sbt" }}
+      - sbtcache001-{{ checksum "build.sbt" }}
 
 sc: &sc
   save_cache:
@@ -19,7 +19,7 @@ sc: &sc
       - bootstrap/node_modules
       - ~/.cargo
       - ~/.rustup
-    key: sbtcachenew-{{ checksum "build.sbt" }}
+    key: sbtcache001-{{ checksum "build.sbt" }}
 
 rustup: &rustup
   - run: |
