@@ -110,4 +110,4 @@ class WasmVmSpec extends WordSpec with Matchers {
 
   }
 
-  }
+}
