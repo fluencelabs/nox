@@ -7,9 +7,9 @@ commons
 // Limit all tasks parallelism to 1, to lower memory consumption on CI
 // Reason: CircleCI provides 4Gb instances, and with concurrent compilations (Scala + Rust) and tests it runs out of memory limit
 // TODO: limits should be more granular. E.g., there's no reason to limit network tasks
-Global / concurrentRestrictions := Seq(
-  Tags.limitAll(1)
-).filter(_ => sys.env.get("CI").contains("true"))
+//Global / concurrentRestrictions := Seq(
+//  Tags.limitAll(1)
+//).filter(_ => sys.env.get("CI").contains("true"))
 
 onLoad in Global := (onLoad in Global).value.andThen { state ⇒
   val requiredVersion = "1.8" // Asmble works only on Java 8.
