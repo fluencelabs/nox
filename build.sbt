@@ -27,6 +27,7 @@ lazy val `vm` = (project in file("vm"))
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
   .settings(
     commons,
+    kindProjector,
     libraryDependencies ++= Seq(
       asmble,
       cats,
@@ -41,6 +42,7 @@ lazy val `vm` = (project in file("vm"))
       .dependsOn(compile in `vm-counter`)
       .dependsOn(compile in `vm-hello-world`)
       .dependsOn(compile in `vm-llamadb`)
+      .dependsOn(compile in `vm-instrumented-llamadb`)
       .value
   )
   .dependsOn(`merkelized-bytebuffer`, `log`)
@@ -92,6 +94,11 @@ lazy val `vm-hello-world` = (project in file("vm/src/it/resources/test-cases/hel
 lazy val `vm-llamadb` = (project in file("vm/src/it/resources/test-cases/llamadb"))
   .settings(
     rustVmTest("llamadb")
+  )
+
+lazy val `vm-instrumented-llamadb` = (project in file("vm/src/it/resources/test-cases/instrumented-llamadb"))
+  .settings(
+    createInstrumentedLlamadb()
   )
 
 lazy val `vm-hello-world-runner` = (project in file("vm/src/it/resources/test-cases/hello-world/runner"))

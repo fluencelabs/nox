@@ -20,7 +20,7 @@ import cats.data.EitherT
 import cats.effect.IO
 import org.scalatest.{WordSpec, Matchers, OptionValues, EitherValues, Assertion}
 
-class AppIntegrationTest extends WordSpec with Matchers with OptionValues with EitherValues {
+trait AppIntegrationTest extends WordSpec with Matchers with OptionValues with EitherValues {
 
   protected def getModuleDirPrefix(): String =
     if (System.getProperty("user.dir").endsWith("/vm"))
@@ -28,8 +28,8 @@ class AppIntegrationTest extends WordSpec with Matchers with OptionValues with E
     else
       System.getProperty("user.dir") + "/vm/"
 
-  protected def checkTestResult(result: Array[Byte], expectedString: String): Assertion = {
-    val resultAsString = new String(result)
+  protected def checkTestResult(result: InvocationResult, expectedString: String): Assertion = {
+    val resultAsString = new String(result.output)
     resultAsString should startWith (expectedString)
   }
 

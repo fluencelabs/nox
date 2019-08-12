@@ -66,6 +66,35 @@ object SbtCommons {
         .value
     )
 
+  // creates instrumented llamadb in a new folder
+  def createInstrumentedLlamadb(): Seq[Def.Setting[_]] =
+    Seq(
+      publishArtifact := false,
+      test            := (test in Test).dependsOn(compile).value,
+      compile := (compile in Compile)
+        .dependsOn(Def.task {
+          val log = streams.value.log
+          log.info(s"Building the internal tool for instrumentation")
+
+          val projectRoot = file("").getAbsolutePath
+          val toolFolder = s"$projectRoot/tools/wasm-utils/"
+          val toolCompileCmd = s"cargo +nightly-2019-03-10 build --manifest-path $toolFolder/Cargo.toml --release"
+          assert((toolCompileCmd !) == 0, "Compilation of wasm-utils failed")
+
+          val testFolder = s"$projectRoot/vm/src/it/resources/test-cases/llamadb"
+          val testCompileCmd = s"cargo +nightly-2019-03-10 build --manifest-path $testFolder/Cargo.toml " +
+            s"--target wasm32-unknown-unknown --release"
+          assert((testCompileCmd !) == 0, "Rust to Wasm compilation failed")
+
+          // run wasm-utils to instrument compiled llamadb binary
+          val prepareCmd = s"$toolFolder/target/release/wasm-utils prepare " +
+            s"-i $testFolder/target/wasm32-unknown-unknown/release/llama_db.wasm " +
+            s"-o $testFolder/target/wasm32-unknown-unknown/release/llama_db_prepared.wasm"
+          assert((prepareCmd !) == 0, s"$prepareCmd failed")
+        })
+        .value
+    )
+
   def buildContractBeforeDocker(): Seq[Def.Setting[_]] =
     Seq(
       docker in docker := (docker in docker)
@@ -89,7 +118,7 @@ object SbtCommons {
 
   /* Common deps */
 
-  val asmble = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.7-fl"
+  val asmble = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.10-fl"
 
   val catsVersion = "1.6.0"
   val cats = "org.typelevel" %% "cats-core" % catsVersion

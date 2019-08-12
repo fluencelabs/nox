@@ -14,19 +14,9 @@
  * limitations under the License.
  */
 
-//! The main part of Fluence backend SDK. Contains `export_allocator` (is turned on by the
-//! `export_allocator` feature), `logger` (is turned on by the `wasm_logger` feature), and `memory`
-//! modules.
+package fluence.vm.wasm.module
 
-#![doc(html_root_url = "https://docs.rs/fluence-sdk-main/0.1.6")]
-#![feature(allocator_api)]
-
-extern crate core;
-
-pub mod memory;
-
-#[cfg(feature = "wasm_logger")]
-pub mod logger;
-
-#[cfg(feature = "export_allocator")]
-pub mod export_allocator;
+/**
+ * Wrapper module instance comes from Asmble in Any type.
+ */
+case class ModuleInstance(moduleInstance: Any)

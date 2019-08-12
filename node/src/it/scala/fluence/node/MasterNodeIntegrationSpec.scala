@@ -217,7 +217,7 @@ class MasterNodeIntegrationSpec
       }
 
     "sync their workers with contract clusters" in {
-      val basePort: Short = 25000
+      val basePort: Short = 20000
 
       withEthSttpAndTwoMasters(basePort).use {
         case (e, s) =>
@@ -231,7 +231,7 @@ class MasterNodeIntegrationSpec
     }
 
     "stop workers on AppDelete event" in {
-      deleteApp(26000).unsafeRunSync()
+      deleteApp(21000).unsafeRunSync()
     }
   }
 }
