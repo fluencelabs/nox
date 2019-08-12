@@ -32,11 +32,12 @@ jobs:
   sbt all tests:
     resource_class: large
     <<: *jdk_image
+    resource_class: medium+
     steps:
       - checkout
       - <<: *rc
       - <<: *rustup
-      - run: PATH="$PATH:$HOME/.cargo/bin:" SBT_OPTS="-Xms2048M -Xmx2048M -Xss6M" sbt -mem 2048 test
+      - run: PATH="$PATH:$HOME/.cargo/bin:" SBT_OPTS="-Xms5120M -Xmx5120M -Xss6M" sbt -mem 5120 test
       - <<: *sc
 
 #  cli:
