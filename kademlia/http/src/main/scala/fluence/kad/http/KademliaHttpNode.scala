@@ -38,7 +38,8 @@ import scala.language.higherKinds
 
 case class KademliaHttpNode[F[_], C](
   kademlia: Kademlia[F, C],
-  http: KademliaHttp[F, C]
+  http: KademliaHttp[F, C],
+  joinFiber: Fiber[F, Unit]
 )
 
 object KademliaHttpNode {
@@ -103,11 +104,11 @@ object KademliaHttpNode {
       kad = Kademlia[F, P, UriContact](rt, selfNode.pure[F], conf.routing)
 
       // Join Kademlia network in a separate fiber
-      _ ← Kademlia
+      joinFiber ← Kademlia
         .joinConcurrently(kad, conf.join, UriContact.readAndCheckContact(signAlgo.checker))
 
       http = new KademliaHttp[F, UriContact](kad, readNode, writeNode)
-    } yield KademliaHttpNode(kad, http)
+    } yield KademliaHttpNode(kad, http, joinFiber)
   }
 
 }

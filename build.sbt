@@ -400,10 +400,11 @@ lazy val `kademlia-http` = (project in file("kademlia/http"))
       circeGeneric,
       circeParser,
       http4sDsl,
-      scalaTest
+      scalaTest,
+      http4sServer % Test
     )
   )
-  .dependsOn(`kademlia`, `kademlia-dht`, `kademlia-testkit` % Test)
+  .dependsOn(`kademlia`, `kademlia-dht`, `kademlia-testkit` % Test, `sttpEitherT` % Test)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kademlia-dht` = (project in file("kademlia/dht"))
