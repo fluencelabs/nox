@@ -122,7 +122,7 @@ class WorkerApiImpl extends WorkerApi {
   )(implicit log: Log[F]): EitherT[F, TxAwaitError, Unit] = {
     for {
       txResponseOrError <- EitherT
-        .fromEither[F](decode[Either[TendermintError, TxResponseCode]](response))
+        .fromEither[F](decode[Either[TendermintError, TxResponseCode]](response)(TendermintError.eitherDecoder))
         .leftSemiflatMap(
           err =>
             // this is because tendermint could return other responses without code,

@@ -33,8 +33,15 @@ case class TxInvalidError(msg: String) extends TxAwaitError
 case class TendermintError(code: Int, message: String, data: String) extends TxAwaitError
 
 object TendermintError {
-  implicit val errorDecoder: Decoder[TendermintError] = deriveDecoder
+  import cats.syntax.either._
+  implicit val errorDecoder: Decoder[TendermintError] =
+    Decoder.decodeJson.emap(
+      _.hcursor
+        .downField("error")
+        .as[TendermintError](deriveDecoder[TendermintError])
+        .leftMap(e => s"Error decoding TendermintError: $e")
+    )
 
   implicit def eitherDecoder[A: Decoder]: Decoder[Either[TendermintError, A]] =
-    errorDecoder.map(Left(_)) or implicitly[Decoder[A]].map(Right(_))
+    errorDecoder.either(implicitly[Decoder[A]])
 }
