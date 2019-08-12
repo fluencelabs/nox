@@ -30,18 +30,18 @@ case class TendermintResponseDeserializationError(responseError: String) extends
 case class RpcTxAwaitError(rpcError: RpcError) extends TxAwaitError
 case class TxParsingError(msg: String, tx: String) extends TxAwaitError
 case class TxInvalidError(msg: String) extends TxAwaitError
-case class TendermintError(code: Int, message: String, data: String) extends TxAwaitError
+case class TendermintRpcError(code: Int, message: String, data: String) extends TxAwaitError
 
-object TendermintError {
+object TendermintRpcError {
   import cats.syntax.either._
-  implicit val errorDecoder: Decoder[TendermintError] =
+  implicit val errorDecoder: Decoder[TendermintRpcError] =
     Decoder.decodeJson.emap(
       _.hcursor
         .downField("error")
-        .as[TendermintError](deriveDecoder[TendermintError])
+        .as[TendermintRpcError](deriveDecoder[TendermintRpcError])
         .leftMap(e => s"Error decoding TendermintError: $e")
     )
 
-  implicit def eitherDecoder[A: Decoder]: Decoder[Either[TendermintError, A]] =
+  implicit def eitherDecoder[A: Decoder]: Decoder[Either[TendermintRpcError, A]] =
     errorDecoder.either(implicitly[Decoder[A]])
 }

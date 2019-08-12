@@ -41,6 +41,7 @@ import fluence.node.workers.subscription.{
   TxInvalidError,
   TxParsingError
 }
+import fluence.statemachine.data.Tx
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{HttpRoutes, Response}
 
@@ -163,23 +164,24 @@ object WorkersHttp {
         }
 
       case req @ POST -> Root / LongVar(appId) / "txWaitResponse" :? QueryId(id) ⇒
-        LogFactory[F].init("http" -> "txAwaitResponse", "app" -> appId.toString) >>= { implicit log =>
+        LogFactory[F].init("http" -> "txAwaitResponse", "app" -> appId.toString) >>= { log =>
           req.decode[String] { tx ⇒
-            log.debug(s"tx.head: ${tx.takeWhile(_ != '\n')}") >>
-              withWorker(appId)(
+            val txHead = Tx.splitTx(tx.getBytes).fold("not parsed")(_._1)
+            log.scope("tx.head" -> txHead) { implicit log =>
+              log.trace("requested") >> withWorker(appId)(
                 w =>
                   workerApi
                     .sendTxAwaitResponse(w, tx, id)
                     .flatMap {
                       case Right(queryResponse) =>
                         queryResponse match {
-                          case OkResponse(txHead, response) =>
-                            log.debug(s"tx.head: $txHead -> OK $response") >> Ok(response)
-                          case RpcErrorResponse(txHead, r) =>
+                          case OkResponse(_, response) =>
+                            log.debug(s"OK $response") >> Ok(response)
+                          case RpcErrorResponse(_, r) =>
                             // TODO ERROR INCONSISTENCY: some errors are returned as 200, others as 500
-                            log.scope("tx.head" -> txHead.toString)(implicit log => rpcErrorToResponse(r))
+                            rpcErrorToResponse(r)
                           case TimedOutResponse(txHead, tries) =>
-                            log.warn(s"tx.head: $txHead timed out after $tries") >>
+                            log.warn(s"timed out after $tries") >>
                               // TODO: ERROR INCONSISTENCY: some errors are returned as 200, others as 500
                               RequestTimeout(
                                 s"Request $txHead couldn't be processed after $tries blocks. Try later or start a new session to continue."
@@ -195,19 +197,20 @@ object WorkersHttp {
                           // TODO: add tx.head to these responses, so it is possible to match error with transaction
                           // return an error from tendermint as is to the client
                           case TendermintResponseDeserializationError(response) =>
-                            log.debug(s"tx.head: ${tx.takeWhile(_ != '\n')} $response") >> Ok(response)
+                            log.debug(s"error on tendermint response deserialization: $response") >> Ok(response)
                           case RpcTxAwaitError(rpcError) =>
-                            log.debug(s"tx.head: ${tx.takeWhile(_ != '\n')} $rpcError") >> rpcErrorToResponse(rpcError)
+                            log.debug(s"error on await rpc tx: $rpcError") >> rpcErrorToResponse(rpcError)
                           case TxParsingError(msg, _) =>
                             // TODO: ERROR INCONSISTENCY: some errors are returned as 200, others as 500
-                            log.debug(s"tx.head: ${tx.takeWhile(_ != '\n')} $msg") >> BadRequest(msg)
+                            log.debug(s"error on tx parsing: $msg") >> BadRequest(msg)
                           case TxInvalidError(msg) =>
                             // TODO: ERROR INCONSISTENCY: some errors are returned as 200, others as 500
-                            log.debug(s"tx.head: ${tx.takeWhile(_ != '\n')} $msg") >> InternalServerError(msg)
+                            log.debug(s"tx is invalid: $msg") >> InternalServerError(msg)
                         }
                     }
-                    .flatTap(r => log.trace(s"tx.head: ${tx.takeWhile(_ != '\n')} -> $r"))
+                    .flatTap(r => log.trace(s"response: $r"))
               )
+            }
           }
         }
     }

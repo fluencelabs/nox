@@ -27,9 +27,9 @@ import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.log.Log
 import fluence.node.workers.subscription.{
   RpcTxAwaitError,
-  TendermintError,
   TendermintQueryResponse,
   TendermintResponseDeserializationError,
+  TendermintRpcError,
   TxAwaitError,
   TxInvalidError,
   TxParsingError,
@@ -87,7 +87,7 @@ class WorkerApiImpl extends WorkerApi {
         for {
           _ <- checkTxResponse(txBroadcastResponse).recoverWith {
             // Transaction was sent twice, but response should be available, so keep waiting
-            case e: TendermintError if e.data.toLowerCase.contains("tx already exists in cache") =>
+            case e: TendermintRpcError if e.data.toLowerCase.contains("tx already exists in cache") =>
               Log.eitherT[F, TxAwaitError].warn(s"tx already exists in Tendermint's cache, will wait for response")
           }
           response <- waitResponse(worker, txParsed)
@@ -119,7 +119,7 @@ class WorkerApiImpl extends WorkerApi {
   )(implicit log: Log[F]): EitherT[F, TxAwaitError, Unit] = {
     for {
       txResponseOrError <- EitherT
-        .fromEither[F](decode[Either[TendermintError, TxResponseCode]](response)(TendermintError.eitherDecoder))
+        .fromEither[F](decode[Either[TendermintRpcError, TxResponseCode]](response)(TendermintRpcError.eitherDecoder))
         .leftSemiflatMap(
           err =>
             // this is because tendermint could return other responses without code,
