@@ -30,6 +30,7 @@ rustup: &rustup
 version: 2
 jobs:
   sbt all tests:
+    resource_class: large
     <<: *jdk_image
     steps:
       - checkout
@@ -168,19 +169,6 @@ jobs:
             - fluence-js/node_modules
           key: fluence-js-{{ checksum "fluence-js/package-lock.json" }}
 
-  fluence book: #TODO: doesn't work, fix
-    docker:
-      - image: circleci/rust:latest
-    steps:
-      - checkout
-      - run: |
-          eval `ssh-agent` && ssh-add ~/.ssh/id_rsa # https://github.com/rust-lang/cargo/issues/2429
-          test -x $HOME/.cargo/bin/cargo-install-update || cargo install cargo-update
-          test -x $HOME/.cargo/bin/mdbook || cargo install --vers "^0.1" mdbook
-          cargo install-update -a
-          cd docs/
-          mdbook build
-
 workflows:
   version: 2
   fluence:
@@ -192,5 +180,4 @@ workflows:
       - deploy scripts
       - js sdk
       - backend sdk
-#      - fluence book
 
