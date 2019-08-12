@@ -30,7 +30,6 @@ rustup: &rustup
 version: 2
 jobs:
   sbt all tests:
-    resource_class: large
     <<: *jdk_image
     resource_class: medium+
     steps:
