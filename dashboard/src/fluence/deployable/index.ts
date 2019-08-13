@@ -87,7 +87,7 @@ export const deployableApps: { [key: string]: DeployableApp } = {
     },
     // {"Name":"sqlite3_0.1.0.wasm","Hash":"QmUVEdijfMv6B2AyhXDEYm5j98KM2mUGE3RssaHYsRFamH","Size":"980789"}
     sqlite: {
-        name: 'SQLite fork (sql, wasm v0.1)',
+        name: 'SQLite fork (sql, wasm v0.1.0)',
         shortName: 'SQLite fork',
         storageHash: '0x5B59205EA0A51BE1B2FCFAE0C512BAEB39A2E88749FF7B328FFC5B925440435C',
         storageType: StorageType.Ipfs,
