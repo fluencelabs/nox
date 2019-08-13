@@ -18,6 +18,8 @@ import axios, {AxiosPromise, AxiosRequestConfig} from 'axios';
 import {QueryResponse} from './Result';
 import {BroadcastTxSyncResponse} from './TendermintClient';
 
+const RpcRequestTimeoutMs = 10000; // 10 sec timeout by default
+
 export interface TendermintJsonRpcResponse<T = any> {
     id: any;
     jsonrpc: string;
@@ -38,7 +40,7 @@ export class RpcClient {
     constructor(addr: string, appId: string) {
         this.url = `${addr}/apps/${appId}`;
         this.config = {
-            timeout: 5000, // 5 sec timeout by default
+            timeout: RpcRequestTimeoutMs,
         };
     }
 
