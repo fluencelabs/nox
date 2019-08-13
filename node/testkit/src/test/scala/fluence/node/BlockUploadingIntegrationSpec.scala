@@ -259,7 +259,7 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
 
             commitBlock *> sendBlockToSubscription *> checkState
           }
-      }.unsafeRunSync()
+      }.unsafeRunTimed(10.seconds)
     }
   }
 }

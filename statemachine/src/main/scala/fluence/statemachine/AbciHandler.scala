@@ -18,20 +18,17 @@ package fluence.statemachine
 
 import cats.Applicative
 import cats.effect.Effect
-import cats.effect.concurrent.Ref
 import cats.effect.syntax.effect._
-import cats.effect.Effect
 import cats.syntax.flatMap._
 import com.github.jtendermint.jabci.api._
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
-import fluence.effects.tendermint.block.TendermintBlock
-import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.log.{Log, LogFactory}
 import fluence.statemachine.control.{ControlSignals, DropPeer}
-import io.circe.Json
+import fluence.statemachine.data.Tx
 
 import scala.language.higherKinds
+import scala.util.Try
 
 class AbciHandler[F[_]: Effect: LogFactory](
   service: AbciService[F],
@@ -47,17 +44,33 @@ class AbciHandler[F[_]: Effect: LogFactory](
   ): ResponseCheckTx = {
     implicit val log: Log[F] = LogFactory[F].init("abci", "requestCheckTx").toIO.unsafeRunSync()
 
+    val tx = req.getTx.toByteArray
+
     service
-      .checkTx(req.getTx.toByteArray)
+      .checkTx(tx)
       .toIO
-      .map {
-        case AbciService.TxResponse(code, info) ⇒
-          ResponseCheckTx.newBuilder
-            .setCode(code.id)
-            .setInfo(info)
-            // TODO where it goes?
-            .setData(ByteString.copyFromUtf8(info))
-            .build
+      .flatMap {
+        case AbciService.TxResponse(code, info, height) ⇒
+          log
+            .info(
+              Tx.splitTx(tx)
+                .fold(
+                  s"${height.fold("")(h => s"height $h")} can't parse head from tx ${Try(new String(tx.take(100)))}"
+                ) {
+                  case (head, _) =>
+                    s"tx.head: $head -> $code ${info.replace('\n', ' ')} ${height.fold("")(h => s"height $h")}"
+                }
+            )
+            .toIO
+            .map(
+              _ =>
+                ResponseCheckTx.newBuilder
+                  .setCode(code.id)
+                  .setInfo(info)
+                  // TODO where it goes?
+                  .setData(ByteString.copyFromUtf8(info))
+                  .build
+            )
       }
       .unsafeRunSync()
   }
@@ -65,19 +78,35 @@ class AbciHandler[F[_]: Effect: LogFactory](
   override def receivedDeliverTx(
     req: RequestDeliverTx
   ): ResponseDeliverTx = {
-    implicit val log: Log[F] = LogFactory[F].init("abci", "receivedDeliverTx").toIO.unsafeRunSync()
+    implicit val log: Log[F] = LogFactory[F].init("abci", "requestDeliverTx").toIO.unsafeRunSync()
+
+    val tx = req.getTx.toByteArray
 
     service
-      .deliverTx(req.getTx.toByteArray)
+      .deliverTx(tx)
       .toIO
-      .map {
-        case AbciService.TxResponse(code, info) ⇒
-          ResponseDeliverTx.newBuilder
-            .setCode(code.id)
-            .setInfo(info)
-            // TODO where it goes?
-            .setData(ByteString.copyFromUtf8(info))
-            .build
+      .flatMap {
+        case AbciService.TxResponse(code, info, height) ⇒
+          log
+            .info(
+              Tx.splitTx(tx)
+                .fold(
+                  s"${height.fold("")(h => s"height $h")} can't parse head from tx ${Try(new String(tx.take(100)))}"
+                ) {
+                  case (head, _) =>
+                    s"tx.head: $head -> $code ${info.replace('\n', ' ')} ${height.fold("")(h => s"height $h")}"
+                }
+            )
+            .toIO
+            .map(
+              _ =>
+                ResponseDeliverTx.newBuilder
+                  .setCode(code.id)
+                  .setInfo(info)
+                  // TODO where it goes?
+                  .setData(ByteString.copyFromUtf8(info))
+                  .build
+            )
       }
       .unsafeRunSync()
   }
@@ -97,21 +126,30 @@ class AbciHandler[F[_]: Effect: LogFactory](
 
   override def requestQuery(
     req: RequestQuery
-  ): ResponseQuery =
+  ): ResponseQuery = {
+    implicit val log: Log[F] = LogFactory[F].init("abci", "requestQuery").toIO.unsafeRunSync()
+
     service
       .query(req.getPath)
       .toIO
-      .map {
+      .flatMap {
         case AbciService.QueryResponse(height, result, code, info) ⇒
-          ResponseQuery
-            .newBuilder()
-            .setCode(code)
-            .setInfo(info)
-            .setHeight(height)
-            .setValue(ByteString.copyFrom(result))
-            .build
+          log
+            .info(s"${req.getPath} -> height: $height code: $code ${info.replace('\n', ' ')} ${result.length}")
+            .toIO
+            .map(
+              _ =>
+                ResponseQuery
+                  .newBuilder()
+                  .setCode(code.id)
+                  .setInfo(info)
+                  .setHeight(height)
+                  .setValue(ByteString.copyFrom(result))
+                  .build
+            )
       }
       .unsafeRunSync()
+  }
 
   // At the end of block H, we can propose validator updates, they will be applied at block H+2
   // see https://github.com/tendermint/tendermint/blob/master/docs/spec/abci/abci.md#endblock

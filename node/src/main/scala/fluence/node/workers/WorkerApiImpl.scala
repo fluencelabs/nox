@@ -28,7 +28,8 @@ import fluence.log.Log
 import fluence.node.workers.subscription.{
   RpcTxAwaitError,
   TendermintQueryResponse,
-  TendermintResponseError,
+  TendermintResponseDeserializationError,
+  TendermintRpcError,
   TxAwaitError,
   TxInvalidError,
   TxParsingError,
@@ -58,8 +59,7 @@ class WorkerApiImpl extends WorkerApi {
       worker.withServices(_.tendermint)(_.status.value)
 
   def p2pPort[F[_]: Apply](worker: Worker[F])(implicit log: Log[F]): F[Short] =
-    log.debug(s"Worker p2pPort") as
-      worker.p2pPort
+    log.debug(s"Worker p2pPort") as worker.p2pPort
 
   def lastManifest[F[_]: Monad](worker: Worker[F]): F[Option[BlockManifest]] =
     worker.withServices(_.blockManifests)(_.lastManifestOpt)
@@ -67,7 +67,7 @@ class WorkerApiImpl extends WorkerApi {
   def sendTx[F[_]: Monad](worker: Worker[F], tx: String, id: Option[String])(
     implicit log: Log[F]
   ): F[Either[RpcError, String]] =
-    log.scope("tx.id" -> tx) { implicit log ⇒
+    log.scope("tx" -> tx) { implicit log ⇒
       log.debug(s"TendermintRpc broadcastTxSync request, id: $id") *>
         worker.withServices(_.tendermint)(_.broadcastTxSync(tx, id.getOrElse("dontcare")).value)
     }
@@ -82,9 +82,14 @@ class WorkerApiImpl extends WorkerApi {
       txBroadcastResponse <- worker.services.tendermint
         .broadcastTxSync(tx, id.getOrElse("dontcare"))
         .leftMap(RpcTxAwaitError(_): TxAwaitError)
-      response <- log.scope("sessionId" -> txParsed.head.toString) { implicit log =>
+      _ <- Log.eitherT.debug("TendermintRpc broadcastTxSync is ok.")
+      response <- log.scope("tx.head" -> txParsed.head.toString) { implicit log =>
         for {
-          _ <- checkTxResponse(txBroadcastResponse)
+          _ <- checkTxResponse(txBroadcastResponse).recoverWith {
+            // Transaction was sent twice, but response should be available, so keep waiting
+            case e: TendermintRpcError if e.data.toLowerCase.contains("tx already exists in cache") =>
+              Log.eitherT[F, TxAwaitError].warn(s"tx already exists in Tendermint's cache, will wait for response")
+          }
           response <- waitResponse(worker, txParsed)
         } yield response
       }
@@ -98,9 +103,7 @@ class WorkerApiImpl extends WorkerApi {
     implicit log: Log[F]
   ): EitherT[F, TxAwaitError, TendermintQueryResponse] =
     for {
-      _ <- EitherT.right(
-        log.debug(s"TendermintRpc broadcastTxSync is ok. Waiting for response")
-      )
+      _ <- EitherT.right(log.debug(s"Waiting for response"))
       response <- EitherT.liftF[F, TxAwaitError, TendermintQueryResponse](
         worker.services.responseSubscriber.subscribe(tx.head).flatMap(_.get)
       )
@@ -115,16 +118,17 @@ class WorkerApiImpl extends WorkerApi {
     response: String
   )(implicit log: Log[F]): EitherT[F, TxAwaitError, Unit] = {
     for {
-      txResponse <- EitherT
-        .fromEither[F](decode[TxResponseCode](response))
+      txResponseOrError <- EitherT
+        .fromEither[F](decode[Either[TendermintRpcError, TxResponseCode]](response)(TendermintRpcError.eitherDecoder))
         .leftSemiflatMap(
           err =>
             // this is because tendermint could return other responses without code,
             // the node should return this as is to the client
             log
               .error(s"Error on txBroadcastSync response deserialization", err)
-              .as(TendermintResponseError(response): TxAwaitError)
+              .as(TendermintResponseDeserializationError(response): TxAwaitError)
         )
+      txResponse <- EitherT.fromEither[F](txResponseOrError).leftMap(identity[TxAwaitError])
       _ <- if (txResponse.code.exists(_ != TxCode.OK))
         EitherT.left(
           (TxInvalidError(
