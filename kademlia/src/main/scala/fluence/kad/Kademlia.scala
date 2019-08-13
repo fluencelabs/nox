@@ -17,7 +17,7 @@
 package fluence.kad
 
 import cats.data.EitherT
-import cats.effect.{Clock, Concurrent, Resource}
+import cats.effect.{Clock, Concurrent, Fiber, Resource}
 import cats.{Monad, Parallel, Traverse}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -132,7 +132,7 @@ object Kademlia {
    */
   def joinConcurrently[F[_]: Concurrent: Log, C](kad: Kademlia[F, C],
                                                  conf: JoinConf,
-                                                 readContact: Crypto.Func[String, C]): Resource[F, Unit] =
+                                                 readContact: Crypto.Func[String, C]): Resource[F, Fiber[F, Unit]] =
     Resource
       .make(
         Concurrent[F].start(
@@ -163,5 +163,4 @@ object Kademlia {
             )
         )
       )(_.cancel)
-      .void
 }

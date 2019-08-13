@@ -24,6 +24,6 @@ object SignatureDataOps {
     // web3j adds 27 to V, but Swarm needs a pure value
     // https://bitcoin.stackexchange.com/questions/38351/ecdsa-v-r-s-what-is-v
     def toByteArray: Array[Byte] =
-      signData.getR ++ signData.getS ++ Array((signData.getV - 27).toByte)
+      signData.getR ++ signData.getS ++ signData.getV.map(b ⇒ (b - 27).toByte)
   }
 }

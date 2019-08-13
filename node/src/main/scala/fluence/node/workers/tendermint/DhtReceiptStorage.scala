@@ -43,7 +43,7 @@ class DhtReceiptStorage[F[_]: Monad](
   // Convert appId and height to Kademlia Key
   private def key[E >: KVWriteError with KVReadError](height: Long): EitherT[F, E, Key] =
     Key
-      .fromBytes[F](
+      .sha1[F](
         (ByteVector.fromLong(appId) ++ ByteVector.fromLong(height)).toArray
       )
       .leftMap(KeyCodecError)

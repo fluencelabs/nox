@@ -36,9 +36,20 @@ import fluence.log.Log
 
 import scala.language.higherKinds
 
-case class KademliaHttpNode[F[_], C](
+/**
+ * Kademlia HTTP node.
+ * Run it on your own node to get access to the Kademlia network using HTTP transport.
+ *
+ * @param kademlia Node's Kademlia instance
+ * @param http Node's HTTP routes, you are responsible for running a server with them
+ * @param joinFiber Background fiber for Kademlia JOIN; use it to wait for join to complete
+ * @tparam F Effect
+ * @tparam C Contact
+ */
+case class KademliaHttpNode[F[_], C] private (
   kademlia: Kademlia[F, C],
-  http: KademliaHttp[F, C]
+  http: KademliaHttp[F, C],
+  joinFiber: Fiber[F, Unit]
 )
 
 object KademliaHttpNode {
@@ -103,11 +114,11 @@ object KademliaHttpNode {
       kad = Kademlia[F, P, UriContact](rt, selfNode.pure[F], conf.routing)
 
       // Join Kademlia network in a separate fiber
-      _ ← Kademlia
+      joinFiber ← Kademlia
         .joinConcurrently(kad, conf.join, UriContact.readAndCheckContact(signAlgo.checker))
 
       http = new KademliaHttp[F, UriContact](kad, readNode, writeNode)
-    } yield KademliaHttpNode(kad, http)
+    } yield KademliaHttpNode(kad, http, joinFiber)
   }
 
 }
