@@ -43,7 +43,7 @@ export interface RequestState<T> {
  */
 export class Session {
     readonly tm: TendermintClient;
-    private readonly session: string;
+    public readonly session: string;
     private readonly config: SessionConfig;
     private counter: number;
     private closed: boolean;

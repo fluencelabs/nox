@@ -59,7 +59,7 @@ export async function connect(contract: string, appId: string, ethereumUrl?: str
     let nodes: Node[] = await getAppNodes(contract, appId, ethereumUrl);
     let sessionId = Session.genSessionId();
     let sessions: WorkerSession[] = nodes.map(node => {
-        let session = directConnect(node.ip_addr, node.api_port, appId, sessionId);
+        let session = sessionConnect(node.ip_addr, node.api_port, appId, sessionId);
         return {
             session: session,
             node: node
@@ -70,9 +70,9 @@ export async function connect(contract: string, appId: string, ethereumUrl?: str
 }
 
 /**
- * Creates direct connection to one node.
+ * Creates connection to one node.
  */
-export function directConnect(host: string, port: number, appId: string, sessionId?: string) {
+export function sessionConnect(host: string, port: number, appId: string, sessionId?: string) {
     let tm = new TendermintClient(host, port, appId);
     let engine = new Engine(tm);
 
@@ -81,4 +81,21 @@ export function directConnect(host: string, port: number, appId: string, session
     } else {
         return engine.createSession(new SessionConfig(), sessionId);
     }
+}
+
+/**
+ * Creates app session with one node.
+ */
+export function directConnect(host: string, port: number, appId: string, sessionId?: string) {
+    let session = sessionConnect(host, port, appId, sessionId);
+
+    let sessions: WorkerSession[] = [
+        {
+            session: session,
+            // @ts-ignore
+            node: undefined
+        }
+    ];
+
+    return new AppSession(session.session, appId, sessions, undefined);
 }
