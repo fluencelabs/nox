@@ -25,7 +25,7 @@ import cats.effect.{ContextShift, IO, Timer}
 import cats.effect.concurrent.{MVar, Ref}
 import fluence.kad.protocol.{Key, Node}
 import fluence.kad.testkit.TestKademlia
-import fluence.log.{Context, Log, LogFactory}
+import fluence.log.{Log, LogFactory}
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
 
