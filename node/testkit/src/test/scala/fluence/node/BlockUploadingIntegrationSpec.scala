@@ -27,7 +27,6 @@ import cats.instances.list._
 import cats.syntax.apply._
 import cats.syntax.compose._
 import cats.syntax.flatMap._
-import cats.syntax.functor._
 import cats.syntax.traverse._
 import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
@@ -234,34 +233,33 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
 
       val allBlocks = (emptyBlocks ++ blocks).toList
 
-      eventually[IO](start().use {
+      start().use {
         case (abciService, abciState, blocksQ) =>
-          allBlocks.traverse {
-            block =>
-              val checkResponses = (_: List[TxResponse]).foreach(_.code shouldBe TxCode.OK)
-              val txs = block.data.txs.getOrElse(List.empty)
-              val deliverTxs = txs.traverse(tx => abciService.deliverTx(tx.bv.toArray)).map(checkResponses)
-              val commitBlock = deliverTxs *> abciService.commit
-              val sendBlockToSubscription = blocksQ.enqueue1(block)
+          allBlocks.traverse { block =>
+            val checkResponses = (_: List[TxResponse]).foreach(_.code shouldBe TxCode.OK)
+            val txs = block.data.txs.getOrElse(List.empty)
+            val deliverTxs = txs.traverse(tx => abciService.deliverTx(tx.bv.toArray)).map(checkResponses)
+            val commitBlock = deliverTxs *> abciService.commit
+            val sendBlockToSubscription = blocksQ.enqueue1(block)
 
-              val lastTx = OptionT.fromOption[IO](txs.lastOption).flatMap(tx => Tx.readTx[IO](tx.bv.toArray)).value
-              val checkState = lastTx.flatMap { lastTx =>
-                eventually[IO] {
-                  abciState.get.map { state =>
-                    state.height shouldBe block.header.height
+            val lastTx = OptionT.fromOption[IO](txs.lastOption).flatMap(tx => Tx.readTx[IO](tx.bv.toArray)).value
+            val checkState = lastTx.flatMap { lastTx =>
+              eventually[IO] {
+                abciState.get.map { state =>
+                  state.height shouldBe block.header.height
 
-                    if (block.header.height > emptyBlocks.length) {
-                      state.sessions.num shouldBe 1
-                      lastTx shouldBe defined
-                      state.sessions.data(session).nextNonce shouldBe lastTx.value.head.nonce + 1
-                    }
+                  if (block.header.height > emptyBlocks.length) {
+                    state.sessions.num shouldBe 1
+                    lastTx shouldBe defined
+                    state.sessions.data(session).nextNonce shouldBe lastTx.value.head.nonce + 1
                   }
                 }
               }
+            }
 
-              commitBlock *> sendBlockToSubscription *> checkState
+            commitBlock *> sendBlockToSubscription *> checkState
           }
-      }.void).unsafeRunSync()
+      }.unsafeRunTimed(10.seconds)
     }
   }
 }
