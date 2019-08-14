@@ -15,7 +15,7 @@ object SbtCommons {
 
   val commons = Seq(
     scalaV,
-    version                              := "0.2.0",
+    version                              := "0.3.0",
     fork in Test                         := false,
     parallelExecution in Test            := false,
     fork in IntegrationTest              := true,
@@ -131,7 +131,7 @@ object SbtCommons {
   val fs2io = "co.fs2" %% "fs2-io"               % fs2Version
 
   // functional wrapper around 'lightbend/config'
-  val ficus = "com.iheart"                 %% "ficus"      % "1.4.5"
+  val ficus = "com.iheart" %% "ficus" % "1.4.5"
 
   val cryptoVersion = "0.0.9"
   val cryptoHashsign = "one.fluence" %% "crypto-hashsign" % cryptoVersion
@@ -163,8 +163,8 @@ object SbtCommons {
   val scodecCore = "org.scodec" %% "scodec-core" % "1.11.3"
 
   val web3jVersion = "4.3.0"
-  val web3jCrypto = "org.web3j" % "crypto" % web3jVersion exclude("org.bouncycastle", "bcprov-jdk15on")
-  val web3jCore = "org.web3j"   % "core"   % web3jVersion exclude("org.bouncycastle", "bcprov-jdk15on")
+  val web3jCrypto = "org.web3j" % "crypto" % web3jVersion exclude ("org.bouncycastle", "bcprov-jdk15on")
+  val web3jCore = "org.web3j"   % "core"   % web3jVersion exclude ("org.bouncycastle", "bcprov-jdk15on")
 
   val toml = "com.electronwill.night-config" % "toml" % "3.4.2"
 
