@@ -71,11 +71,11 @@ export const deployableApps: { [key: string]: DeployableApp } = {
         clusterSize: 4,
         selfUpload: true
     },
-    // {"Name":"redis_0.6.0.wasm","Hash":"QmWM8Fd8oH2TmAygtj5L7fNELDhETXWJuMskvrckZXouK4","Size":"598340"}
+    // {"Name":"redis_0.6.0.wasm","Hash":"QmXNfH1x9XaSj1787h6LgoTpXZfQo76kqKjU93A5jWqVrZ","Size":"598446"}
     redis: {
         name: 'Redis fork (nosql, wasm v0.6.0)',
         shortName: 'Redis fork',
-        storageHash: '0x76FCA38A814CD38A32DAB300172257531B90EC2F15A736B4CC7DB57AAD5949B7',
+        storageHash: '0x863CFC4C8FDCA0B634EC8A35041D1B32AFF6F0E4D7121C0D93874C919E6DAF3A',
         storageType: StorageType.Ipfs,
         clusterSize: 4,
         repoLink: 'https://github.com/fluencelabs/redis/compare/5.0...fluencelabs:wasm',
@@ -85,11 +85,11 @@ export const deployableApps: { [key: string]: DeployableApp } = {
                           'SMEMBERS B',
                           `eval "redis.call('incr', 'A') return redis.call('get', 'A') * 8 + 5"  0`]
     },
-    // {"Name":"sqlite3_0.1.0.wasm","Hash":"QmUVEdijfMv6B2AyhXDEYm5j98KM2mUGE3RssaHYsRFamH","Size":"980789"}
+    // {"Name":"sqlite3_0.1.0.wasm","Hash":"QmWni18EKjc1pfoytZM5k5nNo8YgSwqZj9jVT499eonKFg","Size":"981013"}
     sqlite: {
         name: 'SQLite fork (sql, wasm v0.1.0)',
         shortName: 'SQLite fork',
-        storageHash: '0x5B59205EA0A51BE1B2FCFAE0C512BAEB39A2E88749FF7B328FFC5B925440435C',
+        storageHash: '0x7D8A5201A7340C834378421C11355CB8C67D76EE5D56650B09B481B7F28ACEE3',
         storageType: StorageType.Ipfs,
         clusterSize: 4,
         repoLink: 'https://github.com/fluencelabs/sqlite/compare/original...master',
