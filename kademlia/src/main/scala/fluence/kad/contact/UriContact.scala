@@ -91,8 +91,8 @@ object UriContact {
      */
     def readNode(checkerFn: CheckerFn): Crypto.Func[String, Node[UriContact]] =
       readAndCheckContact(checkerFn).rmap(c ⇒ (c, c)) >>> (
-        Crypto.fromOtherFunc(keyFromPublicKey).lmap[UriContact](_.signature.publicKey) split Crypto
-          .identityFunc[UriContact]
+        Crypto.fromOtherFunc(keyFromPublicKey).lmap[UriContact](_.signature.publicKey) split
+          Crypto.identityFunc[UriContact]
       ).rmap {
         case (k, uc) ⇒ Node(k, uc)
       }

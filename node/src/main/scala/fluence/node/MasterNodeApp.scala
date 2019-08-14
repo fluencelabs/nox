@@ -60,22 +60,6 @@ object MasterNodeApp extends IOApp {
   private val sttpResource: Resource[IO, STTP] =
     Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
-  // Lift Crypto errors for PureCodec errors
-  private val sha256 = PureCodec.fromOtherFunc(
-    CryptoHashers.Sha256
-  )(err ⇒ CodecError("Crypto error when building Kademlia Key for Node[UriContact]", Some(err)))
-
-  private val uriContactNodeCodec =
-    new UriContact.NodeCodec(
-      // We have tendermint's node_id in the Fluence Smart Contract now, which is first 20 bytes of sha256 of the public key
-      // That's why we derive Kademlia key by sha1 of the node_id
-      // sha1( sha256(p2p_key).take(20 bytes) )
-      sha256
-        .rmap(_.take(20))
-        .lmap[KeyPair.Public](_.bytes) >>> Key.sha1
-    )
-  import uriContactNodeCodec.writeNode
-
   /**
    * Launches a Master Node instance
    * Assuming to be launched inside Docker image
@@ -170,8 +154,21 @@ object MasterNodeApp extends IOApp {
             conf,
             Ed25519.signAlgo,
             keyPair,
-            rootPath,
-            uriContactNodeCodec
+            rootPath, {
+              // Lift Crypto errors for PureCodec errors
+              val sha256 = PureCodec.fromOtherFunc(
+                CryptoHashers.Sha256
+              )(err ⇒ CodecError("Crypto error when building Kademlia Key for Node[UriContact]", Some(err)))
+
+              new UriContact.NodeCodec(
+                // We have tendermint's node_id in the Fluence Smart Contract now, which is first 20 bytes of sha256 of the public key
+                // That's why we derive Kademlia key by sha1 of the node_id
+                // sha1( sha256(p2p_key).take(20 bytes) )
+                sha256
+                  .rmap(_.take(20))
+                  .lmap[KeyPair.Public](_.bytes) >>> Key.sha1
+              )
+            }
         )
       )
 

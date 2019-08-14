@@ -20,10 +20,8 @@ import cats.Parallel
 import cats.data.Kleisli
 import fluence.node.status.{StatusAggregator, StatusHttp}
 import cats.effect._
-import fluence.codec.PureCodec
 import fluence.kad.http.KademliaHttp
 import fluence.kad.http.dht.DhtHttp
-import fluence.kad.protocol.Node
 import fluence.log.LogFactory
 import fluence.node.workers.{WorkerApi, WorkersHttp, WorkersPool}
 import org.http4s.dsl.Http4sDsl
@@ -60,7 +58,7 @@ object MasterHttp {
     workerApi: WorkerApi,
     kad: KademliaHttp[F, C],
     dht: List[DhtHttp[F]] = Nil
-  )(implicit P: Parallel[F, G], writeNode: PureCodec.Func[Node[C], String]): Resource[F, Server[F]] = {
+  )(implicit P: Parallel[F, G]): Resource[F, Server[F]] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
     val routes = Router[F](
