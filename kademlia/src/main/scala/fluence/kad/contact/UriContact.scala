@@ -64,6 +64,40 @@ object UriContact {
   type ~~>[A, B] = PureCodec.Func[A, B]
   type <~>[A, B] = PureCodec[A, B]
 
+  class NodeCodec(val keyFromPublicKey: KeyPair.Public ~~> Key) {
+
+    /**
+     * Build a node with the given params
+     *
+     * @param advertize Contact info to advertize through Kademlia network
+     * @param signer Signer associated with this node's keypair
+     */
+    def buildNode(advertize: AdvertizeConf, signer: Signer): Crypto.Point[Node[UriContact]] =
+      for {
+        c ← buildContact(advertize, signer)
+        k ← Crypto.fromOtherFunc(keyFromPublicKey).pointAt(signer.publicKey)
+      } yield Node(k, c)
+
+    /**
+     * Convert Node to string
+     */
+    implicit val writeNode: Node[UriContact] ~~> String =
+      writeContact.lmap(_.contact)
+
+    /**
+     * Read Node from string, checking the signature on the way
+     *
+     * @param checkerFn Signature checker function
+     */
+    def readNode(checkerFn: CheckerFn): Crypto.Func[String, Node[UriContact]] =
+      readAndCheckContact(checkerFn).rmap(c ⇒ (c, c)) >>> (
+        Crypto.fromOtherFunc(keyFromPublicKey).lmap[UriContact](_.signature.publicKey) split
+          Crypto.identityFunc[UriContact]
+      ).rmap {
+        case (k, uc) ⇒ Node(k, uc)
+      }
+  }
+
   /**
    * Build a contact with the given params
    *
@@ -77,18 +111,6 @@ object UriContact {
   }
 
   /**
-   * Build a node with the given params
-   *
-   * @param advertize Contact info to advertize through Kademlia network
-   * @param signer Signer associated with this node's keypair
-   */
-  def buildNode(advertize: AdvertizeConf, signer: Signer): Crypto.Point[Node[UriContact]] =
-    for {
-      c ← buildContact(advertize, signer)
-      k ← Crypto.fromOtherFunc(Key.fromPublicKey).pointAt(signer.publicKey)
-    } yield Node(k, c)
-
-  /**
    * Parse contact from string, check its signature
    *
    * @param checkerFn Signature checker function
@@ -97,7 +119,7 @@ object UriContact {
     Crypto.fromOtherFunc(readContact) >>> checkContact(checkerFn)
 
   // codec for base58-encoded public key and signature
-  val pkWithSignatureCodec: (String, String) <~> PubKeyAndSignature = {
+  private val pkWithSignatureCodec: (String, String) <~> PubKeyAndSignature = {
     val signatureCodec: String <~> Signature =
       PureCodec[String, ByteVector] >>> PureCodec.liftB[ByteVector, Signature](Signature(_), _.sign)
 
@@ -121,25 +143,6 @@ object UriContact {
       (c: UriContact) => writePks.pointAt(c).map(signature => s"${UriContact.Schema}://$signature@${c.host}:${c.port}")
     )
   }
-
-  /**
-   * Convert Node to string
-   */
-  implicit val writeNode: Node[UriContact] ~~> String =
-    writeContact.lmap(_.contact)
-
-  /**
-   * Read Node from string, checking the signature on the way
-   *
-   * @param checkerFn Signature checker function
-   */
-  def readNode(checkerFn: CheckerFn): Crypto.Func[String, Node[UriContact]] =
-    readAndCheckContact(checkerFn).rmap(c ⇒ (c, c)) >>> (
-      Crypto.fromOtherFunc(Key.fromPublicKey).lmap[UriContact](_.signature.publicKey) split Crypto
-        .identityFunc[UriContact]
-    ).rmap {
-      case (k, uc) ⇒ Node(k, uc)
-    }
 
   // to remove PureCodec.liftFuncEither boilerplate whereas possible
   private implicit def liftEitherF[A, B](fn: A ⇒ Either[CodecError, B]): A ~~> B =
