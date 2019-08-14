@@ -35,6 +35,7 @@ import fluence.codec.PureCodec
 import fluence.crypto.eddsa.Ed25519
 import fluence.effects.kvstore.RocksDBStore
 import fluence.kad.conf.{AdvertizeConf, JoinConf, KademliaConfig, RoutingConf}
+import fluence.kad.contact.UriContact
 import fluence.kad.http.dht.DhtHttpNode
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto._
@@ -59,6 +60,8 @@ class KademliaHttpSpec extends WordSpec with Matchers {
 
   private val sttpResource: Resource[IO, SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]] =
     Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
+
+  private val nodeCodec = new UriContact.NodeCodec(Key.fromPublicKey)
 
   "kademlia http transport" should {
     val signAlgo = Ed25519.signAlgo
@@ -99,7 +102,8 @@ class KademliaHttpSpec extends WordSpec with Matchers {
                            JoinConf(seeds, 2)),
             signAlgo,
             signAlgo.generateKeyPair.unsafe(Some(ByteVector.fromInt(port).toArray)),
-            tmpRoot.resolve(s"kad-$port")
+            tmpRoot.resolve(s"kad-$port"),
+            nodeCodec
           )
 
         d ← DhtHttpNode
