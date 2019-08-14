@@ -19,8 +19,9 @@ package fluence.kad.contact
 import cats.Eval
 import fluence.crypto.ecdsa.Ecdsa
 import fluence.kad.conf.AdvertizeConf
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.{Ignore, Matchers, WordSpec}
 
+@Ignore
 class UriContactSpec extends WordSpec with Matchers {
   "uri contact spec" should {
     "encode/decode" in {
