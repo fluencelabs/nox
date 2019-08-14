@@ -19,15 +19,19 @@ package fluence.node
 import java.nio.ByteBuffer
 import java.nio.file.Path
 
-import cats.data.{EitherT, NonEmptyList}
+import cats.data.EitherT
 import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect._
-import cats.effect.concurrent.Ref
 import cats.syntax.apply._
+import cats.syntax.compose._
+import cats.syntax.profunctor._
 import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
 import fluence.EitherTSttpBackend
+import fluence.codec.{CodecError, PureCodec}
+import fluence.crypto.KeyPair
 import fluence.crypto.eddsa.Ed25519
+import fluence.crypto.hash.CryptoHashers
 import fluence.effects.{Backoff, EffectError}
 import fluence.effects.docker.DockerIO
 import fluence.effects.ipfs.IpfsUploader
@@ -39,6 +43,7 @@ import fluence.kad.conf.KademliaConfig
 import fluence.kad.contact.UriContact
 import fluence.kad.http.dht.{DhtHttp, DhtHttpNode}
 import fluence.kad.http.{KademliaHttp, KademliaHttpNode}
+import fluence.kad.protocol.Key
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.config.{Configuration, MasterConfig}
@@ -149,7 +154,21 @@ object MasterNodeApp extends IOApp {
             conf,
             Ed25519.signAlgo,
             keyPair,
-            rootPath
+            rootPath, {
+              // Lift Crypto errors for PureCodec errors
+              val sha256 = PureCodec.fromOtherFunc(
+                CryptoHashers.Sha256
+              )(err ⇒ CodecError("Crypto error when building Kademlia Key for Node[UriContact]", Some(err)))
+
+              new UriContact.NodeCodec(
+                // We have tendermint's node_id in the Fluence Smart Contract now, which is first 20 bytes of sha256 of the public key
+                // That's why we derive Kademlia key by sha1 of the node_id
+                // sha1( sha256(p2p_key).take(20 bytes) )
+                sha256
+                  .rmap(_.take(20))
+                  .lmap[KeyPair.Public](_.bytes) >>> Key.sha1
+              )
+            }
         )
       )
 
