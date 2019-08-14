@@ -22,9 +22,11 @@ import cats.instances.either._
 import cats.kernel.{Eq, Monoid}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.crypto.Crypto
+import fluence.codec.{CodecError, PureCodec}
+import fluence.crypto.{Crypto, KeyPair}
 import fluence.crypto.Crypto.liftCodecErrorToCrypto
 import fluence.crypto.eddsa.Ed25519
+import fluence.crypto.hash.CryptoHashers
 import fluence.kad.KadRpcError
 import fluence.kad.conf.AdvertizeConf
 import fluence.kad.contact.{ContactAccess, UriContact}
@@ -36,10 +38,13 @@ import fluence.node.workers.tendermint.TendermintPrivateKey
 import io.circe.parser._
 import org.scalatest.{EitherValues, Matchers, WordSpec}
 
+import cats.syntax.compose._
+import cats.syntax.profunctor._
+
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
 
-class KadUriContractSpec extends WordSpec with EitherValues with Matchers {
+class KadUriContactSpec extends WordSpec with EitherValues with Matchers {
   private val stage04Validator =
     """
       |{
@@ -60,6 +65,21 @@ class KadUriContractSpec extends WordSpec with EitherValues with Matchers {
     TendermintPrivateKey.getKeyPair(key).right.value
   }
 
+  // Lift Crypto errors for PureCodec errors
+  private val sha256 = PureCodec.fromOtherFunc(
+    CryptoHashers.Sha256
+  )(err ⇒ CodecError("Crypto error when building Kademlia Key for Node[UriContact]", Some(err)))
+
+  private val uriContactNodeCodec =
+    new UriContact.NodeCodec(
+      // We have tendermint's node_id in the Fluence Smart Contract now, which is first 20 bytes of sha256 of the public key
+      // That's why we derive Kademlia key by sha1 of the node_id
+      // sha1( sha256(p2p_key).take(20 bytes) )
+      sha256
+        .rmap(_.take(20))
+        .lmap[KeyPair.Public](_.bytes) >>> Key.sha1
+    )
+
   "contact" should {
     "generate and check (Tendermint keys)" in {
       val port = 25000.toShort
@@ -69,8 +89,8 @@ class KadUriContractSpec extends WordSpec with EitherValues with Matchers {
         "fluence://Df3bFWKN6tb2ejyPKfUceA57i6RwMvLfoi5NA3QZ3aSi:4zGZc3BSeyWsEiB6BuHN7gBheu1uAQn3cFpTTYZy6L43v9wUj9qgMuWtAAVg5LNV8B8xxLqPagVFU39YsbrpQQhT@207.154.210.117:25000"
 
       val contact = (for {
-        node <- UriContact.buildNode(adv, Ed25519.signAlgo.signer(keyPair))
-        contactStr <- Crypto.fromOtherFunc(UriContact.writeNode).pointAt(node)
+        node <- uriContactNodeCodec.buildNode(adv, Ed25519.signAlgo.signer(keyPair))
+        contactStr <- Crypto.fromOtherFunc(uriContactNodeCodec.writeNode).pointAt(node)
         _ <- UriContact.readAndCheckContact(Ed25519.signAlgo.checker).pointAt(contactStr)
       } yield contactStr).runF[Either[Throwable, ?]](())
 
@@ -81,8 +101,10 @@ class KadUriContractSpec extends WordSpec with EitherValues with Matchers {
     }
 
     "update contacts" in {
-      val node1 = UriContact.buildNode(AdvertizeConf("localhost", 25000), Ed25519.signAlgo.signer(keyPair)).unsafe(())
-      val node2 = UriContact.buildNode(AdvertizeConf("127.0.0.1", 2500), Ed25519.signAlgo.signer(keyPair)).unsafe(())
+      val node1 =
+        uriContactNodeCodec.buildNode(AdvertizeConf("localhost", 25000), Ed25519.signAlgo.signer(keyPair)).unsafe(())
+      val node2 =
+        uriContactNodeCodec.buildNode(AdvertizeConf("127.0.0.1", 2500), Ed25519.signAlgo.signer(keyPair)).unsafe(())
 
       Eq[Key].eqv(node1.key, node2.key) shouldBe true
 
