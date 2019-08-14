@@ -102,7 +102,10 @@ case class TxProcessor[F[_]: Sync: Monad: LiftIO: Log] private (
                   |  "result": {
                   |    "code": 0,
                   |    "data": "$encoded",
-                  |    "hash": "no hash"
+                  |    "hash": "no hash",
+                  |    "response": {
+                  |      "value": "$encoded"
+                  |    }
                   |  }
                   | }
             """.stripMargin
