@@ -16,7 +16,6 @@
 
 package fluence.node
 
-import cats.Id
 import cats.data.EitherT
 import cats.effect.{ContextShift, IO, Timer}
 import cats.instances.either._
@@ -35,7 +34,7 @@ import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import fluence.kad.routing.LocalRouting
 import fluence.kad.state.RoutingState
 import fluence.log.{Log, LogFactory}
-import fluence.node.workers.tendermint.TendermintPrivateKey
+import fluence.node.workers.tendermint.TendermintNodeKey
 import io.circe.parser._
 import org.scalatest.{EitherValues, Matchers, WordSpec}
 import cats.syntax.compose._
@@ -48,23 +47,14 @@ import scala.concurrent.duration.Duration
 class KadUriContactSpec extends WordSpec with EitherValues with Matchers {
   private val stage04Validator =
     """
-      |{
-      |  "address": "9F16F63227F11942E6E4A3282B2A293E4BF8206C",
-      |  "pub_key": {
-      |    "type": "tendermint/PubKeyEd25519",
-      |    "value": "vAs+M0nQVqntR6jjPqTsHpJ4bsswA3ohx05yorqveyc="
-      |  },
-      |  "priv_key": {
-      |    "type": "tendermint/PrivKeyEd25519",
-      |    "value": "okWxDfeg+uHCT5qpPoUhbBxJL7yOH/+zsPok6VK9OLy8Cz4zSdBWqe1HqOM+pOweknhuyzADeiHHTnKiuq97Jw=="
-      |  }
-      |}
+      |{"priv_key":{"type":"tendermint/PrivKeyEd25519","value":"DWSj76VIufg0vgBjx1EDY4msDy2n/jOLCohj7tMoNO8shCCV/KcLSxeqHWvKzONTh6FE1UIW1ue+aDAprguAgg=="}}
     """.stripMargin
 
-  private val keyPair = {
-    val key = decode[TendermintPrivateKey](stage04Validator).right.value
-    TendermintPrivateKey.getKeyPair(key).right.value
-  }
+  private val keyPair =
+    decode[TendermintNodeKey](stage04Validator)
+      .flatMap(_.getKeyPair)
+      .right
+      .value
 
   // Lift Crypto errors for PureCodec errors
   private val sha256 = PureCodec.fromOtherFunc(
@@ -87,7 +77,7 @@ class KadUriContactSpec extends WordSpec with EitherValues with Matchers {
       val host = "207.154.210.117"
       val adv = AdvertizeConf(host, port)
       val expectedContact =
-        "fluence://Df3bFWKN6tb2ejyPKfUceA57i6RwMvLfoi5NA3QZ3aSi:4zGZc3BSeyWsEiB6BuHN7gBheu1uAQn3cFpTTYZy6L43v9wUj9qgMuWtAAVg5LNV8B8xxLqPagVFU39YsbrpQQhT@207.154.210.117:25000"
+        "fluence://3zmnyo8cdqDDJn8pUgC7rv3mt7TVGaMVCLqdwyFv21Um:2ye9xNomz8a8ov4i8mv2FneSjSiYm7tMWniJPxTqii1LcDxkQ79osDk8vF9f6rPohb4DaDZoArmFBLiUeR4gwsMz@207.154.210.117:25000"
 
       val contact = (for {
         node <- uriContactNodeCodec.buildNode(adv, Ed25519.signAlgo.signer(keyPair))
@@ -160,11 +150,13 @@ class KadUriContactSpec extends WordSpec with EitherValues with Matchers {
 
     "use correct tendermint node_id" in {
       val nodeId = ByteVector.fromValidHex("65c7af6d818fafcfec9d4b7b531a148f1ee6afd8")
-      val sk = KeyPair.Secret(
-        ByteVector
-          .fromValidBase64("DWSj76VIufg0vgBjx1EDY4msDy2n/jOLCohj7tMoNO8shCCV/KcLSxeqHWvKzONTh6FE1UIW1ue+aDAprguAgg==")
-      )
-      val pk = Ed25519.ed25519.restorePairFromSecret[Id](sk).value.right.get.publicKey
+      val pk =
+        TendermintNodeKey(
+          TendermintNodeKey.PrivKey(
+            "",
+            "DWSj76VIufg0vgBjx1EDY4msDy2n/jOLCohj7tMoNO8shCCV/KcLSxeqHWvKzONTh6FE1UIW1ue+aDAprguAgg=="
+          )
+        ).getKeyPair.right.get.publicKey
 
       uriContactNodeCodec.keyFromPublicKey.unsafe(pk) shouldBe Key.sha1.unsafe(nodeId.toArray)
     }
