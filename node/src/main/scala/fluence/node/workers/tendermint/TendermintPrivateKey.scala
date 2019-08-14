@@ -16,7 +16,9 @@
 
 package fluence.node.workers.tendermint
 
+import cats.Id
 import fluence.crypto.KeyPair
+import fluence.crypto.eddsa.Ed25519
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import scodec.bits.ByteVector
@@ -30,7 +32,7 @@ case class PrivKey(`type`: String, value: String)
  * @param priv_key Private key + public key in base64 format
  * @param pub_key Public key in base64 format
  */
-case class TendermintPrivateKey(priv_key: PrivKey, pub_key: PubKey)
+case class TendermintPrivateKey(priv_key: PrivKey, pub_key: Option[PubKey])
 
 object TendermintPrivateKey {
   implicit val privKeyDecoder: Decoder[PrivKey] = deriveDecoder[PrivKey]
@@ -48,9 +50,13 @@ object TendermintPrivateKey {
    */
   def getKeyPair(tendermintKey: TendermintPrivateKey): Either[String, KeyPair] = {
     for {
-      pubKey <- ByteVector.fromBase64Descriptive(tendermintKey.pub_key.value)
       privKey <- ByteVector.fromBase64Descriptive(tendermintKey.priv_key.value)
-    } yield KeyPair.fromByteVectors(pubKey, privKey.dropRight(32))
-
+      secret = KeyPair.Secret(privKey.dropRight(32))
+      pubKey <- tendermintKey.pub_key
+        .map(_.value)
+        .fold(
+          Ed25519.ed25519.restorePairFromSecret[Id](secret).value.left.map(_.message).map(_.publicKey)
+        )(ByteVector.fromBase64Descriptive(_).map(KeyPair.Public))
+    } yield KeyPair(pubKey, secret)
   }
 }

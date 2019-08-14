@@ -64,7 +64,7 @@ object UriContact {
   type ~~>[A, B] = PureCodec.Func[A, B]
   type <~>[A, B] = PureCodec[A, B]
 
-  class NodeCodec(keyFromPublicKey: KeyPair.Public ~~> Key) {
+  class NodeCodec(val keyFromPublicKey: KeyPair.Public ~~> Key) {
 
     /**
      * Build a node with the given params

@@ -16,6 +16,7 @@
 
 package fluence.node
 
+import cats.Id
 import cats.data.EitherT
 import cats.effect.{ContextShift, IO, Timer}
 import cats.instances.either._
@@ -37,9 +38,9 @@ import fluence.log.{Log, LogFactory}
 import fluence.node.workers.tendermint.TendermintPrivateKey
 import io.circe.parser._
 import org.scalatest.{EitherValues, Matchers, WordSpec}
-
 import cats.syntax.compose._
 import cats.syntax.profunctor._
+import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.Duration
@@ -155,6 +156,17 @@ class KadUriContactSpec extends WordSpec with EitherValues with Matchers {
       rs.update(node2).unsafeRunSync()
       lr.find(node1.key).unsafeRunSync() should be(Some(node2))
 
+    }
+
+    "use correct tendermint node_id" in {
+      val nodeId = ByteVector.fromValidHex("65c7af6d818fafcfec9d4b7b531a148f1ee6afd8")
+      val sk = KeyPair.Secret(
+        ByteVector
+          .fromValidBase64("DWSj76VIufg0vgBjx1EDY4msDy2n/jOLCohj7tMoNO8shCCV/KcLSxeqHWvKzONTh6FE1UIW1ue+aDAprguAgg==")
+      )
+      val pk = Ed25519.ed25519.restorePairFromSecret[Id](sk).value.right.get.publicKey
+
+      uriContactNodeCodec.keyFromPublicKey.unsafe(pk) shouldBe Key.sha1.unsafe(nodeId.toArray)
     }
   }
 }

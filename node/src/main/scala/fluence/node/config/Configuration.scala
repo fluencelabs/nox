@@ -174,7 +174,7 @@ object Configuration {
     } yield ()
 
   /**
-   * Reads KeyPair from priv_validator_key.json file in tendermint path.
+   * Reads KeyPair from node_key.json file in tendermint path.
    *
    */
   def readTendermintKeyPair(rootPath: Path): IO[KeyPair] = {
@@ -185,7 +185,7 @@ object Configuration {
             rootPath
               .resolve("tendermint")
               .resolve("config")
-              .resolve("priv_validator_key.json")
+              .resolve("node_key.json")
           )
         )
       )
