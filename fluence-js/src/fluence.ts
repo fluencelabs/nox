@@ -72,7 +72,7 @@ export async function connect(contract: string, appId: string, ethereumUrl?: str
 /**
  * Creates connection to one node.
  */
-export function sessionConnect(host: string, port: number, appId: string, sessionId?: string) {
+function sessionConnect(host: string, port: number, appId: string, sessionId?: string) {
     let tm = new TendermintClient(host, port, appId);
     let engine = new Engine(tm);
 
