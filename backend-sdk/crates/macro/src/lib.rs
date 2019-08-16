@@ -68,7 +68,7 @@ extern crate proc_macro;
 mod macro_attr_parser;
 mod macro_input_parser;
 
-use crate::macro_attr_parser::{HandlerAttrs, generate_side_modules_glue_code};
+use crate::macro_attr_parser::{generate_side_modules_glue_code, HandlerAttrs};
 use crate::macro_input_parser::{InputTypeGenerator, ParsedType, ReturnTypeGenerator};
 use proc_macro::TokenStream;
 use quote::quote;
@@ -197,7 +197,7 @@ fn invoke_handler_impl(
     match raw_side_modules_list {
         Some(side_modules) => {
             let side_modules_glue_code = generate_side_modules_glue_code(side_modules)?;
-            Ok(quote!{
+            Ok(quote! {
                 #side_modules_glue_code
                 #resulted_invoke
             })

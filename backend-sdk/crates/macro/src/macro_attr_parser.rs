@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-use syn::parse::{Parse, ParseStream};
 use quote::quote;
 use syn::export::TokenStream2;
+use syn::parse::{Parse, ParseStream};
 
 pub struct HandlerAttrs {
     handler_attrs: Vec<HandlerAttr>,
@@ -123,7 +123,9 @@ impl Parse for HandlerAttr {
     }
 }
 
-pub fn generate_side_modules_glue_code(side_modules_list: &Vec<String>) -> syn::Result<TokenStream2> {
+pub fn generate_side_modules_glue_code(
+    side_modules_list: &Vec<String>,
+) -> syn::Result<TokenStream2> {
     let mut modules_glue_code = quote!();
     for module_name in side_modules_list {
         let allocate_fn_name = format!("{}_allocate", module_name);
