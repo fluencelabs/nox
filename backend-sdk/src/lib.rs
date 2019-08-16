@@ -24,6 +24,7 @@
 //!
 #![doc(html_root_url = "https://docs.rs/fluence/0.1.6")]
 #![feature(allocator_api)]
+#![recursion_limit = "128"]
 
 extern crate fluence_sdk_macro;
 extern crate fluence_sdk_main;

@@ -123,9 +123,7 @@ impl Parse for HandlerAttr {
     }
 }
 
-pub fn generate_side_modules_glue_code(
-    side_modules_list: &Vec<String>,
-) -> syn::Result<TokenStream2> {
+pub fn generate_side_modules_glue_code(side_modules_list: &[String]) -> syn::Result<TokenStream2> {
     let mut modules_glue_code = quote!();
     for module_name in side_modules_list {
         let allocate_fn_name = format!("{}_allocate", module_name);
