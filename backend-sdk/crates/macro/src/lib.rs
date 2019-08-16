@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#![recursion_limit="128"]
 //! This module defines an `invocation_handler` attribute procedural macro. It can be used to
 //! simplify the signature of the main module invocation handler:
 //!
@@ -62,7 +61,8 @@
 //!
 //! Please find more examples [here](https://github.com/fluencelabs/tutorials).
 
-#![doc(html_root_url = "https://docs.rs/fluence-sdk-macro/0.1.6")]
+#![doc(html_root_url = "https://docs.rs/fluence-sdk-macro/0.1.7")]
+#![recursion_limit = "128"]
 
 extern crate proc_macro;
 mod macro_attr_parser;
