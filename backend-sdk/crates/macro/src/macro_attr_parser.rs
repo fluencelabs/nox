@@ -17,12 +17,12 @@
 use syn::parse::{Parse, ParseStream};
 
 pub struct HandlerAttrs {
-    // There could be some other attributes in future
     handler_attrs: Vec<HandlerAttr>,
 }
 
 pub enum HandlerAttr {
     InitFnName(String),
+    SideModules(Vec<String>),
 }
 
 impl HandlerAttrs {
@@ -31,6 +31,17 @@ impl HandlerAttrs {
             .iter()
             .filter_map(|attr| match attr {
                 HandlerAttr::InitFnName(name) => Some(&name[..]),
+                _ => None,
+            })
+            .next()
+    }
+
+    pub fn side_modules(&self) -> Option<(&Vec<String>)> {
+        self.handler_attrs
+            .iter()
+            .filter_map(|attr| match attr {
+                HandlerAttr::SideModules(modules) => Some(modules),
+                _ => None,
             })
             .next()
     }
@@ -51,32 +62,59 @@ impl Parse for HandlerAttrs {
             return Ok(attrs);
         }
 
-        // trying to parse the `init_fn` token
-        let attr = input.step(|cursor| match cursor.ident() {
+        let attr_opts =
+            syn::punctuated::Punctuated::<HandlerAttr, syn::token::Comma>::parse_terminated(input)?;
+        attrs.handler_attrs = attr_opts.into_iter().collect();
+
+        Ok(attrs)
+    }
+}
+
+impl Parse for HandlerAttr {
+    fn parse(input: ParseStream) -> syn::Result<Self> {
+        // trying to parse the `init_fn`/`side_modules`/... tokens
+        let attr_name = input.step(|cursor| match cursor.ident() {
             Some((ident, rem)) => Ok((ident, rem)),
             None => Err(cursor.error("Expected a valid ident")),
         })?;
 
-        let init_fn_name = match attr.to_string().as_str() {
+        match attr_name.to_string().as_str() {
             "init_fn" => {
                 // trying to parse `=`
                 input.parse::<::syn::token::Eq>()?;
 
                 // trying to parse a init function name
                 match input.parse::<syn::Ident>() {
-                    Ok(init_fn_name) => Ok(init_fn_name.to_string()),
-                    Err(_) => Err(syn::Error::new(attr.span(), "Expected a function name")),
+                    Ok(init_fn_name) => Ok(HandlerAttr::InitFnName(init_fn_name.to_string())),
+                    Err(_) => Err(syn::Error::new(
+                        attr_name.span(),
+                        "Expected a function name",
+                    )),
                 }
             },
-            _ => Err(syn::Error::new(
-                attr.span(),
-                "Expected a `init_fn` token in invocation_handler macros attributes",
-            )),
-        }?;
 
-        attrs
-            .handler_attrs
-            .push(HandlerAttr::InitFnName(init_fn_name));
-        Ok(attrs)
+            "side_modules" => {
+                // trying to parse `=`
+                input.parse::<::syn::token::Eq>()?;
+
+                let raw_side_modules_list;
+                syn::parenthesized!(raw_side_modules_list in input);
+
+                let raw_side_modules_opts =
+                    syn::punctuated::Punctuated::<syn::Ident, syn::token::Comma>::parse_terminated(
+                        &raw_side_modules_list,
+                    )?;
+                let tt = raw_side_modules_opts
+                    .iter()
+                    .map(|c| c.to_string())
+                    .collect();
+                Ok(HandlerAttr::SideModules(tt))
+            },
+
+            _ => Err(syn::Error::new(
+                attr_name.span(),
+                "Expected a `side_modules` token in invocation_handler macros attributes",
+            )),
+        }
     }
 }
