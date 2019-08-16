@@ -104,10 +104,12 @@ impl Parse for HandlerAttr {
                     syn::punctuated::Punctuated::<syn::Ident, syn::token::Comma>::parse_terminated(
                         &raw_side_modules_list,
                     )?;
+
                 let tt = raw_side_modules_opts
                     .iter()
                     .map(|c| c.to_string())
                     .collect();
+
                 Ok(HandlerAttr::SideModules(tt))
             },
 

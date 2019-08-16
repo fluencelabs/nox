@@ -199,26 +199,29 @@ fn invoke_handler_impl(
             let mut resulted_invoke = resulted_invoke;
             for module_name in side_modules_list {
                 let allocate_fn_name = format!("{}_allocate", module_name);
-                let allocate_fn_name = syn::parse_str::<syn::Ident>(&allocate_fn_name)?;
+                let allocate_fn_name = syn::parse_str::<syn::Expr>(&allocate_fn_name)?;
 
                 let deallocate_fn_name = format!("{}_deallocate", module_name);
-                let deallocate_fn_name = syn::parse_str::<syn::Ident>(&deallocate_fn_name)?;
+                let deallocate_fn_name = syn::parse_str::<syn::Expr>(&deallocate_fn_name)?;
 
                 let invoke_fn_name = format!("{}_invoke", module_name);
-                let invoke_fn_name = syn::parse_str::<syn::Ident>(&invoke_fn_name)?;
+                let invoke_fn_name = syn::parse_str::<syn::Expr>(&invoke_fn_name)?;
 
                 let load_fn_name = format!("{}_load", module_name);
-                let load_fn_name = syn::parse_str::<syn::Ident>(&load_fn_name)?;
+                let load_fn_name = syn::parse_str::<syn::Expr>(&load_fn_name)?;
 
                 let store_fn_name = format!("{}_store", module_name);
-                let store_fn_name = syn::parse_str::<syn::Ident>(&store_fn_name)?;
+                let store_fn_name = syn::parse_str::<syn::Expr>(&store_fn_name)?;
+
+                let module_name_expr = syn::parse_str::<syn::Expr>(&module_name)?;
+
+                let module_name = syn::parse_str::<syn::Ident>(&module_name)?;
 
                 resulted_invoke = quote! {
 
                             mod #module_name {
-                                #[link(wasm_import_module = $module_name_expr)]
+                                #[link(wasm_import_module = #module_name_expr)]
                                 extern "C" {
-                                    // Allocate chunk of a module memory, and return a pointer to that memory
                                     #[link_name = #allocate_fn_name]
                                     pub fn allocate(size: usize) -> i32;
 
