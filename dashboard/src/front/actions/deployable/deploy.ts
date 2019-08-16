@@ -165,7 +165,11 @@ export const deployUpload = (form: FormData): ThunkAction<void, ReduxState, void
         return axios.post(appUploadUrl, form, uploadParams).then(function (response) {
             let hash = '';
             if (typeof response.data === 'string') {
-                const folderRaw = response.data.split('\n').filter(s => String(s).trim().length > 0).slice(-1)[0];
+                const folderRaw = response.data.split('\n').filter(s => String(s).trim().length > 0).find((fileRaw: string) => {
+                    const file = JSON.parse(fileRaw);
+
+                    return file && file.Name === '';
+                }) || '';
                 const folder = JSON.parse(folderRaw);
                 hash = folder.Hash;
             } else {
