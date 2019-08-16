@@ -99,25 +99,36 @@ impl Parse for HandlerAttr {
                 // trying to parse `=`
                 input.parse::<::syn::token::Eq>()?;
 
-                let raw_side_modules_list;
-                syn::parenthesized!(raw_side_modules_list in input);
+                // check for parens
+                let raw_side_modules_list = match syn::group::parse_parens(&input) {
+                    Ok(parens) => parens.content,
+                    _ => {
+                        match input.parse::<syn::Ident>() {
+                            Ok(module_name) => return Ok(HandlerAttr::SideModules(vec![module_name.to_string()])),
+                            Err(_) => return Err(syn::Error::new(
+                                attr_name.span(),
+                                "Expected a module name name",
+                            )),
+                        }
+                    }
+                };
 
                 let raw_side_modules_opts =
                     syn::punctuated::Punctuated::<syn::Ident, syn::token::Comma>::parse_terminated(
                         &raw_side_modules_list,
                     )?;
 
-                let tt = raw_side_modules_opts
+                let side_modules = raw_side_modules_opts
                     .iter()
                     .map(|c| c.to_string())
                     .collect();
 
-                Ok(HandlerAttr::SideModules(tt))
+                Ok(HandlerAttr::SideModules(side_modules))
             },
 
             _ => Err(syn::Error::new(
                 attr_name.span(),
-                "Expected a `side_modules` token in invocation_handler macros attributes",
+                "Expected a `side_modules` or `init_fn` tokens in invocation_handler macros attributes",
             )),
         }
     }
@@ -158,41 +169,41 @@ pub fn generate_side_modules_glue_code(side_modules_list: &[String]) -> syn::Res
                 }
 
                 // Execute query on module
-                pub fn query(query: Vec<u8>) -> Vec<u8> {
+                pub fn call(request: &[u8]) -> Vec<u8> {
                     unsafe {
                         // Allocate memory for the query in module
-                        let query_ptr = allocate(query.len());
+                        let query_ptr = allocate(request.len());
 
                         // Store query in module's memory
-                        for (i, byte) in query.iter().enumerate() {
+                        for (i, byte) in request.iter().enumerate() {
                             let ptr = query_ptr + i as i32;
                             store(ptr, *byte);
                         }
 
                         // Execute the query, and get pointer to the result
-                        let result_ptr = invoke(query_ptr, query.len());
+                        let response_ptr = invoke(query_ptr, request.len());
 
                         // First 4 bytes at result_ptr location encode result size, read that first
-                        let mut result_size: usize = 0;
+                        let mut response_size: usize = 0;
                         for byte_id in 0..3 {
-                            let ptr = result_ptr + byte_id as i32;
+                            let ptr = response_ptr + byte_id as i32;
                             let b = load(ptr) as usize;
-                            result_size = result_size + (b << (8 * byte_id));
+                            response_size = response_size + (b << (8 * byte_id));
                         }
                         // Now we know exact size of the query execution result
 
                         // Read query execution result byte-by-byte
-                        let mut result_bytes = vec![0; result_size as usize];
-                        for byte_id in 0..result_size {
-                            let ptr = result_ptr + (byte_id + 4) as i32;
+                        let mut response_bytes = vec![0; response_size as usize];
+                        for byte_id in 0..response_size {
+                            let ptr = response_ptr + (byte_id + 4) as i32;
                             let b = load(ptr);
-                            result_bytes[byte_id as usize] = b;
+                            response_bytes[byte_id as usize] = b;
                         }
 
                         // Deallocate query result
-                        deallocate(result_ptr, result_size + 4);
+                        deallocate(response_ptr, response_size + 4);
 
-                        result_bytes
+                        response_bytes
                     }
                 }
             }
