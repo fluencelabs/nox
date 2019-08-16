@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+#![recursion_limit="128"]
 //! This module defines an `invocation_handler` attribute procedural macro. It can be used to
 //! simplify the signature of the main module invocation handler:
 //!

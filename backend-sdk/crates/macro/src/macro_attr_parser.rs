@@ -196,6 +196,8 @@ pub fn generate_side_modules_glue_code(side_modules_list: &[String]) -> syn::Res
                     }
                 }
             }
+
+            #modules_glue_code
         }
     }
 
