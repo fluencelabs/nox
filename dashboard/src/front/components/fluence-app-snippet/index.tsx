@@ -99,7 +99,7 @@ class FluenceAppSnippet extends React.Component<Props, State> {
                         return s.trim().length !== 0;
                     });
                     const results = queries.map(q => {
-                        const res = session.request(q).result();
+                        const res = session.request(q);
 
                         return res.then(r => {
                             return parser(r.asString().trim());
