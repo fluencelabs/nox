@@ -68,7 +68,7 @@ extern crate proc_macro;
 mod macro_attr_parser;
 mod macro_input_parser;
 
-use crate::macro_attr_parser::HandlerAttrs;
+use crate::macro_attr_parser::{HandlerAttrs, generate_side_modules_glue_code};
 use crate::macro_input_parser::{InputTypeGenerator, ParsedType, ReturnTypeGenerator};
 use proc_macro::TokenStream;
 use quote::quote;
@@ -195,100 +195,12 @@ fn invoke_handler_impl(
     };
 
     match raw_side_modules_list {
-        Some(side_modules_list) => {
-            let mut resulted_invoke = resulted_invoke;
-            for module_name in side_modules_list {
-                let allocate_fn_name = format!("{}_allocate", module_name);
-                let allocate_fn_name = syn::parse_str::<syn::Expr>(&allocate_fn_name)?;
-
-                let deallocate_fn_name = format!("{}_deallocate", module_name);
-                let deallocate_fn_name = syn::parse_str::<syn::Expr>(&deallocate_fn_name)?;
-
-                let invoke_fn_name = format!("{}_invoke", module_name);
-                let invoke_fn_name = syn::parse_str::<syn::Expr>(&invoke_fn_name)?;
-
-                let load_fn_name = format!("{}_load", module_name);
-                let load_fn_name = syn::parse_str::<syn::Expr>(&load_fn_name)?;
-
-                let store_fn_name = format!("{}_store", module_name);
-                let store_fn_name = syn::parse_str::<syn::Expr>(&store_fn_name)?;
-
-                let module_name_expr = syn::parse_str::<syn::Expr>(&module_name)?;
-
-                let module_name = syn::parse_str::<syn::Ident>(&module_name)?;
-
-                resulted_invoke = quote! {
-
-                            mod #module_name {
-                                #[link(wasm_import_module = #module_name_expr)]
-                                extern "C" {
-                                    #[link_name = #allocate_fn_name]
-                                    pub fn allocate(size: usize) -> i32;
-
-                                    // Deallocate chunk of module memory after it's not used anymore
-                                    #[link_name = #deallocate_fn_name]
-                                    pub fn deallocate(ptr: i32, size: usize);
-
-                                    // Call module's invocation handler with data specified by pointer and size
-                                    #[link_name = #invoke_fn_name]
-                                    pub fn invoke(ptr: i32, size: usize) -> i32;
-
-                                    // Read 1 byte from ptr location of module memory
-                                    #[link_name = #load_fn_name]
-                                    pub fn load(ptr: i32) -> u8;
-
-                                    // Put 1 byte at ptr location in module memory
-                                    #[link_name = #store_fn_name]
-                                    pub fn store(ptr: i32, byte: u8);
-                                }
-
-                            // Execute query on module
-                            pub fn query(query: Vec<u8>) -> Vec<u8> {
-                                unsafe {
-                                    // Convert query string to bytes
-                                    let query_bytes = query.as_bytes();
-                                    // Allocate memory for the query in module
-                                    let query_ptr = allocate(query_bytes.len());
-
-                                    // Store query in module's memory
-                                    for (i, byte) in query_bytes.iter().enumerate() {
-                                        let ptr = query_ptr + i as i32;
-                                        store(ptr, *byte);
-                                    }
-
-                                    // Execute the query, and get pointer to the result
-                                    let result_ptr = invoke(query_ptr, query_bytes.len());
-
-                                    // First 4 bytes at result_ptr location encode result size, read that first
-                                    let mut result_size: usize = 0;
-                                    for byte_id in 0..3 {
-                                        let ptr = result_ptr + byte_id as i32;
-                                        let b = load(ptr) as usize;
-                                        result_size = result_size + (b << (8 * byte_id));
-                                    }
-                                    // Now we know exact size of the query execution result
-
-                                    // Read query execution result byte-by-byte
-                                    let mut result_bytes = vec![0; result_size as usize];
-                                    for byte_id in 0..result_size {
-                                        let ptr = result_ptr + (byte_id + 4) as i32;
-                                        let b = load(ptr);
-                                        result_bytes[byte_id as usize] = b;
-                                    }
-
-                                    // Deallocate query result
-                                    deallocate(result_ptr, result_size + 4);
-
-                                    result_bytes
-                                }
-                            }
-
-                            #resulted_invoke
-                    }
-                }
-            }
-
-            Ok(resulted_invoke)
+        Some(side_modules) => {
+            let side_modules_glue_code = generate_side_modules_glue_code(side_modules)?;
+            Ok(quote!{
+                #side_modules_glue_code
+                #resulted_invoke
+            })
         },
         _ => Ok(resulted_invoke),
     }
