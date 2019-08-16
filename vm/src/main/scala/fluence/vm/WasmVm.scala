@@ -194,8 +194,9 @@ object WasmVm {
           (None, Nil)
         ) {
           // the main module almost always doesn't have name section (in config it is represented by None)
+          // also if there is only one module provided, it is considered as the main regardless of its name.
           case ((None, sideModules), moduleDescription)
-              if Option(moduleDescription.getName) == config.mainModuleConfig.name ⇒
+              if Option(moduleDescription.getName) == config.mainModuleConfig.name || scriptCxt.getModules.size() == 1 ⇒
             for {
               mainModule ← MainWasmModule(
                 moduleDescription,
