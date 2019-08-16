@@ -145,9 +145,10 @@ pub fn generate_side_modules_glue_code(side_modules_list: &[String]) -> syn::Res
         let module_name_ident = syn::parse_str::<syn::Ident>(&module_name)?;
 
         modules_glue_code = quote! {
-            mod #module_name_ident {
+            pub mod #module_name_ident {
                 #[link(wasm_import_module = #module_name)]
                 extern "C" {
+                    // Allocate chunk of module memory, and return a pointer to that region
                     #[link_name = #allocate_fn_name]
                     pub fn allocate(size: usize) -> i32;
 
@@ -165,7 +166,7 @@ pub fn generate_side_modules_glue_code(side_modules_list: &[String]) -> syn::Res
 
                     // Put 1 byte at ptr location in module memory
                     #[link_name = #store_fn_name]
-                    pub fn store(ptr: i32, byte: u8);
+                    pub fn store(ptr: *mut i32, byte: u8);
                 }
 
                 // Execute query on module
@@ -177,7 +178,7 @@ pub fn generate_side_modules_glue_code(side_modules_list: &[String]) -> syn::Res
                         // Store query in module's memory
                         for (i, byte) in request.iter().enumerate() {
                             let ptr = query_ptr + i as i32;
-                            store(ptr, *byte);
+                            store(ptr as *mut i32, *byte);
                         }
 
                         // Execute the query, and get pointer to the result
@@ -200,7 +201,7 @@ pub fn generate_side_modules_glue_code(side_modules_list: &[String]) -> syn::Res
                             response_bytes[byte_id as usize] = b;
                         }
 
-                        // Deallocate query result
+                        // Deallocate response
                         deallocate(response_ptr, response_size + 4);
 
                         response_bytes
