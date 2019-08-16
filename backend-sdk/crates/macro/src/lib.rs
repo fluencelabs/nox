@@ -39,12 +39,13 @@
 //! appropriate format, calls `f` and then writes `f` result via `memory::write_response_to_mem` to
 //! module memory. So to use this crate apart from `fluence` `fluence_sdk_main` has to be imported.
 //!
-//! The macro also has an `init_fn` attribute that can be used for specifying initialization
-//! function name. This function is called only once at the first call of the invoke function. It
-//! can be used like this:
+//! The macro also has the `init_fn` and `side_modules` attributes. The first one that can be used
+//! for specifying initialization function name. This function is called only once at the first
+//! call of the invoke function. It can be used like this:
 //!
 //! ```
 //! use fluence::sdk::*;
+//! use log::info;
 //!
 //! fn init() {
 //!     logger::WasmLogger::init_with_level(log::Level::Info).is_ok()
@@ -53,6 +54,19 @@
 //! #[invocation_handler(init_fn = init)]
 //! fn greeting(name: String) -> String {
 //!     info!("{} has been successfully greeted", name);
+//!     format!("Hello from Fluence to {}", name)
+//! }
+//! ```
+//!
+//! The second macro could be used for generate API to connect with side modules like SQlite and
+//! Redis. It can be used like this:
+//! ```
+//! use fluence::sdk::*;
+//!
+//! #[invocation_handler(side_modules = (sqlite, redis))]
+//! fn greeting(name: String) -> String {
+//!     sqlite::call("SELECT * from users");
+//!     sqlite::call("GET user");
 //!     format!("Hello from Fluence to {}", name)
 //! }
 //! ```
