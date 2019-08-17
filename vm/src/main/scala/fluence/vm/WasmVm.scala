@@ -159,15 +159,15 @@ object WasmVm {
    * name wasn't specified (note that it also can be empty).
    */
   private def initializeModules[F[_]: Monad](
-    scriptCxt: ScriptContext,
+    ctx: ScriptContext,
     config: VmConfig,
     memoryHasher: MemoryHasher.Builder[F]
   ): EitherT[F, ApplyError, (MainWasmModule, EnvModule, Seq[WasmModule])] =
     for {
 
       rawEnvModule ← EitherT.cond[F](
-        scriptCxt.getRegistrations.containsKey(config.envModuleConfig.name),
-        scriptCxt.getRegistrations.get(config.envModuleConfig.name),
+        ctx.getRegistrations.containsKey(config.envModuleConfig.name),
+        ctx.getRegistrations.get(config.envModuleConfig.name),
         NoSuchModuleError(
           s"Asmble doesn't provide the environment module with name=${config.envModuleConfig.name} (perhaps you are using the old version)"
         ): ApplyError
@@ -183,24 +183,26 @@ object WasmVm {
 
       envModule ← EnvModule[F](
         nativeModule,
-        scriptCxt,
+        ctx,
         config.envModuleConfig.spentGasFunctionName,
         config.envModuleConfig.clearStateFunction
       )
 
+      modulesCount = ctx.getModules.size()
+
       (mainModule, sideModules) ← Traverse[List]
         .foldLeftM[EitherT[F, ApplyError, ?], Compiled, (Option[MainWasmModule], List[WasmModule])](
-          scriptCxt.getModules.toList,
+          ctx.getModules.toList,
           (None, Nil)
         ) {
           // the main module almost always doesn't have name section (in config it is represented by None)
           // also if there is only one module provided, it is considered as the main regardless of its name.
           case ((None, sideModules), moduleDescription)
-              if Option(moduleDescription.getName) == config.mainModuleConfig.name || scriptCxt.getModules.size() == 1 ⇒
+              if Option(moduleDescription.getName) == config.mainModuleConfig.name || modulesCount == 1 ⇒
             for {
               mainModule ← MainWasmModule(
                 moduleDescription,
-                scriptCxt,
+                ctx,
                 memoryHasher,
                 config.mainModuleConfig.allocateFunctionName,
                 config.mainModuleConfig.deallocateFunctionName,
@@ -221,7 +223,7 @@ object WasmVm {
             for {
               module ← module.WasmModule(
                 moduleDescription,
-                scriptCxt,
+                ctx,
                 memoryHasher
               )
             } yield (mainModule, sideModules :+ module)
