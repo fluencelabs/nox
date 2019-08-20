@@ -1,7 +1,7 @@
 import { Action, Dispatch } from 'redux';
 import { ThunkAction, ThunkDispatch } from 'redux-thunk';
 import { History } from 'history';
-import axios from 'axios';
+import axios, { AxiosRequestConfig } from 'axios';
 import EthereumTx from 'ethereumjs-tx';
 import { getContract, getUserAddress, isMetamaskActive } from '../../../fluence/contract';
 import {
@@ -152,11 +152,34 @@ export const deployUpload = (form: FormData): ThunkAction<void, ReduxState, void
 
         dispatch({type: DEPLOY_UPLOAD_STARTED});
 
-        return axios.post(appUploadUrl, form).then(function (response) {
+        const uploadParams: AxiosRequestConfig = {
+            params: {
+                pin: 'true',
+            }
+        };
+
+        if (form.getAll('file').length > 1) {
+            uploadParams.params['wrap-with-directory'] = 'true';
+        }
+
+        return axios.post(appUploadUrl, form, uploadParams).then(function (response) {
+            let hash = '';
+            if (typeof response.data === 'string') {
+                const folderRaw = response.data.split('\n').filter(s => String(s).trim().length > 0).find((fileRaw: string) => {
+                    const file = JSON.parse(fileRaw);
+
+                    return file && file.Name === '';
+                }) || '';
+                const folder = JSON.parse(folderRaw);
+                hash = folder.Hash;
+            } else {
+                hash = response.data.Hash;
+            }
+
             return dispatch({
                 type: DEPLOY_UPLOAD_FINISHED,
                 result: response.data,
-                storageHash: fromIpfsHash(response.data.Hash)
+                storageHash: fromIpfsHash(hash)
             });
         }).catch(function (error) {
             return dispatch({

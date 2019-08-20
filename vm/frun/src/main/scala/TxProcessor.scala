@@ -92,8 +92,8 @@ case class TxProcessor[F[_]: Sync: Monad: LiftIO: Log] private (
 
     waitOrder *> locked {
       for {
-        result <- vm.invoke(None, body.getBytes()).value.flatMap(Sync[F].fromEither)
-        encoded = ByteVector(result).toBase64
+        result <- vm.invoke(body.getBytes()).value.flatMap(Sync[F].fromEither)
+        encoded = ByteVector(result.output).toBase64
         _ <- responses.update(_.updated(path, encoded))
         json = s"""
                   | {
@@ -102,7 +102,10 @@ case class TxProcessor[F[_]: Sync: Monad: LiftIO: Log] private (
                   |  "result": {
                   |    "code": 0,
                   |    "data": "$encoded",
-                  |    "hash": "no hash"
+                  |    "hash": "no hash",
+                  |    "response": {
+                  |      "value": "$encoded"
+                  |    }
                   |  }
                   | }
             """.stripMargin

@@ -18,7 +18,7 @@
 //! `export_allocator` feature), `logger` (is turned on by the `wasm_logger` feature), and `memory`
 //! modules.
 
-#![doc(html_root_url = "https://docs.rs/fluence-sdk-main/0.1.5")]
+#![doc(html_root_url = "https://docs.rs/fluence-sdk-main/0.1.7")]
 #![feature(allocator_api)]
 
 extern crate core;

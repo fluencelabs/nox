@@ -27,7 +27,7 @@ import cats.syntax.flatMap._
 import fluence.crypto.KeyPair
 import fluence.effects.docker.DockerIO
 import fluence.log.Log
-import fluence.node.workers.tendermint.{DockerTendermint, TendermintPrivateKey, ValidatorPublicKey}
+import fluence.node.workers.tendermint.{DockerTendermint, TendermintNodeKey, ValidatorPublicKey}
 import io.circe.parser._
 
 import scala.language.higherKinds
@@ -174,27 +174,24 @@ object Configuration {
     } yield ()
 
   /**
-   * Reads KeyPair from priv_validator_key.json file in tendermint path.
+   * Reads KeyPair from node_key.json file in tendermint path.
    *
    */
   def readTendermintKeyPair(rootPath: Path): IO[KeyPair] = {
     for {
-      validatorKeyString <- IO(
+      nodeKeyString <- IO(
         new String(
           Files.readAllBytes(
             rootPath
               .resolve("tendermint")
               .resolve("config")
-              .resolve("priv_validator_key.json")
+              .resolve("node_key.json")
           )
         )
       )
-      parsed <- IO.fromEither(decode[TendermintPrivateKey](validatorKeyString))
+      parsed <- IO.fromEither(decode[TendermintNodeKey](nodeKeyString))
       keys <- IO.fromEither(
-        TendermintPrivateKey
-          .getKeyPair(parsed)
-          .left
-          .map(err => new RuntimeException("Cannot parse KeyPair from priv_validator_key.json: " + err))
+        parsed.getKeyPair.left.map(err => new RuntimeException("Cannot parse KeyPair from node_key.json: " + err))
       )
     } yield keys
   }

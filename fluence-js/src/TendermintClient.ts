@@ -16,13 +16,13 @@
 
 import {none, Option, some} from "ts-option";
 import {fromHex} from "./utils";
-import * as debug from "debug";
+import Debug from "debug";
 import {AbciQueryResult, RpcClient, TendermintJsonRpcResponse} from "./RpcClient";
 import {error, ErrorType, Result} from "./Result";
 import {toByteArray} from "base64-js";
 import {AxiosResponse} from "axios";
 
-const d = debug("tendermintClient");
+const d = Debug("tendermintClient");
 
 export interface TxRequest {
     path: string,
@@ -96,9 +96,9 @@ export class TendermintClient {
     static async parseQueryResponse(path: string, unparsedResponse: AxiosResponse<TendermintJsonRpcResponse<AbciQueryResult>>): Promise<Option<Result>> {
         if (!unparsedResponse.data || !unparsedResponse.data.result || !unparsedResponse.data.result.response) {
             if (unparsedResponse.data.error) {
-                return Promise.reject(error(ErrorType.TendermintError, `The cluster returned an error. Head: ${path}, response: ${JSON.stringify(unparsedResponse.data)}`));
+                return Promise.reject(error(ErrorType.TendermintError, `The cluster returned an error. Head: ${path}, response: ${JSON.stringify(unparsedResponse.data)}`, path));
             }
-            return Promise.reject(error(ErrorType.MalformedError, `Cannot find 'response' field in a query response. Head: ${path}, response: ${JSON.stringify(unparsedResponse.data)}`));
+            return Promise.reject(error(ErrorType.MalformedError, `Cannot find 'response' field in a query response. Head: ${path}, response: ${JSON.stringify(unparsedResponse.data)}`, path));
         }
 
         const response = unparsedResponse.data.result.response;
@@ -107,28 +107,28 @@ export class TendermintClient {
             case undefined:
             case 0: {
                 if (!response.value) {
-                    return Promise.reject(error(ErrorType.ParsingError, `Error: no value on response: ${JSON.stringify(response)}`));
+                    return Promise.reject(error(ErrorType.ParsingError, `Error: no value on response: ${JSON.stringify(response)}`, path));
                 }
 
                 try {
                     return some(new Result(toByteArray(response.value)));
                 } catch (e) {
-                    return Promise.reject(error(ErrorType.ParsingError, `Error on parsing value from response: ${JSON.stringify(response)} err:  ${e}`));
+                    return Promise.reject(error(ErrorType.ParsingError, `Error on parsing value from response: ${JSON.stringify(response)} err:  ${e}`, path));
                 }
             }
             case 1: {
-                return Promise.reject(error(ErrorType.ParsingError, `Cannot parse headers on path ${path}: ${response.info}`));
+                return Promise.reject(error(ErrorType.ParsingError, `Cannot parse headers: ${response.info}`, path));
             }
             case 2: {
-                return Promise.reject(error(ErrorType.TendermintError, `Request with path '${path}' is dropped: ${response.info}`));
+                return Promise.reject(error(ErrorType.TendermintError, `Request is dropped: ${response.info}`, path));
             }
             case 3:
             case 4: {
-                d(`Response is in pending state or not found: : ${response.info}`);
+                d(`Response is in pending state or not found. Path: ${path}, info: ${response.info}`);
                 return none;
             }
             default: {
-                return Promise.reject(error(ErrorType.InternalError, `unknown code ${response.code} response: ${JSON.stringify(response)}`));
+                return Promise.reject(error(ErrorType.InternalError, `unknown code ${response.code} response: ${JSON.stringify(response)}`, path));
             }
         }
     }

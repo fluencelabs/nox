@@ -47,16 +47,35 @@ object Main extends IOApp {
       logFactory.init("apps/tx").flatMap { implicit log: Log[IO] ⇒
         log.info(s"Tx request. appId: $appId") *>
           req.decode[String] { input ⇒
-            val (path, tx) = input.splitAt(input.indexOf('\n'))
+            val (path, tx) = {
+              val (p, txn) = input.span(_ != '\n')
+              (p, txn.tail)
+            }
             log.info(s"Tx: '$tx'") *>
-              handler.processTx(Tx(appId, path, tx)).handleErrorWith(e => BadRequest(e.getMessage))
+              handler
+                .processTx(Tx(appId, path, tx))
+                .handleErrorWith(e => log.error("Error on processing tx", e) *> BadRequest(e.getMessage))
           }
       }
 
     case GET -> Root / "apps" / LongVar(appId) / "query" :? QueryPath(path) +& QueryData(data) ⇒
       logFactory.init("apps/query").flatMap { implicit log: Log[IO] ⇒
         log.info(s"Query request. appId: $appId, path: $path, data: $data") *>
-          handler.processQuery(Query(appId, path)).handleErrorWith(e => BadRequest(e.getMessage))
+          handler
+            .processQuery(Query(appId, path))
+            .handleErrorWith(e => log.error("Error on processing query", e) *> BadRequest(e.getMessage))
+      }
+
+    case req @ POST -> Root / "apps" / LongVar(appId) / "txWaitResponse" ⇒
+      logFactory.init("apps/txWaitResponse").flatMap { implicit log: Log[IO] ⇒
+        log.info(s"txWaitResponse request. appId: $appId") *>
+          req.decode[String] { input ⇒
+            val (path, tx) = input.splitAt(input.indexOf('\n'))
+            log.info(s"txWaitResponse: '$tx'") *>
+              handler
+                .processTx(Tx(appId, path, tx))
+                .handleErrorWith(e => log.error("Error on processing tx", e) *> BadRequest(e.getMessage))
+          }
       }
   }
 

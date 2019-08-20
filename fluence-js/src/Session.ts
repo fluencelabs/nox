@@ -18,13 +18,13 @@ import {error, ErrorResponse, ErrorType, Result} from "./Result";
 import {TendermintClient, TxRequest} from "./TendermintClient";
 import {SessionConfig} from "./SessionConfig";
 
-import * as debug from "debug";
+import Debug from "debug";
 import {PrivateKey, withSignature} from "./utils";
 import * as randomstring from "randomstring";
 import {Option} from "ts-option";
 
-const detailedDebug = debug("request-detailed");
-const txDebug = debug("broadcast-request");
+const detailedDebug = Debug("request-detailed");
+const txDebug = Debug("broadcast-request");
 
 export enum RequestStatus {
     OK = 0,
@@ -43,7 +43,7 @@ export interface RequestState<T> {
  */
 export class Session {
     readonly tm: TendermintClient;
-    private readonly session: string;
+    public readonly session: string;
     private readonly config: SessionConfig;
     private counter: number;
     private closed: boolean;
@@ -176,7 +176,7 @@ export class Session {
         } catch (err) {
             return {
                 status: RequestStatus.E_REQUEST,
-                error: err,
+                error: error(ErrorType.TransportError, err.toString(), path),
             }
         }
     }
@@ -209,7 +209,7 @@ export class Session {
         } catch (err) {
             return {
                 status: RequestStatus.E_REQUEST,
-                error: err,
+                error: error(ErrorType.TransportError, err.toString(), request.path),
             }
         }
     }
@@ -250,7 +250,7 @@ export class Session {
             this.markSessionAsClosed(cause);
             return {
                 status: RequestStatus.E_SESSION_CLOSED,
-                error: error(ErrorType.SessionClosed, cause),
+                error: error(ErrorType.SessionClosed, cause, request.path),
             }
         }
 
