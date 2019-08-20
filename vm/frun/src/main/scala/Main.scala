@@ -47,7 +47,10 @@ object Main extends IOApp {
       logFactory.init("apps/tx").flatMap { implicit log: Log[IO] ⇒
         log.info(s"Tx request. appId: $appId") *>
           req.decode[String] { input ⇒
-            val (path, tx) = input.splitAt(input.indexOf('\n'))
+            val (path, tx) = {
+              val (p, txn) = input.span(_ != '\n')
+              (p, txn.tail)
+            }
             log.info(s"Tx: '$tx'") *>
               handler
                 .processTx(Tx(appId, path, tx))
