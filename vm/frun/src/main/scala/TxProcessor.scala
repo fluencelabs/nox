@@ -57,13 +57,14 @@ case class TxId(session: String, count: Int)
  * @param mutex     Lock for responses map
  * @param order     Txs ordering mechanism
  */
-case class TxProcessor[F[_]: Sync: Monad: LiftIO: Log] private (
+case class TxProcessor[F[_]: Sync: Monad: LiftIO] private (
   vm: WasmVm,
   responses: Ref[F, Map[String, String]],
   mutex: MVar[F, Unit],
   order: TxOrder[F]
 )(
-  implicit dsl: Http4sDsl[F]
+  implicit dsl: Http4sDsl[F],
+  log: Log[F]
 ) {
 
   import dsl._
@@ -84,7 +85,7 @@ case class TxProcessor[F[_]: Sync: Monad: LiftIO: Log] private (
 
   private def locked[A](thunk: F[A]): F[A] = acquire().bracket(_ => thunk)(_ => release())
 
-  def processTx(tx: Tx): F[Response[F]] = {
+  def processTx(tx: Tx)(implicit log: Log[F]): F[Response[F]] = {
     import tx._
 
     val waitOrder = getId(tx.path) >>= order.waitOrder
@@ -94,6 +95,9 @@ case class TxProcessor[F[_]: Sync: Monad: LiftIO: Log] private (
       for {
         result <- vm.invoke(body.getBytes()).value.flatMap(Sync[F].fromEither)
         encoded = ByteVector(result.output).toBase64
+        _ <- log.info(
+          s"Tx gas: ${result.spentGas}\tresult: ${Try(new String(result.output)).getOrElse(encoded)}"
+        )
         _ <- responses.update(_.updated(path, encoded))
         json = s"""
                   | {
