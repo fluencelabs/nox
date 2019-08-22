@@ -57,9 +57,9 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
     val pingOrCloseAsync = {
       val timeout = 3.seconds
       // Send ping => receive pong => onPongFrame => pong.tryPut(())
-      val sendPing = websocketP.get.flatMap(_.sendPingFrame().asAsync.void)
+      val sendPing = websocketP.get.flatMap(_.sendPingFrame().asAsync.void) >> log.debug("ping sent")
       // Clear pong of old pongs => send ping => wait for pong (pong could be a late one, but it's OK)
-      val sendPingWaitPong = pong.tryTake >> sendPing >> pong.take
+      val sendPingWaitPong = pong.tryTake >> sendPing >> pong.take >> log.debug("pong received")
 
       val close = websocketP.get >>= (this.close(_, code = None, s"no pong after timeout $timeout"))
       val closeAfterTimeout = Timer[F].sleep(timeout) >> close
