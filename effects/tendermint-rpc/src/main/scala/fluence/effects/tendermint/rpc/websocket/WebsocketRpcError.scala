@@ -25,7 +25,7 @@ import io.circe.{DecodingFailure, ParsingFailure}
 sealed trait WebsocketRpcError extends EffectError
 
 private[rpc] case class Disconnected(code: Option[Int], reason: String) extends WebsocketRpcError {
-  override def getMessage: String = s"closed${code.getOrElse(" ")} $reason"
+  override def getMessage: String = s"closed ${code.getOrElse(" ")} $reason"
 }
 
 private[rpc] case class DisconnectedWithError(cause: Throwable) extends WebsocketRpcError with WithCause[Throwable] {

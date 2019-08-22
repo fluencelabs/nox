@@ -18,7 +18,7 @@ package fluence.effects.tendermint.rpc
 
 import cats.data.EitherT
 import cats.effect.concurrent.Deferred
-import cats.effect.{Concurrent, ConcurrentEffect, Timer}
+import cats.effect.{Concurrent, ConcurrentEffect, ContextShift, Timer}
 import cats.syntax.applicative._
 import cats.syntax.either._
 import cats.{Functor, Monad}
@@ -32,7 +32,7 @@ import fluence.log.Log
 
 import scala.language.higherKinds
 
-class TestWRpc[F[_]: ConcurrentEffect: Timer: Monad](override val host: String, override val port: Int)
+class TestWRpc[F[_]: ConcurrentEffect: Timer: Monad: ContextShift](override val host: String, override val port: Int)
     extends TendermintWebsocketRpcImpl[F] with TendermintRpc[F] {
   override def status: EitherT[F, RpcError, String] = throw new NotImplementedError("val status")
 
@@ -83,14 +83,17 @@ class TestWRpc[F[_]: ConcurrentEffect: Timer: Monad](override val host: String, 
         fiber <- Concurrent[F].start(
           Timer[F].sleep(timeout) >>
             Log[F].error(s"subscribeNewBlock timed out after $timeout") >>
-            promise.complete(())
+            promise.complete(()) // <-------- COMPLETION IS NOT COMMENTED OUT
         )
       } yield (fiber, promise)
 
     fs2.Stream.eval(fiberF).flatMap {
       case (fiber, promise) =>
         val signal = promise.get.map(_ => ().asRight[Throwable])
-        super.subscribeNewBlock(lastKnownHeight).evalTap(_ => fiber.cancel).interruptWhen(signal)
+        super
+          .subscribeNewBlock(lastKnownHeight)
+          .evalTap(_ => fiber.cancel)
+          .interruptWhen(signal) // THIS COMMENTED OUT
     }
   }
 }

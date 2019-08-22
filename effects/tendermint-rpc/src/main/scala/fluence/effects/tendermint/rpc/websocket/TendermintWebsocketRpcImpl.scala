@@ -51,7 +51,8 @@ private[websocket] case object Reconnect extends Event
  * Implementation of Tendermint RPC Subscribe call
  * Details: https://tendermint.com/rpc/#subscribe
  */
-abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] extends TendermintWebsocketRpc[F] {
+abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextShift]
+    extends TendermintWebsocketRpc[F] {
   self: TendermintHttpRpc[F] =>
 
   val host: String
@@ -241,7 +242,9 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
       // promise will be completed by exception when socket is disconnected
       promise <- Deferred[F, WebsocketRpcError]
       // keep connecting until success
-      websocket <- backoff.retry(socket(wsHandler(ref, queue, promise)), logConnectionError)
+      connectSocket = wsHandler(ref, queue, promise) >>= socket
+      _ <- log.debug(s"Tendermint WRPC: $wsUrl started connecting")
+      websocket <- backoff.retry(connectSocket, logConnectionError)
       _ <- onConnect(websocket)
       // wait until socket disconnects (it may never do)
       error <- promise.get
@@ -269,10 +272,14 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
     payloadAccumulator: Ref[F, String],
     queue: Queue[F, Event],
     disconnected: Deferred[F, WebsocketRpcError]
-  )(implicit log: Log[F]) =
-    new WebSocketUpgradeHandler.Builder()
-      .addWebSocketListener(new WsListener[F](wsUrl, payloadAccumulator, queue, disconnected))
-      .build()
+  )(implicit log: Log[F]): EitherT[F, ConnectionFailed, WebSocketUpgradeHandler] =
+    EitherT.liftF(
+      WsListener[F](wsUrl, payloadAccumulator, queue, disconnected).map(
+        new WebSocketUpgradeHandler.Builder()
+          .addWebSocketListener(_)
+          .build()
+      )
+    )
 
   // Writes a trace log about block uploading
   private def traceBU(msg: String)(implicit log: Log[F]) =

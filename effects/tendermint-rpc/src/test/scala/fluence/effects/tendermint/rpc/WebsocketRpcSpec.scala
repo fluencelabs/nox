@@ -24,7 +24,7 @@ import cats.syntax.flatMap._
 import com.softwaremill.sttp.SttpBackend
 import fluence.log.{Log, LogFactory}
 import fluence.{EitherTSttpBackend, Eventually}
-import org.http4s.websocket.WebSocketFrame.Text
+import org.http4s.websocket.WebSocketFrame.{Close, Text}
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -34,12 +34,14 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Eventually {
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
-  implicit private val log: Log[IO] = LogFactory.forPrintln[IO](Log.Off).init("WebsocketRpcSpec").unsafeRunSync()
+  implicit private val log: Log[IO] = LogFactory.forPrintln[IO](Log.Trace).init("WebsocketRpcSpec").unsafeRunSync()
 
   type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
   implicit private val sttpResource: STTP = EitherTSttpBackend[IO]()
 
   val Port: Int = 18080
+
+  val TextOpCode = 1
 
   "WebsocketRpc" should {
 
@@ -51,8 +53,27 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Eventually {
 
     def block(height: Long) = Text(TestData.block(height))
 
+    import scala.concurrent.duration._
+
+    "receive pings" in {
+      (log.info("receive pings start") >> resourcesF.use {
+        case (server, events) =>
+          server.send(block(1)) >>
+            server.send(block(2)) >>
+            server.send(block(3)) >>
+            events.compile.drain >>
+            server
+              .requests()
+              .evalTap(frame => Log[IO].info(s"frame: $frame"))
+              .take(5)
+              .compile
+              .toList >>
+            server.close()
+      }).unsafeRunTimed(20.seconds) shouldBe defined
+    }
+
     "subscribe and receive messages" in {
-      eventually[IO](resourcesF.use {
+      (log.info("subscribe and receive messages") >> eventually[IO](resourcesF.use {
         case (server, events) =>
           for {
             _ <- server.send(block(1))
@@ -61,21 +82,22 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Eventually {
             _ <- server.close()
             requests <- server.requests().compile.toList
           } yield {
-            requests.size shouldBe 1
+            requests.count(_.opcode == TextOpCode) shouldBe 1
             events.size shouldBe 2
             events.head.header.height shouldBe 1L
             events.tail.head.header.height shouldBe 2L
           }
-      })
+      })).unsafeRunSync()
 
     }
 
     "receive message after reconnect" in {
       val height = 1L
 
-      eventually[IO](resourcesF.use {
+      (log.info("receive message after reconnect") >> eventually[IO](resourcesF.use {
         case (server, events) =>
           for {
+            _ <- events.compile.drain
             _ <- server.close()
             events <- WebsocketServer.make[IO](Port).use { newServer =>
               newServer.send(block(height)) >> events.take(1).compile.toList
@@ -84,7 +106,7 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Eventually {
             events.size shouldBe 1
             events.head.header.height shouldBe height
           }
-      })
+      })).unsafeRunSync()
     }
 
     "ignore incorrect json messages" in {

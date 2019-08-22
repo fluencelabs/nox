@@ -51,40 +51,40 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
 )(implicit log: Log[F])
     extends WebSocketListener {
 
-  private val startPinging = {
+  private def startPinging(ws: WebSocket) = {
     val period = 1.second
-    val pingOrCloseAsync = {
+    def pingOrCloseAsync: F[Unit] = {
       val timeout = 3.seconds
-      // Send ping => receive pong => onPongFrame => pong.tryPut(())
-      val sendPing = websocketP.get.flatMap(_.sendPingFrame().asAsync.void) >> log.debug("ping sent")
-      // Clear pong of old pongs => send ping => wait for pong (pong could be a late one, but it's OK)
+      val sendPing = ws.sendPingFrame().asAsync >> log.debug("ping sent")
       val sendPingWaitPong = pong.tryTake >> sendPing >> pong.take >> log.debug("pong received")
 
-      val close = websocketP.get >>= (this.close(_, code = None, s"no pong after timeout $timeout"))
+      val close = this.close(ws, code = None, s"no pong after timeout $timeout")
       val closeAfterTimeout = Timer[F].sleep(timeout) >> close
 
       // Send ping, wait for pong or close websocket after timeout, all in background
       Concurrent[F].race(closeAfterTimeout, sendPingWaitPong)
-    }
-
-    ContextShift[F].shift >> pingOrCloseAsync.flatMap {
-      // Timed out
-      case Left(_) => ().asRight[Unit].pure[F]
-      // Received pong, go ping again
+    }.flatMap {
+      case Left(_)  => ().pure[F]
       case Right(_) => Timer[F].sleep(period) >> pingOrCloseAsync
     }.void
+
+    def stopPinging(fiber: Fiber[F, _]) = Concurrent[F].start(disconnected.get >> fiber.cancel)
+
+    Concurrent[F].start(pingOrCloseAsync).flatMap(stopPinging).void
   }
 
   /**
    * Callback for websocket opening, puts a Reconnect event to the queue
    */
   override def onOpen(websocket: WebSocket): Unit = {
-    (log.info(s"Tendermint WRPC: $wsUrl connected") *>
-      queue.enqueue1(Reconnect) >> websocketP.complete(websocket) >> startPinging).toIO.unsafeRunSync()
+    (log.info(s"Tendermint WRPC: $wsUrl connected") >>
+      queue.enqueue1(Reconnect) >> websocketP.complete(websocket) >> startPinging(websocket) >> log.info(
+      "pinging started"
+    )).toIO.unsafeRunSync()
   }
 
   private def close(websocket: WebSocket, code: Option[Int], reason: String) = {
-    log.warn(s"Tendermint WRPC: $wsUrl closed${code.getOrElse(" ")} $reason") *>
+    log.warn(s"Tendermint WRPC: $wsUrl closed ${code.getOrElse(" ")} $reason") >>
       disconnected.complete(Disconnected(code, reason)).attempt.void
   }
 
@@ -99,7 +99,7 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
    * Callback for errors, completes `disconnected` promise
    */
   override def onError(t: Throwable): Unit = {
-    (log.error(s"Tendermint WRPC: $wsUrl $t") *>
+    (log.error(s"Tendermint WRPC: $wsUrl $t") >>
       disconnected.complete(DisconnectedWithError(t)).attempt.void).toIO.unsafeRunSync()
   }
 
@@ -111,7 +111,6 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
    */
   override def onTextFrame(payload: String, finalFragment: Boolean, rsv: Int): Unit = {
 
-    log.trace(s"Tendermint WRPC: text $payload")
     if (!finalFragment) {
       payloadAccumulator.update(_.concat(payload)).toIO.unsafeRunSync()
     } else {
@@ -119,8 +118,8 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
         .map(s => asJson(s.concat(payload)))
         .flatMap {
           case Left(e) =>
-            log.error(s"Tendermint WRPC: $wsUrl $e") *>
-              log.debug(s"Tendermint WRPC: $wsUrl $e err payload:\n" + payload)
+            log.error(s"Tendermint WRPC: $wsUrl $e") >>
+              log.trace(s"Tendermint WRPC: $wsUrl $e err payload:\n" + payload)
           case Right(json) => queue.enqueue1(JsonEvent(json))
         } >> payloadAccumulator.set("")
 
@@ -138,7 +137,7 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
    * @param payload Ping payload
    */
   override def onPingFrame(payload: Array[Byte]): Unit = {
-    val sendPong = websocketP.get >>= (_.sendPingFrame().asAsync.void)
+    val sendPong = websocketP.get >>= (_.sendPongFrame().asAsync.void)
 
     sendPong.toIO.runAsync {
       case Left(e) => log.error(s"Tendermint WRPC: $wsUrl ping failed: $e").toIO

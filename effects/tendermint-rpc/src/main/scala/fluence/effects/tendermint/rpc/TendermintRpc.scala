@@ -18,7 +18,7 @@ package fluence.effects.tendermint.rpc
 
 import cats.Monad
 import cats.data.EitherT
-import cats.effect.{ConcurrentEffect, Resource, Timer}
+import cats.effect.{ConcurrentEffect, ContextShift, Resource, Timer}
 import com.softwaremill.sttp.SttpBackend
 import fluence.effects.tendermint.rpc.http.{TendermintHttpRpc, TendermintHttpRpcImpl}
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
@@ -40,7 +40,7 @@ object TendermintRpc {
    * @tparam F Concurrent effect
    * @return Worker RPC instance. Note that it should be stopped at some point, and can't be used after it's stopped
    */
-  def make[F[_]: ConcurrentEffect: Timer: Monad: Log](
+  def make[F[_]: ConcurrentEffect: Timer: Monad: Log: ContextShift](
     hostName: String,
     port: Short
   )(

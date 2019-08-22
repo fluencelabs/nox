@@ -17,7 +17,7 @@
 package fluence.effects.tendermint.rpc.http
 
 import cats.data.EitherT
-import cats.effect.{ConcurrentEffect, Timer}
+import cats.effect.{ConcurrentEffect, ContextShift, Timer}
 import cats.syntax.apply._
 import cats.syntax.either._
 import cats.{Functor, Monad}
@@ -39,7 +39,7 @@ import scala.language.higherKinds
  * @param port Tendermint RPC port
  * @tparam F Http requests effect
  */
-case class TendermintHttpRpcImpl[F[_]: ConcurrentEffect: Timer: Monad](
+case class TendermintHttpRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextShift](
   host: String,
   port: Int
 )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing], log: Log[F])
