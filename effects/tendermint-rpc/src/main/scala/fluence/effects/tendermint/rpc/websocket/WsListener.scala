@@ -107,6 +107,7 @@ class WsListener[F[_]: ConcurrentEffect](
    * @param payload Ping payload
    */
   override def onPingFrame(payload: Array[Byte]): Unit = {
+    // TODO: Add timeout on Ping
     websocketP.get
       .flatMap(_.sendPongFrame().asAsync.void)
       .toIO
