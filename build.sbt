@@ -350,7 +350,7 @@ lazy val `tendermint-block-history` = (project in file("history/tendermint-block
       scalaTest,
     )
   )
-  .dependsOn(`effects`, `tendermint-block`, `ipfs`)
+  .dependsOn(`effects`, `tendermint-block`, `ipfs`, `kvstore`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `receipt-storage` = (project in file("history/receipt-storage"))
