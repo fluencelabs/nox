@@ -16,17 +16,16 @@
 
 package fluence.effects.tendermint.rpc.websocket
 
-import cats.{Functor, Monad}
 import cats.effect._
 import cats.effect.concurrent.{Deferred, MVar, Ref}
 import cats.effect.syntax.effect._
+import cats.syntax.applicative._
 import cats.syntax.applicativeError._
 import cats.syntax.apply._
 import cats.syntax.compose._
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.syntax.applicative._
 import fluence.effects.tendermint.rpc.helpers.NettyFutureConversion._
 import fluence.log.Log
 import fs2.concurrent.Queue
@@ -48,7 +47,7 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
   queue: Queue[F, Event],
   disconnected: Deferred[F, WebsocketRpcError],
   websocketP: Deferred[F, WebSocket],
-  pong: MVar[F, ()]
+  pong: MVar[F, Unit]
 )(implicit log: Log[F])
     extends WebSocketListener {
 
@@ -86,8 +85,9 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
 
   private def close(websocket: WebSocket, code: Option[Int], reason: String) = {
     log.warn(s"Tendermint WRPC: $wsUrl closed${code.getOrElse(" ")} $reason") *>
-     disconnected.complete(Disconnected(code, reason)).attempt.void
+      disconnected.complete(Disconnected(code, reason)).attempt.void
   }
+
   /**
    * Callback for websocket close, completes `disconnected` promise
    */
@@ -140,13 +140,10 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
   override def onPingFrame(payload: Array[Byte]): Unit = {
     val sendPong = websocketP.get >>= (_.sendPingFrame().asAsync.void)
 
-    sendPong
-      .toIO
-      .runAsync {
-        case Left(e) => log.error(s"Tendermint WRPC: $wsUrl ping failed: $e").toIO
-        case _       => IO.unit
-      }
-      .unsafeRunSync()
+    sendPong.toIO.runAsync {
+      case Left(e) => log.error(s"Tendermint WRPC: $wsUrl ping failed: $e").toIO
+      case _       => IO.unit
+    }.unsafeRunSync()
   }
 
   override def onPongFrame(payload: Array[Byte]): Unit = {
@@ -180,7 +177,8 @@ object WsListener {
     disconnected: Deferred[F, WebsocketRpcError]
   )(implicit log: Log[F]): F[WsListener[F]] =
     for {
-      _ <- Monad[F].pure()
-      wsListener = new WsListener(wsUrl, payloadAccumulator, queue, disconnected, ???, ???)
+      websocketP <- Deferred[F, WebSocket]
+      pong <- MVar.empty[F, Unit]
+      wsListener = new WsListener(wsUrl, payloadAccumulator, queue, disconnected, websocketP, pong)
     } yield wsListener
 }
