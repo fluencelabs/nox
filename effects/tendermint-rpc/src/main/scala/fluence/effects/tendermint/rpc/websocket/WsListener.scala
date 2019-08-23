@@ -52,8 +52,10 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
     extends WebSocketListener {
 
   private def startPinging(ws: WebSocket) = {
+    // TODO: move to config
     val period = 1.second
     def pingOrCloseAsync: F[Unit] = {
+      // TODO: move to config
       val timeout = 3.seconds
       val sendPing = ws.sendPingFrame().asAsync >> log.debug("ping sent")
       val sendPingWaitPong = pong.tryTake >> sendPing >> pong.take >> log.debug("pong received")
@@ -77,11 +79,9 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
    * Callback for websocket opening, puts a Reconnect event to the queue
    */
   override def onOpen(websocket: WebSocket): Unit = {
-    (log.info(s"Tendermint WRPC: $wsUrl connected") >>
-      queue.enqueue1(Reconnect) >> websocketP.complete(websocket) >> startPinging(websocket) >> log.info(
-      "pinging started"
-    )).toIO.unsafeRunSync()
-  }
+    log.info(s"Tendermint WRPC: $wsUrl connected") >>
+      queue.enqueue1(Reconnect) >> websocketP.complete(websocket) >> startPinging(websocket)
+  }.toIO.unsafeRunSync()
 
   private def close(websocket: WebSocket, code: Option[Int], reason: String) = {
     log.warn(s"Tendermint WRPC: $wsUrl closed ${code.getOrElse(" ")} $reason") >>
@@ -99,9 +99,9 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
    * Callback for errors, completes `disconnected` promise
    */
   override def onError(t: Throwable): Unit = {
-    (log.error(s"Tendermint WRPC: $wsUrl $t") >>
-      disconnected.complete(DisconnectedWithError(t)).attempt.void).toIO.unsafeRunSync()
-  }
+    log.error(s"Tendermint WRPC: $wsUrl $t") >>
+      disconnected.complete(DisconnectedWithError(t)).attempt.void
+  }.toIO.unsafeRunSync()
 
   /**
    * Callback for receiving text payloads
@@ -110,11 +110,10 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
    * @param rsv extension bits, not used here
    */
   override def onTextFrame(payload: String, finalFragment: Boolean, rsv: Int): Unit = {
-
     if (!finalFragment) {
-      payloadAccumulator.update(_.concat(payload)).toIO.unsafeRunSync()
+      payloadAccumulator.update(_.concat(payload))
     } else {
-      val processF = payloadAccumulator.get
+      payloadAccumulator.get
         .map(s => asJson(s.concat(payload)))
         .flatMap {
           case Left(e) =>
@@ -123,14 +122,11 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
           case Right(json) => queue.enqueue1(JsonEvent(json))
         } >> payloadAccumulator.set("")
 
-      // TODO: run sync or async? which is better here? In examples, they do it async, but does it matter?
-      processF.toIO.unsafeRunSync()
     }
-  }
+  }.toIO.unsafeRunSync()
 
-  override def onBinaryFrame(payload: Array[Byte], finalFragment: Boolean, rsv: Int): Unit = {
+  override def onBinaryFrame(payload: Array[Byte], finalFragment: Boolean, rsv: Int): Unit =
     log.warn(s"UNIMPLEMENTED: Tendermint WRPC: $wsUrl unexpected binary frame").toIO.unsafeRunSync()
-  }
 
   /**
    * Callback for pings, sends back a Pong message

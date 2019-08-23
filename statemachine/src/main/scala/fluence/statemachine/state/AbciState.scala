@@ -53,11 +53,11 @@ object AbciState {
    * Add transaction, which is to be handled later.
    *
    * @param tx Incoming transaction
-   * @param maxSessions The upper bound for the number of stored sessions
-   * @param maxPendingTxs The upper bound for the number of cached pending txs for a single session
+   * @param maxSessions The upper bound for the number of stored sessions TODO: move to config
+   * @param maxPendingTxs The upper bound for the number of cached pending txs for a single session TODO: move to config
    * @return Whether tx was stored in AbciState or is ignored
    */
-  def addTx[F[_]: Monad](tx: Tx, maxSessions: Int = 128, maxPendingTxs: Int = 24): StateT[F, AbciState, TxCode.Value] =
+  def addTx[F[_]: Monad](tx: Tx, maxSessions: Int = 128, maxPendingTxs: Int = 256): StateT[F, AbciState, TxCode.Value] =
     for {
       // Add tx to sessions
       code ← Sessions.addTx(tx, maxPendingTxs).toAbciState
@@ -97,7 +97,7 @@ object AbciState {
    *
    * @param head Tx head, used to address the response
    * @param data Response data
-   * @param resultsLimit How many results we are allowed to keep in cache
+   * @param resultsLimit How many results we are allowed to keep in cache TODO: move to config
    */
   def putResponse[F[_]: Monad](head: Tx.Head, data: Array[Byte], resultsLimit: Int = 512): StateT[F, AbciState, Unit] =
     for {
