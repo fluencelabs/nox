@@ -4,6 +4,10 @@ import {getWorkerStatus} from "./contract";
 import {RequestState, RequestStatus, Session} from "./Session";
 import {ErrorType, Result} from "./Result";
 
+let debug = require('debug');
+// disable debug by default
+debug.disable();
+
 // All sessions with workers from an app
 export class AppSession {
     private sessionId: string;
@@ -14,6 +18,7 @@ export class AppSession {
     private workerCounter: number;
 
     constructor(sessionId: string, appId: string, workerSessions: WorkerSession[], privateKey?: PrivateKey) {
+
         if (workerSessions.length == 0) {
             console.error("Empty workerSession passed to AppSession constructor");
             throw new Error("Empty workerSession passed to AppSession constructor");
