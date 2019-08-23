@@ -16,10 +16,18 @@
 
 package fluence.effects.tendermint.block.history.db
 
+import cats.{Foldable, Functor, Monad}
+import cats.data.EitherT
 import cats.effect.{ExitCode, IO, IOApp}
-import fluence.effects.kvstore.RocksDBStore
+import fluence.effects.kvstore.{KVStore, RocksDBStore}
 import fluence.log.{Log, LogFactory}
 import cats.syntax.apply._
+import fluence.effects.tendermint.block.protobuf.Protobuf
+import proto3.tendermint.{Block, BlockMeta}
+import scodec.bits.ByteVector
+
+import scala.language.higherKinds
+import scala.util.control.NoStackTrace
 
 // Here's how different data is stored in blockstore.db
 /*
@@ -58,10 +66,42 @@ object Blockstore extends IOApp {
             kvStore.stream.evalMap {
               case (k, v) => IO((new String(k), new String(v)))
             }.evalTap {
-              case (k, v) => log.info(s"k: $k -> v: $v}")
-            }.compile.toList
+              case (k, v) => log.info(s"k: $k")
+            }.compile.toList *>
+            getBlock(kvStore, 500).value.flatMap(v => log.info(s"value: ${v}")) *>
+            kvStore.get(partKey(500, 0)).value.flatMap(v => log.info(s"part: ${v}"))
         }
       }
       .map(_ => ExitCode.Success)
   }
+
+  def metaKey(height: Long) = s"H:$height".getBytes()
+  def partKey(height: Long, index: Int) = s"P:$height:$index".getBytes()
+
+  case class GetBlockError(message: String, height: Long) extends NoStackTrace {
+    override def toString: String = s"GetBlockError: $message on block $height"
+  }
+
+  def getOr[T, F[_]: Monad](msg: String, height: Long)(opt: Option[T]): EitherT[F, Throwable, T] =
+    EitherT.fromOption(opt, GetBlockError(msg, height))
+
+  import cats.instances.list._
+  import cats.syntax.foldable._
+
+  def getBlock[F[_]: Log: Monad](kv: KVStore[F, Array[Byte], Array[Byte]], height: Long): EitherT[F, Throwable, Block] =
+    for {
+      metaBytes <- kv
+        .get(metaKey(height))
+        .flatMap(getOr[Array[Byte], F]("meta is none", height)(_))
+      meta <- EitherT.fromEither[F](Protobuf.decode[BlockMeta](metaBytes))
+
+      partsCount <- getOr[Int, F]("blockID.parts is none", height)(meta.blockID.flatMap(_.parts).map(_.total))
+
+      getPart = (i: Int) => kv.get(partKey(height, i)).flatMap(getOr[Array[Byte], F](s"part $i not found", height))
+
+      blockBytes <- (0 until partsCount).toList.foldM(Array.empty[Byte]) {
+        case (bytes, idx) => getPart(idx).map(bytes ++ _)
+      }
+      block <- EitherT.fromEither[F](Protobuf.decode[Block](blockBytes))
+    } yield block
 }

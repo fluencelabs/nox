@@ -96,15 +96,11 @@ object Data extends scalapb.GeneratedMessageCompanion[proto3.tendermint.Data] {
   implicit def messageCompanion: scalapb.GeneratedMessageCompanion[proto3.tendermint.Data] = this
 
   def fromFieldsMap(
-    __fieldsMap: scala.collection.immutable.Map[
-      _root_.com.google.protobuf.Descriptors.FieldDescriptor,
-      _root_.scala.Any
-    ]
+    __fieldsMap: scala.collection.immutable.Map[_root_.com.google.protobuf.Descriptors.FieldDescriptor,
+                                                _root_.scala.Any]
   ): proto3.tendermint.Data = {
-    _root_.scala.Predef.require(
-      __fieldsMap.keys.forall(_.getContainingType() == javaDescriptor),
-      "FieldDescriptor does not match message type."
-    )
+    _root_.scala.Predef.require(__fieldsMap.keys.forall(_.getContainingType() == javaDescriptor),
+                                "FieldDescriptor does not match message type.")
     val __fields = javaDescriptor.getFields
     proto3.tendermint.Data(
       __fieldsMap
@@ -115,10 +111,8 @@ object Data extends scalapb.GeneratedMessageCompanion[proto3.tendermint.Data] {
   implicit def messageReads: _root_.scalapb.descriptors.Reads[proto3.tendermint.Data] =
     _root_.scalapb.descriptors.Reads {
       case _root_.scalapb.descriptors.PMessage(__fieldsMap) =>
-        _root_.scala.Predef.require(
-          __fieldsMap.keys.forall(_.containingMessage == scalaDescriptor),
-          "FieldDescriptor does not match message type."
-        )
+        _root_.scala.Predef.require(__fieldsMap.keys.forall(_.containingMessage == scalaDescriptor),
+                                    "FieldDescriptor does not match message type.")
         proto3.tendermint.Data(
           __fieldsMap
             .get(scalaDescriptor.findFieldByNumber(1).get)

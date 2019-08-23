@@ -123,15 +123,11 @@ object CanonicalPartSetHeader extends scalapb.GeneratedMessageCompanion[proto3.t
   implicit def messageCompanion: scalapb.GeneratedMessageCompanion[proto3.tendermint.CanonicalPartSetHeader] = this
 
   def fromFieldsMap(
-    __fieldsMap: scala.collection.immutable.Map[
-      _root_.com.google.protobuf.Descriptors.FieldDescriptor,
-      _root_.scala.Any
-    ]
+    __fieldsMap: scala.collection.immutable.Map[_root_.com.google.protobuf.Descriptors.FieldDescriptor,
+                                                _root_.scala.Any]
   ): proto3.tendermint.CanonicalPartSetHeader = {
-    _root_.scala.Predef.require(
-      __fieldsMap.keys.forall(_.getContainingType() == javaDescriptor),
-      "FieldDescriptor does not match message type."
-    )
+    _root_.scala.Predef.require(__fieldsMap.keys.forall(_.getContainingType() == javaDescriptor),
+                                "FieldDescriptor does not match message type.")
     val __fields = javaDescriptor.getFields
     proto3.tendermint.CanonicalPartSetHeader(
       __fieldsMap
@@ -143,10 +139,8 @@ object CanonicalPartSetHeader extends scalapb.GeneratedMessageCompanion[proto3.t
   implicit def messageReads: _root_.scalapb.descriptors.Reads[proto3.tendermint.CanonicalPartSetHeader] =
     _root_.scalapb.descriptors.Reads {
       case _root_.scalapb.descriptors.PMessage(__fieldsMap) =>
-        _root_.scala.Predef.require(
-          __fieldsMap.keys.forall(_.containingMessage == scalaDescriptor),
-          "FieldDescriptor does not match message type."
-        )
+        _root_.scala.Predef.require(__fieldsMap.keys.forall(_.containingMessage == scalaDescriptor),
+                                    "FieldDescriptor does not match message type.")
         proto3.tendermint.CanonicalPartSetHeader(
           __fieldsMap
             .get(scalaDescriptor.findFieldByNumber(1).get)
@@ -158,8 +152,8 @@ object CanonicalPartSetHeader extends scalapb.GeneratedMessageCompanion[proto3.t
     }
 
   def javaDescriptor: _root_.com.google.protobuf.Descriptors.Descriptor =
-    TendermintProto.javaDescriptor.getMessageTypes.get(13)
-  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = TendermintProto.scalaDescriptor.messages(13)
+    TendermintProto.javaDescriptor.getMessageTypes.get(14)
+  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = TendermintProto.scalaDescriptor.messages(14)
 
   def messageCompanionForFieldNumber(__number: _root_.scala.Int): _root_.scalapb.GeneratedMessageCompanion[_] =
     throw new MatchError(__number)

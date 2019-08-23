@@ -21,30 +21,26 @@
 
 package proto3.tendermint
 
-/** @param precommits
- *   It's `repeated bytes` instead of `repeated Vote` to be compatible with
- *   Tendermint's amino encoding of null in repeated fields,
- *   for details, see https://github.com/tendermint/go-amino/issues/260
- */
 @SerialVersionUID(0L)
-final case class Commit(
-  blockId: _root_.scala.Option[proto3.tendermint.BlockID] = None,
-  precommits: _root_.scala.collection.Seq[_root_.com.google.protobuf.ByteString] = _root_.scala.collection.Seq.empty
-) extends scalapb.GeneratedMessage with scalapb.Message[Commit] with scalapb.lenses.Updatable[Commit] {
+final case class BlockMeta(
+  blockID: _root_.scala.Option[proto3.tendermint.BlockID] = None,
+  header: _root_.scala.Option[proto3.tendermint.Header] = None
+) extends scalapb.GeneratedMessage with scalapb.Message[BlockMeta] with scalapb.lenses.Updatable[BlockMeta] {
 
   @transient
   private[this] var __serializedSizeCachedValue: _root_.scala.Int = 0
   private[this] def __computeSerializedValue(): _root_.scala.Int = {
     var __size = 0
-    if (blockId.isDefined) {
-      val __value = blockId.get
+    if (blockID.isDefined) {
+      val __value = blockID.get
       __size += 1 + _root_.com.google.protobuf.CodedOutputStream
         .computeUInt32SizeNoTag(__value.serializedSize) + __value.serializedSize
     };
-    precommits.foreach { __item =>
-      val __value = __item
-      __size += _root_.com.google.protobuf.CodedOutputStream.computeBytesSize(2, __value)
-    }
+    if (header.isDefined) {
+      val __value = header.get
+      __size += 1 + _root_.com.google.protobuf.CodedOutputStream
+        .computeUInt32SizeNoTag(__value.serializedSize) + __value.serializedSize
+    };
     __size
   }
   final override def serializedSize: _root_.scala.Int = {
@@ -57,116 +53,111 @@ final case class Commit(
   }
 
   def writeTo(`_output__`: _root_.com.google.protobuf.CodedOutputStream): _root_.scala.Unit = {
-    blockId.foreach { __v =>
+    blockID.foreach { __v =>
       val __m = __v
       _output__.writeTag(1, 2)
       _output__.writeUInt32NoTag(__m.serializedSize)
       __m.writeTo(_output__)
     };
-    precommits.foreach { __v =>
+    header.foreach { __v =>
       val __m = __v
-      _output__.writeBytes(2, __m)
+      _output__.writeTag(2, 2)
+      _output__.writeUInt32NoTag(__m.serializedSize)
+      __m.writeTo(_output__)
     };
   }
 
-  def mergeFrom(`_input__`: _root_.com.google.protobuf.CodedInputStream): proto3.tendermint.Commit = {
-    var __blockId = this.blockId
-    val __precommits = (_root_.scala.collection.immutable.Vector
-      .newBuilder[_root_.com.google.protobuf.ByteString] ++= this.precommits)
+  def mergeFrom(`_input__`: _root_.com.google.protobuf.CodedInputStream): proto3.tendermint.BlockMeta = {
+    var __blockID = this.blockID
+    var __header = this.header
     var _done__ = false
     while (!_done__) {
       val _tag__ = _input__.readTag()
       _tag__ match {
         case 0 => _done__ = true
         case 10 =>
-          __blockId = Option(
+          __blockID = Option(
             _root_.scalapb.LiteParser
-              .readMessage(_input__, __blockId.getOrElse(proto3.tendermint.BlockID.defaultInstance))
+              .readMessage(_input__, __blockID.getOrElse(proto3.tendermint.BlockID.defaultInstance))
           )
         case 18 =>
-          __precommits += _input__.readBytes()
+          __header = Option(
+            _root_.scalapb.LiteParser
+              .readMessage(_input__, __header.getOrElse(proto3.tendermint.Header.defaultInstance))
+          )
         case tag => _input__.skipField(tag)
       }
     }
-    proto3.tendermint.Commit(
-      blockId = __blockId,
-      precommits = __precommits.result()
+    proto3.tendermint.BlockMeta(
+      blockID = __blockID,
+      header = __header
     )
   }
-  def getBlockId: proto3.tendermint.BlockID = blockId.getOrElse(proto3.tendermint.BlockID.defaultInstance)
-  def clearBlockId: Commit = copy(blockId = None)
-  def withBlockId(__v: proto3.tendermint.BlockID): Commit = copy(blockId = Option(__v))
-  def clearPrecommits = copy(precommits = _root_.scala.collection.Seq.empty)
-  def addPrecommits(__vs: _root_.com.google.protobuf.ByteString*): Commit = addAllPrecommits(__vs)
-
-  def addAllPrecommits(__vs: TraversableOnce[_root_.com.google.protobuf.ByteString]): Commit =
-    copy(precommits = precommits ++ __vs)
-
-  def withPrecommits(__v: _root_.scala.collection.Seq[_root_.com.google.protobuf.ByteString]): Commit =
-    copy(precommits = __v)
+  def getBlockID: proto3.tendermint.BlockID = blockID.getOrElse(proto3.tendermint.BlockID.defaultInstance)
+  def clearBlockID: BlockMeta = copy(blockID = None)
+  def withBlockID(__v: proto3.tendermint.BlockID): BlockMeta = copy(blockID = Option(__v))
+  def getHeader: proto3.tendermint.Header = header.getOrElse(proto3.tendermint.Header.defaultInstance)
+  def clearHeader: BlockMeta = copy(header = None)
+  def withHeader(__v: proto3.tendermint.Header): BlockMeta = copy(header = Option(__v))
 
   def getFieldByNumber(__fieldNumber: _root_.scala.Int): _root_.scala.Any = {
     (__fieldNumber: @ _root_.scala.unchecked) match {
-      case 1 => blockId.orNull
-      case 2 => precommits
+      case 1 => blockID.orNull
+      case 2 => header.orNull
     }
   }
 
   def getField(__field: _root_.scalapb.descriptors.FieldDescriptor): _root_.scalapb.descriptors.PValue = {
     _root_.scala.Predef.require(__field.containingMessage eq companion.scalaDescriptor)
     (__field.number: @ _root_.scala.unchecked) match {
-      case 1 => blockId.map(_.toPMessage).getOrElse(_root_.scalapb.descriptors.PEmpty)
-      case 2 =>
-        _root_.scalapb.descriptors
-          .PRepeated(precommits.map(_root_.scalapb.descriptors.PByteString)(_root_.scala.collection.breakOut))
+      case 1 => blockID.map(_.toPMessage).getOrElse(_root_.scalapb.descriptors.PEmpty)
+      case 2 => header.map(_.toPMessage).getOrElse(_root_.scalapb.descriptors.PEmpty)
     }
   }
   def toProtoString: _root_.scala.Predef.String = _root_.scalapb.TextFormat.printToUnicodeString(this)
-  def companion = proto3.tendermint.Commit
+  def companion = proto3.tendermint.BlockMeta
 }
 
-object Commit extends scalapb.GeneratedMessageCompanion[proto3.tendermint.Commit] {
-  implicit def messageCompanion: scalapb.GeneratedMessageCompanion[proto3.tendermint.Commit] = this
+object BlockMeta extends scalapb.GeneratedMessageCompanion[proto3.tendermint.BlockMeta] {
+  implicit def messageCompanion: scalapb.GeneratedMessageCompanion[proto3.tendermint.BlockMeta] = this
 
   def fromFieldsMap(
     __fieldsMap: scala.collection.immutable.Map[_root_.com.google.protobuf.Descriptors.FieldDescriptor,
                                                 _root_.scala.Any]
-  ): proto3.tendermint.Commit = {
+  ): proto3.tendermint.BlockMeta = {
     _root_.scala.Predef.require(__fieldsMap.keys.forall(_.getContainingType() == javaDescriptor),
                                 "FieldDescriptor does not match message type.")
     val __fields = javaDescriptor.getFields
-    proto3.tendermint.Commit(
+    proto3.tendermint.BlockMeta(
       __fieldsMap.get(__fields.get(0)).asInstanceOf[_root_.scala.Option[proto3.tendermint.BlockID]],
-      __fieldsMap
-        .getOrElse(__fields.get(1), Nil)
-        .asInstanceOf[_root_.scala.collection.Seq[_root_.com.google.protobuf.ByteString]]
+      __fieldsMap.get(__fields.get(1)).asInstanceOf[_root_.scala.Option[proto3.tendermint.Header]]
     )
   }
-  implicit def messageReads: _root_.scalapb.descriptors.Reads[proto3.tendermint.Commit] =
+  implicit def messageReads: _root_.scalapb.descriptors.Reads[proto3.tendermint.BlockMeta] =
     _root_.scalapb.descriptors.Reads {
       case _root_.scalapb.descriptors.PMessage(__fieldsMap) =>
         _root_.scala.Predef.require(__fieldsMap.keys.forall(_.containingMessage == scalaDescriptor),
                                     "FieldDescriptor does not match message type.")
-        proto3.tendermint.Commit(
+        proto3.tendermint.BlockMeta(
           __fieldsMap
             .get(scalaDescriptor.findFieldByNumber(1).get)
             .flatMap(_.as[_root_.scala.Option[proto3.tendermint.BlockID]]),
           __fieldsMap
             .get(scalaDescriptor.findFieldByNumber(2).get)
-            .map(_.as[_root_.scala.collection.Seq[_root_.com.google.protobuf.ByteString]])
-            .getOrElse(_root_.scala.collection.Seq.empty)
+            .flatMap(_.as[_root_.scala.Option[proto3.tendermint.Header]])
         )
       case _ => throw new RuntimeException("Expected PMessage")
     }
 
   def javaDescriptor: _root_.com.google.protobuf.Descriptors.Descriptor =
-    TendermintProto.javaDescriptor.getMessageTypes.get(7)
-  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = TendermintProto.scalaDescriptor.messages(7)
+    TendermintProto.javaDescriptor.getMessageTypes.get(11)
+  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = TendermintProto.scalaDescriptor.messages(11)
 
   def messageCompanionForFieldNumber(__number: _root_.scala.Int): _root_.scalapb.GeneratedMessageCompanion[_] = {
     var __out: _root_.scalapb.GeneratedMessageCompanion[_] = null
     (__number: @ _root_.scala.unchecked) match {
       case 1 => __out = proto3.tendermint.BlockID
+      case 2 => __out = proto3.tendermint.Header
     }
     __out
   }
@@ -174,21 +165,23 @@ object Commit extends scalapb.GeneratedMessageCompanion[proto3.tendermint.Commit
 
   def enumCompanionForFieldNumber(__fieldNumber: _root_.scala.Int): _root_.scalapb.GeneratedEnumCompanion[_] =
     throw new MatchError(__fieldNumber)
-  lazy val defaultInstance = proto3.tendermint.Commit(
+  lazy val defaultInstance = proto3.tendermint.BlockMeta(
     )
-  implicit class CommitLens[UpperPB](_l: _root_.scalapb.lenses.Lens[UpperPB, proto3.tendermint.Commit])
-      extends _root_.scalapb.lenses.ObjectLens[UpperPB, proto3.tendermint.Commit](_l) {
+  implicit class BlockMetaLens[UpperPB](_l: _root_.scalapb.lenses.Lens[UpperPB, proto3.tendermint.BlockMeta])
+      extends _root_.scalapb.lenses.ObjectLens[UpperPB, proto3.tendermint.BlockMeta](_l) {
 
-    def blockId: _root_.scalapb.lenses.Lens[UpperPB, proto3.tendermint.BlockID] =
-      field(_.getBlockId)((c_, f_) => c_.copy(blockId = Option(f_)))
+    def blockID: _root_.scalapb.lenses.Lens[UpperPB, proto3.tendermint.BlockID] =
+      field(_.getBlockID)((c_, f_) => c_.copy(blockID = Option(f_)))
 
-    def optionalBlockId: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Option[proto3.tendermint.BlockID]] =
-      field(_.blockId)((c_, f_) => c_.copy(blockId = f_))
+    def optionalBlockID: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Option[proto3.tendermint.BlockID]] =
+      field(_.blockID)((c_, f_) => c_.copy(blockID = f_))
 
-    def precommits
-      : _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.collection.Seq[_root_.com.google.protobuf.ByteString]] =
-      field(_.precommits)((c_, f_) => c_.copy(precommits = f_))
+    def header: _root_.scalapb.lenses.Lens[UpperPB, proto3.tendermint.Header] =
+      field(_.getHeader)((c_, f_) => c_.copy(header = Option(f_)))
+
+    def optionalHeader: _root_.scalapb.lenses.Lens[UpperPB, _root_.scala.Option[proto3.tendermint.Header]] =
+      field(_.header)((c_, f_) => c_.copy(header = f_))
   }
-  final val BLOCK_ID_FIELD_NUMBER = 1
-  final val PRECOMMITS_FIELD_NUMBER = 2
+  final val BLOCKID_FIELD_NUMBER = 1
+  final val HEADER_FIELD_NUMBER = 2
 }

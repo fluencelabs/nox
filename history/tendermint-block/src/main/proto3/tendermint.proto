@@ -100,6 +100,11 @@ message Validator {
     int64 power = 3;
 }
 
+message BlockMeta {
+    BlockID blockID = 1;
+    Header header = 2;
+}
+
 // === Canonical ===
 message CanonicalVote {
     int32 type = 1; // it's actually byte in Go, be careful
