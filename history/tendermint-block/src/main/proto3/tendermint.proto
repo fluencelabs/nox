@@ -105,6 +105,12 @@ message BlockMeta {
     Header header = 2;
 }
 
+message BlockPart {
+	int64 index = 1;
+	bytes bytes = 2;
+	bytes proof = 3; // it's actually a struct – SimpleProof from simple_proof.go, but we don't care just yet
+}
+
 // === Canonical ===
 message CanonicalVote {
     int32 type = 1; // it's actually byte in Go, be careful

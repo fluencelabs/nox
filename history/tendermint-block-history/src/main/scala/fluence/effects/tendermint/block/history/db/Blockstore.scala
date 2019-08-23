@@ -23,7 +23,7 @@ import fluence.effects.kvstore.{KVStore, RocksDBStore}
 import fluence.log.{Log, LogFactory}
 import cats.syntax.apply._
 import fluence.effects.tendermint.block.protobuf.Protobuf
-import proto3.tendermint.{Block, BlockMeta}
+import proto3.tendermint.{Block, BlockMeta, BlockPart}
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -66,7 +66,7 @@ object Blockstore extends IOApp {
             kvStore.stream.evalMap {
               case (k, v) => IO((new String(k), new String(v)))
             }.evalTap {
-              case (k, v) => log.info(s"k: $k")
+              case (k, v) => IO.unit //log.info(s"k: $k")
             }.compile.toList *>
             getBlock(kvStore, 500).value.flatMap(v => log.info(s"value: ${v}")) *>
             kvStore.get(partKey(500, 0)).value.flatMap(v => log.info(s"part: ${v}"))
@@ -97,11 +97,14 @@ object Blockstore extends IOApp {
 
       partsCount <- getOr[Int, F]("blockID.parts is none", height)(meta.blockID.flatMap(_.parts).map(_.total))
 
-      getPart = (i: Int) => kv.get(partKey(height, i)).flatMap(getOr[Array[Byte], F](s"part $i not found", height))
+      getPart = (i: Int) =>
+        kv.get(partKey(height, i))
+          .flatMap(getOr[Array[Byte], F](s"part $i not found", height))
+          .subflatMap(Protobuf.decode[BlockPart])
 
       blockBytes <- (0 until partsCount).toList.foldM(Array.empty[Byte]) {
-        case (bytes, idx) => getPart(idx).map(bytes ++ _)
+        case (bytes, idx) => getPart(idx).map(bytes ++ _.bytes.toByteArray)
       }
-      block <- EitherT.fromEither[F](Protobuf.decode[Block](blockBytes))
+      block <- EitherT.fromEither[F](Protobuf.decodeLengthPrefixed[Block](blockBytes))
     } yield block
 }

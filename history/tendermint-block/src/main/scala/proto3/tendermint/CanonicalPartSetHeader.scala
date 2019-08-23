@@ -152,8 +152,8 @@ object CanonicalPartSetHeader extends scalapb.GeneratedMessageCompanion[proto3.t
     }
 
   def javaDescriptor: _root_.com.google.protobuf.Descriptors.Descriptor =
-    TendermintProto.javaDescriptor.getMessageTypes.get(14)
-  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = TendermintProto.scalaDescriptor.messages(14)
+    TendermintProto.javaDescriptor.getMessageTypes.get(15)
+  def scalaDescriptor: _root_.scalapb.descriptors.Descriptor = TendermintProto.scalaDescriptor.messages(15)
 
   def messageCompanionForFieldNumber(__number: _root_.scala.Int): _root_.scalapb.GeneratedMessageCompanion[_] =
     throw new MatchError(__number)
