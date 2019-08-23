@@ -60,8 +60,6 @@ object Blockstore extends IOApp {
             }.evalTap {
               case (k, v) => log.info(s"k: $k -> v: $v}")
             }.compile.toList
-              .flatMap(l => log.info(s"list: $l"))
-
         }
       }
       .map(_ => ExitCode.Success)
