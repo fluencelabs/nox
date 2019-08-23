@@ -53,25 +53,6 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Eventually {
 
     def block(height: Long) = Text(TestData.block(height))
 
-    import scala.concurrent.duration._
-
-    "receive pings" in {
-      (log.info("receive pings start") >> resourcesF.use {
-        case (server, events) =>
-          server.send(block(1)) >>
-            server.send(block(2)) >>
-            server.send(block(3)) >>
-            events.compile.drain >>
-            server
-              .requests()
-              .evalTap(frame => Log[IO].info(s"frame: $frame"))
-              .take(5)
-              .compile
-              .toList >>
-            server.close()
-      }).unsafeRunTimed(20.seconds) shouldBe defined
-    }
-
     "subscribe and receive messages" in {
       (log.info("subscribe and receive messages") >> eventually[IO](resourcesF.use {
         case (server, events) =>

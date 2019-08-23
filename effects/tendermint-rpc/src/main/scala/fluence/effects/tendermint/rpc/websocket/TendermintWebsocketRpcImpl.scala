@@ -251,7 +251,8 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: 
       // try to signal tendermint ws is closing ; TODO: will that ever succeed?
       _ <- close(websocket)
       _ <- log.info(s"Tendermint WRPC: $wsUrl will reconnect: ${error.getMessage}")
-    } yield (error: EffectError).asLeft[Unit]).eitherT.retryImmediately.void
+      _ <- connect(queue, onConnect)
+    } yield ())
   }
 
   private def socket(handler: WebSocketUpgradeHandler) =

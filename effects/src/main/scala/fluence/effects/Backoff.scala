@@ -43,13 +43,11 @@ class Backoff[E <: EffectError](delayPeriod: FiniteDuration, maxDelay: FiniteDur
       if (nextDelay > maxDelay) Backoff(maxDelay, maxDelay) else Backoff(nextDelay, maxDelay)
     }
 
-  def sleep[F[_]: Timer: Applicative]: F[Unit] = Timer[F].sleep(delayPeriod)
-
   def retry[F[_]: Timer: Monad, EE <: E, T](fn: EitherT[F, EE, T], onError: EE ⇒ F[Unit]): F[T] =
     fn.value.flatMap {
       case Right(value) ⇒ Applicative[F].pure(value)
       case Left(err) ⇒
-        onError(err) *> sleep *> next.retry(fn, onError)
+        onError(err) *> Timer[F].sleep(delayPeriod) *> next.retry(fn, onError)
     }
 
   def apply[F[_]: Timer: Monad, EE <: E, T](fn: EitherT[F, EE, T]): F[T] =
@@ -63,9 +61,4 @@ object Backoff {
     new Backoff(delayPeriod, maxDelay)
 
   def default[E <: EffectError]: Backoff[E] = Backoff(1.second, 1.minute)
-
-  val noDelay: Backoff[EffectError] = new Backoff(0.second, 0.second) {
-    override def next: Backoff[EffectError] = this
-    override def sleep[F[_]: Timer: Applicative]: F[Unit] = Applicative[F].unit
-  }
 }
