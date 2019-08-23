@@ -250,7 +250,7 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: 
           _ <- onConnect(websocket)
           // wait until socket disconnects (it may never do)
           error <- promise.get
-          // try to signal tendermint ws is closing ; TODO: will that ever succeed?
+          // signal tendermint ws is closing
           _ <- close(websocket)
           _ <- log.info(s"Tendermint WRPC: $wsUrl will reconnect: ${error.getMessage}")
         } yield ().asLeft // keep tailRecM calling this forever
