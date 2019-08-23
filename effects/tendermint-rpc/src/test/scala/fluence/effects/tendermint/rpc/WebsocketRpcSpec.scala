@@ -34,7 +34,7 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Eventually {
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
-  implicit private val log: Log[IO] = LogFactory.forPrintln[IO](Log.Trace).init("WebsocketRpcSpec").unsafeRunSync()
+  implicit private val log: Log[IO] = LogFactory.forPrintln[IO](Log.Off).init("WebsocketRpcSpec").unsafeRunSync()
 
   type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
   implicit private val sttpResource: STTP = EitherTSttpBackend[IO]()
@@ -54,7 +54,7 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Eventually {
     def block(height: Long) = Text(TestData.block(height))
 
     "subscribe and receive messages" in {
-      (log.info("subscribe and receive messages") >> eventually[IO](resourcesF.use {
+      eventually[IO](resourcesF.use {
         case (server, events) =>
           for {
             _ <- server.send(block(1))
@@ -68,14 +68,14 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Eventually {
             events.head.header.height shouldBe 1L
             events.tail.head.header.height shouldBe 2L
           }
-      })).unsafeRunSync()
+      }).unsafeRunSync()
 
     }
 
     "receive message after reconnect" in {
       val height = 1L
 
-      (log.info("receive message after reconnect") >> eventually[IO](resourcesF.use {
+      eventually[IO](resourcesF.use {
         case (server, events) =>
           for {
             _ <- events.compile.drain
@@ -87,7 +87,7 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Eventually {
             events.size shouldBe 1
             events.head.header.height shouldBe height
           }
-      })).unsafeRunSync()
+      }).unsafeRunSync()
     }
 
     "ignore incorrect json messages" in {

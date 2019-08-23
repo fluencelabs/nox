@@ -83,7 +83,7 @@ class TestWRpc[F[_]: ConcurrentEffect: Timer: Monad: ContextShift](override val 
         fiber <- Concurrent[F].start(
           Timer[F].sleep(timeout) >>
             Log[F].error(s"subscribeNewBlock timed out after $timeout") >>
-            promise.complete(()) // <-------- COMPLETION IS NOT COMMENTED OUT
+            promise.complete(())
         )
       } yield (fiber, promise)
 
@@ -93,7 +93,7 @@ class TestWRpc[F[_]: ConcurrentEffect: Timer: Monad: ContextShift](override val 
         super
           .subscribeNewBlock(lastKnownHeight)
           .evalTap(_ => fiber.cancel)
-          .interruptWhen(signal) // THIS COMMENTED OUT
+          .interruptWhen(signal)
     }
   }
 }
