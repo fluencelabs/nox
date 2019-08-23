@@ -14,7 +14,7 @@ services:
       - IPFS_ADDRESS=$IPFS_ADDRESS
       - CONTRACT_ADDRESS=$CONTRACT_ADDRESS
       - OWNER_ADDRESS=$OWNER_ADDRESS
-      - WORKER_MEMORY_LIMIT=1000 # megabytes
+      - WORKER_MEMORY_LIMIT=400 # megabytes
       - WORKER_TAG=$IMAGE_TAG
       - WORKER_CPUS_LIMIT=2
     ports:
@@ -29,8 +29,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 1000M
+          cpus: '1'
+          memory: 350
         reservations:
           memory: 300M
 
