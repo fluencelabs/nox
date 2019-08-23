@@ -236,23 +236,25 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: 
 
     def close(ws: NettyWebSocket) = ws.sendCloseFrame().asAsync.attempt.void
 
-    (for {
-      // Ref to accumulate payload frames (websocket allows to split single message into several)
-      ref <- Ref.of[F, String]("")
-      // promise will be completed by exception when socket is disconnected
-      promise <- Deferred[F, WebsocketRpcError]
-      // keep connecting until success
-      connectSocket = wsHandler(ref, queue, promise) >>= socket
-      _ <- log.debug(s"Tendermint WRPC: $wsUrl started connecting")
-      websocket <- backoff.retry(connectSocket, logConnectionError)
-      _ <- onConnect(websocket)
-      // wait until socket disconnects (it may never do)
-      error <- promise.get
-      // try to signal tendermint ws is closing ; TODO: will that ever succeed?
-      _ <- close(websocket)
-      _ <- log.info(s"Tendermint WRPC: $wsUrl will reconnect: ${error.getMessage}")
-      _ <- connect(queue, onConnect)
-    } yield ())
+    Monad[F].tailRecM(())(
+      _ =>
+        for {
+          // Ref to accumulate payload frames (websocket allows to split single message into several)
+          ref <- Ref.of[F, String]("")
+          // promise will be completed by exception when socket is disconnected
+          promise <- Deferred[F, WebsocketRpcError]
+          // keep connecting until success
+          connectSocket = wsHandler(ref, queue, promise) >>= socket
+          _ <- log.debug(s"Tendermint WRPC: $wsUrl started connecting")
+          websocket <- backoff.retry(connectSocket, logConnectionError)
+          _ <- onConnect(websocket)
+          // wait until socket disconnects (it may never do)
+          error <- promise.get
+          // try to signal tendermint ws is closing ; TODO: will that ever succeed?
+          _ <- close(websocket)
+          _ <- log.info(s"Tendermint WRPC: $wsUrl will reconnect: ${error.getMessage}")
+        } yield ().asLeft // keep tailRecM calling this forever
+    )
   }
 
   private def socket(handler: WebSocketUpgradeHandler) =
