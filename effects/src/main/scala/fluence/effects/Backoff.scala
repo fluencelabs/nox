@@ -31,7 +31,7 @@ import scala.language.higherKinds
  * @param delayPeriod will be applied next time
  * @param maxDelay upper bound for a single delay
  */
-class Backoff[E <: EffectError](delayPeriod: FiniteDuration, maxDelay: FiniteDuration) {
+case class Backoff[E <: EffectError](delayPeriod: FiniteDuration, maxDelay: FiniteDuration) {
 
   /**
    * Next retry policy with delayPeriod multiplied times two, if maxDelay is not yet reached
@@ -40,7 +40,7 @@ class Backoff[E <: EffectError](delayPeriod: FiniteDuration, maxDelay: FiniteDur
     if (delayPeriod == maxDelay) this
     else {
       val nextDelay = delayPeriod * 2
-      if (nextDelay > maxDelay) Backoff(maxDelay, maxDelay) else Backoff(nextDelay, maxDelay)
+      if (nextDelay > maxDelay) copy(delayPeriod = maxDelay) else copy(delayPeriod = nextDelay)
     }
 
   def retry[F[_]: Timer: Monad, EE <: E, T](fn: EitherT[F, EE, T], onError: EE ⇒ F[Unit]): F[T] =
@@ -56,9 +56,5 @@ class Backoff[E <: EffectError](delayPeriod: FiniteDuration, maxDelay: FiniteDur
 }
 
 object Backoff {
-
-  def apply[E <: EffectError](delayPeriod: FiniteDuration, maxDelay: FiniteDuration): Backoff[E] =
-    new Backoff(delayPeriod, maxDelay)
-
   def default[E <: EffectError]: Backoff[E] = Backoff(1.second, 1.minute)
 }
