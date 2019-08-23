@@ -27,6 +27,7 @@ package object syntax {
     implicit class EitherTBackoffOps[F[_]: Timer: Monad, E <: EffectError: Backoff, T](fn: EitherT[F, E, T]) {
       def backoff: F[T] = implicitly[Backoff[E]].apply(fn)
       def retry(onError: E => F[Unit]): F[T] = implicitly[Backoff[E]].retry(fn, onError)
+      def retryImmediately: F[T] = Backoff.noDelay.apply(fn)
     }
   }
 
