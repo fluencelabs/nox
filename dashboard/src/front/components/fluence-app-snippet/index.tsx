@@ -182,7 +182,7 @@ class FluenceAppSnippet extends React.Component<Props, State> {
             <p> Open Developer Tools, and paste:</p>,
             <pre>{`let privateKey = "${llamaPrivateKey}"; // Authorization private key
 let contract = "${defaultContractAddress}";                         // Fluence contract address
-let appId = ${this.props.appId};                                                                      // Deployed database id
+let appId = ${this.props.appId};                                                                       // Deployed database id
 let ethereumUrl = "${fluenceNodeAddr}";                                    // Ethereum light node URL
 
 fluence.connect(contract, appId, ethereumUrl, privateKey).then((s) => {
@@ -191,10 +191,10 @@ fluence.connect(contract, appId, ethereumUrl, privateKey).then((s) => {
 });`}
             </pre>,
             <p>Execute some queries:</p>,
-            <pre>{`session.request("CREATE TABLE users(id int, name varchar(128), age int)");
-session.request("INSERT INTO users VALUES(1, 'Sara', 23)");
-session.request("INSERT INTO users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 27)");
-session.request("SELECT AVG(age) FROM users").result().then((r) => {
+            <pre>{`session.requestAsync("CREATE TABLE users(id int, name varchar(128), age int)");
+session.requestAsync("INSERT INTO users VALUES(1, 'Sara', 23)");
+session.requestAsync("INSERT INTO users VALUES(2, 'Bob', 19), (3, 'Caroline', 31), (4, 'Max', 27)");
+session.request("SELECT AVG(age) FROM users").then((r) => {
     console.log("Result: " + r.asString());
 });`}
             </pre>,
@@ -240,7 +240,7 @@ fluence.connect(contract, appId, ethereumUrl).then((s) => {
 session.request("${request}");
 
 // Send a request, and read its result
-session.request("${requestForResult}").result().then((r) => {
+session.request("${requestForResult}").then((r) => {
     console.log("Result: " + r.asString());
 });`}
             </pre>,
@@ -268,11 +268,11 @@ fluence.connect(contract, appId, ethereumUrl).then((s) => {
     window.session = s;
 });
 
-// Send a request
-session.request("${request}");
+// Send request, don't wait for result
+session.requestAsync("${request}");
 
-// Send a request, and read its result
-session.request("${requestForResult}").result().then((r) => {
+// Send request, and wait for result
+session.request("${requestForResult}").then((r) => {
     console.log("Result: " + r.asString());
 });`}
             </pre>,
