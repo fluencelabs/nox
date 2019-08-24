@@ -247,6 +247,48 @@ session.request("${requestForResult}").then((r) => {
         ]);
     }
 
+    renderSQLiteSnippets(): React.ReactNode[] {
+        return ([
+            this.renderTrxHashBlock(),
+            <p>
+                <b>
+                    Or connect to the application directly in the browser console.
+                </b>
+            </p>,
+            <p> Open Developer Tools, and paste:</p>,
+            <pre>{`let contract = "${defaultContractAddress}";                         // Fluence contract address
+let appId = ${this.props.appId};                                                                       // Deployed database id
+let ethereumUrl = "${fluenceNodeAddr}";                                    // Ethereum light node URL
+
+fluence.connect(contract, appId, ethereumUrl).then((s) => {
+    console.log("Session created");
+    window.session = s;
+});`}
+            </pre>,
+            <p>Execute some queries:</p>,
+            <pre>{`session.requestAsync("CREATE VIRTUAL TABLE users USING FTS5(body)");
+session.requestAsync("INSERT INTO users(body) VALUES('AB'), ('BC'), ('CD'), ('DE')");
+session.request("SELECT * FROM users WHERE users MATCH 'A* OR B*'").then((r) => {
+    console.log("Result: " + r.asString());
+});`}
+            </pre>,
+            <p>That's it!</p>,
+            <hr/>,
+            <button type="button"
+                    onClick={e => window.open(`https://github.com/fluencelabs/tutorials`, '_blank')}
+                    className="btn btn-block btn-link">
+                <i className="fa fa-external-link margin-r-5"/> <b>To develop your own app, follow
+                GitHub Tutorials</b>
+            </button>,
+            <button type="button"
+                    onClick={e => window.open(`https://fluence.network/docs`, '_blank')}
+                    className="btn btn-block btn-link">
+                <i className="fa fa-external-link margin-r-5"/> <b>More info in the docs</b>
+            </button>
+        ]);
+    }
+
+
     renderUploadedAppSnippets(shortName: string): React.ReactNode[] {
         const request = '<enter your request here>';
         const requestForResult = '<enter your request here>';
@@ -286,6 +328,9 @@ session.request("${requestForResult}").then((r) => {
             }
             case 'redis fork': {
                 return this.renderRedisSnippets();
+            }
+            case 'sqlite fork': {
+                return this.renderSQLiteSnippets();
             }
             default: {
                 return this.renderUploadedAppSnippets(this.app.shortName);
