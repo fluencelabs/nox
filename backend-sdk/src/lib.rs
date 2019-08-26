@@ -22,7 +22,7 @@
 //! By default this crate turns on export-allocator feature of the `main` crate, to disable it
 //! please import this crate with `default-features = false`.
 //!
-#![doc(html_root_url = "https://docs.rs/fluence/0.1.5")]
+#![doc(html_root_url = "https://docs.rs/fluence/0.1.7")]
 #![feature(allocator_api)]
 
 extern crate fluence_sdk_macro;

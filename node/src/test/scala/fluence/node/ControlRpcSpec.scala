@@ -57,7 +57,7 @@ class ControlRpcSpec extends WordSpec with Matchers with OptionValues {
     implicit val logFactory = LogFactory.forPrintln[IO]()
     implicit val log: Log[IO] = LogFactory[IO].init(getClass.getSimpleName).unsafeRunSync()
 
-    val config = ControlServerConfig("localhost", 26662)
+    val config = ControlServerConfig("localhost", 26652)
     val serverR = ControlServer.make[IO](config)
 
     type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]

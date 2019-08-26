@@ -48,11 +48,13 @@ trait ResponseSubscriber[F[_]] {
 }
 
 object ResponseSubscriber {
+  // TODO: move to config
+  val MaxBlockTries = 10
 
   def apply[F[_]: Log: Concurrent: Timer, G[_]](
     tendermint: TendermintRpc[F],
     appId: Long,
-    maxBlocksTries: Int = 3
+    maxBlocksTries: Int = MaxBlockTries
   )(
     implicit P: Parallel[F, G]
   ): F[ResponseSubscriber[F]] =
@@ -65,7 +67,7 @@ object ResponseSubscriber {
   def make[F[_]: Log: Concurrent: Timer, G[_]](
     tendermint: TendermintRpc[F],
     appId: Long,
-    maxBlocksTries: Int = 3
+    maxBlocksTries: Int = MaxBlockTries
   )(
     implicit P: Parallel[F, G]
   ): Resource[F, ResponseSubscriber[F]] = Resource.liftF(apply(tendermint, appId, maxBlocksTries))

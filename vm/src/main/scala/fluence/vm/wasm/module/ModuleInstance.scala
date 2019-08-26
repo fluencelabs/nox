@@ -14,21 +14,9 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.control
+package fluence.vm.wasm.module
 
-trait HasHeight[A] {
-  def height(a: A): Long
-}
-
-object HasHeight {
-  implicit val vmHash: HasHeight[VmHash] = (vh: VmHash) => vh.height
-  implicit val receipt: HasHeight[BlockReceipt] = (br: BlockReceipt) => br.receipt.height
-
-  def apply[A: HasHeight]: HasHeight[A] = implicitly[HasHeight[A]]
-
-  object syntax {
-    implicit class HasHeightSyntax[A: HasHeight](a: A) {
-      def height: Long = HasHeight[A].height(a)
-    }
-  }
-}
+/**
+ * Wrapper module instance comes from Asmble in Any type.
+ */
+case class ModuleInstance(moduleInstance: Any)

@@ -23,11 +23,10 @@ import cats.effect.LiftIO
 import cats.Monad
 import fluence.crypto.Crypto.Hasher
 import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
-import fluence.vm.VmError.{NoSuchModuleError, _}
-import fluence.vm.wasm.WasmModule
+import fluence.vm.VmError.{InternalVmError, VmMemoryError}
 import fluence.vm.utils.safelyRunThrowable
 import scodec.bits.ByteVector
-import WasmVm._
+import fluence.vm.wasm.module.{EnvModule, MainWasmModule, WasmModule}
 
 import scala.language.higherKinds
 
@@ -37,11 +36,15 @@ import scala.language.higherKinds
  * '''Note!!! This implementation isn't thread-safe. The provision of calls
  * linearization is the task of the caller side.'''
  *
- * @param modules an index of Wasm modules
+ * @param mainModule a main Wasm module which used for function invoking
+ * @param envModule a environment module which used for some auxiliary functions such as gas metering
+ * @param sideModules a list of side modules used in VM state computing
  * @param hasher a hash function provider used for VM state hash computing
  */
 class AsmbleWasmVm(
-  private val modules: ModuleIndex,
+  private val mainModule: MainWasmModule,
+  private val envModule: EnvModule,
+  private val sideModules: Seq[WasmModule],
   private val hasher: Hasher[Array[Byte], Array[Byte]]
 ) extends WasmVm {
 
@@ -49,46 +52,50 @@ class AsmbleWasmVm(
   private val WasmPointerSize = 4
 
   override def invoke[F[_]: LiftIO: Monad](
-    moduleName: Option[String],
     fnArgument: Array[Byte]
-  ): EitherT[F, InvokeError, Array[Byte]] =
+  ): EitherT[F, InvokeError, InvocationResult] =
     for {
-      wasmModule ← EitherT
-        .fromOption(
-          modules.get(moduleName),
-          NoSuchModuleError(s"Unable to find a module with the name=${moduleName.getOrElse("<no-name>")}")
-        )
-
-      preprocessedArgument ← loadArgToMemory(fnArgument, wasmModule)
-      resultOffset ← wasmModule.invoke(preprocessedArgument)
+      preprocessedArgument ← loadArgToMemory(fnArgument)
+      resultOffset ← mainModule.invoke(preprocessedArgument)
+      _ ← envModule.clearState()
 
       // It is expected that callee (Wasm module) has to clean memory by itself because of otherwise
       // there can be some non-determinism (deterministic execution is very important for verification game
       // and this kind of non-determinism can break all verification game).
-      extractedResult ← extractResultFromWasmModule(resultOffset, wasmModule)
+      extractedResult ← extractResultFromWasmModule(resultOffset)
 
-    } yield extractedResult
+      spentGas ← envModule.getSpentGas()
+
+    } yield InvocationResult(extractedResult, spentGas)
 
   override def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector] =
-    modules
-      .foldLeft(EitherT.rightT[F, GetVmStateError](Array[Byte]())) {
-        case (acc, (moduleName, module)) ⇒
-          for {
-            moduleStateHash ← module.computeStateHash()
+    for {
+      mainModuleHash ← mainModule.computeStateHash()
 
-            prevModulesHash ← acc
+      sideModulesHash ← sideModules
+        .foldLeft(EitherT.rightT[F, GetVmStateError](Array[Byte]())) {
+          case (acc, module) ⇒
+            for {
+              moduleStateHash ← module.computeStateHash()
 
-            concatHashes = Array.concat(moduleStateHash, prevModulesHash)
+              prevModulesHash ← acc
 
-            // TODO : It is known the 2nd preimage attack to such scheme with the same hash function
-            // for leaves and nodes.
-            resultHash ← hasher(concatHashes).leftMap { e ⇒
-              InternalVmError(s"Getting VM state for module=$moduleName failed", Some(e)): GetVmStateError
-            }
+              concatHashes = Array.concat(moduleStateHash, prevModulesHash)
 
-          } yield resultHash
+              // TODO : It is known the 2nd preimage attack to such scheme with the same hash function
+              // for leaves and nodes.
+              resultHash ← hasher(concatHashes).leftMap { e ⇒
+                InternalVmError(s"Getting VM state for module=${module.name} failed", Some(e)): GetVmStateError
+              }
+
+            } yield resultHash
+        }
+
+      resultHash ← hasher(Array.concat(sideModulesHash, mainModuleHash)).map(ByteVector(_)).leftMap { e ⇒
+        InternalVmError(s"Getting VM state for modules failed", Some(e)): GetVmStateError
       }
-      .map(ByteVector(_))
+
+    } yield resultHash
 
   /**
    * Preprocesses Wasm function argument array by injecting it into Wasm module memory and replacing by pointer to
@@ -96,11 +103,9 @@ class AsmbleWasmVm(
    * without any allocations on the Wasm side.
    *
    * @param fnArgument an argument that should be preprocessed
-   * @param wasmModule a module instance used for injecting array to the Wasm memory
    */
   private def loadArgToMemory[F[_]: LiftIO: Monad](
-    fnArgument: Array[Byte],
-    wasmModule: WasmModule
+    fnArgument: Array[Byte]
   ): EitherT[F, InvokeError, List[AnyRef]] =
     if (fnArgument.isEmpty)
       EitherT.rightT[F, InvokeError](
@@ -108,8 +113,8 @@ class AsmbleWasmVm(
       )
     else
       for {
-        offset ← wasmModule.allocate(fnArgument.length)
-        _ ← wasmModule.writeMemory(offset, fnArgument).leftMap(e ⇒ e: InvokeError)
+        offset ← mainModule.allocate(fnArgument.length)
+        _ ← mainModule.writeMemory(offset, fnArgument).leftMap(e ⇒ e: InvokeError)
 
       } yield Int.box(offset) :: Int.box(fnArgument.length) :: Nil
 
@@ -117,15 +122,13 @@ class AsmbleWasmVm(
    * Extracts (reads and deletes) result from the given offset from Wasm module memory.
    *
    * @param offset offset into Wasm module memory where a result is located
-   * @param wasmModule a Wasm module in which memory a result is located
    */
   private def extractResultFromWasmModule[F[_]: LiftIO: Monad](
-    offset: Int,
-    wasmModule: WasmModule
+    offset: Int
   ): EitherT[F, InvokeError, Array[Byte]] =
     for {
       // each result has the next structure in Wasm memory: | size (wasmPointerSize bytes) | result buffer (size bytes) |
-      rawResultSize ← wasmModule.readMemory(offset, WasmPointerSize)
+      rawResultSize ← mainModule.readMemory(offset, WasmPointerSize)
 
       // convert ArrayByte to Int
       resultSize ← safelyRunThrowable(
@@ -133,11 +136,11 @@ class AsmbleWasmVm(
         e ⇒ VmMemoryError(s"Trying to extract result from incorrect offset=$rawResultSize", Some(e))
       )
 
-      extractedResult ← wasmModule.readMemory(offset + WasmPointerSize, resultSize)
+      extractedResult ← mainModule.readMemory(offset + WasmPointerSize, resultSize)
 
       // TODO : string deallocation from scala-part should be additionally investigated - it seems
       // that this version of deletion doesn't compatible with current idea of verification game
-      _ ← wasmModule.deallocate(offset, extractedResult.length + WasmPointerSize)
+      _ ← mainModule.deallocate(offset, extractedResult.length + WasmPointerSize)
 
     } yield extractedResult
 

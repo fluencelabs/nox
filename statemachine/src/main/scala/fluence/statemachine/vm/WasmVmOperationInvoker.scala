@@ -20,7 +20,7 @@ import cats.Monad
 import cats.data.EitherT
 import cats.effect.LiftIO
 import fluence.statemachine.error.{StateMachineError, VmRuntimeError}
-import fluence.vm.{VmError, WasmVm}
+import fluence.vm.{InvocationResult, VmError, WasmVm}
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -38,10 +38,10 @@ class WasmVmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) ext
    * @param arg an argument for Wasm VM module main handler
    * @return either successful invocation's result or failed invocation's error
    */
-  def invoke(arg: Array[Byte]): EitherT[F, StateMachineError, Array[Byte]] =
+  def invoke(arg: Array[Byte]): EitherT[F, StateMachineError, InvocationResult] =
     vm
     // by our name conventional a master Wasm module in VM doesn't have name
-      .invoke(None, arg)
+      .invoke(arg)
       .leftMap(WasmVmOperationInvoker.convertToStateMachineError)
 
   /**

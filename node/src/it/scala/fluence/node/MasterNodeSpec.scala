@@ -21,14 +21,15 @@ import java.nio.file.{Files, Paths}
 import java.util.Base64
 
 import cats.Apply
-import cats.data.{EitherT, NonEmptyList}
+import cats.data.EitherT
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.syntax.apply._
 import cats.syntax.functor._
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
-import fluence.EitherTSttpBackend
+import fluence.codec.PureCodec
+import fluence.{EitherTSttpBackend, Eventually}
 import fluence.crypto.eddsa.Ed25519
 import fluence.effects.{Backoff, EffectError}
 import fluence.effects.ethclient.EthClient
@@ -37,6 +38,7 @@ import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.kad.conf.{AdvertizeConf, JoinConf, KademliaConfig, RoutingConf}
 import fluence.kad.contact.UriContact
 import fluence.kad.http.KademliaHttpNode
+import fluence.kad.protocol.{Key, Node}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.{FluenceContractConfig, MasterConfig, NodeConfig}
 import fluence.node.eth.FluenceContract
@@ -44,7 +46,7 @@ import fluence.node.eth.FluenceContractTestOps._
 import fluence.node.status.{MasterStatus, StatusAggregator}
 import fluence.node.workers.WorkerApi
 import fluence.node.workers.tendermint.ValidatorPublicKey
-import org.scalatest.{Timer => _, _}
+import org.scalatest.{Timer ⇒ _, _}
 import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -94,6 +96,8 @@ class MasterNodeSpec
     for {
       implicit0(sttpB: Sttp) ← sttpResource
 
+      nodeCodec = new UriContact.NodeCodec(Key.fromPublicKey)
+
       kad ← KademliaHttpNode.make[IO, IO.Par](
         KademliaConfig(
           RoutingConf(1, 1, 4, 5.seconds),
@@ -102,8 +106,11 @@ class MasterNodeSpec
         ),
         Ed25519.signAlgo,
         Ed25519.signAlgo.generateKeyPair.unsafe(Some(ByteVector.fromShort(port).toArray)),
-        Paths.get(masterConf.rootPath)
+        Paths.get(masterConf.rootPath),
+        nodeCodec
       )
+
+      implicit0(wn: PureCodec.Func[Node[UriContact], String]) = nodeCodec.writeNode
 
       bref ← Resource.liftF(Ref.of[IO, Option[BlockManifest]](None))
       bstore ← Resource.liftF(KVReceiptStorage.makeInMemory[IO](1).allocated.map(_._1))

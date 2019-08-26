@@ -19,7 +19,7 @@ package fluence.log
 import java.util.Date
 import java.util.concurrent.TimeUnit
 
-import cats.data.{EitherT, StateT}
+import cats.data.{EitherT, OptionT, StateT}
 import cats.{~>, Applicative, Eval, Monad, Order}
 import cats.effect.{Clock, Resource}
 import cats.syntax.order._
@@ -173,6 +173,12 @@ object Log {
    */
   def resource[F[_]: Monad](implicit log: Log[F]): Log[Resource[F, ?]] =
     log.mapK(λ[F ~> Resource[F, ?]](f ⇒ Resource.liftF(f)))
+
+  /**
+   * Summon log for OptionT
+   */
+  def optionT[F[_]: Monad](implicit log: Log[F]): Log[OptionT[F, *]] =
+    log.mapK(OptionT.liftK[F])
 
   /**
    * Summon log for Resource, with the given context modifier.

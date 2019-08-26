@@ -38,7 +38,7 @@ import fluence.node.workers.subscription.{
   PendingResponse,
   RpcErrorResponse,
   RpcTxAwaitError,
-  TendermintResponseError,
+  TendermintResponseDeserializationError,
   TimedOutResponse,
   TxInvalidError,
   TxParsingError
@@ -46,6 +46,7 @@ import fluence.node.workers.subscription.{
 import fluence.node.workers.websocket.WorkersWebsocket
 import fs2.concurrent.Queue
 import io.circe.Decoder
+import fluence.statemachine.data.Tx
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.websocket.WebSocketBuilder
 import org.http4s.websocket.WebSocketFrame
@@ -183,38 +184,64 @@ object WorkersHttp {
       case req @ POST -> Root / LongVar(appId) / "tx" :? QueryId(id) ⇒
         LogFactory[F].init("http" -> "tx", "app" -> appId.toString) >>= { implicit log =>
           req.decode[String] { tx ⇒
-            withWorker(appId)(w => workerApi.sendTx(w, tx, id).flatMap(tendermintResponseToHttp(appId, _)))
+            withWorker(appId)(
+              w =>
+                workerApi
+                  .sendTx(w, tx, id)
+                  .flatTap(r => log.debug(s"tx.head: ${tx.takeWhile(_ != '\n')} $r"))
+                  .flatMap(tendermintResponseToHttp(appId, _))
+            )
           }
         }
 
       case req @ POST -> Root / LongVar(appId) / "txWaitResponse" :? QueryId(id) ⇒
-        LogFactory[F].init("http" -> "txAwaitResponse", "app" -> appId.toString) >>= { implicit log =>
+        LogFactory[F].init("http" -> "txAwaitResponse", "app" -> appId.toString) >>= { log =>
           req.decode[String] { tx ⇒
-            withWorker(appId)(
-              w =>
-                workerApi.sendTxAwaitResponse(w, tx, id).flatMap {
-                  case Right(queryResponse) =>
-                    queryResponse match {
-                      case OkResponse(_, response) =>
-                        Ok(response)
-                      case RpcErrorResponse(_, r) => rpcErrorToResponse(r)
-                      case TimedOutResponse(id, tries) =>
-                        RequestTimeout(
-                          s"Request $id couldn't be processed after $tries blocks. Try later or start a new session to continue."
-                        )
-                      case PendingResponse(_) =>
-                        InternalServerError("PendingResponse is returned. Unexpected error.")
+            val txHead = Tx.splitTx(tx.getBytes).fold("not parsed")(_._1)
+            log.scope("tx.head" -> txHead) { implicit log =>
+              log.trace("requested") >> withWorker(appId)(
+                w =>
+                  workerApi
+                    .sendTxAwaitResponse(w, tx, id)
+                    .flatMap {
+                      case Right(queryResponse) =>
+                        queryResponse match {
+                          case OkResponse(_, response) =>
+                            log.debug(s"OK $response") >> Ok(response)
+                          case RpcErrorResponse(_, r) =>
+                            // TODO ERROR INCONSISTENCY: some errors are returned as 200, others as 500
+                            rpcErrorToResponse(r)
+                          case TimedOutResponse(txHead, tries) =>
+                            log.warn(s"timed out after $tries") >>
+                              // TODO: ERROR INCONSISTENCY: some errors are returned as 200, others as 500
+                              RequestTimeout(
+                                s"Request $txHead couldn't be processed after $tries blocks. Try later or start a new session to continue."
+                              )
+                          case PendingResponse(txHead) =>
+                            // TODO: ERROR INCONSISTENCY: some errors are returned as 200, others as 500
+                            InternalServerError(
+                              s"PendingResponse is returned for tx $txHead. This shouldn't happen and means there's a serious bug, please report."
+                            )
+                        }
+                      case Left(err) =>
+                        err match {
+                          // TODO: add tx.head to these responses, so it is possible to match error with transaction
+                          // return an error from tendermint as is to the client
+                          case TendermintResponseDeserializationError(response) =>
+                            log.debug(s"error on tendermint response deserialization: $response") >> Ok(response)
+                          case RpcTxAwaitError(rpcError) =>
+                            log.debug(s"error on await rpc tx: $rpcError") >> rpcErrorToResponse(rpcError)
+                          case TxParsingError(msg, _) =>
+                            // TODO: ERROR INCONSISTENCY: some errors are returned as 200, others as 500
+                            log.debug(s"error on tx parsing: $msg") >> BadRequest(msg)
+                          case TxInvalidError(msg) =>
+                            // TODO: ERROR INCONSISTENCY: some errors are returned as 200, others as 500
+                            log.debug(s"tx is invalid: $msg") >> InternalServerError(msg)
+                        }
                     }
-                  case Left(err) =>
-                    err match {
-                      // return an error from tendermint as is to the client
-                      case TendermintResponseError(response) => Ok(response)
-                      case RpcTxAwaitError(rpcError)         => rpcErrorToResponse(rpcError)
-                      case TxParsingError(msg, _)            => BadRequest(msg)
-                      case TxInvalidError(msg)               => InternalServerError(msg)
-                    }
-              }
-            )
+                    .flatTap(r => log.trace(s"response: $r"))
+              )
+            }
           }
         }
     }

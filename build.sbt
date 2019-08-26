@@ -4,13 +4,6 @@ name := "fluence"
 
 commons
 
-// Limit all tasks parallelism to 1, to lower memory consumption on CI
-// Reason: CircleCI provides 4Gb instances, and with concurrent compilations (Scala + Rust) and tests it runs out of memory limit
-// TODO: limits should be more granular. E.g., there's no reason to limit network tasks
-Global / concurrentRestrictions := Seq(
-  Tags.limitAll(1)
-).filter(_ => sys.env.get("CI").contains("true"))
-
 onLoad in Global := (onLoad in Global).value.andThen { state ⇒
   val requiredVersion = "1.8" // Asmble works only on Java 8.
   val currentVersion = sys.props("java.specification.version")
@@ -27,11 +20,12 @@ lazy val `vm` = (project in file("vm"))
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
   .settings(
     commons,
+    kindProjector,
     libraryDependencies ++= Seq(
       asmble,
       cats,
       catsEffect,
-      pureConfig,
+      ficus,
       cryptoHashsign,
       scalaTest,
       scalaIntegrationTest,
@@ -41,6 +35,7 @@ lazy val `vm` = (project in file("vm"))
       .dependsOn(compile in `vm-counter`)
       .dependsOn(compile in `vm-hello-world`)
       .dependsOn(compile in `vm-llamadb`)
+      .dependsOn(compile in `vm-instrumented-llamadb`)
       .value
   )
   .dependsOn(`merkelized-bytebuffer`, `log`)
@@ -94,14 +89,18 @@ lazy val `vm-llamadb` = (project in file("vm/src/it/resources/test-cases/llamadb
     rustVmTest("llamadb")
   )
 
+lazy val `vm-instrumented-llamadb` = (project in file("vm/src/it/resources/test-cases/instrumented-llamadb"))
+  .settings(
+    createInstrumentedLlamadb()
+  )
+
 lazy val `vm-hello-world-runner` = (project in file("vm/src/it/resources/test-cases/hello-world/runner"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
       asmble,
       cats,
-      catsEffect,
-      pureConfig
+      catsEffect
     )
   )
   .dependsOn(`vm`, `vm-hello-world`)
@@ -120,6 +119,7 @@ lazy val `merkelized-bytebuffer` = (project in file("vm/merkelized-bytebuffer"))
 lazy val `statemachine-control` = (project in file("statemachine/control"))
   .settings(
     commons,
+    kindProjector,
     libraryDependencies ++= Seq(
       cats,
       catsEffect,
@@ -142,7 +142,6 @@ lazy val `statemachine` = (project in file("statemachine"))
     commons,
     kindProjector,
     libraryDependencies ++= Seq(
-      pureConfig,
       scodecBits,
       "com.github.jtendermint" % "jabci" % "0.26.0",
       scalaTest
@@ -227,7 +226,6 @@ lazy val `swarm` = (project in file("effects/swarm"))
       circeCore,
       circeGeneric,
       circeGenericExtras,
-      pureConfig,
       scodecBits,
       scodecCore,
       web3jCrypto,
@@ -395,10 +393,11 @@ lazy val `kademlia-http` = (project in file("kademlia/http"))
       circeGeneric,
       circeParser,
       http4sDsl,
-      scalaTest
+      scalaTest,
+      http4sServer % Test
     )
   )
-  .dependsOn(`kademlia`, `kademlia-dht`, `kademlia-testkit` % Test)
+  .dependsOn(`kademlia`, `kademlia-dht`, `sttpEitherT` % Test)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kademlia-dht` = (project in file("kademlia/dht"))
@@ -482,8 +481,9 @@ lazy val `node` = project
     `kvstore`,
     `dockerio`,
     `tendermint-rpc`,
-    `tendermint-rpc`   % "test->test",
-    `tendermint-block` % "test->test",
+    `tendermint-rpc`           % "test->test",
+    `tendermint-rpc`           % "it->test",
+    `tendermint-block`         % "test->test",
     `tendermint-block-history` % "test->test",
     `sttpEitherT`,
     `receipt-storage`,

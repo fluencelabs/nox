@@ -24,20 +24,37 @@ export interface QueryResponse {
     info: string;
 }
 
+export enum ErrorType {
+    TendermintError = "TendermintError",
+    TransportError = "TransportError",
+    MalformedError = "MalformedError",
+    ParsingError = "ParsingError",
+    SessionClosed = "SessionClosed",
+    InternalError = "InternalError"
+}
+
 /**
  * Returns if some error occurred on request in the real-time cluster.
  */
 export class ErrorResponse extends Error {
-    constructor(err: string) {
+    constructor(errorType: ErrorType, err: string, path: string) {
         super(err);
         this.error = err;
+        this.errorType = errorType;
+        this.path = path;
     }
 
-    readonly error: string
+    readonly error: string;
+    readonly errorType: ErrorType;
+    readonly path: string;
+
+    public toString = () : string => {
+        return `Path: ${this.path}, type: ${this.errorType}, error: ${this.error}`;
+    }
 }
 
-export function error(err: string) {
-    return new ErrorResponse(err)
+export function error(errorType: ErrorType, err: string, path: string = "") {
+    return new ErrorResponse(errorType, err, path)
 }
 
 /**

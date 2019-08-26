@@ -7,7 +7,7 @@ export const rootTagId: string = 'root';
 export const fluenceNodeAddr = 'http://geth.fluence.one:8545';
 export const fluenceIpfsAddr = 'http://ipfs.fluence.one:5001';
 
-export const appUploadUrl = fluenceIpfsAddr + '/api/v0/add?pin=true';
+export const appUploadUrl = fluenceIpfsAddr + '/api/v0/add';
 export const ipfsDownloadUrl = fluenceIpfsAddr + '/api/v0/cat?arg=';
 
 export const account = "0xff8AD53f5776cCd8A0517bedc898f707E64c6159";

@@ -41,8 +41,8 @@ import scala.util.Random
 @Ignore
 class SwarmClientIntegrationSpec extends FlatSpec with Matchers with EitherValues {
 
-  val randomKeys: ECKeyPair = Keys.createEcKeyPair()
-  val signer: Signer[ByteVector, ByteVector] = Secp256k1Signer.signer(randomKeys)
+  private lazy val randomKeys: ECKeyPair = Keys.createEcKeyPair()
+  private lazy val signer: Signer[ByteVector, ByteVector] = Secp256k1Signer.signer(randomKeys)
 
   private implicit val ioTimer: Timer[IO] = IO.timer(global)
   private implicit val ioShift: ContextShift[IO] = IO.contextShift(global)
@@ -51,9 +51,9 @@ class SwarmClientIntegrationSpec extends FlatSpec with Matchers with EitherValue
 
   private implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init("swarm-it").unsafeRunSync()
 
-  val api = SwarmClient[IO](uri"http://localhost:8500", 5.seconds)
+  private val api = SwarmClient[IO](uri"http://localhost:8500", 5.seconds)
 
-  val ethAddress: ByteVector = ByteVector.fromHex(Keys.getAddress(randomKeys)).get
+  private lazy val ethAddress: ByteVector = ByteVector.fromHex(Keys.getAddress(randomKeys)).get
 
   "Error" should "be thrown if name is too big" in {
     val longName = Some("a good resource name" + "someotherwords" * 20)

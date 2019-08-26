@@ -36,9 +36,20 @@ import fluence.log.Log
 
 import scala.language.higherKinds
 
-case class KademliaHttpNode[F[_], C](
+/**
+ * Kademlia HTTP node.
+ * Run it on your own node to get access to the Kademlia network using HTTP transport.
+ *
+ * @param kademlia Node's Kademlia instance
+ * @param http Node's HTTP routes, you are responsible for running a server with them
+ * @param joinFiber Background fiber for Kademlia JOIN; use it to wait for join to complete
+ * @tparam F Effect
+ * @tparam C Contact
+ */
+case class KademliaHttpNode[F[_], C] private (
   kademlia: Kademlia[F, C],
-  http: KademliaHttp[F, C]
+  http: KademliaHttp[F, C],
+  joinFiber: Fiber[F, Unit]
 )
 
 object KademliaHttpNode {
@@ -50,12 +61,14 @@ object KademliaHttpNode {
    * @param signAlgo Signing and signature checking algorithm for contact serialization
    * @param keyPair This node's keypair, to be used to sign contacts with signAlgo
    * @param rootPath RocksDB storage root path
+   * @param nodeCodec Mean to encode, decode, sign and check Node[UriContact]
    */
   def make[F[_]: ConcurrentEffect: Timer: Log: ContextShift, P[_]](
     conf: KademliaConfig,
     signAlgo: SignAlgo,
     keyPair: KeyPair,
-    rootPath: Path
+    rootPath: Path,
+    nodeCodec: UriContact.NodeCodec
   )(
     implicit
     P: Parallel[F, P],
@@ -63,13 +76,13 @@ object KademliaHttpNode {
   ): Resource[F, KademliaHttpNode[F, UriContact]] = {
 
     implicit val readNode: Crypto.Func[String, Node[UriContact]] =
-      UriContact.readNode(signAlgo.checker)
+      nodeCodec.readNode(signAlgo.checker)
 
     import Crypto.liftCodecErrorToCrypto
-    import UriContact.writeNode
+    import nodeCodec.writeNode
 
     val nodeAuth = for {
-      selfNode ← UriContact.buildNode(conf.advertize, signAlgo.signer(keyPair))
+      selfNode ← nodeCodec.buildNode(conf.advertize, signAlgo.signer(keyPair))
       selfNodeAuth ← Crypto.fromOtherFunc(writeNode).pointAt(selfNode)
     } yield (selfNode, selfNodeAuth)
 
@@ -103,11 +116,11 @@ object KademliaHttpNode {
       kad = Kademlia[F, P, UriContact](rt, selfNode.pure[F], conf.routing)
 
       // Join Kademlia network in a separate fiber
-      _ ← Kademlia
+      joinFiber ← Kademlia
         .joinConcurrently(kad, conf.join, UriContact.readAndCheckContact(signAlgo.checker))
 
       http = new KademliaHttp[F, UriContact](kad, readNode, writeNode)
-    } yield KademliaHttpNode(kad, http)
+    } yield KademliaHttpNode(kad, http, joinFiber)
   }
 
 }

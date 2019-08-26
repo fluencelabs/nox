@@ -11,11 +11,11 @@ import scala.sys.process._
 
 object SbtCommons {
 
-  val scalaV = scalaVersion := "2.12.8"
+  val scalaV = scalaVersion := "2.12.9"
 
   val commons = Seq(
     scalaV,
-    version                              := "0.2.0",
+    version                              := "0.3.0",
     fork in Test                         := false,
     parallelExecution in Test            := false,
     fork in IntegrationTest              := true,
@@ -66,6 +66,35 @@ object SbtCommons {
         .value
     )
 
+  // creates instrumented llamadb in a new folder
+  def createInstrumentedLlamadb(): Seq[Def.Setting[_]] =
+    Seq(
+      publishArtifact := false,
+      test            := (test in Test).dependsOn(compile).value,
+      compile := (compile in Compile)
+        .dependsOn(Def.task {
+          val log = streams.value.log
+          log.info(s"Building the internal tool for instrumentation")
+
+          val projectRoot = file("").getAbsolutePath
+          val toolFolder = s"$projectRoot/tools/wasm-utils/"
+          val toolCompileCmd = s"cargo +nightly-2019-03-10 build --manifest-path $toolFolder/Cargo.toml --release"
+          assert((toolCompileCmd !) == 0, "Compilation of wasm-utils failed")
+
+          val testFolder = s"$projectRoot/vm/src/it/resources/test-cases/llamadb"
+          val testCompileCmd = s"cargo +nightly-2019-03-10 build --manifest-path $testFolder/Cargo.toml " +
+            s"--target wasm32-unknown-unknown --release"
+          assert((testCompileCmd !) == 0, "Rust to Wasm compilation failed")
+
+          // run wasm-utils to instrument compiled llamadb binary
+          val prepareCmd = s"$toolFolder/target/release/wasm-utils prepare " +
+            s"-i $testFolder/target/wasm32-unknown-unknown/release/llama_db.wasm " +
+            s"-o $testFolder/target/wasm32-unknown-unknown/release/llama_db_prepared.wasm"
+          assert((prepareCmd !) == 0, s"$prepareCmd failed")
+        })
+        .value
+    )
+
   def buildContractBeforeDocker(): Seq[Def.Setting[_]] =
     Seq(
       docker in docker := (docker in docker)
@@ -89,7 +118,7 @@ object SbtCommons {
 
   /* Common deps */
 
-  val asmble = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.7-fl"
+  val asmble = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.10-fl"
 
   val catsVersion = "1.6.0"
   val cats = "org.typelevel" %% "cats-core" % catsVersion
@@ -102,9 +131,7 @@ object SbtCommons {
   val fs2io = "co.fs2" %% "fs2-io"               % fs2Version
 
   // functional wrapper around 'lightbend/config'
-  @deprecated("pureConfig is known to cause mindblowing failures on compile time, let's drop it away", "29.03.2019")
-  val pureConfig = "com.github.pureconfig" %% "pureconfig" % "0.10.2"
-  val ficus = "com.iheart"                 %% "ficus"      % "1.4.5"
+  val ficus = "com.iheart" %% "ficus" % "1.4.5"
 
   val cryptoVersion = "0.0.9"
   val cryptoHashsign = "one.fluence" %% "crypto-hashsign" % cryptoVersion
@@ -135,9 +162,9 @@ object SbtCommons {
   val scodecBits = "org.scodec" %% "scodec-bits" % "1.1.9"
   val scodecCore = "org.scodec" %% "scodec-core" % "1.11.3"
 
-  val web3jVersion = "4.2.0"
-  val web3jCrypto = "org.web3j" % "crypto" % web3jVersion
-  val web3jCore = "org.web3j"   % "core"   % web3jVersion
+  val web3jVersion = "4.3.0"
+  val web3jCrypto = "org.web3j" % "crypto" % web3jVersion exclude ("org.bouncycastle", "bcprov-jdk15on")
+  val web3jCore = "org.web3j"   % "core"   % web3jVersion exclude ("org.bouncycastle", "bcprov-jdk15on")
 
   val toml = "com.electronwill.night-config" % "toml" % "3.4.2"
 

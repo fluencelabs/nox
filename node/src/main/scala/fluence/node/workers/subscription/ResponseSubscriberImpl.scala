@@ -67,14 +67,16 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
    *
    */
   override def start(): Resource[F, Unit] =
-    log.scope(("requestResponder", "subscribeForWaitingRequests")) { implicit log =>
+    log.scope("responseSubscriber") { implicit log =>
       for {
         lastHeight <- Resource.liftF(
           backoff.retry(tendermint.consensusHeight(), e => log.error("retrieving consensus height", e))
         )
         _ <- Log.resource.info("Creating subscription for tendermint blocks")
         blockStream = tendermint.subscribeNewBlock(lastHeight)
-        pollingStream = blockStream.evalMap(_ => pollResponses(tendermint))
+        pollingStream = blockStream
+          .evalTap(b => log.debug(s"got block ${b.header.height}"))
+          .evalMap(_ => pollResponses(tendermint))
         _ <- MakeResource.concurrentStream(pollingStream)
       } yield ()
     }
@@ -117,8 +119,8 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
   ): F[List[(ResponsePromise[F], TendermintQueryResponse)]] = {
     import cats.syntax.parallel._
     import cats.syntax.list._
-    log.scope("requestResponder" -> "queryResponses", "app" -> appId.toString) { implicit log =>
-      log.trace(s"Polling ${promises.size} promises") *>
+    log.scope("responseSubscriber" -> "queryResponses", "app" -> appId.toString) { implicit log =>
+      log.debug(s"Polling ${promises.size} promises") >> log.trace(s"promises: ${promises.map(_.id).mkString(" ")}") >>
         promises.map { responsePromise =>
           tendermint
             .query(responsePromise.id.toString, id = "dontcare")

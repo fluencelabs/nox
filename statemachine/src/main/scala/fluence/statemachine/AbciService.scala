@@ -16,6 +16,7 @@
 
 package fluence.statemachine
 
+import cats.data.State
 import cats.effect.Effect
 import cats.effect.concurrent.Ref
 import cats.instances.option._
@@ -24,7 +25,7 @@ import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.option._
-import cats.{Applicative, Monad, Traverse}
+import cats.{Applicative, Eval, Monad, Traverse}
 import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
@@ -76,7 +77,7 @@ class AbciService[F[_]: Monad: Effect](
           // Invoke
           vm.invoke(tx.data.value)
             // Save the tx response to AbciState
-            .semiflatMap(value ⇒ AbciState.putResponse[F](tx.head, value).map(_ ⇒ txs).run(st).map(Left(_)))
+            .semiflatMap(result ⇒ AbciState.putResponse[F](tx.head, result.output).map(_ ⇒ txs).run(st).map(Left(_)))
             .leftSemiflatMap(err ⇒ Log[F].error(s"VM invoke failed: $err for tx: $tx").as(err))
             .getOrElse(Right(st)) // TODO do not ignore vm error
 
@@ -159,7 +160,7 @@ class AbciService[F[_]: Monad: Effect](
             QueryResponse(
               state.height,
               Array.emptyByteArray,
-              QueryCode.NotFound.id,
+              QueryCode.NotFound,
               s"Cannot parse query path: $path, must be in `sessionId/nonce` format"
           )
         )
@@ -169,7 +170,7 @@ class AbciService[F[_]: Monad: Effect](
         state.get.map { st ⇒
           st.responses.find(_._1 == head) match {
             case Some((_, data)) ⇒
-              QueryResponse(st.height, data, QueryCode.Ok.id, s"Responded for path $path")
+              QueryResponse(st.height, data, QueryCode.Ok, s"Responded for path $path")
 
             case _ ⇒
               // Is it pending or unknown?
@@ -177,14 +178,14 @@ class AbciService[F[_]: Monad: Effect](
                 QueryResponse(
                   st.height,
                   Array.emptyByteArray,
-                  QueryCode.Pending.id,
+                  QueryCode.Pending,
                   s"Transaction is not yet processed: $path"
                 )
               else
                 QueryResponse(
                   st.height,
                   Array.emptyByteArray,
-                  QueryCode.NotFound.id,
+                  QueryCode.NotFound,
                   s"No response found for path: $path"
                 )
           }
@@ -201,10 +202,12 @@ class AbciService[F[_]: Monad: Effect](
       .semiflatMap { tx =>
         // TODO we have different logic in checkTx and deliverTx, as only in deliverTx tx might be dropped due to pending txs overflow
         // Update the state with a new tx
-        state.modifyState(AbciState.addTx(tx)).map(_ -> tx)
+        state.modifyState(AbciState.addTx[Eval](tx).transform((s, c) => (s, (c, s.height)))).map {
+          case (code, height) => (code, tx, height)
+        }
       }
       .fold(TxResponse(TxCode.BAD, s"Cannot parse transaction header")) {
-        case (code, tx) =>
+        case (code, tx, height) =>
           val infoMessage = code match {
             case TxCode.OK ⇒ s"Delivered"
             case TxCode.QueueDropped ⇒ s"Queue dropped due to being full with pending txs; next nonce should be 0"
@@ -213,7 +216,7 @@ class AbciService[F[_]: Monad: Effect](
             case TxCode.BAD ⇒ s"Cannot parse transaction"
           }
 
-          TxResponse(code, s"$infoMessage\n${tx.head}")
+          TxResponse(code, s"$infoMessage\n${tx.head}", Some(height))
       }
 
   /**
@@ -226,18 +229,15 @@ class AbciService[F[_]: Monad: Effect](
       case Some(tx) ⇒
         state.get
           .map(
-            !_.sessions.data
-              .get(tx.head.session)
-              .exists(_.nextNonce > tx.head.nonce)
+            state =>
+              if (!state.sessions.data
+                    .get(tx.head.session)
+                    .exists(_.nextNonce > tx.head.nonce)) {
+                TxResponse(TxCode.OK, s"Parsed transaction head\n${tx.head}", state.height.some)
+              } else {
+                TxResponse(TxCode.AlreadyProcessed, s"Transaction is already processed\n${tx.head}", state.height.some)
+            }
           )
-          .map {
-            case true ⇒
-              // Session is unknown, or nonce is valid
-              TxResponse(TxCode.OK, s"Parsed transaction head\n${tx.head}")
-            case false ⇒
-              // Invalid nonce -- misorder
-              TxResponse(TxCode.AlreadyProcessed, s"Transaction is already processed\n${tx.head}")
-          }
       case None ⇒
         Applicative[F].pure(TxResponse(TxCode.BAD, s"Cannot parse transaction header"))
     }
@@ -261,7 +261,7 @@ object AbciService {
    * @param code response code
    * @param info response message
    */
-  case class QueryResponse(height: Long, result: Array[Byte], code: Int, info: String)
+  case class QueryResponse(height: Long, result: Array[Byte], code: QueryCode.Value, info: String)
 
   /**
    * A structure for aggregating data specific to building `CheckTx`/`DeliverTx` ABCI response.
@@ -269,7 +269,7 @@ object AbciService {
    * @param code response code
    * @param info response message
    */
-  case class TxResponse(code: TxCode.Value, info: String)
+  case class TxResponse(code: TxCode.Value, info: String, height: Option[Long] = None)
 
   /**
    * Build an empty AbciService for the vm. App hash is empty!

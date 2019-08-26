@@ -26,8 +26,9 @@ import fluence.effects.ethclient.EthClient
 import fluence.node.eth.{FluenceContract, NodeEthState}
 import fluence.node.status.MasterStatus
 import fluence.node.workers.status.WorkerStatus
-import org.scalatest.{Timer ⇒ _, _}
+import org.scalatest.{Timer => _, _}
 import eth.FluenceContractTestOps._
+import fluence.Eventually
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.FluenceContractConfig
 
@@ -216,7 +217,7 @@ class MasterNodeIntegrationSpec
       }
 
     "sync their workers with contract clusters" in {
-      val basePort: Short = 25000
+      val basePort: Short = 20000
 
       withEthSttpAndTwoMasters(basePort).use {
         case (e, s) =>
@@ -230,7 +231,7 @@ class MasterNodeIntegrationSpec
     }
 
     "stop workers on AppDelete event" in {
-      deleteApp(26000).unsafeRunSync()
+      deleteApp(21000).unsafeRunSync()
     }
   }
 }

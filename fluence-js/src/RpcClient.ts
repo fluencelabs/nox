@@ -18,13 +18,16 @@ import axios, {AxiosPromise, AxiosRequestConfig} from 'axios';
 import {QueryResponse} from './Result';
 import {BroadcastTxSyncResponse} from './TendermintClient';
 
-interface TendermintJsonRpcResponse<T = any> {
+const RpcRequestTimeoutMs = 10000; // 10 sec timeout by default
+
+export interface TendermintJsonRpcResponse<T = any> {
     id: any;
     jsonrpc: string;
     result: T;
+    error: any;
 }
 
-interface AbciQueryResult {
+export interface AbciQueryResult {
     response: QueryResponse;
 }
 
@@ -37,8 +40,13 @@ export class RpcClient {
     constructor(addr: string, appId: string) {
         this.url = `${addr}/apps/${appId}`;
         this.config = {
-            timeout: 5000, // 5 sec timeout by default
+            timeout: RpcRequestTimeoutMs,
         };
+    }
+
+    txWaitResponse(tx: string): AxiosPromise<TendermintJsonRpcResponse<AbciQueryResult>> {
+        let url = `${this.url}/txWaitResponse`;
+        return axios.post(url, tx, this.config)
     }
 
     broadcastTxSync(tx: string): AxiosPromise<TendermintJsonRpcResponse<BroadcastTxSyncResponse>> {

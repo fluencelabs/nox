@@ -41,9 +41,9 @@ object HelloWorldRunner extends IOApp {
       vm ← WasmVm[IO](NonEmptyList.one(inputFile), MemoryHasher[IO], "fluence.vm.debugger")
       initState ← vm.getVmState[IO]
 
-      result1 ← vm.invoke[IO](None, "John".getBytes())
-      result2 ← vm.invoke[IO](None, "".getBytes())
-      result3 ← vm.invoke[IO](None, "Peter".getBytes())
+      result1 ← vm.invoke[IO]("John".getBytes())
+      result2 ← vm.invoke[IO]("".getBytes())
+      result3 ← vm.invoke[IO]("Peter".getBytes())
 
       finishState <- vm.getVmState[IO].toVmError
     } yield {
@@ -64,9 +64,9 @@ object HelloWorldRunner extends IOApp {
 
       s"[SUCCESS] Execution Results.\n" +
         s"initState=$initState \n" +
-        s"result1=${new String(result1)} \n" +
-        s"result2=${new String(result2)} \n" +
-        s"result3=${new String(result3)} \n" +
+        s"result1=${new String(result1.output)} \n" +
+        s"result2=${new String(result2.output)} \n" +
+        s"result3=${new String(result3.output)} \n" +
         s"finishState=$finishState"
     }
 

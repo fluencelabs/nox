@@ -28,7 +28,6 @@ import cats.syntax.apply._
 import cats.syntax.compose._
 import cats.syntax.flatMap._
 import cats.syntax.traverse._
-import fluence.EitherTSttpBackend
 import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.effects.castore.StoreError
@@ -59,6 +58,8 @@ import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
 import fluence.statemachine.{AbciService, TestTendermintRpc}
+import fluence.vm.InvocationResult
+import fluence.{EitherTSttpBackend, Eventually}
 import fs2.concurrent.Queue
 import io.circe.Json
 import io.circe.parser.parse
@@ -121,8 +122,8 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
 
   private def abciService(controlSignals: ControlSignals[IO]) = {
     val vmInvoker = new VmOperationInvoker[IO] {
-      override def invoke(arg: Array[Byte]): EitherT[IO, StateMachineError, Array[Byte]] =
-        EitherT.rightT(Array.empty)
+      override def invoke(arg: Array[Byte]): EitherT[IO, StateMachineError, InvocationResult] =
+        EitherT.rightT(InvocationResult(Array.empty, 0))
 
       override def vmStateHash(): EitherT[IO, StateMachineError, ByteVector] =
         EitherT.pure(ByteVector.empty)
@@ -258,7 +259,7 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
 
             commitBlock *> sendBlockToSubscription *> checkState
           }
-      }.unsafeRunSync()
+      }.unsafeRunTimed(10.seconds)
     }
   }
 }
