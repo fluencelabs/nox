@@ -32,6 +32,11 @@ import scala.language.higherKinds
 trait TendermintWebsocketRpc[F[_]] {
 
   /**
+   * Config for the underlying websocket
+   */
+  val websocketConfig: WebsocketConfig
+
+  /**
    * Subscribe on new blocks from Tendermint, retrieves missing blocks and keeps them in order
    *
    * @param lastKnownHeight Height of the block that was already processed (uploaded, and its receipt stored)

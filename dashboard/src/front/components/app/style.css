@@ -52,6 +52,16 @@ html,body {
     }
 }
 
+/* Fix for header padding */
+@media (max-width: 427px) {
+    .main-sidebar {
+        padding-top: 150px;
+    }
+}
+.navbar-custom-menu {
+    max-height: 100px;
+}
+
 .content-wrapper {
     flex: 1 1 auto;
     margin-left: 460px;

@@ -32,14 +32,14 @@ import cats.syntax.functor._
 import cats.{Applicative, Apply, Parallel}
 import com.softwaremill.sttp.SttpBackend
 import fluence.codec.PureCodec
-import fluence.effects.{Backoff, EffectError}
 import fluence.effects.docker.DockerIO
 import fluence.effects.kvstore.RocksDBStore
 import fluence.effects.receipt.storage.ReceiptStorage
+import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
+import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.log.LogLevel.LogLevel
 import fluence.node.MakeResource
-import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.block.BlockUploading
 
 import scala.concurrent.duration._
@@ -57,8 +57,9 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
   // TODO: it's not OK to have blockUploading here, it should be moved somewhere else
   blockUploading: BlockUploading[F],
   appReceiptStorage: Long ⇒ Resource[F, ReceiptStorage[F]],
+  websocketConfig: WebsocketConfig,
   healthyWorkerTimeout: FiniteDuration = 1.second,
-  stopTimeoutSeconds: Int = 5
+  stopTimeoutSeconds: Int = 5,
 )(
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
   F: ConcurrentEffect[F],
@@ -126,7 +127,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
         } yield p
       )
 
-      services ← DockerWorkerServices.make[F, G](ps, p2pPort, stopTimeout, logLevel, receiptStorage)
+      services ← DockerWorkerServices.make[F, G](ps, p2pPort, stopTimeout, logLevel, receiptStorage, websocketConfig)
 
       worker ← Worker.make(
         ps.appId,
@@ -269,6 +270,7 @@ object DockerWorkersPool {
     rootPath: Path,
     appReceiptStorage: Long ⇒ Resource[F, ReceiptStorage[F]],
     workerLogLevel: LogLevel,
+    websocketConfig: WebsocketConfig,
     blockUploading: BlockUploading[F]
   )(
     implicit
@@ -282,7 +284,13 @@ object DockerWorkersPool {
       pool ← Resource.make {
         for {
           workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
-        } yield new DockerWorkersPool[F, G](ports, workers, workerLogLevel, blockUploading, appReceiptStorage)
+        } yield
+          new DockerWorkersPool[F, G](ports,
+                                      workers,
+                                      workerLogLevel,
+                                      blockUploading,
+                                      appReceiptStorage,
+                                      websocketConfig)
       }(_.stopAll())
     } yield pool: WorkersPool[F]
 

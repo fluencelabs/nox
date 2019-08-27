@@ -188,7 +188,7 @@ object WorkersHttp {
               w =>
                 workerApi
                   .sendTx(w, tx, id)
-                  .flatTap(r => log.debug(s"tx.head: ${tx.takeWhile(_ != '\n')} $r"))
+                  .flatTap(r => log.debug(s"tx.head: ${tx.takeWhile(_ != '\n')}"))
                   .flatMap(tendermintResponseToHttp(appId, _))
             )
           }

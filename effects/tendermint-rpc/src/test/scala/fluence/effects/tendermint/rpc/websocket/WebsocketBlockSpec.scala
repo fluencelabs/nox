@@ -67,6 +67,7 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
   def websocket(heights: List[Long], events: List[Event]) = {
     def ws(consensusHeights: Ref[IO, List[Long]], events: List[Event], state: Ref[IO, ExecutionState]) =
       new TendermintWebsocketRpcImpl[IO] with TestTendermintRpc[IO] {
+        override val websocketConfig: WebsocketConfig = WebsocketConfig()
         override val host: String = "WebsocketBlockSpecNonExistingHost"
         override val port: Int = 3333333
 
