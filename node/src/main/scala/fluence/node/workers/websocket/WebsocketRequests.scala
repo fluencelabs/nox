@@ -17,7 +17,8 @@ object WebsocketRequests {
   case class StatusRequest(requestId: String) extends WebsocketRequest
 
   object WebsocketRequest {
-    implicit val conf: Configuration = Configuration.default.withDiscriminator("type").withSnakeCaseConstructorNames
+    implicit val conf: Configuration =
+      Configuration.default.withDiscriminator("type").withSnakeCaseConstructorNames.withSnakeCaseMemberNames
 
     implicit val websocketRequestDecoder: Decoder[WebsocketRequest] = deriveDecoder[WebsocketRequest]
     implicit val websocketRequestEncoder: Encoder[WebsocketRequest] = deriveEncoder[WebsocketRequest]

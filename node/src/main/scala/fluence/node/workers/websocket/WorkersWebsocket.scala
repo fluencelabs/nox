@@ -15,21 +15,19 @@ class WorkersWebsocket[F[_]: Monad: Log](worker: Worker[F], workerApi: WorkerApi
   import WebsocketRequests._
   import WebsocketResponses._
 
-  def parseAndProcess(input: String): F[String] = {
+  def processRequest(input: String): F[String] = {
     val result = for {
       request <- EitherT
-        .fromEither(parse(input).flatMap(j => j.as[WebsocketRequest]))
-      response <- EitherT.liftF[F, io.circe.Error, WebsocketResponse](process(request))
-    } yield {
-      response
-    }
+        .fromEither(parse(input).flatMap(_.as[WebsocketRequest]))
+      response <- EitherT.liftF[F, io.circe.Error, WebsocketResponse](callApi(request))
+    } yield response
     result.value.map {
       case Right(v)    => v
       case Left(error) => ErrorResponse("", s"Cannot parse msg. Error: $error, msg: $input")
     }.map(_.asJson.spaces4)
   }
 
-  def process(input: WebsocketRequest): F[WebsocketResponse] = {
+  private def callApi(input: WebsocketRequest): F[WebsocketResponse] = {
     input match {
       case TxRequest(tx, id, requestId) =>
         workerApi.sendTx(worker, tx, id).map {
@@ -48,9 +46,9 @@ class WorkersWebsocket[F[_]: Monad: Log](worker: Worker[F], workerApi: WorkerApi
             case Right(OkResponse(_, response))    => TxWaitResponse(requestId, response)
             case Right(RpcErrorResponse(_, error)) => ErrorResponse(requestId, error.getMessage)
             case Right(TimedOutResponse(_, tries)) =>
-              ErrorResponse(requestId, s"Cannot get response after $tries tries")
+              ErrorResponse(requestId, s"Cannot get response after $tries generated blocks")
             case Right(PendingResponse(_)) => ErrorResponse(requestId, s"Unexpected error.")
-            case Left(error)               => ErrorResponse(requestId, error.toString)
+            case Left(error)               => ErrorResponse(requestId, error.msg)
           }
       case LastManifestRequest(requestId) =>
         workerApi.lastManifest(worker).map(block => LastManifestResponse(requestId, block.map(_.jsonString)))
@@ -62,4 +60,10 @@ class WorkersWebsocket[F[_]: Monad: Log](worker: Worker[F], workerApi: WorkerApi
       case P2pPortRequest(requestId) => workerApi.p2pPort(worker).map(port => P2pPortResponse(requestId, port))
     }
   }
+}
+
+object WorkersWebsocket {
+
+  def apply[F[_]: Monad: Log](worker: Worker[F], workerApi: WorkerApi): WorkersWebsocket[F] =
+    new WorkersWebsocket[F](worker, workerApi)
 }

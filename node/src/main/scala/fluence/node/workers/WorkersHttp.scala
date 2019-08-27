@@ -137,7 +137,7 @@ object WorkersHttp {
             val echoReply: fs2.Pipe[F, WebSocketFrame, WebSocketFrame] =
               _.evalMap {
                 case Text(msg, _) =>
-                  websocket.parseAndProcess(msg).map(Text(_))
+                  websocket.processRequest(msg).map(Text(_))
                 case _ => Text("Something new").pure[F]
               }
 
