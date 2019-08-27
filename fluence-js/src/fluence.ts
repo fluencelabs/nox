@@ -38,14 +38,7 @@ export interface WorkerSession {
     node: Node
 }
 
-/**
- * Creates a connection with an app (all nodes hosting an app)
- * @param contract Contract address to read app's nodes list from
- * @param appId Target app
- * @param ethereumUrl Optional ethereum node url. Connect via Metamask if `ethereumlUrl` is undefined
- * @param privateKey Optional private key to sign requests. Signature is concatenated to the request payload.
- */
-export async function connect(contract: string, appId: string, ethereumUrl?: string, privateKey?: Buffer | string): Promise<AppSession> {
+function convertPrivateKey(privateKey?: Buffer | string): undefined | Buffer {
     if (privateKey != undefined && typeof privateKey == 'string') {
         privateKey = Buffer.from(remove0x(privateKey), "hex");
     }
@@ -55,6 +48,20 @@ export async function connect(contract: string, appId: string, ethereumUrl?: str
             throw Error("Private key is invalid");
         }
     }
+
+    return privateKey
+}
+
+/**
+ * Creates a connection with an app (all nodes hosting an app)
+ * @param contract Contract address to read app's nodes list from
+ * @param appId Target app
+ * @param ethereumUrl Optional ethereum node url. Connect via Metamask if `ethereumlUrl` is undefined
+ * @param privateKey Optional private key to sign requests. Signature is concatenated to the request payload.
+ */
+export async function connect(contract: string, appId: string, ethereumUrl?: string, privateKey?: Buffer | string): Promise<AppSession> {
+
+    privateKey = convertPrivateKey(privateKey);
 
     let nodes: Node[] = await getAppNodes(contract, appId, ethereumUrl);
     let sessionId = Session.genSessionId();
@@ -86,8 +93,9 @@ function sessionConnect(host: string, port: number, appId: string, sessionId?: s
 /**
  * Creates app session with one node.
  */
-export function directConnect(host: string, port: number, appId: string, sessionId?: string) {
+export function directConnect(host: string, port: number, appId: string, sessionId?: string, privateKey?: Buffer | string) {
     let session = sessionConnect(host, port, appId, sessionId);
+    privateKey = convertPrivateKey(privateKey);
 
     let sessions: WorkerSession[] = [
         {
@@ -97,5 +105,5 @@ export function directConnect(host: string, port: number, appId: string, session
         }
     ];
 
-    return new AppSession(session.session, appId, sessions, undefined);
+    return new AppSession(session.session, appId, sessions, privateKey);
 }

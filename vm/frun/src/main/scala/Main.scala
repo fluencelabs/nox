@@ -44,18 +44,20 @@ object Main extends IOApp {
   // apps/1/query?path=kALX917gZsqm%2F0&data=
   def routes(handler: TxProcessor[IO]): HttpRoutes[IO] = HttpRoutes.of[IO] {
     case req @ POST -> Root / "apps" / LongVar(appId) / "tx" ⇒
-      logFactory.init("apps/tx").flatMap { implicit log: Log[IO] ⇒
-        log.info(s"Tx request. appId: $appId") *>
-          req.decode[String] { input ⇒
-            val (path, tx) = {
-              val (p, txn) = input.span(_ != '\n')
-              (p, txn.tail)
-            }
-            log.info(s"Tx: '$tx'") *>
-              handler
-                .processTx(Tx(appId, path, tx))
-                .handleErrorWith(e => log.error("Error on processing tx", e) *> BadRequest(e.getMessage))
+      logFactory.init("apps/tx" -> "", "appId" -> appId.toString).flatMap { implicit log: Log[IO] ⇒
+        req.decode[String] { input ⇒
+          val (path, tx) = {
+            val (p, txn) = input.span(_ != '\n')
+            (p, txn.tail)
           }
+          log.scope("tx.head" -> path)(
+            log =>
+              log.info(s"Tx: '$tx'") *>
+                handler
+                  .processTx(Tx(appId, path, tx))(log)
+                  .handleErrorWith(e => log.error(s"Error on processing tx $tx", e) *> BadRequest(e.getMessage))
+          )
+        }
       }
 
     case GET -> Root / "apps" / LongVar(appId) / "query" :? QueryPath(path) +& QueryData(data) ⇒
