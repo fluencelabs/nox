@@ -21,7 +21,6 @@ import cats.effect.concurrent.{Deferred, MVar, Ref}
 import cats.effect.syntax.effect._
 import cats.syntax.applicative._
 import cats.syntax.applicativeError._
-import cats.syntax.apply._
 import cats.syntax.compose._
 import cats.syntax.either._
 import cats.syntax.flatMap._
@@ -47,16 +46,15 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
   queue: Queue[F, Event],
   disconnected: Deferred[F, WebsocketRpcError],
   websocketP: Deferred[F, WebSocket],
-  pong: MVar[F, Unit]
+  pong: MVar[F, Unit],
+  config: WebsocketConfig
 )(implicit log: Log[F])
     extends WebSocketListener {
 
   private def startPinging(ws: WebSocket) = {
-    // TODO: move to config
-    val period = 1.second
+    import config.{pingTimeout => timeout, pingInterval}
+
     def pingOrCloseAsync: F[Unit] = {
-      // TODO: move to config
-      val timeout = 3.seconds
       val sendPing = ws.sendPingFrame().asAsync >> log.debug("ping sent")
       val sendPingWaitPong = pong.tryTake >> sendPing >> pong.take >> log.debug("pong received")
 
@@ -67,7 +65,7 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
       Concurrent[F].race(closeAfterTimeout, sendPingWaitPong)
     }.flatMap {
       case Left(_)  => ().pure[F]
-      case Right(_) => Timer[F].sleep(period) >> pingOrCloseAsync
+      case Right(_) => Timer[F].sleep(pingInterval) >> pingOrCloseAsync
     }.void
 
     def stopPinging(fiber: Fiber[F, _]) = Concurrent[F].start(disconnected.get >> fiber.cancel)
@@ -169,11 +167,12 @@ object WsListener {
     wsUrl: String,
     payloadAccumulator: Ref[F, String],
     queue: Queue[F, Event],
-    disconnected: Deferred[F, WebsocketRpcError]
+    disconnected: Deferred[F, WebsocketRpcError],
+    config: WebsocketConfig
   )(implicit log: Log[F]): F[WsListener[F]] =
     for {
       websocketP <- Deferred[F, WebSocket]
       pong <- MVar.empty[F, Unit]
-      wsListener = new WsListener(wsUrl, payloadAccumulator, queue, disconnected, websocketP, pong)
+      wsListener = new WsListener(wsUrl, payloadAccumulator, queue, disconnected, websocketP, pong, config)
     } yield wsListener
 }

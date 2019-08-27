@@ -240,11 +240,11 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: 
       _ =>
         for {
           // Ref to accumulate payload frames (websocket allows to split single message into several)
-          ref <- Ref.of[F, String]("")
+          messageAccumulator <- Ref.of[F, String]("")
           // promise will be completed by exception when socket is disconnected
           promise <- Deferred[F, WebsocketRpcError]
           // keep connecting until success
-          connectSocket = wsHandler(ref, queue, promise) >>= socket
+          connectSocket = wsHandler(messageAccumulator, queue, promise) >>= socket
           _ <- log.debug(s"Tendermint WRPC: $wsUrl started connecting")
           websocket <- backoff.retry(connectSocket, logConnectionError)
           _ <- onConnect(websocket)
@@ -277,7 +277,7 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: 
     disconnected: Deferred[F, WebsocketRpcError]
   )(implicit log: Log[F]): EitherT[F, ConnectionFailed, WebSocketUpgradeHandler] =
     EitherT.liftF(
-      WsListener[F](wsUrl, payloadAccumulator, queue, disconnected).map(
+      WsListener[F](wsUrl, payloadAccumulator, queue, disconnected, websocketConfig).map(
         new WebSocketUpgradeHandler.Builder()
           .addWebSocketListener(_)
           .build()

@@ -140,6 +140,7 @@ object MasterNodeApp extends IOApp {
         rootPath,
         appReceiptStorage,
         conf.logLevel,
+        conf.websocket,
         // TODO: use generic decentralized storage for block uploading instead of IpfsUploader
         blockUploading
       )
