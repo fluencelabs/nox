@@ -32,7 +32,7 @@ import fluence.effects.syntax.backoff._
 import fluence.effects.syntax.eitherT._
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc.helpers.NettyFutureConversion._
-import fluence.effects.tendermint.rpc.http.{RpcBlockParsingFailed, TendermintHttpRpc}
+import fluence.effects.tendermint.rpc.http.{RpcBlockParsingFailed, RpcError, TendermintHttpRpc}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fs2.concurrent.Queue
@@ -40,6 +40,7 @@ import io.circe.Json
 import org.asynchttpclient.Dsl._
 import org.asynchttpclient.netty.ws.NettyWebSocket
 import org.asynchttpclient.ws.{WebSocket, WebSocketUpgradeHandler}
+import fluence.effects.tendermint.block.history.db.Blockstore
 
 import scala.language.higherKinds
 
@@ -129,19 +130,19 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
     def warnIf(cond: => Boolean, msg: String) = if (cond) log.warn(msg) else ().pure[F]
     for {
       // retrieve height from Tendermint
-      consensusHeight <- backoff.retry(self.consensusHeight(), e => log.error("retrieving consensus height", e))
+      lastHeight <- backoff.retry(getLastHeight, e => log.error("retrieving consensus height", e))
       _ <- traceBU(
-        s"reconnect. startHeight $startHeight consensusHeight $consensusHeight " +
-          s"cond1: ${consensusHeight == startHeight}, cond2: ${startHeight == consensusHeight - 1}"
+        s"reconnect. startHeight $startHeight lastHeight $lastHeight " +
+          s"cond1: ${lastHeight == startHeight}, cond2: ${startHeight == lastHeight - 1}"
       )
-      (height, block) <- if (consensusHeight >= startHeight) {
+      (height, block) <- if (lastHeight >= startHeight) {
         // we're behind last block, load all blocks up to it
-        loadBlocks(startHeight, consensusHeight).map(bs => (consensusHeight + 1, bs))
+        loadBlocks(startHeight, lastHeight).map(bs => (lastHeight + 1, bs))
       } else {
         warnIf(
           // shouldn't happen, could mean that we have invalid blocks saved in storage
-          startHeight > consensusHeight + 1,
-          s"unexpected state: startHeight $startHeight > consensusHeight $consensusHeight + 1. " +
+          startHeight > lastHeight + 1,
+          s"unexpected state: startHeight $startHeight > lastHeight $lastHeight + 1. " +
             s"Consensus travelled back in time?"
         ) as
           // we're all caught up, start waiting for a new block (i.e., JsonEvent)
@@ -184,6 +185,8 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
     implicit log: Log[F],
     backoff: Backoff[EffectError]
   ) = Traverse[List].sequence((from to to).map(loadBlock).toList)
+
+  private def getLastHeight: EitherT[F, EffectError, Long] = Blockstore.getStorageHeight[F] // self.consensusHeight()
 
   /**
    * Subscribes to the specified event type

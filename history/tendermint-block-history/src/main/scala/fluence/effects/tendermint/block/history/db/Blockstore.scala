@@ -76,6 +76,9 @@ case class GetBlockError(message: String, height: Long) extends BlockstoreError 
 case class SymlinkCreationError(cause: Throwable, target: String) extends BlockstoreError with WithCause[Throwable] {
   override def toString: String = s"SymlinkCreationError: error creating symlink for $target: $cause"
 }
+case class RetrievingStorageHeightError(cause: Throwable) extends EffectError {
+  override def toString: String = s"RetrievingStorageHeightError: $cause"
+}
 
 /**
  * Read blocks from blockstore.db which is at
@@ -183,11 +186,11 @@ object Blockstore extends IOApp {
 
   import io.circe.parser.parse
 
-  def getStorageHeight[F[_]: Monad: Log](kv: KVStore[F, Array[Byte], Array[Byte]]): EitherT[F, Throwable, Int] =
-    for {
+  def getStorageHeight[F[_]: Monad: Log](kv: KVStore[F, Array[Byte], Array[Byte]]): EitherT[F, EffectError, Int] =
+    (for {
       heightJsonBytes <- kv.get(BlockStoreHeightKey).flatMap(getOr("blockStore height wasn't found", -1)(_))
       height <- EitherT.fromEither[F](
         Try(new String(heightJsonBytes)).toEither >>= parse >>= (_.hcursor.get[Int]("height"))
       )
-    } yield height
+    } yield height).leftMap(RetrievingStorageHeightError)
 }
