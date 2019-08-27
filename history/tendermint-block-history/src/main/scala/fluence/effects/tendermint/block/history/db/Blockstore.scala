@@ -21,7 +21,7 @@ import java.util.UUID
 
 import cats.{Functor, Monad, Traverse}
 import cats.data.EitherT
-import cats.effect.{ExitCode, IO, IOApp, Resource, Sync}
+import cats.effect.{ContextShift, ExitCode, IO, IOApp, LiftIO, Resource, Sync}
 import cats.instances.either._
 import cats.instances.list._
 import cats.syntax.applicativeError._
@@ -32,7 +32,8 @@ import cats.syntax.traverse._
 import cats.syntax.flatMap._
 import cats.syntax.foldable._
 import fluence.effects.kvstore.{KVStore, RocksDBStore}
-import fluence.effects.tendermint.block.protobuf.Protobuf
+import fluence.effects.tendermint.block.TendermintBlock
+import fluence.effects.tendermint.block.protobuf.{Protobuf, ProtobufConverter}
 import fluence.effects.{EffectError, WithCause}
 import fluence.log.Log.Aux
 import fluence.log.appender.PrintlnLogAppender
@@ -41,6 +42,7 @@ import proto3.tendermint.{Block, BlockMeta, BlockPart}
 
 import scala.collection.JavaConverters._
 import scala.language.higherKinds
+import scala.util.Try
 
 // Here's how different data is stored in blockstore.db
 /*
@@ -61,6 +63,20 @@ func calcSeenCommitKey(height int64) []byte {
 }
  */
 
+trait BlockstoreError extends EffectError
+case class DbNotFound(path: String) extends BlockstoreError {
+  override def toString: String = s"DbNotFound: can't find leveldb database at path $path: path doesn't exist"
+}
+case object NoTmpDirPropertyError extends BlockstoreError {
+  override def toString: String = "NoTmpDirPropertyError: java.io.tmpdir is empty"
+}
+case class GetBlockError(message: String, height: Long) extends BlockstoreError {
+  override def toString: String = s"GetBlockError: $message on block $height"
+}
+case class SymlinkCreationError(cause: Throwable, target: String) extends BlockstoreError with WithCause[Throwable] {
+  override def toString: String = s"SymlinkCreationError: error creating symlink for $target: $cause"
+}
+
 /**
  * Read blocks from blockstore.db which is at
  * `~.fluence/app-89-3/tendermint/data/blockstore.db`
@@ -73,49 +89,46 @@ object Blockstore extends IOApp {
       .flatMap { implicit log =>
         val name =
           "/Users/folex/Development/fluencelabs/fluence-main/history/tendermint-block-history/src/main/scala/fluence/effects/tendermint/block/history/db/blockstore.db"
-        createSymlinks[IO](name)
-          .flatMap(
-            dbPath =>
-              Log.resource[IO].info(s"Opening DB at $dbPath") *>
-                Traverse[Either[BlockstoreError, *]].sequence(
-                  dbPath.map(p => RocksDBStore.makeRaw[IO](p.toString, createIfMissing = false, readOnly = false))
-              )
+        createKV[IO](name).use { e =>
+          Traverse[Either[BlockstoreError, *]].sequence(
+            e.map { kvStore =>
+              getStorageHeight(kvStore)
+                .flatMap(h => (1 to h).toList.traverse(getBlock(kvStore, _)))
+                .flatTap(
+                  _.traverse(
+                    v =>
+                      Log
+                        .eitherT[IO, Throwable]
+                        .info(
+//                            s"${v} ${v.data}\n\n" +
+//                            s"${ProtobufConverter.fromProtobuf(v)}\n\n" +
+                          s"${v.header.get.height} => ${ProtobufConverter.fromProtobuf(v).flatMap(TendermintBlock(_).validateHashes()).fold(e => s"FAIL: $e", _ => "OK")}"
+                      )
+                  )
+                )
+                .value
+            }
           )
-          .use { e =>
-            Traverse[Either[BlockstoreError, *]].sequence(
-              e.map { kvStore =>
-                kvStore.stream.evalMap {
-                  case (k, v) => IO((new String(k), new String(v)))
-                }.evalTap {
-                  case (k, v) => IO.unit //log.info(s"k: $k")
-                }.compile.toList *>
-                  getBlock(kvStore, 500).value.flatMap(v => log.info(s"value: ${v}")) *>
-                  kvStore.get(partKey(500, 0)).value.flatMap(v => log.info(s"part: ${v}"))
-              }
-            )
-          }
+        }
       }
       .map(_ => ExitCode.Success)
 
   def metaKey(height: Long) = s"H:$height".getBytes()
   def partKey(height: Long, index: Int) = s"P:$height:$index".getBytes()
 
-  trait BlockstoreError extends EffectError
-  case class DbNotFound(path: String) extends BlockstoreError {
-    override def toString: String = s"DbNotFound: can't find leveldb database at path $path: path doesn't exist"
-  }
-  case object NoTmpDirPropertyError extends BlockstoreError {
-    override def toString: String = "NoTmpDirPropertyError: java.io.tmpdir is empty"
-  }
-  case class GetBlockError(message: String, height: Long) extends BlockstoreError {
-    override def toString: String = s"GetBlockError: $message on block $height"
-  }
-  case class SymlinkCreationError(cause: Throwable, target: String) extends BlockstoreError with WithCause[Throwable] {
-    override def toString: String = s"SymlinkCreationError: error creating symlink for $target: $cause"
-  }
-
-  def getOr[T, F[_]: Monad](msg: String, height: Long)(opt: Option[T]): EitherT[F, Throwable, T] =
+  private def getOr[T, F[_]: Monad](msg: String, height: Long)(opt: Option[T]): EitherT[F, Throwable, T] =
     EitherT.fromOption(opt, GetBlockError(msg, height))
+
+  def createKV[F[_]: Log: Sync: LiftIO: ContextShift](
+    dir: String
+  ): Resource[F, Either[BlockstoreError, KVStore[F, Array[Byte], Array[Byte]]]] =
+    createSymlinks[F](dir).flatMap(
+      dbPath =>
+        Log.resource[F].debug(s"Opening DB at $dbPath") *>
+          Traverse[Either[BlockstoreError, *]].sequence(
+            dbPath.map(p => RocksDBStore.makeRaw[F](p.toString, createIfMissing = false, readOnly = true))
+        )
+    )
 
   def createSymlinks[F[_]: Monad](levelDbDir: String)(implicit F: Sync[F]): Resource[F, Either[BlockstoreError, Path]] =
     Resource.make(F.delay {
@@ -165,4 +178,16 @@ object Blockstore extends IOApp {
       }
       block <- EitherT.fromEither[F](Protobuf.decodeLengthPrefixed[Block](blockBytes))
     } yield block
+
+  val BlockStoreHeightKey = "blockStore".getBytes
+
+  import io.circe.parser.parse
+
+  def getStorageHeight[F[_]: Monad: Log](kv: KVStore[F, Array[Byte], Array[Byte]]): EitherT[F, Throwable, Int] =
+    for {
+      heightJsonBytes <- kv.get(BlockStoreHeightKey).flatMap(getOr("blockStore height wasn't found", -1)(_))
+      height <- EitherT.fromEither[F](
+        Try(new String(heightJsonBytes)).toEither >>= parse >>= (_.hcursor.get[Int]("height"))
+      )
+    } yield height
 }
