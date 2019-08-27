@@ -26,7 +26,7 @@ import fluence.effects.tendermint.block.TestData
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestFailed}
-import fluence.effects.tendermint.rpc.websocket.{TestTendermintRpc, TestTendermintWebsocketRpc}
+import fluence.effects.tendermint.rpc.websocket.{TestTendermintRpc, TestTendermintWebsocketRpc, WebsocketConfig}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 
@@ -39,6 +39,8 @@ class TendermintTest[F[_]: Timer: Monad](txRef: Ref[F, Either[RpcError, String]]
                                          blockStream: fs2.Stream[F, Block]) {
 
   val tendermint: TendermintRpc[F] = new TestTendermintRpc[F] with TestTendermintWebsocketRpc[F] {
+    override val websocketConfig: WebsocketConfig = WebsocketConfig()
+
     override def subscribeNewBlock(lastKnownHeight: Long)(implicit log: Log[F],
                                                           backoff: Backoff[EffectError]): fs2.Stream[F, Block] =
       blockStream
