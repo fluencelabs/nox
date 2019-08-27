@@ -143,7 +143,7 @@ class AbciService[F[_]: Monad: Effect](
 
       // Store vmHash, so master node could retrieve it
       _ <- if (blockUploadingEnabled) controlSignals.enqueueVmHash(blockHeight, vmHash) else ().pure[F]
-      _ <- traceBU(s"$blockHeight commit end")
+      _ <- log.info(s"$blockHeight commit end")
     } yield appHash
 
   /**

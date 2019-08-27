@@ -49,7 +49,7 @@ case class WebsocketServer[F[_]: ConcurrentEffect: Timer](
 
   def requests(): Stream[F, WebSocketFrame] = fromClient.dequeue.interruptWhen(signal)
   def send(frame: WebSocketFrame): F[Unit] = toClient.enqueue1(frame)
-  def close(): F[Unit] = toClient.enqueue1(Close()) >> signal.set(true)
+  def close(): F[Unit] = toClient.enqueue1(Close(1000, "server.close()").right.get) >> signal.set(true)
 
   def start(port: Int): Stream[F, ExitCode] =
     for {
