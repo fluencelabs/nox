@@ -17,6 +17,7 @@
 package fluence.node.config
 
 import cats.effect.IO
+import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
 import fluence.kad.conf.KademliaConfig
 import fluence.log.LogLevel
 import fluence.log.LogLevel.LogLevel
@@ -52,7 +53,8 @@ case class MasterConfig(
   tendermintConfig: TendermintConfig,
   kademlia: KademliaConfig,
   logLevel: LogLevel,
-  blockUploadingEnabled: Boolean
+  blockUploadingEnabled: Boolean,
+  websocket: WebsocketConfig
 )
 
 object MasterConfig {

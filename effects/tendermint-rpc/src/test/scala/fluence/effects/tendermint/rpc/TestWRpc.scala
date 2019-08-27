@@ -18,7 +18,7 @@ package fluence.effects.tendermint.rpc
 
 import cats.data.EitherT
 import cats.effect.concurrent.Deferred
-import cats.effect.{Concurrent, ConcurrentEffect, Timer}
+import cats.effect.{Concurrent, ConcurrentEffect, ContextShift, Timer}
 import cats.syntax.applicative._
 import cats.syntax.either._
 import cats.{Functor, Monad}
@@ -26,14 +26,17 @@ import fluence.effects.syntax.eitherT._
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.effects.tendermint.rpc.response.TendermintStatus
-import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpcImpl
+import fluence.effects.tendermint.rpc.websocket.{TendermintWebsocketRpcImpl, WebsocketConfig}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 
 import scala.language.higherKinds
 
-class TestWRpc[F[_]: ConcurrentEffect: Timer: Monad](override val host: String, override val port: Int)
+class TestWRpc[F[_]: ConcurrentEffect: Timer: Monad: ContextShift](override val host: String, override val port: Int)
     extends TendermintWebsocketRpcImpl[F] with TendermintRpc[F] {
+
+  override val websocketConfig: WebsocketConfig = WebsocketConfig()
+
   override def status: EitherT[F, RpcError, String] = throw new NotImplementedError("val status")
 
   override def statusParsed(implicit F: Functor[F]): EitherT[F, RpcError, TendermintStatus] =
@@ -90,7 +93,10 @@ class TestWRpc[F[_]: ConcurrentEffect: Timer: Monad](override val host: String, 
     fs2.Stream.eval(fiberF).flatMap {
       case (fiber, promise) =>
         val signal = promise.get.map(_ => ().asRight[Throwable])
-        super.subscribeNewBlock(lastKnownHeight).evalTap(_ => fiber.cancel).interruptWhen(signal)
+        super
+          .subscribeNewBlock(lastKnownHeight)
+          .evalTap(_ => fiber.cancel)
+          .interruptWhen(signal)
     }
   }
 }

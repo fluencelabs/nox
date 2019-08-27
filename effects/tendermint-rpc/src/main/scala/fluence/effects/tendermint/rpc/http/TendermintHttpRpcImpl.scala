@@ -17,7 +17,7 @@
 package fluence.effects.tendermint.rpc.http
 
 import cats.data.EitherT
-import cats.effect.{ConcurrentEffect, Timer}
+import cats.effect.{ConcurrentEffect, ContextShift, Timer}
 import cats.syntax.apply._
 import cats.syntax.either._
 import cats.{Functor, Monad}
@@ -25,7 +25,7 @@ import com.softwaremill.sttp._
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.response.{Response, TendermintStatus}
-import fluence.effects.tendermint.rpc.websocket.{TendermintWebsocketRpc, TendermintWebsocketRpcImpl}
+import fluence.effects.tendermint.rpc.websocket.{TendermintWebsocketRpc, TendermintWebsocketRpcImpl, WebsocketConfig}
 import fluence.log.Log
 import io.circe.Json
 import io.circe.parser.decode
@@ -39,9 +39,10 @@ import scala.language.higherKinds
  * @param port Tendermint RPC port
  * @tparam F Http requests effect
  */
-case class TendermintHttpRpcImpl[F[_]: ConcurrentEffect: Timer: Monad](
+case class TendermintHttpRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextShift](
   host: String,
-  port: Int
+  port: Int,
+  override val websocketConfig: WebsocketConfig
 )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing], log: Log[F])
     extends TendermintWebsocketRpcImpl with TendermintHttpRpc[F] with TendermintWebsocketRpc[F] with TendermintRpc[F] {
 

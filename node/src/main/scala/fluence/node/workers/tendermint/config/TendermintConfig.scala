@@ -115,7 +115,15 @@ object TendermintConfig {
     "rpc.laddr" -> s"tcp://0.0.0.0:${DockerTendermint.RpcPort}",
     // 0.32.0 removed default leveldb, so change it to goleveldb
     "db_backend" -> "goleveldb",
-    "p2p.addr_book_strict" -> "false"
+    "p2p.addr_book_strict" -> "false",
+    // 10MB
+    "p2p.send_rate" -> "10240000",
+    // 10MB
+    "p2p.recv_rate" -> "10240000",
+    // Default is 2s
+    "consensus.peer_query_maj23_sleep_duration" -> "500ms",
+    // Default is 3s
+    "timeout_propose" -> "3s"
   )
 
   implicit val enc: Encoder[TendermintConfig] = deriveEncoder

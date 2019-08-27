@@ -26,6 +26,7 @@ import fluence.effects.docker.params.DockerParams
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.log.Log
 import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
 import fluence.log.LogLevel.LogLevel
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
@@ -124,7 +125,8 @@ object DockerWorkerServices {
     p2pPort: Short,
     stopTimeout: Int,
     logLevel: LogLevel,
-    receiptStorage: Resource[F, ReceiptStorage[F]]
+    receiptStorage: Resource[F, ReceiptStorage[F]],
+    websocketConfig: WebsocketConfig
   )(
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
     F: Concurrent[F],
@@ -137,7 +139,7 @@ object DockerWorkerServices {
 
       tendermint ← DockerTendermint.make[F](params, p2pPort, containerName(params), network, stopTimeout)
 
-      rpc ← TendermintRpc.make[F](tendermint.name, DockerTendermint.RpcPort)
+      rpc ← TendermintRpc.make[F](tendermint.name, DockerTendermint.RpcPort, websocketConfig)
 
       blockManifests ← WorkerBlockManifests.make[F](receiptStorage)
 
