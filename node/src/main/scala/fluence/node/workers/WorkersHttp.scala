@@ -108,9 +108,8 @@ object WorkersHttp {
    * @param pool Workers pool to get workers from
    * @param dsl Http4s DSL to build routes with
    */
-  def routes[F[_]: Sync: LogFactory](pool: WorkersPool[F], workerApi: WorkerApi)(
-    implicit dsl: Http4sDsl[F],
-    F: Concurrent[F]
+  def routes[F[_]: Sync: LogFactory: Concurrent](pool: WorkersPool[F], workerApi: WorkerApi)(
+    implicit dsl: Http4sDsl[F]
   ): HttpRoutes[F] = {
     import dsl._
 
