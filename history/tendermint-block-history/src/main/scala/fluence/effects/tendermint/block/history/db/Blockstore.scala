@@ -61,7 +61,7 @@ object Blockstore extends IOApp {
       .flatMap { implicit log =>
         val name =
           "/Users/folex/Development/fluencelabs/fluence-main/history/tendermint-block-history/src/main/scala/fluence/effects/tendermint/block/history/db/blockstore_rcksdb.db"
-        RocksDBStore.makeRaw[IO](name, createIfMissing = false).use { kvStore =>
+        RocksDBStore.makeRaw[IO](name, createIfMissing = false, readOnly = true).use { kvStore =>
           log.info("Heeey!") *>
             kvStore.stream.evalMap {
               case (k, v) => IO((new String(k), new String(v)))
