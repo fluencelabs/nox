@@ -180,7 +180,7 @@ object DhtLocalStore {
                   case _ ⇒
                     // Store the value
                     rpc(n.contact).store(key, value)
-              },
+                },
             replication,
             maxCalls,
             isIdempotentFn = false

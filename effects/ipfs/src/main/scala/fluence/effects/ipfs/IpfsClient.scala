@@ -192,7 +192,7 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri, readTimeout: FiniteDuration = 5.seco
               fromAddress(r.Hash).map(h => r.Name -> h).leftMap { e =>
                 //logger.debug(s"IPFS 'add' hash ${r.Hash} is not correct")
                 IpfsError(e)
-            }
+              }
           )
           .sequence
         hash <- if (namesWithHashes.length == 1) Right(namesWithHashes.head._2)

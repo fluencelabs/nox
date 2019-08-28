@@ -192,7 +192,7 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: 
    * @return Queue of events
    */
   protected def subscribe(
-    event: String,
+    event: String
   )(implicit log: Log[F], backoff: Backoff[EffectError]): Resource[F, Queue[F, Event]] = {
     def subscribe(ws: WebSocket) = ws.sendTextFrame(request(event)).asAsync.void
 

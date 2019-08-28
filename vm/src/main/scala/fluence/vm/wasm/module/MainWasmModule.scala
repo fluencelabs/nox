@@ -173,12 +173,11 @@ object MainWasmModule {
         ): ApplyError
       )
 
-    } yield
-      new MainWasmModule(
-        module,
-        allocMethod,
-        deallocMethod,
-        invokeMethod
-      )
+    } yield new MainWasmModule(
+      module,
+      allocMethod,
+      deallocMethod,
+      invokeMethod
+    )
 
 }

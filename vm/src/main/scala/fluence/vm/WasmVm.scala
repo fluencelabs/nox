@@ -118,13 +118,12 @@ object WasmVm {
       (mainModule, envModule, sideModules) ← initializeModules(scriptCxt, config, memoryHasher)
 
       _ ← Log.eitherT[F, ApplyError].info("WasmVm: modules initialized")
-    } yield
-      new AsmbleWasmVm(
-        mainModule,
-        envModule,
-        sideModules,
-        cryptoHasher
-      )
+    } yield new AsmbleWasmVm(
+      mainModule,
+      envModule,
+      sideModules,
+      cryptoHasher
+    )
 
   /**
    * Returns [[ScriptContext]] - context for uploaded Wasm modules.
@@ -214,7 +213,7 @@ object WasmVm {
           case ((Some(_), _), moduleDescription) if Option(moduleDescription.getName) == config.mainModuleConfig.name ⇒
             EitherT.leftT(
               InitializationError(
-                s"There should be only one main module (main module is a module without name section)"
+                s"""There should be only one main module (main module is a module without name section)"""
               )
             )
 
