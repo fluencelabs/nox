@@ -195,8 +195,10 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       val id = "some-id"
       val txRequest = "tx-request"
 
-      def call(request: WebsocketRequest,
-               responseApi: Either[TxAwaitError, TendermintQueryResponse]): WebsocketResponse = {
+      def call(
+        request: WebsocketRequest,
+        responseApi: Either[TxAwaitError, TendermintQueryResponse]
+      ): WebsocketResponse = {
         val response = websocketApi(new TestWorkerApi {
           override def sendTxAwaitResponse[F[_]: Monad, G[_]](worker: Worker[F], tx: String, id: Option[String])(
             implicit log: Log[F]
