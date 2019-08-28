@@ -15,7 +15,7 @@
  */
 
 package fluence.node
-import cats.{Id, ~>}
+import cats.{~>, Id}
 import cats.effect.IO
 import fluence.log.Log
 

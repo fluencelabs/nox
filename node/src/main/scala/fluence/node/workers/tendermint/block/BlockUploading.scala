@@ -35,9 +35,11 @@ import scodec.bits.ByteVector
 
 import scala.language.{higherKinds, postfixOps}
 
-private[tendermint] case class BlockUpload(block: Block,
-                                           vmHash: ByteVector,
-                                           emptyReceipts: Option[Chain[Receipt]] = None)
+private[tendermint] case class BlockUpload(
+  block: Block,
+  vmHash: ByteVector,
+  emptyReceipts: Option[Chain[Receipt]] = None
+)
 
 trait BlockUploading[F[_]] {
 

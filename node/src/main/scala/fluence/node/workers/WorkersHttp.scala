@@ -146,7 +146,7 @@ object WorkersHttp {
                 case None ⇒
                   log.debug("There's no available manifest yet") *>
                     NoContent()
-            }
+              }
           )
         }
 

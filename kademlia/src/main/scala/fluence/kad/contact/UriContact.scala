@@ -169,7 +169,7 @@ object UriContact {
         Either.fromOption(
           Option(uri.getScheme).filter(_.equalsIgnoreCase(UriContact.Schema)).void,
           CodecError(s"Uri must start with ${UriContact.Schema}://")
-      )
+        )
 
     // PubKey and Signature are encoded as base58 in userInfo part of URI
     val readPks: URI ~~> PubKeyAndSignature = liftFE[URI, (String, String)](
@@ -177,7 +177,7 @@ object UriContact {
         Either.fromOption(Option(uri.getUserInfo), CodecError("User info must be provided")).map(_.split(':')).flatMap {
           case Array(a, b) ⇒ Right((a, b))
           case _ ⇒ Left(CodecError("User info must be in pk:sign form"))
-      }
+        }
     ) >>> pkWithSignatureCodec.direct
 
     // Finally, compose parsers and build the UriContact product

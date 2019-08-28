@@ -61,9 +61,11 @@ case class DockerWorkerServices[F[_]] private (
 object DockerWorkerServices {
   val ControlRpcPort: Short = 26662
 
-  private def dockerCommand(params: WorkerParams,
-                            network: DockerNetwork,
-                            logLevel: LogLevel): DockerParams.DaemonParams = {
+  private def dockerCommand(
+    params: WorkerParams,
+    network: DockerNetwork,
+    logLevel: LogLevel
+  ): DockerParams.DaemonParams = {
     import params._
 
     // Set worker's Xmx to mem * 0.75, so there's a gap between JVM heap and cgroup memory limit
@@ -165,7 +167,7 @@ object DockerWorkerServices {
             ts,
             ws
           )
-      }
+        }
 
     } yield new DockerWorkerServices[F](p2pPort, params.appId, rpc, control, blockManifests, responseSubscriber, status)
 

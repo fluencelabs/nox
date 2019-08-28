@@ -130,9 +130,11 @@ object Kademlia {
    * @tparam C Contact type
    * @return Resource that contains a fiber inside, which is cancelled when resource is released
    */
-  def joinConcurrently[F[_]: Concurrent: Log, C](kad: Kademlia[F, C],
-                                                 conf: JoinConf,
-                                                 readContact: Crypto.Func[String, C]): Resource[F, Fiber[F, Unit]] =
+  def joinConcurrently[F[_]: Concurrent: Log, C](
+    kad: Kademlia[F, C],
+    conf: JoinConf,
+    readContact: Crypto.Func[String, C]
+  ): Resource[F, Fiber[F, Unit]] =
     Resource
       .make(
         Concurrent[F].start(
@@ -144,7 +146,7 @@ object Kademlia {
                   .flatTap(
                     r =>
                       Traverse[Option].traverse(r.left.toOption)(e => Log[F].info(s"Filtered out kademlia seed $s: $e"))
-                )
+                  )
             )
             .map(_.collect {
               case Right(c) ⇒ c
@@ -158,8 +160,8 @@ object Kademlia {
                         log.info("Joined")
                       case false ⇒
                         log.warn("Unable to join any Kademlia seed")
-                  }
-              )
+                    }
+                )
             )
         )
       )(_.cancel)

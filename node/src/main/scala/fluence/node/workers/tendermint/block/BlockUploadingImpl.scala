@@ -121,9 +121,10 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
           .evalMap(
             block =>
               backoff
-                .retry(control.getVmHash(block.header.height),
-                       (e: ControlRpcError) =>
-                         log.error(s"error retrieving vmHash on height ${block.header.height}: $e"))
+                .retry(
+                  control.getVmHash(block.header.height),
+                  (e: ControlRpcError) => log.error(s"error retrieving vmHash on height ${block.header.height}: $e")
+                )
                 .map(BlockUpload(block, _))
           )
           .evalTap(b => traceBU(s"got vmHash ${b.block.header.height}"))
