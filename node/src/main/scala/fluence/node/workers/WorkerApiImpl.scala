@@ -54,7 +54,7 @@ class WorkerApiImpl extends WorkerApi {
     log.debug(s"TendermintRpc query request. path: $path, data: $data") *>
       worker.withServices(_.tendermint)(_.query(path, data.getOrElse(""), id = id.getOrElse("dontcare")).value)
 
-  def status[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Either[RpcError, String]] =
+  def tendermintStatus[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Either[RpcError, String]] =
     log.trace(s"TendermintRpc status") *>
       worker.withServices(_.tendermint)(_.status.value)
 

@@ -27,7 +27,7 @@ import fluence.EitherTSttpBackend
 import fluence.effects.tendermint.rpc.http.{TendermintHttpRpc, TendermintHttpRpcImpl}
 import fluence.log.{Log, LogFactory}
 import fluence.statemachine.config.{StateMachineConfig, TendermintRpcConfig}
-import fluence.statemachine.control.ControlServer.ControlServerConfig
+import fluence.statemachine.control.ControlServer
 import fluence.statemachine.control.{ControlSignals, MockedControlSignals}
 import fluence.statemachine.data.{QueryCode, TxCode}
 import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
@@ -53,7 +53,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
     moduleFiles,
     "OFF",
     26661,
-    ControlServerConfig("localhost", 26662),
+    ControlServer.Config("localhost", 26662),
     TendermintRpcConfig("localhost", 26657),
     blockUploadingEnabled = true
   )

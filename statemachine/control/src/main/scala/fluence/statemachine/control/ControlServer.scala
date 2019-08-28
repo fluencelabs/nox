@@ -21,6 +21,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.tendermint.block.history.helpers
 import fluence.log.{Log, LogFactory}
+import io.circe.syntax._
 import org.http4s._
 import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
@@ -33,6 +34,7 @@ import scala.language.higherKinds
 
 /**
  * Represents HTTP JSON RPC server sending requests to ControlSignals for later consumption by state machine
+ *
  * @param signals Control events sink
  * @param http Http json rpc server
  * @tparam F Effect
@@ -42,13 +44,15 @@ case class ControlServer[F[_]](signals: ControlSignals[F], http: Server[F])
 object ControlServer {
 
   /** Settings for [[ControlServer]]
+   *
    * @param host host to listen on
    * @param port port to listen on
    */
-  case class ControlServerConfig(host: String, port: Short)
+  case class Config(host: String, port: Short)
 
   /**
    * Run http json rpc server
+   *
    * @param signals Control events sink
    * @tparam F Effect
    * @return
@@ -87,7 +91,8 @@ object ControlServer {
         } yield ok
 
       case (GET | POST) -> Root / "control" / "status" =>
-        Ok()
+        // TODO check whether eth blocks are actually expected
+        Ok(ControlStatus(expectEth = false).asJson.noSpaces)
 
       case req @ POST -> Root / "control" / "blockReceipt" =>
         for {
@@ -119,12 +124,13 @@ object ControlServer {
 
   /**
    * Create a resource with ControlServer, will close http server after use
+   *
    * @param config Configuration, e.g., host and port to listen on
    * @tparam F Effect
    * @return
    */
   def make[F[_]: ConcurrentEffect: Timer: LogFactory: Log](
-    config: ControlServerConfig
+    config: Config
   ): Resource[F, ControlServer[F]] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
