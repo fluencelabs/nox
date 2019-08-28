@@ -52,7 +52,7 @@ class KademliaHttpClient[F[_]: Effect: SttpEffect, C](hostname: String, port: Sh
       value <- call(sttp)(uri)
         .header(HeaderNames.Authorization, authB64)
         .send()
-          .decodeBody(decode[T](_))
+        .decodeBody(decode[T](_))
         .leftSemiflatMap[KadRpcError](
           t ⇒ log.warn("Errored when calling remote", t) as KadRemoteError("Errored when calling remote", t)
         )

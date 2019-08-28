@@ -18,12 +18,13 @@ package fluence.node.workers
 
 import cats.data.EitherT
 import cats.Parallel
-import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.effect.{Concurrent, Fiber, Resource, Timer}
 import cats.instances.vector._
-import com.softwaremill.sttp.{SttpBackend, sttp, _}
+import com.softwaremill.sttp.{sttp, _}
+import fluence.effects.sttp.SttpEffect
+import fluence.effects.sttp.syntax._
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.eth.state.WorkerPeer
@@ -43,18 +44,16 @@ object WorkerP2pConnectivity {
    * @param peers All the other peers to form the cluster
    * @param backoff Retry policy for exponential backoff in reties
    * @param P Parallelize request to pings
-   * @param sttpBackend Used to perform http requests
    * @tparam F Concurrent to make a fiber so that you can cancel the joining job, Timer to make retries
    * @tparam G F.Par
    * @return Fiber for concurrent job of inquiring peers and putting their addresses to Tendermint
    */
-  def join[F[_]: Concurrent: Timer: Log, G[_]](
+  def join[F[_]: Concurrent: Timer: Log: SttpEffect, G[_]](
     worker: Worker[F],
     peers: Vector[WorkerPeer],
     backoff: Backoff[EffectError] = Backoff.default
   )(
-    implicit P: Parallel[F, G],
-    sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]
+    implicit P: Parallel[F, G]
   ): F[Fiber[F, Unit]] =
     Concurrent[F].start(
       Parallel.parTraverse_(peers) { p ⇒
@@ -62,15 +61,8 @@ object WorkerP2pConnectivity {
         val getPort: EitherT[F, EffectError, Short] = sttp
           .get(uri"http://${p.ip.getHostAddress}:${p.apiPort}/apps/${worker.appId}/p2pPort")
           .send()
-          .leftMap(new RuntimeException(_) with EffectError)
-          .flatMap { resp ⇒
-            EitherT.fromEither(
-              // Awful
-              resp.body.left
-                .map(new RuntimeException(_) with EffectError)
-                .flatMap(v ⇒ Try(v.toShort).toEither.left.map(new RuntimeException(_) with EffectError))
-            )
-          }
+          .decodeBody(v ⇒ Try(v.toShort).toEither)
+          .leftMap[EffectError](identity)
 
         Log[F].debug(s"Peer API address: ${p.ip.getHostAddress}:${p.apiPort}") >>
           // Get p2p port, pass it to worker's tendermint
@@ -98,17 +90,15 @@ object WorkerP2pConnectivity {
    * @param peers All the other peers to form the cluster
    * @param backoff Retry policy for exponential backoff in reties
    * @param P Parallelize request to pings
-   * @param sttpBackend Used to perform http requests
    * @tparam F Concurrent to make a fiber so that you can cancel the joining job, Timer to make retries
    * @tparam G F.Par
    */
-  def make[F[_]: Concurrent: Timer: Log, G[_]](
+  def make[F[_]: Concurrent: Timer: Log: SttpEffect, G[_]](
     worker: Worker[F],
     peers: Vector[WorkerPeer],
     backoff: Backoff[EffectError] = Backoff.default
   )(
-    implicit P: Parallel[F, G],
-    sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]
+    implicit P: Parallel[F, G]
   ): Resource[F, Unit] =
     Resource.make(join(worker, peers, backoff))(_.cancel).void
 

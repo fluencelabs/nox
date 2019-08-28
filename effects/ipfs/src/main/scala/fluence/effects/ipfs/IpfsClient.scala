@@ -42,24 +42,11 @@ import scala.collection.immutable
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-// TODO move somewhere else
-object ResponseOps {
-  import cats.data.EitherT
-  import com.softwaremill.sttp.Response
-
-  implicit class RichResponse[F[_], T, EE <: Throwable](resp: EitherT[F, Throwable, Response[T]])(
-    implicit F: Monad[F]
-  ) {
-    val toEitherT: EitherT[F, String, T] = resp.leftMap(_.getMessage).subflatMap(_.body)
-    def toEitherT[E](errFunc: String => E): EitherT[F, E, T] = toEitherT.leftMap(errFunc)
-  }
-}
-
-class IpfsClient[F[_]: Monad: SttpStreamEffect](ipfsUri: Uri, readTimeout: FiniteDuration = 5.seconds) extends IpfsUploader[F] {
+class IpfsClient[F[_]: Monad: SttpStreamEffect](ipfsUri: Uri, readTimeout: FiniteDuration = 5.seconds)
+    extends IpfsUploader[F] {
 
   import IpfsClient._
   import IpfsLsResponse._
-  import ResponseOps._
 
   object Multihash {
     // https://github.com/multiformats/multicodec/blob/master/table.csv
@@ -161,10 +148,8 @@ class IpfsClient[F[_]: Monad: SttpStreamEffect](ipfsUri: Uri, readTimeout: Finit
       .post(uri)
       .multipartBody(multiparts)
       .send()
-      .toBodyE[StoreError] { er =>
-        val errorMessage = s"IPFS 'add' error $uri: $er"
-        IpfsError(errorMessage): StoreError
-      }
+      .toBody
+      .leftMap[StoreError](err ⇒ IpfsError(s"IPFS 'add' error $uri: $err", Some(err)))
       .flatMapF {
         case Left(er) =>
           Log[F].error(s"IPFS 'add' deserialization error: $er") as
@@ -253,8 +238,9 @@ class IpfsClient[F[_]: Monad: SttpStreamEffect](ipfsUri: Uri, readTimeout: Finit
         .response(asStream[fs2.Stream[F, ByteBuffer]])
         .get(uri)
         .send()
-        .toBodyE { er =>
-          val errorMessage = s"IPFS 'download' error $uri: $er"
+        .toBody
+        .leftMap { err =>
+          val errorMessage = s"IPFS 'download' error $uri: $err"
           IpfsError(errorMessage): StoreError
         }
         .flatTap { _ =>

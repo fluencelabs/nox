@@ -43,7 +43,11 @@ object IpfsUploader {
   /**
    * If enabled == true, instantiates an IPFS client for production use and mock otherwise
    */
-  def apply[F[_]: Monad: SttpStreamEffect](ipfsUri: Uri, enabled: Boolean, readTimeout: FiniteDuration): IpfsUploader[F] =
+  def apply[F[_]: Monad: SttpStreamEffect](
+    ipfsUri: Uri,
+    enabled: Boolean,
+    readTimeout: FiniteDuration
+  ): IpfsUploader[F] =
     if (enabled)
       new IpfsClient[F](ipfsUri, readTimeout)
     else

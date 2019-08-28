@@ -15,20 +15,18 @@
  */
 
 package fluence.node
-import java.nio.ByteBuffer
 import java.nio.file._
 
 import cats.Applicative
-import cats.data.EitherT
 import cats.effect._
 import cats.effect.syntax.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import com.softwaremill.sttp.SttpBackend
 import fluence.effects.{Backoff, EffectError}
 import fluence.effects.castore.StoreError
 import fluence.effects.ethclient.EthClient
 import fluence.effects.ipfs.IpfsStore
+import fluence.effects.sttp.SttpStreamEffect
 import fluence.effects.swarm.SwarmStore
 import fluence.kad.Kademlia
 import fluence.log.{Log, LogFactory}
@@ -187,16 +185,15 @@ object MasterNode {
    *
    * @param masterConfig MasterConfig
    * @param nodeConfig NodeConfig
-   * @param sttpBackend HTTP client implementation
    * @return Prepared [[MasterNode]], then see [[MasterNode.run]]
    */
-  def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer: Log: LogFactory, C](
+  def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer: Log: LogFactory: SttpStreamEffect, C](
     masterConfig: MasterConfig,
     nodeConfig: NodeConfig,
     pool: WorkersPool[F],
     kademlia: Kademlia[F, C]
   )(
-    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
+    implicit
     backoff: Backoff[EffectError]
   ): Resource[F, MasterNode[F, C]] =
     for {
@@ -223,9 +220,9 @@ object MasterNode {
       masterConfig.masterContainerId
     )
 
-  def codeCarrier[F[_]: Sync: ContextShift: Concurrent: Timer: LiftIO](
+  def codeCarrier[F[_]: Sync: ContextShift: Concurrent: Timer: LiftIO: SttpStreamEffect](
     config: RemoteStorageConfig
-  )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]): CodeCarrier[F] =
+  ): CodeCarrier[F] =
     if (config.enabled) {
       implicit val b: Backoff[StoreError] = Backoff.default
       val swarmStore = SwarmStore[F](config.swarm.address, config.swarm.readTimeout)
@@ -235,7 +232,6 @@ object MasterNode {
         case StorageType.Ipfs  => ipfsStore
       })
       new RemoteCodeCarrier[F](polyStore)
-    } else {
+    } else
       new LocalCodeCarrier[F]()
-    }
 }

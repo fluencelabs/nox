@@ -55,7 +55,7 @@ class DhtHttpClient[F[_]: Effect: SttpEffect, V: Encoder: Decoder](
     sttp
       .get(uri(key))
       .send()
-    .decodeBody(s ⇒ parse(s).flatMap(_.as[V]))
+      .decodeBody(s ⇒ parse(s).flatMap(_.as[V]))
       // TODO handle errors properly, return DhtValueNotFound on 404
       .leftMap(e ⇒ DhtRemoteError("Retrieve request errored", Some(e)))
 
@@ -64,7 +64,7 @@ class DhtHttpClient[F[_]: Effect: SttpEffect, V: Encoder: Decoder](
       .body(value.asJson.noSpaces)
       .put(uri(key))
       .send()
-    .toBody
+      .toBody
       .leftMap(e ⇒ DhtRemoteError("Store request errored", Some(e)): DhtError)
       .void
 

@@ -16,14 +16,13 @@
 
 package fluence.node.workers
 
-import cats.data.EitherT
 import cats.effect._
 import cats.syntax.functor._
 import cats.{Apply, Monad, Parallel}
-import com.softwaremill.sttp._
 import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
 import fluence.effects.receipt.storage.ReceiptStorage
+import fluence.effects.sttp.SttpEffect
 import fluence.log.Log
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
@@ -120,10 +119,9 @@ object DockerWorkerServices {
    *                    It might take up to 2*`stopTimeout` seconds to gracefully stop the worker, as 2 containers involved.
    * @param logLevel Logging level passed to the worker
    * @param receiptStorage Receipt storage resource for this app
-   * @param sttpBackend Sttp Backend to launch HTTP healthchecks and RPC endpoints
    * @return the [[WorkerServices]] instance
    */
-  def make[F[_]: DockerIO: Timer: ConcurrentEffect: Log: ContextShift, G[_]](
+  def make[F[_]: DockerIO: Timer: ConcurrentEffect: Log: ContextShift: SttpEffect, G[_]](
     params: WorkerParams,
     p2pPort: Short,
     stopTimeout: Int,
@@ -131,7 +129,7 @@ object DockerWorkerServices {
     receiptStorage: Resource[F, ReceiptStorage[F]],
     websocketConfig: WebsocketConfig
   )(
-    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
+    implicit
     F: Concurrent[F],
     P: Parallel[F, G]
   ): Resource[F, WorkerServices[F]] =
