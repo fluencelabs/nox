@@ -202,6 +202,7 @@ lazy val `sttpEitherT` = (project in file("effects/sttpEitherT"))
       sttpCatsBackend
     )
   )
+  .dependsOn(`effects`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `ca-store` = (project in file("effects/ca-store"))
@@ -253,7 +254,7 @@ lazy val `ipfs` = (project in file("effects/ipfs"))
       scalaTest
     )
   )
-  .dependsOn(`ca-store`, `sttpEitherT` % "test->test;compile->compile")
+  .dependsOn(`ca-store`, `sttpEitherT`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `ethclient` = (project in file("effects/ethclient"))
@@ -391,7 +392,6 @@ lazy val `kademlia-http` = (project in file("kademlia/http"))
     commons,
     kindProjector,
     libraryDependencies ++= Seq(
-      sttp,
       circeGeneric,
       circeParser,
       http4sDsl,
@@ -399,7 +399,7 @@ lazy val `kademlia-http` = (project in file("kademlia/http"))
       http4sServer % Test
     )
   )
-  .dependsOn(`kademlia`, `kademlia-dht`, `sttpEitherT` % Test)
+  .dependsOn(`kademlia`, `kademlia-dht`, `sttpEitherT`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kademlia-dht` = (project in file("kademlia/dht"))

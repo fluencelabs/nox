@@ -19,11 +19,10 @@ package fluence
 import java.nio.ByteBuffer
 
 import cats.arrow.FunctionK
-import cats.{~>, Monad}
+import cats.~>
 import cats.data.EitherT
 import cats.effect.ConcurrentEffect
 import cats.implicits._
-import com.softwaremill.sttp.{MonadError => ME, _}
 
 import scala.language.{higherKinds, implicitConversions}
 import com.softwaremill.sttp.SttpBackend
@@ -49,26 +48,4 @@ object EitherTSttpBackend {
 
     eitherTSttp
   }
-}
-
-/**
- * sttp MonadError for EitherT
- */
-class EitherTMonad[F[_]](implicit F: Monad[F]) extends ME[EitherT[F, Throwable, ?]] {
-  type R[T] = EitherT[F, Throwable, T]
-
-  override def unit[T](t: T): R[T] =
-    EitherT.right[Throwable](F.pure(t))
-
-  override def map[T, T2](fa: R[T])(f: T => T2): R[T2] =
-    fa.map(f)
-
-  override def flatMap[T, T2](fa: R[T])(f: T => R[T2]): R[T2] =
-    fa.flatMap(f)
-
-  override def error[T](t: Throwable): R[T] =
-    EitherT.left[T](F.pure(t))
-
-  override protected def handleWrappedError[T](rt: R[T])(h: PartialFunction[Throwable, R[T]]): R[T] =
-    rt.handleErrorWith(h)
 }

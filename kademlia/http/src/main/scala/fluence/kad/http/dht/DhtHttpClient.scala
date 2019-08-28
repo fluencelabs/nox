@@ -21,6 +21,8 @@ import cats.effect.Effect
 import cats.syntax.either._
 import cats.syntax.functor._
 import com.softwaremill.sttp._
+import fluence.effects.sttp.SttpEffect
+import fluence.effects.sttp.syntax._
 import fluence.kad.dht.{DhtError, DhtRemoteError, DhtRpc, DhtValueNotFound}
 import fluence.kad.protocol.Key
 import fluence.log.Log
@@ -37,17 +39,13 @@ import scala.language.higherKinds
  * @param hostname Remote hostname
  * @param port Remote port
  * @param prefix URL prefix
- * @param sttpBackend STTP backend to use
  * @tparam F Effect
  * @tparam V Value
  */
-class DhtHttpClient[F[_]: Effect, V: Encoder: Decoder](
+class DhtHttpClient[F[_]: Effect: SttpEffect, V: Encoder: Decoder](
   hostname: String,
   port: Short,
   prefix: String
-)(
-  implicit
-  sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]
 ) extends DhtRpc[F, V] {
 
   private def uri(key: Key) =
@@ -57,10 +55,7 @@ class DhtHttpClient[F[_]: Effect, V: Encoder: Decoder](
     sttp
       .get(uri(key))
       .send()
-      .map(_.body.leftMap[Throwable](new RuntimeException(_)))
-      .subflatMap[Throwable, String](identity)
-      .subflatMap(parse)
-      .subflatMap(_.as[V])
+    .decodeBody(s ⇒ parse(s).flatMap(_.as[V]))
       // TODO handle errors properly, return DhtValueNotFound on 404
       .leftMap(e ⇒ DhtRemoteError("Retrieve request errored", Some(e)))
 
@@ -69,8 +64,7 @@ class DhtHttpClient[F[_]: Effect, V: Encoder: Decoder](
       .body(value.asJson.noSpaces)
       .put(uri(key))
       .send()
-      .map(_.body.leftMap[Throwable](new RuntimeException(_)))
-      .subflatMap[Throwable, String](identity)
+    .toBody
       .leftMap(e ⇒ DhtRemoteError("Store request errored", Some(e)): DhtError)
       .void
 

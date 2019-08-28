@@ -16,14 +16,11 @@
 
 package fluence.effects.tendermint.rpc
 
-import cats.Monad
-import cats.data.EitherT
 import cats.effect.{ConcurrentEffect, ContextShift, Resource, Timer}
-import com.softwaremill.sttp.SttpBackend
+import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.rpc.http.{TendermintHttpRpc, TendermintHttpRpcImpl}
 import fluence.effects.tendermint.rpc.websocket.{TendermintWebsocketRpc, WebsocketConfig}
 import fluence.log.Log
-import io.circe.{Decoder, Encoder, HCursor}
 
 import scala.language.higherKinds
 
@@ -34,22 +31,18 @@ object TendermintRpc {
   /**
    * Runs a WorkerRpc with F effect, acquiring some resources for it
    *
-   * @param sttpBackend Sttp Backend to be used to make RPC calls
    * @param hostName Hostname to query status from
    * @param port Port to query status from
    * @param websocketConfig Config for the websocket connection to Tendermint
    * @tparam F Concurrent effect
    * @return Worker RPC instance. Note that it should be stopped at some point, and can't be used after it's stopped
    */
-  def make[F[_]: ConcurrentEffect: Timer: Monad: Log: ContextShift](
+  def make[F[_]: ConcurrentEffect: Timer: SttpEffect: Log: ContextShift](
     hostName: String,
     port: Short,
     websocketConfig: WebsocketConfig = WebsocketConfig()
-  )(
-    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]
-  ): Resource[F, TendermintRpc[F]] = {
+  ): Resource[F, TendermintRpc[F]] =
     Resource.pure(
       new TendermintHttpRpcImpl[F](hostName, port, websocketConfig)
     )
-  }
 }

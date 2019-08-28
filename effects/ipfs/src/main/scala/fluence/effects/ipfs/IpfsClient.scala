@@ -29,8 +29,10 @@ import cats.syntax.functor._
 import cats.{Applicative, Monad}
 import com.softwaremill.sttp.Uri.QueryFragment.KeyValue
 import com.softwaremill.sttp.circe.asJson
-import com.softwaremill.sttp.{Multipart, SttpBackend, Uri, asStream, _}
+import com.softwaremill.sttp.{Multipart, Uri, asStream, _}
 import fluence.effects.castore.StoreError
+import fluence.effects.sttp.SttpStreamEffect
+import fluence.effects.sttp.syntax._
 import fluence.log.Log
 import fs2.RaiseThrowable
 import io.circe.{Decoder, DecodingFailure}
@@ -53,9 +55,7 @@ object ResponseOps {
   }
 }
 
-class IpfsClient[F[_]: Monad](ipfsUri: Uri, readTimeout: FiniteDuration = 5.seconds)(
-  implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]
-) extends IpfsUploader[F] {
+class IpfsClient[F[_]: Monad: SttpStreamEffect](ipfsUri: Uri, readTimeout: FiniteDuration = 5.seconds) extends IpfsUploader[F] {
 
   import IpfsClient._
   import IpfsLsResponse._
@@ -161,7 +161,7 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri, readTimeout: FiniteDuration = 5.seco
       .post(uri)
       .multipartBody(multiparts)
       .send()
-      .toEitherT { er =>
+      .toBodyE[StoreError] { er =>
         val errorMessage = s"IPFS 'add' error $uri: $er"
         IpfsError(errorMessage): StoreError
       }
@@ -253,7 +253,7 @@ class IpfsClient[F[_]: Monad](ipfsUri: Uri, readTimeout: FiniteDuration = 5.seco
         .response(asStream[fs2.Stream[F, ByteBuffer]])
         .get(uri)
         .send()
-        .toEitherT { er =>
+        .toBodyE { er =>
           val errorMessage = s"IPFS 'download' error $uri: $er"
           IpfsError(errorMessage): StoreError
         }
