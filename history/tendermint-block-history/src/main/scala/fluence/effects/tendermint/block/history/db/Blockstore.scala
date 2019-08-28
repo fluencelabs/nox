@@ -17,143 +17,99 @@
 package fluence.effects.tendermint.block.history.db
 
 import java.nio.file.{Files, Path, Paths}
-import java.util.UUID
 
-import cats.{Functor, Monad, Traverse}
 import cats.data.EitherT
-import cats.effect.{ContextShift, ExitCode, IO, IOApp, LiftIO, Resource, Sync}
+import cats.effect.{ContextShift, LiftIO, Resource, Sync}
 import cats.instances.either._
 import cats.instances.list._
 import cats.syntax.applicativeError._
 import cats.syntax.apply._
-import cats.syntax.functor._
 import cats.syntax.either._
-import cats.syntax.traverse._
 import cats.syntax.flatMap._
 import cats.syntax.foldable._
+import cats.syntax.functor._
+import cats.{Monad, Traverse}
 import fluence.effects.kvstore.{KVStore, RocksDBStore}
-import fluence.effects.tendermint.block.TendermintBlock
-import fluence.effects.tendermint.block.history.db.Blockstore.{getOr, metaKey, partKey}
-import fluence.effects.tendermint.block.protobuf.{Protobuf, ProtobufConverter}
+import fluence.effects.tendermint.block.protobuf.Protobuf
 import fluence.effects.{EffectError, WithCause}
-import fluence.log.Log.Aux
-import fluence.log.appender.PrintlnLogAppender
-import fluence.log.{Log, LogFactory}
-import proto3.tendermint.{Block, BlockMeta, BlockPart}
-
+import fluence.log.Log
 import io.circe.parser.parse
+import proto3.tendermint.{Block, BlockMeta, BlockPart}
 
 import scala.collection.JavaConverters._
 import scala.language.higherKinds
 import scala.util.Try
 
-trait BlockstoreError extends EffectError
-case class DbNotFound(path: String) extends BlockstoreError {
-  override def toString: String = s"DbNotFound: can't find leveldb database at path $path: path doesn't exist"
-}
-case object NoTmpDirPropertyError extends BlockstoreError {
-  override def toString: String = "NoTmpDirPropertyError: java.io.tmpdir is empty"
-}
-case class GetBlockError(message: String, height: Long) extends BlockstoreError {
-  override def toString: String = s"GetBlockError: $message on block $height"
-}
-case class SymlinkCreationError(cause: Throwable, target: String) extends BlockstoreError with WithCause[Throwable] {
-  override def toString: String = s"SymlinkCreationError: error creating symlink for $target: $cause"
-}
-case class RetrievingStorageHeightError(cause: Throwable) extends EffectError {
-  override def toString: String = s"RetrievingStorageHeightError: $cause"
-}
-
 class Blockstore[F[_]: Log: Monad](kv: Blockstore.RawKV[F]) {
   import Blockstore._
 
-  private def getOr[T](msg: String, height: Long)(opt: Option[T]): EitherT[F, Throwable, T] =
+  private def getOr[T](msg: String, height: Long)(opt: Option[T]): EitherT[F, BlockstoreError, T] =
     EitherT.fromOption(opt, GetBlockError(msg, height))
 
   private def metaKey(height: Long) = s"H:$height".getBytes()
   private def partKey(height: Long, index: Int) = s"P:$height:$index".getBytes()
 
-  private def getBlockPartsCount(height: Long) =
+  private def getBlockPartsCount(height: Long): EitherT[F, BlockstoreError, Int] =
     for {
       metaBytes <- kv
         .get(metaKey(height))
+        .leftMap(e => GetBlockError(s"error getting block parts count: $e", height))
         .flatMap(getOr[Array[Byte]]("meta is none", height)(_))
-      meta <- EitherT.fromEither[F](Protobuf.decode[BlockMeta](metaBytes))
+
+      meta <- EitherT
+        .fromEither[F](Protobuf.decode[BlockMeta](metaBytes))
+        .leftMap(e => GetBlockError(s"error getting block parts count: $e", height))
 
       partsCount <- getOr[Int]("blockID.parts is none", height)(meta.blockID.flatMap(_.parts).map(_.total))
     } yield partsCount
 
-  private def getPart(height: Long, i: Int) =
+  private def getPart(height: Long, i: Int): EitherT[F, BlockstoreError, BlockPart] =
     kv.get(partKey(height, i))
+      .leftMap(e => GetBlockError(s"error retrieving block part $i from storage: $e", height))
       .flatMap(getOr[Array[Byte]](s"part $i not found", height))
       .subflatMap(Protobuf.decode[BlockPart])
+      .leftMap(e => GetBlockError(s"error decoding block part $i from bytes: $e", height))
 
-  private def loadParts(height: Long, count: Int) =
+  private def loadParts(height: Long, count: Int): EitherT[F, BlockstoreError, Array[Byte]] =
     (0 until count).toList.foldM(Array.empty[Byte]) {
       case (bytes, idx) => getPart(height, idx).map(bytes ++ _.bytes.toByteArray)
     }
 
-  private def decodeBlock(blockBytes: Array[Byte]) =
-    EitherT.fromEither[F](Protobuf.decodeLengthPrefixed[Block](blockBytes))
+  private def decodeBlock(blockBytes: Array[Byte], height: Long): EitherT[F, BlockstoreError, Block] =
+    EitherT
+      .fromEither[F](Protobuf.decodeLengthPrefixed[Block](blockBytes))
+      .leftMap(e => GetBlockError(s"error decoding block from bytes: $e", height))
 
-  private def decodeHeight(heightJsonBytes: Array[Byte]) =
-    EitherT.fromEither[F](
-      Try(new String(heightJsonBytes)).toEither >>= parse >>= (_.hcursor.get[Int]("height"))
-    )
+  private def decodeHeight(heightJsonBytes: Array[Byte]): EitherT[F, BlockstoreError, Int] =
+    EitherT
+      .fromEither[F](
+        Try(new String(heightJsonBytes)).toEither >>= parse >>= (_.hcursor.get[Int]("height"))
+      )
+      .leftMap(RetrievingStorageHeightError(_))
 
-  def getBlock(height: Long): EitherT[F, Throwable, Block] =
+  private def getStorageHeightBytes =
+    kv.get(BlockStoreHeightKey)
+      .leftMap(RetrievingStorageHeightError(_))
+      .flatMap(EitherT.fromOption(_, RetrievingStorageHeightError("blockStore height wasn't found")))
+
+  def getBlock(height: Long): EitherT[F, BlockstoreError, Block] =
     for {
-      partsCount <- getBlockPartsCount(height)
-      blockBytes <- loadParts(height, partsCount)
-      block <- decodeBlock(blockBytes)
+      count <- getBlockPartsCount(height)
+      bytes <- loadParts(height, count)
+      block <- decodeBlock(bytes, height)
     } yield block
 
-  def getStorageHeight: EitherT[F, EffectError, Int] =
-    (for {
-      heightJsonBytes <- kv.get(BlockStoreHeightKey).flatMap(getOr("blockStore height wasn't found", -1)(_))
-      height <- decodeHeight(heightJsonBytes)
-    } yield height).leftMap(RetrievingStorageHeightError)
+  def getStorageHeight: EitherT[F, BlockstoreError, Int] =
+    for {
+      bytes <- getStorageHeightBytes
+      height <- decodeHeight(bytes)
+    } yield height
 }
 
-/**
- * Read blocks from blockstore.db which is at
- * `~.fluence/app-89-3/tendermint/data/blockstore.db`
- */
-object Blockstore extends IOApp {
+object Blockstore {
   type RawKV[F[_]] = KVStore[F, Array[Byte], Array[Byte]]
 
   val BlockStoreHeightKey: Array[Byte] = "blockStore".getBytes
-
-  override def run(args: List[String]): IO[ExitCode] =
-    LogFactory
-      .forPrintln[IO](Log.Trace)
-      .init()
-      .flatMap { implicit log =>
-        val name =
-          "/Users/folex/Development/fluencelabs/fluence-main/history/tendermint-block-history/src/main/scala/fluence/effects/tendermint/block/history/db/blockstore.db"
-        createStore[IO](name).use { e =>
-          Traverse[Either[BlockstoreError, *]].sequence(
-            e.map { store =>
-              store.getStorageHeight
-                .flatMap(h => (1L to h).toList.traverse(store.getBlock(_)))
-                .flatTap(
-                  _.traverse(
-                    v =>
-                      Log
-                        .eitherT[IO, Throwable]
-                        .info(
-//                            s"${v} ${v.data}\n\n" +
-//                            s"${ProtobufConverter.fromProtobuf(v)}\n\n" +
-                          s"${v.header.get.height} => ${ProtobufConverter.fromProtobuf(v).flatMap(TendermintBlock(_).validateHashes()).fold(e => s"FAIL: $e", _ => "OK")}"
-                      )
-                  )
-                )
-                .value
-            }
-          )
-        }
-      }
-      .map(_ => ExitCode.Success)
 
   private def createSymlinks[F[_]: Log](
     levelDbDir: String
@@ -184,7 +140,7 @@ object Blockstore extends IOApp {
     createSymlinks[F](dir).flatMap(
       dbPath =>
         Log.resource[F].debug(s"Opening DB at $dbPath") *>
-          Traverse[Either[BlockstoreError, *]].sequence(
+          Traverse[Either[BlockstoreError, ?]].sequence(
             dbPath.map(
               p =>
                 RocksDBStore
