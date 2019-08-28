@@ -133,17 +133,17 @@ object WorkersHttp {
         LogFactory[F].init("http" -> "websocket", "app" -> appId.toString) >>= { implicit log =>
           withWorker(appId)(w => {
             val websocket = new WorkersWebsocket(w, workerApi)
-            val echoReply: fs2.Pipe[F, WebSocketFrame, WebSocketFrame] =
+            val processMessages: fs2.Pipe[F, WebSocketFrame, WebSocketFrame] =
               _.evalMap {
                 case Text(msg, _) =>
                   websocket.processRequest(msg).map(Text(_))
-                case _ => Text("Something new").pure[F]
+                case _ => Text("Unsupported").pure[F]
               }
 
             Queue
               .unbounded[F, WebSocketFrame]
               .flatMap { q =>
-                val d = q.dequeue.through(echoReply)
+                val d = q.dequeue.through(processMessages)
                 val e = q.enqueue
                 WebSocketBuilder[F].build(d, e)
               }

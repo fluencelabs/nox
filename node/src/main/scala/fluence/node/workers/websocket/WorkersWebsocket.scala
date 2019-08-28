@@ -11,10 +11,17 @@ import io.circe.syntax._
 
 import scala.language.higherKinds
 
+/**
+ * The layer between messages from Websocket and WorkerAPI.
+ */
 class WorkersWebsocket[F[_]: Monad: Log](worker: Worker[F], workerApi: WorkerApi) {
   import WebsocketRequests._
   import WebsocketResponses._
 
+  /**
+   * Parse input and call WebsocketAPI.
+   * @param input messages from websocket
+   */
   def processRequest(input: String): F[String] = {
     val result = for {
       request <- EitherT
