@@ -31,7 +31,7 @@ import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.Log
-import fluence.statemachine.control.{BlockReceipt, ControlSignals}
+import fluence.statemachine.control.signals.{BlockReceipt, ControlSignals}
 import fluence.statemachine.data.{QueryCode, Tx, TxCode}
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker

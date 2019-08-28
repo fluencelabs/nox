@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.control
+package fluence.statemachine.control.signals
 
 import cats.effect.concurrent.{Deferred, MVar}
 import cats.effect.{Concurrent, Resource, Sync}
@@ -23,6 +23,7 @@ import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.log.Log
+import fluence.statemachine.control.{LastCachingQueue, VmHash}
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds

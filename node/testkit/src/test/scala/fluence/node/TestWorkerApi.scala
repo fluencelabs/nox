@@ -14,17 +14,18 @@
  * limitations under the License.
  */
 
-package fluence.node.workers
+package fluence.node
 
-import cats.{Apply, Monad}
+import cats.Monad
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.log.Log
 import fluence.node.workers.subscription.{TendermintQueryResponse, TxAwaitError}
+import fluence.node.workers.{Worker, WorkerApi}
 
 import scala.language.higherKinds
 
-trait WorkerApi {
+class TestWorkerApi extends WorkerApi {
 
   /**
    * Sends `query` request to tendermint.
@@ -32,51 +33,47 @@ trait WorkerApi {
    * @param data body of the request
    * @param path id of a response
    */
-  def query[F[_]: Monad](
-    worker: Worker[F],
-    data: Option[String],
-    path: String,
-    id: Option[String]
-  )(implicit log: Log[F]): F[Either[RpcError, String]]
+  override def query[F[_]: Monad](worker: Worker[F], data: Option[String], path: String, id: Option[String])(
+    implicit log: Log[F]
+  ): F[Either[RpcError, String]] = throw new NotImplementedError("TestWorkerApi, method query")
 
   /**
    * Gets a status of a tendermint node.
    *
    */
-  def tendermintStatus[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Either[RpcError, String]]
+  override def tendermintStatus[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Either[RpcError, String]] =
+    throw new NotImplementedError("TestWorkerApi, method status")
 
   /**
    * Gets a p2p port of tendermint node.
    *
    */
-  def p2pPort[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Short]
+  override def p2pPort[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Short] =
+    throw new NotImplementedError("TestWorkerApi, method p2pPort")
 
   /**
    * Sends transaction to tendermint broadcastTxSync.
    *
    * @param tx transaction to process
    */
-  def sendTx[F[_]: Monad](worker: Worker[F], tx: String, id: Option[String])(
+  override def sendTx[F[_]: Monad](worker: Worker[F], tx: String, id: Option[String])(
     implicit log: Log[F]
-  ): F[Either[RpcError, String]]
+  ): F[Either[RpcError, String]] = throw new NotImplementedError("TestWorkerApi, method sendTx")
 
   /**
    * Sends the transaction to tendermint and then query for a response after each block.
    *
    * @param tx transaction to process
    */
-  def sendTxAwaitResponse[F[_]: Monad, G[_]](worker: Worker[F], tx: String, id: Option[String])(
+  override def sendTxAwaitResponse[F[_]: Monad, G[_]](worker: Worker[F], tx: String, id: Option[String])(
     implicit log: Log[F]
-  ): F[Either[TxAwaitError, TendermintQueryResponse]]
+  ): F[Either[TxAwaitError, TendermintQueryResponse]] =
+    throw new NotImplementedError("TestWorkerApi, method sendTxAwaitResponse")
 
   /**
    * Returns the last manifest of a worker.
    *
    */
-  def lastManifest[F[_]: Monad](worker: Worker[F]): F[Option[BlockManifest]]
-
-}
-
-object WorkerApi {
-  def apply(): WorkerApi = new WorkerApiImpl()
+  override def lastManifest[F[_]: Monad](worker: Worker[F]): F[Option[BlockManifest]] =
+    throw new NotImplementedError("TestWorkerApi, method lastManifest")
 }

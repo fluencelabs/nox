@@ -24,7 +24,7 @@ import com.github.jtendermint.jabci.api._
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
 import fluence.log.{Log, LogFactory}
-import fluence.statemachine.control.{ControlSignals, DropPeer}
+import fluence.statemachine.control.signals.{ControlSignals, DropPeer}
 import fluence.statemachine.data.Tx
 
 import scala.language.higherKinds

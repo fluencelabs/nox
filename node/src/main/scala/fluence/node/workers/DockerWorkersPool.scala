@@ -86,7 +86,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
    *
    * @param worker Worker to register in the pool
    */
-  private def registeredWorker(worker: Worker[F])(implicit log: Log[F]): Resource[F, Unit] =
+  private def registerWorker(worker: Worker[F])(implicit log: Log[F]): Resource[F, Unit] =
     Resource
       .make(
         workers.update(_ + (worker.appId -> worker)) *>
@@ -148,7 +148,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
       _ <- worker.services.responseSubscriber.start()
 
       // Finally, register the worker in the pool
-      _ ← registeredWorker(worker)
+      _ ← registerWorker(worker)
 
     } yield worker
 

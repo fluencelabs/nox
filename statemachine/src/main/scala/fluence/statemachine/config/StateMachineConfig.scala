@@ -26,8 +26,7 @@ import cats.syntax.list._
 import cats.syntax.applicativeError._
 import cats.{Monad, Traverse}
 import com.typesafe.config.{Config, ConfigFactory}
-import fluence.log.LogLevel.LogLevel
-import fluence.statemachine.control.ControlServer.ControlServerConfig
+import fluence.statemachine.control.ControlServer
 import fluence.statemachine.error.{StateMachineError, VmModuleLocationError}
 import net.ceedubs.ficus.readers.ValueReader
 
@@ -50,7 +49,7 @@ case class StateMachineConfig(
   moduleFiles: List[String],
   logLevel: String,
   abciPort: Short,
-  control: ControlServerConfig,
+  control: ControlServer.Config,
   tendermintRpc: TendermintRpcConfig,
   blockUploadingEnabled: Boolean
 ) {

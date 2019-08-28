@@ -17,12 +17,10 @@
 package fluence.node.workers
 
 import cats.Monad
-import cats.data.EitherT
 import cats.syntax.apply._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.effect.{Concurrent, Sync}
-import fluence.effects.tendermint.rpc._
 import fluence.effects.tendermint.rpc.http.{
   RpcBlockParsingFailed,
   RpcBodyMalformed,
@@ -41,10 +39,17 @@ import fluence.node.workers.subscription.{
   TxInvalidError,
   TxParsingError
 }
+import fluence.node.workers.websocket.WorkersWebsocket
+import fs2.concurrent.Queue
 import fluence.statemachine.data.Tx
 import org.http4s.dsl.Http4sDsl
+import org.http4s.server.websocket.WebSocketBuilder
+import org.http4s.websocket.WebSocketFrame
+import org.http4s.websocket.WebSocketFrame.Text
 import org.http4s.{HttpRoutes, Response}
+import io.circe.syntax._
 
+import scala.concurrent.duration._
 import scala.language.higherKinds
 
 object WorkersHttp {
@@ -53,7 +58,7 @@ object WorkersHttp {
    * Encodes a tendermint response to HTTP format.
    *
    */
-  def tendermintResponseToHttp[F[_]: Monad](
+  private def tendermintResponseToHttp[F[_]: Monad](
     appId: Long,
     response: Either[RpcError, String]
   )(implicit log: Log[F], dsl: Http4sDsl[F]): F[Response[F]] = {
@@ -72,7 +77,8 @@ object WorkersHttp {
    * Encodes errors to HTTP format.
    *
    */
-  def rpcErrorToResponse[F[_]: Monad](error: RpcError)(implicit log: Log[F], dsl: Http4sDsl[F]): F[Response[F]] = {
+  private def rpcErrorToResponse[F[_]: Monad](error: RpcError)(implicit log: Log[F],
+                                                               dsl: Http4sDsl[F]): F[Response[F]] = {
     import dsl._
     error match {
       case RpcRequestFailed(err) ⇒
@@ -107,8 +113,9 @@ object WorkersHttp {
     object QueryPath extends QueryParamDecoderMatcher[String]("path")
     object QueryData extends OptionalQueryParamDecoderMatcher[String]("data")
     object QueryId extends OptionalQueryParamDecoderMatcher[String]("id")
+    object QueryWait extends OptionalQueryParamDecoderMatcher[Int]("wait")
 
-    def withWorker(appId: Long)(fn: Worker[F] => F[Response[F]])(implicit log: Log[F]): F[Response[F]] = {
+    def withWorker(appId: Long)(fn: Worker[F] => F[Response[F]])(implicit log: Log[F]): F[Response[F]] =
       pool.get(appId).flatMap {
         case None =>
           log.debug(s"RPC Requested app $appId, but there's no such worker in the pool") *>
@@ -116,18 +123,48 @@ object WorkersHttp {
         case Some(worker) =>
           fn(worker)
       }
-    }
 
     // Routes comes there
     HttpRoutes.of {
+      case GET -> Root / LongVar(appId) / "ws" =>
+        LogFactory[F].init("http" -> "websocket", "app" -> appId.toString) >>= { implicit log =>
+          withWorker(appId)(w => {
+            val websocket = new WorkersWebsocket(w, workerApi)
+            val processMessages: fs2.Pipe[F, WebSocketFrame, WebSocketFrame] =
+              _.evalMap {
+                case Text(msg, _) =>
+                  websocket.processRequest(msg).map(Text(_))
+                case m => log.error(s"Unsupported message: $m") as Text("Unsupported")
+              }
+
+            Queue
+              .unbounded[F, WebSocketFrame]
+              .flatMap { q =>
+                val d = q.dequeue.through(processMessages)
+                val e = q.enqueue
+                WebSocketBuilder[F].build(d, e)
+              }
+          })
+        }
+
       case GET -> Root / LongVar(appId) / "query" :? QueryPath(path) +& QueryData(data) +& QueryId(id) ⇒
         LogFactory[F].init("http" -> "query", "app" -> appId.toString) >>= { implicit log =>
           withWorker(appId)(w => workerApi.query(w, data, path, id).flatMap(tendermintResponseToHttp(appId, _)))
         }
 
-      case GET -> Root / LongVar(appId) / "status" ⇒
+      case GET -> Root / LongVar(appId) / "status" :? QueryWait(wait) ⇒
         LogFactory[F].init("http" -> "status", "app" -> appId.toString) >>= { implicit log =>
-          withWorker(appId)(w => workerApi.status(w).flatMap(tendermintResponseToHttp(appId, _)))
+          // Fetches the worker's status, waiting no more than 10 seconds (if ?wait=$SECONDS is provided), or 1 second otherwise
+          withWorker(appId)(
+            _.services
+              .status(wait.filter(_ < 10).fold(1.second)(_.seconds))
+              .flatMap(st ⇒ Ok(st.asJson.noSpaces))
+          )
+        }
+
+      case GET -> Root / LongVar(appId) / "status" / "tendermint" ⇒
+        LogFactory[F].init("http" -> "status/tendermint", "app" -> appId.toString) >>= { implicit log =>
+          withWorker(appId)(w => workerApi.tendermintStatus(w).flatMap(tendermintResponseToHttp(appId, _)))
         }
 
       case GET -> Root / LongVar(appId) / "p2pPort" ⇒

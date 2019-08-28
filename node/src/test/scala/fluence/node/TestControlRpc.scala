@@ -20,6 +20,7 @@ import cats.data.EitherT
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 import fluence.node.workers.status.HttpStatus
+import fluence.statemachine.control.ControlStatus
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -39,7 +40,7 @@ trait TestControlRpc[F[_]] extends ControlRpc[F] {
    *
    * @return Currently if method returned without an error, worker is considered to be healthy
    */
-  override def status: F[HttpStatus[Unit]] = throw new NotImplementedError("def status")
+  override def status: F[HttpStatus[ControlStatus]] = throw new NotImplementedError("def status")
 
   /**
    * Requests worker to stop

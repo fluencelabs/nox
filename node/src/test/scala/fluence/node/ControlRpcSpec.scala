@@ -41,8 +41,8 @@ import fluence.EitherTSttpBackend
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.log.{Log, LogFactory}
 import fluence.node.workers.control.ControlRpc
-import fluence.statemachine.control.ControlServer.ControlServerConfig
-import fluence.statemachine.control.{ControlServer, DropPeer}
+import fluence.statemachine.control.ControlServer
+import fluence.statemachine.control.signals.DropPeer
 import org.scalatest.{Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
 
@@ -57,7 +57,7 @@ class ControlRpcSpec extends WordSpec with Matchers with OptionValues {
     implicit val logFactory = LogFactory.forPrintln[IO]()
     implicit val log: Log[IO] = LogFactory[IO].init(getClass.getSimpleName).unsafeRunSync()
 
-    val config = ControlServerConfig("localhost", 26652)
+    val config = ControlServer.Config("localhost", 26652)
     val serverR = ControlServer.make[IO](config)
 
     type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]

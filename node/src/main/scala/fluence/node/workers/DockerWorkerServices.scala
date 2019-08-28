@@ -32,6 +32,7 @@ import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
 import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.DockerTendermint
+import fluence.statemachine.control.ControlStatus
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -152,7 +153,7 @@ object DockerWorkerServices {
       workerStatus = (timeout: FiniteDuration) ⇒
         DockerIO[F]
           .checkContainer(worker)
-          .semiflatMap[ServiceStatus[Unit]] { d ⇒
+          .semiflatMap[ServiceStatus[ControlStatus]] { d ⇒
             HttpStatus
               .timed(control.status, timeout)
               .map(s ⇒ ServiceStatus(Right(d), s))
