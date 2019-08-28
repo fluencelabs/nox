@@ -49,7 +49,7 @@ trait WorkerApi {
    * Gets a p2p port of tendermint node.
    *
    */
-  def p2pPort[F[_]: Apply](worker: Worker[F])(implicit log: Log[F]): F[Short]
+  def p2pPort[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Short]
 
   /**
    * Sends transaction to tendermint broadcastTxSync.

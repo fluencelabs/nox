@@ -25,12 +25,20 @@ import scala.util.control.NoStackTrace
 /**
  * Errors for `txAwait` API
  */
-trait TxAwaitError
-case class TendermintResponseDeserializationError(responseError: String) extends TxAwaitError
-case class RpcTxAwaitError(rpcError: RpcError) extends TxAwaitError
+trait TxAwaitError {
+  def msg: String
+}
+case class TendermintResponseDeserializationError(responseError: String) extends TxAwaitError {
+  override def msg: String = responseError
+}
+case class RpcTxAwaitError(rpcError: RpcError) extends TxAwaitError {
+  override def msg: String = rpcError.getMessage
+}
 case class TxParsingError(msg: String, tx: String) extends TxAwaitError
 case class TxInvalidError(msg: String) extends TxAwaitError
-case class TendermintRpcError(code: Int, message: String, data: String) extends TxAwaitError
+case class TendermintRpcError(code: Int, message: String, data: String) extends TxAwaitError {
+  override def msg: String = s"Tendermint error. Code: $code, message: $message, data: $data"
+}
 
 object TendermintRpcError {
   import cats.syntax.either._
