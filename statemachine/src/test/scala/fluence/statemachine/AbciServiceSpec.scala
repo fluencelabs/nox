@@ -91,11 +91,13 @@ class AbciServiceSpec extends WordSpec with Matchers {
       .flatMap(identity)
   }
 
-  private def checkCommit(abci: AbciService[IO],
-                          ref: Ref[IO, ExecutionState],
-                          abciState: Ref[IO, AbciState],
-                          expectedActions: List[Action],
-                          expectedHeight: Long) = {
+  private def checkCommit(
+    abci: AbciService[IO],
+    ref: Ref[IO, ExecutionState],
+    abciState: Ref[IO, AbciState],
+    expectedActions: List[Action],
+    expectedHeight: Long
+  ) = {
     Apply[IO].map2(abciState.get, ref.get) {
       case (abciState, executionState) =>
         abciState.height shouldBe expectedHeight

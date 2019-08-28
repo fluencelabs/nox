@@ -44,9 +44,11 @@ class TestTendermintRpc extends TendermintHttpRpc[IO] {
   override def unsafeDialPeers(peers: Seq[String], persistent: Boolean, id: String): EitherT[IO, RpcError, String] =
     throw new NotImplementedError("def unsafeDialPeers")
 
-  override def query(path: String,
-                     data: String,
-                     height: Long,
-                     prove: Boolean,
-                     id: String): EitherT[IO, RpcError, String] = throw new NotImplementedError("def query")
+  override def query(
+    path: String,
+    data: String,
+    height: Long,
+    prove: Boolean,
+    id: String
+  ): EitherT[IO, RpcError, String] = throw new NotImplementedError("def query")
 }

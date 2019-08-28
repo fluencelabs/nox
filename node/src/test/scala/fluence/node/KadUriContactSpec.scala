@@ -132,7 +132,7 @@ class KadUriContactSpec extends WordSpec with EitherValues with Matchers {
             override def lookupAway(key: Key, moveAwayFrom: Key, neighbors: Int)(
               implicit log: Log[IO]
             ): EitherT[IO, KadRpcError, Seq[Node[UriContact]]] = ???
-        }
+          }
       )
 
       val rs = RoutingState.inMemory[IO, IO.Par, UriContact](Monoid[Key].empty, 3, 2).unsafeRunSync()

@@ -135,21 +135,25 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
     } yield (abci, state)
   }
 
-  private def startBlockUploading(controlRpc: ControlRpc[IO],
-                                  blocksQ: fs2.concurrent.Queue[IO, Block],
-                                  storedReceipts: Seq[Receipt] = Nil): Resource[IO, Unit] =
+  private def startBlockUploading(
+    controlRpc: ControlRpc[IO],
+    blocksQ: fs2.concurrent.Queue[IO, Block],
+    storedReceipts: Seq[Receipt] = Nil
+  ): Resource[IO, Unit] =
     Resource.liftF(Ref.of[IO, Option[BlockManifest]](None)).flatMap { manifestRef ⇒
       def receiptStorage(id: Long) =
         new ReceiptStorage[IO] {
           override val appId: Long = id
 
-          override def put(height: Long,
-                           receipt: Receipt)(implicit log: Log[IO]): EitherT[IO, ReceiptStorageError, Unit] =
+          override def put(height: Long, receipt: Receipt)(
+            implicit log: Log[IO]
+          ): EitherT[IO, ReceiptStorageError, Unit] =
             EitherT.pure(())
           override def get(height: Long)(implicit log: Log[IO]): EitherT[IO, ReceiptStorageError, Option[Receipt]] =
             EitherT.pure(None)
-          override def retrieve(from: Option[Long],
-                                to: Option[Long])(implicit log: Log[IO]): fs2.Stream[IO, (Long, Receipt)] =
+          override def retrieve(from: Option[Long], to: Option[Long])(
+            implicit log: Log[IO]
+          ): fs2.Stream[IO, (Long, Receipt)] =
             fs2.Stream.emits(storedReceipts.map(r => r.height -> r))
         }
 

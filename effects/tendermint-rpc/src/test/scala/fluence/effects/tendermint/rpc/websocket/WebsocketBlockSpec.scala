@@ -80,12 +80,11 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
           (for {
             _ <- state.update(_.consensusHeight())
             height <- consensusHeights.modify(l => (l.tail, l.headOption))
-          } yield
-            height.fold(
-              (RpcRequestFailed(
-                new Throwable("WebSocketBlockSpec: requested consensus height when consensusHeights list is empty")
-              ): RpcError).asLeft[Long]
-            )(_.asRight)).eitherT
+          } yield height.fold(
+            (RpcRequestFailed(
+              new Throwable("WebSocketBlockSpec: requested consensus height when consensusHeights list is empty")
+            ): RpcError).asLeft[Long]
+          )(_.asRight)).eitherT
 
         override protected def subscribe(
           event: String
@@ -102,12 +101,14 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
     } yield (w, state)
   }
 
-  private def emitBlocks(lastKnownHeight: Long,
-                         consensusHeights: List[Long],
-                         events: List[Event],
-                         expectedBlocks: List[Long],
-                         expectedActions: List[Action],
-                         timeout: Duration = 10.seconds) = {
+  private def emitBlocks(
+    lastKnownHeight: Long,
+    consensusHeights: List[Long],
+    events: List[Event],
+    expectedBlocks: List[Long],
+    expectedActions: List[Action],
+    timeout: Duration = 10.seconds
+  ) = {
     val result = (websocket(consensusHeights, events).flatMap {
       case (ws, state) =>
         ws.subscribeNewBlock(lastKnownHeight)
