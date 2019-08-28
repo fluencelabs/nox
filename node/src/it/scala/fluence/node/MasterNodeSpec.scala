@@ -102,7 +102,7 @@ class MasterNodeSpec
         KademliaConfig(
           RoutingConf(1, 1, 4, 5.seconds),
           AdvertizeConf("127.0.0.1", port),
-          JoinConf(seeds, 4),
+          JoinConf(seeds, 4)
         ),
         Ed25519.signAlgo,
         Ed25519.signAlgo.generateKeyPair.unsafe(Some(ByteVector.fromShort(port).toArray)),

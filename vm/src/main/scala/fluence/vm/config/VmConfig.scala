@@ -40,7 +40,7 @@ case class MainModuleConfig(
   name: Option[String],
   allocateFunctionName: String,
   deallocateFunctionName: String,
-  invokeFunctionName: String,
+  invokeFunctionName: String
 )
 
 /**
@@ -84,6 +84,6 @@ object VmConfig {
         InternalVmError(
           s"Unable to read a config for the namespace=$namespace",
           Some(e)
-      )
+        )
     )
 }

@@ -77,8 +77,9 @@ object WorkersHttp {
    * Encodes errors to HTTP format.
    *
    */
-  private def rpcErrorToResponse[F[_]: Monad](error: RpcError)(implicit log: Log[F],
-                                                               dsl: Http4sDsl[F]): F[Response[F]] = {
+  private def rpcErrorToResponse[F[_]: Monad](
+    error: RpcError
+  )(implicit log: Log[F], dsl: Http4sDsl[F]): F[Response[F]] = {
     import dsl._
     error match {
       case RpcRequestFailed(err) ⇒
@@ -183,7 +184,7 @@ object WorkersHttp {
                 case None ⇒
                   log.debug("There's no available manifest yet") *>
                     NoContent()
-            }
+              }
           )
         }
 

@@ -115,11 +115,10 @@ object WasmModule {
           ): ApplyError
       )
 
-    } yield
-      new WasmModule(
-        Option(moduleDescription.getName),
-        moduleMemory,
-        ModuleInstance(moduleInstance)
-      )
+    } yield new WasmModule(
+      Option(moduleDescription.getName),
+      moduleMemory,
+      ModuleInstance(moduleInstance)
+    )
 
 }

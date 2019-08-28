@@ -45,9 +45,10 @@ class DhtHttpClient[F[_]: Effect, V: Encoder: Decoder](
   hostname: String,
   port: Short,
   prefix: String
-)(implicit
-  sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing])
-    extends DhtRpc[F, V] {
+)(
+  implicit
+  sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]
+) extends DhtRpc[F, V] {
 
   private def uri(key: Key) =
     uri"http://$hostname:$port/$prefix/${key.asBase58}"
@@ -89,7 +90,7 @@ class DhtHttpClient[F[_]: Effect, V: Encoder: Decoder](
               )
               .flatMap(
                 _.fold[Either[DhtError, ByteVector]](Left(DhtValueNotFound(key)))(Right(_))
-            )
+              )
       )
 
 }

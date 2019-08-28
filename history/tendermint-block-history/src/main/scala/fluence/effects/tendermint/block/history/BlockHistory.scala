@@ -66,16 +66,18 @@ class BlockHistory[F[_]: Monad](ipfs: IpfsUploader[F]) {
   }
 
   // TODO write docs
-  private def uploadTxs(height: Long,
-                        txs: List[ByteVector])(implicit log: Log[F]): EitherT[F, BlockHistoryError, Receipt] =
+  private def uploadTxs(height: Long, txs: List[ByteVector])(
+    implicit log: Log[F]
+  ): EitherT[F, BlockHistoryError, Receipt] =
     ipfs
       .upload(txs)
       .map(Receipt(height, _))
       .leftMap(se => TxsUploadingError(height, txs.size, se): BlockHistoryError)
 
   // TODO write docs; why do we need height here?
-  private def uploadManifest(height: Long,
-                             manifest: BlockManifest)(implicit log: Log[F]): EitherT[F, BlockHistoryError, Receipt] =
+  private def uploadManifest(height: Long, manifest: BlockManifest)(
+    implicit log: Log[F]
+  ): EitherT[F, BlockHistoryError, Receipt] =
     ipfs
       .upload(manifest.jsonBytes())
       .map(Receipt(height, _))

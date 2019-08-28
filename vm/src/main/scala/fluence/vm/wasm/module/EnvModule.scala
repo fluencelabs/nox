@@ -103,11 +103,10 @@ object EnvModule {
         NoSuchFnError(s"The env module must have function with names $spentGasFunctionName, $setSpentGasFunction"): ApplyError
       )
 
-    } yield
-      new EnvModule(
-        ModuleInstance(moduleInstance),
-        spentGas,
-        setSpentGas
-      )
+    } yield new EnvModule(
+      ModuleInstance(moduleInstance),
+      spentGas,
+      setSpentGas
+    )
 
 }

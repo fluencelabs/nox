@@ -55,7 +55,7 @@ final case class WasmModuleMemory private (memory: MemoryBuffer, memoryHasher: M
         VmMemoryError(
           s"Reading from offset=$offset $size bytes failed",
           Some(e)
-      )
+        )
     )
 
   /**

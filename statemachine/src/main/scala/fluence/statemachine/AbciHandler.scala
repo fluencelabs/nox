@@ -32,7 +32,7 @@ import scala.util.Try
 
 class AbciHandler[F[_]: Effect: LogFactory](
   service: AbciService[F],
-  controlSignals: ControlSignals[F],
+  controlSignals: ControlSignals[F]
 ) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock {
 
   override def requestBeginBlock(
@@ -177,7 +177,7 @@ class AbciHandler[F[_]: Effect: LogFactory](
                 case (resp, drop) ⇒ resp.addValidatorUpdates(dropValidator(drop))
               }
               .build()
-        }
+          }
       )
       .toIO
       .unsafeRunSync()

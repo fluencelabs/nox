@@ -59,7 +59,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
   appReceiptStorage: Long ⇒ Resource[F, ReceiptStorage[F]],
   websocketConfig: WebsocketConfig,
   healthyWorkerTimeout: FiniteDuration = 1.second,
-  stopTimeoutSeconds: Int = 5,
+  stopTimeoutSeconds: Int = 5
 )(
   implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
   F: ConcurrentEffect[F],
@@ -161,10 +161,12 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
    *                    It might take up to 2*`stopTimeout` seconds to gracefully stop the worker, as 2 containers involved.
    * @return Unit; no failures are expected
    */
-  def runWorker(p2pPort: Short,
-                params: F[WorkerParams],
-                stopTimeout: Int,
-                receiptStorage: Resource[F, ReceiptStorage[F]])(
+  def runWorker(
+    p2pPort: Short,
+    params: F[WorkerParams],
+    stopTimeout: Int,
+    receiptStorage: Resource[F, ReceiptStorage[F]]
+  )(
     implicit log: Log[F]
   ): F[Unit] =
     MakeResource.useConcurrently[F](
@@ -284,13 +286,14 @@ object DockerWorkersPool {
       pool ← Resource.make {
         for {
           workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
-        } yield
-          new DockerWorkersPool[F, G](ports,
-                                      workers,
-                                      workerLogLevel,
-                                      blockUploading,
-                                      appReceiptStorage,
-                                      websocketConfig)
+        } yield new DockerWorkersPool[F, G](
+          ports,
+          workers,
+          workerLogLevel,
+          blockUploading,
+          appReceiptStorage,
+          websocketConfig
+        )
       }(_.stopAll())
     } yield pool: WorkersPool[F]
 

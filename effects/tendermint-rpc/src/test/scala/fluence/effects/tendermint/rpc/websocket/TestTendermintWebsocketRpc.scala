@@ -26,11 +26,13 @@ import scala.language.higherKinds
 
 trait TestTendermintWebsocketRpc[F[_]] extends TendermintWebsocketRpc[F] with TestTendermintRpc[F] {
 
-  def subscribeNewBlock(lastKnownHeight: Long)(implicit log: Log[F],
-                                               backoff: Backoff[EffectError]): fs2.Stream[F, Block] =
+  def subscribeNewBlock(
+    lastKnownHeight: Long
+  )(implicit log: Log[F], backoff: Backoff[EffectError]): fs2.Stream[F, Block] =
     throw new NotImplementedError("def subscribeNewBlock")
 
-  protected def subscribe(event: String)(implicit log: Log[F],
-                                         backoff: Backoff[EffectError]): Resource[F, Queue[F, Event]] =
+  protected def subscribe(
+    event: String
+  )(implicit log: Log[F], backoff: Backoff[EffectError]): Resource[F, Queue[F, Event]] =
     throw new NotImplementedError("def subscribe")
 }

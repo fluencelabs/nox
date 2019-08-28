@@ -79,7 +79,7 @@ object Siblings {
                 Monad[F].tailRecM(drop.map(_.key).toList -> ModResult.updated(node)) {
                   case (Nil, mr) ⇒ Applicative[F].pure(Right(mr))
                   case (d :: tail, mr) ⇒ Log[F].trace(s"Pushed $d away by siblings") as Left(tail -> mr.remove(d))
-              }
+                }
         )
     }
 

@@ -118,7 +118,7 @@ object MemoryHasher {
               VmMemoryError(
                 s"Cannot copy memory with capacity ${memory.capacity()} to an array",
                 Some(e)
-            )
+              )
           )
           fullMemoryHash ← hasher(memoryArray).leftMap { e ⇒
             InternalVmError(s"Computing wasm memory hash failed", Some(e)): GetVmStateError

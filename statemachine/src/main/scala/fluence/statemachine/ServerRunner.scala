@@ -134,7 +134,7 @@ object ServerRunner extends IOApp {
    */
   private[statemachine] def buildAbciHandler(
     config: StateMachineConfig,
-    controlSignals: ControlSignals[IO],
+    controlSignals: ControlSignals[IO]
   )(implicit log: Log[IO], lf: LogFactory[IO]): EitherT[IO, StateMachineError, AbciHandler[IO]] =
     for {
       moduleFilenames <- config.collectModuleFiles[IO]

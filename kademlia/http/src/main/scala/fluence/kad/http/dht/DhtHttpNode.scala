@@ -61,9 +61,11 @@ object DhtHttpNode {
     kad: Kademlia[F, UriContact],
     hasher: Crypto.Hasher[Array[Byte], ByteVector] = CryptoHashers.Sha1.rmap(ByteVector(_)),
     conf: Dht.Conf = Dht.Conf()
-  )(implicit
+  )(
+    implicit
     sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
-    codec: PureCodec[V, Array[Byte]]): Resource[F, DhtHttpNode[F, V]] =
+    codec: PureCodec[V, Array[Byte]]
+  ): Resource[F, DhtHttpNode[F, V]] =
     for {
       s ← store
       m ← metadata

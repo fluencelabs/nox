@@ -33,16 +33,19 @@ import fluence.log.Log
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-class TendermintTest[F[_]: Timer: Monad](txRef: Ref[F, Either[RpcError, String]],
-                                         consensusHeightRef: Ref[F, Either[RpcError, Long]],
-                                         queryRef: Ref[F, Either[RpcError, String]],
-                                         blockStream: fs2.Stream[F, Block]) {
+class TendermintTest[F[_]: Timer: Monad](
+  txRef: Ref[F, Either[RpcError, String]],
+  consensusHeightRef: Ref[F, Either[RpcError, Long]],
+  queryRef: Ref[F, Either[RpcError, String]],
+  blockStream: fs2.Stream[F, Block]
+) {
 
   val tendermint: TendermintRpc[F] = new TestTendermintRpc[F] with TestTendermintWebsocketRpc[F] {
     override val websocketConfig: WebsocketConfig = WebsocketConfig()
 
-    override def subscribeNewBlock(lastKnownHeight: Long)(implicit log: Log[F],
-                                                          backoff: Backoff[EffectError]): fs2.Stream[F, Block] =
+    override def subscribeNewBlock(
+      lastKnownHeight: Long
+    )(implicit log: Log[F], backoff: Backoff[EffectError]): fs2.Stream[F, Block] =
       blockStream
     /*fs2.Stream
         .awakeEvery[F](50.milliseconds)

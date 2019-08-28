@@ -80,7 +80,7 @@ object WebsocketServer {
               t =>
                 new WithCause[Throwable] {
                   override def cause: Throwable = t
-              }
+                }
             )
         })
       } yield server

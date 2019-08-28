@@ -75,11 +75,13 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
   val configTemplate = ConfigTemplate[IO](rootPath, tmConfig).unsafeRunSync()
   val params = WorkerParams(app, rootPath, rootPath, None, dockerConfig, tmDockerConfig, configTemplate)
 
-  case class UploadingState(uploads: Int = 0,
-                            vmHashGet: Seq[Long] = Nil,
-                            receipts: Seq[Receipt] = Vector.empty,
-                            lastKnownHeight: Option[Long] = None,
-                            blockManifests: Seq[BlockManifest] = Nil) {
+  case class UploadingState(
+    uploads: Int = 0,
+    vmHashGet: Seq[Long] = Nil,
+    receipts: Seq[Receipt] = Vector.empty,
+    lastKnownHeight: Option[Long] = None,
+    blockManifests: Seq[BlockManifest] = Nil
+  ) {
 
     def upload[A: IpfsData](data: A) = data match {
       case d: ByteVector =>
@@ -115,13 +117,15 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
             new ReceiptStorage[IO] {
               override val appId: Long = id
 
-              override def put(height: Long,
-                               receipt: Receipt)(implicit log: Log[IO]): EitherT[IO, ReceiptStorageError, Unit] =
+              override def put(height: Long, receipt: Receipt)(
+                implicit log: Log[IO]
+              ): EitherT[IO, ReceiptStorageError, Unit] =
                 EitherT.pure(())
               override def get(height: Long)(implicit log: Log[IO]): EitherT[IO, ReceiptStorageError, Option[Receipt]] =
                 EitherT.pure(None)
-              override def retrieve(from: Option[Long],
-                                    to: Option[Long])(implicit log: Log[IO]): fs2.Stream[IO, (Long, Receipt)] =
+              override def retrieve(from: Option[Long], to: Option[Long])(
+                implicit log: Log[IO]
+              ): fs2.Stream[IO, (Long, Receipt)] =
                 fs2.Stream.emits(storedReceipts.map(r => r.height -> r))
             }
 
