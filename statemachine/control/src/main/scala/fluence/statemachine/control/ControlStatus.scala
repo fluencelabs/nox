@@ -22,10 +22,10 @@ import io.circe.generic.semiauto._
 /**
  * Statemachine's status, fetched via Control RPC.
  *
- * @param expectEth Whether this statemachine expects to get Ethereum blocks or not
+ * @param expectsEth Whether this statemachine expects to get Ethereum blocks or not
  */
 case class ControlStatus(
-  expectEth: Boolean
+  expectsEth: Boolean
 )
 
 object ControlStatus {

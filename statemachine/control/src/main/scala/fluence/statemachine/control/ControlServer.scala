@@ -93,7 +93,7 @@ object ControlServer {
 
       case (GET | POST) -> Root / "control" / "status" =>
         // TODO check whether eth blocks are actually expected
-        Ok(ControlStatus(expectEth = false).asJson.noSpaces)
+        Ok(ControlStatus(expectsEth = false).asJson.noSpaces)
 
       case req @ POST -> Root / "control" / "blockReceipt" =>
         for {

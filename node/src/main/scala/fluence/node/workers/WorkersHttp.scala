@@ -17,13 +17,9 @@
 package fluence.node.workers
 
 import cats.Monad
-import cats.data.EitherT
 import cats.syntax.apply._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
-import cats.syntax.applicative._
-import io.circe.parser._
-import io.circe.syntax._
 import cats.effect.{Concurrent, Sync}
 import fluence.effects.tendermint.rpc.http.{
   RpcBlockParsingFailed,
@@ -45,7 +41,6 @@ import fluence.node.workers.subscription.{
 }
 import fluence.node.workers.websocket.WorkersWebsocket
 import fs2.concurrent.Queue
-import io.circe.Decoder
 import fluence.statemachine.data.Tx
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.websocket.WebSocketBuilder
@@ -53,7 +48,6 @@ import org.http4s.websocket.WebSocketFrame
 import org.http4s.websocket.WebSocketFrame.Text
 import org.http4s.{HttpRoutes, Response}
 import io.circe.syntax._
-import scala.concurrent.duration._
 
 import scala.concurrent.duration._
 import scala.language.higherKinds
@@ -160,6 +154,7 @@ object WorkersHttp {
 
       case GET -> Root / LongVar(appId) / "status" :? QueryWait(wait) ⇒
         LogFactory[F].init("http" -> "status", "app" -> appId.toString) >>= { implicit log =>
+          // Fetches the worker's status, waiting no more than 10 seconds (if ?wait=$SECONDS is provided), or 1 second otherwise
           withWorker(appId)(
             _.services
               .status(wait.filter(_ < 10).fold(1.second)(_.seconds))
