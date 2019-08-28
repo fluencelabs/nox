@@ -137,7 +137,7 @@ object WorkersHttp {
               _.evalMap {
                 case Text(msg, _) =>
                   websocket.processRequest(msg).map(Text(_))
-                case _ => Text("Unsupported").pure[F]
+                case m => log.error(s"Unsupported message: $m") as Text("Unsupported")
               }
 
             Queue

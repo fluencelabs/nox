@@ -1,6 +1,6 @@
 package fluence.node
 
-import cats.{Apply, Monad}
+import cats.Monad
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.log.Log
@@ -19,19 +19,21 @@ class TestWorkerApi extends WorkerApi {
    */
   override def query[F[_]: Monad](worker: Worker[F], data: Option[String], path: String, id: Option[String])(
     implicit log: Log[F]
-  ): F[Either[RpcError, String]] = ???
+  ): F[Either[RpcError, String]] = throw new NotImplementedError("TestWorkerApi, method query")
 
   /**
    * Gets a status of a tendermint node.
    *
    */
-  override def status[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Either[RpcError, String]] = ???
+  override def status[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Either[RpcError, String]] =
+    throw new NotImplementedError("TestWorkerApi, method status")
 
   /**
    * Gets a p2p port of tendermint node.
    *
    */
-  override def p2pPort[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Short] = ???
+  override def p2pPort[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Short] =
+    throw new NotImplementedError("TestWorkerApi, method p2pPort")
 
   /**
    * Sends transaction to tendermint broadcastTxSync.
@@ -40,7 +42,7 @@ class TestWorkerApi extends WorkerApi {
    */
   override def sendTx[F[_]: Monad](worker: Worker[F], tx: String, id: Option[String])(
     implicit log: Log[F]
-  ): F[Either[RpcError, String]] = ???
+  ): F[Either[RpcError, String]] = throw new NotImplementedError("TestWorkerApi, method sendTx")
 
   /**
    * Sends the transaction to tendermint and then query for a response after each block.
@@ -49,11 +51,13 @@ class TestWorkerApi extends WorkerApi {
    */
   override def sendTxAwaitResponse[F[_]: Monad, G[_]](worker: Worker[F], tx: String, id: Option[String])(
     implicit log: Log[F]
-  ): F[Either[TxAwaitError, TendermintQueryResponse]] = ???
+  ): F[Either[TxAwaitError, TendermintQueryResponse]] =
+    throw new NotImplementedError("TestWorkerApi, method sendTxAwaitResponse")
 
   /**
    * Returns the last manifest of a worker.
    *
    */
-  override def lastManifest[F[_]: Monad](worker: Worker[F]): F[Option[BlockManifest]] = ???
+  override def lastManifest[F[_]: Monad](worker: Worker[F]): F[Option[BlockManifest]] =
+    throw new NotImplementedError("TestWorkerApi, method lastManifest")
 }
