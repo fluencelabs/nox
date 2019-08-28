@@ -60,7 +60,7 @@ import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
 import fluence.statemachine.{AbciService, TestTendermintRpc}
 import fluence.vm.InvocationResult
-import fluence.{EitherTSttpBackend, Eventually}
+import fluence.Eventually
 import fs2.concurrent.Queue
 import io.circe.Json
 import io.circe.parser.parse
@@ -76,7 +76,7 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
   implicit private val timer = IO.timer(global)
   implicit private val shift = IO.contextShift(global)
   implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec", level = Log.Error).unsafeRunSync()
-  implicit private val sttp = SttpEffect.plain[IO]
+  implicit private val sttp = SttpEffect.stream[IO]
   implicit private val backoff = Backoff.default[EffectError]
 
   private val rootPath = Paths.get("/tmp")
