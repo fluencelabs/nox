@@ -64,7 +64,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-class WebsocketAPISpec extends WordSpec with Matchers with BeforeAndAfterAll with Eventually {
+class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll with Eventually {
 
   import fluence.node.workers.websocket.WebsocketRequests.WebsocketRequest._
   import fluence.node.workers.websocket.WebsocketResponses.WebsocketResponse._
@@ -110,7 +110,9 @@ class WebsocketAPISpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
       val request: WebsocketRequest = StatusRequest(id)
       val response = websocketApi(new TestWorkerApi {
-        override def status[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Either[RpcError, String]] =
+        override def tendermintStatus[F[_]: Monad](
+          worker: Worker[F]
+        )(implicit log: Log[F]): F[Either[RpcError, String]] =
           (Right(statusV): Either[RpcError, String]).pure[F]
       }).processRequest(request.asJson.spaces4).unsafeRunSync()
       val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[StatusResponse]
@@ -125,7 +127,9 @@ class WebsocketAPISpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
       val request: WebsocketRequest = StatusRequest(id)
       val response = websocketApi(new TestWorkerApi {
-        override def status[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Either[RpcError, String]] =
+        override def tendermintStatus[F[_]: Monad](
+          worker: Worker[F]
+        )(implicit log: Log[F]): F[Either[RpcError, String]] =
           (Left(error): Either[RpcError, String]).pure[F]
       }).processRequest(request.asJson.spaces4).unsafeRunSync()
       val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[ErrorResponse]

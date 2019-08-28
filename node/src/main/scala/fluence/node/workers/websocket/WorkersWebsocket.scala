@@ -76,7 +76,7 @@ class WorkersWebsocket[F[_]: Monad: Log](worker: Worker[F], workerApi: WorkerApi
       case LastManifestRequest(requestId) =>
         workerApi.lastManifest(worker).map(block => LastManifestResponse(requestId, block.map(_.jsonString)))
       case StatusRequest(requestId) =>
-        workerApi.status(worker).map {
+        workerApi.tendermintStatus(worker).map {
           case Right(status) => StatusResponse(requestId, status)
           case Left(error)   => ErrorResponse(requestId, error.getMessage)
         }

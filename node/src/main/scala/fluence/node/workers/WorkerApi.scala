@@ -43,7 +43,7 @@ trait WorkerApi {
    * Gets a status of a tendermint node.
    *
    */
-  def status[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Either[RpcError, String]]
+  def tendermintStatus[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Either[RpcError, String]]
 
   /**
    * Gets a p2p port of tendermint node.
