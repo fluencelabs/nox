@@ -21,6 +21,7 @@ import cats.Monad
 import cats.data.EitherT
 import com.softwaremill.sttp.{SttpBackend, Uri}
 import fluence.effects.castore.{ContentAddressableStore, StoreError}
+import fluence.effects.sttp.SttpStreamEffect
 import fluence.log.Log
 import scodec.bits.ByteVector
 
@@ -49,9 +50,9 @@ class IpfsStore[F[_]](client: IpfsClient[F]) extends ContentAddressableStore[F] 
 
 object IpfsStore {
 
-  def apply[F[_]](
+  def apply[F[_]: Monad: SttpStreamEffect](
     address: Uri,
     readTimeout: FiniteDuration
-  )(implicit F: Monad[F], sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]): IpfsStore[F] =
+  ): IpfsStore[F] =
     new IpfsStore(new IpfsClient[F](address, readTimeout))
 }

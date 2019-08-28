@@ -16,8 +16,6 @@
 
 package fluence.statemachine
 
-import java.nio.ByteBuffer
-
 import cats.Monad
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.ExitCase.{Canceled, Completed, Error}
@@ -25,10 +23,7 @@ import cats.effect.{ExitCode, IO, IOApp, Resource}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import com.github.jtendermint.jabci.socket.TSocket
-import com.softwaremill.sttp.SttpBackend
-import fluence.EitherTSttpBackend
 import fluence.effects.tendermint.rpc.TendermintRpc
-import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.{Log, LogFactory, LogLevel}
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.control.ControlServer
@@ -37,6 +32,7 @@ import fluence.statemachine.vm.WasmVmOperationInvoker
 import fluence.vm.WasmVm
 import fluence.vm.wasm.MemoryHasher
 import LogLevel.toLogLevel
+import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.statemachine.control.signals.ControlSignals
 
 import scala.language.higherKinds
@@ -49,9 +45,6 @@ import scala.language.higherKinds
  * according to Tendermint specification) and sends ABCI requests to `ABCIHandler`.
  */
 object ServerRunner extends IOApp {
-
-  private val sttpResource: Resource[IO, SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]] =
-    Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
   override def run(args: List[String]): IO[ExitCode] =
     StateMachineConfig
@@ -67,12 +60,9 @@ object ServerRunner extends IOApp {
             for {
               control ← ControlServer.make[IO](config.control)
 
-              sttp ← sttpResource
+              implicit0(sttp: SttpStreamEffect[IO]) ← SttpEffect.streamResource[IO]
 
-              tendermintRpc ← {
-                implicit val s = sttp
-                TendermintRpc.make[IO](config.tendermintRpc.host, config.tendermintRpc.port)
-              }
+              tendermintRpc ← TendermintRpc.make[IO](config.tendermintRpc.host, config.tendermintRpc.port)
 
               _ ← abciHandlerResource(config.abciPort, config, control, tendermintRpc)
             } yield control.signals.stop

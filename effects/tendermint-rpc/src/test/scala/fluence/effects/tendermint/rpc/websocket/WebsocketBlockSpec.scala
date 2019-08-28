@@ -21,7 +21,7 @@ import cats.effect.concurrent.Ref
 import cats.effect.{IO, Resource}
 import cats.syntax.either._
 import cats.syntax.functor._
-import fluence.EitherTSttpBackend
+import fluence.effects.sttp.SttpEffect
 import fluence.effects.syntax.eitherT._
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc
@@ -41,7 +41,7 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
   implicit private val timer = IO.timer(global)
   implicit private val shift = IO.contextShift(global)
   implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec", level = Log.Error).unsafeRunSync()
-  implicit private val sttp = EitherTSttpBackend[IO]()
+  implicit private val sttp = SttpEffect.plain[IO]
 
   sealed trait Action
   case object GetConsensusHeight extends Action

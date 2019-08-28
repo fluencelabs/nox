@@ -16,18 +16,14 @@
 
 package fluence.node
 
-import java.nio.ByteBuffer
 import java.nio.file.Path
 
-import cats.data.EitherT
 import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect._
 import cats.syntax.apply._
 import cats.syntax.compose._
 import cats.syntax.profunctor._
 import cats.syntax.flatMap._
-import com.softwaremill.sttp.SttpBackend
-import fluence.EitherTSttpBackend
 import fluence.codec.{CodecError, PureCodec}
 import fluence.crypto.KeyPair
 import fluence.crypto.eddsa.Ed25519
@@ -37,6 +33,7 @@ import fluence.effects.docker.DockerIO
 import fluence.effects.ipfs.IpfsUploader
 import fluence.effects.kvstore.RocksDBStore
 import fluence.effects.receipt.storage.ReceiptStorage
+import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.kad.Kademlia
 import fluence.kad.conf.KademliaConfig
@@ -55,10 +52,6 @@ import fluence.node.workers.tendermint.block.BlockUploading
 import scala.language.higherKinds
 
 object MasterNodeApp extends IOApp {
-  type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
-
-  private val sttpResource: Resource[IO, STTP] =
-    Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
   /**
    * Launches a Master Node instance
@@ -82,7 +75,7 @@ object MasterNodeApp extends IOApp {
           logFactory.init("node", "run") >>= { implicit log: Log[IO] ⇒
             // Run master node and status server
             (for {
-              implicit0(sttp: STTP) ← sttpResource
+              implicit0(sttp: SttpStreamEffect[IO]) ← SttpEffect.streamResource[IO]
               implicit0(dockerIO: DockerIO[IO]) ← DockerIO.make[IO]()
 
               conf ← Resource.liftF(Configuration.init[IO](masterConf))
@@ -114,13 +107,13 @@ object MasterNodeApp extends IOApp {
       }
   }
 
-  private def ipfsUploader(conf: RemoteStorageConfig)(implicit sttp: STTP) =
+  private def ipfsUploader(conf: RemoteStorageConfig)(implicit sttp: SttpStreamEffect[IO]) =
     IpfsUploader[IO](conf.ipfs.address, conf.enabled, conf.ipfs.readTimeout)
 
   private def receiptsDht(
     rootPath: Path,
     kad: Kademlia[IO, UriContact]
-  )(implicit sttp: STTP, log: Log[IO]): Resource[IO, DhtHttpNode[IO, Receipt]] =
+  )(implicit sttp: SttpStreamEffect[IO], log: Log[IO]): Resource[IO, DhtHttpNode[IO, Receipt]] =
     DhtHttpNode.make[IO, Receipt](
       "dht-receipts",
       RocksDBStore
@@ -133,7 +126,7 @@ object MasterNodeApp extends IOApp {
     rootPath: Path,
     appReceiptStorage: Long ⇒ Resource[IO, ReceiptStorage[IO]],
     conf: MasterConfig
-  )(implicit sttp: STTP, log: Log[IO], dio: DockerIO[IO], backoff: Backoff[EffectError]) =
+  )(implicit sttp: SttpStreamEffect[IO], log: Log[IO], dio: DockerIO[IO], backoff: Backoff[EffectError]) =
     for {
       blockUploading <- BlockUploading(conf.blockUploadingEnabled, ipfsUploader(conf.remoteStorage))
       pool <- DockerWorkersPool.make(
@@ -148,7 +141,7 @@ object MasterNodeApp extends IOApp {
       )
     } yield pool
 
-  private def kademlia(rootPath: Path, conf: KademliaConfig)(implicit sttp: STTP, log: Log[IO]) =
+  private def kademlia(rootPath: Path, conf: KademliaConfig)(implicit sttp: SttpEffect[IO], log: Log[IO]) =
     Resource
       .liftF(Configuration.readTendermintKeyPair(rootPath))
       .flatMap(

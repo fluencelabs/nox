@@ -16,10 +16,8 @@
 
 package fluence.node.workers
 
-import java.nio.ByteBuffer
 import java.nio.file.Path
 
-import cats.data.EitherT
 import cats.effect._
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.instances.list._
@@ -30,11 +28,11 @@ import cats.syntax.compose._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Applicative, Apply, Parallel}
-import com.softwaremill.sttp.SttpBackend
 import fluence.codec.PureCodec
 import fluence.effects.docker.DockerIO
 import fluence.effects.kvstore.RocksDBStore
 import fluence.effects.receipt.storage.ReceiptStorage
+import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
@@ -50,7 +48,7 @@ import scala.language.higherKinds
  *
  * @param workers a storage for running [[Worker]]s, indexed by appIds
  */
-class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
+class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
   ports: WorkersPorts[F],
   workers: Ref[F, Map[Long, Worker[F]]],
   logLevel: LogLevel,
@@ -61,7 +59,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
   healthyWorkerTimeout: FiniteDuration = 1.second,
   stopTimeoutSeconds: Int = 5
 )(
-  implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
+  implicit
   F: ConcurrentEffect[F],
   P: Parallel[F, G],
   backoff: Backoff[EffectError]
@@ -266,7 +264,7 @@ object DockerWorkersPool {
   /**
    * Build a new [[DockerWorkersPool]]. All workers will be stopped when the pool is released
    */
-  def make[F[_]: DockerIO: ContextShift: Timer: Log, G[_]](
+  def make[F[_]: DockerIO: ContextShift: Timer: Log: SttpEffect, G[_]](
     minPort: Short,
     maxPort: Short,
     rootPath: Path,
@@ -276,7 +274,6 @@ object DockerWorkersPool {
     blockUploading: BlockUploading[F]
   )(
     implicit
-    sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
     F: ConcurrentEffect[F],
     P: Parallel[F, G],
     backoff: Backoff[EffectError]

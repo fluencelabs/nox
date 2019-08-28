@@ -18,10 +18,11 @@ package fluence.node.workers.control
 
 import cats.Monad
 import cats.data.EitherT
-import cats.syntax.flatMap._
 import cats.syntax.functor._
 import com.softwaremill.sttp.circe._
-import com.softwaremill.sttp.{SttpBackend, sttp, _}
+import com.softwaremill.sttp.{sttp, _}
+import fluence.effects.sttp.{SttpEffect, SttpError}
+import fluence.effects.sttp.syntax._
 import fluence.effects.tendermint.block.history.{helpers, Receipt}
 import fluence.node.workers.status.{HttpCheckFailed, HttpCheckStatus, HttpStatus}
 import fluence.statemachine.control.signals.{BlockReceipt, DropPeer, GetStatus, GetVmHash, Stop}
@@ -38,9 +39,7 @@ import scala.language.higherKinds
  * @param hostname Hostname to send requests
  * @param port Port to send requests
  */
-class HttpControlRpc[F[_]: Monad](hostname: String, port: Short)(
-  implicit s: SttpBackend[EitherT[F, Throwable, ?], Nothing]
-) extends ControlRpc[F] {
+class HttpControlRpc[F[_]: Monad: SttpEffect](hostname: String, port: Short) extends ControlRpc[F] {
 
   /**
    * Send a serializable request to the worker's control endpoint
@@ -48,41 +47,34 @@ class HttpControlRpc[F[_]: Monad](hostname: String, port: Short)(
    * @param request Control RPC request
    * @param path Control RPC path
    */
-  private def send[Req: Encoder](request: Req, path: String): EitherT[F, Throwable, String] = {
-    for {
-      rawResponse <- sttp
-        .body(request)
-        .post(uri"http://$hostname:$port/control/$path")
-        .send()
-        .map(_.body)
-      response <- EitherT
-        .fromEither[F](rawResponse)
-        .leftMap(msg => new Exception(s"Error sending $request $path: $msg"): Throwable)
-    } yield response
-  }
+  private def send[Req: Encoder](request: Req, path: String): EitherT[F, SttpError, Response[String]] =
+    sttp
+      .body(request)
+      .post(uri"http://$hostname:$port/control/$path")
+      .send()
 
   override def dropPeer(key: ByteVector): EitherT[F, ControlRpcError, Unit] =
     // TODO handle errors properly
     send(DropPeer(key), "dropPeer").void.leftMap(DropPeerError(key, _))
 
   override val status: F[HttpStatus[ControlStatus]] =
-    send(GetStatus(), "status").subflatMap(parse).subflatMap(_.as[ControlStatus]).value.map {
+    send(GetStatus(), "status").decodeBody(parse(_).flatMap(_.as[ControlStatus])).value.map {
       case Right(st) ⇒ HttpCheckStatus(st)
       case Left(err) ⇒ HttpCheckFailed(err)
     }
 
   override val stop: EitherT[F, ControlRpcError, Unit] =
-    send(Stop(), "stop").void.leftMap(WorkerStatusError)
+    send(Stop(), "stop").toBody.void.leftMap(WorkerStatusError)
 
   override def sendBlockReceipt(receipt: Receipt): EitherT[F, ControlRpcError, Unit] =
-    send(BlockReceipt(receipt), "blockReceipt").void.leftMap(SendBlockReceiptError(receipt, _))
+    send(BlockReceipt(receipt), "blockReceipt").toBody.void.leftMap(SendBlockReceiptError(receipt, _))
 
   override def getVmHash(height: Long): EitherT[F, ControlRpcError, ByteVector] = {
     import io.circe.parser._
     import helpers.ByteVectorJsonCodec._
 
     send(GetVmHash(height), "vmHash")
-      .subflatMap(parse(_).flatMap(_.as[ByteVector]))
+      .decodeBody(parse(_).flatMap(_.as[ByteVector]))
       .leftMap(GetVmHashError)
   }
 }

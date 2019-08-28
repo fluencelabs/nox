@@ -14,19 +14,17 @@
  * limitations under the License.
  */
 
-package fluence.effects.swarm.helpers
-import cats.{ApplicativeError, Functor}
-import cats.syntax.applicativeError._
+package fluence.effects
+
+import java.nio.ByteBuffer
+
 import cats.data.EitherT
-import com.softwaremill.sttp.Response
+import com.softwaremill.sttp.SttpBackend
 
 import scala.language.higherKinds
 
-object ResponseOps {
-  implicit class RichResponse[F[_], T, EE <: Throwable](resp: EitherT[F, Throwable, Response[T]])(
-    implicit F: Functor[F]
-  ) {
-    val toEitherT: EitherT[F, String, T] = resp.leftMap(_.getMessage).subflatMap(_.body)
-    def toEitherT[E](errFunc: String => E): EitherT[F, E, T] = toEitherT.leftMap(errFunc)
-  }
+package object sttp {
+  type SttpEffect[F[_]] = SttpBackend[EitherT[F, SttpError, ?], Nothing]
+
+  type SttpStreamEffect[F[_]] = SttpBackend[EitherT[F, SttpError, ?], fs2.Stream[F, ByteBuffer]]
 }

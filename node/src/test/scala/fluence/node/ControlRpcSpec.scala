@@ -32,12 +32,8 @@ package fluence.node
  * limitations under the License.
  */
 
-import java.nio.ByteBuffer
-
-import cats.data.EitherT
-import cats.effect.{ContextShift, IO, Resource, Timer}
-import com.softwaremill.sttp.SttpBackend
-import fluence.EitherTSttpBackend
+import cats.effect.{ContextShift, IO, Timer}
+import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.log.{Log, LogFactory}
 import fluence.node.workers.control.ControlRpc
@@ -60,12 +56,9 @@ class ControlRpcSpec extends WordSpec with Matchers with OptionValues {
     val config = ControlServer.Config("localhost", 26652)
     val serverR = ControlServer.make[IO](config)
 
-    type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
-    val sttp: Resource[IO, STTP] = Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
-
     val resources = for {
       server <- serverR
-      implicit0(s: STTP) <- sttp
+      implicit0(s: SttpEffect[IO]) <- SttpEffect.plainResource[IO]
       rpc = ControlRpc[IO](config.host, config.port)
     } yield (server, rpc)
 
