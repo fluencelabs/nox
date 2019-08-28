@@ -52,7 +52,8 @@ private[websocket] case object Reconnect extends Event
  * Implementation of Tendermint RPC Subscribe call
  * Details: https://tendermint.com/rpc/#subscribe
  */
-abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] extends TendermintWebsocketRpc[F] {
+abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextShift]
+    extends TendermintWebsocketRpc[F] {
   self: TendermintHttpRpc[F] =>
 
   val host: String
@@ -194,7 +195,7 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
    * @return Queue of events
    */
   protected def subscribe(
-    event: String,
+    event: String
   )(implicit log: Log[F], backoff: Backoff[EffectError]): Resource[F, Queue[F, Event]] = {
     def subscribe(ws: WebSocket) = ws.sendTextFrame(request(event)).asAsync.void
 
@@ -238,20 +239,25 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
 
     def close(ws: NettyWebSocket) = ws.sendCloseFrame().asAsync.attempt.void
 
-    (for {
-      // Ref to accumulate payload frames (websocket allows to split single message into several)
-      ref <- Ref.of[F, String]("")
-      // promise will be completed by exception when socket is disconnected
-      promise <- Deferred[F, WebsocketRpcError]
-      // keep connecting until success
-      websocket <- backoff.retry(socket(wsHandler(ref, queue, promise)), logConnectionError)
-      _ <- onConnect(websocket)
-      // wait until socket disconnects (it may never do)
-      error <- promise.get
-      // try to signal tendermint ws is closing ; TODO: will that ever succeed?
-      _ <- close(websocket)
-      _ <- log.info(s"Tendermint WRPC: $wsUrl will reconnect: ${error.getMessage}")
-    } yield (error: EffectError).asLeft[Unit]).eitherT.backoff.void
+    Monad[F].tailRecM(())(
+      _ =>
+        for {
+          // Ref to accumulate payload frames (websocket allows to split single message into several)
+          messageAccumulator <- Ref.of[F, String]("")
+          // promise will be completed by exception when socket is disconnected
+          promise <- Deferred[F, WebsocketRpcError]
+          // keep connecting until success
+          connectSocket = wsHandler(messageAccumulator, queue, promise) >>= socket
+          _ <- log.debug(s"Tendermint WRPC: $wsUrl started connecting")
+          websocket <- backoff.retry(connectSocket, logConnectionError)
+          _ <- onConnect(websocket)
+          // wait until socket disconnects (it may never do)
+          error <- promise.get
+          // signal tendermint ws is closing
+          _ <- close(websocket)
+          _ <- log.info(s"Tendermint WRPC: $wsUrl will reconnect: ${error.getMessage}")
+        } yield ().asLeft // keep tailRecM calling this forever
+    )
   }
 
   private def socket(handler: WebSocketUpgradeHandler) =
@@ -272,10 +278,14 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad] 
     payloadAccumulator: Ref[F, String],
     queue: Queue[F, Event],
     disconnected: Deferred[F, WebsocketRpcError]
-  )(implicit log: Log[F]) =
-    new WebSocketUpgradeHandler.Builder()
-      .addWebSocketListener(new WsListener[F](wsUrl, payloadAccumulator, queue, disconnected))
-      .build()
+  )(implicit log: Log[F]): EitherT[F, ConnectionFailed, WebSocketUpgradeHandler] =
+    EitherT.liftF(
+      WsListener[F](wsUrl, payloadAccumulator, queue, disconnected, websocketConfig).map(
+        new WebSocketUpgradeHandler.Builder()
+          .addWebSocketListener(_)
+          .build()
+      )
+    )
 
   // Writes a trace log about block uploading
   private def traceBU(msg: String)(implicit log: Log[F]) =

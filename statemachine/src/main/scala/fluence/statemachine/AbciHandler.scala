@@ -24,7 +24,7 @@ import com.github.jtendermint.jabci.api._
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
 import fluence.log.{Log, LogFactory}
-import fluence.statemachine.control.{ControlSignals, DropPeer}
+import fluence.statemachine.control.signals.{ControlSignals, DropPeer}
 import fluence.statemachine.data.Tx
 
 import scala.language.higherKinds
@@ -32,7 +32,7 @@ import scala.util.Try
 
 class AbciHandler[F[_]: Effect: LogFactory](
   service: AbciService[F],
-  controlSignals: ControlSignals[F],
+  controlSignals: ControlSignals[F]
 ) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock {
 
   override def requestBeginBlock(
@@ -177,7 +177,7 @@ class AbciHandler[F[_]: Effect: LogFactory](
                 case (resp, drop) ⇒ resp.addValidatorUpdates(dropValidator(drop))
               }
               .build()
-        }
+          }
       )
       .toIO
       .unsafeRunSync()

@@ -105,16 +105,15 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
 
       // TODO: Move description of the code preparation to Worker; it should be Worker's responsibility
       code <- codeCarrier.carryCode(app.code, vmCodePath)
-    } yield
-      WorkerParams(
-        app,
-        tendermintPath,
-        code,
-        masterNodeContainerId,
-        nodeConfig.workerDockerConfig,
-        nodeConfig.tmDockerConfig,
-        configTemplate
-      )
+    } yield WorkerParams(
+      app,
+      tendermintPath,
+      code,
+      masterNodeContainerId,
+      nodeConfig.workerDockerConfig,
+      nodeConfig.tmDockerConfig,
+      configTemplate
+    )
 
   /**
    * Runs app worker on a pool
@@ -212,18 +211,17 @@ object MasterNode {
       rootPath <- Resource.liftF(IO(Paths.get(masterConfig.rootPath).toAbsolutePath).to[F])
 
       configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath, masterConfig.tendermintConfig))
-    } yield
-      MasterNode[F, C](
-        masterConfig,
-        nodeConfig,
-        configTemplate,
-        nodeEth,
-        pool,
-        codeCarrier,
-        rootPath,
-        kademlia,
-        masterConfig.masterContainerId
-      )
+    } yield MasterNode[F, C](
+      masterConfig,
+      nodeConfig,
+      configTemplate,
+      nodeEth,
+      pool,
+      codeCarrier,
+      rootPath,
+      kademlia,
+      masterConfig.masterContainerId
+    )
 
   def codeCarrier[F[_]: Sync: ContextShift: Concurrent: Timer: LiftIO](
     config: RemoteStorageConfig

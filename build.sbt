@@ -7,8 +7,10 @@ commons
 onLoad in Global := (onLoad in Global).value.andThen { state ⇒
   val requiredVersion = "1.8" // Asmble works only on Java 8.
   val currentVersion = sys.props("java.specification.version")
-  assert(currentVersion == requiredVersion,
-         s"Unsupported $currentVersion JDK version, please use $requiredVersion JDK version instead.")
+  assert(
+    currentVersion == requiredVersion,
+    s"Unsupported $currentVersion JDK version, please use $requiredVersion JDK version instead."
+  )
 
   state
 }
@@ -55,7 +57,7 @@ lazy val `frun` = (project in file("vm/frun"))
       sttpCirce,
       sttpCatsBackend,
       http4sDsl,
-      http4sServer,
+      http4sServer
     ),
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
     imageNames in docker              := Seq(ImageName(DockerContainers.Frun)),
@@ -68,8 +70,8 @@ lazy val `frun-rust` = project
   .in(frun.base / "rust")
   .settings(
     imageNames in docker := Seq(ImageName(DockerContainers.FrunRust)),
-    dockerfile in docker := DockerContainers.frunRust((assembly in `frun`).value,
-                                                      (resourceDirectory in `frun` in Compile).value)
+    dockerfile in docker := DockerContainers
+      .frunRust((assembly in `frun`).value, (resourceDirectory in `frun` in Compile).value)
   )
   .dependsOn(`frun`)
   .enablePlugins(DockerPlugin)
@@ -263,7 +265,7 @@ lazy val `ethclient` = (project in file("effects/ethclient"))
       fs2,
       fs2rx,
       scalaTest
-    ),
+    )
   )
   .dependsOn(`effects`)
   .enablePlugins(AutomateHeaderPlugin)
@@ -347,7 +349,7 @@ lazy val `tendermint-block-history` = (project in file("history/tendermint-block
       http4sDsl,
       http4sServer,
       http4sCirce,
-      scalaTest,
+      scalaTest
     )
   )
   .dependsOn(`effects`, `tendermint-block`, `ipfs`, `kvstore`)
@@ -361,7 +363,7 @@ lazy val `receipt-storage` = (project in file("history/receipt-storage"))
       fs2io,
       cats,
       catsEffect,
-      scalaTest,
+      scalaTest
     )
   )
   .dependsOn(`log`, `kvstore`, `tendermint-block-history`)

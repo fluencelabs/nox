@@ -19,7 +19,7 @@ import cats.effect.{ContextShift, IO, Resource, Timer}
 import cats.implicits._
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.log.{Log, LogFactory}
-import fluence.statemachine.control.ControlServer.ControlServerConfig
+import fluence.statemachine.control.signals.DropPeer
 import io.circe.Encoder
 import org.scalatest.{EitherValues, Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
@@ -31,7 +31,7 @@ trait ControlServerOps extends EitherValues with OptionValues {
   import com.softwaremill.sttp.circe._
   import com.softwaremill.sttp.{SttpBackend, _}
 
-  val config: ControlServerConfig
+  val config: ControlServer.Config
 
   def send[Req: Encoder](request: Req, path: String)(
     implicit b: SttpBackend[IO, Nothing]
@@ -44,7 +44,7 @@ trait ControlServerOps extends EitherValues with OptionValues {
 }
 
 class ControlServerSpec extends WordSpec with Matchers with ControlServerOps {
-  val config = ControlServerConfig("localhost", 26662)
+  val config = ControlServer.Config("localhost", 26662)
 
   "ControlServer" should {
     implicit val ioTimer: Timer[IO] = IO.timer(global)

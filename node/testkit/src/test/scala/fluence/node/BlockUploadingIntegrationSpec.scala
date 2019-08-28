@@ -39,7 +39,7 @@ import fluence.effects.tendermint.block.data.{Base64ByteVector, Block}
 import fluence.effects.tendermint.block.history.{BlockManifest, Receipt}
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestErrored}
-import fluence.effects.tendermint.rpc.websocket.TestTendermintWebsocketRpc
+import fluence.effects.tendermint.rpc.websocket.{TestTendermintWebsocketRpc, WebsocketConfig}
 import fluence.effects.tendermint.{block, rpc}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
@@ -52,7 +52,7 @@ import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
 import fluence.statemachine.AbciService.TxResponse
-import fluence.statemachine.control.{BlockReceipt, ControlSignals}
+import fluence.statemachine.control.signals.{BlockReceipt, ControlSignals}
 import fluence.statemachine.data.{Tx, TxCode}
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.AbciState
@@ -135,21 +135,25 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
     } yield (abci, state)
   }
 
-  private def startBlockUploading(controlRpc: ControlRpc[IO],
-                                  blocksQ: fs2.concurrent.Queue[IO, Block],
-                                  storedReceipts: Seq[Receipt] = Nil): Resource[IO, Unit] =
+  private def startBlockUploading(
+    controlRpc: ControlRpc[IO],
+    blocksQ: fs2.concurrent.Queue[IO, Block],
+    storedReceipts: Seq[Receipt] = Nil
+  ): Resource[IO, Unit] =
     Resource.liftF(Ref.of[IO, Option[BlockManifest]](None)).flatMap { manifestRef ⇒
       def receiptStorage(id: Long) =
         new ReceiptStorage[IO] {
           override val appId: Long = id
 
-          override def put(height: Long,
-                           receipt: Receipt)(implicit log: Log[IO]): EitherT[IO, ReceiptStorageError, Unit] =
+          override def put(height: Long, receipt: Receipt)(
+            implicit log: Log[IO]
+          ): EitherT[IO, ReceiptStorageError, Unit] =
             EitherT.pure(())
           override def get(height: Long)(implicit log: Log[IO]): EitherT[IO, ReceiptStorageError, Option[Receipt]] =
             EitherT.pure(None)
-          override def retrieve(from: Option[Long],
-                                to: Option[Long])(implicit log: Log[IO]): fs2.Stream[IO, (Long, Receipt)] =
+          override def retrieve(from: Option[Long], to: Option[Long])(
+            implicit log: Log[IO]
+          ): fs2.Stream[IO, (Long, Receipt)] =
             fs2.Stream.emits(storedReceipts.map(r => r.height -> r))
         }
 
@@ -161,6 +165,8 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
 
       val workerServices: WorkerServices[IO] = new WorkerServices[IO] {
         override def tendermint: TendermintRpc[IO] = new TestTendermintWebsocketRpc[IO] {
+          override val websocketConfig: WebsocketConfig = WebsocketConfig()
+
           override def subscribeNewBlock(
             lastKnownHeight: Long
           )(implicit log: Log[IO], backoff: Backoff[EffectError]): fs2.Stream[IO, Block] =

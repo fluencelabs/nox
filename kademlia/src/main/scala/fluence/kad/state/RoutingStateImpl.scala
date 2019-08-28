@@ -165,6 +165,6 @@ private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
               Applicative[F].pure(Right(mr))
             case (n :: tail, mr) ⇒
               log.trace(s"Kept ${n.key}, as it's still present in routing table") as Left(tail -> mr.keep(n.key))
-        }
+          }
       )
 }

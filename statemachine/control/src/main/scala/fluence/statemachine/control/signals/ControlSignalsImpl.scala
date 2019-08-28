@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.control
+package fluence.statemachine.control.signals
 
 import cats.Monad
 import cats.effect.Resource
@@ -25,7 +25,8 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.log.Log
 import fluence.statemachine.control.HasOrderedProperty._
-import fluence.statemachine.control.QueueSyntax._
+import fluence.statemachine.control.HasOrderedProperty.syntax._
+import fluence.statemachine.control.{LastCachingQueue, VmHash}
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds

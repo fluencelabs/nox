@@ -16,8 +16,13 @@
 
 package fluence.statemachine.control
 
-import cats.Order
+import cats.syntax.applicative._
+import cats.syntax.either._
 import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.syntax.order._
+import cats.{FlatMap, Monad, Order}
+import fluence.statemachine.control.signals.BlockReceipt
 
 import scala.language.higherKinds
 
@@ -27,11 +32,11 @@ import scala.language.higherKinds
  * @tparam A Type of the data
  * @tparam T Type of the property being exposed
  */
-trait HasOrderedProperty[A, T] {
+private[control] trait HasOrderedProperty[A, T] {
   def key(a: A)(implicit o: Order[T]): T
 }
 
-object HasOrderedProperty {
+private[control] object HasOrderedProperty {
   implicit val vmHash: HasOrderedProperty[VmHash, Long] = new HasOrderedProperty[VmHash, Long] {
     override def key(a: VmHash)(implicit o: Order[Long]): Long = a.height
   }
@@ -39,12 +44,39 @@ object HasOrderedProperty {
     override def key(a: BlockReceipt)(implicit o: Order[Long]): Long = a.receipt.height
   }
 
-  def apply[A: HasOrderedProperty[*, T], T: Order]: HasOrderedProperty[A, T] =
+  def apply[A: HasOrderedProperty[?, T], T: Order]: HasOrderedProperty[A, T] =
     implicitly[HasOrderedProperty[A, T]]
 
   object syntax {
-    implicit class HasOrderedPropertySyntax[A: HasOrderedProperty[*, T], T: Order](a: A) {
+    implicit class HasOrderedPropertySyntax[A: HasOrderedProperty[?, T], T: Order](a: A) {
       def key: T = HasOrderedProperty[A, T].key(a)
+    }
+
+    implicit class RichQueue[F[_]: Monad, A: HasOrderedProperty[?, T], T: Order](queue: fs2.concurrent.Queue[F, A]) {
+
+      /**
+       * Dequeues a queue until element with specified boundary is found. All elements with lower boundary are dropped.
+       *
+       * Asynchronously blocks until element is found. If queue elements are out of order, sorts them by requeuing.
+       *
+       * @param boundary Target boundary
+       * @return Element with specified boundary
+       */
+      def dequeueByBoundary(boundary: T): F[A] =
+        FlatMap[F].tailRecM(queue) { q =>
+          q.dequeue1.flatMap { elem =>
+            if (elem.key < boundary) {
+              // keep looking
+              q.asLeft[A].pure[F]
+            } else if (elem.key > boundary) {
+              // corner case: elements aren't in order, try to reorder them
+              q.enqueue1(elem).as(q.asLeft)
+            } else {
+              // got it!
+              elem.asRight[fs2.concurrent.Queue[F, A]].pure[F]
+            }
+          }
+        }
     }
   }
 }

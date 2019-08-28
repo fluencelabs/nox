@@ -24,8 +24,10 @@ import com.softwaremill.sttp.circe._
 import com.softwaremill.sttp.{SttpBackend, sttp, _}
 import fluence.effects.tendermint.block.history.{helpers, Receipt}
 import fluence.node.workers.status.{HttpCheckFailed, HttpCheckStatus, HttpStatus}
-import fluence.statemachine.control.{BlockReceipt, DropPeer, GetStatus, GetVmHash, Stop}
+import fluence.statemachine.control.signals.{BlockReceipt, DropPeer, GetStatus, GetVmHash, Stop}
+import fluence.statemachine.control.ControlStatus
 import io.circe.Encoder
+import io.circe.parser.parse
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -63,9 +65,9 @@ class HttpControlRpc[F[_]: Monad](hostname: String, port: Short)(
     // TODO handle errors properly
     send(DropPeer(key), "dropPeer").void.leftMap(DropPeerError(key, _))
 
-  override val status: F[HttpStatus[Unit]] =
-    send(GetStatus(), "status").value.map {
-      case Right(_) ⇒ HttpCheckStatus(())
+  override val status: F[HttpStatus[ControlStatus]] =
+    send(GetStatus(), "status").subflatMap(parse).subflatMap(_.as[ControlStatus]).value.map {
+      case Right(st) ⇒ HttpCheckStatus(st)
       case Left(err) ⇒ HttpCheckFailed(err)
     }
 

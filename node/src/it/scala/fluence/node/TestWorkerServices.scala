@@ -18,8 +18,9 @@ import scala.language.higherKinds
 
 object TestWorkerServices {
 
-  def emptyWorkerService[F[_]: Monad](bref: Ref[F, Option[BlockManifest]],
-                                      bstore: ReceiptStorage[F])(appId: Long): WorkerServices[F] = {
+  def emptyWorkerService[F[_]: Monad](bref: Ref[F, Option[BlockManifest]], bstore: ReceiptStorage[F])(
+    appId: Long
+  ): WorkerServices[F] = {
     new WorkerServices[F] {
       override def tendermint: TendermintRpc[F] = throw new NotImplementedError("def tendermint")
 

@@ -31,12 +31,13 @@ import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.{Log, LogFactory, LogLevel}
 import fluence.statemachine.config.StateMachineConfig
-import fluence.statemachine.control.{ControlServer, ControlSignals}
+import fluence.statemachine.control.ControlServer
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.vm.WasmVmOperationInvoker
 import fluence.vm.WasmVm
 import fluence.vm.wasm.MemoryHasher
 import LogLevel.toLogLevel
+import fluence.statemachine.control.signals.ControlSignals
 
 import scala.language.higherKinds
 
@@ -133,7 +134,7 @@ object ServerRunner extends IOApp {
    */
   private[statemachine] def buildAbciHandler(
     config: StateMachineConfig,
-    controlSignals: ControlSignals[IO],
+    controlSignals: ControlSignals[IO]
   )(implicit log: Log[IO], lf: LogFactory[IO]): EitherT[IO, StateMachineError, AbciHandler[IO]] =
     for {
       moduleFilenames <- config.collectModuleFiles[IO]

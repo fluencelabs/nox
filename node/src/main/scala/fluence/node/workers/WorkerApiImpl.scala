@@ -54,11 +54,11 @@ class WorkerApiImpl extends WorkerApi {
     log.debug(s"TendermintRpc query request. path: $path, data: $data") *>
       worker.withServices(_.tendermint)(_.query(path, data.getOrElse(""), id = id.getOrElse("dontcare")).value)
 
-  def status[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Either[RpcError, String]] =
+  def tendermintStatus[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Either[RpcError, String]] =
     log.trace(s"TendermintRpc status") *>
       worker.withServices(_.tendermint)(_.status.value)
 
-  def p2pPort[F[_]: Apply](worker: Worker[F])(implicit log: Log[F]): F[Short] =
+  def p2pPort[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Short] =
     log.debug(s"Worker p2pPort") as worker.p2pPort
 
   def lastManifest[F[_]: Monad](worker: Worker[F]): F[Option[BlockManifest]] =

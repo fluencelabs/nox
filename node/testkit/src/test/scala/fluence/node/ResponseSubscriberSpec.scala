@@ -131,11 +131,13 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
   ): IO[Either[TxAwaitError, TendermintQueryResponse]] =
     requests(1, worker, requestSubscriber, txCustom).map(_.head)
 
-  def requests(to: Int,
-               worker: Worker[IO],
-               requestSubscriber: ResponseSubscriber[IO],
-               txCustom: Option[String] = None,
-               appId: Int = 1)(
+  def requests(
+    to: Int,
+    worker: Worker[IO],
+    requestSubscriber: ResponseSubscriber[IO],
+    txCustom: Option[String] = None,
+    appId: Int = 1
+  )(
     implicit P: Parallel[IO, IO.Par],
     log: Log[IO]
   ): IO[List[Either[TxAwaitError, TendermintQueryResponse]]] = {

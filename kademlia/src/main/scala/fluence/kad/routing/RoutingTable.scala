@@ -123,7 +123,7 @@ object RoutingTable {
               r.neighbors,
               conf.parallelism
             )
-        )
+          )
       )
 
   /**
@@ -141,10 +141,12 @@ object RoutingTable {
   def rocksdbStoreExtResource[F[_]: LiftIO: ContextShift: Log: Concurrent: Clock, C](
     conf: RoutingConf,
     rootPath: Path
-  )(implicit
+  )(
+    implicit
     ca: ContactAccess[F, C],
     writeNode: PureCodec.Func[Node[C], String],
-    readNode: Crypto.Func[String, Node[C]]): Resource[F, Option[Extension[F, C]]] =
+    readNode: Crypto.Func[String, Node[C]]
+  ): Resource[F, Option[Extension[F, C]]] =
     conf.store
       .fold(Resource.pure[F, Option[Extension[F, C]]](None)) { cachePath ⇒
         val nodeCodec: PureCodec[String, Node[C]] =

@@ -169,8 +169,10 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
                   (promise.complete(response) :: taskList, subs - r.id)
                 } else (taskList, subs + (r.id -> promise.copy(tries = promise.tries + 1)))
               case (promise, r @ TimedOutResponse(_, _)) =>
-                (log.error("Unexpected. TimedOutResponse couldn't be here.") *> promise.complete(r) :: taskList,
-                 subs - promise.id)
+                (
+                  log.error("Unexpected. TimedOutResponse couldn't be here.") *> promise.complete(r) :: taskList,
+                  subs - promise.id
+                )
             }
         }
         (updatedSubs, taskList)

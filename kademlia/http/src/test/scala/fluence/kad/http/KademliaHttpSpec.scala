@@ -97,9 +97,11 @@ class KademliaHttpSpec extends WordSpec with Matchers {
       for {
         n ← KademliaHttpNode
           .make[IO, IO.Par](
-            KademliaConfig(RoutingConf(2, 2, 2, 2.seconds),
-                           AdvertizeConf("localhost", port.toShort),
-                           JoinConf(seeds, 2)),
+            KademliaConfig(
+              RoutingConf(2, 2, 2, 2.seconds),
+              AdvertizeConf("localhost", port.toShort),
+              JoinConf(seeds, 2)
+            ),
             signAlgo,
             signAlgo.generateKeyPair.unsafe(Some(ByteVector.fromInt(port).toArray)),
             tmpRoot.resolve(s"kad-$port"),
@@ -126,7 +128,7 @@ class KademliaHttpSpec extends WordSpec with Matchers {
                   .getOrElse(
                     Response(Status.NotFound)
                       .withEntity(s"Route for ${a.method} ${a.pathInfo} ${a.params.mkString("&")} not found")
-                )
+                  )
             )
           )
           .resource

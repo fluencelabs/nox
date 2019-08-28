@@ -51,11 +51,10 @@ object Configuration {
         masterConfig.worker,
         masterConfig.tendermint
       )
-    } yield
-      Configuration(
-        rootPath,
-        nodeConfig
-      )
+    } yield Configuration(
+      rootPath,
+      nodeConfig
+    )
 
   /**
    * <pre>

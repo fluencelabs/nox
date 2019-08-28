@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.control
+package fluence.statemachine.control.signals
 
 import cats.effect.{IO, Resource}
 import fluence.effects.tendermint.block.history.Receipt
+import fluence.statemachine.control.VmHash
 import scodec.bits.ByteVector
 
 // TODO: move to tests

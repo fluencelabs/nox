@@ -88,9 +88,11 @@ object MasterNodeApp extends IOApp {
               conf ← Resource.liftF(Configuration.init[IO](masterConf))
               kad ← kademlia(conf.rootPath, masterConf.kademlia)
               rDht ← receiptsDht(conf.rootPath, kad.kademlia)
-              pool ← dockerWorkersPool(conf.rootPath,
-                                       appId ⇒ Resource.pure(new DhtReceiptStorage(appId, rDht.dht)),
-                                       masterConf)
+              pool ← dockerWorkersPool(
+                conf.rootPath,
+                appId ⇒ Resource.pure(new DhtReceiptStorage(appId, rDht.dht)),
+                masterConf
+              )
               node ← MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
             } yield (kad.http, rDht.http, node)).use {
               case (kadHttp, rDhtHttp, node) ⇒
@@ -124,7 +126,7 @@ object MasterNodeApp extends IOApp {
       RocksDBStore
         .makeRaw[IO](rootPath.resolve("dht-receipt-data").toAbsolutePath.toString),
       RocksDBStore.makeRaw[IO](rootPath.resolve("dht-receipt-meta").toAbsolutePath.toString),
-      kad,
+      kad
     )
 
   private def dockerWorkersPool(
@@ -140,6 +142,7 @@ object MasterNodeApp extends IOApp {
         rootPath,
         appReceiptStorage,
         conf.logLevel,
+        conf.websocket,
         // TODO: use generic decentralized storage for block uploading instead of IpfsUploader
         blockUploading
       )
@@ -169,14 +172,16 @@ object MasterNodeApp extends IOApp {
                   .lmap[KeyPair.Public](_.bytes) >>> Key.sha1
               )
             }
-        )
+          )
       )
 
-  private def masterHttp(masterConf: MasterConfig,
-                         node: MasterNode[IO, UriContact],
-                         kademliaHttp: KademliaHttp[IO, UriContact],
-                         receiptDhtHttp: DhtHttp[IO],
-                         workerApi: WorkerApi)(implicit log: Log[IO], lf: LogFactory[IO]) =
+  private def masterHttp(
+    masterConf: MasterConfig,
+    node: MasterNode[IO, UriContact],
+    kademliaHttp: KademliaHttp[IO, UriContact],
+    receiptDhtHttp: DhtHttp[IO],
+    workerApi: WorkerApi
+  )(implicit log: Log[IO], lf: LogFactory[IO]) =
     StatusAggregator
       .make(masterConf, node)
       .flatMap(
@@ -189,6 +194,6 @@ object MasterNodeApp extends IOApp {
             workerApi,
             kademliaHttp,
             receiptDhtHttp :: Nil
-        )
+          )
       )
 }

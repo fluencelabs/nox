@@ -36,7 +36,7 @@ abstract class LogFactory[F[_]: Monad: Clock](defaultLoggingLevel: Log.Level) {
         new Log(ctx) {
           override type Appender = self.Appender
           override val appender: self.Appender = a
-      }
+        }
     )
 
   def init(k: String, v: String = "", level: Log.Level = defaultLoggingLevel): F[Log.Aux[F, Appender]] =

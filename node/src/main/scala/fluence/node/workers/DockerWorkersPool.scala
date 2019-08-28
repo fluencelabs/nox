@@ -32,14 +32,14 @@ import cats.syntax.functor._
 import cats.{Applicative, Apply, Parallel}
 import com.softwaremill.sttp.SttpBackend
 import fluence.codec.PureCodec
-import fluence.effects.{Backoff, EffectError}
 import fluence.effects.docker.DockerIO
 import fluence.effects.kvstore.RocksDBStore
 import fluence.effects.receipt.storage.ReceiptStorage
+import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
+import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.log.LogLevel.LogLevel
 import fluence.node.MakeResource
-import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.block.BlockUploading
 
 import scala.concurrent.duration._
@@ -57,6 +57,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
   // TODO: it's not OK to have blockUploading here, it should be moved somewhere else
   blockUploading: BlockUploading[F],
   appReceiptStorage: Long ⇒ Resource[F, ReceiptStorage[F]],
+  websocketConfig: WebsocketConfig,
   healthyWorkerTimeout: FiniteDuration = 1.second,
   stopTimeoutSeconds: Int = 5
 )(
@@ -85,7 +86,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
    *
    * @param worker Worker to register in the pool
    */
-  private def registeredWorker(worker: Worker[F])(implicit log: Log[F]): Resource[F, Unit] =
+  private def registerWorker(worker: Worker[F])(implicit log: Log[F]): Resource[F, Unit] =
     Resource
       .make(
         workers.update(_ + (worker.appId -> worker)) *>
@@ -126,7 +127,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
         } yield p
       )
 
-      services ← DockerWorkerServices.make[F, G](ps, p2pPort, stopTimeout, logLevel, receiptStorage)
+      services ← DockerWorkerServices.make[F, G](ps, p2pPort, stopTimeout, logLevel, receiptStorage, websocketConfig)
 
       worker ← Worker.make(
         ps.appId,
@@ -147,7 +148,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
       _ <- worker.services.responseSubscriber.start()
 
       // Finally, register the worker in the pool
-      _ ← registeredWorker(worker)
+      _ ← registerWorker(worker)
 
     } yield worker
 
@@ -160,10 +161,12 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift, G[_]](
    *                    It might take up to 2*`stopTimeout` seconds to gracefully stop the worker, as 2 containers involved.
    * @return Unit; no failures are expected
    */
-  def runWorker(p2pPort: Short,
-                params: F[WorkerParams],
-                stopTimeout: Int,
-                receiptStorage: Resource[F, ReceiptStorage[F]])(
+  def runWorker(
+    p2pPort: Short,
+    params: F[WorkerParams],
+    stopTimeout: Int,
+    receiptStorage: Resource[F, ReceiptStorage[F]]
+  )(
     implicit log: Log[F]
   ): F[Unit] =
     MakeResource.useConcurrently[F](
@@ -269,6 +272,7 @@ object DockerWorkersPool {
     rootPath: Path,
     appReceiptStorage: Long ⇒ Resource[F, ReceiptStorage[F]],
     workerLogLevel: LogLevel,
+    websocketConfig: WebsocketConfig,
     blockUploading: BlockUploading[F]
   )(
     implicit
@@ -282,7 +286,14 @@ object DockerWorkersPool {
       pool ← Resource.make {
         for {
           workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
-        } yield new DockerWorkersPool[F, G](ports, workers, workerLogLevel, blockUploading, appReceiptStorage)
+        } yield new DockerWorkersPool[F, G](
+          ports,
+          workers,
+          workerLogLevel,
+          blockUploading,
+          appReceiptStorage,
+          websocketConfig
+        )
       }(_.stopAll())
     } yield pool: WorkersPool[F]
 

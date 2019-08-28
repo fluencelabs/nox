@@ -31,7 +31,7 @@ import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.Log
-import fluence.statemachine.control.{BlockReceipt, ControlSignals}
+import fluence.statemachine.control.signals.{BlockReceipt, ControlSignals}
 import fluence.statemachine.data.{QueryCode, Tx, TxCode}
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
@@ -113,7 +113,7 @@ class AbciService[F[_]: Monad: Effect](
         b =>
           log.error(
             s"Got wrong receipt height. current height: $blockHeight, receipt: ${b.receipt.height} (expected ${blockHeight - 1})"
-        )
+          )
       )
 
       // Do not use receipt in app hash if there's no txs in a block, so empty blocks have the same appHash as
@@ -143,7 +143,7 @@ class AbciService[F[_]: Monad: Effect](
 
       // Store vmHash, so master node could retrieve it
       _ <- if (blockUploadingEnabled) controlSignals.enqueueVmHash(blockHeight, vmHash) else ().pure[F]
-      _ <- traceBU(s"$blockHeight commit end")
+      _ <- log.info(s"$blockHeight commit end")
     } yield appHash
 
   /**
@@ -162,7 +162,7 @@ class AbciService[F[_]: Monad: Effect](
               Array.emptyByteArray,
               QueryCode.NotFound,
               s"Cannot parse query path: $path, must be in `sessionId/nonce` format"
-          )
+            )
         )
 
       case Some(head) ⇒
@@ -236,7 +236,7 @@ class AbciService[F[_]: Monad: Effect](
                 TxResponse(TxCode.OK, s"Parsed transaction head\n${tx.head}", state.height.some)
               } else {
                 TxResponse(TxCode.AlreadyProcessed, s"Transaction is already processed\n${tx.head}", state.height.some)
-            }
+              }
           )
       case None ⇒
         Applicative[F].pure(TxResponse(TxCode.BAD, s"Cannot parse transaction header"))

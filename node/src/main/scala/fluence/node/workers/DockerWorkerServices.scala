@@ -26,11 +26,13 @@ import fluence.effects.docker.params.DockerParams
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.log.Log
 import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
 import fluence.log.LogLevel.LogLevel
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
 import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.DockerTendermint
+import fluence.statemachine.control.ControlStatus
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -60,9 +62,11 @@ case class DockerWorkerServices[F[_]] private (
 object DockerWorkerServices {
   val ControlRpcPort: Short = 26662
 
-  private def dockerCommand(params: WorkerParams,
-                            network: DockerNetwork,
-                            logLevel: LogLevel): DockerParams.DaemonParams = {
+  private def dockerCommand(
+    params: WorkerParams,
+    network: DockerNetwork,
+    logLevel: LogLevel
+  ): DockerParams.DaemonParams = {
     import params._
 
     // Set worker's Xmx to mem * 0.75, so there's a gap between JVM heap and cgroup memory limit
@@ -124,7 +128,8 @@ object DockerWorkerServices {
     p2pPort: Short,
     stopTimeout: Int,
     logLevel: LogLevel,
-    receiptStorage: Resource[F, ReceiptStorage[F]]
+    receiptStorage: Resource[F, ReceiptStorage[F]],
+    websocketConfig: WebsocketConfig
   )(
     implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
     F: Concurrent[F],
@@ -137,7 +142,7 @@ object DockerWorkerServices {
 
       tendermint ← DockerTendermint.make[F](params, p2pPort, containerName(params), network, stopTimeout)
 
-      rpc ← TendermintRpc.make[F](tendermint.name, DockerTendermint.RpcPort)
+      rpc ← TendermintRpc.make[F](tendermint.name, DockerTendermint.RpcPort, websocketConfig)
 
       blockManifests ← WorkerBlockManifests.make[F](receiptStorage)
 
@@ -148,7 +153,7 @@ object DockerWorkerServices {
       workerStatus = (timeout: FiniteDuration) ⇒
         DockerIO[F]
           .checkContainer(worker)
-          .semiflatMap[ServiceStatus[Unit]] { d ⇒
+          .semiflatMap[ServiceStatus[ControlStatus]] { d ⇒
             HttpStatus
               .timed(control.status, timeout)
               .map(s ⇒ ServiceStatus(Right(d), s))
@@ -163,7 +168,7 @@ object DockerWorkerServices {
             ts,
             ws
           )
-      }
+        }
 
     } yield new DockerWorkerServices[F](p2pPort, params.appId, rpc, control, blockManifests, responseSubscriber, status)
 
