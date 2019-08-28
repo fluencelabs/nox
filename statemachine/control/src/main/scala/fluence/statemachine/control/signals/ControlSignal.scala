@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.control
+package fluence.statemachine.control.signals
 
 import fluence.effects.tendermint.block.history.Receipt
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}

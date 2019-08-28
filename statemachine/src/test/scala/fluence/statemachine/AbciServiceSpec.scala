@@ -29,7 +29,8 @@ import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestErrored}
 import fluence.log.{Log, LogFactory}
-import fluence.statemachine.control.{BlockReceipt, VmHash}
+import fluence.statemachine.control.VmHash
+import fluence.statemachine.control.signals.BlockReceipt
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker

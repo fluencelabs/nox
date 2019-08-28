@@ -41,7 +41,8 @@ import fluence.EitherTSttpBackend
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.log.{Log, LogFactory}
 import fluence.node.workers.control.ControlRpc
-import fluence.statemachine.control.{ControlServer, DropPeer}
+import fluence.statemachine.control.ControlServer
+import fluence.statemachine.control.signals.DropPeer
 import org.scalatest.{Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
 

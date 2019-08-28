@@ -24,7 +24,8 @@ import com.softwaremill.sttp.circe._
 import com.softwaremill.sttp.{SttpBackend, sttp, _}
 import fluence.effects.tendermint.block.history.{helpers, Receipt}
 import fluence.node.workers.status.{HttpCheckFailed, HttpCheckStatus, HttpStatus}
-import fluence.statemachine.control.{BlockReceipt, ControlStatus, DropPeer, GetStatus, GetVmHash, Stop}
+import fluence.statemachine.control.signals.{BlockReceipt, DropPeer, GetStatus, GetVmHash, Stop}
+import fluence.statemachine.control.ControlStatus
 import io.circe.Encoder
 import io.circe.parser.parse
 import scodec.bits.ByteVector

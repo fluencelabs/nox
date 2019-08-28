@@ -19,7 +19,7 @@ import cats.effect.{ContextShift, IO, Resource, Timer}
 import cats.implicits._
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
 import fluence.log.{Log, LogFactory}
-import fluence.statemachine.control.ControlServer
+import fluence.statemachine.control.signals.DropPeer
 import io.circe.Encoder
 import org.scalatest.{EitherValues, Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector

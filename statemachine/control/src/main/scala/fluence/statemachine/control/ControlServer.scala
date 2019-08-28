@@ -21,6 +21,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.tendermint.block.history.helpers
 import fluence.log.{Log, LogFactory}
+import fluence.statemachine.control.signals.{BlockReceipt, ControlSignals, DropPeer, GetVmHash}
 import io.circe.syntax._
 import org.http4s._
 import org.http4s.circe._

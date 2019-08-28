@@ -21,6 +21,7 @@ import cats.effect.IO
 import cats.instances.list._
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.log.{Log, LogFactory}
+import fluence.statemachine.control.signals.{BlockReceipt, ControlSignals}
 import org.scalatest.{Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
 

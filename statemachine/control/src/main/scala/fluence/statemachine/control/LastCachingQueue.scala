@@ -19,11 +19,10 @@ package fluence.statemachine.control
 import cats.effect.Concurrent
 import cats.effect.concurrent.Ref
 import cats.syntax.applicative._
-import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.syntax.order._
-import cats.{FlatMap, Monad, Order}
+import cats.{Monad, Order}
+import HasOrderedProperty.syntax._
 
 import scala.language.higherKinds
 
@@ -36,13 +35,10 @@ import scala.language.higherKinds
  * @param queue Queue with elements
  * @param ref Ref to hold last element in case of retry
  */
-class LastCachingQueue[F[_]: Monad, A: HasOrderedProperty[*, T], T: Order](
+class LastCachingQueue[F[_]: Monad, A: HasOrderedProperty[?, T], T: Order](
   queue: fs2.concurrent.Queue[F, A],
   ref: Ref[F, Option[A]]
 ) {
-
-  import HasOrderedProperty.syntax._
-  import QueueSyntax._
 
   def enqueue1(a: A): F[Unit] = queue.enqueue1(a)
 
@@ -65,7 +61,7 @@ class LastCachingQueue[F[_]: Monad, A: HasOrderedProperty[*, T], T: Order](
 
 object LastCachingQueue {
 
-  def apply[F[_]: Concurrent, A: HasOrderedProperty[*, T], T: Order]: F[LastCachingQueue[F, A, T]] =
+  def apply[F[_]: Concurrent, A: HasOrderedProperty[?, T], T: Order]: F[LastCachingQueue[F, A, T]] =
     for {
       queue <- fs2.concurrent.Queue.unbounded[F, A]
       ref <- Ref.of[F, Option[A]](None)
