@@ -21,8 +21,10 @@ import cats.data.EitherT
 import cats.syntax.apply._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.applicative._
+import io.circe.parser._
+import io.circe.syntax._
 import cats.effect.{Concurrent, Sync}
-import fluence.effects.tendermint.rpc._
 import fluence.effects.tendermint.rpc.http.{
   RpcBlockParsingFailed,
   RpcBodyMalformed,
@@ -41,10 +43,17 @@ import fluence.node.workers.subscription.{
   TxInvalidError,
   TxParsingError
 }
+import fluence.node.workers.websocket.WorkersWebsocket
+import fs2.concurrent.Queue
+import io.circe.Decoder
 import fluence.statemachine.data.Tx
 import org.http4s.dsl.Http4sDsl
+import org.http4s.server.websocket.WebSocketBuilder
+import org.http4s.websocket.WebSocketFrame
+import org.http4s.websocket.WebSocketFrame.Text
 import org.http4s.{HttpRoutes, Response}
 
+import scala.concurrent.duration._
 import scala.language.higherKinds
 
 object WorkersHttp {
@@ -120,6 +129,27 @@ object WorkersHttp {
 
     // Routes comes there
     HttpRoutes.of {
+      case GET -> Root / LongVar(appId) / "ws" =>
+        LogFactory[F].init("http" -> "websocket", "app" -> appId.toString) >>= { implicit log =>
+          withWorker(appId)(w => {
+            val websocket = new WorkersWebsocket(w, workerApi)
+            val processMessages: fs2.Pipe[F, WebSocketFrame, WebSocketFrame] =
+              _.evalMap {
+                case Text(msg, _) =>
+                  websocket.processRequest(msg).map(Text(_))
+                case m => log.error(s"Unsupported message: $m") as Text("Unsupported")
+              }
+
+            Queue
+              .unbounded[F, WebSocketFrame]
+              .flatMap { q =>
+                val d = q.dequeue.through(processMessages)
+                val e = q.enqueue
+                WebSocketBuilder[F].build(d, e)
+              }
+          })
+        }
+
       case GET -> Root / LongVar(appId) / "query" :? QueryPath(path) +& QueryData(data) +& QueryId(id) ⇒
         LogFactory[F].init("http" -> "query", "app" -> appId.toString) >>= { implicit log =>
           withWorker(appId)(w => workerApi.query(w, data, path, id).flatMap(tendermintResponseToHttp(appId, _)))
