@@ -47,6 +47,7 @@ class AsmbleWasmVm(
   private val sideModules: Seq[WasmModule],
   private val hasher: Hasher[Array[Byte], Array[Byte]]
 ) extends WasmVm {
+  override val expectsEth: Boolean = mainModule.expectsEth
 
   // size in bytes of pointer type in Wasm VM (can be different after Wasm64 release)
   private val WasmPointerSize = 4

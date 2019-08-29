@@ -59,7 +59,8 @@ object ControlServer {
    * @return
    */
   private def controlService[F[_]: Concurrent: LogFactory](
-    signals: ControlSignals[F]
+    signals: ControlSignals[F],
+    status: F[ControlStatus]
   )(implicit dsl: Http4sDsl[F]): Kleisli[F, Request[F], Response[F]] = {
     import dsl._
     import helpers.ByteVectorJsonCodec._
@@ -92,8 +93,7 @@ object ControlServer {
         } yield ok
 
       case (GET | POST) -> Root / "control" / "status" =>
-        // TODO check whether eth blocks are actually expected
-        Ok(ControlStatus(expectsEth = false).asJson.noSpaces)
+        status.map(_.asJson.noSpaces) >>= (json ⇒ Ok(json))
 
       case req @ POST -> Root / "control" / "blockReceipt" =>
         for {
@@ -131,7 +131,8 @@ object ControlServer {
    * @return
    */
   def make[F[_]: ConcurrentEffect: Timer: LogFactory: Log](
-    config: Config
+    config: Config,
+    status: F[ControlStatus]
   ): Resource[F, ControlServer[F]] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
@@ -139,7 +140,7 @@ object ControlServer {
       signals <- ControlSignals[F]()
       server ← BlazeServerBuilder[F]
         .bindHttp(config.port, config.host)
-        .withHttpApp(controlService(signals))
+        .withHttpApp(controlService(signals, status))
         .resource
     } yield ControlServer(signals, server)
   }
