@@ -16,10 +16,13 @@
 
 package fluence.effects.tendermint.rpc.http
 
-import cats.Functor
+import cats.{Functor, Monad}
 import cats.data.EitherT
+import cats.effect.{ConcurrentEffect, ContextShift, Resource, Timer}
+import com.softwaremill.sttp.SttpBackend
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc.response.TendermintStatus
+import fluence.log.Log
 
 import scala.language.higherKinds
 
@@ -67,4 +70,27 @@ trait TendermintHttpRpc[F[_]] {
     prove: Boolean = false,
     id: String
   ): EitherT[F, RpcError, String]
+}
+
+object TendermintHttpRpc {
+
+  /**
+   * Creates Tendermint HTTP RPC
+   *
+   * @param sttpBackend Sttp Backend to be used to make RPC calls
+   * @param hostName Hostname to query status from
+   * @param port Port to query status from
+   * @tparam F Concurrent effect
+   * @return Tendermint HTTP RPC instance. Note that it should be stopped at some point, and can't be used after it's stopped
+   */
+  def make[F[_]: ConcurrentEffect: Timer: Monad: Log: ContextShift](
+    hostName: String,
+    port: Short
+  )(
+    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]
+  ): Resource[F, TendermintHttpRpc[F]] = {
+    Resource.pure(
+      new TendermintHttpRpcImpl[F](hostName, port)
+    )
+  }
 }

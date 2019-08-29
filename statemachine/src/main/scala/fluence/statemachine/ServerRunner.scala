@@ -23,7 +23,7 @@ import cats.effect.{ExitCode, IO, IOApp, Resource}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import com.github.jtendermint.jabci.socket.TSocket
-import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.{Log, LogFactory, LogLevel}
 import fluence.statemachine.config.StateMachineConfig
 import fluence.statemachine.control.{ControlServer, ControlStatus}
@@ -60,13 +60,8 @@ object ServerRunner extends IOApp {
           statusDef ← Deferred[IO, ControlStatus]
           _ <- (
             for {
-              control ← ControlServer.make[IO](config.control, statusDef.get)
-
-              implicit0(sttp: SttpStreamEffect[IO]) ← SttpEffect.streamResource[IO]
-
-              tendermintRpc ← TendermintRpc.make[IO](config.tendermintRpc.host, config.tendermintRpc.port)
-
-              _ ← abciHandlerResource(config.abciPort, statusDef, config, control, tendermintRpc)
+              control ← ControlServer.make[IO](config.control)
+              _ ← abciHandlerResource(config.abciPort, config, control)
             } yield control.signals.stop
           ).use(identity)
         } yield ExitCode.Success
@@ -84,8 +79,7 @@ object ServerRunner extends IOApp {
     abciPort: Int,
     statusDef: Deferred[IO, ControlStatus],
     config: StateMachineConfig,
-    controlServer: ControlServer[IO],
-    tendermintRpc: TendermintRpc[IO]
+    controlServer: ControlServer[IO]
   )(implicit log: Log[IO], lf: LogFactory[IO]): Resource[IO, Unit] =
     Resource
       .make(

@@ -24,9 +24,8 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.tendermint.block.TestData
 import fluence.effects.tendermint.block.data.Block
-import fluence.effects.tendermint.rpc.TendermintRpc
-import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestFailed}
-import fluence.effects.tendermint.rpc.websocket.{TestTendermintRpc, TestTendermintWebsocketRpc, WebsocketConfig}
+import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestFailed, TendermintHttpRpc}
+import fluence.effects.tendermint.rpc.websocket.{TestTendermintHttpRpc, TestTendermintWebsocketRpc, WebsocketConfig}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 
@@ -40,7 +39,7 @@ class TendermintTest[F[_]: Timer: Monad](
   blockStream: fs2.Stream[F, Block]
 ) {
 
-  val tendermint: TendermintRpc[F] = new TestTendermintRpc[F] with TestTendermintWebsocketRpc[F] {
+  val tendermint = new TestTendermintHttpRpc[F] with TestTendermintWebsocketRpc[F] {
     override val websocketConfig: WebsocketConfig = WebsocketConfig()
 
     override def subscribeNewBlock(

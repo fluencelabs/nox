@@ -24,7 +24,7 @@ import fs2.concurrent.Queue
 
 import scala.language.higherKinds
 
-trait TestTendermintWebsocketRpc[F[_]] extends TendermintWebsocketRpc[F] with TestTendermintRpc[F] {
+trait TestTendermintWebsocketRpc[F[_]] extends TendermintWebsocketRpc[F] with TestTendermintHttpRpc[F] {
 
   def subscribeNewBlock(
     lastKnownHeight: Long

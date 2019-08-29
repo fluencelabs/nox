@@ -70,7 +70,7 @@ object WorkerP2pConnectivity {
             Log[F].debug(s"Got Peer p2p port: ${p.peerAddress(p2pPort)}") >>
               backoff(
                 EitherT(
-                  worker.withServices(_.tendermint)(
+                  worker.withServices(_.tendermintRpc)(
                     _.unsafeDialPeers(p.peerAddress(p2pPort) :: Nil, persistent = true).value >>= { res ⇒
                       Log[F].debug(s"dial_peers replied: $res") as
                         res
