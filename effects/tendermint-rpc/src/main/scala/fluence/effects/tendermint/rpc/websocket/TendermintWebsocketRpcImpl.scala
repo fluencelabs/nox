@@ -130,7 +130,7 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
     def warnIf(cond: => Boolean, msg: String) = if (cond) log.warn(msg) else ().pure[F]
     for {
       // retrieve height from Tendermint
-      consensusHeight <- backoff.retry(self.consensusHeight(), e => log.error("retrieving consensus height", e))
+      consensusHeight <- backoff.retry(httpRpc.consensusHeight(), e => log.error("retrieving consensus height", e))
       _ <- traceBU(
         s"reconnect. startHeight $startHeight consensusHeight $consensusHeight " +
           s"cond1: ${consensusHeight == startHeight}, cond2: ${startHeight == consensusHeight - 1}"

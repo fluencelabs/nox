@@ -16,16 +16,10 @@
 
 package fluence.effects.tendermint.block.protobuf
 
-import cats.Traverse
-import cats.instances.either._
-import cats.instances.list._
 import com.google.protobuf.ByteString
 import fluence.effects.tendermint.block.data._
 import proto3.tendermint.Vote
 import scodec.bits.ByteVector
-
-import scala.language.higherKinds
-import scala.util.control.NoStackTrace
 
 /**
  * Collection of functions to convert Scala case classes to their protobuf counterparts
@@ -35,7 +29,6 @@ private[block] object ProtobufConverter {
   import proto3.tendermint.{Block => PBBlock, Commit => PBCommit, Data => PBData, Header => PBHeader}
 
   private def bs(bv: ByteVector): ByteString = ByteString.copyFrom(bv.toArray)
-  private def bv(bs: ByteString): ByteVector = ByteVector(bs.asReadOnlyByteBuffer())
 
   /**
    * Encodes a list of optional protobuf Votes:
@@ -86,51 +79,4 @@ private[block] object ProtobufConverter {
       lastCommit = Some(toProtobuf(b.last_commit))
     )
   }
-
-  def fromProtobuf(b: PBBlock): Either[Throwable, Block] =
-    for {
-      header <- getOr("header")(b.header).map(fromProtobuf)
-      data = b.data.fold(Data(None))(fromProtobuf)
-      lastCommit <- getOr("lastCommit")(b.lastCommit).flatMap(fromProtobuf)
-    } yield Block(header, data, lastCommit)
-
-  def fromProtobuf(d: PBData): Data = Data(Some(d.txs.map(bs => Base64ByteVector(bv(bs))).toList))
-
-  def fromProtobuf(h: PBHeader): Header = {
-    Header(
-      version = h.version,
-      chain_id = h.chainId,
-      height = h.height,
-      time = h.time,
-      num_txs = h.numTxs,
-      total_txs = h.totalTxs,
-      last_block_id = h.lastBlockId,
-      last_commit_hash = bv(h.lastCommitHash),
-      data_hash = bv(h.dataHash),
-      validators_hash = bv(h.validatorsHash),
-      next_validators_hash = bv(h.nextValidatorsHash),
-      consensus_hash = bv(h.consensusHash),
-      app_hash = bv(h.appHash),
-      last_results_hash = bv(h.lastResultsHash),
-      evidence_hash = bv(h.evidenceHash),
-      proposer_address = bv(h.proposerAddress)
-    )
-  }
-
-  def fromProtobuf(b: PBCommit): Either[Throwable, LastCommit] =
-    for {
-      blockId <- getOr("blockId")(b.blockId)
-      precommits <- Traverse[List].sequence(b.precommits.map(bs => Protobuf.decode[Vote](bs.toByteArray)).toList)
-    } yield LastCommit(
-      block_id = blockId,
-      precommits = precommits.map(Some(_))
-    )
-
-  private def getOr[T](name: String)(opt: Option[T]): Either[Throwable, T] =
-    Either.cond(opt.isDefined, opt.get, MissingField(name))
-}
-
-sealed trait ProtobufError extends NoStackTrace
-case class MissingField(name: String) extends ProtobufError {
-  override def toString: String = s"Missing field: $name"
 }

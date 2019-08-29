@@ -60,8 +60,8 @@ object ServerRunner extends IOApp {
           statusDef ← Deferred[IO, ControlStatus]
           _ <- (
             for {
-              control ← ControlServer.make[IO](config.control)
-              _ ← abciHandlerResource(config.abciPort, config, control)
+              control ← ControlServer.make[IO](config.control, statusDef.get)
+              _ ← abciHandlerResource(config.abciPort, statusDef, config, control)
             } yield control.signals.stop
           ).use(identity)
         } yield ExitCode.Success
