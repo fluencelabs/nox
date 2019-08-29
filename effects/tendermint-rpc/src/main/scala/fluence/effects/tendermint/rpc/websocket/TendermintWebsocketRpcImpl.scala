@@ -56,7 +56,8 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
   host: String,
   port: Int,
   httpRpc: TendermintHttpRpc[F],
-  val websocketConfig: WebsocketConfig
+  blockstore: Blockstore[F],
+  val websocketConfig: WebsocketConfig,
 ) extends TendermintWebsocketRpc[F] {
 
   private val wsUrl = s"ws://$host:$port/websocket"
@@ -169,9 +170,9 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
       .recoverWith {
         case e =>
           Log.eitherT[F, WebsocketRpcError].warn(s"parsing block $height, reloading", e) >>
-            httpRpc.block(height).leftMap {
+            getBlock(height).leftMap {
               case RpcBlockParsingFailed(cause, raw, height) => BlockParsingFailed(cause, Eval.now(raw), height)
-              case rpcErr                                    => BlockRetrievalError(rpcErr, height)
+              case err                                       => BlockRetrievalError(err, height)
             }
       },
     e => log.error(s"parsing block $height", e)
@@ -180,14 +181,15 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
   private def loadBlock(height: Long)(
     implicit log: Log[F],
     backoff: Backoff[EffectError]
-  ): F[Block] = backoff.retry(httpRpc.block(height), e => log.error(s"load block $height", e))
+  ): F[Block] = backoff.retry(getBlock(height), e => log.error(s"load block $height", e))
 
   private def loadBlocks(from: Long, to: Long)(
     implicit log: Log[F],
     backoff: Backoff[EffectError]
   ) = Traverse[List].sequence((from to to).map(loadBlock).toList)
 
-  private def getLastHeight: EitherT[F, EffectError, Long] = httpRpc.consensusHeight().leftMap(identity[EffectError])
+  private def getLastHeight: EitherT[F, EffectError, Long] = blockstore.getStorageHeight.leftMap(identity[EffectError])
+  private def getBlock(height: Long) = blockstore.getBlock(height).leftMap(identity[EffectError])
 
   /**
    * Subscribes to the specified event type

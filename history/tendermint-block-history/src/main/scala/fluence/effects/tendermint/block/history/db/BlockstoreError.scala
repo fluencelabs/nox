@@ -16,6 +16,8 @@
 
 package fluence.effects.tendermint.block.history.db
 
+import java.nio.file.Path
+
 import fluence.effects.{EffectError, WithCause}
 
 trait BlockstoreError extends EffectError
@@ -28,7 +30,7 @@ case object NoTmpDirPropertyError extends BlockstoreError {
 case class GetBlockError(message: String, height: Long) extends BlockstoreError {
   override def toString: String = s"GetBlockError: $message on block $height"
 }
-case class SymlinkCreationError(cause: Throwable, target: String) extends BlockstoreError with WithCause[Throwable] {
+case class SymlinkCreationError(cause: Throwable, target: Path) extends BlockstoreError with WithCause[Throwable] {
   override def toString: String = s"SymlinkCreationError: error creating symlink for $target: $cause"
 }
 case class RetrievingStorageHeightError(cause: String) extends BlockstoreError {

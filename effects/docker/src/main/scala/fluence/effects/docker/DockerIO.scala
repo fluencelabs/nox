@@ -65,6 +65,7 @@ class DockerIO[F[_]: Monad: LiftIO: ContextShift: Defer](
     IO(cmd.!).to[F].flatMap {
       case exit if exit != 0 =>
         Log[F].error(s"`$cmd` exited with code: $exit") *>
+          // TODO: use EitherT instead of raiseError
           IO.raiseError[Unit](new Exception(s"`$cmd` exited with code: $exit")).to[F]
       case _ =>
         Applicative[F].unit

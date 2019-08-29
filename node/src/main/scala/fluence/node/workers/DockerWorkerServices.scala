@@ -23,6 +23,7 @@ import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.sttp.SttpEffect
+import fluence.effects.tendermint.block.history.db.Blockstore
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.Log
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
@@ -145,7 +146,9 @@ object DockerWorkerServices {
 
       rpc ← TendermintHttpRpc.make[F](tendermint.name, DockerTendermint.RpcPort)
 
-      wrpc = TendermintWebsocketRpc.make[F](tendermint.name, DockerTendermint.RpcPort, rpc, websocketConfig)
+      blockstore <- Blockstore.make[F](params.tendermintPath)
+
+      wrpc = TendermintWebsocketRpc.make[F](tendermint.name, DockerTendermint.RpcPort, rpc, blockstore, websocketConfig)
 
       blockManifests ← WorkerBlockManifests.make[F](receiptStorage)
 
@@ -171,17 +174,18 @@ object DockerWorkerServices {
             ts,
             ws
           )
-        }
+      }
 
-    } yield new DockerWorkerServices[F](
-      p2pPort,
-      params.appId,
-      rpc,
-      wrpc,
-      control,
-      blockManifests,
-      responseSubscriber,
-      status
-    )
+    } yield
+      new DockerWorkerServices[F](
+        p2pPort,
+        params.appId,
+        rpc,
+        wrpc,
+        control,
+        blockManifests,
+        responseSubscriber,
+        status
+      )
 
 }

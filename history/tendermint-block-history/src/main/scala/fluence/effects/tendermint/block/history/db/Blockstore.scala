@@ -16,22 +16,25 @@
 
 package fluence.effects.tendermint.block.history.db
 
-import java.nio.file.{Files, Path, Paths}
+import java.nio.file.{Files, Path}
 
 import cats.data.EitherT
 import cats.effect.{ContextShift, LiftIO, Resource, Sync}
 import cats.instances.either._
 import cats.instances.list._
 import cats.syntax.applicativeError._
-import cats.syntax.apply._
 import cats.syntax.either._
 import cats.syntax.flatMap._
+import cats.syntax.apply._
+import cats.syntax.applicative._
 import cats.syntax.foldable._
 import cats.syntax.functor._
-import cats.{Monad, Traverse}
+import cats.{Defer, Monad, MonadError, Traverse}
+import fluence.effects.EffectError
 import fluence.effects.kvstore.{KVStore, RocksDBStore}
-import fluence.effects.tendermint.block.protobuf.Protobuf
-import fluence.effects.{EffectError, WithCause}
+import fluence.effects.tendermint.block.data
+import fluence.effects.tendermint.block.history.db.Blockstore.rocksDbStore
+import fluence.effects.tendermint.block.protobuf.{Protobuf, ProtobufConverter}
 import fluence.log.Log
 import io.circe.parser.parse
 import proto3.tendermint.{Block, BlockMeta, BlockPart}
@@ -80,10 +83,10 @@ class Blockstore[F[_]: Log: Monad](kv: Blockstore.RawKV[F]) {
       .fromEither[F](Protobuf.decodeLengthPrefixed[Block](blockBytes))
       .leftMap(e => GetBlockError(s"error decoding block from bytes: $e", height))
 
-  private def decodeHeight(heightJsonBytes: Array[Byte]): EitherT[F, BlockstoreError, Int] =
+  private def decodeHeight(heightJsonBytes: Array[Byte]): EitherT[F, BlockstoreError, Long] =
     EitherT
       .fromEither[F](
-        Try(new String(heightJsonBytes)).toEither >>= parse >>= (_.hcursor.get[Int]("height"))
+        Try(new String(heightJsonBytes)).toEither >>= parse >>= (_.hcursor.get[Long]("height"))
       )
       .leftMap(RetrievingStorageHeightError(_))
 
@@ -92,14 +95,20 @@ class Blockstore[F[_]: Log: Monad](kv: Blockstore.RawKV[F]) {
       .leftMap(RetrievingStorageHeightError(_))
       .flatMap(EitherT.fromOption(_, RetrievingStorageHeightError("blockStore height wasn't found")))
 
-  def getBlock(height: Long): EitherT[F, BlockstoreError, Block] =
+  private def convertBlock(block: Block): EitherT[F, BlockstoreError, data.Block] =
+    EitherT
+      .fromEither[F](ProtobufConverter.fromProtobuf(block))
+      .leftMap(e => GetBlockError(s"Unable to convert block from protobuf: $e", block.header.fold(-1L)(_.height)))
+
+  def getBlock(height: Long): EitherT[F, BlockstoreError, data.Block] =
     for {
       count <- getBlockPartsCount(height)
       bytes <- loadParts(height, count)
-      block <- decodeBlock(bytes, height)
+      pBlock <- decodeBlock(bytes, height)
+      block <- convertBlock(pBlock)
     } yield block
 
-  def getStorageHeight: EitherT[F, BlockstoreError, Int] =
+  def getStorageHeight: EitherT[F, BlockstoreError, Long] =
     for {
       bytes <- getStorageHeightBytes
       height <- decodeHeight(bytes)
@@ -112,7 +121,7 @@ object Blockstore {
   val BlockStoreHeightKey: Array[Byte] = "blockStore".getBytes
 
   private def createSymlinks[F[_]: Log](
-    levelDbDir: String
+    levelDbDir: Path
   )(implicit F: Sync[F]) = {
     import Files.{createSymbolicLink => createSymlink}
 
@@ -124,7 +133,7 @@ object Blockstore {
     Resource.make(
       F.delay {
         val tmpDir = Files.createTempDirectory("leveldb_rocksdb")
-        val dbDir = Paths.get(levelDbDir).toAbsolutePath
+        val dbDir = levelDbDir.toAbsolutePath
         makeSymlinks(tmpDir, dbDir)
         tmpDir
       }.attempt.map(_.leftMap {
@@ -134,19 +143,19 @@ object Blockstore {
     )(p => F.delay(p.foreach(rmDir)).attempt.void)
   }
 
-  def createStore[F[_]: Log: Sync: LiftIO: ContextShift](
-    dir: String
-  ): Resource[F, Either[BlockstoreError, Blockstore[F]]] =
-    createSymlinks[F](dir).flatMap(
-      dbPath =>
-        Log.resource[F].debug(s"Opening DB at $dbPath") *>
-          Traverse[Either[BlockstoreError, ?]].sequence(
-            dbPath.map(
-              p =>
-                RocksDBStore
-                  .makeRaw[F](p.toString, createIfMissing = false, readOnly = true)
-                  .map(kv => new Blockstore(kv))
-            )
-        )
-    )
+  private def rocksDbStore[F[_]: Log: Monad: LiftIO: ContextShift: Defer](p: Path) =
+    RocksDBStore
+      .makeRaw[F](p.toString, createIfMissing = false, readOnly = true)
+      .map(kv => new Blockstore(kv))
+
+  def make[F[_]: Log: Sync: LiftIO: ContextShift](tendermintPath: Path): Resource[F, Blockstore[F]] =
+    (for {
+      dbPath <- createSymlinks[F](tendermintPath.resolve("data").resolve("blockstore.db"))
+      _ <- Log.resource[F].debug(s"Opening DB at $dbPath")
+      store <- Traverse[Either[BlockstoreError, ?]].sequence(dbPath.map(rocksDbStore))
+    } yield store).evalMap {
+      // TODO: using MonadError here because caller–DockerWorkerServices–uses it, avoid doing that
+      case Left(e)  => Sync[F].raiseError(e)
+      case Right(b) => b.pure[F]
+    }
 }
