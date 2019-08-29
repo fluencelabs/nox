@@ -113,7 +113,7 @@ private[block] object ProtobufConverter {
       app_hash = bv(h.appHash),
       last_results_hash = bv(h.lastResultsHash),
       evidence_hash = bv(h.evidenceHash),
-      proposer_address = bv(h.proposerAddress),
+      proposer_address = bv(h.proposerAddress)
     )
   }
 

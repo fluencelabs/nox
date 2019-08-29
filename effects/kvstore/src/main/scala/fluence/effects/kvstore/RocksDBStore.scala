@@ -83,7 +83,7 @@ class RocksDBStore[F[_]: Monad: LiftIO: ContextShift] private (
               Log[F].error(s"Cannot close RocksDB iterator: $err", err)
             case Right(_) ⇒
               Applicative[F].unit
-          }
+        }
       )
       .flatMap { it ⇒
         // Start iterator
@@ -119,7 +119,7 @@ object RocksDBStore {
     folder: String,
     createIfMissing: Boolean = true,
     ex: ⇒ ExecutorService = Executors.newCachedThreadPool(),
-    readOnly: Boolean = false,
+    readOnly: Boolean = false
   )(
     implicit
     keysCodec: PureCodec[K, Array[Byte]],
@@ -141,7 +141,7 @@ object RocksDBStore {
     folder: String,
     createIfMissing: Boolean = true,
     ex: ⇒ ExecutorService = Executors.newSingleThreadExecutor(),
-    readOnly: Boolean = false,
+    readOnly: Boolean = false
   ): Resource[F, KVStore[F, Array[Byte], Array[Byte]]] =
     // We want to prepare all the C++ objects of RocksDB, and have all of them closed even in case of error
     for {
@@ -172,7 +172,7 @@ object RocksDBStore {
 
             case Right(_) ⇒
               Applicative[F].unit
-          }
+        }
       )
 
       _ ← Log.resource[F].trace("Created opts...")
@@ -194,7 +194,7 @@ object RocksDBStore {
               Log[F].error(s"Cannot close RocksDB object during cleanup", err)
             case Right(_) ⇒
               Applicative[F].unit
-          }
+        }
       )
 
       _ ← Log.resource[F].debug("Created rocksdb...")
@@ -207,7 +207,7 @@ object RocksDBStore {
               Log[F].error(s"Cannot close RocksDB object during cleanup", err)
             case Right(_) ⇒
               Applicative[F].unit
-          }
+        }
       )
 
       _ ← Log.resource[F].trace("Created readOpts... going to return kvstore")
