@@ -16,11 +16,12 @@
 
 package fluence.node
 
+import cats.Applicative
 import cats.effect.Timer
 import cats.syntax.applicative._
-import cats.Applicative
 import fluence.effects.docker.DockerContainerStopped
-import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
+import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus, WorkerStatus}
 import fluence.node.workers.subscription.ResponseSubscriber
@@ -32,11 +33,13 @@ import scala.language.higherKinds
 object TestWorkerServices {
 
   def workerServiceTestRequestResponse[F[_]: Applicative: Timer](
-    tendermintRpc: TendermintRpc[F],
+    rpc: TendermintHttpRpc[F],
+    wrpc: TendermintWebsocketRpc[F],
     requestResponderImpl: ResponseSubscriber[F]
   )(appId: Long): WorkerServices[F] = {
     new WorkerServices[F] {
-      override def tendermint: TendermintRpc[F] = tendermintRpc
+      override def tendermintRpc: TendermintHttpRpc[F] = rpc
+      override def tendermintWRpc: TendermintWebsocketRpc[F] = wrpc
 
       override def control: ControlRpc[F] = throw new NotImplementedError("def control")
 

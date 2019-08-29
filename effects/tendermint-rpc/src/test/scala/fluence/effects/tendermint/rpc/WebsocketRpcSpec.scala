@@ -16,15 +16,12 @@
 
 package fluence.effects.tendermint.rpc
 
-import java.nio.ByteBuffer
-
-import cats.data.EitherT
 import cats.effect._
 import cats.syntax.flatMap._
-import com.softwaremill.sttp.SttpBackend
+import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.log.{Log, LogFactory}
-import fluence.{EitherTSttpBackend, Eventually}
-import org.http4s.websocket.WebSocketFrame.{Close, Text}
+import fluence.Eventually
+import org.http4s.websocket.WebSocketFrame.Text
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -36,8 +33,8 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Eventually {
 
   implicit private val log: Log[IO] = LogFactory.forPrintln[IO](Log.Off).init("WebsocketRpcSpec").unsafeRunSync()
 
-  type STTP = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
-  implicit private val sttpResource: STTP = EitherTSttpBackend[IO]()
+  type STTP = SttpStreamEffect[IO]
+  implicit private val sttpResource: STTP = SttpEffect.stream[IO]
 
   val Port: Int = 18080
 

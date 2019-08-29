@@ -52,12 +52,12 @@ private[websocket] case object Reconnect extends Event
  * Implementation of Tendermint RPC Subscribe call
  * Details: https://tendermint.com/rpc/#subscribe
  */
-abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextShift]
-    extends TendermintWebsocketRpc[F] {
-  self: TendermintHttpRpc[F] =>
-
-  val host: String
-  val port: Int
+class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextShift](
+  host: String,
+  port: Int,
+  httpRpc: TendermintHttpRpc[F],
+  val websocketConfig: WebsocketConfig
+) extends TendermintWebsocketRpc[F] {
 
   private val wsUrl = s"ws://$host:$port/websocket"
 
@@ -169,7 +169,7 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: 
       .recoverWith {
         case e =>
           Log.eitherT[F, WebsocketRpcError].warn(s"parsing block $height, reloading", e) >>
-            self.block(height).leftMap {
+            httpRpc.block(height).leftMap {
               case RpcBlockParsingFailed(cause, raw, height) => BlockParsingFailed(cause, Eval.now(raw), height)
               case rpcErr                                    => BlockRetrievalError(rpcErr, height)
             }
@@ -180,14 +180,14 @@ abstract class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: 
   private def loadBlock(height: Long)(
     implicit log: Log[F],
     backoff: Backoff[EffectError]
-  ): F[Block] = backoff.retry(self.block(height), e => log.error(s"load block $height", e))
+  ): F[Block] = backoff.retry(httpRpc.block(height), e => log.error(s"load block $height", e))
 
   private def loadBlocks(from: Long, to: Long)(
     implicit log: Log[F],
     backoff: Backoff[EffectError]
   ) = Traverse[List].sequence((from to to).map(loadBlock).toList)
 
-  private def getLastHeight: EitherT[F, EffectError, Long] = Blockstore.getStorageHeight[F] // self.consensusHeight()
+  private def getLastHeight: EitherT[F, EffectError, Long] = httpRpc.consensusHeight().leftMap(identity[EffectError])
 
   /**
    * Subscribes to the specified event type

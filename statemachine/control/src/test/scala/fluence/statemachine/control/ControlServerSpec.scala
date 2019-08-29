@@ -18,6 +18,7 @@ package fluence.statemachine.control
 import cats.effect.{ContextShift, IO, Resource, Timer}
 import cats.implicits._
 import com.softwaremill.sttp.asynchttpclient.cats.AsyncHttpClientCatsBackend
+import fluence.effects.sttp.SttpEffect
 import fluence.log.{Log, LogFactory}
 import fluence.statemachine.control.signals.DropPeer
 import io.circe.Encoder
@@ -29,18 +30,18 @@ import scala.util.Random
 
 trait ControlServerOps extends EitherValues with OptionValues {
   import com.softwaremill.sttp.circe._
-  import com.softwaremill.sttp.{SttpBackend, _}
+  import com.softwaremill.sttp._
 
   val config: ControlServer.Config
 
   def send[Req: Encoder](request: Req, path: String)(
-    implicit b: SttpBackend[IO, Nothing]
-  ): IO[Response[String]] = {
+    implicit b: SttpEffect[IO]
+  ): IO[Response[String]] =
     sttp
       .body(request)
       .post(uri"http://${config.host}:${config.port}/control/$path")
       .send()
-  }
+      .valueOr(throw _)
 }
 
 class ControlServerSpec extends WordSpec with Matchers with ControlServerOps {
@@ -52,8 +53,8 @@ class ControlServerSpec extends WordSpec with Matchers with ControlServerOps {
     implicit val logFactory = LogFactory.forPrintln[IO]()
     implicit val log: Log[IO] = LogFactory[IO].init(getClass.getSimpleName, level = Log.Error).unsafeRunSync()
 
-    val server = ControlServer.make[IO](config)
-    val sttp = Resource.make(IO(AsyncHttpClientCatsBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
+    val server = ControlServer.make[IO](config, IO(ControlStatus(false)))
+    val sttp = SttpEffect.plainResource[IO]
     val resources = server.flatMap(srv => sttp.map(srv -> _))
 
     "respond with 404" in {

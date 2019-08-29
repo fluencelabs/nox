@@ -27,13 +27,14 @@ import cats.effect.concurrent.Ref
 import cats.syntax.apply._
 import cats.syntax.functor._
 import com.softwaremill.sttp.circe.asJson
-import com.softwaremill.sttp.{SttpBackend, _}
+import com.softwaremill.sttp._
 import fluence.codec.PureCodec
-import fluence.{EitherTSttpBackend, Eventually}
+import fluence.Eventually
 import fluence.crypto.eddsa.Ed25519
 import fluence.effects.{Backoff, EffectError}
 import fluence.effects.ethclient.EthClient
 import fluence.effects.receipt.storage.KVReceiptStorage
+import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.kad.conf.{AdvertizeConf, JoinConf, KademliaConfig, RoutingConf}
 import fluence.kad.contact.UriContact
@@ -63,11 +64,6 @@ class MasterNodeSpec
 
   implicit private val backoff: Backoff[EffectError] = Backoff.default
 
-  type Sttp = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
-
-  private val sttpResource: Resource[IO, Sttp] =
-    Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
-
   override protected def beforeAll(): Unit = {
     implicit val log = logFactory.init("before").unsafeRunSync()
     wireupContract()
@@ -78,7 +74,7 @@ class MasterNodeSpec
     killGanache()
   }
 
-  def getStatus(statusPort: Short)(implicit sttpBackend: Sttp): IO[MasterStatus] = {
+  def getStatus(statusPort: Short)(implicit sttpBackend: SttpEffect[IO]): IO[MasterStatus] = {
     import MasterStatus._
     (for {
       resp <- sttp.response(asJson[MasterStatus]).get(uri"http://127.0.0.1:$statusPort/status").send()
@@ -92,9 +88,9 @@ class MasterNodeSpec
 
   private def nodeResource(port: Short = 5789, seeds: Seq[String] = Seq.empty)(
     implicit log: Log[IO]
-  ): Resource[IO, (Sttp, MasterNode[IO, UriContact])] =
+  ): Resource[IO, (SttpStreamEffect[IO], MasterNode[IO, UriContact])] =
     for {
-      implicit0(sttpB: Sttp) ← sttpResource
+      implicit0(sttpB: SttpStreamEffect[IO]) ← SttpEffect.streamResource[IO]
 
       nodeCodec = new UriContact.NodeCodec(Key.fromPublicKey)
 

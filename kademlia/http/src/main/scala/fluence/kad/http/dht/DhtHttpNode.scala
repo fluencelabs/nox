@@ -25,6 +25,7 @@ import fluence.codec.PureCodec
 import fluence.crypto.Crypto
 import fluence.crypto.hash.CryptoHashers
 import fluence.effects.kvstore.KVStore
+import fluence.effects.sttp.SttpEffect
 import fluence.kad.Kademlia
 import fluence.kad.contact.UriContact
 import fluence.kad.dht.{Dht, DhtLocalStore, DhtRpc, DhtValueMetadata}
@@ -54,7 +55,7 @@ object DhtHttpNode {
    * @tparam F Effect
    * @tparam V Value: Semigroup to merge several values; Encoder/Decoder for HTTP API serialization
    */
-  def make[F[_]: ConcurrentEffect: Timer: Log, V: Semigroup: Encoder: Decoder](
+  def make[F[_]: ConcurrentEffect: SttpEffect: Timer: Log, V: Semigroup: Encoder: Decoder](
     prefix: String,
     store: Resource[F, KVStore[F, Array[Byte], Array[Byte]]],
     metadata: Resource[F, KVStore[F, Array[Byte], Array[Byte]]],
@@ -63,7 +64,6 @@ object DhtHttpNode {
     conf: Dht.Conf = Dht.Conf()
   )(
     implicit
-    sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing],
     codec: PureCodec[V, Array[Byte]]
   ): Resource[F, DhtHttpNode[F, V]] =
     for {

@@ -16,21 +16,18 @@
 
 package fluence.node.workers.tendermint.block
 
-import java.nio.ByteBuffer
-
-import cats.data.{Chain, EitherT}
+import cats.data.Chain
 import cats.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.applicative._
-import com.softwaremill.sttp.SttpBackend
 import fluence.effects.ipfs.IpfsUploader
+import fluence.effects.sttp.SttpStreamEffect
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.workers.Worker
-import fluence.node.workers.tendermint.block
 import scodec.bits.ByteVector
 
 import scala.language.{higherKinds, postfixOps}
@@ -56,16 +53,16 @@ trait BlockUploading[F[_]] {
 
 object BlockUploading {
 
-  def apply[F[_]: Log: ConcurrentEffect: Timer: ContextShift: Clock](
+  def apply[F[_]: Log: ConcurrentEffect: Timer: ContextShift: SttpStreamEffect](
     enabled: Boolean,
     ipfs: => IpfsUploader[F]
   )(
-    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, *], fs2.Stream[F, ByteBuffer]],
+    implicit
     backoff: Backoff[EffectError] = Backoff.default
   ): Resource[F, BlockUploading[F]] =
     if (enabled) {
       val history = new BlockHistory[F](ipfs)
-      (new BlockUploadingImpl[F](history): BlockUploading[F]).pure[Resource[F, *]]
+      (new BlockUploadingImpl[F](history): BlockUploading[F]).pure[Resource[F, ?]]
     } else {
       Log
         .resource[F]

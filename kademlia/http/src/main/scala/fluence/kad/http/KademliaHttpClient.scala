@@ -22,6 +22,8 @@ import cats.syntax.either._
 import cats.syntax.functor._
 import com.softwaremill.sttp._
 import fluence.crypto.Crypto
+import fluence.effects.sttp.SttpEffect
+import fluence.effects.sttp.syntax._
 import fluence.kad.contact.UriContact
 import fluence.kad.{KadRemoteError, KadRpcError}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
@@ -32,9 +34,8 @@ import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-class KademliaHttpClient[F[_]: Effect, C](hostname: String, port: Short, auth: String)(
-  implicit s: SttpBackend[EitherT[F, Throwable, ?], Nothing],
-  readNode: Crypto.Func[String, Node[C]]
+class KademliaHttpClient[F[_]: Effect: SttpEffect, C](hostname: String, port: Short, auth: String)(
+  implicit readNode: Crypto.Func[String, Node[C]]
 ) extends KademliaRpc[F, C] {
 
   private val authB64 = UriContact.Schema + " " + ByteVector(auth.getBytes).toBase64
@@ -51,9 +52,7 @@ class KademliaHttpClient[F[_]: Effect, C](hostname: String, port: Short, auth: S
       value <- call(sttp)(uri)
         .header(HeaderNames.Authorization, authB64)
         .send()
-        .map(_.body.leftMap(new RuntimeException(_)))
-        .subflatMap(identity)
-        .subflatMap(decode[T](_))
+        .decodeBody(decode[T](_))
         .leftSemiflatMap[KadRpcError](
           t ⇒ log.warn("Errored when calling remote", t) as KadRemoteError("Errored when calling remote", t)
         )

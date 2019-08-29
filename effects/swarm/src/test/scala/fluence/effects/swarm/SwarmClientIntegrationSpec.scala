@@ -16,12 +16,9 @@
 
 package fluence.effects.swarm
 
-import java.nio.ByteBuffer
-
-import cats.data.EitherT
 import cats.effect.{ContextShift, IO, Timer}
 import com.softwaremill.sttp._
-import fluence.EitherTSttpBackend
+import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.effects.swarm.crypto.Secp256k1Signer
 import fluence.effects.swarm.crypto.Secp256k1Signer.Signer
 import fluence.log.{Log, LogFactory}
@@ -46,8 +43,8 @@ class SwarmClientIntegrationSpec extends FlatSpec with Matchers with EitherValue
 
   private implicit val ioTimer: Timer[IO] = IO.timer(global)
   private implicit val ioShift: ContextShift[IO] = IO.contextShift(global)
-  private implicit val sttpBackend: SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]] =
-    EitherTSttpBackend[IO]()
+  private implicit val sttpBackend: SttpStreamEffect[IO] =
+    SttpEffect.stream[IO]
 
   private implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init("swarm-it").unsafeRunSync()
 

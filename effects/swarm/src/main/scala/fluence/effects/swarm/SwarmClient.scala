@@ -26,9 +26,11 @@ import cats.syntax.applicative._
 import cats.syntax.functor._
 import cats.syntax.either._
 import cats.syntax.flatMap._
-import com.softwaremill.sttp.{Multipart, SttpBackend, Uri, asStream, _}
+import com.softwaremill.sttp.{Uri, asStream, _}
 import com.softwaremill.sttp.circe._
 import fluence.crypto.Crypto.Hasher
+import fluence.effects.sttp.SttpStreamEffect
+import fluence.effects.sttp.syntax._
 import fluence.effects.swarm.crypto.Keccak256Hasher
 import fluence.effects.swarm.crypto.Secp256k1Signer.Signer
 import fluence.effects.swarm.requests._
@@ -51,16 +53,12 @@ import scala.language.higherKinds
  * @param swarmUri HTTP address of trusted swarm node
  * @param hasher hashing algorithm. Must be Keccak SHA-3 algorithm for real Swarm node or another for test purposes
  *               @see https://en.wikipedia.org/wiki/SHA-3
- * @param sttpBackend way to represent the backend implementation.
- *                    Can be sync or async, with effects or not depending on the `F`
  */
-class SwarmClient[F[_]: Monad](swarmUri: Uri, readTimeout: FiniteDuration)(
-  implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
-  hasher: Hasher[ByteVector, ByteVector]
+class SwarmClient[F[_]: Monad: SttpStreamEffect](swarmUri: Uri, readTimeout: FiniteDuration)(
+  implicit hasher: Hasher[ByteVector, ByteVector]
 ) {
 
   import BzzProtocol._
-  import fluence.effects.swarm.helpers.ResponseOps._
 
   // unpretty printer for http requests
   private val printer = Printer.noSpaces.copy(dropNullValues = true)
@@ -97,8 +95,9 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri, readTimeout: FiniteDuration)(
         .response(asByteArray)
         .get(downloadURI)
         .send()
-        .toEitherT { er =>
-          SwarmError(s"Swarm download error $downloadURI: $er")
+        .toBody
+        .leftMap { er =>
+          SwarmError(s"Swarm download error $downloadURI: $er", Some(er))
         }
         .leftSemiflatMap {
           case e @ SwarmError(errorMessage, _) ⇒
@@ -116,8 +115,9 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri, readTimeout: FiniteDuration)(
         .response(asStream[fs2.Stream[F, ByteBuffer]])
         .get(downloadURI)
         .send()
-        .toEitherT { er ⇒
-          SwarmError(s"Error on downloading from $downloadURI. $er")
+        .toBody
+        .leftMap { er ⇒
+          SwarmError(s"Error on downloading from $downloadURI. $er", Some(er))
         }
         .leftSemiflatMap {
           case e @ SwarmError(errorMessage, _) ⇒
@@ -152,7 +152,8 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri, readTimeout: FiniteDuration)(
         .post(uploadURI)
         .body(data.toArray)
         .send()
-        .toEitherT(er => SwarmError(s"Error on uploading to $uploadURI. $er"))
+        .toBody
+        .leftMap(er => SwarmError(s"Error on uploading to $uploadURI. $er", Some(er)))
         .flatTap { r =>
           Log.eitherT[F, SwarmError].info(s"The resource has been uploaded.") *>
             Log.eitherT[F, SwarmError].debug(s"Resource size: ${r.length} bytes.")
@@ -173,7 +174,8 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri, readTimeout: FiniteDuration)(
         .response(asJson[Manifest])
         .get(downloadURI)
         .send()
-        .toEitherT(er => SwarmError(s"Error on downloading manifest from $downloadURI. $er"))
+        .toBody
+        .leftMap(er => SwarmError(s"Error on downloading manifest from $downloadURI. $er", Some(er)))
         .flatMapF {
           case Left(er) ⇒
             Log[F].error(s"Deserialization error: $er") as
@@ -207,7 +209,8 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri, readTimeout: FiniteDuration)(
         .response(asByteArray.map(ByteVector(_)))
         .get(downloadURI)
         .send()
-        .toEitherT(er => SwarmError(s"Error on downloading raw from $downloadURI. $er"))
+        .toBody
+        .leftMap(er => SwarmError(s"Error on downloading raw from $downloadURI. $er", Some(er)))
         .flatTap { r =>
           Log.eitherT[F, SwarmError].info(s"A mutable resource has been downladed. Size: ${r.size} bytes.")
         }
@@ -253,7 +256,8 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri, readTimeout: FiniteDuration)(
         .post(uri(BzzResource))
         .body(jsonToBytes(json))
         .send()
-        .toEitherT(er => SwarmError(s"Error on initializing a mutable resource. $er"))
+        .toBody
+        .leftMap(er => SwarmError(s"Error on initializing a mutable resource. $er", Some(er)))
       _ ← Log.eitherT[F, SwarmError].info(s"A mutable resource has been initialized. Hash: $resp")
     } yield resp
 
@@ -275,7 +279,8 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri, readTimeout: FiniteDuration)(
         .response(asString)
         .body(jsonToBytes(req.asJson))
         .send()
-        .toEitherT(er => SwarmError(s"Error on uploading a mutable resource. $er"))
+        .toBody
+        .leftMap(er => SwarmError(s"Error on uploading a mutable resource. $er", Some(er)))
         .flatTap { r =>
           Log.eitherT[F, SwarmError].info(s"A metafile of a mutable resource has been uploaded. Hash: $r.")
         }
@@ -330,7 +335,8 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri, readTimeout: FiniteDuration)(
         .post(updateURI)
         .body(jsonToBytes(json))
         .send()
-        .toEitherT(er => SwarmError(s"Error on sending request to $updateURI. $er"))
+        .toBody
+        .leftMap(er => SwarmError(s"Error on sending request to $updateURI. $er", Some(er)))
       _ ← Log.eitherT[F, SwarmError].info("A mutable resource has been updated.")
     } yield response
 
@@ -338,14 +344,12 @@ class SwarmClient[F[_]: Monad](swarmUri: Uri, readTimeout: FiniteDuration)(
 
 object SwarmClient {
 
-  def apply[F[_]: Monad](
+  def apply[F[_]: Monad: SttpStreamEffect](
     swarmUri: Uri,
     readTimeout: FiniteDuration
-  )(
-    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]
   ): SwarmClient[F] = {
 
-    implicit val _: Hasher[ByteVector, ByteVector] = Keccak256Hasher.hasher
+    implicit val h: Hasher[ByteVector, ByteVector] = Keccak256Hasher.hasher
 
     new SwarmClient[F](swarmUri, readTimeout)
   }

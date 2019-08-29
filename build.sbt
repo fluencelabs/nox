@@ -160,7 +160,7 @@ lazy val `statemachine` = (project in file("statemachine"))
     `statemachine-control`,
     `statemachine-data`,
     `tendermint-rpc`,
-    `sttpEitherT`,
+    `sttp-effect`,
     `tendermint-block`
   )
 
@@ -189,8 +189,7 @@ lazy val `effects` = project
   .dependsOn(`log`)
   .enablePlugins(AutomateHeaderPlugin)
 
-// TODO this is not an `effect`
-lazy val `sttpEitherT` = (project in file("effects/sttpEitherT"))
+lazy val `sttp-effect` = (project in file("effects/sttp"))
   .settings(
     commons,
     kindProjector,
@@ -202,6 +201,7 @@ lazy val `sttpEitherT` = (project in file("effects/sttpEitherT"))
       sttpCatsBackend
     )
   )
+  .dependsOn(`effects`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `ca-store` = (project in file("effects/ca-store"))
@@ -235,7 +235,7 @@ lazy val `swarm` = (project in file("effects/swarm"))
       scalaTest
     )
   )
-  .dependsOn(`ca-store`, `sttpEitherT` % "test->test;compile->compile")
+  .dependsOn(`ca-store`, `sttp-effect` % "test->test;compile->compile")
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `ipfs` = (project in file("effects/ipfs"))
@@ -253,7 +253,7 @@ lazy val `ipfs` = (project in file("effects/ipfs"))
       scalaTest
     )
   )
-  .dependsOn(`ca-store`, `sttpEitherT` % "test->test;compile->compile")
+  .dependsOn(`ca-store`, `sttp-effect`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `ethclient` = (project in file("effects/ethclient"))
@@ -312,7 +312,7 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
       sttpCatsBackend % Test
     )
   )
-  .dependsOn(`effects`, `sttpEitherT`, `tendermint-block`, `log`, `tendermint-block-history`)
+  .dependsOn(`effects`, `sttp-effect`, `tendermint-block`, `log`, `tendermint-block-history`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `tendermint-block` = (project in file("history/tendermint-block"))
@@ -391,7 +391,6 @@ lazy val `kademlia-http` = (project in file("kademlia/http"))
     commons,
     kindProjector,
     libraryDependencies ++= Seq(
-      sttp,
       circeGeneric,
       circeParser,
       http4sDsl,
@@ -399,7 +398,7 @@ lazy val `kademlia-http` = (project in file("kademlia/http"))
       http4sServer % Test
     )
   )
-  .dependsOn(`kademlia`, `kademlia-dht`, `sttpEitherT` % Test)
+  .dependsOn(`kademlia`, `kademlia-dht`, `sttp-effect`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `kademlia-dht` = (project in file("kademlia/dht"))
@@ -487,7 +486,7 @@ lazy val `node` = project
     `tendermint-rpc`           % "it->test",
     `tendermint-block`         % "test->test",
     `tendermint-block-history` % "test->test",
-    `sttpEitherT`,
+    `sttp-effect`,
     `receipt-storage`,
     `log`,
     `kademlia-http`,

@@ -27,6 +27,7 @@ import cats.{Monad, Parallel}
 import com.softwaremill.sttp.SttpBackend
 import fluence.crypto.signature.SignAlgo
 import fluence.crypto.{Crypto, KeyPair}
+import fluence.effects.sttp.SttpEffect
 import fluence.kad.Kademlia
 import fluence.kad.conf.KademliaConfig
 import fluence.kad.contact.{ContactAccess, UriContact}
@@ -63,7 +64,7 @@ object KademliaHttpNode {
    * @param rootPath RocksDB storage root path
    * @param nodeCodec Mean to encode, decode, sign and check Node[UriContact]
    */
-  def make[F[_]: ConcurrentEffect: Timer: Log: ContextShift, P[_]](
+  def make[F[_]: ConcurrentEffect: SttpEffect: Timer: Log: ContextShift, P[_]](
     conf: KademliaConfig,
     signAlgo: SignAlgo,
     keyPair: KeyPair,
@@ -71,8 +72,7 @@ object KademliaHttpNode {
     nodeCodec: UriContact.NodeCodec
   )(
     implicit
-    P: Parallel[F, P],
-    sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]
+    P: Parallel[F, P]
   ): Resource[F, KademliaHttpNode[F, UriContact]] = {
 
     implicit val readNode: Crypto.Func[String, Node[UriContact]] =

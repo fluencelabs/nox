@@ -16,8 +16,6 @@
 
 package fluence.statemachine
 
-import java.nio.ByteBuffer
-
 import cats.Monad
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.ExitCase.{Canceled, Completed, Error}
@@ -25,18 +23,17 @@ import cats.effect.{ExitCode, IO, IOApp, Resource}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import com.github.jtendermint.jabci.socket.TSocket
-import com.softwaremill.sttp.SttpBackend
-import fluence.EitherTSttpBackend
-import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.{Log, LogFactory, LogLevel}
 import fluence.statemachine.config.StateMachineConfig
-import fluence.statemachine.control.ControlServer
+import fluence.statemachine.control.{ControlServer, ControlStatus}
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.vm.WasmVmOperationInvoker
 import fluence.vm.WasmVm
 import fluence.vm.wasm.MemoryHasher
 import LogLevel.toLogLevel
+import cats.effect.concurrent.Deferred
+import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.statemachine.control.signals.ControlSignals
 
 import scala.language.higherKinds
@@ -50,9 +47,6 @@ import scala.language.higherKinds
  */
 object ServerRunner extends IOApp {
 
-  private val sttpResource: Resource[IO, SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]] =
-    Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
-
   override def run(args: List[String]): IO[ExitCode] =
     StateMachineConfig
       .load[IO]()
@@ -63,18 +57,11 @@ object ServerRunner extends IOApp {
         for {
           implicit0(log: Log[IO]) ← logFactory.init("server")
           _ ← log.info("Building State Machine ABCI handler")
+          statusDef ← Deferred[IO, ControlStatus]
           _ <- (
             for {
-              control ← ControlServer.make[IO](config.control)
-
-              sttp ← sttpResource
-
-              tendermintRpc ← {
-                implicit val s = sttp
-                TendermintRpc.make[IO](config.tendermintRpc.host, config.tendermintRpc.port)
-              }
-
-              _ ← abciHandlerResource(config.abciPort, config, control, tendermintRpc)
+              control ← ControlServer.make[IO](config.control, statusDef.get)
+              _ ← abciHandlerResource(config.abciPort, statusDef, config, control)
             } yield control.signals.stop
           ).use(identity)
         } yield ExitCode.Success
@@ -90,13 +77,13 @@ object ServerRunner extends IOApp {
 
   private def abciHandlerResource(
     abciPort: Int,
+    statusDef: Deferred[IO, ControlStatus],
     config: StateMachineConfig,
-    controlServer: ControlServer[IO],
-    tendermintRpc: TendermintRpc[IO]
+    controlServer: ControlServer[IO]
   )(implicit log: Log[IO], lf: LogFactory[IO]): Resource[IO, Unit] =
     Resource
       .make(
-        buildAbciHandler(config, controlServer.signals).value.flatMap {
+        buildAbciHandler(config, statusDef, controlServer.signals).value.flatMap {
           case Right(handler) ⇒ IO.pure(handler)
           case Left(err) ⇒
             val exception = err.causedBy match {
@@ -134,12 +121,15 @@ object ServerRunner extends IOApp {
    */
   private[statemachine] def buildAbciHandler(
     config: StateMachineConfig,
+    statusDef: Deferred[IO, ControlStatus],
     controlSignals: ControlSignals[IO]
   )(implicit log: Log[IO], lf: LogFactory[IO]): EitherT[IO, StateMachineError, AbciHandler[IO]] =
     for {
       moduleFilenames <- config.collectModuleFiles[IO]
       _ ← Log.eitherT[IO, StateMachineError].info("Loading VM modules from " + moduleFilenames)
       vm <- buildVm[IO](moduleFilenames)
+
+      _ ← EitherT.right(statusDef.complete(ControlStatus(expectsEth = vm.expectsEth)))
 
       _ ← Log.eitherT[IO, StateMachineError].info("VM instantiated")
 

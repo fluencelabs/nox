@@ -16,24 +16,22 @@
 
 package fluence.kad.http
 
-import java.nio.ByteBuffer
 import java.nio.file.Files
 
 import cats.syntax.functor._
 import cats.syntax.compose._
 import cats.{Semigroup, Traverse}
-import cats.data.{EitherT, Kleisli}
+import cats.data.Kleisli
 import cats.effect.{ContextShift, IO, Resource, Timer}
 import cats.instances.list._
-import com.softwaremill.sttp.SttpBackend
 import fluence.kad.protocol.Key
 import fluence.log.{Log, LogFactory}
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
-import fluence.EitherTSttpBackend
 import fluence.codec.PureCodec
 import fluence.crypto.eddsa.Ed25519
 import fluence.effects.kvstore.RocksDBStore
+import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.kad.conf.{AdvertizeConf, JoinConf, KademliaConfig, RoutingConf}
 import fluence.kad.contact.UriContact
 import fluence.kad.http.dht.DhtHttpNode
@@ -58,8 +56,8 @@ class KademliaHttpSpec extends WordSpec with Matchers {
   implicit private val log: Log[IO] =
     logFactory.init("KademliaHttpSpec").unsafeRunSync()
 
-  private val sttpResource: Resource[IO, SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]] =
-    Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
+  private val sttpResource: Resource[IO, SttpStreamEffect[IO]] =
+    SttpEffect.streamResource[IO]
 
   private val nodeCodec = new UriContact.NodeCodec(Key.fromPublicKey)
 
@@ -93,7 +91,7 @@ class KademliaHttpSpec extends WordSpec with Matchers {
       case (_, vs) ⇒ vs
     }
 
-    def node(port: Int, seeds: Seq[String])(implicit sttpBackend: SttpBackend[EitherT[IO, Throwable, ?], Nothing]) =
+    def node(port: Int, seeds: Seq[String])(implicit sttpBackend: SttpEffect[IO]) =
       for {
         n ← KademliaHttpNode
           .make[IO, IO.Par](
@@ -137,7 +135,7 @@ class KademliaHttpSpec extends WordSpec with Matchers {
     "connect client to server" in {
       (
         for {
-          implicit0(sttpBackend: SttpBackend[EitherT[IO, Throwable, ?], Nothing]) ← sttpResource
+          implicit0(sttpBackend: SttpEffect[IO]) ← sttpResource
 
           (node1, _) ← node(3210, Nil)
 
@@ -167,7 +165,7 @@ class KademliaHttpSpec extends WordSpec with Matchers {
 
       (
         for {
-          implicit0(sttpBackend: SttpBackend[EitherT[IO, Throwable, ?], Nothing]) ← sttpResource
+          implicit0(sttpBackend: SttpEffect[IO]) ← sttpResource
 
           (node1, dht1) ← node(startPort, Nil)
           c1 ← Resource.liftF(node1.kademlia.ownContact.map(_.contact.toString))

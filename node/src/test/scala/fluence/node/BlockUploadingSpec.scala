@@ -24,17 +24,18 @@ import cats.effect.concurrent.Ref
 import cats.effect.{IO, Resource}
 import cats.syntax.functor._
 import cats.syntax.apply._
-import fluence.{EitherTSttpBackend, Eventually}
+import fluence.Eventually
 import fluence.effects.castore.StoreError
-import fluence.effects.docker.DockerIO
 import fluence.effects.docker.params.{DockerImage, DockerLimits}
 import fluence.effects.ipfs.{IpfsData, IpfsUploader}
 import fluence.effects.receipt.storage.{ReceiptStorage, ReceiptStorageError}
+import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockManifest, Receipt}
+import fluence.effects.tendermint.rpc.TestHttpRpc
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.{block, rpc}
-import fluence.effects.tendermint.rpc.TendermintRpc
-import fluence.effects.tendermint.rpc.websocket.{TestTendermintWebsocketRpc, WebsocketConfig}
+import fluence.effects.tendermint.rpc.websocket.{TestTendermintHttpRpc, TestTendermintWebsocketRpc, WebsocketConfig}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
@@ -58,7 +59,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
   implicit private val timer = IO.timer(global)
   implicit private val shift = IO.contextShift(global)
   implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec", level = Log.Warn).unsafeRunSync()
-  implicit private val sttp = EitherTSttpBackend[IO]()
+  implicit private val sttp = SttpEffect.stream[IO]
   implicit private val backoff: Backoff[EffectError] = Backoff.default[EffectError]
 
   private val rootPath = Paths.get("/tmp")
@@ -136,7 +137,9 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
           }
 
           val workerServices = new WorkerServices[IO] {
-            override def tendermint: TendermintRpc[IO] = new TestTendermintWebsocketRpc[IO] {
+            override def tendermintRpc: TendermintHttpRpc[IO] = new TestHttpRpc[IO]
+
+            override def tendermintWRpc: TestTendermintWebsocketRpc[IO] = new TestTendermintWebsocketRpc[IO] {
               override val websocketConfig: WebsocketConfig = WebsocketConfig()
 
               override def subscribeNewBlock(
@@ -170,7 +173,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
           val worker: Resource[IO, Worker[IO]] =
             Worker.make[IO](appId, p2pPort, description, workerServices, (_: IO[Unit]) => IO.unit, IO.unit, IO.unit)
 
-          worker.flatMap(worker => BlockUploading[IO](enabled = true, ipfs).flatMap(_.start(worker))).map(_ => state)
+          worker.flatMap(worker => BlockUploading[IO](enabled = true, ipfs).flatMap(_.start(worker))) as state
       }
   }
 
