@@ -25,8 +25,9 @@ import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.log.Log
+import fluence.node.workers.pool.WorkersPool
 import fluence.node.workers.subscription.ResponseSubscriber
-import fluence.node.workers.{Worker, WorkerParams, WorkerServices, WorkersPool}
+import fluence.node.workers.{Worker, WorkerParams, WorkerServices}
 
 import scala.language.higherKinds
 

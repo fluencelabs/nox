@@ -27,7 +27,7 @@ import fluence.kad.dht.{DhtError, DhtRemoteError, DhtRpc, DhtValueNotFound}
 import fluence.kad.protocol.Key
 import fluence.log.Log
 import io.circe.{Decoder, Encoder}
-import io.circe.parser.parse
+import io.circe.parser.decode
 import io.circe.syntax._
 import scodec.bits.ByteVector
 
@@ -55,7 +55,7 @@ class DhtHttpClient[F[_]: Effect: SttpEffect, V: Encoder: Decoder](
     sttp
       .get(uri(key))
       .send()
-      .decodeBody(s ⇒ parse(s).flatMap(_.as[V]))
+      .decodeBody(decode[V](_))
       // TODO handle errors properly, return DhtValueNotFound on 404
       .leftMap(e ⇒ DhtRemoteError("Retrieve request errored", Some(e)))
 

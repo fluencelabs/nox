@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.websocket
+package fluence.node.workers.api.websocket
 
 import cats.Monad
 import cats.data.EitherT
 import fluence.log.Log
 import cats.syntax.functor._
-import fluence.node.workers.{Worker, WorkerApi}
+import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.subscription.{OkResponse, PendingResponse, RpcErrorResponse, TimedOutResponse}
 import io.circe.parser.parse
 import io.circe.syntax._
@@ -30,7 +30,7 @@ import scala.language.higherKinds
 /**
  * The layer between messages from Websocket and WorkerAPI.
  */
-class WorkersWebsocket[F[_]: Monad: Log](worker: Worker[F], workerApi: WorkerApi) {
+class WorkerWebsocket[F[_]: Monad: Log](workerApi: WorkerApi[F]) {
   import WebsocketRequests._
   import WebsocketResponses._
 
@@ -53,18 +53,18 @@ class WorkersWebsocket[F[_]: Monad: Log](worker: Worker[F], workerApi: WorkerApi
   private def callApi(input: WebsocketRequest): F[WebsocketResponse] = {
     input match {
       case TxRequest(tx, id, requestId) =>
-        workerApi.sendTx(worker, tx, id).map {
+        workerApi.sendTx(tx, id).map {
           case Right(data) => TxResponse(requestId, data)
           case Left(error) => ErrorResponse(requestId, error.getMessage)
         }
       case QueryRequest(path, data, id, requestId) =>
-        workerApi.query(worker, data, path, id).map {
+        workerApi.query(data, path, id).map {
           case Right(data) => QueryResponse(requestId, data)
           case Left(error) => ErrorResponse(requestId, error.getMessage)
         }
       case TxWaitRequest(tx, id, requestId) =>
         workerApi
-          .sendTxAwaitResponse(worker, tx, id)
+          .sendTxAwaitResponse(tx, id)
           .map {
             case Right(OkResponse(_, response))    => TxWaitResponse(requestId, response)
             case Right(RpcErrorResponse(_, error)) => ErrorResponse(requestId, error.getMessage)
@@ -74,19 +74,19 @@ class WorkersWebsocket[F[_]: Monad: Log](worker: Worker[F], workerApi: WorkerApi
             case Left(error)               => ErrorResponse(requestId, error.msg)
           }
       case LastManifestRequest(requestId) =>
-        workerApi.lastManifest(worker).map(block => LastManifestResponse(requestId, block.map(_.jsonString)))
+        workerApi.lastManifest().map(block => LastManifestResponse(requestId, block.map(_.jsonString)))
       case StatusRequest(requestId) =>
-        workerApi.tendermintStatus(worker).map {
+        workerApi.tendermintStatus().map {
           case Right(status) => StatusResponse(requestId, status)
           case Left(error)   => ErrorResponse(requestId, error.getMessage)
         }
-      case P2pPortRequest(requestId) => workerApi.p2pPort(worker).map(port => P2pPortResponse(requestId, port))
+      case P2pPortRequest(requestId) => workerApi.p2pPort().map(port => P2pPortResponse(requestId, port))
     }
   }
 }
 
-object WorkersWebsocket {
+object WorkerWebsocket {
 
-  def apply[F[_]: Monad: Log](worker: Worker[F], workerApi: WorkerApi): WorkersWebsocket[F] =
-    new WorkersWebsocket[F](worker, workerApi)
+  def apply[F[_]: Monad: Log](workerApi: WorkerApi[F]): WorkerWebsocket[F] =
+    new WorkerWebsocket[F](workerApi)
 }

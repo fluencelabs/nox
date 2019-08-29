@@ -14,22 +14,24 @@
  * limitations under the License.
  */
 
-package fluence.node.workers
+package fluence.node.workers.pool
 
-import cats.data.EitherT
 import cats.Parallel
+import cats.data.EitherT
+import cats.effect.{Concurrent, Fiber, Resource, Timer}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.effect.{Concurrent, Fiber, Resource, Timer}
 import cats.instances.vector._
-import com.softwaremill.sttp.{sttp, _}
 import fluence.effects.sttp.SttpEffect
 import fluence.effects.sttp.syntax._
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.eth.state.WorkerPeer
+import fluence.node.workers.Worker
+import com.softwaremill.sttp._
 
 import scala.language.higherKinds
+
 import scala.util.Try
 
 /**

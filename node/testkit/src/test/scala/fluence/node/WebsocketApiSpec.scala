@@ -16,25 +16,16 @@
 
 package fluence.node
 
-import java.net.InetAddress
-import java.nio.file.Paths
-
-import cats.effect.{ContextShift, IO, Resource, Timer}
-import cats.{Applicative, Apply, Functor, Monad, Parallel}
+import cats.effect.{ContextShift, IO, Timer}
 import fluence.Eventually
-import fluence.effects.docker.params.{DockerImage, DockerLimits}
-import fluence.effects.tendermint.block.TestData
-import fluence.effects.tendermint.block.data.{Block, Header}
-import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError, RpcRequestFailed}
+import fluence.effects.tendermint.block.data.Header
+import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError}
 import fluence.log.{Log, LogFactory}
-import cats.syntax.apply._
 import cats.syntax.applicative._
 import fluence.effects.tendermint.block.history.BlockManifest
-import fluence.node.config.DockerConfig
-import fluence.node.eth.state._
+import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.subscription._
-import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
-import fluence.node.workers.websocket.WebsocketRequests.{
+import fluence.node.workers.api.websocket.WebsocketRequests.{
   LastManifestRequest,
   P2pPortRequest,
   StatusRequest,
@@ -42,7 +33,7 @@ import fluence.node.workers.websocket.WebsocketRequests.{
   TxWaitRequest,
   WebsocketRequest
 }
-import fluence.node.workers.websocket.WebsocketResponses.{
+import fluence.node.workers.api.websocket.WebsocketResponses.{
   ErrorResponse,
   LastManifestResponse,
   P2pPortResponse,
@@ -51,36 +42,33 @@ import fluence.node.workers.websocket.WebsocketResponses.{
   TxWaitResponse,
   WebsocketResponse
 }
-import fluence.node.workers.websocket.WorkersWebsocket
-import fluence.node.workers.{Worker, WorkerApi, WorkerParams}
+import fluence.node.workers.api.websocket.WorkerWebsocket
 import fluence.statemachine.data.Tx
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 import scodec.bits.ByteVector
 import io.circe.syntax._
 import io.circe.parser.parse
 
-import scala.compat.Platform.currentTime
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration._
 import scala.language.higherKinds
 
 class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll with Eventually {
 
-  import fluence.node.workers.websocket.WebsocketRequests.WebsocketRequest._
-  import fluence.node.workers.websocket.WebsocketResponses.WebsocketResponse._
+  import fluence.node.workers.api.websocket.WebsocketRequests.WebsocketRequest._
+  import fluence.node.workers.api.websocket.WebsocketResponses.WebsocketResponse._
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
   implicit private val logFactory = LogFactory.forPrintln[IO](level = Log.Error)
   implicit private val log = logFactory.init("ResponseSubscriberSpec", level = Log.Off).unsafeRunSync()
 
-  def websocketApi(workerApi: WorkerApi) = WorkersWebsocket[IO](null, workerApi)
+  def websocketApi(workerApi: WorkerApi[IO]) = WorkerWebsocket[IO](workerApi)
 
   "Weboscket API" should {
 
     "return an error if cannot parse a request" in {
       val request = "some incorrect request"
-      val response = websocketApi(new TestWorkerApi()).processRequest(request).unsafeRunSync()
+      val response = websocketApi(new TestWorkerApi[IO]()).processRequest(request).unsafeRunSync()
 
       val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[ErrorResponse]
 
@@ -94,9 +82,9 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
       val id = "some-id"
       val request: WebsocketRequest = P2pPortRequest(id)
-      val response = websocketApi(new TestWorkerApi {
-        override def p2pPort[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Short] =
-          p2pPortV.pure[F]
+      val response = websocketApi(new TestWorkerApi[IO] {
+        override def p2pPort()(implicit log: Log[IO]): IO[Short] =
+          p2pPortV.pure[IO]
       }).processRequest(request.asJson.spaces4).unsafeRunSync()
       val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[P2pPortResponse]
 
@@ -109,11 +97,10 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       val id = "some-id"
 
       val request: WebsocketRequest = StatusRequest(id)
-      val response = websocketApi(new TestWorkerApi {
-        override def tendermintStatus[F[_]: Monad](
-          worker: Worker[F]
-        )(implicit log: Log[F]): F[Either[RpcError, String]] =
-          (Right(statusV): Either[RpcError, String]).pure[F]
+      val response = websocketApi(new TestWorkerApi[IO] {
+        override def tendermintStatus(
+          )(implicit log: Log[IO]): IO[Either[RpcError, String]] =
+          (Right(statusV): Either[RpcError, String]).pure[IO]
       }).processRequest(request.asJson.spaces4).unsafeRunSync()
       val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[StatusResponse]
 
@@ -126,11 +113,9 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       val id = "some-id"
 
       val request: WebsocketRequest = StatusRequest(id)
-      val response = websocketApi(new TestWorkerApi {
-        override def tendermintStatus[F[_]: Monad](
-          worker: Worker[F]
-        )(implicit log: Log[F]): F[Either[RpcError, String]] =
-          (Left(error): Either[RpcError, String]).pure[F]
+      val response = websocketApi(new TestWorkerApi[IO] {
+        override def tendermintStatus()(implicit log: Log[IO]): IO[Either[RpcError, String]] =
+          (Left(error): Either[RpcError, String]).pure[IO]
       }).processRequest(request.asJson.spaces4).unsafeRunSync()
       val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[ErrorResponse]
 
@@ -145,9 +130,9 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       val id = "some-id"
 
       val request: WebsocketRequest = LastManifestRequest(id)
-      val response = websocketApi(new TestWorkerApi {
-        override def lastManifest[F[_]: Monad](worker: Worker[F]): F[Option[BlockManifest]] =
-          Option(manifest).pure[F]
+      val response = websocketApi(new TestWorkerApi[IO] {
+        override def lastManifest(): IO[Option[BlockManifest]] =
+          Option(manifest).pure[IO]
       }).processRequest(request.asJson.spaces4).unsafeRunSync()
       val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[LastManifestResponse]
 
@@ -161,11 +146,11 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       val txRequest = "tx-request"
 
       val request: WebsocketRequest = TxRequest(txRequest, None, id)
-      val response = websocketApi(new TestWorkerApi {
-        override def sendTx[F[_]: Monad](worker: Worker[F], tx: String, id: Option[String])(
-          implicit log: Log[F]
-        ): F[Either[RpcError, String]] =
-          (Right(tx + txResponse): Either[RpcError, String]).pure[F]
+      val response = websocketApi(new TestWorkerApi[IO] {
+        override def sendTx(tx: String, id: Option[String])(
+          implicit log: Log[IO]
+        ): IO[Either[RpcError, String]] =
+          (Right(tx + txResponse): Either[RpcError, String]).pure[IO]
       }).processRequest(request.asJson.spaces4).unsafeRunSync()
       val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[TxResponse]
 
@@ -179,11 +164,11 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       val txRequest = "tx-request"
 
       val request: WebsocketRequest = TxRequest(txRequest, None, id)
-      val response = websocketApi(new TestWorkerApi {
-        override def sendTx[F[_]: Monad](worker: Worker[F], tx: String, id: Option[String])(
-          implicit log: Log[F]
-        ): F[Either[RpcError, String]] =
-          (Left(error): Either[RpcError, String]).pure[F]
+      val response = websocketApi(new TestWorkerApi[IO] {
+        override def sendTx(tx: String, id: Option[String])(
+          implicit log: Log[IO]
+        ): IO[Either[RpcError, String]] =
+          (Left(error): Either[RpcError, String]).pure[IO]
       }).processRequest(request.asJson.spaces4).unsafeRunSync()
       val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[ErrorResponse]
 
@@ -199,11 +184,11 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
         request: WebsocketRequest,
         responseApi: Either[TxAwaitError, TendermintQueryResponse]
       ): WebsocketResponse = {
-        val response = websocketApi(new TestWorkerApi {
-          override def sendTxAwaitResponse[F[_]: Monad, G[_]](worker: Worker[F], tx: String, id: Option[String])(
-            implicit log: Log[F]
-          ): F[Either[TxAwaitError, TendermintQueryResponse]] =
-            responseApi.pure[F]
+        val response = websocketApi(new TestWorkerApi[IO] {
+          override def sendTxAwaitResponse(tx: String, id: Option[String])(
+            implicit log: Log[IO]
+          ): IO[Either[TxAwaitError, TendermintQueryResponse]] =
+            responseApi.pure[IO]
         }).processRequest(request.asJson.spaces4).unsafeRunSync()
         parse(response).flatMap(_.as[WebsocketResponse]).right.get
       }

@@ -45,7 +45,8 @@ import fluence.log.{Log, LogFactory}
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
-import fluence.node.workers.{DockerWorkersPool, WorkerApi}
+import fluence.node.workers.api.WorkerApi
+import fluence.node.workers.pool.DockerWorkersPool
 import fluence.node.workers.tendermint.DhtReceiptStorage
 import fluence.node.workers.tendermint.block.BlockUploading
 
@@ -91,7 +92,7 @@ object MasterNodeApp extends IOApp {
               case (kadHttp, rDhtHttp, node) ⇒
                 (for {
                   _ ← Log.resource[IO].debug(s"Eth contract config: ${masterConf.contract}")
-                  server ← masterHttp(masterConf, node, kadHttp, rDhtHttp, WorkerApi())
+                  server ← masterHttp(masterConf, node, kadHttp, rDhtHttp)
                 } yield server).use { server =>
                   log.info("Http api server has started on: " + server.address) *> node.run
                 }
@@ -172,8 +173,7 @@ object MasterNodeApp extends IOApp {
     masterConf: MasterConfig,
     node: MasterNode[IO, UriContact],
     kademliaHttp: KademliaHttp[IO, UriContact],
-    receiptDhtHttp: DhtHttp[IO],
-    workerApi: WorkerApi
+    receiptDhtHttp: DhtHttp[IO]
   )(implicit log: Log[IO], lf: LogFactory[IO]) =
     StatusAggregator
       .make(masterConf, node)
@@ -184,7 +184,6 @@ object MasterNodeApp extends IOApp {
             masterConf.httpApi.port.toShort,
             statusAggregator,
             node.pool,
-            workerApi,
             kademliaHttp,
             receiptDhtHttp :: Nil
           )
