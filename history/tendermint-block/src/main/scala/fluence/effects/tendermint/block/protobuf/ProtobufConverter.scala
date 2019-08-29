@@ -121,11 +121,10 @@ private[block] object ProtobufConverter {
     for {
       blockId <- getOr("blockId")(b.blockId)
       precommits <- Traverse[List].sequence(b.precommits.map(bs => Protobuf.decode[Vote](bs.toByteArray)).toList)
-    } yield
-      LastCommit(
-        block_id = blockId,
-        precommits = precommits.map(Some(_))
-      )
+    } yield LastCommit(
+      block_id = blockId,
+      precommits = precommits.map(Some(_))
+    )
 
   private def getOr[T](name: String)(opt: Option[T]): Either[Throwable, T] =
     Either.cond(opt.isDefined, opt.get, MissingField(name))

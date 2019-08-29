@@ -70,6 +70,6 @@ object TendermintWebsocketRpc {
     port: Int,
     httpRpc: TendermintHttpRpc[F],
     blockstore: Blockstore[F],
-    websocketConfig: WebsocketConfig = WebsocketConfig(),
+    websocketConfig: WebsocketConfig = WebsocketConfig()
   ): TendermintWebsocketRpc[F] = new TendermintWebsocketRpcImpl[F](host, port, httpRpc, blockstore, websocketConfig)
 }

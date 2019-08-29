@@ -174,18 +174,17 @@ object DockerWorkerServices {
             ts,
             ws
           )
-      }
+        }
 
-    } yield
-      new DockerWorkerServices[F](
-        p2pPort,
-        params.appId,
-        rpc,
-        wrpc,
-        control,
-        blockManifests,
-        responseSubscriber,
-        status
-      )
+    } yield new DockerWorkerServices[F](
+      p2pPort,
+      params.appId,
+      rpc,
+      wrpc,
+      control,
+      blockManifests,
+      responseSubscriber,
+      status
+    )
 
 }

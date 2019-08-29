@@ -152,7 +152,7 @@ object Blockstore {
     (for {
       dbPath <- createSymlinks[F](tendermintPath.resolve("data").resolve("blockstore.db"))
       _ <- Log.resource[F].debug(s"Opening DB at $dbPath")
-      store <- Traverse[Either[BlockstoreError, ?]].sequence(dbPath.map(rocksDbStore))
+      store <- Traverse[Either[BlockstoreError, ?]].sequence(dbPath.map(rocksDbStore[F]))
     } yield store).evalMap {
       // TODO: using MonadError here because caller–DockerWorkerServices–uses it, avoid doing that
       case Left(e)  => Sync[F].raiseError(e)

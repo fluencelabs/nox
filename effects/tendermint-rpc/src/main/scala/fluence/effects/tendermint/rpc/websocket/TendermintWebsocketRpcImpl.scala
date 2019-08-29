@@ -57,7 +57,7 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
   port: Int,
   httpRpc: TendermintHttpRpc[F],
   blockstore: Blockstore[F],
-  val websocketConfig: WebsocketConfig,
+  val websocketConfig: WebsocketConfig
 ) extends TendermintWebsocketRpc[F] {
 
   private val wsUrl = s"ws://$host:$port/websocket"
