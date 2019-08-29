@@ -123,7 +123,7 @@ class MasterNodeSpec
       node ← MasterNode.make[IO, UriContact](masterConf, nodeConf, pool, kad.kademlia)
 
       agg ← StatusAggregator.make[IO](masterConf, node)
-      _ ← MasterHttp.make("127.0.0.1", port, agg, node.pool, WorkerApi(), kad.http)
+      _ ← MasterHttp.make("127.0.0.1", port, agg, node.pool, kad.http)
       _ <- Log.resource[IO].info(s"Started MasterHttp")
     } yield (sttpB, node)
 
