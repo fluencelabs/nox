@@ -52,11 +52,11 @@ class WorkerApiImpl extends WorkerApi {
     id: Option[String]
   )(implicit log: Log[F]): F[Either[RpcError, String]] =
     log.debug(s"TendermintRpc query request. path: $path, data: $data") *>
-      worker.withServices(_.tendermint)(_.query(path, data.getOrElse(""), id = id.getOrElse("dontcare")).value)
+      worker.withServices(_.tendermintRpc)(_.query(path, data.getOrElse(""), id = id.getOrElse("dontcare")).value)
 
   def tendermintStatus[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Either[RpcError, String]] =
     log.trace(s"TendermintRpc status") *>
-      worker.withServices(_.tendermint)(_.status.value)
+      worker.withServices(_.tendermintRpc)(_.status.value)
 
   def p2pPort[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Short] =
     log.debug(s"Worker p2pPort") as worker.p2pPort
@@ -69,7 +69,7 @@ class WorkerApiImpl extends WorkerApi {
   ): F[Either[RpcError, String]] =
     log.scope("tx" -> tx) { implicit log ⇒
       log.debug(s"TendermintRpc broadcastTxSync request, id: $id") *>
-        worker.withServices(_.tendermint)(_.broadcastTxSync(tx, id.getOrElse("dontcare")).value)
+        worker.withServices(_.tendermintRpc)(_.broadcastTxSync(tx, id.getOrElse("dontcare")).value)
     }
 
   def sendTxAwaitResponse[F[_]: Monad, G[_]](worker: Worker[F], tx: String, id: Option[String])(
@@ -79,7 +79,7 @@ class WorkerApiImpl extends WorkerApi {
       _ <- EitherT.right(log.debug(s"TendermintRpc broadcastTxSync in txWaitResponse request"))
       txParsed <- EitherT
         .fromOptionF(Tx.readTx(tx.getBytes()).value, TxParsingError("Incorrect transaction format", tx): TxAwaitError)
-      txBroadcastResponse <- worker.services.tendermint
+      txBroadcastResponse <- worker.services.tendermintRpc
         .broadcastTxSync(tx, id.getOrElse("dontcare"))
         .leftMap(RpcTxAwaitError(_): TxAwaitError)
       _ <- Log.eitherT.debug("TendermintRpc broadcastTxSync is ok.")

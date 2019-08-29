@@ -17,10 +17,11 @@
 package fluence.node.workers.subscription
 
 import cats.Parallel
-import cats.effect.{Concurrent, Resource, Timer}
 import cats.effect.concurrent.{Deferred, Ref}
+import cats.effect.{Concurrent, Resource, Timer}
 import cats.syntax.functor._
-import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
+import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.log.Log
 import fluence.statemachine.data.Tx
 
@@ -51,24 +52,16 @@ object ResponseSubscriber {
   // TODO: move to config
   val MaxBlockTries = 10
 
-  def apply[F[_]: Log: Concurrent: Timer, G[_]](
-    tendermint: TendermintRpc[F],
-    appId: Long,
-    maxBlocksTries: Int = MaxBlockTries
-  )(
-    implicit P: Parallel[F, G]
-  ): F[ResponseSubscriber[F]] =
-    Ref
-      .of[F, Map[Tx.Head, ResponsePromise[F]]](
-        Map.empty[Tx.Head, ResponsePromise[F]]
-      )
-      .map(r => new ResponseSubscriberImpl(r, tendermint, appId, maxBlocksTries))
-
   def make[F[_]: Log: Concurrent: Timer, G[_]](
-    tendermint: TendermintRpc[F],
+    tendermintRpc: TendermintHttpRpc[F],
+    tendermintWRpc: TendermintWebsocketRpc[F],
     appId: Long,
     maxBlocksTries: Int = MaxBlockTries
   )(
     implicit P: Parallel[F, G]
-  ): Resource[F, ResponseSubscriber[F]] = Resource.liftF(apply(tendermint, appId, maxBlocksTries))
+  ): Resource[F, ResponseSubscriber[F]] = Resource.liftF(
+    Ref
+      .of[F, Map[Tx.Head, ResponsePromise[F]]](Map.empty)
+      .map(r => new ResponseSubscriberImpl(r, tendermintRpc, tendermintWRpc, appId, maxBlocksTries))
+  )
 }

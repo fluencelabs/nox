@@ -16,10 +16,12 @@
 
 package fluence.effects.tendermint.rpc.websocket
 
+import cats.Monad
 import cats.effect._
 import cats.syntax.compose._
 import cats.syntax.flatMap._
 import fluence.effects.tendermint.block.data.Block
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fs2.concurrent.Queue
@@ -49,4 +51,23 @@ trait TendermintWebsocketRpc[F[_]] {
   protected def subscribe(
     event: String
   )(implicit log: Log[F], backoff: Backoff[EffectError]): Resource[F, Queue[F, Event]]
+}
+
+object TendermintWebsocketRpc {
+
+  /**
+   * Creates Tendermint Websocket RPC
+   *
+   * @param host Host to query status from
+   * @param port Port to query status from
+   * @param websocketConfig Config for the websocket connection to Tendermint
+   * @tparam F Concurrent effect
+   * @return Tendermint websocket RPC instance. Note that it should be stopped at some point, and can't be used after it's stopped
+   */
+  def make[F[_]: ConcurrentEffect: Timer: Monad: ContextShift](
+    host: String,
+    port: Int,
+    httpRpc: TendermintHttpRpc[F],
+    websocketConfig: WebsocketConfig = WebsocketConfig()
+  ): TendermintWebsocketRpc[F] = new TendermintWebsocketRpcImpl[F](host, port, httpRpc, websocketConfig)
 }
