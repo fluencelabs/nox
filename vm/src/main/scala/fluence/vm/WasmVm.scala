@@ -76,6 +76,12 @@ trait WasmVm {
    */
   def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector]
 
+  /**
+   * Temporary way to pass a flag from userland (the WASM file) to the Node, denotes whether an app
+   * expects outer world to pass Ethereum blocks data into it.
+   * TODO move this flag to the Smart Contract
+   */
+  val expectsEth: Boolean
 }
 
 object WasmVm {

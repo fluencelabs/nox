@@ -53,7 +53,7 @@ class ControlServerSpec extends WordSpec with Matchers with ControlServerOps {
     implicit val logFactory = LogFactory.forPrintln[IO]()
     implicit val log: Log[IO] = LogFactory[IO].init(getClass.getSimpleName, level = Log.Error).unsafeRunSync()
 
-    val server = ControlServer.make[IO](config)
+    val server = ControlServer.make[IO](config, IO(ControlStatus(false)))
     val sttp = SttpEffect.plainResource[IO]
     val resources = server.flatMap(srv => sttp.map(srv -> _))
 

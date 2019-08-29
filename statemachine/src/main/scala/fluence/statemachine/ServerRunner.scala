@@ -26,12 +26,13 @@ import com.github.jtendermint.jabci.socket.TSocket
 import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.log.{Log, LogFactory, LogLevel}
 import fluence.statemachine.config.StateMachineConfig
-import fluence.statemachine.control.ControlServer
+import fluence.statemachine.control.{ControlServer, ControlStatus}
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.vm.WasmVmOperationInvoker
 import fluence.vm.WasmVm
 import fluence.vm.wasm.MemoryHasher
 import LogLevel.toLogLevel
+import cats.effect.concurrent.Deferred
 import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.statemachine.control.signals.ControlSignals
 
@@ -56,15 +57,16 @@ object ServerRunner extends IOApp {
         for {
           implicit0(log: Log[IO]) ← logFactory.init("server")
           _ ← log.info("Building State Machine ABCI handler")
+          statusDef ← Deferred[IO, ControlStatus]
           _ <- (
             for {
-              control ← ControlServer.make[IO](config.control)
+              control ← ControlServer.make[IO](config.control, statusDef.get)
 
               implicit0(sttp: SttpStreamEffect[IO]) ← SttpEffect.streamResource[IO]
 
               tendermintRpc ← TendermintRpc.make[IO](config.tendermintRpc.host, config.tendermintRpc.port)
 
-              _ ← abciHandlerResource(config.abciPort, config, control, tendermintRpc)
+              _ ← abciHandlerResource(config.abciPort, statusDef, config, control, tendermintRpc)
             } yield control.signals.stop
           ).use(identity)
         } yield ExitCode.Success
@@ -80,13 +82,14 @@ object ServerRunner extends IOApp {
 
   private def abciHandlerResource(
     abciPort: Int,
+    statusDef: Deferred[IO, ControlStatus],
     config: StateMachineConfig,
     controlServer: ControlServer[IO],
     tendermintRpc: TendermintRpc[IO]
   )(implicit log: Log[IO], lf: LogFactory[IO]): Resource[IO, Unit] =
     Resource
       .make(
-        buildAbciHandler(config, controlServer.signals).value.flatMap {
+        buildAbciHandler(config, statusDef, controlServer.signals).value.flatMap {
           case Right(handler) ⇒ IO.pure(handler)
           case Left(err) ⇒
             val exception = err.causedBy match {
@@ -124,12 +127,15 @@ object ServerRunner extends IOApp {
    */
   private[statemachine] def buildAbciHandler(
     config: StateMachineConfig,
+    statusDef: Deferred[IO, ControlStatus],
     controlSignals: ControlSignals[IO]
   )(implicit log: Log[IO], lf: LogFactory[IO]): EitherT[IO, StateMachineError, AbciHandler[IO]] =
     for {
       moduleFilenames <- config.collectModuleFiles[IO]
       _ ← Log.eitherT[IO, StateMachineError].info("Loading VM modules from " + moduleFilenames)
       vm <- buildVm[IO](moduleFilenames)
+
+      _ ← EitherT.right(statusDef.complete(ControlStatus(expectsEth = vm.expectsEth)))
 
       _ ← Log.eitherT[IO, StateMachineError].info("VM instantiated")
 
