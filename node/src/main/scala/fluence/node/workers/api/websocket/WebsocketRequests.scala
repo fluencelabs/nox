@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.websocket
+package fluence.node.workers.api.websocket
 
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.extras.Configuration

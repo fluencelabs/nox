@@ -83,7 +83,7 @@ class RocksDBStore[F[_]: Monad: LiftIO: ContextShift] private (
               Log[F].error(s"Cannot close RocksDB iterator: $err", err)
             case Right(_) ⇒
               Applicative[F].unit
-        }
+          }
       )
       .flatMap { it ⇒
         // Start iterator
@@ -168,7 +168,7 @@ object RocksDBStore {
 
             case Right(_) ⇒
               Applicative[F].unit
-        }
+          }
       )
 
       _ ← Log.resource[F].trace("Created opts...")
@@ -186,7 +186,7 @@ object RocksDBStore {
               Log[F].error(s"Cannot close RocksDB object during cleanup", err)
             case Right(_) ⇒
               Applicative[F].unit
-        }
+          }
       )
 
       _ ← Log.resource[F].debug("Created rocksdb...")
@@ -199,7 +199,7 @@ object RocksDBStore {
               Log[F].error(s"Cannot close RocksDB object during cleanup", err)
             case Right(_) ⇒
               Applicative[F].unit
-        }
+          }
       )
 
       _ ← Log.resource[F].trace("Created readOpts... going to return kvstore")

@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 
-package fluence.node.workers
+package fluence.node.workers.pool
 
-import cats.syntax.functor._
-import cats.syntax.flatMap._
-import cats.syntax.apply._
 import cats.Monad
 import cats.data.EitherT
-import cats.effect.{Concurrent, Resource}
 import cats.effect.concurrent.MVar
+import cats.effect.{Concurrent, Resource}
+import cats.syntax.apply._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fluence.effects.kvstore.{KVStore, KVStoreError}
 import fluence.log.Log
 
