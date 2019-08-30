@@ -32,9 +32,10 @@ import fluence.effects.receipt.storage.{ReceiptStorage, ReceiptStorageError}
 import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockManifest, Receipt}
+import fluence.effects.tendermint.rpc.TestHttpRpc
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.{block, rpc}
-import fluence.effects.tendermint.rpc.TendermintRpc
-import fluence.effects.tendermint.rpc.websocket.{TestTendermintWebsocketRpc, WebsocketConfig}
+import fluence.effects.tendermint.rpc.websocket.{TestTendermintHttpRpc, TestTendermintWebsocketRpc, WebsocketConfig}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
@@ -136,7 +137,9 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
           }
 
           val workerServices = new WorkerServices[IO] {
-            override def tendermint: TendermintRpc[IO] = new TestTendermintWebsocketRpc[IO] {
+            override def tendermintRpc: TendermintHttpRpc[IO] = new TestHttpRpc[IO]
+
+            override def tendermintWRpc: TestTendermintWebsocketRpc[IO] = new TestTendermintWebsocketRpc[IO] {
               override val websocketConfig: WebsocketConfig = WebsocketConfig()
 
               override def subscribeNewBlock(

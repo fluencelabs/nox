@@ -24,9 +24,7 @@ import cats.Functor
 import com.softwaremill.sttp._
 import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block.data.Block
-import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.response.{Response, TendermintStatus}
-import fluence.effects.tendermint.rpc.websocket.{TendermintWebsocketRpc, TendermintWebsocketRpcImpl, WebsocketConfig}
 import fluence.log.Log
 import io.circe.Json
 import io.circe.parser.decode
@@ -42,10 +40,9 @@ import scala.language.higherKinds
  */
 case class TendermintHttpRpcImpl[F[_]: ConcurrentEffect: Timer: SttpEffect: ContextShift](
   host: String,
-  port: Int,
-  override val websocketConfig: WebsocketConfig
+  port: Int
 )(implicit log: Log[F])
-    extends TendermintWebsocketRpcImpl with TendermintHttpRpc[F] with TendermintWebsocketRpc[F] with TendermintRpc[F] {
+    extends TendermintHttpRpc[F] {
 
   val RpcUri = uri"http://$host:$port"
   log.info(s"TendermintRpc created, uri: $RpcUri")

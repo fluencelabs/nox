@@ -23,7 +23,8 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.history.BlockManifest
-import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
+import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.log.Log
 import fluence.node.workers.pool.WorkersPool
 import fluence.node.workers.{Worker, WorkerParams, WorkerServices}
@@ -86,9 +87,11 @@ object CustomWorkersPool {
 
   def withRequestResponder[F[_]: Concurrent: Timer](
     requestResponder: ResponseSubscriber[F],
-    tendermintRpc: TendermintRpc[F]
+    tendermintRpc: TendermintHttpRpc[F],
+    tendermintWRpc: TendermintWebsocketRpc[F]
   ): F[CustomWorkersPool[F]] = {
-    val builder = TestWorkerServices.workerServiceTestRequestResponse[F](tendermintRpc, requestResponder) _
+    val builder =
+      TestWorkerServices.workerServiceTestRequestResponse[F](tendermintRpc, tendermintWRpc, requestResponder) _
     MVar.of(Map.empty[Long, Worker[F]]).map(new CustomWorkersPool(_, builder))
   }
 }

@@ -16,7 +16,8 @@
 
 package fluence.node.workers
 
-import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
+import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status.WorkerStatus
 import fluence.node.workers.subscription.ResponseSubscriber
@@ -27,7 +28,10 @@ import scala.language.higherKinds
 // Algebra for WorkerServices
 trait WorkerServices[F[_]] {
   // RPC connection to tendermint
-  def tendermint: TendermintRpc[F]
+  def tendermintRpc: TendermintHttpRpc[F]
+
+  // Websocket RPC connection to tendermint
+  def tendermintWRpc: TendermintWebsocketRpc[F]
 
   // RPC connection to worker
   def control: ControlRpc[F]
