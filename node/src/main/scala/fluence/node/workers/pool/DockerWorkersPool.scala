@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.node.workers
+package fluence.node.workers.pool
 
 import java.nio.file.Path
 
@@ -39,6 +39,7 @@ import fluence.log.Log
 import fluence.log.LogLevel.LogLevel
 import fluence.node.MakeResource
 import fluence.node.workers.tendermint.block.BlockUploading
+import fluence.node.workers.{DockerWorkerServices, Worker, WorkerParams}
 
 import scala.concurrent.duration._
 import scala.language.higherKinds

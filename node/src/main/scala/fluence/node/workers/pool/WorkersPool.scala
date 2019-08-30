@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
-package fluence.node.workers
+package fluence.node.workers.pool
 
-import cats.{Applicative, Monad}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.{Applicative, Monad}
 import fluence.log.Log
+import fluence.node.workers.{Worker, WorkerParams}
 
 import scala.language.higherKinds
 

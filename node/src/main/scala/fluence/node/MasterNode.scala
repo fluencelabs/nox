@@ -37,6 +37,7 @@ import fluence.node.eth._
 import fluence.node.eth.state.StorageType
 import fluence.node.workers._
 import fluence.node.workers.control.DropPeerError
+import fluence.node.workers.pool.WorkersPool
 import fluence.node.workers.tendermint.config.ConfigTemplate
 
 import scala.language.{higherKinds, postfixOps}

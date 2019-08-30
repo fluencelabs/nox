@@ -4,13 +4,14 @@ import cats.effect.concurrent.Ref
 import cats.effect.Timer
 import cats.{Applicative, Monad}
 import fluence.effects.docker.DockerContainerStopped
-import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.node.workers.{WorkerBlockManifests, WorkerServices}
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus, WorkerStatus}
 import cats.syntax.applicative._
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.history.BlockManifest
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
+import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.node.workers.subscription.ResponseSubscriber
 
 import scala.concurrent.duration.FiniteDuration
@@ -22,7 +23,8 @@ object TestWorkerServices {
     appId: Long
   ): WorkerServices[F] = {
     new WorkerServices[F] {
-      override def tendermint: TendermintRpc[F] = throw new NotImplementedError("def tendermint")
+      override def tendermintRpc: TendermintHttpRpc[F] = throw new NotImplementedError("def tendermintRpc")
+      override def tendermintWRpc: TendermintWebsocketRpc[F] = throw new NotImplementedError("def tendermintWRpc")
 
       override def control: ControlRpc[F] = throw new NotImplementedError("def control")
 
@@ -41,11 +43,13 @@ object TestWorkerServices {
   }
 
   def workerServiceTestRequestResponse[F[_]: Applicative: Timer](
-    tendermintRpc: TendermintRpc[F],
+    rpc: TendermintHttpRpc[F],
+    wrpc: TendermintWebsocketRpc[F],
     requestResponderImpl: ResponseSubscriber[F]
   )(appId: Long): WorkerServices[F] = {
     new WorkerServices[F] {
-      override def tendermint: TendermintRpc[F] = tendermintRpc
+      override def tendermintRpc: TendermintHttpRpc[F] = rpc
+      override def tendermintWRpc: TendermintWebsocketRpc[F] = wrpc
 
       override def control: ControlRpc[F] = throw new NotImplementedError("def control")
 
