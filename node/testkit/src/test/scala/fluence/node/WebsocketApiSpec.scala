@@ -83,8 +83,7 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       val id = "some-id"
       val request: WebsocketRequest = P2pPortRequest(id)
       val response = websocketApi(new TestWorkerApi[IO] {
-        override def p2pPort()(implicit log: Log[IO]): IO[Short] =
-          p2pPortV.pure[IO]
+        override def p2pPort()(implicit log: Log[IO]): IO[Short] = p2pPortV.pure[IO]
       }).processRequest(request.asJson.spaces4).unsafeRunSync()
       val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[P2pPortResponse]
 
@@ -131,8 +130,7 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
       val request: WebsocketRequest = LastManifestRequest(id)
       val response = websocketApi(new TestWorkerApi[IO] {
-        override def lastManifest(): IO[Option[BlockManifest]] =
-          Option(manifest).pure[IO]
+        override def lastManifest(): IO[Option[BlockManifest]] = Option(manifest).pure[IO]
       }).processRequest(request.asJson.spaces4).unsafeRunSync()
       val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[LastManifestResponse]
 
