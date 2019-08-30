@@ -140,7 +140,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
       // Once the worker is created, run background job to connect it to all the peers
       _ ← WorkerP2pConnectivity.make(worker, ps.app.cluster.workers)
 
-      // TODO: pass promise from WorkerP2pConnectivity to blockUploading.start
+      // TODO: pass promise from worker's status to blockUploading.start
       // Start uploading tendermint blocks and send receipts to statemachine
       _ <- blockUploading.start(worker)
       _ <- worker.services.responseSubscriber.start()

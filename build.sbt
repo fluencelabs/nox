@@ -349,6 +349,7 @@ lazy val `tendermint-block-history` = (project in file("history/tendermint-block
       http4sDsl,
       http4sServer,
       http4sCirce,
+      levelDb,
       scalaTest
     )
   )

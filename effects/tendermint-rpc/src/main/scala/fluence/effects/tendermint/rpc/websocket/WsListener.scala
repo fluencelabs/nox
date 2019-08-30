@@ -55,8 +55,8 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
     import config.{pingTimeout => timeout, pingInterval}
 
     def pingOrCloseAsync: F[Unit] = {
-      val sendPing = ws.sendPingFrame().asAsync >> log.debug("ping sent")
-      val sendPingWaitPong = pong.tryTake >> sendPing >> pong.take >> log.debug("pong received")
+      val sendPing = ws.sendPingFrame().asAsync
+      val sendPingWaitPong = pong.tryTake >> sendPing >> pong.take
 
       val close = this.close(ws, code = None, s"no pong after timeout $timeout")
       val closeAfterTimeout = Timer[F].sleep(timeout) >> close

@@ -19,7 +19,7 @@ package fluence.effects.tendermint.block.history.db
 import java.nio.file.{Files, Path}
 
 import cats.data.EitherT
-import cats.effect.{ContextShift, LiftIO, Resource, Sync}
+import cats.effect.{ContextShift, LiftIO, Resource, Sync, Timer}
 import cats.instances.either._
 import cats.instances.list._
 import cats.syntax.applicativeError._
@@ -37,9 +37,11 @@ import fluence.effects.tendermint.block.history.db.Blockstore.rocksDbStore
 import fluence.effects.tendermint.block.protobuf.{Protobuf, ProtobufConverter}
 import fluence.log.Log
 import io.circe.parser.parse
+import org.rocksdb.{RocksDBException, Status}
 import proto3.tendermint.{Block, BlockMeta, BlockPart}
 
 import scala.collection.JavaConverters._
+import scala.concurrent.duration._
 import scala.language.higherKinds
 import scala.util.Try
 
@@ -110,8 +112,11 @@ class Blockstore[F[_]: Log: Monad](kv: Blockstore.RawKV[F]) {
 
   def getStorageHeight: EitherT[F, BlockstoreError, Long] =
     for {
+      _ <- Log.eitherT[F, BlockstoreError].trace(s"getStorageHeightBytes")
       bytes <- getStorageHeightBytes
+      _ <- Log.eitherT[F, BlockstoreError].trace(s"decodeHeight")
       height <- decodeHeight(bytes)
+      _ <- Log.eitherT[F, BlockstoreError].trace(s"getStorageHeight DONE $height")
     } yield height
 }
 
@@ -148,14 +153,70 @@ object Blockstore {
       .makeRaw[F](p.toString, createIfMissing = false, readOnly = true)
       .map(kv => new Blockstore(kv))
 
-  def make[F[_]: Log: Sync: LiftIO: ContextShift](tendermintPath: Path): Resource[F, Blockstore[F]] =
-    (for {
-      dbPath <- createSymlinks[F](tendermintPath.resolve("data").resolve("blockstore.db"))
-      _ <- Log.resource[F].debug(s"Opening DB at $dbPath")
-      store <- Traverse[Either[BlockstoreError, ?]].sequence(dbPath.map(rocksDbStore[F]))
-    } yield store).evalMap {
-      // TODO: using MonadError here because caller–DockerWorkerServices–uses it, avoid doing that
-      case Left(e)  => Sync[F].raiseError(e)
-      case Right(b) => b.pure[F]
+  // TODO: using MonadError here because caller (DockerWorkerServices) uses it, avoid doing that
+  private def raise[F[_]: Log: Sync, T, E <: Throwable](
+    r: Resource[F, Either[E, T]],
+    tendermintPath: Path
+  ): Resource[F, T] =
+    r.evalMap {
+      case Left(e) =>
+        Log[F].error(s"Error on creating blockstore for $tendermintPath") >>
+          Sync[F].raiseError[T](e)
+      case Right(b) => Log[F].trace(s"Blockstore created for $tendermintPath").as(b)
     }
+
+  def make[F[_]: Sync: LiftIO: ContextShift: Timer](
+    tendermintPath: Path
+  )(implicit log: Log[F]): Resource[F, Blockstore[F]] =
+    log.scope("blockstore") { implicit log: Log[F] =>
+      raise(
+        Monad[Resource[F, ?]].tailRecM(tendermintPath.resolve("data").resolve("blockstore.db")) { path =>
+          val storeOrError = for {
+            dbPath <- createSymlinks[F](path)
+            _ <- Log.resource[F].debug(s"Opening DB at $dbPath")
+            store <- Traverse[Either[BlockstoreError, ?]].sequence(dbPath.map(rocksDbStore[F]))
+          } yield store
+
+          storeOrError.evalMap {
+            case Left(e: RocksDBException) if Option(e.getStatus).exists(_.getCode == Status.Code.NotFound) =>
+              Log[F]
+                .warn("Not all symlinks were created – creating them again", e)
+                .as(path.asLeft[Either[Throwable, Blockstore[F]]])
+
+            case Left(e: RocksDBException) if Option(e.getStatus).isEmpty =>
+              Log[F]
+                .warn("RocksDBException with empty status – trying again", e)
+                .as(
+                  path.asLeft[Either[Throwable, Blockstore[F]]]
+                )
+
+            case Left(e @ SymlinkCreationError(_: java.nio.file.NoSuchFileException, _)) =>
+              Log[F]
+                .warn("Tendermint isn't initialized yet – sleeping 5 sec & trying again", e) >>
+                Timer[F]
+                  .sleep(5.seconds)
+                  .as(path.asLeft[Either[Throwable, Blockstore[F]]])
+
+            case Left(e) =>
+              Log[F]
+                .warn("Error while creating store – raising", e)
+                .as((e: Throwable).asLeft[Blockstore[F]].asRight[Path])
+
+            case Right(store) =>
+              Log[F].info("Store created").as(store.asRight[Throwable].asRight[Path])
+          }
+        },
+        tendermintPath
+      )
+    }
+
+  def makeOld[F[_]: Log: Sync: LiftIO: ContextShift](tendermintPath: Path): Resource[F, Blockstore[F]] =
+    raise(
+      for {
+        dbPath <- createSymlinks[F](tendermintPath.resolve("data").resolve("blockstore.db"))
+        _ <- Log.resource[F].debug(s"Opening DB at $dbPath")
+        store <- Traverse[Either[BlockstoreError, ?]].sequence(dbPath.map(rocksDbStore[F]))
+      } yield store,
+      tendermintPath
+    )
 }

@@ -84,7 +84,7 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
           )(_.asRight)).eitherT
       }
 
-      new TendermintWebsocketRpcImpl[IO]("WebsocketBlockSpecNonExistingHost", 3333333, rpc, WebsocketConfig()) {
+      new TendermintWebsocketRpcImpl[IO]("WebsocketBlockSpecNonExistingHost", 3333333, rpc, ???, WebsocketConfig()) {
         override protected def subscribe(
           event: String
         )(implicit log: Log[IO], backoff: Backoff[EffectError]): Resource[IO, Queue[IO, Event]] =

@@ -17,18 +17,20 @@
 package fluence.node.workers
 
 import cats.effect._
+import cats.syntax.apply._
+import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{Apply, Monad, Parallel}
+import cats.{Monad, Parallel}
 import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block.history.db.Blockstore
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
+import fluence.effects.tendermint.rpc.websocket.{TendermintWebsocketRpc, WebsocketConfig}
 import fluence.log.Log
-import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
-import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
 import fluence.log.LogLevel.LogLevel
+import fluence.node.status.StatusHttp
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
 import fluence.node.workers.subscription.ResponseSubscriber
@@ -114,6 +116,40 @@ object DockerWorkerServices {
         .fold(Resource.pure(()))(DockerNetwork.join(_, network))
     } yield network
 
+  private def appStatus[F[_]: DockerIO: Timer: ConcurrentEffect: Log: ContextShift](
+    worker: DockerContainer,
+    tendermint: DockerTendermint,
+    control: ControlRpc[F],
+    rpc: TendermintHttpRpc[F],
+    appId: Long,
+    timeout: FiniteDuration = StatusHttp.DefaultTimeout
+  ): Resource[F, FiniteDuration => F[WorkerStatus]] = Resource.liftF {
+    def workerStatus(tout: FiniteDuration) =
+      DockerIO[F]
+        .checkContainer(worker)
+        .semiflatMap[ServiceStatus[ControlStatus]] { d ⇒
+          HttpStatus
+            .timed(control.status, tout)
+            .map(s ⇒ ServiceStatus(Right(d), s))
+        }
+        .valueOr(err ⇒ ServiceStatus(Left(err), HttpCheckNotPerformed("Worker's Docker container is not launched")))
+
+    def tendermintStatus(tout: FiniteDuration) = tendermint.status(rpc, tout)
+
+    def status(tout: FiniteDuration): F[WorkerStatus] = (tendermintStatus(tout), workerStatus(tout)).mapN { (ts, ws) ⇒
+      WorkerStatus(
+        isHealthy = ts.isOk(_.sync_info.latest_block_height > 0) && ws.isOk(),
+        appId,
+        ts,
+        ws
+      )
+    }
+
+    Monad[F].tailRecM(status(timeout))(
+      _.map(s => Either.cond(s.isHealthy, status, Timer[F].sleep(timeout) >> status(timeout)))
+    )
+  }
+
   /**
    * Makes a single worker that runs once resource is in use
    *
@@ -146,6 +182,10 @@ object DockerWorkerServices {
 
       rpc ← TendermintHttpRpc.make[F](tendermint.name, DockerTendermint.RpcPort)
 
+      control = ControlRpc[F](containerName(params), ControlRpcPort)
+
+      status <- appStatus(worker, tendermint, control, rpc, params.appId)
+
       blockstore <- Blockstore.make[F](params.tendermintPath)
 
       wrpc = TendermintWebsocketRpc.make[F](tendermint.name, DockerTendermint.RpcPort, rpc, blockstore, websocketConfig)
@@ -153,28 +193,6 @@ object DockerWorkerServices {
       blockManifests ← WorkerBlockManifests.make[F](receiptStorage)
 
       responseSubscriber <- ResponseSubscriber.make(rpc, wrpc, params.appId)
-
-      control = ControlRpc[F](containerName(params), ControlRpcPort)
-
-      workerStatus = (timeout: FiniteDuration) ⇒
-        DockerIO[F]
-          .checkContainer(worker)
-          .semiflatMap[ServiceStatus[ControlStatus]] { d ⇒
-            HttpStatus
-              .timed(control.status, timeout)
-              .map(s ⇒ ServiceStatus(Right(d), s))
-          }
-          .valueOr(err ⇒ ServiceStatus(Left(err), HttpCheckNotPerformed("Worker's Docker container is not launched")))
-
-      status = (timeout: FiniteDuration) ⇒
-        Apply[F].map2(tendermint.status(rpc, timeout), workerStatus(timeout)) { (ts, ws) ⇒
-          WorkerStatus(
-            isHealthy = ts.isOk(_.sync_info.latest_block_height > 1) && ws.isOk(),
-            params.appId,
-            ts,
-            ws
-          )
-      }
 
     } yield
       new DockerWorkerServices[F](
