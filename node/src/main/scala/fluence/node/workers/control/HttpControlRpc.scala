@@ -28,7 +28,7 @@ import fluence.node.workers.status.{HttpCheckFailed, HttpCheckStatus, HttpStatus
 import fluence.statemachine.control.signals.{BlockReceipt, DropPeer, GetStatus, GetVmHash, Stop}
 import fluence.statemachine.control.ControlStatus
 import io.circe.Encoder
-import io.circe.parser.parse
+import io.circe.parser.decode
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -58,7 +58,7 @@ class HttpControlRpc[F[_]: Monad: SttpEffect](hostname: String, port: Short) ext
     send(DropPeer(key), "dropPeer").void.leftMap(DropPeerError(key, _))
 
   override val status: F[HttpStatus[ControlStatus]] =
-    send(GetStatus(), "status").decodeBody(parse(_).flatMap(_.as[ControlStatus])).value.map {
+    send(GetStatus(), "status").decodeBody(decode[ControlStatus](_)).value.map {
       case Right(st) ⇒ HttpCheckStatus(st)
       case Left(err) ⇒ HttpCheckFailed(err)
     }
@@ -74,7 +74,7 @@ class HttpControlRpc[F[_]: Monad: SttpEffect](hostname: String, port: Short) ext
     import helpers.ByteVectorJsonCodec._
 
     send(GetVmHash(height), "vmHash")
-      .decodeBody(parse(_).flatMap(_.as[ByteVector]))
+      .decodeBody(decode[ByteVector](_))
       .leftMap(GetVmHashError)
   }
 }

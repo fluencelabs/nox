@@ -26,7 +26,8 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.history.{BlockHistory, BlockManifest, Receipt}
-import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
+import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.MakeResource
@@ -62,7 +63,8 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
         worker.appId,
         lastManifestReceipt,
         worker.services.blockManifests.receiptStorage,
-        worker.services.tendermint,
+        worker.services.tendermintRpc,
+        worker.services.tendermintWRpc,
         worker.services.control,
         worker.services.blockManifests.onUploaded
       )
@@ -74,7 +76,8 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
     appId: Long,
     lastManifestReceipt: MVar[F, Option[Receipt]],
     storage: ReceiptStorage[F],
-    rpc: TendermintRpc[F],
+    rpc: TendermintHttpRpc[F],
+    wrpc: TendermintWebsocketRpc[F],
     control: ControlRpc[F],
     onManifestUploaded: (BlockManifest, Receipt) ⇒ F[Unit]
   )(implicit backoff: Backoff[EffectError], F: Applicative[F], log: Log[F]): Resource[F, Unit] =
@@ -113,7 +116,7 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
         val lastKnownHeight = fs2.Stream.eval(lastHeightDef.get)
 
         // Subscribe on blocks, starting with given last known height
-        val blocks = lastKnownHeight >>= rpc.subscribeNewBlock
+        val blocks = lastKnownHeight >>= wrpc.subscribeNewBlock
 
         // Retrieve vm hash for every block
         val blocksWithVmHash = blocks

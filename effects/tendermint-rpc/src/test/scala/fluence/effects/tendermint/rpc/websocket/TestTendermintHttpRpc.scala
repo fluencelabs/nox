@@ -19,11 +19,12 @@ package fluence.effects.tendermint.rpc.websocket
 import cats.Functor
 import cats.data.EitherT
 import fluence.effects.tendermint.block.data.Block
-import fluence.effects.tendermint.rpc.TendermintRpc
-import fluence.effects.tendermint.rpc.http.RpcError
+import fluence.effects.tendermint.rpc.http.{RpcError, TendermintHttpRpc}
 import fluence.effects.tendermint.rpc.response.TendermintStatus
 
-trait TestTendermintRpc[F[_]] extends TendermintRpc[F] {
+import scala.language.higherKinds
+
+trait TestTendermintHttpRpc[F[_]] extends TendermintHttpRpc[F] {
   def status: EitherT[F, RpcError, String] = throw new NotImplementedError("val status")
 
   def statusParsed(implicit F: Functor[F]): EitherT[F, RpcError, TendermintStatus] =

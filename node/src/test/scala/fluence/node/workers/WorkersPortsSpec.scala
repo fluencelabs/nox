@@ -18,6 +18,7 @@ package fluence.node.workers
 import cats.effect.{ContextShift, IO, Timer}
 import fluence.effects.kvstore.MVarKVStore
 import fluence.log.{Log, LogFactory}
+import fluence.node.workers.pool.WorkersPorts
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global

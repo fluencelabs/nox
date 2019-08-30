@@ -23,8 +23,9 @@ import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.sttp.SttpEffect
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.Log
-import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
 import fluence.log.LogLevel.LogLevel
 import fluence.node.workers.control.ControlRpc
@@ -41,7 +42,8 @@ import scala.language.higherKinds
  *
  * @param p2pPort Tendermint p2p port
  * @param appId Worker's app ID
- * @param tendermint Tendermint RPC endpoints for the worker
+ * @param tendermintRpc Tendermint HTTP RPC endpoints for the worker
+ * @param tendermintWRpc Tendermint Websocket RPC endpoints for the worker
  * @param control Control RPC endpoints for the worker
  * @param statusCall Getter for actual Worker's status
  * @tparam F the effect
@@ -49,7 +51,8 @@ import scala.language.higherKinds
 case class DockerWorkerServices[F[_]] private (
   p2pPort: Short,
   appId: Long,
-  tendermint: TendermintRpc[F],
+  tendermintRpc: TendermintHttpRpc[F],
+  tendermintWRpc: TendermintWebsocketRpc[F],
   control: ControlRpc[F],
   blockManifests: WorkerBlockManifests[F],
   responseSubscriber: ResponseSubscriber[F],
@@ -140,11 +143,13 @@ object DockerWorkerServices {
 
       tendermint ← DockerTendermint.make[F](params, p2pPort, containerName(params), network, stopTimeout)
 
-      rpc ← TendermintRpc.make[F](tendermint.name, DockerTendermint.RpcPort, websocketConfig)
+      rpc ← TendermintHttpRpc.make[F](tendermint.name, DockerTendermint.RpcPort)
+
+      wrpc = TendermintWebsocketRpc.make[F](tendermint.name, DockerTendermint.RpcPort, rpc, websocketConfig)
 
       blockManifests ← WorkerBlockManifests.make[F](receiptStorage)
 
-      responseSubscriber <- ResponseSubscriber.make(rpc, params.appId)
+      responseSubscriber <- ResponseSubscriber.make(rpc, wrpc, params.appId)
 
       control = ControlRpc[F](containerName(params), ControlRpcPort)
 
@@ -168,6 +173,15 @@ object DockerWorkerServices {
           )
         }
 
-    } yield new DockerWorkerServices[F](p2pPort, params.appId, rpc, control, blockManifests, responseSubscriber, status)
+    } yield new DockerWorkerServices[F](
+      p2pPort,
+      params.appId,
+      rpc,
+      wrpc,
+      control,
+      blockManifests,
+      responseSubscriber,
+      status
+    )
 
 }
