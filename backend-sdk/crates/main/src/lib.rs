@@ -31,8 +31,8 @@ pub mod logger;
 #[cfg(feature = "side_module")]
 pub mod side_module;
 
-#[cfg(feature = "eth_expect")]
-pub mod eth_dispatch;
+#[cfg(feature = "expect_eth")]
+pub mod eth;
 
 #[cfg(feature = "export_allocator")]
 pub mod export_allocator;

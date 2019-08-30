@@ -34,7 +34,7 @@ wasm_logger = []
 side_module = []
 
 # Notify the VM that this module expects Ethereum blocks.
-eth_expect = []
+expect_eth = []
 
 # Turn on the module contained implementation of allocate/deallocate functions.
 export_allocator = []
