@@ -18,8 +18,12 @@ package fluence.node.workers.api.websocket
 
 import cats.Monad
 import cats.data.EitherT
+import cats.effect.{Concurrent, Sync}
+import cats.effect.concurrent.Ref
 import fluence.log.Log
 import cats.syntax.functor._
+import cats.syntax.flatMap._
+import cats.syntax.applicative._
 import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.subscription.{OkResponse, PendingResponse, RpcErrorResponse, TimedOutResponse}
 import io.circe.parser.parse
@@ -30,9 +34,23 @@ import scala.language.higherKinds
 /**
  * The layer between messages from Websocket and WorkerAPI.
  */
-class WorkerWebsocket[F[_]: Monad: Log](workerApi: WorkerApi[F]) {
+class WorkerWebsocket[F[_]: Monad: Log](workerApi: WorkerApi[F], subscriptions: Ref[F, Map[String, String]]) {
   import WebsocketRequests._
   import WebsocketResponses._
+
+  private def checkAndAddSubscription(subscriptionId: String, tx: String): F[Boolean] = {
+    for {
+      success <- subscriptions.modify { subs =>
+        subs.get(subscriptionId) match {
+          case Some(_) => (subs, false)
+          case None =>
+            (subs + (subscriptionId -> tx), true)
+        }
+      }
+    } yield success
+  }
+
+  private def deleteSubscription(subscriptionId: String): F[Unit] = subscriptions.update(_ - subscriptionId)
 
   /**
    * Parse input and call WebsocketAPI.
@@ -81,12 +99,27 @@ class WorkerWebsocket[F[_]: Monad: Log](workerApi: WorkerApi[F]) {
           case Left(error)   => ErrorResponse(requestId, error.getMessage)
         }
       case P2pPortRequest(requestId) => workerApi.p2pPort().map(port => P2pPortResponse(requestId, port))
+      case SubscribeRequest(requestId, subscriptionId, tx) =>
+        checkAndAddSubscription(subscriptionId, tx).flatMap {
+          case true =>
+            workerApi.subscribe(subscriptionId, tx).flatMap {
+              case Right(_) =>
+                (SubscribeResponse(requestId): WebsocketResponse).pure[F]
+              case Left(error) =>
+                deleteSubscription(subscriptionId)
+                  .map(_ => ErrorResponse(requestId, error.getMessage): WebsocketResponse)
+            }
+          case false =>
+            (ErrorResponse(requestId, s"Subscription $subscriptionId already exists"): WebsocketResponse).pure[F]
+        }
+
     }
   }
 }
 
 object WorkerWebsocket {
 
-  def apply[F[_]: Monad: Log](workerApi: WorkerApi[F]): WorkerWebsocket[F] =
-    new WorkerWebsocket[F](workerApi)
+  def apply[F[_]: Sync: Log](workerApi: WorkerApi[F]): F[WorkerWebsocket[F]] =
+    Ref.of(Map.empty[String, String]).map(subs => new WorkerWebsocket[F](workerApi, subs))
+
 }

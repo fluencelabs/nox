@@ -119,21 +119,22 @@ object WorkersHttp {
       case GET -> Root / LongVar(appId) / "ws" =>
         LogFactory[F].init("http" -> "websocket", "app" -> appId.toString) >>= { implicit log =>
           withApi(appId) { w ⇒
-            val websocket = w.websocket()
-            val processMessages: fs2.Pipe[F, WebSocketFrame, WebSocketFrame] =
-              _.evalMap {
-                case Text(msg, _) =>
-                  websocket.processRequest(msg).map(Text(_))
-                case m => log.error(s"Unsupported message: $m") as Text("Unsupported")
-              }
+            w.websocket().flatMap { ws =>
+              val processMessages: fs2.Pipe[F, WebSocketFrame, WebSocketFrame] =
+                _.evalMap {
+                  case Text(msg, _) =>
+                    ws.processRequest(msg).map(Text(_))
+                  case m => log.error(s"Unsupported message: $m") as Text("Unsupported")
+                }
 
-            Queue
-              .unbounded[F, WebSocketFrame]
-              .flatMap { q =>
-                val d = q.dequeue.through(processMessages)
-                val e = q.enqueue
-                WebSocketBuilder[F].build(d, e)
-              }
+              Queue
+                .unbounded[F, WebSocketFrame]
+                .flatMap { q =>
+                  val d = q.dequeue.through(processMessages)
+                  val e = q.enqueue
+                  WebSocketBuilder[F].build(d, e)
+                }
+            }
           }
         }
 

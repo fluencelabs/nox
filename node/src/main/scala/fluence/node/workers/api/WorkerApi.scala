@@ -18,6 +18,7 @@ package fluence.node.workers.api
 
 import cats.Monad
 import cats.data.EitherT
+import cats.effect.Sync
 import cats.syntax.applicative._
 import cats.syntax.apply._
 import cats.syntax.flatMap._
@@ -83,12 +84,14 @@ trait WorkerApi[F[_]] {
    */
   def lastManifest(): F[Option[BlockManifest]]
 
-  def websocket()(implicit log: Log[F]): WorkerWebsocket[F]
+  def websocket()(implicit log: Log[F]): F[WorkerWebsocket[F]]
+
+  def subscribe(subscriptionId: String, tx: String)(implicit log: Log[F]): F[Either[RpcError, Unit]]
 }
 
 object WorkerApi {
 
-  class Impl[F[_]: Monad](worker: Worker[F]) extends WorkerApi[F] {
+  class Impl[F[_]: Sync](worker: Worker[F]) extends WorkerApi[F] {
 
     override def query(
       data: Option[String],
@@ -139,7 +142,7 @@ object WorkerApi {
         }
       } yield response).value
 
-    override def websocket()(implicit log: Log[F]): WorkerWebsocket[F] =
+    override def websocket()(implicit log: Log[F]): F[WorkerWebsocket[F]] =
       WorkerWebsocket(this)
 
     /**
@@ -185,7 +188,9 @@ object WorkerApi {
         else EitherT.right[TxAwaitError](().pure[F])
       } yield ()
     }
+
+    override def subscribe(subscriptionId: String, tx: String)(implicit log: Log[F]): F[Either[RpcError, Unit]] = ???
   }
 
-  def apply[F[_]: Monad](worker: Worker[F]): WorkerApi[F] = new Impl[F](worker)
+  def apply[F[_]: Sync](worker: Worker[F]): WorkerApi[F] = new Impl[F](worker)
 }
