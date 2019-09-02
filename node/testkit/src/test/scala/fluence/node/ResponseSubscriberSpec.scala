@@ -29,9 +29,10 @@ import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcRequestFailed}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
 import fluence.node.eth.state._
+import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.subscription._
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
-import fluence.node.workers.{Worker, WorkerApi, WorkerParams}
+import fluence.node.workers.{Worker, WorkerParams}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 import scodec.bits.ByteVector
 
@@ -46,7 +47,6 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
   implicit private val logFactory = LogFactory.forPrintln[IO](level = Log.Error)
   implicit private val log = logFactory.init("ResponseSubscriberSpec", level = Log.Off).unsafeRunSync()
-  val workerApi = WorkerApi()
 
   def start() = {
     val rootPath = Paths.get("/tmp")
@@ -147,7 +147,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
     import cats.syntax.parallel._
 
     Range(0, to).toList.map { nonce =>
-      workerApi.sendTxAwaitResponse[IO, IO.Par](worker, txCustom.getOrElse(tx(nonce)), None)
+      WorkerApi(worker).sendTxAwaitResponse(txCustom.getOrElse(tx(nonce)), None)
     }.parSequence
   }
 

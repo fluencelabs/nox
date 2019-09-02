@@ -23,7 +23,8 @@ import cats.effect._
 import fluence.kad.http.KademliaHttp
 import fluence.kad.http.dht.DhtHttp
 import fluence.log.LogFactory
-import fluence.node.workers.{WorkerApi, WorkersHttp, WorkersPool}
+import fluence.node.workers.api.WorkersHttp
+import fluence.node.workers.pool.WorkersPool
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{HttpApp, Request, Response, Status}
 import org.http4s.server.{Router, Server}
@@ -55,7 +56,6 @@ object MasterHttp {
     port: Short,
     agg: StatusAggregator[F],
     pool: WorkersPool[F],
-    workerApi: WorkerApi,
     kad: KademliaHttp[F, C],
     dht: List[DhtHttp[F]] = Nil
   )(implicit P: Parallel[F, G]): Resource[F, Server[F]] = {
@@ -63,7 +63,7 @@ object MasterHttp {
 
     val routes = Router[F](
       ("/status" -> StatusHttp.routes[F, G](agg)) ::
-        ("/apps" -> WorkersHttp.routes[F](pool, workerApi)) ::
+        ("/apps" -> WorkersHttp.routes[F](pool)) ::
         ("/kad" -> kad.routes()) ::
         dht.map(dhtHttp ⇒ dhtHttp.prefix -> dhtHttp.routes()): _*
     )

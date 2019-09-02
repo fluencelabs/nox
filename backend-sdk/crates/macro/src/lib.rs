@@ -75,7 +75,7 @@
 //!
 //! Please find more examples [here](https://github.com/fluencelabs/tutorials).
 
-#![doc(html_root_url = "https://docs.rs/fluence-sdk-macro/0.1.7")]
+#![doc(html_root_url = "https://docs.rs/fluence-sdk-macro/0.1.8")]
 #![recursion_limit = "128"]
 
 extern crate proc_macro;
