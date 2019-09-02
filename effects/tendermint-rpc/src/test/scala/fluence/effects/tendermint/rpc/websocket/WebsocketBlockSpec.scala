@@ -25,7 +25,7 @@ import fluence.effects.sttp.SttpEffect
 import fluence.effects.syntax.eitherT._
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc
-import fluence.effects.tendermint.rpc.TestHttpRpc
+import fluence.effects.tendermint.rpc.{DisabledBlockstore, TestHttpRpc}
 import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestFailed}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
@@ -77,14 +77,21 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
           (for {
             _ <- state.update(_.consensusHeight())
             height <- consensusHeights.modify(l => (l.tail, l.headOption))
-          } yield height.fold(
-            (RpcRequestFailed(
-              new Throwable("WebSocketBlockSpec: requested consensus height when consensusHeights list is empty")
-            ): RpcError).asLeft[Long]
-          )(_.asRight)).eitherT
+          } yield
+            height.fold(
+              (RpcRequestFailed(
+                new Throwable("WebSocketBlockSpec: requested consensus height when consensusHeights list is empty")
+              ): RpcError).asLeft[Long]
+            )(_.asRight)).eitherT
       }
 
-      new TendermintWebsocketRpcImpl[IO]("WebsocketBlockSpecNonExistingHost", 3333333, rpc, ???, WebsocketConfig()) {
+      new TendermintWebsocketRpcImpl[IO](
+        "WebsocketBlockSpecNonExistingHost",
+        3333333,
+        rpc,
+        DisabledBlockstore(),
+        WebsocketConfig()
+      ) {
         override protected def subscribe(
           event: String
         )(implicit log: Log[IO], backoff: Backoff[EffectError]): Resource[IO, Queue[IO, Event]] =

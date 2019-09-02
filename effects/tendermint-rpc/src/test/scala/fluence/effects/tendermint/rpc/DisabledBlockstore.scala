@@ -31,3 +31,7 @@ class DisabledBlockstore[F[_]: Applicative] extends Blockstore[F] {
   override def getStorageHeight: EitherT[F, BlockstoreError, Long] =
     EitherT.leftT[F, Long](DbNotFound("Blockstore is disabled in tests"): BlockstoreError)
 }
+
+object DisabledBlockstore {
+  def apply[F[_]: Applicative](): DisabledBlockstore[F] = new DisabledBlockstore()
+}
