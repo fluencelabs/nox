@@ -217,7 +217,6 @@ object DockerWorkerServices {
       blockManifests ← WorkerBlockManifests.make[F](receiptStorage)
 
       responseSubscriber <- ResponseSubscriber.make(rpc, wrpc, params.appId)
-      _ <- responseSubscriber.start()
 
       services = new DockerWorkerServices[F](
         p2pPort,
@@ -232,6 +231,9 @@ object DockerWorkerServices {
 
       // Start uploading tendermint blocks and send receipts to statemachine
       _ <- blockUploading.start(params.app.id, services)
+
+      // Start Response subscriber after block uploading, so block replay succeeds
+      _ <- responseSubscriber.start()
     } yield services
 
 }

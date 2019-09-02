@@ -114,6 +114,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
   )(implicit log: Log[F]): Resource[F, Worker[F]] =
     for {
       // Order events in the Worker context
+      // TODO: does it solve any problem?
       exec ← MakeResource.orderedEffects[F]
 
       // Prepare WorkerParams in the Worker context
@@ -136,7 +137,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
               receiptStorage,
               blockUploading,
               websocketConfig
-            )
+          )
         )
       )
 
@@ -288,14 +289,15 @@ object DockerWorkersPool {
       pool ← Resource.make {
         for {
           workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
-        } yield new DockerWorkersPool[F, G](
-          ports,
-          workers,
-          workerLogLevel,
-          blockUploading,
-          appReceiptStorage,
-          websocketConfig
-        )
+        } yield
+          new DockerWorkersPool[F, G](
+            ports,
+            workers,
+            workerLogLevel,
+            blockUploading,
+            appReceiptStorage,
+            websocketConfig
+          )
       }(_.stopAll())
     } yield pool: WorkersPool[F]
 
