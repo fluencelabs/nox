@@ -59,7 +59,7 @@ class WorkerApiImpl extends WorkerApi {
       worker.withServices(_.tendermintRpc)(_.status.value)
 
   def p2pPort[F[_]: Monad](worker: Worker[F])(implicit log: Log[F]): F[Short] =
-    log.debug(s"Worker p2pPort") as worker.p2pPort
+    log.trace(s"Worker p2pPort") as worker.p2pPort
 
   def lastManifest[F[_]: Monad](worker: Worker[F]): F[Option[BlockManifest]] =
     worker.withServices(_.blockManifests)(_.lastManifestOpt)

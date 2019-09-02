@@ -118,14 +118,19 @@ object DockerWorkerServices {
         .fold(Resource.pure(()))(DockerNetwork.join(_, network))
     } yield network
 
-  private def appStatus[F[_]: DockerIO: Timer: ConcurrentEffect: Log: ContextShift](
+  /**
+   * Wait until Tendermint container is started, and return a description of how to retrieve worker status
+   */
+  // TODO: wait until RPC is avalable. BLOCKED: RPC isn't available during block replay =>
+  //  need to separate block uploading into replay and usual block processing parts
+  private def appStatus[F[_]: DockerIO: Timer: ConcurrentEffect: ContextShift](
     worker: DockerContainer,
     tendermint: DockerTendermint,
     control: ControlRpc[F],
     rpc: TendermintHttpRpc[F],
     appId: Long,
     timeout: FiniteDuration = StatusHttp.DefaultTimeout
-  ): Resource[F, FiniteDuration => F[WorkerStatus]] = Resource.liftF {
+  )(implicit log: Log[F]): Resource[F, FiniteDuration => F[WorkerStatus]] = Resource.liftF {
     def workerStatus(tout: FiniteDuration) =
       DockerIO[F]
         .checkContainer(worker)
@@ -147,12 +152,19 @@ object DockerWorkerServices {
       )
     }
 
-    Log[F].info(s"Waiting for tendermint & worker to start") >>
-      Monad[F]
-        .tailRecM(status(timeout))(
-          _.map(s => Either.cond(s.isHealthy, status(_), Timer[F].sleep(timeout) >> status(timeout)))
-        )
-        .flatTap(_ => Log[F].info("Tendermint & worker has started"))
+    Log[F].scope("appStatus") { implicit log: Log[F] =>
+      Log[F].info(s"Waiting for tendermint container to start") >>
+        Monad[F]
+          .tailRecM(tendermintStatus(timeout))(
+            _.flatMap(
+              s =>
+                Log[F]
+                  .debug(s"$s")
+                  .as(Either.cond(s.isDockerRunning, status(_), Timer[F].sleep(timeout) >> tendermintStatus(timeout)))
+            )
+          )
+          .flatTap(_ => Log[F].info("Tendermint has started"))
+    }
   }
 
   /**
@@ -192,7 +204,9 @@ object DockerWorkerServices {
       // Once tendermint is started, run background job to connect it to all the peers
       _ ← WorkerP2pConnectivity.make(params.app.id, rpc, params.app.cluster.workers)
 
-      // Wait until worker is started and tendermint is connected
+      // Wait until tendermint container is started
+      // TODO: wait until RPC is avalable. BLOCKED: RPC isn't available during block replay =>
+      //  need to separate block uploading into replay and usual block processing parts
       status <- appStatus(worker, tendermint, control, rpc, params.appId)
 
       // Once tendermint is started, attach to its database

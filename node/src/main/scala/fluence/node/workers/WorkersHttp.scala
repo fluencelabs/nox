@@ -170,7 +170,7 @@ object WorkersHttp {
 
       case GET -> Root / LongVar(appId) / "p2pPort" ⇒
         LogFactory[F].init("http" -> "p2pPort", "app" -> appId.toString) >>= { implicit log =>
-          log.debug(s"Worker p2pPort") *>
+          log.trace(s"Worker p2pPort") *>
             withWorker(appId)(workerApi.p2pPort(_).map(_.toString).flatMap(Ok(_)))
         }
 

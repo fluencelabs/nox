@@ -117,7 +117,7 @@ object MakeResource {
    * @tparam F Effect
    * @return Delayed action of using the resource
    */
-  def useConcurrently[F[_]: Concurrent](resource: F[Unit] ⇒ Resource[F, _]): F[Unit] =
+  def useConcurrently[F[_]: Concurrent: Log](resource: F[Unit] ⇒ Resource[F, _]): F[Unit] =
     getConcurrently((onStop: F[Unit]) => resource(onStop).void).void
 
   /**
@@ -137,16 +137,21 @@ object MakeResource {
    * @tparam F Effect
    * @return Delayed action of using the resource, wrapping resource value getter and resource stop action descriptions
    */
-  def getConcurrently[F[_]: Concurrent, T](resource: F[Unit] ⇒ Resource[F, T]): F[(F[T], F[Unit])] =
+  def getConcurrently[F[_]: Concurrent: Log, T](resource: F[Unit] ⇒ Resource[F, T]): F[(F[T], F[Unit])] =
     for {
       completeDef ← Deferred[F, Unit]
       fiberDef ← Deferred[F, Fiber[F, Unit]]
       resourceDef <- Deferred[F, T]
+
+      stop = completeDef.complete(()).attempt.void
+      joinFiber = fiberDef.get.flatMap(_.join)
+      logResource = Log[F].info("getConcurrently: got resource")
+
       fiber ← Concurrent[F].start(
-        resource(
-          completeDef.complete(()) >> fiberDef.get.flatMap(_.join)
-        ).use(r ⇒ resourceDef.complete(r) >> completeDef.get)
+        resource(stop >> joinFiber).use(
+          r ⇒ logResource >> resourceDef.complete(r) >> completeDef.get
+        )
       )
       _ ← fiberDef.complete(fiber)
-    } yield (resourceDef.get, completeDef.complete(()))
+    } yield (resourceDef.get, stop)
 }

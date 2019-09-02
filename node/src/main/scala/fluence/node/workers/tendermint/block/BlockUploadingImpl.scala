@@ -51,8 +51,10 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
    *   1. retrieve vmHash from state machine
    *   2. Send block manifest receipt to state machine
    *
-   * @param worker Blocks are coming from this worker's Tendermint; receipts are sent to this worker
    */
+  // TODO: separate block uploading into replay and usual block processing parts, so replay could be handled without a need
+  //  for RPC and WRPC. Should be possible to handle block replay, wait until Tendermint started RPC, and then
+  //  connect to Websocket and create blockstore after everything is initialized
   def start(
     appId: Long,
     services: WorkerServices[F]
