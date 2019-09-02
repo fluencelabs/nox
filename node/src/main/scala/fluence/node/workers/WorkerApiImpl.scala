@@ -77,9 +77,12 @@ class WorkerApiImpl extends WorkerApi {
   ): F[Either[TxAwaitError, TendermintQueryResponse]] =
     (for {
       _ <- EitherT.right(log.debug(s"TendermintRpc broadcastTxSync in txWaitResponse request"))
-      txParsed <- EitherT
-        .fromOptionF(Tx.readTx(tx.getBytes()).value, TxParsingError("Incorrect transaction format", tx): TxAwaitError)
-      txBroadcastResponse <- worker.services.tendermintRpc
+      txParsed <- EitherT.fromOptionF(
+        Tx.readTx(tx.getBytes()).value,
+        TxParsingError("Incorrect transaction format", tx): TxAwaitError
+      )
+      rpc <- EitherT.liftF(worker.services.map(_.tendermintRpc))
+      txBroadcastResponse <- rpc
         .broadcastTxSync(tx, id.getOrElse("dontcare"))
         .leftMap(RpcTxAwaitError(_): TxAwaitError)
       _ <- Log.eitherT.debug("TendermintRpc broadcastTxSync is ok.")
@@ -105,7 +108,7 @@ class WorkerApiImpl extends WorkerApi {
     for {
       _ <- EitherT.right(log.debug(s"Waiting for response"))
       response <- EitherT.liftF[F, TxAwaitError, TendermintQueryResponse](
-        worker.services.responseSubscriber.subscribe(tx.head).flatMap(_.get)
+        worker.services >>= (_.responseSubscriber.subscribe(tx.head).flatMap(_.get))
       )
       _ <- Log.eitherT[F, TxAwaitError].trace(s"Response received: $response")
     } yield response

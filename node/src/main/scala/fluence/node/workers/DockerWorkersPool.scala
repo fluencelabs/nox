@@ -99,14 +99,14 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
   /**
    * Prepares the worker resource with all the necessary bindings and lifecycle events
    *
-   * @param onStop Should release the use of this resource
+   * @param stopWorker An action that stops worker resource on evaluation
    * @param params Prepare WorkerParams; could be an expensive operation
    * @param p2pPort P2p port
    * @param stopTimeout Docker stop timeout
    * @return Worker resource to be used
    */
   private def workerResource(
-    onStop: F[Unit],
+    stopWorker: F[Unit],
     params: F[WorkerParams],
     p2pPort: Short,
     stopTimeout: Int,
@@ -125,23 +125,28 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
         } yield p
       )
 
-      services ← DockerWorkerServices.make[F, G](
-        ps,
-        p2pPort,
-        stopTimeout,
-        logLevel,
-        receiptStorage,
-        blockUploading,
-        websocketConfig
+      (services, stopServices) <- Resource.liftF(
+        MakeResource.getConcurrently[F, WorkerServices[F]](
+          _ =>
+            DockerWorkerServices.make[F, G](
+              ps,
+              p2pPort,
+              stopTimeout,
+              logLevel,
+              receiptStorage,
+              blockUploading,
+              websocketConfig
+            )
+        )
       )
 
-      worker ← Worker.make(
+      worker <- Worker.make(
         ps.appId,
         p2pPort,
         s"Worker; appId=${ps.appId} p2pPort=$p2pPort",
         services,
         exec,
-        onStop = onStop,
+        stopWorker = stopServices >> stopWorker,
         onRemove = ports.free(ps.appId).value.void
       )
 
@@ -283,15 +288,14 @@ object DockerWorkersPool {
       pool ← Resource.make {
         for {
           workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
-        } yield
-          new DockerWorkersPool[F, G](
-            ports,
-            workers,
-            workerLogLevel,
-            blockUploading,
-            appReceiptStorage,
-            websocketConfig
-          )
+        } yield new DockerWorkersPool[F, G](
+          ports,
+          workers,
+          workerLogLevel,
+          blockUploading,
+          appReceiptStorage,
+          websocketConfig
+        )
       }(_.stopAll())
     } yield pool: WorkersPool[F]
 

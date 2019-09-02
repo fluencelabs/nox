@@ -105,21 +105,48 @@ object MakeResource {
       }
 
   /**
-   * Uses the resource concurrently in a separate fiber, until the given F[Unit] resolves.
+   * Uses the resource concurrently in a separate fiber, until the given `stop: F[Unit]` resolves.
    *
-   * @param resource release use => resource
+   * Example:
+   * ```
+   * // start some system, set `onStop` to be called when system is stopped internally (i.e. via API call)
+   * useConcurrently(onStop => startSystem(onStop = onStop))
+   * ```
+   *
+   * @param resource release (stop: F[Unit]) => resource
    * @tparam F Effect
    * @return Delayed action of using the resource
    */
   def useConcurrently[F[_]: Concurrent](resource: F[Unit] ⇒ Resource[F, _]): F[Unit] =
+    getConcurrently((onStop: F[Unit]) => resource(onStop).void).void
+
+  /**
+   * Uses the resource concurrently in a separate fiber, until the given `stop: F[Unit]` resolves.
+   *
+   * Example:
+   * ```
+   * // start some service, set `onStop` to be called when service is stopped internally
+   * // `service` allows to access the service; `stopService` allows to stop service externally
+   * (service, stopService) <- getConcurrently(onStop => startService(onStop))
+   *
+   * // start more general system, set service to be stopped before the system
+   * system = system(service, stopSystem = stopService >> stopSystem)
+   * ```
+   *
+   * @param resource release (stop: F[Unit]) => resource
+   * @tparam F Effect
+   * @return Delayed action of using the resource, wrapping resource value getter and resource stop action descriptions
+   */
+  def getConcurrently[F[_]: Concurrent, T](resource: F[Unit] ⇒ Resource[F, T]): F[(F[T], F[Unit])] =
     for {
       completeDef ← Deferred[F, Unit]
       fiberDef ← Deferred[F, Fiber[F, Unit]]
+      resourceDef <- Deferred[F, T]
       fiber ← Concurrent[F].start(
         resource(
           completeDef.complete(()) >> fiberDef.get.flatMap(_.join)
-        ).use(_ ⇒ completeDef.get)
+        ).use(r ⇒ resourceDef.complete(r) >> completeDef.get)
       )
       _ ← fiberDef.complete(fiber)
-    } yield ()
+    } yield (resourceDef.get, completeDef.complete(()))
 }

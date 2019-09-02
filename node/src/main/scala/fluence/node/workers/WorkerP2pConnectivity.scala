@@ -50,35 +50,38 @@ object WorkerP2pConnectivity {
    * @tparam G F.Par
    * @return Fiber for concurrent job of inquiring peers and putting their addresses to Tendermint
    */
-  def join[F[_]: Concurrent: Timer: Log: SttpEffect, G[_]](
+  def join[F[_]: Concurrent: Timer: SttpEffect, G[_]](
     appId: Long,
     rpc: TendermintHttpRpc[F],
     peers: Vector[WorkerPeer],
     backoff: Backoff[EffectError] = Backoff.default
   )(
-    implicit P: Parallel[F, G]
+    implicit P: Parallel[F, G],
+    log: Log[F]
   ): F[Fiber[F, Unit]] =
-    Concurrent[F].start(
-      Parallel.parTraverse_(peers) { p ⇒
-        // Get p2p port for an app
-        val getPort: EitherT[F, EffectError, Short] = sttp
-          .get(uri"http://${p.ip.getHostAddress}:${p.apiPort}/apps/$appId/p2pPort")
-          .send()
-          .decodeBody(v ⇒ Try(v.toShort).toEither)
-          .leftMap[EffectError](identity)
+    Log[F].scope("p2p-join") { implicit log: Log[F] =>
+      Concurrent[F].start(
+        Parallel.parTraverse_(peers) { p ⇒
+          // Get p2p port for an app
+          val getPort: EitherT[F, EffectError, Short] = sttp
+            .get(uri"http://${p.ip.getHostAddress}:${p.apiPort}/apps/$appId/p2pPort")
+            .send()
+            .decodeBody(v ⇒ Try(v.toShort).toEither)
+            .leftMap[EffectError](identity)
 
-        Log[F].debug(s"Peer API address: ${p.ip.getHostAddress}:${p.apiPort}") >>
-          // Get p2p port, pass it to worker's tendermint
-          backoff(getPort).flatMap { p2pPort ⇒
-            Log[F].trace(s"Got Peer p2p port: ${p.peerAddress(p2pPort)}") >>
-              backoff(
-                rpc
-                  .unsafeDialPeers(p.peerAddress(p2pPort) :: Nil, persistent = true)
-                  .flatTap(res => Log.eitherT[F, RpcError].debug(s"dial_peers replied: $res"))
-              )
-          }
-      }
-    )
+          Log[F].debug(s"Peer API address: ${p.ip.getHostAddress}:${p.apiPort}") >>
+            // Get p2p port, pass it to worker's tendermint
+            backoff(getPort).flatMap { p2pPort ⇒
+              Log[F].trace(s"Got Peer p2p port: ${p.peerAddress(p2pPort)}") >>
+                backoff(
+                  rpc
+                    .unsafeDialPeers(p.peerAddress(p2pPort) :: Nil, persistent = true)
+                    .flatTap(res => Log.eitherT[F, RpcError].debug(s"dial_peers replied: $res"))
+                )
+            }
+        }
+      )
+    }
 
   /**
    * Ping peers to get theirs p2p port for the app, then pass that port to Worker's TendermintRPC to dial.

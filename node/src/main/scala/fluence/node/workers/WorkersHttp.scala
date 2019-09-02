@@ -157,9 +157,9 @@ object WorkersHttp {
         LogFactory[F].init("http" -> "status", "app" -> appId.toString) >>= { implicit log =>
           // Fetches the worker's status, waiting no more than 10 seconds (if ?wait=$SECONDS is provided), or 1 second otherwise
           withWorker(appId)(
-            _.services
-              .status(wait.filter(_ < 10).fold(1.second)(_.seconds))
-              .flatMap(st ⇒ Ok(st.asJson.noSpaces))
+            _.services >>=
+              (_.status(wait.filter(_ < 10).fold(1.second)(_.seconds))
+                .flatMap(st ⇒ Ok(st.asJson.noSpaces)))
           )
         }
 
