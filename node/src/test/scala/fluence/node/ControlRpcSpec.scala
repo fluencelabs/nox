@@ -32,9 +32,7 @@ package fluence.node
  * limitations under the License.
  */
 
-import cats.effect.concurrent.Deferred
-import cats.syntax.all._
-import cats.effect.{Concurrent, ContextShift, IO, Timer}
+import cats.effect.{ContextShift, IO, Timer}
 import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.log.{Log, LogFactory}
@@ -48,32 +46,13 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 
 class ControlRpcSpec extends WordSpec with Matchers with OptionValues {
-  implicit val ioTimer: Timer[IO] = IO.timer(global)
-  implicit val ioShift: ContextShift[IO] = IO.contextShift(global)
-
-  implicit val logFactory = LogFactory.forPrintln[IO]()
-  implicit val log: Log[IO] = LogFactory[IO].init(getClass.getSimpleName).unsafeRunSync()
-
-  "Deferred" should {
-    "not block" in {
-      fs2.Stream
-        .emits(Seq(1, 2, 3, 4))
-        .evalMap { e =>
-          for {
-            _ <- log.info(s"$e start")
-            d <- Deferred[IO, Int]
-            _ <- Concurrent[IO].start(Timer[IO].sleep(10.seconds) >> log.info(s"$e slept") >> d.complete(e))
-            ee <- d.get
-            _ <- log.info(s"$e end $ee")
-          } yield ee
-        }
-        .compile
-        .drain
-        .unsafeRunSync()
-    }
-  }
-
   "ControlRpc" should {
+    implicit val ioTimer: Timer[IO] = IO.timer(global)
+    implicit val ioShift: ContextShift[IO] = IO.contextShift(global)
+
+    implicit val logFactory = LogFactory.forPrintln[IO]()
+    implicit val log: Log[IO] = LogFactory[IO].init(getClass.getSimpleName).unsafeRunSync()
+
     val config = ControlServer.Config("localhost", 26652)
     val serverR = ControlServer.make[IO](config, IO(ControlStatus(false)))
 
