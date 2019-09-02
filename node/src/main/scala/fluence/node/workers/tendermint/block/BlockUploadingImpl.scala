@@ -31,7 +31,7 @@ import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.MakeResource
-import fluence.node.workers.Worker
+import fluence.node.workers.{Worker, WorkerServices}
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 
 import scala.language.{higherKinds, postfixOps}
@@ -54,19 +54,20 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
    * @param worker Blocks are coming from this worker's Tendermint; receipts are sent to this worker
    */
   def start(
-    worker: Worker[F]
+    appId: Long,
+    services: WorkerServices[F]
   )(implicit log: Log[F], backoff: Backoff[EffectError] = Backoff.default): Resource[F, Unit] = {
     for {
       // Storage for a previous manifest
       lastManifestReceipt <- Resource.liftF(MVar.of[F, Option[Receipt]](None))
       _ <- pushReceipts(
-        worker.appId,
+        appId,
         lastManifestReceipt,
-        worker.services.blockManifests.receiptStorage,
-        worker.services.tendermintRpc,
-        worker.services.tendermintWRpc,
-        worker.services.control,
-        worker.services.blockManifests.onUploaded
+        services.blockManifests.receiptStorage,
+        services.tendermintRpc,
+        services.tendermintWRpc,
+        services.control,
+        services.blockManifests.onUploaded
       )
     } yield ()
   }

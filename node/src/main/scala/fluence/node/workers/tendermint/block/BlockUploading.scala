@@ -27,7 +27,7 @@ import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
-import fluence.node.workers.Worker
+import fluence.node.workers.{Worker, WorkerServices}
 import scodec.bits.ByteVector
 
 import scala.language.{higherKinds, postfixOps}
@@ -48,7 +48,10 @@ trait BlockUploading[F[_]] {
    *
    * @param worker Blocks are coming from this worker's Tendermint; receipts are sent to this worker
    */
-  def start(worker: Worker[F])(implicit log: Log[F], backoff: Backoff[EffectError]): Resource[F, Unit]
+  def start(
+    appId: Long,
+    services: WorkerServices[F]
+  )(implicit log: Log[F], backoff: Backoff[EffectError]): Resource[F, Unit]
 }
 
 object BlockUploading {

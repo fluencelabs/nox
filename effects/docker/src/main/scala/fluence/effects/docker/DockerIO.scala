@@ -51,7 +51,7 @@ class DockerIO[F[_]: Monad: LiftIO: ContextShift: Defer](
    * Run shell command
    */
   private def runShell(cmd: String)(implicit log: Log[F]): EitherT[F, DockerError, String] =
-    Log.eitherT[F, DockerError].info(s"Running Docker command: `$cmd`") *>
+    Log.eitherT[F, DockerError].trace(s"Running Docker command: `$cmd`") *>
       IO(
         cmd.!!.trim
       ).attemptT
@@ -194,7 +194,7 @@ class DockerIO[F[_]: Monad: LiftIO: ContextShift: Defer](
             .flatTap {
               case (time, running) ⇒
                 // TODO get any reason of why container is stopped
-                Log.eitherT[F, Throwable].debug(s"Docker container status = [$running], time = [$time]")
+                Log.eitherT[F, Throwable].trace(s"Docker container status = [$running], time = [$time]")
             }
             .leftMap(DockerException(s"Cannot parse container status: $status", _): DockerError)
         } yield timeIsRunning

@@ -21,6 +21,7 @@ import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Monad, Parallel}
+import fluence.effects.{Backoff, EffectError}
 import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
 import fluence.effects.receipt.storage.ReceiptStorage
@@ -35,6 +36,7 @@ import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
 import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.DockerTendermint
+import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.statemachine.control.ControlStatus
 
 import scala.concurrent.duration.FiniteDuration
@@ -145,9 +147,12 @@ object DockerWorkerServices {
       )
     }
 
-    Monad[F].tailRecM(status(timeout))(
-      _.map(s => Either.cond(s.isHealthy, status, Timer[F].sleep(timeout) >> status(timeout)))
-    )
+    Log[F].info(s"Waiting for tendermint & worker to start") >>
+      Monad[F]
+        .tailRecM(status(timeout))(
+          _.map(s => Either.cond(s.isHealthy, status(_), Timer[F].sleep(timeout) >> status(timeout)))
+        )
+        .flatTap(_ => Log[F].info("Tendermint & worker has started"))
   }
 
   /**
@@ -167,25 +172,30 @@ object DockerWorkerServices {
     stopTimeout: Int,
     logLevel: LogLevel,
     receiptStorage: Resource[F, ReceiptStorage[F]],
+    blockUploading: BlockUploading[F],
     websocketConfig: WebsocketConfig
   )(
     implicit
     F: Concurrent[F],
-    P: Parallel[F, G]
+    P: Parallel[F, G],
+    backoff: Backoff[EffectError]
   ): Resource[F, WorkerServices[F]] =
     for {
+      // Create network, start worker & tendermint containers
       network ← makeNetwork(params)
-
       worker ← DockerIO[F].run(dockerCommand(params, network, logLevel), stopTimeout)
-
       tendermint ← DockerTendermint.make[F](params, p2pPort, containerName(params), network, stopTimeout)
 
       rpc ← TendermintHttpRpc.make[F](tendermint.name, DockerTendermint.RpcPort)
-
       control = ControlRpc[F](containerName(params), ControlRpcPort)
 
+      // Once tendermint is started, run background job to connect it to all the peers
+      _ ← WorkerP2pConnectivity.make(params.app.id, rpc, params.app.cluster.workers)
+
+      // Wait until worker is started and tendermint is connected
       status <- appStatus(worker, tendermint, control, rpc, params.appId)
 
+      // Once tendermint is started, attach to its database
       blockstore <- Blockstore.make[F](params.tendermintPath)
 
       wrpc = TendermintWebsocketRpc.make[F](tendermint.name, DockerTendermint.RpcPort, rpc, blockstore, websocketConfig)
@@ -193,9 +203,9 @@ object DockerWorkerServices {
       blockManifests ← WorkerBlockManifests.make[F](receiptStorage)
 
       responseSubscriber <- ResponseSubscriber.make(rpc, wrpc, params.appId)
+      _ <- responseSubscriber.start()
 
-    } yield
-      new DockerWorkerServices[F](
+      services = new DockerWorkerServices[F](
         p2pPort,
         params.appId,
         rpc,
@@ -205,5 +215,9 @@ object DockerWorkerServices {
         responseSubscriber,
         status
       )
+
+      // Start uploading tendermint blocks and send receipts to statemachine
+      _ <- blockUploading.start(params.app.id, services)
+    } yield services
 
 }

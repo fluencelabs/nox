@@ -125,7 +125,15 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
         } yield p
       )
 
-      services ← DockerWorkerServices.make[F, G](ps, p2pPort, stopTimeout, logLevel, receiptStorage, websocketConfig)
+      services ← DockerWorkerServices.make[F, G](
+        ps,
+        p2pPort,
+        stopTimeout,
+        logLevel,
+        receiptStorage,
+        blockUploading,
+        websocketConfig
+      )
 
       worker ← Worker.make(
         ps.appId,
@@ -136,14 +144,6 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
         onStop = onStop,
         onRemove = ports.free(ps.appId).value.void
       )
-
-      // Once the worker is created, run background job to connect it to all the peers
-      _ ← WorkerP2pConnectivity.make(worker, ps.app.cluster.workers)
-
-      // TODO: pass promise from worker's status to blockUploading.start
-      // Start uploading tendermint blocks and send receipts to statemachine
-      _ <- blockUploading.start(worker)
-      _ <- worker.services.responseSubscriber.start()
 
       // Finally, register the worker in the pool
       _ ← registerWorker(worker)
@@ -283,14 +283,15 @@ object DockerWorkersPool {
       pool ← Resource.make {
         for {
           workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
-        } yield new DockerWorkersPool[F, G](
-          ports,
-          workers,
-          workerLogLevel,
-          blockUploading,
-          appReceiptStorage,
-          websocketConfig
-        )
+        } yield
+          new DockerWorkersPool[F, G](
+            ports,
+            workers,
+            workerLogLevel,
+            blockUploading,
+            appReceiptStorage,
+            websocketConfig
+          )
       }(_.stopAll())
     } yield pool: WorkersPool[F]
 
