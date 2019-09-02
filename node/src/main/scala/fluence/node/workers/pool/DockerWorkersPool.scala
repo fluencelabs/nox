@@ -39,7 +39,7 @@ import fluence.log.Log
 import fluence.log.LogLevel.LogLevel
 import fluence.node.MakeResource
 import fluence.node.workers.tendermint.block.BlockUploading
-import fluence.node.workers.{DockerWorkerServices, Worker, WorkerParams}
+import fluence.node.workers.{DockerWorkerServices, Worker, WorkerParams, WorkerServices}
 
 import scala.concurrent.duration._
 import scala.language.higherKinds

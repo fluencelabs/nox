@@ -21,7 +21,6 @@ import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Monad, Parallel}
-import fluence.effects.{Backoff, EffectError}
 import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
 import fluence.effects.receipt.storage.ReceiptStorage
@@ -29,10 +28,12 @@ import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block.history.db.Blockstore
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.{TendermintWebsocketRpc, WebsocketConfig}
+import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.log.LogLevel.LogLevel
 import fluence.node.status.StatusHttp
 import fluence.node.workers.control.ControlRpc
+import fluence.node.workers.pool.WorkerP2pConnectivity
 import fluence.node.workers.status._
 import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.DockerTendermint
