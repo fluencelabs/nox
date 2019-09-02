@@ -43,81 +43,20 @@ import proto3.tendermint.{Block, BlockMeta, BlockPart}
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._
 import scala.language.higherKinds
-import scala.util.Try
 
-class Blockstore[F[_]: Log: Monad](kv: Blockstore.RawKV[F]) {
-  import Blockstore._
+trait Blockstore[F[_]] {
 
-  private def getOr[T](msg: String, height: Long)(opt: Option[T]): EitherT[F, BlockstoreError, T] =
-    EitherT.fromOption(opt, GetBlockError(msg, height))
+  /**
+   * Retrieves block at the given height from Tendermint's database
+   * @param height Block height
+   * @return Block
+   */
+  def getBlock(height: Long): EitherT[F, BlockstoreError, data.Block]
 
-  private def metaKey(height: Long) = s"H:$height".getBytes()
-  private def partKey(height: Long, index: Int) = s"P:$height:$index".getBytes()
-
-  private def getBlockPartsCount(height: Long): EitherT[F, BlockstoreError, Int] =
-    for {
-      metaBytes <- kv
-        .get(metaKey(height))
-        .leftMap(e => GetBlockError(s"error getting block parts count: $e", height))
-        .flatMap(getOr[Array[Byte]]("meta is none", height)(_))
-
-      meta <- EitherT
-        .fromEither[F](Protobuf.decode[BlockMeta](metaBytes))
-        .leftMap(e => GetBlockError(s"error getting block parts count: $e", height))
-
-      partsCount <- getOr[Int]("blockID.parts is none", height)(meta.blockID.flatMap(_.parts).map(_.total))
-    } yield partsCount
-
-  private def getPart(height: Long, i: Int): EitherT[F, BlockstoreError, BlockPart] =
-    kv.get(partKey(height, i))
-      .leftMap(e => GetBlockError(s"error retrieving block part $i from storage: $e", height))
-      .flatMap(getOr[Array[Byte]](s"part $i not found", height))
-      .subflatMap(Protobuf.decode[BlockPart])
-      .leftMap(e => GetBlockError(s"error decoding block part $i from bytes: $e", height))
-
-  private def loadParts(height: Long, count: Int): EitherT[F, BlockstoreError, Array[Byte]] =
-    (0 until count).toList.foldM(Array.empty[Byte]) {
-      case (bytes, idx) => getPart(height, idx).map(bytes ++ _.bytes.toByteArray)
-    }
-
-  private def decodeBlock(blockBytes: Array[Byte], height: Long): EitherT[F, BlockstoreError, Block] =
-    EitherT
-      .fromEither[F](Protobuf.decodeLengthPrefixed[Block](blockBytes))
-      .leftMap(e => GetBlockError(s"error decoding block from bytes: $e", height))
-
-  private def decodeHeight(heightJsonBytes: Array[Byte]): EitherT[F, BlockstoreError, Long] =
-    EitherT
-      .fromEither[F](
-        Try(new String(heightJsonBytes)).toEither >>= parse >>= (_.hcursor.get[Long]("height"))
-      )
-      .leftMap(RetrievingStorageHeightError(_))
-
-  private def getStorageHeightBytes =
-    kv.get(BlockStoreHeightKey)
-      .leftMap(RetrievingStorageHeightError(_))
-      .flatMap(EitherT.fromOption(_, RetrievingStorageHeightError("blockStore height wasn't found")))
-
-  private def convertBlock(block: Block): EitherT[F, BlockstoreError, data.Block] =
-    EitherT
-      .fromEither[F](ProtobufConverter.fromProtobuf(block))
-      .leftMap(e => GetBlockError(s"Unable to convert block from protobuf: $e", block.header.fold(-1L)(_.height)))
-
-  def getBlock(height: Long): EitherT[F, BlockstoreError, data.Block] =
-    for {
-      count <- getBlockPartsCount(height)
-      bytes <- loadParts(height, count)
-      pBlock <- decodeBlock(bytes, height)
-      block <- convertBlock(pBlock)
-    } yield block
-
-  def getStorageHeight: EitherT[F, BlockstoreError, Long] =
-    for {
-      _ <- Log.eitherT[F, BlockstoreError].trace(s"getStorageHeightBytes")
-      bytes <- getStorageHeightBytes
-      _ <- Log.eitherT[F, BlockstoreError].trace(s"decodeHeight")
-      height <- decodeHeight(bytes)
-      _ <- Log.eitherT[F, BlockstoreError].trace(s"getStorageHeight DONE $height")
-    } yield height
+  /**
+   * Retrieves current height of the cluster from Tendermint's database
+   */
+  def getStorageHeight: EitherT[F, BlockstoreError, Long]
 }
 
 object Blockstore {
@@ -137,6 +76,7 @@ object Blockstore {
 
     Resource.make(
       F.delay {
+        // TODO: use constant file name
         val tmpDir = Files.createTempDirectory("leveldb_rocksdb")
         val dbDir = levelDbDir.toAbsolutePath
         makeSymlinks(tmpDir, dbDir)
@@ -148,10 +88,10 @@ object Blockstore {
     )(p => F.delay(p.foreach(rmDir)).attempt.void)
   }
 
-  private def rocksDbStore[F[_]: Log: Monad: LiftIO: ContextShift: Defer](p: Path) =
+  private def rocksDbStore[F[_]: Log: Monad: LiftIO: ContextShift: Defer](p: Path): Resource[F, Blockstore[F]] =
     RocksDBStore
       .makeRaw[F](p.toString, createIfMissing = false, readOnly = true)
-      .map(kv => new Blockstore(kv))
+      .map(kv => new BlockstoreImpl(kv))
 
   // TODO: using MonadError here because caller (DockerWorkerServices) uses it, avoid doing that
   private def raise[F[_]: Log: Sync, T, E <: Throwable](
@@ -209,14 +149,4 @@ object Blockstore {
         tendermintPath
       )
     }
-
-  def makeOld[F[_]: Log: Sync: LiftIO: ContextShift](tendermintPath: Path): Resource[F, Blockstore[F]] =
-    raise(
-      for {
-        dbPath <- createSymlinks[F](tendermintPath.resolve("data").resolve("blockstore.db"))
-        _ <- Log.resource[F].debug(s"Opening DB at $dbPath")
-        store <- Traverse[Either[BlockstoreError, ?]].sequence(dbPath.map(rocksDbStore[F]))
-      } yield store,
-      tendermintPath
-    )
 }
