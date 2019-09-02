@@ -32,7 +32,12 @@ import scala.util.Try
  * @param head Ordering info
  * @param data Payload
  */
-case class Tx(head: Tx.Head, data: Tx.Data)
+case class Tx(head: Tx.Head, data: Tx.Data) {
+
+  def generateTx(): String = {
+    s"$head\n${new String(data.value)}"
+  }
+}
 
 object Tx {
 
@@ -65,7 +70,8 @@ object Tx {
   }
 
   def splitTx(tx: Array[Byte]): Option[(String, Array[Byte])] = {
-    val headIndex = tx.indexWhere(_ == '\n'.toByte)
+    val splitSymbol = '\n'.toByte
+    val headIndex = tx.indexWhere(_ == splitSymbol)
     if (headIndex <= 0) {
       Option.empty[(String, Array[Byte])]
     } else {
