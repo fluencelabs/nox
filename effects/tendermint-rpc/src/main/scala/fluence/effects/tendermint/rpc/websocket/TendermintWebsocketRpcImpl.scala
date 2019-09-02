@@ -28,11 +28,10 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Eval, Monad, Traverse}
 import fluence.effects.JavaFutureConversion._
-import fluence.effects.syntax.backoff._
-import fluence.effects.syntax.eitherT._
 import fluence.effects.tendermint.block.data.Block
+import fluence.effects.tendermint.block.history.db.Blockstore
 import fluence.effects.tendermint.rpc.helpers.NettyFutureConversion._
-import fluence.effects.tendermint.rpc.http.{RpcBlockParsingFailed, RpcError, TendermintHttpRpc}
+import fluence.effects.tendermint.rpc.http.{RpcBlockParsingFailed, TendermintHttpRpc}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fs2.concurrent.Queue
@@ -40,7 +39,6 @@ import io.circe.Json
 import org.asynchttpclient.Dsl._
 import org.asynchttpclient.netty.ws.NettyWebSocket
 import org.asynchttpclient.ws.{WebSocket, WebSocketUpgradeHandler}
-import fluence.effects.tendermint.block.history.db.Blockstore
 
 import scala.language.higherKinds
 
@@ -75,17 +73,21 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
     // Start accepting and/or loading blocks from next to already-known block
     val startFrom = lastKnownHeight + 1
 
-    fs2.Stream.resource(subscribe("NewBlock")).flatMap { queue =>
-      fs2.Stream.eval(traceBU(s"subscribed on NewBlock. startFrom: $startFrom")) *>
-        queue.dequeue
-          .evalMapAccumulate(startFrom) {
-            // load missing blocks on reconnect (reconnect is always the first event in the queue)
-            case (startHeight, Reconnect) => loadMissedBlocks(startHeight)
-            // accept a new block
-            case (curHeight, JsonEvent(json)) => acceptNewBlock(curHeight, json)
-          }
-          .flatMap { case (_, blocks) => fs2.Stream.emits(blocks) }
-    }
+    val logSubscribe = traceBU(s"subscribed on NewBlock. startFrom: $startFrom")
+    val subscribeS = fs2.Stream.resource(subscribe("NewBlock")).evalTap(_ => logSubscribe)
+    // Emit synthetic first event to start block replaying while not waiting for websocket to connect
+    val firstEventS = fs2.Stream.emit(Reconnect)
+    // Drop first reconnect from websocket to account for firstEventS
+    val eventsS = firstEventS ++ (subscribeS >>= (_.dequeue)).drop(1)
+
+    eventsS
+      .evalMapAccumulate(startFrom) {
+        // load missing blocks on reconnect (reconnect is always the first event in the queue)
+        case (startHeight, Reconnect) => loadMissedBlocks(startHeight)
+        // accept a new block
+        case (curHeight, JsonEvent(json)) => acceptNewBlock(curHeight, json)
+      }
+      .flatMap { case (_, blocks) => fs2.Stream.emits(blocks) }
   }
 
   /**
