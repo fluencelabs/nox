@@ -113,7 +113,7 @@ class MasterNodeIntegrationSpec
             case _ ⇒
               log.debug("Trying to get WorkerRunning, but it is not healthy in status: " + st).unsafeRunSync()
               None
-          }
+        }
       )
     }
 
@@ -231,7 +231,7 @@ class MasterNodeIntegrationSpec
     }
 
     "stop workers on AppDelete event" in {
-      deleteApp(21000).unsafeRunSync()
+      deleteApp(30000).unsafeRunSync()
     }
   }
 }

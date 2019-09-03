@@ -127,19 +127,17 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
         } yield p
       )
 
-      (services, stopServices) <- Resource.liftF(
-        MakeResource.getConcurrently[F, WorkerServices[F]](
-          _ =>
-            DockerWorkerServices.make[F, G](
-              ps,
-              p2pPort,
-              stopTimeout,
-              logLevel,
-              receiptStorage,
-              blockUploading,
-              websocketConfig
-            )
-        )
+      services <- MakeResource.allocateOn(
+        DockerWorkerServices.make[F, G](
+          ps,
+          p2pPort,
+          stopTimeout,
+          logLevel,
+          receiptStorage,
+          blockUploading,
+          websocketConfig
+        ),
+        exec
       )
 
       worker <- Worker.make(
@@ -148,7 +146,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
         s"Worker; appId=${ps.appId} p2pPort=$p2pPort",
         services,
         exec,
-        stopWorker = stopServices >> stopWorker,
+        stopWorker = stopWorker,
         onRemove = ports.free(ps.appId).value.void
       )
 

@@ -77,12 +77,11 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
           (for {
             _ <- state.update(_.consensusHeight())
             height <- consensusHeights.modify(l => (l.tail, l.headOption))
-          } yield
-            height.fold(
-              (RpcRequestFailed(
-                new Throwable("WebSocketBlockSpec: requested consensus height when consensusHeights list is empty")
-              ): RpcError).asLeft[Long]
-            )(_.asRight)).eitherT
+          } yield height.fold(
+            (RpcRequestFailed(
+              new Throwable("WebSocketBlockSpec: requested consensus height when consensusHeights list is empty")
+            ): RpcError).asLeft[Long]
+          )(_.asRight)).eitherT
       }
 
       new TendermintWebsocketRpcImpl[IO](
