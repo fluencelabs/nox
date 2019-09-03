@@ -45,6 +45,7 @@ import scala.language.higherKinds
 private[websocket] sealed trait Event
 private[websocket] case class JsonEvent(json: Json) extends Event
 private[websocket] case object Reconnect extends Event
+private[websocket] case object Start extends Event
 
 /**
  * Implementation of Tendermint RPC Subscribe call
@@ -76,14 +77,14 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
     val logSubscribe = traceBU(s"subscribed on NewBlock. startFrom: $startFrom")
     val subscribeS = fs2.Stream.resource(subscribe("NewBlock")).evalTap(_ => logSubscribe)
     // Emit synthetic first event to start block replaying while not waiting for websocket to connect
-    val firstEventS = fs2.Stream.emit(Reconnect)
-    // Drop first reconnect from websocket to account for firstEventS
-    val eventsS = firstEventS ++ (subscribeS >>= (_.dequeue)).drop(1)
+    val startEventS = fs2.Stream.emit(Start)
+    // Drop first reconnect from websocket to account for startEventS
+    val eventsS = startEventS ++ (subscribeS >>= (_.dequeue)).drop(1)
 
     eventsS
       .evalMapAccumulate(startFrom) {
         // load missing blocks on reconnect (reconnect is always the first event in the queue)
-        case (startHeight, Reconnect) => loadMissedBlocks(startHeight)
+        case (startHeight, Start | Reconnect) => loadMissedBlocks(startHeight)
         // accept a new block
         case (curHeight, JsonEvent(json)) => acceptNewBlock(curHeight, json)
       }
