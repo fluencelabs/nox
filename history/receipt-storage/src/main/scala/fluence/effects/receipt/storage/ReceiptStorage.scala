@@ -58,6 +58,6 @@ object ReceiptStorage {
   /**
    * Creates instance of ReceiptStorage backed by Kademlia DHT
    */
-  def dht[F[_]: Monad](appId: Long, kv: KVStore[F, Key, Receipt]): DhtReceiptStorage[F] =
-    new DhtReceiptStorage[F](appId, kv)
+  def dht[F[_]: Monad](appId: Long, kv: KVStore[F, Key, Receipt]): Resource[F, DhtReceiptStorage[F]] =
+    Resource.pure(new DhtReceiptStorage[F](appId, kv))
 }

@@ -83,7 +83,7 @@ object MasterNodeApp extends IOApp {
               rDht ← receiptsDht(conf.rootPath, kad.kademlia)
               pool ← dockerWorkersPool(
                 conf.rootPath,
-                appId ⇒ Resource.pure(ReceiptStorage.local[IO](appId, conf.rootPath)),
+                appId ⇒ ReceiptStorage.local[IO](appId, conf.rootPath),
                 masterConf
               )
               node ← MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)
@@ -165,7 +165,7 @@ object MasterNodeApp extends IOApp {
                   .lmap[KeyPair.Public](_.bytes) >>> Key.sha1
               )
             }
-        )
+          )
       )
 
   private def masterHttp(
@@ -185,6 +185,6 @@ object MasterNodeApp extends IOApp {
             node.pool,
             kademliaHttp,
             receiptDhtHttp :: Nil
-        )
+          )
       )
 }
