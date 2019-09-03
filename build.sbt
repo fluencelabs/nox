@@ -367,7 +367,7 @@ lazy val `receipt-storage` = (project in file("history/receipt-storage"))
       scalaTest
     )
   )
-  .dependsOn(`log`, `kvstore`, `tendermint-block-history`)
+  .dependsOn(`log`, `kvstore`, `tendermint-block-history`, `kademlia`, `kademlia-dht`)
 
 lazy val `kademlia` = project
   .in(file("kademlia"))

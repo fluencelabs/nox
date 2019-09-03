@@ -1,7 +1,13 @@
 package fluence.effects.receipt.storage
 
+import java.nio.file.Path
+
+import cats.Monad
 import cats.data.EitherT
+import cats.effect.{ContextShift, LiftIO, Resource, Sync}
+import fluence.effects.kvstore.KVStore
 import fluence.effects.tendermint.block.history.Receipt
+import fluence.kad.protocol.Key
 import fluence.log.Log
 
 import scala.language.higherKinds
@@ -39,4 +45,19 @@ trait ReceiptStorage[F[_]] {
     from: Option[Long] = None,
     to: Option[Long] = None
   )(implicit log: Log[F]): fs2.Stream[F, (Long, Receipt)]
+}
+
+object ReceiptStorage {
+
+  /**
+   * Creates instance of ReceiptStorage backed by local file system and RocksDB
+   */
+  def local[F[_]: Sync: LiftIO: ContextShift: Log](appId: Long, rootPath: Path): Resource[F, ReceiptStorage[F]] =
+    KVReceiptStorage.make(appId, rootPath)
+
+  /**
+   * Creates instance of ReceiptStorage backed by Kademlia DHT
+   */
+  def dht[F[_]: Monad](appId: Long, kv: KVStore[F, Key, Receipt]): DhtReceiptStorage[F] =
+    new DhtReceiptStorage[F](appId, kv)
 }
