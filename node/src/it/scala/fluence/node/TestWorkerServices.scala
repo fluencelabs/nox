@@ -12,7 +12,7 @@ import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
-import fluence.node.workers.subscription.{ResponseSubscriber, WaitResponseService}
+import fluence.node.workers.subscription.{ResponseSubscriber, StoredProcedureExecutor, WaitResponseService}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -39,6 +39,8 @@ object TestWorkerServices {
       override def blockManifests: WorkerBlockManifests[F] = new WorkerBlockManifests(bstore, bref)
 
       override def waitResponseService: WaitResponseService[F] = throw new NotImplementedError("def requestResponder")
+
+      override def stateSubscriber: StoredProcedureExecutor[F] = ???
     }
   }
 
@@ -64,6 +66,8 @@ object TestWorkerServices {
       override def blockManifests: WorkerBlockManifests[F] = throw new NotImplementedError("def blockManifest")
 
       override def waitResponseService: WaitResponseService[F] = WaitResponseService(rpc, requestResponderImpl)
+
+      override def stateSubscriber: StoredProcedureExecutor[F] = ???
     }
   }
 }

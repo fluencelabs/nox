@@ -20,7 +20,7 @@ import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status.WorkerStatus
-import fluence.node.workers.subscription.WaitResponseService
+import fluence.node.workers.subscription.{StoredProcedureExecutor, WaitResponseService}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -45,4 +45,5 @@ trait WorkerServices[F[_]] {
   // Service to subscribe for events
   def waitResponseService: WaitResponseService[F]
 
+  def stateSubscriber: StoredProcedureExecutor[F]
 }

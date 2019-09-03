@@ -17,8 +17,10 @@
 package fluence.node.workers
 
 import cats.effect._
+import cats.syntax.profunctor._
 import cats.syntax.functor._
 import cats.{Apply, Monad, Parallel}
+import fluence.crypto.hash.CryptoHashers
 import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
 import fluence.effects.receipt.storage.ReceiptStorage
@@ -30,7 +32,7 @@ import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
 import fluence.log.LogLevel.LogLevel
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
-import fluence.node.workers.subscription.{ResponseSubscriber, WaitResponseService}
+import fluence.node.workers.subscription.{ResponseSubscriber, StoredProcedureExecutor, WaitResponseService}
 import fluence.node.workers.tendermint.DockerTendermint
 import fluence.statemachine.control.ControlStatus
 
@@ -56,6 +58,7 @@ case class DockerWorkerServices[F[_]] private (
   control: ControlRpc[F],
   blockManifests: WorkerBlockManifests[F],
   waitResponseService: WaitResponseService[F],
+  stateSubscriber: StoredProcedureExecutor[F],
   statusCall: FiniteDuration ⇒ F[WorkerStatus]
 ) extends WorkerServices[F] {
   override def status(timeout: FiniteDuration): F[WorkerStatus] = statusCall(timeout)
@@ -173,6 +176,11 @@ object DockerWorkerServices {
           )
       }
 
+      waitResponseService = WaitResponseService(rpc, responseSubscriber)
+
+      stateSubscriber <- StoredProcedureExecutor
+        .make(wrpc, rpc, waitResponseService, CryptoHashers.Sha1.rmap(b => new String(b)))
+
     } yield
       new DockerWorkerServices[F](
         p2pPort,
@@ -181,7 +189,8 @@ object DockerWorkerServices {
         wrpc,
         control,
         blockManifests,
-        WaitResponseService(rpc, responseSubscriber),
+        waitResponseService,
+        stateSubscriber,
         status
       )
 

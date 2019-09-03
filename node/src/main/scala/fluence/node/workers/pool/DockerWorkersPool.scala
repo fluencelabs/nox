@@ -145,6 +145,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
       // Start uploading tendermint blocks and send receipts to statemachine
       _ <- blockUploading.start(worker)
       _ <- worker.services.waitResponseService.start()
+      _ <- worker.services.stateSubscriber.start()
 
       // Finally, register the worker in the pool
       _ ← registerWorker(worker)

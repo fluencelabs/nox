@@ -19,7 +19,7 @@ package fluence.kad.routing
 import java.nio.file.Path
 
 import cats.effect.{Async, Clock, Concurrent, ContextShift, LiftIO, Resource, Timer}
-import cats.{Defer, Monad, Parallel, Traverse}
+import cats.{Parallel, Traverse}
 import cats.instances.list._
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
@@ -123,7 +123,7 @@ object RoutingTable {
               r.neighbors,
               conf.parallelism
             )
-          )
+        )
       )
 
   /**

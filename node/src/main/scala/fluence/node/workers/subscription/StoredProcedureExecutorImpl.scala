@@ -24,7 +24,7 @@ case class SubscriptionState[F[_]](
   subNumber: Int
 )
 
-class StateSubscriberImpl[F[_]: Monad: Timer](
+class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
   subscriptions: Ref[F, Map[String, SubscriptionState[F]]],
   tendermintWRpc: TendermintWebsocketRpc[F],
   tendermintRpc: TendermintHttpRpc[F],
@@ -34,7 +34,7 @@ class StateSubscriberImpl[F[_]: Monad: Timer](
   implicit backoff: Backoff[EffectError] = Backoff.default[EffectError],
   F: Concurrent[F],
   log: Log[F]
-) extends StateSubscriber[F] {
+) extends StoredProcedureExecutor[F] {
 
   /**
    * Makes a subscription by transaction.

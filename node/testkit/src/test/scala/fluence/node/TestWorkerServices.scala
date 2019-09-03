@@ -24,7 +24,7 @@ import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus, WorkerStatus}
-import fluence.node.workers.subscription.{ResponseSubscriber, WaitResponseService}
+import fluence.node.workers.subscription.{ResponseSubscriber, StoredProcedureExecutor, WaitResponseService}
 import fluence.node.workers.{WorkerBlockManifests, WorkerServices}
 
 import scala.concurrent.duration.FiniteDuration
@@ -54,6 +54,8 @@ object TestWorkerServices {
       override def blockManifests: WorkerBlockManifests[F] = throw new NotImplementedError("def blockManifest")
 
       override def waitResponseService: WaitResponseService[F] = WaitResponseService(rpc, requestResponderImpl)
+
+      override def stateSubscriber: StoredProcedureExecutor[F] = ???
     }
   }
 }
