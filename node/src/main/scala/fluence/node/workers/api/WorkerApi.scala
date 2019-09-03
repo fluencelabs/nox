@@ -16,8 +16,7 @@
 
 package fluence.node.workers.api
 
-import cats.data.EitherT
-import cats.effect.Sync
+import cats.effect.Concurrent
 import cats.syntax.apply._
 import cats.syntax.functor._
 import fluence.effects.tendermint.block.history.BlockManifest
@@ -25,8 +24,9 @@ import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.log.Log
 import fluence.node.workers.Worker
 import fluence.node.workers.api.websocket.WorkerWebsocket
+import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponseStream
 import fluence.node.workers.subscription._
-import fluence.statemachine.data.{Tx, TxCode}
+import fluence.statemachine.data.Tx
 
 import scala.language.higherKinds
 
@@ -82,12 +82,14 @@ trait WorkerApi[F[_]] {
 
   def websocket()(implicit log: Log[F]): F[WorkerWebsocket[F]]
 
-  def subscribe(subscriptionId: String, tx: String)(implicit log: Log[F]): F[Either[RpcError, Unit]]
+  def subscribe(subscriptionId: String, tx: String)(
+    implicit log: Log[F]
+  ): F[TendermintResponseStream[F]]
 }
 
 object WorkerApi {
 
-  class Impl[F[_]: Sync](worker: Worker[F]) extends WorkerApi[F] {
+  class Impl[F[_]: Concurrent](worker: Worker[F]) extends WorkerApi[F] {
 
     override def query(
       data: Option[String],
@@ -125,8 +127,13 @@ object WorkerApi {
     override def websocket()(implicit log: Log[F]): F[WorkerWebsocket[F]] =
       WorkerWebsocket(this)
 
-    override def subscribe(subscriptionId: String, tx: String)(implicit log: Log[F]): F[Either[RpcError, Unit]] = ???
+    override def subscribe(subscriptionId: String, tx: String)(
+      implicit log: Log[F]
+    ): F[TendermintResponseStream[F]] =
+      log.scope("txWait" -> tx) { implicit log ⇒
+        worker.withServices(_.stateSubscriber)(_.subscribe(Tx.Data(tx.getBytes())))
+      }
   }
 
-  def apply[F[_]: Sync](worker: Worker[F]): WorkerApi[F] = new Impl[F](worker)
+  def apply[F[_]: Concurrent](worker: Worker[F]): WorkerApi[F] = new Impl[F](worker)
 }

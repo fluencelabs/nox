@@ -12,14 +12,15 @@ import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.MakeResource
-import fs2.concurrent.Queue
+import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponseStream
+import fs2.concurrent.{NoneTerminatedQueue, Queue}
 
 import scala.language.higherKinds
 import scala.util.Random
 
 case class SubscriptionState[F[_]](
   tx: Tx.Data,
-  queue: Queue[F, Either[TxAwaitError, TendermintQueryResponse]],
+  queue: NoneTerminatedQueue[F, Either[TxAwaitError, TendermintQueryResponse]],
   output: fs2.Stream[F, fs2.Stream[F, Either[TxAwaitError, TendermintQueryResponse]]],
   subNumber: Int
 )
@@ -44,9 +45,9 @@ class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
    * @param data a transaction
    * @return a stream of responses every block
    */
-  override def subscribe(data: Tx.Data): F[fs2.Stream[F, Either[TxAwaitError, TendermintQueryResponse]]] = {
+  override def subscribe(data: Tx.Data): F[TendermintResponseStream[F]] = {
     for {
-      q <- Queue.unbounded[F, Either[TxAwaitError, TendermintQueryResponse]]
+      q <- Queue.noneTerminated[F, Either[TxAwaitError, TendermintQueryResponse]]
       key = hasher.unsafe(data.value)
       output <- subscriptions.modify { subs =>
         subs.get(key) match {
@@ -56,7 +57,7 @@ class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
             (subs + (key -> newState), newState.output)
         }
       }
-    } yield output.take(1).flatten
+    } yield output.take(1).flatten.noneTerminate
   }
 
   override def unsubscribe(data: Tx.Data): F[Boolean] = {
@@ -104,7 +105,7 @@ class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
 
           for {
             response <- waitResponseService.sendTxAwaitResponse(tx.generateTx(), None)
-          } yield queue.enqueue1(response)
+          } yield queue.enqueue1(Some(response))
       }
       _ <- Traverse[List].traverse(tasks.toList)(F.start)
     } yield ()

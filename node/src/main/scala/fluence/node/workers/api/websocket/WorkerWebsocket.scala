@@ -18,14 +18,23 @@ package fluence.node.workers.api.websocket
 
 import cats.Monad
 import cats.data.EitherT
-import cats.effect.{Concurrent, Sync}
+import cats.effect.Concurrent
 import cats.effect.concurrent.Ref
 import fluence.log.Log
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
 import fluence.node.workers.api.WorkerApi
-import fluence.node.workers.subscription.{OkResponse, PendingResponse, RpcErrorResponse, TimedOutResponse}
+import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponseStream
+import fluence.node.workers.subscription.{
+  OkResponse,
+  PendingResponse,
+  RpcErrorResponse,
+  TendermintQueryResponse,
+  TimedOutResponse,
+  TxAwaitError
+}
+import fs2.concurrent.{NoneTerminatedQueue, Queue}
 import io.circe.parser.parse
 import io.circe.syntax._
 
@@ -34,17 +43,30 @@ import scala.language.higherKinds
 /**
  * The layer between messages from Websocket and WorkerAPI.
  */
-class WorkerWebsocket[F[_]: Monad: Log](workerApi: WorkerApi[F], subscriptions: Ref[F, Map[String, String]]) {
+class WorkerWebsocket[F[_]: Monad: Log](
+  workerApi: WorkerApi[F],
+  subscriptions: Ref[F, Map[String, Option[TendermintResponseStream[F]]]],
+  outputQueue: NoneTerminatedQueue[F, Either[TxAwaitError, TendermintQueryResponse]]
+) {
   import WebsocketRequests._
   import WebsocketResponses._
 
-  private def checkAndAddSubscription(subscriptionId: String, tx: String): F[Boolean] = {
+  private def addStream(subscriptionId: String, stream: TendermintResponseStream[F]): F[Boolean] = {
+    subscriptions.modify { subs =>
+      subs.get(subscriptionId) match {
+        case Some(v) => (subs.updated(subscriptionId, v), true)
+        case None    => (subs, false)
+      }
+    }
+  }
+
+  private def checkAndAddSubscription(subscriptionId: String): F[Boolean] = {
     for {
       success <- subscriptions.modify { subs =>
         subs.get(subscriptionId) match {
           case Some(_) => (subs, false)
           case None =>
-            (subs + (subscriptionId -> tx), true)
+            (subs + (subscriptionId -> None), true)
         }
       }
     } yield success
@@ -100,14 +122,15 @@ class WorkerWebsocket[F[_]: Monad: Log](workerApi: WorkerApi[F], subscriptions: 
         }
       case P2pPortRequest(requestId) => workerApi.p2pPort().map(port => P2pPortResponse(requestId, port))
       case SubscribeRequest(requestId, subscriptionId, tx) =>
-        checkAndAddSubscription(subscriptionId, tx).flatMap {
+        checkAndAddSubscription(subscriptionId).flatMap {
           case true =>
-            workerApi.subscribe(subscriptionId, tx).flatMap {
-              case Right(_) =>
-                (SubscribeResponse(requestId): WebsocketResponse).pure[F]
-              case Left(error) =>
-                deleteSubscription(subscriptionId)
-                  .map(_ => ErrorResponse(requestId, error.getMessage): WebsocketResponse)
+            workerApi.subscribe(subscriptionId, tx).flatMap { stream =>
+              for {
+                _ <- addStream(subscriptionId, stream)
+                _ = {
+                  stream.map(r => outputQueue.enqueue1(r)).compile.drain
+                }
+              } yield SubscribeResponse(requestId): WebsocketResponse
             }
           case false =>
             (ErrorResponse(requestId, s"Subscription $subscriptionId already exists"): WebsocketResponse).pure[F]
@@ -119,7 +142,10 @@ class WorkerWebsocket[F[_]: Monad: Log](workerApi: WorkerApi[F], subscriptions: 
 
 object WorkerWebsocket {
 
-  def apply[F[_]: Sync: Log](workerApi: WorkerApi[F]): F[WorkerWebsocket[F]] =
-    Ref.of(Map.empty[String, String]).map(subs => new WorkerWebsocket[F](workerApi, subs))
+  def apply[F[_]: Concurrent: Log](workerApi: WorkerApi[F]): F[WorkerWebsocket[F]] =
+    for {
+      subs <- Ref.of(Map.empty[String, Option[TendermintResponseStream[F]]])
+      queue <- Queue.noneTerminated[F, Either[TxAwaitError, TendermintQueryResponse]]
+    } yield new WorkerWebsocket[F](workerApi, subs, queue)
 
 }

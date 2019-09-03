@@ -9,6 +9,7 @@ import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.statemachine.data.Tx
 import cats.syntax.functor._
 import fluence.log.Log
+import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponseStream
 
 import scala.language.higherKinds
 
@@ -22,7 +23,7 @@ trait StoredProcedureExecutor[F[_]] {
    * @param data a transaction
    * @return a stream of responses every block
    */
-  def subscribe(data: Tx.Data): F[fs2.Stream[F, Either[TxAwaitError, TendermintQueryResponse]]]
+  def subscribe(data: Tx.Data): F[TendermintResponseStream[F]]
 
   def unsubscribe(data: Tx.Data): F[Boolean]
 
@@ -34,6 +35,8 @@ trait StoredProcedureExecutor[F[_]] {
 }
 
 object StoredProcedureExecutor {
+
+  type TendermintResponseStream[F[_]] = fs2.Stream[F, Option[Either[TxAwaitError, TendermintQueryResponse]]]
 
   def apply[F[_]: Monad: Timer: Sync: Concurrent: Log](
     tendermintWRpc: TendermintWebsocketRpc[F],
