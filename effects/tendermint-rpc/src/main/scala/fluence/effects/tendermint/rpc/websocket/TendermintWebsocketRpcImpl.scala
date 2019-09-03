@@ -79,7 +79,7 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
     // Emit synthetic first event to start block replaying while not waiting for websocket to connect
     val startEventS = fs2.Stream.emit(Start)
     // Drop first reconnect from websocket to account for startEventS
-    val eventsS = startEventS ++ (subscribeS >>= (_.dequeue)).drop(1)
+    val eventsS = startEventS ++ (subscribeS >>= (_.dequeue))
 
     eventsS
       .evalMapAccumulate(startFrom) {
@@ -196,13 +196,17 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
   private def getLastHeight(implicit log: Log[F]): EitherT[F, EffectError, Long] =
     EitherT.liftF(traceBU("getLastHeight")).leftMap(identity[EffectError]) *>
       blockstore.getStorageHeight.leftMap(identity[EffectError]).recoverWith {
-        case _ => httpRpc.consensusHeight().leftMap(identity[EffectError])
+        case e =>
+          Log.eitherT[F, EffectError].warn(s"Error retrieving last height from blockstore", e) >>
+            httpRpc.consensusHeight().leftMap(identity[EffectError])
       }
 
   private def getBlock(height: Long)(implicit log: Log[F]) =
     EitherT.liftF(traceBU(s"getBlock $height")).leftMap(identity[EffectError]) *>
       blockstore.getBlock(height).leftMap(identity[EffectError]).recoverWith {
-        case _ => httpRpc.block(height).leftMap(identity[EffectError])
+        case e =>
+          Log.eitherT[F, EffectError].warn(s"Error retrieving block from blockstore $height", e) >>
+            httpRpc.block(height).leftMap(identity[EffectError])
       }
 
   /**

@@ -191,7 +191,7 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
     onManifestUploaded: (BlockManifest, Receipt) ⇒ F[Unit]
   )(implicit backoff: Backoff[EffectError], log: Log[F]): F[Receipt] =
     log.scope("block" -> block.block.header.height.toString, "upload block" -> "") { implicit log: Log[F] =>
-      // TODO write docs; why do we need this?
+      // Shorthand for logging errors on retry
       def logError[E <: EffectError](e: E) = log.error("", e)
 
       def upload(b: BlockUpload, r: Option[Receipt]) =

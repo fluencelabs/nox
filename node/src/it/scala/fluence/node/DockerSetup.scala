@@ -66,6 +66,7 @@ trait DockerSetup extends OsSetup {
           .run(
             DockerParams
               .build()
+              .option("-e", s"LOG_LEVEL=TRACE")
               .option("-e", s"EXTERNAL_IP=$dockerHost")
               .option("-e", s"ETHEREUM_IP=$ethereumHost")
               .option("-e", s"MIN_PORT=${apiPort + n * 1000}")

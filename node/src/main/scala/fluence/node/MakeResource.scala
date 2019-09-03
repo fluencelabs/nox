@@ -145,11 +145,10 @@ object MakeResource {
 
       stop = completeDef.complete(()).attempt.void
       joinFiber = fiberDef.get.flatMap(_.join)
-      logResource = Log[F].info("getConcurrently: got resource")
 
       fiber ← Concurrent[F].start(
         resource(stop >> joinFiber).use(
-          r ⇒ logResource >> resourceDef.complete(r) >> completeDef.get
+          r ⇒ resourceDef.complete(r) >> completeDef.get
         )
       )
       _ ← fiberDef.complete(fiber)
