@@ -49,8 +49,16 @@ private[websocket] case class JsonEvent(json: Json) extends Event
 private[websocket] case object Reconnect extends Event
 
 /**
- * Implementation of Tendermint RPC Subscribe call
- * Details: https://tendermint.com/rpc/#subscribe
+ * Implementation of Tendermint's websocket RPC. Specifically implements subscribe request.
+ *
+ * This implementation retrieves information from both HTTP RPC and blockstore. They both implement
+ * `getBlock` and `getLastHeight`, but HTTP RPC doesn't work during blocks replay, so it is backed up by blockstore.
+ *
+ * @param host Tendermint's host to connect to
+ * @param port RPC port
+ * @param httpRpc Tendermint HTTP RPC, to retrieve last height & blocks
+ * @param blockstore Tendermint's database, to retrieve last height & blocks when HTTP RPC doesn't work (during replay)
+ * @param websocketConfig Configuration for websocket: ping interval, timeout, etc
  */
 class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextShift](
   host: String,
@@ -203,7 +211,9 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
       }
 
   /**
-   * Subscribes to the specified event type
+   * Implementation of Tendermint RPC Subscribe call
+   * Details: https://tendermint.com/rpc/#subscribe
+   *
    * @param event Event type
    * @return Queue of events
    */
