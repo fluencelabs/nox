@@ -16,7 +16,7 @@
 
 package fluence.node
 
-import cats.Monad
+import cats.effect.Sync
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.log.Log
@@ -26,7 +26,7 @@ import fluence.node.workers.api.websocket.WorkerWebsocket
 
 import scala.language.higherKinds
 
-class TestWorkerApi[F[_]: Monad]() extends WorkerApi[F] {
+class TestWorkerApi[F[_]: Sync]() extends WorkerApi[F] {
 
   /**
    * Sends `query` request to tendermint.
@@ -78,5 +78,7 @@ class TestWorkerApi[F[_]: Monad]() extends WorkerApi[F] {
   override def lastManifest(): F[Option[BlockManifest]] =
     throw new NotImplementedError("TestWorkerApi, method lastManifest")
 
-  override def websocket()(implicit log: Log[F]): WorkerWebsocket[F] = WorkerWebsocket(this)
+  override def websocket()(implicit log: Log[F]): F[WorkerWebsocket[F]] = WorkerWebsocket(this)
+
+  override def subscribe(subscriptionId: String, tx: String)(implicit log: Log[F]): F[Either[RpcError, Unit]] = ???
 }

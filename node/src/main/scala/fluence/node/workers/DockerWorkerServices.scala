@@ -30,7 +30,7 @@ import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
 import fluence.log.LogLevel.LogLevel
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status._
-import fluence.node.workers.subscription.ResponseSubscriber
+import fluence.node.workers.subscription.{ResponseSubscriber, WaitResponseService}
 import fluence.node.workers.tendermint.DockerTendermint
 import fluence.statemachine.control.ControlStatus
 
@@ -55,7 +55,7 @@ case class DockerWorkerServices[F[_]] private (
   tendermintWRpc: TendermintWebsocketRpc[F],
   control: ControlRpc[F],
   blockManifests: WorkerBlockManifests[F],
-  responseSubscriber: ResponseSubscriber[F],
+  waitResponseService: WaitResponseService[F],
   statusCall: FiniteDuration ⇒ F[WorkerStatus]
 ) extends WorkerServices[F] {
   override def status(timeout: FiniteDuration): F[WorkerStatus] = statusCall(timeout)
@@ -171,17 +171,18 @@ object DockerWorkerServices {
             ts,
             ws
           )
-        }
+      }
 
-    } yield new DockerWorkerServices[F](
-      p2pPort,
-      params.appId,
-      rpc,
-      wrpc,
-      control,
-      blockManifests,
-      responseSubscriber,
-      status
-    )
+    } yield
+      new DockerWorkerServices[F](
+        p2pPort,
+        params.appId,
+        rpc,
+        wrpc,
+        control,
+        blockManifests,
+        WaitResponseService(rpc, responseSubscriber),
+        status
+      )
 
 }

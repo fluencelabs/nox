@@ -144,7 +144,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
       // TODO: pass promise from WorkerP2pConnectivity to blockUploading.start
       // Start uploading tendermint blocks and send receipts to statemachine
       _ <- blockUploading.start(worker)
-      _ <- worker.services.responseSubscriber.start()
+      _ <- worker.services.waitResponseService.start()
 
       // Finally, register the worker in the pool
       _ ← registerWorker(worker)
@@ -284,14 +284,15 @@ object DockerWorkersPool {
       pool ← Resource.make {
         for {
           workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
-        } yield new DockerWorkersPool[F, G](
-          ports,
-          workers,
-          workerLogLevel,
-          blockUploading,
-          appReceiptStorage,
-          websocketConfig
-        )
+        } yield
+          new DockerWorkersPool[F, G](
+            ports,
+            workers,
+            workerLogLevel,
+            blockUploading,
+            appReceiptStorage,
+            websocketConfig
+          )
       }(_.stopAll())
     } yield pool: WorkersPool[F]
 

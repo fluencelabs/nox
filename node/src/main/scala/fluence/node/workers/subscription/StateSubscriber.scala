@@ -16,7 +16,7 @@ trait StateSubscriber[F[_]] {
    * @param data a transaction
    * @return a stream of responses every block
    */
-  def subscribe(data: Tx.Data): F[fs2.Stream[F, TendermintQueryResponse]]
+  def subscribe(data: Tx.Data): F[fs2.Stream[F, Either[TxAwaitError, TendermintQueryResponse]]]
 
   def unsubscribe(data: Tx.Data): F[Boolean]
 

@@ -16,7 +16,7 @@
 
 package fluence.node
 
-import cats.Applicative
+import cats.Monad
 import cats.effect.Timer
 import cats.syntax.applicative._
 import fluence.effects.docker.DockerContainerStopped
@@ -24,7 +24,7 @@ import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus, WorkerStatus}
-import fluence.node.workers.subscription.ResponseSubscriber
+import fluence.node.workers.subscription.{ResponseSubscriber, WaitResponseService}
 import fluence.node.workers.{WorkerBlockManifests, WorkerServices}
 
 import scala.concurrent.duration.FiniteDuration
@@ -32,7 +32,7 @@ import scala.language.higherKinds
 
 object TestWorkerServices {
 
-  def workerServiceTestRequestResponse[F[_]: Applicative: Timer](
+  def workerServiceTestRequestResponse[F[_]: Monad: Timer](
     rpc: TendermintHttpRpc[F],
     wrpc: TendermintWebsocketRpc[F],
     requestResponderImpl: ResponseSubscriber[F]
@@ -53,7 +53,7 @@ object TestWorkerServices {
 
       override def blockManifests: WorkerBlockManifests[F] = throw new NotImplementedError("def blockManifest")
 
-      override def responseSubscriber: ResponseSubscriber[F] = requestResponderImpl
+      override def waitResponseService: WaitResponseService[F] = WaitResponseService(rpc, requestResponderImpl)
     }
   }
 }

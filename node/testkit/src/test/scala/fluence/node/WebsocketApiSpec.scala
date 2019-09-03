@@ -68,7 +68,7 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
     "return an error if cannot parse a request" in {
       val request = "some incorrect request"
-      val response = websocketApi(new TestWorkerApi[IO]()).processRequest(request).unsafeRunSync()
+      val response = websocketApi(new TestWorkerApi[IO]()).unsafeRunSync().processRequest(request).unsafeRunSync()
 
       val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[ErrorResponse]
 
@@ -84,7 +84,7 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       val request: WebsocketRequest = P2pPortRequest(id)
       val response = websocketApi(new TestWorkerApi[IO] {
         override def p2pPort()(implicit log: Log[IO]): IO[Short] = p2pPortV.pure[IO]
-      }).processRequest(request.asJson.spaces4).unsafeRunSync()
+      }).unsafeRunSync().processRequest(request.asJson.spaces4).unsafeRunSync()
       val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[P2pPortResponse]
 
       parsedResponse.requestId shouldBe id
@@ -100,7 +100,7 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
         override def tendermintStatus(
           )(implicit log: Log[IO]): IO[Either[RpcError, String]] =
           (Right(statusV): Either[RpcError, String]).pure[IO]
-      }).processRequest(request.asJson.spaces4).unsafeRunSync()
+      }).unsafeRunSync().processRequest(request.asJson.spaces4).unsafeRunSync()
       val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[StatusResponse]
 
       parsedResponse.requestId shouldBe id
@@ -115,7 +115,7 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       val response = websocketApi(new TestWorkerApi[IO] {
         override def tendermintStatus()(implicit log: Log[IO]): IO[Either[RpcError, String]] =
           (Left(error): Either[RpcError, String]).pure[IO]
-      }).processRequest(request.asJson.spaces4).unsafeRunSync()
+      }).unsafeRunSync().processRequest(request.asJson.spaces4).unsafeRunSync()
       val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[ErrorResponse]
 
       parsedResponse.requestId shouldBe id
@@ -131,7 +131,7 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       val request: WebsocketRequest = LastManifestRequest(id)
       val response = websocketApi(new TestWorkerApi[IO] {
         override def lastManifest(): IO[Option[BlockManifest]] = Option(manifest).pure[IO]
-      }).processRequest(request.asJson.spaces4).unsafeRunSync()
+      }).unsafeRunSync().processRequest(request.asJson.spaces4).unsafeRunSync()
       val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[LastManifestResponse]
 
       parsedResponse.requestId shouldBe id
@@ -149,7 +149,7 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
           implicit log: Log[IO]
         ): IO[Either[RpcError, String]] =
           (Right(tx + txResponse): Either[RpcError, String]).pure[IO]
-      }).processRequest(request.asJson.spaces4).unsafeRunSync()
+      }).unsafeRunSync().processRequest(request.asJson.spaces4).unsafeRunSync()
       val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[TxResponse]
 
       parsedResponse.requestId shouldBe id
@@ -167,7 +167,7 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
           implicit log: Log[IO]
         ): IO[Either[RpcError, String]] =
           (Left(error): Either[RpcError, String]).pure[IO]
-      }).processRequest(request.asJson.spaces4).unsafeRunSync()
+      }).unsafeRunSync().processRequest(request.asJson.spaces4).unsafeRunSync()
       val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[ErrorResponse]
 
       parsedResponse.requestId shouldBe id
@@ -187,7 +187,7 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
             implicit log: Log[IO]
           ): IO[Either[TxAwaitError, TendermintQueryResponse]] =
             responseApi.pure[IO]
-        }).processRequest(request.asJson.spaces4).unsafeRunSync()
+        }).unsafeRunSync().processRequest(request.asJson.spaces4).unsafeRunSync()
         parse(response).flatMap(_.as[WebsocketResponse]).right.get
       }
 
