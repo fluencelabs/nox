@@ -101,7 +101,8 @@ object MakeResource {
       }
       .map {
         case (queue, _) ⇒
-          (fn: F[Unit]) ⇒ queue.enqueue1(Some(fn))
+          (fn: F[Unit]) ⇒
+            queue.enqueue1(Some(fn))
       }
 
   /**
@@ -117,40 +118,34 @@ object MakeResource {
    * @tparam F Effect
    * @return Delayed action of using the resource
    */
-  def useConcurrently[F[_]: Concurrent: Log](resource: F[Unit] ⇒ Resource[F, _]): F[Unit] =
-    getConcurrently((onStop: F[Unit]) => resource(onStop).void).void
-
-  /**
-   * Uses the resource concurrently in a separate fiber, until the given `stop: F[Unit]` resolves.
-   *
-   * Example:
-   * ```
-   * // start some service, set `onStop` to be called when service is stopped internally
-   * // `service` allows to access the service; `stopService` allows to stop service externally
-   * (service, stopService) <- getConcurrently(onStop => startService(onStop))
-   *
-   * // start more general system, set service to be stopped before the system
-   * system = system(service, stopSystem = stopService >> stopSystem)
-   * ```
-   *
-   * @param resource release (stop: F[Unit]) => resource
-   * @tparam F Effect
-   * @return Delayed action of using the resource, wrapping resource value getter and resource stop action descriptions
-   */
-  def getConcurrently[F[_]: Concurrent: Log, T](resource: F[Unit] ⇒ Resource[F, T]): F[(F[T], F[Unit])] =
+  def useConcurrently[F[_]: Concurrent](resource: F[Unit] ⇒ Resource[F, _]): F[Unit] =
     for {
       completeDef ← Deferred[F, Unit]
       fiberDef ← Deferred[F, Fiber[F, Unit]]
-      resourceDef <- Deferred[F, T]
-
-      stop = completeDef.complete(()).attempt.void
-      joinFiber = fiberDef.get.flatMap(_.join)
-
       fiber ← Concurrent[F].start(
-        resource(stop >> joinFiber).use(
-          r ⇒ resourceDef.complete(r) >> completeDef.get
-        )
+        resource(
+          completeDef.complete(()) >> fiberDef.get.flatMap(_.join)
+        ).use(_ ⇒ completeDef.get)
       )
       _ ← fiberDef.complete(fiber)
-    } yield (resourceDef.get, stop)
+    } yield ()
+
+  /**
+   * Allocates resource in (possible concurrent) context, defined by `evalOn` function
+   * Use this when you need to go from Resource[F, T] to Resource[ F, F[T] ] (especially concurrently)
+   *
+   * @param resource Resource to be allocated
+   * @param evalOn Description of how to evaluate resource
+   * @return Resource that holds promise of result instead of result itself
+   */
+  def allocateOn[F[_]: Concurrent, T](resource: Resource[F, T], evalOn: F[Unit] => F[Unit]): Resource[F, F[T]] =
+    for {
+      deferred <- Resource.liftF(Deferred[F, (T, F[Unit])])
+      // Promise with result
+      resultF = deferred.get.map(_._1)
+      // Will stop resource on evaluation
+      stop = deferred.get.flatMap(_._2)
+      // Allocate resource, evaluating it via `evalOn`; stop resource when it is not needed anymore
+      _ <- Resource.make(evalOn(resource.allocated >>= deferred.complete))(_ => stop)
+    } yield resultF
 }

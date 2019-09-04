@@ -20,12 +20,12 @@ import java.time.Instant
 import java.util.concurrent.{ExecutorService, Executors}
 
 import cats.data.EitherT
-import cats.{~>, Applicative, Defer, Monad}
 import cats.effect._
-import cats.syntax.functor._
-import cats.syntax.apply._
 import cats.syntax.applicativeError._
+import cats.syntax.apply._
 import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.{~>, Applicative, Defer, Monad}
 import fluence.effects.docker.params.DockerParams
 import fluence.log.Log
 

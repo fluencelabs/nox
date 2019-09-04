@@ -62,8 +62,16 @@ trait Blockstore[F[_]] {
 object Blockstore {
   type RawKV[F[_]] = KVStore[F, Array[Byte], Array[Byte]]
 
+  // Tendermint stores height of the last stored block at this key
   val BlockStoreHeightKey: Array[Byte] = "blockStore".getBytes
 
+  /**
+   * Creates symlinks for all files with .sst extension, "renaming" them to .ldb extension.
+   *
+   * This is needed because Tendermint uses LevelDB (it requires .ldb), but our KVStore uses RocksDB (requires .sst).
+   * So in order to make RocksDB read LevelDB files, this hack is used. Also, see this issue on why RocksDB doesn't support
+   * .ldb files https://github.com/facebook/rocksdb/issues/677#issuecomment-523069054
+   */
   private def createSymlinks[F[_]: Log](
     levelDbDir: Path
   )(implicit F: Sync[F]) = {
@@ -94,7 +102,7 @@ object Blockstore {
       .map(kv => new BlockstoreImpl(kv))
 
   // TODO: using MonadError here because caller (DockerWorkerServices) uses it, avoid doing that
-  private def raise[F[_]: Log: Sync, T, E <: Throwable](
+  private def raiseLeft[F[_]: Log: Sync, T, E <: Throwable](
     r: Resource[F, Either[E, T]],
     tendermintPath: Path
   ): Resource[F, T] =
@@ -109,7 +117,7 @@ object Blockstore {
     tendermintPath: Path
   )(implicit log: Log[F]): Resource[F, Blockstore[F]] =
     log.scope("blockstore") { implicit log: Log[F] =>
-      raise(
+      raiseLeft(
         Monad[Resource[F, ?]].tailRecM(tendermintPath.resolve("data").resolve("blockstore.db")) { path =>
           val storeOrError = for {
             dbPath <- createSymlinks[F](path)
