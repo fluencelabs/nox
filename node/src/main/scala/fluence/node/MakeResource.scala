@@ -101,7 +101,8 @@ object MakeResource {
       }
       .map {
         case (queue, _) ⇒
-          (fn: F[Unit]) ⇒ queue.enqueue1(Some(fn))
+          (fn: F[Unit]) ⇒
+            queue.enqueue1(Some(fn))
       }
 
   /**
@@ -134,7 +135,7 @@ object MakeResource {
    * Use this when you need to go from Resource[F, T] to Resource[ F, F[T] ] (especially concurrently)
    *
    * @param resource Resource to be allocated
-   * @param evalOn Description of how to evaluate resource
+   * @param evalOn Function that evaluates given effect. For example, `identity` or `ContextShift.evalOn(ctx)`
    * @return Resource that holds promise of result instead of result itself
    */
   def allocateOn[F[_]: Concurrent, T](resource: Resource[F, T], evalOn: F[Unit] => F[Unit]): Resource[F, F[T]] =
