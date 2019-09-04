@@ -24,7 +24,7 @@ import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.log.Log
 import fluence.node.workers.Worker
 import fluence.node.workers.api.websocket.WorkerWebsocket
-import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponseStream
+import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
 import fluence.node.workers.subscription._
 import fluence.statemachine.data.Tx
 
@@ -84,7 +84,7 @@ trait WorkerApi[F[_]] {
 
   def subscribe(subscriptionId: String, tx: String)(
     implicit log: Log[F]
-  ): F[TendermintResponseStream[F]]
+  ): F[fs2.Stream[F, Option[TendermintResponse]]]
 }
 
 object WorkerApi {
@@ -129,7 +129,7 @@ object WorkerApi {
 
     override def subscribe(subscriptionId: String, tx: String)(
       implicit log: Log[F]
-    ): F[TendermintResponseStream[F]] =
+    ): F[fs2.Stream[F, Option[TendermintResponse]]] =
       log.scope("txWait" -> tx) { implicit log ⇒
         worker.withServices(_.stateSubscriber)(_.subscribe(Tx.Data(tx.getBytes())))
       }

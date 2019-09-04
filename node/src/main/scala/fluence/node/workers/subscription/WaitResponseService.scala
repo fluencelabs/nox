@@ -10,7 +10,6 @@ import cats.syntax.functor._
 import io.circe.parser.decode
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import cats.syntax.applicative._
-import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponseStream
 
 import scala.language.higherKinds
 

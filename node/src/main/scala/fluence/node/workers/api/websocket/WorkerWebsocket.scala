@@ -25,7 +25,7 @@ import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
 import fluence.node.workers.api.WorkerApi
-import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponseStream
+import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
 import fluence.node.workers.subscription.{
   OkResponse,
   PendingResponse,
@@ -45,13 +45,13 @@ import scala.language.higherKinds
  */
 class WorkerWebsocket[F[_]: Concurrent: Log](
   workerApi: WorkerApi[F],
-  subscriptions: Ref[F, Map[String, Option[TendermintResponseStream[F]]]],
+  subscriptions: Ref[F, Map[String, Option[fs2.Stream[F, Option[TendermintResponse]]]]],
   outputQueue: NoneTerminatedQueue[F, Either[TxAwaitError, TendermintQueryResponse]]
 ) {
   import WebsocketRequests._
   import WebsocketResponses._
 
-  private def addStream(subscriptionId: String, stream: TendermintResponseStream[F]): F[Boolean] = {
+  private def addStream(subscriptionId: String, stream: fs2.Stream[F, Option[TendermintResponse]]): F[Boolean] = {
     subscriptions.modify { subs =>
       subs.get(subscriptionId) match {
         case Some(v) => (subs.updated(subscriptionId, v), true)
@@ -144,7 +144,7 @@ object WorkerWebsocket {
 
   def apply[F[_]: Concurrent: Log](workerApi: WorkerApi[F]): F[WorkerWebsocket[F]] =
     for {
-      subs <- Ref.of(Map.empty[String, Option[TendermintResponseStream[F]]])
+      subs <- Ref.of(Map.empty[String, Option[fs2.Stream[F, Option[TendermintResponse]]]])
       queue <- Queue.noneTerminated[F, Either[TxAwaitError, TendermintQueryResponse]]
     } yield new WorkerWebsocket[F](workerApi, subs, queue)
 

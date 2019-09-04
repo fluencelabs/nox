@@ -12,7 +12,7 @@ import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.MakeResource
-import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponseStream
+import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
 import fs2.concurrent.{NoneTerminatedQueue, Queue}
 
 import scala.language.higherKinds
@@ -45,7 +45,7 @@ class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
    * @param data a transaction
    * @return a stream of responses every block
    */
-  override def subscribe(data: Tx.Data): F[TendermintResponseStream[F]] = {
+  override def subscribe(data: Tx.Data): F[fs2.Stream[F, Option[TendermintResponse]]] = {
     for {
       q <- Queue.noneTerminated[F, Either[TxAwaitError, TendermintQueryResponse]]
       key = hasher.unsafe(data.value)
