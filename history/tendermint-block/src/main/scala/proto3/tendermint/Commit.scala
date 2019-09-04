@@ -21,6 +21,11 @@
 
 package proto3.tendermint
 
+/** @param precommits
+ *   It's `repeated bytes` instead of `repeated Vote` to be compatible with
+ *   Tendermint's amino encoding of null in repeated fields,
+ *   for details, see https://github.com/tendermint/go-amino/issues/260
+ */
 @SerialVersionUID(0L)
 final case class Commit(
   blockId: _root_.scala.Option[proto3.tendermint.BlockID] = None,

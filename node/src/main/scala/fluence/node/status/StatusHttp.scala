@@ -32,6 +32,7 @@ import scala.concurrent.duration._
 import scala.language.higherKinds
 
 object StatusHttp {
+  val DefaultTimeout: FiniteDuration = 5.seconds
 
   // Timeout in seconds
   object Timeout extends OptionalQueryParamDecoderMatcher[Int]("timeout")
@@ -44,7 +45,7 @@ object StatusHttp {
    */
   def routes[F[_]: Sync: LogFactory, G[_]](
     sm: StatusAggregator[F],
-    defaultTimeout: FiniteDuration = 5.seconds
+    defaultTimeout: FiniteDuration = DefaultTimeout
   )(implicit dsl: Http4sDsl[F], P: Parallel[F, G]): HttpRoutes[F] = {
     import dsl._
 

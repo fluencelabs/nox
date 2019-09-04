@@ -21,6 +21,7 @@ import cats.effect._
 import cats.syntax.compose._
 import cats.syntax.flatMap._
 import fluence.effects.tendermint.block.data.Block
+import fluence.effects.tendermint.block.history.db.Blockstore
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
@@ -68,6 +69,7 @@ object TendermintWebsocketRpc {
     host: String,
     port: Int,
     httpRpc: TendermintHttpRpc[F],
+    blockstore: Blockstore[F],
     websocketConfig: WebsocketConfig = WebsocketConfig()
-  ): TendermintWebsocketRpc[F] = new TendermintWebsocketRpcImpl[F](host, port, httpRpc, websocketConfig)
+  ): TendermintWebsocketRpc[F] = new TendermintWebsocketRpcImpl[F](host, port, httpRpc, blockstore, websocketConfig)
 }

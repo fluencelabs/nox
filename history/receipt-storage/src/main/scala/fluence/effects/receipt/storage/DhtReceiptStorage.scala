@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.tendermint
+package fluence.effects.receipt.storage
 
 import cats.Monad
 import cats.data.EitherT
 import cats.syntax.flatMap._
 import fluence.effects.kvstore.{KVReadError, KVStore, KVWriteError, KeyCodecError}
-import fluence.effects.receipt.storage.{GetError, PutError, ReceiptStorage, ReceiptStorageError}
 import fluence.effects.tendermint.block.history.Receipt
+import fluence.kad.Kademlia
 import fluence.kad.protocol.Key
 import fluence.log.Log
 import scodec.bits.ByteVector

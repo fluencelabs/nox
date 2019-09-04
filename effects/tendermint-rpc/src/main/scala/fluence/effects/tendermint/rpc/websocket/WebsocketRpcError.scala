@@ -52,7 +52,7 @@ private[rpc] case class BlockParsingFailed(cause: TendermintBlockError, rawBlock
     s"Websocket TendermintRPC failed to parse block $height: $cause\n" + Console.RED + rawBlock.value + Console.RESET
 }
 
-private[rpc] case class BlockRetrievalError(cause: RpcError, height: Long)
-    extends WebsocketRpcError with WithCause[RpcError] {
-  override def getMessage: String = s"error retrieving block $height from rpc: $cause"
+private[rpc] case class BlockRetrievalError(cause: EffectError, height: Long)
+    extends WebsocketRpcError with WithCause[EffectError] {
+  override def getMessage: String = s"error retrieving block $height: $cause"
 }

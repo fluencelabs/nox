@@ -190,9 +190,9 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
       }
 
       val worker: Resource[IO, Worker[IO]] =
-        Worker.make[IO](appId, p2pPort, description, workerServices, (_: IO[Unit]) => IO.unit, IO.unit, IO.unit)
+        Worker.make[IO](appId, p2pPort, description, IO(workerServices), (_: IO[Unit]) => IO.unit, IO.unit, IO.unit)
 
-      worker.flatMap(worker => BlockUploading[IO](enabled = true, ipfs).flatMap(_.start(worker)))
+      worker.flatMap(worker => BlockUploading[IO](enabled = true, ipfs).flatMap(_.start(appId, workerServices)))
     }
 
   private def singleBlock(height: Long, txs: List[ByteVector]) = {

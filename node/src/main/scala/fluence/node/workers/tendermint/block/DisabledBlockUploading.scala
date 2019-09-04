@@ -19,7 +19,7 @@ import cats.Applicative
 import cats.effect.Resource
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
-import fluence.node.workers.Worker
+import fluence.node.workers.{Worker, WorkerServices}
 
 import scala.language.higherKinds
 
@@ -36,6 +36,8 @@ class DisabledBlockUploading[F[_]: Applicative] extends BlockUploading[F] {
    *
    * @param worker Blocks are coming from this worker's Tendermint; receipts are sent to this worker
    */
-  override def start(worker: Worker[F])(implicit log: Log[F], backoff: Backoff[EffectError]): Resource[F, Unit] =
-    Resource.pure(())
+  def start(
+    appId: Long,
+    services: WorkerServices[F]
+  )(implicit log: Log[F], backoff: Backoff[EffectError]): Resource[F, Unit] = Resource.pure(())
 }

@@ -28,7 +28,7 @@ import fluence.log.Log
 import scala.language.higherKinds
 
 class TestWRpc[F[_]: ConcurrentEffect: Timer: Monad: ContextShift](host: String, port: Int)
-    extends TendermintWebsocketRpcImpl[F](host, port, new TestHttpRpc[F], WebsocketConfig()) {
+    extends TendermintWebsocketRpcImpl[F](host, port, new TestHttpRpc[F], DisabledBlockstore(), WebsocketConfig()) {
 
   override val websocketConfig: WebsocketConfig = WebsocketConfig()
 
