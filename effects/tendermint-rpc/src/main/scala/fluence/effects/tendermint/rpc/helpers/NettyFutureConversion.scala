@@ -16,15 +16,16 @@
 
 package fluence.effects.tendermint.rpc.helpers
 
-import cats.effect.Async
+import cats.effect.{Async, Concurrent}
+import cats.syntax.applicativeError._
+import cats.syntax.functor._
 import io.netty.util.concurrent.Future
 
 import scala.language.higherKinds
 
 object NettyFutureConversion {
   implicit class FromNettyFuture[A](nf: Future[A]) {
-
-    def asAsync[F[_]: Async]: F[A] = Async[F].async { cb =>
+    private def addCallback(cb: Either[scala.Throwable, A] => Unit) =
       nf.addListener((future: Future[A]) => {
         if (future.isSuccess) {
           cb(Right(future.getNow))
@@ -32,6 +33,13 @@ object NettyFutureConversion {
           cb(Left(future.cause()))
         }
       })
+
+    def asConcurrent[F[_]](implicit F: Concurrent[F]): F[A] = F.cancelable { cb =>
+      addCallback(cb)
+
+      F.delay(nf.cancel(true)).attempt.void
     }
+
+    def asAsync[F[_]: Async]: F[A] = Async[F].async(addCallback)
   }
 }

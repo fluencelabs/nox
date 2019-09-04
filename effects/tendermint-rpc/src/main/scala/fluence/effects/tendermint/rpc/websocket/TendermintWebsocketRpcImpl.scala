@@ -28,11 +28,10 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Eval, Monad, Traverse}
 import fluence.effects.JavaFutureConversion._
-import fluence.effects.syntax.backoff._
-import fluence.effects.syntax.eitherT._
 import fluence.effects.tendermint.block.data.Block
+import fluence.effects.tendermint.block.history.db.Blockstore
 import fluence.effects.tendermint.rpc.helpers.NettyFutureConversion._
-import fluence.effects.tendermint.rpc.http.{RpcBlockParsingFailed, RpcError, TendermintHttpRpc}
+import fluence.effects.tendermint.rpc.http.{RpcBlockParsingFailed, TendermintHttpRpc}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fs2.concurrent.Queue
@@ -40,13 +39,13 @@ import io.circe.Json
 import org.asynchttpclient.Dsl._
 import org.asynchttpclient.netty.ws.NettyWebSocket
 import org.asynchttpclient.ws.{WebSocket, WebSocketUpgradeHandler}
-import fluence.effects.tendermint.block.history.db.Blockstore
 
 import scala.language.higherKinds
 
 private[websocket] sealed trait Event
 private[websocket] case class JsonEvent(json: Json) extends Event
 private[websocket] case object Reconnect extends Event
+private[websocket] case object Start extends Event
 
 /**
  * Implementation of Tendermint's websocket RPC. Specifically implements subscribe request.
@@ -83,17 +82,21 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
     // Start accepting and/or loading blocks from next to already-known block
     val startFrom = lastKnownHeight + 1
 
-    fs2.Stream.resource(subscribe("NewBlock")).flatMap { queue =>
-      fs2.Stream.eval(traceBU(s"subscribed on NewBlock. startFrom: $startFrom")) *>
-        queue.dequeue
-          .evalMapAccumulate(startFrom) {
-            // load missing blocks on reconnect (reconnect is always the first event in the queue)
-            case (startHeight, Reconnect) => loadMissedBlocks(startHeight)
-            // accept a new block
-            case (curHeight, JsonEvent(json)) => acceptNewBlock(curHeight, json)
-          }
-          .flatMap { case (_, blocks) => fs2.Stream.emits(blocks) }
-    }
+    val logSubscribe = traceBU(s"subscribed on NewBlock. startFrom: $startFrom")
+    val subscribeS = fs2.Stream.resource(subscribe("NewBlock")).evalTap(_ => logSubscribe)
+    // Emit Start to start "offline" block processing, avoiding wait for websocket to connect
+    val startEventS = fs2.Stream.emit(Start)
+    // Drop first reconnect from websocket to account for startEventS
+    val eventsS = startEventS ++ (subscribeS >>= (_.dequeue))
+
+    eventsS
+      .evalMapAccumulate(startFrom) {
+        // load missing blocks on reconnect (reconnect is always the first event in the queue)
+        case (startHeight, Start | Reconnect) => loadMissedBlocks(startHeight)
+        // accept a new block
+        case (curHeight, JsonEvent(json)) => acceptNewBlock(curHeight, json)
+      }
+      .flatMap { case (_, blocks) => fs2.Stream.emits(blocks) }
   }
 
   /**
@@ -201,13 +204,17 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
   private def getLastHeight(implicit log: Log[F]): EitherT[F, EffectError, Long] =
     EitherT.liftF(traceBU("getLastHeight")).leftMap(identity[EffectError]) *>
       blockstore.getStorageHeight.leftMap(identity[EffectError]).recoverWith {
-        case _ => httpRpc.consensusHeight().leftMap(identity[EffectError])
+        case e =>
+          Log.eitherT[F, EffectError].warn(s"Error retrieving last height from blockstore", e) >>
+            httpRpc.consensusHeight().leftMap(identity[EffectError])
       }
 
   private def getBlock(height: Long)(implicit log: Log[F]) =
     EitherT.liftF(traceBU(s"getBlock $height")).leftMap(identity[EffectError]) *>
       blockstore.getBlock(height).leftMap(identity[EffectError]).recoverWith {
-        case _ => httpRpc.block(height).leftMap(identity[EffectError])
+        case e =>
+          Log.eitherT[F, EffectError].warn(s"Error retrieving block from blockstore $height", e) >>
+            httpRpc.block(height).leftMap(identity[EffectError])
       }
 
   /**

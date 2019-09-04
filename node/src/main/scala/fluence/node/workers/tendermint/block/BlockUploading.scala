@@ -58,16 +58,19 @@ trait BlockUploading[F[_]] {
 
 object BlockUploading {
 
-  def apply[F[_]: Log: ConcurrentEffect: Timer: ContextShift: SttpStreamEffect](
+  def apply[F[_]: ConcurrentEffect: Timer: ContextShift: SttpStreamEffect](
     enabled: Boolean,
     ipfs: => IpfsUploader[F]
   )(
     implicit
-    backoff: Backoff[EffectError] = Backoff.default
+    backoff: Backoff[EffectError] = Backoff.default,
+    log: Log[F]
   ): Resource[F, BlockUploading[F]] =
     if (enabled) {
       val history = new BlockHistory[F](ipfs)
-      (new BlockUploadingImpl[F](history): BlockUploading[F]).pure[Resource[F, ?]]
+      Log[F].scope("block-uploading") { implicit log: Log[F] =>
+        (new BlockUploadingImpl[F](history): BlockUploading[F]).pure[Resource[F, ?]]
+      }
     } else {
       Log
         .resource[F]

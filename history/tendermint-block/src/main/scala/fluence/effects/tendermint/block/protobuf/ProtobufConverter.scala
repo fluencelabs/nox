@@ -48,7 +48,7 @@ private[block] object ProtobufConverter {
   private def serialize(precommits: List[Option[Vote]]): List[ByteString] =
     Protobuf.encode(precommits).map(ByteString.copyFrom)
 
-  def toProtobuf(lc: LastCommit) = PBCommit(Some(lc.block_id), serialize(lc.precommits))
+  def toProtobuf(lc: LastCommit) = PBCommit(lc.block_id, serialize(lc.precommits))
 
   def toProtobuf(h: Header): PBHeader = {
     PBHeader(
@@ -119,10 +119,9 @@ private[block] object ProtobufConverter {
 
   def fromProtobuf(b: PBCommit): Either[Throwable, LastCommit] =
     for {
-      blockId <- getOr("blockId")(b.blockId)
       precommits <- Traverse[List].sequence(b.precommits.map(bs => Protobuf.decode[Vote](bs.toByteArray)).toList)
     } yield LastCommit(
-      block_id = blockId,
+      block_id = b.blockId,
       precommits = precommits.map(Some(_))
     )
 
