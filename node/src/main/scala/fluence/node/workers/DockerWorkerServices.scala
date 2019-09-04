@@ -135,7 +135,7 @@ object DockerWorkerServices {
     def workerStatus(tout: FiniteDuration) =
       DockerIO[F]
         .checkContainer(worker)
-        .semiflatMap[ServiceStatus[ControlStatus]] { d ⇒
+        .semiflatMap[ServiceStatus[StateMachineStatus]] { d ⇒
           HttpStatus
             .timed(control.status, tout)
             .map(s ⇒ ServiceStatus(Right(d), s))

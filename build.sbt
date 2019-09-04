@@ -460,6 +460,7 @@ lazy val `node` = project
     `receipt-storage`,
     `log`,
     `kademlia-http`,
+    `statemachine` % Test,
     `kademlia-testkit` % Test
   )
 

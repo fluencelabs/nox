@@ -25,8 +25,23 @@ import cats.syntax.applicative._
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.subscription._
-import fluence.node.workers.api.websocket.WebsocketRequests.{LastManifestRequest, P2pPortRequest, StatusRequest, TxRequest, TxWaitRequest, WebsocketRequest}
-import fluence.node.workers.api.websocket.WebsocketResponses.{ErrorResponse, LastManifestResponse, P2pPortResponse, StatusResponse, TxResponse, TxWaitResponse, WebsocketResponse}
+import fluence.node.workers.api.websocket.WebsocketRequests.{
+  LastManifestRequest,
+  P2pPortRequest,
+  StatusRequest,
+  TxRequest,
+  TxWaitRequest,
+  WebsocketRequest
+}
+import fluence.node.workers.api.websocket.WebsocketResponses.{
+  ErrorResponse,
+  LastManifestResponse,
+  P2pPortResponse,
+  StatusResponse,
+  TxResponse,
+  TxWaitResponse,
+  WebsocketResponse
+}
 import fluence.node.workers.api.websocket.WorkerWebsocket
 import fluence.statemachine.api.tx.Tx
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}

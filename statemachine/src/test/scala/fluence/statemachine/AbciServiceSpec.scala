@@ -25,11 +25,7 @@ import cats.syntax.compose._
 import cats.syntax.flatMap._
 import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
-import fluence.effects.tendermint.block.data.Block
-import fluence.effects.tendermint.block.history.Receipt
-import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestErrored}
 import fluence.log.{Log, LogFactory}
-import fluence.statemachine.api.{StateHash, signals}
 import fluence.statemachine.api.signals.BlockReceipt
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.AbciState
@@ -108,7 +104,7 @@ class AbciServiceSpec extends WordSpec with Matchers {
     }
   }
 
-  def receipt(h: Long) = signals.BlockReceipt(Receipt(h, ByteVector.fromLong(h)))
+  def receipt(h: Long) = BlockReceipt(h, ByteVector(h.toString.getBytes()))
 
   "Abci Service" should {
     "retrieve receipts and store vmHash in order" in {

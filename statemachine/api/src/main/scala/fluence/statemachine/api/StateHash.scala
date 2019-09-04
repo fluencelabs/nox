@@ -24,6 +24,8 @@ import scodec.bits.ByteVector
 case class StateHash(height: Long, hash: ByteVector)
 
 object StateHash {
+  val empty = StateHash(0, ByteVector.empty)
+
   private implicit val decbc: Decoder[ByteVector] =
     Decoder.decodeString.flatMap(
       ByteVector.fromHex(_).fold(Decoder.failedWithMessage[ByteVector]("Not a hex"))(Decoder.const)

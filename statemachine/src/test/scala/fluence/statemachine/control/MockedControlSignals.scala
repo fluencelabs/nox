@@ -17,17 +17,16 @@
 package fluence.statemachine.control
 
 import cats.effect.{IO, Resource}
-import fluence.effects.tendermint.block.history.Receipt
-import fluence.statemachine.api.{StateHash, signals}
+import fluence.statemachine.api.StateHash
 import fluence.statemachine.api.signals.{BlockReceipt, DropPeer}
-import fluence.statemachine.control.signals.{BlockReceipt, ControlSignals}
+import fluence.statemachine.control.signals.ControlSignals
 import scodec.bits.ByteVector
 
 class MockedControlSignals extends ControlSignals[IO] {
   override val dropPeers: Resource[IO, Set[DropPeer]] = Resource.pure(Set.empty)
   override val stop: IO[Unit] = IO.unit
   override def getReceipt(height: Long): IO[BlockReceipt] = {
-    IO.pure(signals.BlockReceipt(Receipt(height, ByteVector.empty)))
+    IO.pure(BlockReceipt(height, ByteVector.empty))
   }
 
   override def dropPeer(drop: DropPeer): IO[Unit] = IO.unit

@@ -19,7 +19,6 @@ package fluence.statemachine.control
 import cats.Traverse
 import cats.effect.IO
 import cats.instances.list._
-import fluence.effects.tendermint.block.history.Receipt
 import fluence.log.{Log, LogFactory}
 import fluence.statemachine.api.signals.BlockReceipt
 import fluence.statemachine.control.signals.ControlSignals
@@ -34,7 +33,7 @@ class ControlSignalsSpec extends WordSpec with Matchers with OptionValues {
   implicit private val shift = IO.contextShift(global)
   implicit private val log = LogFactory.forPrintln[IO]().init("control signals spec", level = Log.Error).unsafeRunSync()
 
-  def receipt(height: Long) = BlockReceipt(Receipt(height, ByteVector.fromLong(height)))
+  def receipt(height: Long) = BlockReceipt(height, ByteVector(height.toString.getBytes()))
 
   def checkReceipts(receipts: List[BlockReceipt], targetHeight: Long) = {
     ControlSignals
@@ -44,8 +43,8 @@ class ControlSignalsSpec extends WordSpec with Matchers with OptionValues {
           _ <- Traverse[List].traverse(receipts)(signals.enqueueReceipt)
           receipt <- signals.getReceipt(targetHeight)
         } yield {
-          receipt.receipt.height shouldBe targetHeight
-          receipt.receipt.hash.toLong() shouldBe targetHeight
+          receipt.height shouldBe targetHeight
+          new String(receipt.bytes.toArray).toLong shouldBe targetHeight
         }
       }
       .unsafeRunSync()

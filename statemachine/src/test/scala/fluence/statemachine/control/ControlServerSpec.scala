@@ -15,10 +15,12 @@
  */
 
 package fluence.statemachine.control
+
 import cats.effect.{ContextShift, IO, Timer}
 import cats.implicits._
 import fluence.effects.sttp.SttpEffect
 import fluence.log.{Log, LogFactory}
+import fluence.statemachine.api.{StateHash, StateMachineStatus}
 import fluence.statemachine.api.signals.DropPeer
 import io.circe.Encoder
 import org.scalatest.{EitherValues, Matchers, OptionValues, WordSpec}
@@ -52,7 +54,7 @@ class ControlServerSpec extends WordSpec with Matchers with ControlServerOps {
     implicit val logFactory = LogFactory.forPrintln[IO]()
     implicit val log: Log[IO] = LogFactory[IO].init(getClass.getSimpleName, level = Log.Error).unsafeRunSync()
 
-    val server = ControlServer.make[IO](config, IO(StateMachineStatus(false)))
+    val server = ControlServer.make[IO](config, IO(StateMachineStatus(false, StateHash(0, ByteVector.empty))))
     val sttp = SttpEffect.plainResource[IO]
     val resources = server.flatMap(srv => sttp.map(srv -> _))
 

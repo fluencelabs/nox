@@ -16,30 +16,14 @@
 
 package fluence.node
 
-/*
- * Copyright 2018 Fluence Labs Limited
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 import cats.effect.{ContextShift, IO, Timer}
 import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.log.{Log, LogFactory}
 import fluence.node.workers.control.ControlRpc
-import fluence.statemachine.api.StateMachineStatus
+import fluence.statemachine.api.signals.DropPeer
+import fluence.statemachine.api.{StateHash, StateMachineStatus}
 import fluence.statemachine.control.ControlServer
-import fluence.statemachine.control.signals.DropPeer
 import org.scalatest.{Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
 
@@ -55,7 +39,7 @@ class ControlRpcSpec extends WordSpec with Matchers with OptionValues {
     implicit val log: Log[IO] = LogFactory[IO].init(getClass.getSimpleName).unsafeRunSync()
 
     val config = ControlServer.Config("localhost", 26652)
-    val serverR = ControlServer.make[IO](config, IO(StateMachineStatus(false)))
+    val serverR = ControlServer.make[IO](config, IO(StateMachineStatus(false, StateHash.empty)))
 
     val resources = for {
       server <- serverR
@@ -104,7 +88,8 @@ class ControlRpcSpec extends WordSpec with Matchers with OptionValues {
             after <- IO.pure(server.signals.getReceipt(1).unsafeRunTimed(1.second))
           } yield {
             after shouldBe defined
-            after.value.receipt shouldBe receipt
+            after.value.height shouldBe receipt.height
+            after.value.bytes shouldBe receipt.jsonBytes()
           }
       }.unsafeRunSync()
     }

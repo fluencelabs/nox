@@ -19,11 +19,11 @@ import cats.data.Kleisli
 import cats.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.effects.tendermint.block.history.helpers
 import fluence.log.{Log, LogFactory}
 import fluence.statemachine.api.StateMachineStatus
 import fluence.statemachine.api.signals.{BlockReceipt, DropPeer, GetVmHash}
 import fluence.statemachine.control.signals.ControlSignals
+import io.circe.{Decoder, Encoder}
 import io.circe.syntax._
 import org.http4s._
 import org.http4s.circe._
@@ -46,6 +46,14 @@ case class ControlServer[F[_]](signals: ControlSignals[F], http: Server[F])
 
 object ControlServer {
 
+  // TODO move this code somewhere
+  private implicit val decbc: Decoder[ByteVector] =
+    Decoder.decodeString.flatMap(
+      ByteVector.fromHex(_).fold(Decoder.failedWithMessage[ByteVector]("Not a hex"))(Decoder.const)
+    )
+
+  private implicit val encbc: Encoder[ByteVector] = Encoder.encodeString.contramap(_.toHex)
+
   /** Settings for [[ControlServer]]
    *
    * @param host host to listen on
@@ -65,7 +73,6 @@ object ControlServer {
     status: F[StateMachineStatus]
   )(implicit dsl: Http4sDsl[F]): Kleisli[F, Request[F], Response[F]] = {
     import dsl._
-    import helpers.ByteVectorJsonCodec._
 
     implicit val dpdec: EntityDecoder[F, DropPeer] = jsonOf[F, DropPeer]
     implicit val bpdec: EntityDecoder[F, BlockReceipt] = jsonOf[F, BlockReceipt]
