@@ -14,20 +14,23 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.subscription
+package fluence.statemachine.api
 
-import cats.effect.concurrent.Deferred
-import fluence.statemachine.api.tx.Tx
-
-import scala.language.higherKinds
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto._
 
 /**
- * Unit to manage subscriptions.
+ * Statemachine's status, fetched via Control RPC.
  *
- * @param id transaction id: sessionId/nonce
- * @param promise a promise that will be completed after response will be received
- * @param tries how many times we already query a state machine
+ * @param expectsEth Whether this statemachine expects to get Ethereum blocks or not
+ * @param stateHash Actual Statemachine's state hash
  */
-case class ResponsePromise[F[_]](id: Tx.Head, promise: Deferred[F, TendermintQueryResponse], tries: Int = 0) {
-  def complete(response: TendermintQueryResponse): F[Unit] = promise.complete(response)
+case class StateMachineStatus(
+  expectsEth: Boolean,
+  stateHash: StateHash
+)
+
+object StateMachineStatus {
+  implicit val controlStatusEncoder: Encoder[StateMachineStatus] = deriveEncoder[StateMachineStatus]
+  implicit val controlStatusDecoder: Decoder[StateMachineStatus] = deriveDecoder[StateMachineStatus]
 }

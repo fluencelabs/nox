@@ -52,14 +52,17 @@ import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
 import fluence.statemachine.AbciService.TxResponse
-import fluence.statemachine.control.signals.{BlockReceipt, ControlSignals}
-import fluence.statemachine.data.{Tx, TxCode}
+import fluence.statemachine.control.signals.ControlSignals
+import fluence.statemachine.data.TxCode
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
 import fluence.statemachine.{AbciService, TestTendermintRpc}
 import fluence.vm.InvocationResult
 import fluence.Eventually
+import fluence.statemachine.api.query.TxCode
+import fluence.statemachine.api.signals.BlockReceipt
+import fluence.statemachine.api.tx.TxCode
 import fs2.concurrent.Queue
 import io.circe.Json
 import io.circe.parser.parse
@@ -113,7 +116,7 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
           EitherT.liftF(signals.enqueueReceipt(BlockReceipt(receipt)))
 
         override def getVmHash(height: Long): EitherT[IO, ControlRpcError, ByteVector] =
-          EitherT.liftF(signals.getVmHash(height).map(_.hash))
+          EitherT.liftF(signals.getStateHash(height).map(_.hash))
       }
 
       (controlRpc, signals)

@@ -27,10 +27,13 @@ import com.softwaremill.sttp.SttpBackend
 import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.effects.tendermint.rpc.http.{TendermintHttpRpc, TendermintHttpRpcImpl}
 import fluence.log.{Log, LogFactory}
+import fluence.statemachine.api.StateMachineStatus
+import fluence.statemachine.api.query.QueryCode
+import fluence.statemachine.api.tx.TxCode
 import fluence.statemachine.config.{StateMachineConfig, TendermintRpcConfig}
-import fluence.statemachine.control.{ControlServer, ControlStatus}
-import fluence.statemachine.control.signals.{ControlSignals, MockedControlSignals}
-import fluence.statemachine.data.{QueryCode, TxCode}
+import fluence.statemachine.control.{ControlServer, MockedControlSignals}
+import fluence.statemachine.control.signals.ControlSignals
+import fluence.statemachine.data.TxCode
 import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
 import scodec.bits.ByteVector
 
@@ -61,7 +64,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
   private val signals: ControlSignals[IO] = new MockedControlSignals
 
   val abciHandler: AbciHandler[IO] = ServerRunner
-    .buildAbciHandler(config, Deferred.unsafe[IO, ControlStatus], signals)
+    .buildAbciHandler(config, Deferred.unsafe[IO, StateMachineStatus], signals)
     .valueOr(e => throw new RuntimeException(e.message))
     .unsafeRunSync()
 

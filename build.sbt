@@ -66,16 +66,6 @@ lazy val `frun` = (project in file("vm/frun"))
   .dependsOn(`vm`, `statemachine`)
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
 
-lazy val `frun-rust` = project
-  .in(frun.base / "rust")
-  .settings(
-    imageNames in docker := Seq(ImageName(DockerContainers.FrunRust)),
-    dockerfile in docker := DockerContainers
-      .frunRust((assembly in `frun`).value, (resourceDirectory in `frun` in Compile).value)
-  )
-  .dependsOn(`frun`)
-  .enablePlugins(DockerPlugin)
-
 lazy val `vm-counter` = (project in file("vm/src/it/resources/test-cases/counter"))
   .settings(
     rustVmTest("counter")
@@ -118,27 +108,6 @@ lazy val `merkelized-bytebuffer` = (project in file("vm/merkelized-bytebuffer"))
     )
   )
 
-lazy val `statemachine-control` = (project in file("statemachine/control"))
-  .settings(
-    commons,
-    kindProjector,
-    libraryDependencies ++= Seq(
-      cats,
-      catsEffect,
-      circeGeneric,
-      circeParser,
-      http4sDsl,
-      http4sServer,
-      http4sCirce,
-      scalaTest,
-      sttp            % Test,
-      sttpCirce       % Test,
-      sttpCatsBackend % Test
-    )
-  )
-  .dependsOn(`tendermint-block-history`)
-  .enablePlugins(AutomateHeaderPlugin)
-
 lazy val `statemachine` = (project in file("statemachine"))
   .settings(
     commons,
@@ -157,24 +126,25 @@ lazy val `statemachine` = (project in file("statemachine"))
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
   .dependsOn(
     `vm`,
-    `statemachine-control`,
-    `statemachine-data`,
+    `tendermint-block-history`,
+    `statemachine-api`,
     `tendermint-rpc`,
     `sttp-effect`,
     `tendermint-block`
   )
 
-lazy val `statemachine-data` = (project in file("statemachine/data"))
+lazy val `statemachine-api` = (project in file("statemachine/api"))
   .settings(
     commons,
     kindProjector,
     libraryDependencies ++= Seq(
       scodecBits,
+      circeGeneric,
       cats
     )
   )
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(`log`)
+  .dependsOn(`log`, `effects`)
 
 lazy val `effects` = project
   .in(file("effects"))
@@ -477,8 +447,7 @@ lazy val `node` = project
     `ethclient`,
     `swarm`,
     `ipfs`,
-    `statemachine-control`,
-    `statemachine-data`,
+    `statemachine-api`,
     `kvstore`,
     `dockerio`,
     `tendermint-rpc`,

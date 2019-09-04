@@ -28,7 +28,7 @@ import fluence.log.Log
 import fluence.node.workers.Worker
 import fluence.node.workers.api.websocket.WorkerWebsocket
 import fluence.node.workers.subscription._
-import fluence.statemachine.data.{Tx, TxCode}
+import fluence.statemachine.api.tx.{Tx, TxCode}
 import io.circe.parser.decode
 
 import scala.language.higherKinds

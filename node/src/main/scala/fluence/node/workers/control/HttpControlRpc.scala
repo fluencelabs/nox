@@ -25,8 +25,8 @@ import fluence.effects.sttp.{SttpEffect, SttpError}
 import fluence.effects.sttp.syntax._
 import fluence.effects.tendermint.block.history.{helpers, Receipt}
 import fluence.node.workers.status.{HttpCheckFailed, HttpCheckStatus, HttpStatus}
-import fluence.statemachine.control.signals.{BlockReceipt, DropPeer, GetStatus, GetVmHash, Stop}
-import fluence.statemachine.control.ControlStatus
+import fluence.statemachine.api.StateMachineStatus
+import fluence.statemachine.api.signals.{BlockReceipt, DropPeer, GetStatus, GetVmHash, Stop}
 import io.circe.Encoder
 import io.circe.parser.decode
 import scodec.bits.ByteVector
@@ -57,17 +57,18 @@ class HttpControlRpc[F[_]: Monad: SttpEffect](hostname: String, port: Short) ext
     // TODO handle errors properly
     send(DropPeer(key), "dropPeer").void.leftMap(DropPeerError(key, _))
 
-  override val status: F[HttpStatus[ControlStatus]] =
-    send(GetStatus(), "status").decodeBody(decode[ControlStatus](_)).value.map {
+  override val status: F[HttpStatus[StateMachineStatus]] =
+    send(GetStatus(), "status").decodeBody(decode[StateMachineStatus](_)).value.map {
       case Right(st) ⇒ HttpCheckStatus(st)
       case Left(err) ⇒ HttpCheckFailed(err)
     }
 
   override val stop: EitherT[F, ControlRpcError, Unit] =
-    send(Stop(), "stop").toBody.void.leftMap(WorkerStatusError)
+    send(Stop(), "stop").void.leftMap(WorkerStatusError)
 
   override def sendBlockReceipt(receipt: Receipt): EitherT[F, ControlRpcError, Unit] =
-    send(BlockReceipt(receipt), "blockReceipt").toBody.void.leftMap(SendBlockReceiptError(receipt, _))
+    send(BlockReceipt(receipt.height, receipt.jsonBytes()), "blockReceipt").void
+      .leftMap(SendBlockReceiptError(receipt, _))
 
   override def getVmHash(height: Long): EitherT[F, ControlRpcError, ByteVector] = {
     import io.circe.parser._

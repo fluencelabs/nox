@@ -22,7 +22,7 @@ import com.softwaremill.sttp._
 import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.node.workers.status.HttpStatus
-import fluence.statemachine.control.ControlStatus
+import fluence.statemachine.api.StateMachineStatus
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -44,7 +44,7 @@ abstract class ControlRpc[F[_]] {
    *
    * @return Currently if method returned without an error, worker is considered to be healthy
    */
-  def status: F[HttpStatus[ControlStatus]]
+  def status: F[HttpStatus[StateMachineStatus]]
 
   /**
    * Requests worker to stop

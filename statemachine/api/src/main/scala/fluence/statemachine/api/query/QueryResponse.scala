@@ -14,20 +14,14 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.subscription
-
-import cats.effect.concurrent.Deferred
-import fluence.statemachine.api.tx.Tx
-
-import scala.language.higherKinds
+package fluence.statemachine.api.query
 
 /**
- * Unit to manage subscriptions.
+ * A structure for aggregating data specific to building `Query` ABCI method response.
  *
- * @param id transaction id: sessionId/nonce
- * @param promise a promise that will be completed after response will be received
- * @param tries how many times we already query a state machine
+ * @param height height corresponding to state for which result given
+ * @param result requested result, if found
+ * @param code response code
+ * @param info response message
  */
-case class ResponsePromise[F[_]](id: Tx.Head, promise: Deferred[F, TendermintQueryResponse], tries: Int = 0) {
-  def complete(response: TendermintQueryResponse): F[Unit] = promise.complete(response)
-}
+case class QueryResponse(height: Long, result: Array[Byte], code: QueryCode.Value, info: String)

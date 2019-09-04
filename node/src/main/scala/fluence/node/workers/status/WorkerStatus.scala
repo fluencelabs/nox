@@ -16,7 +16,7 @@
 
 package fluence.node.workers.status
 import fluence.effects.tendermint.rpc.response.TendermintStatus
-import fluence.statemachine.control.ControlStatus
+import fluence.statemachine.api.StateMachineStatus
 import io.circe.generic.semiauto._
 import io.circe.{Decoder, Encoder}
 
@@ -32,7 +32,7 @@ case class WorkerStatus(
   isHealthy: Boolean,
   appId: Long,
   tendermint: ServiceStatus[TendermintStatus],
-  worker: ServiceStatus[ControlStatus]
+  worker: ServiceStatus[StateMachineStatus]
 )
 
 object WorkerStatus {

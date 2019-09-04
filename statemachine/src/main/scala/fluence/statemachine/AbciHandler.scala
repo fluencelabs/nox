@@ -19,13 +19,14 @@ package fluence.statemachine
 import cats.Applicative
 import cats.effect.Effect
 import cats.effect.syntax.effect._
-import cats.syntax.flatMap._
 import com.github.jtendermint.jabci.api._
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
 import fluence.log.{Log, LogFactory}
-import fluence.statemachine.control.signals.{ControlSignals, DropPeer}
-import fluence.statemachine.data.Tx
+import fluence.statemachine.api.query.QueryResponse
+import fluence.statemachine.api.signals.DropPeer
+import fluence.statemachine.api.tx.{Tx, TxResponse}
+import fluence.statemachine.control.signals.ControlSignals
 
 import scala.language.higherKinds
 import scala.util.Try
@@ -39,6 +40,20 @@ class AbciHandler[F[_]: Effect: LogFactory](
     req: RequestBeginBlock
   ): ResponseBeginBlock = ResponseBeginBlock.newBuilder().build()
 
+  private def handleTxResponse(tx: Array[Byte], resp: TxResponse)(implicit log: Log[F]): F[Unit] = {
+    val TxResponse(code, info, height) = resp
+    log
+      .info(
+        Tx.splitTx(tx)
+          .fold(
+            s"${height.fold("")(h => s"height $h")} can't parse head from tx ${Try(new String(tx.take(100)))}"
+          ) {
+            case (head, _) =>
+              s"tx.head: $head -> $code ${info.replace('\n', ' ')} ${height.fold("")(h => s"height $h")}"
+          }
+      )
+  }
+
   override def requestCheckTx(
     req: RequestCheckTx
   ): ResponseCheckTx = {
@@ -50,18 +65,8 @@ class AbciHandler[F[_]: Effect: LogFactory](
       .checkTx(tx)
       .toIO
       .flatMap {
-        case AbciService.TxResponse(code, info, height) ⇒
-          log
-            .info(
-              Tx.splitTx(tx)
-                .fold(
-                  s"${height.fold("")(h => s"height $h")} can't parse head from tx ${Try(new String(tx.take(100)))}"
-                ) {
-                  case (head, _) =>
-                    s"tx.head: $head -> $code ${info.replace('\n', ' ')} ${height.fold("")(h => s"height $h")}"
-                }
-            )
-            .toIO
+        case resp @ TxResponse(code, info, _) ⇒
+          handleTxResponse(tx, resp).toIO
             .map(
               _ =>
                 ResponseCheckTx.newBuilder
@@ -86,18 +91,8 @@ class AbciHandler[F[_]: Effect: LogFactory](
       .deliverTx(tx)
       .toIO
       .flatMap {
-        case AbciService.TxResponse(code, info, height) ⇒
-          log
-            .info(
-              Tx.splitTx(tx)
-                .fold(
-                  s"${height.fold("")(h => s"height $h")} can't parse head from tx ${Try(new String(tx.take(100)))}"
-                ) {
-                  case (head, _) =>
-                    s"tx.head: $head -> $code ${info.replace('\n', ' ')} ${height.fold("")(h => s"height $h")}"
-                }
-            )
-            .toIO
+        case resp @ TxResponse(code, info, _) ⇒
+          handleTxResponse(tx, resp).toIO
             .map(
               _ =>
                 ResponseDeliverTx.newBuilder
@@ -133,7 +128,7 @@ class AbciHandler[F[_]: Effect: LogFactory](
       .query(req.getPath)
       .toIO
       .flatMap {
-        case AbciService.QueryResponse(height, result, code, info) ⇒
+        case QueryResponse(height, result, code, info) ⇒
           log
             .info(s"${req.getPath} -> height: $height code: $code ${info.replace('\n', ' ')} ${result.length}")
             .toIO

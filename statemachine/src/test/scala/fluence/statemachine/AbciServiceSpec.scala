@@ -29,8 +29,8 @@ import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestErrored}
 import fluence.log.{Log, LogFactory}
-import fluence.statemachine.control.VmHash
-import fluence.statemachine.control.signals.BlockReceipt
+import fluence.statemachine.api.{StateHash, signals}
+import fluence.statemachine.api.signals.BlockReceipt
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
@@ -80,7 +80,7 @@ class AbciServiceSpec extends WordSpec with Matchers {
               .update(_.getReceipt())
               .flatMap(_ => receipts.modify(l => (l.tail, l.head)))
 
-          override def enqueueVmHash(height: Long, hash: ByteVector): IO[Unit] = ref.update(_.enqueueVmHash(height))
+          override def enqueueStateHash(height: Long, hash: ByteVector): IO[Unit] = ref.update(_.enqueueVmHash(height))
         }
 
         for {
@@ -108,7 +108,7 @@ class AbciServiceSpec extends WordSpec with Matchers {
     }
   }
 
-  def receipt(h: Long) = BlockReceipt(Receipt(h, ByteVector.fromLong(h)))
+  def receipt(h: Long) = signals.BlockReceipt(Receipt(h, ByteVector.fromLong(h)))
 
   "Abci Service" should {
     "retrieve receipts and store vmHash in order" in {

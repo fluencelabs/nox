@@ -26,7 +26,7 @@ import fluence.log.{Log, LogFactory}
 import fluence.node.workers.subscription._
 import fluence.node.workers.Worker
 import fluence.node.workers.pool.WorkersPool
-import fluence.statemachine.data.Tx
+import fluence.statemachine.api.tx.Tx
 import fs2.concurrent.Queue
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.websocket.WebSocketBuilder

@@ -16,7 +16,6 @@
 
 package fluence.statemachine
 
-import cats.data.State
 import cats.effect.Effect
 import cats.effect.concurrent.Ref
 import cats.instances.option._
@@ -29,10 +28,11 @@ import cats.{Applicative, Eval, Monad, Traverse}
 import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
-import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.log.Log
-import fluence.statemachine.control.signals.{BlockReceipt, ControlSignals}
-import fluence.statemachine.data.{QueryCode, Tx, TxCode}
+import fluence.statemachine.api.query.{QueryCode, QueryResponse}
+import fluence.statemachine.api.signals.BlockReceipt
+import fluence.statemachine.api.tx.{Tx, TxCode, TxResponse}
+import fluence.statemachine.control.signals.ControlSignals
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
 import scodec.bits.ByteVector
@@ -52,8 +52,6 @@ class AbciService[F[_]: Monad: Effect](
   controlSignals: ControlSignals[F],
   blockUploadingEnabled: Boolean
 )(implicit hasher: Hasher[ByteVector, ByteVector], log: Log[F]) {
-
-  import AbciService._
 
   // Writes a trace log about block uploading
   private def traceBU(msg: String)(implicit log: Log[F]) =
@@ -105,14 +103,14 @@ class AbciService[F[_]: Monad: Effect](
       }
 
       _ <- traceBU(
-        s"got receipt ${receipt.map(r => s"${r.receipt.height}")}; " +
+        s"got receipt ${receipt.map(r => s"${r.height}")}; " +
           s"transactions count: ${transactions.length}"
       )
 
-      _ <- Traverse[Option].traverse(receipt.filter(_.receipt.height != blockHeight - 1))(
+      _ <- Traverse[Option].traverse(receipt.filter(_.height != blockHeight - 1))(
         b =>
           log.error(
-            s"Got wrong receipt height. current height: $blockHeight, receipt: ${b.receipt.height} (expected ${blockHeight - 1})"
+            s"Got wrong receipt height. current height: $blockHeight, receipt: ${b.height} (expected ${blockHeight - 1})"
           )
       )
 
@@ -126,9 +124,9 @@ class AbciService[F[_]: Monad: Effect](
         else
           currentState.appHash.pure[F]
       } {
-        case BlockReceipt(r) =>
-          traceBU(s"appHash = hash(${vmHash.toHex} ++ ${r.jsonBytes().toHex})") *>
-            hasher[F](vmHash ++ r.jsonBytes())
+        case BlockReceipt(_, bytes) =>
+          traceBU(s"appHash = hash(${vmHash.toHex} ++ ${bytes.toHex})") *>
+            hasher[F](vmHash ++ bytes)
               .leftMap(err => log.error(s"Error on hashing vmHash + receipt: $err"))
               .getOrElse(vmHash) // TODO: don't ignore errors
       }
@@ -141,8 +139,8 @@ class AbciService[F[_]: Monad: Effect](
 
       _ <- traceBU("state.set done")
 
-      // Store vmHash, so master node could retrieve it
-      _ <- if (blockUploadingEnabled) controlSignals.enqueueVmHash(blockHeight, vmHash) else ().pure[F]
+      // Store vmHash
+      _ <- controlSignals.enqueueStateHash(blockHeight, vmHash)
       _ <- log.info(s"$blockHeight commit end")
     } yield appHash
 
@@ -244,32 +242,6 @@ class AbciService[F[_]: Monad: Effect](
 }
 
 object AbciService {
-
-  object Codes {
-    val Ok: Int = 0
-    val CannotParseHeader: Int = 1
-    val Dropped: Int = 2
-    val NotFound: Int = 3
-    val Pending: Int = 4
-  }
-
-  /**
-   * A structure for aggregating data specific to building `Query` ABCI method response.
-   *
-   * @param height height corresponding to state for which result given
-   * @param result requested result, if found
-   * @param code response code
-   * @param info response message
-   */
-  case class QueryResponse(height: Long, result: Array[Byte], code: QueryCode.Value, info: String)
-
-  /**
-   * A structure for aggregating data specific to building `CheckTx`/`DeliverTx` ABCI response.
-   *
-   * @param code response code
-   * @param info response message
-   */
-  case class TxResponse(code: TxCode.Value, info: String, height: Option[Long] = None)
 
   /**
    * Build an empty AbciService for the vm. App hash is empty!

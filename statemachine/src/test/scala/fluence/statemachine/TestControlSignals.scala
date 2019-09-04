@@ -17,8 +17,9 @@
 package fluence.statemachine
 
 import cats.effect.{IO, Resource}
-import fluence.statemachine.control.signals.{BlockReceipt, ControlSignals, DropPeer}
-import fluence.statemachine.control.VmHash
+import fluence.statemachine.api.StateHash
+import fluence.statemachine.api.signals.{BlockReceipt, DropPeer}
+import fluence.statemachine.control.signals.{BlockReceipt, ControlSignals}
 import scodec.bits.ByteVector
 
 trait TestControlSignals extends ControlSignals[IO] {
@@ -29,7 +30,7 @@ trait TestControlSignals extends ControlSignals[IO] {
   override def dropPeer(drop: DropPeer): IO[Unit] = IO(throw new NotImplementedError("def dropPeer"))
   override def stopWorker(): IO[Unit] = IO(throw new NotImplementedError("def stopWorker"))
   override def enqueueReceipt(receipt: BlockReceipt): IO[Unit] = IO(throw new NotImplementedError("def putReceipt"))
-  override def enqueueVmHash(height: Long, hash: ByteVector): IO[Unit] =
+  override def enqueueStateHash(height: Long, hash: ByteVector): IO[Unit] =
     IO(throw new NotImplementedError("def enqueueVmHash"))
-  override def getVmHash(height: Long): IO[VmHash] = IO(throw new NotImplementedError("def getVmHash"))
+  override def getStateHash(height: Long): IO[StateHash] = IO(throw new NotImplementedError("def getVmHash"))
 }
