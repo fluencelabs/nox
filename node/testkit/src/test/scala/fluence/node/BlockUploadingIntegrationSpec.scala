@@ -55,7 +55,6 @@ import fluence.statemachine.control.signals.ControlSignals
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.{MachineState, StateService}
 import fluence.statemachine.vm.VmOperationInvoker
-import fluence.statemachine.TestTendermintRpc
 import fluence.vm.InvocationResult
 import fluence.Eventually
 import fluence.statemachine.api.signals.BlockReceipt

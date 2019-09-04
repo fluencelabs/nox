@@ -494,6 +494,5 @@ lazy val `node-testkit` = (project in file("node/testkit"))
       scalaTest
     )
   )
-  .dependsOn(`node` % "test->test")
-  .dependsOn(`tendermint-rpc` % "test->test")
+  .dependsOn(`node` % Test, `tendermint-rpc`)
   .enablePlugins(AutomateHeaderPlugin)

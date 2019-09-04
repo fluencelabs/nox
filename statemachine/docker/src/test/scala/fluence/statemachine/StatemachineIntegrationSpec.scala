@@ -20,15 +20,12 @@ import cats.effect.concurrent.Deferred
 import cats.effect.{ContextShift, IO, Timer}
 import com.github.jtendermint.jabci.types.{RequestCheckTx, RequestCommit, RequestDeliverTx, RequestQuery}
 import com.google.protobuf.ByteString
-import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.log.{Log, LogFactory}
 import fluence.statemachine.api.StateMachineStatus
 import fluence.statemachine.api.query.QueryCode
 import fluence.statemachine.api.tx.TxCode
-import fluence.statemachine.config.TendermintRpcConfig
 import fluence.statemachine.control.MockedControlSignals
 import fluence.statemachine.control.signals.ControlSignals
-import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
 import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext.Implicits.global

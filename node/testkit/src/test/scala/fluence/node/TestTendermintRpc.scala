@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.statemachine
+package fluence.node
 
 import cats.Functor
 import cats.data.EitherT

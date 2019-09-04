@@ -89,11 +89,11 @@ class StateServiceSpec extends WordSpec with Matchers {
   }
 
   private def checkCommit(
-                           abci: StateService[IO],
-                           ref: Ref[IO, ExecutionState],
-                           abciState: Ref[IO, MachineState],
-                           expectedActions: List[Action],
-                           expectedHeight: Long
+    abci: StateService[IO],
+    ref: Ref[IO, ExecutionState],
+    abciState: Ref[IO, MachineState],
+    expectedActions: List[Action],
+    expectedHeight: Long
   ) = {
     Apply[IO].map2(abciState.get, ref.get) {
       case (abciState, executionState) =>
