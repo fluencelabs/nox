@@ -87,7 +87,7 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
     // Emit Start to start "offline" block processing, avoiding wait for websocket to connect
     val startEventS = fs2.Stream.emit(Start)
     // Drop first reconnect from websocket to account for startEventS
-    val eventsS = startEventS ++ (subscribeS >>= (_.dequeue))
+    val eventsS = startEventS ++ (subscribeS >>= (_.dequeue)).drop(1)
 
     eventsS
       .evalMapAccumulate(startFrom) {

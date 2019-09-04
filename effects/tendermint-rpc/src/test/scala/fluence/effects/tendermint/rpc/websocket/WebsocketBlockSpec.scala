@@ -76,7 +76,7 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
         override def consensusHeight(id: String): EitherT[IO, RpcError, Long] =
           (for {
             _ <- state.update(_.consensusHeight())
-            height <- consensusHeights.modify(l => (l.tail, l.headOption))
+            height <- consensusHeights.modify(l => (l.drop(1), l.headOption))
           } yield height.fold(
             (RpcRequestFailed(
               new Throwable("WebSocketBlockSpec: requested consensus height when consensusHeights list is empty")
