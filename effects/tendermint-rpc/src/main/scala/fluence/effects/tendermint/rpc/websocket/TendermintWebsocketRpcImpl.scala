@@ -84,10 +84,10 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
 
     val logSubscribe = traceBU(s"subscribed on NewBlock. startFrom: $startFrom")
     val subscribeS = fs2.Stream.resource(subscribe("NewBlock")).evalTap(_ => logSubscribe)
-    // Emit synthetic first event to start block replaying while not waiting for websocket to connect
+    // Emit Start to start "offline" block processing, avoiding wait for websocket to connect
     val startEventS = fs2.Stream.emit(Start)
     // Drop first reconnect from websocket to account for startEventS
-    val eventsS = startEventS ++ (subscribeS >>= (_.dequeue))
+    val eventsS = startEventS ++ (subscribeS >>= (_.dequeue)).drop(1)
 
     eventsS
       .evalMapAccumulate(startFrom) {

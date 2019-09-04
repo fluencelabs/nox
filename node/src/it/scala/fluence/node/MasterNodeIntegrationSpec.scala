@@ -97,8 +97,8 @@ class MasterNodeIntegrationSpec
       master1 <- runMaster(master1Port, "master1", n = 1)
       master2 <- runMaster(master2Port, "master2", n = 2)
 
-      _ <- Resource liftF eventually[IO](checkMasterRunning(master1Port), maxWait = 300.seconds) // TODO: 30 seconds is a bit too much for startup
-      _ <- Resource liftF eventually[IO](checkMasterRunning(master1Port), maxWait = 300.seconds) // TODO: investigate and reduce timeout
+      _ <- Resource liftF eventually[IO](checkMasterRunning(master1Port), maxWait = 30.seconds) // TODO: 30 seconds is a bit too much for startup
+      _ <- Resource liftF eventually[IO](checkMasterRunning(master1Port), maxWait = 30.seconds) // TODO: investigate and reduce timeout
 
     } yield Seq(master1, master2)
   }
@@ -155,7 +155,7 @@ class MasterNodeIntegrationSpec
             c1s0.value should be >= 2L
             c1s1.value should be >= 2L
           },
-          maxWait = 300.seconds
+          maxWait = 90.seconds
         )
 
         _ = lastAppId += 1
@@ -170,7 +170,7 @@ class MasterNodeIntegrationSpec
             worker1 shouldBe defined
             worker2 shouldBe defined
           },
-          maxWait = 300.seconds
+          maxWait = 90.seconds
         )
       } yield ()
     }
@@ -231,7 +231,7 @@ class MasterNodeIntegrationSpec
     }
 
     "stop workers on AppDelete event" in {
-      deleteApp(30000).unsafeRunSync()
+      deleteApp(21000).unsafeRunSync()
     }
   }
 }
