@@ -6,6 +6,7 @@ import cats.effect.concurrent.Ref
 import fluence.statemachine.data.Tx
 import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.applicative._
 import fluence.crypto.Crypto.Hasher
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
@@ -62,16 +63,23 @@ class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
 
   override def unsubscribe(data: Tx.Data): F[Boolean] = {
     val key = hasher.unsafe(data.value)
-    subscriptions.modify { subs =>
-      subs.get(key) match {
-        case Some(sub) =>
-          val updated =
-            if (sub.subNumber == 1) subs - key
-            else subs.updated(key, sub.copy(subNumber = sub.subNumber - 1))
-          (updated, true)
-        case None => (subs, false)
+    for {
+      (isOk, queueToClose) <- subscriptions.modify { subs =>
+        subs.get(key) match {
+          case Some(sub) =>
+            val updated =
+              if (sub.subNumber == 1) subs - key
+              else subs.updated(key, sub.copy(subNumber = sub.subNumber - 1))
+            (updated, (true, if (sub.subNumber == 1) Option(sub.queue) else None))
+          case None => (subs, (false, None))
+        }
       }
-    }
+      _ <- queueToClose match {
+        case Some(q) => q.enqueue1(None)
+        case None    => ().pure[F]
+      }
+    } yield isOk
+
   }
 
   /**
@@ -97,15 +105,20 @@ class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
     import cats.instances.list._
     for {
       subs <- subscriptions.get
+      _ = println("subscriptions: " + subs)
       tasks = subs.map {
         case (key, SubscriptionState(data, queue, _, _)) =>
           val randomStr = Random.alphanumeric.take(8).mkString
           val head = Tx.Head(s"pubsub-$key-$randomStr", 0)
           val tx = Tx(head, data)
 
+          println("tx: " + tx)
+
           for {
             response <- waitResponseService.sendTxAwaitResponse(tx.generateTx(), None)
-          } yield queue.enqueue1(Some(response))
+            _ = println("response: " + response)
+            _ <- queue.enqueue1(Some(response))
+          } yield {}
       }
       _ <- Traverse[List].traverse(tasks.toList)(F.start)
     } yield ()

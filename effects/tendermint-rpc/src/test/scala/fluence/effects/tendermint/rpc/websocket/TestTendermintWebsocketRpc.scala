@@ -26,7 +26,7 @@ import scala.language.higherKinds
 
 trait TestTendermintWebsocketRpc[F[_]] extends TendermintWebsocketRpc[F] with TestTendermintHttpRpc[F] {
 
-  override val websocketConfig: WebsocketConfig = throw new NotImplementedError("def websocketConfig")
+  override val websocketConfig: WebsocketConfig = WebsocketConfig()
 
   def subscribeNewBlock(
     lastKnownHeight: Long

@@ -18,6 +18,8 @@ trait WaitResponseService[F[_]] {
   def sendTxAwaitResponse(tx: String, id: Option[String])(
     implicit log: Log[F]
   ): F[Either[TxAwaitError, TendermintQueryResponse]]
+
+  def start(): Resource[F, Unit]
 }
 
 class WaitResponseServiceImpl[F[_]: Monad](
