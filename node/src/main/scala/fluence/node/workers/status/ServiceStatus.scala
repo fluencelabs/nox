@@ -37,10 +37,15 @@ case class ServiceStatus[+T](
    * @param httpOk Predicate for Http check's status
    */
   def isOk(httpOk: T ⇒ Boolean = _ ⇒ true): Boolean =
-    docker.isRight && (http match {
+    isDockerRunning && (http match {
       case HttpCheckStatus(data) ⇒ httpOk(data)
       case _ ⇒ false
     })
+
+  /**
+   * Returns true iff docker is running
+   */
+  def isDockerRunning: Boolean = docker.isRight
 }
 
 object ServiceStatus {

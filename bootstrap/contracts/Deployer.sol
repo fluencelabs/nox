@@ -138,6 +138,7 @@ contract Deployer {
     // Emitted when running app was removed by app owner
     event AppDeleted(uint256 appID);
 
+    // TODO: make public so dashboard can allow owner to delete apps
     // Address of the contract owner (the one who deployed this contract)
     address private _contractOwner;
 

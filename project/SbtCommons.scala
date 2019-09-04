@@ -168,7 +168,8 @@ object SbtCommons {
 
   val toml = "com.electronwill.night-config" % "toml" % "3.4.2"
 
-  val rocksDb = "org.rocksdb" % "rocksdbjni" % "5.17.2"
+  val rocksDb = "org.rocksdb"      % "rocksdbjni" % "5.17.2"
+  val levelDb = "org.iq80.leveldb" % "leveldb"    % "0.12"
 
   val protobuf = "io.github.scalapb-json"  %% "scalapb-circe"     % "0.4.3"
   val protobufUtil = "com.google.protobuf" % "protobuf-java-util" % "3.7.1"

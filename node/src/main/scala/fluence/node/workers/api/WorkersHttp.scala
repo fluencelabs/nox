@@ -146,9 +146,9 @@ object WorkersHttp {
         LogFactory[F].init("http" -> "status", "app" -> appId.toString) >>= { implicit log =>
           // Fetches the worker's status, waiting no more than 10 seconds (if ?wait=$SECONDS is provided), or 1 second otherwise
           withWorker(appId)(
-            _.services
-              .status(wait.filter(_ < 10).fold(1.second)(_.seconds))
-              .flatMap(st ⇒ Ok(st.asJson.noSpaces))
+            _.services >>=
+              (_.status(wait.filter(_ < 10).fold(1.second)(_.seconds))
+                .flatMap(st ⇒ Ok(st.asJson.noSpaces)))
           )
         }
 
@@ -159,7 +159,7 @@ object WorkersHttp {
 
       case GET -> Root / LongVar(appId) / "p2pPort" ⇒
         LogFactory[F].init("http" -> "p2pPort", "app" -> appId.toString) >>= { implicit log =>
-          log.debug(s"Worker p2pPort") *>
+          log.trace(s"Worker p2pPort") *>
             withApi(appId)(_.p2pPort().map(_.toString).flatMap(Ok(_)))
         }
 

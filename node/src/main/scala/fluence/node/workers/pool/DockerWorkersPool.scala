@@ -39,7 +39,7 @@ import fluence.log.Log
 import fluence.log.LogLevel.LogLevel
 import fluence.node.MakeResource
 import fluence.node.workers.tendermint.block.BlockUploading
-import fluence.node.workers.{DockerWorkerServices, Worker, WorkerParams}
+import fluence.node.workers.{DockerWorkerServices, Worker, WorkerParams, WorkerServices}
 
 import scala.concurrent.duration._
 import scala.language.higherKinds
@@ -100,14 +100,14 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
   /**
    * Prepares the worker resource with all the necessary bindings and lifecycle events
    *
-   * @param onStop Should release the use of this resource
+   * @param stopWorker An action that stops worker resource on evaluation
    * @param params Prepare WorkerParams; could be an expensive operation
    * @param p2pPort P2p port
    * @param stopTimeout Docker stop timeout
    * @return Worker resource to be used
    */
   private def workerResource(
-    onStop: F[Unit],
+    stopWorker: F[Unit],
     params: F[WorkerParams],
     p2pPort: Short,
     stopTimeout: Int,
@@ -115,6 +115,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
   )(implicit log: Log[F]): Resource[F, Worker[F]] =
     for {
       // Order events in the Worker context
+      // TODO: does it solve any problem?
       exec ← MakeResource.orderedEffects[F]
 
       // Prepare WorkerParams in the Worker context
@@ -126,25 +127,28 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
         } yield p
       )
 
-      services ← DockerWorkerServices.make[F, G](ps, p2pPort, stopTimeout, logLevel, receiptStorage, websocketConfig)
+      services <- MakeResource.allocateOn(
+        DockerWorkerServices.make[F, G](
+          ps,
+          p2pPort,
+          stopTimeout,
+          logLevel,
+          receiptStorage,
+          blockUploading,
+          websocketConfig
+        ),
+        exec
+      )
 
-      worker ← Worker.make(
+      worker <- Worker.make(
         ps.appId,
         p2pPort,
         s"Worker; appId=${ps.appId} p2pPort=$p2pPort",
         services,
         exec,
-        onStop = onStop,
+        stopWorker = stopWorker,
         onRemove = ports.free(ps.appId).value.void
       )
-
-      // Once the worker is created, run background job to connect it to all the peers
-      _ ← WorkerP2pConnectivity.make(worker, ps.app.cluster.workers)
-
-      // TODO: pass promise from WorkerP2pConnectivity to blockUploading.start
-      // Start uploading tendermint blocks and send receipts to statemachine
-      _ <- blockUploading.start(worker)
-      _ <- worker.services.responseSubscriber.start()
 
       // Finally, register the worker in the pool
       _ ← registerWorker(worker)

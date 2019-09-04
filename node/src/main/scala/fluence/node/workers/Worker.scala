@@ -40,7 +40,7 @@ import scala.language.higherKinds
 case class Worker[F[_]: Concurrent] private (
   appId: Long,
   p2pPort: Short,
-  services: WorkerServices[F],
+  services: F[WorkerServices[F]],
   description: String,
   private val execute: F[Unit] ⇒ F[Unit],
   stop: F[Unit],
@@ -49,12 +49,12 @@ case class Worker[F[_]: Concurrent] private (
 
   // Reports this worker's health
   def isHealthy(timeout: FiniteDuration): F[Boolean] =
-    services.status(timeout).map(_.isHealthy)
+    services >>= (_.status(timeout).map(_.isHealthy))
 
   // Executes fn * f in worker's context, keeping execution order. Discards the result.
   def withServices_[T, A](f: WorkerServices[F] ⇒ T)(fn: T ⇒ F[A]): F[Unit] =
     execute(
-      fn(f(services)).void
+      (services.map(f) >>= fn).void
     )
 
   // Executes fn * f in worker's context, keeping execution order. Returns the result.
@@ -75,7 +75,7 @@ object Worker {
    * @param p2pPort Tendermint p2p port
    * @param description Human readable description of the worker
    * @param services Worker services
-   * @param onStop Callback, called on worker's stop, but only after all commands have been processed
+   * @param stopWorker An action that stops worker resource on evaluation
    * @param onRemove Callback, called on worker's removal, but only after all commands have been processed
    * @return A Worker's instance, that will initialize itself in the background
    */
@@ -83,9 +83,9 @@ object Worker {
     appId: Long,
     p2pPort: Short,
     description: String,
-    services: WorkerServices[F],
+    services: F[WorkerServices[F]],
     scheduleExecution: F[Unit] ⇒ F[Unit],
-    onStop: F[Unit],
+    stopWorker: F[Unit],
     onRemove: F[Unit]
   ): Resource[F, Worker[F]] =
     Resource.pure(
@@ -95,8 +95,8 @@ object Worker {
         services,
         description,
         scheduleExecution,
-        onStop,
-        onStop *> onRemove
+        stopWorker,
+        stopWorker *> onRemove
       )
     )
 

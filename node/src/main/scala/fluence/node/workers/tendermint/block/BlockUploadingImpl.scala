@@ -25,13 +25,14 @@ import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.receipt.storage.ReceiptStorage
+import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, BlockManifest, Receipt}
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.MakeResource
-import fluence.node.workers.Worker
+import fluence.node.workers.{Worker, WorkerServices}
 import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 
 import scala.language.{higherKinds, postfixOps}
@@ -51,22 +52,25 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
    *   1. retrieve vmHash from state machine
    *   2. Send block manifest receipt to state machine
    *
-   * @param worker Blocks are coming from this worker's Tendermint; receipts are sent to this worker
    */
+  // TODO: separate block uploading into replay and usual block processing parts, so replay could be handled without a need
+  //  for RPC and WRPC. Should be possible to handle block replay, wait until Tendermint started RPC, and then
+  //  connect to Websocket and create blockstore after everything is initialized
   def start(
-    worker: Worker[F]
+    appId: Long,
+    services: WorkerServices[F]
   )(implicit log: Log[F], backoff: Backoff[EffectError] = Backoff.default): Resource[F, Unit] = {
     for {
       // Storage for a previous manifest
       lastManifestReceipt <- Resource.liftF(MVar.of[F, Option[Receipt]](None))
       _ <- pushReceipts(
-        worker.appId,
+        appId,
         lastManifestReceipt,
-        worker.services.blockManifests.receiptStorage,
-        worker.services.tendermintRpc,
-        worker.services.tendermintWRpc,
-        worker.services.control,
-        worker.services.blockManifests.onUploaded
+        services.blockManifests.receiptStorage,
+        services.tendermintRpc,
+        services.tendermintWRpc,
+        services.control,
+        services.blockManifests.onUploaded
       )
     } yield ()
   }
@@ -84,33 +88,10 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
     Resource.liftF((Ref.of[F, Long](0), Deferred[F, Long]).tupled).flatMap {
       case (lastHeightRef, lastHeightDef) ⇒
         def upload(b: BlockUpload) = uploadBlock(b, appId, lastManifestReceipt, storage, onManifestUploaded)
-
-        def sendReceipt(receipt: Receipt)(implicit log: Log[F]) = backoff.retry(
-          control.sendBlockReceipt(receipt),
-          (e: ControlRpcError) => log.error(s"error sending receipt: $e")
-        )
-
-        def emptyBlock(b: BlockUpload) = b.block.data.txs.forall(_.isEmpty)
+        val sendReceipt = this.sendReceipt(_, control)
 
         // TODO: what if we have lost all data in receipt storage? Node will need to sync it from the decentralized storage
-
-        val storedReceipts =
-          fs2.Stream.eval(traceBU(s"will start loading stored receipts")) >>
-            storage
-              .retrieve()
-              .evalTap(t => traceBU(s"stored receipt ${t._1}"))
-              .evalTap {
-                case (h, _) ⇒
-                  // For each receipt, store its height into a Ref. Note: we assume that receipts come in order
-                  lastHeightRef.set(h)
-              }
-              .onFinalize(
-                // When stream completed, resolve last height's deferred with the last noticed height
-                lastHeightRef.get >>= lastHeightDef.complete
-              )
-              // Without .scope, onFinalize might be not called in time
-              .scope
-              .map(_._2)
+        val storedReceipts = getStoredReceipts(storage, lastHeightRef, lastHeightDef)
 
         // TODO get last known height from the last received receipt
         val lastKnownHeight = fs2.Stream.eval(lastHeightDef.get)
@@ -119,41 +100,87 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
         val blocks = lastKnownHeight >>= wrpc.subscribeNewBlock
 
         // Retrieve vm hash for every block
-        val blocksWithVmHash = blocks
-          .evalTap(b => traceBU(s"got block ${b.header.height}"))
-          .evalMap(
-            block =>
-              backoff
-                .retry(
-                  control.getVmHash(block.header.height),
-                  (e: ControlRpcError) => log.error(s"error retrieving vmHash on height ${block.header.height}: $e")
-                )
-                .map(BlockUpload(block, _))
-          )
-          .evalTap(b => traceBU(s"got vmHash ${b.block.header.height}"))
+        val blocksWithVmHash = getBlocksWithVmHashes(blocks, control)
 
-        // Group empty blocks with the first non-empty block; upload empty blocks right away
-        val grouped = blocksWithVmHash
-          .evalTap(b => log.info(s"processing block ${b.block.header.height}"))
-          .evalScan[F, Either[Chain[Receipt], BlockUpload]](Left(Chain.empty)) {
-            case (Left(empties), block) if emptyBlock(block) => upload(block).map(r => Left(empties :+ r))
-            case (Left(empties), block)                      => F.pure(block.copy(emptyReceipts = Some(empties)).asRight)
-            case (Right(_), block) if emptyBlock(block)      => upload(block).map(r => Left(Chain(r)))
-            case (Right(_), block)                           => F.pure(block.asRight)
-          }
-
-        // Receipts from the new blocks (as opposed to stored receipts)
-        val newReceipts = grouped.flatMap {
-          // Emit receipts for the empty blocks
-          case Left(empties) => fs2.Stream.emits(empties.toList.takeRight(1))
-          case Right(block)  => fs2.Stream.eval(upload(block))
-        }
+        // Upload blocks in groups (empty + non-empty)
+        val newReceipts = uploadBlocks(blocksWithVmHash, upload)
 
         // Send receipts to the state machine (worker)
         val receipts = (storedReceipts ++ newReceipts).evalMap(sendReceipt)
 
         MakeResource.concurrentStream(receipts, name = "BlockUploadingStream")
     }
+
+  private def getStoredReceipts(
+    storage: ReceiptStorage[F],
+    lastHeightRef: Ref[F, Long],
+    lastHeightDef: Deferred[F, Long]
+  )(
+    implicit log: Log[F]
+  ) =
+    fs2.Stream.eval(traceBU(s"will start loading stored receipts")) >>
+      storage
+        .retrieve()
+        .evalTap(t => traceBU(s"stored receipt ${t._1}"))
+        .evalTap {
+          case (h, _) ⇒
+            // For each receipt, store its height into a Ref. Note: we assume that receipts come in order
+            lastHeightRef.set(h)
+        }
+        .onFinalize(
+          // When stream completed, resolve last height's deferred with the last noticed height
+          lastHeightRef.get >>= lastHeightDef.complete
+        )
+        // Without .scope, onFinalize might be not called in time
+        .scope
+        .map(_._2)
+
+  private def sendReceipt(receipt: Receipt, control: ControlRpc[F])(
+    implicit log: Log[F],
+    backoff: Backoff[EffectError]
+  ) = backoff.retry(
+    control.sendBlockReceipt(receipt),
+    (e: ControlRpcError) => log.error(s"error sending receipt: $e")
+  )
+
+  private def getBlocksWithVmHashes(
+    blocks: fs2.Stream[F, Block],
+    control: ControlRpc[F]
+  )(implicit backoff: Backoff[EffectError], log: Log[F]) =
+    blocks
+      .evalTap(b => traceBU(s"got block ${b.header.height}"))
+      .evalMap(
+        block =>
+          backoff
+            .retry(
+              control.getVmHash(block.header.height),
+              (e: ControlRpcError) => log.error(s"error retrieving vmHash on height ${block.header.height}: $e")
+            )
+            .map(BlockUpload(block, _))
+      )
+      .evalTap(b => traceBU(s"got vmHash ${b.block.header.height}"))
+
+  private def uploadBlocks(
+    blocks: fs2.Stream[F, BlockUpload],
+    upload: BlockUpload => F[Receipt]
+  )(implicit log: Log[F], F: Applicative[F]) = {
+    def emptyBlock(b: BlockUpload) = b.block.data.txs.forall(_.isEmpty)
+
+    // Group empty blocks with the first non-empty block; upload empty blocks right away and return
+    blocks
+      .evalTap(b => log.info(s"processing block ${b.block.header.height}"))
+      .evalScan[F, Either[Chain[Receipt], BlockUpload]](Left(Chain.empty)) {
+        case (Left(empties), block) if emptyBlock(block) => upload(block).map(r => Left(empties :+ r))
+        case (Left(empties), block)                      => F.pure(block.copy(emptyReceipts = Some(empties)).asRight)
+        case (Right(_), block) if emptyBlock(block)      => upload(block).map(r => Left(Chain(r)))
+        case (Right(_), block)                           => F.pure(block.asRight)
+      }
+      .flatMap {
+        // Emit receipts for the empty blocks
+        case Left(empties) => fs2.Stream.emits(empties.toList.takeRight(1))
+        case Right(block)  => fs2.Stream.eval(upload(block))
+      }
+  }
 
   // TODO write docs
   private def uploadBlock(
@@ -164,7 +191,7 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
     onManifestUploaded: (BlockManifest, Receipt) ⇒ F[Unit]
   )(implicit backoff: Backoff[EffectError], log: Log[F]): F[Receipt] =
     log.scope("block" -> block.block.header.height.toString, "upload block" -> "") { implicit log: Log[F] =>
-      // TODO write docs; why do we need this?
+      // Shorthand for logging errors on retry
       def logError[E <: EffectError](e: E) = log.error("", e)
 
       def upload(b: BlockUpload, r: Option[Receipt]) =

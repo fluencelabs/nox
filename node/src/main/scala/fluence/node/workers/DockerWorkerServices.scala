@@ -17,21 +17,27 @@
 package fluence.node.workers
 
 import cats.effect._
+import cats.syntax.apply._
+import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{Apply, Monad, Parallel}
+import cats.{Monad, Parallel}
 import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.sttp.SttpEffect
+import fluence.effects.tendermint.block.history.db.Blockstore
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
+import fluence.effects.tendermint.rpc.websocket.{TendermintWebsocketRpc, WebsocketConfig}
+import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
-import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
-import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
 import fluence.log.LogLevel.LogLevel
+import fluence.node.status.StatusHttp
 import fluence.node.workers.control.ControlRpc
+import fluence.node.workers.pool.WorkerP2pConnectivity
 import fluence.node.workers.status._
 import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.DockerTendermint
+import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.statemachine.api.StateMachineStatus
 
 import scala.concurrent.duration.FiniteDuration
@@ -114,6 +120,55 @@ object DockerWorkerServices {
     } yield network
 
   /**
+   * Wait until Tendermint container is started, and return a description of how to retrieve worker status
+   */
+  // TODO: wait until RPC is avalable. BLOCKED: RPC isn't available during block replay =>
+  //  need to separate block uploading into replay and usual block processing parts
+  private def appStatus[F[_]: DockerIO: Timer: ConcurrentEffect: ContextShift](
+    worker: DockerContainer,
+    tendermint: DockerTendermint,
+    control: ControlRpc[F],
+    rpc: TendermintHttpRpc[F],
+    appId: Long,
+    timeout: FiniteDuration = StatusHttp.DefaultTimeout
+  )(implicit log: Log[F]): Resource[F, FiniteDuration => F[WorkerStatus]] = Resource.liftF {
+    def workerStatus(tout: FiniteDuration) =
+      DockerIO[F]
+        .checkContainer(worker)
+        .semiflatMap[ServiceStatus[ControlStatus]] { d ⇒
+          HttpStatus
+            .timed(control.status, tout)
+            .map(s ⇒ ServiceStatus(Right(d), s))
+        }
+        .valueOr(err ⇒ ServiceStatus(Left(err), HttpCheckNotPerformed("Worker's Docker container is not launched")))
+
+    def tendermintStatus(tout: FiniteDuration) = tendermint.status(rpc, tout)
+
+    def status(tout: FiniteDuration): F[WorkerStatus] = (tendermintStatus(tout), workerStatus(tout)).mapN { (ts, ws) ⇒
+      WorkerStatus(
+        isHealthy = ts.isOk(_.sync_info.latest_block_height > 0) && ws.isOk(),
+        appId,
+        ts,
+        ws
+      )
+    }
+
+    Log[F].scope("appStatus") { implicit log: Log[F] =>
+      Log[F].info(s"Waiting for tendermint container to start") >>
+        Monad[F]
+          .tailRecM(tendermintStatus(timeout))(
+            _.flatMap(
+              s =>
+                Log[F]
+                  .debug(s"$s")
+                  .as(Either.cond(s.isDockerRunning, status(_), Timer[F].sleep(timeout) >> tendermintStatus(timeout)))
+            )
+          )
+          .flatTap(_ => Log[F].info("Tendermint has started"))
+    }
+  }
+
+  /**
    * Makes a single worker that runs once resource is in use
    *
    * @param params Worker's running params
@@ -130,58 +185,56 @@ object DockerWorkerServices {
     stopTimeout: Int,
     logLevel: LogLevel,
     receiptStorage: Resource[F, ReceiptStorage[F]],
+    blockUploading: BlockUploading[F],
     websocketConfig: WebsocketConfig
   )(
     implicit
     F: Concurrent[F],
-    P: Parallel[F, G]
+    P: Parallel[F, G],
+    backoff: Backoff[EffectError]
   ): Resource[F, WorkerServices[F]] =
     for {
+      // Create network, start worker & tendermint containers
       network ← makeNetwork(params)
-
       worker ← DockerIO[F].run(dockerCommand(params, network, logLevel), stopTimeout)
-
       tendermint ← DockerTendermint.make[F](params, p2pPort, containerName(params), network, stopTimeout)
 
       rpc ← TendermintHttpRpc.make[F](tendermint.name, DockerTendermint.RpcPort)
+      control = ControlRpc[F](containerName(params), ControlRpcPort)
 
-      wrpc = TendermintWebsocketRpc.make[F](tendermint.name, DockerTendermint.RpcPort, rpc, websocketConfig)
+      // Once tendermint is started, run background job to connect it to all the peers
+      _ ← WorkerP2pConnectivity.make(params.app.id, rpc, params.app.cluster.workers)
+
+      // Wait until tendermint container is started
+      // TODO: wait until RPC is avalable. BLOCKED: RPC isn't available during block replay =>
+      //  need to separate block uploading into replay and usual block processing parts
+      status <- appStatus(worker, tendermint, control, rpc, params.appId)
+
+      // Once tendermint is started, attach to its database
+      blockstore <- Blockstore.make[F](params.tendermintPath)
+
+      wrpc = TendermintWebsocketRpc.make[F](tendermint.name, DockerTendermint.RpcPort, rpc, blockstore, websocketConfig)
 
       blockManifests ← WorkerBlockManifests.make[F](receiptStorage)
 
       responseSubscriber <- ResponseSubscriber.make(rpc, wrpc, params.appId)
 
-      control = ControlRpc[F](containerName(params), ControlRpcPort)
+      services = new DockerWorkerServices[F](
+        p2pPort,
+        params.appId,
+        rpc,
+        wrpc,
+        control,
+        blockManifests,
+        responseSubscriber,
+        status
+      )
 
-      workerStatus = (timeout: FiniteDuration) ⇒
-        DockerIO[F]
-          .checkContainer(worker)
-          .semiflatMap[ServiceStatus[StateMachineStatus]] { d ⇒
-            HttpStatus
-              .timed(control.status, timeout)
-              .map(s ⇒ ServiceStatus(Right(d), s))
-          }
-          .valueOr(err ⇒ ServiceStatus(Left(err), HttpCheckNotPerformed("Worker's Docker container is not launched")))
+      // Start uploading tendermint blocks and send receipts to statemachine
+      _ <- blockUploading.start(params.app.id, services)
 
-      status = (timeout: FiniteDuration) ⇒
-        Apply[F].map2(tendermint.status(rpc, timeout), workerStatus(timeout)) { (ts, ws) ⇒
-          WorkerStatus(
-            isHealthy = ts.isOk(_.sync_info.latest_block_height > 1) && ws.isOk(),
-            params.appId,
-            ts,
-            ws
-          )
-        }
-
-    } yield new DockerWorkerServices[F](
-      p2pPort,
-      params.appId,
-      rpc,
-      wrpc,
-      control,
-      blockManifests,
-      responseSubscriber,
-      status
-    )
+      // Start Response subscriber after block uploading, so block replay succeeds
+      _ <- responseSubscriber.start()
+    } yield services
 
 }
