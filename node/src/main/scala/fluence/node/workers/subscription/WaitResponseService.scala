@@ -13,7 +13,17 @@ import cats.syntax.applicative._
 
 import scala.language.higherKinds
 
-class WaitResponseService[F[_]: Monad](tendermintRpc: TendermintHttpRpc[F], responseSubscriber: ResponseSubscriber[F]) {
+trait WaitResponseService[F[_]] {
+
+  def sendTxAwaitResponse(tx: String, id: Option[String])(
+    implicit log: Log[F]
+  ): F[Either[TxAwaitError, TendermintQueryResponse]]
+}
+
+class WaitResponseServiceImpl[F[_]: Monad](
+  tendermintRpc: TendermintHttpRpc[F],
+  responseSubscriber: ResponseSubscriber[F]
+) extends WaitResponseService[F] {
 
   /**
    * Creates a subscription for response and waits when it will be completed.
@@ -90,5 +100,5 @@ object WaitResponseService {
   def apply[F[_]: Monad](
     tendermintRpc: TendermintHttpRpc[F],
     responseSubscriber: ResponseSubscriber[F]
-  ): WaitResponseService[F] = new WaitResponseService(tendermintRpc, responseSubscriber)
+  ): WaitResponseService[F] = new WaitResponseServiceImpl(tendermintRpc, responseSubscriber)
 }

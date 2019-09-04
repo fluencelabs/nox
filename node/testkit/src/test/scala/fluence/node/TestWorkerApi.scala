@@ -69,7 +69,7 @@ class TestWorkerApi[F[_]: Concurrent]() extends WorkerApi[F] {
    */
   override def sendTxAwaitResponse(tx: String, id: Option[String])(
     implicit log: Log[F]
-  ): F[Either[TxAwaitError, TendermintQueryResponse]] =
+  ): F[TendermintResponse] =
     throw new NotImplementedError("TestWorkerApi, method sendTxAwaitResponse")
 
   /**
