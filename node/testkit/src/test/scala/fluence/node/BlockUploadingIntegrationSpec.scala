@@ -45,7 +45,7 @@ import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
 import fluence.node.eth.state._
-import fluence.node.workers.control.{ControlRpc, ControlRpcError}
+import fluence.node.workers.control.ControlRpcError
 import fluence.node.workers.status.WorkerStatus
 import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.block.BlockUploading
@@ -53,13 +53,14 @@ import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
 import fluence.statemachine.control.signals.ControlSignals
 import fluence.statemachine.error.StateMachineError
-import fluence.statemachine.state.AbciState
+import fluence.statemachine.state.{MachineState, StateService}
 import fluence.statemachine.vm.VmOperationInvoker
-import fluence.statemachine.{AbciService, TestTendermintRpc}
+import fluence.statemachine.TestTendermintRpc
 import fluence.vm.InvocationResult
 import fluence.Eventually
 import fluence.statemachine.api.signals.BlockReceipt
 import fluence.statemachine.api.tx.{Tx, TxCode, TxResponse}
+import fluence.statemachine.client.{ControlRpc, ControlRpcError, TestControlRpc}
 import fs2.concurrent.Queue
 import io.circe.Json
 import io.circe.parser.parse
@@ -130,8 +131,8 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
     }
 
     for {
-      state ← Ref.of[IO, AbciState](AbciState())
-      abci = new AbciService[IO](state, vmInvoker, controlSignals, blockUploadingEnabled = true)
+      state ← Ref.of[IO, MachineState](MachineState())
+      abci = new StateService[IO](state, vmInvoker, controlSignals, blockUploadingEnabled = true)
     } yield (abci, state)
   }
 
@@ -222,7 +223,7 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
       .right
       .value
 
-  def start(): Resource[IO, (AbciService[IO], Ref[IO, AbciState], Queue[IO, Block])] =
+  def start(): Resource[IO, (StateService[IO], Ref[IO, MachineState], Queue[IO, Block])] =
     for {
       (controlRpc, controlSignals) <- control()
       (abciService, abciState) <- Resource.liftF(abciService(controlSignals))

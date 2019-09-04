@@ -14,21 +14,20 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.control
+package fluence.statemachine.client
 
 import cats.data.EitherT
 import cats.effect.Sync
-import com.softwaremill.sttp._
-import fluence.effects.sttp.SttpEffect
-import fluence.effects.tendermint.block.history.Receipt
-import fluence.node.workers.status.HttpStatus
+import fluence.effects.sttp.{SttpEffect, SttpError}
 import fluence.statemachine.api.StateMachineStatus
+import fluence.statemachine.api.signals.BlockReceipt
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
 /**
  * RPC channel from node to worker
+ * TODO split and move to api
  */
 abstract class ControlRpc[F[_]] {
 
@@ -44,7 +43,7 @@ abstract class ControlRpc[F[_]] {
    *
    * @return Currently if method returned without an error, worker is considered to be healthy
    */
-  def status: F[HttpStatus[StateMachineStatus]]
+  def status: EitherT[F, SttpError, StateMachineStatus]
 
   /**
    * Requests worker to stop
@@ -54,7 +53,7 @@ abstract class ControlRpc[F[_]] {
   /**
    * Send block manifest receipt, so state machine can use it for app hash calculation
    */
-  def sendBlockReceipt(receipt: Receipt): EitherT[F, ControlRpcError, Unit]
+  def sendBlockReceipt(receipt: BlockReceipt): EitherT[F, ControlRpcError, Unit]
 
   /**
    * Retrieves vm hash from state machine, required for block manifest uploading

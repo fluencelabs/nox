@@ -14,13 +14,12 @@
  * limitations under the License.
  */
 
-package fluence.node
+package fluence.statemachine.client
 
 import cats.data.EitherT
-import fluence.effects.tendermint.block.history.Receipt
-import fluence.node.workers.control.{ControlRpc, ControlRpcError}
-import fluence.node.workers.status.HttpStatus
+import fluence.effects.sttp.SttpError
 import fluence.statemachine.api.StateMachineStatus
+import fluence.statemachine.api.signals.BlockReceipt
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -40,7 +39,7 @@ trait TestControlRpc[F[_]] extends ControlRpc[F] {
    *
    * @return Currently if method returned without an error, worker is considered to be healthy
    */
-  override def status: F[HttpStatus[StateMachineStatus]] = throw new NotImplementedError("def status")
+  override def status: EitherT[F, SttpError, StateMachineStatus] = throw new NotImplementedError("def status")
 
   /**
    * Requests worker to stop
@@ -50,7 +49,7 @@ trait TestControlRpc[F[_]] extends ControlRpc[F] {
   /**
    * Send block manifest receipt, so state machine can use it for app hash calculation
    */
-  override def sendBlockReceipt(receipt: Receipt): EitherT[F, ControlRpcError, Unit] =
+  override def sendBlockReceipt(receipt: BlockReceipt): EitherT[F, ControlRpcError, Unit] =
     throw new NotImplementedError("def sendBlockReceipt")
 
   /**

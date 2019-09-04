@@ -28,7 +28,7 @@ import fluence.crypto.hash.JdkCryptoHasher
 import fluence.log.{Log, LogFactory}
 import fluence.statemachine.api.signals.BlockReceipt
 import fluence.statemachine.error.StateMachineError
-import fluence.statemachine.state.AbciState
+import fluence.statemachine.state.{MachineState, StateService}
 import fluence.statemachine.vm.VmOperationInvoker
 import fluence.vm.InvocationResult
 import org.scalatest.{Matchers, WordSpec}
@@ -48,7 +48,7 @@ case class ExecutionState(actions: List[(Int, Action)] = Nil, counter: Int = 0) 
   def clearActions() = copy(actions = Nil)
 }
 
-class AbciServiceSpec extends WordSpec with Matchers {
+class StateServiceSpec extends WordSpec with Matchers {
   implicit private val timer = IO.timer(global)
   implicit private val shift = IO.contextShift(global)
   implicit private val log = LogFactory.forPrintln[IO]().init("AbciServiceSpec", level = Log.Error).unsafeRunSync()
@@ -80,20 +80,20 @@ class AbciServiceSpec extends WordSpec with Matchers {
         }
 
         for {
-          state ← Ref.of[IO, AbciState](AbciState())
+          state ← Ref.of[IO, MachineState](MachineState())
           txCounter <- Ref.of[IO, Int](0)
-          abci = new AbciService[IO](state, vmInvoker, controlSignals, blockUploadingEnabled = true)
+          abci = new StateService[IO](state, vmInvoker, controlSignals, blockUploadingEnabled = true)
         } yield (abci, ref, state, txCounter)
       }
       .flatMap(identity)
   }
 
   private def checkCommit(
-    abci: AbciService[IO],
-    ref: Ref[IO, ExecutionState],
-    abciState: Ref[IO, AbciState],
-    expectedActions: List[Action],
-    expectedHeight: Long
+                           abci: StateService[IO],
+                           ref: Ref[IO, ExecutionState],
+                           abciState: Ref[IO, MachineState],
+                           expectedActions: List[Action],
+                           expectedHeight: Long
   ) = {
     Apply[IO].map2(abciState.get, ref.get) {
       case (abciState, executionState) =>

@@ -14,11 +14,20 @@
  * limitations under the License.
  */
 
-package fluence.statemachine
+package fluence.statemachine.api.command
 
-import fluence.statemachine.control.signals.ControlSignals
+import cats.data.EitherT
+import fluence.effects.EffectError
+import fluence.log.Log
+import fluence.statemachine.api.StateHash
+import fluence.statemachine.api.tx.{Tx, TxResponse}
 
 import scala.language.higherKinds
 
-// TODO implement
-class HttpHandler[F[_]](service: AbciService[F], controlSignals: ControlSignals[F]) {}
+trait DirectAppTxHandler[F[_]] {
+
+  def processTx(tx: Tx)(implicit log: Log[F]): EitherT[F, EffectError, TxResponse]
+
+  def blocks()(implicit log: Log[F]): fs2.Stream[F, StateHash]
+
+}

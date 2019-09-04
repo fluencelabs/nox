@@ -14,25 +14,36 @@
  * limitations under the License.
  */
 
-package fluence.statemachine
+package fluence.statemachine.abci
 
 import cats.Applicative
-import cats.effect.Effect
+import cats.data.{EitherT, NonEmptyList}
+import cats.effect.concurrent.Deferred
 import cats.effect.syntax.effect._
+import cats.effect.{Effect, Resource, Sync}
+import cats.syntax.applicative._
+import cats.syntax.apply._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import com.github.jtendermint.jabci.api._
+import com.github.jtendermint.jabci.socket.TSocket
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
 import fluence.log.{Log, LogFactory}
 import fluence.statemachine.api.query.QueryResponse
 import fluence.statemachine.api.signals.DropPeer
 import fluence.statemachine.api.tx.{Tx, TxResponse}
+import fluence.statemachine.api.{StateHash, StateMachineStatus}
 import fluence.statemachine.control.signals.ControlSignals
+import fluence.statemachine.error.StateMachineError
+import fluence.statemachine.state.{StateMachineVm, StateService}
+import fluence.statemachine.vm.WasmVmOperationInvoker
 
 import scala.language.higherKinds
 import scala.util.Try
 
 class AbciHandler[F[_]: Effect: LogFactory](
-  service: AbciService[F],
+  service: StateService[F],
   controlSignals: ControlSignals[F]
 ) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock {
 
@@ -42,16 +53,16 @@ class AbciHandler[F[_]: Effect: LogFactory](
 
   private def handleTxResponse(tx: Array[Byte], resp: TxResponse)(implicit log: Log[F]): F[Unit] = {
     val TxResponse(code, info, height) = resp
-    log
-      .info(
-        Tx.splitTx(tx)
-          .fold(
-            s"${height.fold("")(h => s"height $h")} can't parse head from tx ${Try(new String(tx.take(100)))}"
-          ) {
-            case (head, _) =>
-              s"tx.head: $head -> $code ${info.replace('\n', ' ')} ${height.fold("")(h => s"height $h")}"
-          }
-      )
+
+    log.info(
+      Tx.splitTx(tx)
+        .fold(
+          s"${height.fold("")(h => s"height $h")} can't parse head from tx ${Try(new String(tx.take(100)))}"
+        ) {
+          case (head, _) =>
+            s"tx.head: $head -> $code ${info.replace('\n', ' ')} ${height.fold("")(h => s"height $h")}"
+        }
+    )
   }
 
   override def requestCheckTx(
@@ -158,7 +169,7 @@ class AbciHandler[F[_]: Effect: LogFactory](
         .setPubKey(
           PubKey
             .newBuilder()
-            .setType(DropPeer.KEY_TYPE)
+            .setType(DropPeer.KeyType)
             .setData(ByteString.copyFrom(drop.validatorKey.toArray))
         )
         .setPower(0) // settings power to zero votes to remove the validator
@@ -177,4 +188,71 @@ class AbciHandler[F[_]: Effect: LogFactory](
       .toIO
       .unsafeRunSync()
   }
+}
+
+object AbciHandler {
+  case class Config(moduleFilenames: NonEmptyList[String], abciPort: Int, blockUploadingEnabled: Boolean)
+
+  def make[F[_]: Log: LogFactory: Effect](
+    config: Config,
+    statusDef: Deferred[F, F[StateMachineStatus]],
+    signals: ControlSignals[F]
+  ): Resource[F, Unit] =
+    Resource
+      .make(
+        buildAbciHandler(config, statusDef, signals).value.flatMap {
+          case Right(handler) ⇒ handler.pure[F]
+          case Left(err) ⇒
+            val exception = err.causedBy match {
+              case Some(caused) => new RuntimeException("Building ABCI handler failed: " + err, caused)
+              case None         => new RuntimeException("Building ABCI handler failed: " + err)
+            }
+            Sync[F].raiseError[AbciHandler[F]](exception)
+        }.flatMap { handler ⇒
+          Log[F].info("Starting State Machine ABCI handler") >>
+            Sync[F].delay {
+              val socket = new TSocket
+              socket.registerListener(handler)
+
+              val socketThread = new Thread(() => socket.start(config.abciPort))
+              socketThread.setName("AbciSocket")
+              socketThread.start()
+
+              (socketThread, socket)
+            }
+        }
+      ) {
+        case (socketThread, socket) ⇒
+          Log[F].info(s"Stopping TSocket and its thread") *>
+            Sync[F].delay {
+              socket.stop()
+              if (socketThread.isAlive) socketThread.interrupt()
+            }
+      }
+      .flatMap(_ ⇒ Log.resource[F].info("State Machine ABCI handler started successfully"))
+
+  /**
+   * Builds [[AbciHandler]], used to serve all Tendermint requests.
+   *
+   * @param config config object to load various settings
+   */
+  private[statemachine] def buildAbciHandler[F[_]: Log: LogFactory: Effect](
+    config: Config,
+    statusDef: Deferred[F, F[StateMachineStatus]],
+    signals: ControlSignals[F]
+  ): EitherT[F, StateMachineError, AbciHandler[F]] =
+    for {
+      _ ← Log.eitherT[F, StateMachineError].info("Loading VM modules from " + config.moduleFilenames)
+      vm <- StateMachineVm[F](config.moduleFilenames)
+
+      defaultStatus = StateMachineStatus(expectsEth = vm.expectsEth, stateHash = StateHash.empty)
+
+      _ ← EitherT.right(statusDef.complete(signals.lastStateHash.map(sh ⇒ defaultStatus.copy(stateHash = sh))))
+
+      _ ← Log.eitherT[F, StateMachineError].info("VM instantiated")
+
+      vmInvoker = new WasmVmOperationInvoker[F](vm)
+
+      service <- EitherT.right(StateService[F](vmInvoker, signals, config.blockUploadingEnabled))
+    } yield new AbciHandler[F](service, signals)
 }

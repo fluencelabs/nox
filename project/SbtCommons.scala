@@ -13,6 +13,11 @@ object SbtCommons {
 
   val scalaV = scalaVersion := "2.12.9"
 
+  val kindProjector = Seq(
+    resolvers += Resolver.sonatypeRepo("releases"),
+    addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.0")
+  )
+
   val commons = Seq(
     scalaV,
     version                              := "0.3.0",
@@ -30,12 +35,7 @@ object SbtCommons {
     // see good explanation https://gist.github.com/djspiewak/7a81a395c461fd3a09a6941d4cd040f2
     scalacOptions ++= Seq("-Ypartial-unification", "-deprecation"),
     addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0")
-  )
-
-  val kindProjector = Seq(
-    resolvers += Resolver.sonatypeRepo("releases"),
-    addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.0")
-  )
+  ) ++ kindProjector
 
   val mergeStrategy = Def.setting[String => MergeStrategy]({
     // a module definition fails compilation for java 8, just skip it

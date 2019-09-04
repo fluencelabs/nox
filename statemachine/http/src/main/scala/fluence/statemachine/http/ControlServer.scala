@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.control
-import cats.data.Kleisli
+package fluence.statemachine.http
+
 import cats.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -28,21 +28,9 @@ import io.circe.syntax._
 import org.http4s._
 import org.http4s.circe._
 import org.http4s.dsl.Http4sDsl
-import org.http4s.implicits._
-import org.http4s.server.Server
-import org.http4s.server.blaze._
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
-
-/**
- * Represents HTTP JSON RPC server sending requests to ControlSignals for later consumption by state machine
- *
- * @param signals Control events sink
- * @param http Http json rpc server
- * @tparam F Effect
- */
-case class ControlServer[F[_]](signals: ControlSignals[F], http: Server[F])
 
 object ControlServer {
 
@@ -54,13 +42,6 @@ object ControlServer {
 
   private implicit val encbc: Encoder[ByteVector] = Encoder.encodeString.contramap(_.toHex)
 
-  /** Settings for [[ControlServer]]
-   *
-   * @param host host to listen on
-   * @param port port to listen on
-   */
-  case class Config(host: String, port: Short)
-
   /**
    * Run http json rpc server
    *
@@ -68,10 +49,10 @@ object ControlServer {
    * @tparam F Effect
    * @return
    */
-  private def controlService[F[_]: Concurrent: LogFactory](
+  def routes[F[_]: Concurrent: LogFactory](
     signals: ControlSignals[F],
     status: F[StateMachineStatus]
-  )(implicit dsl: Http4sDsl[F]): Kleisli[F, Request[F], Response[F]] = {
+  )(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
     import dsl._
 
     implicit val dpdec: EntityDecoder[F, DropPeer] = jsonOf[F, DropPeer]
@@ -81,12 +62,12 @@ object ControlServer {
 
     def logReq(req: Request[F]): F[Log[F]] =
       LogFactory[F]
-        .init("method" -> req.method.toString(), "ctrl" -> req.pathInfo)
+        .init("method" -> req.method.toString(), "path" -> req.pathInfo)
         .flatTap(_.info(s"request"))
         .widen[Log[F]]
 
-    val route: PartialFunction[Request[F], F[Response[F]]] = {
-      case req @ POST -> Root / "control" / "dropPeer" =>
+    HttpRoutes.of {
+      case req @ POST -> Root / "dropPeer" =>
         for {
           implicit0(log: Log[F]) ← logReq(req)
           drop <- req.as[DropPeer]
@@ -94,17 +75,17 @@ object ControlServer {
           ok <- Ok()
         } yield ok
 
-      case req @ POST -> Root / "control" / "stop" =>
+      case req @ POST -> Root / "stop" =>
         for {
           implicit0(log: Log[F]) ← logReq(req)
           _ ← signals.stopWorker()
           ok ← Ok()
         } yield ok
 
-      case (GET | POST) -> Root / "control" / "status" =>
+      case (GET | POST) -> Root / "status" =>
         status.map(_.asJson.noSpaces) >>= (json ⇒ Ok(json))
 
-      case req @ POST -> Root / "control" / "blockReceipt" =>
+      case req @ POST -> Root / "blockReceipt" =>
         for {
           implicit0(log: Log[F]) ← logReq(req)
           receipt <- req.as[BlockReceipt]
@@ -112,46 +93,13 @@ object ControlServer {
           ok <- Ok()
         } yield ok
 
-      case req @ (GET | POST) -> Root / "control" / "vmHash" =>
+      case req @ (GET | POST) -> Root / "vmHash" =>
         for {
           implicit0(log: Log[F]) ← logReq(req)
           GetVmHash(height) <- req.as[GetVmHash]
           vmHash <- signals.getStateHash(height)
           ok <- Ok(vmHash.hash)
         } yield ok
-
-      case req =>
-        for {
-          implicit0(log: Log[F]) ← logReq(req)
-          _ ← Log[F].warn(s"RPC: unexpected request: ${req.method}")
-        } yield Response.notFound
     }
-
-    HttpRoutes
-      .of[F](route)
-      .orNotFound
   }
-
-  /**
-   * Create a resource with ControlServer, will close http server after use
-   *
-   * @param config Configuration, e.g., host and port to listen on
-   * @tparam F Effect
-   * @return
-   */
-  def make[F[_]: ConcurrentEffect: Timer: LogFactory: Log](
-    config: Config,
-    status: F[StateMachineStatus]
-  ): Resource[F, ControlServer[F]] = {
-    implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
-
-    for {
-      signals <- ControlSignals[F]()
-      server ← BlazeServerBuilder[F]
-        .bindHttp(config.port, config.host)
-        .withHttpApp(controlService(signals, status))
-        .resource
-    } yield ControlServer(signals, server)
-  }
-
 }

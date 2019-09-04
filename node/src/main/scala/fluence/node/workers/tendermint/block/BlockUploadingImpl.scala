@@ -33,7 +33,8 @@ import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.node.workers.{Worker, WorkerServices}
-import fluence.node.workers.control.{ControlRpc, ControlRpcError}
+import fluence.node.workers.control.ControlRpcError
+import fluence.statemachine.client.{ControlRpc, ControlRpcError}
 
 import scala.language.{higherKinds, postfixOps}
 

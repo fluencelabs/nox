@@ -56,7 +56,7 @@ case class DropPeer(validatorKey: ByteVector) extends ControlSignal
 
 object DropPeer {
   // Type of a Tendermint node's validator key. Currently always PubKeyEd25519.
-  val KEY_TYPE = "PubKeyEd25519"
+  val KeyType = "PubKeyEd25519"
 
   implicit val dec: Decoder[DropPeer] = deriveDecoder[DropPeer]
   private implicit val decbc: Decoder[ByteVector] =

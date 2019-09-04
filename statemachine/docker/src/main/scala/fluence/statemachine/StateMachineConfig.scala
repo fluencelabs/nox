@@ -14,19 +14,18 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.config
+package fluence.statemachine
 
 import java.io.File
 
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.{IO, LiftIO, Sync}
 import cats.instances.list._
+import cats.syntax.applicativeError._
 import cats.syntax.flatMap._
 import cats.syntax.list._
-import cats.syntax.applicativeError._
 import cats.{Monad, Traverse}
 import com.typesafe.config.{Config, ConfigFactory}
-import fluence.statemachine.control.ControlServer
 import fluence.statemachine.error.{StateMachineError, VmModuleLocationError}
 import net.ceedubs.ficus.readers.ValueReader
 
@@ -41,7 +40,7 @@ import scala.language.higherKinds
  * @param moduleFiles Sequence of files with WASM module code
  * @param logLevel Level of logging ( OFF / ERROR / WARN / INFO / DEBUG / TRACE )
  * @param abciPort Port to listen for ABCI events
- * @param control Configuration for ControlRPC server
+ * @param http Configuration for ControlRPC server
  * @param blockUploadingEnabled Whether to retrieve block receipts and use them in app hash or not
  */
 case class StateMachineConfig(
@@ -49,8 +48,7 @@ case class StateMachineConfig(
   moduleFiles: List[String],
   logLevel: String,
   abciPort: Short,
-  control: ControlServer.Config,
-  tendermintRpc: TendermintRpcConfig,
+  http: HttpConfig,
   blockUploadingEnabled: Boolean
 ) {
 
@@ -88,9 +86,6 @@ object StateMachineConfig {
    */
   def load[F[_]: Sync](conf: ⇒ Config = ConfigFactory.load()): F[StateMachineConfig] = {
     import net.ceedubs.ficus.Ficus._
-    import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
-    import net.ceedubs.ficus.readers.ArbitraryTypeReader._
-    import net.ceedubs.ficus.readers.EnumerationReader._
     import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 
     implicit val shortValueReader: ValueReader[Short] =

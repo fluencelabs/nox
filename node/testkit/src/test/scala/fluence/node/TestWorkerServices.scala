@@ -22,10 +22,10 @@ import cats.syntax.applicative._
 import fluence.effects.docker.DockerContainerStopped
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
-import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus, WorkerStatus}
 import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.{WorkerBlockManifests, WorkerServices}
+import fluence.statemachine.client.ControlRpc
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds

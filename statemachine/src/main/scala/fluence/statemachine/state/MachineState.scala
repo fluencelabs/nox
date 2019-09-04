@@ -25,15 +25,15 @@ import scala.collection.immutable.Queue
 import scala.language.higherKinds
 
 /**
- * All the state for Abci handler: collects the block, stores responses and sessions.
+ * All the state for State Machine: collects the block, stores responses and sessions.
  *
- * @param height Number of commits performed on this AbciState instance
+ * @param height Number of commits performed on this MachineState instance
  * @param appHash Last known app hash
  * @param blockSessions Session IDs affected since the last commit
  * @param responses Queue of responses for handled txs
  * @param sessions Sessions data
  */
-case class AbciState(
+case class MachineState(
   height: Long = 0,
   appHash: ByteVector = ByteVector.empty,
   blockSessions: Set[String] = Set.empty,
@@ -41,11 +41,11 @@ case class AbciState(
   sessions: Sessions = Sessions()
 )
 
-object AbciState {
+object MachineState {
 
   private implicit class LensSessions[F[_]: Functor, T](sessionsState: StateT[F, Sessions, T]) {
 
-    def toAbciState: StateT[F, AbciState, T] =
+    def toMachineState: StateT[F, MachineState, T] =
       sessionsState.transformS(_.sessions, (st, sess) ⇒ st.copy(sessions = sess))
   }
 
@@ -57,14 +57,18 @@ object AbciState {
    * @param maxPendingTxs The upper bound for the number of cached pending txs for a single session TODO: move to config
    * @return Whether tx was stored in AbciState or is ignored
    */
-  def addTx[F[_]: Monad](tx: Tx, maxSessions: Int = 128, maxPendingTxs: Int = 256): StateT[F, AbciState, TxCode.Value] =
+  def addTx[F[_]: Monad](
+    tx: Tx,
+    maxSessions: Int = 128,
+    maxPendingTxs: Int = 256
+  ): StateT[F, MachineState, TxCode.Value] =
     for {
       // Add tx to sessions
-      code ← Sessions.addTx(tx, maxPendingTxs).toAbciState
+      code ← Sessions.addTx(tx, maxPendingTxs).toMachineState
       // Drop sessions
-      _ ← Sessions.bound(maxSessions).toAbciState
+      _ ← Sessions.bound(maxSessions).toMachineState
       // If this tx was added, keep it in blockSessions
-      _ ← StateT.modify[F, AbciState](
+      _ ← StateT.modify[F, MachineState](
         st ⇒ st.copy(blockSessions = if (code == TxCode.OK) st.blockSessions + tx.head.session else st.blockSessions)
       )
     } yield code
@@ -75,8 +79,8 @@ object AbciState {
    * @param limit Max number of responses to store
    * @return List of dropped responses
    */
-  def boundResponses[F[_]: Monad](limit: Int): StateT[F, AbciState, List[(Tx.Head, Array[Byte])]] =
-    StateT.get[F, AbciState].flatMap {
+  def boundResponses[F[_]: Monad](limit: Int): StateT[F, MachineState, List[(Tx.Head, Array[Byte])]] =
+    StateT.get[F, MachineState].flatMap {
       case st if st.responses.size > limit ⇒
         // Can dequeue safely
         val (drop, keep) = st.responses.dequeue
@@ -99,9 +103,13 @@ object AbciState {
    * @param data Response data
    * @param resultsLimit How many results we are allowed to keep in cache TODO: move to config
    */
-  def putResponse[F[_]: Monad](head: Tx.Head, data: Array[Byte], resultsLimit: Int = 512): StateT[F, AbciState, Unit] =
+  def putResponse[F[_]: Monad](
+    head: Tx.Head,
+    data: Array[Byte],
+    resultsLimit: Int = 512
+  ): StateT[F, MachineState, Unit] =
     for {
-      _ ← StateT.modify[F, AbciState](s ⇒ s.copy(responses = s.responses.enqueue(head -> data)))
+      _ ← StateT.modify[F, MachineState](s ⇒ s.copy(responses = s.responses.enqueue(head -> data)))
       _ ← boundResponses(resultsLimit)
     } yield ()
 
@@ -110,7 +118,7 @@ object AbciState {
    *
    * @param hash App hash
    */
-  def setAppHash[F[_]: Applicative](hash: ByteVector): StateT[F, AbciState, Unit] =
+  def setAppHash[F[_]: Applicative](hash: ByteVector): StateT[F, MachineState, Unit] =
     StateT.modify(s ⇒ s.copy(height = s.height + 1, appHash = hash))
 
   /**
@@ -118,11 +126,11 @@ object AbciState {
    *
    * @return List of Txs, they're already removed from caches
    */
-  def formBlock[F[_]: Monad]: StateT[F, AbciState, List[Tx]] =
+  def formBlock[F[_]: Monad]: StateT[F, MachineState, List[Tx]] =
     for {
-      state ← StateT.get[F, AbciState]
-      txs ← Sessions.commit[F](state.blockSessions.toList).toAbciState
-      _ ← StateT.modify[F, AbciState](s ⇒ s.copy(blockSessions = Set.empty))
-      _ ← Sessions.refresh[F](state.blockSessions).toAbciState
+      state ← StateT.get[F, MachineState]
+      txs ← Sessions.commit[F](state.blockSessions.toList).toMachineState
+      _ ← StateT.modify[F, MachineState](s ⇒ s.copy(blockSessions = Set.empty))
+      _ ← Sessions.refresh[F](state.blockSessions).toMachineState
     } yield txs
 }

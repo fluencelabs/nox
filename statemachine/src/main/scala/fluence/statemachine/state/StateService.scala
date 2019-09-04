@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.statemachine
+package fluence.statemachine.state
 
 import cats.effect.Effect
 import cats.effect.concurrent.Ref
@@ -24,6 +24,7 @@ import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.option._
+import cats.syntax.compose._
 import cats.{Applicative, Eval, Monad, Traverse}
 import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
@@ -33,7 +34,6 @@ import fluence.statemachine.api.query.{QueryCode, QueryResponse}
 import fluence.statemachine.api.signals.BlockReceipt
 import fluence.statemachine.api.tx.{Tx, TxCode, TxResponse}
 import fluence.statemachine.control.signals.ControlSignals
-import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
 import scodec.bits.ByteVector
 
@@ -42,12 +42,12 @@ import scala.language.higherKinds
 /**
  * Wraps all the state and logic required to perform ABCI logic.
  *
- * @param state See [[AbciState]]
+ * @param state See [[MachineState]]
  * @param vm Virtual machine invoker
  * @param controlSignals Communication channel with master node
  */
-class AbciService[F[_]: Monad: Effect](
-  state: Ref[F, AbciState],
+class StateService[F[_]: Monad: Effect](
+  state: Ref[F, MachineState],
   vm: VmOperationInvoker[F],
   controlSignals: ControlSignals[F],
   blockUploadingEnabled: Boolean
@@ -67,15 +67,15 @@ class AbciService[F[_]: Monad: Effect](
       // Get current state
       currentState <- state.get
       // Form a block: take ordered txs from AbciState
-      sTxs @ (_, transactions) ← AbciState.formBlock[F].run(currentState)
+      sTxs @ (_, transactions) ← MachineState.formBlock[F].run(currentState)
 
       // Process txs one by one
-      st ← Monad[F].tailRecM[(AbciState, List[Tx]), AbciState](sTxs) {
+      st ← Monad[F].tailRecM[(MachineState, List[Tx]), MachineState](sTxs) {
         case (st, tx :: txs) ⇒
           // Invoke
           vm.invoke(tx.data.value)
             // Save the tx response to AbciState
-            .semiflatMap(result ⇒ AbciState.putResponse[F](tx.head, result.output).map(_ ⇒ txs).run(st).map(Left(_)))
+            .semiflatMap(result ⇒ MachineState.putResponse[F](tx.head, result.output).map(_ ⇒ txs).run(st).map(Left(_)))
             .leftSemiflatMap(err ⇒ Log[F].error(s"VM invoke failed: $err for tx: $tx").as(err))
             .getOrElse(Right(st)) // TODO do not ignore vm error
 
@@ -132,7 +132,7 @@ class AbciService[F[_]: Monad: Effect](
       }
 
       // Push hash to AbciState, increment block number
-      newState ← AbciState.setAppHash[F](appHash).runS(st)
+      newState ← MachineState.setAppHash[F](appHash).runS(st)
 
       // Store updated state in the Ref (the changes were transient for readers before this step)
       _ ← state.set(newState)
@@ -200,7 +200,7 @@ class AbciService[F[_]: Monad: Effect](
       .semiflatMap { tx =>
         // TODO we have different logic in checkTx and deliverTx, as only in deliverTx tx might be dropped due to pending txs overflow
         // Update the state with a new tx
-        state.modifyState(AbciState.addTx[Eval](tx).transform((s, c) => (s, (c, s.height)))).map {
+        state.modifyState(MachineState.addTx[Eval](tx).transform((s, c) => (s, (c, s.height)))).map {
           case (code, height) => (code, tx, height)
         }
       }
@@ -241,7 +241,7 @@ class AbciService[F[_]: Monad: Effect](
     }
 }
 
-object AbciService {
+object StateService {
 
   /**
    * Build an empty AbciService for the vm. App hash is empty!
@@ -256,22 +256,15 @@ object AbciService {
     vm: VmOperationInvoker[F],
     controlSignals: ControlSignals[F],
     blockUploadingEnabled: Boolean
-  ): F[AbciService[F]] = {
-    import cats.syntax.compose._
-    import scodec.bits.ByteVector
-
-    import scala.language.higherKinds
-
+  ): F[StateService[F]] =
     for {
-      state ← Ref.of[F, AbciState](AbciState())
+      state ← Ref.of[F, MachineState](MachineState())
     } yield {
       val bva = Crypto.liftFunc[ByteVector, Array[Byte]](_.toArray)
       val abv = Crypto.liftFunc[Array[Byte], ByteVector](ByteVector(_))
       implicit val hasher: Crypto.Hasher[ByteVector, ByteVector] =
         bva.andThen[Array[Byte]](JdkCryptoHasher.Sha256).andThen(abv)
 
-      new AbciService[F](state, vm, controlSignals, blockUploadingEnabled)
+      new StateService[F](state, vm, controlSignals, blockUploadingEnabled)
     }
-  }
-
 }

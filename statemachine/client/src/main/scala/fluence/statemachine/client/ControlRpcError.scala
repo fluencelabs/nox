@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.control
+package fluence.statemachine.client
 
-import fluence.effects.tendermint.block.history.Receipt
 import fluence.effects.{EffectError, WithCause}
+import fluence.statemachine.api.signals.BlockReceipt
 import scodec.bits.ByteVector
 
 trait ControlRpcError extends EffectError
@@ -31,8 +31,9 @@ case class WorkerStatusError(cause: Throwable) extends ControlRpcError with With
 case class StopError(cause: Throwable) extends ControlRpcError with WithCause[Throwable] {
   override def getMessage: String = s"Error while signaling worker to stop $cause"
 }
-case class SendBlockReceiptError(receipt: Receipt, cause: Throwable) extends ControlRpcError with WithCause[Throwable] {
-  override def getMessage: String = s"Error sending block receipt ${receipt.hash.toHex} $cause"
+case class SendBlockReceiptError(receipt: BlockReceipt, cause: Throwable)
+    extends ControlRpcError with WithCause[Throwable] {
+  override def getMessage: String = s"Error sending block receipt ${new String(receipt.bytes.toArray)} $cause"
 }
 case class GetVmHashError(cause: Throwable) extends ControlRpcError with WithCause[Throwable] {
   override def getMessage: String = s"Error getting VM hash from worker: $cause"

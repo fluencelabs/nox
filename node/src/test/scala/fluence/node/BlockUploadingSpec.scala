@@ -40,12 +40,13 @@ import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
 import fluence.node.eth.state._
-import fluence.node.workers.control.{ControlRpc, ControlRpcError}
+import fluence.node.workers.control.ControlRpcError
 import fluence.node.workers.status.WorkerStatus
 import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
+import fluence.statemachine.client.{ControlRpc, ControlRpcError, TestControlRpc}
 import io.circe.Json
 import io.circe.parser.parse
 import org.scalatest.{Matchers, OptionValues, WordSpec}

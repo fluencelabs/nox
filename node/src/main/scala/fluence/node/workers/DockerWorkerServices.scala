@@ -32,13 +32,13 @@ import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.log.LogLevel.LogLevel
 import fluence.node.status.StatusHttp
-import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.pool.WorkerP2pConnectivity
 import fluence.node.workers.status._
 import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.DockerTendermint
 import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.statemachine.api.StateMachineStatus
+import fluence.statemachine.client.ControlRpc
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds

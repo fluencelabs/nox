@@ -14,23 +14,6 @@
  * limitations under the License.
  */
 
-import cats.effect.IO
-import cats.syntax.list._
-import fluence.statemachine.StateMachineConfig
-import fluence.statemachine.error.VmModuleLocationError
+package fluence.statemachine
 
-object Utils {
-
-  def getWasmFiles(dir: String) =
-    StateMachineConfig
-      .listWasmFiles(dir)
-      .map(
-        _.toNel.toRight(
-          new RuntimeException(
-            VmModuleLocationError("Provided directories don't contain any wasm or wast files").toString
-          )
-        )
-      )
-      .flatMap(IO.fromEither)
-
-}
+case class HttpConfig(host: String, port: Short)

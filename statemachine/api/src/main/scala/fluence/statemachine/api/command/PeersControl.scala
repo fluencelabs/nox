@@ -14,6 +14,15 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.config
+package fluence.statemachine.api.command
 
-case class TendermintRpcConfig(host: String, port: Short)
+import cats.data.EitherT
+import fluence.effects.EffectError
+import fluence.log.Log
+import scodec.bits.ByteVector
+
+import scala.language.higherKinds
+
+trait PeersControl[F[_]] {
+  def dropPeer(validatorKey: ByteVector)(implicit log: Log[F]): EitherT[F, EffectError, Unit]
+}
