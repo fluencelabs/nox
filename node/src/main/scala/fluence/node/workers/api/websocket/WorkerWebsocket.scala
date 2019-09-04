@@ -43,7 +43,7 @@ import scala.language.higherKinds
 /**
  * The layer between messages from Websocket and WorkerAPI.
  */
-class WorkerWebsocket[F[_]: Monad: Log](
+class WorkerWebsocket[F[_]: Concurrent: Log](
   workerApi: WorkerApi[F],
   subscriptions: Ref[F, Map[String, Option[TendermintResponseStream[F]]]],
   outputQueue: NoneTerminatedQueue[F, Either[TxAwaitError, TendermintQueryResponse]]

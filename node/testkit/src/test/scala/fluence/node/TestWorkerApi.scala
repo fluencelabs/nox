@@ -16,17 +16,18 @@
 
 package fluence.node
 
-import cats.effect.Sync
+import cats.effect.{Concurrent, Sync}
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.log.Log
 import fluence.node.workers.subscription.{TendermintQueryResponse, TxAwaitError}
 import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.api.websocket.WorkerWebsocket
+import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponseStream
 
 import scala.language.higherKinds
 
-class TestWorkerApi[F[_]: Sync]() extends WorkerApi[F] {
+class TestWorkerApi[F[_]: Concurrent]() extends WorkerApi[F] {
 
   /**
    * Sends `query` request to tendermint.
@@ -80,5 +81,7 @@ class TestWorkerApi[F[_]: Sync]() extends WorkerApi[F] {
 
   override def websocket()(implicit log: Log[F]): F[WorkerWebsocket[F]] = WorkerWebsocket(this)
 
-  override def subscribe(subscriptionId: String, tx: String)(implicit log: Log[F]): F[Either[RpcError, Unit]] = ???
+  def subscribe(subscriptionId: String, tx: String)(
+    implicit log: Log[F]
+  ): F[TendermintResponseStream[F]] = ???
 }
