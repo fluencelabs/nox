@@ -75,4 +75,6 @@ object StateMachineHttp {
       "/hashes-bus" -> HashesBusHttp.routes[F](hashesBus),
       "/peers" -> PeersControlHttp.routes[F](peers)
     )
+
+  // TODO make routes[] for a statemachine
 }
