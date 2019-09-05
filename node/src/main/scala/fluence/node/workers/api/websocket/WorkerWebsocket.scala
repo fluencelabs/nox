@@ -16,7 +16,7 @@
 
 package fluence.node.workers.api.websocket
 
-import cats.{Monad, Traverse}
+import cats.Traverse
 import cats.data.EitherT
 import cats.effect.Concurrent
 import cats.effect.concurrent.Ref
@@ -24,7 +24,6 @@ import fluence.log.Log
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
-import cats.instances.list._
 import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
@@ -61,6 +60,7 @@ class WorkerWebsocket[F[_]: Concurrent: Log](
    *
    */
   def closeWebsocket(): F[Unit] = {
+    import cats.instances.list._
     for {
       subs <- subscriptions.get
       tasks = subs.keys.map { key =>
@@ -71,16 +71,15 @@ class WorkerWebsocket[F[_]: Concurrent: Log](
     } yield {}
   }
 
-  private def addStream(key: SubscriptionKey, stream: fs2.Stream[F, TendermintResponse]): F[Boolean] = {
+  private def addStream(key: SubscriptionKey, stream: fs2.Stream[F, TendermintResponse]): F[Boolean] =
     subscriptions.modify { subs =>
       subs.get(key) match {
         case Some(v) => (subs.updated(key, v), true)
         case None    => (subs, false)
       }
     }
-  }
 
-  private def checkAndAddSubscription(key: SubscriptionKey): F[Boolean] = {
+  private def checkAndAddSubscription(key: SubscriptionKey): F[Boolean] =
     for {
       success <- subscriptions.modify { subs =>
         subs.get(key) match {
@@ -90,7 +89,6 @@ class WorkerWebsocket[F[_]: Concurrent: Log](
         }
       }
     } yield success
-  }
 
   private def deleteSubscription(key: SubscriptionKey): F[Unit] = subscriptions.update(_ - key)
 
@@ -110,7 +108,7 @@ class WorkerWebsocket[F[_]: Concurrent: Log](
     }.map(_.asJson.noSpaces)
   }
 
-  private def callApi(input: WebsocketRequest): F[WebsocketResponse] = {
+  private def callApi(input: WebsocketRequest): F[WebsocketResponse] =
     input match {
       case TxRequest(tx, id, requestId) =>
         workerApi.sendTx(tx, id).map {
@@ -166,7 +164,6 @@ class WorkerWebsocket[F[_]: Concurrent: Log](
         )
 
     }
-  }
 }
 
 object WorkerWebsocket {
