@@ -17,9 +17,9 @@
 package fluence.statemachine.control
 
 import cats.effect.{IO, Resource}
-import fluence.statemachine.api.StateHash
-import fluence.statemachine.api.signals.{BlockReceipt, DropPeer}
-import fluence.statemachine.control.signals.ControlSignals
+import fluence.statemachine.api.data.StateHash
+import fluence.statemachine.api.signals.BlockReceipt
+import fluence.statemachine.control.signals.{ControlSignals, DropPeer}
 import scodec.bits.ByteVector
 
 class MockedControlSignals extends ControlSignals[IO] {
@@ -33,7 +33,7 @@ class MockedControlSignals extends ControlSignals[IO] {
   override def stopWorker(): IO[Unit] = IO.unit
   override def enqueueReceipt(receipt: BlockReceipt): IO[Unit] = IO.unit
   override def enqueueStateHash(height: Long, hash: ByteVector): IO[Unit] = IO.unit
-  override def getStateHash(height: Long): IO[StateHash] = IO.pure(StateHash(-1, ByteVector.empty))
+  override def getVmHash(height: Long): IO[StateHash] = IO.pure(StateHash(-1, ByteVector.empty))
 
   override def lastStateHash: IO[StateHash] = IO.pure(StateHash(-1, ByteVector.empty))
 }

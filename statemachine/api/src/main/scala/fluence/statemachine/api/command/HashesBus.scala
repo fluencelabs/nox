@@ -19,15 +19,13 @@ package fluence.statemachine.api.command
 import cats.data.EitherT
 import fluence.effects.EffectError
 import fluence.log.Log
-import fluence.statemachine.api.StateHash
-import fluence.statemachine.api.tx.{Tx, TxResponse}
+import fluence.statemachine.api.data.BlockReceipt
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-trait DirectAppTxHandler[F[_]] {
+trait HashesBus[F[_]] {
+  def getVmHash(height: Long)(implicit log: Log[F]): EitherT[F, EffectError, ByteVector]
 
-  def processTx(tx: Tx)(implicit log: Log[F]): EitherT[F, EffectError, TxResponse]
-
-  def blocks()(implicit log: Log[F]): fs2.Stream[F, StateHash]
-
+  def sendBlockReceipt(receipt: BlockReceipt)(implicit log: Log[F]): EitherT[F, EffectError, Unit]
 }

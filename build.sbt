@@ -42,29 +42,6 @@ lazy val `vm` = (project in file("vm"))
   .dependsOn(`merkelized-bytebuffer`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
 
-/**
- * Wasm VM docker runner for easy Wasm app debugging
- */
-lazy val `frun` = (project in file("vm/frun"))
-  .settings(
-    commons,
-    libraryDependencies ++= Seq(
-      asmble,
-      cats,
-      catsEffect,
-      sttp,
-      sttpCirce,
-      sttpCatsBackend,
-      http4sDsl,
-      http4sServer
-    ),
-    assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
-    imageNames in docker              := Seq(ImageName(DockerContainers.Frun)),
-    dockerfile in docker              := DockerContainers.frun(assembly.value, (resourceDirectory in Compile).value)
-  )
-  .dependsOn(`vm`, `statemachine`)
-  .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-
 lazy val `vm-counter` = (project in file("vm/src/it/resources/test-cases/counter"))
   .settings(
     rustVmTest("counter")
@@ -127,7 +104,8 @@ lazy val `statemachine-api` = (project in file("statemachine/api"))
       scodecBits,
       circeGeneric,
       fs2,
-      cats
+      cats,
+      shapeless
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
@@ -142,7 +120,7 @@ lazy val `statemachine-http` = (project in file("statemachine/http"))
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`statemachine`)
+  .dependsOn(`statemachine-api`)
 
 lazy val `statemachine-client` = (project in file("statemachine/client"))
   .settings(
@@ -164,7 +142,7 @@ lazy val `statemachine-abci` = (project in file("statemachine/abci"))
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`statemachine`)
+  .dependsOn(`statemachine-api`)
 
 lazy val `statemachine-docker` = (project in file("statemachine/docker"))
   .settings(
@@ -179,7 +157,7 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     dockerfile in docker              := DockerContainers.worker(assembly.value, baseDirectory.value)
   )
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(`statemachine-http`, `statemachine-abci`)
+  .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`)
 
 lazy val `effects` = project
   .in(file("effects"))

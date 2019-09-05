@@ -125,6 +125,8 @@ object SbtCommons {
   val catsEffectVersion = "1.3.0"
   val catsEffect = "org.typelevel" %% "cats-effect" % catsEffectVersion
 
+  val shapeless = "com.chuusai" %% "shapeless" % "2.3.3"
+
   val fs2Version = "1.0.4"
   val fs2 = "co.fs2"   %% "fs2-core"             % fs2Version
   val fs2rx = "co.fs2" %% "fs2-reactive-streams" % fs2Version
@@ -147,7 +149,7 @@ object SbtCommons {
   val sttpFs2Backend = "com.softwaremill.sttp"  %% "async-http-client-backend-fs2"  % sttpVersion
   val sttpCatsBackend = "com.softwaremill.sttp" %% "async-http-client-backend-cats" % sttpVersion
 
-  val http4sVersion = "0.20.0-M7"
+  val http4sVersion = "0.20.10"
   val http4sDsl = "org.http4s"    %% "http4s-dsl"          % http4sVersion
   val http4sServer = "org.http4s" %% "http4s-blaze-server" % http4sVersion
   val http4sCirce = "org.http4s"  %% "http4s-circe"        % http4sVersion

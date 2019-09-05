@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.control
+package fluence.statemachine.hashesbus
 
 import cats.syntax.applicative._
 import cats.syntax.either._
@@ -22,8 +22,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.order._
 import cats.{FlatMap, Monad, Order}
-import fluence.statemachine.api.StateHash
-import fluence.statemachine.api.signals.BlockReceipt
+import fluence.statemachine.api.data.BlockReceipt
 
 import scala.language.higherKinds
 
@@ -33,13 +32,13 @@ import scala.language.higherKinds
  * @tparam A Type of the data
  * @tparam T Type of the property being exposed
  */
-private[control] trait HasOrderedProperty[A, T] {
+private[hashesbus] trait HasOrderedProperty[A, T] {
   def key(a: A)(implicit o: Order[T]): T
 }
 
-private[control] object HasOrderedProperty {
-  implicit val vmHash: HasOrderedProperty[StateHash, Long] = new HasOrderedProperty[StateHash, Long] {
-    override def key(a: StateHash)(implicit o: Order[Long]): Long = a.height
+private[hashesbus] object HasOrderedProperty {
+  implicit val vmHash: HasOrderedProperty[VmHash, Long] = new HasOrderedProperty[VmHash, Long] {
+    override def key(a: VmHash)(implicit o: Order[Long]): Long = a.height
   }
   implicit val receipt: HasOrderedProperty[BlockReceipt, Long] = new HasOrderedProperty[BlockReceipt, Long] {
     override def key(a: BlockReceipt)(implicit o: Order[Long]): Long = a.height

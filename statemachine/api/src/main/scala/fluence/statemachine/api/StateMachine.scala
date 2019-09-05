@@ -19,7 +19,9 @@ package fluence.statemachine.api
 import cats.data.EitherT
 import fluence.effects.EffectError
 import fluence.log.Log
+import fluence.statemachine.api.data.StateMachineStatus
 import fluence.statemachine.api.query.QueryResponse
+import shapeless._
 
 import scala.language.higherKinds
 
@@ -35,16 +37,37 @@ import scala.language.higherKinds
  * @tparam F Effect type
  */
 trait StateMachine[F[_]] {
+  self ⇒
 
-  type Command
+  type Commands <: HList
 
-  def command: Command
+  protected val commands: Commands
+
+  final def command[C](implicit cmd: ops.hlist.Selector[Commands, C]): C = cmd(commands)
 
   def query(path: String)(implicit log: Log[F]): EitherT[F, EffectError, QueryResponse]
 
   def status()(implicit log: Log[F]): EitherT[F, EffectError, StateMachineStatus]
+
+  final def extend[T](cmd: T): StateMachine.Aux[F, T :: Commands] = new StateMachine[F] {
+    override type Commands = T :: self.Commands
+
+    override protected val commands: Commands = cmd :: self.commands
+
+    override def query(path: String)(implicit log: Log[F]): EitherT[F, EffectError, QueryResponse] =
+      self.query(path)
+
+    override def status()(implicit log: Log[F]): EitherT[F, EffectError, StateMachineStatus] =
+      self.status()
+  }
 }
 
 object StateMachine {
-  type Aux[F[_], C] = StateMachine[F] { type Command = C }
+  type Aux[F[_], C] = StateMachine[F] { type Commands = C }
+
+  abstract class ReadOnly[F[_]] extends StateMachine[F] {
+    type Commands = HNil
+
+    override protected val commands: Commands = HNil
+  }
 }

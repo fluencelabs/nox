@@ -24,8 +24,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.log.{Log, LogFactory, LogLevel}
 import fluence.statemachine.abci.AbciHandler
-import fluence.statemachine.api.StateMachineStatus
-import fluence.statemachine.control.signals.ControlSignals
+import fluence.statemachine.api.data.StateMachineStatus
 import fluence.statemachine.http.ControlServer
 import org.http4s.{Request, Response, Status}
 import org.http4s.dsl.Http4sDsl
@@ -85,7 +84,7 @@ object ServerRunner extends IOApp {
       }
 
   private def routes[F[_]: Concurrent: LogFactory](signals: ControlSignals[F], status: F[StateMachineStatus]) = {
-    implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
+    implicit val dsl: Http4sDsl[F] = Http4sDsl[F]
 
     Kleisli[F, Request[F], Response[F]](
       a =>

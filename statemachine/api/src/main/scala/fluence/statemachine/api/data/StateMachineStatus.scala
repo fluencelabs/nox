@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.api
+package fluence.statemachine.api.data
 
-import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto._
+import io.circe.{Decoder, Encoder}
 
 /**
  * Statemachine's status, fetched via Control RPC.

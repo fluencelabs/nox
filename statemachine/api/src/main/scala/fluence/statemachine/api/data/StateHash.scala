@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.api
+package fluence.statemachine.api.data
 
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}

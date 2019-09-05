@@ -30,10 +30,11 @@ import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.log.Log
+import fluence.statemachine.api.command.HashesBus
 import fluence.statemachine.api.query.{QueryCode, QueryResponse}
-import fluence.statemachine.api.signals.BlockReceipt
+import fluence.statemachine.api.data.{BlockReceipt, StateHash}
 import fluence.statemachine.api.tx.{Tx, TxCode, TxResponse}
-import fluence.statemachine.control.signals.ControlSignals
+import fluence.statemachine.hashesbus.HashesBusBackend
 import fluence.statemachine.vm.VmOperationInvoker
 import scodec.bits.ByteVector
 
@@ -44,12 +45,13 @@ import scala.language.higherKinds
  *
  * @param state See [[MachineState]]
  * @param vm Virtual machine invoker
- * @param controlSignals Communication channel with master node
+ * @param hashesBusBackend Communication channel with master node
  */
-class StateService[F[_]: Monad: Effect](
+class StateService[F[_]: Monad](
   state: Ref[F, MachineState],
   vm: VmOperationInvoker[F],
-  controlSignals: ControlSignals[F],
+  hashesBusBackend: HashesBusBackend[F],
+  // TODO: move this flag and all the related logic into HashesBusBackend
   blockUploadingEnabled: Boolean
 )(implicit hasher: Hasher[ByteVector, ByteVector], log: Log[F]) {
 
@@ -58,11 +60,18 @@ class StateService[F[_]: Monad: Effect](
     log.trace(Console.YELLOW + s"BUD: $msg" + Console.RESET)
 
   /**
+   * Get actual stateHash from the internal state
+   */
+  def stateHash: F[StateHash] = state.get.map(_.stateHash)
+
+  def hashesBus: HashesBus[F] = hashesBusBackend
+
+  /**
    * Take all the transactions we're able to process, and pass them to VM one by one.
    *
-   * @return App (VM) Hash
+   * @return App Hash (with receipt hash applied!)
    */
-  def commit(implicit log: Log[F]): F[ByteVector] =
+  def commit(implicit log: Log[F]): F[StateHash] =
     for {
       // Get current state
       currentState <- state.get
@@ -96,7 +105,7 @@ class StateService[F[_]: Monad: Effect](
       // Do not wait for receipt on empty blocks
       receipt <- if (blockUploadingEnabled && transactions.nonEmpty) {
         traceBU(s"retrieving receipt on height $blockHeight" + Console.RESET) *>
-          controlSignals.getReceipt(blockHeight - 1).map(_.some)
+          hashesBusBackend.getReceipt(blockHeight - 1).map(_.some)
       } else {
         traceBU(s"WON'T retrieve receipt on height $blockHeight" + Console.RESET) *>
           none[BlockReceipt].pure[F]
@@ -139,10 +148,12 @@ class StateService[F[_]: Monad: Effect](
 
       _ <- traceBU("state.set done")
 
+      stateHash = StateHash(blockHeight, appHash)
+
       // Store vmHash
-      _ <- controlSignals.enqueueStateHash(blockHeight, vmHash)
+      _ <- hashesBusBackend.enqueueVmHash(blockHeight, vmHash)
       _ <- log.info(s"$blockHeight commit end")
-    } yield appHash
+    } yield stateHash
 
   /**
    * Queries the storage for sessionId/nonce result, or for sessionId status.
@@ -244,17 +255,17 @@ class StateService[F[_]: Monad: Effect](
 object StateService {
 
   /**
-   * Build an empty AbciService for the vm. App hash is empty!
+   * Build an empty StateService for the vm. App hash is empty!
    *
    * @param vm VM to invoke
-   * @param controlSignals To retrieve receipts and send vm hash
+   * @param hashesBus To retrieve receipts and send vm hash
    * @param blockUploadingEnabled Whether to retrieve receipts and use them in appHash or not
    * @tparam F Sync for Ref
-   * @return Brand new AbciService instance
+   * @return Brand new StateService instance
    */
   def apply[F[_]: Effect: Log](
     vm: VmOperationInvoker[F],
-    controlSignals: ControlSignals[F],
+    hashesBus: HashesBusBackend[F],
     blockUploadingEnabled: Boolean
   ): F[StateService[F]] =
     for {
@@ -265,6 +276,6 @@ object StateService {
       implicit val hasher: Crypto.Hasher[ByteVector, ByteVector] =
         bva.andThen[Array[Byte]](JdkCryptoHasher.Sha256).andThen(abv)
 
-      new StateService[F](state, vm, controlSignals, blockUploadingEnabled)
+      new StateService[F](state, vm, hashesBus, blockUploadingEnabled)
     }
 }

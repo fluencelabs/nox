@@ -18,6 +18,7 @@ package fluence.statemachine.state
 
 import cats.data.StateT
 import cats.{Applicative, Functor, Monad}
+import fluence.statemachine.api.data.StateHash
 import fluence.statemachine.api.tx.{Tx, TxCode}
 import scodec.bits.ByteVector
 
@@ -39,7 +40,9 @@ case class MachineState(
   blockSessions: Set[String] = Set.empty,
   responses: Queue[(Tx.Head, Array[Byte])] = Queue.empty,
   sessions: Sessions = Sessions()
-)
+) {
+  def stateHash: StateHash = StateHash(height, appHash)
+}
 
 object MachineState {
 

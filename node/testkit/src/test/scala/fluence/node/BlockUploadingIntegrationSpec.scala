@@ -113,7 +113,7 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
           EitherT.liftF(signals.enqueueReceipt(BlockReceipt(receipt.height, receipt.jsonBytes())))
 
         override def getVmHash(height: Long): EitherT[IO, ControlRpcError, ByteVector] =
-          EitherT.liftF(signals.getStateHash(height).map(_.hash))
+          EitherT.liftF(signals.getVmHash(height).map(_.hash))
       }
 
       (controlRpc, signals)

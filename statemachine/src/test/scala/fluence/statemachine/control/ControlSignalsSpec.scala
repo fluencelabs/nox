@@ -58,8 +58,8 @@ class ControlSignalsSpec extends WordSpec with Matchers with OptionValues {
         .apply[IO]()
         .use { signals =>
           for {
-            _ <- Traverse[List].traverse(vmHashes)(signals.enqueueStateHash _ tupled)
-            vmHash <- signals.getStateHash(targetHeight)
+            _ <- Traverse[List].traverse(vmHashes)(signals.enqueueVmHash _ tupled)
+            vmHash <- signals.getVmHash(targetHeight)
           } yield {
             vmHash.height shouldBe targetHeight
             vmHash.hash.toLong() shouldBe targetHeight

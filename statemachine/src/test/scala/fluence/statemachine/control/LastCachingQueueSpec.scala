@@ -21,7 +21,7 @@ import cats.effect.IO
 import cats.instances.list._
 import cats.instances.long._
 import cats.syntax.traverse._
-import fluence.statemachine.api.StateHash
+import fluence.statemachine.api.data.StateHash
 import org.scalatest.{Matchers, WordSpec}
 import scodec.bits.ByteVector
 

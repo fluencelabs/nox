@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.control
+package fluence.statemachine.hashesbus
 
 import cats.effect.Concurrent
 import cats.effect.concurrent.Ref
@@ -22,7 +22,7 @@ import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Monad, Order}
-import fluence.statemachine.control.HasOrderedProperty.syntax._
+import HasOrderedProperty.syntax._
 
 import scala.language.higherKinds
 
@@ -35,7 +35,7 @@ import scala.language.higherKinds
  * @param queue Queue with elements
  * @param ref Ref to hold last element in case of retry
  */
-class LastCachingQueue[F[_]: Monad, A: HasOrderedProperty[?, T], T: Order](
+class LastCachingQueue[F[_]: Monad, A: HasOrderedProperty[*, T], T: Order](
   queue: fs2.concurrent.Queue[F, A],
   ref: Ref[F, Option[A]]
 ) {
@@ -61,7 +61,7 @@ class LastCachingQueue[F[_]: Monad, A: HasOrderedProperty[?, T], T: Order](
 
 object LastCachingQueue {
 
-  def apply[F[_]: Concurrent, A: HasOrderedProperty[?, T], T: Order]: F[LastCachingQueue[F, A, T]] =
+  def apply[F[_]: Concurrent, A: HasOrderedProperty[*, T], T: Order]: F[LastCachingQueue[F, A, T]] =
     for {
       queue <- fs2.concurrent.Queue.unbounded[F, A]
       ref <- Ref.of[F, Option[A]](None)

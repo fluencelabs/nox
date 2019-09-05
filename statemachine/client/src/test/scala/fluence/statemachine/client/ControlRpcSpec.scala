@@ -19,9 +19,10 @@ package fluence.statemachine.client
 import cats.effect.{ContextShift, IO, Timer}
 import fluence.effects.sttp.SttpEffect
 import fluence.log.{Log, LogFactory}
-import fluence.statemachine.api.signals.{BlockReceipt, DropPeer}
-import fluence.statemachine.api.{StateHash, StateMachineStatus}
-import fluence.statemachine.control.signals.ControlSignals
+import fluence.statemachine.api.signals.BlockReceipt
+import fluence.statemachine.api.StateMachineStatus
+import fluence.statemachine.api.data.StateMachineStatus
+import fluence.statemachine.control.signals.{ControlSignals, DropPeer}
 import fluence.statemachine.http.ControlServer
 import org.http4s.{HttpApp, Response}
 import org.http4s.dsl.Http4sDsl
@@ -122,7 +123,7 @@ class ControlRpcSpec extends WordSpec with Matchers with OptionValues {
       resources.use {
         case (signals, rpc) =>
           for {
-            _ <- signals.enqueueStateHash(height, vmHash)
+            _ <- signals.enqueueVmHash(height, vmHash)
             after <- IO.pure(rpc.getVmHash(height).value.flatMap(IO.fromEither).unsafeRunTimed(1.seconds))
           } yield {
             after shouldBe defined

@@ -18,7 +18,7 @@ package fluence.statemachine.client
 
 import cats.data.EitherT
 import fluence.effects.sttp.SttpError
-import fluence.statemachine.api.StateMachineStatus
+import fluence.statemachine.api.data.StateMachineStatus
 import fluence.statemachine.api.signals.BlockReceipt
 import scodec.bits.ByteVector
 

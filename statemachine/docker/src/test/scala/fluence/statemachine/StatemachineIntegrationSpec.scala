@@ -21,7 +21,7 @@ import cats.effect.{ContextShift, IO, Timer}
 import com.github.jtendermint.jabci.types.{RequestCheckTx, RequestCommit, RequestDeliverTx, RequestQuery}
 import com.google.protobuf.ByteString
 import fluence.log.{Log, LogFactory}
-import fluence.statemachine.api.StateMachineStatus
+import fluence.statemachine.api.data.StateMachineStatus
 import fluence.statemachine.api.query.QueryCode
 import fluence.statemachine.api.tx.TxCode
 import fluence.statemachine.control.MockedControlSignals

@@ -16,6 +16,8 @@
 
 package fluence.statemachine.api.query
 
+import sun.misc.BASE64Encoder
+
 /**
  * A structure for aggregating data specific to building `Query` ABCI method response.
  *
@@ -24,4 +26,19 @@ package fluence.statemachine.api.query
  * @param code response code
  * @param info response message
  */
-case class QueryResponse(height: Long, result: Array[Byte], code: QueryCode.Value, info: String)
+case class QueryResponse(height: Long, result: Array[Byte], code: QueryCode.Value, info: String) {
+  // TODO make correct json
+  def toResponseString(id: String = "dontcare"): String = s"""
+                                                             | {
+                                                             |   "jsonrpc": "2.0",
+                                                             |   "id": "$id",
+                                                             |   "result": {
+                                                             |    "code": ${code.id},
+                                                             |     "response": {
+                                                             |       "info": "$info",
+                                                             |       "value": "${new BASE64Encoder().encode(result)}"
+                                                             |     }
+                                                             |   }
+                                                             | }
+           """.stripMargin
+}

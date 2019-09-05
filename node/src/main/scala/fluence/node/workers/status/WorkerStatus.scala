@@ -16,7 +16,7 @@
 
 package fluence.node.workers.status
 import fluence.effects.tendermint.rpc.response.TendermintStatus
-import fluence.statemachine.api.StateMachineStatus
+import fluence.statemachine.api.data.StateMachineStatus
 import io.circe.generic.semiauto._
 import io.circe.{Decoder, Encoder}
 

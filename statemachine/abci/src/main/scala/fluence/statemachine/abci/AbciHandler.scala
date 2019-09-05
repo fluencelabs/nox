@@ -16,9 +16,6 @@
 
 package fluence.statemachine.abci
 
-import cats.Applicative
-import cats.data.{EitherT, NonEmptyList}
-import cats.effect.concurrent.Deferred
 import cats.effect.syntax.effect._
 import cats.effect.{Effect, Resource, Sync}
 import cats.syntax.applicative._
@@ -30,21 +27,20 @@ import com.github.jtendermint.jabci.socket.TSocket
 import com.github.jtendermint.jabci.types._
 import com.google.protobuf.ByteString
 import fluence.log.{Log, LogFactory}
+import fluence.statemachine.abci.peers.{DropPeer, PeersControlBackend}
+import fluence.statemachine.api.StateMachine
+import fluence.statemachine.api.command.TxProcessor
 import fluence.statemachine.api.query.QueryResponse
-import fluence.statemachine.api.signals.DropPeer
 import fluence.statemachine.api.tx.{Tx, TxResponse}
-import fluence.statemachine.api.{StateHash, StateMachineStatus}
-import fluence.statemachine.control.signals.ControlSignals
-import fluence.statemachine.error.StateMachineError
-import fluence.statemachine.state.{StateMachineVm, StateService}
-import fluence.statemachine.vm.WasmVmOperationInvoker
+import shapeless._
 
 import scala.language.higherKinds
 import scala.util.Try
 
-class AbciHandler[F[_]: Effect: LogFactory](
-  service: StateService[F],
-  controlSignals: ControlSignals[F]
+class AbciHandler[F[_]: Effect: LogFactory] private (
+  machine: StateMachine[F],
+  peersControl: PeersControlBackend[F],
+  txHandler: TxProcessor[F]
 ) extends ICheckTx with IDeliverTx with ICommit with IQuery with IEndBlock with IBeginBlock {
 
   override def requestBeginBlock(
@@ -72,12 +68,12 @@ class AbciHandler[F[_]: Effect: LogFactory](
 
     val tx = req.getTx.toByteArray
 
-    service
+    txHandler
       .checkTx(tx)
-      .toIO
+      .value
       .flatMap {
-        case resp @ TxResponse(code, info, _) ⇒
-          handleTxResponse(tx, resp).toIO
+        case Right(resp @ TxResponse(code, info, _)) ⇒
+          handleTxResponse(tx, resp)
             .map(
               _ =>
                 ResponseCheckTx.newBuilder
@@ -87,7 +83,10 @@ class AbciHandler[F[_]: Effect: LogFactory](
                   .setData(ByteString.copyFromUtf8(info))
                   .build
             )
+        case Left(err) ⇒
+          Sync[F].raiseError[ResponseCheckTx](err)
       }
+      .toIO
       .unsafeRunSync()
   }
 
@@ -98,12 +97,12 @@ class AbciHandler[F[_]: Effect: LogFactory](
 
     val tx = req.getTx.toByteArray
 
-    service
-      .deliverTx(tx)
-      .toIO
+    txHandler
+      .processTx(tx)
+      .value
       .flatMap {
-        case resp @ TxResponse(code, info, _) ⇒
-          handleTxResponse(tx, resp).toIO
+        case Right(resp @ TxResponse(code, info, _)) ⇒
+          handleTxResponse(tx, resp)
             .map(
               _ =>
                 ResponseDeliverTx.newBuilder
@@ -113,7 +112,10 @@ class AbciHandler[F[_]: Effect: LogFactory](
                   .setData(ByteString.copyFromUtf8(info))
                   .build
             )
+        case Left(err) ⇒
+          Sync[F].raiseError[ResponseDeliverTx](err)
       }
+      .toIO
       .unsafeRunSync()
   }
 
@@ -122,12 +124,22 @@ class AbciHandler[F[_]: Effect: LogFactory](
   ): ResponseCommit = {
     implicit val log: Log[F] = LogFactory[F].init("abci", "requestCommit").toIO.unsafeRunSync()
 
-    ResponseCommit
-      .newBuilder()
-      .setData(
-        ByteString.copyFrom(service.commit.toIO.unsafeRunSync().toArray)
+    txHandler.commit.value.flatMap {
+      case Right(stateHash) ⇒
+        stateHash.hash.toArray.pure[F]
+      case Left(err) ⇒
+        Sync[F].raiseError[Array[Byte]](err)
+    }.map(ByteString.copyFrom)
+      .map(
+        ResponseCommit
+          .newBuilder()
+          .setData(
+            _
+          )
+          .build()
       )
-      .build()
+      .toIO
+      .unsafeRunSync()
   }
 
   override def requestQuery(
@@ -135,14 +147,13 @@ class AbciHandler[F[_]: Effect: LogFactory](
   ): ResponseQuery = {
     implicit val log: Log[F] = LogFactory[F].init("abci", "requestQuery").toIO.unsafeRunSync()
 
-    service
+    machine
       .query(req.getPath)
-      .toIO
+      .value
       .flatMap {
-        case QueryResponse(height, result, code, info) ⇒
+        case Right(QueryResponse(height, result, code, info)) ⇒
           log
             .info(s"${req.getPath} -> height: $height code: $code ${info.replace('\n', ' ')} ${result.length}")
-            .toIO
             .map(
               _ =>
                 ResponseQuery
@@ -153,7 +164,10 @@ class AbciHandler[F[_]: Effect: LogFactory](
                   .setValue(ByteString.copyFrom(result))
                   .build
             )
+        case Left(err) ⇒
+          Sync[F].raiseError[ResponseQuery](err)
       }
+      .toIO
       .unsafeRunSync()
   }
 
@@ -174,16 +188,15 @@ class AbciHandler[F[_]: Effect: LogFactory](
         )
         .setPower(0) // settings power to zero votes to remove the validator
     }
-    controlSignals.dropPeers
+    peersControl.dropPeers
       .use(
         drops =>
-          Applicative[F].pure {
-            drops
-              .foldLeft(ResponseEndBlock.newBuilder()) {
-                case (resp, drop) ⇒ resp.addValidatorUpdates(dropValidator(drop))
-              }
-              .build()
-          }
+          drops
+            .foldLeft(ResponseEndBlock.newBuilder()) {
+              case (resp, drop) ⇒ resp.addValidatorUpdates(dropValidator(drop))
+            }
+            .build()
+            .pure[F]
       )
       .toIO
       .unsafeRunSync()
@@ -191,36 +204,29 @@ class AbciHandler[F[_]: Effect: LogFactory](
 }
 
 object AbciHandler {
-  case class Config(moduleFilenames: NonEmptyList[String], abciPort: Int, blockUploadingEnabled: Boolean)
 
-  def make[F[_]: Log: LogFactory: Effect](
-    config: Config,
-    statusDef: Deferred[F, F[StateMachineStatus]],
-    signals: ControlSignals[F]
+  def make[F[_]: Log: LogFactory: Effect, C <: HList](
+    abciPort: Int,
+    machine: StateMachine.Aux[F, C],
+    peersControl: PeersControlBackend[F]
+  )(
+    implicit txp: ops.hlist.Selector[C, TxProcessor[F]]
   ): Resource[F, Unit] =
     Resource
       .make(
-        buildAbciHandler(config, statusDef, signals).value.flatMap {
-          case Right(handler) ⇒ handler.pure[F]
-          case Left(err) ⇒
-            val exception = err.causedBy match {
-              case Some(caused) => new RuntimeException("Building ABCI handler failed: " + err, caused)
-              case None         => new RuntimeException("Building ABCI handler failed: " + err)
-            }
-            Sync[F].raiseError[AbciHandler[F]](exception)
-        }.flatMap { handler ⇒
-          Log[F].info("Starting State Machine ABCI handler") >>
-            Sync[F].delay {
-              val socket = new TSocket
-              socket.registerListener(handler)
+        Log[F].info("Starting State Machine ABCI handler") >>
+          Sync[F].delay {
+            val handler = apply[F, C](machine, peersControl)
 
-              val socketThread = new Thread(() => socket.start(config.abciPort))
-              socketThread.setName("AbciSocket")
-              socketThread.start()
+            val socket = new TSocket
+            socket.registerListener(handler)
 
-              (socketThread, socket)
-            }
-        }
+            val socketThread = new Thread(() => socket.start(abciPort))
+            socketThread.setName("AbciSocket")
+            socketThread.start()
+
+            (socketThread, socket)
+          }
       ) {
         case (socketThread, socket) ⇒
           Log[F].info(s"Stopping TSocket and its thread") *>
@@ -232,27 +238,13 @@ object AbciHandler {
       .flatMap(_ ⇒ Log.resource[F].info("State Machine ABCI handler started successfully"))
 
   /**
-   * Builds [[AbciHandler]], used to serve all Tendermint requests.
-   *
-   * @param config config object to load various settings
+   * Builds [[AbciHandler]], used to serve all Tendermint requests
    */
-  private[statemachine] def buildAbciHandler[F[_]: Log: LogFactory: Effect](
-    config: Config,
-    statusDef: Deferred[F, F[StateMachineStatus]],
-    signals: ControlSignals[F]
-  ): EitherT[F, StateMachineError, AbciHandler[F]] =
-    for {
-      _ ← Log.eitherT[F, StateMachineError].info("Loading VM modules from " + config.moduleFilenames)
-      vm <- StateMachineVm[F](config.moduleFilenames)
-
-      defaultStatus = StateMachineStatus(expectsEth = vm.expectsEth, stateHash = StateHash.empty)
-
-      _ ← EitherT.right(statusDef.complete(signals.lastStateHash.map(sh ⇒ defaultStatus.copy(stateHash = sh))))
-
-      _ ← Log.eitherT[F, StateMachineError].info("VM instantiated")
-
-      vmInvoker = new WasmVmOperationInvoker[F](vm)
-
-      service <- EitherT.right(StateService[F](vmInvoker, signals, config.blockUploadingEnabled))
-    } yield new AbciHandler[F](service, signals)
+  def apply[F[_]: Log: LogFactory: Effect, C <: HList](
+    machine: StateMachine.Aux[F, C],
+    peersControl: PeersControlBackend[F]
+  )(
+    implicit txp: ops.hlist.Selector[C, TxProcessor[F]]
+  ): AbciHandler[F] =
+    new AbciHandler[F](machine, peersControl, machine.command[TxProcessor[F]])
 }

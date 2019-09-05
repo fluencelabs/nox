@@ -37,7 +37,7 @@ import fluence.node.workers.status._
 import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.DockerTendermint
 import fluence.node.workers.tendermint.block.BlockUploading
-import fluence.statemachine.api.StateMachineStatus
+import fluence.statemachine.api.data.StateMachineStatus
 import fluence.statemachine.client.ControlRpc
 
 import scala.concurrent.duration.FiniteDuration
