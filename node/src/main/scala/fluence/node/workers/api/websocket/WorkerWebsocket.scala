@@ -63,7 +63,9 @@ class WorkerWebsocket[F[_]: Concurrent: Log](
     import cats.instances.list._
     for {
       subs <- subscriptions.get
-      tasks = subs.keys.map { key =>
+import cats.syntax.traversable._
+import cats.instances.list._
+      _ <- subs.keys.toList.traverse(workerApi.unsubscribe)
         workerApi.unsubscribe(key)
       }
       _ <- Traverse[List].traverse(tasks.toList)(identity)
