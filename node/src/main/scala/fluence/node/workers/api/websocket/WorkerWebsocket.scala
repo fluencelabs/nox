@@ -16,7 +16,7 @@
 
 package fluence.node.workers.api.websocket
 
-import cats.Monad
+import cats.{Monad, Traverse}
 import cats.data.EitherT
 import cats.effect.Concurrent
 import cats.effect.concurrent.Ref
@@ -24,6 +24,7 @@ import fluence.log.Log
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
+import cats.instances.list._
 import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
@@ -43,6 +44,9 @@ import scala.language.higherKinds
 
 /**
  * The layer between messages from Websocket and WorkerAPI.
+ *
+ * @param subscriptions on transactions after each block
+ * @param outputQueue for sending messages into websocket
  */
 class WorkerWebsocket[F[_]: Concurrent: Log](
   workerApi: WorkerApi[F],
@@ -52,12 +56,18 @@ class WorkerWebsocket[F[_]: Concurrent: Log](
   import WebsocketRequests._
   import WebsocketResponses._
 
+  /**
+   * Unsubscribes from all subscriptions and closes the queue.
+   *
+   */
   def closeWebsocket(): F[Unit] = {
     for {
       subs <- subscriptions.get
-      _ = subs.keys.map { key =>
+      tasks = subs.keys.map { key =>
         workerApi.unsubscribe(key)
       }
+      _ <- Traverse[List].traverse(tasks.toList)(identity)
+      _ <- outputQueue.enqueue1(None)
     } yield {}
   }
 

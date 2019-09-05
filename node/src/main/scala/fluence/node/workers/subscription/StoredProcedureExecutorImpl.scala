@@ -48,6 +48,7 @@ class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
   override def subscribe(subscriberId: String, data: Tx.Data): F[fs2.Stream[F, TendermintResponse]] = {
     val key = hasher.unsafe(data.value)
     for {
+      _ <- log.debug(s"Subscribe for id: $subscriberId, key: $key")
       topic <- Topic[F, Event](Init)
       signal <- SignallingRef[F, Boolean](false)
       subState <- subscriptions.modify { subs =>
@@ -75,7 +76,8 @@ class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
   override def unsubscribe(subscriberId: String, data: Tx.Data): F[Boolean] = {
     val key = hasher.unsafe(data.value)
     for {
-      (isOk, queueToClose) <- subscriptions.modify { subs =>
+      _ <- log.debug(s"Unsubscribe for id: $subscriberId, key: $key")
+      (isOk, topicToCloseSubscription) <- subscriptions.modify { subs =>
         subs.get(key) match {
           case Some(sub) =>
             val updated =
@@ -85,7 +87,7 @@ class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
           case None => (subs, (false, None))
         }
       }
-      _ <- queueToClose match {
+      _ <- topicToCloseSubscription match {
         case Some(q) => q.publish1(Quit(subscriberId))
         case None    => ().pure[F]
       }
@@ -112,6 +114,10 @@ class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
       } yield ()
     }
 
+  /**
+   * Generates unique header for transaction and call sentTxAwaitResponse
+   *
+   */
   private def waitTx(key: String, data: Tx.Data): F[Either[TxAwaitError, TendermintQueryResponse]] = {
     val randomStr = Random.alphanumeric.take(8).mkString
     val head = Tx.Head(s"pubsub-$key-$randomStr", 0)
@@ -124,10 +130,12 @@ class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
     import cats.instances.list._
     for {
       subs <- subscriptions.get
+      _ <- log.debug(s"Processing ${subs.size} subscriptions")
       tasks = subs.map {
         case (key, SubscriptionState(data, topic, _)) =>
           for {
             response <- waitTx(key, data)
+            _ <- log.trace(s"Publishing $response for $key")
             _ <- topic.publish1(Response(response))
           } yield {}
       }

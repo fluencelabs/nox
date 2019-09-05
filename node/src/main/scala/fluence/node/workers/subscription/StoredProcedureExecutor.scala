@@ -13,6 +13,10 @@ import fluence.node.workers.subscription.StoredProcedureExecutor.{Event, Tenderm
 
 import scala.language.higherKinds
 
+/**
+ * Service to call subscribed transactions after each tendermint block.
+ *
+ */
 trait StoredProcedureExecutor[F[_]] {
 
   /**

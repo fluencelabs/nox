@@ -42,8 +42,9 @@ trait WorkerServices[F[_]] {
   // Block manifests services: uploading, retrieving
   def blockManifests: WorkerBlockManifests[F]
 
-  // Service to subscribe for events
+  // Service to subscribe for a response on request
   def waitResponseService: WaitResponseService[F]
 
+  // Service to subscribe on transaction processing after every block
   def storedProcedureExecutor: StoredProcedureExecutor[F]
 }

@@ -71,6 +71,10 @@ class WaitResponseServiceImpl[F[_]: Monad](
     } yield ()
   }
 
+  /**
+   * Sends transaction to a state machine and waiting for a response.
+   *
+   */
   def sendTxAwaitResponse(tx: String, id: Option[String])(
     implicit log: Log[F]
   ): F[Either[TxAwaitError, TendermintQueryResponse]] =
