@@ -9,7 +9,7 @@ import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.statemachine.data.Tx
 import cats.syntax.functor._
 import fluence.log.Log
-import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
+import fluence.node.workers.subscription.StoredProcedureExecutor.{Event, TendermintResponse}
 
 import scala.language.higherKinds
 
@@ -23,9 +23,9 @@ trait StoredProcedureExecutor[F[_]] {
    * @param data a transaction
    * @return a stream of responses every block
    */
-  def subscribe(data: Tx.Data): F[fs2.Stream[F, Option[TendermintResponse]]]
+  def subscribe(subscriberId: String, data: Tx.Data): F[fs2.Stream[F, TendermintResponse]]
 
-  def unsubscribe(data: Tx.Data): F[Boolean]
+  def unsubscribe(subscriberId: String, data: Tx.Data): F[Boolean]
 
   /**
    * Gets all transaction subscribes for appId and trying to poll service for new responses.
@@ -35,6 +35,11 @@ trait StoredProcedureExecutor[F[_]] {
 }
 
 object StoredProcedureExecutor {
+
+  sealed trait Event
+  case class Response(value: TendermintResponse) extends Event
+  case object Init extends Event
+  case class Quit(id: String) extends Event
 
   type TendermintResponse = Either[TxAwaitError, TendermintQueryResponse]
 

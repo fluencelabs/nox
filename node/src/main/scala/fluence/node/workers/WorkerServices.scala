@@ -45,5 +45,5 @@ trait WorkerServices[F[_]] {
   // Service to subscribe for events
   def waitResponseService: WaitResponseService[F]
 
-  def stateSubscriber: StoredProcedureExecutor[F]
+  def storedProcedureExecutor: StoredProcedureExecutor[F]
 }

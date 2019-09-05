@@ -135,7 +135,8 @@ class WorkerWebsocket[F[_]: Concurrent: Log](
           case false =>
             (ErrorResponse(requestId, s"Subscription $subscriptionId already exists"): WebsocketResponse).pure[F]
         }
-
+      case UnsubscribeRequest(requestId, subscriptionId, tx) =>
+        workerApi.unsubscribe(subscriptionId, tx).map(isOk => UnsubscribeResponse(requestId, isOk))
     }
   }
 }

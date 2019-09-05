@@ -58,7 +58,7 @@ case class DockerWorkerServices[F[_]] private (
   control: ControlRpc[F],
   blockManifests: WorkerBlockManifests[F],
   waitResponseService: WaitResponseService[F],
-  stateSubscriber: StoredProcedureExecutor[F],
+  storedProcedureExecutor: StoredProcedureExecutor[F],
   statusCall: FiniteDuration ⇒ F[WorkerStatus]
 ) extends WorkerServices[F] {
   override def status(timeout: FiniteDuration): F[WorkerStatus] = statusCall(timeout)

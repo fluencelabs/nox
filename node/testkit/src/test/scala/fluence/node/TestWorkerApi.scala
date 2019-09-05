@@ -84,4 +84,6 @@ class TestWorkerApi[F[_]: Concurrent]() extends WorkerApi[F] {
   def subscribe(subscriptionId: String, tx: String)(
     implicit log: Log[F]
   ): F[fs2.Stream[F, Option[TendermintResponse]]] = ???
+
+  override def unsubscribe(subscriptionId: String, tx: String)(implicit log: Log[F]): F[Boolean] = ???
 }

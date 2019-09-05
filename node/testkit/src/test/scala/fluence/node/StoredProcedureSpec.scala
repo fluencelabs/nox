@@ -1,23 +1,25 @@
 package fluence.node
 
+import cats.effect.concurrent.{MVar, Ref}
 import cats.effect.{ContextShift, IO, Resource, Timer}
 import fluence.Eventually
 import fluence.crypto.{Crypto, CryptoError}
 import fluence.effects.tendermint.block.TestData
 import fluence.effects.tendermint.block.data.Block
-import fluence.effects.tendermint.rpc.http.{RpcRequestErrored, TendermintHttpRpc}
-import fluence.effects.tendermint.rpc.websocket.{TestTendermintWebsocketRpc, WebsocketConfig}
+import fluence.log.LogFactory.Aux
+import fluence.log.appender.PrintlnLogAppender
 import fluence.log.{Log, LogFactory}
+import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
 import fluence.node.workers.subscription.{
-  ResponseSubscriber,
-  RpcTxAwaitError,
+  OkResponse,
   StoredProcedureExecutor,
   TendermintQueryResponse,
   TxAwaitError,
   WaitResponseService
 }
 import fluence.statemachine.data.Tx
-import fs2.concurrent.Queue
+
+import scala.concurrent.duration._
 import org.scalatest.{EitherValues, Matchers, OptionValues, WordSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -27,18 +29,11 @@ class StoredProcedureSpec extends WordSpec with Eventually with Matchers with Op
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
-  implicit private val logFactory = LogFactory.forPrintln[IO](level = Log.Error)
-  implicit private val log = logFactory.init("ResponseSubscriberSpec", level = Log.Off).unsafeRunSync()
+  implicit private val logFactory: Aux[IO, PrintlnLogAppender[IO]] = LogFactory.forPrintln[IO](level = Log.Error)
+  implicit private val log: Log.Aux[IO, PrintlnLogAppender[IO]] =
+    logFactory.init("ResponseSubscriberSpec", level = Log.Off).unsafeRunSync()
 
-  def start() = {
-
-    val waitResponseService = new WaitResponseService[IO] {
-      override def sendTxAwaitResponse(tx: String, id: Option[String])(
-        implicit log: Log[IO]
-      ): IO[Either[TxAwaitError, TendermintQueryResponse]] = IO.pure(Left(RpcTxAwaitError(RpcRequestErrored(1, "asd"))))
-
-      override def start(): Resource[IO, Unit] = ???
-    }
+  private def start() = {
 
     val hasher: Crypto.Hasher[Array[Byte], String] = Crypto.liftFuncEither(
       bytes ⇒
@@ -51,6 +46,18 @@ class StoredProcedureSpec extends WordSpec with Eventually with Matchers with Op
     for {
       blocksQ <- Resource.liftF(fs2.concurrent.Queue.unbounded[IO, Block])
       tendermint <- Resource.liftF(TendermintTest[IO](blocksQ.dequeue))
+      counter <- Resource.liftF(MVar.of[IO, Long](0L))
+      waitResponseService = new WaitResponseService[IO] {
+        override def sendTxAwaitResponse(tx: String, id: Option[String])(
+          implicit log: Log[IO]
+        ): IO[Either[TxAwaitError, TendermintQueryResponse]] =
+          for {
+            k <- counter.take
+            _ <- counter.put(k + 1)
+          } yield Right(OkResponse(Tx.Head("a", k), ""))
+
+        override def start(): Resource[IO, Unit] = throw new NotImplementedError("def start")
+      }
       storedProcedureExecutor <- Resource.liftF(
         StoredProcedureExecutor[IO](
           tendermint.tendermint,
@@ -60,51 +67,111 @@ class StoredProcedureSpec extends WordSpec with Eventually with Matchers with Op
         )
       )
       _ <- storedProcedureExecutor.start()
-    } yield (storedProcedureExecutor, tendermint, blocksQ)
+    } yield (storedProcedureExecutor, blocksQ)
   }
 
-  val block = Block(TestData.blockWithNullTxsResponse(1)).right.get
+  private val block = Block(TestData.blockWithNullTxsResponse(1)).right.get
 
-  "1" should {
-    "2" in {
+  private def startStream(stream: fs2.Stream[IO, TendermintResponse],
+                          events: Ref[IO, List[TendermintResponse]],
+                          eventsChecker: Ref[IO, Boolean],
+                          interruptChecker: Ref[IO, Boolean]) = {
+    stream.evalTap { e =>
+      for {
+        _ <- eventsChecker.update(_ => true)
+        _ <- events.update(_ :+ e)
+      } yield ()
+    }.onFinalize(interruptChecker.update(_ => true))
+      .compile
+      .drain
+      .unsafeRunAsyncAndForget()
+  }
 
-      val q = Queue.noneTerminated[IO, Int].unsafeRunSync()
-      val broadcast = q.dequeue.broadcast
-      val str1 = broadcast.take(1).flatten.evalTap(el => IO(println("elelele1: " + el))).compile
-      val str2 = broadcast.take(1).flatten.evalTap(el => IO(println("elelele2: " + el))).compile
-      val a = for {
-        _ <- q.enqueue1(Option(1))
-        _ = println("1111111")
-        _ <- q.enqueue1(None)
-        _ = println("22222")
-        _ <- str1.drain
-        _ = println("333333")
-        _ <- str2.drain
-        _ = println("44444")
-      } yield {}
-
-      a.unsafeRunSync()
-
-      val result = start().use {
-        case (executor, tendermint, blockQ) =>
+  "StoredProcedureExecutor" should {
+    "be able to process subscribes, publish events through subscribers and close streams on unsubscribe" in {
+      start().use {
+        case (executor, blockQ) =>
+          val data = Tx.Data(Array[Byte](1, 2, 3))
+          // generate blocks eventually
+          fs2.Stream
+            .awakeEvery[IO](50.milliseconds)
+            .map(_ => block)
+            .evalMap(blockQ.enqueue1)
+            .compile
+            .drain
+            .unsafeRunAsyncAndForget()
           for {
-            stream1 <- executor.subscribe(Tx.Data(Array[Byte](1, 2, 3)))
-            stream2 <- executor.subscribe(Tx.Data(Array[Byte](1, 2, 3)))
-            _ = println("111")
-            _ <- blockQ.enqueue1(block)
-            _ = println("2222")
-            _ <- blockQ.enqueue1(block)
-            _ = println("3333")
-//            _ <- executor.unsubscribe(Tx.Data(Array[Byte](1, 2, 3)))
-//            _ <- executor.unsubscribe(Tx.Data(Array[Byte](1, 2, 3)))
-            res1 <- stream1.evalTap(el => IO(println("el1: " + el))).take(2).compile.toList
-            _ = println("alalala")
-            res2 <- stream2.evalTap(el => IO(println("el2: " + el))).take(2).compile.toList
-            _ = println("4444")
-          } yield {
-            println("results = " + res1)
-            println("results = " + res2)
-          }
+            stream1EventsChecker <- Ref.of[IO, Boolean](false)
+            stream1Events <- Ref.of[IO, List[TendermintResponse]](List.empty)
+            stream2EventsChecker <- Ref.of[IO, Boolean](false)
+            stream2Events <- Ref.of[IO, List[TendermintResponse]](List.empty)
+            stream3EventsChecker <- Ref.of[IO, Boolean](false)
+            stream3Events <- Ref.of[IO, List[TendermintResponse]](List.empty)
+            stream1InterruptChecker <- Ref.of[IO, Boolean](false)
+            stream2InterruptChecker <- Ref.of[IO, Boolean](false)
+            stream3InterruptChecker <- Ref.of[IO, Boolean](false)
+
+            stream1Id = "stream1"
+            stream23Id = "stream-23"
+
+            // create subscribers, 2 and 3 stream has the same id, so they should interrup together on unsubscribe
+            stream1 <- executor.subscribe(stream1Id, data)
+            stream2 <- executor.subscribe(stream23Id, data)
+            stream3 <- executor.subscribe(stream23Id, data)
+
+            _ = startStream(stream1, stream1Events, stream1EventsChecker, stream1InterruptChecker)
+            _ = startStream(stream2, stream2Events, stream2EventsChecker, stream2InterruptChecker)
+            _ = startStream(stream3, stream3Events, stream3EventsChecker, stream3InterruptChecker)
+
+            // check if all streams have events
+            _ <- eventually[IO]({ stream1EventsChecker.get.map { _ shouldBe true } }, 100.millis)
+            _ <- eventually[IO]({ stream2EventsChecker.get.map { _ shouldBe true } }, 100.millis)
+            _ <- eventually[IO]({ stream3EventsChecker.get.map { _ shouldBe true } }, 100.millis)
+
+            // check if all streams have the same events
+            _ <- eventually[IO](
+              {
+                for {
+                  events1 <- stream1Events.get
+                  events2 <- stream1Events.get
+                  events3 <- stream3Events.get
+                } yield {
+                  events1.takeRight(10) should contain theSameElementsAs (events2.takeRight(10))
+                  events1.takeRight(10) should contain theSameElementsAs (events3.takeRight(10))
+                }
+              },
+              100.millis
+            )
+            _ <- executor.unsubscribe(stream1Id, data)
+
+            // check if the first stream is finished after unsubscription
+            _ <- eventually[IO] {
+              for {
+                interruption1 <- stream1InterruptChecker.get
+                interruption2 <- stream2InterruptChecker.get
+                interruption3 <- stream3InterruptChecker.get
+              } yield {
+                interruption1 shouldBe true
+                interruption2 shouldBe false
+                interruption3 shouldBe false
+              }
+            }
+
+            _ <- executor.unsubscribe(stream23Id, data)
+
+            // check if the second and third stream is finished after unsubscription
+            _ <- eventually[IO] {
+              for {
+                interruption1 <- stream1InterruptChecker.get
+                interruption2 <- stream2InterruptChecker.get
+                interruption3 <- stream3InterruptChecker.get
+              } yield {
+                interruption1 shouldBe true
+                interruption2 shouldBe true
+                interruption3 shouldBe true
+              }
+            }
+          } yield {}
       }.unsafeRunSync()
     }
   }

@@ -13,16 +13,15 @@ import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.MakeResource
-import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
-import fs2.concurrent.{NoneTerminatedQueue, Queue}
+import fluence.node.workers.subscription.StoredProcedureExecutor.{Event, Init, Quit, Response, TendermintResponse}
+import fs2.concurrent.{SignallingRef, Topic}
 
 import scala.language.higherKinds
 import scala.util.Random
 
 case class SubscriptionState[F[_]](
   tx: Tx.Data,
-  queue: NoneTerminatedQueue[F, Either[TxAwaitError, TendermintQueryResponse]],
-  output: fs2.Stream[F, fs2.Stream[F, Either[TxAwaitError, TendermintQueryResponse]]],
+  topic: Topic[F, Event],
   subNumber: Int
 )
 
@@ -46,22 +45,34 @@ class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
    * @param data a transaction
    * @return a stream of responses every block
    */
-  override def subscribe(data: Tx.Data): F[fs2.Stream[F, Option[TendermintResponse]]] = {
+  override def subscribe(subscriberId: String, data: Tx.Data): F[fs2.Stream[F, TendermintResponse]] = {
+    val key = hasher.unsafe(data.value)
     for {
-      q <- Queue.noneTerminated[F, Either[TxAwaitError, TendermintQueryResponse]]
-      key = hasher.unsafe(data.value)
-      output <- subscriptions.modify { subs =>
+      topic <- Topic[F, Event](Init)
+      signal <- SignallingRef[F, Boolean](false)
+      subState <- subscriptions.modify { subs =>
         subs.get(key) match {
-          case Some(sub) => (subs.updated(key, sub.copy(subNumber = sub.subNumber + 1)), sub.output)
+          case Some(sub) => (subs.updated(key, sub.copy(subNumber = sub.subNumber + 1)), sub)
           case None =>
-            val newState = SubscriptionState(data, q, q.dequeue.broadcast, 1)
-            (subs + (key -> newState), newState.output)
+            val newState = SubscriptionState(data, topic, 1)
+            (subs + (key -> newState), newState)
         }
       }
-    } yield output.take(1).flatten.noneTerminate
+    } yield {
+      subState.topic
+        .subscribe(10)
+        .flatMap {
+          case Quit(id) if id == subscriberId => fs2.Stream.eval(signal.set(true)).map(_ => Quit)
+          case v                              => fs2.Stream(v)
+        }
+        .collect {
+          case Response(v) => v
+        }
+        .interruptWhen(signal)
+    }
   }
 
-  override def unsubscribe(data: Tx.Data): F[Boolean] = {
+  override def unsubscribe(subscriberId: String, data: Tx.Data): F[Boolean] = {
     val key = hasher.unsafe(data.value)
     for {
       (isOk, queueToClose) <- subscriptions.modify { subs =>
@@ -70,12 +81,12 @@ class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
             val updated =
               if (sub.subNumber == 1) subs - key
               else subs.updated(key, sub.copy(subNumber = sub.subNumber - 1))
-            (updated, (true, if (sub.subNumber == 1) Option(sub.queue) else None))
+            (updated, (true, Option(sub.topic)))
           case None => (subs, (false, None))
         }
       }
       _ <- queueToClose match {
-        case Some(q) => q.enqueue1(None)
+        case Some(q) => q.publish1(Quit(subscriberId))
         case None    => ().pure[F]
       }
     } yield isOk
@@ -101,23 +112,23 @@ class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
       } yield ()
     }
 
+  private def waitTx(key: String, data: Tx.Data): F[Either[TxAwaitError, TendermintQueryResponse]] = {
+    val randomStr = Random.alphanumeric.take(8).mkString
+    val head = Tx.Head(s"pubsub-$key-$randomStr", 0)
+    val tx = Tx(head, data)
+
+    waitResponseService.sendTxAwaitResponse(tx.generateTx(), None)
+  }
+
   private def processSubsribes() = {
     import cats.instances.list._
     for {
       subs <- subscriptions.get
-      _ = println("subscriptions: " + subs)
       tasks = subs.map {
-        case (key, SubscriptionState(data, queue, _, _)) =>
-          val randomStr = Random.alphanumeric.take(8).mkString
-          val head = Tx.Head(s"pubsub-$key-$randomStr", 0)
-          val tx = Tx(head, data)
-
-          println("tx: " + tx)
-
+        case (key, SubscriptionState(data, topic, _)) =>
           for {
-            response <- waitResponseService.sendTxAwaitResponse(tx.generateTx(), None)
-            _ = println("response: " + response)
-            _ <- queue.enqueue1(Some(response))
+            response <- waitTx(key, data)
+            _ <- topic.publish1(Response(response))
           } yield {}
       }
       _ <- Traverse[List].traverse(tasks.toList)(F.start)

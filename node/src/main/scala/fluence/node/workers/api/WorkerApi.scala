@@ -85,6 +85,10 @@ trait WorkerApi[F[_]] {
   def subscribe(subscriptionId: String, tx: String)(
     implicit log: Log[F]
   ): F[fs2.Stream[F, Option[TendermintResponse]]]
+
+  def unsubscribe(subscriptionId: String, tx: String)(
+    implicit log: Log[F]
+  ): F[Boolean]
 }
 
 object WorkerApi {
@@ -130,8 +134,17 @@ object WorkerApi {
     override def subscribe(subscriptionId: String, tx: String)(
       implicit log: Log[F]
     ): F[fs2.Stream[F, Option[TendermintResponse]]] =
-      log.scope("txWait" -> tx) { implicit log ⇒
-        worker.withServices(_.stateSubscriber)(_.subscribe(Tx.Data(tx.getBytes())))
+      log.scope("subscriptionId" -> subscriptionId, "tx" -> tx) { implicit log ⇒
+        worker.withServices(_.storedProcedureExecutor)(
+          _.subscribe(subscriptionId, Tx.Data(tx.getBytes())).map(_.map(Option(_)))
+        )
+      }
+
+    override def unsubscribe(subscriptionId: String, tx: String)(implicit log: Log[F]): F[Boolean] =
+      log.scope("subscriptionId" -> subscriptionId, "tx" -> tx) { implicit log ⇒
+        worker.withServices(_.storedProcedureExecutor)(
+          _.unsubscribe(subscriptionId, Tx.Data(tx.getBytes()))
+        )
       }
   }
 
