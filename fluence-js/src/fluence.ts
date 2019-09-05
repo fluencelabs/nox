@@ -20,7 +20,7 @@ import {Session} from "./Session";
 import {SessionConfig} from "./SessionConfig";
 import {Result} from "./Result";
 import {getAppNodes, Node} from "./contract"
-import {remove0x, secp256k1} from "./utils";
+import {remove0x, secp256k1, parseHost} from "./utils";
 import {AppSession} from "./AppSession";
 
 export {
@@ -80,8 +80,9 @@ export async function connect(contract: string, appId: string, ethereumUrl?: str
  * Creates connection to one node.
  */
 function sessionConnect(host: string, port: number, appId: string, sessionId?: string) {
-    let tm = new TendermintClient(host, port, appId);
-    let engine = new Engine(tm);
+    const { protocol, hostname } = parseHost(host);
+    const tm = new TendermintClient(hostname, port, appId, protocol);
+    const engine = new Engine(tm);
 
     if (sessionId == undefined) {
         return engine.genSession();
