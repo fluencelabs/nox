@@ -37,7 +37,7 @@ object StateMachineHttp {
       .flatTap(_.info(s"request"))
       .widen[Log[F]]
 
-  def statusRoutes[F[_]: Http4sDsl: LogFactory: Sync](
+  def readRoutes[F[_]: Http4sDsl: LogFactory: Sync](
     stateMachine: StateMachine[F]
   )(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
     import dsl._

@@ -54,7 +54,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
   )
   private val signals: ControlSignals[IO] = new MockedControlSignals
 
-  val abciHandler: AbciHandler[IO] = ServerRunner
+  val abciHandler: AbciHandler[IO] = StateMachineRunner
     .buildAbciHandler(config, Deferred.unsafe[IO, IO[StateMachineStatus]], signals)
     .valueOr(e => throw new RuntimeException(e.message))
     .unsafeRunSync()

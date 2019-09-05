@@ -18,18 +18,18 @@ package fluence.statemachine
 
 import cats.data.Kleisli
 import cats.effect.ExitCase.{Canceled, Completed, Error}
-import cats.effect.concurrent.Deferred
 import cats.effect.{Concurrent, ExitCode, IO, IOApp}
 import cats.syntax.flatMap._
-import cats.syntax.functor._
 import fluence.log.{Log, LogFactory, LogLevel}
 import fluence.statemachine.abci.AbciHandler
-import fluence.statemachine.api.data.StateMachineStatus
-import fluence.statemachine.http.ControlServer
-import org.http4s.{Request, Response, Status}
+import fluence.statemachine.abci.peers.PeersControlBackend
+import fluence.statemachine.api.StateMachine
+import fluence.statemachine.api.command.{HashesBus, PeersControl}
+import org.http4s.{Request, Response}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.Router
 import org.http4s.server.blaze.BlazeServerBuilder
+import shapeless._
 
 import scala.language.higherKinds
 
@@ -40,7 +40,7 @@ import scala.language.higherKinds
  * jTendermint implements RPC layer, provides dedicated threads (`Consensus`, `Mempool` and `Query` thread
  * according to Tendermint specification) and sends ABCI requests to `ABCIHandler`.
  */
-object ServerRunner extends IOApp {
+object StateMachineRunner extends IOApp {
 
   override def run(args: List[String]): IO[ExitCode] =
     StateMachineConfig
@@ -52,25 +52,32 @@ object ServerRunner extends IOApp {
         for {
           implicit0(log: Log[IO]) ← logFactory.init("server")
           _ ← log.info("Building State Machine ABCI handler")
-          statusDef ← Deferred[IO, IO[StateMachineStatus]]
-
           moduleFiles ← config
             .collectModuleFiles[IO]
             .value
             .flatMap(e ⇒ IO.fromEither(e.left.map(err ⇒ new RuntimeException(s"Can't parse VM module files: $err"))))
-          abciConfig = AbciHandler.Config(moduleFiles, config.abciPort, config.blockUploadingEnabled)
+
+          peersBackend ← PeersControlBackend[IO]
+          machine ← EmbeddedStateMachine
+            .init[IO](
+              moduleFiles,
+              config.blockUploadingEnabled
+            )
+            .map(_.extend[PeersControl[IO]](peersBackend))
+            .value
+            .flatMap(
+              e ⇒ IO.fromEither(e.left.map(err ⇒ new RuntimeException(s"Cannot initiate EmbeddedStateMachine: $err")))
+            )
 
           _ <- (
             for {
-              signals ← ControlSignals[IO]()
+              _ ← AbciHandler.make(config.abciPort, machine, peersBackend)
 
               _ ← BlazeServerBuilder[IO]
                 .bindHttp(config.http.port, config.http.host)
-                .withHttpApp(routes(signals, statusDef.get.flatten))
+                .withHttpApp(routes(machine))
                 .resource
-
-              _ ← AbciHandler.make[IO](abciConfig, statusDef, signals)
-            } yield signals.stop
+            } yield IO.never
           ).use(identity)
         } yield ExitCode.Success
       }
@@ -83,14 +90,25 @@ object ServerRunner extends IOApp {
           LogFactory.forPrintln[IO]().init("server", "shutdown") >>= (_.info("StateMachine exited gracefully"))
       }
 
-  private def routes[F[_]: Concurrent: LogFactory](signals: ControlSignals[F], status: F[StateMachineStatus]) = {
+  private def routes[F[_]: Concurrent: LogFactory, C <: HList](
+    machine: StateMachine.Aux[F, C]
+  )(
+    implicit hb: ops.hlist.Selector[C, HashesBus[F]],
+    pc: ops.hlist.Selector[C, PeersControl[F]]
+  ) = {
     implicit val dsl: Http4sDsl[F] = Http4sDsl[F]
+
+    import fluence.statemachine.http.StateMachineHttp.{commandRoutes, readRoutes}
+
+    val rs =
+      Router[F](
+        ("/" -> readRoutes[F](machine)) +:
+          commandRoutes[F](machine.command[HashesBus[F]], machine.command[PeersControl[F]]): _*
+      )
 
     Kleisli[F, Request[F], Response[F]](
       a =>
-        Router[F](
-          "/control" -> ControlServer.routes(signals, status)
-        ).run(a)
+        rs.run(a)
           .getOrElse(
             Response.notFound
               .withEntity(s"Route for ${a.method} ${a.pathInfo} ${a.params.mkString("&")} not found")

@@ -16,9 +16,12 @@
 
 package fluence.statemachine
 
-import cats.Functor
-import cats.data.EitherT
+import cats.{Functor, Monad}
+import cats.data.{EitherT, NonEmptyList}
+import cats.effect.ConcurrentEffect
 import cats.syntax.functor._
+import cats.syntax.flatMap._
+import cats.syntax.apply._
 import fluence.effects.EffectError
 import fluence.log.Log
 import fluence.statemachine.api.StateMachine
@@ -26,7 +29,12 @@ import fluence.statemachine.api.command._
 import fluence.statemachine.api.data.{StateHash, StateMachineStatus}
 import fluence.statemachine.api.query.QueryResponse
 import fluence.statemachine.api.tx.TxResponse
+import fluence.statemachine.error.StateMachineError
+import fluence.statemachine.hashesbus.HashesBusBackend
 import fluence.statemachine.state.StateService
+import fluence.statemachine.vm.WasmVmOperationInvoker
+import fluence.vm.WasmVm
+import fluence.vm.wasm.MemoryHasher
 import shapeless._
 
 import scala.language.higherKinds
@@ -59,4 +67,26 @@ object EmbeddedStateMachine {
         stateService.hashesBus
       )
 
+  def init[F[_]: ConcurrentEffect: Log](
+    moduleFiles: NonEmptyList[String],
+    blockUploadingEnabled: Boolean
+  ): EitherT[F, StateMachineError, StateMachine.Aux[F, HashesBus[F] :: TxProcessor[F] :: HNil]] =
+    buildVm[F](moduleFiles)
+      .semiflatMap(
+        vm ⇒
+          for {
+            hashesBus ← HashesBusBackend[F]
+            state ← StateService[F](new WasmVmOperationInvoker(vm), hashesBus, blockUploadingEnabled)
+          } yield apply[F](state, StateMachineStatus(vm.expectsEth, StateHash.empty))
+      )
+
+  /**
+   * Builds a VM instance used to perform function calls from the clients.
+   *
+   * @param moduleFiles module filenames with VM code
+   */
+  private def buildVm[F[_]: Monad: Log](moduleFiles: NonEmptyList[String]): EitherT[F, StateMachineError, WasmVm] =
+    Log.eitherT[F, StateMachineError].info("Loading VM modules from " + moduleFiles) >>
+      WasmVm[F](moduleFiles, MemoryHasher[F]).leftMap(WasmVmOperationInvoker.convertToStateMachineError) <*
+      Log.eitherT[F, StateMachineError].info("VM instantiated")
 }
