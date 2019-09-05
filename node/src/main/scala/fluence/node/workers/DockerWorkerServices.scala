@@ -245,17 +245,10 @@ object DockerWorkerServices {
 
       waitResponseService = WaitResponseService(rpc, responseSubscriber)
 
-      stateSubscriber <- StoredProcedureExecutor
+      storedProcedureExecutor <- StoredProcedureExecutor
         .make(wrpc, rpc, waitResponseService, CryptoHashers.Sha1.rmap(b => new String(b)))
 
-      // Start uploading tendermint blocks and send receipts to statemachine
-      _ <- blockUploading.start(params.app.id, services)
-
-      // Start Response subscriber after block uploading, so block replay succeeds
-      _ <- responseSubscriber.start()
-
-    } yield
-      new DockerWorkerServices[F](
+      services = new DockerWorkerServices[F](
         p2pPort,
         params.appId,
         rpc,
@@ -263,7 +256,7 @@ object DockerWorkerServices {
         control,
         blockManifests,
         waitResponseService,
-        stateSubscriber,
+        storedProcedureExecutor,
         status
       )
 
@@ -271,7 +264,10 @@ object DockerWorkerServices {
       _ <- blockUploading.start(params.app.id, services)
 
       // Start Response subscriber after block uploading, so block replay succeeds
-      _ <- responseSubscriber.start()
+      _ <- waitResponseService.start()
+
+      // Start to send transactions on each subscription to state machine after each block
+      _ <- storedProcedureExecutor.start()
     } yield services
 
 }

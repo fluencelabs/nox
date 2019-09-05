@@ -23,6 +23,7 @@ import fluence.log.Log
 import fluence.node.workers.subscription.{TendermintQueryResponse, TxAwaitError}
 import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.api.websocket.WorkerWebsocket
+import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
 
 import scala.language.higherKinds
@@ -81,9 +82,11 @@ class TestWorkerApi[F[_]: Concurrent]() extends WorkerApi[F] {
 
   override def websocket()(implicit log: Log[F]): F[WorkerWebsocket[F]] = WorkerWebsocket(this)
 
-  def subscribe(subscriptionId: String, tx: String)(
+  override def subscribe(key: SubscriptionKey)(
     implicit log: Log[F]
-  ): F[fs2.Stream[F, Option[TendermintResponse]]] = ???
+  ): F[fs2.Stream[F, TendermintResponse]] = ???
 
-  override def unsubscribe(subscriptionId: String, tx: String)(implicit log: Log[F]): F[Boolean] = ???
+  override def unsubscribe(key: SubscriptionKey)(
+    implicit log: Log[F]
+  ): F[Boolean] = ???
 }
