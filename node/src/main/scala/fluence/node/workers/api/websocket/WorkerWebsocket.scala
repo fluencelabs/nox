@@ -16,7 +16,6 @@
 
 package fluence.node.workers.api.websocket
 
-import cats.Traverse
 import cats.data.EitherT
 import cats.effect.Concurrent
 import cats.effect.concurrent.Ref
@@ -25,16 +24,10 @@ import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
 import fluence.node.workers.api.WorkerApi
+import fluence.node.workers.api.websocket.WebsocketResponses.WebsocketResponse
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
-import fluence.node.workers.subscription.{
-  OkResponse,
-  PendingResponse,
-  RpcErrorResponse,
-  TendermintQueryResponse,
-  TimedOutResponse,
-  TxAwaitError
-}
+import fluence.node.workers.subscription.{OkResponse, PendingResponse, RpcErrorResponse, TimedOutResponse}
 import fs2.concurrent.{NoneTerminatedQueue, Queue}
 import io.circe.parser.parse
 import io.circe.syntax._
@@ -50,10 +43,12 @@ import scala.language.higherKinds
 class WorkerWebsocket[F[_]: Concurrent: Log](
   workerApi: WorkerApi[F],
   subscriptions: Ref[F, Map[SubscriptionKey, Option[fs2.Stream[F, TendermintResponse]]]],
-  outputQueue: NoneTerminatedQueue[F, Either[TxAwaitError, TendermintQueryResponse]]
+  outputQueue: NoneTerminatedQueue[F, WebsocketResponse]
 ) {
   import WebsocketRequests._
   import WebsocketResponses._
+
+  def eventStream(): fs2.Stream[F, String] = outputQueue.dequeue.map(_.asJson.noSpaces)
 
   /**
    * Unsubscribes from all subscriptions and closes the queue.
@@ -106,6 +101,17 @@ class WorkerWebsocket[F[_]: Concurrent: Log](
     }.map(_.asJson.noSpaces)
   }
 
+  private def processTxWaitResponse(requestId: String, response: TendermintResponse) = {
+    response match {
+      case Right(OkResponse(_, response))    => TxWaitResponse(requestId, response)
+      case Right(RpcErrorResponse(_, error)) => ErrorResponse(requestId, error.getMessage)
+      case Right(TimedOutResponse(_, tries)) =>
+        ErrorResponse(requestId, s"Cannot get response after $tries generated blocks")
+      case Right(PendingResponse(_)) => ErrorResponse(requestId, s"Unexpected error.")
+      case Left(error)               => ErrorResponse(requestId, error.msg)
+    }
+  }
+
   private def callApi(input: WebsocketRequest): F[WebsocketResponse] =
     input match {
       case TxRequest(tx, id, requestId) =>
@@ -121,14 +127,7 @@ class WorkerWebsocket[F[_]: Concurrent: Log](
       case TxWaitRequest(tx, id, requestId) =>
         workerApi
           .sendTxAwaitResponse(tx, id)
-          .map {
-            case Right(OkResponse(_, response))    => TxWaitResponse(requestId, response)
-            case Right(RpcErrorResponse(_, error)) => ErrorResponse(requestId, error.getMessage)
-            case Right(TimedOutResponse(_, tries)) =>
-              ErrorResponse(requestId, s"Cannot get response after $tries generated blocks")
-            case Right(PendingResponse(_)) => ErrorResponse(requestId, s"Unexpected error.")
-            case Left(error)               => ErrorResponse(requestId, error.msg)
-          }
+          .map(processTxWaitResponse(requestId, _))
       case LastManifestRequest(requestId) =>
         workerApi.lastManifest().map(block => LastManifestResponse(requestId, block.map(_.jsonString)))
       case StatusRequest(requestId) =>
@@ -144,12 +143,12 @@ class WorkerWebsocket[F[_]: Concurrent: Log](
             workerApi.subscribe(key).flatMap { stream =>
               for {
                 _ <- addStream(key, stream)
-                _ = {
+                _ <- Concurrent[F].start(
                   stream
-                    .evalMap(r => outputQueue.enqueue1(Option(r)))
+                    .evalMap(r => outputQueue.enqueue1(Option(processTxWaitResponse(key.subscriptionId, r))))
                     .compile
                     .drain
-                }
+                )
               } yield SubscribeResponse(requestId): WebsocketResponse
             }
           case false =>
@@ -171,7 +170,7 @@ object WorkerWebsocket {
   def apply[F[_]: Concurrent: Log](workerApi: WorkerApi[F]): F[WorkerWebsocket[F]] =
     for {
       subs <- Ref.of(Map.empty[SubscriptionKey, Option[fs2.Stream[F, TendermintResponse]]])
-      queue <- Queue.noneTerminated[F, Either[TxAwaitError, TendermintQueryResponse]]
+      queue <- Queue.noneTerminated[F, WebsocketResponse]
     } yield new WorkerWebsocket[F](workerApi, subs, queue)
 
 }

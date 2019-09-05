@@ -132,7 +132,7 @@ object WorkersHttp {
               Queue
                 .unbounded[F, WebSocketFrame]
                 .flatMap { q =>
-                  val d = q.dequeue.through(processMessages)
+                  val d = q.dequeue.through(processMessages).merge(ws.eventStream().map(Text(_)))
                   val e = q.enqueue
                   WebSocketBuilder[F].build(d, e)
                 }
