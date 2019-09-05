@@ -223,26 +223,6 @@ object DockerWorkerServices {
 
       responseSubscriber <- ResponseSubscriber.make(rpc, wrpc, params.appId)
 
-      workerStatus = (timeout: FiniteDuration) ⇒
-        DockerIO[F]
-          .checkContainer(worker)
-          .semiflatMap[ServiceStatus[ControlStatus]] { d ⇒
-            HttpStatus
-              .timed(control.status, timeout)
-              .map(s ⇒ ServiceStatus(Right(d), s))
-          }
-          .valueOr(err ⇒ ServiceStatus(Left(err), HttpCheckNotPerformed("Worker's Docker container is not launched")))
-
-      status = (timeout: FiniteDuration) ⇒
-        Apply[F].map2(tendermint.status(rpc, timeout), workerStatus(timeout)) { (ts, ws) ⇒
-          WorkerStatus(
-            isHealthy = ts.isOk(_.sync_info.latest_block_height > 1) && ws.isOk(),
-            params.appId,
-            ts,
-            ws
-          )
-      }
-
       waitResponseService = WaitResponseService(rpc, responseSubscriber)
 
       storedProcedureExecutor <- StoredProcedureExecutor
