@@ -19,14 +19,21 @@ import fs2.concurrent.{SignallingRef, Topic}
 import scala.language.higherKinds
 import scala.util.Random
 
-case class SubscriptionState[F[_]](
+/**
+ * Data about subscription.
+ *
+ * @param tx transaction that will be processed after each block
+ * @param topic for publishing events to subscribers
+ * @param subNumber number of subscriptions, the subscription should be deleted after subNumber become zero
+ */
+case class Subscription[F[_]](
   tx: Tx.Data,
   topic: Topic[F, Event],
   subNumber: Int
 )
 
 class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
-  subscriptions: Ref[F, Map[String, SubscriptionState[F]]],
+  subscriptions: Ref[F, Map[String, Subscription[F]]],
   tendermintWRpc: TendermintWebsocketRpc[F],
   tendermintRpc: TendermintHttpRpc[F],
   waitResponseService: WaitResponseService[F],
@@ -55,7 +62,7 @@ class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
         subs.get(key) match {
           case Some(sub) => (subs.updated(key, sub.copy(subNumber = sub.subNumber + 1)), sub)
           case None =>
-            val newState = SubscriptionState(data, topic, 1)
+            val newState = Subscription(data, topic, 1)
             (subs + (key -> newState), newState)
         }
       }
@@ -132,7 +139,7 @@ class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
       subs <- subscriptions.get
       _ <- log.debug(s"Processing ${subs.size} subscriptions")
       tasks = subs.map {
-        case (key, SubscriptionState(data, topic, _)) =>
+        case (key, Subscription(data, topic, _)) =>
           for {
             response <- waitTx(key, data)
             _ <- log.trace(s"Publishing $response for $key")

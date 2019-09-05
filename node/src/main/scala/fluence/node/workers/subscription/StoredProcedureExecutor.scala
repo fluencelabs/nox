@@ -54,7 +54,7 @@ object StoredProcedureExecutor {
     hasher: Hasher[Array[Byte], String]
   ): F[StoredProcedureExecutor[F]] =
     for {
-      subs <- Ref.of[F, Map[String, SubscriptionState[F]]](Map.empty)
+      subs <- Ref.of[F, Map[String, Subscription[F]]](Map.empty)
     } yield new StoredProcedureExecutorImpl[F](subs, tendermintWRpc, tendermintRpc, waitResponseService, hasher)
 
   def make[F[_]: Monad: Timer: Sync: Concurrent: Log](
