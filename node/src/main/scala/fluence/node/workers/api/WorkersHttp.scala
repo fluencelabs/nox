@@ -31,7 +31,7 @@ import fs2.concurrent.Queue
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.websocket.WebSocketBuilder
 import org.http4s.websocket.WebSocketFrame
-import org.http4s.websocket.WebSocketFrame.Text
+import org.http4s.websocket.WebSocketFrame.{Close, Text}
 import org.http4s.{HttpRoutes, Response}
 import io.circe.syntax._
 
@@ -124,6 +124,8 @@ object WorkersHttp {
                 _.evalMap {
                   case Text(msg, _) =>
                     ws.processRequest(msg).map(Text(_))
+                  case Close(data) =>
+                    ws.closeWebsocket().map(_ => Text("Closing websocket"))
                   case m => log.error(s"Unsupported message: $m") as Text("Unsupported")
                 }
 

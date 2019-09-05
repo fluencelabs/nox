@@ -24,6 +24,7 @@ import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.log.Log
 import fluence.node.workers.Worker
 import fluence.node.workers.api.websocket.WorkerWebsocket
+import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
 import fluence.node.workers.subscription._
 import fluence.statemachine.data.Tx
@@ -80,13 +81,25 @@ trait WorkerApi[F[_]] {
    */
   def lastManifest(): F[Option[BlockManifest]]
 
+  /**
+   * Creates service to work with websocket
+   *
+   */
   def websocket()(implicit log: Log[F]): F[WorkerWebsocket[F]]
 
-  def subscribe(subscriptionId: String, tx: String)(
+  /**
+   * Subscribes on the transaction processing after each block.
+   *
+   */
+  def subscribe(key: SubscriptionKey)(
     implicit log: Log[F]
-  ): F[fs2.Stream[F, Option[TendermintResponse]]]
+  ): F[fs2.Stream[F, TendermintResponse]]
 
-  def unsubscribe(subscriptionId: String, tx: String)(
+  /**
+   * Unsubscribes out of the transaction processing after each block.
+   *
+   */
+  def unsubscribe(key: SubscriptionKey)(
     implicit log: Log[F]
   ): F[Boolean]
 }
@@ -131,19 +144,19 @@ object WorkerApi {
     override def websocket()(implicit log: Log[F]): F[WorkerWebsocket[F]] =
       WorkerWebsocket(this)
 
-    override def subscribe(subscriptionId: String, tx: String)(
+    override def subscribe(key: SubscriptionKey)(
       implicit log: Log[F]
-    ): F[fs2.Stream[F, Option[TendermintResponse]]] =
-      log.scope("subscriptionId" -> subscriptionId, "tx" -> tx) { implicit log ⇒
+    ): F[fs2.Stream[F, TendermintResponse]] =
+      log.scope("subscriptionKey" -> key.toString) { implicit log ⇒
         worker.withServices(_.storedProcedureExecutor)(
-          _.subscribe(subscriptionId, Tx.Data(tx.getBytes())).map(_.map(Option(_)))
+          _.subscribe(key.subscriptionId, Tx.Data(key.tx.getBytes()))
         )
       }
 
-    override def unsubscribe(subscriptionId: String, tx: String)(implicit log: Log[F]): F[Boolean] =
-      log.scope("subscriptionId" -> subscriptionId, "tx" -> tx) { implicit log ⇒
+    override def unsubscribe(key: SubscriptionKey)(implicit log: Log[F]): F[Boolean] =
+      log.scope("subscriptionKey" -> key.toString) { implicit log ⇒
         worker.withServices(_.storedProcedureExecutor)(
-          _.unsubscribe(subscriptionId, Tx.Data(tx.getBytes()))
+          _.unsubscribe(key.subscriptionId, Tx.Data(key.tx.getBytes()))
         )
       }
   }
