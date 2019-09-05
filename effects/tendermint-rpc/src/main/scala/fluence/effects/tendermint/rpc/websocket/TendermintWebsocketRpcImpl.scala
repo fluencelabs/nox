@@ -28,9 +28,8 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Eval, Monad, Traverse}
 import fluence.effects.JavaFutureConversion._
-import fluence.effects.syntax.backoff._
-import fluence.effects.syntax.eitherT._
 import fluence.effects.tendermint.block.data.Block
+import fluence.effects.tendermint.block.history.db.Blockstore
 import fluence.effects.tendermint.rpc.helpers.NettyFutureConversion._
 import fluence.effects.tendermint.rpc.http.{RpcBlockParsingFailed, TendermintHttpRpc}
 import fluence.effects.{Backoff, EffectError}
@@ -46,15 +45,25 @@ import scala.language.higherKinds
 private[websocket] sealed trait Event
 private[websocket] case class JsonEvent(json: Json) extends Event
 private[websocket] case object Reconnect extends Event
+private[websocket] case object Start extends Event
 
 /**
- * Implementation of Tendermint RPC Subscribe call
- * Details: https://tendermint.com/rpc/#subscribe
+ * Implementation of Tendermint's websocket RPC. Specifically implements subscribe request.
+ *
+ * This implementation retrieves information from both HTTP RPC and blockstore. They both implement
+ * `getBlock` and `getLastHeight`, but HTTP RPC doesn't work during blocks replay, so it is backed up by blockstore.
+ *
+ * @param host Tendermint's host to connect to
+ * @param port RPC port
+ * @param httpRpc Tendermint HTTP RPC, to retrieve last height & blocks
+ * @param blockstore Tendermint's database, to retrieve last height & blocks when HTTP RPC doesn't work (during replay)
+ * @param websocketConfig Configuration for websocket: ping interval, timeout, etc
  */
 class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextShift](
   host: String,
   port: Int,
   httpRpc: TendermintHttpRpc[F],
+  blockstore: Blockstore[F],
   val websocketConfig: WebsocketConfig
 ) extends TendermintWebsocketRpc[F] {
 
@@ -73,17 +82,21 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
     // Start accepting and/or loading blocks from next to already-known block
     val startFrom = lastKnownHeight + 1
 
-    fs2.Stream.resource(subscribe("NewBlock")).flatMap { queue =>
-      fs2.Stream.eval(traceBU(s"subscribed on NewBlock. startFrom: $startFrom")) *>
-        queue.dequeue
-          .evalMapAccumulate(startFrom) {
-            // load missing blocks on reconnect (reconnect is always the first event in the queue)
-            case (startHeight, Reconnect) => loadMissedBlocks(startHeight)
-            // accept a new block
-            case (curHeight, JsonEvent(json)) => acceptNewBlock(curHeight, json)
-          }
-          .flatMap { case (_, blocks) => fs2.Stream.emits(blocks) }
-    }
+    val logSubscribe = traceBU(s"subscribed on NewBlock. startFrom: $startFrom")
+    val subscribeS = fs2.Stream.resource(subscribe("NewBlock")).evalTap(_ => logSubscribe)
+    // Emit Start to start "offline" block processing, avoiding wait for websocket to connect
+    val startEventS = fs2.Stream.emit(Start)
+    // Drop first reconnect from websocket to account for startEventS
+    val eventsS = startEventS ++ (subscribeS >>= (_.dequeue)).drop(1)
+
+    eventsS
+      .evalMapAccumulate(startFrom) {
+        // load missing blocks on reconnect (reconnect is always the first event in the queue)
+        case (startHeight, Start | Reconnect) => loadMissedBlocks(startHeight)
+        // accept a new block
+        case (curHeight, JsonEvent(json)) => acceptNewBlock(curHeight, json)
+      }
+      .flatMap { case (_, blocks) => fs2.Stream.emits(blocks) }
   }
 
   /**
@@ -101,22 +114,23 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
     implicit log: Log[F],
     backoff: Backoff[EffectError]
   ) =
-    parseBlock(blockJson, expectedHeight)
-      .flatTap(b => traceBU(s"new block ${b.header.height}. expectedHeight $expectedHeight"))
-      .flatMap {
-        // received an old block, ignoring
-        case b if b.header.height < expectedHeight =>
-          log.warn(s"ignoring block ${b.header.height} as too old, current height is $expectedHeight") as
-            expectedHeight -> List.empty[Block]
-        // we've missed some blocks, so catching up (this happened without reconnect, so it might be Tendermint's error)
-        case b if b.header.height > expectedHeight =>
-          for {
-            _ <- log.warn(s"missed some blocks. expected $expectedHeight, got ${b.header.height}. catching up")
-            blocks <- loadBlocks(expectedHeight, b.header.height - 1)
-          } yield (b.header.height + 1, blocks :+ b)
-        case b =>
-          (b.header.height + 1, List(b)).pure[F]
-      }
+    traceBU(s"will parse new block. expectedHeight $expectedHeight") >>
+      parseBlock(blockJson, expectedHeight)
+        .flatTap(b => traceBU(s"new block ${b.header.height}. expectedHeight $expectedHeight"))
+        .flatMap {
+          // received an old block, ignoring
+          case b if b.header.height < expectedHeight =>
+            log.warn(s"ignoring block ${b.header.height} as too old, current height is $expectedHeight") as
+              expectedHeight -> List.empty[Block]
+          // we've missed some blocks, so catching up (this happened without reconnect, so it might be Tendermint's error)
+          case b if b.header.height > expectedHeight =>
+            for {
+              _ <- log.warn(s"missed some blocks. expected $expectedHeight, got ${b.header.height}. catching up")
+              blocks <- loadBlocks(expectedHeight, b.header.height - 1)
+            } yield (b.header.height + 1, blocks :+ b)
+          case b =>
+            (b.header.height + 1, List(b)).pure[F]
+        }
 
   /**
    * Loads missing blocks if there are any
@@ -129,20 +143,21 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
   ) = {
     def warnIf(cond: => Boolean, msg: String) = if (cond) log.warn(msg) else ().pure[F]
     for {
+      _ <- traceBU("reconnect. will retrieve last height")
       // retrieve height from Tendermint
-      consensusHeight <- backoff.retry(httpRpc.consensusHeight(), e => log.error("retrieving consensus height", e))
+      lastHeight <- backoff.retry(getLastHeight, e => log.error("retrieving consensus height", e))
       _ <- traceBU(
-        s"reconnect. startHeight $startHeight consensusHeight $consensusHeight " +
-          s"cond1: ${consensusHeight == startHeight}, cond2: ${startHeight == consensusHeight - 1}"
+        s"reconnect. startHeight $startHeight lastHeight $lastHeight " +
+          s"cond1: ${lastHeight == startHeight}, cond2: ${startHeight == lastHeight - 1}"
       )
-      (height, block) <- if (consensusHeight >= startHeight) {
+      (height, block) <- if (lastHeight >= startHeight) {
         // we're behind last block, load all blocks up to it
-        loadBlocks(startHeight, consensusHeight).map(bs => (consensusHeight + 1, bs))
+        loadBlocks(startHeight, lastHeight).map(bs => (lastHeight + 1, bs))
       } else {
         warnIf(
           // shouldn't happen, could mean that we have invalid blocks saved in storage
-          startHeight > consensusHeight + 1,
-          s"unexpected state: startHeight $startHeight > consensusHeight $consensusHeight + 1. " +
+          startHeight > lastHeight + 1,
+          s"unexpected state: startHeight $startHeight > lastHeight $lastHeight + 1. " +
             s"Consensus travelled back in time?"
         ) as
           // we're all caught up, start waiting for a new block (i.e., JsonEvent)
@@ -168,9 +183,9 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
       .recoverWith {
         case e =>
           Log.eitherT[F, WebsocketRpcError].warn(s"parsing block $height, reloading", e) >>
-            httpRpc.block(height).leftMap {
+            getBlock(height).leftMap {
               case RpcBlockParsingFailed(cause, raw, height) => BlockParsingFailed(cause, Eval.now(raw), height)
-              case rpcErr                                    => BlockRetrievalError(rpcErr, height)
+              case err                                       => BlockRetrievalError(err, height)
             }
       },
     e => log.error(s"parsing block $height", e)
@@ -179,17 +194,33 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
   private def loadBlock(height: Long)(
     implicit log: Log[F],
     backoff: Backoff[EffectError]
-  ): F[Block] = backoff.retry(httpRpc.block(height), e => log.error(s"load block $height", e))
+  ): F[Block] = backoff.retry(getBlock(height), e => log.error(s"load block $height", e))
 
   private def loadBlocks(from: Long, to: Long)(
     implicit log: Log[F],
     backoff: Backoff[EffectError]
   ) = Traverse[List].sequence((from to to).map(loadBlock).toList)
 
-  private def getLastHeight: EitherT[F, EffectError, Long] = httpRpc.consensusHeight().leftMap(identity[EffectError])
+  private def getLastHeight(implicit log: Log[F]): EitherT[F, EffectError, Long] =
+    EitherT.liftF(traceBU("getLastHeight")).leftMap(identity[EffectError]) *>
+      blockstore.getStorageHeight.leftMap(identity[EffectError]).recoverWith {
+        case e =>
+          Log.eitherT[F, EffectError].warn(s"Error retrieving last height from blockstore", e) >>
+            httpRpc.consensusHeight().leftMap(identity[EffectError])
+      }
+
+  private def getBlock(height: Long)(implicit log: Log[F]) =
+    EitherT.liftF(traceBU(s"getBlock $height")).leftMap(identity[EffectError]) *>
+      blockstore.getBlock(height).leftMap(identity[EffectError]).recoverWith {
+        case e =>
+          Log.eitherT[F, EffectError].warn(s"Error retrieving block from blockstore $height", e) >>
+            httpRpc.block(height).leftMap(identity[EffectError])
+      }
 
   /**
-   * Subscribes to the specified event type
+   * Implementation of Tendermint RPC Subscribe call
+   * Details: https://tendermint.com/rpc/#subscribe
+   *
    * @param event Event type
    * @return Queue of events
    */

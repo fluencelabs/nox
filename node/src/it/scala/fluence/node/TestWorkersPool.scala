@@ -54,7 +54,7 @@ class TestWorkersPool[F[_]: Concurrent](
               appId,
               0: Short,
               s"Test worker for appId $appId",
-              servicesBuilder(appId),
+              Applicative[F].pure(servicesBuilder(appId)),
               identity,
               for {
                 ws ← workers.take

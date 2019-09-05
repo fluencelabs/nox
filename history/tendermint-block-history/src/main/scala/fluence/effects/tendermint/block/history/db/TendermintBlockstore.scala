@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-package fluence.effects.tendermint.block.data
+package fluence.effects.tendermint.block.history.db
 
-import proto3.tendermint.{BlockID, Vote}
+import cats.data.EitherT
+import proto3.tendermint.Block
 
-/**
- * Commits for a previous Block
- *
- * @param block_id Previous block's id (hashes)
- * @param precommits List of commits (votes)
- */
-case class LastCommit(block_id: Option[BlockID], precommits: List[Option[Vote]] = List.empty)
+import scala.language.higherKinds
+
+trait TendermintBlockstore[F[_]] {
+  def getBlock(height: Long): EitherT[F, BlockstoreError, Block]
+  def getStorageHeight: EitherT[F, BlockstoreError, Int]
+}

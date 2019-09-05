@@ -23,12 +23,20 @@ import fluence.kad.protocol.Key
 
 sealed trait DhtError extends EffectError
 
-case class DhtLocalStoreError(cause: KVStoreError) extends DhtError with WithCause[KVStoreError]
+case class DhtLocalStoreError(cause: KVStoreError) extends DhtError with WithCause[KVStoreError] {
+  override def getMessage: String = s"$cause"
+}
 
-case class DhtCryptError(cause: CryptoError) extends DhtError with WithCause[CryptoError]
+case class DhtCryptError(cause: CryptoError) extends DhtError with WithCause[CryptoError] {
+  override def getMessage: String = s"$cause"
+}
 
 case class DhtValueNotFound(key: Key) extends DhtError
 
-case class DhtCannotStoreValue(key: Key) extends DhtError
+case class DhtCannotStoreValue(key: Key) extends DhtError {
+  override def getMessage: String = s"No DHT nodes accepted to store key $key"
+}
 
-case class DhtRemoteError(message: String, cause: Option[Throwable]) extends DhtError
+case class DhtRemoteError(message: String, cause: Option[Throwable]) extends DhtError {
+  override def getMessage: String = s"$message: ${cause.getOrElse("empty cause")}"
+}

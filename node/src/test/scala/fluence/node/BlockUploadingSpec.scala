@@ -173,9 +173,11 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
       .flatMap {
         case (state, ipfs, workerServices) =>
           val worker: Resource[IO, Worker[IO]] =
-            Worker.make[IO](appId, p2pPort, description, workerServices, (_: IO[Unit]) => IO.unit, IO.unit, IO.unit)
+            Worker.make[IO](appId, p2pPort, description, IO(workerServices), (_: IO[Unit]) => IO.unit, IO.unit, IO.unit)
 
-          worker.flatMap(worker => BlockUploading[IO](enabled = true, ipfs).flatMap(_.start(worker))) as state
+          worker.flatMap(
+            worker => BlockUploading[IO](enabled = true, ipfs).flatMap(_.start(worker.appId, workerServices))
+          ) as state
       }
   }
 

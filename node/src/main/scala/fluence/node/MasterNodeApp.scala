@@ -32,7 +32,7 @@ import fluence.effects.{Backoff, EffectError}
 import fluence.effects.docker.DockerIO
 import fluence.effects.ipfs.IpfsUploader
 import fluence.effects.kvstore.RocksDBStore
-import fluence.effects.receipt.storage.ReceiptStorage
+import fluence.effects.receipt.storage.{DhtReceiptStorage, ReceiptStorage}
 import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.kad.Kademlia
@@ -47,7 +47,6 @@ import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
 import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.pool.DockerWorkersPool
-import fluence.node.workers.tendermint.DhtReceiptStorage
 import fluence.node.workers.tendermint.block.BlockUploading
 
 import scala.language.higherKinds
@@ -84,7 +83,7 @@ object MasterNodeApp extends IOApp {
               rDht ← receiptsDht(conf.rootPath, kad.kademlia)
               pool ← dockerWorkersPool(
                 conf.rootPath,
-                appId ⇒ Resource.pure(new DhtReceiptStorage(appId, rDht.dht)),
+                appId ⇒ ReceiptStorage.local[IO](appId, conf.rootPath),
                 masterConf
               )
               node ← MasterNode.make[IO, UriContact](masterConf, conf.nodeConfig, pool, kad.kademlia)

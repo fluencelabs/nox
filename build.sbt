@@ -312,7 +312,7 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
       sttpCatsBackend % Test
     )
   )
-  .dependsOn(`effects`, `sttp-effect`, `tendermint-block`, `log`)
+  .dependsOn(`effects`, `sttp-effect`, `tendermint-block`, `log`, `tendermint-block-history`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `tendermint-block` = (project in file("history/tendermint-block"))
@@ -349,10 +349,11 @@ lazy val `tendermint-block-history` = (project in file("history/tendermint-block
       http4sDsl,
       http4sServer,
       http4sCirce,
+      levelDb,
       scalaTest
     )
   )
-  .dependsOn(`effects`, `tendermint-block`, `ipfs`)
+  .dependsOn(`effects`, `tendermint-block`, `ipfs`, `kvstore`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `receipt-storage` = (project in file("history/receipt-storage"))
@@ -366,7 +367,7 @@ lazy val `receipt-storage` = (project in file("history/receipt-storage"))
       scalaTest
     )
   )
-  .dependsOn(`log`, `kvstore`, `tendermint-block-history`)
+  .dependsOn(`log`, `kvstore`, `tendermint-block-history`, `kademlia`, `kademlia-dht`)
 
 lazy val `kademlia` = project
   .in(file("kademlia"))

@@ -113,7 +113,7 @@ class MasterNodeIntegrationSpec
             case _ ⇒
               log.debug("Trying to get WorkerRunning, but it is not healthy in status: " + st).unsafeRunSync()
               None
-          }
+        }
       )
     }
 
