@@ -145,32 +145,38 @@ class StoredProcedureSpec extends WordSpec with Eventually with Matchers with Op
             _ <- executor.unsubscribe(stream1Id, data)
 
             // check if the first stream is finished after unsubscription
-            _ <- eventually[IO] {
-              for {
-                interruption1 <- stream1InterruptChecker.get
-                interruption2 <- stream2InterruptChecker.get
-                interruption3 <- stream3InterruptChecker.get
-              } yield {
-                interruption1 shouldBe true
-                interruption2 shouldBe false
-                interruption3 shouldBe false
-              }
-            }
+            _ <- eventually[IO](
+              {
+                for {
+                  interruption1 <- stream1InterruptChecker.get
+                  interruption2 <- stream2InterruptChecker.get
+                  interruption3 <- stream3InterruptChecker.get
+                } yield {
+                  interruption1 shouldBe true
+                  interruption2 shouldBe false
+                  interruption3 shouldBe false
+                }
+              },
+              100.millis
+            )
 
             _ <- executor.unsubscribe(stream23Id, data)
 
             // check if the second and third stream is finished after unsubscription
-            _ <- eventually[IO] {
-              for {
-                interruption1 <- stream1InterruptChecker.get
-                interruption2 <- stream2InterruptChecker.get
-                interruption3 <- stream3InterruptChecker.get
-              } yield {
-                interruption1 shouldBe true
-                interruption2 shouldBe true
-                interruption3 shouldBe true
-              }
-            }
+            _ <- eventually[IO](
+              {
+                for {
+                  interruption1 <- stream1InterruptChecker.get
+                  interruption2 <- stream2InterruptChecker.get
+                  interruption3 <- stream3InterruptChecker.get
+                } yield {
+                  interruption1 shouldBe true
+                  interruption2 shouldBe true
+                  interruption3 shouldBe true
+                }
+              },
+              100.millis
+            )
           } yield {}
       }.unsafeRunSync()
     }
