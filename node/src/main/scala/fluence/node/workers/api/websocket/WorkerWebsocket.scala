@@ -60,15 +60,11 @@ class WorkerWebsocket[F[_]: Concurrent: Log](
    *
    */
   def closeWebsocket(): F[Unit] = {
+    import cats.syntax.traverse._
     import cats.instances.list._
     for {
       subs <- subscriptions.get
-import cats.syntax.traversable._
-import cats.instances.list._
       _ <- subs.keys.toList.traverse(workerApi.unsubscribe)
-        workerApi.unsubscribe(key)
-      }
-      _ <- Traverse[List].traverse(tasks.toList)(identity)
       _ <- outputQueue.enqueue1(None)
     } yield {}
   }
