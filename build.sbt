@@ -159,6 +159,13 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
   .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`)
 
+lazy val `statemachine-docker-client` = (project in file("statemachine/docker-client"))
+  .settings(
+    commons
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`statemachine-client`, `dockerio`)
+
 lazy val `effects` = project
   .in(file("effects"))
   .settings(
@@ -450,7 +457,7 @@ lazy val `node` = project
     `ethclient`,
     `swarm`,
     `ipfs`,
-    `statemachine-client`,
+    `statemachine-docker-client`,
     `kvstore`,
     `dockerio`,
     `tendermint-rpc`,

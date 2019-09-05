@@ -22,7 +22,6 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Monad, Parallel}
 import fluence.effects.docker._
-import fluence.effects.docker.params.DockerParams
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block.history.db.Blockstore
@@ -37,8 +36,10 @@ import fluence.node.workers.status._
 import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.DockerTendermint
 import fluence.node.workers.tendermint.block.BlockUploading
+import fluence.statemachine.api.StateMachine
+import fluence.statemachine.api.command.HashesBus
 import fluence.statemachine.api.data.StateMachineStatus
-import fluence.statemachine.client.ControlRpc
+import fluence.statemachine.docker.DockerStateMachine
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -50,7 +51,7 @@ import scala.language.higherKinds
  * @param appId Worker's app ID
  * @param tendermintRpc Tendermint HTTP RPC endpoints for the worker
  * @param tendermintWRpc Tendermint Websocket RPC endpoints for the worker
- * @param control Control RPC endpoints for the worker
+ * @param hashesBus Control RPC endpoints for the worker
  * @param statusCall Getter for actual Worker's status
  * @tparam F the effect
  */
@@ -59,7 +60,7 @@ case class DockerWorkerServices[F[_]] private (
   appId: Long,
   tendermintRpc: TendermintHttpRpc[F],
   tendermintWRpc: TendermintWebsocketRpc[F],
-  control: ControlRpc[F],
+  hashesBus: HashesBus[F],
   blockManifests: WorkerBlockManifests[F],
   responseSubscriber: ResponseSubscriber[F],
   statusCall: FiniteDuration ⇒ F[WorkerStatus]
@@ -68,33 +69,6 @@ case class DockerWorkerServices[F[_]] private (
 }
 
 object DockerWorkerServices {
-  val ControlRpcPort: Short = 26662
-
-  private def dockerCommand(
-    params: WorkerParams,
-    network: DockerNetwork,
-    logLevel: LogLevel
-  ): DockerParams.DaemonParams = {
-    import params._
-
-    // Set worker's Xmx to mem * 0.75, so there's a gap between JVM heap and cgroup memory limit
-    val internalMem = dockerConfig.limits.memoryMb.map(mem => Math.floor(mem * 0.75).toInt)
-
-    DockerParams
-      .build()
-      .environment(dockerConfig.environment)
-      .option("-e", s"""CODE_DIR=$vmCodePath""")
-      .option("-e", s"LOG_LEVEL=$logLevel")
-      .option("-e", s"TM_RPC_PORT=${DockerTendermint.RpcPort}")
-      .option("-e", s"TM_RPC_HOST=${DockerTendermint.containerName(params)}")
-      .option("-e", internalMem.map(mem => s"WORKER_MEMORY_LIMIT=$mem"))
-      .option("--name", containerName(params))
-      .option("--network", network.name)
-      .option("--volumes-from", masterNodeContainerId.map(id => s"$id:ro"))
-      .limits(dockerConfig.limits)
-      .prepared(dockerConfig.image)
-      .daemonRun()
-  }
 
   private def dockerNetworkName(params: WorkerParams): String =
     s"fluence_${params.appId}_${params.currentWorker.index}"
@@ -125,19 +99,22 @@ object DockerWorkerServices {
   // TODO: wait until RPC is avalable. BLOCKED: RPC isn't available during block replay =>
   //  need to separate block uploading into replay and usual block processing parts
   private def appStatus[F[_]: DockerIO: Timer: ConcurrentEffect: ContextShift](
-    worker: DockerContainer,
+    stateMachine: StateMachine[F],
+    stateMachineContainer: DockerContainer,
     tendermint: DockerTendermint,
-    control: ControlRpc[F],
     rpc: TendermintHttpRpc[F],
     appId: Long,
     timeout: FiniteDuration = StatusHttp.DefaultTimeout
   )(implicit log: Log[F]): Resource[F, FiniteDuration => F[WorkerStatus]] = Resource.liftF {
     def workerStatus(tout: FiniteDuration) =
       DockerIO[F]
-        .checkContainer(worker)
+        .checkContainer(stateMachineContainer)
         .semiflatMap[ServiceStatus[StateMachineStatus]] { d ⇒
           HttpStatus
-            .timed(control.status, tout)
+            .timed(stateMachine.status.value.map {
+              case Right(st) ⇒ HttpCheckStatus(st)
+              case Left(err) ⇒ HttpCheckFailed(err)
+            }, tout)
             .map(s ⇒ ServiceStatus(Right(d), s))
         }
         .valueOr(err ⇒ ServiceStatus(Left(err), HttpCheckNotPerformed("Worker's Docker container is not launched")))
@@ -196,11 +173,22 @@ object DockerWorkerServices {
     for {
       // Create network, start worker & tendermint containers
       network ← makeNetwork(params)
-      worker ← DockerIO[F].run(dockerCommand(params, network, logLevel), stopTimeout)
+
+      stateMachine ← DockerStateMachine.make[F](
+        containerName(params),
+        network,
+        params.dockerConfig.limits,
+        params.dockerConfig.image,
+        logLevel,
+        params.dockerConfig.environment,
+        params.vmCodePath.toString,
+        params.masterNodeContainerId,
+        stopTimeout
+      )
+
       tendermint ← DockerTendermint.make[F](params, p2pPort, containerName(params), network, stopTimeout)
 
       rpc ← TendermintHttpRpc.make[F](tendermint.name, DockerTendermint.RpcPort)
-      control = ControlRpc[F](containerName(params), ControlRpcPort)
 
       // Once tendermint is started, run background job to connect it to all the peers
       _ ← WorkerP2pConnectivity.make(params.app.id, rpc, params.app.cluster.workers)
@@ -208,7 +196,7 @@ object DockerWorkerServices {
       // Wait until tendermint container is started
       // TODO: wait until RPC is avalable. BLOCKED: RPC isn't available during block replay =>
       //  need to separate block uploading into replay and usual block processing parts
-      status <- appStatus(worker, tendermint, control, rpc, params.appId)
+      status <- appStatus(stateMachine, stateMachine.command[DockerContainer], tendermint, rpc, params.appId)
 
       // Once tendermint is started, attach to its database
       blockstore <- Blockstore.make[F](params.tendermintPath)
@@ -224,7 +212,7 @@ object DockerWorkerServices {
         params.appId,
         rpc,
         wrpc,
-        control,
+        stateMachine.command[HashesBus[F]],
         blockManifests,
         responseSubscriber,
         status
