@@ -38,7 +38,6 @@ import fluence.node.eth.state.StorageType
 import fluence.node.workers._
 import fluence.node.workers.pool.WorkersPool
 import fluence.node.workers.tendermint.config.ConfigTemplate
-import fluence.statemachine.client.DropPeerError
 
 import scala.language.{higherKinds, postfixOps}
 
@@ -138,15 +137,15 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
         pool.withWorker(appId, _.remove).void
 
       case DropPeerWorker(appId, vk) ⇒
-        Log[F].scope("app" -> appId.toString, "key" -> vk.toHex) { log =>
+        Log[F].scope("app" -> appId.toString, "key" -> vk.toHex) { implicit log: Log[F] =>
           pool
             .withWorker(
               appId,
-              _.withServices_(_.control)(_.dropPeer(vk).value.flatMap {
-                case Right(_)               => Applicative[F].unit
-                case Left(e: DropPeerError) => log.error(s"Error while dropping peer", e)
-                case Left(e)                => log.error(s"Unexpected error while dropping peer", e)
-              })
+              _.withServices_(_.peersControl)(
+                _.dropPeer(vk).valueOr(
+                  e ⇒ log.error(s"Unexpected error while dropping peer", e)
+                )
+              )
             )
             .void
         }

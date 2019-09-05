@@ -37,7 +37,7 @@ import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.DockerTendermint
 import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.statemachine.api.StateMachine
-import fluence.statemachine.api.command.HashesBus
+import fluence.statemachine.api.command.{HashesBus, PeersControl}
 import fluence.statemachine.api.data.StateMachineStatus
 import fluence.statemachine.docker.DockerStateMachine
 
@@ -61,6 +61,7 @@ case class DockerWorkerServices[F[_]] private (
   tendermintRpc: TendermintHttpRpc[F],
   tendermintWRpc: TendermintWebsocketRpc[F],
   hashesBus: HashesBus[F],
+  peersControl: PeersControl[F],
   blockManifests: WorkerBlockManifests[F],
   responseSubscriber: ResponseSubscriber[F],
   statusCall: FiniteDuration ⇒ F[WorkerStatus]
@@ -111,7 +112,7 @@ object DockerWorkerServices {
         .checkContainer(stateMachineContainer)
         .semiflatMap[ServiceStatus[StateMachineStatus]] { d ⇒
           HttpStatus
-            .timed(stateMachine.status.value.map {
+            .timed(stateMachine.status.value.map[HttpStatus[StateMachineStatus]] {
               case Right(st) ⇒ HttpCheckStatus(st)
               case Left(err) ⇒ HttpCheckFailed(err)
             }, tout)
@@ -213,6 +214,7 @@ object DockerWorkerServices {
         rpc,
         wrpc,
         stateMachine.command[HashesBus[F]],
+        stateMachine.command[PeersControl[F]],
         blockManifests,
         responseSubscriber,
         status

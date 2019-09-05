@@ -20,7 +20,7 @@ import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.node.workers.status.WorkerStatus
 import fluence.node.workers.subscription.ResponseSubscriber
-import fluence.statemachine.api.command.HashesBus
+import fluence.statemachine.api.command.{HashesBus, PeersControl}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -35,6 +35,8 @@ trait WorkerServices[F[_]] {
 
   // RPC connection to worker
   def hashesBus: HashesBus[F]
+
+  def peersControl: PeersControl[F]
 
   // Retrieves worker's health
   def status(timeout: FiniteDuration): F[WorkerStatus]
