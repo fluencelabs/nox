@@ -16,6 +16,7 @@
 
 package fluence.node
 
+import cats.effect.concurrent.Ref
 import cats.effect.{ContextShift, IO, Timer}
 import fluence.Eventually
 import fluence.effects.tendermint.block.data.Header
@@ -24,7 +25,7 @@ import fluence.log.{Log, LogFactory}
 import cats.syntax.applicative._
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.node.workers.api.WorkerApi
-import fluence.node.workers.subscription._
+import fluence.node.workers.subscription.{TendermintQueryResponse, _}
 import fluence.node.workers.api.websocket.WebsocketRequests.{
   LastManifestRequest,
   P2pPortRequest,
@@ -44,6 +45,7 @@ import fluence.node.workers.api.websocket.WebsocketResponses.{
   TxWaitResponse,
   WebsocketResponse
 }
+
 import fluence.node.workers.api.websocket.WorkerWebsocket
 import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
 import fluence.statemachine.data.Tx
@@ -52,6 +54,7 @@ import scodec.bits.ByteVector
 import io.circe.syntax._
 import io.circe.parser.parse
 
+import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.higherKinds
 
@@ -232,14 +235,54 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       val tx = "some-tx"
 
       val request: WebsocketRequest = SubscribeRequest(requestId, subscriptionId, tx)
-      val response = websocketApi(new TestWorkerApi[IO] {
+
+      val streamResponse = OkResponse(Tx.Head("sess", 0), s"response ")
+
+      val api = websocketApi(new TestWorkerApi[IO] {
         override def subscribe(key: WorkerWebsocket.SubscriptionKey, tx: String)(
           implicit log: Log[IO]
-        ): IO[fs2.Stream[IO, TendermintResponse]] = super.subscribe(key, tx)
-      }).unsafeRunSync().processRequest(request.asJson.spaces4).unsafeRunSync()
+        ): IO[fs2.Stream[IO, TendermintResponse]] =
+          IO(
+            fs2.Stream
+              .awakeEvery[IO](100.millis)
+              .map(t => Right(streamResponse): TendermintResponse)
+          )
+      }).unsafeRunSync()
+
+      val response = api.processRequest(request.asJson.spaces4).unsafeRunSync()
+
       val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[SubscribeResponse]
 
-      parsedResponse.requestId shouldBe subscriptionId
+      parsedResponse.requestId shouldBe requestId
+
+      import fluence.node.workers.api.websocket.WebsocketResponses.WebsocketResponse._
+
+      for {
+        streamEventChecker <- Ref.of[IO, String]("")
+        streamFinalizeChecker <- Ref.of[IO, Boolean](false)
+
+        _ = api
+          .eventStream()
+          .evalTap(e => streamEventChecker.set(e))
+          .onFinalize(streamFinalizeChecker.set(true))
+          .drain
+          .compile
+          .toList
+          .unsafeRunAsyncAndForget()
+
+        _ <- eventually[IO]({
+          streamEventChecker.get.map(
+            _ shouldBe (TxWaitResponse("", streamResponse.response): WebsocketResponse).asJson.noSpaces
+          )
+        }, 100.millis)
+
+        _ <- api.closeWebsocket()
+
+        _ <- eventually[IO]({
+          streamFinalizeChecker.get.map(_ shouldBe true)
+        }, 100.millis)
+      } yield {}
+
     }
   }
 }
