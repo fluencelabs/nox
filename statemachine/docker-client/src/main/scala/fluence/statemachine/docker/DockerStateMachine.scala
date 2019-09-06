@@ -24,7 +24,7 @@ import fluence.effects.sttp.SttpEffect
 import fluence.log.Log
 import fluence.log.LogLevel.LogLevel
 import fluence.statemachine.api.StateMachine
-import fluence.statemachine.api.command.{HashesBus, PeersControl}
+import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import fluence.statemachine.client.StateMachineClient
 import shapeless._
 
@@ -44,7 +44,7 @@ object DockerStateMachine {
     vmCodePath: String,
     volumesFrom: Option[String],
     stopTimeout: Int
-  ): Resource[F, StateMachine.Aux[F, DockerContainer :: HashesBus[F] :: PeersControl[F] :: HNil]] = {
+  ): Resource[F, StateMachine.Aux[F, DockerContainer :: ReceiptBus[F] :: PeersControl[F] :: HNil]] = {
     val internalMem = limits.memoryMb.map(mem => Math.floor(mem * 0.75).toInt)
 
     val params = DockerParams

@@ -30,7 +30,7 @@ import fluence.statemachine.api.data.{StateHash, StateMachineStatus}
 import fluence.statemachine.api.query.QueryResponse
 import fluence.statemachine.api.tx.TxResponse
 import fluence.statemachine.error.StateMachineError
-import fluence.statemachine.hashesbus.HashesBusBackend
+import fluence.statemachine.hashesbus.ReceiptBusBackend
 import fluence.statemachine.state.StateService
 import fluence.statemachine.vm.WasmVmOperationInvoker
 import fluence.vm.WasmVm
@@ -44,7 +44,7 @@ object EmbeddedStateMachine {
   def apply[F[_]: Functor](
     stateService: StateService[F],
     initialStatus: StateMachineStatus
-  ): StateMachine.Aux[F, HashesBus[F] :: TxProcessor[F] :: HNil] =
+  ): StateMachine.Aux[F, ReceiptBus[F] :: TxProcessor[F] :: HNil] =
     new StateMachine.ReadOnly[F] {
       override def query(path: String)(implicit log: Log[F]): EitherT[F, EffectError, QueryResponse] =
         EitherT right stateService.query(path)
@@ -63,19 +63,19 @@ object EmbeddedStateMachine {
             EitherT right stateService.commit
         }
       )
-      .extend[HashesBus[F]](
+      .extend[ReceiptBus[F]](
         stateService.hashesBus
       )
 
   def init[F[_]: ConcurrentEffect: Log](
     moduleFiles: NonEmptyList[String],
     blockUploadingEnabled: Boolean
-  ): EitherT[F, StateMachineError, StateMachine.Aux[F, HashesBus[F] :: TxProcessor[F] :: HNil]] =
+  ): EitherT[F, StateMachineError, StateMachine.Aux[F, ReceiptBus[F] :: TxProcessor[F] :: HNil]] =
     buildVm[F](moduleFiles)
       .semiflatMap(
         vm ⇒
           for {
-            hashesBus ← HashesBusBackend[F]
+            hashesBus ← ReceiptBusBackend[F]
             state ← StateService[F](new WasmVmOperationInvoker(vm), hashesBus, blockUploadingEnabled)
           } yield apply[F](state, StateMachineStatus(vm.expectsEth, StateHash.empty))
       )

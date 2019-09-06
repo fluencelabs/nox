@@ -33,7 +33,7 @@ import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.node.workers.WorkerServices
-import fluence.statemachine.api.command.HashesBus
+import fluence.statemachine.api.command.ReceiptBus
 import fluence.statemachine.api.data.BlockReceipt
 
 import scala.language.{higherKinds, postfixOps}
@@ -83,7 +83,7 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
     storage: ReceiptStorage[F],
     rpc: TendermintHttpRpc[F],
     wrpc: TendermintWebsocketRpc[F],
-    hashesBus: HashesBus[F],
+    hashesBus: ReceiptBus[F],
     onManifestUploaded: (BlockManifest, Receipt) ⇒ F[Unit]
   )(implicit backoff: Backoff[EffectError], F: Applicative[F], log: Log[F]): Resource[F, Unit] =
     Resource.liftF((Ref.of[F, Long](0), Deferred[F, Long]).tupled).flatMap {
@@ -136,7 +136,7 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
         .scope
         .map(_._2)
 
-  private def sendReceipt(receipt: Receipt, hashesBus: HashesBus[F])(
+  private def sendReceipt(receipt: Receipt, hashesBus: ReceiptBus[F])(
     implicit log: Log[F],
     backoff: Backoff[EffectError]
   ) = backoff.retry(
@@ -146,7 +146,7 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
 
   private def getBlocksWithVmHashes(
     blocks: fs2.Stream[F, Block],
-    hashesBus: HashesBus[F]
+    hashesBus: ReceiptBus[F]
   )(implicit backoff: Backoff[EffectError], log: Log[F]) =
     blocks
       .evalTap(b => traceBU(s"got block ${b.header.height}"))

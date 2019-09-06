@@ -45,7 +45,7 @@ import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
-import fluence.statemachine.api.command.{HashesBus, PeersControl}
+import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import fluence.statemachine.api.data.BlockReceipt
 import io.circe.Json
 import io.circe.parser.parse
@@ -158,7 +158,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
             override def responseSubscriber: ResponseSubscriber[IO] =
               throw new NotImplementedError("def responseSubscriber")
 
-            override def hashesBus: HashesBus[IO] = new HashesBus[IO] {
+            override def hashesBus: ReceiptBus[IO] = new ReceiptBus[IO] {
               override def sendBlockReceipt(
                 receipt: BlockReceipt
               )(implicit log: Log[IO]): EitherT[IO, EffectError, Unit] =

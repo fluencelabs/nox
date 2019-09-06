@@ -22,7 +22,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.log.{Log, LogFactory}
 import fluence.statemachine.api.StateMachine
-import fluence.statemachine.api.command.{HashesBus, PeersControl}
+import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{HttpRoutes, Request}
 import io.circe.syntax._
@@ -68,11 +68,11 @@ object StateMachineHttp {
   }
 
   def commandRoutes[F[_]: Http4sDsl: LogFactory: Sync](
-    hashesBus: HashesBus[F],
+    hashesBus: ReceiptBus[F],
     peers: PeersControl[F]
   ): Seq[(String, HttpRoutes[F])] =
     Seq(
-      "/hashes-bus" -> HashesBusHttp.routes[F](hashesBus),
+      "/receipt-bus" -> ReceiptBusHttp.routes[F](hashesBus),
       "/peers" -> PeersControlHttp.routes[F](peers)
     )
 

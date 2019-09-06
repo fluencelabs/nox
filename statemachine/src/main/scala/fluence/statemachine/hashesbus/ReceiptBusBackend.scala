@@ -16,7 +16,7 @@
 
 package fluence.statemachine.hashesbus
 
-import fluence.statemachine.api.command.HashesBus
+import fluence.statemachine.api.command.ReceiptBus
 import cats.instances.long._
 import cats.syntax.apply._
 import cats.syntax.functor._
@@ -32,12 +32,12 @@ import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-class HashesBusBackend[F[_]: Monad](
+class ReceiptBusBackend[F[_]: Monad](
   // Using simple queue instead of LastCachingQueue because currently there are no retries on receipts
   private val receiptQueue: fs2.concurrent.Queue[F, BlockReceipt],
   // getVmHash may be retried by node, so using LastCachingQueue
   private val hashQueue: LastCachingQueue[F, VmHash, Long]
-) extends HashesBus[F] {
+) extends ReceiptBus[F] {
   private def traceBU(msg: String)(implicit log: Log[F]) = Log[F].trace(Console.YELLOW + "BUD: " + msg + Console.RESET)
 
   /**
@@ -69,12 +69,12 @@ class HashesBusBackend[F[_]: Monad](
     traceBU(s"enqueueVmHash $height") *> hashQueue.enqueue1(VmHash(height, hash))
 }
 
-object HashesBusBackend {
-  private[statemachine] def apply[F[_]: Concurrent]: F[HashesBusBackend[F]] =
+object ReceiptBusBackend {
+  private[statemachine] def apply[F[_]: Concurrent]: F[ReceiptBusBackend[F]] =
     for {
       // getVmHash may be retried by node, so using LastCachingQueue
       hashQueue <- LastCachingQueue[F, VmHash, Long]
       // Using simple queue instead of LastCachingQueue because currently there are no retries on receipts
       receiptQueue <- fs2.concurrent.Queue.unbounded[F, BlockReceipt]
-    } yield new HashesBusBackend[F](receiptQueue, hashQueue)
+    } yield new ReceiptBusBackend[F](receiptQueue, hashQueue)
 }

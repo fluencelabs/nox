@@ -26,7 +26,7 @@ import fluence.statemachine.api.query.QueryResponse
 import com.softwaremill.sttp.{sttp, _}
 import fluence.effects.sttp.SttpEffect
 import fluence.effects.sttp.syntax._
-import fluence.statemachine.api.command.{HashesBus, PeersControl}
+import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import io.circe.parser.decode
 import shapeless._
 
@@ -54,12 +54,12 @@ object StateMachineClient {
   def apply[F[_]: Monad: SttpEffect](
     host: String,
     port: Short
-  ): StateMachine.Aux[F, HashesBus[F] :: PeersControl[F] :: HNil] =
+  ): StateMachine.Aux[F, ReceiptBus[F] :: PeersControl[F] :: HNil] =
     readOnly[F](host, port)
       .extend[PeersControl[F]](
         new PeersControlClient[F](host, port)
       )
-      .extend[HashesBus[F]](
-        new HashesBusClient[F](host, port)
+      .extend[ReceiptBus[F]](
+        new ReceiptBusClient[F](host, port)
       )
 }

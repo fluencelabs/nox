@@ -37,7 +37,7 @@ import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.DockerTendermint
 import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.statemachine.api.StateMachine
-import fluence.statemachine.api.command.{HashesBus, PeersControl}
+import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import fluence.statemachine.api.data.StateMachineStatus
 import fluence.statemachine.docker.DockerStateMachine
 
@@ -60,7 +60,7 @@ case class DockerWorkerServices[F[_]] private (
   appId: Long,
   tendermintRpc: TendermintHttpRpc[F],
   tendermintWRpc: TendermintWebsocketRpc[F],
-  hashesBus: HashesBus[F],
+  hashesBus: ReceiptBus[F],
   peersControl: PeersControl[F],
   blockManifests: WorkerBlockManifests[F],
   responseSubscriber: ResponseSubscriber[F],
@@ -213,7 +213,7 @@ object DockerWorkerServices {
         params.appId,
         rpc,
         wrpc,
-        stateMachine.command[HashesBus[F]],
+        stateMachine.command[ReceiptBus[F]],
         stateMachine.command[PeersControl[F]],
         blockManifests,
         responseSubscriber,

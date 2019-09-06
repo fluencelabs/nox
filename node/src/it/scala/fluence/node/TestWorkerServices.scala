@@ -12,7 +12,7 @@ import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.node.workers.subscription.ResponseSubscriber
-import fluence.statemachine.api.command.{HashesBus, PeersControl}
+import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -38,7 +38,7 @@ object TestWorkerServices {
 
       override def responseSubscriber: ResponseSubscriber[F] = throw new NotImplementedError("def requestResponder")
 
-      override def hashesBus: HashesBus[F] = throw new NotImplementedError("def hashesBus")
+      override def hashesBus: ReceiptBus[F] = throw new NotImplementedError("def hashesBus")
 
       override def peersControl: PeersControl[F] = throw new NotImplementedError("def peersControl")
     }
@@ -65,7 +65,7 @@ object TestWorkerServices {
 
       override def responseSubscriber: ResponseSubscriber[F] = requestResponderImpl
 
-      override def hashesBus: HashesBus[F] = throw new NotImplementedError("def hashesBus")
+      override def hashesBus: ReceiptBus[F] = throw new NotImplementedError("def hashesBus")
 
       override def peersControl: PeersControl[F] = throw new NotImplementedError("def peersControl")
     }

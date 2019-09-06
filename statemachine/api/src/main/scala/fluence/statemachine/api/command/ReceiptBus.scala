@@ -24,7 +24,7 @@ import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-trait HashesBus[F[_]] {
+trait ReceiptBus[F[_]] {
   def getVmHash(height: Long)(implicit log: Log[F]): EitherT[F, EffectError, ByteVector]
 
   def sendBlockReceipt(receipt: BlockReceipt)(implicit log: Log[F]): EitherT[F, EffectError, Unit]

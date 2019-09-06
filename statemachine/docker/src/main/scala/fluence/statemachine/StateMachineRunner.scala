@@ -24,7 +24,7 @@ import fluence.log.{Log, LogFactory, LogLevel}
 import fluence.statemachine.abci.AbciHandler
 import fluence.statemachine.abci.peers.PeersControlBackend
 import fluence.statemachine.api.StateMachine
-import fluence.statemachine.api.command.{HashesBus, PeersControl}
+import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import org.http4s.{Request, Response}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.Router
@@ -93,7 +93,7 @@ object StateMachineRunner extends IOApp {
   private def routes[F[_]: Concurrent: LogFactory, C <: HList](
     machine: StateMachine.Aux[F, C]
   )(
-    implicit hb: ops.hlist.Selector[C, HashesBus[F]],
+    implicit hb: ops.hlist.Selector[C, ReceiptBus[F]],
     pc: ops.hlist.Selector[C, PeersControl[F]]
   ) = {
     implicit val dsl: Http4sDsl[F] = Http4sDsl[F]
@@ -103,7 +103,7 @@ object StateMachineRunner extends IOApp {
     val rs =
       Router[F](
         ("/" -> readRoutes[F](machine)) +:
-          commandRoutes[F](machine.command[HashesBus[F]], machine.command[PeersControl[F]]): _*
+          commandRoutes[F](machine.command[ReceiptBus[F]], machine.command[PeersControl[F]]): _*
       )
 
     Kleisli[F, Request[F], Response[F]](
@@ -112,7 +112,7 @@ object StateMachineRunner extends IOApp {
           .getOrElse(
             Response.notFound
               .withEntity(s"Route for ${a.method} ${a.pathInfo} ${a.params.mkString("&")} not found")
-          )
+        )
     )
   }
 

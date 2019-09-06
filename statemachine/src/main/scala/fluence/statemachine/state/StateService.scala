@@ -30,11 +30,11 @@ import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.log.Log
-import fluence.statemachine.api.command.HashesBus
+import fluence.statemachine.api.command.ReceiptBus
 import fluence.statemachine.api.query.{QueryCode, QueryResponse}
 import fluence.statemachine.api.data.{BlockReceipt, StateHash}
 import fluence.statemachine.api.tx.{Tx, TxCode, TxResponse}
-import fluence.statemachine.hashesbus.HashesBusBackend
+import fluence.statemachine.hashesbus.ReceiptBusBackend
 import fluence.statemachine.vm.VmOperationInvoker
 import scodec.bits.ByteVector
 
@@ -50,7 +50,7 @@ import scala.language.higherKinds
 class StateService[F[_]: Monad](
   state: Ref[F, MachineState],
   vm: VmOperationInvoker[F],
-  hashesBusBackend: HashesBusBackend[F],
+  hashesBusBackend: ReceiptBusBackend[F],
   // TODO: move this flag and all the related logic into HashesBusBackend
   blockUploadingEnabled: Boolean
 )(implicit hasher: Hasher[ByteVector, ByteVector], log: Log[F]) {
@@ -64,7 +64,7 @@ class StateService[F[_]: Monad](
    */
   def stateHash: F[StateHash] = state.get.map(_.stateHash)
 
-  def hashesBus: HashesBus[F] = hashesBusBackend
+  def hashesBus: ReceiptBus[F] = hashesBusBackend
 
   /**
    * Take all the transactions we're able to process, and pass them to VM one by one.
@@ -120,7 +120,7 @@ class StateService[F[_]: Monad](
         b =>
           log.error(
             s"Got wrong receipt height. current height: $blockHeight, receipt: ${b.height} (expected ${blockHeight - 1})"
-          )
+        )
       )
 
       // Do not use receipt in app hash if there's no txs in a block, so empty blocks have the same appHash as
@@ -171,7 +171,7 @@ class StateService[F[_]: Monad](
               Array.emptyByteArray,
               QueryCode.NotFound,
               s"Cannot parse query path: $path, must be in `sessionId/nonce` format"
-            )
+          )
         )
 
       case Some(head) ⇒
@@ -245,7 +245,7 @@ class StateService[F[_]: Monad](
                 TxResponse(TxCode.OK, s"Parsed transaction head\n${tx.head}", state.height.some)
               } else {
                 TxResponse(TxCode.AlreadyProcessed, s"Transaction is already processed\n${tx.head}", state.height.some)
-              }
+            }
           )
       case None ⇒
         Applicative[F].pure(TxResponse(TxCode.BAD, s"Cannot parse transaction header"))
@@ -265,7 +265,7 @@ object StateService {
    */
   def apply[F[_]: Effect: Log](
     vm: VmOperationInvoker[F],
-    hashesBus: HashesBusBackend[F],
+    hashesBus: ReceiptBusBackend[F],
     blockUploadingEnabled: Boolean
   ): F[StateService[F]] =
     for {

@@ -20,7 +20,7 @@ import cats.effect.Sync
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import fluence.log.{Log, LogFactory}
-import fluence.statemachine.api.command.HashesBus
+import fluence.statemachine.api.command.ReceiptBus
 import fluence.statemachine.api.data.BlockReceipt
 import org.http4s.{EntityDecoder, HttpRoutes}
 import org.http4s.circe._
@@ -28,9 +28,9 @@ import org.http4s.dsl.Http4sDsl
 
 import scala.language.higherKinds
 
-object HashesBusHttp {
+object ReceiptBusHttp {
 
-  def routes[F[_]: LogFactory: Sync](hashesBus: HashesBus[F])(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
+  def routes[F[_]: LogFactory: Sync](hashesBus: ReceiptBus[F])(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
     import dsl._
     import StateMachineHttp.logReq
 
