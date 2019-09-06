@@ -112,7 +112,7 @@ object StateMachineRunner extends IOApp {
           .getOrElse(
             Response.notFound
               .withEntity(s"Route for ${a.method} ${a.pathInfo} ${a.params.mkString("&")} not found")
-        )
+          )
     )
   }
 

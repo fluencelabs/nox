@@ -120,7 +120,7 @@ class StateService[F[_]: Monad](
         b =>
           log.error(
             s"Got wrong receipt height. current height: $blockHeight, receipt: ${b.height} (expected ${blockHeight - 1})"
-        )
+          )
       )
 
       // Do not use receipt in app hash if there's no txs in a block, so empty blocks have the same appHash as
@@ -171,7 +171,7 @@ class StateService[F[_]: Monad](
               Array.emptyByteArray,
               QueryCode.NotFound,
               s"Cannot parse query path: $path, must be in `sessionId/nonce` format"
-          )
+            )
         )
 
       case Some(head) ⇒
@@ -245,7 +245,7 @@ class StateService[F[_]: Monad](
                 TxResponse(TxCode.OK, s"Parsed transaction head\n${tx.head}", state.height.some)
               } else {
                 TxResponse(TxCode.AlreadyProcessed, s"Transaction is already processed\n${tx.head}", state.height.some)
-            }
+              }
           )
       case None ⇒
         Applicative[F].pure(TxResponse(TxCode.BAD, s"Cannot parse transaction header"))

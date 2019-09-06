@@ -75,7 +75,8 @@ class ReceiptBusBackendImpl[F[_]: Monad](
 }
 
 object ReceiptBusBackend {
-  private[statemachine] def apply[F[_]: Concurrent]: F[ReceiptBusBackend[F]] =
+
+  def apply[F[_]: Concurrent]: F[ReceiptBusBackend[F]] =
     for {
       // getVmHash may be retried by node, so using LastCachingQueue
       hashQueue <- LastCachingQueue[F, VmHash, Long]

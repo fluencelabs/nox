@@ -26,7 +26,6 @@ import cats.effect.{IO, Resource}
 import cats.instances.list._
 import cats.syntax.apply._
 import cats.syntax.compose._
-import cats.syntax.flatMap._
 import cats.syntax.traverse._
 import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
@@ -45,21 +44,19 @@ import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
 import fluence.node.eth.state._
-import fluence.node.workers.control.ControlRpcError
 import fluence.node.workers.status.WorkerStatus
 import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
-import fluence.statemachine.receiptbus.signals.ControlSignals
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.{MachineState, StateService}
 import fluence.statemachine.vm.VmOperationInvoker
 import fluence.vm.InvocationResult
 import fluence.Eventually
-import fluence.statemachine.api.signals.BlockReceipt
+import fluence.statemachine.api.command.PeersControl
 import fluence.statemachine.api.tx.{Tx, TxCode, TxResponse}
-import fluence.statemachine.client.{ControlRpc, ControlRpcError, TestControlRpc}
+import fluence.statemachine.receiptbus.ReceiptBusBackend
 import fs2.concurrent.Queue
 import io.circe.Json
 import io.circe.parser.parse
@@ -106,21 +103,9 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
     bva.andThen[Array[Byte]](JdkCryptoHasher.Sha256).andThen(abv)
   }
 
-  def control(): Resource[IO, (TestControlRpc[IO], ControlSignals[IO])] = {
-    ControlSignals[IO]().map { signals =>
-      val controlRpc = new TestControlRpc[IO] {
-        override def sendBlockReceipt(receipt: Receipt): EitherT[IO, ControlRpcError, Unit] =
-          EitherT.liftF(signals.enqueueReceipt(BlockReceipt(receipt.height, receipt.jsonBytes())))
+  def receiptBackend(): Resource[IO, ReceiptBusBackend[IO]] = Resource.liftF(ReceiptBusBackend[IO])
 
-        override def getVmHash(height: Long): EitherT[IO, ControlRpcError, ByteVector] =
-          EitherT.liftF(signals.getVmHash(height).map(_.hash))
-      }
-
-      (controlRpc, signals)
-    }
-  }
-
-  private def abciService(controlSignals: ControlSignals[IO]) = {
+  private def abciService(backend: ReceiptBusBackend[IO]) = {
     val vmInvoker = new VmOperationInvoker[IO] {
       override def invoke(arg: Array[Byte]): EitherT[IO, StateMachineError, InvocationResult] =
         EitherT.rightT(InvocationResult(Array.empty, 0))
@@ -131,12 +116,12 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
 
     for {
       state ← Ref.of[IO, MachineState](MachineState())
-      abci = new StateService[IO](state, vmInvoker, controlSignals, blockUploadingEnabled = true)
+      abci = new StateService[IO](state, vmInvoker, backend, blockUploadingEnabled = true)
     } yield (abci, state)
   }
 
   private def startBlockUploading(
-    controlRpc: ControlRpc[IO],
+    backend: ReceiptBusBackend[IO],
     blocksQ: fs2.concurrent.Queue[IO, Block],
     storedReceipts: Seq[Receipt] = Nil
   ): Resource[IO, Unit] =
@@ -177,7 +162,7 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
         override def tendermintRpc: TendermintHttpRpc[IO] = rpc
         override def tendermintWRpc: TendermintWebsocketRpc[IO] = rpc
 
-        override val control: ControlRpc[IO] = controlRpc
+        override val receiptBus: ReceiptBusBackend[IO] = backend
 
         override def status(timeout: FiniteDuration): IO[WorkerStatus] =
           IO.raiseError(new NotImplementedError("def status worker status"))
@@ -187,6 +172,8 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
 
         override def responseSubscriber: ResponseSubscriber[IO] =
           throw new NotImplementedError("def requestResponder")
+
+        override def peersControl: PeersControl[IO] = throw new NotImplementedError("def peersControl")
       }
 
       val worker: Resource[IO, Worker[IO]] =
@@ -224,10 +211,10 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
 
   def start(): Resource[IO, (StateService[IO], Ref[IO, MachineState], Queue[IO, Block])] =
     for {
-      (controlRpc, controlSignals) <- control()
-      (abciService, abciState) <- Resource.liftF(abciService(controlSignals))
+      backend <- receiptBackend()
+      (abciService, abciState) <- Resource.liftF(abciService(backend))
       blocksQ <- Resource.liftF(fs2.concurrent.Queue.unbounded[IO, Block])
-      _ <- startBlockUploading(controlRpc, blocksQ)
+      _ <- startBlockUploading(backend, blocksQ)
     } yield (abciService, abciState, blocksQ)
 
   "block uploading + abci service" should {

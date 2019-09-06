@@ -25,7 +25,7 @@ import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus, WorkerStatus}
 import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.{WorkerBlockManifests, WorkerServices}
-import fluence.statemachine.client.ControlRpc
+import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -41,8 +41,6 @@ object TestWorkerServices {
       override def tendermintRpc: TendermintHttpRpc[F] = rpc
       override def tendermintWRpc: TendermintWebsocketRpc[F] = wrpc
 
-      override def control: ControlRpc[F] = throw new NotImplementedError("def control")
-
       override def status(timeout: FiniteDuration): F[WorkerStatus] =
         WorkerStatus(
           isHealthy = true,
@@ -54,6 +52,10 @@ object TestWorkerServices {
       override def blockManifests: WorkerBlockManifests[F] = throw new NotImplementedError("def blockManifest")
 
       override def responseSubscriber: ResponseSubscriber[F] = requestResponderImpl
+
+      override def receiptBus: ReceiptBus[F] = throw new NotImplementedError("def receiptBus")
+
+      override def peersControl: PeersControl[F] = throw new NotImplementedError("def peersControl")
     }
   }
 }
