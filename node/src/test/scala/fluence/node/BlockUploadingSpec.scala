@@ -35,18 +35,18 @@ import fluence.effects.tendermint.block.history.{BlockManifest, Receipt}
 import fluence.effects.tendermint.rpc.TestHttpRpc
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.{block, rpc}
-import fluence.effects.tendermint.rpc.websocket.{TestTendermintHttpRpc, TestTendermintWebsocketRpc, WebsocketConfig}
+import fluence.effects.tendermint.rpc.websocket.{TestTendermintWebsocketRpc, WebsocketConfig}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
 import fluence.node.eth.state._
-import fluence.node.workers.control.ControlRpcError
 import fluence.node.workers.status.WorkerStatus
 import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
-import fluence.statemachine.client.{ControlRpc, ControlRpcError, TestControlRpc}
+import fluence.statemachine.api.command.{HashesBus, PeersControl}
+import fluence.statemachine.api.data.BlockReceipt
 import io.circe.Json
 import io.circe.parser.parse
 import org.scalatest.{Matchers, OptionValues, WordSpec}
@@ -80,7 +80,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
   case class UploadingState(
     uploads: Int = 0,
     vmHashGet: Seq[Long] = Nil,
-    receipts: Seq[Receipt] = Vector.empty,
+    receipts: Seq[BlockReceipt] = Vector.empty,
     lastKnownHeight: Option[Long] = None,
     blockManifests: Seq[BlockManifest] = Nil
   ) {
@@ -95,7 +95,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
 
     def vmHash(height: Long) = copy(vmHashGet = vmHashGet :+ height)
 
-    def receipt(receipt: Receipt) =
+    def receipt(receipt: BlockReceipt) =
       copy(receipts = receipts :+ receipt)
 
     def subscribe(lastKnownHeight: Long) = copy(lastKnownHeight = Some(lastKnownHeight))
@@ -149,14 +149,6 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
                 fs2.Stream.eval(state.update(_.subscribe(lastKnownHeight))) >> fs2.Stream.emits(blocks)
             }
 
-            override def control: ControlRpc[IO] = new TestControlRpc[IO] {
-              override def sendBlockReceipt(receipt: Receipt): EitherT[IO, ControlRpcError, Unit] =
-                EitherT.liftF(state.update(_.receipt(receipt)).void)
-
-              override def getVmHash(height: Long): EitherT[IO, ControlRpcError, ByteVector] =
-                EitherT.liftF(state.update(_.vmHash(height)).map(_ => ByteVector.empty))
-            }
-
             override def status(timeout: FiniteDuration): IO[WorkerStatus] =
               IO.raiseError(new NotImplementedError("def status worker status"))
 
@@ -165,6 +157,18 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
 
             override def responseSubscriber: ResponseSubscriber[IO] =
               throw new NotImplementedError("def responseSubscriber")
+
+            override def hashesBus: HashesBus[IO] = new HashesBus[IO] {
+              override def sendBlockReceipt(
+                receipt: BlockReceipt
+              )(implicit log: Log[IO]): EitherT[IO, EffectError, Unit] =
+                EitherT.liftF(state.update(_.receipt(receipt)).void)
+
+              override def getVmHash(height: Long)(implicit log: Log[IO]): EitherT[IO, EffectError, ByteVector] =
+                EitherT.liftF(state.update(_.vmHash(height)).map(_ => ByteVector.empty))
+            }
+
+            override def peersControl: PeersControl[IO] = throw new NotImplementedError("def peersControl")
           }
 
           (state, ipfs, workerServices)
