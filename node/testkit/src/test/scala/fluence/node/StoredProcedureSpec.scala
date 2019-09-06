@@ -9,6 +9,7 @@ import fluence.effects.tendermint.block.data.Block
 import fluence.log.LogFactory.Aux
 import fluence.log.appender.PrintlnLogAppender
 import fluence.log.{Log, LogFactory}
+import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
 import fluence.node.workers.subscription.{
   OkResponse,
@@ -58,13 +59,11 @@ class StoredProcedureSpec extends WordSpec with Eventually with Matchers with Op
 
         override def start(): Resource[IO, Unit] = throw new NotImplementedError("def start")
       }
-      storedProcedureExecutor <- Resource.liftF(
-        StoredProcedureExecutor[IO](
-          tendermint.tendermint,
-          tendermint.tendermint,
-          waitResponseService,
-          hasher
-        )
+      storedProcedureExecutor <- StoredProcedureExecutor.make[IO](
+        tendermint.tendermint,
+        tendermint.tendermint,
+        waitResponseService,
+        hasher
       )
       _ <- storedProcedureExecutor.start()
     } yield (storedProcedureExecutor, blocksQ)
@@ -72,10 +71,12 @@ class StoredProcedureSpec extends WordSpec with Eventually with Matchers with Op
 
   private val block = Block(TestData.blockWithNullTxsResponse(1)).right.get
 
-  private def startStream(stream: fs2.Stream[IO, TendermintResponse],
-                          events: Ref[IO, List[TendermintResponse]],
-                          eventsChecker: Ref[IO, Boolean],
-                          interruptChecker: Ref[IO, Boolean]) = {
+  private def startStream(
+    stream: fs2.Stream[IO, TendermintResponse],
+    events: Ref[IO, List[TendermintResponse]],
+    eventsChecker: Ref[IO, Boolean],
+    interruptChecker: Ref[IO, Boolean]
+  ) = {
     stream.evalTap { e =>
       for {
         _ <- eventsChecker.update(_ => true)
@@ -92,6 +93,7 @@ class StoredProcedureSpec extends WordSpec with Eventually with Matchers with Op
       start().use {
         case (executor, blockQ) =>
           val data = Tx.Data(Array[Byte](1, 2, 3))
+          val tx = new String(data.value)
           // generate blocks eventually
           fs2.Stream
             .awakeEvery[IO](50.milliseconds)
@@ -111,8 +113,8 @@ class StoredProcedureSpec extends WordSpec with Eventually with Matchers with Op
             stream2InterruptChecker <- Ref.of[IO, Boolean](false)
             stream3InterruptChecker <- Ref.of[IO, Boolean](false)
 
-            stream1Id = "stream1"
-            stream23Id = "stream-23"
+            stream1Id = SubscriptionKey("stream1", tx)
+            stream23Id = SubscriptionKey("stream-23", tx)
 
             // create subscribers, 2 and 3 stream has the same id, so they should interrup together on unsubscribe
             stream1 <- executor.subscribe(stream1Id, data)
@@ -142,7 +144,7 @@ class StoredProcedureSpec extends WordSpec with Eventually with Matchers with Op
               },
               100.millis
             )
-            _ <- executor.unsubscribe(stream1Id, data)
+            _ <- executor.unsubscribe(stream1Id)
 
             // check if the first stream is finished after unsubscription
             _ <- eventually[IO](
@@ -160,7 +162,7 @@ class StoredProcedureSpec extends WordSpec with Eventually with Matchers with Op
               100.millis
             )
 
-            _ <- executor.unsubscribe(stream23Id, data)
+            _ <- executor.unsubscribe(stream23Id)
 
             // check if the second and third stream is finished after unsubscription
             _ <- eventually[IO](

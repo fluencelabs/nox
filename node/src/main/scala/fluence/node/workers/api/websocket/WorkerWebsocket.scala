@@ -23,9 +23,10 @@ import fluence.log.Log
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
+import fluence.crypto.hash.CryptoHashers
 import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.api.websocket.WebsocketResponses.WebsocketResponse
-import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
+import fluence.node.workers.api.websocket.WorkerWebsocket.{Subscription, SubscriptionKey}
 import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
 import fluence.node.workers.subscription.{OkResponse, PendingResponse, RpcErrorResponse, TimedOutResponse}
 import fs2.concurrent.{NoneTerminatedQueue, Queue}
@@ -42,7 +43,7 @@ import scala.language.higherKinds
  */
 class WorkerWebsocket[F[_]: Concurrent: Log](
   workerApi: WorkerApi[F],
-  subscriptions: Ref[F, Map[SubscriptionKey, Option[fs2.Stream[F, TendermintResponse]]]],
+  subscriptions: Ref[F, Map[SubscriptionKey, Subscription[F]]],
   outputQueue: NoneTerminatedQueue[F, WebsocketResponse]
 ) {
   import WebsocketRequests._
@@ -67,18 +68,18 @@ class WorkerWebsocket[F[_]: Concurrent: Log](
   private def addStream(key: SubscriptionKey, stream: fs2.Stream[F, TendermintResponse]): F[Boolean] =
     subscriptions.modify { subs =>
       subs.get(key) match {
-        case Some(v) => (subs.updated(key, v), true)
+        case Some(v) => (subs.updated(key, v.copy(stream = Some(stream))), true)
         case None    => (subs, false)
       }
     }
 
-  private def checkAndAddSubscription(key: SubscriptionKey): F[Boolean] =
+  private def checkAndAddSubscription(key: SubscriptionKey, tx: String): F[Boolean] =
     for {
       success <- subscriptions.modify { subs =>
         subs.get(key) match {
           case Some(_) => (subs, false)
           case None =>
-            (subs + (key -> None), true)
+            (subs + (key -> Subscription(tx, None)), true)
         }
       }
     } yield success
@@ -138,9 +139,9 @@ class WorkerWebsocket[F[_]: Concurrent: Log](
       case P2pPortRequest(requestId) => workerApi.p2pPort().map(port => P2pPortResponse(requestId, port))
       case SubscribeRequest(requestId, subscriptionId, tx) =>
         val key = SubscriptionKey(subscriptionId, tx)
-        checkAndAddSubscription(key).flatMap {
+        checkAndAddSubscription(key, tx).flatMap {
           case true =>
-            workerApi.subscribe(key).flatMap { stream =>
+            workerApi.subscribe(key, tx).flatMap { stream =>
               for {
                 _ <- addStream(key, stream)
                 _ <- Concurrent[F].start(
@@ -165,11 +166,20 @@ class WorkerWebsocket[F[_]: Concurrent: Log](
 
 object WorkerWebsocket {
 
-  case class SubscriptionKey(subscriptionId: String, tx: String)
+  case class SubscriptionKey private (subscriptionId: String, txHash: String)
+
+  object SubscriptionKey {
+
+    def apply(subscriptionId: String, tx: String): SubscriptionKey = {
+      new SubscriptionKey(subscriptionId, new String(CryptoHashers.Sha1.unsafe(tx.getBytes())))
+    }
+  }
+
+  private[websocket] case class Subscription[F[_]](tx: String, stream: Option[fs2.Stream[F, TendermintResponse]])
 
   def apply[F[_]: Concurrent: Log](workerApi: WorkerApi[F]): F[WorkerWebsocket[F]] =
     for {
-      subs <- Ref.of(Map.empty[SubscriptionKey, Option[fs2.Stream[F, TendermintResponse]]])
+      subs <- Ref.of(Map.empty[SubscriptionKey, Subscription[F]])
       queue <- Queue.noneTerminated[F, WebsocketResponse]
     } yield new WorkerWebsocket[F](workerApi, subs, queue)
 

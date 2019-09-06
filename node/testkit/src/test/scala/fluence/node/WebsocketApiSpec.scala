@@ -29,6 +29,7 @@ import fluence.node.workers.api.websocket.WebsocketRequests.{
   LastManifestRequest,
   P2pPortRequest,
   StatusRequest,
+  SubscribeRequest,
   TxRequest,
   TxWaitRequest,
   WebsocketRequest
@@ -38,11 +39,13 @@ import fluence.node.workers.api.websocket.WebsocketResponses.{
   LastManifestResponse,
   P2pPortResponse,
   StatusResponse,
+  SubscribeResponse,
   TxResponse,
   TxWaitResponse,
   WebsocketResponse
 }
 import fluence.node.workers.api.websocket.WorkerWebsocket
+import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
 import fluence.statemachine.data.Tx
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 import scodec.bits.ByteVector
@@ -221,6 +224,22 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
 
       response4.requestId shouldBe id
       response4.error shouldBe s"Cannot get response after ${timedOut4.tries} generated blocks"
+    }
+
+    "return stream with responses on subscribtion" in {
+      val subscriptionId = "some-id"
+      val requestId = "request-id"
+      val tx = "some-tx"
+
+      val request: WebsocketRequest = SubscribeRequest(requestId, subscriptionId, tx)
+      val response = websocketApi(new TestWorkerApi[IO] {
+        override def subscribe(key: WorkerWebsocket.SubscriptionKey, tx: String)(
+          implicit log: Log[IO]
+        ): IO[fs2.Stream[IO, TendermintResponse]] = super.subscribe(key, tx)
+      }).unsafeRunSync().processRequest(request.asJson.spaces4).unsafeRunSync()
+      val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[SubscribeResponse]
+
+      parsedResponse.requestId shouldBe subscriptionId
     }
   }
 }

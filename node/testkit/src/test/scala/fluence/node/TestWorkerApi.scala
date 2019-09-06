@@ -16,11 +16,10 @@
 
 package fluence.node
 
-import cats.effect.{Concurrent, Sync}
+import cats.effect.Concurrent
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.log.Log
-import fluence.node.workers.subscription.{TendermintQueryResponse, TxAwaitError}
 import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.api.websocket.WorkerWebsocket
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
@@ -82,11 +81,11 @@ class TestWorkerApi[F[_]: Concurrent]() extends WorkerApi[F] {
 
   override def websocket()(implicit log: Log[F]): F[WorkerWebsocket[F]] = WorkerWebsocket(this)
 
-  override def subscribe(key: SubscriptionKey)(
+  override def subscribe(key: SubscriptionKey, tx: String)(
     implicit log: Log[F]
-  ): F[fs2.Stream[F, TendermintResponse]] = ???
+  ): F[fs2.Stream[F, TendermintResponse]] = throw new NotImplementedError("TestWorkerApi, method subscribe")
 
   override def unsubscribe(key: SubscriptionKey)(
     implicit log: Log[F]
-  ): F[Boolean] = ???
+  ): F[Boolean] = throw new NotImplementedError("TestWorkerApi, method unsubscribe")
 }

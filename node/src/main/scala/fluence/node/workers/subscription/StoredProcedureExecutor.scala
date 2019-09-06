@@ -9,7 +9,9 @@ import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.statemachine.data.Tx
 import cats.syntax.functor._
 import fluence.log.Log
+import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.StoredProcedureExecutor.{Event, TendermintResponse}
+import fs2.concurrent.Topic
 
 import scala.language.higherKinds
 
@@ -27,9 +29,9 @@ trait StoredProcedureExecutor[F[_]] {
    * @param data a transaction
    * @return a stream of responses every block
    */
-  def subscribe(subscriberId: String, data: Tx.Data): F[fs2.Stream[F, TendermintResponse]]
+  def subscribe(subscriptionKey: SubscriptionKey, data: Tx.Data): F[fs2.Stream[F, TendermintResponse]]
 
-  def unsubscribe(subscriberId: String, data: Tx.Data): F[Boolean]
+  def unsubscribe(subscriptionKey: SubscriptionKey): F[Boolean]
 
   /**
    * Gets all transaction subscribes for appId and trying to poll service for new responses.
@@ -40,6 +42,19 @@ trait StoredProcedureExecutor[F[_]] {
 
 object StoredProcedureExecutor {
 
+  /**
+   * Data about subscription.
+   *
+   * @param tx transaction that will be processed after each block
+   * @param topic for publishing events to subscribers
+   * @param subNumber number of subscriptions, the subscription should be deleted after subNumber become zero
+   */
+  private[subscription] case class Subscription[F[_]](
+    tx: Tx.Data,
+    topic: Topic[F, Event],
+    subNumber: Int
+  )
+
   sealed trait Event
   case class Response(value: TendermintResponse) extends Event
   case object Init extends Event
@@ -47,21 +62,13 @@ object StoredProcedureExecutor {
 
   type TendermintResponse = Either[TxAwaitError, TendermintQueryResponse]
 
-  def apply[F[_]: Monad: Timer: Sync: Concurrent: Log](
-    tendermintWRpc: TendermintWebsocketRpc[F],
-    tendermintRpc: TendermintHttpRpc[F],
-    waitResponseService: WaitResponseService[F],
-    hasher: Hasher[Array[Byte], String]
-  ): F[StoredProcedureExecutor[F]] =
-    for {
-      subs <- Ref.of[F, Map[String, Subscription[F]]](Map.empty)
-    } yield new StoredProcedureExecutorImpl[F](subs, tendermintWRpc, tendermintRpc, waitResponseService, hasher)
-
   def make[F[_]: Monad: Timer: Sync: Concurrent: Log](
     tendermintWRpc: TendermintWebsocketRpc[F],
     tendermintRpc: TendermintHttpRpc[F],
     waitResponseService: WaitResponseService[F],
     hasher: Hasher[Array[Byte], String]
   ): Resource[F, StoredProcedureExecutor[F]] =
-    Resource.liftF(apply(tendermintWRpc, tendermintRpc, waitResponseService, hasher))
+    for {
+      subs <- Resource.liftF(Ref.of[F, Map[String, Subscription[F]]](Map.empty))
+    } yield new StoredProcedureExecutorImpl[F](subs, tendermintWRpc, tendermintRpc, waitResponseService, hasher)
 }

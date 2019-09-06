@@ -91,12 +91,12 @@ trait WorkerApi[F[_]] {
    * Subscribes on the transaction processing after each block.
    *
    */
-  def subscribe(key: SubscriptionKey)(
+  def subscribe(key: SubscriptionKey, tx: String)(
     implicit log: Log[F]
   ): F[fs2.Stream[F, TendermintResponse]]
 
   /**
-   * Unsubscribes out of the transaction processing after each block.
+   * Remove given subscription.
    *
    */
   def unsubscribe(key: SubscriptionKey)(
@@ -144,19 +144,19 @@ object WorkerApi {
     override def websocket()(implicit log: Log[F]): F[WorkerWebsocket[F]] =
       WorkerWebsocket(this)
 
-    override def subscribe(key: SubscriptionKey)(
+    override def subscribe(key: SubscriptionKey, tx: String)(
       implicit log: Log[F]
     ): F[fs2.Stream[F, TendermintResponse]] =
       log.scope("subscriptionKey" -> key.toString) { implicit log ⇒
         worker.withServices(_.storedProcedureExecutor)(
-          _.subscribe(key.subscriptionId, Tx.Data(key.tx.getBytes()))
+          _.subscribe(key, Tx.Data(tx.getBytes()))
         )
       }
 
     override def unsubscribe(key: SubscriptionKey)(implicit log: Log[F]): F[Boolean] =
       log.scope("subscriptionKey" -> key.toString) { implicit log ⇒
         worker.withServices(_.storedProcedureExecutor)(
-          _.unsubscribe(key.subscriptionId, Tx.Data(key.tx.getBytes()))
+          _.unsubscribe(key)
         )
       }
   }

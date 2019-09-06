@@ -165,7 +165,8 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
             override def waitResponseService: WaitResponseService[IO] =
               throw new NotImplementedError("def responseSubscriber")
 
-            override def storedProcedureExecutor: StoredProcedureExecutor[IO] = ???
+            override def storedProcedureExecutor: StoredProcedureExecutor[IO] =
+              throw new NotImplementedError("def storedProcedureExecutor")
           }
 
           (state, ipfs, workerServices)
