@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.hashesbus
+package fluence.statemachine.receiptbus
 
 import cats.effect.Concurrent
 import cats.effect.concurrent.Ref

@@ -51,7 +51,7 @@ import scala.language.higherKinds
  * @param appId Worker's app ID
  * @param tendermintRpc Tendermint HTTP RPC endpoints for the worker
  * @param tendermintWRpc Tendermint Websocket RPC endpoints for the worker
- * @param hashesBus Control RPC endpoints for the worker
+ * @param receiptBus Control RPC endpoints for the worker
  * @param statusCall Getter for actual Worker's status
  * @tparam F the effect
  */
@@ -60,7 +60,7 @@ case class DockerWorkerServices[F[_]] private (
   appId: Long,
   tendermintRpc: TendermintHttpRpc[F],
   tendermintWRpc: TendermintWebsocketRpc[F],
-  hashesBus: ReceiptBus[F],
+  receiptBus: ReceiptBus[F],
   peersControl: PeersControl[F],
   blockManifests: WorkerBlockManifests[F],
   responseSubscriber: ResponseSubscriber[F],

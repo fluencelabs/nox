@@ -35,7 +35,7 @@ class ReceiptBusClient[F[_]: Monad: SttpEffect](host: String, port: Short) exten
 
   override def getVmHash(height: Long)(implicit log: Log[F]): EitherT[F, EffectError, ByteVector] =
     sttp
-      .get(uri"http://$host:$port/receipt-bus/getVmHash?height=$height")
+      .get(uri"http://$host:$port/receipt-bus/vmHash?height=$height")
       .send()
       .decodeBody(ByteVector.fromHex(_).toRight(new RuntimeException("Not a hex")))
       .leftMap(identity[EffectError])

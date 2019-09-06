@@ -158,7 +158,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
             override def responseSubscriber: ResponseSubscriber[IO] =
               throw new NotImplementedError("def responseSubscriber")
 
-            override def hashesBus: ReceiptBus[IO] = new ReceiptBus[IO] {
+            override def receiptBus: ReceiptBus[IO] = new ReceiptBus[IO] {
               override def sendBlockReceipt(
                 receipt: BlockReceipt
               )(implicit log: Log[IO]): EitherT[IO, EffectError, Unit] =

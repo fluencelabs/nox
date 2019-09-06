@@ -22,12 +22,13 @@ import cats.effect.IO
 import cats.effect.concurrent.Ref
 import cats.syntax.apply._
 import cats.syntax.compose._
-import cats.syntax.flatMap._
 import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
+import fluence.effects.EffectError
 import fluence.log.{Log, LogFactory}
-import fluence.statemachine.api.signals.BlockReceipt
+import fluence.statemachine.api.data.BlockReceipt
 import fluence.statemachine.error.StateMachineError
+import fluence.statemachine.receiptbus.ReceiptBusBackend
 import fluence.statemachine.state.{MachineState, StateService}
 import fluence.statemachine.vm.VmOperationInvoker
 import fluence.vm.InvocationResult
@@ -70,19 +71,26 @@ class StateServiceSpec extends WordSpec with Matchers {
             EitherT.liftF(ref.update(_.getVmStateHash())).map(_ => ByteVector.empty)
         }
 
-        val controlSignals = new TestControlSignals {
-          override def getReceipt(height: Long): IO[BlockReceipt] =
+        val receiptBus = new ReceiptBusBackend[IO] {
+          override def getReceipt(height: Long)(implicit log: Log[IO]): IO[BlockReceipt] =
             ref
               .update(_.getReceipt())
               .flatMap(_ => receipts.modify(l => (l.tail, l.head)))
 
-          override def enqueueStateHash(height: Long, hash: ByteVector): IO[Unit] = ref.update(_.enqueueVmHash(height))
+          override def enqueueVmHash(height: Long, hash: ByteVector)(implicit log: Log[IO]): IO[Unit] =
+            ref.update(_.enqueueVmHash(height))
+
+          override def getVmHash(height: Long)(implicit log: Log[IO]): EitherT[IO, EffectError, ByteVector] =
+            throw new NotImplementedError("def getVmHash")
+
+          override def sendBlockReceipt(receipt: BlockReceipt)(implicit log: Log[IO]): EitherT[IO, EffectError, Unit] =
+            throw new NotImplementedError("def sendBlockReceipt")
         }
 
         for {
           state ← Ref.of[IO, MachineState](MachineState())
           txCounter <- Ref.of[IO, Int](0)
-          abci = new StateService[IO](state, vmInvoker, controlSignals, blockUploadingEnabled = true)
+          abci = new StateService[IO](state, vmInvoker, receiptBus, blockUploadingEnabled = true)
         } yield (abci, ref, state, txCounter)
       }
       .flatMap(identity)

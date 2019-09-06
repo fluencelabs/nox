@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.hashesbus
+package fluence.statemachine.receiptbus
 
 import fluence.statemachine.api.command.ReceiptBus
 import cats.instances.long._
@@ -32,12 +32,17 @@ import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-class ReceiptBusBackend[F[_]: Monad](
+trait ReceiptBusBackend[F[_]] extends ReceiptBus[F] {
+  private[statemachine] def getReceipt(height: Long)(implicit log: Log[F]): F[BlockReceipt]
+  private[statemachine] def enqueueVmHash(height: Long, hash: ByteVector)(implicit log: Log[F]): F[Unit]
+}
+
+class ReceiptBusBackendImpl[F[_]: Monad](
   // Using simple queue instead of LastCachingQueue because currently there are no retries on receipts
   private val receiptQueue: fs2.concurrent.Queue[F, BlockReceipt],
   // getVmHash may be retried by node, so using LastCachingQueue
   private val hashQueue: LastCachingQueue[F, VmHash, Long]
-) extends ReceiptBus[F] {
+) extends ReceiptBusBackend[F] {
   private def traceBU(msg: String)(implicit log: Log[F]) = Log[F].trace(Console.YELLOW + "BUD: " + msg + Console.RESET)
 
   /**
@@ -76,5 +81,5 @@ object ReceiptBusBackend {
       hashQueue <- LastCachingQueue[F, VmHash, Long]
       // Using simple queue instead of LastCachingQueue because currently there are no retries on receipts
       receiptQueue <- fs2.concurrent.Queue.unbounded[F, BlockReceipt]
-    } yield new ReceiptBusBackend[F](receiptQueue, hashQueue)
+    } yield new ReceiptBusBackendImpl[F](receiptQueue, hashQueue)
 }

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.control
+package fluence.statemachine.receiptbus
 
 import cats.Traverse
 import cats.effect.IO
@@ -32,8 +32,8 @@ class LastCachingQueueSpec extends WordSpec with Matchers {
   implicit private val timer = IO.timer(global)
   implicit private val shift = IO.contextShift(global)
 
-  private def queue = LastCachingQueue[IO, StateHash, Long]
-  private def vmHash(height: Long) = StateHash(height, ByteVector.empty)
+  private def queue = LastCachingQueue[IO, VmHash, Long]
+  private def vmHash(height: Long) = VmHash(height, ByteVector.empty)
 
   "LastCachingQueue" should {
     "cache last element" in {

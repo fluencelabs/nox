@@ -51,7 +51,7 @@ import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
-import fluence.statemachine.control.signals.ControlSignals
+import fluence.statemachine.receiptbus.signals.ControlSignals
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.{MachineState, StateService}
 import fluence.statemachine.vm.VmOperationInvoker

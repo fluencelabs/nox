@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.hashesbus
+package fluence.statemachine.receiptbus
 
 import cats.syntax.applicative._
 import cats.syntax.either._
@@ -32,11 +32,11 @@ import scala.language.higherKinds
  * @tparam A Type of the data
  * @tparam T Type of the property being exposed
  */
-private[hashesbus] trait HasOrderedProperty[A, T] {
+private[receiptbus] trait HasOrderedProperty[A, T] {
   def key(a: A)(implicit o: Order[T]): T
 }
 
-private[hashesbus] object HasOrderedProperty {
+private[receiptbus] object HasOrderedProperty {
   implicit val vmHash: HasOrderedProperty[VmHash, Long] = new HasOrderedProperty[VmHash, Long] {
     override def key(a: VmHash)(implicit o: Order[Long]): Long = a.height
   }

@@ -34,7 +34,7 @@ trait WorkerServices[F[_]] {
   def tendermintWRpc: TendermintWebsocketRpc[F]
 
   // RPC connection to worker
-  def hashesBus: ReceiptBus[F]
+  def receiptBus: ReceiptBus[F]
 
   def peersControl: PeersControl[F]
 

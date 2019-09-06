@@ -34,7 +34,7 @@ import fluence.statemachine.api.command.ReceiptBus
 import fluence.statemachine.api.query.{QueryCode, QueryResponse}
 import fluence.statemachine.api.data.{BlockReceipt, StateHash}
 import fluence.statemachine.api.tx.{Tx, TxCode, TxResponse}
-import fluence.statemachine.hashesbus.ReceiptBusBackend
+import fluence.statemachine.receiptbus.ReceiptBusBackend
 import fluence.statemachine.vm.VmOperationInvoker
 import scodec.bits.ByteVector
 
@@ -45,12 +45,12 @@ import scala.language.higherKinds
  *
  * @param state See [[MachineState]]
  * @param vm Virtual machine invoker
- * @param hashesBusBackend Communication channel with master node
+ * @param receiptBusBackend Communication channel with master node
  */
 class StateService[F[_]: Monad](
   state: Ref[F, MachineState],
   vm: VmOperationInvoker[F],
-  hashesBusBackend: ReceiptBusBackend[F],
+  receiptBusBackend: ReceiptBusBackend[F],
   // TODO: move this flag and all the related logic into HashesBusBackend
   blockUploadingEnabled: Boolean
 )(implicit hasher: Hasher[ByteVector, ByteVector], log: Log[F]) {
@@ -64,7 +64,7 @@ class StateService[F[_]: Monad](
    */
   def stateHash: F[StateHash] = state.get.map(_.stateHash)
 
-  def hashesBus: ReceiptBus[F] = hashesBusBackend
+  def receiptBus: ReceiptBus[F] = receiptBusBackend
 
   /**
    * Take all the transactions we're able to process, and pass them to VM one by one.
@@ -105,7 +105,7 @@ class StateService[F[_]: Monad](
       // Do not wait for receipt on empty blocks
       receipt <- if (blockUploadingEnabled && transactions.nonEmpty) {
         traceBU(s"retrieving receipt on height $blockHeight" + Console.RESET) *>
-          hashesBusBackend.getReceipt(blockHeight - 1).map(_.some)
+          receiptBusBackend.getReceipt(blockHeight - 1).map(_.some)
       } else {
         traceBU(s"WON'T retrieve receipt on height $blockHeight" + Console.RESET) *>
           none[BlockReceipt].pure[F]
@@ -151,7 +151,7 @@ class StateService[F[_]: Monad](
       stateHash = StateHash(blockHeight, appHash)
 
       // Store vmHash
-      _ <- hashesBusBackend.enqueueVmHash(blockHeight, vmHash)
+      _ <- receiptBusBackend.enqueueVmHash(blockHeight, vmHash)
       _ <- log.info(s"$blockHeight commit end")
     } yield stateHash
 

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.hashesbus
+package fluence.statemachine.receiptbus
 
 import scodec.bits.ByteVector
 
-private[hashesbus] case class VmHash(height: Long, hash: ByteVector)
+private[receiptbus] case class VmHash(height: Long, hash: ByteVector)

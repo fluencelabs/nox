@@ -30,7 +30,7 @@ import fluence.statemachine.api.data.{StateHash, StateMachineStatus}
 import fluence.statemachine.api.query.QueryResponse
 import fluence.statemachine.api.tx.TxResponse
 import fluence.statemachine.error.StateMachineError
-import fluence.statemachine.hashesbus.ReceiptBusBackend
+import fluence.statemachine.receiptbus.ReceiptBusBackend
 import fluence.statemachine.state.StateService
 import fluence.statemachine.vm.WasmVmOperationInvoker
 import fluence.vm.WasmVm
@@ -64,7 +64,7 @@ object EmbeddedStateMachine {
         }
       )
       .extend[ReceiptBus[F]](
-        stateService.hashesBus
+        stateService.receiptBus
       )
 
   def init[F[_]: ConcurrentEffect: Log](

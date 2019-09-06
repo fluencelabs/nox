@@ -38,7 +38,7 @@ object TestWorkerServices {
 
       override def responseSubscriber: ResponseSubscriber[F] = throw new NotImplementedError("def requestResponder")
 
-      override def hashesBus: ReceiptBus[F] = throw new NotImplementedError("def hashesBus")
+      override def receiptBus: ReceiptBus[F] = throw new NotImplementedError("def hashesBus")
 
       override def peersControl: PeersControl[F] = throw new NotImplementedError("def peersControl")
     }
@@ -65,7 +65,7 @@ object TestWorkerServices {
 
       override def responseSubscriber: ResponseSubscriber[F] = requestResponderImpl
 
-      override def hashesBus: ReceiptBus[F] = throw new NotImplementedError("def hashesBus")
+      override def receiptBus: ReceiptBus[F] = throw new NotImplementedError("def hashesBus")
 
       override def peersControl: PeersControl[F] = throw new NotImplementedError("def peersControl")
     }

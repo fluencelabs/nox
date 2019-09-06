@@ -24,8 +24,8 @@ import fluence.log.{Log, LogFactory}
 import fluence.statemachine.api.data.StateMachineStatus
 import fluence.statemachine.api.query.QueryCode
 import fluence.statemachine.api.tx.TxCode
-import fluence.statemachine.control.MockedControlSignals
-import fluence.statemachine.control.signals.ControlSignals
+import fluence.statemachine.receiptbus.MockedControlSignals
+import fluence.statemachine.receiptbus.signals.ControlSignals
 import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext.Implicits.global

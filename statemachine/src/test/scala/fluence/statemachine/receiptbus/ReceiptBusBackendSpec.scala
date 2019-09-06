@@ -14,21 +14,21 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.control
+package fluence.statemachine.receiptbus
 
 import cats.Traverse
 import cats.effect.IO
 import cats.instances.list._
 import fluence.log.{Log, LogFactory}
-import fluence.statemachine.api.signals.BlockReceipt
-import fluence.statemachine.control.signals.ControlSignals
+import fluence.statemachine.api.data.BlockReceipt
+import fluence.statemachine.receiptbus.ReceiptBusBackend
 import org.scalatest.{Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.postfixOps
 
-class ControlSignalsSpec extends WordSpec with Matchers with OptionValues {
+class ReceiptBusBackendSpec extends WordSpec with Matchers with OptionValues {
   implicit private val timer = IO.timer(global)
   implicit private val shift = IO.contextShift(global)
   implicit private val log = LogFactory.forPrintln[IO]().init("control signals spec", level = Log.Error).unsafeRunSync()
@@ -36,12 +36,12 @@ class ControlSignalsSpec extends WordSpec with Matchers with OptionValues {
   def receipt(height: Long) = BlockReceipt(height, ByteVector(height.toString.getBytes()))
 
   def checkReceipts(receipts: List[BlockReceipt], targetHeight: Long) = {
-    ControlSignals
-      .apply[IO]()
-      .use { signals =>
+    ReceiptBusBackend
+      .apply[IO]
+      .flatMap { backend =>
         for {
-          _ <- Traverse[List].traverse(receipts)(signals.enqueueReceipt)
-          receipt <- signals.getReceipt(targetHeight)
+          _ <- Traverse[List].traverse(receipts)(backend.sendBlockReceipt(_).value)
+          receipt <- backend.getReceipt(targetHeight)
         } yield {
           receipt.height shouldBe targetHeight
           new String(receipt.bytes.toArray).toLong shouldBe targetHeight
@@ -54,15 +54,14 @@ class ControlSignalsSpec extends WordSpec with Matchers with OptionValues {
     "retrieve correct vmHash" in {
       val vmHashes = (1L to 10).map(h => (h, ByteVector.fromLong(h))).toList
       val targetHeight = 7
-      ControlSignals
-        .apply[IO]()
-        .use { signals =>
+      ReceiptBusBackend
+        .apply[IO]
+        .flatMap { backend =>
           for {
-            _ <- Traverse[List].traverse(vmHashes)(signals.enqueueVmHash _ tupled)
-            vmHash <- signals.getVmHash(targetHeight)
+            _ <- Traverse[List].traverse(vmHashes)(backend.enqueueVmHash _ tupled)
+            vmHash <- backend.getVmHash(targetHeight).value.map(_.right.get)
           } yield {
-            vmHash.height shouldBe targetHeight
-            vmHash.hash.toLong() shouldBe targetHeight
+            vmHash.toLong() shouldBe targetHeight
           }
         }
         .unsafeRunSync()

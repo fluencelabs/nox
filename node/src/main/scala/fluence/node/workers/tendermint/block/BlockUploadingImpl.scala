@@ -70,7 +70,7 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
         services.blockManifests.receiptStorage,
         services.tendermintRpc,
         services.tendermintWRpc,
-        services.hashesBus,
+        services.receiptBus,
         services.blockManifests.onUploaded
       )
     } yield ()
@@ -83,13 +83,13 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
     storage: ReceiptStorage[F],
     rpc: TendermintHttpRpc[F],
     wrpc: TendermintWebsocketRpc[F],
-    hashesBus: ReceiptBus[F],
+    receiptBus: ReceiptBus[F],
     onManifestUploaded: (BlockManifest, Receipt) ⇒ F[Unit]
   )(implicit backoff: Backoff[EffectError], F: Applicative[F], log: Log[F]): Resource[F, Unit] =
     Resource.liftF((Ref.of[F, Long](0), Deferred[F, Long]).tupled).flatMap {
       case (lastHeightRef, lastHeightDef) ⇒
         def upload(b: BlockUpload) = uploadBlock(b, appId, lastManifestReceipt, storage, onManifestUploaded)
-        val sendReceipt = this.sendReceipt(_, hashesBus)
+        val sendReceipt = this.sendReceipt(_, receiptBus)
 
         // TODO: what if we have lost all data in receipt storage? Node will need to sync it from the decentralized storage
         val storedReceipts = getStoredReceipts(storage, lastHeightRef, lastHeightDef)
@@ -101,7 +101,7 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
         val blocks = lastKnownHeight >>= wrpc.subscribeNewBlock
 
         // Retrieve vm hash for every block
-        val blocksWithVmHash = getBlocksWithVmHashes(blocks, hashesBus)
+        val blocksWithVmHash = getBlocksWithVmHashes(blocks, receiptBus)
 
         // Upload blocks in groups (empty + non-empty)
         val newReceipts = uploadBlocks(blocksWithVmHash, upload)
@@ -136,17 +136,17 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
         .scope
         .map(_._2)
 
-  private def sendReceipt(receipt: Receipt, hashesBus: ReceiptBus[F])(
+  private def sendReceipt(receipt: Receipt, receiptBus: ReceiptBus[F])(
     implicit log: Log[F],
     backoff: Backoff[EffectError]
   ) = backoff.retry(
-    hashesBus.sendBlockReceipt(BlockReceipt(receipt.height, receipt.jsonBytes())),
+    receiptBus.sendBlockReceipt(BlockReceipt(receipt.height, receipt.jsonBytes())),
     (e: EffectError) => log.error(s"error sending receipt: $e")
   )
 
   private def getBlocksWithVmHashes(
     blocks: fs2.Stream[F, Block],
-    hashesBus: ReceiptBus[F]
+    receiptBus: ReceiptBus[F]
   )(implicit backoff: Backoff[EffectError], log: Log[F]) =
     blocks
       .evalTap(b => traceBU(s"got block ${b.header.height}"))
@@ -154,7 +154,7 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
         block =>
           backoff
             .retry(
-              hashesBus.getVmHash(block.header.height),
+              receiptBus.getVmHash(block.header.height),
               (e: EffectError) => log.error(s"error retrieving vmHash on height ${block.header.height}: $e")
             )
             .map(BlockUpload(block, _))
