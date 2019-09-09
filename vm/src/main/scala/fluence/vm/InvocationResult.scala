@@ -14,28 +14,9 @@
  * limitations under the License.
  */
 
-//! Wrapper for counter (a test for Fluence network).
-//!
-//! Provides the FFI (`main`) that can increment a counter and return its updated state.
+package fluence.vm
 
-mod counter;
-use byteorder::{LittleEndian, WriteBytesExt};
-
-use fluence::sdk::*;
-
-//
-// FFI for interaction with counter module
-//
-
-static mut COUNTER: counter::Counter = counter::Counter { counter: 0 };
-
-#[invocation_handler]
-pub fn main() -> Vec<u8> {
-    unsafe { COUNTER.inc() };
-
-    let mut counter_value = vec![];
-    counter_value
-        .write_i64::<LittleEndian>(unsafe { COUNTER.get() })
-        .unwrap();
-    counter_value
-}
+/**
+ * Represents VM execution result.
+ */
+case class InvocationResult(output: Array[Byte], spentGas: Long)
