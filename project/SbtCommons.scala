@@ -65,9 +65,11 @@ object SbtCommons {
 
           log.info(s"Dowloading llamadb from $llamadbUrl to $resourcesPath")
 
+          // -nc prevents downloading if file already exists
           val llamadbDownloadRet = s"wget -nc $llamadbUrl -O $resourcesPath/llama_db.wasm" !
           val llamadbPreparedDownloadRet = s"wget -nc $llamadbPreparedUrl -O $resourcesPath/llama_db_prepared.wasm" !
 
+          // wget returns 0 of file was downloaded and 1 if file already exists
           assert(llamadbDownloadRet == 0 || llamadbDownloadRet == 1,
             s"Download failed: $llamadbUrl")
           assert(llamadbPreparedDownloadRet == 0 || llamadbPreparedDownloadRet == 1,
