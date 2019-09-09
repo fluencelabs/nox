@@ -23,6 +23,10 @@ import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
+/**
+ * In case of ABCI service, State machine is responsible for consensus peers management, e.g. voting for a peer removal
+ *
+ */
 trait PeersControl[F[_]] {
   def dropPeer(validatorKey: ByteVector)(implicit log: Log[F]): EitherT[F, EffectError, Unit]
 }

@@ -24,6 +24,12 @@ import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
+/**
+ * ReceiptBus provides full duplex communication from State machine (giving VM hashes) to Node
+ * and vice versa (with [[BlockReceipt]]s).
+ *
+ * This API stands for the Client side.
+ */
 trait ReceiptBus[F[_]] {
   def getVmHash(height: Long)(implicit log: Log[F]): EitherT[F, EffectError, ByteVector]
 

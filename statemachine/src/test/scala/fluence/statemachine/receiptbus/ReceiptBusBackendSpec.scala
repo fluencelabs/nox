@@ -21,7 +21,6 @@ import cats.effect.IO
 import cats.instances.list._
 import fluence.log.{Log, LogFactory}
 import fluence.statemachine.api.data.BlockReceipt
-import fluence.statemachine.receiptbus.ReceiptBusBackend
 import org.scalatest.{Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
 
@@ -37,7 +36,7 @@ class ReceiptBusBackendSpec extends WordSpec with Matchers with OptionValues {
 
   def checkReceipts(receipts: List[BlockReceipt], targetHeight: Long) = {
     ReceiptBusBackend
-      .apply[IO]
+      .apply[IO](isEnabled = true)
       .flatMap { backend =>
         for {
           _ <- Traverse[List].traverse(receipts)(backend.sendBlockReceipt(_).value)
@@ -55,7 +54,7 @@ class ReceiptBusBackendSpec extends WordSpec with Matchers with OptionValues {
       val vmHashes = (1L to 10).map(h => (h, ByteVector.fromLong(h))).toList
       val targetHeight = 7
       ReceiptBusBackend
-        .apply[IO]
+        .apply[IO](isEnabled = true)
         .flatMap { backend =>
           for {
             _ <- Traverse[List].traverse(vmHashes)(backend.enqueueVmHash _ tupled)

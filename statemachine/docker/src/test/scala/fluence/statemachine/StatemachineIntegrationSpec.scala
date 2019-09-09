@@ -26,6 +26,7 @@ import fluence.statemachine.api.query.QueryCode
 import fluence.statemachine.api.tx.TxCode
 import fluence.statemachine.receiptbus.MockedControlSignals
 import fluence.statemachine.receiptbus.signals.ControlSignals
+import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
 import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext.Implicits.global

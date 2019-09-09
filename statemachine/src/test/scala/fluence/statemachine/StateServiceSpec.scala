@@ -79,12 +79,6 @@ class StateServiceSpec extends WordSpec with Matchers {
 
           override def enqueueVmHash(height: Long, hash: ByteVector)(implicit log: Log[IO]): IO[Unit] =
             ref.update(_.enqueueVmHash(height))
-
-          override def getVmHash(height: Long)(implicit log: Log[IO]): EitherT[IO, EffectError, ByteVector] =
-            throw new NotImplementedError("def getVmHash")
-
-          override def sendBlockReceipt(receipt: BlockReceipt)(implicit log: Log[IO]): EitherT[IO, EffectError, Unit] =
-            throw new NotImplementedError("def sendBlockReceipt")
         }
 
         for {

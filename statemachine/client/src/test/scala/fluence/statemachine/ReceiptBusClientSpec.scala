@@ -49,7 +49,7 @@ class ReceiptBusClientSpec extends WordSpec with Matchers with OptionValues {
 
     val backendR =
       for {
-        backend <- Resource.liftF(ReceiptBusBackend[IO])
+        backend <- Resource.liftF(ReceiptBusBackend[IO](isEnabled = true))
         _ ← BlazeServerBuilder[IO]
           .bindHttp(port, host)
           .withHttpApp(

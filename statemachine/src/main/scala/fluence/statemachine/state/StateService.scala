@@ -30,7 +30,6 @@ import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.log.Log
-import fluence.statemachine.api.command.ReceiptBus
 import fluence.statemachine.api.query.{QueryCode, QueryResponse}
 import fluence.statemachine.api.data.{BlockReceipt, StateHash}
 import fluence.statemachine.api.tx.{Tx, TxCode, TxResponse}
@@ -50,9 +49,7 @@ import scala.language.higherKinds
 class StateService[F[_]: Monad](
   state: Ref[F, MachineState],
   vm: VmOperationInvoker[F],
-  receiptBusBackend: ReceiptBusBackend[F],
-  // TODO: move this flag and all the related logic into HashesBusBackend
-  blockUploadingEnabled: Boolean
+  receiptBusBackend: ReceiptBusBackend[F]
 )(implicit hasher: Hasher[ByteVector, ByteVector], log: Log[F]) {
 
   // Writes a trace log about block uploading
@@ -63,8 +60,6 @@ class StateService[F[_]: Monad](
    * Get actual stateHash from the internal state
    */
   def stateHash: F[StateHash] = state.get.map(_.stateHash)
-
-  def receiptBus: ReceiptBus[F] = receiptBusBackend
 
   /**
    * Take all the transactions we're able to process, and pass them to VM one by one.
@@ -103,7 +98,7 @@ class StateService[F[_]: Monad](
       _ <- traceBU(s"got vmHash; height ${st.height + 1}" + Console.RESET)
 
       // Do not wait for receipt on empty blocks
-      receipt <- if (blockUploadingEnabled && transactions.nonEmpty) {
+      receipt <- if (receiptBusBackend.isEnabled && transactions.nonEmpty) {
         traceBU(s"retrieving receipt on height $blockHeight" + Console.RESET) *>
           receiptBusBackend.getReceipt(blockHeight - 1).map(_.some)
       } else {
@@ -127,7 +122,7 @@ class StateService[F[_]: Monad](
       // previous non-empty ones. This is because Tendermint stops producing empty blocks only after
       // at least 2 blocks have the same appHash. Otherwise, empty blocks would be produced indefinitely.
       appHash <- receipt.fold {
-        if (!blockUploadingEnabled || blockHeight == 1)
+        if (!receiptBusBackend.isEnabled || blockHeight == 1)
           // To save initial state of VM in a block chain and also to make it produce 2 blocks on the start
           vmHash.pure[F]
         else
@@ -258,15 +253,13 @@ object StateService {
    * Build an empty StateService for the vm. App hash is empty!
    *
    * @param vm VM to invoke
-   * @param hashesBus To retrieve receipts and send vm hash
-   * @param blockUploadingEnabled Whether to retrieve receipts and use them in appHash or not
+   * @param receiptBusBackend To retrieve receipts and send vm hash
    * @tparam F Sync for Ref
    * @return Brand new StateService instance
    */
   def apply[F[_]: Effect: Log](
     vm: VmOperationInvoker[F],
-    hashesBus: ReceiptBusBackend[F],
-    blockUploadingEnabled: Boolean
+    receiptBusBackend: ReceiptBusBackend[F]
   ): F[StateService[F]] =
     for {
       state ← Ref.of[F, MachineState](MachineState())
@@ -276,6 +269,6 @@ object StateService {
       implicit val hasher: Crypto.Hasher[ByteVector, ByteVector] =
         bva.andThen[Array[Byte]](JdkCryptoHasher.Sha256).andThen(abv)
 
-      new StateService[F](state, vm, hashesBus, blockUploadingEnabled)
+      new StateService[F](state, vm, receiptBusBackend)
     }
 }

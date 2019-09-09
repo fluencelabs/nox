@@ -20,7 +20,13 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import scodec.bits.ByteVector
 
-/** Represents a hash of the VM state after the given block */
+/**
+ * Statemachine's state after a certain block.
+ * Hash is formed from the previous [[BlockReceipt]] and VM hash.
+ *
+ * @param height Block's height
+ * @param hash State hash
+ */
 case class StateHash(height: Long, hash: ByteVector)
 
 object StateHash {

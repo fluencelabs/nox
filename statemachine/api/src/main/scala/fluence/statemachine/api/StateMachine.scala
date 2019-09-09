@@ -39,10 +39,22 @@ import scala.language.higherKinds
 trait StateMachine[F[_]] {
   self ⇒
 
+  /**
+   * Product (HList) of all types to access Command side of this state machine.
+   */
   type Commands <: HList
 
+  /**
+   * Implementations for the command side
+   */
   protected val commands: Commands
 
+  /**
+   * Access for a particular command. Usage: `machine.command[ConcreteCommandType]`
+   *
+   * @param cmd Selector; always available implicitly
+   * @tparam C Command's type
+   */
   final def command[C](implicit cmd: ops.hlist.Selector[Commands, C]): C = cmd(commands)
 
   def query(path: String)(implicit log: Log[F]): EitherT[F, EffectError, QueryResponse]

@@ -20,6 +20,12 @@ import io.circe.{Decoder, Encoder}
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import scodec.bits.ByteVector
 
+/**
+ * Block receipt, should be provided by Node for each non-empty block
+ *
+ * @param height Corresponding block's height
+ * @param bytes Receipt bytes to form the state hash
+ */
 case class BlockReceipt(height: Long, bytes: ByteVector)
 
 object BlockReceipt {
