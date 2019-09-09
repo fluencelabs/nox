@@ -40,12 +40,12 @@ import shapeless._
 import scala.language.higherKinds
 
 /**
-* Full featured [[StateMachine]] implementation within the current JVM.
+ * Full featured [[StateMachine]] implementation within the current JVM.
  */
 object EmbeddedStateMachine {
 
   /**
-  * Constructor for StateMachine.
+   * Constructor for StateMachine.
    * Provides [[ReceiptBus]] and [[TxProcessor]] on State machine's command side.
    *
    * @param receiptBus Receipt bus, with backend inside the given stateService
@@ -57,7 +57,7 @@ object EmbeddedStateMachine {
     stateService: StateService[F],
     initialStatus: StateMachineStatus
   ): StateMachine.Aux[F, ReceiptBus[F] :: TxProcessor[F] :: HNil] =
-  // Proxy read operations to appropriate stateService methods
+    // Proxy read operations to appropriate stateService methods
     new StateMachine.ReadOnly[F] {
       override def query(path: String)(implicit log: Log[F]): EitherT[F, EffectError, QueryResponse] =
         EitherT right stateService.query(path)
@@ -65,7 +65,7 @@ object EmbeddedStateMachine {
       override def status()(implicit log: Log[F]): EitherT[F, EffectError, StateMachineStatus] =
         EitherT right stateService.stateHash.map(h ⇒ initialStatus.copy(stateHash = h))
     }.extend[TxProcessor[F]](
-      // Build TxProcessor, using stateService as a backend
+        // Build TxProcessor, using stateService as a backend
         new TxProcessor[F] {
           override def processTx(txData: Array[Byte])(implicit log: Log[F]): EitherT[F, EffectError, TxResponse] =
             EitherT right stateService.deliverTx(txData)
@@ -77,13 +77,13 @@ object EmbeddedStateMachine {
             EitherT right stateService.commit
         }
       )
-    // Just provide access for the underlying [[ReceiptBus]]
+      // Just provide access for the underlying [[ReceiptBus]]
       .extend[ReceiptBus[F]](
         receiptBus
       )
 
   /**
-  * Initializes a new embedded [[StateMachine]].
+   * Initializes a new embedded [[StateMachine]].
    *
    * @param moduleFiles Non empty list of full paths to WASM module files
    * @param blockUploadingEnabled Whether block uploading (ReceiptBus) should affect State hash or not

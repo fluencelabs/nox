@@ -72,6 +72,9 @@ class StateServiceSpec extends WordSpec with Matchers {
         }
 
         val receiptBus = new ReceiptBusBackend[IO] {
+
+          override def isEnabled: Boolean = true
+
           override def getReceipt(height: Long)(implicit log: Log[IO]): IO[BlockReceipt] =
             ref
               .update(_.getReceipt())
@@ -84,7 +87,7 @@ class StateServiceSpec extends WordSpec with Matchers {
         for {
           state ← Ref.of[IO, MachineState](MachineState())
           txCounter <- Ref.of[IO, Int](0)
-          abci = new StateService[IO](state, vmInvoker, receiptBus, blockUploadingEnabled = true)
+          abci = new StateService[IO](state, vmInvoker, receiptBus)
         } yield (abci, ref, state, txCounter)
       }
       .flatMap(identity)
