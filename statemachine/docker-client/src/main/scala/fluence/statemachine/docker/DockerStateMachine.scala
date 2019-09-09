@@ -22,7 +22,6 @@ import fluence.effects.docker.params.{DockerImage, DockerLimits, DockerParams}
 import fluence.effects.docker.{DockerContainer, DockerIO, DockerNetwork}
 import fluence.effects.sttp.SttpEffect
 import fluence.log.Log
-import fluence.log.LogLevel.LogLevel
 import fluence.statemachine.api.StateMachine
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import fluence.statemachine.client.StateMachineClient
@@ -30,6 +29,9 @@ import shapeless._
 
 import scala.language.higherKinds
 
+/**
+ * [[StateMachine]] launched inside a Docker container, with HTTP access to it
+ */
 object DockerStateMachine {
 // TODO: in StateMachineHttp, it's taken from config
   val RpcPort: Short = 26662
@@ -39,7 +41,7 @@ object DockerStateMachine {
     network: DockerNetwork,
     limits: DockerLimits,
     image: DockerImage,
-    logLevel: LogLevel,
+    logLevel: Log.Level,
     environment: Map[String, String],
     vmCodePath: String,
     volumesFrom: Option[String],
@@ -51,7 +53,7 @@ object DockerStateMachine {
       .build()
       .environment(environment)
       .option("-e", s"""CODE_DIR=$vmCodePath""")
-      .option("-e", s"LOG_LEVEL=$logLevel")
+      .option("-e", s"LOG_LEVEL=${logLevel.name}")
       .option("-e", internalMem.map(mem => s"WORKER_MEMORY_LIMIT=$mem"))
       .option("--name", name)
       .option("--network", network.name)

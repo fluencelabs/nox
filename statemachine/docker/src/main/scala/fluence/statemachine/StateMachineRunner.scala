@@ -20,11 +20,12 @@ import cats.data.Kleisli
 import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect.{Concurrent, ExitCode, IO, IOApp}
 import cats.syntax.flatMap._
-import fluence.log.{Log, LogFactory, LogLevel}
+import fluence.log.{Log, LogFactory}
 import fluence.statemachine.abci.AbciHandler
 import fluence.statemachine.abci.peers.PeersControlBackend
 import fluence.statemachine.api.StateMachine
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
+import fluence.statemachine.http.StateMachineHttp
 import org.http4s.{Request, Response}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.Router
@@ -46,7 +47,7 @@ object StateMachineRunner extends IOApp {
     StateMachineConfig
       .load[IO]()
       .flatMap { config =>
-        val logLevel = LogLevel.fromString(config.logLevel).getOrElse(LogLevel.INFO)
+        val logLevel = Log.level(config.logLevel).getOrElse(Log.Info)
         implicit val logFactory: LogFactory[IO] =
           LogFactory.forPrintln[IO](logLevel)
         for {
@@ -98,12 +99,9 @@ object StateMachineRunner extends IOApp {
   ) = {
     implicit val dsl: Http4sDsl[F] = Http4sDsl[F]
 
-    import fluence.statemachine.http.StateMachineHttp.{commandRoutes, readRoutes}
-
     val rs =
       Router[F](
-        ("/" -> readRoutes[F](machine)) +:
-          commandRoutes[F](machine.command[ReceiptBus[F]], machine.command[PeersControl[F]]): _*
+        StateMachineHttp.routes(machine): _*
       )
 
     Kleisli[F, Request[F], Response[F]](

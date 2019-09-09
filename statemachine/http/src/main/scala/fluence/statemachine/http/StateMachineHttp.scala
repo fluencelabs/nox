@@ -26,6 +26,7 @@ import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import org.http4s.dsl.Http4sDsl
 import org.http4s.{HttpRoutes, Request}
 import io.circe.syntax._
+import shapeless._
 
 import scala.language.higherKinds
 
@@ -37,6 +38,9 @@ object StateMachineHttp {
       .flatTap(_.info(s"request"))
       .widen[Log[F]]
 
+  /**
+   * Routes for a pure readonly [[StateMachine]]
+   */
   def readRoutes[F[_]: Http4sDsl: LogFactory: Sync](
     stateMachine: StateMachine[F]
   )(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
@@ -67,14 +71,32 @@ object StateMachineHttp {
     }
   }
 
+  /**
+   * Routes for the [[StateMachine]]'s command side
+   */
   def commandRoutes[F[_]: Http4sDsl: LogFactory: Sync](
-    hashesBus: ReceiptBus[F],
+    receiptBus: ReceiptBus[F],
     peers: PeersControl[F]
   ): Seq[(String, HttpRoutes[F])] =
     Seq(
-      "/receipt-bus" -> ReceiptBusHttp.routes[F](hashesBus),
+      "/receipt-bus" -> ReceiptBusHttp.routes[F](receiptBus),
       "/peers" -> PeersControlHttp.routes[F](peers)
     )
 
-  // TODO make routes[] for a statemachine
+  /**
+   * List of all available [[StateMachine]]'s routes.
+   *
+   * @param machine [[StateMachine]] with at least [[ReceiptBus]] and [[PeersControl]] on the command side
+   * @return List of routes to be passed into server's Router
+   */
+  def routes[F[_]: Http4sDsl: LogFactory: Sync, C <: HList](
+    machine: StateMachine.Aux[F, C]
+  )(
+    implicit rb: ops.hlist.Selector[C, ReceiptBus[F]],
+    pc: ops.hlist.Selector[C, PeersControl[F]]
+  ): Seq[(String, HttpRoutes[F])] =
+    commandRoutes[F](
+      machine.command[ReceiptBus[F]],
+      machine.command[PeersControl[F]]
+    ) :+ ("/" -> readRoutes[F](machine))
 }

@@ -32,8 +32,18 @@ import shapeless._
 
 import scala.language.higherKinds
 
+/**
+ * Provides access for a remote HTTP-accessible [[StateMachine]].
+ */
 object StateMachineClient {
 
+  /**
+   * Read only [[StateMachine]] access via HTTP
+   *
+   * @param host State machine's host
+   * @param port State machine's port
+   * @return Pure readonly [[StateMachine]] with empty command side
+   */
   def readOnly[F[_]: Monad: SttpEffect](host: String, port: Short): StateMachine.Aux[F, HNil] =
     new StateMachine.ReadOnly[F] {
       // TODO implement querying!
@@ -51,6 +61,13 @@ object StateMachineClient {
           .leftMap(identity[EffectError])
     }
 
+  /**
+   * Builds a remote [[StateMachine]] access for both query (read) and command side.
+   *
+   * @param host State machine's host
+   * @param port State machine's port
+   * @return [[StateMachine]] with [[ReceiptBus]] and [[PeersControl]] command access
+   */
   def apply[F[_]: Monad: SttpEffect](
     host: String,
     port: Short

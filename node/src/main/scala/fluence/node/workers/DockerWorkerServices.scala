@@ -29,7 +29,6 @@ import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.{TendermintWebsocketRpc, WebsocketConfig}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
-import fluence.log.LogLevel.LogLevel
 import fluence.node.status.StatusHttp
 import fluence.node.workers.pool.WorkerP2pConnectivity
 import fluence.node.workers.status._
@@ -161,7 +160,7 @@ object DockerWorkerServices {
     params: WorkerParams,
     p2pPort: Short,
     stopTimeout: Int,
-    logLevel: LogLevel,
+    logLevel: Log.Level,
     receiptStorage: Resource[F, ReceiptStorage[F]],
     blockUploading: BlockUploading[F],
     websocketConfig: WebsocketConfig
