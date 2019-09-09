@@ -132,7 +132,13 @@ lazy val `statemachine-client` = (project in file("statemachine/client"))
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`statemachine-api`, `sttp-effect`, `statemachine-http` % Test)
+  .dependsOn(
+    `statemachine-api`,
+    `sttp-effect`,
+    `statemachine-http` % Test,
+    `statemachine-abci` % Test,
+    `statemachine`      % Test
+  )
 
 lazy val `statemachine-abci` = (project in file("statemachine/abci"))
   .settings(
@@ -148,16 +154,18 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      http4sServer
+      http4sServer,
+      scalaTest
     ),
     assemblyJarName in assembly       := "statemachine.jar",
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
     test in assembly                  := {},
+    parallelExecution in Test := false,
     imageNames in docker              := Seq(ImageName(DockerContainers.Worker)),
     dockerfile in docker              := DockerContainers.worker(assembly.value, baseDirectory.value)
   )
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`)
+  .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`, `sttp-effect` % "test->test")
 
 lazy val `statemachine-docker-client` = (project in file("statemachine/docker-client"))
   .settings(
@@ -479,5 +487,9 @@ lazy val `node-testkit` = (project in file("node/testkit"))
       scalaTest
     )
   )
-  .dependsOn(`node` % Test, `tendermint-rpc`)
+  .dependsOn(
+    `node` % "test->test",
+    `statemachine` % "test->test",
+    `tendermint-rpc` % "test->test"
+  )
   .enablePlugins(AutomateHeaderPlugin)

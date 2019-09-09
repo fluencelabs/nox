@@ -139,41 +139,29 @@ class MerkleTreeSpec extends WordSpec with Matchers {
     def rndIndex = (math.random() * size).toInt
     def rndByte = (math.random() * Byte.MaxValue).toByte
 
-    println("init: " + (System.currentTimeMillis() - startTime))
-
     storage.put(7, 4)
 
-    println("finish put: " + (System.currentTimeMillis() - startTime))
-
     tree.recalculateHash()
-
-    println("finish recalculate: " + (System.currentTimeMillis() - startTime))
 
     (1 to 100).foreach { _ =>
       val index = rndIndex
       storage.put(index, rndByte)
     }
-    println("finish put: " + (System.currentTimeMillis() - startTime))
+
     tree.recalculateHash()
-    println("finish recalculate: " + (System.currentTimeMillis() - startTime))
 
     (1 to 1000).foreach { _ =>
       val index = rndIndex
       storage.put(index, rndByte)
     }
 
-    println("finish put: " + (System.currentTimeMillis() - startTime))
     tree.recalculateHash()
-    println("finish recalculate: " + (System.currentTimeMillis() - startTime))
 
     (1 to 10000).foreach { _ =>
       val index = rndIndex
       storage.put(index, rndByte)
     }
 
-    println("finish put: " + (System.currentTimeMillis() - startTime))
     val hash = tree.recalculateHash()
-    println("finish recalculate: " + (System.currentTimeMillis() - startTime))
-    println("hash: " + hash.mkString(" "))
   }
 }
