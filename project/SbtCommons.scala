@@ -47,50 +47,28 @@ object SbtCommons {
       oldStrategy(x)
   }: String => MergeStrategy)
 
-  def rustVmTest(testName: String): Seq[Def.Setting[_]] =
+  def downloadLlamadb(): Seq[Def.Setting[_]] =
     Seq(
       publishArtifact := false,
       test            := (test in Test).dependsOn(compile).value,
       compile := (compile in Compile)
         .dependsOn(Def.task {
+          val resourcesPath = if (System.getProperty("user.dir").endsWith("/vm"))
+            System.getProperty("user.dir") + "/src/it/resources/"
+          else
+            System.getProperty("user.dir") + "/vm/src/it/resources/"
+
           val log = streams.value.log
-          log.info(s"Compiling $testName.rs to $testName.wasm")
+          val llamadbUrl = "https://github.com/fluencelabs/llamadb-wasm/releases/download/0.1.2/llama_db.wasm"
+          val llamadbPreparedUrl = "https://github.com/fluencelabs/llamadb-wasm/releases/download/0.1.2/llama_db_prepared.wasm"
 
-          val projectRoot = file("").getAbsolutePath
-          val testFolder = s"$projectRoot/vm/src/it/resources/test-cases/$testName"
-          val compileCmd = s"cargo +nightly-2019-03-10 build --manifest-path $testFolder/Cargo.toml " +
-            s"--target wasm32-unknown-unknown --release"
+          log.info(s"Dowloading llamadb from $llamadbUrl to $resourcesPath")
 
-          assert((compileCmd !) == 0, "Rust to Wasm compilation failed")
-        })
-        .value
-    )
+          val llamadbDownloadCmd = s"curl $llamadbUrl --output $resourcesPath/llama_db.wasm"
+          val llamadbPreparedDownloadCmd = s"curl $llamadbPreparedUrl --output $resourcesPath/llama_db_prepared.wasm"
 
-  // creates instrumented llamadb in a new folder
-  def createInstrumentedLlamadb(): Seq[Def.Setting[_]] =
-    Seq(
-      publishArtifact := false,
-      test            := (test in Test).dependsOn(compile).value,
-      compile := (compile in Compile)
-        .dependsOn(Def.task {
-          val log = streams.value.log
-          log.info(s"Building the internal tool for instrumentation")
-
-          val projectRoot = file("").getAbsolutePath
-          val toolFolder = s"$projectRoot/tools/wasm-utils/"
-          val toolCompileCmd = s"cargo +nightly-2019-03-10 build --manifest-path $toolFolder/Cargo.toml --release"
-          assert((toolCompileCmd !) == 0, "Compilation of wasm-utils failed")
-
-          val testFolder = s"$projectRoot/vm/src/it/resources/test-cases/llamadb"
-          val testCompileCmd = s"cargo +nightly-2019-03-10 build --manifest-path $testFolder/Cargo.toml " +
-            s"--target wasm32-unknown-unknown --release"
-          assert((testCompileCmd !) == 0, "Rust to Wasm compilation failed")
-
-          // run wasm-utils to instrument compiled llamadb binary
-          val prepareCmd = s"$toolFolder/target/release/wasm-utils prepare " +
-            s"-i $testFolder/target/wasm32-unknown-unknown/release/llama_db.wasm " +
-            s"-o $testFolder/target/wasm32-unknown-unknown/release/llama_db_prepared.wasm"
-          assert((prepareCmd !) == 0, s"$prepareCmd failed")
+          assert((llamadbDownloadCmd !) == 0, "Rust to Wasm compilation failed")
+          assert((llamadbPreparedDownloadCmd !) == 0, "Rust to Wasm compilation failed")
         })
         .value
     )
