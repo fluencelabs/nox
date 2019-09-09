@@ -1,0 +1,13 @@
+[package]
+name = "executor"
+version = "0.1.0"
+authors = ["Fluence Labs"]
+edition = "2018"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+wasmer-runtime = "0.6.0"
+jni = "0.13.1"
