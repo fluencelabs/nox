@@ -30,7 +30,7 @@ import scala.language.higherKinds
 
 object ReceiptBusHttp {
 
-  def routes[F[_]: LogFactory: Sync](hashesBus: ReceiptBus[F])(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
+  def routes[F[_]: LogFactory: Sync](receiptBus: ReceiptBus[F])(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
     import dsl._
     import StateMachineHttp.logReq
 
@@ -43,7 +43,7 @@ object ReceiptBusHttp {
         for {
           implicit0(log: Log[F]) ← logReq[F](req)
           receipt <- req.as[BlockReceipt]
-          res <- hashesBus.sendBlockReceipt(receipt).value
+          res <- receiptBus.sendBlockReceipt(receipt).value
           result <- res.fold(
             err ⇒ InternalServerError(err.getMessage),
             _ ⇒ Ok()
@@ -53,7 +53,7 @@ object ReceiptBusHttp {
       case req @ GET -> Root / "vmHash" :? HeightQ(height) =>
         for {
           implicit0(log: Log[F]) ← logReq(req)
-          vmHash <- hashesBus.getVmHash(height).value
+          vmHash <- receiptBus.getVmHash(height).value
           result <- vmHash.fold(
             err ⇒ InternalServerError(err.getMessage),
             h ⇒ Ok(h.toHex)

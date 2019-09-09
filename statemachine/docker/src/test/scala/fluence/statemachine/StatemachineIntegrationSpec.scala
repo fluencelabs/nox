@@ -16,16 +16,18 @@
 
 package fluence.statemachine
 
-import cats.effect.concurrent.Deferred
+import cats.data.NonEmptyList
 import cats.effect.{ContextShift, IO, Timer}
 import com.github.jtendermint.jabci.types.{RequestCheckTx, RequestCommit, RequestDeliverTx, RequestQuery}
 import com.google.protobuf.ByteString
+import fluence.effects.sttp.SttpEffect
 import fluence.log.{Log, LogFactory}
-import fluence.statemachine.api.data.StateMachineStatus
+import fluence.statemachine.abci.AbciHandler
+import fluence.statemachine.abci.peers.PeersControlBackend
+import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
+import fluence.statemachine.api.data.BlockReceipt
 import fluence.statemachine.api.query.QueryCode
 import fluence.statemachine.api.tx.TxCode
-import fluence.statemachine.receiptbus.MockedControlSignals
-import fluence.statemachine.receiptbus.signals.ControlSignals
 import org.scalatest.{Matchers, OneInstancePerTest, WordSpec}
 import scodec.bits.ByteVector
 
@@ -37,8 +39,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
   implicit val lf: LogFactory[IO] = LogFactory.forPrintln(Log.Error)
   implicit val log: Log[IO] = lf.init(getClass.getSimpleName).unsafeRunSync()
-  implicit private val sttp: SttpStreamEffect[IO] =
-    SttpEffect.stream[IO]
+  implicit private val sttp = SttpEffect.stream[IO]
 
   // sbt defaults user directory to submodule directory
   // while Idea defaults to project root
@@ -49,16 +50,25 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
     moduleFiles,
     "OFF",
     26661,
-    ControlServer.Config("localhost", 26662),
-    TendermintRpcConfig("localhost", 26657),
+    HttpConfig("localhost", 26657),
     blockUploadingEnabled = true
   )
-  private val signals: ControlSignals[IO] = new MockedControlSignals
 
-  val abciHandler: AbciHandler[IO] = StateMachineRunner
-    .buildAbciHandler(config, Deferred.unsafe[IO, IO[StateMachineStatus]], signals)
-    .valueOr(e => throw new RuntimeException(e.message))
+  val peersBackend = PeersControlBackend[IO].unsafeRunSync()
+
+  val machine = EmbeddedStateMachine
+    .init[IO](
+      NonEmptyList.fromList(moduleFiles).get,
+      config.blockUploadingEnabled
+    )
+    .map(_.extend[PeersControl[IO]](peersBackend))
+    .value
+    .flatMap(
+      e ⇒ IO.fromEither(e.left.map(err ⇒ new RuntimeException(s"Cannot initiate EmbeddedStateMachine: $err")))
+    )
     .unsafeRunSync()
+
+  val abciHandler: AbciHandler[IO] = AbciHandler(machine, peersBackend)
 
   def sendCheckTx(tx: String): (Int, String) = {
     val request = RequestCheckTx.newBuilder().setTx(ByteString.copyFromUtf8(tx)).build()
@@ -83,6 +93,9 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       case _                            => Left((response.getCode, response.getInfo))
     }
   }
+
+  def uploadReceipt(height: Long) =
+    machine.command[ReceiptBus[IO]].sendBlockReceipt(BlockReceipt(height, ByteVector.empty)).value.unsafeRunSync()
 
   def tx(session: String, order: Long, payload: String): String =
     s"$session/$order\n$payload"
@@ -124,8 +137,15 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendCheckTx(tx1)
       sendCheckTx(tx2)
       sendCheckTx(tx3)
+
       sendQuery(tx1Result).left.get._1 shouldBe QueryCode.NotFound.id
       sendDeliverTx(tx0)
+
+      uploadReceipt(0)
+      uploadReceipt(1)
+      uploadReceipt(2)
+      uploadReceipt(3)
+
       sendCommit()
 //      latestAppHash shouldBe "7b0a908531e5936acdfce3c581ba6b39c2ca185553f47b167440490b13bfa132"
 
@@ -153,6 +173,10 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendDeliverTx(tx0)
       sendDeliverTx(tx2)
       sendDeliverTx(tx3)
+
+      uploadReceipt(1)
+      uploadReceipt(2)
+
       sendCommit()
       sendCommit()
 
@@ -162,6 +186,10 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendQuery(tx3Result).left.get._1 shouldBe QueryCode.Pending.id
 
       sendDeliverTx(tx1)
+
+      uploadReceipt(3)
+      uploadReceipt(4)
+
       sendCommit()
       sendCommit()
 
@@ -179,6 +207,10 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendDeliverTx(tx0)._1 shouldBe TxCode.OK.id
       // Mempool state updated only on commit!
       sendCheckTx(tx0)._1 shouldBe TxCode.OK.id
+
+      uploadReceipt(1)
+      uploadReceipt(2)
+
       sendCommit()
 
       sendCheckTx(tx0)._1 shouldBe TxCode.AlreadyProcessed.id
@@ -188,6 +220,9 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
     "process Query method correctly" in {
       sendDeliverTx(tx0)
 //      sendQuery(tx0Result) shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.QueryStateIsNotReadyYet))
+
+      uploadReceipt(0)
+      uploadReceipt(1)
 
       sendCommit()
 //      sendQuery(tx0Result) shouldBe Left((QueryCodeType.Bad, ClientInfoMessages.QueryStateIsNotReadyYet))

@@ -165,7 +165,7 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     dockerfile in docker              := DockerContainers.worker(assembly.value, baseDirectory.value)
   )
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`, `sttp-effect` % "test->test")
+  .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`, `sttp-effect` % Test)
 
 lazy val `statemachine-docker-client` = (project in file("statemachine/docker-client"))
   .settings(
