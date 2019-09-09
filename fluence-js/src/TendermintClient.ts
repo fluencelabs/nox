@@ -51,7 +51,7 @@ export class TendermintClient {
     readonly addr: string;
     readonly appId: string;
 
-    constructor(host: string, port: number, appId: string, protocol: protocol = "http") {
+    constructor(host: string, port: number, appId: string, protocol: string = "http") {
         this.addr = `${protocol}://${host}:${port}`;
         this.appId = appId;
         this.client = new RpcClient(this.addr, appId);

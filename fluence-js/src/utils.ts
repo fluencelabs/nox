@@ -33,6 +33,30 @@ export function remove0x(hex: string): string {
     }
 }
 
+export function parseHost(host: string): { protocol: string, hostname: string } {
+    const parsedHost = /^(((http[s]?):\/\/)|(\/\/))([^:\/]+)/g.exec(host);
+    let protocol = 'http';
+
+    if (typeof window !== 'undefined') {
+        const pageProtocol = (window as any).location.protocol.slice(0, -1);
+        if (pageProtocol === 'http' || pageProtocol === 'https') {
+            protocol = pageProtocol;
+        }
+    }
+
+    if (parsedHost) {
+        return {
+            protocol: parsedHost[3] || protocol,
+            hostname: parsedHost[5],
+        }
+    }
+
+    return {
+        protocol: protocol,
+        hostname: host,
+    }
+}
+
 /**
  * Signs the payload concatenated with counter, and prepends the signature to the signed data
  *
