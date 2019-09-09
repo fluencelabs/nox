@@ -65,8 +65,10 @@ object SbtCommons {
 
           log.info(s"Dowloading llamadb from $llamadbUrl to $resourcesPath")
 
-          val llamadbDownloadCmd = s"curl -L -C - $llamadbUrl --output $resourcesPath/llama_db.wasm"
-          val llamadbPreparedDownloadCmd = s"curl -L -C - $llamadbPreparedUrl --output $resourcesPath/llama_db_prepared.wasm"
+          val llamadbDownloadCmd = s"wget -nc $llamadbUrl -O $resourcesPath/llama_db.wasm"
+          val llamadbPreparedDownloadCmd = s"wget -nc $llamadbPreparedUrl --O $resourcesPath/llama_db_prepared.wasm"
+          val retCode = (llamadbDownloadCmd !)
+          print(retCode)
 
           assert((llamadbDownloadCmd !) == 0, s"Download failed: $llamadbUrl")
           assert((llamadbPreparedDownloadCmd !) == 0, s"Download failed: $llamadbPreparedUrl")
