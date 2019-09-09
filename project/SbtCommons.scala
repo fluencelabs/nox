@@ -68,8 +68,8 @@ object SbtCommons {
           val llamadbDownloadCmd = s"curl -L $llamadbUrl --output $resourcesPath/llama_db.wasm"
           val llamadbPreparedDownloadCmd = s"curl -L $llamadbPreparedUrl --output $resourcesPath/llama_db_prepared.wasm"
 
-          assert((llamadbDownloadCmd !) == 0, "Rust to Wasm compilation failed")
-          assert((llamadbPreparedDownloadCmd !) == 0, "Rust to Wasm compilation failed")
+          assert((llamadbDownloadCmd !) == 0, s"Download failed: $llamadbUrl")
+          assert((llamadbPreparedDownloadCmd !) == 0, s"Download failed: $llamadbPreparedUrl")
         })
         .value
     )
