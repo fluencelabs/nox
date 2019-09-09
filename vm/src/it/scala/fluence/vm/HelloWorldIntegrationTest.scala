@@ -32,7 +32,7 @@ class HelloWorldIntegrationTest extends AppIntegrationTest with EitherValues {
   private implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init(getClass.getSimpleName).unsafeRunSync()
 
   private val helloWorldFilePath =
-    getModuleDirPrefix() + "/Users/trofim/Desktop/work/fluence/fluid/backend-c/hello_world.wasm"
+    getModuleDirPrefix() + "/src/it/resources/test-cases/hello-world/target/wasm32-unknown-unknown/release/hello_world.wasm"
 
   "hello user app" should {
 
@@ -49,26 +49,14 @@ class HelloWorldIntegrationTest extends AppIntegrationTest with EitherValues {
     }
 
     "greets John correctly" in {
-        val res = for {
-        vm ← WasmVm[IO](NonEmptyList.fromList("/Users/trofim/Desktop/work/fluence/sqlite/sqlite3.wasm" :: "/Users/trofim/Desktop/work/fluence/fluid/backend-c/fluid.wasm" :: Nil).get, MemoryHasher[IO], "fluence.vm.client.2Gb")
-        res1 ← vm.invoke[IO]("{\"action\":\"Post\",\"message\":\"I'm nice, you're nice, it's nice!\",\"username\":\"random_joe\"}".getBytes())
-        res2 ← vm.invoke[IO]("{\"action\" : \"Post\", \"username\" : \"a\", \"message\": \"1111\"}".getBytes())
-        res2 ← vm.invoke[IO]("{\"action\" : \"Post\", \"username\" : \"b\", \"message\": \"1111\"}".getBytes())
-        res2 ← vm.invoke[IO]("{\"action\" : \"Post\", \"username\" : \"asdasd\", \"message\": \"aaa\"}".getBytes())
-        res2 ← vm.invoke[IO]("{\"action\" : \"Fetch\", \"username\" : \"asdasd\"}".getBytes())
-        res3 ← vm.invoke[IO]("{\"action\" : \"Fetch\", \"username\" : \"random_joe\"}".getBytes())
+      (for {
+        vm ← WasmVm[IO](NonEmptyList.one(helloWorldFilePath), MemoryHasher[IO], "fluence.vm.client.4Mb")
+        greetingResult ← vm.invoke[IO]("John".getBytes())
         _ ← vm.getVmState[IO].toVmError
 
-        _ = System.out.println(new String(res1.output))
-        _ = System.out.println(new String(res1.output))
-        _ = System.out.println(new String(res2.output))
-        _ = System.out.println(new String(res3.output))
       } yield {
-        checkTestResult(res2, "Hello, world! From user John")
-      }
-
-      val tt = res.failed()
-      val yy = tt
+        checkTestResult(greetingResult, "Hello, world! From user John")
+      }).success()
 
     }
 
