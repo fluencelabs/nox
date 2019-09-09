@@ -54,7 +54,7 @@ import fluence.statemachine.state.{MachineState, StateService}
 import fluence.statemachine.vm.VmOperationInvoker
 import fluence.vm.InvocationResult
 import fluence.Eventually
-import fluence.statemachine.api.command.PeersControl
+import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import fluence.statemachine.api.tx.{Tx, TxCode, TxResponse}
 import fluence.statemachine.receiptbus.ReceiptBusBackend
 import fs2.concurrent.Queue
@@ -103,9 +103,10 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
     bva.andThen[Array[Byte]](JdkCryptoHasher.Sha256).andThen(abv)
   }
 
-  def receiptBackend(): Resource[IO, ReceiptBusBackend[IO]] = Resource.liftF(ReceiptBusBackend[IO])
+  def receiptBackend(): Resource[IO, ReceiptBus[IO] with ReceiptBusBackend[IO]] =
+    Resource.liftF(ReceiptBusBackend[IO](isEnabled = true))
 
-  private def abciService(backend: ReceiptBusBackend[IO]) = {
+  private def stateService(backend: ReceiptBusBackend[IO]) = {
     val vmInvoker = new VmOperationInvoker[IO] {
       override def invoke(arg: Array[Byte]): EitherT[IO, StateMachineError, InvocationResult] =
         EitherT.rightT(InvocationResult(Array.empty, 0))
@@ -116,12 +117,12 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
 
     for {
       state ← Ref.of[IO, MachineState](MachineState())
-      abci = new StateService[IO](state, vmInvoker, backend, blockUploadingEnabled = true)
+      abci = new StateService[IO](state, vmInvoker, backend)
     } yield (abci, state)
   }
 
   private def startBlockUploading(
-    backend: ReceiptBusBackend[IO],
+    bus: ReceiptBus[IO],
     blocksQ: fs2.concurrent.Queue[IO, Block],
     storedReceipts: Seq[Receipt] = Nil
   ): Resource[IO, Unit] =
@@ -162,7 +163,7 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
         override def tendermintRpc: TendermintHttpRpc[IO] = rpc
         override def tendermintWRpc: TendermintWebsocketRpc[IO] = rpc
 
-        override val receiptBus: ReceiptBusBackend[IO] = backend
+        override val receiptBus: ReceiptBus[IO] = bus
 
         override def status(timeout: FiniteDuration): IO[WorkerStatus] =
           IO.raiseError(new NotImplementedError("def status worker status"))
@@ -212,7 +213,7 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
   def start(): Resource[IO, (StateService[IO], Ref[IO, MachineState], Queue[IO, Block])] =
     for {
       backend <- receiptBackend()
-      (abciService, abciState) <- Resource.liftF(abciService(backend))
+      (abciService, abciState) <- Resource.liftF(stateService(backend))
       blocksQ <- Resource.liftF(fs2.concurrent.Queue.unbounded[IO, Block])
       _ <- startBlockUploading(backend, blocksQ)
     } yield (abciService, abciState, blocksQ)

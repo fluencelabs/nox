@@ -24,7 +24,6 @@ import cats.syntax.apply._
 import cats.syntax.compose._
 import fluence.crypto.Crypto
 import fluence.crypto.hash.JdkCryptoHasher
-import fluence.effects.EffectError
 import fluence.log.{Log, LogFactory}
 import fluence.statemachine.api.data.BlockReceipt
 import fluence.statemachine.error.StateMachineError
@@ -60,7 +59,7 @@ class StateServiceSpec extends WordSpec with Matchers {
     bva.andThen[Array[Byte]](JdkCryptoHasher.Sha256).andThen(abv)
   }
 
-  private def abciService(rs: List[BlockReceipt]) = {
+  private def stateService(rs: List[BlockReceipt]) = {
     Apply[IO]
       .map2(Ref.of[IO, List[BlockReceipt]](rs), Ref.of[IO, ExecutionState](ExecutionState())) { (receipts, ref) =>
         val vmInvoker = new VmOperationInvoker[IO] {
@@ -87,20 +86,20 @@ class StateServiceSpec extends WordSpec with Matchers {
         for {
           state ← Ref.of[IO, MachineState](MachineState())
           txCounter <- Ref.of[IO, Int](0)
-          abci = new StateService[IO](state, vmInvoker, receiptBus)
-        } yield (abci, ref, state, txCounter)
+          service = new StateService[IO](state, vmInvoker, receiptBus)
+        } yield (service, ref, state, txCounter)
       }
       .flatMap(identity)
   }
 
   private def checkCommit(
-    abci: StateService[IO],
+    service: StateService[IO],
     ref: Ref[IO, ExecutionState],
-    abciState: Ref[IO, MachineState],
+    state: Ref[IO, MachineState],
     expectedActions: List[Action],
     expectedHeight: Long
   ) = {
-    Apply[IO].map2(abciState.get, ref.get) {
+    Apply[IO].map2(state.get, ref.get) {
       case (abciState, executionState) =>
         abciState.height shouldBe expectedHeight
 
@@ -111,10 +110,10 @@ class StateServiceSpec extends WordSpec with Matchers {
 
   def receipt(h: Long) = BlockReceipt(h, ByteVector(h.toString.getBytes()))
 
-  "Abci Service" should {
+  "State Service" should {
     "retrieve receipts and store vmHash in order" in {
       val receipts = List(receipt(3))
-      abciService(receipts).flatMap {
+      stateService(receipts).flatMap {
         case (abci, ref, abciState, txCounter) =>
           val makeCommit = abci.commit
           val incrementTx = txCounter.modify(c => (c + 1, c))
@@ -136,7 +135,7 @@ class StateServiceSpec extends WordSpec with Matchers {
         receipt(5)
       )
 
-      abciService(receipts).flatMap {
+      stateService(receipts).flatMap {
         case (abci, ref, abciState, txCounter) =>
           val makeCommit = abci.commit
           val incrementTx = txCounter.modify(c => (c + 1, c))
