@@ -53,6 +53,7 @@ object SbtCommons {
       test            := (test in Test).dependsOn(compile).value,
       compile := (compile in Compile)
         .dependsOn(Def.task {
+          // by defaults, user.dir in sbt points to a submodule directory while in Idea to the project root
           val resourcesPath = if (System.getProperty("user.dir").endsWith("/vm"))
             System.getProperty("user.dir") + "/src/it/resources/"
           else
@@ -64,8 +65,8 @@ object SbtCommons {
 
           log.info(s"Dowloading llamadb from $llamadbUrl to $resourcesPath")
 
-          val llamadbDownloadCmd = s"curl $llamadbUrl --output $resourcesPath/llama_db.wasm"
-          val llamadbPreparedDownloadCmd = s"curl $llamadbPreparedUrl --output $resourcesPath/llama_db_prepared.wasm"
+          val llamadbDownloadCmd = s"curl -L $llamadbUrl --output $resourcesPath/llama_db.wasm"
+          val llamadbPreparedDownloadCmd = s"curl -L $llamadbPreparedUrl --output $resourcesPath/llama_db_prepared.wasm"
 
           assert((llamadbDownloadCmd !) == 0, "Rust to Wasm compilation failed")
           assert((llamadbPreparedDownloadCmd !) == 0, "Rust to Wasm compilation failed")

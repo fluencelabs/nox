@@ -73,7 +73,7 @@ lazy val `frun-rust` = project
   .dependsOn(`frun`)
   .enablePlugins(DockerPlugin)
 
-lazy val `vm-llamadb` = (project in file("vm/src/it/resources/test-cases/llamadb"))
+lazy val `vm-llamadb` = (project in file("vm/src/it/resources/llamadb"))
   .settings(
     downloadLlamadb()
   )
