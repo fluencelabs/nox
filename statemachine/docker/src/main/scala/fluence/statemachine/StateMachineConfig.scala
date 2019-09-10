@@ -87,6 +87,7 @@ object StateMachineConfig {
   def load[F[_]: Sync](conf: ⇒ Config = ConfigFactory.load()): F[StateMachineConfig] = {
     import net.ceedubs.ficus.Ficus._
     import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+    import net.ceedubs.ficus.readers.namemappers.implicits.hyphenCase
 
     implicit val shortValueReader: ValueReader[Short] =
       ValueReader[Long].map(_.toShort)
