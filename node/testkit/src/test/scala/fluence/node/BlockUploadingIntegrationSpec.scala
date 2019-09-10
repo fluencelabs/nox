@@ -188,7 +188,8 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
         override def waitResponseService: WaitResponseService[IO] =
           throw new NotImplementedError("def requestResponder")
 
-        override def storedProcedureExecutor: StoredProcedureExecutor[IO] = ???
+        override def storedProcedureExecutor: StoredProcedureExecutor[IO] =
+          throw new NotImplementedError("def storedProcedureExecutor")
       }
 
       val worker: Resource[IO, Worker[IO]] =

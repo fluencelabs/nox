@@ -41,11 +41,11 @@ import scala.language.higherKinds
  * @param subscriptions on transactions after each block
  * @param outputQueue for sending messages into websocket
  */
-class WorkerWebsocket[F[_]: Concurrent: Log](
+class WorkerWebsocket[F[_]: Concurrent](
   workerApi: WorkerApi[F],
   subscriptions: Ref[F, Map[SubscriptionKey, Subscription[F]]],
   outputQueue: NoneTerminatedQueue[F, WebsocketResponse]
-) {
+)(implicit log: Log[F]) {
   import WebsocketRequests._
   import WebsocketResponses._
 
@@ -65,13 +65,16 @@ class WorkerWebsocket[F[_]: Concurrent: Log](
     } yield {}
   }
 
-  private def addStream(key: SubscriptionKey, stream: fs2.Stream[F, TendermintResponse]): F[Boolean] =
-    subscriptions.modify { subs =>
-      subs.get(key) match {
-        case Some(v) => (subs.updated(key, v.copy(stream = Some(stream))), true)
-        case None    => (subs, false)
+  private def addStream(key: SubscriptionKey, stream: fs2.Stream[F, TendermintResponse]): F[Unit] =
+    for {
+      noSub <- subscriptions.modify { subs =>
+        subs.get(key) match {
+          case Some(v) => (subs.updated(key, v.copy(stream = Some(stream))), true)
+          case None    => (subs, false)
+        }
       }
-    }
+      _ <- if (noSub) log.warn("Unexpected. There is no subscription for a created stream.") else ().pure[F]
+    } yield ()
 
   private def checkAndAddSubscription(key: SubscriptionKey, tx: String): F[Boolean] =
     for {
@@ -102,7 +105,7 @@ class WorkerWebsocket[F[_]: Concurrent: Log](
     }.map(_.asJson.noSpaces)
   }
 
-  private def processTxWaitResponse(requestId: String, response: TendermintResponse) = {
+  private def toWebsocketResponse(requestId: String, response: TendermintResponse): WebsocketResponse = {
     response match {
       case Right(OkResponse(_, response))    => TxWaitResponse(requestId, response)
       case Right(RpcErrorResponse(_, error)) => ErrorResponse(requestId, error.getMessage)
@@ -128,7 +131,7 @@ class WorkerWebsocket[F[_]: Concurrent: Log](
       case TxWaitRequest(tx, id, requestId) =>
         workerApi
           .sendTxAwaitResponse(tx, id)
-          .map(processTxWaitResponse(requestId, _))
+          .map(toWebsocketResponse(requestId, _))
       case LastManifestRequest(requestId) =>
         workerApi.lastManifest().map(block => LastManifestResponse(requestId, block.map(_.jsonString)))
       case StatusRequest(requestId) =>
@@ -146,7 +149,7 @@ class WorkerWebsocket[F[_]: Concurrent: Log](
                 _ <- addStream(key, stream)
                 _ <- Concurrent[F].start(
                   stream
-                    .evalMap(r => outputQueue.enqueue1(Option(processTxWaitResponse(key.subscriptionId, r))))
+                    .evalMap(r => outputQueue.enqueue1(Some(toWebsocketResponse(key.subscriptionId, r))))
                     .compile
                     .drain
                 )
@@ -170,8 +173,8 @@ object WorkerWebsocket {
 
   object SubscriptionKey {
 
-    def apply(subscriptionId: String, tx: String): SubscriptionKey = {
-      new SubscriptionKey(subscriptionId, new String(CryptoHashers.Sha1.unsafe(tx.getBytes())))
+    def apply(subscriptionId: String, txHash: String): SubscriptionKey = {
+      new SubscriptionKey(subscriptionId, new String(CryptoHashers.Sha1.unsafe(txHash.getBytes())))
     }
   }
 

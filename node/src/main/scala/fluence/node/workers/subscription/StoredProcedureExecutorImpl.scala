@@ -50,7 +50,7 @@ class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
    */
   override def subscribe(key: SubscriptionKey, data: Tx.Data): F[fs2.Stream[F, TendermintResponse]] = {
     for {
-      _ <- log.debug(s"Subscribe for id: ${key.subscriptionId}, key: ${key.txHash}")
+      _ <- log.debug(s"Subscribe for id: ${key.subscriptionId}, txHash: ${key.txHash}")
       topic <- Topic[F, Event](Init)
       signal <- SignallingRef[F, Boolean](false)
       subState <- subscriptions.modify { subs =>
@@ -77,7 +77,7 @@ class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
 
   override def unsubscribe(key: SubscriptionKey): F[Boolean] = {
     for {
-      _ <- log.debug(s"Unsubscribe for id: ${key.subscriptionId}, key: $key")
+      _ <- log.debug(s"Unsubscribe for id: ${key.subscriptionId}, txHash: $key")
       (isOk, topicToCloseSubscription) <- subscriptions.modify { subs =>
         subs.get(key.txHash) match {
           case Some(sub) =>

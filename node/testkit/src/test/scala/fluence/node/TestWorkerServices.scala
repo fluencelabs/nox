@@ -55,7 +55,8 @@ object TestWorkerServices {
 
       override def waitResponseService: WaitResponseService[F] = WaitResponseService(rpc, requestResponderImpl)
 
-      override def storedProcedureExecutor: StoredProcedureExecutor[F] = ???
+      override def storedProcedureExecutor: StoredProcedureExecutor[F] =
+        throw new NotImplementedError("def storedProcedureExecutor")
     }
   }
 }
