@@ -30,6 +30,7 @@ import fluence.node.workers.api.websocket.WorkerWebsocket.{Subscription, Subscri
 import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
 import fluence.node.workers.subscription.{OkResponse, PendingResponse, RpcErrorResponse, TimedOutResponse}
 import fs2.concurrent.{NoneTerminatedQueue, Queue}
+import io.circe
 import io.circe.parser.parse
 import io.circe.syntax._
 
@@ -97,7 +98,9 @@ class WorkerWebsocket[F[_]: Concurrent](
     val result = for {
       request <- EitherT
         .fromEither(parse(input).flatMap(_.as[WebsocketRequest]))
+      _ <- Log.eitherT[F, circe.Error].trace("Processing input: " + input)
       response <- EitherT.liftF[F, io.circe.Error, WebsocketResponse](callApi(request))
+      _ <- Log.eitherT[F, circe.Error].trace("Response: " + response)
     } yield response
     result.value.map {
       case Right(v)    => v

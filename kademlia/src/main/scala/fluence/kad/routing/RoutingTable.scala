@@ -123,7 +123,7 @@ object RoutingTable {
               r.neighbors,
               conf.parallelism
             )
-        )
+          )
       )
 
   /**
