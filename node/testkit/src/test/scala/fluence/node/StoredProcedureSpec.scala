@@ -34,7 +34,7 @@ import fluence.node.workers.subscription.{
   TxAwaitError,
   WaitResponseService
 }
-import fluence.statemachine.data.Tx
+import fluence.statemachine.api.tx.Tx
 
 import scala.concurrent.duration._
 import org.scalatest.{EitherValues, Matchers, OptionValues, WordSpec}

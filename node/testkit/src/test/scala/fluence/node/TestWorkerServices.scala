@@ -51,8 +51,6 @@ object TestWorkerServices {
 
       override def blockManifests: WorkerBlockManifests[F] = throw new NotImplementedError("def blockManifest")
 
-      override def responseSubscriber: ResponseSubscriber[F] = requestResponderImpl
-
       override def receiptBus: ReceiptBus[F] = throw new NotImplementedError("def receiptBus")
 
       override def peersControl: PeersControl[F] = throw new NotImplementedError("def peersControl")

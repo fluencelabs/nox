@@ -37,8 +37,6 @@ object TestWorkerServices {
 
       override def blockManifests: WorkerBlockManifests[F] = new WorkerBlockManifests(bstore, bref)
 
-      override def responseSubscriber: ResponseSubscriber[F] = throw new NotImplementedError("def requestResponder")
-
       override def receiptBus: ReceiptBus[F] = throw new NotImplementedError("def hashesBus")
 
       override def peersControl: PeersControl[F] = throw new NotImplementedError("def peersControl")
@@ -67,8 +65,6 @@ object TestWorkerServices {
         ).pure[F]
 
       override def blockManifests: WorkerBlockManifests[F] = throw new NotImplementedError("def blockManifest")
-
-      override def responseSubscriber: ResponseSubscriber[F] = requestResponderImpl
 
       override def receiptBus: ReceiptBus[F] = throw new NotImplementedError("def hashesBus")
 

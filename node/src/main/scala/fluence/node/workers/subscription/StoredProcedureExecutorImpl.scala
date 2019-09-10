@@ -19,7 +19,6 @@ package fluence.node.workers.subscription
 import cats.Monad
 import cats.effect.{Concurrent, Resource, Timer}
 import cats.effect.concurrent.Ref
-import fluence.statemachine.data.Tx
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.traverse._
@@ -39,6 +38,7 @@ import fluence.node.workers.subscription.StoredProcedureExecutor.{
   Subscription,
   TendermintResponse
 }
+import fluence.statemachine.api.tx.Tx
 import fs2.concurrent.{SignallingRef, Topic}
 
 import scala.language.higherKinds

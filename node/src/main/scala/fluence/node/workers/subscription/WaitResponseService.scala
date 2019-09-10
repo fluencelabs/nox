@@ -20,12 +20,12 @@ import cats.Monad
 import cats.data.EitherT
 import cats.effect.Resource
 import fluence.log.Log
-import fluence.statemachine.data.{Tx, TxCode}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import io.circe.parser.decode
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import cats.syntax.applicative._
+import fluence.statemachine.api.tx.{Tx, TxCode}
 
 import scala.language.higherKinds
 

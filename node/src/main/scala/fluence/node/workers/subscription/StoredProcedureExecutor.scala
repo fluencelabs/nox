@@ -22,11 +22,10 @@ import cats.effect.{Concurrent, Resource, Sync, Timer}
 import fluence.crypto.Crypto.Hasher
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
-import fluence.statemachine.data.Tx
-import cats.syntax.functor._
 import fluence.log.Log
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.StoredProcedureExecutor.{Event, TendermintResponse}
+import fluence.statemachine.api.tx.Tx
 import fs2.concurrent.Topic
 
 import scala.language.higherKinds
