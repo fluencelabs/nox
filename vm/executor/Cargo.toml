@@ -1,8 +1,12 @@
 [package]
-name = "executor"
+name = "wasm_executor"
+description = "Wasmer execution environment for the Fluence network"
 version = "0.1.0"
 authors = ["Fluence Labs"]
 edition = "2018"
+keywords = ["fluence", "webassembly", "wasmer"]
+license = "Apache-2.0"
+maintenance = { status = "actively-developed" }
 
 [lib]
 path = "src/lib.rs"

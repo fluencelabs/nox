@@ -362,14 +362,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "executor"
-version = "0.1.0"
-dependencies = [
- "jni 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "wasmer-runtime 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
-]
-
-[[package]]
 name = "failure"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1052,6 +1044,14 @@ dependencies = [
  "same-file 1.0.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "winapi-util 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "wasm_executor"
+version = "0.1.0"
+dependencies = [
+ "jni 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "wasmer-runtime 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
