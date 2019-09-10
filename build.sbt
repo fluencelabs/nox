@@ -33,46 +33,16 @@ lazy val `vm` = (project in file("vm"))
       mockito
     ),
     test in IntegrationTest := (test in IntegrationTest)
-      .dependsOn(compile in `vm-counter`)
-      .dependsOn(compile in `vm-hello-world`)
       .dependsOn(compile in `vm-llamadb`)
-      .dependsOn(compile in `vm-instrumented-llamadb`)
       .value
   )
   .dependsOn(`merkelized-bytebuffer`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `vm-counter` = (project in file("vm/src/it/resources/test-cases/counter"))
+lazy val `vm-llamadb` = (project in file("vm/src/it/resources/llamadb"))
   .settings(
-    rustVmTest("counter")
+    downloadLlamadb()
   )
-
-lazy val `vm-hello-world` = (project in file("vm/src/it/resources/test-cases/hello-world"))
-  .settings(
-    rustVmTest("hello-world")
-  )
-
-lazy val `vm-llamadb` = (project in file("vm/src/it/resources/test-cases/llamadb"))
-  .settings(
-    rustVmTest("llamadb")
-  )
-
-lazy val `vm-instrumented-llamadb` = (project in file("vm/src/it/resources/test-cases/instrumented-llamadb"))
-  .settings(
-    createInstrumentedLlamadb()
-  )
-
-lazy val `vm-hello-world-runner` = (project in file("vm/src/it/resources/test-cases/hello-world/runner"))
-  .settings(
-    commons,
-    libraryDependencies ++= Seq(
-      asmble,
-      cats,
-      catsEffect
-    )
-  )
-  .dependsOn(`vm`, `vm-hello-world`)
-  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `merkelized-bytebuffer` = (project in file("vm/merkelized-bytebuffer"))
   .settings(
