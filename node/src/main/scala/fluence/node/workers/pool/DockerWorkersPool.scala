@@ -36,7 +36,6 @@ import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
-import fluence.log.LogLevel.LogLevel
 import fluence.node.MakeResource
 import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.node.workers.{DockerWorkerServices, Worker, WorkerParams, WorkerServices}
@@ -52,7 +51,7 @@ import scala.language.higherKinds
 class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
   ports: WorkersPorts[F],
   workers: Ref[F, Map[Long, Worker[F]]],
-  logLevel: LogLevel,
+  logLevel: Log.Level,
   // TODO: it's not OK to have blockUploading here, it should be moved somewhere else
   blockUploading: BlockUploading[F],
   appReceiptStorage: Long ⇒ Resource[F, ReceiptStorage[F]],
@@ -274,7 +273,7 @@ object DockerWorkersPool {
     maxPort: Short,
     rootPath: Path,
     appReceiptStorage: Long ⇒ Resource[F, ReceiptStorage[F]],
-    workerLogLevel: LogLevel,
+    workerLogLevel: Log.Level,
     websocketConfig: WebsocketConfig,
     blockUploading: BlockUploading[F]
   )(

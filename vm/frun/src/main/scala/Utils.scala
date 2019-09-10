@@ -16,7 +16,7 @@
 
 import cats.effect.IO
 import cats.syntax.list._
-import fluence.statemachine.config.StateMachineConfig
+import fluence.statemachine.StateMachineConfig
 import fluence.statemachine.error.VmModuleLocationError
 
 object Utils {

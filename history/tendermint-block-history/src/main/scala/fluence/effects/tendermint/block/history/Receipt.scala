@@ -33,10 +33,13 @@ import scala.util.Try
  */
 case class Receipt(height: Long, hash: ByteVector) {
 
-  def jsonBytes(): ByteVector = {
+  lazy val jsonString: String = {
     import io.circe.syntax._
-    ByteVector((this: Receipt).asJson.noSpaces.getBytes())
+    (this: Receipt).asJson.noSpaces
   }
+
+  def jsonBytes(): ByteVector =
+    ByteVector(jsonString.getBytes())
 
   def bytesCompact(): Array[Byte] =
     (ByteVector.fromLong(height) ++ hash).toArray

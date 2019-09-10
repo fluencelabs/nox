@@ -23,7 +23,7 @@ import cats.syntax.functor._
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.log.Log
-import fluence.statemachine.data.Tx
+import fluence.statemachine.api.tx.Tx
 
 import scala.language.higherKinds
 

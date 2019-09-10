@@ -16,7 +16,7 @@
 
 package fluence.node.workers.subscription
 
-import cats.data.{EitherT, NonEmptyList}
+import cats.data.EitherT
 import cats.effect.{Concurrent, Resource, Timer}
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.syntax.flatMap._
@@ -29,7 +29,8 @@ import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError, RpcReque
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.log.Log
 import fluence.node.MakeResource
-import fluence.statemachine.data.{QueryCode, Tx}
+import fluence.statemachine.api.query.QueryCode
+import fluence.statemachine.api.tx.Tx
 
 import scala.language.higherKinds
 

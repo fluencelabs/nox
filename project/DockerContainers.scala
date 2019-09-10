@@ -68,7 +68,7 @@ object DockerContainers {
       volume(vmDataRoot)
 
       // includes worker run script
-      copy(baseDirectory / "docker" / "worker", workerDataRoot)
+      copy(baseDirectory / "worker", workerDataRoot)
       copy(artifact, artifactTargetPath)
 
       entryPoint("sh", workerRunScript, artifactTargetPath)
