@@ -1,4 +1,4 @@
-http://geth.fluence.one:8545 http://rinkeby.fluence.one:8545 {
+https://geth.fluence.one, http://geth.fluence.one:80, http://geth.fluence.one:8545 {
     errors visible
     proxy / http://geth2.fluence.one:8546 http://geth1.fluence.one:8546 {
         policy first
