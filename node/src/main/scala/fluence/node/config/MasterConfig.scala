@@ -19,15 +19,12 @@ package fluence.node.config
 import cats.effect.IO
 import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
 import fluence.kad.conf.KademliaConfig
-import fluence.log.LogLevel
-import fluence.log.LogLevel.LogLevel
+import fluence.log.Log
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.workers.tendermint.config.TendermintConfig
 import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import net.ceedubs.ficus.readers.ValueReader
-
-import scala.concurrent.duration._
 
 /**
  * Main config class for master node.
@@ -52,7 +49,7 @@ case class MasterConfig(
   ethereum: EthereumRpcConfig,
   tendermintConfig: TendermintConfig,
   kademlia: KademliaConfig,
-  logLevel: LogLevel,
+  logLevel: Log.Level,
   blockUploadingEnabled: Boolean,
   websocket: WebsocketConfig
 )
@@ -71,8 +68,9 @@ object MasterConfig {
   implicit val decodeMasterConfig: Decoder[MasterConfig] = deriveDecoder
   implicit val shortReader: ValueReader[Short] = ValueReader[Int].map(_.toShort)
 
-  implicit val lldec: Decoder[LogLevel.Value] = Decoder.enumDecoder(LogLevel)
-  implicit val llenc: Encoder[LogLevel.Value] = Encoder.enumEncoder(LogLevel)
+  implicit val lldec: Decoder[Log.Level] = Decoder.decodeString.map(Log.level(_).getOrElse(Log.Info))
+  implicit val llenc: Encoder[Log.Level] = Encoder.encodeString.contramap(_.name)
+  implicit val logLevelReader: ValueReader[Log.Level] = ValueReader[String].map(Log.level(_).getOrElse(Log.Info))
 
   def load(): IO[MasterConfig] =
     ConfigOps.loadConfigAs[MasterConfig]()

@@ -25,7 +25,7 @@ import scala.language.{higherKinds, implicitConversions}
 trait LlamadbIntegrationTestInterface extends AppIntegrationTest with EitherValues {
 
   protected val llamadbFilePath: String = getModuleDirPrefix() +
-    "/src/it/resources/test-cases/llamadb/target/wasm32-unknown-unknown/release/llama_db.wasm"
+    "/src/it/resources/llama_db.wasm"
 
   protected def executeSql(implicit vm: WasmVm, sql: String): EitherT[IO, VmError, InvocationResult] =
     for {

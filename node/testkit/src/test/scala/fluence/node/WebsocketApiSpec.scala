@@ -48,7 +48,7 @@ import fluence.node.workers.api.websocket.WebsocketResponses.{
 
 import fluence.node.workers.api.websocket.WorkerWebsocket
 import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
-import fluence.statemachine.data.Tx
+import fluence.statemachine.api.tx.Tx
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 import scodec.bits.ByteVector
 import io.circe.syntax._

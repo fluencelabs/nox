@@ -17,7 +17,7 @@
 package fluence.node.workers.subscription
 
 import fluence.effects.tendermint.rpc.http.RpcError
-import fluence.statemachine.data.Tx
+import fluence.statemachine.api.tx.Tx
 
 // possible variants of responses from tendermint's `query` method
 sealed trait TendermintQueryResponse {

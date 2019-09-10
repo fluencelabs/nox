@@ -4,7 +4,7 @@ _scala_fluence_template: &_scala_fluence_template
   jdk: openjdk8
 
   install:
-    - nvm install node
+    - npm install node
     - node --version
     - npm --version
     - curl https://sh.rustup.rs -sSf | sh -s -- -y --default-toolchain nightly-2019-03-10
@@ -19,6 +19,8 @@ _scala_fluence_template: &_scala_fluence_template
       - $HOME/.sbt/boot
       - $HOME/.sbt/launchers
       - bootstrap/node_modules
+      - vm/src/it/recources/llama_db.wasm
+      - vm/src/it/recources/llama_db_prepared.wasm
 
   before_cache:
     # Cleanup the cached directories to avoid unnecessary cache updates

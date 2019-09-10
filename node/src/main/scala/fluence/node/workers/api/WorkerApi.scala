@@ -27,7 +27,7 @@ import fluence.node.workers.api.websocket.WorkerWebsocket
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
 import fluence.node.workers.subscription._
-import fluence.statemachine.data.Tx
+import fluence.statemachine.api.tx.Tx
 
 import scala.language.higherKinds
 

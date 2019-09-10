@@ -22,7 +22,6 @@ lazy val `vm` = (project in file("vm"))
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
   .settings(
     commons,
-    kindProjector,
     libraryDependencies ++= Seq(
       asmble,
       cats,
@@ -34,79 +33,16 @@ lazy val `vm` = (project in file("vm"))
       mockito
     ),
     test in IntegrationTest := (test in IntegrationTest)
-      .dependsOn(compile in `vm-counter`)
-      .dependsOn(compile in `vm-hello-world`)
       .dependsOn(compile in `vm-llamadb`)
-      .dependsOn(compile in `vm-instrumented-llamadb`)
       .value
   )
   .dependsOn(`merkelized-bytebuffer`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
 
-/**
- * Wasm VM docker runner for easy Wasm app debugging
- */
-lazy val `frun` = (project in file("vm/frun"))
+lazy val `vm-llamadb` = (project in file("vm/src/it/resources/llamadb"))
   .settings(
-    commons,
-    libraryDependencies ++= Seq(
-      asmble,
-      cats,
-      catsEffect,
-      sttp,
-      sttpCirce,
-      sttpCatsBackend,
-      http4sDsl,
-      http4sServer
-    ),
-    assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
-    imageNames in docker              := Seq(ImageName(DockerContainers.Frun)),
-    dockerfile in docker              := DockerContainers.frun(assembly.value, (resourceDirectory in Compile).value)
+    downloadLlamadb()
   )
-  .dependsOn(`vm`, `statemachine`)
-  .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-
-lazy val `frun-rust` = project
-  .in(frun.base / "rust")
-  .settings(
-    imageNames in docker := Seq(ImageName(DockerContainers.FrunRust)),
-    dockerfile in docker := DockerContainers
-      .frunRust((assembly in `frun`).value, (resourceDirectory in `frun` in Compile).value)
-  )
-  .dependsOn(`frun`)
-  .enablePlugins(DockerPlugin)
-
-lazy val `vm-counter` = (project in file("vm/src/it/resources/test-cases/counter"))
-  .settings(
-    rustVmTest("counter")
-  )
-
-lazy val `vm-hello-world` = (project in file("vm/src/it/resources/test-cases/hello-world"))
-  .settings(
-    rustVmTest("hello-world")
-  )
-
-lazy val `vm-llamadb` = (project in file("vm/src/it/resources/test-cases/llamadb"))
-  .settings(
-    rustVmTest("llamadb")
-  )
-
-lazy val `vm-instrumented-llamadb` = (project in file("vm/src/it/resources/test-cases/instrumented-llamadb"))
-  .settings(
-    createInstrumentedLlamadb()
-  )
-
-lazy val `vm-hello-world-runner` = (project in file("vm/src/it/resources/test-cases/hello-world/runner"))
-  .settings(
-    commons,
-    libraryDependencies ++= Seq(
-      asmble,
-      cats,
-      catsEffect
-    )
-  )
-  .dependsOn(`vm`, `vm-hello-world`)
-  .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `merkelized-bytebuffer` = (project in file("vm/merkelized-bytebuffer"))
   .settings(
@@ -118,63 +54,95 @@ lazy val `merkelized-bytebuffer` = (project in file("vm/merkelized-bytebuffer"))
     )
   )
 
-lazy val `statemachine-control` = (project in file("statemachine/control"))
-  .settings(
-    commons,
-    kindProjector,
-    libraryDependencies ++= Seq(
-      cats,
-      catsEffect,
-      circeGeneric,
-      circeParser,
-      http4sDsl,
-      http4sServer,
-      http4sCirce,
-      scalaTest,
-      sttp            % Test,
-      sttpCirce       % Test,
-      sttpCatsBackend % Test
-    )
-  )
-  .dependsOn(`tendermint-block-history`)
-  .enablePlugins(AutomateHeaderPlugin)
-
 lazy val `statemachine` = (project in file("statemachine"))
   .settings(
     commons,
-    kindProjector,
+    libraryDependencies ++= Seq(
+      scalaTest
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(
+    `vm`,
+    `statemachine-api`
+  )
+
+lazy val `statemachine-api` = (project in file("statemachine/api"))
+  .settings(
+    commons,
     libraryDependencies ++= Seq(
       scodecBits,
-      "com.github.jtendermint" % "jabci" % "0.26.0",
+      circeGeneric,
+      fs2,
+      cats,
+      shapeless
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`log`, `effects`)
+
+lazy val `statemachine-http` = (project in file("statemachine/http"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      http4sDsl,
+      http4sCirce
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`statemachine-api`)
+
+lazy val `statemachine-client` = (project in file("statemachine/client"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      sttpCirce,
+      scalaTest,
+      http4sServer % Test
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(
+    `statemachine-api`,
+    `sttp-effect`,
+    `statemachine-http` % Test,
+    `statemachine-abci` % Test,
+    `statemachine`      % Test
+  )
+
+lazy val `statemachine-abci` = (project in file("statemachine/abci"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      "com.github.jtendermint" % "jabci" % "0.26.0"
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`statemachine-api`)
+
+lazy val `statemachine-docker` = (project in file("statemachine/docker"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      http4sServer,
       scalaTest
     ),
     assemblyJarName in assembly       := "statemachine.jar",
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
     test in assembly                  := {},
+    parallelExecution in Test := false,
     imageNames in docker              := Seq(ImageName(DockerContainers.Worker)),
     dockerfile in docker              := DockerContainers.worker(assembly.value, baseDirectory.value)
   )
   .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(
-    `vm`,
-    `statemachine-control`,
-    `statemachine-data`,
-    `tendermint-rpc`,
-    `sttp-effect`,
-    `tendermint-block`
-  )
+  .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`, `sttp-effect` % Test)
 
-lazy val `statemachine-data` = (project in file("statemachine/data"))
+lazy val `statemachine-docker-client` = (project in file("statemachine/docker-client"))
   .settings(
-    commons,
-    kindProjector,
-    libraryDependencies ++= Seq(
-      scodecBits,
-      cats
-    )
+    commons
   )
-  .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
-  .dependsOn(`log`)
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`statemachine-client`, `dockerio`)
 
 lazy val `effects` = project
   .in(file("effects"))
@@ -192,7 +160,6 @@ lazy val `effects` = project
 lazy val `sttp-effect` = (project in file("effects/sttp"))
   .settings(
     commons,
-    kindProjector,
     libraryDependencies ++= Seq(
       cats,
       catsEffect,
@@ -219,7 +186,6 @@ lazy val `ca-store` = (project in file("effects/ca-store"))
 lazy val `swarm` = (project in file("effects/swarm"))
   .settings(
     commons,
-    kindProjector,
     libraryDependencies ++= Seq(
       sttp,
       sttpCirce,
@@ -241,7 +207,6 @@ lazy val `swarm` = (project in file("effects/swarm"))
 lazy val `ipfs` = (project in file("effects/ipfs"))
   .settings(
     commons,
-    kindProjector,
     libraryDependencies ++= Seq(
       sttp,
       sttpCirce,
@@ -295,7 +260,6 @@ lazy val `dockerio` = (project in file("effects/docker"))
 lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
   .settings(
     commons,
-    kindProjector,
     libraryDependencies ++= Seq(
       sttp,
       circeGeneric,
@@ -318,7 +282,6 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
 lazy val `tendermint-block` = (project in file("history/tendermint-block"))
   .settings(
     commons,
-    kindProjector,
     libraryDependencies ++= Seq(
       circeGeneric,
       circeParser,
@@ -337,7 +300,6 @@ lazy val `tendermint-block` = (project in file("history/tendermint-block"))
 lazy val `tendermint-block-history` = (project in file("history/tendermint-block-history"))
   .settings(
     commons,
-    kindProjector,
     libraryDependencies ++= Seq(
       cats,
       catsEffect,
@@ -373,7 +335,6 @@ lazy val `kademlia` = project
   .in(file("kademlia"))
   .settings(
     commons,
-    kindProjector,
     libraryDependencies ++= Seq(
       cats,
       catsEffect,
@@ -390,7 +351,6 @@ lazy val `kademlia` = project
 lazy val `kademlia-http` = (project in file("kademlia/http"))
   .settings(
     commons,
-    kindProjector,
     libraryDependencies ++= Seq(
       circeGeneric,
       circeParser,
@@ -404,8 +364,7 @@ lazy val `kademlia-http` = (project in file("kademlia/http"))
 
 lazy val `kademlia-dht` = (project in file("kademlia/dht"))
   .settings(
-    commons,
-    kindProjector
+    commons
   )
   .dependsOn(`kademlia`)
   .enablePlugins(AutomateHeaderPlugin)
@@ -425,7 +384,6 @@ lazy val `log` = project
   .settings(
     commons,
     fork in Test := false,
-    kindProjector,
     libraryDependencies ++= Seq(
       cats,
       catsEffect,
@@ -439,7 +397,6 @@ lazy val `node` = project
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
   .settings(
     commons,
-    kindProjector,
     libraryDependencies ++= Seq(
       fs2io,
       ficus,
@@ -454,13 +411,13 @@ lazy val `node` = project
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
     testOnly in IntegrationTest := (testOnly in IntegrationTest)
       .dependsOn(docker)
-      .dependsOn(docker in `statemachine`)
+      .dependsOn(docker in `statemachine-docker`)
       .dependsOn(compile in `vm-llamadb`)
       .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
       .evaluated,
     test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(docker)
-      .dependsOn(docker in `statemachine`)
+      .dependsOn(docker in `statemachine-docker`)
       .dependsOn(compile in `vm-llamadb`)
       .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
       .value,
@@ -478,8 +435,7 @@ lazy val `node` = project
     `ethclient`,
     `swarm`,
     `ipfs`,
-    `statemachine-control`,
-    `statemachine-data`,
+    `statemachine-docker-client`,
     `kvstore`,
     `dockerio`,
     `tendermint-rpc`,
@@ -501,7 +457,9 @@ lazy val `node-testkit` = (project in file("node/testkit"))
       scalaTest
     )
   )
-  .dependsOn(`node` % "test->test")
-  .dependsOn(`statemachine` % "test->test")
-  .dependsOn(`tendermint-rpc` % "test->test")
+  .dependsOn(
+    `node` % "test->test",
+    `statemachine` % "test->test",
+    `tendermint-rpc` % "test->test"
+  )
   .enablePlugins(AutomateHeaderPlugin)

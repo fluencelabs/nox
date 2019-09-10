@@ -154,24 +154,25 @@ object Log {
   /**
    * Summoner
    */
+  @inline
   def apply[F[_]](implicit log: Log[F]): Log[F] = log
 
   /**
    * Summon log for stateT
    */
-  def stateT[F[_]: Monad, S](implicit log: Log[F]): Log[StateT[F, S, ?]] =
+  def stateT[F[_]: Monad, S](implicit log: Log[F]): Log[StateT[F, S, *]] =
     log.mapK(StateT.liftK[F, S])
 
   /**
    * Summon log for eitherT
    */
-  def eitherT[F[_]: Monad, E](implicit log: Log[F]): Log[EitherT[F, E, ?]] =
+  def eitherT[F[_]: Monad, E](implicit log: Log[F]): Log[EitherT[F, E, *]] =
     log.mapK(EitherT.liftK[F, E])
 
   /**
    * Summon log for Resource
    */
-  def resource[F[_]: Monad](implicit log: Log[F]): Log[Resource[F, ?]] =
+  def resource[F[_]: Monad](implicit log: Log[F]): Log[Resource[F, *]] =
     log.mapK(λ[F ~> Resource[F, ?]](f ⇒ Resource.liftF(f)))
 
   /**
@@ -186,8 +187,8 @@ object Log {
    */
   def resourceScope[F[_]: Monad](
     modContext: Context ⇒ Context
-  )(implicit log: Log[F]): Resource[F, Log[Resource[F, ?]]] =
-    Resource.liftF(log.scope(modContext)(_.mapK(λ[F ~> Resource[F, ?]](f ⇒ Resource.liftF(f))).pure[F]))
+  )(implicit log: Log[F]): Resource[F, Log[Resource[F, *]]] =
+    Resource.liftF(log.scope(modContext)(_.mapK(λ[F ~> Resource[F, *]](f ⇒ Resource.liftF(f))).pure[F]))
 
   case class Msg(timestamp: Long, level: Level, ctx: Context, msg: Eval[String], cause: Option[Throwable]) {
     private def date = DateFormat.format(new Date(timestamp))
@@ -197,7 +198,9 @@ object Log {
         cause.fold("")(c ⇒ s"\tcaused by: $c")
   }
 
-  sealed abstract class Level(val flag: Int, val name: String, val color: String)
+  sealed abstract class Level(val flag: Int, val name: String, val color: String) {
+    override def toString: String = name
+  }
   case object Trace extends Level(0, "trace", Console.WHITE)
   case object Debug extends Level(1, "debug", Console.MAGENTA)
   case object Info extends Level(2, "info ", Console.BLUE)
@@ -207,5 +210,11 @@ object Log {
 
   implicit val LevelOrder: Order[Level] =
     Order.by[Level, Int](_.flag)(Order.fromOrdering[Int])
+
+  lazy val allLevels: Seq[Level] =
+    Trace :: Debug :: Info :: Warn :: Error :: Off :: Nil
+
+  def level(name: String): Option[Level] =
+    allLevels.find(_.name equalsIgnoreCase name)
 
 }
