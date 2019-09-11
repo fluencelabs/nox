@@ -19,7 +19,8 @@ package fluence.kad.contact
 import cats.Eval
 import fluence.crypto.ecdsa.Ecdsa
 import fluence.kad.conf.AdvertizeConf
-import org.scalatest.{Ignore, Matchers, WordSpec}
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatest.{Ignore, Matchers}
 
 /*
  Ignored because it failed due to bouncy castle incompatibility:
@@ -34,7 +35,7 @@ import org.scalatest.{Ignore, Matchers, WordSpec}
 See example here https://circleci.com/gh/fluencelabs/fluence/7910
  */
 @Ignore
-class UriContactSpec extends WordSpec with Matchers {
+class UriContactSpec extends AnyWordSpec with Matchers {
   // TODO Temporarily ignored until bouncycastle is updated to 1.61 in web3j
   "uri contact spec" ignore {
     "encode/decode" in {

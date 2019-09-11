@@ -78,7 +78,7 @@ object TestKademlia {
            */
           override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int)(implicit log: Log[F]) =
             updateOwn >> kad.handleRPC.lookupAway(key, moveAwayFrom, numberOfNodes)
-      }
+        }
     )
 
     RoutingTable[F, P, C](nodeId, k, k)
@@ -104,7 +104,7 @@ object TestKademlia {
           rk ⇒
             log.scope("key" -> toContact(rk).toString)(
               implicit log ⇒ apply(rk, alpha, k, kads(_), toContact, pingExpiresIn)
-          )
+            )
         )
         .unsafeRunSync()
         .foldLeft(Map.empty[C, Kademlia[IO, C]]) {
@@ -135,7 +135,7 @@ object TestKademlia {
 
     lazy val kads: Map[C, (Signer, Kademlia[IO, C])] =
       Parallel
-        .parTraverse[Stream, IO, IO.Par, KeyPair, (C, (Signer, Kademlia[IO, C]))](
+        .parTraverse[Stream, IO, KeyPair, (C, (Signer, Kademlia[IO, C]))](
           Stream.fill(n)(nextRandomKeyPair)
         ) { keyPair ⇒
           val signer = signAlgo.signer(keyPair)

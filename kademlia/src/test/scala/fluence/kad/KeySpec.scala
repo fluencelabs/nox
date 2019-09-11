@@ -19,15 +19,16 @@ package fluence.kad
 import java.nio.ByteBuffer
 
 import cats.kernel.Monoid
-import org.scalatest.{Matchers, WordSpec}
 import cats.syntax.monoid._
 import cats.syntax.order._
 import fluence.kad.protocol.Key
+import org.scalatest.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scodec.bits.ByteVector
 
 import scala.language.implicitConversions
 
-class KeySpec extends WordSpec with Matchers {
+class KeySpec extends AnyWordSpec with Matchers {
 
   "kademlia key" should {
 

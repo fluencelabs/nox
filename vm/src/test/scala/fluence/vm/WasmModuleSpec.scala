@@ -32,8 +32,8 @@ import fluence.vm.wasm.MemoryHasher
 import fluence.vm.wasm.module.{MainWasmModule, WasmModule}
 import org.mockito.Mockito
 import org.mockito.stubbing.OngoingStubbing
-import org.scalatest.mockito.MockitoSugar
 import org.scalatest.{Matchers, WordSpec}
+import org.scalatestplus.mockito.MockitoSugar
 
 import scala.concurrent.ExecutionContext
 import scala.language.higherKinds
