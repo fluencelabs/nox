@@ -126,7 +126,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect: Paralle
       )
 
       services <- MakeResource.allocateOn(
-        DockerWorkerServices.make[F, G](
+        DockerWorkerServices.make[F](
           ps,
           p2pPort,
           stopTimeout,
