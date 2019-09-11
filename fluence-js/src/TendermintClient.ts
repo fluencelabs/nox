@@ -20,7 +20,7 @@ import Debug from "debug";
 import {AbciQueryResult, RpcClient, TendermintJsonRpcResponse} from "./RpcClient";
 import {error, ErrorType, Result} from "./Result";
 import {toByteArray} from "base64-js";
-import {AxiosResponse} from "axios";
+import {AxiosPromise, AxiosResponse} from "axios";
 
 const d = Debug("tendermintClient");
 
@@ -36,7 +36,7 @@ export interface BroadcastTxSyncResponse {
     hash: string
 }
 
-function parseResponse(res: any): BroadcastTxSyncResponse {
+export function parseResponse(res: any): BroadcastTxSyncResponse {
      try {
          const bResponse = res.data.result;
          bResponse.data = fromHex(bResponse.data);
@@ -51,7 +51,7 @@ export class TendermintClient {
     readonly addr: string;
     readonly appId: string;
 
-    constructor(host: string, port: number, appId: string, protocol: protocol = "http") {
+    constructor(host: string, port: number, appId: string, protocol: string = "http") {
         this.addr = `${protocol}://${host}:${port}`;
         this.appId = appId;
         this.client = new RpcClient(this.addr, appId);
@@ -61,10 +61,9 @@ export class TendermintClient {
      * Sends broadcast_tx_sync operation.
      * @param payload transaction payload
      */
-    broadcastTxSync(payload: string): Promise<BroadcastTxSyncResponse> {
+    broadcastTxSync(payload: string): AxiosPromise<TendermintJsonRpcResponse<BroadcastTxSyncResponse>> {
         d("broadCastTxSync request");
         return this.client.broadcastTxSync(payload)
-            .then(parseResponse);
     }
 
     /**

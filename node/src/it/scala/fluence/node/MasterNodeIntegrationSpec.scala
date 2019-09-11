@@ -59,7 +59,7 @@ class MasterNodeIntegrationSpec
     Resource.make(IO(AsyncHttpClientFs2Backend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
 
   // TODO integrate with CLI, get app id from tx
-  @volatile private var lastAppId = 1l
+  @volatile private var lastAppId = 1L
 
   override protected def beforeAll(): Unit = {
     wireupContract()

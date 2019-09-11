@@ -16,16 +16,13 @@
 
 package fluence.effects.ipfs
 
-import java.nio.ByteBuffer
 import java.nio.file.Paths
 
-import cats.data.EitherT
 import cats.effect.{ContextShift, IO, Timer}
 import com.softwaremill.sttp.{MonadError ⇒ _, _}
 
 import scala.language.{higherKinds, implicitConversions}
-import com.softwaremill.sttp.SttpBackend
-import fluence.EitherTSttpBackend
+import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.log.{Log, LogFactory}
 import fs2.RaiseThrowable
 import io.circe.fs2.stringStreamParser
@@ -42,7 +39,7 @@ object IpfsExample extends App {
 
   implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init("ipfs", "example").unsafeRunSync()
 
-  implicit val sttp: SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]] = EitherTSttpBackend[IO]()
+  implicit val sttp: SttpStreamEffect[IO] = SttpEffect.stream[IO]
 
   implicit val rt = new RaiseThrowable[fs2.Pure] {}
   val k = fs2.Stream.emit("incorrect json").through(stringStreamParser[fs2.Pure]).attempt.toList

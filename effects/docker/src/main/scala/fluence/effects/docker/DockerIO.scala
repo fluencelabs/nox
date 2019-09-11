@@ -20,12 +20,12 @@ import java.time.Instant
 import java.util.concurrent.{ExecutorService, Executors}
 
 import cats.data.EitherT
-import cats.{~>, Applicative, Defer, Monad}
 import cats.effect._
-import cats.syntax.functor._
-import cats.syntax.apply._
 import cats.syntax.applicativeError._
+import cats.syntax.apply._
 import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.{~>, Applicative, Defer, Monad}
 import fluence.effects.docker.params.DockerParams
 import fluence.log.Log
 
@@ -51,7 +51,7 @@ class DockerIO[F[_]: Monad: LiftIO: ContextShift: Defer](
    * Run shell command
    */
   private def runShell(cmd: String)(implicit log: Log[F]): EitherT[F, DockerError, String] =
-    Log.eitherT[F, DockerError].info(s"Running Docker command: `$cmd`") *>
+    Log.eitherT[F, DockerError].trace(s"Running Docker command: `$cmd`") *>
       IO(
         cmd.!!.trim
       ).attemptT
@@ -65,6 +65,7 @@ class DockerIO[F[_]: Monad: LiftIO: ContextShift: Defer](
     IO(cmd.!).to[F].flatMap {
       case exit if exit != 0 =>
         Log[F].error(s"`$cmd` exited with code: $exit") *>
+          // TODO: use EitherT instead of raiseError
           IO.raiseError[Unit](new Exception(s"`$cmd` exited with code: $exit")).to[F]
       case _ =>
         Applicative[F].unit
@@ -193,7 +194,7 @@ class DockerIO[F[_]: Monad: LiftIO: ContextShift: Defer](
             .flatTap {
               case (time, running) ⇒
                 // TODO get any reason of why container is stopped
-                Log.eitherT[F, Throwable].debug(s"Docker container status = [$running], time = [$time]")
+                Log.eitherT[F, Throwable].trace(s"Docker container status = [$running], time = [$time]")
             }
             .leftMap(DockerException(s"Cannot parse container status: $status", _): DockerError)
         } yield timeIsRunning

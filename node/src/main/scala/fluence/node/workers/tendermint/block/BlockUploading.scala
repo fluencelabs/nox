@@ -16,28 +16,27 @@
 
 package fluence.node.workers.tendermint.block
 
-import java.nio.ByteBuffer
-
-import cats.data.{Chain, EitherT}
+import cats.data.Chain
 import cats.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.applicative._
-import com.softwaremill.sttp.SttpBackend
 import fluence.effects.ipfs.IpfsUploader
+import fluence.effects.sttp.SttpStreamEffect
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
-import fluence.node.workers.Worker
-import fluence.node.workers.tendermint.block
+import fluence.node.workers.{Worker, WorkerServices}
 import scodec.bits.ByteVector
 
 import scala.language.{higherKinds, postfixOps}
 
-private[tendermint] case class BlockUpload(block: Block,
-                                           vmHash: ByteVector,
-                                           emptyReceipts: Option[Chain[Receipt]] = None)
+private[tendermint] case class BlockUpload(
+  block: Block,
+  vmHash: ByteVector,
+  emptyReceipts: Option[Chain[Receipt]] = None
+)
 
 trait BlockUploading[F[_]] {
 
@@ -47,23 +46,31 @@ trait BlockUploading[F[_]] {
    *   1. retrieve vmHash from state machine
    *   2. Send block manifest receipt to state machine
    *
-   * @param worker Blocks are coming from this worker's Tendermint; receipts are sent to this worker
    */
-  def start(worker: Worker[F])(implicit log: Log[F], backoff: Backoff[EffectError]): Resource[F, Unit]
+  // TODO: separate block uploading into replay and usual block processing parts, so replay could be handled without a need
+  //  for RPC and WRPC. Should be possible to handle block replay, wait until Tendermint started RPC, and then
+  //  connect to Websocket and create blockstore after everything is initialized
+  def start(
+    appId: Long,
+    services: WorkerServices[F]
+  )(implicit log: Log[F], backoff: Backoff[EffectError]): Resource[F, Unit]
 }
 
 object BlockUploading {
 
-  def apply[F[_]: Log: ConcurrentEffect: Timer: ContextShift: Clock](
+  def apply[F[_]: ConcurrentEffect: Timer: ContextShift: SttpStreamEffect](
     enabled: Boolean,
     ipfs: => IpfsUploader[F]
   )(
-    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, *], fs2.Stream[F, ByteBuffer]],
-    backoff: Backoff[EffectError] = Backoff.default
+    implicit
+    backoff: Backoff[EffectError] = Backoff.default,
+    log: Log[F]
   ): Resource[F, BlockUploading[F]] =
     if (enabled) {
       val history = new BlockHistory[F](ipfs)
-      (new BlockUploadingImpl[F](history): BlockUploading[F]).pure[Resource[F, *]]
+      Log[F].scope("block-uploading") { implicit log: Log[F] =>
+        (new BlockUploadingImpl[F](history): BlockUploading[F]).pure[Resource[F, ?]]
+      }
     } else {
       Log
         .resource[F]

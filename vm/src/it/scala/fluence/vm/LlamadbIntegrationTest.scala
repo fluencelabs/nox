@@ -30,7 +30,7 @@ class LlamadbIntegrationTest extends LlamadbIntegrationTestInterface {
   private implicit val timer: Timer[IO] = IO.timer(ExecutionContext.global)
   private implicit val log: Log[IO] = LogFactory.forPrintln[IO]().init(getClass.getSimpleName).unsafeRunSync()
 
-   "llamadb app" should {
+  "llamadb app" should {
 
     "be able to instantiate" in {
       (for {

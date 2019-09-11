@@ -52,16 +52,15 @@ case class StatusAggregator[F[_]: Monad: Clock](
       workers ← masterNode.pool.getAll
       workerInfos ← Parallel.parTraverse(workers)(_.withServices(identity)(_.status(statusTimeout)))
       ethState ← masterNode.nodeEth.expectedState
-    } yield
-      MasterStatus(
-        config.endpoints.ip.getHostAddress,
-        currentTime - startTimeMillis,
-        masterNode.nodeConfig,
-        workerInfos.size,
-        workerInfos,
-        config,
-        ethState
-      )
+    } yield MasterStatus(
+      config.endpoints.ip.getHostAddress,
+      currentTime - startTimeMillis,
+      masterNode.nodeConfig,
+      workerInfos.size,
+      workerInfos,
+      config,
+      ethState
+    )
 
   /**
    * Just an expected Ethereum state -- a granular accessor

@@ -16,9 +16,11 @@
 
 package fluence.effects.tendermint.block.protobuf
 
-import com.google.protobuf.{ByteString, CodedOutputStream}
-import scalapb.GeneratedMessage
+import com.google.protobuf.{ByteString, CodedInputStream, CodedOutputStream}
+import scalapb.{GeneratedMessage, GeneratedMessageCompanion, Message}
 import scodec.bits.ByteVector
+
+import scala.util.Try
 
 /**
  * Collection of functions encoding primitives or generated protobuf structures into byte arrays
@@ -126,5 +128,20 @@ private[block] object Protobuf {
    */
   def encode[T <: GeneratedMessage](repeated: List[Option[T]]): List[Array[Byte]] = {
     repeated.map(_.fold(Array.empty[Byte])(_.toByteArray))
+  }
+
+  def decode[T <: GeneratedMessage with Message[T]](
+    bytes: Array[Byte]
+  )(implicit companion: GeneratedMessageCompanion[T]): Either[Throwable, T] = {
+    Try(companion.parseFrom(bytes)).toEither
+  }
+
+  def decodeLengthPrefixed[T <: GeneratedMessage with Message[T]](
+    bytes: Array[Byte]
+  )(implicit companion: GeneratedMessageCompanion[T]): Either[Throwable, T] = {
+    val input = CodedInputStream.newInstance(bytes)
+    val size = input.readInt64()
+    val sizesize = int64Size(size)
+    Try(companion.parseFrom(bytes.drop(sizesize))).toEither
   }
 }

@@ -44,11 +44,6 @@ import scala.collection.convert.ImplicitConversionsToScala.`list asScalaBuffer`
 import scala.language.higherKinds
 
 /**
- * Represents VM execution result.
- */
-case class InvocationResult(output: Array[Byte], spentGas: Long)
-
-/**
  * Virtual Machine api.
  */
 trait WasmVm {
@@ -76,6 +71,12 @@ trait WasmVm {
    */
   def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector]
 
+  /**
+   * Temporary way to pass a flag from userland (the WASM file) to the Node, denotes whether an app
+   * expects outer world to pass Ethereum blocks data into it.
+   * TODO move this flag to the Smart Contract
+   */
+  val expectsEth: Boolean
 }
 
 object WasmVm {
@@ -118,13 +119,12 @@ object WasmVm {
       (mainModule, envModule, sideModules) ← initializeModules(scriptCxt, config, memoryHasher)
 
       _ ← Log.eitherT[F, ApplyError].info("WasmVm: modules initialized")
-    } yield
-      new AsmbleWasmVm(
-        mainModule,
-        envModule,
-        sideModules,
-        cryptoHasher
-      )
+    } yield new AsmbleWasmVm(
+      mainModule,
+      envModule,
+      sideModules,
+      cryptoHasher
+    )
 
   /**
    * Returns [[ScriptContext]] - context for uploaded Wasm modules.
@@ -159,15 +159,15 @@ object WasmVm {
    * name wasn't specified (note that it also can be empty).
    */
   private def initializeModules[F[_]: Monad](
-    scriptCxt: ScriptContext,
+    ctx: ScriptContext,
     config: VmConfig,
     memoryHasher: MemoryHasher.Builder[F]
   ): EitherT[F, ApplyError, (MainWasmModule, EnvModule, Seq[WasmModule])] =
     for {
 
       rawEnvModule ← EitherT.cond[F](
-        scriptCxt.getRegistrations.containsKey(config.envModuleConfig.name),
-        scriptCxt.getRegistrations.get(config.envModuleConfig.name),
+        ctx.getRegistrations.containsKey(config.envModuleConfig.name),
+        ctx.getRegistrations.get(config.envModuleConfig.name),
         NoSuchModuleError(
           s"Asmble doesn't provide the environment module with name=${config.envModuleConfig.name} (perhaps you are using the old version)"
         ): ApplyError
@@ -183,23 +183,26 @@ object WasmVm {
 
       envModule ← EnvModule[F](
         nativeModule,
-        scriptCxt,
+        ctx,
         config.envModuleConfig.spentGasFunctionName,
         config.envModuleConfig.clearStateFunction
       )
 
+      modulesCount = ctx.getModules.size()
+
       (mainModule, sideModules) ← Traverse[List]
         .foldLeftM[EitherT[F, ApplyError, ?], Compiled, (Option[MainWasmModule], List[WasmModule])](
-          scriptCxt.getModules.toList,
+          ctx.getModules.toList,
           (None, Nil)
         ) {
           // the main module almost always doesn't have name section (in config it is represented by None)
+          // also if there is only one module provided, it is considered as the main regardless of its name.
           case ((None, sideModules), moduleDescription)
-              if Option(moduleDescription.getName) == config.mainModuleConfig.name ⇒
+              if Option(moduleDescription.getName) == config.mainModuleConfig.name || modulesCount == 1 ⇒
             for {
               mainModule ← MainWasmModule(
                 moduleDescription,
-                scriptCxt,
+                ctx,
                 memoryHasher,
                 config.mainModuleConfig.allocateFunctionName,
                 config.mainModuleConfig.deallocateFunctionName,
@@ -211,7 +214,7 @@ object WasmVm {
           case ((Some(_), _), moduleDescription) if Option(moduleDescription.getName) == config.mainModuleConfig.name ⇒
             EitherT.leftT(
               InitializationError(
-                s"There should be only one main module (main module is a module without name section)"
+                s"""There should be only one main module (main module is a module without name section)"""
               )
             )
 
@@ -220,7 +223,7 @@ object WasmVm {
             for {
               module ← module.WasmModule(
                 moduleDescription,
-                scriptCxt,
+                ctx,
                 memoryHasher
               )
             } yield (mainModule, sideModules :+ module)

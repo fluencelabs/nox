@@ -24,8 +24,8 @@ import io.circe.{DecodingFailure, ParsingFailure}
 
 sealed trait WebsocketRpcError extends EffectError
 
-private[rpc] case class Disconnected(code: Int, reason: String) extends WebsocketRpcError {
-  override def getMessage: String = s"closed $code $reason"
+private[rpc] case class Disconnected(code: Option[Int], reason: String) extends WebsocketRpcError {
+  override def getMessage: String = s"closed ${code.getOrElse(" ")} $reason"
 }
 
 private[rpc] case class DisconnectedWithError(cause: Throwable) extends WebsocketRpcError with WithCause[Throwable] {
@@ -52,7 +52,7 @@ private[rpc] case class BlockParsingFailed(cause: TendermintBlockError, rawBlock
     s"Websocket TendermintRPC failed to parse block $height: $cause\n" + Console.RED + rawBlock.value + Console.RESET
 }
 
-private[rpc] case class BlockRetrievalError(cause: RpcError, height: Long)
-    extends WebsocketRpcError with WithCause[RpcError] {
-  override def getMessage: String = s"error retrieving block $height from rpc: $cause"
+private[rpc] case class BlockRetrievalError(cause: EffectError, height: Long)
+    extends WebsocketRpcError with WithCause[EffectError] {
+  override def getMessage: String = s"error retrieving block $height: $cause"
 }

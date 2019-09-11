@@ -18,8 +18,9 @@ package fluence.node.workers.subscription
 
 import io.circe.{Decoder, HCursor}
 import cats.syntax.either._
+import fluence.statemachine.api.query.QueryCode
+import fluence.statemachine.api.tx.TxCode
 import io.circe.generic.semiauto.deriveDecoder
-import fluence.statemachine.data.{QueryCode, TxCode}
 
 import scala.util.Try
 

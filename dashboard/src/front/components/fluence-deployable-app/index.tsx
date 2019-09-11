@@ -101,7 +101,9 @@ class FluenceDeployableApp extends React.Component<Props, State> {
         }
 
         const form = new FormData();
-        form.append('file', this.uploadFormElement.files[0]);
+        for (let i = 0; i < this.uploadFormElement.files.length; i++) {
+            form.append('file', this.uploadFormElement.files[i]);
+        }
 
         this.props.deployUpload(form).then(() => {
             this.setState({loading: true});
@@ -154,8 +156,8 @@ class FluenceDeployableApp extends React.Component<Props, State> {
 
     renderUploadBlock(): React.ReactNode[] {
         return ([
-            <strong><i className="fa fa-bullseye margin-r-5"/>Upload *.wasm file</strong>,
-            <p><input type="file" ref={(ref: HTMLInputElement) => { this.uploadFormElement = ref; }} accept=".wasm"/></p>,
+            <strong><i className="fa fa-bullseye margin-r-5"/>Upload one or multiple *.wasm files</strong>,
+            <p><input type="file" ref={(ref: HTMLInputElement) => { this.uploadFormElement = ref; }} accept=".wasm" multiple={true}/></p>,
             <hr/>
         ]);
     }

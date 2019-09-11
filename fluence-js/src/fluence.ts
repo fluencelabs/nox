@@ -20,7 +20,7 @@ import {Session} from "./Session";
 import {SessionConfig} from "./SessionConfig";
 import {Result} from "./Result";
 import {getAppNodes, Node} from "./contract"
-import {remove0x, secp256k1} from "./utils";
+import {remove0x, secp256k1, parseHost} from "./utils";
 import {AppSession} from "./AppSession";
 
 export {
@@ -38,14 +38,7 @@ export interface WorkerSession {
     node: Node
 }
 
-/**
- * Creates a connection with an app (all nodes hosting an app)
- * @param contract Contract address to read app's nodes list from
- * @param appId Target app
- * @param ethereumUrl Optional ethereum node url. Connect via Metamask if `ethereumlUrl` is undefined
- * @param privateKey Optional private key to sign requests. Signature is concatenated to the request payload.
- */
-export async function connect(contract: string, appId: string, ethereumUrl?: string, privateKey?: Buffer | string): Promise<AppSession> {
+function convertPrivateKey(privateKey?: Buffer | string): undefined | Buffer {
     if (privateKey != undefined && typeof privateKey == 'string') {
         privateKey = Buffer.from(remove0x(privateKey), "hex");
     }
@@ -56,10 +49,24 @@ export async function connect(contract: string, appId: string, ethereumUrl?: str
         }
     }
 
+    return privateKey
+}
+
+/**
+ * Creates a connection with an app (all nodes hosting an app)
+ * @param contract Contract address to read app's nodes list from
+ * @param appId Target app
+ * @param ethereumUrl Optional ethereum node url. Connect via Metamask if `ethereumlUrl` is undefined
+ * @param privateKey Optional private key to sign requests. Signature is concatenated to the request payload.
+ */
+export async function connect(contract: string, appId: string, ethereumUrl?: string, privateKey?: Buffer | string): Promise<AppSession> {
+
+    privateKey = convertPrivateKey(privateKey);
+
     let nodes: Node[] = await getAppNodes(contract, appId, ethereumUrl);
     let sessionId = Session.genSessionId();
     let sessions: WorkerSession[] = nodes.map(node => {
-        let session = directConnect(node.ip_addr, node.api_port, appId, sessionId);
+        let session = sessionConnect(node.ip_addr, node.api_port, appId, sessionId);
         return {
             session: session,
             node: node
@@ -70,15 +77,34 @@ export async function connect(contract: string, appId: string, ethereumUrl?: str
 }
 
 /**
- * Creates direct connection to one node.
+ * Creates connection to one node.
  */
-export function directConnect(host: string, port: number, appId: string, sessionId?: string) {
-    let tm = new TendermintClient(host, port, appId);
-    let engine = new Engine(tm);
+function sessionConnect(host: string, port: number, appId: string, sessionId?: string) {
+    const { protocol, hostname } = parseHost(host);
+    const tm = new TendermintClient(hostname, port, appId, protocol);
+    const engine = new Engine(tm);
 
     if (sessionId == undefined) {
         return engine.genSession();
     } else {
         return engine.createSession(new SessionConfig(), sessionId);
     }
+}
+
+/**
+ * Creates app session with one node.
+ */
+export function directConnect(host: string, port: number, appId: string, sessionId?: string, privateKey?: Buffer | string) {
+    let session = sessionConnect(host, port, appId, sessionId);
+    privateKey = convertPrivateKey(privateKey);
+
+    let sessions: WorkerSession[] = [
+        {
+            session: session,
+            // @ts-ignore
+            node: undefined
+        }
+    ];
+
+    return new AppSession(session.session, appId, sessions, privateKey);
 }

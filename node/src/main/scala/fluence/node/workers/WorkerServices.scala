@@ -16,10 +16,11 @@
 
 package fluence.node.workers
 
-import fluence.effects.tendermint.rpc.TendermintRpc
-import fluence.node.workers.control.ControlRpc
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
+import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.node.workers.status.WorkerStatus
 import fluence.node.workers.subscription.ResponseSubscriber
+import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -27,10 +28,15 @@ import scala.language.higherKinds
 // Algebra for WorkerServices
 trait WorkerServices[F[_]] {
   // RPC connection to tendermint
-  def tendermint: TendermintRpc[F]
+  def tendermintRpc: TendermintHttpRpc[F]
+
+  // Websocket RPC connection to tendermint
+  def tendermintWRpc: TendermintWebsocketRpc[F]
 
   // RPC connection to worker
-  def control: ControlRpc[F]
+  def receiptBus: ReceiptBus[F]
+
+  def peersControl: PeersControl[F]
 
   // Retrieves worker's health
   def status(timeout: FiniteDuration): F[WorkerStatus]

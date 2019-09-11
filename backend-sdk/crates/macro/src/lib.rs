@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 //! This module defines an `invocation_handler` attribute procedural macro. It can be used to
 //! simplify the signature of the main module invocation handler:
 //!
@@ -40,12 +39,13 @@
 //! appropriate format, calls `f` and then writes `f` result via `memory::write_response_to_mem` to
 //! module memory. So to use this crate apart from `fluence` `fluence_sdk_main` has to be imported.
 //!
-//! The macro also has an `init_fn` attribute that can be used for specifying initialization
-//! function name. This function is called only once at the first call of the invoke function. It
-//! can be used like this:
+//! The macro also has the `init_fn` and `side_modules` attributes. The first one that can be used
+//! for specifying initialization function name. This function is called only once at the first
+//! call of the invoke function. It can be used like this:
 //!
 //! ```
 //! use fluence::sdk::*;
+//! use log::info;
 //!
 //! fn init() {
 //!     logger::WasmLogger::init_with_level(log::Level::Info).is_ok()
@@ -58,17 +58,31 @@
 //! }
 //! ```
 //!
+//! The second macro could be used for generate API to connect with side modules like SQlite and
+//! Redis. It can be used like this:
+//! ```
+//! use fluence::sdk::*;
+//!
+//! #[invocation_handler(side_modules = (sqlite, redis))]
+//! fn greeting(name: String) -> String {
+//!     sqlite::call("SELECT * from users");
+//!     sqlite::call("GET user");
+//!     format!("Hello from Fluence to {}", name)
+//! }
+//! ```
+//!
 //! # Examples
 //!
 //! Please find more examples [here](https://github.com/fluencelabs/tutorials).
 
-#![doc(html_root_url = "https://docs.rs/fluence-sdk-macro/0.1.6")]
+#![doc(html_root_url = "https://docs.rs/fluence-sdk-macro/0.1.8")]
+#![recursion_limit = "128"]
 
 extern crate proc_macro;
 mod macro_attr_parser;
 mod macro_input_parser;
 
-use crate::macro_attr_parser::HandlerAttrs;
+use crate::macro_attr_parser::{generate_side_modules_glue_code, HandlerAttrs};
 use crate::macro_input_parser::{InputTypeGenerator, ParsedType, ReturnTypeGenerator};
 use proc_macro::TokenStream;
 use quote::quote;
@@ -159,6 +173,7 @@ fn invoke_handler_impl(
 
     let attrs = syn::parse2::<HandlerAttrs>(attr)?;
     let raw_init_fn_name = attrs.init_fn_name();
+    let raw_side_modules_list = attrs.side_modules();
 
     let resulted_invoke = match raw_init_fn_name {
         Some(init_fn_name) => {
@@ -192,7 +207,17 @@ fn invoke_handler_impl(
             }
         },
     };
-    Ok(resulted_invoke)
+
+    match raw_side_modules_list {
+        Some(side_modules) => {
+            let side_modules_glue_code = generate_side_modules_glue_code(side_modules)?;
+            Ok(quote! {
+                #side_modules_glue_code
+                #resulted_invoke
+            })
+        },
+        _ => Ok(resulted_invoke),
+    }
 }
 
 #[proc_macro_attribute]

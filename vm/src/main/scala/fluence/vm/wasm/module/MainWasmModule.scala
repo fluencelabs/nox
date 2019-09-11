@@ -28,6 +28,7 @@ import fluence.vm.VmError.{InternalVmError, NoSuchFnError, VmMemoryError}
 import fluence.vm.wasm._
 import fluence.vm.utils.safelyRunThrowable
 
+import scala.annotation.tailrec
 import scala.language.higherKinds
 
 /**
@@ -45,7 +46,8 @@ class MainWasmModule(
   private val module: WasmModule,
   private val allocateFunction: WasmFunction,
   private val deallocateFunction: WasmFunction,
-  private val invokeFunction: WasmFunction
+  private val invokeFunction: WasmFunction,
+  val expectsEth: Boolean
 ) {
 
   def computeStateHash[F[_]: Monad](): EitherT[F, GetVmStateError, Array[Byte]] =
@@ -143,42 +145,59 @@ object MainWasmModule {
     memoryHasher: MemoryHasher.Builder[F],
     allocationFunctionName: String,
     deallocationFunctionName: String,
-    invokeFunctionName: String
+    invokeFunctionName: String,
+    expectsEthFunctionName: String = "expects_eth"
   ): EitherT[F, ApplyError, MainWasmModule] =
     for {
       module ← WasmModule(moduleDescription, scriptContext, memoryHasher)
 
-      moduleMethods: Stream[WasmFunction] = moduleDescription.getCls.getDeclaredMethods.toStream
+      moduleMethods = moduleDescription.getCls.getDeclaredMethods.toStream
         .filter(method ⇒ Modifier.isPublic(method.getModifiers))
         .map(method ⇒ WasmFunction(method.getName, method))
+        .scanLeft((Option.empty[WasmFunction], Option.empty[WasmFunction], Option.empty[WasmFunction], false)) {
+          case (acc, m @ WasmFunction(`allocationFunctionName`, _)) ⇒
+            acc.copy(_1 = Some(m))
+          case (acc, m @ WasmFunction(`deallocationFunctionName`, _)) ⇒
+            acc.copy(_2 = Some(m))
+          case (acc, m @ WasmFunction(`invokeFunctionName`, _)) ⇒
+            acc.copy(_3 = Some(m))
+          case (acc, WasmFunction(`expectsEthFunctionName`, _)) ⇒
+            acc.copy(_4 = true)
+          case (acc, _) ⇒
+            acc
+        }
+        .collect {
+          case (Some(allocMethod), Some(deallocMethod), Some(invokeMethod), expectsEth) ⇒
+            (allocMethod, deallocMethod, invokeMethod, expectsEth)
+        }
 
-      (allocMethod, deallocMethod, invokeMethod) ← EitherT.fromOption(
-        moduleMethods
-          .scanLeft((Option.empty[WasmFunction], Option.empty[WasmFunction], Option.empty[WasmFunction])) {
-            case (acc, m @ WasmFunction(`allocationFunctionName`, _)) ⇒
-              acc.copy(_1 = Some(m))
-            case (acc, m @ WasmFunction(`deallocationFunctionName`, _)) ⇒
-              acc.copy(_2 = Some(m))
-            case (acc, m @ WasmFunction(`invokeFunctionName`, _)) ⇒
-              acc.copy(_3 = Some(m))
-            case (acc, _) ⇒
-              acc
-          }
-          .collectFirst {
-            case (Some(allocMethod), Some(deallocMethod), Some(invokeMethod)) ⇒
-              (allocMethod, deallocMethod, invokeMethod)
-          },
+      (allocMethod, deallocMethod, invokeMethod, expectsEth) ← EitherT.fromOption(
+        {
+          // Breaks once expectsEth flag is set, or traverses the whole stream and returns the last item
+          @tailrec
+          def collectFirstOrTakeLast(
+            stream: Stream[(WasmFunction, WasmFunction, WasmFunction, Boolean)],
+            pick: Option[(WasmFunction, WasmFunction, WasmFunction, Boolean)] = None
+          ): Option[(WasmFunction, WasmFunction, WasmFunction, Boolean)] =
+            stream match {
+              case (h @ (_, _, _, true)) #:: _ ⇒ Some(h)
+              case h #:: tail ⇒ collectFirstOrTakeLast(tail, Some(h))
+              case _ ⇒ pick
+            }
+
+          collectFirstOrTakeLast(moduleMethods)
+        },
         NoSuchFnError(
           s"The main module must have functions with names $allocationFunctionName, $deallocationFunctionName, $invokeFunctionName"
         ): ApplyError
       )
 
-    } yield
-      new MainWasmModule(
-        module,
-        allocMethod,
-        deallocMethod,
-        invokeMethod
-      )
+    } yield new MainWasmModule(
+      module,
+      allocMethod,
+      deallocMethod,
+      invokeMethod,
+      expectsEth
+    )
 
 }

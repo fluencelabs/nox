@@ -18,7 +18,7 @@ package fluence.vm
 
 import cats.data.EitherT
 import cats.effect.IO
-import org.scalatest.{WordSpec, Matchers, OptionValues, EitherValues, Assertion}
+import org.scalatest.{Assertion, EitherValues, Matchers, OptionValues, WordSpec}
 
 trait AppIntegrationTest extends WordSpec with Matchers with OptionValues with EitherValues {
 
@@ -30,7 +30,7 @@ trait AppIntegrationTest extends WordSpec with Matchers with OptionValues with E
 
   protected def checkTestResult(result: InvocationResult, expectedString: String): Assertion = {
     val resultAsString = new String(result.output)
-    resultAsString should startWith (expectedString)
+    resultAsString should startWith(expectedString)
   }
 
   protected def compareArrays(first: Array[Byte], second: Array[Byte]): Assertion =
@@ -40,7 +40,7 @@ trait AppIntegrationTest extends WordSpec with Matchers with OptionValues with E
 
     def success(): V =
       origin.value.unsafeRunSync() match {
-        case Left(e) => println(s"got error $e"); throw e
+        case Left(e)  => println(s"got error $e"); throw e
         case Right(v) => v
       }
 

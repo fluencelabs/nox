@@ -16,12 +16,11 @@
 
 package fluence.effects.ipfs
 
-import java.nio.ByteBuffer
-
 import cats.Monad
 import cats.data.EitherT
-import com.softwaremill.sttp.{SttpBackend, Uri}
+import com.softwaremill.sttp.Uri
 import fluence.effects.castore.StoreError
+import fluence.effects.sttp.SttpStreamEffect
 import fluence.log.Log
 import scodec.bits.ByteVector
 
@@ -44,8 +43,10 @@ object IpfsUploader {
   /**
    * If enabled == true, instantiates an IPFS client for production use and mock otherwise
    */
-  def apply[F[_]: Monad](ipfsUri: Uri, enabled: Boolean, readTimeout: FiniteDuration)(
-    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]
+  def apply[F[_]: Monad: SttpStreamEffect](
+    ipfsUri: Uri,
+    enabled: Boolean,
+    readTimeout: FiniteDuration
   ): IpfsUploader[F] =
     if (enabled)
       new IpfsClient[F](ipfsUri, readTimeout)

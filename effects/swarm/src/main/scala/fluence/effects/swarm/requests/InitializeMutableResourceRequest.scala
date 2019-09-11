@@ -79,19 +79,18 @@ object InitializeMutableResourceRequest {
     for {
       metaData <- Metadata.generateMetadata(id, 1, 1, multiHash, data, signer)
       Metadata(metaHash, rootAddr, signature) = metaData
-    } yield
-      InitializeMutableResourceRequest(
-        id.name,
-        id.frequency.toSeconds,
-        id.startTime.toSeconds,
-        rootAddr,
-        data,
-        multiHash,
-        1,
-        1,
-        signature,
-        metaHash,
-        id.ownerAddr
-      )
+    } yield InitializeMutableResourceRequest(
+      id.name,
+      id.frequency.toSeconds,
+      id.startTime.toSeconds,
+      rootAddr,
+      data,
+      multiHash,
+      1,
+      1,
+      signature,
+      metaHash,
+      id.ownerAddr
+    )
   }
 }

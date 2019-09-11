@@ -197,7 +197,7 @@ object Bucket {
             bucket ⇒
               bucket.copy(
                 records = bucket.records.filterNot(_.node.key === key)
-            )
+              )
           ) *>
           Log.stateT[F, Bucket[C]].trace(s"Bucket removed $key") as
           ModResult.removed(key)

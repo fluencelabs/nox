@@ -83,7 +83,7 @@ class RocksDBStore[F[_]: Monad: LiftIO: ContextShift] private (
               Log[F].error(s"Cannot close RocksDB iterator: $err", err)
             case Right(_) ⇒
               Applicative[F].unit
-        }
+          }
       )
       .flatMap { it ⇒
         // Start iterator
@@ -108,6 +108,7 @@ object RocksDBStore {
    * @param folder Folder to store RockDB data, MUST be unique, cannot be used by different RocksDB instances simultaneously
    * @param createIfMissing Ask RocksDB to create data folder if it's missing
    * @param ex Executor service to build ExecutionContext for RocksDB operations
+   * @param readOnly Whether to use db in read only mode
    * @param keysCodec Used to serialize/deserialize keys
    * @param valuesCodec Used to serialize/deserialize values
    * @tparam F Defer for Resource, LiftIO for IO, ContextShift to return execution back to the pool
@@ -117,13 +118,14 @@ object RocksDBStore {
   def make[F[_]: Monad: Defer: LiftIO: ContextShift: Log, K, V](
     folder: String,
     createIfMissing: Boolean = true,
-    ex: ⇒ ExecutorService = Executors.newCachedThreadPool()
+    ex: ⇒ ExecutorService = Executors.newCachedThreadPool(),
+    readOnly: Boolean = false
   )(
     implicit
     keysCodec: PureCodec[K, Array[Byte]],
     valuesCodec: PureCodec[Array[Byte], V]
   ): Resource[F, KVStore[F, K, V]] =
-    makeRaw[F](folder, createIfMissing, ex)
+    makeRaw[F](folder, createIfMissing, ex, readOnly)
       .map(_.transform[K, V])
 
   /**
@@ -132,12 +134,14 @@ object RocksDBStore {
    * @param folder Folder to store RockDB data, MUST be unique, cannot be used by different RocksDB instances simultaneously
    * @param createIfMissing Ask RocksDB to create data folder if it's missing
    * @param ex Executor service to build ExecutionContext for RocksDB operations
+   * @param readOnly Whether to use db in read only mode
    * @tparam F Defer for Resource, LiftIO for IO, ContextShift to return execution back to the pool
    */
   def makeRaw[F[_]: Monad: Defer: LiftIO: ContextShift: Log](
     folder: String,
     createIfMissing: Boolean = true,
-    ex: ⇒ ExecutorService = Executors.newSingleThreadExecutor()
+    ex: ⇒ ExecutorService = Executors.newSingleThreadExecutor(),
+    readOnly: Boolean = false
   ): Resource[F, KVStore[F, Array[Byte], Array[Byte]]] =
     // We want to prepare all the C++ objects of RocksDB, and have all of them closed even in case of error
     for {
@@ -168,7 +172,7 @@ object RocksDBStore {
 
             case Right(_) ⇒
               Applicative[F].unit
-        }
+          }
       )
 
       _ ← Log.resource[F].trace("Created opts...")
@@ -178,7 +182,11 @@ object RocksDBStore {
         RocksDB.loadLibrary()
         val dataDir = new File(folder)
         if (!dataDir.exists()) dataDir.mkdirs()
-        RocksDB.open(opts, folder)
+        if (readOnly) {
+          RocksDB.openReadOnly(opts, folder)
+        } else {
+          RocksDB.open(opts, folder)
+        }
       }.to[F]))(
         data ⇒
           IO(data.close()).attempt.to[F].flatMap {
@@ -186,7 +194,7 @@ object RocksDBStore {
               Log[F].error(s"Cannot close RocksDB object during cleanup", err)
             case Right(_) ⇒
               Applicative[F].unit
-        }
+          }
       )
 
       _ ← Log.resource[F].debug("Created rocksdb...")
@@ -199,11 +207,10 @@ object RocksDBStore {
               Log[F].error(s"Cannot close RocksDB object during cleanup", err)
             case Right(_) ⇒
               Applicative[F].unit
-        }
+          }
       )
 
       _ ← Log.resource[F].trace("Created readOpts... going to return kvstore")
 
     } yield new RocksDBStore[F](data, readOptions, ctx): KVStore[F, Array[Byte], Array[Byte]]
-
 }

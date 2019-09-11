@@ -23,16 +23,19 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.history.BlockManifest
-import fluence.effects.tendermint.rpc.TendermintRpc
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
+import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.log.Log
+import fluence.node.workers.pool.WorkersPool
 import fluence.node.workers.subscription.ResponseSubscriber
-import fluence.node.workers.{Worker, WorkerParams, WorkerServices, WorkersPool}
+import fluence.node.workers.{Worker, WorkerParams, WorkerServices}
 
 import scala.language.higherKinds
 
-class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]],
-                                        servicesBuilder: Long => WorkerServices[F])
-    extends WorkersPool[F] {
+class TestWorkersPool[F[_]: Concurrent](
+  workers: MVar[F, Map[Long, Worker[F]]],
+  servicesBuilder: Long => WorkerServices[F]
+) extends WorkersPool[F] {
 
   /**
    * Run or restart a worker
@@ -51,7 +54,7 @@ class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]],
               appId,
               0: Short,
               s"Test worker for appId $appId",
-              servicesBuilder(appId),
+              Applicative[F].pure(servicesBuilder(appId)),
               identity,
               for {
                 ws ← workers.take
@@ -85,9 +88,13 @@ class TestWorkersPool[F[_]: Concurrent](workers: MVar[F, Map[Long, Worker[F]]],
 
 object TestWorkersPool {
 
-  def withRequestResponder[F[_]: Concurrent: Timer](requestResponder: ResponseSubscriber[F],
-                                                    tendermintRpc: TendermintRpc[F]): F[TestWorkersPool[F]] = {
-    val builder = TestWorkerServices.workerServiceTestRequestResponse[F](tendermintRpc, requestResponder) _
+  def withRequestResponder[F[_]: Concurrent: Timer](
+    requestResponder: ResponseSubscriber[F],
+    tendermintRpc: TendermintHttpRpc[F],
+    tendermintWebsocketRpc: TendermintWebsocketRpc[F]
+  ): F[TestWorkersPool[F]] = {
+    val builder =
+      TestWorkerServices.workerServiceTestRequestResponse[F](tendermintRpc, tendermintWebsocketRpc, requestResponder) _
     MVar.of(Map.empty[Long, Worker[F]]).map(new TestWorkersPool(_, builder))
   }
 
@@ -96,7 +103,9 @@ object TestWorkersPool {
     MVar.of(Map.empty[Long, Worker[F]]).map(new TestWorkersPool(_, builder))
   }
 
-  def make[F[_]: Concurrent](bref: Ref[F, Option[BlockManifest]],
-                             bstore: ReceiptStorage[F]): Resource[F, TestWorkersPool[F]] =
+  def make[F[_]: Concurrent](
+    bref: Ref[F, Option[BlockManifest]],
+    bstore: ReceiptStorage[F]
+  ): Resource[F, TestWorkersPool[F]] =
     Resource.liftF(apply[F](bref, bstore))
 }

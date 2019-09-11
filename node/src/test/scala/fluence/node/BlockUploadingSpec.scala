@@ -24,27 +24,29 @@ import cats.effect.concurrent.Ref
 import cats.effect.{IO, Resource}
 import cats.syntax.functor._
 import cats.syntax.apply._
-import fluence.{EitherTSttpBackend, Eventually}
+import fluence.Eventually
 import fluence.effects.castore.StoreError
-import fluence.effects.docker.DockerIO
 import fluence.effects.docker.params.{DockerImage, DockerLimits}
 import fluence.effects.ipfs.{IpfsData, IpfsUploader}
 import fluence.effects.receipt.storage.{ReceiptStorage, ReceiptStorageError}
+import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockManifest, Receipt}
+import fluence.effects.tendermint.rpc.TestHttpRpc
+import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.{block, rpc}
-import fluence.effects.tendermint.rpc.TendermintRpc
-import fluence.effects.tendermint.rpc.websocket.TestTendermintWebsocketRpc
+import fluence.effects.tendermint.rpc.websocket.{TestTendermintWebsocketRpc, WebsocketConfig}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
 import fluence.node.eth.state._
-import fluence.node.workers.control.{ControlRpc, ControlRpcError}
 import fluence.node.workers.status.WorkerStatus
 import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
+import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
+import fluence.statemachine.api.data.BlockReceipt
 import io.circe.Json
 import io.circe.parser.parse
 import org.scalatest.{Matchers, OptionValues, WordSpec}
@@ -58,7 +60,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
   implicit private val timer = IO.timer(global)
   implicit private val shift = IO.contextShift(global)
   implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec", level = Log.Warn).unsafeRunSync()
-  implicit private val sttp = EitherTSttpBackend[IO]()
+  implicit private val sttp = SttpEffect.stream[IO]
   implicit private val backoff: Backoff[EffectError] = Backoff.default[EffectError]
 
   private val rootPath = Paths.get("/tmp")
@@ -75,11 +77,13 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
   val configTemplate = ConfigTemplate[IO](rootPath, tmConfig).unsafeRunSync()
   val params = WorkerParams(app, rootPath, rootPath, None, dockerConfig, tmDockerConfig, configTemplate)
 
-  case class UploadingState(uploads: Int = 0,
-                            vmHashGet: Seq[Long] = Nil,
-                            receipts: Seq[Receipt] = Vector.empty,
-                            lastKnownHeight: Option[Long] = None,
-                            blockManifests: Seq[BlockManifest] = Nil) {
+  case class UploadingState(
+    uploads: Int = 0,
+    vmHashGet: Seq[Long] = Nil,
+    receipts: Seq[BlockReceipt] = Vector.empty,
+    lastKnownHeight: Option[Long] = None,
+    blockManifests: Seq[BlockManifest] = Nil
+  ) {
 
     def upload[A: IpfsData](data: A) = data match {
       case d: ByteVector =>
@@ -91,7 +95,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
 
     def vmHash(height: Long) = copy(vmHashGet = vmHashGet :+ height)
 
-    def receipt(receipt: Receipt) =
+    def receipt(receipt: BlockReceipt) =
       copy(receipts = receipts :+ receipt)
 
     def subscribe(lastKnownHeight: Long) = copy(lastKnownHeight = Some(lastKnownHeight))
@@ -115,13 +119,15 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
             new ReceiptStorage[IO] {
               override val appId: Long = id
 
-              override def put(height: Long,
-                               receipt: Receipt)(implicit log: Log[IO]): EitherT[IO, ReceiptStorageError, Unit] =
+              override def put(height: Long, receipt: Receipt)(
+                implicit log: Log[IO]
+              ): EitherT[IO, ReceiptStorageError, Unit] =
                 EitherT.pure(())
               override def get(height: Long)(implicit log: Log[IO]): EitherT[IO, ReceiptStorageError, Option[Receipt]] =
                 EitherT.pure(None)
-              override def retrieve(from: Option[Long],
-                                    to: Option[Long])(implicit log: Log[IO]): fs2.Stream[IO, (Long, Receipt)] =
+              override def retrieve(from: Option[Long], to: Option[Long])(
+                implicit log: Log[IO]
+              ): fs2.Stream[IO, (Long, Receipt)] =
                 fs2.Stream.emits(storedReceipts.map(r => r.height -> r))
             }
 
@@ -132,19 +138,15 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
           }
 
           val workerServices = new WorkerServices[IO] {
-            override def tendermint: TendermintRpc[IO] = new TestTendermintWebsocketRpc[IO] {
+            override def tendermintRpc: TendermintHttpRpc[IO] = new TestHttpRpc[IO]
+
+            override def tendermintWRpc: TestTendermintWebsocketRpc[IO] = new TestTendermintWebsocketRpc[IO] {
+              override val websocketConfig: WebsocketConfig = WebsocketConfig()
+
               override def subscribeNewBlock(
                 lastKnownHeight: Long
               )(implicit log: Log[IO], backoff: Backoff[EffectError]): fs2.Stream[IO, Block] =
                 fs2.Stream.eval(state.update(_.subscribe(lastKnownHeight))) >> fs2.Stream.emits(blocks)
-            }
-
-            override def control: ControlRpc[IO] = new TestControlRpc[IO] {
-              override def sendBlockReceipt(receipt: Receipt): EitherT[IO, ControlRpcError, Unit] =
-                EitherT.liftF(state.update(_.receipt(receipt)).void)
-
-              override def getVmHash(height: Long): EitherT[IO, ControlRpcError, ByteVector] =
-                EitherT.liftF(state.update(_.vmHash(height)).map(_ => ByteVector.empty))
             }
 
             override def status(timeout: FiniteDuration): IO[WorkerStatus] =
@@ -155,6 +157,18 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
 
             override def responseSubscriber: ResponseSubscriber[IO] =
               throw new NotImplementedError("def responseSubscriber")
+
+            override def receiptBus: ReceiptBus[IO] = new ReceiptBus[IO] {
+              override def sendBlockReceipt(
+                receipt: BlockReceipt
+              )(implicit log: Log[IO]): EitherT[IO, EffectError, Unit] =
+                EitherT.liftF(state.update(_.receipt(receipt)).void)
+
+              override def getVmHash(height: Long)(implicit log: Log[IO]): EitherT[IO, EffectError, ByteVector] =
+                EitherT.liftF(state.update(_.vmHash(height)).map(_ => ByteVector.empty))
+            }
+
+            override def peersControl: PeersControl[IO] = throw new NotImplementedError("def peersControl")
           }
 
           (state, ipfs, workerServices)
@@ -162,9 +176,11 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
       .flatMap {
         case (state, ipfs, workerServices) =>
           val worker: Resource[IO, Worker[IO]] =
-            Worker.make[IO](appId, p2pPort, description, workerServices, (_: IO[Unit]) => IO.unit, IO.unit, IO.unit)
+            Worker.make[IO](appId, p2pPort, description, IO(workerServices), (_: IO[Unit]) => IO.unit, IO.unit, IO.unit)
 
-          worker.flatMap(worker => BlockUploading[IO](enabled = true, ipfs).flatMap(_.start(worker))).map(_ => state)
+          worker.flatMap(
+            worker => BlockUploading[IO](enabled = true, ipfs).flatMap(_.start(worker.appId, workerServices))
+          ) as state
       }
   }
 

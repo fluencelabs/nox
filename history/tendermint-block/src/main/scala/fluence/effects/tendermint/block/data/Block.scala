@@ -20,10 +20,10 @@ import fluence.crypto.hash.CryptoHashers.Sha256
 import fluence.effects.tendermint.block.errors.TendermintBlockError
 import fluence.effects.tendermint.block.protobuf.{Protobuf, ProtobufConverter, ProtobufJson}
 import fluence.effects.tendermint.block.signature.Merkle
-import io.circe.generic.extras.semiauto.deriveDecoder
-import io.circe.{Decoder, Json}
+import io.circe.Json
 import proto3.tendermint.Vote
 import scodec.bits.ByteVector
+import proto3.tendermint.{Block => PBlock}
 
 object Block {
   /* Definitions */
@@ -84,7 +84,7 @@ object Block {
 }
 
 // TODO: Add Evidence field to the Block
-case class Block private[block] (header: Header, data: Data, last_commit: LastCommit) {
+case class Block(header: Header, data: Data, last_commit: LastCommit) {
   import Block._
 
   /**

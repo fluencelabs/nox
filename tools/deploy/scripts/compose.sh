@@ -376,7 +376,14 @@ function deploy()
         docker-compose --compatibility -f multiple-node.yml up -d --timeout 30 --force-recreate >/dev/null
         NUMBER_OF_NODES=4
     else
-        docker-compose --compatibility -f node.yml up -d --timeout 30 --force-recreate >/dev/null
+        echo "Removing workers & tendermints"
+        docker ps -a | grep -E 'tendermint|worker' | awk '{ print $1 }' | xargs docker rm -f &> /dev/null || true
+        echo "Restarting node container"
+        docker-compose --compatibility -f node.yml up -d --timeout 30 --force-recreate || true &>/dev/null
+        echo "Disconnecting old networks"
+        docker network ls | grep fluence | awk '{print $1}' | xargs -I{} docker network disconnect {} fluence-node-1 || true &> /dev/null
+        echo "Removing old networks"
+        docker network prune -f &> /dev/null
         NUMBER_OF_NODES=1
     fi
 

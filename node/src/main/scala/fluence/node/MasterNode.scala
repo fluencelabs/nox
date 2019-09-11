@@ -15,20 +15,18 @@
  */
 
 package fluence.node
-import java.nio.ByteBuffer
 import java.nio.file._
 
 import cats.Applicative
-import cats.data.EitherT
 import cats.effect._
 import cats.effect.syntax.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import com.softwaremill.sttp.SttpBackend
 import fluence.effects.{Backoff, EffectError}
 import fluence.effects.castore.StoreError
 import fluence.effects.ethclient.EthClient
 import fluence.effects.ipfs.IpfsStore
+import fluence.effects.sttp.SttpStreamEffect
 import fluence.effects.swarm.SwarmStore
 import fluence.kad.Kademlia
 import fluence.log.{Log, LogFactory}
@@ -38,7 +36,7 @@ import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.eth._
 import fluence.node.eth.state.StorageType
 import fluence.node.workers._
-import fluence.node.workers.control.DropPeerError
+import fluence.node.workers.pool.WorkersPool
 import fluence.node.workers.tendermint.config.ConfigTemplate
 
 import scala.language.{higherKinds, postfixOps}
@@ -105,16 +103,15 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
 
       // TODO: Move description of the code preparation to Worker; it should be Worker's responsibility
       code <- codeCarrier.carryCode(app.code, vmCodePath)
-    } yield
-      WorkerParams(
-        app,
-        tendermintPath,
-        code,
-        masterNodeContainerId,
-        nodeConfig.workerDockerConfig,
-        nodeConfig.tmDockerConfig,
-        configTemplate
-      )
+    } yield WorkerParams(
+      app,
+      tendermintPath,
+      code,
+      masterNodeContainerId,
+      nodeConfig.workerDockerConfig,
+      nodeConfig.tmDockerConfig,
+      configTemplate
+    )
 
   /**
    * Runs app worker on a pool
@@ -140,15 +137,15 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
         pool.withWorker(appId, _.remove).void
 
       case DropPeerWorker(appId, vk) ⇒
-        Log[F].scope("app" -> appId.toString, "key" -> vk.toHex) { log =>
+        Log[F].scope("app" -> appId.toString, "key" -> vk.toHex) { implicit log: Log[F] =>
           pool
             .withWorker(
               appId,
-              _.withServices_(_.control)(_.dropPeer(vk).value.flatMap {
-                case Right(_)               => Applicative[F].unit
-                case Left(e: DropPeerError) => log.error(s"Error while dropping peer", e)
-                case Left(e)                => log.error(s"Unexpected error while dropping peer", e)
-              })
+              _.withServices_(_.peersControl)(
+                _.dropPeer(vk).valueOr(
+                  e ⇒ log.error(s"Unexpected error while dropping peer", e)
+                )
+              )
             )
             .void
         }
@@ -188,16 +185,15 @@ object MasterNode {
    *
    * @param masterConfig MasterConfig
    * @param nodeConfig NodeConfig
-   * @param sttpBackend HTTP client implementation
    * @return Prepared [[MasterNode]], then see [[MasterNode.run]]
    */
-  def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer: Log: LogFactory, C](
+  def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer: Log: LogFactory: SttpStreamEffect, C](
     masterConfig: MasterConfig,
     nodeConfig: NodeConfig,
     pool: WorkersPool[F],
     kademlia: Kademlia[F, C]
   )(
-    implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]],
+    implicit
     backoff: Backoff[EffectError]
   ): Resource[F, MasterNode[F, C]] =
     for {
@@ -212,22 +208,21 @@ object MasterNode {
       rootPath <- Resource.liftF(IO(Paths.get(masterConfig.rootPath).toAbsolutePath).to[F])
 
       configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath, masterConfig.tendermintConfig))
-    } yield
-      MasterNode[F, C](
-        masterConfig,
-        nodeConfig,
-        configTemplate,
-        nodeEth,
-        pool,
-        codeCarrier,
-        rootPath,
-        kademlia,
-        masterConfig.masterContainerId
-      )
+    } yield MasterNode[F, C](
+      masterConfig,
+      nodeConfig,
+      configTemplate,
+      nodeEth,
+      pool,
+      codeCarrier,
+      rootPath,
+      kademlia,
+      masterConfig.masterContainerId
+    )
 
-  def codeCarrier[F[_]: Sync: ContextShift: Concurrent: Timer: LiftIO](
+  def codeCarrier[F[_]: Sync: ContextShift: Concurrent: Timer: LiftIO: SttpStreamEffect](
     config: RemoteStorageConfig
-  )(implicit sttpBackend: SttpBackend[EitherT[F, Throwable, ?], fs2.Stream[F, ByteBuffer]]): CodeCarrier[F] =
+  ): CodeCarrier[F] =
     if (config.enabled) {
       implicit val b: Backoff[StoreError] = Backoff.default
       val swarmStore = SwarmStore[F](config.swarm.address, config.swarm.readTimeout)
@@ -237,7 +232,6 @@ object MasterNode {
         case StorageType.Ipfs  => ipfsStore
       })
       new RemoteCodeCarrier[F](polyStore)
-    } else {
+    } else
       new LocalCodeCarrier[F]()
-    }
 }

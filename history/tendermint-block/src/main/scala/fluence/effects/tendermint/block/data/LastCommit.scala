@@ -24,4 +24,4 @@ import proto3.tendermint.{BlockID, Vote}
  * @param block_id Previous block's id (hashes)
  * @param precommits List of commits (votes)
  */
-case class LastCommit(block_id: BlockID, precommits: List[Option[Vote]] = List.empty)
+case class LastCommit(block_id: Option[BlockID], precommits: List[Option[Vote]] = List.empty)

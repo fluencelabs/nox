@@ -72,6 +72,6 @@ object SiblingsState {
 
             override def remove(key: Key)(implicit log: Log[F]): F[ModResult[C]] =
               rmv(Siblings.remove(key))
-        }
+          }
       )
 }

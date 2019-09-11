@@ -148,7 +148,7 @@ class EthClient private (private val web3: Web3j) {
           // log error
           either.left.toOption.fold(Applicative[F].unit) { e =>
             log.error(s"Cannot decode block from Ethereum", e)
-        }
+          }
       )
       .collect {
         case Right(v) => v
@@ -224,6 +224,7 @@ object EthClient {
    * @param url optional url, http://localhost:8545/ is used by default
    * @param includeRaw Whether to include unparsed JSON strings in the web3j's response objects
    * @param checkSyncPeriod Period of querying the Ethereum node to check if it's in sync
+   *
    */
   def make[F[_]: Timer: Async](
     url: Option[String] = None,

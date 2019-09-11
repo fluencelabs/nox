@@ -16,7 +16,7 @@
 
 package fluence.node.workers.subscription
 
-import cats.data.{EitherT, NonEmptyList}
+import cats.data.EitherT
 import cats.effect.{Concurrent, Resource, Timer}
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.syntax.flatMap._
@@ -25,17 +25,19 @@ import cats.syntax.applicative._
 import cats.syntax.apply._
 import cats.{Functor, Parallel, Traverse}
 import fluence.effects.{Backoff, EffectError}
-import fluence.effects.tendermint.rpc.TendermintRpc
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError, RpcRequestErrored, TendermintHttpRpc}
+import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.log.Log
 import fluence.node.MakeResource
-import fluence.statemachine.data.{QueryCode, Tx}
+import fluence.statemachine.api.query.QueryCode
+import fluence.statemachine.api.tx.Tx
 
 import scala.language.higherKinds
 
 class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
   subscribesRef: Ref[F, Map[Tx.Head, ResponsePromise[F]]],
-  tendermint: TendermintRpc[F],
+  tendermintRpc: TendermintHttpRpc[F],
+  tendermintWRpc: TendermintWebsocketRpc[F],
   appId: Long,
   maxBlocksTries: Int = 3
 )(
@@ -67,14 +69,16 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
    *
    */
   override def start(): Resource[F, Unit] =
-    log.scope(("requestResponder", "subscribeForWaitingRequests")) { implicit log =>
+    log.scope("responseSubscriber") { implicit log =>
       for {
         lastHeight <- Resource.liftF(
-          backoff.retry(tendermint.consensusHeight(), e => log.error("retrieving consensus height", e))
+          backoff.retry(tendermintRpc.consensusHeight(), e => log.error("retrieving consensus height", e))
         )
         _ <- Log.resource.info("Creating subscription for tendermint blocks")
-        blockStream = tendermint.subscribeNewBlock(lastHeight)
-        pollingStream = blockStream.evalMap(_ => pollResponses(tendermint))
+        blockStream = tendermintWRpc.subscribeNewBlock(lastHeight)
+        pollingStream = blockStream
+          .evalTap(b => log.debug(s"got block ${b.header.height}"))
+          .evalMap(_ => pollResponses(tendermintRpc))
         _ <- MakeResource.concurrentStream(pollingStream)
       } yield ()
     }
@@ -117,8 +121,8 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
   ): F[List[(ResponsePromise[F], TendermintQueryResponse)]] = {
     import cats.syntax.parallel._
     import cats.syntax.list._
-    log.scope("requestResponder" -> "queryResponses", "app" -> appId.toString) { implicit log =>
-      log.trace(s"Polling ${promises.size} promises") *>
+    log.scope("responseSubscriber" -> "queryResponses", "app" -> appId.toString) { implicit log =>
+      log.debug(s"Polling ${promises.size} promises") >> log.trace(s"promises: ${promises.map(_.id).mkString(" ")}") >>
         promises.map { responsePromise =>
           tendermint
             .query(responsePromise.id.toString, id = "dontcare")
@@ -167,8 +171,10 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
                   (promise.complete(response) :: taskList, subs - r.id)
                 } else (taskList, subs + (r.id -> promise.copy(tries = promise.tries + 1)))
               case (promise, r @ TimedOutResponse(_, _)) =>
-                (log.error("Unexpected. TimedOutResponse couldn't be here.") *> promise.complete(r) :: taskList,
-                 subs - promise.id)
+                (
+                  log.error("Unexpected. TimedOutResponse couldn't be here.") *> promise.complete(r) :: taskList,
+                  subs - promise.id
+                )
             }
         }
         (updatedSubs, taskList)
@@ -190,9 +196,10 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
 object ResponseSubscriberImpl {
 
   def apply[F[_]: Log: Concurrent: Timer, G[_]](
-    tendermint: TendermintRpc[F],
+    tendermintRpc: TendermintHttpRpc[F],
+    tendermintWRpc: TendermintWebsocketRpc[F],
     appId: Long,
-    maxBlocksTries: Int = 3
+    maxBlocksTries: Int = ResponseSubscriber.MaxBlockTries
   )(
     implicit P: Parallel[F, G]
   ): F[ResponseSubscriberImpl[F, G]] =
@@ -200,6 +207,6 @@ object ResponseSubscriberImpl {
       .of[F, Map[Tx.Head, ResponsePromise[F]]](
         Map.empty[Tx.Head, ResponsePromise[F]]
       )
-      .map(r => new ResponseSubscriberImpl(r, tendermint, appId, maxBlocksTries))
+      .map(r => new ResponseSubscriberImpl(r, tendermintRpc, tendermintWRpc, appId, maxBlocksTries))
 
 }

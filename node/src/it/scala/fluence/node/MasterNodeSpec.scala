@@ -21,30 +21,33 @@ import java.nio.file.{Files, Paths}
 import java.util.Base64
 
 import cats.Apply
-import cats.data.{EitherT, NonEmptyList}
+import cats.data.EitherT
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.syntax.apply._
 import cats.syntax.functor._
 import com.softwaremill.sttp.circe.asJson
-import com.softwaremill.sttp.{SttpBackend, _}
-import fluence.{EitherTSttpBackend, Eventually}
+import com.softwaremill.sttp._
+import fluence.codec.PureCodec
+import fluence.Eventually
 import fluence.crypto.eddsa.Ed25519
 import fluence.effects.{Backoff, EffectError}
 import fluence.effects.ethclient.EthClient
 import fluence.effects.receipt.storage.KVReceiptStorage
+import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.kad.conf.{AdvertizeConf, JoinConf, KademliaConfig, RoutingConf}
 import fluence.kad.contact.UriContact
 import fluence.kad.http.KademliaHttpNode
+import fluence.kad.protocol.{Key, Node}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.{FluenceContractConfig, MasterConfig, NodeConfig}
 import fluence.node.eth.FluenceContract
 import fluence.node.eth.FluenceContractTestOps._
 import fluence.node.status.{MasterStatus, StatusAggregator}
-import fluence.node.workers.WorkerApi
+import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.tendermint.ValidatorPublicKey
-import org.scalatest.{Timer => _, _}
+import org.scalatest.{Timer ⇒ _, _}
 import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -61,11 +64,6 @@ class MasterNodeSpec
 
   implicit private val backoff: Backoff[EffectError] = Backoff.default
 
-  type Sttp = SttpBackend[EitherT[IO, Throwable, ?], fs2.Stream[IO, ByteBuffer]]
-
-  private val sttpResource: Resource[IO, Sttp] =
-    Resource.make(IO(EitherTSttpBackend[IO]()))(sttpBackend ⇒ IO(sttpBackend.close()))
-
   override protected def beforeAll(): Unit = {
     implicit val log = logFactory.init("before").unsafeRunSync()
     wireupContract()
@@ -76,7 +74,7 @@ class MasterNodeSpec
     killGanache()
   }
 
-  def getStatus(statusPort: Short)(implicit sttpBackend: Sttp): IO[MasterStatus] = {
+  def getStatus(statusPort: Short)(implicit sttpBackend: SttpEffect[IO]): IO[MasterStatus] = {
     import MasterStatus._
     (for {
       resp <- sttp.response(asJson[MasterStatus]).get(uri"http://127.0.0.1:$statusPort/status").send()
@@ -90,20 +88,25 @@ class MasterNodeSpec
 
   private def nodeResource(port: Short = 5789, seeds: Seq[String] = Seq.empty)(
     implicit log: Log[IO]
-  ): Resource[IO, (Sttp, MasterNode[IO, UriContact])] =
+  ): Resource[IO, (SttpStreamEffect[IO], MasterNode[IO, UriContact])] =
     for {
-      implicit0(sttpB: Sttp) ← sttpResource
+      implicit0(sttpB: SttpStreamEffect[IO]) ← SttpEffect.streamResource[IO]
+
+      nodeCodec = new UriContact.NodeCodec(Key.fromPublicKey)
 
       kad ← KademliaHttpNode.make[IO, IO.Par](
         KademliaConfig(
           RoutingConf(1, 1, 4, 5.seconds),
           AdvertizeConf("127.0.0.1", port),
-          JoinConf(seeds, 4),
+          JoinConf(seeds, 4)
         ),
         Ed25519.signAlgo,
         Ed25519.signAlgo.generateKeyPair.unsafe(Some(ByteVector.fromShort(port).toArray)),
-        Paths.get(masterConf.rootPath)
+        Paths.get(masterConf.rootPath),
+        nodeCodec
       )
+
+      implicit0(wn: PureCodec.Func[Node[UriContact], String]) = nodeCodec.writeNode
 
       bref ← Resource.liftF(Ref.of[IO, Option[BlockManifest]](None))
       bstore ← Resource.liftF(KVReceiptStorage.makeInMemory[IO](1).allocated.map(_._1))
@@ -120,7 +123,7 @@ class MasterNodeSpec
       node ← MasterNode.make[IO, UriContact](masterConf, nodeConf, pool, kad.kademlia)
 
       agg ← StatusAggregator.make[IO](masterConf, node)
-      _ ← MasterHttp.make("127.0.0.1", port, agg, node.pool, WorkerApi(), kad.http)
+      _ ← MasterHttp.make("127.0.0.1", port, agg, node.pool, kad.http)
       _ <- Log.resource[IO].info(s"Started MasterHttp")
     } yield (sttpB, node)
 

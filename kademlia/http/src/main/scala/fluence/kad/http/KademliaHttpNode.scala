@@ -27,6 +27,7 @@ import cats.{Monad, Parallel}
 import com.softwaremill.sttp.SttpBackend
 import fluence.crypto.signature.SignAlgo
 import fluence.crypto.{Crypto, KeyPair}
+import fluence.effects.sttp.SttpEffect
 import fluence.kad.Kademlia
 import fluence.kad.conf.KademliaConfig
 import fluence.kad.contact.{ContactAccess, UriContact}
@@ -61,26 +62,27 @@ object KademliaHttpNode {
    * @param signAlgo Signing and signature checking algorithm for contact serialization
    * @param keyPair This node's keypair, to be used to sign contacts with signAlgo
    * @param rootPath RocksDB storage root path
+   * @param nodeCodec Mean to encode, decode, sign and check Node[UriContact]
    */
-  def make[F[_]: ConcurrentEffect: Timer: Log: ContextShift, P[_]](
+  def make[F[_]: ConcurrentEffect: SttpEffect: Timer: Log: ContextShift, P[_]](
     conf: KademliaConfig,
     signAlgo: SignAlgo,
     keyPair: KeyPair,
-    rootPath: Path
+    rootPath: Path,
+    nodeCodec: UriContact.NodeCodec
   )(
     implicit
-    P: Parallel[F, P],
-    sttpBackend: SttpBackend[EitherT[F, Throwable, ?], Nothing]
+    P: Parallel[F, P]
   ): Resource[F, KademliaHttpNode[F, UriContact]] = {
 
     implicit val readNode: Crypto.Func[String, Node[UriContact]] =
-      UriContact.readNode(signAlgo.checker)
+      nodeCodec.readNode(signAlgo.checker)
 
     import Crypto.liftCodecErrorToCrypto
-    import UriContact.writeNode
+    import nodeCodec.writeNode
 
     val nodeAuth = for {
-      selfNode ← UriContact.buildNode(conf.advertize, signAlgo.signer(keyPair))
+      selfNode ← nodeCodec.buildNode(conf.advertize, signAlgo.signer(keyPair))
       selfNodeAuth ← Crypto.fromOtherFunc(writeNode).pointAt(selfNode)
     } yield (selfNode, selfNodeAuth)
 

@@ -73,7 +73,7 @@ message Block {
 }
 
 message Commit {
-    BlockID    block_id = 1;
+    BlockID block_id = 1;
     // It's `repeated bytes` instead of `repeated Vote` to be compatible with
     // Tendermint's amino encoding of null in repeated fields,
     // for details, see https://github.com/tendermint/go-amino/issues/260
@@ -98,6 +98,17 @@ message Validator {
     bytes address = 1;
     //PubKey pub_key = 2 // TODO: I wonder, why is it commented out?
     int64 power = 3;
+}
+
+message BlockMeta {
+    BlockID blockID = 1;
+    Header header = 2;
+}
+
+message BlockPart {
+    int64 index = 1;
+    bytes bytes = 2;
+    bytes proof = 3; // it's actually a struct – SimpleProof from simple_proof.go, but we don't care just yet
 }
 
 // === Canonical ===

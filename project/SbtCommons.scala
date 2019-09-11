@@ -13,9 +13,14 @@ object SbtCommons {
 
   val scalaV = scalaVersion := "2.12.9"
 
+  val kindProjector = Seq(
+    resolvers += Resolver.sonatypeRepo("releases"),
+    addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.0")
+  )
+
   val commons = Seq(
     scalaV,
-    version                              := "0.2.0",
+    version                              := "0.3.0",
     fork in Test                         := false,
     parallelExecution in Test            := false,
     fork in IntegrationTest              := true,
@@ -30,12 +35,7 @@ object SbtCommons {
     // see good explanation https://gist.github.com/djspiewak/7a81a395c461fd3a09a6941d4cd040f2
     scalacOptions ++= Seq("-Ypartial-unification", "-deprecation"),
     addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0")
-  )
-
-  val kindProjector = Seq(
-    resolvers += Resolver.sonatypeRepo("releases"),
-    addCompilerPlugin("org.typelevel" %% "kind-projector" % "0.10.0")
-  )
+  ) ++ kindProjector
 
   val mergeStrategy = Def.setting[String => MergeStrategy]({
     // a module definition fails compilation for java 8, just skip it
@@ -47,50 +47,33 @@ object SbtCommons {
       oldStrategy(x)
   }: String => MergeStrategy)
 
-  def rustVmTest(testName: String): Seq[Def.Setting[_]] =
+  def downloadLlamadb(): Seq[Def.Setting[_]] =
     Seq(
       publishArtifact := false,
       test            := (test in Test).dependsOn(compile).value,
       compile := (compile in Compile)
         .dependsOn(Def.task {
+          // by defaults, user.dir in sbt points to a submodule directory while in Idea to the project root
+          val resourcesPath = if (System.getProperty("user.dir").endsWith("/vm"))
+            System.getProperty("user.dir") + "/src/it/resources/"
+          else
+            System.getProperty("user.dir") + "/vm/src/it/resources/"
+
           val log = streams.value.log
-          log.info(s"Compiling $testName.rs to $testName.wasm")
+          val llamadbUrl = "https://github.com/fluencelabs/llamadb-wasm/releases/download/0.1.2/llama_db.wasm"
+          val llamadbPreparedUrl = "https://github.com/fluencelabs/llamadb-wasm/releases/download/0.1.2/llama_db_prepared.wasm"
 
-          val projectRoot = file("").getAbsolutePath
-          val testFolder = s"$projectRoot/vm/src/it/resources/test-cases/$testName"
-          val compileCmd = s"cargo +nightly-2019-03-10 build --manifest-path $testFolder/Cargo.toml " +
-            s"--target wasm32-unknown-unknown --release"
+          log.info(s"Dowloading llamadb from $llamadbUrl to $resourcesPath")
 
-          assert((compileCmd !) == 0, "Rust to Wasm compilation failed")
-        })
-        .value
-    )
+          // -nc prevents downloading if file already exists
+          val llamadbDownloadRet = s"wget -nc $llamadbUrl -O $resourcesPath/llama_db.wasm" !
+          val llamadbPreparedDownloadRet = s"wget -nc $llamadbPreparedUrl -O $resourcesPath/llama_db_prepared.wasm" !
 
-  // creates instrumented llamadb in a new folder
-  def createInstrumentedLlamadb(): Seq[Def.Setting[_]] =
-    Seq(
-      publishArtifact := false,
-      test            := (test in Test).dependsOn(compile).value,
-      compile := (compile in Compile)
-        .dependsOn(Def.task {
-          val log = streams.value.log
-          log.info(s"Building the internal tool for instrumentation")
-
-          val projectRoot = file("").getAbsolutePath
-          val toolFolder = s"$projectRoot/tools/wasm-utils/"
-          val toolCompileCmd = s"cargo +nightly-2019-03-10 build --manifest-path $toolFolder/Cargo.toml --release"
-          assert((toolCompileCmd !) == 0, "Compilation of wasm-utils failed")
-
-          val testFolder = s"$projectRoot/vm/src/it/resources/test-cases/llamadb"
-          val testCompileCmd = s"cargo +nightly-2019-03-10 build --manifest-path $testFolder/Cargo.toml " +
-            s"--target wasm32-unknown-unknown --release"
-          assert((testCompileCmd !) == 0, "Rust to Wasm compilation failed")
-
-          // run wasm-utils to instrument compiled llamadb binary
-          val prepareCmd = s"$toolFolder/target/release/wasm-utils prepare " +
-            s"-i $testFolder/target/wasm32-unknown-unknown/release/llama_db.wasm " +
-            s"-o $testFolder/target/wasm32-unknown-unknown/release/llama_db_prepared.wasm"
-          assert((prepareCmd !) == 0, s"$prepareCmd failed")
+          // wget returns 0 of file was downloaded and 1 if file already exists
+          assert(llamadbDownloadRet == 0 || llamadbDownloadRet == 1,
+            s"Download failed: $llamadbUrl")
+          assert(llamadbPreparedDownloadRet == 0 || llamadbPreparedDownloadRet == 1,
+            s"Download failed: $llamadbPreparedUrl")
         })
         .value
     )
@@ -125,13 +108,15 @@ object SbtCommons {
   val catsEffectVersion = "1.3.0"
   val catsEffect = "org.typelevel" %% "cats-effect" % catsEffectVersion
 
+  val shapeless = "com.chuusai" %% "shapeless" % "2.3.3"
+
   val fs2Version = "1.0.4"
   val fs2 = "co.fs2"   %% "fs2-core"             % fs2Version
   val fs2rx = "co.fs2" %% "fs2-reactive-streams" % fs2Version
   val fs2io = "co.fs2" %% "fs2-io"               % fs2Version
 
   // functional wrapper around 'lightbend/config'
-  val ficus = "com.iheart"                 %% "ficus"      % "1.4.5"
+  val ficus = "com.iheart" %% "ficus" % "1.4.5"
 
   val cryptoVersion = "0.0.9"
   val cryptoHashsign = "one.fluence" %% "crypto-hashsign" % cryptoVersion
@@ -147,7 +132,7 @@ object SbtCommons {
   val sttpFs2Backend = "com.softwaremill.sttp"  %% "async-http-client-backend-fs2"  % sttpVersion
   val sttpCatsBackend = "com.softwaremill.sttp" %% "async-http-client-backend-cats" % sttpVersion
 
-  val http4sVersion = "0.20.0-M7"
+  val http4sVersion = "0.20.10"
   val http4sDsl = "org.http4s"    %% "http4s-dsl"          % http4sVersion
   val http4sServer = "org.http4s" %% "http4s-blaze-server" % http4sVersion
   val http4sCirce = "org.http4s"  %% "http4s-circe"        % http4sVersion
@@ -163,12 +148,13 @@ object SbtCommons {
   val scodecCore = "org.scodec" %% "scodec-core" % "1.11.3"
 
   val web3jVersion = "4.3.0"
-  val web3jCrypto = "org.web3j" % "crypto" % web3jVersion exclude("org.bouncycastle", "bcprov-jdk15on")
-  val web3jCore = "org.web3j"   % "core"   % web3jVersion exclude("org.bouncycastle", "bcprov-jdk15on")
+  val web3jCrypto = "org.web3j" % "crypto" % web3jVersion exclude ("org.bouncycastle", "bcprov-jdk15on")
+  val web3jCore = "org.web3j"   % "core"   % web3jVersion exclude ("org.bouncycastle", "bcprov-jdk15on")
 
   val toml = "com.electronwill.night-config" % "toml" % "3.4.2"
 
-  val rocksDb = "org.rocksdb" % "rocksdbjni" % "5.17.2"
+  val rocksDb = "org.rocksdb"      % "rocksdbjni" % "5.17.2"
+  val levelDb = "org.iq80.leveldb" % "leveldb"    % "0.12"
 
   val protobuf = "io.github.scalapb-json"  %% "scalapb-circe"     % "0.4.3"
   val protobufUtil = "com.google.protobuf" % "protobuf-java-util" % "3.7.1"

@@ -21,10 +21,11 @@ import cats.effect.concurrent.Ref
 import cats.effect.{IO, Resource}
 import cats.syntax.either._
 import cats.syntax.functor._
-import fluence.EitherTSttpBackend
+import fluence.effects.sttp.SttpEffect
 import fluence.effects.syntax.eitherT._
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc
+import fluence.effects.tendermint.rpc.{DisabledBlockstore, TestHttpRpc}
 import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestFailed}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
@@ -41,7 +42,7 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
   implicit private val timer = IO.timer(global)
   implicit private val shift = IO.contextShift(global)
   implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec", level = Log.Error).unsafeRunSync()
-  implicit private val sttp = EitherTSttpBackend[IO]()
+  implicit private val sttp = SttpEffect.plain[IO]
 
   sealed trait Action
   case object GetConsensusHeight extends Action
@@ -65,11 +66,8 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
   }
 
   def websocket(heights: List[Long], events: List[Event]) = {
-    def ws(consensusHeights: Ref[IO, List[Long]], events: List[Event], state: Ref[IO, ExecutionState]) =
-      new TendermintWebsocketRpcImpl[IO] with TestTendermintRpc[IO] {
-        override val host: String = "WebsocketBlockSpecNonExistingHost"
-        override val port: Int = 3333333
-
+    def ws(consensusHeights: Ref[IO, List[Long]], events: List[Event], state: Ref[IO, ExecutionState]) = {
+      val rpc = new TestHttpRpc[IO] {
         override def block(height: Long, id: String): EitherT[IO, RpcError, Block] =
           (for {
             _ <- state.update(_.block(height))
@@ -78,14 +76,21 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
         override def consensusHeight(id: String): EitherT[IO, RpcError, Long] =
           (for {
             _ <- state.update(_.consensusHeight())
-            height <- consensusHeights.modify(l => (l.tail, l.headOption))
-          } yield
-            height.fold(
-              (RpcRequestFailed(
-                new Throwable("WebSocketBlockSpec: requested consensus height when consensusHeights list is empty")
-              ): RpcError).asLeft[Long]
-            )(_.asRight)).eitherT
+            height <- consensusHeights.modify(l => (l.drop(1), l.headOption))
+          } yield height.fold(
+            (RpcRequestFailed(
+              new Throwable("WebSocketBlockSpec: requested consensus height when consensusHeights list is empty")
+            ): RpcError).asLeft[Long]
+          )(_.asRight)).eitherT
+      }
 
+      new TendermintWebsocketRpcImpl[IO](
+        "WebsocketBlockSpecNonExistingHost",
+        3333333,
+        rpc,
+        DisabledBlockstore(),
+        WebsocketConfig()
+      ) {
         override protected def subscribe(
           event: String
         )(implicit log: Log[IO], backoff: Backoff[EffectError]): Resource[IO, Queue[IO, Event]] =
@@ -93,6 +98,7 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
             fs2.Stream.emits(events).through(q.enqueue).compile.drain.as(q)
           }
       }
+    }
 
     for {
       consensusHeights <- Ref.of[IO, List[Long]](heights)
@@ -101,12 +107,14 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
     } yield (w, state)
   }
 
-  private def emitBlocks(lastKnownHeight: Long,
-                         consensusHeights: List[Long],
-                         events: List[Event],
-                         expectedBlocks: List[Long],
-                         expectedActions: List[Action],
-                         timeout: Duration = 10.seconds) = {
+  private def emitBlocks(
+    lastKnownHeight: Long,
+    consensusHeights: List[Long],
+    events: List[Event],
+    expectedBlocks: List[Long],
+    expectedActions: List[Action],
+    timeout: Duration = 10.seconds
+  ) = {
     val result = (websocket(consensusHeights, events).flatMap {
       case (ws, state) =>
         ws.subscribeNewBlock(lastKnownHeight)

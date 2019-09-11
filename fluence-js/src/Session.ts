@@ -15,7 +15,7 @@
  */
 
 import {error, ErrorResponse, ErrorType, Result} from "./Result";
-import {TendermintClient, TxRequest} from "./TendermintClient";
+import {parseResponse, TendermintClient, TxRequest} from "./TendermintClient";
 import {SessionConfig} from "./SessionConfig";
 
 import Debug from "debug";
@@ -43,7 +43,7 @@ export interface RequestState<T> {
  */
 export class Session {
     readonly tm: TendermintClient;
-    private readonly session: string;
+    public readonly session: string;
     private readonly config: SessionConfig;
     private counter: number;
     private closed: boolean;
@@ -231,13 +231,23 @@ export class Session {
 
         // send transaction
         txDebug("send broadcastTxSync");
-        let broadcastTxResult;
+        let broadcastTxResultRaw;
         try {
-            broadcastTxResult = await this.tm.broadcastTxSync(request.payload);
-        } catch (err) {
+            broadcastTxResultRaw = await this.tm.broadcastTxSync(request.payload);
+        } catch (cause) {
             return {
                 status: RequestStatus.E_REQUEST,
-                error: err,
+                error: error(ErrorType.TransportError, cause, request.path),
+            }
+        }
+
+        let broadcastTxResult;
+        try {
+            broadcastTxResult = parseResponse(broadcastTxResultRaw);
+        } catch (cause) {
+            return {
+                status: RequestStatus.E_REQUEST,
+                error: error(ErrorType.ParsingError, cause, request.path),
             }
         }
 

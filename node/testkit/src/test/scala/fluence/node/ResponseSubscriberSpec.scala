@@ -21,6 +21,7 @@ import java.nio.file.Paths
 
 import cats.effect.{ContextShift, IO, Resource, Timer}
 import cats.{Monad, Parallel}
+import fluence.Eventually
 import fluence.effects.docker.params.{DockerImage, DockerLimits}
 import fluence.effects.tendermint.block.TestData
 import fluence.effects.tendermint.block.data.Block
@@ -28,9 +29,10 @@ import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcRequestFailed}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
 import fluence.node.eth.state._
+import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.subscription._
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
-import fluence.node.workers.{Worker, WorkerApi, WorkerParams}
+import fluence.node.workers.{Worker, WorkerParams}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 import scodec.bits.ByteVector
 
@@ -39,13 +41,12 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterAll {
+class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterAll with Eventually {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
   implicit private val logFactory = LogFactory.forPrintln[IO](level = Log.Error)
-  implicit private val log = logFactory.init("RequestResponseSpec", level = Log.Error).unsafeRunSync()
-  val workerApi = WorkerApi()
+  implicit private val log = logFactory.init("ResponseSubscriberSpec", level = Log.Off).unsafeRunSync()
 
   def start() = {
     val rootPath = Paths.get("/tmp")
@@ -64,8 +65,10 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
     for {
       blocksQ <- Resource.liftF(fs2.concurrent.Queue.unbounded[IO, Block])
       tendermint <- Resource.liftF(TendermintTest[IO](blocksQ.dequeue))
-      requestResponder <- ResponseSubscriber.make[IO, IO.Par](tendermint.tendermint, appId)
-      pool <- Resource.liftF(CustomWorkersPool.withRequestResponder[IO](requestResponder, tendermint.tendermint))
+      requestResponder <- ResponseSubscriber.make[IO, IO.Par](tendermint.tendermint, tendermint.tendermint, appId)
+      pool <- Resource.liftF(
+        CustomWorkersPool.withRequestResponder[IO](requestResponder, tendermint.tendermint, tendermint.tendermint)
+      )
       _ <- Resource.liftF(pool.run(appId, IO(params)))
       _ <- requestResponder.start()
       worker <- Resource.liftF(pool.get(appId))
@@ -130,11 +133,13 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
   ): IO[Either[TxAwaitError, TendermintQueryResponse]] =
     requests(1, worker, requestSubscriber, txCustom).map(_.head)
 
-  def requests(to: Int,
-               worker: Worker[IO],
-               requestSubscriber: ResponseSubscriber[IO],
-               txCustom: Option[String] = None,
-               appId: Int = 1)(
+  def requests(
+    to: Int,
+    worker: Worker[IO],
+    requestSubscriber: ResponseSubscriber[IO],
+    txCustom: Option[String] = None,
+    appId: Int = 1
+  )(
     implicit P: Parallel[IO, IO.Par],
     log: Log[IO]
   ): IO[List[Either[TxAwaitError, TendermintQueryResponse]]] = {
@@ -142,7 +147,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
     import cats.syntax.parallel._
 
     Range(0, to).toList.map { nonce =>
-      workerApi.sendTxAwaitResponse[IO, IO.Par](worker, txCustom.getOrElse(tx(nonce)), None)
+      WorkerApi(worker).sendTxAwaitResponse(txCustom.getOrElse(tx(nonce)), None)
     }.parSequence
   }
 
@@ -156,7 +161,6 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
 
   "MasterNode API" should {
     "return an RPC error, if broadcastTx returns an error" in {
-
       val result = start().use {
         case (worker, requestSubscriber, _, _) =>
           for {
@@ -182,14 +186,13 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
       }.unsafeRunSync()
 
       result should be('left)
-      result.left.get shouldBe a[TendermintResponseError]
+      result.left.get shouldBe a[TendermintResponseDeserializationError]
 
-      val error = result.left.get.asInstanceOf[TendermintResponseError]
+      val error = result.left.get.asInstanceOf[TendermintResponseDeserializationError]
       error.responseError shouldBe txResponse
     }
 
     "return an error if tx is incorrect" in {
-
       val tx = "failed"
       val result = start().use {
         case (worker, requestSubscriber, tendermintTest, _) =>
@@ -212,7 +215,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
           for {
             _ <- tendermintTest.setTxResponse(Right(correctTxResponse))
             fiber <- request(worker, requestSubscriber).start
-            _ <- IO.sleep(50.millis).flatMap(_ => queueBlocks(blocks, 3))
+            _ <- IO.sleep(50.millis).flatMap(_ => queueBlocks(blocks, ResponseSubscriber.MaxBlockTries))
             response <- fiber.join
           } yield response
       }.unsafeRunSync()
@@ -225,14 +228,13 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
     }
 
     "return an error if query API returns incorrect response" in {
-
       val result = start().use {
         case (worker, requestSubscriber, tendermintTest, blocks) =>
           for {
             _ <- tendermintTest.setTxResponse(Right(correctTxResponse))
             _ <- tendermintTest.setQueryResponse(Right("incorrectTxResponse"))
             fiber <- request(worker, requestSubscriber).start
-            _ <- IO.sleep(50.millis).flatMap(_ => queueBlocks(blocks, 3))
+            _ <- IO.sleep(50.millis).flatMap(_ => queueBlocks(blocks, ResponseSubscriber.MaxBlockTries))
             response <- fiber.join
           } yield response
       }.unsafeRunSync()
@@ -245,14 +247,13 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
     }
 
     "return a pending response, if tendermint cannot return response after some amount of blocks" in {
-
       val result = start().use {
         case (worker, requestSubscriber, tendermintTest, blocks) =>
           for {
             _ <- tendermintTest.setTxResponse(Right(correctTxResponse))
             _ <- tendermintTest.setQueryResponse(Right(pendingQueryResponse))
             fiber <- request(worker, requestSubscriber).start
-            _ <- IO.sleep(50.millis).flatMap(_ => queueBlocks(blocks, 3))
+            _ <- IO.sleep(50.millis).flatMap(_ => queueBlocks(blocks, ResponseSubscriber.MaxBlockTries))
             response <- fiber.join
           } yield response
       }.unsafeRunSync()
@@ -261,7 +262,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
       result.right.get shouldBe a[TimedOutResponse]
 
       val error = result.right.get.asInstanceOf[TimedOutResponse]
-      error.tries shouldBe 3
+      error.tries shouldBe ResponseSubscriber.MaxBlockTries
     }
 
     "return OK result if tendermint is responded ok" in {
@@ -271,7 +272,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
             _ <- tendermintTest.setTxResponse(Right(correctTxResponse))
             _ <- tendermintTest.setQueryResponse(Right(correctQueryResponse))
             fiber <- request(worker, requestSubscriber).start
-            _ <- IO.sleep(50.millis).flatMap(_ => queueBlocks(blocks, 3))
+            _ <- IO.sleep(50.millis).flatMap(_ => queueBlocks(blocks, ResponseSubscriber.MaxBlockTries))
             response <- fiber.join
           } yield response
       }.unsafeRunSync()
