@@ -261,8 +261,7 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
         streamEventChecker <- Ref.of[IO, String]("")
         streamFinalizeChecker <- Ref.of[IO, Boolean](false)
 
-        _ = api
-          .subscriptionEventStream()
+        _ = api.subscriptionEventStream
           .evalTap(e => streamEventChecker.set(e))
           .onFinalize(streamFinalizeChecker.set(true))
           .drain
