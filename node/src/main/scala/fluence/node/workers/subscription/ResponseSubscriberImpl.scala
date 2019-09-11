@@ -34,7 +34,7 @@ import fluence.statemachine.api.tx.Tx
 
 import scala.language.higherKinds
 
-class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
+class ResponseSubscriberImpl[F[_]: Functor: Parallel: Timer](
   subscribesRef: Ref[F, Map[Tx.Head, ResponsePromise[F]]],
   tendermintRpc: TendermintHttpRpc[F],
   tendermintWRpc: TendermintWebsocketRpc[F],
@@ -42,7 +42,6 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
   maxBlocksTries: Int = 3
 )(
   implicit F: Concurrent[F],
-  P: Parallel[F, G],
   log: Log[F],
   backoff: Backoff[EffectError] = Backoff.default[EffectError]
 ) extends ResponseSubscriber[F] {
@@ -195,14 +194,12 @@ class ResponseSubscriberImpl[F[_]: Functor: Timer, G[_]](
 
 object ResponseSubscriberImpl {
 
-  def apply[F[_]: Log: Concurrent: Timer, G[_]](
+  def apply[F[_]: Log: Concurrent: Timer: Parallel](
     tendermintRpc: TendermintHttpRpc[F],
     tendermintWRpc: TendermintWebsocketRpc[F],
     appId: Long,
     maxBlocksTries: Int = ResponseSubscriber.MaxBlockTries
-  )(
-    implicit P: Parallel[F, G]
-  ): F[ResponseSubscriberImpl[F, G]] =
+  ): F[ResponseSubscriberImpl[F]] =
     Ref
       .of[F, Map[Tx.Head, ResponsePromise[F]]](
         Map.empty[Tx.Head, ResponsePromise[F]]

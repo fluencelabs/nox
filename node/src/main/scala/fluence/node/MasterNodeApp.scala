@@ -178,7 +178,7 @@ object MasterNodeApp extends IOApp {
       .make(masterConf, node)
       .flatMap(
         statusAggregator =>
-          MasterHttp.make[IO, IO.Par, UriContact](
+          MasterHttp.make[IO, UriContact](
             "0.0.0.0",
             masterConf.httpApi.port.toShort,
             statusAggregator,

@@ -33,11 +33,12 @@ import fluence.log.Log
 import scala.annotation.tailrec
 import scala.language.higherKinds
 
-private[state] class RoutingStateImpl[F[_]: Monad: Parallel, P[_], C](
+private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
   override val nodeKey: Key,
   siblingsState: SiblingsState[F, C],
   bucketsState: BucketsState[F, C]
-) extends RoutingState[F, C] {
+)(implicit P: Parallel[F])
+    extends RoutingState[F, C] {
 
   override val siblings: F[Siblings[C]] =
     siblingsState.read

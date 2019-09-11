@@ -51,18 +51,18 @@ object MasterHttp {
    * @param agg Status Aggregator
    * @param pool Workers Pool
    */
-  def make[F[_]: Timer: ConcurrentEffect: LogFactory, G[_], C](
+  def make[F[_]: Parallel: Timer: ConcurrentEffect: LogFactory, C](
     host: String,
     port: Short,
     agg: StatusAggregator[F],
     pool: WorkersPool[F],
     kad: KademliaHttp[F, C],
     dht: List[DhtHttp[F]] = Nil
-  )(implicit P: Parallel[F, G]): Resource[F, Server[F]] = {
+  ): Resource[F, Server[F]] = {
     implicit val dsl: Http4sDsl[F] = new Http4sDsl[F] {}
 
     val routes = Router[F](
-      ("/status" -> StatusHttp.routes[F, G](agg)) ::
+      ("/status" -> StatusHttp.routes[F](agg)) ::
         ("/apps" -> WorkersHttp.routes[F](pool)) ::
         ("/kad" -> kad.routes()) ::
         dht.map(dhtHttp ⇒ dhtHttp.prefix -> dhtHttp.routes()): _*

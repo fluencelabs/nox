@@ -48,7 +48,7 @@ import scala.language.higherKinds
  *
  * @param workers a storage for running [[Worker]]s, indexed by appIds
  */
-class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
+class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect: Parallel](
   ports: WorkersPorts[F],
   workers: Ref[F, Map[Long, Worker[F]]],
   logLevel: Log.Level,
@@ -61,7 +61,6 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
 )(
   implicit
   F: ConcurrentEffect[F],
-  P: Parallel[F, G],
   backoff: Backoff[EffectError]
 ) extends WorkersPool[F] {
 
@@ -268,7 +267,7 @@ object DockerWorkersPool {
   /**
    * Build a new [[DockerWorkersPool]]. All workers will be stopped when the pool is released
    */
-  def make[F[_]: DockerIO: ContextShift: Timer: Log: SttpEffect, G[_]](
+  def make[F[_]: DockerIO: ContextShift: Parallel: Timer: Log: SttpEffect](
     minPort: Short,
     maxPort: Short,
     rootPath: Path,
@@ -279,7 +278,6 @@ object DockerWorkersPool {
   )(
     implicit
     F: ConcurrentEffect[F],
-    P: Parallel[F, G],
     backoff: Backoff[EffectError]
   ): Resource[F, WorkersPool[F]] =
     for {
@@ -287,7 +285,7 @@ object DockerWorkersPool {
       pool ← Resource.make {
         for {
           workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
-        } yield new DockerWorkersPool[F, G](
+        } yield new DockerWorkersPool[F](
           ports,
           workers,
           workerLogLevel,

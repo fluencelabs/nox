@@ -156,7 +156,7 @@ object DockerWorkerServices {
    * @param receiptStorage Receipt storage resource for this app
    * @return the [[WorkerServices]] instance
    */
-  def make[F[_]: DockerIO: Timer: ConcurrentEffect: Log: ContextShift: SttpEffect, G[_]](
+  def make[F[_]: DockerIO: Timer: ConcurrentEffect: Parallel: Log: ContextShift: SttpEffect](
     params: WorkerParams,
     p2pPort: Short,
     stopTimeout: Int,
@@ -167,7 +167,6 @@ object DockerWorkerServices {
   )(
     implicit
     F: Concurrent[F],
-    P: Parallel[F, G],
     backoff: Backoff[EffectError]
   ): Resource[F, WorkerServices[F]] =
     for {
