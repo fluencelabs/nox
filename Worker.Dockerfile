@@ -8,7 +8,7 @@ FROM mozilla/sbt as build
 USER root
 COPY . /fluence
 WORKDIR /fluence
-RUN --mount=type=cache,target=/root/.ivy2 --mount=type=cache,target=/root/.sbt sbt statemachine/assembly
+RUN --mount=type=cache,target=/root/.ivy2 --mount=type=cache,target=/root/.sbt sbt statemachine-docker/assembly
 
 FROM openjdk:8-jre-alpine
 VOLUME /worker
