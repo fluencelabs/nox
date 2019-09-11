@@ -37,16 +37,13 @@ import scala.language.higherKinds
 
 object TestKademlia {
 
-  def apply[F[_]: Timer: ConcurrentEffect: LiftIO, P[_], C](
+  def apply[F[_]: Parallel: Timer: ConcurrentEffect: LiftIO, P[_], C](
     nodeId: Key,
     alpha: Int,
     k: Int,
     getKademlia: C ⇒ Kademlia[F, C],
     toContact: Key ⇒ C,
     pingExpiresIn: FiniteDuration = 1.second
-  )(
-    implicit
-    P: Parallel[F, P]
   ): F[Kademlia[F, C]] = {
     def ownContactValue = Node[C](nodeId, toContact(nodeId))
 
@@ -81,7 +78,7 @@ object TestKademlia {
            */
           override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: Int)(implicit log: Log[F]) =
             updateOwn >> kad.handleRPC.lookupAway(key, moveAwayFrom, numberOfNodes)
-        }
+      }
     )
 
     RoutingTable[F, P, C](nodeId, k, k)
@@ -107,7 +104,7 @@ object TestKademlia {
           rk ⇒
             log.scope("key" -> toContact(rk).toString)(
               implicit log ⇒ apply(rk, alpha, k, kads(_), toContact, pingExpiresIn)
-            )
+          )
         )
         .unsafeRunSync()
         .foldLeft(Map.empty[C, Kademlia[IO, C]]) {

@@ -113,11 +113,11 @@ trait Kademlia[F[_], C] {
 
 object Kademlia {
 
-  def apply[F[_]: Monad: Clock, P[_], C](
+  def apply[F[_]: Monad: Clock: Parallel, P[_], C](
     routing: RoutingTable[F, C],
     ownContactGetter: F[Node[C]],
     conf: RoutingConf
-  )(implicit P: Parallel[F, P], ca: ContactAccess[F, C]): Kademlia[F, C] =
+  )(implicit ca: ContactAccess[F, C]): Kademlia[F, C] =
     new KademliaImpl(routing.nodeKey, conf.parallelism, ownContactGetter, routing)
 
   /**

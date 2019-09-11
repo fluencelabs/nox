@@ -174,12 +174,12 @@ object RoutingTable {
    * @param extensions Extensions to apply
    * @return Ready-to-use RoutingTable, expected to be a singleton
    */
-  def apply[F[_]: Async: Clock: LiftIO, P[_], C](
+  def apply[F[_]: Async: Parallel: Clock: LiftIO, P[_], C](
     nodeKey: Key,
     siblingsSize: Int,
     maxBucketSize: Int,
     extensions: List[Extension[F, C]] = Nil
-  )(implicit P: Parallel[F, P], ca: ContactAccess[F, C]): F[RoutingTable[F, C]] =
+  )(implicit ca: ContactAccess[F, C]): F[RoutingTable[F, C]] =
     for {
       // Build a plain in-memory routing state
       st ← RoutingState.inMemory[F, P, C](nodeKey, siblingsSize, maxBucketSize)

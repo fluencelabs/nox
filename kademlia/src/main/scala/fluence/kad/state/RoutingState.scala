@@ -97,8 +97,10 @@ object RoutingState {
    * @param maxBucketSize The size of a bucket
    * @tparam C Contact
    */
-  def inMemory[F[_]: Async, P[_], C](nodeKey: Key, siblingsSize: Int, maxBucketSize: Int)(
-    implicit P: Parallel[F, P]
+  def inMemory[F[_]: Async: Parallel, P[_], C](
+    nodeKey: Key,
+    siblingsSize: Int,
+    maxBucketSize: Int
   ): F[RoutingState[F, C]] =
     (
       SiblingsState.withRef[F, C](nodeKey, siblingsSize),

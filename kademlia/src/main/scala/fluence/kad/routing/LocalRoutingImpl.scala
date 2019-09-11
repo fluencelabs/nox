@@ -28,12 +28,10 @@ import fluence.kad.state.{Bucket, Siblings}
 import scala.collection.immutable.Queue
 import scala.language.higherKinds
 
-private[routing] class LocalRoutingImpl[F[_]: Monad, P[_], C](
+private[routing] class LocalRoutingImpl[F[_]: Monad: Parallel, P[_], C](
   val nodeKey: Key,
   siblings: F[Siblings[C]],
   buckets: Int ⇒ F[Bucket[C]]
-)(
-  implicit P: Parallel[F, P]
 ) extends LocalRouting[F, C] {
 
   override def find(key: Key): F[Option[Node[C]]] =
