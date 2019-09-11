@@ -60,7 +60,7 @@ class BucketSpec extends AnyWordSpec with Matchers {
 
           override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C)(implicit log: Log[IO]) =
             throw new NotImplementedError("def lookupAway")
-      }
+        }
 
       val successRPC = (c: C) ⇒
         new KademliaRpc[IO, C] {
@@ -71,7 +71,7 @@ class BucketSpec extends AnyWordSpec with Matchers {
             throw new NotImplementedError("def lookup")
           override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C)(implicit log: Log[IO]) =
             throw new NotImplementedError("def lookupAway")
-      }
+        }
 
       // By default, bucket is empty
       b0.find(k0) shouldBe empty

@@ -130,7 +130,7 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     assemblyJarName in assembly       := "statemachine.jar",
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
     test in assembly                  := {},
-    parallelExecution in Test := false,
+    parallelExecution in Test         := false,
     imageNames in docker              := Seq(ImageName(DockerContainers.Worker)),
     dockerfile in docker              := DockerContainers.worker(assembly.value, baseDirectory.value)
   )
@@ -343,7 +343,7 @@ lazy val `kademlia` = project
       catsTestkit,
       scalaTest,
       disciplineScalaTest,
-      "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % "1.1.8" % Test
+      scalacheckShapeless
     )
   )
   .dependsOn(`kvstore`, `log`)
@@ -459,8 +459,8 @@ lazy val `node-testkit` = (project in file("node/testkit"))
     )
   )
   .dependsOn(
-    `node` % "test->test",
-    `statemachine` % "test->test",
+    `node`           % "test->test",
+    `statemachine`   % "test->test",
     `tendermint-rpc` % "test->test"
   )
   .enablePlugins(AutomateHeaderPlugin)
