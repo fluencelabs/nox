@@ -8,9 +8,9 @@ FROM mozilla/sbt as build
 USER root
 COPY . /fluence
 WORKDIR /fluence
-RUN --mount=type=cache,target=/root/.ivy2 sbt node/assembly
+RUN --mount=type=cache,target=/root/.ivy2 --mount=type=cache,target=/root/.sbt sbt node/assembly
 ARG DOCKER_BINARY=https://download.docker.com/linux/static/stable/x86_64/docker-19.03.2.tgz
-RUN wget -q $DOCKER_BINARY -O- | tar -zxv docker/docker --strip-components=1
+RUN --mount=type=cache,target=/fluence/docker wget -qnc $DOCKER_BINARY -O- | tar --overwrite --strip-components=1 -zxv docker/docker
 
 FROM openjdk:8-jre-alpine
 # this is needed for some binaries (e.g. rocksdb) to run properly on alpine linux since they need libc and alpine uses musl
@@ -19,6 +19,7 @@ RUN ln -sf /lib/libc.musl-x86_64.so.1 /usr/lib/ld-linux-x86-64.so.2
 VOLUME /master
 ENV MIN_PORT 10000
 ENV MAX_PORT 11000
+EXPOSE 5678
 
 # The following directory structure is assumed in node/src/main/resources:
 #    docker/
