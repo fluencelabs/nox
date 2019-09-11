@@ -10,7 +10,7 @@ COPY . /fluence
 WORKDIR /fluence
 RUN --mount=type=cache,target=/root/.ivy2 --mount=type=cache,target=/root/.sbt sbt node/assembly
 ARG DOCKER_BINARY=https://download.docker.com/linux/static/stable/x86_64/docker-19.03.2.tgz
-RUN wget -qnc $DOCKER_BINARY -O- | tar --strip-components=1 -zx docker/docker
+RUN wget -q $DOCKER_BINARY -O- | tar --strip-components=1 -zx docker/docker
 
 FROM openjdk:8-jre-alpine
 # this is needed for some binaries (e.g. rocksdb) to run properly on alpine linux since they need libc and alpine uses musl
