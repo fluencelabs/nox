@@ -23,7 +23,7 @@ import fluence.log.Log
 import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.api.websocket.WorkerWebsocket
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
-import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
+import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
 
 import scala.language.higherKinds
 

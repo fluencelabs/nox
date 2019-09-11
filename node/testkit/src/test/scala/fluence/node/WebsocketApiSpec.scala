@@ -47,7 +47,7 @@ import fluence.node.workers.api.websocket.WebsocketResponses.{
 }
 
 import fluence.node.workers.api.websocket.WorkerWebsocket
-import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
+import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
 import fluence.statemachine.api.tx.Tx
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 import scodec.bits.ByteVector
@@ -262,7 +262,7 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
         streamFinalizeChecker <- Ref.of[IO, Boolean](false)
 
         _ = api
-          .eventStream()
+          .subscriptionEventStream()
           .evalTap(e => streamEventChecker.set(e))
           .onFinalize(streamFinalizeChecker.set(true))
           .drain

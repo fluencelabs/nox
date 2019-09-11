@@ -129,10 +129,11 @@ object WorkersHttp {
                   case m => log.error(s"Unsupported message: $m") as Text("Unsupported")
                 }
 
+              // TODO add maxSize to a config
               Queue
-                .unbounded[F, WebSocketFrame]
+                .bounded[F, WebSocketFrame](32)
                 .flatMap { q =>
-                  val d = q.dequeue.through(processMessages).merge(ws.eventStream().map(Text(_)))
+                  val d = q.dequeue.through(processMessages).merge(ws.subscriptionEventStream.map(Text(_)))
                   val e = q.enqueue
                   WebSocketBuilder[F].build(d, e)
                 }

@@ -26,10 +26,10 @@ import fluence.log.LogFactory.Aux
 import fluence.log.appender.PrintlnLogAppender
 import fluence.log.{Log, LogFactory}
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
-import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
+import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
 import fluence.node.workers.subscription.{
   OkResponse,
-  StoredProcedureExecutor,
+  PerBlockTxExecutor,
   TendermintQueryResponse,
   TxAwaitError,
   WaitResponseService
@@ -75,11 +75,10 @@ class StoredProcedureSpec extends WordSpec with Eventually with Matchers with Op
 
         override def start(): Resource[IO, Unit] = throw new NotImplementedError("def start")
       }
-      storedProcedureExecutor <- StoredProcedureExecutor.make[IO](
+      storedProcedureExecutor <- PerBlockTxExecutor.make[IO](
         tendermint.tendermint,
         tendermint.tendermint,
-        waitResponseService,
-        hasher
+        waitResponseService
       )
       _ <- storedProcedureExecutor.start()
     } yield (storedProcedureExecutor, blocksQ)
@@ -129,8 +128,8 @@ class StoredProcedureSpec extends WordSpec with Eventually with Matchers with Op
             stream2InterruptChecker <- Ref.of[IO, Boolean](false)
             stream3InterruptChecker <- Ref.of[IO, Boolean](false)
 
-            stream1Id = SubscriptionKey("stream1", tx)
-            stream23Id = SubscriptionKey("stream-23", tx)
+            stream1Id = SubscriptionKey.generate("stream1", tx)
+            stream23Id = SubscriptionKey.generate("stream-23", tx)
 
             // create subscribers, 2 and 3 stream has the same id, so they should interrup together on unsubscribe
             stream1 <- executor.subscribe(stream1Id, data)

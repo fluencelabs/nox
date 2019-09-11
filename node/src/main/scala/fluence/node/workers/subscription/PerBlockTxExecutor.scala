@@ -19,12 +19,11 @@ package fluence.node.workers.subscription
 import cats.Monad
 import cats.effect.concurrent.Ref
 import cats.effect.{Concurrent, Resource, Sync, Timer}
-import fluence.crypto.Crypto.Hasher
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.log.Log
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
-import fluence.node.workers.subscription.StoredProcedureExecutor.{Event, TendermintResponse}
+import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
 import fluence.statemachine.api.tx.Tx
 import fs2.concurrent.Topic
 
@@ -34,7 +33,7 @@ import scala.language.higherKinds
  * Service to call subscribed transactions after each tendermint block.
  *
  */
-trait StoredProcedureExecutor[F[_]] {
+trait PerBlockTxExecutor[F[_]] {
 
   /**
    * Makes a subscription by transaction.
@@ -49,13 +48,14 @@ trait StoredProcedureExecutor[F[_]] {
   def unsubscribe(subscriptionKey: SubscriptionKey): F[Boolean]
 
   /**
-   * Gets all transaction subscribes for appId and trying to poll service for new responses.
+   * Starts a background process to execute subscribed transactions for a worker,
+   * polls service for a new response after each block.
    *
    */
   def start(): Resource[F, Unit]
 }
 
-object StoredProcedureExecutor {
+object PerBlockTxExecutor {
 
   /**
    * Data about subscription.
@@ -77,13 +77,17 @@ object StoredProcedureExecutor {
 
   type TendermintResponse = Either[TxAwaitError, TendermintQueryResponse]
 
+  /**
+   *
+   * @param tendermintWRpc websocket service to subscribe for a new blocks
+   * @param waitResponseService for transaction execution
+   */
   def make[F[_]: Monad: Timer: Sync: Concurrent: Log](
     tendermintWRpc: TendermintWebsocketRpc[F],
     tendermintRpc: TendermintHttpRpc[F],
-    waitResponseService: WaitResponseService[F],
-    hasher: Hasher[Array[Byte], String]
-  ): Resource[F, StoredProcedureExecutor[F]] =
+    waitResponseService: WaitResponseService[F]
+  ): Resource[F, PerBlockTxExecutor[F]] =
     for {
       subs <- Resource.liftF(Ref.of[F, Map[String, Subscription[F]]](Map.empty))
-    } yield new StoredProcedureExecutorImpl[F](subs, tendermintWRpc, tendermintRpc, waitResponseService, hasher)
+    } yield new PerBlockTxExecutorImpl[F](subs, tendermintWRpc, tendermintRpc, waitResponseService)
 }

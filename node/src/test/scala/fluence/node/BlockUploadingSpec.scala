@@ -41,7 +41,7 @@ import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
 import fluence.node.eth.state._
 import fluence.node.workers.status.WorkerStatus
-import fluence.node.workers.subscription.{ResponseSubscriber, StoredProcedureExecutor, WaitResponseService}
+import fluence.node.workers.subscription.{PerBlockTxExecutor, ResponseSubscriber, WaitResponseService}
 import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
@@ -170,7 +170,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
 
             override def peersControl: PeersControl[IO] = throw new NotImplementedError("def peersControl")
 
-            override def storedProcedureExecutor: StoredProcedureExecutor[IO] =
+            override def storedProcedureExecutor: PerBlockTxExecutor[IO] =
               throw new NotImplementedError("def storedProcedureExecutor")
           }
 

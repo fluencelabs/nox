@@ -18,39 +18,42 @@ package fluence.node.workers.api.websocket
 
 import cats.data.EitherT
 import cats.effect.Concurrent
-import cats.effect.concurrent.Ref
 import fluence.log.Log
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
-import fluence.crypto.hash.CryptoHashers
 import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.api.websocket.WebsocketResponses.WebsocketResponse
 import fluence.node.workers.api.websocket.WorkerWebsocket.{Subscription, SubscriptionKey}
-import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
+import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
 import fluence.node.workers.subscription.{OkResponse, PendingResponse, RpcErrorResponse, TimedOutResponse}
 import fs2.concurrent.{NoneTerminatedQueue, Queue}
 import io.circe
 import io.circe.parser.parse
 import io.circe.syntax._
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
 /**
  * The layer between messages from Websocket and WorkerAPI.
  *
- * @param subscriptions on transactions after each block
+ * @param subscriptionsStorage keeps all subscriptions of websocket connection
  * @param outputQueue for sending messages into websocket
  */
 class WorkerWebsocket[F[_]: Concurrent](
   workerApi: WorkerApi[F],
-  subscriptions: Ref[F, Map[SubscriptionKey, Subscription[F]]],
+  subscriptionsStorage: SubscriptionStorage[F],
   outputQueue: NoneTerminatedQueue[F, WebsocketResponse]
 )(implicit log: Log[F]) {
   import WebsocketRequests._
   import WebsocketResponses._
 
-  def eventStream(): fs2.Stream[F, String] = outputQueue.dequeue.map(_.asJson.noSpaces)
+  /**
+   * A stream with events of all subscriptions.
+   *
+   */
+  val subscriptionEventStream: fs2.Stream[F, String] = outputQueue.dequeue.map(_.asJson.noSpaces)
 
   /**
    * Unsubscribes from all subscriptions and closes the queue.
@@ -60,35 +63,11 @@ class WorkerWebsocket[F[_]: Concurrent](
     import cats.syntax.traverse._
     import cats.instances.list._
     for {
-      subs <- subscriptions.get
+      subs <- subscriptionsStorage.getSubscriptions
       _ <- subs.keys.toList.traverse(workerApi.unsubscribe)
       _ <- outputQueue.enqueue1(None)
-    } yield {}
-  }
-
-  private def addStream(key: SubscriptionKey, stream: fs2.Stream[F, TendermintResponse]): F[Unit] =
-    for {
-      noSub <- subscriptions.modify { subs =>
-        subs.get(key) match {
-          case Some(v) => (subs.updated(key, v.copy(stream = Some(stream))), true)
-          case None    => (subs, false)
-        }
-      }
-      _ <- if (noSub) log.warn("Unexpected. There is no subscription for a created stream.") else ().pure[F]
     } yield ()
-
-  private def checkAndAddSubscription(key: SubscriptionKey, tx: String): F[Boolean] =
-    for {
-      success <- subscriptions.modify { subs =>
-        subs.get(key) match {
-          case Some(_) => (subs, false)
-          case None =>
-            (subs + (key -> Subscription(tx, None)), true)
-        }
-      }
-    } yield success
-
-  private def deleteSubscription(key: SubscriptionKey): F[Unit] = subscriptions.update(_ - key)
+  }
 
   /**
    * Parse input and call WebsocketAPI.
@@ -144,12 +123,12 @@ class WorkerWebsocket[F[_]: Concurrent](
         }
       case P2pPortRequest(requestId) => workerApi.p2pPort().map(port => P2pPortResponse(requestId, port))
       case SubscribeRequest(requestId, subscriptionId, tx) =>
-        val key = SubscriptionKey(subscriptionId, tx)
-        checkAndAddSubscription(key, tx).flatMap {
+        val key = SubscriptionKey.generate(subscriptionId, tx)
+        subscriptionsStorage.addSubscription(key, tx).flatMap {
           case true =>
             workerApi.subscribe(key, tx).flatMap { stream =>
               for {
-                _ <- addStream(key, stream)
+                _ <- subscriptionsStorage.addStream(key, stream)
                 _ <- Concurrent[F].start(
                   stream
                     .evalMap(r => outputQueue.enqueue1(Some(toWebsocketResponse(key.subscriptionId, r))))
@@ -162,10 +141,12 @@ class WorkerWebsocket[F[_]: Concurrent](
             (ErrorResponse(requestId, s"Subscription $subscriptionId already exists"): WebsocketResponse).pure[F]
         }
       case UnsubscribeRequest(requestId, subscriptionId, tx) =>
-        val key = SubscriptionKey(subscriptionId, tx)
-        deleteSubscription(key).flatMap(
-          _ => workerApi.unsubscribe(key).map(isOk => UnsubscribeResponse(requestId, isOk))
-        )
+        val key = SubscriptionKey.generate(subscriptionId, tx)
+        subscriptionsStorage
+          .deleteSubscription(key)
+          .flatMap(
+            _ => workerApi.unsubscribe(key).map(isOk => UnsubscribeResponse(requestId, isOk))
+          )
 
     }
 }
@@ -176,8 +157,13 @@ object WorkerWebsocket {
 
   object SubscriptionKey {
 
-    def apply(subscriptionId: String, txHash: String): SubscriptionKey = {
-      new SubscriptionKey(subscriptionId, new String(CryptoHashers.Sha1.unsafe(txHash.getBytes())))
+    /**
+     *
+     * @param tx A transaction, to calculate a hash of it.
+     *           Hash of a transaction is required because of multiple identical subscriptions.
+     */
+    def generate(subscriptionId: String, tx: String): SubscriptionKey = {
+      new SubscriptionKey(subscriptionId, ByteVector(tx.getBytes()).toHex)
     }
   }
 
@@ -185,8 +171,8 @@ object WorkerWebsocket {
 
   def apply[F[_]: Concurrent: Log](workerApi: WorkerApi[F]): F[WorkerWebsocket[F]] =
     for {
-      subs <- Ref.of(Map.empty[SubscriptionKey, Subscription[F]])
+      storage <- SubscriptionStorage()
       queue <- Queue.noneTerminated[F, WebsocketResponse]
-    } yield new WorkerWebsocket[F](workerApi, subs, queue)
+    } yield new WorkerWebsocket[F](workerApi, storage, queue)
 
 }

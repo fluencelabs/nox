@@ -35,7 +35,7 @@ import fluence.log.Log
 import fluence.node.status.StatusHttp
 import fluence.node.workers.pool.WorkerP2pConnectivity
 import fluence.node.workers.status._
-import fluence.node.workers.subscription.{ResponseSubscriber, StoredProcedureExecutor, WaitResponseService}
+import fluence.node.workers.subscription.{PerBlockTxExecutor, ResponseSubscriber, WaitResponseService}
 import fluence.node.workers.tendermint.DockerTendermint
 import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.statemachine.api.StateMachine
@@ -66,7 +66,7 @@ case class DockerWorkerServices[F[_]] private (
   peersControl: PeersControl[F],
   blockManifests: WorkerBlockManifests[F],
   waitResponseService: WaitResponseService[F],
-  storedProcedureExecutor: StoredProcedureExecutor[F],
+  storedProcedureExecutor: PerBlockTxExecutor[F],
   statusCall: FiniteDuration ⇒ F[WorkerStatus]
 ) extends WorkerServices[F] {
   override def status(timeout: FiniteDuration): F[WorkerStatus] = statusCall(timeout)
@@ -213,8 +213,8 @@ object DockerWorkerServices {
 
       waitResponseService = WaitResponseService(rpc, responseSubscriber)
 
-      storedProcedureExecutor <- StoredProcedureExecutor
-        .make(wrpc, rpc, waitResponseService, CryptoHashers.Sha1.rmap(b => new String(b)))
+      storedProcedureExecutor <- PerBlockTxExecutor
+        .make(wrpc, rpc, waitResponseService)
 
       services = new DockerWorkerServices[F](
         p2pPort,

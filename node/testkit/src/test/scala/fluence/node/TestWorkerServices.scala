@@ -23,7 +23,7 @@ import fluence.effects.docker.DockerContainerStopped
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus, WorkerStatus}
-import fluence.node.workers.subscription.{ResponseSubscriber, StoredProcedureExecutor, WaitResponseService}
+import fluence.node.workers.subscription.{PerBlockTxExecutor, ResponseSubscriber, WaitResponseService}
 import fluence.node.workers.{WorkerBlockManifests, WorkerServices}
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 
@@ -56,7 +56,7 @@ object TestWorkerServices {
       override def peersControl: PeersControl[F] = throw new NotImplementedError("def peersControl")
       override def waitResponseService: WaitResponseService[F] = WaitResponseService(rpc, requestResponderImpl)
 
-      override def storedProcedureExecutor: StoredProcedureExecutor[F] =
+      override def storedProcedureExecutor: PerBlockTxExecutor[F] =
         throw new NotImplementedError("def storedProcedureExecutor")
     }
   }

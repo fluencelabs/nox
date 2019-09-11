@@ -21,7 +21,7 @@ import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.node.workers.status.WorkerStatus
 import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
-import fluence.node.workers.subscription.{StoredProcedureExecutor, WaitResponseService}
+import fluence.node.workers.subscription.{PerBlockTxExecutor, WaitResponseService}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -49,5 +49,5 @@ trait WorkerServices[F[_]] {
   def waitResponseService: WaitResponseService[F]
 
   // Service to subscribe on transaction processing after every block
-  def storedProcedureExecutor: StoredProcedureExecutor[F]
+  def storedProcedureExecutor: PerBlockTxExecutor[F]
 }

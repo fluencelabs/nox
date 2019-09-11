@@ -25,7 +25,7 @@ import fluence.log.Log
 import fluence.node.workers.Worker
 import fluence.node.workers.api.websocket.WorkerWebsocket
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
-import fluence.node.workers.subscription.StoredProcedureExecutor.TendermintResponse
+import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
 import fluence.node.workers.subscription._
 import fluence.statemachine.api.tx.Tx
 
@@ -90,6 +90,9 @@ trait WorkerApi[F[_]] {
   /**
    * Subscribes on the transaction processing after each block.
    *
+   * @param key an id of subscription
+   * @param tx a transaction that will be executed on state machine after each block
+   * @return a stream with responses on transactions for each block
    */
   def subscribe(key: SubscriptionKey, tx: String)(
     implicit log: Log[F]

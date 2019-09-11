@@ -23,14 +23,13 @@ import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.traverse._
 import cats.syntax.applicative._
-import fluence.crypto.Crypto.Hasher
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
-import fluence.node.workers.subscription.StoredProcedureExecutor.{
+import fluence.node.workers.subscription.PerBlockTxExecutor.{
   Event,
   Init,
   Quit,
@@ -44,17 +43,16 @@ import fs2.concurrent.{SignallingRef, Topic}
 import scala.language.higherKinds
 import scala.util.Random
 
-class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
+class PerBlockTxExecutorImpl[F[_]: Monad: Timer](
   subscriptions: Ref[F, Map[String, Subscription[F]]],
   tendermintWRpc: TendermintWebsocketRpc[F],
   tendermintRpc: TendermintHttpRpc[F],
-  waitResponseService: WaitResponseService[F],
-  hasher: Hasher[Array[Byte], String]
+  waitResponseService: WaitResponseService[F]
 )(
   implicit backoff: Backoff[EffectError] = Backoff.default[EffectError],
   F: Concurrent[F],
   log: Log[F]
-) extends StoredProcedureExecutor[F] {
+) extends PerBlockTxExecutor[F] {
 
   /**
    * Makes a subscription by transaction.
@@ -81,7 +79,7 @@ class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
       subState.topic
         .subscribe(10)
         .evalMap {
-          case q @ Quit(id) if id == key.subscriptionId => signal.set(true).map(_ => q: Event)
+          case q @ Quit(id) if id == key.subscriptionId => signal.set(true) as (q: Event)
           case v                                        => v.pure[F]
         }
         .collect {
@@ -113,7 +111,8 @@ class StoredProcedureExecutorImpl[F[_]: Monad: Timer](
   }
 
   /**
-   * Gets all transaction subscribes for appId and trying to poll service for new responses.
+   * Starts a background process to execute subscribed transactions for a worker,
+   * polls service for a new response after each block.
    *
    */
   override def start(): Resource[F, Unit] =

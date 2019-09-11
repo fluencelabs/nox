@@ -11,9 +11,8 @@ import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
-import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
-import fluence.node.workers.subscription.{ResponseSubscriber, StoredProcedureExecutor, WaitResponseService}
+import fluence.node.workers.subscription.{PerBlockTxExecutor, ResponseSubscriber, WaitResponseService}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -42,7 +41,7 @@ object TestWorkerServices {
       override def peersControl: PeersControl[F] = throw new NotImplementedError("def peersControl")
       override def waitResponseService: WaitResponseService[F] = throw new NotImplementedError("def requestResponder")
 
-      override def storedProcedureExecutor: StoredProcedureExecutor[F] =
+      override def storedProcedureExecutor: PerBlockTxExecutor[F] =
         throw new NotImplementedError("def storedProcedureExecutor")
     }
   }
@@ -71,7 +70,7 @@ object TestWorkerServices {
       override def peersControl: PeersControl[F] = throw new NotImplementedError("def peersControl")
       override def waitResponseService: WaitResponseService[F] = WaitResponseService(rpc, requestResponderImpl)
 
-      override def storedProcedureExecutor: StoredProcedureExecutor[F] =
+      override def storedProcedureExecutor: PerBlockTxExecutor[F] =
         throw new NotImplementedError("def storedProcedureExecutor")
     }
   }
