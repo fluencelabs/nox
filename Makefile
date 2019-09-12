@@ -7,7 +7,7 @@ TAG ?= latest
 # enable docker kit
 KIT      = DOCKER_BUILDKIT=1
 BUILD    = $(KIT) docker build
-TEST_ENV = --build-arg environment=test
+TEST_ENV = --quiet --build-arg environment=test
 
 NODE_FILE = tools/docker/Node.Dockerfile
 WORK_FILE = tools/docker/Worker.Dockerfile
