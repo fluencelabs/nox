@@ -18,9 +18,10 @@ package fluence.kad.state
 
 import cats.data.StateT
 import cats.effect.IO
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-class ReadableMVarSpec extends WordSpec with Matchers {
+class ReadableMVarSpec extends AnyWordSpec with Matchers {
 
   "ReadableMVar" should {
     "Return updated state correctly" in {

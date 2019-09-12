@@ -23,14 +23,15 @@ import fluence.kad.protocol.{KademliaRpc, Key, Node}
 import fluence.kad.routing.LocalRouting
 import fluence.kad.state.RoutingState
 import fluence.log.{Log, LogFactory}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext.global
 import scala.concurrent.duration._
 import scala.language.implicitConversions
 
-class LocalRoutingSpec extends WordSpec with Matchers {
+class LocalRoutingSpec extends AnyWordSpec with Matchers {
   implicit def key(i: Long): Key =
     Key.fromBytes.unsafe(Array.concat(Array.ofDim[Byte](Key.Length - java.lang.Long.BYTES), {
       ByteVector.fromLong(i).toArray
@@ -84,7 +85,7 @@ class LocalRoutingSpec extends WordSpec with Matchers {
       maxBucketSize: Int = 2
     ): (RoutingState[IO, Long], LocalRouting[IO, Long]) =
       RoutingState
-        .inMemory[IO, IO.Par, Long](nodeId, maxSiblingsSize, maxBucketSize)
+        .inMemory[IO, Long](nodeId, maxSiblingsSize, maxBucketSize)
         .map(rs ⇒ rs -> LocalRouting(nodeId, rs.siblings, rs.bucket))
         .unsafeRunSync()
 

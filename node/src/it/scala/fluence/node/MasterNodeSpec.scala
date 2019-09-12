@@ -94,7 +94,7 @@ class MasterNodeSpec
 
       nodeCodec = new UriContact.NodeCodec(Key.fromPublicKey)
 
-      kad ← KademliaHttpNode.make[IO, IO.Par](
+      kad ← KademliaHttpNode.make[IO](
         KademliaConfig(
           RoutingConf(1, 1, 4, 5.seconds),
           AdvertizeConf("127.0.0.1", port),

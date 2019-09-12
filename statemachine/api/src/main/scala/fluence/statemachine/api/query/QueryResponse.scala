@@ -16,7 +16,7 @@
 
 package fluence.statemachine.api.query
 
-import sun.misc.BASE64Encoder
+import scodec.bits.ByteVector
 
 /**
  * A structure for aggregating data specific to building `Query` ABCI method response.
@@ -36,7 +36,7 @@ case class QueryResponse(height: Long, result: Array[Byte], code: QueryCode.Valu
                                                              |    "code": ${code.id},
                                                              |     "response": {
                                                              |       "info": "$info",
-                                                             |       "value": "${new BASE64Encoder().encode(result)}"
+                                                             |       "value": "${ByteVector(result).toBase64}"
                                                              |     }
                                                              |   }
                                                              | }
