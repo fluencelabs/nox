@@ -42,7 +42,7 @@ import org.scalatest.{EitherValues, Matchers, OptionValues, WordSpec}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.util.Try
 
-class StoredProcedureSpec extends WordSpec with Eventually with Matchers with OptionValues with EitherValues {
+class PerBlockTxExecutorSpec extends WordSpec with Eventually with Matchers with OptionValues with EitherValues {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
@@ -72,15 +72,13 @@ class StoredProcedureSpec extends WordSpec with Eventually with Matchers with Op
             k <- counter.take
             _ <- counter.put(k + 1)
           } yield Right(OkResponse(Tx.Head("a", k), ""))
-
-        override def start(): Resource[IO, Unit] = throw new NotImplementedError("def start")
       }
       storedProcedureExecutor <- PerBlockTxExecutor.make[IO](
         tendermint.tendermint,
         tendermint.tendermint,
         waitResponseService
       )
-      _ <- storedProcedureExecutor.start()
+
     } yield (storedProcedureExecutor, blocksQ)
   }
 

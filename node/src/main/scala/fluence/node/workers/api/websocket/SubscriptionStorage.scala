@@ -25,6 +25,7 @@ import cats.syntax.functor._
 import cats.syntax.flatMap._
 import fluence.node.workers.api.websocket.WorkerWebsocket.{Subscription, SubscriptionKey}
 import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
+import fluence.statemachine.api.tx.Tx
 
 import scala.language.higherKinds
 
@@ -54,7 +55,7 @@ class SubscriptionStorage[F[_]: Monad](subscriptions: Ref[F, Map[SubscriptionKey
    *
    * @return false if there is already a subscription with such key
    */
-  def addSubscription(key: SubscriptionKey, tx: String)(
+  def addSubscription(key: SubscriptionKey, tx: Tx.Data)(
     implicit log: Log[F]
   ): F[Boolean] =
     for {
@@ -62,7 +63,7 @@ class SubscriptionStorage[F[_]: Monad](subscriptions: Ref[F, Map[SubscriptionKey
         subs.get(key) match {
           case Some(_) => (subs, false)
           case None =>
-            (subs + (key -> Subscription(tx, None)), true)
+            (subs + (key -> Subscription(None)), true)
         }
       }
     } yield success

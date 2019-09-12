@@ -126,7 +126,7 @@ class WorkerWebsocket[F[_]: Concurrent](
       case SubscribeRequest(requestId, subscriptionId, tx) =>
         val txData = Tx.Data(tx.getBytes())
         val key = SubscriptionKey.generate(subscriptionId, txData)
-        subscriptionsStorage.addSubscription(key, tx).flatMap {
+        subscriptionsStorage.addSubscription(key, txData).flatMap {
           case true =>
             workerApi.subscribe(key, txData).flatMap { stream =>
               for {
@@ -170,7 +170,7 @@ object WorkerWebsocket {
     }
   }
 
-  private[websocket] case class Subscription[F[_]](tx: String, stream: Option[fs2.Stream[F, TendermintResponse]])
+  private[websocket] case class Subscription[F[_]](stream: Option[fs2.Stream[F, TendermintResponse]])
 
   def apply[F[_]: Concurrent: Log](workerApi: WorkerApi[F]): F[WorkerWebsocket[F]] =
     for {
