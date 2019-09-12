@@ -107,8 +107,8 @@ class StoredProcedureSpec extends WordSpec with Eventually with Matchers with Op
     "be able to process subscribes, publish events through subscribers and close streams on unsubscribe" in {
       start().use {
         case (executor, blockQ) =>
-          val data = Tx.Data(Array[Byte](1, 2, 3))
-          val tx = new String(data.value)
+          val tx = Tx.Data(Array[Byte](1, 2, 3))
+
           // generate blocks eventually
           fs2.Stream
             .awakeEvery[IO](50.milliseconds)
@@ -132,9 +132,9 @@ class StoredProcedureSpec extends WordSpec with Eventually with Matchers with Op
             stream23Id = SubscriptionKey.generate("stream-23", tx)
 
             // create subscribers, 2 and 3 stream has the same id, so they should interrup together on unsubscribe
-            stream1 <- executor.subscribe(stream1Id, data)
-            stream2 <- executor.subscribe(stream23Id, data)
-            stream3 <- executor.subscribe(stream23Id, data)
+            stream1 <- executor.subscribe(stream1Id, tx)
+            stream2 <- executor.subscribe(stream23Id, tx)
+            stream3 <- executor.subscribe(stream23Id, tx)
 
             _ = startStream(stream1, stream1Events, stream1EventsChecker, stream1InterruptChecker)
             _ = startStream(stream2, stream2Events, stream2EventsChecker, stream2InterruptChecker)
