@@ -96,9 +96,6 @@ fn logger_flush(ctx: &mut Ctx) {
     println!();
 }
 
-fn gas_counter(ctx: &mut Ctx, eic: i32) {
-}
+fn gas_counter(ctx: &mut Ctx, eic: i32) {}
 
-fn eic(ctx: &mut Ctx, eic: i32) {
-
-}
+fn eic(ctx: &mut Ctx, eic: i32) {}
