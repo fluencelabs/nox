@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/root/.ivy2 --mount=type=cache,target=/root/.sbt s
 ############## Download docker binary
 FROM alpine as docker
 ARG DOCKER_BINARY=https://download.docker.com/linux/static/stable/x86_64/docker-19.03.2.tgz
-RUN wget $DOCKER_BINARY -O- | tar -C / --strip-components=1 -zx docker/docker && ls / && sleep 10
+RUN wget $DOCKER_BINARY -O- | tar -C / --strip-components=1 -zx docker/docker
 
 ############## Copy jar from local fs for tests, master-node.jar should be prebuilt
 FROM scratch as test
