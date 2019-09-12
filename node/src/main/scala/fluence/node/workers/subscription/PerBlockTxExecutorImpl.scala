@@ -16,7 +16,6 @@
 
 package fluence.node.workers.subscription
 
-import cats.Monad
 import cats.effect.{Concurrent, Resource, Timer}
 import cats.effect.concurrent.Ref
 import cats.syntax.functor._
@@ -43,15 +42,13 @@ import fs2.concurrent.{SignallingRef, Topic}
 import scala.language.higherKinds
 import scala.util.Random
 
-class PerBlockTxExecutorImpl[F[_]: Monad: Timer](
+class PerBlockTxExecutorImpl[F[_]: Timer: Concurrent](
   subscriptions: Ref[F, Map[String, Subscription[F]]],
   tendermintWRpc: TendermintWebsocketRpc[F],
   tendermintRpc: TendermintHttpRpc[F],
   waitResponseService: WaitResponseService[F]
 )(
-  implicit backoff: Backoff[EffectError] = Backoff.default[EffectError],
-  F: Concurrent[F],
-  log: Log[F]
+  implicit backoff: Backoff[EffectError] = Backoff.default[EffectError]
 ) extends PerBlockTxExecutor[F] {
 
   /**
@@ -62,7 +59,9 @@ class PerBlockTxExecutorImpl[F[_]: Monad: Timer](
    * @param data a transaction
    * @return a stream of responses every block
    */
-  override def subscribe(key: SubscriptionKey, data: Tx.Data): F[fs2.Stream[F, TendermintResponse]] =
+  override def subscribe(key: SubscriptionKey, data: Tx.Data)(
+    implicit log: Log[F]
+  ): F[fs2.Stream[F, TendermintResponse]] =
     for {
       _ <- log.debug(s"Subscribe for id: ${key.subscriptionId}, txHash: ${key.txHash}")
       topic <- Topic[F, Event](Init)
@@ -88,7 +87,7 @@ class PerBlockTxExecutorImpl[F[_]: Monad: Timer](
         .interruptWhen(signal)
     }
 
-  override def unsubscribe(key: SubscriptionKey): F[Boolean] =
+  override def unsubscribe(key: SubscriptionKey)(implicit log: Log[F]): F[Boolean] =
     for {
       _ <- log.debug(s"Unsubscribe for id: ${key.subscriptionId}, txHash: $key")
       (isOk, topicToCloseSubscription) <- subscriptions.modify { subs =>
@@ -112,8 +111,8 @@ class PerBlockTxExecutorImpl[F[_]: Monad: Timer](
    * polls service for a new response after each block.
    *
    */
-  override def start(): Resource[F, Unit] =
-    log.scope("stateSubscriber") { implicit log =>
+  def start()(implicit log: Log[F]): Resource[F, Unit] =
+    log.scope("startBlockTxExecutor") { implicit log =>
       for {
         lastHeight <- Resource.liftF(
           backoff.retry(tendermintRpc.consensusHeight(), e => log.error("retrieving consensus height", e))
@@ -122,7 +121,7 @@ class PerBlockTxExecutorImpl[F[_]: Monad: Timer](
         blockStream = tendermintWRpc.subscribeNewBlock(lastHeight)
         pollingStream = blockStream
           .evalTap(b => log.debug(s"got block ${b.header.height}"))
-          .evalMap(_ => processSubscribes())
+          .evalMap(_ => processSubscriptions())
         _ <- MakeResource.concurrentStream(pollingStream)
       } yield ()
     }
@@ -131,7 +130,9 @@ class PerBlockTxExecutorImpl[F[_]: Monad: Timer](
    * Generates unique header for transaction and call sentTxAwaitResponse
    *
    */
-  private def waitTx(key: String, data: Tx.Data): F[Either[TxAwaitError, TendermintQueryResponse]] = {
+  private def waitTx(key: String, data: Tx.Data)(
+    implicit log: Log[F]
+  ): F[Either[TxAwaitError, TendermintQueryResponse]] = {
     val randomStr = Random.alphanumeric.take(8).mkString
     val head = Tx.Head(s"pubsub-$key-$randomStr", 0)
     val tx = Tx(head, data)
@@ -139,7 +140,7 @@ class PerBlockTxExecutorImpl[F[_]: Monad: Timer](
     waitResponseService.sendTxAwaitResponse(tx.generateTx(), None)
   }
 
-  private def processSubscribes() = {
+  private def processSubscriptions()(implicit log: Log[F]) = {
     import cats.instances.list._
     for {
       subs <- subscriptions.get
@@ -152,7 +153,7 @@ class PerBlockTxExecutorImpl[F[_]: Monad: Timer](
             _ <- topic.publish1(Response(response))
           } yield {}
       }
-      _ <- tasks.toList.traverse(F.start)
+      _ <- tasks.toList.traverse(Concurrent[F].start)
     } yield ()
   }
 }

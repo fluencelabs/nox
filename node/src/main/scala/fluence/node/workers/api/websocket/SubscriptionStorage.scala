@@ -28,9 +28,7 @@ import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
 
 import scala.language.higherKinds
 
-class SubscriptionStorage[F[_]: Monad](subscriptions: Ref[F, Map[SubscriptionKey, Subscription[F]]])(
-  implicit log: Log[F]
-) {
+class SubscriptionStorage[F[_]: Monad](subscriptions: Ref[F, Map[SubscriptionKey, Subscription[F]]]) {
 
   def getSubscriptions: F[Map[SubscriptionKey, Subscription[F]]] = subscriptions.get
 
@@ -39,7 +37,9 @@ class SubscriptionStorage[F[_]: Monad](subscriptions: Ref[F, Map[SubscriptionKey
    *
    * @return false if there is no subscription with such key
    */
-  def addStream(key: SubscriptionKey, stream: fs2.Stream[F, TendermintResponse]): F[Boolean] =
+  def addStream(key: SubscriptionKey, stream: fs2.Stream[F, TendermintResponse])(
+    implicit log: Log[F]
+  ): F[Boolean] =
     for {
       noSub <- subscriptions.modify { subs =>
         subs.get(key) match {
@@ -54,7 +54,9 @@ class SubscriptionStorage[F[_]: Monad](subscriptions: Ref[F, Map[SubscriptionKey
    *
    * @return false if there is already a subscription with such key
    */
-  def addSubscription(key: SubscriptionKey, tx: String): F[Boolean] =
+  def addSubscription(key: SubscriptionKey, tx: String)(
+    implicit log: Log[F]
+  ): F[Boolean] =
     for {
       success <- subscriptions.modify { subs =>
         subs.get(key) match {
@@ -65,7 +67,9 @@ class SubscriptionStorage[F[_]: Monad](subscriptions: Ref[F, Map[SubscriptionKey
       }
     } yield success
 
-  def deleteSubscription(key: SubscriptionKey): F[Unit] = subscriptions.update(_ - key)
+  def deleteSubscription(key: SubscriptionKey)(
+    implicit log: Log[F]
+  ): F[Unit] = subscriptions.update(_ - key)
 }
 
 object SubscriptionStorage {

@@ -211,7 +211,7 @@ object DockerWorkerServices {
 
       responseSubscriber <- ResponseSubscriber.make(rpc, wrpc, params.appId)
 
-      waitResponseService = WaitResponseService(rpc, responseSubscriber)
+      waitResponseService ← WaitResponseService(rpc, responseSubscriber)
 
       storedProcedureExecutor <- PerBlockTxExecutor
         .make(wrpc, rpc, waitResponseService)
@@ -232,11 +232,6 @@ object DockerWorkerServices {
       // Start uploading tendermint blocks and send receipts to statemachine
       _ <- blockUploading.start(params.app.id, services)
 
-      // Start Response subscriber after block uploading, so block replay succeeds
-      _ <- waitResponseService.start()
-
-      // Start to send transactions on each subscription to state machine after each block
-      _ <- storedProcedureExecutor.start()
     } yield services
 
 }

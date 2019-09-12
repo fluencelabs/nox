@@ -35,7 +35,6 @@ trait WaitResponseService[F[_]] {
     implicit log: Log[F]
   ): F[Either[TxAwaitError, TendermintQueryResponse]]
 
-  def start(): Resource[F, Unit]
 }
 
 class WaitResponseServiceImpl[F[_]: Monad](
@@ -122,5 +121,8 @@ object WaitResponseService {
   def apply[F[_]: Monad](
     tendermintRpc: TendermintHttpRpc[F],
     responseSubscriber: ResponseSubscriber[F]
-  ): WaitResponseService[F] = new WaitResponseServiceImpl(tendermintRpc, responseSubscriber)
+  ): Resource[F, WaitResponseService[F]] = {
+    val instance = new WaitResponseServiceImpl(tendermintRpc, responseSubscriber)
+    instance.start().as(instance)
+  }
 }

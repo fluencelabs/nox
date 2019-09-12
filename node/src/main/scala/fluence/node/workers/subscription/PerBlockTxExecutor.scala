@@ -16,9 +16,8 @@
 
 package fluence.node.workers.subscription
 
-import cats.Monad
 import cats.effect.concurrent.Ref
-import cats.effect.{Concurrent, Resource, Sync, Timer}
+import cats.effect.{Concurrent, Resource, Timer}
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.log.Log
@@ -43,16 +42,11 @@ trait PerBlockTxExecutor[F[_]] {
    * @param data a transaction
    * @return a stream of responses every block
    */
-  def subscribe(subscriptionKey: SubscriptionKey, data: Tx.Data): F[fs2.Stream[F, TendermintResponse]]
+  def subscribe(subscriptionKey: SubscriptionKey, data: Tx.Data)(
+    implicit log: Log[F]
+  ): F[fs2.Stream[F, TendermintResponse]]
 
-  def unsubscribe(subscriptionKey: SubscriptionKey): F[Boolean]
-
-  /**
-   * Starts a background process to execute subscribed transactions for a worker,
-   * polls service for a new response after each block.
-   *
-   */
-  def start(): Resource[F, Unit]
+  def unsubscribe(subscriptionKey: SubscriptionKey)(implicit log: Log[F]): F[Boolean]
 }
 
 object PerBlockTxExecutor {
@@ -82,12 +76,14 @@ object PerBlockTxExecutor {
    * @param tendermintWRpc websocket service to subscribe for a new blocks
    * @param waitResponseService for transaction execution
    */
-  def make[F[_]: Monad: Timer: Sync: Concurrent: Log](
+  def make[F[_]: Timer: Concurrent: Log](
     tendermintWRpc: TendermintWebsocketRpc[F],
     tendermintRpc: TendermintHttpRpc[F],
     waitResponseService: WaitResponseService[F]
   ): Resource[F, PerBlockTxExecutor[F]] =
     for {
       subs <- Resource.liftF(Ref.of[F, Map[String, Subscription[F]]](Map.empty))
-    } yield new PerBlockTxExecutorImpl[F](subs, tendermintWRpc, tendermintRpc, waitResponseService)
+      instance = new PerBlockTxExecutorImpl[F](subs, tendermintWRpc, tendermintRpc, waitResponseService)
+      _ ← instance.start()
+    } yield instance
 }
