@@ -413,14 +413,14 @@ lazy val `node` = project
     ),
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
     testOnly in IntegrationTest := (testOnly in IntegrationTest)
-      .dependsOn(docker)
-      .dependsOn(docker in `statemachine-docker`)
+      .dependsOn(docker in Test)
+      .dependsOn((docker in Test) in `statemachine-docker`)
       .dependsOn(compile in `vm-llamadb`)
       .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
       .evaluated,
     test in IntegrationTest := (test in IntegrationTest)
-      .dependsOn(docker)
-      .dependsOn(docker in `statemachine-docker`)
+      .dependsOn(docker in Test)
+      .dependsOn((docker in Test) in `statemachine-docker`)
       .dependsOn(compile in `vm-llamadb`)
       .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
       .value,

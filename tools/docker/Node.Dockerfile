@@ -39,6 +39,7 @@ EXPOSE 5678
 #      entrypoint.sh
 #      application.conf
 
+COPY --from=build /fluence/docker/docker /usr/bin/docker
 COPY --from=build /fluence/node/src/main/resources/docker /
 COPY --from=build /fluence/node/target/scala-2.12/master-node.jar /master-node.jar
 
