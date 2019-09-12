@@ -62,7 +62,7 @@ class PerBlockTxExecutorImpl[F[_]: Monad: Timer](
    * @param data a transaction
    * @return a stream of responses every block
    */
-  override def subscribe(key: SubscriptionKey, data: Tx.Data): F[fs2.Stream[F, TendermintResponse]] = {
+  override def subscribe(key: SubscriptionKey, data: Tx.Data): F[fs2.Stream[F, TendermintResponse]] =
     for {
       _ <- log.debug(s"Subscribe for id: ${key.subscriptionId}, txHash: ${key.txHash}")
       topic <- Topic[F, Event](Init)
@@ -87,9 +87,8 @@ class PerBlockTxExecutorImpl[F[_]: Monad: Timer](
         }
         .interruptWhen(signal)
     }
-  }
 
-  override def unsubscribe(key: SubscriptionKey): F[Boolean] = {
+  override def unsubscribe(key: SubscriptionKey): F[Boolean] =
     for {
       _ <- log.debug(s"Unsubscribe for id: ${key.subscriptionId}, txHash: $key")
       (isOk, topicToCloseSubscription) <- subscriptions.modify { subs =>
@@ -107,8 +106,6 @@ class PerBlockTxExecutorImpl[F[_]: Monad: Timer](
         case None    => ().pure[F]
       }
     } yield isOk
-
-  }
 
   /**
    * Starts a background process to execute subscribed transactions for a worker,

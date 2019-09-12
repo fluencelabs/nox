@@ -56,7 +56,7 @@ object TestWorkerServices {
       override def peersControl: PeersControl[F] = throw new NotImplementedError("def peersControl")
       override def waitResponseService: WaitResponseService[F] = WaitResponseService(rpc, requestResponderImpl)
 
-      override def storedProcedureExecutor: PerBlockTxExecutor[F] =
+      override def perBlockTxExecutor: PerBlockTxExecutor[F] =
         throw new NotImplementedError("def storedProcedureExecutor")
     }
   }

@@ -49,5 +49,5 @@ trait WorkerServices[F[_]] {
   def waitResponseService: WaitResponseService[F]
 
   // Service to subscribe on transaction processing after every block
-  def storedProcedureExecutor: PerBlockTxExecutor[F]
+  def perBlockTxExecutor: PerBlockTxExecutor[F]
 }

@@ -176,7 +176,7 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
 
         override def peersControl: PeersControl[IO] = throw new NotImplementedError("def peersControl")
 
-        override def storedProcedureExecutor: PerBlockTxExecutor[IO] =
+        override def perBlockTxExecutor: PerBlockTxExecutor[IO] =
           throw new NotImplementedError("def storedProcedureExecutor")
       }
 

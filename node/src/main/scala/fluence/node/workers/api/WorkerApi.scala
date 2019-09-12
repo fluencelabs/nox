@@ -94,7 +94,7 @@ trait WorkerApi[F[_]] {
    * @param tx a transaction that will be executed on state machine after each block
    * @return a stream with responses on transactions for each block
    */
-  def subscribe(key: SubscriptionKey, tx: String)(
+  def subscribe(key: SubscriptionKey, tx: Tx.Data)(
     implicit log: Log[F]
   ): F[fs2.Stream[F, TendermintResponse]]
 
@@ -147,18 +147,18 @@ object WorkerApi {
     override def websocket()(implicit log: Log[F]): F[WorkerWebsocket[F]] =
       WorkerWebsocket(this)
 
-    override def subscribe(key: SubscriptionKey, tx: String)(
+    override def subscribe(key: SubscriptionKey, tx: Tx.Data)(
       implicit log: Log[F]
     ): F[fs2.Stream[F, TendermintResponse]] =
       log.scope("subscriptionKey" -> key.toString) { implicit log ⇒
-        worker.withServices(_.storedProcedureExecutor)(
-          _.subscribe(key, Tx.Data(tx.getBytes()))
+        worker.withServices(_.perBlockTxExecutor)(
+          _.subscribe(key, tx)
         )
       }
 
     override def unsubscribe(key: SubscriptionKey)(implicit log: Log[F]): F[Boolean] =
       log.scope("subscriptionKey" -> key.toString) { implicit log ⇒
-        worker.withServices(_.storedProcedureExecutor)(
+        worker.withServices(_.perBlockTxExecutor)(
           _.unsubscribe(key)
         )
       }

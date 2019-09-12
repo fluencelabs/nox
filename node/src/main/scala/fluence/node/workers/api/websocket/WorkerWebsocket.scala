@@ -27,6 +27,7 @@ import fluence.node.workers.api.websocket.WebsocketResponses.WebsocketResponse
 import fluence.node.workers.api.websocket.WorkerWebsocket.{Subscription, SubscriptionKey}
 import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
 import fluence.node.workers.subscription.{OkResponse, PendingResponse, RpcErrorResponse, TimedOutResponse}
+import fluence.statemachine.api.tx.Tx
 import fs2.concurrent.{NoneTerminatedQueue, Queue}
 import io.circe
 import io.circe.parser.parse
@@ -123,10 +124,11 @@ class WorkerWebsocket[F[_]: Concurrent](
         }
       case P2pPortRequest(requestId) => workerApi.p2pPort().map(port => P2pPortResponse(requestId, port))
       case SubscribeRequest(requestId, subscriptionId, tx) =>
-        val key = SubscriptionKey.generate(subscriptionId, tx)
+        val txData = Tx.Data(tx.getBytes())
+        val key = SubscriptionKey.generate(subscriptionId, txData)
         subscriptionsStorage.addSubscription(key, tx).flatMap {
           case true =>
-            workerApi.subscribe(key, tx).flatMap { stream =>
+            workerApi.subscribe(key, txData).flatMap { stream =>
               for {
                 _ <- subscriptionsStorage.addStream(key, stream)
                 _ <- Concurrent[F].start(
@@ -141,7 +143,8 @@ class WorkerWebsocket[F[_]: Concurrent](
             (ErrorResponse(requestId, s"Subscription $subscriptionId already exists"): WebsocketResponse).pure[F]
         }
       case UnsubscribeRequest(requestId, subscriptionId, tx) =>
-        val key = SubscriptionKey.generate(subscriptionId, tx)
+        val txData = Tx.Data(tx.getBytes())
+        val key = SubscriptionKey.generate(subscriptionId, txData)
         subscriptionsStorage
           .deleteSubscription(key)
           .flatMap(
@@ -162,8 +165,8 @@ object WorkerWebsocket {
      * @param tx A transaction, to calculate a hash of it.
      *           Hash of a transaction is required because of multiple identical subscriptions.
      */
-    def generate(subscriptionId: String, tx: String): SubscriptionKey = {
-      new SubscriptionKey(subscriptionId, ByteVector(tx.getBytes()).toHex)
+    def generate(subscriptionId: String, tx: Tx.Data): SubscriptionKey = {
+      new SubscriptionKey(subscriptionId, ByteVector(tx.value).toHex)
     }
   }
 
