@@ -38,12 +38,12 @@ import scala.language.higherKinds
  * @tparam F Effect
  * @tparam C Contact info
  */
-class KademliaImpl[F[_]: Monad: Clock, P[_], C](
+class KademliaImpl[F[_]: Monad: Clock: Parallel, C](
   override val nodeKey: Key,
   parallelism: Int,
   ownContactGetter: F[Node[C]],
   routing: RoutingTable[F, C]
-)(implicit P: Parallel[F, P], ca: ContactAccess[F, C])
+)(implicit ca: ContactAccess[F, C])
     extends Kademlia[F, C] {
   self ⇒
 

@@ -52,13 +52,11 @@ object ResponseSubscriber {
   // TODO: move to config
   val MaxBlockTries = 10
 
-  def make[F[_]: Log: Concurrent: Timer, G[_]](
+  def make[F[_]: Log: Concurrent: Timer: Parallel](
     tendermintRpc: TendermintHttpRpc[F],
     tendermintWRpc: TendermintWebsocketRpc[F],
     appId: Long,
     maxBlocksTries: Int = MaxBlockTries
-  )(
-    implicit P: Parallel[F, G]
   ): Resource[F, ResponseSubscriber[F]] = Resource.liftF(
     Ref
       .of[F, Map[Tx.Head, ResponsePromise[F]]](Map.empty)

@@ -43,10 +43,10 @@ object StatusHttp {
    * @param sm Status aggregator
    * @param dsl Http4s DSL to build routes with
    */
-  def routes[F[_]: Sync: LogFactory, G[_]](
+  def routes[F[_]: Sync: Parallel: LogFactory](
     sm: StatusAggregator[F],
     defaultTimeout: FiniteDuration = DefaultTimeout
-  )(implicit dsl: Http4sDsl[F], P: Parallel[F, G]): HttpRoutes[F] = {
+  )(implicit dsl: Http4sDsl[F]): HttpRoutes[F] = {
     import dsl._
 
     val maxTimeout = defaultTimeout * 20

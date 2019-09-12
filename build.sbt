@@ -344,7 +344,8 @@ lazy val `kademlia` = project
       cryptoHashsign,
       catsTestkit,
       scalaTest,
-      "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % "1.1.8" % Test
+      disciplineScalaTest,
+      scalacheckShapeless
     )
   )
   .dependsOn(`kvstore`, `log`)

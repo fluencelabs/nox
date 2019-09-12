@@ -18,15 +18,16 @@ package fluence.kad.state
 
 import cats.data.{EitherT, StateT}
 import cats.effect.{ContextShift, IO, Timer}
-import fluence.kad.{KadRemoteError, KadRpcError}
 import fluence.kad.protocol.{KademliaRpc, Key, Node}
+import fluence.kad.{KadRemoteError, KadRpcError}
 import fluence.log.{Log, LogFactory}
-import org.scalatest.{Matchers, WordSpec}
+import org.scalatest.Matchers
+import org.scalatest.wordspec.AnyWordSpec
 
-import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.global
+import scala.concurrent.duration._
 
-class BucketSpec extends WordSpec with Matchers {
+class BucketSpec extends AnyWordSpec with Matchers {
 
   implicit val shift: ContextShift[IO] = IO.contextShift(global)
   implicit val timer: Timer[IO] = IO.timer(global)
@@ -54,9 +55,11 @@ class BucketSpec extends WordSpec with Matchers {
           override def ping()(implicit log: Log[IO]): EitherT[IO, KadRpcError, Node[C]] =
             EitherT.leftT(KadRemoteError("-", new NoSuchElementException): KadRpcError)
 
-          override def lookup(key: Key, numberOfNodes: Int)(implicit log: Log[IO]) = ???
+          override def lookup(key: Key, numberOfNodes: Int)(implicit log: Log[IO]) =
+            throw new NotImplementedError("def lookup")
 
-          override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C)(implicit log: Log[IO]) = ???
+          override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C)(implicit log: Log[IO]) =
+            throw new NotImplementedError("def lookupAway")
         }
 
       val successRPC = (c: C) ⇒
@@ -64,8 +67,10 @@ class BucketSpec extends WordSpec with Matchers {
           override def ping()(implicit log: Log[IO]) =
             EitherT.rightT(Node(Key.fromBytes.unsafe(Array.fill(Key.Length)(c.toByte)), c))
 
-          override def lookup(key: Key, numberOfNodes: Int)(implicit log: Log[IO]) = ???
-          override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C)(implicit log: Log[IO]) = ???
+          override def lookup(key: Key, numberOfNodes: Int)(implicit log: Log[IO]) =
+            throw new NotImplementedError("def lookup")
+          override def lookupAway(key: Key, moveAwayFrom: Key, numberOfNodes: C)(implicit log: Log[IO]) =
+            throw new NotImplementedError("def lookupAway")
         }
 
       // By default, bucket is empty
