@@ -1,8 +1,6 @@
 use std::fs;
 use wasmer_runtime::error::CallError;
-use wasmer_runtime::{
-    error, func, imports, instantiate, Func, Instance, Ctx
-};
+use wasmer_runtime::{error, func, imports, instantiate, Ctx, Func, Instance};
 
 pub struct WasmerExecutor {
     instance: Instance,

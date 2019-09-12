@@ -1,8 +1,8 @@
 use jni::JNIEnv;
 
+use crate::wasmer_executor::WasmerExecutor;
 use jni::objects::{JByteBuffer, JClass, JString};
 use jni::sys::{jbyteArray, jint};
-use crate::wasmer_executor::WasmerExecutor;
 
 use std::sync::Mutex;
 
@@ -26,7 +26,7 @@ pub extern "system" fn Java_Executor_init(
 
     executor = match WasmerExecutor::new(&file_name) {
         Ok(executor) => Some(executor),
-        Err(_) => return -1
+        Err(_) => return -1,
     };
 
     0
@@ -47,10 +47,9 @@ pub extern "system" fn Java_Executor_invoke<'a>(
 
     let result = match executor {
         None => {
-            env
-                .new_byte_array(0)
+            env.new_byte_array(0)
                 .expect("Couldn't allocate enough space for byte array");
-        },
+        }
         Some(executor) => executor.invoke(input),
     };
 
@@ -63,7 +62,4 @@ pub extern "system" fn Java_Executor_invoke<'a>(
 
 // computes hash of the internal VM state
 #[no_mangle]
-pub extern "system" fn Java_Executor_vm_state<'a>(
-    env: JNIEnv,
-    class: JClass,
-) {}
+pub extern "system" fn Java_Executor_vm_state<'a>(env: JNIEnv, class: JClass) {}
