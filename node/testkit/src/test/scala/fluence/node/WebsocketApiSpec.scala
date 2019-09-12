@@ -239,7 +239,7 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
       val streamResponse = OkResponse(Tx.Head("sess", 0), s"response ")
 
       val api = websocketApi(new TestWorkerApi[IO] {
-        override def subscribe(key: WorkerWebsocket.SubscriptionKey, tx: String)(
+        override def subscribe(key: WorkerWebsocket.SubscriptionKey, tx: Tx.Data)(
           implicit log: Log[IO]
         ): IO[fs2.Stream[IO, TendermintResponse]] =
           IO(

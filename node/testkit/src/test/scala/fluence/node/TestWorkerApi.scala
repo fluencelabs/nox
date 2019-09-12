@@ -24,6 +24,7 @@ import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.api.websocket.WorkerWebsocket
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
+import fluence.statemachine.api.tx.Tx
 
 import scala.language.higherKinds
 
@@ -81,7 +82,7 @@ class TestWorkerApi[F[_]: Concurrent]() extends WorkerApi[F] {
 
   override def websocket()(implicit log: Log[F]): F[WorkerWebsocket[F]] = WorkerWebsocket(this)
 
-  override def subscribe(key: SubscriptionKey, tx: String)(
+  override def subscribe(key: SubscriptionKey, tx: Tx.Data)(
     implicit log: Log[F]
   ): F[fs2.Stream[F, TendermintResponse]] = throw new NotImplementedError("TestWorkerApi, method subscribe")
 
