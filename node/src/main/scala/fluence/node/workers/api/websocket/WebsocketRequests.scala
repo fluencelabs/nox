@@ -31,6 +31,8 @@ object WebsocketRequests {
   case class LastManifestRequest(requestId: String) extends WebsocketRequest
   case class P2pPortRequest(requestId: String) extends WebsocketRequest
   case class StatusRequest(requestId: String) extends WebsocketRequest
+  case class SubscribeRequest(requestId: String, subscriptionId: String, tx: String) extends WebsocketRequest
+  case class UnsubscribeRequest(requestId: String, subscriptionId: String, tx: String) extends WebsocketRequest
 
   object WebsocketRequest {
     implicit val conf: Configuration =

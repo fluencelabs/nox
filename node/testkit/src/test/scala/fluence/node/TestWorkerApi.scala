@@ -16,17 +16,19 @@
 
 package fluence.node
 
-import cats.Monad
+import cats.effect.Concurrent
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.log.Log
-import fluence.node.workers.subscription.{TendermintQueryResponse, TxAwaitError}
 import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.api.websocket.WorkerWebsocket
+import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
+import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
+import fluence.statemachine.api.tx.Tx
 
 import scala.language.higherKinds
 
-class TestWorkerApi[F[_]: Monad]() extends WorkerApi[F] {
+class TestWorkerApi[F[_]: Concurrent]() extends WorkerApi[F] {
 
   /**
    * Sends `query` request to tendermint.
@@ -68,7 +70,7 @@ class TestWorkerApi[F[_]: Monad]() extends WorkerApi[F] {
    */
   override def sendTxAwaitResponse(tx: String, id: Option[String])(
     implicit log: Log[F]
-  ): F[Either[TxAwaitError, TendermintQueryResponse]] =
+  ): F[TendermintResponse] =
     throw new NotImplementedError("TestWorkerApi, method sendTxAwaitResponse")
 
   /**
@@ -78,5 +80,13 @@ class TestWorkerApi[F[_]: Monad]() extends WorkerApi[F] {
   override def lastManifest(): F[Option[BlockManifest]] =
     throw new NotImplementedError("TestWorkerApi, method lastManifest")
 
-  override def websocket()(implicit log: Log[F]): WorkerWebsocket[F] = WorkerWebsocket(this)
+  override def websocket()(implicit log: Log[F]): F[WorkerWebsocket[F]] = WorkerWebsocket(this)
+
+  override def subscribe(key: SubscriptionKey, tx: Tx.Data)(
+    implicit log: Log[F]
+  ): F[fs2.Stream[F, TendermintResponse]] = throw new NotImplementedError("TestWorkerApi, method subscribe")
+
+  override def unsubscribe(key: SubscriptionKey)(
+    implicit log: Log[F]
+  ): F[Boolean] = throw new NotImplementedError("TestWorkerApi, method unsubscribe")
 }

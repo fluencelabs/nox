@@ -31,6 +31,8 @@ object WebsocketResponses {
   case class LastManifestResponse(requestId: String, lastManifest: Option[String]) extends WebsocketResponse
   case class P2pPortResponse(requestId: String, p2pPort: Short) extends WebsocketResponse
   case class StatusResponse(requestId: String, status: String) extends WebsocketResponse
+  case class SubscribeResponse(requestId: String) extends WebsocketResponse
+  case class UnsubscribeResponse(requestId: String, isOk: Boolean) extends WebsocketResponse
 
   object WebsocketResponse {
     implicit val conf: Configuration =

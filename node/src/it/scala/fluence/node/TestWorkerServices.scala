@@ -11,8 +11,8 @@ import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
-import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
+import fluence.node.workers.subscription.{PerBlockTxExecutor, ResponseSubscriber, WaitResponseService}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -36,18 +36,20 @@ object TestWorkerServices {
 
       override def blockManifests: WorkerBlockManifests[F] = new WorkerBlockManifests(bstore, bref)
 
-      override def responseSubscriber: ResponseSubscriber[F] = throw new NotImplementedError("def requestResponder")
-
       override def receiptBus: ReceiptBus[F] = throw new NotImplementedError("def hashesBus")
 
       override def peersControl: PeersControl[F] = throw new NotImplementedError("def peersControl")
+      override def waitResponseService: WaitResponseService[F] = throw new NotImplementedError("def requestResponder")
+
+      override def perBlockTxExecutor: PerBlockTxExecutor[F] =
+        throw new NotImplementedError("def storedProcedureExecutor")
     }
   }
 
-  def workerServiceTestRequestResponse[F[_]: Applicative: Timer](
+  def workerServiceTestRequestResponse[F[_]: Monad: Timer](
     rpc: TendermintHttpRpc[F],
     wrpc: TendermintWebsocketRpc[F],
-    requestResponderImpl: ResponseSubscriber[F]
+    waitResponseServiceImpl: WaitResponseService[F]
   )(appId: Long): WorkerServices[F] = {
     new WorkerServices[F] {
       override def tendermintRpc: TendermintHttpRpc[F] = rpc
@@ -63,11 +65,13 @@ object TestWorkerServices {
 
       override def blockManifests: WorkerBlockManifests[F] = throw new NotImplementedError("def blockManifest")
 
-      override def responseSubscriber: ResponseSubscriber[F] = requestResponderImpl
-
       override def receiptBus: ReceiptBus[F] = throw new NotImplementedError("def hashesBus")
 
       override def peersControl: PeersControl[F] = throw new NotImplementedError("def peersControl")
+      override def waitResponseService: WaitResponseService[F] = waitResponseServiceImpl
+
+      override def perBlockTxExecutor: PerBlockTxExecutor[F] =
+        throw new NotImplementedError("def storedProcedureExecutor")
     }
   }
 }

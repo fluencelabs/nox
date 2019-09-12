@@ -460,6 +460,7 @@ lazy val `node-testkit` = (project in file("node/testkit"))
   )
   .dependsOn(
     `node`           % "test->test",
+    `node`           % "test->it",
     `statemachine`   % "test->test",
     `tendermint-rpc` % "test->test"
   )
