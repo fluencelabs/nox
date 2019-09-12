@@ -7,20 +7,39 @@ TAG ?= latest
 # enable docker kit
 KIT      = DOCKER_BUILDKIT=1
 BUILD    = $(KIT) docker build
-TEST_ENV = --quiet --build-arg environment=test
+QUIET    = --quiet
+TEST_ENV = environment=test
+TEST     = $(QUIET) --build-arg $(TEST_ENV)
+TRAVIS  ?= false
 
-NODE_FILE = tools/docker/Node.Dockerfile
-WORK_FILE = tools/docker/Worker.Dockerfile
-DASH_FILE = tools/docker/Dashboard.Dockerfile
+DIR       = tools/docker
+NODE_FILE = Node.Dockerfile
+WORK_FILE = Worker.Dockerfile
+DASH_FILE = Dashboard.Dockerfile
 
 NODE_IMG = 'fluencelabs/node:$(TAG)'
 WORK_IMG = 'fluencelabs/statemachine:$(TAG)'
 DASH_IMG = 'fluencelabs/dashboard:$(TAG)'
 
-node:        ;$(BUILD)             -t $(NODE_IMG) -f $(NODE_FILE) .
-node-test:   ;$(BUILD) $(TEST_ENV) -t $(NODE_IMG) -f $(NODE_FILE) .
-worker:      ;$(BUILD)             -t $(WORK_IMG) -f $(WORK_FILE) .
-worker-test: ;$(BUILD) $(TEST_ENV) -t $(WORK_IMG) -f $(WORK_FILE) .
-dashboard:   ;$(BUILD)             -t $(DASH_IMG) -f $(DASH_FILE) .
+node:        ;$(BUILD)         -t $(NODE_IMG) -f $(DIR)/$(NODE_FILE) .
+worker:      ;$(BUILD)         -t $(WORK_IMG) -f $(DIR)/$(WORK_FILE) .
+dashboard:   ;$(BUILD)         -t $(DASH_IMG) -f $(DIR)/$(DASH_FILE) .
 
-.PHONY: node node-test worker worker-test dashboard
+ifeq ($(TRAVIS), false)
+node-test:   ;$(BUILD) $(TEST) -t $(NODE_IMG) -f $(DIR)/$(NODE_FILE) .
+worker-test: ;$(BUILD) $(TEST) -t $(WORK_IMG) -f $(DIR)/$(WORK_FILE) .
+else
+node-test:   NODE-bctl-test
+worker-test: WORKER-bctl-test
+endif
+
+%-bctl-test: ;buildctl build \
+             --frontend dockerfile.v0 \
+             --local context=. \
+             --local dockerfile=$(DIR) \
+             --opt filename=$($*_FILE) \
+             --opt build-arg:$(TEST_ENV) \
+             --output type=docker,name=$($*_IMG) | docker load
+
+
+.PHONY: node node-test worker worker-test dashboard %-bctl-test
