@@ -104,7 +104,8 @@ object SbtCommons {
       docker in Test := (docker in Test).dependsOn(buildContract).value
     )
 
-  def run(cmd: String): Unit = {
+  // Useful – unlike cmd.!! redirects both stdout & stderr to console
+  def runCmd(cmd: String): Unit = {
     import scala.sys.process._
 
     val code = cmd.!
