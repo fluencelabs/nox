@@ -41,7 +41,7 @@ matrix:
         - export BUILDKIT_HOST=tcp://0.0.0.0:1234
       before_script:
         - docker pull tendermint/tendermint:v0.32.2
-        - wget -qnc https://github.com/web3j/web3j/releases/download/v4.5.0/web3j-4.5.0.tar -O- | tar -x && sudo ln -s web3j-4.5.0/bin/web3j /usr/bin/web3j
+        - wget -qnc https://github.com/web3j/web3j/releases/download/v4.5.0/web3j-4.5.0.tar -O- | sudo tar -C /usr --strip-components=1 -x
       script:
         - export TRAVIS=true
         - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile
