@@ -98,8 +98,8 @@ object SbtCommons {
 
   def buildContractBeforeDocker(): Seq[Def.Setting[_]] =
     Seq(
-      docker         := docker.dependsOn(buildContract).inputTaskValue,
-      docker in Test := (docker in Test).dependsOn(buildContract).inputTaskValue
+      docker         := docker.dependsOn(buildContract).value,
+      docker in Test := (docker in Test).dependsOn(buildContract).value
     )
 
   /* Common deps */
