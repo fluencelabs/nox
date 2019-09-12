@@ -18,9 +18,9 @@ package fluence.effects.tendermint.block.data
 
 import com.google.protobuf.timestamp.Timestamp
 import fluence.effects.tendermint.block.protobuf.ProtobufJson
-import io.circe.{Decoder, Encoder}
 import io.circe.generic.extras.Configuration
-import io.circe.generic.extras.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.generic.extras.semiauto.{deriveConfiguredDecoder, deriveConfiguredEncoder}
+import io.circe.{Decoder, Encoder}
 import proto3.tendermint.{BlockID, Version, Vote}
 import scalapb.GeneratedMessage
 import scalapb_circe.JsonFormat
@@ -42,13 +42,13 @@ object SimpleJsonCodecs {
     implicit final val base64ByteVectorEncoder: Encoder[Base64ByteVector] =
       Encoder.encodeString.contramap(_.bv.toBase64)
 
-    implicit final val lastCommitEncoder: Encoder[LastCommit] = deriveEncoder
+    implicit final val lastCommitEncoder: Encoder[LastCommit] = deriveConfiguredEncoder
 
-    implicit final val dataEncoder: Encoder[Data] = deriveEncoder
+    implicit final val dataEncoder: Encoder[Data] = deriveConfiguredEncoder
 
-    implicit final val headerEncoder: Encoder[Header] = deriveEncoder[Header]
+    implicit final val headerEncoder: Encoder[Header] = deriveConfiguredEncoder[Header]
 
-    implicit final val blockEncoder: Encoder[Block] = deriveEncoder
+    implicit final val blockEncoder: Encoder[Block] = deriveConfiguredEncoder
   }
 
   object Decoders {
@@ -70,15 +70,15 @@ object SimpleJsonCodecs {
     implicit final val timestampDecoder: Decoder[Timestamp] =
       Decoder.decodeJson.emap(jvalue => ProtobufJson.timestamp(jvalue).left.map(e => s"Timestamp: $e"))
 
-    implicit final val dataDecoder: Decoder[Data] = deriveDecoder
+    implicit final val dataDecoder: Decoder[Data] = deriveConfiguredDecoder
 
     implicit final val blockIdDecoder: Decoder[BlockID] =
       Decoder.decodeJson.emap(ProtobufJson.blockIdSimple(_).left.map(e => s"BlockID: $e"))
 
-    implicit final val lastCommitDecoder: Decoder[LastCommit] = deriveDecoder
+    implicit final val lastCommitDecoder: Decoder[LastCommit] = deriveConfiguredDecoder
 
-    implicit final val headerDecoder: Decoder[Header] = deriveDecoder
+    implicit final val headerDecoder: Decoder[Header] = deriveConfiguredDecoder
 
-    implicit final val blockDecoder: Decoder[fluence.effects.tendermint.block.data.Block] = deriveDecoder
+    implicit final val blockDecoder: Decoder[fluence.effects.tendermint.block.data.Block] = deriveConfiguredDecoder
   }
 }
