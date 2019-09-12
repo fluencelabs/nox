@@ -24,15 +24,13 @@ DASH_IMG = 'fluencelabs/dashboard:$(TAG)'
 node:        ;$(BUILD)         -t $(NODE_IMG) -f $(DIR)/$(NODE_FILE) .
 worker:      ;$(BUILD)         -t $(WORK_IMG) -f $(DIR)/$(WORK_FILE) .
 dashboard:   ;$(BUILD)         -t $(DASH_IMG) -f $(DIR)/$(DASH_FILE) .
-node-test:   ;$(BUILD) $(TEST) -t $(NODE_IMG) -f $(DIR)/$(NODE_FILE) .
-worker-test: ;$(BUILD) $(TEST) -t $(WORK_IMG) -f $(DIR)/$(WORK_FILE) .
 
 # Using buildctl here because TravisCI doesn't support BuildKit
 # (see https://travis-ci.community/t/docker-builds-are-broken-if-buildkit-is-used-docker-buildkit-1/2994)
-ifeq ($(TRAVIS), true)
-$(info TRAVIS TRUE)
-$(info TRAVIS TRUE)
-$(info TRAVIS TRUE)
+ifeq ($(TRAVIS), false)
+node-test:   ;$(BUILD) $(TEST) -t $(NODE_IMG) -f $(DIR)/$(NODE_FILE) .
+worker-test: ;$(BUILD) $(TEST) -t $(WORK_IMG) -f $(DIR)/$(WORK_FILE) .
+else
 node-test:   NODE-bctl-test
 worker-test: WORK-bctl-test
 endif
