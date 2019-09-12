@@ -39,7 +39,5 @@ object NettyFutureConversion {
 
       F.delay(nf.cancel(true)).attempt.void
     }
-
-    def asAsync[F[_]: Async]: F[A] = Async[F].async(addCallback)
   }
 }
