@@ -19,12 +19,12 @@ package fluence.effects.tendermint.block.data
 import proto3.tendermint.{BlockID, Vote}
 
 import io.circe.Decoder
-import io.circe.generic.extras.semiauto.deriveDecoder
+import io.circe.generic.extras.semiauto.deriveConfiguredDecoder
 
 private[block] object Commit {
   import ReencodingJsonCodecs.{blockIdDecoder, conf, voteDecoder}
 
-  implicit val commitDecoder: Decoder[Commit] = deriveDecoder[Commit]
+  implicit val commitDecoder: Decoder[Commit] = deriveConfiguredDecoder[Commit]
 }
 
 /**

@@ -21,6 +21,7 @@ import fluence.effects.tendermint.block.protobuf.ProtobufJson
 import io.circe.generic.extras.Configuration
 import io.circe.generic.extras.semiauto.{deriveConfiguredDecoder, deriveConfiguredEncoder}
 import io.circe.{Decoder, Encoder}
+import io.circe.generic.extras.semiauto.{deriveConfiguredDecoder, deriveEncoder}
 import proto3.tendermint.{BlockID, Version, Vote}
 import scalapb.GeneratedMessage
 import scalapb_circe.JsonFormat

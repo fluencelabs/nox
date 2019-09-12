@@ -17,9 +17,12 @@
 package fluence.node.workers
 
 import cats.effect._
+import cats.syntax.profunctor._
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.{Apply, Monad, Parallel}
+import fluence.crypto.hash.CryptoHashers
 import cats.{Monad, Parallel}
 import fluence.effects.docker._
 import fluence.effects.receipt.storage.ReceiptStorage
@@ -32,7 +35,7 @@ import fluence.log.Log
 import fluence.node.status.StatusHttp
 import fluence.node.workers.pool.WorkerP2pConnectivity
 import fluence.node.workers.status._
-import fluence.node.workers.subscription.ResponseSubscriber
+import fluence.node.workers.subscription.{PerBlockTxExecutor, ResponseSubscriber, WaitResponseService}
 import fluence.node.workers.tendermint.DockerTendermint
 import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.statemachine.api.StateMachine
@@ -62,7 +65,8 @@ case class DockerWorkerServices[F[_]] private (
   receiptBus: ReceiptBus[F],
   peersControl: PeersControl[F],
   blockManifests: WorkerBlockManifests[F],
-  responseSubscriber: ResponseSubscriber[F],
+  waitResponseService: WaitResponseService[F],
+  perBlockTxExecutor: PerBlockTxExecutor[F],
   statusCall: FiniteDuration ⇒ F[WorkerStatus]
 ) extends WorkerServices[F] {
   override def status(timeout: FiniteDuration): F[WorkerStatus] = statusCall(timeout)
@@ -206,6 +210,11 @@ object DockerWorkerServices {
 
       responseSubscriber <- ResponseSubscriber.make(rpc, wrpc, params.appId)
 
+      waitResponseService ← WaitResponseService(rpc, responseSubscriber)
+
+      storedProcedureExecutor <- PerBlockTxExecutor
+        .make(wrpc, rpc, waitResponseService)
+
       services = new DockerWorkerServices[F](
         p2pPort,
         params.appId,
@@ -214,15 +223,14 @@ object DockerWorkerServices {
         stateMachine.command[ReceiptBus[F]],
         stateMachine.command[PeersControl[F]],
         blockManifests,
-        responseSubscriber,
+        waitResponseService,
+        storedProcedureExecutor,
         status
       )
 
       // Start uploading tendermint blocks and send receipts to statemachine
       _ <- blockUploading.start(params.app.id, services)
 
-      // Start Response subscriber after block uploading, so block replay succeeds
-      _ <- responseSubscriber.start()
     } yield services
 
 }

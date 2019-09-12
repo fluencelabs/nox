@@ -65,14 +65,14 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
     for {
       blocksQ <- Resource.liftF(fs2.concurrent.Queue.unbounded[IO, Block])
       tendermint <- Resource.liftF(TendermintTest[IO](blocksQ.dequeue))
-      requestResponder <- ResponseSubscriber.make[IO](tendermint.tendermint, tendermint.tendermint, appId)
+      responseSubscriber <- ResponseSubscriber.make[IO](tendermint.tendermint, tendermint.tendermint, appId)
+      waitResponseService <- WaitResponseService(tendermint.tendermint, responseSubscriber)
       pool <- Resource.liftF(
-        CustomWorkersPool.withRequestResponder[IO](requestResponder, tendermint.tendermint, tendermint.tendermint)
+        CustomWorkersPool.withRequestResponder[IO](tendermint.tendermint, tendermint.tendermint, waitResponseService)
       )
       _ <- Resource.liftF(pool.run(appId, IO(params)))
-      _ <- requestResponder.start()
       worker <- Resource.liftF(pool.get(appId))
-    } yield (worker.get, requestResponder, tendermint, blocksQ)
+    } yield (worker.get, tendermint, blocksQ)
   }
 
   def tx(nonce: Int) =
@@ -127,15 +127,14 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
   private val correctQueryResponse = queryResponse(0)
   private val pendingQueryResponse = queryResponse(3)
 
-  def request(worker: Worker[IO], requestSubscriber: ResponseSubscriber[IO], txCustom: Option[String] = None)(
+  def request(worker: Worker[IO], txCustom: Option[String] = None)(
     implicit log: Log[IO]
   ): IO[Either[TxAwaitError, TendermintQueryResponse]] =
-    requests(1, worker, requestSubscriber, txCustom).map(_.head)
+    requests(1, worker, txCustom).map(_.head)
 
   def requests(
     to: Int,
     worker: Worker[IO],
-    requestSubscriber: ResponseSubscriber[IO],
     txCustom: Option[String] = None,
     appId: Int = 1
   )(
@@ -160,9 +159,9 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
   "MasterNode API" should {
     "return an RPC error, if broadcastTx returns an error" in {
       val result = start().use {
-        case (worker, requestSubscriber, _, _) =>
+        case (worker, _, _) =>
           for {
-            response <- request(worker, requestSubscriber)
+            response <- request(worker)
           } yield response
       }.unsafeRunSync()
 
@@ -176,10 +175,10 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
     "return response from tendermint as is if the node cannot parse it" in {
       val txResponse = "other response"
       val result = start().use {
-        case (worker, requestSubscriber, tendermintTest, _) =>
+        case (worker, tendermintTest, _) =>
           for {
             _ <- tendermintTest.setTxResponse(Right(txResponse))
-            response <- request(worker, requestSubscriber)
+            response <- request(worker)
           } yield response
       }.unsafeRunSync()
 
@@ -193,9 +192,9 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
     "return an error if tx is incorrect" in {
       val tx = "failed"
       val result = start().use {
-        case (worker, requestSubscriber, tendermintTest, _) =>
+        case (worker, _, _) =>
           for {
-            response <- request(worker, requestSubscriber, Some(tx))
+            response <- request(worker, Some(tx))
           } yield response
       }.unsafeRunSync()
 
@@ -209,10 +208,10 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
     "return an error if query API from tendermint is not responded" in {
 
       val result = start().use {
-        case (worker, requestSubscriber, tendermintTest, blocks) =>
+        case (worker, tendermintTest, blocks) =>
           for {
             _ <- tendermintTest.setTxResponse(Right(correctTxResponse))
-            fiber <- request(worker, requestSubscriber).start
+            fiber <- request(worker).start
             _ <- IO.sleep(50.millis).flatMap(_ => queueBlocks(blocks, ResponseSubscriber.MaxBlockTries))
             response <- fiber.join
           } yield response
@@ -227,11 +226,11 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
 
     "return an error if query API returns incorrect response" in {
       val result = start().use {
-        case (worker, requestSubscriber, tendermintTest, blocks) =>
+        case (worker, tendermintTest, blocks) =>
           for {
             _ <- tendermintTest.setTxResponse(Right(correctTxResponse))
             _ <- tendermintTest.setQueryResponse(Right("incorrectTxResponse"))
-            fiber <- request(worker, requestSubscriber).start
+            fiber <- request(worker).start
             _ <- IO.sleep(50.millis).flatMap(_ => queueBlocks(blocks, ResponseSubscriber.MaxBlockTries))
             response <- fiber.join
           } yield response
@@ -246,11 +245,11 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
 
     "return a pending response, if tendermint cannot return response after some amount of blocks" in {
       val result = start().use {
-        case (worker, requestSubscriber, tendermintTest, blocks) =>
+        case (worker, tendermintTest, blocks) =>
           for {
             _ <- tendermintTest.setTxResponse(Right(correctTxResponse))
             _ <- tendermintTest.setQueryResponse(Right(pendingQueryResponse))
-            fiber <- request(worker, requestSubscriber).start
+            fiber <- request(worker).start
             _ <- IO.sleep(50.millis).flatMap(_ => queueBlocks(blocks, ResponseSubscriber.MaxBlockTries))
             response <- fiber.join
           } yield response
@@ -265,11 +264,11 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
 
     "return OK result if tendermint is responded ok" in {
       val result = start().use {
-        case (worker, requestSubscriber, tendermintTest, blocks) =>
+        case (worker, tendermintTest, blocks) =>
           for {
             _ <- tendermintTest.setTxResponse(Right(correctTxResponse))
             _ <- tendermintTest.setQueryResponse(Right(correctQueryResponse))
-            fiber <- request(worker, requestSubscriber).start
+            fiber <- request(worker).start
             _ <- IO.sleep(50.millis).flatMap(_ => queueBlocks(blocks, ResponseSubscriber.MaxBlockTries))
             response <- fiber.join
           } yield response

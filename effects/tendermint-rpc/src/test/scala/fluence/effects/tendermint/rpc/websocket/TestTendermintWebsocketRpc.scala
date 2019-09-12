@@ -26,6 +26,8 @@ import scala.language.higherKinds
 
 trait TestTendermintWebsocketRpc[F[_]] extends TendermintWebsocketRpc[F] with TestTendermintHttpRpc[F] {
 
+  override val websocketConfig: WebsocketConfig = WebsocketConfig()
+
   def subscribeNewBlock(
     lastKnownHeight: Long
   )(implicit log: Log[F], backoff: Backoff[EffectError]): fs2.Stream[F, Block] =

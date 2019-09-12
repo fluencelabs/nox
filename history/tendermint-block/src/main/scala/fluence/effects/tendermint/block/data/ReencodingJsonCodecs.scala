@@ -19,7 +19,7 @@ package fluence.effects.tendermint.block.data
 import fluence.effects.tendermint.block.protobuf.ProtobufJson
 import io.circe.Decoder
 import io.circe.generic.extras.Configuration
-import io.circe.generic.extras.semiauto.deriveDecoder
+import io.circe.generic.extras.semiauto.deriveConfiguredDecoder
 import proto3.tendermint.{BlockID, Vote}
 import scodec.bits.ByteVector
 
@@ -43,10 +43,10 @@ object ReencodingJsonCodecs {
   implicit final val blockIdDecoder: Decoder[BlockID] =
     Decoder.decodeJson.emap(ProtobufJson.blockIdReencoded(_).left.map(e => s"BlockID: $e"))
 
-  implicit final val lastCommitDecoder: Decoder[LastCommit] = deriveDecoder[LastCommit]
+  implicit final val lastCommitDecoder: Decoder[LastCommit] = deriveConfiguredDecoder[LastCommit]
 
-  implicit final val headerDecoder: Decoder[Header] = deriveDecoder[Header]
+  implicit final val headerDecoder: Decoder[Header] = deriveConfiguredDecoder[Header]
 
-  implicit final val blockDecoder: Decoder[Block] = deriveDecoder[Block]
+  implicit final val blockDecoder: Decoder[Block] = deriveConfiguredDecoder[Block]
 
 }

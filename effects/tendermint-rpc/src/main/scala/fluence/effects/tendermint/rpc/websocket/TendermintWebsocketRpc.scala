@@ -18,8 +18,6 @@ package fluence.effects.tendermint.rpc.websocket
 
 import cats.Monad
 import cats.effect._
-import cats.syntax.compose._
-import cats.syntax.flatMap._
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.db.Blockstore
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
