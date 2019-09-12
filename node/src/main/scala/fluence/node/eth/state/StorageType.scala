@@ -30,6 +30,6 @@ object StorageType extends Enumeration {
     case StorageType.Ipfs  => 1
   }
 
-  implicit val decoder: Decoder[StorageType] = Decoder.enumDecoder(StorageType)
-  implicit val encoder: Encoder[StorageType] = Encoder.enumEncoder(StorageType)
+  implicit val decoder: Decoder[StorageType] = Decoder.decodeEnumeration(StorageType)
+  implicit val encoder: Encoder[StorageType] = Encoder.encodeEnumeration(StorageType)
 }

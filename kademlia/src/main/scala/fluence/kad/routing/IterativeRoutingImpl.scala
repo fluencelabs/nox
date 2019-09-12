@@ -42,10 +42,10 @@ import scala.language.higherKinds
  * @tparam F Effect
  * @tparam C Contact
  */
-private[routing] class IterativeRoutingImpl[F[_]: Monad: Clock: LiftIO, P[_], C](
+private[routing] class IterativeRoutingImpl[F[_]: Monad: Parallel: Clock: LiftIO, C](
   localRouting: LocalRouting[F, C],
   routingState: RoutingState[F, C]
-)(implicit P: Parallel[F, P], ca: ContactAccess[F, C])
+)(implicit ca: ContactAccess[F, C])
     extends IterativeRouting[F, C] {
 
   override def nodeKey: Key = localRouting.nodeKey

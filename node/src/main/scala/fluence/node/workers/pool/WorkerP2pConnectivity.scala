@@ -47,19 +47,16 @@ object WorkerP2pConnectivity {
    * @param rpc Tendermint RPC of the current app
    * @param peers All the other peers to form the cluster
    * @param backoff Retry policy for exponential backoff in reties
-   * @param P Parallelize request to pings
    * @tparam F Concurrent to make a fiber so that you can cancel the joining job, Timer to make retries
-   * @tparam G F.Par
    * @return Fiber for concurrent job of inquiring peers and putting their addresses to Tendermint
    */
-  def join[F[_]: Concurrent: Timer: SttpEffect, G[_]](
+  def join[F[_]: Concurrent: Timer: SttpEffect: Parallel](
     appId: Long,
     rpc: TendermintHttpRpc[F],
     peers: Vector[WorkerPeer],
     backoff: Backoff[EffectError] = Backoff.default
   )(
-    implicit P: Parallel[F, G],
-    log: Log[F]
+    implicit log: Log[F]
   ): F[Fiber[F, Unit]] =
     Log[F].scope("p2p-join") { implicit log: Log[F] =>
       Concurrent[F].start(
@@ -93,18 +90,15 @@ object WorkerP2pConnectivity {
    * @param rpc Tendermint RPC of the current app
    * @param peers All the other peers to form the cluster
    * @param backoff Retry policy for exponential backoff in reties
-   * @param P Parallelize request to pings
    * @tparam F Concurrent to make a fiber so that you can cancel the joining job, Timer to make retries
-   * @tparam G F.Par
    */
-  def make[F[_]: Concurrent: Timer: Log: SttpEffect, G[_]](
+  def make[F[_]: Concurrent: Timer: Log: SttpEffect: Parallel](
     appId: Long,
     rpc: TendermintHttpRpc[F],
     peers: Vector[WorkerPeer],
     backoff: Backoff[EffectError] = Backoff.default
   )(
-    implicit P: Parallel[F, G]
-  ): Resource[F, Unit] =
+    ): Resource[F, Unit] =
     Resource.make(join(appId, rpc, peers, backoff))(_.cancel).void
 
 }

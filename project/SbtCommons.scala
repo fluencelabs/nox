@@ -54,14 +54,16 @@ object SbtCommons {
       compile := (compile in Compile)
         .dependsOn(Def.task {
           // by defaults, user.dir in sbt points to a submodule directory while in Idea to the project root
-          val resourcesPath = if (System.getProperty("user.dir").endsWith("/vm"))
-            System.getProperty("user.dir") + "/src/it/resources/"
-          else
-            System.getProperty("user.dir") + "/vm/src/it/resources/"
+          val resourcesPath =
+            if (System.getProperty("user.dir").endsWith("/vm"))
+              System.getProperty("user.dir") + "/src/it/resources/"
+            else
+              System.getProperty("user.dir") + "/vm/src/it/resources/"
 
           val log = streams.value.log
           val llamadbUrl = "https://github.com/fluencelabs/llamadb-wasm/releases/download/0.1.2/llama_db.wasm"
-          val llamadbPreparedUrl = "https://github.com/fluencelabs/llamadb-wasm/releases/download/0.1.2/llama_db_prepared.wasm"
+          val llamadbPreparedUrl =
+            "https://github.com/fluencelabs/llamadb-wasm/releases/download/0.1.2/llama_db_prepared.wasm"
 
           log.info(s"Dowloading llamadb from $llamadbUrl to $resourcesPath")
 
@@ -70,10 +72,11 @@ object SbtCommons {
           val llamadbPreparedDownloadRet = s"wget -nc $llamadbPreparedUrl -O $resourcesPath/llama_db_prepared.wasm" !
 
           // wget returns 0 of file was downloaded and 1 if file already exists
-          assert(llamadbDownloadRet == 0 || llamadbDownloadRet == 1,
-            s"Download failed: $llamadbUrl")
-          assert(llamadbPreparedDownloadRet == 0 || llamadbPreparedDownloadRet == 1,
-            s"Download failed: $llamadbPreparedUrl")
+          assert(llamadbDownloadRet == 0 || llamadbDownloadRet == 1, s"Download failed: $llamadbUrl")
+          assert(
+            llamadbPreparedDownloadRet == 0 || llamadbPreparedDownloadRet == 1,
+            s"Download failed: $llamadbPreparedUrl"
+          )
         })
         .value
     )
@@ -103,9 +106,9 @@ object SbtCommons {
 
   val asmble = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.10-fl"
 
-  val catsVersion = "1.6.0"
+  val catsVersion = "2.0.0"
   val cats = "org.typelevel" %% "cats-core" % catsVersion
-  val catsEffectVersion = "1.3.0"
+  val catsEffectVersion = "2.0.0"
   val catsEffect = "org.typelevel" %% "cats-effect" % catsEffectVersion
 
   val shapeless = "com.chuusai" %% "shapeless" % "2.3.3"
@@ -137,7 +140,7 @@ object SbtCommons {
   val http4sServer = "org.http4s" %% "http4s-blaze-server" % http4sVersion
   val http4sCirce = "org.http4s"  %% "http4s-circe"        % http4sVersion
 
-  val circeVersion = "0.11.1"
+  val circeVersion = "0.12.1"
   val circeCore = "io.circe"          %% "circe-core"           % circeVersion
   val circeGeneric = "io.circe"       %% "circe-generic"        % circeVersion
   val circeGenericExtras = "io.circe" %% "circe-generic-extras" % circeVersion
@@ -147,9 +150,9 @@ object SbtCommons {
   val scodecBits = "org.scodec" %% "scodec-bits" % "1.1.9"
   val scodecCore = "org.scodec" %% "scodec-core" % "1.11.3"
 
-  val web3jVersion = "4.3.0"
-  val web3jCrypto = "org.web3j" % "crypto" % web3jVersion exclude ("org.bouncycastle", "bcprov-jdk15on")
-  val web3jCore = "org.web3j"   % "core"   % web3jVersion exclude ("org.bouncycastle", "bcprov-jdk15on")
+  val web3jVersion = "4.5.0"
+  val web3jCrypto = "org.web3j" % "crypto" % web3jVersion
+  val web3jCore = "org.web3j"   % "core"   % web3jVersion
 
   val toml = "com.electronwill.night-config" % "toml" % "3.4.2"
 
@@ -166,8 +169,9 @@ object SbtCommons {
   /* Test deps*/
   val scalacheckShapeless = "com.github.alexarchambault" %% "scalacheck-shapeless_1.13" % "1.1.8"     % Test
   val catsTestkit = "org.typelevel"                      %% "cats-testkit"              % catsVersion % Test
+  val disciplineScalaTest = "org.typelevel"              %% "discipline-scalatest"      % "1.0.0-M1"  % Test
 
-  val scalaTest = "org.scalatest"            %% "scalatest"   % "3.0.5"  % Test
-  val scalaIntegrationTest = "org.scalatest" %% "scalatest"   % "3.0.5"  % IntegrationTest
+  val scalaTest = "org.scalatest"            %% "scalatest"   % "3.0.8"  % Test
+  val scalaIntegrationTest = "org.scalatest" %% "scalatest"   % "3.0.8"  % IntegrationTest
   val mockito = "org.mockito"                % "mockito-core" % "2.21.0" % Test
 }

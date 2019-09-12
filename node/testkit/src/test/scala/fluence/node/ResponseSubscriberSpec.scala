@@ -65,7 +65,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
     for {
       blocksQ <- Resource.liftF(fs2.concurrent.Queue.unbounded[IO, Block])
       tendermint <- Resource.liftF(TendermintTest[IO](blocksQ.dequeue))
-      requestResponder <- ResponseSubscriber.make[IO, IO.Par](tendermint.tendermint, tendermint.tendermint, appId)
+      requestResponder <- ResponseSubscriber.make[IO](tendermint.tendermint, tendermint.tendermint, appId)
       pool <- Resource.liftF(
         CustomWorkersPool.withRequestResponder[IO](requestResponder, tendermint.tendermint, tendermint.tendermint)
       )
@@ -128,8 +128,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
   private val pendingQueryResponse = queryResponse(3)
 
   def request(worker: Worker[IO], requestSubscriber: ResponseSubscriber[IO], txCustom: Option[String] = None)(
-    implicit P: Parallel[IO, IO.Par],
-    log: Log[IO]
+    implicit log: Log[IO]
   ): IO[Either[TxAwaitError, TendermintQueryResponse]] =
     requests(1, worker, requestSubscriber, txCustom).map(_.head)
 
@@ -140,8 +139,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
     txCustom: Option[String] = None,
     appId: Int = 1
   )(
-    implicit P: Parallel[IO, IO.Par],
-    log: Log[IO]
+    implicit log: Log[IO]
   ): IO[List[Either[TxAwaitError, TendermintQueryResponse]]] = {
     import cats.instances.list._
     import cats.syntax.parallel._
@@ -153,7 +151,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
 
   val block = Block(TestData.blockWithNullTxsResponse(1)).right.get
 
-  def queueBlocks[F[_]: Monad, G[_]](queue: fs2.concurrent.Queue[F, Block], number: Int)(implicit P: Parallel[F, G]) = {
+  def queueBlocks[F[_]: Monad: Parallel](queue: fs2.concurrent.Queue[F, Block], number: Int) = {
     import cats.syntax.parallel._
     import cats.syntax.list._
     (0 to number).toList.map(_ => queue.enqueue1(block)).toNel.get.parSequence

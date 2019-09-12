@@ -16,10 +16,14 @@
 
 package fluence.kad
 
+import cats.instances.OptionInstances
 import cats.kernel.laws.discipline.{MonoidTests, OrderTests}
-import cats.tests.CatsSuite
 import fluence.kad.protocol.Key
 import org.scalacheck.{Arbitrary, Gen}
+import org.scalatest.Matchers
+import org.scalatest.funsuite.AnyFunSuite
+import org.scalatestplus.scalacheck.ScalaCheckDrivenPropertyChecks
+import org.typelevel.discipline.scalatest.Discipline
 
 /**
  * Kademlia Keys form a Monoid with Order:
@@ -29,7 +33,8 @@ import org.scalacheck.{Arbitrary, Gen}
  *
  * This spec just checks that all laws for Monoid and Order are met
  */
-class KeyLawsSpec extends CatsSuite {
+class KeyLawsSpec
+    extends AnyFunSuite with Matchers with ScalaCheckDrivenPropertyChecks with Discipline with OptionInstances {
 
   private implicit val arbKey: Arbitrary[Key] =
     Arbitrary(Gen.listOfN[Byte](Key.Length, Arbitrary.arbByte.arbitrary).map(_.toArray).map(Key.fromBytes.unsafe))
