@@ -66,7 +66,7 @@ class KademliaHttpSpec extends WordSpec with Matchers {
 
     val tmpRoot = Files.createTempDirectory("kademliaHttpSpec")
 
-    implicit val dsl: Http4sDsl[IO] = new Http4sDsl[IO] {}
+    implicit val dsl: Http4sDsl[IO] = Http4sDsl[IO]
 
     case class VersionedString(version: Int, data: String)
 
@@ -94,7 +94,7 @@ class KademliaHttpSpec extends WordSpec with Matchers {
     def node(port: Int, seeds: Seq[String])(implicit sttpBackend: SttpEffect[IO]) =
       for {
         n ← KademliaHttpNode
-          .make[IO, IO.Par](
+          .make[IO](
             KademliaConfig(
               RoutingConf(2, 2, 2, 2.seconds),
               AdvertizeConf("localhost", port.toShort),
