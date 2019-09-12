@@ -146,7 +146,7 @@ object MasterNodeApp extends IOApp {
       .liftF(Configuration.readTendermintKeyPair(rootPath))
       .flatMap(
         keyPair =>
-          KademliaHttpNode.make[IO, IO.Par](
+          KademliaHttpNode.make[IO](
             conf,
             Ed25519.signAlgo,
             keyPair,

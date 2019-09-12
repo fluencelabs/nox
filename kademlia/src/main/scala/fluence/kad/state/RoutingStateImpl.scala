@@ -33,7 +33,7 @@ import fluence.log.Log
 import scala.annotation.tailrec
 import scala.language.higherKinds
 
-private[state] class RoutingStateImpl[F[_]: Monad, P[_], C](
+private[state] class RoutingStateImpl[F[_]: Monad, C](
   override val nodeKey: Key,
   siblingsState: SiblingsState[F, C],
   bucketsState: BucketsState[F, C]

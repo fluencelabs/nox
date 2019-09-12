@@ -37,7 +37,7 @@ import scala.language.higherKinds
 
 object TestKademlia {
 
-  def apply[F[_]: Parallel: Timer: ConcurrentEffect: LiftIO, P[_], C](
+  def apply[F[_]: Parallel: Timer: ConcurrentEffect: LiftIO, C](
     nodeId: Key,
     alpha: Int,
     k: Int,
@@ -81,8 +81,8 @@ object TestKademlia {
         }
     )
 
-    RoutingTable[F, P, C](nodeId, k, k)
-      .map(Kademlia[F, P, C](_, ownContactValue.pure[F], RoutingConf(k, k, alpha, pingExpiresIn)))
+    RoutingTable[F, C](nodeId, k, k)
+      .map(Kademlia[F, C](_, ownContactValue.pure[F], RoutingConf(k, k, alpha, pingExpiresIn)))
 
   }
 
@@ -94,7 +94,7 @@ object TestKademlia {
     joinPeers: Int = 0,
     alpha: Int = 3,
     pingExpiresIn: FiniteDuration = 1.second
-  )(implicit t: Timer[IO], cs: ContextShift[IO], log: Log[IO]): Map[C, Kademlia[IO, C]] = {
+  )(implicit t: Timer[IO], cs: ContextShift[IO], log: Log[IO], P: Parallel[IO]): Map[C, Kademlia[IO, C]] = {
     lazy val kads: Map[C, Kademlia[IO, C]] =
       Parallel
         .parTraverse(
@@ -140,7 +140,7 @@ object TestKademlia {
         ) { keyPair ⇒
           val signer = signAlgo.signer(keyPair)
           val key = Key.fromPublicKey.unsafe(keyPair.publicKey)
-          apply[IO, IO.Par, C](key, alpha, k, kads(_)._2, toContact, pingExpiresIn).map(
+          apply[IO, C](key, alpha, k, kads(_)._2, toContact, pingExpiresIn).map(
             kad ⇒ toContact(key) -> (signer, kad)
           )
         }

@@ -42,7 +42,7 @@ import scala.language.higherKinds
  * @tparam F Effect
  * @tparam C Contact
  */
-private[routing] class IterativeRoutingImpl[F[_]: Monad: Parallel: Clock: LiftIO, P[_], C](
+private[routing] class IterativeRoutingImpl[F[_]: Monad: Parallel: Clock: LiftIO, C](
   localRouting: LocalRouting[F, C],
   routingState: RoutingState[F, C]
 )(implicit ca: ContactAccess[F, C])

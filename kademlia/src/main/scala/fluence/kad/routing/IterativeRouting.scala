@@ -117,10 +117,10 @@ trait IterativeRouting[F[_], C] {
 
 object IterativeRouting {
 
-  def apply[F[_]: Monad: Clock: LiftIO: Parallel, P[_], C](
+  def apply[F[_]: Monad: Clock: LiftIO: Parallel, C](
     localRouting: LocalRouting[F, C],
     routingState: RoutingState[F, C]
   )(implicit ca: ContactAccess[F, C]): IterativeRouting[F, C] =
-    new IterativeRoutingImpl[F, P, C](localRouting, routingState)
+    new IterativeRoutingImpl[F, C](localRouting, routingState)
 
 }

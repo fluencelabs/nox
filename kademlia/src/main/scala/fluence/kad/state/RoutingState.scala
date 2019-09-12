@@ -97,7 +97,7 @@ object RoutingState {
    * @param maxBucketSize The size of a bucket
    * @tparam C Contact
    */
-  def inMemory[F[_]: Async: Parallel, P[_], C](
+  def inMemory[F[_]: Async: Parallel, C](
     nodeKey: Key,
     siblingsSize: Int,
     maxBucketSize: Int

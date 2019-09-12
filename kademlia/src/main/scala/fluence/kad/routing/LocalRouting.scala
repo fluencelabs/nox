@@ -62,7 +62,7 @@ trait LocalRouting[F[_], C] {
 
 object LocalRouting {
 
-  def apply[F[_]: Monad: Parallel, P[_], C](
+  def apply[F[_]: Monad: Parallel, C](
     nodeKey: Key,
     siblings: F[Siblings[C]],
     buckets: Int ⇒ F[Bucket[C]]

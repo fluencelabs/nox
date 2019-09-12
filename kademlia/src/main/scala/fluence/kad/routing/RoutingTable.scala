@@ -19,7 +19,7 @@ package fluence.kad.routing
 import java.nio.file.Path
 
 import cats.effect.{Async, Clock, Concurrent, ContextShift, LiftIO, Resource, Timer}
-import cats.{Defer, Monad, Parallel, Traverse}
+import cats.{Parallel, Traverse}
 import cats.instances.list._
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
@@ -174,7 +174,7 @@ object RoutingTable {
    * @param extensions Extensions to apply
    * @return Ready-to-use RoutingTable, expected to be a singleton
    */
-  def apply[F[_]: Async: Parallel: Clock: LiftIO, P[_], C](
+  def apply[F[_]: Async: Parallel: Clock: LiftIO, C](
     nodeKey: Key,
     siblingsSize: Int,
     maxBucketSize: Int,
@@ -182,7 +182,7 @@ object RoutingTable {
   )(implicit ca: ContactAccess[F, C]): F[RoutingTable[F, C]] =
     for {
       // Build a plain in-memory routing state
-      st ← RoutingState.inMemory[F, P, C](nodeKey, siblingsSize, maxBucketSize)
+      st ← RoutingState.inMemory[F, C](nodeKey, siblingsSize, maxBucketSize)
 
       // Apply extensions to the state, use extended version then
       state ← Traverse[List].foldLeftM(extensions, st) {
