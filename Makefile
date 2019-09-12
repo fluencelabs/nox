@@ -34,7 +34,7 @@ node-test:   NODE-bctl-test
 worker-test: WORK-bctl-test
 endif
 
-# $* becomes what matched by % in `%-bctl-test`: NODE or WORKER
+# $* becomes what matched by % in `%-bctl-test`: NODE or WORK
 %-bctl-test: ;buildctl build \
              --frontend dockerfile.v0 \
              --local context=. \
