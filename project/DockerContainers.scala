@@ -1,6 +1,6 @@
+/*
 import sbt._
 import sbtdocker.DockerPlugin.autoImport.Dockerfile
-
 object DockerContainers {
   val FrunRust = "fluencelabs/frun-rust"
 
@@ -97,11 +97,11 @@ object DockerContainers {
       env("MAX_PORT", "11000")
 
       /*
-       * The following directory structure is assumed in node/src/main/resources:
-       *    docker/
-       *      entrypoint.sh
-       *      application.conf
-       */
+ * The following directory structure is assumed in node/src/main/resources:
+ *    docker/
+ *      entrypoint.sh
+ *      application.conf
+ */
       copy(resourceDirectory / "docker", "/")
       copy(artifact, artifactTargetPath)
 
@@ -110,3 +110,4 @@ object DockerContainers {
     }
   }
 }
+ */

@@ -1,5 +1,7 @@
 import SbtCommons._
 
+import scala.sys.process._
+
 name := "fluence"
 
 commons
@@ -130,11 +132,11 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     assemblyJarName in assembly       := "statemachine.jar",
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
     test in assembly                  := {},
-    parallelExecution in Test := false,
-    imageNames in docker              := Seq(ImageName(DockerContainers.Worker)),
-    dockerfile in docker              := DockerContainers.worker(assembly.value, baseDirectory.value)
+    parallelExecution in Test         := false,
+    docker                            := { s"make worker TAG=v${version.value}".! },
+    docker in Test                    := { assembly.value; "make worker-test".! }
   )
-  .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
+  .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`, `sttp-effect` % Test)
 
 lazy val `statemachine-docker-client` = (project in file("statemachine/docker-client"))
@@ -426,11 +428,11 @@ lazy val `node` = project
     mainClass in assembly                  := Some("fluence.node.MasterNodeApp"),
     assemblyJarName in assembly            := "master-node.jar",
     test in assembly                       := {},
-    imageNames in docker                   := Seq(ImageName(DockerContainers.Node)),
-    dockerfile in docker                   := DockerContainers.node(assembly.value, (resourceDirectory in Compile).value)
+    docker                                 := { s"make worker TAG=v${version.value}".! },
+    docker in Test                         := { assembly.value; "make node-test".! }
   )
   .settings(buildContractBeforeDocker())
-  .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
+  .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(
     `ethclient`,
     `swarm`,
@@ -458,8 +460,8 @@ lazy val `node-testkit` = (project in file("node/testkit"))
     )
   )
   .dependsOn(
-    `node` % "test->test",
-    `statemachine` % "test->test",
+    `node`           % "test->test",
+    `statemachine`   % "test->test",
     `tendermint-rpc` % "test->test"
   )
   .enablePlugins(AutomateHeaderPlugin)

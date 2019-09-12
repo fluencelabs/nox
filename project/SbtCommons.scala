@@ -2,10 +2,9 @@ import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.headerLicense
 import de.heikoseeberger.sbtheader.License
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys._
-import sbt.{Def, addCompilerPlugin, _}
+import sbt.{Def, addCompilerPlugin, taskKey, _}
 import sbtassembly.AssemblyPlugin.autoImport.assemblyMergeStrategy
 import sbtassembly.{MergeStrategy, PathList}
-import sbtdocker.DockerPlugin.autoImport.docker
 
 import scala.sys.process._
 
@@ -54,14 +53,16 @@ object SbtCommons {
       compile := (compile in Compile)
         .dependsOn(Def.task {
           // by defaults, user.dir in sbt points to a submodule directory while in Idea to the project root
-          val resourcesPath = if (System.getProperty("user.dir").endsWith("/vm"))
-            System.getProperty("user.dir") + "/src/it/resources/"
-          else
-            System.getProperty("user.dir") + "/vm/src/it/resources/"
+          val resourcesPath =
+            if (System.getProperty("user.dir").endsWith("/vm"))
+              System.getProperty("user.dir") + "/src/it/resources/"
+            else
+              System.getProperty("user.dir") + "/vm/src/it/resources/"
 
           val log = streams.value.log
           val llamadbUrl = "https://github.com/fluencelabs/llamadb-wasm/releases/download/0.1.2/llama_db.wasm"
-          val llamadbPreparedUrl = "https://github.com/fluencelabs/llamadb-wasm/releases/download/0.1.2/llama_db_prepared.wasm"
+          val llamadbPreparedUrl =
+            "https://github.com/fluencelabs/llamadb-wasm/releases/download/0.1.2/llama_db_prepared.wasm"
 
           log.info(s"Dowloading llamadb from $llamadbUrl to $resourcesPath")
 
@@ -70,33 +71,35 @@ object SbtCommons {
           val llamadbPreparedDownloadRet = s"wget -nc $llamadbPreparedUrl -O $resourcesPath/llama_db_prepared.wasm" !
 
           // wget returns 0 of file was downloaded and 1 if file already exists
-          assert(llamadbDownloadRet == 0 || llamadbDownloadRet == 1,
-            s"Download failed: $llamadbUrl")
+          assert(llamadbDownloadRet == 0 || llamadbDownloadRet == 1, s"Download failed: $llamadbUrl")
           assert(llamadbPreparedDownloadRet == 0 || llamadbPreparedDownloadRet == 1,
-            s"Download failed: $llamadbPreparedUrl")
+                 s"Download failed: $llamadbPreparedUrl")
         })
         .value
     )
 
+  val docker = taskKey[Unit]("Build docker image")
+
+  private val buildContract = Def.task {
+    val log = streams.value.log
+    log.info(s"Generating java wrapper for smart contracct")
+
+    val projectRoot = file("").getAbsolutePath
+    val bootstrapFolder = file(s"$projectRoot/bootstrap")
+    val generateCmd = "npm run generate-all"
+    log.info(s"running $generateCmd in $bootstrapFolder")
+
+    val exitCode = Process(generateCmd, cwd = bootstrapFolder).!
+    assert(
+      exitCode == 0,
+      "Generating java wrapper or contract compilation failed"
+    )
+  }
+
   def buildContractBeforeDocker(): Seq[Def.Setting[_]] =
     Seq(
-      docker in docker := (docker in docker)
-        .dependsOn(Def.task {
-          val log = streams.value.log
-          log.info(s"Generating java wrapper for smart contracct")
-
-          val projectRoot = file("").getAbsolutePath
-          val bootstrapFolder = file(s"$projectRoot/bootstrap")
-          val generateCmd = "npm run generate-all"
-          log.info(s"running $generateCmd in $bootstrapFolder")
-
-          val exitCode = Process(generateCmd, cwd = bootstrapFolder).!
-          assert(
-            exitCode == 0,
-            "Generating java wrapper or contract compilation failed"
-          )
-        })
-        .value
+      docker         := docker.dependsOn(buildContract).inputTaskValue,
+      docker in Test := (docker in Test).dependsOn(buildContract).inputTaskValue
     )
 
   /* Common deps */
