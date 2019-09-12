@@ -9,3 +9,5 @@ tools
 target
 **/target
 **/node_modules
+
+!node/target/scala-2.12/master-node.jar
