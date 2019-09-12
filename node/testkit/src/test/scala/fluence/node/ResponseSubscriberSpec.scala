@@ -65,6 +65,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
     for {
       blocksQ <- Resource.liftF(fs2.concurrent.Queue.unbounded[IO, Block])
       tendermint <- Resource.liftF(TendermintTest[IO](blocksQ.dequeue))
+      responseSubscriber <- ResponseSubscriber.make[IO](tendermint.tendermint, tendermint.tendermint, appId)
       waitResponseService <- WaitResponseService(tendermint.tendermint, responseSubscriber)
       pool <- Resource.liftF(
         CustomWorkersPool.withRequestResponder[IO](tendermint.tendermint, tendermint.tendermint, waitResponseService)
