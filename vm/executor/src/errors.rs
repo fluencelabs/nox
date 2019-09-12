@@ -1,4 +1,4 @@
-use wasmer_runtime::error::*;
+//use wasmer_runtime::error::*;
 
 pub enum InstantiateError {
     Serialization,

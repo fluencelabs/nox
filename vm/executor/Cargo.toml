@@ -20,3 +20,4 @@ path = "src/main.rs"
 [dependencies]
 wasmer-runtime = "0.6.0"
 jni = "0.13.1"
+failure = "0.1.5"
