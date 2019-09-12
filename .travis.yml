@@ -42,7 +42,7 @@ matrix:
       before_script:
         - docker pull tendermint/tendermint:v0.32.2
       script:
-        - echo travis is $TRAVIS
+        - export TRAVIS=true
         - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile
         # Some tests in LlamadbIntegrationTest require 2 Gb RAM
         - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test
