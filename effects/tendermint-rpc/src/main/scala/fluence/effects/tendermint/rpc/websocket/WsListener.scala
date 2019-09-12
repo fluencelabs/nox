@@ -55,7 +55,7 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
     import config.{pingTimeout => timeout, pingInterval}
 
     def pingOrCloseAsync: F[Unit] = {
-      val sendPing = ws.sendPingFrame().asAsync
+      val sendPing = ws.sendPingFrame().asConcurrent
       val sendPingWaitPong = pong.tryTake >> sendPing >> pong.take
 
       val close = this.close(ws, code = None, s"no pong after timeout $timeout")
@@ -131,7 +131,7 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
    * @param payload Ping payload
    */
   override def onPingFrame(payload: Array[Byte]): Unit = {
-    val sendPong = websocketP.get >>= (_.sendPongFrame().asAsync.void)
+    val sendPong = websocketP.get >>= (_.sendPongFrame().asConcurrent.void)
 
     sendPong.toIO.runAsync {
       case Left(e) => log.error(s"Tendermint WRPC: $wsUrl ping failed: $e").toIO

@@ -227,7 +227,7 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
   protected def subscribe(
     event: String
   )(implicit log: Log[F], backoff: Backoff[EffectError]): Resource[F, Queue[F, Event]] = {
-    def subscribe(ws: WebSocket) = ws.sendTextFrame(request(event)).asAsync.void
+    def subscribe(ws: WebSocket) = ws.sendTextFrame(request(event)).asConcurrent.void
 
     Resource
       .make(for {
@@ -267,7 +267,7 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextSh
     def logConnectionError(e: EffectError) =
       log.error(s"Tendermint WRPC: $wsUrl error connecting: ${e.getMessage}")
 
-    def close(ws: NettyWebSocket) = ws.sendCloseFrame().asAsync.attempt.void
+    def close(ws: NettyWebSocket) = ws.sendCloseFrame().asConcurrent.attempt.void
 
     Monad[F].tailRecM(())(
       _ =>
