@@ -1,11 +1,10 @@
-use failure::err_msg;
 use std::fs;
 use wasmer_runtime::error::CallError;
 use wasmer_runtime::{
-    error, func, imports, instantiate, Func, Instance, Memory, Module, Value,
+    error, func, imports, instantiate, Func, Instance, Ctx
 };
 
-struct WasmerExecutor {
+pub struct WasmerExecutor {
     instance: Instance,
 }
 
