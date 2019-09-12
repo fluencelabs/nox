@@ -3,11 +3,11 @@ use jni::JNIEnv;
 use crate::wasmer_executor::WasmerExecutor;
 use jni::objects::{JByteBuffer, JClass, JString};
 use jni::sys::{jbyteArray, jint};
+use std::sync::{Arc, Mutex, RwLock};
+use std::cell::RefCell;
 
-use std::sync::Mutex;
-
-lazy_static! {
-    static ref WASM_EXECUTOR: Mutex<Option<WasmerExecutor>> = None;
+thread_local! {
+    static WASM_EXECUTOR: RefCell<Option<WasmerExecutor>> = RefCell::new(None);
 }
 
 // initializes virtual machine
@@ -22,12 +22,14 @@ pub extern "system" fn Java_Executor_init(
         .expect("Couldn't get module path!")
         .into();
 
-    let mut executor = WASM_EXECUTOR.lock().unwrap();
-
-    executor = match WasmerExecutor::new(&file_name) {
-        Ok(executor) => Some(executor),
+    let executor = match WasmerExecutor::new(&file_name) {
+        Ok(executor) => executor,
         Err(_) => return -1,
     };
+
+    WASM_EXECUTOR.with(|wasm_executor| {
+        *wasm_executor.borrow_mut() = Some(executor)
+    });
 
     0
 }
@@ -43,21 +45,18 @@ pub extern "system" fn Java_Executor_invoke<'a>(
         .get_direct_buffer_address(fn_argument)
         .expect("Couldn't get function argument value");
 
-    let mut executor = WASM_EXECUTOR.lock().unwrap();
-
-    let result = match executor {
-        None => {
-            env.new_byte_array(0)
-                .expect("Couldn't allocate enough space for byte array");
+    let result = WASM_EXECUTOR.with(|wasm_executor| {
+        if let Some(ref mut e) = *wasm_executor.borrow_mut() {
+            return e.invoke(input).unwrap()
         }
-        Some(executor) => executor.invoke(input),
-    };
+        Vec::<u8>::new()
+    });
 
     let output: jbyteArray = env
-        .new_byte_array(result.len())
-        .expect("Couldn't allocate enough space for byte array");
+    .new_byte_array(result.len() as i32)
+    .expect("Couldn't allocate enough space for byte array");
 
-    output
+    return output
 }
 
 // computes hash of the internal VM state

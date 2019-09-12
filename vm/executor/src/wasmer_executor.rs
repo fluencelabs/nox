@@ -87,10 +87,18 @@ impl WasmerExecutor {
     }
 }
 
-fn logger_write(ctx: &mut Ctx, ptr: u32, len: u32) {}
+fn logger_write(ctx: &mut Ctx, byte: i32) {
+    // TODO: since Wasmer has been landed, change log to more optimal
+    print!("{}", byte);
+}
 
-fn logger_flush(ctx: &mut Ctx, ptr: u32, len: u32) {}
+fn logger_flush(ctx: &mut Ctx) {
+    println!();
+}
 
-fn gas_counter(ctx: &mut Ctx, ptr: u32, len: u32) {}
+fn gas_counter(ctx: &mut Ctx, eic: i32) {
+}
 
-fn eic(ctx: &mut Ctx, ptr: u32, len: u32) {}
+fn eic(ctx: &mut Ctx, eic: i32) {
+
+}
