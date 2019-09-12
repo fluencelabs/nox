@@ -104,6 +104,15 @@ object SbtCommons {
       docker in Test := (docker in Test).dependsOn(buildContract).value
     )
 
+  def run(cmd: String): Unit = {
+    import scala.sys.process._
+
+    val code = cmd.!
+    if (code != 0) {
+      throw new RuntimeException(s"Command $cmd exited: $code")
+    }
+  }
+
   /* Common deps */
 
   val asmble = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.10-fl"
