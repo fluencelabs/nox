@@ -133,8 +133,8 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
     test in assembly                  := {},
     parallelExecution in Test         := false,
-    docker                            := { s"make worker TAG=v${version.value}".! },
-    docker in Test                    := { assembly.value; "make worker-test".! }
+    docker                            := { s"make worker TAG=v${version.value}".!! },
+    docker in Test                    := { assembly.value; "make worker-test".!! }
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`, `sttp-effect` % Test)
@@ -429,8 +429,8 @@ lazy val `node` = project
     mainClass in assembly                  := Some("fluence.node.MasterNodeApp"),
     assemblyJarName in assembly            := "master-node.jar",
     test in assembly                       := {},
-    docker                                 := { s"make worker TAG=v${version.value}".! },
-    docker in Test                         := { assembly.value; "make node-test".! }
+    docker                                 := { s"make worker TAG=v${version.value}".!! },
+    docker in Test                         := { assembly.value; "make node-test".!! }
   )
   .settings(buildContractBeforeDocker())
   .enablePlugins(AutomateHeaderPlugin)

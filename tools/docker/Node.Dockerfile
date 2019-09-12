@@ -12,9 +12,11 @@ USER root
 COPY . /fluence
 WORKDIR /fluence
 RUN --mount=type=cache,target=/root/.ivy2 --mount=type=cache,target=/root/.sbt sbt node/assembly
-ARG DOCKER_BINARY=https://download.docker.com/linux/static/stable/x86_64/docker-19.03.2.tgz
-RUN wget -q $DOCKER_BINARY -O- | tar --strip-components=1 -zx docker/docker
 
+############## Download docker binary
+FROM alpine as docker
+ARG DOCKER_BINARY=https://download.docker.com/linux/static/stable/x86_64/docker-19.03.2.tgz
+RUN wget $DOCKER_BINARY -O- | tar -C / --strip-components=1 -zx docker/docker && ls / && sleep 10
 
 ############## Copy jar from local fs for tests, master-node.jar should be prebuilt
 FROM scratch as test
@@ -39,9 +41,9 @@ EXPOSE 5678
 #      entrypoint.sh
 #      application.conf
 
-COPY --from=build /fluence/docker/docker /usr/bin/docker
-COPY --from=build /fluence/node/src/main/resources/docker /
-COPY --from=build /fluence/node/target/scala-2.12/master-node.jar /master-node.jar
+COPY --from=docker /docker /usr/bin/docker
+COPY --from=build  /fluence/node/src/main/resources/docker /
+COPY --from=build  /fluence/node/target/scala-2.12/master-node.jar /master-node.jar
 
 CMD ["java", "-jar", "-Dconfig.file=/master/application.conf", "/master-node.jar"]
 ENTRYPOINT ["sh", "/entrypoint.sh"]
