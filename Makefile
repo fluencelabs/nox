@@ -31,7 +31,7 @@ worker-test: ;$(BUILD) $(TEST) -t $(WORK_IMG) -f $(DIR)/$(WORK_FILE) .
 # (see https://travis-ci.community/t/docker-builds-are-broken-if-buildkit-is-used-docker-buildkit-1/2994)
 ifeq ($(TRAVIS), true)
 node-test:   NODE-bctl-test
-worker-test: WORKER-bctl-test
+worker-test: WORK-bctl-test
 endif
 
 # $* becomes what matched by % in `%-bctl-test`: NODE or WORKER
