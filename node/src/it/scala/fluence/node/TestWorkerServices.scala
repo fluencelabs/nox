@@ -49,7 +49,7 @@ object TestWorkerServices {
   def workerServiceTestRequestResponse[F[_]: Monad: Timer](
     rpc: TendermintHttpRpc[F],
     wrpc: TendermintWebsocketRpc[F],
-    requestResponderImpl: ResponseSubscriber[F]
+    waitResponseServiceImpl: WaitResponseService[F]
   )(appId: Long): WorkerServices[F] = {
     new WorkerServices[F] {
       override def tendermintRpc: TendermintHttpRpc[F] = rpc
@@ -68,7 +68,7 @@ object TestWorkerServices {
       override def receiptBus: ReceiptBus[F] = throw new NotImplementedError("def hashesBus")
 
       override def peersControl: PeersControl[F] = throw new NotImplementedError("def peersControl")
-      override def waitResponseService: WaitResponseService[F] = WaitResponseService(rpc, requestResponderImpl)
+      override def waitResponseService: WaitResponseService[F] = waitResponseServiceImpl
 
       override def perBlockTxExecutor: PerBlockTxExecutor[F] =
         throw new NotImplementedError("def storedProcedureExecutor")
