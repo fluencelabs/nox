@@ -36,6 +36,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.higherKinds
 import scala.sys.process._
+import scala.util.Try
 
 /**
  * This test contains a single test method that checks:
@@ -69,12 +70,12 @@ class MasterNodeIntegrationSpec
     killGanache()
   }
 
-  def getStatus(statusPort: Short)(implicit sttpBackend: Sttp): IO[MasterStatus] = {
+  def getStatus(statusPort: Short)(implicit sttpBackend: Sttp): IO[Either[RuntimeException, MasterStatus]] = {
     import MasterStatus._
     for {
       resp <- sttp.response(asJson[MasterStatus]).get(uri"http://127.0.0.1:$statusPort/status").send()
     } yield {
-      resp.unsafeBody.right.get
+      resp.body.flatMap(_.left.map(e => s"${e.message} ${e.original} ${e.error}")).left.map(new RuntimeException(_))
     }
   }
 
@@ -105,8 +106,8 @@ class MasterNodeIntegrationSpec
 
   def getRunningWorker(statusPort: Short)(implicit sttpBackend: Sttp): IO[Option[WorkerStatus]] =
     IO.suspend {
-      getStatus(statusPort).map(
-        st ⇒
+      getStatus(statusPort).map {
+        case Right(st) =>
           st.workers.headOption.flatMap {
             case w: WorkerStatus if w.isHealthy =>
               Some(w)
@@ -114,7 +115,10 @@ class MasterNodeIntegrationSpec
               log.debug("Trying to get WorkerRunning, but it is not healthy in status: " + st).unsafeRunSync()
               None
           }
-      )
+        case Left(e) =>
+          log.error(s"Error on getting worker status at $statusPort: $e")
+          None
+      }
     }
 
   def withEthSttpAndTwoMasters(basePort: Short): Resource[IO, (EthClient, Sttp)] =
@@ -136,8 +140,8 @@ class MasterNodeIntegrationSpec
       val contract = FluenceContract(ethClient, contractConfig)
       val master2Port = (basePort + 1).toShort
       for {
-        status1 <- getStatus(basePort)
-        status2 <- getStatus(master2Port)
+        status1 <- getStatus(basePort).map(_.toTry.get)
+        status2 <- getStatus(master2Port).map(_.toTry.get)
 
         _ <- contract.addNode[IO](status1.nodeConfig, status1.ip, basePort, 1).attempt
         _ <- contract.addNode[IO](status2.nodeConfig, status2.ip, master2Port, 1).attempt

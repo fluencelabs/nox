@@ -60,8 +60,9 @@ object StatusHttp {
             maybeJson <- Sync[F].delay(status.asJson.spaces2).attempt
           } yield (log, status, maybeJson)).flatMap {
             case (log, status, Left(e)) ⇒
-              log.error(s"Status cannot be serialized to JSON. Status: $status", e) *>
-                InternalServerError("JSON generation errored, please try again")
+              log.error(s"Status cannot be serialized to JSON. Status: $status", e) *> {
+                e.printStackTrace(); InternalServerError("JSON generation errored, please try again")
+              }
 
             case (_, _, Right(json)) ⇒
               Ok(json)
