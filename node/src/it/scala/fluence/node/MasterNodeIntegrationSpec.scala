@@ -116,7 +116,7 @@ class MasterNodeIntegrationSpec
               None
           }
         case Left(e) =>
-          log.error(s"Error on getting worker status at $statusPort: $e")
+          log.error(s"Error on getting worker status at $statusPort: $e").unsafeRunSync()
           None
       }
     }
