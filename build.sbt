@@ -35,11 +35,11 @@ lazy val `vm` = (project in file("vm"))
     ),
     test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(compile in `vm-llamadb`)
-      .value
+      .value,
+    javaOptions += s"-Djava.library.path=/Users/trofim/Desktop/work/fluence/fluence"
   )
   .dependsOn(`merkelized-bytebuffer`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
-
 /**
  * Wasm VM docker runner for easy Wasm app debugging
  */

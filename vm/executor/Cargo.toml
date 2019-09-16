@@ -14,7 +14,7 @@ path = "src/lib.rs"
 crate-type = ["cdylib"]
 
 [[bin]]
-name = "wasm_executor_bin"
+name = "wasm_executor"
 path = "src/main.rs"
 
 [dependencies]

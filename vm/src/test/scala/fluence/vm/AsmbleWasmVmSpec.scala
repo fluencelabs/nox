@@ -25,7 +25,6 @@ import fluence.crypto.CryptoError
 import fluence.log.{Log, LogFactory}
 import fluence.vm.TestUtils._
 import fluence.vm.VmError._
-import fluence.vm.wasm.MemoryHasher
 import org.scalatest.{Assertion, Matchers, WordSpec}
 
 import scala.concurrent.ExecutionContext
@@ -68,7 +67,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         val noInvokeTestFile = getClass.getResource("/wast/no-invoke.wast").getPath
 
         val res = for {
-          vm ← WasmVm[IO](NonEmptyList.one(noInvokeTestFile), MemoryHasher[IO])
+          vm ← WasmVm[IO](NonEmptyList.one(noInvokeTestFile))
           result ← vm.invoke[IO]().toVmError
         } yield result
         val error = res.failed()
@@ -80,7 +79,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         val noGetMemoryTestFile = getClass.getResource("/wast/no-getMemory.wast").getPath
 
         val res = for {
-          vm ← WasmVm[IO](NonEmptyList.one(noGetMemoryTestFile), MemoryHasher[IO])
+          vm ← WasmVm[IO](NonEmptyList.one(noGetMemoryTestFile))
           _ ← vm.invoke[IO]("test".getBytes())
           state ← vm.getVmState[IO].toVmError
         } yield state
@@ -94,7 +93,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
       "wasm code falls into the trap" in {
         val sumTestFile = getClass.getResource("/wast/sum-with-trap.wast").getPath
         val res = for {
-          vm ← WasmVm[IO](NonEmptyList.one(sumTestFile), MemoryHasher[IO])
+          vm ← WasmVm[IO](NonEmptyList.one(sumTestFile))
           result ← vm.invoke[IO](fnArgument = intsToBytes(100 :: 13 :: Nil).array()).toVmError // Integer overflow
         } yield result
         val error = res.failed()
@@ -107,7 +106,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         val badAllocationFunctionFile = getClass.getResource("/wast/bad-allocation-function-i64.wast").getPath
 
         val res = for {
-          vm ← WasmVm[IO](NonEmptyList.one(badAllocationFunctionFile), MemoryHasher[IO])
+          vm ← WasmVm[IO](NonEmptyList.one(badAllocationFunctionFile))
           _ ← vm.invoke[IO]("test".getBytes())
           state ← vm.getVmState[IO].toVmError
         } yield state
@@ -121,7 +120,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         val badAllocationFunctionFile = getClass.getResource("/wast/bad-allocation-function-f64.wast").getPath
 
         val res = for {
-          vm ← WasmVm[IO](NonEmptyList.one(badAllocationFunctionFile), MemoryHasher[IO])
+          vm ← WasmVm[IO](NonEmptyList.one(badAllocationFunctionFile))
           result ← vm.invoke[IO]("test".getBytes())
           state ← vm.getVmState[IO].toVmError
         } yield state
@@ -135,7 +134,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         val incorrectArrayReturningTestFile = getClass.getResource("/wast/incorrect-array-returning.wast").getPath
 
         val res = for {
-          vm ← WasmVm[IO](NonEmptyList.one(incorrectArrayReturningTestFile), MemoryHasher[IO])
+          vm ← WasmVm[IO](NonEmptyList.one(incorrectArrayReturningTestFile))
           result ← vm.invoke[IO]().toVmError
         } yield result
 
@@ -152,7 +151,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
       val sumTestFile = getClass.getResource("/wast/sum.wast").getPath
 
       val res = for {
-        vm ← WasmVm[IO](NonEmptyList.one(sumTestFile), MemoryHasher[IO])
+        vm ← WasmVm[IO](NonEmptyList.one(sumTestFile))
         result ← vm.invoke[IO](intsToBytes(100 :: 17 :: Nil).array()).toVmError
       } yield {
         compareArrays(result.output, Array[Byte](117, 0, 0, 0))
@@ -165,7 +164,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
       val counterTestFile = getClass.getResource("/wast/counter.wast").getPath
 
       val res = for {
-        vm ← WasmVm[IO](NonEmptyList.one(counterTestFile), MemoryHasher[IO])
+        vm ← WasmVm[IO](NonEmptyList.one(counterTestFile))
         get1 ← vm.invoke[IO]() // 0 -> 1; read 1
         get2 ← vm.invoke[IO]() // 1 -> 2; read 2
         get3 ← vm.invoke[IO]().toVmError // 2 -> 3; read 3
@@ -182,7 +181,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
       val simpleStringPassingTestFile = getClass.getResource("/wast/simple-string-passing.wast").getPath
 
       val res = for {
-        vm ← WasmVm[IO](NonEmptyList.one(simpleStringPassingTestFile), MemoryHasher[IO])
+        vm ← WasmVm[IO](NonEmptyList.one(simpleStringPassingTestFile))
         value1 ← vm.invoke[IO]("test_argument".getBytes())
         value2 ← vm.invoke[IO]("XX".getBytes())
         value3 ← vm.invoke[IO]("XXX".getBytes())
@@ -203,7 +202,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
       val simpleArrayPassingTestFile = getClass.getResource("/wast/simple-array-returning.wast").getPath
 
       val res = for {
-        vm ← WasmVm[IO](NonEmptyList.one(simpleArrayPassingTestFile), MemoryHasher[IO])
+        vm ← WasmVm[IO](NonEmptyList.one(simpleArrayPassingTestFile))
         value1 ← vm.invoke[IO]()
         _ ← vm.getVmState[IO].toVmError
       } yield {
@@ -218,7 +217,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
       val simpleArrayMutationTestFile = getClass.getResource("/wast/simple-array-mutation.wast").getPath
 
       val res = for {
-        vm ← WasmVm[IO](NonEmptyList.one(simpleArrayMutationTestFile), MemoryHasher[IO])
+        vm ← WasmVm[IO](NonEmptyList.one(simpleArrayMutationTestFile))
         value1 ← vm.invoke[IO]("AAAAAAA".getBytes())
         state ← vm.getVmState[IO].toVmError
       } yield {
@@ -232,32 +231,13 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
   }
 
   "getVmState" should {
-    "raise an error" when {
-      "getting inner state for module failed" in {
-        val counterTestFile = getClass.getResource("/wast/counter.wast").getPath
-        val badHasher: MemoryHasher.Builder[IO] =
-          (v1: MemoryBuffer) => EitherT.leftT(VmMemoryError("error", Some(CryptoError("Error"))))
-
-        val res = for {
-          vm ← WasmVm[IO](NonEmptyList.one(counterTestFile), badHasher)
-          state ← vm.getVmState[IO].toVmError
-        } yield state
-
-        val error = res.failed()
-        error.getMessage shouldBe "Unable to instantiate WasmModuleMemory for module=null"
-        // TODO error.getCause shouldBe a[CryptoError]
-        // TODO error shouldBe a[InternalVmError]
-      }
-
-    }
-
     "returns state" when {
       "there is one module with memory present" in {
         // the code in 'counter.wast' uses 'memory', instance for this module created with 'memory' field
         val counterTestFile = getClass.getResource("/wast/counter.wast").getPath
 
         val res = for {
-          vm ← WasmVm[IO](NonEmptyList.one(counterTestFile), MemoryHasher[IO])
+          vm ← WasmVm[IO](NonEmptyList.one(counterTestFile))
           get1 ← vm.invoke[IO]() // 0 -> 1; return 1
           state1 ← vm.getVmState[IO]
           get2 ← vm.invoke[IO]() // 1 -> 2; return 2
@@ -285,7 +265,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         val mulTestFile = getClass.getResource("/wast/mul.wast").getPath
 
         val res = for {
-          vm ← WasmVm[IO](NonEmptyList.of(counterTestFile, counterCopyTestFile, mulTestFile), MemoryHasher[IO])
+          vm ← WasmVm[IO](NonEmptyList.of(counterTestFile, counterCopyTestFile, mulTestFile))
 
           get1 ← vm.invoke[IO]() // 0 -> 1; read 1
           _ ← vm.invoke[IO]() // 1 -> 2; read 2

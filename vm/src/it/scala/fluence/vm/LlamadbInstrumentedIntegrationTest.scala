@@ -19,7 +19,6 @@ package fluence.vm
 import cats.data.NonEmptyList
 import cats.effect.{IO, Timer}
 import fluence.log.{Log, LogFactory}
-import fluence.vm.wasm.MemoryHasher
 
 import scala.concurrent.ExecutionContext
 import scala.language.{higherKinds, implicitConversions}
@@ -39,7 +38,7 @@ class LlamadbInstrumentedIntegrationTest extends LlamadbIntegrationTestInterface
 
     "be able to instantiate" in {
       (for {
-        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), MemoryHasher[IO], "fluence.vm.client.4Mb")
+        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
         state ← vm.getVmState[IO].toVmError
       } yield {
         state should not be None
@@ -50,7 +49,7 @@ class LlamadbInstrumentedIntegrationTest extends LlamadbIntegrationTestInterface
 
     "be able to create table and insert to it" in {
       (for {
-        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), MemoryHasher[IO], "fluence.vm.client.4Mb")
+        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
         createResult ← createTestTable(vm)
 
       } yield {
@@ -63,7 +62,7 @@ class LlamadbInstrumentedIntegrationTest extends LlamadbIntegrationTestInterface
 
     "be able to select records" in {
       (for {
-        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), MemoryHasher[IO], "fluence.vm.client.4Mb")
+        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
         createResult ← createTestTable(vm)
         emptySelectResult ← executeSql(vm, "SELECT * FROM Users WHERE name = 'unknown'")
         selectAllResult ← executeSql(vm, "SELECT min(id), max(id), count(age), sum(age), avg(age) FROM Users")
@@ -98,7 +97,7 @@ class LlamadbInstrumentedIntegrationTest extends LlamadbIntegrationTestInterface
 
     "be able to launch VM with 2 GiB memory and a lot of data inserts" in {
       (for {
-        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), MemoryHasher[IO], "fluence.vm.client.2Gb")
+        vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.2Gb")
         _ ← createTestTable(vm)
 
         // trying to insert 30 time by ~200 KiB

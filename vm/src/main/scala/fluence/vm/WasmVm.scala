@@ -81,7 +81,12 @@ trait WasmVm {
 }
 
 object WasmVm {
-  System.loadLibrary("/Users/trofim/Desktop/work/fluence/fluence/vm/executor/target/release/libexecutor.dylib")
+  val javaLibPath: String = System.getProperty("java.library.path")
+  System.out.println(javaLibPath)
+
+  Runtime.getRuntime.load(
+    "/Users/trofim/Desktop/work/fluence/fluence/vm/executor/target/release/libwasm_executor.dylib"
+  )
 
   /**
    * Main method factory for building VM.

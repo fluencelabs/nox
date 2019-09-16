@@ -12,11 +12,12 @@ thread_local! {
 
 // initializes virtual machine
 #[no_mangle]
-pub extern "system" fn Java_Executor_init(
+pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_init(
     env: JNIEnv,
     class: JClass,
     module_path: JString,
 ) -> jint {
+    println!("executor init starts");
     let file_name: String = env
         .get_string(module_path)
         .expect("Couldn't get module path!")
@@ -31,34 +32,47 @@ pub extern "system" fn Java_Executor_init(
         *wasm_executor.borrow_mut() = Some(executor)
     });
 
+    println!("executor init ended");
+
     0
 }
 
 // Invokes the main module entry point function
 #[no_mangle]
-pub extern "system" fn Java_Executor_invoke<'a>(
+pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_invoke<'a>(
     env: JNIEnv,
     class: JClass,
-    fn_argument: JByteBuffer,
+    fn_argument: jbyteArray,
 ) -> jbyteArray {
-    let input = env
-        .get_direct_buffer_address(fn_argument)
+    let input_len = env.get_array_length(fn_argument).unwrap();
+    println!("argument length is {}", input_len);
+
+    let mut input = Vec::<i8>::with_capacity(input_len as _);
+    input.resize(input_len as _, 0);
+
+    env.get_byte_array_region(fn_argument, 0, input.as_mut_slice())
         .expect("Couldn't get function argument value");
 
     let result = WASM_EXECUTOR.with(|wasm_executor| {
         if let Some(ref mut e) = *wasm_executor.borrow_mut() {
-            return e.invoke(input).unwrap()
+            return e.invoke(&input).unwrap()
         }
         Vec::<u8>::new()
     });
 
     let output: jbyteArray = env
-    .new_byte_array(result.len() as i32)
-    .expect("Couldn't allocate enough space for byte array");
+        .byte_array_from_slice(&result)
+        .expect("Couldn't allocate enough space for byte array");
 
     return output
 }
 
 // computes hash of the internal VM state
 #[no_mangle]
-pub extern "system" fn Java_Executor_vm_state<'a>(env: JNIEnv, class: JClass) {}
+pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_getVmState<'a>(env: JNIEnv, class: JClass) -> jbyteArray {
+    let output: jbyteArray = env
+        .new_byte_array(1)
+        .expect("Couldn't allocate enough space for byte array");
+
+    return output
+}

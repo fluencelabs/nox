@@ -40,7 +40,7 @@ class WasmVmSpec extends WordSpec with Matchers {
 
       "config error" in {
         val res = for {
-          vm <- WasmVm[IO](NonEmptyList.one("unknown file"), MemoryHasher[IO], "wrong config namespace")
+          vm <- WasmVm[IO](NonEmptyList.one("unknown file"), "wrong config namespace")
         } yield vm
 
         val error = res.failed()
@@ -50,7 +50,7 @@ class WasmVmSpec extends WordSpec with Matchers {
 
       "file not found" in {
         val res = for {
-          vm <- WasmVm[IO](NonEmptyList.one("unknown file"), MemoryHasher[IO])
+          vm <- WasmVm[IO](NonEmptyList.one("unknown file"))
         } yield vm
 
         val error = res.failed()
@@ -67,21 +67,21 @@ class WasmVmSpec extends WordSpec with Matchers {
     "one module without name is provided" in {
       val sumFile = getClass.getResource("/wast/sum.wast").getPath
 
-      WasmVm[IO](NonEmptyList.one(sumFile), MemoryHasher[IO]).success()
+      WasmVm[IO](NonEmptyList.one(sumFile)).success()
     }
 
     "one module with name is provided" in {
       // Mul modules have name
       val mulFile = getClass.getResource("/wast/mul.wast").getPath
 
-      WasmVm[IO](NonEmptyList.one(mulFile), MemoryHasher[IO]).success()
+      WasmVm[IO](NonEmptyList.one(mulFile)).success()
     }
 
     "two modules with different module names are provided" in {
       val sumFile = getClass.getResource("/wast/sum.wast").getPath
       val mulFile = getClass.getResource("/wast/mul.wast").getPath
 
-      WasmVm[IO](NonEmptyList.of(mulFile, sumFile), MemoryHasher[IO]).success()
+      WasmVm[IO](NonEmptyList.of(mulFile, sumFile)).success()
     }
 
     "two modules with functions with the same names are provided" in {
@@ -91,7 +91,7 @@ class WasmVmSpec extends WordSpec with Matchers {
       val sum2File = getClass.getResource("/wast/mul.wast").getPath
 
       val res = for {
-        vm <- WasmVm[IO](NonEmptyList.of(sum1File, sum2File), MemoryHasher[IO])
+        vm <- WasmVm[IO](NonEmptyList.of(sum1File, sum2File))
       } yield vm
 
       res.success()
@@ -105,7 +105,7 @@ class WasmVmSpec extends WordSpec with Matchers {
       val sumFile = getClass.getResource("/wast/sum.wast").getPath
       val mulFile = getClass.getResource("/wast/bad-allocation-function-i64.wast").getPath
 
-      WasmVm[IO](NonEmptyList.of(mulFile, sumFile), MemoryHasher[IO]).failed()
+      WasmVm[IO](NonEmptyList.of(mulFile, sumFile)).failed()
     }
 
   }

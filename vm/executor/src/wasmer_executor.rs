@@ -1,6 +1,10 @@
 use std::fs;
 use wasmer_runtime::error::CallError;
-use wasmer_runtime::{error, func, imports, instantiate, Ctx, Func, Instance};
+use wasmer_runtime::{error, func, imports, instantiate, Ctx, Func, Instance, Memory};
+
+pub struct WasmMemory {
+    mem: Memory,
+}
 
 pub struct WasmerExecutor {
     instance: Instance,
@@ -8,13 +12,11 @@ pub struct WasmerExecutor {
 
 impl WasmerExecutor {
     // writes given value on the given address
-    fn write_to_mem(&mut self, address: usize, value: &[u8]) -> error::Result<()> {
-        let memory = self.instance.context_mut().memory(address as u32);
+    fn write_to_mem(&mut self, address: usize, value: &[i8]) -> error::Result<()> {
+        let memory = self.instance.context_mut().memory(0);
 
-        let mut byte_id = 0;
-        for cell in memory.view()[0 as usize..value.len()].iter() {
+        for (byte_id, cell) in memory.view()[address as usize.. (address + value.len())].iter().enumerate() {
             cell.set(value[byte_id]);
-            byte_id += 1;
         }
 
         Ok(())
@@ -22,22 +24,22 @@ impl WasmerExecutor {
 
     // reads given count of bytes from given address
     fn read_result_from_mem(&self, address: usize) -> error::Result<Vec<u8>> {
-        let memory = self.instance.context().memory(address as u32);
+        let memory = self.instance.context().memory(0);
 
         let mut result_size: usize = 0;
 
-        let mut byte_id = 0;
-        for cell in memory.view::<u8>()[0..4].iter() {
-            result_size |= (cell.get() << 8 * byte_id) as usize;
-            byte_id += 1;
+        for (byte_id, cell) in memory.view::<u8>()[address..address+4].iter().enumerate() {
+            result_size |= (cell.get() << 8 * byte_id as u8) as usize;
         }
+        println!("result size is {}", result_size);
 
         let mut result = Vec::<u8>::with_capacity(result_size);
 
-        for cell in memory.view()[4 as usize..result_size].iter() {
+        for cell in memory.view()[address + 4 as usize.. address + result_size + 1].iter() {
             result.push(cell.get());
         }
-        Ok(Vec::<u8>::new())
+
+        Ok(result)
     }
 
     fn call_invoke_func(&self, addr: i32, len: i32) -> error::Result<i32> {
@@ -57,12 +59,17 @@ impl WasmerExecutor {
         func.call(addr, size).map_err(Into::into)
     }
 
-    pub fn invoke(&mut self, fn_argument: &[u8]) -> error::Result<Vec<u8>> {
+    pub fn invoke(&mut self, fn_argument: &[i8]) -> error::Result<Vec<u8>> {
         let argument_len = fn_argument.len() as i32;
-        let allocated_region_address = self.call_allocate_func(argument_len)?;
+        let argument_address = if argument_len != 0 {
+            let address = self.call_allocate_func(argument_len)?;
+            self.write_to_mem(address as usize, fn_argument)?;
+            address
+        } else {
+            0
+        };
 
-        self.write_to_mem(allocated_region_address as usize, fn_argument)?;
-        let result_address = self.call_invoke_func(allocated_region_address, argument_len)?;
+        let result_address = self.call_invoke_func(argument_address, argument_len)?;
         let result = self.read_result_from_mem(result_address as usize)?;
         self.call_deallocate_func(result_address, result.len() as i32)?;
 
