@@ -30,7 +30,6 @@ import fluence.statemachine.control.{ControlServer, ControlStatus}
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.vm.WasmVmOperationInvoker
 import fluence.vm.WasmVm
-import fluence.vm.wasm.MemoryHasher
 import LogLevel.toLogLevel
 import cats.effect.concurrent.Deferred
 import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
@@ -144,5 +143,5 @@ object ServerRunner extends IOApp {
    * @param moduleFiles module filenames with VM code
    */
   private def buildVm[F[_]: Monad: Log](moduleFiles: NonEmptyList[String]): EitherT[F, StateMachineError, WasmVm] =
-    WasmVm[F](moduleFiles, MemoryHasher[F]).leftMap(WasmVmOperationInvoker.convertToStateMachineError)
+    WasmVm[F](moduleFiles).leftMap(WasmVmOperationInvoker.convertToStateMachineError)
 }

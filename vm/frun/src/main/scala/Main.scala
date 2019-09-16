@@ -19,7 +19,6 @@ import cats.effect.{ExitCode, IO, IOApp}
 import cats.syntax.apply._
 import fluence.log.{Log, LogFactory}
 import fluence.vm.WasmVm
-import fluence.vm.wasm.MemoryHasher
 import org.http4s.implicits._
 import org.http4s.server.blaze.BlazeServerBuilder
 import org.http4s.server.middleware.CORS
@@ -95,7 +94,7 @@ object Main extends IOApp {
     for {
       implicit0(log: Log[IO]) ← logFactory.init("run")
       files <- getFilesToRun(args.headOption)
-      vmOrError <- WasmVm[IO](files, MemoryHasher[IO], "fluence.vm.debugger").value
+      vmOrError <- WasmVm[IO](files, "fluence.vm.debugger").value
       vm <- IO.fromEither(vmOrError)
       processor <- TxProcessor[IO](vm)
       httpApp = app(processor)
