@@ -17,30 +17,28 @@
 package fluence.node
 
 import cats.effect.concurrent.{MVar, Ref}
-import cats.effect.{ContextShift, IO, Resource, Timer}
+import cats.effect.{Concurrent, ContextShift, IO, Resource, Timer}
+import cats.syntax.apply._
+import cats.syntax.applicative._
+import cats.syntax.functor._
+import cats.syntax.monad._
+import cats.syntax.traverse._
+import cats.instances.list._
 import fluence.Eventually
-import fluence.crypto.{Crypto, CryptoError}
-import fluence.effects.tendermint.block.TestData
+import fluence.effects.tendermint.rpc.TestData
 import fluence.effects.tendermint.block.data.Block
 import fluence.log.LogFactory.Aux
 import fluence.log.appender.PrintlnLogAppender
 import fluence.log.{Log, LogFactory}
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
-import fluence.node.workers.subscription.{
-  OkResponse,
-  PerBlockTxExecutor,
-  TendermintQueryResponse,
-  TxAwaitError,
-  WaitResponseService
-}
+import fluence.node.workers.subscription._
 import fluence.statemachine.api.tx.Tx
-
-import scala.concurrent.duration._
 import org.scalatest.{EitherValues, Matchers, OptionValues, WordSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.util.Try
+import scala.concurrent.duration._
+import scala.language.higherKinds
 
 class PerBlockTxExecutorSpec extends WordSpec with Eventually with Matchers with OptionValues with EitherValues {
 
@@ -51,14 +49,6 @@ class PerBlockTxExecutorSpec extends WordSpec with Eventually with Matchers with
     logFactory.init("ResponseSubscriberSpec", level = Log.Off).unsafeRunSync()
 
   private def start() = {
-
-    val hasher: Crypto.Hasher[Array[Byte], String] = Crypto.liftFuncEither(
-      bytes ⇒
-        Try {
-          new String(bytes)
-        }.toEither.left
-          .map(err ⇒ CryptoError(s"Unexpected", Some(err)))
-    )
 
     for {
       blocksQ <- Resource.liftF(fs2.concurrent.Queue.unbounded[IO, Block])
@@ -82,50 +72,37 @@ class PerBlockTxExecutorSpec extends WordSpec with Eventually with Matchers with
     } yield (storedProcedureExecutor, blocksQ)
   }
 
-  private val block = Block(TestData.blockWithNullTxsResponse(1)).right.get
+  private val block = Block(TestData.block(1)).right.get
 
-  private def startStream(
-    stream: fs2.Stream[IO, TendermintResponse],
-    events: Ref[IO, List[TendermintResponse]],
-    eventsChecker: Ref[IO, Boolean],
-    interruptChecker: Ref[IO, Boolean]
-  ) = {
-    stream.evalTap { e =>
-      for {
-        _ <- eventsChecker.update(_ => true)
-        _ <- events.update(_ :+ e)
-      } yield ()
-    }.onFinalize(interruptChecker.update(_ => true))
-      .compile
-      .drain
-      .unsafeRunAsyncAndForget()
-  }
+  case class StreamInfo[F[_]](events: F[List[TendermintResponse]], stopped: F[Boolean])
+  private def startStream(stream: fs2.Stream[IO, TendermintResponse]) =
+    for {
+      events <- Ref.of[IO, List[TendermintResponse]](List.empty)
+      stopped <- Ref.of[IO, Boolean](false)
+      _ <- Concurrent[IO].start(
+        stream
+          .evalTap(e => events.update(_ :+ e))
+          .onFinalize(stopped.update(_ => true))
+          .compile
+          .drain
+      )
+    } yield StreamInfo(events.get, stopped.get)
 
   "StoredProcedureExecutor" should {
     "be able to process subscribes, publish events through subscribers and close streams on unsubscribe" in {
       start().use {
         case (executor, blockQ) =>
-          val tx = Tx.Data(Array[Byte](1, 2, 3))
-
-          // generate blocks eventually
-          fs2.Stream
-            .awakeEvery[IO](50.milliseconds)
-            .map(_ => block)
-            .evalMap(blockQ.enqueue1)
-            .compile
-            .drain
-            .unsafeRunAsyncAndForget()
           for {
-            stream1EventsChecker <- Ref.of[IO, Boolean](false)
-            stream1Events <- Ref.of[IO, List[TendermintResponse]](List.empty)
-            stream2EventsChecker <- Ref.of[IO, Boolean](false)
-            stream2Events <- Ref.of[IO, List[TendermintResponse]](List.empty)
-            stream3EventsChecker <- Ref.of[IO, Boolean](false)
-            stream3Events <- Ref.of[IO, List[TendermintResponse]](List.empty)
-            stream1InterruptChecker <- Ref.of[IO, Boolean](false)
-            stream2InterruptChecker <- Ref.of[IO, Boolean](false)
-            stream3InterruptChecker <- Ref.of[IO, Boolean](false)
-
+            // generate blocks async-ly
+            _ <- Concurrent[IO].start(
+              fs2.Stream
+                .awakeEvery[IO](50.milliseconds)
+                .map(_ => block)
+                .evalMap(blockQ.enqueue1)
+                .compile
+                .drain
+            )
+            tx = Tx.Data(Array[Byte](1, 2, 3))
             stream1Id = SubscriptionKey.generate("stream1", tx)
             stream23Id = SubscriptionKey.generate("stream-23", tx)
 
@@ -134,26 +111,24 @@ class PerBlockTxExecutorSpec extends WordSpec with Eventually with Matchers with
             stream2 <- executor.subscribe(stream23Id, tx)
             stream3 <- executor.subscribe(stream23Id, tx)
 
-            _ = startStream(stream1, stream1Events, stream1EventsChecker, stream1InterruptChecker)
-            _ = startStream(stream2, stream2Events, stream2EventsChecker, stream2InterruptChecker)
-            _ = startStream(stream3, stream3Events, stream3EventsChecker, stream3InterruptChecker)
+            info1 <- startStream(stream1)
+            info2 <- startStream(stream2)
+            info3 <- startStream(stream3)
 
             // check if all streams have events
-            _ <- eventually[IO]({ stream1EventsChecker.get.map { _ shouldBe true } }, 100.millis)
-            _ <- eventually[IO]({ stream2EventsChecker.get.map { _ shouldBe true } }, 100.millis)
-            _ <- eventually[IO]({ stream3EventsChecker.get.map { _ shouldBe true } }, 100.millis)
+            _ <- eventually[IO]({ info1.events.map(_ should not be empty) }, 100.millis)
+            _ <- eventually[IO]({ info2.events.map(_ should not be empty) }, 100.millis)
+            _ <- eventually[IO]({ info3.events.map(_ should not be empty) }, 100.millis)
 
             // check if all streams have the same events
             _ <- eventually[IO](
-              {
-                for {
-                  events1 <- stream1Events.get
-                  events2 <- stream1Events.get
-                  events3 <- stream3Events.get
-                } yield {
-                  events1.takeRight(10) should contain theSameElementsAs (events2.takeRight(10))
-                  events1.takeRight(10) should contain theSameElementsAs (events3.takeRight(10))
-                }
+              for {
+                events1 <- info1.events.map(_.takeRight(10))
+                events2 <- info2.events.map(_.takeRight(10))
+                events3 <- info3.events.map(_.takeRight(10))
+              } yield {
+                events1 should contain theSameElementsAs events2
+                events2 should contain theSameElementsAs events3
               },
               100.millis
             )
@@ -161,17 +136,7 @@ class PerBlockTxExecutorSpec extends WordSpec with Eventually with Matchers with
 
             // check if the first stream is finished after unsubscription
             _ <- eventually[IO](
-              {
-                for {
-                  interruption1 <- stream1InterruptChecker.get
-                  interruption2 <- stream2InterruptChecker.get
-                  interruption3 <- stream3InterruptChecker.get
-                } yield {
-                  interruption1 shouldBe true
-                  interruption2 shouldBe false
-                  interruption3 shouldBe false
-                }
-              },
+              (info1.stopped, info2.stopped, info3.stopped).mapN { case t => t shouldBe (true, false, false) },
               100.millis
             )
 
@@ -179,17 +144,7 @@ class PerBlockTxExecutorSpec extends WordSpec with Eventually with Matchers with
 
             // check if the second and third stream is finished after unsubscription
             _ <- eventually[IO](
-              {
-                for {
-                  interruption1 <- stream1InterruptChecker.get
-                  interruption2 <- stream2InterruptChecker.get
-                  interruption3 <- stream3InterruptChecker.get
-                } yield {
-                  interruption1 shouldBe true
-                  interruption2 shouldBe true
-                  interruption3 shouldBe true
-                }
-              },
+              (info1.stopped, info2.stopped, info3.stopped).mapN { case t => t shouldBe (true, true, true) },
               100.millis
             )
           } yield {}
