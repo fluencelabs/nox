@@ -134,7 +134,7 @@ class PerBlockTxExecutorImpl[F[_]: Timer: Concurrent](
     implicit log: Log[F]
   ): F[Either[TxAwaitError, TendermintQueryResponse]] = {
     val randomStr = Random.alphanumeric.take(8).mkString
-    val head = Tx.Head(s"pubsub-$key-$randomStr", 0)
+    val head = Tx.Head(s"${ResponseSubscriber.PubSubSessionPrefix}-$key-$randomStr", 0)
     val tx = Tx(head, data)
 
     waitResponseService.sendTxAwaitResponse(tx.generateTx(), None)
