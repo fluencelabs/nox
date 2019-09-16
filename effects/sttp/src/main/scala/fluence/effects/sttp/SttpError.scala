@@ -20,8 +20,14 @@ import fluence.effects.EffectError
 
 sealed trait SttpError extends EffectError
 
-case class SttpRequestError(cause: Throwable) extends Exception(cause) with SttpError
+case class SttpRequestError(cause: Throwable) extends Exception(cause) with SttpError {
+  override def getMessage = s"$cause"
+}
 
-case class SttpBodyError(message: String) extends SttpError
+case class SttpBodyError(message: String) extends SttpError {
+  override def getMessage = s"$message"
+}
 
-case class SttpDecodeError(cause: Throwable) extends Exception(cause) with SttpError
+case class SttpDecodeError(cause: Throwable) extends Exception(cause) with SttpError {
+  override def getMessage = s"$cause"
+}

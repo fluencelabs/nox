@@ -23,7 +23,6 @@ FROM $environment as build
 ############## Build final image
 FROM openjdk:8-jre-alpine
 VOLUME /worker
-EXPOSE 26658
 COPY --from=build /fluence/statemachine/docker/worker /worker
 COPY --from=build /fluence/statemachine/docker/target/scala-2.12/statemachine.jar /statemachine.jar
 ENTRYPOINT ["sh", "/worker/run.sh", "/statemachine.jar"]

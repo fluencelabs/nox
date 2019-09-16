@@ -57,6 +57,13 @@ object StatusHttp {
           (for {
             implicit0(log: Log[F]) ← LogFactory[F].init("http", "status")
             status <- sm.getStatus(t.map(_.seconds).filter(_ < maxTimeout).getOrElse(defaultTimeout))
+            _ <- Sync[F].delay(status.workers.map(s => s.appId -> scala.util.Try(s.asJson.spaces2)).foreach {
+              case (appId, wstatus) =>
+                println(
+                  s"worker status $appId => " +
+                    wstatus.fold(e => s"ERROR: $e ${e.getCause} ${e.printStackTrace()}", identity)
+                )
+            })
             maybeJson <- Sync[F].delay(status.asJson.spaces2).attempt
           } yield (log, status, maybeJson)).flatMap {
             case (log, status, Left(e)) ⇒
@@ -73,11 +80,11 @@ object StatusHttp {
 
           (for {
             implicit0(log: Log[F]) ← LogFactory[F].init("http", "status/eth")
-            status ← sm.expectedEthState
-            maybeJson ← Sync[F].delay(status.asJson.spaces2).attempt
-          } yield (log, status, maybeJson)).flatMap {
-            case (log, status, Left(e)) ⇒
-              log.error(s"Status cannot be serialized to JSON. Status: $status", e) *>
+            ethState ← sm.expectedEthState
+            maybeJson ← Sync[F].delay(ethState.asJson.spaces2).attempt
+          } yield (log, ethState, maybeJson)).flatMap {
+            case (log, ethState, Left(e)) ⇒
+              log.error(s"Eth state cannot be serialized to JSON. Eth state: $ethState", e) *>
                 InternalServerError("JSON generation errored, please try again")
 
             case (_, _, Right(json)) ⇒

@@ -18,7 +18,7 @@ WORK_FILE = Worker.Dockerfile
 DASH_FILE = Dashboard.Dockerfile
 
 NODE_IMG = 'fluencelabs/node:$(TAG)'
-WORK_IMG = 'fluencelabs/statemachine:$(TAG)'
+WORK_IMG = 'fluencelabs/worker:$(TAG)'
 DASH_IMG = 'fluencelabs/dashboard:$(TAG)'
 
 node:        ;$(BUILD)         -t $(NODE_IMG) -f $(DIR)/$(NODE_FILE) .
