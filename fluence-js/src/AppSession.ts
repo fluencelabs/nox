@@ -107,7 +107,7 @@ export class AppSession {
     }
 
     /**
-     * Returns a response by requestId.
+     * Returns a response by request_id.
      *
      * @param requestId id of request
      *

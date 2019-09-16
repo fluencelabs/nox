@@ -20,8 +20,11 @@ import {Session} from "./Session";
 import {SessionConfig} from "./SessionConfig";
 import {Result} from "./Result";
 import {getAppNodes, Node} from "./contract"
-import {remove0x, secp256k1, parseHost} from "./utils";
+import {remove0x, secp256k1, parseHost, genSessionId} from "./utils";
 import {AppSession} from "./AppSession";
+import * as randomstring from "randomstring";
+import {toByteArray} from "base64-js";
+import {WebsocketSession} from "./WebsocketSession";
 
 export {
     TendermintClient as TendermintClient,
@@ -31,6 +34,8 @@ export {
     SessionConfig as SessionConfig,
     AppSession as AppSession
 }
+
+let defaultContract = "0xe01690f60E08207Fa29F9ef98fA35e7fB7A12A96";
 
 // A session with a worker with info about a worker
 export interface WorkerSession {
@@ -59,12 +64,14 @@ function convertPrivateKey(privateKey?: Buffer | string): undefined | Buffer {
  * @param ethereumUrl Optional ethereum node url. Connect via Metamask if `ethereumlUrl` is undefined
  * @param privateKey Optional private key to sign requests. Signature is concatenated to the request payload.
  */
-export async function connect(contract: string, appId: string, ethereumUrl?: string, privateKey?: Buffer | string): Promise<AppSession> {
+export async function connect(appId: string, contract?: string, ethereumUrl?: string, privateKey?: Buffer | string): Promise<AppSession> {
 
     privateKey = convertPrivateKey(privateKey);
 
+    contract = contract ? contract : defaultContract;
+
     let nodes: Node[] = await getAppNodes(contract, appId, ethereumUrl);
-    let sessionId = Session.genSessionId();
+    let sessionId = genSessionId();
     let sessions: WorkerSession[] = nodes.map(node => {
         let session = sessionConnect(node.ip_addr, node.api_port, appId, sessionId);
         return {
@@ -107,4 +114,67 @@ export function directConnect(host: string, port: number, appId: string, session
     ];
 
     return new AppSession(session.session, appId, sessions, privateKey);
+}
+
+export async function websocket(appId: string, contract?: string, ethereumUrl?: string, privateKey?: Buffer | string) {
+    privateKey = convertPrivateKey(privateKey);
+    contract = contract ? contract : defaultContract;
+    let nodes: Node[] = await getAppNodes(contract, appId, ethereumUrl);
+
+    return new WebsocketSession(appId, nodes, privateKey);
+}
+
+export function testWebsocket() {
+    let socket = new WebSocket("ws://46.101.151.125:25000/apps/96/ws");
+
+    let req = function(r: string) {
+
+        let rnd = randomstring.generate(12);
+        let path = `${rnd}/0`;
+
+        let tx = `${path}\n${r}`;
+
+        return {
+            tx: tx,
+            request_id: "ididid",
+            type: "tx_wait_request"
+        };
+    };
+
+    let reqSub = function(r: string) {
+
+        return {
+            tx: r,
+            request_id: "ididid",
+            subscription_id: "ididid",
+            type: "subscribe_request"
+        };
+    };
+
+
+    /*
+    {"request_id":"ididid","data":"{\n  \"jsonrpc\": \"2.0\",\n  \"id\": \"dontcare\",\n  \"result\": {\n    \"code\": 1,\n    \"data\": \"43616E6E6F74207061727365207472616E73616374696F6E20686561646572\",\n    \"log\": \"\",\n    \"hash\": \"E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855\"\n  }\n}","type":"tx_response"}
+     */
+
+    socket.onmessage = function (event) {
+        // console.log(event.data);
+        let parsed = JSON.parse(JSON.parse(event.data).data).result.response;
+        // console.log(parsed);
+
+        let result = new Result(toByteArray(parsed.value));
+        console.log("result: " + result.asString())
+
+    };
+
+    // create table employee(empid integer,name varchar(20),title varchar(10));
+    // insert into employee values(101,'John Smith','CEO');
+    // select * from employee;
+
+    socket.onopen = function (e) {
+        let req1 = req("insert into employee values(101,'John Smith','CEO');");
+        let sub1 = reqSub("select * from employee;");
+
+        socket.send(JSON.stringify(req1));
+        socket.send(JSON.stringify(sub1));
+    };
 }

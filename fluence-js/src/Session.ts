@@ -15,12 +15,11 @@
  */
 
 import {error, ErrorResponse, ErrorType, Result} from "./Result";
-import {parseResponse, TendermintClient, TxRequest} from "./TendermintClient";
+import {parseResponse, TendermintClient} from "./TendermintClient";
 import {SessionConfig} from "./SessionConfig";
 
 import Debug from "debug";
-import {PrivateKey, withSignature} from "./utils";
-import * as randomstring from "randomstring";
+import {genSessionId, prepareRequest, PrivateKey, withSignature} from "./utils";
 import {Option} from "ts-option";
 
 const detailedDebug = Debug("request-detailed");
@@ -52,17 +51,13 @@ export class Session {
     private lastBanTime: number;
     private bannedTill: number;
 
-    static genSessionId(): string {
-        return randomstring.generate(12);
-    }
-
     /**
      * @param _tm transport to interact with the real-time cluster
      * @param _config parameters that regulate the session
      * @param _session session id, will be a random string with length 12 by default
      */
     constructor(_tm: TendermintClient, _config: SessionConfig,
-                _session: string = Session.genSessionId()) {
+                _session: string = genSessionId()) {
         this.tm = _tm;
         this.session = _session;
         this.config = _config;
@@ -72,13 +67,6 @@ export class Session {
         this.defaultBanTime = 60000; // 60 sec by default
         this.lastBanTime = this.defaultBanTime;
         this.bannedTill = 0;
-    }
-
-    /**
-     * Generates a key, that will be an identifier of the request.
-     */
-    private targetKey(counter: number) {
-        return `${this.session}/${counter}`;
     }
 
     /**
@@ -143,24 +131,6 @@ export class Session {
         }
     }
 
-    /**
-     * Checks if everything ok with the session before a request will be sent.
-     * Builds a request.
-     */
-    private prepareRequest(payload: string, privateKey?: PrivateKey, counter?: number): TxRequest {
-                // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
-        let currentCounter = counter ? counter : this.getCounterAndIncrement();
-
-        let signed = withSignature(payload, currentCounter, privateKey);
-        let path = this.targetKey(currentCounter);
-        let tx = `${path}\n${signed}`;
-
-        return  {
-            path: path,
-            payload: tx
-        }
-    }
-
     async query(path: string): Promise<RequestState<Option<Result>>> {
         detailedDebug("start query");
 
@@ -195,7 +165,7 @@ export class Session {
         const sessionClosed = this.checkSession();
         if (sessionClosed) return sessionClosed;
 
-        const request = this.prepareRequest(payload, privateKey, counter);
+        const request = prepareRequest(payload, this.session, counter ? counter : this.getCounterAndIncrement(), privateKey);
 
         // send transaction
         txDebug("send broadcastTxSync");
@@ -227,7 +197,7 @@ export class Session {
         const sessionClosed = this.checkSession();
         if (sessionClosed) return sessionClosed;
 
-        const request = this.prepareRequest(payload, privateKey, counter);
+        const request = prepareRequest(payload, this.session, counter ? counter : this.getCounterAndIncrement(), privateKey);
 
         // send transaction
         txDebug("send broadcastTxSync");
