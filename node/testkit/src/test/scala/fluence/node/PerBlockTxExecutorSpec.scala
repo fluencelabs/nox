@@ -72,7 +72,7 @@ class PerBlockTxExecutorSpec extends WordSpec with Eventually with Matchers with
     } yield (storedProcedureExecutor, blocksQ)
   }
 
-  private val block = Block(TestData.block(1)).right.get
+  private val block = TestData.parsedBlock(1)
 
   case class StreamInfo[F[_]](events: F[List[TendermintResponse]], stopped: F[Boolean])
   private def startStream(stream: fs2.Stream[IO, TendermintResponse]) =

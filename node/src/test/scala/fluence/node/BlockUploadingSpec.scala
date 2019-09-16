@@ -187,16 +187,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
       }
   }
 
-  private def singleBlock(height: Long) = {
-    val blockJson =
-      parse(rpc.TestData.block(height)).right.get.hcursor
-        .downField("result")
-        .downField("data")
-        .get[Json]("value")
-        .right
-        .get
-    Block(blockJson).right.get
-  }
+  private def singleBlock(height: Long) = rpc.TestData.parsedBlock(height)
 
   private def emptyBlock(height: Long) = Block(block.TestData.blockWithNullTxsResponse(height)).right.get
 
