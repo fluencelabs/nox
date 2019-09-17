@@ -37,13 +37,15 @@ interface Subscription {
 
 interface WebsocketResponse {
     request_id: string
+    type: string
     data?: string
-    error: string
+    error?: string
 }
 
 interface ResultExecutor {
     resultHandler: (result: Result) => void
     errorHandler: (error: any) => void
+    subscription: boolean
 }
 
 export class WebsocketSession {
@@ -81,7 +83,46 @@ export class WebsocketSession {
         return this.counter++;
     }
 
-    requestAsync(payload: string, resultHandler: (result: Result) => void, errorHandler: (error: any) => void): void {
+    subscribe(payload: string, resultHandler: (result: Result) => void, errorHandler: (error: any) => void): void {
+        let requestId = genRequestId();
+        let subscriptionId = genRequestId();
+
+        let request = {
+            tx: payload,
+            request_id: requestId,
+            subscription_id: subscriptionId,
+            type: "subscribe_request"
+        };
+
+        this.socket.send(JSON.stringify(request));
+
+        let executor: ResultExecutor = {
+            resultHandler: resultHandler,
+            errorHandler: errorHandler,
+            subscription: true
+        };
+
+        this.waitingRequests.set(subscriptionId, executor);
+    }
+
+    requestAsync(payload: string): void {
+        let requestId = genRequestId();
+        let counter = this.getCounterAndIncrement();
+
+        let tx = prepareRequest(payload, this.sessionId, counter, this.privateKey);
+
+        let request = {
+            tx: tx.payload,
+            request_id: requestId,
+            type: "tx"
+        };
+
+        console.log("send requestAsync: " + JSON.stringify(request));
+
+        this.socket.send(JSON.stringify(request));
+    }
+
+    request(payload: string, resultHandler: (result: Result) => void, errorHandler: (error: any) => void): void {
         let requestId = genRequestId();
         let counter = this.getCounterAndIncrement();
 
@@ -99,7 +140,8 @@ export class WebsocketSession {
 
         let executor: ResultExecutor = {
             resultHandler: resultHandler,
-            errorHandler: errorHandler
+            errorHandler: errorHandler,
+            subscription: false
         };
 
         this.waitingRequests.set(requestId, executor);
@@ -113,7 +155,7 @@ export class WebsocketSession {
     private static parseRawResponse(response: string): WebsocketResponse {
         let parsed = JSON.parse(response);
         if (!parsed.request_id) throw new Error("Cannot parse response, no 'request_id' field.");
-        if (!parsed.data && !parsed.error) throw new Error(`Cannot parse response, no 'data' or 'error' field in response with requestId '${parsed.requestId}'`);
+        if (parsed.type === "tx_wait_response" && !parsed.data && !parsed.error) throw new Error(`Cannot parse response, no 'data' or 'error' field in response with requestId '${parsed.requestId}'`);
 
         return parsed as WebsocketResponse;
     }
@@ -139,20 +181,33 @@ export class WebsocketSession {
             try {
                 let rawResponse = WebsocketSession.parseRawResponse(msg.data);
 
-                if (!this.waitingRequests.has(rawResponse.request_id)) {
-                    console.log(`There is no message with requestId '${rawResponse.request_id}'`)
-                } else {
-                    let executor = this.waitingRequests.get(rawResponse.request_id) as ResultExecutor;
-                    if (rawResponse.data) {
-                        let parsed = JSON.parse(rawResponse.data).result.response;
-                        let result = new Result(toByteArray(parsed.value));
+                console.log(rawResponse);
 
-                        executor.resultHandler(result)
+                if (rawResponse.type === "tx_wait_response") {
+
+                    if (!this.waitingRequests.has(rawResponse.request_id)) {
+                        console.log(`There is no message with requestId '${rawResponse.request_id}'`)
+                    } else {
+                        let executor = this.waitingRequests.get(rawResponse.request_id) as ResultExecutor;
+                        if (rawResponse.type === "tx_wait_response") {
+                            if (rawResponse.data) {
+                                let parsed = JSON.parse(rawResponse.data).result.response;
+                                let result = new Result(toByteArray(parsed.value));
+
+                                executor.resultHandler(result)
+                            }
+                            if (rawResponse.error) {
+                                executor.errorHandler(rawResponse.error as string);
+                            }
+                        } else if (rawResponse.type === "subscribe_response") {
+
+                        }
+                        if (!executor.subscription) {
+                            this.waitingRequests.delete(rawResponse.request_id);
+                        }
                     }
-                    if (rawResponse.error) {
-                        executor.errorHandler(rawResponse.error as string);
-                    }
-                    this.waitingRequests.delete(rawResponse.request_id);
+                } else {
+
                 }
             } catch (e) {
                 console.log("Cannot parse websocket event: " + e)
