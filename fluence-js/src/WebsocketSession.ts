@@ -35,16 +35,15 @@ interface Subscription {
     tx: string
 }
 
-interface RequestExecutor {
-    resolve?: (r: Result) => void
-    reject?: (reason: any) => void
-    requestType: RequestType
-}
-
 interface WebsocketResponse {
     request_id: string
     data?: string
     error: string
+}
+
+interface ResultExecutor {
+    resultHandler: (result: Result) => void
+    errorHandler: (error: any) => void
 }
 
 export class WebsocketSession {
@@ -57,7 +56,7 @@ export class WebsocketSession {
     private nodeCounter: number;
     private socket: WebSocket;
 
-    private waitingRequests = new Map<string, RequestExecutor>();
+    private waitingRequests = new Map<string, ResultExecutor>();
 
     constructor(appId: string, nodes: Node[], privateKey?: PrivateKey) {
         if (nodes.length == 0) {
@@ -82,7 +81,7 @@ export class WebsocketSession {
         return this.counter++;
     }
 
-    requestAsync(payload: string): Promise<Result> {
+    requestAsync(payload: string, resultHandler: (result: Result) => void, errorHandler: (error: any) => void): void {
         let requestId = genRequestId();
         let counter = this.getCounterAndIncrement();
 
@@ -94,24 +93,16 @@ export class WebsocketSession {
             type: "tx_wait_request"
         };
 
-        let requestExecutor: RequestExecutor = {
-            requestType: RequestType.RequestAsync
-        };
-
         console.log("send request: " + JSON.stringify(request));
 
         this.socket.send(JSON.stringify(request));
 
-        let executor = (resolve: (result: Result) => void, reject: (reason: any) => void) => {
-            requestExecutor.resolve = resolve;
-            requestExecutor.reject = reject;
+        let executor: ResultExecutor = {
+            resultHandler: resultHandler,
+            errorHandler: errorHandler
         };
 
-        let promise = new Promise<Result>(executor);
-
-        this.waitingRequests.set(requestId, requestExecutor);
-
-        return promise
+        this.waitingRequests.set(requestId, executor);
     }
 
     private resetSession() {
@@ -151,17 +142,15 @@ export class WebsocketSession {
                 if (!this.waitingRequests.has(rawResponse.request_id)) {
                     console.log(`There is no message with requestId '${rawResponse.request_id}'`)
                 } else {
-                    let executor = this.waitingRequests.get(rawResponse.request_id) as RequestExecutor;
+                    let executor = this.waitingRequests.get(rawResponse.request_id) as ResultExecutor;
                     if (rawResponse.data) {
                         let parsed = JSON.parse(rawResponse.data).result.response;
                         let result = new Result(toByteArray(parsed.value));
 
-                        let resolver = executor.resolve as (r: Result) => void;
-                        resolver(result)
+                        executor.resultHandler(result)
                     }
                     if (rawResponse.error) {
-                        let rejecter = executor.reject as ((reason: any) => void);
-                        rejecter(rawResponse.error as string);
+                        executor.errorHandler(rawResponse.error as string);
                     }
                     this.waitingRequests.delete(rawResponse.request_id);
                 }
