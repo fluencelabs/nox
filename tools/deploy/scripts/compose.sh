@@ -20,7 +20,7 @@ set -eo pipefail
 source ./functions/asserts.sh
 
 # updates all needed containers
-function container_update()
+function pull_new_images()
 {
     printf 'Updating all containers.'
     docker pull ipfs/go-ipfs:latest >/dev/null
@@ -32,36 +32,37 @@ function container_update()
     echo 'Containers are updated.'
 }
 
-# main function to deploy Fluence
-function deploy()
+function remove_old_containers()
 {
-    echo "Deploying for $CHAIN chain."
-
-    # disables docker-compose warnings about orphan services
-    export COMPOSE_IGNORE_ORPHANS=True
-
-    export FLUENCE_STORAGE="$HOME/.fluence/"
-    export ETHEREUM_ADDRESS="http://$ETHEREUM_IP:8545"
-
-    # exports initial arguments to global scope for `docker-compose` files
-#    export_arguments
-
-#    check_envs
-
-    container_update
-
-    # starting node container
     echo "Removing workers & tendermints"
     docker ps -a | grep -E 'tendermint|worker' | awk '{ print $1 }' | xargs docker rm -f &> /dev/null || true
-    echo "Restarting node container"
-    docker-compose --compatibility -f node.yml up -d --timeout 30 --force-recreate || true &>/dev/null
-    echo "Disconnecting old networks"
-    docker network ls | grep fluence | awk '{print $1}' | xargs -I{} docker network disconnect {} fluence-node-1 || true &> /dev/null
-    echo "Removing old networks"
-    docker network prune -f &> /dev/null
-
-    echo 'Node container is started.'
 }
 
-deploy
+function restart_node()
+{
+    # disables docker-compose warnings about orphan services
+    export COMPOSE_IGNORE_ORPHANS=True
+    echo "Restarting node container"
+    docker-compose --compatibility -f node.yml up -d --timeout 30 --force-recreate || true &>/dev/null
+}
 
+function clean_networks()
+{
+    echo "Disconnecting old networks"
+    docker network ls | grep fluence | awk '{print $1}' | xargs -I{} docker network disconnect {} fluence-node-1 &> /dev/null || true
+    echo "Removing old networks"
+    docker network prune -f &> /dev/null
+}
+
+###### Deploy ######
+echo "Deploying for $CHAIN chain."
+
+export FLUENCE_STORAGE="$HOME/.fluence/"
+
+check_envs
+pull_new_images
+remove_old_containers
+restart_node
+clean_networks
+
+echo 'Node container is started.'

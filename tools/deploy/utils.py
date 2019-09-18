@@ -60,11 +60,16 @@ def download_cli():
         local("chmod +x fluence")
 
 def get_tm_node_id():
-    return run('docker run --user 0 --rm -v $HOME/.fluence/:/master -e TMHOME=/master/tendermint tendermint/tendermint show_node_id')
+    with hide('output'):
+        out = run('docker run --user 0 --rm -v $HOME/.fluence/:/master -e TMHOME=/master/tendermint tendermint/tendermint show_node_id').stdout
+        last_line = out.splitlines()[-1]
+        return last_line
 
 def get_tm_validator():
-    out = run('docker run --user 0 --rm -v $HOME/.fluence/:/master -e TMHOME=/master/tendermint tendermint/tendermint show_validator')
-    return json.loads(out)['value']
+    with hide('output'):
+        out = run('docker run --user 0 --rm -v $HOME/.fluence/:/master -e TMHOME=/master/tendermint tendermint/tendermint show_validator').stdout
+        last_line = out.splitlines()[-1]
+        return json.loads(last_line)['value']
 
 def register_node(current_host,
                   current_key,
@@ -94,4 +99,33 @@ def get_config(environment):
     file = open("deployment_config.json", "r")
     info_json = file.read().rstrip()
     file.close()
-    info = json.loads(info_json)[environment]
+    return json.loads(info_json)[environment]
+
+def get_ipfs_address(config):
+    if config.get('ipfs') is None:
+        # Node and IPFS are connected via 'decentralized_storage_network' network, see node.yml & ipfs.yml
+        return "http://ipfs:5001"
+    else:
+        return env.ipfs
+
+def get_image_tag(env):
+    if not hasattr(env, 'image_tag'):
+        return "v0.3.0"
+    else:
+        return env.image_tag
+
+# copies all necessary files for deploying
+def copy_resources():
+    print "Copying deployment files to node"
+    # cleans up old scripts
+    run('rm -rf scripts')
+    run('mkdir scripts -p')
+    run('mkdir scripts/functions -p')
+    # copy local directory `script` to remote machine
+    put('scripts/compose.sh', 'scripts/')
+    put('scripts/node.yml', 'scripts/')
+    put('scripts/functions/asserts.sh', 'scripts/functions/')
+
+def home_dir():
+    with hide('output'):
+        return run('echo $HOME').stdout

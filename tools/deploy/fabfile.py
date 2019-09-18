@@ -14,139 +14,54 @@
 
 from __future__ import with_statement
 from fabric.api import *
+from utils      import *
 import json
-import utils
-
-info = utils.get_config(env.environment)
-
-if not env.hosts:
-    env.hosts = nodes.keys()
-else:
-    print "will use hosts: %s" % env.hosts
 
 # Set the username
 env.user = "root"
-
 # Set to False to disable `[ip.ad.dre.ss] out:` prefix
 env.output_prefix = True
 
-# copies all necessary files for deploying
-def copy_resources():
-    print "Copying deployment files to node"
-    # cleans up old scripts
-    run('rm -rf scripts')
-    run('mkdir scripts -p')
-    run('mkdir scripts/functions -p')
-    # copy local directory `script` to remote machine
-    put('scripts/compose.sh', 'scripts/')
-    put('scripts/node.yml', 'scripts/')
-    put('scripts/ipfs.yml', 'scripts/')
-    put('scripts/functions/asserts.sh', 'scripts/functions/')
+config = get_config(env.environment)
 
-
-# tests connection to all nodes
-# usage as follows: fab test_connections
-@task
-@parallel
-def test_connections():
-    run("uname -a")
-
+if not env.hosts:
+    # use addresses from config as fabric hosts
+    env.hosts = config['nodes'].keys()
+else:
+    print "will use hosts: %s" % env.hosts
 
 @task
 @parallel
 def deploy():
-    from utils import download_cli, get_tm_node_id, get_tm_validator, register_node
     with hide('running'):
-        ethereum_ip = info.get('ethereum_ip')
-        contract    = info['contract']
-        nodes       = info['nodes']
         host        = env.host_string
-        owner       = nodes[host]['owner']
-        key         = nodes[host]['key']
-        api_port    = nodes[host]['api_port']
-        capacity    = nodes[host]['capacity']
-        ipfs        = get_ipfs_address(info)
-        image_tag   = get_image_tag()
+        node        = config['nodes'][host]
+        key         = node['key']
+        owner       = node['owner']
+        api_port    = node['api_port']
+        capacity    = node['capacity']
+        contract    = config['contract']
+        ethereum_ip = config.get('ethereum_ip')
+        ipfs        = get_ipfs_address(config)
+        image_tag   = get_image_tag(env)
+        storage_dir = home_dir() + '/.fluence/'
 
         download_cli()
         copy_resources()
 
-        with cd("scripts"):
-            with shell_env(CHAIN='rinkeby',
-                           CONTRACT_ADDRESS=contract,
-                           OWNER_ADDRESS=owner,
-                           API_PORT=api_port,
-                           HOST_IP=host,
-                           IPFS_ADDRESS=ipfs,
-                           ETHEREUM_IP=ethereum_ip,
-                           IMAGE_TAG=image_tag):
-                run('chmod +x compose.sh')
-                run('./compose.sh')
-                register_node(host,key,ethereum_ip,contract,owner,api_port,capacity)
-
-def get_ipfs_address(info):
-    if info.get('ipfs') is None:
-        # Node and IPFS are connected via 'decentralized_storage_network' network, see node.yml & ipfs.yml
-        return "http://ipfs:5001"
-    else:
-        return env.ipfs
-
-def get_image_tag():
-    if not hasattr(env, 'image_tag'):
-        return "v0.3.0"
-    else:
-        return env.image_tag
-
-# usage: fab --set environment=stage,caddy_login=LOGIN,caddy_password=PASSWORD,role=slave deploy_netdata
-@task
-@parallel
-def deploy_netdata():
-    from fabric.contrib.files import upload_template
-    from utils import ensure_docker_group, chown_docker_sock, get_docker_pgid
-
-    if not hasattr(env, 'caddy_port'):
-        env.caddy_port = 1337  # set default port
-
-    usage = "usage: fab --set caddy_login=LOGIN,caddy_password=PASSWORD,caddy_port=1337 deploy_netdata"
-    assert hasattr(env, 'caddy_login'), usage
-    assert hasattr(env, 'caddy_password'), usage
-
-    if not hasattr(env, 'role'):
-        env.role = 'slave'
-
-    with hide('running', 'output'):
-        if env.role == 'master':
-            run("docker pull abiosoft/caddy")
-        run("docker pull netdata/netdata")
-        run("mkdir -p ~/netdata/scripts")
-        run("mkdir -p ~/netdata/config")
-        run("mkdir -p ~/.local/netdata_cache")
-        run("chmod o+rw ~/.local/netdata_cache")
-        env.home_dir = run("pwd").stdout
-        upload_template("scripts/netdata/netdata.yml", "~/netdata/scripts/netdata.yml", context=env)
-        if env.role == 'master':
-            upload_template("scripts/netdata/netdata_caddy.yml", "~/netdata/scripts/netdata_caddy.yml", context=env)
-            upload_template("config/netdata/Caddyfile", "~/netdata/config/Caddyfile", context=env)
-
-        if env.role == 'slave':
-            print "netdata mode = slave"
-            put("config/netdata/netdata_slave.conf", "~/netdata/config/netdata.conf")
-            put("config/netdata/stream_slave.conf", "~/netdata/config/stream.conf")
-        else:
-            print "netdata mode = master"
-            put("config/netdata/netdata_master.conf", "~/netdata/config/netdata.conf")
-            put("config/netdata/stream_master.conf", "~/netdata/config/stream.conf")
-
-        ensure_docker_group(env.user)
-        chown_docker_sock(env.user)
-        pgid = get_docker_pgid()
-
-        with shell_env(COMPOSE_IGNORE_ORPHANS="true"):
-            with show('running'):
-                if env.role == 'slave':
-                    run("PGID=%s HOSTNAME=$HOSTNAME docker-compose --compatibility -f ~/netdata/scripts/netdata.yml up -d" % pgid)
-                else:
-                    run("PGID=%s HOSTNAME=$HOSTNAME docker-compose --compatibility -f ~/netdata/scripts/netdata_caddy.yml -f ~/netdata/scripts/netdata.yml up -d" % pgid)
+        with cd("scripts"),\
+             shell_env(CHAIN            ='rinkeby',
+                       CONTRACT_ADDRESS = contract,
+                       OWNER_ADDRESS    = owner,
+                       API_PORT         = api_port,
+                       HOST_IP          = host,
+                       IPFS_ADDRESS     = ipfs,
+                       ETHEREUM_IP      = ethereum_ip,
+                       IMAGE_TAG        = image_tag,
+                       FLUENCE_STORAGE  = storage_dir):
+            run('chmod +x compose.sh')
+            run('./compose.sh')
+            register_node(host, key, ethereum_ip, contract, owner, api_port, capacity)
 
 @task
 @parallel
@@ -205,3 +120,58 @@ def deploy_ipfs():
 
         execute(connect_ipfs_nodes)
         print "IPFS: bootstrap nodes added"
+
+# usage: fab --set environment=stage,caddy_login=LOGIN,caddy_password=PASSWORD,role=slave deploy_netdata
+@task
+@parallel
+def deploy_netdata():
+    from fabric.contrib.files import upload_template
+
+    if not hasattr(env, 'caddy_port'):
+        env.caddy_port = 1337  # set default port
+
+    usage = "usage: fab --set caddy_login=LOGIN,caddy_password=PASSWORD,caddy_port=1337 deploy_netdata"
+    assert hasattr(env, 'caddy_login'), usage
+    assert hasattr(env, 'caddy_password'), usage
+
+    if not hasattr(env, 'role'):
+        env.role = 'slave'
+
+    with hide('running', 'output'):
+        if env.role == 'master':
+            run("docker pull abiosoft/caddy")
+        run("docker pull netdata/netdata")
+        run("mkdir -p ~/netdata/scripts")
+        run("mkdir -p ~/netdata/config")
+        run("mkdir -p ~/.local/netdata_cache")
+        run("chmod o+rw ~/.local/netdata_cache")
+        env.home_dir = home_dir()
+        upload_template("scripts/netdata/netdata.yml", "~/netdata/scripts/netdata.yml", context=env)
+        if env.role == 'master':
+            upload_template("scripts/netdata/netdata_caddy.yml", "~/netdata/scripts/netdata_caddy.yml", context=env)
+            upload_template("config/netdata/Caddyfile", "~/netdata/config/Caddyfile", context=env)
+
+        if env.role == 'slave':
+            print "netdata mode = slave"
+            put("config/netdata/netdata_slave.conf", "~/netdata/config/netdata.conf")
+            put("config/netdata/stream_slave.conf", "~/netdata/config/stream.conf")
+        else:
+            print "netdata mode = master"
+            put("config/netdata/netdata_master.conf", "~/netdata/config/netdata.conf")
+            put("config/netdata/stream_master.conf", "~/netdata/config/stream.conf")
+
+        ensure_docker_group(env.user)
+        chown_docker_sock(env.user)
+        pgid = get_docker_pgid()
+
+        with shell_env(COMPOSE_IGNORE_ORPHANS="true"):
+            with show('running'):
+                if env.role == 'slave':
+                    run("PGID=%s HOSTNAME=$HOSTNAME docker-compose --compatibility -f ~/netdata/scripts/netdata.yml up -d" % pgid)
+                else:
+                    run("PGID=%s HOSTNAME=$HOSTNAME docker-compose --compatibility -f ~/netdata/scripts/netdata_caddy.yml -f ~/netdata/scripts/netdata.yml up -d" % pgid)
+
+@task
+@parallel
+def test_connection():
+    run("uname -a")
