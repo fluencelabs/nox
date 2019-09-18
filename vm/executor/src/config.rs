@@ -1,3 +1,6 @@
+use jni::JNIEnv;
+use jni::objects::JClass;
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Config {
     /// Count of Wasm memory pages that will be preallocated on the VM startup.
@@ -36,5 +39,29 @@ impl Default for Config {
             logger_module_enabled: true,
             chunk_size: 4096,
         }
+    }
+}
+
+/*
+  memPages: 64
+
+  loggerEnabled: true
+
+  chunkSize: 4096
+
+  mainModuleConfig: {
+    allocateFunctionName: "allocate"
+
+    deallocateFunctionName: "deallocate"
+
+    invokeFunctionName: "invoke"
+  }
+*/
+const CONFIG_CLASS_NAME: &str = "Config";
+
+impl Config {
+    // creates new config based on the supplied Java object Config
+    pub fn new(env: JNIEnv, config: &JClass) -> std::result::Result<Self, ()> {
+
     }
 }

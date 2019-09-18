@@ -1,7 +1,7 @@
 use jni::JNIEnv;
 
 use crate::wasmer_executor::WasmerExecutor;
-use jni::objects::{JByteBuffer, JClass, JString};
+use jni::objects::{JByteBuffer, JClass, JString, JObject};
 use jni::sys::{jbyteArray, jint};
 use std::sync::{Arc, Mutex, RwLock};
 use std::cell::RefCell;
@@ -16,12 +16,17 @@ pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_init(
     env: JNIEnv,
     class: JClass,
     module_path: JString,
+    config: JObject,
 ) -> jint {
-    println!("executor init starts");
+    println!("wasm executor: init started");
+
     let file_name: String = env
         .get_string(module_path)
         .expect("Couldn't get module path!")
         .into();
+
+    let config = env.find_class(CONFIG_CLASS_NAME).unwrap();
+    let tt = env.get_field(config, "")
 
     let executor = match WasmerExecutor::new(&file_name) {
         Ok(executor) => executor,
@@ -32,7 +37,7 @@ pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_init(
         *wasm_executor.borrow_mut() = Some(executor)
     });
 
-    println!("executor init ended");
+    println!("wasm executor: init ended");
 
     0
 }

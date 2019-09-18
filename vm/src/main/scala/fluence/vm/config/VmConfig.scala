@@ -44,35 +44,18 @@ case class MainModuleConfig(
 )
 
 /**
- * Environment module settings.
- *
- * @param name a name of the environment module
- * @param spentGasFunctionName a name of the function that returns spent gas
- * @param clearStateFunction a name of the function that clears a state of the environment module
- */
-case class EnvModuleConfig(
-  name: String,
-  spentGasFunctionName: String,
-  clearStateFunction: String
-)
-
-/**
  * WasmVm settings.
  *
- * @param defaultMaxMemPages the maximum count of memory pages when a module doesn't say
- * @param specTestEnabled if true, registers the spec test harness as 'spectest'
- * @param loggerModuleEnabled if set, registers the logger Wasm module as 'logger'
+ * @param memPages the maximum count of memory pages when a module doesn't say
+ * @param loggerEnabled if set, registers the logger Wasm module as 'logger'
  * @param chunkSize a size of the memory chunks, that memory will be split into
  * @param mainModuleConfig settings for the main module
- * @param envModuleConfig settings for the environment module
  */
 case class VmConfig(
-  defaultMaxMemPages: Int,
-  specTestEnabled: Boolean,
-  loggerModuleEnabled: Boolean,
+  memPages: Int,
+  loggerEnabled: Boolean,
   chunkSize: Int,
   mainModuleConfig: MainModuleConfig,
-  envModuleConfig: EnvModuleConfig
 )
 
 object VmConfig {

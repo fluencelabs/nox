@@ -31,15 +31,11 @@ impl WasmerExecutor {
         for (byte_id, cell) in memory.view::<u8>()[address..address+4].iter().enumerate() {
             result_size |= (cell.get() << 8 * byte_id as u8) as usize;
         }
-        println!("result size is {} - {}", result_size, memory.view::<u8>()[(address + 4) as usize .. (address + result_size + 5)].len());
 
         let mut result = Vec::<u8>::with_capacity(result_size);
-
         for cell in memory.view()[(address + 4) as usize .. (address + result_size + 4)].iter() {
-            print!("{:X} ", cell.get());
             result.push(cell.get());
         }
-        println!();
 
         Ok(result)
     }
