@@ -15,6 +15,7 @@
  */
 
 package fluence.vm.wasmer
+import fluence.vm.config.VmConfig
 
 /**
  * Realizes connection to virtual machine runner based on Wasmer.
@@ -26,7 +27,7 @@ class WasmerConnector {
    *
    * @param filePath path to a wasm file
    */
-  @native def init(filePath: String): Int
+  @native def instantiate(filePath: String, config: VmConfig): Int
 
   /**
    * Invokes main module.

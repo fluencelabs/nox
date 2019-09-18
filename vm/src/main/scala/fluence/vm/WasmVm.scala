@@ -107,7 +107,7 @@ object WasmVm {
       _ ← Log.eitherT[F, ApplyError].info("WasmVm: configs read...")
       vmRunnerInvoker = new WasmerConnector()
 
-      _ = vmRunnerInvoker.init(inFiles.head)
+      _ = vmRunnerInvoker.instantiate(inFiles.head, config)
     } yield new WasmerWasmVm(
       vmRunnerInvoker,
       config

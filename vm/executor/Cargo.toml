@@ -4,7 +4,7 @@ description = "Wasmer execution environment wrapper for the Fluence network"
 version = "0.1.0"
 authors = ["Fluence Labs"]
 edition = "2018"
-keywords = ["fluence", "webassembly", "wasmer"]
+keywords = ["fluence", "webassembly", "wasmer", "execution environment"]
 license = "Apache-2.0"
 maintenance = { status = "actively-developed" }
 

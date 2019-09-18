@@ -28,7 +28,7 @@ thread_local! {
 
 // initializes virtual machine
 #[no_mangle]
-pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_init(
+pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_instantiate(
     env: JNIEnv,
     _class: JClass,
     module_path: JString,

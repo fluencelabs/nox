@@ -16,7 +16,7 @@
 
 use crate::config::Config;
 use std::fs;
-use wasmer_runtime::{error, func, imports, instantiate, Ctx, Func, Instance, Memory, MemorySection, Module};
+use wasmer_runtime::{error, func, imports, instantiate, Ctx, Func, Instance, Memory};
 
 pub struct WasmMemory {
     mem: Memory,
@@ -61,7 +61,8 @@ impl WasmerExecutor {
     }
 
     fn call_invoke_func(&self, addr: i32, len: i32) -> error::Result<i32> {
-        let func: Func<(i32, i32), (i32)> = self.instance.func(&self.config.invoke_function_name)?;
+        let func: Func<(i32, i32), (i32)> =
+            self.instance.func(&self.config.invoke_function_name)?;
         let result = func.call(addr, len)?;
         Ok(result)
     }
@@ -73,7 +74,8 @@ impl WasmerExecutor {
     }
 
     fn call_deallocate_func(&self, addr: i32, size: i32) -> error::Result<()> {
-        let func: Func<(i32, i32), ()> = self.instance.func(&self.config.deallocate_function_name)?;
+        let func: Func<(i32, i32), ()> =
+            self.instance.func(&self.config.deallocate_function_name)?;
         func.call(addr, size).map_err(Into::into)
     }
 
@@ -94,6 +96,7 @@ impl WasmerExecutor {
         Ok(result)
     }
 
+    /*
     pub fn prepare_mem(&mut self, ) -> error::Result<()> {
 
         let mut tmp = MemorySection::default();
@@ -110,6 +113,7 @@ impl WasmerExecutor {
             elements::External::Memory(entry),
         ));
     }
+    */
 
     pub fn new(module_path: &str, config: Config) -> error::Result<Self> {
         let wasm_code = fs::read(module_path).expect("Couldn't read provided file");
@@ -138,8 +142,6 @@ fn logger_flush(_ctx: &mut Ctx) {
     println!();
 }
 
-fn gas_counter(_ctx: &mut Ctx, _eic: i32) {
-
-}
+fn gas_counter(_ctx: &mut Ctx, _eic: i32) {}
 
 fn eic(_ctx: &mut Ctx, _eic: i32) {}

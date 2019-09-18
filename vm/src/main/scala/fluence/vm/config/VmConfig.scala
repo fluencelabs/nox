@@ -55,7 +55,7 @@ case class VmConfig(
   memPagesCount: Int,
   loggerEnabled: Boolean,
   chunkSize: Int,
-  mainModuleConfig: MainModuleConfig,
+  mainModuleConfig: MainModuleConfig
 )
 
 object VmConfig {
