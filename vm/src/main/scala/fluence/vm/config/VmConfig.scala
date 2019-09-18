@@ -46,13 +46,13 @@ case class MainModuleConfig(
 /**
  * WasmVm settings.
  *
- * @param memPages the maximum count of memory pages when a module doesn't say
+ * @param memPagesCount the maximum count of memory pages when a module doesn't say
  * @param loggerEnabled if set, registers the logger Wasm module as 'logger'
  * @param chunkSize a size of the memory chunks, that memory will be split into
  * @param mainModuleConfig settings for the main module
  */
 case class VmConfig(
-  memPages: Int,
+  memPagesCount: Int,
   loggerEnabled: Boolean,
   chunkSize: Int,
   mainModuleConfig: MainModuleConfig,

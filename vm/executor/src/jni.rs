@@ -1,14 +1,16 @@
 use jni::JNIEnv;
 
 use crate::wasmer_executor::WasmerExecutor;
-use jni::objects::{JByteBuffer, JClass, JString, JObject};
+use jni::objects::{JByteBuffer, JClass, JObject, JString};
 use jni::sys::{jbyteArray, jint};
-use std::sync::{Arc, Mutex, RwLock};
 use std::cell::RefCell;
+use std::sync::{Arc, Mutex, RwLock};
 
 thread_local! {
     static WASM_EXECUTOR: RefCell<Option<WasmerExecutor>> = RefCell::new(None);
 }
+
+const CONFIG_CLASS_NAME: &str = "Config";
 
 // initializes virtual machine
 #[no_mangle]
@@ -26,16 +28,14 @@ pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_init(
         .into();
 
     let config = env.find_class(CONFIG_CLASS_NAME).unwrap();
-    let tt = env.get_field(config, "")
+    let tt = env.get_field(config, CONFIG_CLASS_NAME, "").unwrap();
 
     let executor = match WasmerExecutor::new(&file_name) {
         Ok(executor) => executor,
         Err(_) => return -1,
     };
 
-    WASM_EXECUTOR.with(|wasm_executor| {
-        *wasm_executor.borrow_mut() = Some(executor)
-    });
+    WASM_EXECUTOR.with(|wasm_executor| *wasm_executor.borrow_mut() = Some(executor));
 
     println!("wasm executor: init ended");
 
@@ -60,7 +60,7 @@ pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_invoke<'a>(
 
     let result = WASM_EXECUTOR.with(|wasm_executor| {
         if let Some(ref mut e) = *wasm_executor.borrow_mut() {
-            return e.invoke(&input).unwrap()
+            return e.invoke(&input).unwrap();
         }
         Vec::<u8>::new()
     });
@@ -69,15 +69,18 @@ pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_invoke<'a>(
         .byte_array_from_slice(&result)
         .expect("Couldn't allocate enough space for byte array");
 
-    return output
+    return output;
 }
 
 // computes hash of the internal VM state
 #[no_mangle]
-pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_getVmState<'a>(env: JNIEnv, class: JClass) -> jbyteArray {
+pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_getVmState<'a>(
+    env: JNIEnv,
+    class: JClass,
+) -> jbyteArray {
     let output: jbyteArray = env
         .new_byte_array(1)
         .expect("Couldn't allocate enough space for byte array");
 
-    return output
+    return output;
 }

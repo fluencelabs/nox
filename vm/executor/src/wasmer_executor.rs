@@ -15,7 +15,10 @@ impl WasmerExecutor {
     fn write_to_mem(&mut self, address: usize, value: &[i8]) -> error::Result<()> {
         let memory = self.instance.context_mut().memory(0);
 
-        for (byte_id, cell) in memory.view()[address as usize.. (address + value.len())].iter().enumerate() {
+        for (byte_id, cell) in memory.view()[address as usize..(address + value.len())]
+            .iter()
+            .enumerate()
+        {
             cell.set(value[byte_id]);
         }
 
@@ -28,12 +31,12 @@ impl WasmerExecutor {
 
         let mut result_size: usize = 0;
 
-        for (byte_id, cell) in memory.view::<u8>()[address..address+4].iter().enumerate() {
+        for (byte_id, cell) in memory.view::<u8>()[address..address + 4].iter().enumerate() {
             result_size |= (cell.get() << 8 * byte_id as u8) as usize;
         }
 
         let mut result = Vec::<u8>::with_capacity(result_size);
-        for cell in memory.view()[(address + 4) as usize .. (address + result_size + 4)].iter() {
+        for cell in memory.view()[(address + 4) as usize..(address + result_size + 4)].iter() {
             result.push(cell.get());
         }
 
