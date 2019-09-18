@@ -24,6 +24,7 @@ import cats.syntax.functor._
 import cats.syntax.applicative._
 import cats.syntax.apply._
 import cats.{Functor, Parallel, Traverse}
+import fluence.effects.tendermint.block.data.{Base64ByteVector, Block}
 import fluence.effects.{Backoff, EffectError}
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError, RpcRequestErrored, TendermintHttpRpc}
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
@@ -31,6 +32,7 @@ import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.statemachine.api.query.QueryCode
 import fluence.statemachine.api.tx.Tx
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
@@ -77,10 +79,18 @@ class ResponseSubscriberImpl[F[_]: Functor: Parallel: Timer](
         blockStream = tendermintWRpc.subscribeNewBlock(lastHeight)
         pollingStream = blockStream
           .evalTap(b => log.debug(s"got block ${b.header.height}"))
+          .filter(nonEmptyBlock)
           .evalMap(_ => pollResponses(tendermintRpc))
         _ <- MakeResource.concurrentStream(pollingStream)
       } yield ()
     }
+
+  /**
+   * @return true if block contains any non-pubsub txs, false otherwise
+   */
+  private def nonEmptyBlock(block: Block): Boolean = block.data.txs.exists(_.exists(!isPubSubTx(_)))
+
+  private def isPubSubTx(tx: Base64ByteVector) = tx.bv.startsWith(ResponseSubscriberImpl.pubSubSessionPrefixBytes)
 
   /**
    * Deserializes response and check if they are `ok` or not.
@@ -193,6 +203,7 @@ class ResponseSubscriberImpl[F[_]: Functor: Parallel: Timer](
 }
 
 object ResponseSubscriberImpl {
+  private val pubSubSessionPrefixBytes = ByteVector(ResponseSubscriber.PubSubSessionPrefix.getBytes)
 
   def apply[F[_]: Log: Concurrent: Timer: Parallel](
     tendermintRpc: TendermintHttpRpc[F],
