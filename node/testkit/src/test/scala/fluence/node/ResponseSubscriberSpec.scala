@@ -23,7 +23,7 @@ import cats.effect.{ContextShift, IO, Resource, Timer}
 import cats.{Monad, Parallel}
 import fluence.Eventually
 import fluence.effects.docker.params.{DockerImage, DockerLimits}
-import fluence.effects.tendermint.block.TestData
+import fluence.effects.tendermint.rpc.TestData
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcRequestFailed}
 import fluence.log.{Log, LogFactory}
@@ -148,7 +148,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
     }.parSequence
   }
 
-  val block = Block(TestData.blockWithNullTxsResponse(1)).right.get
+  val block = Block(TestData.block(1)).right.get
 
   def queueBlocks[F[_]: Monad: Parallel](queue: fs2.concurrent.Queue[F, Block], number: Int) = {
     import cats.syntax.parallel._
