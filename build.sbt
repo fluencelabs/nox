@@ -1,5 +1,7 @@
 import SbtCommons._
 
+import scala.sys.process._
+
 name := "fluence"
 
 commons
@@ -131,10 +133,10 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
     test in assembly                  := {},
     parallelExecution in Test         := false,
-    imageNames in docker              := Seq(ImageName(DockerContainers.Worker)),
-    dockerfile in docker              := DockerContainers.worker(assembly.value, baseDirectory.value)
+    docker                            := { runCmd(s"make worker TAG=v${version.value}") },
+    docker in Test                    := { assembly.value; runCmd("make worker-test") }
   )
-  .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
+  .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`, `sttp-effect` % Test)
 
 lazy val `statemachine-docker-client` = (project in file("statemachine/docker-client"))
@@ -411,14 +413,14 @@ lazy val `node` = project
     ),
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
     testOnly in IntegrationTest := (testOnly in IntegrationTest)
-      .dependsOn(docker)
-      .dependsOn(docker in `statemachine-docker`)
+      .dependsOn(docker in Test)
+      .dependsOn((docker in Test) in `statemachine-docker`)
       .dependsOn(compile in `vm-llamadb`)
       .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
       .evaluated,
     test in IntegrationTest := (test in IntegrationTest)
-      .dependsOn(docker)
-      .dependsOn(docker in `statemachine-docker`)
+      .dependsOn(docker in Test)
+      .dependsOn((docker in Test) in `statemachine-docker`)
       .dependsOn(compile in `vm-llamadb`)
       .dependsOn(compile in IntegrationTest) // run compilation before building docker containers
       .value,
@@ -427,11 +429,11 @@ lazy val `node` = project
     mainClass in assembly                  := Some("fluence.node.MasterNodeApp"),
     assemblyJarName in assembly            := "master-node.jar",
     test in assembly                       := {},
-    imageNames in docker                   := Seq(ImageName(DockerContainers.Node)),
-    dockerfile in docker                   := DockerContainers.node(assembly.value, (resourceDirectory in Compile).value)
+    docker                                 := { runCmd(s"make worker TAG=v${version.value}") },
+    docker in Test                         := { assembly.value; runCmd("make node-test") }
   )
   .settings(buildContractBeforeDocker())
-  .enablePlugins(AutomateHeaderPlugin, DockerPlugin)
+  .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(
     `ethclient`,
     `swarm`,

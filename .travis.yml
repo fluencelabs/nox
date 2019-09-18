@@ -35,9 +35,15 @@ matrix:
     # These tests take a lot of time and run only while PR
     - <<: *_scala_fluence_template
       name: Fluence integration tests
+      before_install:
+        - sudo docker run -d --privileged -p 1234:1234 --name buildkit moby/buildkit:latest --addr tcp://0.0.0.0:1234
+        - sudo docker cp buildkit:/usr/bin/buildctl /usr/bin/
+        - export BUILDKIT_HOST=tcp://0.0.0.0:1234
       before_script:
         - docker pull tendermint/tendermint:v0.32.2
+        - wget -qnc https://github.com/web3j/web3j/releases/download/v4.5.0/web3j-4.5.0.tar -O- | sudo tar -C /usr --strip-components=1 -x
       script:
+        - export TRAVIS=true
         - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION compile
         # Some tests in LlamadbIntegrationTest require 2 Gb RAM
         - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M it:test

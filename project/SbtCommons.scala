@@ -2,10 +2,9 @@ import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.headerLicense
 import de.heikoseeberger.sbtheader.License
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
 import sbt.Keys._
-import sbt.{Def, addCompilerPlugin, _}
+import sbt.{Def, addCompilerPlugin, taskKey, _}
 import sbtassembly.AssemblyPlugin.autoImport.assemblyMergeStrategy
 import sbtassembly.{MergeStrategy, PathList}
-import sbtdocker.DockerPlugin.autoImport.docker
 
 import scala.sys.process._
 
@@ -81,26 +80,39 @@ object SbtCommons {
         .value
     )
 
+  val docker = taskKey[Unit]("Build docker image")
+
+  private val buildContract = Def.task {
+    val log = streams.value.log
+    log.info(s"Generating java wrapper for smart contracct")
+
+    val projectRoot = file("").getAbsolutePath
+    val bootstrapFolder = file(s"$projectRoot/bootstrap")
+    val generateCmd = "npm run generate-all"
+    log.info(s"running $generateCmd in $bootstrapFolder")
+
+    val exitCode = Process(generateCmd, cwd = bootstrapFolder).!
+    assert(
+      exitCode == 0,
+      "Generating java wrapper or contract compilation failed"
+    )
+  }
+
   def buildContractBeforeDocker(): Seq[Def.Setting[_]] =
     Seq(
-      docker in docker := (docker in docker)
-        .dependsOn(Def.task {
-          val log = streams.value.log
-          log.info(s"Generating java wrapper for smart contracct")
-
-          val projectRoot = file("").getAbsolutePath
-          val bootstrapFolder = file(s"$projectRoot/bootstrap")
-          val generateCmd = "npm run generate-all"
-          log.info(s"running $generateCmd in $bootstrapFolder")
-
-          val exitCode = Process(generateCmd, cwd = bootstrapFolder).!
-          assert(
-            exitCode == 0,
-            "Generating java wrapper or contract compilation failed"
-          )
-        })
-        .value
+      docker         := docker.dependsOn(buildContract).value,
+      docker in Test := (docker in Test).dependsOn(buildContract).value
     )
+
+  // Useful – unlike cmd.!! redirects both stdout & stderr to console
+  def runCmd(cmd: String): Unit = {
+    import scala.sys.process._
+
+    val code = cmd.!
+    if (code != 0) {
+      throw new RuntimeException(s"Command $cmd exited: $code")
+    }
+  }
 
   /* Common deps */
 
