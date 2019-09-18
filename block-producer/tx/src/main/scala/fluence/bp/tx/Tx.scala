@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.api.tx
+package fluence.bp.tx
 
 import cats.Monad
 import cats.data.OptionT

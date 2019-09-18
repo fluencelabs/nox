@@ -18,8 +18,8 @@ package fluence.statemachine.state
 
 import cats.data.StateT
 import cats.{Applicative, Functor, Monad}
+import fluence.bp.tx.{Tx, TxCode}
 import fluence.statemachine.api.data.StateHash
-import fluence.statemachine.api.tx.{Tx, TxCode}
 import scodec.bits.ByteVector
 
 import scala.collection.immutable.Queue

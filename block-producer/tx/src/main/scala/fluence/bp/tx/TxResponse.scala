@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.api.tx
+package fluence.bp.tx
 
 /**
  * A structure for aggregating data specific to building `CheckTx`/`DeliverTx` ABCI response.

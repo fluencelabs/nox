@@ -22,13 +22,13 @@ import cats.effect.ConcurrentEffect
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.apply._
+import fluence.bp.tx.TxResponse
 import fluence.effects.EffectError
 import fluence.log.Log
 import fluence.statemachine.api.StateMachine
 import fluence.statemachine.api.command._
 import fluence.statemachine.api.data.{StateHash, StateMachineStatus}
 import fluence.statemachine.api.query.QueryResponse
-import fluence.statemachine.api.tx.TxResponse
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.receiptbus.ReceiptBusBackend
 import fluence.statemachine.state.StateService

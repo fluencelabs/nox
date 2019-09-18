@@ -16,6 +16,7 @@
 
 package fluence.worker.api
 
+import fluence.bp.api.BlockProducer
 import fluence.statemachine.api.StateMachine
 import shapeless.HList
 
@@ -34,10 +35,9 @@ trait Worker[F[_]] {
 
 object Worker {
 
-  type Aux[F[_], C <: HList] = Worker[F] {
+  type Aux[F[_], C <: HList, B] = Worker[F] {
     type Machine = StateMachine.Aux[F, C]
+
+    type Producer = BlockProducer.Aux[F, B]
   }
 }
-
-// TODO move it somewhere
-trait BlockProducer[F[_]]

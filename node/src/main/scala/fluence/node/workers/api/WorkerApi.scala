@@ -19,7 +19,7 @@ package fluence.node.workers.api
 import cats.effect.Concurrent
 import cats.syntax.apply._
 import cats.syntax.functor._
-import fluence.effects.tendermint.block.history.BlockManifest
+import fluence.bp.tx.Tx
 import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.log.Log
 import fluence.node.workers.Worker
@@ -27,7 +27,6 @@ import fluence.node.workers.api.websocket.WorkerWebsocket
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
 import fluence.node.workers.subscription._
-import fluence.statemachine.api.tx.Tx
 
 import scala.language.higherKinds
 
@@ -76,12 +75,6 @@ trait WorkerApi[F[_]] {
   ): F[Either[TxAwaitError, TendermintQueryResponse]]
 
   /**
-   * Returns the last manifest of a worker.
-   *
-   */
-  def lastManifest(): F[Option[BlockManifest]]
-
-  /**
    * Creates service to work with websocket
    *
    */
@@ -125,9 +118,6 @@ object WorkerApi {
 
     override def p2pPort()(implicit log: Log[F]): F[Short] =
       log.trace(s"Worker p2pPort") as worker.p2pPort
-
-    override def lastManifest(): F[Option[BlockManifest]] =
-      worker.withServices(_.blockManifests)(_.lastManifestOpt)
 
     override def sendTx(tx: String, id: Option[String])(
       implicit log: Log[F]

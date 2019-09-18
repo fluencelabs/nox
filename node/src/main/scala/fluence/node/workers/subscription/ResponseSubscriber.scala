@@ -20,10 +20,10 @@ import cats.Parallel
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, Resource, Timer}
 import cats.syntax.functor._
+import fluence.bp.tx.Tx
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.log.Log
-import fluence.statemachine.api.tx.Tx
 
 import scala.language.higherKinds
 

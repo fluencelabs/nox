@@ -22,12 +22,12 @@ import fluence.log.Log
 import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.applicative._
+import fluence.bp.tx.Tx
 import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.api.websocket.WebsocketResponses.WebsocketResponse
 import fluence.node.workers.api.websocket.WorkerWebsocket.{Subscription, SubscriptionKey}
 import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
 import fluence.node.workers.subscription.{OkResponse, PendingResponse, RpcErrorResponse, TimedOutResponse}
-import fluence.statemachine.api.tx.Tx
 import fs2.concurrent.{NoneTerminatedQueue, Queue}
 import io.circe
 import io.circe.parser.parse
@@ -115,8 +115,6 @@ class WorkerWebsocket[F[_]: Concurrent](
         workerApi
           .sendTxAwaitResponse(tx, id)
           .map(toWebsocketResponse(requestId, _))
-      case LastManifestRequest(requestId) =>
-        workerApi.lastManifest().map(block => LastManifestResponse(requestId, block.map(_.jsonString)))
       case StatusRequest(requestId) =>
         workerApi.tendermintStatus().map {
           case Right(status) => StatusResponse(requestId, status)

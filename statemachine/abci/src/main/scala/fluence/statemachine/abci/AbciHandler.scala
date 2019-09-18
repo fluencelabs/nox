@@ -31,7 +31,7 @@ import fluence.statemachine.abci.peers.{DropPeer, PeersControlBackend}
 import fluence.statemachine.api.StateMachine
 import fluence.statemachine.api.command.TxProcessor
 import fluence.statemachine.api.query.QueryResponse
-import fluence.statemachine.api.tx.{Tx, TxResponse}
+import fluence.bp.tx._
 import shapeless._
 
 import scala.language.higherKinds

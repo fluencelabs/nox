@@ -18,12 +18,12 @@ package fluence.node.workers.subscription
 
 import cats.effect.concurrent.Ref
 import cats.effect.{Concurrent, Resource, Timer}
+import fluence.bp.tx.Tx
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.log.Log
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
-import fluence.statemachine.api.tx.Tx
 import fs2.concurrent.Topic
 
 import scala.language.higherKinds

@@ -63,7 +63,7 @@ trait WorkerContext[F[_]] {
   // Components -> Worker -> Components
   // It also matters how things are closed
 
-  def worker: EitherT[F, *, W]
+  def worker: EitherT[F, Nothing, W]
 
   trait Component {
     def init()

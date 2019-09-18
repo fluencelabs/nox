@@ -23,9 +23,9 @@ import fluence.log.Log
 import cats.syntax.applicative._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
+import fluence.bp.tx.Tx
 import fluence.node.workers.api.websocket.WorkerWebsocket.{Subscription, SubscriptionKey}
 import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
-import fluence.statemachine.api.tx.Tx
 
 import scala.language.higherKinds
 

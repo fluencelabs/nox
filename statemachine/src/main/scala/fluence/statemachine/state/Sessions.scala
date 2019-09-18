@@ -18,7 +18,7 @@ package fluence.statemachine.state
 
 import cats.Monad
 import cats.data.StateT
-import fluence.statemachine.api.tx.{Tx, TxCode}
+import fluence.bp.tx.{Tx, TxCode}
 
 import scala.collection.immutable.{Queue, TreeMap}
 import scala.language.higherKinds

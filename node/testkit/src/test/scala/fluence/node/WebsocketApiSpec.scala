@@ -23,32 +23,14 @@ import fluence.effects.tendermint.block.data.Header
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError}
 import fluence.log.{Log, LogFactory}
 import cats.syntax.applicative._
+import fluence.bp.tx.Tx
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.subscription.{TendermintQueryResponse, _}
-import fluence.node.workers.api.websocket.WebsocketRequests.{
-  LastManifestRequest,
-  P2pPortRequest,
-  StatusRequest,
-  SubscribeRequest,
-  TxRequest,
-  TxWaitRequest,
-  WebsocketRequest
-}
-import fluence.node.workers.api.websocket.WebsocketResponses.{
-  ErrorResponse,
-  LastManifestResponse,
-  P2pPortResponse,
-  StatusResponse,
-  SubscribeResponse,
-  TxResponse,
-  TxWaitResponse,
-  WebsocketResponse
-}
-
+import fluence.node.workers.api.websocket.WebsocketRequests.{LastManifestRequest, P2pPortRequest, StatusRequest, SubscribeRequest, TxRequest, TxWaitRequest, WebsocketRequest}
+import fluence.node.workers.api.websocket.WebsocketResponses.{ErrorResponse, LastManifestResponse, P2pPortResponse, StatusResponse, SubscribeResponse, TxResponse, TxWaitResponse, WebsocketResponse}
 import fluence.node.workers.api.websocket.WorkerWebsocket
 import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
-import fluence.statemachine.api.tx.Tx
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 import scodec.bits.ByteVector
 import io.circe.syntax._

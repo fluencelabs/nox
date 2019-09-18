@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.statemachine.api.tx
+package fluence.bp.tx
 
 object TxCode extends Enumeration {
   val OK, BAD, BadNonce, QueueDropped, AlreadyProcessed = Value

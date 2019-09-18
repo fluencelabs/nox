@@ -54,8 +54,9 @@ import fluence.statemachine.state.{MachineState, StateService}
 import fluence.statemachine.vm.VmOperationInvoker
 import fluence.vm.InvocationResult
 import fluence.Eventually
+import fluence.bp.tx.{TxCode, TxResponse}
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
-import fluence.statemachine.api.tx.{Tx, TxCode, TxResponse}
+import fluence.statemachine.api.tx.TxResponse
 import fluence.statemachine.receiptbus.ReceiptBusBackend
 import fs2.concurrent.Queue
 import io.circe.Json

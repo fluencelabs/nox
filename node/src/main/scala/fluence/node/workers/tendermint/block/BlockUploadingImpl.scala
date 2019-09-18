@@ -60,7 +60,7 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
   def start(
     appId: Long,
     services: WorkerServices[F]
-  )(implicit log: Log[F], backoff: Backoff[EffectError] = Backoff.default): Resource[F, Unit] = {
+  )(implicit log: Log[F], backoff: Backoff[EffectError] = Backoff.default): Resource[F, Unit] =
     for {
       // Storage for a previous manifest
       lastManifestReceipt <- Resource.liftF(MVar.of[F, Option[Receipt]](None))
@@ -68,20 +68,17 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
         appId,
         lastManifestReceipt,
         services.blockManifests.receiptStorage,
-        services.tendermintRpc,
         services.tendermintWRpc,
         services.receiptBus,
         services.blockManifests.onUploaded
       )
     } yield ()
-  }
 
   // TODO write docs
   private def pushReceipts(
     appId: Long,
     lastManifestReceipt: MVar[F, Option[Receipt]],
     storage: ReceiptStorage[F],
-    rpc: TendermintHttpRpc[F],
     wrpc: TendermintWebsocketRpc[F],
     receiptBus: ReceiptBus[F],
     onManifestUploaded: (BlockManifest, Receipt) ⇒ F[Unit]

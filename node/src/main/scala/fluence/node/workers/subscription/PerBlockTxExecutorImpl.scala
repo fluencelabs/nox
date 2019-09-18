@@ -22,6 +22,7 @@ import cats.syntax.functor._
 import cats.syntax.flatMap._
 import cats.syntax.traverse._
 import cats.syntax.applicative._
+import fluence.bp.tx.Tx
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.effects.{Backoff, EffectError}
@@ -36,7 +37,6 @@ import fluence.node.workers.subscription.PerBlockTxExecutor.{
   Subscription,
   TendermintResponse
 }
-import fluence.statemachine.api.tx.Tx
 import fs2.concurrent.{SignallingRef, Topic}
 
 import scala.language.higherKinds

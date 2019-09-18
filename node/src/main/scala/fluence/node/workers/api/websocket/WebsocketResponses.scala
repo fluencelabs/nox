@@ -28,7 +28,6 @@ object WebsocketResponses {
   case class QueryResponse(requestId: String, data: String) extends WebsocketResponse
   case class TxResponse(requestId: String, data: String) extends WebsocketResponse
   case class TxWaitResponse(requestId: String, data: String) extends WebsocketResponse
-  case class LastManifestResponse(requestId: String, lastManifest: Option[String]) extends WebsocketResponse
   case class P2pPortResponse(requestId: String, p2pPort: Short) extends WebsocketResponse
   case class StatusResponse(requestId: String, status: String) extends WebsocketResponse
   case class SubscribeResponse(requestId: String) extends WebsocketResponse

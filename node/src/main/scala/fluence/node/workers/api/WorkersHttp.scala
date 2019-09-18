@@ -21,12 +21,12 @@ import cats.effect.{Concurrent, Sync}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.bp.tx.Tx
 import fluence.effects.tendermint.rpc.http._
 import fluence.log.{Log, LogFactory}
 import fluence.node.workers.subscription._
 import fluence.node.workers.Worker
 import fluence.node.workers.pool.WorkersPool
-import fluence.statemachine.api.tx.Tx
 import fs2.concurrent.Queue
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.websocket.WebSocketBuilder
@@ -165,17 +165,6 @@ object WorkersHttp {
         LogFactory[F].init("http" -> "p2pPort", "app" -> appId.toString) >>= { implicit log =>
           log.trace(s"Worker p2pPort") *>
             withApi(appId)(_.p2pPort().map(_.toString).flatMap(Ok(_)))
-        }
-
-      case GET -> Root / LongVar(appId) / "lastManifest" ⇒
-        LogFactory[F].init("http" -> "lastManifest", "app" -> appId.toString) >>= { implicit log =>
-          // TODO try to get last manifest from local Kademlia storage
-          withApi(appId)(_.lastManifest().flatMap {
-            case Some(m) ⇒ Ok(m.jsonString)
-            case None ⇒
-              log.debug("There's no available manifest yet") *>
-                NoContent()
-          })
         }
 
       case req @ POST -> Root / LongVar(appId) / "tx" :? QueryId(id) ⇒

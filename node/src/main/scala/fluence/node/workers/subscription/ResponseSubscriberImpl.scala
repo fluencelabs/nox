@@ -24,13 +24,13 @@ import cats.syntax.functor._
 import cats.syntax.applicative._
 import cats.syntax.apply._
 import cats.{Parallel, Traverse}
+import fluence.bp.tx.Tx
 import fluence.effects.{Backoff, EffectError}
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError, RpcRequestErrored, TendermintHttpRpc}
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.statemachine.api.query.QueryCode
-import fluence.statemachine.api.tx.Tx
 
 import scala.language.higherKinds
 

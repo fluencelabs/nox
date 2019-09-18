@@ -82,7 +82,7 @@ lazy val `statemachine-api` = (project in file("statemachine/api"))
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`log`, `effects`)
+  .dependsOn(`log`, `effects`, `block-producer-tx`)
 
 lazy val `statemachine-http` = (project in file("statemachine/http"))
   .settings(
@@ -402,7 +402,41 @@ lazy val `worker-api` = project
     commons
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`statemachine-api`)
+  .dependsOn(`statemachine-api`, `block-producer-api`)
+
+lazy val `block-producer-tx` = project
+    .in(file("block-producer/tx"))
+  .settings(
+    commons
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`log`)
+
+lazy val `block-producer-api` = project
+    .in(file("block-producer/api"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      cats,
+      fs2
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`log`, `effects`, `block-producer-tx`)
+
+lazy val `block-producer-embedded` = project
+  .in(file("block-producer/embedded"))
+  .settings(
+    commons
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`statemachine-api`, `block-producer-api`)
+
+lazy val `block-producer-tendermint` = project
+  .in(file("block-producer/tendermint"))
+  .settings(commons)
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`block-producer-api`)
 
 lazy val `node` = project
   .configs(IntegrationTest)

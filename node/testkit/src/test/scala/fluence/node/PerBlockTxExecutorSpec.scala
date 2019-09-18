@@ -19,6 +19,7 @@ package fluence.node
 import cats.effect.concurrent.{MVar, Ref}
 import cats.effect.{ContextShift, IO, Resource, Timer}
 import fluence.Eventually
+import fluence.bp.tx.Tx
 import fluence.crypto.{Crypto, CryptoError}
 import fluence.effects.tendermint.block.TestData
 import fluence.effects.tendermint.block.data.Block
@@ -27,14 +28,7 @@ import fluence.log.appender.PrintlnLogAppender
 import fluence.log.{Log, LogFactory}
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
-import fluence.node.workers.subscription.{
-  OkResponse,
-  PerBlockTxExecutor,
-  TendermintQueryResponse,
-  TxAwaitError,
-  WaitResponseService
-}
-import fluence.statemachine.api.tx.Tx
+import fluence.node.workers.subscription.{OkResponse, PerBlockTxExecutor, TendermintQueryResponse, TxAwaitError, WaitResponseService}
 
 import scala.concurrent.duration._
 import org.scalatest.{EitherValues, Matchers, OptionValues, WordSpec}

@@ -25,7 +25,7 @@ import cats.syntax.functor._
 import io.circe.parser.decode
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import cats.syntax.applicative._
-import fluence.statemachine.api.tx.{Tx, TxCode}
+import fluence.bp.tx.{Tx, TxCode}
 
 import scala.language.higherKinds
 

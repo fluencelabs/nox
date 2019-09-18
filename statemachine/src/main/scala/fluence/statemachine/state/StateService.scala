@@ -26,13 +26,13 @@ import cats.syntax.functor._
 import cats.syntax.option._
 import cats.syntax.compose._
 import cats.{Applicative, Eval, Monad, Traverse}
+import fluence.bp.tx.{Tx, TxCode, TxResponse}
 import fluence.crypto.Crypto
 import fluence.crypto.Crypto.Hasher
 import fluence.crypto.hash.JdkCryptoHasher
 import fluence.log.Log
 import fluence.statemachine.api.query.{QueryCode, QueryResponse}
 import fluence.statemachine.api.data.{BlockReceipt, StateHash}
-import fluence.statemachine.api.tx.{Tx, TxCode, TxResponse}
 import fluence.statemachine.receiptbus.ReceiptBusBackend
 import fluence.statemachine.vm.VmOperationInvoker
 import scodec.bits.ByteVector

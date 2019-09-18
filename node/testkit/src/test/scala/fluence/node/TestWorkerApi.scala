@@ -17,6 +17,7 @@
 package fluence.node
 
 import cats.effect.Concurrent
+import fluence.bp.tx.Tx
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.log.Log
@@ -24,7 +25,6 @@ import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.api.websocket.WorkerWebsocket
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
-import fluence.statemachine.api.tx.Tx
 
 import scala.language.higherKinds
 

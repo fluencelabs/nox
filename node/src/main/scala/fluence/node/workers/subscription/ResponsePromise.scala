@@ -17,7 +17,7 @@
 package fluence.node.workers.subscription
 
 import cats.effect.concurrent.Deferred
-import fluence.statemachine.api.tx.Tx
+import fluence.bp.tx.Tx
 
 import scala.language.higherKinds
 
