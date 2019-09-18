@@ -43,7 +43,7 @@ pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_init(
 
     let config = Config::new(env, config).unwrap();
 
-    let executor = match WasmerExecutor::new(&file_name) {
+    let executor = match WasmerExecutor::new(&file_name, config) {
         Ok(executor) => executor,
         Err(_) => return -1,
     };

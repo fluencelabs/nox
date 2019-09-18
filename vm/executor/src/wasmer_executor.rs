@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
+use crate::config::Config;
 use std::fs;
-use wasmer_runtime::{error, func, imports, instantiate, Ctx, Func, Instance, Memory};
+use wasmer_runtime::{error, func, imports, instantiate, Ctx, Func, Instance, Memory, MemorySection, Module};
 
 pub struct WasmMemory {
     mem: Memory,
@@ -23,6 +24,7 @@ pub struct WasmMemory {
 
 pub struct WasmerExecutor {
     instance: Instance,
+    config: Config,
 }
 
 impl WasmerExecutor {
@@ -59,19 +61,19 @@ impl WasmerExecutor {
     }
 
     fn call_invoke_func(&self, addr: i32, len: i32) -> error::Result<i32> {
-        let func: Func<(i32, i32), (i32)> = self.instance.func("invoke")?;
+        let func: Func<(i32, i32), (i32)> = self.instance.func(&self.config.invoke_function_name)?;
         let result = func.call(addr, len)?;
         Ok(result)
     }
 
     fn call_allocate_func(&self, size: i32) -> error::Result<i32> {
-        let func: Func<(i32), (i32)> = self.instance.func("allocate")?;
+        let func: Func<(i32), (i32)> = self.instance.func(&self.config.allocate_function_name)?;
         let result = func.call(size)?;
         Ok(result)
     }
 
     fn call_deallocate_func(&self, addr: i32, size: i32) -> error::Result<()> {
-        let func: Func<(i32, i32), ()> = self.instance.func("deallocate")?;
+        let func: Func<(i32, i32), ()> = self.instance.func(&self.config.deallocate_function_name)?;
         func.call(addr, size).map_err(Into::into)
     }
 
@@ -92,7 +94,24 @@ impl WasmerExecutor {
         Ok(result)
     }
 
-    pub fn new(module_path: &str) -> error::Result<Self> {
+    pub fn prepare_mem(&mut self, ) -> error::Result<()> {
+
+        let mut tmp = MemorySection::default();
+
+        module.memory_section_mut().unwrap_or_else(|| &mut tmp).entries_mut().pop();
+
+        let entry =
+            elements::MemoryType::new(config.initial_memory_pages, Some(config.max_memory_pages));
+
+        let mut builder = builder::from_module(module);
+        builder.push_import(elements::ImportEntry::new(
+            "env".to_string(),
+            "memory".to_string(),
+            elements::External::Memory(entry),
+        ));
+    }
+
+    pub fn new(module_path: &str, config: Config) -> error::Result<Self> {
         let wasm_code = fs::read(module_path).expect("Couldn't read provided file");
         let import_objects = imports! {
             "logger" => {
@@ -106,7 +125,7 @@ impl WasmerExecutor {
         };
 
         let instance = instantiate(&wasm_code, &import_objects)?;
-        Ok(Self { instance })
+        Ok(Self { instance, config })
     }
 }
 
@@ -119,6 +138,8 @@ fn logger_flush(_ctx: &mut Ctx) {
     println!();
 }
 
-fn gas_counter(_ctx: &mut Ctx, _eic: i32) {}
+fn gas_counter(_ctx: &mut Ctx, _eic: i32) {
+
+}
 
 fn eic(_ctx: &mut Ctx, _eic: i32) {}
