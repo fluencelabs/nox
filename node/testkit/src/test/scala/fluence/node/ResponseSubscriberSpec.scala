@@ -33,7 +33,7 @@ import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.subscription._
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerParams}
-import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
+import org.scalatest.{BeforeAndAfterAll, Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
 
 import scala.compat.Platform.currentTime
@@ -41,12 +41,12 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterAll with Eventually {
+class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterAll with Eventually with OptionValues {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
   implicit private val logFactory = LogFactory.forPrintln[IO](level = Log.Error)
-  implicit private val log = logFactory.init("ResponseSubscriberSpec", level = Log.Off).unsafeRunSync()
+  implicit private val log = logFactory.init("ResponseSubscriberSpec", level = Log.Off).unsafeRunTimed(5.seconds).value
 
   def start() = {
     val rootPath = Paths.get("/tmp")
@@ -59,7 +59,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
     val dockerConfig = DockerConfig(DockerImage("fluencelabs/worker", "v0.2.0"), DockerLimits(None, None, None))
     val tmDockerConfig = DockerConfig(DockerImage("tendermint/tendermint", "v0.32.0"), DockerLimits(None, None, None))
     val tmConfig = TendermintConfig("info", 0, 0, 0, 0L, false, false, false, p2pPort, Seq.empty)
-    val configTemplate = ConfigTemplate[IO](rootPath, tmConfig).unsafeRunSync()
+    val configTemplate = ConfigTemplate[IO](rootPath, tmConfig).unsafeRunTimed(5.seconds).value
     val params = WorkerParams(app, rootPath, rootPath, None, dockerConfig, tmDockerConfig, configTemplate)
 
     for {
@@ -163,7 +163,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
           for {
             response <- request(worker)
           } yield response
-      }.unsafeRunSync()
+      }.unsafeRunTimed(5.seconds).value
 
       result should be('left)
       result.left.get shouldBe a[RpcTxAwaitError]
@@ -180,7 +180,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
             _ <- tendermintTest.setTxResponse(Right(txResponse))
             response <- request(worker)
           } yield response
-      }.unsafeRunSync()
+      }.unsafeRunTimed(5.seconds).value
 
       result should be('left)
       result.left.get shouldBe a[TendermintResponseDeserializationError]
@@ -196,7 +196,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
           for {
             response <- request(worker, Some(tx))
           } yield response
-      }.unsafeRunSync()
+      }.unsafeRunTimed(5.seconds).value
 
       result should be('left)
 
@@ -215,7 +215,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
             _ <- IO.sleep(50.millis).flatMap(_ => queueBlocks(blocks, ResponseSubscriber.MaxBlockTries))
             response <- fiber.join
           } yield response
-      }.unsafeRunSync()
+      }.unsafeRunTimed(5.seconds).value
 
       result should be('right)
       result.right.get shouldBe a[RpcErrorResponse]
@@ -234,7 +234,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
             _ <- IO.sleep(50.millis).flatMap(_ => queueBlocks(blocks, ResponseSubscriber.MaxBlockTries))
             response <- fiber.join
           } yield response
-      }.unsafeRunSync()
+      }.unsafeRunTimed(5.seconds).value
 
       result should be('right)
       result.right.get shouldBe a[RpcErrorResponse]
@@ -253,7 +253,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
             _ <- IO.sleep(50.millis).flatMap(_ => queueBlocks(blocks, ResponseSubscriber.MaxBlockTries))
             response <- fiber.join
           } yield response
-      }.unsafeRunSync()
+      }.unsafeRunTimed(5.seconds).value
 
       result should be('right)
       result.right.get shouldBe a[TimedOutResponse]
@@ -272,7 +272,7 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
             _ <- IO.sleep(50.millis).flatMap(_ => queueBlocks(blocks, ResponseSubscriber.MaxBlockTries))
             response <- fiber.join
           } yield response
-      }.unsafeRunSync()
+      }.unsafeRunTimed(5.seconds).value
 
       result should be('right)
       result.right.get shouldBe a[OkResponse]
