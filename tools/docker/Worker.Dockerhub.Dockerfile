@@ -1,3 +1,6 @@
+### This docker file is a copy of Worker.Dockerfile, intended to be
+### built in Dockerhub which doesn't support experimental syntax yet
+
 ARG environment=production
 
 ############## Build for production
