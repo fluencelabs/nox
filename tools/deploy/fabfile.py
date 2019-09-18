@@ -144,27 +144,30 @@ def deploy():
                 image_tag = env.image_tag
 
             with shell_env(CHAIN=chain,
-                           # flag that show to script, that it will deploy all with non-default arguments
-                           PROD_DEPLOY="true",
                            CONTRACT_ADDRESS=contract_address,
                            OWNER_ADDRESS=current_owner,
                            API_PORT=api_port,
                            CAPACITY=capacity,
-                           PARITY_RESERVED_PEERS="../config/reserved_peers.txt",
                            # container name
-                           NAME="fluence-node-1",
                            HOST_IP=current_host,
-                           SWARM_ADDRESS=swarm,
                            IPFS_ADDRESS=ipfs,
-                           REMOTE_STORAGE_ENABLED=remote_storage_enabled,
-                           ETHEREUM_SERVICE="provided",
                            ETHEREUM_IP=ethereum_ip,
-                           LOCAL_IPFS_ENABLED="false",
-                           LOCAL_SWARM_ENABLED="false",
                            IMAGE_TAG=image_tag):
                 run('chmod +x compose.sh')
                 # the script will return command with arguments that will register node in Fluence contract
-                output = run('./compose.sh deploy')
+                output = run('./compose.sh')
+                tm_node_id = run('docker run --rm -v $HOME/.fluence/:/master -e TMHOME=/master/tendermint tendermint/tendermint show_node_id')
+                tm_validator = json.loads(run('docker run --rm -v $HOME/.fluence/:/master -e TMHOME=/master/tendermint tendermint/tendermint show_validator'))
+                data = {
+                    "node_ip": current_host,
+                    "ethereum_address": "http://" + ethereum_ip + ":8545",
+                    "tendermint_key": "$TENDERMINT_KEY",
+                    "tendermint_node_id": "$TENDERMINT_NODE_ID",
+                    "contract_address": "$CONTRACT_ADDRESS",
+                    "account": "$OWNER_ADDRESS",
+                    "api_port": $API_PORT,
+                     "capacity": $CAPACITY
+                }
                 meta_data = output.stdout.splitlines()[-1]
                 # JSON line could be marked as hidden by escape-sequence \e[8m, so remove it
                 meta_data = meta_data.replace("\x1b[8m", "").replace("\x1b[0m", "")
@@ -286,3 +289,11 @@ def deploy_ipfs():
         execute(connect_ipfs_nodes)
         print "IPFS: bootstrap nodes added"
 
+@task
+def check_exec():
+    tm_node_id = run('docker run --rm -v $HOME/.fluence/:/master -e TMHOME=/master/tendermint tendermint/tendermint show_node_id')
+    print "tm_node_id: %s" % tm_node_id
+    tm_validator = run('docker run --rm -v $HOME/.fluence/:/master -e TMHOME=/master/tendermint tendermint/tendermint show_validator')
+    print "tm_validator: %s" % tm_validator
+    parsed = json.loads(tm_validator)
+    print "parsed: %s" % parsed
