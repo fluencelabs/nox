@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use jni::objects::{JClass, JObject, JString};
+use jni::objects::{JObject, JString};
 use jni::JNIEnv;
 
 #[derive(Clone, Debug, PartialEq)]

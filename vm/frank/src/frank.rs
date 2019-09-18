@@ -15,11 +15,11 @@
  */
 
 use crate::config::Config;
-use sha2::digest::generic_array::GenericArray;
-use sha2::digest::FixedOutput;
-use sha2::{Digest, Sha256};
+use sha2::{Digest, Sha256, digest::FixedOutput, digest::generic_array::GenericArray};
 use std::fs;
-use wasmer_runtime::{error, func, imports, instantiate, Ctx, Func, Instance, Memory};
+use std::ffi::c_void;
+use wasmer_runtime::{error, func, imports, instantiate, Ctx, Func, Instance};
+use crate::modules::env_module::EnvModule;
 
 pub struct Frank {
     instance: Instance,
@@ -79,6 +79,9 @@ impl Frank {
     }
 
     pub fn invoke(&mut self, fn_argument: &[i8]) -> error::Result<Vec<u8>> {
+        let env: &mut EnvModule = unsafe { &mut *(self.instance.context_mut().data as *mut EnvModule) };
+        env.renew_state();
+
         let argument_len = fn_argument.len() as i32;
         let argument_address = if argument_len != 0 {
             let address = self.call_allocate_func(argument_len)?;
@@ -108,35 +111,21 @@ impl Frank {
         hasher.result()
     }
 
-    /*
-    pub fn prepare_mem(&mut self, ) -> error::Result<()> {
-
-        let mut tmp = MemorySection::default();
-
-        module.memory_section_mut().unwrap_or_else(|| &mut tmp).entries_mut().pop();
-
-        let entry =
-            elements::MemoryType::new(config.initial_memory_pages, Some(config.max_memory_pages));
-
-        let mut builder = builder::from_module(module);
-        builder.push_import(elements::ImportEntry::new(
-            "env".to_string(),
-            "memory".to_string(),
-            elements::External::Memory(entry),
-        ));
-    }
-    */
-
     pub fn new(module_path: &str, config: Config) -> error::Result<Self> {
         let wasm_code = fs::read(module_path).expect("Couldn't read provided file");
+
+        let mut env_module = EnvModule::new();
+        let env_module = &mut env_module as *mut _ as *mut c_void;
+
         let import_objects = imports! {
+            move || { (env_module, (|_: *mut c_void| {}) as fn(*mut c_void)) },
             "logger" => {
                 "write" => func!(logger_write),
                 "flush" => func!(logger_flush),
             },
             "env" => {
-                "gas" => func!(gas_counter),
-                "eic" => func!(eic),
+                "gas" => func!(update_gas_counter),
+                "eic" => func!(update_eic),
             },
         };
 
@@ -146,14 +135,21 @@ impl Frank {
 }
 
 fn logger_write(_ctx: &mut Ctx, byte: i32) {
-    // TODO: since Wasmer has been landed, change log to more optimal
+    // TODO: since Wasmer has been landed, it is possible to optimize logging
     print!("{}", byte);
 }
 
 fn logger_flush(_ctx: &mut Ctx) {
+    // TODO: since Wasmer has been landed, it is possible to optimize logging
     println!();
 }
 
-fn gas_counter(_ctx: &mut Ctx, _eic: i32) {}
+fn update_gas_counter(ctx: &mut Ctx, spent_gas: i32) {
+    let env: &mut EnvModule = unsafe { &mut *(ctx.data as *mut EnvModule) };
+    env.gas(spent_gas);
+}
 
-fn eic(_ctx: &mut Ctx, _eic: i32) {}
+fn update_eic(ctx: &mut Ctx, eic: i32) {
+    let env: &mut EnvModule = unsafe { &mut *(ctx.data as *mut EnvModule) };
+    env.eic(eic);
+}

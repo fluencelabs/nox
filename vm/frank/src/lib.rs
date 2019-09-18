@@ -18,5 +18,5 @@ mod config;
 mod errors;
 mod jni;
 mod runner;
-mod wasm_modules;
+mod modules;
 mod frank;

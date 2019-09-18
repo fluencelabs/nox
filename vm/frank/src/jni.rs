@@ -21,7 +21,6 @@ use crate::frank::Frank;
 use jni::objects::{JClass, JObject, JString};
 use jni::sys::{jbyteArray, jint};
 use sha2::digest::generic_array::GenericArray;
-use sha2::digest::DynDigest;
 use std::cell::RefCell;
 
 thread_local! {
