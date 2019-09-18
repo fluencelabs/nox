@@ -42,10 +42,52 @@ interface WebsocketResponse {
     error?: string
 }
 
-interface ResultExecutor {
-    resultHandler: (result: Result) => void
-    errorHandler: (error: any) => void
-    subscription: boolean
+abstract class Executor {
+    abstract handleResult(result: Result): void
+
+    abstract handleError(error: any): void
+}
+
+class ResultExecutor extends Executor {
+    private resultResolver: (result: Result) => void;
+    private errorResolver: (error: any) => void;
+    private _promise: Promise<Result>;
+
+    constructor() {
+        super();
+        this._promise = new Promise<Result>((r, e) => { this.resultResolver = r; this.errorResolver = e; });
+    }
+
+    promise(): Promise<Result> {
+        return this._promise
+    }
+
+    handleResult(result: Result): void {
+        this.resultResolver(result)
+    }
+
+    handleError(error: any): void {
+        this.errorResolver(error)
+    }
+}
+
+class SubscribtionExecutor extends Executor {
+    resultHandler: (result: Result) => void;
+    errorHandler: (error: any) => void;
+
+    constructor(resultHandler: (result: Result) => void, errorHandler: (error: any) => void) {
+        super();
+        this.resultHandler = resultHandler;
+        this.errorHandler = errorHandler;
+    }
+
+    handleError(error: any): void {
+        this.errorHandler(error);
+    }
+
+    handleResult(result: Result): void {
+        this.resultHandler(result);
+    }
 }
 
 export class WebsocketSession {
@@ -58,7 +100,7 @@ export class WebsocketSession {
     private nodeCounter: number;
     private socket: WebSocket;
 
-    private waitingRequests = new Map<string, ResultExecutor>();
+    private waitingRequests = new Map<string, Executor>();
 
     constructor(appId: string, nodes: Node[], privateKey?: PrivateKey) {
         if (nodes.length == 0) {
@@ -96,11 +138,7 @@ export class WebsocketSession {
 
         this.socket.send(JSON.stringify(request));
 
-        let executor: ResultExecutor = {
-            resultHandler: resultHandler,
-            errorHandler: errorHandler,
-            subscription: true
-        };
+        let executor: SubscribtionExecutor = new SubscribtionExecutor(resultHandler, errorHandler);
 
         this.waitingRequests.set(subscriptionId, executor);
     }
@@ -122,7 +160,7 @@ export class WebsocketSession {
         this.socket.send(JSON.stringify(request));
     }
 
-    request(payload: string, resultHandler: (result: Result) => void, errorHandler: (error: any) => void): void {
+    request(payload: string): Promise<Result> {
         let requestId = genRequestId();
         let counter = this.getCounterAndIncrement();
 
@@ -138,13 +176,11 @@ export class WebsocketSession {
 
         this.socket.send(JSON.stringify(request));
 
-        let executor: ResultExecutor = {
-            resultHandler: resultHandler,
-            errorHandler: errorHandler,
-            subscription: false
-        };
+        let executor: ResultExecutor = new ResultExecutor();
 
         this.waitingRequests.set(requestId, executor);
+
+        return executor.promise()
     }
 
     private resetSession() {
@@ -188,21 +224,21 @@ export class WebsocketSession {
                     if (!this.waitingRequests.has(rawResponse.request_id)) {
                         console.log(`There is no message with requestId '${rawResponse.request_id}'`)
                     } else {
-                        let executor = this.waitingRequests.get(rawResponse.request_id) as ResultExecutor;
+                        let executor = this.waitingRequests.get(rawResponse.request_id) as Executor;
                         if (rawResponse.type === "tx_wait_response") {
                             if (rawResponse.data) {
                                 let parsed = JSON.parse(rawResponse.data).result.response;
                                 let result = new Result(toByteArray(parsed.value));
 
-                                executor.resultHandler(result)
+                                executor.handleResult(result)
                             }
                             if (rawResponse.error) {
-                                executor.errorHandler(rawResponse.error as string);
+                                executor.handleError(rawResponse.error as string);
                             }
                         } else if (rawResponse.type === "subscribe_response") {
 
                         }
-                        if (!executor.subscription) {
+                        if (executor instanceof ResultExecutor) {
                             this.waitingRequests.delete(rawResponse.request_id);
                         }
                     }
