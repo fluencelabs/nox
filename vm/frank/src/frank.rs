@@ -15,11 +15,12 @@
  */
 
 use crate::config::Config;
-use sha2::{Digest, Sha256, digest::FixedOutput, digest::generic_array::GenericArray};
-use std::fs;
-use std::ffi::c_void;
-use wasmer_runtime::{error, func, imports, instantiate, Ctx, Func, Instance};
 use crate::modules::env_module::EnvModule;
+use crate::frank_result::FrankResult;
+use sha2::{digest::generic_array::GenericArray, digest::FixedOutput, Digest, Sha256};
+use std::ffi::c_void;
+use std::fs;
+use wasmer_runtime::{error, func, imports, instantiate, Ctx, Func, Instance};
 
 pub struct Frank {
     instance: Instance,
@@ -78,8 +79,9 @@ impl Frank {
         func.call(addr, size).map_err(Into::into)
     }
 
-    pub fn invoke(&mut self, fn_argument: &[i8]) -> error::Result<Vec<u8>> {
-        let env: &mut EnvModule = unsafe { &mut *(self.instance.context_mut().data as *mut EnvModule) };
+    pub fn invoke(&mut self, fn_argument: &[i8]) -> error::Result<FrankResult> {
+        let env: &mut EnvModule =
+            unsafe { &mut *(self.instance.context_mut().data as *mut EnvModule) };
         env.renew_state();
 
         let argument_len = fn_argument.len() as i32;
@@ -95,7 +97,7 @@ impl Frank {
         let result = self.read_result_from_mem(result_address as usize)?;
         self.call_deallocate_func(result_address, result.len() as i32)?;
 
-        Ok(result)
+        Ok(FrankResult::new(result, env))
     }
 
     pub fn compute_vm_state_hash(

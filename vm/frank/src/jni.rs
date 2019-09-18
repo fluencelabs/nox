@@ -29,7 +29,7 @@ thread_local! {
 
 // initializes virtual machine
 #[no_mangle]
-pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_instantiate(
+pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_instantiate(
     env: JNIEnv,
     _class: JClass,
     module_path: JString,
@@ -58,7 +58,7 @@ pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_instantiate(
 
 // Invokes the main module entry point function
 #[no_mangle]
-pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_invoke(
+pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_invoke(
     env: JNIEnv,
     _class: JClass,
     fn_argument: jbyteArray,
@@ -84,7 +84,7 @@ pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_invoke(
 
 // computes hash of the internal VM state
 #[no_mangle]
-pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_getVmState(
+pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_getVmState(
     env: JNIEnv,
     _class: JClass,
 ) -> jbyteArray {

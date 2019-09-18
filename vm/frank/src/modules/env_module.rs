@@ -18,7 +18,7 @@ use std::ops::AddAssign;
 
 pub struct EnvModule {
     spent_gas: i64,
-    eic: i64
+    eic: i64,
 }
 
 impl EnvModule {

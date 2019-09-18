@@ -14,9 +14,21 @@
  * limitations under the License.
  */
 
-mod config;
-mod errors;
-mod frank;
-mod jni;
-mod modules;
-mod frank_result;
+use crate::modules::env_module::EnvModule;
+
+pub struct FrankResult {
+    pub outcome: Vec<u8>,
+    pub spent_gas: i64,
+    pub eic: i64,
+}
+
+impl FrankResult {
+    pub fn new(outcome: Vec<u8>, env_module: &EnvModule) -> Self {
+        let state = env_module.get_state();
+        Self {
+            outcome,
+            spent_gas: state.spent_gas,
+            eic: state.eic,
+        }
+    }
+}

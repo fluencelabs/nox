@@ -41,7 +41,7 @@ class FrankWasmVm(
     fnArgument: Array[Byte]
   ): EitherT[F, InvokeError, InvocationResult] = {
     val result = vmRunnerInvoker.invoke(fnArgument)
-    EitherT.rightT[F, InvokeError](InvocationResult(result, 0))
+    EitherT.rightT[F, InvokeError](result)
   }
 
   override def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector] = {
