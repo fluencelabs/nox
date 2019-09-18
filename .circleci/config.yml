@@ -140,16 +140,6 @@ jobs:
             - bootstrap/node_modules
           key: contract-cache-{{ checksum "bootstrap/package-lock.json" }}
 
-  deploy scripts:
-    docker:
-      - image: circleci/python:2
-    steps:
-      - checkout
-      - run: |
-          cd tools/deploy
-          sudo pip install pytest # sudo? facepalm
-          pytest
-
   js sdk:
     docker:
       - image: circleci/node:10.15
