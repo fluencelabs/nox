@@ -1,0 +1,13 @@
+backend-sdk
+bench
+cli
+dashboard
+docs
+fluence-js
+tools
+
+target
+**/target
+**/node_modules
+
+!node/target/scala-2.12/master-node.jar
