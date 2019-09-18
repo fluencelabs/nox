@@ -137,7 +137,7 @@ def copy_resources():
     run('mkdir scripts -p')
     run('mkdir scripts/functions -p')
     # copy local directory `script` to remote machine
-    put('scripts/compose.sh', 'scripts/')
+    put('scripts/deploy.sh', 'scripts/')
     put('scripts/node.yml', 'scripts/')
     put('scripts/functions/asserts.sh', 'scripts/functions/')
     put('scripts/functions/docker.sh', 'scripts/functions/')

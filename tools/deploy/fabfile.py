@@ -60,8 +60,8 @@ def deploy():
                        ETHEREUM_IP      = ethereum_ip,
                        IMAGE_TAG        = image_tag,
                        FLUENCE_STORAGE  = storage_dir):
-            run('chmod +x compose.sh')
-            run('./compose.sh')
+            run('chmod +x deploy.sh')
+            run('./deploy.sh')
             register_node(host, key, ethereum_ip, contract, owner, api_port, capacity)
 
 @task
