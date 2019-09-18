@@ -16,47 +16,11 @@
 
 set -eo pipefail
 
-# include functions from scripts
+# include functions from the following files
 source ./functions/asserts.sh
-
-# updates all needed containers
-function pull_new_images()
-{
-    printf 'Updating all containers.'
-    docker pull ipfs/go-ipfs:latest >/dev/null
-    printf '.'
-    docker pull fluencelabs/node:$IMAGE_TAG >/dev/null
-    printf '.'
-    docker pull fluencelabs/worker:$IMAGE_TAG >/dev/null
-    printf '.\n'
-    echo 'Containers are updated.'
-}
-
-function remove_old_containers()
-{
-    echo "Removing workers & tendermints"
-    docker ps -a | grep -E 'tendermint|worker' | awk '{ print $1 }' | xargs docker rm -f &> /dev/null || true
-}
-
-function restart_node()
-{
-    # disables docker-compose warnings about orphan services
-    export COMPOSE_IGNORE_ORPHANS=True
-    echo "Restarting node container"
-    docker-compose --compatibility -f node.yml up -d --timeout 30 --force-recreate || true &>/dev/null
-}
-
-function clean_networks()
-{
-    echo "Disconnecting old networks"
-    docker network ls | grep fluence | awk '{print $1}' | xargs -I{} docker network disconnect {} fluence-node-1 &> /dev/null || true
-    echo "Removing old networks"
-    docker network prune -f &> /dev/null
-}
+source ./functions/docker.sh
 
 ###### Deploy ######
-echo "Deploying for $CHAIN chain."
-
 export FLUENCE_STORAGE="$HOME/.fluence/"
 
 check_envs
@@ -64,5 +28,3 @@ pull_new_images
 remove_old_containers
 restart_node
 clean_networks
-
-echo 'Node container is started.'

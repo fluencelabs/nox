@@ -1,5 +1,20 @@
-from __future__ import with_statement
-from fabric.api import *
+# Copyright 2018 Fluence Labs Limited
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from __future__   import with_statement
+from fabric.api   import *
+from fabric.utils import *
 import json
 
 # creates register command to register deployed node
@@ -116,7 +131,7 @@ def get_image_tag(env):
 
 # copies all necessary files for deploying
 def copy_resources():
-    print "Copying deployment files to node"
+    puts("Copying deployment files to node")
     # cleans up old scripts
     run('rm -rf scripts')
     run('mkdir scripts -p')
@@ -125,6 +140,7 @@ def copy_resources():
     put('scripts/compose.sh', 'scripts/')
     put('scripts/node.yml', 'scripts/')
     put('scripts/functions/asserts.sh', 'scripts/functions/')
+    put('scripts/functions/docker.sh', 'scripts/functions/')
 
 def home_dir():
     with hide('output'):

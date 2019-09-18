@@ -45,12 +45,13 @@ def deploy():
         ipfs        = get_ipfs_address(config)
         image_tag   = get_image_tag(env)
         storage_dir = home_dir() + '/.fluence/'
+        chain       = 'rinkeby'
 
         download_cli()
         copy_resources()
 
         with cd("scripts"),\
-             shell_env(CHAIN            ='rinkeby',
+             shell_env(CHAIN            = chain,
                        CONTRACT_ADDRESS = contract,
                        OWNER_ADDRESS    = owner,
                        API_PORT         = api_port,
