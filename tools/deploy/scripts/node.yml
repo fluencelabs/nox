@@ -4,6 +4,7 @@ services:
   fluence-node-1:
     container_name: fluence-node-1
     image: fluencelabs/node:$IMAGE_TAG
+    restart: always
     environment:
       - LOG_LEVEL=DEBUG
       - BLOCK_UPLOADING_ENABLED=false
@@ -16,11 +17,11 @@ services:
       - WORKER_MEMORY_LIMIT=400 # megabytes
       - WORKER_TAG=$IMAGE_TAG
       - WORKER_CPUS_LIMIT=2
+      - DOCKER_HOST=unix:///docker_proxy/docker.sock
     ports:
-      # API port
       - $API_PORT:5678
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - docker-socket-vol:/docker_proxy
       - $FLUENCE_STORAGE:/master
     networks:
       # connects Fluence Node and IPFS containers
@@ -33,6 +34,18 @@ services:
         reservations:
           memory: 300M
 
+  sockguard:
+    container_name: sockguard
+    image: buildkite/sockguard
+    command: -filename /proxy/docker.sock -debug -allow-bind $FLUENCE_STORAGE
+    cgroup_parent: test-cgroup
+    volumes:
+      - "docker-socket-vol:/proxy/"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+
 networks:
   decentralized_storage_network:
       name: decentralized_storage_network
+
+volumes:
+  docker-socket-vol:

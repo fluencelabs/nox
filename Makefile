@@ -4,6 +4,7 @@
 
 # tag defaults to latest
 TAG ?= latest
+ENV ?= stage
 # enable docker kit
 KIT      = DOCKER_BUILDKIT=1
 BUILD    = $(KIT) docker build
@@ -21,6 +22,7 @@ NODE_IMG = 'fluencelabs/node:$(TAG)'
 WORK_IMG = 'fluencelabs/worker:$(TAG)'
 DASH_IMG = 'fluencelabs/dashboard:$(TAG)'
 
+######### Build tasks #########
 node:        ;$(BUILD)         -t $(NODE_IMG) -f $(DIR)/$(NODE_FILE) .
 worker:      ;$(BUILD)         -t $(WORK_IMG) -f $(DIR)/$(WORK_FILE) .
 dashboard:   ;$(BUILD)         -t $(DASH_IMG) -f $(DIR)/$(DASH_FILE) .
@@ -45,5 +47,25 @@ endif
              --opt build-arg:$(TEST_ENV) \
              --output type=docker,name=$($*_IMG) | docker load
 
+######### Deployment tasks #########
 
-.PHONY: node node-test worker worker-test dashboard %-bctl-test
+# Deploy from existing assembly jars
+deploy-prebuilt: push-local deploy
+# Rebuild jars and deploy
+deploy-rebuild:  jars push-local deploy
+# Build containers in docker build environment
+deploy-clean:    push-clean deploy
+deploy:          ;cd tools/deploy; fab --set environment=$(ENV),image_tag=$(TAG) deploy
+
+push:            push-node push-worker
+# Build containers from existing jars and publish
+push-local:      node-test worker-test; $(MAKE) push
+# Build containers in docker build environment and publish
+push-clean:      node worker; $(MAKE) push
+push-node:       ;docker push $(NODE_IMG)
+push-worker:     ;docker push $(WORK_IMG)
+
+# Build jars
+jars:            ;sbt ";node/assembly ;statemachine-docker/assembly"
+
+.PHONY: node node-test worker worker-test dashboard %-bctl-test deploy
