@@ -27,7 +27,7 @@ import fluence.vm.config.VmConfig
 import scala.language.higherKinds
 
 /**
- * Base implementation of [[WasmVm]].
+ * Base implementation of [[WasmVm]] based on the Wasmer execution environment.
  *
  * '''Note!!! This implementation isn't thread-safe. The provision of calls
  * linearization is the task of the caller side.'''

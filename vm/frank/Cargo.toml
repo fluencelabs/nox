@@ -1,6 +1,6 @@
 [package]
-name = "wasm_executor"
-description = "Wasmer execution environment wrapper for the Fluence network"
+name = "Frank"
+description = "Virtual machine based on Wasmer for the Fluence network"
 version = "0.1.0"
 authors = ["Fluence Labs"]
 edition = "2018"
@@ -9,12 +9,12 @@ license = "Apache-2.0"
 maintenance = { status = "actively-developed" }
 
 [lib]
-name = "wasm_executor"
+name = "frank"
 path = "src/lib.rs"
 crate-type = ["cdylib"]
 
 [[bin]]
-name = "wasm_executor"
+name = "frank"
 path = "src/main.rs"
 
 [dependencies]
