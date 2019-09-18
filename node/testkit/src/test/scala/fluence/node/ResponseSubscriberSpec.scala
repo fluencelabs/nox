@@ -33,7 +33,7 @@ import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.subscription._
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerParams}
-import org.scalatest.{BeforeAndAfterAll, Matchers, OptionValues, WordSpec}
+import org.scalatest.{BeforeAndAfterAll, EitherValues, Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
 
 import scala.compat.Platform.currentTime
@@ -41,7 +41,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterAll with Eventually with OptionValues {
+class ResponseSubscriberSpec
+    extends WordSpec with Matchers with BeforeAndAfterAll with Eventually with OptionValues with EitherValues {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
@@ -148,12 +149,10 @@ class ResponseSubscriberSpec extends WordSpec with Matchers with BeforeAndAfterA
     }.parSequence
   }
 
-  val block = Block(TestData.block(1)).right.get
-
   def queueBlocks[F[_]: Monad: Parallel](queue: fs2.concurrent.Queue[F, Block], number: Int) = {
     import cats.syntax.parallel._
     import cats.syntax.list._
-    (0 to number).toList.map(_ => queue.enqueue1(block)).toNel.get.parSequence
+    (0 to number).toList.map(h => queue.enqueue1(TestData.parsedBlock(h))).toNel.get.parSequence
   }
 
   "MasterNode API" should {
