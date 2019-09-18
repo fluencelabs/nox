@@ -86,13 +86,7 @@ def get_tm_validator():
         last_line = out.splitlines()[-1]
         return json.loads(last_line)['value']
 
-def register_node(current_host,
-                  current_key,
-                  ethereum_ip,
-                  contract_address,
-                  current_owner,
-                  api_port,
-                  capacity):
+def register_node(current_host, current_key, ethereum_ip, contract_address, current_owner, api_port, capacity):
     tm_node_id = get_tm_node_id()
     tm_validator = get_tm_validator()
     data = {
