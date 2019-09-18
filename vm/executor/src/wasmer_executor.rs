@@ -15,7 +15,6 @@
  */
 
 use std::fs;
-use wasmer_runtime::error::CallError;
 use wasmer_runtime::{error, func, imports, instantiate, Ctx, Func, Instance, Memory};
 
 pub struct WasmMemory {
@@ -48,7 +47,7 @@ impl WasmerExecutor {
         let mut result_size: usize = 0;
 
         for (byte_id, cell) in memory.view::<u8>()[address..address + 4].iter().enumerate() {
-            result_size |= (cell.get() << 8 * byte_id as u8) as usize;
+            result_size |= (cell.get() << (8 * byte_id as u8)) as usize;
         }
 
         let mut result = Vec::<u8>::with_capacity(result_size);
@@ -111,15 +110,15 @@ impl WasmerExecutor {
     }
 }
 
-fn logger_write(ctx: &mut Ctx, byte: i32) {
+fn logger_write(_ctx: &mut Ctx, byte: i32) {
     // TODO: since Wasmer has been landed, change log to more optimal
     print!("{}", byte);
 }
 
-fn logger_flush(ctx: &mut Ctx) {
+fn logger_flush(_ctx: &mut Ctx) {
     println!();
 }
 
-fn gas_counter(ctx: &mut Ctx, eic: i32) {}
+fn gas_counter(_ctx: &mut Ctx, _eic: i32) {}
 
-fn eic(ctx: &mut Ctx, eic: i32) {}
+fn eic(_ctx: &mut Ctx, _eic: i32) {}

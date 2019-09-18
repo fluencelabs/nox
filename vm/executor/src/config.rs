@@ -58,8 +58,6 @@ impl Default for Config {
     }
 }
 
-const CONFIG_CLASS_NAME: &str = "Config";
-
 impl Config {
     // creates new config based on the supplied Java object Config
     pub fn new(env: JNIEnv, config: JObject) -> std::result::Result<Self, ()> {
