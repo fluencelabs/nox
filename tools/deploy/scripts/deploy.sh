@@ -20,9 +20,7 @@ set -eo pipefail
 source ./functions/asserts.sh
 source ./functions/docker.sh
 
-###### Deploy ######
-export FLUENCE_STORAGE="$HOME/.fluence/"
-
+# Deploy
 check_envs
 pull_new_images
 remove_old_containers
