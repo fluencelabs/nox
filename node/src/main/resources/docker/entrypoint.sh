@@ -24,8 +24,6 @@
 # set to fail fast
 set -eo pipefail
 
-set -x
-
 if [ -z "$EXTERNAL_IP" ]; then
   cat >&2 <<EOF
 error: \`-e "EXTERNAL_IP=your_external_ip"\` was not specified.
