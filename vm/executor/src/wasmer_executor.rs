@@ -15,6 +15,9 @@
  */
 
 use crate::config::Config;
+use sha2::digest::generic_array::GenericArray;
+use sha2::digest::FixedOutput;
+use sha2::{Digest, Sha256};
 use std::fs;
 use wasmer_runtime::{error, func, imports, instantiate, Ctx, Func, Instance, Memory};
 
@@ -94,6 +97,19 @@ impl WasmerExecutor {
         self.call_deallocate_func(result_address, result.len() as i32)?;
 
         Ok(result)
+    }
+
+    pub fn compute_vm_state_hash(
+        &mut self,
+    ) -> GenericArray<u8, <Sha256 as FixedOutput>::OutputSize> {
+        let mut hasher = Sha256::new();
+        let memory = self.instance.context_mut().memory(0);
+
+        for cell in memory.view::<u8>()[0 as usize..memory.size().0 as usize].iter() {
+            hasher.input(&[cell.get()]);
+        }
+
+        hasher.result()
     }
 
     /*

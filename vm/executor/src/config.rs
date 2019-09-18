@@ -61,8 +61,6 @@ impl Default for Config {
 impl Config {
     // creates new config based on the supplied Java object Config
     pub fn new(env: JNIEnv, config: JObject) -> std::result::Result<Self, ()> {
-        let config_class = JClass::from(config);
-
         let mem_pages_count = env
             .call_method(config, "memPagesCount", "()I", &[])
             .unwrap()

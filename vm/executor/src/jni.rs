@@ -20,6 +20,8 @@ use crate::config::Config;
 use crate::wasmer_executor::WasmerExecutor;
 use jni::objects::{JClass, JObject, JString};
 use jni::sys::{jbyteArray, jint};
+use sha2::digest::generic_array::GenericArray;
+use sha2::digest::DynDigest;
 use std::cell::RefCell;
 
 thread_local! {
@@ -87,6 +89,13 @@ pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_getVmState(
     env: JNIEnv,
     _class: JClass,
 ) -> jbyteArray {
-    env.new_byte_array(1)
+    let result = WASM_EXECUTOR.with(|wasm_executor| {
+        if let Some(ref mut e) = *wasm_executor.borrow_mut() {
+            return e.compute_vm_state_hash();
+        }
+        GenericArray::default()
+    });
+
+    env.byte_array_from_slice(result.as_slice())
         .expect("Couldn't allocate enough space for byte array")
 }
