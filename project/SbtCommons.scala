@@ -135,8 +135,6 @@ object SbtCommons {
 
   val cryptoVersion = "0.0.9"
   val cryptoHashsign = "one.fluence" %% "crypto-hashsign" % cryptoVersion
-  val cryptoJwt = "one.fluence"      %% "crypto-jwt"      % cryptoVersion
-  val cryptoCipher = "one.fluence"   %% "crypto-cipher"   % cryptoVersion
 
   val codecVersion = "0.0.5"
   val codecCore = "one.fluence" %% "codec-core" % codecVersion

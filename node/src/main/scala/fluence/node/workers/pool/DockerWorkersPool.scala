@@ -38,7 +38,7 @@ import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.node.workers.tendermint.block.BlockUploading
-import fluence.node.workers.{DockerWorkerServices, Worker, WorkerParams, WorkerServices}
+import fluence.node.workers.{DockerWorkerServices, Worker, WorkerParams}
 
 import scala.concurrent.duration._
 import scala.language.higherKinds
@@ -67,7 +67,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect: Paralle
   /**
    * Returns true if the worker is in the pool and healthy, and false otherwise. Also returns worker instance.
    */
-  private def checkWorkerHealthy(appId: Long): F[(Boolean, Option[Worker[F]])] = {
+  private def checkWorkerHealthy(appId: Long): F[(Boolean, Option[Worker[F]])] =
     for {
       map <- workers.get
       oldWorker = map.get(appId)
@@ -76,7 +76,6 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect: Paralle
         case Some(worker) => worker.isHealthy(healthyWorkerTimeout)
       }
     } yield (healthy, oldWorker)
-  }
 
   /**
    * For the given Worker, registers it in the pool on acquire and removes on release
@@ -138,6 +137,14 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect: Paralle
         exec
       )
 
+      // create WorkerContext (allocate resources, run daemons, allocate port etc)
+      // load
+
+      // run (e.g. ports allocated, tendermint configured, run daemons)
+      // access while running
+      // stop (deallocate resources, stop daemons)
+
+      // remove (e.g. deallocate ports, clear filesystem)
       worker <- Worker.make(
         ps.appId,
         p2pPort,

@@ -17,12 +17,9 @@
 package fluence.node.workers
 
 import cats.effect._
-import cats.syntax.profunctor._
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{Apply, Monad, Parallel}
-import fluence.crypto.hash.CryptoHashers
 import cats.{Monad, Parallel}
 import fluence.effects.docker._
 import fluence.effects.receipt.storage.ReceiptStorage
@@ -170,7 +167,6 @@ object DockerWorkerServices {
     websocketConfig: WebsocketConfig
   )(
     implicit
-    F: Concurrent[F],
     backoff: Backoff[EffectError]
   ): Resource[F, WorkerServices[F]] =
     for {

@@ -113,12 +113,12 @@ class WaitResponseServiceImpl[F[_]: Monad](
       }
     } yield response).value
 
-  def start(): Resource[F, Unit] = responseSubscriber.start()
+  def start()(implicit log: Log[F]): Resource[F, Unit] = responseSubscriber.start()
 }
 
 object WaitResponseService {
 
-  def apply[F[_]: Monad](
+  def apply[F[_]: Monad: Log](
     tendermintRpc: TendermintHttpRpc[F],
     responseSubscriber: ResponseSubscriber[F]
   ): Resource[F, WaitResponseService[F]] = {

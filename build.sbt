@@ -6,16 +6,16 @@ name := "fluence"
 
 commons
 
-onLoad in Global := (onLoad in Global).value.andThen { state ⇒
-  val requiredVersion = "1.8" // Asmble works only on Java 8.
-  val currentVersion = sys.props("java.specification.version")
-  assert(
-    currentVersion == requiredVersion,
-    s"Unsupported $currentVersion JDK version, please use $requiredVersion JDK version instead."
-  )
-
-  state
-}
+//onLoad in Global := (onLoad in Global).value.andThen { state ⇒
+//  val requiredVersion = "1.8" // Asmble works only on Java 8.
+//  val currentVersion = sys.props("java.specification.version")
+//  assert(
+//    currentVersion == requiredVersion,
+//    s"Unsupported $currentVersion JDK version, please use $requiredVersion JDK version instead."
+//  )
+//
+//  state
+//}
 
 /* Projects */
 
@@ -41,6 +41,7 @@ lazy val `vm` = (project in file("vm"))
   .dependsOn(`merkelized-bytebuffer`, `log`)
   .enablePlugins(AutomateHeaderPlugin)
 
+// Made for integration tests only
 lazy val `vm-llamadb` = (project in file("vm/src/it/resources/llamadb"))
   .settings(
     downloadLlamadb()
@@ -331,7 +332,7 @@ lazy val `receipt-storage` = (project in file("history/receipt-storage"))
       scalaTest
     )
   )
-  .dependsOn(`log`, `kvstore`, `tendermint-block-history`, `kademlia`, `kademlia-dht`)
+  .dependsOn(`log`, `kvstore`, `tendermint-block-history`, `kademlia-dht`)
 
 lazy val `kademlia` = project
   .in(file("kademlia"))
@@ -394,6 +395,14 @@ lazy val `log` = project
     )
   )
   .enablePlugins(AutomateHeaderPlugin)
+
+lazy val `worker-api` = project
+  .in(file("worker/api"))
+  .settings(
+    commons
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`statemachine-api`)
 
 lazy val `node` = project
   .configs(IntegrationTest)

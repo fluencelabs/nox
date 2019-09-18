@@ -52,12 +52,14 @@ case class Worker[F[_]: Concurrent] private (
     services >>= (_.status(timeout).map(_.isHealthy))
 
   // Executes fn * f in worker's context, keeping execution order. Discards the result.
+  //  used for peers control in MasterNode, and [[withServices]]
   def withServices_[T, A](f: WorkerServices[F] ⇒ T)(fn: T ⇒ F[A]): F[Unit] =
     execute(
       (services.map(f) >>= fn).void
     )
 
   // Executes fn * f in worker's context, keeping execution order. Returns the result.
+  // used in WorkerApi, StatusAggregator
   def withServices[T, A](f: WorkerServices[F] ⇒ T)(fn: T ⇒ F[A]): F[A] =
     for {
       d ← Deferred[F, A]
@@ -70,6 +72,7 @@ object Worker {
 
   /**
    * Builds a Worker, executing workerRun as a first worker's command
+   * TODO actually it doesn't execute anything!
    *
    * @param appId AppId of the application hosted by this worker
    * @param p2pPort Tendermint p2p port
@@ -81,12 +84,12 @@ object Worker {
    */
   def make[F[_]: Concurrent](
     appId: Long,
-    p2pPort: Short,
+    p2pPort: Short, // block producer
     description: String,
-    services: F[WorkerServices[F]],
-    scheduleExecution: F[Unit] ⇒ F[Unit],
-    stopWorker: F[Unit],
-    onRemove: F[Unit]
+    services: F[WorkerServices[F]], // TODO why F? why it's not resolved in this resource?
+    scheduleExecution: F[Unit] ⇒ F[Unit], // wtf? how is it used? actualy it looks like a kind of execution context, can be modelled with special context shift?
+    stopWorker: F[Unit], // how is it used? when is it called?
+    onRemove: F[Unit] // what if we call it? ACTUALLY this is not about removing a worker (what does it mean, to remove a worker?), but about destroying the worker context
   ): Resource[F, Worker[F]] =
     Resource.pure(
       Worker[F](
