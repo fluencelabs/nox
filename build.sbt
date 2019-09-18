@@ -436,7 +436,7 @@ lazy val `block-producer-tendermint` = project
   .in(file("block-producer/tendermint"))
   .settings(commons)
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`block-producer-api`)
+  .dependsOn(`block-producer-api`, `dockerio`, `tendermint-rpc`)
 
 lazy val `node` = project
   .configs(IntegrationTest)
