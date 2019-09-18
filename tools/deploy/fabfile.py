@@ -17,31 +17,7 @@ from fabric.api import *
 import json
 import utils
 
-if hasattr(env, 'environment'):
-    environment = env.environment
-
-    # gets deployed contract address from a file
-    file = open("deployment_config.json", "r")
-    info_json = file.read().rstrip()
-    file.close()
-
-    info = json.loads(info_json)[environment]
-    contract = info['contract']
-    nodes = info['nodes']
-    env.swarm = info.get('swarm')
-    env.ipfs = info.get('ipfs')
-    env.ethereum_ip = info.get('ethereum_ip')
-else:
-    # gets deployed contract address from a file
-    file = open("instances.json", "r")
-    nodes_json = file.read().rstrip()
-    file.close()
-
-    file = open("scripts/contract.txt", "r")
-    contract = file.read().rstrip()
-    file.close()
-
-    nodes = json.loads(nodes_json)
+info = utils.get_config(env.environment)
 
 if not env.hosts:
     env.hosts = nodes.keys()
@@ -53,13 +29,6 @@ env.user = "root"
 
 # Set to False to disable `[ip.ad.dre.ss] out:` prefix
 env.output_prefix = True
-
-# Linux
-RELEASE = "https://github.com/fluencelabs/fluence/releases/download/v0.1.6/fluence-cli-0.1.6-linux-x64"
-
-# macOS
-# RELEASE = "https://github.com/fluencelabs/fluence/releases/download/v0.1.6/fluence-cli-0.1.6-mac-x64"
-
 
 # copies all necessary files for deploying
 def copy_resources():
@@ -88,36 +57,35 @@ def test_connections():
 def deploy():
     from utils import download_cli, get_tm_node_id, get_tm_validator, register_node
     with hide('running'):
-        chain = 'rinkeby'
-
-        contract_address = contract
-        current_host     = env.host_string
-        current_owner    = nodes[current_host]['owner']
-        current_key      = nodes[current_host]['key']
-        api_port         = nodes[current_host]['api_port']
-        capacity         = nodes[current_host]['capacity']
-        ipfs             = get_ipfs_address()
-        ethereum_ip      = env.ethereum_ip
-        image_tag        = get_image_tag()
+        ethereum_ip = info.get('ethereum_ip')
+        contract    = info['contract']
+        nodes       = info['nodes']
+        host        = env.host_string
+        owner       = nodes[host]['owner']
+        key         = nodes[host]['key']
+        api_port    = nodes[host]['api_port']
+        capacity    = nodes[host]['capacity']
+        ipfs        = get_ipfs_address(info)
+        image_tag   = get_image_tag()
 
         download_cli()
         copy_resources()
 
         with cd("scripts"):
-            with shell_env(CHAIN=chain,
-                           CONTRACT_ADDRESS=contract_address,
-                           OWNER_ADDRESS=current_owner,
+            with shell_env(CHAIN='rinkeby',
+                           CONTRACT_ADDRESS=contract,
+                           OWNER_ADDRESS=owner,
                            API_PORT=api_port,
-                           HOST_IP=current_host,
+                           HOST_IP=host,
                            IPFS_ADDRESS=ipfs,
                            ETHEREUM_IP=ethereum_ip,
                            IMAGE_TAG=image_tag):
                 run('chmod +x compose.sh')
                 run('./compose.sh')
-                register_node(current_host,ethereum_ip,contract_address,current_owner,api_port,capacity)
+                register_node(host,key,ethereum_ip,contract,owner,api_port,capacity)
 
-def get_ipfs_address():
-    if env.ipfs is None:
+def get_ipfs_address(info):
+    if info.get('ipfs') is None:
         # Node and IPFS are connected via 'decentralized_storage_network' network, see node.yml & ipfs.yml
         return "http://ipfs:5001"
     else:

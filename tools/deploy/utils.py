@@ -50,11 +50,11 @@ def get_docker_pgid():
     assert len(output) == 1
     return output[0]
 
+RELEASE = "https://github.com/fluencelabs/fluence/releases/download/v0.1.6/fluence-cli-0.1.6-linux-x64"
 def download_cli():
     # check if `fluence` file is exists
     result = local("[ -s fluence ] && echo 1 || echo 0", capture=True)
-    if (result == '0'):
-        # todo: add correct link to CLI
+    if result == '0':
         print '`fluence` CLI file does not exist. Downloading it from ' + RELEASE
         local("wget " + RELEASE + " -O fluence")
         local("chmod +x fluence")
@@ -67,6 +67,7 @@ def get_tm_validator():
     return json.loads(out)['value']
 
 def register_node(current_host,
+                  current_key,
                   ethereum_ip,
                   contract_address,
                   current_owner,
@@ -88,3 +89,9 @@ def register_node(current_host,
     with show('running'):
         # run `fluence` command
         local(command)
+
+def get_config(environment):
+    file = open("deployment_config.json", "r")
+    info_json = file.read().rstrip()
+    file.close()
+    info = json.loads(info_json)[environment]
