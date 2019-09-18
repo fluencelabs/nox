@@ -18,8 +18,9 @@ package fluence.effects.tendermint.block.data
 
 import com.google.protobuf.timestamp.Timestamp
 import fluence.effects.tendermint.block.protobuf.ProtobufJson
-import io.circe.{Decoder, Encoder}
 import io.circe.generic.extras.Configuration
+import io.circe.generic.extras.semiauto.{deriveConfiguredDecoder, deriveConfiguredEncoder}
+import io.circe.{Decoder, Encoder}
 import io.circe.generic.extras.semiauto.{deriveConfiguredDecoder, deriveEncoder}
 import proto3.tendermint.{BlockID, Version, Vote}
 import scalapb.GeneratedMessage
@@ -42,13 +43,13 @@ object SimpleJsonCodecs {
     implicit final val base64ByteVectorEncoder: Encoder[Base64ByteVector] =
       Encoder.encodeString.contramap(_.bv.toBase64)
 
-    implicit final val lastCommitEncoder: Encoder[LastCommit] = deriveEncoder
+    implicit final val lastCommitEncoder: Encoder[LastCommit] = deriveConfiguredEncoder
 
-    implicit final val dataEncoder: Encoder[Data] = deriveEncoder
+    implicit final val dataEncoder: Encoder[Data] = deriveConfiguredEncoder
 
-    implicit final val headerEncoder: Encoder[Header] = deriveEncoder[Header]
+    implicit final val headerEncoder: Encoder[Header] = deriveConfiguredEncoder[Header]
 
-    implicit final val blockEncoder: Encoder[Block] = deriveEncoder
+    implicit final val blockEncoder: Encoder[Block] = deriveConfiguredEncoder
   }
 
   object Decoders {

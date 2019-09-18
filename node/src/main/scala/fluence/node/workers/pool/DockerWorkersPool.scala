@@ -87,11 +87,11 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect: Paralle
     Resource
       .make(
         workers.update(_ + (worker.appId -> worker)) *>
-          log.info(s"Added worker ($worker) to the pool")
+          log.info(s"Added worker (${worker.description}) to the pool")
       )(
         _ ⇒
           workers.update(_ - worker.appId) *>
-            log.info(s"Removing worker ($worker) from the pool")
+            log.info(s"Removing worker (${worker.description}) from the pool")
       )
       .void
 

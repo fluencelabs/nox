@@ -203,7 +203,9 @@ object Log {
   }
   case object Trace extends Level(0, "trace", Console.WHITE)
   case object Debug extends Level(1, "debug", Console.MAGENTA)
+  // Intended trailing space – to keep level names 5 letters wide
   case object Info extends Level(2, "info ", Console.BLUE)
+  // Intended trailing space – to keep level names 5 letters wide
   case object Warn extends Level(3, "warn ", Console.RED)
   case object Error extends Level(4, "error", Console.RED + Console.BOLD)
   case object Off extends Level(43, "off", "")
