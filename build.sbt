@@ -17,6 +17,16 @@ onLoad in Global := (onLoad in Global).value.andThen { state ⇒
 
 /* Projects */
 
+lazy val `vm-executor` = (project in file("vm/executor"))
+  .settings(
+    compileVmExecutor()
+  )
+
+lazy val `vm-llamadb` = (project in file("vm/src/it/resources/llamadb"))
+  .settings(
+    downloadLlamadb()
+  )
+
 lazy val `vm` = (project in file("vm"))
   .configs(IntegrationTest)
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)
@@ -24,7 +34,6 @@ lazy val `vm` = (project in file("vm"))
     commons,
     kindProjector,
     libraryDependencies ++= Seq(
-      asmble,
       cats,
       catsEffect,
       ficus,
@@ -34,6 +43,7 @@ lazy val `vm` = (project in file("vm"))
       mockito
     ),
     test in IntegrationTest := (test in IntegrationTest)
+      .dependsOn(compile in `vm-executor`)
       .dependsOn(compile in `vm-llamadb`)
       .value,
     javaOptions += s"-Djava.library.path=/Users/trofim/Desktop/work/fluence/fluence"
@@ -73,11 +83,6 @@ lazy val `frun-rust` = project
   )
   .dependsOn(`frun`)
   .enablePlugins(DockerPlugin)
-
-lazy val `vm-llamadb` = (project in file("vm/src/it/resources/llamadb"))
-  .settings(
-    downloadLlamadb()
-  )
 
 lazy val `statemachine-control` = (project in file("statemachine/control"))
   .settings(

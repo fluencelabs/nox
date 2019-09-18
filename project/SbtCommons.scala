@@ -47,6 +47,24 @@ object SbtCommons {
       oldStrategy(x)
   }: String => MergeStrategy)
 
+  def compileVmExecutor(): Seq[Def.Setting[_]] =
+    Seq(
+      publishArtifact := false,
+      test            := (test in Test).dependsOn(compile).value,
+      compile := (compile in Compile)
+        .dependsOn(Def.task {
+          val log = streams.value.log
+          log.info(s"Compiling executor")
+
+          val projectRoot = file("").getAbsolutePath
+          val executorFolder = s"$projectRoot/vm/executor"
+          val compileCmd = s"cargo build --manifest-path $executorFolder/Cargo.toml --release"
+
+          assert((compileCmd !) == 0, "Rust to Wasm compilation failed")
+        })
+        .value
+    )
+
   def downloadLlamadb(): Seq[Def.Setting[_]] =
     Seq(
       publishArtifact := false,
@@ -100,8 +118,6 @@ object SbtCommons {
     )
 
   /* Common deps */
-
-  val asmble = "com.github.cretz.asmble" % "asmble-compiler" % "0.4.10-fl"
 
   val catsVersion = "1.6.0"
   val cats = "org.typelevel" %% "cats-core" % catsVersion
