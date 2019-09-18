@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package fluence.vm.wasmer
+package fluence.vm.frank
 import fluence.vm.config.VmConfig
 
 /**
  * Realizes connection to virtual machine runner based on Wasmer.
  */
-class WasmerConnector {
+class FrankAdapter {
 
   /**
    * Initializes execution environment with given file path.

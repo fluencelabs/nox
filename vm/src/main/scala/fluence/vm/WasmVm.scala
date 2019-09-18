@@ -23,7 +23,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import fluence.log.Log
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
 import fluence.vm.config.VmConfig
-import fluence.vm.wasmer.{WasmerConnector, WasmerWasmVm}
+import fluence.vm.frank.{FrankAdapter, FrankWasmVm}
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
@@ -89,10 +89,10 @@ object WasmVm {
       config ← VmConfig.readT[F](configNamespace, conf)
 
       _ ← Log.eitherT[F, ApplyError].info("WasmVm: configs read...")
-      vmRunnerInvoker = new WasmerConnector()
+      vmRunnerInvoker = new FrankAdapter()
 
       _ = vmRunnerInvoker.instantiate(inFiles.head, config)
-    } yield new WasmerWasmVm(
+    } yield new FrankWasmVm(
       vmRunnerInvoker,
       config
     )

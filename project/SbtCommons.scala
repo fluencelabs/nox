@@ -57,7 +57,7 @@ object SbtCommons {
           log.info(s"Compiling executor")
 
           val projectRoot = file("").getAbsolutePath
-          val executorFolder = s"$projectRoot/vm/executor"
+          val executorFolder = s"$projectRoot/vm/frank"
           val compileCmd = s"cargo build --manifest-path $executorFolder/Cargo.toml --release"
 
           assert((compileCmd !) == 0, "Rust to Wasm compilation failed")

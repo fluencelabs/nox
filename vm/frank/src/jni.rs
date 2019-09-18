@@ -17,7 +17,7 @@
 use jni::JNIEnv;
 
 use crate::config::Config;
-use crate::wasmer_executor::WasmerExecutor;
+use crate::frank::Frank;
 use jni::objects::{JClass, JObject, JString};
 use jni::sys::{jbyteArray, jint};
 use sha2::digest::generic_array::GenericArray;
@@ -25,7 +25,7 @@ use sha2::digest::DynDigest;
 use std::cell::RefCell;
 
 thread_local! {
-    static WASM_EXECUTOR: RefCell<Option<WasmerExecutor>> = RefCell::new(None);
+    static FRANK: RefCell<Option<Frank>> = RefCell::new(None);
 }
 
 // initializes virtual machine
@@ -45,12 +45,12 @@ pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_instantiate(
 
     let config = Config::new(env, config).unwrap();
 
-    let executor = match WasmerExecutor::new(&file_name, config) {
+    let executor = match Frank::new(&file_name, config) {
         Ok(executor) => executor,
         Err(_) => return -1,
     };
 
-    WASM_EXECUTOR.with(|wasm_executor| *wasm_executor.borrow_mut() = Some(executor));
+    FRANK.with(|wasm_executor| *wasm_executor.borrow_mut() = Some(executor));
 
     println!("wasm executor: init ended");
 
@@ -72,7 +72,7 @@ pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_invoke(
     env.get_byte_array_region(fn_argument, 0, input.as_mut_slice())
         .expect("Couldn't get function argument value");
 
-    let result = WASM_EXECUTOR.with(|wasm_executor| {
+    let result = FRANK.with(|wasm_executor| {
         if let Some(ref mut e) = *wasm_executor.borrow_mut() {
             return e.invoke(&input).unwrap();
         }
@@ -89,7 +89,7 @@ pub extern "system" fn Java_fluence_vm_wasmer_WasmerConnector_getVmState(
     env: JNIEnv,
     _class: JClass,
 ) -> jbyteArray {
-    let result = WASM_EXECUTOR.with(|wasm_executor| {
+    let result = FRANK.with(|wasm_executor| {
         if let Some(ref mut e) = *wasm_executor.borrow_mut() {
             return e.compute_vm_state_hash();
         }

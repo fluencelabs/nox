@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.vm.wasmer
+package fluence.vm.frank
 
 import cats.Monad
 import cats.data.EitherT
@@ -22,7 +22,6 @@ import cats.effect.LiftIO
 import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
 import fluence.vm.{InvocationResult, WasmVm}
 import scodec.bits.ByteVector
-import com.typesafe.config.Config
 import fluence.vm.config.VmConfig
 
 import scala.language.higherKinds
@@ -33,8 +32,8 @@ import scala.language.higherKinds
  * '''Note!!! This implementation isn't thread-safe. The provision of calls
  * linearization is the task of the caller side.'''
  */
-class WasmerWasmVm(
-  vmRunnerInvoker: WasmerConnector,
+class FrankWasmVm(
+  vmRunnerInvoker: FrankAdapter,
   config: VmConfig
 ) extends WasmVm {
 

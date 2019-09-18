@@ -17,7 +17,7 @@ onLoad in Global := (onLoad in Global).value.andThen { state ⇒
 
 /* Projects */
 
-lazy val `vm-executor` = (project in file("vm/executor"))
+lazy val `vm-frank` = (project in file("vm/frank"))
   .settings(
     compileVmExecutor()
   )
@@ -43,7 +43,7 @@ lazy val `vm` = (project in file("vm"))
       mockito
     ),
     test in IntegrationTest := (test in IntegrationTest)
-      .dependsOn(compile in `vm-executor`)
+      .dependsOn(compile in `vm-frank`)
       .dependsOn(compile in `vm-llamadb`)
       .value,
     javaOptions += s"-Djava.library.path=/Users/trofim/Desktop/work/fluence/fluence"
@@ -58,7 +58,6 @@ lazy val `frun` = (project in file("vm/frun"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      asmble,
       cats,
       catsEffect,
       sttp,

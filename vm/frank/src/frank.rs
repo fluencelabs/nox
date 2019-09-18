@@ -21,16 +21,12 @@ use sha2::{Digest, Sha256};
 use std::fs;
 use wasmer_runtime::{error, func, imports, instantiate, Ctx, Func, Instance, Memory};
 
-pub struct WasmMemory {
-    mem: Memory,
-}
-
-pub struct WasmerExecutor {
+pub struct Frank {
     instance: Instance,
     config: Config,
 }
 
-impl WasmerExecutor {
+impl Frank {
     // writes given value on the given address
     fn write_to_mem(&mut self, address: usize, value: &[i8]) -> error::Result<()> {
         let memory = self.instance.context_mut().memory(0);
