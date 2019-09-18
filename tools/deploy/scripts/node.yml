@@ -7,7 +7,7 @@ services:
     environment:
       - LOG_LEVEL=DEBUG
       - BLOCK_UPLOADING_ENABLED=false
-      - EXTERNAL_IP=$EXTERNAL_IP
+      - EXTERNAL_IP=$HOST_IP
       - API_PORT=$API_PORT
       - ETHEREUM_IP=$ETHEREUM_IP
       - SWARM_ADDRESS=$SWARM_ADDRESS

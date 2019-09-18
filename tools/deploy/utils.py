@@ -45,3 +45,44 @@ def get_docker_pgid():
     output = output.stdout.splitlines()
     assert len(output) == 1
     return output[0]
+
+def download_cli():
+    # check if `fluence` file is exists
+    result = local("[ -s fluence ] && echo 1 || echo 0", capture=True)
+    if (result == '0'):
+        # todo: add correct link to CLI
+        print '`fluence` CLI file does not exist. Downloading it from ' + RELEASE
+        local("wget " + RELEASE + " -O fluence")
+        local("chmod +x fluence")
+
+def get_tm_node_id():
+    return run('docker run --user 0 --rm -v $HOME/.fluence/:/master -e TMHOME=/master/tendermint tendermint/tendermint show_node_id')
+
+def get_tm_validator():
+    out = run('docker run --user 0 --rm -v $HOME/.fluence/:/master -e TMHOME=/master/tendermint tendermint/tendermint show_validator')
+    return json_loads(out)['value']
+
+def register_node(current_host,
+                  ethereum_ip,
+                  tm_validator,
+                  tm_node_id,
+                  contract_address,
+                  current_owner,
+                  api_port,
+                  capacity):
+    tm_node_id = get_tm_node_id()
+    tm_validator = get_tm_validator()
+    data = {
+        "node_ip": current_host,
+        "ethereum_address": "http://" + ethereum_ip + ":8545",
+        "tendermint_key": tm_validator,
+        "tendermint_node_id": tm_node_id,
+        "contract_address": contract_address,
+        "account": current_owner,
+        "api_port": api_port,
+        "capacity": capacity,
+    }
+    command = utils.register_command(data, current_key)
+    with show('running'):
+        # run `fluence` command
+        local(command)

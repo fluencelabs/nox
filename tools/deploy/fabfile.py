@@ -91,94 +91,46 @@ def test_connections():
 @parallel
 def deploy():
     with hide('running'):
-        # check if `fluence` file is exists
-        result = local("[ -s fluence ] && echo 1 || echo 0", capture=True)
-        if (result == '0'):
-            # todo: add correct link to CLI
-            print '`fluence` CLI file does not exist. Downloading it from ' + RELEASE
-            local("wget " + RELEASE + " -O fluence")
-            local("chmod +x fluence")
+        chain = 'rinkeby'
 
+        contract_address = contract
+        current_host     = env.host_string
+        current_owner    = nodes[current_host]['owner']
+        current_key      = nodes[current_host]['key']
+        api_port         = nodes[current_host]['api_port']
+        capacity         = nodes[current_host]['capacity']
+        ipfs             = get_ipfs_address()
+        ethereum_ip      = env.ethereum_ip
+        image_tag        = get_image_tag()
+
+        download_cli()
         copy_resources()
 
         with cd("scripts"):
-            # change for another chain
-            # todo changing this variable should recreate parity container
-            # todo support contract deployment on 'dev' chain
-            chain = 'rinkeby'
-
-            # actual fluence contract address
-            contract_address = contract
-
-            # getting owner and private key from `info` dictionary
-            current_host = env.host_string
-            current_owner = nodes[current_host]['owner']
-            current_key = nodes[current_host]['key']
-            api_port = nodes[current_host]['api_port']
-            capacity = nodes[current_host]['capacity']
-
-            remote_storage_enabled = "false"
-
-            if env.swarm is None:
-                swarm = "http://%s:8500" % current_host
-                remote_storage_enabled = "true"
-            else:
-                swarm = env.swarm
-
-            if env.ipfs is None:
-                # Node and IPFS are connected via 'decentralized_storage_network' network, see node.yml & ipfs.yml
-                ipfs = "http://ipfs:5001"
-                remote_storage_enabled = "true"
-            else:
-                ipfs = env.ipfs
-
-            if env.ethereum_ip is None:
-                ethereum_ip = "http://%s:8545" % current_host
-            else:
-                ethereum_ip = env.ethereum_ip
-
-
-            if not hasattr(env, 'image_tag'):
-                image_tag = "v0.2.0"
-            else:
-                image_tag = env.image_tag
-
             with shell_env(CHAIN=chain,
                            CONTRACT_ADDRESS=contract_address,
                            OWNER_ADDRESS=current_owner,
                            API_PORT=api_port,
-                           CAPACITY=capacity,
-                           # container name
                            HOST_IP=current_host,
                            IPFS_ADDRESS=ipfs,
                            ETHEREUM_IP=ethereum_ip,
                            IMAGE_TAG=image_tag):
                 run('chmod +x compose.sh')
-                # the script will return command with arguments that will register node in Fluence contract
-                output = run('./compose.sh')
-                tm_node_id = run('docker run --rm -v $HOME/.fluence/:/master -e TMHOME=/master/tendermint tendermint/tendermint show_node_id')
-                tm_validator = json.loads(run('docker run --rm -v $HOME/.fluence/:/master -e TMHOME=/master/tendermint tendermint/tendermint show_validator'))
-                data = {
-                    "node_ip": current_host,
-                    "ethereum_address": "http://" + ethereum_ip + ":8545",
-                    "tendermint_key": "$TENDERMINT_KEY",
-                    "tendermint_node_id": "$TENDERMINT_NODE_ID",
-                    "contract_address": "$CONTRACT_ADDRESS",
-                    "account": "$OWNER_ADDRESS",
-                    "api_port": $API_PORT,
-                     "capacity": $CAPACITY
-                }
-                meta_data = output.stdout.splitlines()[-1]
-                # JSON line could be marked as hidden by escape-sequence \e[8m, so remove it
-                meta_data = meta_data.replace("\x1b[8m", "").replace("\x1b[0m", "")
-                # parses output as arguments in JSON
-                json_data = json.loads(meta_data)
-                # creates command for registering node
-                command = utils.register_command(json_data, current_key)
-                with show('running'):
-                    # run `fluence` command
-                    local(command)
+                run('./compose.sh')
+                register_node(current_host,ethereum_ip,tm_validator,tm_node_id,contract_address,current_owner,api_port,capacity)
 
+def get_ipfs_address():
+    if env.ipfs is None:
+        # Node and IPFS are connected via 'decentralized_storage_network' network, see node.yml & ipfs.yml
+        return "http://ipfs:5001"
+    else:
+        return env.ipfs
+
+def get_image_tag():
+    if not hasattr(env, 'image_tag'):
+        return "v0.3.0"
+    else:
+        return env.image_tag
 
 # usage: fab --set environment=stage,caddy_login=LOGIN,caddy_password=PASSWORD,role=slave deploy_netdata
 @task
@@ -288,12 +240,3 @@ def deploy_ipfs():
 
         execute(connect_ipfs_nodes)
         print "IPFS: bootstrap nodes added"
-
-@task
-def check_exec():
-    tm_node_id = run('docker run --rm -v $HOME/.fluence/:/master -e TMHOME=/master/tendermint tendermint/tendermint show_node_id')
-    print "tm_node_id: %s" % tm_node_id
-    tm_validator = run('docker run --rm -v $HOME/.fluence/:/master -e TMHOME=/master/tendermint tendermint/tendermint show_validator')
-    print "tm_validator: %s" % tm_validator
-    parsed = json.loads(tm_validator)
-    print "parsed: %s" % parsed
