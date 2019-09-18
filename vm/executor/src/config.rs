@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use jni::objects::{JObject, JString};
+use jni::objects::{JClass, JObject, JString};
 use jni::JNIEnv;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -61,56 +61,62 @@ impl Default for Config {
 impl Config {
     // creates new config based on the supplied Java object Config
     pub fn new(env: JNIEnv, config: JObject) -> std::result::Result<Self, ()> {
+        let config_class = JClass::from(config);
+
         let mem_pages_count = env
-            .get_field(config, "memPagesCount", "I")
+            .call_method(config, "memPagesCount", "()I", &[])
             .unwrap()
             .i()
             .unwrap();
         let logger_enabled = env
-            .get_field(config, "loggerEnabled", "Z")
+            .call_method(config, "loggerEnabled", "()Z", &[])
             .unwrap()
             .z()
             .unwrap();
         let chunk_size = env
-            .get_field(config, "chunkSize", "I")
+            .call_method(config, "chunkSize", "()I", &[])
             .unwrap()
             .i()
             .unwrap();
 
-        println!("1");
         let main_module_config = env
-            .get_field(
+            .call_method(
                 config,
                 "mainModuleConfig",
-                "MainModuleConfig",
+                "()Lfluence/vm/config/MainModuleConfig;",
+                &[],
             )
             .unwrap()
             .l()
             .unwrap();
 
-        println!("1");
         let allocate_function_name = env
-            .get_field(
+            .call_method(
                 main_module_config,
                 "allocateFunctionName",
-                "java/lang/String",
+                "()Ljava/lang/String;",
+                &[],
             )
             .unwrap()
             .l()
             .unwrap();
-        println!("2");
         let deallocate_function_name = env
-            .get_field(
+            .call_method(
                 main_module_config,
                 "deallocateFunctionName",
-                "java/lang/String",
+                "()Ljava/lang/String;",
+                &[],
             )
             .unwrap()
             .l()
             .unwrap();
-        println!("3");
         let invoke_function_name = env
-            .get_field(main_module_config, "invokeFunctionName", "java/lang/String")
+            .call_method(
+                main_module_config,
+                "invokeFunctionName",
+                "()Ljava/lang/String;",
+                &[],
+            )
             .unwrap()
             .l()
             .unwrap();
@@ -122,7 +128,6 @@ impl Config {
             .get_string(JString::from(deallocate_function_name))
             .unwrap();
         let invoke_function_name = env.get_string(JString::from(invoke_function_name)).unwrap();
-        println!("4");
 
         Ok(Self {
             mem_pages_count,
