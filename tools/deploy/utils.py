@@ -1,3 +1,7 @@
+from __future__ import with_statement
+from fabric.api import *
+import json
+
 # creates register command to register deployed node
 def register_command(data, secret_key):
     command = "./fluence register \
@@ -60,12 +64,10 @@ def get_tm_node_id():
 
 def get_tm_validator():
     out = run('docker run --user 0 --rm -v $HOME/.fluence/:/master -e TMHOME=/master/tendermint tendermint/tendermint show_validator')
-    return json_loads(out)['value']
+    return json.loads(out)['value']
 
 def register_node(current_host,
                   ethereum_ip,
-                  tm_validator,
-                  tm_node_id,
                   contract_address,
                   current_owner,
                   api_port,
@@ -82,7 +84,7 @@ def register_node(current_host,
         "api_port": api_port,
         "capacity": capacity,
     }
-    command = utils.register_command(data, current_key)
+    command = register_command(data, current_key)
     with show('running'):
         # run `fluence` command
         local(command)

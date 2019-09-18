@@ -66,17 +66,13 @@ def copy_resources():
     print "Copying deployment files to node"
     # cleans up old scripts
     run('rm -rf scripts')
-    run('rm -rf config')
     run('mkdir scripts -p')
-    run('mkdir config -p')
+    run('mkdir scripts/functions -p')
     # copy local directory `script` to remote machine
     put('scripts/compose.sh', 'scripts/')
     put('scripts/node.yml', 'scripts/')
-    put('scripts/parity.yml', 'scripts/')
-    put('scripts/geth.yml', 'scripts/')
-    put('scripts/swarm.yml', 'scripts/')
     put('scripts/ipfs.yml', 'scripts/')
-    put('config/reserved_peers.txt', 'config/')
+    put('scripts/functions/asserts.sh', 'scripts/functions/')
 
 
 # tests connection to all nodes
@@ -90,6 +86,7 @@ def test_connections():
 @task
 @parallel
 def deploy():
+    from utils import download_cli, get_tm_node_id, get_tm_validator, register_node
     with hide('running'):
         chain = 'rinkeby'
 
@@ -117,7 +114,7 @@ def deploy():
                            IMAGE_TAG=image_tag):
                 run('chmod +x compose.sh')
                 run('./compose.sh')
-                register_node(current_host,ethereum_ip,tm_validator,tm_node_id,contract_address,current_owner,api_port,capacity)
+                register_node(current_host,ethereum_ip,contract_address,current_owner,api_port,capacity)
 
 def get_ipfs_address():
     if env.ipfs is None:

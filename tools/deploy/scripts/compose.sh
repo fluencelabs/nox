@@ -17,9 +17,7 @@
 set -eo pipefail
 
 # include functions from scripts
-source functions/assert.sh
-source functions/data.sh
-source functions/network.sh
+source ./functions/asserts.sh
 
 # updates all needed containers
 function container_update()
@@ -46,9 +44,9 @@ function deploy()
     export ETHEREUM_ADDRESS="http://$ETHEREUM_IP:8545"
 
     # exports initial arguments to global scope for `docker-compose` files
-    export_arguments
+#    export_arguments
 
-    check_envs
+#    check_envs
 
     container_update
 
@@ -63,13 +61,6 @@ function deploy()
     docker network prune -f &> /dev/null
 
     echo 'Node container is started.'
-
-    parse_tendermint_params TENDERMINT_KEY TENDERMINT_NODE_ID
-
-    # generates JSON with all arguments for node registration
-    JSON=$(generate_json)
-    # \e[8m marks text as 'hidden', so user don't see JSON in their log; doesn't work on macOS's iTerm2 though
-    echo -e "\e[8m$JSON\e[0m"
 }
 
 deploy

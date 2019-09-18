@@ -2,7 +2,7 @@ version: '3.5'
 
 services:
   fluence-node-1:
-    container_name: $NAME
+    container_name: fluence-node-1
     image: fluencelabs/node:$IMAGE_TAG
     environment:
       - LOG_LEVEL=DEBUG
