@@ -16,32 +16,16 @@
 
 package fluence.vm
 
-import asmble.cli.Invoke
-import asmble.cli.ScriptCommand.ScriptArgs
-import asmble.run.jvm.Module.{Compiled, Native}
-import asmble.run.jvm.ScriptContext
-import asmble.util.Logger
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.LiftIO
-import cats.{Monad, Traverse}
-import cats.instances.list._
-import cats.syntax.either._
+import cats.Monad
 import com.typesafe.config.{Config, ConfigFactory}
-import fluence.crypto.Crypto
-import fluence.crypto.hash.JdkCryptoHasher
 import fluence.log.Log
-import fluence.merkle.TrackingMemoryBuffer
-import fluence.vm.VmError.{InitializationError, NoSuchModuleError}
 import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
-import fluence.vm.wasm.{module, MemoryHasher}
 import fluence.vm.config.VmConfig
-import fluence.vm.utils.safelyRunThrowable
-import fluence.vm.wasm.module.{EnvModule, MainWasmModule, WasmModule}
 import fluence.vm.wasmer.{WasmerConnector, WasmerWasmVm}
 import scodec.bits.ByteVector
 
-import scala.collection.convert.ImplicitConversionsToJava.`seq AsJavaList`
-import scala.collection.convert.ImplicitConversionsToScala.`list asScalaBuffer`
 import scala.language.higherKinds
 
 /**

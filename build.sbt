@@ -38,8 +38,9 @@ lazy val `vm` = (project in file("vm"))
       .value,
     javaOptions += s"-Djava.library.path=/Users/trofim/Desktop/work/fluence/fluence"
   )
-  .dependsOn(`merkelized-bytebuffer`, `log`)
+  .dependsOn(`log`)
   .enablePlugins(AutomateHeaderPlugin)
+
 /**
  * Wasm VM docker runner for easy Wasm app debugging
  */
@@ -76,16 +77,6 @@ lazy val `frun-rust` = project
 lazy val `vm-llamadb` = (project in file("vm/src/it/resources/llamadb"))
   .settings(
     downloadLlamadb()
-  )
-
-lazy val `merkelized-bytebuffer` = (project in file("vm/merkelized-bytebuffer"))
-  .settings(
-    commons,
-    libraryDependencies ++= Seq(
-      asmble,
-      cryptoHashsign,
-      scalaTest
-    )
   )
 
 lazy val `statemachine-control` = (project in file("statemachine/control"))

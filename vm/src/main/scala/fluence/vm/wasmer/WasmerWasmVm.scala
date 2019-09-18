@@ -17,9 +17,8 @@
 package fluence.vm.wasmer
 
 import cats.Monad
-import cats.data.{EitherT, NonEmptyList}
+import cats.data.EitherT
 import cats.effect.LiftIO
-import fluence.log.Log
 import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
 import fluence.vm.{InvocationResult, WasmVm}
 import scodec.bits.ByteVector

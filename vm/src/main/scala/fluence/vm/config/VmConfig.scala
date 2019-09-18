@@ -17,14 +17,17 @@
 package fluence.vm.config
 
 import cats.Monad
+import cats.Applicative
 import cats.data.EitherT
 import com.typesafe.config.Config
+import fluence.vm.VmError
 import fluence.vm.VmError.InternalVmError
 import fluence.vm.VmError.WasmVmError.ApplyError
-import fluence.vm.utils.safelyRunThrowable
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+
 import scala.language.higherKinds
+import scala.util.Try
 
 /**
  * Main module settings.
@@ -59,6 +62,19 @@ case class VmConfig(
 )
 
 object VmConfig {
+
+  /**
+   *  Runs action inside Try block, convert to EitherT with specified effect F.
+   */
+  def safelyRunThrowable[F[_]: Applicative, T, E <: VmError](
+    action: ⇒ T,
+    mapError: Throwable ⇒ E
+  ): EitherT[F, E, T] =
+    EitherT
+      .fromEither(
+        Try(action).toEither
+      )
+      .leftMap(mapError)
 
   def readT[F[_]: Monad](namespace: String, conf: ⇒ Config): EitherT[F, ApplyError, VmConfig] =
     safelyRunThrowable(
