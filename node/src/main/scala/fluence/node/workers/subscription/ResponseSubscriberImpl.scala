@@ -24,6 +24,7 @@ import cats.syntax.functor._
 import cats.syntax.applicative._
 import cats.syntax.apply._
 import cats.{Functor, Parallel, Traverse}
+import fluence.bp.tx.Tx
 import fluence.effects.tendermint.block.data.{Base64ByteVector, Block}
 import fluence.effects.{Backoff, EffectError}
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError, RpcRequestErrored, TendermintHttpRpc}
@@ -31,7 +32,6 @@ import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.log.Log
 import fluence.node.MakeResource
 import fluence.statemachine.api.query.QueryCode
-import fluence.statemachine.api.tx.Tx
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
