@@ -16,6 +16,8 @@
 
 package fluence.statemachine.api.query
 
+import io.circe.syntax._
+import io.circe.{Decoder, Encoder, HCursor, Json}
 import scodec.bits.ByteVector
 
 /**
@@ -27,18 +29,43 @@ import scodec.bits.ByteVector
  * @param info response message
  */
 case class QueryResponse(height: Long, result: Array[Byte], code: QueryCode.Value, info: String) {
-  // TODO make correct json
-  def toResponseString(id: String = "dontcare"): String = s"""
-                                                             | {
-                                                             |   "jsonrpc": "2.0",
-                                                             |   "id": "$id",
-                                                             |   "result": {
-                                                             |    "code": ${code.id},
-                                                             |     "response": {
-                                                             |       "info": "$info",
-                                                             |       "value": "${ByteVector(result).toBase64}"
-                                                             |     }
-                                                             |   }
-                                                             | }
-           """.stripMargin
+  def toResponseString(id: String = "dontcare"): String = (id, this).asJson.spaces2
+}
+
+object QueryResponse {
+  implicit val byteEncoder: Encoder[Array[Byte]] =
+    Encoder[String].contramap((b: Array[Byte]) => ByteVector.view(b).toBase64)
+
+  implicit val byteDecoder: Decoder[Array[Byte]] =
+    Decoder[String].emap(ByteVector.fromBase64Descriptive(_)).map(_.toArray)
+
+  implicit val encoder: Encoder[(String, QueryResponse)] = {
+    case (id: String, resp: QueryResponse) =>
+      Json.obj(
+        ("jsonrpc", Json.fromString("2.0")),
+        ("id", Json.fromString(id)),
+        ("result", Json.obj {
+          (
+            "response",
+            Json.obj(
+              ("code", Json.fromInt(resp.code.id)),
+              ("info", Json.fromString(resp.info)),
+              ("height", Json.fromString(resp.height.toString)),
+              ("value", resp.result.asJson)
+            )
+          )
+        })
+      )
+  }
+
+  implicit val decoder: Decoder[QueryResponse] = (c: HCursor) => {
+    val res = c.downField("result").downField("response")
+    for {
+      // Tendermint seems to omit Ok code from json
+      code <- res.getOrElse[QueryCode.Value]("code")(QueryCode.Ok)
+      info <- res.downField("info").as[String]
+      height <- res.downField("height").as[Long]
+      value <- res.downField("value").as[Array[Byte]]
+    } yield QueryResponse(height, value, code, info)
+  }
 }
