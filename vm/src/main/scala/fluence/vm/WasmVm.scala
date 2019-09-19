@@ -69,7 +69,7 @@ object WasmVm {
   System.out.println(javaLibPath)
 
   Runtime.getRuntime.load(
-    "/Users/trofim/Desktop/work/fluence/fluence/vm/executor/target/release/libfrank.dylib"
+    "/Users/trofim/Desktop/work/fluence/fluence/vm/frank/target/release/libfrank.dylib"
   )
 
   /**

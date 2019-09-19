@@ -21,7 +21,6 @@ import cats.effect.{IO, Timer}
 import fluence.log.{Log, LogFactory}
 import fluence.vm.VmError._
 import fluence.vm.TestUtils._
-import fluence.vm.wasm.MemoryHasher
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.ExecutionContext

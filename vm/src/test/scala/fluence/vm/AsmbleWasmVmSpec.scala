@@ -18,7 +18,6 @@ package fluence.vm
 
 import java.nio.{ByteBuffer, ByteOrder}
 
-import asmble.compile.jvm.MemoryBuffer
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.{IO, Timer}
 import fluence.crypto.CryptoError

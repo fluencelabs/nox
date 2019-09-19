@@ -15,8 +15,8 @@
  */
 
 use crate::config::Config;
-use crate::modules::env_module::EnvModule;
 use crate::frank_result::FrankResult;
+use crate::modules::env_module::EnvModule;
 use sha2::{digest::generic_array::GenericArray, digest::FixedOutput, Digest, Sha256};
 use std::ffi::c_void;
 use std::fs;
@@ -80,9 +80,11 @@ impl Frank {
     }
 
     pub fn invoke(&mut self, fn_argument: &[i8]) -> error::Result<FrankResult> {
+        println!("11");
         let env: &mut EnvModule =
             unsafe { &mut *(self.instance.context_mut().data as *mut EnvModule) };
         env.renew_state();
+        println!("12");
 
         let argument_len = fn_argument.len() as i32;
         let argument_address = if argument_len != 0 {
@@ -93,6 +95,7 @@ impl Frank {
             0
         };
 
+        println!("13");
         let result_address = self.call_invoke_func(argument_address, argument_len)?;
         let result = self.read_result_from_mem(result_address as usize)?;
         self.call_deallocate_func(result_address, result.len() as i32)?;
@@ -147,11 +150,11 @@ fn logger_flush(_ctx: &mut Ctx) {
 }
 
 fn update_gas_counter(ctx: &mut Ctx, spent_gas: i32) {
-    let env: &mut EnvModule = unsafe { &mut *(ctx.data as *mut EnvModule) };
-    env.gas(spent_gas);
+//    let env: &mut EnvModule = unsafe { &mut *(ctx.data as *mut EnvModule) };
+//    env.gas(spent_gas);
 }
 
 fn update_eic(ctx: &mut Ctx, eic: i32) {
-    let env: &mut EnvModule = unsafe { &mut *(ctx.data as *mut EnvModule) };
-    env.eic(eic);
+//    let env: &mut EnvModule = unsafe { &mut *(ctx.data as *mut EnvModule) };
+//    env.eic(eic);
 }

@@ -54,7 +54,7 @@ class LlamadbInstrumentedIntegrationTest extends LlamadbIntegrationTestInterface
 
       } yield {
         checkTestResult(createResult, "rows inserted")
-        createResult.spentGas should equal(349L)
+        createResult.spentGas should equal(527599L)
 
       }).success()
 
@@ -86,10 +86,10 @@ class LlamadbInstrumentedIntegrationTest extends LlamadbIntegrationTestInterface
             "    (column-field :source-id 0 :column-offset 1)))"
         )
 
-        createResult.spentGas should equal(349L)
-        emptySelectResult.spentGas should equal(349L)
-        selectAllResult.spentGas should equal(219L)
-        explainResult.spentGas should equal(219L)
+        createResult.spentGas should equal(527599L)
+        emptySelectResult.spentGas should equal(370143L)
+        selectAllResult.spentGas should equal(754557L)
+        explainResult.spentGas should equal(1115163L)
 
       }).success()
 

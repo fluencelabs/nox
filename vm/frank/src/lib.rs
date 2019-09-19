@@ -17,6 +17,6 @@
 mod config;
 mod errors;
 mod frank;
+mod frank_result;
 mod jni;
 mod modules;
-mod frank_result;

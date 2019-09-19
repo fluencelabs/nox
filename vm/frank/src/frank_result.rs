@@ -27,8 +27,8 @@ impl FrankResult {
         let state = env_module.get_state();
         Self {
             outcome,
-            spent_gas: state.spent_gas,
-            eic: state.eic,
+            spent_gas: state.0,
+            eic: state.1,
         }
     }
 }

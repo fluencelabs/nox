@@ -35,7 +35,7 @@ class FrankAdapter {
    *
    * @param arg argument for invoked module
    */
-  @native def invoke(arg: Array[Byte]): InvocationResult
+  @native def invoke(arg: Array[Byte]): Array[Byte]
 
   /**
    * Returns hash of all significant inner state of this VM. This function calculates

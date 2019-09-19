@@ -18,7 +18,8 @@ package fluence.vm.frank
 
 import cats.Monad
 import cats.data.EitherT
-import cats.effect.LiftIO
+import cats.effect.{IO, LiftIO}
+import fluence.vm.VmError.{InternalVmError, TrapError}
 import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
 import fluence.vm.{InvocationResult, WasmVm}
 import scodec.bits.ByteVector
@@ -40,13 +41,21 @@ class FrankWasmVm(
   override def invoke[F[_]: LiftIO: Monad](
     fnArgument: Array[Byte]
   ): EitherT[F, InvokeError, InvocationResult] = {
-    val result = vmRunnerInvoker.invoke(fnArgument)
-    EitherT.rightT[F, InvokeError](result)
+    EitherT(
+      IO(vmRunnerInvoker.invoke(fnArgument))
+        .map(InvocationResult(_, 0))
+        .attempt
+        .to[F]
+    ).leftMap(e ⇒ TrapError(s"Frank invocation failed. Cause: ${e.getMessage}", Some(e)))
   }
 
   override def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector] = {
-    val result = vmRunnerInvoker.getVmState()
-    EitherT.rightT[F, GetVmStateError](ByteVector(result))
+    EitherT(
+      IO(vmRunnerInvoker.getVmState())
+        .map(ByteVector(_))
+        .attempt
+        .to[F]
+    ).leftMap(e ⇒ InternalVmError(s"Frank getting VM state failed. Cause: ${e.getMessage}", Some(e)))
   }
 
   val expectsEth: Boolean = false
