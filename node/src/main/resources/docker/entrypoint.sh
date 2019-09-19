@@ -32,14 +32,16 @@ EOF
   exit 1
 fi
 
-DHOST=${DOCKER_HOST:-/var/run/docker.sock}
-DSOCKET=${DHOST#unix://}
-if [ ! -S "$DSOCKET" ]; then
-    cat >&2 <<EOF
+DHOST=${DOCKER_HOST:-unix:///var/run/docker.sock}
+if [[ $DHOST = unix://* ]]; then
+  DSOCKET=${DHOST#unix://}
+  if [ ! -S "$DSOCKET" ]; then
+      cat >&2 <<EOF
 error: '$DSOCKET' not found in container or is not a unix socket.
 Please, pass it as a volume when running the container: \`-v /var/run/docker.sock:$DSOCKET\`
 EOF
-exit 1
+  exit 1
+  fi
 fi
 
 CONTAINER_ID=$(cat /proc/1/cpuset)

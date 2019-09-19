@@ -37,7 +37,7 @@ function restart_node()
     # disables docker-compose warnings about orphan services
     export COMPOSE_IGNORE_ORPHANS=True
     echo "Restarting node container"
-    docker-compose --compatibility -f node.yml up -d --timeout 30 --force-recreate || true &>/dev/null
+    docker-compose --no-ansi --compatibility -f node.yml up -d --timeout 30 --force-recreate || true &>/dev/null
 }
 
 # disconnects containers from their networks and prunes all dangling networks

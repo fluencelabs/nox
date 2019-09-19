@@ -17,7 +17,7 @@ services:
       - WORKER_MEMORY_LIMIT=400 # megabytes
       - WORKER_TAG=$IMAGE_TAG
       - WORKER_CPUS_LIMIT=2
-      - DOCKER_HOST=unix:///docker_proxy/docker.sock
+      - DOCKER_HOST=tcp://docker-proxy:2375
     ports:
       - $API_PORT:5678
     volumes:
@@ -26,6 +26,7 @@ services:
     networks:
       # connects Fluence Node and IPFS containers
       - decentralized_storage_network
+      - docker-proxy
     deploy:
       resources:
         limits:
@@ -43,9 +44,29 @@ services:
       - "docker-socket-vol:/proxy/"
       - "/var/run/docker.sock:/var/run/docker.sock"
 
+  docker-proxy:
+    container_name: docker-proxy
+    image: fluencelabs/docker-socket-proxy
+    environment:
+      - LOG_LEVEL=info
+      - POST=1
+      - PING=1
+      - CONTAINERS=1
+      - CONTAINERS_CREATE=1
+      - ALLOW_RESTARTS=1
+      - NETWORKS_CREATE=1
+      - NETWORKS_CONNECT=1
+      - NETWORKS_DISCONNECT=1
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    networks:
+      - docker-proxy
+
 networks:
   decentralized_storage_network:
       name: decentralized_storage_network
+  docker-proxy:
+      name: docker-proxy
 
 volumes:
   docker-socket-vol:
