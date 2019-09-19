@@ -27,18 +27,20 @@ import scodec.bits.ByteVector
  * @param info response message
  */
 case class QueryResponse(height: Long, result: Array[Byte], code: QueryCode.Value, info: String) {
+
   // TODO make correct json
-  def toResponseString(id: String = "dontcare"): String = s"""
-                                                             | {
-                                                             |   "jsonrpc": "2.0",
-                                                             |   "id": "$id",
-                                                             |   "result": {
-                                                             |    "code": ${code.id},
-                                                             |     "response": {
-                                                             |       "info": "$info",
-                                                             |       "value": "${ByteVector(result).toBase64}"
-                                                             |     }
-                                                             |   }
-                                                             | }
+  def toResponseString(id: String = "dontcare"): String =
+    s"""
+       | {
+       |   "jsonrpc": "2.0",
+       |   "id": "$id",
+       |   "result": {
+       |    "code": ${code.id},
+       |     "response": {
+       |       "info": "$info",
+       |       "value": "${ByteVector(result).toBase64}"
+       |     }
+       |   }
+       | }
            """.stripMargin
 }
