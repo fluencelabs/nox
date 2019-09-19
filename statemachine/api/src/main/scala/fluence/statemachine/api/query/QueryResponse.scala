@@ -16,13 +16,9 @@
 
 package fluence.statemachine.api.query
 
-import java.util.Base64
-
-import io.circe.{Decoder, Encoder, Json}
-import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.syntax._
+import io.circe.{Decoder, Encoder, HCursor, Json}
 import scodec.bits.ByteVector
-
-import scala.util.Try
 
 /**
  * A structure for aggregating data specific to building `Query` ABCI method response.
@@ -33,37 +29,7 @@ import scala.util.Try
  * @param info response message
  */
 case class QueryResponse(height: Long, result: Array[Byte], code: QueryCode.Value, info: String) {
-
-  // TODO make correct json
-  def toResponseString(id: String = "dontcare"): String =
-    s"""
-       | {
-       |   "jsonrpc": "2.0",
-       |   "id": "$id",
-       |   "result": {
-       |    "code": ${code.id},
-       |    "response": {
-       |      "info": "$info",
-       |      "value": "${ByteVector(result).toBase64}",
-       |      "height": "$height"
-       |    }
-       |   }
-       | }
-           """.stripMargin
-
-  /*
-{
-  "jsonrpc": "2.0",
-  "id": "dontcare",
-  "result": {
-    "response": {
-      "info": "Responded for path srDhIRCxA6ux/0",
-      "value": "XzAKMjQuOTM5MzkzOTM5MzkzOTM4",
-      "height": "103"
-    }
-  }
-}
- */
+  def toResponseString(id: String = "dontcare"): String = (id, this).asJson.spaces2
 }
 
 object QueryResponse {
@@ -73,6 +39,56 @@ object QueryResponse {
   implicit val byteDecoder: Decoder[Array[Byte]] =
     Decoder[String].emap(ByteVector.fromBase64Descriptive(_)).map(_.toArray)
 
-  implicit val encoder: Encoder[QueryResponse] = deriveEncoder
-  implicit val decoder: Decoder[QueryResponse] = deriveDecoder
+  implicit val encoder: Encoder[(String, QueryResponse)] = {
+    case (id: String, resp: QueryResponse) =>
+      Json.obj(
+        ("jsonrpc", Json.fromString("2.0")),
+        ("id", Json.fromString(id)),
+        ("result", Json.obj {
+          ("response",
+           Json.obj(
+             ("code", Json.fromInt(resp.code.id)),
+             ("info", Json.fromString(resp.info)),
+             ("height", Json.fromString(resp.height.toString)),
+             ("value", resp.result.asJson)
+           ))
+        })
+      )
+  }
+
+  implicit val decoder: Decoder[QueryResponse] = (c: HCursor) => {
+    val res = c.downField("result")
+    for {
+      code <- res.downField("code").as[QueryCode.Value]
+      info <- res.downField("info").as[String]
+      height <- res.downField("height").as[Long]
+      value <- res.downField("value").as[Array[Byte]]
+    } yield QueryResponse(height, value, code, info)
+  }
 }
+
+/*
+{
+"jsonrpc": "2.0",
+"id": "dontcare",
+"result": {
+  "response": {
+    "info": "Responded for path srDhIRCxA6ux/0",
+    "value": "XzAKMjQuOTM5MzkzOTM5MzkzOTM4",
+    "height": "103"
+  }
+}
+}
+
+{
+"jsonrpc": "2.0",
+"id": "dontcare",
+"result": {
+  "response": {
+    "code": 4,
+    "info": "Transaction is not yet processed: gOULkkG5B46y/3",
+    "height": "109"
+  }
+}
+}
+ */
