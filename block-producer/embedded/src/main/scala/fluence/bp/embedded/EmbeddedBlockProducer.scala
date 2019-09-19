@@ -27,15 +27,13 @@ import fluence.bp.tx.TxResponse
 import fluence.effects.EffectError
 import fluence.log.Log
 import fluence.statemachine.api.StateMachine
-import fluence.statemachine.api.command.{ReceiptBus, TxProcessor}
-import fluence.statemachine.api.data.BlockReceipt
+import fluence.statemachine.api.command.TxProcessor
 import shapeless._
 
 import scala.language.higherKinds
 
 class EmbeddedBlockProducer[F[_]: Monad](
   txProcessor: TxProcessor[F],
-  receiptBus: ReceiptBus[F],
   lastHeight: Ref[F, Long],
   blocksQueue: fs2.concurrent.Queue[F, Long]
 ) extends BlockProducer[F] {
@@ -70,12 +68,6 @@ class EmbeddedBlockProducer[F[_]: Monad](
         _ ⇒
           for {
             sh ← txProcessor.commit()
-            bv ← receiptBus.getVmHash(sh.height)
-
-            // Here we "do" block uploading, and then provide BlockReceipt back via ReceiptBus
-            // receipt <- upload(block)
-            receipt = BlockReceipt(sh.height, sh.hash ++ bv)
-            _ ← receiptBus.sendBlockReceipt(receipt)
 
             _ ← EitherT.right(lastHeight.set(sh.height))
             _ ← EitherT.right(blocksQueue.enqueue1(sh.height))
@@ -89,15 +81,13 @@ object EmbeddedBlockProducer {
   def apply[F[_]: Concurrent, C <: HList](
     machine: StateMachine.Aux[F, C]
   )(
-    implicit txp: ops.hlist.Selector[C, TxProcessor[F]],
-    rb: ops.hlist.Selector[C, ReceiptBus[F]]
+    implicit txp: ops.hlist.Selector[C, TxProcessor[F]]
   ): F[BlockProducer.Aux[F, Long]] =
     for {
       lastHeight ← Ref.of[F, Long](0)
       blockQueue ← fs2.concurrent.Queue.circularBuffer[F, Long](16)
     } yield new EmbeddedBlockProducer[F](
       machine.command[TxProcessor[F]],
-      machine.command[ReceiptBus[F]],
       lastHeight,
       blockQueue
     ) {
