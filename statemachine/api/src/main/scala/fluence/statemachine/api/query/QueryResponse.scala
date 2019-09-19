@@ -45,21 +45,24 @@ object QueryResponse {
         ("jsonrpc", Json.fromString("2.0")),
         ("id", Json.fromString(id)),
         ("result", Json.obj {
-          ("response",
-           Json.obj(
-             ("code", Json.fromInt(resp.code.id)),
-             ("info", Json.fromString(resp.info)),
-             ("height", Json.fromString(resp.height.toString)),
-             ("value", resp.result.asJson)
-           ))
+          (
+            "response",
+            Json.obj(
+              ("code", Json.fromInt(resp.code.id)),
+              ("info", Json.fromString(resp.info)),
+              ("height", Json.fromString(resp.height.toString)),
+              ("value", resp.result.asJson)
+            )
+          )
         })
       )
   }
 
   implicit val decoder: Decoder[QueryResponse] = (c: HCursor) => {
-    val res = c.downField("result")
+    val res = c.downField("result").downField("response")
     for {
-      code <- res.downField("code").as[QueryCode.Value]
+      // Tendermint seems to omit Ok code from json
+      code <- res.getOrElse[QueryCode.Value]("code")(QueryCode.Ok)
       info <- res.downField("info").as[String]
       height <- res.downField("height").as[Long]
       value <- res.downField("value").as[Array[Byte]]

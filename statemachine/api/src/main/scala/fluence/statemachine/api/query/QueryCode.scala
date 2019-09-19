@@ -18,9 +18,12 @@ package fluence.statemachine.api.query
 
 import io.circe.{Decoder, Encoder}
 
+import scala.util.Try
+
 object QueryCode extends Enumeration {
   val Ok, CannotParseHeader, Dropped, NotFound, Pending = Value
 
-  implicit val decoder: Decoder[QueryCode.Value] = Decoder.decodeEnumeration(QueryCode)
-  implicit val encoder: Encoder[QueryCode.Value] = Encoder.encodeEnumeration(QueryCode)
+  implicit val decoder: Decoder[QueryCode.Value] =
+    Decoder[Int].emap(i => Try(QueryCode(i)).toEither.left.map(e => s"Error decoding query code: $e"))
+  implicit val encoder: Encoder[QueryCode.Value] = Encoder[Int].contramap(_.id)
 }
