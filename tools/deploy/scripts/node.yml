@@ -21,7 +21,6 @@ services:
     ports:
       - $API_PORT:5678
     volumes:
-      - docker-socket-vol:/docker_proxy
       - $FLUENCE_STORAGE:/master
     networks:
       # connects Fluence Node and IPFS containers
@@ -34,15 +33,6 @@ services:
           memory: 350M
         reservations:
           memory: 300M
-
-  sockguard:
-    container_name: sockguard
-    image: buildkite/sockguard
-    command: -filename /proxy/docker.sock -debug -allow-bind $FLUENCE_STORAGE
-    cgroup_parent: test-cgroup
-    volumes:
-      - "docker-socket-vol:/proxy/"
-      - "/var/run/docker.sock:/var/run/docker.sock"
 
   docker-proxy:
     container_name: docker-proxy
@@ -67,6 +57,3 @@ networks:
       name: decentralized_storage_network
   docker-proxy:
       name: docker-proxy
-
-volumes:
-  docker-socket-vol:

@@ -21,6 +21,8 @@ function pull_new_images()
     docker pull fluencelabs/node:$IMAGE_TAG >/dev/null
     printf '.'
     docker pull fluencelabs/worker:$IMAGE_TAG >/dev/null
+    printf '.'
+    docker pull fluencelabs/docker-socket-proxy >/dev/null
     printf '.\n'
 }
 
@@ -37,7 +39,7 @@ function restart_node()
     # disables docker-compose warnings about orphan services
     export COMPOSE_IGNORE_ORPHANS=True
     echo "Restarting node container"
-    docker-compose --no-ansi --compatibility -f node.yml up -d --timeout 30 --force-recreate || true &>/dev/null
+    docker-compose --no-ansi --compatibility -f node.yml up --quiet-pull -d --timeout 30 --force-recreate
 }
 
 # disconnects containers from their networks and prunes all dangling networks
