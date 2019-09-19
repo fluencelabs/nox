@@ -16,6 +16,11 @@
 
 package fluence.statemachine.api.query
 
+import io.circe.{Decoder, Encoder}
+
 object QueryCode extends Enumeration {
   val Ok, CannotParseHeader, Dropped, NotFound, Pending = Value
+
+  implicit val decoder: Decoder[QueryCode.Value] = Decoder.decodeEnumeration(QueryCode)
+  implicit val encoder: Encoder[QueryCode.Value] = Encoder.encodeEnumeration(QueryCode)
 }

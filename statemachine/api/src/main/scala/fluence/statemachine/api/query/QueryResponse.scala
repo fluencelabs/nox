@@ -16,7 +16,13 @@
 
 package fluence.statemachine.api.query
 
+import java.util.Base64
+
+import io.circe.{Decoder, Encoder, Json}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import scodec.bits.ByteVector
+
+import scala.util.Try
 
 /**
  * A structure for aggregating data specific to building `Query` ABCI method response.
@@ -36,11 +42,37 @@ case class QueryResponse(height: Long, result: Array[Byte], code: QueryCode.Valu
        |   "id": "$id",
        |   "result": {
        |    "code": ${code.id},
-       |     "response": {
-       |       "info": "$info",
-       |       "value": "${ByteVector(result).toBase64}"
-       |     }
+       |    "response": {
+       |      "info": "$info",
+       |      "value": "${ByteVector(result).toBase64}",
+       |      "height": "$height"
+       |    }
        |   }
        | }
            """.stripMargin
+
+  /*
+{
+  "jsonrpc": "2.0",
+  "id": "dontcare",
+  "result": {
+    "response": {
+      "info": "Responded for path srDhIRCxA6ux/0",
+      "value": "XzAKMjQuOTM5MzkzOTM5MzkzOTM4",
+      "height": "103"
+    }
+  }
+}
+ */
+}
+
+object QueryResponse {
+  implicit val byteEncoder: Encoder[Array[Byte]] =
+    Encoder[String].contramap((b: Array[Byte]) => ByteVector.view(b).toBase64)
+
+  implicit val byteDecoder: Decoder[Array[Byte]] =
+    Decoder[String].emap(ByteVector.fromBase64Descriptive(_)).map(_.toArray)
+
+  implicit val encoder: Encoder[QueryResponse] = deriveEncoder
+  implicit val decoder: Decoder[QueryResponse] = deriveDecoder
 }
