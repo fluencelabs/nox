@@ -66,6 +66,6 @@ push-node:       ;docker push $(NODE_IMG)
 push-worker:     ;docker push $(WORK_IMG)
 
 # Build jars
-jars:            ;sbt ";node/assembly ;statemachine-docker/assembly"
+jars:            ;sbt "node/assembly statemachine-docker/assembly"
 
 .PHONY: node node-test worker worker-test dashboard %-bctl-test deploy
