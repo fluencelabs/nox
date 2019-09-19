@@ -69,29 +69,3 @@ object QueryResponse {
     } yield QueryResponse(height, value, code, info)
   }
 }
-
-/*
-{
-"jsonrpc": "2.0",
-"id": "dontcare",
-"result": {
-  "response": {
-    "info": "Responded for path srDhIRCxA6ux/0",
-    "value": "XzAKMjQuOTM5MzkzOTM5MzkzOTM4",
-    "height": "103"
-  }
-}
-}
-
-{
-"jsonrpc": "2.0",
-"id": "dontcare",
-"result": {
-  "response": {
-    "code": 4,
-    "info": "Transaction is not yet processed: gOULkkG5B46y/3",
-    "height": "109"
-  }
-}
-}
- */
