@@ -44,6 +44,7 @@ lazy val `vm` = (project in file("vm"))
 // Made for integration tests only
 lazy val `vm-llamadb` = (project in file("vm/src/it/resources/llamadb"))
   .settings(
+    commons,
     downloadLlamadb()
   )
 

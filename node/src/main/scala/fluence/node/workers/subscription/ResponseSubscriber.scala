@@ -20,10 +20,10 @@ import cats.Parallel
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, Resource, Timer}
 import cats.syntax.functor._
-import fluence.bp.tx.Tx
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.log.Log
+import fluence.statemachine.api.tx.Tx
 
 import scala.language.higherKinds
 
@@ -39,20 +39,22 @@ trait ResponseSubscriber[F[_]] {
    * @param id transaction id: sessionId/nonce
    * @return a promise that will be completed after response will be received
    */
-  def subscribe(id: Tx.Head)(implicit log: Log[F]): F[Deferred[F, TendermintQueryResponse]]
+  def subscribe(id: Tx.Head): F[Deferred[F, TendermintQueryResponse]]
 
   /**
    * Gets all request subscribes for appId and trying to poll service for responses.
    *
    */
-  def start()(implicit log: Log[F]): Resource[F, Unit]
+  def start(): Resource[F, Unit]
 }
 
 object ResponseSubscriber {
   // TODO: move to config
   val MaxBlockTries = 10
 
-  def make[F[_]: Concurrent: Timer: Parallel](
+  val PubSubSessionPrefix = "pubsub"
+
+  def make[F[_]: Log: Concurrent: Timer: Parallel](
     tendermintRpc: TendermintHttpRpc[F],
     tendermintWRpc: TendermintWebsocketRpc[F],
     appId: Long,
