@@ -28,7 +28,7 @@ if not env.hosts:
     # use addresses from config as fabric hosts
     env.hosts = config['nodes'].keys()
 else:
-    print "will use hosts: %s" % env.hosts
+    puts("will use hosts: %s" % env.hosts)
 
 @task
 @parallel
@@ -69,20 +69,20 @@ def deploy():
 @parallel
 def install_docker():
     with hide('running', 'output'):
-        run("apt-get remove --yes docker docker-engine docker.io containerd runc || true")
-        print "apt-get update"
-        run("apt-get update")
-        print "preparing to install docker"
-        run("apt-get install --yes apt-transport-https ca-certificates curl gnupg-agent software-properties-common")
-        run("curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -")
-        run("apt-key fingerprint 0EBFCD88")
-        run("""sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" """)
-        run("apt-get update")
-        print "installing docker"
-        run("apt-get install --yes docker-ce docker-ce-cli containerd.io")
-        print "installing docker-compose"
-        run("""curl -L "https://github.com/docker/compose/releases/download/1.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose """)
-        run("chmod +x /usr/local/bin/docker-compose")
+        sudo("apt-get remove --yes docker docker-engine docker.io containerd runc || true")
+        puts("apt-get update")
+        sudo("apt-get update")
+        puts("preparing to install docker")
+        sudo("apt-get install --yes apt-transport-https ca-certificates curl gnupg-agent software-properties-common")
+        sudo("curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -")
+        sudo("apt-key fingerprint 0EBFCD88")
+        sudo("""add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" """)
+        sudo("apt-get update")
+        puts("installing docker")
+        sudo("apt-get install --yes docker-ce docker-ce-cli containerd.io")
+        puts("installing docker-compose")
+        sudo("""curl -L "https://github.com/docker/compose/releases/download/1.24.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose """)
+        sudo("chmod +x /usr/local/bin/docker-compose")
 
 @task
 @parallel
@@ -106,10 +106,10 @@ def connect_ipfs_nodes():
 # example: fab --set environment=stage deploy_ipfs
 def deploy_ipfs():
     with hide('running', 'output'):
-        print "IPFS: deploying..."
+        puts("IPFS: deploying...")
         results = execute(do_deploy_ipfs)
-        print "IPFS: deployed"
-        print "IPFS: interconnecting nodes..."
+        puts("IPFS: deployed")
+        puts("IPFS: interconnecting nodes...")
         external_addresses = [
             "/dns4/ipfs1.fluence.one/tcp/1036/ipfs/QmQodFqzJgqHyRDEG4abmMgHEV59AgXJ8foBeKgkazchNL",
             "/dns4/ipfs2.fluence.one/tcp/4001/ipfs/QmT2XFSBkLHPBFyae3o716Hs3qZidFhQrBHvfrMpZwgX7R"
@@ -121,7 +121,7 @@ def deploy_ipfs():
         env.ipfs_addresses = external_addresses
 
         execute(connect_ipfs_nodes)
-        print "IPFS: bootstrap nodes added"
+        puts("IPFS: bootstrap nodes added")
 
 # usage: fab --set environment=stage,caddy_login=LOGIN,caddy_password=PASSWORD,role=slave deploy_netdata
 @task
@@ -154,11 +154,11 @@ def deploy_netdata():
             upload_template("config/netdata/Caddyfile", "~/netdata/config/Caddyfile", context=env)
 
         if env.role == 'slave':
-            print "netdata mode = slave"
+            puts("netdata mode = slave")
             put("config/netdata/netdata_slave.conf", "~/netdata/config/netdata.conf")
             put("config/netdata/stream_slave.conf", "~/netdata/config/stream.conf")
         else:
-            print "netdata mode = master"
+            puts("netdata mode = master")
             put("config/netdata/netdata_master.conf", "~/netdata/config/netdata.conf")
             put("config/netdata/stream_master.conf", "~/netdata/config/stream.conf")
 
@@ -181,24 +181,36 @@ def test_connection():
 @task
 @parallel
 def add_fluence_user():
+    # Connect to ssh with root@
     env.user = "root"
     user = "fluence"
-    print("Creating user %s" % user)
-    run("adduser -q --disabled-password %s" % user)
-    run("usermod -a -G docker sudo %s" % user)
+    puts("Creating user %s" % user)
+    run("adduser --gecos "" -q --disabled-password %s || true" % user)
+    run("groupadd docker")
+    run("usermod -a -G docker,sudo %s" % user)
 
-    print("Enabling paswordless sudoers for user %s" % user)
+    puts("Enabling paswordless sudoers for user %s" % user)
     run("echo '%s ALL=NOPASSWD: ALL' > /etc/sudoers.d/100-fluence" % user)
 
-    print(s"Copying ssh keys from /root/.ssh")
+    puts("Copying ssh keys from /root/.ssh")
     run("mkdir /home/%s/.ssh/" % user)
     run("cp /root/.ssh/authorized_keys /home/%s/.ssh/authorized_keys" % user)
     run("chown -R %s:%s /home/%s/.ssh/" % (user, user, user))
     run("chmod 700 /home/%s/.ssh" % user)
     run("chmod 600 /home/%s/.ssh/authorized_keys" % user)
 
-    print("Disabling ssh root login")
-    # /^PermitRootLogin[ \t]\+/!{q1}; -- means "exit with code 1 if '^PermitRootLogin ' not found"
-    out = run("sed -i '/^PermitRootLogin[ \t]\+/!{q1}; /^PermitRootLogin[ \t]\+\w\+$/{ s//PermitRootLogin no/g; }' /etc/ssh/sshd_config")
-    if out.failed:
-        run("echo 'PermitRootLogin no' >> /etc/ssh/sshd_config")
+@task
+@parallel
+def disable_root_ssh():
+    with hide('output', 'running'):
+        puts("Disabling ssh root login")
+
+        # Check whether config already contains PermitRootLogin setting
+        contains = run("grep -Pq '^PermitRootLogin[ \t]+' /etc/ssh/sshd_config").succeeded
+        if contains:
+            # Replace PermitRootLogin => PermitRootLogin no
+            sudo("sed -i '/^PermitRootLogin[ \\t]\+\w\+$/{ s//PermitRootLogin no/g; }' /etc/ssh/sshd_config",warn_only=True)
+        else:
+            # Insert 'PermitRootLogin no'
+            sudo("echo 'PermitRootLogin no' >> /etc/ssh/sshd_config")
+        sudo("service ssh restart")

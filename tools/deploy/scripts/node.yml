@@ -52,6 +52,7 @@ services:
       - NETWORKS_CONNECT=1
       - NETWORKS_DISCONNECT=1
       - NETWORKS_DELETE=1
+      - IMAGES_CREATE=1
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
     networks:
@@ -59,6 +60,7 @@ services:
 
 networks:
   decentralized_storage_network:
+    external:
       name: decentralized_storage_network
   docker-proxy:
       name: docker-proxy
