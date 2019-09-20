@@ -80,7 +80,8 @@ impl Frank {
     }
 
     pub fn invoke(&mut self, fn_argument: &[i8]) -> error::Result<FrankResult> {
-        let env: &mut EnvModule = unsafe { &mut *(self.instance.context_mut().data as *mut EnvModule) };
+        let env: &mut EnvModule =
+            unsafe { &mut *(self.instance.context_mut().data as *mut EnvModule) };
         env.renew_state();
 
         let argument_len = fn_argument.len() as i32;
@@ -119,10 +120,8 @@ impl Frank {
         let env_state = move || {
             // allocate EnvModule on the heap
             let env_module = EnvModule::new();
-            let dtor = (|data: *mut c_void| {
-                unsafe {
-                    drop(Box::from_raw(data as *mut EnvModule));
-                }
+            let dtor = (|data: *mut c_void| unsafe {
+                drop(Box::from_raw(data as *mut EnvModule));
             }) as fn(*mut c_void);
 
             // and then release corresponding Box object obtaining the raw pointer

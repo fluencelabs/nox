@@ -93,7 +93,6 @@ object WasmVm {
 
       _ = vmRunnerInvoker.instantiate(inFiles.head, config)
     } yield new FrankWasmVm(
-      vmRunnerInvoker,
-      config
+      vmRunnerInvoker
     )
 }

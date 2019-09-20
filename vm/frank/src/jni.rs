@@ -18,12 +18,10 @@ use jni::JNIEnv;
 
 use crate::config::Config;
 use crate::frank::Frank;
-use crate::frank_result::FrankResult;
 use jni::objects::{JClass, JObject, JString, JValue};
-use jni::sys::{jbyteArray, jint, jobject};
+use jni::sys::{jbyteArray, jint};
 use sha2::digest::generic_array::GenericArray;
 use std::cell::RefCell;
-use std::mem::transmute;
 
 thread_local! {
     static FRANK: RefCell<Option<Frank>> = RefCell::new(None);
@@ -37,8 +35,6 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_instantiate(
     module_path: JString,
     config: JObject,
 ) -> jint {
-    println!("wasm executor: init started");
-
     let file_name: String = env
         .get_string(module_path)
         .expect("Couldn't get module path!")
@@ -53,7 +49,7 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_instantiate(
 
     FRANK.with(|wasm_executor| *wasm_executor.borrow_mut() = Some(executor));
 
-    println!("wasm executor: init ended");
+    println!("frank: init ended");
 
     0
 }
@@ -65,9 +61,7 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_invoke<'a>(
     _class: JClass,
     fn_argument: jbyteArray,
 ) -> JObject<'a> {
-    println!("1");
     let input_len = env.get_array_length(fn_argument).unwrap();
-    println!("wasm executor: argument length is {}", input_len);
 
     let mut input = vec![0; input_len as _];
     env.get_byte_array_region(fn_argument, 0, input.as_mut_slice())
@@ -84,7 +78,6 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_invoke<'a>(
     let outcome = JObject::from(outcome);
     let spent_gas = JValue::from(result.spent_gas);
 
-    let invocation_result_class = env.find_class("fluence/vm/InvocationResult").unwrap();
     env.call_static_method(
         "fluence/vm/InvocationResult",
         "apply",

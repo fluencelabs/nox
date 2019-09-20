@@ -31,13 +31,12 @@ impl EnvModule {
 
     pub fn gas(&mut self, gas: i32) {
         // TODO: check for overflow
-        self.spent_gas = self.spent_gas + gas as i64;
-        //self.spent_gas.add_assign(gas as i64);
+        self.spent_gas.add_assign(i64::from(gas));
     }
 
     pub fn eic(&mut self, eic: i32) {
         // TODO: check for overflow
-        self.eic.add_assign(eic as i64);
+        self.eic.add_assign(i64::from(eic));
     }
 
     pub fn get_state(&self) -> (i64, i64) {

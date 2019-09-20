@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-use crate::modules::env_module::EnvModule;
-
 pub struct FrankResult {
     pub outcome: Vec<u8>,
     pub spent_gas: i64,
