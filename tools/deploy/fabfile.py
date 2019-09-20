@@ -177,3 +177,28 @@ def deploy_netdata():
 @parallel
 def test_connection():
     run("uname -a")
+
+@task
+@parallel
+def add_fluence_user():
+    env.user = "root"
+    user = "fluence"
+    print("Creating user %s" % user)
+    run("adduser -q --disabled-password %s" % user)
+    run("usermod -a -G docker sudo %s" % user)
+
+    print("Enabling paswordless sudoers for user %s" % user)
+    run("echo '%s ALL=NOPASSWD: ALL' > /etc/sudoers.d/100-fluence" % user)
+
+    print(s"Copying ssh keys from /root/.ssh")
+    run("mkdir /home/%s/.ssh/" % user)
+    run("cp /root/.ssh/authorized_keys /home/%s/.ssh/authorized_keys" % user)
+    run("chown -R %s:%s /home/%s/.ssh/" % (user, user, user))
+    run("chmod 700 /home/%s/.ssh" % user)
+    run("chmod 600 /home/%s/.ssh/authorized_keys" % user)
+
+    print("Disabling ssh root login")
+    # /^PermitRootLogin[ \t]\+/!{q1}; -- means "exit with code 1 if '^PermitRootLogin ' not found"
+    out = run("sed -i '/^PermitRootLogin[ \t]\+/!{q1}; /^PermitRootLogin[ \t]\+\w\+$/{ s//PermitRootLogin no/g; }' /etc/ssh/sshd_config")
+    if out.failed:
+        run("echo 'PermitRootLogin no' >> /etc/ssh/sshd_config")
