@@ -22,15 +22,13 @@ export abstract class Executor<T> {
 export class PromiseExecutor<T> extends Executor<T> {
     private resultResolver: (result: T) => void;
     private errorResolver: (error: any) => void;
-    private _promise: Promise<T>;
+    readonly promise: Promise<T>;
+    readonly creationTime: number;
 
     constructor() {
         super();
-        this._promise = new Promise<T>((r, e) => { this.resultResolver = r; this.errorResolver = e; });
-    }
-
-    promise(): Promise<T> {
-        return this._promise
+        this.promise = new Promise<T>((r, e) => { this.resultResolver = r; this.errorResolver = e; });
+        this.creationTime = new Date().getMilliseconds();
     }
 
     handleResult(result: T): void {

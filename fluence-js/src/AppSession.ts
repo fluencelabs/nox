@@ -6,7 +6,7 @@ import {ErrorType, Result} from "./Result";
 
 let debug = require('debug');
 // disable debug by default
-debug.disable();
+debug.enable();
 
 // All sessions with workers from an app
 export class AppSession {

@@ -21,6 +21,7 @@ import {Result} from "./Result";
 import {Executor, ExecutorType, PromiseExecutor, SubscribtionExecutor} from "./executor";
 
 let debug = require('debug');
+debug.enable();
 
 interface WebsocketResponse {
     request_id: string
@@ -36,6 +37,7 @@ export class WebsocketSession {
     private counter: number;
     private nodes: Node[];
     private nodeCounter: number;
+    private timeout: number;
     private socket: WebSocket;
 
     // result is for 'txWaitRequest' and 'query', void is for all other requests
@@ -48,12 +50,27 @@ export class WebsocketSession {
      * Create connected websocket.
      *
      */
-    static create(appId: string, nodes: Node[], privateKey?: PrivateKey): Promise<WebsocketSession> {
-        let ws = new WebsocketSession(appId, nodes, privateKey);
+    static create(appId: string, nodes: Node[], privateKey?: PrivateKey, timeout = 10000): Promise<WebsocketSession> {
+        let ws = new WebsocketSession(appId, nodes, timeout, privateKey);
         return ws.connect();
     }
 
-    private constructor(appId: string, nodes: Node[], privateKey?: PrivateKey) {
+    checkExecutors() {
+        let now = new Date().getMilliseconds();
+        this.executors.forEach((executor: Executor<any>, key: string) => {
+            if (executor.type === ExecutorType.Promise) {
+                let promiseExecutor = executor as PromiseExecutor<any>;
+                if (promiseExecutor.creationTime + this.timeout > now) {
+                    promiseExecutor.handleError(`Timeout after ${this.timeout} milliseconds.`);
+                    this.executors.delete(key);
+                }
+            }
+        });
+
+        setTimeout(() => this.checkExecutors(), this.timeout)
+    }
+
+    private constructor(appId: string, nodes: Node[], timeout: number, privateKey?: PrivateKey) {
         if (nodes.length == 0) {
             console.error("There is no nodes to connect");
             throw new Error("There is no nodes to connect");
@@ -65,6 +82,9 @@ export class WebsocketSession {
         this.appId = appId;
         this.nodes = nodes;
         this.privateKey = privateKey;
+        this.timeout = timeout;
+
+        this.checkExecutors();
     }
 
     private messageHandler(msg: string) {
@@ -79,7 +99,7 @@ export class WebsocketSession {
             } else {
                 let executor = this.executors.get(rawResponse.request_id) as Executor<Result>;
                 if (rawResponse.error) {
-                    console.log(`Error received for ${rawResponse.request_id}: ${JSON.stringify(rawResponse.error)}`)
+                    console.log(`Error received for ${rawResponse.request_id}: ${JSON.stringify(rawResponse.error)}`);
                     executor.handleError(rawResponse.error as string);
                 } else if (rawResponse.type === "tx_wait_response") {
                     if (rawResponse.data) {
@@ -122,35 +142,40 @@ export class WebsocketSession {
     private connect(): Promise<WebsocketSession> {
         let node = this.nodes[this.nodeCounter % this.nodes.length];
         this.nodeCounter++;
-        this.connectionHandler = new PromiseExecutor<void>();
-
         debug("Connecting to " + JSON.stringify(node));
+        console.log("node counter " + node.ip_addr);
 
-        let socket = new WebSocket(`ws://${node.ip_addr}:${node.api_port}/apps/${this.appId}/ws`);
+        if (!this.connectionHandler) {
+            this.connectionHandler = new PromiseExecutor<void>();
+        }
 
-        this.socket = socket;
+        try {
+            let socket = new WebSocket(`ws://${node.ip_addr}:${node.api_port}/apps/${this.appId}/ws`);
 
-        socket.onopen = () => {
-            debug("Websocket is opened");
-            this.connectionHandler.handleResult()
-        };
+            this.socket = socket;
 
-        socket.onerror = (e) => {
-            console.error("Websocket receive an error: " + e + ". Reconnecting.");
-            this.reconnectSession(e)
-        };
+            socket.onopen = () => {
+                debug("Websocket is opened");
+                this.connectionHandler.handleResult()
+            };
 
-        socket.onclose = (e) => {
-            console.error("Websocket is closed. Reconnecting.");
-            this.reconnectSession(e)
-        };
+            socket.onerror = (e) => {
+                console.error("Websocket receive an error: " + JSON.stringify(e) + ". Reconnecting on close.");
+            };
 
-        socket.onmessage = (msg) => {
-            this.messageHandler(msg.data)
+            socket.onclose = (e) => {
+                console.error("Websocket is closed. Reconnecting.");
+                this.reconnectSession(e)
+            };
 
-        };
+            socket.onmessage = (msg) => {
+                this.messageHandler(msg.data)
 
-        return this.connectionHandler.promise().then(() => this);
+            };
+        } catch (e) {
+            console.log(e)
+        }
+        return this.connectionHandler.promise.then(() => this);
     }
 
     /**
@@ -168,7 +193,7 @@ export class WebsocketSession {
 
         debug("Unsibscribe " + subscriptionId);
 
-        await this.connectionHandler.promise();
+        await this.connectionHandler.promise;
 
         let requestId = genRequestId();
 
@@ -201,7 +226,7 @@ export class WebsocketSession {
      * @param errorHandler to handle errors
      */
     async subscribe(transaction: string, resultHandler: (result: Result) => void, errorHandler: (error: any) => void): Promise<string> {
-        await this.connectionHandler.promise();
+        await this.connectionHandler.promise;
         let requestId = genRequestId();
         let subscriptionId = genRequestId();
 
@@ -220,7 +245,7 @@ export class WebsocketSession {
      */
     async requestAsync(payload: string): Promise<void> {
 
-        await this.connectionHandler.promise();
+        await this.connectionHandler.promise;
 
         let requestId = genRequestId();
         let counter = this.getCounterAndIncrement();
@@ -266,7 +291,7 @@ export class WebsocketSession {
 
         this.executors.set(requestId, executor);
 
-        return executor.promise()
+        return executor.promise
     }
 
     /**
@@ -276,7 +301,6 @@ export class WebsocketSession {
     private reconnectSession(reason: any) {
         this.sessionId = genSessionId();
         this.counter = 0;
-        this.connectionHandler.handleError(reason);
         this.connect();
 
         // terminate and delete all executors that are waiting requests
