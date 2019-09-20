@@ -112,7 +112,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
         val error = res.failed()
         error.getMessage shouldBe "Writing to -1 failed"
-        error shouldBe a[VmMemoryError]
+        error shouldBe a[VmMemoryComputationError]
       }
 
       "Wasm allocate function returns an incorrect f64 value" in {
@@ -126,7 +126,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
         val error = res.failed()
         error.getMessage shouldBe "Writing to 200000000 failed"
-        error shouldBe a[VmMemoryError]
+        error shouldBe a[VmMemoryComputationError]
       }
 
       "trying to extract array with incorrect size from Wasm memory" in {
@@ -138,7 +138,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         } yield result
 
         val error = res.failed()
-        error shouldBe a[VmMemoryError]
+        error shouldBe a[VmMemoryComputationError]
         error.getMessage shouldBe "Reading from offset=1048596 16777215 bytes failed"
       }
 

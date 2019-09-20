@@ -17,14 +17,12 @@
 package fluence.vm.frank.result
 
 /**
- * Represents raw JNI result of calling FrankAdapter::invoke.
+ * Represents raw JNI result of calling FrankAdapter::computeVmState.
  *
- * @param error represents various invocation errors
- * @param output the computed result by Frank VM
- * @param spentGas spent gas by producing the output
+ * @param error represent various initialization errors
+ * @param state computed state of Frank VM
  */
-case class InvokeResult(
+case class RawStateComputationResult(
   error: Error,
-  output: Array[Byte],
-  spentGas: Long
+  state: Array[Byte]
 )

@@ -17,12 +17,10 @@
 package fluence.vm.frank.result
 
 /**
- * Represents raw JNI result of calling FrankAdapter::computeVmState.
+ * Represents raw JNI result of calling FrankAdapter::initialize.
  *
  * @param error represent various initialization errors
- * @param state computed state of Frank VM
  */
-case class StateResult(
-  error: Error,
-  state: Array[Byte]
+case class RawInitializationResult(
+  error:Error
 )

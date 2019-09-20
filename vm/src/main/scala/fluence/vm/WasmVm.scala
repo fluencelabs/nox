@@ -21,8 +21,8 @@ import cats.effect.LiftIO
 import cats.Monad
 import com.typesafe.config.{Config, ConfigFactory}
 import fluence.log.Log
-import fluence.vm.VmError.WasmVmError.{ApplyError, GetVmStateError, InvokeError}
 import fluence.vm.config.VmConfig
+import fluence.vm.error.{InitializationError, InvocationError, StateComputationError}
 import fluence.vm.frank.{FrankAdapter, FrankWasmVm}
 import scodec.bits.ByteVector
 
@@ -43,7 +43,7 @@ trait WasmVm {
    */
   def invoke[F[_]: LiftIO: Monad](
     fnArgument: Array[Byte] = Array.emptyByteArray
-  ): EitherT[F, InvokeError, InvocationResult]
+  ): EitherT[F, InvocationError, InvocationResult]
 
   /**
    * Returns hash of all significant inner state of this VM. This function calculates
@@ -54,7 +54,7 @@ trait WasmVm {
    * }}}
    * '''Note!''' It's very expensive operation, try to avoid frequent use.
    */
-  def computeVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector]
+  def computeVmState[F[_]: LiftIO: Monad]: EitherT[F, StateComputationError, ByteVector]
 
   /**
    * Temporary way to pass a flag from userland (the WASM file) to the Node, denotes whether an app
@@ -83,12 +83,12 @@ object WasmVm {
     inFiles: NonEmptyList[String],
     configNamespace: String = "fluence.vm.client",
     conf: ⇒ Config = ConfigFactory.load()
-  ): EitherT[F, ApplyError, WasmVm] =
+  ): EitherT[F, InitializationError, WasmVm] =
     for {
       // reading config
       config ← VmConfig.readT[F](configNamespace, conf)
 
-      _ ← Log.eitherT[F, ApplyError].info("WasmVm: configs read...")
+      _ ← Log.eitherT[F, InitializationError].info("WasmVm: configs read...")
       vmRunnerInvoker = new FrankAdapter()
 
       _ = vmRunnerInvoker.initialize(inFiles.head, config)

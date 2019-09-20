@@ -19,12 +19,12 @@ package fluence.vm.frank
 import cats.Monad
 import cats.data.EitherT
 import cats.effect.{IO, LiftIO}
-import fluence.vm.VmError.{InternalVmError, TrapError}
-import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
+import fluence.vm.VmError.{InternalVmComputationError, TrapError}
+import fluence.vm.VmError.WasmVmError.{StateComputationError, InvocationError}
 import fluence.vm.{InvocationResult, WasmVm}
 import scodec.bits.ByteVector
 import fluence.vm.config.VmConfig
-import fluence.vm.frank.result.InvokeResult
+import fluence.vm.frank.result.RawInvocationResult
 
 import scala.language.higherKinds
 
@@ -40,7 +40,7 @@ class FrankWasmVm(
 
   override def invoke[F[_]: LiftIO: Monad](
     fnArgument: Array[Byte]
-  ): EitherT[F, InvokeError, InvocationResult] = {
+  ): EitherT[F, InvocationError, InvocationResult] = {
     EitherT(
       IO(vmRunnerInvoker.invoke(fnArgument))
         .map(r ⇒ InvocationResult(r.output, r.spentGas))
@@ -49,13 +49,13 @@ class FrankWasmVm(
     ).leftMap(e ⇒ TrapError(s"Frank invocation failed. Cause: ${e.getMessage}", Some(e)))
   }
 
-  override def computeVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector] = {
+  override def computeVmState[F[_]: LiftIO: Monad]: EitherT[F, StateComputationError, ByteVector] = {
     EitherT(
       IO(vmRunnerInvoker.computeVmState())
         .map(r ⇒ ByteVector(r.state))
         .attempt
         .to[F]
-    ).leftMap(e ⇒ InternalVmError(s"Frank getting VM state failed. Cause: ${e.getMessage}", Some(e)))
+    ).leftMap(e ⇒ InternalVmComputationError(s"Frank getting VM state failed. Cause: ${e.getMessage}", Some(e)))
   }
 
   val expectsEth: Boolean = false

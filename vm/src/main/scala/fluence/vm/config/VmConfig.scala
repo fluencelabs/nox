@@ -21,8 +21,8 @@ import cats.Applicative
 import cats.data.EitherT
 import com.typesafe.config.Config
 import fluence.vm.VmError
-import fluence.vm.VmError.InternalVmError
-import fluence.vm.VmError.WasmVmError.ApplyError
+import fluence.vm.VmError.InternalVmComputationError
+import fluence.vm.VmError.WasmVmError.InitializationError
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 
@@ -76,11 +76,11 @@ object VmConfig {
       )
       .leftMap(mapError)
 
-  def readT[F[_]: Monad](namespace: String, conf: ⇒ Config): EitherT[F, ApplyError, VmConfig] =
+  def readT[F[_]: Monad](namespace: String, conf: ⇒ Config): EitherT[F, InitializationError, VmConfig] =
     safelyRunThrowable(
       conf.getConfig(namespace).as[VmConfig],
       e ⇒
-        InternalVmError(
+        InternalVmComputationError(
           s"Unable to read a config for the namespace=$namespace",
           Some(e)
         )

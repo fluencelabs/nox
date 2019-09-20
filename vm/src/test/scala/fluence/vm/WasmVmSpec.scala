@@ -43,7 +43,7 @@ class WasmVmSpec extends WordSpec with Matchers {
         } yield vm
 
         val error = res.failed()
-        error shouldBe a[InternalVmError]
+        error shouldBe a[InternalVmComputationError]
         error.getMessage should startWith("Unable to read a config for the namespace")
       }
 
