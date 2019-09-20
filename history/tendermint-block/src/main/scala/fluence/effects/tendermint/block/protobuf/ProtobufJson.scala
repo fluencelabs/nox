@@ -118,7 +118,7 @@ private[block] object ProtobufJson {
    * @return Good, correct bytes, that were represented by a hexString
    */
   private def reencode(bs: ByteString): ByteString = {
-    val hex = ByteVector(bs.toByteArray).toBase64
+    val hex = ByteVector.view(bs.toByteArray).toBase64
 
     ByteVector
       .fromHexDescriptive(hex)
