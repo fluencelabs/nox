@@ -57,7 +57,8 @@ case object HttpCheckTimedOut extends HttpStatus[Nothing]
 case class HttpCheckStatus[+T](data: T) extends HttpStatus[T]
 
 object HttpStatus {
-  private implicit val encodeThrowable: Encoder[Throwable] = Encoder[String].contramap(_.getLocalizedMessage)
+  private implicit val encodeThrowable: Encoder[Throwable] =
+    Encoder[String].contramap(v => Option(v.getMessage).getOrElse(v.toString))
 
   private implicit val decodeThrowable: Decoder[Throwable] =
     Decoder[String].map(s => new Exception(s) with NoStackTrace)

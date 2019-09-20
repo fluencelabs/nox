@@ -33,7 +33,7 @@ import org.scalatest.{Matchers, OptionValues, WordSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 
-class StatusClientSpec extends WordSpec with Matchers with OptionValues {
+class StatusQueryClientSpec extends WordSpec with Matchers with OptionValues {
   "StateMachineClient" should {
     implicit val ioTimer: Timer[IO] = IO.timer(global)
     implicit val ioShift: ContextShift[IO] = IO.contextShift(global)
@@ -79,9 +79,8 @@ class StatusClientSpec extends WordSpec with Matchers with OptionValues {
       resources.use { case (_, rpc) => rpc.status.value }.unsafeRunSync() should be('right)
     }
 
-    // TODO uncomment after implementation
-    /*"return OK query" in {
+    "return OK query" in {
       resources.use { case (_, client) => client.query("").value }.unsafeRunSync() should be('right)
-    }*/
+    }
   }
 }

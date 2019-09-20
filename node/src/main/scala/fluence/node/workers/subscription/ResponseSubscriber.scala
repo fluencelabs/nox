@@ -52,6 +52,8 @@ object ResponseSubscriber {
   // TODO: move to config
   val MaxBlockTries = 10
 
+  val PubSubSessionPrefix = "pubsub"
+
   def make[F[_]: Log: Concurrent: Timer: Parallel](
     tendermintRpc: TendermintHttpRpc[F],
     tendermintWRpc: TendermintWebsocketRpc[F],

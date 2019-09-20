@@ -16,7 +16,22 @@
 
 package fluence.effects.tendermint.rpc
 
+import fluence.effects.tendermint.block.data.Block
+import fluence.effects.tendermint.rpc
+import io.circe.Json
+import io.circe.parser.parse
+
 object TestData {
+
+  def parsedBlock(height: Long): Block =
+    Block(
+      parse(rpc.TestData.block(height)).right.get.hcursor
+        .downField("result")
+        .downField("data")
+        .get[Json]("value")
+        .right
+        .get
+    ).right.get
 
   def block(height: Long): String =
     s"""
