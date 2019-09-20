@@ -11,10 +11,10 @@ services:
       - SYS_PTRACE
     environment:
       - "PGID=$PGID"
+      - DOCKER_HOST=tcp://docker-proxy:2375
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - %(home_dir)s/.local/netdata_cache:/var/cache/netdata
       - %(home_dir)s/netdata/config/netdata.conf:/netdata.conf
       - %(home_dir)s/netdata/config/stream.conf:/stream.conf
@@ -25,3 +25,20 @@ services:
         limits:
           cpus: '0.2'
           memory: 500M
+
+  docker-proxy:
+    container_name: docker-proxy
+    image: fluencelabs/docker-socket-proxy
+    environment:
+      - LOG_LEVEL=info
+      - PING=1
+      - CONTAINERS=1
+      - NETWORKS=1
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    networks:
+      - docker-proxy
+
+networks:
+  docker-proxy:
+    name: docker-proxy
