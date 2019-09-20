@@ -71,6 +71,7 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_invoke<'a>(
         if let Some(ref mut e) = *wasm_executor.borrow_mut() {
             return e.invoke(&input).unwrap();
         }
+        println!("!!");
         panic!("unexpected frank value");
     });
 
@@ -99,6 +100,7 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_getVmState(
         if let Some(ref mut e) = *wasm_executor.borrow_mut() {
             return e.compute_vm_state_hash();
         }
+        println!("!!");
         GenericArray::default()
     });
 

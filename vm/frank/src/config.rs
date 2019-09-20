@@ -60,7 +60,7 @@ impl Default for Config {
 
 impl Config {
     // creates new config based on the supplied Java object Config
-    pub fn new(env: JNIEnv, config: JObject) -> std::result::Result<Self, ()> {
+    pub fn new(env: JNIEnv, config: JObject) -> std::result::Result<Box<Self>, ()> {
         let mem_pages_count = env
             .call_method(config, "memPagesCount", "()I", &[])
             .unwrap()
@@ -127,13 +127,13 @@ impl Config {
             .unwrap();
         let invoke_function_name = env.get_string(JString::from(invoke_function_name)).unwrap();
 
-        Ok(Self {
+        Ok(Box::new(Self {
             mem_pages_count,
             logger_enabled,
             chunk_size,
             invoke_function_name: String::from(invoke_function_name),
             allocate_function_name: String::from(allocate_function_name),
             deallocate_function_name: String::from(deallocate_function_name),
-        })
+        }))
     }
 }

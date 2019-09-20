@@ -80,7 +80,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         val res = for {
           vm ← WasmVm[IO](NonEmptyList.one(noGetMemoryTestFile))
           _ ← vm.invoke[IO]("test".getBytes())
-          state ← vm.getVmState[IO].toVmError
+          state ← vm.computeVmState[IO].toVmError
         } yield state
 
         val error = res.failed()
@@ -107,7 +107,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         val res = for {
           vm ← WasmVm[IO](NonEmptyList.one(badAllocationFunctionFile))
           _ ← vm.invoke[IO]("test".getBytes())
-          state ← vm.getVmState[IO].toVmError
+          state ← vm.computeVmState[IO].toVmError
         } yield state
 
         val error = res.failed()
@@ -121,7 +121,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         val res = for {
           vm ← WasmVm[IO](NonEmptyList.one(badAllocationFunctionFile))
           result ← vm.invoke[IO]("test".getBytes())
-          state ← vm.getVmState[IO].toVmError
+          state ← vm.computeVmState[IO].toVmError
         } yield state
 
         val error = res.failed()
@@ -203,7 +203,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
       val res = for {
         vm ← WasmVm[IO](NonEmptyList.one(simpleArrayPassingTestFile))
         value1 ← vm.invoke[IO]()
-        _ ← vm.getVmState[IO].toVmError
+        _ ← vm.computeVmState[IO].toVmError
       } yield {
         val stringValue = new String(value1.output)
         stringValue shouldBe "Hello from Fluence Labs!"
@@ -218,7 +218,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
       val res = for {
         vm ← WasmVm[IO](NonEmptyList.one(simpleArrayMutationTestFile))
         value1 ← vm.invoke[IO]("AAAAAAA".getBytes())
-        state ← vm.getVmState[IO].toVmError
+        state ← vm.computeVmState[IO].toVmError
       } yield {
         val stringValue = new String(value1.output)
         stringValue shouldBe "BBBBBBB"
@@ -238,11 +238,11 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         val res = for {
           vm ← WasmVm[IO](NonEmptyList.one(counterTestFile))
           get1 ← vm.invoke[IO]() // 0 -> 1; return 1
-          state1 ← vm.getVmState[IO]
+          state1 ← vm.computeVmState[IO]
           get2 ← vm.invoke[IO]() // 1 -> 2; return 2
 
           get3 ← vm.invoke[IO]() // 2 -> 3; return 3
-          state2 ← vm.getVmState[IO]
+          state2 ← vm.computeVmState[IO]
           get4 ← vm.invoke[IO]().toVmError // 3 -> 4; return 4
         } yield {
           compareArrays(get1.output, Array[Byte](1, 0, 0, 0))
@@ -269,12 +269,12 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
           get1 ← vm.invoke[IO]() // 0 -> 1; read 1
           _ ← vm.invoke[IO]() // 1 -> 2; read 2
 
-          state1 ← vm.getVmState[IO]
+          state1 ← vm.computeVmState[IO]
 
           _ ← vm.invoke[IO]() // 2 -> 3
           get2 ← vm.invoke[IO]() // 3 -> 4
 
-          state2 ← vm.getVmState[IO].toVmError
+          state2 ← vm.computeVmState[IO].toVmError
 
         } yield {
           compareArrays(get1.output, Array[Byte](1, 0, 0, 0))

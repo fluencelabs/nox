@@ -54,7 +54,7 @@ trait WasmVm {
    * }}}
    * '''Note!''' It's very expensive operation, try to avoid frequent use.
    */
-  def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector]
+  def computeVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector]
 
   /**
    * Temporary way to pass a flag from userland (the WASM file) to the Node, denotes whether an app
@@ -91,7 +91,7 @@ object WasmVm {
       _ ← Log.eitherT[F, ApplyError].info("WasmVm: configs read...")
       vmRunnerInvoker = new FrankAdapter()
 
-      _ = vmRunnerInvoker.instantiate(inFiles.head, config)
+      _ = vmRunnerInvoker.initialize(inFiles.head, config)
     } yield new FrankWasmVm(
       vmRunnerInvoker
     )

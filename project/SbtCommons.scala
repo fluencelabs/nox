@@ -19,7 +19,7 @@ object SbtCommons {
     fork in Test                         := false,
     parallelExecution in Test            := false,
     fork in IntegrationTest              := true,
-    parallelExecution in IntegrationTest := false,
+    parallelExecution in IntegrationTest := true,
     organizationName                     := "Fluence Labs Limited",
     organizationHomepage                 := Some(new URL("https://fluence.network")),
     startYear                            := Some(2018),

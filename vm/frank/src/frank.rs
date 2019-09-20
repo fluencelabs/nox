@@ -114,7 +114,7 @@ impl Frank {
         hasher.result()
     }
 
-    pub fn new(module_path: &str, config: Config) -> error::Result<Self> {
+    pub fn new(module_path: &str, config: Box<Config>) -> error::Result<Self> {
         let wasm_code = fs::read(module_path).expect("Couldn't read provided file");
 
         let env_state = move || {
@@ -142,9 +142,10 @@ impl Frank {
         };
 
         let instance = instantiate(&wasm_code, &import_objects)?;
+
         Ok(Self {
             instance,
-            config: Box::new(config),
+            config,
         })
     }
 }

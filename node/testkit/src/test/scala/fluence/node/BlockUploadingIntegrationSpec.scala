@@ -58,8 +58,8 @@ import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.AbciState
 import fluence.statemachine.vm.VmOperationInvoker
 import fluence.statemachine.{AbciService, TestTendermintRpc}
-import fluence.vm.InvocationResult
 import fluence.Eventually
+import fluence.vm.InvocationResult
 import fs2.concurrent.Queue
 import io.circe.Json
 import io.circe.parser.parse

@@ -34,7 +34,7 @@ class LlamadbIntegrationTest extends LlamadbIntegrationTestInterface {
     "be able to instantiate" in {
       (for {
         vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.4Mb")
-        state ← vm.getVmState[IO].toVmError
+        state ← vm.computeVmState[IO].toVmError
       } yield {
         state should not be None
 

@@ -30,7 +30,7 @@ trait LlamadbIntegrationTestInterface extends AppIntegrationTest with EitherValu
   protected def executeSql(implicit vm: WasmVm, sql: String): EitherT[IO, VmError, InvocationResult] =
     for {
       result ← vm.invoke[IO](sql.getBytes())
-      _ ← vm.getVmState[IO].toVmError
+      _ ← vm.computeVmState[IO].toVmError
     } yield result
 
   protected def createTestTable(vm: WasmVm): EitherT[IO, VmError, InvocationResult] =

@@ -16,9 +16,10 @@
 
 use std::ops::AddAssign;
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct EnvModule {
-    pub spent_gas: i64,
-    pub eic: i64,
+    spent_gas: i64,
+    eic: i64,
 }
 
 impl EnvModule {

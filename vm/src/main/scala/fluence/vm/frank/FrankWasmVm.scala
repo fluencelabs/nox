@@ -24,6 +24,7 @@ import fluence.vm.VmError.WasmVmError.{GetVmStateError, InvokeError}
 import fluence.vm.{InvocationResult, WasmVm}
 import scodec.bits.ByteVector
 import fluence.vm.config.VmConfig
+import fluence.vm.frank.result.InvokeResult
 
 import scala.language.higherKinds
 
@@ -41,15 +42,17 @@ class FrankWasmVm(
     fnArgument: Array[Byte]
   ): EitherT[F, InvokeError, InvocationResult] = {
     EitherT(
-      IO(vmRunnerInvoker.invoke(fnArgument)).attempt
+      IO(vmRunnerInvoker.invoke(fnArgument))
+        .map(r ⇒ InvocationResult(r.output, r.spentGas))
+        .attempt
         .to[F]
     ).leftMap(e ⇒ TrapError(s"Frank invocation failed. Cause: ${e.getMessage}", Some(e)))
   }
 
-  override def getVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector] = {
+  override def computeVmState[F[_]: LiftIO: Monad]: EitherT[F, GetVmStateError, ByteVector] = {
     EitherT(
-      IO(vmRunnerInvoker.getVmState())
-        .map(ByteVector(_))
+      IO(vmRunnerInvoker.computeVmState())
+        .map(r ⇒ ByteVector(r.state))
         .attempt
         .to[F]
     ).leftMap(e ⇒ InternalVmError(s"Frank getting VM state failed. Cause: ${e.getMessage}", Some(e)))

@@ -49,7 +49,7 @@ class WasmVmOperationInvoker[F[_]: LiftIO](vm: WasmVm)(implicit F: Monad[F]) ext
    *
    */
   def vmStateHash(): EitherT[F, StateMachineError, ByteVector] =
-    vm.getVmState.leftMap(WasmVmOperationInvoker.convertToStateMachineError)
+    vm.computeVmState.leftMap(WasmVmOperationInvoker.convertToStateMachineError)
 }
 
 object WasmVmOperationInvoker {
