@@ -15,7 +15,8 @@ services:
       - OWNER_ADDRESS=$OWNER_ADDRESS
       - WORKER_MEMORY_LIMIT=400 # megabytes
       - WORKER_TAG=$IMAGE_TAG
-      - WORKER_CPUS_LIMIT=2
+      # TODO: deployment could fail if set CPUS_LIMIT to greater than actual CPUs in the system
+      - WORKER_CPUS_LIMIT=1
       - DOCKER_HOST=tcp://docker-proxy:2375
     ports:
       - $API_PORT:5678
@@ -36,18 +37,21 @@ services:
   docker-proxy:
     container_name: docker-proxy
     image: fluencelabs/docker-socket-proxy
+    privileged: true
     environment:
       - LOG_LEVEL=info
       - POST=1
       - PING=1
       - CONTAINERS=1
       - CONTAINERS_CREATE=1
+      - CONTAINERS_ATTACH=1
+      - CONTAINERS_WAIT=1
+      - CONTAINERS_DELETE=1
       - ALLOW_RESTARTS=1
       - NETWORKS_CREATE=1
       - NETWORKS_CONNECT=1
       - NETWORKS_DISCONNECT=1
-      - CONTAINERS_ATTACH=1
-      - CONTAINERS_WAIT=1
+      - NETWORKS_DELETE=1
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
     networks:
