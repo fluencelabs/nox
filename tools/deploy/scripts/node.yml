@@ -4,7 +4,6 @@ services:
   fluence-node-1:
     container_name: fluence-node-1
     image: fluencelabs/node:$IMAGE_TAG
-    restart: always
     environment:
       - LOG_LEVEL=DEBUG
       - BLOCK_UPLOADING_ENABLED=false
@@ -47,6 +46,8 @@ services:
       - NETWORKS_CREATE=1
       - NETWORKS_CONNECT=1
       - NETWORKS_DISCONNECT=1
+      - CONTAINERS_ATTACH=1
+      - CONTAINERS_WAIT=1
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
     networks:

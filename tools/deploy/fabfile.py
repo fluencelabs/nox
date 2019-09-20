@@ -18,7 +18,7 @@ from utils      import *
 import json
 
 # Set the username
-env.user = "root"
+env.user = "fluence"
 # Set to False to disable `[ip.ad.dre.ss] out:` prefix
 env.output_prefix = True
 
@@ -62,6 +62,7 @@ def deploy():
                        FLUENCE_STORAGE  = storage_dir):
             run('chmod +x deploy.sh')
             run('./deploy.sh')
+            wait_node_started(api_port)
             register_node(host, key, ethereum_ip, contract, owner, api_port, capacity)
 
 @task

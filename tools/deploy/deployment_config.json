@@ -47,5 +47,18 @@
         "capacity": "10"
       }
     }
+  },
+  "noroot": {
+    "ipfs": "http://ipfs.fluence.one:5001",
+    "ethereum_ip": "geth.fluence.one",
+    "contract": "0xb57E36b120835Fb222d1AA4e48b91a4897C86042",
+    "nodes": {
+      "134.209.205.208": {
+        "owner": "0x8965c5c7e89641dc44d9798dc21fc8294c68b80e",
+        "key": "0x0ba8dbe75adafab30aae7e276e8a977b37d2cac025968b2cd7c50d1eaf2c4a12",
+        "api_port": "25000",
+        "capacity": "10"
+      }
+    }
   }
 }
