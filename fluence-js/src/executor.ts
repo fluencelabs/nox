@@ -1,13 +1,24 @@
 import {Result} from "./Result";
 
+export enum ExecutorType {
+    Promise = "promise",
+    Subscription = "subscription"
+}
+
+/**
+ * Structure, that could handle a result or an error in any time after creation.
+ */
 export abstract class Executor<T> {
     abstract handleResult(result: T): void
 
     abstract handleError(error: any): void
 
-    abstract type: string
+    abstract type: ExecutorType
 }
 
+/**
+ * Executor based on promise. Terminates once.
+ */
 export class PromiseExecutor<T> extends Executor<T> {
     private resultResolver: (result: T) => void;
     private errorResolver: (error: any) => void;
@@ -30,15 +41,20 @@ export class PromiseExecutor<T> extends Executor<T> {
         this.errorResolver(error)
     }
 
-    type: string = "promise"
+    type: ExecutorType = ExecutorType.Promise
 }
 
+/**
+ * Executor based on callbacks,
+ */
 export class SubscribtionExecutor extends Executor<Result> {
-    resultHandler: (result: Result) => void;
-    errorHandler: (error: any) => void;
+    readonly resultHandler: (result: Result) => void;
+    readonly errorHandler: (error: any) => void;
+    readonly subscription: string;
 
-    constructor(resultHandler: (result: Result) => void, errorHandler: (error: any) => void) {
+    constructor(subscription: string, resultHandler: (result: Result) => void, errorHandler: (error: any) => void) {
         super();
+        this.subscription = subscription;
         this.resultHandler = resultHandler;
         this.errorHandler = errorHandler;
     }
@@ -51,5 +67,5 @@ export class SubscribtionExecutor extends Executor<Result> {
         this.resultHandler(result);
     }
 
-    type: string = "subscription"
+    type: ExecutorType = ExecutorType.Subscription
 }

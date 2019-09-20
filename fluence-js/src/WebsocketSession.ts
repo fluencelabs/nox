@@ -17,8 +17,10 @@
 import {genRequestId, genSessionId, prepareRequest, PrivateKey} from "./utils";
 import {Node} from "./contract";
 import {toByteArray} from "base64-js";
-import {Result} from "./fluence";
-import {Executor, PromiseExecutor, SubscribtionExecutor} from "./executor";
+import {Result} from "./Result";
+import {Executor, ExecutorType, PromiseExecutor, SubscribtionExecutor} from "./executor";
+
+let debug = require('debug');
 
 interface WebsocketResponse {
     request_id: string
@@ -36,8 +38,10 @@ export class WebsocketSession {
     private nodeCounter: number;
     private socket: WebSocket;
 
-    private waitingRequests = new Map<string, Executor<Result | void>>();
+    // result is for 'txWaitRequest' and 'query', void is for all other requests
+    private executors = new Map<string, Executor<Result | void>>();
 
+    // promise, that should be completed if websocket is connected
     private connectionHandler: PromiseExecutor<void>;
 
     /**
@@ -68,34 +72,48 @@ export class WebsocketSession {
         try {
             let rawResponse = WebsocketSession.parseRawResponse(msg);
 
-            console.log(rawResponse);
+            debug("Message received: " + JSON.stringify(rawResponse));
 
-            if (!this.waitingRequests.has(rawResponse.request_id)) {
-                console.log(`There is no message with requestId '${rawResponse.request_id}'`)
+            if (!this.executors.has(rawResponse.request_id)) {
+                console.error(`There is no message with requestId '${rawResponse.request_id}'. Message: ${msg}`)
             } else {
-                if (rawResponse.type === "tx_wait_response") {
-                    let executor = this.waitingRequests.get(rawResponse.request_id) as Executor<Result>;
+                let executor = this.executors.get(rawResponse.request_id) as Executor<Result>;
+                if (rawResponse.error) {
+                    console.log(`Error received for ${rawResponse.request_id}: ${JSON.stringify(rawResponse.error)}`)
+                    executor.handleError(rawResponse.error as string);
+                } else if (rawResponse.type === "tx_wait_response") {
                     if (rawResponse.data) {
                         let parsed = JSON.parse(rawResponse.data).result.response;
                         let result = new Result(toByteArray(parsed.value));
 
                         executor.handleResult(result)
-                    } else if (rawResponse.error) {
-                        executor.handleError(rawResponse.error as string);
                     }
                     if (executor.type === "promise") {
-                        this.waitingRequests.delete(rawResponse.request_id);
+                        this.executors.delete(rawResponse.request_id);
                     }
                 } else {
-                    let executor = this.waitingRequests.get(rawResponse.request_id) as Executor<void>;
+                    let executor = this.executors.get(rawResponse.request_id) as Executor<void>;
                     executor.handleResult()
                 }
             }
 
 
         } catch (e) {
-            console.log("Cannot parse websocket event: " + e)
+            console.error("Cannot parse websocket event: " + e)
         }
+    }
+
+    /**
+     * Trying to subscribe to all existed subscriptions again.
+     */
+    private resubscribe() {
+        this.executors.forEach((executor: Executor<any>, key: string) => {
+            if (executor.type === ExecutorType.Subscription) {
+                let subExecutor = executor as SubscribtionExecutor;
+                this.subscribe(subExecutor.subscription, subExecutor.resultHandler, subExecutor.errorHandler)
+                    .catch((e) => console.error(`Cannot resubscribe on ${subExecutor.subscription}`))
+            }
+        });
     }
 
     /**
@@ -106,20 +124,24 @@ export class WebsocketSession {
         this.nodeCounter++;
         this.connectionHandler = new PromiseExecutor<void>();
 
+        debug("Connecting to " + JSON.stringify(node));
+
         let socket = new WebSocket(`ws://${node.ip_addr}:${node.api_port}/apps/${this.appId}/ws`);
 
         this.socket = socket;
 
         socket.onopen = () => {
-            console.log("websocket opened");
+            debug("Websocket is opened");
             this.connectionHandler.handleResult()
         };
 
         socket.onerror = (e) => {
+            console.error("Websocket receive an error: " + e + ". Reconnecting.");
             this.reconnectSession(e)
         };
 
         socket.onclose = (e) => {
+            console.error("Websocket is closed. Reconnecting.");
             this.reconnectSession(e)
         };
 
@@ -144,6 +166,8 @@ export class WebsocketSession {
      */
     async unsubscribe(subscriptionId: string): Promise<void> {
 
+        debug("Unsibscribe " + subscriptionId);
+
         await this.connectionHandler.promise();
 
         let requestId = genRequestId();
@@ -156,7 +180,18 @@ export class WebsocketSession {
 
         await this.sendAndWaitResponse(requestId, JSON.stringify(request));
 
-        this.waitingRequests.delete(subscriptionId);
+        this.executors.delete(subscriptionId);
+    }
+
+    private async subscribeCall(transaction: string, requestId: string, subscriptionId: string): Promise<Result> {
+        let request = {
+            tx: transaction,
+            request_id: requestId,
+            subscription_id: subscriptionId,
+            type: "subscribe_request"
+        };
+
+        return this.sendAndWaitResponse(requestId, JSON.stringify(request));
     }
 
     /**
@@ -170,26 +205,18 @@ export class WebsocketSession {
         let requestId = genRequestId();
         let subscriptionId = genRequestId();
 
-        let request = {
-            tx: transaction,
-            request_id: requestId,
-            subscription_id: subscriptionId,
-            type: "subscribe_request"
-        };
+        let executor: SubscribtionExecutor = new SubscribtionExecutor(transaction, resultHandler, errorHandler);
 
-        let promise = this.sendAndWaitResponse(requestId, JSON.stringify(request));
+        let promise = this.subscribeCall(transaction, requestId, subscriptionId);
         await promise;
 
-        let executor: SubscribtionExecutor = new SubscribtionExecutor(resultHandler, errorHandler);
-
-        this.waitingRequests.set(subscriptionId, executor);
+        this.executors.set(subscriptionId, executor);
 
         return promise.then(() => subscriptionId);
     }
 
     /**
-     *
-     * @param payload
+     * Send a request without waiting a response.
      */
     async requestAsync(payload: string): Promise<void> {
 
@@ -209,6 +236,9 @@ export class WebsocketSession {
         return this.sendAndWaitResponse(requestId, JSON.stringify(request)).then((r) => {});
     }
 
+    /**
+     * Send a request and waiting for a response.
+     */
     request(payload: string): Promise<Result> {
         let requestId = genRequestId();
         let counter = this.getCounterAndIncrement();
@@ -226,25 +256,37 @@ export class WebsocketSession {
         return this.sendAndWaitResponse(requestId, JSON.stringify(request))
     }
 
+    /**
+     * Send a request to websocket and create a promise that will wait for a response.
+     */
     private sendAndWaitResponse(requestId: string, message: string): Promise<Result> {
         this.socket.send(message);
 
         let executor: PromiseExecutor<Result> = new PromiseExecutor();
 
-        this.waitingRequests.set(requestId, executor);
+        this.executors.set(requestId, executor);
 
         return executor.promise()
     }
 
+    /**
+     * Generate new sessionId, terminate old connectionHandler and create a new one.
+     * Terminate all executors that are waiting for responses.
+     */
     private reconnectSession(reason: any) {
         this.sessionId = genSessionId();
         this.counter = 0;
         this.connectionHandler.handleError(reason);
         this.connect();
-        this.waitingRequests.forEach((value: Executor<Result>, key: string) => {
-            value.handleError("Reconnecting. All waiting requests are terminated.")
+
+        // terminate and delete all executors that are waiting requests
+        this.executors.forEach((executor: Executor<Result | void>, key: string) => {
+            if (executor.type === ExecutorType.Promise) {
+                executor.handleError("Reconnecting. All waiting requests are terminated.");
+                this.executors.delete(key)
+
+            }
         });
-        this.waitingRequests.clear();
     }
 
     private static parseRawResponse(response: string): WebsocketResponse {
