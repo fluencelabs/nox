@@ -189,7 +189,7 @@ def add_fluence_user():
     run("groupadd docker")
     run("usermod -a -G docker,sudo %s" % user)
 
-    puts("Enabling paswordless sudoers for user %s" % user)
+    puts("Enabling passwordless sudoers for user %s" % user)
     run("echo '%s ALL=NOPASSWD: ALL' > /etc/sudoers.d/100-fluence" % user)
 
     puts("Copying ssh keys from /root/.ssh")
