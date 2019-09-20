@@ -42,9 +42,7 @@ class FrankWasmVm(
     fnArgument: Array[Byte]
   ): EitherT[F, InvokeError, InvocationResult] = {
     EitherT(
-      IO(vmRunnerInvoker.invoke(fnArgument))
-        .map(InvocationResult(_, 0))
-        .attempt
+      IO(vmRunnerInvoker.invoke(fnArgument)).attempt
         .to[F]
     ).leftMap(e ⇒ TrapError(s"Frank invocation failed. Cause: ${e.getMessage}", Some(e)))
   }

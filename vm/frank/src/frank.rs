@@ -24,7 +24,7 @@ use wasmer_runtime::{error, func, imports, instantiate, Ctx, Func, Instance};
 
 pub struct Frank {
     instance: Instance,
-    config: Config,
+    config: Box<Config>,
 }
 
 impl Frank {
@@ -80,11 +80,8 @@ impl Frank {
     }
 
     pub fn invoke(&mut self, fn_argument: &[i8]) -> error::Result<FrankResult> {
-        println!("11");
-        let env: &mut EnvModule =
-            unsafe { &mut *(self.instance.context_mut().data as *mut EnvModule) };
+        let env: &mut EnvModule = unsafe { &mut *(self.instance.context_mut().data as *mut EnvModule) };
         env.renew_state();
-        println!("12");
 
         let argument_len = fn_argument.len() as i32;
         let argument_address = if argument_len != 0 {
@@ -95,12 +92,12 @@ impl Frank {
             0
         };
 
-        println!("13");
         let result_address = self.call_invoke_func(argument_address, argument_len)?;
         let result = self.read_result_from_mem(result_address as usize)?;
         self.call_deallocate_func(result_address, result.len() as i32)?;
 
-        Ok(FrankResult::new(result, env))
+        let state = env.get_state();
+        Ok(FrankResult::new(result, state.0, state.1))
     }
 
     pub fn compute_vm_state_hash(
@@ -119,11 +116,22 @@ impl Frank {
     pub fn new(module_path: &str, config: Config) -> error::Result<Self> {
         let wasm_code = fs::read(module_path).expect("Couldn't read provided file");
 
-        let mut env_module = EnvModule::new();
-        let env_module = &mut env_module as *mut _ as *mut c_void;
+        let env_state = move || {
+            // allocate EnvModule on the heap
+            let env_module = EnvModule::new();
+            let dtor = (|data: *mut c_void| {
+                unsafe {
+                    drop(Box::from_raw(data as *mut EnvModule));
+                }
+            }) as fn(*mut c_void);
+
+            // and then release corresponding Box object obtaining the raw pointer
+            (Box::leak(env_module) as *mut EnvModule as *mut c_void, dtor)
+        };
 
         let import_objects = imports! {
-            move || { (env_module, (|_: *mut c_void| {}) as fn(*mut c_void)) },
+            // this will enforce Wasmer to register EnvModule in the ctx.data field
+            env_state,
             "logger" => {
                 "write" => func!(logger_write),
                 "flush" => func!(logger_flush),
@@ -135,7 +143,10 @@ impl Frank {
         };
 
         let instance = instantiate(&wasm_code, &import_objects)?;
-        Ok(Self { instance, config })
+        Ok(Self {
+            instance,
+            config: Box::new(config),
+        })
     }
 }
 
@@ -150,11 +161,11 @@ fn logger_flush(_ctx: &mut Ctx) {
 }
 
 fn update_gas_counter(ctx: &mut Ctx, spent_gas: i32) {
-//    let env: &mut EnvModule = unsafe { &mut *(ctx.data as *mut EnvModule) };
-//    env.gas(spent_gas);
+    let env: &mut EnvModule = unsafe { &mut *(ctx.data as *mut EnvModule) };
+    env.gas(spent_gas);
 }
 
 fn update_eic(ctx: &mut Ctx, eic: i32) {
-//    let env: &mut EnvModule = unsafe { &mut *(ctx.data as *mut EnvModule) };
-//    env.eic(eic);
+    let env: &mut EnvModule = unsafe { &mut *(ctx.data as *mut EnvModule) };
+    env.eic(eic);
 }

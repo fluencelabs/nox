@@ -17,21 +17,22 @@
 use std::ops::AddAssign;
 
 pub struct EnvModule {
-    spent_gas: i64,
-    eic: i64,
+    pub spent_gas: i64,
+    pub eic: i64,
 }
 
 impl EnvModule {
-    pub fn new() -> Self {
-        Self {
-            spent_gas: 0,
-            eic: 0,
-        }
+    pub fn new() -> Box<Self> {
+        Box::new(Self {
+            spent_gas: 0i64,
+            eic: 0i64,
+        })
     }
 
     pub fn gas(&mut self, gas: i32) {
         // TODO: check for overflow
-        self.spent_gas.add_assign(gas as i64);
+        self.spent_gas = self.spent_gas + gas as i64;
+        //self.spent_gas.add_assign(gas as i64);
     }
 
     pub fn eic(&mut self, eic: i32) {
@@ -52,8 +53,8 @@ impl EnvModule {
 impl Default for EnvModule {
     fn default() -> Self {
         Self {
-            spent_gas: 0,
-            eic: 0,
+            spent_gas: 0i64,
+            eic: 0i64,
         }
     }
 }

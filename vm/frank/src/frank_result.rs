@@ -23,12 +23,11 @@ pub struct FrankResult {
 }
 
 impl FrankResult {
-    pub fn new(outcome: Vec<u8>, env_module: &EnvModule) -> Self {
-        let state = env_module.get_state();
+    pub fn new(outcome: Vec<u8>, spent_gas: i64, eic: i64) -> Self {
         Self {
             outcome,
-            spent_gas: state.0,
-            eic: state.1,
+            spent_gas,
+            eic,
         }
     }
 }

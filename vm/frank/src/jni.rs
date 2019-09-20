@@ -64,16 +64,14 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_invoke<'a>(
     env: JNIEnv<'a>,
     _class: JClass,
     fn_argument: jbyteArray,
-) -> jbyteArray {
+) -> JObject<'a> {
     println!("1");
     let input_len = env.get_array_length(fn_argument).unwrap();
     println!("wasm executor: argument length is {}", input_len);
 
     let mut input = vec![0; input_len as _];
-    println!("2");
     env.get_byte_array_region(fn_argument, 0, input.as_mut_slice())
         .expect("Couldn't get function argument value");
-    println!("3");
 
     let result = FRANK.with(|wasm_executor| {
         if let Some(ref mut e) = *wasm_executor.borrow_mut() {
@@ -81,21 +79,13 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_invoke<'a>(
         }
         panic!("unexpected frank value");
     });
-    println!("4");
 
-    env.byte_array_from_slice(&result.outcome).unwrap().into()
-
-    /*
-    let outcome: jbyteArray = env.byte_array_from_slice(&result.outcome).unwrap();
-
-    println!("result len - {}", result.outcome.len());
+    let outcome = env.byte_array_from_slice(&result.outcome).unwrap();
     let outcome = JObject::from(outcome);
-    println!("spent gas - {}", result.spent_gas);
     let spent_gas = JValue::from(result.spent_gas);
 
     let invocation_result_class = env.find_class("fluence/vm/InvocationResult").unwrap();
-    println!("5");
-    let tt = env.call_static_method(
+    env.call_static_method(
         "fluence/vm/InvocationResult",
         "apply",
         "([BJ)Lfluence/vm/InvocationResult;",
@@ -103,10 +93,7 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_invoke<'a>(
     )
     .unwrap()
     .l()
-    .unwrap();
-    println!("6");
-    tt
-    */
+    .unwrap()
 }
 
 // computes hash of the internal VM state
@@ -115,7 +102,6 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_getVmState(
     env: JNIEnv,
     _class: JClass,
 ) -> jbyteArray {
-    /*
     let result = FRANK.with(|wasm_executor| {
         if let Some(ref mut e) = *wasm_executor.borrow_mut() {
             return e.compute_vm_state_hash();
@@ -125,6 +111,4 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_getVmState(
 
     env.byte_array_from_slice(result.as_slice())
         .expect("Couldn't allocate enough space for byte array")
-        */
-    env.new_byte_array(1).unwrap()
 }
