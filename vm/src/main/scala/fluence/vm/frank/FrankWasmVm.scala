@@ -19,12 +19,9 @@ package fluence.vm.frank
 import cats.Monad
 import cats.data.EitherT
 import cats.effect.{IO, LiftIO}
-import fluence.vm.VmError.{InternalVmComputationError, TrapError}
-import fluence.vm.VmError.WasmVmError.{StateComputationError, InvocationError}
 import fluence.vm.{InvocationResult, WasmVm}
 import scodec.bits.ByteVector
-import fluence.vm.config.VmConfig
-import fluence.vm.frank.result.RawInvocationResult
+import fluence.vm.error.{InvocationError, StateComputationError}
 
 import scala.language.higherKinds
 
@@ -46,7 +43,7 @@ class FrankWasmVm(
         .map(r ⇒ InvocationResult(r.output, r.spentGas))
         .attempt
         .to[F]
-    ).leftMap(e ⇒ TrapError(s"Frank invocation failed. Cause: ${e.getMessage}", Some(e)))
+    ).leftMap(e ⇒ InvocationError(s"Frank invocation failed. Cause: ${e.getMessage}", Some(e)))
   }
 
   override def computeVmState[F[_]: LiftIO: Monad]: EitherT[F, StateComputationError, ByteVector] = {
@@ -55,7 +52,7 @@ class FrankWasmVm(
         .map(r ⇒ ByteVector(r.state))
         .attempt
         .to[F]
-    ).leftMap(e ⇒ InternalVmComputationError(s"Frank getting VM state failed. Cause: ${e.getMessage}", Some(e)))
+    ).leftMap(e ⇒ StateComputationError(s"Frank getting VM state failed. Cause: ${e.getMessage}", Some(e)))
   }
 
   val expectsEth: Boolean = false

@@ -15,7 +15,7 @@
  */
 
 package fluence.statemachine.error
-import fluence.vm.VmError
+import fluence.vm.error.VmError
 
 /**
  * Base trait for errors occurred in State machine.

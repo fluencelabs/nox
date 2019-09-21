@@ -19,8 +19,8 @@ package fluence.vm
 import cats.data.{EitherT, NonEmptyList}
 import cats.effect.{IO, Timer}
 import fluence.log.{Log, LogFactory}
-import fluence.vm.VmError._
 import fluence.vm.TestUtils._
+import fluence.vm.error.InitializationError
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.ExecutionContext
@@ -43,7 +43,7 @@ class WasmVmSpec extends WordSpec with Matchers {
         } yield vm
 
         val error = res.failed()
-        error shouldBe a[InternalVmComputationError]
+        error shouldBe a[InitializationError]
         error.getMessage should startWith("Unable to read a config for the namespace")
       }
 

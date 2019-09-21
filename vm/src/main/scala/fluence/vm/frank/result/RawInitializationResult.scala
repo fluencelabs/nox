@@ -22,5 +22,5 @@ package fluence.vm.frank.result
  * @param error represent various initialization errors
  */
 case class RawInitializationResult(
-  error:Error
+  error: Error
 )

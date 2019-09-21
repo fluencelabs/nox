@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use crate::errors::FrankError;
 use jni::objects::{JObject, JString};
 use jni::JNIEnv;
 
@@ -59,23 +60,29 @@ impl Default for Config {
 }
 
 impl Config {
-    // creates new config based on the supplied Java object Config
-    pub fn new(env: JNIEnv, config: JObject) -> std::result::Result<Box<Self>, ()> {
-        let mem_pages_count = env
-            .call_method(config, "memPagesCount", "()I", &[])
-            .unwrap()
-            .i()
-            .unwrap();
-        let logger_enabled = env
-            .call_method(config, "loggerEnabled", "()Z", &[])
-            .unwrap()
-            .z()
-            .unwrap();
-        let chunk_size = env
-            .call_method(config, "chunkSize", "()I", &[])
-            .unwrap()
-            .i()
-            .unwrap();
+    /// Creates a new config based on the supplied Java object Config.
+    /// This config should have the following structure on Scala:
+    ///
+    /// ```
+    /// case class MainModuleConfig(
+    ///   name: Option[String],
+    ///   allocateFunctionName: String,
+    ///   deallocateFunctionName: String,
+    ///   invokeFunctionName: String
+    /// )
+    ///
+    /// case class VmConfig(
+    ///   memPagesCount: Int,
+    ///   loggerEnabled: Boolean,
+    ///   chunkSize: Int,
+    ///   mainModuleConfig: MainModuleConfig
+    /// )
+    /// ```
+    ///
+    pub fn new(env: JNIEnv, config: JObject) -> Result<Box<Self>, FrankError> {
+        let mem_pages_count = env.call_method(config, "memPagesCount", "()I", &[])?.i()?;
+        let logger_enabled = env.call_method(config, "loggerEnabled", "()Z", &[])?.z()?;
+        let chunk_size = env.call_method(config, "chunkSize", "()I", &[])?.i()?;
 
         let main_module_config = env
             .call_method(
@@ -83,10 +90,8 @@ impl Config {
                 "mainModuleConfig",
                 "()Lfluence/vm/config/MainModuleConfig;",
                 &[],
-            )
-            .unwrap()
-            .l()
-            .unwrap();
+            )?
+            .l()?;
 
         let allocate_function_name = env
             .call_method(
@@ -94,43 +99,35 @@ impl Config {
                 "allocateFunctionName",
                 "()Ljava/lang/String;",
                 &[],
-            )
-            .unwrap()
-            .l()
-            .unwrap();
+            )?
+            .l()?;
         let deallocate_function_name = env
             .call_method(
                 main_module_config,
                 "deallocateFunctionName",
                 "()Ljava/lang/String;",
                 &[],
-            )
-            .unwrap()
-            .l()
-            .unwrap();
+            )?
+            .l()?;
         let invoke_function_name = env
             .call_method(
                 main_module_config,
                 "invokeFunctionName",
                 "()Ljava/lang/String;",
                 &[],
-            )
-            .unwrap()
-            .l()
-            .unwrap();
+            )?
+            .l()?;
 
-        let allocate_function_name = env
-            .get_string(JString::from(allocate_function_name))
-            .unwrap();
-        let deallocate_function_name = env
-            .get_string(JString::from(deallocate_function_name))
-            .unwrap();
-        let invoke_function_name = env.get_string(JString::from(invoke_function_name)).unwrap();
+        // converts JObject to JString (without copying, just enum type changes)
+        let allocate_function_name = env.get_string(JString::from(allocate_function_name))?;
+        let deallocate_function_name = env.get_string(JString::from(deallocate_function_name))?;
+        let invoke_function_name = env.get_string(JString::from(invoke_function_name))?;
 
         Ok(Box::new(Self {
             mem_pages_count,
             logger_enabled,
             chunk_size,
+            // and then finally to Rust String (requires one copy)
             invoke_function_name: String::from(invoke_function_name),
             allocate_function_name: String::from(allocate_function_name),
             deallocate_function_name: String::from(deallocate_function_name),

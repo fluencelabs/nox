@@ -20,9 +20,7 @@ import cats.Monad
 import cats.Applicative
 import cats.data.EitherT
 import com.typesafe.config.Config
-import fluence.vm.VmError
-import fluence.vm.VmError.InternalVmComputationError
-import fluence.vm.VmError.WasmVmError.InitializationError
+import fluence.vm.error.{InitializationError, VmError}
 import net.ceedubs.ficus.Ficus._
 import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 
@@ -80,7 +78,7 @@ object VmConfig {
     safelyRunThrowable(
       conf.getConfig(namespace).as[VmConfig],
       e ⇒
-        InternalVmComputationError(
+        InitializationError(
           s"Unable to read a config for the namespace=$namespace",
           Some(e)
         )

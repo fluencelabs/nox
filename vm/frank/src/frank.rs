@@ -143,10 +143,7 @@ impl Frank {
 
         let instance = instantiate(&wasm_code, &import_objects)?;
 
-        Ok(Self {
-            instance,
-            config,
-        })
+        Ok(Self { instance, config })
     }
 }
 

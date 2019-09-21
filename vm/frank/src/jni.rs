@@ -40,7 +40,7 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_instantiate(
         .expect("Couldn't get module path!")
         .into();
 
-    let config = Config::new(env, config).unwrap();
+    let config = Config::new(env, config);
 
     let executor = match Frank::new(&file_name, config) {
         Ok(executor) => executor,

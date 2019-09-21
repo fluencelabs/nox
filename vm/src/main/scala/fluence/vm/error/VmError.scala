@@ -19,34 +19,34 @@ package fluence.vm.error
 /**
  * Base trait for errors occurred in Virtual machine.
  *
- * @param code short text code describing error, might be shown to the client
  * @param message detailed error message
+ * @param causedBy caught [[Throwable]], if any
  */
-sealed abstract class VmError(val code: String, val message: String)
+sealed abstract class VmError(val message: String, val causedBy: Option[Throwable])
 
 /**
  * Corresponds to errors occurred during VM initialization.
  *
- * @param code short text code describing error, might be shown to the client
  * @param message detailed error message
+ * @param causedBy caught [[Throwable]], if any
  */
-case class InitializationError(override val code: String, override val message: String)
-  extends VmError(code, message)
+case class InitializationError(override val message: String, override val causedBy: Option[Throwable] = None)
+    extends VmError(message, causedBy)
 
 /**
  * Corresponds to errors occurred during VM function invocation.
  *
- * @param code short text code describing error, might be shown to the client
  * @param message detailed error message
+ * @param causedBy caught [[Throwable]], if any
  */
-case class InvocationError(override val code: String, override val message: String)
-  extends VmError(code, message)
+case class InvocationError(override val message: String, override val causedBy: Option[Throwable] = None)
+    extends VmError(message, causedBy)
 
 /**
  * Corresponds to errors occurred during computing VM state hash.
  *
- * @param code short text code describing error, might be shown to the client
  * @param message detailed error message
+ * @param causedBy caught [[Throwable]], if any
  */
-case class StateComputationError(override val code: String, override val message: String)
-  extends VmError(code, message)
+case class StateComputationError(override val message: String, override val causedBy: Option[Throwable] = None)
+    extends VmError(message, causedBy)
