@@ -16,5 +16,4 @@ services:
 
 networks:
   decentralized_storage_network:
-    external:
-      name: decentralized_storage_network
+    name: decentralized_storage_network
