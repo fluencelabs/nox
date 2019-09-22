@@ -49,7 +49,7 @@ fn prepare_args<'a, 'b>() -> [Arg<'a, 'b>; 2] {
     ]
 }
 
-fn prepare_wasm_file<'a, 'b>() -> App<'a, 'b> {
+fn execute_wasm<'a, 'b>() -> App<'a, 'b> {
     SubCommand::with_name("execute")
         .about("Execute provided module on the Fluence Frank VM")
         .args(&prepare_args())
@@ -61,7 +61,7 @@ fn main() -> Result<(), ExitFailure> {
         .author(AUTHORS)
         .about(DESCRIPTION)
         .setting(AppSettings::ArgRequiredElseHelp)
-        .subcommand(prepare_wasm_file());
+        .subcommand(execute_wasm());
 
     match app.get_matches().subcommand() {
         ("execute", Some(arg)) => {
@@ -69,22 +69,20 @@ fn main() -> Result<(), ExitFailure> {
             let in_module_path = arg.value_of(IN_MODULE_PATH).unwrap();
             let invoke_arg = arg.value_of(INVOKE_ARG).unwrap();
 
-            Frank::new(&in_module_path, config)
+            let _ = Frank::new(&in_module_path, config)
                 .map_err(|err| panic!(format!("{}", err)))
-                .and_then( |mut executor|
-                    executor.invoke(invoke_arg.as_bytes())
-                )
+                .and_then(|mut executor| executor.invoke(invoke_arg.as_bytes()))
                 .map_err(|err| panic!(format!("{}", err)))
                 .map(|result| {
                     let outcome_copy = result.outcome.clone();
                     match String::from_utf8(result.outcome) {
-                        Ok(s) =>
-                            println!("result: {}\nspent gas: {} ", s, result.spent_gas),
-                        Err(_) =>
-                            println!("result: {:?}\nspent gas: {} ", outcome_copy, result.spent_gas),
+                        Ok(s) => println!("result: {}\nspent gas: {} ", s, result.spent_gas),
+                        Err(_) => println!(
+                            "result: {:?}\nspent gas: {} ",
+                            outcome_copy, result.spent_gas
+                        ),
                     }
-                }
-                );
+                });
 
             Ok(())
         }
