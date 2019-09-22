@@ -30,3 +30,13 @@ impl FrankResult {
         }
     }
 }
+
+impl Default for FrankResult {
+    fn default() -> Self {
+        Self {
+            outcome: Vec::new(),
+            spent_gas: 0,
+            eic: 0,
+        }
+    }
+}

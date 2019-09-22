@@ -27,17 +27,17 @@ pub fn create_none_value(env: JNIEnv) -> JValue {
 
 /// creates Scala Some[String] value
 pub fn create_some_value(env: JNIEnv, value: String) -> JValue {
-    let value = env_copy
+    let value = env
         .new_string(value)
         .expect("jni: couldn't allocate new string");
 
-    let value = JObject::from(error);
-    env_copy
+    let value = JObject::from(value);
+    env
         .call_static_method(
             "scala/Some",
             "get",
             "(Ljava/lang/Object;)Lscala/Some;",
-            &[JValue::from(error)],
+            &[JValue::from(value)],
         )
         .expect("jni: couldn't allocate a Some object")
 }

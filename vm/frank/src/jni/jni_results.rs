@@ -14,19 +14,21 @@
  * limitations under the License.
  */
 
-use jni::objects::JObject;
 use crate::jni::option::*;
 use jni::JNIEnv;
+use jni::objects::{JObject, JValue};
 use crate::frank_result::FrankResult;
 
-/// creates RawInitializationResult object
+/// Creates RawInitializationResult object.
 pub fn create_initialization_result(env: JNIEnv, error: Option<String>) -> JObject {
+    let env_clone = env.clone();
+
     let error_value = match error {
-        Some(err) => create_some_value(env, err),
-        None => create_none_value(env),
+        Some(err) => create_some_value( env_clone, err),
+        None => create_none_value( env_clone),
     };
 
-    env_copy.call_static_method(
+    env.call_static_method(
         "fluence/vm/frank/result/RawInitializationResult",
         "apply",
         "(Lscala/Option;)Lfluence/vm/RawInitializationResult;",
@@ -37,11 +39,12 @@ pub fn create_initialization_result(env: JNIEnv, error: Option<String>) -> JObje
         .expect("jni: couldn't convert RawInitializationResult to Java Object")
 }
 
-/// creates RawInvocationResult object
+/// Creates RawInvocationResult object.
 pub fn create_invocation_result(env: JNIEnv, error: Option<String>, result: FrankResult) -> JObject {
+    let env_clone = env.clone();
     let error_value = match error {
-        Some(err) => create_some_value(env, err),
-        None => create_none_value(env),
+        Some(err) => create_some_value(env_clone, err),
+        None => create_none_value(env_clone),
     };
 
     let outcome = env.byte_array_from_slice(&result.outcome).unwrap();
@@ -52,7 +55,7 @@ pub fn create_invocation_result(env: JNIEnv, error: Option<String>, result: Fran
         "fluence/vm/frank/result/RawInvocationResult",
         "apply",
         "(Lscala/Option;[BJ)Lfluence/vm/RawInvocationResult;",
-        &[none_value, JValue::from(outcome), spent_gas],
+        &[error_value, JValue::from(outcome), spent_gas],
     ) .expect("jni: couldn't allocate RawInitializationResult object")
         .l()
         .expect("jni: couldn't convert RawInitializationResult to Java Object")
