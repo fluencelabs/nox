@@ -16,6 +16,8 @@
 
 package fluence.vm.error
 
+import scala.util.control.NoStackTrace
+
 /**
  * Base trait for errors occurred in Virtual machine.
  *
@@ -23,6 +25,7 @@ package fluence.vm.error
  * @param causedBy caught [[Throwable]], if any
  */
 sealed abstract class VmError(val message: String, val causedBy: Option[Throwable])
+    extends Throwable(message, causedBy.orNull, true, false)
 
 /**
  * Corresponds to errors occurred during VM initialization.
@@ -31,7 +34,7 @@ sealed abstract class VmError(val message: String, val causedBy: Option[Throwabl
  * @param causedBy caught [[Throwable]], if any
  */
 case class InitializationError(override val message: String, override val causedBy: Option[Throwable] = None)
-    extends VmError(message, causedBy)
+    extends VmError(message, causedBy) with NoStackTrace
 
 /**
  * Corresponds to errors occurred during VM function invocation.
@@ -40,7 +43,7 @@ case class InitializationError(override val message: String, override val caused
  * @param causedBy caught [[Throwable]], if any
  */
 case class InvocationError(override val message: String, override val causedBy: Option[Throwable] = None)
-    extends VmError(message, causedBy)
+    extends VmError(message, causedBy) with NoStackTrace
 
 /**
  * Corresponds to errors occurred during computing VM state hash.
@@ -49,4 +52,4 @@ case class InvocationError(override val message: String, override val causedBy: 
  * @param causedBy caught [[Throwable]], if any
  */
 case class StateComputationError(override val message: String, override val causedBy: Option[Throwable] = None)
-    extends VmError(message, causedBy)
+    extends VmError(message, causedBy) with NoStackTrace

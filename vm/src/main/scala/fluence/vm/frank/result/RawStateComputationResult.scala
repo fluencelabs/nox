@@ -22,7 +22,4 @@ package fluence.vm.frank.result
  * @param error represent various initialization errors
  * @param state computed state of Frank VM
  */
-case class RawStateComputationResult(
-  error: Error,
-  state: Array[Byte]
-)
+case class RawStateComputationResult(error: Option[String], state: Array[Byte])

@@ -15,12 +15,13 @@
  */
 
 use crate::config::Config;
+use crate::errors::FrankError;
 use crate::frank_result::FrankResult;
 use crate::modules::env_module::EnvModule;
 use sha2::{digest::generic_array::GenericArray, digest::FixedOutput, Digest, Sha256};
 use std::ffi::c_void;
 use std::fs;
-use wasmer_runtime::{error, func, imports, instantiate, Ctx, Func, Instance};
+use wasmer_runtime::{func, imports, instantiate, Ctx, Func, Instance};
 
 pub struct Frank {
     instance: Instance,
@@ -29,10 +30,10 @@ pub struct Frank {
 
 impl Frank {
     // writes given value on the given address
-    fn write_to_mem(&mut self, address: usize, value: &[i8]) -> error::Result<()> {
+    fn write_to_mem(&mut self, address: usize, value: &[u8]) -> Result<(), FrankError> {
         let memory = self.instance.context_mut().memory(0);
 
-        for (byte_id, cell) in memory.view()[address as usize..(address + value.len())]
+        for (byte_id, cell) in memory.view::<u8>()[address as usize..(address + value.len())]
             .iter()
             .enumerate()
         {
@@ -43,7 +44,7 @@ impl Frank {
     }
 
     // reads given count of bytes from given address
-    fn read_result_from_mem(&self, address: usize) -> error::Result<Vec<u8>> {
+    fn read_result_from_mem(&self, address: usize) -> Result<Vec<u8>, FrankError> {
         let memory = self.instance.context().memory(0);
 
         let mut result_size: usize = 0;
@@ -60,26 +61,26 @@ impl Frank {
         Ok(result)
     }
 
-    fn call_invoke_func(&self, addr: i32, len: i32) -> error::Result<i32> {
+    fn call_invoke_func(&self, addr: i32, len: i32) -> Result<i32, FrankError> {
         let func: Func<(i32, i32), (i32)> =
             self.instance.func(&self.config.invoke_function_name)?;
         let result = func.call(addr, len)?;
         Ok(result)
     }
 
-    fn call_allocate_func(&self, size: i32) -> error::Result<i32> {
+    fn call_allocate_func(&self, size: i32) -> Result<i32, FrankError> {
         let func: Func<(i32), (i32)> = self.instance.func(&self.config.allocate_function_name)?;
         let result = func.call(size)?;
         Ok(result)
     }
 
-    fn call_deallocate_func(&self, addr: i32, size: i32) -> error::Result<()> {
+    fn call_deallocate_func(&self, addr: i32, size: i32) -> Result<(), FrankError> {
         let func: Func<(i32, i32), ()> =
             self.instance.func(&self.config.deallocate_function_name)?;
         func.call(addr, size).map_err(Into::into)
     }
 
-    pub fn invoke(&mut self, fn_argument: &[i8]) -> error::Result<FrankResult> {
+    pub fn invoke(&mut self, fn_argument: &[u8]) -> Result<FrankResult, FrankError> {
         let env: &mut EnvModule =
             unsafe { &mut *(self.instance.context_mut().data as *mut EnvModule) };
         env.renew_state();
@@ -114,8 +115,8 @@ impl Frank {
         hasher.result()
     }
 
-    pub fn new(module_path: &str, config: Box<Config>) -> error::Result<Self> {
-        let wasm_code = fs::read(module_path).expect("Couldn't read provided file");
+    pub fn new(module_path: &str, config: Box<Config>) -> Result<Self, FrankError> {
+        let wasm_code = fs::read(module_path)?;
 
         let env_state = move || {
             // allocate EnvModule on the heap
@@ -142,7 +143,6 @@ impl Frank {
         };
 
         let instance = instantiate(&wasm_code, &import_objects)?;
-
         Ok(Self { instance, config })
     }
 }

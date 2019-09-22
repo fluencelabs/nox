@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct FrankResult {
     pub outcome: Vec<u8>,
     pub spent_gas: i64,

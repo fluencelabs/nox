@@ -23,8 +23,4 @@ package fluence.vm.frank.result
  * @param output the computed result by Frank VM
  * @param spentGas spent gas by producing the output
  */
-case class RawInvocationResult(
-  error: Error,
-  output: Array[Byte],
-  spentGas: Long
-)
+case class RawInvocationResult(error: Option[String], output: Array[Byte], spentGas: Long)

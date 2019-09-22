@@ -19,8 +19,6 @@ package fluence.vm.frank.result
 /**
  * Represents raw JNI result of calling FrankAdapter::initialize.
  *
- * @param error represent various initialization errors
+ * @param error represent various initialization errors, None - no error occurred
  */
-case class RawInitializationResult(
-  error: Error
-)
+case class RawInitializationResult(error: Option[String])

@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-use crate::frank::Frank;
 use jni::errors::Error as JNIWrapperError;
-use wasmer_runtime::error::{CallError, CompileError, CreationError};
+use wasmer_runtime::error::{
+    CallError, CompileError, CreationError, Error, ResolveError, RuntimeError,
+};
 
 // TODO: more errors to come (when preparation step will be landed)
 /// Errors related to the preparation (instrumentation and so on) and compilation by Wasmer steps.
@@ -38,11 +39,17 @@ pub enum FrankError {
     /// Errors related to parameter passing from Java to Rust and back.
     JNIError(String),
 
+    /// Errors for I/O errors raising while opening a file.
+    IncorrectPathError(String),
+
     /// This error type is produced by Wasmer during resolving a Wasm function.
     WasmerResolveError(String),
 
     /// Error related to calling a main Wasm module.
     WasmerInvokeError(String),
+
+    /// Error indicates that smth really bad happened (like removing the global Frank state).
+    FrankIncorrectState,
 }
 
 impl std::fmt::Display for InstantiationError {
@@ -50,9 +57,15 @@ impl std::fmt::Display for InstantiationError {
         match self {
             InstantiationError::WasmerCompileError(msg) => write!(f, "{}", msg),
             InstantiationError::WasmerCreationError(msg) => write!(f, "{}", msg),
-            InstantiationError::WasmerInstantiationError(msg) => {
-                write!(f, "{}", msg)
-            }
+            InstantiationError::WasmerInstantiationError(msg) => write!(f, "{}", msg),
+        }
+    }
+}
+
+impl std::fmt::Display for FrankError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        match self {
+            _ => write!(f, "sad"),
         }
     }
 }
@@ -87,5 +100,29 @@ impl From<CallError> for FrankError {
             CallError::Resolve(err) => FrankError::WasmerResolveError(format!("{}", err)),
             CallError::Runtime(err) => FrankError::WasmerInvokeError(format!("{}", err)),
         }
+    }
+}
+
+impl From<ResolveError> for FrankError {
+    fn from(err: ResolveError) -> Self {
+        FrankError::WasmerResolveError(format!("{}", err))
+    }
+}
+
+impl From<RuntimeError> for FrankError {
+    fn from(err: RuntimeError) -> Self {
+        FrankError::WasmerInvokeError(format!("{}", err))
+    }
+}
+
+impl From<Error> for FrankError {
+    fn from(err: Error) -> Self {
+        FrankError::WasmerInvokeError(format!("{}", err))
+    }
+}
+
+impl From<std::io::Error> for FrankError {
+    fn from(err: std::io::Error) -> Self {
+        FrankError::IncorrectPathError(format!("{}", err))
     }
 }
