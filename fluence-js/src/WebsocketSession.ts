@@ -144,7 +144,8 @@ export class WebsocketSession {
             socket.onopen = () => {
                 debug("Websocket is opened");
                 this.firstConnection = false;
-                this.connectionHandler.handleResult()
+                this.connectionHandler.handleResult();
+                this.resubscribe();
             };
 
             socket.onerror = (e) => {
