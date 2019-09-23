@@ -83,6 +83,24 @@ class AwaitResponses[F[_]: Concurrent: Parallel: Timer, B: TxsBlock](
   private def isRepeatTx(tx: ByteVector) = tx.startsWith(AwaitResponses.AwaitSessionPrefixBytes)
 
   /**
+   * Send query to state machine and convert result to AwaitedResponse
+   */
+  private def query(txHead: Tx.Head)(implicit log: Log[F]): F[AwaitedResponse] =
+    machine
+      .query(txHead.toString)
+      .value
+      .map {
+        case Left(e)                                  => RpcErrorResponse(txHead, e)
+        case Right(r) if r.code == QueryCode.Pending  => PendingResponse(txHead)
+        case Right(r) if r.code == QueryCode.NotFound => PendingResponse(txHead)
+        case Right(r)                                 => OkResponse(txHead, r.toResponseString())
+        // TODO: is it ok to return CannotParseHeader & Dropped as OkResponse?
+      }
+
+  private def logPromises(promises: List[ResponsePromise[F]])(implicit log: Log[F]): F[Unit] =
+    log.debug(s"Polling ${promises.size} promises") >> log.trace(s"promises: ${promises.map(_.id).mkString(" ")}")
+
+  /**
    * Query responses for subscriptions.
    *
    * @param promises list of subscriptions
@@ -94,31 +112,12 @@ class AwaitResponses[F[_]: Concurrent: Parallel: Timer, B: TxsBlock](
   )(implicit log: Log[F]): F[List[(ResponsePromise[F], AwaitedResponse)]] = {
     import cats.syntax.list._
     import cats.syntax.parallel._
-    log.scope("responseSubscriber" -> "queryResponses", "app" -> appId.toString) { implicit log =>
-      log.debug(s"Polling ${promises.size} promises") >> log.trace(s"promises: ${promises.map(_.id).mkString(" ")}") >>
-        promises.map { responsePromise =>
-          machine
-            .query(responsePromise.id.toString)
-            .map(
-              qr ⇒
-                qr.code match {
-                  case QueryCode.Pending | QueryCode.NotFound => PendingResponse(responsePromise.id)
-                  case QueryCode.Ok | _                       => OkResponse(responsePromise.id, qr.toResponseString())
-                }
-            )
-            .map(r => (responsePromise, r))
-            .leftMap(err => (responsePromise, err))
-        }.map(_.value)
+    log.scope("queryResponses" -> "") { implicit log =>
+      logPromises(promises) >>
+        promises
+          .map(p => query(p.id).tupleLeft(p))
           .toNel
-          .map(
-            _.parSequence.map(
-              _.collect {
-                case Right(r) => r
-                case Left((responsePromise, rpcError)) =>
-                  (responsePromise, RpcErrorResponse(responsePromise.id, rpcError): AwaitedResponse)
-              }
-            )
-          )
+          .map(_.parSequence.map(_.toList))
           .getOrElse(List.empty.pure[F])
     }
   }
