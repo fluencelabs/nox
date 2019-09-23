@@ -67,7 +67,7 @@ trait WasmVm {
 
 object WasmVm {
   Runtime.getRuntime.load(
-    getModuleDirPrefix() + "/frank/target/release/libfrank.dylib"
+    getModuleDirPrefix() + "frank/target/release/libfrank.so"
   )
 
   /**
