@@ -24,7 +24,7 @@ use std::fs;
 use wasmer_runtime::{func, imports, instantiate, Ctx, Func, Instance};
 
 pub struct Frank {
-    instance: Instance,
+    instance: Box<Instance>,
     config: Box<Config>,
 }
 
@@ -142,7 +142,7 @@ impl Frank {
             },
         };
 
-        let instance = instantiate(&wasm_code, &import_objects)?;
+        let instance = Box::new(instantiate(&wasm_code, &import_objects)?);
         Ok(Self { instance, config })
     }
 }

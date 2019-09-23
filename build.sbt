@@ -46,7 +46,6 @@ lazy val `vm` = (project in file("vm"))
       .dependsOn(compile in `vm-frank`)
       .dependsOn(compile in `vm-llamadb`)
       .value,
-    javaOptions += s"-Djava.library.path=/Users/trofim/Desktop/work/fluence/fluence"
   )
   .dependsOn(`log`)
   .enablePlugins(AutomateHeaderPlugin)

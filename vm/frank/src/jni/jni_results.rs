@@ -28,21 +28,16 @@ pub fn create_initialization_result(env: JNIEnv, error: Option<String>) -> JObje
         None => create_none_value(env_clone),
     };
 
-    let tt = env
-        .call_static_method(
-            "fluence/vm/frank/result/RawInitializationResult",
-            "apply",
-            "(Lscala/Option;)Lfluence/vm/frank/result/RawInitializationResult;",
-            &[error_value],
-        )
-        .map_err(|r| format!("{}", r))
-        .expect("jni: couldn't allocate RawInitializationResult object")
-        .l()
-        .expect("jni: couldn't convert RawInitializationResult to Java Object");
-
-    println!("New RawInitiailizationResult address {:?}", tt.into_inner());
-
-    tt
+    env.call_static_method(
+        "fluence/vm/frank/result/RawInitializationResult",
+        "apply",
+        "(Lscala/Option;)Lfluence/vm/frank/result/RawInitializationResult;",
+        &[error_value],
+    )
+    .map_err(|r| format!("{}", r))
+    .expect("jni: couldn't allocate RawInitializationResult object")
+    .l()
+    .expect("jni: couldn't convert RawInitializationResult to Java Object")
 }
 
 /// Creates RawInvocationResult object.
@@ -51,7 +46,6 @@ pub fn create_invocation_result(
     error: Option<String>,
     result: FrankResult,
 ) -> JObject {
-    println!("create_invocation_result");
     let env_clone = env.clone();
     let error_value = match error {
         Some(err) => create_some_value(env_clone, err),

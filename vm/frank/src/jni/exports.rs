@@ -22,10 +22,10 @@ use crate::frank::Frank;
 use crate::frank_result::FrankResult;
 use crate::jni::jni_results::*;
 use jni::objects::{JClass, JObject, JString};
-use jni::sys::{jbyteArray, jint};
+use jni::sys::jbyteArray;
 use sha2::digest::generic_array::GenericArray;
 
-static mut FRANK: Option<Frank> = None;
+static mut FRANK: Option<Box<Frank>> = None;
 
 /// Initializes Frank virtual machine.
 #[no_mangle]
@@ -34,7 +34,7 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_initialize<'a>(
     _class: JClass,
     module_path: JString,
     config: JObject,
-) -> jint {
+) -> JObject<'a> {
     fn initialize<'a>(
         env: JNIEnv<'a>,
         module_path: JString,
@@ -42,7 +42,7 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_initialize<'a>(
     ) -> Result<(), FrankError> {
         let file_name: String = env.get_string(module_path)?.into();
         let config = Config::new(env, config)?;
-        let executor = Frank::new(&file_name, config)?;
+        let executor = Box::new(Frank::new(&file_name, config)?);
         unsafe { FRANK = Some(executor) };
 
         println!("frank: init ended");
@@ -53,9 +53,7 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_initialize<'a>(
     match initialize(env, module_path, config) {
         Ok(_) => create_initialization_result(env_clone, None),
         Err(err) => create_initialization_result(env_clone, Some(format!("{}", err))),
-    };
-
-    0
+    }
 }
 
 /// Invokes the main module entry point function.
@@ -69,19 +67,16 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_invoke<'a>(
         let input_len = env.get_array_length(fn_argument)?;
         let mut input = vec![0; input_len as _];
         env.get_byte_array_region(fn_argument, 0, input.as_mut_slice())?;
+
         // converts Vec<i8> to Vec<u8>
-        /*        let input = unsafe {
-                    Vec::<u8>::from_raw_parts(input.as_mut_ptr() as *mut u8, input.len(), input.capacity())
-                };
-        */
-        let mut yy = Vec::<u8>::new();
-        for t in input {
-            yy.push(t as u8);
-        }
+        let u8_input = unsafe {
+            Vec::<u8>::from_raw_parts(input.as_mut_ptr() as *mut u8, input.len(), input.capacity())
+        };
+        std::mem::forget(input);
 
         unsafe {
             match FRANK {
-                Some(ref mut vm) => Ok(vm.invoke(&yy)?),
+                Some(ref mut vm) => Ok(vm.invoke(&u8_input)?),
                 None => Err(FrankError::FrankIncorrectState),
             }
         }

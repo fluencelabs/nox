@@ -20,20 +20,14 @@ use jni::objects::{JObject, JValue};
 
 /// creates Scala None value
 pub fn create_none_value(env: JNIEnv) -> JValue {
-    let tt = env
-        .call_static_method(
-            "scala/Option",
-            "apply",
-            "(Ljava/lang/Object;)Lscala/Option;",
-            &[JValue::from(JObject::null())],
-        )
-        .map_err(|err| format!("{}", err))
-        .expect("jni: error while creating None object");
-    println!(
-        "Allocated new None value - {:?}",
-        tt.l().unwrap().into_inner()
-    );
-    tt
+    env.call_static_method(
+        "scala/Option",
+        "apply",
+        "(Ljava/lang/Object;)Lscala/Option;",
+        &[JValue::from(JObject::null())],
+    )
+    .map_err(|err| format!("{}", err))
+    .expect("jni: error while creating None object")
 }
 
 /// creates Scala Some[String] value

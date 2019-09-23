@@ -14,28 +14,14 @@
  * limitations under the License.
  */
 
-package fluence
-import cats.Functor
-import cats.data.EitherT
-import fluence.vm.error.VmError
+package fluence.vm
 
-import scala.language.higherKinds
+object Utils {
 
-package object vm {
-
-  implicit class VmErrorMapper[F[_]: Functor, E <: VmError, T](eitherT: EitherT[F, E, T]) {
-
-    def toVmError: EitherT[F, VmError, T] = {
-      eitherT.leftMap { e: VmError ⇒
-        e
-      }
-    }
-  }
-
-  object eitherT {
-    implicit class EitherTOps[F[_]: Functor, A, B](ef: F[Either[A, B]]) {
-      def eitherT: EitherT[F, A, B] = EitherT(ef)
-    }
-  }
-
+  def getModuleDirPrefix(): String =
+    // getProperty could return different path depends on the run method (Idea or sbt)
+    if (System.getProperty("user.dir").endsWith("/vm"))
+      System.getProperty("user.dir")
+    else
+      System.getProperty("user.dir") + "/vm/"
 }

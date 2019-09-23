@@ -28,7 +28,7 @@ class FrankAdapter {
    *
    * @param filePath path to a wasm file
    */
-  @native def initialize(filePath: String, config: VmConfig): Int
+  @native def initialize(filePath: String, config: VmConfig): RawInitializationResult
 
   /**
    * Invokes main module.

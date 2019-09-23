@@ -20,6 +20,7 @@ import cats.data.EitherT
 import cats.effect.IO
 import fluence.vm.error.VmError
 import org.scalatest.EitherValues
+import fluence.vm.Utils.getModuleDirPrefix
 
 import scala.language.{higherKinds, implicitConversions}
 

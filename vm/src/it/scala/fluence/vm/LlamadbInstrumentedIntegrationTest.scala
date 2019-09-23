@@ -22,6 +22,7 @@ import fluence.log.{Log, LogFactory}
 
 import scala.concurrent.ExecutionContext
 import scala.language.{higherKinds, implicitConversions}
+import fluence.vm.Utils.getModuleDirPrefix
 
 // TODO: to run this test from IDE It needs to build vm-llamadb project explicitly at first
 // this test is separated from the main LlamadbIntegrationTest because gas price for each instruction could be changed

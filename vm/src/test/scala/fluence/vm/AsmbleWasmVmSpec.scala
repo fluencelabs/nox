@@ -36,17 +36,17 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
   private implicit val log: Log[IO] = LogFactory.forPrintln[IO](Log.Error).init(getClass.getSimpleName).unsafeRunSync()
 
   /**
-   * By element comparision of arrays.
-   */
+ * By element comparision of arrays.
+ */
   private def compareArrays(first: Array[Byte], second: Array[Byte]): Assertion =
     first.deep shouldBe second.deep
 
   /**
-   * Converts ints to byte array by supplied byte order.
-   *
-   * @param ints array of int
-   * @param byteOrder byte order that used for int converting
-   */
+ * Converts ints to byte array by supplied byte order.
+ *
+ * @param ints array of int
+ * @param byteOrder byte order that used for int converting
+ */
   private def intsToBytes(
     ints: List[Int],
     byteOrder: ByteOrder = ByteOrder.LITTLE_ENDIAN
@@ -293,4 +293,4 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
   }
 
 }
-*/
+ */
