@@ -55,25 +55,6 @@ export class WebsocketSession {
         return ws.connect();
     }
 
-    /**
-     * Check every second for promises that waiting for a response more than the timeout.
-     */
-    private checkExecutors() {
-        let now = new Date().getTime();
-        this.executors.forEach((executor: Executor<any>, key: string) => {
-            if (executor.type === ExecutorType.Promise) {
-                let promiseExecutor = executor as PromiseExecutor<any>;
-                let t = promiseExecutor.creationTime - this.timeout;
-                if (t > now) {
-                    promiseExecutor.handleError(`Timeout after ${this.timeout} milliseconds.`);
-                    this.executors.delete(key);
-                }
-            }
-        });
-
-        setTimeout(() => this.checkExecutors(), 1000)
-    }
-
     private constructor(appId: string, nodes: Node[], timeout: number, privateKey?: PrivateKey) {
         if (nodes.length == 0) {
             console.error("There is no nodes to connect");
@@ -87,8 +68,6 @@ export class WebsocketSession {
         this.nodes = nodes;
         this.privateKey = privateKey;
         this.timeout = timeout;
-
-        this.checkExecutors();
     }
 
     private messageHandler(msg: string) {
@@ -116,8 +95,9 @@ export class WebsocketSession {
                             executor.handleResult(result.get)
                         }
                     }
-                    if (executor.type === "promise") {
+                    if (Executor.isPromise(executor)) {
                         this.executors.delete(rawResponse.request_id);
+                        executor.cancelTimeout();
                     }
                 } else {
                     let executor = this.executors.get(rawResponse.request_id) as Executor<void>;
@@ -153,7 +133,7 @@ export class WebsocketSession {
         debug("Connecting to " + JSON.stringify(node));
 
         if (!this.connectionHandler || !this.firstConnection) {
-            this.connectionHandler = new PromiseExecutor<void>();
+            this.connectionHandler = new PromiseExecutor<void>(undefined);
         }
 
         try {
@@ -176,7 +156,7 @@ export class WebsocketSession {
 
                 // new requests will be terminated until websocket is connected
                 if (!this.firstConnection) {
-                    this.connectionHandler = new PromiseExecutor<void>();
+                    this.connectionHandler = new PromiseExecutor<void>(undefined);
                     this.connectionHandler.handleError("Websocket is closed. Reconnecting")
                 }
 
@@ -311,7 +291,14 @@ export class WebsocketSession {
     private sendAndWaitResponse(requestId: string, message: string): Promise<Result> {
         this.socket.send(message);
 
-        let executor: PromiseExecutor<Result> = new PromiseExecutor();
+        let timeout = setTimeout(() => {
+            if (this.executors.has(requestId)) {
+                executor.handleError(`Timeout after ${this.timeout} milliseconds.`);
+                this.executors.delete(requestId);
+            }
+        }, this.timeout);
+
+        let executor: PromiseExecutor<Result> = new PromiseExecutor(timeout);
 
         this.executors.set(requestId, executor);
 

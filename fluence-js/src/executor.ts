@@ -9,6 +9,11 @@ export enum ExecutorType {
  * Structure, that could handle a result or an error in any time after creation.
  */
 export abstract class Executor<T> {
+
+    static isPromise<A>(executor: Executor<A>): executor is PromiseExecutor<A> {
+        return executor.type === ExecutorType.Promise
+    }
+
     abstract handleResult(result: T): void
 
     abstract handleError(error: any): void
@@ -24,11 +29,12 @@ export class PromiseExecutor<T> extends Executor<T> {
     private errorResolver: (error: any) => void;
     readonly promise: Promise<T>;
     readonly creationTime: number;
+    private timeout: ReturnType<typeof setTimeout> | undefined;
 
-    constructor() {
+    constructor(timeout: ReturnType<typeof setTimeout> | undefined) {
         super();
         this.promise = new Promise<T>((r, e) => { this.resultResolver = r; this.errorResolver = e; });
-        this.creationTime = new Date().getTime();
+        this.timeout = timeout;
     }
 
     handleResult(result: T): void {
@@ -37,6 +43,12 @@ export class PromiseExecutor<T> extends Executor<T> {
 
     handleError(error: any): void {
         this.errorResolver(error)
+    }
+
+    cancelTimeout() {
+        if (this.timeout) {
+            clearTimeout(this.timeout)
+        }
     }
 
     type: ExecutorType = ExecutorType.Promise
