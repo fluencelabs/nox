@@ -108,7 +108,7 @@ class AwaitResponses[F[_]: Concurrent: Parallel: Timer](
                 qr.code match {
                   case QueryCode.Pending | QueryCode.NotFound => PendingResponse(responsePromise.id)
                   case QueryCode.Ok | _                       => OkResponse(responsePromise.id, qr.toResponseString())
-              }
+                }
             )
             .map(r => (responsePromise, r))
             .leftMap(err => (responsePromise, err))

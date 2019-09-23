@@ -83,7 +83,7 @@ object WorkersHttp {
           // TODO: is it OK to return BadRequest here?
           BadRequest(err.getMessage)
 
-      case RpcBodyMalformed(err) ⇒
+      case err: RpcBodyMalformed ⇒
         log.warn(s"RPC body malformed: $err", err) *>
           BadRequest(err.getMessage)
 
@@ -196,9 +196,10 @@ object WorkersHttp {
                     queryResponse match {
                       case OkResponse(_, response) =>
                         log.debug(s"OK $response") >> Ok(response)
-                      case RpcErrorResponse(_, r) =>
+                      case RpcErrorResponse(id, r) =>
                         // TODO ERROR INCONSISTENCY: some errors are returned as 200, others as 500
-                        rpcErrorToResponse(r)
+                        log.warn(s"Error on $id while querying response: ${r.getMessage}") >>
+                          InternalServerError(s"Error on $id while querying response: ${r.getMessage}")
                       case TimedOutResponse(txHead, tries) =>
                         log.warn(s"timed out after $tries") >>
                           // TODO: ERROR INCONSISTENCY: some errors are returned as 200, others as 500
