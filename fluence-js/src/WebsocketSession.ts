@@ -71,7 +71,6 @@ export class WebsocketSession {
     }
 
     private messageHandler(msg: string) {
-        let response;
         try {
             const rawResponse = WebsocketSession.parseRawResponse(msg);
 
@@ -103,11 +102,14 @@ export class WebsocketSession {
                     executor.handleResult()
                 }
             }
-
-
         } catch (e) {
             console.error("Cannot parse websocket event: " + e)
         }
+    }
+
+    private parseResponse(data: string): Option<Result> {
+        const parsed = JSON.parse(data) as TendermintJsonRpcResponse<AbciQueryResult>;
+        return TendermintClient.parseQueryResponse(none, parsed);
     }
 
     /**
