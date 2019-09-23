@@ -19,10 +19,9 @@ package fluence.worker.responder
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, Resource, Timer}
 import cats.syntax.applicative._
-import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.{Parallel, Traverse}
+import cats.{Applicative, Parallel}
 import fluence.bp.tx.{Tx, TxsBlock}
 import fluence.effects.resources.MakeResource
 import fluence.effects.{Backoff, EffectError}
@@ -129,36 +128,29 @@ class AwaitResponses[F[_]: Concurrent: Parallel: Timer, B: TxsBlock](
    */
   private def updateSubscribesByResult(
     responses: List[(ResponsePromise[F], AwaitedResponse)]
-  )(implicit log: Log[F]): F[Unit] = {
+  )(implicit log: Log[F], F: Applicative[F]): F[Unit] = {
     import cats.instances.list._
+    import cats.syntax.either._
+    import cats.syntax.traverse._
+
+    def tout(p: ResponsePromise[F]) = TimedOutResponse(p.id, p.tries)
+    def inc(p: ResponsePromise[F]) = p.copy(tries = p.tries + 1)
+
+    val (complete, retry) = {
+      // TODO: use partitionMap from 2.13
+      val (left, right) = responses.map {
+        case t @ (_, _: OkResponse | _: TimedOutResponse)              => t.asLeft
+        case t @ (p, _: RpcErrorResponse) if p.tries == maxBlocksTries => t.asLeft
+        case (p, _: PendingResponse) if p.tries == maxBlocksTries      => (p, tout(p)).asLeft
+        case (p, _: RpcErrorResponse | _: PendingResponse)             => (p.id, inc(p)).asRight
+      }.partition(_.isLeft)
+
+      (left.map(_.left.get), right.map(_.right.get))
+    }
+
     for {
-      completionList <- subscribesRef.modify { subsMap =>
-        val (taskList, updatedSubs) = responses.foldLeft((List.empty[F[Unit]], subsMap)) {
-          case ((taskList, subs), response) =>
-            response match {
-              case (promise, r: OkResponse) =>
-                (promise.complete(r) :: taskList, subs - promise.id)
-
-              case (promise, r @ (_: RpcErrorResponse | _: PendingResponse)) =>
-                if (promise.tries + 1 >= maxBlocksTries) {
-                  // return TimedOutResponse after `tries` PendingResponses
-                  val response = r match {
-                    case PendingResponse(id) => TimedOutResponse(id, promise.tries + 1)
-                    case resp                => resp
-                  }
-                  (promise.complete(response) :: taskList, subs - r.id)
-                } else (taskList, subs + (r.id -> promise.copy(tries = promise.tries + 1)))
-
-              case (promise, r: TimedOutResponse) =>
-                (
-                  log.error("Unexpected. TimedOutResponse couldn't be here.") *> promise.complete(r) :: taskList,
-                  subs - promise.id
-                )
-            }
-        }
-        (updatedSubs, taskList)
-      }
-      _ <- Traverse[List].traverse(completionList)(identity)
+      _ <- subscribesRef.update(_ -- complete.map(_._1.id) ++ retry)
+      _ <- complete.traverse { case (p, r) => p.complete(r) }
     } yield ()
   }
 
