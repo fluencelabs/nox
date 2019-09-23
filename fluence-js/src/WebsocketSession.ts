@@ -83,7 +83,7 @@ export class WebsocketSession {
                 const executor = this.executors.get(rawResponse.request_id) as Executor<Result>;
                 if (rawResponse.error) {
                     console.log(`Error received for ${rawResponse.request_id}: ${JSON.stringify(rawResponse.error)}`);
-                    executor.handleError(rawResponse.error as string);
+                    executor.fail(rawResponse.error as string);
                 } else if (rawResponse.type === "tx_wait_response") {
                     if (rawResponse.data) {
                         const parsed = JSON.parse(rawResponse.data) as TendermintJsonRpcResponse<AbciQueryResult>;
@@ -92,7 +92,7 @@ export class WebsocketSession {
                         if (result.isEmpty) {
                             console.error(`Unexpected, no parsed result in message: ${msg}`)
                         } else {
-                            executor.handleResult(result.get)
+                            executor.complete(result.get)
                         }
                     }
                     if (Executor.isPromise(executor)) {
@@ -101,7 +101,7 @@ export class WebsocketSession {
                     }
                 } else {
                     const executor = this.executors.get(rawResponse.request_id) as Executor<void>;
-                    executor.handleResult()
+                    executor.complete()
                 }
             }
 
@@ -118,7 +118,7 @@ export class WebsocketSession {
         this.executors.forEach((executor: Executor<any>, key: string) => {
             if (executor.type === ExecutorType.Subscription) {
                 const subExecutor = executor as SubscribtionExecutor;
-                this.subscribe(subExecutor.subscription, subExecutor.resultHandler, subExecutor.errorHandler)
+                this.subscribe(subExecutor.subscription, subExecutor.resultCallback, subExecutor.errorCallback)
                     .catch((e) => console.error(`Cannot resubscribe on ${subExecutor.subscription}`))
             }
         });
@@ -144,7 +144,7 @@ export class WebsocketSession {
             socket.onopen = () => {
                 debug("Websocket is opened");
                 this.firstConnection = false;
-                this.connectionHandler.handleResult();
+                this.connectionHandler.complete();
                 this.resubscribe();
             };
 
@@ -158,13 +158,13 @@ export class WebsocketSession {
                 // new requests will be terminated until websocket is connected
                 if (!this.firstConnection) {
                     this.connectionHandler = new PromiseExecutor<void>(undefined);
-                    this.connectionHandler.handleError("Websocket is closed. Reconnecting")
+                    this.connectionHandler.fail("Websocket is closed. Reconnecting")
                 }
 
                 // terminate and delete all executors that are waiting requests
                 this.executors.forEach((executor: Executor<Result | void>, key: string) => {
                     if (executor.type === ExecutorType.Promise) {
-                        executor.handleError("Reconnecting. All waiting requests are terminated.");
+                        executor.fail("Reconnecting. All waiting requests are terminated.");
                         this.executors.delete(key)
 
                     }
@@ -293,7 +293,7 @@ export class WebsocketSession {
 
         const timeout = setTimeout(() => {
             if (this.executors.has(requestId)) {
-                executor.handleError(`Timeout after ${this.timeout} milliseconds.`);
+                executor.fail(`Timeout after ${this.timeout} milliseconds.`);
                 this.executors.delete(requestId);
             }
         }, this.timeout);
