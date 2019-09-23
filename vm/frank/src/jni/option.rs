@@ -19,7 +19,7 @@ use jni::JNIEnv;
 use jni::objects::{JObject, JValue};
 
 /// creates Scala None value
-pub fn create_none_value(env: JNIEnv) -> JValue {
+pub fn create_none_value<'a>(env: &JNIEnv<'a>) -> JValue<'a> {
     env.call_static_method(
         "scala/Option",
         "apply",
@@ -31,7 +31,7 @@ pub fn create_none_value(env: JNIEnv) -> JValue {
 }
 
 /// creates Scala Some[String] value
-pub fn create_some_value(env: JNIEnv, value: String) -> JValue {
+pub fn create_some_value<'a>(env: &JNIEnv<'a>, value: String) -> JValue<'a> {
     let value = env
         .new_string(value)
         .expect("jni: couldn't allocate new string");

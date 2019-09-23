@@ -15,7 +15,6 @@
  */
 
 /// Defines Config struct that is similar to vm/src/main/scala/fluence/vm/config/VmConfig.scala.
-
 use crate::errors::FrankError;
 use jni::objects::{JObject, JString};
 use jni::JNIEnv;
@@ -81,7 +80,7 @@ impl Config {
     /// )
     /// ```
     ///
-    pub fn new(env: JNIEnv, config: JObject) -> Result<Box<Self>, FrankError> {
+    pub fn new(env: &JNIEnv, config: JObject) -> Result<Box<Self>, FrankError> {
         let mem_pages_count = env.call_method(config, "memPagesCount", "()I", &[])?.i()?;
         let logger_enabled = env.call_method(config, "loggerEnabled", "()Z", &[])?.z()?;
         let chunk_size = env.call_method(config, "chunkSize", "()I", &[])?.i()?;

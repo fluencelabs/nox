@@ -27,9 +27,6 @@ pub enum InstantiationError {
 
     /// Error that raises during creation of some Wasm objects (like table and memory) by Wasmer.
     WasmerCompileError(String),
-
-    /// Error that raises during instantiation of Wasm code by Wasmer.
-    WasmerInstantiationError(String),
 }
 
 pub enum FrankError {
@@ -40,7 +37,7 @@ pub enum FrankError {
     JNIError(String),
 
     /// Errors for I/O errors raising while opening a file.
-    IncorrectPathError(String),
+    IOError(String),
 
     /// This error type is produced by Wasmer during resolving a Wasm function.
     WasmerResolveError(String),
@@ -49,7 +46,7 @@ pub enum FrankError {
     WasmerInvokeError(String),
 
     /// Error indicates that smth really bad happened (like removing the global Frank state).
-    FrankIncorrectState,
+    FrankNotInitialized,
 }
 
 impl std::fmt::Display for InstantiationError {
@@ -57,7 +54,6 @@ impl std::fmt::Display for InstantiationError {
         match self {
             InstantiationError::WasmerCompileError(msg) => write!(f, "{}", msg),
             InstantiationError::WasmerCreationError(msg) => write!(f, "{}", msg),
-            InstantiationError::WasmerInstantiationError(msg) => write!(f, "{}", msg),
         }
     }
 }
@@ -65,7 +61,16 @@ impl std::fmt::Display for InstantiationError {
 impl std::fmt::Display for FrankError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
         match self {
-            _ => write!(f, "sad"),
+            FrankError::InstantiationError(msg) => write!(f, "InstantiationError: {}", msg),
+            FrankError::JNIError(msg) => write!(f, "JNIError: {}", msg),
+            FrankError::IOError(msg) => write!(f, "IOError: {}", msg),
+            FrankError::WasmerResolveError(msg) => write!(f, "WasmerResolveError: {}", msg),
+            FrankError::WasmerInvokeError(msg) => write!(f, "WasmerInvokeError: {}", msg),
+            FrankError::FrankNotInitialized => write!(
+                f,
+                "Attempt to use invoke virtual machine while it hasn't been initialized.\
+                 Please call the initialization method first."
+            ),
         }
     }
 }
@@ -123,6 +128,6 @@ impl From<Error> for FrankError {
 
 impl From<std::io::Error> for FrankError {
     fn from(err: std::io::Error) -> Self {
-        FrankError::IncorrectPathError(format!("{}", err))
+        FrankError::IOError(format!("{}", err))
     }
 }

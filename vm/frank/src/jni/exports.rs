@@ -18,14 +18,12 @@ use jni::JNIEnv;
 
 use crate::config::Config;
 use crate::errors::FrankError;
-use crate::frank::Frank;
+use crate::frank::{Frank, FRANK};
 use crate::frank_result::FrankResult;
 use crate::jni::jni_results::*;
 use jni::objects::{JClass, JObject, JString};
 use jni::sys::jbyteArray;
 use sha2::digest::generic_array::GenericArray;
-
-static mut FRANK: Option<Box<Frank>> = None;
 
 /// Initializes Frank virtual machine.
 #[no_mangle]
@@ -36,23 +34,22 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_initialize<'a>(
     config: JObject,
 ) -> JObject<'a> {
     fn initialize<'a>(
-        env: JNIEnv<'a>,
+        env: &JNIEnv<'a>,
         module_path: JString,
         config: JObject,
     ) -> Result<(), FrankError> {
         let file_name: String = env.get_string(module_path)?.into();
-        let config = Config::new(env, config)?;
+        let config = Config::new(&env, config)?;
         let executor = Box::new(Frank::new(&file_name, config)?);
+
         unsafe { FRANK = Some(executor) };
 
-        println!("frank: init ended");
         Ok(())
     }
 
-    let env_clone = env.clone();
-    match initialize(env, module_path, config) {
-        Ok(_) => create_initialization_result(env_clone, None),
-        Err(err) => create_initialization_result(env_clone, Some(format!("{}", err))),
+    match initialize(&env, module_path, config) {
+        Ok(_) => create_initialization_result(&env, None),
+        Err(err) => create_initialization_result(&env, Some(format!("{}", err))),
     }
 }
 
@@ -63,7 +60,7 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_invoke<'a>(
     _class: JClass,
     fn_argument: jbyteArray,
 ) -> JObject<'a> {
-    fn invoke(env: JNIEnv, fn_argument: jbyteArray) -> Result<FrankResult, FrankError> {
+    fn invoke(env: &JNIEnv, fn_argument: jbyteArray) -> Result<FrankResult, FrankError> {
         let input_len = env.get_array_length(fn_argument)?;
         let mut input = vec![0; input_len as _];
         env.get_byte_array_region(fn_argument, 0, input.as_mut_slice())?;
@@ -77,33 +74,36 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_invoke<'a>(
         unsafe {
             match FRANK {
                 Some(ref mut vm) => Ok(vm.invoke(&u8_input)?),
-                None => Err(FrankError::FrankIncorrectState),
+                None => Err(FrankError::FrankNotInitialized),
             }
         }
     }
 
-    let env_clone = env.clone();
-    match invoke(env, fn_argument) {
-        Ok(result) => create_invocation_result(env_clone, None, result),
+    match invoke(&env, fn_argument) {
+        Ok(result) => create_invocation_result(&env, None, result),
         Err(err) => {
-            create_invocation_result(env_clone, Some(format!("{}", err)), FrankResult::default())
+            create_invocation_result(&env, Some(format!("{}", err)), FrankResult::default())
         }
     }
 }
 
 /// Computes hash of the internal VM state.
 #[no_mangle]
-pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_computeVmState(
-    env: JNIEnv,
+pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_computeVmState<'a>(
+    env: JNIEnv<'a>,
     _class: JClass,
-) -> jbyteArray {
-    let result = unsafe {
+) -> JObject<'a> {
+    unsafe {
         match FRANK {
-            Some(ref mut vm) => vm.compute_vm_state_hash(),
-            None => GenericArray::default(),
+            Some(ref mut vm) => {
+                let state = vm.compute_vm_state_hash();
+                create_state_computation_result(&env, None, state)
+            }
+            None => create_state_computation_result(
+                &env,
+                Some(format!("{}", FrankError::FrankNotInitialized)),
+                GenericArray::default(),
+            ),
         }
-    };
-
-    env.byte_array_from_slice(result.as_slice())
-        .expect("Couldn't allocate enough space for byte array")
+    }
 }

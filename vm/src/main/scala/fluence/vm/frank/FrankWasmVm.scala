@@ -23,7 +23,7 @@ import cats.effect.{IO, LiftIO}
 import fluence.vm.{InvocationResult, WasmVm}
 import scodec.bits.ByteVector
 import fluence.vm.error.{InvocationError, StateComputationError}
-import fluence.vm.frank.result.RawInvocationResult
+import fluence.vm.frank.result.{RawInvocationResult, RawStateComputationResult}
 
 import scala.language.higherKinds
 
@@ -53,11 +53,14 @@ class FrankWasmVm(
 
   override def computeVmState[F[_]: LiftIO: Monad]: EitherT[F, StateComputationError, ByteVector] =
     EitherT(
-      IO(vmRunnerInvoker.computeVmState())
-        .map(ByteVector(_))
-        .attempt
+      IO(vmRunnerInvoker.computeVmState()).attempt
         .to[F]
-    ).leftMap(e ⇒ StateComputationError(s"Frank getting VM state failed. Cause: ${e.getMessage}", Some(e)))
+    ).leftMap(e ⇒ StateComputationError(s"Frank getting VM state failed. Cause: ${e.getMessage}", Some(e))).subflatMap {
+      case RawStateComputationResult(Some(err), _) ⇒
+        StateComputationError(s"Frank invocation failed. Cause: $err").asLeft[ByteVector]
+      case RawStateComputationResult(None, state) ⇒
+        ByteVector(state).asRight[StateComputationError]
+    }
 
   val expectsEth: Boolean = false
 }

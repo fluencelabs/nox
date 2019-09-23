@@ -41,5 +41,5 @@ class FrankAdapter {
    * Returns hash of all significant inner state of this VM. This function calculates
    * hashes for the state of each module and then concatenates them together.
    */
-  @native def computeVmState(): Array[Byte]
+  @native def computeVmState(): RawStateComputationResult
 }

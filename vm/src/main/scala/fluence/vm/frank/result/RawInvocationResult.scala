@@ -19,8 +19,8 @@ package fluence.vm.frank.result
 /**
  * Represents raw JNI result of calling FrankAdapter::invoke.
  *
- * @param error represents various invocation errors, Wasmer could return both a result and a error
- * @param output the computed result by Frank VM
- * @param spentGas spent gas by producing the output
+ * @param error represents various invocation errors, None - no error occurred
+ * @param output the computed result by Frank VM, valid only if no error occured (error == None)
+ * @param spentGas spent gas by producing the output, valid only if no error occured (error == None)
  */
 case class RawInvocationResult(error: Option[String], output: Array[Byte], spentGas: Long)

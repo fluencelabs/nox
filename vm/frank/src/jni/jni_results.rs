@@ -18,14 +18,13 @@ use crate::frank_result::FrankResult;
 use crate::jni::option::*;
 use jni::objects::{JObject, JValue};
 use jni::JNIEnv;
+use sha2::{digest::generic_array::GenericArray, digest::FixedOutput, Sha256};
 
-/// Creates RawInitializationResult object.
-pub fn create_initialization_result(env: JNIEnv, error: Option<String>) -> JObject {
-    let env_clone = env.clone();
-
+/// Creates RawInitializationResult object for Scala part.
+pub fn create_initialization_result<'a>(env: &JNIEnv<'a>, error: Option<String>) -> JObject<'a> {
     let error_value = match error {
-        Some(err) => create_some_value(env_clone, err),
-        None => create_none_value(env_clone),
+        Some(err) => create_some_value(&env, err),
+        None => create_none_value(&env),
     };
 
     env.call_static_method(
@@ -39,16 +38,15 @@ pub fn create_initialization_result(env: JNIEnv, error: Option<String>) -> JObje
     .expect("jni: couldn't convert RawInitializationResult to Java Object")
 }
 
-/// Creates RawInvocationResult object.
-pub fn create_invocation_result(
-    env: JNIEnv,
+/// Creates RawInvocationResult object for Scala part.
+pub fn create_invocation_result<'a>(
+    env: &JNIEnv<'a>,
     error: Option<String>,
     result: FrankResult,
-) -> JObject {
-    let env_clone = env.clone();
+) -> JObject<'a> {
     let error_value = match error {
-        Some(err) => create_some_value(env_clone, err),
-        None => create_none_value(env_clone),
+        Some(err) => create_some_value(&env, err),
+        None => create_none_value(&env),
     };
 
     let outcome = env.byte_array_from_slice(&result.outcome).unwrap();
@@ -60,6 +58,33 @@ pub fn create_invocation_result(
         "apply",
         "(Lscala/Option;[BJ)Lfluence/vm/frank/result/RawInvocationResult;",
         &[error_value, JValue::from(outcome), spent_gas],
+    )
+    .expect("jni: couldn't allocate RawInvocationResult object")
+    .l()
+    .expect("jni: couldn't convert RawInvocationResult to Java Object")
+}
+
+/// Creates RawStateComputationResult object for Scala part.
+pub fn create_state_computation_result<'a>(
+    env: &JNIEnv<'a>,
+    error: Option<String>,
+    state: GenericArray<u8, <Sha256 as FixedOutput>::OutputSize>,
+) -> JObject<'a> {
+    let error_value = match error {
+        Some(err) => create_some_value(&env, err),
+        None => create_none_value(&env),
+    };
+
+    let state = env
+        .byte_array_from_slice(state.as_slice())
+        .expect("jni: couldn't allocate enough space for byte array");
+    let state = JObject::from(state);
+
+    env.call_static_method(
+        "fluence/vm/frank/result/RawStateComputationResult",
+        "apply",
+        "(Lscala/Option;[B)Lfluence/vm/frank/result/RawStateComputationResult;",
+        &[error_value, JValue::from(state)],
     )
     .expect("jni: couldn't allocate RawInvocationResult object")
     .l()

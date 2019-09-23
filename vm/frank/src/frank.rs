@@ -28,6 +28,12 @@ pub struct Frank {
     config: Box<Config>,
 }
 
+// Waiting for https://github.com/wasmerio/wasmer/issues/748 to be landed in Wasmer.
+// It will allow to use lazy_static here. thread_local isn't suitable here because
+// it is difficult to guarantee that jni code will be called on the same thead context
+// everytime from the Scala part.
+pub static mut FRANK: Option<Box<Frank>> = None;
+
 impl Frank {
     /// Writes given value on the given address.
     fn write_to_mem(&mut self, address: usize, value: &[u8]) -> Result<(), FrankError> {
