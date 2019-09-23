@@ -75,6 +75,22 @@ class AwaitResponses[F[_]: Concurrent: Parallel: Timer, B: TxsBlock](
     }
 
   /**
+   * Get all subscriptions for an app by `appId`, queries responses from tendermint.
+   */
+  private def pollResponses(machine: StateMachine[F])(implicit log: Log[F]): F[Unit] = {
+    import cats.instances.list._
+    import cats.syntax.traverse._
+
+    for {
+      responsePromises <- subscribesRef.get
+      (complete, retry) <- queryResponses(responsePromises.values.toList, machine)
+      _ <- updateSubscriptions(complete.map(_._1.id), retry)
+      // complete promises with responses
+      _ <- complete.traverse { case (p, r) => p.complete(r) }
+    } yield ()
+  }
+
+  /**
    * @return true if block contains any non-pubsub txs, false otherwise
    */
   private def nonEmptyBlock(block: B): Boolean = TxsBlock[B].txs(block).exists(!isRepeatTx(_))
@@ -100,15 +116,16 @@ class AwaitResponses[F[_]: Concurrent: Parallel: Timer, B: TxsBlock](
     log.debug(s"Polling ${promises.size} promises") >> log.trace(s"promises: ${promises.map(_.id).mkString(" ")}")
 
   /**
-   * Query responses for subscriptions.
+   * Query responses for all existing subscriptions
    *
    * @param promises list of subscriptions
-   * @return all queried responses
+   * @param machine Statemachine api
+   * @return All responses partitioned into two lists: completed and to be retried
    */
   private def queryResponses(
     promises: List[ResponsePromise[F]],
     machine: StateMachine[F]
-  )(implicit log: Log[F]): F[List[(ResponsePromise[F], AwaitedResponse)]] = {
+  )(implicit log: Log[F]) = {
     import cats.syntax.list._
     import cats.syntax.parallel._
     log.scope("queryResponses" -> "") { implicit log =>
@@ -117,61 +134,44 @@ class AwaitResponses[F[_]: Concurrent: Parallel: Timer, B: TxsBlock](
           .map(p => query(p.id).tupleLeft(p))
           .toNel
           .map(_.parSequence.map(_.toList))
-          .getOrElse(List.empty.pure[F])
+          .getOrElse(List.empty[(ResponsePromise[F], AwaitedResponse)].pure[F])
+          .map(partition)
     }
   }
 
   /**
-   * Checks all responses, completes all `ok` responses, increments `tries` counter for `bad` responses,
-   * updates state of promises.
+   * Partitions promises into two lists: to complete and to retry.
    *
+   * @param responses List of responses to partition
+   * @return tuple of lists: left component is a list of promises to be completed; right – to be retried.
    */
-  private def updateSubscribesByResult(
-    responses: List[(ResponsePromise[F], AwaitedResponse)]
-  )(implicit log: Log[F], F: Applicative[F]): F[Unit] = {
-    import cats.instances.list._
+  private def partition(responses: List[(ResponsePromise[F], AwaitedResponse)])(implicit log: Log[F]) = {
     import cats.syntax.either._
-    import cats.syntax.traverse._
 
     def tout(p: ResponsePromise[F]) = TimedOutResponse(p.id, p.tries)
     def inc(p: ResponsePromise[F]) = p.copy(tries = p.tries + 1)
 
-    val (complete, retry) = {
-      // TODO: use partitionMap from 2.13
-      val (left, right) = responses.map {
-        case t @ (_, _: OkResponse | _: TimedOutResponse)          => t.asLeft // Got response
-        case (p, e: RpcErrorResponse) if p.tries == maxBlocksTries => (p, e).asLeft // Error, no more tries
-        case (p, _: PendingResponse) if p.tries == maxBlocksTries  => (p, tout(p)).asLeft // No response, no more tries
-        case (p, _: RpcErrorResponse | _: PendingResponse)         => (p.id, inc(p)).asRight // Error or no response, retry
-      }.partition(_.isLeft)
+    // TODO: use partitionMap from 2.13
+    val (left, right) = responses.map {
+      case t @ (_, _: OkResponse | _: TimedOutResponse)          => t.asLeft // Got response
+      case (p, e: RpcErrorResponse) if p.tries == maxBlocksTries => (p, e).asLeft // Error, no more tries
+      case (p, _: PendingResponse) if p.tries == maxBlocksTries  => (p, tout(p)).asLeft // No response, no more tries
+      case (p, _: RpcErrorResponse | _: PendingResponse)         => (p.id, inc(p)).asRight // Error or no response, retry
+    }.partition(_.isLeft)
 
-      (left.map(_.left.get), right.map(_.right.get))
-    }
-
-    for {
-      _ <- subscribesRef.update(_ -- complete.map(_._1.id) ++ retry)
-      _ <- complete.traverse { case (p, r) => p.complete(r) }
-    } yield ()
+    (left.map(_.left.get), right.map(_.right.get))
   }
 
   /**
-   * Get all subscriptions for an app by `appId`, queries responses from tendermint.
+   * Removes completed and adds retries
    */
-  private def pollResponses(machine: StateMachine[F])(implicit log: Log[F]): F[Unit] =
-    for {
-      responsePromises <- subscribesRef.get
-      responses <- queryResponses(responsePromises.values.toList, machine)
-      _ <- updateSubscribesByResult(responses)
-    } yield ()
-
+  private def updateSubscriptions(completed: List[Tx.Head], retries: List[(Tx.Head, ResponsePromise[F])]) =
+    subscribesRef.update(_ -- completed ++ retries)
 }
 
 object AwaitResponses {
-
   val MaxBlocksTries = 10
-
   val RepeatSessionPrefix = "repeat"
-
   private val AwaitSessionPrefixBytes = ByteVector(RepeatSessionPrefix.getBytes)
 
   def make[F[_]: Parallel: Concurrent: Log: Timer, B: TxsBlock](
