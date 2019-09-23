@@ -40,7 +40,7 @@ import scala.language.higherKinds
  * @param queue Queue to send resulting events to
  * @param disconnected Promise, will be completed when websocket signals disconnection
  */
-class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
+class WsListener[F[_]: ConcurrentEffect: Timer](
   wsUrl: String,
   payloadAccumulator: Ref[F, String],
   queue: Queue[F, Event],
@@ -163,7 +163,7 @@ class WsListener[F[_]: ConcurrentEffect: Timer: ContextShift](
 
 object WsListener {
 
-  def apply[F[_]: ConcurrentEffect: Timer: ContextShift](
+  def apply[F[_]: ConcurrentEffect: Timer](
     wsUrl: String,
     payloadAccumulator: Ref[F, String],
     queue: Queue[F, Event],

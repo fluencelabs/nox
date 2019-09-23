@@ -59,7 +59,7 @@ private[websocket] case object Start extends Event
  * @param blockstore Tendermint's database, to retrieve last height & blocks when HTTP RPC doesn't work (during replay)
  * @param websocketConfig Configuration for websocket: ping interval, timeout, etc
  */
-class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer: Monad: ContextShift](
+class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer](
   host: String,
   port: Int,
   httpRpc: TendermintHttpRpc[F],

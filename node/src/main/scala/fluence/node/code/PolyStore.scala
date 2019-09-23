@@ -42,7 +42,7 @@ class PolyStore[F[_]: Sync: ContextShift](
    * @param ref Content's hash and storage type
    * @param dest Destination file (not folder!). File will be created if it doesn't exist
    */
-  def fetchTo(ref: StorageRef, dest: Path)(implicit log: Log[F]): EitherT[F, StoreError, Unit] = {
+  def fetchTo(ref: StorageRef, dest: Path)(implicit log: Log[F]): EitherT[F, StoreError, Unit] =
     selector(ref.storageType)
       .fetch(ref.storageHash)
       .flatMap(
@@ -53,15 +53,15 @@ class PolyStore[F[_]: Sync: ContextShift](
           .attemptT
           .leftMap(err ⇒ StorageToFileFailed(ref.storageHash, dest, err): StoreError)
       )
-  }
+
 
   /**
    * Returns hash of files from a directory.
    * If hash belongs to file, returns the same hash.
    *
    */
-  def ls(ref: StorageRef)(implicit log: Log[F]): EitherT[F, StoreError, List[ByteVector]] = {
+  def ls(ref: StorageRef)(implicit log: Log[F]): EitherT[F, StoreError, List[ByteVector]] =
     selector(ref.storageType).ls(ref.storageHash)
-  }
+
 
 }

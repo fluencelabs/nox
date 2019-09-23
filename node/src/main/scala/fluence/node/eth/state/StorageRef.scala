@@ -15,6 +15,7 @@
  */
 
 package fluence.node.eth.state
+
 import fluence.node.eth.state.StorageType.StorageType
 import scodec.bits.ByteVector
 
@@ -28,15 +29,13 @@ import scodec.bits.ByteVector
 case class StorageRef private[eth] (storageHash: ByteVector, storageType: StorageType)
 
 case object StorageRef {
-  private[eth] def apply(storageHash: ByteVector, storageType: ByteVector): StorageRef = {
+  private[eth] def apply(storageHash: ByteVector, storageType: ByteVector): StorageRef =
     new StorageRef(storageHash, convertStorageType(storageType))
-  }
 
-  private def convertStorageType(storageType: ByteVector): StorageType = {
+  private def convertStorageType(storageType: ByteVector): StorageType =
     storageType.lastOption.map(_.toInt) match {
       case Some(0) => StorageType.Swarm
       case Some(1) => StorageType.Ipfs
       case _       => StorageType.Ipfs
     }
-  }
 }

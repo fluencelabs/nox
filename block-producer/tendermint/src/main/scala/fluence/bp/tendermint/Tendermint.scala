@@ -16,13 +16,36 @@
 
 package fluence.bp.tendermint
 
+import java.nio.file.Path
+
+import cats.effect.{ConcurrentEffect, ContextShift, Resource, Timer}
+import fluence.effects.sttp.SttpEffect
+import fluence.effects.tendermint.block.history.db.Blockstore
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
+import fluence.log.Log
 
 import scala.language.higherKinds
 
-// TODO should it be a case class? should Blockstore be there? (it's available only on local Tendermint installation)
-case class Tendermint[F[_]](
-  rpc: TendermintHttpRpc[F],
-  wrpc: TendermintWebsocketRpc[F]
+class Tendermint[F[_]](
+  val rpc: TendermintHttpRpc[F],
+  val wrpc: TendermintWebsocketRpc[F],
+  val blockstore: Blockstore[F]
 )
+
+object Tendermint {
+  def apply[F[_]: ConcurrentEffect: Timer: SttpEffect: ContextShift: Log](
+                                                                           host: String,
+                                                                           port: Short,
+                                                                           path: Path
+                                                                         ): Resource[F, Tendermint[F]] =
+      Blockstore.make[F](path).map{bs ⇒
+        val rpc = TendermintHttpRpc[F](host, port)
+        new Tendermint[F](
+          rpc,
+          TendermintWebsocketRpc(host, port, rpc, bs),
+          bs
+        )
+      }
+
+}

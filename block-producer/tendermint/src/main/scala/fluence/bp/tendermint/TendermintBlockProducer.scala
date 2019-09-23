@@ -54,4 +54,7 @@ class TendermintBlockProducer[F[_]](
   override def sendTx(txData: Array[Byte])(implicit log: Log[F]): EitherT[F, EffectError, TxResponse] = ???
 }
 
-object TendermintBlockProducer {}
+object TendermintBlockProducer {
+  def apply[F[_]](tendermint: Tendermint[F]): TendermintBlockProducer[F] =
+    new TendermintBlockProducer[F](tendermint)
+}

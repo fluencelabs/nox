@@ -16,7 +16,6 @@
 
 package fluence.effects.tendermint.rpc.websocket
 
-import cats.Monad
 import cats.effect._
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.db.Blockstore
@@ -63,7 +62,7 @@ object TendermintWebsocketRpc {
    * @tparam F Concurrent effect
    * @return Tendermint websocket RPC instance. Note that it should be stopped at some point, and can't be used after it's stopped
    */
-  def make[F[_]: ConcurrentEffect: Timer: Monad: ContextShift](
+  def apply[F[_]: ConcurrentEffect: Timer](
     host: String,
     port: Int,
     httpRpc: TendermintHttpRpc[F],

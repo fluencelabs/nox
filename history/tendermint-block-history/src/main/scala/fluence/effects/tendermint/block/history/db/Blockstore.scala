@@ -118,11 +118,11 @@ object Blockstore {
   )(implicit log: Log[F]): Resource[F, Blockstore[F]] =
     log.scope("blockstore") { implicit log: Log[F] =>
       raiseLeft(
-        Monad[Resource[F, ?]].tailRecM(tendermintPath.resolve("data").resolve("blockstore.db")) { path =>
+        Monad[Resource[F, *]].tailRecM(tendermintPath.resolve("data").resolve("blockstore.db")) { path =>
           val storeOrError = for {
             dbPath <- createSymlinks[F](path)
             _ <- Log.resource[F].debug(s"Opening DB at $dbPath")
-            store <- Traverse[Either[BlockstoreError, ?]].sequence(dbPath.map(rocksDbStore[F]))
+            store <- Traverse[Either[BlockstoreError, *]].sequence(dbPath.map(rocksDbStore[F]))
           } yield store
 
           storeOrError.evalMap {

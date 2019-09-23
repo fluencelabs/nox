@@ -40,4 +40,14 @@ object Worker {
 
     type Producer = BlockProducer.Aux[F, B]
   }
+
+  def apply[F[_], C <: HList, B](_machine: StateMachine.Aux[F, C], _producer: BlockProducer.Aux[F, B]): Worker.Aux[F, C, B] =
+    new Worker[F] {
+      override type Machine = StateMachine.Aux[F, C]
+      override type Producer = BlockProducer.Aux[F, B]
+
+      override val machine: Machine = _machine
+
+      override val producer: Producer = _producer
+    }
 }
