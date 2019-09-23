@@ -37,7 +37,7 @@ import fluence.effects.receipt.storage.{ReceiptStorage, ReceiptStorageError}
 import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block.data.{Base64ByteVector, Block}
 import fluence.effects.tendermint.block.history.{BlockManifest, Receipt}
-import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestErrored, TendermintHttpRpc}
+import fluence.effects.tendermint.rpc.http.{RpcError, RpcHttpError, TendermintHttpRpc}
 import fluence.effects.tendermint.rpc.websocket.{TendermintWebsocketRpc, TestTendermintWebsocketRpc, WebsocketConfig}
 import fluence.effects.tendermint.{block, rpc}
 import fluence.effects.{Backoff, EffectError}
@@ -94,7 +94,7 @@ class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matche
 
   val tendermintRpc = new TestTendermintRpc {
     override def block(height: Long, id: String): EitherT[IO, RpcError, Block] = {
-      EitherT.leftT(RpcRequestErrored(777, "Block wasn't provided intentionally, for tests purpose"): RpcError)
+      EitherT.leftT(RpcHttpError(777, "Block wasn't provided intentionally, for tests purpose"): RpcError)
     }
   }
 

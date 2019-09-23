@@ -18,6 +18,7 @@ package fluence.effects.tendermint.rpc.http
 
 import cats.{Functor, Monad}
 import cats.data.EitherT
+import fluence.bp.tx.TxResponse
 import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc.response.TendermintStatus
@@ -48,7 +49,7 @@ trait TendermintHttpRpc[F[_]] {
   def consensusHeight(id: String = "dontcare")(implicit log: Log[F]): EitherT[F, RpcError, Long]
 
   /** Sends a transaction to the Tendermint node */
-  def broadcastTxSync(tx: String, id: String)(implicit log: Log[F]): EitherT[F, RpcError, String]
+  def broadcastTxSync(tx: Array[Byte], id: String = "dontcare")(implicit log: Log[F]): EitherT[F, RpcError, TxResponse]
 
   /**
    * Signals Tendermint node to connecting to the specified peers
@@ -62,6 +63,7 @@ trait TendermintHttpRpc[F[_]] {
     id: String = "dontcare"
   )(implicit log: Log[F]): EitherT[F, RpcError, String]
 
+  // TODO: return QueryResponse instead of String
   def query(
     path: String,
     data: String = "",

@@ -25,15 +25,13 @@ import cats.syntax.functor._
 import io.circe.parser.decode
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import cats.syntax.applicative._
-import fluence.bp.tx.{Tx, TxCode}
+import fluence.bp.tx.{Tx, TxCode, TxResponse}
 
 import scala.language.higherKinds
 
 trait WaitResponseService[F[_]] {
 
-  def sendTxAwaitResponse(tx: String, id: Option[String])(
-    implicit log: Log[F]
-  ): F[Either[TxAwaitError, TendermintQueryResponse]]
+  def sendTxAwaitResponse(tx: Array[Byte])(implicit log: Log[F]): F[Either[TxAwaitError, TendermintQueryResponse]]
 
 }
 
@@ -62,21 +60,10 @@ class WaitResponseServiceImpl[F[_]: Monad](
    *
    */
   private def checkTxResponse(
-    response: String
+    txResponse: TxResponse
   )(implicit log: Log[F]): EitherT[F, TxAwaitError, Unit] = {
     for {
-      txResponseOrError <- EitherT
-        .fromEither[F](decode[Either[TendermintRpcError, TxResponseCode]](response)(TendermintRpcError.eitherDecoder))
-        .leftSemiflatMap(
-          err =>
-            // this is because tendermint could return other responses without code,
-            // the node should return this as is to the client
-            log
-              .error(s"Error on txBroadcastSync response deserialization", err)
-              .as(TendermintResponseDeserializationError(response): TxAwaitError)
-        )
-      txResponse <- EitherT.fromEither[F](txResponseOrError).leftMap(identity[TxAwaitError])
-      _ <- if (txResponse.code.exists(_ != TxCode.OK))
+      _ <- if (txResponse.code != TxCode.OK)
         EitherT.left(
           (TxInvalidError(
             s"Response code for transaction is not ok. Code: ${txResponse.code}, info: ${txResponse.info}"
@@ -90,15 +77,15 @@ class WaitResponseServiceImpl[F[_]: Monad](
    * Sends transaction to a state machine and waiting for a response.
    *
    */
-  def sendTxAwaitResponse(tx: String, id: Option[String])(
+  def sendTxAwaitResponse(tx: Array[Byte])(
     implicit log: Log[F]
   ): F[Either[TxAwaitError, TendermintQueryResponse]] =
     (for {
       _ <- EitherT.right(log.debug(s"TendermintRpc broadcastTxSync in txWaitResponse request"))
       txParsed <- EitherT
-        .fromOptionF(Tx.readTx(tx.getBytes()).value, TxParsingError("Incorrect transaction format", tx): TxAwaitError)
+        .fromOptionF(Tx.readTx(tx).value, TxParsingError("Incorrect transaction format", tx): TxAwaitError)
       txBroadcastResponse <- tendermintRpc
-        .broadcastTxSync(tx, id.getOrElse("dontcare"))
+        .broadcastTxSync(tx)
         .leftMap(RpcTxAwaitError(_): TxAwaitError)
       _ <- Log.eitherT.debug("TendermintRpc broadcastTxSync is ok.")
       response <- log.scope("tx.head" -> txParsed.head.toString) { implicit log =>

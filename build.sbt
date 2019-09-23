@@ -280,7 +280,7 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
       sttpCatsBackend % Test
     )
   )
-  .dependsOn(`effects`, `sttp-effect`, `tendermint-block`, `log`, `tendermint-block-history`)
+  .dependsOn(`effects`, `sttp-effect`, `tendermint-block`, `log`, `tendermint-block-history`, `block-producer-tx`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `tendermint-block` = (project in file("history/tendermint-block"))
@@ -406,15 +406,18 @@ lazy val `worker-api` = project
   .dependsOn(`statemachine-api`, `block-producer-api`)
 
 lazy val `block-producer-tx` = project
-    .in(file("block-producer/tx"))
+  .in(file("block-producer/tx"))
   .settings(
-    commons
+    commons,
+    libraryDependencies ++= Seq(
+      circeGeneric
+    )
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`log`)
 
 lazy val `block-producer-api` = project
-    .in(file("block-producer/api"))
+  .in(file("block-producer/api"))
   .settings(
     commons,
     libraryDependencies ++= Seq(

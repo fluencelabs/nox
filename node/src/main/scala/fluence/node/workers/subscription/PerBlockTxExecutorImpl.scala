@@ -137,7 +137,7 @@ class PerBlockTxExecutorImpl[F[_]: Timer: Concurrent](
     val head = Tx.Head(s"${ResponseSubscriber.PubSubSessionPrefix}-$key-$randomStr", 0)
     val tx = Tx(head, data)
 
-    waitResponseService.sendTxAwaitResponse(tx.generateTx(), None)
+    waitResponseService.sendTxAwaitResponse(tx.generateTx())
   }
 
   private def processSubscriptions()(implicit log: Log[F]) = {

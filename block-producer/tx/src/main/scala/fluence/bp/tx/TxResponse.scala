@@ -15,6 +15,8 @@
  */
 
 package fluence.bp.tx
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto._
 
 /**
  * A structure for aggregating data specific to building `CheckTx`/`DeliverTx` ABCI response.
@@ -23,3 +25,8 @@ package fluence.bp.tx
  * @param info response message
  */
 case class TxResponse(code: TxCode.Value, info: String, height: Option[Long] = None)
+
+object TxResponse {
+  implicit val encoder: Encoder[TxResponse] = deriveEncoder
+  implicit val decoder: Decoder[TxResponse] = deriveDecoder
+}

@@ -27,7 +27,7 @@ import cats.{Parallel, Traverse}
 import fluence.bp.tx.Tx
 import fluence.effects.tendermint.block.data.{Base64ByteVector, Block}
 import fluence.effects.{Backoff, EffectError}
-import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError, RpcRequestErrored, TendermintHttpRpc}
+import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError, RpcHttpError, TendermintHttpRpc}
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.log.Log
 import fluence.node.MakeResource
@@ -96,9 +96,12 @@ class ResponseSubscriberImpl[F[_]: Parallel: Timer](
    *
    * @param id session/nonce of request
    */
-  private def parseResponse(id: Tx.Head, response: String)(implicit log: Log[F]): EitherT[F, RpcError, TendermintQueryResponse] = {
+  private def parseResponse(id: Tx.Head, response: String)(
+    implicit log: Log[F]
+  ): EitherT[F, RpcError, TendermintQueryResponse] = {
     for {
       code <- EitherT
+      // TODO: use QueryResponse instead of QueryResponseCode
         .fromEither(decode[QueryResponseCode](response))
         .leftSemiflatMap(
           err =>
@@ -144,7 +147,7 @@ class ResponseSubscriberImpl[F[_]: Parallel: Timer](
               .map(
                 _.collect {
                   case Right(r) => r
-                  case Left((responsePromise, err: RpcRequestErrored)) =>
+                  case Left((responsePromise, err: RpcHttpError)) =>
                     (responsePromise, OkResponse(responsePromise.id, err.error))
                   case Left((responsePromise, rpcError)) =>
                     (responsePromise, RpcErrorResponse(responsePromise.id, rpcError): TendermintQueryResponse)
@@ -160,7 +163,9 @@ class ResponseSubscriberImpl[F[_]: Parallel: Timer](
    * updates state of promises.
    *
    */
-  private def updateSubscribesByResult(responses: List[(ResponsePromise[F], TendermintQueryResponse)])(implicit log: Log[F]): F[Unit] = {
+  private def updateSubscribesByResult(
+    responses: List[(ResponsePromise[F], TendermintQueryResponse)]
+  )(implicit log: Log[F]): F[Unit] = {
     import cats.instances.list._
     for {
       completionList <- subscribesRef.modify { subsMap =>

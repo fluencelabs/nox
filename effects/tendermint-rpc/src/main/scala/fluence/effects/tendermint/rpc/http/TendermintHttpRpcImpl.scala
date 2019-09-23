@@ -21,11 +21,14 @@ import cats.syntax.apply._
 import cats.syntax.either._
 import cats.{Functor, Monad}
 import com.softwaremill.sttp._
+import com.softwaremill.sttp.circe._
+import fluence.bp.tx.TxResponse
 import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc.response.{Response, TendermintStatus}
 import fluence.log.Log
-import io.circe.Json
+import io.circe
+import io.circe.{Decoder, Json}
 import io.circe.parser.decode
 
 import scala.language.higherKinds
@@ -89,11 +92,13 @@ case class TendermintHttpRpcImpl[F[_]: Monad: SttpEffect](
    * @param tx Transaction body
    * @param id Tracking ID, you may omit it
    */
-  def broadcastTxSync(tx: String, id: String)(implicit log: Log[F]): EitherT[F, RpcError, String] =
-    post(
+  def broadcastTxSync(tx: Array[Byte], id: String = "dontcare")(
+    implicit log: Log[F]
+  ): EitherT[F, RpcError, TxResponse] =
+    postT[TxResponse](
       RpcRequest(
         method = "broadcast_tx_sync",
-        params = Json.fromString(java.util.Base64.getEncoder.encodeToString(tx.getBytes)) :: Nil,
+        params = Json.fromString(java.util.Base64.getEncoder.encodeToString(tx)) :: Nil,
         id = id
       )
     )
@@ -132,15 +137,14 @@ case class TendermintHttpRpcImpl[F[_]: Monad: SttpEffect](
     )
 
   /** Perform the request, and lift the errors to EitherT */
-  private def sendHandlingErrors(
-    reqT: RequestT[Id, String, Nothing]
-  )(implicit log: Log[F]): EitherT[F, RpcError, String] =
+  private def sendHandlingErrors[T](
+    reqT: RequestT[Id, T, Nothing]
+  )(implicit log: Log[F]): EitherT[F, RpcError, T] =
     reqT
       .send()
       .leftMap[RpcError](RpcRequestFailed)
-      .subflatMap[RpcError, String] { resp ⇒
-        val eitherResp = resp.body
-          .leftMap[RpcError](RpcRequestErrored(resp.code, _))
+      .subflatMap[RpcError, T] { resp ⇒
+        val eitherResp = resp.body.leftMap[RpcError](RpcHttpError(resp.code, _))
 
         // Print just the first line of response
         // TODO really? it does nothing
@@ -163,7 +167,11 @@ case class TendermintHttpRpcImpl[F[_]: Monad: SttpEffect](
   /**
    * Performs a Post request, sending the given [[RpcRequest]]
    */
-  private def post(req: RpcRequest)(implicit log: Log[F]) =
-    logPost(req) *> sendHandlingErrors(sttp.post(RpcUri).body(req.toJsonString))
+  private def postT[T: Decoder](req: RpcRequest)(implicit log: Log[F]): EitherT[F, RpcError, T] = {
+    import RpcCallError._
+    val request = sttp.post(RpcUri).body(req.toJsonString).response(asJson[Either[RpcCallError, T]])
+    logPost(req) *> sendHandlingErrors(request).subflatMap(_.leftMap(e => RpcBodyMalformed(e.error)).flatMap(identity))
+  }
 
+  private def post(req: RpcRequest)(implicit log: Log[F]): EitherT[F, RpcError, String] = postT[String](req)
 }

@@ -34,7 +34,7 @@ case class TendermintResponseDeserializationError(responseError: String) extends
 case class RpcTxAwaitError(rpcError: RpcError) extends TxAwaitError {
   override def msg: String = rpcError.getMessage
 }
-case class TxParsingError(msg: String, tx: String) extends TxAwaitError
+case class TxParsingError(msg: String, tx: Array[Byte]) extends TxAwaitError
 case class TxInvalidError(msg: String) extends TxAwaitError
 case class TendermintRpcError(code: Int, message: String, data: String) extends TxAwaitError {
   override def msg: String = s"Tendermint error. Code: $code, message: $message, data: $data"

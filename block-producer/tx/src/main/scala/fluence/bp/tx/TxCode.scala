@@ -16,6 +16,11 @@
 
 package fluence.bp.tx
 
+import io.circe.{Decoder, Encoder}
+
 object TxCode extends Enumeration {
   val OK, BAD, BadNonce, QueueDropped, AlreadyProcessed = Value
+
+  implicit val codeDecoder: Decoder[TxCode.Value] = Decoder.decodeEnumeration(TxCode)
+  implicit val codeEncoder: Encoder[TxCode.Value] = Encoder.encodeEnumeration(TxCode)
 }

@@ -19,7 +19,7 @@ package fluence.node.workers.api
 import cats.effect.Concurrent
 import cats.syntax.apply._
 import cats.syntax.functor._
-import fluence.bp.tx.Tx
+import fluence.bp.tx.{Tx, TxResponse}
 import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestFailed}
 import fluence.log.Log
 import fluence.node.workers.Worker
@@ -61,16 +61,14 @@ trait WorkerApi[F[_]] {
    *
    * @param tx transaction to process
    */
-  def sendTx(tx: String, id: Option[String])(
-    implicit log: Log[F]
-  ): F[Either[RpcError, String]]
+  def sendTx(tx: Array[Byte])(implicit log: Log[F]): F[Either[RpcError, TxResponse]]
 
   /**
    * Sends the transaction to tendermint and then query for a response after each block.
    *
    * @param tx transaction to process
    */
-  def sendTxAwaitResponse(tx: String, id: Option[String])(
+  def sendTxAwaitResponse(tx: Array[Byte])(
     implicit log: Log[F]
   ): F[Either[TxAwaitError, TendermintQueryResponse]]
 
@@ -124,19 +122,19 @@ object WorkerApi {
     override def p2pPort()(implicit log: Log[F]): F[Short] =
       log.trace(s"Worker p2pPort") as worker.p2pPort
 
-    override def sendTx(tx: String, id: Option[String])(
+    override def sendTx(tx: Array[Byte])(
       implicit log: Log[F]
-    ): F[Either[RpcError, String]] =
-      log.scope("tx" -> tx) { implicit log ⇒
-        log.debug(s"TendermintRpc broadcastTxSync request, id: $id") *>
-          worker.withServices(_.tendermint.rpc)(_.broadcastTxSync(tx, id.getOrElse("dontcare")).value)
+    ): F[Either[RpcError, TxResponse]] =
+      log.scope("tx") { implicit log ⇒
+        log.debug(s"TendermintRpc broadcastTxSync request") *>
+          worker.withServices(_.tendermint.rpc)(_.broadcastTxSync(tx).value)
       }
 
-    override def sendTxAwaitResponse(tx: String, id: Option[String])(
+    override def sendTxAwaitResponse(tx: Array[Byte])(
       implicit log: Log[F]
     ): F[Either[TxAwaitError, TendermintQueryResponse]] =
-      log.scope("txWait" -> tx) { implicit log ⇒
-        worker.withServices(_.waitResponseService)(_.sendTxAwaitResponse(tx, id))
+      log.scope("txWait") { implicit log ⇒
+        worker.withServices(_.waitResponseService)(_.sendTxAwaitResponse(tx))
       }
 
     override def websocket()(implicit log: Log[F]): F[WorkerWebsocket[F]] =

@@ -26,8 +26,8 @@ object WebsocketRequests {
   }
   case class QueryRequest(path: String, data: Option[String], id: Option[String], requestId: String)
       extends WebsocketRequest
-  case class TxRequest(tx: String, id: Option[String], requestId: String) extends WebsocketRequest
-  case class TxWaitRequest(tx: String, id: Option[String], requestId: String) extends WebsocketRequest
+  case class TxRequest(tx: Array[Byte], requestId: String) extends WebsocketRequest
+  case class TxWaitRequest(tx: Array[Byte], requestId: String) extends WebsocketRequest
   case class P2pPortRequest(requestId: String) extends WebsocketRequest
   case class StatusRequest(requestId: String) extends WebsocketRequest
   case class SubscribeRequest(requestId: String, subscriptionId: String, tx: String) extends WebsocketRequest

@@ -30,7 +30,7 @@ trait BlockProducer[F[_]] {
    * Retrieve the last height, known locally
    *
    */
-  def lastKnownHeight()(implicit log: Log[F]): F[Long]
+  def lastKnownHeight()(implicit log: Log[F]): EitherT[F, EffectError, Long]
 
   /**
    * Stream of blocks, starting with the given height

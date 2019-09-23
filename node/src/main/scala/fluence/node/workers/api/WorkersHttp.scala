@@ -32,8 +32,9 @@ import org.http4s.dsl.Http4sDsl
 import org.http4s.server.websocket.WebSocketBuilder
 import org.http4s.websocket.WebSocketFrame
 import org.http4s.websocket.WebSocketFrame.{Close, Text}
-import org.http4s.{HttpRoutes, Response}
+import org.http4s.{EntityEncoder, HttpRoutes, Response}
 import io.circe.syntax._
+import org.http4s.circe._
 
 import scala.language.higherKinds
 import scala.concurrent.duration._
@@ -44,15 +45,15 @@ object WorkersHttp {
    * Encodes a tendermint response to HTTP format.
    *
    */
-  private def tendermintResponseToHttp[F[_]: Monad](
+  private def tendermintResponseToHttp[F[_]: Monad, T: EntityEncoder[F, ?]](
     appId: Long,
-    response: Either[RpcError, String]
+    response: Either[RpcError, T]
   )(implicit log: Log[F], dsl: Http4sDsl[F]): F[Response[F]] = {
     import dsl._
     response match {
       case Right(result) ⇒
         log.trace(s"RPC responding with OK: $result") *>
-          Ok(result)
+          Ok.apply(result)
 
       case Left(err) ⇒
         rpcErrorToResponse(err)
@@ -72,9 +73,14 @@ object WorkersHttp {
         log.warn(s"RPC request failed", err) *>
           InternalServerError(err.getMessage)
 
-      case err: RpcRequestErrored ⇒
+      case err: RpcHttpError ⇒
         log.warn(s"RPC request errored", err) *>
           InternalServerError(err.error)
+
+      case err: RpcCallError =>
+        log.warn(s"RPC call resulted in error", err) *>
+          // TODO: is it OK to return BadRequest here?
+          BadRequest(err.getMessage)
 
       case RpcBodyMalformed(err) ⇒
         log.warn(s"RPC body malformed: $err", err)
@@ -167,24 +173,24 @@ object WorkersHttp {
             withApi(appId)(_.p2pPort().map(_.toString).flatMap(Ok(_)))
         }
 
-      case req @ POST -> Root / LongVar(appId) / "tx" :? QueryId(id) ⇒
+      case req @ POST -> Root / LongVar(appId) / "tx" ⇒
         LogFactory[F].init("http" -> "tx", "app" -> appId.toString) >>= { implicit log =>
-          req.decode[String] { tx ⇒
+          req.decode[Array[Byte]] { tx ⇒
             withApi(appId)(
-              _.sendTx(tx, id)
+              _.sendTx(tx)
                 .flatTap(_ => log.debug(s"tx.head: ${tx.takeWhile(_ != '\n')}"))
-                .flatMap(tendermintResponseToHttp(appId, _))
+                .flatMap(r => tendermintResponseToHttp(appId, r.map(_.asJson)))
             )
           }
         }
 
-      case req @ POST -> Root / LongVar(appId) / "txWaitResponse" :? QueryId(id) ⇒
+      case req @ POST -> Root / LongVar(appId) / "txWaitResponse" ⇒
         LogFactory[F].init("http" -> "txAwaitResponse", "app" -> appId.toString) >>= { log =>
-          req.decode[String] { tx ⇒
-            val txHead = Tx.splitTx(tx.getBytes).fold("not parsed")(_._1)
+          req.decode[Array[Byte]] { tx ⇒
+            val txHead = Tx.splitTx(tx).fold("not parsed")(_._1)
             log.scope("tx.head" -> txHead) { implicit log =>
               log.trace("requested") >> withApi(appId)(
-                _.sendTxAwaitResponse(tx, id).flatMap {
+                _.sendTxAwaitResponse(tx).flatMap {
                   case Right(queryResponse) =>
                     queryResponse match {
                       case OkResponse(_, response) =>

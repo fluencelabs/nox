@@ -59,7 +59,7 @@ class TestWorkerApi[F[_]: Concurrent]() extends WorkerApi[F] {
    *
    * @param tx transaction to process
    */
-  override def sendTx(tx: String, id: Option[String])(
+  override def sendTx(tx: String)(
     implicit log: Log[F]
   ): F[Either[RpcError, String]] = throw new NotImplementedError("TestWorkerApi, method sendTx")
 

@@ -101,19 +101,20 @@ class WorkerWebsocket[F[_]: Concurrent](
 
   private def callApi(input: WebsocketRequest): F[WebsocketResponse] =
     input match {
-      case TxRequest(tx, id, requestId) =>
-        workerApi.sendTx(tx, id).map {
-          case Right(data) => TxResponse(requestId, data)
-          case Left(error) => ErrorResponse(requestId, error.getMessage)
+      case TxRequest(tx, requestId) =>
+        workerApi.sendTx(tx).map {
+          // TODO: check API is correct – TxResponse inside TxResponse
+          case Right(txResponse) => TxResponse(requestId, txResponse.asJson.spaces2)
+          case Left(error)       => ErrorResponse(requestId, error.getMessage)
         }
       case QueryRequest(path, data, id, requestId) =>
         workerApi.query(data, path, id).map {
           case Right(data) => QueryResponse(requestId, data)
           case Left(error) => ErrorResponse(requestId, error.getMessage)
         }
-      case TxWaitRequest(tx, id, requestId) =>
+      case TxWaitRequest(tx, requestId) =>
         workerApi
-          .sendTxAwaitResponse(tx, id)
+          .sendTxAwaitResponse(tx)
           .map(toWebsocketResponse(requestId, _))
       case StatusRequest(requestId) =>
         workerApi.tendermintStatus().map {

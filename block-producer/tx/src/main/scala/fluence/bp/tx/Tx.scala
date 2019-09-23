@@ -32,10 +32,7 @@ import scala.util.Try
  * @param data Payload
  */
 case class Tx(head: Tx.Head, data: Tx.Data) {
-
-  def generateTx(): String = {
-    s"$head\n${new String(data.value)}"
-  }
+  def generateTx(): Array[Byte] = (head.toString + '\n').getBytes() ++ data.value
 }
 
 object Tx {

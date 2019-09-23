@@ -16,6 +16,7 @@
 
 package fluence.bp.tendermint
 
+import cats.Functor
 import cats.data.EitherT
 import fluence.bp.api.BlockProducer
 import fluence.bp.tx.TxResponse
@@ -24,7 +25,7 @@ import fluence.log.Log
 
 import scala.language.higherKinds
 
-class TendermintBlockProducer[F[_]](
+class TendermintBlockProducer[F[_]: Functor](
   tendermint: Tendermint[F]
 ) extends BlockProducer[F] {
   // TODO put the real Tendermint block here
@@ -34,7 +35,8 @@ class TendermintBlockProducer[F[_]](
    * Retrieve the last height, known locally
    * TODO read it from BlockStore?
    */
-  override def lastKnownHeight()(implicit log: Log[F]): F[Long] = ???
+  override def lastKnownHeight()(implicit log: Log[F]): EitherT[F, EffectError, Long] =
+    tendermint.rpc.statusParsed.leftMap(identity[EffectError]).map(_.sync_info.latest_block_height)
 
   /**
    * Stream of blocks, starting with the given height
@@ -51,10 +53,12 @@ class TendermintBlockProducer[F[_]](
    *
    * @param txData Transaction data
    */
-  override def sendTx(txData: Array[Byte])(implicit log: Log[F]): EitherT[F, EffectError, TxResponse] = ???
+  override def sendTx(txData: Array[Byte])(implicit log: Log[F]): EitherT[F, EffectError, TxResponse] =
+    tendermint.rpc.broadcastTxSync(txData).leftMap(identity[EffectError])
 }
 
 object TendermintBlockProducer {
-  def apply[F[_]](tendermint: Tendermint[F]): TendermintBlockProducer[F] =
+
+  def apply[F[_]: Functor](tendermint: Tendermint[F]): TendermintBlockProducer[F] =
     new TendermintBlockProducer[F](tendermint)
 }

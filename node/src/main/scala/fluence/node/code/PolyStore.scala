@@ -54,7 +54,6 @@ class PolyStore[F[_]: Sync: ContextShift](
           .leftMap(err ⇒ StorageToFileFailed(ref.storageHash, dest, err): StoreError)
       )
 
-
   /**
    * Returns hash of files from a directory.
    * If hash belongs to file, returns the same hash.
@@ -62,6 +61,5 @@ class PolyStore[F[_]: Sync: ContextShift](
    */
   def ls(ref: StorageRef)(implicit log: Log[F]): EitherT[F, StoreError, List[ByteVector]] =
     selector(ref.storageType).ls(ref.storageHash)
-
 
 }
