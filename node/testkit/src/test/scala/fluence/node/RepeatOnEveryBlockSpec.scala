@@ -34,15 +34,15 @@ import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
 import fluence.node.workers.subscription._
 import fluence.statemachine.api.tx.Tx
-import fluence.worker.responder.OkResponse
-import fluence.worker.responder.resp.{AwaitedResponse, OkResponse}
+import fluence.worker.responder.{OkResponse, SendAndWait}
+import fluence.worker.responder.resp.{AwaitedResponse, OkResponse, TxAwaitError}
 import org.scalatest.{EitherValues, Matchers, OptionValues, WordSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-class PerBlockTxExecutorSpec extends WordSpec with Eventually with Matchers with OptionValues with EitherValues {
+class RepeatOnEveryBlockSpec extends WordSpec with Eventually with Matchers with OptionValues with EitherValues {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
@@ -56,7 +56,7 @@ class PerBlockTxExecutorSpec extends WordSpec with Eventually with Matchers with
       blocksQ <- Resource.liftF(fs2.concurrent.Queue.unbounded[IO, Block])
       tendermint <- Resource.liftF(TendermintTest[IO](blocksQ.dequeue))
       counter <- Resource.liftF(MVar.of[IO, Long](0L))
-      waitResponseService = new WaitResponseService[IO] {
+      waitResponseService = new SendAndWait[IO] {
         override def sendTxAwaitResponse(tx: String, id: Option[String])(
           implicit log: Log[IO]
         ): IO[Either[TxAwaitError, AwaitedResponse]] =

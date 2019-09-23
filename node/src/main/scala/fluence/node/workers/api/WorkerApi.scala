@@ -27,7 +27,7 @@ import fluence.node.workers.api.websocket.WorkerWebsocket
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
 import fluence.node.workers.subscription._
-import fluence.worker.responder.resp.AwaitedResponse
+import fluence.worker.responder.resp.{AwaitedResponse, TxAwaitError}
 
 import scala.language.higherKinds
 

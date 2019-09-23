@@ -31,8 +31,8 @@ import fluence.node.workers.api.websocket.WebsocketRequests.{LastManifestRequest
 import fluence.node.workers.api.websocket.WebsocketResponses.{ErrorResponse, LastManifestResponse, P2pPortResponse, StatusResponse, SubscribeResponse, TxResponse, TxWaitResponse, WebsocketResponse}
 import fluence.node.workers.api.websocket.WorkerWebsocket
 import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
-import fluence.worker.responder.resp.{AwaitedResponse, OkResponse, RpcErrorResponse, TimedOutResponse}
-import fluence.worker.responder.{OkResponse, RpcErrorResponse, TimedOutResponse}
+import fluence.worker.responder.resp.{AwaitedResponse, OkResponse, RpcErrorResponse, RpcTxAwaitError, TimedOutResponse, TxAwaitError}
+import fluence.worker.responder.{OkResponse, RpcErrorResponse, RpcTxAwaitError, TimedOutResponse}
 import org.scalatest.{BeforeAndAfterAll, Matchers, WordSpec}
 import scodec.bits.ByteVector
 import io.circe.syntax._

@@ -41,12 +41,13 @@ import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
 import fluence.node.eth.state._
 import fluence.node.workers.status.WorkerStatus
-import fluence.node.workers.subscription.{PerBlockTxExecutor, WaitResponseService}
 import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import fluence.statemachine.api.data.BlockReceipt
+import fluence.worker.responder.SendAndWait
+import fluence.worker.responder.repeat.RepeatOnEveryBlock
 import io.circe.Json
 import io.circe.parser.parse
 import org.scalatest.{Matchers, OptionValues, WordSpec}
@@ -155,7 +156,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
             override def blockManifests: WorkerBlockManifests[IO] =
               new WorkerBlockManifests[IO](receiptStorage(appId), manifestRef)
 
-            override def waitResponseService: WaitResponseService[IO] =
+            override def waitResponseService: SendAndWait[IO] =
               throw new NotImplementedError("def responseSubscriber")
 
             override def receiptBus: ReceiptBus[IO] = new ReceiptBus[IO] {
@@ -170,7 +171,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
 
             override def peersControl: PeersControl[IO] = throw new NotImplementedError("def peersControl")
 
-            override def perBlockTxExecutor: PerBlockTxExecutor[IO] =
+            override def perBlockTxExecutor: RepeatOnEveryBlock[IO] =
               throw new NotImplementedError("def storedProcedureExecutor")
           }
 

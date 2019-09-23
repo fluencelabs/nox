@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.subscription
+package fluence.worker.responder.resp
 
-import fluence.effects.tendermint.rpc.http.RpcError
-import io.circe.Decoder
-import io.circe.generic.semiauto.deriveDecoder
+import fluence.effects.EffectError
 
 /**
  * Errors for `txAwait` API
@@ -26,11 +24,12 @@ import io.circe.generic.semiauto.deriveDecoder
 trait TxAwaitError {
   def msg: String
 }
+// TODO it's never instantiated actually
 case class TendermintResponseDeserializationError(responseError: String) extends TxAwaitError {
   override def msg: String = responseError
 }
-case class RpcTxAwaitError(rpcError: RpcError) extends TxAwaitError {
-  override def msg: String = rpcError.getMessage
+case class RpcTxAwaitError(error: EffectError) extends TxAwaitError {
+  override def msg: String = error.getMessage
 }
 case class TxParsingError(msg: String, tx: Array[Byte]) extends TxAwaitError
 case class TxInvalidError(msg: String) extends TxAwaitError

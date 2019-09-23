@@ -14,44 +14,34 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.subscription
+package fluence.worker.responder.repeat
 
-import cats.effect.{Concurrent, Resource, Timer}
+import cats.data.EitherT
 import cats.effect.concurrent.Ref
-import cats.syntax.functor._
-import cats.syntax.flatMap._
-import cats.syntax.traverse._
+import cats.effect.{Concurrent, Resource, Timer}
 import cats.syntax.applicative._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.syntax.traverse._
+import fluence.bp.api.BlockProducer
 import fluence.bp.tx.Tx
 import fluence.effects.resources.MakeResource
-import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
-import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
-import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
-import fluence.node.workers.subscription.PerBlockTxExecutor.{
-  Event,
-  Init,
-  Quit,
-  Response,
-  Subscription,
-  TendermintResponse
-}
-import fluence.worker.responder.AwaitResponses
-import fluence.worker.responder.resp.AwaitedResponse
+import fluence.worker.responder.resp.{AwaitedResponse, TxAwaitError}
+import fluence.worker.responder.{AwaitResponses, SendAndWait}
 import fs2.concurrent.{SignallingRef, Topic}
 
 import scala.language.higherKinds
 import scala.util.Random
 
-class PerBlockTxExecutorImpl[F[_]: Timer: Concurrent](
+class RepeatOnEveryBlockImpl[F[_]: Timer: Concurrent](
   subscriptions: Ref[F, Map[String, Subscription[F]]],
-  tendermintWRpc: TendermintWebsocketRpc[F],
-  tendermintRpc: TendermintHttpRpc[F],
-  waitResponseService: WaitResponseService[F]
+  producer: BlockProducer[F],
+  waitResponseService: SendAndWait[F]
 )(
-  implicit backoff: Backoff[EffectError] = Backoff.default[EffectError]
-) extends PerBlockTxExecutor[F] {
+  implicit backoff: Backoff[EffectError]
+) extends RepeatOnEveryBlock[F] {
 
   /**
    * Makes a subscription by transaction.
@@ -63,7 +53,7 @@ class PerBlockTxExecutorImpl[F[_]: Timer: Concurrent](
    */
   override def subscribe(key: SubscriptionKey, data: Tx.Data)(
     implicit log: Log[F]
-  ): F[fs2.Stream[F, TendermintResponse]] =
+  ): F[fs2.Stream[F, Either[TxAwaitError, AwaitedResponse]]] =
     for {
       _ <- log.debug(s"Subscribe for id: ${key.subscriptionId}, txHash: ${key.txHash}")
       topic <- Topic[F, Event](Init)
@@ -117,12 +107,13 @@ class PerBlockTxExecutorImpl[F[_]: Timer: Concurrent](
     log.scope("startBlockTxExecutor") { implicit log =>
       for {
         lastHeight <- Resource.liftF(
-          backoff.retry(tendermintRpc.consensusHeight(), e => log.error("retrieving consensus height", e))
+          backoff.retry(producer.lastKnownHeight(), e => log.error("retrieving consensus height", e))
         )
         _ <- Log.resource.info("Creating subscription for tendermint blocks")
-        blockStream = tendermintWRpc.subscribeNewBlock(lastHeight)
+
+        blockStream = producer.blockStream(lastHeight)
         pollingStream = blockStream
-          .evalTap(b => log.debug(s"got block ${b.header.height}"))
+          .evalTap(b => log.trace(s"got block ${b}"))
           .evalMap(_ => processSubscriptions())
         _ <- MakeResource.concurrentStream(pollingStream)
       } yield ()
@@ -134,7 +125,8 @@ class PerBlockTxExecutorImpl[F[_]: Timer: Concurrent](
    */
   private def waitTx(key: String, data: Tx.Data)(
     implicit log: Log[F]
-  ): F[Either[TxAwaitError, AwaitedResponse]] = {
+  ): EitherT[F, TxAwaitError, AwaitedResponse] = {
+    // TODO random is an effect
     val randomStr = Random.alphanumeric.take(8).mkString
     val head = Tx.Head(s"${AwaitResponses.AwaitSessionPrefix}-$key-$randomStr", 0)
     val tx = Tx(head, data)
@@ -150,7 +142,7 @@ class PerBlockTxExecutorImpl[F[_]: Timer: Concurrent](
       tasks = subs.map {
         case (key, Subscription(data, topic, _)) =>
           for {
-            response <- waitTx(key, data)
+            response <- waitTx(key, data).value
             _ <- log.trace(s"Publishing $response for $key")
             _ <- topic.publish1(Response(response))
           } yield ()

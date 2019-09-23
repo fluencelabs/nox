@@ -19,8 +19,9 @@ package fluence.node.workers
 import fluence.bp.tendermint.Tendermint
 import fluence.node.workers.status.WorkerStatus
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
-import fluence.node.workers.subscription.{PerBlockTxExecutor, WaitResponseService}
 import fluence.statemachine.api.StateMachine
+import fluence.worker.responder.SendAndWait
+import fluence.worker.responder.repeat.RepeatOnEveryBlock
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -45,8 +46,8 @@ trait WorkerServices[F[_]] {
   def blockManifests: WorkerBlockManifests[F]
 
   // Service to subscribe for a response on request
-  def waitResponseService: WaitResponseService[F]
+  def waitResponseService: SendAndWait[F]
 
   // Service to subscribe on transaction processing after every block
-  def perBlockTxExecutor: PerBlockTxExecutor[F]
+  def perBlockTxExecutor: RepeatOnEveryBlock[F]
 }

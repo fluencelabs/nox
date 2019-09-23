@@ -12,7 +12,8 @@ import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
-import fluence.node.workers.subscription.{PerBlockTxExecutor, WaitResponseService}
+import fluence.worker.responder.SendAndWait
+import fluence.worker.responder.repeat.RepeatOnEveryBlock
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -39,9 +40,9 @@ object TestWorkerServices {
       override def receiptBus: ReceiptBus[F] = throw new NotImplementedError("def hashesBus")
 
       override def peersControl: PeersControl[F] = throw new NotImplementedError("def peersControl")
-      override def waitResponseService: WaitResponseService[F] = throw new NotImplementedError("def requestResponder")
+      override def waitResponseService: SendAndWait[F] = throw new NotImplementedError("def requestResponder")
 
-      override def perBlockTxExecutor: PerBlockTxExecutor[F] =
+      override def perBlockTxExecutor: RepeatOnEveryBlock[F] =
         throw new NotImplementedError("def storedProcedureExecutor")
     }
   }
@@ -49,7 +50,7 @@ object TestWorkerServices {
   def workerServiceTestRequestResponse[F[_]: Monad: Timer](
     rpc: TendermintHttpRpc[F],
     wrpc: TendermintWebsocketRpc[F],
-    waitResponseServiceImpl: WaitResponseService[F]
+    waitResponseServiceImpl: SendAndWait[F]
   )(appId: Long): WorkerServices[F] = {
     new WorkerServices[F] {
       override def tendermintRpc: TendermintHttpRpc[F] = rpc
@@ -68,9 +69,9 @@ object TestWorkerServices {
       override def receiptBus: ReceiptBus[F] = throw new NotImplementedError("def hashesBus")
 
       override def peersControl: PeersControl[F] = throw new NotImplementedError("def peersControl")
-      override def waitResponseService: WaitResponseService[F] = waitResponseServiceImpl
+      override def waitResponseService: SendAndWait[F] = waitResponseServiceImpl
 
-      override def perBlockTxExecutor: PerBlockTxExecutor[F] =
+      override def perBlockTxExecutor: RepeatOnEveryBlock[F] =
         throw new NotImplementedError("def storedProcedureExecutor")
     }
   }

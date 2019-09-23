@@ -25,14 +25,11 @@ import cats.syntax.applicative._
 import fluence.bp.tx.Tx
 import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.api.websocket.WebsocketResponses.WebsocketResponse
-import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
-import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
 import fluence.worker.responder.resp.{OkResponse, PendingResponse, RpcErrorResponse, TimedOutResponse}
 import fs2.concurrent.{NoneTerminatedQueue, Queue}
 import io.circe
 import io.circe.parser.parse
 import io.circe.syntax._
-import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
@@ -154,20 +151,6 @@ class WorkerWebsocket[F[_]: Concurrent](
 }
 
 object WorkerWebsocket {
-
-  case class SubscriptionKey private (subscriptionId: String, txHash: String)
-
-  object SubscriptionKey {
-
-    /**
-     *
-     * @param tx A transaction, to calculate a hash of it.
-     *           Hash of a transaction is required because of multiple identical subscriptions.
-     */
-    def generate(subscriptionId: String, tx: Tx.Data): SubscriptionKey = {
-      new SubscriptionKey(subscriptionId, ByteVector(tx.value).toHex)
-    }
-  }
 
   private[websocket] case class Subscription[F[_]](stream: Option[fs2.Stream[F, TendermintResponse]])
 

@@ -32,14 +32,14 @@ import fluence.log.Log
 import fluence.node.status.StatusHttp
 import fluence.node.workers.pool.WorkerP2pConnectivity
 import fluence.node.workers.status._
-import fluence.node.workers.subscription.{PerBlockTxExecutor, WaitResponseService}
 import fluence.node.workers.tendermint.DockerTendermint
 import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.statemachine.api.StateMachine
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import fluence.statemachine.api.data.StateMachineStatus
 import fluence.statemachine.docker.DockerStateMachine
-import fluence.worker.responder.AwaitResponses
+import fluence.worker.responder.repeat.RepeatOnEveryBlock
+import fluence.worker.responder.{AwaitResponses, SendAndWait}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -62,8 +62,8 @@ case class DockerWorkerServices[F[_]] private (
   receiptBus: ReceiptBus[F],
   peersControl: PeersControl[F],
   blockManifests: WorkerBlockManifests[F],
-  waitResponseService: WaitResponseService[F],
-  perBlockTxExecutor: PerBlockTxExecutor[F],
+  waitResponseService: SendAndWait[F],
+  perBlockTxExecutor: RepeatOnEveryBlock[F],
   statusCall: FiniteDuration ⇒ F[WorkerStatus]
 ) extends WorkerServices[F] {
   override def status(timeout: FiniteDuration): F[WorkerStatus] = statusCall(timeout)
@@ -207,7 +207,7 @@ object DockerWorkerServices {
 
       waitResponseService = WaitResponseService(tm.rpc, responseSubscriber)
 
-      storedProcedureExecutor <- PerBlockTxExecutor
+      storedProcedureExecutor <- RepeatOnEveryBlock
         .make(tm.wrpc, tm.rpc, waitResponseService)
 
       services = new DockerWorkerServices[F](
