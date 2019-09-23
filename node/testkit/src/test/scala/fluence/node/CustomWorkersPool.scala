@@ -28,7 +28,7 @@ import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.log.Log
 import fluence.node.workers.pool.WorkersPool
 import fluence.node.workers.{Worker, WorkerParams, WorkerServices}
-import fluence.node.workers.subscription.ResponseSubscriber
+import fluence.node.workers.subscription.{ResponseSubscriber, WaitResponseService}
 
 import scala.language.higherKinds
 
@@ -86,12 +86,12 @@ class CustomWorkersPool[F[_]: Concurrent](
 object CustomWorkersPool {
 
   def withRequestResponder[F[_]: Concurrent: Timer](
-    requestResponder: ResponseSubscriber[F],
     tendermintRpc: TendermintHttpRpc[F],
-    tendermintWRpc: TendermintWebsocketRpc[F]
+    tendermintWRpc: TendermintWebsocketRpc[F],
+    waitResponseService: WaitResponseService[F]
   ): F[CustomWorkersPool[F]] = {
     val builder =
-      TestWorkerServices.workerServiceTestRequestResponse[F](tendermintRpc, tendermintWRpc, requestResponder) _
+      TestWorkerServices.workerServiceTestRequestResponse[F](tendermintRpc, tendermintWRpc, waitResponseService) _
     MVar.of(Map.empty[Long, Worker[F]]).map(new CustomWorkersPool(_, builder))
   }
 }

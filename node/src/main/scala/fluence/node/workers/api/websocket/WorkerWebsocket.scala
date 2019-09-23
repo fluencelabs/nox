@@ -16,23 +16,59 @@
 
 package fluence.node.workers.api.websocket
 
-import cats.Monad
 import cats.data.EitherT
+import cats.effect.Concurrent
 import fluence.log.Log
 import cats.syntax.functor._
+import cats.syntax.flatMap._
+import cats.syntax.applicative._
 import fluence.node.workers.api.WorkerApi
+import fluence.node.workers.api.websocket.WebsocketResponses.WebsocketResponse
+import fluence.node.workers.api.websocket.WorkerWebsocket.{Subscription, SubscriptionKey}
+import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
 import fluence.node.workers.subscription.{OkResponse, PendingResponse, RpcErrorResponse, TimedOutResponse}
+import fluence.statemachine.api.tx.Tx
+import fs2.concurrent.{NoneTerminatedQueue, Queue}
+import io.circe
 import io.circe.parser.parse
 import io.circe.syntax._
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
 /**
  * The layer between messages from Websocket and WorkerAPI.
+ *
+ * @param subscriptionsStorage keeps all subscriptions of websocket connection
+ * @param outputQueue for sending messages into websocket
  */
-class WorkerWebsocket[F[_]: Monad: Log](workerApi: WorkerApi[F]) {
+class WorkerWebsocket[F[_]: Concurrent](
+  workerApi: WorkerApi[F],
+  subscriptionsStorage: SubscriptionStorage[F],
+  outputQueue: NoneTerminatedQueue[F, WebsocketResponse]
+)(implicit log: Log[F]) {
   import WebsocketRequests._
   import WebsocketResponses._
+
+  /**
+   * A stream with events of all subscriptions.
+   *
+   */
+  val subscriptionEventStream: fs2.Stream[F, String] = outputQueue.dequeue.map(_.asJson.noSpaces)
+
+  /**
+   * Unsubscribes from all subscriptions and closes the queue.
+   *
+   */
+  def closeWebsocket(): F[Unit] = {
+    import cats.syntax.traverse._
+    import cats.instances.list._
+    for {
+      subs <- subscriptionsStorage.getSubscriptions
+      _ <- subs.keys.toList.traverse(workerApi.unsubscribe)
+      _ <- outputQueue.enqueue1(None)
+    } yield ()
+  }
 
   /**
    * Parse input and call WebsocketAPI.
@@ -42,7 +78,9 @@ class WorkerWebsocket[F[_]: Monad: Log](workerApi: WorkerApi[F]) {
     val result = for {
       request <- EitherT
         .fromEither(parse(input).flatMap(_.as[WebsocketRequest]))
+      _ <- Log.eitherT[F, circe.Error].trace("Processing input: " + input)
       response <- EitherT.liftF[F, io.circe.Error, WebsocketResponse](callApi(request))
+      _ <- Log.eitherT[F, circe.Error].trace("Response: " + response)
     } yield response
     result.value.map {
       case Right(v)    => v
@@ -50,7 +88,18 @@ class WorkerWebsocket[F[_]: Monad: Log](workerApi: WorkerApi[F]) {
     }.map(_.asJson.noSpaces)
   }
 
-  private def callApi(input: WebsocketRequest): F[WebsocketResponse] = {
+  private def toWebsocketResponse(requestId: String, response: TendermintResponse): WebsocketResponse = {
+    response match {
+      case Right(OkResponse(_, response))    => TxWaitResponse(requestId, response)
+      case Right(RpcErrorResponse(_, error)) => ErrorResponse(requestId, error.getMessage)
+      case Right(TimedOutResponse(_, tries)) =>
+        ErrorResponse(requestId, s"Cannot get response after $tries generated blocks")
+      case Right(PendingResponse(_)) => ErrorResponse(requestId, s"Unexpected error.")
+      case Left(error)               => ErrorResponse(requestId, error.msg)
+    }
+  }
+
+  private def callApi(input: WebsocketRequest): F[WebsocketResponse] =
     input match {
       case TxRequest(tx, id, requestId) =>
         workerApi.sendTx(tx, id).map {
@@ -65,14 +114,7 @@ class WorkerWebsocket[F[_]: Monad: Log](workerApi: WorkerApi[F]) {
       case TxWaitRequest(tx, id, requestId) =>
         workerApi
           .sendTxAwaitResponse(tx, id)
-          .map {
-            case Right(OkResponse(_, response))    => TxWaitResponse(requestId, response)
-            case Right(RpcErrorResponse(_, error)) => ErrorResponse(requestId, error.getMessage)
-            case Right(TimedOutResponse(_, tries)) =>
-              ErrorResponse(requestId, s"Cannot get response after $tries generated blocks")
-            case Right(PendingResponse(_)) => ErrorResponse(requestId, s"Unexpected error.")
-            case Left(error)               => ErrorResponse(requestId, error.msg)
-          }
+          .map(toWebsocketResponse(requestId, _))
       case LastManifestRequest(requestId) =>
         workerApi.lastManifest().map(block => LastManifestResponse(requestId, block.map(_.jsonString)))
       case StatusRequest(requestId) =>
@@ -81,12 +123,59 @@ class WorkerWebsocket[F[_]: Monad: Log](workerApi: WorkerApi[F]) {
           case Left(error)   => ErrorResponse(requestId, error.getMessage)
         }
       case P2pPortRequest(requestId) => workerApi.p2pPort().map(port => P2pPortResponse(requestId, port))
+      case SubscribeRequest(requestId, subscriptionId, tx) =>
+        val txData = Tx.Data(tx.getBytes())
+        val key = SubscriptionKey.generate(subscriptionId, txData)
+        subscriptionsStorage.addSubscription(key, txData).flatMap {
+          case true =>
+            workerApi.subscribe(key, txData).flatMap { stream =>
+              for {
+                _ <- subscriptionsStorage.addStream(key, stream)
+                _ <- Concurrent[F].start(
+                  stream
+                    .evalMap(r => outputQueue.enqueue1(Some(toWebsocketResponse(key.subscriptionId, r))))
+                    .compile
+                    .drain
+                )
+              } yield SubscribeResponse(requestId): WebsocketResponse
+            }
+          case false =>
+            (ErrorResponse(requestId, s"Subscription $subscriptionId already exists"): WebsocketResponse).pure[F]
+        }
+      case UnsubscribeRequest(requestId, subscriptionId, tx) =>
+        val txData = Tx.Data(tx.getBytes())
+        val key = SubscriptionKey.generate(subscriptionId, txData)
+        subscriptionsStorage
+          .deleteSubscription(key)
+          .flatMap(
+            _ => workerApi.unsubscribe(key).map(isOk => UnsubscribeResponse(requestId, isOk))
+          )
+
     }
-  }
 }
 
 object WorkerWebsocket {
 
-  def apply[F[_]: Monad: Log](workerApi: WorkerApi[F]): WorkerWebsocket[F] =
-    new WorkerWebsocket[F](workerApi)
+  case class SubscriptionKey private (subscriptionId: String, txHash: String)
+
+  object SubscriptionKey {
+
+    /**
+     *
+     * @param tx A transaction, to calculate a hash of it.
+     *           Hash of a transaction is required because of multiple identical subscriptions.
+     */
+    def generate(subscriptionId: String, tx: Tx.Data): SubscriptionKey = {
+      new SubscriptionKey(subscriptionId, ByteVector(tx.value).toHex)
+    }
+  }
+
+  private[websocket] case class Subscription[F[_]](stream: Option[fs2.Stream[F, TendermintResponse]])
+
+  def apply[F[_]: Concurrent: Log](workerApi: WorkerApi[F]): F[WorkerWebsocket[F]] =
+    for {
+      storage <- SubscriptionStorage()
+      queue <- Queue.noneTerminated[F, WebsocketResponse]
+    } yield new WorkerWebsocket[F](workerApi, storage, queue)
+
 }

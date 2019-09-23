@@ -64,15 +64,12 @@ object KademliaHttpNode {
    * @param rootPath RocksDB storage root path
    * @param nodeCodec Mean to encode, decode, sign and check Node[UriContact]
    */
-  def make[F[_]: ConcurrentEffect: SttpEffect: Timer: Log: ContextShift, P[_]](
+  def make[F[_]: Parallel: ConcurrentEffect: SttpEffect: Timer: Log: ContextShift](
     conf: KademliaConfig,
     signAlgo: SignAlgo,
     keyPair: KeyPair,
     rootPath: Path,
     nodeCodec: UriContact.NodeCodec
-  )(
-    implicit
-    P: Parallel[F, P]
   ): Resource[F, KademliaHttpNode[F, UriContact]] = {
 
     implicit val readNode: Crypto.Func[String, Node[UriContact]] =
@@ -104,7 +101,7 @@ object KademliaHttpNode {
 
       // Initiate an empty RoutingTable, bootstrap it from store if extension is enabled
       rt ← Resource.liftF(
-        RoutingTable[F, P, UriContact](
+        RoutingTable[F, UriContact](
           selfNode.key,
           siblingsSize = conf.routing.maxSiblingsSize,
           maxBucketSize = conf.routing.maxBucketSize,
@@ -113,7 +110,7 @@ object KademliaHttpNode {
       )
 
       // Kademlia instance just wires everything together
-      kad = Kademlia[F, P, UriContact](rt, selfNode.pure[F], conf.routing)
+      kad = Kademlia[F, UriContact](rt, selfNode.pure[F], conf.routing)
 
       // Join Kademlia network in a separate fiber
       joinFiber ← Kademlia

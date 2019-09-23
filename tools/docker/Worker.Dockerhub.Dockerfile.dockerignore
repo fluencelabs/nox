@@ -1,0 +1,13 @@
+backend-sdk
+bench
+cli
+dashboard
+docs
+fluence-js
+tools
+
+target
+**/target
+**/node_modules
+
+!statemachine/docker/target/scala-2.12/statemachine.jar

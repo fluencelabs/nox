@@ -36,7 +36,6 @@ import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
-import fluence.log.LogLevel.LogLevel
 import fluence.node.MakeResource
 import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.node.workers.{DockerWorkerServices, Worker, WorkerParams, WorkerServices}
@@ -49,10 +48,10 @@ import scala.language.higherKinds
  *
  * @param workers a storage for running [[Worker]]s, indexed by appIds
  */
-class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
+class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect: Parallel](
   ports: WorkersPorts[F],
   workers: Ref[F, Map[Long, Worker[F]]],
-  logLevel: LogLevel,
+  logLevel: Log.Level,
   // TODO: it's not OK to have blockUploading here, it should be moved somewhere else
   blockUploading: BlockUploading[F],
   appReceiptStorage: Long ⇒ Resource[F, ReceiptStorage[F]],
@@ -62,7 +61,6 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
 )(
   implicit
   F: ConcurrentEffect[F],
-  P: Parallel[F, G],
   backoff: Backoff[EffectError]
 ) extends WorkersPool[F] {
 
@@ -89,11 +87,11 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
     Resource
       .make(
         workers.update(_ + (worker.appId -> worker)) *>
-          log.info(s"Added worker ($worker) to the pool")
+          log.info(s"Added worker (${worker.description}) to the pool")
       )(
         _ ⇒
           workers.update(_ - worker.appId) *>
-            log.info(s"Removing worker ($worker) from the pool")
+            log.info(s"Removing worker (${worker.description}) from the pool")
       )
       .void
 
@@ -128,7 +126,7 @@ class DockerWorkersPool[F[_]: DockerIO: Timer: ContextShift: SttpEffect, G[_]](
       )
 
       services <- MakeResource.allocateOn(
-        DockerWorkerServices.make[F, G](
+        DockerWorkerServices.make[F](
           ps,
           p2pPort,
           stopTimeout,
@@ -269,18 +267,17 @@ object DockerWorkersPool {
   /**
    * Build a new [[DockerWorkersPool]]. All workers will be stopped when the pool is released
    */
-  def make[F[_]: DockerIO: ContextShift: Timer: Log: SttpEffect, G[_]](
+  def make[F[_]: DockerIO: ContextShift: Parallel: Timer: Log: SttpEffect](
     minPort: Short,
     maxPort: Short,
     rootPath: Path,
     appReceiptStorage: Long ⇒ Resource[F, ReceiptStorage[F]],
-    workerLogLevel: LogLevel,
+    workerLogLevel: Log.Level,
     websocketConfig: WebsocketConfig,
     blockUploading: BlockUploading[F]
   )(
     implicit
     F: ConcurrentEffect[F],
-    P: Parallel[F, G],
     backoff: Backoff[EffectError]
   ): Resource[F, WorkersPool[F]] =
     for {
@@ -288,7 +285,7 @@ object DockerWorkersPool {
       pool ← Resource.make {
         for {
           workers ← Ref.of[F, Map[Long, Worker[F]]](Map.empty)
-        } yield new DockerWorkersPool[F, G](
+        } yield new DockerWorkersPool[F](
           ports,
           workers,
           workerLogLevel,

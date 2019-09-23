@@ -135,7 +135,7 @@ class KadUriContactSpec extends WordSpec with EitherValues with Matchers {
           }
       )
 
-      val rs = RoutingState.inMemory[IO, IO.Par, UriContact](Monoid[Key].empty, 3, 2).unsafeRunSync()
+      val rs = RoutingState.inMemory[IO, UriContact](Monoid[Key].empty, 3, 2).unsafeRunSync()
       val lr = LocalRouting(Monoid[Key].empty, rs.siblings, rs.bucket)
 
       lr.find(node1.key).unsafeRunSync() should be('empty)

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import cats.{Monad, MonadError}
+import cats.Monad
 import cats.effect._
 import cats.effect.concurrent.{MVar, Ref}
 import cats.effect.syntax.bracket._
@@ -146,9 +146,7 @@ object TxProcessor {
   import cats.syntax.flatMap._
   import cats.syntax.functor._
 
-  type ME[F[_]] = MonadError[F, Throwable]
-
-  def apply[F[_]: ContextShift: Concurrent: Timer: Sync: ME: Log](vm: WasmVm)(
+  def apply[F[_]: ContextShift: Concurrent: Timer: Log](vm: WasmVm)(
     implicit dsl: Http4sDsl[F]
   ): F[TxProcessor[F]] = {
     for {

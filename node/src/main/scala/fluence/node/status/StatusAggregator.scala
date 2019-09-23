@@ -46,7 +46,7 @@ case class StatusAggregator[F[_]: Monad: Clock](
    *
    * @return gathered information
    */
-  def getStatus[G[_]](statusTimeout: FiniteDuration)(implicit P: Parallel[F, G], log: Log[F]): F[MasterStatus] =
+  def getStatus(statusTimeout: FiniteDuration)(implicit P: Parallel[F], log: Log[F]): F[MasterStatus] =
     for {
       currentTime ← Clock[F].monotonic(MILLISECONDS)
       workers ← masterNode.pool.getAll

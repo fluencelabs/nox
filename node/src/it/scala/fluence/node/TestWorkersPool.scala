@@ -88,16 +88,6 @@ class TestWorkersPool[F[_]: Concurrent](
 
 object TestWorkersPool {
 
-  def withRequestResponder[F[_]: Concurrent: Timer](
-    requestResponder: ResponseSubscriber[F],
-    tendermintRpc: TendermintHttpRpc[F],
-    tendermintWebsocketRpc: TendermintWebsocketRpc[F]
-  ): F[TestWorkersPool[F]] = {
-    val builder =
-      TestWorkerServices.workerServiceTestRequestResponse[F](tendermintRpc, tendermintWebsocketRpc, requestResponder) _
-    MVar.of(Map.empty[Long, Worker[F]]).map(new TestWorkersPool(_, builder))
-  }
-
   def apply[F[_]: Concurrent](bref: Ref[F, Option[BlockManifest]], bstore: ReceiptStorage[F]): F[TestWorkersPool[F]] = {
     val builder = TestWorkerServices.emptyWorkerService[F](bref, bstore) _
     MVar.of(Map.empty[Long, Worker[F]]).map(new TestWorkersPool(_, builder))

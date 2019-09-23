@@ -17,12 +17,14 @@
 package fluence.node.workers
 
 import cats.effect._
+import cats.syntax.profunctor._
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.{Apply, Monad, Parallel}
+import fluence.crypto.hash.CryptoHashers
 import cats.{Monad, Parallel}
 import fluence.effects.docker._
-import fluence.effects.docker.params.DockerParams
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block.history.db.Blockstore
@@ -30,15 +32,16 @@ import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.{TendermintWebsocketRpc, WebsocketConfig}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
-import fluence.log.LogLevel.LogLevel
 import fluence.node.status.StatusHttp
-import fluence.node.workers.control.ControlRpc
 import fluence.node.workers.pool.WorkerP2pConnectivity
 import fluence.node.workers.status._
-import fluence.node.workers.subscription.ResponseSubscriber
+import fluence.node.workers.subscription.{PerBlockTxExecutor, ResponseSubscriber, WaitResponseService}
 import fluence.node.workers.tendermint.DockerTendermint
 import fluence.node.workers.tendermint.block.BlockUploading
-import fluence.statemachine.control.ControlStatus
+import fluence.statemachine.api.StateMachine
+import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
+import fluence.statemachine.api.data.StateMachineStatus
+import fluence.statemachine.docker.DockerStateMachine
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -50,7 +53,7 @@ import scala.language.higherKinds
  * @param appId Worker's app ID
  * @param tendermintRpc Tendermint HTTP RPC endpoints for the worker
  * @param tendermintWRpc Tendermint Websocket RPC endpoints for the worker
- * @param control Control RPC endpoints for the worker
+ * @param receiptBus Control RPC endpoints for the worker
  * @param statusCall Getter for actual Worker's status
  * @tparam F the effect
  */
@@ -59,42 +62,17 @@ case class DockerWorkerServices[F[_]] private (
   appId: Long,
   tendermintRpc: TendermintHttpRpc[F],
   tendermintWRpc: TendermintWebsocketRpc[F],
-  control: ControlRpc[F],
+  receiptBus: ReceiptBus[F],
+  peersControl: PeersControl[F],
   blockManifests: WorkerBlockManifests[F],
-  responseSubscriber: ResponseSubscriber[F],
+  waitResponseService: WaitResponseService[F],
+  perBlockTxExecutor: PerBlockTxExecutor[F],
   statusCall: FiniteDuration ⇒ F[WorkerStatus]
 ) extends WorkerServices[F] {
   override def status(timeout: FiniteDuration): F[WorkerStatus] = statusCall(timeout)
 }
 
 object DockerWorkerServices {
-  val ControlRpcPort: Short = 26662
-
-  private def dockerCommand(
-    params: WorkerParams,
-    network: DockerNetwork,
-    logLevel: LogLevel
-  ): DockerParams.DaemonParams = {
-    import params._
-
-    // Set worker's Xmx to mem * 0.75, so there's a gap between JVM heap and cgroup memory limit
-    val internalMem = dockerConfig.limits.memoryMb.map(mem => Math.floor(mem * 0.75).toInt)
-
-    DockerParams
-      .build()
-      .environment(dockerConfig.environment)
-      .option("-e", s"""CODE_DIR=$vmCodePath""")
-      .option("-e", s"LOG_LEVEL=$logLevel")
-      .option("-e", s"TM_RPC_PORT=${DockerTendermint.RpcPort}")
-      .option("-e", s"TM_RPC_HOST=${DockerTendermint.containerName(params)}")
-      .option("-e", internalMem.map(mem => s"WORKER_MEMORY_LIMIT=$mem"))
-      .option("--name", containerName(params))
-      .option("--network", network.name)
-      .option("--volumes-from", masterNodeContainerId.map(id => s"$id:ro"))
-      .limits(dockerConfig.limits)
-      .prepared(dockerConfig.image)
-      .daemonRun()
-  }
 
   private def dockerNetworkName(params: WorkerParams): String =
     s"fluence_${params.appId}_${params.currentWorker.index}"
@@ -125,19 +103,22 @@ object DockerWorkerServices {
   // TODO: wait until RPC is avalable. BLOCKED: RPC isn't available during block replay =>
   //  need to separate block uploading into replay and usual block processing parts
   private def appStatus[F[_]: DockerIO: Timer: ConcurrentEffect: ContextShift](
-    worker: DockerContainer,
+    stateMachine: StateMachine[F],
+    stateMachineContainer: DockerContainer,
     tendermint: DockerTendermint,
-    control: ControlRpc[F],
     rpc: TendermintHttpRpc[F],
     appId: Long,
     timeout: FiniteDuration = StatusHttp.DefaultTimeout
   )(implicit log: Log[F]): Resource[F, FiniteDuration => F[WorkerStatus]] = Resource.liftF {
     def workerStatus(tout: FiniteDuration) =
       DockerIO[F]
-        .checkContainer(worker)
-        .semiflatMap[ServiceStatus[ControlStatus]] { d ⇒
+        .checkContainer(stateMachineContainer)
+        .semiflatMap[ServiceStatus[StateMachineStatus]] { d ⇒
           HttpStatus
-            .timed(control.status, tout)
+            .timed(stateMachine.status.value.map[HttpStatus[StateMachineStatus]] {
+              case Right(st) ⇒ HttpCheckStatus(st)
+              case Left(err) ⇒ HttpCheckFailed(err)
+            }, tout)
             .map(s ⇒ ServiceStatus(Right(d), s))
         }
         .valueOr(err ⇒ ServiceStatus(Left(err), HttpCheckNotPerformed("Worker's Docker container is not launched")))
@@ -179,28 +160,38 @@ object DockerWorkerServices {
    * @param receiptStorage Receipt storage resource for this app
    * @return the [[WorkerServices]] instance
    */
-  def make[F[_]: DockerIO: Timer: ConcurrentEffect: Log: ContextShift: SttpEffect, G[_]](
+  def make[F[_]: DockerIO: Timer: ConcurrentEffect: Parallel: Log: ContextShift: SttpEffect](
     params: WorkerParams,
     p2pPort: Short,
     stopTimeout: Int,
-    logLevel: LogLevel,
+    logLevel: Log.Level,
     receiptStorage: Resource[F, ReceiptStorage[F]],
     blockUploading: BlockUploading[F],
     websocketConfig: WebsocketConfig
   )(
     implicit
     F: Concurrent[F],
-    P: Parallel[F, G],
     backoff: Backoff[EffectError]
   ): Resource[F, WorkerServices[F]] =
     for {
       // Create network, start worker & tendermint containers
       network ← makeNetwork(params)
-      worker ← DockerIO[F].run(dockerCommand(params, network, logLevel), stopTimeout)
+
+      stateMachine ← DockerStateMachine.make[F](
+        containerName(params),
+        network,
+        params.dockerConfig.limits,
+        params.dockerConfig.image,
+        logLevel,
+        params.dockerConfig.environment,
+        params.vmCodePath.toString,
+        params.masterNodeContainerId,
+        stopTimeout
+      )
+
       tendermint ← DockerTendermint.make[F](params, p2pPort, containerName(params), network, stopTimeout)
 
       rpc ← TendermintHttpRpc.make[F](tendermint.name, DockerTendermint.RpcPort)
-      control = ControlRpc[F](containerName(params), ControlRpcPort)
 
       // Once tendermint is started, run background job to connect it to all the peers
       _ ← WorkerP2pConnectivity.make(params.app.id, rpc, params.app.cluster.workers)
@@ -208,7 +199,7 @@ object DockerWorkerServices {
       // Wait until tendermint container is started
       // TODO: wait until RPC is avalable. BLOCKED: RPC isn't available during block replay =>
       //  need to separate block uploading into replay and usual block processing parts
-      status <- appStatus(worker, tendermint, control, rpc, params.appId)
+      status <- appStatus(stateMachine, stateMachine.command[DockerContainer], tendermint, rpc, params.appId)
 
       // Once tendermint is started, attach to its database
       blockstore <- Blockstore.make[F](params.tendermintPath)
@@ -219,22 +210,27 @@ object DockerWorkerServices {
 
       responseSubscriber <- ResponseSubscriber.make(rpc, wrpc, params.appId)
 
+      waitResponseService ← WaitResponseService(rpc, responseSubscriber)
+
+      storedProcedureExecutor <- PerBlockTxExecutor
+        .make(wrpc, rpc, waitResponseService)
+
       services = new DockerWorkerServices[F](
         p2pPort,
         params.appId,
         rpc,
         wrpc,
-        control,
+        stateMachine.command[ReceiptBus[F]],
+        stateMachine.command[PeersControl[F]],
         blockManifests,
-        responseSubscriber,
+        waitResponseService,
+        storedProcedureExecutor,
         status
       )
 
       // Start uploading tendermint blocks and send receipts to statemachine
       _ <- blockUploading.start(params.app.id, services)
 
-      // Start Response subscriber after block uploading, so block replay succeeds
-      _ <- responseSubscriber.start()
     } yield services
 
 }

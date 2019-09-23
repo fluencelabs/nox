@@ -76,7 +76,7 @@ class ClusterContractSpec extends FlatSpec with Matchers with BeforeAndAfterAll 
     client.use { ethClient =>
       logId.info(s"Using client: $ethClient")
 
-      val par = Parallel[IO, IO.Par]
+      val par = Parallel[IO]
 
       for {
         event <- MVar.empty[IO, Log]

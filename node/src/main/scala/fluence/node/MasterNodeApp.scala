@@ -32,7 +32,7 @@ import fluence.effects.{Backoff, EffectError}
 import fluence.effects.docker.DockerIO
 import fluence.effects.ipfs.IpfsUploader
 import fluence.effects.kvstore.RocksDBStore
-import fluence.effects.receipt.storage.{DhtReceiptStorage, ReceiptStorage}
+import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.effects.tendermint.block.history.Receipt
 import fluence.kad.Kademlia
@@ -45,7 +45,6 @@ import fluence.log.{Log, LogFactory}
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
-import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.pool.DockerWorkersPool
 import fluence.node.workers.tendermint.block.BlockUploading
 
@@ -146,7 +145,7 @@ object MasterNodeApp extends IOApp {
       .liftF(Configuration.readTendermintKeyPair(rootPath))
       .flatMap(
         keyPair =>
-          KademliaHttpNode.make[IO, IO.Par](
+          KademliaHttpNode.make[IO](
             conf,
             Ed25519.signAlgo,
             keyPair,
@@ -178,7 +177,7 @@ object MasterNodeApp extends IOApp {
       .make(masterConf, node)
       .flatMap(
         statusAggregator =>
-          MasterHttp.make[IO, IO.Par, UriContact](
+          MasterHttp.make[IO, UriContact](
             "0.0.0.0",
             masterConf.httpApi.port.toShort,
             statusAggregator,

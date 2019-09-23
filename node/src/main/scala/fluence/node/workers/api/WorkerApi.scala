@@ -16,20 +16,18 @@
 
 package fluence.node.workers.api
 
-import cats.Monad
-import cats.data.EitherT
-import cats.syntax.applicative._
+import cats.effect.Concurrent
 import cats.syntax.apply._
-import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.http.RpcError
 import fluence.log.Log
 import fluence.node.workers.Worker
 import fluence.node.workers.api.websocket.WorkerWebsocket
+import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
+import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
 import fluence.node.workers.subscription._
-import fluence.statemachine.data.{Tx, TxCode}
-import io.circe.parser.decode
+import fluence.statemachine.api.tx.Tx
 
 import scala.language.higherKinds
 
@@ -83,12 +81,35 @@ trait WorkerApi[F[_]] {
    */
   def lastManifest(): F[Option[BlockManifest]]
 
-  def websocket()(implicit log: Log[F]): WorkerWebsocket[F]
+  /**
+   * Creates service to work with websocket
+   *
+   */
+  def websocket()(implicit log: Log[F]): F[WorkerWebsocket[F]]
+
+  /**
+   * Subscribes on the transaction processing after each block.
+   *
+   * @param key an id of subscription
+   * @param tx a transaction that will be executed on state machine after each block
+   * @return a stream with responses on transactions for each block
+   */
+  def subscribe(key: SubscriptionKey, tx: Tx.Data)(
+    implicit log: Log[F]
+  ): F[fs2.Stream[F, TendermintResponse]]
+
+  /**
+   * Remove given subscription.
+   *
+   */
+  def unsubscribe(key: SubscriptionKey)(
+    implicit log: Log[F]
+  ): F[Boolean]
 }
 
 object WorkerApi {
 
-  class Impl[F[_]: Monad](worker: Worker[F]) extends WorkerApi[F] {
+  class Impl[F[_]: Concurrent](worker: Worker[F]) extends WorkerApi[F] {
 
     override def query(
       data: Option[String],
@@ -119,74 +140,29 @@ object WorkerApi {
     override def sendTxAwaitResponse(tx: String, id: Option[String])(
       implicit log: Log[F]
     ): F[Either[TxAwaitError, TendermintQueryResponse]] =
-      (for {
-        _ <- EitherT.right(log.debug(s"TendermintRpc broadcastTxSync in txWaitResponse request"))
-        txParsed <- EitherT
-          .fromOptionF(Tx.readTx(tx.getBytes()).value, TxParsingError("Incorrect transaction format", tx): TxAwaitError)
-        rpc <- EitherT.liftF(worker.services.map(_.tendermintRpc))
-        txBroadcastResponse <- rpc
-          .broadcastTxSync(tx, id.getOrElse("dontcare"))
-          .leftMap(RpcTxAwaitError(_): TxAwaitError)
-        _ <- Log.eitherT.debug("TendermintRpc broadcastTxSync is ok.")
-        response <- log.scope("tx.head" -> txParsed.head.toString) { implicit log =>
-          for {
-            _ <- checkTxResponse(txBroadcastResponse).recoverWith {
-              // Transaction was sent twice, but response should be available, so keep waiting
-              case e: TendermintRpcError if e.data.toLowerCase.contains("tx already exists in cache") =>
-                Log.eitherT[F, TxAwaitError].warn(s"tx already exists in Tendermint's cache, will wait for response")
-            }
-            response <- waitResponse(txParsed)
-          } yield response
-        }
-      } yield response).value
+      log.scope("txWait" -> tx) { implicit log ⇒
+        worker.withServices(_.waitResponseService)(_.sendTxAwaitResponse(tx, id))
+      }
 
-    override def websocket()(implicit log: Log[F]): WorkerWebsocket[F] =
+    override def websocket()(implicit log: Log[F]): F[WorkerWebsocket[F]] =
       WorkerWebsocket(this)
 
-    /**
-     * Creates a subscription for response and waits when it will be completed.
-     *
-     */
-    private def waitResponse(tx: Tx)(
+    override def subscribe(key: SubscriptionKey, tx: Tx.Data)(
       implicit log: Log[F]
-    ): EitherT[F, TxAwaitError, TendermintQueryResponse] =
-      for {
-        _ <- EitherT.right(log.debug(s"Waiting for response"))
-        response <- EitherT.liftF[F, TxAwaitError, TendermintQueryResponse](
-          worker.services >>= (_.responseSubscriber.subscribe(tx.head).flatMap(_.get))
+    ): F[fs2.Stream[F, TendermintResponse]] =
+      log.scope("subscriptionKey" -> key.toString) { implicit log ⇒
+        worker.withServices(_.perBlockTxExecutor)(
+          _.subscribe(key, tx)
         )
-        _ <- Log.eitherT[F, TxAwaitError].trace(s"Response received: $response")
-      } yield response
+      }
 
-    /**
-     * Checks if a response is correct and code value is `ok`. Returns an error otherwise.
-     *
-     */
-    private def checkTxResponse(
-      response: String
-    )(implicit log: Log[F]): EitherT[F, TxAwaitError, Unit] = {
-      for {
-        txResponseOrError <- EitherT
-          .fromEither[F](decode[Either[TendermintRpcError, TxResponseCode]](response)(TendermintRpcError.eitherDecoder))
-          .leftSemiflatMap(
-            err =>
-              // this is because tendermint could return other responses without code,
-              // the node should return this as is to the client
-              log
-                .error(s"Error on txBroadcastSync response deserialization", err)
-                .as(TendermintResponseDeserializationError(response): TxAwaitError)
-          )
-        txResponse <- EitherT.fromEither[F](txResponseOrError).leftMap(identity[TxAwaitError])
-        _ <- if (txResponse.code.exists(_ != TxCode.OK))
-          EitherT.left(
-            (TxInvalidError(
-              s"Response code for transaction is not ok. Code: ${txResponse.code}, info: ${txResponse.info}"
-            ): TxAwaitError).pure[F]
-          )
-        else EitherT.right[TxAwaitError](().pure[F])
-      } yield ()
-    }
+    override def unsubscribe(key: SubscriptionKey)(implicit log: Log[F]): F[Boolean] =
+      log.scope("subscriptionKey" -> key.toString) { implicit log ⇒
+        worker.withServices(_.perBlockTxExecutor)(
+          _.unsubscribe(key)
+        )
+      }
   }
 
-  def apply[F[_]: Monad](worker: Worker[F]): WorkerApi[F] = new Impl[F](worker)
+  def apply[F[_]: Concurrent](worker: Worker[F]): WorkerApi[F] = new Impl[F](worker)
 }

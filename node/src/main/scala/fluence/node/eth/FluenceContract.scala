@@ -106,12 +106,12 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
     def mapApp(tuple: Tuple8[Bytes32, _, Bytes32, _, _, _, Uint256, DynamicArray[Bytes32]]) = {
       import tuple._
       // storageHash, storageType, genesisTime, validatorKeys
-      (getValue1, getValue3, getValue7, getValue8)
+      (component1, component3, component7, component8)
     }
     def mapWorker(tuple: Tuple2[DynamicArray[Bytes24], DynamicArray[Uint16]]) = {
       import tuple._
       // address, ports
-      (getValue1, getValue2)
+      (component1, component2)
     }
 
     fs2.Stream

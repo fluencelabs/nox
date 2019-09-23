@@ -18,7 +18,7 @@ package fluence.node.workers.api.websocket
 
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.extras.Configuration
-import io.circe.generic.extras.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.generic.extras.semiauto._
 
 object WebsocketResponses {
   sealed trait WebsocketResponse {
@@ -31,11 +31,13 @@ object WebsocketResponses {
   case class LastManifestResponse(requestId: String, lastManifest: Option[String]) extends WebsocketResponse
   case class P2pPortResponse(requestId: String, p2pPort: Short) extends WebsocketResponse
   case class StatusResponse(requestId: String, status: String) extends WebsocketResponse
+  case class SubscribeResponse(requestId: String) extends WebsocketResponse
+  case class UnsubscribeResponse(requestId: String, isOk: Boolean) extends WebsocketResponse
 
   object WebsocketResponse {
     implicit val conf: Configuration =
       Configuration.default.withDiscriminator("type").withSnakeCaseConstructorNames.withSnakeCaseMemberNames
-    implicit val websocketResponseEncoder: Encoder[WebsocketResponse] = deriveEncoder[WebsocketResponse]
-    implicit val websocketResponseDecoder: Decoder[WebsocketResponse] = deriveDecoder[WebsocketResponse]
+    implicit val websocketResponseEncoder: Encoder[WebsocketResponse] = deriveConfiguredEncoder[WebsocketResponse]
+    implicit val websocketResponseDecoder: Decoder[WebsocketResponse] = deriveConfiguredDecoder[WebsocketResponse]
   }
 }
