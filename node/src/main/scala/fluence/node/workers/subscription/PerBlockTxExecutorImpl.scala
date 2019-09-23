@@ -23,11 +23,11 @@ import cats.syntax.flatMap._
 import cats.syntax.traverse._
 import cats.syntax.applicative._
 import fluence.bp.tx.Tx
+import fluence.effects.resources.MakeResource
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
-import fluence.node.MakeResource
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.PerBlockTxExecutor.{
   Event,
@@ -37,6 +37,8 @@ import fluence.node.workers.subscription.PerBlockTxExecutor.{
   Subscription,
   TendermintResponse
 }
+import fluence.worker.responder.AwaitResponses
+import fluence.worker.responder.resp.AwaitedResponse
 import fs2.concurrent.{SignallingRef, Topic}
 
 import scala.language.higherKinds
@@ -132,9 +134,9 @@ class PerBlockTxExecutorImpl[F[_]: Timer: Concurrent](
    */
   private def waitTx(key: String, data: Tx.Data)(
     implicit log: Log[F]
-  ): F[Either[TxAwaitError, TendermintQueryResponse]] = {
+  ): F[Either[TxAwaitError, AwaitedResponse]] = {
     val randomStr = Random.alphanumeric.take(8).mkString
-    val head = Tx.Head(s"${ResponseSubscriber.PubSubSessionPrefix}-$key-$randomStr", 0)
+    val head = Tx.Head(s"${AwaitResponses.AwaitSessionPrefix}-$key-$randomStr", 0)
     val tx = Tx(head, data)
 
     waitResponseService.sendTxAwaitResponse(tx.generateTx())

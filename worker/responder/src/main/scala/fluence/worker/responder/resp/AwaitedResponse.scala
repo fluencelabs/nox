@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.subscription
+package fluence.worker.responder.resp
 
 import fluence.bp.tx.Tx
-import fluence.effects.tendermint.rpc.http.RpcError
+import fluence.effects.EffectError
 
-// possible variants of responses from tendermint's `query` method
-sealed trait TendermintQueryResponse {
+// possible variants of responses from statemachine's `query` method
+sealed trait AwaitedResponse {
   def id: Tx.Head
 }
 
@@ -28,22 +28,22 @@ sealed trait TendermintQueryResponse {
  * Response that is ok for client. Master node must return it right away.
  *
  */
-case class OkResponse(id: Tx.Head, response: String) extends TendermintQueryResponse
+case class OkResponse(id: Tx.Head, response: String) extends AwaitedResponse
 
 /**
- * Transport error in Tendermint RPC.
+ * Transport error
  *
  */
-case class RpcErrorResponse(id: Tx.Head, error: RpcError) extends TendermintQueryResponse
+case class RpcErrorResponse(id: Tx.Head, error: EffectError) extends AwaitedResponse
 
 /**
  * The intermediate result shows that the response is not ready yet in the state machine.
  * It cannot be returned, the node will return TimedOutResponse for a client after several pending responses.
  */
-case class PendingResponse(id: Tx.Head) extends TendermintQueryResponse
+case class PendingResponse(id: Tx.Head) extends AwaitedResponse
 
 /**
  * A response cannot be returned after multiple tries (number of blocks).
  *
  */
-case class TimedOutResponse(id: Tx.Head, tries: Int) extends TendermintQueryResponse
+case class TimedOutResponse(id: Tx.Head, tries: Int) extends AwaitedResponse

@@ -27,6 +27,7 @@ import fluence.log.{Log, LogFactory}
 import fluence.node.workers.subscription._
 import fluence.node.workers.Worker
 import fluence.node.workers.pool.WorkersPool
+import fluence.worker.responder.resp.{OkResponse, PendingResponse, RpcErrorResponse, TimedOutResponse}
 import fs2.concurrent.Queue
 import org.http4s.dsl.Http4sDsl
 import org.http4s.server.websocket.WebSocketBuilder

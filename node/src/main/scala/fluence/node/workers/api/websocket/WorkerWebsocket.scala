@@ -25,9 +25,9 @@ import cats.syntax.applicative._
 import fluence.bp.tx.Tx
 import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.api.websocket.WebsocketResponses.WebsocketResponse
-import fluence.node.workers.api.websocket.WorkerWebsocket.{Subscription, SubscriptionKey}
+import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
-import fluence.node.workers.subscription.{OkResponse, PendingResponse, RpcErrorResponse, TimedOutResponse}
+import fluence.worker.responder.resp.{OkResponse, PendingResponse, RpcErrorResponse, TimedOutResponse}
 import fs2.concurrent.{NoneTerminatedQueue, Queue}
 import io.circe
 import io.circe.parser.parse

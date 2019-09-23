@@ -34,6 +34,8 @@ import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
 import fluence.node.workers.subscription._
 import fluence.statemachine.api.tx.Tx
+import fluence.worker.responder.OkResponse
+import fluence.worker.responder.resp.{AwaitedResponse, OkResponse}
 import org.scalatest.{EitherValues, Matchers, OptionValues, WordSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
@@ -57,7 +59,7 @@ class PerBlockTxExecutorSpec extends WordSpec with Eventually with Matchers with
       waitResponseService = new WaitResponseService[IO] {
         override def sendTxAwaitResponse(tx: String, id: Option[String])(
           implicit log: Log[IO]
-        ): IO[Either[TxAwaitError, TendermintQueryResponse]] =
+        ): IO[Either[TxAwaitError, AwaitedResponse]] =
           for {
             k <- counter.take
             _ <- counter.put(k + 1)

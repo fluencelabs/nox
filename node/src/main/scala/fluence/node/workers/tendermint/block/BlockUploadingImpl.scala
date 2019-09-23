@@ -25,13 +25,13 @@ import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.receipt.storage.ReceiptStorage
+import fluence.effects.resources.MakeResource
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockHistory, BlockManifest, Receipt}
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
-import fluence.node.MakeResource
 import fluence.node.workers.WorkerServices
 import fluence.statemachine.api.command.ReceiptBus
 import fluence.statemachine.api.data.BlockReceipt

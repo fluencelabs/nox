@@ -24,6 +24,8 @@ import scala.language.higherKinds
 
 trait Worker[F[_]] {
 
+  val appId: Long
+
   type Machine <: StateMachine[F]
   type Producer <: BlockProducer[F]
 
@@ -41,10 +43,24 @@ object Worker {
     type Producer = BlockProducer.Aux[F, B]
   }
 
-  def apply[F[_], C <: HList, B](_machine: StateMachine.Aux[F, C], _producer: BlockProducer.Aux[F, B]): Worker.Aux[F, C, B] =
+  type AuxM[F[_], C <: HList] = Worker[F] {
+    type Machine = StateMachine.Aux[F, C]
+  }
+
+  type AuxP[F[_], B] = Worker[F] {
+    type Producer = BlockProducer.Aux[F, B]
+  }
+
+  def apply[F[_], C <: HList, B](
+    _appId: Long,
+    _machine: StateMachine.Aux[F, C],
+    _producer: BlockProducer.Aux[F, B]
+  ): Worker.Aux[F, C, B] =
     new Worker[F] {
       override type Machine = StateMachine.Aux[F, C]
       override type Producer = BlockProducer.Aux[F, B]
+
+      override val appId: Long = _appId
 
       override val machine: Machine = _machine
 

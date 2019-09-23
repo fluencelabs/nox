@@ -28,7 +28,7 @@ import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.log.Log
 import fluence.node.workers.pool.WorkersPool
 import fluence.node.workers.{Worker, WorkerParams, WorkerServices}
-import fluence.node.workers.subscription.{ResponseSubscriber, WaitResponseService}
+import fluence.node.workers.subscription.WaitResponseService
 
 import scala.language.higherKinds
 

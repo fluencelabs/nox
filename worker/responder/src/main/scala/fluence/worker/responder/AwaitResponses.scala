@@ -14,48 +14,44 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.subscription
+package fluence.worker.responder
 
-import cats.data.EitherT
-import cats.effect.{Concurrent, Resource, Timer}
 import cats.effect.concurrent.{Deferred, Ref}
-import cats.syntax.flatMap._
-import cats.syntax.functor._
+import cats.effect.{Concurrent, Resource, Timer}
 import cats.syntax.applicative._
 import cats.syntax.apply._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import cats.{Parallel, Traverse}
 import fluence.bp.tx.Tx
+import fluence.effects.resources.MakeResource
 import fluence.effects.tendermint.block.data.{Base64ByteVector, Block}
 import fluence.effects.{Backoff, EffectError}
-import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError, RpcHttpError, TendermintHttpRpc}
-import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.log.Log
-import fluence.node.MakeResource
+import fluence.statemachine.api.StateMachine
 import fluence.statemachine.api.query.QueryCode
+import fluence.worker.api.Worker
+import fluence.worker.responder.resp._
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
+import scala.language.higherKinds
 
-class ResponseSubscriberImpl[F[_]: Parallel: Timer](
+class AwaitResponses[F[_]: Concurrent: Parallel: Timer](
+  worker: Worker.AuxP[F, Block],
   subscribesRef: Ref[F, Map[Tx.Head, ResponsePromise[F]]],
-  tendermintRpc: TendermintHttpRpc[F],
-  tendermintWRpc: TendermintWebsocketRpc[F],
-  appId: Long,
-  maxBlocksTries: Int = 3
-)(
-  implicit F: Concurrent[F],
-  backoff: Backoff[EffectError] = Backoff.default[EffectError]
-) extends ResponseSubscriber[F] {
+  maxBlocksTries: Int
+)(implicit backoff: Backoff[EffectError]) {
 
-  import io.circe.parser._
+  import worker._
 
   /**
    * Adds a request to query for a response after a block is generated.
    *
    */
-  def subscribe(id: Tx.Head)(implicit log: Log[F]): F[Deferred[F, TendermintQueryResponse]] =
+  def await(id: Tx.Head)(implicit log: Log[F]): F[Deferred[F, AwaitedResponse]] =
     for {
-      newResponsePromise <- Deferred[F, TendermintQueryResponse]
+      newResponsePromise <- Deferred[F, AwaitedResponse]
       responsePromise <- subscribesRef.modify { subs =>
         subs.get(id).map(rp => (subs, rp.promise)).getOrElse {
           val newPromise = ResponsePromise(id, newResponsePromise)
@@ -68,18 +64,18 @@ class ResponseSubscriberImpl[F[_]: Parallel: Timer](
    * Subscribes a worker to process subscriptions after each received block.
    *
    */
-  override def start()(implicit log: Log[F]): Resource[F, Unit] =
+  private def start()(implicit log: Log[F]): Resource[F, Unit] =
     log.scope("responseSubscriber") { implicit log =>
       for {
         lastHeight <- Resource.liftF(
-          backoff.retry(tendermintRpc.consensusHeight(), e => log.error("retrieving consensus height", e))
+          backoff.retry(producer.lastKnownHeight(), e => log.error("retrieving consensus height", e))
         )
         _ <- Log.resource.info("Creating subscription for tendermint blocks")
-        blockStream = tendermintWRpc.subscribeNewBlock(lastHeight)
+        blockStream = producer.blockStream(lastHeight)
         pollingStream = blockStream
           .evalTap(b => log.debug(s"got block ${b.header.height}"))
           .filter(nonEmptyBlock)
-          .evalMap(_ => pollResponses(tendermintRpc))
+          .evalMap(_ => pollResponses(machine))
         _ <- MakeResource.concurrentStream(pollingStream)
       } yield ()
     }
@@ -89,36 +85,7 @@ class ResponseSubscriberImpl[F[_]: Parallel: Timer](
    */
   private def nonEmptyBlock(block: Block): Boolean = block.data.txs.exists(_.exists(!isPubSubTx(_)))
 
-  private def isPubSubTx(tx: Base64ByteVector) = tx.bv.startsWith(ResponseSubscriberImpl.pubSubSessionPrefixBytes)
-
-  /**
-   * Deserializes response and check if they are `ok` or not.
-   *
-   * @param id session/nonce of request
-   */
-  private def parseResponse(id: Tx.Head, response: String)(
-    implicit log: Log[F]
-  ): EitherT[F, RpcError, TendermintQueryResponse] = {
-    for {
-      code <- EitherT
-      // TODO: use QueryResponse instead of QueryResponseCode
-        .fromEither(decode[QueryResponseCode](response))
-        .leftSemiflatMap(
-          err =>
-            log
-              .error(s"Query response from tendermint is malformed: $response")
-              .map(_ => RpcBodyMalformed(err): RpcError)
-        )
-        .map(_.code.getOrElse(QueryCode.Ok))
-    } yield {
-      // if code is not 0, 3 or 4 - it is an tendermint error, so we need to return it as is
-      // 3, 4 - is a code for pending result
-      code match {
-        case QueryCode.Pending | QueryCode.NotFound => PendingResponse(id)
-        case QueryCode.Ok | _                       => OkResponse(id, response)
-      }
-    }
-  }
+  private def isPubSubTx(tx: Base64ByteVector) = tx.bv.startsWith(AwaitResponses.AwaitSessionPrefixBytes)
 
   /**
    * Query responses for subscriptions.
@@ -128,16 +95,22 @@ class ResponseSubscriberImpl[F[_]: Parallel: Timer](
    */
   private def queryResponses(
     promises: List[ResponsePromise[F]],
-    tendermint: TendermintHttpRpc[F]
-  )(implicit log: Log[F]): F[List[(ResponsePromise[F], TendermintQueryResponse)]] = {
-    import cats.syntax.parallel._
+    machine: StateMachine[F]
+  )(implicit log: Log[F]): F[List[(ResponsePromise[F], AwaitedResponse)]] = {
     import cats.syntax.list._
+    import cats.syntax.parallel._
     log.scope("responseSubscriber" -> "queryResponses", "app" -> appId.toString) { implicit log =>
       log.debug(s"Polling ${promises.size} promises") >> log.trace(s"promises: ${promises.map(_.id).mkString(" ")}") >>
         promises.map { responsePromise =>
-          tendermint
-            .query(responsePromise.id.toString, id = "dontcare")
-            .flatMap(parseResponse(responsePromise.id, _))
+          machine
+            .query(responsePromise.id.toString)
+            .map(
+              qr ⇒
+                qr.code match {
+                  case QueryCode.Pending | QueryCode.NotFound => PendingResponse(responsePromise.id)
+                  case QueryCode.Ok | _                       => OkResponse(responsePromise.id, qr.toResponseString())
+                }
+            )
             .map(r => (responsePromise, r))
             .leftMap(err => (responsePromise, err))
         }.map(_.value)
@@ -147,10 +120,8 @@ class ResponseSubscriberImpl[F[_]: Parallel: Timer](
               .map(
                 _.collect {
                   case Right(r) => r
-                  case Left((responsePromise, err: RpcHttpError)) =>
-                    (responsePromise, OkResponse(responsePromise.id, err.error))
                   case Left((responsePromise, rpcError)) =>
-                    (responsePromise, RpcErrorResponse(responsePromise.id, rpcError): TendermintQueryResponse)
+                    (responsePromise, RpcErrorResponse(responsePromise.id, rpcError): AwaitedResponse)
                 }
               )
           )
@@ -164,7 +135,7 @@ class ResponseSubscriberImpl[F[_]: Parallel: Timer](
    *
    */
   private def updateSubscribesByResult(
-    responses: List[(ResponsePromise[F], TendermintQueryResponse)]
+    responses: List[(ResponsePromise[F], AwaitedResponse)]
   )(implicit log: Log[F]): F[Unit] = {
     import cats.instances.list._
     for {
@@ -199,26 +170,27 @@ class ResponseSubscriberImpl[F[_]: Parallel: Timer](
   /**
    * Get all subscriptions for an app by `appId`, queries responses from tendermint.
    */
-  private def pollResponses(tendermintRpc: TendermintHttpRpc[F])(implicit log: Log[F]): F[Unit] =
+  private def pollResponses(machine: StateMachine[F])(implicit log: Log[F]): F[Unit] =
     for {
       responsePromises <- subscribesRef.get
-      _ <- queryResponses(responsePromises.values.toList, tendermintRpc).flatMap(updateSubscribesByResult)
+      _ <- queryResponses(responsePromises.values.toList, machine).flatMap(updateSubscribesByResult)
     } yield ()
+
 }
 
-object ResponseSubscriberImpl {
-  private val pubSubSessionPrefixBytes = ByteVector(ResponseSubscriber.PubSubSessionPrefix.getBytes)
+object AwaitResponses {
 
-  def apply[F[_]: Concurrent: Timer: Parallel](
-    tendermintRpc: TendermintHttpRpc[F],
-    tendermintWRpc: TendermintWebsocketRpc[F],
-    appId: Long,
-    maxBlocksTries: Int = ResponseSubscriber.MaxBlockTries
-  ): F[ResponseSubscriberImpl[F]] =
-    Ref
-      .of[F, Map[Tx.Head, ResponsePromise[F]]](
-        Map.empty[Tx.Head, ResponsePromise[F]]
-      )
-      .map(r => new ResponseSubscriberImpl(r, tendermintRpc, tendermintWRpc, appId, maxBlocksTries))
+  val MaxBlocksTries = 10
 
+  val AwaitSessionPrefix = "await"
+
+  private val AwaitSessionPrefixBytes = ByteVector(AwaitSessionPrefix.getBytes)
+
+  def make[F[_]: Parallel: Concurrent: Log: Timer](worker: Worker.AuxP[F, Block], maxTries: Int = MaxBlocksTries)(
+    implicit backoff: Backoff[EffectError]
+  ): Resource[F, AwaitResponses[F]] =
+    MakeResource
+      .refOf(Map.empty[Tx.Head, ResponsePromise[F]])
+      .map(new AwaitResponses[F](worker, _, maxTries))
+      .flatTap(_.start())
 }

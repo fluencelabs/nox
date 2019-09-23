@@ -41,7 +41,7 @@ import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
 import fluence.node.eth.state._
 import fluence.node.workers.status.WorkerStatus
-import fluence.node.workers.subscription.{PerBlockTxExecutor, ResponseSubscriber, WaitResponseService}
+import fluence.node.workers.subscription.{PerBlockTxExecutor, WaitResponseService}
 import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}

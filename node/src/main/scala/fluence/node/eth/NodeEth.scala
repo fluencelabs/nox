@@ -21,8 +21,8 @@ import cats.effect.{ConcurrentEffect, Resource, Timer}
 import cats.syntax.apply._
 import fluence.effects.ethclient.EthClient
 import fluence.effects.ethclient.data.Block
+import fluence.effects.resources.MakeResource
 import fluence.log.Log
-import fluence.node.MakeResource
 import fluence.node.config.FluenceContractConfig
 import org.web3j.abi.datatypes.generated.Bytes32
 import scodec.bits.ByteVector

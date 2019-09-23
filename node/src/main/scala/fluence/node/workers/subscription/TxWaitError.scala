@@ -20,8 +20,6 @@ import fluence.effects.tendermint.rpc.http.RpcError
 import io.circe.Decoder
 import io.circe.generic.semiauto.deriveDecoder
 
-import scala.util.control.NoStackTrace
-
 /**
  * Errors for `txAwait` API
  */

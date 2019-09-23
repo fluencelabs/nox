@@ -33,6 +33,8 @@ import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.subscription._
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerParams}
+import fluence.worker.responder.resp.{AwaitedResponse, OkResponse, RpcErrorResponse, TimedOutResponse}
+import fluence.worker.responder.{OkResponse, RpcErrorResponse, TimedOutResponse}
 import org.scalatest.{BeforeAndAfterAll, EitherValues, Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
 
@@ -130,7 +132,7 @@ class ResponseSubscriberSpec
 
   def request(worker: Worker[IO], txCustom: Option[String] = None)(
     implicit log: Log[IO]
-  ): IO[Either[TxAwaitError, TendermintQueryResponse]] =
+  ): IO[Either[TxAwaitError, AwaitedResponse]] =
     requests(1, worker, txCustom).map(_.head)
 
   def requests(
@@ -140,7 +142,7 @@ class ResponseSubscriberSpec
     appId: Int = 1
   )(
     implicit log: Log[IO]
-  ): IO[List[Either[TxAwaitError, TendermintQueryResponse]]] = {
+  ): IO[List[Either[TxAwaitError, AwaitedResponse]]] = {
     import cats.instances.list._
     import cats.syntax.parallel._
 

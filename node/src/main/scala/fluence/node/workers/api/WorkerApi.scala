@@ -27,6 +27,7 @@ import fluence.node.workers.api.websocket.WorkerWebsocket
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
 import fluence.node.workers.subscription._
+import fluence.worker.responder.resp.AwaitedResponse
 
 import scala.language.higherKinds
 
@@ -70,7 +71,7 @@ trait WorkerApi[F[_]] {
    */
   def sendTxAwaitResponse(tx: Array[Byte])(
     implicit log: Log[F]
-  ): F[Either[TxAwaitError, TendermintQueryResponse]]
+  ): F[Either[TxAwaitError, AwaitedResponse]]
 
   /**
    * Creates service to work with websocket
@@ -132,7 +133,7 @@ object WorkerApi {
 
     override def sendTxAwaitResponse(tx: Array[Byte])(
       implicit log: Log[F]
-    ): F[Either[TxAwaitError, TendermintQueryResponse]] =
+    ): F[Either[TxAwaitError, AwaitedResponse]] =
       log.scope("txWait") { implicit log ⇒
         worker.withServices(_.waitResponseService)(_.sendTxAwaitResponse(tx))
       }

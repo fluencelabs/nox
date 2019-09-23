@@ -14,12 +14,10 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.subscription
+package fluence.worker.responder.resp
 
 import cats.effect.concurrent.Deferred
 import fluence.bp.tx.Tx
-
-import scala.language.higherKinds
 
 /**
  * Unit to manage subscriptions.
@@ -28,6 +26,6 @@ import scala.language.higherKinds
  * @param promise a promise that will be completed after response will be received
  * @param tries how many times we already query a state machine
  */
-case class ResponsePromise[F[_]](id: Tx.Head, promise: Deferred[F, TendermintQueryResponse], tries: Int = 0) {
-  def complete(response: TendermintQueryResponse): F[Unit] = promise.complete(response)
+case class ResponsePromise[F[_]](id: Tx.Head, promise: Deferred[F, AwaitedResponse], tries: Int = 0) {
+  def complete(response: AwaitedResponse): F[Unit] = promise.complete(response)
 }

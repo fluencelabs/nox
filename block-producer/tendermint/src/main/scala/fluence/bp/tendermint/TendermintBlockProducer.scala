@@ -21,6 +21,7 @@ import cats.data.EitherT
 import fluence.bp.api.BlockProducer
 import fluence.bp.tx.TxResponse
 import fluence.effects.EffectError
+import fluence.effects.tendermint.block.data.{Block ⇒ TmBlock}
 import fluence.log.Log
 
 import scala.language.higherKinds
@@ -28,8 +29,8 @@ import scala.language.higherKinds
 class TendermintBlockProducer[F[_]: Functor](
   tendermint: Tendermint[F]
 ) extends BlockProducer[F] {
-  // TODO put the real Tendermint block here
-  override type Block = this.type
+
+  override type Block = TmBlock
 
   /**
    * Retrieve the last height, known locally
@@ -59,6 +60,6 @@ class TendermintBlockProducer[F[_]: Functor](
 
 object TendermintBlockProducer {
 
-  def apply[F[_]: Functor](tendermint: Tendermint[F]): TendermintBlockProducer[F] =
+  def apply[F[_]: Functor](tendermint: Tendermint[F]): BlockProducer.Aux[F, TmBlock] =
     new TendermintBlockProducer[F](tendermint)
 }

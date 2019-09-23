@@ -43,8 +43,8 @@ class EmbeddedBlockProducer[F[_]: Monad](
    * Retrieve the last height, known locally
    *
    */
-  override def lastKnownHeight()(implicit log: Log[F]): F[Long] =
-    lastHeight.get
+  override def lastKnownHeight()(implicit log: Log[F]): EitherT[F, EffectError, Long] =
+    EitherT.right(lastHeight.get)
 
   /**
    * Stream of blocks, starting with the given height

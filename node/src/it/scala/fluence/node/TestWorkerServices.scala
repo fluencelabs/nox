@@ -12,7 +12,7 @@ import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
-import fluence.node.workers.subscription.{PerBlockTxExecutor, ResponseSubscriber, WaitResponseService}
+import fluence.node.workers.subscription.{PerBlockTxExecutor, WaitResponseService}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds

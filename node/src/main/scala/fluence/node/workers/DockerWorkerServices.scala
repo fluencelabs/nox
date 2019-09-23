@@ -21,7 +21,7 @@ import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Monad, Parallel}
-import fluence.bp.tendermint.Tendermint
+import fluence.bp.tendermint.{Tendermint, TendermintBlockProducer}
 import fluence.effects.docker._
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.sttp.SttpEffect
@@ -32,13 +32,14 @@ import fluence.log.Log
 import fluence.node.status.StatusHttp
 import fluence.node.workers.pool.WorkerP2pConnectivity
 import fluence.node.workers.status._
-import fluence.node.workers.subscription.{PerBlockTxExecutor, ResponseSubscriber, WaitResponseService}
+import fluence.node.workers.subscription.{PerBlockTxExecutor, WaitResponseService}
 import fluence.node.workers.tendermint.DockerTendermint
 import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.statemachine.api.StateMachine
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import fluence.statemachine.api.data.StateMachineStatus
 import fluence.statemachine.docker.DockerStateMachine
+import fluence.worker.responder.AwaitResponses
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -188,6 +189,8 @@ object DockerWorkerServices {
 
       tm ← Tendermint.make[F](tendermint.name, DockerTendermint.RpcPort, params.tendermintPath, websocketConfig)
 
+      producer = TendermintBlockProducer(tm)
+
       // Once tendermint is started, run background job to connect it to all the peers
       _ ← WorkerP2pConnectivity.make(params.app.id, tm.rpc, params.app.cluster.workers)
 
@@ -198,9 +201,11 @@ object DockerWorkerServices {
 
       blockManifests ← WorkerBlockManifests.make[F](receiptStorage)
 
-      responseSubscriber <- ResponseSubscriber.make(tm.rpc, tm.wrpc, params.appId)
+      apiWorker = fluence.worker.api.Worker(params.appId, stateMachine, producer)
 
-      waitResponseService ← WaitResponseService(tm.rpc, responseSubscriber)
+      responseSubscriber <- AwaitResponses.make[F](apiWorker)
+
+      waitResponseService = WaitResponseService(tm.rpc, responseSubscriber)
 
       storedProcedureExecutor <- PerBlockTxExecutor
         .make(tm.wrpc, tm.rpc, waitResponseService)

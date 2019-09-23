@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-package fluence.node
-import cats.effect._
-import cats.effect.concurrent.{Deferred, Ref}
-import cats.syntax.apply._
+package fluence.effects.resources
+
 import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.apply._
 import cats.syntax.applicativeError._
+import cats.effect.concurrent.{Deferred, Ref}
+import cats.effect.{Concurrent, ExitCase, Fiber, Resource, Sync}
 import fluence.log.Log
 
 import scala.language.higherKinds

@@ -24,6 +24,7 @@ import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.log.Log
 import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
 import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
+import fluence.worker.responder.resp.AwaitedResponse
 import fs2.concurrent.Topic
 
 import scala.language.higherKinds
@@ -69,7 +70,7 @@ object PerBlockTxExecutor {
   case object Init extends Event
   case class Quit(id: String) extends Event
 
-  type TendermintResponse = Either[TxAwaitError, TendermintQueryResponse]
+  type TendermintResponse = Either[TxAwaitError, AwaitedResponse]
 
   /**
    *

@@ -18,7 +18,6 @@ package fluence.node.workers.subscription
 
 import cats.Monad
 import cats.data.EitherT
-import cats.effect.Resource
 import fluence.log.Log
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -26,18 +25,20 @@ import io.circe.parser.decode
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import cats.syntax.applicative._
 import fluence.bp.tx.{Tx, TxCode, TxResponse}
+import fluence.worker.responder.AwaitResponses
+import fluence.worker.responder.resp.AwaitedResponse
 
 import scala.language.higherKinds
 
 trait WaitResponseService[F[_]] {
 
-  def sendTxAwaitResponse(tx: Array[Byte])(implicit log: Log[F]): F[Either[TxAwaitError, TendermintQueryResponse]]
+  def sendTxAwaitResponse(tx: Array[Byte])(implicit log: Log[F]): F[Either[TxAwaitError, AwaitedResponse]]
 
 }
 
 class WaitResponseServiceImpl[F[_]: Monad](
   tendermintRpc: TendermintHttpRpc[F],
-  responseSubscriber: ResponseSubscriber[F]
+  responseSubscriber: AwaitResponses[F]
 ) extends WaitResponseService[F] {
 
   /**
@@ -46,11 +47,11 @@ class WaitResponseServiceImpl[F[_]: Monad](
    */
   private def waitResponse(tx: Tx)(
     implicit log: Log[F]
-  ): EitherT[F, TxAwaitError, TendermintQueryResponse] =
+  ): EitherT[F, TxAwaitError, AwaitedResponse] =
     for {
       _ <- EitherT.right(log.debug(s"Waiting for response"))
-      response <- EitherT.liftF[F, TxAwaitError, TendermintQueryResponse](
-        responseSubscriber.subscribe(tx.head).flatMap(_.get)
+      response <- EitherT.liftF[F, TxAwaitError, AwaitedResponse](
+        responseSubscriber.await(tx.head).flatMap(_.get)
       )
       _ <- Log.eitherT[F, TxAwaitError].trace(s"Response received: $response")
     } yield response
@@ -79,14 +80,17 @@ class WaitResponseServiceImpl[F[_]: Monad](
    */
   def sendTxAwaitResponse(tx: Array[Byte])(
     implicit log: Log[F]
-  ): F[Either[TxAwaitError, TendermintQueryResponse]] =
+  ): F[Either[TxAwaitError, AwaitedResponse]] =
     (for {
       _ <- EitherT.right(log.debug(s"TendermintRpc broadcastTxSync in txWaitResponse request"))
+
       txParsed <- EitherT
         .fromOptionF(Tx.readTx(tx).value, TxParsingError("Incorrect transaction format", tx): TxAwaitError)
+
       txBroadcastResponse <- tendermintRpc
         .broadcastTxSync(tx)
         .leftMap(RpcTxAwaitError(_): TxAwaitError)
+
       _ <- Log.eitherT.debug("TendermintRpc broadcastTxSync is ok.")
       response <- log.scope("tx.head" -> txParsed.head.toString) { implicit log =>
         for {
@@ -100,16 +104,13 @@ class WaitResponseServiceImpl[F[_]: Monad](
       }
     } yield response).value
 
-  def start()(implicit log: Log[F]): Resource[F, Unit] = responseSubscriber.start()
 }
 
 object WaitResponseService {
 
   def apply[F[_]: Monad: Log](
     tendermintRpc: TendermintHttpRpc[F],
-    responseSubscriber: ResponseSubscriber[F]
-  ): Resource[F, WaitResponseService[F]] = {
-    val instance = new WaitResponseServiceImpl(tendermintRpc, responseSubscriber)
-    instance.start().as(instance)
-  }
+    responseSubscriber: AwaitResponses[F]
+  ): WaitResponseService[F] =
+    new WaitResponseServiceImpl(tendermintRpc, responseSubscriber)
 }

@@ -161,6 +161,17 @@ lazy val `effects` = project
   .dependsOn(`log`)
   .enablePlugins(AutomateHeaderPlugin)
 
+lazy val `resources-effects` = project
+  .in(file("effects/resources"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      fs2
+    )
+  )
+  .dependsOn(`effects`)
+  .enablePlugins(AutomateHeaderPlugin)
+
 lazy val `sttp-effect` = (project in file("effects/sttp"))
   .settings(
     commons,
@@ -405,6 +416,11 @@ lazy val `worker-api` = project
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`statemachine-api`, `block-producer-api`)
 
+lazy val `worker-responder` = project.in(file("worker/responder"))
+  .settings(commons)
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`worker-api`, `tendermint-block`, `resources-effects`)
+
 lazy val `block-producer-tx` = project
   .in(file("block-producer/tx"))
   .settings(
@@ -494,6 +510,8 @@ lazy val `node` = project
     `tendermint-rpc`           % "it->test",
     `tendermint-block`         % "test->test",
     `tendermint-block-history` % "test->test",
+    `worker-responder`,
+    `resources-effects`,
     `sttp-effect`,
     `receipt-storage`,
     `log`,

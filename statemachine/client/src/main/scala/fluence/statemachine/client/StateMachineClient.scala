@@ -46,13 +46,12 @@ object StateMachineClient {
    */
   def readOnly[F[_]: Monad: SttpEffect](host: String, port: Short): StateMachine.Aux[F, HNil] =
     new StateMachine.ReadOnly[F] {
-      override def query(path: String)(implicit log: Log[F]): EitherT[F, EffectError, QueryResponse] = {
+      override def query(path: String)(implicit log: Log[F]): EitherT[F, EffectError, QueryResponse] =
         sttp
           .get(uri"http://$host:$port/query?path=$path")
           .send()
           .decodeBody(decode[QueryResponse])
           .leftMap(identity[EffectError])
-      }
 
       override def status()(implicit log: Log[F]): EitherT[F, EffectError, StateMachineStatus] =
         sttp
