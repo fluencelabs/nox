@@ -17,7 +17,7 @@
 ###
 # This script is an entrypoint of the Fluence Node docker container.
 # It first checks that $EXTERNAL_IP is defined,
-# if /var/run/docker.sock is passed as a volume,
+# if /var/run/docker.sock (or other $DOCKER_HOST) is passed as a volume,
 # and run whatever command is passed as arguments (usually it's CMD from Dockerfile).
 ###
 
@@ -32,12 +32,16 @@ EOF
   exit 1
 fi
 
-if [ ! -S /var/run/docker.sock ]; then
-    cat >&2 <<EOF
-error: '/var/run/docker.sock' not found in container or is not a socket.
-Please, pass it as a volume when running the container: \`-v /var/run/docker.sock:/var/run/docker.sock\`
+DHOST=${DOCKER_HOST:-unix:///var/run/docker.sock}
+if [[ $DHOST = unix://* ]]; then
+  DSOCKET=${DHOST#unix://}
+  if [ ! -S "$DSOCKET" ]; then
+      cat >&2 <<EOF
+error: '$DSOCKET' not found in container or is not a unix socket.
+Please, pass it as a volume when running the container: \`-v /var/run/docker.sock:$DSOCKET\`
 EOF
-exit 1
+  exit 1
+  fi
 fi
 
 CONTAINER_ID=$(cat /proc/1/cpuset)

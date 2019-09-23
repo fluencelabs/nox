@@ -16,6 +16,7 @@ from __future__   import with_statement
 from fabric.api   import *
 from fabric.utils import *
 import json
+import time
 
 # creates register command to register deployed node
 def register_command(data, secret_key):
@@ -86,6 +87,16 @@ def get_tm_validator():
         last_line = out.splitlines()[-1]
         return json.loads(last_line)['value']
 
+def wait_node_started(api_port):
+    echo("waiting for node to start ",prefix=True)
+    while run('curl localhost:%s/' % api_port, quiet=True).failed:
+        time.sleep(0.5)
+        echo(".")
+    echo('\n')
+
+def echo(s,prefix=False):
+    puts(s, end='', flush=True, show_prefix=prefix)
+
 def register_node(current_host, current_key, ethereum_ip, contract_address, current_owner, api_port, capacity):
     tm_node_id = get_tm_node_id()
     tm_validator = get_tm_validator()
@@ -115,7 +126,7 @@ def get_ipfs_address(config):
         # Node and IPFS are connected via 'decentralized_storage_network' network, see node.yml & ipfs.yml
         return "http://ipfs:5001"
     else:
-        return env.ipfs
+        return config['ipfs']
 
 def get_image_tag(env):
     if not hasattr(env, 'image_tag'):
