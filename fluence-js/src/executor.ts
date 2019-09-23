@@ -9,14 +9,16 @@ export enum ExecutorType {
  * Structure, that could handle a result or an error in any time after creation.
  */
 export abstract class Executor<T> {
+    /**
+     * Submits a result to executor.
+     */
+    abstract success(result: T): void
 
-    static isPromise<A>(executor: Executor<A>): executor is PromiseExecutor<A> {
-        return executor.type === ExecutorType.Promise
-    }
-
-    abstract handleResult(result: T): void
-
-    abstract handleError(error: any): void
+    /**
+     * Submits an error to executor.
+     * @param error
+     */
+    abstract fail(error: any): void
 
     abstract type: ExecutorType
 }
@@ -30,34 +32,27 @@ export class PromiseExecutor<T> extends Executor<T> {
     readonly promise: Promise<T>;
     private timeout: ReturnType<typeof setTimeout> | undefined;
 
-    static withTimeout<T>(timeout: number, onTimeout: () => void) {
-        return new PromiseExecutor<T>(timeout, onTimeout)
-    }
-
-    static create<T>() {
-        return new PromiseExecutor<T>(undefined, undefined)
-    }
-
-    private constructor(timeout: number | undefined, onTimeout: (() => void) | undefined) {
+    constructor(onComplete: () => void = () => {}, timeout: number | undefined = undefined) {
         super();
 
-        if (timeout && onTimeout) {
+        if (timeout) {
             this.timeout = setTimeout(() => {
-                onTimeout()
+                onComplete()
             }, timeout);
 
             this.promise = new Promise<T>((r, e) => { this.resultHandler = r; this.errorHandler = e; })
                 .finally(() => {
-                    if (timeout) { clearTimeout(timeout) }
+                    onComplete();
+                    if (this.timeout) { clearTimeout(this.timeout) }
                 });
         }
     }
 
-    handleResult(result: T): void {
+    success(result: T): void {
         this.resultHandler(result)
     }
 
-    handleError(error: any): void {
+    fail(error: any): void {
         this.errorHandler(error)
     }
 
@@ -79,11 +74,11 @@ export class SubscriptionExecutor extends Executor<Result> {
         this.errorHandler = errorCallback;
     }
 
-    handleError(error: any): void {
+    fail(error: any): void {
         this.errorHandler(error);
     }
 
-    handleResult(result: Result): void {
+    success(result: Result): void {
         this.resultHandler(result);
     }
 

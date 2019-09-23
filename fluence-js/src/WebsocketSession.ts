@@ -20,7 +20,7 @@ import {Result} from "./Result";
 import {Executor, ExecutorType, PromiseExecutor, SubscriptionExecutor} from "./executor";
 import {debug, TendermintClient} from "./fluence";
 import {AbciQueryResult, TendermintJsonRpcResponse} from "./RpcClient";
-import {none} from "ts-option";
+import {none, Option} from "ts-option";
 
 interface WebsocketResponse {
     request_id: string
@@ -38,6 +38,8 @@ export class WebsocketSession {
     private nodeCounter: number;
     private timeout: number;
     private socket: WebSocket;
+
+    // on first connection `connectionPromise` will fail only if all nodes are unavailable
     private firstConnection: boolean = true;
 
     // result is for 'txWaitRequest' and 'query', void is for all other requests
@@ -48,7 +50,10 @@ export class WebsocketSession {
 
     /**
      * Create connected websocket.
-     *
+     * @param appId id of an application
+     * @param nodes list of nodes to connect
+     * @param privateKey key that will sign all requests
+     * @param timeout time after which the request fails
      */
     static create(appId: string, nodes: Node[], privateKey?: PrivateKey, timeout = 15000): Promise<WebsocketSession> {
         const ws = new WebsocketSession(appId, nodes, timeout, privateKey);
@@ -76,38 +81,33 @@ export class WebsocketSession {
 
             debug("Message received: " + JSON.stringify(rawResponse));
 
-            if (!this.executors.has(rawResponse.request_id)) {
-                console.error(`There is no message with requestId '${rawResponse.request_id}'. Message: ${msg}`)
-            } else {
-                const executor = this.executors.get(rawResponse.request_id) as Executor<Result>;
-                if (rawResponse.error) {
-                    console.log(`Error received for ${rawResponse.request_id}: ${JSON.stringify(rawResponse.error)}`);
-                    executor.handleError(rawResponse.error as string);
-                } else if (rawResponse.type === "tx_wait_response") {
-                    if (rawResponse.data) {
-                        const parsed = JSON.parse(rawResponse.data) as TendermintJsonRpcResponse<AbciQueryResult>;
-                        const result = TendermintClient.parseQueryResponse(none, parsed);
+            const executor = this.executors.get(rawResponse.request_id);
+            if (!executor) {
+                console.error(`There is no message with requestId '${rawResponse.request_id}'. Message: ${msg}`);
+                return;
+            }
 
-                        if (result.isEmpty) {
-                            console.error(`Unexpected, no parsed result in message: ${msg}`)
-                        } else {
-                            executor.handleResult(result.get)
-                        }
-                    }
-                    if (Executor.isPromise(executor)) {
-                        this.executors.delete(rawResponse.request_id);
-                    }
-                } else {
-                    const executor = this.executors.get(rawResponse.request_id) as Executor<void>;
-                    executor.handleResult()
+            if (rawResponse.error) {
+                console.log(`Error received for ${rawResponse.request_id}: ${JSON.stringify(rawResponse.error)}`);
+                executor.fail(rawResponse.error as string);
+            } else if (rawResponse.type === "tx_wait_response") {
+                if (rawResponse.data) {
+                    const result = WebsocketSession.parseResponse(rawResponse.data);
+
+                    result
+                        .fold(
+                            () => console.error(`Unexpected, no parsed result in message: ${msg}`)
+                        )(executor.success)
                 }
+            } else {
+                executor.success()
             }
         } catch (e) {
             console.error("Cannot parse websocket event: " + e)
         }
     }
 
-    private parseResponse(data: string): Option<Result> {
+    private static parseResponse(data: string): Option<Result> {
         const parsed = JSON.parse(data) as TendermintJsonRpcResponse<AbciQueryResult>;
         return TendermintClient.parseQueryResponse(none, parsed);
     }
@@ -134,7 +134,7 @@ export class WebsocketSession {
         debug("Websocket connecting to " + JSON.stringify(node));
 
         if (!this.connectionPromise || !this.firstConnection) {
-            this.connectionPromise = PromiseExecutor.create<void>();
+            this.connectionPromise = new PromiseExecutor<void>();
         }
 
         try {
@@ -145,7 +145,7 @@ export class WebsocketSession {
             socket.onopen = () => {
                 debug("Websocket is opened");
                 this.firstConnection = false;
-                this.connectionPromise.handleResult();
+                this.connectionPromise.success();
                 this.resubscribe();
             };
 
@@ -159,8 +159,8 @@ export class WebsocketSession {
                 // new requests will be terminated until websocket is connected
                 // TODO: fail first connection if all nodes are unavailable
                 if (!this.firstConnection) {
-                    this.connectionPromise = PromiseExecutor.create<void>();
-                    this.connectionPromise.handleError("Websocket is closed. Reconnecting")
+                    this.connectionPromise = new PromiseExecutor<void>();
+                    this.connectionPromise.fail("Websocket is closed. Reconnecting")
                 }
 
                 this.stopPromiseExecutors();
@@ -176,12 +176,10 @@ export class WebsocketSession {
     }
 
     private stopPromiseExecutors() {
-        // terminate and delete all promise executors
+        // terminate and all promise executors
         this.executors.forEach((executor: Executor<Result | void>, key: string) => {
             if (executor.type === ExecutorType.Promise) {
                 executor.fail("Reconnecting. All waiting requests are terminated.");
-                this.executors.delete(key)
-
             }
         });
     }
@@ -296,12 +294,12 @@ export class WebsocketSession {
 
         const onTimeout = () => {
             if (this.executors.has(requestId)) {
-                executor.handleError(`Timeout after ${this.timeout} milliseconds.`);
+                executor.fail(`Timeout after ${this.timeout} milliseconds.`);
                 this.executors.delete(requestId);
             }
         };
 
-        const executor: PromiseExecutor<Result> = PromiseExecutor.withTimeout<Result>(this.timeout, onTimeout);
+        const executor: PromiseExecutor<Result> = new PromiseExecutor<Result>(onTimeout, this.timeout);
 
         this.executors.set(requestId, executor);
 
