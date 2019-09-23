@@ -18,12 +18,9 @@ import {error, ErrorResponse, ErrorType, Result} from "./Result";
 import {parseResponse, TendermintClient} from "./TendermintClient";
 import {SessionConfig} from "./SessionConfig";
 
-import Debug from "debug";
 import {genSessionId, prepareRequest, PrivateKey, withSignature} from "./utils";
-import {Option} from "ts-option";
-
-const detailedDebug = Debug("request-detailed");
-const txDebug = Debug("broadcast-request");
+import {Option, some} from "ts-option";
+import {debug} from "./fluence";
 
 export enum RequestStatus {
     OK = 0,
@@ -132,7 +129,7 @@ export class Session {
     }
 
     async query(path: string): Promise<RequestState<Option<Result>>> {
-        detailedDebug("start query");
+        debug("start query");
 
         const sessionClosed = this.checkSession();
         if (sessionClosed) return sessionClosed;
@@ -146,7 +143,7 @@ export class Session {
         } catch (err) {
             return {
                 status: RequestStatus.E_REQUEST,
-                error: error(ErrorType.TransportError, err.toString(), path),
+                error: error(ErrorType.TransportError, err.toString(), some(path)),
             }
         }
     }
@@ -160,7 +157,7 @@ export class Session {
      */
     async request(payload: string, privateKey?: PrivateKey, counter?: number): Promise<RequestState<Option<Result>>> {
 
-        detailedDebug("start request");
+        debug("start request");
 
         const sessionClosed = this.checkSession();
         if (sessionClosed) return sessionClosed;
@@ -168,7 +165,7 @@ export class Session {
         const request = prepareRequest(payload, this.session, counter ? counter : this.getCounterAndIncrement(), privateKey);
 
         // send transaction
-        txDebug("send broadcastTxSync");
+        debug("send broadcastTxSync");
 
         try {
             const txSendResult = await this.tm.txWaitResponse(request);
@@ -179,7 +176,7 @@ export class Session {
         } catch (err) {
             return {
                 status: RequestStatus.E_REQUEST,
-                error: error(ErrorType.TransportError, err.toString(), request.path),
+                error: error(ErrorType.TransportError, err.toString(), some(request.path)),
             }
         }
     }
@@ -192,7 +189,7 @@ export class Session {
      * @param counter Optional counter, overrides current counter
      */
     async requestAsync(payload: string, privateKey?: PrivateKey, counter?: number): Promise<RequestState<string>> {
-        detailedDebug("start requestAsync");
+        debug("start requestAsync");
 
         const sessionClosed = this.checkSession();
         if (sessionClosed) return sessionClosed;
@@ -200,14 +197,14 @@ export class Session {
         const request = prepareRequest(payload, this.session, counter ? counter : this.getCounterAndIncrement(), privateKey);
 
         // send transaction
-        txDebug("send broadcastTxSync");
+        debug("send broadcastTxSync");
         let broadcastTxResultRaw;
         try {
             broadcastTxResultRaw = await this.tm.broadcastTxSync(request.payload);
         } catch (cause) {
             return {
                 status: RequestStatus.E_REQUEST,
-                error: error(ErrorType.TransportError, cause, request.path),
+                error: error(ErrorType.TransportError, cause, some(request.path)),
             }
         }
 
@@ -217,12 +214,12 @@ export class Session {
         } catch (cause) {
             return {
                 status: RequestStatus.E_REQUEST,
-                error: error(ErrorType.ParsingError, cause, request.path),
+                error: error(ErrorType.ParsingError, cause, some(request.path)),
             }
         }
 
-        detailedDebug("broadCastTxSync response received");
-        txDebug("broadCastTxSync response received");
+        debug("broadCastTxSync response received");
+        debug("broadCastTxSync response received");
 
         // close session if some error on sending transaction occurred
         if (broadcastTxResult.code !== 0) {
@@ -230,7 +227,7 @@ export class Session {
             this.markSessionAsClosed(cause);
             return {
                 status: RequestStatus.E_SESSION_CLOSED,
-                error: error(ErrorType.SessionClosed, cause, request.path),
+                error: error(ErrorType.SessionClosed, cause, some(request.path)),
             }
         }
 

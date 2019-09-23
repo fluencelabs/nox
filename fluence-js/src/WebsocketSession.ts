@@ -16,12 +16,11 @@
 
 import {genRequestId, genSessionId, prepareRequest, PrivateKey} from "./utils";
 import {Node} from "./contract";
-import {toByteArray} from "base64-js";
 import {Result} from "./Result";
 import {Executor, ExecutorType, PromiseExecutor, SubscribtionExecutor} from "./executor";
-
-let debug = require('debug');
-debug.enable();
+import {debug, TendermintClient} from "./fluence";
+import {AbciQueryResult, TendermintJsonRpcResponse} from "./RpcClient";
+import {none} from "ts-option";
 
 interface WebsocketResponse {
     request_id: string
@@ -39,6 +38,7 @@ export class WebsocketSession {
     private nodeCounter: number;
     private timeout: number;
     private socket: WebSocket;
+    private firstConnection: boolean = true;
 
     // result is for 'txWaitRequest' and 'query', void is for all other requests
     private executors = new Map<string, Executor<Result | void>>();
@@ -50,24 +50,25 @@ export class WebsocketSession {
      * Create connected websocket.
      *
      */
-    static create(appId: string, nodes: Node[], privateKey?: PrivateKey, timeout = 10000): Promise<WebsocketSession> {
+    static create(appId: string, nodes: Node[], privateKey?: PrivateKey, timeout = 15000): Promise<WebsocketSession> {
         let ws = new WebsocketSession(appId, nodes, timeout, privateKey);
         return ws.connect();
     }
 
     checkExecutors() {
-        let now = new Date().getMilliseconds();
+        let now = new Date().getTime();
         this.executors.forEach((executor: Executor<any>, key: string) => {
             if (executor.type === ExecutorType.Promise) {
                 let promiseExecutor = executor as PromiseExecutor<any>;
-                if (promiseExecutor.creationTime + this.timeout > now) {
+                let t = promiseExecutor.creationTime - this.timeout;
+                if (t > now) {
                     promiseExecutor.handleError(`Timeout after ${this.timeout} milliseconds.`);
                     this.executors.delete(key);
                 }
             }
         });
 
-        setTimeout(() => this.checkExecutors(), this.timeout)
+        setTimeout(() => this.checkExecutors(), 1000)
     }
 
     private constructor(appId: string, nodes: Node[], timeout: number, privateKey?: PrivateKey) {
@@ -103,10 +104,14 @@ export class WebsocketSession {
                     executor.handleError(rawResponse.error as string);
                 } else if (rawResponse.type === "tx_wait_response") {
                     if (rawResponse.data) {
-                        let parsed = JSON.parse(rawResponse.data).result.response;
-                        let result = new Result(toByteArray(parsed.value));
+                        let parsed = JSON.parse(rawResponse.data) as TendermintJsonRpcResponse<AbciQueryResult>;
+                        let result = TendermintClient.parseQueryResponse(none, parsed);
 
-                        executor.handleResult(result)
+                        if (result.isEmpty) {
+                            console.error(`Unexpected, no parsed result in message: ${msg}`)
+                        } else {
+                            executor.handleResult(result.get)
+                        }
                     }
                     if (executor.type === "promise") {
                         this.executors.delete(rawResponse.request_id);
@@ -145,7 +150,7 @@ export class WebsocketSession {
         debug("Connecting to " + JSON.stringify(node));
         console.log("node counter " + node.ip_addr);
 
-        if (!this.connectionHandler) {
+        if (!this.connectionHandler || !this.firstConnection) {
             this.connectionHandler = new PromiseExecutor<void>();
         }
 
@@ -156,6 +161,7 @@ export class WebsocketSession {
 
             socket.onopen = () => {
                 debug("Websocket is opened");
+                this.firstConnection = false;
                 this.connectionHandler.handleResult()
             };
 
@@ -165,7 +171,7 @@ export class WebsocketSession {
 
             socket.onclose = (e) => {
                 console.error("Websocket is closed. Reconnecting.");
-                this.reconnectSession(e)
+                setTimeout(() => this.reconnectSession(e), 1000)
             };
 
             socket.onmessage = (msg) => {

@@ -33,7 +33,18 @@ export {
     AppSession as AppSession
 }
 
-let defaultContract = "0xe01690f60E08207Fa29F9ef98fA35e7fB7A12A96";
+let defaultContract = "0xeFF91455de6D4CF57C141bD8bF819E5f873c1A01";
+
+export let debug = require('debug')('fluence');
+export let debugI = require('debug');
+debugI.disable();
+export function enableDebug() {
+    debugI.enable("fluence");
+}
+
+export function disableDebug() {
+    debugI.disable();
+}
 
 // A session with a worker with info about a worker
 export interface WorkerSession {

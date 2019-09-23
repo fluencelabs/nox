@@ -28,7 +28,7 @@ export class PromiseExecutor<T> extends Executor<T> {
     constructor() {
         super();
         this.promise = new Promise<T>((r, e) => { this.resultResolver = r; this.errorResolver = e; });
-        this.creationTime = new Date().getMilliseconds();
+        this.creationTime = new Date().getTime();
     }
 
     handleResult(result: T): void {
