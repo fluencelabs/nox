@@ -19,6 +19,8 @@ package fluence.worker.responder.resp
 import cats.effect.concurrent.Deferred
 import fluence.bp.tx.Tx
 
+import scala.language.higherKinds
+
 /**
  * Unit to manage subscriptions.
  *

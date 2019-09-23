@@ -35,7 +35,6 @@ import fluence.worker.responder.resp._
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
-import scala.language.higherKinds
 
 class AwaitResponses[F[_]: Concurrent: Parallel: Timer](
   worker: Worker.AuxP[F, Block],
@@ -142,9 +141,10 @@ class AwaitResponses[F[_]: Concurrent: Parallel: Timer](
         val (taskList, updatedSubs) = responses.foldLeft((List.empty[F[Unit]], subsMap)) {
           case ((taskList, subs), response) =>
             response match {
-              case (promise, r @ OkResponse(_, _)) =>
+              case (promise, r: OkResponse) =>
                 (promise.complete(r) :: taskList, subs - promise.id)
-              case (promise, r @ (RpcErrorResponse(_, _) | PendingResponse(_))) =>
+
+              case (promise, r @ (_: RpcErrorResponse | _: PendingResponse)) =>
                 if (promise.tries + 1 >= maxBlocksTries) {
                   // return TimedOutResponse after `tries` PendingResponses
                   val response = r match {
@@ -153,7 +153,8 @@ class AwaitResponses[F[_]: Concurrent: Parallel: Timer](
                   }
                   (promise.complete(response) :: taskList, subs - r.id)
                 } else (taskList, subs + (r.id -> promise.copy(tries = promise.tries + 1)))
-              case (promise, r @ TimedOutResponse(_, _)) =>
+
+              case (promise, r: TimedOutResponse) =>
                 (
                   log.error("Unexpected. TimedOutResponse couldn't be here.") *> promise.complete(r) :: taskList,
                   subs - promise.id
@@ -172,7 +173,8 @@ class AwaitResponses[F[_]: Concurrent: Parallel: Timer](
   private def pollResponses(machine: StateMachine[F])(implicit log: Log[F]): F[Unit] =
     for {
       responsePromises <- subscribesRef.get
-      _ <- queryResponses(responsePromises.values.toList, machine).flatMap(updateSubscribesByResult)
+      responses <- queryResponses(responsePromises.values.toList, machine)
+      _ <- updateSubscribesByResult(responses)
     } yield ()
 
 }
