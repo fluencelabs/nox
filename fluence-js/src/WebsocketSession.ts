@@ -129,7 +129,17 @@ export class WebsocketSession {
      * Creates a new websocket connection. Waits after websocket will become connected.
      */
     private connect(): Promise<WebsocketSession> {
-        const node = this.nodes[this.nodeCounter % this.nodes.length];
+
+        if (this.nodes.length === 0) {
+            // all nodes are unavailable, return the error
+            if (this.connectionPromise) {
+                this.connectionPromise.fail("There is no available nodes.")
+            }
+            return Promise.reject("There is no available nodes.")
+        }
+
+        const nodeNumber = this.nodeCounter % this.nodes.length;
+        const node = this.nodes[nodeNumber];
         this.nodeCounter++;
         debug("Websocket connecting to " + JSON.stringify(node));
 
@@ -154,10 +164,13 @@ export class WebsocketSession {
             };
 
             socket.onclose = (e) => {
-                console.error("Websocket is closed. Reconnecting.");
+                console.error(`Websocket ${node.ip_addr}:${node.api_port} is closed. Reconnecting.`);
+
+                // delete node from list of nodes and add it after timeout
+                delete this.nodes[nodeNumber];
+                setTimeout(() => this.nodes.push(node), this.timeout);
 
                 // new requests will be terminated until websocket is connected
-                // TODO: fail first connection if all nodes are unavailable
                 if (!this.firstConnection) {
                     this.connectionPromise = new PromiseExecutor<void>();
                     this.connectionPromise.fail("Websocket is closed. Reconnecting")
