@@ -29,7 +29,7 @@ import scala.language.higherKinds
 
 class SendAndWait[F[_]: Monad](
   producer: BlockProducer[F],
-  responseSubscriber: AwaitResponses[F]
+  responseSubscriber: AwaitResponses[F, _]
 ) {
 
   /**
@@ -100,7 +100,7 @@ object SendAndWait {
 
   def apply[F[_]: Monad: Log](
     producer: BlockProducer[F],
-    responseSubscriber: AwaitResponses[F]
+    responseSubscriber: AwaitResponses[F, _]
   ): SendAndWait[F] =
     new SendAndWait(producer, responseSubscriber)
 }

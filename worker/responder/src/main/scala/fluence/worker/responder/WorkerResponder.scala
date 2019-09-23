@@ -18,8 +18,8 @@ package fluence.worker.responder
 
 import cats.Parallel
 import cats.effect.{Concurrent, Resource, Timer}
+import fluence.bp.tx.TxsBlock
 import fluence.effects.{Backoff, EffectError}
-import fluence.effects.tendermint.block.data.Block
 import fluence.log.Log
 import fluence.worker.api.Worker
 import fluence.worker.responder.repeat.RepeatOnEveryBlock
@@ -27,7 +27,7 @@ import fluence.worker.responder.repeat.RepeatOnEveryBlock
 import scala.language.higherKinds
 
 /**
-* Main patterns to get response for a given transaction
+ * Main patterns to get response for a given transaction
  *
  * @param sendAndWait Send transaction, lookup next blocks for the response
  * @param onEveryBlock Repeat transaction for each non-empty block, stream responses
@@ -39,9 +39,8 @@ class WorkerResponder[F[_]](
 
 object WorkerResponder {
 
-  // TODO actually we don't need a Tendermint block here, we just want to have height and txs
-  def make[F[_]: Parallel: Concurrent: Timer: Log](
-    worker: Worker.AuxP[F, Block],
+  def make[F[_]: Parallel: Concurrent: Timer: Log, B: TxsBlock](
+    worker: Worker.AuxP[F, B],
     maxTries: Int = AwaitResponses.MaxBlocksTries
   )(implicit backoff: Backoff[EffectError]): Resource[F, WorkerResponder[F]] =
     for {

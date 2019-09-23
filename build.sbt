@@ -309,7 +309,7 @@ lazy val `tendermint-block` = (project in file("history/tendermint-block"))
       bouncyCastle
     )
   )
-  .dependsOn(`effects`)
+  .dependsOn(`effects`, `block-producer-tx`)
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `tendermint-block-history` = (project in file("history/tendermint-block-history"))
@@ -419,14 +419,15 @@ lazy val `worker-api` = project
 lazy val `worker-responder` = project.in(file("worker/responder"))
   .settings(commons)
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`worker-api`, `tendermint-block`, `resources-effects`)
+  .dependsOn(`worker-api`, `resources-effects`)
 
 lazy val `block-producer-tx` = project
   .in(file("block-producer/tx"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
-      circeGeneric
+      circeGeneric,
+      scodecCore
     )
   )
   .enablePlugins(AutomateHeaderPlugin)

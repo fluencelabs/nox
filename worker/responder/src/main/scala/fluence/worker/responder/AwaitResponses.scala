@@ -23,9 +23,8 @@ import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Parallel, Traverse}
-import fluence.bp.tx.Tx
+import fluence.bp.tx.{Tx, TxsBlock}
 import fluence.effects.resources.MakeResource
-import fluence.effects.tendermint.block.data.{Base64ByteVector, Block}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.statemachine.api.StateMachine
@@ -36,8 +35,8 @@ import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
-class AwaitResponses[F[_]: Concurrent: Parallel: Timer](
-  worker: Worker.AuxP[F, Block],
+class AwaitResponses[F[_]: Concurrent: Parallel: Timer, B: TxsBlock](
+  worker: Worker.AuxP[F, B],
   subscribesRef: Ref[F, Map[Tx.Head, ResponsePromise[F]]],
   maxBlocksTries: Int
 )(implicit backoff: Backoff[EffectError]) {
@@ -72,7 +71,7 @@ class AwaitResponses[F[_]: Concurrent: Parallel: Timer](
         _ <- Log.resource.info("Creating subscription for tendermint blocks")
         blockStream = producer.blockStream(lastHeight)
         pollingStream = blockStream
-          .evalTap(b => log.debug(s"got block ${b.header.height}"))
+          .evalTap(b => log.debug(s"got block ${TxsBlock[B].height(b)}"))
           .filter(nonEmptyBlock)
           .evalMap(_ => pollResponses(machine))
         _ <- MakeResource.concurrentStream(pollingStream)
@@ -82,9 +81,9 @@ class AwaitResponses[F[_]: Concurrent: Parallel: Timer](
   /**
    * @return true if block contains any non-pubsub txs, false otherwise
    */
-  private def nonEmptyBlock(block: Block): Boolean = block.data.txs.exists(_.exists(!isPubSubTx(_)))
+  private def nonEmptyBlock(block: B): Boolean = TxsBlock[B].txs(block).exists(!isRepeatTx(_))
 
-  private def isPubSubTx(tx: Base64ByteVector) = tx.bv.startsWith(AwaitResponses.AwaitSessionPrefixBytes)
+  private def isRepeatTx(tx: ByteVector) = tx.startsWith(AwaitResponses.AwaitSessionPrefixBytes)
 
   /**
    * Query responses for subscriptions.
@@ -183,15 +182,18 @@ object AwaitResponses {
 
   val MaxBlocksTries = 10
 
-  val AwaitSessionPrefix = "await"
+  val RepeatSessionPrefix = "repeat"
 
-  private val AwaitSessionPrefixBytes = ByteVector(AwaitSessionPrefix.getBytes)
+  private val AwaitSessionPrefixBytes = ByteVector(RepeatSessionPrefix.getBytes)
 
-  def make[F[_]: Parallel: Concurrent: Log: Timer](worker: Worker.AuxP[F, Block], maxTries: Int = MaxBlocksTries)(
+  def make[F[_]: Parallel: Concurrent: Log: Timer, B: TxsBlock](
+    worker: Worker.AuxP[F, B],
+    maxTries: Int = MaxBlocksTries
+  )(
     implicit backoff: Backoff[EffectError]
-  ): Resource[F, AwaitResponses[F]] =
+  ): Resource[F, AwaitResponses[F, B]] =
     MakeResource
       .refOf(Map.empty[Tx.Head, ResponsePromise[F]])
-      .map(new AwaitResponses[F](worker, _, maxTries))
+      .map(new AwaitResponses[F, B](worker, _, maxTries))
       .flatTap(_.start())
 }

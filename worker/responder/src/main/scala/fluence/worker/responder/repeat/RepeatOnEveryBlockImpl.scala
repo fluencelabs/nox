@@ -128,7 +128,7 @@ private[repeat] class RepeatOnEveryBlockImpl[F[_]: Timer: Concurrent](
   ): EitherT[F, TxAwaitError, AwaitedResponse] = {
     // TODO random is an effect
     val randomStr = Random.alphanumeric.take(8).mkString
-    val head = Tx.Head(s"${AwaitResponses.AwaitSessionPrefix}-$key-$randomStr", 0)
+    val head = Tx.Head(s"${AwaitResponses.RepeatSessionPrefix}-$key-$randomStr", 0)
     val tx = Tx(head, data)
 
     waitResponseService.sendTxAwaitResponse(tx.generateTx())

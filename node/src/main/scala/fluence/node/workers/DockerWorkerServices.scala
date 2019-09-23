@@ -204,7 +204,7 @@ object DockerWorkerServices {
 
       apiWorker = fluence.worker.api.Worker(params.appId, stateMachine, producer)
 
-      responder ← WorkerResponder.make[F](apiWorker)
+      responder ← WorkerResponder.make(apiWorker)
 
       services = new DockerWorkerServices[F](
         p2pPort,

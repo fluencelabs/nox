@@ -28,6 +28,7 @@ import fluence.effects.EffectError
 import fluence.log.Log
 import fluence.statemachine.api.StateMachine
 import fluence.statemachine.api.command.TxProcessor
+import scodec.bits.ByteVector
 import shapeless._
 
 import scala.language.higherKinds
@@ -35,9 +36,9 @@ import scala.language.higherKinds
 class EmbeddedBlockProducer[F[_]: Monad](
   txProcessor: TxProcessor[F],
   lastHeight: Ref[F, Long],
-  blocksQueue: fs2.concurrent.Queue[F, Long]
+  blocksQueue: fs2.concurrent.Queue[F, SimpleBlock]
 ) extends BlockProducer[F] {
-  override type Block = Long
+  override type Block = SimpleBlock
 
   /**
    * Retrieve the last height, known locally
@@ -53,7 +54,7 @@ class EmbeddedBlockProducer[F[_]: Monad](
    * @return Stream of blocks
    */
   override def blockStream(fromHeight: Long)(implicit log: Log[F]): fs2.Stream[F, Block] =
-    blocksQueue.dequeue.filter(_ >= fromHeight)
+    blocksQueue.dequeue.filter(_.height >= fromHeight)
 
   /**
    * Send (asynchronously) a transaction to the block producer, so that it should later get into a block
@@ -70,7 +71,7 @@ class EmbeddedBlockProducer[F[_]: Monad](
             sh ← txProcessor.commit()
 
             _ ← EitherT.right(lastHeight.set(sh.height))
-            _ ← EitherT.right(blocksQueue.enqueue1(sh.height))
+            _ ← EitherT.right(blocksQueue.enqueue1(SimpleBlock(sh.height, Seq(ByteVector(txData)))))
           } yield ()
       )
 
@@ -82,16 +83,14 @@ object EmbeddedBlockProducer {
     machine: StateMachine.Aux[F, C]
   )(
     implicit txp: ops.hlist.Selector[C, TxProcessor[F]]
-  ): F[BlockProducer.Aux[F, Long]] =
+  ): F[BlockProducer.Aux[F, SimpleBlock]] =
     for {
       lastHeight ← Ref.of[F, Long](0)
-      blockQueue ← fs2.concurrent.Queue.circularBuffer[F, Long](16)
+      blockQueue ← fs2.concurrent.Queue.circularBuffer[F, SimpleBlock](16)
     } yield new EmbeddedBlockProducer[F](
       machine.command[TxProcessor[F]],
       lastHeight,
       blockQueue
-    ) {
-      override type Block = Long
-    }
+    )
 
 }
