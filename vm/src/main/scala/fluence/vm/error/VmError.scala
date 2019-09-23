@@ -25,7 +25,7 @@ import scala.util.control.NoStackTrace
  * @param causedBy caught [[Throwable]], if any
  */
 sealed abstract class VmError(val message: String, val causedBy: Option[Throwable])
-    extends Throwable(message, causedBy.orNull, true, false)
+    extends Throwable(message, causedBy.orNull, true, false) with NoStackTrace
 
 /**
  * Corresponds to errors occurred during VM initialization.
