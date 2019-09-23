@@ -139,10 +139,10 @@ class AwaitResponses[F[_]: Concurrent: Parallel: Timer, B: TxsBlock](
     val (complete, retry) = {
       // TODO: use partitionMap from 2.13
       val (left, right) = responses.map {
-        case t @ (_, _: OkResponse | _: TimedOutResponse)              => t.asLeft
-        case t @ (p, _: RpcErrorResponse) if p.tries == maxBlocksTries => t.asLeft
-        case (p, _: PendingResponse) if p.tries == maxBlocksTries      => (p, tout(p)).asLeft
-        case (p, _: RpcErrorResponse | _: PendingResponse)             => (p.id, inc(p)).asRight
+        case t @ (_, _: OkResponse | _: TimedOutResponse)          => t.asLeft // Got response
+        case (p, e: RpcErrorResponse) if p.tries == maxBlocksTries => (p, e).asLeft // Error, no more tries
+        case (p, _: PendingResponse) if p.tries == maxBlocksTries  => (p, tout(p)).asLeft // No response, no more tries
+        case (p, _: RpcErrorResponse | _: PendingResponse)         => (p.id, inc(p)).asRight // Error or no response, retry
       }.partition(_.isLeft)
 
       (left.map(_.left.get), right.map(_.right.get))
