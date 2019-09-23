@@ -55,7 +55,10 @@ export class WebsocketSession {
         return ws.connect();
     }
 
-    checkExecutors() {
+    /**
+     * Check every second for promises that waiting for a response more than the timeout.
+     */
+    private checkExecutors() {
         let now = new Date().getTime();
         this.executors.forEach((executor: Executor<any>, key: string) => {
             if (executor.type === ExecutorType.Promise) {
@@ -148,7 +151,6 @@ export class WebsocketSession {
         let node = this.nodes[this.nodeCounter % this.nodes.length];
         this.nodeCounter++;
         debug("Connecting to " + JSON.stringify(node));
-        console.log("node counter " + node.ip_addr);
 
         if (!this.connectionHandler || !this.firstConnection) {
             this.connectionHandler = new PromiseExecutor<void>();
@@ -171,6 +173,22 @@ export class WebsocketSession {
 
             socket.onclose = (e) => {
                 console.error("Websocket is closed. Reconnecting.");
+
+                // new requests will be terminated until websocket is connected
+                if (!this.firstConnection) {
+                    this.connectionHandler = new PromiseExecutor<void>();
+                    this.connectionHandler.handleError("Websocket is closed. Reconnecting")
+                }
+
+                // terminate and delete all executors that are waiting requests
+                this.executors.forEach((executor: Executor<Result | void>, key: string) => {
+                    if (executor.type === ExecutorType.Promise) {
+                        executor.handleError("Reconnecting. All waiting requests are terminated.");
+                        this.executors.delete(key)
+
+                    }
+                });
+
                 setTimeout(() => this.reconnectSession(e), 1000)
             };
 
@@ -185,7 +203,7 @@ export class WebsocketSession {
     }
 
     /**
-     * Increments current internal counter
+     * Increments current internal counter.
      */
     private getCounterAndIncrement() {
         return this.counter++;
@@ -308,15 +326,6 @@ export class WebsocketSession {
         this.sessionId = genSessionId();
         this.counter = 0;
         this.connect();
-
-        // terminate and delete all executors that are waiting requests
-        this.executors.forEach((executor: Executor<Result | void>, key: string) => {
-            if (executor.type === ExecutorType.Promise) {
-                executor.handleError("Reconnecting. All waiting requests are terminated.");
-                this.executors.delete(key)
-
-            }
-        });
     }
 
     private static parseRawResponse(response: string): WebsocketResponse {
