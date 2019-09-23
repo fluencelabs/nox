@@ -75,12 +75,13 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer](
    * @param lastKnownHeight Height of the block that was already processed (uploaded, and its receipt stored)
    * @return Stream of blocks, strictly in order, without any repetitions
    */
-  def subscribeNewBlock(lastKnownHeight: Long)(
+  def subscribeNewBlock(lastKnownHeight: Option[Long])(
     implicit log: Log[F],
     backoff: Backoff[EffectError] = Backoff.default
   ): fs2.Stream[F, Block] = {
-    // Start accepting and/or loading blocks from next to already-known block
-    val startFrom = lastKnownHeight + 1
+    // Start accepting and/or loading blocks from next to already-known block if defined,
+    // or from last height known by block producer, otherwise
+    val startFrom = lastKnownHeight.map(_ + 1).fold(getLastHeight)(_.pure[F])
 
     val logSubscribe = traceBU(s"subscribed on NewBlock. startFrom: $startFrom")
     val subscribeS = fs2.Stream.resource(subscribe("NewBlock")).evalTap(_ => logSubscribe)
@@ -89,14 +90,16 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer](
     // Drop first reconnect from websocket to account for startEventS
     val eventsS = startEventS ++ (subscribeS >>= (_.dequeue)).drop(1)
 
-    eventsS
-      .evalMapAccumulate(startFrom) {
-        // load missing blocks on reconnect (reconnect is always the first event in the queue)
-        case (startHeight, Start | Reconnect) => loadMissedBlocks(startHeight)
-        // accept a new block
-        case (curHeight, JsonEvent(json)) => acceptNewBlock(curHeight, json)
-      }
-      .flatMap { case (_, blocks) => fs2.Stream.emits(blocks) }
+    fs2.Stream.eval(startFrom) >>= (
+      eventsS
+        .evalMapAccumulate(_) {
+          // load missing blocks on reconnect (reconnect is always the first event in the queue)
+          case (startHeight, Start | Reconnect) => loadMissedBlocks(startHeight)
+          // accept a new block
+          case (curHeight, JsonEvent(json)) => acceptNewBlock(curHeight, json)
+        }
+        .flatMap { case (_, blocks) => fs2.Stream.emits(blocks) }
+    )
   }
 
   /**
@@ -145,7 +148,7 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer](
     for {
       _ <- traceBU("reconnect. will retrieve last height")
       // retrieve height from Tendermint
-      lastHeight <- backoff.retry(getLastHeight, e => log.error("retrieving consensus height", e))
+      lastHeight <- getLastHeight
       _ <- traceBU(
         s"reconnect. startHeight $startHeight lastHeight $lastHeight " +
           s"cond1: ${lastHeight == startHeight}, cond2: ${startHeight == lastHeight - 1}"
@@ -201,13 +204,16 @@ class TendermintWebsocketRpcImpl[F[_]: ConcurrentEffect: Timer](
     backoff: Backoff[EffectError]
   ) = Traverse[List].sequence((from to to).map(loadBlock).toList)
 
-  private def getLastHeight(implicit log: Log[F]): EitherT[F, EffectError, Long] =
-    EitherT.liftF(traceBU("getLastHeight")).leftMap(identity[EffectError]) *>
-      blockstore.getStorageHeight.leftMap(identity[EffectError]).recoverWith {
-        case e =>
-          Log.eitherT[F, EffectError].warn(s"Error retrieving last height from blockstore", e) >>
-            httpRpc.consensusHeight().leftMap(identity[EffectError])
-      }
+  private def getLastHeight(implicit log: Log[F], backoff: Backoff[EffectError]): F[Long] =
+    backoff.retry(
+      EitherT.liftF(traceBU("getLastHeight")).leftMap(identity[EffectError]) *>
+        blockstore.getStorageHeight.leftMap(identity[EffectError]).recoverWith {
+          case e =>
+            Log.eitherT[F, EffectError].warn(s"Error retrieving last height from blockstore", e) >>
+              httpRpc.consensusHeight().leftMap(identity[EffectError])
+        },
+      e => log.error("retrieving consensus height", e)
+    )
 
   private def getBlock(height: Long)(implicit log: Log[F]) =
     EitherT.liftF(traceBU(s"getBlock $height")).leftMap(identity[EffectError]) *>

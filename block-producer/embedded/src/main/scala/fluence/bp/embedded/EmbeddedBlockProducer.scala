@@ -35,17 +35,9 @@ import scala.language.higherKinds
 
 class EmbeddedBlockProducer[F[_]: Monad](
   txProcessor: TxProcessor[F],
-  lastHeight: Ref[F, Long],
   blocksQueue: fs2.concurrent.Queue[F, SimpleBlock]
 ) extends BlockProducer[F] {
   override type Block = SimpleBlock
-
-  /**
-   * Retrieve the last height, known locally
-   *
-   */
-  override def lastKnownHeight()(implicit log: Log[F]): EitherT[F, EffectError, Long] =
-    EitherT.right(lastHeight.get)
 
   /**
    * Stream of blocks, starting with the given height
@@ -53,8 +45,8 @@ class EmbeddedBlockProducer[F[_]: Monad](
    * @param fromHeight All newer blocks shall appear in the stream
    * @return Stream of blocks
    */
-  override def blockStream(fromHeight: Long)(implicit log: Log[F]): fs2.Stream[F, Block] =
-    blocksQueue.dequeue.filter(_.height >= fromHeight)
+  override def blockStream(fromHeight: Option[Long])(implicit log: Log[F]): fs2.Stream[F, Block] =
+    fromHeight.foldLeft(blocksQueue.dequeue) { case (s, h) => s.filter(_.height >= h) }
 
   /**
    * Send (asynchronously) a transaction to the block producer, so that it should later get into a block
@@ -70,7 +62,6 @@ class EmbeddedBlockProducer[F[_]: Monad](
           for {
             sh ← txProcessor.commit()
 
-            _ ← EitherT.right(lastHeight.set(sh.height))
             _ ← EitherT.right(blocksQueue.enqueue1(SimpleBlock(sh.height, Seq(ByteVector(txData)))))
           } yield ()
       )
@@ -85,12 +76,7 @@ object EmbeddedBlockProducer {
     implicit txp: ops.hlist.Selector[C, TxProcessor[F]]
   ): F[BlockProducer.Aux[F, SimpleBlock]] =
     for {
-      lastHeight ← Ref.of[F, Long](0)
       blockQueue ← fs2.concurrent.Queue.circularBuffer[F, SimpleBlock](16)
-    } yield new EmbeddedBlockProducer[F](
-      machine.command[TxProcessor[F]],
-      lastHeight,
-      blockQueue
-    )
+    } yield new EmbeddedBlockProducer[F](machine.command[TxProcessor[F]], blockQueue)
 
 }

@@ -43,7 +43,7 @@ trait TendermintWebsocketRpc[F[_]] {
    * @return Stream of blocks, strictly in order, without any repetitions
    */
   def subscribeNewBlock(
-    lastKnownHeight: Long
+    lastKnownHeight: Option[Long]
   )(implicit log: Log[F], backoff: Backoff[EffectError] = Backoff.default): fs2.Stream[F, Block]
 
   protected def subscribe(

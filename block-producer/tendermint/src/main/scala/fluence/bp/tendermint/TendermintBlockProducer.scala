@@ -32,20 +32,13 @@ class TendermintBlockProducer[F[_]: Functor](
   override type Block = data.Block
 
   /**
-   * Retrieve the last height, known locally
-   * TODO read it from BlockStore?
-   */
-  override def lastKnownHeight()(implicit log: Log[F]): EitherT[F, EffectError, Long] =
-    tendermint.rpc.statusParsed.leftMap(identity[EffectError]).map(_.sync_info.latest_block_height)
-
-  /**
    * Stream of blocks, starting with the given height
    * TODO get it from BlockStore, then switch to websocket?
    *
    * @param fromHeight All newer blocks shall appear in the stream
    * @return Stream of blocks
    */
-  override def blockStream(fromHeight: Long)(implicit log: Log[F]): fs2.Stream[F, Block] =
+  override def blockStream(fromHeight: Option[Long])(implicit log: Log[F]): fs2.Stream[F, Block] =
     tendermint.wrpc.subscribeNewBlock(fromHeight)
 
   /**

@@ -27,18 +27,13 @@ trait BlockProducer[F[_]] {
   type Block
 
   /**
-   * Retrieve the last height, known locally
-   *
-   */
-  def lastKnownHeight()(implicit log: Log[F]): EitherT[F, EffectError, Long]
-
-  /**
    * Stream of blocks, starting with the given height
    *
-   * @param fromHeight All newer blocks shall appear in the stream
+   * @param fromHeight If defined, all blocks of greater height shall appear in the stream.
+   *                   If empty, stream shall start from current block.
    * @return Stream of blocks
    */
-  def blockStream(fromHeight: Long)(implicit log: Log[F]): fs2.Stream[F, Block]
+  def blockStream(fromHeight: Option[Long])(implicit log: Log[F]): fs2.Stream[F, Block]
 
   /**
    * Send (asynchronously) a transaction to the block producer, so that it should later get into a block

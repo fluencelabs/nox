@@ -92,7 +92,7 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
         val storedReceipts = getStoredReceipts(storage, lastHeightRef, lastHeightDef)
 
         // TODO get last known height from the last received receipt
-        val lastKnownHeight = fs2.Stream.eval(lastHeightDef.get)
+        val lastKnownHeight = fs2.Stream.eval(lastHeightDef.get).map(Some(_))
 
         // Subscribe on blocks, starting with given last known height
         val blocks = lastKnownHeight >>= wrpc.subscribeNewBlock

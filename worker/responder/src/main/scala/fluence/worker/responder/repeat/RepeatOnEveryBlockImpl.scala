@@ -106,12 +106,8 @@ private[repeat] class RepeatOnEveryBlockImpl[F[_]: Timer: Concurrent](
   def start()(implicit log: Log[F]): Resource[F, Unit] =
     log.scope("startBlockTxExecutor") { implicit log =>
       for {
-        lastHeight <- Resource.liftF(
-          backoff.retry(producer.lastKnownHeight(), e => log.error("retrieving consensus height", e))
-        )
         _ <- Log.resource.info("Creating subscription for tendermint blocks")
-
-        blockStream = producer.blockStream(lastHeight)
+        blockStream = producer.blockStream(fromHeight = None)
         pollingStream = blockStream
           .evalTap(b => log.trace(s"got block ${b}"))
           .evalMap(_ => processSubscriptions())
