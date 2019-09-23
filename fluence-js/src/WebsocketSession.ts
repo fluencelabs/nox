@@ -17,7 +17,7 @@
 import {genRequestId, genSessionId, prepareRequest, PrivateKey} from "./utils";
 import {Node} from "./contract";
 import {Result} from "./Result";
-import {Executor, ExecutorType, PromiseExecutor, SubscribtionExecutor} from "./executor";
+import {Executor, ExecutorType, PromiseExecutor, SubscriptionExecutor} from "./executor";
 import {debug, TendermintClient} from "./fluence";
 import {AbciQueryResult, TendermintJsonRpcResponse} from "./RpcClient";
 import {none} from "ts-option";
@@ -44,7 +44,7 @@ export class WebsocketSession {
     private executors = new Map<string, Executor<Result | void>>();
 
     // promise, that should be completed if websocket is connected
-    private connectionHandler: PromiseExecutor<void>;
+    private connectionPromise: PromiseExecutor<void>;
 
     /**
      * Create connected websocket.
@@ -97,7 +97,6 @@ export class WebsocketSession {
                     }
                     if (Executor.isPromise(executor)) {
                         this.executors.delete(rawResponse.request_id);
-                        executor.cancelTimeout();
                     }
                 } else {
                     const executor = this.executors.get(rawResponse.request_id) as Executor<void>;
@@ -117,7 +116,7 @@ export class WebsocketSession {
     private resubscribe() {
         this.executors.forEach((executor: Executor<any>, key: string) => {
             if (executor.type === ExecutorType.Subscription) {
-                const subExecutor = executor as SubscribtionExecutor;
+                const subExecutor = executor as SubscriptionExecutor;
                 this.subscribe(subExecutor.subscription, subExecutor.resultHandler, subExecutor.errorHandler)
                     .catch((e) => console.error(`Cannot resubscribe on ${subExecutor.subscription}`))
             }
@@ -132,8 +131,8 @@ export class WebsocketSession {
         this.nodeCounter++;
         debug("Connecting to " + JSON.stringify(node));
 
-        if (!this.connectionHandler || !this.firstConnection) {
-            this.connectionHandler = new PromiseExecutor<void>(undefined);
+        if (!this.connectionPromise || !this.firstConnection) {
+            this.connectionPromise = PromiseExecutor.create<void>();
         }
 
         try {
@@ -144,7 +143,7 @@ export class WebsocketSession {
             socket.onopen = () => {
                 debug("Websocket is opened");
                 this.firstConnection = false;
-                this.connectionHandler.handleResult();
+                this.connectionPromise.handleResult();
                 this.resubscribe();
             };
 
@@ -157,8 +156,8 @@ export class WebsocketSession {
 
                 // new requests will be terminated until websocket is connected
                 if (!this.firstConnection) {
-                    this.connectionHandler = new PromiseExecutor<void>(undefined);
-                    this.connectionHandler.handleError("Websocket is closed. Reconnecting")
+                    this.connectionPromise = PromiseExecutor.create<void>();
+                    this.connectionPromise.handleError("Websocket is closed. Reconnecting")
                 }
 
                 // terminate and delete all executors that are waiting requests
@@ -180,7 +179,7 @@ export class WebsocketSession {
         } catch (e) {
             console.log(e)
         }
-        return this.connectionHandler.promise.then(() => this);
+        return this.connectionPromise.promise.then(() => this);
     }
 
     /**
@@ -198,7 +197,7 @@ export class WebsocketSession {
 
         debug("Unsibscribe " + subscriptionId);
 
-        await this.connectionHandler.promise;
+        await this.connectionPromise.promise;
 
         const requestId = genRequestId();
 
@@ -227,15 +226,15 @@ export class WebsocketSession {
     /**
      * Creates a subscription, that will return responses on every change in a state machine.
      * @param transaction will be run on state machine on every change
-     * @param resultHandler to handle changes
-     * @param errorHandler to handle errors
+     * @param resultCallback to handle changes
+     * @param errorCallback to handle errors
      */
-    async subscribe(transaction: string, resultHandler: (result: Result) => void, errorHandler: (error: any) => void): Promise<string> {
-        await this.connectionHandler.promise;
+    async subscribe(transaction: string, resultCallback: (result: Result) => void, errorCallback: (error: any) => void): Promise<string> {
+        await this.connectionPromise.promise;
         const requestId = genRequestId();
         const subscriptionId = genRequestId();
 
-        const executor: SubscribtionExecutor = new SubscribtionExecutor(transaction, resultHandler, errorHandler);
+        const executor: SubscriptionExecutor = new SubscriptionExecutor(transaction, resultCallback, errorCallback);
 
         await this.subscribeCall(transaction, requestId, subscriptionId);
 
@@ -249,7 +248,7 @@ export class WebsocketSession {
      */
     async requestAsync(payload: string): Promise<void> {
 
-        await this.connectionHandler.promise;
+        await this.connectionPromise.promise;
 
         const requestId = genRequestId();
         const counter = this.getCounterAndIncrement();
@@ -291,14 +290,14 @@ export class WebsocketSession {
     private sendAndWaitResponse(requestId: string, message: string): Promise<Result> {
         this.socket.send(message);
 
-        const timeout = setTimeout(() => {
+        const onTimeout = () => {
             if (this.executors.has(requestId)) {
                 executor.handleError(`Timeout after ${this.timeout} milliseconds.`);
                 this.executors.delete(requestId);
             }
-        }, this.timeout);
+        };
 
-        const executor: PromiseExecutor<Result> = new PromiseExecutor(timeout);
+        const executor: PromiseExecutor<Result> = PromiseExecutor.withTimeout<Result>(this.timeout, onTimeout);
 
         this.executors.set(requestId, executor);
 
@@ -306,7 +305,7 @@ export class WebsocketSession {
     }
 
     /**
-     * Generate new sessionId, terminate old connectionHandler and create a new one.
+     * Generate new sessionId, terminate old connectionPromise and create a new one.
      * Terminate all executors that are waiting for responses.
      */
     private reconnectSession(reason: any) {

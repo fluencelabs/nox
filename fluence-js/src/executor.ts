@@ -25,48 +25,58 @@ export abstract class Executor<T> {
  * Executor based on promise. Terminates once.
  */
 export class PromiseExecutor<T> extends Executor<T> {
-    private resultResolver: (result: T) => void;
-    private errorResolver: (error: any) => void;
+    private resultHandler: (result: T) => void;
+    private errorHandler: (error: any) => void;
     readonly promise: Promise<T>;
-    readonly creationTime: number;
     private timeout: ReturnType<typeof setTimeout> | undefined;
 
-    constructor(timeout: ReturnType<typeof setTimeout> | undefined) {
+    static withTimeout<T>(timeout: number, onTimeout: () => void) {
+        return new PromiseExecutor<T>(timeout, onTimeout)
+    }
+
+    static create<T>() {
+        return new PromiseExecutor<T>(undefined, undefined)
+    }
+
+    private constructor(timeout: number | undefined, onTimeout: (() => void) | undefined) {
         super();
-        this.promise = new Promise<T>((r, e) => { this.resultResolver = r; this.errorResolver = e; });
-        this.timeout = timeout;
+
+        if (timeout && onTimeout) {
+            this.timeout = setTimeout(() => {
+                onTimeout()
+            }, timeout);
+
+            this.promise = new Promise<T>((r, e) => { this.resultHandler = r; this.errorHandler = e; })
+                .finally(() => {
+                    if (timeout) { clearTimeout(timeout) }
+                });
+        }
     }
 
     handleResult(result: T): void {
-        this.resultResolver(result)
+        this.resultHandler(result)
     }
 
     handleError(error: any): void {
-        this.errorResolver(error)
-    }
-
-    cancelTimeout() {
-        if (this.timeout) {
-            clearTimeout(this.timeout)
-        }
+        this.errorHandler(error)
     }
 
     type: ExecutorType = ExecutorType.Promise
 }
 
 /**
- * Executor based on callbacks,
+ * Executor based on callbacks. Could handle multiple results.
  */
-export class SubscribtionExecutor extends Executor<Result> {
+export class SubscriptionExecutor extends Executor<Result> {
     readonly resultHandler: (result: Result) => void;
     readonly errorHandler: (error: any) => void;
     readonly subscription: string;
 
-    constructor(subscription: string, resultHandler: (result: Result) => void, errorHandler: (error: any) => void) {
+    constructor(subscription: string, resultCallback: (result: Result) => void, errorCallback: (error: any) => void) {
         super();
         this.subscription = subscription;
-        this.resultHandler = resultHandler;
-        this.errorHandler = errorHandler;
+        this.resultHandler = resultCallback;
+        this.errorHandler = errorCallback;
     }
 
     handleError(error: any): void {
