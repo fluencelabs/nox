@@ -35,7 +35,7 @@ import fs2.concurrent.{SignallingRef, Topic}
 import scala.language.higherKinds
 import scala.util.Random
 
-class RepeatOnEveryBlockImpl[F[_]: Timer: Concurrent](
+private[repeat] class RepeatOnEveryBlockImpl[F[_]: Timer: Concurrent](
   subscriptions: Ref[F, Map[String, Subscription[F]]],
   producer: BlockProducer[F],
   waitResponseService: SendAndWait[F]

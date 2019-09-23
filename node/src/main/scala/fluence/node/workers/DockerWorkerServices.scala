@@ -21,6 +21,7 @@ import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Monad, Parallel}
+import fluence.bp.api.BlockProducer
 import fluence.bp.tendermint.{Tendermint, TendermintBlockProducer}
 import fluence.effects.docker._
 import fluence.effects.receipt.storage.ReceiptStorage
@@ -58,6 +59,7 @@ case class DockerWorkerServices[F[_]] private (
   p2pPort: Short,
   appId: Long,
   tendermint: Tendermint[F],
+  producer: BlockProducer[F],
   machine: StateMachine[F],
   receiptBus: ReceiptBus[F],
   peersControl: PeersControl[F],
@@ -208,6 +210,7 @@ object DockerWorkerServices {
         p2pPort,
         params.appId,
         tm,
+        producer,
         stateMachine,
         stateMachine.command[ReceiptBus[F]],
         stateMachine.command[PeersControl[F]],

@@ -16,6 +16,7 @@
 
 package fluence.node.workers
 
+import fluence.bp.api.BlockProducer
 import fluence.bp.tendermint.Tendermint
 import fluence.node.workers.status.WorkerStatus
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
@@ -27,8 +28,11 @@ import scala.language.higherKinds
 
 // Algebra for WorkerServices
 trait WorkerServices[F[_]] {
-  // TODO replace with block producer
+  // TODO remove
   def tendermint: Tendermint[F]
+
+  // Used BlockProducer
+  def producer: BlockProducer[F]
 
   // The underlying StateMachine
   def machine: StateMachine[F]

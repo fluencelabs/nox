@@ -126,7 +126,7 @@ object WorkerApi {
     ): F[Either[RpcError, TxResponse]] =
       log.scope("tx") { implicit log ⇒
         log.debug(s"TendermintRpc broadcastTxSync request") *>
-          worker.withServices(_.tendermint.rpc)(_.broadcastTxSync(tx).value)
+          worker.withServices(_.producer)(_.sendTx(tx).leftMap[RpcError](RpcRequestFailed(_)).value)
       }
 
     override def sendTxAwaitResponse(tx: Array[Byte])(
