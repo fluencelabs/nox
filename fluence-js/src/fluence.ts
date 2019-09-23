@@ -37,7 +37,10 @@ let defaultContract = "0xeFF91455de6D4CF57C141bD8bF819E5f873c1A01";
 
 export let debug = require('debug')('fluence');
 export let debugI = require('debug');
+
+// debug logs are disabled by default
 debugI.disable();
+
 export function enableDebug() {
     debugI.enable("fluence");
 }
