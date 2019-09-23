@@ -129,7 +129,7 @@ export class WebsocketSession {
     private connect(): Promise<WebsocketSession> {
         const node = this.nodes[this.nodeCounter % this.nodes.length];
         this.nodeCounter++;
-        debug("Connecting to " + JSON.stringify(node));
+        debug("Websocket connecting to " + JSON.stringify(node));
 
         if (!this.connectionPromise || !this.firstConnection) {
             this.connectionPromise = PromiseExecutor.create<void>();
@@ -155,31 +155,33 @@ export class WebsocketSession {
                 console.error("Websocket is closed. Reconnecting.");
 
                 // new requests will be terminated until websocket is connected
+                // TODO: fail first connection if all nodes are unavailable
                 if (!this.firstConnection) {
                     this.connectionPromise = PromiseExecutor.create<void>();
                     this.connectionPromise.handleError("Websocket is closed. Reconnecting")
                 }
 
-                // terminate and delete all executors that are waiting requests
-                this.executors.forEach((executor: Executor<Result | void>, key: string) => {
-                    if (executor.type === ExecutorType.Promise) {
-                        executor.handleError("Reconnecting. All waiting requests are terminated.");
-                        this.executors.delete(key)
-
-                    }
-                });
+                this.stopPromiseExecutors();
 
                 setTimeout(() => this.reconnectSession(e), 1000)
             };
 
-            socket.onmessage = (msg) => {
-                this.messageHandler(msg.data)
-
-            };
+            socket.onmessage = (msg) => this.messageHandler(msg.data);
         } catch (e) {
-            console.log(e)
+            console.log("Websocket error on connecting: " + JSON.stringify(e));
         }
         return this.connectionPromise.promise.then(() => this);
+    }
+
+    private stopPromiseExecutors() {
+        // terminate and delete all promise executors
+        this.executors.forEach((executor: Executor<Result | void>, key: string) => {
+            if (executor.type === ExecutorType.Promise) {
+                executor.fail("Reconnecting. All waiting requests are terminated.");
+                this.executors.delete(key)
+
+            }
+        });
     }
 
     /**
