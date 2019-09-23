@@ -49,7 +49,7 @@ class FrankWasmVm(
   override def computeVmState[F[_]: LiftIO: Monad]: EitherT[F, StateComputationError, ByteVector] = {
     EitherT(
       IO(vmRunnerInvoker.computeVmState())
-        .map(r ⇒ ByteVector(r.state))
+        .map(ByteVector(_))
         .attempt
         .to[F]
     ).leftMap(e ⇒ StateComputationError(s"Frank getting VM state failed. Cause: ${e.getMessage}", Some(e)))

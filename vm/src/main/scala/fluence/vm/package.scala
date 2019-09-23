@@ -38,4 +38,10 @@ package object vm {
     }
   }
 
+  def getModuleDirPrefix(): String =
+    if (System.getProperty("user.dir").endsWith("/vm"))
+      System.getProperty("user.dir")
+    else
+      System.getProperty("user.dir") + "/vm/"
+
 }

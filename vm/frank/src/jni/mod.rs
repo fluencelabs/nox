@@ -15,5 +15,5 @@
  */
 
 pub mod exports;
-mod option;
 mod jni_results;
+mod option;

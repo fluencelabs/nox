@@ -69,7 +69,7 @@ object WasmVm {
   System.out.println(javaLibPath)
 
   Runtime.getRuntime.load(
-    "/Users/trofim/Desktop/work/fluence/fluence/vm/frank/target/release/libfrank.dylib"
+    getModuleDirPrefix() + "/frank/target/release/libfrank.dylib"
   )
 
   /**
@@ -87,6 +87,7 @@ object WasmVm {
     for {
       // reading config
       config ← VmConfig.readT[F](configNamespace, conf)
+      //_ = Thread.sleep(20000)
 
       _ ← Log.eitherT[F, InitializationError].info("WasmVm: configs read...")
       vmRunnerInvoker = new FrankAdapter()

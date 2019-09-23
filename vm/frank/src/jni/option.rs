@@ -20,9 +20,20 @@ use jni::objects::{JObject, JValue};
 
 /// creates Scala None value
 pub fn create_none_value(env: JNIEnv) -> JValue {
-    env.
-        call_static_method("scala/None", "get", "()Ljava/lang/Object;", &[])
-        .expect("jni: error while creating None object")
+    let tt = env
+        .call_static_method(
+            "scala/Option",
+            "apply",
+            "(Ljava/lang/Object;)Lscala/Option;",
+            &[JValue::from(JObject::null())],
+        )
+        .map_err(|err| format!("{}", err))
+        .expect("jni: error while creating None object");
+    println!(
+        "Allocated new None value - {:?}",
+        tt.l().unwrap().into_inner()
+    );
+    tt
 }
 
 /// creates Scala Some[String] value
@@ -32,12 +43,11 @@ pub fn create_some_value(env: JNIEnv, value: String) -> JValue {
         .expect("jni: couldn't allocate new string");
 
     let value = JObject::from(value);
-    env
-        .call_static_method(
-            "scala/Some",
-            "get",
-            "(Ljava/lang/Object;)Lscala/Some;",
-            &[JValue::from(value)],
-        )
-        .expect("jni: couldn't allocate a Some object")
+    env.call_static_method(
+        "scala/Option",
+        "apply",
+        "(Ljava/lang/Object;)Lscala/Option;",
+        &[JValue::from(value)],
+    )
+    .expect("jni: couldn't allocate a Some object")
 }

@@ -14,33 +14,44 @@
  * limitations under the License.
  */
 
-use crate::jni::option::*;
-use jni::JNIEnv;
-use jni::objects::{JObject, JValue};
 use crate::frank_result::FrankResult;
+use crate::jni::option::*;
+use jni::objects::{JObject, JValue};
+use jni::JNIEnv;
 
 /// Creates RawInitializationResult object.
 pub fn create_initialization_result(env: JNIEnv, error: Option<String>) -> JObject {
     let env_clone = env.clone();
 
     let error_value = match error {
-        Some(err) => create_some_value( env_clone, err),
-        None => create_none_value( env_clone),
+        Some(err) => create_some_value(env_clone, err),
+        None => create_none_value(env_clone),
     };
 
-    env.call_static_method(
-        "fluence/vm/frank/result/RawInitializationResult",
-        "apply",
-        "(Lscala/Option;)Lfluence/vm/RawInitializationResult;",
-        &[error_value],
-    )
+    let tt = env
+        .call_static_method(
+            "fluence/vm/frank/result/RawInitializationResult",
+            "apply",
+            "(Lscala/Option;)Lfluence/vm/frank/result/RawInitializationResult;",
+            &[error_value],
+        )
+        .map_err(|r| format!("{}", r))
         .expect("jni: couldn't allocate RawInitializationResult object")
         .l()
-        .expect("jni: couldn't convert RawInitializationResult to Java Object")
+        .expect("jni: couldn't convert RawInitializationResult to Java Object");
+
+    println!("New RawInitiailizationResult address {:?}", tt.into_inner());
+
+    tt
 }
 
 /// Creates RawInvocationResult object.
-pub fn create_invocation_result(env: JNIEnv, error: Option<String>, result: FrankResult) -> JObject {
+pub fn create_invocation_result(
+    env: JNIEnv,
+    error: Option<String>,
+    result: FrankResult,
+) -> JObject {
+    println!("create_invocation_result");
     let env_clone = env.clone();
     let error_value = match error {
         Some(err) => create_some_value(env_clone, err),
@@ -54,9 +65,10 @@ pub fn create_invocation_result(env: JNIEnv, error: Option<String>, result: Fran
     env.call_static_method(
         "fluence/vm/frank/result/RawInvocationResult",
         "apply",
-        "(Lscala/Option;[BJ)Lfluence/vm/RawInvocationResult;",
+        "(Lscala/Option;[BJ)Lfluence/vm/frank/result/RawInvocationResult;",
         &[error_value, JValue::from(outcome), spent_gas],
-    ) .expect("jni: couldn't allocate RawInitializationResult object")
-        .l()
-        .expect("jni: couldn't convert RawInitializationResult to Java Object")
+    )
+    .expect("jni: couldn't allocate RawInvocationResult object")
+    .l()
+    .expect("jni: couldn't convert RawInvocationResult to Java Object")
 }

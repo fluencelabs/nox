@@ -28,7 +28,7 @@ class FrankAdapter {
    *
    * @param filePath path to a wasm file
    */
-  @native def initialize(filePath: String, config: VmConfig): RawInitializationResult
+  @native def initialize(filePath: String, config: VmConfig): Int
 
   /**
    * Invokes main module.
@@ -41,5 +41,5 @@ class FrankAdapter {
    * Returns hash of all significant inner state of this VM. This function calculates
    * hashes for the state of each module and then concatenates them together.
    */
-  @native def computeVmState(): RawStateComputationResult
+  @native def computeVmState(): Array[Byte]
 }

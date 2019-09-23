@@ -18,6 +18,7 @@ package fluence.vm
 
 import cats.data.EitherT
 import cats.effect.IO
+import fluence.vm.error.VmError
 import org.scalatest.EitherValues
 
 import scala.language.{higherKinds, implicitConversions}
