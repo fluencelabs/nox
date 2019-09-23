@@ -68,7 +68,7 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
         appId,
         lastManifestReceipt,
         services.blockManifests.receiptStorage,
-        services.tendermintWRpc,
+        services.tendermint.wrpc,
         services.receiptBus,
         services.blockManifests.onUploaded
       )

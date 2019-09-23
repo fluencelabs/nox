@@ -21,12 +21,12 @@ import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Monad, Parallel}
+import fluence.bp.tendermint.Tendermint
 import fluence.effects.docker._
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.sttp.SttpEffect
-import fluence.effects.tendermint.block.history.db.Blockstore
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
-import fluence.effects.tendermint.rpc.websocket.{TendermintWebsocketRpc, WebsocketConfig}
+import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.status.StatusHttp
@@ -48,8 +48,7 @@ import scala.language.higherKinds
  *
  * @param p2pPort Tendermint p2p port
  * @param appId Worker's app ID
- * @param tendermintRpc Tendermint HTTP RPC endpoints for the worker
- * @param tendermintWRpc Tendermint Websocket RPC endpoints for the worker
+ * @param tendermint Tendermint HTTP RPC endpoints for the worker TODO replace with block producer
  * @param receiptBus Control RPC endpoints for the worker
  * @param statusCall Getter for actual Worker's status
  * @tparam F the effect
@@ -57,8 +56,8 @@ import scala.language.higherKinds
 case class DockerWorkerServices[F[_]] private (
   p2pPort: Short,
   appId: Long,
-  tendermintRpc: TendermintHttpRpc[F],
-  tendermintWRpc: TendermintWebsocketRpc[F],
+  tendermint: Tendermint[F],
+  machine: StateMachine[F],
   receiptBus: ReceiptBus[F],
   peersControl: PeersControl[F],
   blockManifests: WorkerBlockManifests[F],
@@ -187,35 +186,30 @@ object DockerWorkerServices {
 
       tendermint ← DockerTendermint.make[F](params, p2pPort, containerName(params), network, stopTimeout)
 
-      rpc = TendermintHttpRpc[F](tendermint.name, DockerTendermint.RpcPort)
+      tm ← Tendermint.make[F](tendermint.name, DockerTendermint.RpcPort, params.tendermintPath, websocketConfig)
 
       // Once tendermint is started, run background job to connect it to all the peers
-      _ ← WorkerP2pConnectivity.make(params.app.id, rpc, params.app.cluster.workers)
+      _ ← WorkerP2pConnectivity.make(params.app.id, tm.rpc, params.app.cluster.workers)
 
       // Wait until tendermint container is started
       // TODO: wait until RPC is avalable. BLOCKED: RPC isn't available during block replay =>
       //  need to separate block uploading into replay and usual block processing parts
-      status <- appStatus(stateMachine, stateMachine.command[DockerContainer], tendermint, rpc, params.appId)
-
-      // Once tendermint is started, attach to its database
-      blockstore <- Blockstore.make[F](params.tendermintPath)
-
-      wrpc = TendermintWebsocketRpc.make[F](tendermint.name, DockerTendermint.RpcPort, rpc, blockstore, websocketConfig)
+      status <- appStatus(stateMachine, stateMachine.command[DockerContainer], tendermint, tm.rpc, params.appId)
 
       blockManifests ← WorkerBlockManifests.make[F](receiptStorage)
 
-      responseSubscriber <- ResponseSubscriber.make(rpc, wrpc, params.appId)
+      responseSubscriber <- ResponseSubscriber.make(tm.rpc, tm.wrpc, params.appId)
 
-      waitResponseService ← WaitResponseService(rpc, responseSubscriber)
+      waitResponseService ← WaitResponseService(tm.rpc, responseSubscriber)
 
       storedProcedureExecutor <- PerBlockTxExecutor
-        .make(wrpc, rpc, waitResponseService)
+        .make(tm.wrpc, tm.rpc, waitResponseService)
 
       services = new DockerWorkerServices[F](
         p2pPort,
         params.appId,
-        rpc,
-        wrpc,
+        tm,
+        stateMachine,
         stateMachine.command[ReceiptBus[F]],
         stateMachine.command[PeersControl[F]],
         blockManifests,

@@ -22,7 +22,7 @@ import cats.effect.{ConcurrentEffect, ContextShift, Resource, Timer}
 import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block.history.db.Blockstore
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
-import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
+import fluence.effects.tendermint.rpc.websocket.{TendermintWebsocketRpc, WebsocketConfig}
 import fluence.log.Log
 
 import scala.language.higherKinds
@@ -34,18 +34,20 @@ class Tendermint[F[_]](
 )
 
 object Tendermint {
-  def apply[F[_]: ConcurrentEffect: Timer: SttpEffect: ContextShift: Log](
-                                                                           host: String,
-                                                                           port: Short,
-                                                                           path: Path
-                                                                         ): Resource[F, Tendermint[F]] =
-      Blockstore.make[F](path).map{bs ⇒
-        val rpc = TendermintHttpRpc[F](host, port)
-        new Tendermint[F](
-          rpc,
-          TendermintWebsocketRpc(host, port, rpc, bs),
-          bs
-        )
-      }
+
+  def make[F[_]: ConcurrentEffect: Timer: SttpEffect: ContextShift: Log](
+    host: String,
+    port: Short,
+    path: Path,
+    websockerConfig: WebsocketConfig
+  ): Resource[F, Tendermint[F]] =
+    Blockstore.make[F](path).map { bs ⇒
+      val rpc = TendermintHttpRpc[F](host, port)
+      new Tendermint[F](
+        rpc,
+        TendermintWebsocketRpc(host, port, rpc, bs, websockerConfig),
+        bs
+      )
+    }
 
 }

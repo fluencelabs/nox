@@ -483,6 +483,7 @@ lazy val `node` = project
     `swarm`,
     `ipfs`,
     `statemachine-docker-client`,
+    `block-producer-tendermint`,
     `kvstore`,
     `dockerio`,
     `tendermint-rpc`,

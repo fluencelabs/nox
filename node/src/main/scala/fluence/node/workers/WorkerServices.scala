@@ -16,23 +16,25 @@
 
 package fluence.node.workers
 
+import fluence.bp.tendermint.Tendermint
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.node.workers.status.WorkerStatus
 import fluence.node.workers.subscription.ResponseSubscriber
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import fluence.node.workers.subscription.{PerBlockTxExecutor, WaitResponseService}
+import fluence.statemachine.api.StateMachine
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
 // Algebra for WorkerServices
 trait WorkerServices[F[_]] {
-  // RPC connection to tendermint
-  def tendermintRpc: TendermintHttpRpc[F]
+  // TODO replace with block producer
+  def tendermint: Tendermint[F]
 
-  // Websocket RPC connection to tendermint
-  def tendermintWRpc: TendermintWebsocketRpc[F]
+  // The underlying StateMachine
+  def machine: StateMachine[F]
 
   // RPC connection to worker
   def receiptBus: ReceiptBus[F]

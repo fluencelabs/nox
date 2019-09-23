@@ -20,7 +20,7 @@ import cats.effect.Concurrent
 import cats.syntax.apply._
 import cats.syntax.functor._
 import fluence.bp.tx.Tx
-import fluence.effects.tendermint.rpc.http.RpcError
+import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestFailed}
 import fluence.log.Log
 import fluence.node.workers.Worker
 import fluence.node.workers.api.websocket.WorkerWebsocket
@@ -110,11 +110,16 @@ object WorkerApi {
       id: Option[String]
     )(implicit log: Log[F]): F[Either[RpcError, String]] =
       log.debug(s"TendermintRpc query request. path: $path, data: $data") *>
-        worker.withServices(_.tendermintRpc)(_.query(path, data.getOrElse(""), id = id.getOrElse("dontcare")).value)
+        worker.withServices(_.machine)(
+          _.query(path)
+            .leftMap(e ⇒ RpcRequestFailed(e): RpcError)
+            .map(_.toResponseString(id.getOrElse("dontcare")))
+            .value
+        )
 
     override def tendermintStatus()(implicit log: Log[F]): F[Either[RpcError, String]] =
       log.trace(s"TendermintRpc status") *>
-        worker.withServices(_.tendermintRpc)(_.status.value)
+        worker.withServices(_.tendermint.rpc)(_.status.value)
 
     override def p2pPort()(implicit log: Log[F]): F[Short] =
       log.trace(s"Worker p2pPort") as worker.p2pPort
@@ -124,7 +129,7 @@ object WorkerApi {
     ): F[Either[RpcError, String]] =
       log.scope("tx" -> tx) { implicit log ⇒
         log.debug(s"TendermintRpc broadcastTxSync request, id: $id") *>
-          worker.withServices(_.tendermintRpc)(_.broadcastTxSync(tx, id.getOrElse("dontcare")).value)
+          worker.withServices(_.tendermint.rpc)(_.broadcastTxSync(tx, id.getOrElse("dontcare")).value)
       }
 
     override def sendTxAwaitResponse(tx: String, id: Option[String])(

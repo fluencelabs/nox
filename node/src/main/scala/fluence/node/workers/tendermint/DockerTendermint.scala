@@ -22,6 +22,7 @@ import cats.data.EitherT
 import cats.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.bp.tendermint.Tendermint
 import fluence.effects.docker._
 import fluence.effects.docker.params.DockerParams
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
@@ -168,6 +169,8 @@ object DockerTendermint {
         params.configTemplate.writeConfigs(params.app, params.tendermintPath, p2pPort, workerName)
       )
       container ← DockerIO[F].run(dockerCommand(params, network, p2pPort), stopTimeout)
-    } yield DockerTendermint(container, containerName(params))
+
+      name = containerName(params)
+    } yield DockerTendermint(container, name)
 
 }
