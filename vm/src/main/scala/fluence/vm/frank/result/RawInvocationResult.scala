@@ -17,10 +17,10 @@
 package fluence.vm.frank.result
 
 /**
- * Represents raw JNI result of calling FrankAdapter::invoke.
+ * Represents raw JNI result of FrankAdapter::invoke invoking.
  *
  * @param error represents various invocation errors, None - no error occurred
- * @param output the computed result by Frank VM, valid only if no error occured (error == None)
- * @param spentGas spent gas by producing the output, valid only if no error occured (error == None)
+ * @param output the computed result by Frank VM, valid only if no error occurred (error == None)
+ * @param spentGas spent gas by producing the output, valid only if no error occurred (error == None)
  */
 case class RawInvocationResult(error: Option[String], output: Array[Byte], spentGas: Long)

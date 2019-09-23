@@ -17,7 +17,7 @@
 package fluence.vm.frank.result
 
 /**
- * Represents raw JNI result of calling FrankAdapter::initialize.
+ * Represents raw JNI result of FrankAdapter::initialize invoking.
  *
  * @param error represent various initialization errors, None - no error occurred
  */
