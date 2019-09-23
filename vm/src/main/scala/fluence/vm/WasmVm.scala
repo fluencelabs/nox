@@ -85,12 +85,13 @@ object WasmVm {
     for {
       // reading config
       config ← VmConfig.readT[F](configNamespace, conf)
-      //_ = Thread.sleep(20000)
 
       _ ← Log.eitherT[F, InitializationError].info("WasmVm: configs read...")
       vmRunnerInvoker = new FrankAdapter()
 
-      _ = vmRunnerInvoker.initialize(inFiles.head, config)
+      initializationResult = vmRunnerInvoker.initialize(inFiles.head, config)
+      _ ← EitherT.fromOption[F](initializationResult.error, InitializationError(initializationResult.error.get))
+
     } yield new FrankWasmVm(
       vmRunnerInvoker
     )

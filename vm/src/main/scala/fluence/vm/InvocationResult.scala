@@ -22,7 +22,4 @@ package fluence.vm
  * @param output the computed result by Frank VM
  * @param spentGas spent gas by producing the output
  */
-case class InvocationResult(
-  output: Array[Byte],
-  spentGas: Long
-)
+case class InvocationResult(output: Array[Byte], spentGas: Long)

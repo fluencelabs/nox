@@ -16,16 +16,16 @@
 
 package fluence.vm.config
 
-import cats.Monad
-import cats.Applicative
 import cats.data.EitherT
+import cats.{Monad, MonadError}
+import cats.effect.Sync
+import cats.syntax.either._
 import com.typesafe.config.Config
-import fluence.vm.error.{InitializationError, VmError}
-import net.ceedubs.ficus.Ficus._
-import net.ceedubs.ficus.readers.ArbitraryTypeReader._
+import cats.syntax.flatMap._
+import cats.syntax.applicativeError._
+import fluence.vm.error.InitializationError
 
 import scala.language.higherKinds
-import scala.util.Try
 
 /**
  * Main module settings.
@@ -60,27 +60,12 @@ case class VmConfig(
 )
 
 object VmConfig {
+  import net.ceedubs.ficus.Ficus._
+  import net.ceedubs.ficus.readers.ArbitraryTypeReader._
 
-  /**
-   *  Runs action inside Try block, convert to EitherT with specified effect F.
-   */
-  def safelyRunThrowable[F[_]: Applicative, T, E <: VmError](
-    action: ⇒ T,
-    mapError: Throwable ⇒ E
-  ): EitherT[F, E, T] =
+  def readT[F[_]: Monad](namespace: String, conf: ⇒ Config): EitherT[F, InitializationError, VmConfig] = {
     EitherT
-      .fromEither(
-        Try(action).toEither
-      )
-      .leftMap(mapError)
-
-  def readT[F[_]: Monad](namespace: String, conf: ⇒ Config): EitherT[F, InitializationError, VmConfig] =
-    safelyRunThrowable(
-      conf.getConfig(namespace).as[VmConfig],
-      e ⇒
-        InitializationError(
-          s"Unable to read a config for the namespace=$namespace",
-          Some(e)
-        )
-    )
+      .fromEither[F](Either.catchNonFatal(conf.getConfig(namespace).as[VmConfig]))
+      .leftMap(e ⇒ InitializationError("Unable to parse the virtual machine config" + e))
+  }
 }

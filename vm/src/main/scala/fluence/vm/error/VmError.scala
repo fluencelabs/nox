@@ -34,7 +34,7 @@ sealed abstract class VmError(val message: String, val causedBy: Option[Throwabl
  * @param causedBy caught [[Throwable]], if any
  */
 case class InitializationError(override val message: String, override val causedBy: Option[Throwable] = None)
-    extends VmError(message, causedBy) with NoStackTrace
+    extends VmError(message, causedBy)
 
 /**
  * Corresponds to errors occurred during VM function invocation.
@@ -43,7 +43,7 @@ case class InitializationError(override val message: String, override val caused
  * @param causedBy caught [[Throwable]], if any
  */
 case class InvocationError(override val message: String, override val causedBy: Option[Throwable] = None)
-    extends VmError(message, causedBy) with NoStackTrace
+    extends VmError(message, causedBy)
 
 /**
  * Corresponds to errors occurred during computing VM state hash.
@@ -52,4 +52,4 @@ case class InvocationError(override val message: String, override val causedBy: 
  * @param causedBy caught [[Throwable]], if any
  */
 case class StateComputationError(override val message: String, override val causedBy: Option[Throwable] = None)
-    extends VmError(message, causedBy) with NoStackTrace
+    extends VmError(message, causedBy)
