@@ -187,7 +187,7 @@ object DockerWorkerServices {
 
       tendermint ← DockerTendermint.make[F](params, p2pPort, containerName(params), network, stopTimeout)
 
-      rpc ← TendermintHttpRpc.make[F](tendermint.name, DockerTendermint.RpcPort)
+      rpc = TendermintHttpRpc[F](tendermint.name, DockerTendermint.RpcPort)
 
       // Once tendermint is started, run background job to connect it to all the peers
       _ ← WorkerP2pConnectivity.make(params.app.id, rpc, params.app.cluster.workers)

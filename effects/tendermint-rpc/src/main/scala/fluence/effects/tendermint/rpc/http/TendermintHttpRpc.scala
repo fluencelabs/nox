@@ -18,8 +18,7 @@ package fluence.effects.tendermint.rpc.http
 
 import cats.{Functor, Monad}
 import cats.data.EitherT
-import cats.effect.{ConcurrentEffect, ContextShift, Resource, Timer}
-import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
+import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc.response.TendermintStatus
 import fluence.log.Log
@@ -32,24 +31,24 @@ import scala.language.higherKinds
 trait TendermintHttpRpc[F[_]] {
 
   /** Gets status as a string */
-  def status: EitherT[F, RpcError, String]
+  def status(implicit log: Log[F]): EitherT[F, RpcError, String]
 
   /** Gets status, parse it to [[TendermintStatus]] */
-  def statusParsed(implicit F: Functor[F]): EitherT[F, RpcError, TendermintStatus]
+  def statusParsed(implicit F: Functor[F], log: Log[F]): EitherT[F, RpcError, TendermintStatus]
 
   /** Retrieves a block at the given height */
-  def block(height: Long, id: String = "dontcare"): EitherT[F, RpcError, Block]
+  def block(height: Long, id: String = "dontcare")(implicit log: Log[F]): EitherT[F, RpcError, Block]
 
   /** Retireves a commit at the given height */
-  def commit(height: Long, id: String = "dontcare"): EitherT[F, RpcError, String]
+  def commit(height: Long, id: String = "dontcare")(implicit log: Log[F]): EitherT[F, RpcError, String]
 
   /**
    * Returns last block height known by this Tendermint node
    */
-  def consensusHeight(id: String = "dontcare"): EitherT[F, RpcError, Long]
+  def consensusHeight(id: String = "dontcare")(implicit log: Log[F]): EitherT[F, RpcError, Long]
 
   /** Sends a transaction to the Tendermint node */
-  def broadcastTxSync(tx: String, id: String): EitherT[F, RpcError, String]
+  def broadcastTxSync(tx: String, id: String)(implicit log: Log[F]): EitherT[F, RpcError, String]
 
   /**
    * Signals Tendermint node to connecting to the specified peers
@@ -61,7 +60,7 @@ trait TendermintHttpRpc[F[_]] {
     peers: Seq[String],
     persistent: Boolean,
     id: String = "dontcare"
-  ): EitherT[F, RpcError, String]
+  )(implicit log: Log[F]): EitherT[F, RpcError, String]
 
   def query(
     path: String,
@@ -69,7 +68,7 @@ trait TendermintHttpRpc[F[_]] {
     height: Long = 0,
     prove: Boolean = false,
     id: String
-  ): EitherT[F, RpcError, String]
+  )(implicit log: Log[F]): EitherT[F, RpcError, String]
 }
 
 object TendermintHttpRpc {
@@ -82,12 +81,9 @@ object TendermintHttpRpc {
    * @tparam F Concurrent effect
    * @return Tendermint HTTP RPC instance. Note that it should be stopped at some point, and can't be used after it's stopped
    */
-  def make[F[_]: ConcurrentEffect: Timer: Monad: Log: ContextShift: SttpEffect](
+  def apply[F[_]: Monad: SttpEffect](
     hostName: String,
     port: Short
-  ): Resource[F, TendermintHttpRpc[F]] = {
-    Resource.pure(
-      new TendermintHttpRpcImpl[F](hostName, port)
-    )
-  }
+  ): TendermintHttpRpc[F] =
+    new TendermintHttpRpcImpl[F](hostName, port)
 }

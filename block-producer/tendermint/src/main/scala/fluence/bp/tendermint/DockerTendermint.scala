@@ -16,7 +16,10 @@
 
 package fluence.bp.tendermint
 
+import cats.Monad
 import cats.effect.Resource
+import fluence.effects.docker.DockerIO
+import fluence.effects.sttp.SttpEffect
 
 import scala.language.higherKinds
 
@@ -27,6 +30,6 @@ object DockerTendermint {
   // make all accessors (rpc, wrpc, ...)
   // prepare status check
   // return tendermint
-  def make[F[_]](): Resource[F, Tendermint[F]] = ???
+  def make[F[_]: Monad: SttpEffect: DockerIO](): Resource[F, Tendermint[F]] = ???
 
 }

@@ -17,10 +17,9 @@
 package fluence.effects.tendermint.rpc.http
 
 import cats.data.EitherT
-import cats.effect.{ConcurrentEffect, ContextShift, Timer}
 import cats.syntax.apply._
 import cats.syntax.either._
-import cats.Functor
+import cats.{Functor, Monad}
 import com.softwaremill.sttp._
 import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block.data.Block
@@ -38,28 +37,26 @@ import scala.language.higherKinds
  * @param port Tendermint RPC port
  * @tparam F Http requests effect
  */
-case class TendermintHttpRpcImpl[F[_]: ConcurrentEffect: Timer: SttpEffect: ContextShift](
+case class TendermintHttpRpcImpl[F[_]: Monad: SttpEffect](
   host: String,
   port: Int
-)(implicit log: Log[F])
-    extends TendermintHttpRpc[F] {
+) extends TendermintHttpRpc[F] {
 
   val RpcUri = uri"http://$host:$port"
-  log.info(s"TendermintRpc created, uri: $RpcUri")
 
   /** Gets status as a string */
-  val status: EitherT[F, RpcError, String] =
+  def status(implicit log: Log[F]): EitherT[F, RpcError, String] =
     get("status")
 
   /** Gets status, parse it to [[TendermintStatus]] */
-  def statusParsed(implicit F: Functor[F]): EitherT[F, RpcError, TendermintStatus] =
+  def statusParsed(implicit F: Functor[F], log: Log[F]): EitherT[F, RpcError, TendermintStatus] =
     status
       .map(decode[Response[TendermintStatus]])
       .subflatMap[RpcError, TendermintStatus](
         _.map(_.result).leftMap(RpcBodyMalformed)
       )
 
-  def block(height: Long, id: String = "dontcare"): EitherT[F, RpcError, Block] =
+  def block(height: Long, id: String = "dontcare")(implicit log: Log[F]): EitherT[F, RpcError, Block] =
     post(
       RpcRequest(
         method = "block",
@@ -68,7 +65,7 @@ case class TendermintHttpRpcImpl[F[_]: ConcurrentEffect: Timer: SttpEffect: Cont
       )
     ).subflatMap(str => Block(str).leftMap(RpcBlockParsingFailed(_, str, height)))
 
-  def commit(height: Long, id: String = "dontcare"): EitherT[F, RpcError, String] =
+  def commit(height: Long, id: String = "dontcare")(implicit log: Log[F]): EitherT[F, RpcError, String] =
     post(
       RpcRequest(
         method = "commit",
@@ -80,7 +77,7 @@ case class TendermintHttpRpcImpl[F[_]: ConcurrentEffect: Timer: SttpEffect: Cont
   /**
    * Returns last block height known by this Tendermint node
    */
-  def consensusHeight(id: String = "dontcare"): EitherT[F, RpcError, Long] =
+  def consensusHeight(id: String = "dontcare")(implicit log: Log[F]): EitherT[F, RpcError, Long] =
     statusParsed.map(_.sync_info.latest_block_height)
 
   /**
@@ -92,7 +89,7 @@ case class TendermintHttpRpcImpl[F[_]: ConcurrentEffect: Timer: SttpEffect: Cont
    * @param tx Transaction body
    * @param id Tracking ID, you may omit it
    */
-  def broadcastTxSync(tx: String, id: String): EitherT[F, RpcError, String] =
+  def broadcastTxSync(tx: String, id: String)(implicit log: Log[F]): EitherT[F, RpcError, String] =
     post(
       RpcRequest(
         method = "broadcast_tx_sync",
@@ -105,7 +102,7 @@ case class TendermintHttpRpcImpl[F[_]: ConcurrentEffect: Timer: SttpEffect: Cont
     peers: Seq[String],
     persistent: Boolean,
     id: String = "dontcare"
-  ): EitherT[F, RpcError, String] =
+  )(implicit log: Log[F]): EitherT[F, RpcError, String] =
     post(
       RpcRequest(
         method = "dial_peers",
@@ -122,7 +119,7 @@ case class TendermintHttpRpcImpl[F[_]: ConcurrentEffect: Timer: SttpEffect: Cont
     height: Long = 0,
     prove: Boolean = false,
     id: String
-  ): EitherT[F, RpcError, String] =
+  )(implicit log: Log[F]): EitherT[F, RpcError, String] =
     post(
       RpcRequest(
         method = "abci_query",
@@ -137,7 +134,7 @@ case class TendermintHttpRpcImpl[F[_]: ConcurrentEffect: Timer: SttpEffect: Cont
   /** Perform the request, and lift the errors to EitherT */
   private def sendHandlingErrors(
     reqT: RequestT[Id, String, Nothing]
-  ): EitherT[F, RpcError, String] =
+  )(implicit log: Log[F]): EitherT[F, RpcError, String] =
     reqT
       .send()
       .leftMap[RpcError](RpcRequestFailed)
@@ -146,25 +143,27 @@ case class TendermintHttpRpcImpl[F[_]: ConcurrentEffect: Timer: SttpEffect: Cont
           .leftMap[RpcError](RpcRequestErrored(resp.code, _))
 
         // Print just the first line of response
+        // TODO really? it does nothing
         log.debug(s"TendermintRpc ${reqT.method.m} response code ${resp.code}")
         log.trace(s"TendermintRpc ${reqT.method.m} full response: $eitherResp")
         eitherResp
       }
 
-  private def logPost(req: RpcRequest): EitherT[F, RpcError, Unit] =
+  private def logPost(req: RpcRequest)(implicit log: Log[F]): EitherT[F, RpcError, Unit] =
     Log.eitherT[F, RpcError].debug(s"TendermintRpc POST method=${req.method}")
 
-  private def logGet(path: String): EitherT[F, RpcError, Unit] =
+  private def logGet(path: String)(implicit log: Log[F]): EitherT[F, RpcError, Unit] =
     Log.eitherT[F, RpcError].debug(s"TendermintRpc GET path=$path")
 
   /**
    * Performs a Get request for the given path
    */
-  private def get(path: String) = logGet(path) *> sendHandlingErrors(sttp.get(RpcUri.path(path)))
+  private def get(path: String)(implicit log: Log[F]) = logGet(path) *> sendHandlingErrors(sttp.get(RpcUri.path(path)))
 
   /**
    * Performs a Post request, sending the given [[RpcRequest]]
    */
-  private def post(req: RpcRequest) = logPost(req) *> sendHandlingErrors(sttp.post(RpcUri).body(req.toJsonString))
+  private def post(req: RpcRequest)(implicit log: Log[F]) =
+    logPost(req) *> sendHandlingErrors(sttp.post(RpcUri).body(req.toJsonString))
 
 }
