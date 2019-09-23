@@ -34,7 +34,6 @@ pub fn create_initialization_result(env: JNIEnv, error: Option<String>) -> JObje
         "(Lscala/Option;)Lfluence/vm/frank/result/RawInitializationResult;",
         &[error_value],
     )
-    .map_err(|r| format!("{}", r))
     .expect("jni: couldn't allocate RawInitializationResult object")
     .l()
     .expect("jni: couldn't convert RawInitializationResult to Java Object")

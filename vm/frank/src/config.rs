@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+/// Defines Config struct that is similar to vm/src/main/scala/fluence/vm/config/VmConfig.scala.
+
 use crate::errors::FrankError;
 use jni::objects::{JObject, JString};
 use jni::JNIEnv;
@@ -21,14 +23,14 @@ use jni::JNIEnv;
 #[derive(Clone, Debug, PartialEq)]
 pub struct Config {
     /// Count of Wasm memory pages that will be preallocated on the VM startup.
-    /// Each Wasm pages is 65536 bytes log.
+    /// Each Wasm pages is 65536 bytes long.
     pub mem_pages_count: i32,
 
-    /// If true, registers the logger Wasm module as 'logger'
-    /// This functionality is just for debugging, and this module will be disabled in future
+    /// If true, registers the logger Wasm module with name 'logger'.
+    /// This functionality is just for debugging, and this module will be disabled in future.
     pub logger_enabled: bool,
 
-    /// The memory will be split by chunks to be able to build Merkle Tree on top of it.
+    /// Memory will be split by chunks to be able to build Merkle Tree on top of it.
     /// Size of memory in bytes must be dividable by chunkSize.
     pub chunk_size: i32,
 
@@ -60,8 +62,8 @@ impl Default for Config {
 }
 
 impl Config {
-    /// Creates a new config based on the supplied Java object Config.
-    /// This config should have the following structure on Scala:
+    /// Creates a new config based on the supplied Scala object Config.
+    /// This config should have the following structure:
     ///
     /// ```
     /// case class MainModuleConfig(

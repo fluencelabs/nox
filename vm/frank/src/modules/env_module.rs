@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+/// Defines the environment module used for tracking execution state.
+
 use std::ops::AddAssign;
 
 #[derive(Clone, Debug, PartialEq)]
