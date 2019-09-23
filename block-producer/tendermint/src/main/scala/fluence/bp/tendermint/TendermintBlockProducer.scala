@@ -24,7 +24,9 @@ import fluence.log.Log
 
 import scala.language.higherKinds
 
-class TendermintBlockProducer[F[_]] extends BlockProducer[F] {
+class TendermintBlockProducer[F[_]](
+  tendermint: Tendermint[F]
+) extends BlockProducer[F] {
   // TODO put the real Tendermint block here
   override type Block = this.type
 
@@ -51,3 +53,5 @@ class TendermintBlockProducer[F[_]] extends BlockProducer[F] {
    */
   override def sendTx(txData: Array[Byte])(implicit log: Log[F]): EitherT[F, EffectError, TxResponse] = ???
 }
+
+object TendermintBlockProducer {}
