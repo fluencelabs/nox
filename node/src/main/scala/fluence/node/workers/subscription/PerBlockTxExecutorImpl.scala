@@ -151,7 +151,7 @@ class PerBlockTxExecutorImpl[F[_]: Timer: Concurrent](
             response <- waitTx(key, data)
             _ <- log.trace(s"Publishing $response for $key")
             _ <- topic.publish1(Response(response))
-          } yield {}
+          } yield ()
       }
       _ <- tasks.toList.traverse(Concurrent[F].start)
     } yield ()
