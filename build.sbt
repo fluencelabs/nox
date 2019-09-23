@@ -46,7 +46,7 @@ lazy val `vm` = (project in file("vm"))
     test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(compile in `vm-frank`)
       .dependsOn(compile in `vm-llamadb`)
-      .value,
+      .value
   )
   .dependsOn(`log`)
   .enablePlugins(AutomateHeaderPlugin)
