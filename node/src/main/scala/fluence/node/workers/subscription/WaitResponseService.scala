@@ -22,7 +22,7 @@ import fluence.log.Log
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import io.circe.parser.decode
-import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
+import fluence.effects.tendermint.rpc.http.{RpcCallError, TendermintHttpRpc}
 import cats.syntax.applicative._
 import fluence.bp.tx.{Tx, TxCode, TxResponse}
 import fluence.worker.responder.AwaitResponses
@@ -50,9 +50,7 @@ class WaitResponseServiceImpl[F[_]: Monad](
   ): EitherT[F, TxAwaitError, AwaitedResponse] =
     for {
       _ <- EitherT.right(log.debug(s"Waiting for response"))
-      response <- EitherT.liftF[F, TxAwaitError, AwaitedResponse](
-        responseSubscriber.await(tx.head).flatMap(_.get)
-      )
+      response <- EitherT.right(responseSubscriber.await(tx.head).flatMap(_.get))
       _ <- Log.eitherT[F, TxAwaitError].trace(s"Response received: $response")
     } yield response
 
@@ -94,16 +92,19 @@ class WaitResponseServiceImpl[F[_]: Monad](
       _ <- Log.eitherT.debug("TendermintRpc broadcastTxSync is ok.")
       response <- log.scope("tx.head" -> txParsed.head.toString) { implicit log =>
         for {
-          _ <- checkTxResponse(txBroadcastResponse).recoverWith {
-            // Transaction was sent twice, but response should be available, so keep waiting
-            case e: TendermintRpcError if e.data.toLowerCase.contains("tx already exists in cache") =>
-              Log.eitherT[F, TxAwaitError].warn(s"tx already exists in Tendermint's cache, will wait for response")
-          }
+          _ <- checkTxResponse(txBroadcastResponse).recoverWith(catchExistingTxError)
           response <- waitResponse(txParsed)
         } yield response
       }
     } yield response).value
 
+  private def catchExistingTxError(
+    implicit log: Log[F]
+  ): PartialFunction[TxAwaitError, EitherT[F, TxAwaitError, Unit]] = {
+    // Transaction was sent twice, but response should be available, so keep waiting
+    case e: RpcCallError if e.data.toLowerCase.contains("tx already exists in cache") =>
+      Log.eitherT[F, TxAwaitError].warn(s"tx already exists in Tendermint's cache, will wait for response")
+  }
 }
 
 object WaitResponseService {

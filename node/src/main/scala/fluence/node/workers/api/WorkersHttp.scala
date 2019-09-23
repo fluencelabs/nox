@@ -84,12 +84,12 @@ object WorkersHttp {
           BadRequest(err.getMessage)
 
       case RpcBodyMalformed(err) ⇒
-        log.warn(s"RPC body malformed: $err", err)
-        BadRequest(err.getMessage)
+        log.warn(s"RPC body malformed: $err", err) *>
+          BadRequest(err.getMessage)
 
       case err: RpcBlockParsingFailed =>
-        log.warn(s"RPC $err", err)
-        InternalServerError(err.getMessage)
+        log.warn(s"RPC $err", err) *>
+          InternalServerError(err.getMessage)
     }
   }
 

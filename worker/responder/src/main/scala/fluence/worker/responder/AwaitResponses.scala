@@ -109,21 +109,20 @@ class AwaitResponses[F[_]: Concurrent: Parallel: Timer](
                 qr.code match {
                   case QueryCode.Pending | QueryCode.NotFound => PendingResponse(responsePromise.id)
                   case QueryCode.Ok | _                       => OkResponse(responsePromise.id, qr.toResponseString())
-                }
+              }
             )
             .map(r => (responsePromise, r))
             .leftMap(err => (responsePromise, err))
         }.map(_.value)
           .toNel
           .map(
-            _.parSequence
-              .map(
-                _.collect {
-                  case Right(r) => r
-                  case Left((responsePromise, rpcError)) =>
-                    (responsePromise, RpcErrorResponse(responsePromise.id, rpcError): AwaitedResponse)
-                }
-              )
+            _.parSequence.map(
+              _.collect {
+                case Right(r) => r
+                case Left((responsePromise, rpcError)) =>
+                  (responsePromise, RpcErrorResponse(responsePromise.id, rpcError): AwaitedResponse)
+              }
+            )
           )
           .getOrElse(List.empty.pure[F])
     }
