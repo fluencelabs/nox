@@ -10,8 +10,12 @@ export enum ExecutorType {
  */
 export abstract class Executor<T> {
 
-    static isPromise<A>(executor: Executor<A>): executor is PromiseExecutor<A> {
-        return executor.type === ExecutorType.Promise
+    static isPromise<A>(executor: Executor<A>): boolean {
+        return executor.isPromise()
+    }
+
+    isPromise(): boolean {
+        return this.type == ExecutorType.Promise
     }
 
     abstract complete(result: T): void
@@ -29,25 +33,27 @@ export class PromiseExecutor<T> extends Executor<T> {
     private errorCallback: (error: any) => void;
     readonly promise: Promise<T>;
     readonly creationTime: number;
-    private timeout: ReturnType<typeof setTimeout> | undefined;
+    private timer: ReturnType<typeof setTimeout> | undefined;
 
-    constructor(timeout: ReturnType<typeof setTimeout> | undefined) {
+    constructor(timer: ReturnType<typeof setTimeout> | undefined) {
         super();
         this.promise = new Promise<T>((r, e) => { this.resultCallback = r; this.errorCallback = e; });
-        this.timeout = timeout;
+        this.timer = timer;
     }
 
     complete(result: T): void {
         this.resultCallback(result)
+        this.cancelTimeout()
     }
 
     fail(error: any): void {
         this.errorCallback(error)
+        this.cancelTimeout()
     }
 
     cancelTimeout() {
-        if (this.timeout) {
-            clearTimeout(this.timeout)
+        if (this.timer) {
+            clearTimeout(this.timer)
         }
     }
 

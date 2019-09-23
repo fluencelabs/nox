@@ -20,7 +20,7 @@ import {Result} from "./Result";
 import {Executor, ExecutorType, PromiseExecutor, SubscribtionExecutor} from "./executor";
 import {debug, TendermintClient} from "./fluence";
 import {AbciQueryResult, TendermintJsonRpcResponse} from "./RpcClient";
-import {none} from "ts-option";
+import {none, Option} from "ts-option";
 
 interface WebsocketResponse {
     request_id: string
@@ -71,44 +71,36 @@ export class WebsocketSession {
     }
 
     private messageHandler(msg: string) {
-        let response;
         try {
             const rawResponse = WebsocketSession.parseRawResponse(msg);
 
             debug("Message received: " + JSON.stringify(rawResponse));
 
-            if (!this.executors.has(rawResponse.request_id)) {
-                console.error(`There is no message with requestId '${rawResponse.request_id}'. Message: ${msg}`)
-            } else {
-                const executor = this.executors.get(rawResponse.request_id) as Executor<Result>;
-                if (rawResponse.error) {
-                    console.log(`Error received for ${rawResponse.request_id}: ${JSON.stringify(rawResponse.error)}`);
-                    executor.fail(rawResponse.error as string);
-                } else if (rawResponse.type === "tx_wait_response") {
-                    if (rawResponse.data) {
-                        const parsed = JSON.parse(rawResponse.data) as TendermintJsonRpcResponse<AbciQueryResult>;
-                        const result = TendermintClient.parseQueryResponse(none, parsed);
-
-                        if (result.isEmpty) {
-                            console.error(`Unexpected, no parsed result in message: ${msg}`)
-                        } else {
-                            executor.complete(result.get)
-                        }
-                    }
-                    if (Executor.isPromise(executor)) {
-                        this.executors.delete(rawResponse.request_id);
-                        executor.cancelTimeout();
-                    }
-                } else {
-                    const executor = this.executors.get(rawResponse.request_id) as Executor<void>;
-                    executor.complete()
-                }
+            const executor = this.executors.get(rawResponse.request_id);
+            if (executor === undefined) {
+                return console.error(`There is no executor for requestId '${rawResponse.request_id}'. Message: ${msg}`)
             }
 
-
+            if (rawResponse.error) {
+                console.log(`Error received for ${rawResponse.request_id}: ${JSON.stringify(rawResponse.error)}`);
+                executor.fail(rawResponse.error)
+            } else if (rawResponse.type === "tx_wait_response" && rawResponse.data) {
+                this
+                    .parseResponse(rawResponse.data)
+                    .fold(
+                        () => console.error(`Unexpected, no parsed result in message: ${msg}`)
+                    )(executor.complete)
+            } else {
+                executor.complete()
+            }
         } catch (e) {
             console.error("Cannot parse websocket event: " + e)
         }
+    }
+
+    private parseResponse(data: string): Option<Result> {
+        const parsed = JSON.parse(data) as TendermintJsonRpcResponse<AbciQueryResult>;
+        return TendermintClient.parseQueryResponse(none, parsed);
     }
 
     /**
@@ -293,16 +285,17 @@ export class WebsocketSession {
     private sendAndWaitResponse(requestId: string, message: string): Promise<Result> {
         this.socket.send(message);
 
-        const timeout = setTimeout(() => {
+        const timer = setTimeout(() => {
             if (this.executors.has(requestId)) {
                 executor.fail(`Timeout after ${this.timeout} milliseconds.`);
                 this.executors.delete(requestId);
             }
         }, this.timeout);
 
-        const executor: PromiseExecutor<Result> = new PromiseExecutor(timeout);
+        const executor: PromiseExecutor<Result> = new PromiseExecutor(timer);
 
         this.executors.set(requestId, executor);
+        executor.promise.finally(() => this.executors.delete(requestId));
 
         return executor.promise
     }
