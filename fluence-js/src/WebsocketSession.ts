@@ -51,7 +51,7 @@ export class WebsocketSession {
      *
      */
     static create(appId: string, nodes: Node[], privateKey?: PrivateKey, timeout = 15000): Promise<WebsocketSession> {
-        let ws = new WebsocketSession(appId, nodes, timeout, privateKey);
+        const ws = new WebsocketSession(appId, nodes, timeout, privateKey);
         return ws.connect();
     }
 
@@ -73,21 +73,21 @@ export class WebsocketSession {
     private messageHandler(msg: string) {
         let response;
         try {
-            let rawResponse = WebsocketSession.parseRawResponse(msg);
+            const rawResponse = WebsocketSession.parseRawResponse(msg);
 
             debug("Message received: " + JSON.stringify(rawResponse));
 
             if (!this.executors.has(rawResponse.request_id)) {
                 console.error(`There is no message with requestId '${rawResponse.request_id}'. Message: ${msg}`)
             } else {
-                let executor = this.executors.get(rawResponse.request_id) as Executor<Result>;
+                const executor = this.executors.get(rawResponse.request_id) as Executor<Result>;
                 if (rawResponse.error) {
                     console.log(`Error received for ${rawResponse.request_id}: ${JSON.stringify(rawResponse.error)}`);
                     executor.handleError(rawResponse.error as string);
                 } else if (rawResponse.type === "tx_wait_response") {
                     if (rawResponse.data) {
-                        let parsed = JSON.parse(rawResponse.data) as TendermintJsonRpcResponse<AbciQueryResult>;
-                        let result = TendermintClient.parseQueryResponse(none, parsed);
+                        const parsed = JSON.parse(rawResponse.data) as TendermintJsonRpcResponse<AbciQueryResult>;
+                        const result = TendermintClient.parseQueryResponse(none, parsed);
 
                         if (result.isEmpty) {
                             console.error(`Unexpected, no parsed result in message: ${msg}`)
@@ -100,7 +100,7 @@ export class WebsocketSession {
                         executor.cancelTimeout();
                     }
                 } else {
-                    let executor = this.executors.get(rawResponse.request_id) as Executor<void>;
+                    const executor = this.executors.get(rawResponse.request_id) as Executor<void>;
                     executor.handleResult()
                 }
             }
@@ -117,7 +117,7 @@ export class WebsocketSession {
     private resubscribe() {
         this.executors.forEach((executor: Executor<any>, key: string) => {
             if (executor.type === ExecutorType.Subscription) {
-                let subExecutor = executor as SubscribtionExecutor;
+                const subExecutor = executor as SubscribtionExecutor;
                 this.subscribe(subExecutor.subscription, subExecutor.resultHandler, subExecutor.errorHandler)
                     .catch((e) => console.error(`Cannot resubscribe on ${subExecutor.subscription}`))
             }
@@ -128,7 +128,7 @@ export class WebsocketSession {
      * Creates a new websocket connection. Waits after websocket will become connected.
      */
     private connect(): Promise<WebsocketSession> {
-        let node = this.nodes[this.nodeCounter % this.nodes.length];
+        const node = this.nodes[this.nodeCounter % this.nodes.length];
         this.nodeCounter++;
         debug("Connecting to " + JSON.stringify(node));
 
@@ -137,7 +137,7 @@ export class WebsocketSession {
         }
 
         try {
-            let socket = new WebSocket(`ws://${node.ip_addr}:${node.api_port}/apps/${this.appId}/ws`);
+            const socket = new WebSocket(`ws://${node.ip_addr}:${node.api_port}/apps/${this.appId}/ws`);
 
             this.socket = socket;
 
@@ -199,9 +199,9 @@ export class WebsocketSession {
 
         await this.connectionHandler.promise;
 
-        let requestId = genRequestId();
+        const requestId = genRequestId();
 
-        let request = {
+        const request = {
             request_id: requestId,
             subscription_id: subscriptionId,
             type: "unsubscribe_request"
@@ -213,7 +213,7 @@ export class WebsocketSession {
     }
 
     private async subscribeCall(transaction: string, requestId: string, subscriptionId: string): Promise<Result> {
-        let request = {
+        const request = {
             tx: transaction,
             request_id: requestId,
             subscription_id: subscriptionId,
@@ -231,17 +231,16 @@ export class WebsocketSession {
      */
     async subscribe(transaction: string, resultHandler: (result: Result) => void, errorHandler: (error: any) => void): Promise<string> {
         await this.connectionHandler.promise;
-        let requestId = genRequestId();
-        let subscriptionId = genRequestId();
+        const requestId = genRequestId();
+        const subscriptionId = genRequestId();
 
-        let executor: SubscribtionExecutor = new SubscribtionExecutor(transaction, resultHandler, errorHandler);
+        const executor: SubscribtionExecutor = new SubscribtionExecutor(transaction, resultHandler, errorHandler);
 
-        let promise = this.subscribeCall(transaction, requestId, subscriptionId);
-        await promise;
+        await this.subscribeCall(transaction, requestId, subscriptionId);
 
         this.executors.set(subscriptionId, executor);
 
-        return promise.then(() => subscriptionId);
+        return subscriptionId
     }
 
     /**
@@ -251,12 +250,12 @@ export class WebsocketSession {
 
         await this.connectionHandler.promise;
 
-        let requestId = genRequestId();
-        let counter = this.getCounterAndIncrement();
+        const requestId = genRequestId();
+        const counter = this.getCounterAndIncrement();
 
-        let tx = prepareRequest(payload, this.sessionId, counter, this.privateKey);
+        const tx = prepareRequest(payload, this.sessionId, counter, this.privateKey);
 
-        let request = {
+        const request = {
             tx: tx.payload,
             request_id: requestId,
             type: "tx_request"
@@ -269,12 +268,12 @@ export class WebsocketSession {
      * Send a request and waiting for a response.
      */
     request(payload: string): Promise<Result> {
-        let requestId = genRequestId();
-        let counter = this.getCounterAndIncrement();
+        const requestId = genRequestId();
+        const counter = this.getCounterAndIncrement();
 
-        let tx = prepareRequest(payload, this.sessionId, counter, this.privateKey);
+        const tx = prepareRequest(payload, this.sessionId, counter, this.privateKey);
 
-        let request = {
+        const request = {
             tx: tx.payload,
             request_id: requestId,
             type: "tx_wait_request"
@@ -291,14 +290,14 @@ export class WebsocketSession {
     private sendAndWaitResponse(requestId: string, message: string): Promise<Result> {
         this.socket.send(message);
 
-        let timeout = setTimeout(() => {
+        const timeout = setTimeout(() => {
             if (this.executors.has(requestId)) {
                 executor.handleError(`Timeout after ${this.timeout} milliseconds.`);
                 this.executors.delete(requestId);
             }
         }, this.timeout);
 
-        let executor: PromiseExecutor<Result> = new PromiseExecutor(timeout);
+        const executor: PromiseExecutor<Result> = new PromiseExecutor(timeout);
 
         this.executors.set(requestId, executor);
 
@@ -316,7 +315,7 @@ export class WebsocketSession {
     }
 
     private static parseRawResponse(response: string): WebsocketResponse {
-        let parsed = JSON.parse(response);
+        const parsed = JSON.parse(response);
         if (!parsed.request_id) throw new Error("Cannot parse response, no 'request_id' field.");
         if (parsed.type === "tx_wait_response" && !parsed.data && !parsed.error) throw new Error(`Cannot parse response, no 'data' or 'error' field in response with requestId '${parsed.requestId}'`);
 
