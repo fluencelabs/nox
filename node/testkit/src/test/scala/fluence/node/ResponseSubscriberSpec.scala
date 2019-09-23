@@ -30,11 +30,18 @@ import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
 import fluence.node.eth.state._
 import fluence.node.workers.api.WorkerApi
-import fluence.node.workers.subscription._
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerParams}
-import fluence.worker.responder.resp.{AwaitedResponse, OkResponse, RpcErrorResponse, RpcTxAwaitError, TendermintResponseDeserializationError, TimedOutResponse, TxAwaitError, TxParsingError}
-import fluence.worker.responder.{OkResponse, RpcErrorResponse, RpcTxAwaitError, TendermintResponseDeserializationError, TimedOutResponse, TxParsingError}
+import fluence.worker.responder.resp.{
+  AwaitedResponse,
+  OkResponse,
+  RpcErrorResponse,
+  RpcTxAwaitError,
+  TendermintResponseDeserializationError,
+  TimedOutResponse,
+  TxAwaitError,
+  TxParsingError
+}
 import org.scalatest.{BeforeAndAfterAll, EitherValues, Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
 

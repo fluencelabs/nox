@@ -45,7 +45,7 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Eventually {
     val resourcesF = for {
       server <- WebsocketServer.make[IO](Port)
       wrpc = new TestWRpc[IO]("127.0.0.1", Port)
-      blocks = wrpc.subscribeNewBlock(0)
+      blocks = wrpc.subscribeNewBlock(Some(0))
     } yield (server, blocks)
 
     def block(height: Long) = Text(TestData.block(height))

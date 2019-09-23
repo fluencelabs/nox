@@ -117,7 +117,7 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
   ) = {
     val result = (websocket(consensusHeights, events).flatMap {
       case (ws, state) =>
-        ws.subscribeNewBlock(lastKnownHeight)
+        ws.subscribeNewBlock(Some(lastKnownHeight))
           .take(expectedBlocks.length)
           .compile
           .toList
