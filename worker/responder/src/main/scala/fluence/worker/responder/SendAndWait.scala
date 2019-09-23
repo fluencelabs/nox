@@ -18,7 +18,6 @@ package fluence.worker.responder
 
 import cats.Monad
 import cats.data.EitherT
-import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.bp.api.BlockProducer
@@ -54,7 +53,7 @@ class SendAndWait[F[_]: Monad](
       response <- log.scope("tx.head" -> txParsed.head.toString) { implicit log =>
         for {
           _ <- checkTxResponse(txBroadcastResponse).recoverWith(catchExistingTxError)
-          response <- EitherT.right(waitResponse(txParsed))
+          response <- EitherT.right[TxAwaitError](waitResponse(txParsed))
         } yield response
       }
     } yield response
@@ -80,12 +79,12 @@ class SendAndWait[F[_]: Monad](
     txResponse: TxResponse
   )(implicit log: Log[F]): EitherT[F, TxAwaitError, Unit] =
     if (txResponse.code != TxCode.OK)
-      EitherT.left(
+      EitherT.leftT(
         (TxInvalidError(
           s"Response code for transaction is not ok. Code: ${txResponse.code}, info: ${txResponse.info}"
-        ): TxAwaitError).pure[F]
+        ): TxAwaitError)
       )
-    else EitherT.right[TxAwaitError](().pure[F])
+    else EitherT.rightT[F, TxAwaitError](())
 
   private def catchExistingTxError(
     implicit log: Log[F]

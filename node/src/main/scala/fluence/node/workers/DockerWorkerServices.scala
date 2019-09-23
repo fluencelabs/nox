@@ -39,7 +39,7 @@ import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import fluence.statemachine.api.data.StateMachineStatus
 import fluence.statemachine.docker.DockerStateMachine
 import fluence.worker.responder.repeat.RepeatOnEveryBlock
-import fluence.worker.responder.{AwaitResponses, SendAndWait}
+import fluence.worker.responder.{AwaitResponses, SendAndWait, WorkerResponder}
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
@@ -62,8 +62,7 @@ case class DockerWorkerServices[F[_]] private (
   receiptBus: ReceiptBus[F],
   peersControl: PeersControl[F],
   blockManifests: WorkerBlockManifests[F],
-  waitResponseService: SendAndWait[F],
-  perBlockTxExecutor: RepeatOnEveryBlock[F],
+  responder: WorkerResponder[F],
   statusCall: FiniteDuration ⇒ F[WorkerStatus]
 ) extends WorkerServices[F] {
   override def status(timeout: FiniteDuration): F[WorkerStatus] = statusCall(timeout)
@@ -203,12 +202,7 @@ object DockerWorkerServices {
 
       apiWorker = fluence.worker.api.Worker(params.appId, stateMachine, producer)
 
-      responseSubscriber <- AwaitResponses.make[F](apiWorker)
-
-      waitResponseService = WaitResponseService(tm.rpc, responseSubscriber)
-
-      storedProcedureExecutor <- RepeatOnEveryBlock
-        .make(tm.wrpc, tm.rpc, waitResponseService)
+      responder ← WorkerResponder.make[F](apiWorker)
 
       services = new DockerWorkerServices[F](
         p2pPort,
@@ -218,8 +212,7 @@ object DockerWorkerServices {
         stateMachine.command[ReceiptBus[F]],
         stateMachine.command[PeersControl[F]],
         blockManifests,
-        waitResponseService,
-        storedProcedureExecutor,
+        responder,
         status
       )
 

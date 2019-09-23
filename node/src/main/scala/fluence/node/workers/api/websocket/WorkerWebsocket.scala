@@ -25,7 +25,8 @@ import cats.syntax.applicative._
 import fluence.bp.tx.Tx
 import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.api.websocket.WebsocketResponses.WebsocketResponse
-import fluence.worker.responder.resp.{OkResponse, PendingResponse, RpcErrorResponse, TimedOutResponse}
+import fluence.worker.responder.repeat.{SubscriptionKey, SubscriptionStorage}
+import fluence.worker.responder.resp.{AwaitedResponse, OkResponse, PendingResponse, RpcErrorResponse, TimedOutResponse}
 import fs2.concurrent.{NoneTerminatedQueue, Queue}
 import io.circe
 import io.circe.parser.parse
@@ -85,7 +86,7 @@ class WorkerWebsocket[F[_]: Concurrent](
     }.map(_.asJson.noSpaces)
   }
 
-  private def toWebsocketResponse(requestId: String, response: TendermintResponse): WebsocketResponse = {
+  private def toWebsocketResponse(requestId: String, response: AwaitedResponse.OrError): WebsocketResponse =
     response match {
       case Right(OkResponse(_, response))    => TxWaitResponse(requestId, response)
       case Right(RpcErrorResponse(_, error)) => ErrorResponse(requestId, error.getMessage)
@@ -94,7 +95,6 @@ class WorkerWebsocket[F[_]: Concurrent](
       case Right(PendingResponse(_)) => ErrorResponse(requestId, s"Unexpected error.")
       case Left(error)               => ErrorResponse(requestId, error.msg)
     }
-  }
 
   private def callApi(input: WebsocketRequest): F[WebsocketResponse] =
     input match {
@@ -151,8 +151,6 @@ class WorkerWebsocket[F[_]: Concurrent](
 }
 
 object WorkerWebsocket {
-
-  private[websocket] case class Subscription[F[_]](stream: Option[fs2.Stream[F, TendermintResponse]])
 
   def apply[F[_]: Concurrent: Log](workerApi: WorkerApi[F]): F[WorkerWebsocket[F]] =
     for {

@@ -24,6 +24,10 @@ sealed trait AwaitedResponse {
   def id: Tx.Head
 }
 
+object AwaitedResponse {
+  type OrError = Either[TxAwaitError, AwaitedResponse]
+}
+
 /**
  * Response that is ok for client. Master node must return it right away.
  *

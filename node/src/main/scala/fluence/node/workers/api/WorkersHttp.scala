@@ -24,10 +24,8 @@ import cats.syntax.functor._
 import fluence.bp.tx.Tx
 import fluence.effects.tendermint.rpc.http._
 import fluence.log.{Log, LogFactory}
-import fluence.node.workers.subscription._
 import fluence.node.workers.Worker
 import fluence.node.workers.pool.WorkersPool
-import fluence.worker.responder.{RpcTxAwaitError, TxInvalidError, TxParsingError}
 import fluence.worker.responder.resp.{
   OkResponse,
   PendingResponse,
@@ -229,7 +227,7 @@ object WorkersHttp {
                       case TendermintResponseDeserializationError(response) =>
                         log.debug(s"error on tendermint response deserialization: $response") >> Ok(response)
                       case RpcTxAwaitError(rpcError) =>
-                        log.debug(s"error on await rpc tx: $rpcError") >> rpcErrorToResponse(rpcError)
+                        log.debug(s"error on await rpc tx: $rpcError") >> rpcErrorToResponse(RpcRequestFailed(rpcError))
                       case TxParsingError(msg, _) =>
                         // TODO: ERROR INCONSISTENCY: some errors are returned as 200, others as 500
                         log.debug(s"error on tx parsing: $msg") >> BadRequest(msg)

@@ -53,7 +53,7 @@ class RepeatOnEveryBlockImpl[F[_]: Timer: Concurrent](
    */
   override def subscribe(key: SubscriptionKey, data: Tx.Data)(
     implicit log: Log[F]
-  ): F[fs2.Stream[F, Either[TxAwaitError, AwaitedResponse]]] =
+  ): F[fs2.Stream[F, AwaitedResponse.OrError]] =
     for {
       _ <- log.debug(s"Subscribe for id: ${key.subscriptionId}, txHash: ${key.txHash}")
       topic <- Topic[F, Event](Init)

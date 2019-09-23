@@ -16,9 +16,9 @@
 
 package fluence.worker.responder.repeat
 
-import fluence.worker.responder.resp.{AwaitedResponse, TxAwaitError}
+import fluence.worker.responder.resp.AwaitedResponse
 
 sealed trait Event
-case class Response(value: Either[TxAwaitError, AwaitedResponse]) extends Event
+case class Response(value: AwaitedResponse.OrError) extends Event
 case object Init extends Event
 case class Quit(id: String) extends Event

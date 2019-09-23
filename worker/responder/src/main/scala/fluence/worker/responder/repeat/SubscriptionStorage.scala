@@ -14,37 +14,38 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.api.websocket
+package fluence.worker.responder.repeat
 
 import cats.Monad
 import cats.effect.Sync
 import cats.effect.concurrent.Ref
-import fluence.log.Log
 import cats.syntax.applicative._
-import cats.syntax.functor._
 import cats.syntax.flatMap._
+import cats.syntax.functor._
 import fluence.bp.tx.Tx
-import fluence.node.workers.api.websocket.WorkerWebsocket.{Subscription, SubscriptionKey}
-import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
+import fluence.log.Log
+import fluence.worker.responder.resp.AwaitedResponse
 
 import scala.language.higherKinds
 
-class SubscriptionStorage[F[_]: Monad](subscriptions: Ref[F, Map[SubscriptionKey, Subscription[F]]]) {
+class SubscriptionStorage[F[_]: Monad](subscriptions: Ref[F, Map[SubscriptionKey, SubscriptionStorage.Value[F]]]) {
 
-  def getSubscriptions: F[Map[SubscriptionKey, Subscription[F]]] = subscriptions.get
+  import SubscriptionStorage.Value
+
+  def getSubscriptions: F[Map[SubscriptionKey, Value[F]]] = subscriptions.get
 
   /**
    * Add stream to a subscription.
    *
    * @return false if there is no subscription with such key
    */
-  def addStream(key: SubscriptionKey, stream: fs2.Stream[F, TendermintResponse])(
+  def addStream(key: SubscriptionKey, stream: fs2.Stream[F, AwaitedResponse.OrError])(
     implicit log: Log[F]
   ): F[Boolean] =
     for {
       noSub <- subscriptions.modify { subs =>
         subs.get(key) match {
-          case Some(v) => (subs.updated(key, v.copy(stream = Some(stream))), true)
+          case Some(_) => (subs.updated(key, Some(stream)), true)
           case None    => (subs, false)
         }
       }
@@ -63,7 +64,7 @@ class SubscriptionStorage[F[_]: Monad](subscriptions: Ref[F, Map[SubscriptionKey
         subs.get(key) match {
           case Some(_) => (subs, false)
           case None =>
-            (subs + (key -> Subscription(None)), true)
+            (subs + (key -> None), true)
         }
       }
     } yield success
@@ -75,9 +76,11 @@ class SubscriptionStorage[F[_]: Monad](subscriptions: Ref[F, Map[SubscriptionKey
 
 object SubscriptionStorage {
 
-  def apply[F[_]: Sync]()(implicit log: Log[F]): F[SubscriptionStorage[F]] =
+  type Value[F[_]] = Option[fs2.Stream[F, AwaitedResponse.OrError]]
+
+  def apply[F[_]: Sync](): F[SubscriptionStorage[F]] =
     for {
-      storage <- Ref.of(Map.empty[SubscriptionKey, Subscription[F]])
+      storage <- Ref.of(Map.empty[SubscriptionKey, Value[F]])
     } yield new SubscriptionStorage[F](storage)
 
 }

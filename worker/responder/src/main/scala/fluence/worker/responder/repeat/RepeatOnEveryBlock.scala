@@ -23,7 +23,7 @@ import fluence.effects.resources.MakeResource
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.worker.responder.SendAndWait
-import fluence.worker.responder.resp.{AwaitedResponse, TxAwaitError}
+import fluence.worker.responder.resp.AwaitedResponse
 
 import scala.language.higherKinds
 
@@ -43,7 +43,7 @@ trait RepeatOnEveryBlock[F[_]] {
    */
   def subscribe(subscriptionKey: SubscriptionKey, data: Tx.Data)(
     implicit log: Log[F]
-  ): F[fs2.Stream[F, Either[TxAwaitError, AwaitedResponse]]]
+  ): F[fs2.Stream[F, AwaitedResponse.OrError]]
 
   def unsubscribe(subscriptionKey: SubscriptionKey)(implicit log: Log[F]): F[Boolean]
 }

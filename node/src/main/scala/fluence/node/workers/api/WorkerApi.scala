@@ -24,10 +24,8 @@ import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestFailed}
 import fluence.log.Log
 import fluence.node.workers.Worker
 import fluence.node.workers.api.websocket.WorkerWebsocket
-import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
-import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
-import fluence.node.workers.subscription._
-import fluence.worker.responder.resp.{AwaitedResponse, TxAwaitError}
+import fluence.worker.responder.repeat.SubscriptionKey
+import fluence.worker.responder.resp.AwaitedResponse
 
 import scala.language.higherKinds
 
@@ -71,7 +69,7 @@ trait WorkerApi[F[_]] {
    */
   def sendTxAwaitResponse(tx: Array[Byte])(
     implicit log: Log[F]
-  ): F[Either[TxAwaitError, AwaitedResponse]]
+  ): F[AwaitedResponse.OrError]
 
   /**
    * Creates service to work with websocket
@@ -88,7 +86,7 @@ trait WorkerApi[F[_]] {
    */
   def subscribe(key: SubscriptionKey, tx: Tx.Data)(
     implicit log: Log[F]
-  ): F[fs2.Stream[F, TendermintResponse]]
+  ): F[fs2.Stream[F, AwaitedResponse.OrError]]
 
   /**
    * Remove given subscription.
@@ -133,9 +131,9 @@ object WorkerApi {
 
     override def sendTxAwaitResponse(tx: Array[Byte])(
       implicit log: Log[F]
-    ): F[Either[TxAwaitError, AwaitedResponse]] =
+    ): F[AwaitedResponse.OrError] =
       log.scope("txWait") { implicit log ⇒
-        worker.withServices(_.waitResponseService)(_.sendTxAwaitResponse(tx))
+        worker.withServices(_.responder.sendAndWait)(_.sendTxAwaitResponse(tx).value)
       }
 
     override def websocket()(implicit log: Log[F]): F[WorkerWebsocket[F]] =
@@ -143,16 +141,16 @@ object WorkerApi {
 
     override def subscribe(key: SubscriptionKey, tx: Tx.Data)(
       implicit log: Log[F]
-    ): F[fs2.Stream[F, TendermintResponse]] =
+    ): F[fs2.Stream[F, AwaitedResponse.OrError]] =
       log.scope("subscriptionKey" -> key.toString) { implicit log ⇒
-        worker.withServices(_.perBlockTxExecutor)(
+        worker.withServices(_.responder.onEveryBlock)(
           _.subscribe(key, tx)
         )
       }
 
     override def unsubscribe(key: SubscriptionKey)(implicit log: Log[F]): F[Boolean] =
       log.scope("subscriptionKey" -> key.toString) { implicit log ⇒
-        worker.withServices(_.perBlockTxExecutor)(
+        worker.withServices(_.responder.onEveryBlock)(
           _.unsubscribe(key)
         )
       }
