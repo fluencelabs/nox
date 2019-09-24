@@ -30,6 +30,19 @@ interface WebsocketResponse {
     error?: string
 }
 
+/**
+ * Session is a stable stateful asynchronous connection to Fluence application.
+ * Session manages websocket connections to nodes.
+ * It tries to connect to one node at a time.
+ * First connection will fail only if all nodes are unavailable.
+ * Creates new sessionId on each node.
+ * Controls the order of requests.
+ * If request becomes failed due to timeout, a connection to the next node is created,
+ * because the client doesn't know if a request processed on a node or not.
+ * All pending requests (request and requestAsync methods) will fail after reconnecting.
+ * If all nodes are unavailable, requests will fail, the session will try to reconnect to nodes after a timeout.
+ * Keeps subscriptions (subscribe method) after each reconnects.
+ */
 export class WebsocketSession {
     private sessionId: string;
     private appId: string;
@@ -44,7 +57,7 @@ export class WebsocketSession {
     // on first connection `connectionPromise` will fail only if all nodes are unavailable
     private firstConnection: boolean = true;
 
-    // result is for 'txWaitRequest' and 'query', void is for all other requests
+    // result is for 'request' and 'requestAsync', void is for all other requests
     private executors = new Map<string, Executor<any | void>>();
 
     // promise, that should be completed if websocket is connected
@@ -52,12 +65,13 @@ export class WebsocketSession {
 
     /**
      * Create connected websocket.
+     *
      * @param appId id of an application
      * @param nodes list of nodes to connect
      * @param privateKey key that will sign all requests
      * @param timeout time after which the request fails
      *
-     * @return promise that will be completed if websocket become connected and will fail if all nodes will be unavailable.
+     * @return promise that will be completed if websocket become connected and will fail if all nodes will be unavailable
      */
     static create(appId: string, nodes: Node[], privateKey?: PrivateKey, timeout = 10000): Promise<WebsocketSession> {
         const ws = new WebsocketSession(appId, nodes, timeout, privateKey);
@@ -71,12 +85,32 @@ export class WebsocketSession {
         }
 
         this.counter = 0;
-        this.nodeCounter = 0;
+        // first connection will be to the random node
+        this.nodeCounter = Math.floor(Math.random() * nodes.length);
         this.sessionId = genSessionId();
         this.appId = appId;
         this.nodes = nodes;
         this.privateKey = privateKey;
         this.timeout = timeout;
+    }
+
+    /**
+     * Creates a subscription, that will return responses on every change in Fluence application.
+     * @param transaction will be run on state machine on every change
+     * @param resultCallback to handle changes
+     * @param errorCallback to handle errors
+     */
+    async subscribe(transaction: string, resultCallback: (result: Result) => void, errorCallback: (error: any) => void): Promise<string> {
+        await this.connectionPromise.promise;
+        const requestId = genRequestId();
+        const subscriptionId = genRequestId();
+
+        const executor: SubscriptionExecutor = new SubscriptionExecutor(transaction, resultCallback, errorCallback);
+        this.executors.set(subscriptionId, executor);
+
+        await this.subscribeCall(transaction, requestId, subscriptionId);
+
+        return subscriptionId
     }
 
     /**
@@ -100,25 +134,6 @@ export class WebsocketSession {
         await this.sendAndWaitResponse<void>(requestId, JSON.stringify(request));
 
         this.executors.delete(subscriptionId);
-    }
-
-    /**
-     * Creates a subscription, that will return responses on every change in a state machine.
-     * @param transaction will be run on state machine on every change
-     * @param resultCallback to handle changes
-     * @param errorCallback to handle errors
-     */
-    async subscribe(transaction: string, resultCallback: (result: Result) => void, errorCallback: (error: any) => void): Promise<string> {
-        await this.connectionPromise.promise;
-        const requestId = genRequestId();
-        const subscriptionId = genRequestId();
-
-        const executor: SubscriptionExecutor = new SubscriptionExecutor(transaction, resultCallback, errorCallback);
-        this.executors.set(subscriptionId, executor);
-
-        await this.subscribeCall(transaction, requestId, subscriptionId);
-
-        return subscriptionId
     }
 
     /**
@@ -178,6 +193,7 @@ export class WebsocketSession {
             return Promise.reject("There is no available nodes.")
         }
 
+        // chooses the next node after every connect
         const nodeNumber = this.nodeCounter % this.nodes.length;
         const node = this.nodes[nodeNumber];
         this.nodeCounter++;
@@ -211,13 +227,13 @@ export class WebsocketSession {
                 delete this.nodes[nodeNumber];
                 setTimeout(() => this.nodes.push(node), this.timeout);
 
-                // new requests will be terminated until websocket is connected
                 if (!this.firstConnection) {
+                    // new requests will be terminated until websocket is connected to a new node
                     this.connectionPromise = new PromiseExecutor<void>();
                     this.connectionPromise.fail("Websocket is closed. Reconnecting")
                 }
 
-                this.stopPromiseExecutors();
+                this.failPendingRequests();
 
                 setTimeout(() => this.reconnectSession(e), 1000)
             };
@@ -234,7 +250,7 @@ export class WebsocketSession {
         try {
             const rawResponse = WebsocketSession.parseRawResponse(msg);
 
-            debug("Message received: " + JSON.stringify(rawResponse));
+            debug("Websocket response: " + JSON.stringify(rawResponse));
 
             const executor = this.executors.get(rawResponse.request_id);
             if (!executor) {
@@ -290,8 +306,13 @@ export class WebsocketSession {
         return executor.promise
     }
 
+    /**
+     * Parses a received result from `request` method and completes executor.
+     *
+     */
     private static handleResult(r: string, executor: Executor<any>): void {
-        const result = WebsocketSession.parseResponse(r);
+        const parsed = JSON.parse(r) as TendermintJsonRpcResponse<AbciQueryResult>;
+        const result = TendermintClient.parseQueryResponse(none, parsed);
         if (executor instanceof SubscriptionExecutor) {
             debug(executor.subscription);
         }
@@ -309,6 +330,9 @@ export class WebsocketSession {
             })
     }
 
+    /**
+     * Parses a received response from `requestAsync` method and completes executor.
+     */
     private static handleTxResponse(r: string, requestId: string, executor: Executor<any>): void {
         const response = parseResponse(JSON.parse(r));
         if (response.code !== 0) {
@@ -316,11 +340,6 @@ export class WebsocketSession {
         } else {
             executor.success(response)
         }
-    }
-
-    private static parseResponse(data: string): Option<Result> {
-        const parsed = JSON.parse(data) as TendermintJsonRpcResponse<AbciQueryResult>;
-        return TendermintClient.parseQueryResponse(none, parsed);
     }
 
     /**
@@ -338,8 +357,8 @@ export class WebsocketSession {
         });
     }
 
-    private stopPromiseExecutors() {
-        // terminate and all promise executors
+    private failPendingRequests() {
+        // terminate all promise executors
         this.executors.forEach((executor: Executor<Result | void>, key: string) => {
             if (executor.type === ExecutorType.Promise) {
                 executor.fail("Reconnecting. All waiting requests are terminated.");
@@ -354,6 +373,9 @@ export class WebsocketSession {
         return this.counter++;
     }
 
+    /**
+     * Send a message about new subscription.
+     */
     private async subscribeCall(transaction: string, requestId: string, subscriptionId: string): Promise<void> {
         const request = {
             tx: transaction,
