@@ -60,6 +60,10 @@ object SbtCommons {
           val compileCmd = s"cargo +nightly-2019-09-23 build --manifest-path $frankFolder/Cargo.toml --release"
 
           assert((compileCmd !) == 0, "Frank VM compilation failed")
+
+          // setting java.library.path for the CircleCI environment
+          val exportCmd = s"export LD_LIBRARY_PATH=$frankFolder/target/release"
+          assert((exportCmd !) == 0, "Exporting LD_LIBRARY_PATH failed")
         })
         .value
     )

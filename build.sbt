@@ -43,12 +43,12 @@ lazy val `vm` = (project in file("vm"))
       scalaIntegrationTest,
       mockito
     ),
+    javaOptions += s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release",
     compile in Compile := (compile in Compile)
       .dependsOn(compile in `vm-frank`).value,
     test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(compile in `vm-llamadb`)
       .value,
-    javaOptions += s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release"
   )
   .dependsOn(`log`)
   .enablePlugins(AutomateHeaderPlugin)

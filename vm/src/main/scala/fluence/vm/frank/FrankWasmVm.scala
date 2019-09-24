@@ -39,22 +39,17 @@ class FrankWasmVm(
 
   override def invoke[F[_]: LiftIO: Monad](
     fnArgument: Array[Byte]
-  ): EitherT[F, InvocationError, InvocationResult] = {
-    println("start invoking")
+  ): EitherT[F, InvocationError, InvocationResult] =
     EitherT(
       IO(vmRunnerInvoker.invoke(fnArgument)).attempt
         .to[F]
     ).leftMap(e ⇒ InvocationError(s"Frank invocation failed by exception. Cause: ${e.getMessage}", Some(e)))
       .subflatMap {
-        case RawInvocationResult(Some(err), _, _) ⇒ {
-          println("RawInvocationResult error")
+        case RawInvocationResult(Some(err), _, _) ⇒
           InvocationError(s"Frank invocation failed. Cause: $err").asLeft[InvocationResult]
-        }
         case RawInvocationResult(None, output, spentGas) ⇒
-          println(s"RawInvocationResult success ${output.toString}")
           InvocationResult(output, spentGas).asRight[InvocationError]
       }
-  }
 
   override def computeVmState[F[_]: LiftIO: Monad]: EitherT[F, StateComputationError, ByteVector] =
     EitherT(
