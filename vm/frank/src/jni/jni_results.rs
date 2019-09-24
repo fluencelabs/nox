@@ -27,6 +27,9 @@ pub fn create_initialization_result<'a>(env: &JNIEnv<'a>, error: Option<String>)
         None => create_none_value(&env),
     };
 
+    // public static RawInitializationResult apply(final Option error) {
+    //   return RawInitializationResult$.MODULE$.apply(var0);
+    // }
     env.call_static_method(
         "fluence/vm/frank/result/RawInitializationResult",
         "apply",
@@ -49,10 +52,15 @@ pub fn create_invocation_result<'a>(
         None => create_none_value(&env),
     };
 
+    // TODO: here we have 2 copying of result, first is from Wasm memory to Vec<u8>, second is from
+    // Vec<u8> to Java byte array. Optimization might be possbile after memory refactoring.
     let outcome = env.byte_array_from_slice(&result.outcome).unwrap();
     let outcome = JObject::from(outcome);
     let spent_gas = JValue::from(result.spent_gas);
 
+    // public static RawInvocationResult apply(final Option error, final byte[] output, final long spentGas) {
+    //   return RawInvocationResult$.MODULE$.apply(var0, var1, var2);
+    // }
     env.call_static_method(
         "fluence/vm/frank/result/RawInvocationResult",
         "apply",
@@ -80,6 +88,9 @@ pub fn create_state_computation_result<'a>(
         .expect("jni: couldn't allocate enough space for byte array");
     let state = JObject::from(state);
 
+    // public static RawStateComputationResult apply(final Option error, final byte[] state) {
+    //   return RawStateComputationResult$.MODULE$.apply(var0, var1);
+    // }
     env.call_static_method(
         "fluence/vm/frank/result/RawStateComputationResult",
         "apply",
