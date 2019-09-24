@@ -21,24 +21,15 @@ import java.nio.file.{Files, Path}
 import cats.data.EitherT
 import cats.effect.{ContextShift, LiftIO, Resource, Sync, Timer}
 import cats.instances.either._
-import cats.instances.list._
 import cats.syntax.applicativeError._
 import cats.syntax.either._
 import cats.syntax.flatMap._
-import cats.syntax.apply._
-import cats.syntax.applicative._
-import cats.syntax.foldable._
 import cats.syntax.functor._
-import cats.{Defer, Monad, MonadError, Traverse}
-import fluence.effects.EffectError
+import cats.{Defer, Monad, Traverse}
 import fluence.effects.kvstore.{KVStore, RocksDBStore}
 import fluence.effects.tendermint.block.data
-import fluence.effects.tendermint.block.history.db.Blockstore.rocksDbStore
-import fluence.effects.tendermint.block.protobuf.{Protobuf, ProtobufConverter}
 import fluence.log.Log
-import io.circe.parser.parse
 import org.rocksdb.{RocksDBException, Status}
-import proto3.tendermint.{Block, BlockMeta, BlockPart}
 
 import scala.collection.JavaConverters._
 import scala.concurrent.duration._

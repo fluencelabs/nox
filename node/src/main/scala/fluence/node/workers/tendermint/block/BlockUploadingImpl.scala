@@ -59,7 +59,10 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
   //  connect to Websocket and create blockstore after everything is initialized
   def start(
     appId: Long,
-    services: WorkerServices[F]
+    receiptStorage: ReceiptStorage[F],
+    subscribeNewBlock: Long ⇒ fs2.Stream[F, Block],
+    receiptBus: ReceiptBus[F],
+    onUploaded: (BlockManifest, Receipt) ⇒ F[Unit]
   )(implicit log: Log[F], backoff: Backoff[EffectError] = Backoff.default): Resource[F, Unit] =
     for {
       // Storage for a previous manifest
@@ -67,10 +70,10 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
       _ <- pushReceipts(
         appId,
         lastManifestReceipt,
-        services.blockManifests.receiptStorage,
-        services.tendermint.wrpc,
-        services.receiptBus,
-        services.blockManifests.onUploaded
+        receiptStorage,
+        subscribeNewBlock,
+        receiptBus,
+        onUploaded
       )
     } yield ()
 
@@ -79,7 +82,7 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
     appId: Long,
     lastManifestReceipt: MVar[F, Option[Receipt]],
     storage: ReceiptStorage[F],
-    wrpc: TendermintWebsocketRpc[F],
+    subscribeNewBlock: Long ⇒ fs2.Stream[F, Block],
     receiptBus: ReceiptBus[F],
     onManifestUploaded: (BlockManifest, Receipt) ⇒ F[Unit]
   )(implicit backoff: Backoff[EffectError], F: Applicative[F], log: Log[F]): Resource[F, Unit] =
@@ -92,10 +95,10 @@ class BlockUploadingImpl[F[_]: ConcurrentEffect: Timer: ContextShift](
         val storedReceipts = getStoredReceipts(storage, lastHeightRef, lastHeightDef)
 
         // TODO get last known height from the last received receipt
-        val lastKnownHeight = fs2.Stream.eval(lastHeightDef.get).map(Some(_))
+        val lastKnownHeight = fs2.Stream.eval(lastHeightDef.get)
 
         // Subscribe on blocks, starting with given last known height
-        val blocks = lastKnownHeight >>= wrpc.subscribeNewBlock
+        val blocks = lastKnownHeight >>= subscribeNewBlock
 
         // Retrieve vm hash for every block
         val blocksWithVmHash = getBlocksWithVmHashes(blocks, receiptBus)

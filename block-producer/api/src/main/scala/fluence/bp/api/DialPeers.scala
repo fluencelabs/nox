@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-package fluence.effects
-import scala.util.control.NoStackTrace
+package fluence.bp.api
 
-trait EffectError extends Throwable with NoStackTrace
+import cats.data.EitherT
+import fluence.effects.EffectError
+import fluence.log.Log
 
-case object TimeoutError extends EffectError
+import scala.language.higherKinds
 
-trait WithCause[E <: Throwable] extends EffectError {
-  def cause: E
-
-  initCause(cause)
+trait DialPeers[F[_]] {
+  def dialPeers(peers: Seq[String])(implicit log: Log[F]): EitherT[F, EffectError, Unit]
 }

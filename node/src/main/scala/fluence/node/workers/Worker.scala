@@ -49,7 +49,7 @@ case class Worker[F[_]: Concurrent] private (
 
   // Reports this worker's health
   def isHealthy(timeout: FiniteDuration): F[Boolean] =
-    services >>= (_.status(timeout).map(_.isHealthy))
+    services >>= (_.status(timeout).map(_.isOperating))
 
   // Executes fn * f in worker's context, keeping execution order. Discards the result.
   //  used for peers control in MasterNode, and [[withServices]]

@@ -21,7 +21,7 @@ import fluence.effects.ethclient.data.{Block, Transaction}
 import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.eth.NodeEthState
 import fluence.node.eth.state.{Cluster, WorkerPeer}
-import fluence.node.workers.status.WorkerStatus
+import fluence.worker.api.WorkerStatus
 import io.circe.generic.semiauto._
 import io.circe.{Decoder, Encoder, KeyDecoder, KeyEncoder}
 import scodec.bits.ByteVector
@@ -60,6 +60,9 @@ object MasterStatus {
   private implicit val encodeApp: Encoder[fluence.node.eth.state.App] = deriveEncoder
   private implicit val encodeStorageRef: Encoder[fluence.node.eth.state.StorageRef] = deriveEncoder
   private implicit val keyEncoderByteVector: KeyEncoder[ByteVector] = KeyEncoder.instance(_.toHex)
+  // TODO
+  private implicit val encoderWorkerStatus: Encoder[WorkerStatus] = deriveEncoder
+  private implicit val decoderWorkerStatus: Decoder[WorkerStatus] = deriveDecoder
   implicit val encodeNodeEthState: Encoder[NodeEthState] = deriveEncoder
   implicit val encodeMasterState: Encoder[MasterStatus] = deriveEncoder
 

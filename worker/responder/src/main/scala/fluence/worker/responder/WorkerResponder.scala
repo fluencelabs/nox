@@ -40,7 +40,7 @@ class WorkerResponder[F[_]](
 object WorkerResponder {
 
   def make[F[_]: Parallel: Concurrent: Timer: Log, B: TxsBlock](
-    worker: Worker.AuxP[F, B],
+    worker: Worker.AuxP[F, B, _],
     maxTries: Int = AwaitResponses.MaxBlocksTries
   )(implicit backoff: Backoff[EffectError]): Resource[F, WorkerResponder[F]] =
     for {

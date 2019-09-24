@@ -19,10 +19,9 @@ package fluence.bp.embedded
 import cats.Monad
 import cats.data.EitherT
 import cats.effect.Concurrent
-import cats.effect.concurrent.Ref
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import fluence.bp.api.BlockProducer
+import fluence.bp.api.{BlockProducer, BlockProducerStatus}
 import fluence.bp.tx.TxResponse
 import fluence.effects.EffectError
 import fluence.log.Log
@@ -38,6 +37,16 @@ class EmbeddedBlockProducer[F[_]: Monad](
   blocksQueue: fs2.concurrent.Queue[F, SimpleBlock]
 ) extends BlockProducer[F] {
   override type Block = SimpleBlock
+
+  /**
+   * Product (HList) of all types to access Command side of this block producer.
+   */
+  override type Commands = HNil
+
+  /**
+   * Implementations for the command side
+   */
+  override protected val commands: Commands = HNil
 
   /**
    * Stream of blocks, starting with the given height
@@ -66,6 +75,11 @@ class EmbeddedBlockProducer[F[_]: Monad](
           } yield ()
       )
 
+  /**
+   * Provides current status of BlockProducer
+   */
+  override def status()(implicit log: Log[F]): EitherT[F, EffectError, BlockProducerStatus] =
+    EitherT.pure(BlockProducerStatus("Embedded block producer operating normally"))
 }
 
 object EmbeddedBlockProducer {
@@ -74,7 +88,7 @@ object EmbeddedBlockProducer {
     machine: StateMachine.Aux[F, C]
   )(
     implicit txp: ops.hlist.Selector[C, TxProcessor[F]]
-  ): F[BlockProducer.Aux[F, SimpleBlock]] =
+  ): F[BlockProducer.Aux[F, SimpleBlock, HNil]] =
     for {
       blockQueue ← fs2.concurrent.Queue.circularBuffer[F, SimpleBlock](16)
     } yield new EmbeddedBlockProducer[F](machine.command[TxProcessor[F]], blockQueue)

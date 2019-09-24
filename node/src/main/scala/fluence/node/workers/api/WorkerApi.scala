@@ -29,6 +29,7 @@ import fluence.worker.responder.resp.AwaitedResponse
 
 import scala.language.higherKinds
 
+// TODO rewrite all errors!
 trait WorkerApi[F[_]] {
 
   /**
@@ -42,12 +43,6 @@ trait WorkerApi[F[_]] {
     path: String,
     id: Option[String]
   )(implicit log: Log[F]): F[Either[RpcError, String]]
-
-  /**
-   * Gets a status of a tendermint node.
-   *
-   */
-  def tendermintStatus()(implicit log: Log[F]): F[Either[RpcError, String]]
 
   /**
    * Gets a p2p port of tendermint node.
@@ -113,10 +108,6 @@ object WorkerApi {
             .map(_.toResponseString(id.getOrElse("dontcare")))
             .value
         )
-
-    override def tendermintStatus()(implicit log: Log[F]): F[Either[RpcError, String]] =
-      log.trace(s"TendermintRpc status") *>
-        worker.withServices(_.tendermint.rpc)(_.status.value)
 
     override def p2pPort()(implicit log: Log[F]): F[Short] =
       log.trace(s"Worker p2pPort") as worker.p2pPort

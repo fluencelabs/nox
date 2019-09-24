@@ -24,15 +24,13 @@ import cats.syntax.functor._
 import cats.instances.vector._
 import fluence.effects.sttp.SttpEffect
 import fluence.effects.sttp.syntax._
-import fluence.effects.tendermint.rpc.http.{RpcError, TendermintHttpRpc}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.eth.state.WorkerPeer
-import fluence.node.workers.Worker
 import com.softwaremill.sttp._
+import fluence.bp.api.DialPeers
 
 import scala.language.higherKinds
-
 import scala.util.Try
 
 /**
@@ -44,7 +42,7 @@ object WorkerP2pConnectivity {
    * Ping peers to get theirs p2p port for the app, then pass that port to Worker's TendermintRPC to dial.
    *
    * @param appId Id of the application for the cluster we're joining
-   * @param rpc Tendermint RPC of the current app
+   * @param dialPeers Tendermint RPC of the current app
    * @param peers All the other peers to form the cluster
    * @param backoff Retry policy for exponential backoff in reties
    * @tparam F Concurrent to make a fiber so that you can cancel the joining job, Timer to make retries
@@ -52,7 +50,7 @@ object WorkerP2pConnectivity {
    */
   def join[F[_]: Concurrent: Timer: SttpEffect: Parallel](
     appId: Long,
-    rpc: TendermintHttpRpc[F],
+    dialPeers: DialPeers[F],
     peers: Vector[WorkerPeer],
     backoff: Backoff[EffectError] = Backoff.default
   )(
@@ -73,9 +71,8 @@ object WorkerP2pConnectivity {
             backoff(getPort).flatMap { p2pPort ⇒
               Log[F].trace(s"Got Peer p2p port: ${p.peerAddress(p2pPort)}") >>
                 backoff(
-                  rpc
-                    .unsafeDialPeers(p.peerAddress(p2pPort) :: Nil, persistent = true)
-                    .flatTap(res => Log.eitherT[F, RpcError].debug(s"dial_peers replied: $res"))
+                  dialPeers
+                    .dialPeers(p.peerAddress(p2pPort) :: Nil)
                 )
             }
         }
@@ -87,18 +84,18 @@ object WorkerP2pConnectivity {
    * Works in background until all peers responded. Stops the background job on resource release.
    *
    * @param appId Id of the application for the cluster we're joining
-   * @param rpc Tendermint RPC of the current app
+   * @param dialPeers Tendermint RPC of the current app
    * @param peers All the other peers to form the cluster
    * @param backoff Retry policy for exponential backoff in reties
    * @tparam F Concurrent to make a fiber so that you can cancel the joining job, Timer to make retries
    */
   def make[F[_]: Concurrent: Timer: Log: SttpEffect: Parallel](
     appId: Long,
-    rpc: TendermintHttpRpc[F],
+    dialPeers: DialPeers[F],
     peers: Vector[WorkerPeer],
     backoff: Backoff[EffectError] = Backoff.default
   )(
     ): Resource[F, Unit] =
-    Resource.make(join(appId, rpc, peers, backoff))(_.cancel).void
+    Resource.make(join(appId, dialPeers, peers, backoff))(_.cancel).void
 
 }

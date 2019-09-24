@@ -16,10 +16,18 @@
 
 package fluence.worker.api
 
+import cats.{Monad, Parallel}
+import cats.effect.{Concurrent, Timer}
+import cats.syntax.functor._
+import cats.syntax.flatMap._
+import cats.instances.either._
 import fluence.bp.api.BlockProducer
+import fluence.effects.{EffectError, TimeoutError}
+import fluence.log.Log
 import fluence.statemachine.api.StateMachine
 import shapeless.HList
 
+import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
 trait Worker[F[_]] {
@@ -33,37 +41,59 @@ trait Worker[F[_]] {
 
   def producer: Producer
 
+  def status(
+    timeout: FiniteDuration
+  )(implicit log: Log[F], timer: Timer[F], c: Concurrent[F], p: Parallel[F]): F[WorkerStatus]
 }
 
 object Worker {
 
-  type Aux[F[_], C <: HList, B] = Worker[F] {
+  type Aux[F[_], C <: HList, B, PC <: HList] = Worker[F] {
     type Machine = StateMachine.Aux[F, C]
 
-    type Producer = BlockProducer.Aux[F, B]
+    type Producer = BlockProducer.Aux[F, B, PC]
   }
 
   type AuxM[F[_], C <: HList] = Worker[F] {
     type Machine = StateMachine.Aux[F, C]
   }
 
-  type AuxP[F[_], B] = Worker[F] {
-    type Producer = BlockProducer.Aux[F, B]
+  type AuxP[F[_], B, C <: HList] = Worker[F] {
+    type Producer = BlockProducer.Aux[F, B, C]
   }
 
-  def apply[F[_], C <: HList, B](
+  def apply[F[_]: Monad, C <: HList, B, PC <: HList](
     _appId: Long,
     _machine: StateMachine.Aux[F, C],
-    _producer: BlockProducer.Aux[F, B]
-  ): Worker.Aux[F, C, B] =
+    _producer: BlockProducer.Aux[F, B, PC]
+  ): Worker.Aux[F, C, B, PC] =
     new Worker[F] {
       override type Machine = StateMachine.Aux[F, C]
-      override type Producer = BlockProducer.Aux[F, B]
+      override type Producer = BlockProducer.Aux[F, B, PC]
 
       override val appId: Long = _appId
 
       override val machine: Machine = _machine
 
       override val producer: Producer = _producer
+
+      def status(
+        timeout: FiniteDuration
+      )(implicit log: Log[F], timer: Timer[F], c: Concurrent[F], p: Parallel[F]): F[WorkerStatus] = {
+        val sleep = Timer[F].sleep(timeout).as[EffectError](TimeoutError)
+        p.sequential(
+          p.apply.map2(
+            p.parallel(Concurrent[F].race(sleep, machine.status().value).map(_.flatten)),
+            p.parallel(Concurrent[F].race(sleep, producer.status().value).map(_.flatten))
+          ) {
+            case (Right(machineStatus), Right(producerStatus)) ⇒
+              WorkerOperating(machineStatus, producerStatus)
+
+            case (machineEither, producerEither) ⇒
+              WorkerFailing(machineEither, producerEither)
+          }
+        )
+      }
+
     }
 }

@@ -14,15 +14,8 @@
  * limitations under the License.
  */
 
-package fluence.effects
-import scala.util.control.NoStackTrace
+package fluence.bp.api
 
-trait EffectError extends Throwable with NoStackTrace
-
-case object TimeoutError extends EffectError
-
-trait WithCause[E <: Throwable] extends EffectError {
-  def cause: E
-
-  initCause(cause)
-}
+case class BlockProducerStatus(
+  message: String
+)

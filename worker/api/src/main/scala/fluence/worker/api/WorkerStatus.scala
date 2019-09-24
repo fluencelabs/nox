@@ -14,15 +14,17 @@
  * limitations under the License.
  */
 
-package fluence.effects
-import scala.util.control.NoStackTrace
+package fluence.worker.api
 
-trait EffectError extends Throwable with NoStackTrace
+import fluence.bp.api.BlockProducerStatus
+import fluence.effects.EffectError
+import fluence.statemachine.api.data.StateMachineStatus
 
-case object TimeoutError extends EffectError
+sealed abstract class WorkerStatus(val isOperating: Boolean)
 
-trait WithCause[E <: Throwable] extends EffectError {
-  def cause: E
+case class WorkerFailing(
+  machine: Either[EffectError, StateMachineStatus],
+  producer: Either[EffectError, BlockProducerStatus]
+) extends WorkerStatus(false)
 
-  initCause(cause)
-}
+case class WorkerOperating(machine: StateMachineStatus, producer: BlockProducerStatus) extends WorkerStatus(true)

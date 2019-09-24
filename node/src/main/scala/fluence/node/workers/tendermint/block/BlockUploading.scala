@@ -18,16 +18,16 @@ package fluence.node.workers.tendermint.block
 
 import cats.data.Chain
 import cats.effect._
-import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.applicative._
 import fluence.effects.ipfs.IpfsUploader
+import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.sttp.SttpStreamEffect
 import fluence.effects.tendermint.block.data.Block
-import fluence.effects.tendermint.block.history.{BlockHistory, Receipt}
+import fluence.effects.tendermint.block.history.{BlockHistory, BlockManifest, Receipt}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
-import fluence.node.workers.{Worker, WorkerServices}
+import fluence.statemachine.api.command.ReceiptBus
 import scodec.bits.ByteVector
 
 import scala.language.{higherKinds, postfixOps}
@@ -52,7 +52,10 @@ trait BlockUploading[F[_]] {
   //  connect to Websocket and create blockstore after everything is initialized
   def start(
     appId: Long,
-    services: WorkerServices[F]
+    receiptStorage: ReceiptStorage[F],
+    subscribeNewBlock: Long ⇒ fs2.Stream[F, Block],
+    receiptBus: ReceiptBus[F],
+    onUploaded: (BlockManifest, Receipt) ⇒ F[Unit]
   )(implicit log: Log[F], backoff: Backoff[EffectError]): Resource[F, Unit]
 }
 

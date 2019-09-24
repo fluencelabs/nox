@@ -459,6 +459,12 @@ lazy val `block-producer-tendermint` = project
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`block-producer-api`, `tendermint-rpc`)
 
+lazy val `block-uploading` = project
+  .in(file("block-producer/uploading"))
+  .settings(commons)
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`block-producer-api`, `statemachine-api`)
+
 lazy val `node` = project
   .configs(IntegrationTest)
   .settings(inConfig(IntegrationTest)(Defaults.itSettings): _*)

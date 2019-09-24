@@ -167,13 +167,9 @@ object WorkersHttp {
           withWorker(appId)(
             _.services >>=
               (_.status(wait.filter(_ < 10).fold(1.second)(_.seconds))
-                .flatMap(st ⇒ Ok(st.asJson.noSpaces)))
+              // TODO make a nice JSON status
+                .flatMap(st ⇒ Ok(st.toString)))
           )
-        }
-
-      case GET -> Root / LongVar(appId) / "status" / "tendermint" ⇒
-        LogFactory[F].init("http" -> "status/tendermint", "app" -> appId.toString) >>= { implicit log =>
-          withApi(appId)(_.tendermintStatus().flatMap(tendermintResponseToHttp(appId, _)))
         }
 
       case GET -> Root / LongVar(appId) / "p2pPort" ⇒

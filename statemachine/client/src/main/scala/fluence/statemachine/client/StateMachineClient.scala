@@ -18,6 +18,7 @@ package fluence.statemachine.client
 
 import cats.Monad
 import cats.data.EitherT
+import cats.syntax.flatMap._
 import fluence.effects.EffectError
 import fluence.log.Log
 import fluence.statemachine.api.StateMachine
@@ -42,9 +43,14 @@ object StateMachineClient {
    *
    * @param host State machine's host
    * @param port State machine's port
+   * @param checkStatus To check status prior to sending a HTTP request
    * @return Pure readonly [[StateMachine]] with empty command side
    */
-  def readOnly[F[_]: Monad: SttpEffect](host: String, port: Short): StateMachine.Aux[F, HNil] =
+  def readOnly[F[_]: Monad: SttpEffect](
+    host: String,
+    port: Short,
+    checkStatus: EitherT[F, EffectError, _]
+  ): StateMachine.Aux[F, HNil] =
     new StateMachine.ReadOnly[F] {
       override def query(path: String)(implicit log: Log[F]): EitherT[F, EffectError, QueryResponse] =
         sttp
@@ -54,11 +60,12 @@ object StateMachineClient {
           .leftMap(identity[EffectError])
 
       override def status()(implicit log: Log[F]): EitherT[F, EffectError, StateMachineStatus] =
-        sttp
-          .get(uri"http://$host:$port/status")
-          .send()
-          .decodeBody(decode[StateMachineStatus])
-          .leftMap(identity[EffectError])
+        checkStatus >>
+          sttp
+            .get(uri"http://$host:$port/status")
+            .send()
+            .decodeBody(decode[StateMachineStatus])
+            .leftMap(identity[EffectError])
     }
 
   /**
@@ -66,13 +73,15 @@ object StateMachineClient {
    *
    * @param host State machine's host
    * @param port State machine's port
+   * @param checkStatus To check status prior to sending a HTTP request
    * @return [[StateMachine]] with [[ReceiptBus]] and [[PeersControl]] command access
    */
   def apply[F[_]: Monad: SttpEffect](
     host: String,
-    port: Short
+    port: Short,
+    checkStatus: EitherT[F, EffectError, _]
   ): StateMachine.Aux[F, ReceiptBus[F] :: PeersControl[F] :: HNil] =
-    readOnly[F](host, port)
+    readOnly[F](host, port, checkStatus)
       .extend[PeersControl[F]](
         new PeersControlClient[F](host, port)
       )

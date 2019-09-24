@@ -16,24 +16,37 @@
 
 package fluence.bp.tendermint
 
-import cats.Functor
+import cats.Monad
+import cats.syntax.flatMap._
+import cats.syntax.functor._
 import cats.data.EitherT
-import fluence.bp.api.BlockProducer
+import fluence.bp.api.{BlockProducer, BlockProducerStatus, DialPeers}
 import fluence.bp.tx.TxResponse
 import fluence.effects.EffectError
 import fluence.effects.tendermint.block.data
 import fluence.log.Log
+import shapeless._
 
 import scala.language.higherKinds
 
-class TendermintBlockProducer[F[_]: Functor](
-  tendermint: Tendermint[F]
+class TendermintBlockProducer[F[_]: Monad](
+  tendermint: Tendermint[F],
+  checkStatus: EitherT[F, EffectError, _]
 ) extends BlockProducer[F] {
   override type Block = data.Block
 
   /**
+   * Product (HList) of all types to access Command side of this block producer.
+   */
+  override type Commands = HNil
+
+  /**
+   * Implementations for the command side
+   */
+  override protected val commands: HNil = HNil
+
+  /**
    * Stream of blocks, starting with the given height
-   * TODO get it from BlockStore, then switch to websocket?
    *
    * @param fromHeight All newer blocks shall appear in the stream
    * @return Stream of blocks
@@ -43,16 +56,38 @@ class TendermintBlockProducer[F[_]: Functor](
 
   /**
    * Send (asynchronously) a transaction to the block producer, so that it should later get into a block
-   * TODO really sendTx via Tendermint RPC
    *
    * @param txData Transaction data
    */
   override def sendTx(txData: Array[Byte])(implicit log: Log[F]): EitherT[F, EffectError, TxResponse] =
     tendermint.rpc.broadcastTxSync(txData).leftMap(identity[EffectError])
+
+  /**
+   * Provides current status of BlockProducer
+   * TODO provide more granular status info
+   */
+  override def status()(implicit log: Log[F]): EitherT[F, EffectError, BlockProducerStatus] =
+    checkStatus >>
+      tendermint.rpc.statusParsed
+        .map(
+          st ⇒ BlockProducerStatus(s"Tendermint latest block height: ${st.sync_info.latest_block_height}")
+        )
+        .leftMap(identity[EffectError])
 }
 
 object TendermintBlockProducer {
 
-  def apply[F[_]: Functor](tendermint: Tendermint[F]): BlockProducer.Aux[F, data.Block] =
-    new TendermintBlockProducer[F](tendermint)
+  def apply[F[_]: Monad](
+    tendermint: Tendermint[F],
+    checkStatus: EitherT[F, EffectError, _]
+  ): BlockProducer.Aux[F, data.Block, DialPeers[F] :: HNil] =
+    new TendermintBlockProducer[F](tendermint, checkStatus)
+      .extend(new DialPeers[F] {
+        override def dialPeers(peers: Seq[String])(implicit log: Log[F]): EitherT[F, EffectError, Unit] =
+          tendermint.rpc
+            .unsafeDialPeers(peers, persistent = true)
+            .leftMap(identity[EffectError])
+            .flatTap(s ⇒ Log.eitherT[F, EffectError].debug(s"Tendermint unsafeDialPeers replied: $s"))
+            .void
+      })
 }

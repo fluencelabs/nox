@@ -18,6 +18,7 @@ package fluence.statemachine.docker
 
 import cats.Monad
 import cats.effect.Resource
+import fluence.effects.EffectError
 import fluence.effects.docker.params.{DockerImage, DockerLimits, DockerParams}
 import fluence.effects.docker.{DockerContainer, DockerIO, DockerNetwork}
 import fluence.effects.sttp.SttpEffect
@@ -65,7 +66,7 @@ object DockerStateMachine {
     DockerIO[F]
       .run(params, stopTimeout)
       .map(
-        StateMachineClient[F](name, RpcPort).extend
+        c ⇒ StateMachineClient[F](name, RpcPort, DockerIO[F].checkContainer(c).leftMap(identity[EffectError])).extend(c)
       )
   }
 

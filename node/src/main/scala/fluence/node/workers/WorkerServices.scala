@@ -18,9 +18,9 @@ package fluence.node.workers
 
 import fluence.bp.api.BlockProducer
 import fluence.bp.tendermint.Tendermint
-import fluence.node.workers.status.WorkerStatus
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import fluence.statemachine.api.StateMachine
+import fluence.worker.api.WorkerStatus
 import fluence.worker.responder.WorkerResponder
 
 import scala.concurrent.duration.FiniteDuration
@@ -28,25 +28,17 @@ import scala.language.higherKinds
 
 // Algebra for WorkerServices
 trait WorkerServices[F[_]] {
-  // TODO remove
-  def tendermint: Tendermint[F]
-
   // Used BlockProducer
   def producer: BlockProducer[F]
 
   // The underlying StateMachine
   def machine: StateMachine[F]
 
-  // RPC connection to worker
-  def receiptBus: ReceiptBus[F]
-
+  // Used by Ethereum to remove peers
   def peersControl: PeersControl[F]
 
   // Retrieves worker's health
   def status(timeout: FiniteDuration): F[WorkerStatus]
-
-  // Block manifests services: uploading, retrieving
-  def blockManifests: WorkerBlockManifests[F]
 
   // Service to subscribe for a response on request
   def responder: WorkerResponder[F]

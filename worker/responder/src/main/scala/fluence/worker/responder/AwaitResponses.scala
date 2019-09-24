@@ -35,7 +35,7 @@ import scodec.bits.ByteVector
 import scala.language.higherKinds
 
 class AwaitResponses[F[_]: Concurrent: Parallel: Timer, B: TxsBlock](
-  worker: Worker.AuxP[F, B],
+  worker: Worker.AuxP[F, B, _],
   subscribesRef: Ref[F, Map[Tx.Head, ResponsePromise[F]]],
   maxBlocksTries: Int
 )(implicit backoff: Backoff[EffectError]) {
@@ -175,7 +175,7 @@ object AwaitResponses {
   private val AwaitSessionPrefixBytes = ByteVector(RepeatSessionPrefix.getBytes)
 
   def make[F[_]: Parallel: Concurrent: Log: Timer, B: TxsBlock](
-    worker: Worker.AuxP[F, B],
+    worker: Worker.AuxP[F, B, _],
     maxTries: Int = MaxBlocksTries
   )(
     implicit backoff: Backoff[EffectError]

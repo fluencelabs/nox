@@ -57,10 +57,6 @@ trait StateMachine[F[_]] {
    */
   final def command[C](implicit cmd: ops.hlist.Selector[Commands, C]): C = cmd(commands)
 
-  def query(path: String)(implicit log: Log[F]): EitherT[F, EffectError, QueryResponse]
-
-  def status()(implicit log: Log[F]): EitherT[F, EffectError, StateMachineStatus]
-
   /**
    * Extend this StateMachine with one more command-side service
    *
@@ -80,26 +76,9 @@ trait StateMachine[F[_]] {
       self.status()
   }
 
-  class DropPartiallyApplied[T] {
+  def query(path: String)(implicit log: Log[F]): EitherT[F, EffectError, QueryResponse]
 
-    def apply[O <: HList]()(d: ops.hlist.Remove.Aux[Commands, T, O]): StateMachine.Aux[F, O] = new StateMachine[F] {
-      override type Commands = O
-
-      override protected val commands: O = d(self.commands)
-
-      override def query(path: String)(implicit log: Log[F]): EitherT[F, EffectError, QueryResponse] =
-        self.query(path)
-
-      override def status()(implicit log: Log[F]): EitherT[F, EffectError, StateMachineStatus] =
-        self.status()
-    }
-  }
-
-  /**
-   * Drop a command out of the list of available StateMachine commands
-   *
-   */
-  final def drop[T]: DropPartiallyApplied[T] = new DropPartiallyApplied[T]
+  def status()(implicit log: Log[F]): EitherT[F, EffectError, StateMachineStatus]
 }
 
 object StateMachine {
