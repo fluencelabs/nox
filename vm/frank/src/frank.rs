@@ -29,9 +29,9 @@ pub struct Frank {
 }
 
 // Waiting for https://github.com/wasmerio/wasmer/issues/748 to be landed in Wasmer.
-// It will allow to use lazy_static here. thread_local isn't suitable here because
+// It will allow to use lazy_static here. thread_local isn't suitable in our case because
 // it is difficult to guarantee that jni code will be called on the same thead context
-// everytime from the Scala part.
+// every time from the Scala part.
 pub static mut FRANK: Option<Box<Frank>> = None;
 
 impl Frank {
@@ -69,24 +69,24 @@ impl Frank {
 
     /// Calls invoke function exported from the main module.
     fn call_invoke_func(&self, addr: i32, len: i32) -> Result<i32, FrankError> {
-        let func: Func<(i32, i32), (i32)> =
+        let invoke_func: Func<(i32, i32), (i32)> =
             self.instance.func(&self.config.invoke_function_name)?;
-        let result = func.call(addr, len)?;
+        let result = invoke_func.call(addr, len)?;
         Ok(result)
     }
 
     /// Calls allocate function exported from the main module.
     fn call_allocate_func(&self, size: i32) -> Result<i32, FrankError> {
-        let func: Func<(i32), (i32)> = self.instance.func(&self.config.allocate_function_name)?;
-        let result = func.call(size)?;
+        let allocate_func: Func<(i32), (i32)> = self.instance.func(&self.config.allocate_function_name)?;
+        let result = allocate_func.call(size)?;
         Ok(result)
     }
 
     /// Calls deallocate function exported from the main module.
     fn call_deallocate_func(&self, addr: i32, size: i32) -> Result<(), FrankError> {
-        let func: Func<(i32, i32), ()> =
+        let deallocate_func: Func<(i32, i32), ()> =
             self.instance.func(&self.config.deallocate_function_name)?;
-        func.call(addr, size).map_err(Into::into)
+        deallocate_func.call(addr, size)?
     }
 
     /// Invokes a main module supplying byte array and expecting byte array with some outcome back.
@@ -96,7 +96,7 @@ impl Frank {
             unsafe { &mut *(self.instance.context_mut().data as *mut EnvModule) };
         env.renew_state();
 
-        // allocate memory for given argument and write it to memory
+        // allocate memory for the given argument and write it to memory
         let argument_len = fn_argument.len() as i32;
         let argument_address = if argument_len != 0 {
             let address = self.call_allocate_func(argument_len)?;

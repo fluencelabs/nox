@@ -33,7 +33,6 @@ pub fn create_none_value<'a>(env: &JNIEnv<'a>) -> JValue<'a> {
         "(Ljava/lang/Object;)Lscala/Option;",
         &[JValue::from(JObject::null())],
     )
-    .map_err(|err| format!("{}", err))
     .expect("jni: error while creating None object")
 }
 

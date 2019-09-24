@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-/// Defines Config struct that is similar to vm/src/main/scala/fluence/vm/config/VmConfig.scala.
+/// Defines the Config struct that is similar to vm/src/main/scala/fluence/vm/config/VmConfig.scala.
+
 use crate::errors::FrankError;
 use jni::objects::{JObject, JString};
 use jni::JNIEnv;

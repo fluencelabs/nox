@@ -39,9 +39,9 @@ pub fn create_initialization_result<'a>(env: &JNIEnv<'a>, error: Option<String>)
         "(Lscala/Option;)Lfluence/vm/frank/result/RawInitializationResult;",
         &[error_value],
     )
-    .expect("jni: couldn't allocate RawInitializationResult object")
+    .expect("jni: couldn't allocate a new RawInitializationResult object")
     .l()
-    .expect("jni: couldn't convert RawInitializationResult to Java Object")
+    .expect("jni: couldn't convert RawInitializationResult to a Java Object")
 }
 
 /// Creates RawInvocationResult object for the Scala part.
@@ -70,9 +70,9 @@ pub fn create_invocation_result<'a>(
         "(Lscala/Option;[BJ)Lfluence/vm/frank/result/RawInvocationResult;",
         &[error_value, JValue::from(outcome), spent_gas],
     )
-    .expect("jni: couldn't allocate RawInvocationResult object")
+    .expect("jni: couldn't allocate a new RawInvocationResult object")
     .l()
-    .expect("jni: couldn't convert RawInvocationResult to Java Object")
+    .expect("jni: couldn't convert RawInvocationResult to a Java Object")
 }
 
 /// Creates RawStateComputationResult object for the Scala part.
@@ -100,7 +100,7 @@ pub fn create_state_computation_result<'a>(
         "(Lscala/Option;[B)Lfluence/vm/frank/result/RawStateComputationResult;",
         &[error_value, JValue::from(state)],
     )
-    .expect("jni: couldn't allocate RawInvocationResult object")
+    .expect("jni: couldn't allocate a new RawInvocationResult object")
     .l()
-    .expect("jni: couldn't convert RawInvocationResult to Java Object")
+    .expect("jni: couldn't convert RawInvocationResult to a Java Object")
 }

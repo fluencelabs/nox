@@ -19,7 +19,7 @@ import fluence.vm.config.VmConfig
 import fluence.vm.frank.result.{RawInitializationResult, RawInvocationResult, RawStateComputationResult}
 
 /**
- * Realizes connection to virtual machine runner based on Wasmer.
+ * Realizes connection to the virtual machine runner based on Wasmer through JNI.
  */
 class FrankAdapter {
 
@@ -31,15 +31,14 @@ class FrankAdapter {
   @native def initialize(filePath: String, config: VmConfig): RawInitializationResult
 
   /**
-   * Invokes main module.
+   * Invokes main module handler.
    *
    * @param arg argument for invoked module
    */
   @native def invoke(arg: Array[Byte]): RawInvocationResult
 
   /**
-   * Returns hash of all significant inner state of this VM. This function calculates
-   * hashes for the state of each module and then concatenates them together.
+   * Returns hash of all significant inner state of the VM.
    */
   @native def computeVmState(): RawStateComputationResult
 }

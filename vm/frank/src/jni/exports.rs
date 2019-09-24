@@ -66,7 +66,7 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_invoke<'a>(
         let mut input = vec![0; input_len as _];
         env.get_byte_array_region(fn_argument, 0, input.as_mut_slice())?;
 
-        // converts Vec<i8> to Vec<u8>
+        // converts Vec<i8> to Vec<u8> without additional allocation
         let u8_input = unsafe {
             Vec::<u8>::from_raw_parts(input.as_mut_ptr() as *mut u8, input.len(), input.capacity())
         };

@@ -90,7 +90,12 @@ object WasmVm {
       vmRunnerInvoker = new FrankAdapter()
 
       initializationResult = vmRunnerInvoker.initialize(inFiles.head, config)
-      _ ← EitherT.fromOption[F](initializationResult.error, InitializationError(initializationResult.error.get))
+
+      _ ← EitherT.cond(
+        initializationResult.error.isEmpty,
+        (),
+        InitializationError(initializationResult.error.get)
+      )
 
     } yield new FrankWasmVm(
       vmRunnerInvoker

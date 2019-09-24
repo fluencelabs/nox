@@ -17,12 +17,9 @@
 package fluence.vm.config
 
 import cats.data.EitherT
-import cats.{Monad, MonadError}
-import cats.effect.Sync
+import cats.Monad
 import cats.syntax.either._
 import com.typesafe.config.Config
-import cats.syntax.flatMap._
-import cats.syntax.applicativeError._
 import fluence.vm.error.InitializationError
 
 import scala.language.higherKinds
@@ -48,7 +45,7 @@ case class MainModuleConfig(
  * WasmVm settings.
  *
  * @param memPagesCount the maximum count of memory pages when a module doesn't say
- * @param loggerEnabled if set, registers the logger Wasm module as 'logger'
+ * @param loggerEnabled if set, registers the logger Wasm module with name 'logger'
  * @param chunkSize a size of the memory chunks, that memory will be split into
  * @param mainModuleConfig settings for the main module
  */
@@ -66,6 +63,6 @@ object VmConfig {
   def readT[F[_]: Monad](namespace: String, conf: ⇒ Config): EitherT[F, InitializationError, VmConfig] = {
     EitherT
       .fromEither[F](Either.catchNonFatal(conf.getConfig(namespace).as[VmConfig]))
-      .leftMap(e ⇒ InitializationError("Unable to parse the virtual machine config" + e))
+      .leftMap(e ⇒ InitializationError("Unable to parse the virtual machine config " + e))
   }
 }
