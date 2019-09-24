@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-use jni::JNIEnv;
+/// Defines export functions that will be accessible from the Scala part.
 
+use jni::JNIEnv;
 use crate::config::Config;
 use crate::errors::FrankError;
 use crate::frank::{Frank, FRANK};

@@ -15,6 +15,7 @@
  */
 
 /// Command-line tool intended to test Frank VM.
+
 mod config;
 mod errors;
 mod frank;

@@ -14,13 +14,16 @@
  * limitations under the License.
  */
 
+/// Defines functions used to construct result of the VM invocation for the Scala part.
+/// Corresponding case classes could be found in vm/src/main/scala/fluence/vm/frank/result.
+
 use crate::frank_result::FrankResult;
 use crate::jni::option::*;
 use jni::objects::{JObject, JValue};
 use jni::JNIEnv;
 use sha2::{digest::generic_array::GenericArray, digest::FixedOutput, Sha256};
 
-/// Creates RawInitializationResult object for Scala part.
+/// Creates RawInitializationResult object for the Scala part.
 pub fn create_initialization_result<'a>(env: &JNIEnv<'a>, error: Option<String>) -> JObject<'a> {
     let error_value = match error {
         Some(err) => create_some_value(&env, err),
@@ -41,7 +44,7 @@ pub fn create_initialization_result<'a>(env: &JNIEnv<'a>, error: Option<String>)
     .expect("jni: couldn't convert RawInitializationResult to Java Object")
 }
 
-/// Creates RawInvocationResult object for Scala part.
+/// Creates RawInvocationResult object for the Scala part.
 pub fn create_invocation_result<'a>(
     env: &JNIEnv<'a>,
     error: Option<String>,
@@ -52,8 +55,8 @@ pub fn create_invocation_result<'a>(
         None => create_none_value(&env),
     };
 
-    // TODO: here we have 2 copying of result, first is from Wasm memory to Vec<u8>, second is from
-    // Vec<u8> to Java byte array. Optimization might be possbile after memory refactoring.
+    // TODO: here we have 2 copying of result, first is from Wasm memory to a Vec<u8>, second is
+    // from the Vec<u8> to Java byte array. Optimization might be possible after memory refactoring.
     let outcome = env.byte_array_from_slice(&result.outcome).unwrap();
     let outcome = JObject::from(outcome);
     let spent_gas = JValue::from(result.spent_gas);
@@ -72,7 +75,7 @@ pub fn create_invocation_result<'a>(
     .expect("jni: couldn't convert RawInvocationResult to Java Object")
 }
 
-/// Creates RawStateComputationResult object for Scala part.
+/// Creates RawStateComputationResult object for the Scala part.
 pub fn create_state_computation_result<'a>(
     env: &JNIEnv<'a>,
     error: Option<String>,

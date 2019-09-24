@@ -14,8 +14,15 @@
  * limitations under the License.
  */
 
-use jni::JNIEnv;
+/// Defines functions to construct the Scala Option[String] objects by calling the apply method:
+///
+/// ```
+/// public static Option apply(final Object x) {
+///    return Option$.MODULE$.apply(var0);
+/// }
+/// ```
 
+use jni::JNIEnv;
 use jni::objects::{JObject, JValue};
 
 /// creates Scala None value
