@@ -21,3 +21,11 @@ docs/checklist.md
 # Node modules
 node_modules
 **/node_modules
+
+# Fluence CLI binary
+tools/deploy/fluence
+
+# Contract typings and ABI
+Network.d.ts
+Network.json
+Dashboard.d.ts
