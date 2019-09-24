@@ -33,18 +33,22 @@ trait Eventually {
   /**
    * Executes `p` every `period` until it either succeeds or `maxWait` timeout passes
    */
-  protected def eventually[F[_]: Sync: Timer](
+  protected def eventually[F[_]: Sync: Timer: Concurrent](
     p: => F[Unit],
     period: FiniteDuration = 1.second,
     maxWait: FiniteDuration = 10.seconds
   )(implicit pos: Position): F[_] =
-    fs2.Stream
-      .awakeEvery[F](period)
-      .take((maxWait / period).toLong)
-      .evalMap(_ => p.attempt)
-      .takeThrough(_.isLeft) // until p returns Right(Unit)
-      .compile
-      .last
+    Concurrent
+      .timeout(
+        fs2.Stream
+          .awakeEvery[F](period)
+          // TODO: maybe limit every `p` with timeout of `period`? i.e., `Concurrent.timeout(p, period).attempt`
+          .evalMap(_ => p.attempt)
+          .takeThrough(_.isLeft) // until p returns Right(Unit)
+          .compile
+          .last,
+        maxWait
+      )
       .map {
         case Some(Right(_)) =>
         case Some(Left(e))  => throw e
