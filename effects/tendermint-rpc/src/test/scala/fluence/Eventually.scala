@@ -17,7 +17,9 @@
 package fluence
 
 import cats.effect._
+import cats.instances.either._
 import cats.syntax.applicativeError._
+import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.monadError._
 import org.scalactic.source.Position
@@ -42,8 +44,7 @@ trait Eventually {
       .timeout(
         fs2.Stream
           .awakeEvery[F](period)
-          // TODO: maybe limit every `p` with timeout of `period`? i.e., `Concurrent.timeout(p, period).attempt`
-          .evalMap(_ => p.attempt)
+          .evalMap(_ => Concurrent.timeout(p.attempt, period).attempt.map(_.flatten))
           .takeThrough(_.isLeft) // until p returns Right(Unit)
           .compile
           .last,
