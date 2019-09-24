@@ -53,7 +53,7 @@ object SbtCommons {
       compile := (compile in Compile)
         .dependsOn(Def.task {
           val log = streams.value.log
-          log.info(s"Compiling executor")
+          log.info(s"Compiling Frank VM")
 
           val projectRoot = file("").getAbsolutePath
           val executorFolder = s"$projectRoot/vm/frank"

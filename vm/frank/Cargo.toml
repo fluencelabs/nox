@@ -18,10 +18,18 @@ name = "frank"
 path = "src/main.rs"
 
 [dependencies]
-wasmer-runtime = "0.6.0"
+wasmer-runtime = {version = "0.6.0", features = ["singlepass"]}
 jni = "0.13.1"
 failure = "0.1.5"
 lazy_static = "1.4.0"
 sha2 = "0.8.0"
 clap = "2.33.0"
 exitfailure = "0.5.1"
+
+[profile.release]
+opt-level = 3
+debug = false
+lto = true
+debug-assertions = false
+overflow-checks = false
+panic = "abort"

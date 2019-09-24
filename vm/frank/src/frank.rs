@@ -86,7 +86,9 @@ impl Frank {
     fn call_deallocate_func(&self, addr: i32, size: i32) -> Result<(), FrankError> {
         let deallocate_func: Func<(i32, i32), ()> =
             self.instance.func(&self.config.deallocate_function_name)?;
-        deallocate_func.call(addr, size)?
+        deallocate_func.call(addr, size)?;
+
+        Ok(())
     }
 
     /// Invokes a main module supplying byte array and expecting byte array with some outcome back.
