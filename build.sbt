@@ -44,11 +44,11 @@ lazy val `vm` = (project in file("vm"))
       mockito
     ),
     test in IntegrationTest := (test in IntegrationTest)
-      .dependsOn(compile in `vm-frank`)
       .dependsOn(compile in `vm-llamadb`)
       .value,
     javaOptions += s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release"
   )
+  .dependsOn(`vm-frank`)
   .dependsOn(`log`)
   .enablePlugins(AutomateHeaderPlugin)
 
