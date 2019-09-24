@@ -31,6 +31,6 @@ case class StateMachineStatus(
 )
 
 object StateMachineStatus {
-  implicit val controlStatusEncoder: Encoder[StateMachineStatus] = deriveEncoder[StateMachineStatus]
-  implicit val controlStatusDecoder: Decoder[StateMachineStatus] = deriveDecoder[StateMachineStatus]
+  implicit val encoder: Encoder[StateMachineStatus] = deriveEncoder
+  implicit val decoder: Decoder[StateMachineStatus] = deriveDecoder
 }

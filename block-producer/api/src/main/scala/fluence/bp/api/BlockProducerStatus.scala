@@ -16,6 +16,12 @@
 
 package fluence.bp.api
 
-case class BlockProducerStatus(
-  message: String
-)
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+
+case class BlockProducerStatus(message: String)
+
+object BlockProducerStatus {
+  implicit val encoder: Encoder[BlockProducerStatus] = deriveEncoder
+  implicit val decoder: Decoder[BlockProducerStatus] = deriveDecoder
+}

@@ -19,8 +19,6 @@ import scala.util.control.NoStackTrace
 
 trait EffectError extends Throwable with NoStackTrace
 
-case object TimeoutError extends EffectError
-
 trait WithCause[E <: Throwable] extends EffectError {
   def cause: E
 

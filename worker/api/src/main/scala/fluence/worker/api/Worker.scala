@@ -16,13 +16,14 @@
 
 package fluence.worker.api
 
-import cats.{Monad, Parallel}
+import cats.data.EitherT
 import cats.effect.{Concurrent, Timer}
-import cats.syntax.functor._
-import cats.syntax.flatMap._
 import cats.instances.either._
+import cats.syntax.flatMap._
+import cats.syntax.functor._
+import cats.{Monad, Parallel}
 import fluence.bp.api.BlockProducer
-import fluence.effects.{EffectError, TimeoutError}
+import fluence.effects.EffectError
 import fluence.log.Log
 import fluence.statemachine.api.StateMachine
 import shapeless.HList
@@ -80,11 +81,13 @@ object Worker {
       def status(
         timeout: FiniteDuration
       )(implicit log: Log[F], timer: Timer[F], c: Concurrent[F], p: Parallel[F]): F[WorkerStatus] = {
-        val sleep = Timer[F].sleep(timeout).as[EffectError](TimeoutError)
+        val sleep = Timer[F].sleep(timeout).as(s"status timed out after $timeout")
+        def ask[T](e: EitherT[F, EffectError, T]) = c.race(sleep, e.leftMap(_.toString).value).map(_.flatten)
+
         p.sequential(
           p.apply.map2(
-            p.parallel(Concurrent[F].race(sleep, machine.status().value).map(_.flatten)),
-            p.parallel(Concurrent[F].race(sleep, producer.status().value).map(_.flatten))
+            p.parallel(ask(machine.status())),
+            p.parallel(ask(producer.status()))
           ) {
             case (Right(machineStatus), Right(producerStatus)) ⇒
               WorkerOperating(machineStatus, producerStatus)

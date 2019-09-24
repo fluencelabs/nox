@@ -19,7 +19,9 @@ import fluence.effects.ethclient.data.Block
 import scodec.bits.ByteVector
 import state.App
 
-sealed trait NodeEthEvent
+sealed trait NodeEthEvent {
+  def blockNumber: Option[Long] = None
+}
 
 case class RunAppWorker(app: App) extends NodeEthEvent
 

@@ -17,14 +17,26 @@
 package fluence.worker.api
 
 import fluence.bp.api.BlockProducerStatus
-import fluence.effects.EffectError
 import fluence.statemachine.api.data.StateMachineStatus
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+import io.circe.{Decoder, Encoder}
 
 sealed abstract class WorkerStatus(val isOperating: Boolean)
 
 case class WorkerFailing(
-  machine: Either[EffectError, StateMachineStatus],
-  producer: Either[EffectError, BlockProducerStatus]
+  machine: Either[String, StateMachineStatus],
+  producer: Either[String, BlockProducerStatus]
 ) extends WorkerStatus(false)
 
-case class WorkerOperating(machine: StateMachineStatus, producer: BlockProducerStatus) extends WorkerStatus(true)
+case class WorkerOperating(
+  machine: StateMachineStatus,
+  producer: BlockProducerStatus
+) extends WorkerStatus(true)
+
+object WorkerStatus {
+  private implicit def eitherEncoder[T: Encoder]: Encoder[Either[String, T]] = Encoder.encodeEither("error", "status")
+  private implicit def eitherDecoder[T: Decoder]: Decoder[Either[String, T]] = Decoder.decodeEither("error", "status")
+
+  implicit val encoder: Encoder[WorkerStatus] = deriveEncoder
+  implicit val decoder: Decoder[WorkerStatus] = deriveDecoder
+}
