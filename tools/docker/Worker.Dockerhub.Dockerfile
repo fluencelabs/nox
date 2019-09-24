@@ -22,6 +22,6 @@ FROM openjdk:8-jre-alpine
 VOLUME /worker
 COPY --from=build /fluence/statemachine/docker/worker /worker
 COPY --from=build /fluence/statemachine/docker/target/scala-2.12/statemachine.jar /statemachine.jar
-COPY --from=build /fluence/vm/frank/target/release/* /usr/lib/
+COPY --from=build /fluence/vm/frank/target/release/* /native/x86_64-linux/
 
 ENTRYPOINT ["sh", "/worker/run.sh", "/statemachine.jar"]
