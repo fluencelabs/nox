@@ -17,10 +17,12 @@
 package fluence.vm.frank
 import fluence.vm.config.VmConfig
 import fluence.vm.frank.result.{RawInitializationResult, RawInvocationResult, RawStateComputationResult}
+import ch.jodersky.jni.nativeLoader
 
 /**
  * Realizes connection to the virtual machine runner based on Wasmer through JNI.
  */
+@nativeLoader("frank")
 class FrankAdapter {
 
   /**

@@ -20,7 +20,7 @@ object SbtCommons {
   val commons = Seq(
     scalaV,
     version                              := "0.3.0",
-    fork in Test                         := false,
+    fork in Test                         := true,
     parallelExecution in Test            := false,
     fork in IntegrationTest              := true,
     parallelExecution in IntegrationTest := false,
@@ -57,7 +57,7 @@ object SbtCommons {
 
           val projectRoot = file("").getAbsolutePath
           val executorFolder = s"$projectRoot/vm/frank"
-          val compileCmd = s"cargo build --manifest-path $executorFolder/Cargo.toml --release"
+          val compileCmd = s"cargo +nightly build --manifest-path $executorFolder/Cargo.toml --release"
 
           assert((compileCmd !) == 0, "Rust to Wasm compilation failed")
         })

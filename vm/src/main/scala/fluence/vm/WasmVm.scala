@@ -66,9 +66,6 @@ trait WasmVm {
 }
 
 object WasmVm {
-  Runtime.getRuntime.load(
-    getModuleDirPrefix() + "frank/target/release/libfrank.dylib"
-  )
 
   /**
    * Main method factory for building VM.
