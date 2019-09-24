@@ -23,7 +23,7 @@ import fluence.log.{Log, LogFactory}
 import scala.concurrent.ExecutionContext
 import scala.language.{higherKinds, implicitConversions}
 
-// TODO: to run this test from IDE It needs to build vm-llamadb project explicitly at first
+// TODO: to run this test from IDE It needs to download vm-llamadb project explicitly at first
 class LlamadbIntegrationTest extends LlamadbIntegrationTestInterface {
 
   private implicit val timer: Timer[IO] = IO.timer(ExecutionContext.global)
