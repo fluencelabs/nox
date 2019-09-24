@@ -38,11 +38,11 @@ export interface BroadcastTxSyncResponse {
 
 export function parseResponse(res: any): BroadcastTxSyncResponse {
      try {
-         const bResponse = res.data.result;
+         const bResponse = res.result;
          bResponse.data = fromHex(bResponse.data);
          return bResponse;
      } catch (e) {
-         throw new Error(`Cannot parse the response because of an error: ${JSON.stringify(e)}\n Response: ${JSON.stringify(res)}`);
+         throw new Error(`Cannot parse the response because of an error: ${e}\n Response: ${JSON.stringify(res)}`);
      }
 }
 

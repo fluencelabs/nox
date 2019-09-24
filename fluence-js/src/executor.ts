@@ -32,24 +32,28 @@ export class PromiseExecutor<T> extends Executor<T> {
     readonly promise: Promise<T>;
     private timeout: ReturnType<typeof setTimeout> | undefined;
 
-    constructor(onComplete: () => void = () => {}, timeout: number | undefined = undefined) {
+    constructor(onComplete: () => void = () => {}, onTimeout: () => void = () => {}, timeout: number | undefined = undefined) {
         super();
+
+        this.promise = new Promise<T>((r, e) => {
+            this.resultHandler = r;
+            this.errorHandler = e;
+        });
 
         if (timeout) {
             this.timeout = setTimeout(() => {
-                onComplete()
+                onTimeout()
             }, timeout);
-
-            this.promise = new Promise<T>((r, e) => { this.resultHandler = r; this.errorHandler = e; })
-                .finally(() => {
-                    onComplete();
-                    if (this.timeout) { clearTimeout(this.timeout) }
-                });
         }
+
+        this.promise.finally(() => {
+            onComplete();
+            if (this.timeout) { clearTimeout(this.timeout) }
+        });
     }
 
     success(result: T): void {
-        this.resultHandler(result)
+        this.resultHandler(result);
     }
 
     fail(error: any): void {

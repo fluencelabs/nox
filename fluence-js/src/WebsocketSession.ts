@@ -18,6 +18,7 @@ import {genRequestId, genSessionId, prepareRequest, PrivateKey} from "./utils";
 import {Node} from "./contract";
 import {Result} from "./Result";
 import {Executor, ExecutorType, PromiseExecutor, SubscriptionExecutor} from "./executor";
+import {BroadcastTxSyncResponse, parseResponse} from "./TendermintClient";
 import {debug, TendermintClient} from "./fluence";
 import {AbciQueryResult, TendermintJsonRpcResponse} from "./RpcClient";
 import {none, Option} from "ts-option";
@@ -38,12 +39,13 @@ export class WebsocketSession {
     private nodeCounter: number;
     private timeout: number;
     private socket: WebSocket;
+    private reconnecting: boolean;
 
     // on first connection `connectionPromise` will fail only if all nodes are unavailable
     private firstConnection: boolean = true;
 
     // result is for 'txWaitRequest' and 'query', void is for all other requests
-    private executors = new Map<string, Executor<Result | void>>();
+    private executors = new Map<string, Executor<any | void>>();
 
     // promise, that should be completed if websocket is connected
     private connectionPromise: PromiseExecutor<void>;
@@ -55,7 +57,7 @@ export class WebsocketSession {
      * @param privateKey key that will sign all requests
      * @param timeout time after which the request fails
      */
-    static create(appId: string, nodes: Node[], privateKey?: PrivateKey, timeout = 15000): Promise<WebsocketSession> {
+    static create(appId: string, nodes: Node[], privateKey?: PrivateKey, timeout = 10000): Promise<WebsocketSession> {
         const ws = new WebsocketSession(appId, nodes, timeout, privateKey);
         return ws.connect();
     }
@@ -75,7 +77,36 @@ export class WebsocketSession {
         this.timeout = timeout;
     }
 
+    private static handleResult(r: string, executor: Executor<any>): void {
+        const result = WebsocketSession.parseResponse(r);
+        if (executor instanceof SubscriptionExecutor) {
+            debug(executor.subscription);
+        }
+
+        return result
+            .fold(
+                () => {
+                    const errorMessage = `Unexpected, no parsed result in message: ${r}`;
+                    console.error(errorMessage);
+                    executor.fail(errorMessage);
+                }
+            )((r) => {
+                debug("Result received: " + r.asString());
+                executor.success(r)
+            })
+    }
+
+    private static handleTxResponse(r: string, requestId: string, executor: Executor<any>): void {
+        const response = parseResponse(JSON.parse(r));
+        if (response.code !== 0) {
+            executor.fail(`There is an error on request '${requestId}': ${JSON.stringify(response)}`)
+        } else {
+            executor.success(response)
+        }
+    }
+
     private messageHandler(msg: string) {
+        debug(`Message received: ${msg}`);
         try {
             const rawResponse = WebsocketSession.parseRawResponse(msg);
 
@@ -89,21 +120,18 @@ export class WebsocketSession {
 
             if (rawResponse.error) {
                 console.log(`Error received for ${rawResponse.request_id}: ${JSON.stringify(rawResponse.error)}`);
-                executor.fail(rawResponse.error as string);
+                executor.fail(rawResponse.error);
             } else if (rawResponse.type === "tx_wait_response") {
-                if (rawResponse.data) {
-                    const result = WebsocketSession.parseResponse(rawResponse.data);
-
-                    result
-                        .fold(
-                            () => console.error(`Unexpected, no parsed result in message: ${msg}`)
-                        )(executor.success)
-                }
+                WebsocketSession.handleResult(rawResponse.data as string, executor)
+            } else if (rawResponse.type === "tx_response") {
+                WebsocketSession.handleTxResponse(rawResponse.data as string, rawResponse.request_id, executor)
             } else {
-                executor.success()
+                // subscribe and unsubscribe requests
+                executor.success({})
             }
         } catch (e) {
-            console.error("Cannot parse websocket event: " + e)
+            console.error("Cannot parse websocket event: " + e);
+            console.error(e);
         }
     }
 
@@ -119,7 +147,9 @@ export class WebsocketSession {
         this.executors.forEach((executor: Executor<any>, key: string) => {
             if (executor.type === ExecutorType.Subscription) {
                 const subExecutor = executor as SubscriptionExecutor;
-                this.subscribe(subExecutor.subscription, subExecutor.resultHandler, subExecutor.errorHandler)
+                debug("Resubscribe: " + subExecutor.subscription);
+                const requestId = genRequestId();
+                this.subscribeCall(subExecutor.subscription, requestId, key)
                     .catch((e) => console.error(`Cannot resubscribe on ${subExecutor.subscription}`))
             }
         });
@@ -155,6 +185,7 @@ export class WebsocketSession {
             socket.onopen = () => {
                 debug("Websocket is opened");
                 this.firstConnection = false;
+                this.reconnecting = false;
                 this.connectionPromise.success();
                 this.resubscribe();
             };
@@ -222,12 +253,12 @@ export class WebsocketSession {
             type: "unsubscribe_request"
         };
 
-        await this.sendAndWaitResponse(requestId, JSON.stringify(request));
+        await this.sendAndWaitResponse<void>(requestId, JSON.stringify(request));
 
         this.executors.delete(subscriptionId);
     }
 
-    private async subscribeCall(transaction: string, requestId: string, subscriptionId: string): Promise<Result> {
+    private async subscribeCall(transaction: string, requestId: string, subscriptionId: string): Promise<void> {
         const request = {
             tx: transaction,
             request_id: requestId,
@@ -235,7 +266,7 @@ export class WebsocketSession {
             type: "subscribe_request"
         };
 
-        return this.sendAndWaitResponse(requestId, JSON.stringify(request));
+        return this.sendAndWaitResponse<void>(requestId, JSON.stringify(request));
     }
 
     /**
@@ -250,10 +281,9 @@ export class WebsocketSession {
         const subscriptionId = genRequestId();
 
         const executor: SubscriptionExecutor = new SubscriptionExecutor(transaction, resultCallback, errorCallback);
+        this.executors.set(subscriptionId, executor);
 
         await this.subscribeCall(transaction, requestId, subscriptionId);
-
-        this.executors.set(subscriptionId, executor);
 
         return subscriptionId
     }
@@ -276,7 +306,8 @@ export class WebsocketSession {
             type: "tx_request"
         };
 
-        return this.sendAndWaitResponse(requestId, JSON.stringify(request)).then((r) => {});
+        // if a promise is succeeded, a request was delivered, so we don't need a result
+        return this.sendAndWaitResponse<BroadcastTxSyncResponse>(requestId, JSON.stringify(request)).then((r) => {});
     }
 
     /**
@@ -296,23 +327,34 @@ export class WebsocketSession {
 
         console.log("send request: " + JSON.stringify(request));
 
-        return this.sendAndWaitResponse(requestId, JSON.stringify(request))
+        return this.sendAndWaitResponse<Result>(requestId, JSON.stringify(request))
     }
 
     /**
      * Send a request to websocket and create a promise that will wait for a response.
      */
-    private sendAndWaitResponse(requestId: string, message: string): Promise<Result> {
+    private sendAndWaitResponse<T>(requestId: string, message: string): Promise<T> {
+        debug(`Sending message ${message}`);
         this.socket.send(message);
 
+        // if timeout occurred, delete executor from state and do reconnect
         const onTimeout = () => {
             if (this.executors.has(requestId)) {
                 executor.fail(`Timeout after ${this.timeout} milliseconds.`);
                 this.executors.delete(requestId);
+                if (!this.reconnecting) {
+                    this.reconnecting = true;
+                    // close current session, it will be reconnected in weboscket `onclose` callback
+                    this.socket.close(4000, "Timeout occurred. Reconnecting to another node.");
+                }
             }
         };
 
-        const executor: PromiseExecutor<Result> = new PromiseExecutor<Result>(onTimeout, this.timeout);
+        const onComplete = () => {
+            this.executors.delete(requestId);
+        };
+
+        const executor: PromiseExecutor<T> = new PromiseExecutor<T>(onComplete, onTimeout, this.timeout);
 
         this.executors.set(requestId, executor);
 

@@ -210,7 +210,7 @@ export class Session {
 
         let broadcastTxResult;
         try {
-            broadcastTxResult = parseResponse(broadcastTxResultRaw);
+            broadcastTxResult = parseResponse(broadcastTxResultRaw.data);
         } catch (cause) {
             return {
                 status: RequestStatus.E_REQUEST,
@@ -218,7 +218,6 @@ export class Session {
             }
         }
 
-        debug("broadCastTxSync response received");
         debug("broadCastTxSync response received");
 
         // close session if some error on sending transaction occurred
