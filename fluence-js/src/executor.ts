@@ -30,7 +30,8 @@ export class PromiseExecutor<T> extends Executor<T> {
     private resultHandler: (result: T) => void;
     private errorHandler: (error: any) => void;
     readonly promise: Promise<T>;
-    private timeout: ReturnType<typeof setTimeout> | undefined;
+    private timerHandle: ReturnType<typeof setTimeout> | undefined;
+    private _failed: boolean = false;
 
     constructor(onComplete: () => void = () => {}, onTimeout: () => void = () => {}, timeout: number | undefined = undefined) {
         super();
@@ -41,14 +42,14 @@ export class PromiseExecutor<T> extends Executor<T> {
         });
 
         if (timeout) {
-            this.timeout = setTimeout(() => {
+            this.timerHandle = setTimeout(() => {
                 onTimeout()
             }, timeout);
         }
 
         this.promise.finally(() => {
             onComplete();
-            if (this.timeout) { clearTimeout(this.timeout) }
+            if (this.timerHandle) { clearTimeout(this.timerHandle) }
         });
     }
 
@@ -57,7 +58,12 @@ export class PromiseExecutor<T> extends Executor<T> {
     }
 
     fail(error: any): void {
+        this._failed = true;
         this.errorHandler(error)
+    }
+
+    isFailed(): boolean {
+        return this._failed
     }
 
     type: ExecutorType = ExecutorType.Promise

@@ -21,7 +21,7 @@ import {Executor, ExecutorType, PromiseExecutor, SubscriptionExecutor} from "./e
 import {BroadcastTxSyncResponse, parseResponse} from "./TendermintClient";
 import {debug, TendermintClient} from "./fluence";
 import {AbciQueryResult, TendermintJsonRpcResponse} from "./RpcClient";
-import {none, Option} from "ts-option";
+import {none} from "ts-option";
 
 interface WebsocketResponse {
     request_id: string
@@ -33,10 +33,10 @@ interface WebsocketResponse {
 /**
  * Session is a stable stateful asynchronous connection to Fluence application.
  * Session manages websocket connections to nodes.
+ * Controls the order of requests.
  * It tries to connect to one node at a time.
  * First connection will fail only if all nodes are unavailable.
  * Creates new sessionId on each node.
- * Controls the order of requests.
  * If request becomes failed due to timeout, a connection to the next node is created,
  * because the client doesn't know if a request processed on a node or not.
  * All pending requests (request and requestAsync methods) will fail after reconnecting.
@@ -53,9 +53,6 @@ export class WebsocketSession {
     private timeout: number;
     private socket: WebSocket;
     private reconnecting: boolean;
-
-    // on first connection `connectionPromise` will fail only if all nodes are unavailable
-    private firstConnection: boolean = true;
 
     // result is for 'request' and 'requestAsync', void is for all other requests
     private executors = new Map<string, Executor<any | void>>();
@@ -80,8 +77,8 @@ export class WebsocketSession {
 
     private constructor(appId: string, nodes: Node[], timeout: number, privateKey?: PrivateKey) {
         if (nodes.length == 0) {
-            console.error("There is no nodes to connect");
-            throw new Error("There is no nodes to connect");
+            console.error("There are no nodes to connect");
+            throw new Error("There are no nodes to connect");
         }
 
         this.counter = 0;
@@ -92,6 +89,7 @@ export class WebsocketSession {
         this.nodes = nodes;
         this.privateKey = privateKey;
         this.timeout = timeout;
+        this.connectionPromise = new PromiseExecutor<void>();
     }
 
     /**
@@ -157,7 +155,7 @@ export class WebsocketSession {
         };
 
         // if a promise is succeeded, a request was delivered, so we don't need a result
-        return this.sendAndWaitResponse<BroadcastTxSyncResponse>(requestId, JSON.stringify(request)).then((r) => {});
+        return this.sendAndWaitResponse<BroadcastTxSyncResponse>(requestId, JSON.stringify(request)).then(() => {});
     }
 
     /**
@@ -187,10 +185,12 @@ export class WebsocketSession {
 
         if (this.nodes.length === 0) {
             // all nodes are unavailable, return the error
+            const errorMsg = "There are no available nodes";
             if (this.connectionPromise) {
-                this.connectionPromise.fail("There is no available nodes.")
+                this.connectionPromise.fail(errorMsg)
             }
-            return Promise.reject("There is no available nodes.")
+            setTimeout(() => this.reconnectSession(errorMsg), 1000);
+            return Promise.reject(errorMsg)
         }
 
         // chooses the next node after every connect
@@ -199,7 +199,7 @@ export class WebsocketSession {
         this.nodeCounter++;
         debug("Websocket connecting to " + JSON.stringify(node));
 
-        if (!this.connectionPromise || !this.firstConnection) {
+        if (this.connectionPromise.isFailed()) {
             this.connectionPromise = new PromiseExecutor<void>();
         }
 
@@ -208,41 +208,45 @@ export class WebsocketSession {
 
             this.socket = socket;
 
-            socket.onopen = () => {
-                debug("Websocket is opened");
-                this.firstConnection = false;
-                this.reconnecting = false;
-                this.connectionPromise.success();
-                this.resubscribe();
-            };
+            socket.onopen = () => this.callbackOnOpen();
 
             socket.onerror = (e) => {
                 console.error("Websocket receive an error: " + JSON.stringify(e) + ". Reconnecting on close.");
             };
 
-            socket.onclose = (e) => {
-                console.error(`Websocket ${node.ip_addr}:${node.api_port} is closed. Reconnecting.`);
-
-                // delete node from list of nodes and add it after timeout
-                delete this.nodes[nodeNumber];
-                setTimeout(() => this.nodes.push(node), this.timeout);
-
-                if (!this.firstConnection) {
-                    // new requests will be terminated until websocket is connected to a new node
-                    this.connectionPromise = new PromiseExecutor<void>();
-                    this.connectionPromise.fail("Websocket is closed. Reconnecting")
-                }
-
-                this.failPendingRequests();
-
-                setTimeout(() => this.reconnectSession(e), 1000)
-            };
+            socket.onclose = (e) => this.callbackOnClose(node, nodeNumber, e);
 
             socket.onmessage = (msg) => this.messageHandler(msg.data);
+
         } catch (e) {
             console.log("Websocket error on connecting: " + JSON.stringify(e));
         }
         return this.connectionPromise.promise.then(() => this);
+    }
+
+    /**
+     * Deletes node from the pool for a timeout, starts reconnecting.
+     */
+    private callbackOnClose(node: Node, nodeNumber: number, error: any) {
+        console.error(`Websocket ${node.ip_addr}:${node.api_port} is closed. Reconnecting.`);
+
+        // delete node from list of nodes and add it after timeout
+        delete this.nodes[nodeNumber];
+        setTimeout(() => this.nodes.push(node), this.timeout);
+
+        this.failPendingRequests();
+
+        setTimeout(() => this.reconnectSession(error), 1000);
+    }
+
+    /**
+     * Completes connection promise and resubscribes on existing subscriptions.
+     */
+    private callbackOnOpen() {
+        debug("Websocket is opened");
+        this.reconnecting = false;
+        this.connectionPromise.success();
+        this.resubscribe();
     }
 
     private messageHandler(msg: string) {
@@ -258,20 +262,50 @@ export class WebsocketSession {
                 return;
             }
 
+            if (executor instanceof SubscriptionExecutor) {
+                debug("Handle message for subscription: " + executor.subscription);
+            }
+
             if (rawResponse.error) {
                 console.log(`Error received for ${rawResponse.request_id}: ${JSON.stringify(rawResponse.error)}`);
                 executor.fail(rawResponse.error);
-            } else if (rawResponse.type === "tx_wait_response") {
-                WebsocketSession.handleResult(rawResponse.data as string, executor)
-            } else if (rawResponse.type === "tx_response") {
-                WebsocketSession.handleTxResponse(rawResponse.data as string, rawResponse.request_id, executor)
-            } else {
-                // subscribe and unsubscribe requests
-                executor.success({})
+            } else if (rawResponse.data) {
+                this.parseData(rawResponse.data, rawResponse.type, rawResponse.request_id)
+                    .then(executor.success)
+                    .catch(executor.fail)
             }
         } catch (e) {
             console.error("Cannot parse websocket event: " + e);
             console.error(e);
+        }
+    }
+
+    private parseData(data: string, type: string, requestId: string): Promise<any> {
+        if (type === "tx_wait_response") {
+            const parsed = JSON.parse(data) as TendermintJsonRpcResponse<AbciQueryResult>;
+            const result = TendermintClient.parseQueryResponse(none, parsed);
+
+            return result
+                .fold(
+                    () => {
+                        const errorMessage = `Unexpected, no parsed result in message: ${data}`;
+                        console.error(errorMessage);
+                        return Promise.reject<Result>(errorMessage);
+                    }
+                )((r) => {
+                    debug("Result received: " + r.asString());
+                    return Promise.resolve(r)
+                })
+        } else if (type === "tx_response") {
+            const response = parseResponse(JSON.parse(data));
+            if (response.code !== 0) {
+                return Promise.reject(`There is an error on request '${requestId}': ${JSON.stringify(response)}`)
+            } else {
+                return Promise.resolve(response)
+            }
+        } else {
+            // subscribe and unsubscribe requests
+            return Promise.resolve({})
         }
     }
 
@@ -286,10 +320,10 @@ export class WebsocketSession {
         const onTimeout = () => {
             if (this.executors.has(requestId)) {
                 executor.fail(`Timeout after ${this.timeout} milliseconds.`);
-                this.executors.delete(requestId);
                 if (!this.reconnecting) {
                     this.reconnecting = true;
                     // close current session, it will be reconnected in weboscket `onclose` callback
+                    // all pending transactions will be failed
                     this.socket.close(4000, "Timeout occurred. Reconnecting to another node.");
                 }
             }
@@ -307,42 +341,6 @@ export class WebsocketSession {
     }
 
     /**
-     * Parses a received result from `request` method and completes executor.
-     *
-     */
-    private static handleResult(r: string, executor: Executor<any>): void {
-        const parsed = JSON.parse(r) as TendermintJsonRpcResponse<AbciQueryResult>;
-        const result = TendermintClient.parseQueryResponse(none, parsed);
-        if (executor instanceof SubscriptionExecutor) {
-            debug(executor.subscription);
-        }
-
-        return result
-            .fold(
-                () => {
-                    const errorMessage = `Unexpected, no parsed result in message: ${r}`;
-                    console.error(errorMessage);
-                    executor.fail(errorMessage);
-                }
-            )((r) => {
-                debug("Result received: " + r.asString());
-                executor.success(r)
-            })
-    }
-
-    /**
-     * Parses a received response from `requestAsync` method and completes executor.
-     */
-    private static handleTxResponse(r: string, requestId: string, executor: Executor<any>): void {
-        const response = parseResponse(JSON.parse(r));
-        if (response.code !== 0) {
-            executor.fail(`There is an error on request '${requestId}': ${JSON.stringify(response)}`)
-        } else {
-            executor.success(response)
-        }
-    }
-
-    /**
      * Trying to subscribe to all existed subscriptions again.
      */
     private resubscribe() {
@@ -352,14 +350,14 @@ export class WebsocketSession {
                 debug("Resubscribe: " + subExecutor.subscription);
                 const requestId = genRequestId();
                 this.subscribeCall(subExecutor.subscription, requestId, key)
-                    .catch((e) => console.error(`Cannot resubscribe on ${subExecutor.subscription}`))
+                    .catch((e) => console.error(`Cannot resubscribe on ${subExecutor.subscription}. Error: ${e}`))
             }
         });
     }
 
     private failPendingRequests() {
         // terminate all promise executors
-        this.executors.forEach((executor: Executor<Result | void>, key: string) => {
+        this.executors.forEach((executor: Executor<Result | void>) => {
             if (executor.type === ExecutorType.Promise) {
                 executor.fail("Reconnecting. All waiting requests are terminated.");
             }
@@ -391,10 +389,10 @@ export class WebsocketSession {
      * Generate new sessionId, terminate old connectionPromise and create a new one.
      * Terminate all executors that are waiting for responses.
      */
-    private reconnectSession(reason: any) {
+    private reconnectSession(reason: any): Promise<WebsocketSession> {
         this.sessionId = genSessionId();
         this.counter = 0;
-        this.connect();
+        return this.connect();
     }
 
     private static parseRawResponse(response: string): WebsocketResponse {
