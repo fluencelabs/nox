@@ -18,7 +18,7 @@ package fluence.worker.responder.repeat
 
 import cats.data.EitherT
 import cats.effect.concurrent.Ref
-import cats.effect.{Concurrent, Resource, Timer}
+import cats.effect.{Concurrent, Resource, Sync, Timer}
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
@@ -121,14 +121,19 @@ private[repeat] class RepeatOnEveryBlockImpl[F[_]: Timer: Concurrent](
    */
   private def waitTx(key: String, data: Tx.Data)(
     implicit log: Log[F]
-  ): EitherT[F, TxAwaitError, AwaitedResponse] = {
-    // TODO random is an effect
-    val randomStr = Random.alphanumeric.take(8).mkString
-    val head = Tx.Head(s"${AwaitResponses.RepeatSessionPrefix}-$key-$randomStr", 0)
-    val tx = Tx(head, data)
+  ): EitherT[F, TxAwaitError, AwaitedResponse] =
+    for {
+      sid <- EitherT.right(sessionId(key))
+      tx = Tx(Tx.Head(sid, 0), data)
+      response <- waitResponseService.sendTxAwaitResponse(tx.generateTx())
+    } yield response
 
-    waitResponseService.sendTxAwaitResponse(tx.generateTx())
-  }
+  private def sessionId(key: String): F[String] =
+    Sync[F]
+      .delay(Random.alphanumeric.take(8).mkString)
+      .map(
+        rnd => s"${AwaitResponses.RepeatSessionPrefix}-$key-$rnd"
+      )
 
   private def processSubscriptions()(implicit log: Log[F]) = {
     import cats.instances.list._
