@@ -58,7 +58,8 @@ lazy val `statemachine` = (project in file("statemachine"))
     commons,
     libraryDependencies ++= Seq(
       scalaTest
-    )
+    ),
+    javaOptions += s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release",
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(
