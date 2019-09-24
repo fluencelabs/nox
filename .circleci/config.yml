@@ -37,6 +37,7 @@ jobs:
       - <<: *rc
       - <<: *rustup
       - run: PATH="$PATH:$HOME/.cargo/bin:" SBT_OPTS="-XX:MaxMetaspaceSize=4096M -Xms5120M -Xmx5120M -Xss6M" sbt -v clean test:compile
+      # LD_LIBRARY_PATH is needed because setting java.library.path with javaOptions isn't working for CircleCI
       - run: PATH="$PATH:$HOME/.cargo/bin:" LD_LIBRARY_PATH="$HOME/project/vm/frank/target/release" SBT_OPTS="-XX:MaxMetaspaceSize=4096M -Xms5120M -Xmx5120M -Xss6M" sbt -v test
       - <<: *sc
 

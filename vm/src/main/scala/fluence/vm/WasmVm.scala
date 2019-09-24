@@ -25,7 +25,6 @@ import fluence.vm.config.VmConfig
 import fluence.vm.error.{InitializationError, InvocationError, StateComputationError}
 import fluence.vm.frank.{FrankAdapter, FrankWasmVm}
 import scodec.bits.ByteVector
-import fluence.vm.Utils.getModuleDirPrefix
 
 import scala.language.higherKinds
 

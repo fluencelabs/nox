@@ -48,7 +48,7 @@ lazy val `vm` = (project in file("vm"))
       .dependsOn(compile in `vm-frank`).value,
     test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(compile in `vm-llamadb`)
-      .value,
+      .value
   )
   .dependsOn(`log`)
   .enablePlugins(AutomateHeaderPlugin)
@@ -126,6 +126,7 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
       http4sServer,
       scalaTest
     ),
+    javaOptions += s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release",
     assemblyJarName in assembly       := "statemachine.jar",
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
     test in assembly                  := {},
@@ -134,7 +135,7 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     docker in Test                    := { assembly.value; runCmd("make worker-test") }
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`, `sttp-effect` % Test)
+  .dependsOn(`statemachine-http`, `statemachine-abci`, `statemachine`, `sttp-effect` % Test, `vm-llamadb`)
 
 lazy val `statemachine-docker-client` = (project in file("statemachine/docker-client"))
   .settings(
