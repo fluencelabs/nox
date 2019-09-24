@@ -16,7 +16,6 @@
 
 // TODO: Adapt tests for Wasmer
 
-/*
 package fluence.vm
 
 import java.nio.{ByteBuffer, ByteOrder}
@@ -25,28 +24,29 @@ import cats.data.NonEmptyList
 import cats.effect.{IO, Timer}
 import fluence.log.{Log, LogFactory}
 import fluence.vm.TestUtils._
+import fluence.vm.error.{InitializationError, InvocationError}
 import org.scalatest.{Assertion, Matchers, WordSpec}
 
 import scala.concurrent.ExecutionContext
 import scala.language.{higherKinds, implicitConversions}
 
-class AsmbleWasmVmSpec extends WordSpec with Matchers {
+class WasmerWasmVmSpec extends WordSpec with Matchers {
 
   private implicit val timer: Timer[IO] = IO.timer(ExecutionContext.global)
   private implicit val log: Log[IO] = LogFactory.forPrintln[IO](Log.Error).init(getClass.getSimpleName).unsafeRunSync()
 
   /**
- * By element comparision of arrays.
- */
+   * By element comparision of arrays.
+   */
   private def compareArrays(first: Array[Byte], second: Array[Byte]): Assertion =
     first.deep shouldBe second.deep
 
   /**
- * Converts ints to byte array by supplied byte order.
- *
- * @param ints array of int
- * @param byteOrder byte order that used for int converting
- */
+   * Converts ints to byte array by supplied byte order.
+   *
+   * @param ints array of int
+   * @param byteOrder byte order that used for int converting
+   */
   private def intsToBytes(
     ints: List[Int],
     byteOrder: ByteOrder = ByteOrder.LITTLE_ENDIAN
@@ -71,7 +71,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
           result ← vm.invoke[IO]().toVmError
         } yield result
         val error = res.failed()
-        error shouldBe a[NoSuchFnError]
+        error shouldBe a[InitializationError]
         error.getMessage should startWith("The main module must have functions with names")
       }
 
@@ -97,7 +97,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
           result ← vm.invoke[IO](fnArgument = intsToBytes(100 :: 13 :: Nil).array()).toVmError // Integer overflow
         } yield result
         val error = res.failed()
-        error shouldBe a[TrapError]
+        error shouldBe a[InvocationError]
         error.getMessage should startWith("Function invoke with args:")
         error.getMessage should include("was failed")
       }
@@ -113,7 +113,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
         val error = res.failed()
         error.getMessage shouldBe "Writing to -1 failed"
-        error shouldBe a[VmMemoryComputationError]
+        error shouldBe a[InvocationError]
       }
 
       "Wasm allocate function returns an incorrect f64 value" in {
@@ -127,7 +127,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
 
         val error = res.failed()
         error.getMessage shouldBe "Writing to 200000000 failed"
-        error shouldBe a[VmMemoryComputationError]
+        error shouldBe a[InvocationError]
       }
 
       "trying to extract array with incorrect size from Wasm memory" in {
@@ -139,7 +139,7 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
         } yield result
 
         val error = res.failed()
-        error shouldBe a[VmMemoryComputationError]
+        error shouldBe a[InvocationError]
         error.getMessage shouldBe "Reading from offset=1048596 16777215 bytes failed"
       }
 
@@ -293,4 +293,3 @@ class AsmbleWasmVmSpec extends WordSpec with Matchers {
   }
 
 }
- */
