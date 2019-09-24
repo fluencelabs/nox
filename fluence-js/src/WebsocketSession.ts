@@ -70,7 +70,7 @@ export class WebsocketSession {
      *
      * @return promise that will be completed if websocket become connected and will fail if all nodes will be unavailable
      */
-    static create(appId: string, nodes: Node[], privateKey?: PrivateKey, timeout = 10000): Promise<WebsocketSession> {
+    static create(appId: string, nodes: Node[], privateKey?: PrivateKey, timeout = 15000): Promise<WebsocketSession> {
         const ws = new WebsocketSession(appId, nodes, timeout, privateKey);
         return ws.connect();
     }
@@ -173,8 +173,6 @@ export class WebsocketSession {
             type: "tx_wait_request"
         };
 
-        console.log("send request: " + JSON.stringify(request));
-
         return this.sendAndWaitResponse<Result>(requestId, JSON.stringify(request))
     }
 
@@ -186,9 +184,7 @@ export class WebsocketSession {
         if (this.nodes.length === 0) {
             // all nodes are unavailable, return the error
             const errorMsg = "There are no available nodes";
-            if (this.connectionPromise) {
-                this.connectionPromise.fail(errorMsg)
-            }
+            this.connectionPromise.fail(errorMsg);
             setTimeout(() => this.reconnectSession(errorMsg), 1000);
             return Promise.reject(errorMsg)
         }
@@ -269,10 +265,13 @@ export class WebsocketSession {
             if (rawResponse.error) {
                 console.log(`Error received for ${rawResponse.request_id}: ${JSON.stringify(rawResponse.error)}`);
                 executor.fail(rawResponse.error);
-            } else if (rawResponse.data) {
+            } else {
                 this.parseData(rawResponse.data, rawResponse.type, rawResponse.request_id)
-                    .then(executor.success)
-                    .catch(executor.fail)
+                    .then((r) => executor.success(r))
+                    .catch((e) => {
+                        console.error("Error on parsing data: " + e);
+                        executor.fail(e)
+                    })
             }
         } catch (e) {
             console.error("Cannot parse websocket event: " + e);
@@ -280,7 +279,12 @@ export class WebsocketSession {
         }
     }
 
-    private parseData(data: string, type: string, requestId: string): Promise<any> {
+    private parseData(data: string | undefined, type: string, requestId: string): Promise<any | void> {
+        if (!data) {
+            debug("Resolving for " + requestId);
+            // subscribe and unsubscribe requests
+            return Promise.resolve()
+        }
         if (type === "tx_wait_response") {
             const parsed = JSON.parse(data) as TendermintJsonRpcResponse<AbciQueryResult>;
             const result = TendermintClient.parseQueryResponse(none, parsed);
@@ -304,8 +308,7 @@ export class WebsocketSession {
                 return Promise.resolve(response)
             }
         } else {
-            // subscribe and unsubscribe requests
-            return Promise.resolve({})
+            return Promise.reject(`Unexpected type of message ${type}. RequestId: ${requestId}, data: ${data}`)
         }
     }
 
@@ -319,7 +322,7 @@ export class WebsocketSession {
         // if timeout occurred, delete executor from state and do reconnect
         const onTimeout = () => {
             if (this.executors.has(requestId)) {
-                executor.fail(`Timeout after ${this.timeout} milliseconds.`);
+                executor.fail(`Timeout after ${this.timeout} milliseconds. requestId: ${requestId}, msg: ${message}`);
                 if (!this.reconnecting) {
                     this.reconnecting = true;
                     // close current session, it will be reconnected in weboscket `onclose` callback

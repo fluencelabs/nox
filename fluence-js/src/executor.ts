@@ -31,10 +31,12 @@ export class PromiseExecutor<T> extends Executor<T> {
     private errorHandler: (error: any) => void;
     readonly promise: Promise<T>;
     private timerHandle: ReturnType<typeof setTimeout> | undefined;
-    private _failed: boolean = false;
+    private _failed: boolean;
 
     constructor(onComplete: () => void = () => {}, onTimeout: () => void = () => {}, timeout: number | undefined = undefined) {
         super();
+
+        this._failed = false;
 
         this.promise = new Promise<T>((r, e) => {
             this.resultHandler = r;
