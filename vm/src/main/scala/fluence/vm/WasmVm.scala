@@ -34,6 +34,8 @@ import scala.language.higherKinds
  */
 trait WasmVm {
 
+  System.loadLibrary("libfrank")
+
   /**
    * Invokes Wasm ''function'' from specified Wasm ''module''. Each function receives and returns array of bytes.
    *
@@ -69,6 +71,7 @@ object WasmVm {
 
   val javaLibPath: String = System.getProperty("java.library.path")
   println(s"java.library.path = $javaLibPath")
+
   /**
    * Main method factory for building VM.
    * Compiles all files immediately by Asmble and returns VM implementation with eager module instantiation.
