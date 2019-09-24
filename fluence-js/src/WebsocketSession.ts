@@ -56,6 +56,8 @@ export class WebsocketSession {
      * @param nodes list of nodes to connect
      * @param privateKey key that will sign all requests
      * @param timeout time after which the request fails
+     *
+     * @return promise that will be completed if websocket become connected and will fail if all nodes will be unavailable.
      */
     static create(appId: string, nodes: Node[], privateKey?: PrivateKey, timeout = 10000): Promise<WebsocketSession> {
         const ws = new WebsocketSession(appId, nodes, timeout, privateKey);
@@ -77,82 +79,90 @@ export class WebsocketSession {
         this.timeout = timeout;
     }
 
-    private static handleResult(r: string, executor: Executor<any>): void {
-        const result = WebsocketSession.parseResponse(r);
-        if (executor instanceof SubscriptionExecutor) {
-            debug(executor.subscription);
-        }
+    /**
+     * Delete a subscription.
+     *
+     */
+    async unsubscribe(subscriptionId: string): Promise<void> {
 
-        return result
-            .fold(
-                () => {
-                    const errorMessage = `Unexpected, no parsed result in message: ${r}`;
-                    console.error(errorMessage);
-                    executor.fail(errorMessage);
-                }
-            )((r) => {
-                debug("Result received: " + r.asString());
-                executor.success(r)
-            })
-    }
+        debug("Unsibscribe " + subscriptionId);
 
-    private static handleTxResponse(r: string, requestId: string, executor: Executor<any>): void {
-        const response = parseResponse(JSON.parse(r));
-        if (response.code !== 0) {
-            executor.fail(`There is an error on request '${requestId}': ${JSON.stringify(response)}`)
-        } else {
-            executor.success(response)
-        }
-    }
+        await this.connectionPromise.promise;
 
-    private messageHandler(msg: string) {
-        debug(`Message received: ${msg}`);
-        try {
-            const rawResponse = WebsocketSession.parseRawResponse(msg);
+        const requestId = genRequestId();
 
-            debug("Message received: " + JSON.stringify(rawResponse));
+        const request = {
+            request_id: requestId,
+            subscription_id: subscriptionId,
+            type: "unsubscribe_request"
+        };
 
-            const executor = this.executors.get(rawResponse.request_id);
-            if (!executor) {
-                console.error(`There is no message with requestId '${rawResponse.request_id}'. Message: ${msg}`);
-                return;
-            }
+        await this.sendAndWaitResponse<void>(requestId, JSON.stringify(request));
 
-            if (rawResponse.error) {
-                console.log(`Error received for ${rawResponse.request_id}: ${JSON.stringify(rawResponse.error)}`);
-                executor.fail(rawResponse.error);
-            } else if (rawResponse.type === "tx_wait_response") {
-                WebsocketSession.handleResult(rawResponse.data as string, executor)
-            } else if (rawResponse.type === "tx_response") {
-                WebsocketSession.handleTxResponse(rawResponse.data as string, rawResponse.request_id, executor)
-            } else {
-                // subscribe and unsubscribe requests
-                executor.success({})
-            }
-        } catch (e) {
-            console.error("Cannot parse websocket event: " + e);
-            console.error(e);
-        }
-    }
-
-    private static parseResponse(data: string): Option<Result> {
-        const parsed = JSON.parse(data) as TendermintJsonRpcResponse<AbciQueryResult>;
-        return TendermintClient.parseQueryResponse(none, parsed);
+        this.executors.delete(subscriptionId);
     }
 
     /**
-     * Trying to subscribe to all existed subscriptions again.
+     * Creates a subscription, that will return responses on every change in a state machine.
+     * @param transaction will be run on state machine on every change
+     * @param resultCallback to handle changes
+     * @param errorCallback to handle errors
      */
-    private resubscribe() {
-        this.executors.forEach((executor: Executor<any>, key: string) => {
-            if (executor.type === ExecutorType.Subscription) {
-                const subExecutor = executor as SubscriptionExecutor;
-                debug("Resubscribe: " + subExecutor.subscription);
-                const requestId = genRequestId();
-                this.subscribeCall(subExecutor.subscription, requestId, key)
-                    .catch((e) => console.error(`Cannot resubscribe on ${subExecutor.subscription}`))
-            }
-        });
+    async subscribe(transaction: string, resultCallback: (result: Result) => void, errorCallback: (error: any) => void): Promise<string> {
+        await this.connectionPromise.promise;
+        const requestId = genRequestId();
+        const subscriptionId = genRequestId();
+
+        const executor: SubscriptionExecutor = new SubscriptionExecutor(transaction, resultCallback, errorCallback);
+        this.executors.set(subscriptionId, executor);
+
+        await this.subscribeCall(transaction, requestId, subscriptionId);
+
+        return subscriptionId
+    }
+
+    /**
+     * Send a request without waiting a response.
+     *
+     * @return promise, that completes if Fluence node will put request to a queue.
+     */
+    async requestAsync(payload: string): Promise<void> {
+
+        await this.connectionPromise.promise;
+
+        const requestId = genRequestId();
+        const counter = this.getCounterAndIncrement();
+
+        const tx = prepareRequest(payload, this.sessionId, counter, this.privateKey);
+
+        const request = {
+            tx: tx.payload,
+            request_id: requestId,
+            type: "tx_request"
+        };
+
+        // if a promise is succeeded, a request was delivered, so we don't need a result
+        return this.sendAndWaitResponse<BroadcastTxSyncResponse>(requestId, JSON.stringify(request)).then((r) => {});
+    }
+
+    /**
+     * Send a request and waiting for a response.
+     */
+    async request(payload: string): Promise<Result> {
+        const requestId = genRequestId();
+        const counter = this.getCounterAndIncrement();
+
+        const tx = prepareRequest(payload, this.sessionId, counter, this.privateKey);
+
+        const request = {
+            tx: tx.payload,
+            request_id: requestId,
+            type: "tx_wait_request"
+        };
+
+        console.log("send request: " + JSON.stringify(request));
+
+        return this.sendAndWaitResponse<Result>(requestId, JSON.stringify(request))
     }
 
     /**
@@ -219,115 +229,34 @@ export class WebsocketSession {
         return this.connectionPromise.promise.then(() => this);
     }
 
-    private stopPromiseExecutors() {
-        // terminate and all promise executors
-        this.executors.forEach((executor: Executor<Result | void>, key: string) => {
-            if (executor.type === ExecutorType.Promise) {
-                executor.fail("Reconnecting. All waiting requests are terminated.");
+    private messageHandler(msg: string) {
+        debug(`Message received: ${msg}`);
+        try {
+            const rawResponse = WebsocketSession.parseRawResponse(msg);
+
+            debug("Message received: " + JSON.stringify(rawResponse));
+
+            const executor = this.executors.get(rawResponse.request_id);
+            if (!executor) {
+                console.error(`There is no message with requestId '${rawResponse.request_id}'. Message: ${msg}`);
+                return;
             }
-        });
-    }
 
-    /**
-     * Increments current internal counter.
-     */
-    private getCounterAndIncrement() {
-        return this.counter++;
-    }
-
-    /**
-     * Delete a subscription.
-     *
-     */
-    async unsubscribe(subscriptionId: string): Promise<void> {
-
-        debug("Unsibscribe " + subscriptionId);
-
-        await this.connectionPromise.promise;
-
-        const requestId = genRequestId();
-
-        const request = {
-            request_id: requestId,
-            subscription_id: subscriptionId,
-            type: "unsubscribe_request"
-        };
-
-        await this.sendAndWaitResponse<void>(requestId, JSON.stringify(request));
-
-        this.executors.delete(subscriptionId);
-    }
-
-    private async subscribeCall(transaction: string, requestId: string, subscriptionId: string): Promise<void> {
-        const request = {
-            tx: transaction,
-            request_id: requestId,
-            subscription_id: subscriptionId,
-            type: "subscribe_request"
-        };
-
-        return this.sendAndWaitResponse<void>(requestId, JSON.stringify(request));
-    }
-
-    /**
-     * Creates a subscription, that will return responses on every change in a state machine.
-     * @param transaction will be run on state machine on every change
-     * @param resultCallback to handle changes
-     * @param errorCallback to handle errors
-     */
-    async subscribe(transaction: string, resultCallback: (result: Result) => void, errorCallback: (error: any) => void): Promise<string> {
-        await this.connectionPromise.promise;
-        const requestId = genRequestId();
-        const subscriptionId = genRequestId();
-
-        const executor: SubscriptionExecutor = new SubscriptionExecutor(transaction, resultCallback, errorCallback);
-        this.executors.set(subscriptionId, executor);
-
-        await this.subscribeCall(transaction, requestId, subscriptionId);
-
-        return subscriptionId
-    }
-
-    /**
-     * Send a request without waiting a response.
-     */
-    async requestAsync(payload: string): Promise<void> {
-
-        await this.connectionPromise.promise;
-
-        const requestId = genRequestId();
-        const counter = this.getCounterAndIncrement();
-
-        const tx = prepareRequest(payload, this.sessionId, counter, this.privateKey);
-
-        const request = {
-            tx: tx.payload,
-            request_id: requestId,
-            type: "tx_request"
-        };
-
-        // if a promise is succeeded, a request was delivered, so we don't need a result
-        return this.sendAndWaitResponse<BroadcastTxSyncResponse>(requestId, JSON.stringify(request)).then((r) => {});
-    }
-
-    /**
-     * Send a request and waiting for a response.
-     */
-    request(payload: string): Promise<Result> {
-        const requestId = genRequestId();
-        const counter = this.getCounterAndIncrement();
-
-        const tx = prepareRequest(payload, this.sessionId, counter, this.privateKey);
-
-        const request = {
-            tx: tx.payload,
-            request_id: requestId,
-            type: "tx_wait_request"
-        };
-
-        console.log("send request: " + JSON.stringify(request));
-
-        return this.sendAndWaitResponse<Result>(requestId, JSON.stringify(request))
+            if (rawResponse.error) {
+                console.log(`Error received for ${rawResponse.request_id}: ${JSON.stringify(rawResponse.error)}`);
+                executor.fail(rawResponse.error);
+            } else if (rawResponse.type === "tx_wait_response") {
+                WebsocketSession.handleResult(rawResponse.data as string, executor)
+            } else if (rawResponse.type === "tx_response") {
+                WebsocketSession.handleTxResponse(rawResponse.data as string, rawResponse.request_id, executor)
+            } else {
+                // subscribe and unsubscribe requests
+                executor.success({})
+            }
+        } catch (e) {
+            console.error("Cannot parse websocket event: " + e);
+            console.error(e);
+        }
     }
 
     /**
@@ -359,6 +288,81 @@ export class WebsocketSession {
         this.executors.set(requestId, executor);
 
         return executor.promise
+    }
+
+    private static handleResult(r: string, executor: Executor<any>): void {
+        const result = WebsocketSession.parseResponse(r);
+        if (executor instanceof SubscriptionExecutor) {
+            debug(executor.subscription);
+        }
+
+        return result
+            .fold(
+                () => {
+                    const errorMessage = `Unexpected, no parsed result in message: ${r}`;
+                    console.error(errorMessage);
+                    executor.fail(errorMessage);
+                }
+            )((r) => {
+                debug("Result received: " + r.asString());
+                executor.success(r)
+            })
+    }
+
+    private static handleTxResponse(r: string, requestId: string, executor: Executor<any>): void {
+        const response = parseResponse(JSON.parse(r));
+        if (response.code !== 0) {
+            executor.fail(`There is an error on request '${requestId}': ${JSON.stringify(response)}`)
+        } else {
+            executor.success(response)
+        }
+    }
+
+    private static parseResponse(data: string): Option<Result> {
+        const parsed = JSON.parse(data) as TendermintJsonRpcResponse<AbciQueryResult>;
+        return TendermintClient.parseQueryResponse(none, parsed);
+    }
+
+    /**
+     * Trying to subscribe to all existed subscriptions again.
+     */
+    private resubscribe() {
+        this.executors.forEach((executor: Executor<any>, key: string) => {
+            if (executor.type === ExecutorType.Subscription) {
+                const subExecutor = executor as SubscriptionExecutor;
+                debug("Resubscribe: " + subExecutor.subscription);
+                const requestId = genRequestId();
+                this.subscribeCall(subExecutor.subscription, requestId, key)
+                    .catch((e) => console.error(`Cannot resubscribe on ${subExecutor.subscription}`))
+            }
+        });
+    }
+
+    private stopPromiseExecutors() {
+        // terminate and all promise executors
+        this.executors.forEach((executor: Executor<Result | void>, key: string) => {
+            if (executor.type === ExecutorType.Promise) {
+                executor.fail("Reconnecting. All waiting requests are terminated.");
+            }
+        });
+    }
+
+    /**
+     * Increments current internal counter.
+     */
+    private getCounterAndIncrement() {
+        return this.counter++;
+    }
+
+    private async subscribeCall(transaction: string, requestId: string, subscriptionId: string): Promise<void> {
+        const request = {
+            tx: transaction,
+            request_id: requestId,
+            subscription_id: subscriptionId,
+            type: "subscribe_request"
+        };
+
+        return this.sendAndWaitResponse<void>(requestId, JSON.stringify(request));
     }
 
     /**
