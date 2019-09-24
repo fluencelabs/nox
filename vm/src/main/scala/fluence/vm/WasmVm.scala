@@ -34,8 +34,6 @@ import scala.language.higherKinds
  */
 trait WasmVm {
 
-  System.loadLibrary("libfrank")
-
   /**
    * Invokes Wasm ''function'' from specified Wasm ''module''. Each function receives and returns array of bytes.
    *

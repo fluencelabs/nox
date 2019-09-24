@@ -22,7 +22,7 @@ import ch.jodersky.jni.nativeLoader
 /**
  * Realizes connection to the virtual machine runner based on Wasmer through JNI.
  */
-//@nativeLoader("frank")
+@nativeLoader("frank")
 class FrankAdapter {
 
   /**
