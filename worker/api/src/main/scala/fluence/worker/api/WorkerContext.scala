@@ -16,61 +16,83 @@
 
 package fluence.worker.api
 
-import cats.data.EitherT
+import cats.syntax.flatMap._
+import cats.syntax.apply._
+import cats.syntax.functor._
+import cats.effect.{Concurrent, Resource}
+import cats.effect.concurrent.Deferred
+import fluence.effects.resources.MakeResource
+import fluence.log.Log
 
 import scala.language.higherKinds
-import shapeless._
 
 trait WorkerContext[F[_]] {
   def appId: Long
 
-  type Components <: HList
+  //def app: App
+
+  type Resources
+
+  def resources: Resources
 
   type W <: Worker[F]
 
-  // should be a flag: not prepared, in progress, ready, failed to prepare
-  def isPrepared: F[Boolean]
-  // launches preparation on background
-  def startPreparation(): F[Unit]
-  // blocks until prepared, may fail
-  def prepare(): F[Unit]
+  type Companions
 
-  // so we have several components here:
-  // - local p2p port allocation
-  // - peer connectivity: at least to discover peer ports
-  // - tendermint configs
-  // - downloaded code
-  //
-  // Later on, we do more with a ready worker:
-  // - Launch block uploading (??? or is it bundled -- yes it is bundled within BlockProducer, which should be built upon StateMachine)
-  // - Subscribe for blocks to provide pubsub and request-response patterns
-  //
-  // all components must be prepared on demand and retain in prepared state
-  // components could be cached (e.g. no need to re-init tendermint)
-  // when context is deallocated, components could be cached, resources released (?)
-  // if this app is deleted, all resources are removed
-  //
-  // Worker pool should contain both contexts and workers (?).
-  // When worker is launching, context must be already prepared.
-  // When context is stopped or removed, worker is also stopped.
-  // So worker actually is inside the context! Context's boundaries must be applied to the worker!
-  // How to express it?
-  // At the same time, Worker depends on Context
-  // Things like block uploading, etc are parts of worker's context as well, actually. So that's a lifecycle of
-  // worker: once worker is started for the first time, some worker-dependent services should also start.
-  // All of this could be expressed in types.
-  //
-  // Components -> Worker -> Components
-  // It also matters how things are closed
+  def worker: F[W]
 
-  def worker: EitherT[F, Nothing, W]
+  def companions: F[Companions]
 
-  trait Component {
-    def init()
+  def stop()(implicit log: Log[F]): F[Unit]
 
-    def prepare()
+  def remove()(implicit log: Log[F]): F[Unit]
+}
 
-    def onWorker()
-
+object WorkerContext {
+  type Aux[F[_], R, W0 <: Worker[F], C] = WorkerContext[F]{
+  type Resources = R
+  type Companions = C
+  type W = W0
   }
+
+  def prepare[F[_]: Concurrent: Log, R, W0 <: Worker[F], C](
+    _appId: Long,
+    // app: App,
+    workerResource: WorkerResource[F, R],
+    worker: R ⇒ Resource[F, W0],
+    companions: WorkerCompanion.Aux[F, C, W0]
+                                         ): F[WorkerContext.Aux[F, R, W0, C]] =
+    workerResource.prepare() >>= {res ⇒
+      for {
+        deferred ← Deferred[F, (W0, C)]
+        stopDef ← Deferred[F, F[Unit]]
+      _ ← MakeResource.useConcurrently[F](stop ⇒
+      // TODO here we have a lot of lifecycle information, reflect it!
+        worker(res) >>= (w ⇒ companions.resource(w).map(w -> _) >>= (wx ⇒ Resource.liftF(stopDef.complete(stop) *> deferred.complete(wx))))
+      )
+      } yield new WorkerContext[F] {
+        override def appId: Long = _appId
+
+        override type Resources = R
+
+        override val resources: Resources = res
+
+        override type W = W0
+        override type Companions = C
+
+        // TODO return eithert, show lifecycle on the left (preparing, acquiring companions, acquired (fetch worker status), stopped (enable restart), removed
+        // TODO it would be nice to run worker lazily, on first start
+        override def worker: F[W] = deferred.get.map(_._1)
+deferred.complete()
+        // TODO return eithert, show lifecycle on the left
+        override def companions: F[C] = deferred.get.map(_._2)
+
+        // TODO should not be able to get worker or companions any more
+        override def stop()(implicit log: Log[F]): F[Unit] = stopDef.get.flatten
+
+        // TODO should not be able to get resources as well
+        override def remove()(implicit log: Log[F]): F[Unit] = stopDef.get.flatten >> workerResource.remove().value.void
+      }
+
+    }
 }

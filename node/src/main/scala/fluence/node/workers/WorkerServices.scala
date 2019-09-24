@@ -17,8 +17,7 @@
 package fluence.node.workers
 
 import fluence.bp.api.BlockProducer
-import fluence.bp.tendermint.Tendermint
-import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
+import fluence.statemachine.api.command.PeersControl
 import fluence.statemachine.api.StateMachine
 import fluence.worker.api.WorkerStatus
 import fluence.worker.responder.WorkerResponder

@@ -414,7 +414,7 @@ lazy val `worker-api` = project
     commons
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`statemachine-api`, `block-producer-api`)
+  .dependsOn(`statemachine-api`, `block-producer-api`, `resources-effects`)
 
 lazy val `worker-responder` = project.in(file("worker/responder"))
   .settings(commons)
