@@ -58,8 +58,7 @@ lazy val `statemachine` = (project in file("statemachine"))
     commons,
     libraryDependencies ++= Seq(
       scalaTest
-    ),
-    javaOptions += s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release",
+    )
   )
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(
@@ -132,6 +131,7 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
     test in assembly                  := {},
     parallelExecution in Test         := false,
+    assembly := assembly.dependsOn(compile in `vm-frank`).value,
     docker                            := { runCmd(s"make worker TAG=v${version.value}") },
     docker in Test                    := { assembly.value; runCmd("make worker-test") }
   )

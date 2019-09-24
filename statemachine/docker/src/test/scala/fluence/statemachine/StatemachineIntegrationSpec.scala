@@ -197,8 +197,8 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
 
       sendQuery(tx0Result) shouldBe Right("table created")
       sendQuery(tx1Result) shouldBe Right("rows inserted: 4")
-      sendQuery(tx2Result) shouldBe Right("4")
-      sendQuery(tx3Result) shouldBe Right("\"_0, _1, _2, _3, _4\\n1, 4, 4, 98, 24.5\"")
+      sendQuery(tx2Result) shouldBe Right("_0\n4")
+      sendQuery(tx3Result) shouldBe Right("_0, _1, _2, _3, _4\n1, 4, 4, 98, 24.5")
 
     }
 
