@@ -46,7 +46,7 @@ object SbtCommons {
       oldStrategy(x)
   }: String => MergeStrategy)
 
-  def compileVmExecutor(): Seq[Def.Setting[_]] =
+  def compileFrankVM(): Seq[Def.Setting[_]] =
     Seq(
       publishArtifact := false,
       test            := (test in Test).dependsOn(compile).value,
@@ -57,7 +57,7 @@ object SbtCommons {
 
           val projectRoot = file("").getAbsolutePath
           val frankFolder = s"$projectRoot/vm/frank"
-          val compileCmd = s"cargo +nightly build --manifest-path $frankFolder/Cargo.toml --release"
+          val compileCmd = s"cargo +nightly-2019-09-23 build --manifest-path $frankFolder/Cargo.toml --release"
 
           assert((compileCmd !) == 0, "Frank VM compilation failed")
         })
