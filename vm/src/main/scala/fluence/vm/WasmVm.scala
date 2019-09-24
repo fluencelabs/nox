@@ -67,6 +67,8 @@ trait WasmVm {
 
 object WasmVm {
 
+  val javaLibPath: String = System.getProperty("java.library.path")
+  println(s"java.labraruy.path = $javaLibPath")
   /**
    * Main method factory for building VM.
    * Compiles all files immediately by Asmble and returns VM implementation with eager module instantiation.
