@@ -182,7 +182,7 @@ class StatemachineIntegrationSpec extends WordSpec with Matchers with OneInstanc
       sendCommit()
       sendCommit()
 
-      sendQuery(tx1Result) shouldBe Right("rows inserted: 4")
+      sendQuery(tx0Result) shouldBe Right("table created")
       sendQuery(tx1Result).left.get._1 shouldBe QueryCode.Pending.id
       sendQuery(tx2Result).left.get._1 shouldBe QueryCode.Pending.id
       sendQuery(tx3Result).left.get._1 shouldBe QueryCode.Pending.id
