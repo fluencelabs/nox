@@ -1,5 +1,8 @@
-### This docker file is a copy of Worker.Dockerfile, intended to be
-### built in Dockerhub which doesn't support experimental syntax yet
+# syntax=docker/dockerfile:1.1.3-experimental
+# KEEP THE LINE ABOVE ^^^
+
+# !!! REMEMBER to set `export DOCKER_BUILDKIT=1` before running docker build!
+# !!! REMEMBER to use docker >= 19.03
 
 ARG environment=production
 
@@ -8,7 +11,7 @@ FROM mozilla/sbt as production
 USER root
 COPY . /fluence
 WORKDIR /fluence
-RUN sbt statemachine-docker/assembly
+RUN --mount=type=cache,target=/root/.ivy2 --mount=type=cache,target=/root/.sbt sbt statemachine-docker/assembly
 
 ############## Copy jar from local fs for tests, master-node.jar should be prebuilt
 FROM scratch as test
@@ -22,7 +25,6 @@ FROM openjdk:8-jre-alpine
 VOLUME /worker
 COPY --from=build /fluence/statemachine/docker/worker /worker
 COPY --from=build /fluence/statemachine/docker/target/scala-2.12/statemachine.jar /statemachine.jar
-
 COPY --from=build /fluence/vm/frank/target/release/* /usr/lib/
 
 ENTRYPOINT ["sh", "/worker/run.sh", "/statemachine.jar"]
