@@ -17,9 +17,12 @@
 package fluence.node.workers.tendermint.block
 import cats.Applicative
 import cats.effect.Resource
+import fluence.effects.receipt.storage.ReceiptStorage
+import fluence.effects.tendermint.block.data.Block
+import fluence.effects.tendermint.block.history.{BlockManifest, Receipt}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
-import fluence.node.workers.{Worker, WorkerServices}
+import fluence.statemachine.api.command.ReceiptBus
 
 import scala.language.higherKinds
 
@@ -34,10 +37,12 @@ class DisabledBlockUploading[F[_]: Applicative] extends BlockUploading[F] {
    *   1. retrieve vmHash from state machine
    *   2. Send block manifest receipt to state machine
    *
-   * @param worker Blocks are coming from this worker's Tendermint; receipts are sent to this worker
    */
-  def start(
+  override def start(
     appId: Long,
-    services: WorkerServices[F]
+    receiptStorage: ReceiptStorage[F],
+    subscribeNewBlock: Long => fs2.Stream[F, Block],
+    receiptBus: ReceiptBus[F],
+    onUploaded: (BlockManifest, Receipt) => F[Unit]
   )(implicit log: Log[F], backoff: Backoff[EffectError]): Resource[F, Unit] = Resource.pure(())
 }

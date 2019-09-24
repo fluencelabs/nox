@@ -114,6 +114,7 @@ class WorkerWebsocket[F[_]: Concurrent](
           .sendTxAwaitResponse(tx)
           .map(toWebsocketResponse(requestId, _))
       case StatusRequest(requestId) =>
+        // TODO
         workerApi.tendermintStatus().map {
           case Right(status) => StatusResponse(requestId, status)
           case Left(error)   => ErrorResponse(requestId, error.getMessage)
