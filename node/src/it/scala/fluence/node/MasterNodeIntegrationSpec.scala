@@ -29,7 +29,7 @@ import fluence.node.status.MasterStatus
 import fluence.node.workers.status.WorkerStatus
 import org.scalatest.{Timer => _, _}
 import eth.FluenceContractTestOps._
-import fluence.Eventually
+import fluence.Timed
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.FluenceContractConfig
 
@@ -46,7 +46,7 @@ import scala.util.Try
  * - Successful cluster formation and starting blocks creation
  */
 class MasterNodeIntegrationSpec
-    extends WordSpec with Matchers with BeforeAndAfterAll with OptionValues with Eventually with TendermintSetup
+    extends WordSpec with Matchers with BeforeAndAfterAll with OptionValues with Timed with TendermintSetup
     with GanacheSetup with DockerSetup {
 
   type Sttp = SttpBackend[IO, fs2.Stream[IO, ByteBuffer]]

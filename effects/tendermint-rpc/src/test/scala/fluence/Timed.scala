@@ -27,10 +27,11 @@ import org.scalatest.exceptions.{TestFailedDueToTimeoutException, TestFailedExce
 import org.scalatest.time.Span
 import org.scalatest.{Timer => _}
 
+import scala.concurrent.TimeoutException
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-trait Eventually {
+trait Timed {
 
   /**
    * Executes `p` every `period` until it either succeeds or `maxWait` timeout passes
@@ -39,7 +40,7 @@ trait Eventually {
     p: => F[Unit],
     period: FiniteDuration = 1.second,
     maxWait: FiniteDuration = 10.seconds
-  )(implicit pos: Position): F[_] =
+  )(implicit pos: Position): F[Unit] =
     Concurrent
       .timeout(
         fs2.Stream
@@ -55,19 +56,47 @@ trait Eventually {
         case Some(Left(e))  => throw e
         case _              => throw new RuntimeException(s"eventually timed out after $maxWait")
       }
-      .adaptError {
-        case e: TestFailedException =>
-          e.printStackTrace(System.err)
-          e.modifyMessage(m => Some(s"eventually timed out after $maxWait" + m.fold("")(": " + _)))
-        case e =>
-          e.printStackTrace(System.err)
-          new TestFailedDueToTimeoutException(
-            _ => Some(s"eventually timed out after $maxWait" + Option(e.getMessage).fold("")(": " + _)),
-            Some(e),
-            pos,
-            None,
-            Span.convertDurationToSpan(maxWait)
-          )
-      }
+      .adaptError(adaptError(pos, maxWait))
 
+  /**
+   * Either computes `p` within specified `timeout` or fails the test
+   */
+  protected def timed[F[_]: Concurrent: Timer](
+    p: F[Unit],
+    timeout: FiniteDuration = 10.seconds
+  )(implicit pos: Position): F[Unit] =
+    Concurrent
+      .timeout(p.attempt, timeout)
+      .attempt
+      .map(_.flatten)
+      .rethrow
+      .adaptError(adaptError(pos, timeout, prefix = ""))
+
+  private def adaptError(
+    pos: Position,
+    timeout: FiniteDuration,
+    prefix: String = "eventually "
+  ): PartialFunction[Throwable, Throwable] = {
+    def testFailed(cause: Throwable, printCause: Boolean = false) = {
+      if (printCause) cause.printStackTrace(System.err)
+      new TestFailedDueToTimeoutException(
+        _ =>
+          Some(
+            s"${prefix}timed out after $timeout" + Option(cause.getMessage).filter(_ => printCause).fold("")(": " + _)
+          ),
+        Some(cause),
+        pos,
+        None,
+        Span.convertDurationToSpan(timeout)
+      )
+    }
+
+    {
+      case e: TestFailedException =>
+        e.printStackTrace(System.err)
+        e.modifyMessage(m => Some(s"${prefix}timed out after $timeout" + m.fold("")(": " + _)))
+      case e: TimeoutException => testFailed(e)
+      case e                   => testFailed(e, printCause = true)
+    }
+  }
 }
