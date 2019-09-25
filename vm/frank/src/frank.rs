@@ -32,7 +32,8 @@ pub struct Frank {
 // It will allow to use lazy_static here. thread_local isn't suitable in our case because
 // it is difficult to guarantee that jni code will be called on the same thead context
 // every time from the Scala part.
-pub static mut FRANK: Option<Box<Frank>> = None;
+
+//pub static mut FRANK: Option<Box<Frank>> = None;
 
 impl Frank {
     /// Writes given value on the given address.
