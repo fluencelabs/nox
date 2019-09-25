@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import {none, Option} from "ts-option";
+
 /**
  * The result with value as a string from the real-time cluster.
  */
@@ -53,8 +55,8 @@ export class ErrorResponse extends Error {
     }
 }
 
-export function error(errorType: ErrorType, err: string, path: string = "") {
-    return new ErrorResponse(errorType, err, path)
+export function error(errorType: ErrorType, err: string, path: Option<string> = none) {
+    return new ErrorResponse(errorType, err, path.getOrElse(''))
 }
 
 /**
