@@ -1,7 +1,7 @@
 import de.heikoseeberger.sbtheader.HeaderPlugin.autoImport.headerLicense
 import de.heikoseeberger.sbtheader.License
 import org.scalafmt.sbt.ScalafmtPlugin.autoImport.scalafmtOnCompile
-import sbt.Keys._
+import sbt.Keys.{javaOptions, _}
 import sbt.{Def, addCompilerPlugin, taskKey, _}
 import sbtassembly.AssemblyPlugin.autoImport.assemblyMergeStrategy
 import sbtassembly.{MergeStrategy, PathList}
@@ -33,8 +33,23 @@ object SbtCommons {
     scalafmtOnCompile := true,
     // see good explanation https://gist.github.com/djspiewak/7a81a395c461fd3a09a6941d4cd040f2
     scalacOptions ++= Seq("-Ypartial-unification", "-deprecation"),
-    addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0")
+    addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0"),
+    javaOptions in Test ++= Seq(
+      "-XX:MaxMetaspaceSize=4096M",
+      "-Xms5120M",
+      "-Xmx5120M",
+      "-Xss6M",
+      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release"
+    ),
+    javaOptions in IntegrationTest ++= Seq(
+      "-XX:MaxMetaspaceSize=4096M",
+      "-Xms5120M",
+      "-Xmx5120M",
+      "-Xss6M",
+      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release"
+    )
   ) ++ kindProjector
+
 
   val mergeStrategy = Def.setting[String => MergeStrategy]({
     // a module definition fails compilation for java 8, just skip it

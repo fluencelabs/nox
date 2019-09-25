@@ -43,18 +43,11 @@ lazy val `vm` = (project in file("vm"))
       scalaIntegrationTest,
       mockito
     ),
-    javaOptions ++= Seq(
-      "-XX:MaxMetaspaceSize=4096M",
-      "-Xms4120M",
-      "-Xmx5120M",
-      "-Xss6M",
-      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release"
-    ),
     compile in Compile := (compile in Compile)
       .dependsOn(compile in `vm-frank`).value,
     test in IntegrationTest := (test in IntegrationTest)
       .dependsOn(compile in `vm-llamadb`)
-      .value,
+      .value
   )
   .dependsOn(`log`)
   .enablePlugins(AutomateHeaderPlugin)
@@ -131,13 +124,6 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
     libraryDependencies ++= Seq(
       http4sServer,
       scalaTest
-    ),
-    javaOptions ++= Seq(
-      "-XX:MaxMetaspaceSize=4096M",
-      "-Xms4120M",
-      "-Xmx5120M",
-      "-Xss6M",
-      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release"
     ),
     assemblyJarName in assembly       := "statemachine.jar",
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,

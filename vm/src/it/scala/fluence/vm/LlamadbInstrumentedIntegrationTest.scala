@@ -101,8 +101,8 @@ class LlamadbInstrumentedIntegrationTest extends LlamadbIntegrationTestInterface
         vm ← WasmVm[IO](NonEmptyList.one(llamadbFilePath), "fluence.vm.client.2Gb")
         _ ← createTestTable(vm)
 
-        // trying to insert 30 time by ~200 KiB
-        _ = for (_ ← 1 to 30) yield { executeInsert(vm, 200) }.value.unsafeRunSync
+        // trying to insert 10 times by ~200 KiB
+        _ = for (_ ← 1 to 10) yield { executeInsert(vm, 200) }.value.unsafeRunSync
         insertResult ← executeInsert(vm, 1)
 
       } yield {
