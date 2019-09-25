@@ -132,7 +132,13 @@ lazy val `statemachine-docker` = (project in file("statemachine/docker"))
       http4sServer,
       scalaTest
     ),
-    javaOptions += s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release",
+    javaOptions ++= Seq(
+      "-XX:MaxMetaspaceSize=4096M",
+      "-Xms4120M",
+      "-Xmx5120M",
+      "-Xss6M",
+      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release"
+    ),
     assemblyJarName in assembly       := "statemachine.jar",
     assemblyMergeStrategy in assembly := SbtCommons.mergeStrategy.value,
     test in assembly                  := {},
