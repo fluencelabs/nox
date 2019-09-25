@@ -1,7 +1,7 @@
 {
   "name": "fluence",
   "namespace": "fluence",
-  "version": "0.3.13",
+  "version": "0.3.14",
   "description": "Fluence Javascript Client allows you to interact with a Fluence real-time cluster for decentralized computations.",
   "main": "./dist/fluence.js",
   "typings": "./dist/fluence.d.ts",
@@ -11,7 +11,7 @@
     "package:build": "tsc",
     "start:dev": "webpack-dev-server",
     "typechain:generate": "typechain --target=web3-1.0.0 '../bootstrap/contracts/compiled/*.abi'",
-    "prepare": "npm run compile-sol --prefix ../bootstrap/ && npm run typechain:generate && cp ../bootstrap/contracts/compiled/Network.abi src/Network.json && tsc"
+    "prepare": "npm run compile-sol --prefix ../bootstrap/ && npm run typechain:generate && cp ../bootstrap/contracts/compiled/Network.abi src/Network.json && tsc && webpack --mode production"
   },
   "repository": {
     "type": "git",
