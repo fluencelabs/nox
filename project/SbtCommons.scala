@@ -35,16 +35,16 @@ object SbtCommons {
     scalacOptions ++= Seq("-Ypartial-unification", "-deprecation"),
     addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0"),
     javaOptions in Test ++= Seq(
-      "-XX:MaxMetaspaceSize=4096M",
-      "-Xms4096M",
-      "-Xmx4096M",
+      "-XX:MaxMetaspaceSize=4G",
+      "-Xms4G",
+      "-Xmx4G",
       "-Xss6M",
       s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release"
     ),
     javaOptions in IntegrationTest ++= Seq(
-      "-XX:MaxMetaspaceSize=4096M",
-      "-Xms4096M",
-      "-Xmx8192M",
+      "-XX:MaxMetaspaceSize=4G",
+      "-Xms4G",
+      "-Xmx4G",
       "-Xss6M",
       s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release"
     )
