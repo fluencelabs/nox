@@ -43,8 +43,8 @@ object SbtCommons {
     ),
     javaOptions in IntegrationTest ++= Seq(
       "-XX:MaxMetaspaceSize=4096M",
-      "-Xms5120M",
-      "-Xmx5120M",
+      "-Xms4096M",
+      "-Xmx8192M",
       "-Xss6M",
       s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release"
     )
