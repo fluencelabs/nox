@@ -313,23 +313,31 @@ export class WebsocketSession {
     }
 
     /**
+     * If timeout occurred, delete executor from state and do reconnect.
+     *
+     */
+    private onTimeout<T>(requestId: string, message: string) {
+        const executor = this.executors.get(requestId);
+        if (executor) {
+            executor.fail(`Timeout after ${this.timeout} milliseconds. requestId: ${requestId}, msg: ${message}`);
+            if (!this.reconnecting) {
+                this.reconnecting = true;
+                // close current session, it will be reconnected in weboscket `onclose` callback
+                // all pending transactions will be failed
+                this.socket.close(4000, "Timeout occurred. Reconnecting to another node.");
+            }
+        }
+    }
+
+    /**
      * Send a request to websocket and create a promise that will wait for a response.
      */
     private sendAndWaitResponse<T>(requestId: string, message: string): Promise<T> {
         debug(`Sending message ${message}`);
         this.socket.send(message);
 
-        // if timeout occurred, delete executor from state and do reconnect
         const onTimeout = () => {
-            if (this.executors.has(requestId)) {
-                executor.fail(`Timeout after ${this.timeout} milliseconds. requestId: ${requestId}, msg: ${message}`);
-                if (!this.reconnecting) {
-                    this.reconnecting = true;
-                    // close current session, it will be reconnected in weboscket `onclose` callback
-                    // all pending transactions will be failed
-                    this.socket.close(4000, "Timeout occurred. Reconnecting to another node.");
-                }
-            }
+            this.onTimeout(requestId, message)
         };
 
         const onComplete = () => {
