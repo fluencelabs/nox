@@ -31,7 +31,7 @@ import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.statemachine.api.StateMachine
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import fluence.statemachine.docker.DockerStateMachine
-import fluence.worker.api.WorkerStatus
+import fluence.worker.WorkerStatus
 import fluence.worker.responder.WorkerResponder
 
 import scala.concurrent.duration.FiniteDuration
@@ -128,7 +128,7 @@ object DockerWorkerServices {
 
       blockManifests ← WorkerBlockManifests.make[F](receiptStorage)
 
-      apiWorker = fluence.worker.api.Worker(params.appId, stateMachine, producer)
+      apiWorker = fluence.worker.Worker(params.appId, stateMachine, producer)
 
       responder ← WorkerResponder.make(apiWorker)
 

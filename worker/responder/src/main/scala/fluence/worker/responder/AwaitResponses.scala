@@ -28,7 +28,7 @@ import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.statemachine.api.StateMachine
 import fluence.statemachine.api.query.QueryCode
-import fluence.worker.api.Worker
+import fluence.worker.Worker
 import fluence.worker.responder.resp._
 import scodec.bits.ByteVector
 

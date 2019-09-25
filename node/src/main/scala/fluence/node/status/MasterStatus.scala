@@ -21,7 +21,7 @@ import fluence.effects.ethclient.data.{Block, Transaction}
 import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.eth.NodeEthState
 import fluence.node.eth.state.{Cluster, WorkerPeer}
-import fluence.worker.api.WorkerStatus
+import fluence.worker.WorkerStatus
 import io.circe.generic.semiauto._
 import io.circe.{Decoder, Encoder, KeyDecoder, KeyEncoder}
 import scodec.bits.ByteVector

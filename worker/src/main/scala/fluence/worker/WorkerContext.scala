@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.worker.api
+package fluence.worker
 
 import cats.data.EitherT
 import cats.syntax.flatMap._

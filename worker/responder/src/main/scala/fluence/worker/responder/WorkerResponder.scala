@@ -21,7 +21,7 @@ import cats.effect.{Concurrent, Resource, Timer}
 import fluence.bp.tx.TxsBlock
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
-import fluence.worker.api.Worker
+import fluence.worker.Worker
 import fluence.worker.responder.repeat.RepeatOnEveryBlock
 
 import scala.language.higherKinds

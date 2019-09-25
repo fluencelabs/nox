@@ -19,7 +19,7 @@ package fluence.node.workers
 import fluence.bp.api.BlockProducer
 import fluence.statemachine.api.command.PeersControl
 import fluence.statemachine.api.StateMachine
-import fluence.worker.api.WorkerStatus
+import fluence.worker.WorkerStatus
 import fluence.worker.responder.WorkerResponder
 
 import scala.concurrent.duration.FiniteDuration

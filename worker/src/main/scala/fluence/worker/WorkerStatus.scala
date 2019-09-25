@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.worker.api
+package fluence.worker
 
 import fluence.bp.api.BlockProducerStatus
 import fluence.statemachine.api.data.StateMachineStatus

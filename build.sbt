@@ -408,8 +408,7 @@ lazy val `log` = project
   )
   .enablePlugins(AutomateHeaderPlugin)
 
-lazy val `worker-api` = project
-  .in(file("worker/api"))
+lazy val `worker` = project
   .settings(
     commons
   )
@@ -419,7 +418,7 @@ lazy val `worker-api` = project
 lazy val `worker-responder` = project.in(file("worker/responder"))
   .settings(commons)
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`worker-api`, `resources-effects`)
+  .dependsOn(`worker`, `resources-effects`)
 
 lazy val `block-producer-tx` = project
   .in(file("block-producer/tx"))

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.worker.api
+package fluence.worker
 
 sealed abstract class WorkerStage(val hasWorker: Boolean, val hasCompanions: Boolean)
 

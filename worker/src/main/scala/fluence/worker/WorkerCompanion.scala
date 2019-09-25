@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.worker.api
+package fluence.worker
 
 import cats.Monad
 import cats.effect.Resource
