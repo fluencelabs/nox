@@ -1,3 +1,6 @@
+import * as randomstring from "randomstring";
+import {TxRequest} from "./TendermintClient";
+
 export type PrivateKey = Buffer
 
 const sha256 = require("sha256");
@@ -73,4 +76,35 @@ export function withSignature(payload: string, nonce: number, privateKey?: Priva
     let withNonce = `${nonce}\n${payload}`;
     let sig = sign(withNonce, privateKey);
     return `${sig}\n${withNonce}`;
+}
+
+export function genSessionId(): string {
+    return randomstring.generate(12);
+}
+
+export function genRequestId(): string {
+    return randomstring.generate(8);
+}
+
+/**
+ * Generates a key, that will be an identifier of the request.
+ */
+export function generateHeader(session: string, counter: number) {
+    return `${session}/${counter}`;
+}
+
+/**
+ * Checks if everything ok with the session before a request will be sent.
+ * Builds a request.
+ */
+export function prepareRequest(payload: string, session: string, currentCounter: number, privateKey?: PrivateKey): TxRequest {
+    // increments counter at the start, if some error occurred, other requests will be canceled in `cancelAllPromises`
+    let signed = withSignature(payload, currentCounter, privateKey);
+    let header = generateHeader(session, currentCounter);
+    let tx = `${header}\n${signed}`;
+
+    return  {
+        path: header,
+        payload: tx
+    }
 }

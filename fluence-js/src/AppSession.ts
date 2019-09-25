@@ -4,10 +4,6 @@ import {getWorkerStatus} from "./contract";
 import {RequestState, RequestStatus, Session} from "./Session";
 import {ErrorType, Result} from "./Result";
 
-let debug = require('debug');
-// disable debug by default
-debug.disable();
-
 // All sessions with workers from an app
 export class AppSession {
     private sessionId: string;
@@ -107,7 +103,7 @@ export class AppSession {
     }
 
     /**
-     * Returns a response by requestId.
+     * Returns a response by request_id.
      *
      * @param requestId id of request
      *

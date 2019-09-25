@@ -20,8 +20,9 @@ import {Session} from "./Session";
 import {SessionConfig} from "./SessionConfig";
 import {Result} from "./Result";
 import {getAppNodes, Node} from "./contract"
-import {remove0x, secp256k1, parseHost} from "./utils";
+import {remove0x, secp256k1, parseHost, genSessionId} from "./utils";
 import {AppSession} from "./AppSession";
+import {WebsocketSession} from "./WebsocketSession";
 
 export {
     TendermintClient as TendermintClient,
@@ -30,6 +31,22 @@ export {
     Result as Result,
     SessionConfig as SessionConfig,
     AppSession as AppSession
+}
+
+let defaultContract = "0xeFF91455de6D4CF57C141bD8bF819E5f873c1A01";
+
+export let debug = require('debug')('fluence');
+export let debugI = require('debug');
+
+// debug logs are disabled by default
+debugI.disable();
+
+export function enableDebug() {
+    debugI.enable("fluence");
+}
+
+export function disableDebug() {
+    debugI.disable();
 }
 
 // A session with a worker with info about a worker
@@ -59,12 +76,14 @@ function convertPrivateKey(privateKey?: Buffer | string): undefined | Buffer {
  * @param ethereumUrl Optional ethereum node url. Connect via Metamask if `ethereumlUrl` is undefined
  * @param privateKey Optional private key to sign requests. Signature is concatenated to the request payload.
  */
-export async function connect(contract: string, appId: string, ethereumUrl?: string, privateKey?: Buffer | string): Promise<AppSession> {
+export async function connect(appId: string, contract?: string, ethereumUrl?: string, privateKey?: Buffer | string): Promise<AppSession> {
 
     privateKey = convertPrivateKey(privateKey);
 
+    contract = contract ? contract : defaultContract;
+
     let nodes: Node[] = await getAppNodes(contract, appId, ethereumUrl);
-    let sessionId = Session.genSessionId();
+    let sessionId = genSessionId();
     let sessions: WorkerSession[] = nodes.map(node => {
         let session = sessionConnect(node.ip_addr, node.api_port, appId, sessionId);
         return {
@@ -107,4 +126,19 @@ export function directConnect(host: string, port: number, appId: string, session
     ];
 
     return new AppSession(session.session, appId, sessions, privateKey);
+}
+
+/**
+ *
+ * @param contract Contract address to read app's nodes list from
+ * @param appId Target app
+ * @param ethereumUrl Optional ethereum node url. Connect via Metamask if `ethereumlUrl` is undefined
+ * @param privateKey Optional private key to sign requests. Signature is concatenated to the request payload.
+ */
+export async function websocket(appId: string, contract?: string, ethereumUrl?: string, privateKey?: Buffer | string): Promise<WebsocketSession> {
+    privateKey = convertPrivateKey(privateKey);
+    contract = contract ? contract : defaultContract;
+    let nodes: Node[] = await getAppNodes(contract, appId, ethereumUrl);
+
+    return WebsocketSession.create(appId, nodes, privateKey);
 }
