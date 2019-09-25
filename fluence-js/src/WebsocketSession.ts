@@ -337,9 +337,7 @@ export class WebsocketSession {
         };
 
         const executor: PromiseExecutor<T> = new PromiseExecutor<T>(onComplete, onTimeout, this.timeout);
-
         this.executors.set(requestId, executor);
-
         return executor.promise
     }
 
