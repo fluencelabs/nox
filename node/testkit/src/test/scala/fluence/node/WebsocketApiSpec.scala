@@ -18,7 +18,7 @@ package fluence.node
 
 import cats.effect.concurrent.Ref
 import cats.effect.{ContextShift, IO, Timer}
-import fluence.Eventually
+import fluence.Timed
 import fluence.effects.tendermint.block.data.Header
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError}
 import fluence.log.{Log, LogFactory}
@@ -58,7 +58,7 @@ import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.higherKinds
 
-class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll with Eventually {
+class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll with Timed {
 
   import fluence.node.workers.api.websocket.WebsocketRequests.WebsocketRequest._
   import fluence.node.workers.api.websocket.WebsocketResponses.WebsocketResponse._
