@@ -145,8 +145,8 @@ class RepeatOnEveryBlockSpec extends WordSpec with OptionValues with Matchers {
     }
 
     "receive tx results for several subs" in {
-      val N = 10
-      val S = 5
+      val S = 5 // Number of subscriptions
+      val N = 10 // Number of events expected from each subscription
       val events = onEveryBlock.use {
         case (onEveryBlock, producer) =>
           produceBlocks(producer) >>= { fiber =>
