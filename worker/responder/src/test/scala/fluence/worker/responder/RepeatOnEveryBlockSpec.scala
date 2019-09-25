@@ -18,15 +18,17 @@ package fluence.worker.responder
 
 import shapeless._
 import cats.data.EitherT
-import cats.effect.concurrent.Ref
-import cats.effect.{ContextShift, IO, Resource, Timer}
+import cats.effect.concurrent.{Deferred, Ref}
+import cats.effect.{Concurrent, ContextShift, IO, Resource, Timer}
 import cats.syntax.apply._
 import cats.syntax.applicative._
 import cats.syntax.functor._
 import cats.syntax.flatMap._
+import fluence.bp.api.BlockProducer
 import fluence.bp.api.BlockProducer.Aux
 import fluence.bp.embedded.{EmbeddedBlockProducer, SimpleBlock}
 import fluence.bp.tx.{Tx, TxCode, TxResponse}
+import fluence.effects.resources.MakeResource
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
 import fluence.statemachine.api.StateMachine
@@ -55,17 +57,16 @@ class RepeatOnEveryBlockSpec extends WordSpec with OptionValues with Matchers {
   implicit private val backoff: Backoff[EffectError] = Backoff.default[EffectError]
 
   implicit private val log: Log[IO] =
-    LogFactory.forPrintln[IO](Log.Error).init("MasterNodeIntegrationSpec").unsafeRunSync()
+    LogFactory.forPrintln[IO](Log.Error).init("RepeatOnEveryBlockSpec").unsafeRunSync()
 
-  val txMap = Ref.of[IO, Map[String, Array[Byte]]](Map.empty)
-  val heightRef = Ref.of[IO, Long](0)
+  private val txMap = Ref.of[IO, Map[String, Array[Byte]]](Map.empty)
+  private val heightRef = Ref.of[IO, Long](0)
 
-  def embdeddedStateMachine(txMap: Ref[IO, Map[String, Array[Byte]]], heightRef: Ref[IO, Long]) =
+  private def embdeddedStateMachine(txMap: Ref[IO, Map[String, Array[Byte]]], heightRef: Ref[IO, Long]) =
     new StateMachine.ReadOnly[IO] {
       override def query(path: String)(implicit log: Log[IO]): EitherT[IO, EffectError, QueryResponse] =
         EitherT(
           for {
-            _ <- IO(println(s"query $path"))
             m <- txMap.get
             h <- heightRef.get
           } yield m
@@ -75,61 +76,67 @@ class RepeatOnEveryBlockSpec extends WordSpec with OptionValues with Matchers {
         )
 
       override def status()(implicit log: Log[IO]): EitherT[IO, EffectError, StateMachineStatus] =
-        EitherT.left(IO(println(s"status")).as(TestErrorNotImplemented("def status")))
+        EitherT.leftT(TestErrorNotImplemented("def status"))
 
     }.extend[TxProcessor[IO]](new TxProcessor[IO] {
       override def processTx(txData: Array[Byte])(implicit log: Log[IO]): EitherT[IO, EffectError, TxResponse] =
         for {
-          _ <- EitherT.right(IO(println(s"processTx")))
           path <- EitherT.fromOption[IO](Tx.splitTx(txData).map(_._1), TestErrorMalformedTx(txData))
           _ <- EitherT.right[EffectError](txMap.update(_.updated(path, txData)))
         } yield TxResponse(TxCode.OK, "")
 
       override def checkTx(txData: Array[Byte])(implicit log: Log[IO]): EitherT[IO, EffectError, TxResponse] =
-        EitherT.right(IO(println(s"checkTx")).as(TxResponse(TxCode.OK, "")))
+        EitherT.rightT(TxResponse(TxCode.OK, ""))
 
       override def commit()(implicit log: Log[IO]): EitherT[IO, EffectError, StateHash] =
-        EitherT.right(
-          IO(println(s"commit")) *> heightRef.modify(h => (h + 1, h + 1)).map(h => StateHash(h, ByteVector.empty))
-        )
+        EitherT.right(heightRef.modify(h => (h + 1, h + 1)).map(h => StateHash(h, ByteVector.empty)))
     })
 
-  val machineF = Resource.liftF((txMap, heightRef).mapN(embdeddedStateMachine))
+  private val machineF = Resource.liftF((txMap, heightRef).mapN(embdeddedStateMachine))
 
-  val producer = (EmbeddedBlockProducer.apply[IO, TxProcessor[IO] :: HNil](_)).andThen(Resource.liftF(_))
+  private val producer = (EmbeddedBlockProducer.apply[IO, TxProcessor[IO] :: HNil](_)).andThen(Resource.liftF(_))
 
-  val onEveryBlock = for {
+  private val onEveryBlock = for {
     machine <- machineF
     producer <- producer(machine)
     worker = Worker(0L, machine, producer)
     awaitResponses <- AwaitResponses.make(worker)
     sendAndWait = SendAndWait(producer, awaitResponses)
     onEveryBlock <- RepeatOnEveryBlock.make(producer, sendAndWait)
-  } yield (onEveryBlock, machine)
+  } yield (onEveryBlock, producer: BlockProducer.AuxB[IO, SimpleBlock])
 
-  val sessionId: IO[String] = IO(Random.alphanumeric.take(8).mkString)
-  def genTx(body: String) = sessionId.map(sid => Tx(Tx.Head(sid, 0), Tx.Data(body.getBytes)).generateTx())
-  def right[T](v: IO[T]) = EitherT.right[EffectError](v)
+  private val sessionId: IO[String] = IO(Random.alphanumeric.take(8).mkString)
+  private def genTx(body: String) = sessionId.map(sid => Tx(Tx.Head(sid, 0), Tx.Data(body.getBytes)).generateTx())
+  private def right[T](v: IO[T]) = EitherT.right[EffectError](v)
 
-  def sendTx(machine: StateMachine.Aux[IO, TxProcessor[IO] :: HNil], tx: String) =
-    right(genTx(tx)).flatMap(machine.command.processTx(_))
+  private def sendTx(producer: BlockProducer.AuxB[IO, SimpleBlock], tx: String) =
+    right(genTx(tx)).flatMap(producer.sendTx)
 
-  def produceBlock(machine: StateMachine.Aux[IO, TxProcessor[IO] :: HNil]) =
-    sendTx(machine, tx = "single tx produces block on embedded block producer")
+  private def produceBlock(producer: BlockProducer.AuxB[IO, SimpleBlock]) =
+    sendTx(producer, tx = "single tx produces block on embedded block producer")
+
+  private def produceBlocks(producer: BlockProducer.AuxB[IO, SimpleBlock]) =
+    Concurrent[IO].start(
+      fs2
+        .Stream(1)
+        .repeat
+        .evalMap(_ => produceBlock(producer).value)
+        .compile
+        .drain
+    )
 
   "on every block" should {
     "receive tx result" in {
       val events = onEveryBlock.use {
-        case (onEveryBlock, machine) =>
-          produceBlock(machine).value.flatTap(e => IO(s"produceBlock: $e")) *>
+        case (onEveryBlock, producer) =>
+          produceBlocks(producer) >>= { fiber =>
             onEveryBlock
               .subscribe(SubscriptionKey("id", "hash"), Tx.Data("some tx".getBytes))
-              .flatTap(_ => IO("subcribed"))
-              .flatTap(_ => produceBlock(machine).value)
-              .flatMap(s => s.take(10).evalTap(e => IO(println(s"event: $e"))).compile.toList)
-      }.unsafeRunTimed(10.seconds)
+              .flatMap(s => s.take(10).compile.toList)
+              .flatTap(_ => fiber.cancel)
+          }
+      }.unsafeRunTimed(2.seconds)
 
-      println("events are: " + events)
       events shouldBe defined
       events.value.length shouldBe 10
     }

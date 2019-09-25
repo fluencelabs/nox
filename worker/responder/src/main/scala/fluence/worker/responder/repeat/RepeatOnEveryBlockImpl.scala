@@ -24,20 +24,21 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.syntax.traverse._
 import fluence.bp.api.BlockProducer
-import fluence.bp.tx.Tx
+import fluence.bp.tx.{Tx, TxsBlock}
 import fluence.effects.resources.MakeResource
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.worker.responder.resp.{AwaitedResponse, TxAwaitError}
 import fluence.worker.responder.{AwaitResponses, SendAndWait}
 import fs2.concurrent.{SignallingRef, Topic}
+import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 import scala.util.Random
 
-private[repeat] class RepeatOnEveryBlockImpl[F[_]: Timer: Concurrent](
+private[repeat] class RepeatOnEveryBlockImpl[F[_]: Timer: Concurrent, B: TxsBlock](
   subscriptions: Ref[F, Map[String, Subscription[F]]],
-  producer: BlockProducer[F],
+  producer: BlockProducer.AuxB[F, B],
   waitResponseService: SendAndWait[F]
 )(
   implicit backoff: Backoff[EffectError]
@@ -109,11 +110,25 @@ private[repeat] class RepeatOnEveryBlockImpl[F[_]: Timer: Concurrent](
         _ <- Log.resource.info("Creating subscription for tendermint blocks")
         blockStream = producer.blockStream(fromHeight = None)
         pollingStream = blockStream
-          .evalTap(b => log.trace(s"got block ${b}"))
+          .evalTap(
+            b =>
+              log.debug(
+                s"got block ${TxsBlock[B]
+                  .height(b)} nonEmptyBlock: ${nonEmptyBlock(b)} ${TxsBlock[B].txs(b).map(_.takeWhile(_ != '\n'.toByte).decodeUtf8).mkString(", ")}"
+              )
+          )
+          .filter(nonEmptyBlock)
           .evalMap(_ => processSubscriptions())
         _ <- MakeResource.concurrentStream(pollingStream)
       } yield ()
     }
+
+  /**
+   * @return true if block contains any non-pubsub txs, false otherwise
+   */
+  private def nonEmptyBlock(block: B): Boolean = TxsBlock[B].txs(block).exists(!isRepeatTx(_))
+
+  private def isRepeatTx(tx: ByteVector) = tx.startsWith(RepeatOnEveryBlockImpl.SessionPrefixBytes)
 
   /**
    * Generates unique header for transaction and call sentTxAwaitResponse
@@ -132,7 +147,7 @@ private[repeat] class RepeatOnEveryBlockImpl[F[_]: Timer: Concurrent](
     Sync[F]
       .delay(Random.alphanumeric.take(8).mkString)
       .map(
-        rnd => s"${AwaitResponses.RepeatSessionPrefix}-$key-$rnd"
+        rnd => s"${RepeatOnEveryBlockImpl.SessionPrefix}-$key-$rnd"
       )
 
   private def processSubscriptions()(implicit log: Log[F]) = {
@@ -151,4 +166,9 @@ private[repeat] class RepeatOnEveryBlockImpl[F[_]: Timer: Concurrent](
       _ <- tasks.toList.traverse(Concurrent[F].start)
     } yield ()
   }
+}
+
+object RepeatOnEveryBlockImpl {
+  private val SessionPrefix = "repeat"
+  private val SessionPrefixBytes = ByteVector(SessionPrefix.getBytes)
 }
