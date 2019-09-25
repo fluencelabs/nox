@@ -36,8 +36,8 @@ object SbtCommons {
     addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0"),
     javaOptions in Test ++= Seq(
       "-XX:MaxMetaspaceSize=4096M",
-      "-Xms5120M",
-      "-Xmx5120M",
+      "-Xms4096M",
+      "-Xmx4096M",
       "-Xss6M",
       s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release"
     ),

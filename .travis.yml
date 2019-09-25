@@ -19,6 +19,7 @@ _scala_fluence_template: &_scala_fluence_template
       - $HOME/.sbt/boot
       - $HOME/.sbt/launchers
       - bootstrap/node_modules
+      - $HOME/.cargo
       - vm/src/it/recources/llama_db.wasm
       - vm/src/it/recources/llama_db_prepared.wasm
 
@@ -45,6 +46,5 @@ matrix:
       script:
         - export TRAVIS=true
         - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M compile
-        # Some tests in LlamadbIntegrationTest require 2 Gb RAM
         - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION it:test
       if: branch = master OR type = pull_request

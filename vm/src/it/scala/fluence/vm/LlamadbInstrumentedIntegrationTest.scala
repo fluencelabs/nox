@@ -107,7 +107,7 @@ class LlamadbInstrumentedIntegrationTest extends LlamadbIntegrationTestInterface
 
       } yield {
         checkTestResult(insertResult, "rows inserted")
-        insertResult.spentGas should equal(1469167L)
+        insertResult.spentGas should equal(1441650L)
 
       }).success()
     }
