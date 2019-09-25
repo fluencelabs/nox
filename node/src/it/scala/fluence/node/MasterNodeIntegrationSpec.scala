@@ -22,21 +22,19 @@ import cats.effect._
 import com.softwaremill.sttp.asynchttpclient.fs2.AsyncHttpClientFs2Backend
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
-import fluence.effects.ethclient.EthClient
-import fluence.node.eth.{FluenceContract, NodeEthState}
-import fluence.node.status.MasterStatus
-import fluence.node.workers.status.WorkerStatus
-import org.scalatest.{Timer => _, _}
-import eth.FluenceContractTestOps._
 import fluence.Eventually
+import fluence.effects.ethclient.EthClient
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.FluenceContractConfig
+import fluence.node.eth.FluenceContractTestOps._
+import fluence.node.eth.{FluenceContract, NodeEthState}
+import fluence.node.status.MasterStatus
+import org.scalatest.{Timer => _, _}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.higherKinds
 import scala.sys.process._
-import scala.util.Try
 
 /**
  * This test contains a single test method that checks:
