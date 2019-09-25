@@ -65,7 +65,6 @@ trait WasmVm {
 }
 
 object WasmVm {
-
   val javaLibPath: String = System.getProperty("java.library.path")
   println(s"java.library.path = $javaLibPath")
 
@@ -99,4 +98,5 @@ object WasmVm {
     } yield new FrankWasmVm(
       vmRunnerInvoker
     )
+
 }

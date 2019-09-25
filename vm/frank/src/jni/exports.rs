@@ -19,17 +19,12 @@
 use jni::JNIEnv;
 use crate::config::Config;
 use crate::errors::FrankError;
-use crate::frank::Frank;
+use crate::frank::{Frank, FRANK};
 use crate::frank_result::FrankResult;
 use crate::jni::jni_results::*;
 use jni::objects::{JClass, JObject, JString};
 use jni::sys::jbyteArray;
 use sha2::digest::generic_array::GenericArray;
-use std::sync::Mutex;
-
-lazy_static! {
-    static ref FRANK: Mutex<Option<Box<Frank>>> = Mutex::new(None);
-}
 
 /// Initializes Frank virtual machine.
 #[no_mangle]
@@ -48,8 +43,7 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_initialize<'a>(
         let config = Config::new(&env, config)?;
         let executor = Box::new(Frank::new(&file_name, config)?);
 
-        let mut vm = FRANK.lock().unwrap();
-        *vm = Some(executor);
+        unsafe { FRANK = Some(executor) };
 
         Ok(())
     }
@@ -78,11 +72,11 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_invoke<'a>(
         };
         std::mem::forget(input);
 
-        let mut frank = FRANK.lock().unwrap();
-
-        match *frank {
-            Some(ref mut vm) => Ok(vm.invoke(&u8_input)?),
-            None => Err(FrankError::FrankNotInitialized),
+        unsafe {
+            match FRANK {
+                Some(ref mut vm) => Ok(vm.invoke(&u8_input)?),
+                None => Err(FrankError::FrankNotInitialized),
+            }
         }
     }
 
@@ -100,17 +94,17 @@ pub extern "system" fn Java_fluence_vm_frank_FrankAdapter_computeVmState<'a>(
     env: JNIEnv<'a>,
     _class: JClass,
 ) -> JObject<'a> {
-    let mut frank = FRANK.lock().unwrap();
-
-    match *frank {
-        Some(ref mut vm) => {
-            let state = vm.compute_vm_state_hash();
-            create_state_computation_result(&env, None, state)
+    unsafe {
+        match FRANK {
+            Some(ref mut vm) => {
+                let state = vm.compute_vm_state_hash();
+                create_state_computation_result(&env, None, state)
+            }
+            None => create_state_computation_result(
+                &env,
+                Some(format!("{}", FrankError::FrankNotInitialized)),
+                GenericArray::default(),
+            ),
         }
-        None => create_state_computation_result(
-            &env,
-            Some(format!("{}", FrankError::FrankNotInitialized)),
-            GenericArray::default(),
-        ),
     }
 }

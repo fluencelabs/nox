@@ -50,7 +50,6 @@ object SbtCommons {
     )
   ) ++ kindProjector
 
-
   val mergeStrategy = Def.setting[String => MergeStrategy]({
     // a module definition fails compilation for java 8, just skip it
     case PathList("module-info.class", xs @ _*)  => MergeStrategy.first

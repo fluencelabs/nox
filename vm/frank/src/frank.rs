@@ -32,8 +32,7 @@ pub struct Frank {
 // It will allow to use lazy_static here. thread_local isn't suitable in our case because
 // it is difficult to guarantee that jni code will be called on the same thead context
 // every time from the Scala part.
-
-//pub static mut FRANK: Option<Box<Frank>> = None;
+pub static mut FRANK: Option<Box<Frank>> = None;
 
 impl Frank {
     /// Writes given value on the given address.
@@ -43,9 +42,9 @@ impl Frank {
         for (byte_id, cell) in memory.view::<u8>()[address as usize..(address + value.len())]
             .iter()
             .enumerate()
-        {
-            cell.set(value[byte_id]);
-        }
+            {
+                cell.set(value[byte_id]);
+            }
 
         Ok(())
     }
@@ -57,7 +56,7 @@ impl Frank {
         let mut result_size: usize = 0;
 
         for (byte_id, cell) in memory.view::<u8>()[address..address + 4].iter().enumerate() {
-            result_size |= (cell.get() << (8 * byte_id as u8)) as usize;
+            result_size |= (cell.get() as usize) << 8 * byte_id;
         }
 
         let mut result = Vec::<u8>::with_capacity(result_size);

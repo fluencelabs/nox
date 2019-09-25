@@ -20,6 +20,3 @@ mod frank;
 mod frank_result;
 mod jni;
 mod modules;
-
-#[macro_use]
-extern crate lazy_static;

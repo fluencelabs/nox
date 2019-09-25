@@ -18,7 +18,7 @@ name = "frank"
 path = "src/main.rs"
 
 [dependencies]
-wasmer-runtime = {git = "https://github.com/wasmerio/wasmer", version = "0.7.0", features = ["cranelift"]}
+wasmer-runtime = {version = "0.6.0", features = ["singlepass"]}
 jni = "0.13.1"
 failure = "0.1.5"
 lazy_static = "1.4.0"
