@@ -56,4 +56,18 @@ abstract class WorkerCompanion[F[_]: Monad, T] {
 
 object WorkerCompanion {
   type Aux[F[_], T, W0 <: Worker[F]] = WorkerCompanion[F, T] { type W = W0 }
+
+  def fromWorker[F[_]: Monad, W0 <: Worker[F], T](fn: W0 ⇒ T): Aux[F, T, W0] =
+    new WorkerCompanion[F, T] {
+      override type W = W0
+
+      override def resource(worker: W0)(implicit log: Log[F]): Resource[F, T] = Resource.pure(fn(worker))
+    }
+
+  def fromWorkerF[F[_]: Monad, W0 <: Worker[F], T](fn: W0 ⇒ F[T]): Aux[F, T, W0] =
+    new WorkerCompanion[F, T] {
+      override type W = W0
+
+      override def resource(worker: W0)(implicit log: Log[F]): Resource[F, T] = Resource.liftF(fn(worker))
+    }
 }

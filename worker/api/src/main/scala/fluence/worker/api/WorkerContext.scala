@@ -51,11 +51,9 @@ trait WorkerContext[F[_]] {
 
   def resources: Resources
 
-  type W <: Worker[F]
-
   type Companions
 
-  def worker: EitherT[F, WorkerStage, W]
+  def worker: EitherT[F, WorkerStage, Worker[F]]
 
   def companions: EitherT[F, WorkerStage, Companions]
 
@@ -76,10 +74,9 @@ trait WorkerContext[F[_]] {
 
 object WorkerContext {
 
-  type Aux[F[_], R, W0 <: Worker[F], C] = WorkerContext[F] {
+  type Aux[F[_], R, C] = WorkerContext[F] {
     type Resources = R
     type Companions = C
-    type W = W0
   }
 
   def apply[F[_]: Concurrent, R, W0 <: Worker[F], C](
@@ -88,7 +85,7 @@ object WorkerContext {
     workerResource: WorkerResource[F, R],
     worker: R ⇒ Resource[F, W0],
     companions: WorkerCompanion.Aux[F, C, W0]
-  )(implicit log: Log[F]): F[WorkerContext.Aux[F, R, W0, C]] =
+  )(implicit log: Log[F]): F[WorkerContext.Aux[F, R, C]] =
     workerResource.prepare() >>= { res ⇒
       for {
         // Provide WorkerStage info within Ref for regular access, and with Queue to enable subscriptions
@@ -101,7 +98,7 @@ object WorkerContext {
 
         // We will get Worker, Companions and Stop callback later
         // TODO: if we want contect to be restartable, these needs to be Queues?
-        workerDef ← Deferred[F, W0]
+        workerDef ← Deferred[F, Worker[F]]
         companionsDef ← Deferred[F, C]
         stopDef ← Deferred[F, F[Unit]]
 
@@ -145,13 +142,12 @@ object WorkerContext {
 
         override val resources: Resources = res
 
-        override type W = W0
         override type Companions = C
 
-        override def worker: EitherT[F, WorkerStage, W] =
+        override def worker: EitherT[F, WorkerStage, Worker[F]] =
           EitherT(stage.flatMap {
             case s if s.hasWorker ⇒ workerDef.get.map(_.asRight)
-            case s ⇒ s.asLeft[W].pure[F]
+            case s ⇒ s.asLeft[Worker[F]].pure[F]
           })
 
         override def companions: EitherT[F, WorkerStage, C] =
