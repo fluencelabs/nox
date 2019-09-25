@@ -72,10 +72,10 @@ class RepeatOnEveryBlockSpec extends WordSpec with OptionValues with Matchers {
           for {
             m <- txMap.get
             h <- heightRef.get
-          } yield m
-            .get(path)
-            .map(QueryResponse(h, _, QueryCode.Ok, ""))
-            .toRight(TestErrorNoSuchTx(path))
+          } yield
+            m.get(path)
+              .map(QueryResponse(h, _, QueryCode.Ok, ""))
+              .toRight(TestErrorNoSuchTx(path))
         )
 
       override def status()(implicit log: Log[IO]): EitherT[IO, EffectError, StateMachineStatus] =
@@ -159,7 +159,7 @@ class RepeatOnEveryBlockSpec extends WordSpec with OptionValues with Matchers {
             // Subscribe S times
             (1 to S).toList
               .traverse(sub)
-              .flatMap(ss => fs2.Stream(ss: _*).covary[IO].parJoinUnbounded.compile.toList)
+              .flatMap(ss => fs2.Stream(ss: _*).parJoinUnbounded.compile.toList)
               .flatTap(_ => fiber.cancel)
           }
       }.unsafeRunTimed(2.seconds)
