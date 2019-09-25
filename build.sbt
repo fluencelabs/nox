@@ -416,9 +416,14 @@ lazy val `worker` = project
   .dependsOn(`statemachine-api`, `block-producer-api`, `resources-effects`)
 
 lazy val `worker-responder` = project.in(file("worker/responder"))
-  .settings(commons)
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      scalaTest
+    )
+  )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`worker`, `resources-effects`)
+  .dependsOn(`worker`, `resources-effects`, `block-producer-embedded` % "test->compile")
 
 lazy val `block-producer-tx` = project
   .in(file("block-producer/tx"))

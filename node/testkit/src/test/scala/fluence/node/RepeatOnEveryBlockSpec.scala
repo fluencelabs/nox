@@ -25,16 +25,14 @@ import cats.syntax.monad._
 import cats.syntax.traverse._
 import cats.instances.list._
 import fluence.Eventually
+import fluence.bp.tx.Tx
 import fluence.effects.tendermint.rpc.TestData
 import fluence.effects.tendermint.block.data.Block
 import fluence.log.LogFactory.Aux
 import fluence.log.appender.PrintlnLogAppender
 import fluence.log.{Log, LogFactory}
-import fluence.node.workers.api.websocket.WorkerWebsocket.SubscriptionKey
-import fluence.node.workers.subscription.PerBlockTxExecutor.TendermintResponse
-import fluence.node.workers.subscription._
-import fluence.statemachine.api.tx.Tx
-import fluence.worker.responder.{OkResponse, SendAndWait}
+import fluence.worker.responder.repeat.{RepeatOnEveryBlock, SubscriptionKey}
+import fluence.worker.responder.SendAndWait
 import fluence.worker.responder.resp.{AwaitedResponse, OkResponse, TxAwaitError}
 import org.scalatest.{EitherValues, Matchers, OptionValues, WordSpec}
 
@@ -65,7 +63,7 @@ class RepeatOnEveryBlockSpec extends WordSpec with Eventually with Matchers with
             _ <- counter.put(k + 1)
           } yield Right(OkResponse(Tx.Head("a", k), ""))
       }
-      storedProcedureExecutor <- PerBlockTxExecutor.make[IO](
+      storedProcedureExecutor <- RepeatOnEveryBlock.make[IO](
         tendermint.tendermint,
         tendermint.tendermint,
         waitResponseService
@@ -90,7 +88,7 @@ class RepeatOnEveryBlockSpec extends WordSpec with Eventually with Matchers with
       )
     } yield StreamInfo(events.get, stopped.get)
 
-  "StoredProcedureExecutor" should {
+  "RepeatOnEveryBlock" should {
     "be able to process subscribes, publish events through subscribers and close streams on unsubscribe" in {
       start().use {
         case (executor, blockQ) =>
