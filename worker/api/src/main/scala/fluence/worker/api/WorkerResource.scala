@@ -16,15 +16,12 @@
 
 package fluence.worker.api
 
-import cats.{Applicative, Parallel}
+import cats.{Applicative, Apply, Functor, Monad}
 import cats.data.EitherT
-import cats.syntax.parallel._
-import cats.syntax.apply._
 import cats.syntax.applicative._
-import cats.instances.either._
+import cats.syntax.functor._
 import fluence.effects.EffectError
 import fluence.log.Log
-import shapeless._
 
 import scala.language.higherKinds
 
@@ -38,29 +35,38 @@ import scala.language.higherKinds
  * @tparam T Resource type. Note: resource should be provided ASAP, with no fiber blocking. If you need, run a concurrent process.
  */
 trait WorkerResource[F[_], T] {
-
   def prepare()(implicit log: Log[F]): F[T]
 
-  def remove()(implicit log: Log[F]): EitherT[F, EffectError, Unit]
-
+  def destroy()(implicit log: Log[F]): EitherT[F, EffectError, Unit]
 }
 
 object WorkerResource {
-  abstract class Extensible[F[_]: Applicative: Parallel, R <: HList] extends WorkerResource[F, R] {
-    self ⇒
+  implicit def workerResourceFunctor[F[_]: Functor]: Functor[WorkerResource[F, *]] =
+    new Functor[WorkerResource[F, *]] {
+      override def map[A, B](fa: WorkerResource[F, A])(f: A ⇒ B): WorkerResource[F, B] =
+        new WorkerResource[F, B] {
+          override def prepare()(implicit log: Log[F]): F[B] = fa.prepare().map(f)
 
-    def extend[T](resource: WorkerResource[F, T]): Extensible[F, T :: R] = new Extensible[F, T :: R] {
-      override def prepare()(implicit log: Log[F]): F[T :: R] =
-        (resource.prepare(), self.prepare()).parMapN(_ :: _)
-
-      override def remove()(implicit log: Log[F]): EitherT[F, EffectError, Unit] =
-        EitherT((self.remove().value, resource.remove().value).parMapN((a, b) ⇒ a *> b ))
+          override def destroy()(implicit log: Log[F]): EitherT[F, EffectError, Unit] = fa.destroy()
+        }
     }
-  }
 
-  def empty[F[_]: Applicative: Parallel]: WorkerResource[F, HNil] = new Extensible[F, HNil] {
-    override def prepare()(implicit log: Log[F]): F[HNil] = (HNil: HNil).pure[F]
+  implicit def workerResourceApplicative[F[_]: Monad]: Applicative[WorkerResource[F, *]] =
+    new Applicative[WorkerResource[F, *]] {
+      override def pure[A](x: A): WorkerResource[F, A] =
+        new WorkerResource[F, A] {
+          override def prepare()(implicit log: Log[F]): F[A] = x.pure[F]
 
-    override def remove()(implicit log: Log[F]): EitherT[F, EffectError, Unit] = EitherT.rightT(())
-  }
+          override def destroy()(implicit log: Log[F]): EitherT[F, EffectError, Unit] = EitherT.pure(())
+        }
+
+      override def ap[A, B](ff: WorkerResource[F, A ⇒ B])(fa: WorkerResource[F, A]): WorkerResource[F, B] =
+        new WorkerResource[F, B] {
+          override def prepare()(implicit log: Log[F]): F[B] =
+            Applicative[F].ap(ff.prepare())(fa.prepare())
+
+          override def destroy()(implicit log: Log[F]): EitherT[F, EffectError, Unit] =
+            Apply[EitherT[F, EffectError, *]].productR(ff.destroy())(fa.destroy())
+        }
+    }
 }

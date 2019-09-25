@@ -113,12 +113,7 @@ class WorkerWebsocket[F[_]: Concurrent](
         workerApi
           .sendTxAwaitResponse(tx)
           .map(toWebsocketResponse(requestId, _))
-      case StatusRequest(requestId) =>
-        // TODO
-        workerApi.tendermintStatus().map {
-          case Right(status) => StatusResponse(requestId, status)
-          case Left(error)   => ErrorResponse(requestId, error.getMessage)
-        }
+
       case P2pPortRequest(requestId) => workerApi.p2pPort().map(port => P2pPortResponse(requestId, port))
       case SubscribeRequest(requestId, subscriptionId, tx) =>
         val txData = Tx.Data(tx.getBytes())

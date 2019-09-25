@@ -81,7 +81,7 @@ object Worker {
       def status(
         timeout: FiniteDuration
       )(implicit log: Log[F], timer: Timer[F], c: Concurrent[F], p: Parallel[F]): F[WorkerStatus] = {
-        val sleep = Timer[F].sleep(timeout).as(s"status timed out after $timeout")
+        val sleep = Timer[F].sleep(timeout).as(s"Status timed out after $timeout")
         def ask[T](e: EitherT[F, EffectError, T]) = c.race(sleep, e.leftMap(_.toString).value).map(_.flatten)
 
         p.sequential(

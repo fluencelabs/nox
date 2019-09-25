@@ -16,15 +16,42 @@
 
 package fluence.worker.api
 
+import cats.Monad
 import cats.effect.Resource
 import fluence.log.Log
 
 import scala.language.higherKinds
 
-trait WorkerCompanion[F[_], T] {
+/**
+ * WorkerCompanion represents resources which lifetime is inside the Worker's lifetime:
+ * they are allocated when Worker is already available, and deallocated before Worker is.
+ *
+ * @tparam F Effect
+ * @tparam T Companion type
+ */
+abstract class WorkerCompanion[F[_]: Monad, T] {
+  self ⇒
   type W <: Worker[F]
 
   def resource(worker: W)(implicit log: Log[F]): Resource[F, T]
+
+  final def map[TT](fn: T ⇒ TT): WorkerCompanion.Aux[F, TT, W] = new WorkerCompanion[F, TT] {
+    override type W = self.W
+
+    override def resource(worker: W)(implicit log: Log[F]): Resource[F, TT] =
+      self.resource(worker).map(fn)
+  }
+
+  final def flatMap[TT](other: T ⇒ WorkerCompanion.Aux[F, TT, W]): WorkerCompanion.Aux[F, TT, W] =
+    new WorkerCompanion[F, TT] {
+      override type W = self.W
+
+      override def resource(worker: W)(implicit log: Log[F]): Resource[F, TT] =
+        for {
+          selfResource ← self.resource(worker)
+          res ← other(selfResource).resource(worker)
+        } yield res
+    }
 }
 
 object WorkerCompanion {

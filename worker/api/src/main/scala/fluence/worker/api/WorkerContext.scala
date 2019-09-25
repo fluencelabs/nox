@@ -16,18 +16,34 @@
 
 package fluence.worker.api
 
+import cats.data.EitherT
 import cats.syntax.flatMap._
 import cats.syntax.apply._
+import cats.syntax.applicative._
 import cats.syntax.functor._
-import cats.effect.{Concurrent, Resource}
-import cats.effect.concurrent.Deferred
+import cats.syntax.either._
+import cats.effect.{Concurrent, Fiber, Resource}
+import cats.effect.concurrent.{Deferred, Ref}
 import fluence.effects.resources.MakeResource
 import fluence.log.Log
 
 import scala.language.higherKinds
 
+/**
+ * WorkerContext describes all the resources used by Worker and their lifecycles.
+ *
+ * Control ---- Join! -------------------------- Stop! --------------------------------------- Destroy! ----------------------------
+ * Context ---- Init ---------------------------------------------------------(may be closed)----------------- Not usable anymore --
+ * Resources ------ Prepare --------------------------------------------------(kept in place)-----X-- Destroy ----------------------
+ * Worker ------------------- Allocate --------------------------- Deallocate ------------------------------------------------------
+ * Companions ------------------------- Allocate --X-- Deallocate ------------------------------------------------------------------
+ */
 trait WorkerContext[F[_]] {
   def appId: Long
+
+  def stage: F[WorkerStage]
+
+  def stages: fs2.Stream[F, WorkerStage]
 
   //def app: App
 
@@ -39,39 +55,91 @@ trait WorkerContext[F[_]] {
 
   type Companions
 
-  def worker: F[W]
+  def worker: EitherT[F, WorkerStage, W]
 
-  def companions: F[Companions]
+  def companions: EitherT[F, WorkerStage, Companions]
 
+  /**
+   * Trigger Worker stop, releasing all acquired resources.
+   * Stopping is performed asynchronously, you can track it with [[stage]]
+   *
+   */
   def stop()(implicit log: Log[F]): F[Unit]
 
-  def remove()(implicit log: Log[F]): F[Unit]
+  /**
+   * Stop the worker and then destroy all the prepared [[resources]].
+   * Worker must be re-initialized from scratch after that. Operation cannot be reverted.
+   * Destruction is performed asynchronously, you can track it with [[stage]]
+   */
+  def destroy()(implicit log: Log[F]): F[Fiber[F, Unit]]
 }
 
 object WorkerContext {
-  type Aux[F[_], R, W0 <: Worker[F], C] = WorkerContext[F]{
-  type Resources = R
-  type Companions = C
-  type W = W0
+
+  type Aux[F[_], R, W0 <: Worker[F], C] = WorkerContext[F] {
+    type Resources = R
+    type Companions = C
+    type W = W0
   }
 
-  def prepare[F[_]: Concurrent: Log, R, W0 <: Worker[F], C](
+  def apply[F[_]: Concurrent, R, W0 <: Worker[F], C](
     _appId: Long,
     // app: App,
     workerResource: WorkerResource[F, R],
     worker: R ⇒ Resource[F, W0],
     companions: WorkerCompanion.Aux[F, C, W0]
-                                         ): F[WorkerContext.Aux[F, R, W0, C]] =
-    workerResource.prepare() >>= {res ⇒
+  )(implicit log: Log[F]): F[WorkerContext.Aux[F, R, W0, C]] =
+    workerResource.prepare() >>= { res ⇒
       for {
-        deferred ← Deferred[F, (W0, C)]
+        // Provide WorkerStage info within Ref for regular access, and with Queue to enable subscriptions
+        stageRef ← Ref.of[F, WorkerStage](WorkerStage.NotInitialized)
+        stageQueue ← fs2.concurrent.Queue.circularBuffer[F, WorkerStage](1)
+        _ ← stageQueue.enqueue1(WorkerStage.NotInitialized)
+
+        // Push stage updates to both queue and ref
+        setStage = (s: WorkerStage) ⇒ stageQueue.enqueue1(s) *> stageRef.set(s)
+
+        // We will get Worker, Companions and Stop callback later
+        // TODO: if we want contect to be restartable, these needs to be Queues?
+        workerDef ← Deferred[F, W0]
+        companionsDef ← Deferred[F, C]
         stopDef ← Deferred[F, F[Unit]]
-      _ ← MakeResource.useConcurrently[F](stop ⇒
-      // TODO here we have a lot of lifecycle information, reflect it!
-        worker(res) >>= (w ⇒ companions.resource(w).map(w -> _) >>= (wx ⇒ Resource.liftF(stopDef.complete(stop) *> deferred.complete(wx))))
-      )
+
+        // Allocate Worker and Resources with no blocking
+        _ ← MakeResource.useConcurrently[F](
+          stop ⇒
+            // Wrap the whole Worker/Companions lifecycle with stage-reflecting resource
+            Resource.make[F, Unit](
+              setStage(WorkerStage.InitializationStarted)
+            )(_ ⇒ setStage(WorkerStage.Stopped)) >>
+              // Worker allocate function may take a lot of time: it waits for Resources, runs Docker, etc.
+              worker(res)
+                .flatTap(
+                  w ⇒
+                    // We have worker, but no companions yet
+                    Resource.liftF(
+                      workerDef.complete(w) *>
+                        setStage(WorkerStage.RunningCompanions)
+                    )
+                ) >>= (
+              w ⇒
+                // Everything is ready
+                companions.resource(w) >>= (
+                  wx ⇒
+                    Resource.liftF(
+                      stopDef.complete(stop) *>
+                        companionsDef.complete(wx) *>
+                        setStage(WorkerStage.FullyAllocated)
+                    )
+                  )
+              )
+        )
       } yield new WorkerContext[F] {
         override def appId: Long = _appId
+
+        override def stage: F[WorkerStage] = stageRef.get
+
+        override def stages: fs2.Stream[F, WorkerStage] = stageQueue.dequeue
 
         override type Resources = R
 
@@ -80,18 +148,34 @@ object WorkerContext {
         override type W = W0
         override type Companions = C
 
-        // TODO return eithert, show lifecycle on the left (preparing, acquiring companions, acquired (fetch worker status), stopped (enable restart), removed
-        // TODO it would be nice to run worker lazily, on first start
-        override def worker: F[W] = deferred.get.map(_._1)
-deferred.complete()
-        // TODO return eithert, show lifecycle on the left
-        override def companions: F[C] = deferred.get.map(_._2)
+        override def worker: EitherT[F, WorkerStage, W] =
+          EitherT(stage.flatMap {
+            case s if s.hasWorker ⇒ workerDef.get.map(_.asRight)
+            case s ⇒ s.asLeft[W].pure[F]
+          })
 
-        // TODO should not be able to get worker or companions any more
-        override def stop()(implicit log: Log[F]): F[Unit] = stopDef.get.flatten
+        override def companions: EitherT[F, WorkerStage, C] =
+          EitherT(stage.flatMap {
+            case s if s.hasCompanions ⇒ companionsDef.get.map(_.asRight)
+            case s ⇒ s.asLeft[C].pure[F]
+          })
 
-        // TODO should not be able to get resources as well
-        override def remove()(implicit log: Log[F]): F[Unit] = stopDef.get.flatten >> workerResource.remove().value.void
+        override def stop()(implicit log: Log[F]): F[Unit] =
+          stage.flatMap {
+            case s if s.hasCompanions || s.hasWorker ⇒
+              setStage(WorkerStage.Stopping) >>
+                stopDef.get.flatten
+            case _ ⇒
+              ().pure[F]
+          }
+
+        override def destroy()(implicit log: Log[F]): F[Fiber[F, Unit]] =
+          stop() >>
+            Concurrent[F].start(
+              setStage(WorkerStage.Destroying) >>
+                workerResource.destroy().value.void >>
+                setStage(WorkerStage.Destroyed)
+            )
       }
 
     }
