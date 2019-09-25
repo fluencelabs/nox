@@ -20,14 +20,14 @@ import cats.effect._
 import cats.syntax.flatMap._
 import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.log.{Log, LogFactory}
-import fluence.Eventually
+import fluence.Timed
 import org.http4s.websocket.WebSocketFrame.Text
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.language.higherKinds
 
-class WebsocketRpcSpec extends WordSpec with Matchers with Eventually {
+class WebsocketRpcSpec extends WordSpec with Matchers with Timed {
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
 
@@ -51,7 +51,7 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Eventually {
     def block(height: Long) = Text(TestData.block(height))
 
     "subscribe and receive messages" in {
-      eventually[IO](resourcesF.use {
+      timed[IO](resourcesF.use {
         case (server, events) =>
           for {
             _ <- server.send(block(1))
@@ -72,7 +72,7 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Eventually {
     "receive message after reconnect" in {
       val height = 1L
 
-      eventually[IO](resourcesF.use {
+      timed[IO](resourcesF.use {
         case (server, events) =>
           for {
             _ <- events.compile.drain
@@ -91,7 +91,7 @@ class WebsocketRpcSpec extends WordSpec with Matchers with Eventually {
       val incorrectMsg = "incorrect"
       val height = 1L
 
-      eventually[IO](resourcesF.use {
+      timed[IO](resourcesF.use {
         case (server, events) =>
           for {
             _ <- server.send(Text(incorrectMsg))

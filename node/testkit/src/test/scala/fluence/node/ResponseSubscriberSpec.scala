@@ -21,7 +21,7 @@ import java.nio.file.Paths
 
 import cats.effect.{ContextShift, IO, Resource, Timer}
 import cats.{Monad, Parallel}
-import fluence.Eventually
+import fluence.Timed
 import fluence.effects.docker.params.{DockerImage, DockerLimits}
 import fluence.effects.tendermint.rpc.TestData
 import fluence.effects.tendermint.block.data.Block
@@ -43,7 +43,7 @@ import scala.concurrent.duration._
 import scala.language.higherKinds
 
 class ResponseSubscriberSpec
-    extends WordSpec with Matchers with BeforeAndAfterAll with Eventually with OptionValues with EitherValues {
+    extends WordSpec with Matchers with BeforeAndAfterAll with Timed with OptionValues with EitherValues {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
