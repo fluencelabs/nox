@@ -20,6 +20,8 @@ import shapeless._
 import cats.data.EitherT
 import cats.effect.concurrent.{Deferred, Ref}
 import cats.effect.{Concurrent, ContextShift, IO, Resource, Timer}
+import cats.syntax.traverse._
+import cats.instances.list._
 import cats.syntax.apply._
 import cats.syntax.applicative._
 import cats.syntax.functor._
@@ -37,6 +39,7 @@ import fluence.statemachine.api.data.{StateHash, StateMachineStatus}
 import fluence.statemachine.api.query.{QueryCode, QueryResponse}
 import fluence.worker.Worker
 import fluence.worker.responder.repeat.{RepeatOnEveryBlock, SubscriptionKey}
+import fluence.worker.responder.resp.AwaitedResponse.OrError
 import org.scalatest.{Matchers, OptionValues, WordSpec}
 import scodec.bits.ByteVector
 import shapeless.HNil
@@ -139,6 +142,33 @@ class RepeatOnEveryBlockSpec extends WordSpec with OptionValues with Matchers {
 
       events shouldBe defined
       events.value.length shouldBe 10
+    }
+
+    "receive tx results for several subs" in {
+      val N = 10
+      val S = 5
+      val events = onEveryBlock.use {
+        case (onEveryBlock, producer) =>
+          produceBlocks(producer) >>= { fiber =>
+            // Subscribe and take N events
+            def sub(s: Int): IO[fs2.Stream[IO, (Int, OrError)]] =
+              onEveryBlock
+                .subscribe(SubscriptionKey(s"id$s", "hash"), Tx.Data(s"$s some tx".getBytes))
+                .map(_.take(N).map(s -> _))
+
+            // Subscribe S times
+            (1 to S).toList
+              .traverse(sub)
+              .flatMap(ss => fs2.Stream(ss: _*).covary[IO].parJoinUnbounded.compile.toList)
+              .flatTap(_ => fiber.cancel)
+          }
+      }.unsafeRunTimed(2.seconds)
+
+      events shouldBe defined
+      events.value.length shouldBe N * S
+      (1 to S).foreach { s =>
+        events.value.count(_._1 == s) shouldBe N
+      }
     }
   }
 }
