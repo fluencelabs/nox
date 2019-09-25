@@ -16,6 +16,7 @@
 
 package fluence.effects.tendermint.rpc.websocket
 
+import cats.Applicative
 import cats.effect._
 import cats.effect.concurrent.{Deferred, MVar, Ref}
 import cats.effect.syntax.effect._
@@ -25,12 +26,13 @@ import cats.syntax.compose._
 import cats.syntax.either._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.option._
 import fluence.effects.tendermint.rpc.helpers.NettyFutureConversion._
 import fluence.log.Log
 import fs2.concurrent.Queue
+import io.circe.Json
 import org.asynchttpclient.ws.{WebSocket, WebSocketListener}
 
-import scala.concurrent.duration._
 import scala.language.higherKinds
 
 /**
@@ -52,7 +54,7 @@ class WsListener[F[_]: ConcurrentEffect: Timer](
     extends WebSocketListener {
 
   private def startPinging(ws: WebSocket) = {
-    import config.{pingTimeout => timeout, pingInterval}
+    import config.{pingInterval, pingTimeout => timeout}
 
     def pingOrCloseAsync: F[Unit] = {
       val sendPing = ws.sendPingFrame().asConcurrent
@@ -117,7 +119,8 @@ class WsListener[F[_]: ConcurrentEffect: Timer](
           case Left(e) =>
             log.error(s"Tendermint WRPC: $wsUrl $e") >>
               log.trace(s"Tendermint WRPC: $wsUrl $e err payload:\n" + payload)
-          case Right(json) => queue.enqueue1(JsonEvent(json))
+          case Right(Some(json)) => queue.enqueue1(JsonEvent(json))
+          case Right(None)       => Applicative[F].unit
         } >> payloadAccumulator.set("")
 
     }
@@ -143,20 +146,22 @@ class WsListener[F[_]: ConcurrentEffect: Timer](
     pong.tryPut(()).toIO.unsafeRunSync()
   }
 
-  private def asJson(payload: String) = {
+  /**
+   * Parses payload as json
+   *
+   * @return Error, Json or None if payload didn't contain meaningful data – i.e. response on subscription
+   */
+  private def asJson(payload: String): Either[WebsocketRpcError, Option[Json]] = {
     import io.circe._
     import io.circe.parser._
 
     // TODO: handle errors
-    // TODO: handle response on subscribe ("result": {}) (- _  -)
     for {
       json <- parse(payload).leftMap(InvalidJsonResponse)
-      valueJson <- json.hcursor
-        .downField("result")
-        .downField("data")
-        .downField("value")
-        .as[Json]
-        .leftMap(InvalidJsonStructure)
+      data = json.hcursor.downField("result").downField("data")
+      valueJson <- data.success.fold(none[Json].asRight[WebsocketRpcError])(
+        _.downField("value").as[Json].leftMap(InvalidJsonStructure).map(_.some)
+      )
     } yield valueJson
   }
 }
