@@ -33,21 +33,21 @@ object SbtCommons {
     scalafmtOnCompile := true,
     // see good explanation https://gist.github.com/djspiewak/7a81a395c461fd3a09a6941d4cd040f2
     scalacOptions ++= Seq("-Ypartial-unification", "-deprecation"),
-    addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0"),
     javaOptions in Test ++= Seq(
       "-XX:MaxMetaspaceSize=4G",
       "-Xms4G",
       "-Xmx4G",
       "-Xss6M",
-      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release"
+      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/debug"
     ),
     javaOptions in IntegrationTest ++= Seq(
       "-XX:MaxMetaspaceSize=4G",
       "-Xms4G",
       "-Xmx4G",
       "-Xss6M",
-      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release"
-    )
+      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/debug"
+    ),
+    addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0")
   ) ++ kindProjector
 
   val mergeStrategy = Def.setting[String => MergeStrategy]({
@@ -71,7 +71,7 @@ object SbtCommons {
 
           val projectRoot = file("").getAbsolutePath
           val frankFolder = s"$projectRoot/vm/frank"
-          val compileCmd = s"cargo +nightly-2019-09-23 build --manifest-path $frankFolder/Cargo.toml --release"
+          val compileCmd = s"cargo +nightly-2019-09-23 build --manifest-path $frankFolder/Cargo.toml"
 
           assert((compileCmd !) == 0, "Frank VM compilation failed")
         })
