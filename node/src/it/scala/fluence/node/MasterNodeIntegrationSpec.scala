@@ -19,6 +19,7 @@ package fluence.node
 import java.nio.ByteBuffer
 
 import cats.effect._
+import cats.syntax.apply._
 import com.softwaremill.sttp.asynchttpclient.fs2.AsyncHttpClientFs2Backend
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
@@ -28,7 +29,7 @@ import fluence.node.status.MasterStatus
 import fluence.node.workers.status.WorkerStatus
 import org.scalatest.{Timer => _, _}
 import eth.FluenceContractTestOps._
-import fluence.Eventually
+import fluence.Timed
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.FluenceContractConfig
 
@@ -45,7 +46,7 @@ import scala.util.Try
  * - Successful cluster formation and starting blocks creation
  */
 class MasterNodeIntegrationSpec
-    extends WordSpec with Matchers with BeforeAndAfterAll with OptionValues with Eventually with TendermintSetup
+    extends WordSpec with Matchers with BeforeAndAfterAll with OptionValues with Timed with TendermintSetup
     with GanacheSetup with DockerSetup {
 
   type Sttp = SttpBackend[IO, fs2.Stream[IO, ByteBuffer]]
@@ -98,8 +99,10 @@ class MasterNodeIntegrationSpec
       master1 <- runMaster(master1Port, "master1", n = 1)
       master2 <- runMaster(master2Port, "master2", n = 2)
 
-      _ <- Resource liftF eventually[IO](checkMasterRunning(master1Port), maxWait = 30.seconds) // TODO: 30 seconds is a bit too much for startup
-      _ <- Resource liftF eventually[IO](checkMasterRunning(master1Port), maxWait = 30.seconds) // TODO: investigate and reduce timeout
+      _ <- Resource liftF eventually[IO](
+        checkMasterRunning(master1Port) *> checkMasterRunning(master2Port),
+        maxWait = 45.seconds
+      ) // TODO: 45 seconds is a bit too much for startup; investigate and reduce timeout
 
     } yield Seq(master1, master2)
   }

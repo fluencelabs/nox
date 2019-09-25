@@ -24,7 +24,7 @@ import cats.syntax.functor._
 import cats.syntax.monad._
 import cats.syntax.traverse._
 import cats.instances.list._
-import fluence.Eventually
+import fluence.Timed
 import fluence.effects.tendermint.rpc.TestData
 import fluence.effects.tendermint.block.data.Block
 import fluence.log.LogFactory.Aux
@@ -40,7 +40,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-class PerBlockTxExecutorSpec extends WordSpec with Eventually with Matchers with OptionValues with EitherValues {
+class PerBlockTxExecutorSpec extends WordSpec with Timed with Matchers with OptionValues with EitherValues {
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
