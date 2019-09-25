@@ -46,6 +46,7 @@ import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import fluence.statemachine.api.data.BlockReceipt
+import fluence.worker.eth.{EthApp, Cluster, StorageRef, StorageType, WorkerPeer}
 import fluence.worker.responder.SendAndWait
 import fluence.worker.responder.repeat.RepeatOnEveryBlock
 import io.circe.Json
@@ -71,7 +72,7 @@ class BlockUploadingSpec extends WordSpec with Matchers with Eventually with Opt
   val description = "worker #1"
   val workerPeer = WorkerPeer(ByteVector.empty, "", 25000.toShort, InetAddress.getLocalHost, 0)
   val cluster = Cluster(currentTime.millis, Vector.empty, workerPeer)
-  val app = App(123L, StorageRef(ByteVector.empty, StorageType.Ipfs), cluster)
+  val app = EthApp(123L, StorageRef(ByteVector.empty, StorageType.Ipfs), cluster)
   val dockerConfig = DockerConfig(DockerImage("fluencelabs/worker", "v0.2.0"), DockerLimits(None, None, None))
   val tmDockerConfig = DockerConfig(DockerImage("tendermint/tendermint", "v0.32.0"), DockerLimits(None, None, None))
   val tmConfig = TendermintConfig("info", 0, 0, 0, 0L, false, false, false, p2pPort, Seq.empty)

@@ -34,7 +34,7 @@ import fluence.effects.ethclient.{EthClient, EthRequestError, Network}
 import fluence.effects.ethclient.syntax._
 import fluence.log.Log
 import fluence.node.config.FluenceContractConfig
-import fluence.node.eth.state.{App, Cluster}
+import fluence.worker.eth.{EthApp ⇒ EthApp, Cluster}
 import org.web3j.abi.EventEncoder
 import org.web3j.abi.datatypes.generated._
 import org.web3j.abi.datatypes.{DynamicArray, Event}
@@ -101,7 +101,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @param validatorKey Tendermint Validator key of the current node, used to filter out apps which aren't related to current node
    * @tparam F Effect
    */
-  private def getNodeApps[F[_]: LiftIO: Timer: Monad: Log](validatorKey: Bytes32): fs2.Stream[F, state.App] = {
+  private def getNodeApps[F[_]: LiftIO: Timer: Monad: Log](validatorKey: Bytes32): fs2.Stream[F, EthApp] = {
     import org.web3j.tuples.generated.{Tuple2, Tuple8}
     def mapApp(tuple: Tuple8[Bytes32, _, Bytes32, _, _, _, Uint256, DynamicArray[Bytes32]]) = {
       import tuple._
@@ -133,7 +133,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
                 val cluster =
                   Cluster.build(genesisTime, validatorKeys, addrs, ports, currentValidatorKey = validatorKey)
                 Traverse[Option]
-                  .traverse(cluster)(c => App[F](appId, storageHash, storageType, c).value.map(_.toOption))
+                  .traverse(cluster)(c => EthApp[F](appId, storageHash, storageType, c).value.map(_.toOption))
                   .map(_.flatten)
             }
             .flatten
@@ -148,7 +148,7 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
    * @return Possibly infinite stream of [[App]]s
    */
-  private def getNodeAppDeployed[F[_]: ConcurrentEffect: Timer: Log](validatorKey: Bytes32): fs2.Stream[F, state.App] =
+  private def getNodeAppDeployed[F[_]: ConcurrentEffect: Timer: Log](validatorKey: Bytes32): fs2.Stream[F, EthApp] =
     fs2.Stream
       .eval(eventFilter[F](APPDEPLOYED_EVENT))
       .flatMap(filter ⇒ contract.appDeployedEventFlowable(filter).toStreamRetrying[F]()) // It's checked that current node participates in a cluster there
@@ -156,16 +156,16 @@ class FluenceContract(private[eth] val ethClient: EthClient, private[eth] val co
       .unNone
 
   /**
-   * Returns a stream of [[App]]s already assigned to that node combined with
-   * a stream of new [[App]]s coming from AppDeployed events emitted by Fluence Contract
+   * Returns a stream of [[EthApp]]s already assigned to that node combined with
+   * a stream of new [[EthApp]]s coming from AppDeployed events emitted by Fluence Contract
    *
    * @param validatorKey Tendermint Validator key of the current node, used to filter out events which aren't addressed to this node
    * @tparam F ConcurrentEffect to convert Observable into fs2.Stream
-   * @return Possibly infinite stream of [[App]]s
+   * @return Possibly infinite stream of [[EthApp]]s
    */
   private[eth] def getAllNodeApps[F[_]: ConcurrentEffect: Timer: Log](
     validatorKey: Bytes32
-  ): F[(fs2.Stream[F, state.App], F[Unit])] =
+  ): F[(fs2.Stream[F, EthApp], F[Unit])] =
     Deferred[F, Unit].map { switchedToNewApps ⇒
       (getNodeApps[F](validatorKey).onFinalizeCase {
         case ExitCase.Canceled =>
@@ -218,12 +218,12 @@ object FluenceContract {
   private def eventToApp[F[_]: Functor: Applicative](
     event: AppDeployedEventResponse,
     validatorKey: Bytes32
-  ): F[Option[state.App]] =
+  ): F[Option[EthApp]] =
     Traverse[Option]
       .traverse(
         Cluster
           .build(event.genesisTime, event.nodeIDs, event.nodeAddresses, event.ports, currentValidatorKey = validatorKey)
-      )(c => App[F](event.appID, event.storageHash, event.storageType, c).value.map(_.toOption))
+      )(c => EthApp[F](event.appID, event.storageHash, event.storageType, c).value.map(_.toOption))
       .map(_.flatten)
 
   /**

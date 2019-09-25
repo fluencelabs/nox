@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.node.eth.state
+package fluence.worker.eth
 
 import java.net.InetAddress
 

@@ -22,8 +22,8 @@ import cats.syntax.functor._
 import fluence.effects.ethclient.helpers.Web3jConverters.{nodeAddressToBytes24, stringToBytes32}
 import fluence.effects.ethclient.syntax._
 import fluence.node.config.NodeConfig
-import fluence.node.eth.state.StorageType
 import fluence.node.eth.state.StorageType.StorageType
+import fluence.worker.eth.StorageType
 import org.web3j.abi.datatypes.generated._
 import org.web3j.abi.datatypes.{Bool, DynamicArray}
 

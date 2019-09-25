@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.node.eth.state
+package fluence.worker.eth
 
 import fluence.effects.ethclient.helpers.Web3jConverters.bytes32ToBinary
 import org.web3j.abi.datatypes.DynamicArray
@@ -43,7 +43,7 @@ object Cluster {
    * @param ports array of ports for Node's API connection
    * @param currentValidatorKey 32-byte Tendermint validator key corresponding to current node
    */
-  private[eth] def build(
+  def build(
     time: Uint256,
     validatorKeys: DynamicArray[Bytes32],
     nodeAddresses: DynamicArray[Bytes24],

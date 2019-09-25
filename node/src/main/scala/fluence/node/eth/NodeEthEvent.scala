@@ -16,14 +16,14 @@
 
 package fluence.node.eth
 import fluence.effects.ethclient.data.Block
+import fluence.worker.eth.EthApp
 import scodec.bits.ByteVector
-import state.App
 
 sealed trait NodeEthEvent {
   def blockNumber: Option[Long] = None
 }
 
-case class RunAppWorker(app: App) extends NodeEthEvent
+case class RunAppWorker(app: EthApp) extends NodeEthEvent
 
 case class RemoveAppWorker(appId: Long) extends NodeEthEvent
 

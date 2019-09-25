@@ -20,8 +20,9 @@ import java.net.InetAddress
 import fluence.effects.ethclient.data.{Block, Transaction}
 import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.eth.NodeEthState
-import fluence.node.eth.state.{Cluster, WorkerPeer}
 import fluence.worker.WorkerStatus
+import fluence.worker.eth.StorageType.StorageType
+import fluence.worker.eth.{Cluster, EthApp, StorageRef, StorageType, WorkerPeer}
 import io.circe.generic.semiauto._
 import io.circe.{Decoder, Encoder, KeyDecoder, KeyEncoder}
 import scodec.bits.ByteVector
@@ -57,8 +58,9 @@ object MasterStatus {
   private implicit val encodeWorkerPeer: Encoder[WorkerPeer] = deriveEncoder
   private implicit val encodeFiniteDuration: Encoder[FiniteDuration] = Encoder.encodeLong.contramap(_.toSeconds)
   private implicit val encodeCluster: Encoder[Cluster] = deriveEncoder
-  private implicit val encodeApp: Encoder[fluence.node.eth.state.App] = deriveEncoder
-  private implicit val encodeStorageRef: Encoder[fluence.node.eth.state.StorageRef] = deriveEncoder
+  private implicit val encodeStorageType: Encoder[StorageType] = Encoder.encodeEnumeration(StorageType)
+  private implicit val encodeApp: Encoder[EthApp] = deriveEncoder
+  private implicit val encodeStorageRef: Encoder[StorageRef] = deriveEncoder
   private implicit val keyEncoderByteVector: KeyEncoder[ByteVector] = KeyEncoder.instance(_.toHex)
 
   implicit val encodeNodeEthState: Encoder[NodeEthState] = deriveEncoder
@@ -75,8 +77,9 @@ object MasterStatus {
   private implicit val decodeWorkerPeer: Decoder[WorkerPeer] = deriveDecoder
   private implicit val decodeFiniteDuration: Decoder[FiniteDuration] = Decoder.decodeLong.map(_ seconds)
   private implicit val decodeCluster: Decoder[Cluster] = deriveDecoder
-  private implicit val decodeApp: Decoder[fluence.node.eth.state.App] = deriveDecoder
-  private implicit val decodeStorageRef: Decoder[fluence.node.eth.state.StorageRef] = deriveDecoder
+  private implicit val decodeStorageType: Decoder[StorageType] = Decoder.decodeEnumeration(StorageType)
+  private implicit val decodeApp: Decoder[EthApp] = deriveDecoder
+  private implicit val decodeStorageRef: Decoder[StorageRef] = deriveDecoder
   private implicit val keyDecoderByteVector: KeyDecoder[ByteVector] = KeyDecoder.instance(ByteVector.fromHex(_))
   implicit val decodeNodeEthState: Decoder[NodeEthState] = deriveDecoder
   implicit val decodeMasterState: Decoder[MasterStatus] = deriveDecoder

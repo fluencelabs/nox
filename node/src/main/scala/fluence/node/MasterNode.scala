@@ -34,10 +34,10 @@ import fluence.node.code.{CodeCarrier, LocalCodeCarrier, PolyStore, RemoteCodeCa
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.eth._
-import fluence.node.eth.state.StorageType
 import fluence.node.workers._
 import fluence.node.workers.pool.WorkersPool
 import fluence.node.workers.tendermint.config.ConfigTemplate
+import fluence.worker.eth.{EthApp, StorageType}
 
 import scala.language.{higherKinds, postfixOps}
 
@@ -68,7 +68,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
   /**
    * All app worker's data is stored here. Currently the folder is never purged
    */
-  private def resolveAppPath(app: eth.state.App): F[Path] =
+  private def resolveAppPath(app: EthApp): F[Path] =
     IO(rootPath.resolve("app-" + app.id + "-" + app.cluster.currentWorker.index)).to[F]
 
   /**
@@ -95,7 +95,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
       _ ← IO(Files.createDirectories(vmCodePath)).to[F]
     } yield vmCodePath
 
-  def prepareWorkerParams(app: eth.state.App)(implicit log: Log[F]): F[WorkerParams] =
+  def prepareWorkerParams(app: EthApp)(implicit log: Log[F]): F[WorkerParams] =
     for {
       appPath ← resolveAppPath(app)
       tendermintPath ← makeTendermintPath(appPath)
@@ -118,7 +118,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
    *
    * @param app App description
    */
-  def runAppWorker(app: eth.state.App): F[Unit] =
+  def runAppWorker(app: EthApp): F[Unit] =
     for {
       implicit0(log: Log[F]) ← LogFactory[F].init("app", app.id.toString)
       _ ← log.info("Running worker")

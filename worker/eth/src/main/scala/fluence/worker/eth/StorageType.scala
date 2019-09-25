@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.node.eth.state
-import io.circe.{Decoder, Encoder}
+package fluence.worker.eth
 
 /**
  * Type of the decentralized storage
@@ -29,7 +28,4 @@ object StorageType extends Enumeration {
     case StorageType.Swarm => 0
     case StorageType.Ipfs  => 1
   }
-
-  implicit val decoder: Decoder[StorageType] = Decoder.decodeEnumeration(StorageType)
-  implicit val encoder: Encoder[StorageType] = Encoder.encodeEnumeration(StorageType)
 }

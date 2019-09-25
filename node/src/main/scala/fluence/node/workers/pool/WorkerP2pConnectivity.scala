@@ -26,9 +26,9 @@ import fluence.effects.sttp.SttpEffect
 import fluence.effects.sttp.syntax._
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
-import fluence.node.eth.state.WorkerPeer
 import com.softwaremill.sttp._
 import fluence.bp.api.DialPeers
+import fluence.worker.eth.WorkerPeer
 
 import scala.language.higherKinds
 import scala.util.Try

@@ -413,12 +413,18 @@ lazy val `worker` = project
     commons
   )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`statemachine-api`, `block-producer-api`, `resources-effects`)
+  .dependsOn(`statemachine-api`, `block-producer-api`, `resources-effects`, `worker-eth`)
 
 lazy val `worker-responder` = project.in(file("worker/responder"))
   .settings(commons)
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`worker`, `resources-effects`)
+
+lazy val `worker-eth` = project
+  .in(file("worker/eth"))
+  .settings(commons)
+  .enablePlugins(AutomateHeaderPlugin)
+  .dependsOn(`ethclient`)
 
 lazy val `block-producer-tx` = project
   .in(file("block-producer/tx"))

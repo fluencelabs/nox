@@ -24,7 +24,7 @@ import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.log.Log
 import fluence.node.config.Configuration
-import fluence.node.eth.state.App
+import fluence.worker.eth.EthApp
 
 import scala.language.higherKinds
 
@@ -46,7 +46,7 @@ class ConfigTemplate private (defaultTendermintDir: Path, tendermintConfig: Tend
    *    - tendermint configuration in config:
    *        - node_key.json, containing private P2P key
    *        - priv_validator_key.json, containing validator's private & public keys and it's address
-   *        - genesis.json, config of the Tendermint blockchain, generated from [[App.cluster]] and [[App.id]]
+   *        - genesis.json, config of the Tendermint blockchain, generated from [[EthApp.cluster]] and [[EthApp.id]]
    *        - config.toml, main Tendermint config, copied from `srcPath/config.toml` and updated
    * </pre>
    *
@@ -54,7 +54,7 @@ class ConfigTemplate private (defaultTendermintDir: Path, tendermintConfig: Tend
    * @param appTendermintDir Directory to hold app-specific Tendermint configs & data
    */
   def writeConfigs[F[_]: LiftIO: Monad: Log](
-    app: App,
+    app: EthApp,
     appTendermintDir: Path,
     p2pPort: Short,
     abciHost: String
@@ -105,7 +105,7 @@ class ConfigTemplate private (defaultTendermintDir: Path, tendermintConfig: Tend
   private def updateConfigTOML[F[_]: Monad: LiftIO: Log](
     defaultConfigs: Path,
     appConfigs: Path,
-    app: App,
+    app: EthApp,
     p2pPort: Short,
     abciHost: String
   ): F[Unit] =

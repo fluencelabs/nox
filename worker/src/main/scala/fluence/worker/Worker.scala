@@ -33,6 +33,7 @@ import scala.language.higherKinds
 
 trait Worker[F[_]] {
 
+  // TODO why should we need it?
   val appId: Long
 
   type Machine <: StateMachine[F]

@@ -19,7 +19,7 @@ package fluence.node.code
 import java.nio.file.Path
 
 import fluence.log.Log
-import fluence.node.eth.state.StorageRef
+import fluence.worker.eth.StorageRef
 
 import scala.language.higherKinds
 

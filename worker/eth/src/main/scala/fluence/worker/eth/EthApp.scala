@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.node.eth.state
+package fluence.worker.eth
 
 import cats.Applicative
 import cats.data.EitherT
@@ -31,25 +31,26 @@ import scala.util.Try
  * @param code Reference to the application code in a decentralized storage
  * @param cluster A cluster that hosts this App
  */
-case class App private[eth] (
+case class EthApp private[eth] (
   id: Long,
   code: StorageRef,
   cluster: Cluster
 )
 
-object App {
+object EthApp {
 
   case class AppMalformedError(cause: Throwable)
 
-  private[eth] def apply[F[_]: Applicative](
+  // TODO make private
+  def apply[F[_]: Applicative](
     appId: Uint256,
     storageHash: Bytes32,
     storageType: Bytes32,
     cluster: Cluster
-  ): EitherT[F, AppMalformedError, App] =
+  ): EitherT[F, AppMalformedError, EthApp] =
     EitherT.fromEither(
       Try(
-        App(
+        EthApp(
           appId.getValue.longValueExact(),
           StorageRef(ByteVector(storageHash.getValue), ByteVector(storageType.getValue)),
           cluster

@@ -21,7 +21,7 @@ import java.nio.file.{Path, Paths}
 import cats.effect.Sync
 import cats.syntax.functor._
 import fluence.log.Log
-import fluence.node.eth.state.StorageRef
+import fluence.worker.eth.StorageRef
 
 import scala.language.higherKinds
 

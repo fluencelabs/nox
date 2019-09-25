@@ -23,8 +23,8 @@ import cats.data.EitherT
 import cats.effect.{ContextShift, Sync}
 import fluence.effects.castore.{ContentAddressableStore, StorageToFileFailed, StoreError}
 import fluence.log.Log
-import fluence.node.eth.state.StorageRef
-import fluence.node.eth.state.StorageType.StorageType
+import fluence.worker.eth.StorageRef
+import fluence.worker.eth.StorageType.StorageType
 import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext

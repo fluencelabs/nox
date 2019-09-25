@@ -17,18 +17,16 @@
 package fluence.node.workers
 import java.nio.file.Path
 
-import fluence.effects.docker.params.DockerImage
 import fluence.node.config.DockerConfig
-import fluence.node.eth.state.WorkerPeer
-import fluence.node.eth.state.App
 import fluence.node.workers.tendermint.config.ConfigTemplate
+import fluence.worker.eth.{EthApp, WorkerPeer}
 
 /**
  * Single Worker's creation params
  * TODO: we have environment, configuration, and data here; consider reorganize or divide
  */
 case class WorkerParams(
-  app: App,
+  app: EthApp,
   tendermintPath: Path,
   vmCodePath: Path,
   masterNodeContainerId: Option[String],

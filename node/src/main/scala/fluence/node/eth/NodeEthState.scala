@@ -20,8 +20,8 @@ import cats.{Applicative, Monad}
 import cats.data.StateT
 import cats.syntax.functor._
 import fluence.effects.ethclient.data.Block
+import fluence.worker.eth.EthApp
 import scodec.bits.ByteVector
-import state.App
 
 import scala.language.higherKinds
 
@@ -35,7 +35,7 @@ import scala.language.higherKinds
  */
 case class NodeEthState(
   validatorKey: ByteVector,
-  apps: Map[Long, App] = Map.empty,
+  apps: Map[Long, EthApp] = Map.empty,
   nodesToApps: Map[ByteVector, Set[Long]] = Map.empty,
   lastBlock: Option[Block] = None,
   contractAppsLoaded: Boolean = false
@@ -67,7 +67,7 @@ object NodeEthState {
   /**
    * Expresses the state change that should be applied on new App deployment event
    */
-  def onNodeApp[F[_]: Monad](app: App): State[F] =
+  def onNodeApp[F[_]: Monad](app: EthApp): State[F] =
     modify[F](
       s ⇒
         s.copy(
@@ -132,7 +132,7 @@ object NodeEthState {
             appIds // We're collecting the events of removing an app by ourselves, or of dropping the peer of a cluster
               .foldLeft[(NodeEthState, List[NodeEthEvent])]((s.copy(nodesToApps = s.nodesToApps - nodeId), Nil)) {
                 case (acc @ (st, evs), appId) ⇒
-                  def removeNodeFromApp(app: App): App = {
+                  def removeNodeFromApp(app: EthApp): EthApp = {
                     val workers = app.cluster.workers
                     lazy val i = workers.indexWhere(_.validatorKey === nodeId)
 

@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package fluence.node.eth.state
+package fluence.worker.eth
 
-import fluence.node.eth.state.StorageType.StorageType
+import fluence.worker.eth.StorageType.StorageType
 import scodec.bits.ByteVector
 
 /**

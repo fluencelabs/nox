@@ -39,13 +39,11 @@ import scala.language.higherKinds
  * Companions ------------------------- Allocate --X-- Deallocate ------------------------------------------------------------------
  */
 trait WorkerContext[F[_]] {
-  def appId: Long
-
   def stage: F[WorkerStage]
 
   def stages: fs2.Stream[F, WorkerStage]
 
-  //def app: App
+  def app: eth.EthApp
 
   type Resources
 
@@ -80,8 +78,7 @@ object WorkerContext {
   }
 
   def apply[F[_]: Concurrent, R, W0 <: Worker[F], C](
-    _appId: Long,
-    // app: App,
+    _app: eth.EthApp,
     workerResource: WorkerResource[F, R],
     worker: R ⇒ Resource[F, W0],
     companions: WorkerCompanion.Aux[F, C, W0]
@@ -97,7 +94,7 @@ object WorkerContext {
         setStage = (s: WorkerStage) ⇒ stageQueue.enqueue1(s) *> stageRef.set(s)
 
         // We will get Worker, Companions and Stop callback later
-        // TODO: if we want contect to be restartable, these needs to be Queues?
+        // TODO: if we want context to be restartable, these needs to be Queues?
         workerDef ← Deferred[F, Worker[F]]
         companionsDef ← Deferred[F, C]
         stopDef ← Deferred[F, F[Unit]]
@@ -132,7 +129,7 @@ object WorkerContext {
               )
         )
       } yield new WorkerContext[F] {
-        override def appId: Long = _appId
+        override def app: eth.EthApp = _app
 
         override def stage: F[WorkerStage] = stageRef.get
 
