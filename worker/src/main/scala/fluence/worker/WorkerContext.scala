@@ -38,22 +38,18 @@ import scala.language.higherKinds
  * Worker ------------------- Allocate --------------------------- Deallocate ------------------------------------------------------
  * Companions ------------------------- Allocate --X-- Deallocate ------------------------------------------------------------------
  */
-trait WorkerContext[F[_]] {
+trait WorkerContext[F[_], R, C] {
   def stage: F[WorkerStage]
 
   def stages: fs2.Stream[F, WorkerStage]
 
   def app: eth.EthApp
 
-  type Resources
-
-  def resources: Resources
-
-  type Companions
+  def resources: R
 
   def worker: EitherT[F, WorkerStage, Worker[F]]
 
-  def companions: EitherT[F, WorkerStage, Companions]
+  def companions: EitherT[F, WorkerStage, C]
 
   /**
    * Trigger Worker stop, releasing all acquired resources.
@@ -72,17 +68,12 @@ trait WorkerContext[F[_]] {
 
 object WorkerContext {
 
-  type Aux[F[_], R, C] = WorkerContext[F] {
-    type Resources = R
-    type Companions = C
-  }
-
   def apply[F[_]: Concurrent, R, W0 <: Worker[F], C](
     _app: eth.EthApp,
     workerResource: WorkerResource[F, R],
     worker: R ⇒ Resource[F, W0],
     companions: WorkerCompanion.Aux[F, C, W0]
-  )(implicit log: Log[F]): F[WorkerContext.Aux[F, R, C]] =
+  )(implicit log: Log[F]): F[WorkerContext[F, R, C]] =
     workerResource.prepare() >>= { res ⇒
       for {
         // Provide WorkerStage info within Ref for regular access, and with Queue to enable subscriptions
@@ -128,18 +119,14 @@ object WorkerContext {
                   )
               )
         )
-      } yield new WorkerContext[F] {
+      } yield new WorkerContext[F, R, C] {
         override def app: eth.EthApp = _app
 
         override def stage: F[WorkerStage] = stageRef.get
 
         override def stages: fs2.Stream[F, WorkerStage] = stageQueue.dequeue
 
-        override type Resources = R
-
-        override val resources: Resources = res
-
-        override type Companions = C
+        override val resources: R = res
 
         override def worker: EitherT[F, WorkerStage, Worker[F]] =
           EitherT(stage.flatMap {
