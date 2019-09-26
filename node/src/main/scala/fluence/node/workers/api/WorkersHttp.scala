@@ -31,7 +31,6 @@ import fluence.worker.responder.resp.{
   PendingResponse,
   RpcErrorResponse,
   RpcTxAwaitError,
-  TendermintResponseDeserializationError,
   TimedOutResponse,
   TxInvalidError,
   TxParsingError
