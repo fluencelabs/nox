@@ -38,7 +38,7 @@ object SbtCommons {
       "-Xms4G",
       "-Xmx4G",
       "-Xss6M",
-      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/debug",
+      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release",
       "-XX:+UseMembar",
       "-XX:ErrorFile=./hs_error.log"
     ),
@@ -47,7 +47,7 @@ object SbtCommons {
       "-Xms4G",
       "-Xmx4G",
       "-Xss6M",
-      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/debug",
+      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release",
       "-XX:+UseMembar",
       "-XX:ErrorFile=./hs_error.log"
     ),
@@ -75,7 +75,7 @@ object SbtCommons {
 
           val projectRoot = file("").getAbsolutePath
           val frankFolder = s"$projectRoot/vm/frank"
-          val compileCmd = s"cargo +nightly-2019-09-23 build --manifest-path $frankFolder/Cargo.toml"
+          val compileCmd = s"cargo +nightly-2019-09-23 build --manifest-path $frankFolder/Cargo.toml --release"
 
           assert((compileCmd !) == 0, "Frank VM compilation failed")
         })
