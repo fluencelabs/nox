@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-package fluence.bp.uploading
+package fluence.bp.uploading.controlled
 
 import fluence.effects.ipfs.IpfsData
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.statemachine.api.data.BlockReceipt
-import org.scalatest.{Matchers, OptionValues}
 import scodec.bits.ByteVector
 
 case class UploadingState(

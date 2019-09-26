@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.bp.uploading
+package fluence.bp.uploading.controlled
 
 import cats.Applicative
 import cats.data.EitherT

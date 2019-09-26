@@ -27,13 +27,13 @@ import fluence.log.{Log, LogFactory}
 import org.scalatest.{Matchers, OptionValues, WordSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global
-
 import cats.data.EitherT
 import cats.effect.IO
 import cats.syntax.applicative._
 import cats.syntax.apply._
 import cats.syntax.functor._
 import cats.effect.concurrent.Ref
+import fluence.bp.uploading.controlled.ControlledBlockUploading
 import fluence.effects.{Backoff, EffectError}
 import fluence.effects.castore.StoreError
 import fluence.effects.ipfs.{IpfsData, IpfsUploader}

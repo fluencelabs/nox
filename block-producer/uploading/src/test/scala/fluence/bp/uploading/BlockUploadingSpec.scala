@@ -17,6 +17,7 @@
 package fluence.bp.uploading
 
 import cats.effect.IO
+import fluence.bp.uploading.controlled.{ControlledBlockUploading, UploadingState}
 import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.block
 import fluence.effects.tendermint.block.data.Block

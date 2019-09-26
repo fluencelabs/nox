@@ -14,20 +14,21 @@
  * limitations under the License.
  */
 
-package fluence.bp.uploading
+package fluence.bp.uploading.controlled
 
 import cats.Applicative
 import cats.data.EitherT
 import cats.effect.concurrent.Ref
 import cats.effect.{ConcurrentEffect, ContextShift, Resource, Sync, Timer}
-import cats.syntax.functor._
 import cats.syntax.flatMap._
-import fluence.effects.{Backoff, EffectError}
+import cats.syntax.functor._
+import fluence.bp.uploading.BlockUploading
 import fluence.effects.castore.StoreError
 import fluence.effects.ipfs.{IpfsData, IpfsUploader}
 import fluence.effects.sttp.SttpStreamEffect
 import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.block.history.{BlockManifest, Receipt}
+import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.statemachine.api.command.ReceiptBus
 import fluence.statemachine.api.data.BlockReceipt
