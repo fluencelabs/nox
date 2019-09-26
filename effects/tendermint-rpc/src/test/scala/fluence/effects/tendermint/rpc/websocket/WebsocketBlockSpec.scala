@@ -68,12 +68,13 @@ class WebsocketBlockSpec extends WordSpec with Matchers with OptionValues {
   def websocket(heights: List[Long], events: List[Event]) = {
     def ws(consensusHeights: Ref[IO, List[Long]], events: List[Event], state: Ref[IO, ExecutionState]) = {
       val rpc = new TestHttpRpc[IO] {
-        override def block(height: Long, id: String): EitherT[IO, RpcError, Block] =
+
+        override def block(height: Long, id: String)(implicit log: Log[IO]): EitherT[IO, RpcError, Block] =
           (for {
             _ <- state.update(_.block(height))
           } yield singleBlock(height).asRight[RpcError]).eitherT
 
-        override def consensusHeight(id: String): EitherT[IO, RpcError, Long] =
+        override def consensusHeight(id: String)(implicit log: Log[IO]): EitherT[IO, RpcError, Long] =
           (for {
             _ <- state.update(_.consensusHeight())
             height <- consensusHeights.modify(l => (l.drop(1), l.headOption))
