@@ -79,8 +79,10 @@ class SendAndWaitSpec extends WordSpec with Matchers with BeforeAndAfterAll with
 
   private val correctQueryResponse = QueryResponse(0, Array.emptyByteArray, QueryCode.Ok, "")
 
-  private def sendAndWait(processTxResponse: Either[EffectError, TxResponse] = Right(TxResponse(TxCode.OK, "")),
-                          queryResponse: Either[EffectError, QueryResponse] = Right(correctQueryResponse)) =
+  private def sendAndWait(
+    processTxResponse: Either[EffectError, TxResponse] = Right(TxResponse(TxCode.OK, "")),
+    queryResponse: Either[EffectError, QueryResponse] = Right(correctQueryResponse)
+  ) =
     for {
       machine <- Resource.liftF(IO(embdeddedStateMachine(processTxResponse, queryResponse)))
       producer <- producer(machine)

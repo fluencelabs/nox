@@ -220,8 +220,6 @@ object WorkersHttp {
                     err match {
                       // TODO: add tx.head to these responses, so it is possible to match error with transaction
                       // return an error from tendermint as is to the client
-                      case TendermintResponseDeserializationError(response) =>
-                        log.debug(s"error on tendermint response deserialization: $response") >> Ok(response)
                       case RpcTxAwaitError(rpcError) =>
                         log.debug(s"error on await rpc tx: $rpcError") >> rpcErrorToResponse(RpcRequestFailed(rpcError))
                       case TxParsingError(msg, _) =>
