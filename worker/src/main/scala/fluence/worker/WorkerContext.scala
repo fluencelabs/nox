@@ -72,17 +72,16 @@ object WorkerContext {
     _app: eth.EthApp,
     workerResource: WorkerResource[F, R],
     worker: R ⇒ Resource[F, W0],
-    companions: WorkerCompanion.Aux[F, C, W0]
+    companions: (W0, Log[F]) ⇒ Resource[F, C]
   )(implicit log: Log[F]): F[WorkerContext[F, R, C]] =
     workerResource.prepare() >>= { res ⇒
       for {
         // Provide WorkerStage info within Ref for regular access, and with Queue to enable subscriptions
         stageRef ← Ref.of[F, WorkerStage](WorkerStage.NotInitialized)
-        stageQueue ← fs2.concurrent.Queue.circularBuffer[F, WorkerStage](1)
-        _ ← stageQueue.enqueue1(WorkerStage.NotInitialized)
+        stageQueue ← fs2.concurrent.Topic[F, WorkerStage](WorkerStage.NotInitialized)
 
         // Push stage updates to both queue and ref
-        setStage = (s: WorkerStage) ⇒ stageQueue.enqueue1(s) *> stageRef.set(s)
+        setStage = (s: WorkerStage) ⇒ stageQueue.publish1(s) *> stageRef.set(s)
 
         // We will get Worker, Companions and Stop callback later
         // TODO: if we want context to be restartable, these needs to be Queues?
@@ -109,7 +108,7 @@ object WorkerContext {
                 ) >>= (
               w ⇒
                 // Everything is ready
-                companions.resource(w) >>= (
+                companions(w, log) >>= (
                   wx ⇒
                     Resource.liftF(
                       stopDef.complete(stop) *>
@@ -124,7 +123,7 @@ object WorkerContext {
 
         override def stage: F[WorkerStage] = stageRef.get
 
-        override def stages: fs2.Stream[F, WorkerStage] = stageQueue.dequeue
+        override def stages: fs2.Stream[F, WorkerStage] = stageQueue.subscribe(1)
 
         override val resources: R = res
 

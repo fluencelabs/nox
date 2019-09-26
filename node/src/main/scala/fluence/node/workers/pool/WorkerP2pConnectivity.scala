@@ -94,8 +94,7 @@ object WorkerP2pConnectivity {
     dialPeers: DialPeers[F],
     peers: Vector[WorkerPeer],
     backoff: Backoff[EffectError] = Backoff.default
-  )(
-    ): Resource[F, Unit] =
+  ): Resource[F, Unit] =
     Resource.make(join(appId, dialPeers, peers, backoff))(_.cancel).void
 
 }

@@ -23,8 +23,12 @@ import cats.effect.{Concurrent, Resource}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.applicative._
+import fluence.effects.EffectError
 import fluence.effects.kvstore.{KVStore, KVStoreError}
 import fluence.log.Log
+import fluence.node.workers.pool.WorkersPorts.P2pPort
+import fluence.worker.WorkerResource
 
 import scala.collection.immutable.SortedSet
 import scala.language.higherKinds
@@ -135,6 +139,14 @@ class WorkersPorts[F[_]: Monad] private (
         EitherT.rightT(None)
     }
 
+  def workerResource(appId: Long): WorkerResource[F, P2pPort[F]] =
+    new WorkerResource[F, P2pPort[F]] {
+      override def prepare()(implicit log: Log[F]): F[P2pPort[F]] =
+        P2pPort(allocate(appId)).pure[F]
+
+      override def destroy()(implicit log: Log[F]): EitherT[F, EffectError, Unit] =
+        free(appId).leftMap(identity[EffectError]).void
+    }
 }
 
 object WorkersPorts {
@@ -146,6 +158,8 @@ object WorkersPorts {
 
   /** No more ports available for allocation */
   case object Exhausted extends Error
+
+  case class P2pPort[F[_]](port: EitherT[F, Error, Short])
 
   /**
    * Make a new WorkersPorts instance.

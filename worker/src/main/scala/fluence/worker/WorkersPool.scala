@@ -29,20 +29,25 @@ import scala.language.higherKinds
 
 class WorkersPool[F[_]: Monad, R, C](
   workers: Ref[F, Map[Long, WorkerContext[F, R, C]]],
-  appWorker: EthApp ⇒ Log[F] ⇒ F[WorkerContext[F, R, C]]
+  appWorker: (EthApp, Log[F]) ⇒ F[WorkerContext[F, R, C]]
 ) {
 
   /**
    * Run a new worker with the given EthApp
    *
    * @param app Application description how it comes from Ethereum
-   * @return WorkerContext
+   * @return Current WorkerStage
    */
-  def run(app: EthApp)(implicit log: Log[F]): F[WorkerContext[F, R, C]] =
+  def run(app: EthApp)(implicit log: Log[F]): F[WorkerStage] =
     // TODO as we have no mutex here, it is possible to run worker twice
-    get(app.id).getOrElseF(
-      appWorker(app)(log) >>= (w ⇒ workers.update(_ + (app.id -> w)).as(w))
-    )
+    get(app.id)
+      .getOrElseF(
+        appWorker(app, log) >>= (w ⇒ workers.update(_ + (app.id -> w)).as(w))
+        // TODO: when worker is destroyed, it should be eventually removed from the cache
+        // to do so, we could either subscribe concurrently to `stages` and wait for Destroyed stage,
+        // or modify WorkerContext to take a onDestroyed callback (but then onStopped should also provided, and maybe more...)
+      )
+      .flatMap(_.stage)
 
   /**
    * Get a worker context, if it was launched
@@ -82,7 +87,7 @@ class WorkersPool[F[_]: Monad, R, C](
 object WorkersPool {
 
   def apply[F[_]: Sync, R, C](
-    appWorkerCtx: EthApp ⇒ Log[F] ⇒ F[WorkerContext[F, R, C]]
+    appWorkerCtx: (EthApp, Log[F]) ⇒ F[WorkerContext[F, R, C]]
   ): F[WorkersPool[F, R, C]] =
     Ref
       .of[F, Map[Long, WorkerContext[F, R, C]]](Map.empty)
