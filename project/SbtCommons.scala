@@ -38,14 +38,16 @@ object SbtCommons {
       "-Xms4G",
       "-Xmx4G",
       "-Xss6M",
-      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/debug"
+      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/debug",
+      "-XX:ErrorFile=./hs_error.log"
     ),
     javaOptions in IntegrationTest ++= Seq(
       "-XX:MaxMetaspaceSize=4G",
       "-Xms4G",
       "-Xmx4G",
       "-Xss6M",
-      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/debug"
+      s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/debug",
+      "-XX:ErrorFile=./hs_error.log"
     ),
     addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0")
   ) ++ kindProjector

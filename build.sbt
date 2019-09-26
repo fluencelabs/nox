@@ -6,17 +6,6 @@ name := "fluence"
 
 commons
 
-onLoad in Global := (onLoad in Global).value.andThen { state ⇒
-  val requiredVersion = "1.8" // Asmble works only on Java 8.
-  val currentVersion = sys.props("java.specification.version")
-  assert(
-    currentVersion == requiredVersion,
-    s"Unsupported $currentVersion JDK version, please use $requiredVersion JDK version instead."
-  )
-
-  state
-}
-
 /* Projects */
 
 lazy val `vm-frank` = (project in file("vm/frank"))
