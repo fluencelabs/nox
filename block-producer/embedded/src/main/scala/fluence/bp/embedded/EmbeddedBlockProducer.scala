@@ -34,7 +34,7 @@ import scala.language.higherKinds
 
 class EmbeddedBlockProducer[F[_]: Monad](
   txProcessor: TxProcessor[F],
-  blocksQueue: fs2.concurrent.Queue[F, SimpleBlock]
+  blocksTopic: fs2.concurrent.Topic[F, Option[SimpleBlock]]
 ) extends BlockProducer[F] {
   override type Block = SimpleBlock
 
@@ -55,7 +55,7 @@ class EmbeddedBlockProducer[F[_]: Monad](
    * @return Stream of blocks
    */
   override def blockStream(fromHeight: Option[Long])(implicit log: Log[F]): fs2.Stream[F, Block] =
-    fromHeight.foldLeft(blocksQueue.dequeue) { case (s, h) => s.filter(_.height >= h) }
+    fromHeight.foldLeft(blocksTopic.subscribe(1).unNone) { case (s, h) => s.filter(_.height >= h) }
 
   /**
    * Send (asynchronously) a transaction to the block producer, so that it should later get into a block
@@ -70,8 +70,7 @@ class EmbeddedBlockProducer[F[_]: Monad](
         _ ⇒
           for {
             sh ← txProcessor.commit()
-
-            _ ← EitherT.right(blocksQueue.enqueue1(SimpleBlock(sh.height, Seq(ByteVector(txData)))))
+            _ <- EitherT.right(blocksTopic.publish1(Some(SimpleBlock(sh.height, Seq(ByteVector(txData))))))
           } yield ()
       )
 
@@ -90,7 +89,7 @@ object EmbeddedBlockProducer {
     implicit txp: ops.hlist.Selector[C, TxProcessor[F]]
   ): F[BlockProducer.Aux[F, SimpleBlock, HNil]] =
     for {
-      blockQueue ← fs2.concurrent.Queue.circularBuffer[F, SimpleBlock](16)
-    } yield new EmbeddedBlockProducer[F](machine.command[TxProcessor[F]], blockQueue)
+      blocksTopic <- fs2.concurrent.Topic[F, Option[SimpleBlock]](None)
+    } yield new EmbeddedBlockProducer[F](machine.command[TxProcessor[F]], blocksTopic)
 
 }

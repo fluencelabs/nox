@@ -29,6 +29,7 @@ import fluence.log.Log
 import fluence.statemachine.api.StateMachine
 import fluence.statemachine.api.query.QueryCode
 import fluence.worker.Worker
+import fluence.worker.responder.repeat.RepeatOnEveryBlockImpl
 import fluence.worker.responder.resp._
 import scodec.bits.ByteVector
 
@@ -62,17 +63,29 @@ class AwaitResponses[F[_]: Concurrent: Parallel: Timer, B: TxsBlock](
    *
    */
   private def start()(implicit log: Log[F]): Resource[F, Unit] =
-    log.scope("responseSubscriber") { implicit log =>
+    log.scope("awaitResponses") { implicit log =>
       for {
         _ <- Log.resource.info("Creating subscription for tendermint blocks")
         blockStream = producer.blockStream(fromHeight = None)
         pollingStream = blockStream
-          .evalTap(b => log.debug(s"got block ${TxsBlock[B].height(b)}"))
-          .filter(nonEmptyBlock)
+          .evalTap(
+            b =>
+              log.debug(
+                s"got block ${TxsBlock[B]
+                  .height(b)} nonEmptyBlock: ${nonEmptyBlock(b)} ${TxsBlock[B].txs(b).map(_.takeWhile(_ != '\n'.toByte).decodeUtf8).mkString(", ")}"
+              )
+          )
           .evalMap(_ => pollResponses(machine))
         _ <- MakeResource.concurrentStream(pollingStream)
       } yield ()
     }
+
+  /**
+   * @return true if block contains any non-pubsub txs, false otherwise
+   */
+  private def nonEmptyBlock(block: B): Boolean = TxsBlock[B].txs(block).exists(!isRepeatTx(_))
+
+  private def isRepeatTx(tx: ByteVector) = tx.startsWith(ByteVector("repeat".getBytes))
 
   /**
    * Get all subscriptions for an app by `appId`, queries responses from tendermint.
@@ -89,13 +102,6 @@ class AwaitResponses[F[_]: Concurrent: Parallel: Timer, B: TxsBlock](
       _ <- complete.traverse { case (p, r) => p.complete(r) }
     } yield ()
   }
-
-  /**
-   * @return true if block contains any non-pubsub txs, false otherwise
-   */
-  private def nonEmptyBlock(block: B): Boolean = TxsBlock[B].txs(block).exists(!isRepeatTx(_))
-
-  private def isRepeatTx(tx: ByteVector) = tx.startsWith(AwaitResponses.AwaitSessionPrefixBytes)
 
   /**
    * Send query to state machine and convert result to AwaitedResponse
@@ -171,8 +177,6 @@ class AwaitResponses[F[_]: Concurrent: Parallel: Timer, B: TxsBlock](
 
 object AwaitResponses {
   val MaxBlocksTries = 10
-  val RepeatSessionPrefix = "repeat"
-  private val AwaitSessionPrefixBytes = ByteVector(RepeatSessionPrefix.getBytes)
 
   def make[F[_]: Parallel: Concurrent: Log: Timer, B: TxsBlock](
     worker: Worker.AuxP[F, B, _],
