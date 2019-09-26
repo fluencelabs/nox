@@ -39,6 +39,7 @@ object SbtCommons {
       "-Xmx4G",
       "-Xss6M",
       s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/debug",
+      "-XX:+UseMembar",
       "-XX:ErrorFile=./hs_error.log"
     ),
     javaOptions in IntegrationTest ++= Seq(
@@ -47,6 +48,7 @@ object SbtCommons {
       "-Xmx4G",
       "-Xss6M",
       s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/debug",
+      "-XX:+UseMembar",
       "-XX:ErrorFile=./hs_error.log"
     ),
     addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0")

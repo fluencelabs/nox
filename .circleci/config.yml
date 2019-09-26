@@ -1,5 +1,5 @@
 jdk: &jdk
-  image: circleci/openjdk:11-stretch-node-browsers-legacy
+  image: circleci/openjdk:8-jdk-node
 
 just_jdk: &jdk_image
   docker:
