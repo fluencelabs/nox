@@ -45,14 +45,13 @@ import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
 import fluence.node.eth.state._
 import fluence.node.workers.status.WorkerStatus
-import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
 import fluence.statemachine.error.StateMachineError
 import fluence.statemachine.state.{MachineState, StateService}
 import fluence.statemachine.vm.VmOperationInvoker
 import fluence.vm.InvocationResult
-import fluence.Eventually
+import fluence.effects.testkit.Timed
 import fluence.bp.tx.{TxCode, TxResponse}
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import fluence.statemachine.api.tx.TxResponse
@@ -71,7 +70,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.language.higherKinds
 
-class BlockUploadingIntegrationSpec extends WordSpec with Eventually with Matchers with OptionValues with EitherValues {
+class BlockUploadingIntegrationSpec extends WordSpec with Timed with Matchers with OptionValues with EitherValues {
   implicit private val timer = IO.timer(global)
   implicit private val shift = IO.contextShift(global)
   implicit private val log = LogFactory.forPrintln[IO]().init("block uploading spec", level = Log.Error).unsafeRunSync()

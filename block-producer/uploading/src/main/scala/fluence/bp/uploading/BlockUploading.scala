@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.tendermint.block
+package fluence.bp.uploading
 
 import cats.data.Chain
 import cats.effect._
@@ -32,7 +32,7 @@ import scodec.bits.ByteVector
 
 import scala.language.{higherKinds, postfixOps}
 
-private[tendermint] case class BlockUpload(
+private[uploading] case class BlockUpload(
   block: Block,
   vmHash: ByteVector,
   emptyReceipts: Option[Chain[Receipt]] = None

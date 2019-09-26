@@ -20,8 +20,8 @@ import cats.effect._
 import cats.syntax.flatMap._
 import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.log.{Log, LogFactory}
-import fluence.Timed
 import org.http4s.websocket.WebSocketFrame.Text
+import fluence.effects.testkit.Timed
 import org.scalatest.{Matchers, WordSpec}
 
 import scala.concurrent.ExecutionContext.Implicits.global

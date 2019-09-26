@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package fluence
+package fluence.effects.testkit
 
 import cats.effect._
 import cats.instances.either._

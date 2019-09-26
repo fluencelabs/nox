@@ -18,7 +18,6 @@ package fluence.node
 
 import cats.effect.concurrent.Ref
 import cats.effect.{ContextShift, IO, Timer}
-import fluence.Timed
 import fluence.effects.tendermint.block.data.Header
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError}
 import fluence.log.{Log, LogFactory}

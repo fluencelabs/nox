@@ -21,7 +21,6 @@ import java.nio.file.Paths
 
 import cats.effect.{ContextShift, IO, Resource, Timer}
 import cats.{Monad, Parallel}
-import fluence.Timed
 import fluence.effects.docker.params.{DockerImage, DockerLimits}
 import fluence.effects.tendermint.rpc.TestData
 import fluence.effects.tendermint.block.data.Block

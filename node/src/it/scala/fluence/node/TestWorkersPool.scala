@@ -16,19 +16,16 @@
 
 package fluence.node
 
-import cats.{Applicative, Id}
+import cats.Applicative
 import cats.effect.concurrent.{MVar, Ref}
-import cats.effect.{Concurrent, Resource, Timer}
+import cats.effect.{Concurrent, Resource}
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.history.BlockManifest
-import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
-import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.log.Log
 import fluence.node.workers.pool.WorkersPool
 import fluence.node.workers.{Worker, WorkerParams, WorkerServices}
-import fluence.worker.responder.ResponseSubscriber
 
 import scala.language.higherKinds
 

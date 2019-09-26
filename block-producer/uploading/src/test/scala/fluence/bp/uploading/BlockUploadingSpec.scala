@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-package fluence.node
-
+package fluence.bp.uploading
+/*
 import java.net.InetAddress
 import java.nio.file.Paths
 
@@ -24,7 +24,7 @@ import cats.effect.concurrent.Ref
 import cats.effect.{IO, Resource}
 import cats.syntax.functor._
 import cats.syntax.apply._
-import fluence.Timed
+import fluence.effects.testkit.Timed
 import fluence.effects.castore.StoreError
 import fluence.effects.docker.params.{DockerImage, DockerLimits}
 import fluence.effects.ipfs.{IpfsData, IpfsUploader}
@@ -105,8 +105,8 @@ class BlockUploadingSpec extends WordSpec with Matchers with Timed with OptionVa
   }
 
   /**
-   * Starts BlockUploading for a given sequence on blocks and a given sequence of storedReceipts
-   */
+ * Starts BlockUploading for a given sequence on blocks and a given sequence of storedReceipts
+ */
   private def startUploading(blocks: Seq[Block] = Nil, storedReceipts: Seq[Receipt] = Nil) = {
     Resource
       .liftF(
@@ -208,8 +208,8 @@ class BlockUploadingSpec extends WordSpec with Matchers with Timed with OptionVa
   }
 
   /**
-   * Simulates a situation where there is a given number of stored receipts followed by non-empty blocks
-   */
+ * Simulates a situation where there is a given number of stored receipts followed by non-empty blocks
+ */
   private def uploadNBlocks(blocks: Int, storedReceipts: Int = 0) = {
     val receipts = (1 to storedReceipts).map(h => Receipt(h, ByteVector.fromInt(h)))
     val bs = (storedReceipts + 1 to storedReceipts + blocks).map(singleBlock(_))
@@ -226,10 +226,10 @@ class BlockUploadingSpec extends WordSpec with Matchers with Timed with OptionVa
   }
 
   /**
-   * Generates and uploads a sequence of blocks starting with a number of empty blocks followed by non-empty blocks
-   * @param blocks Number of non-empty blocks
-   * @param emptyBlocks Number of empty-blocks
-   */
+ * Generates and uploads a sequence of blocks starting with a number of empty blocks followed by non-empty blocks
+ * @param blocks Number of non-empty blocks
+ * @param emptyBlocks Number of empty-blocks
+ */
   private def uploadBlockWithEmpties(blocks: Int, emptyBlocks: Int) = {
     val empties = (1 to emptyBlocks).map(emptyBlock(_))
     val bs = (emptyBlocks + 1 to emptyBlocks + blocks).map(singleBlock(_))
@@ -269,10 +269,10 @@ class BlockUploadingSpec extends WordSpec with Matchers with Timed with OptionVa
   }
 
   /**
-   * Generates and uploads a sequence of empty and non-empty blocks in which for each non-empty blocks there are number of emptyBlocks
-   * @param blocks How much non-empty blocks there should be in the sequence
-   * @param emptyBlocks Number of empty blocks before each non-empty block
-   */
+ * Generates and uploads a sequence of empty and non-empty blocks in which for each non-empty blocks there are number of emptyBlocks
+ * @param blocks How much non-empty blocks there should be in the sequence
+ * @param emptyBlocks Number of empty blocks before each non-empty block
+ */
   private def uploadBlocksWithEmptiesInterleaved(blocks: Int, emptyBlocks: Int) = {
     val emptyBlocksTotal = blocks * emptyBlocks
     val blocksTotal = emptyBlocksTotal + blocks
@@ -378,3 +378,4 @@ class BlockUploadingSpec extends WordSpec with Matchers with Timed with OptionVa
     }
   }
 }
+ */

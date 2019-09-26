@@ -161,6 +161,18 @@ lazy val `effects` = project
   .dependsOn(`log`)
   .enablePlugins(AutomateHeaderPlugin)
 
+lazy val `effects-testkit` = (project in file("effects/testkit"))
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      cats,
+      catsEffect,
+      fs2,
+      scalaTestCompile
+    )
+  )
+  .enablePlugins(AutomateHeaderPlugin)
+
 lazy val `resources-effects` = project
   .in(file("effects/resources"))
   .settings(
@@ -291,7 +303,15 @@ lazy val `tendermint-rpc` = (project in file("effects/tendermint-rpc"))
       sttpCatsBackend % Test
     )
   )
-  .dependsOn(`effects`, `sttp-effect`, `tendermint-block`, `log`, `tendermint-block-history`, `block-producer-tx`)
+  .dependsOn(
+    `effects`,
+    `sttp-effect`,
+    `tendermint-block`,
+    `log`,
+    `tendermint-block-history`,
+    `block-producer-tx`,
+    `effects-testkit` % Test
+  )
   .enablePlugins(AutomateHeaderPlugin)
 
 lazy val `tendermint-block` = (project in file("history/tendermint-block"))
@@ -415,7 +435,8 @@ lazy val `worker` = project
   .enablePlugins(AutomateHeaderPlugin)
   .dependsOn(`statemachine-api`, `block-producer-api`, `resources-effects`, `worker-eth`)
 
-lazy val `worker-responder` = project.in(file("worker/responder"))
+lazy val `worker-responder` = project
+  .in(file("worker/responder"))
   .settings(
     commons,
     libraryDependencies ++= Seq(
@@ -471,9 +492,20 @@ lazy val `block-producer-tendermint` = project
 
 lazy val `block-uploading` = project
   .in(file("block-producer/uploading"))
-  .settings(commons)
+  .settings(
+    commons,
+    libraryDependencies ++= Seq(
+      scalaTest
+    )
+  )
   .enablePlugins(AutomateHeaderPlugin)
-  .dependsOn(`block-producer-api`, `statemachine-api`)
+  .dependsOn(
+    `block-producer-api`,
+    `statemachine-api`,
+    `receipt-storage`,
+    `resources-effects`,
+    `effects-testkit` % Test
+  )
 
 lazy val `node` = project
   .configs(IntegrationTest)
@@ -533,7 +565,9 @@ lazy val `node` = project
     `receipt-storage`,
     `log`,
     `kademlia-http`,
-    `kademlia-testkit` % Test
+    `kademlia-testkit` % Test,
+    `block-uploading`,
+    `effects-testkit` % Test
   )
 
 lazy val `node-testkit` = (project in file("node/testkit"))

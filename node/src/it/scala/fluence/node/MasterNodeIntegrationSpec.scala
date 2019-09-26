@@ -23,7 +23,6 @@ import cats.syntax.apply._
 import com.softwaremill.sttp.asynchttpclient.fs2.AsyncHttpClientFs2Backend
 import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp.{SttpBackend, _}
-import fluence.Eventually
 import fluence.effects.ethclient.EthClient
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.FluenceContractConfig
@@ -32,9 +31,10 @@ import fluence.node.eth.{FluenceContract, NodeEthState}
 import fluence.node.status.MasterStatus
 import org.scalatest.{Timer => _, _}
 import eth.FluenceContractTestOps._
-import fluence.Timed
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.FluenceContractConfig
+import fluence.effects.testkit.Timed
+import fluence.worker.WorkerStatus
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
@@ -114,7 +114,7 @@ class MasterNodeIntegrationSpec
       getStatus(statusPort).map {
         case Right(st) =>
           st.workers.headOption.flatMap {
-            case w: WorkerStatus if w.isHealthy =>
+            case w: WorkerStatus if w.isOperating =>
               Some(w)
             case _ ⇒
               log.debug("Trying to get WorkerRunning, but it is not healthy in status: " + st).unsafeRunSync()

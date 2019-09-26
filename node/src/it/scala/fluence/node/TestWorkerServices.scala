@@ -5,13 +5,13 @@ import cats.effect.Timer
 import cats.{Applicative, Monad}
 import fluence.effects.docker.DockerContainerStopped
 import fluence.node.workers.{WorkerBlockManifests, WorkerServices}
-import fluence.node.workers.status.{HttpCheckNotPerformed, ServiceStatus, WorkerStatus}
 import cats.syntax.applicative._
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.http.TendermintHttpRpc
 import fluence.effects.tendermint.rpc.websocket.TendermintWebsocketRpc
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
+import fluence.worker.WorkerStatus
 import fluence.worker.responder.SendAndWait
 import fluence.worker.responder.repeat.RepeatOnEveryBlock
 

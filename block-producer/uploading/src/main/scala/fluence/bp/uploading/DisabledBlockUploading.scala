@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.tendermint.block
+package fluence.bp.uploading
+
 import cats.Applicative
 import cats.effect.Resource
 import fluence.effects.receipt.storage.ReceiptStorage

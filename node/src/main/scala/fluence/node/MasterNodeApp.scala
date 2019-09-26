@@ -22,19 +22,20 @@ import cats.effect.ExitCase.{Canceled, Completed, Error}
 import cats.effect._
 import cats.syntax.apply._
 import cats.syntax.compose._
-import cats.syntax.profunctor._
 import cats.syntax.flatMap._
+import cats.syntax.profunctor._
+import fluence.bp.uploading.BlockUploading
 import fluence.codec.{CodecError, PureCodec}
 import fluence.crypto.KeyPair
 import fluence.crypto.eddsa.Ed25519
 import fluence.crypto.hash.CryptoHashers
-import fluence.effects.{Backoff, EffectError}
 import fluence.effects.docker.DockerIO
 import fluence.effects.ipfs.IpfsUploader
 import fluence.effects.kvstore.RocksDBStore
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.effects.tendermint.block.history.Receipt
+import fluence.effects.{Backoff, EffectError}
 import fluence.kad.Kademlia
 import fluence.kad.conf.KademliaConfig
 import fluence.kad.contact.UriContact
@@ -46,7 +47,6 @@ import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.config.{Configuration, MasterConfig}
 import fluence.node.status.StatusAggregator
 import fluence.node.workers.pool.DockerWorkersPool
-import fluence.node.workers.tendermint.block.BlockUploading
 
 import scala.language.higherKinds
 

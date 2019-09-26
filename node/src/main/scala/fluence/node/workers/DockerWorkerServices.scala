@@ -19,6 +19,7 @@ package fluence.node.workers
 import cats.effect._
 import cats.{Monad, Parallel}
 import fluence.bp.api.{BlockProducer, DialPeers}
+import fluence.bp.uploading.BlockUploading
 import fluence.effects.docker._
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.sttp.SttpEffect
@@ -27,7 +28,6 @@ import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
 import fluence.node.workers.pool.WorkerP2pConnectivity
 import fluence.node.workers.tendermint.DockerTendermint
-import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.statemachine.api.StateMachine
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import fluence.statemachine.docker.DockerStateMachine

@@ -16,26 +16,24 @@
 
 package fluence.node
 
-import java.nio.ByteBuffer
 import java.nio.file.{Files, Paths}
 import java.util.Base64
 
 import cats.Apply
-import cats.data.EitherT
 import cats.effect._
 import cats.effect.concurrent.Ref
 import cats.syntax.apply._
 import cats.syntax.functor._
-import com.softwaremill.sttp.circe.asJson
 import com.softwaremill.sttp._
+import com.softwaremill.sttp.circe.asJson
 import fluence.codec.PureCodec
-import fluence.Timed
 import fluence.crypto.eddsa.Ed25519
-import fluence.effects.{Backoff, EffectError}
 import fluence.effects.ethclient.EthClient
 import fluence.effects.receipt.storage.KVReceiptStorage
 import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.effects.tendermint.block.history.BlockManifest
+import fluence.effects.testkit.Timed
+import fluence.effects.{Backoff, EffectError}
 import fluence.kad.conf.{AdvertizeConf, JoinConf, KademliaConfig, RoutingConf}
 import fluence.kad.contact.UriContact
 import fluence.kad.http.KademliaHttpNode
@@ -45,9 +43,8 @@ import fluence.node.config.{FluenceContractConfig, MasterConfig, NodeConfig}
 import fluence.node.eth.FluenceContract
 import fluence.node.eth.FluenceContractTestOps._
 import fluence.node.status.{MasterStatus, StatusAggregator}
-import fluence.node.workers.api.WorkerApi
 import fluence.node.workers.tendermint.ValidatorPublicKey
-import org.scalatest.{Timer ⇒ _, _}
+import org.scalatest.{Timer => _, _}
 import scodec.bits.ByteVector
 
 import scala.concurrent.ExecutionContext.Implicits.global

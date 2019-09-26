@@ -28,6 +28,7 @@ import cats.syntax.compose._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
 import cats.{Applicative, Apply, Parallel}
+import fluence.bp.uploading.BlockUploading
 import fluence.codec.PureCodec
 import fluence.effects.docker.DockerIO
 import fluence.effects.kvstore.RocksDBStore
@@ -37,7 +38,6 @@ import fluence.effects.sttp.SttpEffect
 import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
-import fluence.node.workers.tendermint.block.BlockUploading
 import fluence.node.workers.{DockerWorkerServices, Worker, WorkerParams}
 
 import scala.concurrent.duration._
