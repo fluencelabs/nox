@@ -46,5 +46,5 @@ matrix:
       script:
         - export TRAVIS=true
         - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION -J-Xms4096M -J-Xmx4096M compile
-        - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION vm/it:test
+        - PATH=$PATH:$HOME/.cargo/bin sbt ++$TRAVIS_SCALA_VERSION it:test
       if: branch = master OR type = pull_request
