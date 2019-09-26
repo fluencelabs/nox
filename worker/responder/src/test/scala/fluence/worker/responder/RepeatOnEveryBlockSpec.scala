@@ -18,19 +18,15 @@ package fluence.worker.responder
 
 import shapeless._
 import cats.data.EitherT
-import cats.effect.concurrent.{Deferred, Ref}
+import cats.effect.concurrent.Ref
 import cats.effect.{Concurrent, ContextShift, IO, Resource, Timer}
 import cats.syntax.traverse._
 import cats.instances.list._
 import cats.syntax.apply._
-import cats.syntax.applicative._
-import cats.syntax.functor._
 import cats.syntax.flatMap._
 import fluence.bp.api.BlockProducer
-import fluence.bp.api.BlockProducer.Aux
 import fluence.bp.embedded.{EmbeddedBlockProducer, SimpleBlock}
 import fluence.bp.tx.{Tx, TxCode, TxResponse}
-import fluence.effects.resources.MakeResource
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
 import fluence.statemachine.api.StateMachine
@@ -55,6 +51,8 @@ case class TestErrorMalformedTx(txData: Array[Byte]) extends EffectError
 
 class RepeatOnEveryBlockSpec extends WordSpec with OptionValues with Matchers {
 
+  import WorkerResponderTestUtils._
+
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
   implicit private val backoff: Backoff[EffectError] = Backoff.default[EffectError]
@@ -72,10 +70,10 @@ class RepeatOnEveryBlockSpec extends WordSpec with OptionValues with Matchers {
           for {
             m <- txMap.get
             h <- heightRef.get
-          } yield m
-            .get(path)
-            .map(QueryResponse(h, _, QueryCode.Ok, ""))
-            .toRight(TestErrorNoSuchTx(path))
+          } yield
+            m.get(path)
+              .map(QueryResponse(h, _, QueryCode.Ok, ""))
+              .toRight(TestErrorNoSuchTx(path))
         )
 
       override def status()(implicit log: Log[IO]): EitherT[IO, EffectError, StateMachineStatus] =
@@ -107,26 +105,6 @@ class RepeatOnEveryBlockSpec extends WordSpec with OptionValues with Matchers {
     sendAndWait = SendAndWait(producer, awaitResponses)
     onEveryBlock <- RepeatOnEveryBlock.make(producer, sendAndWait)
   } yield (onEveryBlock, producer: BlockProducer.AuxB[IO, SimpleBlock])
-
-  private val sessionId: IO[String] = IO(Random.alphanumeric.take(8).mkString)
-  private def genTx(body: String) = sessionId.map(sid => Tx(Tx.Head(sid, 0), Tx.Data(body.getBytes)).generateTx())
-  private def right[T](v: IO[T]) = EitherT.right[EffectError](v)
-
-  private def sendTx(producer: BlockProducer.AuxB[IO, SimpleBlock], tx: String) =
-    right(genTx(tx)).flatMap(producer.sendTx)
-
-  private def produceBlock(producer: BlockProducer.AuxB[IO, SimpleBlock]) =
-    sendTx(producer, tx = "single tx produces block on embedded block producer")
-
-  private def produceBlocks(producer: BlockProducer.AuxB[IO, SimpleBlock]) =
-    Concurrent[IO].start(
-      fs2
-        .Stream(1)
-        .repeat
-        .evalMap(_ => produceBlock(producer).value)
-        .compile
-        .drain
-    )
 
   "on every block" should {
     "receive tx result" in {

@@ -24,10 +24,7 @@ import fluence.effects.EffectError
 trait TxAwaitError {
   def msg: String
 }
-// TODO it's never instantiated actually
-case class TendermintResponseDeserializationError(responseError: String) extends TxAwaitError {
-  override def msg: String = responseError
-}
+
 case class RpcTxAwaitError(error: EffectError) extends TxAwaitError {
   override def msg: String = error.getMessage
 }
