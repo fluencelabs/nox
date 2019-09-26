@@ -36,7 +36,7 @@ object WebsocketResponses {
   object WebsocketResponse {
     implicit val conf: Configuration =
       Configuration.default.withDiscriminator("type").withSnakeCaseConstructorNames.withSnakeCaseMemberNames
-    implicit val websocketResponseEncoder: Encoder[WebsocketResponse] = deriveConfiguredEncoder[WebsocketResponse]
-    implicit val websocketResponseDecoder: Decoder[WebsocketResponse] = deriveConfiguredDecoder[WebsocketResponse]
+    implicit def websocketResponseEncoder[T <: WebsocketResponse]: Encoder[T] = deriveConfiguredEncoder
+    implicit def websocketResponseDecoder[T <: WebsocketResponse]: Decoder[T] = deriveConfiguredDecoder
   }
 }

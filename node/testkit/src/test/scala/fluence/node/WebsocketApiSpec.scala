@@ -20,21 +20,18 @@ import cats.effect.concurrent.Ref
 import cats.effect.{ContextShift, IO, Timer}
 import cats.syntax.applicative._
 import cats.syntax.either._
+import cats.instances.either._
+import cats.syntax.flatMap._
 import fluence.bp.tx
-import fluence.bp.tx.Tx
+import fluence.bp.tx.{Tx, TxCode, TxResponse}
 import fluence.effects.tendermint.block.data.Header
 import fluence.effects.tendermint.block.history.BlockManifest
 import fluence.effects.tendermint.rpc.http.{RpcBodyMalformed, RpcError}
 import fluence.effects.testkit.Timed
 import fluence.log.{Log, LogFactory}
 import fluence.node.workers.api.WorkerApi
-import fluence.node.workers.api.websocket.WebsocketRequests.{
-  P2pPortRequest,
-  SubscribeRequest,
-  TxRequest,
-  WebsocketRequest
-}
-import fluence.node.workers.api.websocket.WebsocketResponses._
+import fluence.node.workers.api.websocket.WebsocketRequests.{TxRequest, WebsocketRequest}
+import fluence.node.workers.api.websocket.WebsocketResponses.{ErrorResponse, WebsocketResponse}
 import fluence.node.workers.api.websocket.WorkerWebsocket
 import fluence.worker.responder.resp.AwaitedResponse.OrError
 import fluence.worker.responder.resp._
@@ -48,9 +45,8 @@ import scala.concurrent.duration._
 import scala.language.higherKinds
 
 class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll with Timed {
-
-  import fluence.node.workers.api.websocket.WebsocketRequests.WebsocketRequest._
-  import fluence.node.workers.api.websocket.WebsocketResponses.WebsocketResponse._
+  import fluence.bp
+  import fluence.node.workers.api.websocket.{WebsocketResponses ⇒ WSR}
 
   implicit private val ioTimer: Timer[IO] = IO.timer(global)
   implicit private val ioShift: ContextShift[IO] = IO.contextShift(global)
@@ -81,25 +77,27 @@ class WebsocketApiSpec extends WordSpec with Matchers with BeforeAndAfterAll wit
     }
 
     "return a transaction response" in {
+
       val id = "some-id"
-      val txResponse = TxResponse(id, "tx-response")
+      val txResponse = TxResponse(TxCode.OK, "tx-response")
       val txRequest = "tx-request".getBytes
 
-      val request: WebsocketRequest = TxRequest(txRequest, id)
+      val request = TxRequest(txRequest, id): WebsocketRequest
       val response = websocketApi(new TestWorkerApi[IO] {
 
-//        override def sendTx(tx: Array[Byte])(implicit log: Log[IO]): IO[Either[RpcError, TxResponse]] =
-//          txResponse.asRight.pure[IO]
-//
-//        override def sendTx(tx: String, id: Option[String])(
-//          implicit log: Log[IO]
-//        ): IO[Either[RpcError, String]] =
-//          (Right(tx + txResponse): Either[RpcError, String]).pure[IO]
+        override def sendTx(tx: Array[Byte])(implicit log: Log[IO]): IO[Either[RpcError, bp.tx.TxResponse]] =
+          txResponse.asRight.pure[IO]
+
       }).unsafeRunSync().processRequest(request.asJson.spaces4).unsafeRunSync()
-//      val parsedResponse = parse(response).flatMap(_.as[WebsocketResponse]).right.get.asInstanceOf[TxResponse]
-//
-//      parsedResponse.requestId shouldBe id
-//      parsedResponse.data shouldBe txRequest + txResponse
+
+      val parsedResponse = parse(response)
+        .flatMap(_.as[WSR.TxResponse])
+        .flatMap(r ⇒ parse(r.data))
+        .flatMap(_.as[bp.tx.TxResponse])
+        .right
+        .get
+
+      parsedResponse.info shouldBe txResponse
     }
 
 //    "return a correct error on transaction" in {
