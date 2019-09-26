@@ -43,8 +43,6 @@ import fluence.effects.tendermint.{block, rpc}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.{Log, LogFactory}
 import fluence.node.config.DockerConfig
-import fluence.node.eth.state._
-import fluence.node.workers.status.WorkerStatus
 import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
 import fluence.statemachine.error.StateMachineError
@@ -54,7 +52,6 @@ import fluence.vm.InvocationResult
 import fluence.effects.testkit.Timed
 import fluence.bp.tx.{TxCode, TxResponse}
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
-import fluence.statemachine.api.tx.TxResponse
 import fluence.statemachine.receiptbus.ReceiptBusBackend
 import fluence.worker.eth.{Cluster, EthApp, StorageRef, StorageType, WorkerPeer}
 import fluence.worker.responder.SendAndWait

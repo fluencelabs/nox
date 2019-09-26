@@ -207,14 +207,14 @@ class MasterNodeIntegrationSpec
             _ = status2 shouldBe defined
             _ ← log.debug("Worker2 running: " + status2)
 
-            appId = status1.value.appId
+            appId = 1L
             _ <- contract.deleteApp[IO](appId)
             _ ← log.debug("App deleted from contract")
 
             _ <- eventually[IO](
               for {
-                s1 <- getRunningWorker(basePort)
-                s2 <- getRunningWorker((basePort + 1).toShort)
+                s1 <- getStatus1
+                s2 <- getStatus2
               } yield {
                 // Check that workers run no more
                 s1 should not be defined
