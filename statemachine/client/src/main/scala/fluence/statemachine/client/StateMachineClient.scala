@@ -60,6 +60,7 @@ object StateMachineClient {
           .leftMap(identity[EffectError])
 
       override def status()(implicit log: Log[F]): EitherT[F, EffectError, StateMachineStatus] =
+        // TODO: Make a facade in DockerStateMachine
         checkStatus >>
           sttp
             .get(uri"http://$host:$port/status")

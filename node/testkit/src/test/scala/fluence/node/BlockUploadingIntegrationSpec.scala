@@ -57,7 +57,7 @@ import fluence.bp.tx.{TxCode, TxResponse}
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import fluence.statemachine.api.tx.TxResponse
 import fluence.statemachine.receiptbus.ReceiptBusBackend
-import fluence.worker.eth.{EthApp, Cluster, StorageRef, StorageType, WorkerPeer}
+import fluence.worker.eth.{Cluster, EthApp, StorageRef, StorageType, WorkerPeer}
 import fluence.worker.responder.SendAndWait
 import fluence.worker.responder.repeat.RepeatOnEveryBlock
 import fs2.concurrent.Queue

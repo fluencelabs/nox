@@ -46,7 +46,7 @@ import fluence.node.workers.tendermint.config.{ConfigTemplate, TendermintConfig}
 import fluence.node.workers.{Worker, WorkerBlockManifests, WorkerParams, WorkerServices}
 import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import fluence.statemachine.api.data.BlockReceipt
-import fluence.worker.eth.{EthApp, Cluster, StorageRef, StorageType, WorkerPeer}
+import fluence.worker.eth.{Cluster, EthApp, StorageRef, StorageType, WorkerPeer}
 import fluence.worker.responder.SendAndWait
 import fluence.worker.responder.repeat.RepeatOnEveryBlock
 import io.circe.Json

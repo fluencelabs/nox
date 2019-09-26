@@ -69,6 +69,7 @@ trait StateMachine[F[_]] {
 
     override protected val commands: Commands = cmd :: self.commands
 
+    // TODO: here we have path as a separate entity, but in processTx it's an opaque byte array
     override def query(path: String)(implicit log: Log[F]): EitherT[F, EffectError, QueryResponse] =
       self.query(path)
 
