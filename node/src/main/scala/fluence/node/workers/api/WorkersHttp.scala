@@ -125,6 +125,7 @@ object WorkersHttp {
         worker ← pool.getWorker(appId)
         producer = worker.producer
         machine = worker.machine
+        // TODO: querying worker map several times, could be optimized
         responder ← pool.getCompanion[WorkerResponder[F]](appId)
         p2pPort ← pool
           .getResources(appId)
