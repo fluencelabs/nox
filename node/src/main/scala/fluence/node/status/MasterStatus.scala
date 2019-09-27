@@ -24,8 +24,9 @@ import fluence.worker.WorkerStatus
 import fluence.worker.eth.StorageType.StorageType
 import fluence.worker.eth.{Cluster, EthApp, StorageRef, StorageType, WorkerPeer}
 import io.circe.generic.semiauto._
-import io.circe.{Decoder, Encoder, KeyDecoder, KeyEncoder}
+import io.circe.{Decoder, Encoder, Json, KeyDecoder, KeyEncoder}
 import scodec.bits.ByteVector
+import io.circe.syntax._
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
@@ -62,6 +63,13 @@ object MasterStatus {
   private implicit val encodeApp: Encoder[EthApp] = deriveEncoder
   private implicit val encodeStorageRef: Encoder[StorageRef] = deriveEncoder
   private implicit val keyEncoderByteVector: KeyEncoder[ByteVector] = KeyEncoder.instance(_.toHex)
+  private implicit val encodeStatusTuple: Encoder[(Long, WorkerStatus)] = {
+    case (appId: Long, status: WorkerStatus) ⇒
+      Json.obj(
+        ("appId", Json.fromLong(appId)),
+        ("status", status.asJson)
+      )
+  }
 
   implicit val encodeNodeEthState: Encoder[NodeEthState] = deriveEncoder
   implicit val encodeMasterState: Encoder[MasterStatus] = deriveEncoder
