@@ -111,14 +111,12 @@ object MasterPool {
 
           responder ← WorkerResponder.make(producer, machine)
 
-          worker = Worker(
-            app.id,
-            machine,
-            producer,
-            machine.command[PeersControl[F]] :: responder :: HNil
-          )
-
-        } yield worker
+        } yield Worker(
+          app.id,
+          machine,
+          producer,
+          machine.command[PeersControl[F]] :: responder :: HNil
+        )
 
     WorkersPool[F, Resources[F], Companions[F]] { (app, l) ⇒
       implicit val log: Log[F] = l
