@@ -18,7 +18,10 @@ package fluence.node.workers.api.websocket
 
 import io.circe.{Decoder, Encoder}
 import io.circe.generic.extras.Configuration
+import io.circe.generic.extras.decoding.ConfiguredDecoder
+import io.circe.generic.extras.encoding.ConfiguredAsObjectEncoder
 import io.circe.generic.extras.semiauto._
+import shapeless.Lazy
 
 object WebsocketResponses {
   sealed trait WebsocketResponse {
@@ -36,7 +39,16 @@ object WebsocketResponses {
   object WebsocketResponse {
     implicit val conf: Configuration =
       Configuration.default.withDiscriminator("type").withSnakeCaseConstructorNames.withSnakeCaseMemberNames
-    implicit def websocketResponseEncoder[T <: WebsocketResponse]: Encoder[T] = deriveConfiguredEncoder
-    implicit def websocketResponseDecoder[T <: WebsocketResponse]: Decoder[T] = deriveConfiguredDecoder
+
+    implicit def websocketResponseEncoder[T <: WebsocketResponse](
+      implicit v: Lazy[ConfiguredAsObjectEncoder[T]]
+    ): Encoder[T] =
+      deriveConfiguredEncoder[T]
+    implicit def websocketResponseDecoder[T <: WebsocketResponse](implicit v: Lazy[ConfiguredDecoder[T]]): Decoder[T] =
+      deriveConfiguredDecoder[T]
+
+    // TODO: why functions aren't enough? Because of <: ?
+    implicit val enc: Encoder[WebsocketResponse] = websocketResponseEncoder[WebsocketResponse]
+    implicit val dec: Decoder[WebsocketResponse] = websocketResponseDecoder[WebsocketResponse]
   }
 }
