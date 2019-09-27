@@ -16,6 +16,9 @@
 
 package fluence.worker
 
+import io.circe.{Decoder, Encoder}
+import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
+
 sealed abstract class WorkerStage(val hasWorker: Boolean = false)
 
 object WorkerStage {
@@ -33,4 +36,6 @@ object WorkerStage {
   case object Destroying extends WorkerStage()
   case object Destroyed extends WorkerStage()
 
+  implicit val encoder: Encoder[WorkerStage] = deriveEncoder
+  implicit val decoder: Decoder[WorkerStage] = deriveDecoder
 }

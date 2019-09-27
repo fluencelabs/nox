@@ -23,6 +23,8 @@ import io.circe.{Decoder, Encoder}
 
 sealed abstract class WorkerStatus(val isOperating: Boolean)
 
+case class WorkerNotAllocated(stage: WorkerStage) extends WorkerStatus(false)
+
 case class WorkerFailing(
   machine: Either[String, StateMachineStatus],
   producer: Either[String, BlockProducerStatus]

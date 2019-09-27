@@ -43,9 +43,9 @@ import scala.language.postfixOps
 case class MasterStatus(
   ip: String,
   uptime: Long,
-  nodeConfig: NodeConfig,
   numberOfWorkers: Int,
-  workers: List[WorkerStatus],
+  // TODO: is JSON serialization of a tuple is ok? Maybe tweak names
+  workers: List[(Long, WorkerStatus)],
   config: MasterConfig,
   ethState: NodeEthState
 )

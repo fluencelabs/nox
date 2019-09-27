@@ -19,12 +19,15 @@ package fluence.node.status
 import cats.{Monad, Parallel}
 import cats.effect._
 import cats.syntax.functor._
+import cats.syntax.applicative._
+import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.instances.list._
 import fluence.log.Log
 import fluence.node.MasterNode
 import fluence.node.config.MasterConfig
 import fluence.node.eth.NodeEthState
+import fluence.worker.{WorkerNotAllocated, WorkerStatus}
 
 import scala.concurrent.duration._
 import scala.language.higherKinds
@@ -50,13 +53,20 @@ case class StatusAggregator[F[_]: Timer: Concurrent](
     for {
       currentTime ← Clock[F].monotonic(MILLISECONDS)
       workers ← masterNode.pool.listAll()
-      // TODO filter out Left, format to json
-      workerInfos ← Parallel.parTraverse(workers)(_.worker.semiflatMap(w ⇒ w.status(statusTimeout).map(w.appId -> _)))
+      workerInfos <- Parallel
+        .parTraverse(workers)(
+          ctx ⇒
+            ctx.worker
+              .foldF(
+                WorkerNotAllocated(_).pure[F].widen[WorkerStatus],
+                w ⇒ w.status(statusTimeout)
+              )
+              .map(ctx.app.id → _)
+        )
       ethState ← masterNode.nodeEth.expectedState
     } yield MasterStatus(
       config.endpoints.ip.getHostAddress,
       currentTime - startTimeMillis,
-      masterNode.nodeConfig,
       workerInfos.size,
       workerInfos,
       config,
