@@ -41,10 +41,10 @@ import scala.language.higherKinds
 
 object MasterPool {
 
-  case class CodePath(path: String)
-
   type Resources[F[_]] = WorkerFiles.Paths[F] :: WorkersPorts.P2pPort[F] :: HNil
   type Companions[F[_]] = PeersControl[F] :: WorkerResponder[F] :: HNil
+
+  type Type[F[_]] = WorkersPool[F, Resources[F], Companions[F]]
 
   def resources[F[_]: Monad: Timer](
     app: EthApp,
@@ -65,7 +65,7 @@ object MasterPool {
     blockUploading: BlockUploading[F],
     websocketConfig: WebsocketConfig,
     configTemplate: ConfigTemplate
-  )(implicit backoff: Backoff[EffectError], sttp: SttpEffect[F]): F[WorkersPool[F, Resources[F], Companions[F]]] = {
+  )(implicit backoff: Backoff[EffectError], sttp: SttpEffect[F]): F[Type[F]] = {
 
     type W0 = Worker[F, Companions[F]]
 

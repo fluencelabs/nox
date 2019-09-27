@@ -34,10 +34,8 @@ import fluence.node.code.{CodeCarrier, LocalCodeCarrier, PolyStore, RemoteCodeCa
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.eth._
-import fluence.node.workers.{WorkerFiles, WorkersPorts}
 import fluence.node.workers.tendermint.config.ConfigTemplate
 import fluence.statemachine.api.command.PeersControl
-import fluence.worker.WorkersPool
 import fluence.worker.eth.{EthApp, StorageType}
 
 import scala.language.{higherKinds, postfixOps}
@@ -45,25 +43,12 @@ import scala.language.{higherKinds, postfixOps}
 /**
  * Represents a MasterNode process. Takes cluster forming events from Ethereum, and spawns new Workers to serve them.
  *
- * @param nodeConfig Tendermint/Fluence master node config
- * @param configTemplate Template for worker's configuration
  * @param nodeEth Ethereum adapter
  * @param pool Workers pool to launch workers in
- * @param codeCarrier To load the code from, usually backed with Swarm
- * @param rootPath MasterNode's working directory, usually /master
- * @param kademlia Kademlia instance
- * @param masterNodeContainerId Docker Container ID for this process, to import Docker volumes from
  */
 case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
-  masterConfig: MasterConfig,
-  nodeConfig: NodeConfig,
-  configTemplate: ConfigTemplate,
   nodeEth: NodeEth[F],
-  pool: WorkersPool[F, MasterPool.Resources[F], MasterPool.Companions[F]],
-  codeCarrier: CodeCarrier[F],
-  rootPath: Path,
-  kademlia: Kademlia[F, C],
-  masterNodeContainerId: Option[String]
+  pool: MasterPool.Type[F]
 )(implicit backoff: Backoff[EffectError]) {
 
   /**
@@ -129,6 +114,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
 
 object MasterNode {
 
+  // TODO drop unused args
   /**
    * Makes the MasterNode resource for the given config
    *
@@ -139,7 +125,7 @@ object MasterNode {
   def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer: Log: LogFactory: SttpStreamEffect, C](
     masterConfig: MasterConfig,
     nodeConfig: NodeConfig,
-    ports: WorkersPorts[F],
+    pool: MasterPool.Type[F],
     kademlia: Kademlia[F, C]
   )(
     implicit
@@ -158,23 +144,9 @@ object MasterNode {
 
       configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath, masterConfig.tendermintConfig))
 
-      pool ← Resource.liftF(
-        MasterPool(
-          ports,
-          ???,
-          new WorkerFiles[F](rootPath, codeCarrier)
-        )
-      )
     } yield MasterNode[F, C](
-      masterConfig,
-      nodeConfig,
-      configTemplate,
       nodeEth,
-      pool,
-      codeCarrier,
-      rootPath,
-      kademlia,
-      masterConfig.masterContainerId
+      pool
     )
 
   def codeCarrier[F[_]: Sync: ContextShift: Concurrent: Timer: LiftIO: SttpStreamEffect](
