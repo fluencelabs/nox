@@ -16,7 +16,7 @@
 
 package fluence.worker
 
-import cats.{Applicative, Apply, Functor, Monad}
+import cats.{Applicative, Apply, Monad}
 import cats.data.EitherT
 import cats.syntax.applicative._
 import cats.syntax.functor._
@@ -41,16 +41,6 @@ trait WorkerResource[F[_], T] {
 }
 
 object WorkerResource {
-  implicit def workerResourceFunctor[F[_]: Functor]: Functor[WorkerResource[F, *]] =
-    new Functor[WorkerResource[F, *]] {
-      override def map[A, B](fa: WorkerResource[F, A])(f: A ⇒ B): WorkerResource[F, B] =
-        new WorkerResource[F, B] {
-          override def prepare()(implicit log: Log[F]): F[B] = fa.prepare().map(f)
-
-          override def destroy()(implicit log: Log[F]): EitherT[F, EffectError, Unit] = fa.destroy()
-        }
-    }
-
   implicit def workerResourceApplicative[F[_]: Monad]: Applicative[WorkerResource[F, *]] =
     new Applicative[WorkerResource[F, *]] {
       override def pure[A](x: A): WorkerResource[F, A] =
@@ -67,6 +57,13 @@ object WorkerResource {
 
           override def destroy()(implicit log: Log[F]): EitherT[F, EffectError, Unit] =
             Apply[EitherT[F, EffectError, *]].productR(ff.destroy())(fa.destroy())
+        }
+
+      override def map[A, B](fa: WorkerResource[F, A])(f: A ⇒ B): WorkerResource[F, B] =
+        new WorkerResource[F, B] {
+          override def prepare()(implicit log: Log[F]): F[B] = fa.prepare().map(f)
+
+          override def destroy()(implicit log: Log[F]): EitherT[F, EffectError, Unit] = fa.destroy()
         }
     }
 }

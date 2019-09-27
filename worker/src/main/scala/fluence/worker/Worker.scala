@@ -26,58 +26,43 @@ import fluence.bp.api.BlockProducer
 import fluence.effects.EffectError
 import fluence.log.Log
 import fluence.statemachine.api.StateMachine
-import shapeless.HList
+import shapeless._
 
 import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
-trait Worker[F[_]] {
+abstract class Worker[F[_], CS <: HList](
+// TODO why should we need it?
+  val appId: Long,
+  protected val companions: CS,
+  val machine: StateMachine[F],
+  val producer: BlockProducer[F]
+) {
+  self ⇒
 
-  // TODO why should we need it?
-  val appId: Long
-
-  type Machine <: StateMachine[F]
-  type Producer <: BlockProducer[F]
-
-  def machine: Machine
-
-  def producer: Producer
+  def companion[C](implicit c: ops.hlist.Selector[CS, C]): C = c(companions)
 
   def status(
     timeout: FiniteDuration
   )(implicit log: Log[F], timer: Timer[F], c: Concurrent[F], p: Parallel[F]): F[WorkerStatus]
+
+  def map[CC <: HList](fn: CS ⇒ CC): Worker[F, CC] = new Worker[F, CC](appId, fn(companions), machine, producer) {
+    override def status(
+      timeout: FiniteDuration
+    )(implicit log: Log[F], timer: Timer[F], c: Concurrent[F], p: Parallel[F]): F[WorkerStatus] =
+      self.status(timeout)
+  }
 }
 
 object Worker {
 
-  type Aux[F[_], C <: HList, B, PC <: HList] = Worker[F] {
-    type Machine = StateMachine.Aux[F, C]
-
-    type Producer = BlockProducer.Aux[F, B, PC]
-  }
-
-  type AuxM[F[_], C <: HList] = Worker[F] {
-    type Machine = StateMachine.Aux[F, C]
-  }
-
-  type AuxP[F[_], B, C <: HList] = Worker[F] {
-    type Producer = BlockProducer.Aux[F, B, C]
-  }
-
-  def apply[F[_]: Monad, C <: HList, B, PC <: HList](
-    _appId: Long,
-    _machine: StateMachine.Aux[F, C],
-    _producer: BlockProducer.Aux[F, B, PC]
-  ): Worker.Aux[F, C, B, PC] =
-    new Worker[F] {
-      override type Machine = StateMachine.Aux[F, C]
-      override type Producer = BlockProducer.Aux[F, B, PC]
-
-      override val appId: Long = _appId
-
-      override val machine: Machine = _machine
-
-      override val producer: Producer = _producer
+  def apply[F[_]: Monad, C <: HList](
+    appId: Long,
+    machine: StateMachine[F],
+    producer: BlockProducer[F],
+    companions: C
+  ): Worker[F, C] =
+    new Worker[F, C](appId, companions, machine, producer) {
 
       def status(
         timeout: FiniteDuration

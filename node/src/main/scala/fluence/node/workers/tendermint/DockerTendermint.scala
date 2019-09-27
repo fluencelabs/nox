@@ -29,7 +29,9 @@ import fluence.effects.tendermint.block.data.Block
 import fluence.effects.tendermint.rpc.websocket.WebsocketConfig
 import fluence.log.Log
 import fluence.node.config.DockerConfig
-import fluence.node.workers.WorkerParams
+import fluence.node.workers.WorkerDocker
+import fluence.node.workers.tendermint.config.ConfigTemplate
+import fluence.worker.eth.EthApp
 import shapeless._
 
 import scala.language.higherKinds
@@ -83,20 +85,20 @@ object DockerTendermint {
    * Prepare a docker command for a particular Worker's Tendermint container
    */
   private def dockerCommand(
-    params: WorkerParams,
+    masterNodeContainerId: Option[String],
+    params: WorkerDocker.Component,
+    tendermintPath: Path,
     network: DockerNetwork,
     p2pPort: Short
   ): DockerParams.DaemonParams = {
-    import params.{masterNodeContainerId, tendermintPath, tmDockerConfig}
-
     val dockerParams = DockerParams
       .build()
       .user("0") // TODO should only work when running from docker?
       .option("-e", s"""TMHOME=$tendermintPath""")
-      .option("--name", containerName(params))
+      .option("--name", params.name)
       .option("--network", network.name)
       .port(p2pPort, P2pPort)
-      .limits(tmDockerConfig.limits)
+      .limits(params.limits)
 
     (masterNodeContainerId match {
       case Some(id) =>
@@ -104,7 +106,7 @@ object DockerTendermint {
           .option("--volumes-from", id)
       case None =>
         dockerParams
-    }).prepared(tmDockerConfig.image).daemonRun("node")
+    }).prepared(params.image).daemonRun("node")
   }
 
   /**
@@ -116,29 +118,33 @@ object DockerTendermint {
   /**
    * Prepare and launch Tendermint container for the given Worker
    *
-   * @param params Worker Params
-   * @param workerName Docker name for the launched Worker (statemachine) container
-   * @param network Worker's network
-   * @param stopTimeout Seconds to wait for graceful stop of the Tendermint container before killing it
    * @return Running container
    */
   def make[F[_]: DockerIO: LiftIO: ConcurrentEffect: SttpEffect: Timer: ContextShift: Log](
-    params: WorkerParams,
+    app: EthApp,
+    tendermintPath: Path,
+    configTemplate: ConfigTemplate,
+    workerDocker: WorkerDocker,
     p2pPort: Short,
-    workerName: String,
-    network: DockerNetwork,
-    stopTimeout: Int,
     websocketConfig: WebsocketConfig
   ): Resource[F, BlockProducer.Aux[F, Block, DockerContainer :: DialPeers[F] :: HNil]] =
     for {
+      // TODO make it WorkerResource
       _ ← Resource.liftF(
-        params.configTemplate.writeConfigs(params.app, params.tendermintPath, p2pPort, workerName)
+        configTemplate.writeConfigs(app, tendermintPath, p2pPort, workerDocker.machine.name)
       )
-      container ← DockerIO[F].run(dockerCommand(params, network, p2pPort), stopTimeout)
+      container ← DockerIO[F].run(
+        dockerCommand(
+          workerDocker.masterContainerId,
+          workerDocker.producer,
+          tendermintPath,
+          workerDocker.network,
+          p2pPort
+        ),
+        workerDocker.stopTimeout
+      )
 
-      name = containerName(params)
-
-      tm ← Tendermint.make[F](name, DockerTendermint.RpcPort, params.tendermintPath, websocketConfig)
+      tm ← Tendermint.make[F](workerDocker.producer.name, DockerTendermint.RpcPort, tendermintPath, websocketConfig)
 
     } yield TendermintBlockProducer(
       tm,

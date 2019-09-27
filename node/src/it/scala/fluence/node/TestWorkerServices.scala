@@ -5,7 +5,6 @@ import cats.effect.concurrent.Ref
 import fluence.bp.api.BlockProducer
 import fluence.effects.receipt.storage.ReceiptStorage
 import fluence.effects.tendermint.block.history.BlockManifest
-import fluence.node.workers.WorkerServices
 import fluence.statemachine.api.StateMachine
 import fluence.statemachine.api.command.PeersControl
 import fluence.worker.WorkerStatus

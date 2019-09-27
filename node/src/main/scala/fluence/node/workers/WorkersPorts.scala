@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
-package fluence.node.workers.pool
+package fluence.node.workers
 
 import cats.Monad
 import cats.data.EitherT
 import cats.effect.concurrent.MVar
-import cats.effect.{Concurrent, Resource}
+import cats.effect.{Concurrent, Resource, Timer}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
-import cats.syntax.applicative._
-import fluence.effects.EffectError
 import fluence.effects.kvstore.{KVStore, KVStoreError}
+import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
-import fluence.node.workers.pool.WorkersPorts.P2pPort
 import fluence.worker.WorkerResource
 
 import scala.collection.immutable.SortedSet
@@ -139,10 +137,13 @@ class WorkersPorts[F[_]: Monad] private (
         EitherT.rightT(None)
     }
 
-  def workerResource(appId: Long): WorkerResource[F, P2pPort[F]] =
+  def workerResource(appId: Long)(implicit backoff: Backoff[EffectError], timer: Timer[F]): WorkerResource[F, P2pPort[F]] =
     new WorkerResource[F, P2pPort[F]] {
       override def prepare()(implicit log: Log[F]): F[P2pPort[F]] =
-        P2pPort(allocate(appId)).pure[F]
+        P2pPort(
+          // TODO make it NICE
+            backoff(allocate(appId).leftMap(_ ⇒ new EffectError {}))
+        ).pure[F]
 
       override def destroy()(implicit log: Log[F]): EitherT[F, EffectError, Unit] =
         free(appId).leftMap(identity[EffectError]).void
@@ -159,7 +160,7 @@ object WorkersPorts {
   /** No more ports available for allocation */
   case object Exhausted extends Error
 
-  case class P2pPort[F[_]](port: EitherT[F, Error, Short])
+  case class P2pPort[F[_]](port: F[Short])
 
   /**
    * Make a new WorkersPorts instance.

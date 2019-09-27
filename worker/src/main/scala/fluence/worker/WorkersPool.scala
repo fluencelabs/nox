@@ -24,12 +24,13 @@ import cats.syntax.flatMap._
 import cats.effect.concurrent.Ref
 import fluence.log.Log
 import fluence.worker.eth.EthApp
+import shapeless._
 
 import scala.language.higherKinds
 
-class WorkersPool[F[_]: Monad, R, C](
-  workers: Ref[F, Map[Long, WorkerContext[F, R, C]]],
-  appWorker: (EthApp, Log[F]) ⇒ F[WorkerContext[F, R, C]]
+class WorkersPool[F[_]: Monad, R, CS <: HList](
+  workers: Ref[F, Map[Long, WorkerContext[F, R, CS]]],
+  appWorker: (EthApp, Log[F]) ⇒ F[WorkerContext[F, R, CS]]
 ) {
 
   /**
@@ -55,7 +56,7 @@ class WorkersPool[F[_]: Monad, R, C](
    * @param appId Application id
    * @return
    */
-  def get(appId: Long): OptionT[F, WorkerContext[F, R, C]] =
+  def get(appId: Long): OptionT[F, WorkerContext[F, R, CS]] =
     OptionT(workers.get.map(_.get(appId)))
 
   /**
@@ -67,32 +68,32 @@ class WorkersPool[F[_]: Monad, R, C](
   /**
    * Get worker, if it's known and launched
    */
-  def getWorker(appId: Long): EitherT[F, WorkerStage, Worker[F]] =
+  def getWorker(appId: Long): EitherT[F, WorkerStage, Worker[F, CS]] =
     get(appId).toRight[WorkerStage](WorkerStage.NotInitialized).flatMap(_.worker)
 
   /**
    * Get worker companions, if known and launched
    */
-  def getCompanions(appId: Long): EitherT[F, WorkerStage, C] =
-    get(appId).toRight[WorkerStage](WorkerStage.NotInitialized).flatMap(_.companions)
+  def getCompanion[C](appId: Long)(implicit c: ops.hlist.Selector[CS, C]): EitherT[F, WorkerStage, C] =
+    getWorker(appId).map(_.companion[C])
 
   /**
    * List all launched workers
    */
-  def listAll(): F[List[WorkerContext[F, R, C]]] =
+  def listAll(): F[List[WorkerContext[F, R, CS]]] =
     workers.get.map(_.values.toList)
 
 }
 
 object WorkersPool {
 
-  def apply[F[_]: Sync, R, C](
-    appWorkerCtx: (EthApp, Log[F]) ⇒ F[WorkerContext[F, R, C]]
-  ): F[WorkersPool[F, R, C]] =
+  def apply[F[_]: Sync, R, CS <: HList](
+    appWorkerCtx: (EthApp, Log[F]) ⇒ F[WorkerContext[F, R, CS]]
+  ): F[WorkersPool[F, R, CS]] =
     Ref
-      .of[F, Map[Long, WorkerContext[F, R, C]]](Map.empty)
+      .of[F, Map[Long, WorkerContext[F, R, CS]]](Map.empty)
       .map(
-        new WorkersPool[F, R, C](_, appWorkerCtx)
+        new WorkersPool[F, R, CS](_, appWorkerCtx)
       )
 
 }

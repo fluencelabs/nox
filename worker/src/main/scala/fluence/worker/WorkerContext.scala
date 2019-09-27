@@ -16,6 +16,7 @@
 
 package fluence.worker
 
+import cats.Functor
 import cats.data.EitherT
 import cats.syntax.flatMap._
 import cats.syntax.apply._
@@ -26,30 +27,29 @@ import cats.effect.{Concurrent, Fiber, Resource}
 import cats.effect.concurrent.{Deferred, Ref}
 import fluence.effects.resources.MakeResource
 import fluence.log.Log
+import fluence.worker.eth.EthApp
+import shapeless._
 
 import scala.language.higherKinds
 
 /**
  * WorkerContext describes all the resources used by Worker and their lifecycles.
  *
- * Control ---- Join! -------------------------- Stop! --------------------------------------- Destroy! ----------------------------
- * Context ---- Init ---------------------------------------------------------(may be closed)----------------- Not usable anymore --
- * Resources ------ Prepare --------------------------------------------------(kept in place)-----X-- Destroy ----------------------
- * Worker ------------------- Allocate --------------------------- Deallocate ------------------------------------------------------
- * Companions ------------------------- Allocate --X-- Deallocate ------------------------------------------------------------------
+ * Control ---- Join! ------------------ Stop! ------------------------------ Destroy! ----------------------------
+ * Context ---- Init ----------------------------------------(may be closed)----------------- Not usable anymore --
+ * Resources ------ Prepare ---------------------------------(kept in place)-----X-- Destroy ----------------------
+ * Worker ------------------- Allocate ----X---- Deallocate -------------------------------------------------------
  */
-trait WorkerContext[F[_], R, C] {
-  def stage: F[WorkerStage]
+abstract class WorkerContext[F[_]: Functor, R, CS <: HList](
+  val stage: F[WorkerStage],
+  val stages: fs2.Stream[F, WorkerStage],
+  val app: EthApp,
+  val resources: R,
+  val worker: EitherT[F, WorkerStage, Worker[F, CS]]
+) {
 
-  def stages: fs2.Stream[F, WorkerStage]
-
-  def app: eth.EthApp
-
-  def resources: R
-
-  def worker: EitherT[F, WorkerStage, Worker[F]]
-
-  def companions: EitherT[F, WorkerStage, C]
+  def companion[C](implicit c: ops.hlist.Selector[CS, C]): EitherT[F, WorkerStage, C] =
+    worker.map(_.companion[C])
 
   /**
    * Trigger Worker stop, releasing all acquired resources.
@@ -68,12 +68,11 @@ trait WorkerContext[F[_], R, C] {
 
 object WorkerContext {
 
-  def apply[F[_]: Concurrent, R, W0 <: Worker[F], C](
-    _app: eth.EthApp,
+  def apply[F[_]: Concurrent, R, CS <: HList](
+    app: EthApp,
     workerResource: WorkerResource[F, R],
-    worker: R ⇒ Resource[F, W0],
-    companions: (W0, Log[F]) ⇒ Resource[F, C]
-  )(implicit log: Log[F]): F[WorkerContext[F, R, C]] =
+    worker: R ⇒ Resource[F, Worker[F, CS]]
+  )(implicit log: Log[F]): F[WorkerContext[F, R, CS]] =
     workerResource.prepare() >>= { res ⇒
       for {
         // Provide WorkerStage info within Ref for regular access, and with Queue to enable subscriptions
@@ -85,8 +84,7 @@ object WorkerContext {
 
         // We will get Worker, Companions and Stop callback later
         // TODO: if we want context to be restartable, these needs to be Queues?
-        workerDef ← Deferred[F, Worker[F]]
-        companionsDef ← Deferred[F, C]
+        workerDef ← Deferred[F, Worker[F, CS]]
         stopDef ← Deferred[F, F[Unit]]
 
         // Allocate Worker and Resources with no blocking
@@ -100,48 +98,29 @@ object WorkerContext {
               worker(res)
                 .flatTap(
                   w ⇒
-                    // We have worker, but no companions yet
+                    // Everything is ready
                     Resource.liftF(
                       workerDef.complete(w) *>
-                        setStage(WorkerStage.RunningCompanions)
-                    )
-                ) >>= (
-              w ⇒
-                // Everything is ready
-                companions(w, log) >>= (
-                  wx ⇒
-                    Resource.liftF(
-                      stopDef.complete(stop) *>
-                        companionsDef.complete(wx) *>
                         setStage(WorkerStage.FullyAllocated)
                     )
-                  )
-              )
+                )
         )
-      } yield new WorkerContext[F, R, C] {
-        override def app: eth.EthApp = _app
 
-        override def stage: F[WorkerStage] = stageRef.get
+        stage = stageRef.get
 
-        override def stages: fs2.Stream[F, WorkerStage] = stageQueue.subscribe(1)
-
-        override val resources: R = res
-
-        override def worker: EitherT[F, WorkerStage, Worker[F]] =
-          EitherT(stage.flatMap {
-            case s if s.hasWorker ⇒ workerDef.get.map(_.asRight)
-            case s ⇒ s.asLeft[Worker[F]].pure[F]
-          })
-
-        override def companions: EitherT[F, WorkerStage, C] =
-          EitherT(stage.flatMap {
-            case s if s.hasCompanions ⇒ companionsDef.get.map(_.asRight)
-            case s ⇒ s.asLeft[C].pure[F]
-          })
-
+      } yield new WorkerContext[F, R, CS](
+        stage,
+        stageQueue.subscribe(1),
+        app,
+        res,
+        EitherT(stage.flatMap {
+          case s if s.hasWorker ⇒ workerDef.get.map(_.asRight)
+          case s ⇒ s.asLeft[Worker[F, CS]].pure[F]
+        })
+      ) {
         override def stop()(implicit log: Log[F]): F[Unit] =
           stage.flatMap {
-            case s if s.hasCompanions || s.hasWorker ⇒
+            case s if s.hasWorker ⇒
               setStage(WorkerStage.Stopping) >>
                 stopDef.get.flatten
             case _ ⇒

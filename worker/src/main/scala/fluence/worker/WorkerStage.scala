@@ -16,23 +16,21 @@
 
 package fluence.worker
 
-sealed abstract class WorkerStage(val hasWorker: Boolean, val hasCompanions: Boolean)
+sealed abstract class WorkerStage(val hasWorker: Boolean = false)
 
 object WorkerStage {
 
-  case object NotInitialized extends WorkerStage(false, false)
+  case object NotInitialized extends WorkerStage()
 
-  case object InitializationStarted extends WorkerStage(false, false)
+  case object InitializationStarted extends WorkerStage()
 
-  case object RunningCompanions extends WorkerStage(true, false)
+  case object FullyAllocated extends WorkerStage(true)
 
-  case object FullyAllocated extends WorkerStage(true, true)
-
-  case object Stopping extends WorkerStage(false, false)
+  case object Stopping extends WorkerStage()
 
   // TODO can restart here
-  case object Stopped extends WorkerStage(false, false)
-  case object Destroying extends WorkerStage(false, false)
-  case object Destroyed extends WorkerStage(false, false)
+  case object Stopped extends WorkerStage()
+  case object Destroying extends WorkerStage()
+  case object Destroyed extends WorkerStage()
 
 }

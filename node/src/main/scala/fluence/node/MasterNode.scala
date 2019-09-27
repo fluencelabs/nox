@@ -34,9 +34,10 @@ import fluence.node.code.{CodeCarrier, LocalCodeCarrier, PolyStore, RemoteCodeCa
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.eth._
-import fluence.node.workers._
-import fluence.node.workers.pool.WorkersPool
+import fluence.node.workers.{WorkerFiles, WorkersPorts}
 import fluence.node.workers.tendermint.config.ConfigTemplate
+import fluence.statemachine.api.command.PeersControl
+import fluence.worker.WorkersPool
 import fluence.worker.eth.{EthApp, StorageType}
 
 import scala.language.{higherKinds, postfixOps}
@@ -58,60 +59,14 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
   nodeConfig: NodeConfig,
   configTemplate: ConfigTemplate,
   nodeEth: NodeEth[F],
-  pool: WorkersPool[F],
+  pool: WorkersPool[F, MasterPool.Resources[F], MasterPool.Companions[F]],
   codeCarrier: CodeCarrier[F],
   rootPath: Path,
   kademlia: Kademlia[F, C],
   masterNodeContainerId: Option[String]
 )(implicit backoff: Backoff[EffectError]) {
 
-  /**
-   * All app worker's data is stored here. Currently the folder is never purged
-   */
-  private def resolveAppPath(app: EthApp): F[Path] =
-    IO(rootPath.resolve("app-" + app.id + "-" + app.cluster.currentWorker.index)).to[F]
 
-  /**
-   * Create directory to hold Tendermint config & data for a specific app (worker)
-   *
-   * @param appPath Path containing all configs & data for a specific app
-   * @return Path to Tendermint home ($TMHOME) directory
-   */
-  private def makeTendermintPath(appPath: Path): F[Path] =
-    for {
-      tendermintPath ← IO(appPath.resolve("tendermint")).to[F]
-      _ ← IO(Files.createDirectories(tendermintPath)).to[F]
-    } yield tendermintPath
-
-  /**
-   * Create directory to hold app code downloaded from Swarm
-   *
-   * @param appPath Path containing all configs & data for a specific app
-   * @return Path to `vmcode` directory
-   */
-  private def makeVmCodePath(appPath: Path): F[Path] =
-    for {
-      vmCodePath ← IO(appPath.resolve("vmcode")).to[F]
-      _ ← IO(Files.createDirectories(vmCodePath)).to[F]
-    } yield vmCodePath
-
-  def prepareWorkerParams(app: EthApp)(implicit log: Log[F]): F[WorkerParams] =
-    for {
-      appPath ← resolveAppPath(app)
-      tendermintPath ← makeTendermintPath(appPath)
-      vmCodePath ← makeVmCodePath(appPath)
-
-      // TODO: Move description of the code preparation to Worker; it should be Worker's responsibility
-      code <- codeCarrier.carryCode(app.code, vmCodePath)
-    } yield WorkerParams(
-      app,
-      tendermintPath,
-      code,
-      masterNodeContainerId,
-      nodeConfig.workerDockerConfig,
-      nodeConfig.tmDockerConfig,
-      configTemplate
-    )
 
   /**
    * Runs app worker on a pool
@@ -122,7 +77,7 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
     for {
       implicit0(log: Log[F]) ← LogFactory[F].init("app", app.id.toString)
       _ ← log.info("Running worker")
-      _ <- pool.run(app.id, prepareWorkerParams(app))
+      _ <- pool.run(app)
     } yield ()
 
   /**
@@ -134,20 +89,15 @@ case class MasterNode[F[_]: ConcurrentEffect: LiftIO: LogFactory, C](
         runAppWorker(app)
 
       case RemoveAppWorker(appId) ⇒
-        pool.withWorker(appId, _.remove).void
+        pool.get(appId).semiflatMap(_.destroy()).value.void
 
       case DropPeerWorker(appId, vk) ⇒
         Log[F].scope("app" -> appId.toString, "key" -> vk.toHex) { implicit log: Log[F] =>
-          pool
-            .withWorker(
-              appId,
-              _.withServices_(_.peersControl)(
-                _.dropPeer(vk).valueOr(
-                  e ⇒ log.error(s"Unexpected error while dropping peer", e)
-                )
-              )
+           pool.getCompanion[PeersControl[F]](appId)
+            .semiflatMap(
+              _.dropPeer(vk).valueOr(e ⇒ log.error(s"Unexpected error while dropping peer", e))
             )
-            .void
+             .valueOr(st ⇒ log.error(s"No available worker for $appId: it's on stage $st"))
         }
 
       case NewBlockReceived(_) ⇒
@@ -190,7 +140,7 @@ object MasterNode {
   def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer: Log: LogFactory: SttpStreamEffect, C](
     masterConfig: MasterConfig,
     nodeConfig: NodeConfig,
-    pool: WorkersPool[F],
+    ports: WorkersPorts[F],
     kademlia: Kademlia[F, C]
   )(
     implicit
@@ -208,6 +158,12 @@ object MasterNode {
       rootPath <- Resource.liftF(IO(Paths.get(masterConfig.rootPath).toAbsolutePath).to[F])
 
       configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath, masterConfig.tendermintConfig))
+
+    pool ← Resource.liftF(MasterPool(
+      ports,
+      ???,
+      new WorkerFiles[F](rootPath, codeCarrier)
+    ))
     } yield MasterNode[F, C](
       masterConfig,
       nodeConfig,

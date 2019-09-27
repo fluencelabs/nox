@@ -22,6 +22,7 @@ import cats.effect.{Concurrent, Resource, Timer}
 import cats.syntax.applicative._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.bp.api.BlockProducer
 import fluence.bp.tx.{Tx, TxsBlock}
 import fluence.effects.resources.MakeResource
 import fluence.effects.{Backoff, EffectError}
@@ -29,19 +30,17 @@ import fluence.log.Log
 import fluence.statemachine.api.StateMachine
 import fluence.statemachine.api.query.QueryCode
 import fluence.worker.Worker
-import fluence.worker.responder.repeat.RepeatOnEveryBlockImpl
 import fluence.worker.responder.resp._
 import scodec.bits.ByteVector
 
 import scala.language.higherKinds
 
 class AwaitResponses[F[_]: Concurrent: Parallel: Timer, B: TxsBlock](
-  worker: Worker.AuxP[F, B, _],
+  producer: BlockProducer.AuxB[F, B],
+  machine: StateMachine[F],
   subscribesRef: Ref[F, Map[Tx.Head, ResponsePromise[F]]],
   maxBlocksTries: Int
 )(implicit backoff: Backoff[EffectError]) {
-
-  import worker._
 
   /**
    * Adds a request to query for a response after a block is generated.
@@ -179,13 +178,14 @@ object AwaitResponses {
   val MaxBlocksTries = 10
 
   def make[F[_]: Parallel: Concurrent: Log: Timer, B: TxsBlock](
-    worker: Worker.AuxP[F, B, _],
+    producer: BlockProducer.AuxB[F, B],
+    machine: StateMachine[F],
     maxTries: Int = MaxBlocksTries
   )(
     implicit backoff: Backoff[EffectError]
   ): Resource[F, AwaitResponses[F, B]] =
     MakeResource
       .refOf(Map.empty[Tx.Head, ResponsePromise[F]])
-      .map(new AwaitResponses[F, B](worker, _, maxTries))
+      .map(new AwaitResponses[F, B](producer, machine, _, maxTries))
       .flatTap(_.start())
 }

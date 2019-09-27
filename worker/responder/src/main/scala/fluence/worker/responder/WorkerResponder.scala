@@ -18,10 +18,11 @@ package fluence.worker.responder
 
 import cats.Parallel
 import cats.effect.{Concurrent, Resource, Timer}
+import fluence.bp.api.BlockProducer
 import fluence.bp.tx.TxsBlock
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
-import fluence.worker.Worker
+import fluence.statemachine.api.StateMachine
 import fluence.worker.responder.repeat.RepeatOnEveryBlock
 
 import scala.language.higherKinds
@@ -40,13 +41,14 @@ class WorkerResponder[F[_]](
 object WorkerResponder {
 
   def make[F[_]: Parallel: Concurrent: Timer: Log, B: TxsBlock](
-    worker: Worker.AuxP[F, B, _],
+    producer: BlockProducer.AuxB[F, B],
+    machine: StateMachine[F],
     maxTries: Int = AwaitResponses.MaxBlocksTries
   )(implicit backoff: Backoff[EffectError]): Resource[F, WorkerResponder[F]] =
     for {
-      awaitResponses <- AwaitResponses.make(worker, maxTries)
-      sendAndWait = SendAndWait(worker.producer, awaitResponses)
-      onEveryBlock ← RepeatOnEveryBlock.make(worker.producer, sendAndWait)
+      awaitResponses <- AwaitResponses.make(producer, machine, maxTries)
+      sendAndWait = SendAndWait(producer, awaitResponses)
+      onEveryBlock ← RepeatOnEveryBlock.make(producer, sendAndWait)
     } yield new WorkerResponder[F](
       sendAndWait,
       onEveryBlock
