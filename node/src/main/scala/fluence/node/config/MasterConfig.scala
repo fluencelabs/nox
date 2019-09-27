@@ -26,6 +26,8 @@ import io.circe.generic.semiauto.{deriveDecoder, deriveEncoder}
 import io.circe.{Decoder, Encoder}
 import net.ceedubs.ficus.readers.ValueReader
 
+import scala.concurrent.duration.FiniteDuration
+
 /**
  * Main config class for master node.
  *
@@ -51,7 +53,8 @@ case class MasterConfig(
   kademlia: KademliaConfig,
   logLevel: Log.Level,
   blockUploadingEnabled: Boolean,
-  websocket: WebsocketConfig
+  websocket: WebsocketConfig,
+  dockerStopTimeout: FiniteDuration
 )
 
 object MasterConfig {

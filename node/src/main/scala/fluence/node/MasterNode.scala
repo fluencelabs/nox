@@ -17,23 +17,29 @@
 package fluence.node
 import java.nio.file._
 
-import cats.Applicative
+import cats.{Applicative, Monad, Parallel}
 import cats.effect._
 import cats.effect.syntax.effect._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import fluence.bp.uploading.BlockUploading
 import fluence.effects.{Backoff, EffectError}
 import fluence.effects.castore.StoreError
+import fluence.effects.docker.DockerIO
 import fluence.effects.ethclient.EthClient
-import fluence.effects.ipfs.IpfsStore
-import fluence.effects.sttp.SttpStreamEffect
+import fluence.effects.ipfs.{IpfsStore, IpfsUploader}
+import fluence.effects.kvstore.{KVStore, RocksDBStore}
+import fluence.effects.receipt.storage.ReceiptStorage
+import fluence.effects.sttp.{SttpEffect, SttpStreamEffect}
 import fluence.effects.swarm.SwarmStore
 import fluence.kad.Kademlia
 import fluence.log.{Log, LogFactory}
+import fluence.node.MasterNodeApp.{ipfsUploader, portsStore}
 import fluence.node.code.{CodeCarrier, LocalCodeCarrier, PolyStore, RemoteCodeCarrier}
 import fluence.node.config.storage.RemoteStorageConfig
 import fluence.node.config.{MasterConfig, NodeConfig}
 import fluence.node.eth._
+import fluence.node.workers.{WorkerDocker, WorkerFiles, WorkersPorts}
 import fluence.node.workers.tendermint.config.ConfigTemplate
 import fluence.statemachine.api.command.PeersControl
 import fluence.worker.eth.{EthApp, StorageType}
@@ -122,7 +128,7 @@ object MasterNode {
    * @param nodeConfig NodeConfig
    * @return Prepared [[MasterNode]], then see [[MasterNode.run]]
    */
-  def make[F[_]: ConcurrentEffect: LiftIO: ContextShift: Timer: Log: LogFactory: SttpStreamEffect, C](
+  def make[F[_]: ConcurrentEffect: ContextShift: Timer: Log: LogFactory: Parallel: DockerIO: SttpStreamEffect, C](
     masterConfig: MasterConfig,
     nodeConfig: NodeConfig,
     pool: MasterPool.Type[F],
@@ -138,29 +144,39 @@ object MasterNode {
 
       nodeEth ← NodeEth[F](nodeConfig.validatorKey.toByteVector, ethClient, masterConfig.contract)
 
-      codeCarrier ← Resource.pure(codeCarrier[F](masterConfig.remoteStorage))
-
       rootPath <- Resource.liftF(IO(Paths.get(masterConfig.rootPath).toAbsolutePath).to[F])
 
-      configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath, masterConfig.tendermintConfig))
+      workersPool ← workersPool(masterConfig, rootPath)
 
-    } yield MasterNode[F, C](
-      nodeEth,
-      pool
-    )
+    } yield MasterNode[F, C](nodeEth, workersPool)
 
-  def codeCarrier[F[_]: Sync: ContextShift: Concurrent: Timer: LiftIO: SttpStreamEffect](
-    config: RemoteStorageConfig
-  ): CodeCarrier[F] =
-    if (config.enabled) {
-      implicit val b: Backoff[StoreError] = Backoff.default
-      val swarmStore = SwarmStore[F](config.swarm.address, config.swarm.readTimeout)
-      val ipfsStore = IpfsStore[F](config.ipfs.address, config.ipfs.readTimeout)
-      val polyStore = new PolyStore[F]({
-        case StorageType.Swarm => swarmStore
-        case StorageType.Ipfs  => ipfsStore
-      })
-      new RemoteCodeCarrier[F](polyStore)
-    } else
-      new LocalCodeCarrier[F]()
+  private def ipfsUploader[F[_]: Monad](conf: RemoteStorageConfig)(implicit sttp: SttpStreamEffect[F]) =
+    IpfsUploader[F](conf.ipfs.address, conf.enabled, conf.ipfs.readTimeout)
+
+  private def workersPool[F[_]: ConcurrentEffect: Parallel: ContextShift: Timer: Log: DockerIO: SttpStreamEffect: SttpEffect](
+    conf: MasterConfig,
+    rootPath: Path
+  )(implicit backoff: Backoff[EffectError]) =
+    for {
+      portsStore ← RocksDBStore.make[F, Long, Short](rootPath.resolve("p2p-ports-db").toString)
+      ports ← WorkersPorts.make[F](conf.ports.minPort, conf.ports.maxPort, portsStore)
+      workerDocker = (app: EthApp) ⇒
+        WorkerDocker[F](
+          app,
+          conf.masterContainerId,
+          conf.tendermint,
+          conf.worker,
+          conf.dockerStopTimeout,
+          conf.logLevel
+      )
+      codeCarrier ← Resource.pure(CodeCarrier[F](conf.remoteStorage))
+      workerFiles = WorkerFiles(rootPath, codeCarrier)
+      receiptStorage = (app: EthApp) ⇒ ReceiptStorage.local(app.id, rootPath)
+      blockUploading ← BlockUploading[F](conf.blockUploadingEnabled, ipfsUploader(conf.remoteStorage))
+      configTemplate ← Resource.liftF(ConfigTemplate[F](rootPath, conf.tendermintConfig))
+
+      pool <- Resource.liftF(
+        MasterPool[F](ports, workerDocker, workerFiles, receiptStorage, blockUploading, conf.websocket, configTemplate)
+      )
+    } yield pool
 }

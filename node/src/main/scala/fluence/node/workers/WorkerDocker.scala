@@ -19,17 +19,18 @@ package fluence.node.workers
 import cats.Monad
 import cats.effect.Resource
 import cats.syntax.flatMap._
-import fluence.effects.docker.params.{DockerImage, DockerLimits}
 import fluence.effects.docker.{DockerContainer, DockerIO, DockerNetwork}
 import fluence.log.Log
+import fluence.node.config.DockerConfig
 import fluence.worker.eth.EthApp
 
+import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
-case class WorkerDocker(
+case class WorkerDocker private[workers] (
   network: DockerNetwork,
   masterContainerId: Option[String],
-  stopTimeout: Int,
+  stopTimeout: FiniteDuration,
   logLevel: Log.Level,
   producer: WorkerDocker.Component,
   machine: WorkerDocker.Component
@@ -38,21 +39,15 @@ case class WorkerDocker(
 object WorkerDocker {
   case class Component(
     name: String,
-    image: DockerImage,
-    limits: DockerLimits,
-    environment: Map[String, String] = Map.empty
+    docker: DockerConfig
   )
 
   def apply[F[_]: Monad: DockerIO: Log](
     app: EthApp,
     masterNodeContainerId: Option[String],
-    producerImage: DockerImage,
-    producerLimits: DockerLimits,
-    producerEnvironment: Map[String, String],
-    machineImage: DockerImage,
-    machineLimits: DockerLimits,
-    machineEnvironment: Map[String, String],
-    stopTimeout: Int,
+    producerDocker: DockerConfig,
+    machineDocker: DockerConfig,
+    stopTimeout: FiniteDuration,
     logLevel: Log.Level
   ): Resource[F, WorkerDocker] = {
     val networkName = s"app_${app.id}_${app.cluster.currentWorker.index}"
@@ -74,19 +69,9 @@ object WorkerDocker {
             masterNodeContainerId,
             stopTimeout,
             logLevel,
-            Component(
-              producerName,
-              producerImage,
-              producerLimits,
-              producerEnvironment
-            ),
-            Component(
-              machineName,
-              machineImage,
-              machineLimits,
-              machineEnvironment
-            )
-          )
+            Component(producerName, producerDocker),
+            Component(machineName, machineDocker)
+        )
       )
   }
 }

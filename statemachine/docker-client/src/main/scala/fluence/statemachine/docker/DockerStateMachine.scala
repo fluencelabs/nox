@@ -28,6 +28,7 @@ import fluence.statemachine.api.command.{PeersControl, ReceiptBus}
 import fluence.statemachine.client.StateMachineClient
 import shapeless._
 
+import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 
 /**
@@ -42,11 +43,11 @@ object DockerStateMachine {
     network: DockerNetwork,
     limits: DockerLimits,
     image: DockerImage,
-    logLevel: Log.Level,
     environment: Map[String, String],
+    logLevel: Log.Level,
     vmCodePath: String,
     volumesFrom: Option[String],
-    stopTimeout: Int
+    stopTimeout: FiniteDuration
   ): Resource[F, StateMachine.Aux[F, DockerContainer :: ReceiptBus[F] :: PeersControl[F] :: HNil]] = {
     val internalMem = limits.memoryMb.map(mem => Math.floor(mem * 0.75).toInt)
 

@@ -24,6 +24,7 @@ import cats.syntax.functor._
 import fluence.bp.tx.Tx
 import fluence.effects.tendermint.rpc.http._
 import fluence.log.{Log, LogFactory}
+import fluence.node.MasterPool
 import fluence.node.workers.Worker
 import fluence.node.workers.pool.WorkersPool
 import fluence.worker.responder.resp.{
@@ -106,7 +107,7 @@ object WorkersHttp {
    * @param pool Workers pool to get workers from
    * @param dsl Http4s DSL to build routes with
    */
-  def routes[F[_]: Sync: LogFactory: Concurrent](pool: WorkersPool[F])(
+  def routes[F[_]: Sync: LogFactory: Concurrent](pool: MasterPool.Type[F])(
     implicit dsl: Http4sDsl[F]
   ): HttpRoutes[F] = {
     import dsl._
@@ -116,17 +117,17 @@ object WorkersHttp {
     object QueryId extends OptionalQueryParamDecoderMatcher[String]("id")
     object QueryWait extends OptionalQueryParamDecoderMatcher[Int]("wait")
 
-    def withWorker(appId: Long)(fn: Worker[F] => F[Response[F]])(implicit log: Log[F]): F[Response[F]] =
-      pool.get(appId).flatMap {
-        case None =>
-          log.debug(s"RPC Requested app $appId, but there's no such worker in the pool") *>
-            NotFound("App not found on the node")
-        case Some(worker) =>
-          fn(worker)
-      }
-
-    def withApi(appId: Long)(fn: WorkerApi[F] ⇒ F[Response[F]])(implicit log: Log[F]): F[Response[F]] =
-      withWorker(appId)(w ⇒ fn(WorkerApi(w)))
+//    def withWorker(appId: Long)(fn: Worker[F] => F[Response[F]])(implicit log: Log[F]): F[Response[F]] =
+//      pool.getWorker(appId).flatMap {
+//        case None =>
+//          log.debug(s"RPC Requested app $appId, but there's no such worker in the pool") *>
+//            NotFound("App not found on the node")
+//        case Some(worker) =>
+//          fn(worker)
+//      }
+//
+//    def withApi(appId: Long)(fn: WorkerApi[F] ⇒ F[Response[F]])(implicit log: Log[F]): F[Response[F]] =
+//      withWorker(appId)(w ⇒ fn(WorkerApi(w)))
 
     // Routes comes there
     HttpRoutes.of {

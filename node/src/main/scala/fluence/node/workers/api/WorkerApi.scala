@@ -24,6 +24,7 @@ import fluence.effects.tendermint.rpc.http.{RpcError, RpcRequestFailed}
 import fluence.log.Log
 import fluence.node.workers.Worker
 import fluence.node.workers.api.websocket.WorkerWebsocket
+import fluence.worker.Worker
 import fluence.worker.responder.repeat.SubscriptionKey
 import fluence.worker.responder.resp.AwaitedResponse
 

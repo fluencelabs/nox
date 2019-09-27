@@ -55,7 +55,7 @@ object MasterHttp {
     host: String,
     port: Short,
     agg: StatusAggregator[F],
-    pool: WorkersPool[F],
+    pool: MasterPool.Type[F],
     kad: KademliaHttp[F, C],
     dht: List[DhtHttp[F]] = Nil
   ): Resource[F, Server[F]] = {
@@ -74,7 +74,7 @@ object MasterHttp {
           .getOrElse(
             Response(Status.NotFound)
               .withEntity(s"Route for ${a.method} ${a.pathInfo} ${a.params.mkString("&")} not found")
-          )
+        )
     )
 
     val app: HttpApp[F] = CORS[F, F](routesOrNotFound, corsConfig)

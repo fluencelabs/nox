@@ -31,7 +31,7 @@ import fluence.worker.eth.EthApp
 
 import scala.language.higherKinds
 
-class WorkerFiles[F[_]: Monad: LiftIO](
+case class WorkerFiles[F[_]: Monad: LiftIO](
   rootPath: Path,
   codeCarrier: CodeCarrier[F]
 ) {
@@ -66,7 +66,7 @@ class WorkerFiles[F[_]: Monad: LiftIO](
       _ ← IO(Files.createDirectories(vmCodePath)).to[F]
     } yield vmCodePath
 
-  def apply(app: EthApp): WorkerResource[F, WorkerFiles.Paths[F]] =
+  def workerResource(app: EthApp): WorkerResource[F, WorkerFiles.Paths[F]] =
     new WorkerResource[F, WorkerFiles.Paths[F]] {
       override def prepare()(implicit log: Log[F]): F[WorkerFiles.Paths[F]] =
         for {

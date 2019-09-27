@@ -30,13 +30,13 @@ import fluence.effects.docker.params.DockerParams
 import fluence.log.Log
 
 import scala.concurrent.ExecutionContext
+import scala.concurrent.duration.FiniteDuration
 import scala.language.higherKinds
 import scala.sys.process._
 import scala.util.{Failure, Success, Try}
 
 class DockerIO[F[_]: Monad: LiftIO: ContextShift: Defer](
-  ctx: ExecutionContext,
-  defaultStopTimeout: Int
+  ctx: ExecutionContext
 ) {
   import DockerIO.{ContainerIdScope, ContainerNameScope, NetworkScope}
 
@@ -95,11 +95,11 @@ class DockerIO[F[_]: Monad: LiftIO: ContextShift: Defer](
         .leftMap[DockerError](DockerCommandError(params.command.mkString(" "), _))
         .mapK(liftCtx)
 
-  private def tryStopContainer(stopTimeout: Int, dockerId: String, exitCase: ExitCase[Throwable])(
+  private def tryStopContainer(stopTimeout: FiniteDuration, dockerId: String, exitCase: ExitCase[Throwable])(
     implicit log: Log[F]
   ): F[Try[Int]] =
     Log[F].info(s"Going to stop container, exit case: $exitCase") >>
-      liftCtx(IO(Try(s"docker stop -t $stopTimeout $dockerId".!))) >>=
+      liftCtx(IO(Try(s"docker stop -t ${stopTimeout.toSeconds} $dockerId".!))) >>=
       (t ⇒ Log[F].debug(s"Stop result: $t").as(t)) // TODO should we `docker kill` if Cancel is triggered while stopping?
 
   private def rmOnGracefulStop(dockerId: String)(
@@ -128,7 +128,7 @@ class DockerIO[F[_]: Monad: LiftIO: ContextShift: Defer](
    * @param stopTimeout Container clean up timeout: SIGTERM is sent, and if container is still alive after timeout, SIGKILL produced
    * @return a stream that produces a docker container ID
    */
-  def run(params: DockerParams.DaemonParams, stopTimeout: Int = defaultStopTimeout)(
+  def run(params: DockerParams.DaemonParams, stopTimeout: FiniteDuration)(
     implicit log: Log[F]
   ): Resource[F, DockerContainer] =
     log.scope(params.name.map(ContainerNameScope -> _).toSeq: _*) { implicit log: Log[F] ⇒
@@ -242,12 +242,11 @@ object DockerIO {
   def apply[F[_]](implicit dio: DockerIO[F]): DockerIO[F] = dio
 
   def make[F[_]: Monad: LiftIO: ContextShift: Defer](
-    ex: ⇒ ExecutorService = Executors.newSingleThreadExecutor(),
-    defaultStopTimeout: Int = 10
+    ex: ⇒ ExecutorService = Executors.newSingleThreadExecutor()
   ): Resource[F, DockerIO[F]] =
     Resource
       .make(IO(ExecutionContext.fromExecutorService(ex)).to[F])(
         ctx ⇒ IO(ctx.shutdown()).to[F]
       )
-      .map(ctx ⇒ new DockerIO[F](ctx, defaultStopTimeout))
+      .map(ctx ⇒ new DockerIO[F](ctx))
 }

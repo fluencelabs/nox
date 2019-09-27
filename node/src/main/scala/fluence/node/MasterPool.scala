@@ -52,7 +52,7 @@ object MasterPool {
     files: WorkerFiles[F]
   )(implicit backoff: Backoff[EffectError]): WorkerResource[F, Resources[F]] =
     (
-      files(app),
+      files.workerResource(app),
       ports.workerResource(app.id)
     ).mapN((f, p) ⇒ f :: p :: HNil)
 
@@ -61,7 +61,7 @@ object MasterPool {
     workerDocker: EthApp ⇒ Resource[F, WorkerDocker],
     files: WorkerFiles[F],
     // TODO make them companions/resources?
-    receiptStorage: Resource[F, ReceiptStorage[F]],
+    receiptStorage: EthApp ⇒ Resource[F, ReceiptStorage[F]],
     blockUploading: BlockUploading[F],
     websocketConfig: WebsocketConfig,
     configTemplate: ConfigTemplate
@@ -85,10 +85,10 @@ object MasterPool {
           machine ← DockerStateMachine.make[F](
             wd.machine.name,
             wd.network,
-            wd.machine.limits,
-            wd.machine.image,
+            wd.machine.docker.limits,
+            wd.machine.docker.image,
+            wd.machine.docker.environment,
             wd.logLevel,
-            wd.machine.environment,
             codePath.toAbsolutePath.toString,
             wd.masterContainerId,
             wd.stopTimeout
@@ -99,7 +99,7 @@ object MasterPool {
 
           _ ← WorkerP2pConnectivity.make[F](app.id, producer.command[DialPeers[F]], app.cluster.workers)
 
-          manifests ← WorkerBlockManifests.make[F](receiptStorage)
+          manifests ← WorkerBlockManifests.make[F](receiptStorage(app))
 
           _ ← blockUploading.start(
             app.id,
@@ -111,11 +111,12 @@ object MasterPool {
 
           responder ← WorkerResponder.make(producer, machine)
 
-        } yield Worker(
-          app.id,
-          machine,
-          producer,
-          machine.command[PeersControl[F]] :: responder :: HNil
+        } yield
+          Worker(
+            app.id,
+            machine,
+            producer,
+            machine.command[PeersControl[F]] :: responder :: HNil
         )
 
     WorkersPool[F, Resources[F], Companions[F]] { (app, l) ⇒
