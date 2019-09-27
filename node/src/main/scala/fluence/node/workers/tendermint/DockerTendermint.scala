@@ -110,12 +110,6 @@ object DockerTendermint {
   }
 
   /**
-   * Worker's Tendermint container's name
-   */
-  def containerName(params: WorkerParams) =
-    s"${params.appId}_tendermint_${params.currentWorker.index}"
-
-  /**
    * Prepare and launch Tendermint container for the given Worker
    *
    * @return Running container

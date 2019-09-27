@@ -35,7 +35,7 @@ import scala.language.higherKinds
  * @param config config file about a master node
  * @param masterNode initialized master node
  */
-case class StatusAggregator[F[_]: Monad: Clock](
+case class StatusAggregator[F[_]: Timer: Concurrent](
   config: MasterConfig,
   masterNode: MasterNode[F, _],
   startTimeMillis: Long
@@ -49,8 +49,9 @@ case class StatusAggregator[F[_]: Monad: Clock](
   def getStatus(statusTimeout: FiniteDuration)(implicit P: Parallel[F], log: Log[F]): F[MasterStatus] =
     for {
       currentTime ← Clock[F].monotonic(MILLISECONDS)
-      workers ← masterNode.pool.getAll
-      workerInfos ← Parallel.parTraverse(workers)(_.withServices(identity)(_.status(statusTimeout)))
+      workers ← masterNode.pool.listAll()
+      // TODO filter out Left, format to json
+      workerInfos ← Parallel.parTraverse(workers)(_.worker.semiflatMap(w ⇒ w.status(statusTimeout).map(w.appId -> _)))
       ethState ← masterNode.nodeEth.expectedState
     } yield MasterStatus(
       config.endpoints.ip.getHostAddress,
@@ -77,7 +78,7 @@ object StatusAggregator {
    * @param masterConfig Master config
    * @param masterNode Master node to fetch status from
    */
-  def make[F[_]: Timer: ContextShift: Monad: Log](
+  def make[F[_]: Timer: ContextShift: Concurrent: Log](
     masterConfig: MasterConfig,
     masterNode: MasterNode[F, _]
   ): Resource[F, StatusAggregator[F]] =

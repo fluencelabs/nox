@@ -23,9 +23,11 @@ import cats.effect.{Concurrent, Resource, Timer}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.syntax.applicative._
 import fluence.effects.kvstore.{KVStore, KVStoreError}
 import fluence.effects.{Backoff, EffectError}
 import fluence.log.Log
+import fluence.node.workers.WorkersPorts.P2pPort
 import fluence.worker.WorkerResource
 
 import scala.collection.immutable.SortedSet

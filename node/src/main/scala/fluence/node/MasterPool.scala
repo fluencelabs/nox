@@ -54,7 +54,7 @@ object MasterPool {
     (
       files(app),
       ports.workerResource(app.id)
-    ).mapN(_ :: _ :: HNil)
+    ).mapN((f, p) ⇒ f :: p :: HNil)
 
   def apply[F[_]: Parallel: Timer: ConcurrentEffect: DockerIO: LiftIO: ContextShift](
     ports: WorkersPorts[F],
