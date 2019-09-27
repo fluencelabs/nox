@@ -16,11 +16,11 @@
 
 package fluence.node.workers.api
 
-import cats.Monad
-import cats.effect.{Concurrent, Sync}
+import cats.effect.{Concurrent, Sync, Timer}
 import cats.syntax.apply._
 import cats.syntax.flatMap._
 import cats.syntax.functor._
+import cats.{Monad, Parallel}
 import fluence.bp.tx.Tx
 import fluence.effects.tendermint.rpc.http._
 import fluence.log.{Log, LogFactory}
@@ -100,7 +100,7 @@ object WorkersHttp {
    * @param pool Workers pool to get workers from
    * @param dsl Http4s DSL to build routes with
    */
-  def routes[F[_]: Sync: LogFactory: Concurrent](pool: MasterPool.Type[F])(
+  def routes[F[_]: Sync: LogFactory: Concurrent: Timer: Parallel](pool: MasterPool.Type[F])(
     implicit dsl: Http4sDsl[F]
   ): HttpRoutes[F] = {
     import dsl._
@@ -123,13 +123,25 @@ object WorkersHttp {
           .toRight[WorkerStage](WorkerStage.NotInitialized) // TODO: How to go from OptionT to EitherT nicer?
       } yield WorkerApi(producer, responder, machine, p2pPort)
 
+    def wrongStageMsg(appId: Long, stage: WorkerStage) = s"Worker for $appId can't serve RPC: it is in stage $stage"
+
+//    def withWorker(appId: Long)(fn: Worker[F, MasterPool.Companions[F] ⇒ F[Response[F]])
+
     def withApi(appId: Long)(fn: WorkerApi[F] => F[Response[F]])(implicit log: Log[F]): F[Response[F]] =
       api(appId).value.flatMap {
         case Left(stage) =>
-          log.debug(s"Worker for $appId can't serve RPC: it is in stage $stage") *>
-            NotFound(s"Worker for $appId can't serve RPC: it is in stage $stage")
+          log.debug(wrongStageMsg(appId, stage)) *>
+            NotFound(wrongStageMsg(appId, stage))
         case Right(api) =>
           fn(api)
+      }
+
+    def status(appId: Long, timeout: FiniteDuration)(implicit log: Log[F]): F[Response[F]] =
+      pool.getWorker(appId).value.flatMap {
+        case Left(stage) =>
+          log.debug(wrongStageMsg(appId, stage)) *>
+            NotFound(wrongStageMsg(appId, stage))
+        case Right(worker) ⇒ worker.status(timeout).flatMap(s ⇒ Ok(s.asJson.spaces2))
       }
 
     // Routes comes there
@@ -167,12 +179,7 @@ object WorkersHttp {
       case GET -> Root / LongVar(appId) / "status" :? QueryWait(wait) ⇒
         LogFactory[F].init("http" -> "status", "app" -> appId.toString) >>= { implicit log =>
           // Fetches the worker's status, waiting no more than 10 seconds (if ?wait=$SECONDS is provided), or 1 second otherwise
-          withWorker(appId)(
-            _.services >>=
-              (_.status(wait.filter(_ < 10).fold(1.second)(_.seconds))
-              // TODO make a nice JSON status
-                .flatMap(st ⇒ Ok(st.toString)))
-          )
+          status(appId, wait.filter(_ < 10).fold(1.second)(_.seconds))
         }
 
       case GET -> Root / LongVar(appId) / "p2pPort" ⇒
