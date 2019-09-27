@@ -49,6 +49,7 @@ object SbtCommons {
       "-Xss6M",
       s"-Djava.library.path=${file("").getAbsolutePath}/vm/frank/target/release",
       "-XX:+UseMembar",
+      "-Djava.compiler=NONE",
       "-XX:ErrorFile=./hs_error.log"
     ),
     addCompilerPlugin("com.olegpy" %% "better-monadic-for" % "0.3.0")
